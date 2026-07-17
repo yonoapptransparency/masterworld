@@ -15,6 +15,20 @@ import React, { useState, useEffect, useMemo, Suspense, lazy, ComponentType, Laz
 import { motion, AnimatePresence } from 'framer-motion';
 import Lenis from 'lenis';
 
+// Error Boundary component for robust UI
+class ErrorBoundary extends React.Component<{ children: React.ReactNode; fallback: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(error: any, errorInfo: any) { console.error("Admin Load Error:", error, errorInfo); }
+  render() {
+    if (this.state.hasError) return this.props.fallback;
+    return this.props.children;
+  }
+}
+
 // Polished, high-performance loading screen
 function LoadingScreen() {
   return (
@@ -1042,8 +1056,20 @@ function AppContent() {
             
             {/* Keep obfuscated paths as fallback mapping */}
             <Route path={`/${adminPath}`} element={<Navigate to={`/${adminPath}/dashboard`} replace />} />
-            <Route path={`/${adminPath}/login`} element={<Suspense fallback={<div className="flex h-screen items-center justify-center p-8"><div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>}><AdminLogin /></Suspense>} />
-                <Route path={`/${adminPath}/*`} element={<Suspense fallback={<div className="flex h-screen items-center justify-center p-8"><div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>}><AdminDashboard /></Suspense>} />
+            <Route path={`/${adminPath}/login`} element={
+              <ErrorBoundary fallback={<div className="p-8 text-center"><h2 className="text-xl font-bold">Failed to load Admin section</h2><p className="text-slate-500 mt-2">This may happen if you are on the public repository where admin files are stripped.</p></div>}>
+                <Suspense fallback={<div className="flex h-screen items-center justify-center p-8"><div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>}>
+                  <AdminLogin />
+                </Suspense>
+              </ErrorBoundary>
+            } />
+            <Route path={`/${adminPath}/*`} element={
+              <ErrorBoundary fallback={<div className="p-8 text-center"><h2 className="text-xl font-bold">Failed to load Admin section</h2><p className="text-slate-500 mt-2">This may happen if you are on the public repository where admin files are stripped.</p></div>}>
+                <Suspense fallback={<div className="flex h-screen items-center justify-center p-8"><div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>}>
+                  <AdminDashboard />
+                </Suspense>
+              </ErrorBoundary>
+            } />
                 
                 <Route path="*" element={<FallbackRouteMatcher />} />
               </Routes>

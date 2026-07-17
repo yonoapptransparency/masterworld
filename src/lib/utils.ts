@@ -24,5 +24,15 @@ export function getAdminPath(): string {
   if (typeof process !== 'undefined') {
     envPath = process.env?.ADMIN_PATH || process.env?.VITE_ADMIN_PATH;
   }
+  
+  // Also check import.meta.env for Vite browser-side compatibility
+  try {
+    // @ts-ignore - process might not be defined in all environments
+    const viteEnvPath = import.meta.env?.VITE_ADMIN_PATH;
+    if (viteEnvPath) envPath = viteEnvPath;
+  } catch (e) {
+    // ignore
+  }
+
   return envPath || "admin";
 }
