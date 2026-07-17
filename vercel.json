@@ -4,7 +4,7 @@
   "buildCommand": "npm run build",
   "cleanUrls": true,
   "functions": {
-    "api/**/*.ts": {
+    "api/**/*.js": {
       "includeFiles": "{src/**,firebase-applet-config.json,dist/**}"
     }
   },

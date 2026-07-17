@@ -72,7 +72,6 @@ export interface NewsItem {
   author?: string;
   description_html?: string;
   date?: string;
-  date?: string;
   tags?: string[];
 }
 
@@ -102,6 +101,7 @@ export interface AppConfig {
   serial_number: number;
   is_featured: boolean;
   is_new: boolean;
+  is_top_chart?: boolean;
   release_notes: string;
   rating: number;
   created_at: string;
@@ -1850,19 +1850,11 @@ export const mockSettings: GlobalSettings = {
     "Card",
     "Slots"
   ],
-  "last_updated": "2026-07-17T14:56:08.852Z",
+  "last_updated": "2026-07-17T14:57:53.813Z",
   "ethics_discrimination_text": "<div style=\"font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #ffffff; max-width: 100%; margin: 0 auto; padding: 24px 16px; color: #334155; line-height: 1.6; box-sizing: border-box; text-align: left;\">\n\n  <!-- Glowing Top Grid Tracker -->\n  <div style=\"display: flex; align-items: center; gap: 12px; margin-bottom: 24px;\">\n    <span style=\"background: linear-gradient(135deg, #e0f2fe, #e0e7ff); color: #0284c7; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; padding: 6px 14px; border-radius: 20px; border: 1px solid #bae6fd; box-shadow: 0px 4px 15px rgba(14, 165, 233, 0.2);\">\n      ✦ ETHICAL FRAMEWORK // COMMUNITY STANDARDS\n    </span>\n    <div style=\"flex-grow: 1; height: 1px; background: linear-gradient(to right, #bae6fd, transparent);\"></div>\n  </div>\n\n  <!-- Intro Block with Subtle Radial Glow -->\n  <p style=\"font-size: 15.5px; line-height: 1.7; color: #334155; margin-bottom: 24px; background: linear-gradient(90deg, #f0f9ff 0%, #ffffff 100%); padding: 18px; border-left: 4px solid #0ea5e9; border-radius: 12px; box-shadow: 0 4px 20px rgba(14, 165, 233, 0.06);\">\n    At <strong style=\"background: linear-gradient(to right, #0ea5e9, #6366f1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; text-shadow: 0 2px 8px rgba(14, 165, 233, 0.1);\">RummyApp Online</strong>, our foundational principles revolve around complete transparency, user wellness, and communal trust. We operate exclusively as a self-sustained recreational gaming journal and tactical reference hub:\n  </p>\n\n  <!-- Digital Value Cluster (Full Mobile Size Responsiveness) -->\n  <div style=\"display: flex; flex-direction: column; gap: 16px; margin-top: 15px;\">\n    \n    <!-- Value 1: Tactical Recreation Focus -->\n    <div style=\"background: #ffffff; border: 1px solid #e2e8f0; padding: 16px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.01); border-left: 4px solid #0ea5e9;\">\n      <div style=\"display: flex; align-items: center; gap: 8px; margin-bottom: 6px;\">\n        <span style=\"font-size: 14px;\">🎮</span>\n        <strong style=\"color: #0f172a; font-size: 15px; font-weight: 700;\">Tactical Recreation Focus</strong>\n      </div>\n      <p style=\"margin: 0; font-size: 14px; color: #475569; line-height: 1.6;\">\n        We rigorously analyze and benchmark the core mechanics, visual fidelity, and artificial intelligence scaling of non-wager simulated applications prior to publishing guides, ensuring our audience consumes highly accurate and dependable recreational data.\n      </p>\n    </div>\n\n    <!-- Value X: Official Sourcing Framework (Updated for Play Store Indirect Reference) -->\n    <div style=\"background: #ffffff; border: 1px solid #e2e8f0; padding: 16px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.01); border-left: 4px solid #f59e0b;\">\n      <div style=\"display: flex; align-items: center; gap: 8px; margin-bottom: 6px;\">\n        <span style=\"font-size: 14px;\">🛡️</span>\n        <strong style=\"color: #0f172a; font-size: 15px; font-weight: 700;\">Official Sourcing Architecture</strong>\n      </div>\n      <p style=\"margin: 0; font-size: 14px; color: #475569; line-height: 1.6;\">\n        Our network acts solely as an analytical forum. We completely abstain from hosting standalone APK packages or direct download gateways on our servers. To ensure absolute device security, we guide players to acquire these simulated environments exclusively through globally verified, official marketplace ecosystems like the Google Play Store.\n      </p>\n    </div>\n\n    <!-- Value 2: Objective Interface Analytics -->\n    <div style=\"background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%); border: 1px solid #bbf7d0; padding: 16px; border-radius: 12px; box-shadow: 0 4px 15px rgba(34, 197, 94, 0.04); border-left: 4px solid #22c55e;\">\n      <div style=\"display: flex; align-items: center; gap: 8px; margin-bottom: 6px;\">\n        <span style=\"font-size: 14px;\">📊</span>\n        <strong style=\"color: #14532d; font-size: 15px; font-weight: 700;\">Objective Interface Analytics</strong>\n      </div>\n      <p style=\"margin: 0; font-size: 14px; color: #166534; line-height: 1.6;\">\n        Our structural teardowns are produced with absolute editorial neutrality. We score simulated environments based on tangible parameters like frame-rate fluidity, haptic feedback accuracy, and the stability of their free-practice ecosystems.\n      </p>\n    </div>\n\n    <!-- Value 3: Cognitive Wellness & Overt Transparency -->\n    <div style=\"background: linear-gradient(135deg, #faf5ff 0%, #ffffff 100%); border: 1px solid #e9d5ff; padding: 16px; border-radius: 12px; box-shadow: 0 4px 15px rgba(168, 85, 247, 0.04); border-left: 4px solid #a855f7;\">\n      <div style=\"display: flex; align-items: center; gap: 8px; margin-bottom: 6px;\">\n        <span style=\"font-size: 14px;\">🧠</span>\n        <strong style=\"color: #581c87; font-size: 15px; font-weight: 700;\">Cognitive Wellness & Overt Transparency</strong>\n      </div>\n      <p style=\"margin: 0; font-size: 14px; color: #6b21a8; line-height: 1.6;\">\n        We prioritize the cognitive safety of our audience. We actively outline the limitations of simulated token economies, promote strict screen-time boundaries, and strongly advocate for balancing virtual engagement with everyday physical responsibilities.\n      </p>\n    </div>\n\n  </div>\n\n  <!-- Premium Bottom Guard Text -->\n  <div style=\"border-top: 1px solid #f1f5f9; padding-top: 20px; margin-top: 24px; text-align: center;\">\n    <p style=\"margin: 0; font-size: 12px; background: linear-gradient(to right, #0284c7, #4f46e5); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; letter-spacing: 1px;\">\n      RUMMYAPP ONLINE CERTIFIED // CORE PRINCIPLES SECURED\n    </p>\n  </div>\n\n</div>\n",
   "secure_index_subtitle": "The Ultimate Registry for Strategic Card Simulation, Arcade Logic, and Premium Virtual Gameplay Guides",
   "important_notice_heading": "VERY IMPORTANT NOTICE ",
-  "banners": [
-    {
-      "id": "mgg408of3",
-      "title": "New Banner",
-      "subtitle": "Subtitle text",
-      "image": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800&q=80",
-      "link": "/"
-    }
-  ],
+  "banners": [],
   "hero_title_style": "mono",
   "hero_title_animation": "slide-up",
   "helpline_telegram": "https://t.me/+d_BeX9h_fkVjMmM1",

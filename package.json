@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx server.ts",
     "prebuild": "test -f scripts/check-secrets.ts && tsx scripts/check-secrets.ts || echo \"Skipping secret check\"",
-    "build": "vite build && (test -f scripts/prerender.ts && tsx scripts/prerender.ts || echo \"Skipping prerender\") && (test -f server.ts && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs || echo \"Skipping server build (public repo)\")",
+    "build": "vite build && (test -f scripts/prerender.ts && tsx scripts/prerender.ts || echo \"Skipping prerender\") && (test -f server.ts && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs || echo \"Skipping server build\") && (node scripts/build-api.js || echo \"Skipping api build\")",
     "precommit": "test -f scripts/check-secrets.ts && tsx scripts/check-secrets.ts || echo \"Skipping secret check\"",
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist",
