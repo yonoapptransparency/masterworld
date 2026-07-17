@@ -1,4 +1,4 @@
-import { secureStorage } from './secureStorage';
+
 
 export interface Banner {
   id: string;
@@ -1839,7 +1839,7 @@ export const mockApps: AppConfig[] = [
 ];
 
 export const saveMockApps = (apps: AppConfig[]) => {
-  secureStorage.setItem('rummystore_apps', JSON.stringify(apps));
+  localStorage.setItem('rummystore_apps', JSON.stringify(apps));
   mockApps.splice(0, mockApps.length, ...apps);
 };
 
@@ -2030,7 +2030,7 @@ export const mockSettings: GlobalSettings = {
 };
 
 export const saveMockSettings = (settings: GlobalSettings) => {
-  secureStorage.setItem('rummystore_settings', JSON.stringify(settings));
+  localStorage.setItem('rummystore_settings', JSON.stringify(settings));
   Object.assign(mockSettings, settings);
 };
 
@@ -2105,7 +2105,7 @@ export const mockNews: NewsItem[] = [
 ];
 
 export const saveMockNews = (newsList: NewsItem[]) => {
-  secureStorage.setItem('rummystore_news', JSON.stringify(newsList));
+  localStorage.setItem('rummystore_news', JSON.stringify(newsList));
   mockNews.splice(0, mockNews.length, ...newsList);
 };
 
@@ -2125,7 +2125,7 @@ export const mockBlogs: BlogPost[] = [
 ];
 
 export const saveMockBlogs = (blogs: BlogPost[]) => {
-  secureStorage.setItem('rummystore_blogs', JSON.stringify(blogs));
+  localStorage.setItem('rummystore_blogs', JSON.stringify(blogs));
   mockBlogs.splice(0, mockBlogs.length, ...blogs);
 };
 
@@ -2154,6 +2154,6 @@ export const mockVideos: VideoItem[] = [
 ];
 
 export const saveMockVideos = (videos: VideoItem[]) => {
-  secureStorage.setItem('rummystore_videos', JSON.stringify(videos));
+  localStorage.setItem('rummystore_videos', JSON.stringify(videos));
   mockVideos.splice(0, mockVideos.length, ...videos);
 };

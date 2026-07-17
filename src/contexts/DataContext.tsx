@@ -10,7 +10,7 @@ import { collection, onSnapshot, doc, setDoc, getDoc, getDocFromServer } from 'f
 import { db, auth, OperationType, FirestoreErrorInfo, handleFirestoreError, isFirebaseConfigured, isFirebaseReal } from '../lib/firebase';
 import { AppConfig, GlobalSettings, NewsItem, BlogPost, VideoItem } from '../types';
 import { GitConfig, generateStaticDataFileCode, commitFileToGitHub } from '../lib/githubSync';
-import { secureStorage } from '../lib/secureStorage';
+
 
 
 
@@ -70,7 +70,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [apps, setApps] = useState<AppConfig[]>(() => {
     if (initialData?.apps && initialData.apps.length > 0) return initialData.apps;
     try {
-      const cached = secureStorage.getItem('rummystore_apps');
+      const cached = localStorage.getItem('rummystore_apps');
       if (cached && cached !== '[]') return JSON.parse(cached);
       return mockApps;
     } catch {
@@ -80,7 +80,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<GlobalSettings>(() => {
     if (initialData?.settings && initialData.settings.site_title) return initialData.settings;
     try {
-      const cached = secureStorage.getItem('rummystore_settings');
+      const cached = localStorage.getItem('rummystore_settings');
       if (cached) {
         const parsed = JSON.parse(cached);
         if (parsed.site_title) return parsed;
@@ -93,7 +93,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [news, setNews] = useState<NewsItem[]>(() => {
     if (initialData?.news && initialData.news.length > 0) return initialData.news;
     try {
-      const cached = secureStorage.getItem('rummystore_news');
+      const cached = localStorage.getItem('rummystore_news');
       if (cached && cached !== '[]') return JSON.parse(cached);
       return mockNews;
     } catch {
@@ -103,7 +103,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [blogs, setBlogs] = useState<BlogPost[]>(() => {
     if (initialData?.blogs && initialData.blogs.length > 0) return initialData.blogs;
     try {
-      const cached = secureStorage.getItem('rummystore_blogs');
+      const cached = localStorage.getItem('rummystore_blogs');
       if (cached && cached !== '[]') return JSON.parse(cached);
       return mockBlogs;
     } catch {
@@ -113,7 +113,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [videos, setVideos] = useState<VideoItem[]>(() => {
     if (initialData?.videos && initialData.videos.length > 0) return initialData.videos;
     try {
-      const cached = secureStorage.getItem('rummystore_videos');
+      const cached = localStorage.getItem('rummystore_videos');
       if (cached && cached !== '[]') return JSON.parse(cached);
       return mockVideos;
     } catch {
@@ -135,7 +135,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [loadedFromServer, setLoadedFromServer] = useState(() => {
     if (initialData) return true;
     try {
-      return !!secureStorage.getItem('rummystore_apps');
+      return !!localStorage.getItem('rummystore_apps');
     } catch {
       return false;
     }
@@ -143,7 +143,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [appsSyncedWithServer, setAppsSyncedWithServer] = useState(() => {
     if (initialData?.apps) return true;
     try {
-      return !!secureStorage.getItem('rummystore_apps');
+      return !!localStorage.getItem('rummystore_apps');
     } catch {
       return false;
     }
@@ -151,7 +151,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [settingsSyncedWithServer, setSettingsSyncedWithServer] = useState(() => {
     if (initialData?.settings) return true;
     try {
-      return !!secureStorage.getItem('rummystore_settings');
+      return !!localStorage.getItem('rummystore_settings');
     } catch {
       return false;
     }
@@ -159,7 +159,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [newsSyncedWithServer, setNewsSyncedWithServer] = useState(() => {
     if (initialData?.news) return true;
     try {
-      return !!secureStorage.getItem('rummystore_news');
+      return !!localStorage.getItem('rummystore_news');
     } catch {
       return false;
     }
@@ -167,7 +167,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [blogsSyncedWithServer, setBlogsSyncedWithServer] = useState(() => {
     if (initialData?.blogs) return true;
     try {
-      return !!secureStorage.getItem('rummystore_blogs');
+      return !!localStorage.getItem('rummystore_blogs');
     } catch {
       return false;
     }
@@ -175,7 +175,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [videosSyncedWithServer, setVideosSyncedWithServer] = useState(() => {
     if (initialData?.videos) return true;
     try {
-      return !!secureStorage.getItem('rummystore_videos');
+      return !!localStorage.getItem('rummystore_videos');
     } catch {
       return false;
     }
@@ -183,28 +183,28 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const [serverAppsFetched, setServerAppsFetched] = useState(() => {
     try {
-      return !!secureStorage.getItem('rummystore_apps');
+      return !!localStorage.getItem('rummystore_apps');
     } catch {
       return false;
     }
   });
   const [serverNewsFetched, setServerNewsFetched] = useState(() => {
     try {
-      return !!secureStorage.getItem('rummystore_news');
+      return !!localStorage.getItem('rummystore_news');
     } catch {
       return false;
     }
   });
   const [serverBlogsFetched, setServerBlogsFetched] = useState(() => {
     try {
-      return !!secureStorage.getItem('rummystore_blogs');
+      return !!localStorage.getItem('rummystore_blogs');
     } catch {
       return false;
     }
   });
   const [serverVideosFetched, setServerVideosFetched] = useState(() => {
     try {
-      return !!secureStorage.getItem('rummystore_videos');
+      return !!localStorage.getItem('rummystore_videos');
     } catch {
       return false;
     }
@@ -289,7 +289,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             setApps(prev => {
               if (backup.apps && backup.apps.length > 0) {
                 if (!isAdminRoute || prev.length === 0) {
-                  secureStorage.setItem('rummystore_apps', JSON.stringify(backup.apps));
+                  localStorage.setItem('rummystore_apps', JSON.stringify(backup.apps));
                   return backup.apps;
                 }
               }
@@ -298,7 +298,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             setSettings(prev => {
               if (backup.settings && backup.settings.site_title) {
                 if (!isAdminRoute || !prev || !prev.site_title) {
-                  secureStorage.setItem('rummystore_settings', JSON.stringify(backup.settings));
+                  localStorage.setItem('rummystore_settings', JSON.stringify(backup.settings));
                   return backup.settings;
                 }
               }
@@ -307,7 +307,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             setNews(prev => {
               if (backup.news && backup.news.length > 0) {
                 if (!isAdminRoute || prev.length === 0) {
-                  secureStorage.setItem('rummystore_news', JSON.stringify(backup.news));
+                  localStorage.setItem('rummystore_news', JSON.stringify(backup.news));
                   return backup.news;
                 }
               }
@@ -316,7 +316,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             setBlogs(prev => {
               if (backup.blogs && backup.blogs.length > 0) {
                 if (!isAdminRoute || prev.length === 0) {
-                  secureStorage.setItem('rummystore_blogs', JSON.stringify(backup.blogs));
+                  localStorage.setItem('rummystore_blogs', JSON.stringify(backup.blogs));
                   return backup.blogs;
                 }
               }
@@ -325,7 +325,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             setVideos(prev => {
               if (backup.videos && backup.videos.length > 0) {
                 if (!isAdminRoute || prev.length === 0) {
-                  secureStorage.setItem('rummystore_videos', JSON.stringify(backup.videos));
+                  localStorage.setItem('rummystore_videos', JSON.stringify(backup.videos));
                   return backup.videos;
                 }
               }
@@ -519,10 +519,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
               }
             });
             if (Object.keys(rawLinksMap).length > 0) {
-              const existingStr = secureStorage.getItem('rummystore_recovered_links');
+              const existingStr = localStorage.getItem('rummystore_recovered_links');
               const existing = existingStr ? JSON.parse(existingStr) : {};
               const merged = { ...existing, ...rawLinksMap };
-              secureStorage.setItem('rummystore_recovered_links', JSON.stringify(merged));
+              localStorage.setItem('rummystore_recovered_links', JSON.stringify(merged));
               console.log("Recovered raw plain-text links from Firestore chunk documents:", Object.keys(rawLinksMap));
             }
           } catch (e) {
@@ -536,7 +536,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             return app;
           });
           setApps(prev => JSON.stringify(prev) === JSON.stringify(data) ? prev : data);
-          secureStorage.setItem('rummystore_apps', JSON.stringify(data));
+          localStorage.setItem('rummystore_apps', JSON.stringify(data));
           
           setAppsSyncedWithServer(true);
           setServerAppsFetched(true);
@@ -550,7 +550,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           checkLoaded('apps');
         } else if (!chunkFetchFailed) {
           setApps([]);
-          secureStorage.setItem('rummystore_apps', JSON.stringify([]));
+          localStorage.setItem('rummystore_apps', JSON.stringify([]));
           setAppsSyncedWithServer(true);
           setServerAppsFetched(true);
           setLoadedFromServer(true);
@@ -582,7 +582,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         if (snap.exists()) {
           const data = snap.data() as GlobalSettings;
           setSettings(prev => JSON.stringify(prev) === JSON.stringify(data) ? prev : data);
-          secureStorage.setItem('rummystore_settings', JSON.stringify(data));
+          localStorage.setItem('rummystore_settings', JSON.stringify(data));
           
           setSettingsSyncedWithServer(true);
           setLoadedFromServer(true);
@@ -614,7 +614,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         if (snap.exists()) {
           const data = snap.data().items || [];
           setNews(prev => JSON.stringify(prev) === JSON.stringify(data) ? prev : data);
-          secureStorage.setItem('rummystore_news', JSON.stringify(data));
+          localStorage.setItem('rummystore_news', JSON.stringify(data));
           
           setNewsSyncedWithServer(true);
           setServerNewsFetched(true);
@@ -622,7 +622,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           checkLoaded('news');
         } else {
           setNews([]);
-          secureStorage.setItem('rummystore_news', JSON.stringify([]));
+          localStorage.setItem('rummystore_news', JSON.stringify([]));
           setNewsSyncedWithServer(true);
           setServerNewsFetched(true);
           checkLoaded('news');
@@ -642,7 +642,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         if (snap.exists()) {
           const data = snap.data().items || [];
           setBlogs(prev => JSON.stringify(prev) === JSON.stringify(data) ? prev : data);
-          secureStorage.setItem('rummystore_blogs', JSON.stringify(data));
+          localStorage.setItem('rummystore_blogs', JSON.stringify(data));
           
           setBlogsSyncedWithServer(true);
           setServerBlogsFetched(true);
@@ -650,7 +650,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           checkLoaded('blogs');
         } else {
           setBlogs([]);
-          secureStorage.setItem('rummystore_blogs', JSON.stringify([]));
+          localStorage.setItem('rummystore_blogs', JSON.stringify([]));
           setBlogsSyncedWithServer(true);
           setServerBlogsFetched(true);
           checkLoaded('blogs');
@@ -670,7 +670,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         if (snap.exists()) {
           const data = snap.data().items || [];
           setVideos(prev => JSON.stringify(prev) === JSON.stringify(data) ? prev : data);
-          secureStorage.setItem('rummystore_videos', JSON.stringify(data));
+          localStorage.setItem('rummystore_videos', JSON.stringify(data));
           
           setVideosSyncedWithServer(true);
           setServerVideosFetched(true);
@@ -678,7 +678,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           checkLoaded('videos');
         } else {
           setVideos([]);
-          secureStorage.setItem('rummystore_videos', JSON.stringify([]));
+          localStorage.setItem('rummystore_videos', JSON.stringify([]));
           setVideosSyncedWithServer(true);
           setServerVideosFetched(true);
           checkLoaded('videos');
@@ -917,7 +917,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const saveApps = React.useCallback(async (newApps: AppConfig[]) => {
     // 1. Snappy optimistic update to local state and local memory first
     setApps(newApps);
-    secureStorage.setItem('rummystore_apps', JSON.stringify(newApps));
+    localStorage.setItem('rummystore_apps', JSON.stringify(newApps));
 
     try {
       if (isFirebaseReal) {
@@ -1010,7 +1010,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     // 1. Snappy optimistic update to local state and local memory first
     setSettings(settingsWithTime);
-    secureStorage.setItem('rummystore_settings', JSON.stringify(settingsWithTime));
+    localStorage.setItem('rummystore_settings', JSON.stringify(settingsWithTime));
 
     try {
       if (isFirebaseReal) {
@@ -1040,7 +1040,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const saveNews = React.useCallback(async (newNews: NewsItem[]) => {
     // 1. Snappy optimistic update to local state and local memory first
     setNews(newNews);
-    secureStorage.setItem('rummystore_news', JSON.stringify(newNews));
+    localStorage.setItem('rummystore_news', JSON.stringify(newNews));
 
     try {
       if (isFirebaseReal) {
@@ -1070,7 +1070,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const saveBlogs = React.useCallback(async (newBlogs: BlogPost[]) => {
     // 1. Snappy optimistic update to local state and local memory first
     setBlogs(newBlogs);
-    secureStorage.setItem('rummystore_blogs', JSON.stringify(newBlogs));
+    localStorage.setItem('rummystore_blogs', JSON.stringify(newBlogs));
 
     try {
       if (isFirebaseReal) {
@@ -1100,7 +1100,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const saveVideos = React.useCallback(async (newVideos: VideoItem[]) => {
     // 1. Snappy optimistic update to local state and local memory first
     setVideos(newVideos);
-    secureStorage.setItem('rummystore_videos', JSON.stringify(newVideos));
+    localStorage.setItem('rummystore_videos', JSON.stringify(newVideos));
 
     try {
       if (isFirebaseReal) {
@@ -1206,7 +1206,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                 return a;
               });
               setApps(cleanApps);
-              secureStorage.setItem('rummystore_apps', JSON.stringify(cleanApps));
+              localStorage.setItem('rummystore_apps', JSON.stringify(cleanApps));
             } else {
               // Fallback to old document
               const oldSnap = await withServerConfirmation(() => getDoc(doc(db, 'store_data', 'apps')), 10000);
@@ -1218,10 +1218,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                   return a;
                 });
                 setApps(data);
-                secureStorage.setItem('rummystore_apps', JSON.stringify(data));
+                localStorage.setItem('rummystore_apps', JSON.stringify(data));
               } else {
                 setApps([]);
-                secureStorage.setItem('rummystore_apps', JSON.stringify([]));
+                localStorage.setItem('rummystore_apps', JSON.stringify([]));
               }
             }
           } else {
@@ -1230,10 +1230,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             if (snap.exists()) {
               const data = (d as any).key ? (snap.data() as any)[(d as any).key] : snap.data();
               d.setter(data);
-              secureStorage.setItem(`rummystore_${d.path}`, JSON.stringify(data));
+              localStorage.setItem(`rummystore_${d.path}`, JSON.stringify(data));
             } else if ((d as any).key === 'items') {
               d.setter([] as any);
-              secureStorage.setItem(`rummystore_${d.path}`, JSON.stringify([]));
+              localStorage.setItem(`rummystore_${d.path}`, JSON.stringify([]));
             }
           }
         } catch (fetchErr) {
