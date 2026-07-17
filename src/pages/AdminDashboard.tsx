@@ -2976,9 +2976,7 @@ export default function AdminDashboard() {
         <p className="opacity-60 max-w-md mb-2 font-bold text-slate-600 dark:text-zinc-400">
           This account is not authorized to manage the system. Only authorized administrators registered in the secure admin database can access the control panel.
         </p>
-        <p className="opacity-80 max-w-md mb-8 font-mono text-sm text-slate-800 dark:text-zinc-300">
-          Logged in as: {user?.email || 'Unknown User'}
-        </p>
+        
         <button onClick={handleLogout} className="bg-rose-600 hover:bg-rose-700 text-white px-8 py-3 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-rose-600/20 transition-all active:scale-95">
           Sign Out Authority
         </button>

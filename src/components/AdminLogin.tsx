@@ -126,7 +126,7 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
             idToken = await user.getIdToken();
             refreshToken = user.refreshToken || '';
           } catch (popupErr: any) {
-            if (popupErr.message && (popupErr.message.includes('popup-closed-by-user') || popupErr.message.includes('popup-blocked'))) {
+            if (popupErr.message && (popupErr.message.includes('popup-closed-by-user') || popupErr.message.includes('popup-blocked') || popupErr.message.includes('network-request-failed') || popupErr.message.includes('Failed to fetch') || popupErr.message.includes('cross-origin'))) {
               await signInWithRedirect(auth, provider);
               return;
             }
@@ -174,7 +174,9 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
     } catch (err: any) {
       console.error('Login error:', err);
       let msg = err.message || 'Authentication failed'; try { if (msg.trim().startsWith("{")) { const parsed = JSON.parse(msg); if (parsed.error && parsed.error.message) msg = parsed.error.message; } } catch(e) {}
-      if (msg.includes('auth/popup-closed-by-user')) {
+      if (msg === 'Failed to fetch' || msg.includes('network-request-failed') || msg.includes('Network Error')) {
+        msg = "Network Connection Blocked: Your browser or an adblocker (e.g., Brave Shields) blocked the authentication request. Please disable shields or allow cross-site cookies/connections for this preview.";
+      } else if (msg.includes('auth/popup-closed-by-user')) {
         msg = 'Sign-in cancelled.';
       } else if (msg.includes('auth/operation-not-allowed')) {
         msg = 'Google Sign-In is not enabled. Please enable the Google provider in Firebase Authentication.';
@@ -239,7 +241,9 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
     } catch (err: any) {
       console.error('Local Login error:', err);
       let msg = err.message || 'Authentication failed';
-      if (msg.includes('auth/wrong-password')) {
+      if (msg === 'Failed to fetch' || msg.includes('network-request-failed') || msg.includes('Network Error')) {
+        msg = "Network Connection Blocked: Your browser or an adblocker (e.g., Brave Shields) blocked the authentication request. Please disable shields or allow cross-site cookies/connections for this preview.";
+      } else if (msg.includes('auth/wrong-password')) {
         msg = 'Incorrect password. (Try "admin123" for Mock Admin)';
       }
       setError(msg);
