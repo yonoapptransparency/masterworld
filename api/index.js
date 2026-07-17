@@ -29222,7 +29222,6 @@ var _adminLoginMap = /* @__PURE__ */ new Map();
 var _ADMIN_MAX = 5;
 var MOCK_2FA_FILE = import_path2.default.join(process.cwd(), "mock-2fa-state.json");
 var _mock2faMap = /* @__PURE__ */ new Map();
-var _activeMockAdminEmail = "defentechscholar@gmail.com";
 try {
   if (import_fs2.default.existsSync(MOCK_2FA_FILE)) {
     const data = JSON.parse(import_fs2.default.readFileSync(MOCK_2FA_FILE, "utf8"));
@@ -29310,14 +29309,6 @@ var verifyAdminToken = async (req, res, next) => {
   if (!idToken || idToken === "null" || idToken === "undefined") {
     return res.status(401).json({ error: "Unauthorized: Empty session verification token." });
   }
-  if (idToken === "MOCK_ADMIN_TOKEN") {
-    req.adminUser = {
-      localId: "mock-admin-uid-123",
-      email: _activeMockAdminEmail || process.env.ADMIN_EMAIL || "defentechscholar@gmail.com",
-      emailVerified: true
-    };
-    return next();
-  }
   try {
     const config = getRawFirebaseConfig2();
     if (!config || !config.apiKey) {
@@ -29390,12 +29381,6 @@ app.post("/api/v1/admin/verify-session", async (req, res) => {
   }
   const idToken = authHeader.split("Bearer ")[1];
   const { email = "" } = req.body ?? {};
-  if (idToken === "MOCK_ADMIN_TOKEN") {
-    _clearAdminRL(ip);
-    const userEmail = (email || process.env.ADMIN_EMAIL || "defentechscholar@gmail.com").toLowerCase().trim();
-    _activeMockAdminEmail = userEmail;
-    return res.json({ success: true, email: userEmail, uid: "mock-admin-uid-123" });
-  }
   try {
     const config = getRawFirebaseConfig2();
     if (!config || !config.apiKey) return res.status(503).json({ error: "Service unavailable." });
@@ -29704,7 +29689,7 @@ app.get("/api/v1/admin/verify", verifyAdminToken, (req, res) => {
 });
 app.get("/api/v1/admin/security/audit-logs", verifyAdminToken, async (req, res) => {
   const config = getRawFirebaseConfig2();
-  const isMock = req.headers.authorization?.split("Bearer ")[1] === "MOCK_ADMIN_TOKEN";
+  const isMock = false;
   if (!isMock && config && config.apiKey) {
     try {
       const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || "(default)"}/documents/admin_audit_log?pageSize=50${config.apiKey ? "&key=" + config.apiKey : ""}`;
@@ -29742,7 +29727,7 @@ app.get("/api/v1/admin/security/audit-logs", verifyAdminToken, async (req, res) 
 app.get("/api/v1/admin/2fa/config", verifyAdminToken, async (req, res) => {
   const email = req.adminUser?.email?.toLowerCase().trim();
   if (!email) return res.status(400).json({ error: "Missing admin email." });
-  const isMock = req.headers.authorization?.split("Bearer ")[1] === "MOCK_ADMIN_TOKEN";
+  const isMock = false;
   let enabled = false;
   let secret = "";
   if (isMock) {
@@ -29785,7 +29770,7 @@ app.post("/api/v1/admin/2fa/enable", verifyAdminToken, async (req, res) => {
   if (!email || !secret || !code) {
     return res.status(400).json({ error: "Missing required fields (email, secret, code)." });
   }
-  const isMock = req.headers.authorization?.split("Bearer ")[1] === "MOCK_ADMIN_TOKEN";
+  const isMock = false;
   if (!(isMock && code === "123456") && !verifyTOTPToken(code, secret)) {
     return res.status(400).json({ error: "Invalid verification code. Please make sure your device clock is synchronized and try again." });
   }
@@ -29827,7 +29812,7 @@ app.post("/api/v1/admin/2fa/disable", verifyAdminToken, async (req, res) => {
   if (!email || !code) {
     return res.status(400).json({ error: "Missing required fields (email, code)." });
   }
-  const isMock = req.headers.authorization?.split("Bearer ")[1] === "MOCK_ADMIN_TOKEN";
+  const isMock = false;
   let currentSecret = "";
   if (isMock) {
     const mock2fa = _mock2faMap.get(email);

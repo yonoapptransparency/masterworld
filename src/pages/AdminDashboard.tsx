@@ -10,7 +10,7 @@ import { getAdminPath } from '../lib/utils';
 import { LayoutDashboard, TrendingUp, Menu, X, Smartphone, Users, FileText, Settings, ShieldAlert, Shield, LogOut, Save, Upload, Type, Link as LinkIcon, ToggleLeft, Layers, Newspaper, Plus, Trash2, Video as VideoIcon, Github, GitBranch, RefreshCw, CheckCircle2, AlertTriangle, Search, MessageSquare, CheckSquare, Sparkles, Compass, HelpCircle, Edit2, ChevronRight } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
-import { db, auth, isFirebaseConfigured } from '../lib/firebase';
+import { db, auth, isFirebaseConfigured, isFirebaseReal } from '../lib/firebase';
 import { AppConfig, GlobalSettings, NewsItem, BlogPost, VideoItem } from '../types';
 
 import { signOut, onAuthStateChanged } from 'firebase/auth';
@@ -2187,11 +2187,11 @@ export default function AdminDashboard() {
                     }
                   } else {
                     console.warn("Server link decryption failed (using local fallback map):", await res.text());
-                    fetchFailedRef.current = true;
+                    if (isFirebaseReal) fetchFailedRef.current = true;
                   }
                 } catch (decErr: any) {
                   console.warn("Failed to decrypt secure references (quota or network issue):", decErr.message || decErr);
-                  fetchFailedRef.current = true;
+                  if (isFirebaseReal) fetchFailedRef.current = true;
                 }
               } else if (snapData.items) {
                 snapData.items.forEach((it: any) => secureMap.set(it.id, it.url));
@@ -2238,13 +2238,13 @@ export default function AdminDashboard() {
             const mergedApps = mockApps.map(a => ({...a, more_information_url: secureMap.get(a.id) || a.more_information_url }));
             setAppsList(mergedApps);
 
-            if (!hadPublicLinks && secureMap.size > 0 && !fetchFailedRef.current) {
+            if (!hadPublicLinks && secureMap.size > 0 && !fetchFailedRef.current && isFirebaseReal) {
               console.log("Silently self-healing sec_public_links...");
               syncSecureVault();
             }
           }).catch(err => {
             console.warn("Failed to load secure references (Fallback memory used):", err.message || err);
-            fetchFailedRef.current = true;
+            if (isFirebaseReal) fetchFailedRef.current = true;
             setAppsList(mockApps);
           }).finally(() => {
             isInitializedRef.current = true;

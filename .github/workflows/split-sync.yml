@@ -33,6 +33,8 @@ jobs:
             "src/components/SecurityTab.tsx"
             "src/components/FirebaseStatusPanel.tsx"
             "src/components/ClearanceButton.tsx"
+            "src/components/AppsTab.tsx"
+            "src/components/BlogsTab.tsx"
             "src/services/adminAuthService.ts"
             "src/lib/githubSync.ts"
             "src/lib/totp.ts"

@@ -42,7 +42,7 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
             body: JSON.stringify({ email }),
           });
           
-      let verifyData = {};
+      let verifyData: any = {};
       let responseText = "";
       try {
         responseText = await verifyRes.text();
@@ -167,7 +167,7 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
       });
 
       
-      let verifyData = {};
+      let verifyData: any = {};
       let responseText = "";
       try {
         responseText = await verifyRes.text();
@@ -243,7 +243,7 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
       });
 
       
-      let verifyData = {};
+      let verifyData: any = {};
       let responseText = "";
       try {
         responseText = await verifyRes.text();
@@ -300,7 +300,7 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
       });
 
       
-      let verifyData = {};
+      let verifyData: any = {};
       let responseText = "";
       try {
         responseText = await verifyRes.text();

@@ -57,6 +57,18 @@ export default defineConfig(({mode}) => {
             ? path.resolve(__dirname, 'src/components/FirebaseStatusPanel.tsx') 
             : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
         },
+        { 
+          find: /.*\/components\/AppsTab$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/components/AppsTab.tsx')) 
+            ? path.resolve(__dirname, 'src/components/AppsTab.tsx') 
+            : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
+        },
+        { 
+          find: /.*\/components\/BlogsTab$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/components/BlogsTab.tsx')) 
+            ? path.resolve(__dirname, 'src/components/BlogsTab.tsx') 
+            : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
+        },
 
         // Fallback aliases for Dex repository where these admin files are removed
         { 

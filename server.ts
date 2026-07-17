@@ -885,14 +885,7 @@ const verifyAdminToken = async (req: express.Request, res: express.Response, nex
       return res.status(401).json({ error: 'Unauthorized: Empty session verification token.' });
     }
 
-    if (idToken === 'MOCK_ADMIN_TOKEN') {
-      (req as any).adminUser = {
-        localId: 'mock-admin-uid-123',
-        email: _activeMockAdminEmail || process.env.ADMIN_EMAIL || 'defentechscholar@gmail.com',
-        emailVerified: true
-      };
-      return next();
-    }
+    
 
     try {
       const config = getRawFirebaseConfig();
@@ -980,12 +973,7 @@ app.post("/api/v1/admin/verify-session", async (req: any, res: any) => {
   const idToken = authHeader.split("Bearer ")[1];
   const { email = "" } = req.body ?? {};
 
-  if (idToken === "MOCK_ADMIN_TOKEN") {
-    _clearAdminRL(ip);
-    const userEmail = (email || process.env.ADMIN_EMAIL || "defentechscholar@gmail.com").toLowerCase().trim();
-    _activeMockAdminEmail = userEmail;
-    return res.json({ success: true, email: userEmail, uid: "mock-admin-uid-123" });
-  }
+  
 
   try {
     const config = getRawFirebaseConfig();
@@ -1054,7 +1042,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
     try {
       const { owner, repo, token, branch, path: filePath, content, message } = req.body || {};
       
-      let activeToken = token;
+      let activeToken = token || process.env.PAT;
       if (!activeToken) {
         try {
           const config = getRawFirebaseConfig();
@@ -1320,7 +1308,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
   // Admin API: Get security audit logs
   app.get("/api/v1/admin/security/audit-logs", verifyAdminToken, async (req: any, res) => {
     const config = getRawFirebaseConfig();
-    const isMock = req.headers.authorization?.split('Bearer ')[1] === 'MOCK_ADMIN_TOKEN';
+    const isMock = false;
 
     if (!isMock && config && config.apiKey) {
       try {
@@ -1364,7 +1352,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
     const email = req.adminUser?.email?.toLowerCase().trim();
     if (!email) return res.status(400).json({ error: "Missing admin email." });
 
-    const isMock = req.headers.authorization?.split('Bearer ')[1] === 'MOCK_ADMIN_TOKEN';
+    const isMock = false;
     
     let enabled = false;
     let secret = "";
@@ -1415,7 +1403,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
       return res.status(400).json({ error: "Missing required fields (email, secret, code)." });
     }
 
-    const isMock = req.headers.authorization?.split('Bearer ')[1] === 'MOCK_ADMIN_TOKEN';
+    const isMock = false;
 
     // Verify 2FA code
     if (!(isMock && code === "123456") && !verifyTOTPToken(code, secret)) {
@@ -1465,7 +1453,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
       return res.status(400).json({ error: "Missing required fields (email, code)." });
     }
 
-    const isMock = req.headers.authorization?.split('Bearer ')[1] === 'MOCK_ADMIN_TOKEN';
+    const isMock = false;
     let currentSecret = "";
 
     if (isMock) {

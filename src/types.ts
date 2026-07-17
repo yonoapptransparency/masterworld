@@ -70,7 +70,6 @@ export interface NewsItem {
   author?: string;
   description_html?: string;
   date?: string;
-  date?: string;
   tags?: string[];
 }
 

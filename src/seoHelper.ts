@@ -858,7 +858,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       description = cleanSeoDescription(getField(app, 'seo_description')) || (descHtml ? stripHtml(descHtml).substring(0, 160) : '') || description;
       keywords = getField(app, 'seo_keywords') || keywords;
       ogImage = getField(app, 'og_image_url') || getField(app, 'icon_url') || ogImage;
-      const cleanHostApp = (hostUrl || process.env.PUBLIC_DOMAIN || 'https://www.rummyapp.online').replace(/\/+$/, '');
+      const cleanHostApp = (hostUrl || process.env.VITE_PUBLIC_DOMAIN || process.env.PUBLIC_DOMAIN || 'https://www.rummyapp.online').replace(/\/+$/, '');
       canonicalUrlOverride = getField(app, 'canonical_url') || `${cleanHostApp}/app/${getField(app, 'slug')}`;
     }
   } else if (urlPath.startsWith('/info/') || urlPath.startsWith('/gateway/')) {
@@ -876,7 +876,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       description = cleanSeoDescription(getField(app, 'seo_description')) || (descHtml ? stripHtml(descHtml).substring(0, 160) : '') || description;
       keywords = getField(app, 'seo_keywords') || keywords;
       ogImage = getField(app, 'og_image_url') || getField(app, 'icon_url') || ogImage;
-      const cleanHostApp = (hostUrl || process.env.PUBLIC_DOMAIN || 'https://www.rummyapp.online').replace(/\/+$/, '');
+      const cleanHostApp = (hostUrl || process.env.VITE_PUBLIC_DOMAIN || process.env.PUBLIC_DOMAIN || 'https://www.rummyapp.online').replace(/\/+$/, '');
       canonicalUrlOverride = getField(app, 'canonical_url') || `${cleanHostApp}/app/${getField(app, 'slug')}`;
     }
   } else if (urlPath.startsWith('/news/') && urlPath.length > 6) {
@@ -910,6 +910,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       keywords = getField(blogItem, 'seo_keywords') || keywords;
       ogImage = getField(blogItem, 'cover_url') || ogImage;
       author = getField(blogItem, 'author') || siteTitle;
+      const cleanHostApp = (hostUrl || process.env.VITE_PUBLIC_DOMAIN || process.env.PUBLIC_DOMAIN || 'https://www.rummyapp.online').replace(/\/+$/, '');
+      canonicalUrlOverride = getField(blogItem, 'canonical_url') || `${cleanHostApp}/blog/${getField(blogItem, 'slug')}`;
     }
   } else if (urlPath.startsWith('/videos/') && urlPath.length > 8) {
     const slug = decodeURIComponent(urlPath.split('/videos/')[1].split('/')[0].split('?')[0]);
@@ -934,6 +936,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       if (videoId) {
         ogImage = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
       }
+      const cleanHostApp = (hostUrl || process.env.VITE_PUBLIC_DOMAIN || process.env.PUBLIC_DOMAIN || 'https://www.rummyapp.online').replace(/\/+$/, '');
+      canonicalUrlOverride = `${cleanHostApp}/videos/${getField(videoItem, 'slug') || getField(videoItem, 'id')}`;
     }
   } else if (urlPath.startsWith('/developers')) {
     title = `Meet Our Team | ${siteTitle}`;
