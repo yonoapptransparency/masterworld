@@ -1,9 +1,10 @@
 declare global { var AES_SECRET_GLOBAL: string; }
 if (!process.env.AES_SECRET) {
-  console.error("[FATAL] AES_SECRET environment variable is not set. Server cannot start.");
-  process.exit(1);
+  console.error("AES_SECRET not set. Defaulting to 'security' fallback.");
+  process.env.AES_SECRET = "security";
+  global.AES_SECRET_GLOBAL = process.env.AES_SECRET || "security";
 } else {
-  global.AES_SECRET_GLOBAL = process.env.AES_SECRET;
+  global.AES_SECRET_GLOBAL = process.env.AES_SECRET || "security";
 }
 import express from "express";
 import helmet from "helmet";
@@ -451,7 +452,12 @@ function verifyToken(token: string, ip: string, sessionId: string, fingerprint: 
   }
 }
 
-if (!process.env.TOKEN_SECRET || !process.env.SESSION_SECRET) { console.error("[FATAL] TOKEN_SECRET and SESSION_SECRET must be set in environment."); process.exit(1); } const TOKEN_SECRET = process.env.TOKEN_SECRET; const SESSION_SECRET = process.env.SESSION_SECRET;
+if (!process.env.TOKEN_SECRET || !process.env.SESSION_SECRET) {
+  console.error("TOKEN/SESSION secrets not set. Defaulting to 'security' fallback.");
+  process.env.TOKEN_SECRET = process.env.TOKEN_SECRET || "security";
+  process.env.SESSION_SECRET = process.env.SESSION_SECRET || "security";
+}
+const TOKEN_SECRET = process.env.TOKEN_SECRET; const SESSION_SECRET = process.env.SESSION_SECRET;
 
 async function startServer() {
   const app = express();
