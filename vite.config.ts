@@ -18,10 +18,47 @@ export default defineConfig(({mode}) => {
       // Intentionally stripped: no API keys should be exposed to the client
     },
     resolve: {
-      alias: {
-        '@': path.resolve(__dirname, '.'),
-        'react-helmet-async': path.resolve(__dirname, 'src/lib/react-helmet-async-shim.tsx'),
-      },
+      alias: [
+        { find: '@', replacement: path.resolve(__dirname, '.') },
+        { find: 'react-helmet-async', replacement: path.resolve(__dirname, 'src/lib/react-helmet-async-shim.tsx') },
+        // Fallback aliases for Dex repository where these admin files are removed
+        { 
+          find: /.*\/services\/adminAuthService$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/services/adminAuthService.ts')) 
+            ? path.resolve(__dirname, 'src/services/adminAuthService.ts') 
+            : path.resolve(__dirname, 'src/lib/dummyAdmin.ts') 
+        },
+        { 
+          find: /.*\/lib\/githubSync$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/lib/githubSync.ts')) 
+            ? path.resolve(__dirname, 'src/lib/githubSync.ts') 
+            : path.resolve(__dirname, 'src/lib/dummyAdmin.ts') 
+        },
+        { 
+          find: /.*\/lib\/secureStorage$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/lib/secureStorage.ts')) 
+            ? path.resolve(__dirname, 'src/lib/secureStorage.ts') 
+            : path.resolve(__dirname, 'src/lib/dummyAdmin.ts') 
+        },
+        { 
+          find: /.*\/lib\/totp$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/lib/totp.ts')) 
+            ? path.resolve(__dirname, 'src/lib/totp.ts') 
+            : path.resolve(__dirname, 'src/lib/dummyAdmin.ts') 
+        },
+        { 
+          find: /.*\/lib\/secureVault$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/lib/secureVault.ts')) 
+            ? path.resolve(__dirname, 'src/lib/secureVault.ts') 
+            : path.resolve(__dirname, 'src/lib/dummyAdmin.ts') 
+        },
+        { 
+          find: /.*\/components\/ClearanceButton$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/components/ClearanceButton.tsx')) 
+            ? path.resolve(__dirname, 'src/components/ClearanceButton.tsx') 
+            : path.resolve(__dirname, 'src/lib/dummyAdmin.ts') 
+        }
+      ],
     },
 
     build: {
