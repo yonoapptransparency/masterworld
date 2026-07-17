@@ -795,7 +795,7 @@ const _ADMIN_MAX = 5;
 
 const MOCK_2FA_FILE = path.join(process.cwd(), "mock-2fa-state.json");
 const _mock2faMap = new Map<string, { enabled: boolean; secret: string }>();
-let _activeMockAdminEmail = "defentechscholar@gmail.com";
+let _activeMockAdminEmail = "yonotransparency@gmail.com";
 
 // Load from file if exists
 try {
@@ -881,7 +881,7 @@ const verifyAdminToken = async (req: express.Request, res: express.Response, nex
     if (idToken === 'MOCK_ADMIN_TOKEN') {
       (req as any).adminUser = {
         localId: 'mock-admin-uid-123',
-        email: _activeMockAdminEmail || process.env.ADMIN_EMAIL || 'defentechscholar@gmail.com',
+        email: _activeMockAdminEmail || process.env.ADMIN_EMAIL || 'yonotransparency@gmail.com',
         emailVerified: true
       };
       return next();
@@ -917,7 +917,7 @@ const verifyAdminToken = async (req: express.Request, res: express.Response, nex
       
       // Admin access check via firestore (strictly requires verified email to prevent hijack/spoofing attempts)
       let isDbAdmin = false;
-      const configuredAdminEmail = (process.env.ADMIN_EMAIL || 'defentechscholar@gmail.com').toLowerCase();
+      const configuredAdminEmail = (process.env.ADMIN_EMAIL || 'yonotransparency@gmail.com').toLowerCase();
       
       // Admin email is configured only via ADMIN_EMAIL environment variable
 // No hardcoded emails in code
@@ -975,7 +975,7 @@ app.post("/api/v1/admin/verify-session", async (req: any, res: any) => {
 
   if (idToken === "MOCK_ADMIN_TOKEN") {
     _clearAdminRL(ip);
-    const userEmail = (email || process.env.ADMIN_EMAIL || "defentechscholar@gmail.com").toLowerCase().trim();
+    const userEmail = (email || process.env.ADMIN_EMAIL || "yonotransparency@gmail.com").toLowerCase().trim();
     _activeMockAdminEmail = userEmail;
     return res.json({ success: true, email: userEmail, uid: "mock-admin-uid-123" });
   }
@@ -996,7 +996,7 @@ app.post("/api/v1/admin/verify-session", async (req: any, res: any) => {
     }
 
     const userEmail = String(user.email ?? "").toLowerCase();
-    const confAdmin = String(process.env.ADMIN_EMAIL || "defentechscholar@gmail.com").toLowerCase(); console.log("Incoming email:", email, "Verified Token Email:", userEmail);
+    const confAdmin = String(process.env.ADMIN_EMAIL || "yonotransparency@gmail.com").toLowerCase(); console.log("Incoming email:", email, "Verified Token Email:", userEmail);
     let isAdmin = !!(confAdmin && userEmail === confAdmin); console.log("Admin check successful: " + isAdmin + " Email: " + userEmail);
 
     if (!isAdmin) {

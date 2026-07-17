@@ -85,7 +85,7 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
         } else {
           // Simulated Google Sign-In for sandbox/mock key environment
           await new Promise((resolve) => setTimeout(resolve, 800)); // smooth visual feedback
-          email = "defentechscholar@gmail.com";
+          email = "yonotransparency@gmail.com";
           idToken = "MOCK_ADMIN_TOKEN";
           refreshToken = "MOCK_ADMIN_REFRESH";
           if (typeof window !== 'undefined') {
