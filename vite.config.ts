@@ -21,6 +21,43 @@ export default defineConfig(({mode}) => {
       alias: [
         { find: '@', replacement: path.resolve(__dirname, '.') },
         { find: 'react-helmet-async', replacement: path.resolve(__dirname, 'src/lib/react-helmet-async-shim.tsx') },
+        { 
+          find: /.*\/pages\/AdminDashboard$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/pages/AdminDashboard.tsx')) 
+            ? path.resolve(__dirname, 'src/pages/AdminDashboard.tsx') 
+            : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
+        },
+        { 
+          find: /.*\/pages\/AdminLogin$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/pages/AdminLogin.tsx')) 
+            ? path.resolve(__dirname, 'src/pages/AdminLogin.tsx') 
+            : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
+        },
+        { 
+          find: /.*\/components\/AdminLogin$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/components/AdminLogin.tsx')) 
+            ? path.resolve(__dirname, 'src/components/AdminLogin.tsx') 
+            : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
+        },
+        { 
+          find: /.*\/components\/NewsTab$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/components/NewsTab.tsx')) 
+            ? path.resolve(__dirname, 'src/components/NewsTab.tsx') 
+            : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
+        },
+        { 
+          find: /.*\/components\/SecurityTab$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/components/SecurityTab.tsx')) 
+            ? path.resolve(__dirname, 'src/components/SecurityTab.tsx') 
+            : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
+        },
+        { 
+          find: /.*\/components\/FirebaseStatusPanel$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/components/FirebaseStatusPanel.tsx')) 
+            ? path.resolve(__dirname, 'src/components/FirebaseStatusPanel.tsx') 
+            : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
+        },
+
         // Fallback aliases for Dex repository where these admin files are removed
         { 
           find: /.*\/services\/adminAuthService$/, 
