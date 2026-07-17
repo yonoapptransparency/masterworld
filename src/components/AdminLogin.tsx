@@ -41,7 +41,16 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
             },
             body: JSON.stringify({ email }),
           });
-          const verifyData = await verifyRes.json().catch(() => ({}));
+          
+      let verifyData = {};
+      let responseText = "";
+      try {
+        responseText = await verifyRes.text();
+        verifyData = JSON.parse(responseText);
+      } catch(e) {
+        verifyData.error = "Non-JSON response: " + responseText.substring(0, 100);
+      }
+
           if (!verifyRes.ok) {
             if (verifyRes.status === 403 && verifyData.mfaRequired) {
               setTempCreds({ idToken, refreshToken, email });
@@ -157,7 +166,16 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
         body: JSON.stringify({ email }),
       });
 
-      const verifyData = await verifyRes.json().catch(() => ({}));
+      
+      let verifyData = {};
+      let responseText = "";
+      try {
+        responseText = await verifyRes.text();
+        verifyData = JSON.parse(responseText);
+      } catch(e) {
+        verifyData.error = "Non-JSON response: " + responseText.substring(0, 100);
+      }
+
 
       if (!verifyRes.ok) {
         throw new Error(verifyData.error || `Admin access denied. Status: ${verifyRes.status} ${verifyRes.statusText}`);
@@ -224,7 +242,16 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
         body: JSON.stringify({ email }),
       });
 
-      const verifyData = await verifyRes.json().catch(() => ({}));
+      
+      let verifyData = {};
+      let responseText = "";
+      try {
+        responseText = await verifyRes.text();
+        verifyData = JSON.parse(responseText);
+      } catch(e) {
+        verifyData.error = "Non-JSON response: " + responseText.substring(0, 100);
+      }
+
 
       if (!verifyRes.ok) {
         throw new Error(verifyData.error || `Admin access denied. Status: ${verifyRes.status} ${verifyRes.statusText}`);
@@ -272,7 +299,16 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
         body: JSON.stringify({ email: tempCreds.email, code: mfaCode.trim() }),
       });
 
-      const verifyData = await verifyRes.json().catch(() => ({}));
+      
+      let verifyData = {};
+      let responseText = "";
+      try {
+        responseText = await verifyRes.text();
+        verifyData = JSON.parse(responseText);
+      } catch(e) {
+        verifyData.error = "Non-JSON response: " + responseText.substring(0, 100);
+      }
+
 
       if (!verifyRes.ok) {
         throw new Error(verifyData.error || "Verification failed. Invalid or expired 2FA code.");

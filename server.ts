@@ -16,6 +16,7 @@ import fs from "fs";
 import dns from "dns";
 import { injectSeoTags, fetchStoreData, getField, syncFromFirestore } from "./src/seoHelper";
 
+import { generateStaticDataFileCode } from "./src/lib/githubSync";
 import CryptoJS from "crypto-js";
 import { GoogleGenAI, Type } from "@google/genai";
 import { verifyTOTPToken, generateTOTPSecret, getTOTPURI } from "./src/lib/totp";

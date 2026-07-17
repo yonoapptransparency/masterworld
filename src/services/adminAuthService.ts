@@ -238,7 +238,8 @@ export async function adminFetch(
   options: RequestInit = {}
 ): Promise<Response> {
   const token = await getValidAdminToken();
-  if (!token) {
+  const existingAuth = (options.headers as any)?.Authorization || (options.headers as any)?.authorization;
+  if (!token && !existingAuth) {
     // Return a fake 401 response
     return new Response(JSON.stringify({ error: "Session expired" }), {
       status: 401,
@@ -246,12 +247,10 @@ export async function adminFetch(
     });
   }
 
-  return fetch(url, {
-    ...options,
-    headers: {
-      ...options.headers,
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-  });
+    const finalHeaders = {
+    ...options.headers,
+    "Content-Type": "application/json",
+  } as any;
+  if (token) finalHeaders.Authorization = `Bearer ${token}`;
+  return fetch(url, { ...options, headers: finalHeaders });
 }
