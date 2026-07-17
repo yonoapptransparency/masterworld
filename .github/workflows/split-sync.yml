@@ -21,10 +21,8 @@ jobs:
           PAT: ${{ secrets.PAT }}
         run: |
           set -e
-          ORIGINAL_AUTHOR_NAME=$(git log -1 --format="%an")
-          ORIGINAL_AUTHOR_EMAIL=$(git log -1 --format="%ae")
-          git config --global user.email "$ORIGINAL_AUTHOR_EMAIL"
-          git config --global user.name "$ORIGINAL_AUTHOR_NAME"
+          git config --global user.email "defentechscholar@gmail.com"
+          git config --global user.name "${{ github.event.head_commit.author.name || 'yonoapptransparency' }}"
 
           # List of files that should ONLY exist in Masterworld (Admin)
           ADMIN_ONLY_FILES=(

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, isFirebaseConfigured, isFirebaseReal } from '../lib/firebase';
-import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from 'firebase/auth';
 import { ShieldCheck, LogIn, Loader2, AlertCircle, Mail, Lock, Clock, CheckCircle, RefreshCw } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -20,6 +20,48 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
   const [resendCooldown, setResendCooldown] = useState(0);
   const [resendSuccessMsg, setResendSuccessMsg] = useState<string | null>(null);
   const [isResending, setIsResending] = useState(false);
+
+  useEffect(() => {
+    if (!isFirebaseReal) return;
+    const checkRedirect = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result) {
+          setIsLoading(true);
+          const user = result.user;
+          const email = user.email || '';
+          const idToken = await user.getIdToken();
+          const refreshToken = user.refreshToken || '';
+          
+          const verifyRes = await fetch("/api/v1/admin/verify-session", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${idToken}`,
+            },
+            body: JSON.stringify({ email }),
+          });
+          const verifyData = await verifyRes.json().catch(() => ({}));
+          if (!verifyRes.ok) {
+            if (verifyRes.status === 403 && verifyData.mfaRequired) {
+              setTempCreds({ idToken, refreshToken, email });
+              setMfaRequired(true);
+              setIsLoading(false);
+              return;
+            }
+            throw new Error(verifyData.error || "Session verification failed");
+          }
+          onSuccess(idToken, refreshToken, email);
+        }
+      } catch (err: any) {
+        console.error('Redirect login error:', err);
+        setError(err.message || 'Authentication failed during redirect.');
+        setIsLoading(false);
+      }
+    };
+    checkRedirect();
+  }, [onSuccess]);
+
 
   // Synchronized TOTP 30-second ticking loop & resend countdown
   useEffect(() => {
@@ -77,15 +119,23 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
       if (isFirebaseConfigured) {
         if (isFirebaseReal) {
           const provider = new GoogleAuthProvider();
-          const result = await signInWithPopup(auth, provider);
-          const user = result.user;
-          email = user.email || '';
-          idToken = await user.getIdToken();
-          refreshToken = user.refreshToken || '';
+          try {
+            const result = await signInWithPopup(auth, provider);
+            const user = result.user;
+            email = user.email || '';
+            idToken = await user.getIdToken();
+            refreshToken = user.refreshToken || '';
+          } catch (popupErr: any) {
+            if (popupErr.message && (popupErr.message.includes('popup-closed-by-user') || popupErr.message.includes('popup-blocked'))) {
+              await signInWithRedirect(auth, provider);
+              return;
+            }
+            throw popupErr;
+          }
         } else {
           // Simulated Google Sign-In for sandbox/mock key environment
           await new Promise((resolve) => setTimeout(resolve, 800)); // smooth visual feedback
-          email = "yonotransparency@gmail.com";
+          email = "defentechscholar@gmail.com";
           idToken = "MOCK_ADMIN_TOKEN";
           refreshToken = "MOCK_ADMIN_REFRESH";
           if (typeof window !== 'undefined') {
