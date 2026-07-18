@@ -36,9 +36,6 @@ var import_dns = __toESM(require("dns"));
 var import_fs = __toESM(require("fs"));
 var import_path = __toESM(require("path"));
 
-// src/lib/secureStorage.ts
-var import_crypto_js = __toESM(require("crypto-js"));
-
 // src/lib/staticData.ts
 var mockApps = [
   {
@@ -4628,7 +4625,7 @@ function generateStaticDataFileCode(apps, settings, news, blogs, videos) {
   const cleanNews = JSON.parse(JSON.stringify(news));
   const cleanBlogs = JSON.parse(JSON.stringify(blogs));
   const cleanVideos = JSON.parse(JSON.stringify(videos));
-  return `import { secureStorage } from './secureStorage';
+  return `// No secureStorage import to avoid Vercel build errors when secureStorage is stripped
 
 export interface Banner {
   id: string;
@@ -4802,42 +4799,62 @@ export interface VideoItem {
 export const mockApps: AppConfig[] = ${JSON.stringify(cleanApps, null, 2)};
 
 export const saveMockApps = (apps: AppConfig[]) => {
-  secureStorage.setItem('rummystore_apps', JSON.stringify(apps));
+  try {
+    localStorage.setItem('rummystore_apps', JSON.stringify(apps));
+  } catch (e) {
+    console.warn('saveMockApps storage failed:', e);
+  }
   mockApps.splice(0, mockApps.length, ...apps);
 };
 
 export const mockSettings: GlobalSettings = ${JSON.stringify(cleanSettings, null, 2)};
 
 export const saveMockSettings = (settings: GlobalSettings) => {
-  secureStorage.setItem('rummystore_settings', JSON.stringify(settings));
+  try {
+    localStorage.setItem('rummystore_settings', JSON.stringify(settings));
+  } catch (e) {
+    console.warn('saveMockSettings storage failed:', e);
+  }
   Object.assign(mockSettings, settings);
 };
 
 export const mockNews: NewsItem[] = ${JSON.stringify(cleanNews, null, 2)};
 
 export const saveMockNews = (newsList: NewsItem[]) => {
-  secureStorage.setItem('rummystore_news', JSON.stringify(newsList));
+  try {
+    localStorage.setItem('rummystore_news', JSON.stringify(newsList));
+  } catch (e) {
+    console.warn('saveMockNews storage failed:', e);
+  }
   mockNews.splice(0, mockNews.length, ...newsList);
 };
 
 export const mockBlogs: BlogPost[] = ${JSON.stringify(cleanBlogs, null, 2)};
 
 export const saveMockBlogs = (blogs: BlogPost[]) => {
-  secureStorage.setItem('rummystore_blogs', JSON.stringify(blogs));
+  try {
+    localStorage.setItem('rummystore_blogs', JSON.stringify(blogs));
+  } catch (e) {
+    console.warn('saveMockBlogs storage failed:', e);
+  }
   mockBlogs.splice(0, mockBlogs.length, ...blogs);
 };
 
 export const mockVideos: VideoItem[] = ${JSON.stringify(cleanVideos, null, 2)};
 
 export const saveMockVideos = (videos: VideoItem[]) => {
-  secureStorage.setItem('rummystore_videos', JSON.stringify(videos));
+  try {
+    localStorage.setItem('rummystore_videos', JSON.stringify(videos));
+  } catch (e) {
+    console.warn('saveMockVideos storage failed:', e);
+  }
   mockVideos.splice(0, mockVideos.length, ...videos);
 };
 `;
 }
 
 // api/index.ts
-var import_crypto_js2 = __toESM(require("crypto-js"));
+var import_crypto_js = __toESM(require("crypto-js"));
 
 // src/lib/totp.ts
 var OTPAuth = __toESM(require("otpauth"));
@@ -4897,8 +4914,8 @@ function safeDecrypt(ciphertext, secret) {
   for (const key of uniqueKeys) {
     if (!key || key.trim() === "") continue;
     try {
-      const bytes = import_crypto_js2.default.AES.decrypt(ciphertext, key);
-      const text = bytes.toString(import_crypto_js2.default.enc.Utf8);
+      const bytes = import_crypto_js.default.AES.decrypt(ciphertext, key);
+      const text = bytes.toString(import_crypto_js.default.enc.Utf8);
       if (text && text.trim().length > 0) return text;
     } catch (e) {
     }
@@ -4909,7 +4926,7 @@ function safeEncrypt(text, secret) {
   if (!text || !secret || secret.trim() === "") {
     throw new Error("Cannot encrypt: AES_SECRET is required");
   }
-  return import_crypto_js2.default.AES.encrypt(text, secret).toString();
+  return import_crypto_js.default.AES.encrypt(text, secret).toString();
 }
 var isRealValue2 = (id) => {
   if (!id) return false;
@@ -6754,8 +6771,8 @@ app.post("/api/v1/admin/seal-vault", verifyAdminToken, (req, res) => {
     if (typeof safeEncrypt !== "undefined") {
       ciphertext = safeEncrypt(JSON.stringify(vaultMap), config.AES_SECRET);
     } else {
-      const CryptoJS3 = require("crypto-js");
-      ciphertext = CryptoJS3.AES.encrypt(JSON.stringify(vaultMap), config.AES_SECRET).toString();
+      const CryptoJS2 = require("crypto-js");
+      ciphertext = CryptoJS2.AES.encrypt(JSON.stringify(vaultMap), config.AES_SECRET).toString();
     }
     res.json({ success: true, ciphertext });
   } catch (err) {
@@ -6933,9 +6950,9 @@ app.get("/api/v1/link-check", async (req, res) => {
       let dec = "";
       if (typeof safeDecrypt !== "undefined") dec = safeDecrypt(matchEncrypted, AES_SECRET);
       else {
-        const CryptoJS3 = require("crypto-js");
-        const bytes = CryptoJS3.AES.decrypt(matchEncrypted, AES_SECRET);
-        dec = bytes.toString(CryptoJS3.enc.Utf8);
+        const CryptoJS2 = require("crypto-js");
+        const bytes = CryptoJS2.AES.decrypt(matchEncrypted, AES_SECRET);
+        dec = bytes.toString(CryptoJS2.enc.Utf8);
       }
       if (dec) {
         const parsed = JSON.parse(dec);
@@ -7159,9 +7176,9 @@ app.get("/api/v1/gateway-resolve", async (req, res) => {
               let dec = "";
               if (typeof safeDecrypt !== "undefined") dec = safeDecrypt(matchEncrypted, AES_SECRET);
               else {
-                const CryptoJS3 = require("crypto-js");
-                const bytes = CryptoJS3.AES.decrypt(matchEncrypted, AES_SECRET);
-                dec = bytes.toString(CryptoJS3.enc.Utf8);
+                const CryptoJS2 = require("crypto-js");
+                const bytes = CryptoJS2.AES.decrypt(matchEncrypted, AES_SECRET);
+                dec = bytes.toString(CryptoJS2.enc.Utf8);
               }
               if (dec) {
                 const parsed = JSON.parse(dec);

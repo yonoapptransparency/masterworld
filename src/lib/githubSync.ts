@@ -49,7 +49,7 @@ export function generateStaticDataFileCode(
   const cleanBlogs = JSON.parse(JSON.stringify(blogs));
   const cleanVideos = JSON.parse(JSON.stringify(videos));
 
-  return `import { secureStorage } from './secureStorage';
+  return `// No secureStorage import to avoid Vercel build errors when secureStorage is stripped
 
 export interface Banner {
   id: string;
@@ -223,35 +223,55 @@ export interface VideoItem {
 export const mockApps: AppConfig[] = ${JSON.stringify(cleanApps, null, 2)};
 
 export const saveMockApps = (apps: AppConfig[]) => {
-  secureStorage.setItem('rummystore_apps', JSON.stringify(apps));
+  try {
+    localStorage.setItem('rummystore_apps', JSON.stringify(apps));
+  } catch (e) {
+    console.warn('saveMockApps storage failed:', e);
+  }
   mockApps.splice(0, mockApps.length, ...apps);
 };
 
 export const mockSettings: GlobalSettings = ${JSON.stringify(cleanSettings, null, 2)};
 
 export const saveMockSettings = (settings: GlobalSettings) => {
-  secureStorage.setItem('rummystore_settings', JSON.stringify(settings));
+  try {
+    localStorage.setItem('rummystore_settings', JSON.stringify(settings));
+  } catch (e) {
+    console.warn('saveMockSettings storage failed:', e);
+  }
   Object.assign(mockSettings, settings);
 };
 
 export const mockNews: NewsItem[] = ${JSON.stringify(cleanNews, null, 2)};
 
 export const saveMockNews = (newsList: NewsItem[]) => {
-  secureStorage.setItem('rummystore_news', JSON.stringify(newsList));
+  try {
+    localStorage.setItem('rummystore_news', JSON.stringify(newsList));
+  } catch (e) {
+    console.warn('saveMockNews storage failed:', e);
+  }
   mockNews.splice(0, mockNews.length, ...newsList);
 };
 
 export const mockBlogs: BlogPost[] = ${JSON.stringify(cleanBlogs, null, 2)};
 
 export const saveMockBlogs = (blogs: BlogPost[]) => {
-  secureStorage.setItem('rummystore_blogs', JSON.stringify(blogs));
+  try {
+    localStorage.setItem('rummystore_blogs', JSON.stringify(blogs));
+  } catch (e) {
+    console.warn('saveMockBlogs storage failed:', e);
+  }
   mockBlogs.splice(0, mockBlogs.length, ...blogs);
 };
 
 export const mockVideos: VideoItem[] = ${JSON.stringify(cleanVideos, null, 2)};
 
 export const saveMockVideos = (videos: VideoItem[]) => {
-  secureStorage.setItem('rummystore_videos', JSON.stringify(videos));
+  try {
+    localStorage.setItem('rummystore_videos', JSON.stringify(videos));
+  } catch (e) {
+    console.warn('saveMockVideos storage failed:', e);
+  }
   mockVideos.splice(0, mockVideos.length, ...videos);
 };
 `;
