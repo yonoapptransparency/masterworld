@@ -598,7 +598,6 @@ const OldAppsTabUnused = React.memo(({ appsList, editingAppId, setEditingAppId, 
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Manage app catalog, visibility, and configuration.</p>
         </div>
         <div className="flex items-center gap-4">
-          <FirebaseStatusIndicator />
           <button onClick={() => setEditingAppId("")} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors shadow-sm">
             <Plus className="w-4 h-4"/> Add New App
           </button>
@@ -3010,8 +3009,8 @@ export default function AdminDashboard() {
           <div className="flex flex-col">
             <h1 className="text-base font-black text-slate-900 dark:text-white tracking-tight leading-tight">Admin<span className="text-blue-600">Hub</span></h1>
             <div className="flex items-center gap-1.5">
-              <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Secure</span>
+              <FirebaseStatusIndicator />
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Secure Access</span>
             </div>
           </div>
         </div>
@@ -3042,9 +3041,9 @@ export default function AdminDashboard() {
                 <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">System Control Console</h1>
                 <span className="bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 text-[9px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider border border-blue-200/30">Secure Hub</span>
               </div>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
-                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 font-mono">AES-256 Connection Verified • V2.4.9</p>
+              <div className="flex items-center gap-3 mt-1">
+                <FirebaseStatusIndicator />
+                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 font-mono italic">AES-256 Connection Verified • V2.4.9</p>
               </div>
             </div>
           </div>

@@ -29,11 +29,11 @@ export const FirebaseStatusIndicator: React.FC = () => {
   }, []);
 
   return (
-    <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium cursor-help ${
-      status === 'live' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-    }`} title={error || ''}>
-      <div className={`w-2 h-2 rounded-full ${status === 'live' ? 'bg-green-500' : 'bg-red-500'}`}></div>
-      {status === 'checking' ? 'Checking...' : status === 'live' ? 'Firestore Live' : `Offline: ${error}`}
+    <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider cursor-help transition-all ${
+      status === 'live' ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-600 border border-rose-500/20'
+    }`} title={error || 'Firebase Connection Status'}>
+      <div className={`w-1.5 h-1.5 rounded-full ${status === 'live' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></div>
+      {status === 'checking' ? 'Checking...' : status === 'live' ? 'Firestore: Live' : 'Firestore: Offline'}
     </div>
   );
 };
