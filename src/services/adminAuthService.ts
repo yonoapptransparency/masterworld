@@ -76,10 +76,7 @@ export async function refreshIdToken(
 ): Promise<{ idToken: string; expiresAt: number } | null> {
   try {
     if (!IS_API_KEY_REAL) {
-      return {
-        idToken: "MOCK_ADMIN_TOKEN",
-        expiresAt: Date.now() + TOKEN_LIFETIME_MS,
-      };
+      throw new Error("Firebase API key is not configured.");
     }
 
     const res = await fetch(
@@ -140,35 +137,7 @@ export async function signInAdmin(
 ): Promise<AuthResult & { mfaRequired?: boolean }> {
   try {
     if (!IS_API_KEY_REAL) {
-      return { ok: false, error: "Authentication is unavailable in this environment." };
-
-      // Query the backend verify-session endpoint to see if 2FA is active & verify the code if so
-      const verifyRes = await fetch("/api/v1/admin/verify-session", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer MOCK_ADMIN_TOKEN`,
-        },
-        body: JSON.stringify({ email, code }),
-      });
-
-      const verifyData = await verifyRes.json().catch(() => ({}));
-      if (!verifyRes.ok) {
-        return { ok: false, error: verifyData?.error || "ADMIN_ACCESS_DENIED" };
-      }
-
-      if (verifyData?.mfaRequired) {
-        return { ok: true, mfaRequired: true };
-      }
-
-      const session: AdminSession = {
-        idToken: "MOCK_ADMIN_TOKEN",
-        refreshToken: "MOCK_ADMIN_REFRESH",
-        email: email.toLowerCase().trim(),
-        expiresAt: Date.now() + TOKEN_LIFETIME_MS,
-      };
-      saveSession(session);
-      return { ok: true, session };
+      return { ok: false, error: "Authentication is unavailable in this environment (Missing Firebase API Key)." };
     }
 
     // Step 1: Firebase REST sign-in

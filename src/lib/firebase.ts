@@ -29,7 +29,8 @@ const isRealValue = (id: string | undefined): boolean => {
   if (!id) return false;
   const clean = id.trim();
   if (clean === '' || clean === 'PLACEHOLDER' || clean.includes('REPLACE_WITH_YOUR_REAL_KEY') || clean.includes('YOUR_API_KEY')) return false;
-  
+  // If it's a sandbox value but looks like a hash, we'll treat it as real enough to try.
+  if (clean.length > 20 && (clean.includes('#') || clean.includes('!') || clean.includes('@'))) return true;
   return true;
 };
 
@@ -88,7 +89,6 @@ export const isFirebaseApiKeyReal = (key: string | undefined): boolean => {
   if (!key) return false;
   const clean = key.trim();
   if (clean === '' || clean === 'PLACEHOLDER' || clean.includes('REPLACE_WITH_YOUR_REAL_KEY') || clean.includes('YOUR_API_KEY')) return false;
-  // Relaxed regex to allow platform-injected keys that might contain symbols
   return true;
 };
 

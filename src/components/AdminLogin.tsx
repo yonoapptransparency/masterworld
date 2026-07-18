@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, isFirebaseConfigured, isFirebaseReal } from '../lib/firebase';
-import { GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from 'firebase/auth';
-import { ShieldCheck, LogIn, Loader2, AlertCircle, Mail, Lock, Clock, CheckCircle, RefreshCw } from 'lucide-react';
+import { 
+  GoogleAuthProvider, 
+  signInWithPopup, 
+  signInWithRedirect, 
+  getRedirectResult,
+  createUserWithEmailAndPassword
+} from 'firebase/auth';
+import { ShieldCheck, LogIn, Loader2, AlertCircle, Mail, Lock, Clock, CheckCircle, RefreshCw, UserPlus } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string, refreshToken: string, email: string) => void }) {
@@ -13,6 +19,8 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
 
   const [mfaRequired, setMfaRequired] = useState(false);
   const [mfaCode, setMfaCode] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [tempCreds, setTempCreds] = useState<{ idToken: string; refreshToken: string; email: string } | null>(null);
 
   // 2FA Visual Progress & Resend Cooldown States
@@ -126,34 +134,22 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
       let email = '';
 
       if (isFirebaseConfigured) {
-        if (isFirebaseReal) {
-          const provider = new GoogleAuthProvider();
-          try {
-            const result = await signInWithPopup(auth, provider);
-            const user = result.user;
-            email = user.email || '';
-            idToken = await user.getIdToken();
-            refreshToken = user.refreshToken || '';
-          } catch (popupErr: any) {
-            if (popupErr.message && (popupErr.message.includes('popup-closed-by-user') || popupErr.message.includes('popup-blocked') || popupErr.message.includes('network-request-failed') || popupErr.message.includes('Failed to fetch') || popupErr.message.includes('cross-origin'))) {
-              await signInWithRedirect(auth, provider);
-              return;
-            }
-            throw popupErr;
+        const provider = new GoogleAuthProvider();
+        try {
+          const result = await signInWithPopup(auth, provider);
+          const user = result.user;
+          email = user.email || '';
+          idToken = await user.getIdToken();
+          refreshToken = user.refreshToken || '';
+        } catch (popupErr: any) {
+          if (popupErr.message && (popupErr.message.includes('popup-closed-by-user') || popupErr.message.includes('popup-blocked') || popupErr.message.includes('network-request-failed') || popupErr.message.includes('Failed to fetch') || popupErr.message.includes('cross-origin'))) {
+            await signInWithRedirect(auth, provider);
+            return;
           }
-        } else {
-          // Simulated Google Sign-In for sandbox/mock key environment
-          await new Promise((resolve) => setTimeout(resolve, 800)); // smooth visual feedback
-          email = "defentechscholar@gmail.com";
-          idToken = "MOCK_ADMIN_TOKEN";
-          refreshToken = "MOCK_ADMIN_REFRESH";
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('MOCK_ADMIN_SESSION', 'true');
-            localStorage.setItem('MOCK_ADMIN_EMAIL', email);
-          }
+          throw popupErr;
         }
       } else {
-        throw new Error("Firebase is not configured. Google Sign-In is unavailable.");
+        throw new Error("Firebase is not configured. Authentication is currently unavailable.");
       }
 
       // Verify session via our backend
@@ -214,22 +210,29 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
       setError(null);
       setIsLoading(true);
 
-      let email = '';
+      let email = emailInput.toLowerCase().trim();
       let idToken = '';
       let refreshToken = 'MOCK_ADMIN_REFRESH';
 
-      if (isFirebaseReal) {
-        const { signInWithEmailAndPassword } = await import('firebase/auth');
-        const result = await signInWithEmailAndPassword(auth, emailInput, passwordInput);
-        const user = result.user;
-        email = user.email || '';
-        idToken = await user.getIdToken();
-        refreshToken = user.refreshToken || '';
+      if (isFirebaseConfigured) {
+        if (isSignUp) {
+          if (passwordInput !== confirmPassword) {
+            throw new Error("Passwords do not match.");
+          }
+          const { createUserWithEmailAndPassword } = await import('firebase/auth');
+          const result = await createUserWithEmailAndPassword(auth, email, passwordInput);
+          const user = result.user;
+          idToken = await user.getIdToken();
+          refreshToken = user.refreshToken || '';
+        } else {
+          const { signInWithEmailAndPassword } = await import('firebase/auth');
+          const result = await signInWithEmailAndPassword(auth, email, passwordInput);
+          const user = result.user;
+          idToken = await user.getIdToken();
+          refreshToken = user.refreshToken || '';
+        }
       } else {
-        const result = await auth.signInWithEmailAndPassword(emailInput, passwordInput);
-        const user = result.user;
-        email = user.email || '';
-        idToken = await user.getIdToken();
+        throw new Error("Firebase is not configured. Authentication is unavailable.");
       }
 
       // Verify session via our backend
@@ -475,10 +478,7 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
                 <span className="text-zinc-400 dark:text-zinc-500 font-medium">.portal</span>
               </h1>
               <p className="text-zinc-400 dark:text-zinc-500 text-xs font-semibold uppercase tracking-wider mb-8">
-                {isFirebaseConfigured 
-                  ? 'Cloud Directory Authorization'
-                  : 'Local Development Environment'
-                }
+                Cloud Directory Authorization
               </p>
 
               {error && (
@@ -492,11 +492,11 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
                 </motion.div>
               )}
 
-              {isFirebaseConfigured && (
+              <div className="space-y-4">
                 <button
                   onClick={handleGoogleSignIn}
                   disabled={isLoading}
-                  className="w-full flex items-center justify-center gap-3 bg-white dark:bg-zinc-950/40 hover:bg-zinc-50 dark:hover:bg-zinc-950 hover:scale-[1.01] text-zinc-900 dark:text-white border border-zinc-200 dark:border-zinc-800 rounded-2xl py-3.5 px-4 font-semibold transition-all shadow-sm active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-sm mb-4"
+                  className="w-full flex items-center justify-center gap-3 bg-white dark:bg-zinc-950/40 hover:bg-zinc-50 dark:hover:bg-zinc-950 hover:scale-[1.01] text-zinc-900 dark:text-white border border-zinc-200 dark:border-zinc-800 rounded-2xl py-3.5 px-4 font-semibold transition-all shadow-sm active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-sm"
                 >
                   {isLoading ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -522,65 +522,97 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
                   )}
                   <span>{isLoading ? 'Connecting...' : 'Authorize with Google'}</span>
                 </button>
-              )}
 
-              <div className="relative mb-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-zinc-200 dark:border-zinc-800" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-white/80 dark:bg-zinc-900/85 px-2 text-zinc-400 dark:text-zinc-600 font-semibold tracking-wider">Or continue with</span>
-                </div>
-              </div>
-
-              <form onSubmit={handleLocalSignIn} className="space-y-4 text-left">
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest pl-1">
-                    Email Address
-                  </label>
-                  <div className="relative">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-zinc-400 dark:text-zinc-500" />
-                    <input
-                      type="email"
-                      required
-                      value={emailInput}
-                      onChange={(e) => setEmailInput(e.target.value)}
-                      className="w-full bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-800/80 rounded-2xl py-3.5 pl-11 pr-4 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 dark:focus:border-blue-400 transition-all shadow-inner"
-                      placeholder="admin@example.com"
-                    />
+                <div className="relative py-2">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-zinc-100 dark:border-zinc-800" />
+                  </div>
+                  <div className="relative flex justify-center text-[10px] uppercase">
+                    <span className="bg-white dark:bg-zinc-900 px-2 text-zinc-400 dark:text-zinc-500 font-bold tracking-widest">Administrative Directory</span>
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest pl-1">
-                    Password
-                  </label>
-                  <div className="relative">
-                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-zinc-400 dark:text-zinc-500" />
-                    <input
-                      type="password"
-                      required
-                      value={passwordInput}
-                      onChange={(e) => setPasswordInput(e.target.value)}
-                      className="w-full bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-800/80 rounded-2xl py-3.5 pl-11 pr-4 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 dark:focus:border-blue-400 transition-all shadow-inner"
-                      placeholder="••••••••"
-                    />
+                <form onSubmit={handleLocalSignIn} className="space-y-4 text-left">
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest pl-1">
+                      Identity Address
+                    </label>
+                    <div className="relative">
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 dark:text-zinc-500" />
+                      <input
+                        type="email"
+                        required
+                        value={emailInput}
+                        onChange={(e) => setEmailInput(e.target.value)}
+                        className="w-full bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-800/80 rounded-2xl py-3.5 pl-11 pr-4 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 dark:focus:border-blue-400 transition-all"
+                        placeholder="admin@example.com"
+                      />
+                    </div>
                   </div>
-                </div>
 
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 hover:scale-[1.01] text-white rounded-2xl py-3.5 px-4 font-semibold transition-all shadow-lg shadow-blue-500/10 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed mt-6 cursor-pointer text-sm"
-                >
-                  {isLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <LogIn className="w-4 h-4" />
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest pl-1">
+                      {isSignUp ? 'New Passphrase' : 'Secret Passphrase'}
+                    </label>
+                    <div className="relative">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 dark:text-zinc-500" />
+                      <input
+                        type="password"
+                        required
+                        value={passwordInput}
+                        onChange={(e) => setPasswordInput(e.target.value)}
+                        className="w-full bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-800/80 rounded-2xl py-3.5 pl-11 pr-4 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 dark:focus:border-blue-400 transition-all"
+                        placeholder="••••••••"
+                      />
+                    </div>
+                  </div>
+
+                  {isSignUp && (
+                    <div className="space-y-1.5">
+                      <label className="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest pl-1">
+                        Confirm Passphrase
+                      </label>
+                      <div className="relative">
+                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 dark:text-zinc-500" />
+                        <input
+                          type="password"
+                          required
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          className="w-full bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-800/80 rounded-2xl py-3.5 pl-11 pr-4 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 dark:focus:border-blue-400 transition-all"
+                          placeholder="••••••••"
+                        />
+                      </div>
+                    </div>
                   )}
-                  <span>{isLoading ? 'Signing in...' : 'Sign in as Admin'}</span>
-                </button>
-              </form>
+
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full flex items-center justify-center gap-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 hover:bg-black dark:hover:bg-zinc-100 rounded-2xl py-3.5 px-4 font-bold transition-all active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed text-sm mt-2"
+                  >
+                    {isLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      isSignUp ? <UserPlus className="w-4 h-4" /> : <LogIn className="w-4 h-4" />
+                    )}
+                    <span>{isLoading ? (isSignUp ? 'Creating Account...' : 'Processing...') : (isSignUp ? 'Create Admin Account' : 'Direct Portal Entry')}</span>
+                  </button>
+
+                  <div className="pt-2 text-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsSignUp(!isSignUp);
+                        setError(null);
+                      }}
+                      className="text-xs font-bold text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300 transition-colors"
+                    >
+                      {isSignUp ? 'Already have an account? Sign In' : 'Need an administrative account? Sign Up'}
+                    </button>
+                  </div>
+                </form>
+              </div>
             </>
           )}
           
