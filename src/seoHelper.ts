@@ -894,6 +894,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       keywords = getField(newsItem, 'seo_keywords') || keywords;
       ogImage = getField(newsItem, 'og_image_url') || getField(newsItem, 'logo_url') || ogImage;
       author = getField(newsItem, 'ceo_name') || siteTitle;
+      const cleanHostApp = (hostUrl || process.env.VITE_PUBLIC_DOMAIN || process.env.PUBLIC_DOMAIN || 'https://www.rummyapp.online').replace(/\/+$/, '');
+      canonicalUrlOverride = getField(newsItem, 'canonical_url') || `${cleanHostApp}/news/${getField(newsItem, 'slug')}`;
     }
   } else if (urlPath.startsWith('/blog/') && urlPath.length > 6) {
     const slug = decodeURIComponent(urlPath.split('/blog/')[1].split('/')[0].split('?')[0]);
@@ -1067,9 +1069,34 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     }
   }
 
+  // Check if we are running on the masterworld/admin deployment to block search engine bots completely
+  const isMasterworldAdminDeployment = (() => {
+    const fallbackHost = hostUrl || process.env.PUBLIC_DOMAIN || 'https://www.rummyapp.online';
+    const hostLower = fallbackHost.toLowerCase();
+    
+    // 1. If the host URL explicitly contains "masterworld", "dev-", "pre-", "localhost", or "127.0.0.1", it's the admin or dev repo deployment.
+    if (hostLower.includes('masterworld') || hostLower.includes('dev-') || hostLower.includes('pre-') || hostLower.includes('localhost') || hostLower.includes('127.0.0.1')) {
+      return true;
+    }
+    
+    // 2. If PUBLIC_DOMAIN is configured, and the current host does not match that PUBLIC_DOMAIN, it is the secondary/admin deployment.
+    if (process.env.PUBLIC_DOMAIN) {
+      try {
+        const publicDomainHost = new URL(process.env.PUBLIC_DOMAIN).host.toLowerCase();
+        const currentHost = hostUrl ? new URL(hostUrl).host.toLowerCase() : '';
+        if (currentHost && currentHost !== publicDomainHost) {
+          return true;
+        }
+      } catch (e) {}
+    }
+    return false;
+  })();
+
+  const blockIndexing = isAdmin || isMasterworldAdminDeployment;
+
   // Construct replacement tags
-  const tags = isAdmin ? `
-    <title>Admin Portal</title>
+  const tags = blockIndexing ? `
+    <title>${isAdmin ? 'Admin Portal' : escapeHtml(title)}</title>
     <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
     ${absoluteFaviconUrl ? `
     <link rel="icon" type="image/x-icon" href="${escapeHtml(absoluteFaviconUrl)}" />

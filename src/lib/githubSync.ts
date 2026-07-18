@@ -123,7 +123,6 @@ export interface NewsItem {
   author?: string;
   description_html?: string;
   date?: string;
-  date?: string;
   tags?: string[];
 }
 
@@ -163,6 +162,8 @@ export interface AppConfig {
   link_configured?: boolean;
   more_information_url?: string;
   video_url?: string;
+  is_top_chart?: boolean;
+  top_chart_category?: string;
 }
 
 export interface Review {

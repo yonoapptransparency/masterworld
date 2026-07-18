@@ -27949,7 +27949,7 @@ async function injectSeoTags(template, urlPath, hostUrl, userAgent = "") {
       description = cleanSeoDescription(getField(app2, "seo_description")) || (descHtml ? stripHtml(descHtml).substring(0, 160) : "") || description;
       keywords = getField(app2, "seo_keywords") || keywords;
       ogImage = getField(app2, "og_image_url") || getField(app2, "icon_url") || ogImage;
-      const cleanHostApp = (hostUrl || process.env.PUBLIC_DOMAIN || "https://www.rummyapp.online").replace(/\/+$/, "");
+      const cleanHostApp = (hostUrl || process.env.VITE_PUBLIC_DOMAIN || process.env.PUBLIC_DOMAIN || "https://www.rummyapp.online").replace(/\/+$/, "");
       canonicalUrlOverride = getField(app2, "canonical_url") || `${cleanHostApp}/app/${getField(app2, "slug")}`;
     }
   } else if (urlPath.startsWith("/info/") || urlPath.startsWith("/gateway/")) {
@@ -27966,7 +27966,7 @@ async function injectSeoTags(template, urlPath, hostUrl, userAgent = "") {
       description = cleanSeoDescription(getField(app2, "seo_description")) || (descHtml ? stripHtml(descHtml).substring(0, 160) : "") || description;
       keywords = getField(app2, "seo_keywords") || keywords;
       ogImage = getField(app2, "og_image_url") || getField(app2, "icon_url") || ogImage;
-      const cleanHostApp = (hostUrl || process.env.PUBLIC_DOMAIN || "https://www.rummyapp.online").replace(/\/+$/, "");
+      const cleanHostApp = (hostUrl || process.env.VITE_PUBLIC_DOMAIN || process.env.PUBLIC_DOMAIN || "https://www.rummyapp.online").replace(/\/+$/, "");
       canonicalUrlOverride = getField(app2, "canonical_url") || `${cleanHostApp}/app/${getField(app2, "slug")}`;
     }
   } else if (urlPath.startsWith("/news/") && urlPath.length > 6) {
@@ -27983,6 +27983,8 @@ async function injectSeoTags(template, urlPath, hostUrl, userAgent = "") {
       keywords = getField(newsItem, "seo_keywords") || keywords;
       ogImage = getField(newsItem, "og_image_url") || getField(newsItem, "logo_url") || ogImage;
       author = getField(newsItem, "ceo_name") || siteTitle;
+      const cleanHostApp = (hostUrl || process.env.VITE_PUBLIC_DOMAIN || process.env.PUBLIC_DOMAIN || "https://www.rummyapp.online").replace(/\/+$/, "");
+      canonicalUrlOverride = getField(newsItem, "canonical_url") || `${cleanHostApp}/news/${getField(newsItem, "slug")}`;
     }
   } else if (urlPath.startsWith("/blog/") && urlPath.length > 6) {
     const slug = decodeURIComponent(urlPath.split("/blog/")[1].split("/")[0].split("?")[0]);
@@ -27998,6 +28000,8 @@ async function injectSeoTags(template, urlPath, hostUrl, userAgent = "") {
       keywords = getField(blogItem, "seo_keywords") || keywords;
       ogImage = getField(blogItem, "cover_url") || ogImage;
       author = getField(blogItem, "author") || siteTitle;
+      const cleanHostApp = (hostUrl || process.env.VITE_PUBLIC_DOMAIN || process.env.PUBLIC_DOMAIN || "https://www.rummyapp.online").replace(/\/+$/, "");
+      canonicalUrlOverride = getField(blogItem, "canonical_url") || `${cleanHostApp}/blog/${getField(blogItem, "slug")}`;
     }
   } else if (urlPath.startsWith("/videos/") && urlPath.length > 8) {
     const slug = decodeURIComponent(urlPath.split("/videos/")[1].split("/")[0].split("?")[0]);
@@ -28021,6 +28025,8 @@ async function injectSeoTags(template, urlPath, hostUrl, userAgent = "") {
       if (videoId) {
         ogImage = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
       }
+      const cleanHostApp = (hostUrl || process.env.VITE_PUBLIC_DOMAIN || process.env.PUBLIC_DOMAIN || "https://www.rummyapp.online").replace(/\/+$/, "");
+      canonicalUrlOverride = `${cleanHostApp}/videos/${getField(videoItem, "slug") || getField(videoItem, "id")}`;
     }
   } else if (urlPath.startsWith("/developers")) {
     title = `Meet Our Team | ${siteTitle}`;
@@ -29454,7 +29460,7 @@ app.post("/api/v1/admin/2fa/resend", async (req, res) => {
 app.post("/api/github-sync/commit", verifyAdminToken, async (req, res) => {
   try {
     const { owner, repo, token, branch, path: filePath, content, message } = req.body || {};
-    let activeToken = token;
+    let activeToken = token || process.env.PAT;
     if (!activeToken) {
       try {
         const config = getRawFirebaseConfig2();
@@ -30038,7 +30044,8 @@ app.post("/api/v1/admin/decrypt-links", verifyAdminToken, async (req, res) => {
     });
     res.json({ items });
   } catch (err) {
-    res.status(500).json({ error: "Links decryption failed." });
+    console.error("[ERROR] Admin decrypt-links failed:", err.message || err);
+    res.status(500).json({ error: "Links decryption failed: " + (err.message || "Check AES_SECRET") });
   }
 });
 app.post("/api/v1/admin/sync-local", verifyAdminToken, async (req, res) => {

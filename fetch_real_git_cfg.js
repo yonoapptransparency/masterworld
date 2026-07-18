@@ -1,4 +1,4 @@
-const { initializeApp } = require('firebase-admin/app');
+const admin = require('firebase-admin');
 const { getFirestore } = require('firebase-admin/firestore');
 const fs = require('fs');
 
@@ -10,8 +10,11 @@ async function main() {
     const projectId = config.projectId;
     console.log(`Initializing firebase-admin for project: ${projectId}`);
     
-    initializeApp({ projectId });
-    const db = getFirestore();
+    admin.initializeApp({
+      projectId,
+      credential: admin.credential.applicationDefault()
+    });
+    const db = getFirestore(config.firestoreDatabaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a');
     const docRef = db.collection('sec_git').doc('cfg');
     const docSnap = await docRef.get();
     

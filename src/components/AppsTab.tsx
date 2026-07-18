@@ -274,6 +274,31 @@ const AppsTab = React.memo(({ appsList, editingAppId, setEditingAppId, handleDel
     setFormFields((prev: any) => ({ ...prev, [field]: value }));
   };
 
+  const handleQuickClean = () => {
+    setFormFields((prev: any) => ({
+      ...prev,
+      // Basic Info preserved (name, slug, icon_url, categories, etc.)
+      seo_title: '',
+      seo_description: '',
+      seo_keywords: '',
+      og_image_url: '',
+      canonical_url: '',
+      target_region: '',
+      release_notes: '',
+      more_information_url: '',
+      video_url: '',
+      red_box_msg: '',
+      yellow_box_msg: '',
+      idea_box_msg: '',
+      features_html: '',
+      custom_admin_box_heading: '',
+      custom_admin_box_html: '',
+      description_html: '',
+      faqs: [],
+      screenshots: [],
+    }));
+  };
+
   // Filter appsList based on Search and Filter states
   const filteredApps = appsList.filter((app: any) => {
     const matchesSearch = 
@@ -585,6 +610,13 @@ const AppsTab = React.memo(({ appsList, editingAppId, setEditingAppId, handleDel
                     className="text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-white px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all border-0 cursor-pointer"
                   >
                     Cancel
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={handleQuickClean}
+                    className="text-xs font-semibold text-amber-600 hover:text-amber-700 dark:text-amber-500 dark:hover:text-amber-400 px-3 py-1.5 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/10 transition-all border-0 cursor-pointer"
+                  >
+                    Quick Clean
                   </button>
                   <button 
                     type="submit" 

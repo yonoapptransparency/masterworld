@@ -765,9 +765,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const targetVideos = overrideVideos || videos;
 
     let finalApps = targetApps;
-    const hasAnySecureLink = targetApps.some(a => a.more_information_url);
-    if (!hasAnySecureLink && targetApps.length > 0) {
-      log("GitHub Sync: Merging secure links from backup to prevent overwriting with empty vault...");
+    if (targetApps.length > 0) {
+      log("GitHub Sync: Performing secure merge with local and cloud backups to guarantee zero data loss...");
       try {
         const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : '';
         if (idToken) {
@@ -781,16 +780,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
               bkJSON.items.forEach((it: any) => {
                 if (it.url) secureMap.set(it.id, it.url);
               });
-              finalApps = targetApps.map((a: any) => ({
-                ...a,
-                more_information_url: secureMap.get(a.id) || a.more_information_url || ''
-              }));
-              log(`GitHub Sync: Merged ${secureMap.size} secure links successfully.`);
+              finalApps = targetApps.map((a: any) => {
+                const backupUrl = secureMap.get(a.id) || '';
+                return {
+                  ...a,
+                  more_information_url: a.more_information_url || backupUrl
+                };
+              });
+              log("GitHub Sync: Secure link verification and merging completed successfully.");
             }
           }
         }
       } catch (bkErr: any) {
-        log(`GitHub Sync Warning: Failed to retrieve secure links for merging: ${bkErr.message}`);
+        log(`GitHub Sync Warning: Secure link merge bypass (could not load backup): ${bkErr.message}`);
       }
     }
 

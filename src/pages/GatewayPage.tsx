@@ -245,7 +245,7 @@ export default function GatewayPage() {
 
   return (
     <div className="animate-fade-in select-none pb-20 w-full">
-      <div className="mb-6 pt-6">
+      <div className="mb-6 pt-6 px-4 sm:px-6">
         <Link 
           to={`/${app.slug}`} 
           className="inline-flex items-center gap-2 text-sm font-medium text-blue-500 hover:text-blue-600 transition-colors group"
@@ -297,7 +297,7 @@ export default function GatewayPage() {
       </div>
 
       {/* Main Specs and Info Hub */}
-      <div className="w-full mb-10">
+      <div className="w-full mb-10 pl-8 pr-4 sm:pl-12 sm:pr-6">
         <div className="bg-zinc-50 dark:bg-zinc-800/50 border border-black/5 dark:border-white/5 rounded-[32px] p-6 sm:p-10 shadow-sm">
           <div className="flex flex-col lg:flex-row items-center justify-between gap-10">
             {/* Left side: App Presentation */}
@@ -337,7 +337,7 @@ export default function GatewayPage() {
 
       {/* FAQ Intel */}
       {app.faqs && app.faqs.length > 0 && (
-        <div className="w-full mb-16 px-4">
+        <div className="w-full mb-16 px-4 sm:px-6">
           <div className="py-12 border-t border-black/5 dark:border-white/5">
             <h2 className="text-xl font-bold mb-8 text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
               <Info className="w-5 h-5 text-blue-500" /> FAQ
@@ -352,7 +352,7 @@ export default function GatewayPage() {
       )}
 
       {/* Strict Section Order 1: Admin Alert Boxes */}
-      <div className="space-y-4 mb-20 w-full px-4">
+      <div className="space-y-4 mb-20 w-full px-4 sm:px-6">
         {app.red_box_msg && app.red_box_msg.trim() !== '.' && app.red_box_msg.trim() !== '' && (
           <div className="bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 p-6 rounded-[24px]">
             <h3 className="font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-2 mb-2 text-sm tracking-wide">
@@ -399,7 +399,7 @@ export default function GatewayPage() {
       </div>
 
       {/* Strict Section Order 3: Peer Reviews */}
-      <div className="w-full mb-12 px-4">
+      <div className="w-full mb-12 px-4 sm:px-6">
         <h2 className="text-2xl font-bold mb-8 flex items-center gap-2 tracking-tight text-zinc-900 dark:text-zinc-100">
           <MessageSquare className="w-6 h-6 text-blue-500" /> User Reviews
         </h2>
@@ -438,7 +438,7 @@ export default function GatewayPage() {
       </div>
 
       {/* Strict Section Order 4: Helpline Block */}
-      <div className="flex flex-col sm:flex-row items-center justify-center gap-8 w-full mt-20 mb-32 px-4">
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-8 w-full mt-20 mb-32 px-4 sm:px-6">
         {mockSettings.helpline_whatsapp && (
           <a href={`https://wa.me/${mockSettings.helpline_whatsapp.replace('+','')}`} target="_blank" rel="nofollow noopener noreferrer" className="flex items-center justify-center gap-2 text-zinc-500 hover:text-green-600 dark:hover:text-green-400 transition-colors font-semibold text-sm">
             WhatsApp Support
@@ -452,7 +452,7 @@ export default function GatewayPage() {
       </div>
 
       {/* Discover More Slider */}
-      <div className="max-w-6xl mx-auto mt-24 mb-10 px-4">
+      <div className="max-w-6xl mx-auto mt-24 mb-10 px-4 sm:px-6">
         <div className="flex items-center justify-between border-b border-black/5 dark:border-white/5 pb-4 mb-8">
           <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Similar Apps</h2>
           <div className="flex gap-2">
@@ -474,7 +474,7 @@ export default function GatewayPage() {
       </div>
       
       {/* Transparency Footer */}
-      <div className="w-full mb-20 text-center">
+      <div className="w-full mb-20 text-center px-4 sm:px-6">
           <h2 
             className="text-3xl sm:text-5xl font-bold mb-12 tracking-tight text-zinc-900 dark:text-zinc-100"
             dangerouslySetInnerHTML={{ __html: safeHtml(mockSettings.portal_heading || mockSettings.site_title || 'Platform Review') }}

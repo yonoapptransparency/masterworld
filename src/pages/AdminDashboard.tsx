@@ -1987,6 +1987,7 @@ export default function AdminDashboard() {
   const [user, setUser] = useState<any>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [isAdminUser, setIsAdminUser] = useState<boolean | null>(null);
+  const [forceBypassVaultError, setForceBypassVaultError] = useState(false);
   
   // Security Stopwatch (Auto-logout after 15 mins)
   const [sessionTimeLeft, setSessionTimeLeft] = useState(15 * 60);
@@ -2591,9 +2592,12 @@ export default function AdminDashboard() {
 
   const handleSaveApp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (fetchFailedRef.current) {
-       alert("CRITICAL ERROR: Cannot save application. The secure vault failed to load from the cloud (Quota Exceeded or Network Error). Saving now would permanently wipe the secure links of all other apps. Please resolve the connection issue or wait for quota reset, then refresh the page.");
-       return;
+    if (fetchFailedRef.current && !forceBypassVaultError) {
+       if (window.confirm("CRITICAL WARNING: The secure vault failed to load from the cloud. Saving now will PERMANENTLY WIPE the secure links for ALL OTHER applications. Only proceed if you intend to reset the secure vault. Do you want to FORCE SAVE and WIPE the existing vault?")) {
+          setForceBypassVaultError(true);
+       } else {
+          return;
+       }
     }
     setSaving(true);
     try {
@@ -2722,9 +2726,12 @@ export default function AdminDashboard() {
   };
   
   const handleDeleteApp = (id: string) => {
-    if (fetchFailedRef.current) {
-       alert("CRITICAL ERROR: Cannot delete application. The secure vault failed to load from the cloud. Modifying the catalog now would wipe secure links of all other apps.");
-       return;
+    if (fetchFailedRef.current && !forceBypassVaultError) {
+       if (window.confirm("CRITICAL WARNING: Secure vault load failed. Deleting now will wipe secure links of all other apps. Force delete?")) {
+          setForceBypassVaultError(true);
+       } else {
+          return;
+       }
     }
     setConfirmConfig({
       isOpen: true,

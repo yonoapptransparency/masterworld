@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import AdminLogin from '../components/AdminLogin';
+import AdminLoginComponent from '../components/AdminLogin';
 import { Navigate } from 'react-router-dom';
 import { saveSession, loadSession, clearSession } from '../services/adminAuthService';
 import { auth } from '../lib/firebase';
@@ -41,7 +41,7 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <AdminLogin 
+    <AdminLoginComponent 
       onSuccess={(idToken, refreshToken, email) => {
         saveSession({
           idToken,

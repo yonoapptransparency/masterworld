@@ -179,6 +179,12 @@ jobs:
               for file in "${ADMIN_ONLY_FILES[@]}"; do
                 rm -rf "$file"
               done
+              # Bulletproof safety net: strip any residual maintenance, test, or config files from root of Dex
+              find . -maxdepth 1 -name "*.js" ! -name "eslint.config.mjs" ! -name "eslint.config.cjs" ! -name "postcss.config.js" ! -name "tailwind.config.js" -exec rm -f {} +
+              find . -maxdepth 1 -name "*.ts" ! -name "vite.config.ts" -exec rm -f {} +
+              find . -maxdepth 1 -name "*.sh" -exec rm -f {} +
+              find . -maxdepth 1 -name "*.patch" -exec rm -f {} +
+              find . -maxdepth 1 -name "*.html" ! -name "index.html" -exec rm -f {} +
             fi
 
             git add .

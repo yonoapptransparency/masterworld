@@ -15,12 +15,15 @@ export default defineConfig(({mode}) => {
   return {
     plugins: [react(), tailwindcss()],
     define: {
-      // Intentionally stripped: no API keys should be exposed to the client
+      __ADMIN_ENABLED__: JSON.stringify(fs.existsSync(path.resolve(__dirname, 'src/pages/AdminDashboard.tsx'))),
     },
     resolve: {
+      dedupe: ['react', 'react-dom'],
       alias: [
         { find: '@', replacement: path.resolve(__dirname, '.') },
         { find: 'react-helmet-async', replacement: path.resolve(__dirname, 'src/lib/react-helmet-async-shim.tsx') },
+
+        // Fallback aliases for Dex repository where these admin files are removed
         { 
           find: /.*\/pages\/AdminDashboard$/, 
           replacement: fs.existsSync(path.resolve(__dirname, 'src/pages/AdminDashboard.tsx')) 
@@ -69,8 +72,6 @@ export default defineConfig(({mode}) => {
             ? path.resolve(__dirname, 'src/components/BlogsTab.tsx') 
             : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
         },
-
-        // Fallback aliases for Dex repository where these admin files are removed
         { 
           find: /.*\/services\/adminAuthService$/, 
           replacement: fs.existsSync(path.resolve(__dirname, 'src/services/adminAuthService.ts')) 

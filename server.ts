@@ -674,6 +674,27 @@ async function startServer() {
   // API Route: Dynamic robots.txt
   app.get('/robots.txt', async (req, res) => {
     try {
+      const hostHeader = req.get('host') || '';
+      const hostLower = hostHeader.toLowerCase();
+      let isMasterworldAdminDeployment = false;
+      if (hostLower.includes('masterworld') || hostLower.includes('dev-') || hostLower.includes('pre-') || hostLower.includes('localhost') || hostLower.includes('127.0.0.1')) {
+        isMasterworldAdminDeployment = true;
+      }
+      if (process.env.PUBLIC_DOMAIN) {
+        try {
+          const publicHost = new URL(process.env.PUBLIC_DOMAIN).host.toLowerCase();
+          if (hostLower && hostLower !== publicHost) {
+            isMasterworldAdminDeployment = true;
+          }
+        } catch (e) {}
+      }
+
+      if (isMasterworldAdminDeployment) {
+        res.set('Content-Type', 'text/plain');
+        res.send("User-agent: *\nDisallow: /\n");
+        return;
+      }
+
       const data = await fetchStoreData();
       if (!data) throw new Error("No data");
       const { news = [], blogs = [], videos = [] } = data;
@@ -697,6 +718,26 @@ async function startServer() {
   // API Route: Dynamic Sitemap Generation for SEO
   app.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], async (req, res) => {
     try {
+      const hostHeader = req.get('host') || '';
+      const hostLower = hostHeader.toLowerCase();
+      let isMasterworldAdminDeployment = false;
+      if (hostLower.includes('masterworld') || hostLower.includes('dev-') || hostLower.includes('pre-') || hostLower.includes('localhost') || hostLower.includes('127.0.0.1')) {
+        isMasterworldAdminDeployment = true;
+      }
+      if (process.env.PUBLIC_DOMAIN) {
+        try {
+          const publicHost = new URL(process.env.PUBLIC_DOMAIN).host.toLowerCase();
+          if (hostLower && hostLower !== publicHost) {
+            isMasterworldAdminDeployment = true;
+          }
+        } catch (e) {}
+      }
+
+      if (isMasterworldAdminDeployment) {
+        res.status(404).send('Not Found');
+        return;
+      }
+
       const data = await fetchStoreData();
       if (!data) {
         throw new Error("Unable to fetch store data");
@@ -1820,8 +1861,9 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
       });
       
       res.json({ items });
-    } catch (err) {
-      res.status(500).json({ error: 'Links decryption failed.' });
+    } catch (err: any) {
+      console.error("[ERROR] Admin decrypt-links failed:", err.message || err);
+      res.status(500).json({ error: 'Links decryption failed: ' + (err.message || 'Check AES_SECRET') });
     }
   });
 

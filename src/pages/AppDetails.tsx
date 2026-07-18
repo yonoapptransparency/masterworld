@@ -439,7 +439,7 @@ export default function AppDetails() {
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="px-2 sm:px-4 mb-4">
+      <div className="px-4 sm:px-6 mb-4">
         <Link 
           to="/" 
           className="inline-flex items-center gap-2 text-sm font-medium text-blue-500 hover:text-blue-600 transition-colors group"
@@ -485,7 +485,7 @@ export default function AppDetails() {
       </Helmet>
       <div className="w-full">
         
-        <div className="flex w-full items-center gap-4 sm:gap-6 mb-6 px-0 mt-2">
+        <div className="flex w-full items-center gap-4 sm:gap-6 mb-6 pl-8 pr-4 sm:pl-12 sm:pr-6 mt-2">
           <div className="relative w-[72px] h-[72px] sm:w-[96px] sm:h-[96px] shrink-0">
             <div className="w-full h-full rounded-[20px] overflow-hidden shadow-sm bg-white border border-black/5 dark:border-white/10 group">
               {app.icon_url ? (
@@ -558,7 +558,7 @@ export default function AppDetails() {
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row w-full sm:w-full justify-center select-none mb-6 px-2 sm:px-0">
+        <div className="flex flex-col sm:flex-row w-full sm:w-full justify-center select-none mb-6 px-4 sm:px-6">
           <motion.div
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
@@ -641,7 +641,7 @@ export default function AppDetails() {
 
         {relatedApps.length > 0 && (
           <div className="mb-6 px-0">
-            <div className="flex items-center justify-between mb-4 px-0">
+            <div className="flex items-center justify-between mb-4 px-4 sm:px-6">
               <h2 className="text-xl font-bold flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
                 You might also like
               </h2>
@@ -656,7 +656,7 @@ export default function AppDetails() {
       </div>
 
       {/* RESTORED SAFETY & INFO BOXES */}
-      <div className="px-0 space-y-3 mb-8 w-full">
+      <div className="px-4 sm:px-6 space-y-3 mb-8 w-full">
 
         {app.red_box_msg && app.red_box_msg.trim() !== '.' && app.red_box_msg.trim() !== '' && (
           <div className="bg-rose-50/50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 p-4 rounded-2xl flex items-start gap-4 shadow-sm group">
@@ -764,12 +764,12 @@ export default function AppDetails() {
         </div>
       </div>
 
-      <div className="px-1 mb-8">
+      <div className="px-4 sm:px-6 mb-8">
         <UserReviews key={reviewsRefreshKey} appId={app.id} appTitle={app.name} overallRating={app.rating} />
       </div>
       
       {app.faqs && app.faqs.length > 0 && (
-         <div className="mb-20 px-4">
+         <div className="mb-20 px-4 sm:px-6">
            <div className="py-8 border-t border-black/5 dark:border-white/5">
             <h2 className="text-xl font-bold mb-6 text-zinc-900 dark:text-zinc-100">
               Frequently Asked Questions

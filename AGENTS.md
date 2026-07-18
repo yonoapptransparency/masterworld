@@ -1,15 +1,14 @@
-# Project Instructions: Yono Transparency Dual-Repo System
+# Project Instructions: Yono Transparency Single-Target Sync System
 
 ## Core Architecture
-This repository acts as the **Source of Truth**. It uses a GitHub Actions workflow (`.github/workflows/split-sync.yml`) to automatically split and synchronize code to two different destination repositories:
+This repository acts as the **Source of Truth**. It uses a GitHub Actions workflow (`.github/workflows/split-sync.yml`) to automatically split, clean, and synchronize code directly to the main repository:
 
-1.  **Masterworld (Admin)**: A private repository containing the full application, including all admin dashboards, security tools, backend scripts, and server-side configurations.
-2.  **Dex (Public)**: A public repository containing only the user-facing website. All sensitive admin files and backend scripts are **automatically removed** during the sync process.
+1.  **Dex (Public)**: A public repository containing only the user-facing website. All sensitive admin files and backend scripts are **automatically removed** during the sync process to guarantee security.
 
 ## Critical Sync Rules
 When adding new files or features, you MUST follow these rules to maintain security:
 
-### Admin-Only Files (Masterworld ONLY)
+### Admin-Only Files (Stripped from Public Dex)
 The following files and directories must **NEVER** exist in the `Dex` (Public) repository. They are defined in the `ADMIN_ONLY_FILES` list within `split-sync.yml`:
 - **Pages**: `src/pages/AdminDashboard.tsx`, `src/pages/AdminLogin.tsx`.
 - **Components**: `src/components/AdminLogin.tsx`, `src/components/NewsTab.tsx`, `src/components/SecurityTab.tsx`, `src/components/FirebaseStatusPanel.tsx`, `src/components/ClearanceButton.tsx`.
