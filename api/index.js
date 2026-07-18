@@ -4,6 +4,10 @@ var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
@@ -32,11 +36,20 @@ var import_compression = __toESM(require("compression"));
 var import_fs2 = __toESM(require("fs"));
 var import_dns = __toESM(require("dns"));
 
-// src/seoHelper.ts
-var import_fs = __toESM(require("fs"));
-var import_path = __toESM(require("path"));
-
 // src/lib/staticData.ts
+var staticData_exports = {};
+__export(staticData_exports, {
+  mockApps: () => mockApps,
+  mockBlogs: () => mockBlogs,
+  mockNews: () => mockNews,
+  mockSettings: () => mockSettings,
+  mockVideos: () => mockVideos,
+  saveMockApps: () => saveMockApps,
+  saveMockBlogs: () => saveMockBlogs,
+  saveMockNews: () => saveMockNews,
+  saveMockSettings: () => saveMockSettings,
+  saveMockVideos: () => saveMockVideos
+});
 var mockApps = [
   {
     "description_html": "<p>A new application.</p>",
@@ -3492,6 +3505,14 @@ var mockApps = [
     "version": "1.0"
   }
 ];
+var saveMockApps = (apps) => {
+  try {
+    localStorage.setItem("rummystore_apps", JSON.stringify(apps));
+  } catch (e) {
+    console.warn("saveMockApps storage failed:", e);
+  }
+  mockApps.splice(0, mockApps.length, ...apps);
+};
 var mockSettings = {
   "support_email": "support@rummydex.com",
   "contact_content": "<p>Have questions or feedback? We'd love to hear from you. Our team typically responds within 24-48 hours.</p>",
@@ -3542,6 +3563,14 @@ var mockSettings = {
   "helpline_telegram": "https://t.me/+d_BeX9h_fkVjMmM1",
   "quick_links": [],
   "important_notice_heading": "VERY IMPORTANT NOTICE "
+};
+var saveMockSettings = (settings) => {
+  try {
+    localStorage.setItem("rummystore_settings", JSON.stringify(settings));
+  } catch (e) {
+    console.warn("saveMockSettings storage failed:", e);
+  }
+  Object.assign(mockSettings, settings);
 };
 var mockNews = [
   {
@@ -3696,7 +3725,23 @@ var mockNews = [
 `
   }
 ];
+var saveMockNews = (newsList) => {
+  try {
+    localStorage.setItem("rummystore_news", JSON.stringify(newsList));
+  } catch (e) {
+    console.warn("saveMockNews storage failed:", e);
+  }
+  mockNews.splice(0, mockNews.length, ...newsList);
+};
 var mockBlogs = [];
+var saveMockBlogs = (blogs) => {
+  try {
+    localStorage.setItem("rummystore_blogs", JSON.stringify(blogs));
+  } catch (e) {
+    console.warn("saveMockBlogs storage failed:", e);
+  }
+  mockBlogs.splice(0, mockBlogs.length, ...blogs);
+};
 var mockVideos = [
   {
     "seo_title": "Rummy ",
@@ -3720,6 +3765,18 @@ var mockVideos = [
     "youtube_url": ""
   }
 ];
+var saveMockVideos = (videos) => {
+  try {
+    localStorage.setItem("rummystore_videos", JSON.stringify(videos));
+  } catch (e) {
+    console.warn("saveMockVideos storage failed:", e);
+  }
+  mockVideos.splice(0, mockVideos.length, ...videos);
+};
+
+// src/seoHelper.ts
+var import_fs = __toESM(require("fs"));
+var import_path = __toESM(require("path"));
 
 // src/lib/utils.ts
 var import_meta = {};
@@ -6796,9 +6853,7 @@ app.get("/api/v1/public/backup-data", (req, res) => {
         console.error("Error reading public_backup.json in backup-data endpoint:", e);
       }
     }
-    const staticDataPath = import_path2.default.resolve(process.cwd(), "src/lib/staticData");
-    const staticData = require(staticDataPath);
-    const { mockApps: mockApps2, mockSettings: mockSettings2, mockNews: mockNews2, mockBlogs: mockBlogs2, mockVideos: mockVideos2 } = staticData;
+    const { mockApps: mockApps2, mockSettings: mockSettings2, mockNews: mockNews2, mockBlogs: mockBlogs2, mockVideos: mockVideos2 } = staticData_exports;
     const fallbackData = {
       apps: mockApps2 || [],
       settings: mockSettings2 || {},
