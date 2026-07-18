@@ -1366,7 +1366,7 @@ export const mockSettings: GlobalSettings = {
   "support_email": "support@rummyapp.online",
   "disclaimer_text": "<div ",
   "terms_content": "<!-- ",
-  "last_updated": "2026-07-18T19:16:36.966Z",
+  "last_updated": "2026-07-18T19:17:00.688Z",
   "trending_searches": [
     "RummyApp Online",
     "rummyapp.online",
@@ -1529,7 +1529,7 @@ export const mockSettings: GlobalSettings = {
   "hero_title_color": "neon-sky",
   "helpline_whatsapp": "+918653034735",
   "responsibility_content": "<!-- ",
-  "secure_index_title": "RummyApp Online ",
+  "secure_index_title": "RummyDex ",
   "quick_links": [],
   "portal_heading": "IMPORTANT NOTICE ",
   "hero_title_text": "RummyApp Online ",
