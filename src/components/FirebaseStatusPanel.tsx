@@ -11,14 +11,42 @@ export default function FirebaseStatusPanel() {
   useEffect(() => {
     let mounted = true;
     
-    if (isFirebaseConfigured) {
-      setFirestoreStatus('connected');
-      setAuthStatus('connected');
-    } else {
-      setFirestoreStatus('disconnected');
-      setAuthStatus('disconnected');
-    }
-    return () => { mounted = false; };
+    const checkStatus = async () => {
+      if (!mounted) return;
+      
+      if (!isFirebaseConfigured) {
+        setFirestoreStatus('disconnected');
+        setAuthStatus('disconnected');
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/v1/admin/firebase-status');
+        if (response.ok) {
+          if (mounted) {
+            setFirestoreStatus('connected');
+            setAuthStatus('connected');
+          }
+        } else {
+          if (mounted) {
+            setFirestoreStatus('disconnected');
+            setAuthStatus('disconnected');
+          }
+        }
+      } catch (err) {
+        if (mounted) {
+          setFirestoreStatus('disconnected');
+          setAuthStatus('disconnected');
+        }
+      }
+    };
+
+    checkStatus();
+    const interval = setInterval(checkStatus, 30000);
+    return () => { 
+      mounted = false; 
+      clearInterval(interval);
+    };
   }, []);
 
   const StatusIcon = ({ status }: { status: string }) => {

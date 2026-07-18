@@ -21,6 +21,7 @@ import { sessionStore } from '../lib/sessionStore';
 import AppsTab from '../components/AppsTab';
 import BlogsTab from '../components/BlogsTab';
 import SecurityTab from '../components/SecurityTab';
+import FirebaseStatusPanel from '../components/FirebaseStatusPanel';
 
 function FaqEditor({ initialFaqs }: { initialFaqs: {question: string, answer: string}[] }) {
   const [faqs, setFaqs] = React.useState(initialFaqs || []);
@@ -177,30 +178,8 @@ const DashboardTab = React.memo(({ apps, news }: { apps: any[], news: any[] }) =
         </div>
       </div>
       
-      <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/60 dark:border-slate-700/50 p-6 rounded-[2rem] shadow-xl shadow-indigo-500/5 flex flex-col justify-between">
-        <div>
-          <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-4 uppercase tracking-widest flex items-center gap-2">
-             <Sparkles className="w-4 h-4 text-indigo-500" /> System Pulse
-          </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
-             All systems operating optimally. Gateway routes are serving {chartData[6].traffic} daily requests seamlessly across the infrastructure network.
-          </p>
-        </div>
-        
-        <div className="space-y-4">
-           <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-800/40 p-3 rounded-xl">
-             <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-200"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> API Gateway</div>
-             <span className="text-[10px] bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full font-bold">ONLINE</span>
-           </div>
-           <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-800/40 p-3 rounded-xl">
-             <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-200"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> WebSockets</div>
-             <span className="text-[10px] bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full font-bold">ONLINE</span>
-           </div>
-           <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-800/40 p-3 rounded-xl">
-             <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-200"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> Load Balancer</div>
-             <span className="text-[10px] bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full font-bold">ONLINE</span>
-           </div>
-        </div>
+      <div className="lg:col-span-1">
+        <FirebaseStatusPanel />
       </div>
     </div>
   </div>

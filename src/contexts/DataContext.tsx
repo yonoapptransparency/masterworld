@@ -977,7 +977,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           await setDoc(metaRef, { numChunks, last_updated: now });
           
         } catch (dbErr) {
-          // failed
+          console.error("Firestore apps chunk save failed:", dbErr);
+          throw dbErr; // Re-throw to be caught by the outer catch
         }
         
         // Save secure links mapping separately (fully encrypted to prevent read-leak of download URLs)
@@ -1013,7 +1014,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             await setDoc(doc(db, 'store_data', 'sec_vault'), payload);
             await setDoc(doc(db, 'store_data', 'sec_links_vault_3'), payload);
           } catch (dbErr) {
-            // failed
+            console.error("Firestore secure links save failed:", dbErr);
+            throw dbErr;
           }
         } else {
           console.error("Skipping secure_links update due to encryption failure to prevent data leak.");

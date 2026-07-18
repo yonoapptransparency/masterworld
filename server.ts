@@ -1130,6 +1130,28 @@ app.post("/api/v1/admin/verify-session", async (req: any, res: any) => {
       } catch { _recordAdminFail(ip); return res.status(503).json({ error: "Service unavailable." }); }
     }
 
+    // Auto-bootstrap primary admin into Firestore collection if they are missing
+    if (isAdmin && userEmail === confAdmin) {
+      try {
+        const adminDb = getFirebaseAdminDb();
+        if (adminDb) {
+          const adminRef = adminDb.collection('admins').doc(user.localId);
+          const docSnap = await adminRef.get();
+          if (!docSnap.exists) {
+            console.log(`[BOOTSTRAP] Registering primary admin ${userEmail} in Firestore...`);
+            await adminRef.set({
+              email: userEmail,
+              role: 'admin',
+              bootstrapped: true,
+              added_at: new Date().toISOString()
+            });
+          }
+        }
+      } catch (bootstrapErr: any) {
+        console.warn("[BOOTSTRAP] Could not ensure admin document in Firestore (permission issue?):", bootstrapErr.message);
+      }
+    }
+
     if (!isAdmin) {
       _recordAdminFail(ip);
       await _logAdminAttempt(config, { email: userEmail, ip, ua, success: false, reason: "not_admin", ts });
