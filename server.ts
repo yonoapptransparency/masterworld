@@ -56,6 +56,10 @@ const isRealValue = (id: string | undefined): boolean => {
       clean === 'null' ||
       clean.includes('REPLACE_WITH_YOUR_REAL_KEY') || 
       clean.includes('YOUR_API_KEY')) return false;
+  
+  // Reject scrambled/sandbox values (contain # ! @ & * and look like a hash but aren't real)
+  if (clean.length > 20 && (clean.includes('#') || clean.includes('!') || clean.includes('@'))) return false;
+  
   return true;
 };
 
@@ -65,6 +69,20 @@ function getRawFirebaseConfig(): any {
   if (cachedRawFirebaseConfig) {
     return cachedRawFirebaseConfig;
   }
+  
+  const HARDCODED_FALLBACK = {
+    projectId: "gen-lang-client-0825832493",
+    appId: "1:103973989874:web:733a6afd8e837224900f6b",
+    apiKey: "AIzaSyBey9sUbeWlrcXS2kl4ewOzkTy4arg03Ok",
+    authDomain: "gen-lang-client-0825832493.firebaseapp.com",
+    firestoreDatabaseId: "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a",
+    storageBucket: "gen-lang-client-0825832493.firebasestorage.app",
+    messagingSenderId: "103973989874",
+    measurementId: "",
+    oAuthClientId: "103973989874-t47nv87k532pt84s2i1tkl0vkmbih9k6.apps.googleusercontent.com",
+    recaptchaSiteKey: ""
+  };
+
   try {
     const rawData = fs.readFileSync(path.join(process.cwd(), 'firebase-applet-config.json'), 'utf8');
     const config = JSON.parse(rawData);
@@ -92,7 +110,9 @@ function getRawFirebaseConfig(): any {
       return cachedRawFirebaseConfig;
     }
     
-    return null;
+    // Final fallback to hardcoded config
+    cachedRawFirebaseConfig = HARDCODED_FALLBACK;
+    return cachedRawFirebaseConfig;
   }
 }
 
@@ -1000,16 +1020,16 @@ const verifyAdminToken = async (req: express.Request, res: express.Response, nex
       }
       if (!isDbAdmin && user.emailVerified === true) {
         try {
-          const dbCheckRes = await fetch(`https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/admins/${user.localId}${config.apiKey ? "?key=" + config.apiKey : ""}`);
-          if (dbCheckRes.ok) {
+          const dbCheckRes = await fetch(`https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/admins/${user.localId}${config.apiKey ? "?key=" + config.apiKey : ""}`).catch(e => { console.error("Admin DB check failed:", e); return null; });
+          if (dbCheckRes && dbCheckRes.ok) {
             isDbAdmin = true;
           } else {
             // Fallback check by email docId in case uid is not docId
-            const dbCheckResEmail = await fetch(`https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/admins/${email}${config.apiKey ? "?key=" + config.apiKey : ""}`);
-            if (dbCheckResEmail.ok) {
+            const dbCheckResEmail = await fetch(`https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/admins/${email}${config.apiKey ? "?key=" + config.apiKey : ""}`).catch(e => { console.error("Admin DB check email failed:", e); return null; });
+            if (dbCheckResEmail && dbCheckResEmail.ok) {
               isDbAdmin = true;
             } else {
-              const t2 = await dbCheckRes.text().catch(()=>""); const t3 = await dbCheckResEmail.text().catch(()=>""); console.error("dbCheckRes not ok: " + t2.substring(0, 100) + " " + t3.substring(0, 100));
+              const t2 = await dbCheckRes?.text().catch(()=>""); const t3 = await dbCheckResEmail?.text().catch(()=>""); console.error("dbCheckRes not ok: " + t2?.substring(0, 100) + " " + t3?.substring(0, 100));
             }
           }
         } catch (err) {
@@ -1051,6 +1071,7 @@ app.post("/api/v1/admin/verify-session", async (req: any, res: any) => {
 
   try {
     const config = getRawFirebaseConfig();
+    console.log("Config retrieved:", !!config, config?.projectId);
     if (!config || !config.apiKey) return res.status(503).json({ error: "Service unavailable." });
 
     console.log("Looking up token:", idToken); 
@@ -1058,7 +1079,15 @@ app.post("/api/v1/admin/verify-session", async (req: any, res: any) => {
       method: "POST", 
       headers: { "Content-Type": "application/json" }, 
       body: JSON.stringify({ idToken }) 
+    }).catch(err => {
+      console.error("Fetch lookup failed:", err);
+      return null;
     });
+
+    if (!lookup) {
+      _recordAdminFail(ip);
+      return res.status(500).json({ error: "Unauthorized: Network error during verification." });
+    }
     
     if (!lookup.ok) { 
       const text = await lookup.text(); 
@@ -1068,6 +1097,7 @@ app.post("/api/v1/admin/verify-session", async (req: any, res: any) => {
     }
 
     const lookupData = await lookup.json() as any;
+    console.log("Lookup data received:", !!lookupData);
     const user = lookupData.users?.[0];
     if (!user) { _recordAdminFail(ip); return res.status(401).json({ error: "Unauthorized: User not found." }); }
 
