@@ -1185,6 +1185,77 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
 });
 
   // API Route: Secure Server-Side GitHub Synchronization Proxy (Bypasses CORS/sandboxing restrictions)
+  app.post("/api/github-sync/test", verifyAdminToken, async (req, res) => {
+    try {
+      const { owner, repo, token } = req.body || {};
+      
+      let activeToken = token || process.env.PAT;
+      if (!activeToken) {
+        try {
+          const config = getRawFirebaseConfig();
+          if (config && config.projectId) {
+            const gitConfigUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/sec_git/cfg${config.apiKey ? "?key=" + config.apiKey : ""}`;
+            const gitHeaders: Record<string, string> = {};
+            if (req.headers.authorization) {
+              gitHeaders["Authorization"] = req.headers.authorization;
+            }
+            const gitConfigRes = await fetch(gitConfigUrl, { headers: gitHeaders });
+            if (gitConfigRes.ok) {
+              const gitConfigDoc = await gitConfigRes.json() as any;
+              if (gitConfigDoc?.fields?.token?.stringValue) {
+                activeToken = gitConfigDoc.fields.token.stringValue;
+              }
+            }
+          }
+        } catch (e) {}
+      }
+
+      if (!owner || !repo || !activeToken) {
+        return res.status(400).json({ message: "Missing required parameters (owner, repo, token)" });
+      }
+
+      const cleanToken = activeToken.trim();
+      const authHeader = cleanToken.toLowerCase().startsWith('ghp_') 
+        ? `token ${cleanToken}` 
+        : `Bearer ${cleanToken}`;
+
+      const testRes = await fetch(
+        `https://api.github.com/repos/${owner.trim()}/${repo.trim()}`,
+        {
+          headers: {
+            'Authorization': authHeader,
+            'Accept': 'application/vnd.github.v3+json',
+            'User-Agent': 'node-fetch'
+          }
+        }
+      );
+
+      if (testRes.ok) {
+        const repoData = await testRes.json() as any;
+        return res.json({ 
+          ok: true, 
+          message: `Connection successful! Found repository: ${repoData.full_name}`,
+          permissions: repoData.permissions
+        });
+      } else {
+        const errJSON = await testRes.json().catch(() => ({})) as any;
+        let tip = "";
+        if (testRes.status === 401 || testRes.status === 403) {
+          tip = "\n\n💡 Tip: Check if your PAT is valid and has at least 'Metadata' read permissions. For pushing files, you will need 'Contents' write permissions.";
+        } else if (testRes.status === 404) {
+          tip = "\n\n💡 Tip: Repository not found. Double check the Owner and Repository Name spelling/casing.";
+        }
+        return res.status(testRes.status).json({ 
+          ok: false, 
+          message: (errJSON.message || "Failed to connect to repository") + tip 
+        });
+      }
+    } catch (err: any) {
+      console.error("GitHub Test Connection error:", err);
+      return res.status(500).json({ message: err.message || "Internal server error" });
+    }
+  });
+
   app.post("/api/github-sync/commit", verifyAdminToken, async (req, res) => {
     try {
       const { owner, repo, token, branch, path: filePath, content, message } = req.body || {};

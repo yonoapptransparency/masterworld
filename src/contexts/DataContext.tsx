@@ -803,11 +803,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     log("GitHub Sync: Generating secure payload...");
     const updatedCode = generateStaticDataFileCode(finalApps, targetSettings, targetNews, targetBlogs, targetVideos);
     
-    log(`GitHub Sync: Payload generated successfully (${targetApps.length} apps, ${targetNews.length} news items).`);
-    
-    // Primary sync target is now the Dex repository for public content
+    // Target only the Dex repository for public content sync
     const targetRepo = 'Dex';
-    log(`GitHub Sync: Uploading public static data to GitHub repository "${targetRepo}"...`);
+    log(`GitHub Sync: Uploading public static data to the main website repository ("${targetRepo}")...`);
     
     try {
       await commitFileToGitHub({
@@ -821,25 +819,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       });
       log(`GitHub Sync: Static data successfully synced to "${targetRepo}".`);
     } catch (err: any) {
-      log(`GitHub Sync Error (Static Data): ${err.message}`);
-      // If Dex push fails, we still try to push to the configured master repo as a backup if it's different
-      if (configToUse.repo.toLowerCase() !== 'dex') {
-        log(`GitHub Sync: Attempting backup sync to master repository "${configToUse.repo}"...`);
-        try {
-          await commitFileToGitHub({
-            owner: configToUse.owner,
-            repo: configToUse.repo,
-            token: configToUse.token,
-            branch: configToUse.branch || 'main',
-            path: 'src/lib/staticData.ts',
-            content: updatedCode,
-            message: `Admin Release: Manual platform synchronization (Backup)`
-          });
-          log("GitHub Sync: Backup sync successful.");
-        } catch (e: any) {
-          log(`GitHub Sync Error (Backup): ${e.message}`);
-        }
-      }
+      log(`GitHub Sync Error (Static Data Sync to Dex): ${err.message}`);
+      throw new Error(`Failed to sync content to Dex: ${err.message}`);
     }
 
     log("GitHub Sync: Building AES Encrypted Vault for Dex hidden secure links...");
@@ -855,17 +836,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       if (vaultRes.ok) {
          const vaultData = await vaultRes.json();
          if (vaultData.ciphertext) {
-            log(`GitHub Sync: Writing Encrypted Vault to Dex repository...`);
+            log(`GitHub Sync: Writing Encrypted Vault to ${targetRepo} repository...`);
             await commitFileToGitHub({
               owner: configToUse.owner,
-              repo: 'Dex',
+              repo: targetRepo,
               token: configToUse.token,
               branch: configToUse.branch || 'main',
               path: 'src/lib/secureVault.ts',
               content: `export const ENCRYPTED_LINKS = "${vaultData.ciphertext}";\n`,
               message: `Admin Release: Secure vault synchronization for Dex`
             });
-            log(`GitHub Sync: Encrypted Vault successfully synced to Dex.`);
+            log(`GitHub Sync: Encrypted Vault successfully synced to ${targetRepo}.`);
          } else {
             log("GitHub Sync: Warning: No vault ciphertext returned, skipping vault sync.");
          }
@@ -873,7 +854,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
          log("GitHub Sync: Warning: Failed to seal vault (HTTP " + vaultRes.status + ").");
       }
     } catch(err: any) {
-        log(`GitHub Sync Error (Vault Sync): ${err.message}`);
+        log(`GitHub Sync Error (Vault Sync to Dex): ${err.message}`);
     }
 
     log("Local System: Applying backend static data patch...");

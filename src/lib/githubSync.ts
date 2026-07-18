@@ -324,7 +324,7 @@ export async function commitFileToGitHub({
     body: JSON.stringify({
       owner,
       repo,
-      
+      token,
       branch,
       path,
       content,

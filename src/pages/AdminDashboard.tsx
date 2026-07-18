@@ -774,6 +774,45 @@ const GithubTab = React.memo(({ pushAllToGitHub, gitConfig, saveGitConfig, gener
     }
   };
 
+  const handleTestConnection = async () => {
+    setSyncing(true);
+    setLogs(prev => [...prev, "Testing GitHub Connection..."]);
+    try {
+      const { getAuth } = await import('firebase/auth');
+      const auth = getAuth();
+      const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : '';
+      
+      const res = await fetch('/api/github-sync/test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+        },
+        body: JSON.stringify(localConfig)
+      });
+      
+      const data = await res.json();
+      if (res.ok) {
+        setLogs(prev => [...prev, `SUCCESS: ${data.message}`]);
+        if (data.permissions) {
+          setLogs(prev => [...prev, `Permissions: Push=${data.permissions.push ? '✅' : '❌'}, Pull=${data.permissions.pull ? '✅' : '❌'}, Admin=${data.permissions.admin ? '✅' : '❌'}`]);
+          if (!data.permissions.push) {
+            setLogs(prev => [...prev, "⚠️ WARNING: Token does not have PUSH permissions. Sync will fail."]);
+          }
+        }
+        alert("GitHub Connection Successful!");
+      } else {
+        setLogs(prev => [...prev, `CONNECTION FAILED: ${data.message}`]);
+        alert(`Connection Failed: ${data.message}`);
+      }
+    } catch (err: any) {
+      setLogs(prev => [...prev, `ERROR: ${err.message}`]);
+      alert(`Error testing connection: ${err.message}`);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const handleTogglePreview = () => {
     if (!showPreview) {
       try {
@@ -830,9 +869,20 @@ const GithubTab = React.memo(({ pushAllToGitHub, gitConfig, saveGitConfig, gener
               <input type="password" value={localConfig.token || ''} onChange={e => setLocalConfig({...localConfig, token: e.target.value})} placeholder="github_pat_..." className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all font-mono" required />
             </div>
           </div>
-          <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-semibold text-sm transition-all flex items-center gap-2">
-            <Save className="w-4 h-4" /> Save Configuration
-          </button>
+          <div className="flex gap-3">
+            <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-semibold text-sm transition-all flex items-center gap-2">
+              <Save className="w-4 h-4" /> Save Configuration
+            </button>
+            <button 
+              type="button" 
+              onClick={handleTestConnection} 
+              disabled={syncing || !localConfig.token}
+              className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-6 py-2.5 rounded-lg font-semibold text-sm transition-all flex items-center gap-2"
+            >
+              {syncing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <LinkIcon className="w-4 h-4" />}
+              Test Connection
+            </button>
+          </div>
         </form>
       </div>
 
