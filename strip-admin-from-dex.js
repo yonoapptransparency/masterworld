@@ -10,7 +10,7 @@ function stripAdmin() {
   content = content.replace(/.*__ADMIN_ENABLED__.*\n/g, '');
   
   // Remove Admin routes completely
-  content = content.replace(/<Route path=\{?`\/\$\{adminPath\}`\}[^>]*\/>/g, '');
+  content = content.replace(/<Route path=\{?`\/\$\{adminPath\}`\}[^\n]*\n?/g, '');
   content = content.replace(/<Route path=\{?`\/\$\{adminPath\}\/login`\}[\s\S]*?<\/ErrorBoundary>\s*\}\s*\/>/g, '');
   content = content.replace(/<Route path=\{?`\/\$\{adminPath\}\/\*`\}[\s\S]*?<\/ErrorBoundary>\s*\}\s*\/>/g, '');
   
