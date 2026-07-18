@@ -160,10 +160,11 @@ export interface AppConfig {
   features_html?: string;
   faqs?: {question: string; answer: string}[];
   link_configured?: boolean;
-  more_information_url?: string;
+  
   video_url?: string;
   is_top_chart?: boolean;
   top_chart_category?: string;
+  more_information_url?: string;
 }
 
 export interface Review {
@@ -323,7 +324,7 @@ export async function commitFileToGitHub({
     body: JSON.stringify({
       owner,
       repo,
-      token, // Send the token directly so that server doesn't fail if Firestore or Vercel config is missing/rate-limited
+      
       branch,
       path,
       content,

@@ -113,7 +113,7 @@ export default function PlayStoreRatingSection({ appId, appTitle, onReviewSubmit
       localStorage.setItem(`playstore_rating_val_${appId}`, rating.toString());
 
       // 2. Transmit to Firebase for live synchronization
-      if (isFirebaseConfigured && typeof window !== 'undefined' && (window.location.pathname.startsWith('/' + (import.meta.env.VITE_ADMIN_PATH || 'admin')))) {
+      if (isFirebaseConfigured && typeof window !== 'undefined' && (window.location.pathname.startsWith('/' + 'admin'))) {
         await addDoc(collection(db, 'reviews'), {
           app_id: appId,
           username: cleanName,

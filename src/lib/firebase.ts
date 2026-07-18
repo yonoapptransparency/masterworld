@@ -7,7 +7,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 
 // Allow Vite to statically bundle the configuration file
-import appletConfig from '../../firebase-applet-config.json';
+const appletConfig: any = {};
 
 declare global {
   interface Window {
@@ -80,98 +80,6 @@ const firebaseConfig = getSafeWindowConfig() || {
   messagingSenderId: resolvedMessagingId,
 };
 
-class MockUser {
-  uid = 'mock-admin-uid-123';
-  email = import.meta.env.VITE_ADMIN_EMAIL || 'admin@example.com';
-  emailVerified = true;
-  isAnonymous = false;
-  tenantId = null;
-  providerData = [];
-  async getIdToken() {
-    return 'MOCK_ADMIN_TOKEN';
-  }
-}
-
-class MockAuth {
-  private listeners: Array<(user: any) => void> = [];
-  _currentUser: any = null;
-
-  constructor() {
-    let isSessionValid = false;
-    let email = '';
-    if (typeof window !== 'undefined') {
-      if (localStorage.getItem('MOCK_ADMIN_SESSION') === 'true') {
-        isSessionValid = true;
-        email = localStorage.getItem('MOCK_ADMIN_EMAIL') || '';
-      } else {
-        const raw = sessionStorage.getItem('__adm_session');
-        if (raw) {
-          try {
-            const parsed = JSON.parse(raw);
-            if (parsed.idToken && parsed.email) {
-              isSessionValid = true;
-              email = parsed.email;
-              localStorage.setItem('MOCK_ADMIN_SESSION', 'true');
-              localStorage.setItem('MOCK_ADMIN_EMAIL', email);
-            }
-          } catch (_) {}
-        }
-      }
-    }
-    if (isSessionValid) {
-      this._currentUser = new MockUser();
-      if (email) {
-        this._currentUser.email = email;
-      }
-    }
-  }
-
-  get currentUser() {
-    return this._currentUser;
-  }
-
-  onAuthStateChanged(callback: (user: any) => void) {
-    this.listeners.push(callback);
-    setTimeout(() => {
-      callback(this._currentUser);
-    }, 0);
-    return () => {
-      this.listeners = this.listeners.filter(l => l !== callback);
-    };
-  }
-
-  async signInWithEmailAndPassword(email: string, password?: string) {
-    if (password !== 'admin123') {
-      const err = new Error('auth/wrong-password');
-      (err as any).code = 'auth/wrong-password';
-      throw err;
-    }
-    this._currentUser = new MockUser();
-    this._currentUser.email = email;
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('MOCK_ADMIN_SESSION', 'true');
-      localStorage.setItem('MOCK_ADMIN_EMAIL', email);
-    }
-    this.listeners.forEach(l => l(this._currentUser));
-    return { user: this._currentUser };
-  }
-
-  async signInWithPopup() {
-    const err = new Error('auth/operation-not-supported-in-this-environment');
-    (err as any).code = 'auth/operation-not-supported-in-this-environment';
-    throw err;
-  }
-
-  async signOut() {
-    this._currentUser = null;
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('MOCK_ADMIN_SESSION');
-      localStorage.removeItem('MOCK_ADMIN_EMAIL');
-    }
-    this.listeners.forEach(l => l(null));
-  }
-}
-
 const isAdminEnabled = typeof __ADMIN_ENABLED__ !== 'undefined' ? __ADMIN_ENABLED__ : true;
 
 export const isFirebaseConfigured = isAdminEnabled && isRealValue(firebaseConfig.apiKey) && isRealValue(firebaseConfig.projectId);
@@ -211,7 +119,7 @@ export const auth = (() => {
     };
     return realAuth;
   } else {
-    return new MockAuth() as any;
+    return null as any;
   }
 })();
 

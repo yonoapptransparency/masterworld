@@ -1,3 +1,4 @@
+import { safeHtml } from '../lib/safeHtml';
 /**
  * About page layout
  * Explains the verification frameworks, safe apk guidelines, and the platform mission statement.
@@ -33,14 +34,14 @@ export default function About() {
             <h2 className="text-sm uppercase tracking-wider font-semibold text-blue-600 dark:text-blue-400">Our Mission</h2>
             <div 
               className="text-2xl sm:text-3xl leading-snug font-bold text-zinc-900 dark:text-zinc-100"
-              dangerouslySetInnerHTML={{ __html: (mockSettings.about_content || '').split('\n\n')[0].replace(/\n/g, '<br/>') }}
+              dangerouslySetInnerHTML={{ __html: safeHtml((mockSettings.about_content || '').split('\n\n')[0].replace(/\n/g, '<br/>') ) }}
             />
           </div>
           <div className="lg:col-span-8 p-5 sm:p-8 md:p-12 bg-white dark:bg-zinc-900 rounded-2xl border border-black/5 dark:border-white/5 shadow-sm">
             <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 mb-6">Who We Are & What We Do</h2>
             <div 
               className="prose prose-zinc dark:prose-invert max-w-none text-zinc-600 dark:text-zinc-400 text-lg leading-relaxed font-medium"
-              dangerouslySetInnerHTML={{ __html: (mockSettings.about_content || '').split('\n\n').slice(1).join('<br/><br/>').replace(/\n/g, '<br/>') }}
+              dangerouslySetInnerHTML={{ __html: safeHtml((mockSettings.about_content || '').split('\n\n').slice(1).join('<br/><br/>').replace(/\n/g, '<br/>') ) }}
             />
           </div>
         </div>

@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+Disallow: /gateway/
+Disallow: /info/
+
+# Sitemap fallback (dynamic domains should refer to search engines)
+Sitemap: https://www.rummyapp.online/sitemap.xml

@@ -300,7 +300,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         if (res.ok) {
           const backup = await res.json();
           if (backup) {
-            const isAdminRoute = typeof window !== 'undefined' && (window.location.pathname.startsWith('/' + (import.meta.env.VITE_ADMIN_PATH || 'admin')));
+            const isAdminRoute = typeof window !== 'undefined' && (window.location.pathname.startsWith('/' + 'admin'));
 
             setApps(prev => {
               if (backup.apps && backup.apps.length > 0) {
@@ -388,7 +388,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const timeout = setTimeout(() => {
       setLoading(false);
       setLoadedFromServer(true);
-    }, 10);
+    }, 5000);
 
     // Fast sync fallback for deep links (especially new apps not in cache) - set to snappy visual performance
     const syncTimeout = setTimeout(() => {
@@ -404,10 +404,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setServerBlogsFetched(true);
       setServerVideosFetched(true);
       setLoading(false);
-    }, 10);
+    }, 5000);
 
     const checkConnection = async () => {
-      if (!isFirebaseReal || (typeof window !== 'undefined' && !(window.location.pathname.startsWith('/' + (import.meta.env.VITE_ADMIN_PATH || 'admin'))))) {
+      if (!isFirebaseReal || (typeof window !== 'undefined' && !(window.location.pathname.startsWith('/' + 'admin')))) {
           setIsConnected(false);
           setLoadedFromServer(true);
           setLoading(false);
@@ -462,9 +462,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     };
 
     checkConnection();
-    const connInterval = setInterval(checkConnection, 60000);
 
-    const isAdminRoute = typeof window !== 'undefined' && (window.location.pathname.startsWith('/' + (import.meta.env.VITE_ADMIN_PATH || 'admin')));
+    const isAdminRoute = typeof window !== 'undefined' && (window.location.pathname.startsWith('/' + 'admin'));
 
     if (!isFirebaseReal || !isAdminRoute) {
         // Mark as loaded immediately
@@ -478,7 +477,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         return () => {
             if (timeout) clearTimeout(timeout);
             clearTimeout(syncTimeout);
-            clearInterval(connInterval);
         };
     }
 
@@ -527,24 +525,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         }
         
         if (fetchedData) {
-          try {
-            const rawLinksMap: Record<string, string> = {};
-            loadedApps.forEach((app: any) => {
-              if (app.more_information_url && !app.more_information_url.startsWith('U2FsdGVkX1')) {
-                rawLinksMap[app.id] = app.more_information_url;
-              }
-            });
-            if (Object.keys(rawLinksMap).length > 0) {
-              const existingStr = localStorage.getItem('rummystore_recovered_links');
-              const existing = existingStr ? JSON.parse(existingStr) : {};
-              const merged = { ...existing, ...rawLinksMap };
-              localStorage.setItem('rummystore_recovered_links', JSON.stringify(merged));
-              console.log("Recovered raw plain-text links from Firestore chunk documents:", Object.keys(rawLinksMap));
-            }
-          } catch (e) {
-            console.warn("Failed to backup raw plain-text links in snapshot:", e);
-          }
-
           const data = loadedApps.map((app: any) => {
             delete app.more_information_url;
             delete app.encrypted_download_url;
@@ -593,7 +573,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setLoadedFromServer(true);
         checkLoaded('apps');
       }),
-      onSnapshot(doc(db, 'store_data', 'settings'), (snap) => {
+      onSnapshot(doc(db, 'store_data', 'public_settings'), (snap) => {
         if (snap.metadata.fromCache && (typeof window !== 'undefined' && (window as any).__INITIAL_DATA__)) return;
         if (snap.exists()) {
           const data = snap.data() as GlobalSettings;
@@ -715,7 +695,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       unsubs.forEach(u => u());
       if (timeout) clearTimeout(timeout);
       clearTimeout(syncTimeout);
-      clearInterval(connInterval);
     };
   }, []);
 
@@ -829,6 +808,25 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       message: `Admin Release: Manual platform synchronization triggered`
     });
 
+    const isMasterOrSource = ['masterworld', 'yono-transparency', 'yonotransparency-'].includes(configToUse.repo.toLowerCase());
+    if (isMasterOrSource) {
+      try {
+        log("GitHub Sync: Also syncing static data to public companion repo 'Dex'...");
+        await commitFileToGitHub({
+          owner: configToUse.owner,
+          repo: 'Dex',
+          token: configToUse.token,
+          branch: configToUse.branch || 'main',
+          path: 'src/lib/staticData.ts',
+          content: updatedCode,
+          message: `Admin Release: Manual platform synchronization triggered (Dex Companion)`
+        });
+        log("GitHub Sync: Public static data successfully synced to companion repo 'Dex'.");
+      } catch (dexErr: any) {
+        log(`GitHub Sync Warning (Dex Companion): ${dexErr.message}`);
+      }
+    }
+
     log("GitHub Sync: Public static data successfully synced.");
     
     log("Local System: Applying backend static data patch...");
@@ -864,6 +862,24 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
               message: `Admin Release: Secure vault synchronization`
             });
             log(`GitHub Sync: Encrypted Vault successfully synced to "${configToUse.repo}".`);
+
+            if (isMasterOrSource) {
+              try {
+                log("GitHub Sync: Also syncing secure vault to public companion repo 'Dex'...");
+                await commitFileToGitHub({
+                  owner: configToUse.owner,
+                  repo: 'Dex',
+                  token: configToUse.token,
+                  branch: configToUse.branch || 'main',
+                  path: 'src/lib/secureVault.ts',
+                  content: `export const ENCRYPTED_LINKS = "${vaultData.ciphertext}";\n`,
+                  message: `Admin Release: Secure vault synchronization (Dex Companion)`
+                });
+                log("GitHub Sync: Secure vault successfully synced to companion repo 'Dex'.");
+              } catch (dexErr: any) {
+                log(`GitHub Sync Warning (Dex Companion Vault): ${dexErr.message}`);
+              }
+            }
          } else {
             throw new Error(vaultData.error || "No ciphertext returned");
          }
@@ -949,7 +965,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             const chunk = JSON.parse(JSON.stringify(newApps.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE)));
             chunk.forEach((app: any) => { 
               // Inject public-safe metadata indicator for secure link availability
-              app.link_configured = !!(app.more_information_url || app.download_url || app.encrypted_download_url);
+              // link_configured removed for security
               delete app.more_information_url; 
               delete app.encrypted_download_url;
               delete app.download_url;
@@ -995,7 +1011,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             const payload = { encryptedData, lastUpdated: new Date().toISOString() };
             await setDoc(doc(db, 'store_data', 'secure_links'), payload);
             await setDoc(doc(db, 'store_data', 'sec_vault'), payload);
-            await setDoc(doc(db, 'store_data', 'sec_public_links'), payload);
+            await setDoc(doc(db, 'store_data', 'sec_links_vault_3'), payload);
           } catch (dbErr) {
             // failed
           }
@@ -1032,7 +1048,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     try {
       if (isFirebaseReal) {
-        const docRef = doc(db, 'store_data', 'settings');
+        const docRef = doc(db, 'store_data', 'public_settings');
         console.log("Cloud: Pushing Settings update...");
         // Sanitize settings payload to exclude any 'undefined' properties, preventing Firestore write failures
         const sanitized = JSON.parse(JSON.stringify(settingsWithTime));
@@ -1165,9 +1181,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
 
   const testCloudConnection = React.useCallback(async () => {
-    if (!isFirebaseReal || (typeof window !== 'undefined' && !(window.location.pathname.startsWith('/' + (import.meta.env.VITE_ADMIN_PATH || 'admin'))))) return false;
+    if (!isFirebaseReal || (typeof window !== 'undefined' && !(window.location.pathname.startsWith('/' + 'admin')))) return false;
     console.log("Connectivity Test: Starting...");
-    const settingsDoc = doc(db, 'store_data', 'settings');
+    const settingsDoc = doc(db, 'store_data', 'public_settings');
     
     try {
       const snap = await getDoc(settingsDoc);
@@ -1184,7 +1200,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const refreshAll = React.useCallback(async (silent = false) => {
-    if (!isFirebaseReal || (typeof window !== 'undefined' && !(window.location.pathname.startsWith('/' + (import.meta.env.VITE_ADMIN_PATH || 'admin'))))) {
+    if (!isFirebaseReal || (typeof window !== 'undefined' && !(window.location.pathname.startsWith('/' + 'admin')))) {
         setIsConnected(false);
         setLoading(false);
         return;

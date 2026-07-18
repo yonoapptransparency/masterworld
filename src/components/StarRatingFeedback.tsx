@@ -78,7 +78,7 @@ export default function StarRatingFeedback() {
       localStorage.setItem('user_feedback_rating', rating.toString());
 
       // 2. Try writing to Firestore inside a separate collections "website_feedback"
-      if (isFirebaseConfigured && typeof window !== 'undefined' && (window.location.pathname.startsWith('/' + (import.meta.env.VITE_ADMIN_PATH || 'admin')))) {
+      if (isFirebaseConfigured && typeof window !== 'undefined' && (window.location.pathname.startsWith('/' + 'admin'))) {
         await addDoc(collection(db, 'website_feedback'), {
           username: cleanName,
           rating: rating,

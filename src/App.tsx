@@ -98,9 +98,9 @@ const NewsDetailPage = lazyWithRetry(pageFactories.NewsDetailPage);
 const Blogs = lazyWithRetry(pageFactories.Blogs);
 const BlogDetailPage = lazyWithRetry(pageFactories.BlogDetailPage);
 const VideoDetailPage = lazyWithRetry(pageFactories.VideoDetailPage);
-
 const AdminLoginPageLazy = lazyWithRetry(() => import('./pages/AdminLogin'));
 const AdminDashboard = lazyWithRetry(() => import('./pages/AdminDashboard'));
+
 
 import FallbackRouteMatcher from './components/FallbackRouteMatcher';
 
@@ -130,8 +130,7 @@ function Header() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const adminPath = getAdminPath();
-
+  
   useEffect(() => {
     let ticking = false;
     const handleScroll = () => {
@@ -229,7 +228,6 @@ function Header() {
                       { to: '/notice', label: 'Notice', icon: ShieldCheck },
                       { to: '/ethics', label: 'Ethics', icon: ShieldCheck },
                       { to: '/disclaimer', label: 'Disclaimer', icon: ShieldCheck },
-                      ...(__ADMIN_ENABLED__ ? [{ to: `/${adminPath}/login`, label: 'Admin Login', icon: Shield }] : []),
                     ].map((item: any) => (
                       item.to ? (
                         <Link 
@@ -364,7 +362,6 @@ function Header() {
                 { to: '/notice', label: 'Notice', icon: ShieldCheck },
                 { to: '/ethics', label: 'Ethics', icon: ShieldCheck },
                 { to: '/disclaimer', label: 'Disclaimer', icon: ShieldCheck },
-                ...(__ADMIN_ENABLED__ ? [{ to: `/${adminPath}/login`, label: 'Admin Login', icon: Shield }] : []),
               ].map((item: any) => {
                 const active = item.to && pathname === item.to;
                 return item.to ? (
@@ -560,7 +557,7 @@ function SyncStatus() {
   const [testing, setTesting] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const location = useLocation();
-  const adminPath = import.meta.env.VITE_ADMIN_PATH || 'admin';
+  const adminPath = getAdminPath();
   const isAdminPath = location.pathname.startsWith(`/${adminPath}`);
 
   if (!isAdminPath) {
@@ -998,6 +995,54 @@ function AppContent() {
     };
   }, [isAdminPath]);
 
+  // __ADMIN_BLOCK_START__
+  const IS_ADMIN_BUILD = typeof window !== 'undefined' && (
+    window.location.hostname.includes('masterworld') ||
+    (window.location.hostname.includes('vercel.app') && !window.location.hostname.includes('dex'))
+  );
+  if (IS_ADMIN_BUILD || isAdminPath) {
+    return (
+      <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-slate-950">
+        <ScrollToTop />
+        {quotaExceeded && (
+          <div className="w-full bg-amber-500/10 border-b border-amber-500/20 text-amber-600 dark:text-amber-400 py-3 text-xs sm:text-sm font-semibold animate-fade-in z-50">
+            <div className="w-full flex flex-col md:flex-row items-center justify-between gap-4 px-3 sm:px-6 md:px-10 text-center md:text-left">
+              <div className="flex items-center gap-2.5">
+                <svg className="w-5 h-5 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span>
+                  <strong>Database Quota Exceeded:</strong> You have reached your Firebase plan's free daily quota for read/write operations. Standard visitors load items instantly via our server backup cache. The database quota will reset tomorrow.
+                </span>
+              </div>
+              <a 
+                href="https://console.firebase.google.com/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold uppercase text-[10px] tracking-wider rounded-lg transition-all shadow-md shrink-0 active:scale-95"
+              >
+                Upgrade Firebase Plan
+              </a>
+            </div>
+          </div>
+        )}
+        
+        <div className="flex-1 w-full flex flex-col">
+          <Suspense fallback={<LoadingScreen />}>
+            <Routes location={location}>
+              <Route path="/" element={<Navigate to={`/${adminPath}/login`} replace />} />
+              <Route path={`/${adminPath}`} element={<ErrorBoundary fallback={<LoadingScreen />}><AdminLoginPageLazy /></ErrorBoundary>} />
+              <Route path={`/${adminPath}/login`} element={<ErrorBoundary fallback={<LoadingScreen />}><AdminLoginPageLazy /></ErrorBoundary>} />
+              <Route path={`/${adminPath}/*`} element={<ErrorBoundary fallback={<LoadingScreen />}><AdminDashboard /></ErrorBoundary>} />
+              <Route path="*" element={<Navigate to={`/${adminPath}/login`} replace />} />
+            </Routes>
+          </Suspense>
+        </div>
+      </div>
+    );
+  }
+  // __ADMIN_BLOCK_END__
+
   return (
     <div className="flex flex-col min-h-screen">
       <ScrollToTop />
@@ -1054,21 +1099,8 @@ function AppContent() {
             <Route path="/panel" element={<Navigate to="/" replace />} />
             
             {/* Keep obfuscated paths as fallback mapping */}
-            <Route path={`/${adminPath}`} element={<Navigate to={`/${adminPath}/dashboard`} replace />} />
-            <Route path={`/${adminPath}/login`} element={
-              <ErrorBoundary fallback={<div className="p-8 text-center"><h2 className="text-xl font-bold">Failed to load Admin section</h2><p className="text-slate-500 mt-2">This may happen if you are on the public repository where admin files are stripped.</p></div>}>
-                <Suspense fallback={<div className="flex h-screen items-center justify-center p-8"><div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>}>
-                  <AdminLoginPageLazy />
-                </Suspense>
-              </ErrorBoundary>
-            } />
-            <Route path={`/${adminPath}/*`} element={
-              <ErrorBoundary fallback={<div className="p-8 text-center"><h2 className="text-xl font-bold">Failed to load Admin section</h2><p className="text-slate-500 mt-2">This may happen if you are on the public repository where admin files are stripped.</p></div>}>
-                <Suspense fallback={<div className="flex h-screen items-center justify-center p-8"><div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>}>
-                  <AdminDashboard />
-                </Suspense>
-              </ErrorBoundary>
-            } />
+                        
+            
                 
                 <Route path="*" element={<FallbackRouteMatcher />} />
               </Routes>

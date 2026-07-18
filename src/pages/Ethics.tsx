@@ -1,3 +1,4 @@
+import { safeHtml } from '../lib/safeHtml';
 import { motion } from 'framer-motion';
 import { useData } from '../contexts/DataContext';
 import { Link } from 'react-router-dom';
@@ -45,7 +46,7 @@ export default function Ethics() {
           <article className="lg:col-span-9 p-5 sm:p-8 md:p-14 bg-white dark:bg-zinc-900/50 border border-black/5 dark:border-white/5 rounded-2xl shadow-sm">
             <div 
               className="prose prose-zinc dark:prose-invert max-w-none text-zinc-700 dark:text-zinc-300 font-medium leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: mockSettings.ethics_discrimination_text || '<p>Ethics and safety information goes here.</p>' }}
+              dangerouslySetInnerHTML={{ __html: safeHtml(mockSettings.ethics_discrimination_text || '<p>Ethics and safety information goes here.</p>' ) }}
             />
           </article>
         </div>

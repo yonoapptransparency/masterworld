@@ -107,10 +107,11 @@ export interface AppConfig {
   features_html?: string;
   faqs?: {question: string; answer: string}[];
   link_configured?: boolean;
-  more_information_url?: string;
+  
   is_top_chart?: boolean;
   top_chart_category?: string;
   video_url?: string;
+  more_information_url?: string;
 }
 
 export interface Review {

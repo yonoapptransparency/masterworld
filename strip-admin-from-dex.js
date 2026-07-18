@@ -25,6 +25,9 @@ function stripAdmin() {
   content = content.replace(/const isAdminPath = location\.pathname\.startsWith\(`\/\$\{adminPath\}`\);\n/g, 'const isAdminPath = false;\n');
   content = content.replace(/&& !isAdminPath/g, '');
   
+  // Remove the Admin return block completely
+  content = content.replace(/\/\/ __ADMIN_BLOCK_START__[\s\S]*?\/\/ __ADMIN_BLOCK_END__\n?/g, '');
+  
   fs.writeFileSync(appTsxPath, content, 'utf8');
   
   // Now strip from vite.config.ts
@@ -38,7 +41,7 @@ function stripAdmin() {
     viteContent = viteContent.replace(/\{\s*find: \/.*\/pages\/AdminDashboard\$[\s\S]*?dummyAdmin\.ts'\)\s*\},\s*/g, '');
     viteContent = viteContent.replace(/\{\s*find: \/.*\/pages\/AdminLogin\$[\s\S]*?dummyAdmin\.ts'\)\s*\},\s*/g, '');
     viteContent = viteContent.replace(/\{\s*find: \/.*\/components\/AdminLogin\$[\s\S]*?dummyAdmin\.ts'\)\s*\},\s*/g, '');
-    viteContent = viteContent.replace(/\{\s*find: \/.*\/components\/ClearanceButton\$[\s\S]*?dummyComponent\.tsx'\)\s*\},\s*/g, '');
+    viteContent = viteContent.replace(/\{\s*find: \/.*\/components\/ClearanceButton\$[\s\S]*?dummyAdmin\.ts'\)\s*\},\s*/g, '');
     viteContent = viteContent.replace(/\{\s*find: \/.*\/components\/NewsTab\$[\s\S]*?dummyAdmin\.ts'\)\s*\},\s*/g, '');
     viteContent = viteContent.replace(/\{\s*find: \/.*\/components\/AppsTab\$[\s\S]*?dummyAdmin\.ts'\)\s*\},\s*/g, '');
     viteContent = viteContent.replace(/\{\s*find: \/.*\/components\/BlogsTab\$[\s\S]*?dummyAdmin\.ts'\)\s*\},\s*/g, '');

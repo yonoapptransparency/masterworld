@@ -1,3 +1,4 @@
+import { safeHtml } from '../lib/safeHtml';
 import { adminFetch } from '../services/adminAuthService';
 import React, { useState, useEffect } from 'react';
 import { 
@@ -1043,7 +1044,12 @@ const AppsTab = React.memo(({ appsList, editingAppId, setEditingAppId, handleDel
                                 });
                                 const data = await res.json();
                                 if (data.decrypted) {
-                                  alert('Decrypted Link URL:\n' + data.decrypted);
+                                  try {
+                                      await navigator.clipboard.writeText(data.decrypted);
+                                      alert('Link copied to clipboard (hidden for security)');
+                                    } catch (e) {
+                                      console.log('Failed to copy');
+                                    }
                                 } else {
                                   alert('Failed to decrypt URL.');
                                 }
@@ -1398,7 +1404,7 @@ const AppsTab = React.memo(({ appsList, editingAppId, setEditingAppId, handleDel
                                 {isOpen && (
                                   <div 
                                     className="p-3.5 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 font-medium leading-relaxed border-t border-slate-100 dark:border-slate-800"
-                                    dangerouslySetInnerHTML={{ __html: faq.answer }}
+                                    dangerouslySetInnerHTML={{ __html: safeHtml(faq.answer ) }}
                                   />
                                 )}
                               </div>

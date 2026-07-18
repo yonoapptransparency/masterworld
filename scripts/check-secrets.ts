@@ -75,23 +75,14 @@ if (!fs.existsSync(configPath)) {
 
 if (needsRegen) {
   console.log('Generating/overwriting firebase-applet-config.json with real active settings...');
-  fs.writeFileSync(configPath, JSON.stringify({
-    projectId: process.env.VITE_FIREBASE_PROJECT_ID || "gen-lang-client-0825832493",
-    appId: process.env.VITE_FIREBASE_APP_ID || "1:103973989874:web:733a6afd8e837224900f6b",
-    apiKey: process.env.VITE_FIREBASE_API_KEY || ("AIza" + "SyBey9sUbeWlrc" + "XS2kl4ewOzkTy4arg03Ok"),
-    authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || "gen-lang-client-0825832493.firebaseapp.com",
-    firestoreDatabaseId: process.env.VITE_FIREBASE_DATABASE_ID || "ai-studio-886315a4-8b9f-4ff6-8986-a90ad172210a",
-    storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || "gen-lang-client-0825832493.firebasestorage.app",
-    messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_ID || process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "103973989874",
-    measurementId: ""
-  }, null, 2));
+  fs.writeFileSync(configPath, JSON.stringify({}, null, 2));
 }
 
 const hasSecrets = scanDirectory(currentDir);
 
 if (hasSecrets) {
-  console.warn('\n⚠️ WARNING: Potential hardcoded secrets found. Please secure them via environment variables (.env) before production release.');
-  process.exit(0);
+  console.error('\n🚨 ERROR: Hardcoded secrets found. Deployment blocked.');
+  process.exit(1);
 } else {
   console.log('✅ No hardcoded secrets detected. Proceeding...');
   process.exit(0);

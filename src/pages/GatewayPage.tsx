@@ -263,7 +263,7 @@ export default function GatewayPage() {
         <meta property="og:title" content={`${app.name} - Download`} />
         <meta property="og:description" content={`${app.name} download page. Complete verification to access the download link.`} />
         <meta property="og:image" content={app.og_image_url || app.icon_url} />
-        <meta property="og:url" content={`https://www.rummyapp.online/gateway/${app.slug}`} />
+        <meta property="og:url" content={`https://www.rummyapp.online/app/${app.slug}`} />
         <meta name="robots" content="noindex, nofollow" />
         <link rel="canonical" href={`https://www.rummyapp.online/app/${app.slug}`} />
         <script type="application/ld+json">

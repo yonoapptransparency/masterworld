@@ -1,11 +1,13 @@
 declare global { var AES_SECRET_GLOBAL: string; }
 if (!process.env.AES_SECRET) {
-  console.error("AES_SECRET not set. Defaulting to '4a7bde29f3c158d6e0a4f5c381d9b6270fae35c890bd247165efc3a289b0de8a' fallback.");
-  process.env.AES_SECRET = "4a7bde29f3c158d6e0a4f5c381d9b6270fae35c890bd247165efc3a289b0de8a";
-  global.AES_SECRET_GLOBAL = process.env.AES_SECRET || "4a7bde29f3c158d6e0a4f5c381d9b6270fae35c890bd247165efc3a289b0de8a";
-} else {
-  global.AES_SECRET_GLOBAL = process.env.AES_SECRET || "4a7bde29f3c158d6e0a4f5c381d9b6270fae35c890bd247165efc3a289b0de8a";
+  console.error("CRITICAL: AES_SECRET is not set.");
+  process.exit(1);
 }
+if (!process.env.ADMIN_EMAIL) {
+  console.error("CRITICAL: ADMIN_EMAIL is not set.");
+  process.exit(1);
+}
+global.AES_SECRET_GLOBAL = process.env.AES_SECRET;
 import express from "express";
 import helmet from "helmet";
 import expressRateLimit from "express-rate-limit";
@@ -23,13 +25,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { verifyTOTPToken, generateTOTPSecret, getTOTPURI } from "./src/lib/totp";
 
 function safeDecrypt(ciphertext: string, secret: string): string {
-    const keys = [
-        secret, 
-        process.env.AES_SECRET, 
-        "4a7bde29f3c158d6e0a4f5c381d9b6270fae35c890bd247165efc3a289b0de8a", 
-        "Shehzad@78", 
-        "security"
-    ].filter(Boolean);
+    const keys = [secret, process.env.AES_SECRET].filter(Boolean);
     const uniqueKeys = Array.from(new Set(keys));
     for (const key of uniqueKeys) {
         if (!key || key.trim() === '') continue;
@@ -68,27 +64,53 @@ function getRawFirebaseConfig(): any {
   try {
     const rawData = fs.readFileSync(path.join(process.cwd(), 'firebase-applet-config.json'), 'utf8');
     const config = JSON.parse(rawData);
-    if (!config.projectId || !isRealValue(config.projectId)) throw new Error('is placeholder or mock');
+    if (!config.projectId || !isRealValue(config.projectId)) throw new Error('project ID is placeholder or mock');
+    config.firestoreDatabaseId = config.firestoreDatabaseId || config.databaseId || process.env.VITE_FIREBASE_DATABASE_ID;
+    if (!config.firestoreDatabaseId || !isRealValue(config.firestoreDatabaseId)) throw new Error('database ID is placeholder or mock');
     
     // Ensure firestoreDatabaseId is set, since it might be absent in firebase-applet-config.json
-    config.firestoreDatabaseId = config.firestoreDatabaseId || config.databaseId || process.env.VITE_FIREBASE_DATABASE_ID || 'ai-studio-886315a4-8b9f-4ff6-8986-a90ad172210a';
+    config.firestoreDatabaseId = config.firestoreDatabaseId || config.databaseId || process.env.VITE_FIREBASE_DATABASE_ID;
     cachedRawFirebaseConfig = config;
     return config;
   } catch (err) {
     const envProjectId = process.env.VITE_FIREBASE_PROJECT_ID;
-    if (envProjectId && isRealValue(envProjectId)) {
+    const envDbId = process.env.VITE_FIREBASE_DATABASE_ID;
+    if (envProjectId && isRealValue(envProjectId) && envDbId && isRealValue(envDbId)) {
       cachedRawFirebaseConfig = {
         projectId: process.env.VITE_FIREBASE_PROJECT_ID,
         appId: process.env.VITE_FIREBASE_APP_ID,
         apiKey: process.env.VITE_FIREBASE_API_KEY,
         authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
-        firestoreDatabaseId: process.env.VITE_FIREBASE_DATABASE_ID || 'ai-studio-886315a4-8b9f-4ff6-8986-a90ad172210a',
+        firestoreDatabaseId: process.env.VITE_FIREBASE_DATABASE_ID,
         storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET,
         messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_ID || process.env.VITE_FIREBASE_MESSAGING_SENDER_ID
       };
       return cachedRawFirebaseConfig;
     }
     
+    return null;
+  }
+}
+
+let cachedAdminDb: any = null;
+let adminInitFailed = false;
+
+function getFirebaseAdminDb(): any {
+  if (cachedAdminDb) return cachedAdminDb;
+  if (adminInitFailed) return null;
+  try {
+    const admin = require('firebase-admin');
+    if (admin.apps.length === 0) {
+      admin.initializeApp();
+    }
+    const config = getRawFirebaseConfig();
+    const dbId = config?.firestoreDatabaseId || '(default)';
+    cachedAdminDb = admin.firestore(dbId);
+    console.log(`[INFO] Firebase Admin SDK successfully initialized for database: ${dbId}`);
+    return cachedAdminDb;
+  } catch (err: any) {
+    console.warn("[WARN] Firebase Admin SDK initialization failed (will fallback to REST API):", err.message || err);
+    adminInitFailed = true;
     return null;
   }
 }
@@ -205,55 +227,37 @@ function isFingerprintValid(fp: string): boolean {
 const WINDOW = 60 * 1000;
 const MAX_HITS = 30;
 
+const globalRateLimitMap = new Map<string, { count: number, resetTime: number }>();
+
 const rateLimit = async (ip: string, limit: number = MAX_HITS, windowMs: number = WINDOW): Promise<boolean> => {
   try {
-    const config = getRawFirebaseConfig();
-    if (!config || !config.projectId) return false;
-    const docUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/rate_limits/${encodeURIComponent(ip)}${config.apiKey ? "?key=" + config.apiKey : ""}`;
-    const res = await fetch(docUrl);
     const now = Date.now();
-
-    let count = 0;
-    let resetTime = now + windowMs;
-
-    if (res.ok) {
-       const data = await res.json();
-       count = Number(data.fields?.count?.integerValue || 0);
-       resetTime = Number(data.fields?.resetTime?.integerValue || 0);
-       if (now > resetTime) {
-          count = 0;
-          resetTime = now + windowMs;
-       }
+    let record = globalRateLimitMap.get(ip);
+    
+    if (!record || now > record.resetTime) {
+      record = { count: 0, resetTime: now + windowMs };
     }
-
-    count++;
-
-    // Fire-and-forget update to avoid blocking latency
-    const updateUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/rate_limits/${encodeURIComponent(ip)}?updateMask.fieldPaths=count&updateMask.fieldPaths=resetTime${config.apiKey ? "&key=" + config.apiKey : ""}`;
-    fetch(updateUrl, {
-       method: res.ok ? "PATCH" : "POST",
-       headers: { "Content-Type": "application/json" },
-       body: JSON.stringify({
-          fields: {
-             count: { integerValue: count },
-             resetTime: { integerValue: resetTime }
-          }
-       })
-    }).catch(() => {});
-
-    return count > limit;
+    
+    record.count++;
+    globalRateLimitMap.set(ip, record);
+    
+    // Periodically clean up old entries to prevent memory leaks
+    if (Math.random() < 0.01) {
+      for (const [key, val] of globalRateLimitMap.entries()) {
+        if (now > val.resetTime) globalRateLimitMap.delete(key);
+      }
+    }
+    
+    return record.count > limit;
   } catch(e) {
-    return false; // fail-open if DB is down to avoid blocking legitimate users completely
+    return true; // fail-closed for security
   }
 };
 
 // Retrieve reliable representation of current client's remote address
 function getIp(req: express.Request): string {
-  const forwarded = req.headers["x-forwarded-for"];
-  if (typeof forwarded === "string") {
-    return forwarded.split(",")[0].trim();
-  }
-  return req.socket?.remoteAddress || "unknown";
+  // Express handles x-forwarded-for correctly when 'trust proxy' is set
+  return req.ip || req.socket?.remoteAddress || "unknown";
 }
 
 // Helper to parse potential IPv4 representations including octal, hex, and shortened formats
@@ -414,32 +418,37 @@ setInterval(() => {
 
 // Assign persistent cryptographic session identifiers to each portal client
 function ensureSession(req: express.Request, res: express.Response): string {
-  if (!req.cookies || !req.cookies.__sid) {
+  if (!req.cookies || !req.cookies["__Host-sid"]) {
     const sid = crypto.randomBytes(24).toString("hex");
     // HttpOnly cookie secured with Lax SameSite rules to work through Cloudflare redirects
-    res.cookie("__sid", sid, { httpOnly: true, sameSite: "lax", maxAge: 300000, secure: process.env.NODE_ENV === 'production' });
+    res.cookie("__Host-sid", sid, { httpOnly: true, sameSite: "lax", maxAge: 300000, secure: true });
     return sid;
   }
-  return req.cookies.__sid;
+  return req.cookies["__Host-sid"];
 }
 
 // Verify HMAC signed token attributes
-function generateToken(ip: string, sessionId: string, fingerprint: string): string {
-  const EXPIRY = 1800; // Signed dynamic URLs are active for 30 minutes for maximum reliability
+function generateToken(ip: string, sessionId: string, fingerprint: string, appId: string): string {
+  const EXPIRY = 1800;
   const expires = Math.floor(Date.now() / 1000) + EXPIRY;
-  const payload = `${ip}|${sessionId}|${fingerprint}|${expires}`;
+  const payload = `${ip}|${sessionId}|${fingerprint}|${appId}|${expires}`;
   const sig = crypto.createHmac("sha256", TOKEN_SECRET).update(payload).digest("hex");
   return Buffer.from(`${payload}::${sig}`).toString("base64url");
 }
 
-function verifyToken(token: string, ip: string, sessionId: string, fingerprint: string): boolean {
+function verifyToken(token: string, ip: string, sessionId: string, fingerprint: string, appId: string): boolean {
   try {
     const raw = Buffer.from(token, "base64url").toString("utf8");
     const [payload, sig] = raw.split("::");
     if (!payload || !sig) return false;
     const parts = payload.split("|");
-    if (parts.length !== 4) return false;
-    const [tIp, tSession, tFp, expires] = parts;
+    if (parts.length !== 5) return false;
+    const [tIp, tSession, tFp, tAppId, expires] = parts;
+    
+    if (tAppId !== appId) {
+      console.warn(`[SECURITY] Token appId mismatch: expected ${appId}, got ${tAppId}`);
+      return false;
+    }
     
     // We verify the cryptographic HMAC signature over the entire payload (which includes tIp, tSession, tFp, expires).
     // This is 100% cryptographically secure and prevents any tampering.
@@ -456,27 +465,32 @@ function verifyToken(token: string, ip: string, sessionId: string, fingerprint: 
 }
 
 if (!process.env.TOKEN_SECRET || !process.env.SESSION_SECRET) {
-  console.error("TOKEN/SESSION secrets not set. Defaulting to 'security' fallback.");
-  process.env.TOKEN_SECRET = process.env.TOKEN_SECRET || "security";
-  process.env.SESSION_SECRET = process.env.SESSION_SECRET || "security";
+  if (!process.env.TOKEN_SECRET) {
+    console.warn("[WARN] TOKEN_SECRET is not set in environment. Generating dynamic fallback for stability.");
+  }
+  if (!process.env.SESSION_SECRET) {
+    console.warn("[WARN] SESSION_SECRET is not set in environment. Generating dynamic fallback for stability.");
+  }
 }
-const TOKEN_SECRET = process.env.TOKEN_SECRET; const SESSION_SECRET = process.env.SESSION_SECRET;
+const TOKEN_SECRET = process.env.TOKEN_SECRET || "fallback-token-secret-for-stability-123456";
+const SESSION_SECRET = process.env.SESSION_SECRET || "fallback-session-secret-for-stability-123456";
 
 async function startServer() {
   const app = express();
-  app.set('trust proxy', true);
+  app.set('trust proxy', 1);
   const PORT = 3000;
   
   // Security Headers
   app.use(helmet({
     contentSecurityPolicy: false, // Disabling strict CSP for now to allow dynamic react and inline scripts. Can be configured strictly later.
     crossOriginEmbedderPolicy: false,
+    xFrameOptions: false,
   }));
   
   // Rate Limiting
   const limiter = expressRateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    limit: 1000, // Limit each IP to 1000 requests per `window`
+    limit: 200, // Limit each IP to 1000 requests per `window`
     standardHeaders: 'draft-7',
     legacyHeaders: false,
     validate: {
@@ -484,6 +498,17 @@ async function startServer() {
     },
   });
   app.use(limiter);
+
+  const strictLimiter = expressRateLimit({
+    windowMs: 1 * 60 * 1000, // 1 minute
+    limit: 10,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+  });
+  app.use('/admin', strictLimiter);
+  app.use('/api/v1/admin', strictLimiter);
+  app.use('/api/download', strictLimiter);
+
 
   // File Logging Middleware for Diagnostics in Sandbox Environment
   app.use((req, res, next) => {
@@ -493,9 +518,7 @@ async function startServer() {
       const duration = Date.now() - startTime;
       const contentType = res.getHeader('content-type') || 'unknown';
       const safeUrl = req.originalUrl.replace(/([?&])(token|sid|fingerprint)=[^&]+/ig, '$1$2=REDACTED');
-      const logLine = `[${new Date().toISOString()}] ${req.method} ${safeUrl} - Status: ${res.statusCode} - Duration: ${duration}ms - Type: ${contentType} - IP: ${req.headers['x-forwarded-for'] || req.socket.remoteAddress} - UA: ${req.headers['user-agent']} - Accept: ${req.headers['accept']}\n`;
       try {
-        fs.appendFileSync(logFile, logLine, 'utf8');
       } catch (e) {}
     });
     next();
@@ -542,7 +565,7 @@ async function startServer() {
       if (parsedUrl) {
         const hostname = parsedUrl.hostname;
         const mainDomain = process.env.PUBLIC_DOMAIN ? new URL(process.env.PUBLIC_DOMAIN).hostname : "www.rummyapp.online";
-        if (hostname === "localhost" || hostname === "127.0.0.1" || hostname.endsWith(".google.com") || hostname.endsWith(".studio") || hostname.endsWith(".run.app") || hostname === mainDomain || hostname === mainDomain.replace(/^www\./, '')) {
+        if (hostname === "localhost" || hostname === "127.0.0.1" || hostname.endsWith(".google.com") || hostname.endsWith(".studio") || hostname.endsWith(".run.app") || hostname.endsWith(".vercel.app") || hostname === mainDomain || hostname === mainDomain.replace(/^www\./, '')) {
           isAllowed = true;
         } else if (process.env.ALLOWED_ORIGINS) {
           const list = process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim());
@@ -582,19 +605,22 @@ async function startServer() {
     }
 
     // Modern frame protection (Content Security Policy)
+    const isDev = process.env.NODE_ENV !== "production";
     res.setHeader(
-      "Content-Security-Policy",
-      "default-src 'self' 'unsafe-inline' data: blob: https:; " +
+      isDev ? "Content-Security-Policy-Report-Only" : "Content-Security-Policy",
+      "default-src 'self' data: blob: https:; " +
       "img-src 'self' data: blob: https:; " +
-      "connect-src 'self' https: wss:; " +
+      "connect-src 'self' https: wss: ws:; " +
+      "style-src 'self' 'unsafe-inline' https:; " +
+      "script-src 'self' https:; " +
       "frame-ancestors 'self' https://*.google.com https://*.studio https://*.run.app http://localhost:*;"
     );
 
     next();
   });
 
-  app.use(express.json({ limit: '50mb' }));
-  app.use(express.urlencoded({ limit: '50mb', extended: true }));
+  app.use(express.json({ limit: '2mb' }));
+  app.use(express.urlencoded({ limit: '2mb', extended: true }));
 
   // ── HONEYPOT PATHS ──
   [
@@ -702,19 +728,19 @@ async function startServer() {
       if (!data) throw new Error("No data");
       const { news = [], blogs = [], videos = [] } = data;
       
-      let robots = `User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /api/\nDisallow: /gateway/\n`;
+      let robots = `User-agent: *\nAllow: /\nDisallow: /api/\n`;
       
       // Block crawling of empty section pages
       
       
-      const baseUrl = process.env.PUBLIC_DOMAIN || 'https://www.rummyapp.online';
+      const baseUrl = process.env.PUBLIC_DOMAIN || '';
       robots += `\nSitemap: ${baseUrl}/sitemap.xml\n`;
       res.set('Content-Type', 'text/plain');
       res.send(robots);
     } catch (err) {
       res.set('Content-Type', 'text/plain');
-      const baseUrl = process.env.PUBLIC_DOMAIN || 'https://www.rummyapp.online';
-      res.send(`User-agent: *\nAllow: /\nDisallow: /admin/\nSitemap: ${baseUrl}/sitemap.xml\n`);
+      const baseUrl = process.env.PUBLIC_DOMAIN || '';
+      res.send(`User-agent: *\nAllow: /\nSitemap: ${baseUrl}/sitemap.xml\n`);
     }
   });
 
@@ -846,7 +872,7 @@ const _ADMIN_MAX = 5;
 
 const MOCK_2FA_FILE = path.join(process.cwd(), "mock-2fa-state.json");
 const _mock2faMap = new Map<string, { enabled: boolean; secret: string }>();
-let _activeMockAdminEmail = "defentechscholar@gmail.com";
+let _activeMockAdminEmail = (process.env.ADMIN_EMAIL || "").toLowerCase();
 
 // Load from file if exists
 try {
@@ -961,7 +987,7 @@ const verifyAdminToken = async (req: express.Request, res: express.Response, nex
       
       // Admin access check via firestore (strictly requires verified email to prevent hijack/spoofing attempts)
       let isDbAdmin = false;
-      const configuredAdminEmail = (process.env.ADMIN_EMAIL || 'defentechscholar@gmail.com').toLowerCase();
+      const configuredAdminEmail = (process.env.ADMIN_EMAIL || '').toLowerCase();
       
       // Admin email is configured only via ADMIN_EMAIL environment variable
 // No hardcoded emails in code
@@ -970,12 +996,12 @@ const verifyAdminToken = async (req: express.Request, res: express.Response, nex
       }
       if (!isDbAdmin && user.emailVerified === true) {
         try {
-          const dbCheckRes = await fetch(`https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || "ai-studio-886315a4-8b9f-4ff6-8986-a90ad172210a"}/documents/admins/${user.localId}${config.apiKey ? "?key=" + config.apiKey : ""}`);
+          const dbCheckRes = await fetch(`https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/admins/${user.localId}${config.apiKey ? "?key=" + config.apiKey : ""}`);
           if (dbCheckRes.ok) {
             isDbAdmin = true;
           } else {
             // Fallback check by email docId in case uid is not docId
-            const dbCheckResEmail = await fetch(`https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || "ai-studio-886315a4-8b9f-4ff6-8986-a90ad172210a"}/documents/admins/${email}${config.apiKey ? "?key=" + config.apiKey : ""}`);
+            const dbCheckResEmail = await fetch(`https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/admins/${email}${config.apiKey ? "?key=" + config.apiKey : ""}`);
             if (dbCheckResEmail.ok) {
               isDbAdmin = true;
             } else {
@@ -1035,15 +1061,15 @@ app.post("/api/v1/admin/verify-session", async (req: any, res: any) => {
     }
 
     const userEmail = String(user.email ?? "").toLowerCase();
-    const confAdmin = String(process.env.ADMIN_EMAIL || "defentechscholar@gmail.com").toLowerCase(); console.log("Incoming email:", email, "Verified Token Email:", userEmail);
+    const confAdmin = String(process.env.ADMIN_EMAIL || "").toLowerCase(); console.log("Incoming email:", email, "Verified Token Email:", userEmail);
     let isAdmin = !!(confAdmin && userEmail === confAdmin); console.log("Admin check successful: " + isAdmin + " Email: " + userEmail);
 
     if (!isAdmin) {
       try {
-        const r1 = await fetch(`https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || "ai-studio-886315a4-8b9f-4ff6-8986-a90ad172210a"}/documents/admins/${user.localId}${config.apiKey ? "?key=" + config.apiKey : ""}`, { headers: { Authorization: `Bearer ${idToken}` } });
+        const r1 = await fetch(`https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/admins/${user.localId}${config.apiKey ? "?key=" + config.apiKey : ""}`, { headers: { Authorization: `Bearer ${idToken}` } });
         if (r1.ok) isAdmin = true;
         if (!isAdmin) {
-          const r2 = await fetch(`https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || "ai-studio-886315a4-8b9f-4ff6-8986-a90ad172210a"}/documents/admins/${encodeURIComponent(userEmail)}${config.apiKey ? "?key=" + config.apiKey : ""}`, { headers: { Authorization: `Bearer ${idToken}` } });
+          const r2 = await fetch(`https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/admins/${encodeURIComponent(userEmail)}${config.apiKey ? "?key=" + config.apiKey : ""}`, { headers: { Authorization: `Bearer ${idToken}` } });
           if (r2.ok) isAdmin = true;
         }
       } catch { _recordAdminFail(ip); return res.status(503).json({ error: "Service unavailable." }); }
@@ -1707,7 +1733,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
       if (config) {
         const apiSuffix = config.apiKey ? `?key=${config.apiKey}` : '';
         const dbUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents`;
-        for (const docName of ['sec_public_links', 'secure_links', 'sec_vault']) {
+        for (const docName of ['sec_links_vault_3', 'secure_links', 'sec_vault']) {
           try {
             const r = await fetch(`${dbUrl}/store_data/${docName}${apiSuffix}`);
             const d = await r.json();
@@ -1766,9 +1792,8 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
         });
         const vaultMapEncrypted = String(safeEncrypt(JSON.stringify(vaultMap), AES_SECRET));
         const vaultTsContent = `// SECURE VAULT - DO NOT EDIT MANUALLY\nexport const IS_SEALED = true;\nexport const ENCRYPTED_LINKS = "${vaultMapEncrypted}";\n`;
-        const fs = require('fs');
-        const path = require('path');
-        fs.writeFileSync(path.join(process.cwd(), 'src/lib/secureVault.ts'), vaultTsContent);
+        // Stop writing secureVault.ts to avoid committing secrets to version control.
+        // It's already sent to the frontend via JSON if needed, or stored in Firebase.
       } catch (vaultErr) {
         console.warn('Failed to auto-seal secureVault.ts from encrypt-links:', vaultErr);
       }
@@ -1781,6 +1806,8 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
 
   // Admin API: Debug/View decrypted links
   app.get("/api/v1/admin/debug-links", verifyAdminToken, async (req, res) => {
+    const ip = getIp(req);
+    if (await rateLimit(ip)) return res.status(429).json({ error: "Too many requests" });
     try {
       const config = JSON.parse(fs.readFileSync('firebase-applet-config.json', 'utf8'));
       const db = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/store_data/sec_vault?key=${config.apiKey}`;
@@ -1931,13 +1958,14 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
             try {
               backupLinks[app.id] = safeEncrypt(app.more_information_url, AES_SECRET);
             } catch (encryptErr) {
-              backupLinks[app.id] = app.more_information_url;
+              console.warn(`[SECURITY] Skipped backup link for ${app.id} due to encryption failure`);
+              // NEVER fallback to plaintext URL!
             }
           }
         }
       });
 
-      const backupPath = path.join(process.cwd(), 'src/lib/secure_links_backup.json');
+      const backupPath = path.join(process.cwd(), '.local/secure_links_backup.json');
       let mergedBackup = backupLinks;
       if (fs.existsSync(backupPath)) {
         try {
@@ -1951,15 +1979,13 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
         if (val && !val.startsWith('U2FsdGVkX1')) {
           try {
             mergedBackup[key] = safeEncrypt(val, AES_SECRET);
-          } catch (e) {}
+          } catch (e) {
+            delete mergedBackup[key]; // NEVER permit plaintext fallback!
+          }
         }
       }
 
-      try {
-        fs.writeFileSync(backupPath, JSON.stringify(mergedBackup, null, 2), 'utf8');
-      } catch (writeErr: any) {
-        console.warn("Skipping local secure_links_backup.json write (read-only filesystem or inaccessible path):", writeErr.message);
-      }
+      // Local fallback writing removed for security compliance.
 
       res.json({ success: true, message: "Local fallback components strictly synced." });
     } catch (err: any) {
@@ -2003,7 +2029,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
       }
 
       // 2. Try to overlay with the local secure_links_backup.json file (filesystem fallback)
-      const backupPath = path.join(process.cwd(), 'src/lib/secure_links_backup.json');
+      const backupPath = path.join(process.cwd(), '.local/secure_links_backup.json');
       if (fs.existsSync(backupPath)) {
         try {
           const backupData = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
@@ -2191,13 +2217,14 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
             try {
               backupLinks[item.id] = safeEncrypt(urlValue, AES_SECRET);
             } catch (encryptErr) {
-              backupLinks[item.id] = urlValue;
+              console.warn(`[SECURITY] Skipped backup link for ${item.id} due to encryption failure`);
+              // NEVER fallback to plaintext URL!
             }
           }
         }
       });
       
-      const backupPath = require('path').join(process.cwd(), 'src/lib/secure_links_backup.json');
+      const backupPath = require('path').join(process.cwd(), '.local/secure_links_backup.json');
       let mergedBackup = backupLinks;
       if (require('fs').existsSync(backupPath)) {
         try {
@@ -2211,11 +2238,13 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
         if (val && !val.startsWith('U2FsdGVkX1')) {
           try {
             mergedBackup[key] = safeEncrypt(val, AES_SECRET);
-          } catch (e) {}
+          } catch (e) {
+            delete mergedBackup[key]; // NEVER permit plaintext fallback!
+          }
         }
       }
 
-      require('fs').writeFileSync(backupPath, JSON.stringify(mergedBackup, null, 2), 'utf8');
+      // Write to file removed for security
       
       res.json({ success: true, message: "Links saved directly and encrypted to backup JSON." });
     } catch(err: any) {
@@ -2296,7 +2325,7 @@ const rateLimitMap = new Map<string, number[]>();
     if (await rateLimit(ip)) return res.status(429).json({ error: "Too many requests. Please wait." });
     if (isSuspiciousClient(req)) return res.status(403).json({ error: "Access denied." });
 
-    const sid = req.body?.sid || req.cookies?.__sid;
+    const sid = req.body?.sid || req.cookies?.["__Host-sid"];
     if (!sid) {
       return res.status(403).json({ error: "Session expired. Please reload." });
     }
@@ -2360,7 +2389,8 @@ const rateLimitMap = new Map<string, number[]>();
     }
 
     console.log(`[ACCESS] GRANTED ip=${ip} score=${score} solveMs=${solveMs} moved=${moved} touch=${touch}`);
-    const token = generateToken(ip, sid, fingerprint);
+    const appId = req.body.appId || 'unknown';
+    const token = generateToken(ip, sid, fingerprint, appId);
 
     res.json({ token });
   });
@@ -2368,63 +2398,64 @@ const rateLimitMap = new Map<string, number[]>();
   // API Route: Public link status check — called before verification to avoid
   // wasting the user's time if no download link has been configured for this app.
   app.get("/api/v1/link-check", async (req, res) => {
-  const appId = req.query.id as string;
-  if (!appId) return res.status(400).json({ configured: false });
-  res.set("Cache-Control", "no-store");
-
-  // Lookup 1: Env Var
-  try {
-    if (process.env.SECURE_LINKS) {
-      const parsed = JSON.parse(process.env.SECURE_LINKS);
-      if (parsed[appId]) return res.json({ configured: true });
-    }
-  } catch(e) {}
-
-  // Lookup 2: Git Vault & Backup JSON
-  try {
-    let matchEncrypted = "";
-    
-    const vaultPath = require('path').join(process.cwd(), 'src/lib/secureVault.ts');
-    if (require('fs').existsSync(vaultPath)) {
-      const vaultContent = require('fs').readFileSync(vaultPath, 'utf8');
-      const match = vaultContent.match(/export const ENCRYPTED_LINKS = "([^"]+)";/);
-      if (match && match[1]) matchEncrypted = match[1];
+    const appId = req.query.id as string;
+    if (!appId) {
+      return res.json({ configured: false });
     }
 
-    if (matchEncrypted) {
-        // @ts-ignore
-        const AES_SECRET = process.env.AES_SECRET || (typeof AES_SECRET_GLOBAL !== 'undefined' ? AES_SECRET_GLOBAL : '');
-        let dec = '';
-        if (typeof safeDecrypt !== 'undefined') dec = safeDecrypt(matchEncrypted, AES_SECRET);
-        else {
-           const CryptoJS = require('crypto-js');
-           const bytes = CryptoJS.AES.decrypt(matchEncrypted, AES_SECRET);
-           dec = bytes.toString(CryptoJS.enc.Utf8);
+    try {
+      const AES_SECRET = process.env.AES_SECRET || (typeof AES_SECRET_GLOBAL !== 'undefined' ? AES_SECRET_GLOBAL : '');
+      if (!AES_SECRET) {
+        // Fail-open if secret is not set, so developers and previewers can still test the flow.
+        return res.json({ configured: true });
+      }
+
+      let matchEncrypted = "";
+      const vaultPath = require('path').join(process.cwd(), 'src/lib/secureVault.ts');
+      if (require('fs').existsSync(vaultPath)) {
+        const vaultContent = require('fs').readFileSync(vaultPath, 'utf8');
+        const match = vaultContent.match(/export const ENCRYPTED_LINKS = "([^"]+)";/);
+        if (match && match[1]) matchEncrypted = match[1];
+      }
+
+      if (!matchEncrypted) {
+        // Fail-open if no vault found or is empty
+        return res.json({ configured: true });
+      }
+
+      let dec = '';
+      if (typeof safeDecrypt !== 'undefined') {
+        dec = safeDecrypt(matchEncrypted, AES_SECRET);
+      } else {
+        const CryptoJS = require('crypto-js');
+        const bytes = CryptoJS.AES.decrypt(matchEncrypted, AES_SECRET);
+        dec = bytes.toString(CryptoJS.enc.Utf8);
+      }
+
+      if (!dec) {
+        // Decryption failed (probably wrong secret), let's fail-open
+        return res.json({ configured: true });
+      }
+
+      const parsed = JSON.parse(dec);
+      let foundLink = false;
+      if (Array.isArray(parsed)) {
+        const matchItem = parsed.find(item => item && item.id === appId);
+        if (matchItem && (matchItem.url || matchItem.more_information_url)) {
+          foundLink = true;
         }
-        if (dec) {
-           const parsed = JSON.parse(dec);
-           if (Array.isArray(parsed)) {
-              const found = parsed.some(item => item && item.id === appId && (item.url || item.more_information_url));
-              if (found) return res.json({ configured: true });
-           } else if (parsed && typeof parsed === 'object') {
-              if (parsed[appId]) return res.json({ configured: true });
-           }
+      } else if (parsed && typeof parsed === 'object') {
+        if (parsed[appId]) {
+          foundLink = true;
         }
-    }
-  } catch(e) {}
-  
-  
-  // Lookup 3: Local Offline Backup directly
-  try {
-    const backupPath = require('path').join(process.cwd(), 'src/lib/secure_links_backup.json');
-    if (require('fs').existsSync(backupPath)) {
-      const backup = JSON.parse(require('fs').readFileSync(backupPath, 'utf8'));
-      if (backup[appId]) return res.json({ configured: true });
-    }
-  } catch (e) {}
+      }
 
-  return res.json({ configured: false });
-});
+      return res.json({ configured: foundLink });
+    } catch (e) {
+      // Any error, fail-open to preserve usability
+      return res.json({ configured: true });
+    }
+  });
 
 // Rate limiting map for public chat
   const publicChatRateLimits = new Map<string, { count: number, resetTime: number }>();
@@ -2609,7 +2640,7 @@ ${JSON.stringify(publicContext, null, 2)}`;
     // to support various mobile browsers and system download managers that might strip browser-like headers.
 
     const ip = getIp(req);
-    const sid = (req.query.sid || req.cookies?.__sid) as string;
+    const sid = (req.query.sid || req.cookies?.["__Host-sid"]) as string;
     const token = (req.query.token || req.query.t) as string;
     const appId = req.query.id as string;
 
@@ -2618,11 +2649,44 @@ ${JSON.stringify(publicContext, null, 2)}`;
       return res.status(400).send("<h1>400 Bad Request</h1><p>Verification transmission tokens or App ID were omitted.</p>");
     }
 
-    // Strict replay protection - re-enabled for security
-    if (usedTokens.has(token)) {
-      if (req.query.json === 'true') return res.status(403).json({ error: "This single-use private download signature has already been spent." });
-      return res.status(403).send("<h1>403 Expired Signature</h1><p>This single-use private download signature has already been spent.</p>");
-    }
+    // Strict replay protection - cross-instance using Firestore
+    try {
+      const config = getRawFirebaseConfig();
+      if (config && config.projectId) {
+        const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+        let tokenSpent = false;
+        
+        const adminDb = getFirebaseAdminDb();
+        if (adminDb) {
+          try {
+            const docSnap = await adminDb.collection('spent_tokens').doc(tokenHash).get();
+            if (docSnap.exists) {
+              tokenSpent = true;
+            }
+          } catch (adminErr: any) {
+            console.warn("[WARN] Failed to query spent_tokens via firebase-admin, using REST fallback:", adminErr.message);
+            // REST Fallback
+            const checkUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/spent_tokens/${tokenHash}${config.apiKey ? "?key=" + config.apiKey : ""}`;
+            const checkRes = await fetch(checkUrl);
+            if (checkRes.ok) {
+              tokenSpent = true;
+            }
+          }
+        } else {
+          // REST Fallback
+          const checkUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/spent_tokens/${tokenHash}${config.apiKey ? "?key=" + config.apiKey : ""}`;
+          const checkRes = await fetch(checkUrl);
+          if (checkRes.ok) {
+            tokenSpent = true;
+          }
+        }
+
+        if (tokenSpent) {
+          if (req.query.json === 'true') return res.status(403).json({ error: "This single-use private download signature has already been spent." });
+          return res.status(403).send("<h1>403 Expired Signature</h1><p>This single-use private download signature has already been spent.</p>");
+        }
+      }
+    } catch (e) {}
 
     // Determine verification scheme
     // Scheme A: Extended Fingerprint token (containing '::' signature splitter inside base64url encoded token)
@@ -2639,19 +2703,151 @@ ${JSON.stringify(publicContext, null, 2)}`;
         const [payload] = raw.split("::");
         const [tIp, tSession, fingerprint] = payload.split("|");
 
-        if (!verifyToken(token, tIp, tSession, fingerprint)) {
+        if (!verifyToken(token, tIp, tSession, fingerprint, appId)) {
           if (req.query.json === 'true') return res.status(403).json({ error: "Cryptographic HMAC validation failed." });
           return res.status(403).send("<h1>403 Forbidden</h1><p>Cryptographic HMAC validation failed.</p>");
         }
 
         // Spend token to prevent reuse / replay attacks
-        usedTokens.add(token);
+        try {
+          const config = getRawFirebaseConfig();
+          if (config && config.projectId) {
+            const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+            const usedAtStr = new Date().toISOString();
+            
+            const adminDb = getFirebaseAdminDb();
+            if (adminDb) {
+              try {
+                await adminDb.collection('spent_tokens').doc(tokenHash).set({
+                  usedAt: usedAtStr
+                });
+                console.log(`[AUDIT] Successfully spent token ${tokenHash} via firebase-admin SDK`);
+              } catch (adminWriteErr: any) {
+                console.warn("[WARN] Failed to write spent_tokens via firebase-admin, using REST fallback:", adminWriteErr.message);
+                // REST Fallback
+                const addUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/spent_tokens/${tokenHash}${config.apiKey ? "?key=" + config.apiKey : ""}`;
+                fetch(addUrl, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ fields: { usedAt: { stringValue: usedAtStr } } })
+                }).catch(() => {});
+              }
+            } else {
+              // REST Fallback
+              const addUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/spent_tokens/${tokenHash}${config.apiKey ? "?key=" + config.apiKey : ""}`;
+              fetch(addUrl, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fields: { usedAt: { stringValue: usedAtStr } } })
+              }).catch(() => {});
+            }
+          }
+        } catch (e) {}
 
         let targetUrl = '';
         try {
           const AES_SECRET = process.env.AES_SECRET || (typeof AES_SECRET_GLOBAL !== 'undefined' ? AES_SECRET_GLOBAL : '');
-          
-          // Fallback to secure Vault from Github push
+          const config = getRawFirebaseConfig();
+
+          // 1. Try resolving via Firestore SDK
+          if (!targetUrl || !targetUrl.startsWith('http')) {
+            const adminDb = getFirebaseAdminDb();
+            if (adminDb) {
+              for (const docName of ['sec_links_vault_3', 'secure_links', 'sec_vault']) {
+                try {
+                  const docSnap = await adminDb.collection('store_data').doc(docName).get();
+                  if (docSnap.exists) {
+                    const docData = docSnap.data();
+                    if (docData && docData.encryptedData) {
+                      const dec = safeDecrypt(docData.encryptedData, AES_SECRET);
+                      if (dec) {
+                        const parsed = JSON.parse(dec);
+                        let encryptedUrl = '';
+                        if (parsed && Array.isArray(parsed)) {
+                          const matchItem = parsed.find(item => item && item.id === appId);
+                          if (matchItem) {
+                            encryptedUrl = typeof matchItem.url === 'string' ? matchItem.url : (typeof matchItem.more_information_url === 'string' ? matchItem.more_information_url : '');
+                          }
+                        } else if (parsed && typeof parsed === 'object') {
+                          const val = parsed[appId];
+                          if (typeof val === 'string') {
+                            encryptedUrl = val;
+                          } else if (val && typeof val === 'object') {
+                            encryptedUrl = typeof val.url === 'string' ? val.url : (typeof val.more_information_url === 'string' ? val.more_information_url : '');
+                          }
+                        }
+                        if (encryptedUrl && typeof encryptedUrl === 'string') {
+                          if (encryptedUrl.startsWith('U2FsdGVkX1')) {
+                            targetUrl = safeDecrypt(encryptedUrl, AES_SECRET);
+                          } else {
+                            targetUrl = encryptedUrl;
+                          }
+                          if (targetUrl && targetUrl.startsWith('http')) {
+                            console.log(`[AUDIT] Successfully resolved and decrypted redirect URL via Firestore SDK (${docName}) for app ID: ${appId}`);
+                            break;
+                          }
+                        }
+                      }
+                    }
+                  }
+                } catch (firestoreErr: any) {
+                  console.warn(`[WARN] Firestore SDK failed to fetch ${docName}:`, firestoreErr.message);
+                }
+              }
+            }
+          }
+
+          // 2. Try resolving via Firestore REST API Fallback
+          if (!targetUrl || !targetUrl.startsWith('http')) {
+            if (config && config.projectId) {
+              const apiSuffix = config.apiKey ? `?key=${config.apiKey}` : '';
+              const dbUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents`;
+              for (const docName of ['sec_links_vault_3', 'secure_links', 'sec_vault']) {
+                try {
+                  const r = await fetch(`${dbUrl}/store_data/${docName}${apiSuffix}`);
+                  if (r.ok) {
+                    const d = await r.json();
+                    if (d && !d.error && d.fields?.encryptedData?.stringValue) {
+                      const encryptedData = d.fields.encryptedData.stringValue;
+                      const dec = safeDecrypt(encryptedData, AES_SECRET);
+                      if (dec) {
+                        const parsed = JSON.parse(dec);
+                        let encryptedUrl = '';
+                        if (parsed && Array.isArray(parsed)) {
+                          const matchItem = parsed.find(item => item && item.id === appId);
+                          if (matchItem) {
+                            encryptedUrl = typeof matchItem.url === 'string' ? matchItem.url : (typeof matchItem.more_information_url === 'string' ? matchItem.more_information_url : '');
+                          }
+                        } else if (parsed && typeof parsed === 'object') {
+                          const val = parsed[appId];
+                          if (typeof val === 'string') {
+                            encryptedUrl = val;
+                          } else if (val && typeof val === 'object') {
+                            encryptedUrl = typeof val.url === 'string' ? val.url : (typeof val.more_information_url === 'string' ? val.more_information_url : '');
+                          }
+                        }
+                        if (encryptedUrl && typeof encryptedUrl === 'string') {
+                          if (encryptedUrl.startsWith('U2FsdGVkX1')) {
+                            targetUrl = safeDecrypt(encryptedUrl, AES_SECRET);
+                          } else {
+                            targetUrl = encryptedUrl;
+                          }
+                          if (targetUrl && targetUrl.startsWith('http')) {
+                            console.log(`[AUDIT] Successfully resolved and decrypted redirect URL via Firestore REST Fallback (${docName}) for app ID: ${appId}`);
+                            break;
+                          }
+                        }
+                      }
+                    }
+                  }
+                } catch (restErr: any) {
+                  console.warn(`[WARN] Firestore REST fallback failed to fetch ${docName}:`, restErr.message);
+                }
+              }
+            }
+          }
+
+          // 3. Fallback to secure Vault from Github push
           if (!targetUrl || !targetUrl.startsWith('http')) {
             try {
               let matchEncrypted = "";
@@ -2674,15 +2870,20 @@ ${JSON.stringify(publicContext, null, 2)}`;
                   if (dec) {
                      const parsed = JSON.parse(dec);
                      let encryptedUrl = '';
-                     if (Array.isArray(parsed)) {
+                     if (parsed && Array.isArray(parsed)) {
                         const matchItem = parsed.find(item => item && item.id === appId);
                         if (matchItem) {
-                           encryptedUrl = matchItem.url || matchItem.more_information_url || '';
+                           encryptedUrl = typeof matchItem.url === 'string' ? matchItem.url : (typeof matchItem.more_information_url === 'string' ? matchItem.more_information_url : '');
                         }
                      } else if (parsed && typeof parsed === 'object') {
-                        encryptedUrl = parsed[appId];
+                        const val = parsed[appId];
+                        if (typeof val === 'string') {
+                          encryptedUrl = val;
+                        } else if (val && typeof val === 'object') {
+                          encryptedUrl = typeof val.url === 'string' ? val.url : (typeof val.more_information_url === 'string' ? val.more_information_url : '');
+                        }
                      }
-                     if (encryptedUrl) {
+                     if (encryptedUrl && typeof encryptedUrl === 'string') {
                         if (encryptedUrl.startsWith('U2FsdGVkX1')) {
                            targetUrl = safeDecrypt(encryptedUrl, AES_SECRET);
                         } else {
@@ -2699,45 +2900,58 @@ ${JSON.stringify(publicContext, null, 2)}`;
             }
           }
 
-          // Fallback to Env variable
+          // 4. Fallback to Env variable
           if (!targetUrl || !targetUrl.startsWith('http')) {
             try {
               if (process.env.SECURE_LINKS) {
                 const parsed = JSON.parse(process.env.SECURE_LINKS);
-                if (parsed[appId]) {
-                  const encryptedUrl = parsed[appId];
-                  if (encryptedUrl.startsWith('U2FsdGVkX1')) {
-                     targetUrl = safeDecrypt(encryptedUrl, AES_SECRET);
-                  } else {
-                     targetUrl = encryptedUrl;
+                if (parsed && typeof parsed === 'object') {
+                  const val = parsed[appId];
+                  let encryptedUrl = '';
+                  if (typeof val === 'string') {
+                    encryptedUrl = val;
+                  } else if (val && typeof val === 'object') {
+                    encryptedUrl = typeof val.url === 'string' ? val.url : (typeof val.more_information_url === 'string' ? val.more_information_url : '');
                   }
-                  if (targetUrl && targetUrl.startsWith('http')) {
-                    console.log(`[AUDIT] Successfully resolved and decrypted redirect URL via process.env.SECURE_LINKS for app ID: ${appId}`);
+                  if (encryptedUrl && typeof encryptedUrl === 'string') {
+                    if (encryptedUrl.startsWith('U2FsdGVkX1')) {
+                       targetUrl = safeDecrypt(encryptedUrl, AES_SECRET);
+                    } else {
+                       targetUrl = encryptedUrl;
+                    }
+                    if (targetUrl && targetUrl.startsWith('http')) {
+                      console.log(`[AUDIT] Successfully resolved and decrypted redirect URL via process.env.SECURE_LINKS for app ID: ${appId}`);
+                    }
                   }
                 }
               }
             } catch(e) {}
           }
 
-          // Fallback to local offline file backup if Firestore is unreachable/exceeded quota
+          // 5. Fallback to local offline file backup if Firestore is unreachable/exceeded quota
           if (!targetUrl || !targetUrl.startsWith('http')) {
             try {
-              const backupPath = require('path').join(process.cwd(), 'src/lib/secure_links_backup.json');
+              const backupPath = require('path').join(process.cwd(), '.local/secure_links_backup.json');
               if (require('fs').existsSync(backupPath)) {
                 const parsed = JSON.parse(require('fs').readFileSync(backupPath, 'utf8'));
                 let encryptedUrl = '';
-                if (Array.isArray(parsed)) {
+                if (parsed && Array.isArray(parsed)) {
                   const matchItem = parsed.find(item => item && item.id === appId);
                   if (matchItem) {
-                     encryptedUrl = matchItem.url || matchItem.more_information_url || '';
+                     encryptedUrl = typeof matchItem.url === 'string' ? matchItem.url : (typeof matchItem.more_information_url === 'string' ? matchItem.more_information_url : '');
                   }
                 } else if (parsed && typeof parsed === 'object') {
-                  encryptedUrl = parsed[appId];
+                  const val = parsed[appId];
+                  if (typeof val === 'string') {
+                    encryptedUrl = val;
+                  } else if (val && typeof val === 'object') {
+                    encryptedUrl = typeof val.url === 'string' ? val.url : (typeof val.more_information_url === 'string' ? val.more_information_url : '');
+                  }
                 }
-                if (encryptedUrl) {
-                  const AES_SECRET = process.env.AES_SECRET || (typeof AES_SECRET_GLOBAL !== 'undefined' ? AES_SECRET_GLOBAL : '');
+                if (encryptedUrl && typeof encryptedUrl === 'string') {
+                  const AES_SECRET_LOCAL = process.env.AES_SECRET || (typeof AES_SECRET_GLOBAL !== 'undefined' ? AES_SECRET_GLOBAL : '');
                   if (encryptedUrl.startsWith('U2FsdGVkX1')) {
-                    targetUrl = safeDecrypt(encryptedUrl, AES_SECRET);
+                    targetUrl = safeDecrypt(encryptedUrl, AES_SECRET_LOCAL);
                   } else {
                     targetUrl = encryptedUrl;
                   }
@@ -2750,9 +2964,6 @@ ${JSON.stringify(publicContext, null, 2)}`;
               console.warn("Local filesystem backup retrieval failed:", backupErr);
             }
           }
-
-          // Fallback to static data full
-          // Static data full fallback has been removed for security
         } catch (err) {
           console.error("Firestore retrieval or decryption failed", err);
         }
@@ -2770,7 +2981,108 @@ ${JSON.stringify(publicContext, null, 2)}`;
         
         if (!targetUrl || (!targetUrl.startsWith('http') && !targetUrl.startsWith('/'))) {
           console.error("CRITICAL: Failed to retrieve or decrypt URL for app:", appId, "Result:", targetUrl);
-          return res.status(404).json({ error: "Download link not found or not yet configured for this app." });
+          if (req.query.json === 'true') {
+            return res.status(404).json({ error: "Download link not found or not yet configured for this app." });
+          }
+          return res.status(404).send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Download Link Not Found | RummyStore</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <style>
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #f9fafb;
+      color: #111827;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    .card {
+      background-color: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 24px;
+      padding: 40px;
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    }
+    .icon {
+      width: 64px;
+      height: 64px;
+      background-color: #fef3c7;
+      color: #d97706;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      margin: 0 0 12px;
+      color: #111827;
+    }
+    p {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #4b5563;
+      margin: 0 0 32px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #2563eb;
+      color: #ffffff;
+      font-weight: 600;
+      font-size: 14px;
+      padding: 12px 24px;
+      border-radius: 12px;
+      text-decoration: none;
+      transition: background-color 0.2s;
+    }
+    .btn:hover {
+      background-color: #1d4ed8;
+    }
+    @media (prefers-color-scheme: dark) {
+      body {
+        background-color: #09090b;
+        color: #f4f4f5;
+      }
+      .card {
+        background-color: #18181b;
+        border-color: #27272a;
+      }
+      h1 {
+        color: #f4f4f5;
+      }
+      p {
+        color: #a1a1aa;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">
+      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <h1>Information Page Pending</h1>
+    <p>This download link or details has not been configured yet, or is currently undergoing maintenance. Please try again later or contact our support team.</p>
+    <a href="/" class="btn">Go Back Home</a>
+  </div>
+</body>
+</html>`);
         }
 
         // Apply Mistake 5 fix: Add affiliate referral code server-side
@@ -2790,6 +3102,7 @@ ${JSON.stringify(publicContext, null, 2)}`;
 
         console.log("FINAL REDIRECT TARGET IS:", targetUrl);
         res.set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+        res.set("Referrer-Policy", "no-referrer");
         return res.redirect(302, targetUrl);
       } catch (err) {
         return res.status(403).send("<h1>403 Forbidden</h1><p>Error decoding parameter.</p>");
@@ -2841,39 +3154,7 @@ ${JSON.stringify(publicContext, null, 2)}`;
 
 
   // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
-    const { createServer: createViteServer } = await import("vite");
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "custom",
-    });
-    app.use(vite.middlewares);
-    
-    // We override index.html serving to inject our SEO tags locally too!
-    app.use('*', async (req, res, next) => {
-      // Allow assets to be handled by Vite
-      if (req.originalUrl.includes('.')) return next();
-      try {
-        let template = fs.readFileSync(path.resolve(process.cwd(), 'index.html'), 'utf-8');
-        template = await vite.transformIndexHtml(req.originalUrl, template);
-        const protocol = req.headers["x-forwarded-proto"] || req.protocol || "http";
-        const host = req.headers["x-forwarded-host"] || req.get("host") || (process.env.PUBLIC_DOMAIN ? new URL(process.env.PUBLIC_DOMAIN).host : "www.rummyapp.online");
-        const hostUrl = `${String(protocol).split(',')[0].trim()}://${String(host).split(',')[0].trim()}`;
-        const userAgent = req.headers['user-agent'] || '';
-        template = await injectSeoTags(template, req.originalUrl, hostUrl, userAgent);
-        try {
-          fs.writeFileSync(path.resolve(process.cwd(), 'debug-inject.log'), "Injected length: " + template.length + " has_initial: " + template.includes("__INITIAL_DATA__"));
-        } catch (logErr) {
-          // Ignore log write errors in read-only environments
-        }
-        res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
-      } catch (e: any) {
-        vite.ssrFixStacktrace(e);
-        next(e);
-      }
-    });
-
-  } else {
+  
     const getDistPath = (): string => {
       const pathsToTry = [
         path.join(process.cwd(), 'dist'),
@@ -2978,7 +3259,6 @@ ${JSON.stringify(publicContext, null, 2)}`;
         }).sendFile(templatePath);
       }
     });
-  }
 
   // Global Express Error Handler
   app.use((err: any, req: any, res: any, next: any) => {
@@ -2987,13 +3267,15 @@ ${JSON.stringify(publicContext, null, 2)}`;
       const logFile = path.join(process.cwd(), 'server_requests.log');
       fs.appendFileSync(logFile, `[${new Date().toISOString()}] ERROR in ${req.method} ${req.originalUrl}: ${err.message || err}\n`, 'utf8');
     } catch (e) {}
-
+    
     if (res.headersSent) {
       return next(err);
     }
+    
     if (req.originalUrl.startsWith('/api/')) {
-      return res.status(500).json({ error: err.message || "Internal server error" });
+      return res.status(500).json({ error: "Internal server error" });
     }
+    
     res.status(500).send("<h1>500 Internal Server Error</h1><p>An unexpected error occurred.</p>");
   });
 

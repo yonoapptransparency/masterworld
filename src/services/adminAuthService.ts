@@ -25,7 +25,7 @@ export interface AuthResult {
 // ─────────────────────────────────────────────────────────────────────────────
 const SESSION_KEY = "__adm_session";
 const TOKEN_LIFETIME_MS = 55 * 60 * 1000; // 55 minutes (Firebase tokens last 60m)
-import appletConfig from '../../firebase-applet-config.json';
+const appletConfig: any = {};
 const FIREBASE_API_KEY = (import.meta as any).env?.VITE_FIREBASE_API_KEY || (appletConfig as any).apiKey || "";
 
 const isFirebaseApiKeyReal = (key: string | undefined): boolean => {
@@ -140,9 +140,7 @@ export async function signInAdmin(
 ): Promise<AuthResult & { mfaRequired?: boolean }> {
   try {
     if (!IS_API_KEY_REAL) {
-      if (password !== 'admin123') {
-        return { ok: false, error: "INVALID_PASSWORD" };
-      }
+      return { ok: false, error: "Authentication is unavailable in this environment." };
 
       // Query the backend verify-session endpoint to see if 2FA is active & verify the code if so
       const verifyRes = await fetch("/api/v1/admin/verify-session", {

@@ -1,3 +1,4 @@
+import { safeHtml } from '../lib/safeHtml';
 /**
  * Responsibility safety awareness details layout
  * Advises users on secure gaming techniques and safety benchmarks.
@@ -40,7 +41,7 @@ export default function Responsibility() {
             <h2 className="text-xs uppercase tracking-wider font-semibold text-blue-600 dark:text-blue-400 mb-4">Core Principles</h2>
             <div 
               className="text-xl sm:text-2xl leading-snug font-medium text-zinc-900 dark:text-zinc-100"
-              dangerouslySetInnerHTML={{ __html: (mockSettings.responsibility_content || '').split('\n\n')[0].replace(/\n/g, '<br/>') }}
+              dangerouslySetInnerHTML={{ __html: safeHtml((mockSettings.responsibility_content || '').split('\n\n')[0].replace(/\n/g, '<br/>') ) }}
             />
           </div>
           <div className="lg:col-span-7 space-y-8">
@@ -50,7 +51,7 @@ export default function Responsibility() {
              </div>
             <div 
               className="prose prose-zinc dark:prose-invert text-zinc-600 dark:text-zinc-400 leading-relaxed max-w-none text-base"
-              dangerouslySetInnerHTML={{ __html: (mockSettings.responsibility_content || '').split('\n\n').slice(1).join('<br/><br/>').replace(/\n/g, '<br/>') }}
+              dangerouslySetInnerHTML={{ __html: safeHtml((mockSettings.responsibility_content || '').split('\n\n').slice(1).join('<br/><br/>').replace(/\n/g, '<br/>') ) }}
             />
           </div>
         </div>

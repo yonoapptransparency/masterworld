@@ -7,3 +7,7 @@ coverage/
 .env*
 !.env.example
 firebase-blueprint.json
+firebase-applet-config.json
+src/lib/public_backup.json
+src/lib/secure_links_backup.json
+.local/

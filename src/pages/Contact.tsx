@@ -1,3 +1,4 @@
+import { safeHtml } from '../lib/safeHtml';
 /**
  * Contact ticketing desk form
  * Integrates directly with Firestore db schemas to log customer inquiries, issues, or direct suggestions.
@@ -42,7 +43,7 @@ export default function Contact() {
             <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100 mb-6">Contact Us</h1>
             <div 
               className="markdown-body text-lg text-zinc-600 dark:text-zinc-400 leading-relaxed font-medium"
-              dangerouslySetInnerHTML={{ __html: mockSettings.contact_content || '' }}
+              dangerouslySetInnerHTML={{ __html: safeHtml(mockSettings.contact_content || '' ) }}
             />
           </div>
 
@@ -115,7 +116,7 @@ export default function Contact() {
               source: 'contact_page'
             };
 
-            if (isFirebaseConfigured && db && typeof window !== 'undefined' && (window.location.pathname.startsWith('/' + (import.meta.env.VITE_ADMIN_PATH || 'admin')))) {
+            if (isFirebaseConfigured && db && typeof window !== 'undefined' && (window.location.pathname.startsWith('/' + 'admin'))) {
               const ticketsCol = collection(db, 'support_tickets');
               await addDoc(ticketsCol, payload);
             } else {

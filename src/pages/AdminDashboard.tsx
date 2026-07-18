@@ -16,7 +16,7 @@ import { AppConfig, GlobalSettings, NewsItem, BlogPost, VideoItem } from '../typ
 import { signOut, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, getDocs, deleteDoc, updateDoc } from 'firebase/firestore';
 import { generateStaticDataFileCode } from '../lib/githubSync';
-import { secureStorage } from '../lib/secureStorage';
+import { sessionStore } from '../lib/sessionStore';
 import AppsTab from '../components/AppsTab';
 import BlogsTab from '../components/BlogsTab';
 import SecurityTab from '../components/SecurityTab';
@@ -2224,7 +2224,7 @@ export default function AdminDashboard() {
 
             // Merge any raw links recovered from Firestore console edits
             try {
-              const recoveredStr = secureStorage.getItem('rummystore_recovered_links');
+              const recoveredStr = sessionStore.getItem('rummystore_recovered_links');
               if (recoveredStr) {
                 const recovered = JSON.parse(recoveredStr);
                 Object.entries(recovered).forEach(([id, url]) => {
@@ -2256,7 +2256,7 @@ export default function AdminDashboard() {
           
           // Merge any raw links recovered from Firestore console edits
           try {
-            const recoveredStr = secureStorage.getItem('rummystore_recovered_links');
+            const recoveredStr = sessionStore.getItem('rummystore_recovered_links');
             if (recoveredStr) {
               const recovered = JSON.parse(recoveredStr);
               Object.entries(recovered).forEach(([id, url]) => {

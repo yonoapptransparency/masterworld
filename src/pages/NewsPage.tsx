@@ -1,3 +1,4 @@
+import { safeHtml } from '../lib/safeHtml';
 /**
  * NewsPage details listings
  * Publishes announcements, system patches, safe apk mirrors status changes, and general portal logs.
@@ -77,7 +78,7 @@ export default function NewsPage() {
               </Link>
               <div 
                 className="text-base text-zinc-500 mb-6 line-clamp-3 leading-relaxed prose prose-sm prose-zinc" 
-                dangerouslySetInnerHTML={{ __html: item.description || '' }} 
+                dangerouslySetInnerHTML={{ __html: safeHtml(item.description || '' ) }} 
               />
               
               <Link to={`/news/${item.slug}`} className="inline-flex items-center gap-2 text-blue-600 font-semibold text-sm group-hover:gap-3 transition-all">

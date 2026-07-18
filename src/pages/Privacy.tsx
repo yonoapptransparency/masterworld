@@ -1,3 +1,4 @@
+import { safeHtml } from '../lib/safeHtml';
 /**
  * Privacy Policy static layout
  * Explains device logs, storage obfuscation criteria, and cookie protection.
@@ -50,7 +51,7 @@ export default function Privacy() {
           <article className="lg:col-span-9 p-5 sm:p-8 md:p-14 bg-white dark:bg-zinc-900/50 border border-black/5 dark:border-white/5 rounded-2xl shadow-sm">
             <div 
               className="prose prose-zinc dark:prose-invert max-w-none text-zinc-700 dark:text-zinc-300 font-medium leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: (mockSettings.privacy_content || '').replace(/\n/g, '<br/>') }}
+              dangerouslySetInnerHTML={{ __html: safeHtml((mockSettings.privacy_content || '').replace(/\n/g, '<br/>') ) }}
             />
           </article>
         </div>

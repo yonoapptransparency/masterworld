@@ -5,7 +5,7 @@ import * as OTPAuth from 'otpauth';
  * @returns A random Base32 string.
  */
 export function generateTOTPSecret(): string {
-  const secret = new OTPAuth.Secret({ size: 10 });
+  const secret = new OTPAuth.Secret({ size: 20 });
   return secret.base32;
 }
 
@@ -17,7 +17,7 @@ export function generateTOTPSecret(): string {
  */
 export function getTOTPURI(email: string, secret: string): string {
   const totp = new OTPAuth.TOTP({
-    issuer: 'DefenTech Rummy Store',
+    issuer: 'rummyapp.online',
     label: email,
     algorithm: 'SHA1',
     digits: 6,
@@ -36,7 +36,7 @@ export function getTOTPURI(email: string, secret: string): string {
 export function verifyTOTPToken(token: string, secret: string): boolean {
   try {
     const totp = new OTPAuth.TOTP({
-      issuer: 'DefenTech Rummy Store',
+      issuer: 'rummyapp.online',
       algorithm: 'SHA1',
       digits: 6,
       period: 30,

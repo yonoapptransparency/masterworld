@@ -23,8 +23,8 @@ export const commitFileToGitHub = async () => {};
 export const fetchFileFromGitHub = async () => null;
 export const getGitHubFileSha = async () => null;
 
-// src/lib/secureStorage
-export const secureStorage = {
+// src/lib/sessionStore
+export const sessionStore = {
   getItem: (k: string) => {
     try { return typeof window !== 'undefined' ? localStorage.getItem(k) : null; } catch(e) { return null; }
   },

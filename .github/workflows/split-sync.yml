@@ -21,7 +21,7 @@ jobs:
           PAT: ${{ secrets.PAT }}
         run: |
           set -e
-          git config --global user.email "defentechscholar@gmail.com"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "${{ github.event.head_commit.author.name || 'yonoapptransparency' }}"
 
           # List of files that should ONLY exist in Masterworld (Admin)
@@ -32,7 +32,6 @@ jobs:
             "src/components/NewsTab.tsx"
             "src/components/SecurityTab.tsx"
             "src/components/FirebaseStatusPanel.tsx"
-            "src/components/ClearanceButton.tsx"
             "src/components/AppsTab.tsx"
             "src/components/BlogsTab.tsx"
             "src/services/adminAuthService.ts"
@@ -48,10 +47,9 @@ jobs:
             "firestore.rules"
             "firebase.json"
             ".firebaserc"
-            "vercel.json"
             "bun.lock"
             "scripts/"
-            "add-admin-rest.ts"
+                        "add-admin-rest.ts"
             "add-admin.ts"
             "add_save_button.js"
             "check-env.ts"
@@ -161,24 +159,42 @@ jobs:
             cd "$PARENT_DIR"
             rm -rf "${REPO_NAME}_repo"
             
+            if [ "$IS_PUBLIC" = "true" ]; then
+              RSYNC_EXCLUDES="--exclude=.git --exclude=.github --exclude=node_modules --exclude=dist"
+            else
+              RSYNC_EXCLUDES="--exclude=.git --exclude=node_modules --exclude=dist"
+            fi
+
             if git clone "https://x-access-token:${PAT}@github.com/yonoapptransparency/${REPO_NAME}.git" "${REPO_NAME}_repo"; then
               cd "${REPO_NAME}_repo"
               git checkout -b main || git checkout main
-              rsync -rv --exclude='.git' --exclude='node_modules' --exclude='dist' --delete "$SOURCE_DIR/" .
+              rsync -rv $RSYNC_EXCLUDES --delete "$SOURCE_DIR/" .
             else
               mkdir -p "${REPO_NAME}_repo"
               cd "${REPO_NAME}_repo"
               git init
               git remote add origin "https://x-access-token:${PAT}@github.com/yonoapptransparency/${REPO_NAME}.git"
               git checkout -b main
-              rsync -rv --exclude='.git' --exclude='node_modules' --exclude='dist' "$SOURCE_DIR/" .
+              rsync -rv $RSYNC_EXCLUDES "$SOURCE_DIR/" .
             fi
 
             if [ "$IS_PUBLIC" = "true" ]; then
               echo "Cleaning admin files from $REPO_NAME..."
+              echo '{"version": 2, "outputDirectory": "dist", "buildCommand": "npm run build", "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]}' > vercel.json
               for file in "${ADMIN_ONLY_FILES[@]}"; do
                 rm -rf "$file"
               done
+
+              # Strip Admin source code completely
+              if [ -f "rewrite-datacontext-for-dex.js" ]; then
+                node rewrite-datacontext-for-dex.js
+                rm -f rewrite-datacontext-for-dex.js
+              fi
+              if [ -f "strip-admin-from-dex.js" ]; then
+                node strip-admin-from-dex.js
+                rm -f strip-admin-from-dex.js
+              fi
+
               # Bulletproof safety net: strip any residual maintenance, test, or config files from root of Dex
               find . -maxdepth 1 -name "*.js" ! -name "eslint.config.mjs" ! -name "eslint.config.cjs" ! -name "postcss.config.js" ! -name "tailwind.config.js" -exec rm -f {} +
               find . -maxdepth 1 -name "*.ts" ! -name "vite.config.ts" -exec rm -f {} +

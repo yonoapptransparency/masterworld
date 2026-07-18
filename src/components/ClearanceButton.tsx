@@ -79,10 +79,11 @@ const K_POW = new Uint32Array([
 const rotR_pow = (v: number, a: number) => (v >>> a) | (v << (32 - a));
 
 // ── Internal API paths (match backend) ──
+const API_BASE = import.meta.env.VITE_API_URL || '';
 const _EP = {
-  challenge: '/api/v1/init-file',
-  process:   '/api/v1/process-file',
-  payload:   '/api/v1/gateway-resolve',
+  challenge: `${API_BASE}/api/v1/init-file`,
+  process:   `${API_BASE}/api/v1/process-file`,
+  payload:   `${API_BASE}/api/v1/gateway-resolve`,
 };
 
 interface ClearanceButtonProps {
@@ -211,7 +212,7 @@ export default function ClearanceButton({ appId, status, variant = 'default' }: 
   useEffect(() => {
     setLinkConfigured(null);
     let cancelled = false;
-    fetch(`/api/v1/link-check?id=${encodeURIComponent(appId)}`)
+    fetch(`${API_BASE}/api/v1/link-check?id=${encodeURIComponent(appId)}`)
       .then(r => r.json())
       .then(data => { if (!cancelled) setLinkConfigured(data.configured !== false); })
       .catch(() => { if (!cancelled) setLinkConfigured(true); }); // fail-open
@@ -261,7 +262,7 @@ export default function ClearanceButton({ appId, status, variant = 'default' }: 
     if (reportingStatus === 'submitting' || reportingStatus === 'success') return;
     setReportingStatus('submitting');
     try {
-      const response = await fetch('/api/v1/report-missing', {
+      const response = await fetch(`${API_BASE}/api/v1/report-missing`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -604,6 +605,7 @@ export default function ClearanceButton({ appId, status, variant = 'default' }: 
           touch: touchUsed.current,
           cfToken: cfTokenRef.current,
           sid,
+          appId,
         }),
       });
 
@@ -667,8 +669,8 @@ export default function ClearanceButton({ appId, status, variant = 'default' }: 
     try {
       targetWin = window.open('', '_blank');
       if (targetWin) {
-        targetWin.document.write('<html><head><title>Loading...</title><meta name="viewport" content="width=device-width, initial-scale=1"></head><body style="background:#18181b; color:#18181b; display:flex; justify-content:center; align-items:center; height:100vh; margin:0; font-family:sans-serif;"><i>Generating secure connection...</i></body></html>');
-        targetWin.document.close();
+        targetWin.document.body.innerHTML = '<div style="background:#18181b; color:#18181b; display:flex; justify-content:center; align-items:center; height:100vh; margin:0; font-family:sans-serif;"><i>Generating secure connection...</i></div>';
+        
       }
     } catch(e) {}
 

@@ -143,7 +143,7 @@ export default function UserReviews({ appId, appTitle, overallRating = 5.0 }: Us
       let combinedReviews = [...localReviews, ...baseReviews];
 
       // Step 3: If Firebase is active, retrieve real-time community reviews from Firestore
-      const isAdminRoute = typeof window !== 'undefined' && (window.location.pathname.startsWith('/' + (import.meta.env.VITE_ADMIN_PATH || 'admin')));
+      const isAdminRoute = typeof window !== 'undefined' && (window.location.pathname.startsWith('/' + 'admin'));
       if (isFirebaseConfigured && isAdminRoute) {
         try {
           const q = query(
@@ -247,7 +247,7 @@ export default function UserReviews({ appId, appTitle, overallRating = 5.0 }: Us
     }
 
     // 3. If Firebase is active and it's a remote review (not mock), update in Firestore
-    const isAdminRoute = typeof window !== 'undefined' && (window.location.pathname.startsWith('/' + (import.meta.env.VITE_ADMIN_PATH || 'admin')));
+    const isAdminRoute = typeof window !== 'undefined' && (window.location.pathname.startsWith('/' + 'admin'));
     if (isFirebaseConfigured && isAdminRoute && !id.startsWith('mock')) {
       try {
         const reviewRef = doc(db, 'reviews', id);
@@ -331,7 +331,7 @@ export default function UserReviews({ appId, appTitle, overallRating = 5.0 }: Us
       localStorage.setItem(`local_user_reviews_${appId}`, JSON.stringify([newSubmission, ...storedReviews]));
 
       // Step 3: Write in background to centralized Firestore collection (fully secured)
-      const isAdminRoute = typeof window !== 'undefined' && (window.location.pathname.startsWith('/' + (import.meta.env.VITE_ADMIN_PATH || 'admin')));
+      const isAdminRoute = typeof window !== 'undefined' && (window.location.pathname.startsWith('/' + 'admin'));
       if (isFirebaseConfigured && isAdminRoute) {
         await addDoc(collection(db, 'reviews'), {
           app_id: appId,

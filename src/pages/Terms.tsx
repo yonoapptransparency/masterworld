@@ -1,3 +1,4 @@
+import { safeHtml } from '../lib/safeHtml';
 /**
  * Terms and Conditions page layout
  * Displays basic user agreement protocols, cookies consent directives, and listing responsibility guidelines.
@@ -37,7 +38,7 @@ export default function Terms() {
         <div className="bg-white dark:bg-zinc-900/50 border border-black/5 dark:border-white/5 shadow-sm rounded-2xl p-5 sm:p-8 md:p-14 mb-16 max-w-none">
           <div 
             className="prose prose-zinc dark:prose-invert max-w-none text-zinc-700 dark:text-zinc-300 font-medium leading-relaxed"
-            dangerouslySetInnerHTML={{ __html: (mockSettings.terms_content || '').replace(/\n/g, '<br/>') }}
+            dangerouslySetInnerHTML={{ __html: safeHtml((mockSettings.terms_content || '').replace(/\n/g, '<br/>') ) }}
           />
         </div>
         
