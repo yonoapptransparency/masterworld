@@ -18,7 +18,6 @@ import crypto from "crypto";
 import compression from "compression";
 import fs from "fs";
 import dns from "dns";
-import * as staticData from "./src/lib/staticData";
 import { injectSeoTags, fetchStoreData, getField, syncFromFirestore } from "./src/seoHelper";
 
 import { generateStaticDataFileCode } from "./src/lib/githubSync";
@@ -2191,6 +2190,8 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
           console.error("Error reading public_backup.json in backup-data endpoint:", e);
         }
       }
+      const staticDataPath = path.resolve(process.cwd(), 'src/lib/staticData');
+      const staticData = require(staticDataPath);
       const { mockApps, mockSettings, mockNews, mockBlogs, mockVideos } = staticData;
       const fallbackData = {
         apps: mockApps || [],
@@ -3332,6 +3333,27 @@ ${JSON.stringify(publicContext, null, 2)}`;
     }
     
     res.status(500).send("<h1>500 Internal Server Error</h1><p>An unexpected error occurred.</p>");
+  });
+
+
+  app.get("/api/v1/admin/firebase-status", async (req: any, res: any) => {
+    try {
+        const config = getRawFirebaseConfig();
+        if (!config || !config.apiKey) return res.status(503).json({ error: "Service unavailable." });
+        
+        // Simple health check
+        const response = await fetch(`https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents?pageSize=1${config.apiKey ? "&key=" + config.apiKey : ""}`, {
+            method: "GET"
+        });
+        
+        if (response.ok) {
+            return res.json({ status: "live" });
+        } else {
+            return res.status(503).json({ status: "offline", error: "Firestore returned error" });
+        }
+    } catch (err: any) {
+        return res.status(500).json({ status: "offline", error: err.message });
+    }
   });
 
   app.listen(PORT as number, "0.0.0.0", () => {

@@ -32,6 +32,7 @@ jobs:
             "src/components/NewsTab.tsx"
             "src/components/SecurityTab.tsx"
             "src/components/FirebaseStatusPanel.tsx"
+            "src/components/FirebaseStatusIndicator.tsx"
             "src/components/AppsTab.tsx"
             "src/components/BlogsTab.tsx"
             "src/services/adminAuthService.ts"

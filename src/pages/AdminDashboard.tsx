@@ -8,6 +8,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { getAdminPath } from '../lib/utils';
 import { LayoutDashboard, TrendingUp, Menu, X, Smartphone, Users, FileText, Settings, ShieldAlert, Shield, LogOut, Save, Upload, Type, Link as LinkIcon, ToggleLeft, Layers, Newspaper, Plus, Trash2, Video as VideoIcon, Github, GitBranch, RefreshCw, CheckCircle2, AlertTriangle, Search, MessageSquare, CheckSquare, Sparkles, Compass, HelpCircle, Edit2, ChevronRight } from 'lucide-react';
+import { FirebaseStatusIndicator } from '../components/FirebaseStatusIndicator';
 import { useData } from '../contexts/DataContext';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import { db, auth, isFirebaseConfigured, isFirebaseReal } from '../lib/firebase';
@@ -596,9 +597,12 @@ const OldAppsTabUnused = React.memo(({ appsList, editingAppId, setEditingAppId, 
           </h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Manage app catalog, visibility, and configuration.</p>
         </div>
-        <button onClick={() => setEditingAppId("")} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors shadow-sm">
-          <Plus className="w-4 h-4"/> Add New App
-        </button>
+        <div className="flex items-center gap-4">
+          <FirebaseStatusIndicator />
+          <button onClick={() => setEditingAppId("")} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors shadow-sm">
+            <Plus className="w-4 h-4"/> Add New App
+          </button>
+        </div>
       </div>
 
       {appsList.length === 0 ? (
