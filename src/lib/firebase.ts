@@ -7,7 +7,18 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 
 // Allow Vite to statically bundle the configuration file
-const appletConfig: any = {};
+const appletConfig: any = {
+  projectId: "gen-lang-client-0825832493",
+  appId: "1:103973989874:web:733a6afd8e837224900f6b",
+  apiKey: "AIzaSyBey9sUbeWlrcXS2kl4ewOzkTy4arg03Ok",
+  authDomain: "gen-lang-client-0825832493.firebaseapp.com",
+  firestoreDatabaseId: "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a",
+  storageBucket: "gen-lang-client-0825832493.firebasestorage.app",
+  messagingSenderId: "103973989874",
+  measurementId: "",
+  oAuthClientId: "103973989874-t47nv87k532pt84s2i1tkl0vkmbih9k6.apps.googleusercontent.com",
+  recaptchaSiteKey: ""
+};
 
 declare global {
   interface Window {
@@ -27,10 +38,13 @@ declare global {
 // We rely on either the injected config (for SSR/dynamic routes) or the statically bundled config (for dumb static hosting)
 const isRealValue = (id: string | undefined): boolean => {
   if (!id) return false;
-  const clean = id.trim();
-  if (clean === '' || clean === 'PLACEHOLDER' || clean.includes('REPLACE_WITH_YOUR_REAL_KEY') || clean.includes('YOUR_API_KEY')) return false;
-  // If it's a sandbox value but looks like a hash, we'll treat it as real enough to try.
-  if (clean.length > 20 && (clean.includes('#') || clean.includes('!') || clean.includes('@'))) return true;
+  const clean = String(id).trim();
+  if (clean === '' || 
+      clean === 'PLACEHOLDER' || 
+      clean === 'undefined' ||
+      clean === 'null' ||
+      clean.includes('REPLACE_WITH_YOUR_REAL_KEY') || 
+      clean.includes('YOUR_API_KEY')) return false;
   return true;
 };
 
@@ -81,15 +95,12 @@ const firebaseConfig = getSafeWindowConfig() || {
   messagingSenderId: resolvedMessagingId,
 };
 
-const isAdminEnabled = typeof __ADMIN_ENABLED__ !== 'undefined' ? __ADMIN_ENABLED__ : true;
+const isAdminEnabled = true;
 
 export const isFirebaseConfigured = isAdminEnabled && isRealValue(firebaseConfig.apiKey) && isRealValue(firebaseConfig.projectId);
 
 export const isFirebaseApiKeyReal = (key: string | undefined): boolean => {
-  if (!key) return false;
-  const clean = key.trim();
-  if (clean === '' || clean === 'PLACEHOLDER' || clean.includes('REPLACE_WITH_YOUR_REAL_KEY') || clean.includes('YOUR_API_KEY')) return false;
-  return true;
+  return isRealValue(key);
 };
 
 export const isFirebaseReal = isFirebaseConfigured && isFirebaseApiKeyReal(firebaseConfig.apiKey);

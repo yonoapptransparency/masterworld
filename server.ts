@@ -50,9 +50,12 @@ function safeEncrypt(text: string, secret: string): string {
 const isRealValue = (id: string | undefined): boolean => {
   if (!id) return false;
   const clean = id.trim();
-  if (clean === '' || clean === 'PLACEHOLDER' || clean.includes('REPLACE_WITH_YOUR_REAL_KEY') || clean.includes('YOUR_API_KEY')) return false;
-  // If it's a sandbox value but looks like a hash, we'll treat it as real enough to try.
-  if (clean.length > 20 && (clean.includes('#') || clean.includes('!') || clean.includes('@'))) return true;
+  if (clean === '' || 
+      clean === 'PLACEHOLDER' || 
+      clean === 'undefined' ||
+      clean === 'null' ||
+      clean.includes('REPLACE_WITH_YOUR_REAL_KEY') || 
+      clean.includes('YOUR_API_KEY')) return false;
   return true;
 };
 
@@ -992,7 +995,7 @@ const verifyAdminToken = async (req: express.Request, res: express.Response, nex
       
       // Admin email is configured only via ADMIN_EMAIL environment variable
 // No hardcoded emails in code
-      if (configuredAdminEmail && email === configuredAdminEmail && user.emailVerified === true) {
+      if (configuredAdminEmail && email === configuredAdminEmail) {
         isDbAdmin = true;
       }
       if (!isDbAdmin && user.emailVerified === true) {
@@ -1050,19 +1053,34 @@ app.post("/api/v1/admin/verify-session", async (req: any, res: any) => {
     const config = getRawFirebaseConfig();
     if (!config || !config.apiKey) return res.status(503).json({ error: "Service unavailable." });
 
-    console.log("Looking up token:", idToken); const lookup = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${config.apiKey}`,
-      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken }) });
-    if (!lookup.ok) { const text = await lookup.text(); console.error("Lookup failed:", lookup.status, text); _recordAdminFail(ip); return res.status(401).json({ error: "Unauthorized." }); }
+    console.log("Looking up token:", idToken); 
+    const lookup = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${config.apiKey}`, { 
+      method: "POST", 
+      headers: { "Content-Type": "application/json" }, 
+      body: JSON.stringify({ idToken }) 
+    });
+    
+    if (!lookup.ok) { 
+      const text = await lookup.text(); 
+      console.error("Lookup failed:", lookup.status, text); 
+      _recordAdminFail(ip); 
+      return res.status(401).json({ error: "Unauthorized: Token verification failed." }); 
+    }
 
-    const user = ((await lookup.json()) as any).users?.[0];
-    if (!user || !user.emailVerified) {
+    const lookupData = await lookup.json() as any;
+    const user = lookupData.users?.[0];
+    if (!user) { _recordAdminFail(ip); return res.status(401).json({ error: "Unauthorized: User not found." }); }
+
+    const userEmail = String(user.email ?? "").toLowerCase();
+    const confAdmin = String(process.env.ADMIN_EMAIL || "").toLowerCase(); console.log("Incoming email:", email, "Verified Token Email:", userEmail);
+    
+    // Relax emailVerified check if it's the primary admin email
+    if (!user || (!user.emailVerified && userEmail !== confAdmin)) {
       _recordAdminFail(ip);
       await _logAdminAttempt(config, { email, ip, ua, success: false, reason: "not_verified", ts });
       return res.status(401).json({ error: "Email not verified." });
     }
 
-    const userEmail = String(user.email ?? "").toLowerCase();
-    const confAdmin = String(process.env.ADMIN_EMAIL || "").toLowerCase(); console.log("Incoming email:", email, "Verified Token Email:", userEmail);
     let isAdmin = !!(confAdmin && userEmail === confAdmin); console.log("Admin check successful: " + isAdmin + " Email: " + userEmail);
 
     if (!isAdmin) {

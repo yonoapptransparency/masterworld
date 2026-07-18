@@ -25,7 +25,18 @@ export interface AuthResult {
 // ─────────────────────────────────────────────────────────────────────────────
 const SESSION_KEY = "__adm_session";
 const TOKEN_LIFETIME_MS = 55 * 60 * 1000; // 55 minutes (Firebase tokens last 60m)
-const appletConfig: any = {};
+const appletConfig: any = {
+  projectId: "gen-lang-client-0825832493",
+  appId: "1:103973989874:web:733a6afd8e837224900f6b",
+  apiKey: "AIzaSyBey9sUbeWlrcXS2kl4ewOzkTy4arg03Ok",
+  authDomain: "gen-lang-client-0825832493.firebaseapp.com",
+  firestoreDatabaseId: "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a",
+  storageBucket: "gen-lang-client-0825832493.firebasestorage.app",
+  messagingSenderId: "103973989874",
+  measurementId: "",
+  oAuthClientId: "103973989874-t47nv87k532pt84s2i1tkl0vkmbih9k6.apps.googleusercontent.com",
+  recaptchaSiteKey: ""
+};
 const FIREBASE_API_KEY = (import.meta as any).env?.VITE_FIREBASE_API_KEY || (appletConfig as any).apiKey || "";
 
 const isFirebaseApiKeyReal = (key: string | undefined): boolean => {
