@@ -1096,7 +1096,10 @@ app.post("/api/v1/admin/verify-session", async (req: any, res: any) => {
       return res.status(401).json({ error: "Unauthorized: Token verification failed." }); 
     }
 
-    const lookupData = await lookup.json() as any;
+    const lookupData = await lookup.json().catch(err => {
+      console.error("Lookup JSON parsing failed:", err);
+      return null;
+    }) as any;
     console.log("Lookup data received:", !!lookupData);
     const user = lookupData.users?.[0];
     if (!user) { _recordAdminFail(ip); return res.status(401).json({ error: "Unauthorized: User not found." }); }
@@ -1115,11 +1118,11 @@ app.post("/api/v1/admin/verify-session", async (req: any, res: any) => {
 
     if (!isAdmin) {
       try {
-        const r1 = await fetch(`https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/admins/${user.localId}${config.apiKey ? "?key=" + config.apiKey : ""}`, { headers: { Authorization: `Bearer ${idToken}` } });
-        if (r1.ok) isAdmin = true;
+        const r1 = await fetch(`https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/admins/${user.localId}${config.apiKey ? "?key=" + config.apiKey : ""}`, { headers: { Authorization: `Bearer ${idToken}` } }).catch(e => { console.error("Admin DB check failed:", e); return null; });
+        if (r1 && r1.ok) isAdmin = true;
         if (!isAdmin) {
-          const r2 = await fetch(`https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/admins/${encodeURIComponent(userEmail)}${config.apiKey ? "?key=" + config.apiKey : ""}`, { headers: { Authorization: `Bearer ${idToken}` } });
-          if (r2.ok) isAdmin = true;
+          const r2 = await fetch(`https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/admins/${encodeURIComponent(userEmail)}${config.apiKey ? "?key=" + config.apiKey : ""}`, { headers: { Authorization: `Bearer ${idToken}` } }).catch(e => { console.error("Admin DB check email failed:", e); return null; });
+          if (r2 && r2.ok) isAdmin = true;
         }
       } catch { _recordAdminFail(ip); return res.status(503).json({ error: "Service unavailable." }); }
     }
