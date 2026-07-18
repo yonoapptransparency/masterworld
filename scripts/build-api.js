@@ -32,6 +32,6 @@ content = content.replace(/    \}\);\n  \}\n\n  \/\/ Global Express Error Handle
 fs.writeFileSync('api/index.ts', content);
 
 console.log("Compiling api/index.ts to api/index.js...");
-execSync('npx esbuild api/index.ts --bundle --platform=node --format=cjs --outfile=api/index.js --packages=external', { stdio: 'inherit' });
+execSync('npx esbuild api/index.ts --bundle --platform=node --format=cjs --outfile=api/index.js', { stdio: 'inherit' });
 console.log("api/index.js generated successfully.");
 fs.unlinkSync('api/index.ts');
