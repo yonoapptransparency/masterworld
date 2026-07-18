@@ -18,6 +18,7 @@ import crypto from "crypto";
 import compression from "compression";
 import fs from "fs";
 import dns from "dns";
+import * as staticData from "./src/lib/staticData";
 import { injectSeoTags, fetchStoreData, getField, syncFromFirestore } from "./src/seoHelper";
 
 import { generateStaticDataFileCode } from "./src/lib/githubSync";
@@ -89,6 +90,7 @@ function getRawFirebaseConfig(): any {
     const config = JSON.parse(rawData);
     if (!config.projectId || !isRealValue(config.projectId)) throw new Error('project ID is placeholder or mock');
     config.firestoreDatabaseId = config.firestoreDatabaseId || config.databaseId || process.env.VITE_FIREBASE_DATABASE_ID;
+    config.apiKey = config.apiKey || process.env.VITE_FIREBASE_API_KEY;
     if (!config.firestoreDatabaseId || !isRealValue(config.firestoreDatabaseId)) throw new Error('database ID is placeholder or mock');
     
     // Ensure firestoreDatabaseId is set, since it might be absent in firebase-applet-config.json
@@ -2189,7 +2191,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
           console.error("Error reading public_backup.json in backup-data endpoint:", e);
         }
       }
-      const { mockApps, mockSettings, mockNews, mockBlogs, mockVideos } = require('./src/lib/staticData');
+      const { mockApps, mockSettings, mockNews, mockBlogs, mockVideos } = staticData;
       const fallbackData = {
         apps: mockApps || [],
         settings: mockSettings || {},
