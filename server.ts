@@ -3338,6 +3338,7 @@ ${JSON.stringify(publicContext, null, 2)}`;
   app.get("/api/v1/admin/firebase-status", async (req: any, res: any) => {
     try {
         const config = getRawFirebaseConfig();
+        console.log("Checking Firestore status for project:", config?.projectId);
         if (!config || !config.apiKey) return res.status(503).json({ error: "Service unavailable." });
         
         // Simple health check
@@ -3345,12 +3346,16 @@ ${JSON.stringify(publicContext, null, 2)}`;
             method: "GET"
         });
         
+        console.log("Firestore status response ok:", response.ok);
+        
         if (response.ok) {
             return res.json({ status: "live" });
         } else {
+            console.log("Firestore status error:", await response.text());
             return res.status(503).json({ status: "offline", error: "Firestore returned error" });
         }
     } catch (err: any) {
+        console.error("Firestore status check error:", err);
         return res.status(500).json({ status: "offline", error: err.message });
     }
   });
