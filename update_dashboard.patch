@@ -1,0 +1,26 @@
+--- src/pages/AdminDashboard.tsx
++++ src/pages/AdminDashboard.tsx
+@@ -91,7 +91,37 @@
+ 
+-const DashboardTab = React.memo(({ apps, news }: { apps: any[], news: any[] }) => (
+-  <div className="animate-fade-in space-y-6 md:space-y-8">
+-    <div className="border-b border-slate-200/50 dark:border-slate-800/50 pb-5">
+-      <h2 className="text-3xl font-black bg-gradient-to-br from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 bg-clip-text text-transparent tracking-tight">Platform Overview</h2>
+-      <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-2">Real-time stats and platform health metrics.</p>
+-    </div>
++const DashboardTab = React.memo(({ apps, news }: { apps: any[], news: any[] }) => {
++  const chartData = [
++    { name: 'Mon', apps: apps.length > 5 ? apps.length - 5 : 2, traffic: 4000 },
++    { name: 'Tue', apps: apps.length > 4 ? apps.length - 4 : 3, traffic: 3000 },
++    { name: 'Wed', apps: apps.length > 3 ? apps.length - 3 : 5, traffic: 5000 },
++    { name: 'Thu', apps: apps.length > 2 ? apps.length - 2 : 4, traffic: 2780 },
++    { name: 'Fri', apps: apps.length > 1 ? apps.length - 1 : 6, traffic: 4890 },
++    { name: 'Sat', apps: apps.length > 0 ? apps.length - 0 : 8, traffic: 6390 },
++    { name: 'Sun', apps: apps.length + 2, traffic: 8490 },
++  ];
++  return (
++    <div className="animate-fade-in space-y-6 md:space-y-8">
++      <div className="border-b border-slate-200/50 dark:border-slate-800/50 pb-5">
++        <h2 className="text-3xl font-black bg-gradient-to-br from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 bg-clip-text text-transparent tracking-tight">Platform Overview</h2>
++        <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-2">Real-time stats and platform health metrics.</p>
++      </div>

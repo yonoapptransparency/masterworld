@@ -40,13 +40,25 @@ const getClientConfigValue = (envVal: string | undefined, configVal: string | un
 };
 
 const config = appletConfig as any;
-const resolvedProjectId = getClientConfigValue(import.meta.env.VITE_FIREBASE_PROJECT_ID, config.projectId);
-const resolvedAppId = getClientConfigValue(import.meta.env.VITE_FIREBASE_APP_ID, config.appId);
-const resolvedApiKey = getClientConfigValue(import.meta.env.VITE_FIREBASE_API_KEY, config.apiKey);
-const resolvedAuthDomain = getClientConfigValue(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN, config.authDomain);
-const resolvedDatabaseId = getClientConfigValue(import.meta.env.VITE_FIREBASE_DATABASE_ID, config.firestoreDatabaseId);
-const resolvedStorageBucket = getClientConfigValue(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET, config.storageBucket);
-const resolvedMessagingId = getClientConfigValue(import.meta.env.VITE_FIREBASE_MESSAGING_ID, config.messagingSenderId);
+const getEnvVal = (key: string): string | undefined => {
+  try {
+    if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
+      return (import.meta as any).env[key];
+    }
+    if (typeof process !== 'undefined' && process.env) {
+      return process.env[key];
+    }
+  } catch (_) {}
+  return undefined;
+};
+
+const resolvedProjectId = getClientConfigValue(getEnvVal('VITE_FIREBASE_PROJECT_ID'), config.projectId);
+const resolvedAppId = getClientConfigValue(getEnvVal('VITE_FIREBASE_APP_ID'), config.appId);
+const resolvedApiKey = getClientConfigValue(getEnvVal('VITE_FIREBASE_API_KEY'), config.apiKey);
+const resolvedAuthDomain = getClientConfigValue(getEnvVal('VITE_FIREBASE_AUTH_DOMAIN'), config.authDomain);
+const resolvedDatabaseId = getClientConfigValue(getEnvVal('VITE_FIREBASE_DATABASE_ID'), config.firestoreDatabaseId);
+const resolvedStorageBucket = getClientConfigValue(getEnvVal('VITE_FIREBASE_STORAGE_BUCKET'), config.storageBucket);
+const resolvedMessagingId = getClientConfigValue(getEnvVal('VITE_FIREBASE_MESSAGING_ID'), config.messagingSenderId);
 
 // We first try to read from window.__FIREBASE_CONFIG__ (the dynamic SEO/SSR configuration injected by server.ts), 
 // but ensure its fields are non-mocked/real. If it's absent or mocked, fallback to the resolved non-mock values.
@@ -160,7 +172,9 @@ class MockAuth {
   }
 }
 
-export const isFirebaseConfigured = isRealValue(firebaseConfig.apiKey) && isRealValue(firebaseConfig.projectId);
+const isAdminEnabled = typeof __ADMIN_ENABLED__ !== 'undefined' ? __ADMIN_ENABLED__ : true;
+
+export const isFirebaseConfigured = isAdminEnabled && isRealValue(firebaseConfig.apiKey) && isRealValue(firebaseConfig.projectId);
 
 export const isFirebaseApiKeyReal = (key: string | undefined): boolean => {
   if (!key) return false;

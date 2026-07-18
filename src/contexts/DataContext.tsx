@@ -71,7 +71,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (initialData?.apps && initialData.apps.length > 0) return initialData.apps;
     try {
       const cached = localStorage.getItem('rummystore_apps');
-      if (cached && cached !== '[]') return JSON.parse(cached);
+      if (cached && cached !== '[]') {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
       return mockApps;
     } catch {
       return mockApps;
@@ -83,7 +86,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       const cached = localStorage.getItem('rummystore_settings');
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (parsed.site_title) return parsed;
+        if (parsed && parsed.site_title) return parsed;
       }
       return mockSettings;
     } catch {
@@ -94,7 +97,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (initialData?.news && initialData.news.length > 0) return initialData.news;
     try {
       const cached = localStorage.getItem('rummystore_news');
-      if (cached && cached !== '[]') return JSON.parse(cached);
+      if (cached && cached !== '[]') {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
       return mockNews;
     } catch {
       return mockNews;
@@ -104,7 +110,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (initialData?.blogs && initialData.blogs.length > 0) return initialData.blogs;
     try {
       const cached = localStorage.getItem('rummystore_blogs');
-      if (cached && cached !== '[]') return JSON.parse(cached);
+      if (cached && cached !== '[]') {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
       return mockBlogs;
     } catch {
       return mockBlogs;
@@ -114,7 +123,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (initialData?.videos && initialData.videos.length > 0) return initialData.videos;
     try {
       const cached = localStorage.getItem('rummystore_videos');
-      if (cached && cached !== '[]') return JSON.parse(cached);
+      if (cached && cached !== '[]') {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
       return mockVideos;
     } catch {
       return mockVideos;
@@ -253,10 +265,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         if (isAuthorized) {
           setGitConfigLoading(true);
           try {
-            const configDoc = doc(db, 'sec_git', 'cfg');
-            const snap = await getDoc(configDoc);
-            if (snap.exists()) {
-              setGitConfig(snap.data() as GitConfig);
+            if (isFirebaseReal && db) {
+              const configDoc = doc(db, 'sec_git', 'cfg');
+              const snap = await getDoc(configDoc);
+              if (snap.exists()) {
+                setGitConfig(snap.data() as GitConfig);
+              } else {
+                setGitConfig({ owner: "yonoapptransparency", repo: "yonotransparency-", branch: "main", token: "", autoSync: false });
+              }
             } else {
               setGitConfig({ owner: "yonoapptransparency", repo: "yonotransparency-", branch: "main", token: "", autoSync: false });
             }
