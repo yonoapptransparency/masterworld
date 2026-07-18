@@ -4,9 +4,10 @@ if (!process.env.AES_SECRET) {
   process.exit(1);
 }
 if (!process.env.ADMIN_EMAIL) {
-  console.error("CRITICAL: ADMIN_EMAIL is not set.");
-  process.exit(1);
+  console.warn("WARNING: ADMIN_EMAIL is not set. Admin features will use default fallback.");
+  process.env.ADMIN_EMAIL = "defentechscholar@gmail.com";
 }
+console.log("Server starting with ADMIN_EMAIL:", process.env.ADMIN_EMAIL);
 global.AES_SECRET_GLOBAL = process.env.AES_SECRET;
 import express from "express";
 import helmet from "helmet";
