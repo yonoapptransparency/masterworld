@@ -811,12 +811,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     log("GitHub Sync: Generating secure payload...");
     const updatedCode = generateStaticDataFileCode(finalApps, targetSettings, targetNews, targetBlogs, targetVideos);
     
-    // CRITICAL: Force target to 'Dex' repository for public content sync
-    // This implements the Yono Transparency architecture: Content -> Dex, Admin -> masterworld
-    const targetRepo = 'Dex';
+    // CRITICAL: Force target to 'Yono-Transparency' repository for source of truth sync
+    // This implements the Yono Transparency architecture: Updates -> Source -> GitHub Actions -> Dex
+    const targetRepo = 'Yono-Transparency';
     
     if (configToUse.repo && configToUse.repo.toLowerCase().includes('masterworld')) {
-      log(`⚠️ Security Alert: Redirecting sync from Admin repo ("${configToUse.repo}") to Website repo ("${targetRepo}").`);
+      log(`⚠️ Security Alert: Redirecting sync from Admin repo ("${configToUse.repo}") to Source of Truth repo ("${targetRepo}").`);
     }
 
     if (!configToUse.owner) {
@@ -840,13 +840,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         branch: configToUse.branch || 'main',
         path: 'src/lib/staticData.ts',
         content: updatedCode,
-        message: `Admin Release: Manual content synchronization to Dex`,
+        message: `Admin Release: Manual content synchronization to ${targetRepo}`,
         idToken // Pass the token here
       });
       log(`GitHub Sync: ✅ staticData.ts successfully synced to "${targetRepo}".`);
     } catch (err: any) {
-      log(`GitHub Sync Error (Static Data Sync to Dex): ${err.message}`);
-      throw new Error(`Failed to sync content to Dex: ${err.message}`);
+      log(`GitHub Sync Error (Static Data Sync to ${targetRepo}): ${err.message}`);
+      throw new Error(`Failed to sync content to ${targetRepo}: ${err.message}`);
     }
 
     log(`GitHub Sync: Building AES Encrypted Vault for ${targetRepo} hidden secure links...`);
@@ -870,7 +870,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
               branch: configToUse.branch || 'main',
               path: 'src/lib/secureVault.ts',
               content: `export const ENCRYPTED_LINKS = "${vaultData.ciphertext}";\n`,
-              message: `Admin Release: Secure vault synchronization for Dex`,
+              message: `Admin Release: Secure vault synchronization for ${targetRepo}`,
               idToken // Pass the token here
             });
             log(`GitHub Sync: ✅ secureVault.ts successfully synced to ${targetRepo}.`);
@@ -884,13 +884,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         log(`GitHub Sync Error (Vault Sync to ${targetRepo}): ${err.message}`);
     }
 
-    // Final result object for UI feedback
-    return {
-      success: true,
-      targetRepo,
-      timestamp: new Date().toISOString()
-    };
-
     log("Local System: Applying backend static data patch...");
     try {
       await updateLocalContainerBackup(finalApps, targetSettings, targetNews, targetBlogs, targetVideos);
@@ -900,6 +893,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
 
     log("GitHub Sync: Manual push to Dex successful!");
+
+    // Final result object for UI feedback
+    return {
+      success: true,
+      targetRepo,
+      timestamp: new Date().toISOString()
+    };
   }, [gitConfig, apps, settings, news, blogs, videos, updateLocalContainerBackup]);
 
   // Memoized actions to prevent re-renders in children

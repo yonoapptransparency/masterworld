@@ -1299,16 +1299,20 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
       let cleanRepo = repo.trim();
       const lowerOwner = cleanOwner.toLowerCase();
       const lowerRepo = cleanRepo.toLowerCase();
-      const isContentFile = cleanPath.includes('staticData.ts') || cleanPath.includes('secureVault.ts');
+      const isContentFile = 
+        cleanPath.includes('staticData.ts') || 
+        cleanPath.includes('secureVault.ts') || 
+        cleanPath.includes('public_backup.json') || 
+        cleanPath.includes('secure_links_backup.json');
 
-      // ARCHITECTURAL HARD-ENFORCEMENT:
-      // In the Yono Transparency system, all content syncs (staticData.ts, secureVault.ts)
-      // and code updates from the transparency owners MUST go to the source repository
-      // "Yono-Transparency". The GitHub Actions workflow in that repo then handles
-      // the split-sync to the public "Dex" repo and admin "masterworld" repo.
+      // ARCHITECTURAL HARD-ENFORCEMENT (Source of Truth):
+      // All content updates (Data/Vault/Backups) and owner-initiated syncs 
+      // MUST be redirected to the "Yono-Transparency" source repository.
+      // This ensures the GitHub Actions workflow in the source repo is the ONLY 
+      // automated mechanism that pushes to public (Dex) or admin (masterworld).
       if (lowerOwner === 'yonoapptransparency' || lowerOwner === 'defentechscholar' || isContentFile) {
          if (lowerRepo.includes('masterworld') || lowerRepo === 'dex' || lowerRepo === '' || lowerRepo === 'yonotransparency-' || isContentFile) {
-            console.warn(`[SECURITY] GitHub Sync Server: Redirecting commit of "${cleanPath}" to SOURCE repo ("Yono-Transparency")`);
+            console.warn(`[SECURITY] GitHub Sync Server: Redirecting commit of "${cleanPath}" to SOURCE repository ("Yono-Transparency")`);
             cleanRepo = 'Yono-Transparency';
          }
       }
