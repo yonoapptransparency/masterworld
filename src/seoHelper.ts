@@ -30,19 +30,6 @@ function getRawFirebaseConfig(): any {
   if (cachedRawFirebaseConfig) {
     return cachedRawFirebaseConfig;
   }
-  
-  const HARDCODED_FALLBACK = {
-    projectId: "gen-lang-client-0825832493",
-    appId: "1:103973989874:web:733a6afd8e837224900f6b",
-    apiKey: "AIzaSyBey9sUbeWlrcXS2kl4ewOzkTy4arg03Ok",
-    authDomain: "gen-lang-client-0825832493.firebaseapp.com",
-    firestoreDatabaseId: "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a",
-    storageBucket: "gen-lang-client-0825832493.firebasestorage.app",
-    messagingSenderId: "103973989874",
-    measurementId: "",
-    oAuthClientId: "103973989874-t47nv87k532pt84s2i1tkl0vkmbih9k6.apps.googleusercontent.com",
-    recaptchaSiteKey: ""
-  };
 
   try {
     const rawData = fs.readFileSync(path.join(process.cwd(), 'firebase-applet-config.json'), 'utf8');
@@ -65,8 +52,7 @@ function getRawFirebaseConfig(): any {
       return cachedRawFirebaseConfig;
     }
     
-    cachedRawFirebaseConfig = HARDCODED_FALLBACK;
-    return cachedRawFirebaseConfig;
+    throw new Error('Firebase configuration not found and no environment variables set.');
   }
 }
 

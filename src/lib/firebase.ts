@@ -6,19 +6,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 
-// Allow Vite to statically bundle the configuration file
-const appletConfig: any = {
-  projectId: "gen-lang-client-0825832493",
-  appId: "1:103973989874:web:733a6afd8e837224900f6b",
-  apiKey: "AIzaSyBey9sUbeWlrcXS2kl4ewOzkTy4arg03Ok",
-  authDomain: "gen-lang-client-0825832493.firebaseapp.com",
-  firestoreDatabaseId: "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a",
-  storageBucket: "gen-lang-client-0825832493.firebasestorage.app",
-  messagingSenderId: "103973989874",
-  measurementId: "",
-  oAuthClientId: "103973989874-t47nv87k532pt84s2i1tkl0vkmbih9k6.apps.googleusercontent.com",
-  recaptchaSiteKey: ""
-};
+import appletConfig from '../../firebase-applet-config.json';
 
 declare global {
   interface Window {
