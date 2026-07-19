@@ -202,6 +202,20 @@ jobs:
               find . -maxdepth 1 -name "*.sh" -exec rm -f {} +
               find . -maxdepth 1 -name "*.patch" -exec rm -f {} +
               find . -maxdepth 1 -name "*.html" ! -name "index.html" -exec rm -f {} +
+            else
+              # IS_ADMIN (masterworld) - We must ENSURE that public static data is NOT committed to the admin repo
+              # This prevents the admin site from showing content if it's deployed as a static site.
+              echo "Cleaning public content data from $REPO_NAME (Admin/Masterworld)..."
+              echo "export const mockApps = [];" > src/lib/staticData.ts
+              echo "export const mockSettings = {};" >> src/lib/staticData.ts
+              echo "export const mockNews = [];" >> src/lib/staticData.ts
+              echo "export const mockBlogs = [];" >> src/lib/staticData.ts
+              echo "export const mockVideos = [];" >> src/lib/staticData.ts
+              
+              # Also clean the JSON backup if it exists
+              if [ -f "src/lib/public_backup.json" ]; then
+                echo '{"items": []}' > src/lib/public_backup.json
+              fi
             fi
 
             git add .
