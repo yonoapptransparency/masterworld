@@ -1,66 +1,61 @@
 const fs = require('fs');
 const { execSync } = require('child_process');
 
-console.log("Generating api/index.ts from server.ts...");
+console.log("Generating api/index.js from server.ts...");
 
 let content = fs.readFileSync('server.ts', 'utf8');
 
-// Rewrite imports for api/ location
+// 1. Rewrite imports for api/ location
 content = content.replace(/from "\.\/src\//g, 'from "../src/');
 
-// Strip startServer wrapper
-content = content.replace(/async function startServer\(\) \{\s*const app = express\(\);/, 'const app = express();');
-content = content.replace(/\n\}\n\nstartServer\(\);\n*$/, '\n');
-
-// Replace app.listen properly
-const listenIdx = content.indexOf('app.listen(PORT');
-if (listenIdx > -1) {
-    content = content.substring(0, listenIdx) + 'module.exports = app;\n';
+// 2. Extract the body of startServer
+const startToken = 'async function startServer() {';
+const startIdx = content.indexOf(startToken);
+if (startIdx !== -1) {
+    const prelude = content.substring(0, startIdx);
+    let body = content.substring(startIdx + startToken.length);
+    
+    // Find the end of the function - it's before startServer();
+    const endCall = 'startServer();';
+    const endCallIdx = body.lastIndexOf(endCall);
+    if (endCallIdx !== -1) {
+        body = body.substring(0, endCallIdx);
+        // Remove the last closing brace of startServer()
+        const lastBraceIdx = body.lastIndexOf('}');
+        if (lastBraceIdx !== -1) {
+            body = body.substring(0, lastBraceIdx) + body.substring(lastBraceIdx + 1);
+        }
+    }
+    content = prelude + body;
 }
 
-// Remove Vite middleware for development block
-// This block starts with // Vite middleware for development
-// and ends before // Global Express Error Handler
-const startComment = '// Vite middleware for development';
-const endComment = '// Global Express Error Handler';
-
-const startIdx = content.indexOf(startComment);
-const endIdx = content.indexOf(endComment);
-
-if (startIdx > -1 && endIdx > startIdx) {
-    console.log('Stripping Vite development block from API build...');
-    // We want to keep the production part of the block if it exists
-    // The structure is:
-    // if (process.env.NODE_ENV !== "production") { ... } else { PRODUCTION_LOGIC }
-    
-    const elseIdx = content.indexOf('} else {', startIdx);
-    if (elseIdx > -1 && elseIdx < endIdx) {
-        // Strip from startIdx to elseIdx + 8 (the length of '} else {')
-        // and also strip the trailing '}' before endComment
-        const prodLogicStart = elseIdx + 8;
-        
-        // Find the last closing brace before the endComment
-        const lastBraceIdx = content.lastIndexOf('}', endIdx);
-        if (lastBraceIdx > prodLogicStart) {
-             content = content.substring(0, startIdx) + 
-                       content.substring(prodLogicStart, lastBraceIdx) + 
-                       content.substring(endIdx);
-        } else {
-            // Fallback: just remove the whole block if parsing fails
-            content = content.substring(0, startIdx) + content.substring(endIdx);
-        }
-    } else {
-        content = content.substring(0, startIdx) + content.substring(endIdx);
+// 3. Replace app.listen with module.exports for Vercel
+// We need to be careful as app.listen contains nested braces
+const listenStartToken = 'app.listen(PORT';
+const listenIdx = content.indexOf(listenStartToken);
+if (listenIdx !== -1) {
+    // Find the end of the block. In our server.ts, it's the last }); before the end of the string
+    const listenEndIdx = content.lastIndexOf('});');
+    if (listenEndIdx !== -1 && listenEndIdx > listenIdx) {
+        content = content.substring(0, listenIdx) + 'module.exports = app;' + content.substring(listenEndIdx + 3);
     }
 }
-// Clean up else block closing brace and any trailing residues before the error handler
-content = content.replace(/\}\s*\);\s*\}\s*\n\s*\/\/ Global Express Error Handler/g, '});\n\n  // Global Express Error Handler');
-content = content.replace(/\}\s*\}\s*\n\s*\/\/ Global Express Error Handler/g, '}\n\n  // Global Express Error Handler');
+
+// 4. Strip Vite/Static block (not needed in Serverless Function)
+const startComment = '// Vite middleware for development';
+const endComment = '// Global Express Error Handler';
+const vIdx = content.indexOf(startComment);
+const eIdx = content.indexOf(endComment);
+
+if (vIdx !== -1 && eIdx !== -1) {
+    console.log('Stripping Vite/Static block from API build...');
+    content = content.substring(0, vIdx) + '\n\n' + content.substring(eIdx);
+}
 
 fs.writeFileSync('api/index.ts', content);
 
 console.log("Compiling api/index.ts to api/index.js...");
-// Use --minify to reduce file size and ensure syntax validity
+// Use --minify to ensure validity and smaller size
 execSync('npx esbuild api/index.ts --bundle --platform=node --format=cjs --packages=external --minify --outfile=api/index.js', { stdio: 'inherit' });
 console.log("api/index.js generated successfully.");
 fs.unlinkSync('api/index.ts');

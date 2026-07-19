@@ -64,7 +64,6 @@ const AdminLoginPageLazy = lazyWithRetry(() => import('./pages/AdminLogin'));
 const AdminDashboard = lazyWithRetry(() => import('./pages/AdminDashboard'));
 
 
-import FallbackRouteMatcher from './components/FallbackRouteMatcher';
 
 import { getAdminPath } from './lib/utils';
 
