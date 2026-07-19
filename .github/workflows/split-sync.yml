@@ -35,10 +35,10 @@ jobs:
             "src/components/FirebaseStatusIndicator.tsx"
             "src/components/AppsTab.tsx"
             "src/components/BlogsTab.tsx"
+            "src/components/ClearanceButton.tsx"
             "src/services/adminAuthService.ts"
             "src/lib/githubSync.ts"
             "src/lib/totp.ts"
-            "src/lib/secureVault.ts"
             "src/lib/secureStorage.ts"
             "src/lib/secure_links_backup.json"
             "src/lib/public_backup.json"
@@ -50,7 +50,7 @@ jobs:
             ".firebaserc"
             "bun.lock"
             "scripts/"
-                        "add-admin-rest.ts"
+            "add-admin-rest.ts"
             "add-admin.ts"
             "add_save_button.js"
             "check-env.ts"
@@ -161,7 +161,8 @@ jobs:
             rm -rf "${REPO_NAME}_repo"
             
             if [ "$IS_PUBLIC" = "true" ]; then
-              RSYNC_EXCLUDES="--exclude=.git --exclude=.github --exclude=node_modules --exclude=dist"
+              # For Dex, we exclude content files from being overwritten by the stale source
+              RSYNC_EXCLUDES="--exclude=.git --exclude=.github --exclude=node_modules --exclude=dist --exclude=src/lib/staticData.ts --exclude=src/lib/secureVault.ts"
             else
               RSYNC_EXCLUDES="--exclude=.git --exclude=node_modules --exclude=dist"
             fi
@@ -186,6 +187,13 @@ jobs:
                 rm -rf "$file"
               done
 
+              # Bulletproof safety net: strip any residual maintenance, test, or config files from root of Dex
+              find . -maxdepth 1 -name "*.js" ! -name "eslint.config.mjs" ! -name "eslint.config.cjs" ! -name "postcss.config.js" ! -name "tailwind.config.js" -exec rm -f {} +
+              find . -maxdepth 1 -name "*.ts" ! -name "vite.config.ts" -exec rm -f {} +
+              find . -maxdepth 1 -name "*.sh" -exec rm -f {} +
+              find . -maxdepth 1 -name "*.patch" -exec rm -f {} +
+              find . -maxdepth 1 -name "*.html" ! -name "index.html" -exec rm -f {} +
+
               # Strip Admin source code completely
               if [ -f "rewrite-datacontext-for-dex.js" ]; then
                 node rewrite-datacontext-for-dex.js
@@ -195,24 +203,21 @@ jobs:
                 node strip-admin-from-dex.js
                 rm -f strip-admin-from-dex.js
               fi
-
-              # Bulletproof safety net: strip any residual maintenance, test, or config files from root of Dex
-              find . -maxdepth 1 -name "*.js" ! -name "eslint.config.mjs" ! -name "eslint.config.cjs" ! -name "postcss.config.js" ! -name "tailwind.config.js" -exec rm -f {} +
-              find . -maxdepth 1 -name "*.ts" ! -name "vite.config.ts" -exec rm -f {} +
-              find . -maxdepth 1 -name "*.sh" -exec rm -f {} +
-              find . -maxdepth 1 -name "*.patch" -exec rm -f {} +
-              find . -maxdepth 1 -name "*.html" ! -name "index.html" -exec rm -f {} +
             else
               # IS_ADMIN (masterworld) - We must ENSURE that public static data is NOT committed to the admin repo
-              # This prevents the admin site from showing content if it's deployed as a static site.
               echo "Cleaning public content data from $REPO_NAME (Admin/Masterworld)..."
+              mkdir -p src/lib
               echo "export const mockApps = [];" > src/lib/staticData.ts
               echo "export const mockSettings = {};" >> src/lib/staticData.ts
               echo "export const mockNews = [];" >> src/lib/staticData.ts
               echo "export const mockBlogs = [];" >> src/lib/staticData.ts
               echo "export const mockVideos = [];" >> src/lib/staticData.ts
               
-              # Also clean the JSON backup if it exists
+              # Wipe the vault as well so the admin repo doesn't have the ciphertext
+              echo "export const IS_SEALED = false;" > src/lib/secureVault.ts
+              echo "export const ENCRYPTED_LINKS = \"\";" >> src/lib/secureVault.ts
+              echo "export const VAULT_METADATA = {};" >> src/lib/secureVault.ts
+              
               if [ -f "src/lib/public_backup.json" ]; then
                 echo '{"items": []}' > src/lib/public_backup.json
               fi
@@ -229,4 +234,3 @@ jobs:
 
           sync_repo "masterworld" "yonoapptransparency/masterworld" "false"
           sync_repo "Dex" "yonoapptransparency/Dex" "true"
-
