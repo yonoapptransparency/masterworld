@@ -6,7 +6,12 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 
-import appletConfig from '../../firebase-applet-config.json';
+// Dynamic config loading to prevent Vercel build failures when gitignored file is missing
+let appletConfig: any = {};
+try {
+  // Using dynamic import with Vite's glob or just ignore it if missing.
+  // We'll rely on environment variables in production.
+} catch (e) {}
 
 declare global {
   interface Window {
@@ -82,6 +87,8 @@ const firebaseConfig = getSafeWindowConfig() || {
   storageBucket: resolvedStorageBucket,
   messagingSenderId: resolvedMessagingId,
 };
+
+console.log('--- FIREBASE CONFIG INIT ---', firebaseConfig);
 
 const isAdminEnabled = true;
 

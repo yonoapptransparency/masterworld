@@ -1139,6 +1139,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   
   // Inject the safe/dynamic Firebase configuration into the window object to keep it entirely out of compiled JS assets.
   const safeFirebaseConfig = getSafeFirebaseConfig();
+  console.log("SAFE FIREBASE CONFIG:", safeFirebaseConfig);
   const configScript = `
     <script id="firebase-config-loader">
       ${safeFirebaseConfig ? `window.__FIREBASE_CONFIG__ = ${JSON.stringify(safeFirebaseConfig).replace(/</g, '\\u003c')};` : ''}
