@@ -206,21 +206,15 @@ jobs:
             else
               # IS_ADMIN (masterworld) - We must ENSURE that public static data is NOT committed to the admin repo
               echo "Cleaning public content data from $REPO_NAME (Admin/Masterworld)..."
-              mkdir -p src/lib
-              echo "export const mockApps = [];" > src/lib/staticData.ts
-              echo "export const mockSettings = {};" >> src/lib/staticData.ts
-              echo "export const mockNews = [];" >> src/lib/staticData.ts
-              echo "export const mockBlogs = [];" >> src/lib/staticData.ts
-              echo "export const mockVideos = [];" >> src/lib/staticData.ts
               
-              # Wipe the vault as well so the admin repo doesn't have the ciphertext
-              echo "export const IS_SEALED = false;" > src/lib/secureVault.ts
-              echo "export const ENCRYPTED_LINKS = \"\";" >> src/lib/secureVault.ts
-              echo "export const VAULT_METADATA = {};" >> src/lib/secureVault.ts
-              
-              if [ -f "src/lib/public_backup.json" ]; then
-                echo '{"items": []}' > src/lib/public_backup.json
+              if [ -f "strip-public-from-masterworld.js" ]; then
+                node strip-public-from-masterworld.js
+                rm -f strip-public-from-masterworld.js
               fi
+              
+              # Cleanup scripts that shouldn't be in admin either
+              find . -maxdepth 1 -name "patch-*.js" -exec rm -f {} +
+              rm -f strip-admin-from-dex.js rewrite-datacontext-for-dex.js
             fi
 
             git add .
