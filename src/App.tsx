@@ -996,7 +996,10 @@ function AppContent() {
   }, [isAdminPath]);
 
   // __ADMIN_BLOCK_START__
-  const IS_ADMIN_BUILD = true;
+  const IS_ADMIN_BUILD = typeof window !== 'undefined' && (
+    window.location.hostname.includes('masterworld') ||
+    (window.location.hostname.includes('vercel.app') && !window.location.hostname.includes('dex'))
+  );
   if (IS_ADMIN_BUILD || isAdminPath) {
     return (
       <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-slate-950">
