@@ -106,8 +106,7 @@ const isBrowserAdminRoute = isBrowser && window.location.pathname.startsWith(`/$
 
 export const isFirebaseConfigured = isAdminEnabled && 
   isRealValue(firebaseConfig.apiKey) && 
-  isRealValue(firebaseConfig.projectId) &&
-  (!isBrowser || isBrowserAdminRoute);
+  isRealValue(firebaseConfig.projectId);
 
 export const isFirebaseApiKeyReal = (key: string | undefined): boolean => {
   return isRealValue(key);
