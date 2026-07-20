@@ -79,7 +79,7 @@ const K_POW = new Uint32Array([
 const rotR_pow = (v: number, a: number) => (v >>> a) | (v << (32 - a));
 
 // ── Internal API paths (match backend) ──
-const API_BASE = import.meta.env.VITE_API_URL || '';
+const API_BASE = import.meta.env.VITE_API_URL || window.location.origin;
 const _EP = {
   challenge: `${API_BASE}/api/v1/init-file`,
   process:   `${API_BASE}/api/v1/process-file`,
@@ -597,7 +597,13 @@ export default function ClearanceButton({ appId, status, variant = 'default' }: 
       const challengeContentType = challengeResponse.headers.get('content-type') || '';
       if (!challengeContentType.includes('application/json')) {
         console.error(`[DEBUG] Invalid content type: ${challengeContentType}, status: ${challengeResponse.status}`);
-        throw new Error(`Verification service returned an invalid response (type: ${challengeContentType}, status: ${challengeResponse.status}). Please refresh and try again.`);
+        let errMsg = `Verification service returned an invalid response (type: ${challengeContentType}, status: ${challengeResponse.status}).`;
+        if (challengeContentType.includes('text/html')) {
+          errMsg += ' This usually means the API is missing. If you are on the public Dex website, you MUST set the VITE_API_URL environment variable in Vercel to point to your Admin/Masterworld server URL!';
+        } else {
+          errMsg += ' Please refresh and try again.';
+        }
+        throw new Error(errMsg);
       }
 
       const { nonce, difficulty, sid } = await challengeResponse.json();
