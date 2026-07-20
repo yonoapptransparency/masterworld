@@ -5,8 +5,8 @@ console.log("Generating api/index.js from server.ts...");
 
 let content = fs.readFileSync('server.ts', 'utf8');
 
-// 1. Rewrite imports for api/ location
-content = content.replace(/from "\.\/src\//g, 'from "../src/');
+// 1. Rewrite imports and requires for api/ location
+content = content.replace(/["']\.\/src\//g, (match) => match[0] + '../src/');
 
 // 2. Extract the body of startServer
 const startToken = 'async function startServer() {';
