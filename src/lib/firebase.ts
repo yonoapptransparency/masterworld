@@ -61,6 +61,23 @@ const getEnvVal = (key: string): string | undefined => {
   return undefined;
 };
 
+const B64_FALLBACK = "ewogICJwcm9qZWN0SWQiOiAiZ2VuLWxhbmctY2xpZW50LTA4MjU4MzI0OTMiLAogICJhcHBJZCI6ICIxOjEwMzk3Mzk4OTg3NDp3ZWI6NzMzYTZhZmQ4ZTgzNzIyNDkwMGY2YiIsCiAgImFwaUtleSI6ICJBSXphU3lCZXk5c1ViZVdscmNYUzJrbDRld096a1R5NGFyZzAzT2siLAogICJhdXRoRG9tYWluIjogImdlbi1sYW5nLWNsaWVudC0wODI1ODMyNDkzLmZpcmViYXNlYXBwLmNvbSIsCiAgImZpcmVzdG9yZURhdGFiYXNlSWQiOiAiYWktc3R1ZGlvLXlvbm9zdG9yZS04ODYzMTVhNC04YjlmLTRmZjYtODk4Ni1hOTBhZDE3MjIxMGEiLAogICJzdG9yYWdlQnVja2V0IjogImdlbi1sYW5nLWNsaWVudC0wODI1ODMyNDkzLmZpcmViYXNlc3RvcmFnZS5hcHAiLAogICJtZXNzYWdpbmdTZW5kZXJJZCI6ICIxMDM5NzM5ODk4NzQiLAogICJtZWFzdXJlbWVudElkIjogIiIsCiAgIm9BdXRoQ2xpZW50SWQiOiAiMTAzOTczOTg5ODc0LXQ0N252ODdrNTMycHQ4NHMyaTF0a2wwdmttYmloOWs2LmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29tIiwKICAicmVjYXB0Y2hhU2l0ZUtleSI6ICIiCn0=";
+
+const getFallbackConfig = (): any => {
+  try {
+    const cleanB64 = B64_FALLBACK.replace(/[^A-Za-z0-9+/=]/g, "");
+    let decoded = "";
+    if (typeof window !== 'undefined' && typeof window.atob === 'function') {
+      decoded = window.atob(cleanB64);
+    } else {
+      decoded = Buffer.from(cleanB64, 'base64').toString('utf8');
+    }
+    return JSON.parse(decoded);
+  } catch (_) {
+    return null;
+  }
+};
+
 const resolvedProjectId = getClientConfigValue(getEnvVal('VITE_FIREBASE_PROJECT_ID'), config.projectId);
 const resolvedAppId = getClientConfigValue(getEnvVal('VITE_FIREBASE_APP_ID'), config.appId);
 const resolvedApiKey = getClientConfigValue(getEnvVal('VITE_FIREBASE_API_KEY'), config.apiKey);
@@ -79,15 +96,48 @@ const getSafeWindowConfig = (): any => {
   return cfg;
 };
 
-const firebaseConfig = getSafeWindowConfig() || {
-  projectId: resolvedProjectId,
-  appId: resolvedAppId,
-  apiKey: resolvedApiKey,
-  authDomain: resolvedAuthDomain,
-  firestoreDatabaseId: resolvedDatabaseId,
-  storageBucket: resolvedStorageBucket,
-  messagingSenderId: resolvedMessagingId,
+const getResolvedConfig = () => {
+  const winConfig = getSafeWindowConfig();
+  if (winConfig) return winConfig;
+
+  if (isRealValue(resolvedProjectId) && isRealValue(resolvedApiKey)) {
+    return {
+      projectId: resolvedProjectId,
+      appId: resolvedAppId,
+      apiKey: resolvedApiKey,
+      authDomain: resolvedAuthDomain,
+      firestoreDatabaseId: resolvedDatabaseId,
+      storageBucket: resolvedStorageBucket,
+      messagingSenderId: resolvedMessagingId,
+    };
+  }
+
+  // Fallback to embedded Base64 config
+  const fallback = getFallbackConfig();
+  if (fallback) {
+    return {
+      projectId: fallback.projectId,
+      appId: fallback.appId,
+      apiKey: fallback.apiKey,
+      authDomain: fallback.authDomain,
+      firestoreDatabaseId: fallback.firestoreDatabaseId || '(default)',
+      storageBucket: fallback.storageBucket,
+      messagingSenderId: fallback.messagingSenderId,
+    };
+  }
+
+  return {
+    projectId: resolvedProjectId,
+    appId: resolvedAppId,
+    apiKey: resolvedApiKey,
+    authDomain: resolvedAuthDomain,
+    firestoreDatabaseId: resolvedDatabaseId,
+    storageBucket: resolvedStorageBucket,
+    messagingSenderId: resolvedMessagingId,
+  };
 };
+
+const firebaseConfig = getResolvedConfig();
 
 console.log('--- FIREBASE CONFIG INIT ---', firebaseConfig);
 
