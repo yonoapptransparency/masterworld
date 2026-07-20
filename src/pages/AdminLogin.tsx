@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import AdminLoginComponent from '../components/AdminLogin';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { saveSession, loadSession, clearSession } from '../services/adminAuthService';
 import { auth } from '../lib/firebase';
 import { getAdminPath } from '../lib/utils';
@@ -34,6 +34,8 @@ export default function AdminLoginPage() {
     }
   }, []);
 
+  const navigate = useNavigate();
+
   if (checking) return <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex justify-center items-center">Verifying session...</div>;
 
   if (hasSession) {
@@ -49,7 +51,7 @@ export default function AdminLoginPage() {
           email,
           expiresAt: Date.now() + 55 * 60 * 1000
         });
-        window.location.href = `/${getAdminPath()}/dashboard`;
+        navigate(`/${getAdminPath()}/dashboard`);
       }}
     />
   );
