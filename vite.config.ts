@@ -15,7 +15,8 @@ export default defineConfig(({mode}) => {
   return {
     plugins: [react(), tailwindcss()],
     define: {
-          },
+      __ADMIN_ENABLED__: true,
+    },
     resolve: {
       dedupe: ['react', 'react-dom'],
       alias: [
