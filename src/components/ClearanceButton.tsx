@@ -596,7 +596,8 @@ export default function ClearanceButton({ appId, status, variant = 'default' }: 
 
       const challengeContentType = challengeResponse.headers.get('content-type') || '';
       if (!challengeContentType.includes('application/json')) {
-        throw new Error('Verification service returned an invalid response. Please refresh and try again.');
+        console.error(`[DEBUG] Invalid content type: ${challengeContentType}, status: ${challengeResponse.status}`);
+        throw new Error(`Verification service returned an invalid response (type: ${challengeContentType}, status: ${challengeResponse.status}). Please refresh and try again.`);
       }
 
       const { nonce, difficulty, sid } = await challengeResponse.json();

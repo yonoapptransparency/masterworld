@@ -2518,6 +2518,7 @@ const rateLimitMap = new Map<string, number[]>();
 
   // API Route: Allocate seed & ephemeral nonce
   app.get(["/api/v1/_chal", "/api/v1/get-challenge", "/api/v1/init-file"], async (req, res) => {
+    console.log(`[DEBUG] /api/v1/init-file called`);
     const ip = getIp(req);
     if (await rateLimit(ip)) return res.status(429).json({ error: "Too many requests. Please wait." });
     if (isSuspiciousClient(req)) return res.status(403).json({ error: "Access denied." });
