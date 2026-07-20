@@ -18,8 +18,8 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode; fallbac
   static getDerivedStateFromError() { return { hasError: true }; }
   componentDidCatch(error: any, errorInfo: any) { console.error("Admin Load Error:", error, errorInfo); }
   render() {
-    if (this.state.hasError) return this.props.children;
-    return this.props.fallback;
+    if (this.state.hasError) return this.props.fallback;
+    return this.props.children;
   }
 }
 
