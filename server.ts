@@ -128,7 +128,12 @@ function getFirebaseAdminDb(): any {
     }
     const config = getRawFirebaseConfig();
     const dbId = config?.firestoreDatabaseId || '(default)';
-    cachedAdminDb = admin.firestore(dbId);
+    if (dbId && dbId !== '(default)') {
+      const { getFirestore } = require('firebase-admin/firestore');
+      cachedAdminDb = getFirestore(admin.apps[0], dbId);
+    } else {
+      cachedAdminDb = admin.firestore();
+    }
     console.log(`[INFO] Firebase Admin SDK successfully initialized for database: ${dbId}`);
     return cachedAdminDb;
   } catch (err: any) {
