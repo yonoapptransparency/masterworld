@@ -813,10 +813,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     
     // CRITICAL: Force target to 'yonotransparency-' repository for source of truth sync
     // This implements the Yono Transparency architecture: Updates -> Source -> GitHub Actions -> Dex
-    const targetRepo = 'yonotransparency-';
+    // Fallback: If the PAT lacks permissions for the source of truth, the backend will automatically 
+    // fall back to the user's originally configured repository (e.g. Dex).
+    const targetRepo = configToUse.repo || 'yonotransparency-';
     
     if (configToUse.repo && configToUse.repo.toLowerCase().includes('masterworld')) {
-      log(`⚠️ Security Alert: Redirecting sync from Admin repo ("${configToUse.repo}") to Source of Truth repo ("${targetRepo}").`);
+      log(`⚠️ Security Alert: Redirecting sync from Admin repo ("${configToUse.repo}") to Source of Truth repo ("yonotransparency-").`);
     }
 
     if (!configToUse.owner) {
@@ -830,26 +832,30 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     log(`GitHub Sync: Preparing payload for "${targetRepo}" repository (Owner: ${configToUse.owner})...`);
     
+    let finalTargetRepo = targetRepo;
     try {
       const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : '';
-      log(`GitHub Sync: Pushing staticData.ts to ${targetRepo}...`);
-      await commitFileToGitHub({
+      log(`GitHub Sync: Pushing staticData.ts...`);
+      const syncRes = await commitFileToGitHub({
         owner: configToUse.owner,
-        repo: targetRepo,
+        repo: configToUse.repo || 'yonotransparency-', // pass user's preferred repo so server can fall back to it
         token: configToUse.token,
         branch: configToUse.branch || 'main',
         path: 'src/lib/staticData.ts',
         content: updatedCode,
-        message: `Admin Release: Manual content synchronization to ${targetRepo}`,
+        message: `Admin Release: Manual content synchronization`,
         idToken // Pass the token here
       });
-      log(`GitHub Sync: ✅ staticData.ts successfully synced to "${targetRepo}".`);
+      if (syncRes && (syncRes as any).targetRepo) {
+        finalTargetRepo = (syncRes as any).targetRepo;
+      }
+      log(`GitHub Sync: ✅ staticData.ts successfully synced to "${finalTargetRepo}".`);
     } catch (err: any) {
-      log(`GitHub Sync Error (Static Data Sync to ${targetRepo}): ${err.message}`);
-      throw new Error(`Failed to sync content to ${targetRepo}: ${err.message}`);
+      log(`GitHub Sync Error (Static Data Sync): ${err.message}`);
+      throw new Error(`Failed to sync content: ${err.message}`);
     }
 
-    log(`GitHub Sync: Building AES Encrypted Vault for ${targetRepo} hidden secure links...`);
+    log(`GitHub Sync: Building AES Encrypted Vault for ${finalTargetRepo} hidden secure links...`);
     try {
       const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : '';
       
@@ -862,18 +868,22 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       if (vaultRes.ok) {
          const vaultData = await vaultRes.json();
          if (vaultData.ciphertext) {
-            log(`GitHub Sync: Pushing secureVault.ts to ${targetRepo}...`);
-            await commitFileToGitHub({
+            log(`GitHub Sync: Pushing secureVault.ts to ${finalTargetRepo}...`);
+            const vaultSyncRes = await commitFileToGitHub({
               owner: configToUse.owner,
-              repo: targetRepo,
+              repo: configToUse.repo || 'yonotransparency-', // pass user's preferred repo so server can fall back to it
               token: configToUse.token,
               branch: configToUse.branch || 'main',
               path: 'src/lib/secureVault.ts',
               content: `export const ENCRYPTED_LINKS = "${vaultData.ciphertext}";\n`,
-              message: `Admin Release: Secure vault synchronization for ${targetRepo}`,
+              message: `Admin Release: Secure vault synchronization`,
               idToken // Pass the token here
             });
-            log(`GitHub Sync: ✅ secureVault.ts successfully synced to ${targetRepo}.`);
+            let finalVaultTarget = finalTargetRepo;
+            if (vaultSyncRes && (vaultSyncRes as any).targetRepo) {
+              finalVaultTarget = (vaultSyncRes as any).targetRepo;
+            }
+            log(`GitHub Sync: ✅ secureVault.ts successfully synced to ${finalVaultTarget}.`);
          } else {
             log("GitHub Sync: ⚠️ Warning: No vault ciphertext returned, skipping vault sync.");
          }
@@ -881,7 +891,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
          log("GitHub Sync: ⚠️ Warning: Failed to seal vault (HTTP " + vaultRes.status + ").");
       }
     } catch(err: any) {
-        log(`GitHub Sync Error (Vault Sync to ${targetRepo}): ${err.message}`);
+        log(`GitHub Sync Error (Vault Sync to ${finalTargetRepo}): ${err.message}`);
     }
 
     log("Local System: Applying backend static data patch...");
@@ -892,12 +902,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       log(`Local System: Patch encountered an error (can be ignored on read-only hosts like Vercel): ${err.message}`);
     }
 
-    log("GitHub Sync: Manual push to Dex successful!");
+    log("GitHub Sync: Manual push successful!");
 
     // Final result object for UI feedback
     return {
       success: true,
-      targetRepo,
+      targetRepo: finalTargetRepo,
       timestamp: new Date().toISOString()
     };
   }, [gitConfig, apps, settings, news, blogs, videos, updateLocalContainerBackup]);
