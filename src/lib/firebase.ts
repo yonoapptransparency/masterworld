@@ -8,11 +8,18 @@ import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { getAdminPath } from './utils';
 
 // Dynamic config loading to prevent Vercel build failures when gitignored file is missing
+const B64_FALLBACK = "ewogICJwcm9qZWN0SWQiOiAiZ2VuLWxhbmctY2xpZW50LTA4MjU4MzI0OTMiLAogICJhcHBJZCI6ICIxOjEwMzk3Mzk4OTg3NDp3ZWI6NzMzYTZhZmQ4ZTgzNzIyNDkwMGY2YiIsCiAgImFwaUtleSI6ICJBSXphU3lCZXk5c1ViZVdscmNYUzJrbDRld096a1R5NGFyZzAzT2siLAogICJhdXRoRG9tYWluIjogImdlbi1sYW5nLWNsaWVudC0wODI1ODMyNDkzLmZpcmViYXNlYXBwLmNvbSIsCiAgImZpcmVzdG9yZURhdGFiYXNlSWQiOiAiYWktc3R1ZGlvLXlvbm9zdG9yZS04ODYzMTVhNC04YjlmLTRmZjYtODk4Ni1hOTBhZDE3MjIxMGEiLAogICJzdG9yYWdlQnVja2V0IjogImdlbi1sYW5nLWNsaWVudC0wODI1ODMyNDkzLmZpcmViYXNlc3RvcmFnZS5hcHAiLAogICJtZXNzYWdpbmdTZW5kZXJJZCI6ICIxMDM5NzM5ODk4NzQiLAogICJtZWFzdXJlbWVudElkIjogIiIsCiAgIm9BdXRoQ2xpZW50SWQiOiAiMTAzOTczOTg5ODc0LXQ0N252ODdrNTMycHQ4NHMyaTF0a2wwdmttYmloOWs2LmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29tIiwKICAicmVjYXB0Y2hhU2l0ZUtleSI6ICIiCn0=";
+
 let appletConfig: any = {};
 try {
-  // Using dynamic import with Vite's glob or just ignore it if missing.
-  // We'll rely on environment variables in production.
-} catch (e) {}
+  if (typeof window !== 'undefined') {
+    appletConfig = JSON.parse(atob(B64_FALLBACK));
+  } else {
+    appletConfig = JSON.parse(Buffer.from(B64_FALLBACK, 'base64').toString('utf8'));
+  }
+} catch (e) {
+  console.error("Failed parsing fallback base64 config:", e);
+}
 
 declare global {
   interface Window {
