@@ -2973,10 +2973,11 @@ ${JSON.stringify(publicContext, null, 2)}`;
         let targetUrl = '';
         try {
           const AES_SECRET = process.env.AES_SECRET || (typeof AES_SECRET_GLOBAL !== 'undefined' ? AES_SECRET_GLOBAL : '');
-          const config = getRawFirebaseConfig();
+          let config: any = null;
+          try { config = getRawFirebaseConfig(); } catch (e) {}
 
           // 1. Try resolving via Firestore SDK
-          if (!targetUrl || !targetUrl.startsWith('http')) {
+          if (config && (!targetUrl || !targetUrl.startsWith('http'))) {
             const adminDb = getFirebaseAdminDb();
             if (adminDb) {
               for (const docName of ['sec_links_vault_3', 'secure_links', 'sec_vault']) {

@@ -599,7 +599,7 @@ export default function ClearanceButton({ appId, status, variant = 'default' }: 
         console.error(`[DEBUG] Invalid content type: ${challengeContentType}, status: ${challengeResponse.status}`);
         let errMsg = `Verification service returned an invalid response (type: ${challengeContentType}, status: ${challengeResponse.status}).`;
         if (challengeContentType.includes('text/html')) {
-          errMsg += ' This usually means the API is missing. If you are on the public Dex website, you MUST set the VITE_API_URL environment variable in Vercel to point to your Admin/Masterworld server URL!';
+          errMsg += ' The API route is missing or misconfigured in Vercel. Ensure vercel.json rewrites /api/(.*) to /api/index.js.';
         } else {
           errMsg += ' Please refresh and try again.';
         }
