@@ -1,3 +1,4 @@
+declare var __ADMIN_ENABLED__: boolean;
 import { adminFetch } from '../services/adminAuthService';
 /**
  * DataContext state engine
@@ -69,6 +70,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const [apps, setApps] = useState<AppConfig[]>(() => {
     if (initialData?.apps && initialData.apps.length > 0) return initialData.apps;
+    if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return mockApps;
     try {
       const cached = localStorage.getItem('rummystore_apps');
       if (cached && cached !== '[]') {
@@ -82,6 +84,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   });
   const [settings, setSettings] = useState<GlobalSettings>(() => {
     if (initialData?.settings && initialData.settings.site_title) return initialData.settings;
+    if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return mockSettings;
     try {
       const cached = localStorage.getItem('rummystore_settings');
       if (cached) {
@@ -95,6 +98,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   });
   const [news, setNews] = useState<NewsItem[]>(() => {
     if (initialData?.news && initialData.news.length > 0) return initialData.news;
+    if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return mockNews;
     try {
       const cached = localStorage.getItem('rummystore_news');
       if (cached && cached !== '[]') {
@@ -108,6 +112,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   });
   const [blogs, setBlogs] = useState<BlogPost[]>(() => {
     if (initialData?.blogs && initialData.blogs.length > 0) return initialData.blogs;
+    if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return mockBlogs;
     try {
       const cached = localStorage.getItem('rummystore_blogs');
       if (cached && cached !== '[]') {
@@ -121,6 +126,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   });
   const [videos, setVideos] = useState<VideoItem[]>(() => {
     if (initialData?.videos && initialData.videos.length > 0) return initialData.videos;
+    if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return mockVideos;
     try {
       const cached = localStorage.getItem('rummystore_videos');
       if (cached && cached !== '[]') {
