@@ -811,12 +811,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     log("GitHub Sync: Generating secure payload...");
     const updatedCode = generateStaticDataFileCode(finalApps, targetSettings, targetNews, targetBlogs, targetVideos);
     
-    // CRITICAL: Force target to 'Yono-Transparency' repository for source of truth sync
-    // This implements the Yono Transparency architecture: Updates -> Source -> GitHub Actions -> Dex
-    const targetRepo = 'Yono-Transparency';
+    // CRITICAL: Use the configured repository or default to Dex
+    let targetRepo = configToUse.repo || 'dex';
     
     if (configToUse.repo && configToUse.repo.toLowerCase().includes('masterworld')) {
-      log(`⚠️ Security Alert: Redirecting sync from Admin repo ("${configToUse.repo}") to Source of Truth repo ("${targetRepo}").`);
+      log(`⚠️ Security Alert: Redirecting sync from Admin repo ("${configToUse.repo}") to public website repo ("dex").`);
+      targetRepo = 'dex';
     }
 
     if (!configToUse.owner) {

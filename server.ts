@@ -1309,13 +1309,14 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
         cleanPath.includes('secure_links_backup.json');
 
       let wasRedirected = false;
-      if (lowerOwner === 'yonoapptransparency' || lowerOwner === 'defentechscholar' || isContentFile) {
-         if (lowerRepo.includes('masterworld') || lowerRepo === 'dex' || lowerRepo === '' || lowerRepo === 'yonotransparency-' || isContentFile) {
-            console.warn(`[SECURITY] GitHub Sync Server: Redirecting commit of "${cleanPath}" to SOURCE repository ("yonotransparency-")`);
-            cleanRepo = 'yonotransparency-';
-            wasRedirected = true;
-         }
+      if (isContentFile && lowerRepo.includes('masterworld')) {
+         console.warn(`[SECURITY] GitHub Sync Server: Redirecting commit of "${cleanPath}" to public repository ("Dex") to protect Admin repo.`);
+         cleanRepo = 'Dex';
+         wasRedirected = true;
       }
+      
+      // We no longer redirect to yonotransparency- as requested by user. 
+      // The push goes directly to the configured repo (e.g. Dex).
 
       console.log(`GitHub Sync Server Request: User "${cleanOwner}" intends to sync "${cleanPath}" to repository "${cleanRepo}"`);
 
@@ -1511,16 +1512,8 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
         };
       };
 
-      // Execute primary commit (potentially redirected to source of truth)
+      // Execute primary commit
       let commitResult = await tryCommit(cleanRepo);
-
-      // Fallback Mechanism:
-      // If the primary commit failed, and we had redirected the repo to 'yonotransparency-',
-      // and the originally requested repository is different, fall back to writing directly to the configured repo!
-      if (!commitResult.success && wasRedirected && originalRepo.toLowerCase() !== 'yonotransparency-') {
-        console.warn(`[FALLBACK] GitHub Sync Server: Primary commit to redirected source repo "${cleanRepo}" failed with error: ${commitResult.error}. Automatically falling back to originally configured repository: "${originalRepo}"`);
-        commitResult = await tryCommit(originalRepo);
-      }
 
       if (!commitResult.success) {
         return res.status(commitResult.status || 400).json({ message: commitResult.error });

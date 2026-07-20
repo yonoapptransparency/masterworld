@@ -882,7 +882,7 @@ const GithubTab = React.memo(({ pushAllToGitHub, gitConfig, saveGitConfig, gener
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Repository Name</label>
               <input type="text" value={localConfig.repo || ''} onChange={e => setLocalConfig({...localConfig, repo: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all font-mono" required />
-              <p className="text-[10px] text-slate-500 mt-1">Note: Content sync is hard-routed to <strong>Dex</strong> for public release.</p>
+              <p className="text-[10px] text-slate-500 mt-1">Note: Please enter the name of your public website repository (e.g. <strong>Dex</strong>).</p>
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Branch</label>
