@@ -99,6 +99,7 @@ export interface AppConfig {
   serial_number: number;
   is_featured: boolean;
   is_new: boolean;
+  is_hot?: boolean;
   release_notes: string;
   rating: number;
   created_at: string;

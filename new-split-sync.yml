@@ -14,7 +14,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.PAT }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Sync and Split Repositories
         env:
@@ -148,28 +148,63 @@ jobs:
             "write_files.js"
           )
 
+          # List of files that should ONLY exist in Dex (Public)
+          PUBLIC_ONLY_FILES=(
+            "src/pages/About.tsx"
+            "src/pages/AppDetails.tsx"
+            "src/pages/BlogDetailPage.tsx"
+            "src/pages/Blogs.tsx"
+            "src/pages/Contact.tsx"
+            "src/pages/Developers.tsx"
+            "src/pages/Disclaimer.tsx"
+            "src/pages/Ethics.tsx"
+            "src/pages/GatewayPage.tsx"
+            "src/pages/Home.tsx"
+            "src/pages/NewApps.tsx"
+            "src/pages/NewsDetailPage.tsx"
+            "src/pages/NewsPage.tsx"
+            "src/pages/Notice.tsx"
+            "src/pages/Privacy.tsx"
+            "src/pages/Responsibility.tsx"
+            "src/pages/Terms.tsx"
+            "src/pages/VideoDetailPage.tsx"
+            "src/pages/VideosPage.tsx"
+            "src/components/AccordionItem.tsx"
+            "src/components/AppsTab.tsx"
+            "src/components/BlogsTab.tsx"
+            "src/components/FallbackRouteMatcher.tsx"
+            "src/components/GlobalSearch.tsx"
+            "src/components/LanguageSelector.tsx"
+            "src/components/PlayStoreRatingSection.tsx"
+            "src/components/PlayStoreUI.tsx"
+            "src/components/PublicChatbot.tsx"
+            "src/components/StarRatingFeedback.tsx"
+            "src/components/SupportWidget.tsx"
+            "src/components/Ticker.tsx"
+            "src/components/UserReviews.tsx"
+            "src/components/WebsiteTitleHero.tsx"
+            "public/"
+          )
+
           SOURCE_DIR=$(pwd)
           PARENT_DIR=$(dirname "$SOURCE_DIR")
 
           sync_repo() {
             REPO_NAME=$1
             REPO_URL=$2
-            IS_PUBLIC=$3
+            TYPE=$3 # "public" or "admin"
 
-            echo "--- Syncing to $REPO_NAME ---"
+            echo "--- Syncing to $REPO_NAME ($TYPE) ---"
             cd "$PARENT_DIR"
             rm -rf "${REPO_NAME}_repo"
             
-            if [ "$IS_PUBLIC" = "true" ]; then
-              # For Dex, we exclude content files from being overwritten by the stale source
-              RSYNC_EXCLUDES="--exclude=.git --exclude=.github --exclude=node_modules --exclude=dist --exclude=src/lib/staticData.ts --exclude=src/lib/secureVault.ts"
-            else
-              RSYNC_EXCLUDES="--exclude=.git --exclude=node_modules --exclude=dist"
-            fi
+            # Common excludes - strictly prevent secrets/backups from leaking anywhere unvetted
+            RSYNC_EXCLUDES="--exclude=.git --exclude=.github --exclude=node_modules --exclude=dist --exclude=src/lib/staticData.ts --exclude=src/lib/secureVault.ts"
 
             if git clone "https://x-access-token:${PAT}@github.com/yonoapptransparency/${REPO_NAME}.git" "${REPO_NAME}_repo"; then
               cd "${REPO_NAME}_repo"
               git checkout -b main || git checkout main
+              # Bulletproof Mirroring
               rsync -rv $RSYNC_EXCLUDES --delete "$SOURCE_DIR/" .
             else
               mkdir -p "${REPO_NAME}_repo"
@@ -179,52 +214,65 @@ jobs:
               git checkout -b main
               rsync -rv $RSYNC_EXCLUDES "$SOURCE_DIR/" .
             fi
+            
+            # Explicitly remove .github to prevent workflow nesting/looping
+            rm -rf .github
 
-            if [ "$IS_PUBLIC" = "true" ]; then
-              echo "Cleaning admin files from $REPO_NAME..."
+            if [ "$TYPE" = "public" ]; then
+              echo "Enforcing Public-Only Dex Isolation..."
               echo '{"version": 2, "outputDirectory": "dist", "buildCommand": "npm run build", "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]}' > vercel.json
               for file in "${ADMIN_ONLY_FILES[@]}"; do
                 rm -rf "$file"
               done
 
-              # Bulletproof safety net: strip any residual maintenance, test, or config files from root of Dex
+              # Strip any residual maintenance, test, or config files from root of Dex
               find . -maxdepth 1 -name "*.js" ! -name "eslint.config.mjs" ! -name "eslint.config.cjs" ! -name "postcss.config.js" ! -name "tailwind.config.js" -exec rm -f {} +
               find . -maxdepth 1 -name "*.ts" ! -name "vite.config.ts" -exec rm -f {} +
               find . -maxdepth 1 -name "*.sh" -exec rm -f {} +
               find . -maxdepth 1 -name "*.patch" -exec rm -f {} +
               find . -maxdepth 1 -name "*.html" ! -name "index.html" -exec rm -f {} +
 
-              # Strip Admin source code completely
-              if [ -f "rewrite-datacontext-for-dex.js" ]; then
-                node rewrite-datacontext-for-dex.js
-                rm -f rewrite-datacontext-for-dex.js
-              fi
               if [ -f "strip-admin-from-dex.js" ]; then
                 node strip-admin-from-dex.js
                 rm -f strip-admin-from-dex.js
               fi
-            else
-              # IS_ADMIN (masterworld) - We must ENSURE that public static data is NOT committed to the admin repo
-              echo "Cleaning public content data from $REPO_NAME (Admin/Masterworld)..."
+              rm -f strip-public-from-masterworld.js
+            fi
+
+            if [ "$TYPE" = "admin" ]; then
+              echo "Enforcing Admin-Only Masterworld Isolation..."
+              # 1. Strip all explicit public-only files
+              for file in "${PUBLIC_ONLY_FILES[@]}"; do
+                rm -rf "$file"
+              done
               
+              # 2. Strict Allowlist enforcement for pages and components
+              echo "Purging non-admin pages..."
+              find src/pages -type f ! -name "AdminDashboard.tsx" ! -name "AdminLogin.tsx" -delete
+              
+              echo "Purging non-admin components..."
+              find src/components -type f ! -name "AdminLogin.tsx" ! -name "ClearanceButton.tsx" ! -name "FirebaseStatusIndicator.tsx" ! -name "FirebaseStatusPanel.tsx" ! -name "NewsTab.tsx" ! -name "SecurityTab.tsx" ! -name "GlobalErrorBoundary.tsx" -delete
+
+              # 3. Clean App.tsx routes
               if [ -f "strip-public-from-masterworld.js" ]; then
                 node strip-public-from-masterworld.js
                 rm -f strip-public-from-masterworld.js
               fi
-              
-              # Cleanup scripts that shouldn't be in admin either
-              find . -maxdepth 1 -name "patch-*.js" -exec rm -f {} +
-              rm -f strip-admin-from-dex.js rewrite-datacontext-for-dex.js
+              rm -f strip-admin-from-dex.js
             fi
 
             git add .
             if [ -n "$(git status --porcelain)" ]; then
-              git commit -m "Auto-sync from source [skip ci]"
+              if [ "$TYPE" = "admin" ]; then
+                git commit -m "Auto-sync ($TYPE) [skip ci]"
+              else
+                git commit -m "Auto-sync ($TYPE)"
+              fi
               git push -u origin main
             else
               echo "No changes for $REPO_NAME."
             fi
           }
 
-          sync_repo "masterworld" "yonoapptransparency/masterworld" "false"
-          sync_repo "Dex" "yonoapptransparency/Dex" "true"
+          sync_repo "Dex" "yonoapptransparency/Dex" "public"
+          sync_repo "masterworld" "yonoapptransparency/masterworld" "admin"

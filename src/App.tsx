@@ -161,8 +161,17 @@ function Header() {
   };
 
   const navVariants = settings.animations_enabled ? {
-    hidden: { y: -10, opacity: 0 },
-    visible: { y: 0, opacity: 1, transition: { duration: 0.2 } }
+    hidden: { y: -50, opacity: 0 },
+    visible: { 
+      y: 0, 
+      opacity: 1, 
+      transition: { 
+        type: "spring" as const,
+        stiffness: 280,
+        damping: 24,
+        mass: 0.8
+      } 
+    }
   } : {
     hidden: { y: 0, opacity: 1 },
     visible: { y: 0, opacity: 1 }
@@ -174,7 +183,11 @@ function Header() {
         initial="hidden"
         animate="visible"
         variants={navVariants}
-        className={`sticky top-0 z-50 transition-all duration-300 ${scrolled ? 'bg-transparent py-2' : 'bg-transparent py-3'}`}
+        className={`sticky top-0 z-50 transition-all duration-300 transform-gpu will-change-[backdrop-filter,background-color,padding,border-color] ${
+          scrolled 
+            ? 'bg-white/65 dark:bg-zinc-950/60 backdrop-blur-[20px] border-b border-black/[0.06] dark:border-white/[0.08] shadow-[0_8px_30px_rgba(0,0,0,0.02)] py-2' 
+            : 'bg-white/20 dark:bg-zinc-950/20 backdrop-blur-[12px] border-b border-transparent py-4'
+        }`}
       >
         <div className="w-full max-w-7xl px-4 sm:px-6 lg:px-8 mx-auto relative flex justify-between items-center">
           <Link to="/" onClick={triggerHaptic} className="flex items-center gap-2 sm:gap-3 group">
@@ -840,7 +853,7 @@ function AppContent() {
         pageKeywords = app.seo_keywords || '';
         pageOgImage = app.og_image_url || app.icon_url || settings.logo_url || '';
       }
-    } else if (path.startsWith('/info/') || path.startsWith('/gateway/')) {
+    } else if (path.startsWith('/info/') || path.startsWith('/gateway/') || path.startsWith('/moredetail/')) {
       const parts = path.split('/');
       const slug = decodeURIComponent(parts[2]?.split('?')[0] || '');
       const app = apps.find((a: any) => a?.slug?.toLowerCase() === slug.toLowerCase());
@@ -944,7 +957,6 @@ function AppContent() {
   // Memoize static layout parts to prevent redundant re-renders
   const memoizedHeader = useMemo(() => <Header />, [location.pathname, settings]);
   const memoizedFooter = useMemo(() => <Footer />, [settings]);
-  const memoizedBottomNav = useMemo(() => <BottomNav />, [location.pathname]);
 
   useEffect(() => {
     // Dynamically synchronize favicon with firebase database changes live across all selectors!
@@ -1000,7 +1012,7 @@ function AppContent() {
     window.location.hostname.includes('masterworld') ||
     (window.location.hostname.includes('vercel.app') && !window.location.hostname.includes('dex'))
   );
-  if (IS_ADMIN_BUILD || isAdminPath) {
+  if (true) { // Forced Admin Mode for Masterworld
     return (
       <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-slate-950">
         <ScrollToTop />
@@ -1043,80 +1055,7 @@ function AppContent() {
   }
   // __ADMIN_BLOCK_END__
 
-  // __PUBLIC_BLOCK_START__
-  return (
-    <div className="flex flex-col min-h-screen">
-      <ScrollToTop />
-      {memoizedHeader}
-
-      {isAdminPath && quotaExceeded && (
-        <div className="w-full bg-amber-500/10 border-b border-amber-500/20 text-amber-600 dark:text-amber-400 py-3 text-xs sm:text-sm font-semibold animate-fade-in z-50">
-          <div className="w-full flex flex-col md:flex-row items-center justify-between gap-4 px-3 sm:px-6 md:px-10 text-center md:text-left">
-            <div className="flex items-center gap-2.5">
-              <svg className="w-5 h-5 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              <span>
-                <strong>Database Quota Exceeded:</strong> You have reached your Firebase plan's free daily quota for read/write operations. Standard visitors load items instantly via our server backup cache. The database quota will reset tomorrow.
-              </span>
-            </div>
-            <a 
-              href="https://console.firebase.google.com/" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold uppercase text-[10px] tracking-wider rounded-lg transition-all shadow-md shrink-0 active:scale-95"
-            >
-              Upgrade Firebase Plan
-            </a>
-          </div>
-        </div>
-      )}
-      
-      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-0 sm:py-3 pb-16 sm:pb-24 overflow-x-hidden relative">
-        <Suspense fallback={<LoadingScreen />}>
-          <Routes location={location}>
-            <Route path="/" element={<Home />} />
-            <Route path="/new-apps" element={<NewApps />} />
-            <Route path="/app/:slug" element={<AppDetails />} />
-            <Route path="/info/:slug" element={<GatewayPage />} />
-            <Route path="/gateway/:slug" element={<GatewayPage />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/developers" element={<Developers />} />
-            <Route path="/contact" element={<Contact />} />
-            <Route path="/privacy" element={<Privacy />} />
-            <Route path="/terms" element={<Terms />} />
-            <Route path="/responsibility" element={<Responsibility />} />
-            <Route path="/notice" element={<Notice />} />
-            <Route path="/ethics" element={<Ethics />} />
-            <Route path="/disclaimer" element={<Disclaimer />} />
-            <Route path="/news" element={<NewsPage />} />
-            <Route path="/news/:slug" element={<NewsDetailPage />} />
-            <Route path="/videos" element={<VideosPage />} />
-            <Route path="/videos/:slug" element={<VideoDetailPage />} />
-            <Route path="/blogs" element={<Blogs />} />
-            <Route path="/blog/:slug" element={<BlogDetailPage />} />
-            <Route path="/wp-admin" element={<Navigate to="/" replace />} />
-            <Route path="/dashboard" element={<Navigate to="/" replace />} />
-            <Route path="/panel" element={<Navigate to="/" replace />} />
-            
-            {/* Keep obfuscated paths as fallback mapping */}
-                        
-            
-                
-                <Route path="*" element={<FallbackRouteMatcher />} />
-              </Routes>
-        </Suspense>
-      </main>
-      
-
-      
-      <Ticker />
-      {memoizedFooter}
-      <BackToTop />
-    </div>
-  );
-  // __PUBLIC_BLOCK_END__
-}
+  }
 
 function App() {
   return (
@@ -1131,51 +1070,3 @@ function App() {
 }
 
 export default App;
-
-function BottomNav() {
-  const { pathname } = useLocation();
-  const triggerHaptic = () => {
-    if (window.navigator && window.navigator.vibrate) {
-      setTimeout(() => {
-        try {
-          window.navigator.vibrate(15);
-        } catch (e) {}
-      }, 0);
-    }
-  };
-
-  const isActive = (path: string) => pathname === path;
-
-  return (
-    <div className="fixed bottom-4 left-0 right-0 z-50 flex justify-center pointer-events-none md:hidden pb-safe px-4">
-      <div className="flex items-center gap-1.5 p-1.5 pointer-events-auto bg-transparent w-auto max-w-full overflow-x-auto no-scrollbar scroll-smooth">
-        {[
-          { icon: Video, label: 'Videos', path: '/videos' },
-          { icon: Sparkles, label: 'New', path: '/new-apps' },
-          { icon: LayoutGrid, label: 'Home', path: '/' },
-          { icon: Newspaper, label: 'News', path: '/news' },
-          { icon: Info, label: 'Help', path: '/contact' }
-        ].map((item) => {
-          const active = isActive(item.path);
-          return (
-            <Link 
-              key={item.path}
-              to={item.path} 
-              onClick={triggerHaptic} 
-              className={`flex items-center gap-2 px-3 py-2 rounded-full transition-all active:scale-[0.85] ${
-                active 
-                  ? 'bg-transparent text-blue-600 dark:text-blue-400 font-extrabold' 
-                  : 'bg-transparent text-zinc-700 dark:text-zinc-300'
-              }`}
-            >
-              <item.icon className={`w-[18px] h-[18px] ${active ? '' : 'opacity-80'}`} />
-              <span className={`text-[11px] font-bold tracking-tight transition-all duration-300 ${active ? 'max-w-[40px] opacity-100' : 'max-w-0 opacity-0 overflow-hidden'}`}>
-                {item.label}
-              </span>
-            </Link>
-          );
-        })}
-      </div>
-    </div>
-  );
-}

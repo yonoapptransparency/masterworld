@@ -3,17 +3,17 @@ import { AppConfig, GlobalSettings, NewsItem, BlogPost, VideoItem } from '../typ
 export const mockApps: AppConfig[] = [];
 export const mockSettings: GlobalSettings = {
   logo_url: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100&q=80",
-  site_title: "Rummy Store",
+  site_title: "Rummy Dex",
   meta_description: "Safe digital review registry.",
   favicon_url: "",
   helpline_whatsapp: "",
-  helpline_telegram: "@rummyapp_online",
-  support_email: "support@rummyapp.online",
+  helpline_telegram: "@rummydex",
+  support_email: "support@rummydex.com",
   disclaimer_text: "",
   ethics_discrimination_text: "",
   ticker_text: "",
   animations_enabled: true,
-  categories: ["Yono", "Card", "Slots"],
+  categories: ["Rummy Dex", "Card", "Slots"],
   banners: []
 };
 export const mockNews: NewsItem[] = [];

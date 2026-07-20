@@ -5,6 +5,7 @@
 
 import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { getAdminPath } from './utils';
 
 // Dynamic config loading to prevent Vercel build failures when gitignored file is missing
 let appletConfig: any = {};
@@ -92,7 +93,13 @@ console.log('--- FIREBASE CONFIG INIT ---', firebaseConfig);
 
 const isAdminEnabled = true;
 
-export const isFirebaseConfigured = isAdminEnabled && isRealValue(firebaseConfig.apiKey) && isRealValue(firebaseConfig.projectId);
+const isBrowser = typeof window !== 'undefined';
+const isBrowserAdminRoute = isBrowser && window.location.pathname.startsWith(`/${getAdminPath()}`);
+
+export const isFirebaseConfigured = isAdminEnabled && 
+  isRealValue(firebaseConfig.apiKey) && 
+  isRealValue(firebaseConfig.projectId) &&
+  (!isBrowser || isBrowserAdminRoute);
 
 export const isFirebaseApiKeyReal = (key: string | undefined): boolean => {
   return isRealValue(key);
@@ -107,8 +114,8 @@ export const app = isFirebaseConfigured ? initializeApp(firebaseConfig) : null a
 
 export const auth = (() => {
   if (isFirebaseReal) {
-    const realAuth = getAuth(app);
-    const originalOnAuthStateChanged = (realAuth as any).onAuthStateChanged;
+    let realAuth = null; try { realAuth = getAuth(app); } catch(e) { console.error(e); }
+    if (!realAuth) return null as any; const originalOnAuthStateChanged = (realAuth as any).onAuthStateChanged;
     let isCallingModular = false;
 
     (realAuth as any).onAuthStateChanged = (callback: (user: any) => void) => {
@@ -137,11 +144,11 @@ import { getFirestore, initializeFirestore, doc, getDocFromServer, disableNetwor
 let firestoreInstance: any = null;
 if (app) {
   const dbId = firebaseConfig.firestoreDatabaseId === '(default)' ? undefined : firebaseConfig.firestoreDatabaseId;
-  firestoreInstance = initializeFirestore(app, {
+  try { firestoreInstance = initializeFirestore(app, {
     experimentalForceLongPolling: true,
-  }, dbId);
+  }, dbId); } catch(e) { console.error(e); firestoreInstance = getFirestore(app, dbId); }
 
-  if (!isFirebaseReal) {
+  if (!isFirebaseReal && firestoreInstance) {
     // If the Firebase configuration is mock/fictional, disable network traffic.
     // This allows the Firestore SDK to operate smoothly in local-only cache mode
     // without attempting network connections to nonexistent servers, eliminating connection errors.
@@ -153,17 +160,7 @@ if (app) {
 
 export const db = firestoreInstance;
 
-async function testConnection() {
-  if (!db || !isFirebaseReal) return;
-  try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch (error) {
-    if (error instanceof Error && (error.message.includes('the client is offline') || error.message.includes('offline') || error.message.includes('unavailable'))) {
-      console.warn("Firestore connection check: Please check your Firebase configuration or network.");
-    }
-  }
-}
-testConnection();
+// No-op connection test. Removed to prevent synchronous blocking on module load.
 
 export enum OperationType {
   CREATE = 'create',
