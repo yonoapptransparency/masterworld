@@ -14,7 +14,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Lenis from 'lenis';
 
 // Error Boundary component for robust UI
-class ErrorBoundary extends React.Component<{ children: React.ReactNode; fallback: React.ReactNode }, { hasError: boolean }> {
+class ErrorBoundary extends React.Component<any, any> {
+  state = { hasError: false };
   constructor(props: any) {
     super(props);
     this.state = { hasError: false };
@@ -63,6 +64,10 @@ const AdminLoginPageLazy = lazyWithRetry(() => import('./pages/AdminLogin'));
 const AdminDashboard = lazyWithRetry(() => import('./pages/AdminDashboard'));
 
 
+import SupportWidget from "./components/SupportWidget";
+import GlobalSearch from "./components/GlobalSearch";
+import StarRatingFeedback from "./components/StarRatingFeedback";
+import LanguageSelector from "./components/LanguageSelector";
 
 import { getAdminPath } from './lib/utils';
 
