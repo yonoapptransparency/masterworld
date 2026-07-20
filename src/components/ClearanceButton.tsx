@@ -83,7 +83,7 @@ const API_BASE = import.meta.env.VITE_API_URL || '';
 const _EP = {
   challenge: `${API_BASE}/api/v1/init-file`,
   process:   `${API_BASE}/api/v1/process-file`,
-  payload:   `${API_BASE}/api/v1/gateway-resolve`,
+  payload:   `${API_BASE}/api/v1/moreinfo-resolve`,
 };
 
 interface ClearanceButtonProps {

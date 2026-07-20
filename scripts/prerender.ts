@@ -42,6 +42,7 @@ async function prerender() {
         await generateRoute(`/app/${app.slug}`);
         await generateRoute(`/gateway/${app.slug}`);
         await generateRoute(`/info/${app.slug}`);
+        await generateRoute(`/moredetail/${app.slug}`);
       }
     }
 

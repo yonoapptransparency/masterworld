@@ -885,8 +885,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       canonicalUrlOverride = getField(app, 'canonical_url') || `${cleanHostApp}/app/${getField(app, 'slug')}`;
       faviconUrl = getField(app, 'icon_url') || faviconUrl;
     }
-  } else if (urlPath.startsWith('/info/') || urlPath.startsWith('/gateway/') || urlPath.startsWith('/moredetail/')) {
-    const prefix = urlPath.startsWith('/info/') ? '/info/' : (urlPath.startsWith('/gateway/') ? '/gateway/' : '/moredetail/');
+  } else if (urlPath.startsWith('/info/') || urlPath.startsWith('/moreinfo/') || urlPath.startsWith('/moredetail/')) {
+    const prefix = urlPath.startsWith('/info/') ? '/info/' : (urlPath.startsWith('/moreinfo/') ? '/moreinfo/' : '/moredetail/');
     const slug = decodeURIComponent(urlPath.split(prefix)[1].split('/')[0].split('?')[0]);
     const app = apps.find((a: any) => {
       const aSlug = getField(a, 'slug');

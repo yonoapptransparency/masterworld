@@ -534,7 +534,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           // Conditional stripping: only strip URLs if we are NOT in an administrative view
           // This prevents the Admin Dashboard from losing its data references during background syncs.
           const isAdminPath = window.location.pathname.toLowerCase().includes('/admin') || 
-                            window.location.pathname.toLowerCase().includes('/gateway') ||
+                            window.location.pathname.toLowerCase().includes('/moreinfo') ||
                             window.location.pathname.toLowerCase().includes('/masterworld');
           
           const data = isAdminPath ? loadedApps : loadedApps.map((app: any) => {

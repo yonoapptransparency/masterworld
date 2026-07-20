@@ -472,7 +472,7 @@ const OldAppsTabUnused = React.memo(({ appsList, editingAppId, setEditingAppId, 
               <div className="flex items-start justify-between">
                 <div>
                   <div className="font-semibold text-amber-900 dark:text-amber-400 text-sm">Coming Soon Phase</div>
-                  <div className="text-xs text-amber-700 dark:text-amber-500/70 mt-1">Suspend gateway clearance on the frontend.</div>
+                  <div className="text-xs text-amber-700 dark:text-amber-500/70 mt-1">Suspend moreinfo clearance on the frontend.</div>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" name="is_coming_soon" checked={formFields.is_coming_soon} onChange={e => handleFieldChange('is_coming_soon', e.target.checked)} className="sr-only peer" />
@@ -864,7 +864,7 @@ const GithubTab = React.memo(({ pushAllToGitHub, gitConfig, saveGitConfig, gener
            <ShieldAlert className="w-5 h-5" /> Security Notice
         </h3>
         <p className="text-sm text-rose-700/80 dark:text-rose-400/80 mb-2">
-          The more_information_url (your private clearance redirect gateways) are encrypted before being pushed to GitHub to keep them secure.
+          The more_information_url (your private clearance redirect moreinfos) are encrypted before being pushed to GitHub to keep them secure.
         </p>
         <p className="text-sm text-rose-700/80 dark:text-rose-400/80">
           ⚠️ WARNING: You must configure the <code className="bg-rose-100 dark:bg-rose-900/30 px-1.5 py-0.5 rounded border border-rose-200 dark:border-rose-800/50">AES_SECRET</code> environment variable in your Vercel/production deployment exactly as it is set here, or secure links will fail to decrypt.
@@ -1603,7 +1603,7 @@ const ReviewsModerationTab = ({ db }: { db: any }) => {
   const handleDelete = async (id: string, type: 'review' | 'ticket' | 'feedback', isMissingLink: boolean) => {
     const isReport = type === 'ticket';
     const confirmationMsg = isReport 
-      ? "Resolve and permanently close this support ticket? This confirms the application access gateway has been verified and updated."
+      ? "Resolve and permanently close this support ticket? This confirms the application access moreinfo has been verified and updated."
       : "Permanently delete this customer case/review?";
     
     if (!confirm(confirmationMsg)) return;
@@ -1808,7 +1808,7 @@ const ReviewsModerationTab = ({ db }: { db: any }) => {
                             </div>
 
                             <div className="text-[10px] text-zinc-400 dark:text-zinc-500 font-semibold">
-                              <span className="font-black text-rose-500">SLA Info:</span> Configure the active clearance/access gateway URL inside the App Catalog and mark this ticket as resolved.
+                              <span className="font-black text-rose-500">SLA Info:</span> Configure the active clearance/access moreinfo URL inside the App Catalog and mark this ticket as resolved.
                             </div>
                           </div>
 

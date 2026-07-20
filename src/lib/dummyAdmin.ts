@@ -48,8 +48,3 @@ export const secureVault = {
   encryptPayload: (p: any) => p,
   decryptPayload: (p: any) => p
 };
-
-// src/components/ClearanceButton
-export default function ClearanceButton() {
-  return null;
-}

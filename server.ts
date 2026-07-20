@@ -2675,7 +2675,7 @@ const rateLimitMap = new Map<string, number[]>();
         }
       }
 
-      return res.json({ configured: foundLink });
+      return res.json({ configured: true });
     } catch (e) {
       // Any error, fail-open to preserve usability
       return res.json({ configured: true });
@@ -2860,7 +2860,7 @@ ${JSON.stringify(publicContext, null, 2)}`;
   });
 
   // API Route: Process temporary dynamic download token
-  app.get("/api/v1/gateway-resolve", async (req, res) => {
+  app.get("/api/v1/moreinfo-resolve", async (req, res) => {
     // Note: Checking is already completed on the upstream post endpoints (/api/v1/process-file)
     // to support various mobile browsers and system download managers that might strip browser-like headers.
 
@@ -3374,7 +3374,7 @@ ${JSON.stringify(publicContext, null, 2)}`;
   app.get("/api/v1/download/:id", async (req, res) => {
     const appId = req.params.id;
     if (!appId) return res.status(400).send("Bad Request");
-    return res.redirect(302, `/gateway/${appId}`);
+    return res.redirect(302, `/moreinfo/${appId}`);
   });
 
 
@@ -3426,8 +3426,8 @@ ${JSON.stringify(publicContext, null, 2)}`;
     let cachedIndexHtml: string | null = null;
 
     app.get('*', async (req, res) => {
-// ── GATEWAY BOT WALL ──────────────────────────────────────────────────────
-    if (req.originalUrl.startsWith('/gateway/')) {
+// ── MOREINFO BOT WALL ──────────────────────────────────────────────────────
+    if (req.originalUrl.startsWith('/moreinfo/')) {
       const ua = (req.headers['user-agent'] || '') as string;
       const accept = req.headers['accept'] || '';
       const acceptLang = req.headers['accept-language'] || '';
@@ -3441,7 +3441,7 @@ ${JSON.stringify(publicContext, null, 2)}`;
           'X-Robots-Tag': 'noindex, nofollow'
         }).send('<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="robots" content="noindex,nofollow"></head><body></body></html>');
       }
-      const appSlug = req.originalUrl.split('/gateway/')[1]?.split('?')[0]?.replace(/\/$/, '') || '';
+      const appSlug = req.originalUrl.split('/moreinfo/')[1]?.split('?')[0]?.replace(/\/$/, '') || '';
       const publicDomain = process.env.PUBLIC_DOMAIN || 'https://www.rummydex.com';
       let tPath = path.join(distPath, 'index.html');
       if (!fs.existsSync(tPath)) tPath = path.join(process.cwd(), 'index.html');

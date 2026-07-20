@@ -13,7 +13,7 @@ When adding new files or features, you MUST follow these rules to maintain secur
 ### Admin-Only Files (Stripped from Public Dex)
 The following files and directories must **NEVER** exist in the `Dex` (Public) repository. They are defined in the `ADMIN_ONLY_FILES` list within `split-sync.yml`:
 - **Pages**: `src/pages/AdminDashboard.tsx`, `src/pages/AdminLogin.tsx`.
-- **Components**: `src/components/AdminLogin.tsx`, `src/components/NewsTab.tsx`, `src/components/SecurityTab.tsx`, `src/components/FirebaseStatusPanel.tsx`, `src/components/ClearanceButton.tsx`.
+- **Components**: `src/components/AdminLogin.tsx`, `src/components/NewsTab.tsx`, `src/components/SecurityTab.tsx`, `src/components/FirebaseStatusPanel.tsx`.
 - **Services/Lib**: `src/services/adminAuthService.ts`, `src/lib/githubSync.ts`, `src/lib/totp.ts`, `src/lib/secureVault.ts`, `src/lib/secureStorage.ts`.
 - **Data Backups**: `src/lib/secure_links_backup.json`, `src/lib/public_backup.json`.
 - **Backend/Config**: `api/`, `server.ts`, `firebase.json`, `firestore.rules`, `.firebaserc`, `vercel.json`.
