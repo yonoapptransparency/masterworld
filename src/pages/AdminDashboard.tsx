@@ -2045,6 +2045,20 @@ export default function AdminDashboard() {
   const [isAdminUser, setIsAdminUser] = useState<boolean | null>(null);
   const [forceBypassVaultError, setForceBypassVaultError] = useState(false);
   
+  React.useEffect(() => {
+    if (!loading) {
+      setAppsList(mockApps);
+      setNewsList(mockNews);
+      setBanners(mockSettings.banners || []);
+      setBlogs(mockBlogs);
+      setVideosList(mockVideos);
+      setCategoriesList(mockSettings.categories || []);
+      setQuickLinksList(mockSettings.quick_links || []);
+      setWebsiteFaqsList(mockSettings.website_faqs || []);
+      setDevelopersList(mockSettings.developers || []);
+    }
+  }, [loading, mockApps, mockNews, mockSettings, mockBlogs, mockVideos]);
+
   // Security Stopwatch (Auto-logout after 15 mins)
   const [sessionTimeLeft, setSessionTimeLeft] = useState(15 * 60);
 
