@@ -12,7 +12,14 @@ let appletConfig: any = {};
 try {
   // Using dynamic import with Vite's glob or just ignore it if missing.
   // We'll rely on environment variables in production.
-} catch (e) {}
+  const globbed = import.meta.glob('../../firebase-applet-config.json', { eager: true });
+  const keys = Object.keys(globbed);
+  if (keys.length > 0) {
+    appletConfig = (globbed[keys[0]] as any).default || globbed[keys[0]];
+  }
+} catch (e) {
+  console.log('Error importing applet config:', e);
+}
 
 declare global {
   interface Window {
