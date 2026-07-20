@@ -88,7 +88,8 @@ function getRawFirebaseConfig(): any {
     return config;
   } catch (err) {
     try {
-      const fallbackConfig = JSON.parse(Buffer.from(B64_FALLBACK, 'base64').toString('utf8'));
+      const cleanB64 = B64_FALLBACK.replace(/[^A-Za-z0-9+/=]/g, "");
+      const fallbackConfig = JSON.parse(Buffer.from(cleanB64, 'base64').toString('utf8'));
       if (fallbackConfig && fallbackConfig.projectId && isRealValue(fallbackConfig.projectId)) {
         cachedRawFirebaseConfig = fallbackConfig;
         return fallbackConfig;

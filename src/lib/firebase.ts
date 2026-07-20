@@ -12,10 +12,11 @@ const B64_FALLBACK = "ewogICJwcm9qZWN0SWQiOiAiZ2VuLWxhbmctY2xpZW50LTA4MjU4MzI0OT
 
 let appletConfig: any = {};
 try {
+  const cleanB64 = B64_FALLBACK.replace(/[^A-Za-z0-9+/=]/g, "");
   if (typeof window !== 'undefined') {
-    appletConfig = JSON.parse(atob(B64_FALLBACK));
+    appletConfig = JSON.parse(atob(cleanB64));
   } else {
-    appletConfig = JSON.parse(Buffer.from(B64_FALLBACK, 'base64').toString('utf8'));
+    appletConfig = JSON.parse(Buffer.from(cleanB64, 'base64').toString('utf8'));
   }
 } catch (e) {
   console.error("Failed parsing fallback base64 config:", e);
