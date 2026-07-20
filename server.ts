@@ -1309,13 +1309,13 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
 
       // ARCHITECTURAL HARD-ENFORCEMENT (Source of Truth):
       // All content updates (Data/Vault/Backups) and owner-initiated syncs 
-      // MUST be redirected to the "Yono-Transparency" source repository.
+      // MUST be redirected to the "yonotransparency-" source repository.
       // This ensures the GitHub Actions workflow in the source repo is the ONLY 
       // automated mechanism that pushes to public (Dex) or admin (masterworld).
       if (lowerOwner === 'yonoapptransparency' || lowerOwner === 'defentechscholar' || isContentFile) {
          if (lowerRepo.includes('masterworld') || lowerRepo === 'dex' || lowerRepo === '' || lowerRepo === 'yonotransparency-' || isContentFile) {
-            console.warn(`[SECURITY] GitHub Sync Server: Redirecting commit of "${cleanPath}" to SOURCE repository ("Yono-Transparency")`);
-            cleanRepo = 'Yono-Transparency';
+            console.warn(`[SECURITY] GitHub Sync Server: Redirecting commit of "${cleanPath}" to SOURCE repository ("yonotransparency-")`);
+            cleanRepo = 'yonotransparency-';
          }
       }
 

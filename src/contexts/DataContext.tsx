@@ -811,9 +811,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     log("GitHub Sync: Generating secure payload...");
     const updatedCode = generateStaticDataFileCode(finalApps, targetSettings, targetNews, targetBlogs, targetVideos);
     
-    // CRITICAL: Force target to 'Yono-Transparency' repository for source of truth sync
+    // CRITICAL: Force target to 'yonotransparency-' repository for source of truth sync
     // This implements the Yono Transparency architecture: Updates -> Source -> GitHub Actions -> Dex
-    const targetRepo = 'Yono-Transparency';
+    const targetRepo = 'yonotransparency-';
     
     if (configToUse.repo && configToUse.repo.toLowerCase().includes('masterworld')) {
       log(`⚠️ Security Alert: Redirecting sync from Admin repo ("${configToUse.repo}") to Source of Truth repo ("${targetRepo}").`);
