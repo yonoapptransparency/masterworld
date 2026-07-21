@@ -2018,11 +2018,11 @@ export default function AdminDashboard() {
     news: mockNews, 
     blogs: mockBlogs, 
     videos: mockVideos, 
-    saveApps: saveMockApps, 
-    saveSettings: saveMockSettings, 
-    saveNews: saveMockNews, 
-    saveBlogs: saveMockBlogs, 
-    saveVideos: saveMockVideos,
+    saveApps, 
+    saveSettings, 
+    saveNews, 
+    saveBlogs, 
+    saveVideos,
     loading,
     refreshAll,
     gitConfig,
@@ -2657,7 +2657,7 @@ export default function AdminDashboard() {
         website_faqs: websiteFaqsList
       };
       
-      await saveMockSettings(updatedSettings);
+      await saveSettings(updatedSettings);
       setBanners(updatedSettings.banners || []);
       setCategoriesList(updatedSettings.categories || []);
       triggerHaptic();

@@ -17,7 +17,7 @@ import { GitConfig, generateStaticDataFileCode, commitFileToGitHub } from '../li
 
 
 // Providing fallback data immediately helps avoid layout shifts
-import { mockApps, mockSettings, mockNews, mockBlogs, mockVideos } from '../lib/staticData';
+import { mockApps, mockSettings, mockNews, mockBlogs, mockVideos } from '../lib/lightFallback';
 
 interface DataContextType {
   apps: AppConfig[];
@@ -1033,6 +1033,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     try {
       if (isFirebaseReal) {
+        if (!db) {
+          console.error("Database not initialized");
+          return;
+        }
         const docRef = doc(db, 'store_data', 'public_settings');
         console.log("Cloud: Pushing Settings update...");
         // Sanitize settings payload to exclude any 'undefined' properties, preventing Firestore write failures

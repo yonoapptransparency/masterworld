@@ -34,6 +34,7 @@ const getEnvVal = (key: string): string | undefined => {
 
 const getResolvedConfig = () => {
   const resolvedProjectId = getEnvVal('VITE_FIREBASE_PROJECT_ID') || getEnvVal('FIREBASE_PROJECT_ID');
+  console.log("DEBUG: resolvedProjectId:", resolvedProjectId);
   const resolvedAppId = getEnvVal('VITE_FIREBASE_APP_ID') || getEnvVal('FIREBASE_APP_ID');
   const resolvedApiKey = getEnvVal('VITE_FIREBASE_API_KEY') || getEnvVal('FIREBASE_API_KEY');
   const resolvedAuthDomain = getEnvVal('VITE_FIREBASE_AUTH_DOMAIN') || getEnvVal('FIREBASE_AUTH_DOMAIN');
@@ -61,6 +62,9 @@ const firebaseConfig = getResolvedConfig();
 const isAdminEnabled = typeof __ADMIN_ENABLED__ !== 'undefined' ? __ADMIN_ENABLED__ : true;
 
 export const isFirebaseConfigured = isAdminEnabled && !!firebaseConfig;
+if (!isFirebaseConfigured && typeof window !== 'undefined') {
+  console.error("Firebase is not configured! firebaseConfig:", firebaseConfig, "isAdminEnabled:", isAdminEnabled);
+}
 
 export const isFirebaseApiKeyReal = (key: string | undefined): boolean => {
   return isRealValue(key);
@@ -104,7 +108,7 @@ if (app) {
   const dbId = firebaseConfig?.firestoreDatabaseId === '(default)' ? undefined : firebaseConfig?.firestoreDatabaseId;
   try { firestoreInstance = initializeFirestore(app, {
     experimentalForceLongPolling: true,
-  }, dbId); } catch(e) { console.error(e); firestoreInstance = getFirestore(app, dbId); }
+  }, dbId); } catch(e) { console.error("FAILED TO INITIALIZE FIRESTORE:", e); firestoreInstance = getFirestore(app, dbId); }
 
   if (!isFirebaseReal && firestoreInstance) {
     // No-op for mock Firestore
