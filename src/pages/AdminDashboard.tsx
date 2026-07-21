@@ -1193,7 +1193,7 @@ const SettingsTab = React.memo(({ mockSettings, handleSaveSettings, saving }: an
   </div>
 ));
 
-const NewsTab = React.memo(({ newsList, handleAddNews, handleDeleteNews, handleNewsChange, saveMockNews, saving, setSaving, appsList }: any) => {
+const NewsTab = React.memo(({ newsList, handleAddNews, handleDeleteNews, handleNewsChange, saveNews, saving, setSaving, appsList }: any) => {
   const [editingNewsId, setEditingNewsId] = useState<string | null>(null);
 
   return (
@@ -1348,7 +1348,7 @@ const NewsTab = React.memo(({ newsList, handleAddNews, handleDeleteNews, handleN
         onClick={async () => {
           setSaving(true);
           try {
-            await saveMockNews(newsList);
+            await saveNews(newsList);
             alert('News successfully saved and synchronized.');
           } catch(e) {
             console.error(e);
@@ -2462,7 +2462,7 @@ export default function AdminDashboard() {
         ...mockSettings,
         categories: categoriesList,
       };
-      await saveMockSettings(updatedSettings);
+      await saveSettings(updatedSettings);
       triggerHaptic();
       alert('Categories saved successfully!');
     } catch (err: any) {
@@ -2480,7 +2480,7 @@ export default function AdminDashboard() {
         ...mockSettings,
         quick_links: quickLinksList,
       };
-      await saveMockSettings(updatedSettings);
+      await saveSettings(updatedSettings);
       triggerHaptic();
       alert('Quick Links saved successfully!');
     } catch (err: any) {
@@ -2514,7 +2514,7 @@ export default function AdminDashboard() {
         ...mockSettings,
         website_faqs: websiteFaqsList,
       };
-      await saveMockSettings(updatedSettings);
+      await saveSettings(updatedSettings);
       triggerHaptic();
       alert('Website FAQs saved successfully!');
     } catch (err: any) {
@@ -2548,7 +2548,7 @@ export default function AdminDashboard() {
         ...mockSettings,
         developers: developersList,
       };
-      await saveMockSettings(updatedSettings);
+      await saveSettings(updatedSettings);
       triggerHaptic();
       alert('Developers saved successfully!');
     } catch (err: any) {
@@ -2582,7 +2582,7 @@ export default function AdminDashboard() {
       setNewCatInput('');
       setSaving(true);
       try {
-        await saveMockSettings({
+        await saveSettings({
           ...mockSettings,
           categories: updatedList
         });
@@ -2607,7 +2607,7 @@ export default function AdminDashboard() {
         setCategoriesList(updatedList);
         setSaving(true);
         try {
-          await saveMockSettings({
+          await saveSettings({
             ...mockSettings,
             categories: updatedList
           });
@@ -2813,7 +2813,7 @@ export default function AdminDashboard() {
         updatedApps = [...appsList, appData];
       }
       
-      await saveMockApps(updatedApps);
+      await saveApps(updatedApps);
       setAppsList(updatedApps);
       triggerHaptic();
       setEditingAppId(null);
@@ -2844,7 +2844,7 @@ export default function AdminDashboard() {
         try {
           cachedSecureMapRef.current.delete(id);
           const updatedApps = appsList.filter(a => a.id !== id);
-          await saveMockApps(updatedApps);
+          await saveApps(updatedApps);
           setAppsList(updatedApps);
         } catch (err: any) {
           alert('Error deleting app: ' + err.message);
@@ -2856,7 +2856,7 @@ export default function AdminDashboard() {
   const handleSaveNews = async () => {
     setSaving(true);
     try {
-      await saveMockNews(newsList);
+      await saveNews(newsList);
       triggerHaptic();
       alert('News saved successfully. Go to News Section to see.');
     } catch (err: any) {
@@ -2947,7 +2947,7 @@ export default function AdminDashboard() {
   const handleSaveBlogs = async () => {
     setSaving(true);
     try {
-      await saveMockBlogs(blogs);
+      await saveBlogs(blogs);
       triggerHaptic();
       alert('Blogs saved successfully.');
     } catch (err: any) {
@@ -3048,7 +3048,7 @@ export default function AdminDashboard() {
   const handleSaveVideos = async () => {
     setSaving(true);
     try {
-      await saveMockVideos(videosList);
+      await saveVideos(videosList);
       triggerHaptic();
       alert('Videos saved successfully.');
     } catch (err: any) {
@@ -3283,7 +3283,7 @@ export default function AdminDashboard() {
                   handleAddNews={handleAddNews} 
                   handleDeleteNews={handleDeleteNews} 
                   handleNewsChange={handleNewsChange} 
-                  saveMockNews={saveMockNews} 
+                  saveNews={saveNews} 
                   saving={saving} 
                   setSaving={setSaving}
                   appsList={appsList}
@@ -3656,7 +3656,7 @@ export default function AdminDashboard() {
                    <div className="mt-8 flex justify-end">
                      <button onClick={async () => {
                        setSaving(true);
-                       await saveMockSettings({ ...mockSettings, banners });
+                       await saveSettings({ ...mockSettings, banners });
                        triggerHaptic();
                        setSaving(false);
                        alert('Banners Synced to Frontend System.');

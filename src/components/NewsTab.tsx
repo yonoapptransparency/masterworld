@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Plus, Trash2, Edit2, LayoutDashboard, Newspaper, Save, Globe, Image, Calendar, Tag, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const NewsTab = React.memo(({ newsList, handleAddNews, handleDeleteNews, handleNewsChange, saveMockNews, saving, setSaving, appsList }: any) => {
+const NewsTab = React.memo(({ newsList, handleAddNews, handleDeleteNews, handleNewsChange, saveNews, saving, setSaving, appsList }: any) => {
   const [editingNewsId, setEditingNewsId] = useState<string | null>(null);
 
   return (
@@ -28,7 +28,7 @@ const NewsTab = React.memo(({ newsList, handleAddNews, handleDeleteNews, handleN
             onClick={async () => {
               setSaving(true);
               try {
-                await saveMockNews(newsList);
+                await saveNews(newsList);
                 alert('News successfully saved and synchronized.');
               } catch(e) {
                 console.error(e);
