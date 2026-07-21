@@ -273,8 +273,10 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
       let msg = err.message || 'Authentication failed';
       if (msg === 'Failed to fetch' || msg.includes('network-request-failed') || msg.includes('Network Error')) {
         msg = "Network Connection Blocked: Your browser or an adblocker (e.g., Brave Shields) blocked the authentication request. Please disable shields or allow cross-site cookies/connections for this preview.";
-      } else if (msg.includes('auth/wrong-password')) {
+      } else if (msg.includes('auth/wrong-password') || msg.includes('auth/invalid-credential')) {
         msg = 'Incorrect email or password.';
+      } else if (msg.includes('auth/operation-not-allowed')) {
+        msg = 'Email/Password sign-in is not enabled. Please enable the Email/Password provider in Firebase Authentication -> Sign-in method.';
       }
       setError(msg);
       setIsLoading(false);
@@ -535,7 +537,7 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
                 <form onSubmit={handleLocalSignIn} className="space-y-4 text-left">
                   <div className="space-y-1.5">
                     <label className="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest pl-1">
-                      Identity Address
+                      Email Address
                     </label>
                     <div className="relative">
                       <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 dark:text-zinc-500" />
@@ -545,14 +547,14 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
                         value={emailInput}
                         onChange={(e) => setEmailInput(e.target.value)}
                         className="w-full bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-800/80 rounded-2xl py-3.5 pl-11 pr-4 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 dark:focus:border-blue-400 transition-all"
-                        placeholder="admin@example.com"
+                        placeholder="defentechscholar@gmail.com"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
                     <label className="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest pl-1">
-                      {isSignUp ? 'New Passphrase' : 'Secret Passphrase'}
+                      {isSignUp ? 'New Password' : 'Password'}
                     </label>
                     <div className="relative">
                       <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 dark:text-zinc-500" />
@@ -596,7 +598,7 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
                     ) : (
                       isSignUp ? <UserPlus className="w-4 h-4" /> : <LogIn className="w-4 h-4" />
                     )}
-                    <span>{isLoading ? (isSignUp ? 'Creating Account...' : 'Processing...') : (isSignUp ? 'Create Admin Account' : 'Direct Portal Entry')}</span>
+                    <span>{isLoading ? (isSignUp ? 'Creating Account...' : 'Processing...') : (isSignUp ? 'Create Admin Account' : 'Sign in with Email')}</span>
                   </button>
 
                   <div className="pt-2 text-center">
