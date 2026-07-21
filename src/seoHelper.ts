@@ -869,6 +869,11 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   let faviconUrl = "https://res.cloudinary.com/diewalae4/image/upload/v1784618987/Make_this_into_a_perfect_circle_format_keeping_the_RUMMY_DEX_text_and_red__20260721_125826_0000_zgdz8s.png";
   
   const rawPathStr = urlPath.split('?')[0].split('#')[0];
+  const pLower = rawPathStr.toLowerCase();
+  const isMoreInfoPage = pLower.startsWith('/moreinfo/') || 
+                         pLower.startsWith('/info/') || 
+                         pLower.startsWith('/moredetail/') || 
+                         pLower.startsWith('/gateway/');
   const possibleAppSlug = rawPathStr.replace(/^\/app\//, '/').replace(/^\/|\/$/g, '').toLowerCase();
   
   if (apps.some((a: any) => {
@@ -1200,7 +1205,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     <meta name="twitter:title" content="${escapeHtml(title)}" />
     <meta name="twitter:description" content="${escapeHtml(description)}" />
     ${absoluteOgImage ? `<meta name="twitter:image" content="${escapeHtml(absoluteOgImage)}" />` : ''}
-    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta name="robots" content="${isMoreInfoPage ? 'noindex, nofollow' : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'}" />
     <link rel="canonical" href="${escapeHtml(canonicalUrlOverride || absoluteUrl)}" />
     ${absoluteFaviconUrl ? `
     <link rel="icon" type="image/x-icon" href="${escapeHtml(absoluteFaviconUrl)}" />

@@ -3416,42 +3416,6 @@ ${JSON.stringify(publicContext, null, 2)}`;
     let cachedIndexHtml: string | null = null;
 
     app.get('*', async (req, res) => {
-// ── MOREINFO BOT WALL ──────────────────────────────────────────────────────
-    if (req.originalUrl.startsWith('/moreinfo/')) {
-      const ua = (req.headers['user-agent'] || '') as string;
-      const accept = req.headers['accept'] || '';
-      const acceptLang = req.headers['accept-language'] || '';
-      const looksLikeBot = !ua || ua.length < 20 ||
-        /bot|crawl|spider|slurp|scrape|python|curl|wget|libwww|scrapy|axios|node-fetch|playwright|puppeteer|selenium|phantomjs|headless|lighthouse|java\/|go-http|ruby|perl/i.test(ua) ||
-        !accept || !acceptLang;
-      if (looksLikeBot) {
-        return res.status(200).set({
-          'Content-Type': 'text/html; charset=utf-8',
-          'Cache-Control': 'no-store, no-cache',
-          'X-Robots-Tag': 'noindex, nofollow'
-        }).send('<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="robots" content="noindex,nofollow"></head><body></body></html>');
-      }
-      const appSlug = req.originalUrl.split('/moreinfo/')[1]?.split('?')[0]?.replace(/\/$/, '') || '';
-      const publicDomain = process.env.PUBLIC_DOMAIN || 'https://www.rummydex.com';
-      let tPath = path.join(distPath, 'index.html');
-      if (!fs.existsSync(tPath)) tPath = path.join(process.cwd(), 'index.html');
-      if (fs.existsSync(tPath)) {
-        let tmpl = cachedIndexHtml;
-        if (!tmpl) {
-          tmpl = fs.readFileSync(tPath, 'utf-8');
-          cachedIndexHtml = tmpl;
-        }
-        tmpl = tmpl.replace('</head>',
-          `<meta name="robots" content="noindex, nofollow" />\n<link rel="canonical" href="${publicDomain}/app/${appSlug}" />\n</head>`
-        );
-        return res.status(200).set({
-          'Content-Type': 'text/html',
-          'Cache-Control': 'no-cache, no-store',
-          'X-Robots-Tag': 'noindex, nofollow'
-        }).send(tmpl);
-      }
-    }
-    // ── END GATEWAY BOT WALL ────────────────────────────────────────────────────
       // Basic WAF / Scanner Mitigation for SPA fallback
       if (req.originalUrl.match(/\.(php|env|yml|yaml|ini|conf|log|sql|tar|gz|zip|bak|git|rsa)$/i) || req.originalUrl.includes('/etc/') || req.originalUrl.includes('/proc/') || req.originalUrl.includes('../') || req.originalUrl.includes('/.aws/')) {
         return res.status(404).type('text/plain').send('Not found');
