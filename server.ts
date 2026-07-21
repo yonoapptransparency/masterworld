@@ -971,188 +971,88 @@ const verifyAdminToken = async (req: express.Request, res: express.Response, nex
     if (!idToken || idToken === 'null' || idToken === 'undefined') {
       return res.status(401).json({ error: 'Unauthorized: Empty session verification token.' });
     }
-
     
-
     try {
-      const config = getRawFirebaseConfig();
+      const AES_SECRET = process.env.AES_SECRET || AES_SECRET_GLOBAL;
+      if (!AES_SECRET) return res.status(500).json({ error: 'Service Unavailable: Encryption misconfigured.' });
       
-      if (!config || !config.apiKey) {
-        return res.status(503).json({ error: 'Service Unavailable: Firebase is not configured.' });
+      const decrypted = safeDecrypt(idToken, AES_SECRET);
+      if (!decrypted) return res.status(401).json({ error: 'Unauthorized: Invalid token.' });
+      
+      const payload = JSON.parse(decrypted);
+      if (!payload.admin || !payload.email || !payload.exp) {
+        return res.status(401).json({ error: 'Unauthorized: Malformed token.' });
       }
       
-      const lookupRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${config.apiKey}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken })
-      });
-      
-      if (!lookupRes.ok) {
-        const t1 = await lookupRes.text().catch(()=>""); console.error("lookupRes not ok: " + lookupRes.status + " " + t1.substring(0, 200));
-        return res.status(401).json({ error: 'Unauthorized: Verification token lookup failed.' });
+      if (Date.now() > payload.exp) {
+        return res.status(401).json({ error: 'Unauthorized: Session expired.' });
       }
       
-      const lookupData = await lookupRes.json() as any;
-      const user = lookupData.users?.[0];
-      if (!user) {
-        console.log("no user found in lookupData");
-        return res.status(401).json({ error: 'Unauthorized: Authenticated identity could not be located.' });
-      }
-      
-      const email = user.email?.toLowerCase() || '';
-      // console.log("verifyAdminToken checking email:", email, user.localId, user.emailVerified);
-      
-      // Admin access check via firestore (strictly requires verified email to prevent hijack/spoofing attempts)
-      let isDbAdmin = false;
-      const configuredAdminEmail = (process.env.ADMIN_EMAIL || '').toLowerCase();
-      
-      // Admin email is configured only via ADMIN_EMAIL environment variable
-// No hardcoded emails in code
-      if (configuredAdminEmail && email === configuredAdminEmail) {
-        isDbAdmin = true;
-      }
-      if (!isDbAdmin && user.emailVerified === true) {
-        try {
-          const dbCheckRes = await fetch(`https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/admins/${user.localId}${config.apiKey ? "?key=" + config.apiKey : ""}`).catch(e => { console.error("Admin DB check failed:", e); return null; });
-          if (dbCheckRes && dbCheckRes.ok) {
-            isDbAdmin = true;
-          } else {
-            // Fallback check by email docId in case uid is not docId
-            const dbCheckResEmail = await fetch(`https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/admins/${email}${config.apiKey ? "?key=" + config.apiKey : ""}`).catch(e => { console.error("Admin DB check email failed:", e); return null; });
-            if (dbCheckResEmail && dbCheckResEmail.ok) {
-              isDbAdmin = true;
-            } else {
-              const t2 = await dbCheckRes?.text().catch(()=>""); const t3 = await dbCheckResEmail?.text().catch(()=>""); console.error("dbCheckRes not ok: " + t2?.substring(0, 100) + " " + t3?.substring(0, 100));
-            }
-          }
-        } catch (err) {
-          console.error("verifyAdminToken database check failed:", err);
-        }
-      }
-      
-      // console.log("verifyAdminToken: isDbAdmin final result:", isDbAdmin);
-      if (isDbAdmin) {
-        (req as any).adminUser = user;
-        return next();
-      }
-      
-      return res.status(403).json({ error: 'Forbidden: Admin authorization is required.' });
+      (req as any).adminUser = { email: payload.email };
+      return next();
     } catch (err: any) {
-      console.error("verifyAdminToken helper error:", err);
-      return res.status(500).json({ error: `Internal server security validation error: ${err.message || err}` });
+      console.error("verifyAdminToken error:", err);
+      return res.status(401).json({ error: 'Unauthorized: Token verification failed.' });
     }
   };
 
 
-app.post("/api/v1/admin/verify-session", async (req: any, res: any) => {
+app.post("/api/v1/admin/login", async (req: any, res: any) => {
   const ip = String((req.headers["x-forwarded-for"] as string) || req.socket?.remoteAddress || "unknown").split(",")[0].trim();
-  const ua = String(req.headers["user-agent"] || "");
-  const ts = new Date().toISOString();
-
   const rl = _checkAdminRL(ip);
   if (!rl.allowed) {
     const waitMin = Math.ceil(((rl.lockedUntil ?? Date.now()) - Date.now()) / 60000);
     return res.status(429).json({ error: `Too many attempts. Wait ${waitMin} min.` });
   }
 
+  const { email, password } = req.body ?? {};
+  if (!email || !password) {
+    _recordAdminFail(ip);
+    return res.status(400).json({ error: "Missing email or password." });
+  }
+
+  const configuredAdminEmail = String(process.env.ADMIN_EMAIL || "").toLowerCase();
+  const configuredAdminPass = String(process.env.ADMIN_PASSWORD || "");
+
+  if (!configuredAdminPass) {
+    return res.status(503).json({ error: "Server misconfiguration: ADMIN_PASSWORD is not set." });
+  }
+
+  if (email.toLowerCase().trim() === configuredAdminEmail && password === configuredAdminPass) {
+    try {
+      const AES_SECRET = process.env.AES_SECRET || AES_SECRET_GLOBAL;
+      const payload = JSON.stringify({ admin: true, email: configuredAdminEmail, exp: Date.now() + 86400000 });
+      const token = safeEncrypt(payload, AES_SECRET);
+      return res.json({ token, email: configuredAdminEmail });
+    } catch (err: any) {
+      console.error("Login encryption error:", err);
+      return res.status(500).json({ error: "Internal server error." });
+    }
+  }
+
+  _recordAdminFail(ip);
+  return res.status(401).json({ error: "Invalid email or password." });
+});
+
+app.post("/api/v1/admin/verify-session", async (req: any, res: any) => {
   const authHeader = String(req.headers.authorization || "");
-  if (!authHeader.startsWith("Bearer ")) { _recordAdminFail(ip); return res.status(401).json({ error: "Unauthorized." }); }
+  if (!authHeader.startsWith("Bearer ")) { return res.status(401).json({ error: "Unauthorized." }); }
   const idToken = authHeader.split("Bearer ")[1];
-  const { email = "" } = req.body ?? {};
-
   
-
   try {
-    const config = getRawFirebaseConfig();
-    console.log("Config retrieved:", !!config, config?.projectId);
-    if (!config || !config.apiKey) return res.status(503).json({ error: "Service unavailable." });
-
-    console.log("Looking up token:", idToken); 
-    const lookup = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${config.apiKey}`, { 
-      method: "POST", 
-      headers: { "Content-Type": "application/json" }, 
-      body: JSON.stringify({ idToken }) 
-    }).catch(err => {
-      console.error("Fetch lookup failed:", err);
-      return null;
-    });
-
-    if (!lookup) {
-      _recordAdminFail(ip);
-      return res.status(500).json({ error: "Unauthorized: Network error during verification." });
+    const AES_SECRET = process.env.AES_SECRET || AES_SECRET_GLOBAL;
+    const decrypted = safeDecrypt(idToken, AES_SECRET);
+    if (!decrypted) return res.status(401).json({ error: 'Unauthorized: Invalid token.' });
+    
+    const payload = JSON.parse(decrypted);
+    if (!payload.admin || Date.now() > payload.exp) {
+      return res.status(401).json({ error: 'Unauthorized: Session expired.' });
     }
     
-    if (!lookup.ok) { 
-      const text = await lookup.text(); 
-      console.error("Lookup failed:", lookup.status, text); 
-      _recordAdminFail(ip); 
-      return res.status(401).json({ error: "Unauthorized: Token verification failed." }); 
-    }
-
-    const lookupData = await lookup.json().catch(err => {
-      console.error("Lookup JSON parsing failed:", err);
-      return null;
-    }) as any;
-    console.log("Lookup data received:", !!lookupData);
-    const user = lookupData.users?.[0];
-    if (!user) { _recordAdminFail(ip); return res.status(401).json({ error: "Unauthorized: User not found." }); }
-
-    const userEmail = String(user.email ?? "").toLowerCase();
-    const confAdmin = String(process.env.ADMIN_EMAIL || "").toLowerCase(); console.log("Incoming email:", email, "Verified Token Email:", userEmail);
-    
-    // Relax emailVerified check if it's the primary admin email
-    if (!user || (!user.emailVerified && userEmail !== confAdmin)) {
-      _recordAdminFail(ip);
-      await _logAdminAttempt(config, { email, ip, ua, success: false, reason: "not_verified", ts });
-      return res.status(401).json({ error: "Email not verified." });
-    }
-
-    let isAdmin = !!(confAdmin && userEmail === confAdmin); console.log("Admin check successful: " + isAdmin + " Email: " + userEmail);
-
-    if (!isAdmin) {
-      try {
-        const r1 = await fetch(`https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/admins/${user.localId}${config.apiKey ? "?key=" + config.apiKey : ""}`, { headers: { Authorization: `Bearer ${idToken}` } }).catch(e => { console.error("Admin DB check failed:", e); return null; });
-        if (r1 && r1.ok) isAdmin = true;
-        if (!isAdmin) {
-          const r2 = await fetch(`https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/admins/${encodeURIComponent(userEmail)}${config.apiKey ? "?key=" + config.apiKey : ""}`, { headers: { Authorization: `Bearer ${idToken}` } }).catch(e => { console.error("Admin DB check email failed:", e); return null; });
-          if (r2 && r2.ok) isAdmin = true;
-        }
-      } catch { _recordAdminFail(ip); return res.status(503).json({ error: "Service unavailable." }); }
-    }
-
-    // Auto-bootstrap primary admin into Firestore collection if they are missing
-    if (isAdmin && userEmail === confAdmin) {
-      try {
-        const adminDb = getFirebaseAdminDb();
-        if (adminDb) {
-          const adminRef = adminDb.collection('admins').doc(user.localId);
-          const docSnap = await adminRef.get();
-          if (!docSnap.exists) {
-            console.log(`[BOOTSTRAP] Registering primary admin ${userEmail} in Firestore...`);
-            await adminRef.set({
-              email: userEmail,
-              role: 'admin',
-              bootstrapped: true,
-              added_at: new Date().toISOString()
-            });
-          }
-        }
-      } catch (bootstrapErr: any) {
-        console.warn("[BOOTSTRAP] Could not ensure admin document in Firestore (permission issue?):", bootstrapErr.message);
-      }
-    }
-
-    if (!isAdmin) {
-      _recordAdminFail(ip);
-      await _logAdminAttempt(config, { email: userEmail, ip, ua, success: false, reason: "not_admin", ts });
-      return res.status(403).json({ error: "Access denied." });
-    }
-
-    _clearAdminRL(ip);
-
-    await _logAdminAttempt(config, { email: userEmail, ip, ua, success: true, reason: "login_success", ts });
-    return res.json({ success: true, email: userEmail, uid: user.localId });
-  } catch (err: any) { console.error("verify-session catch error:", err); _recordAdminFail(ip); return res.status(500).json({ error: "Service error: " + (err?.message || String(err)) }); }
+    return res.json({ ok: true, email: payload.email });
+  } catch (err: any) {
+    return res.status(401).json({ error: "Service error: " + (err?.message || String(err)) });
+  }
 });
 
 app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {

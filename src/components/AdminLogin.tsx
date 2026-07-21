@@ -124,160 +124,42 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    try {
-      setError(null);
-      setIsLoading(true);
-
-      let idToken = '';
-      let refreshToken = '';
-      let email = '';
-
-      if (isFirebaseConfigured) {
-        const provider = new GoogleAuthProvider();
-        try {
-          const result = await signInWithPopup(auth, provider);
-          const user = result.user;
-          email = user.email || '';
-          idToken = await user.getIdToken();
-          refreshToken = user.refreshToken || '';
-        } catch (popupErr: any) {
-          if (popupErr.message && (popupErr.message.includes('popup-closed-by-user') || popupErr.message.includes('popup-blocked') || popupErr.message.includes('network-request-failed') || popupErr.message.includes('Failed to fetch') || popupErr.message.includes('cross-origin'))) {
-            await signInWithRedirect(auth, provider);
-            return;
-          }
-          throw popupErr;
-        }
-      } else {
-        throw new Error("Firebase is not configured. Authentication is currently unavailable.");
-      }
-
-      // Verify session via our backend
-      const verifyRes = await fetch("/api/v1/admin/verify-session", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${idToken}`,
-        },
-        body: JSON.stringify({ email }),
-      });
-
-      
-      let verifyData: any = {};
-      let responseText = "";
-      try {
-        responseText = await verifyRes.text();
-        verifyData = JSON.parse(responseText);
-      } catch(e) {
-        verifyData.error = "Non-JSON response: " + responseText.substring(0, 100);
-      }
-
-
-      if (!verifyRes.ok) {
-        throw new Error(verifyData.error || `Admin access denied. Status: ${verifyRes.status} ${verifyRes.statusText}`);
-      }
-
-      if (verifyData.mfaRequired) {
-        setTempCreds({ idToken, refreshToken, email });
-        setMfaRequired(true);
-        setIsLoading(false);
-        return;
-      }
-
-      onSuccess(idToken, refreshToken, email);
-    } catch (err: any) {
-      console.error('Login error:', err);
-      let msg = err.message || 'Authentication failed'; try { if (msg.trim().startsWith("{")) { const parsed = JSON.parse(msg); if (parsed.error && parsed.error.message) msg = parsed.error.message; } } catch(e) {}
-      if (msg === 'Failed to fetch' || msg.includes('network-request-failed') || msg.includes('Network Error')) {
-        msg = "Network Connection Blocked: Your browser or an adblocker (e.g., Brave Shields) blocked the authentication request. Please disable shields or allow cross-site cookies/connections for this preview.";
-      } else if (msg.includes('auth/popup-closed-by-user')) {
-        msg = 'Sign-in cancelled.';
-      } else if (msg.includes('auth/operation-not-allowed')) {
-        msg = 'Google Sign-In is not enabled. Please enable the Google provider in Firebase Authentication.';
-      } else if (msg.toLowerCase().includes('blocked') || msg.toLowerCase().includes('unauthorized-domain')) {
-        msg = 'Domain not authorized. Please add this domain to Authorized Domains in the Firebase Console (Authentication > Settings).';
-      } else if (msg.toLowerCase().includes('api_key') || msg.toLowerCase().includes('api key')) {
-        msg = 'API Key is restricted. Please update API Key restrictions in Google Cloud Console to allow this domain.';
-      }
-      setError(msg);
-      setIsLoading(false);
-    }
-  };
-
+  
   const handleLocalSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setError(null);
       setIsLoading(true);
 
-      let email = emailInput.toLowerCase().trim();
-      let idToken = '';
-      let refreshToken = 'MOCK_ADMIN_REFRESH';
+      const email = emailInput.toLowerCase().trim();
 
-      if (isFirebaseConfigured) {
-        if (isSignUp) {
-          if (passwordInput !== confirmPassword) {
-            throw new Error("Passwords do not match.");
-          }
-          const { createUserWithEmailAndPassword } = await import('firebase/auth');
-          const result = await createUserWithEmailAndPassword(auth, email, passwordInput);
-          const user = result.user;
-          idToken = await user.getIdToken();
-          refreshToken = user.refreshToken || '';
-        } else {
-          const { signInWithEmailAndPassword } = await import('firebase/auth');
-          const result = await signInWithEmailAndPassword(auth, email, passwordInput);
-          const user = result.user;
-          idToken = await user.getIdToken();
-          refreshToken = user.refreshToken || '';
-        }
-      } else {
-        throw new Error("Firebase is not configured. Authentication is unavailable.");
-      }
-
-      // Verify session via our backend
-      const verifyRes = await fetch("/api/v1/admin/verify-session", {
+      const loginRes = await fetch("/api/v1/admin/login", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${idToken}`,
-        },
-        body: JSON.stringify({ email }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password: passwordInput }),
       });
 
-      
-      let verifyData: any = {};
+      let loginData: any = {};
       let responseText = "";
       try {
-        responseText = await verifyRes.text();
-        verifyData = JSON.parse(responseText);
+        responseText = await loginRes.text();
+        loginData = JSON.parse(responseText);
       } catch(e) {
-        verifyData.error = "Non-JSON response: " + responseText.substring(0, 100);
+        loginData.error = "Non-JSON response: " + responseText.substring(0, 100);
       }
 
-
-      if (!verifyRes.ok) {
-        throw new Error(verifyData.error || `Admin access denied. Status: ${verifyRes.status} ${verifyRes.statusText}`);
+      if (!loginRes.ok) {
+        throw new Error(loginData.error || `Authentication failed (${loginRes.status})`);
       }
 
-      if (verifyData.mfaRequired) {
-        setTempCreds({ idToken, refreshToken, email });
-        setMfaRequired(true);
-        setIsLoading(false);
-        return;
+      if (!loginData.token) {
+        throw new Error("Invalid server response: Missing authentication token.");
       }
 
-      onSuccess(idToken, refreshToken, email);
+      onSuccess(loginData.token, 'MOCK_ADMIN_REFRESH', loginData.email || email);
     } catch (err: any) {
-      console.error('Local Login error:', err);
-      let msg = err.message || 'Authentication failed';
-      if (msg === 'Failed to fetch' || msg.includes('network-request-failed') || msg.includes('Network Error')) {
-        msg = "Network Connection Blocked: Your browser or an adblocker (e.g., Brave Shields) blocked the authentication request. Please disable shields or allow cross-site cookies/connections for this preview.";
-      } else if (msg.includes('auth/wrong-password') || msg.includes('auth/invalid-credential')) {
-        msg = 'Incorrect email or password.';
-      } else if (msg.includes('auth/operation-not-allowed')) {
-        msg = 'Email/Password sign-in is not enabled. Please enable the Email/Password provider in Firebase Authentication -> Sign-in method.';
-      }
+      console.error("Local sign-in error:", err);
+      let msg = err.message || "An unexpected error occurred.";
       setError(msg);
       setIsLoading(false);
     }
@@ -495,44 +377,9 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
               )}
 
               <div className="space-y-4">
-                <button
-                  onClick={handleGoogleSignIn}
-                  disabled={isLoading}
-                  className="w-full flex items-center justify-center gap-3 bg-white dark:bg-zinc-950/40 hover:bg-zinc-50 dark:hover:bg-zinc-950 hover:scale-[1.01] text-zinc-900 dark:text-white border border-zinc-200 dark:border-zinc-800 rounded-2xl py-3.5 px-4 font-semibold transition-all shadow-sm active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-sm"
-                >
-                  {isLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <svg className="w-4 h-4" viewBox="0 0 24 24">
-                      <path
-                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                        fill="#4285F4"
-                      />
-                      <path
-                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                        fill="#34A853"
-                      />
-                      <path
-                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                        fill="#FBBC05"
-                      />
-                      <path
-                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                        fill="#EA4335"
-                      />
-                    </svg>
-                  )}
-                  <span>{isLoading ? 'Connecting...' : 'Authorize with Google'}</span>
-                </button>
+                
 
-                <div className="relative py-2">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-zinc-100 dark:border-zinc-800" />
-                  </div>
-                  <div className="relative flex justify-center text-[10px] uppercase">
-                    <span className="bg-white dark:bg-zinc-900 px-2 text-zinc-400 dark:text-zinc-500 font-bold tracking-widest">Administrative Directory</span>
-                  </div>
-                </div>
+                
 
                 <form onSubmit={handleLocalSignIn} className="space-y-4 text-left">
                   <div className="space-y-1.5">
