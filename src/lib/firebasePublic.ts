@@ -21,31 +21,43 @@ const isRealValue = (id: string | undefined): boolean => {
 };
 
 const getEnvVal = (key: string): string | undefined => {
-  if (key === 'VITE_FIREBASE_PROJECT_ID' || key === 'FIREBASE_PROJECT_ID') return (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_FIREBASE_PROJECT_ID : undefined) || (typeof process !== 'undefined' && process.env ? process.env.VITE_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID : undefined);
-  if (key === 'VITE_FIREBASE_APP_ID' || key === 'FIREBASE_APP_ID') return (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_FIREBASE_APP_ID : undefined) || (typeof process !== 'undefined' && process.env ? process.env.VITE_FIREBASE_APP_ID || process.env.FIREBASE_APP_ID : undefined);
-  if (key === 'VITE_FIREBASE_API_KEY' || key === 'FIREBASE_API_KEY') return (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_FIREBASE_API_KEY : undefined) || (typeof process !== 'undefined' && process.env ? process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY : undefined);
-  if (key === 'VITE_FIREBASE_AUTH_DOMAIN' || key === 'FIREBASE_AUTH_DOMAIN') return (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_FIREBASE_AUTH_DOMAIN : undefined) || (typeof process !== 'undefined' && process.env ? process.env.VITE_FIREBASE_AUTH_DOMAIN || process.env.FIREBASE_AUTH_DOMAIN : undefined);
-  if (key === 'VITE_FIREBASE_DATABASE_ID' || key === 'FIREBASE_DATABASE_ID') return (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_FIREBASE_DATABASE_ID : undefined) || (typeof process !== 'undefined' && process.env ? process.env.VITE_FIREBASE_DATABASE_ID || process.env.FIREBASE_DATABASE_ID : undefined);
-  if (key === 'VITE_FIREBASE_STORAGE_BUCKET' || key === 'FIREBASE_STORAGE_BUCKET') return (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_FIREBASE_STORAGE_BUCKET : undefined) || (typeof process !== 'undefined' && process.env ? process.env.VITE_FIREBASE_STORAGE_BUCKET || process.env.FIREBASE_STORAGE_BUCKET : undefined);
-  if (key === 'VITE_FIREBASE_MESSAGING_ID' || key === 'FIREBASE_MESSAGING_ID') return (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_FIREBASE_MESSAGING_ID : undefined) || (typeof process !== 'undefined' && process.env ? process.env.VITE_FIREBASE_MESSAGING_ID || process.env.FIREBASE_MESSAGING_ID : undefined);
+  if (key === 'VITE_FIREBASE_PROJECT_ID' || key === 'FIREBASE_PROJECT_ID') return (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_FIREBASE_PROJECT_ID : undefined) || (typeof process !== 'undefined' && process.env ? (typeof process !== 'undefined' && process.env ? process.env.VITE_FIREBASE_PROJECT_ID : undefined) || process.env.FIREBASE_PROJECT_ID : undefined);
+  if (key === 'VITE_FIREBASE_APP_ID' || key === 'FIREBASE_APP_ID') return (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_FIREBASE_APP_ID : undefined) || (typeof process !== 'undefined' && process.env ? (typeof process !== 'undefined' && process.env ? process.env.VITE_FIREBASE_APP_ID : undefined) || process.env.FIREBASE_APP_ID : undefined);
+  if (key === 'VITE_FIREBASE_API_KEY' || key === 'FIREBASE_API_KEY') return (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_FIREBASE_API_KEY : undefined) || (typeof process !== 'undefined' && process.env ? (typeof process !== 'undefined' && process.env ? process.env.VITE_FIREBASE_API_KEY : undefined) || process.env.FIREBASE_API_KEY : undefined);
+  if (key === 'VITE_FIREBASE_AUTH_DOMAIN' || key === 'FIREBASE_AUTH_DOMAIN') return (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_FIREBASE_AUTH_DOMAIN : undefined) || (typeof process !== 'undefined' && process.env ? (typeof process !== 'undefined' && process.env ? process.env.VITE_FIREBASE_AUTH_DOMAIN : undefined) || process.env.FIREBASE_AUTH_DOMAIN : undefined);
+  if (key === 'VITE_FIREBASE_DATABASE_ID' || key === 'FIREBASE_DATABASE_ID') return (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_FIREBASE_DATABASE_ID : undefined) || (typeof process !== 'undefined' && process.env ? (typeof process !== 'undefined' && process.env ? process.env.VITE_FIREBASE_DATABASE_ID : undefined) || process.env.FIREBASE_DATABASE_ID : undefined);
+  if (key === 'VITE_FIREBASE_STORAGE_BUCKET' || key === 'FIREBASE_STORAGE_BUCKET') return (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_FIREBASE_STORAGE_BUCKET : undefined) || (typeof process !== 'undefined' && process.env ? (typeof process !== 'undefined' && process.env ? process.env.VITE_FIREBASE_STORAGE_BUCKET : undefined) || process.env.FIREBASE_STORAGE_BUCKET : undefined);
+  if (key === 'VITE_FIREBASE_MESSAGING_ID' || key === 'FIREBASE_MESSAGING_ID') return (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_FIREBASE_MESSAGING_ID : undefined) || (typeof process !== 'undefined' && process.env ? (typeof process !== 'undefined' && process.env ? process.env.VITE_FIREBASE_MESSAGING_ID : undefined) || process.env.FIREBASE_MESSAGING_ID : undefined);
   return undefined;
 };
 
 const getResolvedConfig = () => {
-  const resolvedProjectId = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID || (import.meta as any).env?.VITE_FIREBASE_PROJECT_ID;
-  console.log("DEBUG: resolvedProjectId:", resolvedProjectId);
-  const resolvedAppId = process.env.FIREBASE_APP_ID || process.env.VITE_FIREBASE_APP_ID || (import.meta as any).env?.VITE_FIREBASE_APP_ID;
-  const resolvedApiKey = process.env.FIREBASE_API_KEY || process.env.VITE_FIREBASE_API_KEY || (import.meta as any).env?.VITE_FIREBASE_API_KEY;
-  let resolvedAuthDomain = process.env.FIREBASE_AUTH_DOMAIN || process.env.VITE_FIREBASE_AUTH_DOMAIN || (import.meta as any).env?.VITE_FIREBASE_AUTH_DOMAIN;
-      
-  // Default authDomain if missing and projectId is present
+  let resolvedProjectId, resolvedAppId, resolvedApiKey, resolvedAuthDomain, resolvedDatabaseId, resolvedStorageBucket, resolvedMessagingId;
+  
+  try { resolvedProjectId = process.env.FIREBASE_PROJECT_ID; } catch(e){}
+  if (!resolvedProjectId) try { resolvedProjectId = import.meta.env.VITE_FIREBASE_PROJECT_ID; } catch(e){}
+
+  try { resolvedAppId = process.env.FIREBASE_APP_ID; } catch(e){}
+  if (!resolvedAppId) try { resolvedAppId = import.meta.env.VITE_FIREBASE_APP_ID; } catch(e){}
+
+  try { resolvedApiKey = process.env.FIREBASE_API_KEY; } catch(e){}
+  if (!resolvedApiKey) try { resolvedApiKey = import.meta.env.VITE_FIREBASE_API_KEY; } catch(e){}
+
+  try { resolvedAuthDomain = process.env.FIREBASE_AUTH_DOMAIN; } catch(e){}
+  if (!resolvedAuthDomain) try { resolvedAuthDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN; } catch(e){}
+
+  try { resolvedDatabaseId = process.env.FIREBASE_DATABASE_ID; } catch(e){}
+  if (!resolvedDatabaseId) try { resolvedDatabaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID; } catch(e){}
+
+  try { resolvedStorageBucket = process.env.FIREBASE_STORAGE_BUCKET; } catch(e){}
+  if (!resolvedStorageBucket) try { resolvedStorageBucket = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET; } catch(e){}
+
+  try { resolvedMessagingId = process.env.FIREBASE_MESSAGING_ID; } catch(e){}
+  if (!resolvedMessagingId) try { resolvedMessagingId = import.meta.env.VITE_FIREBASE_MESSAGING_ID; } catch(e){}
+
   if (!isRealValue(resolvedAuthDomain) && isRealValue(resolvedProjectId)) {
     resolvedAuthDomain = `${resolvedProjectId}.firebaseapp.com`;
   }
-
-  const resolvedDatabaseId = process.env.FIREBASE_DATABASE_ID || process.env.VITE_FIREBASE_DATABASE_ID || (import.meta as any).env?.VITE_FIREBASE_DATABASE_ID;
-  const resolvedStorageBucket = process.env.FIREBASE_STORAGE_BUCKET || process.env.VITE_FIREBASE_STORAGE_BUCKET || (import.meta as any).env?.VITE_FIREBASE_STORAGE_BUCKET;
-  const resolvedMessagingId = process.env.FIREBASE_MESSAGING_ID || process.env.VITE_FIREBASE_MESSAGING_ID || (import.meta as any).env?.VITE_FIREBASE_MESSAGING_ID;
 
   if (isRealValue(resolvedProjectId) && isRealValue(resolvedApiKey) && isRealValue(resolvedAuthDomain)) {
     return {
@@ -58,7 +70,6 @@ const getResolvedConfig = () => {
       messagingSenderId: resolvedMessagingId,
     };
   }
-
   return null;
 };
 
