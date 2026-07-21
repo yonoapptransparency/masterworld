@@ -68,8 +68,7 @@ export const isFirebaseApiKeyReal = (key: string | undefined): boolean => {
 
 export const isFirebaseReal = isFirebaseConfigured && isFirebaseApiKeyReal(firebaseConfig?.apiKey);
 
-const isMainWebsite = typeof window !== 'undefined' && !window.location.pathname.startsWith('/' + getAdminPath());
-export const app = isFirebaseConfigured && !isMainWebsite ? initializeApp(firebaseConfig!) : null as any;
+export const app = isFirebaseConfigured ? initializeApp(firebaseConfig!) : null as any;
 
 export const auth = (() => {
   if (isFirebaseReal && app) {

@@ -17,7 +17,7 @@ import { GitConfig, generateStaticDataFileCode, commitFileToGitHub } from '../li
 
 
 // Providing fallback data immediately helps avoid layout shifts
-import { mockApps, mockSettings, mockNews, mockBlogs, mockVideos } from '../lib/lightFallback';
+import { mockApps, mockSettings, mockNews, mockBlogs, mockVideos } from '../lib/staticData';
 
 interface DataContextType {
   apps: AppConfig[];
