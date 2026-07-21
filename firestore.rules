@@ -92,8 +92,10 @@ service cloud.firestore {
       // Non-sensitive public data documents can be read by anyone
       allow read: if docId in [
         'apps', 'apps_meta', 'public_settings', 'categories', 'faqs', 'developers',
-        'news', 'blogs', 'videos', 'quick_links'
-      ] || docId.startsWith('apps_chunk_');
+        'news', 'blogs', 'videos', 'quick_links',
+        'apps_chunk_0', 'apps_chunk_1', 'apps_chunk_2', 'apps_chunk_3', 'apps_chunk_4',
+        'apps_chunk_5', 'apps_chunk_6', 'apps_chunk_7', 'apps_chunk_8', 'apps_chunk_9', 'apps_chunk_10'
+      ];
     }
 
     // 6. Secure Git Configuration collection
