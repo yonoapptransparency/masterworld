@@ -210,21 +210,65 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col justify-center items-center p-4 relative overflow-hidden font-sans">
-      {/* Decorative organic gradient blobs for a premium modern aesthetic */}
-      <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-blue-500/10 dark:bg-blue-500/5 rounded-full blur-3xl animate-pulse pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-indigo-500/10 dark:bg-indigo-500/5 rounded-full blur-3xl animate-pulse delay-1000 pointer-events-none" />
-      
-      {/* Dynamic Grid Background Pattern */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] pointer-events-none" />
+    <div className="min-h-screen bg-zinc-950 flex flex-col justify-center items-center p-4 relative overflow-hidden font-sans">
+      {/* Core dark background */}
+      <div className="absolute inset-0 bg-zinc-950 z-0" />
+
+      {/* Animated glowing orbs */}
+      <motion.div
+        animate={{ 
+          opacity: [0.15, 0.4, 0.15],
+          scale: [1, 1.2, 1],
+          rotate: [0, 90, 0]
+        }}
+        transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+        className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-blue-600/20 rounded-full blur-[120px] pointer-events-none z-0"
+      />
+      <motion.div
+        animate={{ 
+          opacity: [0.1, 0.3, 0.1],
+          scale: [1, 1.5, 1],
+          rotate: [0, -90, 0]
+        }}
+        transition={{ duration: 10, repeat: Infinity, ease: "linear", delay: 1 }}
+        className="absolute bottom-[-10%] right-[-10%] w-[70%] h-[70%] bg-purple-600/20 rounded-full blur-[150px] pointer-events-none z-0"
+      />
+
+      {/* Lightning electric beam lines */}
+      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+        <motion.div 
+          animate={{ x: ["-100%", "100%"], opacity: [0, 1, 0] }}
+          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute h-[2px] w-full bg-gradient-to-r from-transparent via-blue-400/60 to-transparent top-[30%] shadow-[0_0_10px_rgba(96,165,250,0.8)]" 
+        />
+        <motion.div 
+          animate={{ x: ["100%", "-100%"], opacity: [0, 1, 0] }}
+          transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+          className="absolute h-[2px] w-full bg-gradient-to-r from-transparent via-purple-400/60 to-transparent top-[70%] shadow-[0_0_10px_rgba(192,132,252,0.8)]" 
+        />
+        <motion.div 
+          animate={{ y: ["-100%", "100%"], opacity: [0, 1, 0] }}
+          transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+          className="absolute w-[2px] h-full bg-gradient-to-b from-transparent via-cyan-400/60 to-transparent left-[40%] shadow-[0_0_10px_rgba(34,211,238,0.8)]" 
+        />
+        <motion.div 
+          animate={{ y: ["100%", "-100%"], opacity: [0, 1, 0] }}
+          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+          className="absolute w-[2px] h-full bg-gradient-to-b from-transparent via-blue-500/60 to-transparent left-[75%] shadow-[0_0_10px_rgba(59,130,246,0.8)]" 
+        />
+      </div>
+
+      {/* High tech grid */}
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff0a_1px,transparent_1px),linear-gradient(to_bottom,#ffffff0a_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_80%_80%_at_50%_50%,#000_70%,transparent_100%)] pointer-events-none z-0" />
 
       <div className="w-full max-w-md relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="bg-white/80 dark:bg-zinc-900/85 backdrop-blur-xl border border-zinc-200/80 dark:border-zinc-800/80 rounded-[2rem] p-8 sm:p-10 shadow-2xl shadow-zinc-200/40 dark:shadow-black/60 text-center"
+          className="bg-zinc-950/60 backdrop-blur-2xl border border-white/10 rounded-[2rem] p-8 sm:p-10 shadow-[0_0_50px_-12px_rgba(59,130,246,0.25)] text-center relative overflow-hidden"
         >
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 pointer-events-none" />
           {mfaRequired ? (
             <form onSubmit={handleMfaSubmit} className="space-y-6 text-left">
               {/* Elegant layered icon container */}
@@ -237,8 +281,8 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
               </div>
               
               <div className="text-center">
-                <h1 className="text-2xl font-bold tracking-tight text-zinc-950 dark:text-white mb-2">Two-Factor Auth</h1>
-                <p className="text-zinc-500 dark:text-zinc-400 text-xs font-medium leading-relaxed max-w-xs mx-auto">
+                <h1 className="text-2xl font-bold tracking-tight text-white mb-2">Two-Factor Auth</h1>
+                <p className="text-zinc-400 text-xs font-medium leading-relaxed max-w-xs mx-auto">
                   An additional layer of security is active on this account. Please enter the verification code generated by your authenticator app.
                 </p>
               </div>
@@ -266,7 +310,7 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
               )}
 
               <div className="space-y-2">
-                <label className="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest text-center">
+                <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest text-center">
                   Verification Passcode
                 </label>
                 <input
@@ -276,7 +320,7 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
                   autoFocus
                   value={mfaCode}
                   onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ''))}
-                  className="w-full bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-800/80 rounded-2xl py-3.5 text-center font-mono text-3xl font-black tracking-[0.45em] focus:outline-none focus:ring-4 focus:ring-rose-500/10 focus:border-rose-500 dark:focus:border-rose-400 text-zinc-900 dark:text-white transition-all shadow-inner"
+                  className="w-full bg-black/40 border-white/10 rounded-2xl py-3.5 text-center font-mono text-3xl font-black tracking-[0.45em] focus:outline-none focus:ring-4 focus:ring-rose-500/10 focus:border-rose-500 dark:focus:border-rose-400 text-white transition-all shadow-inner"
                   placeholder="000000"
                 />
 
@@ -289,7 +333,7 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
                       transition={{ duration: 1, ease: "linear" }}
                     />
                   </div>
-                  <div className="flex justify-between items-center mt-2 text-[9px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                  <div className="flex justify-between items-center mt-2 text-[9px] font-bold uppercase tracking-wider text-zinc-400">
                     <span className="flex items-center gap-1">
                       <Clock className="w-3 h-3 animate-spin [animation-duration:10s]" />
                       Dynamic Sync
@@ -357,11 +401,11 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
                 </div>
               </div>
               
-              <h1 className="text-2xl font-black tracking-tight text-zinc-950 dark:text-white mb-1.5 flex items-center justify-center gap-1.5">
+              <h1 className="text-2xl font-black tracking-tight text-white mb-1.5 flex items-center justify-center gap-1.5">
                 <span>RUMMY DEX</span>
-                <span className="text-zinc-400 dark:text-zinc-500 font-medium">.portal</span>
+                <span className="text-zinc-400 font-medium">.portal</span>
               </h1>
-              <p className="text-zinc-400 dark:text-zinc-500 text-xs font-semibold uppercase tracking-wider mb-8">
+              <p className="text-zinc-400 text-xs font-semibold uppercase tracking-wider mb-8">
                 Cloud Directory Authorization
               </p>
 
@@ -383,34 +427,34 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
 
                 <form onSubmit={handleLocalSignIn} className="space-y-4 text-left">
                   <div className="space-y-1.5">
-                    <label className="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest pl-1">
+                    <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest pl-1">
                       Email Address
                     </label>
                     <div className="relative">
-                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 dark:text-zinc-500" />
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
                       <input
                         type="email"
                         required
                         value={emailInput}
                         onChange={(e) => setEmailInput(e.target.value)}
-                        className="w-full bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-800/80 rounded-2xl py-3.5 pl-11 pr-4 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 dark:focus:border-blue-400 transition-all"
+                        className="w-full bg-black/40 border-white/10 rounded-2xl py-3.5 pl-11 pr-4 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-400 transition-all"
                         placeholder="defentechscholar@gmail.com"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest pl-1">
+                    <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest pl-1">
                       {isSignUp ? 'New Password' : 'Password'}
                     </label>
                     <div className="relative">
-                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 dark:text-zinc-500" />
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
                       <input
                         type="password"
                         required
                         value={passwordInput}
                         onChange={(e) => setPasswordInput(e.target.value)}
-                        className="w-full bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-800/80 rounded-2xl py-3.5 pl-11 pr-4 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 dark:focus:border-blue-400 transition-all"
+                        className="w-full bg-black/40 border-white/10 rounded-2xl py-3.5 pl-11 pr-4 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-400 transition-all"
                         placeholder="••••••••"
                       />
                     </div>
@@ -418,17 +462,17 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
 
                   {isSignUp && (
                     <div className="space-y-1.5">
-                      <label className="block text-[10px] font-black text-zinc-400 dark:text-zinc-500 uppercase tracking-widest pl-1">
+                      <label className="block text-[10px] font-black text-zinc-400 uppercase tracking-widest pl-1">
                         Confirm Passphrase
                       </label>
                       <div className="relative">
-                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 dark:text-zinc-500" />
+                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
                         <input
                           type="password"
                           required
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
-                          className="w-full bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-800/80 rounded-2xl py-3.5 pl-11 pr-4 text-sm text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-600 focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 dark:focus:border-blue-400 transition-all"
+                          className="w-full bg-black/40 border-white/10 rounded-2xl py-3.5 pl-11 pr-4 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-400 transition-all"
                           placeholder="••••••••"
                         />
                       </div>
@@ -438,7 +482,7 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full flex items-center justify-center gap-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 hover:bg-black dark:hover:bg-zinc-100 rounded-2xl py-3.5 px-4 font-bold transition-all active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed text-sm mt-2"
+                    className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_20px_-5px_rgba(37,99,235,0.5)] hover:shadow-[0_0_25px_-5px_rgba(37,99,235,0.7)] rounded-2xl py-3.5 px-4 font-bold transition-all active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed text-sm mt-2"
                   >
                     {isLoading ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -455,7 +499,7 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
                         setIsSignUp(!isSignUp);
                         setError(null);
                       }}
-                      className="text-xs font-bold text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300 transition-colors"
+                      className="text-xs font-bold text-zinc-400 hover:text-zinc-200 transition-colors"
                     >
                       {isSignUp ? 'Already have an account? Sign In' : 'Need an administrative account? Sign Up'}
                     </button>
@@ -465,10 +509,10 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
             </>
           )}
           
-          <div className="mt-8 pt-6 border-t border-zinc-100 dark:border-zinc-800">
-            <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold uppercase tracking-widest flex items-center justify-center gap-1.5">
+          <div className="mt-8 pt-6 border-t border-white/10">
+            <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest flex items-center justify-center gap-1.5">
               <span>Secure Session Enforcer</span>
-              <span className="w-1 h-1 rounded-full bg-zinc-300 dark:bg-zinc-700" />
+              <span className="w-1 h-1 rounded-full bg-zinc-600" />
               <span>Admin Access Only</span>
             </p>
           </div>

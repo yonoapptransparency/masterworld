@@ -9,26 +9,13 @@ export default function AdminLoginPage() {
   const [checking, setChecking] = useState(true);
   const [hasSession, setHasSession] = useState(false);
 
-  useEffect(() => {
+    useEffect(() => {
     const session = loadSession();
     if (session && session.idToken) {
-      if (auth) {
-        const unsubscribe = auth.onAuthStateChanged((user) => {
-          if (user) {
-            setHasSession(true);
-          } else {
-            clearSession();
-            setHasSession(false);
-          }
-          setChecking(false);
-        });
-        return unsubscribe;
-      } else {
-        // Firebase is not configured, we cannot verify the session or use the dashboard.
-        clearSession();
-        setHasSession(false);
-        setChecking(false);
-      }
+      // If we have a local session, bypass Firebase auth checks and assume valid.
+      // We will let the dashboard verify the token server-side.
+      setHasSession(true);
+      setChecking(false);
     } else {
       setChecking(false);
     }
