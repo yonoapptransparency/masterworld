@@ -666,6 +666,7 @@ async function startServer() {
   // API Routes: Dynamic Favicon and Apple-Touch-Icon router for Worldwide SEO & AI crawlers
   app.get([
     '/favicon.ico',
+    '/favicon.png',
     '/apple-touch-icon.png',
     '/apple-touch-icon-precomposed.png',
     '/favicon-32x32.png',
@@ -674,54 +675,41 @@ async function startServer() {
   ], async (req, res, next) => {
     console.log('--- FAVICON/LOGO ROUTE HIT ---', req.originalUrl);
     try {
-      const data = await fetchStoreData();
-      if (data && data.settings) {
-        let imageUrl = '';
-        if (req.originalUrl.includes('logo.png')) {
-          imageUrl = getField(data.settings, 'logo_url');
-          if (!imageUrl) imageUrl = getField(data.settings, 'favicon_url');
-        } else {
-          imageUrl = getField(data.settings, 'favicon_url');
-          if (!imageUrl) imageUrl = getField(data.settings, 'logo_url');
-        }
+      const imageUrl = 'https://res.cloudinary.com/diewalae4/image/upload/v1784618987/Make_this_into_a_perfect_circle_format_keeping_the_RUMMY_DEX_text_and_red__20260721_125826_0000_zgdz8s.png';
+      console.log('--- FAVICON/LOGO ROUTE RESOLVED TO HARDCODED CLOUDINARY ---', imageUrl);
 
-        console.log('--- FAVICON/LOGO ROUTE RESOLVED ---', imageUrl);
-        if (typeof imageUrl === 'string' && imageUrl.startsWith('http') && (await isSafeUrl(imageUrl))) {
-          
-          try {
-            // Dynamic image proxy to bypass CORS/Same-origin and 302 redirect failure in indexing scrapers
-            const response = await fetch(imageUrl, {
-              headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-              }
-            });
-            if (response.ok) {
-              const arrayBuffer = await response.arrayBuffer();
-              const buffer = Buffer.from(arrayBuffer);
-              const originalContentType = response.headers.get('content-type');
-              
-              // Map output content types properly based on request pattern
-              let contentType = originalContentType || 'image/png';
-              if (req.originalUrl.includes('.ico')) {
-                contentType = 'image/x-icon';
-              } else if (req.originalUrl.includes('.png')) {
-                contentType = 'image/png';
-              }
-              
-              res.set('Content-Type', contentType);
-              res.set('Cache-Control', 'public, max-age=86400, stale-while-revalidate=43200'); // Cache 1 day with 12h SWR
-              console.log('--- FAVICON/LOGO PROXIED SECURELY ---', contentType, response.status);
-              return res.status(200).send(buffer);
-            } else {
-              console.warn(`Favicon proxy fetch returned status ${response.status}. Falling back to 302 redirect.`);
-              res.set('Cache-Control', 'public, max-age=3600');
-              return res.redirect(302, imageUrl);
-            }
-          } catch (fetchErr) {
-            console.error("Failed to proxy favicon content, falling back to 302 redirect:", fetchErr);
-            return res.redirect(302, imageUrl);
+      try {
+        // Dynamic image proxy to bypass CORS/Same-origin and 302 redirect failure in indexing scrapers
+        const response = await fetch(imageUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
           }
+        });
+        if (response.ok) {
+          const arrayBuffer = await response.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+          const originalContentType = response.headers.get('content-type');
+          
+          // Map output content types properly based on request pattern
+          let contentType = originalContentType || 'image/png';
+          if (req.originalUrl.includes('.ico')) {
+            contentType = 'image/x-icon';
+          } else if (req.originalUrl.includes('.png')) {
+            contentType = 'image/png';
+          }
+          
+          res.set('Content-Type', contentType);
+          res.set('Cache-Control', 'public, max-age=86400, stale-while-revalidate=43200'); // Cache 1 day with 12h SWR
+          console.log('--- FAVICON/LOGO PROXIED SECURELY ---', contentType, response.status);
+          return res.status(200).send(buffer);
+        } else {
+          console.warn(`Favicon proxy fetch returned status ${response.status}. Falling back to 302 redirect.`);
+          res.set('Cache-Control', 'public, max-age=3600');
+          return res.redirect(302, imageUrl);
         }
+      } catch (fetchErr) {
+        console.error("Failed to proxy favicon content, falling back to 302 redirect:", fetchErr);
+        return res.redirect(302, imageUrl);
       }
     } catch (err) {
       console.error("Favicon/Logo proxy routing failed:", err);

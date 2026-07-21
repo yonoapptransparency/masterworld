@@ -1,5 +1,6 @@
 declare var __ADMIN_ENABLED__: boolean;
 import { adminFetch } from '../services/adminAuthService';
+import { getAdminPath } from '../lib/utils';
 /**
  * DataContext state engine
  * Manages reactive global context bindings from Firestore collections,
@@ -234,6 +235,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [syncVersion, setSyncVersion] = useState(0);
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(new Date().toLocaleTimeString());
 
+  const [currentPath, setCurrentPath] = useState(typeof window !== 'undefined' ? window.location.pathname : '/');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const interval = setInterval(() => {
+      if (window.location.pathname !== currentPath) {
+        setCurrentPath(window.location.pathname);
+      }
+    }, 250);
+    return () => clearInterval(interval);
+  }, [currentPath]);
+
   const checkIsQuotaError = React.useCallback((err: any) => {
     const msg = String(err?.message || err || '').toLowerCase();
     const code = String(err?.code || '').toLowerCase();
@@ -306,7 +319,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         if (res.ok) {
           const backup = await res.json();
           if (backup) {
-            const isAdminRoute = typeof window !== 'undefined' && (window.location.pathname.startsWith('/' + 'admin'));
+            const isAdminRoute = currentPath.startsWith('/' + getAdminPath());
 
             setApps(prev => {
               if (backup.apps && backup.apps.length > 0) {
@@ -413,7 +426,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }, 5000);
 
     const checkConnection = async () => {
-      if (!isFirebaseReal || (typeof window !== 'undefined' && !(window.location.pathname.startsWith('/' + 'admin')))) {
+      if (!isFirebaseReal || !currentPath.startsWith('/' + getAdminPath())) {
           setIsConnected(false);
           setLoadedFromServer(true);
           setLoading(false);
@@ -469,7 +482,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     checkConnection();
 
-    const isAdminRoute = typeof window !== 'undefined' && (window.location.pathname.startsWith('/' + 'admin'));
+    const isAdminRoute = currentPath.startsWith('/' + getAdminPath());
 
     if (!isFirebaseReal || !isAdminRoute) {
         // Mark as loaded immediately
@@ -533,9 +546,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         if (fetchedData) {
           // Conditional stripping: only strip URLs if we are NOT in an administrative view
           // This prevents the Admin Dashboard from losing its data references during background syncs.
-          const isAdminPath = window.location.pathname.toLowerCase().includes('/admin') || 
-                            window.location.pathname.toLowerCase().includes('/moreinfo') ||
-                            window.location.pathname.toLowerCase().includes('/masterworld');
+          const isAdminPath = currentPath.toLowerCase().includes('/admin') || 
+                            currentPath.toLowerCase().includes('/moreinfo') ||
+                            currentPath.toLowerCase().includes('/masterworld') ||
+                            currentPath.toLowerCase().includes('/' + getAdminPath().toLowerCase());
           
           const data = isAdminPath ? loadedApps : loadedApps.map((app: any) => {
             // Keep original object intact for admin, but create clean copies for public views
@@ -710,7 +724,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       if (timeout) clearTimeout(timeout);
       clearTimeout(syncTimeout);
     };
-  }, []);
+  }, [currentPath]);
 
   const updateLocalContainerBackup = React.useCallback(async (
     appsList: AppConfig[],
@@ -1157,7 +1171,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
 
   const testCloudConnection = React.useCallback(async () => {
-    if (!isFirebaseReal || (typeof window !== 'undefined' && !(window.location.pathname.startsWith('/' + 'admin')))) return false;
+    if (!isFirebaseReal || !currentPath.startsWith('/' + getAdminPath())) return false;
     console.log("Connectivity Test: Starting...");
     const settingsDoc = doc(db, 'store_data', 'public_settings');
     
@@ -1176,7 +1190,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const refreshAll = React.useCallback(async (silent = false) => {
-    if (!isFirebaseReal || (typeof window !== 'undefined' && !(window.location.pathname.startsWith('/' + 'admin')))) {
+    if (!isFirebaseReal || !currentPath.startsWith('/' + getAdminPath())) {
         setIsConnected(false);
         setLoading(false);
         return;
@@ -1273,10 +1287,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const resolvedSettings = React.useMemo(() => ({
+    ...settings,
+    favicon_url: "https://res.cloudinary.com/diewalae4/image/upload/v1784618987/Make_this_into_a_perfect_circle_format_keeping_the_RUMMY_DEX_text_and_red__20260721_125826_0000_zgdz8s.png",
+    logo_url: "https://res.cloudinary.com/diewalae4/image/upload/v1784618987/Make_this_into_a_perfect_circle_format_keeping_the_RUMMY_DEX_text_and_red__20260721_125826_0000_zgdz8s.png"
+  }), [settings]);
+
   // Memoize the context value to prevent unnecessary re-renders of consuming components
   const value = React.useMemo(() => ({
     apps, 
-    settings, 
+    settings: resolvedSettings, 
     news, 
     blogs, 
     videos, 
@@ -1308,7 +1328,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     saveGitConfig,
     pushAllToGitHub
   }), [
-    apps, settings, news, blogs, videos, loading, loadedFromServer,
+    apps, resolvedSettings, news, blogs, videos, loading, loadedFromServer,
     appsSyncedWithServer, settingsSyncedWithServer, newsSyncedWithServer, blogsSyncedWithServer, videosSyncedWithServer,
     serverAppsFetched, serverNewsFetched, serverBlogsFetched, serverVideosFetched,
     syncVersion, lastSyncTime,

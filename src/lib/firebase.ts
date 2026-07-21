@@ -151,16 +151,9 @@ console.log('--- FIREBASE CONFIG INIT ---', firebaseConfig);
 const isAdminEnabled = typeof __ADMIN_ENABLED__ !== 'undefined' ? __ADMIN_ENABLED__ : true;
 
 const isBrowser = typeof window !== 'undefined';
-const isBrowserAdminRoute = isBrowser && (
-  window.location.pathname.startsWith(`/${getAdminPath()}`) ||
-  window.location.pathname === '/' ||
-  window.location.pathname === '/index.html'
-);
-
 export const isFirebaseConfigured = isAdminEnabled && 
   isRealValue(firebaseConfig.apiKey) && 
-  isRealValue(firebaseConfig.projectId) &&
-  (!isBrowser || isBrowserAdminRoute);
+  isRealValue(firebaseConfig.projectId);
 
 export const isFirebaseApiKeyReal = (key: string | undefined): boolean => {
   return isRealValue(key);

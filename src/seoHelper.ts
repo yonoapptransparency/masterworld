@@ -863,12 +863,10 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       keywords = keywordArray.slice(0, 15).join(', ');
     }
   }
-  let ogImage = getField(settings, 'logo_url', '');
-  // Default fallback image if none provided
-  if (!ogImage) ogImage = "https://res.cloudinary.com/dq34n0ncz/image/upload/v1713280000/default_og_image.png";
+  let ogImage = "https://res.cloudinary.com/diewalae4/image/upload/v1784618987/Make_this_into_a_perfect_circle_format_keeping_the_RUMMY_DEX_text_and_red__20260721_125826_0000_zgdz8s.png";
   let author = siteTitle || "Platform Administrator";
   let canonicalUrlOverride: string | null = null;
-  let faviconUrl = getField(settings, 'favicon_url') || getField(settings, 'logo_url');
+  let faviconUrl = "https://res.cloudinary.com/diewalae4/image/upload/v1784618987/Make_this_into_a_perfect_circle_format_keeping_the_RUMMY_DEX_text_and_red__20260721_125826_0000_zgdz8s.png";
   
   const rawPathStr = urlPath.split('?')[0].split('#')[0];
   const possibleAppSlug = rawPathStr.replace(/^\/app\//, '/').replace(/^\/|\/$/g, '').toLowerCase();

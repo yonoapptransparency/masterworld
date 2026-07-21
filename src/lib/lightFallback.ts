@@ -2,10 +2,10 @@ import { AppConfig, GlobalSettings, NewsItem, BlogPost, VideoItem } from '../typ
 
 export const mockApps: AppConfig[] = [];
 export const mockSettings: GlobalSettings = {
-  logo_url: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100&q=80",
+  logo_url: "https://res.cloudinary.com/diewalae4/image/upload/v1784618987/Make_this_into_a_perfect_circle_format_keeping_the_RUMMY_DEX_text_and_red__20260721_125826_0000_zgdz8s.png",
   site_title: "Rummy Dex",
   meta_description: "Safe digital review registry.",
-  favicon_url: "",
+  favicon_url: "https://res.cloudinary.com/diewalae4/image/upload/v1784618987/Make_this_into_a_perfect_circle_format_keeping_the_RUMMY_DEX_text_and_red__20260721_125826_0000_zgdz8s.png",
   helpline_whatsapp: "",
   helpline_telegram: "@rummydex",
   support_email: "support@rummydex.com",
