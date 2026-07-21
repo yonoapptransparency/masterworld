@@ -71,12 +71,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const [apps, setApps] = useState<AppConfig[]>(() => {
     if (initialData?.apps && initialData.apps.length > 0) return initialData.apps;
-    
-    // Always use mock data on main website
-    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/' + getAdminPath())) {
-      return mockApps;
-    }
-    
     if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return mockApps;
     try {
       const cached = localStorage.getItem('rummystore_apps');
@@ -91,12 +85,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   });
   const [settings, setSettings] = useState<GlobalSettings>(() => {
     if (initialData?.settings && initialData.settings.site_title) return initialData.settings;
-    
-    // Always use mock data on main website
-    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/' + getAdminPath())) {
-      return mockSettings;
-    }
-
     if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return mockSettings;
     try {
       const cached = localStorage.getItem('rummystore_settings');
@@ -111,12 +99,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   });
   const [news, setNews] = useState<NewsItem[]>(() => {
     if (initialData?.news && initialData.news.length > 0) return initialData.news;
-
-    // Always use mock data on main website
-    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/' + getAdminPath())) {
-      return mockNews;
-    }
-
     if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return mockNews;
     try {
       const cached = localStorage.getItem('rummystore_news');
@@ -131,12 +113,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   });
   const [blogs, setBlogs] = useState<BlogPost[]>(() => {
     if (initialData?.blogs && initialData.blogs.length > 0) return initialData.blogs;
-
-    // Always use mock data on main website
-    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/' + getAdminPath())) {
-      return mockBlogs;
-    }
-
     if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return mockBlogs;
     try {
       const cached = localStorage.getItem('rummystore_blogs');
@@ -151,12 +127,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   });
   const [videos, setVideos] = useState<VideoItem[]>(() => {
     if (initialData?.videos && initialData.videos.length > 0) return initialData.videos;
-
-    // Always use mock data on main website
-    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/' + getAdminPath())) {
-      return mockVideos;
-    }
-
     if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return mockVideos;
     try {
       const cached = localStorage.getItem('rummystore_videos');
