@@ -2031,6 +2031,11 @@ export default function AdminDashboard() {
     pushAllToGitHub
   } = useData();
   const [activeTab, setActiveTab] = useState('dashboard');
+  
+  useEffect(() => {
+    console.log("DEBUG: isFirebaseReal =", isFirebaseReal);
+  }, []);
+
   const [saving, setSaving] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [appsList, setAppsList] = useState(mockApps);

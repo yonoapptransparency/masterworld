@@ -7,36 +7,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { getAdminPath } from './utils';
 
-// Dynamic config loading to prevent Vercel build failures when gitignored file is missing
-let appletConfig: any = {};
-try {
-  // Using dynamic import with Vite's glob or just ignore it if missing.
-  // We'll rely on environment variables in production.
-  const globbed = import.meta.glob('../../firebase-applet-config.json', { eager: true });
-  const keys = Object.keys(globbed);
-  if (keys.length > 0) {
-    appletConfig = (globbed[keys[0]] as any).default || globbed[keys[0]];
-  }
-} catch (e) {
-  console.log('Error importing applet config:', e);
-}
-
-declare global {
-  interface Window {
-    __FIREBASE_CONFIG__?: {
-      projectId?: string;
-      appId?: string;
-      apiKey?: string;
-      authDomain?: string;
-      firestoreDatabaseId?: string;
-      storageBucket?: string;
-      messagingSenderId?: string;
-      measurementId?: string;
-    };
-  }
-}
-
-// We rely on either the injected config (for SSR/dynamic routes) or the statically bundled config (for dumb static hosting)
+// We rely on environment variables for production.
 const isRealValue = (id: string | undefined): boolean => {
   if (!id) return false;
   const clean = String(id).trim();
@@ -49,13 +20,6 @@ const isRealValue = (id: string | undefined): boolean => {
   return true;
 };
 
-const getClientConfigValue = (envVal: string | undefined, configVal: string | undefined) => {
-  if (isRealValue(envVal)) return envVal!;
-  if (isRealValue(configVal)) return configVal!;
-  return undefined;
-};
-
-const config = appletConfig as any;
 const getEnvVal = (key: string): string | undefined => {
   try {
     if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
@@ -68,44 +32,14 @@ const getEnvVal = (key: string): string | undefined => {
   return undefined;
 };
 
-const B64_FALLBACK = "ewogICJwcm9qZWN0SWQiOiAiZ2VuLWxhbmctY2xpZW50LTA4MjU4MzI0OTMiLAogICJhcHBJZCI6ICIxOjEwMzk3Mzk4OTg3NDp3ZWI6NzMzYTZhZmQ4ZTgzNzIyNDkwMGY2YiIsCiAgImFwaUtleSI6ICJBSXphU3lCZXk5c1ViZVdscmNYUzJrbDRld096a1R5NGFyZzAzT2siLAogICJhdXRoRG9tYWluIjogImdlbi1sYW5nLWNsaWVudC0wODI1ODMyNDkzLmZpcmViYXNlYXBwLmNvbSIsCiAgImZpcmVzdG9yZURhdGFiYXNlSWQiOiAiYWktc3R1ZGlvLXlvbm9zdG9yZS04ODYzMTVhNC04YjlmLTRmZjYtODk4Ni1hOTBhZDE3MjIxMGEiLAogICJzdG9yYWdlQnVja2V0IjogImdlbi1sYW5nLWNsaWVudC0wODI1ODMyNDkzLmZpcmViYXNlc3RvcmFnZS5hcHAiLAogICJtZXNzYWdpbmdTZW5kZXJJZCI6ICIxMDM5NzM5ODk4NzQiLAogICJtZWFzdXJlbWVudElkIjogIiIsCiAgIm9BdXRoQ2xpZW50SWQiOiAiMTAzOTczOTg5ODc0LXQ0N252ODdrNTMycHQ4NHMyaTF0a2wwdmttYmloOWs2LmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29tIiwKICAicmVjYXB0Y2hhU2l0ZUtleSI6ICIiCn0=";
-
-const getFallbackConfig = (): any => {
-  try {
-    const cleanB64 = B64_FALLBACK.replace(/[^A-Za-z0-9+/=]/g, "");
-    let decoded = "";
-    if (typeof window !== 'undefined' && typeof window.atob === 'function') {
-      decoded = window.atob(cleanB64);
-    } else {
-      decoded = Buffer.from(cleanB64, 'base64').toString('utf8');
-    }
-    return JSON.parse(decoded);
-  } catch (_) {
-    return null;
-  }
-};
-
-const resolvedProjectId = getClientConfigValue(getEnvVal('VITE_FIREBASE_PROJECT_ID'), config.projectId);
-const resolvedAppId = getClientConfigValue(getEnvVal('VITE_FIREBASE_APP_ID'), config.appId);
-const resolvedApiKey = getClientConfigValue(getEnvVal('VITE_FIREBASE_API_KEY'), config.apiKey);
-const resolvedAuthDomain = getClientConfigValue(getEnvVal('VITE_FIREBASE_AUTH_DOMAIN'), config.authDomain);
-const resolvedDatabaseId = getClientConfigValue(getEnvVal('VITE_FIREBASE_DATABASE_ID'), config.firestoreDatabaseId);
-const resolvedStorageBucket = getClientConfigValue(getEnvVal('VITE_FIREBASE_STORAGE_BUCKET'), config.storageBucket);
-const resolvedMessagingId = getClientConfigValue(getEnvVal('VITE_FIREBASE_MESSAGING_ID'), config.messagingSenderId);
-
-// We first try to read from window.__FIREBASE_CONFIG__ (the dynamic SEO/SSR configuration injected by server.ts), 
-// but ensure its fields are non-mocked/real. If it's absent or mocked, fallback to the resolved non-mock values.
-const getSafeWindowConfig = (): any => {
-  if (typeof window === 'undefined') return null;
-  const cfg = window.__FIREBASE_CONFIG__;
-  if (!cfg) return null;
-  if (!isRealValue(cfg.projectId)) return null;
-  return cfg;
-};
-
 const getResolvedConfig = () => {
-  const winConfig = getSafeWindowConfig();
-  if (winConfig) return winConfig;
+  const resolvedProjectId = getEnvVal('VITE_FIREBASE_PROJECT_ID') || getEnvVal('FIREBASE_PROJECT_ID');
+  const resolvedAppId = getEnvVal('VITE_FIREBASE_APP_ID') || getEnvVal('FIREBASE_APP_ID');
+  const resolvedApiKey = getEnvVal('VITE_FIREBASE_API_KEY') || getEnvVal('FIREBASE_API_KEY');
+  const resolvedAuthDomain = getEnvVal('VITE_FIREBASE_AUTH_DOMAIN') || getEnvVal('FIREBASE_AUTH_DOMAIN');
+  const resolvedDatabaseId = getEnvVal('VITE_FIREBASE_DATABASE_ID') || getEnvVal('FIREBASE_DATABASE_ID');
+  const resolvedStorageBucket = getEnvVal('VITE_FIREBASE_STORAGE_BUCKET') || getEnvVal('FIREBASE_STORAGE_BUCKET');
+  const resolvedMessagingId = getEnvVal('VITE_FIREBASE_MESSAGING_ID') || getEnvVal('FIREBASE_MESSAGING_ID');
 
   if (isRealValue(resolvedProjectId) && isRealValue(resolvedApiKey)) {
     return {
@@ -119,55 +53,26 @@ const getResolvedConfig = () => {
     };
   }
 
-  // Fallback to embedded Base64 config
-  const fallback = getFallbackConfig();
-  if (fallback) {
-    return {
-      projectId: fallback.projectId,
-      appId: fallback.appId,
-      apiKey: fallback.apiKey,
-      authDomain: fallback.authDomain,
-      firestoreDatabaseId: fallback.firestoreDatabaseId || '(default)',
-      storageBucket: fallback.storageBucket,
-      messagingSenderId: fallback.messagingSenderId,
-    };
-  }
-
-  return {
-    projectId: resolvedProjectId,
-    appId: resolvedAppId,
-    apiKey: resolvedApiKey,
-    authDomain: resolvedAuthDomain,
-    firestoreDatabaseId: resolvedDatabaseId,
-    storageBucket: resolvedStorageBucket,
-    messagingSenderId: resolvedMessagingId,
-  };
+  return null;
 };
 
 const firebaseConfig = getResolvedConfig();
 
-console.log('--- FIREBASE CONFIG INIT ---', firebaseConfig);
-
 const isAdminEnabled = typeof __ADMIN_ENABLED__ !== 'undefined' ? __ADMIN_ENABLED__ : true;
 
-const isBrowser = typeof window !== 'undefined';
-export const isFirebaseConfigured = isAdminEnabled && 
-  isRealValue(firebaseConfig.apiKey) && 
-  isRealValue(firebaseConfig.projectId);
+export const isFirebaseConfigured = isAdminEnabled && !!firebaseConfig;
 
 export const isFirebaseApiKeyReal = (key: string | undefined): boolean => {
   return isRealValue(key);
 };
 
-export const isFirebaseReal = isFirebaseConfigured && isFirebaseApiKeyReal(firebaseConfig.apiKey);
+export const isFirebaseReal = isFirebaseConfigured && isFirebaseApiKeyReal(firebaseConfig?.apiKey);
 
-console.log("[FIREBASE] Config resolved:", firebaseConfig);
-console.log("[FIREBASE] isFirebaseReal:", isFirebaseReal);
-
-export const app = isFirebaseConfigured ? initializeApp(firebaseConfig) : null as any;
+const isMainWebsite = typeof window !== 'undefined' && !window.location.pathname.startsWith('/' + getAdminPath());
+export const app = isFirebaseConfigured && !isMainWebsite ? initializeApp(firebaseConfig!) : null as any;
 
 export const auth = (() => {
-  if (isFirebaseReal) {
+  if (isFirebaseReal && app) {
     let realAuth = null; try { realAuth = getAuth(app); } catch(e) { console.error(e); }
     if (!realAuth) return null as any; const originalOnAuthStateChanged = (realAuth as any).onAuthStateChanged;
     let isCallingModular = false;
@@ -197,18 +102,13 @@ import { getFirestore, initializeFirestore, doc, getDocFromServer, disableNetwor
 
 let firestoreInstance: any = null;
 if (app) {
-  const dbId = firebaseConfig.firestoreDatabaseId === '(default)' ? undefined : firebaseConfig.firestoreDatabaseId;
+  const dbId = firebaseConfig?.firestoreDatabaseId === '(default)' ? undefined : firebaseConfig?.firestoreDatabaseId;
   try { firestoreInstance = initializeFirestore(app, {
     experimentalForceLongPolling: true,
   }, dbId); } catch(e) { console.error(e); firestoreInstance = getFirestore(app, dbId); }
 
   if (!isFirebaseReal && firestoreInstance) {
-    // If the Firebase configuration is mock/fictional, disable network traffic.
-    // This allows the Firestore SDK to operate smoothly in local-only cache mode
-    // without attempting network connections to nonexistent servers, eliminating connection errors.
-    disableNetwork(firestoreInstance).catch((err) => {
-      console.warn("Could not disable network for mock Firestore instance:", err);
-    });
+    // No-op for mock Firestore
   }
 }
 

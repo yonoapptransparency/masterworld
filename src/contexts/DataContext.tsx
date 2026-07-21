@@ -71,6 +71,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const [apps, setApps] = useState<AppConfig[]>(() => {
     if (initialData?.apps && initialData.apps.length > 0) return initialData.apps;
+    
+    // Always use mock data on main website
+    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/' + getAdminPath())) {
+      return mockApps;
+    }
+    
     if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return mockApps;
     try {
       const cached = localStorage.getItem('rummystore_apps');
@@ -85,6 +91,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   });
   const [settings, setSettings] = useState<GlobalSettings>(() => {
     if (initialData?.settings && initialData.settings.site_title) return initialData.settings;
+    
+    // Always use mock data on main website
+    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/' + getAdminPath())) {
+      return mockSettings;
+    }
+
     if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return mockSettings;
     try {
       const cached = localStorage.getItem('rummystore_settings');
@@ -99,6 +111,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   });
   const [news, setNews] = useState<NewsItem[]>(() => {
     if (initialData?.news && initialData.news.length > 0) return initialData.news;
+
+    // Always use mock data on main website
+    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/' + getAdminPath())) {
+      return mockNews;
+    }
+
     if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return mockNews;
     try {
       const cached = localStorage.getItem('rummystore_news');
@@ -113,6 +131,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   });
   const [blogs, setBlogs] = useState<BlogPost[]>(() => {
     if (initialData?.blogs && initialData.blogs.length > 0) return initialData.blogs;
+
+    // Always use mock data on main website
+    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/' + getAdminPath())) {
+      return mockBlogs;
+    }
+
     if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return mockBlogs;
     try {
       const cached = localStorage.getItem('rummystore_blogs');
@@ -127,6 +151,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   });
   const [videos, setVideos] = useState<VideoItem[]>(() => {
     if (initialData?.videos && initialData.videos.length > 0) return initialData.videos;
+
+    // Always use mock data on main website
+    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/' + getAdminPath())) {
+      return mockVideos;
+    }
+
     if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return mockVideos;
     try {
       const cached = localStorage.getItem('rummystore_videos');
@@ -930,6 +960,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('rummystore_apps', JSON.stringify(newApps));
 
     try {
+      console.log("DEBUG: isFirebaseReal =", isFirebaseReal);
       if (isFirebaseReal) {
         console.log("Cloud: Pushing Apps update in chunks...");
         const CHUNK_SIZE = 25; 
@@ -1009,19 +1040,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         
         console.log("Cloud: All app data synchronized successfully.");
       } else {
-        console.warn("Cloud save skipped: isFirebaseReal is false.");
-        alert("Firestore Save Skipped: The app is using a mock/template Firebase configuration. Changes are only saved to local storage.");
+         console.warn("Save Apps: Firebase is not real. Cloud save skipped!");
+         alert("Warning: Firebase is not configured for cloud saving. Changes are saved locally only!");
       }
       
       await updateLocalContainerBackup(newApps, settings, news, blogs, videos);
 
-      // GitHub Auto-Sync: Automatically commit to GitHub if configured!
-      if (gitConfig?.token && gitConfig?.owner && gitConfig?.repo) {
-        console.log("GitHub Auto-Sync: Initiating background push...");
-        pushAllToGitHub(gitConfig, undefined, newApps, settings, news, blogs, videos).catch(err => {
-          console.error("GitHub Auto-Sync Failed:", err);
-        });
-      }
+      // GitHub Auto-Sync: Automatically commit to GitHub if configured (Disabled to prevent background triggers)
     } catch (err: any) {
       console.error("Save Apps Error:", err);
       handleFirestoreError(err, OperationType.WRITE, 'store_data/apps');
@@ -1048,13 +1073,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       
       await updateLocalContainerBackup(apps, settingsWithTime, news, blogs, videos);
 
-      // GitHub Auto-Sync: Automatically commit to GitHub if configured!
-      if (gitConfig?.token && gitConfig?.owner && gitConfig?.repo) {
-        console.log("GitHub Auto-Sync: Initiating background push...");
-        pushAllToGitHub(gitConfig, undefined, apps, settingsWithTime, news, blogs, videos).catch(err => {
-          console.error("GitHub Auto-Sync Failed:", err);
-        });
-      }
+      // GitHub Auto-Sync: Automatically commit to GitHub if configured (Disabled to prevent background triggers)
     } catch (err: any) {
       console.error("Save Settings Error:", err);
       handleFirestoreError(err, OperationType.WRITE, 'store_data/settings');
@@ -1078,13 +1097,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       
       await updateLocalContainerBackup(apps, settings, newNews, blogs, videos);
 
-      // GitHub Auto-Sync: Automatically commit to GitHub if configured!
-      if (gitConfig?.token && gitConfig?.owner && gitConfig?.repo) {
-        console.log("GitHub Auto-Sync: Initiating background push...");
-        pushAllToGitHub(gitConfig, undefined, apps, settings, newNews, blogs, videos).catch(err => {
-          console.error("GitHub Auto-Sync Failed:", err);
-        });
-      }
+      // GitHub Auto-Sync: Automatically commit to GitHub if configured (Disabled to prevent background triggers)
     } catch (err: any) {
       console.error("Save News Error:", err);
       handleFirestoreError(err, OperationType.WRITE, 'store_data/news');
@@ -1108,13 +1121,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       
       await updateLocalContainerBackup(apps, settings, news, newBlogs, videos);
 
-      // GitHub Auto-Sync: Automatically commit to GitHub if configured!
-      if (gitConfig?.token && gitConfig?.owner && gitConfig?.repo) {
-        console.log("GitHub Auto-Sync: Initiating background push...");
-        pushAllToGitHub(gitConfig, undefined, apps, settings, news, newBlogs, videos).catch(err => {
-          console.error("GitHub Auto-Sync Failed:", err);
-        });
-      }
+      // GitHub Auto-Sync: Automatically commit to GitHub if configured (Disabled to prevent background triggers)
     } catch (err: any) {
       console.error("Save Blogs Error:", err);
       handleFirestoreError(err, OperationType.WRITE, 'store_data/blogs');
@@ -1138,13 +1145,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       
       await updateLocalContainerBackup(apps, settings, news, blogs, newVideos);
 
-      // GitHub Auto-Sync: Automatically commit to GitHub if configured!
-      if (gitConfig?.token && gitConfig?.owner && gitConfig?.repo) {
-        console.log("GitHub Auto-Sync: Initiating background push...");
-        pushAllToGitHub(gitConfig, undefined, apps, settings, news, blogs, newVideos).catch(err => {
-          console.error("GitHub Auto-Sync Failed:", err);
-        });
-      }
+      // GitHub Auto-Sync: Automatically commit to GitHub if configured (Disabled to prevent background triggers)
     } catch (err: any) {
       console.error("Save Videos Error:", err);
       handleFirestoreError(err, OperationType.WRITE, 'store_data/videos');
