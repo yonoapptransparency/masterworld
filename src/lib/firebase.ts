@@ -37,12 +37,18 @@ const getResolvedConfig = () => {
   console.log("DEBUG: resolvedProjectId:", resolvedProjectId);
   const resolvedAppId = getEnvVal('VITE_FIREBASE_APP_ID') || getEnvVal('FIREBASE_APP_ID');
   const resolvedApiKey = getEnvVal('VITE_FIREBASE_API_KEY') || getEnvVal('FIREBASE_API_KEY');
-  const resolvedAuthDomain = getEnvVal('VITE_FIREBASE_AUTH_DOMAIN') || getEnvVal('FIREBASE_AUTH_DOMAIN');
+  let resolvedAuthDomain = getEnvVal('VITE_FIREBASE_AUTH_DOMAIN') || getEnvVal('FIREBASE_AUTH_DOMAIN');
+  
+  // Default authDomain if missing and projectId is present
+  if (!isRealValue(resolvedAuthDomain) && isRealValue(resolvedProjectId)) {
+    resolvedAuthDomain = `${resolvedProjectId}.firebaseapp.com`;
+  }
+
   const resolvedDatabaseId = getEnvVal('VITE_FIREBASE_DATABASE_ID') || getEnvVal('FIREBASE_DATABASE_ID');
   const resolvedStorageBucket = getEnvVal('VITE_FIREBASE_STORAGE_BUCKET') || getEnvVal('FIREBASE_STORAGE_BUCKET');
   const resolvedMessagingId = getEnvVal('VITE_FIREBASE_MESSAGING_ID') || getEnvVal('FIREBASE_MESSAGING_ID');
 
-  if (isRealValue(resolvedProjectId) && isRealValue(resolvedApiKey)) {
+  if (isRealValue(resolvedProjectId) && isRealValue(resolvedApiKey) && isRealValue(resolvedAuthDomain)) {
     return {
       projectId: resolvedProjectId,
       appId: resolvedAppId,
