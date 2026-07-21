@@ -6,7 +6,6 @@ console.log("Generating api/index.js from server.ts...");
 let content = fs.readFileSync('server.ts', 'utf8');
 
 // 1. Rewrite imports and requires for api/ location
-content = content.replace(/["']\.\/src\//g, (match) => match[0] + '../src/');
 
 // 2. Extract the body of startServer
 const startToken = 'async function startServer() {';
@@ -52,10 +51,10 @@ if (vIdx !== -1 && eIdx !== -1) {
     content = content.substring(0, vIdx) + '\n\n' + content.substring(eIdx);
 }
 
-fs.writeFileSync('api/index.ts', content);
+fs.writeFileSync('api_temp.ts', content);
 
-console.log("Compiling api/index.ts to api/index.js...");
+console.log("Compiling api_temp.ts to api/index.js...");
 // Use --minify to ensure validity and smaller size
-execSync('npx esbuild api/index.ts --bundle --platform=node --format=cjs --packages=external --minify --outfile=api/index.js', { stdio: 'inherit' });
+execSync('npx esbuild api_temp.ts --bundle --platform=node --format=cjs --packages=external --minify --outfile=api/index.js', { stdio: 'inherit' });
 console.log("api/index.js generated successfully.");
-fs.unlinkSync('api/index.ts');
+fs.unlinkSync('api_temp.ts');
