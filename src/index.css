@@ -186,7 +186,7 @@ a {
 /* Hardware accelerated horizontal scroll containers for maximum touch smoothness */
 .overflow-x-auto {
   -webkit-overflow-scrolling: touch !important;
-  will-change: scroll-position;
+  
   transform: translateZ(0);
 }
 
@@ -844,7 +844,7 @@ html.lenis-scrolling * {
 
 .premium-action-btn-blowing {
   animation: button-blowing-glow 2.2s infinite cubic-bezier(0.25, 0.8, 0.25, 1) !important;
-  will-change: transform, box-shadow;
+  
 }
 
 

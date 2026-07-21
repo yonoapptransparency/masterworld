@@ -30,6 +30,7 @@ export interface GlobalSettings {
   privacy_content?: string;
   terms_content?: string;
   responsibility_content?: string;
+  report_removal_content?: string;
   important_notice?: string;
   categories: string[];
   banners: Banner[];
@@ -1408,6 +1409,7 @@ export const mockSettings: GlobalSettings = {
   "hero_title_color": "neon-sky",
   "helpline_whatsapp": "+918653034735",
   "privacy_content": ".",
+  "report_removal_content": "<h2>1. Overview</h2><p>We are committed to maintaining a safe, transparent, and legally compliant platform. This Report and Removal Policy outlines the procedures for reporting copyright infringements, intellectual property violations, or inappropriate content hosted on or indexed by our platform.</p><h2>2. Intellectual Property & Copyright (DMCA)</h2><p>If you believe that any content review, index listing, or software links on our platform infringe upon your copyright or intellectual property rights, you may submit a formal removal request. Your request must include:</p><ul><li>Your full legal name, physical address, and contact information.</li><li>A detailed description of the copyrighted work claimed to have been infringed.</li><li>The precise URL(s) or locations on our platform of the allegedly infringing material.</li><li>A statement made under penalty of perjury that you are the authorized rights holder or their representative.</li></ul><h2>3. Content Reporting Guidelines</h2><p>Users may also report reviews or platform content that violate our community standards, contain fraudulent information, or promote illegal activities. All reports are investigated with complete transparency.</p><h2>4. Removal Process</h2><p>Once a valid and complete request is received by our compliance team, we will review the submission within 24 to 48 business hours. If validated, the material in question will be removed or restricted promptly, and we will notify the concerned parties.</p>",
   "ethics_discrimination_text": ".",
   "banners": [],
   "important_notice": ".",

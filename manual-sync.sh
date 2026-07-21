@@ -9,7 +9,11 @@ rm -rf "${REPO_NAME}_repo"
 git clone "https://x-access-token:${PAT}@github.com/yonoapptransparency/${REPO_NAME}.git" "${REPO_NAME}_repo"
 cd "${REPO_NAME}_repo"
 git checkout main
-rsync -rv --exclude=.git --exclude=.github --exclude=node_modules --exclude=dist --delete "$SOURCE_DIR/" .
+
+# Sync manually using find and cp
+find "$SOURCE_DIR" -maxdepth 1 -mindepth 1 | grep -v "\.git$" | grep -v "node_modules$" | grep -v "dist$" | while read f; do
+  cp -a "$f" .
+done
 
 rm -rf .github
 
@@ -78,5 +82,5 @@ rm -f strip-public-from-masterworld.js
 git config user.name "AI Bot"
 git config user.email "bot@example.com"
 git add .
-git commit -m "Auto-sync (public) fixing sitemap script restoration"
+git commit -m "Auto-sync (public) fixing SEO tag schema types and canonicals"
 git push origin main

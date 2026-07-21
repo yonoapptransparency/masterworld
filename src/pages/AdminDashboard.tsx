@@ -1028,6 +1028,10 @@ const SettingsTab = React.memo(({ mockSettings, handleSaveSettings, saving }: an
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Platform Responsibility Clause (HTML)</label>
             <textarea name="responsibility_content" rows={12} defaultValue={mockSettings.responsibility_content} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-xs font-mono dark:text-slate-300 focus:ring-2 focus:ring-blue-500 transition-all" placeholder="<p>Our commitment to user safety...</p>"></textarea>
           </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Report & Removal Policy Body (HTML)</label>
+            <textarea name="report_removal_content" rows={12} defaultValue={mockSettings.report_removal_content} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-xs font-mono dark:text-slate-300 focus:ring-2 focus:ring-blue-500 transition-all" placeholder="<h2>1. Overview</h2>..."></textarea>
+          </div>
         </div>
       </div>
 
@@ -2613,6 +2617,7 @@ export default function AdminDashboard() {
         privacy_content: formData.get('privacy_content') as string || mockSettings.privacy_content,
         terms_content: formData.get('terms_content') as string || mockSettings.terms_content,
         responsibility_content: formData.get('responsibility_content') as string || mockSettings.responsibility_content,
+        report_removal_content: formData.get('report_removal_content') as string || mockSettings.report_removal_content,
         
         portal_heading: formData.get('portal_heading') as string || mockSettings.portal_heading,
         disclaimer_heading: formData.get('disclaimer_heading') as string || mockSettings.disclaimer_heading,

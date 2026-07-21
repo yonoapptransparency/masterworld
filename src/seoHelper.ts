@@ -389,6 +389,8 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
     bodyContent = renderContact(settings);
   } else if (cleanPathLower === '/privacy') {
     bodyContent = renderPrivacy(settings);
+  } else if (cleanPathLower === '/report-removal') {
+    bodyContent = renderReportRemoval(settings);
   } else if (cleanPathLower === '/terms') {
     bodyContent = renderTerms(settings);
   } else if (cleanPathLower === '/notice') {
@@ -476,6 +478,7 @@ function renderFooter(settings: any) {
           <a href="/videos">Apps</a>
           <a href="/blogs">Blog</a>
           <a href="/privacy">Privacy</a>
+          <a href="/report-removal">Report & Removal</a>
           <a href="/terms">Terms</a>
           <a href="/notice">Notice</a>
           <a href="/ethics">Ethics</a>
@@ -770,6 +773,11 @@ function renderPrivacy(settings: any) {
   return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">Privacy Policy</h1><article class="prose text-zinc-750 leading-relaxed font-semibold">${content.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>')}</article></div>`;
 }
 
+function renderReportRemoval(settings: any) {
+  const content = getField(settings, 'report_removal_content') || 'Report & Removal Policy compliance guidelines.';
+  return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">Report & Removal Policy</h1><article class="prose text-zinc-750 leading-relaxed font-semibold">${content.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>')}</article></div>`;
+}
+
 function renderTerms(settings: any) {
   const content = getField(settings, 'terms_content') || 'Service code terms of compliance.';
   return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">Terms of Service</h1><article class="prose text-zinc-750 leading-relaxed font-semibold">${content.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>')}</article></div>`;
@@ -885,8 +893,11 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       canonicalUrlOverride = getField(app, 'canonical_url') || `${cleanHostApp}/app/${getField(app, 'slug')}`;
       faviconUrl = getField(app, 'icon_url') || faviconUrl;
     }
-  } else if (urlPath.startsWith('/info/') || urlPath.startsWith('/moreinfo/') || urlPath.startsWith('/moredetail/')) {
-    const prefix = urlPath.startsWith('/info/') ? '/info/' : (urlPath.startsWith('/moreinfo/') ? '/moreinfo/' : '/moredetail/');
+  } else if (urlPath.startsWith('/info/') || urlPath.startsWith('/moreinfo/') || urlPath.startsWith('/moredetail/') || urlPath.startsWith('/gateway/')) {
+    let prefix = '/info/';
+    if (urlPath.startsWith('/moreinfo/')) prefix = '/moreinfo/';
+    else if (urlPath.startsWith('/moredetail/')) prefix = '/moredetail/';
+    else if (urlPath.startsWith('/gateway/')) prefix = '/gateway/';
     const slug = decodeURIComponent(urlPath.split(prefix)[1].split('/')[0].split('?')[0]);
     const app = apps.find((a: any) => {
       const aSlug = getField(a, 'slug');
@@ -901,7 +912,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       keywords = getField(app, 'seo_keywords') || keywords;
       ogImage = getField(app, 'og_image_url') || getField(app, 'icon_url') || ogImage;
       const cleanHostApp = (hostUrl || process.env.VITE_PUBLIC_DOMAIN || process.env.PUBLIC_DOMAIN || 'https://www.rummydex.com').replace(/\/+$/, '');
-      canonicalUrlOverride = getField(app, 'canonical_url') || `${cleanHostApp}/app/${getField(app, 'slug')}`;
+      canonicalUrlOverride = `${cleanHostApp}${prefix}${getField(app, 'slug')}`;
       faviconUrl = getField(app, 'icon_url') || faviconUrl;
     }
   } else if (urlPath.startsWith('/news/') && urlPath.length > 6) {
@@ -970,20 +981,60 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     title = `Meet Our Team | ${siteTitle}`;
     description = `Meet the brilliant developers behind ${siteTitle}. Discover our team's expertise and passion.`;
   } else {
-    // Dynamic mapping for root-level routes
-    const possibleSlug = decodeURIComponent(urlPath.split('?')[0].split('#')[0].replace(/^\/|\/$/g, ''));
-    if (possibleSlug && possibleSlug !== '') {
-      const app = apps.find((a: any) => getField(a, 'slug')?.toLowerCase() === possibleSlug.toLowerCase());
-      if (app) {
-        const appName = getField(app, 'name', 'App');
-        title = getField(app, 'seo_title') || appName;
-        const descHtml = getField(app, 'description_html');
-        const fallbackDesc = `Discover the ${appName} app today. Enjoy smooth gameplay, professional reviews, e-sports integration, and exclusive features.`;
-        description = cleanSeoDescription(getField(app, 'seo_description')) || (descHtml ? stripHtml(descHtml).substring(0, 160) : fallbackDesc);
-        keywords = getField(app, 'seo_keywords');
-        ogImage = getField(app, 'og_image_url') || getField(app, 'icon_url') || ogImage;
-        canonicalUrlOverride = getField(app, 'canonical_url');
-        faviconUrl = getField(app, 'icon_url') || faviconUrl;
+    // Dynamic mapping for root-level and static routes
+    const cleanPathLower = rawPathStr.toLowerCase().replace(/^\/|\/$/g, '');
+    
+    if (cleanPathLower === 'about') {
+      title = `About Us | ${siteTitle}`;
+      description = `Learn more about our mission, vision, and the premium services we offer on our platform.`;
+    } else if (cleanPathLower === 'blogs') {
+      title = `Official Blogs & Insights | ${siteTitle}`;
+      description = `Explore our official blog articles, professional guides, gameplay tips, and deep platform reviews.`;
+    } else if (cleanPathLower === 'contact') {
+      title = `Contact Us | ${siteTitle}`;
+      description = `Get in touch with our professional support team. We are here to help you with your inquiries, feedback, and technical assistance.`;
+    } else if (cleanPathLower === 'disclaimer') {
+      title = `Disclaimer | ${siteTitle}`;
+      description = `Read our platform disclaimer regarding content accuracy, fair play verification, and third-party links.`;
+    } else if (cleanPathLower === 'ethics') {
+      title = `Code of Ethics & Content Policy | ${siteTitle}`;
+      description = `Discover our strict code of ethics, licensing standards, and platform content guidelines.`;
+    } else if (cleanPathLower === 'new-apps') {
+      title = `New Releases & Up-and-Coming Apps | ${siteTitle}`;
+      description = `Stay updated with our latest releases, featured digital tools, and upcoming app launches.`;
+    } else if (cleanPathLower === 'news') {
+      title = `Latest News & Press Updates | ${siteTitle}`;
+      description = `Browse official news bulletins, press announcements, security reports, and direct system updates.`;
+    } else if (cleanPathLower === 'notice') {
+      title = `Important System Notice | ${siteTitle}`;
+      description = `Read our critical system alerts, maintenance updates, and important security advisories.`;
+    } else if (cleanPathLower === 'privacy') {
+      title = `Privacy Policy | ${siteTitle}`;
+      description = `Read our comprehensive privacy policy to understand how we protect, secure, and handle your personal data.`;
+    } else if (cleanPathLower === 'responsibility') {
+      title = `Responsible Gaming & Play Policy | ${siteTitle}`;
+      description = `Learn about our commitment to user safety, self-exclusion tools, and responsible gameplay guidelines.`;
+    } else if (cleanPathLower === 'terms') {
+      title = `Terms of Service & User Agreement | ${siteTitle}`;
+      description = `Review our terms of service, platform rules, and user agreements governing the use of our services.`;
+    } else if (cleanPathLower === 'videos') {
+      title = `Video Previews & Walkthroughs | ${siteTitle}`;
+      description = `Watch high-definition videos, gameplay showcases, and technical walkthroughs of our certified applications.`;
+    } else {
+      const possibleSlug = decodeURIComponent(urlPath.split('?')[0].split('#')[0].replace(/^\/|\/$/g, ''));
+      if (possibleSlug && possibleSlug !== '') {
+        const app = apps.find((a: any) => getField(a, 'slug')?.toLowerCase() === possibleSlug.toLowerCase());
+        if (app) {
+          const appName = getField(app, 'name', 'App');
+          title = getField(app, 'seo_title') || appName;
+          const descHtml = getField(app, 'description_html');
+          const fallbackDesc = `Discover the ${appName} app today. Enjoy smooth gameplay, professional reviews, e-sports integration, and exclusive features.`;
+          description = cleanSeoDescription(getField(app, 'seo_description')) || (descHtml ? stripHtml(descHtml).substring(0, 160) : fallbackDesc);
+          keywords = getField(app, 'seo_keywords');
+          ogImage = getField(app, 'og_image_url') || getField(app, 'icon_url') || ogImage;
+          canonicalUrlOverride = getField(app, 'canonical_url');
+          faviconUrl = getField(app, 'icon_url') || faviconUrl;
+        }
       }
     }
   }
@@ -1036,7 +1087,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   let schemaOrg: any = null;
   if (!isAdmin) {
     const isAppSlug = apps.some((a: any) => a.slug?.toLowerCase() === urlPath.split('?')[0].split('#')[0].replace(/^\/app\//, '/').replace(/^\/|\/$/g, '').toLowerCase());
-    if (isAppSlug || urlPath.startsWith('/gateway/') || urlPath.startsWith('/moredetail/')) {
+    if (isAppSlug || urlPath.startsWith('/gateway/') || urlPath.startsWith('/moredetail/') || urlPath.startsWith('/info/') || urlPath.startsWith('/moreinfo/')) {
        schemaOrg = {
          "@context": "https://schema.org",
          "@type": "SoftwareApplication",
@@ -1062,6 +1113,15 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
             "@type": "Person",
             "name": author
          }
+       };
+    } else if (urlPath.startsWith('/videos/')) {
+       schemaOrg = {
+         "@context": "https://schema.org",
+         "@type": "VideoObject",
+         "name": title,
+         "description": description,
+         "thumbnailUrl": absoluteOgImage || [],
+         "uploadDate": new Date().toISOString()
        };
     } else {
        schemaOrg = {

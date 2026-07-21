@@ -28,6 +28,7 @@ export interface GlobalSettings {
   privacy_content?: string;
   terms_content?: string;
   responsibility_content?: string;
+  report_removal_content?: string;
   important_notice?: string;
   categories: string[];
   banners: Banner[];
