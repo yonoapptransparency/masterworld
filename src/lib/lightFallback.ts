@@ -1,30 +1,23 @@
 import { AppConfig, GlobalSettings, NewsItem, BlogPost, VideoItem } from '../types';
 
-export const mockApps: AppConfig[] = [
-  {
-    id: 'rummy-dex-1',
-    name: 'Sample Rummy App',
-    category: 'Rummy Dex',
-    rating: 4.8,
-    icon: 'https://res.cloudinary.com/diewalae4/image/upload/v1784618987/Make_this_into_a_perfect_circle_format_keeping_the_RUMMY_DEX_text_and_red__20260721_125826_0000_zgdz8s.png',
-    description: 'This is a sample app for testing.',
-    download_url: 'https://example.com/download'
-  }
-];
+export const mockApps: AppConfig[] = [];
 export const mockSettings: GlobalSettings = {
-  logo_url: "https://res.cloudinary.com/diewalae4/image/upload/v1784618987/Make_this_into_a_perfect_circle_format_keeping_the_RUMMY_DEX_text_and_red__20260721_125826_0000_zgdz8s.png",
-  site_title: "Rummy Dex",
-  meta_description: "Safe digital review registry.",
-  favicon_url: "https://res.cloudinary.com/diewalae4/image/upload/v1784618987/Make_this_into_a_perfect_circle_format_keeping_the_RUMMY_DEX_text_and_red__20260721_125826_0000_zgdz8s.png",
+  logo_url: "",
+  site_title: "My Site",
+  meta_description: "",
+  favicon_url: "",
   helpline_whatsapp: "",
-  helpline_telegram: "@rummydex",
-  support_email: "support@rummydex.com",
+  helpline_telegram: "",
+  support_email: "",
   disclaimer_text: "",
   ethics_discrimination_text: "",
   ticker_text: "",
   animations_enabled: true,
-  categories: ["Rummy Dex", "Card", "Slots"],
-  banners: []
+  categories: [],
+  banners: [],
+  quick_links: [],
+  website_faqs: [],
+  developers: []
 };
 export const mockNews: NewsItem[] = [];
 export const mockBlogs: BlogPost[] = [];

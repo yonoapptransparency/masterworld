@@ -1,6 +1,6 @@
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
-import { useData } from '../contexts/DataContext';
+import { useData } from '../contexts/DataContextPublic';
 
 interface MetaProps {
   title?: string;

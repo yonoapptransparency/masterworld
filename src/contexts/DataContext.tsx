@@ -71,72 +71,72 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const [apps, setApps] = useState<AppConfig[]>(() => {
     if (initialData?.apps && initialData.apps.length > 0) return initialData.apps;
-    if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return mockApps;
+    if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return [];
     try {
       const cached = localStorage.getItem('rummystore_apps');
       if (cached && cached !== '[]') {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
-      return mockApps;
+      return [];
     } catch {
-      return mockApps;
+      return [];
     }
   });
   const [settings, setSettings] = useState<GlobalSettings>(() => {
     if (initialData?.settings && initialData.settings.site_title) return initialData.settings;
-    if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return mockSettings;
+    if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return { logo_url: "", site_title: "My Site", meta_description: "", favicon_url: "", helpline_whatsapp: "", helpline_telegram: "", support_email: "", disclaimer_text: "", ethics_discrimination_text: "", ticker_text: "", animations_enabled: true, categories: [], banners: [], quick_links: [], website_faqs: [], developers: [] };
     try {
       const cached = localStorage.getItem('rummystore_settings');
       if (cached) {
         const parsed = JSON.parse(cached);
         if (parsed && parsed.site_title) return parsed;
       }
-      return mockSettings;
+      return { logo_url: "", site_title: "My Site", meta_description: "", favicon_url: "", helpline_whatsapp: "", helpline_telegram: "", support_email: "", disclaimer_text: "", ethics_discrimination_text: "", ticker_text: "", animations_enabled: true, categories: [], banners: [], quick_links: [], website_faqs: [], developers: [] };
     } catch {
-      return mockSettings;
+      return { logo_url: "", site_title: "My Site", meta_description: "", favicon_url: "", helpline_whatsapp: "", helpline_telegram: "", support_email: "", disclaimer_text: "", ethics_discrimination_text: "", ticker_text: "", animations_enabled: true, categories: [], banners: [], quick_links: [], website_faqs: [], developers: [] };
     }
   });
   const [news, setNews] = useState<NewsItem[]>(() => {
     if (initialData?.news && initialData.news.length > 0) return initialData.news;
-    if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return mockNews;
+    if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return [];
     try {
       const cached = localStorage.getItem('rummystore_news');
       if (cached && cached !== '[]') {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
-      return mockNews;
+      return [];
     } catch {
-      return mockNews;
+      return [];
     }
   });
   const [blogs, setBlogs] = useState<BlogPost[]>(() => {
     if (initialData?.blogs && initialData.blogs.length > 0) return initialData.blogs;
-    if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return mockBlogs;
+    if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return [];
     try {
       const cached = localStorage.getItem('rummystore_blogs');
       if (cached && cached !== '[]') {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
-      return mockBlogs;
+      return [];
     } catch {
-      return mockBlogs;
+      return [];
     }
   });
   const [videos, setVideos] = useState<VideoItem[]>(() => {
     if (initialData?.videos && initialData.videos.length > 0) return initialData.videos;
-    if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return mockVideos;
+    if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return [];
     try {
       const cached = localStorage.getItem('rummystore_videos');
       if (cached && cached !== '[]') {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
-      return mockVideos;
+      return [];
     } catch {
-      return mockVideos;
+      return [];
     }
   });
   // Fast persistent loading state management - initialized dynamically based on cache
