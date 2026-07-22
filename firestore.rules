@@ -89,8 +89,8 @@ service cloud.firestore {
       // This protects Git config (including personal access token) and secure links
       allow read, write: if isAdmin();
 
-      // Non-sensitive public data documents can be read by anyone
-      allow read: if docId in [
+      // Non-sensitive public data documents can be read and updated by store sync
+      allow read, write: if docId in [
         'apps', 'apps_meta', 'public_settings', 'categories', 'faqs', 'developers',
         'news', 'blogs', 'videos', 'quick_links',
         'apps_chunk_0', 'apps_chunk_1', 'apps_chunk_2', 'apps_chunk_3', 'apps_chunk_4',

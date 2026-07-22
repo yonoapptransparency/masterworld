@@ -2108,7 +2108,8 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
 
       // Local fallback writing removed for security compliance.
 
-      // 3. Cloud Firestore Server-side update via Admin SDK
+      // 3. Cloud Firestore Server-side update via Admin SDK or REST API Fallback
+      let firestoreUpdated = false;
       try {
         const adminDb = getFirebaseAdminDb();
         if (adminDb) {
@@ -2140,9 +2141,44 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
             await adminDb.collection('store_data').doc('videos').set({ items: JSON.parse(JSON.stringify(videos)) });
           }
           console.log("[SERVER] Firestore documents successfully updated via Admin SDK in sync-local endpoint.");
+          firestoreUpdated = true;
         }
       } catch (fsErr: any) {
-        console.warn("[SERVER] Firestore update in sync-local endpoint warning:", fsErr.message);
+        console.warn("[SERVER] Firestore Admin SDK update warning, switching to REST API fallback:", fsErr.message);
+      }
+
+      if (!firestoreUpdated) {
+        try {
+          if (apps && Array.isArray(apps)) {
+            const CHUNK_SIZE = 25;
+            const numChunks = Math.ceil(apps.length / CHUNK_SIZE) || 1;
+            for (let i = 0; i < numChunks; i++) {
+              const chunk = JSON.parse(JSON.stringify(apps.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE)));
+              chunk.forEach((app: any) => {
+                delete app.more_information_url;
+                delete app.encrypted_download_url;
+                delete app.download_url;
+              });
+              await writeFirestoreRestDoc(`apps_chunk_${i}`, { items: chunk });
+            }
+            await writeFirestoreRestDoc('apps_meta', { numChunks, last_updated: new Date().toISOString() });
+          }
+          if (settings) {
+            await writeFirestoreRestDoc('public_settings', JSON.parse(JSON.stringify(settings)));
+          }
+          if (news && Array.isArray(news)) {
+            await writeFirestoreRestDoc('news', { items: JSON.parse(JSON.stringify(news)) });
+          }
+          if (blogs && Array.isArray(blogs)) {
+            await writeFirestoreRestDoc('blogs', { items: JSON.parse(JSON.stringify(blogs)) });
+          }
+          if (videos && Array.isArray(videos)) {
+            await writeFirestoreRestDoc('videos', { items: JSON.parse(JSON.stringify(videos)) });
+          }
+          console.log("[SERVER] Firestore documents successfully updated via REST API in sync-local endpoint.");
+        } catch (restSyncErr: any) {
+          console.error("[SERVER] Firestore REST API update failed in sync-local endpoint:", restSyncErr.message);
+        }
       }
 
       // Write updated static backup file & clear in-memory cache
@@ -2280,7 +2316,66 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
      }
   });
 
-  // Helper functions to parse Firestore REST API document fields
+  // Helper functions to parse and format Firestore REST API document fields
+  function toFirestoreValue(val: any): any {
+    if (val === null || val === undefined) return { nullValue: null };
+    if (typeof val === 'boolean') return { booleanValue: val };
+    if (typeof val === 'number') {
+      if (Number.isInteger(val)) return { integerValue: val.toString() };
+      return { doubleValue: val };
+    }
+    if (typeof val === 'string') return { stringValue: val };
+    if (Array.isArray(val)) {
+      return {
+        arrayValue: {
+          values: val.map(item => toFirestoreValue(item))
+        }
+      };
+    }
+    if (typeof val === 'object') {
+      const fields: Record<string, any> = {};
+      for (const k of Object.keys(val)) {
+        fields[k] = toFirestoreValue(val[k]);
+      }
+      return { mapValue: { fields } };
+    }
+    return { stringValue: String(val) };
+  }
+
+  function toFirestoreDocument(obj: Record<string, any>): any {
+    const fields: Record<string, any> = {};
+    if (obj && typeof obj === 'object') {
+      for (const k of Object.keys(obj)) {
+        fields[k] = toFirestoreValue(obj[k]);
+      }
+    }
+    return { fields };
+  }
+
+  async function writeFirestoreRestDoc(docName: string, dataObj: any): Promise<boolean> {
+    try {
+      const config = getRawFirebaseConfig();
+      if (!config || !config.projectId) return false;
+      const apiSuffix = config.apiKey ? `?key=${config.apiKey}` : '';
+      const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || '(default)'}/documents/store_data/${docName}${apiSuffix}`;
+      const docPayload = toFirestoreDocument(dataObj);
+      const res = await fetch(url, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(docPayload)
+      });
+      if (!res.ok) {
+        console.warn(`[SERVER] REST write to store_data/${docName} status ${res.status}:`, await res.text());
+        return false;
+      }
+      console.log(`[SERVER] REST write to store_data/${docName} succeeded.`);
+      return true;
+    } catch (err: any) {
+      console.warn(`[SERVER] REST write to store_data/${docName} failed:`, err.message);
+      return false;
+    }
+  }
+
   function parseFirestoreValue(val: any): any {
     if (!val) return null;
     if ('stringValue' in val) return val.stringValue;
