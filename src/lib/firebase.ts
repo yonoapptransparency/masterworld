@@ -3,7 +3,7 @@
  * Configures connection states to Firestore DB and Auth endpoints dynamically.
  */
 
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { getAdminPath } from './utils';
 
@@ -59,7 +59,7 @@ export const isFirebaseApiKeyReal = (key: string | undefined): boolean => {
 console.log("DEBUG FIREBASE:", firebaseConfig, isFirebaseConfigured);
 export const isFirebaseReal = isFirebaseConfigured && isFirebaseApiKeyReal(firebaseConfig?.apiKey);
 
-export const app = isFirebaseConfigured ? initializeApp(firebaseConfig!) : null as any;
+export const app = isFirebaseConfigured ? (getApps().length === 0 ? initializeApp(firebaseConfig!) : getApp()) : null as any;
 
 export const auth = (() => {
   if (isFirebaseReal && app) {

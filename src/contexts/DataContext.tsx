@@ -835,17 +835,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    log("GitHub Sync: Manually pushing all static data to the main website (Dex)...");
+    log(`GitHub Sync: Manually pushing all static data to the configured repository...`);
     log("GitHub Sync: Generating secure payload...");
     const updatedCode = generateStaticDataFileCode(finalApps, targetSettings, targetNews, targetBlogs, targetVideos);
     
     // CRITICAL: Use the configured repository or default to Dex
     let targetRepo = configToUse.repo || 'dex';
-    
-    if (configToUse.repo && configToUse.repo.toLowerCase().includes('masterworld')) {
-      log(`⚠️ Security Alert: Redirecting sync from Admin repo ("${configToUse.repo}") to public website repo ("dex").`);
-      targetRepo = 'dex';
-    }
 
     if (!configToUse.owner) {
       log("❌ GitHub Sync Error: Missing 'Owner' in GitHub configuration.");
@@ -920,7 +915,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       log(`Local System: Patch encountered an error (can be ignored on read-only hosts like Vercel): ${err.message}`);
     }
 
-    log("GitHub Sync: Manual push to Dex successful!");
+    log(`GitHub Sync: Manual push to ${targetRepo} successful!`);
 
     // Final result object for UI feedback
     return {

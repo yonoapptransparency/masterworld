@@ -1273,11 +1273,6 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
         cleanPath.includes('secure_links_backup.json');
 
       let wasRedirected = false;
-      if (isContentFile && lowerRepo.includes('masterworld')) {
-         console.warn(`[SECURITY] GitHub Sync Server: Redirecting commit of "${cleanPath}" to public repository ("Dex") to protect Admin repo.`);
-         cleanRepo = 'Dex';
-         wasRedirected = true;
-      }
       
       // We no longer redirect to yonotransparency- as requested by user. 
       // The push goes directly to the configured repo (e.g. Dex).
