@@ -32,49 +32,15 @@ const getEnvVal = (key: string): string | undefined => {
 };
 
 const getResolvedConfig = () => {
-  let resolvedProjectId, resolvedAppId, resolvedApiKey, resolvedAuthDomain, resolvedDatabaseId, resolvedStorageBucket, resolvedMessagingId;
-  
-  try { resolvedProjectId = process.env.FIREBASE_PROJECT_ID; } catch(e){}
-  if (!resolvedProjectId) try { resolvedProjectId = import.meta.env.VITE_FIREBASE_PROJECT_ID; } catch(e){}
-
-  try { resolvedAppId = process.env.FIREBASE_APP_ID; } catch(e){}
-  if (!resolvedAppId) try { resolvedAppId = import.meta.env.VITE_FIREBASE_APP_ID; } catch(e){}
-
-  try { resolvedApiKey = process.env.FIREBASE_API_KEY; } catch(e){}
-  if (!resolvedApiKey) try { resolvedApiKey = import.meta.env.VITE_FIREBASE_API_KEY; } catch(e){}
-
-  try { resolvedAuthDomain = process.env.FIREBASE_AUTH_DOMAIN; } catch(e){}
-  if (!resolvedAuthDomain) try { resolvedAuthDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN; } catch(e){}
-
-  try { resolvedDatabaseId = process.env.FIREBASE_DATABASE_ID; } catch(e){}
-  if (!resolvedDatabaseId) try { resolvedDatabaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID; } catch(e){}
-
-  try { resolvedStorageBucket = process.env.FIREBASE_STORAGE_BUCKET; } catch(e){}
-  if (!resolvedStorageBucket) try { resolvedStorageBucket = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET; } catch(e){}
-
-  try { resolvedMessagingId = process.env.FIREBASE_MESSAGING_ID; } catch(e){}
-  if (!resolvedMessagingId) try { resolvedMessagingId = import.meta.env.VITE_FIREBASE_MESSAGING_ID; } catch(e){}
-
-  if (!isRealValue(resolvedProjectId)) resolvedProjectId = "gen-lang-client-0825832493";
-  if (!isRealValue(resolvedApiKey)) resolvedApiKey = "AIzaSyBey9sUbeWlrcXS2kl4ewOzkTy4arg03Ok";
-  if (!isRealValue(resolvedAppId)) resolvedAppId = "1:103973989874:web:733a6afd8e837224900f6b";
-  if (!isRealValue(resolvedAuthDomain)) resolvedAuthDomain = "gen-lang-client-0825832493.firebaseapp.com";
-  if (!isRealValue(resolvedDatabaseId)) resolvedDatabaseId = "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a";
-  if (!isRealValue(resolvedStorageBucket)) resolvedStorageBucket = "gen-lang-client-0825832493.firebasestorage.app";
-  if (!isRealValue(resolvedMessagingId)) resolvedMessagingId = "103973989874";
-
-  if (isRealValue(resolvedProjectId) && isRealValue(resolvedApiKey) && isRealValue(resolvedAuthDomain)) {
-    return {
-      projectId: resolvedProjectId,
-      appId: resolvedAppId,
-      apiKey: resolvedApiKey,
-      authDomain: resolvedAuthDomain,
-      firestoreDatabaseId: resolvedDatabaseId,
-      storageBucket: resolvedStorageBucket,
-      messagingSenderId: resolvedMessagingId,
-    };
-  }
-  return null;
+  return {
+    projectId: "gen-lang-client-0825832493",
+    appId: "1:103973989874:web:733a6afd8e837224900f6b",
+    apiKey: "AIzaSyBey9sUbeWlrcXS2kl4ewOzkTy4arg03Ok",
+    authDomain: "gen-lang-client-0825832493.firebaseapp.com",
+    firestoreDatabaseId: "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a",
+    storageBucket: "gen-lang-client-0825832493.firebasestorage.app",
+    messagingSenderId: "103973989874",
+  };
 };
 
 const firebaseConfig = getResolvedConfig();

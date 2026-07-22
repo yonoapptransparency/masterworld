@@ -750,7 +750,7 @@ const BannersTab = React.memo(({ banners, handleAddBanner, handleRemoveBanner, h
   </div>
 ));
 
-const GithubTab = React.memo(({ pushAllToGitHub, gitConfig, saveGitConfig, generatePreview, appsList, mockSettings, newsList, blogs, videosList }: any) => {
+const GithubTab = React.memo(({ pushAllToGitHub, gitConfig, saveGitConfig, generatePreview, appsList, settings, newsList, blogs, videosList }: any) => {
   const [logs, setLogs] = React.useState<string[]>([]);
   const [syncing, setSyncing] = React.useState(false);
   const [showPreview, setShowPreview] = React.useState(false);
@@ -783,7 +783,7 @@ const GithubTab = React.memo(({ pushAllToGitHub, gitConfig, saveGitConfig, gener
           setLogs(prev => [...prev, msg]);
         }, 
         appsList,
-        mockSettings,
+        settings,
         newsList,
         blogs,
         videosList
@@ -968,7 +968,7 @@ const GithubTab = React.memo(({ pushAllToGitHub, gitConfig, saveGitConfig, gener
   );
 });
 
-const SettingsTab = React.memo(({ mockSettings, handleSaveSettings, saving }: any) => (
+const SettingsTab = React.memo(({ settings, handleSaveSettings, saving }: any) => (
   <div className="animate-fade-in space-y-8">
     <div className="flex justify-between items-center bg-white dark:bg-slate-900 p-6 rounded-2xl border border-black/10 dark:border-white/10 shadow-sm">
       <div>
@@ -983,39 +983,39 @@ const SettingsTab = React.memo(({ mockSettings, handleSaveSettings, saving }: an
         <div className="grid gap-6 sm:grid-cols-2">
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Site Title</label>
-            <input type="text" name="site_title" defaultValue={mockSettings.site_title} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" required />
+            <input type="text" name="site_title" defaultValue={settings.site_title} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" required />
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Global SEO Description</label>
-            <input type="text" name="meta_description" defaultValue={mockSettings.meta_description} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            <input type="text" name="meta_description" defaultValue={settings.meta_description} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
           </div>
           <div className="sm:col-span-2">
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Global SEO Keywords (Comma Separated)</label>
-            <input type="text" name="seo_keywords" defaultValue={mockSettings.seo_keywords} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            <input type="text" name="seo_keywords" defaultValue={settings.seo_keywords} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
           </div>
           <div className="sm:col-span-2">
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Google Analytics ID</label>
-            <input type="text" name="ga_tracking_id" defaultValue={mockSettings.ga_tracking_id || mockSettings.google_analytics_id} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" placeholder="G-XXXXXXXXXX" />
+            <input type="text" name="ga_tracking_id" defaultValue={settings.ga_tracking_id || settings.google_analytics_id} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" placeholder="G-XXXXXXXXXX" />
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Main Logo URL</label>
-            <input type="text" name="logo_url" defaultValue={mockSettings.logo_url} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            <input type="text" name="logo_url" defaultValue={settings.logo_url} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Favicon URL</label>
-            <input type="text" name="favicon_url" defaultValue={mockSettings.favicon_url} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            <input type="text" name="favicon_url" defaultValue={settings.favicon_url} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Main Index Heading</label>
-            <input type="text" name="secure_index_title" defaultValue={mockSettings.secure_index_title || 'Secure Index'} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            <input type="text" name="secure_index_title" defaultValue={settings.secure_index_title || 'Secure Index'} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Main Index Subtitle</label>
-            <input type="text" name="secure_index_subtitle" defaultValue={mockSettings.secure_index_subtitle || 'Verified & Transparent App Marketplace'} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            <input type="text" name="secure_index_subtitle" defaultValue={settings.secure_index_subtitle || 'Verified & Transparent App Marketplace'} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
           </div>
           <div className="sm:col-span-2">
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Trending Searches (Comma Separated)</label>
-            <input type="text" name="trending_searches" defaultValue={mockSettings.trending_searches ? (Array.isArray(mockSettings.trending_searches) ? mockSettings.trending_searches.join(', ') : mockSettings.trending_searches) : ''} placeholder="e.g. Rummy Dex, Rummy Game, Bingo 101" className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            <input type="text" name="trending_searches" defaultValue={settings.trending_searches ? (Array.isArray(settings.trending_searches) ? settings.trending_searches.join(', ') : settings.trending_searches) : ''} placeholder="e.g. Rummy Dex, Rummy Game, Bingo 101" className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
           </div>
         </div>
       </div>
@@ -1025,23 +1025,23 @@ const SettingsTab = React.memo(({ mockSettings, handleSaveSettings, saving }: an
         <div className="grid gap-6">
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">About Us Page Content (HTML)</label>
-            <textarea name="about_content" rows={12} defaultValue={mockSettings.about_content} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-xs font-mono dark:text-slate-300 focus:ring-2 focus:ring-blue-500 transition-all"></textarea>
+            <textarea name="about_content" rows={12} defaultValue={settings.about_content} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-xs font-mono dark:text-slate-300 focus:ring-2 focus:ring-blue-500 transition-all"></textarea>
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Privacy Policy Body (HTML)</label>
-            <textarea name="privacy_content" rows={12} defaultValue={mockSettings.privacy_content} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-xs font-mono dark:text-slate-300 focus:ring-2 focus:ring-blue-500 transition-all"></textarea>
+            <textarea name="privacy_content" rows={12} defaultValue={settings.privacy_content} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-xs font-mono dark:text-slate-300 focus:ring-2 focus:ring-blue-500 transition-all"></textarea>
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Terms & Conditions Body (HTML)</label>
-            <textarea name="terms_content" rows={12} defaultValue={mockSettings.terms_content} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-xs font-mono dark:text-slate-300 focus:ring-2 focus:ring-blue-500 transition-all"></textarea>
+            <textarea name="terms_content" rows={12} defaultValue={settings.terms_content} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-xs font-mono dark:text-slate-300 focus:ring-2 focus:ring-blue-500 transition-all"></textarea>
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Platform Responsibility Clause (HTML)</label>
-            <textarea name="responsibility_content" rows={12} defaultValue={mockSettings.responsibility_content} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-xs font-mono dark:text-slate-300 focus:ring-2 focus:ring-blue-500 transition-all" placeholder="<p>Our commitment to user safety...</p>"></textarea>
+            <textarea name="responsibility_content" rows={12} defaultValue={settings.responsibility_content} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-xs font-mono dark:text-slate-300 focus:ring-2 focus:ring-blue-500 transition-all" placeholder="<p>Our commitment to user safety...</p>"></textarea>
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Report & Removal Policy Body (HTML)</label>
-            <textarea name="report_removal_content" rows={12} defaultValue={mockSettings.report_removal_content} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-xs font-mono dark:text-slate-300 focus:ring-2 focus:ring-blue-500 transition-all" placeholder="<h2>1. Overview</h2>..."></textarea>
+            <textarea name="report_removal_content" rows={12} defaultValue={settings.report_removal_content} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-xs font-mono dark:text-slate-300 focus:ring-2 focus:ring-blue-500 transition-all" placeholder="<h2>1. Overview</h2>..."></textarea>
           </div>
         </div>
       </div>
@@ -1051,33 +1051,33 @@ const SettingsTab = React.memo(({ mockSettings, handleSaveSettings, saving }: an
         <div className="grid gap-6">
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Portal Main Heading</label>
-            <input type="text" name="portal_heading" defaultValue={mockSettings.portal_heading} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            <input type="text" name="portal_heading" defaultValue={settings.portal_heading} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
           </div>
           <div className="grid gap-6 sm:grid-cols-2">
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Disclaimer Heading</label>
-              <input type="text" name="disclaimer_heading" defaultValue={mockSettings.disclaimer_heading} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+              <input type="text" name="disclaimer_heading" defaultValue={settings.disclaimer_heading} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Ethics Heading</label>
-              <input type="text" name="ethics_heading" defaultValue={mockSettings.ethics_heading} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+              <input type="text" name="ethics_heading" defaultValue={settings.ethics_heading} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
             </div>
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Disclaimer Text (HTML supported)</label>
-            <textarea name="disclaimer_text" rows={3} defaultValue={mockSettings.disclaimer_text} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"></textarea>
+            <textarea name="disclaimer_text" rows={3} defaultValue={settings.disclaimer_text} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"></textarea>
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Ethics Text (HTML supported)</label>
-            <textarea name="ethics_discrimination_text" rows={3} defaultValue={mockSettings.ethics_discrimination_text} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"></textarea>
+            <textarea name="ethics_discrimination_text" rows={3} defaultValue={settings.ethics_discrimination_text} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"></textarea>
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Important Notice Heading (More Details Page)</label>
-            <input type="text" name="important_notice_heading" defaultValue={mockSettings.important_notice_heading} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            <input type="text" name="important_notice_heading" defaultValue={settings.important_notice_heading} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Important Notice Content</label>
-            <textarea name="important_notice" rows={2} defaultValue={mockSettings.important_notice} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"></textarea>
+            <textarea name="important_notice" rows={2} defaultValue={settings.important_notice} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"></textarea>
           </div>
         </div>
       </div>
@@ -1088,14 +1088,14 @@ const SettingsTab = React.memo(({ mockSettings, handleSaveSettings, saving }: an
           <div className="grid gap-6 sm:grid-cols-2">
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Enable Title Banner</label>
-              <select name="hero_title_visible" defaultValue={mockSettings.hero_title_visible !== false ? 'true' : 'false'} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all">
+              <select name="hero_title_visible" defaultValue={settings.hero_title_visible !== false ? 'true' : 'false'} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all">
                 <option value="true">Show Hero Banner</option>
                 <option value="false">Hide Hero Banner</option>
               </select>
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Banner Writing Style (Font Concept)</label>
-              <select name="hero_title_style" defaultValue={mockSettings.hero_title_style || 'modern'} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all">
+              <select name="hero_title_style" defaultValue={settings.hero_title_style || 'modern'} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all">
                 <option value="modern">Modern Display (Space Grotesk - Extra Black)</option>
                 <option value="serif">Elegant Editorial (Playfair - High Contrast)</option>
                 <option value="mono">Cyber Industrial (JetBrains Mono - Tech Accent)</option>
@@ -1107,7 +1107,7 @@ const SettingsTab = React.memo(({ mockSettings, handleSaveSettings, saving }: an
           <div className="grid gap-6 sm:grid-cols-2">
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Gradient Color Palette</label>
-              <select name="hero_title_color" defaultValue={mockSettings.hero_title_color || 'classic-dark'} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all">
+              <select name="hero_title_color" defaultValue={settings.hero_title_color || 'classic-dark'} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all">
                 <option value="classic-dark">Classic High-Contrast</option>
                 <option value="emerald-indigo">Emerald To Indigo</option>
                 <option value="neon-sky">Neon Sky</option>
@@ -1117,7 +1117,7 @@ const SettingsTab = React.memo(({ mockSettings, handleSaveSettings, saving }: an
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Animation Design</label>
-              <select name="hero_title_animation" defaultValue={mockSettings.hero_title_animation || 'fade-in'} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all">
+              <select name="hero_title_animation" defaultValue={settings.hero_title_animation || 'fade-in'} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all">
                 <option value="fade-in">Fade In (Smooth Dissolve)</option>
                 <option value="slide-up" className="dark:bg-zinc-900">Slide Up (Sleek Bottom-Up Gliding)</option>
                 <option value="bounce-in" className="dark:bg-zinc-900">Bounce Zoom (Snapping Elastic Expansion)</option>
@@ -1130,12 +1130,12 @@ const SettingsTab = React.memo(({ mockSettings, handleSaveSettings, saving }: an
 
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Hero Banner Writing Text (Title)</label>
-            <input type="text" name="hero_title_text" defaultValue={mockSettings.hero_title_text || 'RUMMY STORE GAMING DIRECTORY'} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            <input type="text" name="hero_title_text" defaultValue={settings.hero_title_text || 'RUMMY STORE GAMING DIRECTORY'} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Hero Tagline / Subtitle</label>
-            <input type="text" name="hero_title_subtitle" defaultValue={mockSettings.hero_title_subtitle || 'COMPREHENSIVE SOCIAL CASUAL E-SPORTS METRICS & UNBIASED INTEGRITY REVIEWS'} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            <input type="text" name="hero_title_subtitle" defaultValue={settings.hero_title_subtitle || 'COMPREHENSIVE SOCIAL CASUAL E-SPORTS METRICS & UNBIASED INTEGRITY REVIEWS'} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
           </div>
         </div>
       </div>
@@ -1145,19 +1145,19 @@ const SettingsTab = React.memo(({ mockSettings, handleSaveSettings, saving }: an
         <div className="grid gap-6 sm:grid-cols-2">
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Announcement Ticker Text</label>
-            <input type="text" name="ticker_text" defaultValue={mockSettings.ticker_text} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            <input type="text" name="ticker_text" defaultValue={settings.ticker_text} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Support Email</label>
-            <input type="email" name="support_email" defaultValue={mockSettings.support_email} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            <input type="email" name="support_email" defaultValue={settings.support_email} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Telegram Link</label>
-            <input type="text" name="helpline_telegram" defaultValue={mockSettings.helpline_telegram} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            <input type="text" name="helpline_telegram" defaultValue={settings.helpline_telegram} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">WhatsApp Link</label>
-            <input type="text" name="helpline_whatsapp" defaultValue={mockSettings.helpline_whatsapp} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            <input type="text" name="helpline_whatsapp" defaultValue={settings.helpline_whatsapp} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
           </div>
         </div>
       </div>
@@ -1167,23 +1167,23 @@ const SettingsTab = React.memo(({ mockSettings, handleSaveSettings, saving }: an
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Facebook URL</label>
-            <input type="text" name="social_facebook" defaultValue={mockSettings.social_links?.facebook} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            <input type="text" name="social_facebook" defaultValue={settings.social_links?.facebook} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Instagram URL</label>
-            <input type="text" name="social_instagram" defaultValue={mockSettings.social_links?.instagram} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            <input type="text" name="social_instagram" defaultValue={settings.social_links?.instagram} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Twitter / X URL</label>
-            <input type="text" name="social_twitter" defaultValue={mockSettings.social_links?.twitter} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            <input type="text" name="social_twitter" defaultValue={settings.social_links?.twitter} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">LinkedIn URL</label>
-            <input type="text" name="social_linkedin" defaultValue={mockSettings.social_links?.linkedin} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            <input type="text" name="social_linkedin" defaultValue={settings.social_links?.linkedin} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">YouTube URL</label>
-            <input type="text" name="social_youtube" defaultValue={mockSettings.social_links?.youtube} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            <input type="text" name="social_youtube" defaultValue={settings.social_links?.youtube} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
           </div>
         </div>
       </div>
@@ -2024,11 +2024,11 @@ const ReviewsModerationTab = ({ db }: { db: any }) => {
 
 export default function AdminDashboard() {
   const { 
-    apps: mockApps, 
-    settings: mockSettings, 
-    news: mockNews, 
-    blogs: mockBlogs, 
-    videos: mockVideos, 
+    apps, 
+    settings, 
+    news, 
+    blogs: contextBlogs, 
+    videos, 
     saveApps, 
     saveSettings, 
     saveNews, 
@@ -2049,11 +2049,11 @@ export default function AdminDashboard() {
 
   const [saving, setSaving] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [appsList, setAppsList] = useState(mockApps);
-  const latestMockAppsRef = React.useRef(mockApps);
+  const [appsList, setAppsList] = useState(apps);
+  const latestMockAppsRef = React.useRef(apps);
   React.useEffect(() => {
-    latestMockAppsRef.current = mockApps;
-    if (mockApps && mockApps.length > 0) {
+    latestMockAppsRef.current = apps;
+    if (apps && apps.length > 0) {
       const secureMap = cachedSecureMapRef.current || new Map();
       
       // Merge any raw links recovered from sessionStore
@@ -2069,7 +2069,7 @@ export default function AdminDashboard() {
         }
       } catch (e) {}
 
-      const mergedApps = mockApps.map(a => ({
+      const mergedApps = apps.map(a => ({
         ...a,
         more_information_url: secureMap.get(a.id) || a.more_information_url || ''
       }));
@@ -2081,16 +2081,16 @@ export default function AdminDashboard() {
         return prev;
       });
     }
-  }, [mockApps]);
+  }, [apps]);
   const [editingAppId, setEditingAppId] = useState<string | null>(null);
-  const [newsList, setNewsList] = useState(mockNews);
-  const [banners, setBanners] = useState(mockSettings.banners || []);
-  const [blogs, setBlogs] = useState(mockBlogs);
-  const [videosList, setVideosList] = useState(mockVideos);
-  const [categoriesList, setCategoriesList] = useState<string[]>(mockSettings.categories || []);
-  const [quickLinksList, setQuickLinksList] = useState(mockSettings.quick_links || []);
-  const [websiteFaqsList, setWebsiteFaqsList] = useState(mockSettings.website_faqs || []);
-  const [developersList, setDevelopersList] = useState(mockSettings.developers || []);
+  const [newsList, setNewsList] = useState(news);
+  const [banners, setBanners] = useState(settings.banners || []);
+  const [blogs, setBlogs] = useState(contextBlogs);
+  const [videosList, setVideosList] = useState(videos);
+  const [categoriesList, setCategoriesList] = useState<string[]>(settings.categories || []);
+  const [quickLinksList, setQuickLinksList] = useState(settings.quick_links || []);
+  const [websiteFaqsList, setWebsiteFaqsList] = useState(settings.website_faqs || []);
+  const [developersList, setDevelopersList] = useState(settings.developers || []);
   const [newCatInput, setNewCatInput] = useState('');
   const [user, setUser] = useState<any>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -2099,16 +2099,16 @@ export default function AdminDashboard() {
   
   React.useEffect(() => {
     if (!loading) {
-      setNewsList(mockNews);
-      setBanners(mockSettings.banners || []);
-      setBlogs(mockBlogs);
-      setVideosList(mockVideos);
-      setCategoriesList(mockSettings.categories || []);
-      setQuickLinksList(mockSettings.quick_links || []);
-      setWebsiteFaqsList(mockSettings.website_faqs || []);
-      setDevelopersList(mockSettings.developers || []);
+      setNewsList(news);
+      setBanners(settings.banners || []);
+      setBlogs(contextBlogs);
+      setVideosList(videos);
+      setCategoriesList(settings.categories || []);
+      setQuickLinksList(settings.quick_links || []);
+      setWebsiteFaqsList(settings.website_faqs || []);
+      setDevelopersList(settings.developers || []);
     }
-  }, [loading, mockApps, mockNews, mockSettings, mockBlogs, mockVideos]);
+  }, [loading, apps, news, settings, contextBlogs, videos]);
 
   // Security Stopwatch (Auto-logout after 15 mins)
   const [sessionTimeLeft, setSessionTimeLeft] = useState(15 * 60);
@@ -2371,7 +2371,7 @@ export default function AdminDashboard() {
 
             cachedSecureMapRef.current = secureMap;
             const mergedApps = latestMockAppsRef.current.map(a => ({...a, more_information_url: secureMap.get(a.id) || a.more_information_url }));
-            setAppsList(mergedApps); console.log("AdminDashboard loaded apps:", mergedApps.length, "mockApps:", mockApps.length);
+            setAppsList(mergedApps); console.log("AdminDashboard loaded apps:", mergedApps.length, "apps:", apps.length);
 
             if (!hadPublicLinks && secureMap.size > 0 && !fetchFailedRef.current && isFirebaseReal) {
               console.log("Silently self-healing sec_public_links...");
@@ -2385,7 +2385,7 @@ export default function AdminDashboard() {
             isInitializedRef.current = true;
           });
         } else {
-          // If already initialized but mockApps changed (e.g. from background sync)
+          // If already initialized but apps changed (e.g. from background sync)
           const secureMap = cachedSecureMapRef.current || new Map();
           
           // Merge any raw links recovered from Firestore console edits
@@ -2401,7 +2401,7 @@ export default function AdminDashboard() {
             }
           } catch (e) {}
 
-          const mergedApps = mockApps.map(a => ({...a, more_information_url: secureMap.get(a.id) || a.more_information_url }));
+          const mergedApps = apps.map(a => ({...a, more_information_url: secureMap.get(a.id) || a.more_information_url }));
           
           setAppsList(prev => {
              // If we are actively editing an app, we might want to preserve the editing state. 
@@ -2418,19 +2418,19 @@ export default function AdminDashboard() {
         setAppsList(latestMockAppsRef.current);
       }
       
-      if (mockSettings && mockNews && mockBlogs && mockVideos) {
-        setNewsList(prev => JSON.stringify(prev) !== JSON.stringify(mockNews) ? mockNews : prev);
-        setBanners(prev => JSON.stringify(prev) !== JSON.stringify(mockSettings.banners || []) ? (mockSettings.banners || []) : prev);
-        setBlogs(prev => JSON.stringify(prev) !== JSON.stringify(mockBlogs) ? mockBlogs : prev);
-        setVideosList(prev => JSON.stringify(prev) !== JSON.stringify(mockVideos) ? mockVideos : prev);
-        setCategoriesList(prev => JSON.stringify(prev) !== JSON.stringify(mockSettings.categories || []) ? (mockSettings.categories || []) : prev);
-        setQuickLinksList(prev => JSON.stringify(prev) !== JSON.stringify(mockSettings.quick_links || []) ? (mockSettings.quick_links || []) : prev);
-        setWebsiteFaqsList(prev => JSON.stringify(prev) !== JSON.stringify(mockSettings.website_faqs || []) ? (mockSettings.website_faqs || []) : prev);
-        setDevelopersList(prev => JSON.stringify(prev) !== JSON.stringify(mockSettings.developers || []) ? (mockSettings.developers || []) : prev);
+      if (settings && news && contextBlogs && videos) {
+        setNewsList(prev => JSON.stringify(prev) !== JSON.stringify(news) ? news : prev);
+        setBanners(prev => JSON.stringify(prev) !== JSON.stringify(settings.banners || []) ? (settings.banners || []) : prev);
+        setBlogs(prev => JSON.stringify(prev) !== JSON.stringify(contextBlogs) ? contextBlogs : prev);
+        setVideosList(prev => JSON.stringify(prev) !== JSON.stringify(videos) ? videos : prev);
+        setCategoriesList(prev => JSON.stringify(prev) !== JSON.stringify(settings.categories || []) ? (settings.categories || []) : prev);
+        setQuickLinksList(prev => JSON.stringify(prev) !== JSON.stringify(settings.quick_links || []) ? (settings.quick_links || []) : prev);
+        setWebsiteFaqsList(prev => JSON.stringify(prev) !== JSON.stringify(settings.website_faqs || []) ? (settings.website_faqs || []) : prev);
+        setDevelopersList(prev => JSON.stringify(prev) !== JSON.stringify(settings.developers || []) ? (settings.developers || []) : prev);
         settingsInitializedRef.current = true;
       }
     }
-  }, [loading, mockApps, mockNews, mockSettings, mockBlogs, mockVideos, isAdminUser]);
+  }, [loading, apps, news, settings, contextBlogs, videos, isAdminUser]);
 
   const handleReloadCloudData = async () => {
     setSaving(true);
@@ -2455,7 +2455,7 @@ export default function AdminDashboard() {
           const newsSnap = await getDoc(newsDocRef);
           if (!newsSnap.exists()) {
             
-            const sanitizedNews = JSON.parse(JSON.stringify({ items: mockNews }));
+            const sanitizedNews = JSON.parse(JSON.stringify({ items: news }));
             await setDoc(newsDocRef, sanitizedNews);
           }
 
@@ -2463,7 +2463,7 @@ export default function AdminDashboard() {
           const videosSnap = await getDoc(videosDocRef);
           if (!videosSnap.exists()) {
             
-            const sanitizedVideos = JSON.parse(JSON.stringify({ items: mockVideos }));
+            const sanitizedVideos = JSON.parse(JSON.stringify({ items: videos }));
             await setDoc(videosDocRef, sanitizedVideos);
           }
         } catch (e: any) {
@@ -2493,7 +2493,7 @@ export default function AdminDashboard() {
     setSaving(true);
     try {
       const updatedSettings = {
-        ...mockSettings,
+        ...settings,
         categories: categoriesList,
       };
       await saveSettings(updatedSettings);
@@ -2511,7 +2511,7 @@ export default function AdminDashboard() {
     setSaving(true);
     try {
       const updatedSettings = {
-        ...mockSettings,
+        ...settings,
         quick_links: quickLinksList,
       };
       await saveSettings(updatedSettings);
@@ -2545,7 +2545,7 @@ export default function AdminDashboard() {
     setSaving(true);
     try {
       const updatedSettings = {
-        ...mockSettings,
+        ...settings,
         website_faqs: websiteFaqsList,
       };
       await saveSettings(updatedSettings);
@@ -2579,7 +2579,7 @@ export default function AdminDashboard() {
     setSaving(true);
     try {
       const updatedSettings = {
-        ...mockSettings,
+        ...settings,
         developers: developersList,
       };
       await saveSettings(updatedSettings);
@@ -2617,7 +2617,7 @@ export default function AdminDashboard() {
       setSaving(true);
       try {
         await saveSettings({
-          ...mockSettings,
+          ...settings,
           categories: updatedList
         });
         triggerHaptic();
@@ -2642,7 +2642,7 @@ export default function AdminDashboard() {
         setSaving(true);
         try {
           await saveSettings({
-            ...mockSettings,
+            ...settings,
             categories: updatedList
           });
           triggerHaptic();
@@ -2661,35 +2661,35 @@ export default function AdminDashboard() {
     try {
       const formData = new FormData(e.currentTarget);
       const updatedSettings = {
-        ...mockSettings,
-        site_title: formData.get('site_title') as string || mockSettings.site_title,
-        meta_description: formData.get('meta_description') as string || mockSettings.meta_description,
-        seo_keywords: formData.get('seo_keywords') as string || mockSettings.seo_keywords,
-        ga_tracking_id: formData.get('ga_tracking_id') as string || mockSettings.ga_tracking_id,
-        logo_url: formData.get('logo_url') as string || mockSettings.logo_url,
-        favicon_url: formData.get('favicon_url') as string || mockSettings.favicon_url,
-        secure_index_title: formData.get('secure_index_title') as string || mockSettings.secure_index_title || 'Secure Index',
-        secure_index_subtitle: formData.get('secure_index_subtitle') as string || mockSettings.secure_index_subtitle || 'Verified & Transparent App Marketplace',
+        ...settings,
+        site_title: formData.get('site_title') as string || settings.site_title,
+        meta_description: formData.get('meta_description') as string || settings.meta_description,
+        seo_keywords: formData.get('seo_keywords') as string || settings.seo_keywords,
+        ga_tracking_id: formData.get('ga_tracking_id') as string || settings.ga_tracking_id,
+        logo_url: formData.get('logo_url') as string || settings.logo_url,
+        favicon_url: formData.get('favicon_url') as string || settings.favicon_url,
+        secure_index_title: formData.get('secure_index_title') as string || settings.secure_index_title || 'Secure Index',
+        secure_index_subtitle: formData.get('secure_index_subtitle') as string || settings.secure_index_subtitle || 'Verified & Transparent App Marketplace',
         trending_searches: (formData.get('trending_searches') as string || '').split(',').map((s: string) => s.trim()).filter(Boolean),
         
-        about_content: formData.get('about_content') as string || mockSettings.about_content,
-        privacy_content: formData.get('privacy_content') as string || mockSettings.privacy_content,
-        terms_content: formData.get('terms_content') as string || mockSettings.terms_content,
-        responsibility_content: formData.get('responsibility_content') as string || mockSettings.responsibility_content,
-        report_removal_content: formData.get('report_removal_content') as string || mockSettings.report_removal_content,
+        about_content: formData.get('about_content') as string || settings.about_content,
+        privacy_content: formData.get('privacy_content') as string || settings.privacy_content,
+        terms_content: formData.get('terms_content') as string || settings.terms_content,
+        responsibility_content: formData.get('responsibility_content') as string || settings.responsibility_content,
+        report_removal_content: formData.get('report_removal_content') as string || settings.report_removal_content,
         
-        portal_heading: formData.get('portal_heading') as string || mockSettings.portal_heading,
-        disclaimer_heading: formData.get('disclaimer_heading') as string || mockSettings.disclaimer_heading,
-        ethics_heading: formData.get('ethics_heading') as string || mockSettings.ethics_heading,
-        disclaimer_text: formData.get('disclaimer_text') as string || mockSettings.disclaimer_text,
-        ethics_discrimination_text: formData.get('ethics_discrimination_text') as string || mockSettings.ethics_discrimination_text,
-        important_notice_heading: formData.get('important_notice_heading') as string || mockSettings.important_notice_heading,
-        important_notice: formData.get('important_notice') as string || mockSettings.important_notice,
+        portal_heading: formData.get('portal_heading') as string || settings.portal_heading,
+        disclaimer_heading: formData.get('disclaimer_heading') as string || settings.disclaimer_heading,
+        ethics_heading: formData.get('ethics_heading') as string || settings.ethics_heading,
+        disclaimer_text: formData.get('disclaimer_text') as string || settings.disclaimer_text,
+        ethics_discrimination_text: formData.get('ethics_discrimination_text') as string || settings.ethics_discrimination_text,
+        important_notice_heading: formData.get('important_notice_heading') as string || settings.important_notice_heading,
+        important_notice: formData.get('important_notice') as string || settings.important_notice,
         
-        ticker_text: formData.get('ticker_text') as string || mockSettings.ticker_text,
-        support_email: formData.get('support_email') as string || mockSettings.support_email,
-        helpline_telegram: formData.get('helpline_telegram') as string || mockSettings.helpline_telegram,
-        helpline_whatsapp: formData.get('helpline_whatsapp') as string || mockSettings.helpline_whatsapp,
+        ticker_text: formData.get('ticker_text') as string || settings.ticker_text,
+        support_email: formData.get('support_email') as string || settings.support_email,
+        helpline_telegram: formData.get('helpline_telegram') as string || settings.helpline_telegram,
+        helpline_whatsapp: formData.get('helpline_whatsapp') as string || settings.helpline_whatsapp,
         
         hero_title_visible: formData.get('hero_title_visible') === 'true',
         hero_title_style: formData.get('hero_title_style') as string,
@@ -2799,7 +2799,7 @@ export default function AdminDashboard() {
           const customCatsStr = formData.get('custom_category') as string || '';
           const customCats = customCatsStr.split(',').map(c => c.trim()).filter(Boolean);
           const combinedCats = Array.from(new Set([...checkedCats, ...customCats]));
-          return combinedCats.length > 0 ? combinedCats.join(', ') : mockSettings.categories?.[0] || 'General';
+          return combinedCats.length > 0 ? combinedCats.join(', ') : settings.categories?.[0] || 'General';
         })(),
         version: (formData.get('version') as string) || '1.0',
         file_size: (formData.get('file_size') as string) || 'Unknown',
@@ -3131,8 +3131,8 @@ export default function AdminDashboard() {
       {/* Mobile Top App Bar */}
       <div className="md:hidden sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 px-4 py-3 shadow-sm flex items-center justify-between">
         <div className="flex items-center gap-3">
-          {mockSettings.logo_url ? (
-            <img src={mockSettings.logo_url} className="w-9 h-9 object-contain drop-shadow-sm" alt="Logo" />
+          {settings.logo_url ? (
+            <img src={settings.logo_url} className="w-9 h-9 object-contain drop-shadow-sm" alt="Logo" />
           ) : (
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-md">
               <Shield className="w-5 h-5" />
@@ -3160,8 +3160,8 @@ export default function AdminDashboard() {
           <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-blue-600 to-indigo-500"></div>
           <div className="flex items-center gap-4">
             <div className="relative">
-              {mockSettings.logo_url ? (
-                <img src={mockSettings.logo_url} className="w-12 h-12 object-contain drop-shadow-sm" alt="Logo" />
+              {settings.logo_url ? (
+                <img src={settings.logo_url} className="w-12 h-12 object-contain drop-shadow-sm" alt="Logo" />
               ) : (
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/20 text-white">
                   <Shield className="w-6 h-6" />
@@ -3307,7 +3307,7 @@ export default function AdminDashboard() {
                   setEditingAppId={setEditingAppId} 
                   handleDeleteApp={handleDeleteApp} 
                   handleSaveApp={handleSaveApp} 
-                  categories={mockSettings.categories} 
+                  categories={settings.categories} 
                   saving={saving} 
                 />
               )}
@@ -3690,7 +3690,7 @@ export default function AdminDashboard() {
                    <div className="mt-8 flex justify-end">
                      <button onClick={async () => {
                        setSaving(true);
-                       await saveSettings({ ...mockSettings, banners });
+                       await saveSettings({ ...settings, banners });
                        triggerHaptic();
                        setSaving(false);
                        alert('Banners Synced to Frontend System.');
@@ -3705,10 +3705,10 @@ export default function AdminDashboard() {
                 <SecurityTab />
               )}
               {activeTab === 'github' && (
-                <GithubTab pushAllToGitHub={pushAllToGitHub} gitConfig={gitConfig} saveGitConfig={saveGitConfig} appsList={appsList} mockSettings={mockSettings} newsList={newsList} blogs={blogs} videosList={videosList} generatePreview={() => generateStaticDataFileCode(appsList, mockSettings, newsList, blogs, videosList)} />
+                <GithubTab pushAllToGitHub={pushAllToGitHub} gitConfig={gitConfig} saveGitConfig={saveGitConfig} appsList={appsList} settings={settings} newsList={newsList} blogs={blogs} videosList={videosList} generatePreview={() => generateStaticDataFileCode(appsList, settings, newsList, blogs, videosList)} />
               )}
               {activeTab === 'settings' && (
-                <SettingsTab key={mockSettings.site_title || 'settings'} mockSettings={mockSettings} handleSaveSettings={handleSaveSettings} saving={saving} />
+                <SettingsTab key={settings.site_title || 'settings'} settings={settings} handleSaveSettings={handleSaveSettings} saving={saving} />
               )}
             </div>
           </div>
