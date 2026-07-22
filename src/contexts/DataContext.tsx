@@ -1198,24 +1198,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                   console.warn(`Failed to chunk ${i} on manual refresh`, e);
                 }
               }
-              const cleanApps = allApps.map((a: any) => {
-                delete a.more_information_url;
-                delete a.encrypted_download_url;
-                delete a.download_url;
-                return a;
-              });
+              const cleanApps = allApps;
               setApps(cleanApps);
               localStorage.setItem('rummystore_apps', JSON.stringify(cleanApps));
             } else {
               // Fallback to old document
               const oldSnap = await withServerConfirmation(() => getDoc(doc(db, 'store_data', 'apps')), 10000);
               if (oldSnap.exists() && oldSnap.data().items) {
-                const data = oldSnap.data().items.map((a: any) => {
-                  delete a.more_information_url;
-                  delete a.encrypted_download_url;
-                  delete a.download_url;
-                  return a;
-                });
+                const data = oldSnap.data().items;
                 setApps(data);
                 localStorage.setItem('rummystore_apps', JSON.stringify(data));
               } else {

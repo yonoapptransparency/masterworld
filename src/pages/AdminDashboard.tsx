@@ -2063,7 +2063,6 @@ export default function AdminDashboard() {
   
   React.useEffect(() => {
     if (!loading) {
-      setAppsList(mockApps);
       setNewsList(mockNews);
       setBanners(mockSettings.banners || []);
       setBlogs(mockBlogs);
