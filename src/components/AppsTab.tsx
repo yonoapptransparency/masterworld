@@ -302,11 +302,7 @@ const AppsTab = React.memo(({ appsList, editingAppId, setEditingAppId, handleDel
 
   // Filter appsList based on Search and Filter states
   const filteredApps = appsList.filter((app: any) => {
-    const matchesSearch = 
-      app.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      app.slug?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      app.category?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      app.seo_keywords?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = !searchQuery || (app.name && app.name.toLowerCase().includes(searchQuery.toLowerCase())) || (app.slug && app.slug.toLowerCase().includes(searchQuery.toLowerCase())) || (app.category && app.category.toLowerCase().includes(searchQuery.toLowerCase())) || (app.seo_keywords && app.seo_keywords.toLowerCase().includes(searchQuery.toLowerCase()));
 
     const matchesCategory = 
       categoryFilter === 'all' || 

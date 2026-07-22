@@ -2046,6 +2046,38 @@ export default function AdminDashboard() {
   const [saving, setSaving] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [appsList, setAppsList] = useState(mockApps);
+  const latestMockAppsRef = React.useRef(mockApps);
+  React.useEffect(() => {
+    latestMockAppsRef.current = mockApps;
+    if (mockApps && mockApps.length > 0) {
+      const secureMap = cachedSecureMapRef.current || new Map();
+      
+      // Merge any raw links recovered from sessionStore
+      try {
+        const recoveredStr = sessionStore.getItem('rummystore_recovered_links');
+        if (recoveredStr) {
+          const recovered = JSON.parse(recoveredStr);
+          Object.entries(recovered).forEach(([id, url]) => {
+            if (url && typeof url === 'string' && !secureMap.has(id)) {
+              secureMap.set(id, url);
+            }
+          });
+        }
+      } catch (e) {}
+
+      const mergedApps = mockApps.map(a => ({
+        ...a,
+        more_information_url: secureMap.get(a.id) || a.more_information_url || ''
+      }));
+
+      setAppsList(prev => {
+        if (!prev || prev.length === 0 || prev.length !== mergedApps.length || JSON.stringify(prev) !== JSON.stringify(mergedApps)) {
+          return mergedApps;
+        }
+        return prev;
+      });
+    }
+  }, [mockApps]);
   const [editingAppId, setEditingAppId] = useState<string | null>(null);
   const [newsList, setNewsList] = useState(mockNews);
   const [banners, setBanners] = useState(mockSettings.banners || []);
@@ -2334,8 +2366,8 @@ export default function AdminDashboard() {
             } catch (e) {}
 
             cachedSecureMapRef.current = secureMap;
-            const mergedApps = mockApps.map(a => ({...a, more_information_url: secureMap.get(a.id) || a.more_information_url }));
-            setAppsList(mergedApps);
+            const mergedApps = latestMockAppsRef.current.map(a => ({...a, more_information_url: secureMap.get(a.id) || a.more_information_url }));
+            setAppsList(mergedApps); console.log("AdminDashboard loaded apps:", mergedApps.length, "mockApps:", mockApps.length);
 
             if (!hadPublicLinks && secureMap.size > 0 && !fetchFailedRef.current && isFirebaseReal) {
               console.log("Silently self-healing sec_public_links...");
@@ -2344,7 +2376,7 @@ export default function AdminDashboard() {
           }).catch(err => {
             console.warn("Failed to load secure references (Fallback memory used):", err.message || err);
             if (isFirebaseReal) fetchFailedRef.current = true;
-            setAppsList(mockApps);
+            setAppsList(latestMockAppsRef.current);
           }).finally(() => {
             isInitializedRef.current = true;
           });
@@ -2378,9 +2410,8 @@ export default function AdminDashboard() {
              return prev; 
           });
         }
-      } else {
-        setAppsList(mockApps);
-        isInitializedRef.current = true;
+      } else if (isAdminUser === false) {
+        setAppsList(latestMockAppsRef.current);
       }
       
       if (mockSettings && mockNews && mockBlogs && mockVideos) {

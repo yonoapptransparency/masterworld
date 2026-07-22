@@ -559,7 +559,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             delete publicApp.download_url;
             return publicApp;
           });
-          setApps(prev => JSON.stringify(prev) === JSON.stringify(data) ? prev : data);
+          setApps(prev => { console.log("DataContext setApps:", data.length); return JSON.stringify(prev) === JSON.stringify(data) ? prev : data; });
           localStorage.setItem('rummystore_apps', JSON.stringify(data));
           
           setAppsSyncedWithServer(true);
