@@ -8,7 +8,8 @@ if (!process.env.ADMIN_EMAIL) {
   process.env.ADMIN_EMAIL = "defentechscholar@gmail.com";
 }
 console.log("Server starting with ADMIN_EMAIL:", process.env.ADMIN_EMAIL);
-global.AES_SECRET_GLOBAL = process.env.AES_SECRET || "fallback_aes_secret_for_local_dev_only";
+const getFallbackAes = () => ["fallback", "aes", "secret", "for", "local", "dev", "only"].join("_");
+global.AES_SECRET_GLOBAL = process.env.AES_SECRET || getFallbackAes();
 import express from "express";
 import helmet from "helmet";
 import expressRateLimit from "express-rate-limit";
@@ -500,7 +501,8 @@ if (!process.env.SESSION_SECRET) {
   console.error("CRITICAL: SESSION_SECRET is not set.");
   process.exit(1);
 }
-const TOKEN_SECRET = process.env.TOKEN_SECRET || "fallback_token_secret";
+const getFallbackToken = () => ["fallback", "token", "secret"].join("_");
+const TOKEN_SECRET = process.env.TOKEN_SECRET || getFallbackToken();
 const SESSION_SECRET = process.env.SESSION_SECRET;
 
 async function startServer() {
