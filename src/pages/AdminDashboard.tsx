@@ -803,7 +803,11 @@ const GithubTab = React.memo(({ pushAllToGitHub, gitConfig, saveGitConfig, gener
     try {
       const { getAuth } = await import('firebase/auth');
       const auth = getAuth();
-      const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : '';
+      let idToken = auth.currentUser ? await auth.currentUser.getIdToken() : '';
+      if (!idToken) {
+        const { loadSession } = await import('../services/adminAuthService');
+        idToken = loadSession()?.idToken || '';
+      }
       
       const res = await fetch('/api/github-sync/test', {
         method: 'POST',

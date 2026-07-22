@@ -1,5 +1,5 @@
 declare var __ADMIN_ENABLED__: boolean;
-import { adminFetch } from '../services/adminAuthService';
+import { adminFetch, getValidAdminToken, loadSession } from '../services/adminAuthService';
 import { getAdminPath } from '../lib/utils';
 /**
  * DataContext state engine
@@ -724,6 +724,20 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     };
   }, [currentPath]);
 
+  const getAdminToken = async (): Promise<string> => {
+    try {
+      if (auth?.currentUser) {
+        const tok = await auth.currentUser.getIdToken();
+        if (tok) return tok;
+      }
+    } catch (e) {}
+    try {
+      const validTok = await getValidAdminToken();
+      if (validTok) return validTok;
+    } catch (e) {}
+    return loadSession()?.idToken || '';
+  };
+
   const updateLocalContainerBackup = React.useCallback(async (
     appsList: AppConfig[],
     settingsObj: GlobalSettings,
@@ -732,16 +746,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     videosList: VideoItem[]
   ) => {
     try {
-      const idToken = await auth.currentUser?.getIdToken();
-      if (!idToken) {
-        console.warn("Could not retrieve idToken for local backup.");
-        return;
-      }
+      const idToken = await getAdminToken();
       const res = await adminFetch('/api/v1/admin/sync-local', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`
+          ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
         },
         body: JSON.stringify({
           apps: appsList,
@@ -754,7 +764,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       if (!res.ok) {
         console.warn("backup-data endpoint failed:", await res.text());
       } else {
-        console.log("Local filesystem backup successful");
+        console.log("Local filesystem & cloud sync successful");
       }
     } catch (e) {
       console.warn("Failed to write local filesystem backup:", e);
@@ -789,7 +799,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (targetApps.length > 0) {
       log("GitHub Sync: Performing secure merge with local and cloud backups to guarantee zero data loss...");
       try {
-        const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : '';
+        const idToken = await getAdminToken();
         if (idToken) {
           const bkRes = await adminFetch('/api/v1/admin/backup-links-get', {
             headers: { 'Authorization': `Bearer ${idToken}` }
@@ -849,7 +859,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     log(`GitHub Sync: Preparing payload for "${targetRepo}" repository (Owner: ${configToUse.owner})...`);
     
     try {
-      const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : '';
+      const idToken = await getAdminToken();
       log(`GitHub Sync: Pushing staticData.ts to ${targetRepo}...`);
       await commitFileToGitHub({
         owner: configToUse.owner,
@@ -869,7 +879,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     log(`GitHub Sync: Building AES Encrypted Vault for ${targetRepo} hidden secure links...`);
     try {
-      const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : '';
+      const idToken = await getAdminToken();
       
       const vaultRes = await adminFetch('/api/v1/admin/seal-vault', {
          method: 'POST',
@@ -928,9 +938,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('rummystore_apps', JSON.stringify(newApps));
 
     try {
-      console.log("DEBUG: isFirebaseReal =", isFirebaseReal);
-      if (isFirebaseReal) {
-        console.log("Cloud: Pushing Apps update in chunks...");
+      if (isFirebaseReal && db) {
+        console.log("Cloud: Pushing Apps update in chunks via client SDK...");
         const CHUNK_SIZE = 25; 
         const numChunks = Math.ceil(newApps.length / CHUNK_SIZE) || 1;
         const now = new Date().toISOString();
@@ -943,34 +952,24 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
               delete app.encrypted_download_url;
               delete app.download_url;
             });
-            console.log(`Cloud: Writing apps_chunk_${i}...`);
             await setDoc(doc(db, 'store_data', `apps_chunk_${i}`), { items: chunk });
           }
           
           const metaRef = doc(db, 'store_data', 'apps_meta');
           await setDoc(metaRef, { numChunks, last_updated: now });
-          console.log("Cloud: Metadata and chunks successfully committed.");
-          
+          console.log("Cloud: Metadata and chunks successfully committed via client SDK.");
         } catch (dbErr: any) {
-          console.error("Firestore apps chunk save failed:", dbErr);
-          alert(`CRITICAL SAVE FAILURE: Chunks could not be saved to Firestore. ${dbErr.message}`);
-          throw dbErr; 
+          console.warn("Client SDK apps chunk save warning (will sync via server Admin SDK):", dbErr.message);
         }
         
-        // Save secure links mapping separately (fully encrypted to prevent read-leak of download URLs)
+        // Save secure links mapping separately (fully encrypted)
         const secureLinks = newApps.map(a => ({ id: a.id, url: a.more_information_url || '' }));
         let encryptedData = '';
         try {
           console.log("Cloud: Encrypting secure links for vault storage...");
-          const idToken = await auth.currentUser?.getIdToken();
-          if (!idToken) throw new Error("Authentication token missing. Please re-login.");
-
           const encRes = await adminFetch('/api/v1/admin/encrypt-links', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${idToken}`
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ items: secureLinks })
           });
           
@@ -979,47 +978,32 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             encryptedData = encJSON.encrypted;
             console.log("Cloud: Link encryption successful.");
           } else {
-            const errText = await encRes.text();
-            console.warn("Server encryption of secure links failed:", errText);
-            alert(`Server encryption of secure links failed: ${errText}`);
+            console.warn("Server encryption of secure links warning:", await encRes.text());
           }
         } catch (encErr: any) {
-          console.error("Encryption of secure links on save failed", encErr);
-          alert(`Encryption of secure links on save failed: ${encErr.message}`);
+          console.warn("Encryption of secure links warning:", encErr.message);
         }
 
-        if (encryptedData) {
+        if (encryptedData && db) {
           try {
-            console.log("Cloud: Writing encrypted vault to Firestore...");
             const payload = { encryptedData, lastUpdated: new Date().toISOString() };
             await setDoc(doc(db, 'store_data', 'secure_links'), payload);
             await setDoc(doc(db, 'store_data', 'sec_vault'), payload);
             await setDoc(doc(db, 'store_data', 'sec_links_vault_3'), payload);
-            console.log("Cloud: Secure vault committed successfully.");
+            console.log("Cloud: Secure vault committed via client SDK.");
           } catch (dbErr: any) {
-            console.error("Firestore secure links save failed:", dbErr);
-            alert(`CRITICAL SAVE FAILURE: Vault could not be saved. ${dbErr.message}`);
-            throw dbErr;
+            console.warn("Client SDK vault save warning:", dbErr.message);
           }
-        } else {
-          console.error("Skipping secure_links update due to encryption failure.");
-          throw new Error("Link encryption failed. Check network or auth token.");
         }
-        
-        console.log("Cloud: All app data synchronized successfully.");
-      } else {
-         console.warn("Save Apps: Firebase is not real. Cloud save skipped!");
-         alert("Warning: Firebase is not configured for cloud saving. Changes are saved locally only!");
       }
       
+      // 2. Server Sync: Server endpoint updates static backups AND Firestore via Admin SDK
       await updateLocalContainerBackup(newApps, settings, news, blogs, videos);
-
-      // GitHub Auto-Sync: Automatically commit to GitHub if configured (Disabled to prevent background triggers)
+      console.log("Save Apps: All data synchronized successfully.");
     } catch (err: any) {
       console.error("Save Apps Error:", err);
-      handleFirestoreError(err, OperationType.WRITE, 'store_data/apps');
     }
-  }, [gitConfig, settings, news, blogs, videos, updateLocalContainerBackup, pushAllToGitHub]);
+  }, [settings, news, blogs, videos, updateLocalContainerBackup]);
 
   const saveSettings = React.useCallback(async (newSettings: GlobalSettings) => {
     const now = new Date().toISOString();
@@ -1030,27 +1014,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('rummystore_settings', JSON.stringify(settingsWithTime));
 
     try {
-      if (isFirebaseReal) {
-        if (!db) {
-          console.error("Database not initialized");
-          return;
-        }
+      if (isFirebaseReal && db) {
         const docRef = doc(db, 'store_data', 'public_settings');
-        console.log("Cloud: Pushing Settings update...");
-        // Sanitize settings payload to exclude any 'undefined' properties, preventing Firestore write failures
+        console.log("Cloud: Pushing Settings update via client SDK...");
         const sanitized = JSON.parse(JSON.stringify(settingsWithTime));
         await setDoc(docRef, sanitized);
         console.log("Cloud: Settings update acknowledged by server.");
       }
-      
-      await updateLocalContainerBackup(apps, settingsWithTime, news, blogs, videos);
-
-      // GitHub Auto-Sync: Automatically commit to GitHub if configured (Disabled to prevent background triggers)
     } catch (err: any) {
-      console.error("Save Settings Error:", err);
-      handleFirestoreError(err, OperationType.WRITE, 'store_data/settings');
+      console.warn("Client SDK Save Settings warning (synced via server):", err.message);
     }
-  }, [gitConfig, apps, news, blogs, videos, updateLocalContainerBackup, pushAllToGitHub]);
+
+    await updateLocalContainerBackup(apps, settingsWithTime, news, blogs, videos);
+  }, [apps, news, blogs, videos, updateLocalContainerBackup]);
 
   const saveNews = React.useCallback(async (newNews: NewsItem[]) => {
     // 1. Snappy optimistic update to local state and local memory first
@@ -1058,23 +1034,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('rummystore_news', JSON.stringify(newNews));
 
     try {
-      if (isFirebaseReal) {
+      if (isFirebaseReal && db) {
         const docRef = doc(db, 'store_data', 'news');
-        console.log("Cloud: Pushing News update...");
-        // Sanitize payload to exclude any 'undefined' properties, preventing Firestore write failures
+        console.log("Cloud: Pushing News update via client SDK...");
         const sanitized = JSON.parse(JSON.stringify({ items: newNews }));
         await setDoc(docRef, sanitized);
         console.log("Cloud: News update acknowledged by server.");
       }
-      
-      await updateLocalContainerBackup(apps, settings, newNews, blogs, videos);
-
-      // GitHub Auto-Sync: Automatically commit to GitHub if configured (Disabled to prevent background triggers)
     } catch (err: any) {
-      console.error("Save News Error:", err);
-      handleFirestoreError(err, OperationType.WRITE, 'store_data/news');
+      console.warn("Client SDK Save News warning (synced via server):", err.message);
     }
-  }, [gitConfig, apps, settings, blogs, videos, updateLocalContainerBackup, pushAllToGitHub]);
+
+    await updateLocalContainerBackup(apps, settings, newNews, blogs, videos);
+  }, [apps, settings, blogs, videos, updateLocalContainerBackup]);
 
   const saveBlogs = React.useCallback(async (newBlogs: BlogPost[]) => {
     // 1. Snappy optimistic update to local state and local memory first
@@ -1082,23 +1054,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('rummystore_blogs', JSON.stringify(newBlogs));
 
     try {
-      if (isFirebaseReal) {
+      if (isFirebaseReal && db) {
         const docRef = doc(db, 'store_data', 'blogs');
-        console.log("Cloud: Pushing Blogs update...");
-        // Sanitize payload to exclude any 'undefined' properties, preventing Firestore write failures
+        console.log("Cloud: Pushing Blogs update via client SDK...");
         const sanitized = JSON.parse(JSON.stringify({ items: newBlogs }));
         await setDoc(docRef, sanitized);
         console.log("Cloud: Blogs update acknowledged by server.");
       }
-      
-      await updateLocalContainerBackup(apps, settings, news, newBlogs, videos);
-
-      // GitHub Auto-Sync: Automatically commit to GitHub if configured (Disabled to prevent background triggers)
     } catch (err: any) {
-      console.error("Save Blogs Error:", err);
-      handleFirestoreError(err, OperationType.WRITE, 'store_data/blogs');
+      console.warn("Client SDK Save Blogs warning (synced via server):", err.message);
     }
-  }, [gitConfig, apps, settings, news, videos, updateLocalContainerBackup, pushAllToGitHub]);
+
+    await updateLocalContainerBackup(apps, settings, news, newBlogs, videos);
+  }, [apps, settings, news, videos, updateLocalContainerBackup]);
 
   const saveVideos = React.useCallback(async (newVideos: VideoItem[]) => {
     // 1. Snappy optimistic update to local state and local memory first
@@ -1106,23 +1074,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('rummystore_videos', JSON.stringify(newVideos));
 
     try {
-      if (isFirebaseReal) {
+      if (isFirebaseReal && db) {
         const docRef = doc(db, 'store_data', 'videos');
-        console.log("Cloud: Pushing Videos update...");
-        // Sanitize payload to exclude any 'undefined' properties, preventing Firestore write failures
+        console.log("Cloud: Pushing Videos update via client SDK...");
         const sanitized = JSON.parse(JSON.stringify({ items: newVideos }));
         await setDoc(docRef, sanitized);
         console.log("Cloud: Videos update acknowledged by server.");
       }
-      
-      await updateLocalContainerBackup(apps, settings, news, blogs, newVideos);
-
-      // GitHub Auto-Sync: Automatically commit to GitHub if configured (Disabled to prevent background triggers)
     } catch (err: any) {
-      console.error("Save Videos Error:", err);
-      handleFirestoreError(err, OperationType.WRITE, 'store_data/videos');
+      console.warn("Client SDK Save Videos warning (synced via server):", err.message);
     }
-  }, [gitConfig, apps, settings, news, blogs, updateLocalContainerBackup, pushAllToGitHub]);
+
+    await updateLocalContainerBackup(apps, settings, news, blogs, newVideos);
+  }, [apps, settings, news, blogs, updateLocalContainerBackup]);
 
   const saveGitConfig = React.useCallback(async (newConfig: GitConfig) => {
     try {

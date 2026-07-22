@@ -332,6 +332,12 @@ export async function commitFileToGitHub({
     } catch (e) {
       console.warn("Could not retrieve current user idToken for Github commit authentication:", e);
     }
+    if (!idToken) {
+      try {
+        const { loadSession } = await import('../services/adminAuthService');
+        idToken = loadSession()?.idToken || '';
+      } catch (e) {}
+    }
   }
 
   const headers: Record<string, string> = {

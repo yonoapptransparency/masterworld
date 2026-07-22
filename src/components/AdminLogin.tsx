@@ -156,6 +156,17 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
         throw new Error("Invalid server response: Missing authentication token.");
       }
 
+      try {
+        const { getAuth, signInWithEmailAndPassword } = await import('firebase/auth');
+        const auth = getAuth();
+        if (auth) {
+          await signInWithEmailAndPassword(auth, email, passwordInput);
+          console.log("Client-side Firebase Auth synchronized successfully.");
+        }
+      } catch (authSyncErr) {
+        console.warn("Client-side Firebase Auth sync skipped:", authSyncErr);
+      }
+
       onSuccess(loginData.token, 'MOCK_ADMIN_REFRESH', loginData.email || email);
     } catch (err: any) {
       console.error("Local sign-in error:", err);

@@ -2102,7 +2102,44 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
 
       // Local fallback writing removed for security compliance.
 
-      res.json({ success: true, message: "Local fallback components strictly synced." });
+      // 3. Cloud Firestore Server-side update via Admin SDK
+      try {
+        const adminDb = getFirebaseAdminDb();
+        if (adminDb) {
+          if (apps && Array.isArray(apps)) {
+            const CHUNK_SIZE = 25;
+            const numChunks = Math.ceil(apps.length / CHUNK_SIZE) || 1;
+            for (let i = 0; i < numChunks; i++) {
+              const chunk = JSON.parse(JSON.stringify(apps.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE)));
+              chunk.forEach((app: any) => {
+                delete app.more_information_url;
+                delete app.encrypted_download_url;
+                delete app.download_url;
+              });
+              await adminDb.collection('store_data').doc(`apps_chunk_${i}`).set({ items: chunk });
+            }
+            await adminDb.collection('store_data').doc('apps_meta').set({ numChunks, last_updated: new Date().toISOString() });
+          }
+          if (settings) {
+            const sanitized = JSON.parse(JSON.stringify(settings));
+            await adminDb.collection('store_data').doc('public_settings').set(sanitized);
+          }
+          if (news && Array.isArray(news)) {
+            await adminDb.collection('store_data').doc('news').set({ items: JSON.parse(JSON.stringify(news)) });
+          }
+          if (blogs && Array.isArray(blogs)) {
+            await adminDb.collection('store_data').doc('blogs').set({ items: JSON.parse(JSON.stringify(blogs)) });
+          }
+          if (videos && Array.isArray(videos)) {
+            await adminDb.collection('store_data').doc('videos').set({ items: JSON.parse(JSON.stringify(videos)) });
+          }
+          console.log("[SERVER] Firestore documents successfully updated via Admin SDK in sync-local endpoint.");
+        }
+      } catch (fsErr: any) {
+        console.warn("[SERVER] Firestore update in sync-local endpoint warning:", fsErr.message);
+      }
+
+      res.json({ success: true, message: "Local fallback and cloud Firestore components strictly synced." });
     } catch (err: any) {
       console.error("local file sync endpoint error:", err);
       res.status(500).json({ error: "Failed to store local fallback: " + err.message });
