@@ -156,18 +156,41 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
         throw new Error("Invalid server response: Missing authentication token.");
       }
 
-      try {
-        const { getAuth, signInWithEmailAndPassword } = await import('firebase/auth');
-        const auth = getAuth();
-        if (auth) {
-          await signInWithEmailAndPassword(auth, email, passwordInput);
-          console.log("Client-side Firebase Auth synchronized successfully.");
-        }
-      } catch (authSyncErr) {
-        console.warn("Client-side Firebase Auth sync skipped:", authSyncErr);
+      if (!isFirebaseReal) {
+        onSuccess(loginData.token, 'SERVER_SESSION', loginData.email || email);
+        return;
       }
 
-      onSuccess(loginData.token, 'MOCK_ADMIN_REFRESH', loginData.email || email);
+      try {
+        const { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } = await import('firebase/auth');
+        const auth = getAuth();
+        if (auth) {
+          let userCredential;
+          try {
+            userCredential = await signInWithEmailAndPassword(auth, email, passwordInput);
+            console.log("Client-side Firebase Auth synchronized successfully.");
+          } catch (signInErr: any) {
+            if (signInErr.code === 'auth/user-not-found' || signInErr.code === 'auth/invalid-credential' || signInErr.code === 'auth/wrong-password') {
+              try {
+                userCredential = await createUserWithEmailAndPassword(auth, email, passwordInput);
+                console.log("Client-side Firebase Auth user created and synchronized successfully.");
+              } catch (createErr) {
+                console.error("Failed to auto-create Firebase Auth user:", createErr);
+                throw signInErr;
+              }
+            } else {
+              throw signInErr;
+            }
+          }
+          const clientRefreshToken = userCredential.user.refreshToken || 'SERVER_SESSION';
+          onSuccess(loginData.token, clientRefreshToken, loginData.email || email);
+        } else {
+          onSuccess(loginData.token, 'SERVER_SESSION', loginData.email || email);
+        }
+      } catch (authSyncErr: any) {
+        console.error("Client-side Firebase Auth sync failed:", authSyncErr);
+        throw new Error("Client-side Firebase Auth synchronization failed: " + (authSyncErr.message || authSyncErr));
+      }
     } catch (err: any) {
       console.error("Local sign-in error:", err);
       let msg = err.message || "An unexpected error occurred.";

@@ -1216,8 +1216,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const resolvedSettings = React.useMemo(() => ({
     ...settings,
-    favicon_url: "https://res.cloudinary.com/diewalae4/image/upload/v1784618987/Make_this_into_a_perfect_circle_format_keeping_the_RUMMY_DEX_text_and_red__20260721_125826_0000_zgdz8s.png",
-    logo_url: "https://res.cloudinary.com/diewalae4/image/upload/v1784618987/Make_this_into_a_perfect_circle_format_keeping_the_RUMMY_DEX_text_and_red__20260721_125826_0000_zgdz8s.png"
+    favicon_url: settings?.favicon_url || "https://res.cloudinary.com/diewalae4/image/upload/v1784618987/Make_this_into_a_perfect_circle_format_keeping_the_RUMMY_DEX_text_and_red__20260721_125826_0000_zgdz8s.png",
+    logo_url: settings?.logo_url || "https://res.cloudinary.com/diewalae4/image/upload/v1784618987/Make_this_into_a_perfect_circle_format_keeping_the_RUMMY_DEX_text_and_red__20260721_125826_0000_zgdz8s.png"
   }), [settings]);
 
   // Memoize the context value to prevent unnecessary re-renders of consuming components

@@ -55,9 +55,13 @@ const getResolvedConfig = () => {
   try { resolvedMessagingId = process.env.FIREBASE_MESSAGING_ID; } catch(e){}
   if (!resolvedMessagingId) try { resolvedMessagingId = import.meta.env.VITE_FIREBASE_MESSAGING_ID; } catch(e){}
 
-  if (!isRealValue(resolvedAuthDomain) && isRealValue(resolvedProjectId)) {
-    resolvedAuthDomain = `${resolvedProjectId}.firebaseapp.com`;
-  }
+  if (!isRealValue(resolvedProjectId)) resolvedProjectId = "gen-lang-client-0825832493";
+  if (!isRealValue(resolvedApiKey)) resolvedApiKey = "AIzaSyBey9sUbeWlrcXS2kl4ewOzkTy4arg03Ok";
+  if (!isRealValue(resolvedAppId)) resolvedAppId = "1:103973989874:web:733a6afd8e837224900f6b";
+  if (!isRealValue(resolvedAuthDomain)) resolvedAuthDomain = "gen-lang-client-0825832493.firebaseapp.com";
+  if (!isRealValue(resolvedDatabaseId)) resolvedDatabaseId = "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a";
+  if (!isRealValue(resolvedStorageBucket)) resolvedStorageBucket = "gen-lang-client-0825832493.firebasestorage.app";
+  if (!isRealValue(resolvedMessagingId)) resolvedMessagingId = "103973989874";
 
   if (isRealValue(resolvedProjectId) && isRealValue(resolvedApiKey) && isRealValue(resolvedAuthDomain)) {
     return {
