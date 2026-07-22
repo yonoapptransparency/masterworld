@@ -30,7 +30,7 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
   const [isResending, setIsResending] = useState(false);
 
   useEffect(() => {
-    if (!isFirebaseReal) return;
+    if (!isFirebaseReal || !auth) return;
     const checkRedirect = async () => {
       try {
         const result = await getRedirectResult(auth);
@@ -41,34 +41,27 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
           const idToken = await user.getIdToken();
           const refreshToken = user.refreshToken || '';
           
-          const verifyRes = await fetch("/api/v1/admin/verify-session", {
+          const verifyRes = await fetch("/api/v1/admin/google-login", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${idToken}`,
             },
-            body: JSON.stringify({ email }),
+            body: JSON.stringify({ idToken }),
           });
           
-      let verifyData: any = {};
-      let responseText = "";
-      try {
-        responseText = await verifyRes.text();
-        verifyData = JSON.parse(responseText);
-      } catch(e) {
-        verifyData.error = "Non-JSON response: " + responseText.substring(0, 100);
-      }
+          let verifyData: any = {};
+          let responseText = "";
+          try {
+            responseText = await verifyRes.text();
+            verifyData = JSON.parse(responseText);
+          } catch(e) {
+            verifyData.error = "Non-JSON response: " + responseText.substring(0, 100);
+          }
 
           if (!verifyRes.ok) {
-            if (verifyRes.status === 403 && verifyData.mfaRequired) {
-              setTempCreds({ idToken, refreshToken, email });
-              setMfaRequired(true);
-              setIsLoading(false);
-              return;
-            }
-            throw new Error(verifyData.error || "Session verification failed");
+            throw new Error(verifyData.error || "Google login redirect verification failed");
           }
-          onSuccess(idToken, refreshToken, email);
+          onSuccess(verifyData.token, refreshToken, email);
         }
       } catch (err: any) {
         console.error('Redirect login error:', err);
@@ -162,9 +155,8 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
       }
 
       try {
-        const { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } = await import('firebase/auth');
-        const auth = getAuth();
         if (auth) {
+          const { signInWithEmailAndPassword, createUserWithEmailAndPassword } = await import('firebase/auth');
           let userCredential;
           try {
             userCredential = await signInWithEmailAndPassword(auth, email, passwordInput);
@@ -204,16 +196,11 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
       setError(null);
       setIsLoading(true);
 
-      if (!isFirebaseReal) {
+      if (!isFirebaseReal || !auth) {
         throw new Error("Firebase configuration is not available.");
       }
 
-      const { getAuth, signInWithPopup, GoogleAuthProvider } = await import('firebase/auth');
-      const auth = getAuth();
-      if (!auth) {
-        throw new Error("Firebase auth module failed to initialize.");
-      }
-
+      const { signInWithPopup, GoogleAuthProvider } = await import('firebase/auth');
       const provider = new GoogleAuthProvider();
       provider.addScope('email');
       provider.addScope('profile');

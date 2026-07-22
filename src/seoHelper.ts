@@ -33,38 +33,48 @@ function getRawFirebaseConfig(): any {
     return cachedRawFirebaseConfig;
   }
 
+  // 1. Try local/config file
   try {
     const rawData = fs.readFileSync(path.join(process.cwd(), 'firebase-applet-config.json'), 'utf8');
     const config = JSON.parse(rawData);
-    if (!config.projectId || !isRealValue(config.projectId)) throw new Error('is placeholder or mock');
-    cachedRawFirebaseConfig = config;
-    return config;
-  } catch (err) {
-    try {
-      const cleanB64 = B64_FALLBACK.replace(/[^A-Za-z0-9+/=]/g, "");
-      const fallbackConfig = JSON.parse(Buffer.from(cleanB64, 'base64').toString('utf8'));
-      if (fallbackConfig && fallbackConfig.projectId && isRealValue(fallbackConfig.projectId)) {
-        cachedRawFirebaseConfig = fallbackConfig;
-        return fallbackConfig;
-      }
-    } catch (_) {}
-
-    const envProjectId = process.env.VITE_FIREBASE_PROJECT_ID;
-    if (envProjectId && isRealValue(envProjectId)) {
-      cachedRawFirebaseConfig = {
-        projectId: process.env.VITE_FIREBASE_PROJECT_ID,
-        appId: process.env.VITE_FIREBASE_APP_ID,
-        apiKey: process.env.VITE_FIREBASE_API_KEY,
-        authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
-        firestoreDatabaseId: process.env.VITE_FIREBASE_DATABASE_ID || '(default)',
-        storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET,
-        messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_ID || process.env.VITE_FIREBASE_MESSAGING_SENDER_ID
-      };
-      return cachedRawFirebaseConfig;
+    if (config.projectId && isRealValue(config.projectId)) {
+      config.firestoreDatabaseId = config.firestoreDatabaseId || config.databaseId || process.env.VITE_FIREBASE_DATABASE_ID;
+      config.apiKey = config.apiKey || process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY;
+      cachedRawFirebaseConfig = config;
+      return config;
     }
-    
-    throw new Error('Firebase configuration not found and no environment variables set.');
+  } catch (err) {
+    // Proceed to environment variables
   }
+
+  // 2. Try environment variables
+  const envProjectId = process.env.VITE_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
+  const envDbId = process.env.VITE_FIREBASE_DATABASE_ID || process.env.FIREBASE_DATABASE_ID;
+  const envApiKey = process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY;
+  if (envProjectId && isRealValue(envProjectId)) {
+    cachedRawFirebaseConfig = {
+      projectId: envProjectId,
+      appId: process.env.VITE_FIREBASE_APP_ID || process.env.FIREBASE_APP_ID,
+      apiKey: envApiKey,
+      authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || process.env.FIREBASE_AUTH_DOMAIN,
+      firestoreDatabaseId: envDbId || '(default)',
+      storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || process.env.FIREBASE_STORAGE_BUCKET,
+      messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_ID || process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || process.env.FIREBASE_MESSAGING_SENDER_ID
+    };
+    return cachedRawFirebaseConfig;
+  }
+
+  // 3. Try B64 fallback as absolute last resort
+  try {
+    const cleanB64 = B64_FALLBACK.replace(/[^A-Za-z0-9+/=]/g, "");
+    const fallbackConfig = JSON.parse(Buffer.from(cleanB64, 'base64').toString('utf8'));
+    if (fallbackConfig && fallbackConfig.projectId && isRealValue(fallbackConfig.projectId)) {
+      cachedRawFirebaseConfig = fallbackConfig;
+      return fallbackConfig;
+    }
+  } catch (_) {}
+
+  throw new Error('Firebase configuration not found and no environment variables set.');
 }
 
 function parseFirestoreValue(value: any): any {
