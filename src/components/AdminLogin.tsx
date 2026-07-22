@@ -199,6 +199,76 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    try {
+      setError(null);
+      setIsLoading(true);
+
+      if (!isFirebaseReal) {
+        throw new Error("Firebase configuration is not available.");
+      }
+
+      const { getAuth, signInWithPopup, GoogleAuthProvider } = await import('firebase/auth');
+      const auth = getAuth();
+      if (!auth) {
+        throw new Error("Firebase auth module failed to initialize.");
+      }
+
+      const provider = new GoogleAuthProvider();
+      provider.addScope('email');
+      provider.addScope('profile');
+
+      let userCredential;
+      try {
+        userCredential = await signInWithPopup(auth, provider);
+      } catch (popupErr: any) {
+        console.warn("Popup sign-in failed, trying redirect:", popupErr);
+        if (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/popup-closed-by-user' || popupErr.code === 'auth/cancelled-popup-request') {
+          const { signInWithRedirect } = await import('firebase/auth');
+          await signInWithRedirect(auth, provider);
+          return;
+        }
+        throw popupErr;
+      }
+
+      const user = userCredential.user;
+      const firebaseIdToken = await user.getIdToken();
+      const email = user.email || '';
+
+      // Verify the google sign-in with the backend to obtain our custom admin AES session token
+      const googleLoginRes = await fetch("/api/v1/admin/google-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken: firebaseIdToken }),
+      });
+
+      let googleLoginData: any = {};
+      let responseText = "";
+      try {
+        responseText = await googleLoginRes.text();
+        googleLoginData = JSON.parse(responseText);
+      } catch (e) {
+        googleLoginData.error = "Non-JSON response: " + responseText.substring(0, 100);
+      }
+
+      if (!googleLoginRes.ok) {
+        throw new Error(googleLoginData.error || `Google authentication verification failed (${googleLoginRes.status})`);
+      }
+
+      if (!googleLoginData.token) {
+        throw new Error("Invalid server response during Google login verification.");
+      }
+
+      const clientRefreshToken = user.refreshToken || 'SERVER_SESSION';
+      onSuccess(googleLoginData.token, clientRefreshToken, googleLoginData.email || email);
+    } catch (err: any) {
+      console.error("Google Sign-In error:", err);
+      let msg = err.message || "An unexpected error occurred during Google Sign-In.";
+      setError(msg);
+      setIsLoading(false);
+    }
+  };
+
   const handleMfaSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!tempCreds) return;
@@ -525,6 +595,47 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
                     )}
                     <span>{isLoading ? (isSignUp ? 'Creating Account...' : 'Processing...') : (isSignUp ? 'Create Admin Account' : 'Sign in with Email')}</span>
                   </button>
+
+                  {isFirebaseReal && !isSignUp && (
+                    <>
+                      <div className="relative flex py-2 items-center">
+                        <div className="flex-grow border-t border-white/10"></div>
+                        <span className="flex-shrink mx-4 text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Or</span>
+                        <div className="flex-grow border-t border-white/10"></div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleGoogleSignIn}
+                        disabled={isLoading}
+                        className="w-full flex items-center justify-center gap-3 bg-white hover:bg-zinc-100 text-zinc-900 shadow-[0_0_20px_rgba(255,255,255,0.15)] rounded-2xl py-3.5 px-4 font-bold transition-all active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                      >
+                        {isLoading ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-zinc-900" />
+                        ) : (
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" width="16" height="16">
+                            <path
+                              fill="#4285F4"
+                              d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v3.92h6.61c-.29 1.5-1.14 2.78-2.4 3.63v3.02h3.88c2.27-2.1 3.65-5.18 3.65-8.5z"
+                            />
+                            <path
+                              fill="#34A853"
+                              d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.02c-1.08.72-2.45 1.16-4.05 1.16-3.11 0-5.74-2.11-6.68-4.96H1.21v3.11C3.18 21.88 7.39 24 12 24z"
+                            />
+                            <path
+                              fill="#FBBC05"
+                              d="M5.32 14.27c-.24-.72-.38-1.49-.38-2.27s.14-1.55.38-2.27V6.62H1.21C.44 8.24 0 10.07 0 12s.44 3.76 1.21 5.38l4.11-3.11z"
+                            />
+                            <path
+                              fill="#EA4335"
+                              d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.39 0 3.18 2.12 1.21 5.38l4.11 3.11c.94-2.85 3.57-4.96 6.68-4.96z"
+                            />
+                          </svg>
+                        )}
+                        <span>{isLoading ? 'Processing...' : 'Sign in with Google'}</span>
+                      </button>
+                    </>
+                  )}
 
                   <div className="pt-2 text-center">
                     <button

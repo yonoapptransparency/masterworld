@@ -1042,6 +1042,71 @@ app.post("/api/v1/admin/login", async (req: any, res: any) => {
   return res.status(401).json({ error: "Invalid email or password." });
 });
 
+app.post("/api/v1/admin/google-login", async (req: any, res: any) => {
+  const { idToken } = req.body ?? {};
+  if (!idToken) {
+    return res.status(400).json({ error: "Missing Firebase ID Token." });
+  }
+
+  try {
+    let email = "";
+    
+    // Attempt 1: Verify using firebase-admin SDK if available
+    try {
+      const adminDb = getFirebaseAdminDb();
+      if (adminDb) {
+        const admin = require('firebase-admin');
+        const decodedToken = await admin.auth().verifyIdToken(idToken);
+        email = decodedToken.email || "";
+      }
+    } catch (sdkErr) {
+      console.warn("Firebase Admin SDK verification failed, falling back to HTTPS lookup:", sdkErr);
+    }
+
+    // Attempt 2: Fallback to Firebase Identity Toolkit HTTPS API
+    if (!email) {
+      try {
+        const config = getRawFirebaseConfig();
+        const apiKey = config?.apiKey || process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY;
+        if (apiKey) {
+          const lookupRes = await fetch(
+            `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${apiKey}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ idToken }),
+            }
+          );
+          if (lookupRes.ok) {
+            const lookupData = await lookupRes.json();
+            email = lookupData?.users?.[0]?.email || "";
+          }
+        }
+      } catch (httpsErr) {
+        console.error("Firebase accounts:lookup verification failed:", httpsErr);
+      }
+    }
+
+    if (!email) {
+      return res.status(401).json({ error: "Unauthorized: Could not verify identity token." });
+    }
+
+    const configuredAdminEmail = String(process.env.ADMIN_EMAIL || "defentechscholar@gmail.com").toLowerCase();
+    if (email.toLowerCase().trim() !== configuredAdminEmail) {
+      return res.status(403).json({ error: `Unauthorized: ${email} is not configured as an administrator.` });
+    }
+
+    // Success! Generate custom server AES token
+    const AES_SECRET = process.env.AES_SECRET || AES_SECRET_GLOBAL || "fallback_aes_secret";
+    const payload = JSON.stringify({ admin: true, email: email.toLowerCase().trim(), exp: Date.now() + 86400000 });
+    const token = safeEncrypt(payload, AES_SECRET);
+    return res.json({ token, email: email.toLowerCase().trim() });
+  } catch (err: any) {
+    console.error("Google login backend error:", err);
+    return res.status(500).json({ error: "Authentication failed on server: " + (err.message || String(err)) });
+  }
+});
+
 app.post("/api/v1/admin/verify-session", async (req: any, res: any) => {
   const authHeader = String(req.headers.authorization || "");
   if (!authHeader.startsWith("Bearer ")) { return res.status(401).json({ error: "Unauthorized." }); }
