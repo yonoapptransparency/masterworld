@@ -216,7 +216,7 @@ export async function syncFromFirestore(): Promise<any> {
       }, null, 2), 'utf8');
 
       try {
-        const { generateStaticDataFileCode } = require('./lib/dummyAdmin');
+        const { generateStaticDataFileCode } = require('./lib/githubSync');
         const tsCode = generateStaticDataFileCode(apps, settings, news, blogs, videos);
         fs.writeFileSync(path.join(process.cwd(), 'src/lib/staticData.ts'), tsCode, 'utf8');
       } catch (e: any) {

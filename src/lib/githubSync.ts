@@ -31,23 +31,41 @@ export function b64EncodeUnicode(str: string): string {
  * Dynamically generates the content of `src/lib/staticData.ts` based on current state
  */
 export function generateStaticDataFileCode(
-  apps: any[],
-  settings: any,
-  news: any[],
-  blogs: any[],
-  videos: any[]
+  apps: any[] = [],
+  settings: any = {},
+  news: any[] = [],
+  blogs: any[] = [],
+  videos: any[] = []
 ): string {
   // Let us clean up and default any potential circular refs or undef values by round-tripping
-  const cleanApps = JSON.parse(JSON.stringify(apps)).map((app: any) => {
+  const cleanApps = JSON.parse(JSON.stringify(apps || [])).map((app: any) => {
     delete app.more_information_url;
     delete app.encrypted_download_url;
     delete app.download_url;
     return app;
   });
-  const cleanSettings = JSON.parse(JSON.stringify(settings));
-  const cleanNews = JSON.parse(JSON.stringify(news));
-  const cleanBlogs = JSON.parse(JSON.stringify(blogs));
-  const cleanVideos = JSON.parse(JSON.stringify(videos));
+  const defaultSettings = {
+    site_title: "Yono Store",
+    meta_description: "Download All Yono Games, Rummy Apps & Teen Patti APKs",
+    logo_url: "",
+    favicon_url: "",
+    helpline_whatsapp: "",
+    helpline_telegram: "",
+    support_email: "",
+    disclaimer_text: "",
+    ethics_discrimination_text: "",
+    ticker_text: "",
+    animations_enabled: true,
+    categories: [],
+    banners: [],
+    quick_links: [],
+    website_faqs: [],
+    developers: []
+  };
+  const cleanSettings = { ...defaultSettings, ...JSON.parse(JSON.stringify(settings || {})) };
+  const cleanNews = JSON.parse(JSON.stringify(news || []));
+  const cleanBlogs = JSON.parse(JSON.stringify(blogs || []));
+  const cleanVideos = JSON.parse(JSON.stringify(videos || []));
 
   return `// No secureStorage import to avoid Vercel build errors when secureStorage is stripped
 
@@ -153,6 +171,7 @@ export interface AppConfig {
   serial_number: number;
   is_featured: boolean;
   is_new: boolean;
+  is_hot?: boolean;
   release_notes: string;
   rating: number;
   created_at: string;

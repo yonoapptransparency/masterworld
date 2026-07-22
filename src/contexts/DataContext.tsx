@@ -426,7 +426,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }, 5000);
 
     const checkConnection = async () => {
-      if (!isFirebaseReal || !currentPath.startsWith('/' + getAdminPath())) {
+      if (!isFirebaseReal) {
           setIsConnected(false);
           setLoadedFromServer(true);
           setLoading(false);
@@ -482,9 +482,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     checkConnection();
 
-    const isAdminRoute = currentPath.startsWith('/' + getAdminPath());
-
-    if (!isFirebaseReal || !isAdminRoute) {
+    if (!isFirebaseReal) {
         // Mark as loaded immediately
         setLoadedFromServer(true);
         setLoading(false);
