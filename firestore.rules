@@ -85,7 +85,8 @@ service cloud.firestore {
 
     // 5. Store data collection (app catalog, public settings, news, blogs, videos, secure links vault)
     match /store_data/{docId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     // 6. Secure Git Configuration collection

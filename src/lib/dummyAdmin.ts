@@ -8,6 +8,7 @@ export const adminFetch = async () => ({ ok: false, json: async () => ({}) });
 export const saveSession = () => {};
 export const loadSession = () => null;
 export const clearSession = () => {};
+export const getValidAdminToken = async () => null;
 
 // src/lib/githubSync
 export interface GitConfig {

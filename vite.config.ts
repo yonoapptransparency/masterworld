@@ -124,7 +124,7 @@ export default defineConfig(({mode}) => {
           find: /.*\/components\/ClearanceButton$/, 
           replacement: fs.existsSync(path.resolve(__dirname, 'src/components/ClearanceButton.tsx')) 
             ? path.resolve(__dirname, 'src/components/ClearanceButton.tsx') 
-            : path.resolve(__dirname, 'src/lib/dummyAdmin.ts') 
+            : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
         },
         { 
           find: /.*\/lib\/lightFallback$/, 

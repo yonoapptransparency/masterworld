@@ -1,6 +1,11 @@
 const fs = require('fs');
 const { execSync } = require('child_process');
 
+if (!fs.existsSync('server.ts')) {
+    console.log("server.ts not found. Skipping api/index.js generation.");
+    process.exit(0);
+}
+
 console.log("Generating api/index.js from server.ts...");
 
 let content = fs.readFileSync('server.ts', 'utf8');
