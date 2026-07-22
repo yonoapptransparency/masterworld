@@ -450,7 +450,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        const testDoc = doc(db, 'store_data', 'connectivity_test');
+        const testDoc = doc(db, 'store_data', 'public_settings');
         // Use soft cached getDoc instead of getDocFromServer to avoid active network error logs
         await getDoc(testDoc);
         setIsConnected(true);
