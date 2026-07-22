@@ -124,10 +124,16 @@ function getFirebaseAdminDb(): any {
   if (adminInitFailed) return null;
   try {
     const admin = require('firebase-admin');
-    if (admin.apps.length === 0) {
-      admin.initializeApp();
-    }
     const config = getRawFirebaseConfig();
+    if (admin.apps.length === 0) {
+      if (config && config.projectId) {
+        admin.initializeApp({
+          projectId: config.projectId
+        });
+      } else {
+        admin.initializeApp();
+      }
+    }
     const dbId = config?.firestoreDatabaseId || '(default)';
     if (dbId && dbId !== '(default)') {
       const { getFirestore } = require('firebase-admin/firestore');
@@ -138,7 +144,7 @@ function getFirebaseAdminDb(): any {
     console.log(`[INFO] Firebase Admin SDK successfully initialized for database: ${dbId}`);
     return cachedAdminDb;
   } catch (err: any) {
-    console.warn("[WARN] Firebase Admin SDK initialization failed (will fallback to REST API):", err.message || err);
+    console.warn("[WARN] Firebase Admin SDK initialization failed:", err.message || err);
     adminInitFailed = true;
     return null;
   }
@@ -2139,10 +2145,26 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
         console.warn("[SERVER] Firestore update in sync-local endpoint warning:", fsErr.message);
       }
 
-      res.json({ success: true, message: "Local fallback and cloud Firestore components strictly synced." });
+      // Write updated static backup file & clear in-memory cache
+      try {
+        const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
+        const backupPayload = {
+          apps: apps || [],
+          settings: settings || {},
+          news: news || [],
+          blogs: blogs || [],
+          videos: videos || []
+        };
+        fs.writeFileSync(publicBackupPath, JSON.stringify(backupPayload, null, 2), 'utf8');
+      } catch (e) {
+        console.warn("[SERVER] Could not update public_backup.json:", e);
+      }
+      backupDataCache = null;
+
+      res.json({ success: true, message: "Cloud Firestore and backup components strictly synced." });
     } catch (err: any) {
       console.error("local file sync endpoint error:", err);
-      res.status(500).json({ error: "Failed to store local fallback: " + err.message });
+      res.status(500).json({ error: "Failed to store backup: " + err.message });
     }
   });
 
@@ -2258,16 +2280,151 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
      }
   });
 
+  // Helper functions to parse Firestore REST API document fields
+  function parseFirestoreValue(val: any): any {
+    if (!val) return null;
+    if ('stringValue' in val) return val.stringValue;
+    if ('booleanValue' in val) return val.booleanValue;
+    if ('integerValue' in val) return parseInt(val.integerValue, 10);
+    if ('doubleValue' in val) return parseFloat(val.doubleValue);
+    if ('timestampValue' in val) return val.timestampValue;
+    if ('nullValue' in val) return null;
+    if ('mapValue' in val) {
+      const fields = val.mapValue?.fields || {};
+      const res: any = {};
+      for (const key of Object.keys(fields)) {
+        res[key] = parseFirestoreValue(fields[key]);
+      }
+      return res;
+    }
+    if ('arrayValue' in val) {
+      const values = val.arrayValue?.values || [];
+      return values.map((v: any) => parseFirestoreValue(v));
+    }
+    return null;
+  }
+
+  function parseFirestoreFields(fields: any): any {
+    if (!fields) return {};
+    const res: any = {};
+    for (const key of Object.keys(fields)) {
+      res[key] = parseFirestoreValue(fields[key]);
+    }
+    return res;
+  }
+
   // Public API: Direct local filesystem backup endpoint with in-memory caching to load fast fallback instantly
   let backupDataCache: any = null;
   let backupDataCacheTime = 0;
   const BACKUP_DATA_CACHE_TTL = 30000; // 30 seconds memory cache
 
-  app.get("/api/v1/public/backup-data", (req, res) => {
+  app.get("/api/v1/public/backup-data", async (req, res) => {
     try {
       const now = Date.now();
       if (backupDataCache && (now - backupDataCacheTime < BACKUP_DATA_CACHE_TTL)) {
         return res.json(backupDataCache);
+      }
+
+      // 1. Live Firestore read via Admin SDK
+      try {
+        const adminDb = getFirebaseAdminDb();
+        if (adminDb) {
+          const metaSnap = await adminDb.collection('store_data').doc('apps_meta').get();
+          let apps: any[] = [];
+          if (metaSnap.exists) {
+            const numChunks = metaSnap.data()?.numChunks || 1;
+            for (let i = 0; i < numChunks; i++) {
+              const chunkSnap = await adminDb.collection('store_data').doc(`apps_chunk_${i}`).get();
+              if (chunkSnap.exists && chunkSnap.data()?.items) {
+                apps.push(...chunkSnap.data().items);
+              }
+            }
+          } else {
+            const legacySnap = await adminDb.collection('store_data').doc('apps').get();
+            if (legacySnap.exists && legacySnap.data()?.items) {
+              apps = legacySnap.data().items;
+            }
+          }
+
+          const settingsSnap = await adminDb.collection('store_data').doc('public_settings').get();
+          const newsSnap = await adminDb.collection('store_data').doc('news').get();
+          const blogsSnap = await adminDb.collection('store_data').doc('blogs').get();
+          const videosSnap = await adminDb.collection('store_data').doc('videos').get();
+
+          if (apps.length > 0 || settingsSnap.exists) {
+            const liveData = {
+              apps,
+              settings: settingsSnap.exists ? settingsSnap.data() : {},
+              news: newsSnap.exists ? newsSnap.data()?.items || [] : [],
+              blogs: blogsSnap.exists ? blogsSnap.data()?.items || [] : [],
+              videos: videosSnap.exists ? videosSnap.data()?.items || [] : []
+            };
+            backupDataCache = liveData;
+            backupDataCacheTime = now;
+            return res.json(liveData);
+          }
+        }
+      } catch (fsErr: any) {
+        // Silent fallback to REST API if Admin SDK lacks IAM permissions
+      }
+
+      // 2. REST API Fallback
+      try {
+        const config = getRawFirebaseConfig();
+        if (config && config.projectId) {
+          const apiSuffix = config.apiKey ? `?key=${config.apiKey}` : '';
+          const baseUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || '(default)'}/documents/store_data`;
+
+          const metaRes = await fetch(`${baseUrl}/apps_meta${apiSuffix}`);
+          let apps: any[] = [];
+          if (metaRes.ok) {
+            const metaDoc = await metaRes.json() as any;
+            const numChunks = metaDoc.fields?.numChunks?.integerValue ? parseInt(metaDoc.fields.numChunks.integerValue, 10) : 1;
+            for (let i = 0; i < numChunks; i++) {
+              const chunkRes = await fetch(`${baseUrl}/apps_chunk_${i}${apiSuffix}`);
+              if (chunkRes.ok) {
+                const chunkDoc = await chunkRes.json() as any;
+                if (chunkDoc.fields?.items?.arrayValue?.values) {
+                  const parsedChunk = chunkDoc.fields.items.arrayValue.values.map((v: any) => parseFirestoreValue(v));
+                  apps.push(...parsedChunk);
+                }
+              }
+            }
+          } else {
+            const legacyRes = await fetch(`${baseUrl}/apps${apiSuffix}`);
+            if (legacyRes.ok) {
+              const legacyDoc = await legacyRes.json() as any;
+              if (legacyDoc.fields?.items?.arrayValue?.values) {
+                apps = legacyDoc.fields.items.arrayValue.values.map((v: any) => parseFirestoreValue(v));
+              }
+            }
+          }
+
+          const settingsRes = await fetch(`${baseUrl}/public_settings${apiSuffix}`);
+          const newsRes = await fetch(`${baseUrl}/news${apiSuffix}`);
+          const blogsRes = await fetch(`${baseUrl}/blogs${apiSuffix}`);
+          const videosRes = await fetch(`${baseUrl}/videos${apiSuffix}`);
+
+          const settingsObj = settingsRes.ok ? parseFirestoreFields((await settingsRes.json() as any).fields) : {};
+          const newsObj = newsRes.ok ? parseFirestoreFields((await newsRes.json() as any).fields) : {};
+          const blogsObj = blogsRes.ok ? parseFirestoreFields((await blogsRes.json() as any).fields) : {};
+          const videosObj = videosRes.ok ? parseFirestoreFields((await videosRes.json() as any).fields) : {};
+
+          if (apps.length > 0 || Object.keys(settingsObj).length > 0) {
+            const restLiveData = {
+              apps,
+              settings: settingsObj,
+              news: newsObj.items || [],
+              blogs: blogsObj.items || [],
+              videos: videosObj.items || []
+            };
+            backupDataCache = restLiveData;
+            backupDataCacheTime = now;
+            return res.json(restLiveData);
+          }
+        }
+      } catch (restErr) {
+        // Fallthrough to public_backup.json
       }
 
       const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
@@ -2299,7 +2456,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
       return res.json(fallbackData);
     } catch (err: any) {
       console.error("public backup endpoint error:", err);
-      res.status(500).json({ error: "Failed to retrieve local file data backup." });
+      res.status(500).json({ error: "Failed to retrieve data." });
     }
   });
 
