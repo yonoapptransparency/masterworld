@@ -2088,6 +2088,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
 
   // Admin API: Force sync local files from GitHub Push event
   app.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: any, res) => {
+    console.log("[DEBUG] sync-local endpoint hit!");
     try {
       const { apps, settings, news, blogs, videos } = req.body;
       if (!apps || !settings) {

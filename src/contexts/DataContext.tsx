@@ -323,7 +323,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
             setApps(prev => {
               if (backup.apps && backup.apps.length > 0) {
-                if (!isAdminRoute || prev.length === 0) {
+                if (!isFirebaseReal || !isAdminRoute || prev.length === 0 || JSON.stringify(prev) === JSON.stringify(mockApps)) {
                   localStorage.setItem('rummystore_apps', JSON.stringify(backup.apps));
                   return backup.apps;
                 }
@@ -332,7 +332,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             });
             setSettings(prev => {
               if (backup.settings && backup.settings.site_title) {
-                if (!isAdminRoute || !prev || !prev.site_title) {
+                if (!isFirebaseReal || !isAdminRoute || !prev || !prev.site_title || JSON.stringify(prev) === JSON.stringify(mockSettings)) {
                   localStorage.setItem('rummystore_settings', JSON.stringify(backup.settings));
                   return backup.settings;
                 }
@@ -341,7 +341,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             });
             setNews(prev => {
               if (backup.news && backup.news.length > 0) {
-                if (!isAdminRoute || prev.length === 0) {
+                if (!isFirebaseReal || !isAdminRoute || prev.length === 0 || JSON.stringify(prev) === JSON.stringify(mockApps)) {
                   localStorage.setItem('rummystore_news', JSON.stringify(backup.news));
                   return backup.news;
                 }
@@ -350,7 +350,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             });
             setBlogs(prev => {
               if (backup.blogs && backup.blogs.length > 0) {
-                if (!isAdminRoute || prev.length === 0) {
+                if (!isFirebaseReal || !isAdminRoute || prev.length === 0 || JSON.stringify(prev) === JSON.stringify(mockApps)) {
                   localStorage.setItem('rummystore_blogs', JSON.stringify(backup.blogs));
                   return backup.blogs;
                 }
@@ -359,7 +359,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             });
             setVideos(prev => {
               if (backup.videos && backup.videos.length > 0) {
-                if (!isAdminRoute || prev.length === 0) {
+                if (!isFirebaseReal || !isAdminRoute || prev.length === 0 || JSON.stringify(prev) === JSON.stringify(mockApps)) {
                   localStorage.setItem('rummystore_videos', JSON.stringify(backup.videos));
                   return backup.videos;
                 }
