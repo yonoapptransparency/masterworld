@@ -480,72 +480,33 @@ html.lenis-scrolling * {
   pointer-events: none !important;
 }
 
-/* GPU Acceleration for heavy elements to ensure 120fps */
+/* Hardware acceleration for scrolling without memory thrashing */
 .overflow-y-auto, .overflow-x-auto {
   -webkit-overflow-scrolling: touch;
-  transform: translate3d(0, 0, 0);
-  will-change: transform;
 }
 
-/* Optimize painting */
-.animate-fade-in {
-  will-change: opacity, transform;
+/* Isolate list layout reflows for smooth 120fps scrolling */
+.animate-list-item-fade {
+  contain: content;
 }
 
-/* Fix Lenis issues */
-.lenis.lenis-smooth {
-  scroll-behavior: auto !important;
-}
-
-.lenis.lenis-smooth [data-lenis-prevent] {
-  overscroll-behavior: contain;
-}
-
-.lenis.lenis-stopped {
-  overflow: hidden;
-}
-
-.lenis.lenis-scrolling iframe {
-  pointer-events: none;
-}
-
-/* Smartphone GPU & Performance 100% Fixed Optimizations */
+/* Smartphone GPU & Performance Optimizations */
 @media (max-width: 768px) {
-  /* Disable heavy GPU-taxing backdrop filters on small viewports for ultra-fast, lag-free 120fps scrolling */
-  * {
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-  }
-  
-  /* Increase background opacity for glass elements to maintain outstanding contrast and readability without any blur effect */
+  /* Lightweight glass navigation for smooth mobile performance */
   .glass-nav {
     background: var(--card-bg) !important;
     border-bottom: 1px solid var(--glass-border);
   }
-  
-  /* Simplify background transparency on mobile overlays */
-  .bg-white\/40, 
-  .dark\:bg-neutral-900\/50, 
-  .bg-white\/50, 
-  .dark\:bg-zinc-900\/50, 
-  .bg-white\/80, 
-  .dark\:bg-zinc-950\/80, 
-  .bg-white\/70, 
-  .dark\:bg-zinc-900\/70, 
-  .bg-white\/98, 
-  .dark\:bg-slate-950\/98 {
-    background-color: var(--card-bg) !important;
-  }
-  
-  /* Make transitions snappy on mobile to avoid perceived input lag */
-  * {
+
+  /* Snappy button/link transitions on mobile without layout thrashing */
+  a, button, input, select {
     transition-duration: 100ms !important;
   }
 
-  /* Disable expensive layout/scale animations on active/touch/hover states for budget devices to avoid layout recalculation lag */
+  /* Disable expensive layout/scale animations on active/touch/hover states for budget devices */
   .glass-panel:active, button:active, .will-scale:active, a:active .glass-panel, a.group:active {
     transform: none !important;
-    opacity: 0.82 !important;
+    opacity: 0.85 !important;
     transition: opacity 0.05s ease !important;
   }
 
@@ -553,7 +514,7 @@ html.lenis-scrolling * {
     transition: none !important;
   }
 
-  /* Disable infinite keyframe CPU-burning animations to prevent constant thread wakeups, battery drain and thermal lag */
+  /* Disable CPU-burning keyframe loops on low-power devices */
   .vibrating-icon, .vibrating-icon * {
     animation: none !important;
   }
