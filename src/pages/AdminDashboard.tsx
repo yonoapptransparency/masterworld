@@ -827,7 +827,7 @@ const GithubTab = React.memo(({ pushAllToGitHub, gitConfig, saveGitConfig, gener
       }
 
       if (res.ok) {
-        setLogs(prev => [...prev, `SUCCESS: ${data.message}`]);
+        setLogs(prev => [...prev, `SUCCESS: ${data.message || 'Connection successful!'}`]);
         if (data.permissions) {
           setLogs(prev => [...prev, `Permissions: Push=${data.permissions.push ? '✅' : '❌'}, Pull=${data.permissions.pull ? '✅' : '❌'}, Admin=${data.permissions.admin ? '✅' : '❌'}`]);
           if (!data.permissions.push) {
@@ -836,8 +836,9 @@ const GithubTab = React.memo(({ pushAllToGitHub, gitConfig, saveGitConfig, gener
         }
         alert("GitHub Connection Successful!");
       } else {
-        setLogs(prev => [...prev, `CONNECTION FAILED: ${data.message}`]);
-        alert(`Connection Failed: ${data.message}`);
+        const errMsg = data.message || data.error || data.details || `HTTP ${res.status} Error`;
+        setLogs(prev => [...prev, `CONNECTION FAILED: ${errMsg}`]);
+        alert(`Connection Failed: ${errMsg}`);
       }
     } catch (err: any) {
       setLogs(prev => [...prev, `ERROR: ${err.message}`]);
