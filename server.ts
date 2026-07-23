@@ -686,7 +686,7 @@ async function startServer() {
   ], async (req, res, next) => {
     console.log('--- FAVICON/LOGO ROUTE HIT ---', req.originalUrl);
     try {
-      const imageUrl = 'https://res.cloudinary.com/diewalae4/image/upload/v1784618987/Make_this_into_a_perfect_circle_format_keeping_the_RUMMY_DEX_text_and_red__20260721_125826_0000_zgdz8s.png';
+      const imageUrl = 'https://res.cloudinary.com/diewalae4/image/upload/e_trim,c_scale,w_512,h_512/v1784618987/Make_this_into_a_perfect_circle_format_keeping_the_RUMMY_DEX_text_and_red__20260721_125826_0000_zgdz8s.png';
       console.log('--- FAVICON/LOGO ROUTE RESOLVED TO HARDCODED CLOUDINARY ---', imageUrl);
 
       try {

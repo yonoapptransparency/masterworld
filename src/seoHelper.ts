@@ -873,10 +873,10 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       keywords = keywordArray.slice(0, 15).join(', ');
     }
   }
-  let ogImage = "https://res.cloudinary.com/diewalae4/image/upload/v1784618987/Make_this_into_a_perfect_circle_format_keeping_the_RUMMY_DEX_text_and_red__20260721_125826_0000_zgdz8s.png";
+  let ogImage = "https://res.cloudinary.com/diewalae4/image/upload/e_trim,c_scale,w_512,h_512/v1784618987/Make_this_into_a_perfect_circle_format_keeping_the_RUMMY_DEX_text_and_red__20260721_125826_0000_zgdz8s.png";
   let author = siteTitle || "Platform Administrator";
   let canonicalUrlOverride: string | null = null;
-  let faviconUrl = "https://res.cloudinary.com/diewalae4/image/upload/v1784618987/Make_this_into_a_perfect_circle_format_keeping_the_RUMMY_DEX_text_and_red__20260721_125826_0000_zgdz8s.png";
+  let faviconUrl = "https://res.cloudinary.com/diewalae4/image/upload/e_trim,c_scale,w_512,h_512/v1784618987/Make_this_into_a_perfect_circle_format_keeping_the_RUMMY_DEX_text_and_red__20260721_125826_0000_zgdz8s.png";
   
   const rawPathStr = urlPath.split('?')[0].split('#')[0];
   const pLower = rawPathStr.toLowerCase();
