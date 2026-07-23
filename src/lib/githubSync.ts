@@ -308,8 +308,7 @@ export async function commitFileToGitHub({
   branch,
   path,
   content,
-  message,
-  idToken: providedIdToken
+  message
 }: {
   owner: string;
   repo: string;
@@ -318,35 +317,10 @@ export async function commitFileToGitHub({
   path: string;
   content: string;
   message: string;
-  idToken?: string;
 }) {
-  let idToken = providedIdToken || '';
-  
-  if (!idToken) {
-    try {
-      const { getAuth } = await import('firebase/auth');
-      const auth = getAuth();
-      if (auth.currentUser) {
-        idToken = await auth.currentUser.getIdToken();
-      }
-    } catch (e) {
-      console.warn("Could not retrieve current user idToken for Github commit authentication:", e);
-    }
-    if (!idToken) {
-      try {
-        const { loadSession } = await import('../services/adminAuthService');
-        idToken = loadSession()?.idToken || '';
-      } catch (e) {}
-    }
-  }
-
   const headers: Record<string, string> = {
     'Content-Type': 'application/json'
   };
-
-  if (idToken) {
-    headers['Authorization'] = `Bearer ${idToken}`;
-  }
 
   const response = await fetch('/api/github-sync/commit', {
     method: 'POST',

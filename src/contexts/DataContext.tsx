@@ -863,8 +863,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         branch: configToUse.branch || 'main',
         path: 'src/lib/staticData.ts',
         content: updatedCode,
-        message: `Admin Release: Manual content synchronization to ${targetRepo}`,
-        idToken // Pass the token here
+        message: `Admin Release: Manual content synchronization to ${targetRepo}`
       });
       log(`GitHub Sync: ✅ staticData.ts successfully synced to "${targetRepo}".`);
     } catch (err: any) {
@@ -893,8 +892,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
               branch: configToUse.branch || 'main',
               path: 'src/lib/secureVault.ts',
               content: `export const ENCRYPTED_LINKS = "${vaultData.ciphertext}";\n`,
-              message: `Admin Release: Secure vault synchronization for ${targetRepo}`,
-              idToken // Pass the token here
+              message: `Admin Release: Secure vault synchronization for ${targetRepo}`
             });
             log(`GitHub Sync: ✅ secureVault.ts successfully synced to ${targetRepo}.`);
          } else {

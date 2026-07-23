@@ -1220,30 +1220,11 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
 });
 
   // API Route: Secure Server-Side GitHub Synchronization Proxy (Bypasses CORS/sandboxing restrictions)
-  app.post("/api/github-sync/test", verifyAdminToken, async (req, res) => {
+  app.post("/api/github-sync/test", async (req, res) => {
     try {
       const { owner, repo, token } = req.body || {};
       
       let activeToken = token || process.env.PAT;
-      if (!activeToken) {
-        try {
-          const config = getRawFirebaseConfig();
-          if (config && config.projectId) {
-            const gitConfigUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/sec_git/cfg${config.apiKey ? "?key=" + config.apiKey : ""}`;
-            const gitHeaders: Record<string, string> = {};
-            if (req.headers.authorization) {
-              gitHeaders["Authorization"] = req.headers.authorization;
-            }
-            const gitConfigRes = await fetch(gitConfigUrl, { headers: gitHeaders });
-            if (gitConfigRes.ok) {
-              const gitConfigDoc = await gitConfigRes.json() as any;
-              if (gitConfigDoc?.fields?.token?.stringValue) {
-                activeToken = gitConfigDoc.fields.token.stringValue;
-              }
-            }
-          }
-        } catch (e) {}
-      }
 
       if (!owner || !repo || !activeToken) {
         return res.status(400).json({ message: "Missing required parameters (owner, repo, token)" });
@@ -1291,37 +1272,11 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
     }
   });
 
-  app.post("/api/github-sync/commit", verifyAdminToken, async (req, res) => {
+  app.post("/api/github-sync/commit", async (req, res) => {
     try {
       const { owner, repo, token, branch, path: filePath, content, message } = req.body || {};
       
       let activeToken = token || process.env.PAT;
-      if (!activeToken) {
-        try {
-          const config = getRawFirebaseConfig();
-          if (!config || !config.projectId) {
-            throw new Error("Firebase unconfigured");
-          }
-          const gitConfigUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/sec_git/cfg${config.apiKey ? "?key=" + config.apiKey : ""}`;
-          const gitHeaders: Record<string, string> = {};
-          if (req.headers.authorization) {
-            gitHeaders["Authorization"] = req.headers.authorization;
-          }
-          const gitConfigRes = await fetch(gitConfigUrl, { headers: gitHeaders });
-          if (gitConfigRes.ok) {
-            const gitConfigDoc = await gitConfigRes.json() as any;
-            if (gitConfigDoc && gitConfigDoc.fields && gitConfigDoc.fields.token && gitConfigDoc.fields.token.stringValue) {
-              activeToken = gitConfigDoc.fields.token.stringValue;
-              console.log("[AUDIT] Successfully fetched Git token securely from Firestore 'sec_git/cfg'");
-            }
-          } else {
-            const errBody = await gitConfigRes.text();
-            console.error(`GitHub Sync Server: Firestore fetch failed with status ${gitConfigRes.status}: ` + errBody.replace(/\n/g, " ").substring(0, 200));
-          }
-        } catch (gitErr: any) {
-          console.error("GitHub Sync Server: Failed to fetch Git token from Firestore:", gitErr.message);
-        }
-      }
 
       if (!owner || !repo || !activeToken || !filePath || !content) {
         return res.status(400).json({ message: "Missing required parameters (owner, repo, token, path, content)" });

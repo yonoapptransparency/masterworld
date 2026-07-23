@@ -801,19 +801,10 @@ const GithubTab = React.memo(({ pushAllToGitHub, gitConfig, saveGitConfig, gener
     setSyncing(true);
     setLogs(prev => [...prev, "Testing GitHub Connection..."]);
     try {
-      const { getAuth } = await import('firebase/auth');
-      const auth = getAuth();
-      let idToken = auth.currentUser ? await auth.currentUser.getIdToken() : '';
-      if (!idToken) {
-        const { loadSession } = await import('../services/adminAuthService');
-        idToken = loadSession()?.idToken || '';
-      }
-      
       const res = await fetch('/api/github-sync/test', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(localConfig)
       });
