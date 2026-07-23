@@ -1,5 +1,0 @@
-@media (max-width: 440px) {
-  html {
-    font-size: clamp(10px, 3.5vw, 15px);
-  }
-}
