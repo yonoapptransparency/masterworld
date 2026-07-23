@@ -817,8 +817,12 @@ async function startServer() {
       xml += `  <url>\n    <loc>${host}/developers</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.5</priority>\n  </url>\n`;
       xml += `  <url>\n    <loc>${host}/contact</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.5</priority>\n  </url>\n`;
       xml += `  <url>\n    <loc>${host}/privacy</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
+      xml += `  <url>\n    <loc>${host}/report-removal</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
       xml += `  <url>\n    <loc>${host}/terms</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
       xml += `  <url>\n    <loc>${host}/responsibility</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
+      xml += `  <url>\n    <loc>${host}/notice</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
+      xml += `  <url>\n    <loc>${host}/ethics</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
+      xml += `  <url>\n    <loc>${host}/disclaimer</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
       
       // Dynamic App Routes
       const escapeHtmlForSitemap = (unsafe: string) => {
@@ -863,7 +867,7 @@ async function startServer() {
         const canonicalUrl = getField(blog, 'canonical_url');
         if (slug && !canonicalUrl) {
           xml += `  <url>\n`;
-          xml += `    <loc>${host}/blogs/${escapeHtmlForSitemap(slug)}</loc>\n`;
+          xml += `    <loc>${host}/blog/${escapeHtmlForSitemap(slug)}</loc>\n`;
           xml += `    <changefreq>weekly</changefreq>\n`;
           xml += `    <priority>0.7</priority>\n`;
           xml += `  </url>\n`;

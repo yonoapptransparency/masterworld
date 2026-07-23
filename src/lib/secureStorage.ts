@@ -1,1 +1,3 @@
-404: Not Found
+// Placeholder for secureStorage
+export const secureStorage = {};
+export default secureStorage;

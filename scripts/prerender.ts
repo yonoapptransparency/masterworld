@@ -40,8 +40,8 @@ async function prerender() {
     for (const app of data.apps || []) {
       if (app.slug) {
         await generateRoute(`/app/${app.slug}`);
-        await generateRoute(`/gateway/${app.slug}`);
         await generateRoute(`/info/${app.slug}`);
+        await generateRoute(`/moreinfo/${app.slug}`);
         await generateRoute(`/moredetail/${app.slug}`);
       }
     }
@@ -60,10 +60,28 @@ async function prerender() {
       }
     }
     
+    // Generate Video Routes
+    for (const video of data.videos || []) {
+      if (video.slug) {
+        await generateRoute(`/videos/${video.slug}`);
+      }
+    }
+
     // 5. Generate Other Static Routes
+    await generateRoute('/new-apps');
     await generateRoute('/news');
     await generateRoute('/blogs');
+    await generateRoute('/videos');
+    await generateRoute('/about');
+    await generateRoute('/developers');
     await generateRoute('/contact');
+    await generateRoute('/privacy');
+    await generateRoute('/report-removal');
+    await generateRoute('/terms');
+    await generateRoute('/responsibility');
+    await generateRoute('/notice');
+    await generateRoute('/ethics');
+    await generateRoute('/disclaimer');
     await generateRoute('/submit-app');
 
     
@@ -85,8 +103,12 @@ async function prerender() {
       { path: '/developers', priority: '0.5', changefreq: 'weekly' },
       { path: '/contact', priority: '0.5', changefreq: 'weekly' },
       { path: '/privacy', priority: '0.3', changefreq: 'weekly' },
+      { path: '/report-removal', priority: '0.3', changefreq: 'weekly' },
       { path: '/terms', priority: '0.3', changefreq: 'weekly' },
-      { path: '/responsibility', priority: '0.3', changefreq: 'weekly' }
+      { path: '/responsibility', priority: '0.3', changefreq: 'weekly' },
+      { path: '/notice', priority: '0.3', changefreq: 'weekly' },
+      { path: '/ethics', priority: '0.3', changefreq: 'weekly' },
+      { path: '/disclaimer', priority: '0.3', changefreq: 'weekly' }
     ];
 
     for (const route of staticRoutes) {
@@ -125,7 +147,7 @@ async function prerender() {
       const slug = getField(blog, 'slug');
       const canonicalUrl = getField(blog, 'canonical_url');
       if (slug && !canonicalUrl) {
-        xml += `  <url>\n    <loc>${host}/blogs/${escapeHtmlForSitemap(slug)}</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
+        xml += `  <url>\n    <loc>${host}/blog/${escapeHtmlForSitemap(slug)}</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
       }
     }
 
