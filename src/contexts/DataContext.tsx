@@ -1211,10 +1211,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     ...settings,
     favicon_url: (settings?.favicon_url && settings.favicon_url.trim() !== "") 
       ? settings.favicon_url 
-      : "https://res.cloudinary.com/diewalae4/image/upload/e_trim,c_scale,w_512,h_512,f_auto,q_auto/v1784828268/1000130015_vnkwkh.png",
+      : "https://res.cloudinary.com/diewalae4/image/upload/v1784859907/RUMMY_DEX_under10KB_pz1kym.webp",
     logo_url: (settings?.logo_url && settings.logo_url.trim() !== "") 
       ? settings.logo_url 
-      : "https://res.cloudinary.com/diewalae4/image/upload/e_trim,c_scale,w_512,h_512,f_auto,q_auto/v1784828268/1000130015_vnkwkh.png"
+      : "https://res.cloudinary.com/diewalae4/image/upload/v1784859907/RUMMY_DEX_under10KB_pz1kym.webp"
   }), [settings]);
 
   // Memoize the context value to prevent unnecessary re-renders of consuming components

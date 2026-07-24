@@ -873,10 +873,10 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       keywords = keywordArray.slice(0, 15).join(', ');
     }
   }
-  let ogImage = "https://res.cloudinary.com/diewalae4/image/upload/e_trim,c_scale,w_512,h_512,f_auto,q_auto/v1784828268/1000130015_vnkwkh.png";
+  let ogImage = "https://res.cloudinary.com/diewalae4/image/upload/v1784859907/RUMMY_DEX_under10KB_pz1kym.webp";
   let author = siteTitle || "Platform Administrator";
   let canonicalUrlOverride: string | null = null;
-  let faviconUrl = "https://res.cloudinary.com/diewalae4/image/upload/e_trim,c_scale,w_512,h_512,f_auto,q_auto/v1784828268/1000130015_vnkwkh.png";
+  let faviconUrl = "https://res.cloudinary.com/diewalae4/image/upload/v1784859907/RUMMY_DEX_under10KB_pz1kym.webp";
   
   const rawPathStr = urlPath.split('?')[0].split('#')[0];
   const pLower = rawPathStr.toLowerCase();

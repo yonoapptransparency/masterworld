@@ -523,7 +523,14 @@ async function startServer() {
   });
 
   // Compression & cookieParser initialization
-  app.use(compression());
+  app.use(compression({
+    level: 6,
+    threshold: 256,
+    filter: (req, res) => {
+      if (req.headers['x-no-compression']) return false;
+      return compression.filter(req, res);
+    }
+  }));
   app.use(cookieParser());
 
   // Enforce HTTPS in production environments to prevent session hijacking and eavesdropping
@@ -643,7 +650,7 @@ async function startServer() {
   ], async (req, res, next) => {
     console.log('--- FAVICON/LOGO ROUTE HIT ---', req.originalUrl);
     try {
-      const imageUrl = 'https://res.cloudinary.com/diewalae4/image/upload/e_trim,c_scale,w_512,h_512,f_auto,q_auto/v1784828268/1000130015_vnkwkh.png';
+      const imageUrl = 'https://res.cloudinary.com/diewalae4/image/upload/v1784859907/RUMMY_DEX_under10KB_pz1kym.webp';
       console.log('--- FAVICON/LOGO ROUTE RESOLVED TO HARDCODED CLOUDINARY ---', imageUrl);
 
       try {
@@ -3642,7 +3649,12 @@ ${JSON.stringify(publicContext, null, 2)}`;
     app.use('/assets', express.static(path.join(distPath, 'assets'), {
       maxAge: '1y',
       immutable: true,
-      fallthrough: true
+      fallthrough: true,
+      setHeaders: (res) => {
+        const farFuture = new Date(Date.now() + 31536000000).toUTCString();
+        res.setHeader('Expires', farFuture);
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      }
     }));
 
     // Production static files with aggressive caching for dynamic views and elements
@@ -3650,7 +3662,16 @@ ${JSON.stringify(publicContext, null, 2)}`;
       maxAge: '1d', // Cache for 1 day instead of 1 year for safety but performance
       etag: true,
       lastModified: true,
-      index: false
+      index: false,
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html')) {
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        } else {
+          const farFuture = new Date(Date.now() + 86400000).toUTCString();
+          res.setHeader('Expires', farFuture);
+          res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=43200');
+        }
+      }
     }));
     
     let cachedIndexHtml: string | null = null;
