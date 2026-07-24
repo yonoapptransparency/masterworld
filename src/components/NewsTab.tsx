@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Plus, Trash2, Edit2, LayoutDashboard, Newspaper, Save, Globe, Image, Calendar, Tag, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import ImageUpload from "./ImageUpload";
 const NewsTab = React.memo(({ newsList, handleAddNews, handleDeleteNews, handleNewsChange, saveNews, saving, setSaving, appsList }: any) => {
   const [editingNewsId, setEditingNewsId] = useState<string | null>(null);
 
@@ -163,7 +164,7 @@ const NewsTab = React.memo(({ newsList, handleAddNews, handleDeleteNews, handleN
                       
                       <div>
                         <label className="block text-[11px] uppercase tracking-wider font-bold text-slate-500 mb-1.5">Cover Image URL</label>
-                        <input type="url" value={item.logo_url || ''} onChange={e => handleNewsChange(item.id, 'logo_url', e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" placeholder="https://..." />
+                        <ImageUpload value={item.logo_url || ''} onChange={(val) => handleNewsChange(item.id, 'logo_url', val)} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm dark:text-white focus-within:ring-2 focus-within:ring-blue-500 overflow-hidden" placeholder="https://..." />
                       </div>
                       
                       {item.logo_url && (

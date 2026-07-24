@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../lib/firebase';
+import ImageUpload from "./ImageUpload";
 
 // Sub-component for FAQ Editing
 function FaqEditor({ initialFaqs }: { initialFaqs: {question: string, answer: string}[] }) {
@@ -690,12 +691,11 @@ const AppsTab = React.memo(({ appsList, editingAppId, setEditingAppId, handleDel
                       <div>
                         <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">App Icon URL</label>
                         <div className="flex gap-3 items-center">
-                          <input 
-                            type="text" 
+                          <ImageUpload 
                             name="icon_url" 
                             value={formFields.icon_url} 
-                            onChange={e => handleFieldChange('icon_url', e.target.value)} 
-                            className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 font-mono" 
+                            onChange={(val) => handleFieldChange('icon_url', val)} 
+                            className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-100 focus-within:ring-2 focus-within:ring-blue-500 font-mono overflow-hidden" 
                             placeholder="https://..."
                           />
                           <img 
@@ -995,12 +995,11 @@ const AppsTab = React.memo(({ appsList, editingAppId, setEditingAppId, handleDel
                     <div>
                       <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">OpenGraph OG Image URL (Social Sharing thumbnail)</label>
                       <div className="flex gap-3 items-center">
-                        <input 
-                          type="text" 
+                        <ImageUpload 
                           name="og_image_url" 
                           value={formFields.og_image_url} 
-                          onChange={e => handleFieldChange('og_image_url', e.target.value)} 
-                          className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 font-mono" 
+                          onChange={(val) => handleFieldChange('og_image_url', val)} 
+                          className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-100 focus-within:ring-2 focus-within:ring-blue-500 font-mono overflow-hidden" 
                           placeholder="https://..."
                         />
                         <img 

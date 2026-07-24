@@ -22,6 +22,7 @@ import AppsTab from '../components/AppsTab';
 import BlogsTab from '../components/BlogsTab';
 import SecurityTab from '../components/SecurityTab';
 import FirebaseStatusPanel from '../components/FirebaseStatusPanel';
+import ImageUpload from "../components/ImageUpload";
 
 function FaqEditor({ initialFaqs }: { initialFaqs: {question: string, answer: string}[] }) {
   const [faqs, setFaqs] = React.useState(initialFaqs || []);
@@ -732,7 +733,7 @@ const BannersTab = React.memo(({ banners, handleAddBanner, handleRemoveBanner, h
             <button onClick={() => handleRemoveBanner(index)} className="text-rose-500 hover:text-rose-600 p-1"><Trash2 className="w-4 h-4" /></button>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <input type="text" value={banner.image_url} onChange={(e) => handleUpdateBanner(index, 'image_url', e.target.value)} placeholder="Image URL" className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            <ImageUpload value={banner.image_url} onChange={(val) => handleUpdateBanner(index, 'image_url', val)} placeholder="Image URL" className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm dark:text-white focus-within:ring-2 focus-within:ring-blue-500 overflow-hidden" />
             <input type="text" value={banner.link} onChange={(e) => handleUpdateBanner(index, 'link', e.target.value)} placeholder="Link URL" className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
           </div>
         </div>
@@ -991,11 +992,11 @@ const SettingsTab = React.memo(({ settings, handleSaveSettings, saving }: any) =
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Main Logo URL</label>
-            <input type="text" name="logo_url" defaultValue={settings.logo_url} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            <ImageUpload name="logo_url" defaultValue={settings.logo_url} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm dark:text-white focus-within:ring-2 focus-within:ring-blue-500 overflow-hidden" />
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Favicon URL</label>
-            <input type="text" name="favicon_url" defaultValue={settings.favicon_url} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            <ImageUpload name="favicon_url" defaultValue={settings.favicon_url} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm dark:text-white focus-within:ring-2 focus-within:ring-blue-500 overflow-hidden" />
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Main Index Heading</label>
@@ -3502,7 +3503,7 @@ export default function AdminDashboard() {
                             </div>
                             <div>
                               <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Image URL (Avatar)</label>
-                              <input type="text" value={dev.image_url} onChange={(e) => handleDeveloperChange(index, 'image_url', e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-sm font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500" />
+                              <ImageUpload value={dev.image_url} onChange={(val) => handleDeveloperChange(index, 'image_url', val)} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-medium text-slate-800 dark:text-slate-100 focus-within:ring-2 focus-within:ring-blue-500 overflow-hidden" />
                             </div>
                             <div>
                               <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">GitHub URL (Optional)</label>

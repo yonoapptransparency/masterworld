@@ -103,6 +103,8 @@ if (app) {
 }
 
 export const db = firestoreInstance;
+import { getStorage } from "firebase/storage";
+export const storage = isFirebaseReal && app ? getStorage(app) : null;
 
 // No-op connection test. Removed to prevent synchronous blocking on module load.
 

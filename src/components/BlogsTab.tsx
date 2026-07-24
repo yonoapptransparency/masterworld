@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FileText, Plus, Trash2, Edit2, LayoutDashboard, Globe, AlertTriangle, MessageSquare, Search, Eye, Tag, Calendar, Image, Save } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import ImageUpload from "./ImageUpload";
 const BlogsTab = React.memo(({ blogs, handleAddBlog, handleDeleteBlog, handleBlogChange, handleSaveBlogs, saving }: any) => {
   const [editingBlogId, setEditingBlogId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -188,7 +189,7 @@ const BlogsTab = React.memo(({ blogs, handleAddBlog, handleDeleteBlog, handleBlo
                         
                         <div>
                           <label className="block text-[11px] uppercase tracking-wider font-bold text-slate-500 mb-1.5">Hero Cover Image URL</label>
-                          <input type="url" value={blog.cover_url || ''} onChange={(e) => handleBlogChange(blog.id, 'cover_url', e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" placeholder="https://..." />
+                          <ImageUpload value={blog.cover_url || ''} onChange={(val) => handleBlogChange(blog.id, 'cover_url', val)} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm dark:text-white focus-within:ring-2 focus-within:ring-blue-500 overflow-hidden" placeholder="https://..." />
                         </div>
                         
                         {blog.cover_url && (
