@@ -29,46 +29,53 @@ export default function ImageUpload({ value, defaultValue, onChange, name, place
 
   const compressImage = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 800;
-          const MAX_HEIGHT = 800;
-          let width = img.width;
-          let height = img.height;
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 800;
+        let width = img.width;
+        let height = img.height;
 
-          if (width > height) {
-            if (width > MAX_WIDTH) {
-              height *= MAX_WIDTH / width;
-              width = MAX_WIDTH;
-            }
-          } else {
-            if (height > MAX_HEIGHT) {
-              width *= MAX_HEIGHT / height;
-              height = MAX_HEIGHT;
-            }
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
           }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
 
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            reject(new Error("Failed to get canvas context"));
-            return;
-          }
-          ctx.drawImage(img, 0, 0, width, height);
-          
-          // Compress to WebP with 0.7 quality to keep size small (<50-100KB)
-          const dataUrl = canvas.toDataURL('image/webp', 0.7);
-          resolve(dataUrl);
-        };
-        img.onerror = (error) => reject(error);
-        img.src = event.target?.result as string;
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error("Failed to get canvas context"));
+          return;
+        }
+        
+        // Fill white background in case of transparent images converting to JPEG
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Compress to JPEG with 0.6 quality to keep size small (<50KB)
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+        resolve(dataUrl);
       };
-      reader.onerror = (error) => reject(error);
+      
+      img.onerror = (error) => {
+        URL.revokeObjectURL(objectUrl);
+        reject(error);
+      };
+      
+      img.src = objectUrl;
     });
   };
 
@@ -79,8 +86,11 @@ export default function ImageUpload({ value, defaultValue, onChange, name, place
     setUploading(true);
     try {
       // Compress and convert image to base64 on the client side
-      // This avoids Firebase Storage setup issues and keeps files small
       const base64Url = await compressImage(file);
+      
+      // UX: Add a tiny artificial delay so the user sees the spinner and knows it succeeded
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
       handleChange(base64Url);
     } catch (error) {
       console.error("Upload error:", error);
@@ -93,13 +103,23 @@ export default function ImageUpload({ value, defaultValue, onChange, name, place
     }
   };
 
+  // Helper to show a truncated value if it's a huge base64 string, so the input doesn't lag visually
+  const displayValue = currentValue.length > 200 && currentValue.startsWith('data:image') 
+    ? 'Base64 Image Data (Compressed)' 
+    : currentValue;
+
   return (
     <div className={`flex items-center w-full px-2 py-1 ${className || ''}`}>
       <input
         type="text"
         name={name}
-        value={currentValue}
-        onChange={(e) => handleChange(e.target.value)}
+        value={displayValue}
+        onChange={(e) => {
+           // Only allow manual editing if it's not our placeholder
+           if (e.target.value !== 'Base64 Image Data (Compressed)') {
+              handleChange(e.target.value);
+           }
+        }}
         className="flex-1 bg-transparent border-none outline-none focus:ring-0 p-1 m-0 text-[inherit] w-full"
         style={{ minWidth: 0 }}
         placeholder={placeholder || "https://..."}
@@ -110,7 +130,7 @@ export default function ImageUpload({ value, defaultValue, onChange, name, place
           ref={fileInputRef}
           onChange={handleUpload}
           accept="image/*"
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
           disabled={uploading}
         />
         <button
