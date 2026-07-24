@@ -1,7 +1,6 @@
 declare global { var AES_SECRET_GLOBAL: string; }
 if (!process.env.AES_SECRET) {
-  console.error("CRITICAL: AES_SECRET is not set.");
-  process.exit(1);
+  console.warn("WARNING: AES_SECRET is not set. Using local development fallback.");
 }
 if (!process.env.ADMIN_EMAIL) {
   console.warn("WARNING: ADMIN_EMAIL is not set. Admin features will use default fallback.");
@@ -158,47 +157,10 @@ function getFirebaseAdminDb(): any {
 // Cryptographic secrets for hashing, signature verification, and session identifiers
 
 
-// Comprehensive crawler, headless scraper, scanner, and search-spider blacklists
-// Obfuscated to avoid keyword matches
+// Malicious security scanner and exploit probe blacklists
 const BAD_UA = [
-  new RegExp(['b','o','t'].join(''), 'i'), /crawl/i, /spider/i, /slurp/i, /scrape/i,
-  /python/i, /curl/i, /wget/i, /libwww/i, /scrapy/i,
-  /httpclient/i, /java\//i, /go-http/i, /ruby/i, /perl/i,
-  /axios/i, /node-fetch/i, /undici/i, /got\//i, /superagent/i,
-  /playwright/i, /puppeteer/i, /selenium/i, /phantomjs/i,
-  /headless/i, /lighthouse/i, /chrome-lighthouse/i,
-  new RegExp(['a','p','p','l','e','b','o','t'].join(''), 'i'),
-  new RegExp(['g','o','o','g','l','e','b','o','t'].join(''), 'i'),
-  new RegExp(['b','i','n','g','b','o','t'].join(''), 'i'),
-  new RegExp(['y','a','n','d','e','x','b','o','t'].join(''), 'i'),
-  new RegExp(['d','u','c','k','d','u','c','k','b','o','t'].join(''), 'i'),
-  new RegExp(['s','e','m','r','u','s','h','b','o','t'].join(''), 'i'),
-  new RegExp(['a','h','r','e','f','s','b','o','t'].join(''), 'i'),
-  new RegExp(['m','j','1','2','b','o','t'].join(''), 'i'),
-  new RegExp(['g','p','t','b','o','t'].join(''), 'i'),
-  new RegExp(['c','l','a','u','d','e','b','o','t'].join(''), 'i'),
-  new RegExp(['c','c','b','o','t'].join(''), 'i'),
-  new RegExp(['c','h','a','t','g','p','t','-','u','s','e','r'].join(''), 'i'),
-  /openai/i,
-  new RegExp(['p','e','r','p','l','e','x','i','t','y','b','o','t'].join(''), 'i'),
-  /bytespider/i,
-  new RegExp(['p','e','t','a','l','b','o','t'].join(''), 'i'),
-  /dataforseo/i,
-  new RegExp(['s','e','r','p','s','t','a','t','b','o','t'].join(''), 'i'),
-  /seokicks/i,
-  new RegExp(['d','o','t','b','o','t'].join(''), 'i'),
-  new RegExp(['r','o','g','e','r','b','o','t'].join(''), 'i'),
-  new RegExp(['e','x','a','b','o','t'].join(''), 'i'),
-  new RegExp(['b','l','e','x','b','o','t'].join(''), 'i'),
-  /ia_archiver/i,
-  /archive\.org/i, /facebookexternalhit/i,
-  new RegExp(['t','w','i','t','t','e','r','b','o','t'].join(''), 'i'),
-  new RegExp(['l','i','n','k','e','d','i','n','b','o','t'].join(''), 'i'),
-  new RegExp(['s','l','a','c','k','b','o','t'].join(''), 'i'),
-  new RegExp(['w','h','a','t','s','a','p','p','b','o','t'].join(''), 'i'),
-  new RegExp(['t','e','l','e','g','r','a','m','b','o','t'].join(''), 'i'),
   /zgrab/i, /masscan/i, /nmap/i, /nuclei/i, /sqlmap/i,
-  /nikto/i, /dirbuster/i, /gobuster/i, /wfuzz/i,
+  /nikto/i, /dirbuster/i, /gobuster/i, /wfuzz/i
 ];
 
 // Set CF_TURNSTILE_SECRET in your environment to enable Cloudflare Turnstile
@@ -246,10 +208,7 @@ async function verifyTurnstile(token: string, ip: string): Promise<boolean> {
 // ── CLIENT VERIFICATION ──
 const isSuspiciousClient = (req: express.Request): boolean => {
   const ua = (req.headers['user-agent'] || '') as string;
-  if (!ua || ua.length < 20) return true;
-  if (BAD_UA.some(rx => rx.test(ua))) return true;
-  const accept = req.headers['accept'];
-  if (!accept) return true;
+  if (ua && BAD_UA.some(rx => rx.test(ua))) return true;
   return false;
 };
 
@@ -503,16 +462,14 @@ function verifyToken(token: string, ip: string, sessionId: string, fingerprint: 
 }
 
 if (!process.env.TOKEN_SECRET) {
-  console.error("CRITICAL: TOKEN_SECRET is not set.");
-  process.exit(1);
+  console.warn("WARNING: TOKEN_SECRET is not set. Using local development fallback.");
 }
 if (!process.env.SESSION_SECRET) {
-  console.error("CRITICAL: SESSION_SECRET is not set.");
-  process.exit(1);
+  console.warn("WARNING: SESSION_SECRET is not set. Using local development fallback.");
 }
 const getFallbackToken = () => ["fallback", "token", "secret"].join("_");
 const TOKEN_SECRET = process.env.TOKEN_SECRET || getFallbackToken();
-const SESSION_SECRET = process.env.SESSION_SECRET;
+const SESSION_SECRET = process.env.SESSION_SECRET || "fallback_session_secret_dev";
 
 async function startServer() {
   const app = express();
@@ -686,7 +643,7 @@ async function startServer() {
   ], async (req, res, next) => {
     console.log('--- FAVICON/LOGO ROUTE HIT ---', req.originalUrl);
     try {
-      const imageUrl = 'https://res.cloudinary.com/diewalae4/image/upload/e_trim,c_scale,w_512,h_512/v1784618987/Make_this_into_a_perfect_circle_format_keeping_the_RUMMY_DEX_text_and_red__20260721_125826_0000_zgdz8s.png';
+      const imageUrl = 'https://res.cloudinary.com/diewalae4/image/upload/e_trim,c_scale,w_512,h_512,f_auto,q_auto/v1784828268/1000130015_vnkwkh.png';
       console.log('--- FAVICON/LOGO ROUTE RESOLVED TO HARDCODED CLOUDINARY ---', imageUrl);
 
       try {
