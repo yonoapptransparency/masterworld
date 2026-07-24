@@ -1,6 +1,4 @@
 import React, { useRef, useState } from 'react';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage } from '../lib/firebase';
 import { UploadCloud, Loader2 } from 'lucide-react';
 
 interface ImageUploadProps {
@@ -29,27 +27,64 @@ export default function ImageUpload({ value, defaultValue, onChange, name, place
     }
   };
 
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 800;
+          const MAX_HEIGHT = 800;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error("Failed to get canvas context"));
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Compress to WebP with 0.7 quality to keep size small (<50-100KB)
+          const dataUrl = canvas.toDataURL('image/webp', 0.7);
+          resolve(dataUrl);
+        };
+        img.onerror = (error) => reject(error);
+        img.src = event.target?.result as string;
+      };
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!storage) {
-      alert("Firebase Storage is not configured!");
-      return;
-    }
-
     setUploading(true);
     try {
-      const ext = file.name.split('.').pop();
-      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${ext}`;
-      const storageRef = ref(storage, `uploads/${fileName}`);
-      
-      await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(storageRef);
-      handleChange(url);
+      // Compress and convert image to base64 on the client side
+      // This avoids Firebase Storage setup issues and keeps files small
+      const base64Url = await compressImage(file);
+      handleChange(base64Url);
     } catch (error) {
       console.error("Upload error:", error);
-      alert("Failed to upload image. Check console for details.");
+      alert("Failed to process and compress image. Please try another image.");
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
