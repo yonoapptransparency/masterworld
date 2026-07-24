@@ -623,8 +623,8 @@ async function startServer() {
     next();
   });
 
-  app.use(express.json({ limit: '2mb' }));
-  app.use(express.urlencoded({ limit: '2mb', extended: true }));
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
   // ── HONEYPOT PATHS ──
   [
@@ -1227,7 +1227,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
         if (testRes.status === 401 || testRes.status === 403) {
           tip = "\n\n💡 Tip: Check if your PAT is valid and has at least 'Metadata' read permissions. For pushing files, you will need 'Contents' write permissions.";
         } else if (testRes.status === 404) {
-          tip = "\n\n💡 Tip: Repository not found. Double check the Owner and Repository Name spelling/casing.";
+          tip = "\n\n💡 Tip: Repository not found (or your token lacks permissions to see it). Double check that the Owner and Repository Name are spelled exactly right (e.g. Dex, not Dez), and that your Personal Access Token has access to this repository.";
         }
         return res.status(testRes.status).json({ 
           ok: false, 

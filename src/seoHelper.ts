@@ -1063,6 +1063,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     const trimmedOg = ogImage.trim();
     if (trimmedOg.startsWith('//')) {
       absoluteOgImage = `https:${trimmedOg}`;
+    } else if (trimmedOg.startsWith('data:')) {
+      absoluteOgImage = trimmedOg;
     } else if (!trimmedOg.startsWith('http://') && !trimmedOg.startsWith('https://')) {
       const cleanImg = trimmedOg.startsWith('/') ? trimmedOg : `/${trimmedOg}`;
       absoluteOgImage = `${cleanHost}${cleanImg}`;
@@ -1076,6 +1078,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     const trimmedFav = faviconUrl.trim();
     if (trimmedFav.startsWith('//')) {
       absoluteFaviconUrl = `https:${trimmedFav}`;
+    } else if (trimmedFav.startsWith('data:')) {
+      absoluteFaviconUrl = trimmedFav;
     } else if (!trimmedFav.startsWith('http://') && !trimmedFav.startsWith('https://')) {
       const cleanFav = trimmedFav.startsWith('/') ? trimmedFav : `/${trimmedFav}`;
       absoluteFaviconUrl = `${cleanHost}${cleanFav}`;
