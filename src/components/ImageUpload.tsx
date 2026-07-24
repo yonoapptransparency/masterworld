@@ -110,9 +110,9 @@ export default function ImageUpload({ value, defaultValue, onChange, name, place
 
   return (
     <div className={`flex items-center w-full px-2 py-1 ${className || ''}`}>
+      {name && <input type="hidden" name={name} value={currentValue} />}
       <input
         type="text"
-        name={name}
         value={displayValue}
         onChange={(e) => {
            // Only allow manual editing if it's not our placeholder
