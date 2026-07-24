@@ -1,7 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { UploadCloud, Loader2 } from 'lucide-react';
-import { storage } from '../lib/firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 interface ImageUploadProps {
   value?: string;
@@ -35,7 +33,7 @@ export default function ImageUpload({ value, defaultValue, onChange, name, place
     }
   };
 
-  const compressImageToBlob = (file: File): Promise<Blob> => {
+  const compressImageToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
       const objectUrl = URL.createObjectURL(file);
@@ -74,13 +72,8 @@ export default function ImageUpload({ value, defaultValue, onChange, name, place
         ctx.drawImage(img, 0, 0, width, height);
         
         // Compress to WEBP with 0.6 quality for SUPER lightweight images (often < 10KB)
-        canvas.toBlob((blob) => {
-           if (blob) {
-              resolve(blob);
-           } else {
-              reject(new Error("Failed to compress image"));
-           }
-        }, 'image/webp', 0.6);
+        const dataUrl = canvas.toDataURL('image/webp', 0.6);
+        resolve(dataUrl);
       };
       
       img.onerror = (error) => {
@@ -98,31 +91,16 @@ export default function ImageUpload({ value, defaultValue, onChange, name, place
 
     setUploading(true);
     try {
-      // 1. Compress image to Blob
-      const compressedBlob = await compressImageToBlob(file);
+      // Compress image and convert directly to base64 Data URL
+      const base64Url = await compressImageToBase64(file);
       
-      // 2. Upload to Firebase Storage if available
-      if (storage) {
-        const fileExt = "webp";
-        const fileName = `uploads/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-        const storageRef = ref(storage, fileName);
-        
-        await uploadBytes(storageRef, compressedBlob);
-        const downloadUrl = await getDownloadURL(storageRef);
-        
-        handleChange(downloadUrl);
-      } else {
-        // Fallback: If no storage, use base64
-        const reader = new FileReader();
-        reader.readAsDataURL(compressedBlob);
-        reader.onloadend = () => {
-           handleChange(reader.result as string);
-        };
-      }
-
+      // UX: tiny delay so spinner is visible for a moment
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      handleChange(base64Url);
     } catch (error: any) {
       console.error("Upload error:", error);
-      alert("Failed to upload image. " + (error.message || ""));
+      alert("Failed to process image. " + (error.message || ""));
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
