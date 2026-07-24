@@ -1,5 +1,7 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { UploadCloud, Loader2 } from 'lucide-react';
+import { storage } from '../lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 interface ImageUploadProps {
   value?: string;
@@ -18,6 +20,12 @@ export default function ImageUpload({ value, defaultValue, onChange, name, place
   const isControlled = value !== undefined;
   const currentValue = isControlled ? value : internalValue;
 
+  useEffect(() => {
+    if (!isControlled && defaultValue !== undefined) {
+      setInternalValue(defaultValue);
+    }
+  }, [defaultValue, isControlled]);
+
   const handleChange = (newVal: string) => {
     if (!isControlled) {
       setInternalValue(newVal);
@@ -27,7 +35,7 @@ export default function ImageUpload({ value, defaultValue, onChange, name, place
     }
   };
 
-  const compressImage = (file: File): Promise<string> => {
+  const compressImageToBlob = (file: File): Promise<Blob> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
       const objectUrl = URL.createObjectURL(file);
@@ -35,8 +43,8 @@ export default function ImageUpload({ value, defaultValue, onChange, name, place
       img.onload = () => {
         URL.revokeObjectURL(objectUrl);
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 800;
-        const MAX_HEIGHT = 800;
+        const MAX_WIDTH = 512;
+        const MAX_HEIGHT = 512;
         let width = img.width;
         let height = img.height;
 
@@ -60,14 +68,19 @@ export default function ImageUpload({ value, defaultValue, onChange, name, place
           return;
         }
         
-        // Fill white background in case of transparent images converting to JPEG
+        // Fill white background in case of transparent images converting to WebP/JPEG
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, width, height);
         ctx.drawImage(img, 0, 0, width, height);
         
-        // Compress to JPEG with 0.6 quality to keep size small (<50KB)
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
-        resolve(dataUrl);
+        // Compress to WEBP with 0.6 quality for SUPER lightweight images (often < 10KB)
+        canvas.toBlob((blob) => {
+           if (blob) {
+              resolve(blob);
+           } else {
+              reject(new Error("Failed to compress image"));
+           }
+        }, 'image/webp', 0.6);
       };
       
       img.onerror = (error) => {
@@ -85,16 +98,31 @@ export default function ImageUpload({ value, defaultValue, onChange, name, place
 
     setUploading(true);
     try {
-      // Compress and convert image to base64 on the client side
-      const base64Url = await compressImage(file);
+      // 1. Compress image to Blob
+      const compressedBlob = await compressImageToBlob(file);
       
-      // UX: Add a tiny artificial delay so the user sees the spinner and knows it succeeded
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      handleChange(base64Url);
-    } catch (error) {
+      // 2. Upload to Firebase Storage if available
+      if (storage) {
+        const fileExt = "webp";
+        const fileName = `uploads/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const storageRef = ref(storage, fileName);
+        
+        await uploadBytes(storageRef, compressedBlob);
+        const downloadUrl = await getDownloadURL(storageRef);
+        
+        handleChange(downloadUrl);
+      } else {
+        // Fallback: If no storage, use base64
+        const reader = new FileReader();
+        reader.readAsDataURL(compressedBlob);
+        reader.onloadend = () => {
+           handleChange(reader.result as string);
+        };
+      }
+
+    } catch (error: any) {
       console.error("Upload error:", error);
-      alert("Failed to process and compress image. Please try another image.");
+      alert("Failed to upload image. " + (error.message || ""));
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
@@ -103,7 +131,7 @@ export default function ImageUpload({ value, defaultValue, onChange, name, place
     }
   };
 
-  // Helper to show a truncated value if it's a huge base64 string, so the input doesn't lag visually
+  // Helper to show a truncated value if it's a huge base64 string
   const displayValue = currentValue.length > 200 && currentValue.startsWith('data:image') 
     ? 'Base64 Image Data (Compressed)' 
     : currentValue;

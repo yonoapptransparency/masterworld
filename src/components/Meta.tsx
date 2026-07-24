@@ -45,6 +45,13 @@ const Meta: React.FC<MetaProps> = ({
       <meta name="robots" content="index, follow, max-image-preview:large" />
       <link rel="canonical" href={canonicalUrl} />
 
+      {settings?.favicon_url && (
+        <link rel="icon" href={settings.favicon_url} />
+      )}
+      {settings?.favicon_url && (
+        <link rel="apple-touch-icon" href={settings.favicon_url} />
+      )}
+
       {/* Open Graph / Facebook */}
       <meta property="og:type" content={type} />
       <meta property="og:url" content={metaUrl} />
