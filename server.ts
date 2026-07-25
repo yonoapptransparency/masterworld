@@ -533,10 +533,18 @@ async function startServer() {
   }));
   app.use(cookieParser());
 
-  // Enforce HTTPS in production environments to prevent session hijacking and eavesdropping
+  // Enforce HTTPS and canonical www domain in production environments
   app.use((req, res, next) => {
-    if (process.env.NODE_ENV === "production" && req.headers["x-forwarded-proto"] === "http") {
-      return res.redirect(301, `https://${req.headers.host}${req.originalUrl}`);
+    if (process.env.NODE_ENV === "production") {
+      const rawHost = (req.headers["x-forwarded-host"] || req.headers.host || "").toString().toLowerCase().split(',')[0].trim();
+      const proto = (req.headers["x-forwarded-proto"] || req.protocol || "https").toString().toLowerCase().split(',')[0].trim();
+
+      if (rawHost === "rummydex.com") {
+        return res.redirect(301, `https://www.rummydex.com${req.originalUrl}`);
+      }
+      if (proto === "http" && rawHost.includes("rummydex.com")) {
+        return res.redirect(301, `https://${rawHost}${req.originalUrl}`);
+      }
     }
     next();
   });
@@ -650,7 +658,7 @@ async function startServer() {
   ], async (req, res, next) => {
     console.log('--- FAVICON/LOGO ROUTE HIT ---', req.originalUrl);
     try {
-      const imageUrl = 'https://res.cloudinary.com/diewalae4/image/upload/v1784859907/RUMMY_DEX_under10KB_pz1kym.webp';
+      const imageUrl = 'https://res.cloudinary.com/diewalae4/image/upload/v1784896838/ezgif-64180dd8ca74703b_rpungk.webp';
       console.log('--- FAVICON/LOGO ROUTE RESOLVED TO HARDCODED CLOUDINARY ---', imageUrl);
 
       try {
@@ -2433,7 +2441,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
   }
 
   function parseFirestoreValue(val: any): any {
-    if (!val) return null;
+    if (!val || typeof val !== 'object') return val ?? null;
     if ('stringValue' in val) return val.stringValue;
     if ('booleanValue' in val) return val.booleanValue;
     if ('integerValue' in val) return parseInt(val.integerValue, 10);
@@ -2456,7 +2464,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
   }
 
   function parseFirestoreFields(fields: any): any {
-    if (!fields) return {};
+    if (!fields || typeof fields !== 'object') return {};
     const res: any = {};
     for (const key of Object.keys(fields)) {
       res[key] = parseFirestoreValue(fields[key]);
@@ -2469,7 +2477,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
   let backupDataCacheTime = 0;
   const BACKUP_DATA_CACHE_TTL = 30000; // 30 seconds memory cache
 
-  app.get("/api/v1/public/backup-data", async (req, res) => {
+  app.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/public/backup-data", "/public/backup-data"], async (req, res) => {
     try {
       const now = Date.now();
       if (backupDataCache && (now - backupDataCacheTime < BACKUP_DATA_CACHE_TTL)) {
@@ -2556,10 +2564,15 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
           const blogsRes = await fetch(`${baseUrl}/blogs${apiSuffix}`);
           const videosRes = await fetch(`${baseUrl}/videos${apiSuffix}`);
 
-          const settingsObj = settingsRes.ok ? parseFirestoreFields((await settingsRes.json() as any).fields) : {};
-          const newsObj = newsRes.ok ? parseFirestoreFields((await newsRes.json() as any).fields) : {};
-          const blogsObj = blogsRes.ok ? parseFirestoreFields((await blogsRes.json() as any).fields) : {};
-          const videosObj = videosRes.ok ? parseFirestoreFields((await videosRes.json() as any).fields) : {};
+          let settingsObj = {};
+          let newsObj: any = {};
+          let blogsObj: any = {};
+          let videosObj: any = {};
+
+          try { if (settingsRes.ok) settingsObj = parseFirestoreFields((await settingsRes.json() as any)?.fields); } catch (e) {}
+          try { if (newsRes.ok) newsObj = parseFirestoreFields((await newsRes.json() as any)?.fields); } catch (e) {}
+          try { if (blogsRes.ok) blogsObj = parseFirestoreFields((await blogsRes.json() as any)?.fields); } catch (e) {}
+          try { if (videosRes.ok) videosObj = parseFirestoreFields((await videosRes.json() as any)?.fields); } catch (e) {}
 
           if (apps.length > 0 || Object.keys(settingsObj).length > 0) {
             const restLiveData = {
@@ -2607,7 +2620,14 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
       return res.json(fallbackData);
     } catch (err: any) {
       console.error("public backup endpoint error:", err);
-      res.status(500).json({ error: "Failed to retrieve data." });
+      const { mockApps, mockSettings, mockNews, mockBlogs, mockVideos } = staticData;
+      return res.status(200).json({
+        apps: mockApps || [],
+        settings: mockSettings || {},
+        news: mockNews || [],
+        blogs: mockBlogs || [],
+        videos: mockVideos || []
+      });
     }
   });
 

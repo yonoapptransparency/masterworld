@@ -617,7 +617,7 @@ const OldAppsTabUnused = React.memo(({ appsList, editingAppId, setEditingAppId, 
           {appsList.map((app: any) => (
             <div key={app.id} className="bg-white dark:bg-slate-900 border border-black/10 dark:border-white/10 rounded-xl p-5 flex flex-col gap-4 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
               <div className="flex gap-4 items-start">
-                <img src={app.icon_url || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&h=128&fit=crop'} className="w-16 h-16 object-cover rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800" alt="" />
+                <img src={app.icon_url || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&h=128&fit=crop'} loading="lazy" width={64} height={64} className="w-16 h-16 object-cover rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800" alt="" />
                 <div className="flex-1 min-w-0">
                   <h4 className="font-bold text-slate-900 dark:text-white text-base truncate pr-2" title={app.name}>{app.name}</h4>
                   <div className="text-xs text-slate-500 dark:text-slate-400 font-medium truncate mt-0.5">{app.category}</div>
@@ -1321,7 +1321,7 @@ const NewsTab = React.memo(({ newsList, handleAddNews, handleDeleteNews, handleN
               <div className="flex justify-between items-start">
                 <div className="flex items-start gap-4">
                   {item.logo_url ? (
-                    <img src={item.logo_url} className="w-16 h-16 object-cover rounded-xl border border-black/10 shadow-sm" alt={item.title} />
+                    <img src={item.logo_url} className="w-16 h-16 object-cover rounded-xl border border-black/10 shadow-sm" loading="lazy" width={64} height={64} alt={item.title} />
                   ) : (
                     <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center border border-slate-200 dark:border-slate-700">
                       <Newspaper className="w-6 h-6 text-slate-400" />
@@ -1418,7 +1418,7 @@ const VideosTab = React.memo(({ videosList, handleAddVideo, handleDeleteVideo, h
                     if (videoId) {
                       return (
                         <div className="pt-2">
-                          <img src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`} className="w-full h-48 object-cover rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm" alt="Preview" />
+                          <img src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`} loading="lazy" width={480} height={360} className="w-full h-48 object-cover rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm" alt="Preview" />
                         </div>
                       );
                     }
@@ -1452,7 +1452,7 @@ const VideosTab = React.memo(({ videosList, handleAddVideo, handleDeleteVideo, h
                   const videoIdMatch = item.youtube_url?.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?]+)/);
                   const videoId = videoIdMatch ? videoIdMatch[1] : null;
                   return videoId ? (
-                    <img src={`https://img.youtube.com/vi/${videoId}/default.jpg`} className="w-16 h-12 object-cover rounded-lg border border-slate-200 dark:border-slate-700" alt={item.title} />
+                    <img src={`https://img.youtube.com/vi/${videoId}/default.jpg`} loading="lazy" width={120} height={90} className="w-16 h-12 object-cover rounded-lg border border-slate-200 dark:border-slate-700" alt={item.title} />
                   ) : (
                     <div className="w-16 h-12 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-700">
                       <VideoIcon className="w-5 h-5 text-slate-400" />
@@ -3125,7 +3125,7 @@ export default function AdminDashboard() {
       <div className="md:hidden sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 px-4 py-3 shadow-sm flex items-center justify-between">
         <div className="flex items-center gap-3">
           {settings.logo_url ? (
-            <img src={settings.logo_url} className="w-9 h-9 object-contain drop-shadow-sm" alt="Logo" />
+            <img src={settings.logo_url} loading="lazy" width={40} height={40} className="w-10 h-10 object-contain drop-shadow-sm" alt="Logo" />
           ) : (
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-md">
               <Shield className="w-5 h-5" />
@@ -3154,7 +3154,7 @@ export default function AdminDashboard() {
           <div className="flex items-center gap-4">
             <div className="relative">
               {settings.logo_url ? (
-                <img src={settings.logo_url} className="w-12 h-12 object-contain drop-shadow-sm" alt="Logo" />
+                <img src={settings.logo_url} loading="lazy" width={56} height={56} className="w-14 h-14 object-contain drop-shadow-sm" alt="Logo" />
               ) : (
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/20 text-white">
                   <Shield className="w-6 h-6" />
@@ -3290,8 +3290,8 @@ export default function AdminDashboard() {
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 min-w-0 bg-white dark:bg-slate-900 md:border md:border-slate-200 dark:border-slate-800/80 md:rounded-2xl p-4 sm:p-6 md:p-8 min-h-[750px] shadow-sm relative overflow-hidden">
-            <div className="relative z-10">
+        <div className="flex-1 min-w-0 bg-white dark:bg-slate-900 md:border md:border-slate-200 dark:border-slate-800/80 md:rounded-2xl p-4 sm:p-6 md:p-8 min-h-[750px] shadow-sm relative overflow-visible md:overflow-hidden">
+            <div className="relative">
               {activeTab === 'dashboard' && <DashboardTab apps={appsList} news={newsList} />}
               {activeTab === 'apps' && (
                 <AppsTab 
@@ -3585,6 +3585,9 @@ export default function AdminDashboard() {
                         <div className="flex flex-col items-center gap-1.5 self-center md:self-stretch justify-center">
                           <img 
                             src={banner.image || "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800&q=80"} 
+                            loading="lazy"
+                            width={192}
+                            height={112}
                             className="w-48 h-28 object-cover rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 bg-slate-100" 
                             alt="Banner Preview" 
                             onError={(e) => {

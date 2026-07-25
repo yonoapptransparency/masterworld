@@ -4,7 +4,7 @@
  */
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, onAuthStateChanged, Auth } from 'firebase/auth';
 import { getAdminPath } from './utils';
 
 // We rely on environment variables for production.
@@ -61,32 +61,44 @@ export const isFirebaseReal = isFirebaseConfigured && isFirebaseApiKeyReal(fireb
 
 export const app = isFirebaseConfigured ? (getApps().length === 0 ? initializeApp(firebaseConfig!) : getApp()) : null as any;
 
-export const auth = (() => {
-  if (isFirebaseReal && app) {
-    let realAuth = null; try { realAuth = getAuth(app); } catch(e) { console.error(e); }
-    if (!realAuth) return null as any; const originalOnAuthStateChanged = (realAuth as any).onAuthStateChanged;
-    let isCallingModular = false;
-
-    (realAuth as any).onAuthStateChanged = (callback: (user: any) => void) => {
-      if (isCallingModular) {
-        if (typeof originalOnAuthStateChanged === 'function') {
-          return originalOnAuthStateChanged.call(realAuth, callback);
-        }
-        return () => {};
+let _realAuthInstance: any = null;
+const getRealAuth = () => {
+  if (!_realAuthInstance && isFirebaseReal && app) {
+    try {
+      _realAuthInstance = getAuth(app);
+      if (_realAuthInstance) {
+        const originalOnAuthStateChanged = (_realAuthInstance as any).onAuthStateChanged;
+        let isCallingModular = false;
+        (_realAuthInstance as any).onAuthStateChanged = (callback: (user: any) => void) => {
+          if (isCallingModular) {
+            if (typeof originalOnAuthStateChanged === 'function') {
+              return originalOnAuthStateChanged.call(_realAuthInstance, callback);
+            }
+            return () => {};
+          }
+          isCallingModular = true;
+          try {
+            return onAuthStateChanged(_realAuthInstance, callback);
+          } finally {
+            isCallingModular = false;
+          }
+        };
       }
-
-      isCallingModular = true;
-      try {
-        return onAuthStateChanged(realAuth, callback);
-      } finally {
-        isCallingModular = false;
-      }
-    };
-    return realAuth;
-  } else {
-    return null as any;
+    } catch (e) {
+      console.error(e);
+    }
   }
-})();
+  return _realAuthInstance;
+};
+
+export const auth = new Proxy({}, {
+  get(_target, prop) {
+    const instance = getRealAuth();
+    if (!instance) return undefined;
+    const value = (instance as any)[prop];
+    return typeof value === 'function' ? value.bind(instance) : value;
+  }
+}) as unknown as Auth;
 
 import { getFirestore, initializeFirestore, doc, getDocFromServer, disableNetwork } from 'firebase/firestore';
 

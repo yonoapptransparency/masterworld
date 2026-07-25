@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Flag, X, Check, ShieldAlert } from 'lucide-react';
+import { Flag, X, Check } from 'lucide-react';
 
 interface ReportAppModalProps {
   app: {
@@ -45,15 +44,11 @@ export const ReportAppModal: React.FC<ReportAppModalProps> = ({ app, onClose }) 
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-xs p-0 sm:p-4 animate-fade-in"
+      className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-xs p-0 sm:p-4 animate-in fade-in duration-200"
       onClick={onClose}
     >
-      <motion.div
-        initial={{ y: '100%', opacity: 0.5 }}
-        animate={{ y: 0, opacity: 1 }}
-        exit={{ y: '100%', opacity: 0 }}
-        transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-        className="bg-white dark:bg-zinc-900 w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl border-t sm:border border-black/5 dark:border-white/10 flex flex-col max-h-[90vh] sm:max-h-none"
+      <div
+        className="bg-white dark:bg-zinc-900 w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl border-t sm:border border-black/5 dark:border-white/10 flex flex-col max-h-[90vh] sm:max-h-none animate-in slide-in-from-bottom-4 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -190,7 +185,8 @@ export const ReportAppModal: React.FC<ReportAppModalProps> = ({ app, onClose }) 
             </form>
           )}
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 };
+

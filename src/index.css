@@ -62,7 +62,6 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-    overscroll-behavior-y: none;
   transition: background-color 0.3s ease, color 0.3s ease;
   -webkit-tap-highlight-color: transparent;
 }
@@ -428,11 +427,9 @@ a {
 
 @layer base {
   html {
-    
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    overscroll-behavior-y: none;
   }
 
   body {
@@ -485,12 +482,14 @@ html.lenis-scrolling * {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Isolate list layout reflows for smooth 120fps scrolling */
+/* Isolate list layout reflows & GPU composition for 120fps scrolling */
 .animate-list-item-fade {
-  contain: content;
+  contain: layout style paint;
+  content-visibility: auto;
+  contain-intrinsic-size: 0 88px;
 }
 
-/* Smartphone GPU & Performance Optimizations */
+/* Smartphone GPU & Performance Optimizations - Buttery Smooth Touch Physics */
 @media (max-width: 768px) {
   /* Lightweight glass navigation for smooth mobile performance */
   .glass-nav {
@@ -498,30 +497,16 @@ html.lenis-scrolling * {
     border-bottom: 1px solid var(--glass-border);
   }
 
-  /* Snappy button/link transitions on mobile without layout thrashing */
-  a, button, input, select {
-    transition-duration: 100ms !important;
-  }
-
-  /* Disable expensive layout/scale animations on active/touch/hover states for budget devices */
+  /* Fluid tactile press physics for mobile buttons and panels using GPU composition */
   .glass-panel:active, button:active, .will-scale:active, a:active .glass-panel, a.group:active {
-    transform: none !important;
-    opacity: 0.85 !important;
-    transition: opacity 0.05s ease !important;
+    transform: scale3d(0.97, 0.97, 1) translate3d(0, 0, 0) !important;
+    opacity: 0.92 !important;
+    transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.12s ease !important;
   }
 
   .glass-panel {
-    transition: none !important;
-  }
-
-  /* Disable CPU-burning keyframe loops on low-power devices */
-  .vibrating-icon, .vibrating-icon * {
-    animation: none !important;
-  }
-
-  .premium-action-btn::before {
-    animation: none !important;
-    display: none !important;
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease !important;
+    will-change: transform;
   }
 }
 

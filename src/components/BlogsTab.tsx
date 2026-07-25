@@ -194,7 +194,7 @@ const BlogsTab = React.memo(({ blogs, handleAddBlog, handleDeleteBlog, handleBlo
                         
                         {blog.cover_url && (
                           <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm relative group">
-                            <img src={blog.cover_url} className="w-full h-40 object-cover" alt="Cover Preview" onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=800&q=80'; }} />
+                            <img src={blog.cover_url} className="w-full h-40 object-cover" loading="lazy" width={800} height={400} alt="Cover Preview" onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=800&q=80'; }} />
                             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                               <span className="text-white text-xs font-bold uppercase tracking-wider bg-black/50 px-3 py-1 rounded-full backdrop-blur-sm">Image Preview</span>
                             </div>
@@ -221,7 +221,7 @@ const BlogsTab = React.memo(({ blogs, handleAddBlog, handleDeleteBlog, handleBlo
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
                   <div className="flex items-center gap-5 w-full">
                     <div className="w-24 h-24 rounded-xl overflow-hidden border border-black/5 dark:border-white/10 shrink-0 shadow-sm hidden sm:block">
-                      <img src={blog.cover_url || 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=200&h=200&fit=crop'} alt={blog.title} className="w-full h-full object-cover" />
+                      <img src={blog.cover_url || 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=200&h=200&fit=crop'} alt={blog.title} loading="lazy" width={200} height={200} className="w-full h-full object-cover" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1.5">

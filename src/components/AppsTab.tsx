@@ -1,6 +1,7 @@
 import { safeHtml } from '../lib/safeHtml';
 import { adminFetch } from '../services/adminAuthService';
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   LayoutDashboard, 
   Plus, 
@@ -17,7 +18,8 @@ import {
   AlertTriangle, 
   Sparkles,
   Search,
-  Image
+  Image,
+  X
 } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../lib/firebase';
@@ -115,6 +117,9 @@ function ScreenshotsEditor({ initialScreenshots }: { initialScreenshots: string[
                 <img 
                   src={url} 
                   referrerPolicy="no-referrer"
+                  loading="lazy"
+                  width={40}
+                  height={64}
                   className="w-full h-full object-cover" 
                   alt="preview"
                   onError={(e) => {
@@ -525,6 +530,9 @@ const AppsTab = React.memo(({ appsList, editingAppId, setEditingAppId, handleDel
                     >
                       <img 
                         src={app.icon_url || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&h=128&fit=crop'} 
+                        loading="lazy"
+                        width={44}
+                        height={44}
                         className="w-11 h-11 object-cover rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 shrink-0" 
                         alt="" 
                       />
@@ -582,9 +590,10 @@ const AppsTab = React.memo(({ appsList, editingAppId, setEditingAppId, handleDel
         </div>
 
         {/* Right Column - Inspector Panel or Editing Drawer Form */}
-        <div className={`${(editingAppId !== null || selectedAppId) ? 'fixed inset-0 z-[100] rounded-none h-[100dvh] w-full flex lg:relative lg:inset-auto lg:z-auto lg:rounded-2xl lg:h-[780px] lg:w-auto lg:col-span-12 xl:col-span-12' : 'hidden lg:flex lg:h-[780px] lg:col-span-7 xl:col-span-7 rounded-2xl h-[500px]'} bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 flex-col overflow-hidden shadow-sm`}>
-          
-          {editingAppId !== null ? (
+        {(() => {
+          const content = (
+            <>
+              {editingAppId !== null ? (
             /* ========================================================= */
             /* =============== ACTIVE FORM EDITOR MODE ================= */
             /* ========================================================= */
@@ -592,14 +601,24 @@ const AppsTab = React.memo(({ appsList, editingAppId, setEditingAppId, handleDel
               
               {/* Form Sticky Header */}
               <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800/80 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50 shrink-0">
-                <div className="min-w-0">
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 truncate">
-                    <Edit2 className="w-4 h-4 text-blue-500 shrink-0" />
-                    {editingAppId === "" ? 'Add New Application' : `Edit: ${formFields.name || 'Untitled'}`}
-                  </h3>
-                  <p className="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5 truncate">
-                    {editingAppId === "" ? 'CATALOG_CREATION_MODE' : `APP_ID: ${editingAppId}`}
-                  </p>
+                <div className="min-w-0 flex items-center gap-2">
+                  <button 
+                    type="button" 
+                    onClick={() => setEditingAppId(null)} 
+                    className="lg:hidden p-1.5 -ml-1 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-lg bg-slate-100 dark:bg-slate-800 border-0 cursor-pointer shrink-0"
+                    title="Close"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 truncate">
+                      <Edit2 className="w-4 h-4 text-blue-500 shrink-0" />
+                      {editingAppId === "" ? 'Add New Application' : `Edit: ${formFields.name || 'Untitled'}`}
+                    </h3>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5 truncate">
+                      {editingAppId === "" ? 'CATALOG_CREATION_MODE' : `APP_ID: ${editingAppId}`}
+                    </p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <button 
@@ -657,7 +676,7 @@ const AppsTab = React.memo(({ appsList, editingAppId, setEditingAppId, handleDel
               </div>
 
               {/* Form Scrollable Body content */}
-              <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6 custom-scrollbar bg-slate-50/30 dark:bg-slate-900/10">
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 pb-40 sm:pb-48 space-y-6 custom-scrollbar bg-slate-50/30 dark:bg-slate-900/10">
                 
                 <div className={activeFormTab === 'general' ? 'animate-fade-in space-y-5' : 'hidden'}>
                     <div className="grid gap-4 sm:grid-cols-2">
@@ -700,6 +719,9 @@ const AppsTab = React.memo(({ appsList, editingAppId, setEditingAppId, handleDel
                           />
                           <img 
                             src={formFields.icon_url || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&h=128&fit=crop'} 
+                            loading="lazy"
+                            width={40}
+                            height={40}
                             className="w-10 h-10 object-cover rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 shadow-xs shrink-0" 
                             alt="preview" 
                             onError={(e) => {
@@ -1004,6 +1026,9 @@ const AppsTab = React.memo(({ appsList, editingAppId, setEditingAppId, handleDel
                         />
                         <img 
                           src={formFields.og_image_url || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&q=80'} 
+                          loading="lazy"
+                          width={64}
+                          height={40}
                           className="w-16 h-10 object-cover rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-100 shadow-xs shrink-0" 
                           alt="og-preview" 
                           onError={(e) => {
@@ -1172,20 +1197,20 @@ const AppsTab = React.memo(({ appsList, editingAppId, setEditingAppId, handleDel
                 </div>
 
               {/* Form Sticky Action Footer */}
-              <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3 bg-slate-50/50 dark:bg-slate-900/50 shrink-0">
+              <div className="p-4 sm:p-5 border-t border-slate-100 dark:border-slate-800/80 flex justify-end items-center gap-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md shrink-0 sticky bottom-0 z-20 pb-safe shadow-lg">
                 <button 
                   type="button"
                   onClick={() => setEditingAppId(null)}
-                  className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit" 
                   disabled={saving} 
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all disabled:opacity-50 cursor-pointer border-0"
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-md transition-all disabled:opacity-50 cursor-pointer border-0 active:scale-95"
                 >
-                  {saving ? 'Synchronizing...' : <><Save className="w-3.5 h-3.5"/> Publish App Configuration</>}
+                  {saving ? 'Synchronizing...' : <><Save className="w-4 h-4"/> Publish App Configuration</>}
                 </button>
               </div>
 
@@ -1212,6 +1237,9 @@ const AppsTab = React.memo(({ appsList, editingAppId, setEditingAppId, handleDel
                     <div className="flex items-start gap-4 w-full">
                       <img 
                         src={selectedApp.icon_url || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&h=128&fit=crop'} 
+                        loading="lazy"
+                        width={64}
+                        height={64}
                         className="w-16 h-16 object-cover rounded-2xl shadow-sm border border-slate-200/60 dark:border-slate-800 bg-slate-100" 
                         alt="" 
                       />
@@ -1253,7 +1281,7 @@ const AppsTab = React.memo(({ appsList, editingAppId, setEditingAppId, handleDel
                   </div>
 
                   {/* Selected App Body Panel (Previews & Detailed Metrics) */}
-                  <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6 custom-scrollbar bg-white dark:bg-slate-900">
+                  <div className="flex-1 overflow-y-auto p-5 sm:p-6 pb-20 space-y-6 custom-scrollbar bg-white dark:bg-slate-900">
                     
                     {/* Google SERP Preview simulator */}
                     <div className="space-y-2">
@@ -1422,8 +1450,15 @@ const AppsTab = React.memo(({ appsList, editingAppId, setEditingAppId, handleDel
               )}
             </div>
           )}
+        </>
+      );
 
-        </div>
+          return (
+            <div className={`${(editingAppId !== null || selectedAppId) ? 'fixed inset-0 z-[999999] h-[100dvh] w-full flex lg:relative lg:inset-auto lg:z-auto lg:col-span-12 xl:col-span-12 lg:min-h-[780px] lg:max-h-[85vh] lg:h-[780px]' : 'hidden lg:flex lg:min-h-[780px] lg:col-span-7 xl:col-span-7 h-[500px]'} bg-white dark:bg-slate-900 border-0 lg:border border-slate-200/80 dark:border-slate-800 flex-col overflow-hidden shadow-2xl lg:shadow-sm rounded-none lg:rounded-2xl`}>
+              {content}
+            </div>
+          );
+        })()}
 
       </div>
     </div>
