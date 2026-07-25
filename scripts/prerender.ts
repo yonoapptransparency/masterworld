@@ -93,6 +93,7 @@ async function prerender() {
     xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
 
     // Static routes
+    const today = new Date().toISOString().split('T')[0];
     const staticRoutes = [
       { path: '/', priority: '1.0', changefreq: 'daily' },
       { path: '/new-apps', priority: '0.8', changefreq: 'daily' },
@@ -112,8 +113,19 @@ async function prerender() {
     ];
 
     for (const route of staticRoutes) {
-      xml += `  <url>\n    <loc>${host}${route.path}</loc>\n    <changefreq>${route.changefreq}</changefreq>\n    <priority>${route.priority}</priority>\n  </url>\n`;
+      xml += `  <url>\n    <loc>${host}${route.path}</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>${route.changefreq}</changefreq>\n    <priority>${route.priority}</priority>\n  </url>\n`;
     }
+
+    const getFormattedDate = (obj: any) => {
+      const dateStr = getField(obj, 'updated_at') || getField(obj, 'created_at');
+      if (dateStr) {
+        const date = new Date(dateStr);
+        if (!isNaN(date.getTime())) {
+          return date.toISOString().split('T')[0];
+        }
+      }
+      return new Date().toISOString().split('T')[0];
+    };
 
     const escapeHtmlForSitemap = (unsafe) => {
       if (!unsafe) return '';
@@ -131,7 +143,7 @@ async function prerender() {
       const slug = getField(app, 'slug');
       const canonicalUrl = getField(app, 'canonical_url');
       if (slug && !canonicalUrl) {
-        xml += `  <url>\n    <loc>${host}/app/${escapeHtmlForSitemap(slug)}</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.9</priority>\n  </url>\n`;
+        xml += `  <url>\n    <loc>${host}/app/${escapeHtmlForSitemap(slug)}</loc>\n    <lastmod>${getFormattedDate(app)}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.9</priority>\n  </url>\n`;
       }
     }
 
@@ -139,7 +151,7 @@ async function prerender() {
       const slug = getField(newsItem, 'slug');
       const canonicalUrl = getField(newsItem, 'canonical_url');
       if (slug && !canonicalUrl) {
-        xml += `  <url>\n    <loc>${host}/news/${escapeHtmlForSitemap(slug)}</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
+        xml += `  <url>\n    <loc>${host}/news/${escapeHtmlForSitemap(slug)}</loc>\n    <lastmod>${getFormattedDate(newsItem)}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
       }
     }
 
@@ -147,18 +159,18 @@ async function prerender() {
       const slug = getField(blog, 'slug');
       const canonicalUrl = getField(blog, 'canonical_url');
       if (slug && !canonicalUrl) {
-        xml += `  <url>\n    <loc>${host}/blog/${escapeHtmlForSitemap(slug)}</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
+        xml += `  <url>\n    <loc>${host}/blog/${escapeHtmlForSitemap(slug)}</loc>\n    <lastmod>${getFormattedDate(blog)}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
       }
     }
 
     for (const video of data.videos || []) {
       const slug = getField(video, 'slug');
       if (slug) {
-        xml += `  <url>\n    <loc>${host}/videos/${escapeHtmlForSitemap(slug)}</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.6</priority>\n  </url>\n`;
+        xml += `  <url>\n    <loc>${host}/videos/${escapeHtmlForSitemap(slug)}</loc>\n    <lastmod>${getFormattedDate(video)}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.6</priority>\n  </url>\n`;
       }
     }
 
-    xml += `</urlset>`;
+    xml += `</urlset>\n`;
     fs.writeFileSync(path.join(distPath, 'sitemap.xml'), xml, 'utf-8');
     console.log('Generated sitemap.xml');
 

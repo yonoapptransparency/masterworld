@@ -780,21 +780,22 @@ async function startServer() {
       xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
       
       // Static routes
-      xml += `  <url>\n    <loc>${host}/</loc>\n    <changefreq>daily</changefreq>\n    <priority>1.0</priority>\n  </url>\n`;
-      xml += `  <url>\n    <loc>${host}/new-apps</loc>\n    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n  </url>\n`;
-      xml += `  <url>\n    <loc>${host}/news</loc>\n    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n  </url>\n`;
-      xml += `  <url>\n    <loc>${host}/blogs</loc>\n    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n  </url>\n`;
-      xml += `  <url>\n    <loc>${host}/videos</loc>\n    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n  </url>\n`;
-      xml += `  <url>\n    <loc>${host}/about</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.5</priority>\n  </url>\n`;
-      xml += `  <url>\n    <loc>${host}/developers</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.5</priority>\n  </url>\n`;
-      xml += `  <url>\n    <loc>${host}/contact</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.5</priority>\n  </url>\n`;
-      xml += `  <url>\n    <loc>${host}/privacy</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
-      xml += `  <url>\n    <loc>${host}/report-removal</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
-      xml += `  <url>\n    <loc>${host}/terms</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
-      xml += `  <url>\n    <loc>${host}/responsibility</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
-      xml += `  <url>\n    <loc>${host}/notice</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
-      xml += `  <url>\n    <loc>${host}/ethics</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
-      xml += `  <url>\n    <loc>${host}/disclaimer</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
+      const today = new Date().toISOString().split('T')[0];
+      xml += `  <url>\n    <loc>${host}/</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>1.0</priority>\n  </url>\n`;
+      xml += `  <url>\n    <loc>${host}/new-apps</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n  </url>\n`;
+      xml += `  <url>\n    <loc>${host}/news</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n  </url>\n`;
+      xml += `  <url>\n    <loc>${host}/blogs</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n  </url>\n`;
+      xml += `  <url>\n    <loc>${host}/videos</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n  </url>\n`;
+      xml += `  <url>\n    <loc>${host}/about</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.5</priority>\n  </url>\n`;
+      xml += `  <url>\n    <loc>${host}/developers</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.5</priority>\n  </url>\n`;
+      xml += `  <url>\n    <loc>${host}/contact</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.5</priority>\n  </url>\n`;
+      xml += `  <url>\n    <loc>${host}/privacy</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
+      xml += `  <url>\n    <loc>${host}/report-removal</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
+      xml += `  <url>\n    <loc>${host}/terms</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
+      xml += `  <url>\n    <loc>${host}/responsibility</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
+      xml += `  <url>\n    <loc>${host}/notice</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
+      xml += `  <url>\n    <loc>${host}/ethics</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
+      xml += `  <url>\n    <loc>${host}/disclaimer</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
       
       // Dynamic App Routes
       const escapeHtmlForSitemap = (unsafe: string) => {
@@ -806,6 +807,17 @@ async function startServer() {
            .replace(/'/g, "&#039;");
       };
 
+      const getFormattedDate = (obj: any) => {
+        const dateStr = getField(obj, 'updated_at') || getField(obj, 'created_at');
+        if (dateStr) {
+          const date = new Date(dateStr);
+          if (!isNaN(date.getTime())) {
+            return date.toISOString().split('T')[0];
+          }
+        }
+        return new Date().toISOString().split('T')[0];
+      };
+
       // 1. Apps
       for (const app of apps) {
         const slug = getField(app, 'slug');
@@ -814,6 +826,7 @@ async function startServer() {
           // Standard app detail path
           xml += `  <url>\n`;
           xml += `    <loc>${host}/app/${escapeHtmlForSitemap(slug)}</loc>\n`;
+          xml += `    <lastmod>${getFormattedDate(app)}</lastmod>\n`;
           xml += `    <changefreq>weekly</changefreq>\n`;
           xml += `    <priority>0.9</priority>\n`;
           xml += `  </url>\n`;
@@ -827,6 +840,7 @@ async function startServer() {
         if (slug && !canonicalUrl) {
           xml += `  <url>\n`;
           xml += `    <loc>${host}/news/${escapeHtmlForSitemap(slug)}</loc>\n`;
+          xml += `    <lastmod>${getFormattedDate(newsItem)}</lastmod>\n`;
           xml += `    <changefreq>weekly</changefreq>\n`;
           xml += `    <priority>0.7</priority>\n`;
           xml += `  </url>\n`;
@@ -840,6 +854,7 @@ async function startServer() {
         if (slug && !canonicalUrl) {
           xml += `  <url>\n`;
           xml += `    <loc>${host}/blog/${escapeHtmlForSitemap(slug)}</loc>\n`;
+          xml += `    <lastmod>${getFormattedDate(blog)}</lastmod>\n`;
           xml += `    <changefreq>weekly</changefreq>\n`;
           xml += `    <priority>0.7</priority>\n`;
           xml += `  </url>\n`;
@@ -852,13 +867,14 @@ async function startServer() {
         if (slug) {
           xml += `  <url>\n`;
           xml += `    <loc>${host}/videos/${escapeHtmlForSitemap(slug)}</loc>\n`;
+          xml += `    <lastmod>${getFormattedDate(video)}</lastmod>\n`;
           xml += `    <changefreq>weekly</changefreq>\n`;
           xml += `    <priority>0.6</priority>\n`;
           xml += `  </url>\n`;
         }
       }
       
-      xml += `</urlset>`;
+      xml += `</urlset>\n`;
       
       res.header('Content-Type', 'application/xml');
       res.send(xml);
