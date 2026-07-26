@@ -818,11 +818,20 @@ async function startServer() {
         return new Date().toISOString().split('T')[0];
       };
 
+      const isExternalCanonical = (url?: string) => {
+        if (!url || typeof url !== 'string') return false;
+        const trimmed = url.trim().toLowerCase();
+        if (!trimmed) return false;
+        if (trimmed.startsWith('/') || trimmed.includes('rummydex.com')) return false;
+        if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return true;
+        return false;
+      };
+
       // 1. Apps
       for (const app of apps) {
         const slug = getField(app, 'slug');
         const canonicalUrl = getField(app, 'canonical_url');
-        if (slug && !canonicalUrl) {
+        if (slug && !isExternalCanonical(canonicalUrl)) {
           // Standard app detail path
           xml += `  <url>\n`;
           xml += `    <loc>${host}/app/${escapeHtmlForSitemap(slug)}</loc>\n`;
@@ -837,7 +846,7 @@ async function startServer() {
       for (const newsItem of news) {
         const slug = getField(newsItem, 'slug');
         const canonicalUrl = getField(newsItem, 'canonical_url');
-        if (slug && !canonicalUrl) {
+        if (slug && !isExternalCanonical(canonicalUrl)) {
           xml += `  <url>\n`;
           xml += `    <loc>${host}/news/${escapeHtmlForSitemap(slug)}</loc>\n`;
           xml += `    <lastmod>${getFormattedDate(newsItem)}</lastmod>\n`;
@@ -851,7 +860,7 @@ async function startServer() {
       for (const blog of blogs) {
         const slug = getField(blog, 'slug');
         const canonicalUrl = getField(blog, 'canonical_url');
-        if (slug && !canonicalUrl) {
+        if (slug && !isExternalCanonical(canonicalUrl)) {
           xml += `  <url>\n`;
           xml += `    <loc>${host}/blog/${escapeHtmlForSitemap(slug)}</loc>\n`;
           xml += `    <lastmod>${getFormattedDate(blog)}</lastmod>\n`;

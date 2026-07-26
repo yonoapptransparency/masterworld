@@ -139,10 +139,19 @@ async function prerender() {
 
     const getField = (obj, field) => obj && obj[field];
 
+    const isExternalCanonical = (url?: string) => {
+      if (!url || typeof url !== 'string') return false;
+      const trimmed = url.trim().toLowerCase();
+      if (!trimmed) return false;
+      if (trimmed.startsWith('/') || trimmed.includes('rummydex.com')) return false;
+      if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return true;
+      return false;
+    };
+
     for (const app of data.apps || []) {
       const slug = getField(app, 'slug');
       const canonicalUrl = getField(app, 'canonical_url');
-      if (slug && !canonicalUrl) {
+      if (slug && !isExternalCanonical(canonicalUrl)) {
         xml += `  <url>\n    <loc>${host}/app/${escapeHtmlForSitemap(slug)}</loc>\n    <lastmod>${getFormattedDate(app)}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.9</priority>\n  </url>\n`;
       }
     }
@@ -150,7 +159,7 @@ async function prerender() {
     for (const newsItem of data.news || []) {
       const slug = getField(newsItem, 'slug');
       const canonicalUrl = getField(newsItem, 'canonical_url');
-      if (slug && !canonicalUrl) {
+      if (slug && !isExternalCanonical(canonicalUrl)) {
         xml += `  <url>\n    <loc>${host}/news/${escapeHtmlForSitemap(slug)}</loc>\n    <lastmod>${getFormattedDate(newsItem)}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
       }
     }
@@ -158,7 +167,7 @@ async function prerender() {
     for (const blog of data.blogs || []) {
       const slug = getField(blog, 'slug');
       const canonicalUrl = getField(blog, 'canonical_url');
-      if (slug && !canonicalUrl) {
+      if (slug && !isExternalCanonical(canonicalUrl)) {
         xml += `  <url>\n    <loc>${host}/blog/${escapeHtmlForSitemap(slug)}</loc>\n    <lastmod>${getFormattedDate(blog)}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
       }
     }
