@@ -2218,7 +2218,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
           }
           if (settings) {
             const sanitized = JSON.parse(JSON.stringify(settings));
-            await adminDb.collection('store_data').doc('public_settings').set(sanitized);
+            await adminDb.collection('store_data').doc('public_settings').set(sanitized, { merge: true });
           }
           if (news && Array.isArray(news)) {
             await adminDb.collection('store_data').doc('news').set({ items: JSON.parse(JSON.stringify(news)) });

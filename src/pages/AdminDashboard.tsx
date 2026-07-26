@@ -2488,6 +2488,10 @@ export default function AdminDashboard() {
       const updatedSettings = {
         ...settings,
         categories: categoriesList,
+        quick_links: quickLinksList.length > 0 ? quickLinksList : (settings.quick_links || []),
+        website_faqs: websiteFaqsList.length > 0 ? websiteFaqsList : (settings.website_faqs || []),
+        developers: developersList.length > 0 ? developersList : (settings.developers || []),
+        banners: banners.length > 0 ? banners : (settings.banners || []),
       };
       await saveSettings(updatedSettings);
       triggerHaptic();
@@ -2506,6 +2510,10 @@ export default function AdminDashboard() {
       const updatedSettings = {
         ...settings,
         quick_links: quickLinksList,
+        categories: categoriesList.length > 0 ? categoriesList : (settings.categories || []),
+        website_faqs: websiteFaqsList.length > 0 ? websiteFaqsList : (settings.website_faqs || []),
+        developers: developersList.length > 0 ? developersList : (settings.developers || []),
+        banners: banners.length > 0 ? banners : (settings.banners || []),
       };
       await saveSettings(updatedSettings);
       triggerHaptic();
@@ -2540,6 +2548,10 @@ export default function AdminDashboard() {
       const updatedSettings = {
         ...settings,
         website_faqs: websiteFaqsList,
+        categories: categoriesList.length > 0 ? categoriesList : (settings.categories || []),
+        quick_links: quickLinksList.length > 0 ? quickLinksList : (settings.quick_links || []),
+        developers: developersList.length > 0 ? developersList : (settings.developers || []),
+        banners: banners.length > 0 ? banners : (settings.banners || []),
       };
       await saveSettings(updatedSettings);
       triggerHaptic();
@@ -2574,6 +2586,10 @@ export default function AdminDashboard() {
       const updatedSettings = {
         ...settings,
         developers: developersList,
+        categories: categoriesList.length > 0 ? categoriesList : (settings.categories || []),
+        quick_links: quickLinksList.length > 0 ? quickLinksList : (settings.quick_links || []),
+        website_faqs: websiteFaqsList.length > 0 ? websiteFaqsList : (settings.website_faqs || []),
+        banners: banners.length > 0 ? banners : (settings.banners || []),
       };
       await saveSettings(updatedSettings);
       triggerHaptic();
@@ -2699,9 +2715,11 @@ export default function AdminDashboard() {
           youtube: formData.get('social_youtube') as string || '',
         },
         
-        categories: categoriesList,
-        banners: banners,
-        website_faqs: websiteFaqsList
+        categories: categoriesList.length > 0 ? categoriesList : (settings.categories || []),
+        banners: banners.length > 0 ? banners : (settings.banners || []),
+        website_faqs: websiteFaqsList.length > 0 ? websiteFaqsList : (settings.website_faqs || []),
+        quick_links: quickLinksList.length > 0 ? quickLinksList : (settings.quick_links || []),
+        developers: developersList.length > 0 ? developersList : (settings.developers || []),
       };
       
       await saveSettings(updatedSettings);

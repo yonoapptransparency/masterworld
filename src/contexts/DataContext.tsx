@@ -1000,7 +1000,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const saveSettings = React.useCallback(async (newSettings: GlobalSettings) => {
     const now = new Date().toISOString();
-    const settingsWithTime = { ...newSettings, last_updated: now };
+    const settingsWithTime = { ...settings, ...newSettings, last_updated: now };
 
     // 1. Snappy optimistic update to local state and local memory first
     setSettings(settingsWithTime);
@@ -1011,7 +1011,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const docRef = doc(db, 'store_data', 'public_settings');
         console.log("Cloud: Pushing Settings update via client SDK...");
         const sanitized = JSON.parse(JSON.stringify(settingsWithTime));
-        await setDoc(docRef, sanitized);
+        await setDoc(docRef, sanitized, { merge: true });
         console.log("Cloud: Settings update acknowledged by server.");
       }
     } catch (err: any) {
@@ -1019,7 +1019,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
 
     await updateLocalContainerBackup(apps, settingsWithTime, news, blogs, videos);
-  }, [apps, news, blogs, videos, updateLocalContainerBackup]);
+  }, [settings, apps, news, blogs, videos, updateLocalContainerBackup]);
 
   const saveNews = React.useCallback(async (newNews: NewsItem[]) => {
     // 1. Snappy optimistic update to local state and local memory first
