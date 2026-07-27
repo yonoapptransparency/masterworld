@@ -2467,13 +2467,15 @@ export default function AdminDashboard() {
 
   const handleReloadCloudData = async () => {
     setSaving(true);
+    notifySaveStart('Performing Live Full Refresh from Cloud Firestore...');
     try {
       isInitializedRef.current = false;
       settingsInitializedRef.current = false;
       await refreshAll();
-      alert('LIVE FIREBASE DATA REFRESHED: Loaded latest live data directly from Firebase Firestore.');
+      notifySaveSuccess('LIVE FULL REFRESH COMPLETE: All content, apps, news, and settings updated live from Firestore!');
     } catch (err: any) {
-      alert('Firebase Live Refresh Warning: ' + (err.message || 'Check network connection.'));
+      console.error("Live Refresh error:", err);
+      notifySaveError('Live Refresh failed: ' + (err.message || 'Check connection.'));
     } finally {
       setSaving(false);
     }
@@ -2922,10 +2924,7 @@ export default function AdminDashboard() {
         updatedApps = [...appsList, appData];
       }
       
-      await Promise.race([
-        saveApps(updatedApps),
-        new Promise(resolve => setTimeout(resolve, 8000))
-      ]);
+      await saveApps(updatedApps);
 
       setAppsList(updatedApps);
       triggerHaptic();
@@ -3349,6 +3348,23 @@ export default function AdminDashboard() {
           <SidebarItem id="security" label="MFA Security" icon={Shield} active={activeTab === 'security'} onClick={handleTabChange} />
           <SidebarItem id="github" label="GitHub Sync" icon={Github} active={activeTab === 'github'} onClick={handleTabChange} />
           <SidebarItem id="settings" label="Global Config" icon={Settings} active={activeTab === 'settings'} onClick={handleTabChange} />
+
+          <div className="mt-4 p-3.5 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-slate-900 border border-blue-200/80 dark:border-blue-800/50 rounded-xl flex flex-col gap-2">
+            <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300 font-bold text-xs">
+              <RefreshCw className={`w-3.5 h-3.5 ${saving ? 'animate-spin' : ''}`} />
+              <span>Cloud Firestore Sync</span>
+            </div>
+            <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-tight">
+              Force fetch & reload live Firestore database across all devices.
+            </p>
+            <button
+              onClick={handleReloadCloudData}
+              disabled={saving}
+              className="w-full mt-1 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${saving ? 'animate-spin' : ''}`} /> Live Refresh
+            </button>
+          </div>
         </div>
 
         {/* Mobile Full-Screen Drawer Menu */}

@@ -2529,10 +2529,15 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
   let backupDataCacheTime = 0;
   const BACKUP_DATA_CACHE_TTL = 30000; // 30 seconds memory cache
 
-  app.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/public/backup-data", "/public/backup-data"], async (req, res) => {
+  app.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/public/backup-data", "/public/backup-data", "/api/v1/admin/live-refresh"], async (req, res) => {
     try {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+
+      const forceRefresh = req.query.nocache === 'true' || req.query.refresh === 'true' || !!req.query.t || req.path.includes('live-refresh');
       const now = Date.now();
-      if (backupDataCache && (now - backupDataCacheTime < BACKUP_DATA_CACHE_TTL)) {
+      if (!forceRefresh && backupDataCache && (now - backupDataCacheTime < BACKUP_DATA_CACHE_TTL)) {
         return res.json(backupDataCache);
       }
 

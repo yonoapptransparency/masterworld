@@ -315,7 +315,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const fetchBackupData = async () => {
       try {
-        const res = await fetch('/api/v1/public/backup-data');
+        const res = await fetch(`/api/v1/public/backup-data?nocache=true&t=${Date.now()}`);
         if (res.ok) {
           const ct = res.headers.get('content-type') || '';
           if (ct.includes('application/json')) {
@@ -324,8 +324,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
               const isAdminRoute = currentPath.startsWith('/' + getAdminPath());
 
               setApps(prev => {
-                if (backup.apps && backup.apps.length > 0) {
-                  if (!isFirebaseReal || !isAdminRoute || prev.length === 0 || JSON.stringify(prev) === JSON.stringify(mockApps)) {
+                if (backup.apps && Array.isArray(backup.apps)) {
+                  if (!isAdminRoute || prev.length === 0 || JSON.stringify(prev) !== JSON.stringify(backup.apps)) {
                     localStorage.setItem('rummystore_apps', JSON.stringify(backup.apps));
                     return backup.apps;
                   }
@@ -334,7 +334,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
               });
               setSettings(prev => {
                 if (backup.settings && backup.settings.site_title) {
-                  if (!isFirebaseReal || !isAdminRoute || !prev || !prev.site_title || JSON.stringify(prev) === JSON.stringify(mockSettings)) {
+                  if (!isAdminRoute || !prev || !prev.site_title || JSON.stringify(prev) === JSON.stringify(mockSettings) || JSON.stringify(prev) !== JSON.stringify(backup.settings)) {
                     localStorage.setItem('rummystore_settings', JSON.stringify(backup.settings));
                     return backup.settings;
                   }
@@ -342,8 +342,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                 return prev;
               });
               setNews(prev => {
-                if (backup.news && backup.news.length > 0) {
-                  if (!isFirebaseReal || !isAdminRoute || prev.length === 0 || JSON.stringify(prev) === JSON.stringify(mockApps)) {
+                if (backup.news && Array.isArray(backup.news)) {
+                  if (!isAdminRoute || prev.length === 0 || JSON.stringify(prev) !== JSON.stringify(backup.news)) {
                     localStorage.setItem('rummystore_news', JSON.stringify(backup.news));
                     return backup.news;
                   }
@@ -351,8 +351,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                 return prev;
               });
               setBlogs(prev => {
-                if (backup.blogs && backup.blogs.length > 0) {
-                  if (!isFirebaseReal || !isAdminRoute || prev.length === 0 || JSON.stringify(prev) === JSON.stringify(mockApps)) {
+                if (backup.blogs && Array.isArray(backup.blogs)) {
+                  if (!isAdminRoute || prev.length === 0 || JSON.stringify(prev) !== JSON.stringify(backup.blogs)) {
                     localStorage.setItem('rummystore_blogs', JSON.stringify(backup.blogs));
                     return backup.blogs;
                   }
@@ -360,8 +360,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                 return prev;
               });
               setVideos(prev => {
-                if (backup.videos && backup.videos.length > 0) {
-                  if (!isFirebaseReal || !isAdminRoute || prev.length === 0 || JSON.stringify(prev) === JSON.stringify(mockApps)) {
+                if (backup.videos && Array.isArray(backup.videos)) {
+                  if (!isAdminRoute || prev.length === 0 || JSON.stringify(prev) !== JSON.stringify(backup.videos)) {
                     localStorage.setItem('rummystore_videos', JSON.stringify(backup.videos));
                     return backup.videos;
                   }
@@ -377,7 +377,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     };
     
     fetchBackupData();
-  }, []);
+  }, [currentPath]);
 
   // Helper to ensure writes hit the server
   const withServerConfirmation = React.useCallback(async (operation: () => Promise<any>, timeoutMs: number = 20000) => {
@@ -751,13 +751,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     try {
       let idToken = await Promise.race([
         getAdminToken(),
-        new Promise<string>(r => setTimeout(() => r(''), 2000))
+        new Promise<string>(r => setTimeout(() => r(''), 3000))
       ]);
       if (!idToken) {
         idToken = loadSession()?.idToken || '';
       }
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 6000);
+      const timer = setTimeout(() => controller.abort(), 12000);
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (idToken) {
         headers['Authorization'] = `Bearer ${idToken}`;
@@ -776,12 +776,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       });
       clearTimeout(timer);
       if (!res.ok) {
-        console.warn("sync-local endpoint status:", res.status);
+        const errTxt = await res.text();
+        console.warn("sync-local endpoint status:", res.status, errTxt);
+        throw new Error(`Cloud Sync Server Error (${res.status}): ${errTxt}`);
       } else {
         console.log("Local filesystem & cloud sync successful");
       }
-    } catch (e) {
+    } catch (e: any) {
       console.warn("Failed to write local filesystem backup:", e);
+      throw e;
     }
   }, []);
 
@@ -1045,6 +1048,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       console.log("Save Apps: All data synchronized successfully.");
     } catch (err: any) {
       console.error("Save Apps Error:", err);
+      throw err;
     }
   }, [settings, news, blogs, videos, updateLocalContainerBackup]);
 
@@ -1069,7 +1073,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       console.warn("Client SDK Save Settings warning (synced via server):", err.message);
     }
 
-    await updateLocalContainerBackup(apps, settingsWithTime, news, blogs, videos);
+    try {
+      await updateLocalContainerBackup(apps, settingsWithTime, news, blogs, videos);
+    } catch (err: any) {
+      console.error("Save Settings Error:", err);
+      throw err;
+    }
   }, [settings, apps, news, blogs, videos, updateLocalContainerBackup]);
 
   const saveNews = React.useCallback(async (newNews: NewsItem[]) => {
@@ -1089,7 +1098,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       console.warn("Client SDK Save News warning (synced via server):", err.message);
     }
 
-    await updateLocalContainerBackup(apps, settings, newNews, blogs, videos);
+    try {
+      await updateLocalContainerBackup(apps, settings, newNews, blogs, videos);
+    } catch (err: any) {
+      console.error("Save News Error:", err);
+      throw err;
+    }
   }, [apps, settings, blogs, videos, updateLocalContainerBackup]);
 
   const saveBlogs = React.useCallback(async (newBlogs: BlogPost[]) => {
@@ -1109,7 +1123,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       console.warn("Client SDK Save Blogs warning (synced via server):", err.message);
     }
 
-    await updateLocalContainerBackup(apps, settings, news, newBlogs, videos);
+    try {
+      await updateLocalContainerBackup(apps, settings, news, newBlogs, videos);
+    } catch (err: any) {
+      console.error("Save Blogs Error:", err);
+      throw err;
+    }
   }, [apps, settings, news, videos, updateLocalContainerBackup]);
 
   const saveVideos = React.useCallback(async (newVideos: VideoItem[]) => {
@@ -1129,7 +1148,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       console.warn("Client SDK Save Videos warning (synced via server):", err.message);
     }
 
-    await updateLocalContainerBackup(apps, settings, news, blogs, newVideos);
+    try {
+      await updateLocalContainerBackup(apps, settings, news, blogs, newVideos);
+    } catch (err: any) {
+      console.error("Save Videos Error:", err);
+      throw err;
+    }
   }, [apps, settings, news, blogs, updateLocalContainerBackup]);
 
   const saveGitConfig = React.useCallback(async (newConfig: GitConfig) => {
@@ -1232,9 +1256,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         }));
       }
 
-      // Always fallback to server endpoint if needed to ensure 100% data sync
+      // Always fallback to server endpoint with nocache to ensure 100% data sync
       try {
-        const bkRes = await fetch(`/api/v1/public/backup-data?t=${Date.now()}`);
+        const bkRes = await fetch(`/api/v1/public/backup-data?nocache=true&t=${Date.now()}`);
         if (bkRes.ok) {
           const bkData = await bkRes.json();
           if (bkData) {

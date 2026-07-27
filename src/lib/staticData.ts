@@ -173,7 +173,13 @@ export interface VideoItem {
   created_at: string;
 }
 
-export const mockApps: AppConfig[] = [];
+export const mockApps: AppConfig[] = [
+  {
+    "id": "test_save_app",
+    "name": "Test Save",
+    "title": "Test Save"
+  }
+];
 
 export const saveMockApps = (apps: AppConfig[]) => {
   try {
@@ -185,8 +191,8 @@ export const saveMockApps = (apps: AppConfig[]) => {
 };
 
 export const mockSettings: GlobalSettings = {
-  "site_title": "",
-  "meta_description": "",
+  "site_title": "Yono Store",
+  "meta_description": "Download All Yono Games, Rummy Apps & Teen Patti APKs",
   "logo_url": "",
   "favicon_url": "",
   "helpline_whatsapp": "",
@@ -200,35 +206,7 @@ export const mockSettings: GlobalSettings = {
   "banners": [],
   "quick_links": [],
   "website_faqs": [],
-  "developers": [],
-  "disclaimer_heading": "",
-  "trending_searches": [],
-  "responsibility_content": "",
-  "ethics_heading": "",
-  "portal_heading": "",
-  "social_links": {
-    "facebook": "",
-    "twitter": "",
-    "instagram": "",
-    "linkedin": "",
-    "youtube": ""
-  },
-  "hero_title_animation": "slide-up",
-  "secure_index_title": "",
-  "hero_title_subtitle": "",
-  "privacy_content": "",
-  "terms_content": "",
-  "secure_index_subtitle": "",
-  "hero_title_color": "neon-sky",
-  "hero_title_visible": true,
-  "last_updated": new Date().toISOString(),
-  "important_notice": "",
-  "contact_content": "",
-  "important_notice_heading": "",
-  "hero_title_style": "mono",
-  "hero_title_text": "",
-  "seo_keywords": "",
-  "about_content": ""
+  "developers": []
 };
 
 export const saveMockSettings = (settings: GlobalSettings) => {
