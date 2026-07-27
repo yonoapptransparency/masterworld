@@ -175,9 +175,9 @@ export interface VideoItem {
 
 export const mockApps: AppConfig[] = [
   {
-    "id": "test_save_app",
-    "name": "Test Save",
-    "title": "Test Save"
+    "id": "test_save_app_2",
+    "name": "Test Save 2",
+    "title": "Test Save 2"
   }
 ];
 

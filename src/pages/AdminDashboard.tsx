@@ -2339,12 +2339,10 @@ export default function AdminDashboard() {
             if (snapData) {
               if (snapData.encryptedData) {
                 try {
-                  const idToken = await auth?.currentUser?.getIdToken();
                   const res = await adminFetch('/api/v1/admin/decrypt-links', {
                     method: 'POST',
                     headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${idToken}`
+                      'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ encryptedData: snapData.encryptedData })
                   });
@@ -2463,7 +2461,7 @@ export default function AdminDashboard() {
         settingsInitializedRef.current = true;
       }
     }
-  }, [loading, apps, news, settings, contextBlogs, videos, isAdminUser]);
+  }, [loading, apps, news, settings, contextBlogs, videos, isAdminUser, loadedFromServer]);
 
   const handleReloadCloudData = async () => {
     setSaving(true);
