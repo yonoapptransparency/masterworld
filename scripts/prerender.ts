@@ -99,7 +99,7 @@ async function prerender() {
     xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
 
     // Static routes
-    const today = '2024-05-01'; // Default fixed lastmod for static routes to prevent crawl budget burn
+    const today = '2026-07-26'; // Default fixed lastmod for static routes to prevent crawl budget burn
     const staticRoutes = [
       { path: '/', priority: '1.0', changefreq: 'daily' },
       { path: '/new-apps', priority: '0.8', changefreq: 'daily' },
@@ -115,7 +115,8 @@ async function prerender() {
       { path: '/responsibility', priority: '0.3', changefreq: 'weekly' },
       { path: '/notice', priority: '0.3', changefreq: 'weekly' },
       { path: '/ethics', priority: '0.3', changefreq: 'weekly' },
-      { path: '/disclaimer', priority: '0.3', changefreq: 'weekly' }
+      { path: '/disclaimer', priority: '0.3', changefreq: 'weekly' },
+      { path: '/submit-app', priority: '0.4', changefreq: 'monthly' }
     ];
 
     for (const route of staticRoutes) {
@@ -139,7 +140,7 @@ async function prerender() {
           }
         } catch(e) {}
       }
-      return '2024-05-01';
+      return '2026-07-26';
     };
 
     const escapeHtmlForSitemap = (unsafe) => {

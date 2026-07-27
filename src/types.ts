@@ -72,6 +72,7 @@ export interface NewsItem {
   description_html?: string;
   date?: string;
   tags?: string[];
+  related_app_id?: string;
 }
 
 export interface AppConfig {
