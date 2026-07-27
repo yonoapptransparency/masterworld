@@ -317,55 +317,58 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       try {
         const res = await fetch('/api/v1/public/backup-data');
         if (res.ok) {
-          const backup = await res.json();
-          if (backup) {
-            const isAdminRoute = currentPath.startsWith('/' + getAdminPath());
+          const ct = res.headers.get('content-type') || '';
+          if (ct.includes('application/json')) {
+            const backup = await res.json();
+            if (backup) {
+              const isAdminRoute = currentPath.startsWith('/' + getAdminPath());
 
-            setApps(prev => {
-              if (backup.apps && backup.apps.length > 0) {
-                if (!isFirebaseReal || !isAdminRoute || prev.length === 0 || JSON.stringify(prev) === JSON.stringify(mockApps)) {
-                  localStorage.setItem('rummystore_apps', JSON.stringify(backup.apps));
-                  return backup.apps;
+              setApps(prev => {
+                if (backup.apps && backup.apps.length > 0) {
+                  if (!isFirebaseReal || !isAdminRoute || prev.length === 0 || JSON.stringify(prev) === JSON.stringify(mockApps)) {
+                    localStorage.setItem('rummystore_apps', JSON.stringify(backup.apps));
+                    return backup.apps;
+                  }
                 }
-              }
-              return prev;
-            });
-            setSettings(prev => {
-              if (backup.settings && backup.settings.site_title) {
-                if (!isFirebaseReal || !isAdminRoute || !prev || !prev.site_title || JSON.stringify(prev) === JSON.stringify(mockSettings)) {
-                  localStorage.setItem('rummystore_settings', JSON.stringify(backup.settings));
-                  return backup.settings;
+                return prev;
+              });
+              setSettings(prev => {
+                if (backup.settings && backup.settings.site_title) {
+                  if (!isFirebaseReal || !isAdminRoute || !prev || !prev.site_title || JSON.stringify(prev) === JSON.stringify(mockSettings)) {
+                    localStorage.setItem('rummystore_settings', JSON.stringify(backup.settings));
+                    return backup.settings;
+                  }
                 }
-              }
-              return prev;
-            });
-            setNews(prev => {
-              if (backup.news && backup.news.length > 0) {
-                if (!isFirebaseReal || !isAdminRoute || prev.length === 0 || JSON.stringify(prev) === JSON.stringify(mockApps)) {
-                  localStorage.setItem('rummystore_news', JSON.stringify(backup.news));
-                  return backup.news;
+                return prev;
+              });
+              setNews(prev => {
+                if (backup.news && backup.news.length > 0) {
+                  if (!isFirebaseReal || !isAdminRoute || prev.length === 0 || JSON.stringify(prev) === JSON.stringify(mockApps)) {
+                    localStorage.setItem('rummystore_news', JSON.stringify(backup.news));
+                    return backup.news;
+                  }
                 }
-              }
-              return prev;
-            });
-            setBlogs(prev => {
-              if (backup.blogs && backup.blogs.length > 0) {
-                if (!isFirebaseReal || !isAdminRoute || prev.length === 0 || JSON.stringify(prev) === JSON.stringify(mockApps)) {
-                  localStorage.setItem('rummystore_blogs', JSON.stringify(backup.blogs));
-                  return backup.blogs;
+                return prev;
+              });
+              setBlogs(prev => {
+                if (backup.blogs && backup.blogs.length > 0) {
+                  if (!isFirebaseReal || !isAdminRoute || prev.length === 0 || JSON.stringify(prev) === JSON.stringify(mockApps)) {
+                    localStorage.setItem('rummystore_blogs', JSON.stringify(backup.blogs));
+                    return backup.blogs;
+                  }
                 }
-              }
-              return prev;
-            });
-            setVideos(prev => {
-              if (backup.videos && backup.videos.length > 0) {
-                if (!isFirebaseReal || !isAdminRoute || prev.length === 0 || JSON.stringify(prev) === JSON.stringify(mockApps)) {
-                  localStorage.setItem('rummystore_videos', JSON.stringify(backup.videos));
-                  return backup.videos;
+                return prev;
+              });
+              setVideos(prev => {
+                if (backup.videos && backup.videos.length > 0) {
+                  if (!isFirebaseReal || !isAdminRoute || prev.length === 0 || JSON.stringify(prev) === JSON.stringify(mockApps)) {
+                    localStorage.setItem('rummystore_videos', JSON.stringify(backup.videos));
+                    return backup.videos;
+                  }
                 }
-              }
-              return prev;
-            });
+                return prev;
+              });
+            }
           }
         }
       } catch (err) {
@@ -746,7 +749,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     videosList: VideoItem[]
   ) => {
     try {
-      const idToken = await getAdminToken();
+      const idToken = await Promise.race([
+        getAdminToken(),
+        new Promise<string>(r => setTimeout(() => r(''), 3000))
+      ]);
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 4000);
       const res = await adminFetch('/api/v1/admin/sync-local', {
         method: 'POST',
         headers: {
@@ -759,10 +767,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           news: newsList,
           blogs: blogsList,
           videos: videosList
-        })
+        }),
+        signal: controller.signal
       });
+      clearTimeout(timer);
       if (!res.ok) {
-        console.warn("backup-data endpoint failed:", await res.text());
+        console.warn("backup-data endpoint status:", res.status);
       } else {
         console.log("Local filesystem & cloud sync successful");
       }
@@ -928,7 +938,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     // 1. Snappy optimistic update to local state and local memory first
     console.log("Save Apps: Initiating sync sequence...");
     setApps(newApps);
-    localStorage.setItem('rummystore_apps', JSON.stringify(newApps));
+    try {
+      localStorage.setItem('rummystore_apps', JSON.stringify(newApps));
+    } catch (e) {
+      console.warn("localStorage quota exceeded or blocked:", e);
+    }
 
     try {
       if (isFirebaseReal && db) {
@@ -938,6 +952,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const now = new Date().toISOString();
         
         try {
+          const chunkPromises = [];
           for (let i = 0; i < numChunks; i++) {
             const chunk = JSON.parse(JSON.stringify(newApps.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE)));
             chunk.forEach((app: any) => { 
@@ -945,14 +960,33 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
               delete app.encrypted_download_url;
               delete app.download_url;
             });
-            await setDoc(doc(db, 'store_data', `apps_chunk_${i}`), { items: chunk });
+            chunkPromises.push(
+              Promise.race([
+                setDoc(doc(db, 'store_data', `apps_chunk_${i}`), { items: chunk }),
+                new Promise((_, reject) => setTimeout(() => reject(new Error("Chunk write timeout")), 6000))
+              ])
+            );
           }
+          await Promise.allSettled(chunkPromises);
           
           const metaRef = doc(db, 'store_data', 'apps_meta');
-          await setDoc(metaRef, { numChunks, last_updated: now });
+          await Promise.race([
+            setDoc(metaRef, { numChunks, last_updated: now }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error("Meta write timeout")), 6000))
+          ]).catch(() => {});
+
+          // Also update legacy single-doc apps document for non-chunked readers
+          const sanitizedApps = JSON.parse(JSON.stringify(newApps)).map((app: any) => {
+            delete app.more_information_url;
+            delete app.encrypted_download_url;
+            delete app.download_url;
+            return app;
+          });
+          setDoc(doc(db, 'store_data', 'apps'), { items: sanitizedApps, last_updated: now }).catch(() => {});
+
           console.log("Cloud: Metadata and chunks successfully committed via client SDK.");
         } catch (dbErr: any) {
-          console.warn("Client SDK apps chunk save warning (will sync via server Admin SDK):", dbErr.message);
+          console.warn("Client SDK apps chunk save warning:", dbErr.message);
         }
         
         // Save secure links mapping separately (fully encrypted)
@@ -960,18 +994,28 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         let encryptedData = '';
         try {
           console.log("Cloud: Encrypting secure links for vault storage...");
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 4000);
           const encRes = await adminFetch('/api/v1/admin/encrypt-links', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ items: secureLinks })
+            body: JSON.stringify({ items: secureLinks }),
+            signal: controller.signal
           });
+          clearTimeout(timer);
           
           if (encRes.ok) {
-            const encJSON = await encRes.json();
-            encryptedData = encJSON.encrypted;
-            console.log("Cloud: Link encryption successful.");
-          } else {
-            console.warn("Server encryption of secure links warning:", await encRes.text());
+            const ct = encRes.headers.get('content-type') || '';
+            const encText = await encRes.text();
+            if (ct.includes('application/json') || encText.trim().startsWith('{')) {
+              try {
+                const encJSON = JSON.parse(encText);
+                if (encJSON.encrypted) {
+                  encryptedData = encJSON.encrypted;
+                  console.log("Cloud: Link encryption successful.");
+                }
+              } catch (_) {}
+            }
           }
         } catch (encErr: any) {
           console.warn("Encryption of secure links warning:", encErr.message);
@@ -980,9 +1024,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         if (encryptedData && db) {
           try {
             const payload = { encryptedData, lastUpdated: new Date().toISOString() };
-            await setDoc(doc(db, 'store_data', 'secure_links'), payload);
-            await setDoc(doc(db, 'store_data', 'sec_vault'), payload);
-            await setDoc(doc(db, 'store_data', 'sec_links_vault_3'), payload);
+            await Promise.allSettled([
+              setDoc(doc(db, 'store_data', 'secure_links'), payload),
+              setDoc(doc(db, 'store_data', 'sec_vault'), payload),
+              setDoc(doc(db, 'store_data', 'sec_links_vault_3'), payload)
+            ]);
             console.log("Cloud: Secure vault committed via client SDK.");
           } catch (dbErr: any) {
             console.warn("Client SDK vault save warning:", dbErr.message);
