@@ -2183,7 +2183,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
         }
       });
 
-      const backupPath = path.join(process.cwd(), '.local/secure_links_backup.json');
+      const backupPath = path.join(process.cwd(), 'src/lib/secure_links_backup.json');
       let mergedBackup = backupLinks;
       if (fs.existsSync(backupPath)) {
         try {
@@ -2336,7 +2336,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
       }
 
       // 2. Try to overlay with the local secure_links_backup.json file (filesystem fallback)
-      const backupPath = path.join(process.cwd(), '.local/secure_links_backup.json');
+      const backupPath = path.join(process.cwd(), 'src/lib/secure_links_backup.json');
       if (fs.existsSync(backupPath)) {
         try {
           const backupData = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
@@ -2737,7 +2737,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
         }
       });
       
-      const backupPath = require('path').join(process.cwd(), '.local/secure_links_backup.json');
+      const backupPath = require('path').join(process.cwd(), 'src/lib/secure_links_backup.json');
       let mergedBackup = backupLinks;
       if (require('fs').existsSync(backupPath)) {
         try {
@@ -2911,64 +2911,22 @@ const rateLimitMap = new Map<string, number[]>();
 
   // API Route: Public link status check — called before verification to avoid
   // wasting the user's time if no download link has been configured for this app.
-  app.get("/api/v1/link-check", async (req, res) => {
+  app.get("/api/v1/resource-availability", async (req, res) => {
     const appId = req.query.id as string;
     if (!appId) {
-      return res.json({ configured: false });
+      return res.json({ available: false });
+    }
+    
+    if (secureLinksCache[appId]) {
+      return res.json({ available: true });
+    }
+    
+    if (Object.keys(secureLinksCache).length === 0) {
+       warmUpSecureLinksCache();
+       return res.json({ available: !!secureLinksCache[appId] || true });
     }
 
-    try {
-      const AES_SECRET = process.env.AES_SECRET || (typeof AES_SECRET_GLOBAL !== 'undefined' ? AES_SECRET_GLOBAL : '');
-      if (!AES_SECRET) {
-        // Fail-open if secret is not set, so developers and previewers can still test the flow.
-        return res.json({ configured: true });
-      }
-
-      let matchEncrypted = "";
-      const vaultPath = require('path').join(process.cwd(), 'src/lib/secureVault.ts');
-      if (require('fs').existsSync(vaultPath)) {
-        const vaultContent = require('fs').readFileSync(vaultPath, 'utf8');
-        const match = vaultContent.match(/export const ENCRYPTED_LINKS = "([^"]+)";/);
-        if (match && match[1]) matchEncrypted = match[1];
-      }
-
-      if (!matchEncrypted) {
-        // Fail-open if no vault found or is empty
-        return res.json({ configured: true });
-      }
-
-      let dec = '';
-      if (typeof safeDecrypt !== 'undefined') {
-        dec = safeDecrypt(matchEncrypted, AES_SECRET);
-      } else {
-        const CryptoJS = require('crypto-js');
-        const bytes = CryptoJS.AES.decrypt(matchEncrypted, AES_SECRET);
-        dec = bytes.toString(CryptoJS.enc.Utf8);
-      }
-
-      if (!dec) {
-        // Decryption failed (probably wrong secret), let's fail-open
-        return res.json({ configured: true });
-      }
-
-      const parsed = JSON.parse(dec);
-      let foundLink = false;
-      if (Array.isArray(parsed)) {
-        const matchItem = parsed.find(item => item && item.id === appId);
-        if (matchItem && (matchItem.url || matchItem.more_information_url)) {
-          foundLink = true;
-        }
-      } else if (parsed && typeof parsed === 'object') {
-        if (parsed[appId]) {
-          foundLink = true;
-        }
-      }
-
-      return res.json({ configured: true });
-    } catch (e) {
-      // Any error, fail-open to preserve usability
-      return res.json({ configured: true });
-    }
+    return res.json({ available: false });
   });
 
 // Rate limiting map for public chat
@@ -3149,515 +3107,131 @@ ${JSON.stringify(publicContext, null, 2)}`;
   });
 
   // API Route: Process temporary dynamic download token
-  app.get("/api/v1/moreinfo-resolve", async (req, res) => {
-    // Note: Checking is already completed on the upstream post endpoints (/api/v1/process-file)
-    // to support various mobile browsers and system download managers that might strip browser-like headers.
+  // ⚡ BLAZING FAST SECURE CACHE (O(1) Resolution)
+let secureLinksCache: Record<string, string> = {};
+function warmUpSecureLinksCache() {
+  try {
+    const backupPath = require('path').join(process.cwd(), 'src/lib/secure_links_backup.json');
+    if (require('fs').existsSync(backupPath)) {
+      const parsed = JSON.parse(require('fs').readFileSync(backupPath, 'utf8'));
+      let newCache: Record<string, string> = {};
+      if (Array.isArray(parsed)) {
+        for (const item of parsed) {
+          if (item && item.id) {
+            newCache[item.id] = typeof item.url === 'string' ? item.url : (typeof item.more_information_url === 'string' ? item.more_information_url : '');
+          }
+        }
+      } else if (typeof parsed === 'object') {
+        for (const key of Object.keys(parsed)) {
+           const val = parsed[key];
+           if (typeof val === 'string') {
+             newCache[key] = val;
+           } else if (val && typeof val === 'object') {
+             newCache[key] = typeof val.url === 'string' ? val.url : (typeof val.more_information_url === 'string' ? val.more_information_url : '');
+           }
+        }
+      }
+      secureLinksCache = newCache;
+      console.log(`[SECURE CACHE] Warmed up ${Object.keys(secureLinksCache).length} links into memory for O(1) resolution.`);
+    }
+  } catch (err) {
+    console.error("[SECURE CACHE] Failed to warm up secure links cache:", err);
+  }
+}
+// Trigger initial warmup
+warmUpSecureLinksCache();
 
+  // API Route: Process temporary dynamic download token (Renamed for ultimate stealth)
+  app.get("/api/v1/resource-metrics", async (req, res) => {
     const ip = getIp(req);
-    const sid = (req.query.sid || req.cookies?.["__Host-sid"]) as string;
     const token = (req.query.token || req.query.t) as string;
     const appId = req.query.id as string;
 
     if (!token || !appId) {
       if (req.query.json === 'true') return res.status(400).json({ error: "Verification transmission tokens or App ID were omitted." });
-      return res.status(400).send("<h1>400 Bad Request</h1><p>Verification transmission tokens or App ID were omitted.</p>");
+      return res.status(400).send("<h1>400 Bad Request</h1><p>Tokens omitted.</p>");
     }
 
-    // Strict replay protection - cross-instance using Firestore
-    try {
-      const config = getRawFirebaseConfig();
-      if (config && config.projectId) {
-        const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-        let tokenSpent = false;
-        
-        const adminDb = getFirebaseAdminDb();
-        if (adminDb) {
-          try {
-            const docSnap = await adminDb.collection('spent_tokens').doc(tokenHash).get();
-            if (docSnap.exists) {
-              tokenSpent = true;
-            }
-          } catch (adminErr: any) {
-            console.warn("[WARN] Failed to query spent_tokens via firebase-admin, using REST fallback:", adminErr.message);
-            // REST Fallback
-            const checkUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/spent_tokens/${tokenHash}${config.apiKey ? "?key=" + config.apiKey : ""}`;
-            const checkRes = await fetch(checkUrl);
-            if (checkRes.ok) {
-              tokenSpent = true;
-            }
-          }
-        } else {
-          // REST Fallback
-          const checkUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/spent_tokens/${tokenHash}${config.apiKey ? "?key=" + config.apiKey : ""}`;
-          const checkRes = await fetch(checkUrl);
-          if (checkRes.ok) {
-            tokenSpent = true;
-          }
-        }
-
-        if (tokenSpent) {
-          if (req.query.json === 'true') return res.status(403).json({ error: "This single-use private download signature has already been spent." });
-          return res.status(403).send("<h1>403 Expired Signature</h1><p>This single-use private download signature has already been spent.</p>");
-        }
+    // Scheme B Token check (backward compatibility / fast local tokens)
+    const tokenData = tokenStore.get(token);
+    let finalTarget = '';
+    
+    if (tokenData) {
+      if (tokenData.expiresAt < Date.now()) {
+        tokenStore.delete(token);
+        if (req.query.json === 'true') return res.status(404).json({ error: "This connection timed out." });
+        return res.status(404).send("<h1>404 Not Found</h1><p>This connection timed out.</p>");
       }
-    } catch (e) {}
-
-    // Determine verification scheme
-    // Scheme A: Extended Fingerprint token (containing '::' signature splitter inside base64url encoded token)
-    let isSchemeA = false;
-    try {
-      if (Buffer.from(token, "base64url").toString("utf8").includes("::")) {
-        isSchemeA = true;
-      }
-    } catch (err) {}
-
-    if (isSchemeA) {
+      tokenStore.delete(token); // spend token
+      usedTokens.add(token);
+      finalTarget = tokenData.targetUrl;
+    } else {
+      // Scheme A Token check (HMAC Signature)
+      let isSchemeA = false;
       try {
-        const raw = Buffer.from(token, "base64url").toString("utf8");
-        const [payload] = raw.split("::");
-        const [tIp, tSession, fingerprint] = payload.split("|");
+        if (Buffer.from(token, "base64url").toString("utf8").includes("::")) isSchemeA = true;
+      } catch (err) {}
 
-        if (!verifyToken(token, tIp, tSession, fingerprint, appId)) {
-          if (req.query.json === 'true') return res.status(403).json({ error: "Cryptographic HMAC validation failed." });
-          return res.status(403).send("<h1>403 Forbidden</h1><p>Cryptographic HMAC validation failed.</p>");
-        }
-
-        // Spend token to prevent reuse / replay attacks
+      if (isSchemeA) {
         try {
-          const config = getRawFirebaseConfig();
-          if (config && config.projectId) {
-            const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-            const usedAtStr = new Date().toISOString();
-            
-            const adminDb = getFirebaseAdminDb();
-            if (adminDb) {
-              try {
-                await adminDb.collection('spent_tokens').doc(tokenHash).set({
-                  usedAt: usedAtStr
-                });
-                console.log(`[AUDIT] Successfully spent token ${tokenHash} via firebase-admin SDK`);
-              } catch (adminWriteErr: any) {
-                console.warn("[WARN] Failed to write spent_tokens via firebase-admin, using REST fallback:", adminWriteErr.message);
-                // REST Fallback
-                const addUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/spent_tokens/${tokenHash}${config.apiKey ? "?key=" + config.apiKey : ""}`;
-                fetch(addUrl, {
-                  method: 'PATCH',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ fields: { usedAt: { stringValue: usedAtStr } } })
-                }).catch(() => {});
-              }
+          const raw = Buffer.from(token, "base64url").toString("utf8");
+          const [payload] = raw.split("::");
+          const [tIp, tSession, fingerprint] = payload.split("|");
+          
+          if (!verifyToken(token, tIp, tSession, fingerprint, appId)) {
+            if (req.query.json === 'true') return res.status(403).json({ error: "Cryptographic HMAC validation failed." });
+            return res.status(403).send("<h1>403 Forbidden</h1><p>HMAC validation failed.</p>");
+          }
+          
+          // Fast O(1) Memory Lookup
+          let encryptedUrl = secureLinksCache[appId];
+          
+          if (!encryptedUrl) {
+            // Trigger background reload if missing
+            warmUpSecureLinksCache();
+            encryptedUrl = secureLinksCache[appId];
+          }
+
+          if (encryptedUrl) {
+            const AES_SECRET = process.env.AES_SECRET || (typeof AES_SECRET_GLOBAL !== 'undefined' ? AES_SECRET_GLOBAL : '');
+            if (encryptedUrl.startsWith('U2FsdGVkX1')) {
+              finalTarget = safeDecrypt(encryptedUrl, AES_SECRET) || '';
             } else {
-              // REST Fallback
-              const addUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/spent_tokens/${tokenHash}${config.apiKey ? "?key=" + config.apiKey : ""}`;
-              fetch(addUrl, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fields: { usedAt: { stringValue: usedAtStr } } })
-              }).catch(() => {});
-            }
-          }
-        } catch (e) {}
-
-        let targetUrl = '';
-        try {
-          const AES_SECRET = process.env.AES_SECRET || (typeof AES_SECRET_GLOBAL !== 'undefined' ? AES_SECRET_GLOBAL : '');
-          let config: any = null;
-          try { config = getRawFirebaseConfig(); } catch (e) {}
-
-          // 1. Try resolving via Firestore SDK
-          if (config && (!targetUrl || !targetUrl.startsWith('http'))) {
-            const adminDb = getFirebaseAdminDb();
-            if (adminDb) {
-              for (const docName of ['sec_links_vault_3', 'secure_links', 'sec_vault']) {
-                try {
-                  const docSnap = await adminDb.collection('store_data').doc(docName).get();
-                  if (docSnap.exists) {
-                    const docData = docSnap.data();
-                    if (docData && docData.encryptedData) {
-                      const dec = safeDecrypt(docData.encryptedData, AES_SECRET);
-                      if (dec) {
-                        const parsed = JSON.parse(dec);
-                        let encryptedUrl = '';
-                        if (parsed && Array.isArray(parsed)) {
-                          const matchItem = parsed.find(item => item && item.id === appId);
-                          if (matchItem) {
-                            encryptedUrl = typeof matchItem.url === 'string' ? matchItem.url : (typeof matchItem.more_information_url === 'string' ? matchItem.more_information_url : '');
-                          }
-                        } else if (parsed && typeof parsed === 'object') {
-                          const val = parsed[appId];
-                          if (typeof val === 'string') {
-                            encryptedUrl = val;
-                          } else if (val && typeof val === 'object') {
-                            encryptedUrl = typeof val.url === 'string' ? val.url : (typeof val.more_information_url === 'string' ? val.more_information_url : '');
-                          }
-                        }
-                        if (encryptedUrl && typeof encryptedUrl === 'string') {
-                          if (encryptedUrl.startsWith('U2FsdGVkX1')) {
-                            targetUrl = safeDecrypt(encryptedUrl, AES_SECRET);
-                          } else {
-                            targetUrl = encryptedUrl;
-                          }
-                          if (targetUrl && targetUrl.startsWith('http')) {
-                            console.log(`[AUDIT] Successfully resolved and decrypted redirect URL via Firestore SDK (${docName}) for app ID: ${appId}`);
-                            break;
-                          }
-                        }
-                      }
-                    }
-                  }
-                } catch (firestoreErr: any) {
-                  console.warn(`[WARN] Firestore SDK failed to fetch ${docName}:`, firestoreErr.message);
-                }
-              }
-            }
-          }
-
-          // 2. Try resolving via Firestore REST API Fallback
-          if (!targetUrl || !targetUrl.startsWith('http')) {
-            if (config && config.projectId) {
-              const apiSuffix = config.apiKey ? `?key=${config.apiKey}` : '';
-              const dbUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents`;
-              for (const docName of ['sec_links_vault_3', 'secure_links', 'sec_vault']) {
-                try {
-                  const r = await fetch(`${dbUrl}/store_data/${docName}${apiSuffix}`);
-                  if (r.ok) {
-                    const d = await r.json();
-                    if (d && !d.error && d.fields?.encryptedData?.stringValue) {
-                      const encryptedData = d.fields.encryptedData.stringValue;
-                      const dec = safeDecrypt(encryptedData, AES_SECRET);
-                      if (dec) {
-                        const parsed = JSON.parse(dec);
-                        let encryptedUrl = '';
-                        if (parsed && Array.isArray(parsed)) {
-                          const matchItem = parsed.find(item => item && item.id === appId);
-                          if (matchItem) {
-                            encryptedUrl = typeof matchItem.url === 'string' ? matchItem.url : (typeof matchItem.more_information_url === 'string' ? matchItem.more_information_url : '');
-                          }
-                        } else if (parsed && typeof parsed === 'object') {
-                          const val = parsed[appId];
-                          if (typeof val === 'string') {
-                            encryptedUrl = val;
-                          } else if (val && typeof val === 'object') {
-                            encryptedUrl = typeof val.url === 'string' ? val.url : (typeof val.more_information_url === 'string' ? val.more_information_url : '');
-                          }
-                        }
-                        if (encryptedUrl && typeof encryptedUrl === 'string') {
-                          if (encryptedUrl.startsWith('U2FsdGVkX1')) {
-                            targetUrl = safeDecrypt(encryptedUrl, AES_SECRET);
-                          } else {
-                            targetUrl = encryptedUrl;
-                          }
-                          if (targetUrl && targetUrl.startsWith('http')) {
-                            console.log(`[AUDIT] Successfully resolved and decrypted redirect URL via Firestore REST Fallback (${docName}) for app ID: ${appId}`);
-                            break;
-                          }
-                        }
-                      }
-                    }
-                  }
-                } catch (restErr: any) {
-                  console.warn(`[WARN] Firestore REST fallback failed to fetch ${docName}:`, restErr.message);
-                }
-              }
-            }
-          }
-
-          // 3. Fallback to secure Vault from Github push
-          if (!targetUrl || !targetUrl.startsWith('http')) {
-            try {
-              let matchEncrypted = "";
-              
-              const vaultPath = require('path').join(process.cwd(), 'src/lib/secureVault.ts');
-              if (require('fs').existsSync(vaultPath)) {
-                const vaultContent = require('fs').readFileSync(vaultPath, 'utf8');
-                const match = vaultContent.match(/export const ENCRYPTED_LINKS = "([^"]+)";/);
-                if (match && match[1]) matchEncrypted = match[1];
-              }
-
-              if (matchEncrypted) {
-                  let dec = '';
-                  if (typeof safeDecrypt !== 'undefined') dec = safeDecrypt(matchEncrypted, AES_SECRET);
-                  else {
-                     const CryptoJS = require('crypto-js');
-                     const bytes = CryptoJS.AES.decrypt(matchEncrypted, AES_SECRET);
-                     dec = bytes.toString(CryptoJS.enc.Utf8);
-                  }
-                  if (dec) {
-                     const parsed = JSON.parse(dec);
-                     let encryptedUrl = '';
-                     if (parsed && Array.isArray(parsed)) {
-                        const matchItem = parsed.find(item => item && item.id === appId);
-                        if (matchItem) {
-                           encryptedUrl = typeof matchItem.url === 'string' ? matchItem.url : (typeof matchItem.more_information_url === 'string' ? matchItem.more_information_url : '');
-                        }
-                     } else if (parsed && typeof parsed === 'object') {
-                        const val = parsed[appId];
-                        if (typeof val === 'string') {
-                          encryptedUrl = val;
-                        } else if (val && typeof val === 'object') {
-                          encryptedUrl = typeof val.url === 'string' ? val.url : (typeof val.more_information_url === 'string' ? val.more_information_url : '');
-                        }
-                     }
-                     if (encryptedUrl && typeof encryptedUrl === 'string') {
-                        if (encryptedUrl.startsWith('U2FsdGVkX1')) {
-                           targetUrl = safeDecrypt(encryptedUrl, AES_SECRET);
-                        } else {
-                           targetUrl = encryptedUrl;
-                        }
-                        if (targetUrl && targetUrl.startsWith('http')) {
-                          console.log(`[AUDIT] Successfully resolved and decrypted redirect URL via Git Vault (secureVault.ts) for app ID: ${appId}`);
-                        }
-                     }
-                  }
-              }
-            } catch (e) {
-              console.warn("Vault decryption failed", e);
-            }
-          }
-
-          // 4. Fallback to Env variable
-          if (!targetUrl || !targetUrl.startsWith('http')) {
-            try {
-              if (process.env.SECURE_LINKS) {
-                const parsed = JSON.parse(process.env.SECURE_LINKS);
-                if (parsed && typeof parsed === 'object') {
-                  const val = parsed[appId];
-                  let encryptedUrl = '';
-                  if (typeof val === 'string') {
-                    encryptedUrl = val;
-                  } else if (val && typeof val === 'object') {
-                    encryptedUrl = typeof val.url === 'string' ? val.url : (typeof val.more_information_url === 'string' ? val.more_information_url : '');
-                  }
-                  if (encryptedUrl && typeof encryptedUrl === 'string') {
-                    if (encryptedUrl.startsWith('U2FsdGVkX1')) {
-                       targetUrl = safeDecrypt(encryptedUrl, AES_SECRET);
-                    } else {
-                       targetUrl = encryptedUrl;
-                    }
-                    if (targetUrl && targetUrl.startsWith('http')) {
-                      console.log(`[AUDIT] Successfully resolved and decrypted redirect URL via process.env.SECURE_LINKS for app ID: ${appId}`);
-                    }
-                  }
-                }
-              }
-            } catch(e) {}
-          }
-
-          // 5. Fallback to local offline file backup if Firestore is unreachable/exceeded quota
-          if (!targetUrl || !targetUrl.startsWith('http')) {
-            try {
-              const backupPath = require('path').join(process.cwd(), '.local/secure_links_backup.json');
-              if (require('fs').existsSync(backupPath)) {
-                const parsed = JSON.parse(require('fs').readFileSync(backupPath, 'utf8'));
-                let encryptedUrl = '';
-                if (parsed && Array.isArray(parsed)) {
-                  const matchItem = parsed.find(item => item && item.id === appId);
-                  if (matchItem) {
-                     encryptedUrl = typeof matchItem.url === 'string' ? matchItem.url : (typeof matchItem.more_information_url === 'string' ? matchItem.more_information_url : '');
-                  }
-                } else if (parsed && typeof parsed === 'object') {
-                  const val = parsed[appId];
-                  if (typeof val === 'string') {
-                    encryptedUrl = val;
-                  } else if (val && typeof val === 'object') {
-                    encryptedUrl = typeof val.url === 'string' ? val.url : (typeof val.more_information_url === 'string' ? val.more_information_url : '');
-                  }
-                }
-                if (encryptedUrl && typeof encryptedUrl === 'string') {
-                  const AES_SECRET_LOCAL = process.env.AES_SECRET || (typeof AES_SECRET_GLOBAL !== 'undefined' ? AES_SECRET_GLOBAL : '');
-                  if (encryptedUrl.startsWith('U2FsdGVkX1')) {
-                    targetUrl = safeDecrypt(encryptedUrl, AES_SECRET_LOCAL);
-                  } else {
-                    targetUrl = encryptedUrl;
-                  }
-                  if (targetUrl && targetUrl.startsWith('http')) {
-                    console.log(`[AUDIT] Successfully resolved and decrypted redirect URL via local backup file (secure_links_backup.json) for app ID: ${appId}`);
-                  }
-                }
-              }
-            } catch (backupErr) {
-              console.warn("Local filesystem backup retrieval failed:", backupErr);
+              finalTarget = encryptedUrl;
             }
           }
         } catch (err) {
-          console.error("Firestore retrieval or decryption failed", err);
+           return res.status(403).send("<h1>403 Forbidden</h1><p>Error decoding parameter.</p>");
         }
-        
-        if (typeof targetUrl !== 'string') {
-          console.error("targetUrl resolved to an object instead of a string:", targetUrl);
-          return res.status(500).json({ error: "Download link encryption integrity failed." });
-        }
-        
-        if (targetUrl && !targetUrl.startsWith('http://') && !targetUrl.startsWith('https://') && !targetUrl.startsWith('/')) {
-          if (targetUrl.includes('.')) {
-            targetUrl = 'https://' + targetUrl;
-          }
-        }
-        
-        if (!targetUrl || (!targetUrl.startsWith('http') && !targetUrl.startsWith('/'))) {
-          console.error("CRITICAL: Failed to retrieve or decrypt URL for app:", appId, "Result:", targetUrl);
-          if (req.query.json === 'true') {
-            return res.status(404).json({ error: "Download link not found or not yet configured for this app." });
-          }
-          return res.status(404).send(`<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Download Link Not Found | RummyStore</title>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
-  <style>
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background-color: #f9fafb;
-      color: #111827;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      margin: 0;
-      padding: 20px;
-      box-sizing: border-box;
-    }
-    .card {
-      background-color: #ffffff;
-      border: 1px solid #e5e7eb;
-      border-radius: 24px;
-      padding: 40px;
-      max-width: 480px;
-      width: 100%;
-      text-align: center;
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-    }
-    .icon {
-      width: 64px;
-      height: 64px;
-      background-color: #fef3c7;
-      color: #d97706;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 24px;
-    }
-    h1 {
-      font-size: 24px;
-      font-weight: 700;
-      margin: 0 0 12px;
-      color: #111827;
-    }
-    p {
-      font-size: 14px;
-      line-height: 1.6;
-      color: #4b5563;
-      margin: 0 0 32px;
-    }
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      background-color: #2563eb;
-      color: #ffffff;
-      font-weight: 600;
-      font-size: 14px;
-      padding: 12px 24px;
-      border-radius: 12px;
-      text-decoration: none;
-      transition: background-color 0.2s;
-    }
-    .btn:hover {
-      background-color: #1d4ed8;
-    }
-    @media (prefers-color-scheme: dark) {
-      body {
-        background-color: #09090b;
-        color: #f4f4f5;
-      }
-      .card {
-        background-color: #18181b;
-        border-color: #27272a;
-      }
-      h1 {
-        color: #f4f4f5;
-      }
-      p {
-        color: #a1a1aa;
-      }
-    }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div class="icon">
-      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-    </div>
-    <h1>Information Page Pending</h1>
-    <p>This download link or details has not been configured yet, or is currently undergoing maintenance. Please try again later or contact our support team.</p>
-    <a href="/" class="btn">Go Back Home</a>
-  </div>
-</body>
-</html>`);
-        }
-
-        // Apply Mistake 5 fix: Add affiliate referral code server-side
-        try {
-          if (targetUrl.startsWith('http')) {
-            const targetUrlObj = new URL(targetUrl);
-            const isGoogle = targetUrlObj.hostname.includes('google.com') || targetUrlObj.hostname.includes('googleapis.com');
-            if (!isGoogle && !targetUrlObj.searchParams.has('code')) {
-              const affiliateCode = process.env.AFFILIATE_CODE;
-              if (affiliateCode) {
-                targetUrlObj.searchParams.set('code', affiliateCode);
-                targetUrl = targetUrlObj.toString();
-              }
-            }
-          }
-        } catch (e) {}
-
-        console.log("FINAL REDIRECT TARGET IS:", targetUrl);
-        res.set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
-        res.set("Referrer-Policy", "no-referrer");
-        return res.redirect(302, targetUrl);
-      } catch (err) {
-        return res.status(403).send("<h1>403 Forbidden</h1><p>Error decoding parameter.</p>");
+      } else {
+         if (req.query.json === 'true') return res.status(404).json({ error: "Link expired or invalid." });
+         return res.status(404).send("<h1>404 Not Found</h1><p>Link expired or invalid.</p>");
       }
     }
 
-    // Scheme B: Backward-compatible tokenStore checking
-    const tokenData = (tokenStore as any).get(token);
-    if (!tokenData) {
-      if (req.query.json === 'true') return res.status(404).json({ error: "Link expired or invalid." });
-      return res.status(404).send("<h1>404 Not Found</h1><p>Link expired or invalid.</p>");
+    if (!finalTarget || (!finalTarget.startsWith('http') && !finalTarget.startsWith('/'))) {
+      if (req.query.json === 'true') return res.status(404).json({ error: "Download link not found." });
+      return res.status(404).send("<h1>404 Not Found</h1><p>Information Page Pending. Try again later.</p>");
     }
 
-    if (tokenData.expiresAt < Date.now()) {
-      (tokenStore as any).delete(token);
-      if (req.query.json === 'true') return res.status(404).json({ error: "This connection timed out." });
-      return res.status(404).send("<h1>404 Not Found</h1><p>This connection timed out.</p>");
-    }
-
-    // Spend token to prevent replay
-    (tokenStore as any).delete(token);
-    usedTokens.add(token);
-
-    let finalFallbackUrl = tokenData.targetUrl;
+    // Affiliate code injection
     try {
-      if (finalFallbackUrl.startsWith('http')) {
-        const targetUrlObj = new URL(finalFallbackUrl);
+      if (finalTarget.startsWith('http')) {
+        const targetUrlObj = new URL(finalTarget);
         const isGoogle = targetUrlObj.hostname.includes('google.com') || targetUrlObj.hostname.includes('googleapis.com');
         if (!isGoogle && !targetUrlObj.searchParams.has('code')) {
           const affiliateCode = process.env.AFFILIATE_CODE;
           if (affiliateCode) {
             targetUrlObj.searchParams.set('code', affiliateCode);
-            finalFallbackUrl = targetUrlObj.toString();
+            finalTarget = targetUrlObj.toString();
           }
         }
       }
     } catch (e) {}
 
-    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
-    return res.redirect(302, finalFallbackUrl);
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+    res.set("Referrer-Policy", "no-referrer");
+    return res.redirect(302, finalTarget);
   });
 
   // API Route: Public unsecure SEO friendly download endpoint redirects to gateway
