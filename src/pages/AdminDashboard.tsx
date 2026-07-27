@@ -279,10 +279,7 @@ const OldAppsTabUnused = React.memo(({ appsList, editingAppId, setEditingAppId, 
       const effectiveUser = usr || (session ? { email: session.email, uid: 'local', getIdToken: async () => session.idToken } : null);
       if (effectiveUser) {
         try {
-          const idToken = await effectiveUser.getIdToken();
-          const res = await adminFetch('/api/v1/admin/verify', {
-            headers: { 'Authorization': `Bearer ${idToken}` }
-          });
+          const res = await adminFetch('/api/v1/admin/verify');
           const data = await res.json();
           if (data.authorized && active) {
             setIsUnlocked(true);
@@ -2114,12 +2111,10 @@ export default function AdminDashboard() {
     }
     try {
       const items = Array.from(cachedSecureMapRef.current.entries()).map(([k, v]) => ({ id: k, url: v }));
-      const idToken = await auth?.currentUser?.getIdToken();
       const res = await adminFetch('/api/v1/admin/encrypt-links', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ items })
       });
@@ -2224,11 +2219,7 @@ export default function AdminDashboard() {
           console.log("DEBUG: effectiveUser.email:", effectiveUser.email);
           console.log("DEBUG: session exists?", !!session);
           
-          const verifyRes = await adminFetch('/api/v1/admin/verify', {
-            headers: {
-              'Authorization': `Bearer ${idToken}`
-            }
-          });
+          const verifyRes = await adminFetch('/api/v1/admin/verify');
           
           console.log("DEBUG: verifyRes.status:", verifyRes.status);
           if (verifyRes.ok) {
@@ -2314,12 +2305,10 @@ export default function AdminDashboard() {
             if (snapData) {
               if (snapData.encryptedData) {
                 try {
-                  const idToken = await auth?.currentUser?.getIdToken();
                   const res = await adminFetch('/api/v1/admin/decrypt-links', {
                     method: 'POST',
                     headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${idToken}`
+                      'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ encryptedData: snapData.encryptedData })
                   });
@@ -2343,12 +2332,8 @@ export default function AdminDashboard() {
             
             // Always attempt to overlay with local filesystem backup (helpful on Firestore under quota 429)
             try {
-              const idToken = await auth?.currentUser?.getIdToken();
-              if (idToken) {
-                const bkRes = await adminFetch('/api/v1/admin/backup-links-get', {
-                  headers: { 'Authorization': `Bearer ${idToken}` }
-                });
-                if (bkRes.ok) {
+              const bkRes = await adminFetch('/api/v1/admin/backup-links-get');
+              if (bkRes.ok) {
                   const bkJSON = await bkRes.json();
                   if (bkJSON && bkJSON.items) {
                     bkJSON.items.forEach((it: any) => {
@@ -2359,7 +2344,6 @@ export default function AdminDashboard() {
                     console.log("Overlayed secure references from container filesystem backup successfully.");
                   }
                 }
-              }
             } catch (bkErr) {
               console.warn("Failed to overlay with local backup:", bkErr);
             }
@@ -2779,12 +2763,10 @@ export default function AdminDashboard() {
           encryptedUrlVal = '';
         } else if (!trimmedUrl.startsWith('U2FsdGVkX1')) {
           try {
-             const idToken = await auth?.currentUser?.getIdToken();
-             const res = await adminFetch('/api/v1/admin/encrypt', {
+                const res = await adminFetch('/api/v1/admin/encrypt', {
                 method: 'POST',
                 headers: {
-                   'Content-Type': 'application/json',
-                   'Authorization': `Bearer ${idToken}`
+                   'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ url: trimmedUrl })
              });
