@@ -1,6 +1,6 @@
 declare var __ADMIN_ENABLED__: boolean;
 import { adminFetch, getValidAdminToken, loadSession } from '../services/adminAuthService';
-import { getAdminPath } from '../lib/utilsPublic';
+import { getAdminPath } from '../lib/utils';
 /**
  * DataContext state engine
  * Manages reactive global context bindings from Firestore collections,
@@ -10,7 +10,7 @@ import { getAdminPath } from '../lib/utilsPublic';
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { collection, onSnapshot, doc, setDoc, getDoc, getDocFromServer } from 'firebase/firestore';
 import { db, auth, OperationType, FirestoreErrorInfo, handleFirestoreError, isFirebaseConfigured, isFirebaseReal } from '../lib/firebase';
-import { AppConfig, GlobalSettings, NewsItem, BlogPost, VideoItem } from '../typesPublic';
+import { AppConfig, GlobalSettings, NewsItem, BlogPost, VideoItem } from '../types';
 import { GitConfig, generateStaticDataFileCode, commitFileToGitHub } from '../lib/githubSync';
 
 

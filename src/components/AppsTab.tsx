@@ -1,4 +1,4 @@
-import { safeHtml } from '../lib/safeHtmlPublic';
+import { safeHtml } from '../lib/safeHtml';
 import { adminFetch } from '../services/adminAuthService';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';

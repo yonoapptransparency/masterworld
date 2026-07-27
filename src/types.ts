@@ -1,5 +1,3 @@
-// No secureStorage import to avoid Vercel build errors when secureStorage is stripped
-
 export interface Banner {
   id: string;
   title: string;
@@ -113,9 +111,9 @@ export interface AppConfig {
   faqs?: {question: string; answer: string}[];
   link_configured?: boolean;
   
-  video_url?: string;
   is_top_chart?: boolean;
   top_chart_category?: string;
+  video_url?: string;
   more_information_url?: string;
 }
 
@@ -172,75 +170,3 @@ export interface VideoItem {
   seo_keywords?: string;
   created_at: string;
 }
-
-export const mockApps: AppConfig[] = [];
-
-export const saveMockApps = (apps: AppConfig[]) => {
-  try {
-    localStorage.setItem('rummystore_apps', JSON.stringify(apps));
-  } catch (e) {
-    console.warn('saveMockApps storage failed:', e);
-  }
-  mockApps.splice(0, mockApps.length, ...apps);
-};
-
-export const mockSettings: GlobalSettings = {
-  "site_title": "",
-  "meta_description": "",
-  "logo_url": "",
-  "favicon_url": "",
-  "helpline_whatsapp": "",
-  "helpline_telegram": "",
-  "support_email": "",
-  "disclaimer_text": "",
-  "ethics_discrimination_text": "",
-  "ticker_text": "",
-  "animations_enabled": true,
-  "categories": [],
-  "banners": [],
-  "quick_links": [],
-  "website_faqs": [],
-  "developers": []
-};
-
-export const saveMockSettings = (settings: GlobalSettings) => {
-  try {
-    localStorage.setItem('rummystore_settings', JSON.stringify(settings));
-  } catch (e) {
-    console.warn('saveMockSettings storage failed:', e);
-  }
-  Object.assign(mockSettings, settings);
-};
-
-export const mockNews: NewsItem[] = [];
-
-export const saveMockNews = (newsList: NewsItem[]) => {
-  try {
-    localStorage.setItem('rummystore_news', JSON.stringify(newsList));
-  } catch (e) {
-    console.warn('saveMockNews storage failed:', e);
-  }
-  mockNews.splice(0, mockNews.length, ...newsList);
-};
-
-export const mockBlogs: BlogPost[] = [];
-
-export const saveMockBlogs = (blogs: BlogPost[]) => {
-  try {
-    localStorage.setItem('rummystore_blogs', JSON.stringify(blogs));
-  } catch (e) {
-    console.warn('saveMockBlogs storage failed:', e);
-  }
-  mockBlogs.splice(0, mockBlogs.length, ...blogs);
-};
-
-export const mockVideos: VideoItem[] = [];
-
-export const saveMockVideos = (videos: VideoItem[]) => {
-  try {
-    localStorage.setItem('rummystore_videos', JSON.stringify(videos));
-  } catch (e) {
-    console.warn('saveMockVideos storage failed:', e);
-  }
-  mockVideos.splice(0, mockVideos.length, ...videos);
-};

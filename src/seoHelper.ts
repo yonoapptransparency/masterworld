@@ -6,7 +6,7 @@
 import fs from 'fs';
 import path from 'path';
 import { mockApps, mockSettings, mockNews, mockBlogs, mockVideos } from './lib/staticData';
-import { getAdminPath } from './lib/utilsPublic';
+import { getAdminPath } from './lib/utils';
 
 let cachedData: any = null;
 let lastFetchTime = 0;
@@ -409,8 +409,6 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
     bodyContent = renderEthics(settings);
   } else if (cleanPathLower === '/disclaimer') {
     bodyContent = renderDisclaimer(settings);
-  } else if (cleanPathLower === '/submit-app') {
-    bodyContent = renderSubmitApp(settings);
   } else if (cleanPathLower === '/responsibility') {
     bodyContent = renderResponsibility(settings);
   } else {
@@ -816,14 +814,6 @@ function renderDisclaimer(settings: any) {
   const heading = getField(settings, 'disclaimer_heading') || 'Disclaimer';
   const content = getField(settings, 'disclaimer_text') || 'Disclaimer information goes here.';
   return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">${heading}</h1><article class="prose text-zinc-750 leading-relaxed font-semibold">${content}</article></div>`;
-}
-
-function renderSubmitApp(settings: any) {
-  const siteTitle = getField(settings, 'site_title') || 'RummyDex';
-  return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5">
-    <h1 class="text-4xl font-bold mb-6">Submit Your App</h1>
-    <p class="prose text-zinc-750 leading-relaxed font-semibold">Submit your Android application for listing and promotion on ${escapeHtml(siteTitle)}.</p>
-  </div>`;
 }
 
 function getSafeFirebaseConfig(): any {

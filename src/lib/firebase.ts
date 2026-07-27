@@ -5,7 +5,7 @@
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, Auth } from 'firebase/auth';
-import { getAdminPath } from './utilsPublic';
+import { getAdminPath } from './utils';
 
 // We rely on environment variables for production.
 const isRealValue = (id: string | undefined): boolean => {
@@ -33,13 +33,13 @@ const getEnvVal = (key: string): string | undefined => {
 
 const getResolvedConfig = () => {
   return {
-    projectId: getEnvVal('VITE_FIREBASE_PROJECT_ID') || "",
-    appId: getEnvVal('VITE_FIREBASE_APP_ID') || "",
-    apiKey: getEnvVal('VITE_FIREBASE_API_KEY') || "",
-    authDomain: getEnvVal('VITE_FIREBASE_AUTH_DOMAIN') || "",
-    firestoreDatabaseId: getEnvVal('VITE_FIREBASE_DATABASE_ID') || "(default)",
-    storageBucket: getEnvVal('VITE_FIREBASE_STORAGE_BUCKET') || "",
-    messagingSenderId: getEnvVal('VITE_FIREBASE_MESSAGING_ID') || "",
+    projectId: getEnvVal('FIREBASE_PROJECT_ID') || "",
+    appId: getEnvVal('FIREBASE_APP_ID') || "",
+    apiKey: getEnvVal('FIREBASE_API_KEY') || "",
+    authDomain: getEnvVal('FIREBASE_AUTH_DOMAIN') || "",
+    firestoreDatabaseId: getEnvVal('FIREBASE_DATABASE_ID') || "",
+    storageBucket: getEnvVal('FIREBASE_STORAGE_BUCKET') || "",
+    messagingSenderId: getEnvVal('FIREBASE_MESSAGING_ID') || "",
   };
 };
 
@@ -47,7 +47,7 @@ const firebaseConfig = getResolvedConfig();
 
 const isAdminEnabled = typeof __ADMIN_ENABLED__ !== 'undefined' ? __ADMIN_ENABLED__ : true;
 
-export const isFirebaseConfigured = isAdminEnabled && !!firebaseConfig;
+export const isFirebaseConfigured = isAdminEnabled && !!firebaseConfig?.apiKey;
 if (!isFirebaseConfigured && typeof window !== 'undefined') {
   console.error("Firebase is not configured! firebaseConfig:", firebaseConfig, "isAdminEnabled:", isAdminEnabled);
 }
