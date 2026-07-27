@@ -6,6 +6,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, Auth } from 'firebase/auth';
 import { getAdminPath } from './utils';
+import appletConfig from '../../firebase-applet-config.json';
 
 // We rely on environment variables for production.
 const isRealValue = (id: string | undefined): boolean => {
@@ -32,14 +33,24 @@ const getEnvVal = (key: string): string | undefined => {
 };
 
 const getResolvedConfig = () => {
+  const envProjectId = getEnvVal('FIREBASE_PROJECT_ID');
+  const envAppId = getEnvVal('FIREBASE_APP_ID');
+  const envApiKey = getEnvVal('FIREBASE_API_KEY');
+  const envAuthDomain = getEnvVal('FIREBASE_AUTH_DOMAIN');
+  const envDatabaseId = getEnvVal('FIREBASE_DATABASE_ID');
+  const envStorageBucket = getEnvVal('FIREBASE_STORAGE_BUCKET');
+  const envMessagingSenderId = getEnvVal('FIREBASE_MESSAGING_ID');
+
+  const cfg = appletConfig as any || {};
+
   return {
-    projectId: getEnvVal('FIREBASE_PROJECT_ID') || "",
-    appId: getEnvVal('FIREBASE_APP_ID') || "",
-    apiKey: getEnvVal('FIREBASE_API_KEY') || "",
-    authDomain: getEnvVal('FIREBASE_AUTH_DOMAIN') || "",
-    firestoreDatabaseId: getEnvVal('FIREBASE_DATABASE_ID') || "",
-    storageBucket: getEnvVal('FIREBASE_STORAGE_BUCKET') || "",
-    messagingSenderId: getEnvVal('FIREBASE_MESSAGING_ID') || "",
+    projectId: isRealValue(envProjectId) ? envProjectId! : (cfg.projectId || ""),
+    appId: isRealValue(envAppId) ? envAppId! : (cfg.appId || ""),
+    apiKey: isRealValue(envApiKey) ? envApiKey! : (cfg.apiKey || ""),
+    authDomain: isRealValue(envAuthDomain) ? envAuthDomain! : (cfg.authDomain || ""),
+    firestoreDatabaseId: isRealValue(envDatabaseId) ? envDatabaseId! : (cfg.firestoreDatabaseId || cfg.databaseId || ""),
+    storageBucket: isRealValue(envStorageBucket) ? envStorageBucket! : (cfg.storageBucket || ""),
+    messagingSenderId: isRealValue(envMessagingSenderId) ? envMessagingSenderId! : (cfg.messagingSenderId || ""),
   };
 };
 
