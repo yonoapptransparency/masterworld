@@ -20,7 +20,6 @@ import { generateStaticDataFileCode } from '../lib/githubSync';
 import { sessionStore } from '../lib/sessionStore';
 import AppsTab from '../components/AppsTab';
 import BlogsTab from '../components/BlogsTab';
-import SecurityTab from '../components/SecurityTab';
 import FirebaseStatusPanel from '../components/FirebaseStatusPanel';
 import ImageUpload from "../components/ImageUpload";
 
@@ -3343,7 +3342,6 @@ export default function AdminDashboard() {
           <h3 className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5 ml-3">Authority</h3>
           
           <SidebarItem id="reviews" label="Support Desk" icon={ShieldAlert} active={activeTab === 'reviews'} onClick={handleTabChange} />
-          <SidebarItem id="security" label="MFA Security" icon={Shield} active={activeTab === 'security'} onClick={handleTabChange} />
           <SidebarItem id="github" label="GitHub Sync" icon={Github} active={activeTab === 'github'} onClick={handleTabChange} />
           <SidebarItem id="settings" label="Global Config" icon={Settings} active={activeTab === 'settings'} onClick={handleTabChange} />
 
@@ -3424,7 +3422,6 @@ export default function AdminDashboard() {
                 <h3 className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3 ml-2">Authority & Settings</h3>
                 <div className="flex flex-col gap-2">
                   <SidebarItem id="reviews" label="Support Desk" icon={ShieldAlert} active={activeTab === 'reviews'} onClick={(id) => { handleTabChange(id); setIsMobileMenuOpen(false); }} />
-                  <SidebarItem id="security" label="MFA Security" icon={Shield} active={activeTab === 'security'} onClick={(id) => { handleTabChange(id); setIsMobileMenuOpen(false); }} />
                   <SidebarItem id="github" label="GitHub Sync" icon={Github} active={activeTab === 'github'} onClick={(id) => { handleTabChange(id); setIsMobileMenuOpen(false); }} />
                   <SidebarItem id="settings" label="Global Config" icon={Settings} active={activeTab === 'settings'} onClick={(id) => { handleTabChange(id); setIsMobileMenuOpen(false); }} />
                 </div>
@@ -3841,9 +3838,6 @@ export default function AdminDashboard() {
               )}
               {activeTab === 'reviews' && (
                 <ReviewsModerationTab db={db} />
-              )}
-              {activeTab === 'security' && (
-                <SecurityTab />
               )}
               {activeTab === 'github' && (
                 <GithubTab pushAllToGitHub={pushAllToGitHub} gitConfig={gitConfig} saveGitConfig={saveGitConfig} appsList={appsList} settings={settings} newsList={newsList} blogs={blogs} videosList={videosList} generatePreview={() => generateStaticDataFileCode(appsList, settings, newsList, blogs, videosList)} />
