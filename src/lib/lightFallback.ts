@@ -1,4 +1,4 @@
-import { AppConfig, GlobalSettings, NewsItem, BlogPost, VideoItem } from '../types';
+import { AppConfig, GlobalSettings, NewsItem, BlogPost, VideoItem } from '../typesPublic';
 
 export const mockApps: AppConfig[] = [];
 export const mockSettings: GlobalSettings = {

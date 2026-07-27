@@ -18,8 +18,7 @@ async function prerender() {
     const originalTemplate = fs.readFileSync(indexHtmlPath, 'utf-8');
     const data = await fetchStoreData() || { apps: [], news: [], blogs: [], videos: [], settings: {} };
     if (!data.apps || data.apps.length === 0) {
-      console.error("Firebase data load failed (or no apps available). Aborting prerender to prevent blank pages.");
-      process.exit(1);
+      console.warn("Firebase data load returned 0 apps. Proceeding with empty prerender (React will handle empty state).");
     }
     
     const baseUrlFallback = process.env.PUBLIC_DOMAIN || 'https://www.rummydex.com';

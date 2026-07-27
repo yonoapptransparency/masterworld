@@ -6,7 +6,7 @@
 import fs from 'fs';
 import path from 'path';
 import { mockApps, mockSettings, mockNews, mockBlogs, mockVideos } from './lib/staticData';
-import { getAdminPath } from './lib/utils';
+import { getAdminPath } from './lib/utilsPublic';
 
 let cachedData: any = null;
 let lastFetchTime = 0;
