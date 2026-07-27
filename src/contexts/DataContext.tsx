@@ -749,18 +749,22 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     videosList: VideoItem[]
   ) => {
     try {
-      const idToken = await Promise.race([
+      let idToken = await Promise.race([
         getAdminToken(),
-        new Promise<string>(r => setTimeout(() => r(''), 3000))
+        new Promise<string>(r => setTimeout(() => r(''), 2000))
       ]);
+      if (!idToken) {
+        idToken = loadSession()?.idToken || '';
+      }
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 4000);
+      const timer = setTimeout(() => controller.abort(), 6000);
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (idToken) {
+        headers['Authorization'] = `Bearer ${idToken}`;
+      }
       const res = await adminFetch('/api/v1/admin/sync-local', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
-        },
+        headers,
         body: JSON.stringify({
           apps: appsList,
           settings: settingsObj,
@@ -772,7 +776,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       });
       clearTimeout(timer);
       if (!res.ok) {
-        console.warn("backup-data endpoint status:", res.status);
+        console.warn("sync-local endpoint status:", res.status);
       } else {
         console.log("Local filesystem & cloud sync successful");
       }

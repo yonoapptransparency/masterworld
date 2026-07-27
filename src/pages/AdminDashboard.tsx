@@ -2053,6 +2053,34 @@ export default function AdminDashboard() {
   }, []);
 
   const [saving, setSaving] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveBanner, setSaveBanner] = useState<{ type: 'saving' | 'success' | 'error'; message: string; timestamp?: string } | null>(null);
+
+  const notifySaveStart = (msg: string) => {
+    setSaving(true);
+    setSaveError(null);
+    setSaveBanner({ type: 'saving', message: msg });
+  };
+
+  const notifySaveSuccess = (msg: string) => {
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    setLastSavedAt(timeStr);
+    setSaveError(null);
+    setIsDirty(false);
+    setSaveBanner({ type: 'success', message: `${msg}`, timestamp: timeStr });
+    setTimeout(() => {
+      setSaveBanner(null);
+    }, 6000);
+  };
+
+  const notifySaveError = (errMsg: string) => {
+    setSaveError(errMsg);
+    setIsDirty(true);
+    setSaveBanner({ type: 'error', message: `Save Error: ${errMsg}` });
+  };
+
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [appsList, setAppsList] = useState(apps);
   const latestMockAppsRef = React.useRef(apps);
@@ -2495,7 +2523,7 @@ export default function AdminDashboard() {
 
   const handleSaveCategories = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setSaving(true);
+    notifySaveStart('Storing categories to Cloud Database...');
     try {
       const updatedSettings = {
         ...settings,
@@ -2507,9 +2535,9 @@ export default function AdminDashboard() {
       };
       await saveSettings(updatedSettings);
       triggerHaptic();
-      alert('Categories saved successfully!');
+      notifySaveSuccess('Categories saved & synchronized to Cloud!');
     } catch (err: any) {
-      alert('Error saving categories: ' + err.message);
+      notifySaveError(err.message || 'Error saving categories');
     } finally {
       setSaving(false);
     }
@@ -2517,7 +2545,7 @@ export default function AdminDashboard() {
 
   const handleSaveQuickLinks = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setSaving(true);
+    notifySaveStart('Storing quick links to Cloud Database...');
     try {
       const updatedSettings = {
         ...settings,
@@ -2529,9 +2557,9 @@ export default function AdminDashboard() {
       };
       await saveSettings(updatedSettings);
       triggerHaptic();
-      alert('Quick Links saved successfully!');
+      notifySaveSuccess('Quick Links saved & synchronized to Cloud!');
     } catch (err: any) {
-      alert('Error saving quick links: ' + err.message);
+      notifySaveError(err.message || 'Error saving quick links');
     } finally {
       setSaving(false);
     }
@@ -2555,7 +2583,7 @@ export default function AdminDashboard() {
 
   const handleSaveWebsiteFaqs = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
+    notifySaveStart('Storing website FAQs to Cloud Database...');
     try {
       const updatedSettings = {
         ...settings,
@@ -2567,9 +2595,9 @@ export default function AdminDashboard() {
       };
       await saveSettings(updatedSettings);
       triggerHaptic();
-      alert('Website FAQs saved successfully!');
+      notifySaveSuccess('Website FAQs saved & synchronized to Cloud!');
     } catch (err: any) {
-      alert('Error saving website FAQs: ' + err.message);
+      notifySaveError(err.message || 'Error saving website FAQs');
     } finally {
       setSaving(false);
     }
@@ -2593,7 +2621,7 @@ export default function AdminDashboard() {
 
   const handleSaveDevelopers = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
+    notifySaveStart('Storing developer list to Cloud Database...');
     try {
       const updatedSettings = {
         ...settings,
@@ -2605,9 +2633,9 @@ export default function AdminDashboard() {
       };
       await saveSettings(updatedSettings);
       triggerHaptic();
-      alert('Developers saved successfully!');
+      notifySaveSuccess('Developers saved & synchronized to Cloud!');
     } catch (err: any) {
-      alert('Error saving developers: ' + err.message);
+      notifySaveError(err.message || 'Error saving developers');
     } finally {
       setSaving(false);
     }
@@ -2678,7 +2706,7 @@ export default function AdminDashboard() {
 
   const handleSaveSettings = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setSaving(true);
+    notifySaveStart('Publishing identity & legal configurations to Cloud Database...');
     try {
       const formData = new FormData(e.currentTarget);
       const updatedSettings = {
@@ -2738,10 +2766,10 @@ export default function AdminDashboard() {
       setBanners(updatedSettings.banners || []);
       setCategoriesList(updatedSettings.categories || []);
       triggerHaptic();
-      alert('GLOBAL SYSTEM SYNC COMPLETE: All Identity & Legal configurations published to Live.');
+      notifySaveSuccess('GLOBAL SYSTEM SYNC COMPLETE: All configurations published to Cloud!');
     } catch (err: any) {
       console.error(err);
-      alert('Sync Failed: ' + (err.message || 'Unknown error. Check internet connection.'));
+      notifySaveError(err.message || 'Unknown error. Check internet connection.');
     } finally {
       setSaving(false);
     }
@@ -2756,7 +2784,7 @@ export default function AdminDashboard() {
           return;
        }
     }
-    setSaving(true);
+    notifySaveStart(editingAppId ? 'Updating application in Cloud Database...' : 'Publishing new application to Cloud Database...');
     try {
       const formData = new FormData(e.currentTarget);
       const name = formData.get('name') as string || 'New App';
@@ -2902,10 +2930,10 @@ export default function AdminDashboard() {
       setAppsList(updatedApps);
       triggerHaptic();
       setEditingAppId(null);
-      alert(editingAppId ? 'Success: Application Updated & Saved!' : 'Success: New Application Published!');
+      notifySaveSuccess(editingAppId ? 'Application Updated & Saved to Cloud!' : 'New Application Published to Cloud!');
     } catch (err: any) {
       console.error("Save app error:", err);
-      alert('Sync Failed: ' + (err.message || 'Unknown error. Check internet.'));
+      notifySaveError(err.message || 'Unknown error. Check internet.');
     } finally {
       setSaving(false);
     }
@@ -2939,19 +2967,20 @@ export default function AdminDashboard() {
   };
 
   const handleSaveNews = async () => {
-    setSaving(true);
+    notifySaveStart('Saving & synchronizing news to Cloud Database...');
     try {
       await saveNews(newsList);
       triggerHaptic();
-      alert('News saved successfully. Go to News Section to see.');
+      notifySaveSuccess('News system saved & synchronized to Cloud!');
     } catch (err: any) {
-      alert('Error saving news: ' + err.message);
+      notifySaveError(err.message || 'Error saving news');
     } finally {
       setSaving(false);
     }
   };
 
   const handleNewsChange = (id: string, field: string, value: string) => {
+    setIsDirty(true);
     let finalValue = value;
     if (field === 'description_html' || field === 'content') {
       finalValue = stripHtmlWrapper(value);
@@ -2965,10 +2994,12 @@ export default function AdminDashboard() {
   };
 
   const handleBannerChange = (id: string, field: string, value: string) => {
+    setIsDirty(true);
     setBanners(banners.map(b => b.id === id ? { ...b, [field]: value } : b));
   };
 
   const handleAddBanner = () => {
+    setIsDirty(true);
     const newBanner = {
       id: Math.random().toString(36).substr(2, 9),
       title: 'New Banner',
@@ -2987,12 +3018,14 @@ export default function AdminDashboard() {
       confirmText: 'Remove Banner',
       cancelText: 'Cancel',
       onConfirm: () => {
+        setIsDirty(true);
         setBanners(banners.filter(b => b.id !== id));
       }
     });
   };
 
   const handleAddNews = (initialData?: any): string => {
+    setIsDirty(true);
     const newId = Math.random().toString(36).substr(2, 9);
     const newItem: NewsItem = {
       id: newId,
@@ -3028,25 +3061,27 @@ export default function AdminDashboard() {
       confirmText: 'Remove News',
       cancelText: 'Cancel',
       onConfirm: () => {
+        setIsDirty(true);
         setNewsList(newsList.filter(n => n.id !== id));
       }
     });
   };
 
   const handleSaveBlogs = async () => {
-    setSaving(true);
+    notifySaveStart('Saving & synchronizing app updates/blogs to Cloud Database...');
     try {
       await saveBlogs(blogs);
       triggerHaptic();
-      alert('Blogs saved successfully.');
+      notifySaveSuccess('App updates & blogs saved & synchronized to Cloud!');
     } catch (err: any) {
-      alert('Error saving blogs: ' + err.message);
+      notifySaveError(err.message || 'Error saving blogs');
     } finally {
       setSaving(false);
     }
   };
 
   const handleBlogChange = (id: string, field: string, value: string) => {
+    setIsDirty(true);
     let finalValue = value;
     if (field === 'description_html' || field === 'content') {
       finalValue = stripHtmlWrapper(value);
@@ -3060,6 +3095,7 @@ export default function AdminDashboard() {
   };
 
   const handleAddBlog = () => {
+    setIsDirty(true);
     const newId = Math.random().toString(36).substr(2, 9);
     const newBlog: BlogPost = {
       id: newId,
@@ -3096,12 +3132,14 @@ export default function AdminDashboard() {
       confirmText: 'Remove Post',
       cancelText: 'Cancel',
       onConfirm: () => {
+        setIsDirty(true);
         setBlogs(blogs.filter(b => b.id !== id));
       }
     });
   };
 
   const handleVideosChange = (id: string, field: string, value: string) => {
+    setIsDirty(true);
     if (field === 'slug') {
       const cleanSlug = value.toLowerCase().replace(/https?:\/\//g, '').replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
       setVideosList(videosList.map(v => v.id === id ? { ...v, [field]: cleanSlug } : v));
@@ -3111,6 +3149,7 @@ export default function AdminDashboard() {
   };
 
   const handleAddVideo = () => {
+    setIsDirty(true);
     const newVideo = {
       id: Math.random().toString(36).substr(2, 9),
       slug: 'new-video-' + Math.random().toString(36).substr(2, 4),
@@ -3133,19 +3172,20 @@ export default function AdminDashboard() {
       confirmText: 'Remove Video',
       cancelText: 'Cancel',
       onConfirm: () => {
+        setIsDirty(true);
         setVideosList(videosList.filter(v => v.id !== id));
       }
     });
   };
 
   const handleSaveVideos = async () => {
-    setSaving(true);
+    notifySaveStart('Saving video matrix stream to Cloud Database...');
     try {
       await saveVideos(videosList);
       triggerHaptic();
-      alert('Videos saved successfully.');
+      notifySaveSuccess('Video matrix saved & published to Cloud!');
     } catch (err: any) {
-      alert('Error saving videos: ' + err.message);
+      notifySaveError(err.message || 'Error saving videos');
     } finally {
       setSaving(false);
     }
@@ -3187,6 +3227,32 @@ export default function AdminDashboard() {
 
   return (
     <div className="animate-fade-in min-h-screen bg-slate-50 dark:bg-slate-950 md:p-4 lg:p-8">
+      {/* Floating Evident Save Notice Toast */}
+      {saveBanner && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 transform scale-100 max-w-lg w-[92vw]">
+          <div className={`flex items-center justify-between gap-3 px-4 py-3 rounded-2xl shadow-2xl backdrop-blur-xl border text-xs font-bold ${
+            saveBanner.type === 'saving'
+              ? 'bg-blue-600/95 text-white border-blue-400/30 shadow-blue-500/30 animate-pulse'
+              : saveBanner.type === 'success'
+              ? 'bg-emerald-600/95 text-white border-emerald-400/30 shadow-emerald-500/30'
+              : 'bg-rose-600/95 text-white border-rose-400/30 shadow-rose-500/30'
+          }`}>
+            <div className="flex items-center gap-2.5 overflow-hidden">
+              {saveBanner.type === 'saving' && <RefreshCw className="w-4 h-4 animate-spin shrink-0 text-blue-200" />}
+              {saveBanner.type === 'success' && <CheckCircle2 className="w-4 h-4 text-emerald-200 shrink-0" />}
+              {saveBanner.type === 'error' && <AlertTriangle className="w-4 h-4 text-rose-200 shrink-0" />}
+              <span className="truncate">{saveBanner.message}</span>
+            </div>
+            <button 
+              onClick={() => setSaveBanner(null)} 
+              className="p-1 hover:bg-white/20 rounded-lg transition-colors cursor-pointer shrink-0"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Mobile Top App Bar */}
       <div className="md:hidden sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 px-4 py-3 shadow-sm flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -3200,8 +3266,7 @@ export default function AdminDashboard() {
           <div className="flex flex-col">
             <h1 className="text-base font-black text-slate-900 dark:text-white tracking-tight leading-tight">Admin<span className="text-blue-600">Hub</span></h1>
             <div className="flex items-center gap-1.5">
-              <FirebaseStatusIndicator />
-              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Secure Access</span>
+              <FirebaseStatusIndicator saving={saving} lastSavedAt={lastSavedAt} saveError={saveError} isDirty={isDirty} />
             </div>
           </div>
         </div>
@@ -3233,8 +3298,7 @@ export default function AdminDashboard() {
                 <span className="bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 text-[9px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider border border-blue-200/30">Secure Hub</span>
               </div>
               <div className="flex items-center gap-3 mt-1">
-                <FirebaseStatusIndicator />
-                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 font-mono italic">AES-256 Connection Verified • V2.4.9</p>
+                <FirebaseStatusIndicator saving={saving} lastSavedAt={lastSavedAt} saveError={saveError} isDirty={isDirty} />
               </div>
             </div>
           </div>
@@ -3357,7 +3421,7 @@ export default function AdminDashboard() {
 
         {/* Main Content Area */}
         <div className="flex-1 min-w-0 bg-white dark:bg-slate-900 md:border md:border-slate-200 dark:border-slate-800/80 md:rounded-2xl p-4 sm:p-6 md:p-8 min-h-[750px] shadow-sm relative overflow-visible md:overflow-hidden">
-            <div className="relative">
+            <div className="relative" onInput={() => setIsDirty(true)} onChange={() => setIsDirty(true)}>
               {activeTab === 'dashboard' && <DashboardTab apps={appsList} news={newsList} />}
               {activeTab === 'apps' && (
                 <AppsTab 
@@ -3368,6 +3432,7 @@ export default function AdminDashboard() {
                   handleSaveApp={handleSaveApp} 
                   categories={settings.categories} 
                   saving={saving} 
+                  lastSavedAt={lastSavedAt}
                 />
               )}
               {activeTab === 'news' && (

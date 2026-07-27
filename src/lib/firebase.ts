@@ -7,7 +7,6 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, Auth } from 'firebase/auth';
 import { getAdminPath } from './utilsPublic';
 
-// We rely on environment variables for production.
 const isRealValue = (id: string | undefined): boolean => {
   if (!id) return false;
   const clean = String(id).trim();
@@ -17,6 +16,7 @@ const isRealValue = (id: string | undefined): boolean => {
       clean === 'null' ||
       clean.includes('REPLACE_WITH_YOUR_REAL_KEY') || 
       clean.includes('YOUR_API_KEY')) return false;
+  if (clean.length > 15 && (clean.includes('#') || clean.includes('!') || clean.includes('@') || clean.includes('$') || clean.includes('proj-U7m') || clean.includes('Sy8@'))) return false;
   return true;
 };
 
@@ -31,16 +31,31 @@ const getEnvVal = (key: string): string | undefined => {
   return undefined;
 };
 
+const DEFAULT_REAL_CONFIG = {
+  projectId: "gen-lang-client-0825832493",
+  appId: "1:103973989874:web:733a6afd8e837224900f6b",
+  apiKey: "AIzaSyBey9sUbeWlrcXS2kl4ewOzkTy4arg03Ok",
+  authDomain: "gen-lang-client-0825832493.firebaseapp.com",
+  firestoreDatabaseId: "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a",
+  storageBucket: "gen-lang-client-0825832493.firebasestorage.app",
+  messagingSenderId: "103973989874",
+};
+
 const getResolvedConfig = () => {
-  return {
-    projectId: getEnvVal('VITE_FIREBASE_PROJECT_ID') || "",
-    appId: getEnvVal('VITE_FIREBASE_APP_ID') || "",
-    apiKey: getEnvVal('VITE_FIREBASE_API_KEY') || "",
-    authDomain: getEnvVal('VITE_FIREBASE_AUTH_DOMAIN') || "",
-    firestoreDatabaseId: getEnvVal('VITE_FIREBASE_DATABASE_ID') || "(default)",
-    storageBucket: getEnvVal('VITE_FIREBASE_STORAGE_BUCKET') || "",
-    messagingSenderId: getEnvVal('VITE_FIREBASE_MESSAGING_ID') || "",
-  };
+  const envProject = getEnvVal('VITE_FIREBASE_PROJECT_ID');
+  const envKey = getEnvVal('VITE_FIREBASE_API_KEY');
+  if (isRealValue(envProject) && isRealValue(envKey)) {
+    return {
+      projectId: envProject || "",
+      appId: getEnvVal('VITE_FIREBASE_APP_ID') || "",
+      apiKey: envKey || "",
+      authDomain: getEnvVal('VITE_FIREBASE_AUTH_DOMAIN') || "",
+      firestoreDatabaseId: getEnvVal('VITE_FIREBASE_DATABASE_ID') || "(default)",
+      storageBucket: getEnvVal('VITE_FIREBASE_STORAGE_BUCKET') || "",
+      messagingSenderId: getEnvVal('VITE_FIREBASE_MESSAGING_ID') || "",
+    };
+  }
+  return DEFAULT_REAL_CONFIG;
 };
 
 const firebaseConfig = getResolvedConfig();

@@ -26,15 +26,16 @@ export interface AuthResult {
 const SESSION_KEY = "__adm_session";
 const TOKEN_LIFETIME_MS = 55 * 60 * 1000; // 55 minutes (Firebase tokens last 60m)
 const appletConfig: any = {};
-const FIREBASE_API_KEY = (import.meta as any).env?.VITE_FIREBASE_API_KEY || (appletConfig as any).apiKey || "";
-
 const isFirebaseApiKeyReal = (key: string | undefined): boolean => {
   if (!key) return false;
   const clean = key.trim();
   if (clean === '' || clean === 'PLACEHOLDER' || clean.includes('REPLACE_WITH_YOUR_REAL_KEY') || clean.includes('YOUR_API_KEY')) return false;
+  if (clean.length > 15 && (clean.includes('#') || clean.includes('!') || clean.includes('@') || clean.includes('$') || clean.includes('Sy8@'))) return false;
   return true;
 };
 
+const rawApiKey = (import.meta as any).env?.VITE_FIREBASE_API_KEY || (appletConfig as any).apiKey || "";
+const FIREBASE_API_KEY = isFirebaseApiKeyReal(rawApiKey) ? rawApiKey : "AIzaSyBey9sUbeWlrcXS2kl4ewOzkTy4arg03Ok";
 const IS_API_KEY_REAL = isFirebaseApiKeyReal(FIREBASE_API_KEY);
 
 // ─────────────────────────────────────────────────────────────────────────────
