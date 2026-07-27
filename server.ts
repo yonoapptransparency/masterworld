@@ -999,9 +999,14 @@ const verifyAdminToken = async (req: express.Request, res: express.Response, nex
         const adminDb = getFirebaseAdminDb();
         if (adminDb) {
            const admin = require('firebase-admin');
-           const decodedToken = await admin.auth().verifyIdToken(idToken);
-           email = decodedToken.email || "";
-        } else {
+           try {
+             const decodedToken = await admin.auth().verifyIdToken(idToken);
+             email = decodedToken.email || "";
+           } catch (e) {
+             console.warn("verifyIdToken failed, falling back to REST");
+           }
+        }
+        if (!email) {
            const config = getRawFirebaseConfig();
            const apiKey = config?.apiKey || process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY;
            if (apiKey) {
@@ -1094,9 +1099,14 @@ app.post("/api/v1/admin/google-login", async (req: any, res: any) => {
     const adminDb = getFirebaseAdminDb();
     if (adminDb) {
        const admin = require('firebase-admin');
-       const decodedToken = await admin.auth().verifyIdToken(idToken);
-       email = decodedToken.email || "";
-    } else {
+       try {
+         const decodedToken = await admin.auth().verifyIdToken(idToken);
+         email = decodedToken.email || "";
+       } catch (e) {
+         console.warn("verifyIdToken failed, falling back to REST");
+       }
+    }
+    if (!email) {
        const config = getRawFirebaseConfig();
        const apiKey = config?.apiKey || process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY;
        if (apiKey) {
@@ -1151,9 +1161,14 @@ app.post("/api/v1/admin/verify-session", async (req: any, res: any) => {
       const adminDb = getFirebaseAdminDb();
       if (adminDb) {
          const admin = require('firebase-admin');
-         const decodedToken = await admin.auth().verifyIdToken(idToken);
-         email = decodedToken.email || "";
-      } else {
+         try {
+           const decodedToken = await admin.auth().verifyIdToken(idToken);
+           email = decodedToken.email || "";
+         } catch (e) {
+           console.warn("verifyIdToken failed, falling back to REST");
+         }
+      }
+      if (!email) {
          const config = getRawFirebaseConfig();
          const apiKey = config?.apiKey || process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY;
          if (apiKey) {
