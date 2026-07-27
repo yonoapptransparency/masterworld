@@ -76,16 +76,7 @@ function getRawFirebaseConfig(): any {
   
   // 1. Try local/config file
   try {
-    let rawData = '';
-    try {
-      rawData = fs.readFileSync(path.join(process.cwd(), 'firebase-applet-config.json'), 'utf8');
-    } catch(e) {
-      try {
-        rawData = fs.readFileSync(path.join(__dirname, 'firebase-applet-config.json'), 'utf8');
-      } catch(e2) {
-        rawData = fs.readFileSync(path.join(__dirname, '..', 'firebase-applet-config.json'), 'utf8');
-      }
-    }
+    const rawData = fs.readFileSync(path.join(process.cwd(), 'firebase-applet-config.json'), 'utf8');
     const config = JSON.parse(rawData);
     if (config.projectId && isRealValue(config.projectId)) {
       config.firestoreDatabaseId = config.firestoreDatabaseId || config.databaseId || process.env.VITE_FIREBASE_DATABASE_ID;
@@ -1005,19 +996,11 @@ const verifyAdminToken = async (req: express.Request, res: express.Response, nex
       try {
         let email = "";
         const adminDb = getFirebaseAdminDb();
-        let verifiedViaAdmin = false;
         if (adminDb) {
-           try {
-             const admin = require('firebase-admin');
-             const decodedToken = await admin.auth().verifyIdToken(idToken);
-             email = decodedToken.email || "";
-             verifiedViaAdmin = true;
-           } catch (adminErr) {
-             console.warn("admin.auth().verifyIdToken failed, falling back to REST API", adminErr);
-           }
-        }
-        
-        if (!verifiedViaAdmin) {
+           const admin = require('firebase-admin');
+           const decodedToken = await admin.auth().verifyIdToken(idToken);
+           email = decodedToken.email || "";
+        } else {
            const config = getRawFirebaseConfig();
            const apiKey = config?.apiKey || process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY;
            if (apiKey) {
@@ -1029,11 +1012,7 @@ const verifyAdminToken = async (req: express.Request, res: express.Response, nex
              if (lookupRes.ok) {
                const lookupData = await lookupRes.json();
                email = lookupData?.users?.[0]?.email || "";
-             } else {
-               throw new Error("REST API lookup failed: " + await lookupRes.text());
              }
-           } else {
-             throw new Error("No API key available for fallback token verification.");
            }
         }
         const configuredAdminEmail = String(process.env.ADMIN_EMAIL || "defentechscholar@gmail.com").toLowerCase();
@@ -1044,8 +1023,7 @@ const verifyAdminToken = async (req: express.Request, res: express.Response, nex
           return res.status(403).json({ error: 'Unauthorized: Admin access required.', message: 'Unauthorized: Admin access required.' });
         }
       } catch (err: any) {
-        console.error('Firebase token verification error:', err);
-        return res.status(401).json({ error: 'Unauthorized: Invalid Firebase token.', message: 'Unauthorized: Invalid Firebase token. ' + (err.message || '') });
+        return res.status(401).json({ error: 'Unauthorized: Invalid Firebase token.', message: 'Unauthorized: Invalid Firebase token.' });
       }
     }
 
