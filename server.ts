@@ -1019,6 +1019,7 @@ const verifyAdminToken = async (req: express.Request, res: express.Response, nex
         const configuredAdminEmail = String(process.env.ADMIN_EMAIL || "defentechscholar@gmail.com").toLowerCase();
         if (email && email.toLowerCase().trim() === configuredAdminEmail) {
           (req as any).adminUser = { email: email.toLowerCase().trim() };
+          (req as any).rawIdToken = idToken;
           return next();
         } else {
           return res.status(403).json({ error: 'Unauthorized: Admin access required.', message: 'Unauthorized: Admin access required.' });
@@ -2247,6 +2248,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
 
       if (!firestoreUpdated) {
         try {
+          const reqIdToken = (req as any).rawIdToken || (req.headers.authorization && req.headers.authorization.startsWith('Bearer ') ? req.headers.authorization.split('Bearer ')[1] : undefined);
           if (apps && Array.isArray(apps)) {
             const CHUNK_SIZE = 25;
             const numChunks = Math.ceil(apps.length / CHUNK_SIZE) || 1;
@@ -2257,21 +2259,21 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
                 delete app.encrypted_download_url;
                 delete app.download_url;
               });
-              await writeFirestoreRestDoc(`apps_chunk_${i}`, { items: chunk });
+              await writeFirestoreRestDoc(`apps_chunk_${i}`, { items: chunk }, reqIdToken);
             }
-            await writeFirestoreRestDoc('apps_meta', { numChunks, last_updated: new Date().toISOString() });
+            await writeFirestoreRestDoc('apps_meta', { numChunks, last_updated: new Date().toISOString() }, reqIdToken);
           }
           if (settings) {
-            await writeFirestoreRestDoc('public_settings', JSON.parse(JSON.stringify(settings)));
+            await writeFirestoreRestDoc('public_settings', JSON.parse(JSON.stringify(settings)), reqIdToken);
           }
           if (news && Array.isArray(news)) {
-            await writeFirestoreRestDoc('news', { items: JSON.parse(JSON.stringify(news)) });
+            await writeFirestoreRestDoc('news', { items: JSON.parse(JSON.stringify(news)) }, reqIdToken);
           }
           if (blogs && Array.isArray(blogs)) {
-            await writeFirestoreRestDoc('blogs', { items: JSON.parse(JSON.stringify(blogs)) });
+            await writeFirestoreRestDoc('blogs', { items: JSON.parse(JSON.stringify(blogs)) }, reqIdToken);
           }
           if (videos && Array.isArray(videos)) {
-            await writeFirestoreRestDoc('videos', { items: JSON.parse(JSON.stringify(videos)) });
+            await writeFirestoreRestDoc('videos', { items: JSON.parse(JSON.stringify(videos)) }, reqIdToken);
           }
           console.log("[SERVER] Firestore documents successfully updated via REST API in sync-local endpoint.");
         } catch (restSyncErr: any) {
@@ -2450,16 +2452,20 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
     return { fields };
   }
 
-  async function writeFirestoreRestDoc(docName: string, dataObj: any): Promise<boolean> {
+  async function writeFirestoreRestDoc(docName: string, dataObj: any, idToken?: string): Promise<boolean> {
     try {
       const config = getRawFirebaseConfig();
       if (!config || !config.projectId) return false;
       const apiSuffix = config.apiKey ? `?key=${config.apiKey}` : '';
       const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || '(default)'}/documents/store_data/${docName}${apiSuffix}`;
       const docPayload = toFirestoreDocument(dataObj);
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (idToken && idToken.startsWith('ey')) {
+        headers['Authorization'] = `Bearer ${idToken}`;
+      }
       const res = await fetch(url, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(docPayload)
       });
       if (!res.ok) {
