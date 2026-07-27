@@ -1012,6 +1012,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         console.log("Cloud: Pushing Settings update via client SDK...");
         const sanitized = JSON.parse(JSON.stringify(settingsWithTime));
         await setDoc(docRef, sanitized, { merge: true });
+        await setDoc(doc(db, 'store_data', 'settings'), sanitized, { merge: true });
         console.log("Cloud: Settings update acknowledged by server.");
       }
     } catch (err: any) {

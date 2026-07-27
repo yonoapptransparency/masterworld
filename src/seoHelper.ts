@@ -147,7 +147,20 @@ export async function syncFromFirestore(): Promise<any> {
     if (settingsRes && settingsRes.ok) {
       const docData = await settingsRes.json();
       const parsed = parseFirestoreDoc(docData.fields);
-      if (parsed && Object.keys(parsed).length > 0) settings = parsed;
+      if (parsed && parsed.site_title) settings = parsed;
+    }
+
+    if (!settings || !settings.site_title) {
+      try {
+        const fallbackRes = await fetch(`${baseUrl}/settings${keyParam}`).catch(() => null);
+        if (fallbackRes && fallbackRes.ok) {
+          const docData = await fallbackRes.json();
+          const parsed = parseFirestoreDoc(docData.fields);
+          if (parsed && parsed.site_title) settings = parsed;
+        }
+      } catch (e) {
+        // ignore fallback error
+      }
     }
 
     let news = mockNews;
