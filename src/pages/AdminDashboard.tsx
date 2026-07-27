@@ -24,6 +24,18 @@ import SecurityTab from '../components/SecurityTab';
 import FirebaseStatusPanel from '../components/FirebaseStatusPanel';
 import ImageUpload from "../components/ImageUpload";
 
+const stripHtmlWrapper = (html: string) => {
+  if (!html) return html;
+  const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  if (bodyMatch) return bodyMatch[1].trim();
+  return html.replace(/<!DOCTYPE[^>]*>/gi, '')
+             .replace(/<html[^>]*>/gi, '')
+             .replace(/<\/html>/gi, '')
+             .replace(/<head[^>]*>[\s\S]*?<\/head>/gi, '')
+             .replace(/<body[^>]*>/gi, '')
+             .replace(/<\/body>/gi, '').trim();
+};
+
 function FaqEditor({ initialFaqs }: { initialFaqs: {question: string, answer: string}[] }) {
   const [faqs, setFaqs] = React.useState(initialFaqs || []);
 
@@ -2681,11 +2693,11 @@ export default function AdminDashboard() {
         secure_index_subtitle: formData.get('secure_index_subtitle') as string || settings.secure_index_subtitle || 'Verified & Transparent App Marketplace',
         trending_searches: (formData.get('trending_searches') as string || '').split(',').map((s: string) => s.trim()).filter(Boolean),
         
-        about_content: formData.get('about_content') as string || settings.about_content,
-        privacy_content: formData.get('privacy_content') as string || settings.privacy_content,
-        terms_content: formData.get('terms_content') as string || settings.terms_content,
-        responsibility_content: formData.get('responsibility_content') as string || settings.responsibility_content,
-        report_removal_content: formData.get('report_removal_content') as string || settings.report_removal_content,
+        about_content: stripHtmlWrapper(formData.get('about_content') as string || settings.about_content),
+        privacy_content: stripHtmlWrapper(formData.get('privacy_content') as string || settings.privacy_content),
+        terms_content: stripHtmlWrapper(formData.get('terms_content') as string || settings.terms_content),
+        responsibility_content: stripHtmlWrapper(formData.get('responsibility_content') as string || settings.responsibility_content),
+        report_removal_content: stripHtmlWrapper(formData.get('report_removal_content') as string || settings.report_removal_content),
         
         portal_heading: formData.get('portal_heading') as string || settings.portal_heading,
         disclaimer_heading: formData.get('disclaimer_heading') as string || settings.disclaimer_heading,
@@ -2825,10 +2837,10 @@ export default function AdminDashboard() {
         })(),
         more_information_url: plaintextUrl,
         video_url: (formData.get('video_url') as string) || '',
-        description_html: formData.get('description_html') as string || '<p>A new application.</p>',
+        description_html: stripHtmlWrapper(formData.get('description_html') as string || '<p>A new application.</p>'),
         custom_admin_box_heading: formData.get('custom_admin_box_heading') as string,
-        custom_admin_box_html: formData.get('custom_admin_box_html') as string,
-        features_html: formData.get('features_html') as string,
+        custom_admin_box_html: stripHtmlWrapper(formData.get('custom_admin_box_html') as string),
+        features_html: stripHtmlWrapper(formData.get('features_html') as string),
         red_box_msg: formData.get('red_box_msg') as string,
         yellow_box_msg: formData.get('yellow_box_msg') as string,
         idea_box_msg: formData.get('idea_box_msg') as string,
@@ -2912,12 +2924,16 @@ export default function AdminDashboard() {
   };
 
   const handleNewsChange = (id: string, field: string, value: string) => {
+    let finalValue = value;
+    if (field === 'description_html' || field === 'content') {
+      finalValue = stripHtmlWrapper(value);
+    }
     if (field === 'slug') {
       const cleanSlug = value.toLowerCase().replace(/https?:\/\//g, '').replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
       setNewsList(newsList.map(n => n.id === id ? { ...n, [field]: cleanSlug } : n));
       return;
     }
-    setNewsList(newsList.map(n => n.id === id ? { ...n, [field]: value } : n));
+    setNewsList(newsList.map(n => n.id === id ? { ...n, [field]: finalValue } : n));
   };
 
   const handleBannerChange = (id: string, field: string, value: string) => {
@@ -3003,12 +3019,16 @@ export default function AdminDashboard() {
   };
 
   const handleBlogChange = (id: string, field: string, value: string) => {
+    let finalValue = value;
+    if (field === 'description_html' || field === 'content') {
+      finalValue = stripHtmlWrapper(value);
+    }
     if (field === 'slug') {
       const cleanSlug = value.toLowerCase().replace(/https?:\/\//g, '').replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
       setBlogs(blogs.map(b => b.id === id ? { ...b, [field]: cleanSlug } : b));
       return;
     }
-    setBlogs(blogs.map(b => b.id === id ? { ...b, [field]: value } : b));
+    setBlogs(blogs.map(b => b.id === id ? { ...b, [field]: finalValue } : b));
   };
 
   const handleAddBlog = () => {

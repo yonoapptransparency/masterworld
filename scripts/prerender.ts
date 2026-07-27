@@ -104,7 +104,7 @@ async function prerender() {
     xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
 
     // Static routes
-    const today = '2026-07-26'; // Default fixed lastmod for static routes to prevent crawl budget burn
+    const today = new Date().toISOString().split('T')[0];
     const staticRoutes = [
       { path: '/', priority: '1.0', changefreq: 'daily' },
       { path: '/new-apps', priority: '0.8', changefreq: 'daily' },
@@ -145,7 +145,7 @@ async function prerender() {
           }
         } catch(e) {}
       }
-      return '2026-07-26';
+      return today;
     };
 
     const escapeHtmlForSitemap = (unsafe) => {

@@ -395,6 +395,8 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
     bodyContent = renderVideoDetail(slug, videos, settings);
   } else if (cleanPathLower === '/about') {
     bodyContent = renderAbout(settings);
+  } else if (cleanPathLower === '/developers') {
+    bodyContent = renderDevelopers(settings);
   } else if (cleanPathLower === '/contact') {
     bodyContent = renderContact(settings);
   } else if (cleanPathLower === '/privacy') {
@@ -518,7 +520,7 @@ function renderHome(apps: any[], settings: any, news: any[], blogs: any[], video
     const isNew = app.is_new === true || (app.is_new && app.is_new.booleanValue === true);
     
     appsHtml += `
-      <a href="/${encodeURIComponent(slug)}" class="flex items-center gap-4 p-4 hover:bg-black/5 dark:hover:bg-white/5 rounded-2xl transition border-b border-black/5 dark:border-white/5">
+      <a href="/app/${encodeURIComponent(slug)}" class="flex items-center gap-4 p-4 hover:bg-black/5 dark:hover:bg-white/5 rounded-2xl transition border-b border-black/5 dark:border-white/5">
         <span class="text-sm font-bold text-zinc-400 shrink-0 w-8 text-center">${i + 1}</span>
         <img src="${icon || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&fit=crop'}" loading="lazy" width="64" height="64" class="w-16 h-16 rounded-[18px] object-cover bg-white shadow-sm shrink-0" alt="${escapeHtml(name)}"/>
         <div class="flex-1 min-w-0 text-left">
@@ -580,7 +582,7 @@ function renderNewApps(apps: any[], settings: any) {
     const icon = getField(app, 'icon_url');
     
     grid += `
-      <a href="/${encodeURIComponent(slug)}" class="p-4 bg-white dark:bg-zinc-900 rounded-2xl border border-black/5 text-center flex flex-col items-center">
+      <a href="/app/${encodeURIComponent(slug)}" class="p-4 bg-white dark:bg-zinc-900 rounded-2xl border border-black/5 text-center flex flex-col items-center">
         <img src="${icon || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&fit=crop'}" loading="lazy" width="80" height="80" class="w-20 h-20 rounded-2xl object-cover mb-3 shadow-sm bg-white" alt="icon"/>
         <h3 class="font-bold text-sm text-zinc-900 dark:text-white truncate w-full">${escapeHtml(name)}</h3>
         <p class="text-xs text-zinc-500 mt-1 truncate w-full">${escapeHtml(cat)}</p>
@@ -772,6 +774,32 @@ function renderVideoDetail(slug: string, videos: any[], settings: any) {
 function renderAbout(settings: any) {
   const content = getField(settings, 'about_content') || 'About our application services.';
   return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">About Us</h1><article class="prose text-zinc-750 leading-relaxed font-semibold">${content.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>')}</article></div>`;
+}
+
+function renderDevelopers(settings: any) {
+  const devs = settings?.developers || [];
+  let devsHtml = '';
+  
+  if (devs.length === 0) {
+    devsHtml = `<div class="bg-white/50 border border-black/5 p-12 rounded-[3rem] max-w-lg mx-auto shadow-2xl text-center">
+      <h1 class="text-3xl font-black mb-4 uppercase tracking-tight italic">Our Developers</h1>
+      <p class="text-slate-600 font-medium">Information about our developers is not available at this moment. Please check back later.</p>
+    </div>`;
+  } else {
+    devs.forEach((dev: any) => {
+      devsHtml += `<div class="bg-white/70 border border-black/5 rounded-[2rem] p-8 backdrop-blur-md shadow-lg text-center flex flex-col items-center">
+        <div class="w-32 h-32 rounded-full overflow-hidden mb-6 border-4 border-white shadow-xl">
+          <img src="${dev.image_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(dev.name)}&background=random`}" alt="${escapeHtml(dev.name)}" class="w-full h-full object-cover"/>
+        </div>
+        <h3 class="text-2xl font-black text-zinc-900 mb-2 tracking-tight">${escapeHtml(dev.name)}</h3>
+        <div class="bg-pink-500/10 text-pink-600 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest mb-4">${escapeHtml(dev.role)}</div>
+        <p class="text-slate-600 mb-8 font-medium text-sm leading-relaxed">${escapeHtml(dev.bio)}</p>
+      </div>`;
+    });
+    devsHtml = `<div class="text-center mb-16"><h1 class="text-4xl md:text-6xl font-black mb-6 tracking-tighter italic">Meet Our Team</h1><p class="text-lg text-slate-600 font-medium max-w-2xl mx-auto">The creative minds and technical experts building the future of ${escapeHtml(getField(settings, 'site_title', 'RummyDex'))}.</p></div><div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">${devsHtml}</div>`;
+  }
+  
+  return `<div class="max-w-6xl mx-auto py-12">${devsHtml}</div>`;
 }
 
 function renderContact(settings: any) {
