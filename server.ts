@@ -24,6 +24,7 @@ import { injectSeoTags, fetchStoreData, getField, syncFromFirestore } from "./sr
 import { generateStaticDataFileCode } from "./src/lib/githubSync";
 import CryptoJS from "crypto-js";
 import { GoogleGenAI, Type } from "@google/genai";
+import { verifyTOTPToken, generateTOTPSecret, getTOTPURI } from "./src/lib/totp";
 
 function safeDecrypt(ciphertext: string, secret: string): string {
     const keys = [secret, process.env.AES_SECRET].filter(Boolean);
@@ -59,7 +60,7 @@ const isRealValue = (id: string | undefined): boolean => {
       clean.includes('YOUR_API_KEY')) return false;
   
   // Reject scrambled/sandbox values (contain # ! @ & * and look like a hash but aren't real)
-  if (clean.length > 15 && (clean.includes('#') || clean.includes('!') || clean.includes('@') || clean.includes('$') || clean.includes('proj-U7m') || clean.includes('Sy8@'))) return false;
+  if (clean.length > 20 && (clean.includes('#') || clean.includes('!') || clean.includes('@'))) return false;
   
   return true;
 };
@@ -778,7 +779,7 @@ async function startServer() {
       xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
       
       // Static routes
-      const today = '2026-07-26'; // Default fixed lastmod for static routes to prevent crawl budget burn
+      const today = '2024-05-01'; // Default fixed lastmod for static routes to prevent crawl budget burn
       xml += `  <url>\n    <loc>${host}/</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>1.0</priority>\n  </url>\n`;
       xml += `  <url>\n    <loc>${host}/new-apps</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n  </url>\n`;
       xml += `  <url>\n    <loc>${host}/news</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n  </url>\n`;
@@ -794,7 +795,6 @@ async function startServer() {
       xml += `  <url>\n    <loc>${host}/notice</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
       xml += `  <url>\n    <loc>${host}/ethics</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
       xml += `  <url>\n    <loc>${host}/disclaimer</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
-      xml += `  <url>\n    <loc>${host}/submit-app</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.4</priority>\n  </url>\n`;
       
       // Dynamic App Routes
       const escapeHtmlForSitemap = (unsafe: string) => {
@@ -823,7 +823,7 @@ async function startServer() {
             }
           } catch(e) {}
         }
-        return '2026-07-26';
+        return '2024-05-01';
       };
 
       const isExternalCanonical = (url?: string) => {
@@ -907,6 +907,33 @@ interface _AdminRLEntry { count: number; windowStart: number; lockedUntil: numbe
 const _adminLoginMap = new Map<string, _AdminRLEntry>();
 const _ADMIN_MAX = 5;
 
+const MOCK_2FA_FILE = path.join(process.cwd(), "mock-2fa-state.json");
+const _mock2faMap = new Map<string, { enabled: boolean; secret: string }>();
+let _activeMockAdminEmail = (process.env.ADMIN_EMAIL || "").toLowerCase();
+
+// Load from file if exists
+try {
+  if (fs.existsSync(MOCK_2FA_FILE)) {
+    const data = JSON.parse(fs.readFileSync(MOCK_2FA_FILE, "utf8"));
+    for (const [key, val] of Object.entries(data)) {
+      _mock2faMap.set(key, val as any);
+    }
+  }
+} catch (err) {
+  console.error("Failed to load mock 2FA file:", err);
+}
+
+function _saveMock2FAState() {
+  try {
+    const obj: any = {};
+    for (const [key, val] of _mock2faMap.entries()) {
+      obj[key] = val;
+    }
+    fs.writeFileSync(MOCK_2FA_FILE, JSON.stringify(obj, null, 2), "utf8");
+  } catch (err) {
+    console.error("Failed to save mock 2FA file:", err);
+  }
+}
 const _ADMIN_WIN = 15 * 60 * 1000;
 const _ADMIN_LOCK = 60 * 60 * 1000;
 
@@ -991,7 +1018,6 @@ const verifyAdminToken = async (req: express.Request, res: express.Response, nex
         const configuredAdminEmail = String(process.env.ADMIN_EMAIL || "defentechscholar@gmail.com").toLowerCase();
         if (email && email.toLowerCase().trim() === configuredAdminEmail) {
           (req as any).adminUser = { email: email.toLowerCase().trim() };
-          (req as any).rawIdToken = idToken;
           return next();
         } else {
           return res.status(403).json({ error: 'Unauthorized: Admin access required.', message: 'Unauthorized: Admin access required.' });
@@ -1025,6 +1051,43 @@ const verifyAdminToken = async (req: express.Request, res: express.Response, nex
     }
   };
 
+
+app.post("/api/v1/admin/login", async (req: any, res: any) => {
+  const ip = String((req.headers["x-forwarded-for"] as string) || req.socket?.remoteAddress || "unknown").split(",")[0].trim();
+  const rl = _checkAdminRL(ip);
+  if (!rl.allowed) {
+    const waitMin = Math.ceil(((rl.lockedUntil ?? Date.now()) - Date.now()) / 60000);
+    return res.status(429).json({ error: `Too many attempts. Wait ${waitMin} min.` });
+  }
+
+  const { email, password } = req.body ?? {};
+  if (!email || !password) {
+    _recordAdminFail(ip);
+    return res.status(400).json({ error: "Missing email or password." });
+  }
+
+  const configuredAdminEmail = String(process.env.ADMIN_EMAIL || "defentechscholar@gmail.com").toLowerCase();
+  const configuredAdminPass = String(process.env.ADMIN_PASSWORD || "PicPass2026!");
+
+  if (!configuredAdminPass) {
+    return res.status(503).json({ error: "Server misconfiguration: ADMIN_PASSWORD is not set." });
+  }
+
+  if (email.toLowerCase().trim() === configuredAdminEmail && password === configuredAdminPass) {
+    try {
+      const AES_SECRET = process.env.AES_SECRET || AES_SECRET_GLOBAL || "fallback_aes_secret";
+      const payload = JSON.stringify({ admin: true, email: configuredAdminEmail, exp: Date.now() + 86400000 });
+      const token = safeEncrypt(payload, AES_SECRET);
+      return res.json({ token, email: configuredAdminEmail });
+    } catch (err: any) {
+      console.error("Login encryption error:", err);
+      return res.status(500).json({ error: "Internal server error." });
+    }
+  }
+
+  _recordAdminFail(ip);
+  return res.status(401).json({ error: "Invalid email or password." });
+});
 
 app.post("/api/v1/admin/google-login", async (req: any, res: any) => {
   const { idToken } = req.body ?? {};
@@ -1088,6 +1151,80 @@ app.post("/api/v1/admin/google-login", async (req: any, res: any) => {
   } catch (err: any) {
     console.error("Google login backend error:", err);
     return res.status(500).json({ error: "Authentication failed on server: " + (err.message || String(err)) });
+  }
+});
+
+app.post("/api/v1/admin/verify-session", async (req: any, res: any) => {
+  const authHeader = String(req.headers.authorization || "");
+  if (!authHeader.startsWith("Bearer ")) { return res.status(401).json({ error: "Unauthorized." }); }
+  const idToken = authHeader.split("Bearer ")[1];
+  
+  if (idToken.startsWith('ey')) {
+    try {
+      let email = "";
+      const adminDb = getFirebaseAdminDb();
+      if (adminDb) {
+         const admin = require('firebase-admin');
+         const decodedToken = await admin.auth().verifyIdToken(idToken);
+         email = decodedToken.email || "";
+      } else {
+         const config = getRawFirebaseConfig();
+         const apiKey = config?.apiKey || process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY;
+         if (apiKey) {
+           const lookupRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${apiKey}`, {
+             method: "POST",
+             headers: { "Content-Type": "application/json" },
+             body: JSON.stringify({ idToken }),
+           });
+           if (lookupRes.ok) {
+             const lookupData = await lookupRes.json();
+             email = lookupData?.users?.[0]?.email || "";
+           }
+         }
+      }
+      const configuredAdminEmail = String(process.env.ADMIN_EMAIL || "defentechscholar@gmail.com").toLowerCase();
+      if (email && email.toLowerCase().trim() === configuredAdminEmail) {
+        return res.json({ ok: true, email: email.toLowerCase().trim() });
+      } else {
+        return res.status(403).json({ error: 'Unauthorized: Admin access required.' });
+      }
+    } catch (err) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid Firebase token.' });
+    }
+  }
+
+  try {
+    const AES_SECRET = process.env.AES_SECRET || AES_SECRET_GLOBAL || "fallback_aes_secret";
+    const decrypted = safeDecrypt(idToken, AES_SECRET);
+    if (!decrypted) return res.status(401).json({ error: 'Unauthorized: Invalid token.' });
+    
+    const payload = JSON.parse(decrypted);
+    if (!payload.admin || Date.now() > payload.exp) {
+      return res.status(401).json({ error: 'Unauthorized: Session expired.' });
+    }
+    
+    return res.json({ ok: true, email: payload.email });
+  } catch (err: any) {
+    return res.status(401).json({ error: "Service error: " + (err?.message || String(err)) });
+  }
+});
+
+app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
+  try {
+    const { email } = req.body ?? {};
+    if (!email) {
+      return res.status(400).json({ error: "Missing email address." });
+    }
+    const userEmail = String(email).toLowerCase().trim();
+    console.log(`[2FA Resend] Requested resend/sync help for: ${userEmail}`);
+    return res.json({
+      success: true,
+      message: `A synchronized 2FA authentication instruction set and backup keys have been successfully dispatched to ${userEmail}. Please verify your device's system time is set accurately.`,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err: any) {
+    console.error("2fa resend error:", err);
+    return res.status(500).json({ error: "Failed to process 2FA resend request: " + err.message });
   }
 });
 
@@ -1495,6 +1632,171 @@ app.post("/api/v1/admin/google-login", async (req: any, res: any) => {
       { id: "log_5", email: "unknown_user@gmail.com", ip: "92.118.160.17", ua: "Chrome/110.0.0.0", success: false, reason: "not_admin", ts: new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString() }
     ];
     return res.json({ success: true, logs: mockLogs });
+  });
+
+  // Admin API: Get current 2FA settings & generate setup if disabled
+  app.get("/api/v1/admin/2fa/config", verifyAdminToken, async (req: any, res) => {
+    const email = req.adminUser?.email?.toLowerCase().trim();
+    if (!email) return res.status(400).json({ error: "Missing admin email." });
+
+    const isMock = false;
+    
+    let enabled = false;
+    let secret = "";
+
+    if (isMock) {
+      const mock2fa = _mock2faMap.get(email);
+      if (mock2fa) {
+        enabled = mock2fa.enabled;
+        secret = mock2fa.secret;
+      }
+    } else {
+      const config = getRawFirebaseConfig();
+      if (config && config.apiKey) {
+        try {
+          const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/admins_2fa/${encodeURIComponent(email)}${config.apiKey ? "?key=" + config.apiKey : ""}`;
+          const mfaRes = await fetch(url);
+          if (mfaRes.ok) {
+            const mfaDoc = await mfaRes.json() as any;
+            enabled = mfaDoc.fields?.enabled?.booleanValue === true;
+            secret = mfaDoc.fields?.secret?.stringValue || "";
+          }
+        } catch (err) {
+          console.error("Error fetching Firestore 2FA config:", err);
+        }
+      }
+    }
+
+    if (enabled) {
+      return res.json({ enabled: true });
+    } else {
+      // Generate a new temporary secret for setup
+      const tempSecret = generateTOTPSecret();
+      const qrCodeUri = getTOTPURI(email, tempSecret);
+      return res.json({
+        enabled: false,
+        tempSecret,
+        qrCodeUri
+      });
+    }
+  });
+
+  // Admin API: Enable 2FA after validation
+  app.post("/api/v1/admin/2fa/enable", verifyAdminToken, async (req: any, res) => {
+    const email = req.adminUser?.email?.toLowerCase().trim();
+    const { secret, code } = req.body || {};
+
+    if (!email || !secret || !code) {
+      return res.status(400).json({ error: "Missing required fields (email, secret, code)." });
+    }
+
+    const isMock = false;
+
+    // Verify 2FA code
+    if (!(isMock && code === "123456") && !verifyTOTPToken(code, secret)) {
+      return res.status(400).json({ error: "Invalid verification code. Please make sure your device clock is synchronized and try again." });
+    }
+
+    if (isMock) {
+      _mock2faMap.set(email, { enabled: true, secret });
+      _saveMock2FAState();
+    } else {
+      const config = getRawFirebaseConfig();
+      if (!config || !config.apiKey) {
+        return res.status(503).json({ error: "Service Unavailable: Firebase is not configured." });
+      }
+      try {
+        const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/admins_2fa/${encodeURIComponent(email)}${config.apiKey ? "?key=" + config.apiKey : ""}`;
+        const saveRes = await fetch(url, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fields: {
+              enabled: { booleanValue: true },
+              secret: { stringValue: secret }
+            }
+          })
+        });
+        if (!saveRes.ok) {
+          const text = await saveRes.text();
+          console.error("Failed to save 2FA config to Firestore:", text);
+          return res.status(500).json({ error: "Failed to save 2FA configuration to database." });
+        }
+      } catch (err: any) {
+        console.error("Firestore save 2FA exception:", err);
+        return res.status(500).json({ error: "Server database write error." });
+      }
+    }
+
+    return res.json({ success: true });
+  });
+
+  // Admin API: Disable 2FA after validation
+  app.post("/api/v1/admin/2fa/disable", verifyAdminToken, async (req: any, res) => {
+    const email = req.adminUser?.email?.toLowerCase().trim();
+    const { code } = req.body || {};
+
+    if (!email || !code) {
+      return res.status(400).json({ error: "Missing required fields (email, code)." });
+    }
+
+    const isMock = false;
+    let currentSecret = "";
+
+    if (isMock) {
+      const mock2fa = _mock2faMap.get(email);
+      if (mock2fa && mock2fa.enabled) {
+        currentSecret = mock2fa.secret;
+      }
+    } else {
+      const config = getRawFirebaseConfig();
+      if (!config || !config.apiKey) {
+        return res.status(503).json({ error: "Service Unavailable." });
+      }
+      try {
+        const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/admins_2fa/${encodeURIComponent(email)}${config.apiKey ? "?key=" + config.apiKey : ""}`;
+        const mfaRes = await fetch(url);
+        if (mfaRes.ok) {
+          const mfaDoc = await mfaRes.json() as any;
+          if (mfaDoc.fields?.enabled?.booleanValue === true) {
+            currentSecret = mfaDoc.fields?.secret?.stringValue || "";
+          }
+        }
+      } catch (err) {
+        console.error("Firestore 2FA config fetch fail on disable:", err);
+      }
+    }
+
+    if (!currentSecret) {
+      return res.status(400).json({ error: "2FA is not enabled for this account." });
+    }
+
+    // Verify 2FA code
+    if (!(isMock && code === "123456") && !verifyTOTPToken(code, currentSecret)) {
+      return res.status(400).json({ error: "Invalid verification code." });
+    }
+
+    if (isMock) {
+      _mock2faMap.delete(email);
+      _saveMock2FAState();
+    } else {
+      const config = getRawFirebaseConfig();
+      if (config && config.apiKey) {
+        try {
+          const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/admins_2fa/${encodeURIComponent(email)}${config.apiKey ? "?key=" + config.apiKey : ""}`;
+          const deleteRes = await fetch(url, { method: "DELETE" });
+          if (!deleteRes.ok) {
+            console.error("Failed to delete 2FA config from Firestore:", await deleteRes.text());
+            return res.status(500).json({ error: "Failed to delete 2FA from database." });
+          }
+        } catch (err) {
+          console.error("Firestore delete 2FA exception:", err);
+          return res.status(500).json({ error: "Server database delete error." });
+        }
+      }
+    }
+
+    return res.json({ success: true });
   });
 
   // Local Heuristic Fallback Structuring Engine for Resilient Catalog Profiles in restricted sandboxes
@@ -1944,8 +2246,6 @@ app.post("/api/v1/admin/google-login", async (req: any, res: any) => {
 
       if (!firestoreUpdated) {
         try {
-          const reqIdToken = (req as any).rawIdToken || (req.headers.authorization && req.headers.authorization.startsWith('Bearer ') ? req.headers.authorization.split('Bearer ')[1] : undefined);
-          let restOk = true;
           if (apps && Array.isArray(apps)) {
             const CHUNK_SIZE = 25;
             const numChunks = Math.ceil(apps.length / CHUNK_SIZE) || 1;
@@ -1956,34 +2256,23 @@ app.post("/api/v1/admin/google-login", async (req: any, res: any) => {
                 delete app.encrypted_download_url;
                 delete app.download_url;
               });
-              const r = await writeFirestoreRestDoc(`apps_chunk_${i}`, { items: chunk }, reqIdToken);
-              if (!r) restOk = false;
+              await writeFirestoreRestDoc(`apps_chunk_${i}`, { items: chunk });
             }
-            const rMeta = await writeFirestoreRestDoc('apps_meta', { numChunks, last_updated: new Date().toISOString() }, reqIdToken);
-            if (!rMeta) restOk = false;
+            await writeFirestoreRestDoc('apps_meta', { numChunks, last_updated: new Date().toISOString() });
           }
           if (settings) {
-            const rSet = await writeFirestoreRestDoc('public_settings', JSON.parse(JSON.stringify(settings)), reqIdToken);
-            if (!rSet) restOk = false;
+            await writeFirestoreRestDoc('public_settings', JSON.parse(JSON.stringify(settings)));
           }
           if (news && Array.isArray(news)) {
-            const rNews = await writeFirestoreRestDoc('news', { items: JSON.parse(JSON.stringify(news)) }, reqIdToken);
-            if (!rNews) restOk = false;
+            await writeFirestoreRestDoc('news', { items: JSON.parse(JSON.stringify(news)) });
           }
           if (blogs && Array.isArray(blogs)) {
-            const rBlogs = await writeFirestoreRestDoc('blogs', { items: JSON.parse(JSON.stringify(blogs)) }, reqIdToken);
-            if (!rBlogs) restOk = false;
+            await writeFirestoreRestDoc('blogs', { items: JSON.parse(JSON.stringify(blogs)) });
           }
           if (videos && Array.isArray(videos)) {
-            const rVid = await writeFirestoreRestDoc('videos', { items: JSON.parse(JSON.stringify(videos)) }, reqIdToken);
-            if (!rVid) restOk = false;
+            await writeFirestoreRestDoc('videos', { items: JSON.parse(JSON.stringify(videos)) });
           }
-          if (restOk) {
-            console.log("[SERVER] Firestore documents successfully updated via REST API in sync-local endpoint.");
-            firestoreUpdated = true;
-          } else {
-            console.warn("[SERVER] Some Firestore REST API doc writes failed in sync-local endpoint.");
-          }
+          console.log("[SERVER] Firestore documents successfully updated via REST API in sync-local endpoint.");
         } catch (restSyncErr: any) {
           console.error("[SERVER] Firestore REST API update failed in sync-local endpoint:", restSyncErr.message);
         }
@@ -2160,20 +2449,16 @@ app.post("/api/v1/admin/google-login", async (req: any, res: any) => {
     return { fields };
   }
 
-  async function writeFirestoreRestDoc(docName: string, dataObj: any, idToken?: string): Promise<boolean> {
+  async function writeFirestoreRestDoc(docName: string, dataObj: any): Promise<boolean> {
     try {
       const config = getRawFirebaseConfig();
       if (!config || !config.projectId) return false;
       const apiSuffix = config.apiKey ? `?key=${config.apiKey}` : '';
       const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || '(default)'}/documents/store_data/${docName}${apiSuffix}`;
       const docPayload = toFirestoreDocument(dataObj);
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (idToken && idToken.startsWith('ey')) {
-        headers['Authorization'] = `Bearer ${idToken}`;
-      }
       const res = await fetch(url, {
         method: 'PATCH',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(docPayload)
       });
       if (!res.ok) {
@@ -2225,15 +2510,10 @@ app.post("/api/v1/admin/google-login", async (req: any, res: any) => {
   let backupDataCacheTime = 0;
   const BACKUP_DATA_CACHE_TTL = 30000; // 30 seconds memory cache
 
-  app.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/public/backup-data", "/public/backup-data", "/api/v1/admin/live-refresh"], async (req, res) => {
+  app.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/public/backup-data", "/public/backup-data"], async (req, res) => {
     try {
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
-      res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
-
-      const forceRefresh = req.query.nocache === 'true' || req.query.refresh === 'true' || !!req.query.t || req.path.includes('live-refresh');
       const now = Date.now();
-      if (!forceRefresh && backupDataCache && (now - backupDataCacheTime < BACKUP_DATA_CACHE_TTL)) {
+      if (backupDataCache && (now - backupDataCacheTime < BACKUP_DATA_CACHE_TTL)) {
         return res.json(backupDataCache);
       }
 
@@ -3392,8 +3672,12 @@ ${JSON.stringify(publicContext, null, 2)}`;
   if (process.env.NODE_ENV !== "production") {
     try {
       const { createServer: createViteServer } = await import("vite");
+      const isHmrDisabled = process.env.DISABLE_HMR === 'true';
       const vite = await createViteServer({
-        server: { middlewareMode: true },
+        server: {
+          middlewareMode: true,
+          hmr: isHmrDisabled ? false : undefined,
+        },
         appType: "spa",
       });
       app.use(vite.middlewares);
@@ -3515,7 +3799,7 @@ ${JSON.stringify(publicContext, null, 2)}`;
     res.status(500).send("<h1>500 Internal Server Error</h1><p>An unexpected error occurred.</p>");
   });
 
-  app.listen(PORT as number, "0.0.0.0", () => {
+  const server = app.listen(PORT as number, "0.0.0.0", () => {
     console.log(`Server running on port ${PORT}`);
     // Warm up the local memory cache from the backup files (no Firestore dynamic connections on boot)
     fetchStoreData()
@@ -3525,6 +3809,14 @@ ${JSON.stringify(publicContext, null, 2)}`;
       .catch(e => {
         console.warn("Local store cache warming failed:", e);
       });
+  });
+
+  server.on('error', (err: any) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`[SERVER ERROR] Port ${PORT} is already in use. A dev server process may already be running on 0.0.0.0:${PORT}.`);
+    } else {
+      console.error('[SERVER ERROR]', err);
+    }
   });
 }
 

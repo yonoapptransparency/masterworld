@@ -6,13 +6,13 @@ import { adminFetch, clearSession, loadSession } from '../services/adminAuthServ
 
 import React, { useState, useEffect } from 'react';
 import { Link, Navigate } from 'react-router-dom';
-import { getAdminPath } from '../lib/utilsPublic';
-import { LayoutDashboard, TrendingUp, Menu, X, Smartphone, Users, FileText, Settings, ShieldAlert, ShieldCheck, Shield, LogOut, Save, Upload, Type, Link as LinkIcon, ToggleLeft, Layers, Newspaper, Plus, Trash2, Video as VideoIcon, Github, GitBranch, RefreshCw, CheckCircle2, AlertTriangle, Search, MessageSquare, CheckSquare, Sparkles, Compass, HelpCircle, Edit2, ChevronRight } from 'lucide-react';
+import { getAdminPath } from '../lib/utils';
+import { LayoutDashboard, TrendingUp, Menu, X, Smartphone, Users, FileText, Settings, ShieldAlert, Shield, LogOut, Save, Upload, Type, Link as LinkIcon, ToggleLeft, Layers, Newspaper, Plus, Trash2, Video as VideoIcon, Github, GitBranch, RefreshCw, CheckCircle2, AlertTriangle, Search, MessageSquare, CheckSquare, Sparkles, Compass, HelpCircle, Edit2, ChevronRight } from 'lucide-react';
 import { FirebaseStatusIndicator } from '../components/FirebaseStatusIndicator';
 import { useData } from '../contexts/DataContext';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import { db, auth, isFirebaseConfigured, isFirebaseReal } from '../lib/firebase';
-import { AppConfig, GlobalSettings, NewsItem, BlogPost, VideoItem } from '../typesPublic';
+import { AppConfig, GlobalSettings, NewsItem, BlogPost, VideoItem } from '../types';
 
 import { signOut, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, getDocs, deleteDoc, updateDoc } from 'firebase/firestore';
@@ -20,20 +20,9 @@ import { generateStaticDataFileCode } from '../lib/githubSync';
 import { sessionStore } from '../lib/sessionStore';
 import AppsTab from '../components/AppsTab';
 import BlogsTab from '../components/BlogsTab';
+import SecurityTab from '../components/SecurityTab';
 import FirebaseStatusPanel from '../components/FirebaseStatusPanel';
 import ImageUpload from "../components/ImageUpload";
-
-const stripHtmlWrapper = (html: string) => {
-  if (!html) return html;
-  const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-  if (bodyMatch) return bodyMatch[1].trim();
-  return html.replace(/<!DOCTYPE[^>]*>/gi, '')
-             .replace(/<html[^>]*>/gi, '')
-             .replace(/<\/html>/gi, '')
-             .replace(/<head[^>]*>[\s\S]*?<\/head>/gi, '')
-             .replace(/<body[^>]*>/gi, '')
-             .replace(/<\/body>/gi, '').trim();
-};
 
 function FaqEditor({ initialFaqs }: { initialFaqs: {question: string, answer: string}[] }) {
   const [faqs, setFaqs] = React.useState(initialFaqs || []);
@@ -2052,34 +2041,6 @@ export default function AdminDashboard() {
   }, []);
 
   const [saving, setSaving] = useState(false);
-  const [isDirty, setIsDirty] = useState(false);
-  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [saveBanner, setSaveBanner] = useState<{ type: 'saving' | 'success' | 'error'; message: string; timestamp?: string } | null>(null);
-
-  const notifySaveStart = (msg: string) => {
-    setSaving(true);
-    setSaveError(null);
-    setSaveBanner({ type: 'saving', message: msg });
-  };
-
-  const notifySaveSuccess = (msg: string) => {
-    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    setLastSavedAt(timeStr);
-    setSaveError(null);
-    setIsDirty(false);
-    setSaveBanner({ type: 'success', message: `${msg}`, timestamp: timeStr });
-    setTimeout(() => {
-      setSaveBanner(null);
-    }, 6000);
-  };
-
-  const notifySaveError = (errMsg: string) => {
-    setSaveError(errMsg);
-    setIsDirty(true);
-    setSaveBanner({ type: 'error', message: `Save Error: ${errMsg}` });
-  };
-
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [appsList, setAppsList] = useState(apps);
   const latestMockAppsRef = React.useRef(apps);
@@ -2338,10 +2299,12 @@ export default function AdminDashboard() {
             if (snapData) {
               if (snapData.encryptedData) {
                 try {
+                  const idToken = await auth?.currentUser?.getIdToken();
                   const res = await adminFetch('/api/v1/admin/decrypt-links', {
                     method: 'POST',
                     headers: {
-                      'Content-Type': 'application/json'
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${idToken}`
                     },
                     body: JSON.stringify({ encryptedData: snapData.encryptedData })
                   });
@@ -2464,15 +2427,13 @@ export default function AdminDashboard() {
 
   const handleReloadCloudData = async () => {
     setSaving(true);
-    notifySaveStart('Performing Live Full Refresh from Cloud Firestore...');
     try {
       isInitializedRef.current = false;
       settingsInitializedRef.current = false;
       await refreshAll();
-      notifySaveSuccess('LIVE FULL REFRESH COMPLETE: All content, apps, news, and settings updated live from Firestore!');
+      alert('GLOBAL WORKSPACE SYNC SUCCESSFUL: All local editors and visual configurations updated from Live cloud.');
     } catch (err: any) {
-      console.error("Live Refresh error:", err);
-      notifySaveError('Live Refresh failed: ' + (err.message || 'Check connection.'));
+      alert('Cloud Sync Failed: ' + (err.message || 'Check network connection.'));
     } finally {
       setSaving(false);
     }
@@ -2522,7 +2483,7 @@ export default function AdminDashboard() {
 
   const handleSaveCategories = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    notifySaveStart('Storing categories to Cloud Database...');
+    setSaving(true);
     try {
       const updatedSettings = {
         ...settings,
@@ -2534,9 +2495,9 @@ export default function AdminDashboard() {
       };
       await saveSettings(updatedSettings);
       triggerHaptic();
-      notifySaveSuccess('Categories saved & synchronized to Cloud!');
+      alert('Categories saved successfully!');
     } catch (err: any) {
-      notifySaveError(err.message || 'Error saving categories');
+      alert('Error saving categories: ' + err.message);
     } finally {
       setSaving(false);
     }
@@ -2544,7 +2505,7 @@ export default function AdminDashboard() {
 
   const handleSaveQuickLinks = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    notifySaveStart('Storing quick links to Cloud Database...');
+    setSaving(true);
     try {
       const updatedSettings = {
         ...settings,
@@ -2556,9 +2517,9 @@ export default function AdminDashboard() {
       };
       await saveSettings(updatedSettings);
       triggerHaptic();
-      notifySaveSuccess('Quick Links saved & synchronized to Cloud!');
+      alert('Quick Links saved successfully!');
     } catch (err: any) {
-      notifySaveError(err.message || 'Error saving quick links');
+      alert('Error saving quick links: ' + err.message);
     } finally {
       setSaving(false);
     }
@@ -2582,7 +2543,7 @@ export default function AdminDashboard() {
 
   const handleSaveWebsiteFaqs = async (e: React.FormEvent) => {
     e.preventDefault();
-    notifySaveStart('Storing website FAQs to Cloud Database...');
+    setSaving(true);
     try {
       const updatedSettings = {
         ...settings,
@@ -2594,9 +2555,9 @@ export default function AdminDashboard() {
       };
       await saveSettings(updatedSettings);
       triggerHaptic();
-      notifySaveSuccess('Website FAQs saved & synchronized to Cloud!');
+      alert('Website FAQs saved successfully!');
     } catch (err: any) {
-      notifySaveError(err.message || 'Error saving website FAQs');
+      alert('Error saving website FAQs: ' + err.message);
     } finally {
       setSaving(false);
     }
@@ -2620,7 +2581,7 @@ export default function AdminDashboard() {
 
   const handleSaveDevelopers = async (e: React.FormEvent) => {
     e.preventDefault();
-    notifySaveStart('Storing developer list to Cloud Database...');
+    setSaving(true);
     try {
       const updatedSettings = {
         ...settings,
@@ -2632,9 +2593,9 @@ export default function AdminDashboard() {
       };
       await saveSettings(updatedSettings);
       triggerHaptic();
-      notifySaveSuccess('Developers saved & synchronized to Cloud!');
+      alert('Developers saved successfully!');
     } catch (err: any) {
-      notifySaveError(err.message || 'Error saving developers');
+      alert('Error saving developers: ' + err.message);
     } finally {
       setSaving(false);
     }
@@ -2705,10 +2666,7 @@ export default function AdminDashboard() {
 
   const handleSaveSettings = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (isFirebaseReal && !auth?.currentUser) {
-      if (!window.confirm("Firebase Authentication is not fully synchronized. Saving might fail. Continue?")) return;
-    }
-    notifySaveStart('Publishing identity & legal configurations to Cloud Database...');
+    setSaving(true);
     try {
       const formData = new FormData(e.currentTarget);
       const updatedSettings = {
@@ -2723,11 +2681,11 @@ export default function AdminDashboard() {
         secure_index_subtitle: formData.get('secure_index_subtitle') as string || settings.secure_index_subtitle || 'Verified & Transparent App Marketplace',
         trending_searches: (formData.get('trending_searches') as string || '').split(',').map((s: string) => s.trim()).filter(Boolean),
         
-        about_content: stripHtmlWrapper(formData.get('about_content') as string || settings.about_content),
-        privacy_content: stripHtmlWrapper(formData.get('privacy_content') as string || settings.privacy_content),
-        terms_content: stripHtmlWrapper(formData.get('terms_content') as string || settings.terms_content),
-        responsibility_content: stripHtmlWrapper(formData.get('responsibility_content') as string || settings.responsibility_content),
-        report_removal_content: stripHtmlWrapper(formData.get('report_removal_content') as string || settings.report_removal_content),
+        about_content: formData.get('about_content') as string || settings.about_content,
+        privacy_content: formData.get('privacy_content') as string || settings.privacy_content,
+        terms_content: formData.get('terms_content') as string || settings.terms_content,
+        responsibility_content: formData.get('responsibility_content') as string || settings.responsibility_content,
+        report_removal_content: formData.get('report_removal_content') as string || settings.report_removal_content,
         
         portal_heading: formData.get('portal_heading') as string || settings.portal_heading,
         disclaimer_heading: formData.get('disclaimer_heading') as string || settings.disclaimer_heading,
@@ -2768,10 +2726,10 @@ export default function AdminDashboard() {
       setBanners(updatedSettings.banners || []);
       setCategoriesList(updatedSettings.categories || []);
       triggerHaptic();
-      notifySaveSuccess('GLOBAL SYSTEM SYNC COMPLETE: All configurations published to Cloud!');
+      alert('GLOBAL SYSTEM SYNC COMPLETE: All Identity & Legal configurations published to Live.');
     } catch (err: any) {
       console.error(err);
-      notifySaveError(err.message || 'Unknown error. Check internet connection.');
+      alert('Sync Failed: ' + (err.message || 'Unknown error. Check internet connection.'));
     } finally {
       setSaving(false);
     }
@@ -2786,11 +2744,7 @@ export default function AdminDashboard() {
           return;
        }
     }
-    if (isFirebaseReal && !auth?.currentUser) {
-      const confirmForce = window.confirm("Firebase Authentication is not fully synchronized yet. Saving now might fail due to lack of direct Firestore write permissions. Would you like to try saving anyway via server fallback?");
-      if (!confirmForce) return;
-    }
-    notifySaveStart(editingAppId ? 'Updating application in Cloud Database...' : 'Publishing new application to Cloud Database...');
+    setSaving(true);
     try {
       const formData = new FormData(e.currentTarget);
       const name = formData.get('name') as string || 'New App';
@@ -2810,42 +2764,25 @@ export default function AdminDashboard() {
           encryptedUrlVal = '';
         } else if (!trimmedUrl.startsWith('U2FsdGVkX1')) {
           try {
-             const idToken = await Promise.race([
-               auth?.currentUser?.getIdToken() || Promise.resolve(''),
-               new Promise<string>(r => setTimeout(() => r(''), 3000))
-             ]);
-             const controller = new AbortController();
-             const timer = setTimeout(() => controller.abort(), 4000);
+             const idToken = await auth?.currentUser?.getIdToken();
              const res = await adminFetch('/api/v1/admin/encrypt', {
                 method: 'POST',
                 headers: {
                    'Content-Type': 'application/json',
-                   ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+                   'Authorization': `Bearer ${idToken}`
                 },
-                body: JSON.stringify({ url: trimmedUrl }),
-                signal: controller.signal
+                body: JSON.stringify({ url: trimmedUrl })
              });
-             clearTimeout(timer);
              if (res.ok) {
-                const ct = res.headers.get('content-type') || '';
-                const text = await res.text();
-                if (ct.includes('application/json') || text.trim().startsWith('{')) {
-                  try {
-                    const data = JSON.parse(text);
-                    if (data.encrypted) encryptedUrlVal = data.encrypted;
-                    else encryptedUrlVal = trimmedUrl;
-                  } catch {
-                    encryptedUrlVal = trimmedUrl;
-                  }
-                } else {
-                  encryptedUrlVal = trimmedUrl;
-                }
+                encryptedUrlVal = (await res.json()).encrypted;
              } else {
-                encryptedUrlVal = trimmedUrl;
+                alert(`Failed to secure URL: ${await res.text()}`);
+                return; // Abort save if encryption fails
              }
           } catch (err: any) {
-             console.warn("Failed to secure URL via server, using direct URL:", err);
-             encryptedUrlVal = trimmedUrl;
+             console.error("Failed to secure URL", err);
+             alert(`Failed to secure URL: ${err.message}`);
+             return;
           }
         } else {
           encryptedUrlVal = trimmedUrl;
@@ -2888,10 +2825,10 @@ export default function AdminDashboard() {
         })(),
         more_information_url: plaintextUrl,
         video_url: (formData.get('video_url') as string) || '',
-        description_html: stripHtmlWrapper(formData.get('description_html') as string || '<p>A new application.</p>'),
+        description_html: formData.get('description_html') as string || '<p>A new application.</p>',
         custom_admin_box_heading: formData.get('custom_admin_box_heading') as string,
-        custom_admin_box_html: stripHtmlWrapper(formData.get('custom_admin_box_html') as string),
-        features_html: stripHtmlWrapper(formData.get('features_html') as string),
+        custom_admin_box_html: formData.get('custom_admin_box_html') as string,
+        features_html: formData.get('features_html') as string,
         red_box_msg: formData.get('red_box_msg') as string,
         yellow_box_msg: formData.get('yellow_box_msg') as string,
         idea_box_msg: formData.get('idea_box_msg') as string,
@@ -2904,15 +2841,8 @@ export default function AdminDashboard() {
         is_hot: formData.get('is_hot') === 'on',
         release_notes: formData.get('release_notes') as string,
         rating: parseFloat(formData.get('rating') as string) || 5.0,
-        created_at: editApp?.created_at || new Date().toISOString(),
-        faqs: (() => {
-          try {
-            const raw = formData.get('faqs_json') as string;
-            return raw ? JSON.parse(raw) : [];
-          } catch (e) {
-            return [];
-          }
-        })()
+        created_at: new Date().toISOString(),
+        faqs: JSON.parse((formData.get('faqs_json') as string) || '[]')
       };
       
       if (plaintextUrl) {
@@ -2929,23 +2859,19 @@ export default function AdminDashboard() {
       }
       
       await saveApps(updatedApps);
-
       setAppsList(updatedApps);
       triggerHaptic();
       setEditingAppId(null);
-      notifySaveSuccess(editingAppId ? 'Application Updated & Saved to Cloud!' : 'New Application Published to Cloud!');
+      alert(editingAppId ? 'Success: Application Updated & Verified on Cloud!' : 'Success: New Application Published & Verified on Cloud!');
     } catch (err: any) {
-      console.error("Save app error:", err);
-      notifySaveError(err.message || 'Unknown error. Check internet.');
+      console.error(err);
+      alert('Sync Failed: ' + (err.message || 'Unknown error. Check internet.'));
     } finally {
       setSaving(false);
     }
   };
   
   const handleDeleteApp = (id: string) => {
-    if (isFirebaseReal && !auth?.currentUser) {
-      if (!window.confirm("Firebase Authentication is not fully synchronized. Deletion might fail. Continue?")) return;
-    }
     if (fetchFailedRef.current && !forceBypassVaultError) {
        if (window.confirm("CRITICAL WARNING: Secure vault load failed. Deleting now will wipe secure links of all other apps. Force delete?")) {
           setForceBypassVaultError(true);
@@ -2973,39 +2899,32 @@ export default function AdminDashboard() {
   };
 
   const handleSaveNews = async () => {
-    notifySaveStart('Saving & synchronizing news to Cloud Database...');
+    setSaving(true);
     try {
       await saveNews(newsList);
       triggerHaptic();
-      notifySaveSuccess('News system saved & synchronized to Cloud!');
+      alert('News saved successfully. Go to News Section to see.');
     } catch (err: any) {
-      notifySaveError(err.message || 'Error saving news');
+      alert('Error saving news: ' + err.message);
     } finally {
       setSaving(false);
     }
   };
 
   const handleNewsChange = (id: string, field: string, value: string) => {
-    setIsDirty(true);
-    let finalValue = value;
-    if (field === 'description_html' || field === 'content') {
-      finalValue = stripHtmlWrapper(value);
-    }
     if (field === 'slug') {
       const cleanSlug = value.toLowerCase().replace(/https?:\/\//g, '').replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
       setNewsList(newsList.map(n => n.id === id ? { ...n, [field]: cleanSlug } : n));
       return;
     }
-    setNewsList(newsList.map(n => n.id === id ? { ...n, [field]: finalValue } : n));
+    setNewsList(newsList.map(n => n.id === id ? { ...n, [field]: value } : n));
   };
 
   const handleBannerChange = (id: string, field: string, value: string) => {
-    setIsDirty(true);
     setBanners(banners.map(b => b.id === id ? { ...b, [field]: value } : b));
   };
 
   const handleAddBanner = () => {
-    setIsDirty(true);
     const newBanner = {
       id: Math.random().toString(36).substr(2, 9),
       title: 'New Banner',
@@ -3024,14 +2943,12 @@ export default function AdminDashboard() {
       confirmText: 'Remove Banner',
       cancelText: 'Cancel',
       onConfirm: () => {
-        setIsDirty(true);
         setBanners(banners.filter(b => b.id !== id));
       }
     });
   };
 
   const handleAddNews = (initialData?: any): string => {
-    setIsDirty(true);
     const newId = Math.random().toString(36).substr(2, 9);
     const newItem: NewsItem = {
       id: newId,
@@ -3067,41 +2984,34 @@ export default function AdminDashboard() {
       confirmText: 'Remove News',
       cancelText: 'Cancel',
       onConfirm: () => {
-        setIsDirty(true);
         setNewsList(newsList.filter(n => n.id !== id));
       }
     });
   };
 
   const handleSaveBlogs = async () => {
-    notifySaveStart('Saving & synchronizing app updates/blogs to Cloud Database...');
+    setSaving(true);
     try {
       await saveBlogs(blogs);
       triggerHaptic();
-      notifySaveSuccess('App updates & blogs saved & synchronized to Cloud!');
+      alert('Blogs saved successfully.');
     } catch (err: any) {
-      notifySaveError(err.message || 'Error saving blogs');
+      alert('Error saving blogs: ' + err.message);
     } finally {
       setSaving(false);
     }
   };
 
   const handleBlogChange = (id: string, field: string, value: string) => {
-    setIsDirty(true);
-    let finalValue = value;
-    if (field === 'description_html' || field === 'content') {
-      finalValue = stripHtmlWrapper(value);
-    }
     if (field === 'slug') {
       const cleanSlug = value.toLowerCase().replace(/https?:\/\//g, '').replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
       setBlogs(blogs.map(b => b.id === id ? { ...b, [field]: cleanSlug } : b));
       return;
     }
-    setBlogs(blogs.map(b => b.id === id ? { ...b, [field]: finalValue } : b));
+    setBlogs(blogs.map(b => b.id === id ? { ...b, [field]: value } : b));
   };
 
   const handleAddBlog = () => {
-    setIsDirty(true);
     const newId = Math.random().toString(36).substr(2, 9);
     const newBlog: BlogPost = {
       id: newId,
@@ -3138,14 +3048,12 @@ export default function AdminDashboard() {
       confirmText: 'Remove Post',
       cancelText: 'Cancel',
       onConfirm: () => {
-        setIsDirty(true);
         setBlogs(blogs.filter(b => b.id !== id));
       }
     });
   };
 
   const handleVideosChange = (id: string, field: string, value: string) => {
-    setIsDirty(true);
     if (field === 'slug') {
       const cleanSlug = value.toLowerCase().replace(/https?:\/\//g, '').replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
       setVideosList(videosList.map(v => v.id === id ? { ...v, [field]: cleanSlug } : v));
@@ -3155,7 +3063,6 @@ export default function AdminDashboard() {
   };
 
   const handleAddVideo = () => {
-    setIsDirty(true);
     const newVideo = {
       id: Math.random().toString(36).substr(2, 9),
       slug: 'new-video-' + Math.random().toString(36).substr(2, 4),
@@ -3178,20 +3085,19 @@ export default function AdminDashboard() {
       confirmText: 'Remove Video',
       cancelText: 'Cancel',
       onConfirm: () => {
-        setIsDirty(true);
         setVideosList(videosList.filter(v => v.id !== id));
       }
     });
   };
 
   const handleSaveVideos = async () => {
-    notifySaveStart('Saving video matrix stream to Cloud Database...');
+    setSaving(true);
     try {
       await saveVideos(videosList);
       triggerHaptic();
-      notifySaveSuccess('Video matrix saved & published to Cloud!');
+      alert('Videos saved successfully.');
     } catch (err: any) {
-      notifySaveError(err.message || 'Error saving videos');
+      alert('Error saving videos: ' + err.message);
     } finally {
       setSaving(false);
     }
@@ -3233,32 +3139,6 @@ export default function AdminDashboard() {
 
   return (
     <div className="animate-fade-in min-h-screen bg-slate-50 dark:bg-slate-950 md:p-4 lg:p-8">
-      {/* Floating Evident Save Notice Toast */}
-      {saveBanner && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 transform scale-100 max-w-lg w-[92vw]">
-          <div className={`flex items-center justify-between gap-3 px-4 py-3 rounded-2xl shadow-2xl backdrop-blur-xl border text-xs font-bold ${
-            saveBanner.type === 'saving'
-              ? 'bg-blue-600/95 text-white border-blue-400/30 shadow-blue-500/30 animate-pulse'
-              : saveBanner.type === 'success'
-              ? 'bg-emerald-600/95 text-white border-emerald-400/30 shadow-emerald-500/30'
-              : 'bg-rose-600/95 text-white border-rose-400/30 shadow-rose-500/30'
-          }`}>
-            <div className="flex items-center gap-2.5 overflow-hidden">
-              {saveBanner.type === 'saving' && <RefreshCw className="w-4 h-4 animate-spin shrink-0 text-blue-200" />}
-              {saveBanner.type === 'success' && <CheckCircle2 className="w-4 h-4 text-emerald-200 shrink-0" />}
-              {saveBanner.type === 'error' && <AlertTriangle className="w-4 h-4 text-rose-200 shrink-0" />}
-              <span className="truncate">{saveBanner.message}</span>
-            </div>
-            <button 
-              onClick={() => setSaveBanner(null)} 
-              className="p-1 hover:bg-white/20 rounded-lg transition-colors cursor-pointer shrink-0"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Mobile Top App Bar */}
       <div className="md:hidden sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 px-4 py-3 shadow-sm flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -3272,7 +3152,8 @@ export default function AdminDashboard() {
           <div className="flex flex-col">
             <h1 className="text-base font-black text-slate-900 dark:text-white tracking-tight leading-tight">Admin<span className="text-blue-600">Hub</span></h1>
             <div className="flex items-center gap-1.5">
-              <FirebaseStatusIndicator saving={saving} lastSavedAt={lastSavedAt} saveError={saveError} isDirty={isDirty} />
+              <FirebaseStatusIndicator />
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Secure Access</span>
             </div>
           </div>
         </div>
@@ -3304,7 +3185,8 @@ export default function AdminDashboard() {
                 <span className="bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 text-[9px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider border border-blue-200/30">Secure Hub</span>
               </div>
               <div className="flex items-center gap-3 mt-1">
-                <FirebaseStatusIndicator saving={saving} lastSavedAt={lastSavedAt} saveError={saveError} isDirty={isDirty} />
+                <FirebaseStatusIndicator />
+                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 font-mono italic">AES-256 Connection Verified • V2.4.9</p>
               </div>
             </div>
           </div>
@@ -3318,10 +3200,10 @@ export default function AdminDashboard() {
             <button 
               onClick={handleReloadCloudData} 
               disabled={saving}
-              className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/50 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-xl transition-all text-xs font-bold shadow-sm cursor-pointer disabled:opacity-50"
-              title="Reload and pull latest configurations directly from live Firebase Firestore"
+              className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-xl transition-all text-xs font-semibold shadow-sm cursor-pointer disabled:opacity-50"
+              title="Reload and pull latest configurations directly from the Cloud database"
             >
-              <RefreshCw className={`w-4 h-4 ${saving ? 'animate-spin' : ''}`} /> Live Refresh from Firebase
+              <RefreshCw className={`w-4 h-4 ${saving ? 'animate-spin' : ''}`} /> Reload Cloud
             </button>
             <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl transition-all text-xs font-semibold shadow-sm shadow-rose-600/20 cursor-pointer">
               <LogOut className="w-4 h-4" /> Sign Out
@@ -3352,25 +3234,9 @@ export default function AdminDashboard() {
           <h3 className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5 ml-3">Authority</h3>
           
           <SidebarItem id="reviews" label="Support Desk" icon={ShieldAlert} active={activeTab === 'reviews'} onClick={handleTabChange} />
+          <SidebarItem id="security" label="MFA Security" icon={Shield} active={activeTab === 'security'} onClick={handleTabChange} />
           <SidebarItem id="github" label="GitHub Sync" icon={Github} active={activeTab === 'github'} onClick={handleTabChange} />
           <SidebarItem id="settings" label="Global Config" icon={Settings} active={activeTab === 'settings'} onClick={handleTabChange} />
-
-          <div className="mt-4 p-3.5 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-slate-900 border border-blue-200/80 dark:border-blue-800/50 rounded-xl flex flex-col gap-2">
-            <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300 font-bold text-xs">
-              <RefreshCw className={`w-3.5 h-3.5 ${saving ? 'animate-spin' : ''}`} />
-              <span>Cloud Firestore Sync</span>
-            </div>
-            <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-tight">
-              Force fetch & reload live Firestore database across all devices.
-            </p>
-            <button
-              onClick={handleReloadCloudData}
-              disabled={saving}
-              className="w-full mt-1 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${saving ? 'animate-spin' : ''}`} /> Live Refresh
-            </button>
-          </div>
         </div>
 
         {/* Mobile Full-Screen Drawer Menu */}
@@ -3378,7 +3244,7 @@ export default function AdminDashboard() {
           <div className="absolute inset-0 bg-white dark:bg-slate-950 flex flex-col h-full w-full shadow-2xl">
             <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-10">
               <div className="flex items-center gap-2">
-                <ShieldCheck className="w-6 h-6 text-blue-600" />
+                <Shield className="w-6 h-6 text-blue-600" />
                 <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">Navigation</h2>
               </div>
               <button onClick={() => setIsMobileMenuOpen(false)} className="w-10 h-10 flex items-center justify-center bg-rose-50 text-rose-500 active:bg-rose-100 rounded-full transition-colors">
@@ -3395,7 +3261,7 @@ export default function AdminDashboard() {
                   className="flex flex-col items-center justify-center gap-2 p-4 bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 rounded-2xl active:scale-95 transition-all"
                 >
                   <RefreshCw className={`w-6 h-6 ${saving ? 'animate-spin' : ''}`} />
-                  <span className="text-xs font-bold uppercase tracking-wider text-center">Live Refresh</span>
+                  <span className="text-xs font-bold uppercase tracking-wider">Reload</span>
                 </button>
                 <button 
                   onClick={handleLogout} 
@@ -3432,6 +3298,7 @@ export default function AdminDashboard() {
                 <h3 className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3 ml-2">Authority & Settings</h3>
                 <div className="flex flex-col gap-2">
                   <SidebarItem id="reviews" label="Support Desk" icon={ShieldAlert} active={activeTab === 'reviews'} onClick={(id) => { handleTabChange(id); setIsMobileMenuOpen(false); }} />
+                  <SidebarItem id="security" label="MFA Security" icon={Shield} active={activeTab === 'security'} onClick={(id) => { handleTabChange(id); setIsMobileMenuOpen(false); }} />
                   <SidebarItem id="github" label="GitHub Sync" icon={Github} active={activeTab === 'github'} onClick={(id) => { handleTabChange(id); setIsMobileMenuOpen(false); }} />
                   <SidebarItem id="settings" label="Global Config" icon={Settings} active={activeTab === 'settings'} onClick={(id) => { handleTabChange(id); setIsMobileMenuOpen(false); }} />
                 </div>
@@ -3442,7 +3309,7 @@ export default function AdminDashboard() {
 
         {/* Main Content Area */}
         <div className="flex-1 min-w-0 bg-white dark:bg-slate-900 md:border md:border-slate-200 dark:border-slate-800/80 md:rounded-2xl p-4 sm:p-6 md:p-8 min-h-[750px] shadow-sm relative overflow-visible md:overflow-hidden">
-            <div className="relative" onInput={() => setIsDirty(true)} onChange={() => setIsDirty(true)}>
+            <div className="relative">
               {activeTab === 'dashboard' && <DashboardTab apps={appsList} news={newsList} />}
               {activeTab === 'apps' && (
                 <AppsTab 
@@ -3453,7 +3320,6 @@ export default function AdminDashboard() {
                   handleSaveApp={handleSaveApp} 
                   categories={settings.categories} 
                   saving={saving} 
-                  lastSavedAt={lastSavedAt}
                 />
               )}
               {activeTab === 'news' && (
@@ -3848,6 +3714,9 @@ export default function AdminDashboard() {
               )}
               {activeTab === 'reviews' && (
                 <ReviewsModerationTab db={db} />
+              )}
+              {activeTab === 'security' && (
+                <SecurityTab />
               )}
               {activeTab === 'github' && (
                 <GithubTab pushAllToGitHub={pushAllToGitHub} gitConfig={gitConfig} saveGitConfig={saveGitConfig} appsList={appsList} settings={settings} newsList={newsList} blogs={blogs} videosList={videosList} generatePreview={() => generateStaticDataFileCode(appsList, settings, newsList, blogs, videosList)} />

@@ -3,7 +3,7 @@ import AdminLoginComponent from '../components/AdminLogin';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { saveSession, loadSession, clearSession } from '../services/adminAuthService';
 import { auth } from '../lib/firebase';
-import { getAdminPath } from '../lib/utilsPublic';
+import { getAdminPath } from '../lib/utils';
 
 export default function AdminLoginPage() {
   const [checking, setChecking] = useState(true);
