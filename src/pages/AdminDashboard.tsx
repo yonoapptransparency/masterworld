@@ -1,8 +1,4 @@
-import { adminFetch, clearSession, loadSession } from '../services/adminAuthService';
-/**
- * AdminDashboard modification control panel
- * Supports managing banners, directories, video walkthroughs, and blogs, synchronized live with DB.
- */
+import { adminFetch, clearSession, loadSession } from "../services/adminAuthService";
 
 import React, { useState, useEffect } from 'react';
 import { toast } from "../components/Toast";
@@ -2221,31 +2217,45 @@ export default function AdminDashboard() {
         
       setUser(effectiveUser);
       if (effectiveUser) {
+        
         let adminVerified = false;
         try {
           const idToken = await effectiveUser.getIdToken();
+          console.log("DEBUG: effectiveUser.email:", effectiveUser.email);
+          console.log("DEBUG: session exists?", !!session);
+          
           const verifyRes = await adminFetch('/api/v1/admin/verify', {
             headers: {
               'Authorization': `Bearer ${idToken}`
             }
           });
+          
+          console.log("DEBUG: verifyRes.status:", verifyRes.status);
           if (verifyRes.ok) {
             const verifyData = await verifyRes.json();
+            console.log("DEBUG: verifyData:", verifyData);
             if (verifyData.authorized) {
               adminVerified = true;
+            } else {
+              console.log("DEBUG: verifyData.authorized is false!");
             }
-          } else if (session) {
-             // If local session is active, fallback to true
-             adminVerified = true;
+          } else {
+             console.log("DEBUG: verifyRes NOT OK!");
+             if (session) { 
+                console.log("DEBUG: session exists, setting adminVerified = true");
+                adminVerified = true;
+             }
           }
         } catch (e) {
-          console.warn("Backend verification failed or not found. Proceeding to fallback check.");
+          console.warn("DEBUG: Backend verification failed:", e);
           if (session) adminVerified = true;
         }
 
+        console.log("DEBUG: before fallback, adminVerified:", adminVerified);
         if (!adminVerified) {
            const email = effectiveUser.email?.toLowerCase();
            const fallbackAdmin = (import.meta.env.VITE_ADMIN_EMAIL || '').toLowerCase();
+           console.log("DEBUG: fallback check. email:", email, "fallbackAdmin:", fallbackAdmin);
            if (fallbackAdmin && email === fallbackAdmin) {
                adminVerified = true;
            } else {
@@ -2258,12 +2268,16 @@ export default function AdminDashboard() {
                        const emailDoc = await getDoc(doc(db, 'admins', effectiveUser.email));
                        if (emailDoc.exists()) adminVerified = true;
                    }
-               } catch (err: any) {}
+               } catch (err: any) {
+                   console.log("DEBUG: firestore fallback error:", err);
+               }
            }
         }
-          
+        
+        console.log("DEBUG: Final adminVerified:", adminVerified);
         setIsAdminUser(adminVerified);
         setCheckingAuth(false);
+
       } else {
         setIsAdminUser(null);
         setCheckingAuth(false);
