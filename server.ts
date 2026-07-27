@@ -2249,6 +2249,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
       if (!firestoreUpdated) {
         try {
           const reqIdToken = (req as any).rawIdToken || (req.headers.authorization && req.headers.authorization.startsWith('Bearer ') ? req.headers.authorization.split('Bearer ')[1] : undefined);
+          let restOk = true;
           if (apps && Array.isArray(apps)) {
             const CHUNK_SIZE = 25;
             const numChunks = Math.ceil(apps.length / CHUNK_SIZE) || 1;
@@ -2259,23 +2260,34 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
                 delete app.encrypted_download_url;
                 delete app.download_url;
               });
-              await writeFirestoreRestDoc(`apps_chunk_${i}`, { items: chunk }, reqIdToken);
+              const r = await writeFirestoreRestDoc(`apps_chunk_${i}`, { items: chunk }, reqIdToken);
+              if (!r) restOk = false;
             }
-            await writeFirestoreRestDoc('apps_meta', { numChunks, last_updated: new Date().toISOString() }, reqIdToken);
+            const rMeta = await writeFirestoreRestDoc('apps_meta', { numChunks, last_updated: new Date().toISOString() }, reqIdToken);
+            if (!rMeta) restOk = false;
           }
           if (settings) {
-            await writeFirestoreRestDoc('public_settings', JSON.parse(JSON.stringify(settings)), reqIdToken);
+            const rSet = await writeFirestoreRestDoc('public_settings', JSON.parse(JSON.stringify(settings)), reqIdToken);
+            if (!rSet) restOk = false;
           }
           if (news && Array.isArray(news)) {
-            await writeFirestoreRestDoc('news', { items: JSON.parse(JSON.stringify(news)) }, reqIdToken);
+            const rNews = await writeFirestoreRestDoc('news', { items: JSON.parse(JSON.stringify(news)) }, reqIdToken);
+            if (!rNews) restOk = false;
           }
           if (blogs && Array.isArray(blogs)) {
-            await writeFirestoreRestDoc('blogs', { items: JSON.parse(JSON.stringify(blogs)) }, reqIdToken);
+            const rBlogs = await writeFirestoreRestDoc('blogs', { items: JSON.parse(JSON.stringify(blogs)) }, reqIdToken);
+            if (!rBlogs) restOk = false;
           }
           if (videos && Array.isArray(videos)) {
-            await writeFirestoreRestDoc('videos', { items: JSON.parse(JSON.stringify(videos)) }, reqIdToken);
+            const rVid = await writeFirestoreRestDoc('videos', { items: JSON.parse(JSON.stringify(videos)) }, reqIdToken);
+            if (!rVid) restOk = false;
           }
-          console.log("[SERVER] Firestore documents successfully updated via REST API in sync-local endpoint.");
+          if (restOk) {
+            console.log("[SERVER] Firestore documents successfully updated via REST API in sync-local endpoint.");
+            firestoreUpdated = true;
+          } else {
+            console.warn("[SERVER] Some Firestore REST API doc writes failed in sync-local endpoint.");
+          }
         } catch (restSyncErr: any) {
           console.error("[SERVER] Firestore REST API update failed in sync-local endpoint:", restSyncErr.message);
         }

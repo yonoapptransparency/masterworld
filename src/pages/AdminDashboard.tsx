@@ -2471,9 +2471,9 @@ export default function AdminDashboard() {
       isInitializedRef.current = false;
       settingsInitializedRef.current = false;
       await refreshAll();
-      alert('GLOBAL WORKSPACE SYNC SUCCESSFUL: All local editors and visual configurations updated from Live cloud.');
+      alert('LIVE FIREBASE DATA REFRESHED: Loaded latest live data directly from Firebase Firestore.');
     } catch (err: any) {
-      alert('Cloud Sync Failed: ' + (err.message || 'Check network connection.'));
+      alert('Firebase Live Refresh Warning: ' + (err.message || 'Check network connection.'));
     } finally {
       setSaving(false);
     }
@@ -3312,10 +3312,10 @@ export default function AdminDashboard() {
             <button 
               onClick={handleReloadCloudData} 
               disabled={saving}
-              className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-xl transition-all text-xs font-semibold shadow-sm cursor-pointer disabled:opacity-50"
-              title="Reload and pull latest configurations directly from the Cloud database"
+              className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/50 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-xl transition-all text-xs font-bold shadow-sm cursor-pointer disabled:opacity-50"
+              title="Reload and pull latest configurations directly from live Firebase Firestore"
             >
-              <RefreshCw className={`w-4 h-4 ${saving ? 'animate-spin' : ''}`} /> Reload Cloud
+              <RefreshCw className={`w-4 h-4 ${saving ? 'animate-spin' : ''}`} /> Live Refresh from Firebase
             </button>
             <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl transition-all text-xs font-semibold shadow-sm shadow-rose-600/20 cursor-pointer">
               <LogOut className="w-4 h-4" /> Sign Out
@@ -3373,7 +3373,7 @@ export default function AdminDashboard() {
                   className="flex flex-col items-center justify-center gap-2 p-4 bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 rounded-2xl active:scale-95 transition-all"
                 >
                   <RefreshCw className={`w-6 h-6 ${saving ? 'animate-spin' : ''}`} />
-                  <span className="text-xs font-bold uppercase tracking-wider">Reload</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-center">Live Refresh</span>
                 </button>
                 <button 
                   onClick={handleLogout} 

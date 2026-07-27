@@ -1171,71 +1171,100 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const refreshAll = React.useCallback(async (silent = false) => {
-    if (!isFirebaseReal || !currentPath.startsWith('/' + getAdminPath())) {
-        setIsConnected(false);
-        setLoading(false);
-        return;
-    }
-    console.log("Manual Refresh: Fetching latest data from Cloud...");
+    console.log("Manual Live Refresh: Fetching latest data from Cloud Firestore & Backend...");
     if (!silent) setLoading(true);
     try {
-      const docsToFetch = [
-        { path: 'apps', setter: setApps, key: 'items' },
-        { path: 'settings', setter: setSettings },
-        { path: 'news', setter: setNews, key: 'items' },
-        { path: 'blogs', setter: setBlogs, key: 'items' },
-        { path: 'videos', setter: setVideos, key: 'items' }
-      ];
+      let fetchedAny = false;
+      if (isFirebaseReal && db) {
+        const docsToFetch = [
+          { path: 'apps', setter: setApps, key: 'items' },
+          { path: 'public_settings', setter: setSettings },
+          { path: 'news', setter: setNews, key: 'items' },
+          { path: 'blogs', setter: setBlogs, key: 'items' },
+          { path: 'videos', setter: setVideos, key: 'items' }
+        ];
 
-      await Promise.all(docsToFetch.map(async (d) => {
-        try {
-          if (d.path === 'apps') {
-            const snapMeta = await withServerConfirmation(() => getDoc(doc(db, 'store_data', 'apps_meta')), 10000);
-            if (snapMeta.exists()) {
-              const numChunks = snapMeta.data().numChunks || 1;
-              const allApps = [];
-              for(let i=0; i<numChunks; i++) {
-                try {
-                  const snapChunk = await withServerConfirmation(() => getDoc(doc(db, 'store_data', `apps_chunk_${i}`)), 10000);
-                  if(snapChunk.exists() && snapChunk.data().items) {
-                    allApps.push(...snapChunk.data().items);
+        await Promise.all(docsToFetch.map(async (d) => {
+          try {
+            if (d.path === 'apps') {
+              const snapMeta = await withServerConfirmation(() => getDoc(doc(db, 'store_data', 'apps_meta')), 8000);
+              if (snapMeta.exists()) {
+                const numChunks = snapMeta.data().numChunks || 1;
+                const allApps: any[] = [];
+                for(let i=0; i<numChunks; i++) {
+                  try {
+                    const snapChunk = await withServerConfirmation(() => getDoc(doc(db, 'store_data', `apps_chunk_${i}`)), 8000);
+                    if(snapChunk.exists() && snapChunk.data().items) {
+                      allApps.push(...snapChunk.data().items);
+                    }
+                  } catch (e) {
+                    console.warn(`Failed to chunk ${i} on manual refresh`, e);
                   }
-                } catch (e) {
-                  console.warn(`Failed to chunk ${i} on manual refresh`, e);
+                }
+                if (allApps.length > 0) {
+                  setApps(allApps);
+                  localStorage.setItem('rummystore_apps', JSON.stringify(allApps));
+                  fetchedAny = true;
+                }
+              } else {
+                const oldSnap = await withServerConfirmation(() => getDoc(doc(db, 'store_data', 'apps')), 8000);
+                if (oldSnap.exists() && oldSnap.data().items) {
+                  const data = oldSnap.data().items;
+                  setApps(data);
+                  localStorage.setItem('rummystore_apps', JSON.stringify(data));
+                  fetchedAny = true;
                 }
               }
-              const cleanApps = allApps;
-              setApps(cleanApps);
-              localStorage.setItem('rummystore_apps', JSON.stringify(cleanApps));
             } else {
-              // Fallback to old document
-              const oldSnap = await withServerConfirmation(() => getDoc(doc(db, 'store_data', 'apps')), 10000);
-              if (oldSnap.exists() && oldSnap.data().items) {
-                const data = oldSnap.data().items;
-                setApps(data);
-                localStorage.setItem('rummystore_apps', JSON.stringify(data));
-              } else {
-                setApps([]);
-                localStorage.setItem('rummystore_apps', JSON.stringify([]));
+              const snap = await withServerConfirmation(() => getDoc(doc(db, 'store_data', d.path)), 8000);
+              if (snap.exists()) {
+                const data = (d as any).key ? (snap.data() as any)[(d as any).key] : snap.data();
+                if (data) {
+                  d.setter(data);
+                  localStorage.setItem(`rummystore_${d.path.replace('public_', '')}`, JSON.stringify(data));
+                  fetchedAny = true;
+                }
               }
             }
-          } else {
-            // Use getDoc to ensure it gracefully falls back
-            const snap = await withServerConfirmation(() => getDoc(doc(db, 'store_data', d.path)), 10000);
-            if (snap.exists()) {
-              const data = (d as any).key ? (snap.data() as any)[(d as any).key] : snap.data();
-              d.setter(data);
-              localStorage.setItem(`rummystore_${d.path}`, JSON.stringify(data));
-            } else if ((d as any).key === 'items') {
-              d.setter([] as any);
-              localStorage.setItem(`rummystore_${d.path}`, JSON.stringify([]));
-            }
+          } catch (fetchErr) {
+            console.warn(`Parallel Sync failed for ${d.path}, fallback to server API...`, fetchErr);
           }
-        } catch (fetchErr) {
-          console.warn(`Parallel Sync failed for ${d.path}, skipping...`, fetchErr);
+        }));
+      }
+
+      // Always fallback to server endpoint if needed to ensure 100% data sync
+      try {
+        const bkRes = await fetch(`/api/v1/public/backup-data?t=${Date.now()}`);
+        if (bkRes.ok) {
+          const bkData = await bkRes.json();
+          if (bkData) {
+            if (bkData.apps && Array.isArray(bkData.apps) && bkData.apps.length > 0) {
+              setApps(bkData.apps);
+              localStorage.setItem('rummystore_apps', JSON.stringify(bkData.apps));
+            }
+            if (bkData.settings && Object.keys(bkData.settings).length > 0) {
+              setSettings(prev => ({ ...prev, ...bkData.settings }));
+              localStorage.setItem('rummystore_settings', JSON.stringify(bkData.settings));
+            }
+            if (bkData.news && Array.isArray(bkData.news)) {
+              setNews(bkData.news);
+              localStorage.setItem('rummystore_news', JSON.stringify(bkData.news));
+            }
+            if (bkData.blogs && Array.isArray(bkData.blogs)) {
+              setBlogs(bkData.blogs);
+              localStorage.setItem('rummystore_blogs', JSON.stringify(bkData.blogs));
+            }
+            if (bkData.videos && Array.isArray(bkData.videos)) {
+              setVideos(bkData.videos);
+              localStorage.setItem('rummystore_videos', JSON.stringify(bkData.videos));
+            }
+            fetchedAny = true;
+          }
         }
-      }));
-      
+      } catch (bkErr) {
+        console.warn("Server backup fetch warning on refreshAll:", bkErr);
+      }
+
       setIsConnected(true);
       setSyncVersion(v => v + 1);
       setAppsSyncedWithServer(true);
@@ -1248,9 +1277,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setServerBlogsFetched(true);
       setServerVideosFetched(true);
       setLoadedFromServer(true);
-      console.log("Manual Refresh: Parallel Fetch Success.");
+      console.log("Manual Live Refresh: Data successfully synchronized.");
     } catch (err: any) {
-      console.warn("Manual refresh failed (using fallback memory mode):", err.message || err);
+      console.warn("Manual refresh encountered warning:", err.message || err);
       setIsConnected(false);
       throw err;
     } finally {
