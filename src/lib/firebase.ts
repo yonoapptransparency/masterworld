@@ -33,13 +33,13 @@ const getEnvVal = (key: string): string | undefined => {
 
 const getResolvedConfig = () => {
   return {
-    projectId: "gen-lang-client-0825832493",
-    appId: "1:103973989874:web:733a6afd8e837224900f6b",
-    apiKey: "AIzaSyBey9sUbeWlrcXS2kl4ewOzkTy4arg03Ok",
-    authDomain: "gen-lang-client-0825832493.firebaseapp.com",
-    firestoreDatabaseId: "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a",
-    storageBucket: "gen-lang-client-0825832493.firebasestorage.app",
-    messagingSenderId: "103973989874",
+    projectId: getEnvVal('FIREBASE_PROJECT_ID') || "",
+    appId: getEnvVal('FIREBASE_APP_ID') || "",
+    apiKey: getEnvVal('FIREBASE_API_KEY') || "",
+    authDomain: getEnvVal('FIREBASE_AUTH_DOMAIN') || "",
+    firestoreDatabaseId: getEnvVal('FIREBASE_DATABASE_ID') || "",
+    storageBucket: getEnvVal('FIREBASE_STORAGE_BUCKET') || "",
+    messagingSenderId: getEnvVal('FIREBASE_MESSAGING_ID') || "",
   };
 };
 
@@ -47,7 +47,7 @@ const firebaseConfig = getResolvedConfig();
 
 const isAdminEnabled = typeof __ADMIN_ENABLED__ !== 'undefined' ? __ADMIN_ENABLED__ : true;
 
-export const isFirebaseConfigured = isAdminEnabled && !!firebaseConfig;
+export const isFirebaseConfigured = isAdminEnabled && !!firebaseConfig?.apiKey;
 if (!isFirebaseConfigured && typeof window !== 'undefined') {
   console.error("Firebase is not configured! firebaseConfig:", firebaseConfig, "isAdminEnabled:", isAdminEnabled);
 }
