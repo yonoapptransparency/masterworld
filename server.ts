@@ -724,14 +724,6 @@ async function startServer() {
       if (hostLower.includes('masterworld') || hostLower.includes('dev-') || hostLower.includes('pre-') || hostLower.includes('localhost') || hostLower.includes('127.0.0.1')) {
         isMasterworldAdminDeployment = true;
       }
-      if (process.env.PUBLIC_DOMAIN) {
-        try {
-          const publicHost = new URL(process.env.PUBLIC_DOMAIN).host.toLowerCase();
-          if (hostLower && hostLower !== publicHost) {
-            isMasterworldAdminDeployment = true;
-          }
-        } catch (e) {}
-      }
 
       if (isMasterworldAdminDeployment) {
         res.set('Content-Type', 'text/plain');
@@ -768,14 +760,6 @@ async function startServer() {
       if (hostLower.includes('masterworld') || hostLower.includes('dev-') || hostLower.includes('pre-') || hostLower.includes('localhost') || hostLower.includes('127.0.0.1')) {
         isMasterworldAdminDeployment = true;
       }
-      if (process.env.PUBLIC_DOMAIN) {
-        try {
-          const publicHost = new URL(process.env.PUBLIC_DOMAIN).host.toLowerCase();
-          if (hostLower && hostLower !== publicHost) {
-            isMasterworldAdminDeployment = true;
-          }
-        } catch (e) {}
-      }
 
       if (isMasterworldAdminDeployment) {
         res.status(404).send('Not Found');
@@ -795,7 +779,7 @@ async function startServer() {
       xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
       
       // Static routes
-      const today = new Date().toISOString().split('T')[0];
+      const today = '2024-05-01'; // Default fixed lastmod for static routes to prevent crawl budget burn
       xml += `  <url>\n    <loc>${host}/</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>1.0</priority>\n  </url>\n`;
       xml += `  <url>\n    <loc>${host}/new-apps</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n  </url>\n`;
       xml += `  <url>\n    <loc>${host}/news</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n  </url>\n`;
@@ -825,12 +809,21 @@ async function startServer() {
       const getFormattedDate = (obj: any) => {
         const dateStr = getField(obj, 'updated_at') || getField(obj, 'created_at');
         if (dateStr) {
-          const date = new Date(dateStr);
-          if (!isNaN(date.getTime())) {
-            return date.toISOString().split('T')[0];
-          }
+          try {
+            // Check if it's a Firestore Timestamp-like object
+            if (typeof dateStr === 'object' && dateStr !== null && (dateStr as any).seconds) {
+              return new Date((dateStr as any).seconds * 1000).toISOString().split('T')[0];
+            }
+            if (typeof dateStr === 'object' && dateStr !== null && (dateStr as any)._seconds) {
+              return new Date((dateStr as any)._seconds * 1000).toISOString().split('T')[0];
+            }
+            const date = new Date(dateStr);
+            if (!isNaN(date.getTime())) {
+              return date.toISOString().split('T')[0];
+            }
+          } catch(e) {}
         }
-        return new Date().toISOString().split('T')[0];
+        return '2024-05-01';
       };
 
       const isExternalCanonical = (url?: string) => {
@@ -3755,13 +3748,24 @@ ${JSON.stringify(publicContext, null, 2)}`;
         const host = req.headers["x-forwarded-host"] || req.get("host") || (process.env.PUBLIC_DOMAIN ? new URL(process.env.PUBLIC_DOMAIN).host : "www.rummydex.com");
         const hostUrl = `${String(protocol).split(',')[0].trim()}://${String(host).split(',')[0].trim()}`;
         const userAgent = req.headers['user-agent'] || '';
-        template = await injectSeoTags(template, req.originalUrl, hostUrl, userAgent);
-        res.status(200).set({ 
+        const seoResult = await injectSeoTags(template, req.originalUrl, hostUrl, userAgent);
+        const html = typeof seoResult === 'string' ? seoResult : (seoResult.html || template);
+        const isNotFound = typeof seoResult === 'object' && seoResult ? seoResult.isNotFound : false;
+        const statusCode = isNotFound ? 404 : 200;
+
+        let cacheControl = isNotFound ? 'no-cache, no-store, must-revalidate' : 'public, max-age=1800';
+        if (req.originalUrl === '/' || req.originalUrl === '') {
+          cacheControl = 'public, max-age=300';
+        } else if (['/about', '/contact', '/privacy', '/terms', '/ethics', '/disclaimer', '/notice', '/responsibility', '/developers', '/report-removal'].includes(req.originalUrl)) {
+          cacheControl = 'public, max-age=3600';
+        }
+
+        res.status(statusCode).set({ 
           'Content-Type': 'text/html',
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }).send(template);
+          'Cache-Control': cacheControl,
+          'Pragma': isNotFound ? 'no-cache' : '',
+          'Expires': isNotFound ? '0' : ''
+        }).send(html);
       } catch (e) {
         console.error("SEO fallback error in catch-all, serving file as-is:", e);
         res.status(200).set({

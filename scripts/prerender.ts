@@ -17,12 +17,17 @@ async function prerender() {
   try {
     const originalTemplate = fs.readFileSync(indexHtmlPath, 'utf-8');
     const data = await fetchStoreData() || { apps: [], news: [], blogs: [], videos: [], settings: {} };
+    if (!data.apps || data.apps.length === 0) {
+      console.error("Firebase data load failed (or no apps available). Aborting prerender to prevent blank pages.");
+      process.exit(1);
+    }
     
     // Helper to generate a file for a specific path
     const generateRoute = async (routePath: string) => {
       console.log(`Prerendering route: ${routePath}`);
       // Don't remove og:url for specific routes since we want the exact share URL
-      let template = await injectSeoTags(originalTemplate, routePath, 'https://rummydex.com');
+      const seoRes = await injectSeoTags(originalTemplate, routePath, 'https://rummydex.com');
+      const template = typeof seoRes === 'string' ? seoRes : seoRes.html;
       
       const targetDir = path.join(distPath, routePath.startsWith('/') ? routePath.substring(1) : routePath);
       if (!fs.existsSync(targetDir)) {
@@ -32,7 +37,8 @@ async function prerender() {
     };
 
     // 1. Generate Home Route
-    let homeTemplate = await injectSeoTags(originalTemplate, '/', 'https://rummydex.com');
+    const homeRes = await injectSeoTags(originalTemplate, '/', 'https://rummydex.com');
+    let homeTemplate = typeof homeRes === 'string' ? homeRes : homeRes.html;
     homeTemplate = homeTemplate.replace(/<meta property=["']og:url["'] [^>]*\/>/gi, '');
     fs.writeFileSync(indexHtmlPath, homeTemplate, 'utf-8');
 
@@ -93,7 +99,7 @@ async function prerender() {
     xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
 
     // Static routes
-    const today = new Date().toISOString().split('T')[0];
+    const today = '2024-05-01'; // Default fixed lastmod for static routes to prevent crawl budget burn
     const staticRoutes = [
       { path: '/', priority: '1.0', changefreq: 'daily' },
       { path: '/new-apps', priority: '0.8', changefreq: 'daily' },
@@ -119,12 +125,21 @@ async function prerender() {
     const getFormattedDate = (obj: any) => {
       const dateStr = getField(obj, 'updated_at') || getField(obj, 'created_at');
       if (dateStr) {
-        const date = new Date(dateStr);
-        if (!isNaN(date.getTime())) {
-          return date.toISOString().split('T')[0];
-        }
+        try {
+          // Check if it's a Firestore Timestamp-like object
+          if (typeof dateStr === 'object' && dateStr !== null && (dateStr as any).seconds) {
+            return new Date((dateStr as any).seconds * 1000).toISOString().split('T')[0];
+          }
+          if (typeof dateStr === 'object' && dateStr !== null && (dateStr as any)._seconds) {
+            return new Date((dateStr as any)._seconds * 1000).toISOString().split('T')[0];
+          }
+          const date = new Date(dateStr);
+          if (!isNaN(date.getTime())) {
+            return date.toISOString().split('T')[0];
+          }
+        } catch(e) {}
       }
-      return new Date().toISOString().split('T')[0];
+      return '2024-05-01';
     };
 
     const escapeHtmlForSitemap = (unsafe) => {

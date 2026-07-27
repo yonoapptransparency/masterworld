@@ -850,16 +850,21 @@ function getSafeFirebaseConfig(): any {
   }
 }
 
-export async function injectSeoTags(template: string, urlPath: string, hostUrl?: string, userAgent: string = ''): Promise<string> {
+export interface SeoInjectionResult {
+  html: string;
+  isNotFound: boolean;
+}
+
+export async function injectSeoTags(template: string, urlPath: string, hostUrl?: string, userAgent: string = ''): Promise<SeoInjectionResult> {
   let data = await fetchStoreData();
-  if (!data || !data.settings) return template;
+  if (!data || !data.settings) return { html: template, isNotFound: false };
 
   const apps = data.apps || [];
   const settings = data.settings || {};
   const news = data.news || [];
   const blogs = data.blogs || [];
   const videos = data.videos || [];
-  const siteTitle = getField(settings, 'site_title');
+  const siteTitle = getField(settings, 'site_title') || 'RummyDex';
   let title = siteTitle;
   let description = getField(settings, 'meta_description', '');
   if (!description) description = "A premium digital platform for applications and tools.";
@@ -878,24 +883,37 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   let canonicalUrlOverride: string | null = null;
   let faviconUrl = "https://res.cloudinary.com/diewalae4/image/upload/v1784896838/ezgif-64180dd8ca74703b_rpungk.webp";
   
+  let isNotFound = false;
   const rawPathStr = urlPath.split('?')[0].split('#')[0];
   const pLower = rawPathStr.toLowerCase();
+  const cleanPathLower = rawPathStr.toLowerCase().replace(/^\/|\/$/g, '');
+  const adminPathLower = getAdminPath().toLowerCase();
+  
   const isMoreInfoPage = pLower.startsWith('/moreinfo/') || 
                          pLower.startsWith('/info/') || 
                          pLower.startsWith('/moredetail/') || 
                          pLower.startsWith('/gateway/');
-  const possibleAppSlug = rawPathStr.replace(/^\/app\//, '/').replace(/^\/|\/$/g, '').toLowerCase();
-  
-  if (apps.some((a: any) => {
-      const aSlug = getField(a, 'slug');
-      return aSlug && aSlug.toLowerCase() === possibleAppSlug;
-  })) {
+
+  if (rawPathStr === '/' || cleanPathLower === '') {
+    // Homepage - valid
+    isNotFound = false;
+  } else if (
+    cleanPathLower === adminPathLower ||
+    pLower.startsWith(`/${adminPathLower}`) ||
+    pLower.startsWith('/admin') ||
+    ['wp-admin', 'dashboard', 'panel'].includes(cleanPathLower)
+  ) {
+    // Admin route - valid
+    isNotFound = false;
+  } else if (pLower.startsWith('/app/')) {
+    const possibleAppSlug = decodeURIComponent(rawPathStr.replace(/^\/app\//, '/').replace(/^\/|\/$/g, '').toLowerCase());
     const app = apps.find((a: any) => {
       const aSlug = getField(a, 'slug');
       return aSlug && aSlug.toLowerCase() === possibleAppSlug;
     });
     
     if (app) {
+      isNotFound = false;
       const appName = getField(app, 'name');
       title = `${getField(app, 'seo_title') || appName}`;
       const descHtml = getField(app, 'description_html');
@@ -910,19 +928,23 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       })();
       canonicalUrlOverride = getField(app, 'canonical_url') || `${canonicalBaseHost}/app/${getField(app, 'slug')}`;
       faviconUrl = getField(app, 'icon_url') || faviconUrl;
+    } else {
+      isNotFound = true;
     }
-  } else if (urlPath.startsWith('/info/') || urlPath.startsWith('/moreinfo/') || urlPath.startsWith('/moredetail/') || urlPath.startsWith('/gateway/')) {
+  } else if (pLower.startsWith('/info/') || pLower.startsWith('/moreinfo/') || pLower.startsWith('/moredetail/') || pLower.startsWith('/gateway/')) {
     let prefix = '/info/';
-    if (urlPath.startsWith('/moreinfo/')) prefix = '/moreinfo/';
-    else if (urlPath.startsWith('/moredetail/')) prefix = '/moredetail/';
-    else if (urlPath.startsWith('/gateway/')) prefix = '/gateway/';
-    const slug = decodeURIComponent(urlPath.split(prefix)[1].split('/')[0].split('?')[0]);
+    if (pLower.startsWith('/moreinfo/')) prefix = '/moreinfo/';
+    else if (pLower.startsWith('/moredetail/')) prefix = '/moredetail/';
+    else if (pLower.startsWith('/gateway/')) prefix = '/gateway/';
+    const slugParts = urlPath.split(new RegExp(prefix, 'i'))[1] || '';
+    const slug = decodeURIComponent(slugParts.split('/')[0].split('?')[0]);
     const app = apps.find((a: any) => {
       const aSlug = getField(a, 'slug');
       return aSlug && aSlug.toLowerCase() === slug.toLowerCase();
     });
     
     if (app) {
+      isNotFound = false;
       const appName = getField(app, 'name');
       title = `${getField(app, 'seo_title') || appName} - Technical Info`;
       const descHtml = getField(app, 'description_html');
@@ -937,15 +959,18 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       })();
       canonicalUrlOverride = `${canonicalBaseHost}${prefix}${getField(app, 'slug')}`;
       faviconUrl = getField(app, 'icon_url') || faviconUrl;
+    } else {
+      isNotFound = true;
     }
-  } else if (urlPath.startsWith('/news/') && urlPath.length > 6) {
-    const slug = decodeURIComponent(urlPath.split('/news/')[1].split('/')[0].split('?')[0]);
+  } else if (pLower.startsWith('/news/') && pLower.length > 6) {
+    const slug = decodeURIComponent((urlPath.split(/\/news\//i)[1] || '').split('/')[0].split('?')[0]);
     const newsItem = news.find((n: any) => {
       const nSlug = getField(n, 'slug');
       return nSlug && nSlug.toLowerCase() === slug.toLowerCase();
     });
     
     if (newsItem) {
+      isNotFound = false;
       const itemTitle = getField(newsItem, 'title', 'Latest News');
       title = `${getField(newsItem, 'seo_title') || itemTitle} | ${siteTitle}`;
       const descHtml = getField(newsItem, 'description') || getField(newsItem, 'content');
@@ -960,15 +985,18 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
         return clean;
       })();
       canonicalUrlOverride = getField(newsItem, 'canonical_url') || `${canonicalBaseHost}/news/${getField(newsItem, 'slug')}`;
+    } else {
+      isNotFound = true;
     }
-  } else if (urlPath.startsWith('/blog/') && urlPath.length > 6) {
-    const slug = decodeURIComponent(urlPath.split('/blog/')[1].split('/')[0].split('?')[0]);
+  } else if (pLower.startsWith('/blog/') && pLower.length > 6) {
+    const slug = decodeURIComponent((urlPath.split(/\/blog\//i)[1] || '').split('/')[0].split('?')[0]);
     const blogItem = blogs.find((b: any) => {
       const bSlug = getField(b, 'slug');
       return bSlug && bSlug.toLowerCase() === slug.toLowerCase();
     });
     
     if (blogItem) {
+      isNotFound = false;
       const itemTitle = getField(blogItem, 'title', 'Blog Post');
       title = `${getField(blogItem, 'seo_title') || itemTitle} | ${siteTitle}`;
       const descHtml = getField(blogItem, 'excerpt') || getField(blogItem, 'content');
@@ -983,9 +1011,11 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
         return clean;
       })();
       canonicalUrlOverride = getField(blogItem, 'canonical_url') || `${canonicalBaseHost}/blog/${getField(blogItem, 'slug')}`;
+    } else {
+      isNotFound = true;
     }
-  } else if (urlPath.startsWith('/videos/') && urlPath.length > 8) {
-    const slug = decodeURIComponent(urlPath.split('/videos/')[1].split('/')[0].split('?')[0]);
+  } else if (pLower.startsWith('/videos/') && pLower.length > 8) {
+    const slug = decodeURIComponent((urlPath.split(/\/videos\//i)[1] || '').split('/')[0].split('?')[0]);
     const videoItem = videos.find((v: any) => {
       const vSlug = getField(v, 'slug');
       const vId = getField(v, 'id');
@@ -993,6 +1023,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     });
     
     if (videoItem) {
+      isNotFound = false;
       const itemTitle = getField(videoItem, 'title', 'Video Specs');
       title = `${getField(videoItem, 'seo_title') || itemTitle} | ${siteTitle}`;
       const descHtml = getField(videoItem, 'description');
@@ -1014,55 +1045,71 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
         return clean;
       })();
       canonicalUrlOverride = `${canonicalBaseHost}/videos/${getField(videoItem, 'slug') || getField(videoItem, 'id')}`;
+    } else {
+      isNotFound = true;
     }
-  } else if (urlPath.startsWith('/developers')) {
-    title = `Meet Our Team | ${siteTitle}`;
-    description = `Meet the brilliant developers behind ${siteTitle}. Discover our team's expertise and passion.`;
   } else {
     // Dynamic mapping for root-level and static routes
-    const cleanPathLower = rawPathStr.toLowerCase().replace(/^\/|\/$/g, '');
+    const validStaticRoutes = [
+      'about', 'blogs', 'blog', 'contact', 'disclaimer', 'ethics', 
+      'new-apps', 'news', 'notice', 'privacy', 'report-removal', 
+      'responsibility', 'terms', 'videos', 'developers', 'submit-app'
+    ];
     
-    if (cleanPathLower === 'about') {
-      title = `About Us | ${siteTitle}`;
-      description = `Learn more about our mission, vision, and the premium services we offer on our platform.`;
-    } else if (cleanPathLower === 'blogs') {
-      title = `Official Blogs & Insights | ${siteTitle}`;
-      description = `Explore our official blog articles, professional guides, gameplay tips, and deep platform reviews.`;
-    } else if (cleanPathLower === 'contact') {
-      title = `Contact Us | ${siteTitle}`;
-      description = `Get in touch with our professional support team. We are here to help you with your inquiries, feedback, and technical assistance.`;
-    } else if (cleanPathLower === 'disclaimer') {
-      title = `Disclaimer | ${siteTitle}`;
-      description = `Read our platform disclaimer regarding content accuracy, fair play verification, and third-party links.`;
-    } else if (cleanPathLower === 'ethics') {
-      title = `Code of Ethics & Content Policy | ${siteTitle}`;
-      description = `Discover our strict code of ethics, licensing standards, and platform content guidelines.`;
-    } else if (cleanPathLower === 'new-apps') {
-      title = `New Releases & Up-and-Coming Apps | ${siteTitle}`;
-      description = `Stay updated with our latest releases, featured digital tools, and upcoming app launches.`;
-    } else if (cleanPathLower === 'news') {
-      title = `Latest News & Press Updates | ${siteTitle}`;
-      description = `Browse official news bulletins, press announcements, security reports, and direct system updates.`;
-    } else if (cleanPathLower === 'notice') {
-      title = `Important System Notice | ${siteTitle}`;
-      description = `Read our critical system alerts, maintenance updates, and important security advisories.`;
-    } else if (cleanPathLower === 'privacy') {
-      title = `Privacy Policy | ${siteTitle}`;
-      description = `Read our comprehensive privacy policy to understand how we protect, secure, and handle your personal data.`;
-    } else if (cleanPathLower === 'responsibility') {
-      title = `Responsible Gaming & Play Policy | ${siteTitle}`;
-      description = `Learn about our commitment to user safety, self-exclusion tools, and responsible gameplay guidelines.`;
-    } else if (cleanPathLower === 'terms') {
-      title = `Terms of Service & User Agreement | ${siteTitle}`;
-      description = `Review our terms of service, platform rules, and user agreements governing the use of our services.`;
-    } else if (cleanPathLower === 'videos') {
-      title = `Video Previews & Walkthroughs | ${siteTitle}`;
-      description = `Watch high-definition videos, gameplay showcases, and technical walkthroughs of our certified applications.`;
+    if (validStaticRoutes.includes(cleanPathLower)) {
+      isNotFound = false;
+      if (cleanPathLower === 'about') {
+        title = `About Us | ${siteTitle}`;
+        description = `Learn more about our mission, vision, and the premium services we offer on our platform.`;
+      } else if (cleanPathLower === 'blogs' || cleanPathLower === 'blog') {
+        title = `Official Blogs & Insights | ${siteTitle}`;
+        description = `Explore our official blog articles, professional guides, gameplay tips, and deep platform reviews.`;
+      } else if (cleanPathLower === 'contact') {
+        title = `Contact Us | ${siteTitle}`;
+        description = `Get in touch with our professional support team. We are here to help you with your inquiries, feedback, and technical assistance.`;
+      } else if (cleanPathLower === 'disclaimer') {
+        title = `Disclaimer | ${siteTitle}`;
+        description = `Read our platform disclaimer regarding content accuracy, fair play verification, and third-party links.`;
+      } else if (cleanPathLower === 'ethics') {
+        title = `Code of Ethics & Content Policy | ${siteTitle}`;
+        description = `Discover our strict code of ethics, licensing standards, and platform content guidelines.`;
+      } else if (cleanPathLower === 'new-apps') {
+        title = `New Releases & Up-and-Coming Apps | ${siteTitle}`;
+        description = `Stay updated with our latest releases, featured digital tools, and upcoming app launches.`;
+      } else if (cleanPathLower === 'news') {
+        title = `Latest News & Press Updates | ${siteTitle}`;
+        description = `Browse official news bulletins, press announcements, security reports, and direct system updates.`;
+      } else if (cleanPathLower === 'notice') {
+        title = `Important System Notice | ${siteTitle}`;
+        description = `Read our critical system alerts, maintenance updates, and important security advisories.`;
+      } else if (cleanPathLower === 'privacy') {
+        title = `Privacy Policy | ${siteTitle}`;
+        description = `Read our comprehensive privacy policy to understand how we protect, secure, and handle your personal data.`;
+      } else if (cleanPathLower === 'report-removal') {
+        title = `Report & Removal Request | ${siteTitle}`;
+        description = `Submit a content or application removal request to our legal and compliance team.`;
+      } else if (cleanPathLower === 'responsibility') {
+        title = `Responsible Gaming & Play Policy | ${siteTitle}`;
+        description = `Learn about our commitment to user safety, self-exclusion tools, and responsible gameplay guidelines.`;
+      } else if (cleanPathLower === 'terms') {
+        title = `Terms of Service & User Agreement | ${siteTitle}`;
+        description = `Review our terms of service, platform rules, and user agreements governing the use of our services.`;
+      } else if (cleanPathLower === 'videos') {
+        title = `Video Previews & Walkthroughs | ${siteTitle}`;
+        description = `Watch high-definition videos, gameplay showcases, and technical walkthroughs of our certified applications.`;
+      } else if (cleanPathLower === 'developers') {
+        title = `Meet Our Team | ${siteTitle}`;
+        description = `Meet the brilliant developers behind ${siteTitle}. Discover our team's expertise and passion.`;
+      } else if (cleanPathLower === 'submit-app') {
+        title = `Submit Your App | ${siteTitle}`;
+        description = `Submit your Android application for listing and promotion on ${siteTitle}.`;
+      }
     } else {
       const possibleSlug = decodeURIComponent(urlPath.split('?')[0].split('#')[0].replace(/^\/|\/$/g, ''));
       if (possibleSlug && possibleSlug !== '') {
         const app = apps.find((a: any) => getField(a, 'slug')?.toLowerCase() === possibleSlug.toLowerCase());
         if (app) {
+          isNotFound = false;
           const appName = getField(app, 'name', 'App');
           title = getField(app, 'seo_title') || appName;
           const descHtml = getField(app, 'description_html');
@@ -1072,9 +1119,18 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
           ogImage = getField(app, 'og_image_url') || getField(app, 'icon_url') || ogImage;
           canonicalUrlOverride = getField(app, 'canonical_url');
           faviconUrl = getField(app, 'icon_url') || faviconUrl;
+        } else {
+          isNotFound = true;
         }
+      } else {
+        isNotFound = true;
       }
     }
+  }
+
+  if (isNotFound) {
+    title = `404 Page Not Found | ${siteTitle}`;
+    description = `The requested page does not exist on ${siteTitle}. Browse our certified application listings and news updates.`;
   }
 
   const fallbackHost = ((): string => {
@@ -1236,7 +1292,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     return false;
   })();
 
-  const blockIndexing = isAdmin || isMasterworldAdminDeployment;
+  const blockIndexing = isAdmin || isMasterworldAdminDeployment || isNotFound;
 
   // Construct replacement tags
   const tags = blockIndexing ? `
@@ -1296,24 +1352,20 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
 
   newTemplate = newTemplate.replace('</head>', `${configScript}${helmetTags}</head>`);
 
-  // Dynamically inject fully pre-rendered body content robustly for ALL users and bots.
-  // This allows Edge Caching (Vercel) to cache a single version of the HTML while maintaining 100% SEO capability.
+  // Dynamically inject fully pre-rendered body content directly into #root for standard SSR/hydration.
   try {
     const preRenderedBody = await getPagePreRender(urlPath, data);
     
-    // Instead of branching by bot which breaks CDN Edge caching, we universally include it in a semantically
-    // sound <noscript> block, AND an accessible off-screen div that React will clean up.
-    // This allows Claude, ChatGPT, and GoogleBot to instantly parse the text without needing JS.
-    const seoDiv = `
-      <noscript>${preRenderedBody}</noscript>
-      <div id="seo-prerender" style="position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0;">
-        ${preRenderedBody}
-      </div>
-    `;
-    newTemplate = newTemplate.replace('</body>', `${seoDiv}\n  </body>`);
+    // Inject directly into <div id="root"> so Googlebot and users see the exact same HTML structure.
+    // React's hydrate/render will seamlessly mount over this content without cloaking or off-screen CSS hacks.
+    if (newTemplate.includes('<div id="root">')) {
+      newTemplate = newTemplate.replace('<div id="root">', `<div id="root">${preRenderedBody}`);
+    } else {
+      newTemplate = newTemplate.replace('</body>', `<div id="seo-prerender">${preRenderedBody}</div>\n  </body>`);
+    }
   } catch (renderErr) {
     console.error("Static pre-rendering body injection failed:", renderErr);
   }
   
-  return newTemplate;
+  return { html: newTemplate, isNotFound };
 }
