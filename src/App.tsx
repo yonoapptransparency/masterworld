@@ -7,7 +7,7 @@ import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { useLocation, BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { DataProvider, useData } from './contexts/DataContext';
-import { getAdminPath } from './lib/utils';
+import { getAdminPath } from './lib/utilsPublic';
 
 // Error Boundary component for robust UI
 class ErrorBoundary extends React.Component<any, any> {
