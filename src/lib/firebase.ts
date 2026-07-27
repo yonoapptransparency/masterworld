@@ -71,7 +71,6 @@ export const isFirebaseApiKeyReal = (key: string | undefined): boolean => {
   return isRealValue(key);
 };
 
-console.log("DEBUG FIREBASE:", firebaseConfig, isFirebaseConfigured);
 export const isFirebaseReal = isFirebaseConfigured && isFirebaseApiKeyReal(firebaseConfig?.apiKey);
 
 export const app = isFirebaseConfigured ? (getApps().length === 0 ? initializeApp(firebaseConfig!) : getApp()) : null as any;

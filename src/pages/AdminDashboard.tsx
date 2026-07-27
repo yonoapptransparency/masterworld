@@ -7,7 +7,7 @@ import { adminFetch, clearSession, loadSession } from '../services/adminAuthServ
 import React, { useState, useEffect } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { getAdminPath } from '../lib/utilsPublic';
-import { LayoutDashboard, TrendingUp, Menu, X, Smartphone, Users, FileText, Settings, ShieldAlert, Shield, LogOut, Save, Upload, Type, Link as LinkIcon, ToggleLeft, Layers, Newspaper, Plus, Trash2, Video as VideoIcon, Github, GitBranch, RefreshCw, CheckCircle2, AlertTriangle, Search, MessageSquare, CheckSquare, Sparkles, Compass, HelpCircle, Edit2, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, TrendingUp, Menu, X, Smartphone, Users, FileText, Settings, ShieldAlert, ShieldCheck, Shield, LogOut, Save, Upload, Type, Link as LinkIcon, ToggleLeft, Layers, Newspaper, Plus, Trash2, Video as VideoIcon, Github, GitBranch, RefreshCw, CheckCircle2, AlertTriangle, Search, MessageSquare, CheckSquare, Sparkles, Compass, HelpCircle, Edit2, ChevronRight } from 'lucide-react';
 import { FirebaseStatusIndicator } from '../components/FirebaseStatusIndicator';
 import { useData } from '../contexts/DataContext';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
@@ -2705,6 +2705,9 @@ export default function AdminDashboard() {
 
   const handleSaveSettings = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (isFirebaseReal && !auth?.currentUser) {
+      if (!window.confirm("Firebase Authentication is not fully synchronized. Saving might fail. Continue?")) return;
+    }
     notifySaveStart('Publishing identity & legal configurations to Cloud Database...');
     try {
       const formData = new FormData(e.currentTarget);
@@ -2782,6 +2785,10 @@ export default function AdminDashboard() {
        } else {
           return;
        }
+    }
+    if (isFirebaseReal && !auth?.currentUser) {
+      const confirmForce = window.confirm("Firebase Authentication is not fully synchronized yet. Saving now might fail due to lack of direct Firestore write permissions. Would you like to try saving anyway via server fallback?");
+      if (!confirmForce) return;
     }
     notifySaveStart(editingAppId ? 'Updating application in Cloud Database...' : 'Publishing new application to Cloud Database...');
     try {
@@ -2936,6 +2943,9 @@ export default function AdminDashboard() {
   };
   
   const handleDeleteApp = (id: string) => {
+    if (isFirebaseReal && !auth?.currentUser) {
+      if (!window.confirm("Firebase Authentication is not fully synchronized. Deletion might fail. Continue?")) return;
+    }
     if (fetchFailedRef.current && !forceBypassVaultError) {
        if (window.confirm("CRITICAL WARNING: Secure vault load failed. Deleting now will wipe secure links of all other apps. Force delete?")) {
           setForceBypassVaultError(true);
@@ -3368,7 +3378,7 @@ export default function AdminDashboard() {
           <div className="absolute inset-0 bg-white dark:bg-slate-950 flex flex-col h-full w-full shadow-2xl">
             <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-10">
               <div className="flex items-center gap-2">
-                <Shield className="w-6 h-6 text-blue-600" />
+                <ShieldCheck className="w-6 h-6 text-blue-600" />
                 <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">Navigation</h2>
               </div>
               <button onClick={() => setIsMobileMenuOpen(false)} className="w-10 h-10 flex items-center justify-center bg-rose-50 text-rose-500 active:bg-rose-100 rounded-full transition-colors">

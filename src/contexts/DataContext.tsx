@@ -68,8 +68,14 @@ const DataContext = createContext<DataContextType | null>(null);
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const initialData = (typeof window !== 'undefined' && (window as any).__INITIAL_DATA__) || null;
+  const isCurrentlyAdminPath = typeof window !== 'undefined' && (
+    window.location.pathname.includes('/admin') || 
+    window.location.pathname.includes('/moreinfo') || 
+    window.location.pathname.includes('/masterworld')
+  );
 
   const [apps, setApps] = useState<AppConfig[]>(() => {
+    if (isCurrentlyAdminPath) return []; // Admins must always wait for live data
     if (initialData?.apps && initialData.apps.length > 0) return initialData.apps;
     if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return [];
     try {
@@ -84,6 +90,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   });
   const [settings, setSettings] = useState<GlobalSettings>(() => {
+    if (isCurrentlyAdminPath) return { logo_url: "", site_title: "Loading Live Config...", meta_description: "", favicon_url: "", helpline_whatsapp: "", helpline_telegram: "", support_email: "", disclaimer_text: "", ethics_discrimination_text: "", ticker_text: "", animations_enabled: true, categories: [], banners: [], quick_links: [], website_faqs: [], developers: [] };
     if (initialData?.settings && initialData.settings.site_title) return initialData.settings;
     if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return { logo_url: "", site_title: "My Site", meta_description: "", favicon_url: "", helpline_whatsapp: "", helpline_telegram: "", support_email: "", disclaimer_text: "", ethics_discrimination_text: "", ticker_text: "", animations_enabled: true, categories: [], banners: [], quick_links: [], website_faqs: [], developers: [] };
     try {
@@ -98,6 +105,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   });
   const [news, setNews] = useState<NewsItem[]>(() => {
+    if (isCurrentlyAdminPath) return [];
     if (initialData?.news && initialData.news.length > 0) return initialData.news;
     if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return [];
     try {
@@ -112,6 +120,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   });
   const [blogs, setBlogs] = useState<BlogPost[]>(() => {
+    if (isCurrentlyAdminPath) return [];
     if (initialData?.blogs && initialData.blogs.length > 0) return initialData.blogs;
     if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return [];
     try {
@@ -126,6 +135,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   });
   const [videos, setVideos] = useState<VideoItem[]>(() => {
+    if (isCurrentlyAdminPath) return [];
     if (initialData?.videos && initialData.videos.length > 0) return initialData.videos;
     if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return [];
     try {
@@ -231,9 +241,35 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
   const [isLive, setIsLive] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const path = window.location.pathname.toLowerCase();
+    const adminPath = getAdminPath().toLowerCase();
+    return path.includes(adminPath) || path.includes('/admin') || path.includes('/masterworld') || path.includes('/moreinfo');
+  });
   const [quotaExceeded, setQuotaExceeded] = useState(false);
   const [syncVersion, setSyncVersion] = useState(0);
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(new Date().toLocaleTimeString());
+
+  useEffect(() => {
+    if (isAdmin && isFirebaseReal && db) {
+      const forceRefresh = async () => {
+        try {
+          const metaRef = doc(db, 'store_data', 'apps_meta');
+          // getDocFromServer bypasses local cache and goes straight to Firestore
+          const snap = await getDocFromServer(metaRef);
+          if (snap.exists()) {
+            console.log("Admin: Live Firestore data refreshed from server.");
+            setIsLive(true);
+            setIsConnected(true);
+          }
+        } catch (e) {
+          console.warn("Admin: Manual server-side refresh failed:", e);
+        }
+      };
+      forceRefresh();
+    }
+  }, [isAdmin, db, isFirebaseReal]);
 
   const [currentPath, setCurrentPath] = useState(typeof window !== 'undefined' ? window.location.pathname : '/');
 
@@ -246,6 +282,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }, 250);
     return () => clearInterval(interval);
   }, [currentPath]);
+
+  useEffect(() => {
+    const path = currentPath.toLowerCase();
+    const adminPath = getAdminPath().toLowerCase();
+    const isNowAdmin = path.includes(adminPath) || path.includes('/admin') || path.includes('/masterworld') || path.includes('/moreinfo');
+    if (isNowAdmin !== isAdmin) {
+      setIsAdmin(isNowAdmin);
+    }
+  }, [currentPath, isAdmin]);
 
   const checkIsQuotaError = React.useCallback((err: any) => {
     const msg = String(err?.message || err || '').toLowerCase();
@@ -502,7 +547,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     const unsubs = [
       onSnapshot(doc(db, 'store_data', 'apps_meta'), async (snap) => {
-        if (snap.metadata.fromCache && (typeof window !== 'undefined' && (window as any).__INITIAL_DATA__)) return;
+        if (snap.metadata.fromCache && (typeof window !== 'undefined' && (window as any).__INITIAL_DATA__)) {
+           if (!isAdmin) return;
+        }
         let loadedApps: any[] = [];
         let fetchedData = false;
         let chunkFetchFailed = false;
@@ -545,15 +592,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         }
         
         if (fetchedData) {
-          // Conditional stripping: only strip URLs if we are NOT in an administrative view
-          // This prevents the Admin Dashboard from losing its data references during background syncs.
-          const isAdminPath = currentPath.toLowerCase().includes('/admin') || 
-                            currentPath.toLowerCase().includes('/moreinfo') ||
-                            currentPath.toLowerCase().includes('/masterworld') ||
-                            currentPath.toLowerCase().includes('/' + getAdminPath().toLowerCase());
-          
-          const data = isAdminPath ? loadedApps : loadedApps.map((app: any) => {
-            // Keep original object intact for admin, but create clean copies for public views
+          const data = isAdmin ? loadedApps : loadedApps.map((app: any) => {
             const publicApp = { ...app };
             delete publicApp.more_information_url;
             delete publicApp.encrypted_download_url;
@@ -567,7 +606,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           setServerAppsFetched(true);
           setLoadedFromServer(true);
           
-          if (!snap.metadata.fromCache) {
+          if (!snap.metadata.fromCache || isAdmin) {
             setIsConnected(true);
             setIsLive(true);
             setLastSyncTime(new Date().toLocaleTimeString());
@@ -951,104 +990,99 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       console.warn("localStorage quota exceeded or blocked:", e);
     }
 
+    const now = new Date().toISOString();
+    let clientSaveSuccess = false;
+
+    // 2. Client Side Firestore Push (Best effort, might fail due to CORS/Quota/Auth)
     try {
       if (isFirebaseReal && db) {
         console.log("Cloud: Pushing Apps update in chunks via client SDK...");
         const CHUNK_SIZE = 25; 
         const numChunks = Math.ceil(newApps.length / CHUNK_SIZE) || 1;
-        const now = new Date().toISOString();
         
-        try {
-          const chunkPromises = [];
-          for (let i = 0; i < numChunks; i++) {
-            const chunk = JSON.parse(JSON.stringify(newApps.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE)));
-            chunk.forEach((app: any) => { 
-              delete app.more_information_url; 
-              delete app.encrypted_download_url;
-              delete app.download_url;
-            });
-            chunkPromises.push(
-              Promise.race([
-                setDoc(doc(db, 'store_data', `apps_chunk_${i}`), { items: chunk }),
-                new Promise((_, reject) => setTimeout(() => reject(new Error("Chunk write timeout")), 6000))
-              ])
-            );
-          }
-          await Promise.allSettled(chunkPromises);
-          
-          const metaRef = doc(db, 'store_data', 'apps_meta');
-          await Promise.race([
-            setDoc(metaRef, { numChunks, last_updated: now }),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("Meta write timeout")), 6000))
-          ]).catch(() => {});
-
-          // Also update legacy single-doc apps document for non-chunked readers
-          const sanitizedApps = JSON.parse(JSON.stringify(newApps)).map((app: any) => {
-            delete app.more_information_url;
+        const chunkPromises = [];
+        for (let i = 0; i < numChunks; i++) {
+          const chunk = JSON.parse(JSON.stringify(newApps.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE)));
+          chunk.forEach((app: any) => { 
+            delete app.more_information_url; 
             delete app.encrypted_download_url;
             delete app.download_url;
-            return app;
           });
-          setDoc(doc(db, 'store_data', 'apps'), { items: sanitizedApps, last_updated: now }).catch(() => {});
-
-          console.log("Cloud: Metadata and chunks successfully committed via client SDK.");
-        } catch (dbErr: any) {
-          console.warn("Client SDK apps chunk save warning:", dbErr.message);
+          chunkPromises.push(
+            Promise.race([
+              setDoc(doc(db, 'store_data', `apps_chunk_${i}`), { items: chunk }),
+              new Promise((_, reject) => setTimeout(() => reject(new Error("Chunk write timeout")), 12000))
+            ])
+          );
         }
+        await Promise.all(chunkPromises);
         
-        // Save secure links mapping separately (fully encrypted)
-        const secureLinks = newApps.map(a => ({ id: a.id, url: a.more_information_url || '' }));
-        let encryptedData = '';
-        try {
-          console.log("Cloud: Encrypting secure links for vault storage...");
-          const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 4000);
-          const encRes = await adminFetch('/api/v1/admin/encrypt-links', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ items: secureLinks }),
-            signal: controller.signal
-          });
-          clearTimeout(timer);
-          
-          if (encRes.ok) {
-            const ct = encRes.headers.get('content-type') || '';
-            const encText = await encRes.text();
-            if (ct.includes('application/json') || encText.trim().startsWith('{')) {
-              try {
-                const encJSON = JSON.parse(encText);
-                if (encJSON.encrypted) {
-                  encryptedData = encJSON.encrypted;
-                  console.log("Cloud: Link encryption successful.");
-                }
-              } catch (_) {}
-            }
-          }
-        } catch (encErr: any) {
-          console.warn("Encryption of secure links warning:", encErr.message);
-        }
+        const metaRef = doc(db, 'store_data', 'apps_meta');
+        await Promise.race([
+          setDoc(metaRef, { numChunks, last_updated: now }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("Meta write timeout")), 8000))
+        ]).catch(() => {});
 
-        if (encryptedData && db) {
+        clientSaveSuccess = true;
+        console.log("Cloud: Metadata and chunks successfully committed via client SDK.");
+      }
+    } catch (dbErr: any) {
+      console.warn("Client SDK apps chunk save failed (will retry via server):", dbErr.message);
+    }
+
+    // 3. Server-Side Sync: Always run this as it's the most reliable "File Store" update
+    try {
+      await updateLocalContainerBackup(newApps, settings, news, blogs, videos);
+      console.log("Save Apps: Server-side sync complete.");
+    } catch (serverErr: any) {
+      console.error("Server-side sync failed:", serverErr);
+      if (!clientSaveSuccess) {
+        throw new Error("Both client-side and server-side saves failed. Data might not be persistent.");
+      }
+    }
+    
+    // 4. Secure links mapping separately
+    const secureLinks = newApps.map(a => ({ id: a.id, url: a.more_information_url || '' }));
+    let encryptedData = '';
+    try {
+      console.log("Cloud: Encrypting secure links for vault storage...");
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 6000);
+      const encRes = await adminFetch('/api/v1/admin/encrypt-links', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: secureLinks }),
+        signal: controller.signal
+      });
+      clearTimeout(timer);
+      
+      if (encRes.ok) {
+        const ct = encRes.headers.get('content-type') || '';
+        const encText = await encRes.text();
+        if (ct.includes('application/json') || encText.trim().startsWith('{')) {
           try {
-            const payload = { encryptedData, lastUpdated: new Date().toISOString() };
-            await Promise.allSettled([
-              setDoc(doc(db, 'store_data', 'secure_links'), payload),
-              setDoc(doc(db, 'store_data', 'sec_vault'), payload),
-              setDoc(doc(db, 'store_data', 'sec_links_vault_3'), payload)
-            ]);
-            console.log("Cloud: Secure vault committed via client SDK.");
-          } catch (dbErr: any) {
-            console.warn("Client SDK vault save warning:", dbErr.message);
-          }
+            const encJSON = JSON.parse(encText);
+            if (encJSON.encrypted) {
+              encryptedData = encJSON.encrypted;
+            }
+          } catch (_) {}
         }
       }
-      
-      // 2. Server Sync: Server endpoint updates static backups AND Firestore via Admin SDK
-      await updateLocalContainerBackup(newApps, settings, news, blogs, videos);
-      console.log("Save Apps: All data synchronized successfully.");
-    } catch (err: any) {
-      console.error("Save Apps Error:", err);
-      throw err;
+    } catch (encErr: any) {
+      console.warn("Encryption of secure links warning:", encErr.message);
+    }
+
+    if (encryptedData && db) {
+      try {
+        const payload = { encryptedData, lastUpdated: now };
+        await Promise.allSettled([
+          setDoc(doc(db, 'store_data', 'secure_links'), payload),
+          setDoc(doc(db, 'store_data', 'sec_vault'), payload),
+          setDoc(doc(db, 'store_data', 'sec_links_vault_3'), payload)
+        ]);
+      } catch (dbErr: any) {
+        console.warn("Client SDK vault save warning:", dbErr.message);
+      }
     }
   }, [settings, news, blogs, videos, updateLocalContainerBackup]);
 
@@ -1082,7 +1116,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [settings, apps, news, blogs, videos, updateLocalContainerBackup]);
 
   const saveNews = React.useCallback(async (newNews: NewsItem[]) => {
-    // 1. Snappy optimistic update to local state and local memory first
+    let clientSaveSuccess = false;
+    // 1. Snappy optimistic update
     setNews(newNews);
     localStorage.setItem('rummystore_news', JSON.stringify(newNews));
 
@@ -1092,22 +1127,25 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         console.log("Cloud: Pushing News update via client SDK...");
         const sanitized = JSON.parse(JSON.stringify({ items: newNews }));
         await setDoc(docRef, sanitized);
-        console.log("Cloud: News update acknowledged by server.");
+        clientSaveSuccess = true;
+        console.log("Cloud: News update acknowledged.");
       }
     } catch (err: any) {
-      console.warn("Client SDK Save News warning (synced via server):", err.message);
+      console.warn("Client SDK Save News failed (will retry via server):", err.message);
     }
 
     try {
       await updateLocalContainerBackup(apps, settings, newNews, blogs, videos);
+      console.log("Save News: Server-side sync complete.");
     } catch (err: any) {
       console.error("Save News Error:", err);
-      throw err;
+      if (!clientSaveSuccess) throw err;
     }
   }, [apps, settings, blogs, videos, updateLocalContainerBackup]);
 
   const saveBlogs = React.useCallback(async (newBlogs: BlogPost[]) => {
-    // 1. Snappy optimistic update to local state and local memory first
+    let clientSaveSuccess = false;
+    // 1. Snappy optimistic update
     setBlogs(newBlogs);
     localStorage.setItem('rummystore_blogs', JSON.stringify(newBlogs));
 
@@ -1117,22 +1155,25 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         console.log("Cloud: Pushing Blogs update via client SDK...");
         const sanitized = JSON.parse(JSON.stringify({ items: newBlogs }));
         await setDoc(docRef, sanitized);
-        console.log("Cloud: Blogs update acknowledged by server.");
+        clientSaveSuccess = true;
+        console.log("Cloud: Blogs update acknowledged.");
       }
     } catch (err: any) {
-      console.warn("Client SDK Save Blogs warning (synced via server):", err.message);
+      console.warn("Client SDK Save Blogs failed (will retry via server):", err.message);
     }
 
     try {
       await updateLocalContainerBackup(apps, settings, news, newBlogs, videos);
+      console.log("Save Blogs: Server-side sync complete.");
     } catch (err: any) {
       console.error("Save Blogs Error:", err);
-      throw err;
+      if (!clientSaveSuccess) throw err;
     }
   }, [apps, settings, news, videos, updateLocalContainerBackup]);
 
   const saveVideos = React.useCallback(async (newVideos: VideoItem[]) => {
-    // 1. Snappy optimistic update to local state and local memory first
+    let clientSaveSuccess = false;
+    // 1. Snappy optimistic update
     setVideos(newVideos);
     localStorage.setItem('rummystore_videos', JSON.stringify(newVideos));
 
@@ -1142,17 +1183,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         console.log("Cloud: Pushing Videos update via client SDK...");
         const sanitized = JSON.parse(JSON.stringify({ items: newVideos }));
         await setDoc(docRef, sanitized);
-        console.log("Cloud: Videos update acknowledged by server.");
+        clientSaveSuccess = true;
+        console.log("Cloud: Videos update acknowledged.");
       }
     } catch (err: any) {
-      console.warn("Client SDK Save Videos warning (synced via server):", err.message);
+      console.warn("Client SDK Save Videos failed (will retry via server):", err.message);
     }
 
     try {
       await updateLocalContainerBackup(apps, settings, news, blogs, newVideos);
+      console.log("Save Videos: Server-side sync complete.");
     } catch (err: any) {
       console.error("Save Videos Error:", err);
-      throw err;
+      if (!clientSaveSuccess) throw err;
     }
   }, [apps, settings, news, blogs, updateLocalContainerBackup]);
 
@@ -1211,13 +1254,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         await Promise.all(docsToFetch.map(async (d) => {
           try {
             if (d.path === 'apps') {
-              const snapMeta = await withServerConfirmation(() => getDoc(doc(db, 'store_data', 'apps_meta')), 8000);
+              const snapMeta = await withServerConfirmation(() => getDocFromServer(doc(db, 'store_data', 'apps_meta')), 12000);
               if (snapMeta.exists()) {
                 const numChunks = snapMeta.data().numChunks || 1;
                 const allApps: any[] = [];
                 for(let i=0; i<numChunks; i++) {
                   try {
-                    const snapChunk = await withServerConfirmation(() => getDoc(doc(db, 'store_data', `apps_chunk_${i}`)), 8000);
+                    const snapChunk = await withServerConfirmation(() => getDocFromServer(doc(db, 'store_data', `apps_chunk_${i}`)), 12000);
                     if(snapChunk.exists() && snapChunk.data().items) {
                       allApps.push(...snapChunk.data().items);
                     }
@@ -1231,7 +1274,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                   fetchedAny = true;
                 }
               } else {
-                const oldSnap = await withServerConfirmation(() => getDoc(doc(db, 'store_data', 'apps')), 8000);
+                const oldSnap = await withServerConfirmation(() => getDocFromServer(doc(db, 'store_data', 'apps')), 12000);
                 if (oldSnap.exists() && oldSnap.data().items) {
                   const data = oldSnap.data().items;
                   setApps(data);
@@ -1240,7 +1283,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                 }
               }
             } else {
-              const snap = await withServerConfirmation(() => getDoc(doc(db, 'store_data', d.path)), 8000);
+              const snap = await withServerConfirmation(() => getDocFromServer(doc(db, 'store_data', d.path)), 12000);
               if (snap.exists()) {
                 const data = (d as any).key ? (snap.data() as any)[(d as any).key] : snap.data();
                 if (data) {
