@@ -92,16 +92,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<GlobalSettings>(() => {
     if (isCurrentlyAdminPath) return { logo_url: "", site_title: "Loading Live Config...", meta_description: "", favicon_url: "", helpline_whatsapp: "", helpline_telegram: "", support_email: "", disclaimer_text: "", ethics_discrimination_text: "", ticker_text: "", animations_enabled: true, categories: [], banners: [], quick_links: [], website_faqs: [], developers: [] };
     if (initialData?.settings && initialData.settings.site_title) return initialData.settings;
-    if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return { logo_url: "", site_title: "My Site", meta_description: "", favicon_url: "", helpline_whatsapp: "", helpline_telegram: "", support_email: "", disclaimer_text: "", ethics_discrimination_text: "", ticker_text: "", animations_enabled: true, categories: [], banners: [], quick_links: [], website_faqs: [], developers: [] };
+    if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return { logo_url: "", site_title: "", meta_description: "", favicon_url: "", helpline_whatsapp: "", helpline_telegram: "", support_email: "", disclaimer_text: "", ethics_discrimination_text: "", ticker_text: "", animations_enabled: true, categories: [], banners: [], quick_links: [], website_faqs: [], developers: [] };
     try {
       const cached = localStorage.getItem('rummystore_settings');
       if (cached) {
         const parsed = JSON.parse(cached);
         if (parsed && parsed.site_title) return parsed;
       }
-      return { logo_url: "", site_title: "My Site", meta_description: "", favicon_url: "", helpline_whatsapp: "", helpline_telegram: "", support_email: "", disclaimer_text: "", ethics_discrimination_text: "", ticker_text: "", animations_enabled: true, categories: [], banners: [], quick_links: [], website_faqs: [], developers: [] };
+      return { logo_url: "", site_title: "", meta_description: "", favicon_url: "", helpline_whatsapp: "", helpline_telegram: "", support_email: "", disclaimer_text: "", ethics_discrimination_text: "", ticker_text: "", animations_enabled: true, categories: [], banners: [], quick_links: [], website_faqs: [], developers: [] };
     } catch {
-      return { logo_url: "", site_title: "My Site", meta_description: "", favicon_url: "", helpline_whatsapp: "", helpline_telegram: "", support_email: "", disclaimer_text: "", ethics_discrimination_text: "", ticker_text: "", animations_enabled: true, categories: [], banners: [], quick_links: [], website_faqs: [], developers: [] };
+      return { logo_url: "", site_title: "", meta_description: "", favicon_url: "", helpline_whatsapp: "", helpline_telegram: "", support_email: "", disclaimer_text: "", ethics_discrimination_text: "", ticker_text: "", animations_enabled: true, categories: [], banners: [], quick_links: [], website_faqs: [], developers: [] };
     }
   });
   const [news, setNews] = useState<NewsItem[]>(() => {
@@ -370,9 +370,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
               setApps(prev => {
                 if (backup.apps && Array.isArray(backup.apps)) {
-                  if (!isAdminRoute || prev.length === 0 || JSON.stringify(prev) !== JSON.stringify(backup.apps)) {
-                    localStorage.setItem('rummystore_apps', JSON.stringify(backup.apps));
-                    return backup.apps;
+                  const prevMap = new Map(prev.map(a => [a.id, a.more_information_url]));
+                  const merged = backup.apps.map((app: any) => ({
+                    ...app,
+                    more_information_url: app.more_information_url || prevMap.get(app.id) || ''
+                  }));
+                  if (!isAdminRoute || prev.length === 0 || JSON.stringify(prev) !== JSON.stringify(merged)) {
+                    localStorage.setItem('rummystore_apps', JSON.stringify(merged));
+                    return merged;
                   }
                 }
                 return prev;
@@ -592,15 +597,24 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         }
         
         if (fetchedData) {
-          const data = isAdmin ? loadedApps : loadedApps.map((app: any) => {
-            const publicApp = { ...app };
-            delete publicApp.more_information_url;
-            delete publicApp.encrypted_download_url;
-            delete publicApp.download_url;
-            return publicApp;
+          setApps(prev => {
+            const prevMap = new Map(prev.map(a => [a.id, a.more_information_url]));
+            const data = loadedApps.map((app: any) => {
+              const publicApp = { ...app };
+              const prevUrl = prevMap.get(app.id);
+              if (prevUrl && (!publicApp.more_information_url || publicApp.more_information_url === '')) {
+                publicApp.more_information_url = prevUrl;
+              }
+              if (!isAdmin) {
+                delete publicApp.more_information_url;
+                delete publicApp.encrypted_download_url;
+                delete publicApp.download_url;
+              }
+              return publicApp;
+            });
+            localStorage.setItem('rummystore_apps', JSON.stringify(data));
+            return JSON.stringify(prev) === JSON.stringify(data) ? prev : data;
           });
-          setApps(prev => { console.log("DataContext setApps:", data.length); return JSON.stringify(prev) === JSON.stringify(data) ? prev : data; });
-          localStorage.setItem('rummystore_apps', JSON.stringify(data));
           
           setAppsSyncedWithServer(true);
           setServerAppsFetched(true);
@@ -1269,8 +1283,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                   }
                 }
                 if (allApps.length > 0) {
-                  setApps(allApps);
-                  localStorage.setItem('rummystore_apps', JSON.stringify(allApps));
+                  setApps(prev => {
+                    const prevMap = new Map(prev.map(a => [a.id, a.more_information_url]));
+                    const merged = allApps.map((a: any) => ({
+                      ...a,
+                      more_information_url: a.more_information_url || prevMap.get(a.id) || ''
+                    }));
+                    localStorage.setItem('rummystore_apps', JSON.stringify(merged));
+                    return merged;
+                  });
                   fetchedAny = true;
                 }
               } else {

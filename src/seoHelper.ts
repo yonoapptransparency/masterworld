@@ -567,14 +567,14 @@ function renderHome(apps: any[], settings: any, news: any[], blogs: any[], video
       </div>
       <div class="grid lg:grid-cols-[2fr,1fr] gap-8">
         <div class="bg-white dark:bg-zinc-900 p-6 rounded-[28px] border border-black/5 shadow-sm">
-          <h2 class="text-xl font-bold mb-4 px-2 text-left">Popular E-Sports virtual clients</h2>
+          <h2 class="text-xl font-bold mb-4 px-2 text-left">Latest Applications</h2>
           <div class="flex flex-col">${appsHtml}</div>
         </div>
         <div class="space-y-6">
           <div class="bg-white dark:bg-zinc-900 p-6 rounded-[28px] border border-black/5 shadow-sm">
-            <h3 class="font-bold text-md mb-4 text-left">Latest Archives</h3>
+            <h3 class="font-bold text-md mb-4 text-left">Latest News</h3>
             <div class="flex flex-col gap-3">${newsHtml}</div>
-            <a href="/news" class="block text-xs font-bold text-blue-500 hover:underline mt-4 text-left">View All Updates →</a>
+            <a href="/news" class="block text-xs font-bold text-blue-500 hover:underline mt-4 text-left">View All →</a>
           </div>
         </div>
       </div>
@@ -697,13 +697,13 @@ function renderNewsList(news: any[], settings: any) {
     cards += `
       <a href="/news/${encodeURIComponent(getField(n, 'slug'))}" class="block p-6 bg-white dark:bg-zinc-900 border border-black/5 hover:border-blue-500/25 rounded-3xl transition text-left">
         <span class="text-[10px] font-bold text-blue-500 uppercase">${escapeHtml(getField(n, 'category') || 'Report')}</span>
-        <span class="text-[10px] font-bold text-zinc-400 uppercase ml-2">${escapeHtml(getField(n, 'created_at') || 'May 2026')}</span>
+        <span class="text-[10px] font-bold text-zinc-400 uppercase ml-2">${escapeHtml(getField(n, 'created_at') || '')}</span>
         <h3 class="text-xl font-bold mt-1 mb-2 text-zinc-900 dark:text-white leading-snug">${escapeHtml(getField(n, 'title'))}</h3>
         <p class="text-sm text-zinc-500 max-w-3xl line-clamp-2 leading-relaxed">${escapeHtml(getField(n, 'description'))}</p>
       </a>
     `;
   });
-  return `<div class="py-6 text-center container max-w-3xl mx-auto"><h1 class="text-3xl font-extrabold mb-8 text-zinc-900 dark:text-white">Gaming News & Updates</h1><div class="flex flex-col gap-4">${cards || '<p class="text-zinc-400 py-10">No publications.</p>'}</div></div>`;
+  return `<div class="py-6 text-center container max-w-3xl mx-auto"><h1 class="text-3xl font-extrabold mb-8 text-zinc-900 dark:text-white">News</h1><div class="flex flex-col gap-4">${cards || '<p class="text-zinc-400 py-10">No articles available.</p>'}</div></div>`;
 }
 
 function renderNewsDetail(slug: string, news: any[], settings: any) {
@@ -712,7 +712,7 @@ function renderNewsDetail(slug: string, news: any[], settings: any) {
   if (!item) return `<div class="py-12 text-center"><h1 class="text-2xl font-bold">Failed to load article.</h1><a href="/news" class="text-blue-500 hover:underline">Go Back</a></div>`;
   
   const title = getField(item, 'title');
-  const dateStr = getField(item, 'created_at') || 'May 2026';
+  const dateStr = getField(item, 'created_at') || '';
   const author = getField(item, 'ceo_name', 'System Author');
   const cat = getField(item, 'category', 'Report');
   const content = getField(item, 'content') || getField(item, 'description', '');
@@ -731,13 +731,13 @@ function renderBlogsList(blogs: any[], settings: any) {
   blogs.forEach(b => {
     cards += `
       <a href="/blog/${encodeURIComponent(getField(b, 'slug'))}" class="block p-6 bg-white dark:bg-zinc-900 border border-black/5 hover:border-blue-500/25 rounded-3xl transition text-left">
-        <span class="text-[10px] font-bold text-zinc-400 uppercase">${escapeHtml(getField(b, 'created_at') || 'May 2026')}</span>
+        <span class="text-[10px] font-bold text-zinc-400 uppercase">${escapeHtml(getField(b, 'created_at') || '')}</span>
         <h3 class="text-xl font-bold mt-1 mb-2 text-zinc-900 dark:text-white leading-snug">${escapeHtml(getField(b, 'title'))}</h3>
         <p class="text-sm text-zinc-500 max-w-3xl line-clamp-2 leading-relaxed">${escapeHtml(stripHtml(getField(b, 'excerpt') || getField(b, 'content', '').substring(0, 140)))}</p>
       </a>
     `;
   });
-  return `<div class="py-6 text-center container max-w-3xl mx-auto"><h1 class="text-3xl font-extrabold mb-8 text-zinc-900 dark:text-white">Strategy Guides & Analysis</h1><div class="flex flex-col gap-4">${cards || '<p class="text-zinc-400 py-10">No strategy posts.</p>'}</div></div>`;
+  return `<div class="py-6 text-center container max-w-3xl mx-auto"><h1 class="text-3xl font-extrabold mb-8 text-zinc-900 dark:text-white">Blogs</h1><div class="flex flex-col gap-4">${cards || '<p class="text-zinc-400 py-10">No posts available.</p>'}</div></div>`;
 }
 
 function renderBlogDetail(slug: string, blogs: any[], settings: any) {
@@ -746,7 +746,7 @@ function renderBlogDetail(slug: string, blogs: any[], settings: any) {
   if (!item) return `<div class="py-12 text-center"><h1 class="text-2xl font-bold">Failed to load guide.</h1><a href="/blogs" class="text-blue-500 hover:underline">Go Back</a></div>`;
   
   const title = getField(item, 'title');
-  const dateStr = getField(item, 'created_at') || 'May 2026';
+  const dateStr = getField(item, 'created_at') || '';
   const author = getField(item, 'author', 'System Author');
   const content = getField(item, 'content', '');
   const sanitizedContent = sanitizeHtml(content);
@@ -772,7 +772,7 @@ function renderVideosList(videos: any[], settings: any) {
       </a>
     `;
   });
-  return `<div class="py-6 text-center container max-w-3xl mx-auto"><h1 class="text-3xl font-extrabold mb-8 text-zinc-900 dark:text-white">Video Reviews</h1><div class="grid sm:grid-cols-3 gap-4">${cards || '<p class="text-zinc-400 py-10 col-span-full">No video guides.</p>'}</div></div>`;
+  return `<div class="py-6 text-center container max-w-3xl mx-auto"><h1 class="text-3xl font-extrabold mb-8 text-zinc-900 dark:text-white">Videos</h1><div class="grid sm:grid-cols-3 gap-4">${cards || '<p class="text-zinc-400 py-10 col-span-full">No videos available.</p>'}</div></div>`;
 }
 
 function renderVideoDetail(slug: string, videos: any[], settings: any) {
@@ -915,13 +915,13 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   const news = data.news || [];
   const blogs = data.blogs || [];
   const videos = data.videos || [];
-  const siteTitle = getField(settings, 'site_title') || 'RummyDex';
+  const siteTitle = getField(settings, 'site_title') || '';
   let title = siteTitle;
   let description = getField(settings, 'meta_description', '');
-  if (!description) description = "A premium digital platform for applications and tools.";
+  if (!description) description = "";
   
   let keywords = getField(settings, 'seo_keywords', '');
-  if (!keywords) keywords = "app clearance, premium applications, digital tools, platform, tech specs, verified apps";
+  if (!keywords) keywords = "";
   // Limit keywords to 15 terms to prevent keyword stuffing penalties
   if (keywords) {
     const keywordArray = keywords.split(',').map(k => k.trim()).filter(Boolean);
@@ -929,10 +929,10 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       keywords = keywordArray.slice(0, 15).join(', ');
     }
   }
-  let ogImage = "https://res.cloudinary.com/diewalae4/image/upload/v1784896838/ezgif-64180dd8ca74703b_rpungk.webp";
-  let author = siteTitle || "Platform Administrator";
+  let ogImage = "";
+  let author = siteTitle || "";
   let canonicalUrlOverride: string | null = null;
-  let faviconUrl = "https://res.cloudinary.com/diewalae4/image/upload/v1784896838/ezgif-64180dd8ca74703b_rpungk.webp";
+  let faviconUrl = "";
   
   let isNotFound = false;
   const rawPathStr = urlPath.split('?')[0].split('#')[0];
@@ -1107,55 +1107,53 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       'responsibility', 'terms', 'videos', 'developers', 'submit-app'
     ];
     
-    if (validStaticRoutes.includes(cleanPathLower)) {
-      isNotFound = false;
-      if (cleanPathLower === 'about') {
-        title = `About Us | ${siteTitle}`;
-        description = `Learn more about our mission, vision, and the premium services we offer on our platform.`;
-      } else if (cleanPathLower === 'blogs' || cleanPathLower === 'blog') {
-        title = `Official Blogs & Insights | ${siteTitle}`;
-        description = `Explore our official blog articles, professional guides, gameplay tips, and deep platform reviews.`;
-      } else if (cleanPathLower === 'contact') {
-        title = `Contact Us | ${siteTitle}`;
-        description = `Get in touch with our professional support team. We are here to help you with your inquiries, feedback, and technical assistance.`;
-      } else if (cleanPathLower === 'disclaimer') {
-        title = `Disclaimer | ${siteTitle}`;
-        description = `Read our platform disclaimer regarding content accuracy, fair play verification, and third-party links.`;
-      } else if (cleanPathLower === 'ethics') {
-        title = `Code of Ethics & Content Policy | ${siteTitle}`;
-        description = `Discover our strict code of ethics, licensing standards, and platform content guidelines.`;
-      } else if (cleanPathLower === 'new-apps') {
-        title = `New Releases & Up-and-Coming Apps | ${siteTitle}`;
-        description = `Stay updated with our latest releases, featured digital tools, and upcoming app launches.`;
-      } else if (cleanPathLower === 'news') {
-        title = `Latest News & Press Updates | ${siteTitle}`;
-        description = `Browse official news bulletins, press announcements, security reports, and direct system updates.`;
-      } else if (cleanPathLower === 'notice') {
-        title = `Important System Notice | ${siteTitle}`;
-        description = `Read our critical system alerts, maintenance updates, and important security advisories.`;
-      } else if (cleanPathLower === 'privacy') {
-        title = `Privacy Policy | ${siteTitle}`;
-        description = `Read our comprehensive privacy policy to understand how we protect, secure, and handle your personal data.`;
-      } else if (cleanPathLower === 'report-removal') {
-        title = `Report & Removal Request | ${siteTitle}`;
-        description = `Submit a content or application removal request to our legal and compliance team.`;
-      } else if (cleanPathLower === 'responsibility') {
-        title = `Responsible Gaming & Play Policy | ${siteTitle}`;
-        description = `Learn about our commitment to user safety, self-exclusion tools, and responsible gameplay guidelines.`;
-      } else if (cleanPathLower === 'terms') {
-        title = `Terms of Service & User Agreement | ${siteTitle}`;
-        description = `Review our terms of service, platform rules, and user agreements governing the use of our services.`;
-      } else if (cleanPathLower === 'videos') {
-        title = `Video Previews & Walkthroughs | ${siteTitle}`;
-        description = `Watch high-definition videos, gameplay showcases, and technical walkthroughs of our certified applications.`;
-      } else if (cleanPathLower === 'developers') {
+    isNotFound = false;
+    if (cleanPathLower === 'about') {
+      title = `About | ${siteTitle}`;
+      description = `About ${siteTitle}`;
+    } else if (cleanPathLower === 'blogs' || cleanPathLower === 'blog') {
+      title = `Blogs | ${siteTitle}`;
+      description = `Official blog articles and insights for ${siteTitle}`;
+    } else if (cleanPathLower === 'contact') {
+      title = `Contact | ${siteTitle}`;
+      description = `Contact the team at ${siteTitle}`;
+    } else if (cleanPathLower === 'disclaimer') {
+      title = `Disclaimer | ${siteTitle}`;
+      description = `Platform disclaimer for ${siteTitle}`;
+    } else if (cleanPathLower === 'ethics') {
+      title = `Ethics | ${siteTitle}`;
+      description = `Ethics and content policy for ${siteTitle}`;
+    } else if (cleanPathLower === 'new-apps') {
+      title = `New Apps | ${siteTitle}`;
+      description = `Latest releases and featured apps on ${siteTitle}`;
+    } else if (cleanPathLower === 'news') {
+      title = `News | ${siteTitle}`;
+      description = `Latest news and updates for ${siteTitle}`;
+    } else if (cleanPathLower === 'notice') {
+      title = `Notice | ${siteTitle}`;
+      description = `Important system notices for ${siteTitle}`;
+    } else if (cleanPathLower === 'privacy') {
+      title = `Privacy Policy | ${siteTitle}`;
+      description = `Privacy policy for ${siteTitle}`;
+    } else if (cleanPathLower === 'report-removal') {
+      title = `Report & Removal | ${siteTitle}`;
+      description = `Content removal policy for ${siteTitle}`;
+    } else if (cleanPathLower === 'responsibility') {
+      title = `Responsibility | ${siteTitle}`;
+      description = `Safety and responsibility guidelines for ${siteTitle}`;
+    } else if (cleanPathLower === 'terms') {
+      title = `Terms of Service | ${siteTitle}`;
+      description = `Terms of service for ${siteTitle}`;
+    } else if (cleanPathLower === 'videos') {
+      title = `Videos | ${siteTitle}`;
+      description = `Video previews and walkthroughs for ${siteTitle}`;
+    } else if (cleanPathLower === 'developers') {
         title = `Meet Our Team | ${siteTitle}`;
         description = `Meet the brilliant developers behind ${siteTitle}. Discover our team's expertise and passion.`;
       } else if (cleanPathLower === 'submit-app') {
         title = `Submit Your App | ${siteTitle}`;
         description = `Submit your Android application for listing and promotion on ${siteTitle}.`;
-      }
-    } else {
+      } else {
       const possibleSlug = decodeURIComponent(urlPath.split('?')[0].split('#')[0].replace(/^\/|\/$/g, ''));
       if (possibleSlug && possibleSlug !== '') {
         const app = apps.find((a: any) => getField(a, 'slug')?.toLowerCase() === possibleSlug.toLowerCase());
@@ -1326,7 +1324,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     const hostLower = fallbackHost.toLowerCase();
     
     // 1. If the host URL explicitly contains "masterworld", "dev-", "pre-", "localhost", or "127.0.0.1", it's the admin or dev repo deployment.
-    if (hostLower.includes('masterworld') || hostLower.includes('dev-') || hostLower.includes('pre-') || hostLower.includes('localhost') || hostLower.includes('127.0.0.1')) {
+    if (hostLower.includes('masterworld') || hostLower.includes('localhost') || hostLower.includes('127.0.0.1')) {
       return true;
     }
     
@@ -1390,7 +1388,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   const configScript = `
     <script id="firebase-config-loader">
       ${safeFirebaseConfig ? `window.__FIREBASE_CONFIG__ = ${JSON.stringify(safeFirebaseConfig).replace(/</g, '\\u003c')};` : ''}
-      window.__INITIAL_DATA__ = ${JSON.stringify({ apps, settings, news, blogs, videos }).replace(/</g, '\\u003c')};
+      window.__INITIAL_DATA__ = null;
     </script>
   `;
 

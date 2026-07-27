@@ -184,11 +184,6 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   const jsonString = JSON.stringify(errInfo, null, 2);
   console.warn('Firestore Error: ', jsonString);
   
-  // Show alert to user for immediate feedback in admin panel
-  if (path?.startsWith('store_data')) {
-    alert(`Firestore Save Failed!\n\nError: ${errorMessage}\n\nOperation: ${operationType}\nPath: ${path}\n\nCheck console for full details.`);
-  }
-  
   return new Error(jsonString);
 }
 
