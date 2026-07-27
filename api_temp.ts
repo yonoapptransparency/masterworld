@@ -76,16 +76,7 @@ function getRawFirebaseConfig(): any {
   
   // 1. Try local/config file
   try {
-    let rawData = '';
-    try {
-      rawData = fs.readFileSync(path.join(process.cwd(), 'firebase-applet-config.json'), 'utf8');
-    } catch(e) {
-      try {
-        rawData = fs.readFileSync(path.join(__dirname, 'firebase-applet-config.json'), 'utf8');
-      } catch(e2) {
-        rawData = fs.readFileSync(path.join(__dirname, '..', 'firebase-applet-config.json'), 'utf8');
-      }
-    }
+    const rawData = fs.readFileSync(path.join(process.cwd(), 'firebase-applet-config.json'), 'utf8');
     const config = JSON.parse(rawData);
     if (config.projectId && isRealValue(config.projectId)) {
       config.firestoreDatabaseId = config.firestoreDatabaseId || config.databaseId || process.env.VITE_FIREBASE_DATABASE_ID;
@@ -480,7 +471,7 @@ const getFallbackToken = () => ["fallback", "token", "secret"].join("_");
 const TOKEN_SECRET = process.env.TOKEN_SECRET || getFallbackToken();
 const SESSION_SECRET = process.env.SESSION_SECRET || "fallback_session_secret_dev";
 
-async function startServer() {
+
   const app = express();
   app.set('trust proxy', 1);
   const PORT = 3000;
@@ -3264,119 +3255,9 @@ warmUpSecureLinksCache();
   });
 
 
-  // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
-    try {
-      const { createServer: createViteServer } = await import("vite");
-      const isHmrDisabled = process.env.DISABLE_HMR === 'true';
-      const vite = await createViteServer({
-        server: {
-          middlewareMode: true,
-          hmr: isHmrDisabled ? false : undefined,
-        },
-        appType: "spa",
-      });
-      app.use(vite.middlewares);
-    } catch (e) {
-      console.error("Failed to initialize Vite middleware:", e);
-    }
-  } else {
-    const getDistPath = (): string => {
-      const pathsToTry = [
-        path.join(process.cwd(), 'dist'),
-        path.resolve(__dirname, 'dist'),
-        path.resolve(__dirname, '..', 'dist'),
-        __dirname
-      ];
-      for (const p of pathsToTry) {
-        if (fs.existsSync(path.join(p, 'index.html'))) {
-          return p;
-        }
-      }
-      return path.join(process.cwd(), 'dist'); // failsafe fallback
-    };
+  
 
-    const distPath = getDistPath();
-
-    // Specifically handle assets (JS, CSS, Images, Fonts) with long-term immutable caching FIRST
-    app.use('/assets', express.static(path.join(distPath, 'assets'), {
-      maxAge: '1y',
-      immutable: true,
-      fallthrough: true,
-      setHeaders: (res) => {
-        const farFuture = new Date(Date.now() + 31536000000).toUTCString();
-        res.setHeader('Expires', farFuture);
-        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-      }
-    }));
-
-    // Production static files with aggressive caching for dynamic views and elements
-    app.use(express.static(distPath, {
-      maxAge: '1d', // Cache for 1 day instead of 1 year for safety but performance
-      etag: true,
-      lastModified: true,
-      index: false,
-      setHeaders: (res, filePath) => {
-        if (filePath.endsWith('.html')) {
-          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-        } else {
-          const farFuture = new Date(Date.now() + 86400000).toUTCString();
-          res.setHeader('Expires', farFuture);
-          res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=43200');
-        }
-      }
-    }));
-    
-    let cachedIndexHtml: string | null = null;
-
-    app.get('*', async (req, res) => {
-      // Basic WAF / Scanner Mitigation for SPA fallback
-      if (req.originalUrl.match(/\.(php|env|yml|yaml|ini|conf|log|sql|tar|gz|zip|bak|git|rsa)$/i) || req.originalUrl.includes('/etc/') || req.originalUrl.includes('/proc/') || req.originalUrl.includes('../') || req.originalUrl.includes('/.aws/')) {
-        return res.status(404).type('text/plain').send('Not found');
-      }
-      let templatePath = path.join(distPath, 'index.html');
-      if (!fs.existsSync(templatePath)) {
-        templatePath = path.join(process.cwd(), 'index.html');
-      }
-      try {
-        let template = cachedIndexHtml;
-        if (!template) {
-          template = fs.readFileSync(templatePath, 'utf-8');
-          cachedIndexHtml = template;
-        }
-        const protocol = req.headers["x-forwarded-proto"] || req.protocol || "https";
-        const host = req.headers["x-forwarded-host"] || req.get("host") || (process.env.PUBLIC_DOMAIN ? new URL(process.env.PUBLIC_DOMAIN).host : "www.rummydex.com");
-        const hostUrl = `${String(protocol).split(',')[0].trim()}://${String(host).split(',')[0].trim()}`;
-        const userAgent = req.headers['user-agent'] || '';
-        const seoResult = await injectSeoTags(template, req.originalUrl, hostUrl, userAgent);
-        const html = typeof seoResult === 'string' ? seoResult : (seoResult.html || template);
-        const isNotFound = typeof seoResult === 'object' && seoResult ? seoResult.isNotFound : false;
-        const statusCode = isNotFound ? 404 : 200;
-
-        let cacheControl = isNotFound ? 'no-cache, no-store, must-revalidate' : 'public, max-age=1800';
-        if (req.originalUrl === '/' || req.originalUrl === '') {
-          cacheControl = 'public, max-age=300';
-        } else if (['/about', '/contact', '/privacy', '/terms', '/ethics', '/disclaimer', '/notice', '/responsibility', '/developers', '/report-removal'].includes(req.originalUrl)) {
-          cacheControl = 'public, max-age=3600';
-        }
-
-        res.status(statusCode).set({ 
-          'Content-Type': 'text/html',
-          'Cache-Control': cacheControl,
-          'Pragma': isNotFound ? 'no-cache' : '',
-          'Expires': isNotFound ? '0' : ''
-        }).send(html);
-      } catch (e) {
-        console.error("SEO fallback error in catch-all, serving file as-is:", e);
-        res.status(200).set({
-          'Content-Type': 'text/html',
-          'Cache-Control': 'no-cache, no-store, must-revalidate'
-        }).sendFile(templatePath);
-      }
-    });
-  }
-
-  // Global Express Error Handler
+// Global Express Error Handler
   app.use((err: any, req: any, res: any, next: any) => {
     console.error(`[EXPRESS GLOBAL ERROR] ${req.method} ${req.originalUrl}:`, err);
     try {
@@ -3395,25 +3276,6 @@ warmUpSecureLinksCache();
     res.status(500).send("<h1>500 Internal Server Error</h1><p>An unexpected error occurred.</p>");
   });
 
-  const server = app.listen(PORT as number, "0.0.0.0", () => {
-    console.log(`Server running on port ${PORT}`);
-    // Warm up the local memory cache from the backup files (no Firestore dynamic connections on boot)
-    fetchStoreData()
-      .then(() => {
-        console.log("Local store cache warmed up successfully from backup files.");
-      })
-      .catch(e => {
-        console.warn("Local store cache warming failed:", e);
-      });
-  });
+  const server = module.exports = app;
 
-  server.on('error', (err: any) => {
-    if (err.code === 'EADDRINUSE') {
-      console.error(`[SERVER ERROR] Port ${PORT} is already in use. A dev server process may already be running on 0.0.0.0:${PORT}.`);
-    } else {
-      console.error('[SERVER ERROR]', err);
-    }
-  });
-}
 
-startServer();
