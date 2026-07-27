@@ -2777,8 +2777,7 @@ export default function AdminDashboard() {
              if (res.ok) {
                 encryptedUrlVal = (await res.json()).encrypted;
              } else {
-                const errorText = await res.text();
-                toast(`Failed to secure URL: ${errorText}`, 'error');
+                toast(`Failed to secure URL: ${await res.text()}`, `Failed to secure URL: ${await res.text()}`.toLowerCase().includes('failed') || `Failed to secure URL: ${await res.text()}`.toLowerCase().includes('error') ? 'error' : 'success');
                 return; // Abort save if encryption fails
              }
           } catch (err: any) {

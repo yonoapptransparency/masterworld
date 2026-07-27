@@ -58,27 +58,7 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
       setError(null);
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-      const email = user.email || "";
-      const idToken = await user.getIdToken();
-      const refreshToken = user.refreshToken || "";
-      const verifyRes = await fetch("/api/v1/admin/google-login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken }),
-      });
-      let verifyData: any = {};
-      let responseText = "";
-      try {
-        responseText = await verifyRes.text();
-        verifyData = JSON.parse(responseText);
-      } catch(e) {
-        verifyData.error = "Non-JSON response: " + responseText.substring(0, 100);
-      }
-      if (!verifyRes.ok) throw new Error(verifyData.error || "Google login verification failed");
-      onSuccess(verifyData.token, refreshToken, email);
-
+      await signInWithRedirect(auth, provider);
     } catch (err: any) {
       console.error('Google login error:', err);
       if (err.code === 'auth/popup-closed-by-user') {
