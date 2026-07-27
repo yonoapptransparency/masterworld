@@ -2461,7 +2461,7 @@ export default function AdminDashboard() {
         settingsInitializedRef.current = true;
       }
     }
-  }, [loading, apps, news, settings, contextBlogs, videos, isAdminUser, loadedFromServer]);
+  }, [loading, apps, news, settings, contextBlogs, videos, isAdminUser]);
 
   const handleReloadCloudData = async () => {
     setSaving(true);
