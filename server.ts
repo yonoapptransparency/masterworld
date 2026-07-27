@@ -658,8 +658,23 @@ async function startServer() {
   ], async (req, res, next) => {
     console.log('--- FAVICON/LOGO ROUTE HIT ---', req.originalUrl);
     try {
-      const imageUrl = 'https://res.cloudinary.com/diewalae4/image/upload/v1784896838/ezgif-64180dd8ca74703b_rpungk.webp';
-      console.log('--- FAVICON/LOGO ROUTE RESOLVED TO HARDCODED CLOUDINARY ---', imageUrl);
+      let imageUrl = '';
+      try {
+        const { fetchStoreData } = require('./src/seoHelper');
+        const storeData = await fetchStoreData();
+        if (storeData && storeData.settings) {
+          imageUrl = (storeData.settings.favicon_url && storeData.settings.favicon_url.trim()) 
+            || (storeData.settings.logo_url && storeData.settings.logo_url.trim()) 
+            || '';
+        }
+      } catch (dataErr) {
+        console.warn("Could not retrieve store settings for favicon, using default fallback:", dataErr);
+      }
+
+      if (!imageUrl) {
+        imageUrl = 'https://res.cloudinary.com/diewalae4/image/upload/v1784896838/ezgif-64180dd8ca74703b_rpungk.webp';
+      }
+      console.log('--- FAVICON/LOGO ROUTE RESOLVED TO ---', imageUrl);
 
       try {
         // Dynamic image proxy to bypass CORS/Same-origin and 302 redirect failure in indexing scrapers

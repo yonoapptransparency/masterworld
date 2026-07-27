@@ -136,7 +136,7 @@ export async function syncFromFirestore(): Promise<any> {
     console.log(`[SYNC] Syncing filesystem backup files with Firestore (${projectId})...`);
 
     const [settingsRes, newsRes, blogsRes, videosRes, metaRes] = await Promise.all([
-      fetch(`${baseUrl}/settings${keyParam}`).catch(() => null),
+      fetch(`${baseUrl}/public_settings${keyParam}`).catch(() => null),
       fetch(`${baseUrl}/news${keyParam}`).catch(() => null),
       fetch(`${baseUrl}/blogs${keyParam}`).catch(() => null),
       fetch(`${baseUrl}/videos${keyParam}`).catch(() => null),
