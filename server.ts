@@ -1092,6 +1092,7 @@ app.post("/api/v1/admin/login", async (req: any, res: any) => {
 app.post("/api/v1/admin/google-login", async (req: any, res: any) => {
   const { idToken } = req.body ?? {};
   if (!idToken) {
+    console.error("Login failed: Missing idToken");
     return res.status(400).json({ error: "Missing Firebase ID Token." });
   }
 
@@ -1127,7 +1128,11 @@ app.post("/api/v1/admin/google-login", async (req: any, res: any) => {
           if (lookupRes.ok) {
             const lookupData = await lookupRes.json();
             email = lookupData?.users?.[0]?.email || "";
+          } else {
+             console.error("identitytoolkit lookup failed:", await lookupRes.text());
           }
+        } else {
+           console.error("identitytoolkit lookup failed: No API Key found");
         }
       } catch (httpsErr) {
         console.error("Firebase accounts:lookup verification failed:", httpsErr);
@@ -1135,10 +1140,12 @@ app.post("/api/v1/admin/google-login", async (req: any, res: any) => {
     }
 
     if (!email) {
+      console.error("Login failed: Could not verify identity token. idToken begins with:", idToken.substring(0, 15));
       return res.status(401).json({ error: "Unauthorized: Could not verify identity token." });
     }
 
     const configuredAdminEmail = String(process.env.ADMIN_EMAIL || "defentechscholar@gmail.com").toLowerCase();
+    console.log("Comparing emails:", email, "with configured:", configuredAdminEmail);
     if (email.toLowerCase().trim() !== configuredAdminEmail) {
       return res.status(403).json({ error: `Unauthorized: ${email} is not configured as an administrator.` });
     }
