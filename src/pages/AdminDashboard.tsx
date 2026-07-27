@@ -1,7 +1,10 @@
-import { adminFetch, clearSession, loadSession } from "../services/adminAuthService";
+import { adminFetch, clearSession, loadSession } from '../services/adminAuthService';
+/**
+ * AdminDashboard modification control panel
+ * Supports managing banners, directories, video walkthroughs, and blogs, synchronized live with DB.
+ */
 
 import React, { useState, useEffect } from 'react';
-import { toast } from "../components/Toast";
 import { Link, Navigate } from 'react-router-dom';
 import { getAdminPath } from '../lib/utils';
 import { LayoutDashboard, TrendingUp, Menu, X, Smartphone, Users, FileText, Settings, ShieldAlert, Shield, LogOut, Save, Upload, Type, Link as LinkIcon, ToggleLeft, Layers, Newspaper, Plus, Trash2, Video as VideoIcon, Github, GitBranch, RefreshCw, CheckCircle2, AlertTriangle, Search, MessageSquare, CheckSquare, Sparkles, Compass, HelpCircle, Edit2, ChevronRight } from 'lucide-react';
@@ -279,7 +282,10 @@ const OldAppsTabUnused = React.memo(({ appsList, editingAppId, setEditingAppId, 
       const effectiveUser = usr || (session ? { email: session.email, uid: 'local', getIdToken: async () => session.idToken } : null);
       if (effectiveUser) {
         try {
-          const res = await adminFetch('/api/v1/admin/verify');
+          const idToken = await effectiveUser.getIdToken();
+          const res = await adminFetch('/api/v1/admin/verify', {
+            headers: { 'Authorization': `Bearer ${idToken}` }
+          });
           const data = await res.json();
           if (data.authorized && active) {
             setIsUnlocked(true);
@@ -512,12 +518,12 @@ const OldAppsTabUnused = React.memo(({ appsList, editingAppId, setEditingAppId, 
                         });
                         const data = await res.json();
                         if (data.decrypted) {
-                          toast('Decrypted URL: ' + data.decrypted, 'Decrypted URL: '.toLowerCase().includes('failed') || 'Decrypted URL: '.toLowerCase().includes('error') ? 'error' : 'success');
+                          alert('Decrypted URL: ' + data.decrypted);
                         } else {
-                          toast('Failed to decrypt URL.', 'Failed to decrypt URL.'.toLowerCase().includes('failed') || 'Failed to decrypt URL.'.toLowerCase().includes('error') ? 'error' : 'success');
+                          alert('Failed to decrypt URL.');
                         }
                       } catch(e) {
-                        toast('Error decrypting URL.', 'Error decrypting URL.'.toLowerCase().includes('failed') || 'Error decrypting URL.'.toLowerCase().includes('error') ? 'error' : 'success');
+                        alert('Error decrypting URL.');
                       }
                     }}
                     className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg font-medium text-sm transition-all whitespace-nowrap"
@@ -762,9 +768,9 @@ const GithubTab = React.memo(({ pushAllToGitHub, gitConfig, saveGitConfig, gener
     e.preventDefault();
     try {
       await saveGitConfig(localConfig);
-      toast('GitHub Configuration Saved successfully.', 'GitHub Configuration Saved successfully.'.toLowerCase().includes('failed') || 'GitHub Configuration Saved successfully.'.toLowerCase().includes('error') ? 'error' : 'success');
+      alert('GitHub Configuration Saved successfully.');
     } catch (err: any) {
-      toast(`Error saving GitHub config: ${err.message}`, `Error saving GitHub config: ${err.message}`.toLowerCase().includes('failed') || `Error saving GitHub config: ${err.message}`.toLowerCase().includes('error') ? 'error' : 'success');
+      alert(`Error saving GitHub config: ${err.message}`);
     }
   };
 
@@ -820,15 +826,15 @@ const GithubTab = React.memo(({ pushAllToGitHub, gitConfig, saveGitConfig, gener
             setLogs(prev => [...prev, "⚠️ WARNING: Token does not have PUSH permissions. Sync will fail."]);
           }
         }
-        toast("GitHub Connection Successful!", "GitHub Connection Successful!".toLowerCase().includes('failed') || "GitHub Connection Successful!".toLowerCase().includes('error') ? 'error' : 'success');
+        alert("GitHub Connection Successful!");
       } else {
         const errMsg = data.message || data.error || data.details || `HTTP ${res.status} Error`;
         setLogs(prev => [...prev, `CONNECTION FAILED: ${errMsg}`]);
-        toast(`Connection Failed: ${errMsg}`, `Connection Failed: ${errMsg}`.toLowerCase().includes('failed') || `Connection Failed: ${errMsg}`.toLowerCase().includes('error') ? 'error' : 'success');
+        alert(`Connection Failed: ${errMsg}`);
       }
     } catch (err: any) {
       setLogs(prev => [...prev, `ERROR: ${err.message}`]);
-      toast(`Error testing connection: ${err.message}`, `Error testing connection: ${err.message}`.toLowerCase().includes('failed') || `Error testing connection: ${err.message}`.toLowerCase().includes('error') ? 'error' : 'success');
+      alert(`Error testing connection: ${err.message}`);
     } finally {
       setSyncing(false);
     }
@@ -1340,10 +1346,10 @@ const NewsTab = React.memo(({ newsList, handleAddNews, handleDeleteNews, handleN
           setSaving(true);
           try {
             await saveNews(newsList);
-            toast('News successfully saved and synchronized.', 'News successfully saved and synchronized.'.toLowerCase().includes('failed') || 'News successfully saved and synchronized.'.toLowerCase().includes('error') ? 'error' : 'success');
+            alert('News successfully saved and synchronized.');
           } catch(e) {
             console.error(e);
-            toast('Failed to save news.', 'Failed to save news.'.toLowerCase().includes('failed') || 'Failed to save news.'.toLowerCase().includes('error') ? 'error' : 'success');
+            alert('Failed to save news.');
           }
           setSaving(false);
         }} 
@@ -2111,10 +2117,12 @@ export default function AdminDashboard() {
     }
     try {
       const items = Array.from(cachedSecureMapRef.current.entries()).map(([k, v]) => ({ id: k, url: v }));
+      const idToken = await auth?.currentUser?.getIdToken();
       const res = await adminFetch('/api/v1/admin/encrypt-links', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
         },
         body: JSON.stringify({ items })
       });
@@ -2212,41 +2220,31 @@ export default function AdminDashboard() {
         
       setUser(effectiveUser);
       if (effectiveUser) {
-        
         let adminVerified = false;
         try {
           const idToken = await effectiveUser.getIdToken();
-          console.log("DEBUG: effectiveUser.email:", effectiveUser.email);
-          console.log("DEBUG: session exists?", !!session);
-          
-          const verifyRes = await adminFetch('/api/v1/admin/verify');
-          
-          console.log("DEBUG: verifyRes.status:", verifyRes.status);
+          const verifyRes = await adminFetch('/api/v1/admin/verify', {
+            headers: {
+              'Authorization': `Bearer ${idToken}`
+            }
+          });
           if (verifyRes.ok) {
             const verifyData = await verifyRes.json();
-            console.log("DEBUG: verifyData:", verifyData);
             if (verifyData.authorized) {
               adminVerified = true;
-            } else {
-              console.log("DEBUG: verifyData.authorized is false!");
             }
-          } else {
-             console.log("DEBUG: verifyRes NOT OK!");
-             if (session) { 
-                console.log("DEBUG: session exists, setting adminVerified = true");
-                adminVerified = true;
-             }
+          } else if (session) {
+             // If local session is active, fallback to true
+             adminVerified = true;
           }
         } catch (e) {
-          console.warn("DEBUG: Backend verification failed:", e);
+          console.warn("Backend verification failed or not found. Proceeding to fallback check.");
           if (session) adminVerified = true;
         }
 
-        console.log("DEBUG: before fallback, adminVerified:", adminVerified);
         if (!adminVerified) {
            const email = effectiveUser.email?.toLowerCase();
            const fallbackAdmin = (import.meta.env.VITE_ADMIN_EMAIL || '').toLowerCase();
-           console.log("DEBUG: fallback check. email:", email, "fallbackAdmin:", fallbackAdmin);
            if (fallbackAdmin && email === fallbackAdmin) {
                adminVerified = true;
            } else {
@@ -2259,16 +2257,12 @@ export default function AdminDashboard() {
                        const emailDoc = await getDoc(doc(db, 'admins', effectiveUser.email));
                        if (emailDoc.exists()) adminVerified = true;
                    }
-               } catch (err: any) {
-                   console.log("DEBUG: firestore fallback error:", err);
-               }
+               } catch (err: any) {}
            }
         }
-        
-        console.log("DEBUG: Final adminVerified:", adminVerified);
+          
         setIsAdminUser(adminVerified);
         setCheckingAuth(false);
-
       } else {
         setIsAdminUser(null);
         setCheckingAuth(false);
@@ -2305,10 +2299,12 @@ export default function AdminDashboard() {
             if (snapData) {
               if (snapData.encryptedData) {
                 try {
+                  const idToken = await auth?.currentUser?.getIdToken();
                   const res = await adminFetch('/api/v1/admin/decrypt-links', {
                     method: 'POST',
                     headers: {
-                      'Content-Type': 'application/json'
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${idToken}`
                     },
                     body: JSON.stringify({ encryptedData: snapData.encryptedData })
                   });
@@ -2332,8 +2328,12 @@ export default function AdminDashboard() {
             
             // Always attempt to overlay with local filesystem backup (helpful on Firestore under quota 429)
             try {
-              const bkRes = await adminFetch('/api/v1/admin/backup-links-get');
-              if (bkRes.ok) {
+              const idToken = await auth?.currentUser?.getIdToken();
+              if (idToken) {
+                const bkRes = await adminFetch('/api/v1/admin/backup-links-get', {
+                  headers: { 'Authorization': `Bearer ${idToken}` }
+                });
+                if (bkRes.ok) {
                   const bkJSON = await bkRes.json();
                   if (bkJSON && bkJSON.items) {
                     bkJSON.items.forEach((it: any) => {
@@ -2344,6 +2344,7 @@ export default function AdminDashboard() {
                     console.log("Overlayed secure references from container filesystem backup successfully.");
                   }
                 }
+              }
             } catch (bkErr) {
               console.warn("Failed to overlay with local backup:", bkErr);
             }
@@ -2430,9 +2431,9 @@ export default function AdminDashboard() {
       isInitializedRef.current = false;
       settingsInitializedRef.current = false;
       await refreshAll();
-      toast('GLOBAL WORKSPACE SYNC SUCCESSFUL: All local editors and visual configurations updated from Live cloud.', 'GLOBAL WORKSPACE SYNC SUCCESSFUL: All local editors and visual configurations updated from Live cloud.'.toLowerCase().includes('failed') || 'GLOBAL WORKSPACE SYNC SUCCESSFUL: All local editors and visual configurations updated from Live cloud.'.toLowerCase().includes('error') ? 'error' : 'success');
+      alert('GLOBAL WORKSPACE SYNC SUCCESSFUL: All local editors and visual configurations updated from Live cloud.');
     } catch (err: any) {
-      toast('Cloud Sync Failed: ' + (err.message || 'Check network connection.'), 'error');
+      alert('Cloud Sync Failed: ' + (err.message || 'Check network connection.'));
     } finally {
       setSaving(false);
     }
@@ -2494,9 +2495,9 @@ export default function AdminDashboard() {
       };
       await saveSettings(updatedSettings);
       triggerHaptic();
-      toast('Categories saved successfully!', 'Categories saved successfully!'.toLowerCase().includes('failed') || 'Categories saved successfully!'.toLowerCase().includes('error') ? 'error' : 'success');
+      alert('Categories saved successfully!');
     } catch (err: any) {
-      toast('Error saving categories: ' + err.message, 'Error saving categories: '.toLowerCase().includes('failed') || 'Error saving categories: '.toLowerCase().includes('error') ? 'error' : 'success');
+      alert('Error saving categories: ' + err.message);
     } finally {
       setSaving(false);
     }
@@ -2516,9 +2517,9 @@ export default function AdminDashboard() {
       };
       await saveSettings(updatedSettings);
       triggerHaptic();
-      toast('Quick Links saved successfully!', 'Quick Links saved successfully!'.toLowerCase().includes('failed') || 'Quick Links saved successfully!'.toLowerCase().includes('error') ? 'error' : 'success');
+      alert('Quick Links saved successfully!');
     } catch (err: any) {
-      toast('Error saving quick links: ' + err.message, 'Error saving quick links: '.toLowerCase().includes('failed') || 'Error saving quick links: '.toLowerCase().includes('error') ? 'error' : 'success');
+      alert('Error saving quick links: ' + err.message);
     } finally {
       setSaving(false);
     }
@@ -2554,9 +2555,9 @@ export default function AdminDashboard() {
       };
       await saveSettings(updatedSettings);
       triggerHaptic();
-      toast('Website FAQs saved successfully!', 'Website FAQs saved successfully!'.toLowerCase().includes('failed') || 'Website FAQs saved successfully!'.toLowerCase().includes('error') ? 'error' : 'success');
+      alert('Website FAQs saved successfully!');
     } catch (err: any) {
-      toast('Error saving website FAQs: ' + err.message, 'Error saving website FAQs: '.toLowerCase().includes('failed') || 'Error saving website FAQs: '.toLowerCase().includes('error') ? 'error' : 'success');
+      alert('Error saving website FAQs: ' + err.message);
     } finally {
       setSaving(false);
     }
@@ -2592,9 +2593,9 @@ export default function AdminDashboard() {
       };
       await saveSettings(updatedSettings);
       triggerHaptic();
-      toast('Developers saved successfully!', 'Developers saved successfully!'.toLowerCase().includes('failed') || 'Developers saved successfully!'.toLowerCase().includes('error') ? 'error' : 'success');
+      alert('Developers saved successfully!');
     } catch (err: any) {
-      toast('Error saving developers: ' + err.message, 'Error saving developers: '.toLowerCase().includes('failed') || 'Error saving developers: '.toLowerCase().includes('error') ? 'error' : 'success');
+      alert('Error saving developers: ' + err.message);
     } finally {
       setSaving(false);
     }
@@ -2630,7 +2631,7 @@ export default function AdminDashboard() {
         });
         triggerHaptic();
       } catch (err: any) {
-      toast('Cloud Sync Failed: ' + (err.message || err), 'error');
+        alert('Cloud Sync Failed: ' + (err.message || err));
       } finally {
         setSaving(false);
       }
@@ -2655,7 +2656,7 @@ export default function AdminDashboard() {
           });
           triggerHaptic();
         } catch (err: any) {
-      toast('Cloud Sync Failed: ' + (err.message || err), 'error');
+          alert('Cloud Sync Failed: ' + (err.message || err));
         } finally {
           setSaving(false);
         }
@@ -2725,10 +2726,10 @@ export default function AdminDashboard() {
       setBanners(updatedSettings.banners || []);
       setCategoriesList(updatedSettings.categories || []);
       triggerHaptic();
-      toast('GLOBAL SYSTEM SYNC COMPLETE: All Identity & Legal configurations published to Live.', 'GLOBAL SYSTEM SYNC COMPLETE: All Identity & Legal configurations published to Live.'.toLowerCase().includes('failed') || 'GLOBAL SYSTEM SYNC COMPLETE: All Identity & Legal configurations published to Live.'.toLowerCase().includes('error') ? 'error' : 'success');
+      alert('GLOBAL SYSTEM SYNC COMPLETE: All Identity & Legal configurations published to Live.');
     } catch (err: any) {
       console.error(err);
-      toast('Sync Failed: ' + (err.message || 'Unknown error. Check internet connection.'), 'error');
+      alert('Sync Failed: ' + (err.message || 'Unknown error. Check internet connection.'));
     } finally {
       setSaving(false);
     }
@@ -2763,23 +2764,24 @@ export default function AdminDashboard() {
           encryptedUrlVal = '';
         } else if (!trimmedUrl.startsWith('U2FsdGVkX1')) {
           try {
-                const res = await adminFetch('/api/v1/admin/encrypt', {
+             const idToken = await auth?.currentUser?.getIdToken();
+             const res = await adminFetch('/api/v1/admin/encrypt', {
                 method: 'POST',
                 headers: {
-                   'Content-Type': 'application/json'
+                   'Content-Type': 'application/json',
+                   'Authorization': `Bearer ${idToken}`
                 },
                 body: JSON.stringify({ url: trimmedUrl })
              });
              if (res.ok) {
                 encryptedUrlVal = (await res.json()).encrypted;
              } else {
-                const errorText = await res.text();
-                toast(`Failed to secure URL: ${errorText}`, 'error');
+                alert(`Failed to secure URL: ${await res.text()}`);
                 return; // Abort save if encryption fails
              }
           } catch (err: any) {
              console.error("Failed to secure URL", err);
-             toast(`Failed to secure URL: ${err.message}`, `Failed to secure URL: ${err.message}`.toLowerCase().includes('failed') || `Failed to secure URL: ${err.message}`.toLowerCase().includes('error') ? 'error' : 'success');
+             alert(`Failed to secure URL: ${err.message}`);
              return;
           }
         } else {
@@ -2860,10 +2862,10 @@ export default function AdminDashboard() {
       setAppsList(updatedApps);
       triggerHaptic();
       setEditingAppId(null);
-      toast(editingAppId ? 'Success: Application Updated & Verified on Cloud!' : 'Success: New Application Published & Verified on Cloud!', 'success');
+      alert(editingAppId ? 'Success: Application Updated & Verified on Cloud!' : 'Success: New Application Published & Verified on Cloud!');
     } catch (err: any) {
       console.error(err);
-      toast('Sync Failed: ' + (err.message || 'Unknown error. Check internet.'), 'error');
+      alert('Sync Failed: ' + (err.message || 'Unknown error. Check internet.'));
     } finally {
       setSaving(false);
     }
@@ -2890,7 +2892,7 @@ export default function AdminDashboard() {
           await saveApps(updatedApps);
           setAppsList(updatedApps);
         } catch (err: any) {
-          toast('Error deleting app: ' + err.message, 'Error deleting app: '.toLowerCase().includes('failed') || 'Error deleting app: '.toLowerCase().includes('error') ? 'error' : 'success');
+          alert('Error deleting app: ' + err.message);
         }
       }
     });
@@ -2901,9 +2903,9 @@ export default function AdminDashboard() {
     try {
       await saveNews(newsList);
       triggerHaptic();
-      toast('News saved successfully. Go to News Section to see.', 'News saved successfully. Go to News Section to see.'.toLowerCase().includes('failed') || 'News saved successfully. Go to News Section to see.'.toLowerCase().includes('error') ? 'error' : 'success');
+      alert('News saved successfully. Go to News Section to see.');
     } catch (err: any) {
-      toast('Error saving news: ' + err.message, 'Error saving news: '.toLowerCase().includes('failed') || 'Error saving news: '.toLowerCase().includes('error') ? 'error' : 'success');
+      alert('Error saving news: ' + err.message);
     } finally {
       setSaving(false);
     }
@@ -2992,9 +2994,9 @@ export default function AdminDashboard() {
     try {
       await saveBlogs(blogs);
       triggerHaptic();
-      toast('Blogs saved successfully.', 'Blogs saved successfully.'.toLowerCase().includes('failed') || 'Blogs saved successfully.'.toLowerCase().includes('error') ? 'error' : 'success');
+      alert('Blogs saved successfully.');
     } catch (err: any) {
-      toast('Error saving blogs: ' + err.message, 'Error saving blogs: '.toLowerCase().includes('failed') || 'Error saving blogs: '.toLowerCase().includes('error') ? 'error' : 'success');
+      alert('Error saving blogs: ' + err.message);
     } finally {
       setSaving(false);
     }
@@ -3093,9 +3095,9 @@ export default function AdminDashboard() {
     try {
       await saveVideos(videosList);
       triggerHaptic();
-      toast('Videos saved successfully.', 'Videos saved successfully.'.toLowerCase().includes('failed') || 'Videos saved successfully.'.toLowerCase().includes('error') ? 'error' : 'success');
+      alert('Videos saved successfully.');
     } catch (err: any) {
-      toast('Error saving videos: ' + err.message, 'Error saving videos: '.toLowerCase().includes('failed') || 'Error saving videos: '.toLowerCase().includes('error') ? 'error' : 'success');
+      alert('Error saving videos: ' + err.message);
     } finally {
       setSaving(false);
     }
@@ -3705,7 +3707,7 @@ export default function AdminDashboard() {
                        await saveSettings({ ...settings, banners });
                        triggerHaptic();
                        setSaving(false);
-                       toast('Banners Synced to Frontend System.', 'Banners Synced to Frontend System.'.toLowerCase().includes('failed') || 'Banners Synced to Frontend System.'.toLowerCase().includes('error') ? 'error' : 'success');
+                       alert('Banners Synced to Frontend System.');
                      }} className="min-h-[46px] px-8 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm tracking-wide rounded-xl shadow-sm transition-all cursor-pointer border-0 block">Sync Banners</button>
                    </div>
                 </div>

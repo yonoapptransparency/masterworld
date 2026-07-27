@@ -22,11 +22,13 @@ async function prerender() {
       process.exit(1);
     }
     
+    const baseUrlFallback = process.env.PUBLIC_DOMAIN || 'https://www.rummydex.com';
+
     // Helper to generate a file for a specific path
     const generateRoute = async (routePath: string) => {
       console.log(`Prerendering route: ${routePath}`);
       // Don't remove og:url for specific routes since we want the exact share URL
-      const seoRes = await injectSeoTags(originalTemplate, routePath, 'https://rummydex.com');
+      const seoRes = await injectSeoTags(originalTemplate, routePath, baseUrlFallback);
       const template = typeof seoRes === 'string' ? seoRes : seoRes.html;
       
       const targetDir = path.join(distPath, routePath.startsWith('/') ? routePath.substring(1) : routePath);
@@ -37,10 +39,15 @@ async function prerender() {
     };
 
     // 1. Generate Home Route
-    const homeRes = await injectSeoTags(originalTemplate, '/', 'https://rummydex.com');
+    const homeRes = await injectSeoTags(originalTemplate, '/', baseUrlFallback);
     let homeTemplate = typeof homeRes === 'string' ? homeRes : homeRes.html;
     homeTemplate = homeTemplate.replace(/<meta property=["']og:url["'] [^>]*\/>/gi, '');
     fs.writeFileSync(indexHtmlPath, homeTemplate, 'utf-8');
+
+    // 1.5. Generate 404 Route
+    const seoRes404 = await injectSeoTags(originalTemplate, '/404', baseUrlFallback);
+    const template404 = typeof seoRes404 === 'string' ? seoRes404 : seoRes404.html;
+    fs.writeFileSync(path.join(distPath, '404.html'), template404, 'utf-8');
 
     // 2. Generate Application Routes
     for (const app of data.apps || []) {
@@ -92,14 +99,13 @@ async function prerender() {
 
     
     // 6. Generate Sitemap and Robots.txt
-    const baseUrlFallback = process.env.PUBLIC_DOMAIN || 'https://www.rummydex.com';
     const host = baseUrlFallback;
 
     let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
     xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
 
     // Static routes
-    const today = '2024-05-01'; // Default fixed lastmod for static routes to prevent crawl budget burn
+    const today = '2026-07-26'; // Default fixed lastmod for static routes to prevent crawl budget burn
     const staticRoutes = [
       { path: '/', priority: '1.0', changefreq: 'daily' },
       { path: '/new-apps', priority: '0.8', changefreq: 'daily' },
@@ -115,7 +121,8 @@ async function prerender() {
       { path: '/responsibility', priority: '0.3', changefreq: 'weekly' },
       { path: '/notice', priority: '0.3', changefreq: 'weekly' },
       { path: '/ethics', priority: '0.3', changefreq: 'weekly' },
-      { path: '/disclaimer', priority: '0.3', changefreq: 'weekly' }
+      { path: '/disclaimer', priority: '0.3', changefreq: 'weekly' },
+      { path: '/submit-app', priority: '0.4', changefreq: 'monthly' }
     ];
 
     for (const route of staticRoutes) {
@@ -139,7 +146,7 @@ async function prerender() {
           }
         } catch(e) {}
       }
-      return '2024-05-01';
+      return '2026-07-26';
     };
 
     const escapeHtmlForSitemap = (unsafe) => {

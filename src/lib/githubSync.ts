@@ -45,8 +45,8 @@ export function generateStaticDataFileCode(
     return app;
   });
   const defaultSettings = {
-    site_title: "Yono Store",
-    meta_description: "Download All Yono Games, Rummy Apps & Teen Patti APKs",
+    site_title: "Application Hub",
+    meta_description: "Discover applications and tools.",
     logo_url: "",
     favicon_url: "",
     helpline_whatsapp: "",

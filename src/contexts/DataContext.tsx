@@ -265,7 +265,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         let isAuthorized = false;
 
         try {
-          const verifyRes = await adminFetch('/api/v1/admin/verify');
+          const idToken = await currentUser.getIdToken();
+          const verifyRes = await adminFetch('/api/v1/admin/verify', {
+            headers: {
+              'Authorization': `Bearer ${idToken}`
+            }
+          });
           if (verifyRes.ok) {
             const verifyData = await verifyRes.json();
             if (verifyData.authorized) {

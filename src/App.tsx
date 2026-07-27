@@ -159,14 +159,4 @@ function App() {
   );
 }
 
-import { ToastContainer } from "./components/Toast";
-
-export default function AppWithToast() {
-  return (
-    <>
-      <ToastContainer />
-      <App />
-    </>
-  );
-}
-
+export default App;

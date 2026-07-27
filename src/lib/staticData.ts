@@ -185,22 +185,22 @@ export const saveMockApps = (apps: AppConfig[]) => {
 };
 
 export const mockSettings: GlobalSettings = {
-  "site_title": "",
-  "meta_description": "",
-  "logo_url": "",
-  "favicon_url": "",
-  "helpline_whatsapp": "",
-  "helpline_telegram": "",
-  "support_email": "",
-  "disclaimer_text": "",
-  "ethics_discrimination_text": "",
-  "ticker_text": "",
-  "animations_enabled": true,
-  "categories": [],
-  "banners": [],
-  "quick_links": [],
-  "website_faqs": [],
-  "developers": []
+  site_title: "Application Hub",
+  meta_description: "Discover applications and tools.",
+  logo_url: "",
+  favicon_url: "",
+  helpline_whatsapp: "",
+  helpline_telegram: "",
+  support_email: "",
+  disclaimer_text: "",
+  ethics_discrimination_text: "",
+  ticker_text: "",
+  animations_enabled: true,
+  categories: [],
+  banners: [],
+  quick_links: [],
+  website_faqs: [],
+  developers: []
 };
 
 export const saveMockSettings = (settings: GlobalSettings) => {

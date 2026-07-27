@@ -83,7 +83,7 @@ const API_BASE = import.meta.env.VITE_API_URL || window.location.origin;
 const _EP = {
   challenge: `${API_BASE}/api/v1/init-file`,
   process:   `${API_BASE}/api/v1/process-file`,
-  payload:   `${API_BASE}/api/v1/resource-metrics`,
+  payload:   `${API_BASE}/api/v1/moreinfo-resolve`,
 };
 
 interface ClearanceButtonProps {
@@ -94,12 +94,12 @@ interface ClearanceButtonProps {
 
 export default function ClearanceButton({ appId, status, variant = 'default' }: ClearanceButtonProps) {
   const [phase, setPhase] = useState<'idle'|'working'|'ready'|'error'>('idle');
-  const [dynamicPayload, setDynamicPayload] = useState('');
+  const [dynamicLink, setDynamicLink] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [tokenCountdown, setTokenCountdown] = useState(600);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [pageLoadTime] = useState(() => Date.now());
-  const [resourceAvailable, setResourceAvailable] = useState<boolean | null>(null);
+  const [linkConfigured, setLinkConfigured] = useState<boolean | null>(null);
   const [reportingStatus, setReportingStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
 
   // Behavioral tracking
@@ -210,12 +210,12 @@ export default function ClearanceButton({ appId, status, variant = 'default' }: 
   // Check if a download link is actually configured for this app before showing the button.
   // If not, show a clear message rather than letting users waste time on verification.
   useEffect(() => {
-    setResourceAvailable(null);
+    setLinkConfigured(null);
     let cancelled = false;
-    fetch(`${API_BASE}/api/v1/resource-availability?id=${encodeURIComponent(appId)}`)
+    fetch(`${API_BASE}/api/v1/link-check?id=${encodeURIComponent(appId)}`)
       .then(r => r.json())
-      .then(data => { if (!cancelled) setResourceAvailable(data.available !== false); })
-      .catch(() => { if (!cancelled) setResourceAvailable(true); }); // fail-open
+      .then(data => { if (!cancelled) setLinkConfigured(data.configured !== false); })
+      .catch(() => { if (!cancelled) setLinkConfigured(true); }); // fail-open
     return () => { cancelled = true; };
   }, [appId]);
 
@@ -247,7 +247,7 @@ export default function ClearanceButton({ appId, status, variant = 'default' }: 
 
   function resetState() {
     setPhase('idle');
-    setDynamicPayload('');
+    setDynamicLink('');
     setErrorMsg('');
     setTokenCountdown(600);
     setElapsedMs(0);
@@ -657,7 +657,7 @@ export default function ClearanceButton({ appId, status, variant = 'default' }: 
       if (sid) params.set('sid', sid);
       const payloadUrl = `${_EP.payload}?${params.toString()}`;
       
-      setDynamicPayload(payloadUrl);
+      setDynamicLink(payloadUrl);
       setPhase('ready');
       setTokenCountdown(600);
 
@@ -719,7 +719,7 @@ export default function ClearanceButton({ appId, status, variant = 'default' }: 
     <div className="flex flex-col items-center gap-2 w-full">
       <div ref={cfContainerRef} className="hidden" aria-hidden="true" />
       {/* Link not configured — show clear message instead of letting user verify for nothing */}
-      {resourceAvailable === false ? (
+      {linkConfigured === false ? (
         <div className="w-full sm:w-96 flex flex-col items-center gap-2">
           <div className="w-full py-4 px-6 rounded-2xl flex items-center justify-center gap-3 bg-zinc-100 dark:bg-zinc-800 border border-black/10 dark:border-white/10 text-zinc-400 dark:text-zinc-500 cursor-not-allowed select-none">
             <Lock className="w-4 h-4 shrink-0" />
@@ -769,7 +769,7 @@ export default function ClearanceButton({ appId, status, variant = 'default' }: 
             </div>
           )}
         </div>
-      ) : resourceAvailable === null ? (
+      ) : linkConfigured === null ? (
         <div className="w-full sm:w-96 flex items-center justify-center py-4">
           <div className="w-5 h-5 border-2 border-zinc-200 dark:border-zinc-700 border-t-blue-500 rounded-full animate-spin" />
         </div>
@@ -794,7 +794,7 @@ export default function ClearanceButton({ appId, status, variant = 'default' }: 
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => window.open(dynamicPayload, '_blank', 'noopener,noreferrer')}
+                  onClick={() => window.open(dynamicLink, '_blank', 'noopener,noreferrer')}
                   className="w-full premium-action-btn premium-action-btn-blowing text-white !text-white font-bold py-2.5 px-5 rounded-xl flex items-center justify-center gap-1.5 transition-colors text-sm shadow-md h-[44px]"
                 >
                   <span className="font-bold flex items-center gap-1.5 text-white !text-white">More Info <CheckCircle2 className="w-4 h-4 text-white !text-white arrow-icon" /></span>
@@ -808,7 +808,7 @@ export default function ClearanceButton({ appId, status, variant = 'default' }: 
                 >
                   <motion.button 
                     whileTap={{ scale: 0.95 }}
-                    onClick={() => window.open(dynamicPayload, '_blank', 'noopener,noreferrer')}
+                    onClick={() => window.open(dynamicLink, '_blank', 'noopener,noreferrer')}
                     className="w-full premium-action-btn premium-action-btn-blowing text-white !text-white font-bold py-4 px-10 rounded-2xl flex items-center justify-center gap-3 transition-colors shadow-md shrink-0"
                   >
                     <span className="text-white !text-white font-bold">More Info</span>
