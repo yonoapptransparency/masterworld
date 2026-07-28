@@ -320,6 +320,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           const backup = await res.json();
           if (backup) {
             const isAdminRoute = currentPath.startsWith('/' + getAdminPath());
+            
+            // If Firebase is configured and we are on an admin route, NEVER load static/fallback backups
+            // to ensure the admin dashboard strictly displays pure 100% live database data.
+            if (isFirebaseReal && isAdminRoute) {
+              console.log("DataContext: Admin route detected. Skipping local/static backup loading to ensure pure Firestore live data.");
+              return;
+            }
 
             setApps(prev => {
               if (backup.apps && backup.apps.length > 0) {
@@ -964,11 +971,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
               delete app.encrypted_download_url;
               delete app.download_url;
             });
-            await setDoc(doc(db, 'store_data', `apps_chunk_${i}`), { items: chunk });
+            await withServerConfirmation(() => setDoc(doc(db, 'store_data', `apps_chunk_${i}`), { items: chunk }), 5000);
           }
           
           const metaRef = doc(db, 'store_data', 'apps_meta');
-          await setDoc(metaRef, { numChunks, last_updated: now });
+          await withServerConfirmation(() => setDoc(metaRef, { numChunks, last_updated: now }), 5000);
           console.log("Cloud: Metadata and chunks successfully committed via client SDK.");
         } catch (dbErr: any) {
           console.warn("Client SDK apps chunk save warning (will sync via server Admin SDK):", dbErr.message);
@@ -999,9 +1006,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         if (encryptedData && db) {
           try {
             const payload = { encryptedData, lastUpdated: new Date().toISOString() };
-            await setDoc(doc(db, 'store_data', 'secure_links'), payload);
-            await setDoc(doc(db, 'store_data', 'sec_vault'), payload);
-            await setDoc(doc(db, 'store_data', 'sec_links_vault_3'), payload);
+            await withServerConfirmation(() => setDoc(doc(db, 'store_data', 'secure_links'), payload), 5000);
+            await withServerConfirmation(() => setDoc(doc(db, 'store_data', 'sec_vault'), payload), 5000);
+            await withServerConfirmation(() => setDoc(doc(db, 'store_data', 'sec_links_vault_3'), payload), 5000);
             console.log("Cloud: Secure vault committed via client SDK.");
           } catch (dbErr: any) {
             console.warn("Client SDK vault save warning:", dbErr.message);
@@ -1010,12 +1017,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       }
       
       // 2. Server Sync: Server endpoint updates static backups AND Firestore via Admin SDK
-      await updateLocalContainerBackup(newApps, settings, news, blogs, videos);
+      // Run as a non-blocking background task so slow servers/serverless cold-starts do not freeze UI
+      updateLocalContainerBackup(newApps, settings, news, blogs, videos).catch(err => {
+        console.warn("Background local sync error:", err);
+      });
       console.log("Save Apps: All data synchronized successfully.");
     } catch (err: any) {
       console.error("Save Apps Error:", err);
     }
-  }, [settings, news, blogs, videos, updateLocalContainerBackup]);
+  }, [settings, news, blogs, videos, updateLocalContainerBackup, withServerConfirmation]);
 
   const saveSettings = React.useCallback(async (newSettings: GlobalSettings) => {
     const now = new Date().toISOString();
@@ -1030,15 +1040,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const docRef = doc(db, 'store_data', 'public_settings');
         console.log("Cloud: Pushing Settings update via client SDK...");
         const sanitized = JSON.parse(JSON.stringify(settingsWithTime));
-        await setDoc(docRef, sanitized, { merge: true });
+        await withServerConfirmation(() => setDoc(docRef, sanitized, { merge: true }), 5000);
         console.log("Cloud: Settings update acknowledged by server.");
       }
     } catch (err: any) {
       console.warn("Client SDK Save Settings warning (synced via server):", err.message);
     }
 
-    await updateLocalContainerBackup(apps, settingsWithTime, news, blogs, videos);
-  }, [settings, apps, news, blogs, videos, updateLocalContainerBackup]);
+    // Run as a non-blocking background task
+    updateLocalContainerBackup(apps, settingsWithTime, news, blogs, videos).catch(err => {
+      console.warn("Background local sync error:", err);
+    });
+  }, [settings, apps, news, blogs, videos, updateLocalContainerBackup, withServerConfirmation]);
 
   const saveNews = React.useCallback(async (newNews: NewsItem[]) => {
     // 1. Snappy optimistic update to local state and local memory first
@@ -1050,15 +1063,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const docRef = doc(db, 'store_data', 'news');
         console.log("Cloud: Pushing News update via client SDK...");
         const sanitized = JSON.parse(JSON.stringify({ items: newNews }));
-        await setDoc(docRef, sanitized);
+        await withServerConfirmation(() => setDoc(docRef, sanitized), 5000);
         console.log("Cloud: News update acknowledged by server.");
       }
     } catch (err: any) {
       console.warn("Client SDK Save News warning (synced via server):", err.message);
     }
 
-    await updateLocalContainerBackup(apps, settings, newNews, blogs, videos);
-  }, [apps, settings, blogs, videos, updateLocalContainerBackup]);
+    // Run as a non-blocking background task
+    updateLocalContainerBackup(apps, settings, newNews, blogs, videos).catch(err => {
+      console.warn("Background local sync error:", err);
+    });
+  }, [apps, settings, blogs, videos, updateLocalContainerBackup, withServerConfirmation]);
 
   const saveBlogs = React.useCallback(async (newBlogs: BlogPost[]) => {
     // 1. Snappy optimistic update to local state and local memory first
@@ -1070,15 +1086,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const docRef = doc(db, 'store_data', 'blogs');
         console.log("Cloud: Pushing Blogs update via client SDK...");
         const sanitized = JSON.parse(JSON.stringify({ items: newBlogs }));
-        await setDoc(docRef, sanitized);
+        await withServerConfirmation(() => setDoc(docRef, sanitized), 5000);
         console.log("Cloud: Blogs update acknowledged by server.");
       }
     } catch (err: any) {
       console.warn("Client SDK Save Blogs warning (synced via server):", err.message);
     }
 
-    await updateLocalContainerBackup(apps, settings, news, newBlogs, videos);
-  }, [apps, settings, news, videos, updateLocalContainerBackup]);
+    // Run as a non-blocking background task
+    updateLocalContainerBackup(apps, settings, news, newBlogs, videos).catch(err => {
+      console.warn("Background local sync error:", err);
+    });
+  }, [apps, settings, news, videos, updateLocalContainerBackup, withServerConfirmation]);
 
   const saveVideos = React.useCallback(async (newVideos: VideoItem[]) => {
     // 1. Snappy optimistic update to local state and local memory first
@@ -1090,15 +1109,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const docRef = doc(db, 'store_data', 'videos');
         console.log("Cloud: Pushing Videos update via client SDK...");
         const sanitized = JSON.parse(JSON.stringify({ items: newVideos }));
-        await setDoc(docRef, sanitized);
+        await withServerConfirmation(() => setDoc(docRef, sanitized), 5000);
         console.log("Cloud: Videos update acknowledged by server.");
       }
     } catch (err: any) {
       console.warn("Client SDK Save Videos warning (synced via server):", err.message);
     }
 
-    await updateLocalContainerBackup(apps, settings, news, blogs, newVideos);
-  }, [apps, settings, news, blogs, updateLocalContainerBackup]);
+    // Run as a non-blocking background task
+    updateLocalContainerBackup(apps, settings, news, blogs, newVideos).catch(err => {
+      console.warn("Background local sync error:", err);
+    });
+  }, [apps, settings, news, blogs, updateLocalContainerBackup, withServerConfirmation]);
 
   const saveGitConfig = React.useCallback(async (newConfig: GitConfig) => {
     try {

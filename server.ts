@@ -2294,6 +2294,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
       try {
         const adminDb = getFirebaseAdminDb();
         if (adminDb) {
+          const promises: Promise<any>[] = [];
           if (apps && Array.isArray(apps)) {
             const CHUNK_SIZE = 25;
             const numChunks = Math.ceil(apps.length / CHUNK_SIZE) || 1;
@@ -2304,23 +2305,24 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
                 delete app.encrypted_download_url;
                 delete app.download_url;
               });
-              await adminDb.collection('store_data').doc(`apps_chunk_${i}`).set({ items: chunk });
+              promises.push(adminDb.collection('store_data').doc(`apps_chunk_${i}`).set({ items: chunk }));
             }
-            await adminDb.collection('store_data').doc('apps_meta').set({ numChunks, last_updated: new Date().toISOString() });
+            promises.push(adminDb.collection('store_data').doc('apps_meta').set({ numChunks, last_updated: new Date().toISOString() }));
           }
           if (settings) {
             const sanitized = JSON.parse(JSON.stringify(settings));
-            await adminDb.collection('store_data').doc('public_settings').set(sanitized, { merge: true });
+            promises.push(adminDb.collection('store_data').doc('public_settings').set(sanitized, { merge: true }));
           }
           if (news && Array.isArray(news)) {
-            await adminDb.collection('store_data').doc('news').set({ items: JSON.parse(JSON.stringify(news)) });
+            promises.push(adminDb.collection('store_data').doc('news').set({ items: JSON.parse(JSON.stringify(news)) }));
           }
           if (blogs && Array.isArray(blogs)) {
-            await adminDb.collection('store_data').doc('blogs').set({ items: JSON.parse(JSON.stringify(blogs)) });
+            promises.push(adminDb.collection('store_data').doc('blogs').set({ items: JSON.parse(JSON.stringify(blogs)) }));
           }
           if (videos && Array.isArray(videos)) {
-            await adminDb.collection('store_data').doc('videos').set({ items: JSON.parse(JSON.stringify(videos)) });
+            promises.push(adminDb.collection('store_data').doc('videos').set({ items: JSON.parse(JSON.stringify(videos)) }));
           }
+          await Promise.all(promises);
           console.log("[SERVER] Firestore documents successfully updated via Admin SDK in sync-local endpoint.");
           firestoreUpdated = true;
         }
@@ -2330,6 +2332,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
 
       if (!firestoreUpdated) {
         try {
+          const promises: Promise<any>[] = [];
           if (apps && Array.isArray(apps)) {
             const CHUNK_SIZE = 25;
             const numChunks = Math.ceil(apps.length / CHUNK_SIZE) || 1;
@@ -2340,22 +2343,23 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
                 delete app.encrypted_download_url;
                 delete app.download_url;
               });
-              await writeFirestoreRestDoc(`apps_chunk_${i}`, { items: chunk });
+              promises.push(writeFirestoreRestDoc(`apps_chunk_${i}`, { items: chunk }));
             }
-            await writeFirestoreRestDoc('apps_meta', { numChunks, last_updated: new Date().toISOString() });
+            promises.push(writeFirestoreRestDoc('apps_meta', { numChunks, last_updated: new Date().toISOString() }));
           }
           if (settings) {
-            await writeFirestoreRestDoc('public_settings', JSON.parse(JSON.stringify(settings)));
+            promises.push(writeFirestoreRestDoc('public_settings', JSON.parse(JSON.stringify(settings))));
           }
           if (news && Array.isArray(news)) {
-            await writeFirestoreRestDoc('news', { items: JSON.parse(JSON.stringify(news)) });
+            promises.push(writeFirestoreRestDoc('news', { items: JSON.parse(JSON.stringify(news)) }));
           }
           if (blogs && Array.isArray(blogs)) {
-            await writeFirestoreRestDoc('blogs', { items: JSON.parse(JSON.stringify(blogs)) });
+            promises.push(writeFirestoreRestDoc('blogs', { items: JSON.parse(JSON.stringify(blogs)) }));
           }
           if (videos && Array.isArray(videos)) {
-            await writeFirestoreRestDoc('videos', { items: JSON.parse(JSON.stringify(videos)) });
+            promises.push(writeFirestoreRestDoc('videos', { items: JSON.parse(JSON.stringify(videos)) }));
           }
+          await Promise.all(promises);
           console.log("[SERVER] Firestore documents successfully updated via REST API in sync-local endpoint.");
         } catch (restSyncErr: any) {
           console.error("[SERVER] Firestore REST API update failed in sync-local endpoint:", restSyncErr.message);
