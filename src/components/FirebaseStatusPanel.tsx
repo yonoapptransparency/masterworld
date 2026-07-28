@@ -229,18 +229,47 @@ export default function FirebaseStatusPanel() {
         </div>
       </div>
 
-      {/* Write status warning banner */}
-      {writeStatus === 'failing' && (
-        <div className="mt-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium relative z-10">
-          ⚠️ <strong>Firestore Writes Failing:</strong> Read-only access detected. 
+      {/* Diagnostic Summary Banner */}
+      {firestoreStatus === 'connected' ? (
+        <div className="mt-4 p-3 bg-emerald-50 border border-emerald-200/80 rounded-2xl text-xs text-emerald-800 font-medium relative z-10 flex items-start gap-3 shadow-xs">
+          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <div className="font-bold text-emerald-900 flex items-center justify-between">
+              <span>System Operational & Fully Connected</span>
+              <span className="text-[10px] font-mono bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200">
+                {statusDetails.totalCheckDurationMs ? `${statusDetails.totalCheckDurationMs}ms total check` : 'Active'}
+              </span>
+            </div>
+            <p className="text-[11px] text-emerald-700 mt-0.5">
+              {statusDetails.diagnosticSummary || 'Database reads and writes are performing optimally across all active APIs.'}
+            </p>
+            {statusDetails.adminSdkNote && (
+              <p className="text-[10px] font-mono text-emerald-600/90 mt-1 italic">
+                • {statusDetails.adminSdkNote}
+              </p>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="mt-4 p-3.5 bg-amber-50/90 border border-amber-200 rounded-2xl text-xs text-amber-800 font-medium relative z-10">
+          <div className="flex items-center gap-2 font-bold text-amber-900 mb-1">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>Diagnostic Alert: {firestoreStatus === 'read_only' ? 'Read-Only Mode' : 'Firestore Unreachable'}</span>
+          </div>
+          
+          <p className="text-[11px] text-amber-800 leading-relaxed">
+            {statusDetails.diagnosticSummary || 'Database diagnostic check encountered an issue.'}
+          </p>
+
           {statusDetails.restWriteError && (
-            <span className="block mt-1 font-mono text-[11px] bg-rose-100/80 p-1.5 rounded-lg text-rose-900 border border-rose-200 whitespace-pre-wrap">
-              Error Details: {statusDetails.restWriteError}
-            </span>
+            <div className="mt-2 font-mono text-[10px] bg-amber-100/90 p-2 rounded-xl text-amber-900 border border-amber-200/80 whitespace-pre-wrap break-all">
+              <strong>Write Diagnostic Output:</strong> {statusDetails.restWriteError}
+            </div>
           )}
-          {statusDetails.restWriteError?.includes('Vercel') && (
-            <div className="mt-2 p-2 bg-rose-500 text-white rounded-md font-bold">
-              ACTION REQUIRED: You deployed to Vercel but forgot to add the Environment Variables! Go to your Vercel Project Settings {'->'} Environment Variables and add FIREBASE_API_KEY, FIREBASE_PROJECT_ID, AES_SECRET, and FIREBASE_SERVICE_ACCOUNT.
+
+          {statusDetails.restReadError && (
+            <div className="mt-2 font-mono text-[10px] bg-rose-100/90 p-2 rounded-xl text-rose-900 border border-rose-200/80 whitespace-pre-wrap break-all">
+              <strong>Read Diagnostic Output:</strong> {statusDetails.restReadError}
             </div>
           )}
         </div>
