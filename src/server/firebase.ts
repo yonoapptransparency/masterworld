@@ -2,42 +2,79 @@ import fs from 'fs';
 import path from 'path';
 import { isRealValue } from './crypto';
 
+// Service account parsing helper supporting raw JSON, base64, escaped newlines, and quotes
+function parseServiceAccount(rawStr: string): any {
+  let str = rawStr.trim();
+  if ((str.startsWith('"') && str.endsWith('"')) || (str.startsWith("'") && str.endsWith("'"))) {
+    str = str.slice(1, -1).trim();
+  }
+  try {
+    const parsed = JSON.parse(str);
+    if (parsed.private_key && typeof parsed.private_key === 'string') {
+      parsed.private_key = parsed.private_key.replace(/\\n/g, '\n');
+    }
+    return parsed;
+  } catch (e) {
+    try {
+      const decoded = Buffer.from(str, 'base64').toString('utf8').trim();
+      const parsed = JSON.parse(decoded);
+      if (parsed.private_key && typeof parsed.private_key === 'string') {
+        parsed.private_key = parsed.private_key.replace(/\\n/g, '\n');
+      }
+      return parsed;
+    } catch (e2) {
+      try {
+        const cleaned = str.replace(/\r?\n/g, '\\n');
+        const parsed = JSON.parse(cleaned);
+        if (parsed.private_key && typeof parsed.private_key === 'string') {
+          parsed.private_key = parsed.private_key.replace(/\\n/g, '\n');
+        }
+        return parsed;
+      } catch (e3) {
+        throw new Error(`Failed to parse Service Account JSON: ${e.message}`);
+      }
+    }
+  }
+}
+
 let cachedRawFirebaseConfig: any = null;
 
 export function getRawFirebaseConfig(): any {
   if (cachedRawFirebaseConfig) {
     return cachedRawFirebaseConfig;
   }
-  // 1. Try local/config file
+
+  const envProjectId = process.env.VITE_FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_JECT_ID || process.env.FIREBASE_PROJECT_ID;
+  const envDbId = process.env.VITE_FIREBASE_DATABASE_ID || process.env.VITE_FIREBASE_BASE_ID || process.env.FIREBASE_DATABASE_ID;
+  const envApiKey = process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY;
+  const envAuthDomain = process.env.VITE_FIREBASE_AUTH_DOMAIN || process.env.VITE_FIREBASE_DOMAIN || process.env.FIREBASE_AUTH_DOMAIN;
+
+  // 1. Check environment variables first
+  if (envProjectId && isRealValue(envProjectId)) {
+    cachedRawFirebaseConfig = {
+      projectId: envProjectId,
+      appId: process.env.VITE_FIREBASE_APP_ID || process.env.FIREBASE_APP_ID || "",
+      apiKey: envApiKey || "",
+      authDomain: envAuthDomain || "",
+      firestoreDatabaseId: envDbId || envProjectId,
+      storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || process.env.FIREBASE_STORAGE_BUCKET || "",
+      messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_ID || process.env.FIREBASE_MESSAGING_SENDER_ID || ""
+    };
+    return cachedRawFirebaseConfig;
+  }
+
+  // 2. Try firebase-applet-config.json
   try {
     const rawData = fs.readFileSync(path.join(process.cwd(), 'firebase-applet-config.json'), 'utf8');
     const config = JSON.parse(rawData);
     if (config.projectId && isRealValue(config.projectId)) {
-      config.firestoreDatabaseId = config.firestoreDatabaseId || config.databaseId || process.env.VITE_FIREBASE_DATABASE_ID;
-      config.apiKey = config.apiKey || process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY;
+      config.firestoreDatabaseId = config.firestoreDatabaseId || config.databaseId || envDbId || config.projectId;
+      config.apiKey = config.apiKey || envApiKey;
       cachedRawFirebaseConfig = config;
       return config;
     }
   } catch (err) {
-    // Proceed to environment variables
-  }
-
-  // 2. Try environment variables
-  const envProjectId = process.env.VITE_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
-  const envDbId = process.env.VITE_FIREBASE_DATABASE_ID || process.env.FIREBASE_DATABASE_ID;
-  const envApiKey = process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY;
-
-  if (envProjectId && isRealValue(envProjectId)) {
-    cachedRawFirebaseConfig = {
-      projectId: envProjectId,
-      appId: process.env.VITE_FIREBASE_APP_ID || process.env.FIREBASE_APP_ID,
-      apiKey: envApiKey,
-      authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || process.env.FIREBASE_AUTH_DOMAIN,
-      firestoreDatabaseId: envDbId || '(default)',
-      storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || process.env.FIREBASE_STORAGE_BUCKET,
-      messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_ID || process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || process.env.FIREBASE_MESSAGING_SENDER_ID
-    };
-    return cachedRawFirebaseConfig;
+    // Proceed
   }
 
   // 3. Fallback configuration
@@ -46,7 +83,7 @@ export function getRawFirebaseConfig(): any {
     projectId: defaultProjectId,
     appId: process.env.VITE_FIREBASE_APP_ID || process.env.FIREBASE_APP_ID || "",
     apiKey: envApiKey || "",
-    authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || process.env.FIREBASE_AUTH_DOMAIN || "",
+    authDomain: envAuthDomain || "",
     firestoreDatabaseId: envDbId || defaultProjectId,
     storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || process.env.FIREBASE_STORAGE_BUCKET || "",
     messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_ID || ""
@@ -66,17 +103,22 @@ export function getFirebaseAdminDb(): any {
     const config = getRawFirebaseConfig();
 
     if (admin.apps.length === 0) {
-      const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
-      if (serviceAccountJson) {
+      const serviceAccountRaw = process.env.FIREBASE_SERVICE_ACCOUNT || 
+                                process.env.FIREBASE_ACCOUNT || 
+                                process.env.FIREBASE_SERVICE_ACCOUNT_JSON || 
+                                process.env.FIREBASE_CREDENTIALS ||
+                                process.env.FIREBASE_ADMIN_KEY;
+
+      if (serviceAccountRaw && serviceAccountRaw.trim() !== '') {
         try {
-          const serviceAccount = JSON.parse(serviceAccountJson);
+          const serviceAccount = parseServiceAccount(serviceAccountRaw);
           admin.initializeApp({
             credential: admin.credential.cert(serviceAccount),
-            projectId: config?.projectId
+            projectId: serviceAccount.project_id || config?.projectId
           });
           console.log('[Admin SDK] Initialized with service account credentials.');
         } catch (parseErr: any) {
-          console.error('[Admin SDK] Failed to parse FIREBASE_SERVICE_ACCOUNT:', parseErr.message);
+          console.error('[Admin SDK] Failed to parse FIREBASE_ACCOUNT / FIREBASE_SERVICE_ACCOUNT:', parseErr.message);
           adminInitFailed = true;
           return null;
         }
@@ -84,13 +126,13 @@ export function getFirebaseAdminDb(): any {
         admin.initializeApp({ projectId: config?.projectId });
         console.log('[Admin SDK] Initialized with GOOGLE_APPLICATION_CREDENTIALS.');
       } else {
-        console.warn('[Admin SDK] No service account credentials found. Admin SDK disabled. Set FIREBASE_SERVICE_ACCOUNT env var with your service account JSON (stringified).');
+        console.warn('[Admin SDK] No service account env var found. Admin SDK in REST fallback mode.');
         adminInitFailed = true;
         return null;
       }
     }
 
-    const dbId = config?.firestoreDatabaseId || '(default)';
+    const dbId = config?.firestoreDatabaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
     if (dbId && dbId !== '(default)') {
       const { getFirestore } = require('firebase-admin/firestore');
       cachedAdminDb = getFirestore(admin.apps[0], dbId);

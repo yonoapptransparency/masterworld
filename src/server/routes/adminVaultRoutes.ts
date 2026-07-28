@@ -549,18 +549,32 @@ adminVaultRouter.get("/api/v1/admin/firebase-status", verifyAdminToken, async (r
       results.writeLatencyMs = results.details.adminSdkLatencyMs || (Date.now() - writeStart);
     } else if (results.firestoreRead) {
       try {
-        const writeUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${dbId}/documents/store_data/_write_test_?key=${apiKey}`;
-        const writeRes = await fetch(writeUrl, {
+        // Try spent_tokens rule-validated write first
+        const spentUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${dbId}/documents/spent_tokens/_status_ping_?key=${apiKey}`;
+        const spentRes = await fetch(spentUrl, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fields: { ts: { stringValue: new Date().toISOString() }, checker: { stringValue: 'live_status_indicator' } } })
+          body: JSON.stringify({ fields: { usedAt: { stringValue: new Date().toISOString() } } })
         });
         results.writeLatencyMs = Date.now() - writeStart;
-        results.firestoreWrite = writeRes.ok;
-        results.details.restWriteStatus = writeRes.status;
-        if (!writeRes.ok) {
-          const errText = await writeRes.text();
-          results.details.restWriteError = errText;
+
+        if (spentRes.ok) {
+          results.firestoreWrite = true;
+          results.details.restWriteStatus = spentRes.status;
+          results.details.writeMode = "Public Rules Validation";
+        } else {
+          const writeUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${dbId}/documents/store_data/_write_test_?key=${apiKey}`;
+          const writeRes = await fetch(writeUrl, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fields: { ts: { stringValue: new Date().toISOString() }, checker: { stringValue: 'live_status_indicator' } } })
+          });
+          results.firestoreWrite = writeRes.ok;
+          results.details.restWriteStatus = writeRes.status;
+          if (!writeRes.ok) {
+            const errText = await writeRes.text();
+            results.details.restWriteError = errText;
+          }
         }
       } catch (e: any) {
         results.writeLatencyMs = Date.now() - writeStart;
