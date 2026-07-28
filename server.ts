@@ -57,6 +57,19 @@ function safeDecrypt(ciphertext: string, secret: string): string {
     return '';
 }
 
+
+let hasWarnedAes = false;
+function getAesSecret() {
+  const secret = process.env.AES_SECRET || AES_SECRET_GLOBAL;
+  if (!secret) {
+    if (!hasWarnedAes) {
+      console.warn("WARNING: AES_SECRET environment variable is NOT SET. Using an insecure fallback key. DO NOT DO THIS IN PRODUCTION.");
+      hasWarnedAes = true;
+    }
+    return "fallback_aes_secret";
+  }
+  return secret;
+}
 function safeEncrypt(text: string, secret: string): string {
     if (!text || !secret || secret.trim() === '') {
         throw new Error('Cannot encrypt: AES_SECRET is required');
@@ -1111,7 +1124,7 @@ const verifyAdminToken = async (req: express.Request, res: express.Response, nex
     }
 
     try {
-      const AES_SECRET = process.env.AES_SECRET || AES_SECRET_GLOBAL || "fallback_aes_secret";
+      const AES_SECRET = getAesSecret();
       if (!AES_SECRET) return res.status(500).json({ error: 'Service Unavailable: Encryption misconfigured.', message: 'Encryption misconfigured.' });
       
       const decrypted = safeDecrypt(idToken, AES_SECRET);
@@ -1158,7 +1171,7 @@ app.post("/api/v1/admin/login", async (req: any, res: any) => {
 
   if (email.toLowerCase().trim() === configuredAdminEmail && password === configuredAdminPass) {
     try {
-      const AES_SECRET = process.env.AES_SECRET || AES_SECRET_GLOBAL || "fallback_aes_secret";
+      const AES_SECRET = getAesSecret();
       const payload = JSON.stringify({ admin: true, email: configuredAdminEmail, exp: Date.now() + 86400000 });
       const token = safeEncrypt(payload, AES_SECRET);
       return res.json({ token, email: configuredAdminEmail });
@@ -1227,7 +1240,7 @@ app.post("/api/v1/admin/google-login", async (req: any, res: any) => {
     }
 
     // Success! Generate custom server AES token
-    const AES_SECRET = process.env.AES_SECRET || AES_SECRET_GLOBAL || "fallback_aes_secret";
+    const AES_SECRET = getAesSecret();
     const payload = JSON.stringify({ admin: true, email: email.toLowerCase().trim(), exp: Date.now() + 86400000 });
     const token = safeEncrypt(payload, AES_SECRET);
     return res.json({ token, email: email.toLowerCase().trim() });
@@ -1277,7 +1290,7 @@ app.post("/api/v1/admin/verify-session", async (req: any, res: any) => {
   }
 
   try {
-    const AES_SECRET = process.env.AES_SECRET || AES_SECRET_GLOBAL || "fallback_aes_secret";
+    const AES_SECRET = getAesSecret();
     const decrypted = safeDecrypt(idToken, AES_SECRET);
     if (!decrypted) return res.status(401).json({ error: 'Unauthorized: Invalid token.' });
     
@@ -2015,7 +2028,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
     const { url } = req.body;
     if (!url) return res.status(400).json({ error: 'URL is required' });
     
-    const AES_SECRET = process.env.AES_SECRET || AES_SECRET_GLOBAL || "fallback_aes_secret";
+    const AES_SECRET = getAesSecret();
     if (!AES_SECRET || AES_SECRET.trim() === '') {
       return res.status(500).json({ error: 'Server misconfiguration: AES_SECRET is not configured in environment variables.' });
     }
@@ -2035,7 +2048,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
       return res.status(400).json({ error: 'Valid links array payload is required.' });
     }
     try {
-      const AES_SECRET = process.env.AES_SECRET || AES_SECRET_GLOBAL || "fallback_aes_secret";
+      const AES_SECRET = getAesSecret();
       if (!AES_SECRET || AES_SECRET.trim() === '') {
           return res.status(500).json({ error: 'AES_SECRET environment variable is missing on Server. Please configure it.' });
       }
@@ -2130,7 +2143,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
         return res.json({ error: "No vault data found" });
       }
       const ciphertext = data.fields.encryptedData.stringValue;
-      const AES_SECRET = process.env.AES_SECRET || AES_SECRET_GLOBAL || "fallback_aes_secret";
+      const AES_SECRET = getAesSecret();
       
       const decrypted = safeDecrypt(ciphertext, AES_SECRET);
       res.json({ decrypted: JSON.parse(decrypted) });
@@ -2147,7 +2160,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
     const { encryptedUrl } = req.body;
     if (!encryptedUrl) return res.status(400).json({ error: 'Missing encryptedUrl' });
     
-    const AES_SECRET = process.env.AES_SECRET || AES_SECRET_GLOBAL || "fallback_aes_secret";
+    const AES_SECRET = getAesSecret();
     if (!AES_SECRET || AES_SECRET.trim() === '') {
       return res.status(500).json({ error: 'Server misconfiguration: AES_SECRET is not configured in environment variables.' });
     }
@@ -2174,7 +2187,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
       return res.status(400).json({ error: 'Encrypted payload ciphertext is required.' });
     }
     
-    const AES_SECRET = process.env.AES_SECRET || AES_SECRET_GLOBAL || "fallback_aes_secret";
+    const AES_SECRET = getAesSecret();
     if (!AES_SECRET || AES_SECRET.trim() === '') {
       return res.status(500).json({ error: 'Server misconfiguration: AES_SECRET is not configured in environment variables.' });
     }
@@ -2261,7 +2274,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
       }
 
       // 2. Save secure download/more_information_url references separately (ALWAYS store encrypted!)
-      const AES_SECRET = process.env.AES_SECRET || AES_SECRET_GLOBAL || "fallback_aes_secret";
+      const AES_SECRET = getAesSecret();
       const backupLinks: Record<string, string> = {};
       apps.forEach((app: any) => {
         if (app.more_information_url) {
@@ -2404,7 +2417,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
   // Admin API: Retrieve secure backup links for admin VIEW/EDIT mapping (with automatic secureVault.ts fallback and recovery)
   app.get("/api/v1/admin/backup-links-get", verifyAdminToken, (req, res) => {
     try {
-      const AES_SECRET = process.env.AES_SECRET || AES_SECRET_GLOBAL || "fallback_aes_secret";
+      const AES_SECRET = getAesSecret();
       const mergedBackup: Record<string, string> = {};
 
       // 1. Try to load and parse from the encrypted secureVault.ts file committed to GitHub
@@ -2488,7 +2501,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
             apps = apps.concat(chunk1Data.fields.items.arrayValue.values.map((v: any) => v.mapValue.fields.id.stringValue));
         }
         
-        const AES_SECRET = process.env.AES_SECRET || AES_SECRET_GLOBAL || "fallback_aes_secret";
+        const AES_SECRET = getAesSecret();
         const sampleUrls = apps.map(id => ({ id, url: `https://example.com/demo/${id}` }));
         const ciphertext = safeEncrypt(JSON.stringify(sampleUrls), AES_SECRET);
         
@@ -2795,7 +2808,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
       const { items } = req.body;
       if (!items || !Array.isArray(items)) return res.status(400).json({ error: 'Valid items array required' });
       
-      const AES_SECRET = process.env.AES_SECRET || AES_SECRET_GLOBAL || "fallback_aes_secret";
+      const AES_SECRET = getAesSecret();
       const backupLinks: Record<string, string> = {};
       items.forEach((item: any) => {
         const urlValue = item.url || item.more_information_url;

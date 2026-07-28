@@ -384,7 +384,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Helper to ensure writes hit the server
-  const withServerConfirmation = React.useCallback(async (operation: () => Promise<any>, timeoutMs: number = 20000) => {
+  const withServerConfirmation = React.useCallback(async (operation: () => Promise<any>, timeoutMs: number = 30000) => {
     const timeoutPromise = new Promise((_, reject) => 
       setTimeout(() => reject(new Error("Cloud Sync Timeout: The update is taking a while to reach the server. This happens on slow connections. Changes usually sync eventually. (Note: You can try manually syncing from the header status indicator)")), timeoutMs)
     );
@@ -449,9 +449,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         }
 
         const testDoc = doc(db, 'store_data', 'public_settings');
-        // Use soft cached getDoc instead of getDocFromServer to avoid active network error logs
-        await getDoc(testDoc);
+        // Use getDocFromServer to test real connectivity (Bug 13)
+        await getDocFromServer(testDoc);
         setIsConnected(true);
+        setIsLive(true);
       } catch (err: any) {
         if (checkIsQuotaError(err)) {
           setQuotaExceeded(true);
@@ -954,25 +955,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const numChunks = Math.ceil(newApps.length / CHUNK_SIZE) || 1;
         const now = new Date().toISOString();
         
-        try {
-          for (let i = 0; i < numChunks; i++) {
-            const chunk = JSON.parse(JSON.stringify(newApps.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE)));
-            chunk.forEach((app: any) => { 
-              delete app.more_information_url; 
-              delete app.encrypted_download_url;
-              delete app.download_url;
-            });
-            await withServerConfirmation(() => setDoc(doc(db, 'store_data', `apps_chunk_${i}`), { items: chunk }), 5000);
-          }
-          
-          const metaRef = doc(db, 'store_data', 'apps_meta');
-          await withServerConfirmation(() => setDoc(metaRef, { numChunks, last_updated: now }), 5000);
-          console.log("Cloud: Metadata and chunks successfully committed via client SDK.");
-        } catch (dbErr: any) {
-          throw new Error("Cloud Save Failed: " + dbErr.message);
-        }
-        
-        // Save secure links mapping separately (fully encrypted)
+        // FIRST: Save secure links mapping separately (fully encrypted)
+        // We do this before modifying Firestore chunks so we don't lose links if encryption fails.
         const secureLinks = newApps.map(a => ({ id: a.id, url: a.more_information_url || '' }));
         let encryptedData = '';
         try {
@@ -994,12 +978,30 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           throw new Error("Failed to reach encryption server: " + encErr.message);
         }
 
+        try {
+          for (let i = 0; i < numChunks; i++) {
+            const chunk = JSON.parse(JSON.stringify(newApps.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE)));
+            chunk.forEach((app: any) => { 
+              delete app.more_information_url; 
+              delete app.encrypted_download_url;
+              delete app.download_url;
+            });
+            await withServerConfirmation(() => setDoc(doc(db, 'store_data', `apps_chunk_${i}`), { items: chunk }), 30000);
+          }
+          
+          const metaRef = doc(db, 'store_data', 'apps_meta');
+          await withServerConfirmation(() => setDoc(metaRef, { numChunks, last_updated: now }), 30000);
+          console.log("Cloud: Metadata and chunks successfully committed via client SDK.");
+        } catch (dbErr: any) {
+          throw new Error("Cloud Save Failed: " + dbErr.message);
+        }
+
         if (encryptedData && db) {
           try {
             const payload = { encryptedData, lastUpdated: new Date().toISOString() };
-            await withServerConfirmation(() => setDoc(doc(db, 'store_data', 'secure_links'), payload), 5000);
-            await withServerConfirmation(() => setDoc(doc(db, 'store_data', 'sec_vault'), payload), 5000);
-            await withServerConfirmation(() => setDoc(doc(db, 'store_data', 'sec_links_vault_3'), payload), 5000);
+            await withServerConfirmation(() => setDoc(doc(db, 'store_data', 'secure_links'), payload), 30000);
+            await withServerConfirmation(() => setDoc(doc(db, 'store_data', 'sec_vault'), payload), 30000);
+            await withServerConfirmation(() => setDoc(doc(db, 'store_data', 'sec_links_vault_3'), payload), 30000);
             console.log("Cloud: Secure vault committed via client SDK.");
           } catch (dbErr: any) {
             throw new Error("Cloud Save Failed: " + dbErr.message);
@@ -1015,6 +1017,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       console.log("Save Apps: All data synchronized successfully.");
     } catch (err: any) {
       console.error("Save Apps Error:", err);
+      throw new Error("Cloud Save Failed: " + err.message);
     }
   }, [settings, news, blogs, videos, updateLocalContainerBackup, withServerConfirmation]);
 
@@ -1031,7 +1034,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const docRef = doc(db, 'store_data', 'public_settings');
         console.log("Cloud: Pushing Settings update via client SDK...");
         const sanitized = JSON.parse(JSON.stringify(settingsWithTime));
-        await withServerConfirmation(() => setDoc(docRef, sanitized, { merge: true }), 5000);
+        await withServerConfirmation(() => setDoc(docRef, sanitized, { merge: true }), 30000);
         console.log("Cloud: Settings update acknowledged by server.");
       }
     } catch (err: any) {
@@ -1054,7 +1057,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const docRef = doc(db, 'store_data', 'news');
         console.log("Cloud: Pushing News update via client SDK...");
         const sanitized = JSON.parse(JSON.stringify({ items: newNews }));
-        await withServerConfirmation(() => setDoc(docRef, sanitized), 5000);
+        await withServerConfirmation(() => setDoc(docRef, sanitized), 30000);
         console.log("Cloud: News update acknowledged by server.");
       }
     } catch (err: any) {
@@ -1077,7 +1080,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const docRef = doc(db, 'store_data', 'blogs');
         console.log("Cloud: Pushing Blogs update via client SDK...");
         const sanitized = JSON.parse(JSON.stringify({ items: newBlogs }));
-        await withServerConfirmation(() => setDoc(docRef, sanitized), 5000);
+        await withServerConfirmation(() => setDoc(docRef, sanitized), 30000);
         console.log("Cloud: Blogs update acknowledged by server.");
       }
     } catch (err: any) {
@@ -1100,7 +1103,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const docRef = doc(db, 'store_data', 'videos');
         console.log("Cloud: Pushing Videos update via client SDK...");
         const sanitized = JSON.parse(JSON.stringify({ items: newVideos }));
-        await withServerConfirmation(() => setDoc(docRef, sanitized), 5000);
+        await withServerConfirmation(() => setDoc(docRef, sanitized), 30000);
         console.log("Cloud: Videos update acknowledged by server.");
       }
     } catch (err: any) {
@@ -1133,18 +1136,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
 
   const testCloudConnection = React.useCallback(async () => {
-    if (!isFirebaseReal || !currentPath.startsWith('/' + getAdminPath())) return false;
+    if (!isFirebaseReal) return false;
     console.log("Connectivity Test: Starting...");
     const settingsDoc = doc(db, 'store_data', 'public_settings');
     
     try {
-      const snap = await getDoc(settingsDoc);
-      if (!snap.metadata.fromCache) {
-        setIsConnected(true);
-        setIsLive(true);
-        return true;
-      }
-      return false;
+      // Use getDocFromServer to force a network request
+      await getDocFromServer(settingsDoc);
+      setIsConnected(true);
+      setIsLive(true);
+      return true;
     } catch (err: any) {
       console.warn("Connectivity Test: Read failed.", err.message || err);
       return false;
@@ -1152,7 +1153,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const refreshAll = React.useCallback(async (silent = false) => {
-    if (!isFirebaseReal || !currentPath.startsWith('/' + getAdminPath())) {
+    if (!isFirebaseReal) {
         setIsConnected(false);
         setLoading(false);
         return;

@@ -137,20 +137,13 @@ export const auth = new Proxy({}, {
   }
 }) as unknown as Auth;
 
-import { getFirestore, initializeFirestore, doc, getDocFromServer, disableNetwork } from 'firebase/firestore';
+import { getFirestore, doc, getDocFromServer, disableNetwork } from 'firebase/firestore';
 
 let firestoreInstance: any = null;
 if (app) {
   const dbId = firebaseConfig?.firestoreDatabaseId === '(default)' ? undefined : firebaseConfig?.firestoreDatabaseId;
-  try { firestoreInstance = initializeFirestore(app, {
-    experimentalForceLongPolling: true,
-  }, dbId); } catch(e) { console.error("FAILED TO INITIALIZE FIRESTORE:", e); firestoreInstance = getFirestore(app, dbId); }
-
-  if (!isFirebaseReal && firestoreInstance) {
-    // No-op for mock Firestore
-  }
+  firestoreInstance = getFirestore(app, dbId);
 }
-
 export const db = firestoreInstance;
 import { getStorage } from "firebase/storage";
 export const storage = isFirebaseReal && app ? getStorage(app) : null;

@@ -68,17 +68,17 @@ const isFirebaseApiKeyReal = (key: string | undefined): boolean => {
 const IS_API_KEY_REAL = isFirebaseApiKeyReal(FIREBASE_API_KEY);
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SESSION STORAGE (sessionStorage — cleared when tab closes)
+// SESSION STORAGE (localStorage — cleared when tab closes)
 // ─────────────────────────────────────────────────────────────────────────────
 export function saveSession(session: AdminSession): void {
   try {
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
   } catch (_) {}
 }
 
 export function loadSession(): AdminSession | null {
   try {
-    const raw = sessionStorage.getItem(SESSION_KEY);
+    const raw = localStorage.getItem(SESSION_KEY);
     if (!raw) return null;
     const parsed: AdminSession = JSON.parse(raw);
     if (!parsed.idToken || !parsed.expiresAt) return null;
@@ -90,7 +90,7 @@ export function loadSession(): AdminSession | null {
 
 export function clearSession(): void {
   try {
-    sessionStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(SESSION_KEY);
   } catch (_) {}
 }
 
