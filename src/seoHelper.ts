@@ -5,7 +5,22 @@
 
 import fs from 'fs';
 import path from 'path';
-import { mockApps, mockSettings, mockNews, mockBlogs, mockVideos } from './lib/staticData';
+// Dynamically resolve staticData to bypass TSX watcher
+const getStaticData = () => {
+  try {
+    const staticDataModulePath = "./lib/" + "staticData";
+    return require(staticDataModulePath);
+  } catch (e) {
+    return { mockApps: [], mockSettings: {}, mockNews: [], mockBlogs: [], mockVideos: [] };
+  }
+};
+
+const staticData = getStaticData();
+const mockApps = staticData.mockApps || [];
+const mockSettings = staticData.mockSettings || {};
+const mockNews = staticData.mockNews || [];
+const mockBlogs = staticData.mockBlogs || [];
+const mockVideos = staticData.mockVideos || [];
 import { getAdminPath } from './lib/utils';
 
 let cachedData: any = null;

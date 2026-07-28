@@ -242,7 +242,7 @@ export interface VideoItem {
   created_at: string;
 }
 
-export const mockApps: AppConfig[] = ${JSON.stringify(cleanApps, null, 2)};
+export const mockApps: AppConfig[] = ${JSON.stringify(cleanApps, null, 2)} as any[];
 
 export const saveMockApps = (apps: AppConfig[]) => {
   try {
@@ -253,7 +253,7 @@ export const saveMockApps = (apps: AppConfig[]) => {
   mockApps.splice(0, mockApps.length, ...apps);
 };
 
-export const mockSettings: GlobalSettings = ${JSON.stringify(cleanSettings, null, 2)};
+export const mockSettings: GlobalSettings = ${JSON.stringify(cleanSettings, null, 2)} as any;
 
 export const saveMockSettings = (settings: GlobalSettings) => {
   try {
@@ -264,7 +264,7 @@ export const saveMockSettings = (settings: GlobalSettings) => {
   Object.assign(mockSettings, settings);
 };
 
-export const mockNews: NewsItem[] = ${JSON.stringify(cleanNews, null, 2)};
+export const mockNews: NewsItem[] = ${JSON.stringify(cleanNews, null, 2)} as any[];
 
 export const saveMockNews = (newsList: NewsItem[]) => {
   try {
@@ -275,7 +275,7 @@ export const saveMockNews = (newsList: NewsItem[]) => {
   mockNews.splice(0, mockNews.length, ...newsList);
 };
 
-export const mockBlogs: BlogPost[] = ${JSON.stringify(cleanBlogs, null, 2)};
+export const mockBlogs: BlogPost[] = ${JSON.stringify(cleanBlogs, null, 2)} as any[];
 
 export const saveMockBlogs = (blogs: BlogPost[]) => {
   try {
@@ -286,7 +286,7 @@ export const saveMockBlogs = (blogs: BlogPost[]) => {
   mockBlogs.splice(0, mockBlogs.length, ...blogs);
 };
 
-export const mockVideos: VideoItem[] = ${JSON.stringify(cleanVideos, null, 2)};
+export const mockVideos: VideoItem[] = ${JSON.stringify(cleanVideos, null, 2)} as any[];
 
 export const saveMockVideos = (videos: VideoItem[]) => {
   try {

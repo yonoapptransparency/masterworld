@@ -18,7 +18,22 @@ import crypto from "crypto";
 import compression from "compression";
 import fs from "fs";
 import dns from "dns";
-import * as staticData from "./src/lib/staticData";
+// Dynamically resolve staticData to bypass TSX watcher during admin saves
+const getStaticData = () => {
+  try {
+    const staticDataModulePath = "./src/lib/" + "staticData";
+    try {
+      const resolvedPath = require.resolve(staticDataModulePath);
+      delete require.cache[resolvedPath];
+    } catch (_) {}
+    return require(staticDataModulePath);
+  } catch (e) {
+    console.error("Failed to load staticData dynamically:", e);
+    return { mockApps: [], mockSettings: {}, mockNews: [], mockBlogs: [], mockVideos: [] };
+  }
+};
+
+const staticData = getStaticData();
 import { injectSeoTags, fetchStoreData, getField, syncFromFirestore } from "./src/seoHelper";
 
 import { generateStaticDataFileCode } from "./src/lib/githubSync";
@@ -2687,24 +2702,24 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
           console.error("Error reading public_backup.json in backup-data endpoint:", e);
         }
       }
-      const { mockApps, mockSettings, mockNews, mockBlogs, mockVideos } = staticData;
+      const dataObj = getStaticData();
       const fallbackData = {
-        apps: mockApps || [],
-        settings: mockSettings || {},
-        news: mockNews || [],
-        blogs: mockBlogs || [],
-        videos: mockVideos || []
+        apps: dataObj.mockApps || [],
+        settings: dataObj.mockSettings || {},
+        news: dataObj.mockNews || [],
+        blogs: dataObj.mockBlogs || [],
+        videos: dataObj.mockVideos || []
       };
       return res.json(fallbackData);
     } catch (err: any) {
       console.error("public backup endpoint error:", err);
-      const { mockApps, mockSettings, mockNews, mockBlogs, mockVideos } = staticData;
+      const dataObj = getStaticData();
       return res.status(200).json({
-        apps: mockApps || [],
-        settings: mockSettings || {},
-        news: mockNews || [],
-        blogs: mockBlogs || [],
-        videos: mockVideos || []
+        apps: dataObj.mockApps || [],
+        settings: dataObj.mockSettings || {},
+        news: dataObj.mockNews || [],
+        blogs: dataObj.mockBlogs || [],
+        videos: dataObj.mockVideos || []
       });
     }
   });

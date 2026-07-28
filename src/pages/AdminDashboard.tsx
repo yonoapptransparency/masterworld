@@ -2777,13 +2777,12 @@ export default function AdminDashboard() {
              if (res.ok) {
                 encryptedUrlVal = (await res.json()).encrypted;
              } else {
-                toast(`Failed to secure URL: ${await res.text()}`, `Failed to secure URL: ${await res.text()}`.toLowerCase().includes('failed') || `Failed to secure URL: ${await res.text()}`.toLowerCase().includes('error') ? 'error' : 'success');
-                return; // Abort save if encryption fails
+                const errMsg = await res.text();
+                throw new Error(`Failed to secure URL: ${errMsg}`);
              }
           } catch (err: any) {
              console.error("Failed to secure URL", err);
-             toast(`Failed to secure URL: ${err.message}`, `Failed to secure URL: ${err.message}`.toLowerCase().includes('failed') || `Failed to secure URL: ${err.message}`.toLowerCase().includes('error') ? 'error' : 'success');
-             return;
+             throw new Error(err.message || "Failed to secure URL");
           }
         } else {
           encryptedUrlVal = trimmedUrl;
