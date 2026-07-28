@@ -23,9 +23,11 @@ export default function FirebaseStatusPanel() {
       try {
         const response = await fetch('/api/v1/admin/firebase-status');
         if (response.ok) {
+          const data = await response.json();
           if (mounted) {
-            setFirestoreStatus('connected');
-            setAuthStatus('connected');
+            setFirestoreStatus(data.status === 'live' ? 'connected' : 'disconnected');
+            // Assuming Auth is up if we can hit our own backend and Firebase is minimally configured
+            setAuthStatus(auth ? 'connected' : 'disconnected');
           }
         } else {
           if (mounted) {

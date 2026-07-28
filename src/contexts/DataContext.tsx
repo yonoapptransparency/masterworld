@@ -245,7 +245,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       }
     }, 250);
     return () => clearInterval(interval);
-  }, [currentPath]);
+  }, []);
 
   const checkIsQuotaError = React.useCallback((err: any) => {
     const msg = String(err?.message || err || '').toLowerCase();
@@ -410,27 +410,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    // Safety fallback - prevent any hanging sync loops after max 400ms
+    // Safety fallback
     const timeout = setTimeout(() => {
       setLoading(false);
       setLoadedFromServer(true);
-    }, 5000);
+    }, 15000);
 
     // Fast sync fallback for deep links (especially new apps not in cache) - set to snappy visual performance
     const syncTimeout = setTimeout(() => {
-      setLoadedFromServer(true);
-      setAppsSyncedWithServer(true);
-      setSettingsSyncedWithServer(true);
-      setNewsSyncedWithServer(true);
-      setBlogsSyncedWithServer(true);
-      setVideosSyncedWithServer(true);
-      
-      setServerAppsFetched(true);
-      setServerNewsFetched(true);
-      setServerBlogsFetched(true);
-      setServerVideosFetched(true);
       setLoading(false);
-    }, 5000);
+      // We do NOT fake the synced status here.
+      // If Firestore is broken, it stays unsynced.
+    }, 15000);
 
     const checkConnection = async () => {
       if (!isFirebaseReal) {
@@ -506,7 +497,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     const unsubs = [
       onSnapshot(doc(db, 'store_data', 'apps_meta'), async (snap) => {
-        if (snap.metadata.fromCache && (typeof window !== 'undefined' && (window as any).__INITIAL_DATA__)) return;
+        
         let loadedApps: any[] = [];
         let fetchedData = false;
         let chunkFetchFailed = false;
@@ -626,7 +617,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         checkLoaded('apps');
       }),
       onSnapshot(doc(db, 'store_data', 'public_settings'), (snap) => {
-        if (snap.metadata.fromCache && (typeof window !== 'undefined' && (window as any).__INITIAL_DATA__)) return;
+        
         if (snap.exists()) {
           const data = snap.data() as GlobalSettings;
           setSettings(prev => JSON.stringify(prev) === JSON.stringify(data) ? prev : data);
@@ -658,7 +649,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         checkLoaded('settings');
       }),
       onSnapshot(doc(db, 'store_data', 'news'), (snap) => {
-        if (snap.metadata.fromCache && (typeof window !== 'undefined' && (window as any).__INITIAL_DATA__)) return;
+        
         if (snap.exists()) {
           const data = snap.data().items || [];
           setNews(prev => JSON.stringify(prev) === JSON.stringify(data) ? prev : data);
@@ -686,7 +677,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         checkLoaded('news');
       }),
       onSnapshot(doc(db, 'store_data', 'blogs'), (snap) => {
-        if (snap.metadata.fromCache && (typeof window !== 'undefined' && (window as any).__INITIAL_DATA__)) return;
+        
         if (snap.exists()) {
           const data = snap.data().items || [];
           setBlogs(prev => JSON.stringify(prev) === JSON.stringify(data) ? prev : data);
@@ -714,7 +705,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         checkLoaded('blogs');
       }),
       onSnapshot(doc(db, 'store_data', 'videos'), (snap) => {
-        if (snap.metadata.fromCache && (typeof window !== 'undefined' && (window as any).__INITIAL_DATA__)) return;
+        
         if (snap.exists()) {
           const data = snap.data().items || [];
           setVideos(prev => JSON.stringify(prev) === JSON.stringify(data) ? prev : data);
@@ -748,7 +739,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       if (timeout) clearTimeout(timeout);
       clearTimeout(syncTimeout);
     };
-  }, [currentPath]);
+  }, []);
 
   const getAdminToken = async (): Promise<string> => {
     try {
@@ -788,7 +779,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         })
       });
       if (!res.ok) {
-        console.warn("backup-data endpoint failed:", await res.text());
+        throw new Error("Server Sync Failed: " + await res.text());
       } else {
         console.log("Local filesystem & cloud sync successful");
       }
@@ -978,7 +969,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           await withServerConfirmation(() => setDoc(metaRef, { numChunks, last_updated: now }), 5000);
           console.log("Cloud: Metadata and chunks successfully committed via client SDK.");
         } catch (dbErr: any) {
-          console.warn("Client SDK apps chunk save warning (will sync via server Admin SDK):", dbErr.message);
+          throw new Error("Cloud Save Failed: " + dbErr.message);
         }
         
         // Save secure links mapping separately (fully encrypted)
@@ -997,10 +988,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             encryptedData = encJSON.encrypted;
             console.log("Cloud: Link encryption successful.");
           } else {
-            console.warn("Server encryption of secure links warning:", await encRes.text());
+            throw new Error("Link encryption failed on server: " + await encRes.text());
           }
         } catch (encErr: any) {
-          console.warn("Encryption of secure links warning:", encErr.message);
+          throw new Error("Failed to reach encryption server: " + encErr.message);
         }
 
         if (encryptedData && db) {
@@ -1011,7 +1002,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             await withServerConfirmation(() => setDoc(doc(db, 'store_data', 'sec_links_vault_3'), payload), 5000);
             console.log("Cloud: Secure vault committed via client SDK.");
           } catch (dbErr: any) {
-            console.warn("Client SDK vault save warning:", dbErr.message);
+            throw new Error("Cloud Save Failed: " + dbErr.message);
           }
         }
       }
@@ -1044,7 +1035,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         console.log("Cloud: Settings update acknowledged by server.");
       }
     } catch (err: any) {
-      console.warn("Client SDK Save Settings warning (synced via server):", err.message);
+      throw new Error("Cloud Save Failed: " + err.message);
     }
 
     // Run as a non-blocking background task
@@ -1067,7 +1058,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         console.log("Cloud: News update acknowledged by server.");
       }
     } catch (err: any) {
-      console.warn("Client SDK Save News warning (synced via server):", err.message);
+      throw new Error("Cloud Save Failed: " + err.message);
     }
 
     // Run as a non-blocking background task
@@ -1090,7 +1081,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         console.log("Cloud: Blogs update acknowledged by server.");
       }
     } catch (err: any) {
-      console.warn("Client SDK Save Blogs warning (synced via server):", err.message);
+      throw new Error("Cloud Save Failed: " + err.message);
     }
 
     // Run as a non-blocking background task
@@ -1113,7 +1104,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         console.log("Cloud: Videos update acknowledged by server.");
       }
     } catch (err: any) {
-      console.warn("Client SDK Save Videos warning (synced via server):", err.message);
+      throw new Error("Cloud Save Failed: " + err.message);
     }
 
     // Run as a non-blocking background task

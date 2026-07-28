@@ -2442,7 +2442,7 @@ export default function AdminDashboard() {
 
   // Auto-seed missing Firestore collections under admin auth!
   React.useEffect(() => {
-    if (user && !saving && isFirebaseConfigured && db) {
+    if (user && !saving && !loading && isFirebaseConfigured && db) {
       const autoSeed = async () => {
         try {
           const newsDocRef = doc(db, 'store_data', 'news');

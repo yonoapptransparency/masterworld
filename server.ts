@@ -1657,15 +1657,27 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
             return res.status(503).json({ status: "offline", error: "Missing Firebase credentials" });
         }
 
+        let adminSdkLive = false;
+        try {
+            const adminDb = getFirebaseAdminDb();
+            if (adminDb) {
+                await adminDb.collection('store_data').doc('apps_meta').get();
+                adminSdkLive = true;
+            }
+        } catch (e) {
+            adminSdkLive = false;
+        }
+        
         const response = await fetch(`https://firestore.googleapis.com/v1/projects/${projectId}/databases/${dbId}/documents/store_data?key=${apiKey}`);
         
-        // Any response from Firestore (even 403 or 404 document not found) means the SERVICE is up.
-        // 503 or network error would mean it's down.
-        if (response.status < 500) {
-            return res.json({ status: "live" });
-        } else {
-            return res.status(response.status).json({ status: "offline", error: "Firestore returned server error" });
+        if (adminSdkLive) {
+            return res.json({ status: "live", details: "Admin SDK Connected" });
+        } else if (response.status === 200) {
+            return res.json({ status: "live", details: "REST Connected (No Admin SDK)" });
+        } else if (response.status === 403) {
+            return res.status(403).json({ status: "permission_denied", error: "Permission Denied (Admin SDK misconfigured)" });
         }
+        return res.status(503).json({ status: "offline", error: "Firestore unreachable" });
     } catch (err: any) {
         return res.status(500).json({ status: "offline", error: err.message });
     }
@@ -2572,7 +2584,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
   // Public API: Direct local filesystem backup endpoint with in-memory caching to load fast fallback instantly
   let backupDataCache: any = null;
   let backupDataCacheTime = 0;
-  const BACKUP_DATA_CACHE_TTL = 30000; // 30 seconds memory cache
+  const BACKUP_DATA_CACHE_TTL = 0; // 30 seconds memory cache
 
   app.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/public/backup-data", "/public/backup-data"], async (req, res) => {
     try {
