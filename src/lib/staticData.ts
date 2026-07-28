@@ -173,7 +173,18 @@ export interface VideoItem {
   created_at: string;
 }
 
-export const mockApps: AppConfig[] = [] as any[];
+export const mockApps: AppConfig[] = [
+  {
+    "slug": "human-test-app",
+    "safety_status": "Verified",
+    "name": "Human Test App",
+    "category": "Rummy",
+    "created_at": "2026-07-28T03:11:54.780Z",
+    "id": "test_app_human",
+    "version": "2.0.0",
+    "description_html": "<p>Human edit test</p>"
+  }
+] as any[];
 
 export const saveMockApps = (apps: AppConfig[]) => {
   try {
@@ -185,8 +196,8 @@ export const saveMockApps = (apps: AppConfig[]) => {
 };
 
 export const mockSettings: GlobalSettings = {
-  "site_title": "",
-  "meta_description": "",
+  "site_title": "Yono Store - Live Admin Verified",
+  "meta_description": "Download All Yono Games, Rummy Apps & Teen Patti APKs",
   "logo_url": "",
   "favicon_url": "",
   "helpline_whatsapp": "",
@@ -194,11 +205,22 @@ export const mockSettings: GlobalSettings = {
   "support_email": "",
   "disclaimer_text": "",
   "ethics_discrimination_text": "",
-  "ticker_text": "",
+  "ticker_text": "Welcome to Yono Store - Official Updates",
   "animations_enabled": true,
-  "categories": [],
+  "categories": [
+    "Rummy",
+    "Teen Patti",
+    "Slots",
+    "Casino"
+  ],
   "banners": [],
-  "quick_links": [],
+  "quick_links": [
+    {
+      "title": "Top Rummy Apps",
+      "url": "/category/rummy",
+      "id": "1"
+    }
+  ],
   "website_faqs": [],
   "developers": []
 } as any;
@@ -212,7 +234,15 @@ export const saveMockSettings = (settings: GlobalSettings) => {
   Object.assign(mockSettings, settings);
 };
 
-export const mockNews: NewsItem[] = [] as any[];
+export const mockNews: NewsItem[] = [
+  {
+    "id": "human_news_1",
+    "content": "Testing human save action in admin dashboard",
+    "slug": "human-news-1",
+    "date": "2026-07-28T03:11:54.781Z",
+    "title": "Human Admin News Test"
+  }
+] as any[];
 
 export const saveMockNews = (newsList: NewsItem[]) => {
   try {
@@ -223,7 +253,15 @@ export const saveMockNews = (newsList: NewsItem[]) => {
   mockNews.splice(0, mockNews.length, ...newsList);
 };
 
-export const mockBlogs: BlogPost[] = [] as any[];
+export const mockBlogs: BlogPost[] = [
+  {
+    "slug": "human-blog-1",
+    "title": "Human Admin Blog Test",
+    "id": "human_blog_1",
+    "publish_date": "2026-07-28T03:11:54.781Z",
+    "content": "Testing human blog save"
+  }
+] as any[];
 
 export const saveMockBlogs = (blogs: BlogPost[]) => {
   try {
@@ -234,7 +272,14 @@ export const saveMockBlogs = (blogs: BlogPost[]) => {
   mockBlogs.splice(0, mockBlogs.length, ...blogs);
 };
 
-export const mockVideos: VideoItem[] = [] as any[];
+export const mockVideos: VideoItem[] = [
+  {
+    "title": "Human Admin Video Test",
+    "youtube_url": "https://youtube.com/watch?v=12345",
+    "slug": "human-vid-1",
+    "id": "human_vid_1"
+  }
+] as any[];
 
 export const saveMockVideos = (videos: VideoItem[]) => {
   try {
