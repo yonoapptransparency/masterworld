@@ -61,12 +61,11 @@ function safeDecrypt(ciphertext: string, secret: string): string {
 let hasWarnedAes = false;
 function getAesSecret() {
   const secret = process.env.AES_SECRET || AES_SECRET_GLOBAL;
-  if (!secret) {
-    if (!hasWarnedAes) {
-      console.warn("WARNING: AES_SECRET environment variable is NOT SET. Using an insecure fallback key. DO NOT DO THIS IN PRODUCTION.");
-      hasWarnedAes = true;
-    }
-    return "fallback_aes_secret";
+  if (!secret || secret === getFallbackAes()) {
+    console.error("CRITICAL: AES_SECRET environment variable is NOT SET. Using insecure fallback key. " +
+      "All encrypted URLs will be UNREADABLE if you later set a real AES_SECRET. " +
+      "Set AES_SECRET in your environment variables immediately.");
+    return getFallbackAes();
   }
   return secret;
 }
@@ -156,12 +155,27 @@ function getFirebaseAdminDb(): any {
     const admin = require('firebase-admin');
     const config = getRawFirebaseConfig();
     if (admin.apps.length === 0) {
-      if (config && config.projectId) {
-        admin.initializeApp({
-          projectId: config.projectId
-        });
+      const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
+      if (serviceAccountJson) {
+        try {
+          const serviceAccount = JSON.parse(serviceAccountJson);
+          admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount),
+            projectId: config?.projectId
+          });
+          console.log('[Admin SDK] Initialized with service account credentials.');
+        } catch (parseErr: any) {
+          console.error('[Admin SDK] Failed to parse FIREBASE_SERVICE_ACCOUNT:', parseErr.message);
+          adminInitFailed = true;
+          return null;
+        }
+      } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+        admin.initializeApp({ projectId: config?.projectId });
+        console.log('[Admin SDK] Initialized with GOOGLE_APPLICATION_CREDENTIALS.');
       } else {
-        admin.initializeApp();
+        console.warn('[Admin SDK] No service account credentials found. Admin SDK disabled. Set FIREBASE_SERVICE_ACCOUNT env var with your service account JSON (stringified).');
+        adminInitFailed = true;
+        return null;
       }
     }
     const dbId = config?.firestoreDatabaseId || '(default)';
@@ -171,10 +185,10 @@ function getFirebaseAdminDb(): any {
     } else {
       cachedAdminDb = admin.firestore();
     }
-    console.log(`[INFO] Firebase Admin SDK successfully initialized for database: ${dbId}`);
+    console.log(`[Admin SDK] Firestore initialized for database: ${dbId}`);
     return cachedAdminDb;
   } catch (err: any) {
-    console.warn("[WARN] Firebase Admin SDK initialization failed:", err.message || err);
+    console.warn('[Admin SDK] Initialization failed:', err.message || err);
     adminInitFailed = true;
     return null;
   }
@@ -1660,41 +1674,84 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
 
   // Admin API: Secure Admin Verification
   app.get("/api/v1/admin/firebase-status", async (req: any, res: any) => {
-    try {
-        const config = getRawFirebaseConfig();
-        const apiKey = config.apiKey || process.env.FIREBASE_API_KEY;
-        const projectId = config.projectId || process.env.FIREBASE_PROJECT_ID;
-        const dbId = config.firestoreDatabaseId || "(default)";
+  const results: any = {
+    config: false,
+    firestoreRead: false,
+    firestoreWrite: false,
+    adminSdk: false,
+    aesConfigured: false,
+    details: {}
+  };
+  try {
+    const config = getRawFirebaseConfig();
+    const apiKey = config?.apiKey;
+    const projectId = config?.projectId;
+    const dbId = config?.firestoreDatabaseId || "(default)";
+    results.config = !!(apiKey && projectId);
+    results.aesConfigured = !!(process.env.AES_SECRET && process.env.AES_SECRET !== getAesSecret());
+    results.details.projectId = projectId;
+    results.details.databaseId = dbId;
 
-        if (!apiKey || !projectId) {
-            return res.status(503).json({ status: "offline", error: "Missing Firebase credentials" });
-        }
-
-        let adminSdkLive = false;
-        try {
-            const adminDb = getFirebaseAdminDb();
-            if (adminDb) {
-                await adminDb.collection('store_data').doc('apps_meta').get();
-                adminSdkLive = true;
-            }
-        } catch (e) {
-            adminSdkLive = false;
-        }
-        
-        const response = await fetch(`https://firestore.googleapis.com/v1/projects/${projectId}/databases/${dbId}/documents/store_data?key=${apiKey}`);
-        
-        if (adminSdkLive) {
-            return res.json({ status: "live", details: "Admin SDK Connected" });
-        } else if (response.status === 200) {
-            return res.json({ status: "live", details: "REST Connected (No Admin SDK)" });
-        } else if (response.status === 403) {
-            return res.status(403).json({ status: "permission_denied", error: "Permission Denied (Admin SDK misconfigured)" });
-        }
-        return res.status(503).json({ status: "offline", error: "Firestore unreachable" });
-    } catch (err: any) {
-        return res.status(500).json({ status: "offline", error: err.message });
+    if (!apiKey || !projectId) {
+      return res.status(503).json({ status: "offline", error: "Missing Firebase credentials", results });
     }
-  });
+
+    // Test 1: Admin SDK
+    try {
+      const adminDb = getFirebaseAdminDb();
+      if (adminDb) {
+        await adminDb.collection('store_data').doc('_status_check_').set({ ts: Date.now() });
+        await adminDb.collection('store_data').doc('_status_check_').delete();
+        results.adminSdk = true;
+      }
+    } catch (e: any) {
+      results.details.adminSdkError = e.message;
+    }
+
+    // Test 2: REST API read test
+    try {
+      const readUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${dbId}/documents/store_data/public_settings?key=${apiKey}`;
+      const readRes = await fetch(readUrl);
+      results.firestoreRead = readRes.status === 200 || readRes.status === 404; // 404 = doc doesn't exist but connection works
+      results.details.restReadStatus = readRes.status;
+    } catch (e: any) {
+      results.details.restReadError = e.message;
+    }
+
+    // Test 3: REST API write test (only if read succeeded)
+    if (results.firestoreRead && !results.adminSdk) {
+      try {
+        const writeUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${dbId}/documents/store_data/_write_test_?key=${apiKey}`;
+        const writeRes = await fetch(writeUrl, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fields: { ts: { stringValue: new Date().toISOString() } } })
+        });
+        results.firestoreWrite = writeRes.ok;
+        results.details.restWriteStatus = writeRes.status;
+        if (!writeRes.ok) {
+          const errText = await writeRes.text();
+          results.details.restWriteError = errText;
+        }
+      } catch (e: any) {
+        results.details.restWriteError = e.message;
+      }
+    } else if (results.adminSdk) {
+      results.firestoreWrite = true; // Admin SDK write test already proved writes work
+    }
+
+    const isLive = results.firestoreRead && (results.firestoreWrite || results.adminSdk);
+    const statusText = isLive ? "live" : (results.firestoreRead ? "read_only" : "offline");
+
+    return res.json({
+      status: statusText,
+      results,
+      details: results.details
+    });
+  } catch (err: any) {
+    return res.status(500).json({ status: "offline", error: err.message, results });
+  }
+});
 
   app.get("/api/v1/admin/verify", verifyAdminToken, (req, res) => {
     res.json({ authorized: true, user: (req as any).adminUser });

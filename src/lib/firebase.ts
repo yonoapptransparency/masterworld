@@ -140,9 +140,16 @@ export const auth = new Proxy({}, {
 import { getFirestore, doc, getDocFromServer, disableNetwork } from 'firebase/firestore';
 
 let firestoreInstance: any = null;
-if (app) {
-  const dbId = firebaseConfig?.firestoreDatabaseId === '(default)' ? undefined : firebaseConfig?.firestoreDatabaseId;
-  firestoreInstance = getFirestore(app, dbId);
+if (app && isFirebaseReal) {
+  try {
+    const dbId = (firebaseConfig?.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)')
+      ? firebaseConfig.firestoreDatabaseId
+      : undefined;
+    firestoreInstance = getFirestore(app, dbId);
+    console.log('[Firebase] Firestore initialized with database:', dbId ?? '(default)');
+  } catch(e) {
+    console.error('[Firebase] Firestore initialization FAILED:', e);
+  }
 }
 export const db = firestoreInstance;
 import { getStorage } from "firebase/storage";

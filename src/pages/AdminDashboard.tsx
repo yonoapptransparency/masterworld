@@ -95,6 +95,22 @@ const SidebarItem = React.memo(({
 
 // Extraction of Tab Content Components for better performance
 const DashboardTab = React.memo(({ apps, news }: { apps: any[], news: any[] }) => {
+  const [pendingReviews, setPendingReviews] = React.useState<number | null>(null);
+
+  React.useEffect(() => {
+    if (!isFirebaseReal || !db) return;
+    const { collection, query, where, onSnapshot } = require('firebase/firestore');
+    try {
+      const q = query(collection(db, 'reviews'), where('is_approved', '==', false));
+      const unsub = onSnapshot(q, (snap: any) => {
+        setPendingReviews(snap.size);
+      }, () => {
+        setPendingReviews(0);
+      });
+      return () => unsub();
+    } catch(e) {}
+  }, []);
+
   const chartData = [
     { name: 'Mon', apps: Math.max(0, apps.length - 5), traffic: 4000 },
     { name: 'Tue', apps: Math.max(0, apps.length - 4), traffic: 3000 },
@@ -138,7 +154,7 @@ const DashboardTab = React.memo(({ apps, news }: { apps: any[], news: any[] }) =
         <div className="absolute -right-8 -top-8 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl group-hover:bg-amber-500/20 transition-all"></div>
         <div className="relative z-10">
           <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1.5">Pending Reviews</div>
-          <div className="text-4xl font-black text-slate-900 dark:text-white">12</div>
+          <div className="text-4xl font-black text-slate-900 dark:text-white">{pendingReviews === null ? '...' : pendingReviews}</div>
         </div>
         <div className="relative z-10 w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-400 flex items-center justify-center text-white shadow-lg shadow-amber-500/30">
           <ShieldAlert className="w-6 h-6" />
@@ -2036,6 +2052,7 @@ export default function AdminDashboard() {
     pushAllToGitHub
   } = useData();
   const [activeTab, setActiveTab] = useState('dashboard');
+
   
   useEffect(() => {
     console.log("DEBUG: isFirebaseReal =", isFirebaseReal);
