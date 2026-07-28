@@ -276,19 +276,29 @@ async function doFetchStoreData() {
   if (fs.existsSync(publicBackupPath)) {
     try {
       const backup = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
-      const data = {
-        apps: backup.apps || [],
-        settings: backup.settings || {},
-        news: backup.news || [],
-        blogs: backup.blogs || [],
-        videos: backup.videos || []
-      };
-      cachedData = data;
-      lastFetchTime = now;
-      return data;
+      if (backup.apps && backup.apps.length > 0) {
+        const data = {
+          apps: backup.apps || [],
+          settings: backup.settings || {},
+          news: backup.news || [],
+          blogs: backup.blogs || [],
+          videos: backup.videos || []
+        };
+        cachedData = data;
+        lastFetchTime = now;
+        return data;
+      }
     } catch (e) {
       console.error("Error reading public_backup.json in seoHelper:", e);
     }
+  }
+
+  // Fetch live from Firestore if public_backup.json is missing or has no apps
+  const synced = await syncFromFirestore();
+  if (synced) {
+    cachedData = synced;
+    lastFetchTime = now;
+    return synced;
   }
 
   const data = {

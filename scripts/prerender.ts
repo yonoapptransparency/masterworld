@@ -17,9 +17,11 @@ async function prerender() {
   try {
     const originalTemplate = fs.readFileSync(indexHtmlPath, 'utf-8');
     const data = await fetchStoreData() || { apps: [], news: [], blogs: [], videos: [], settings: {} };
-    if (!data.apps || data.apps.length === 0) {
-      console.error("Firebase data load failed (or no apps available). Aborting prerender to prevent blank pages.");
-      process.exit(1);
+    if (!data.apps) {
+      data.apps = [];
+    }
+    if (data.apps.length === 0) {
+      console.warn("No apps found in store data. Prerendering static pages...");
     }
     
     // Helper to generate a file for a specific path
