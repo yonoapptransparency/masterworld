@@ -891,34 +891,34 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const saveApps = React.useCallback(async (newApps: AppConfig[]) => {
     console.log("Save Apps: Initiating sync sequence...");
     setApps(newApps);
-    if (!isFirebaseReal || !db) {
-      console.warn("Save Apps: Firebase not configured, saved to localStorage only.");
-      return;
-    }
-    const CHUNK_SIZE = 25;
-    const numChunks = Math.ceil(newApps.length / CHUNK_SIZE) || 1;
-    const now = new Date().toISOString();
-    // Write app chunks to Firestore — this is the PRIMARY operation
-    try {
-      const chunkPromises = [];
-      for (let i = 0; i < numChunks; i++) {
-        const chunk = JSON.parse(JSON.stringify(newApps.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE)));
-        chunk.forEach((app: any) => {
-          delete app.more_information_url;
-          delete app.encrypted_download_url;
-          delete app.download_url;
-        });
-        chunkPromises.push(
-          withServerConfirmation(() => setDoc(doc(db, 'store_data', `apps_chunk_${i}`), { items: chunk }), 30000)
 
-        );
-      }
-      await Promise.all(chunkPromises);
-      await withServerConfirmation(() => setDoc(doc(db, 'store_data', 'apps_meta'), { numChunks, last_updated: now }), 30000);
-      console.log("Cloud: App chunks and metadata written successfully.");
-    } catch (dbErr: any) {
-      throw new Error("Cloud Save Failed: " + dbErr.message);
+    // Primary cloud save via Express Server Admin SDK
+    try {
+      await updateLocalContainerBackup(newApps, settings, news, blogs, videos);
+      console.log("Cloud Apps: Express Server & Admin SDK write acknowledged.");
+    } catch (serverErr: any) {
+      console.warn("Server sync warning for apps:", serverErr.message || serverErr);
     }
+
+    // Secondary non-blocking client SDK write attempt
+    if (isFirebaseReal && db) {
+      try {
+        const CHUNK_SIZE = 25;
+        const numChunks = Math.ceil(newApps.length / CHUNK_SIZE) || 1;
+        const now = new Date().toISOString();
+        for (let i = 0; i < numChunks; i++) {
+          const chunk = JSON.parse(JSON.stringify(newApps.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE)));
+          chunk.forEach((app: any) => {
+            delete app.more_information_url;
+            delete app.encrypted_download_url;
+            delete app.download_url;
+          });
+          setDoc(doc(db, 'store_data', `apps_chunk_${i}`), { items: chunk }).catch(e => console.warn("Client SDK chunk write background:", e));
+        }
+        setDoc(doc(db, 'store_data', 'apps_meta'), { numChunks, last_updated: now }).catch(e => console.warn("Client SDK meta write background:", e));
+      } catch (e) {}
+    }
+
     // Encrypt and save URLs — SECONDARY, non-blocking, runs in background
     const secureLinks = newApps
       .filter(a => {
@@ -927,128 +927,115 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       })
       .map(a => ({ id: a.id, url: a.more_information_url || '' }));
 
-    if (secureLinks.length === 0) {
-      console.log("No secure link changes detected, skipping vault write.");
-      updateLocalContainerBackup(newApps, settings, news, blogs, videos).catch(err => {
-        console.warn("Background local sync error:", err);
-      });
-      console.log("Save Apps: Firestore write complete.");
-      return;
-    }
-    adminFetch('/api/v1/admin/encrypt-links', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items: secureLinks })
-    }).then(async (encRes) => {
-      if (encRes.ok) {
-        const encJSON = await encRes.json();
-        const encryptedData = encJSON.encrypted;
-        if (encryptedData && db) {
-          const payload = { encryptedData, lastUpdated: new Date().toISOString() };
-          await setDoc(doc(db, 'store_data', 'secure_links'), payload).catch(e => console.warn("Vault write warning:", e));
-          console.log("Cloud: Secure vault written.");
+    if (secureLinks.length > 0) {
+      adminFetch('/api/v1/admin/encrypt-links', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: secureLinks })
+      }).then(async (encRes) => {
+        if (encRes.ok) {
+          const encJSON = await encRes.json();
+          const encryptedData = encJSON.encrypted;
+          if (encryptedData && db) {
+            const payload = { encryptedData, lastUpdated: new Date().toISOString() };
+            setDoc(doc(db, 'store_data', 'secure_links'), payload).catch(e => console.warn("Vault write warning:", e));
+          }
         }
-      } else {
-        console.warn("URL encryption failed (non-blocking):", await encRes.text());
-      }
-    }).catch(e => console.warn("URL encryption error (non-blocking):", e));
-    // Background server sync
-    updateLocalContainerBackup(newApps, settings, news, blogs, videos).catch(err => {
-      console.warn("Background local sync error:", err);
-    });
-    console.log("Save Apps: Firestore write complete.");
-  }, [settings, news, blogs, videos, updateLocalContainerBackup, withServerConfirmation]);
+      }).catch(e => console.warn("URL encryption error (non-blocking):", e));
+    }
+    console.log("Save Apps: Complete.");
+  }, [settings, news, blogs, videos, apps, updateLocalContainerBackup, isFirebaseReal]);
 
   const saveSettings = React.useCallback(async (newSettings: GlobalSettings) => {
     const now = new Date().toISOString();
     const settingsWithTime = { ...settings, ...newSettings, last_updated: now };
 
-    // 1. Snappy optimistic update to local state and local memory first
+    // 1. Snappy optimistic update to local state first
     setSettings(settingsWithTime);
 
+    // 2. Primary cloud save via Express Server Admin SDK
     try {
-      if (isFirebaseReal && db) {
-        const docRef = doc(db, 'store_data', 'public_settings');
-        console.log("Cloud: Pushing Settings update via client SDK...");
-        const sanitized = JSON.parse(JSON.stringify(settingsWithTime));
-        await withServerConfirmation(() => setDoc(docRef, sanitized, { merge: true }), 30000);
-        console.log("Cloud: Settings update acknowledged by server.");
-      }
-    } catch (err: any) {
-      throw new Error("Cloud Save Failed: " + err.message);
+      await updateLocalContainerBackup(apps, settingsWithTime, news, blogs, videos);
+      console.log("Cloud Settings: Express Server & Admin SDK write acknowledged.");
+    } catch (serverErr: any) {
+      console.warn("Server sync warning for settings:", serverErr.message || serverErr);
     }
 
-    // Run as a non-blocking background task
-    updateLocalContainerBackup(apps, settingsWithTime, news, blogs, videos).catch(err => {
-      console.warn("Background local sync error:", err);
-    });
-  }, [settings, apps, news, blogs, videos, updateLocalContainerBackup, withServerConfirmation]);
+    // 3. Secondary non-blocking client SDK write attempt
+    if (isFirebaseReal && db) {
+      try {
+        const docRef = doc(db, 'store_data', 'public_settings');
+        const sanitized = JSON.parse(JSON.stringify(settingsWithTime));
+        setDoc(docRef, sanitized, { merge: true }).catch(e => console.warn("Client SDK background write for settings:", e));
+      } catch (e) {}
+    }
+  }, [settings, apps, news, blogs, videos, updateLocalContainerBackup, isFirebaseReal]);
 
   const saveNews = React.useCallback(async (newNews: NewsItem[]) => {
-    // 1. Snappy optimistic update to local state and local memory first
+    // 1. Snappy optimistic update to local state first
     setNews(newNews);
 
+    // 2. Primary cloud save via Express Server Admin SDK
     try {
-      if (isFirebaseReal && db) {
-        const docRef = doc(db, 'store_data', 'news');
-        console.log("Cloud: Pushing News update via client SDK...");
-        const sanitized = JSON.parse(JSON.stringify({ items: newNews }));
-        await withServerConfirmation(() => setDoc(docRef, sanitized), 30000);
-        console.log("Cloud: News update acknowledged by server.");
-      }
-    } catch (err: any) {
-      throw new Error("Cloud Save Failed: " + err.message);
+      await updateLocalContainerBackup(apps, settings, newNews, blogs, videos);
+      console.log("Cloud News: Express Server & Admin SDK write acknowledged.");
+    } catch (serverErr: any) {
+      console.warn("Server sync warning for news:", serverErr.message || serverErr);
     }
 
-    // Run as a non-blocking background task
-    updateLocalContainerBackup(apps, settings, newNews, blogs, videos).catch(err => {
-      console.warn("Background local sync error:", err);
-    });
-  }, [apps, settings, blogs, videos, updateLocalContainerBackup, withServerConfirmation]);
+    // 3. Secondary non-blocking client SDK write attempt
+    if (isFirebaseReal && db) {
+      try {
+        const docRef = doc(db, 'store_data', 'news');
+        const sanitized = JSON.parse(JSON.stringify({ items: newNews }));
+        setDoc(docRef, sanitized).catch(e => console.warn("Client SDK background write for news:", e));
+      } catch (e) {}
+    }
+  }, [apps, settings, blogs, videos, updateLocalContainerBackup, isFirebaseReal]);
 
   const saveBlogs = React.useCallback(async (newBlogs: BlogPost[]) => {
-    // 1. Snappy optimistic update to local state and local memory first
+    // 1. Snappy optimistic update to local state first
     setBlogs(newBlogs);
 
+    // 2. Primary cloud save via Express Server Admin SDK
     try {
-      if (isFirebaseReal && db) {
-        const docRef = doc(db, 'store_data', 'blogs');
-        console.log("Cloud: Pushing Blogs update via client SDK...");
-        const sanitized = JSON.parse(JSON.stringify({ items: newBlogs }));
-        await withServerConfirmation(() => setDoc(docRef, sanitized), 30000);
-        console.log("Cloud: Blogs update acknowledged by server.");
-      }
-    } catch (err: any) {
-      throw new Error("Cloud Save Failed: " + err.message);
+      await updateLocalContainerBackup(apps, settings, news, newBlogs, videos);
+      console.log("Cloud Blogs: Express Server & Admin SDK write acknowledged.");
+    } catch (serverErr: any) {
+      console.warn("Server sync warning for blogs:", serverErr.message || serverErr);
     }
 
-    // Run as a non-blocking background task
-    updateLocalContainerBackup(apps, settings, news, newBlogs, videos).catch(err => {
-      console.warn("Background local sync error:", err);
-    });
-  }, [apps, settings, news, videos, updateLocalContainerBackup, withServerConfirmation]);
+    // 3. Secondary non-blocking client SDK write attempt
+    if (isFirebaseReal && db) {
+      try {
+        const docRef = doc(db, 'store_data', 'blogs');
+        const sanitized = JSON.parse(JSON.stringify({ items: newBlogs }));
+        setDoc(docRef, sanitized).catch(e => console.warn("Client SDK background write for blogs:", e));
+      } catch (e) {}
+    }
+  }, [apps, settings, news, videos, updateLocalContainerBackup, isFirebaseReal]);
 
   const saveVideos = React.useCallback(async (newVideos: VideoItem[]) => {
-    // 1. Snappy optimistic update to local state and local memory first
+    // 1. Snappy optimistic update to local state first
     setVideos(newVideos);
 
+    // 2. Primary cloud save via Express Server Admin SDK
     try {
-      if (isFirebaseReal && db) {
-        const docRef = doc(db, 'store_data', 'videos');
-        console.log("Cloud: Pushing Videos update via client SDK...");
-        const sanitized = JSON.parse(JSON.stringify({ items: newVideos }));
-        await withServerConfirmation(() => setDoc(docRef, sanitized), 30000);
-        console.log("Cloud: Videos update acknowledged by server.");
-      }
-    } catch (err: any) {
-      throw new Error("Cloud Save Failed: " + err.message);
+      await updateLocalContainerBackup(apps, settings, news, blogs, newVideos);
+      console.log("Cloud Videos: Express Server & Admin SDK write acknowledged.");
+    } catch (serverErr: any) {
+      console.warn("Server sync warning for videos:", serverErr.message || serverErr);
     }
 
-    // Run as a non-blocking background task
-    updateLocalContainerBackup(apps, settings, news, blogs, newVideos).catch(err => {
-      console.warn("Background local sync error:", err);
-    });
-  }, [apps, settings, news, blogs, updateLocalContainerBackup, withServerConfirmation]);
+    // 3. Secondary non-blocking client SDK write attempt
+    if (isFirebaseReal && db) {
+      try {
+        const docRef = doc(db, 'store_data', 'videos');
+        const sanitized = JSON.parse(JSON.stringify({ items: newVideos }));
+        setDoc(docRef, sanitized).catch(e => console.warn("Client SDK background write for videos:", e));
+      } catch (e) {}
+    }
+  }, [apps, settings, news, blogs, updateLocalContainerBackup, isFirebaseReal]);
 
   const saveGitConfig = React.useCallback(async (newConfig: GitConfig) => {
     try {

@@ -186,8 +186,8 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
   console.log("[DEBUG] sync-local endpoint hit!");
   try {
     const { apps, settings, news, blogs, videos } = req.body;
-    if (!apps || !settings) {
-      return res.status(400).json({ error: "Invalid sync payload." });
+    if (!apps && !settings && !news && !blogs && !videos) {
+      return res.status(400).json({ error: "Invalid sync payload: no items provided." });
     }
 
     let firestoreUpdated = false;
@@ -549,8 +549,9 @@ adminVaultRouter.get("/api/v1/admin/firebase-status", verifyAdminToken, async (r
       results.writeLatencyMs = results.details.adminSdkLatencyMs || (Date.now() - writeStart);
     } else if (results.firestoreRead) {
       try {
-        // 1) Try spent_tokens POST create rule check
-        const spentUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${dbId}/documents/spent_tokens?key=${apiKey}`;
+        // 1) Try spent_tokens POST create rule check with explicit documentId
+        const pingDocId = `status_ping_${Date.now()}`;
+        const spentUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${dbId}/documents/spent_tokens?documentId=${pingDocId}&key=${apiKey}`;
         const spentRes = await fetch(spentUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

@@ -4,50 +4,52 @@ import { isRealValue } from './crypto';
 
 // Service account parsing helper supporting raw JSON, base64, double-escaped newlines, and quotes
 function parseServiceAccount(rawStr: string): any {
+  if (!rawStr || typeof rawStr !== 'string') return null;
   let str = rawStr.trim();
   while ((str.startsWith('"') && str.endsWith('"')) || (str.startsWith("'") && str.endsWith("'"))) {
     str = str.slice(1, -1).trim();
   }
-  
+
+  const tryValidate = (obj: any) => {
+    if (typeof obj === 'string') {
+      try { obj = JSON.parse(obj); } catch (e) {}
+    }
+    if (obj && typeof obj === 'object') {
+      if (obj.private_key || obj.client_email || obj.project_id) {
+        if (obj.private_key && typeof obj.private_key === 'string') {
+          obj.private_key = obj.private_key.replace(/\\n/g, '\n');
+        }
+        return obj;
+      }
+    }
+    return null;
+  };
+
   // 1. Direct JSON parse
   try {
-    let parsed = JSON.parse(str);
-    if (typeof parsed === 'string') {
-      parsed = JSON.parse(parsed);
-    }
-    if (parsed && typeof parsed === 'object') {
-      if (parsed.private_key && typeof parsed.private_key === 'string') {
-        parsed.private_key = parsed.private_key.replace(/\\n/g, '\n');
-      }
-      return parsed;
-    }
+    const parsed = tryValidate(JSON.parse(str));
+    if (parsed) return parsed;
   } catch (e) {}
 
-  // 2. Base64 decoded JSON parse
+  // 2. Unescape newlines / escaped control characters
+  try {
+    const unescaped = str.replace(/\\n/g, '\n').replace(/\r/g, '');
+    const parsed = tryValidate(JSON.parse(unescaped));
+    if (parsed) return parsed;
+  } catch (e) {}
+
+  // 3. Replace literal raw newlines inside strings
+  try {
+    const sanitized = str.replace(/\n/g, '\\n').replace(/\r/g, '');
+    const parsed = tryValidate(JSON.parse(sanitized));
+    if (parsed) return parsed;
+  } catch (e) {}
+
+  // 4. Base64 decoded JSON parse
   try {
     const decoded = Buffer.from(str, 'base64').toString('utf8').trim();
-    let parsed = JSON.parse(decoded);
-    if (typeof parsed === 'string') {
-      parsed = JSON.parse(parsed);
-    }
-    if (parsed && typeof parsed === 'object') {
-      if (parsed.private_key && typeof parsed.private_key === 'string') {
-        parsed.private_key = parsed.private_key.replace(/\\n/g, '\n');
-      }
-      return parsed;
-    }
-  } catch (e) {}
-
-  // 3. String with escaped newlines
-  try {
-    const cleaned = str.replace(/\r?\n/g, '\\n');
-    const parsed = JSON.parse(cleaned);
-    if (parsed && typeof parsed === 'object') {
-      if (parsed.private_key && typeof parsed.private_key === 'string') {
-        parsed.private_key = parsed.private_key.replace(/\\n/g, '\n');
-      }
-      return parsed;
-    }
+    const parsed = tryValidate(JSON.parse(decoded));
+    if (parsed) return parsed;
   } catch (e) {}
 
   throw new Error('Invalid JSON format in FIREBASE_ACCOUNT / FIREBASE_SERVICE_ACCOUNT variable');
@@ -108,11 +110,9 @@ export function getRawFirebaseConfig(): any {
 }
 
 let cachedAdminDb: any = null;
-let adminInitFailed = false;
 
 export function getFirebaseAdminDb(): any {
   if (cachedAdminDb) return cachedAdminDb;
-  if (adminInitFailed) return null;
 
   try {
     const admin = require('firebase-admin');
@@ -135,7 +135,6 @@ export function getFirebaseAdminDb(): any {
           console.log('[Admin SDK] Initialized with service account credentials.');
         } catch (parseErr: any) {
           console.error('[Admin SDK] Failed to parse FIREBASE_ACCOUNT / FIREBASE_SERVICE_ACCOUNT:', parseErr.message);
-          adminInitFailed = true;
           return null;
         }
       } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
@@ -143,7 +142,6 @@ export function getFirebaseAdminDb(): any {
         console.log('[Admin SDK] Initialized with GOOGLE_APPLICATION_CREDENTIALS.');
       } else {
         console.warn('[Admin SDK] No service account env var found. Admin SDK in REST fallback mode.');
-        adminInitFailed = true;
         return null;
       }
     }
@@ -160,7 +158,6 @@ export function getFirebaseAdminDb(): any {
     return cachedAdminDb;
   } catch (err: any) {
     console.warn('[Admin SDK] Initialization failed:', err.message || err);
-    adminInitFailed = true;
     return null;
   }
 }
