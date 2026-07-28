@@ -549,26 +549,34 @@ adminVaultRouter.get("/api/v1/admin/firebase-status", verifyAdminToken, async (r
       results.writeLatencyMs = results.details.adminSdkLatencyMs || (Date.now() - writeStart);
     } else if (results.firestoreRead) {
       try {
-        // Try spent_tokens rule-validated write first
-        const spentUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${dbId}/documents/spent_tokens/_status_ping_?key=${apiKey}`;
+        // 1) Try spent_tokens POST create rule check
+        const spentUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${dbId}/documents/spent_tokens?key=${apiKey}`;
         const spentRes = await fetch(spentUrl, {
-          method: 'PATCH',
+          method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ fields: { usedAt: { stringValue: new Date().toISOString() } } })
         });
-        results.writeLatencyMs = Date.now() - writeStart;
-
-        if (spentRes.ok) {
+        
+        if (spentRes.ok || spentRes.status === 200) {
           results.firestoreWrite = true;
+          results.writeLatencyMs = Date.now() - writeStart;
           results.details.restWriteStatus = spentRes.status;
-          results.details.writeMode = "Public Rules Validation";
+          results.details.writeMode = "Public Rules Validation (spent_tokens)";
         } else {
+          // 2) Try authenticated admin REST write if Authorization token is provided
+          const userAuthHeader = req.headers?.authorization;
           const writeUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${dbId}/documents/store_data/_write_test_?key=${apiKey}`;
+          const headers: any = { 'Content-Type': 'application/json' };
+          if (userAuthHeader && userAuthHeader.startsWith('Bearer ')) {
+            headers['Authorization'] = userAuthHeader;
+          }
+          
           const writeRes = await fetch(writeUrl, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({ fields: { ts: { stringValue: new Date().toISOString() }, checker: { stringValue: 'live_status_indicator' } } })
           });
+          results.writeLatencyMs = Date.now() - writeStart;
           results.firestoreWrite = writeRes.ok;
           results.details.restWriteStatus = writeRes.status;
           if (!writeRes.ok) {

@@ -2,39 +2,55 @@ import fs from 'fs';
 import path from 'path';
 import { isRealValue } from './crypto';
 
-// Service account parsing helper supporting raw JSON, base64, escaped newlines, and quotes
+// Service account parsing helper supporting raw JSON, base64, double-escaped newlines, and quotes
 function parseServiceAccount(rawStr: string): any {
   let str = rawStr.trim();
-  if ((str.startsWith('"') && str.endsWith('"')) || (str.startsWith("'") && str.endsWith("'"))) {
+  while ((str.startsWith('"') && str.endsWith('"')) || (str.startsWith("'") && str.endsWith("'"))) {
     str = str.slice(1, -1).trim();
   }
+  
+  // 1. Direct JSON parse
   try {
-    const parsed = JSON.parse(str);
-    if (parsed.private_key && typeof parsed.private_key === 'string') {
-      parsed.private_key = parsed.private_key.replace(/\\n/g, '\n');
+    let parsed = JSON.parse(str);
+    if (typeof parsed === 'string') {
+      parsed = JSON.parse(parsed);
     }
-    return parsed;
-  } catch (e) {
-    try {
-      const decoded = Buffer.from(str, 'base64').toString('utf8').trim();
-      const parsed = JSON.parse(decoded);
+    if (parsed && typeof parsed === 'object') {
       if (parsed.private_key && typeof parsed.private_key === 'string') {
         parsed.private_key = parsed.private_key.replace(/\\n/g, '\n');
       }
       return parsed;
-    } catch (e2) {
-      try {
-        const cleaned = str.replace(/\r?\n/g, '\\n');
-        const parsed = JSON.parse(cleaned);
-        if (parsed.private_key && typeof parsed.private_key === 'string') {
-          parsed.private_key = parsed.private_key.replace(/\\n/g, '\n');
-        }
-        return parsed;
-      } catch (e3) {
-        throw new Error(`Failed to parse Service Account JSON: ${e.message}`);
-      }
     }
-  }
+  } catch (e) {}
+
+  // 2. Base64 decoded JSON parse
+  try {
+    const decoded = Buffer.from(str, 'base64').toString('utf8').trim();
+    let parsed = JSON.parse(decoded);
+    if (typeof parsed === 'string') {
+      parsed = JSON.parse(parsed);
+    }
+    if (parsed && typeof parsed === 'object') {
+      if (parsed.private_key && typeof parsed.private_key === 'string') {
+        parsed.private_key = parsed.private_key.replace(/\\n/g, '\n');
+      }
+      return parsed;
+    }
+  } catch (e) {}
+
+  // 3. String with escaped newlines
+  try {
+    const cleaned = str.replace(/\r?\n/g, '\\n');
+    const parsed = JSON.parse(cleaned);
+    if (parsed && typeof parsed === 'object') {
+      if (parsed.private_key && typeof parsed.private_key === 'string') {
+        parsed.private_key = parsed.private_key.replace(/\\n/g, '\n');
+      }
+      return parsed;
+    }
+  } catch (e) {}
+
+  throw new Error('Invalid JSON format in FIREBASE_ACCOUNT / FIREBASE_SERVICE_ACCOUNT variable');
 }
 
 let cachedRawFirebaseConfig: any = null;
