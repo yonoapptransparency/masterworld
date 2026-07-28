@@ -477,52 +477,85 @@ adminVaultRouter.get("/api/v1/admin/system-files", verifyAdminToken, (req, res) 
 });
 
 adminVaultRouter.get("/api/v1/admin/firebase-status", verifyAdminToken, async (req: any, res: any) => {
+  const startTime = Date.now();
   const results: any = {
     config: false,
     firestoreRead: false,
     firestoreWrite: false,
     adminSdk: false,
     aesConfigured: false,
+    readLatencyMs: 0,
+    writeLatencyMs: 0,
     details: {}
   };
+
   try {
     const config = getRawFirebaseConfig();
     const apiKey = config?.apiKey;
     const projectId = config?.projectId;
     const dbId = config?.firestoreDatabaseId || "(default)";
+
     results.config = !!(apiKey && projectId);
-    results.aesConfigured = !!(process.env.AES_SECRET && process.env.AES_SECRET !== getAesSecret());
+    results.aesConfigured = !!(process.env.AES_SECRET && process.env.AES_SECRET.trim() !== '');
     results.details.projectId = projectId;
     results.details.databaseId = dbId;
+    results.details.hasApiKey = !!apiKey;
+
     if (!apiKey || !projectId) {
-      return res.status(503).json({ status: "offline", error: "Missing Firebase credentials", results });
+      return res.status(503).json({ 
+        status: "offline", 
+        error: "Missing Firebase API key or Project ID in configuration", 
+        results 
+      });
     }
+
+    // 1. Test Admin SDK Privileged Access
+    const adminStart = Date.now();
     try {
       const adminDb = getFirebaseAdminDb();
       if (adminDb) {
-        await adminDb.collection('store_data').doc('_status_check_').set({ ts: Date.now() });
+        await adminDb.collection('store_data').doc('_status_check_').set({ ts: Date.now(), source: 'admin_sdk_healthcheck' });
         await adminDb.collection('store_data').doc('_status_check_').delete();
         results.adminSdk = true;
+        results.details.adminSdkLatencyMs = Date.now() - adminStart;
+      } else {
+        results.details.adminSdkNote = "Admin SDK disabled (requires FIREBASE_SERVICE_ACCOUNT env var)";
       }
     } catch (e: any) {
       results.details.adminSdkError = e.message;
     }
+
+    // 2. Test Firestore Read Performance & Path
+    const readStart = Date.now();
     try {
       const readUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${dbId}/documents/store_data/public_settings?key=${apiKey}`;
       const readRes = await fetch(readUrl);
+      results.readLatencyMs = Date.now() - readStart;
       results.firestoreRead = readRes.status === 200 || readRes.status === 404;
       results.details.restReadStatus = readRes.status;
+      if (!readRes.ok && readRes.status !== 404) {
+        const errText = await readRes.text();
+        results.details.restReadError = errText;
+      }
     } catch (e: any) {
+      results.readLatencyMs = Date.now() - readStart;
       results.details.restReadError = e.message;
     }
-    if (results.firestoreRead && !results.adminSdk) {
+
+    // 3. Test Firestore Write Access & Rules Validation
+    const writeStart = Date.now();
+    if (results.adminSdk) {
+      results.firestoreWrite = true;
+      results.writeLatencyMs = results.details.adminSdkLatencyMs || (Date.now() - writeStart);
+    } else if (results.firestoreRead) {
       try {
         const writeUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${dbId}/documents/store_data/_write_test_?key=${apiKey}`;
         const writeRes = await fetch(writeUrl, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fields: { ts: { stringValue: new Date().toISOString() } } })
+          body: JSON.stringify({ fields: { ts: { stringValue: new Date().toISOString() }, checker: { stringValue: 'live_status_indicator' } } })
         });
+        results.writeLatencyMs = Date.now() - writeStart;
         results.firestoreWrite = writeRes.ok;
         results.details.restWriteStatus = writeRes.status;
         if (!writeRes.ok) {
@@ -530,17 +563,22 @@ adminVaultRouter.get("/api/v1/admin/firebase-status", verifyAdminToken, async (r
           results.details.restWriteError = errText;
         }
       } catch (e: any) {
+        results.writeLatencyMs = Date.now() - writeStart;
         results.details.restWriteError = e.message;
       }
-    } else if (results.adminSdk) {
-      results.firestoreWrite = true;
     }
+
+    const totalLatencyMs = Date.now() - startTime;
+    results.details.totalCheckDurationMs = totalLatencyMs;
+
     const isLive = results.firestoreRead && (results.firestoreWrite || results.adminSdk);
     const statusText = isLive ? "live" : (results.firestoreRead ? "read_only" : "offline");
+
     return res.json({
       status: statusText,
       results,
-      details: results.details
+      details: results.details,
+      timestamp: new Date().toISOString()
     });
   } catch (err: any) {
     return res.status(500).json({ status: "offline", error: err.message, results });

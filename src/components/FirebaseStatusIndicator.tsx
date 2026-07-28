@@ -1,84 +1,120 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { adminFetch } from '../services/adminAuthService';
+import { RefreshCw } from 'lucide-react';
 
 interface StatusResult {
   status: 'live' | 'read_only' | 'offline' | 'checking';
   adminSdk: boolean;
   firestoreWrite: boolean;
   firestoreRead: boolean;
+  readLatencyMs?: number;
+  writeLatencyMs?: number;
   error?: string;
+  projectId?: string;
 }
 
 export const FirebaseStatusIndicator: React.FC = () => {
-  const [result, setResult] = useState<StatusResult>({ status: 'checking', adminSdk: false, firestoreWrite: false, firestoreRead: false });
+  const [result, setResult] = useState<StatusResult>({ 
+    status: 'checking', 
+    adminSdk: false, 
+    firestoreWrite: false, 
+    firestoreRead: false 
+  });
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const checkStatus = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      const response = await adminFetch('/api/v1/admin/firebase-status');
+      const data = await response.json();
+      
+      if (response.ok && data.results) {
+        setResult({
+          status: data.status === 'live' ? 'live' : data.status === 'read_only' ? 'read_only' : 'offline',
+          adminSdk: data.results.adminSdk || false,
+          firestoreWrite: data.results.firestoreWrite || false,
+          firestoreRead: data.results.firestoreRead || false,
+          readLatencyMs: data.results.readLatencyMs,
+          writeLatencyMs: data.results.writeLatencyMs,
+          projectId: data.details?.projectId,
+          error: data.error || undefined
+        });
+      } else {
+        setResult({ 
+          status: 'offline', 
+          adminSdk: false, 
+          firestoreWrite: false, 
+          firestoreRead: false, 
+          error: data.error || 'Status check failed' 
+        });
+      }
+    } catch (e: any) {
+      setResult({ 
+        status: 'offline', 
+        adminSdk: false, 
+        firestoreWrite: false, 
+        firestoreRead: false, 
+        error: e.message 
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const checkStatus = async () => {
-      setResult(prev => ({ ...prev, status: 'checking' }));
-      try {
-        const response = await adminFetch('/api/v1/admin/firebase-status');
-        const data = await response.json();
-        
-        if (response.ok && data.results) {
-          setResult({
-            status: data.status === 'live' ? 'live' : data.status === 'read_only' ? 'read_only' : 'offline',
-            adminSdk: data.results.adminSdk || false,
-            firestoreWrite: data.results.firestoreWrite || false,
-            firestoreRead: data.results.firestoreRead || false,
-            error: data.error || undefined
-          });
-        } else {
-          setResult({ status: 'offline', adminSdk: false, firestoreWrite: false, firestoreRead: false, error: data.error || 'Status check failed' });
-        }
-      } catch (e: any) {
-        setResult({ status: 'offline', adminSdk: false, firestoreWrite: false, firestoreRead: false, error: e.message });
-      }
-    };
-
     checkStatus();
-    const interval = setInterval(checkStatus, 30000);
+    const interval = setInterval(checkStatus, 25000);
     return () => clearInterval(interval);
-  }, []);
+  }, [checkStatus]);
 
   const isLive = result.status === 'live';
   const isReadOnly = result.status === 'read_only';
-  const isChecking = result.status === 'checking';
+  const isChecking = result.status === 'checking' || isRefreshing;
 
   const bgClass = isLive 
-    ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
     : isReadOnly
-      ? 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+      ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30'
       : isChecking
-        ? 'bg-slate-500/10 text-slate-500 border-slate-500/20'
-        : 'bg-rose-500/10 text-rose-600 border-rose-500/20';
+        ? 'bg-blue-500/10 text-blue-600 border-blue-500/30'
+        : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30';
         
   const dotClass = isLive
     ? 'bg-emerald-500 animate-pulse'
     : isReadOnly
       ? 'bg-amber-500 animate-pulse'
       : isChecking
-        ? 'bg-slate-400'
+        ? 'bg-blue-500 animate-ping'
         : 'bg-rose-500';
 
-  const label = isChecking
-    ? 'Checking...'
+  const label = isChecking && result.status === 'checking'
+    ? 'Testing Firestore...'
     : isLive
-      ? `Firestore: Live${result.adminSdk ? ' (SDK)' : ' (REST)'}`
+      ? `Firestore: Live${result.readLatencyMs ? ` (${result.readLatencyMs}ms)` : ''}`
       : isReadOnly
-        ? 'Firestore: Read-Only (Writes Failing)'
-        : `Firestore: Offline${result.error ? ' — ' + result.error : ''}`;
+        ? 'Firestore: Read-Only'
+        : `Firestore: Offline`;
         
   const tooltip = isLive
-    ? `Connected. Writes: ${result.firestoreWrite ? 'OK' : 'N/A'}. Admin SDK: ${result.adminSdk ? 'Active' : 'Inactive (normal on Vercel without service account)'}.`
-    : result.error || 'Firebase connection failed';
+    ? `Live Firestore Connection
+Project: ${result.projectId || 'ai-studio-yonostore'}
+Reads: OK (${result.readLatencyMs || 0}ms)
+Writes: ${result.firestoreWrite ? `OK (${result.writeLatencyMs || 0}ms)` : 'Failing'}
+Admin SDK: ${result.adminSdk ? 'Active' : 'Disabled (REST fallback)'}
+Click to run instant re-test`
+    : result.error || 'Firebase connection failed. Click to re-test.';
 
   return (
-    <div
-      className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider cursor-help transition-all border ${bgClass}`}
+    <button
+      onClick={checkStatus}
+      type="button"
+      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider cursor-pointer transition-all border shadow-xs hover:scale-105 active:scale-95 ${bgClass}`}
       title={tooltip}
     >
       <div className={`w-1.5 h-1.5 rounded-full ${dotClass}`}></div>
-      {label}
-    </div>
+      <span>{label}</span>
+      <RefreshCw className={`w-2.5 h-2.5 opacity-60 ml-0.5 ${isRefreshing ? 'animate-spin text-blue-500' : ''}`} />
+    </button>
   );
 };
+
