@@ -258,10 +258,14 @@ export async function signInAdmin(
     const directRes = await fetch("/api/v1/admin/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, code }),
     });
 
     const directData = await directRes.json().catch(() => ({}));
+    
+    if (directData?.mfaRequired) {
+      return { ok: true, mfaRequired: true };
+    }
 
     if (directRes.ok && directData.token) {
       const session: AdminSession = {

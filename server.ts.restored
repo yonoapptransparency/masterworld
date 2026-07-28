@@ -129,7 +129,15 @@ function getRawFirebaseConfig(): any {
     return cachedRawFirebaseConfig;
   }
 
-
+  // 3. Try B64 fallback as absolute last resort
+  try {
+    const cleanB64 = B64_FALLBACK.replace(/[^A-Za-z0-9+/=]/g, "");
+    const fallbackConfig = JSON.parse(Buffer.from(cleanB64, 'base64').toString('utf8'));
+    if (fallbackConfig && fallbackConfig.projectId && isRealValue(fallbackConfig.projectId)) {
+      cachedRawFirebaseConfig = fallbackConfig;
+      return fallbackConfig;
+    }
+  } catch (_) {}
 
   throw new Error("Firebase configuration not found and no environment variables set.");
 }
@@ -1100,7 +1108,12 @@ async function _logAdminAttempt(config: any, d: { email: string; ip: string; ua:
   } catch {}
 }
 
-
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, e] of _adminLoginMap.entries()) {
+    if (e.lockedUntil < now && now - e.windowStart > _ADMIN_WIN * 2) _adminLoginMap.delete(ip);
+  }
+}, 2 * 60 * 60 * 1000);
 // ── END ADMIN RATE LIMITING ───────────────────────────────────────────────
 
 const verifyAdminToken = async (req: express.Request, res: express.Response, next: express.NextFunction) => {

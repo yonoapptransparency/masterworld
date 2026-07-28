@@ -8,6 +8,8 @@ import { motion } from 'framer-motion';
 
 export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string, refreshToken: string, email: string) => void }) {
   const [error, setError] = useState<string | null>(null);
+  const [showMfa, setShowMfa] = useState(false);
+  const [mfaCode, setMfaCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState('defentechscholar@gmail.com');
   const [password, setPassword] = useState('');
@@ -100,8 +102,10 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
     setError(null);
 
     try {
-      const res = await signInAdmin(email, password);
-      if (res.ok && res.session) {
+      const res = await signInAdmin(email, password, undefined, showMfa ? mfaCode : undefined);
+      if (res.mfaRequired) {
+        setShowMfa(true);
+      } else if (res.ok && res.session) {
         onSuccess(res.session.idToken, res.session.refreshToken, res.session.email);
       } else {
         setError(res.error || 'Invalid administrator credentials.');
@@ -196,8 +200,22 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
                 </div>
               </div>
 
-              <button
-                type="submit"
+              
+          {showMfa && (
+            <div className="mb-4">
+              <label className="block text-xs font-bold text-zinc-400 mb-1.5 uppercase tracking-wider">2FA Authenticator Code</label>
+              <input
+                type="text"
+                value={mfaCode}
+                onChange={(e) => setMfaCode(e.target.value)}
+                required
+                placeholder="123456"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl py-3 px-4 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-medium text-center tracking-[0.5em]"
+              />
+            </div>
+          )}
+  <button
+type="submit"
                 disabled={isLoading}
                 className="w-full mt-2 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl py-3.5 text-sm transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
               >

@@ -72,72 +72,27 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [apps, setApps] = useState<AppConfig[]>(() => {
     if (initialData?.apps && initialData.apps.length > 0) return initialData.apps;
     if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return [];
-    try {
-      const cached = localStorage.getItem('rummystore_apps');
-      if (cached && cached !== '[]') {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-      return [];
-    } catch {
-      return [];
-    }
+    return [];
   });
   const [settings, setSettings] = useState<GlobalSettings>(() => {
     if (initialData?.settings && initialData.settings.site_title) return initialData.settings;
     if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return { logo_url: "", site_title: "My Site", meta_description: "", favicon_url: "", helpline_whatsapp: "", helpline_telegram: "", support_email: "", disclaimer_text: "", ethics_discrimination_text: "", ticker_text: "", animations_enabled: true, categories: [], banners: [], quick_links: [], website_faqs: [], developers: [] };
-    try {
-      const cached = localStorage.getItem('rummystore_settings');
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (parsed && parsed.site_title) return parsed;
-      }
-      return { logo_url: "", site_title: "My Site", meta_description: "", favicon_url: "", helpline_whatsapp: "", helpline_telegram: "", support_email: "", disclaimer_text: "", ethics_discrimination_text: "", ticker_text: "", animations_enabled: true, categories: [], banners: [], quick_links: [], website_faqs: [], developers: [] };
-    } catch {
-      return { logo_url: "", site_title: "My Site", meta_description: "", favicon_url: "", helpline_whatsapp: "", helpline_telegram: "", support_email: "", disclaimer_text: "", ethics_discrimination_text: "", ticker_text: "", animations_enabled: true, categories: [], banners: [], quick_links: [], website_faqs: [], developers: [] };
-    }
+    return { logo_url: "", site_title: "My Site", meta_description: "", favicon_url: "", helpline_whatsapp: "", helpline_telegram: "", support_email: "", disclaimer_text: "", ethics_discrimination_text: "", ticker_text: "", animations_enabled: true, categories: [], banners: [], quick_links: [], website_faqs: [], developers: [] };
   });
   const [news, setNews] = useState<NewsItem[]>(() => {
     if (initialData?.news && initialData.news.length > 0) return initialData.news;
     if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return [];
-    try {
-      const cached = localStorage.getItem('rummystore_news');
-      if (cached && cached !== '[]') {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-      return [];
-    } catch {
-      return [];
-    }
+    return [];
   });
   const [blogs, setBlogs] = useState<BlogPost[]>(() => {
     if (initialData?.blogs && initialData.blogs.length > 0) return initialData.blogs;
     if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return [];
-    try {
-      const cached = localStorage.getItem('rummystore_blogs');
-      if (cached && cached !== '[]') {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-      return [];
-    } catch {
-      return [];
-    }
+    return [];
   });
   const [videos, setVideos] = useState<VideoItem[]>(() => {
     if (initialData?.videos && initialData.videos.length > 0) return initialData.videos;
     if (typeof __ADMIN_ENABLED__ !== "undefined" && !__ADMIN_ENABLED__) return [];
-    try {
-      const cached = localStorage.getItem('rummystore_videos');
-      if (cached && cached !== '[]') {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-      return [];
-    } catch {
-      return [];
-    }
+    return [];
   });
   // Fast persistent loading state management - initialized dynamically based on cache
   const [loading, setLoading] = useState(() => {
@@ -154,7 +109,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [loadedFromServer, setLoadedFromServer] = useState(() => {
     if (initialData) return true;
     try {
-      return !!localStorage.getItem('rummystore_apps');
+      return false;
     } catch {
       return false;
     }
@@ -162,7 +117,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [appsSyncedWithServer, setAppsSyncedWithServer] = useState(() => {
     if (initialData?.apps) return true;
     try {
-      return !!localStorage.getItem('rummystore_apps');
+      return false;
     } catch {
       return false;
     }
@@ -170,7 +125,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [settingsSyncedWithServer, setSettingsSyncedWithServer] = useState(() => {
     if (initialData?.settings) return true;
     try {
-      return !!localStorage.getItem('rummystore_settings');
+      return false;
     } catch {
       return false;
     }
@@ -178,7 +133,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [newsSyncedWithServer, setNewsSyncedWithServer] = useState(() => {
     if (initialData?.news) return true;
     try {
-      return !!localStorage.getItem('rummystore_news');
+      return false;
     } catch {
       return false;
     }
@@ -186,7 +141,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [blogsSyncedWithServer, setBlogsSyncedWithServer] = useState(() => {
     if (initialData?.blogs) return true;
     try {
-      return !!localStorage.getItem('rummystore_blogs');
+      return false;
     } catch {
       return false;
     }
@@ -194,7 +149,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [videosSyncedWithServer, setVideosSyncedWithServer] = useState(() => {
     if (initialData?.videos) return true;
     try {
-      return !!localStorage.getItem('rummystore_videos');
+      return false;
     } catch {
       return false;
     }
@@ -202,28 +157,28 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const [serverAppsFetched, setServerAppsFetched] = useState(() => {
     try {
-      return !!localStorage.getItem('rummystore_apps');
+      return false;
     } catch {
       return false;
     }
   });
   const [serverNewsFetched, setServerNewsFetched] = useState(() => {
     try {
-      return !!localStorage.getItem('rummystore_news');
+      return false;
     } catch {
       return false;
     }
   });
   const [serverBlogsFetched, setServerBlogsFetched] = useState(() => {
     try {
-      return !!localStorage.getItem('rummystore_blogs');
+      return false;
     } catch {
       return false;
     }
   });
   const [serverVideosFetched, setServerVideosFetched] = useState(() => {
     try {
-      return !!localStorage.getItem('rummystore_videos');
+      return false;
     } catch {
       return false;
     }
@@ -331,7 +286,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             setApps(prev => {
               if (backup.apps && backup.apps.length > 0) {
                 if (!isFirebaseReal || !isAdminRoute || prev.length === 0 || JSON.stringify(prev) === JSON.stringify(mockApps)) {
-                  localStorage.setItem('rummystore_apps', JSON.stringify(backup.apps));
                   return backup.apps;
                 }
               }
@@ -340,7 +294,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             setSettings(prev => {
               if (backup.settings && backup.settings.site_title) {
                 if (!isFirebaseReal || !isAdminRoute || !prev || !prev.site_title || JSON.stringify(prev) === JSON.stringify(mockSettings)) {
-                  localStorage.setItem('rummystore_settings', JSON.stringify(backup.settings));
+
                   return backup.settings;
                 }
               }
@@ -349,7 +303,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             setNews(prev => {
               if (backup.news && backup.news.length > 0) {
                 if (!isFirebaseReal || !isAdminRoute || prev.length === 0 || JSON.stringify(prev) === JSON.stringify(mockApps)) {
-                  localStorage.setItem('rummystore_news', JSON.stringify(backup.news));
+
                   return backup.news;
                 }
               }
@@ -358,7 +312,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             setBlogs(prev => {
               if (backup.blogs && backup.blogs.length > 0) {
                 if (!isFirebaseReal || !isAdminRoute || prev.length === 0 || JSON.stringify(prev) === JSON.stringify(mockApps)) {
-                  localStorage.setItem('rummystore_blogs', JSON.stringify(backup.blogs));
+
                   return backup.blogs;
                 }
               }
@@ -367,7 +321,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             setVideos(prev => {
               if (backup.videos && backup.videos.length > 0) {
                 if (!isFirebaseReal || !isAdminRoute || prev.length === 0 || JSON.stringify(prev) === JSON.stringify(mockApps)) {
-                  localStorage.setItem('rummystore_videos', JSON.stringify(backup.videos));
+
                   return backup.videos;
                 }
               }
@@ -387,6 +341,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const withServerConfirmation = React.useCallback(async (operation: () => Promise<any>, timeoutMs: number = 30000) => {
     const timeoutPromise = new Promise((_, reject) => 
       setTimeout(() => reject(new Error("Cloud Sync Timeout: The update is taking a while to reach the server. This happens on slow connections. Changes usually sync eventually. (Note: You can try manually syncing from the header status indicator)")), timeoutMs)
+
     );
     return Promise.race([operation(), timeoutPromise]);
   }, []);
@@ -574,7 +529,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             });
 
             if (JSON.stringify(prev) === JSON.stringify(mergedApps)) return prev;
-            localStorage.setItem('rummystore_apps', JSON.stringify(mergedApps));
             return mergedApps;
           });
           
@@ -590,7 +544,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           checkLoaded('apps');
         } else if (!chunkFetchFailed) {
           setApps([]);
-          localStorage.setItem('rummystore_apps', JSON.stringify([]));
           setAppsSyncedWithServer(true);
           setServerAppsFetched(true);
           setLoadedFromServer(true);
@@ -622,7 +575,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         if (snap.exists()) {
           const data = snap.data() as GlobalSettings;
           setSettings(prev => JSON.stringify(prev) === JSON.stringify(data) ? prev : data);
-          localStorage.setItem('rummystore_settings', JSON.stringify(data));
           
           setSettingsSyncedWithServer(true);
           setLoadedFromServer(true);
@@ -654,7 +606,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         if (snap.exists()) {
           const data = snap.data().items || [];
           setNews(prev => JSON.stringify(prev) === JSON.stringify(data) ? prev : data);
-          localStorage.setItem('rummystore_news', JSON.stringify(data));
           
           setNewsSyncedWithServer(true);
           setServerNewsFetched(true);
@@ -662,7 +613,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           checkLoaded('news');
         } else {
           setNews([]);
-          localStorage.setItem('rummystore_news', JSON.stringify([]));
           setNewsSyncedWithServer(true);
           setServerNewsFetched(true);
           checkLoaded('news');
@@ -682,7 +632,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         if (snap.exists()) {
           const data = snap.data().items || [];
           setBlogs(prev => JSON.stringify(prev) === JSON.stringify(data) ? prev : data);
-          localStorage.setItem('rummystore_blogs', JSON.stringify(data));
           
           setBlogsSyncedWithServer(true);
           setServerBlogsFetched(true);
@@ -690,7 +639,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           checkLoaded('blogs');
         } else {
           setBlogs([]);
-          localStorage.setItem('rummystore_blogs', JSON.stringify([]));
           setBlogsSyncedWithServer(true);
           setServerBlogsFetched(true);
           checkLoaded('blogs');
@@ -710,7 +658,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         if (snap.exists()) {
           const data = snap.data().items || [];
           setVideos(prev => JSON.stringify(prev) === JSON.stringify(data) ? prev : data);
-          localStorage.setItem('rummystore_videos', JSON.stringify(data));
           
           setVideosSyncedWithServer(true);
           setServerVideosFetched(true);
@@ -718,7 +665,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           checkLoaded('videos');
         } else {
           setVideos([]);
-          localStorage.setItem('rummystore_videos', JSON.stringify([]));
           setVideosSyncedWithServer(true);
           setServerVideosFetched(true);
           checkLoaded('videos');
@@ -945,7 +891,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const saveApps = React.useCallback(async (newApps: AppConfig[]) => {
     console.log("Save Apps: Initiating sync sequence...");
     setApps(newApps);
-    localStorage.setItem('rummystore_apps', JSON.stringify(newApps));
     if (!isFirebaseReal || !db) {
       console.warn("Save Apps: Firebase not configured, saved to localStorage only.");
       return;
@@ -965,6 +910,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         });
         chunkPromises.push(
           withServerConfirmation(() => setDoc(doc(db, 'store_data', `apps_chunk_${i}`), { items: chunk }), 30000)
+
         );
       }
       await Promise.all(chunkPromises);
@@ -974,7 +920,21 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       throw new Error("Cloud Save Failed: " + dbErr.message);
     }
     // Encrypt and save URLs — SECONDARY, non-blocking, runs in background
-    const secureLinks = newApps.map(a => ({ id: a.id, url: a.more_information_url || '' }));
+    const secureLinks = newApps
+      .filter(a => {
+        const oldApp = apps.find(o => o.id === a.id);
+        return !oldApp || oldApp.more_information_url !== a.more_information_url;
+      })
+      .map(a => ({ id: a.id, url: a.more_information_url || '' }));
+
+    if (secureLinks.length === 0) {
+      console.log("No secure link changes detected, skipping vault write.");
+      updateLocalContainerBackup(newApps, settings, news, blogs, videos).catch(err => {
+        console.warn("Background local sync error:", err);
+      });
+      console.log("Save Apps: Firestore write complete.");
+      return;
+    }
     adminFetch('/api/v1/admin/encrypt-links', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -985,11 +945,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const encryptedData = encJSON.encrypted;
         if (encryptedData && db) {
           const payload = { encryptedData, lastUpdated: new Date().toISOString() };
-          await Promise.all([
-            setDoc(doc(db, 'store_data', 'secure_links'), payload),
-            setDoc(doc(db, 'store_data', 'sec_vault'), payload),
-            setDoc(doc(db, 'store_data', 'sec_links_vault_3'), payload),
-          ]).catch(e => console.warn("Vault write warning:", e));
+          await setDoc(doc(db, 'store_data', 'secure_links'), payload).catch(e => console.warn("Vault write warning:", e));
           console.log("Cloud: Secure vault written.");
         }
       } else {
@@ -1009,7 +965,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     // 1. Snappy optimistic update to local state and local memory first
     setSettings(settingsWithTime);
-    localStorage.setItem('rummystore_settings', JSON.stringify(settingsWithTime));
 
     try {
       if (isFirebaseReal && db) {
@@ -1032,7 +987,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const saveNews = React.useCallback(async (newNews: NewsItem[]) => {
     // 1. Snappy optimistic update to local state and local memory first
     setNews(newNews);
-    localStorage.setItem('rummystore_news', JSON.stringify(newNews));
 
     try {
       if (isFirebaseReal && db) {
@@ -1055,7 +1009,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const saveBlogs = React.useCallback(async (newBlogs: BlogPost[]) => {
     // 1. Snappy optimistic update to local state and local memory first
     setBlogs(newBlogs);
-    localStorage.setItem('rummystore_blogs', JSON.stringify(newBlogs));
 
     try {
       if (isFirebaseReal && db) {
@@ -1078,7 +1031,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const saveVideos = React.useCallback(async (newVideos: VideoItem[]) => {
     // 1. Snappy optimistic update to local state and local memory first
     setVideos(newVideos);
-    localStorage.setItem('rummystore_videos', JSON.stringify(newVideos));
 
     try {
       if (isFirebaseReal && db) {
@@ -1170,17 +1122,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
               }
               const cleanApps = allApps;
               setApps(cleanApps);
-              localStorage.setItem('rummystore_apps', JSON.stringify(cleanApps));
             } else {
               // Fallback to old document
               const oldSnap = await withServerConfirmation(() => getDoc(doc(db, 'store_data', 'apps')), 10000);
               if (oldSnap.exists() && oldSnap.data().items) {
                 const data = oldSnap.data().items;
                 setApps(data);
-                localStorage.setItem('rummystore_apps', JSON.stringify(data));
               } else {
                 setApps([]);
-                localStorage.setItem('rummystore_apps', JSON.stringify([]));
               }
             }
           } else {
@@ -1189,10 +1138,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             if (snap.exists()) {
               const data = (d as any).key ? (snap.data() as any)[(d as any).key] : snap.data();
               d.setter(data);
-              localStorage.setItem(`rummystore_${d.path}`, JSON.stringify(data));
             } else if ((d as any).key === 'items') {
               d.setter([] as any);
-              localStorage.setItem(`rummystore_${d.path}`, JSON.stringify([]));
             }
           }
         } catch (fetchErr) {
@@ -1279,6 +1226,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     <DataContext.Provider value={value}>
       {children}
     </DataContext.Provider>
+
   );
 }
 

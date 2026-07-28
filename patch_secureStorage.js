@@ -1,4 +1,6 @@
-// Secure Storage — client-side AES encryption for sensitive fields
+const fs = require('fs');
+
+const code = `// Secure Storage — client-side AES encryption for sensitive fields
 // Uses the browser's Web Crypto API for encryption
 
 async function getDerivedKey(password: string): Promise<CryptoKey> {
@@ -95,3 +97,6 @@ export const secureStorage = {
 };
 
 export default secureStorage;
+`;
+
+fs.writeFileSync('src/lib/secureStorage.ts', code);
