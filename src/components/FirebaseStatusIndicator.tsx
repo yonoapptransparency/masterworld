@@ -26,7 +26,10 @@ export const FirebaseStatusIndicator: React.FC = () => {
     setIsRefreshing(true);
     try {
       const response = await adminFetch('/api/v1/admin/firebase-status');
-      const data = await response.json();
+      let data: any = {};
+      try {
+        data = await response.json();
+      } catch(e) {}
       
       if (response.ok && data.results) {
         setResult({
@@ -45,7 +48,7 @@ export const FirebaseStatusIndicator: React.FC = () => {
           adminSdk: false, 
           firestoreWrite: false, 
           firestoreRead: false, 
-          error: data.error || 'Status check failed' 
+          error: data.error || `HTTP ${response.status} - Status check failed` 
         });
       }
     } catch (e: any) {

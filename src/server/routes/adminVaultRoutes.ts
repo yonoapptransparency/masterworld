@@ -504,7 +504,7 @@ adminVaultRouter.get("/api/v1/admin/firebase-status", verifyAdminToken, async (r
     if (!apiKey || !projectId) {
       return res.status(503).json({ 
         status: "offline", 
-        error: "Missing Firebase API key or Project ID in configuration", 
+        error: "Missing Server Environment Variables on Vercel (FIREBASE_API_KEY, FIREBASE_PROJECT_ID, AES_SECRET, etc). Please add them to your Vercel project settings.", 
         results 
       });
     }

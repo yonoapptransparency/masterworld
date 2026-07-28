@@ -27,8 +27,12 @@ export default function FirebaseStatusPanel() {
     }
     try {
       const response = await adminFetch('/api/v1/admin/firebase-status');
+      let data: any = {};
+      try {
+        data = await response.json();
+      } catch(e) {}
+      
       if (response.ok) {
-        const data = await response.json();
         setStatusDetails(data.results || {});
         setLastCheckTime(new Date().toLocaleTimeString());
         
@@ -46,12 +50,14 @@ export default function FirebaseStatusPanel() {
         setAdminSdkStatus(data.results?.adminSdk ? 'active' : 'inactive');
         setAesStatus(data.results?.aesConfigured ? 'active' : 'missing');
       } else {
+        setStatusDetails(data.results || { restWriteError: data.error || `HTTP ${response.status}` });
         setFirestoreStatus('disconnected');
         setWriteStatus('failing');
         setAdminSdkStatus('inactive');
         setAesStatus('missing');
       }
-    } catch (err) {
+    } catch (err: any) {
+      setStatusDetails({ restWriteError: err.message });
       setFirestoreStatus('disconnected');
       setWriteStatus('failing');
       setAdminSdkStatus('inactive');
@@ -228,9 +234,14 @@ export default function FirebaseStatusPanel() {
         <div className="mt-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium relative z-10">
           ⚠️ <strong>Firestore Writes Failing:</strong> Read-only access detected. 
           {statusDetails.restWriteError && (
-            <span className="block mt-1 font-mono text-[11px] bg-rose-100/80 p-1.5 rounded-lg text-rose-900 border border-rose-200">
+            <span className="block mt-1 font-mono text-[11px] bg-rose-100/80 p-1.5 rounded-lg text-rose-900 border border-rose-200 whitespace-pre-wrap">
               Error Details: {statusDetails.restWriteError}
             </span>
+          )}
+          {statusDetails.restWriteError?.includes('Vercel') && (
+            <div className="mt-2 p-2 bg-rose-500 text-white rounded-md font-bold">
+              ACTION REQUIRED: You deployed to Vercel but forgot to add the Environment Variables! Go to your Vercel Project Settings {'->'} Environment Variables and add FIREBASE_API_KEY, FIREBASE_PROJECT_ID, AES_SECRET, and FIREBASE_SERVICE_ACCOUNT.
+            </div>
           )}
         </div>
       )}
