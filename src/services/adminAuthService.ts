@@ -159,68 +159,93 @@ export async function signInAdmin(
   code?: string
 ): Promise<AuthResult & { mfaRequired?: boolean }> {
   try {
-    if (!IS_API_KEY_REAL) {
-      return { ok: false, error: "Authentication is unavailable in this environment (Missing Firebase API Key)." };
-    }
+    let idToken = "";
+    let refreshToken = "SERVER_SESSION";
 
-    // Step 1: Firebase REST sign-in
-    const res = await fetch(
-      `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, returnSecureToken: true }),
+    // Step 1: Try Firebase REST sign-in if API key is real
+    if (IS_API_KEY_REAL) {
+      try {
+        const res = await fetch(
+          `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_API_KEY}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password, returnSecureToken: true }),
+          }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          idToken = data.idToken;
+          refreshToken = data.refreshToken;
+        }
+      } catch (fbErr) {
+        console.warn("Firebase REST sign-in failed, trying backend direct login fallback:", fbErr);
       }
-    );
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      const code: string = err?.error?.message || "LOGIN_FAILED";
-      return { ok: false, error: code };
     }
-    const data = await res.json();
 
-    // Step 2: Backend admin verification
-    const verifyRes = await fetch("/api/v1/admin/verify-session", {
+    // Step 2: If Firebase REST succeeded, verify session with backend
+    if (idToken) {
+      const verifyRes = await fetch("/api/v1/admin/verify-session", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ email, cfToken, code }),
+      });
+
+      const verifyData = await verifyRes.json().catch(() => ({}));
+
+      if (!verifyRes.ok) {
+        return { ok: false, error: verifyData?.error || "ADMIN_ACCESS_DENIED" };
+      }
+
+      if (verifyData?.mfaRequired) {
+        return { ok: true, mfaRequired: true };
+      }
+
+      // Synchronize client-side Firebase Auth state
+      try {
+        const { getAuth, signInWithEmailAndPassword } = await import('firebase/auth');
+        const auth = getAuth();
+        if (auth) {
+          await signInWithEmailAndPassword(auth, email, password);
+        }
+      } catch (authSyncErr) {
+        console.warn("Client-side Firebase Auth synchronization warning:", authSyncErr);
+      }
+
+      const session: AdminSession = {
+        idToken,
+        refreshToken,
+        email: email.toLowerCase().trim(),
+        expiresAt: Date.now() + TOKEN_LIFETIME_MS,
+      };
+      saveSession(session);
+      return { ok: true, session };
+    }
+
+    // Step 3: Backend Direct Login Fallback (/api/v1/admin/login)
+    const directRes = await fetch("/api/v1/admin/login", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${data.idToken}`,
-      },
-      body: JSON.stringify({ email, cfToken, code }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
     });
 
-    const verifyData = await verifyRes.json().catch(() => ({}));
+    const directData = await directRes.json().catch(() => ({}));
 
-    if (!verifyRes.ok) {
-      return { ok: false, error: verifyData?.error || "ADMIN_ACCESS_DENIED" };
+    if (directRes.ok && directData.token) {
+      const session: AdminSession = {
+        idToken: directData.token,
+        refreshToken: "SERVER_SESSION",
+        email: email.toLowerCase().trim(),
+        expiresAt: Date.now() + TOKEN_LIFETIME_MS,
+      };
+      saveSession(session);
+      return { ok: true, session };
     }
 
-    if (verifyData?.mfaRequired) {
-      return { ok: true, mfaRequired: true };
-    }
-
-    // Step 3: Synchronize client-side Firebase Auth state
-    // This is CRITICAL for direct Firestore writes from the browser (e.g. setDoc)
-    try {
-      const { getAuth, signInWithEmailAndPassword } = await import('firebase/auth');
-      const auth = getAuth();
-      if (auth) {
-        await signInWithEmailAndPassword(auth, email, password);
-        console.log("Client-side Firebase Auth synchronized successfully.");
-      }
-    } catch (authSyncErr) {
-      console.warn("Client-side Firebase Auth synchronization failed (Direct Firestore writes may fail):", authSyncErr);
-      // We don't block the login here because the session token is still valid for adminFetch
-    }
-
-    const session: AdminSession = {
-      idToken: data.idToken,
-      refreshToken: data.refreshToken,
-      email: email.toLowerCase().trim(),
-      expiresAt: Date.now() + TOKEN_LIFETIME_MS,
-    };
-    saveSession(session);
-    return { ok: true, session };
+    return { ok: false, error: directData.error || "INVALID_CREDENTIALS" };
   } catch (_) {
     return { ok: false, error: "NETWORK_ERROR" };
   }

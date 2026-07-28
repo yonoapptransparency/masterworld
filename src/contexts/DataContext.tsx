@@ -542,23 +542,42 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         }
         
         if (fetchedData) {
-          // Conditional stripping: only strip URLs if we are NOT in an administrative view
-          // This prevents the Admin Dashboard from losing its data references during background syncs.
-          const isAdminPath = currentPath.toLowerCase().includes('/admin') || 
-                            currentPath.toLowerCase().includes('/moreinfo') ||
-                            currentPath.toLowerCase().includes('/masterworld') ||
-                            currentPath.toLowerCase().includes('/' + getAdminPath().toLowerCase());
+          // Check admin status dynamically
+          const pathNow = (typeof window !== 'undefined' ? window.location.pathname : currentPath).toLowerCase();
+          const hasAdminSession = !!loadSession();
+          const isAdminPath = hasAdminSession || 
+                            pathNow.includes('/admin') || 
+                            pathNow.includes('/moreinfo') ||
+                            pathNow.includes('/masterworld') ||
+                            pathNow.includes('/' + getAdminPath().toLowerCase());
           
-          const data = isAdminPath ? loadedApps : loadedApps.map((app: any) => {
-            // Keep original object intact for admin, but create clean copies for public views
-            const publicApp = { ...app };
-            delete publicApp.more_information_url;
-            delete publicApp.encrypted_download_url;
-            delete publicApp.download_url;
-            return publicApp;
+          setApps(prev => {
+            const prevMap = new Map(prev.map(a => [a.id, a]));
+            const mergedApps = loadedApps.map((app: any) => {
+              const prevApp = prevMap.get(app.id);
+              const preservedUrl = app.more_information_url || prevApp?.more_information_url || '';
+              const preservedEncUrl = app.encrypted_download_url || prevApp?.encrypted_download_url || '';
+              const preservedDownUrl = app.download_url || prevApp?.download_url || '';
+              
+              if (isAdminPath) {
+                return {
+                  ...app,
+                  more_information_url: preservedUrl,
+                  encrypted_download_url: preservedEncUrl,
+                  download_url: preservedDownUrl
+                };
+              }
+              const publicApp = { ...app };
+              delete publicApp.more_information_url;
+              delete publicApp.encrypted_download_url;
+              delete publicApp.download_url;
+              return publicApp;
+            });
+
+            if (JSON.stringify(prev) === JSON.stringify(mergedApps)) return prev;
+            localStorage.setItem('rummystore_apps', JSON.stringify(mergedApps));
+            return mergedApps;
           });
-          setApps(prev => { console.log("DataContext setApps:", data.length); return JSON.stringify(prev) === JSON.stringify(data) ? prev : data; });
-          localStorage.setItem('rummystore_apps', JSON.stringify(data));
           
           setAppsSyncedWithServer(true);
           setServerAppsFetched(true);

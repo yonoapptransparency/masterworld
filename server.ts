@@ -152,6 +152,74 @@ function getFirebaseAdminDb(): any {
   }
 }
 
+function convertToFirestoreValue(val: any): any {
+  if (val === null || val === undefined) return { nullValue: null };
+  if (typeof val === 'boolean') return { booleanValue: val };
+  if (typeof val === 'number') {
+    if (Number.isInteger(val)) return { integerValue: String(val) };
+    return { doubleValue: val };
+  }
+  if (typeof val === 'string') return { stringValue: val };
+  if (Array.isArray(val)) {
+    return {
+      arrayValue: {
+        values: val.map(item => convertToFirestoreValue(item))
+      }
+    };
+  }
+  if (typeof val === 'object') {
+    const fields: Record<string, any> = {};
+    for (const [k, v] of Object.entries(val)) {
+      if (v !== undefined) {
+        fields[k] = convertToFirestoreValue(v);
+      }
+    }
+    return { mapValue: { fields } };
+  }
+  return { stringValue: String(val) };
+}
+
+function convertToFirestoreFields(obj: Record<string, any>): Record<string, any> {
+  const fields: Record<string, any> = {};
+  if (!obj || typeof obj !== 'object') return fields;
+  for (const [k, v] of Object.entries(obj)) {
+    if (v !== undefined) {
+      fields[k] = convertToFirestoreValue(v);
+    }
+  }
+  return fields;
+}
+
+async function writeFirestoreRestDoc(docId: string, data: any): Promise<boolean> {
+  try {
+    const config = getRawFirebaseConfig();
+    if (!config || !config.projectId) {
+      console.warn(`[SERVER] Cannot write REST doc ${docId}: Missing project ID`);
+      return false;
+    }
+    const dbId = config.firestoreDatabaseId || '(default)';
+    const apiKeyParam = config.apiKey ? `?key=${config.apiKey}` : '';
+    const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${dbId}/documents/store_data/${docId}${apiKeyParam}`;
+    
+    const fields = convertToFirestoreFields(data);
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields })
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      console.warn(`[SERVER] writeFirestoreRestDoc failed for store_data/${docId} (HTTP ${res.status}):`, errText);
+      return false;
+    }
+    console.log(`[SERVER] writeFirestoreRestDoc successfully written store_data/${docId}`);
+    return true;
+  } catch (err: any) {
+    console.error(`[SERVER] writeFirestoreRestDoc exception for ${docId}:`, err.message || err);
+    return false;
+  }
+}
+
 
 
 // Cryptographic secrets for hashing, signature verification, and session identifiers
@@ -1574,7 +1642,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
             return res.status(503).json({ status: "offline", error: "Missing Firebase credentials" });
         }
 
-        const response = await fetch(`https://firestore.googleapis.com/v1/projects/${projectId}/databases/${dbId}/documents?pageSize=1&key=${apiKey}`);
+        const response = await fetch(`https://firestore.googleapis.com/v1/projects/${projectId}/databases/${dbId}/documents/store_data?key=${apiKey}`);
         
         // Any response from Firestore (even 403 or 404 document not found) means the SERVICE is up.
         // 503 or network error would mean it's down.
@@ -2022,6 +2090,7 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
   });
 
   // Admin API: Debug/View decrypted links
+
   app.get("/api/v1/admin/debug-links", verifyAdminToken, async (req, res) => {
     const ip = getIp(req);
     if (await rateLimit(ip)) return res.status(429).json({ error: "Too many requests" });
@@ -2447,30 +2516,6 @@ app.post("/api/v1/admin/2fa/resend", async (req: any, res: any) => {
       }
     }
     return { fields };
-  }
-
-  async function writeFirestoreRestDoc(docName: string, dataObj: any): Promise<boolean> {
-    try {
-      const config = getRawFirebaseConfig();
-      if (!config || !config.projectId) return false;
-      const apiSuffix = config.apiKey ? `?key=${config.apiKey}` : '';
-      const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || '(default)'}/documents/store_data/${docName}${apiSuffix}`;
-      const docPayload = toFirestoreDocument(dataObj);
-      const res = await fetch(url, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(docPayload)
-      });
-      if (!res.ok) {
-        console.warn(`[SERVER] REST write to store_data/${docName} status ${res.status}:`, await res.text());
-        return false;
-      }
-      console.log(`[SERVER] REST write to store_data/${docName} succeeded.`);
-      return true;
-    } catch (err: any) {
-      console.warn(`[SERVER] REST write to store_data/${docName} failed:`, err.message);
-      return false;
-    }
   }
 
   function parseFirestoreValue(val: any): any {

@@ -18,6 +18,8 @@ const isRealValue = (id: string | undefined): boolean => {
       clean === 'null' ||
       clean.includes('REPLACE_WITH_YOUR_REAL_KEY') || 
       clean.includes('YOUR_API_KEY')) return false;
+  
+  if (clean.length > 20 && (clean.includes('#') || clean.includes('!') || clean.includes('@') || clean.includes('proj-U7m'))) return false;
   return true;
 };
 
