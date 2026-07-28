@@ -102,10 +102,19 @@ export const FirebaseStatusIndicator: React.FC = () => {
     ? `Live Firestore Connection
 Project: ${result.projectId || 'ai-studio-yonostore'}
 Reads: OK (${result.readLatencyMs || 0}ms)
-Writes: ${result.firestoreWrite ? `OK (${result.writeLatencyMs || 0}ms)` : 'Failing'}
-Admin SDK: ${result.adminSdk ? 'Active' : 'Disabled (REST fallback)'}
+Writes: OK (${result.writeLatencyMs || 0}ms)
+Admin SDK: ${result.adminSdk ? 'Active' : 'REST Proxy Mode'}
 Click to run instant re-test`
-    : result.error || 'Firebase connection failed. Click to re-test.';
+    : isReadOnly
+      ? `Firestore Read-Only Mode
+Project: ${result.projectId || 'ai-studio-yonostore'}
+Reads: Operational (${result.readLatencyMs || 0}ms)
+Writes: Failing (Requires Service Account or Write Rule Authority)
+Click to run instant re-test`
+      : `Firestore Offline or Unreachable
+Project: ${result.projectId || 'ai-studio-yonostore'}
+Error: ${result.error || 'Connection check failed'}
+Click to run instant re-test`;
 
   return (
     <button

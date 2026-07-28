@@ -2,7 +2,7 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { safeEncrypt, safeDecrypt, getAesSecret } from '../crypto';
-import { getFirebaseAdminDb, getRawFirebaseConfig, writeFirestoreRestDoc } from '../firebase';
+import { getFirebaseAdminDb, getRawFirebaseConfig, writeFirestoreRestDoc, getAdminSdkDiagnostics } from '../firebase';
 import { verifyAdminToken } from '../middleware/adminAuth';
 import { rateLimit, getIp } from '../security';
 
@@ -505,6 +505,8 @@ adminVaultRouter.get("/api/v1/admin/firebase-status", verifyAdminToken, async (r
     const adminStart = Date.now();
     try {
       const adminDb = getFirebaseAdminDb();
+      const sdkDiag = getAdminSdkDiagnostics();
+      
       if (adminDb) {
         await adminDb.collection('store_data').doc('_status_check_').set({ 
           ts: Date.now(), 
@@ -518,9 +520,9 @@ adminVaultRouter.get("/api/v1/admin/firebase-status", verifyAdminToken, async (r
         results.readLatencyMs = Date.now() - adminStart;
         results.writeLatencyMs = Date.now() - adminStart;
         results.details.adminSdkLatencyMs = Date.now() - adminStart;
-        results.details.adminSdkNote = "Admin SDK active with full Service Account authority";
+        results.details.adminSdkNote = sdkDiag.message || "Admin SDK active with full Service Account authority";
       } else {
-        results.details.adminSdkNote = "Admin SDK inactive (FIREBASE_SERVICE_ACCOUNT variable not provided; using REST API fallback)";
+        results.details.adminSdkNote = sdkDiag.message || "Admin SDK inactive (Service Account variable missing; using REST fallback)";
       }
     } catch (e: any) {
       results.details.adminSdkError = e.message || String(e);
