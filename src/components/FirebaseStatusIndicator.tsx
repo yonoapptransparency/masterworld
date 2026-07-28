@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { adminFetch } from '../services/adminAuthService';
 
 interface StatusResult {
   status: 'live' | 'read_only' | 'offline' | 'checking';
@@ -15,7 +16,7 @@ export const FirebaseStatusIndicator: React.FC = () => {
     const checkStatus = async () => {
       setResult(prev => ({ ...prev, status: 'checking' }));
       try {
-        const response = await fetch('/api/v1/admin/firebase-status');
+        const response = await adminFetch('/api/v1/admin/firebase-status');
         const data = await response.json();
         
         if (response.ok && data.results) {

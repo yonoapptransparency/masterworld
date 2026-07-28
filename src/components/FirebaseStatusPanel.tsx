@@ -3,6 +3,7 @@ import { isFirebaseConfigured, isFirebaseReal, app } from '../lib/firebase';
 import { Activity, ShieldCheck, Database, Server, CheckCircle2, XCircle, AlertCircle, Key } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../lib/firebase';
+import { adminFetch } from '../services/adminAuthService';
 
 export default function FirebaseStatusPanel() {
   const [firestoreStatus, setFirestoreStatus] = useState<'checking' | 'connected' | 'read_only' | 'disconnected'>('checking');
@@ -40,7 +41,7 @@ export default function FirebaseStatusPanel() {
         return;
       }
       try {
-        const response = await fetch('/api/v1/admin/firebase-status');
+        const response = await adminFetch('/api/v1/admin/firebase-status');
         if (response.ok) {
           const data = await response.json();
           if (mounted) {
