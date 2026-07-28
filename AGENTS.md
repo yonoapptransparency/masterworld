@@ -35,3 +35,63 @@ If you create a new component or page:
 - The admin dashboard path is dynamic and should be handled with care in `src/App.tsx`.
 - Use `lazyWithRetry` for admin components to keep the main bundle clean.
 - Ensure any new API routes added to the Express server (`server.ts`) are properly protected.
+
+## Modular Server Files & Route Architecture Guide
+
+Below is a clear, simple list of all newly created server files and sub-routes, along with what each file does:
+
+### 1. Configuration Files
+- **`firebase-applet-config.json`**: Stores the default Firebase Project ID (`ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a`) and Firestore Database ID to prevent database configuration errors.
+
+### 2. Backend Server Routes (`/src/server/routes/`)
+- **`src/server/routes/adminAuthRoutes.ts`**:
+  - **Work**: Handles admin login, 2FA security verification, session logout, password changes, and admin action logging. Keeps authentication logic isolated and secure.
+- **`src/server/routes/adminVaultRoutes.ts`**:
+  - **Work**: Manages secure vault operations including encrypting/decrypting app download links, database link repairs, link backups, and Firebase connection status checks.
+- **`src/server/routes/githubSyncRoutes.ts`**:
+  - **Work**: Manages the GitHub automated split-sync webhooks, synchronization triggers, and status checks between the source repo and the public website.
+- **`src/server/routes/publicApiRoutes.ts`**:
+  - **Work**: Serves public website features including secure download link validation, image proxying, backup data fallbacks, anti-bot challenge nonces, and report submissions.
+- **`src/server/routes/seoRoutes.ts`**:
+  - **Work**: Generates dynamic SEO files (`sitemap.xml`, `robots.txt`, RSS feeds, open-search) for apps, news, blogs, and videos to boost search engine indexing.
+
+### 3. Modular Admin UI Components (`src/components/admin/`)
+- **`src/components/admin/AdminQuickLinksTab.tsx`**:
+  - **Work**: Encapsulates the Quick Links management interface inside the Admin Dashboard.
+- **`src/components/admin/AdminWebsiteFaqsTab.tsx`**:
+  - **Work**: Encapsulates the global Website FAQ management interface inside the Admin Dashboard.
+- **`src/components/admin/AdminDevelopersTab.tsx`**:
+  - **Work**: Encapsulates the Developer Profiles management interface inside the Admin Dashboard.
+- **`src/components/admin/FaqEditor.tsx`**:
+  - **Work**: Sub-component for editing individual application FAQs inside `AppsTab.tsx`.
+- **`src/components/admin/ScreenshotsEditor.tsx`**:
+  - **Work**: Sub-component for managing screenshot gallery links inside `AppsTab.tsx`.
+
+### 4. Modular Public UI Components (`src/components/public/`)
+- **`src/components/public/PublicHeader.tsx`**:
+  - **Work**: Public website navigation header component extracted from `AppPublic.tsx`.
+- **`src/components/public/PublicFooter.tsx`**:
+  - **Work**: Public website footer component extracted from `AppPublic.tsx`.
+- **`src/components/public/PublicBottomNav.tsx`**:
+  - **Work**: Floating mobile navigation bar component extracted from `AppPublic.tsx`.
+- **`src/components/public/PublicBackToTop.tsx`**:
+  - **Work**: Smooth scroll-to-top floating button component extracted from `AppPublic.tsx`.
+- **`src/components/public/AppDetailsSkeleton.tsx`**:
+  - **Work**: Loading skeleton UI placeholder for the application details page.
+- **`src/components/public/YouTubePlayer.tsx`**:
+  - **Work**: Interactive YouTube video embed and preview player component for app media galleries.
+- **`src/components/public/AppSafetyBoxes.tsx`**:
+  - **Work**: Alert, warning, and idea notice callout banners for application details pages.
+- **`src/components/public/AppSpecsBar.tsx`**:
+  - **Work**: Key app metrics bar displaying rating, file size, category, and version details.
+- **`src/components/public/ReviewScoreSummary.tsx`**:
+  - **Work**: Overall rating breakdown and star distribution summary widget.
+- **`src/components/public/ReviewItem.tsx`**:
+  - **Work**: Individual user review card with voting, report actions, and expandable text.
+
+### 5. Server Core Files
+- **`server.ts`**:
+  - **Work**: The main Express backend server entry point. Connects all 5 sub-routers above, handles rate limiting, security headers, and static file serving.
+- **`src/server/firebase.ts`**:
+  - **Work**: Initializes the server-side Firebase Admin SDK with automatic fallback configuration to prevent database server crashes.
+
