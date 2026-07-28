@@ -62,21 +62,31 @@ export function getRawFirebaseConfig(): any {
     return cachedRawFirebaseConfig;
   }
 
-  const envProjectId = process.env.VITE_FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_JECT_ID || process.env.FIREBASE_PROJECT_ID;
-  const envDbId = process.env.VITE_FIREBASE_DATABASE_ID || process.env.VITE_FIREBASE_BASE_ID || process.env.FIREBASE_DATABASE_ID;
-  const envApiKey = process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY;
-  const envAuthDomain = process.env.VITE_FIREBASE_AUTH_DOMAIN || process.env.VITE_FIREBASE_DOMAIN || process.env.FIREBASE_AUTH_DOMAIN;
+  const getValidEnv = (val1?: string, val2?: string, val3?: string) => {
+    for (const val of [val1, val2, val3]) {
+      if (isRealValue(val)) return val;
+    }
+    return "";
+  };
+
+  const envProjectId = getValidEnv(process.env.VITE_FIREBASE_PROJECT_ID, process.env.VITE_FIREBASE_JECT_ID, process.env.FIREBASE_PROJECT_ID);
+  const envDbId = getValidEnv(process.env.VITE_FIREBASE_DATABASE_ID, process.env.VITE_FIREBASE_BASE_ID, process.env.FIREBASE_DATABASE_ID);
+  const envApiKey = getValidEnv(process.env.VITE_FIREBASE_API_KEY, process.env.FIREBASE_API_KEY);
+  const envAuthDomain = getValidEnv(process.env.VITE_FIREBASE_AUTH_DOMAIN, process.env.VITE_FIREBASE_DOMAIN, process.env.FIREBASE_AUTH_DOMAIN);
+  const envAppId = getValidEnv(process.env.VITE_FIREBASE_APP_ID, process.env.FIREBASE_APP_ID);
+  const envStorageBucket = getValidEnv(process.env.VITE_FIREBASE_STORAGE_BUCKET, process.env.FIREBASE_STORAGE_BUCKET);
+  const envMessagingSenderId = getValidEnv(process.env.VITE_FIREBASE_MESSAGING_ID, process.env.FIREBASE_MESSAGING_SENDER_ID);
 
   // 1. Check environment variables first
-  if (envProjectId && isRealValue(envProjectId)) {
+  if (envProjectId) {
     cachedRawFirebaseConfig = {
       projectId: envProjectId,
-      appId: process.env.VITE_FIREBASE_APP_ID || process.env.FIREBASE_APP_ID || "",
-      apiKey: envApiKey || "",
-      authDomain: envAuthDomain || "",
+      appId: envAppId,
+      apiKey: envApiKey,
+      authDomain: envAuthDomain,
       firestoreDatabaseId: envDbId || envProjectId,
-      storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || process.env.FIREBASE_STORAGE_BUCKET || "",
-      messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_ID || process.env.FIREBASE_MESSAGING_SENDER_ID || ""
+      storageBucket: envStorageBucket,
+      messagingSenderId: envMessagingSenderId
     };
     return cachedRawFirebaseConfig;
   }
@@ -99,12 +109,12 @@ export function getRawFirebaseConfig(): any {
   const defaultProjectId = "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a";
   cachedRawFirebaseConfig = {
     projectId: defaultProjectId,
-    appId: process.env.VITE_FIREBASE_APP_ID || process.env.FIREBASE_APP_ID || "",
-    apiKey: envApiKey || "",
-    authDomain: envAuthDomain || "",
+    appId: envAppId,
+    apiKey: envApiKey,
+    authDomain: envAuthDomain,
     firestoreDatabaseId: envDbId || defaultProjectId,
-    storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || process.env.FIREBASE_STORAGE_BUCKET || "",
-    messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_ID || ""
+    storageBucket: envStorageBucket,
+    messagingSenderId: envMessagingSenderId
   };
   return cachedRawFirebaseConfig;
 }
