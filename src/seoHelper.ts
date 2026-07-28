@@ -889,7 +889,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   const news = data.news || [];
   const blogs = data.blogs || [];
   const videos = data.videos || [];
-  const siteTitle = getField(settings, 'site_title') || 'RummyDex';
+  const siteTitle = getField(settings, 'site_title') || 'Application Store';
   let title = siteTitle;
   let description = getField(settings, 'meta_description', '');
   if (!description) description = "A premium digital platform for applications and tools.";

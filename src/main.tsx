@@ -10,16 +10,20 @@ import GlobalErrorBoundary from './components/GlobalErrorBoundary';
 import './index.css';
 import './i18n';
 
-// Force wipe old mock data from cache
-const CACHE_VERSION = '2.0';
+// Force wipe old mock/static data from local storage cache
+const CACHE_VERSION = '3.0';
 if (typeof window !== 'undefined' && window.localStorage) {
   if (localStorage.getItem('rummystore_cache_version') !== CACHE_VERSION) {
-    console.log("Upgrading cache to version", CACHE_VERSION, "and wiping old mock data...");
+    console.log("Upgrading cache to version", CACHE_VERSION, "and wiping all old mock/static data...");
     localStorage.removeItem('rummystore_apps');
     localStorage.removeItem('rummystore_settings');
     localStorage.removeItem('rummystore_news');
     localStorage.removeItem('rummystore_blogs');
     localStorage.removeItem('rummystore_videos');
+    localStorage.removeItem('rummystore_public_data');
+    localStorage.removeItem('rummystore_cache');
+    localStorage.removeItem('cached_firestore_data');
+    localStorage.removeItem('rummystore_firestore_cache');
     localStorage.setItem('rummystore_cache_version', CACHE_VERSION);
   }
 }
