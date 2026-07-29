@@ -191,6 +191,8 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
     }
 
     let firestoreUpdated = false;
+    let firestoreError = null;
+
     try {
       const adminDb = getFirebaseAdminDb();
       if (adminDb) {
@@ -224,11 +226,15 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
         await Promise.all(promises);
         console.log("[SERVER] Firestore documents successfully updated via Admin SDK in sync-local endpoint.");
         firestoreUpdated = true;
+      } else {
+        firestoreError = "Admin SDK could not be initialized (Check FIREBASE_SERVICE_ACCOUNT)";
       }
     } catch (fsErr: any) {
-      console.warn("[SERVER] Firestore Admin SDK update warning, switching to REST API fallback:", fsErr.message);
+      console.warn("[SERVER] Firestore Admin SDK update failed, switching to REST API fallback:", fsErr.message);
+      firestoreError = fsErr.message;
     }
 
+    // Attempt REST Fallback if Admin SDK failed
     if (!firestoreUpdated) {
       try {
         const promises: Promise<any>[] = [];
@@ -260,11 +266,15 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
         }
         await Promise.all(promises);
         console.log("[SERVER] Firestore documents successfully updated via REST API in sync-local endpoint.");
+        firestoreUpdated = true;
+        firestoreError = null; // Clear error as REST succeeded
       } catch (restSyncErr: any) {
         console.error("[SERVER] Firestore REST API update failed in sync-local endpoint:", restSyncErr.message);
+        firestoreError = `REST Fallback also failed: ${restSyncErr.message}`;
       }
     }
 
+    // Try local file backup (don't block the response on this)
     try {
       const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
       const backupPayload = {
@@ -279,7 +289,19 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
       console.warn("[SERVER] Could not update public_backup.json:", e);
     }
 
-    res.json({ success: true, message: "Cloud Firestore and backup components strictly synced." });
+    if (firestoreUpdated) {
+      res.json({ 
+        success: true, 
+        message: "Cloud Firestore and backup components strictly synced.",
+        method: firestoreError ? "REST Fallback" : "Admin SDK" 
+      });
+    } else {
+      res.status(500).json({ 
+        success: false, 
+        error: "Database update failed: " + firestoreError,
+        message: "Your changes were saved to the local server cache but could not be synced to Cloud Firestore. Check your environment variables."
+      });
+    }
   } catch (err: any) {
     console.error("local file sync endpoint error:", err);
     res.status(500).json({ error: "Failed to store backup: " + err.message });

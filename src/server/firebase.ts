@@ -184,12 +184,17 @@ export function getFirebaseAdminDb(): any {
             lastAdminSdkStatusMsg = `Found ${detectedVarName}, but parsing returned null`;
             return null;
           }
+          
+          // CRITICAL: Always use the projectId from the service account if it exists
+          const targetProjectId = serviceAccount.project_id || config?.projectId;
+          
           admin.initializeApp({
             credential: admin.credential.cert(serviceAccount),
-            projectId: serviceAccount.project_id || config?.projectId
+            projectId: targetProjectId
           });
-          lastAdminSdkStatusMsg = `Initialized successfully using ${detectedVarName}`;
-          console.log(`[Admin SDK] Initialized with credentials from ${detectedVarName}`);
+          
+          lastAdminSdkStatusMsg = `Initialized successfully for project ${targetProjectId} using ${detectedVarName}`;
+          console.log(`[Admin SDK] Initialized for ${targetProjectId} using ${detectedVarName}`);
         } catch (parseErr: any) {
           lastAdminSdkStatusMsg = `Failed parsing ${detectedVarName}: ${parseErr.message}`;
           console.error(`[Admin SDK] Failed to parse ${detectedVarName}:`, parseErr.message);
@@ -206,7 +211,22 @@ export function getFirebaseAdminDb(): any {
       }
     }
 
-    const dbId = config?.firestoreDatabaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+    // Determine the correct Database ID
+    // 1. Check if user explicitly provided a database ID in env/config
+    // 2. Otherwise, if it's the AI Studio project, use the hardcoded ID
+    // 3. Otherwise, use (default)
+    const envDbId = config?.firestoreDatabaseId;
+    const currentProjectId = admin.apps[0].options.projectId;
+    const isAiStudioProject = currentProjectId === 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a' || 
+                              currentProjectId === 'ai-studio-886315a4-8b9f-4ff6-8986-a90ad172210a';
+    
+    let dbId = '(default)';
+    if (envDbId && envDbId !== currentProjectId && envDbId !== '(default)') {
+      dbId = envDbId;
+    } else if (isAiStudioProject) {
+      dbId = 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+    }
+
     if (dbId && dbId !== '(default)') {
       const { getFirestore } = require('firebase-admin/firestore');
       cachedAdminDb = getFirestore(admin.apps[0], dbId);
@@ -214,7 +234,7 @@ export function getFirebaseAdminDb(): any {
       cachedAdminDb = admin.firestore();
     }
 
-    console.log(`[Admin SDK] Firestore initialized for database: ${dbId}`);
+    console.log(`[Admin SDK] Firestore initialized for project: ${currentProjectId}, database: ${dbId}`);
     return cachedAdminDb;
   } catch (err: any) {
     lastAdminSdkStatusMsg = `Initialization thrown exception: ${err.message || err}`;
