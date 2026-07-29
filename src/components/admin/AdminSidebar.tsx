@@ -99,7 +99,7 @@ export const AdminSidebar = ({
             
             <div className="pt-4 pb-2 px-3 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">Content Editor</div>
             <SidebarItem id="news" icon={Newspaper} label="News Section" active={activeTab === 'news'} onClick={onTabChange} />
-            <SidebarItem id="blogs" icon={FileText} label="Blog Articles" active={activeTab === 'blogs'} onClick={onTabChange} />
+            <SidebarItem id="blogs" icon={FileText} label="App Updates" active={activeTab === 'blogs'} onClick={onTabChange} />
             <SidebarItem id="videos" icon={VideoIcon} label="Video Guides" active={activeTab === 'videos'} onClick={onTabChange} />
             <SidebarItem id="faqs" icon={HelpCircle} label="Website FAQs" active={activeTab === 'faqs'} onClick={onTabChange} />
             <SidebarItem id="quick-links" icon={LinkIcon} label="Quick Links" active={activeTab === 'quick-links'} onClick={onTabChange} />

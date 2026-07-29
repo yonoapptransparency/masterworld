@@ -183,7 +183,9 @@ export default function AdminDashboard() {
       <main className="lg:pl-64 min-h-screen transition-all duration-300">
         <header className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 px-4 py-2 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h2 className="text-lg font-black tracking-tight capitalize">{activeTab.replace('-', ' ')}</h2>
+            <h2 className="text-lg font-black tracking-tight capitalize">
+              {activeTab === 'blogs' ? 'App Updates' : activeTab.replace('-', ' ')}
+            </h2>
             <FirebaseStatusIndicator />
           </div>
           <div className="flex items-center gap-3">

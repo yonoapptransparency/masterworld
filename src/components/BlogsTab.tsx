@@ -157,7 +157,7 @@ const BlogsTab = React.memo(({ blogs, handleAddBlog, handleDeleteBlog, handleBlo
                         
                         <div>
                           <label className="block text-[11px] uppercase tracking-wider font-bold text-slate-500 mb-1.5">Canonical URL</label>
-                          <input type="url" value={blog.canonical_url || ''} onChange={(e) => handleBlogChange(blog.id, 'canonical_url', e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm dark:text-white font-mono focus:ring-2 focus:ring-blue-500 transition-all" placeholder="https://example.com/blog/version-2" />
+                          <input type="url" value={blog.canonical_url || ''} onChange={(e) => handleBlogChange(blog.id, 'canonical_url', e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm dark:text-white font-mono focus:ring-2 focus:ring-blue-500 transition-all" placeholder="https://example.com/updates/version-2" />
                           <p className="text-[10px] text-slate-500 mt-1.5 leading-snug">Crucial for SEO. Set the preferred URL if this content is duplicated across multiple pages or domains.</p>
                         </div>
                         
