@@ -100,6 +100,13 @@ export function getRawFirebaseConfig(): any {
   const DEFAULT_FALLBACK_API_KEY = "AIzaSyBey9sUbeWrcXS2kl4ewOzkTy4arg03Ok";
   const finalApiKey = envApiKey || fileConfig.apiKey || DEFAULT_FALLBACK_API_KEY;
 
+  const resolveDbId = (rawDbId?: string, pId?: string) => {
+    if (!rawDbId || !isRealValue(rawDbId) || rawDbId === pId || rawDbId === '(default)') {
+      return '(default)';
+    }
+    return rawDbId;
+  };
+
   // 1. Check environment variables first
   if (envProjectId) {
     cachedRawFirebaseConfig = {
@@ -107,7 +114,7 @@ export function getRawFirebaseConfig(): any {
       appId: envAppId || fileConfig.appId,
       apiKey: finalApiKey,
       authDomain: envAuthDomain || fileConfig.authDomain,
-      firestoreDatabaseId: envDbId || fileConfig.firestoreDatabaseId || fileConfig.databaseId || envProjectId,
+      firestoreDatabaseId: resolveDbId(envDbId || fileConfig.firestoreDatabaseId || fileConfig.databaseId, envProjectId),
       storageBucket: envStorageBucket || fileConfig.storageBucket,
       messagingSenderId: envMessagingSenderId || fileConfig.messagingSenderId
     };
@@ -116,7 +123,7 @@ export function getRawFirebaseConfig(): any {
 
   // 2. Try firebase-applet-config.json
   if (fileConfig.projectId && isRealValue(fileConfig.projectId)) {
-    fileConfig.firestoreDatabaseId = fileConfig.firestoreDatabaseId || fileConfig.databaseId || envDbId || fileConfig.projectId;
+    fileConfig.firestoreDatabaseId = resolveDbId(fileConfig.firestoreDatabaseId || fileConfig.databaseId || envDbId, fileConfig.projectId);
     fileConfig.apiKey = finalApiKey;
     cachedRawFirebaseConfig = fileConfig;
     return fileConfig;
@@ -129,7 +136,7 @@ export function getRawFirebaseConfig(): any {
     appId: envAppId || "1:103973989874:web:733a6afd8e837224900f6b",
     apiKey: finalApiKey,
     authDomain: envAuthDomain || "gen-lang-client-0825832493.firebaseapp.com",
-    firestoreDatabaseId: envDbId || "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a",
+    firestoreDatabaseId: resolveDbId(envDbId, defaultProjectId),
     storageBucket: envStorageBucket || "gen-lang-client-0825832493.firebasestorage.app",
     messagingSenderId: envMessagingSenderId || "103973989874"
   };

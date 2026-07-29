@@ -113,6 +113,7 @@ export default function AdminDashboard() {
         icon_url: formData.get('icon_url') as string,
         category: (formData.getAll('category_list') as string[]).join(', ') || 'General',
         more_information_url: plaintextUrl,
+        encrypted_link: encryptedUrlVal || (plaintextUrl.startsWith('U2FsdGVkX1') ? plaintextUrl : ''),
         rating: parseFloat(formData.get('rating') as string) || 5.0,
         safety_status: formData.get('safety_status') as any || 'Verified',
         serial_number: parseInt(formData.get('serial_number') as string) || appsList.length + 1,

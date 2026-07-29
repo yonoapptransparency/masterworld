@@ -169,9 +169,19 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
       });
 
       if (app) {
-        realId = app.id;
-        realSlug = app.slug;
+        realId = app.id || appId;
+        realSlug = app.slug || appId;
         console.log(`[SECURITY] Resolved ${appId} to realId: ${realId}, realSlug: ${realSlug}`);
+
+        // Check direct link on app record in storeData
+        const appDirectUrl = app.more_information_url || app.download_url || app.encrypted_link || app.url;
+        if (appDirectUrl && typeof appDirectUrl === 'string') {
+          const dec = appDirectUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(appDirectUrl, AES_SECRET) : appDirectUrl;
+          if (dec && dec.startsWith('http')) {
+            console.log(`[SECURITY] Resolved link directly from storeData app record for ${appId}`);
+            return res.redirect(302, dec);
+          }
+        }
       }
     } catch (e) {
       console.warn("[SECURITY] Store data fetch failed during resolve:", e);
@@ -185,10 +195,10 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
         const parsed = JSON.parse(decryptedVault);
         let encryptedUrl = '';
         if (Array.isArray(parsed)) {
-          const item = parsed.find((i: any) => i.id === realId || i.slug === realSlug);
+          const item = parsed.find((i: any) => i.id === realId || i.slug === realSlug || i.id === appId || i.slug === appId);
           encryptedUrl = item?.more_information_url || item?.url || '';
         } else {
-          const val = parsed[realId] || parsed[realSlug];
+          const val = parsed[realId] || parsed[realSlug] || parsed[appId];
           encryptedUrl = typeof val === 'string' ? val : (val?.more_information_url || val?.url || '');
         }
         
@@ -203,7 +213,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
       try {
         const db = getFirebaseAdminDb();
         if (db) {
-          const vaultDocs = ['sec_vault', 'secure_links'];
+          const vaultDocs = ['sec_links_vault_3', 'sec_vault', 'secure_links'];
           for (const docName of vaultDocs) {
              const vaultSnap = await db.collection('store_data').doc(docName).get();
              if (vaultSnap.exists) {
@@ -215,10 +225,10 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
                       const parsed = JSON.parse(dec);
                       let foundUrl = '';
                       if (Array.isArray(parsed)) {
-                         const item = parsed.find((i: any) => i.id === realId || i.slug === realSlug);
+                         const item = parsed.find((i: any) => i.id === realId || i.slug === realSlug || i.id === appId || i.slug === appId);
                          foundUrl = item?.more_information_url || item?.url || '';
                       } else {
-                         const val = parsed[realId] || parsed[realSlug];
+                         const val = parsed[realId] || parsed[realSlug] || parsed[appId];
                          foundUrl = typeof val === 'string' ? val : (val?.more_information_url || val?.url || '');
                       }
                       if (foundUrl) {
@@ -237,20 +247,19 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
       return res.redirect(302, targetUrl);
     }
     
-    // 3. Attempt Fallback: Check Individual app_secure_links collection
+    // 3. Attempt Fallback: Check Individual app_secure_links & apps collection
     try {
       const db = getFirebaseAdminDb();
       if (db) {
-        // Try realId then appId
+        // Try realId then appId in app_secure_links
         let doc = await db.collection('app_secure_links').doc(realId).get();
         if (!doc.exists && appId !== realId) {
           doc = await db.collection('app_secure_links').doc(appId).get();
         }
 
-        // Ultimate Fallback: Search Firestore for an app with this slug to find the real ID
+        // Ultimate Fallback: Search Firestore for an app with this slug/id in app_secure_links
         if (!doc.exists) {
            const appsRef = db.collection('apps');
-           // Fuzzy search with original, resolved, and lowercase variations
            const searchTerms = Array.from(new Set([appId, realId, appId.toLowerCase(), realId.toLowerCase()]));
            const slugQuery = await appsRef.where('slug', 'in', searchTerms).limit(1).get();
            if (!slugQuery.empty) {
@@ -269,11 +278,26 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
             if (decrypted && decrypted.startsWith('http')) {
               return res.redirect(302, decrypted);
             } else {
-              console.error(`[SECURITY] Decryption FAILED for appId: ${appId}. This usually means the AES_SECRET is incorrect for this database record.`);
-              // If it's not encrypted (raw URL fallback for debugging)
               if (encrypted.startsWith('http')) {
                 console.warn(`[SECURITY] Using raw URL fallback for ${appId} - Link was not encrypted.`);
                 return res.redirect(302, encrypted);
+              }
+            }
+          }
+        }
+
+        // Direct fallback to 'apps' collection
+        const appDocIds = Array.from(new Set([realId, appId]));
+        for (const targetId of appDocIds) {
+          const appSnap = await db.collection('apps').doc(targetId).get();
+          if (appSnap.exists) {
+            const appData = appSnap.data();
+            const rawUrl = appData?.more_information_url || appData?.download_url || appData?.encrypted_link || appData?.url;
+            if (rawUrl && typeof rawUrl === 'string') {
+              const dec = rawUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(rawUrl, AES_SECRET) : rawUrl;
+              if (dec && dec.startsWith('http')) {
+                console.log(`[SECURITY] Resolved link directly from Firestore apps doc: ${targetId}`);
+                return res.redirect(302, dec);
               }
             }
           }
@@ -291,6 +315,21 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
             const encLink = fields.more_information_url || fields.encrypted_link;
             if (encLink) {
               const decrypted = safeDecrypt(encLink, AES_SECRET);
+              if (decrypted && decrypted.startsWith('http')) {
+                return res.redirect(302, decrypted);
+              }
+            }
+          }
+
+          // Direct REST Fallback to 'apps' collection
+          const appUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || '(default)'}/documents/apps/${realId}${apiSuffix}`;
+          const appFsRes = await fetch(appUrl);
+          if (appFsRes.ok) {
+            const appFsDoc = await appFsRes.json();
+            const fields = parseFirestoreFields(appFsDoc.fields);
+            const raw = fields.more_information_url || fields.download_url || fields.encrypted_link || fields.url;
+            if (raw && typeof raw === 'string') {
+              const decrypted = raw.startsWith('U2FsdGVkX1') ? safeDecrypt(raw, AES_SECRET) : raw;
               if (decrypted && decrypted.startsWith('http')) {
                 return res.redirect(302, decrypted);
               }

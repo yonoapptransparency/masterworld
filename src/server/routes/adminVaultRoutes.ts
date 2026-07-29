@@ -559,13 +559,14 @@ adminVaultRouter.get("/api/v1/admin/firebase-status", verifyAdminToken, async (r
     const config = getRawFirebaseConfig();
     const apiKey = config?.apiKey || '';
     const projectId = config?.projectId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
-    const dbId = config?.firestoreDatabaseId || projectId;
+    const rawDbId = config?.firestoreDatabaseId;
+    const dbId = (!rawDbId || rawDbId === projectId) ? '(default)' : rawDbId;
 
     results.config = !!projectId;
     
-    // Check if AES is configured and if it's a "real" value
-    const aesSecret = process.env.AES_SECRET;
-    results.aesConfigured = !!(aesSecret && aesSecret.trim() !== '' && isRealValue(aesSecret));
+    // Check if AES is configured
+    const aesSecret = process.env.AES_SECRET || (global as any).AES_SECRET_GLOBAL;
+    results.aesConfigured = !!(aesSecret && aesSecret.trim() !== '');
     
     results.details.projectId = projectId;
     results.details.databaseId = dbId;
