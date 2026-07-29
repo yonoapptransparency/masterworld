@@ -39,6 +39,7 @@ securityRouter.post('/api/v1/_proc', async (req, res) => {
   const sid = req.cookies?.["__Host-sid"] || clientSid;
 
   if (!nonce || solution === undefined || !fingerprint || !appId || !sid) {
+    console.warn(`[SECURITY] Missing context in _proc: sid=${!!sid}, nonce=${!!nonce}`);
     return res.status(400).json({ error: 'Incomplete security context' });
   }
 
@@ -51,13 +52,22 @@ securityRouter.post('/api/v1/_proc', async (req, res) => {
   const [realNonce, expiry, signature] = parts;
   const difficulty = "0000";
   const secret = getAesSecret();
+  
+  // Verify with the sid from the request (body or cookie)
   const expectedSignature = crypto.createHmac('sha256', secret)
     .update(`${realNonce}:${sid}:${difficulty}:${expiry}`)
     .digest('hex').substring(0, 16);
 
   if (signature !== expectedSignature) {
-    console.warn(`[SECURITY] Invalid stateless nonce signature for session ${sid}`);
-    return res.status(403).json({ error: 'Challenge invalid or tampered' });
+    // Try fallback without sid if signature fails (for legacy or transition sessions)
+    const fallbackSignature = crypto.createHmac('sha256', secret)
+      .update(`${realNonce}:${difficulty}:${expiry}`)
+      .digest('hex').substring(0, 16);
+      
+    if (signature !== fallbackSignature) {
+      console.warn(`[SECURITY] Signature mismatch. SID: ${sid}`);
+      return res.status(403).json({ error: 'Challenge invalid or tampered' });
+    }
   }
 
   if (Date.now() > Number(expiry)) {
@@ -115,7 +125,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
   const token = (req.query.token || req.query.t) as string;
   const appId = req.query.id as string;
   const ip = getIp(req);
-  const sid = req.cookies?.["__Host-sid"];
+  const sid = req.cookies?.["__Host-sid"] || (req.query.sid as string);
   const fingerprint = req.query.fp as string;
 
   if (!token || !appId) {
@@ -139,13 +149,19 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
     try {
       const storeData = await fetchStoreData();
       const apps = storeData?.apps || [];
-      const cleanInput = appId.toLowerCase().trim().replace(/-+$/, '');
+      const cleanInput = appId.toLowerCase().trim().replace(/[-_ ]+$/, '');
       
       const app = apps.find((a: any) => {
-        const sId = (a.id || '').toLowerCase();
+        const sId = (a.id || '').toLowerCase().trim();
         const sSlug = (a.slug || '').toLowerCase().trim();
-        const sSlugClean = sSlug.replace(/-+$/, '');
-        return sId === cleanInput || sSlug === cleanInput || sSlugClean === cleanInput || sSlug === appId.toLowerCase();
+        const sSlugClean = sSlug.replace(/[-_ ]+$/, '');
+        const inputClean = cleanInput;
+        
+        return sId === cleanInput || 
+               sSlug === cleanInput || 
+               sSlugClean === cleanInput || 
+               sSlug === appId.toLowerCase().trim() ||
+               sSlugClean === appId.toLowerCase().trim();
       });
 
       if (app) {
