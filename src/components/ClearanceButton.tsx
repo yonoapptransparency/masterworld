@@ -704,11 +704,17 @@ export default function ClearanceButton({ appId, status, variant = 'default' }: 
     let targetWin: Window | null = null;
     try {
       targetWin = window.open('', '_blank');
-      if (targetWin) {
-        targetWin.document.body.innerHTML = '<div style="background:#18181b; color:#18181b; display:flex; justify-content:center; align-items:center; height:100vh; margin:0; font-family:sans-serif;"><i>Generating secure connection...</i></div>';
-        
+      if (!targetWin || targetWin.closed) {
+        setErrorMsg("Pop-up blocked. Please allow pop-ups and try again.");
+        setPhase('error');
+        return;
       }
-    } catch(e) {}
+      targetWin.document.body.innerHTML = '<div style="background:#18181b; color:#ffffff; display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; margin:0; font-family:sans-serif;"><b>Connecting...</b><br/><small style="opacity:0.7">Verifying security node</small></div>';
+    } catch(e) {
+      setErrorMsg("Failed to open verification tab. Please allow pop-ups.");
+      setPhase('error');
+      return;
+    }
 
     triggerHandshake(targetWin);
   };

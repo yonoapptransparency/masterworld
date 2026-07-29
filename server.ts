@@ -36,6 +36,12 @@ async function startServer() {
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+  // AES_SECRET verification for secure link flow
+  if (!process.env.AES_SECRET && process.env.NODE_ENV === "production") {
+    console.error("FATAL: AES_SECRET environment variable is not set. Secure link flow will fail.");
+    // In some environments we might want to exit, but here we just log it clearly
+  }
+
   // Request logger
   app.use((req, res, next) => {
     if (req.originalUrl.startsWith('/api/')) {

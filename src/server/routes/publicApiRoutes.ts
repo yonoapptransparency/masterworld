@@ -20,10 +20,16 @@ publicApiRouter.get('/api/v1/_chal', (req, res) => {
   const ip = getIp(req);
   const sid = ensureSession(req, res);
   const nonce = crypto.randomBytes(16).toString('hex');
+  const difficulty = "0000"; // Fixed difficulty for now
   
-  nonceStore.set(nonce, { sessionId: sid, expiresAt: Date.now() + 120000, issuedAt: Date.now() });
+  nonceStore.set(nonce, { 
+    sessionId: sid, 
+    expiresAt: Date.now() + 120000, 
+    issuedAt: Date.now(),
+    difficulty 
+  } as any);
   
-  res.json({ nonce, sid });
+  res.json({ nonce, difficulty, sid });
 });
 
 /**
@@ -31,11 +37,11 @@ publicApiRouter.get('/api/v1/_chal', (req, res) => {
  * @desc    Security Challenge Processing & Token Issuance
  */
 publicApiRouter.post('/api/v1/_proc', async (req, res) => {
-  const { nonce, hash, fingerprint, appId, sid: clientSid } = req.body;
+  const { nonce, solution, fingerprint, appId, sid: clientSid } = req.body;
   const ip = getIp(req);
   const sid = req.cookies?.["__Host-sid"] || clientSid;
 
-  if (!nonce || !hash || !fingerprint || !appId || !sid) {
+  if (!nonce || solution === undefined || !fingerprint || !appId || !sid) {
     return res.status(400).json({ error: 'Incomplete security context' });
   }
 
@@ -44,9 +50,10 @@ publicApiRouter.post('/api/v1/_proc', async (req, res) => {
     return res.status(403).json({ error: 'Challenge expired or invalid' });
   }
 
-  // Simple PoW verification
-  const expectedHash = crypto.createHash('sha256').update(nonce + fingerprint).digest('hex');
-  if (hash !== expectedHash) {
+  // PoW verification
+  const check = crypto.createHash('sha256').update(nonce + solution).digest('hex');
+  const difficulty = (challenge as any).difficulty || "0000";
+  if (!check.startsWith(difficulty)) {
     return res.status(403).json({ error: 'Integrity check failed' });
   }
 
@@ -575,6 +582,38 @@ publicApiRouter.post("/api/v1/report-missing", async (req, res) => {
 });
 
 /**
+ * @route   GET /api/v1/link-check
+ * @desc    Checks if an app has a configured link in the vault
+ */
+publicApiRouter.get('/api/v1/link-check', async (req, res) => {
+  const appId = req.query.id as string;
+  if (!appId) return res.json({ configured: false });
+
+  try {
+    const encryptedVault = ENCRYPTED_LINKS;
+    if (!encryptedVault) return res.json({ configured: false });
+
+    const AES_SECRET = process.env.AES_SECRET || '';
+    const decryptedVault = safeDecrypt(encryptedVault, AES_SECRET);
+    if (!decryptedVault) return res.json({ configured: false });
+
+    const parsed = JSON.parse(decryptedVault);
+    let hasLink = false;
+
+    if (Array.isArray(parsed)) {
+      hasLink = parsed.some((i: any) => i.id === appId && (i.url || i.more_information_url));
+    } else {
+      const val = parsed[appId];
+      hasLink = !!(typeof val === 'string' ? val : (val?.url || val?.more_information_url));
+    }
+
+    return res.json({ configured: hasLink });
+  } catch (e) {
+    return res.json({ configured: false });
+  }
+});
+
+/**
  * @route   GET /api/v1/moreinfo-resolve
  * @desc    Resolves app more information URL with security verification
  * @access  Public (Token protected)
@@ -591,11 +630,9 @@ publicApiRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
   }
 
   // Security verification
-  if (fingerprint && sid) {
-    if (!verifyToken(token, ip, sid, fingerprint, appId)) {
-      console.warn(`[SECURITY] Invalid moreinfo-resolve token for appId: ${appId} from IP: ${ip}`);
-      return res.status(403).send("<h1>403 Forbidden</h1><p>Security signature mismatch. Please return to the app page and try again.</p>");
-    }
+  if (!verifyToken(token, ip, sid || "", fingerprint || "", appId)) {
+    console.warn(`[SECURITY] Invalid moreinfo-resolve token for appId: ${appId} from IP: ${ip}`);
+    return res.status(403).send("<h1>403 Forbidden</h1><p>Security signature mismatch. Please return to the app page and try again.</p>");
   }
 
   try {

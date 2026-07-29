@@ -6,6 +6,7 @@
 import fs from 'fs';
 import path from 'path';
 import { safeDecrypt, getAesSecret } from '../server/crypto';
+import { ENCRYPTED_LINKS } from './secureVault';
 
 interface SecureNode {
   id: string;
@@ -24,6 +25,34 @@ class VaultNodeManager {
 
   private initialize() {
     try {
+      // 1. Try memory from imported static vault (most reliable for serverless)
+      const staticVault = ENCRYPTED_LINKS as string;
+      if (staticVault && staticVault.length > 50) {
+        try {
+          const secret = getAesSecret();
+          const decrypted = safeDecrypt(ENCRYPTED_LINKS, secret);
+          if (decrypted) {
+            const data = JSON.parse(decrypted);
+            const newCache = new Map<string, string>();
+            if (Array.isArray(data)) {
+              data.forEach((node: any) => {
+                if (node.id) newCache.set(node.id, node.url || node.payload || "");
+              });
+            } else {
+              Object.entries(data).forEach(([slug, node]: [string, any]) => {
+                newCache.set(slug, typeof node === 'string' ? node : (node.payload || node.url || ""));
+              });
+            }
+            this.cache = newCache;
+            console.log(`[VaultNode] Loaded ${this.cache.size} nodes from static vault.`);
+            if (this.cache.size > 0) return;
+          }
+        } catch (e) {
+          console.warn("[VaultNode] Static vault load failed, trying file fallback...");
+        }
+      }
+
+      // 2. Fallback to file for local dev
       if (fs.existsSync(this.vaultPath)) {
         const data = JSON.parse(fs.readFileSync(this.vaultPath, 'utf8')) as Record<string, SecureNode>;
         const newCache = new Map<string, string>();

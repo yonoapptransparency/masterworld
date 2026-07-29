@@ -219,7 +219,7 @@ setInterval(() => {
 export function ensureSession(req: express.Request, res: express.Response): string {
   if (!req.cookies || !req.cookies["__Host-sid"]) {
     const sid = crypto.randomBytes(24).toString("hex");
-    res.cookie("__Host-sid", sid, { httpOnly: true, sameSite: "lax", maxAge: 300000, secure: true });
+    res.cookie("__Host-sid", sid, { httpOnly: true, sameSite: "lax", maxAge: 300000, secure: true, path: "/" });
     return sid;
   }
   return req.cookies["__Host-sid"];
@@ -244,6 +244,19 @@ export function verifyToken(token: string, ip: string, sessionId: string, finger
 
     if (tAppId !== appId) {
       console.warn(`[SECURITY] Token appId mismatch: expected ${appId}, got ${tAppId}`);
+      return false;
+    }
+
+    if (tIp !== ip) {
+      console.warn(`[SECURITY] Token IP mismatch: expected ${ip}, got ${tIp}`);
+      return false;
+    }
+    if (tSession !== sessionId) {
+      console.warn(`[SECURITY] Token session mismatch`);
+      return false;
+    }
+    if (fingerprint && tFp !== fingerprint) {
+      console.warn(`[SECURITY] Token fingerprint mismatch`);
       return false;
     }
 

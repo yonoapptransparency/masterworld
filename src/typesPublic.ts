@@ -46,7 +46,7 @@ export interface GlobalSettings {
   quick_links?: Array<{ title: string; subtitle?: string; icon?: string; color?: string; url: string }>;
   social_links?: { facebook?: string; instagram?: string; twitter?: string; linkedin?: string; youtube?: string; };
   website_faqs?: Array<{ question: string; answer: string }>;
-  developers?: Array<{ name: string; role: string; bio?: string; image_url?: string; github?: string; twitter?: string; avatar_url?: string; social?: any }>;
+  developers?: Array<{ id?: string; name: string; role: string; bio?: string; image_url?: string; github?: string; twitter?: string; avatar_url?: string; social?: any }>;
 }
 
 export interface NewsItem {
