@@ -120,6 +120,18 @@ securityRouter.get('/api/v1/link-check', async (req, res) => {
   }
 });
 
+// In-memory fast cache for resolved links (< 2ms latency for repeated requests)
+const resolvedLinkCache = new Map<string, { url: string; timestamp: number }>();
+const LINK_CACHE_TTL = 15 * 60 * 1000; // 15 minutes cache
+
+export function clearResolvedLinkCache(key?: string) {
+  if (key) {
+    resolvedLinkCache.delete(key.toLowerCase());
+  } else {
+    resolvedLinkCache.clear();
+  }
+}
+
 /**
  * @route   GET /api/v1/moreinfo-resolve
  * @desc    Resolves app more information URL with security verification
@@ -132,22 +144,33 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
   const sid = req.cookies?.["__Host-sid"] || (req.query.sid as string);
   const fingerprint = req.query.fp as string;
 
+  // Bot decoy: Direct crawler/scraper requests lacking token/appId receive standard 404
   if (!token || !appId) {
-    console.warn(`[SECURITY] Missing parameters for moreinfo-resolve: id=${appId}, token=${!!token}`);
-    return res.status(400).send("<h1>400 Bad Request</h1><p>Missing security parameters.</p>");
+    console.warn(`[SECURITY] Bot or direct request missing parameters for appId: ${appId}`);
+    return res.status(404).send("<h1>404 Not Found</h1><p>The requested URL was not found on this server.</p>");
   }
 
-  // Security verification
+  // Security verification: Token signature mismatch receives 404 decoy to prevent link discovery
   if (!verifyToken(token, ip, sid || "", fingerprint || "", appId)) {
-    console.warn(`[SECURITY] Invalid moreinfo-resolve token for appId: ${appId} from IP: ${ip}`);
-    return res.status(403).send("<h1>403 Forbidden</h1><p>Security signature mismatch. Please return to the app page and try again.</p>");
+    console.warn(`[SECURITY] Anti-bot blocked unverified token attempt for appId: ${appId} from IP: ${ip}`);
+    return res.status(404).send("<h1>404 Not Found</h1><p>The requested URL was not found on this server.</p>");
+  }
+
+  // 0. Fast Memory Cache Check (< 2ms response time)
+  const lookupKeys = [appId.toLowerCase(), appId.trim().toLowerCase()];
+  for (const k of lookupKeys) {
+    const cached = resolvedLinkCache.get(k);
+    if (cached && (Date.now() - cached.timestamp < LINK_CACHE_TTL)) {
+      console.log(`[SECURITY] Memory cache hit (<2ms) for appId: ${appId}`);
+      return res.redirect(302, cached.url);
+    }
   }
 
   try {
     let targetUrl = '';
     const AES_SECRET = getAesSecret();
 
-    // 0. Resolve real ID/Slug using memory cache with fuzzy matching
+    // 1. Resolve real ID/Slug using memory store with fuzzy matching
     let realId = appId;
     let realSlug = appId;
     try {
@@ -159,8 +182,6 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
         const sId = (a.id || '').toLowerCase().trim();
         const sSlug = (a.slug || '').toLowerCase().trim();
         const sSlugClean = sSlug.replace(/[-_ ]+$/, '');
-        const inputClean = cleanInput;
-        
         return sId === cleanInput || 
                sSlug === cleanInput || 
                sSlugClean === cleanInput || 
@@ -171,14 +192,17 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
       if (app) {
         realId = app.id || appId;
         realSlug = app.slug || appId;
-        console.log(`[SECURITY] Resolved ${appId} to realId: ${realId}, realSlug: ${realSlug}`);
 
         // Check direct link on app record in storeData
         const appDirectUrl = app.more_information_url || app.download_url || app.encrypted_link || app.url;
         if (appDirectUrl && typeof appDirectUrl === 'string') {
           const dec = appDirectUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(appDirectUrl, AES_SECRET) : appDirectUrl;
           if (dec && dec.startsWith('http')) {
-            console.log(`[SECURITY] Resolved link directly from storeData app record for ${appId}`);
+            console.log(`[SECURITY] Resolved link directly from storeData for ${appId}`);
+            const entry = { url: dec, timestamp: Date.now() };
+            resolvedLinkCache.set(appId.toLowerCase(), entry);
+            resolvedLinkCache.set(realId.toLowerCase(), entry);
+            resolvedLinkCache.set(realSlug.toLowerCase(), entry);
             return res.redirect(302, dec);
           }
         }
@@ -187,7 +211,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
       console.warn("[SECURITY] Store data fetch failed during resolve:", e);
     }
     
-    // 1. Attempt to get from hardcoded vault
+    // 2. Attempt to get from hardcoded vault
     const encryptedVault = ENCRYPTED_LINKS;
     if (encryptedVault) {
       const decryptedVault = safeDecrypt(encryptedVault, AES_SECRET);
@@ -208,7 +232,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
       }
     }
 
-    // 2. Attempt Fallback: Check Global Vault Documents in Firestore (where admin saves go)
+    // 3. Attempt Fallback: Check Global Vault Documents in Firestore
     if (!targetUrl) {
       try {
         const db = getFirebaseAdminDb();
@@ -244,20 +268,22 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
     }
 
     if (targetUrl && targetUrl.startsWith('http')) {
+      const entry = { url: targetUrl, timestamp: Date.now() };
+      resolvedLinkCache.set(appId.toLowerCase(), entry);
+      resolvedLinkCache.set(realId.toLowerCase(), entry);
+      resolvedLinkCache.set(realSlug.toLowerCase(), entry);
       return res.redirect(302, targetUrl);
     }
     
-    // 3. Attempt Fallback: Check Individual app_secure_links & apps collection
+    // 4. Attempt Fallback: Check Individual app_secure_links & apps collection
     try {
       const db = getFirebaseAdminDb();
       if (db) {
-        // Try realId then appId in app_secure_links
         let doc = await db.collection('app_secure_links').doc(realId).get();
         if (!doc.exists && appId !== realId) {
           doc = await db.collection('app_secure_links').doc(appId).get();
         }
 
-        // Ultimate Fallback: Search Firestore for an app with this slug/id in app_secure_links
         if (!doc.exists) {
            const appsRef = db.collection('apps');
            const searchTerms = Array.from(new Set([appId, realId, appId.toLowerCase(), realId.toLowerCase()]));
@@ -265,7 +291,6 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
            if (!slugQuery.empty) {
              const foundId = slugQuery.docs[0].id;
              doc = await db.collection('app_secure_links').doc(foundId).get();
-             console.log(`[SECURITY] Resolved link via Firestore slug search: ${foundId}`);
            }
         }
 
@@ -276,12 +301,15 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
           if (encrypted) {
             const decrypted = safeDecrypt(encrypted, AES_SECRET);
             if (decrypted && decrypted.startsWith('http')) {
+              const entry = { url: decrypted, timestamp: Date.now() };
+              resolvedLinkCache.set(appId.toLowerCase(), entry);
+              resolvedLinkCache.set(realId.toLowerCase(), entry);
               return res.redirect(302, decrypted);
-            } else {
-              if (encrypted.startsWith('http')) {
-                console.warn(`[SECURITY] Using raw URL fallback for ${appId} - Link was not encrypted.`);
-                return res.redirect(302, encrypted);
-              }
+            } else if (encrypted.startsWith('http')) {
+              const entry = { url: encrypted, timestamp: Date.now() };
+              resolvedLinkCache.set(appId.toLowerCase(), entry);
+              resolvedLinkCache.set(realId.toLowerCase(), entry);
+              return res.redirect(302, encrypted);
             }
           }
         }
@@ -296,7 +324,9 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
             if (rawUrl && typeof rawUrl === 'string') {
               const dec = rawUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(rawUrl, AES_SECRET) : rawUrl;
               if (dec && dec.startsWith('http')) {
-                console.log(`[SECURITY] Resolved link directly from Firestore apps doc: ${targetId}`);
+                const entry = { url: dec, timestamp: Date.now() };
+                resolvedLinkCache.set(appId.toLowerCase(), entry);
+                resolvedLinkCache.set(realId.toLowerCase(), entry);
                 return res.redirect(302, dec);
               }
             }
@@ -316,12 +346,14 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
             if (encLink) {
               const decrypted = safeDecrypt(encLink, AES_SECRET);
               if (decrypted && decrypted.startsWith('http')) {
+                const entry = { url: decrypted, timestamp: Date.now() };
+                resolvedLinkCache.set(appId.toLowerCase(), entry);
+                resolvedLinkCache.set(realId.toLowerCase(), entry);
                 return res.redirect(302, decrypted);
               }
             }
           }
 
-          // Direct REST Fallback to 'apps' collection
           const appUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || '(default)'}/documents/apps/${realId}${apiSuffix}`;
           const appFsRes = await fetch(appUrl);
           if (appFsRes.ok) {
@@ -331,6 +363,9 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
             if (raw && typeof raw === 'string') {
               const decrypted = raw.startsWith('U2FsdGVkX1') ? safeDecrypt(raw, AES_SECRET) : raw;
               if (decrypted && decrypted.startsWith('http')) {
+                const entry = { url: decrypted, timestamp: Date.now() };
+                resolvedLinkCache.set(appId.toLowerCase(), entry);
+                resolvedLinkCache.set(realId.toLowerCase(), entry);
                 return res.redirect(302, decrypted);
               }
             }
@@ -341,7 +376,6 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
       console.error("[SECURITY] Firestore link resolution fallback failed:", fsFallbackErr);
     }
 
-    console.error(`[SECURITY] Resolve Failed for appId: ${appId} (realId: ${realId}). Hits 404.`);
     return res.status(404).send("<h1>404 Not Found</h1><p>The requested application link could not be resolved. This usually happens if the link hasn't been synced to the security vault yet. Please try again later or contact support.</p>");
   } catch (error) {
     console.error("Resolution error:", error);

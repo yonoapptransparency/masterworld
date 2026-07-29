@@ -5,6 +5,7 @@ import { safeEncrypt, safeDecrypt, getAesSecret } from '../crypto';
 import { getFirebaseAdminDb, getRawFirebaseConfig, writeFirestoreRestDoc, deleteFirestoreRestDoc, getAdminSdkDiagnostics } from '../firebase';
 import { verifyAdminToken } from '../middleware/adminAuth';
 import { rateLimit, getIp } from '../security';
+import { clearResolvedLinkCache } from './securityRoutes';
 
 export const adminVaultRouter = express.Router();
 
@@ -521,6 +522,7 @@ adminVaultRouter.post("/api/v1/admin/save-links-direct", verifyAdminToken, (req,
       }
     }
 
+    clearResolvedLinkCache();
     res.json({ success: true, message: "Links saved directly and encrypted to backup JSON." });
   } catch(err: any) {
     res.status(500).json({ error: err.message });
