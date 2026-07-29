@@ -17,12 +17,28 @@ export const publicApiRouter = express.Router();
  * @access  Public (Behavioral Anti-bot protected)
  */
 publicApiRouter.post('/api/v1/sync-node', async (req, res) => {
-  const { slug, context } = req.body;
+  const ip = getIp(req);
+  if (await rateLimit(ip, 30, 60000)) { // Strict limit for link resolution
+    return res.status(429).json({ status: 'ERR', msg: 'Sync limit exceeded' });
+  }
+
+  const { slug, token, fingerprint, appId } = req.body;
 
   if (!slug) return res.status(400).json({ status: 'ERR', msg: 'Missing ID' });
 
+  // 1. Behavioral Integrity Check (HMAC Token Verification)
+  if (!token || !fingerprint || !appId) {
+    return res.status(403).json({ status: 'ERR', msg: 'Security context required' });
+  }
+
+  const sid = req.cookies?.["__Host-sid"];
+  if (!sid || !verifyToken(token, ip, sid, fingerprint, appId)) {
+    console.warn(`[SECURITY] Invalid sync token attempt for slug: ${slug} from IP: ${ip}`);
+    return res.status(403).json({ status: 'ERR', msg: 'Security signature mismatch' });
+  }
+
   try {
-    // 1. Instant In-Memory Payload Retrieval
+    // 2. Instant In-Memory Payload Retrieval
     const payload = await vaultNode.getSyncPayload(slug);
 
     if (payload) {
@@ -36,13 +52,17 @@ publicApiRouter.post('/api/v1/sync-node', async (req, res) => {
     // 2. Minimal Latency Fallback to Firestore (Only if memory miss)
     const db = getFirebaseAdminDb();
     if (!db) {
-      return res.status(404).json({ status: 'ERR', msg: 'Node not found (Vault Only Mode)' });
+      return res.status(404).json({ status: 'ERR', msg: 'Node not provisioned' });
     }
 
     const doc = await db.collection('app_secure_links').doc(slug).get();
     
     if (!doc.exists) {
-      return res.status(404).json({ status: 'ERR', msg: 'Node not found' });
+      console.warn(`[Sync] Node miss for slug: ${slug}`);
+      return res.status(404).json({ 
+        status: 'ERR', 
+        msg: 'Sync Node not yet active' 
+      });
     }
 
     const data = doc.data();

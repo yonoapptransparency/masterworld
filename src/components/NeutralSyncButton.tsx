@@ -19,16 +19,65 @@ export default function NeutralSyncButton({ appId, slug, status }: NeutralSyncBu
   const [target, setTarget] = useState('');
   const [error, setError] = useState('');
 
+  const getFingerprint = () => {
+    const nav = window.navigator;
+    const screen = window.screen;
+    const parts = [
+      nav.userAgent,
+      nav.language,
+      screen.width,
+      screen.height,
+      screen.colorDepth,
+      new Date().getTimezoneOffset()
+    ];
+    const raw = parts.join('###');
+    let hash = 0;
+    for (let i = 0; i < raw.length; i++) {
+      const char = raw.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash |= 0;
+    }
+    return Math.abs(hash).toString(16).padStart(8, '0');
+  };
+
+  const solveChallenge = async (nonce: string, fingerprint: string) => {
+    const msgUint8 = new TextEncoder().encode(nonce + fingerprint);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  };
+
   const triggerSync = async (newTab: Window | null) => {
     setPhase('syncing');
     setError('');
 
     try {
-      // 1. Lightning-Fast Node Synchronization (Direct Server-Memory Lookup)
+      const fingerprint = getFingerprint();
+
+      // 1. Get Challenge
+      const chalRes = await fetch('/api/v1/_chal');
+      const chalData = await chalRes.json();
+      if (!chalRes.ok) throw new Error(chalData.error || 'Identity Check Failed');
+
+      const { nonce, sid } = chalData;
+
+      // 2. Solve & Get Token
+      const hash = await solveChallenge(nonce, fingerprint);
+      const procRes = await fetch('/api/v1/_proc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nonce, hash, fingerprint, appId, sid }),
+      });
+      const procData = await procRes.json();
+      if (!procRes.ok) throw new Error(procData.error || 'Verification Failed');
+
+      const { token } = procData;
+
+      // 3. Secure Node Synchronization
       const response = await fetch('/api/v1/sync-node', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug, context: 'v1-alpha' }),
+        body: JSON.stringify({ slug, token, fingerprint, appId }),
       });
 
       const data = await response.json();
@@ -37,19 +86,19 @@ export default function NeutralSyncButton({ appId, slug, status }: NeutralSyncBu
         setTarget(data.payload);
         setPhase('ready');
         
-        // Instant Redirect for Lightning Speed
+        // Instant Redirect
         if (newTab) {
           newTab.location.href = data.payload;
         } else {
           window.location.href = data.payload;
         }
       } else {
-        throw new Error(data.msg || 'Synchronization interrupted');
+        throw new Error(data.msg || 'Sync Node Offline');
       }
     } catch (err: any) {
       console.error('[Sync] Failed:', err);
       if (newTab) newTab.close();
-      setError('Sync Node Busy. Please retry.');
+      setError(err.message || 'Sync Node Busy');
       setPhase('error');
       setTimeout(() => setPhase('idle'), 3000);
     }

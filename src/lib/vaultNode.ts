@@ -19,20 +19,34 @@ class VaultNodeManager {
 
   constructor() {
     this.initialize();
+    this.watchVault();
   }
 
   private initialize() {
     try {
       if (fs.existsSync(this.vaultPath)) {
         const data = JSON.parse(fs.readFileSync(this.vaultPath, 'utf8')) as Record<string, SecureNode>;
+        const newCache = new Map<string, string>();
         Object.entries(data).forEach(([slug, node]) => {
-          this.cache.set(slug, node.payload);
+          newCache.set(slug, node.payload);
         });
+        this.cache = newCache;
         console.log(`[VaultNode] Loaded ${this.cache.size} nodes into memory.`);
       }
     } catch (error) {
       console.error('[VaultNode] Initialization failed:', error);
     }
+  }
+
+  private watchVault() {
+    try {
+      fs.watchFile(this.vaultPath, (curr, prev) => {
+        if (curr.mtime !== prev.mtime) {
+          console.log('[VaultNode] Vault file changed, refreshing cache...');
+          this.initialize();
+        }
+      });
+    } catch (e) {}
   }
 
   /**
