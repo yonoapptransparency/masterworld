@@ -1,6 +1,6 @@
 import express from 'express';
 import crypto from 'crypto';
-import { getIp, ensureSession, nonceStore, generateToken, verifyToken } from '../security';
+import { getIp, ensureSession, generateToken, verifyToken } from '../security';
 import { ENCRYPTED_LINKS } from '../../lib/secureVault';
 import { safeDecrypt, getAesSecret } from '../crypto';
 import { getFirebaseAdminDb, getRawFirebaseConfig, parseFirestoreFields } from '../firebase';
@@ -13,19 +13,20 @@ export const securityRouter = express.Router();
  * @desc    Security Challenge Initiation
  */
 securityRouter.get('/api/v1/_chal', (req, res) => {
-  const ip = getIp(req);
   const sid = ensureSession(req, res);
-  const nonce = crypto.randomBytes(16).toString('hex');
-  const difficulty = "0000"; // Fixed difficulty for now
+  const realNonce = crypto.randomBytes(8).toString('hex');
+  const difficulty = "0000"; 
+  const expiry = Date.now() + 600000; // 10 minutes
   
-  nonceStore.set(nonce, { 
-    sessionId: sid, 
-    expiresAt: Date.now() + 120000, 
-    issuedAt: Date.now(),
-    difficulty 
-  } as any);
+  // Create a stateless signed nonce: realNonce.expiry.signature
+  const secret = getAesSecret();
+  const signature = crypto.createHmac('sha256', secret)
+    .update(`${realNonce}:${sid}:${difficulty}:${expiry}`)
+    .digest('hex').substring(0, 16);
+    
+  const statelessNonce = `${realNonce}.${expiry}.${signature}`;
   
-  res.json({ nonce, difficulty, sid });
+  res.json({ nonce: statelessNonce, difficulty, sid });
 });
 
 /**
@@ -41,21 +42,35 @@ securityRouter.post('/api/v1/_proc', async (req, res) => {
     return res.status(400).json({ error: 'Incomplete security context' });
   }
 
-  const challenge = nonceStore.get(nonce);
-  if (!challenge || challenge.sessionId !== sid) {
-    return res.status(403).json({ error: 'Challenge expired or invalid' });
+  // 1. Verify stateless nonce
+  const parts = nonce.split('.');
+  if (parts.length !== 3) {
+    return res.status(403).json({ error: 'Challenge invalid format' });
   }
 
-  // PoW verification
+  const [realNonce, expiry, signature] = parts;
+  const difficulty = "0000";
+  const secret = getAesSecret();
+  const expectedSignature = crypto.createHmac('sha256', secret)
+    .update(`${realNonce}:${sid}:${difficulty}:${expiry}`)
+    .digest('hex').substring(0, 16);
+
+  if (signature !== expectedSignature) {
+    console.warn(`[SECURITY] Invalid stateless nonce signature for session ${sid}`);
+    return res.status(403).json({ error: 'Challenge invalid or tampered' });
+  }
+
+  if (Date.now() > Number(expiry)) {
+    return res.status(403).json({ error: 'Challenge expired' });
+  }
+
+  // 2. PoW verification
   const check = crypto.createHash('sha256').update(nonce + solution).digest('hex');
-  const difficulty = (challenge as any).difficulty || "0000";
   if (!check.startsWith(difficulty)) {
     return res.status(403).json({ error: 'Integrity check failed' });
   }
 
   const token = generateToken(ip, sid, fingerprint, appId);
-  nonceStore.delete(nonce);
-
   res.json({ token });
 });
 
@@ -118,18 +133,29 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
     let targetUrl = '';
     const AES_SECRET = getAesSecret();
 
-    // 0. Resolve real ID/Slug using memory cache
+    // 0. Resolve real ID/Slug using memory cache with fuzzy matching
     let realId = appId;
     let realSlug = appId;
     try {
       const storeData = await fetchStoreData();
       const apps = storeData?.apps || [];
-      const app = apps.find((a: any) => a.id === appId || a.slug?.toLowerCase() === appId.toLowerCase());
+      const cleanInput = appId.toLowerCase().trim().replace(/-+$/, '');
+      
+      const app = apps.find((a: any) => {
+        const sId = (a.id || '').toLowerCase();
+        const sSlug = (a.slug || '').toLowerCase().trim();
+        const sSlugClean = sSlug.replace(/-+$/, '');
+        return sId === cleanInput || sSlug === cleanInput || sSlugClean === cleanInput || sSlug === appId.toLowerCase();
+      });
+
       if (app) {
         realId = app.id;
         realSlug = app.slug;
+        console.log(`[SECURITY] Resolved ${appId} to realId: ${realId}, realSlug: ${realSlug}`);
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn("[SECURITY] Store data fetch failed during resolve:", e);
+    }
     
     // 1. Attempt to get from hardcoded vault
     const encryptedVault = ENCRYPTED_LINKS;
@@ -199,6 +225,19 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
         let doc = await db.collection('app_secure_links').doc(realId).get();
         if (!doc.exists && appId !== realId) {
           doc = await db.collection('app_secure_links').doc(appId).get();
+        }
+
+        // Ultimate Fallback: Search Firestore for an app with this slug to find the real ID
+        if (!doc.exists) {
+           const appsRef = db.collection('apps');
+           // Fuzzy search with original, resolved, and lowercase variations
+           const searchTerms = Array.from(new Set([appId, realId, appId.toLowerCase(), realId.toLowerCase()]));
+           const slugQuery = await appsRef.where('slug', 'in', searchTerms).limit(1).get();
+           if (!slugQuery.empty) {
+             const foundId = slugQuery.docs[0].id;
+             doc = await db.collection('app_secure_links').doc(foundId).get();
+             console.log(`[SECURITY] Resolved link via Firestore slug search: ${foundId}`);
+           }
         }
 
         if (doc.exists) {
