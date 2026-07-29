@@ -169,7 +169,16 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-blue-100 dark:selection:bg-blue-900/30">
-      <AdminSidebar activeTab={activeTab} onTabChange={setActiveTab} isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} handleLogout={handleLogout} sessionTimeLeft={sessionTimeLeft} />
+      <AdminSidebar 
+        activeTab={activeTab} 
+        onTabChange={setActiveTab} 
+        isMobileMenuOpen={isMobileMenuOpen} 
+        setIsMobileMenuOpen={setIsMobileMenuOpen} 
+        handleLogout={handleLogout} 
+        sessionTimeLeft={sessionTimeLeft} 
+        onRefresh={handleReloadCloudData}
+        isRefreshing={saving}
+      />
 
       <main className="lg:pl-72 min-h-screen transition-all duration-300">
         <header className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 px-6 py-4 flex items-center justify-between">
@@ -178,8 +187,13 @@ export default function AdminDashboard() {
             <FirebaseStatusIndicator />
           </div>
           <div className="flex items-center gap-3">
-             <button onClick={handleReloadCloudData} disabled={saving} className="p-2 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors border-0 bg-transparent cursor-pointer">
-                <RefreshCw size={20} className={saving ? 'animate-spin' : ''} />
+             <button 
+              onClick={handleReloadCloudData} 
+              disabled={saving} 
+              className="flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl font-bold text-sm transition-all border-0 cursor-pointer shadow-sm shadow-blue-500/10 active:scale-95 disabled:opacity-50"
+             >
+                <RefreshCw size={18} className={saving ? 'animate-spin' : ''} />
+                <span>{saving ? 'Syncing...' : 'Global Refresh'}</span>
              </button>
           </div>
         </header>

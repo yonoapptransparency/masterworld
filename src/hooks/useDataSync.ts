@@ -51,6 +51,10 @@ export function useDataSync() {
     return Promise.race([operation(), timeoutPromise]);
   }, []);
 
+  const checkLoaded = useCallback((key: keyof typeof syncStates) => {
+    setSyncStates(prev => ({ ...prev, [key]: true }));
+  }, []);
+
   // Sync effect
   useEffect(() => {
     if (!isFirebaseReal || !db) {
@@ -60,55 +64,81 @@ export function useDataSync() {
       return;
     }
 
-    const checkLoaded = (key: keyof typeof syncStates) => {
-      setSyncStates(prev => ({ ...prev, [key]: true }));
-    };
-
     const unsubs = [
       onSnapshot(doc(db, 'store_data', 'apps_meta'), async (snap) => {
-        if (snap.exists()) {
-          const numChunks = snap.data().numChunks || 1;
-          const allApps = [];
-          for (let i = 0; i < numChunks; i++) {
-            const chunkSnap = await getDoc(doc(db, 'store_data', `apps_chunk_${i}`));
-            if (chunkSnap.exists()) allApps.push(...chunkSnap.data().items);
+        try {
+          if (snap.exists()) {
+            const numChunks = snap.data().numChunks || 1;
+            const allApps = [];
+            for (let i = 0; i < numChunks; i++) {
+              const chunkSnap = await getDoc(doc(db, 'store_data', `apps_chunk_${i}`));
+              if (chunkSnap.exists()) allApps.push(...chunkSnap.data().items);
+            }
+            setApps(allApps);
+            setFetchedStates(prev => ({ ...prev, apps: true }));
+          } else {
+            setFetchedStates(prev => ({ ...prev, apps: true }));
           }
-          setApps(allApps);
-          setFetchedStates(prev => ({ ...prev, apps: true }));
+        } finally {
           checkLoaded('apps');
         }
       }),
       onSnapshot(doc(db, 'store_data', 'public_settings'), (snap) => {
         if (snap.exists()) {
           setSettings(snap.data() as GlobalSettings);
-          checkLoaded('settings');
         }
+        checkLoaded('settings');
       }),
       onSnapshot(doc(db, 'store_data', 'news'), (snap) => {
         if (snap.exists()) {
           setNews(snap.data().items || []);
           setFetchedStates(prev => ({ ...prev, news: true }));
-          checkLoaded('news');
+        } else {
+          setFetchedStates(prev => ({ ...prev, news: true }));
         }
+        checkLoaded('news');
       }),
       onSnapshot(doc(db, 'store_data', 'blogs'), (snap) => {
         if (snap.exists()) {
           setBlogs(snap.data().items || []);
           setFetchedStates(prev => ({ ...prev, blogs: true }));
-          checkLoaded('blogs');
+        } else {
+          setFetchedStates(prev => ({ ...prev, blogs: true }));
         }
+        checkLoaded('blogs');
       }),
       onSnapshot(doc(db, 'store_data', 'videos'), (snap) => {
         if (snap.exists()) {
           setVideos(snap.data().items || []);
           setFetchedStates(prev => ({ ...prev, videos: true }));
-          checkLoaded('videos');
+        } else {
+          setFetchedStates(prev => ({ ...prev, videos: true }));
         }
+        checkLoaded('videos');
       })
     ];
 
-    return () => unsubs.forEach(u => u());
-  }, []);
+    // Safety timeout for loading state
+    const timer = setTimeout(() => {
+      setLoading(false);
+      setLoadedFromServer(true);
+    }, 5000);
+
+    return () => {
+      unsubs.forEach(u => u());
+      clearTimeout(timer);
+    };
+  }, [checkLoaded]);
+
+  // Monitor syncStates to clear loading
+  useEffect(() => {
+    if (syncStates.apps && syncStates.settings && syncStates.news) {
+      setLoading(false);
+      setLoadedFromServer(true);
+      setIsConnected(true);
+      setIsLive(true);
+    }
+  }, [syncStates]);
 
   return {
     apps, setApps,

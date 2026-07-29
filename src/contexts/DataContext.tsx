@@ -7,6 +7,7 @@ import { useGitHubSync } from '../hooks/useGitHubSync';
 import { useDataActions } from '../hooks/useDataActions';
 import { fetchBackupData } from '../services/dataService';
 import { getAdminPath } from '../lib/utils';
+import { toast } from '../components/Toast';
 import { mockApps, mockSettings, mockNews, mockBlogs, mockVideos } from '../lib/lightFallback';
 
 interface DataContextType {
@@ -103,9 +104,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!isFirebaseReal) return;
     if (!silent) sync.setLoading(true);
     try {
-      // Manual refresh logic already handled in useDataSync if needed, 
-      // but let's just trigger a re-sync version for now or implement if necessary.
-      // For simplicity, we'll just reload the page or re-trigger listeners.
+      // Trigger a refresh by incrementing sync version
+      sync.setSyncVersion(v => v + 1);
+      sync.setLastSyncTime(new Date().toLocaleTimeString());
+      
+      // Force a re-fetch of core metadata to trigger snapshot listeners if they're stale
+      await getDocFromServer(doc(db, 'store_data', 'public_settings'));
+      await getDocFromServer(doc(db, 'store_data', 'apps_meta'));
+      
+      toast('Platform data synchronized.', 'success');
+    } catch (err: any) {
+      console.warn("Refresh failed, falling back to reload:", err);
       window.location.reload(); 
     } finally {
       sync.setLoading(false);

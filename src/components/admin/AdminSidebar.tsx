@@ -17,7 +17,8 @@ import {
   Link as LinkIcon, 
   Settings,
   Shield,
-  MessageSquare
+  MessageSquare,
+  RefreshCw
 } from 'lucide-react';
 import { AdminSidebarItem as SidebarItem } from './AdminSidebarItem';
 
@@ -28,6 +29,8 @@ interface AdminSidebarProps {
   setIsMobileMenuOpen: (open: boolean) => void;
   handleLogout: () => void;
   sessionTimeLeft: number;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
 export const AdminSidebar = ({ 
@@ -36,7 +39,9 @@ export const AdminSidebar = ({
   isMobileMenuOpen, 
   setIsMobileMenuOpen, 
   handleLogout,
-  sessionTimeLeft
+  sessionTimeLeft,
+  onRefresh,
+  isRefreshing
 }: AdminSidebarProps) => {
   
   const formatTime = (seconds: number) => {
@@ -108,7 +113,18 @@ export const AdminSidebar = ({
           </nav>
 
 
-          <div className="p-4 border-t border-slate-100 dark:border-slate-800">
+          <div className="p-4 border-t border-slate-100 dark:border-slate-800 space-y-2">
+            {onRefresh && (
+              <button 
+                type="button"
+                onClick={onRefresh}
+                disabled={isRefreshing}
+                className="flex items-center gap-3 w-full px-4 py-3 text-blue-600 dark:text-blue-400 font-bold text-sm hover:bg-blue-50 dark:hover:bg-blue-950/20 rounded-xl transition-all border-0 cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw size={20} className={isRefreshing ? 'animate-spin' : ''} />
+                <span>{isRefreshing ? 'Syncing...' : 'Sync Data Now'}</span>
+              </button>
+            )}
             <button 
               type="button"
               onClick={handleLogout}

@@ -78,7 +78,7 @@ const AppsTab = React.memo(({ appsList, editingAppId, setEditingAppId, handleDel
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
         {/* Left Column - Compact App List & Quick Filters */}
-        <div className={`lg:col-span-5 xl:col-span-5 ${(editingAppId !== null || selectedAppId) ? 'hidden' : 'flex'} bg-slate-50/50 dark:bg-slate-900/30 rounded-2xl p-4 border border-slate-200/60 dark:border-slate-800/60 h-[500px] lg:h-[780px] flex-col justify-between`}>
+        <div className={`lg:col-span-4 xl:col-span-4 ${(editingAppId !== null || selectedAppId) ? 'hidden lg:flex' : 'flex'} bg-slate-50/50 dark:bg-slate-900/30 rounded-2xl p-4 border border-slate-200/60 dark:border-slate-800/60 h-[500px] lg:h-[780px] flex-col justify-between`}>
           <div className="flex flex-col h-full overflow-hidden">
             
             {/* Header row with Add App & Quick Search */}
@@ -248,7 +248,7 @@ const AppsTab = React.memo(({ appsList, editingAppId, setEditingAppId, handleDel
         </div>
 
         {/* Right Column - Inspector Panel or Editing Drawer Form */}
-        <div className={`${(editingAppId !== null || selectedAppId) ? 'fixed inset-0 z-[999999] h-[100dvh] w-full flex lg:relative lg:inset-auto lg:z-auto lg:col-span-12 xl:col-span-12 lg:min-h-[780px] lg:max-h-[85vh] lg:h-[780px]' : 'hidden lg:flex lg:min-h-[780px] lg:col-span-7 xl:col-span-7 h-[500px]'} bg-white dark:bg-slate-900 border-0 lg:border border-slate-200/80 dark:border-slate-800 flex-col overflow-hidden shadow-2xl lg:shadow-sm rounded-none lg:rounded-2xl`}>
+        <div className={`${(editingAppId !== null || selectedAppId) ? 'fixed inset-0 z-[999999] h-[100dvh] w-full flex lg:relative lg:inset-auto lg:z-auto lg:col-span-8 xl:col-span-8 lg:min-h-[780px] lg:max-h-[85vh] lg:h-[780px]' : 'hidden lg:flex lg:min-h-[780px] lg:col-span-8 xl:col-span-8 h-[500px]'} bg-white dark:bg-slate-900 border-0 lg:border border-slate-200/80 dark:border-slate-800 flex-col overflow-hidden shadow-2xl lg:shadow-sm rounded-none lg:rounded-2xl`}>
           {editingAppId !== null ? (
             <AppForm 
               editingAppId={editingAppId}
