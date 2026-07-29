@@ -76,9 +76,10 @@ export const FirebaseStatusIndicator: React.FC = () => {
   const isLive = result.status === 'live';
   const isReadOnly = result.status === 'read_only';
   const isChecking = result.status === 'checking' || isRefreshing;
+  const isAesMissing = !result.aesConfigured;
 
   const bgClass = isLive 
-    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+    ? (isAesMissing ? 'bg-amber-500/10 text-amber-600 border-amber-500/30' : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30')
     : isReadOnly
       ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30'
       : isChecking
@@ -86,7 +87,7 @@ export const FirebaseStatusIndicator: React.FC = () => {
         : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30';
         
   const dotClass = isLive
-    ? 'bg-emerald-500 animate-pulse'
+    ? (isAesMissing ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500 animate-pulse')
     : isReadOnly
       ? 'bg-amber-500 animate-pulse'
       : isChecking
@@ -96,7 +97,7 @@ export const FirebaseStatusIndicator: React.FC = () => {
   const label = isChecking && result.status === 'checking'
     ? 'Testing Firestore...'
     : isLive
-      ? `Firestore: Live${result.readLatencyMs ? ` (${result.readLatencyMs}ms)` : ''}`
+      ? (isAesMissing ? `Firestore: Live (SEC ERROR)` : `Firestore: Live${result.readLatencyMs ? ` (${result.readLatencyMs}ms)` : ''}`)
       : isReadOnly
         ? 'Firestore: Read-Only'
         : `Firestore: Offline`;

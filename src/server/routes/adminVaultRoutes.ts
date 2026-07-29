@@ -562,7 +562,11 @@ adminVaultRouter.get("/api/v1/admin/firebase-status", verifyAdminToken, async (r
     const dbId = config?.firestoreDatabaseId || projectId;
 
     results.config = !!projectId;
-    results.aesConfigured = !!(process.env.AES_SECRET && process.env.AES_SECRET.trim() !== '');
+    
+    // Check if AES is configured and if it's a "real" value
+    const aesSecret = process.env.AES_SECRET;
+    results.aesConfigured = !!(aesSecret && aesSecret.trim() !== '' && isRealValue(aesSecret));
+    
     results.details.projectId = projectId;
     results.details.databaseId = dbId;
     results.details.hasApiKey = !!apiKey;
