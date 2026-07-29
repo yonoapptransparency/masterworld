@@ -652,7 +652,7 @@ adminVaultRouter.get("/api/v1/admin/firebase-status", verifyAdminToken, async (r
             method: 'POST',
             headers: { 
               'Content-Type': 'application/json',
-              ...(authToken ? { 'Authorization': authToken } : {})
+              ...(authToken && authToken.includes('ya29.') ? { 'Authorization': authToken } : {})
             },
             body: JSON.stringify({ fields: { usedAt: { stringValue: new Date().toISOString() } } })
           });
