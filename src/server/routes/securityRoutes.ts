@@ -4,6 +4,7 @@ import { getIp, ensureSession, nonceStore, generateToken, verifyToken } from '..
 import { ENCRYPTED_LINKS } from '../../lib/secureVault';
 import { safeDecrypt, getAesSecret } from '../crypto';
 import { getFirebaseAdminDb, getRawFirebaseConfig, parseFirestoreFields } from '../firebase';
+import { fetchStoreData } from '../../seoHelper';
 
 export const securityRouter = express.Router();
 
@@ -103,6 +104,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
   const fingerprint = req.query.fp as string;
 
   if (!token || !appId) {
+    console.warn(`[SECURITY] Missing parameters for moreinfo-resolve: id=${appId}, token=${!!token}`);
     return res.status(400).send("<h1>400 Bad Request</h1><p>Missing security parameters.</p>");
   }
 
@@ -114,20 +116,33 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
 
   try {
     let targetUrl = '';
+    const AES_SECRET = getAesSecret();
+
+    // 0. Resolve real ID/Slug using memory cache
+    let realId = appId;
+    let realSlug = appId;
+    try {
+      const storeData = await fetchStoreData();
+      const apps = storeData?.apps || [];
+      const app = apps.find((a: any) => a.id === appId || a.slug?.toLowerCase() === appId.toLowerCase());
+      if (app) {
+        realId = app.id;
+        realSlug = app.slug;
+      }
+    } catch (e) {}
     
-    // Attempt to get from vault
+    // 1. Attempt to get from hardcoded vault
     const encryptedVault = ENCRYPTED_LINKS;
     if (encryptedVault) {
-      const AES_SECRET = process.env.AES_SECRET || '';
       const decryptedVault = safeDecrypt(encryptedVault, AES_SECRET);
       if (decryptedVault) {
         const parsed = JSON.parse(decryptedVault);
         let encryptedUrl = '';
         if (Array.isArray(parsed)) {
-          const item = parsed.find((i: any) => i.id === appId || i.slug === appId);
+          const item = parsed.find((i: any) => i.id === realId || i.slug === realSlug);
           encryptedUrl = item?.more_information_url || item?.url || '';
         } else {
-          const val = parsed[appId];
+          const val = parsed[realId] || parsed[realSlug];
           encryptedUrl = typeof val === 'string' ? val : (val?.more_information_url || val?.url || '');
         }
         
@@ -137,31 +152,57 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
       }
     }
 
+    // 2. Attempt Fallback: Check Global Vault Documents in Firestore (where admin saves go)
+    if (!targetUrl) {
+      try {
+        const db = getFirebaseAdminDb();
+        if (db) {
+          const vaultDocs = ['sec_vault', 'secure_links'];
+          for (const docName of vaultDocs) {
+             const vaultSnap = await db.collection('store_data').doc(docName).get();
+             if (vaultSnap.exists) {
+                const data = vaultSnap.data();
+                const ciphertext = data?.encryptedData || data?.encrypted_links;
+                if (ciphertext) {
+                   const dec = safeDecrypt(ciphertext, AES_SECRET);
+                   if (dec) {
+                      const parsed = JSON.parse(dec);
+                      let foundUrl = '';
+                      if (Array.isArray(parsed)) {
+                         const item = parsed.find((i: any) => i.id === realId || i.slug === realSlug);
+                         foundUrl = item?.more_information_url || item?.url || '';
+                      } else {
+                         const val = parsed[realId] || parsed[realSlug];
+                         foundUrl = typeof val === 'string' ? val : (val?.more_information_url || val?.url || '');
+                      }
+                      if (foundUrl) {
+                         targetUrl = foundUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(foundUrl, AES_SECRET) : foundUrl;
+                         if (targetUrl) break;
+                      }
+                   }
+                }
+             }
+          }
+        }
+      } catch (vaultErr) {}
+    }
+
     if (targetUrl && targetUrl.startsWith('http')) {
       return res.redirect(302, targetUrl);
     }
     
-    // Attempt Fallback: Check Firestore Directly
+    // 3. Attempt Fallback: Check Individual app_secure_links collection
     try {
       const db = getFirebaseAdminDb();
       if (db) {
-        // Try id first
-        let doc = await db.collection('app_secure_links').doc(appId).get();
-        
-        // If not found, try searching by slug in the apps collection to get the ID
-        if (!doc.exists) {
-           const appsRef = db.collection('apps');
-           const slugQuery = await appsRef.where('slug', '==', appId).limit(1).get();
-           if (!slugQuery.empty) {
-             const realId = slugQuery.docs[0].id;
-             doc = await db.collection('app_secure_links').doc(realId).get();
-           }
+        // Try realId then appId
+        let doc = await db.collection('app_secure_links').doc(realId).get();
+        if (!doc.exists && appId !== realId) {
+          doc = await db.collection('app_secure_links').doc(appId).get();
         }
 
         if (doc.exists) {
           const data = doc.data();
-          const AES_SECRET = getAesSecret();
-          // Check both fields in Firestore
           const decrypted = safeDecrypt(data?.more_information_url || data?.encrypted_link, AES_SECRET);
           if (decrypted && decrypted.startsWith('http')) {
              return res.redirect(302, decrypted);
@@ -172,22 +213,13 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
         const config = getRawFirebaseConfig();
         if (config && config.projectId) {
           const apiSuffix = config.apiKey ? `?key=${config.apiKey}` : '';
-          
-          // First try to resolve slug to ID if appId doesn't look like an ID
-          let finalId = appId;
-          if (appId.length > 5 && !/^\d+$/.test(appId)) {
-             const appsUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || '(default)'}/documents/apps?key=${config.apiKey}`;
-             // This is expensive, but it's a fallback. In reality we should check if we have a slug-to-id mapping.
-          }
-
-          const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || '(default)'}/documents/app_secure_links/${finalId}${apiSuffix}`;
+          const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || '(default)'}/documents/app_secure_links/${realId}${apiSuffix}`;
           const fsRes = await fetch(url);
           if (fsRes.ok) {
             const fsDoc = await fsRes.json();
             const fields = parseFirestoreFields(fsDoc.fields);
             const encLink = fields.more_information_url || fields.encrypted_link;
             if (encLink) {
-              const AES_SECRET = getAesSecret();
               const decrypted = safeDecrypt(encLink, AES_SECRET);
               if (decrypted && decrypted.startsWith('http')) {
                 return res.redirect(302, decrypted);
@@ -200,6 +232,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
       console.error("[SECURITY] Firestore link resolution fallback failed:", fsFallbackErr);
     }
 
+    console.error(`[SECURITY] Resolve Failed for appId: ${appId} (realId: ${realId}). Hits 404.`);
     return res.status(404).send("<h1>404 Not Found</h1><p>The requested application link could not be resolved. This usually happens if the link hasn't been synced to the security vault yet. Please try again later or contact support.</p>");
   } catch (error) {
     console.error("Resolution error:", error);
