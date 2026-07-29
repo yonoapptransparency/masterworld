@@ -56,16 +56,26 @@ Below is a clear, simple list of all newly created server files and sub-routes, 
   - **Work**: Generates dynamic SEO files (`sitemap.xml`, `robots.txt`, RSS feeds, open-search) for apps, news, blogs, and videos to boost search engine indexing.
 
 ### 3. Modular Admin UI Components (`src/components/admin/`)
+- **`src/components/admin/AdminSidebar.tsx`**:
+  - **Work**: The primary vertical navigation sidebar for the admin dashboard, handling tab switching and branding.
+- **`src/components/admin/AdminTabContent.tsx`**:
+  - **Work**: The central layout router for the dashboard that renders specific tab modules (Apps, News, Settings, etc.) based on user navigation.
 - **`src/components/admin/AdminQuickLinksTab.tsx`**:
   - **Work**: Encapsulates the Quick Links management interface inside the Admin Dashboard.
 - **`src/components/admin/AdminWebsiteFaqsTab.tsx`**:
   - **Work**: Encapsulates the global Website FAQ management interface inside the Admin Dashboard.
 - **`src/components/admin/AdminDevelopersTab.tsx`**:
   - **Work**: Encapsulates the Developer Profiles management interface inside the Admin Dashboard.
+- **`src/components/admin/apps/AppInspector.tsx`**:
+  - **Work**: Detailed read-only configuration viewer for applications, allowing admins to verify settings before editing.
+- **`src/components/admin/apps/AppForm.tsx`**:
+  - **Work**: The main application editor interface, utilizing modular form sections for scalable management.
+- **`src/components/admin/apps/sections/`**:
+  - **Work**: Directory containing modularized form sections: `GeneralSection.tsx`, `SEOSection.tsx`, `ContentSection.tsx`, and `AlertsSection.tsx`.
 - **`src/components/admin/FaqEditor.tsx`**:
-  - **Work**: Sub-component for editing individual application FAQs inside `AppsTab.tsx`.
+  - **Work**: Sub-component for editing individual application FAQs inside the Apps module.
 - **`src/components/admin/ScreenshotsEditor.tsx`**:
-  - **Work**: Sub-component for managing screenshot gallery links inside `AppsTab.tsx`.
+  - **Work**: Sub-component for managing screenshot gallery links inside the Apps module.
 
 ### 4. Modular Public UI Components (`src/components/public/`)
 - **`src/components/public/PublicHeader.tsx`**:
@@ -91,7 +101,19 @@ Below is a clear, simple list of all newly created server files and sub-routes, 
 
 ### 5. Server Core Files
 - **`server.ts`**:
-  - **Work**: The main Express backend server entry point. Connects all 5 sub-routers above, handles rate limiting, security headers, and static file serving.
+  - **Work**: The main Express backend server entry point. Connects all sub-routers, handles rate limiting, security headers, and static file serving.
 - **`src/server/firebase.ts`**:
   - **Work**: Initializes the server-side Firebase Admin SDK with automatic fallback configuration to prevent database server crashes.
+
+### 6. Admin Business Logic Hooks (`src/hooks/`)
+- **`src/hooks/useAdminAuth.ts`**:
+  - **Work**: Manages admin session lifecycle, auto-logout on inactivity, and secure authentication state.
+- **`src/hooks/useAdminApps.ts`**:
+  - **Work**: Centralizes application catalog management, including Firebase fetching and secure link synchronization with the vault.
+- **`src/hooks/useAdminSettings.ts`**:
+  - **Work**: Shared state manager for global website settings, news, banners, and developer profiles with built-in CRUD handlers.
+- **`src/hooks/useAppFilters.ts`**:
+  - **Work**: Encapsulates complex search, filtering, and sorting logic for the large application catalog.
+- **`src/hooks/useAppForm.ts`**:
+  - **Work**: Manages the state and validation of the multifaceted application creation and edit forms.
 

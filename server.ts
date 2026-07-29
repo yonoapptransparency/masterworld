@@ -12,6 +12,7 @@ import { githubSyncRouter } from './src/server/routes/githubSyncRoutes';
 import { seoRouter } from './src/server/routes/seoRoutes';
 import { adminVaultRouter } from './src/server/routes/adminVaultRoutes';
 import { publicApiRouter } from './src/server/routes/publicApiRoutes';
+import { securityRouter } from './src/server/routes/securityRoutes';
 
 async function startServer() {
   const app = express();
@@ -60,6 +61,7 @@ async function startServer() {
   app.use(adminAuthRouter);
   app.use(githubSyncRouter);
   app.use(adminVaultRouter);
+  app.use(securityRouter);
   app.use(publicApiRouter);
 
   // Roadblocks

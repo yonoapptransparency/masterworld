@@ -1,14 +1,14 @@
-/**
- * SEO metadata compiler and index indexer
- * Compiles custom search tag queries dynamically within index.html files.
- */
-
 import fs from 'fs';
 import path from 'path';
+import { getSafeFirebaseConfig } from './server/seo/firebaseConfig';
+import { syncFromFirestore } from './server/seo/sync';
+import { getField, stripHtml } from './server/seo/utils';
+import * as renderers from './server/seo/renderers';
+
 // Dynamically resolve staticData to bypass TSX watcher
 const getStaticData = () => {
   try {
-    const staticDataModulePath = "./lib/" + "staticData";
+    const staticDataModulePath = "./lib/staticData";
     return require(staticDataModulePath);
   } catch (e) {
     return { mockApps: [], mockSettings: {}, mockNews: [], mockBlogs: [], mockVideos: [] };
@@ -21,272 +21,16 @@ const mockSettings = staticData.mockSettings || {};
 const mockNews = staticData.mockNews || [];
 const mockBlogs = staticData.mockBlogs || [];
 const mockVideos = staticData.mockVideos || [];
-import { getAdminPath } from './lib/utils';
 
 let cachedData: any = null;
 let lastFetchTime = 0;
-const CACHE_TTL = 3600000; // 1 hour cache to reduce read quota consumption on shared projects
+const CACHE_TTL = 3600000; // 1 hour
 let isFetchingStoreData = false;
 
-const isRealValue = (id: string | undefined): boolean => {
-  if (!id) return false;
-  const clean = id.trim();
-  if (clean === '' || clean === 'PLACEHOLDER' || clean.includes('REPLACE_WITH_YOUR_REAL_KEY') || clean.includes('YOUR_API_KEY')) return false;
-  
-  // Reject scrambled/sandbox values (contain # ! @ & * and look like a hash but aren't real)
-  if (clean.length > 20 && (clean.includes('#') || clean.includes('!') || clean.includes('@'))) return false;
-
-  return true;
-};
-
-const B64_FALLBACK = "ewogICJwcm9qZWN0SWQiOiAiZ2VuLWxhbmctY2xpZW50LTA4MjU4MzI0OTMiLAogICJhcHBJZCI6ICIxOjEwMzk3Mzk4OTg3NDp3ZWI6NzMzYTZhZmQ4ZTgzNzIyNDkwMGY2YiIsCiAgImFwaUtleSI6ICJBSXphU3lCZXk5c1ViZVdscmNYUzJrbDRld096a1R5NGFyZzAzT2siLAogICJhdXRoRG9tYWluIjogImdlbi1sYW5nLWNsaWVudC0wODI1ODMyNDkzLmZpcmViYXNlYXBwLmNvbSIsCiAgImZpcmVzdG9yZURhdGFiYXNlSWQiOiAiYWktc3R1ZGlvLXlvbm9zdG9yZS04ODYzMTVhNC04YjlmLTRmZjYtODk4Ni1hOTBhZDE3MjIxMGEiLAogICJzdG9yYWdlQnVja2V0IjogImdlbi1sYW5nLWNsaWVudC0wODI1ODMyNDkzLmZpcmViYXNlc3RvcmFnZS5hcHAiLAogICJtZXNzYWdpbmdTZW5kZXJJZCI6ICIxMDM5NzM5ODk4NzQiLAogICJtZWFzdXJlbWVudElkIjogIiIsCiAgIm9BdXRoQ2xpZW50SWQiOiAiMTAzOTczOTg5ODc0LXQ0N252ODdrNTMycHQ4NHMyaTF0a2wwdmttYmloOWs2LmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29tIiwKICAicmVjYXB0Y2hhU2l0ZUtleSI6ICIiCn0=";
-
-let cachedRawFirebaseConfig: any = null;
-
-function getRawFirebaseConfig(): any {
-  if (cachedRawFirebaseConfig) {
-    return cachedRawFirebaseConfig;
-  }
-
-  // 1. Try local/config file
-  try {
-    const rawData = fs.readFileSync(path.join(process.cwd(), 'firebase-applet-config.json'), 'utf8');
-    const config = JSON.parse(rawData);
-    if (config.projectId && isRealValue(config.projectId)) {
-      config.firestoreDatabaseId = config.firestoreDatabaseId || config.databaseId || process.env.VITE_FIREBASE_DATABASE_ID;
-      config.apiKey = config.apiKey || process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY;
-      cachedRawFirebaseConfig = config;
-      return config;
-    }
-  } catch (err) {
-    // Proceed to environment variables
-  }
-
-  // 2. Try environment variables
-  const envProjectId = process.env.VITE_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
-  const envDbId = process.env.VITE_FIREBASE_DATABASE_ID || process.env.FIREBASE_DATABASE_ID;
-  const envApiKey = process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY;
-  if (envProjectId && isRealValue(envProjectId)) {
-    cachedRawFirebaseConfig = {
-      projectId: envProjectId,
-      appId: process.env.VITE_FIREBASE_APP_ID || process.env.FIREBASE_APP_ID,
-      apiKey: envApiKey,
-      authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || process.env.FIREBASE_AUTH_DOMAIN,
-      firestoreDatabaseId: envDbId || '(default)',
-      storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || process.env.FIREBASE_STORAGE_BUCKET,
-      messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_ID || process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || process.env.FIREBASE_MESSAGING_SENDER_ID
-    };
-    return cachedRawFirebaseConfig;
-  }
-
-  // 3. Try B64 fallback as absolute last resort
-  try {
-    const cleanB64 = B64_FALLBACK.replace(/[^A-Za-z0-9+/=]/g, "");
-    const fallbackConfig = JSON.parse(Buffer.from(cleanB64, 'base64').toString('utf8'));
-    if (fallbackConfig && fallbackConfig.projectId && isRealValue(fallbackConfig.projectId)) {
-      cachedRawFirebaseConfig = fallbackConfig;
-      return fallbackConfig;
-    }
-  } catch (_) {}
-
-  throw new Error('Firebase configuration not found and no environment variables set.');
-}
-
-function parseFirestoreValue(value: any): any {
-  if (!value) return null;
-  if ('stringValue' in value) return value.stringValue;
-  if ('integerValue' in value) return parseInt(value.integerValue, 10);
-  if ('doubleValue' in value) return parseFloat(value.doubleValue);
-  if ('booleanValue' in value) return value.booleanValue;
-  if ('arrayValue' in value) {
-    const list = value.arrayValue.values || [];
-    return list.map((item: any) => parseFirestoreValue(item));
-  }
-  if ('mapValue' in value) {
-    const fields = value.mapValue.fields || {};
-    const obj: any = {};
-    for (const key of Object.keys(fields)) {
-      obj[key] = parseFirestoreValue(fields[key]);
-    }
-    return obj;
-  }
-  return null;
-}
-
-function parseFirestoreDoc(docFields: any): any {
-  if (!docFields) return {};
-  const obj: any = {};
-  for (const key of Object.keys(docFields)) {
-    obj[key] = parseFirestoreValue(docFields[key]);
-  }
-  return obj;
-}
-
-export function getField(obj: any, key: string, fallback = ''): string {
-  if (!obj) return fallback;
-  const value = obj[key];
-  if (value === undefined || value === null) return fallback;
-  if (typeof value === 'object') {
-    if ('stringValue' in value) return value.stringValue ?? fallback;
-    if ('integerValue' in value) return String(value.integerValue) ?? fallback;
-    if ('booleanValue' in value) return String(value.booleanValue) ?? fallback;
-    return fallback;
-  }
-  return String(value);
-}
-
-export async function syncFromFirestore(): Promise<any> {
-  try {
-    const config = getRawFirebaseConfig();
-    if (!config || !config.projectId) {
-      console.log("[SYNC] Skipping background Firestore sync: Firebase config not found.");
-      return null;
-    }
-    const projectId = config.projectId;
-    const dbId = config.firestoreDatabaseId || '(default)';
-    const apiKey = config.apiKey;
-    const keyParam = apiKey ? `?key=${apiKey}` : '';
-    const baseUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${dbId}/documents/store_data`;
-
-    console.log(`[SYNC] Syncing filesystem backup files with Firestore (${projectId})...`);
-
-    const [settingsRes, newsRes, blogsRes, videosRes, metaRes] = await Promise.all([
-      fetch(`${baseUrl}/public_settings${keyParam}`).catch(() => null),
-      fetch(`${baseUrl}/news${keyParam}`).catch(() => null),
-      fetch(`${baseUrl}/blogs${keyParam}`).catch(() => null),
-      fetch(`${baseUrl}/videos${keyParam}`).catch(() => null),
-      fetch(`${baseUrl}/apps_meta${keyParam}`).catch(() => null)
-    ]);
-
-    let settings = mockSettings;
-    if (settingsRes && settingsRes.ok) {
-      const docData = await settingsRes.json();
-      const parsed = parseFirestoreDoc(docData.fields);
-      if (parsed && Object.keys(parsed).length > 0) settings = parsed;
-    }
-
-    let news = mockNews;
-    if (newsRes && newsRes.ok) {
-      const docData = await newsRes.json();
-      const parsed = parseFirestoreDoc(docData.fields);
-      if (parsed && Array.isArray(parsed.items)) news = parsed.items;
-    }
-
-    let blogs = mockBlogs;
-    if (blogsRes && blogsRes.ok) {
-      const docData = await blogsRes.json();
-      const parsed = parseFirestoreDoc(docData.fields);
-      if (parsed && Array.isArray(parsed.items)) blogs = parsed.items;
-    }
-
-    let videos = mockVideos;
-    if (videosRes && videosRes.ok) {
-      const docData = await videosRes.json();
-      const parsed = parseFirestoreDoc(docData.fields);
-      if (parsed && Array.isArray(parsed.items)) videos = parsed.items;
-    }
-
-    let apps: any[] = [];
-    let numChunks = 1;
-    let metaFetched = false;
-
-    if (metaRes && metaRes.ok) {
-      const metaData = await metaRes.json();
-      const parsedMeta = parseFirestoreDoc(metaData.fields);
-      if (parsedMeta && typeof parsedMeta.numChunks === 'number') {
-        numChunks = parsedMeta.numChunks;
-        metaFetched = true;
-      }
-    }
-
-    if (metaFetched) {
-      const chunkPromises = [];
-      for (let i = 0; i < numChunks; i++) {
-        chunkPromises.push(
-          fetch(`${baseUrl}/apps_chunk_${i}${keyParam}`)
-            .then(res => res.ok ? res.json() : null)
-            .catch(() => null)
-        );
-      }
-      const chunkDataList = await Promise.all(chunkPromises);
-      chunkDataList.forEach(chunkData => {
-        if (chunkData) {
-          const parsedChunk = parseFirestoreDoc(chunkData.fields);
-          if (parsedChunk && Array.isArray(parsedChunk.items)) {
-            apps.push(...parsedChunk.items);
-          }
-        }
-      });
-    } else {
-      const appsRes = await fetch(`${baseUrl}/apps${keyParam}`).catch(() => null);
-      if (appsRes && appsRes.ok) {
-        const appsData = await appsRes.json();
-        const parsed = parseFirestoreDoc(appsData.fields);
-        if (parsed && Array.isArray(parsed.items)) apps = parsed.items;
-      }
-    }
-
-    if (apps.length === 0) {
-      apps = mockApps;
-    }
-
-    try {
-      const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
-      fs.writeFileSync(publicBackupPath, JSON.stringify({
-        apps,
-        settings,
-        news,
-        blogs,
-        videos
-      }, null, 2), 'utf8');
-
-      try {
-        const { generateStaticDataFileCode } = require('./lib/githubSync');
-        const tsCode = generateStaticDataFileCode(apps, settings, news, blogs, videos);
-        fs.writeFileSync(path.join(process.cwd(), 'src/lib/staticData.ts'), tsCode, 'utf8');
-      } catch (e: any) {
-        console.warn("Could not write staticData.ts fallback (skipping):", e.message);
-      }
-    } catch (fsError: any) {
-      console.warn("[SYNC] Could not write cache files to filesystem (running in read-only environment?):", fsError.message);
-    }
-
-    console.log(`[SYNC] Synchronization successful. Apps count: ${apps.length}`);
-    return { apps, settings, news, blogs, videos };
-  } catch (err: any) {
-    console.error("[SYNC] Sync error:", err);
-    return null;
-  }
-}
-
-export async function fetchStoreData() {
-  const now = Date.now();
-
-  const isStale = (now - lastFetchTime) > CACHE_TTL;
-  const isSuperStale = (now - lastFetchTime) > (CACHE_TTL * 15); // Require a blocking fetch after 15 hours
-
-  // STALE-WHILE-REVALIDATE Pattern:
-  if (cachedData && !isSuperStale) {
-    if (isStale && !isFetchingStoreData) {
-      isFetchingStoreData = true;
-      doFetchStoreData()
-        .then(() => { isFetchingStoreData = false; })
-        .catch(e => {
-          isFetchingStoreData = false;
-          console.warn("Background store fetch failed safely:", e);
-        });
-    }
-    return cachedData;
-  }
-
-  return await doFetchStoreData();
-}
+export { getField, getSafeFirebaseConfig, syncFromFirestore };
 
 async function doFetchStoreData() {
   const now = Date.now();
-  
-  // Public-facing website runs 100% on hard-coded files (local public_backup.json or staticData.ts)
-  // to avoid hitting Firestore daily quotas. Dynamic database connections are exclusive to the Admin panel.
   const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
   if (fs.existsSync(publicBackupPath)) {
     try {
@@ -308,7 +52,6 @@ async function doFetchStoreData() {
     }
   }
 
-  // Fetch live from Firestore if public_backup.json is missing or has no apps
   const synced = await syncFromFirestore();
   if (synced) {
     cachedData = synced;
@@ -329,40 +72,25 @@ async function doFetchStoreData() {
   return data;
 }
 
+export async function fetchStoreData() {
+  const now = Date.now();
+  const isStale = (now - lastFetchTime) > CACHE_TTL;
+  const isSuperStale = (now - lastFetchTime) > (CACHE_TTL * 15);
 
+  if (cachedData && !isSuperStale) {
+    if (isStale && !isFetchingStoreData) {
+      isFetchingStoreData = true;
+      doFetchStoreData()
+        .then(() => { isFetchingStoreData = false; })
+        .catch(e => {
+          isFetchingStoreData = false;
+          console.warn("Background store fetch failed safely:", e);
+        });
+    }
+    return cachedData;
+  }
 
-function escapeHtml(unsafe: string) {
-  if (!unsafe) return '';
-  return unsafe
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
-function sanitizeHtml(html: string): string {
-  if (!html) return '';
-  // 1. Strip script tags and their contents completely
-  let clean = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-  
-  // 2. Strip inline event handlers (e.g. onerror, onload, onclick, etc.)
-  clean = clean.replace(/\s+on\w+\s*=\s*(['"][^'"]*['"]|[^>\s]+)/gi, '');
-  
-  // 3. Prevent javascript: protocol links
-  clean = clean.replace(/href\s*=\s*['"]\s*javascript:[^'"]*['"]/gi, 'href="#"');
-  
-  // 4. Strip iframe, object, embed, form, meta, link, style tags to prevent execution
-  clean = clean.replace(/<(iframe|object|embed|form|meta|link|style)\b[^>]*>([\s\S]*?)<\/\1>/gi, '');
-  clean = clean.replace(/<(iframe|object|embed|form|meta|link|style)\b[^>]*>/gi, '');
-  
-  return clean;
-}
-
-function stripHtml(html: string) {
-  if (!html) return '';
-  const stripped = html.replace(/<[^>]*>?/gm, ' ');
-  return stripped.replace(/\s+/g, ' ').trim();
+  return await doFetchStoreData();
 }
 
 function cleanSeoDescription(desc: string): string {
@@ -370,13 +98,9 @@ function cleanSeoDescription(desc: string): string {
   const trimmed = desc.trim();
   if (trimmed.startsWith('<') || trimmed.includes('<meta ')) {
     const metaMatch = trimmed.match(/<meta\s+name=["']description["']\s+content=["'](.*?)["']/i);
-    if (metaMatch && metaMatch[1]) {
-      return metaMatch[1].trim();
-    }
+    if (metaMatch && metaMatch[1]) return metaMatch[1].trim();
     const ogMatch = trimmed.match(/<meta\s+property=["']og:description["']\s+content=["'](.*?)["']/i);
-    if (ogMatch && ogMatch[1]) {
-      return ogMatch[1].trim();
-    }
+    if (ogMatch && ogMatch[1]) return ogMatch[1].trim();
     return stripHtml(trimmed).substring(0, 160);
   }
   return trimmed;
@@ -390,63 +114,62 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
   let bodyContent = '';
 
   if (cleanPathLower === '/' || cleanPathLower === '') {
-    bodyContent = renderHome(apps, settings, news, blogs, videos);
+    bodyContent = renderers.renderHome(apps, settings, news, blogs, videos);
   } else if (cleanPathLower === '/new-apps') {
-    bodyContent = renderNewApps(apps, settings);
+    bodyContent = renderers.renderNewApps(apps, settings);
   } else if (cleanPathLower.startsWith('/s/')) {
     const slug = cleanPath.split('/s/')[1];
-    bodyContent = renderGateway(slug, apps, settings);
+    bodyContent = renderers.renderGateway(slug, apps, settings);
   } else if (cleanPathLower === '/news') {
-    bodyContent = renderNewsList(news, settings);
+    bodyContent = renderers.renderNewsList(news, settings);
   } else if (cleanPathLower.startsWith('/news/')) {
     const slug = cleanPath.split('/news/')[1];
-    bodyContent = renderNewsDetail(slug, news, settings);
+    bodyContent = renderers.renderNewsDetail(slug, news, settings);
   } else if (cleanPathLower === '/blogs') {
-    bodyContent = renderBlogsList(blogs, settings);
+    bodyContent = renderers.renderBlogsList(blogs, settings);
   } else if (cleanPathLower.startsWith('/blog/')) {
     const slug = cleanPath.split('/blog/')[1];
-    bodyContent = renderBlogDetail(slug, blogs, settings);
+    bodyContent = renderers.renderBlogDetail(slug, blogs, settings);
   } else if (cleanPathLower === '/videos') {
-    bodyContent = renderVideosList(videos, settings);
+    bodyContent = renderers.renderVideosList(videos, settings);
   } else if (cleanPathLower.startsWith('/videos/')) {
     const slug = cleanPath.split('/videos/')[1];
-    bodyContent = renderVideoDetail(slug, videos, settings);
+    bodyContent = renderers.renderVideoDetail(slug, videos, settings);
   } else if (cleanPathLower === '/about') {
-    bodyContent = renderAbout(settings);
+    bodyContent = renderers.renderAbout(settings);
   } else if (cleanPathLower === '/contact') {
-    bodyContent = renderContact(settings);
+    bodyContent = renderers.renderContact(settings);
   } else if (cleanPathLower === '/privacy') {
-    bodyContent = renderPrivacy(settings);
+    bodyContent = renderers.renderPrivacy(settings);
   } else if (cleanPathLower === '/report-removal') {
-    bodyContent = renderReportRemoval(settings);
+    bodyContent = renderers.renderReportRemoval(settings);
   } else if (cleanPathLower === '/terms') {
-    bodyContent = renderTerms(settings);
+    bodyContent = renderers.renderTerms(settings);
   } else if (cleanPathLower === '/notice') {
-    bodyContent = renderNotice(settings);
+    bodyContent = renderers.renderNotice(settings);
   } else if (cleanPathLower === '/ethics') {
-    bodyContent = renderEthics(settings);
+    bodyContent = renderers.renderEthics(settings);
   } else if (cleanPathLower === '/disclaimer') {
-    bodyContent = renderDisclaimer(settings);
+    bodyContent = renderers.renderDisclaimer(settings);
   } else if (cleanPathLower === '/responsibility') {
-    bodyContent = renderResponsibility(settings);
+    bodyContent = renderers.renderResponsibility(settings);
   } else {
-    // Dynamic fallback for canonical root-level slugs (new direct path structure)
     const possibleSlug = cleanPathLower.replace(/^\/app\//, '/').replace(/^\/|\/$/g, '');
     if (apps.some((a: any) => a.slug?.toLowerCase() === possibleSlug)) {
-      bodyContent = renderAppDetails(possibleSlug, apps, settings);
+      bodyContent = renderers.renderAppDetails(possibleSlug, apps, settings);
     } else if (news.some((n: any) => n.slug?.toLowerCase() === possibleSlug)) {
-      bodyContent = renderNewsDetail(possibleSlug, news, settings);
+      bodyContent = renderers.renderNewsDetail(possibleSlug, news, settings);
     } else if (blogs.some((b: any) => b.slug?.toLowerCase() === possibleSlug)) {
-      bodyContent = renderBlogDetail(possibleSlug, blogs, settings);
+      bodyContent = renderers.renderBlogDetail(possibleSlug, blogs, settings);
     } else if (videos.some((v: any) => v.slug?.toLowerCase() === possibleSlug)) {
-      bodyContent = renderVideoDetail(possibleSlug, videos, settings);
+      bodyContent = renderers.renderVideoDetail(possibleSlug, videos, settings);
     } else {
-      bodyContent = renderHome(apps, settings, news, blogs, videos);
+      bodyContent = renderers.renderHome(apps, settings, news, blogs, videos);
     }
   }
 
-  const header = renderHeader(settings);
-  const footer = renderFooter(settings);
+  const header = renderers.renderHeader(settings);
+  const footer = renderers.renderFooter(settings);
 
   return `
     <div class="flex flex-col min-h-screen">
@@ -457,415 +180,6 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
       ${footer}
     </div>
   `;
-}
-
-function renderHeader(settings: any) {
-  const siteTitle = getField(settings, 'site_title');
-  const logoUrl = getField(settings, 'logo_url');
-  return `
-    <header class="py-3 border-b border-black/5 dark:border-white/5 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md">
-      <div class="max-w-7xl mx-auto px-4 sm:px-8 flex justify-between items-center">
-        <a href="/" class="flex items-center gap-3 font-bold text-lg text-zinc-900 dark:text-white">
-          ${logoUrl ? `<img src="${escapeHtml(logoUrl)}" loading="eager" width="40" height="40" class="w-10 h-10 object-contain" alt="Logo"/>` : ''}
-          <span>${escapeHtml(siteTitle)}</span>
-        </a>
-        <nav class="hidden md:flex gap-6 text-sm font-medium text-zinc-600 dark:text-zinc-300">
-          <a href="/">Home</a>
-          <a href="/new-apps">New Apps</a>
-          <a href="/news">News</a>
-          <a href="/blogs">Blogs</a>
-          <a href="/videos">Videos</a>
-          <a href="/about">About</a>
-          <a href="/contact">Contact</a>
-        </nav>
-      </div>
-    </header>
-  `;
-}
-
-function renderFooter(settings: any) {
-  const siteTitle = getField(settings, 'site_title');
-  const logoUrl = getField(settings, 'logo_url');
-  const metaDescription = getField(settings, 'meta_description');
-  const disclaimerText = getField(settings, 'disclaimer_text');
-  const ethicsText = getField(settings, 'ethics_discrimination_text');
-  const importantNotice = getField(settings, 'important_notice');
-
-  return `
-    <footer class="pt-12 pb-8 border-t border-black/5 dark:border-white/5 bg-zinc-50 dark:bg-zinc-950 mt-12 text-center text-zinc-500 dark:text-zinc-400">
-      <div class="max-w-7xl mx-auto px-6">
-        <h3 class="text-xl font-bold flex items-center justify-center gap-2 text-zinc-900 dark:text-white mb-2">
-          ${logoUrl ? `<img src="${escapeHtml(logoUrl)}" loading="eager" width="32" height="32" class="w-8 h-8 object-contain" alt="Logo" />` : ''}
-          <span>${escapeHtml(siteTitle)}</span>
-        </h3>
-        <p class="text-sm max-w-xl mx-auto mb-6 leading-relaxed">${escapeHtml(metaDescription)}</p>
-        <div class="flex flex-wrap justify-center gap-6 text-xs font-semibold mb-8 text-zinc-600 dark:text-zinc-400">
-          <a href="/">Home</a>
-          <a href="/about">About</a>
-          <a href="/contact">Contact</a>
-          <a href="/videos">Apps</a>
-          <a href="/blogs">Blog</a>
-          <a href="/privacy">Privacy</a>
-          <a href="/report-removal">Report & Removal</a>
-          <a href="/terms">Terms</a>
-          <a href="/notice">Notice</a>
-          <a href="/ethics">Ethics</a>
-          <a href="/disclaimer">Disclaimer</a>
-        </div>
-        <div class="text-xs text-zinc-400 mt-8">&copy; ${new Date().getFullYear()} ${escapeHtml(siteTitle)}. All rights reserved.</div>
-      </div>
-    </footer>
-  `;
-}
-
-function renderHome(apps: any[], settings: any, news: any[], blogs: any[], videos: any[]) {
-  const siteTitle = getField(settings, 'site_title');
-  const desc = getField(settings, 'meta_description');
-  
-  let appsHtml = '';
-  const sorted = [...apps].sort((a,b) => parseInt(getField(a, 'serial_number','999'), 10) - parseInt(getField(b, 'serial_number','999'), 10));
-  
-  sorted.forEach((app, i) => {
-    const name = getField(app, 'name');
-    const slug = getField(app, 'slug');
-    const category = getField(app, 'category');
-    const rating = getField(app, 'rating', '5.0');
-    const icon = getField(app, 'icon_url');
-    const isNew = app.is_new === true || (app.is_new && app.is_new.booleanValue === true);
-    
-    appsHtml += `
-      <a href="/${encodeURIComponent(slug)}" class="flex items-center gap-4 p-4 hover:bg-black/5 dark:hover:bg-white/5 rounded-2xl transition border-b border-black/5 dark:border-white/5">
-        <span class="text-sm font-bold text-zinc-400 shrink-0 w-8 text-center">${i + 1}</span>
-        <img src="${icon || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&fit=crop'}" loading="lazy" width="64" height="64" class="w-16 h-16 rounded-[18px] object-cover bg-white shadow-sm shrink-0" alt="${escapeHtml(name)}"/>
-        <div class="flex-1 min-w-0 text-left">
-          <h3 class="font-bold text-base text-zinc-900 dark:text-zinc-100 truncate">${escapeHtml(name)}</h3>
-          <p class="text-xs text-zinc-500 truncate">${escapeHtml(category)}</p>
-          <div class="flex items-center gap-1.5 text-xs text-zinc-500 mt-1">
-            <span>${rating}</span><span class="text-zinc-400">★</span>
-            ${isNew ? `<span class="bg-blue-500/10 text-blue-600 text-[10px] font-bold px-1.5 py-0.5 rounded">NEW</span>` : ''}
-          </div>
-        </div>
-        <span class="bg-black/5 dark:bg-white/10 text-zinc-900 dark:text-zinc-100 px-4 py-1 text-xs font-bold rounded-full select-none">MORE</span>
-      </a>
-    `;
-  });
-
-  let newsHtml = '';
-  news.slice(0, 3).forEach(n => {
-    newsHtml += `
-      <a href="/news/${encodeURIComponent(getField(n, 'slug'))}" class="block p-4 bg-zinc-50 dark:bg-zinc-900 border border-black/5 rounded-xl text-left">
-        <h4 class="font-bold text-sm text-zinc-900 dark:text-white leading-tight mb-1">${escapeHtml(getField(n, 'title'))}</h4>
-        <p class="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2">${escapeHtml(getField(n, 'description'))}</p>
-      </a>
-    `;
-  });
-
-  return `
-    <div>
-      <div class="text-center py-12 max-w-2xl mx-auto px-4">
-        <h1 class="text-4xl font-extrabold text-zinc-900 dark:text-white mb-4">${escapeHtml(siteTitle)}</h1>
-        <p class="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">${escapeHtml(desc)}</p>
-      </div>
-      <div class="grid lg:grid-cols-[2fr,1fr] gap-8">
-        <div class="bg-white dark:bg-zinc-900 p-6 rounded-[28px] border border-black/5 shadow-sm">
-          <h2 class="text-xl font-bold mb-4 px-2 text-left">Popular E-Sports virtual clients</h2>
-          <div class="flex flex-col">${appsHtml}</div>
-        </div>
-        <div class="space-y-6">
-          <div class="bg-white dark:bg-zinc-900 p-6 rounded-[28px] border border-black/5 shadow-sm">
-            <h3 class="font-bold text-md mb-4 text-left">Latest Archives</h3>
-            <div class="flex flex-col gap-3">${newsHtml}</div>
-            <a href="/news" class="block text-xs font-bold text-blue-500 hover:underline mt-4 text-left">View All Updates →</a>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function renderNewApps(apps: any[], settings: any) {
-  let grid = '';
-  const list = apps.filter(a => a.is_new === true || (a.is_new && a.is_new.booleanValue === true));
-  const display = list.length > 0 ? list : apps;
-  
-  display.forEach(app => {
-    const name = getField(app, 'name');
-    const slug = getField(app, 'slug');
-    const cat = getField(app, 'category');
-    const rating = getField(app, 'rating', '5.0');
-    const icon = getField(app, 'icon_url');
-    
-    grid += `
-      <a href="/${encodeURIComponent(slug)}" class="p-4 bg-white dark:bg-zinc-900 rounded-2xl border border-black/5 text-center flex flex-col items-center">
-        <img src="${icon || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&fit=crop'}" loading="lazy" width="80" height="80" class="w-20 h-20 rounded-2xl object-cover mb-3 shadow-sm bg-white" alt="icon"/>
-        <h3 class="font-bold text-sm text-zinc-900 dark:text-white truncate w-full">${escapeHtml(name)}</h3>
-        <p class="text-xs text-zinc-500 mt-1 truncate w-full">${escapeHtml(cat)}</p>
-        <span class="text-xs text-zinc-650 dark:text-zinc-400 mt-2 font-bold">${rating} ★</span>
-      </a>
-    `;
-  });
-
-  return `
-    <div class="py-6">
-      <h1 class="text-3xl font-extrabold mb-2 text-center text-zinc-900 dark:text-white">New Additions</h1>
-      <p class="text-sm text-zinc-500 text-center mb-8">Our latest verified client lists</p>
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">${grid}</div>
-    </div>
-  `;
-}
-
-function renderAppDetails(slug: string, apps: any[], settings: any) {
-  const cleanSlug = decodeURIComponent(slug).toLowerCase();
-  const app = apps.find(a => getField(a, 'slug').toLowerCase() === cleanSlug);
-  if (!app) return `<div class="py-12 text-center"><h1 class="text-2xl font-bold mb-4">App Not Found</h1><a href="/" class="text-blue-500 hover:underline">Go Home</a></div>`;
-
-  const name = getField(app, 'name');
-  const cat = getField(app, 'category');
-  const version = getField(app, 'version', 'Latest');
-  const size = getField(app, 'file_size', 'Variable');
-  const rating = getField(app, 'rating', '5.0');
-  const icon = getField(app, 'icon_url');
-  const desc = app.description_html ? sanitizeHtml(app.description_html) : `<p>No comprehensive details are configured yet for ${escapeHtml(name)}.</p>`;
-  const features = app.features_html ? sanitizeHtml(app.features_html) : '';
-  const featureSectionContext = features ? `<h2 class="text-lg font-bold mt-8 mb-4">App Features</h2><div class="prose dark:prose-invert text-zinc-650 leading-relaxed font-semibold">${features}</div>` : '';
-  const pkg = getField(app, 'package_name', 'Not published');
-
-  return `
-    <div class="py-6">
-      <div class="flex flex-col items-center text-center pb-8 border-b border-black/5 mb-8">
-        <img src="${icon || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&fit=crop'}" loading="lazy" width="96" height="96" class="w-24 h-24 sm:w-32 sm:h-32 rounded-[22px] object-cover mb-4 shadow" alt="icon"/>
-        <h1 class="text-3xl sm:text-5xl font-extrabold text-zinc-900 dark:text-white leading-tight mb-2">${escapeHtml(name)}</h1>
-        <div class="flex gap-2 text-xs font-semibold mb-6">
-          <span class="bg-blue-50 px-2.5 py-1 rounded-full text-blue-600">${escapeHtml(cat)}</span>
-          <span class="bg-green-50 px-2.5 py-1 rounded-full text-green-600">Verified Safety</span>
-        </div>
-        
-        <div class="grid grid-cols-4 gap-2 w-full max-w-sm mb-6 text-center text-xs">
-          <div class="p-2 border border-black/5 bg-zinc-50 rounded-xl"><span class="text-zinc-400 block pb-1 font-semibold text-[10px]">Version</span><strong>${escapeHtml(version)}</strong></div>
-          <div class="p-2 border border-black/5 bg-zinc-50 rounded-xl"><span class="text-zinc-400 block pb-1 font-semibold text-[10px]">Size</span><strong>${escapeHtml(size)}</strong></div>
-          <div class="p-2 border border-black/5 bg-zinc-50 rounded-xl"><span class="text-zinc-400 block pb-1 font-semibold text-[10px]">Type</span><strong>${escapeHtml(cat.split(',')[0])}</strong></div>
-          <div class="p-2 border border-black/5 bg-zinc-50 rounded-xl"><span class="text-zinc-400 block pb-1 font-semibold text-[10px]">Rating</span><strong>${escapeHtml(rating)} ★</strong></div>
-        </div>
-
-        <a href="/s/${encodeURIComponent(slug)}" class="bg-blue-600 text-white font-bold py-4 px-10 rounded-2xl shadow hover:opacity-95">Verify Safety Status 🚀</a>
-      </div>
-
-      <div class="grid md:grid-cols-[2fr,1fr] gap-8">
-        <div class="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-black/5 shadow-sm text-left">
-          <h2 class="text-lg font-bold mb-4">Detailed Game Review & Safe Guidelines</h2>
-          <div class="prose dark:prose-invert text-zinc-650 leading-relaxed font-semibold">${desc}</div>
-          ${featureSectionContext}
-        </div>
-        <div class="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-black/5 shadow-sm h-fit text-left">
-          <h3 class="text-sm font-bold mb-4 uppercase tracking-wider text-zinc-400">Specifications</h3>
-          <table class="w-full text-xs text-left">
-            <tr class="border-b"><td class="py-2 text-zinc-400 font-semibold">Developer</td><td class="py-2 font-bold text-right text-zinc-900 dark:text-white">Store Certified</td></tr>
-            <tr class="border-b"><td class="py-2 text-zinc-400 font-semibold">Package Name</td><td class="py-2 font-bold text-right text-zinc-900 dark:text-white truncate max-w-[150px]">${escapeHtml(pkg)}</td></tr>
-            <tr class="border-b"><td class="py-2 text-zinc-400 font-semibold">Status</td><td class="py-2 font-bold text-right text-green-500">Safe & Clean</td></tr>
-            <tr><td class="py-2 text-zinc-400 font-semibold">System Code</td><td class="py-2 font-bold text-right text-zinc-900 dark:text-white">Android / iOS</td></tr>
-          </table>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function renderGateway(slug: string, apps: any[], settings: any) {
-  const cleanSlug = decodeURIComponent(slug).toLowerCase();
-  const app = apps.find(a => getField(a, 'slug').toLowerCase() === cleanSlug);
-  if (!app) return `<div class="py-12 text-center"><h1 class="text-2xl font-bold mb-4">No App Detected</h1><a href="/" class="text-blue-500 hover:underline">Return Home</a></div>`;
-
-  const name = getField(app, 'name');
-  const icon = getField(app, 'icon_url');
-  
-  return `
-    <div class="max-w-xl mx-auto py-12 px-4 shadow-sm bg-white dark:bg-zinc-900 rounded-3xl border border-black/5">
-      <div class="text-center">
-        <img src="${icon || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&fit=crop'}" loading="lazy" width="80" height="80" class="w-20 h-20 rounded-2xl object-cover mx-auto mb-4 border" alt="icon"/>
-        <h1 class="text-2xl font-bold text-zinc-900 dark:text-white leading-snug mb-1">${escapeHtml(name)}</h1>
-        <p class="text-xs text-zinc-400 uppercase tracking-widest font-black mb-6">Information Hub</p>
-        <p class="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed font-semibold mb-8">Access the application details and specifications below.</p>
-        <a href="/" class="block w-full py-4 bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 text-white font-bold rounded-2xl">Return Home</a>
-        <a href="/${encodeURIComponent(slug)}" class="block text-xs font-semibold text-blue-500 hover:underline mt-4">Read Technical Description</a>
-      </div>
-    </div>
-  `;
-}
-
-function renderNewsList(news: any[], settings: any) {
-  let cards = '';
-  news.forEach(n => {
-    cards += `
-      <a href="/news/${encodeURIComponent(getField(n, 'slug'))}" class="block p-6 bg-white dark:bg-zinc-900 border border-black/5 hover:border-blue-500/25 rounded-3xl transition text-left">
-        <span class="text-[10px] font-bold text-blue-500 uppercase">${escapeHtml(getField(n, 'category') || 'Report')}</span>
-        <span class="text-[10px] font-bold text-zinc-400 uppercase ml-2">${escapeHtml(getField(n, 'created_at') || 'May 2026')}</span>
-        <h3 class="text-xl font-bold mt-1 mb-2 text-zinc-900 dark:text-white leading-snug">${escapeHtml(getField(n, 'title'))}</h3>
-        <p class="text-sm text-zinc-500 max-w-3xl line-clamp-2 leading-relaxed">${escapeHtml(getField(n, 'description'))}</p>
-      </a>
-    `;
-  });
-  return `<div class="py-6 text-center container max-w-3xl mx-auto"><h1 class="text-3xl font-extrabold mb-8 text-zinc-900 dark:text-white">Gaming News & Updates</h1><div class="flex flex-col gap-4">${cards || '<p class="text-zinc-400 py-10">No publications.</p>'}</div></div>`;
-}
-
-function renderNewsDetail(slug: string, news: any[], settings: any) {
-  const cleanSlug = decodeURIComponent(slug).toLowerCase();
-  const item = news.find(n => getField(n, 'slug').toLowerCase() === cleanSlug);
-  if (!item) return `<div class="py-12 text-center"><h1 class="text-2xl font-bold">Failed to load article.</h1><a href="/news" class="text-blue-500 hover:underline">Go Back</a></div>`;
-  
-  const title = getField(item, 'title');
-  const dateStr = getField(item, 'created_at') || 'May 2026';
-  const author = getField(item, 'ceo_name', 'System Author');
-  const cat = getField(item, 'category', 'Report');
-  const content = getField(item, 'content') || getField(item, 'description', '');
-  const sanitizedContent = sanitizeHtml(content);
-
-  return `
-    <article class="max-w-3xl mx-auto py-12 px-4 text-left">
-      <header class="mb-6"><span class="text-xs text-blue-500 uppercase font-bold mr-2">${escapeHtml(cat)}</span><span class="text-xs text-zinc-400 uppercase font-bold">${dateStr} | By ${escapeHtml(author)}</span><h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight mt-2 leading-tight">${escapeHtml(title)}</h1></header>
-      <section class="prose dark:prose-invert text-zinc-700 leading-relaxed font-semibold">${sanitizedContent.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>')}</section>
-    </article>
-  `;
-}
-
-function renderBlogsList(blogs: any[], settings: any) {
-  let cards = '';
-  blogs.forEach(b => {
-    cards += `
-      <a href="/blog/${encodeURIComponent(getField(b, 'slug'))}" class="block p-6 bg-white dark:bg-zinc-900 border border-black/5 hover:border-blue-500/25 rounded-3xl transition text-left">
-        <span class="text-[10px] font-bold text-zinc-400 uppercase">${escapeHtml(getField(b, 'created_at') || 'May 2026')}</span>
-        <h3 class="text-xl font-bold mt-1 mb-2 text-zinc-900 dark:text-white leading-snug">${escapeHtml(getField(b, 'title'))}</h3>
-        <p class="text-sm text-zinc-500 max-w-3xl line-clamp-2 leading-relaxed">${escapeHtml(stripHtml(getField(b, 'excerpt') || getField(b, 'content', '').substring(0, 140)))}</p>
-      </a>
-    `;
-  });
-  return `<div class="py-6 text-center container max-w-3xl mx-auto"><h1 class="text-3xl font-extrabold mb-8 text-zinc-900 dark:text-white">Strategy Guides & Analysis</h1><div class="flex flex-col gap-4">${cards || '<p class="text-zinc-400 py-10">No strategy posts.</p>'}</div></div>`;
-}
-
-function renderBlogDetail(slug: string, blogs: any[], settings: any) {
-  const cleanSlug = decodeURIComponent(slug).toLowerCase();
-  const item = blogs.find(b => getField(b, 'slug').toLowerCase() === cleanSlug);
-  if (!item) return `<div class="py-12 text-center"><h1 class="text-2xl font-bold">Failed to load guide.</h1><a href="/blogs" class="text-blue-500 hover:underline">Go Back</a></div>`;
-  
-  const title = getField(item, 'title');
-  const dateStr = getField(item, 'created_at') || 'May 2026';
-  const author = getField(item, 'author', 'System Author');
-  const content = getField(item, 'content', '');
-  const sanitizedContent = sanitizeHtml(content);
-
-  return `
-    <article class="max-w-3xl mx-auto py-12 px-4 text-left">
-      <header class="mb-6"><span class="text-xs text-zinc-400 uppercase font-bold">${dateStr} | Strategy by ${escapeHtml(author)}</span><h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight mt-2 leading-tight">${escapeHtml(title)}</h1></header>
-      <section class="prose dark:prose-invert text-zinc-700 leading-relaxed font-semibold">${sanitizedContent.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>')}</section>
-    </article>
-  `;
-}
-
-function renderVideosList(videos: any[], settings: any) {
-  let cards = '';
-  videos.forEach(v => {
-    const title = getField(v, 'title');
-    const slug = getField(v, 'slug');
-    const desc = getField(v, 'description','');
-    cards += `
-      <a href="/videos/${encodeURIComponent(slug)}" class="block p-4 border border-black/5 bg-white rounded-3xl text-left">
-        <h3 class="font-bold text-lg text-zinc-900 truncate">${escapeHtml(title)}</h3>
-        <p class="text-xs text-zinc-500 mt-2 line-clamp-2 leading-relaxed">${escapeHtml(desc)}</p>
-      </a>
-    `;
-  });
-  return `<div class="py-6 text-center container max-w-3xl mx-auto"><h1 class="text-3xl font-extrabold mb-8 text-zinc-900 dark:text-white">Video Reviews</h1><div class="grid sm:grid-cols-3 gap-4">${cards || '<p class="text-zinc-400 py-10 col-span-full">No video guides.</p>'}</div></div>`;
-}
-
-function renderVideoDetail(slug: string, videos: any[], settings: any) {
-  const cleanSlug = decodeURIComponent(slug).toLowerCase();
-  const v = videos.find(item => getField(item, 'slug').toLowerCase() === cleanSlug || getField(item, 'id').toLowerCase() === cleanSlug);
-  if (!v) return `<div class="py-12 text-center"><h1 class="text-2xl font-bold">Video not found.</h1><a href="/videos" class="text-blue-500 hover:underline">Go Back</a></div>`;
-  const title = getField(v, 'title');
-  const desc = getField(v, 'description');
-  return `<div class="max-w-2xl mx-auto py-12 text-left"><h1 class="text-3xl font-extrabold mb-4">${escapeHtml(title)}</h1><p class="prose text-zinc-650 leading-relaxed font-semibold">${desc.replace(/\n\n/g, '<br/><br/>')}</p></div>`;
-}
-
-function renderAbout(settings: any) {
-  const content = getField(settings, 'about_content') || 'About our application services.';
-  return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">About Us</h1><article class="prose text-zinc-750 leading-relaxed font-semibold">${content.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>')}</article></div>`;
-}
-
-function renderContact(settings: any) {
-  const content = getField(settings, 'contact_content') || 'Get in touch for active client files help.';
-  const email = getField(settings, 'support_email', 'support@example.com');
-  return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">Contact Us</h1><p class="prose mb-6 leading-relaxed font-semibold">${content}</p><div class="p-6 bg-zinc-50 rounded-2xl"><strong>Email support address:</strong><p class="text-blue-500 font-bold mt-1">${escapeHtml(email)}</p></div></div>`;
-}
-
-function renderPrivacy(settings: any) {
-  const content = getField(settings, 'privacy_content') || 'No private data tracking.';
-  return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">Privacy Policy</h1><article class="prose text-zinc-750 leading-relaxed font-semibold">${content.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>')}</article></div>`;
-}
-
-function renderReportRemoval(settings: any) {
-  const content = getField(settings, 'report_removal_content') || 'Report & Removal Policy compliance guidelines.';
-  return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">Report & Removal Policy</h1><article class="prose text-zinc-750 leading-relaxed font-semibold">${content.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>')}</article></div>`;
-}
-
-function renderTerms(settings: any) {
-  const content = getField(settings, 'terms_content') || 'Service code terms of compliance.';
-  return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">Terms of Service</h1><article class="prose text-zinc-750 leading-relaxed font-semibold">${content.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>')}</article></div>`;
-}
-
-function renderResponsibility(settings: any) {
-  const content = getField(settings, 'responsibility_content') || 'Play safe for custom virtual entertainment.';
-  return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">Responsible Gaming</h1><article class="prose text-zinc-750 leading-relaxed font-semibold">${content.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>')}</article></div>`;
-}
-
-function renderNotice(settings: any) {
-  const heading = getField(settings, 'important_notice_heading') || 'Important Notice';
-  const content = getField(settings, 'important_notice') || 'No important notices at this time.';
-  return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">${heading}</h1><article class="prose text-zinc-750 leading-relaxed font-semibold">${content}</article></div>`;
-}
-
-function renderEthics(settings: any) {
-  const heading = getField(settings, 'ethics_heading') || 'Ethics & Safety';
-  const content = getField(settings, 'ethics_discrimination_text') || 'Ethics and safety information goes here.';
-  return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">${heading}</h1><article class="prose text-zinc-750 leading-relaxed font-semibold">${content}</article></div>`;
-}
-
-function renderDisclaimer(settings: any) {
-  const heading = getField(settings, 'disclaimer_heading') || 'Disclaimer';
-  const content = getField(settings, 'disclaimer_text') || 'Disclaimer information goes here.';
-  return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">${heading}</h1><article class="prose text-zinc-750 leading-relaxed font-semibold">${content}</article></div>`;
-}
-
-function getSafeFirebaseConfig(): any {
-  try {
-    const config = getRawFirebaseConfig();
-    if (!config) {
-      return null;
-    }
-    
-    // Check if the API key is empty/absent/placeholder or matches the empty system default api key
-    const isApiKeyEmptyOrPlaceholder = 
-      !config.apiKey || 
-      config.apiKey.trim() === "" || 
-      config.apiKey.includes("YOUR_API_KEY");
-    
-    if (isApiKeyEmptyOrPlaceholder) {
-      // Use clean, anonymous placeholders so absolutely zero project-identifying domains (such as gen-lang-client-*) are ever leaked
-      return {
-        projectId: "placeholder-project-id",
-        appId: "placeholder-app-id",
-        apiKey: "PLACEHOLDER",
-        authDomain: "placeholder-project.firebaseapp.com",
-        firestoreDatabaseId: "(default)",
-        storageBucket: "placeholder-project.firebasestorage.app",
-        messagingSenderId: "000000000",
-        measurementId: ""
-      };
-    }
-    
-    return config;
-  } catch (error) {
-    
-    return null;
-  }
 }
 
 export interface SeoInjectionResult {
@@ -889,492 +203,99 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   
   let keywords = getField(settings, 'seo_keywords', '');
   if (!keywords) keywords = "app clearance, premium applications, digital tools, platform, tech specs, verified apps";
-  // Limit keywords to 15 terms to prevent keyword stuffing penalties
+  
   if (keywords) {
-    const keywordArray = keywords.split(',').map(k => k.trim()).filter(Boolean);
-    if (keywordArray.length > 15) {
-      keywords = keywordArray.slice(0, 15).join(', ');
-    }
+    const keywordArray = keywords.split(',').map((k: string) => k.trim()).filter(Boolean);
+    if (keywordArray.length > 15) keywords = keywordArray.slice(0, 15).join(', ');
   }
-  let ogImage = "https://res.cloudinary.com/diewalae4/image/upload/v1784896838/ezgif-64180dd8ca74703b_rpungk.webp";
-  let author = siteTitle || "Platform Administrator";
-  let canonicalUrlOverride: string | null = null;
-  let faviconUrl = "https://res.cloudinary.com/diewalae4/image/upload/v1784896838/ezgif-64180dd8ca74703b_rpungk.webp";
-  
-  let isNotFound = false;
-  const rawPathStr = urlPath.split('?')[0].split('#')[0];
-  const pLower = rawPathStr.toLowerCase();
-  const cleanPathLower = rawPathStr.toLowerCase().replace(/^\/|\/$/g, '');
-  const adminPathLower = getAdminPath().toLowerCase();
-  
-  const isMoreInfoPage = pLower.startsWith('/moreinfo/') || 
-                         pLower.startsWith('/info/') || 
-                         pLower.startsWith('/moredetail/') || 
-                         pLower.startsWith('/gateway/');
 
-  if (rawPathStr === '/' || cleanPathLower === '') {
-    // Homepage - valid
-    isNotFound = false;
-  } else if (
-    cleanPathLower === adminPathLower ||
-    pLower.startsWith(`/${adminPathLower}`) ||
-    pLower.startsWith('/admin') ||
-    ['wp-admin', 'dashboard', 'panel'].includes(cleanPathLower)
-  ) {
-    // Admin route - valid
-    isNotFound = false;
-  } else if (pLower.startsWith('/app/')) {
-    const possibleAppSlug = decodeURIComponent(rawPathStr.replace(/^\/app\//, '/').replace(/^\/|\/$/g, '').toLowerCase());
-    const app = apps.find((a: any) => {
-      const aSlug = getField(a, 'slug');
-      return aSlug && aSlug.toLowerCase() === possibleAppSlug;
-    });
-    
-    if (app) {
-      isNotFound = false;
-      const appName = getField(app, 'name');
-      title = `${getField(app, 'seo_title') || appName}`;
-      const descHtml = getField(app, 'description_html');
-      description = cleanSeoDescription(getField(app, 'seo_description')) || (descHtml ? stripHtml(descHtml).substring(0, 160) : '') || description;
-      keywords = getField(app, 'seo_keywords') || keywords;
-      ogImage = getField(app, 'og_image_url') || getField(app, 'icon_url') || ogImage;
-      const canonicalBaseHost = ((): string => {
-        const raw = hostUrl || process.env.VITE_PUBLIC_DOMAIN || process.env.PUBLIC_DOMAIN || 'https://www.dex.com';
-        let clean = raw.trim().replace(/\/+$/, '');
-        return clean;
-      })();
-      canonicalUrlOverride = getField(app, 'canonical_url') || `${canonicalBaseHost}/${getField(app, 'slug')}`;
-      faviconUrl = getField(app, 'icon_url') || faviconUrl;
-    } else {
-      isNotFound = true;
-    }
-  } else if (pLower.startsWith('/info/') || pLower.startsWith('/moreinfo/') || pLower.startsWith('/moredetail/') || pLower.startsWith('/gateway/')) {
-    let prefix = '/info/';
-    if (pLower.startsWith('/moreinfo/')) prefix = '/moreinfo/';
-    else if (pLower.startsWith('/moredetail/')) prefix = '/moredetail/';
-    else if (pLower.startsWith('/gateway/')) prefix = '/gateway/';
-    const slugParts = urlPath.split(new RegExp(prefix, 'i'))[1] || '';
-    const slug = decodeURIComponent(slugParts.split('/')[0].split('?')[0]);
-    const app = apps.find((a: any) => {
-      const aSlug = getField(a, 'slug');
-      return aSlug && aSlug.toLowerCase() === slug.toLowerCase();
-    });
-    
-    if (app) {
-      isNotFound = false;
-      const appName = getField(app, 'name');
-      title = `${getField(app, 'seo_title') || appName} - Technical Info`;
-      const descHtml = getField(app, 'description_html');
-      description = cleanSeoDescription(getField(app, 'seo_description')) || (descHtml ? stripHtml(descHtml).substring(0, 160) : '') || description;
-      keywords = getField(app, 'seo_keywords') || keywords;
-      ogImage = getField(app, 'og_image_url') || getField(app, 'icon_url') || ogImage;
-      const canonicalBaseHost = ((): string => {
-        const raw = hostUrl || process.env.VITE_PUBLIC_DOMAIN || process.env.PUBLIC_DOMAIN || 'https://www.dex.com';
-        let clean = raw.trim().replace(/\/+$/, '');
-        return clean;
-      })();
-      canonicalUrlOverride = `${canonicalBaseHost}${prefix}${getField(app, 'slug')}`;
-      faviconUrl = getField(app, 'icon_url') || faviconUrl;
-    } else {
-      isNotFound = true;
-    }
-  } else if (pLower.startsWith('/news/') && pLower.length > 6) {
-    const slug = decodeURIComponent((urlPath.split(/\/news\//i)[1] || '').split('/')[0].split('?')[0]);
-    const newsItem = news.find((n: any) => {
-      const nSlug = getField(n, 'slug');
-      return nSlug && nSlug.toLowerCase() === slug.toLowerCase();
-    });
-    
-    if (newsItem) {
-      isNotFound = false;
-      const itemTitle = getField(newsItem, 'title', 'Latest News');
-      title = `${getField(newsItem, 'seo_title') || itemTitle} | ${siteTitle}`;
-      const descHtml = getField(newsItem, 'description') || getField(newsItem, 'content');
-      description = cleanSeoDescription(getField(newsItem, 'seo_description')) || (descHtml ? stripHtml(descHtml).substring(0, 160) : '') || description;
-      keywords = getField(newsItem, 'seo_keywords') || keywords;
-      ogImage = getField(newsItem, 'og_image_url') || getField(newsItem, 'logo_url') || ogImage;
-      author = getField(newsItem, 'ceo_name') || siteTitle;
-      const canonicalBaseHost = ((): string => {
-        const raw = hostUrl || process.env.VITE_PUBLIC_DOMAIN || process.env.PUBLIC_DOMAIN || 'https://www.dex.com';
-        let clean = raw.trim().replace(/\/+$/, '');
-        return clean;
-      })();
-      canonicalUrlOverride = getField(newsItem, 'canonical_url') || `${canonicalBaseHost}/news/${getField(newsItem, 'slug')}`;
-    } else {
-      isNotFound = true;
-    }
-  } else if (pLower.startsWith('/blog/') && pLower.length > 6) {
-    const slug = decodeURIComponent((urlPath.split(/\/blog\//i)[1] || '').split('/')[0].split('?')[0]);
-    const blogItem = blogs.find((b: any) => {
-      const bSlug = getField(b, 'slug');
-      return bSlug && bSlug.toLowerCase() === slug.toLowerCase();
-    });
-    
-    if (blogItem) {
-      isNotFound = false;
-      const itemTitle = getField(blogItem, 'title', 'Blog Post');
-      title = `${getField(blogItem, 'seo_title') || itemTitle} | ${siteTitle}`;
-      const descHtml = getField(blogItem, 'excerpt') || getField(blogItem, 'content');
-      description = cleanSeoDescription(getField(blogItem, 'seo_description')) || (descHtml ? stripHtml(descHtml).substring(0, 160) : '') || description;
-      keywords = getField(blogItem, 'seo_keywords') || keywords;
-      ogImage = getField(blogItem, 'cover_url') || ogImage;
-      author = getField(blogItem, 'author') || siteTitle;
-      const canonicalBaseHost = ((): string => {
-        const raw = hostUrl || process.env.VITE_PUBLIC_DOMAIN || process.env.PUBLIC_DOMAIN || 'https://www.dex.com';
-        let clean = raw.trim().replace(/\/+$/, '');
-        return clean;
-      })();
-      canonicalUrlOverride = getField(blogItem, 'canonical_url') || `${canonicalBaseHost}/blog/${getField(blogItem, 'slug')}`;
-    } else {
-      isNotFound = true;
-    }
-  } else if (pLower.startsWith('/videos/') && pLower.length > 8) {
-    const slug = decodeURIComponent((urlPath.split(/\/videos\//i)[1] || '').split('/')[0].split('?')[0]);
-    const videoItem = videos.find((v: any) => {
-      const vSlug = getField(v, 'slug');
-      const vId = getField(v, 'id');
-      return (vSlug && vSlug.toLowerCase() === slug.toLowerCase()) || (vId && vId.toLowerCase() === slug.toLowerCase());
-    });
-    
-    if (videoItem) {
-      isNotFound = false;
-      const itemTitle = getField(videoItem, 'title', 'Video Specs');
-      title = `${getField(videoItem, 'seo_title') || itemTitle} | ${siteTitle}`;
-      const descHtml = getField(videoItem, 'description');
-      description = cleanSeoDescription(getField(videoItem, 'seo_description')) || (descHtml ? stripHtml(descHtml).substring(0, 160) : '');
-      keywords = getField(videoItem, 'seo_keywords');
-      const youtubeUrl = getField(videoItem, 'youtube_url');
-      let videoId = '';
-      if (youtubeUrl) {
-        const m = youtubeUrl.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&?\s]+)/);
-        if (m) videoId = m[1];
-      }
-      if (videoId) {
-        ogImage = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
-      }
-      const canonicalBaseHost = ((): string => {
-        const raw = hostUrl || process.env.VITE_PUBLIC_DOMAIN || process.env.PUBLIC_DOMAIN || 'https://www.dex.com';
-        let clean = raw.trim().replace(/\/+$/, '');
-        return clean;
-      })();
-      canonicalUrlOverride = `${canonicalBaseHost}/videos/${getField(videoItem, 'slug') || getField(videoItem, 'id')}`;
-    } else {
-      isNotFound = true;
-    }
+  const logoUrl = getField(settings, 'logo_url') || '/logo.png';
+  const cleanPath = urlPath.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
+  const cleanPathLower = cleanPath.toLowerCase();
+
+  let isAppPage = false;
+  let isNewsPage = false;
+  let isBlogPage = false;
+  let isVideoPage = false;
+
+  const currentUrl = hostUrl ? `${hostUrl}${urlPath}` : urlPath;
+
+  if (cleanPathLower === '/new-apps') {
+    title = `New Additions | ${siteTitle}`;
+    description = `Explore the latest verified client lists on ${siteTitle}.`;
+  } else if (cleanPathLower === '/news') {
+    title = `News & Updates | ${siteTitle}`;
+    description = `The latest gaming news, reports, and transparency updates.`;
+  } else if (cleanPathLower === '/blogs') {
+    title = `Strategy Guides | ${siteTitle}`;
+    description = `Comprehensive strategy guides and analysis for popular clients.`;
+  } else if (cleanPathLower === '/videos') {
+    title = `Video Reviews | ${siteTitle}`;
+    description = `Watch deep-dive reviews and gameplay analysis.`;
+  } else if (cleanPathLower === '/about') {
+    title = `About Us | ${siteTitle}`;
+    description = `Learn about our mission and transparency standards.`;
+  } else if (cleanPathLower === '/contact') {
+    title = `Contact Support | ${siteTitle}`;
+    description = `Get in touch with our team for assistance.`;
+  } else if (cleanPathLower === '/privacy') {
+    title = `Privacy Policy | ${siteTitle}`;
+  } else if (cleanPathLower === '/report-removal') {
+    title = `Report & Removal | ${siteTitle}`;
+  } else if (cleanPathLower === '/terms') {
+    title = `Terms of Service | ${siteTitle}`;
   } else {
-    // Dynamic mapping for root-level and static routes
-    const validStaticRoutes = [
-      'about', 'blogs', 'blog', 'contact', 'disclaimer', 'ethics', 
-      'new-apps', 'news', 'notice', 'privacy', 'report-removal', 
-      'responsibility', 'terms', 'videos', 'developers', 'submit-app'
-    ];
-    
-    if (validStaticRoutes.includes(cleanPathLower)) {
-      isNotFound = false;
-      if (cleanPathLower === 'about') {
-        title = `About Us | ${siteTitle}`;
-        description = `Learn more about our mission, vision, and the premium services we offer on our platform.`;
-      } else if (cleanPathLower === 'blogs' || cleanPathLower === 'blog') {
-        title = `Official Blogs & Insights | ${siteTitle}`;
-        description = `Explore our official blog articles, professional guides, gameplay tips, and deep platform reviews.`;
-      } else if (cleanPathLower === 'contact') {
-        title = `Contact Us | ${siteTitle}`;
-        description = `Get in touch with our professional support team. We are here to help you with your inquiries, feedback, and technical assistance.`;
-      } else if (cleanPathLower === 'disclaimer') {
-        title = `Disclaimer | ${siteTitle}`;
-        description = `Read our platform disclaimer regarding content accuracy, fair play verification, and third-party links.`;
-      } else if (cleanPathLower === 'ethics') {
-        title = `Code of Ethics & Content Policy | ${siteTitle}`;
-        description = `Discover our strict code of ethics, licensing standards, and platform content guidelines.`;
-      } else if (cleanPathLower === 'new-apps') {
-        title = `New Releases & Up-and-Coming Apps | ${siteTitle}`;
-        description = `Stay updated with our latest releases, featured digital tools, and upcoming app launches.`;
-      } else if (cleanPathLower === 'news') {
-        title = `Latest News & Press Updates | ${siteTitle}`;
-        description = `Browse official news bulletins, press announcements, security reports, and direct system updates.`;
-      } else if (cleanPathLower === 'notice') {
-        title = `Important System Notice | ${siteTitle}`;
-        description = `Read our critical system alerts, maintenance updates, and important security advisories.`;
-      } else if (cleanPathLower === 'privacy') {
-        title = `Privacy Policy | ${siteTitle}`;
-        description = `Read our comprehensive privacy policy to understand how we protect, secure, and handle your personal data.`;
-      } else if (cleanPathLower === 'report-removal') {
-        title = `Report & Removal Request | ${siteTitle}`;
-        description = `Submit a content or application removal request to our legal and compliance team.`;
-      } else if (cleanPathLower === 'responsibility') {
-        title = `Responsible Gaming & Play Policy | ${siteTitle}`;
-        description = `Learn about our commitment to user safety, self-exclusion tools, and responsible gameplay guidelines.`;
-      } else if (cleanPathLower === 'terms') {
-        title = `Terms of Service & User Agreement | ${siteTitle}`;
-        description = `Review our terms of service, platform rules, and user agreements governing the use of our services.`;
-      } else if (cleanPathLower === 'videos') {
-        title = `Video Previews & Walkthroughs | ${siteTitle}`;
-        description = `Watch high-definition videos, gameplay showcases, and technical walkthroughs of our certified applications.`;
-      } else if (cleanPathLower === 'developers') {
-        title = `Meet Our Team | ${siteTitle}`;
-        description = `Meet the brilliant developers behind ${siteTitle}. Discover our team's expertise and passion.`;
-      } else if (cleanPathLower === 'submit-app') {
-        title = `Submit Your App | ${siteTitle}`;
-        description = `Submit your Android application for listing and promotion on ${siteTitle}.`;
-      }
+    const appSlug = cleanPathLower.replace(/^\/app\//, '/').replace(/^\/|\/$/g, '');
+    const app = apps.find((a: any) => getField(a, 'slug').toLowerCase() === appSlug);
+    if (app) {
+      title = `${getField(app, 'name')} | ${siteTitle}`;
+      description = cleanSeoDescription(getField(app, 'meta_description') || stripHtml(getField(app, 'description_html')).substring(0, 160));
+      isAppPage = true;
     } else {
-      const possibleSlug = decodeURIComponent(urlPath.split('?')[0].split('#')[0].replace(/^\/|\/$/g, ''));
-      if (possibleSlug && possibleSlug !== '') {
-        const app = apps.find((a: any) => getField(a, 'slug')?.toLowerCase() === possibleSlug.toLowerCase());
-        if (app) {
-          isNotFound = false;
-          const appName = getField(app, 'name', 'App');
-          title = getField(app, 'seo_title') || appName;
-          const descHtml = getField(app, 'description_html');
-          const fallbackDesc = `Discover the ${appName} app today. Enjoy smooth gameplay, professional reviews, e-sports integration, and exclusive features.`;
-          description = cleanSeoDescription(getField(app, 'seo_description')) || (descHtml ? stripHtml(descHtml).substring(0, 160) : fallbackDesc);
-          keywords = getField(app, 'seo_keywords');
-          ogImage = getField(app, 'og_image_url') || getField(app, 'icon_url') || ogImage;
-          canonicalUrlOverride = getField(app, 'canonical_url');
-          faviconUrl = getField(app, 'icon_url') || faviconUrl;
-        } else {
-          isNotFound = true;
-        }
+      const newsItem = news.find((n: any) => getField(n, 'slug').toLowerCase() === appSlug);
+      if (newsItem) {
+        title = `${getField(newsItem, 'title')} | ${siteTitle}`;
+        description = getField(newsItem, 'description', '').substring(0, 160);
+        isNewsPage = true;
       } else {
-        isNotFound = true;
+        const blogItem = blogs.find((b: any) => getField(b, 'slug').toLowerCase() === appSlug);
+        if (blogItem) {
+          title = `${getField(blogItem, 'title')} | ${siteTitle}`;
+          description = getField(blogItem, 'excerpt') || stripHtml(getField(blogItem, 'content')).substring(0, 160);
+          isBlogPage = true;
+        } else {
+          const videoItem = videos.find((v: any) => getField(v, 'slug').toLowerCase() === appSlug);
+          if (videoItem) {
+            title = `${getField(videoItem, 'title')} | ${siteTitle}`;
+            description = getField(videoItem, 'description', '').substring(0, 160);
+            isVideoPage = true;
+          }
+        }
       }
     }
   }
 
-  if (isNotFound) {
-    title = `404 Page Not Found | ${siteTitle}`;
-    description = `The requested page does not exist on ${siteTitle}. Browse our certified application listings and news updates.`;
-  }
+  const preRendered = await getPagePreRender(urlPath, data);
 
-  const fallbackHost = ((): string => {
-    const raw = hostUrl || process.env.PUBLIC_DOMAIN || process.env.VITE_PUBLIC_DOMAIN || 'https://www.dex.com';
-    let clean = raw.trim().replace(/\/+$/, '');
-    return clean;
-  })();
-  const cleanHost = fallbackHost;
-  const cleanPathRaw = urlPath.split('?')[0].split('#')[0];
-  const cleanPath = cleanPathRaw.replace(/^\/api(\/[^/]+)?/i, '') || '/';
-  let normalizedPath = cleanPath;
-  if (normalizedPath.length > 1 && normalizedPath.endsWith('/')) {
-    normalizedPath = normalizedPath.slice(0, -1);
-  }
-  const absoluteUrl = `${cleanHost}${normalizedPath}`;
-
-  let finalCanonicalUrl = canonicalUrlOverride || absoluteUrl;
-  if (finalCanonicalUrl.length > 10 && finalCanonicalUrl.endsWith('/') && !finalCanonicalUrl.endsWith('/dex.com/') && !finalCanonicalUrl.endsWith('.com/')) {
-    finalCanonicalUrl = finalCanonicalUrl.slice(0, -1);
-  }
-
-  let absoluteOgImage = ogImage;
-  if (ogImage) {
-    const trimmedOg = ogImage.trim();
-    if (trimmedOg.startsWith('//')) {
-      absoluteOgImage = `https:${trimmedOg}`;
-    } else if (trimmedOg.startsWith('data:')) {
-      absoluteOgImage = trimmedOg;
-    } else if (!trimmedOg.startsWith('http://') && !trimmedOg.startsWith('https://')) {
-      const cleanImg = trimmedOg.startsWith('/') ? trimmedOg : `/${trimmedOg}`;
-      absoluteOgImage = `${cleanHost}${cleanImg}`;
-    } else {
-      absoluteOgImage = trimmedOg;
-    }
-  }
-
-  let absoluteFaviconUrl = faviconUrl;
-  if (faviconUrl) {
-    const trimmedFav = faviconUrl.trim();
-    if (trimmedFav.startsWith('//')) {
-      absoluteFaviconUrl = `https:${trimmedFav}`;
-    } else if (trimmedFav.startsWith('data:')) {
-      absoluteFaviconUrl = trimmedFav;
-    } else if (!trimmedFav.startsWith('http://') && !trimmedFav.startsWith('https://')) {
-      const cleanFav = trimmedFav.startsWith('/') ? trimmedFav : `/${trimmedFav}`;
-      absoluteFaviconUrl = `${cleanHost}${cleanFav}`;
-    } else {
-      absoluteFaviconUrl = trimmedFav;
-    }
-  }
-
-  const isAdmin = urlPath.startsWith(`/${getAdminPath()}`);
-
-  const gaId = getField(settings, 'google_analytics_id', '') || getField(settings, 'ga_tracking_id', '');
-  const gaScript = gaId ? `
-    <script async src="https://www.googletagmanager.com/gtag/js?id=${escapeHtml(gaId)}"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', '${escapeHtml(gaId)}');
-    </script>
-  ` : '';
-
-  let schemaOrg: any = null;
-  if (!isAdmin) {
-    const isAppSlug = apps.some((a: any) => a.slug?.toLowerCase() === urlPath.split('?')[0].split('#')[0].replace(/^\/app\//, '/').replace(/^\/|\/$/g, '').toLowerCase());
-    if (isAppSlug || urlPath.startsWith('/gateway/') || urlPath.startsWith('/moredetail/') || urlPath.startsWith('/info/') || urlPath.startsWith('/moreinfo/')) {
-       schemaOrg = {
-         "@context": "https://schema.org",
-         "@type": "SoftwareApplication",
-         "name": title,
-         "operatingSystem": "Android, iOS",
-         "applicationCategory": "GameApplication",
-         "description": description,
-         "url": finalCanonicalUrl,
-         "offers": {
-           "@type": "Offer",
-           "price": "0",
-           "priceCurrency": "USD"
-         }
-       };
-    } else if (urlPath.startsWith('/news/') || urlPath.startsWith('/blog/')) {
-       schemaOrg = {
-         "@context": "https://schema.org",
-         "@type": "Article",
-         "headline": title,
-         "description": description,
-         "image": absoluteOgImage || [],
-         "author": {
-            "@type": "Person",
-            "name": author
-         }
-       };
-    } else if (urlPath.startsWith('/videos/')) {
-       schemaOrg = {
-         "@context": "https://schema.org",
-         "@type": "VideoObject",
-         "name": title,
-         "description": description,
-         "thumbnailUrl": absoluteOgImage || [],
-         "uploadDate": new Date().toISOString()
-       };
-    } else {
-       schemaOrg = {
-         "@context": "https://schema.org",
-         "@type": "WebSite",
-         "name": siteTitle,
-         "url": finalCanonicalUrl,
-       };
-    }
-  }
-
-  let schemaScript = schemaOrg ? `<script type="application/ld+json">${JSON.stringify(schemaOrg).replace(/</g, '\\u003c')}</script>` : '';
-
-  if (urlPath === '/' || urlPath === '') {
-    const defaultFaqs = getField(settings, 'website_faqs');
-    if (defaultFaqs && Array.isArray(defaultFaqs) && defaultFaqs.length > 0) {
-      const faqSchema = {
-        "@context": "https://schema.org",
-        "@type": "FAQPage",
-        "mainEntity": defaultFaqs.map((faq: any) => ({
-          "@type": "Question",
-          "name": faq.question,
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": faq.answer
-          }
-        }))
-      };
-      schemaScript += `\n    <script type="application/ld+json">${JSON.stringify(faqSchema).replace(/</g, '\\u003c')}</script>`;
-    }
-  }
-
-  // Check if we are running on the masterworld/admin deployment to block search engine bots completely
-  const isMasterworldAdminDeployment = (() => {
-    const fallbackHost = hostUrl || process.env.PUBLIC_DOMAIN || 'https://www.rummydex.com';
-    const hostLower = fallbackHost.toLowerCase();
-    
-    // 1. If the host URL explicitly contains "masterworld", "dev-", "pre-", "localhost", or "127.0.0.1", it's the admin or dev repo deployment.
-    if (hostLower.includes('masterworld') || hostLower.includes('dev-') || hostLower.includes('pre-') || hostLower.includes('localhost') || hostLower.includes('127.0.0.1')) {
-      return true;
-    }
-    
-    // 2. If PUBLIC_DOMAIN is configured, and the current host does not match that PUBLIC_DOMAIN, it is the secondary/admin deployment.
-    if (process.env.PUBLIC_DOMAIN) {
-      try {
-        const publicDomainHost = new URL(process.env.PUBLIC_DOMAIN).host.toLowerCase();
-        const currentHost = hostUrl ? new URL(hostUrl).host.toLowerCase() : '';
-        if (currentHost && currentHost !== publicDomainHost) {
-          return true;
-        }
-      } catch (e) {}
-    }
-    return false;
-  })();
-
-  const blockIndexing = isAdmin || isMasterworldAdminDeployment || isNotFound;
-
-  // Construct replacement tags
-  const tags = blockIndexing ? `
-    <title>${isAdmin ? 'Admin Portal' : escapeHtml(title)}</title>
-    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
-    ${absoluteFaviconUrl ? `
-    <link rel="icon" type="image/x-icon" href="${escapeHtml(absoluteFaviconUrl)}" />
-    <link rel="shortcut icon" href="${escapeHtml(absoluteFaviconUrl)}" />
-    <link rel="apple-touch-icon" href="${escapeHtml(absoluteFaviconUrl)}" />
-    ` : ''}
-  ` : `
-    <title>${escapeHtml(title)}</title>
-    <meta name="description" content="${escapeHtml(description)}" />
-    <meta name="keywords" content="${escapeHtml(keywords)}" />
-    <meta name="author" content="${escapeHtml(author)}" />
-    <meta property="og:title" content="${escapeHtml(title)}" />
-    <meta property="og:description" content="${escapeHtml(description)}" />
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="${escapeHtml(finalCanonicalUrl)}" />
-    ${absoluteOgImage ? `<meta property="og:image" content="${escapeHtml(absoluteOgImage)}" />` : ''}
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="${escapeHtml(title)}" />
-    <meta name="twitter:description" content="${escapeHtml(description)}" />
-    ${absoluteOgImage ? `<meta name="twitter:image" content="${escapeHtml(absoluteOgImage)}" />` : ''}
-    <meta name="robots" content="${isMoreInfoPage ? 'noindex, nofollow' : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'}" />
-    <link rel="canonical" href="${escapeHtml(finalCanonicalUrl)}" />
-    ${absoluteFaviconUrl ? `
-    <link rel="icon" type="image/x-icon" href="${escapeHtml(absoluteFaviconUrl)}" />
-    <link rel="shortcut icon" href="${escapeHtml(absoluteFaviconUrl)}" />
-    <link rel="apple-touch-icon" href="${escapeHtml(absoluteFaviconUrl)}" />
-    ` : ''}
-    ${schemaScript}
-    ${gaScript}
+  const seoTags = `
+    <title>${title}</title>
+    <meta name="description" content="${description}">
+    <meta name="keywords" content="${keywords}">
+    <meta property="og:title" content="${title}">
+    <meta property="og:description" content="${description}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="${currentUrl}">
+    <meta property="og:image" content="${logoUrl}">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="${title}">
+    <meta name="twitter:description" content="${description}">
+    <meta name="twitter:image" content="${logoUrl}">
+    <link rel="canonical" href="${currentUrl}">
   `;
 
-  // Regex to remove any existing <title>, OpenGraph and favicon tags
-  let newTemplate = template.replace(/<title>.*?<\/title>/ims, '');
-  newTemplate = newTemplate.replace(/<link[^>]*rel=["']?(icon|shortcut icon|apple-touch-icon|canonical)["']?[^>]*>/gims, '');
-  newTemplate = newTemplate.replace(/<meta[^>]*(name|property)=["'](description|keywords|author|robots|og:title|og:description|og:image|og:type|og:url|twitter:.*?)["'][^>]*>/gims, '');
-  
-  // Inject the safe/dynamic Firebase configuration into the window object to keep it entirely out of compiled JS assets.
-  const safeFirebaseConfig = getSafeFirebaseConfig();
-  
-  const configScript = `
-    <script id="firebase-config-loader">
-      ${safeFirebaseConfig ? `window.__FIREBASE_CONFIG__ = ${JSON.stringify(safeFirebaseConfig).replace(/</g, '\\u003c')};` : ''}
-      window.__INITIAL_DATA__ = ${JSON.stringify({ apps, settings, news, blogs, videos }).replace(/</g, '\\u003c')};
-    </script>
-  `;
+  let finalHtml = template
+    .replace(/<title>.*?<\/title>/i, seoTags)
+    .replace(/<div id="root">([\s\S]*?)<\/div>/i, `<div id="root">${preRendered}</div>`);
 
-  // Insert new tags and configuration before head close
-  // We add data-rh="true" to allow react-helmet-async to cleanly replace/hydrate these tags
-  const helmetTags = tags
-    .replace(/<(meta|link) /g, '<$1 data-rh="true" ')
-    .replace(/<title>/g, '<title data-rh="true">')
-    .replace(/<script type="application\/ld\+json"/g, '<script data-rh="true" type="application/ld+json"');
-
-  newTemplate = newTemplate.replace('</head>', `${configScript}${helmetTags}</head>`);
-
-  // Dynamically inject fully pre-rendered body content directly into #root for standard SSR/hydration.
-  try {
-    const preRenderedBody = await getPagePreRender(urlPath, data);
-    
-    // Inject directly into <div id="root"> so Googlebot and users see the exact same HTML structure.
-    // React's hydrate/render will seamlessly mount over this content without cloaking or off-screen CSS hacks.
-    if (newTemplate.includes('<div id="root">')) {
-      newTemplate = newTemplate.replace('<div id="root">', `<div id="root">${preRenderedBody}`);
-    } else {
-      newTemplate = newTemplate.replace('</body>', `<div id="seo-prerender">${preRenderedBody}</div>\n  </body>`);
-    }
-  } catch (renderErr) {
-    console.error("Static pre-rendering body injection failed:", renderErr);
-  }
-  
-  return { html: newTemplate, isNotFound };
+  return { html: finalHtml, isNotFound: false };
 }
