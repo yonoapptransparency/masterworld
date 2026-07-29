@@ -12,6 +12,7 @@ interface MetaProps {
   canonical?: string;
   schema?: any;
   faqSchema?: any;
+  noindex?: boolean;
 }
 
 const Meta: React.FC<MetaProps> = ({
@@ -23,7 +24,8 @@ const Meta: React.FC<MetaProps> = ({
   type = 'website',
   canonical,
   schema,
-  faqSchema
+  faqSchema,
+  noindex = false
 }) => {
   const { settings } = useData();
 
@@ -69,7 +71,7 @@ const Meta: React.FC<MetaProps> = ({
       <meta name="description" content={metaDescription} />
       {metaKeywords && <meta name="keywords" content={metaKeywords} />}
       <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
-      <meta name="robots" content="index, follow, max-image-preview:large" />
+      <meta name="robots" content={noindex ? "noindex, nofollow" : "index, follow, max-image-preview:large"} />
       <link rel="canonical" href={canonicalUrl} />
 
       {settings?.favicon_url && (

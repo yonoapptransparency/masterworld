@@ -82,15 +82,15 @@ seoRouter.get('/robots.txt', async (req, res) => {
     const data = await fetchStoreData();
     if (!data) throw new Error("No data");
 
-    let robots = `User-agent: *\nAllow: /\nDisallow: /api/\n`;
-    const baseUrl = process.env.PUBLIC_DOMAIN || '';
-    robots += `\nSitemap: ${baseUrl}/sitemap.xml\n`;
+    let robots = `User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /admin/\nDisallow: /login/\nDisallow: /s/\n`;
+    const baseUrlFallback = process.env.PUBLIC_DOMAIN || process.env.VITE_PUBLIC_DOMAIN || `https://${req.get('host')}`;
+    robots += `\nSitemap: ${baseUrlFallback.replace(/\/$/, '')}/sitemap.xml\n`;
     res.set('Content-Type', 'text/plain');
     res.send(robots);
   } catch (err) {
     res.set('Content-Type', 'text/plain');
-    const baseUrl = process.env.PUBLIC_DOMAIN || '';
-    res.send(`User-agent: *\nAllow: /\nSitemap: ${baseUrl}/sitemap.xml\n`);
+    const baseUrlFallback = process.env.PUBLIC_DOMAIN || process.env.VITE_PUBLIC_DOMAIN || 'https://www.dex.com';
+    res.send(`User-agent: *\nAllow: /\nSitemap: ${baseUrlFallback.replace(/\/$/, '')}/sitemap.xml\n`);
   }
 });
 
@@ -112,12 +112,12 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
     }
     const { apps = [], news = [], blogs = [], videos = [] } = data;
 
-    const baseUrlFallback = process.env.PUBLIC_DOMAIN || 'https://www.rummydex.com';
+    const baseUrlFallback = process.env.PUBLIC_DOMAIN || process.env.VITE_PUBLIC_DOMAIN || 'https://www.dex.com';
     const host = req.headers.host ? `https://${req.headers.host}` : baseUrlFallback;
     let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
     xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
 
-    const today = '2024-05-01';
+    const today = new Date().toISOString().split('T')[0];
     xml += `  <url>\n    <loc>${host}/</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>1.0</priority>\n  </url>\n`;
     xml += `  <url>\n    <loc>${host}/new-apps</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n  </url>\n`;
     xml += `  <url>\n    <loc>${host}/news</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n  </url>\n`;
@@ -158,13 +158,13 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
           }
         } catch(e) {}
       }
-      return '2024-05-01';
+      return new Date().toISOString().split('T')[0];
     };
     const isExternalCanonical = (url?: string) => {
       if (!url || typeof url !== 'string') return false;
       const trimmed = url.trim().toLowerCase();
       if (!trimmed) return false;
-      if (trimmed.startsWith('/') || trimmed.includes('rummydex.com')) return false;
+      if (trimmed.startsWith('/') || (process.env.PUBLIC_DOMAIN && trimmed.includes(process.env.PUBLIC_DOMAIN)) || (process.env.VITE_PUBLIC_DOMAIN && trimmed.includes(process.env.VITE_PUBLIC_DOMAIN))) return false;
       if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return true;
       return false;
     };
@@ -174,10 +174,10 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
       const canonicalUrl = getField(app, 'canonical_url');
       if (slug && !isExternalCanonical(canonicalUrl)) {
         xml += `  <url>\n`;
-        xml += `    <loc>${host}/app/${escapeHtmlForSitemap(slug)}</loc>\n`;
+        xml += `    <loc>${host}/${escapeHtmlForSitemap(slug)}</loc>\n`;
         xml += `    <lastmod>${getFormattedDate(app)}</lastmod>\n`;
-        xml += `    <changefreq>weekly</changefreq>\n`;
-        xml += `    <priority>0.9</priority>\n`;
+        xml += `    <changefreq>daily</changefreq>\n`;
+        xml += `    <priority>1.0</priority>\n`;
         xml += `  </url>\n`;
       }
     }

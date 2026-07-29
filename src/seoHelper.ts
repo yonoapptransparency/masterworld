@@ -393,15 +393,8 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
     bodyContent = renderHome(apps, settings, news, blogs, videos);
   } else if (cleanPathLower === '/new-apps') {
     bodyContent = renderNewApps(apps, settings);
-  } else if (cleanPathLower.startsWith('/info/') || cleanPathLower.startsWith('/gateway/') || cleanPathLower.startsWith('/moredetail/')) {
-    let slug = '';
-    if (cleanPathLower.startsWith('/info/')) {
-      slug = cleanPath.split('/info/')[1];
-    } else if (cleanPathLower.startsWith('/gateway/')) {
-      slug = cleanPath.split('/gateway/')[1];
-    } else {
-      slug = cleanPath.split('/moredetail/')[1];
-    }
+  } else if (cleanPathLower.startsWith('/s/')) {
+    const slug = cleanPath.split('/s/')[1];
     bodyContent = renderGateway(slug, apps, settings);
   } else if (cleanPathLower === '/news') {
     bodyContent = renderNewsList(news, settings);
@@ -654,7 +647,7 @@ function renderAppDetails(slug: string, apps: any[], settings: any) {
           <div class="p-2 border border-black/5 bg-zinc-50 rounded-xl"><span class="text-zinc-400 block pb-1 font-semibold text-[10px]">Rating</span><strong>${escapeHtml(rating)} ★</strong></div>
         </div>
 
-        <a href="/info/${encodeURIComponent(slug)}" class="bg-blue-600 text-white font-bold py-4 px-10 rounded-2xl shadow hover:opacity-95">Install Direct Access Mirror 🚀</a>
+        <a href="/s/${encodeURIComponent(slug)}" class="bg-blue-600 text-white font-bold py-4 px-10 rounded-2xl shadow hover:opacity-95">Verify Safety Status 🚀</a>
       </div>
 
       <div class="grid md:grid-cols-[2fr,1fr] gap-8">
@@ -946,12 +939,11 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       keywords = getField(app, 'seo_keywords') || keywords;
       ogImage = getField(app, 'og_image_url') || getField(app, 'icon_url') || ogImage;
       const canonicalBaseHost = ((): string => {
-        const raw = hostUrl || process.env.VITE_PUBLIC_DOMAIN || process.env.PUBLIC_DOMAIN || 'https://www.rummydex.com';
+        const raw = hostUrl || process.env.VITE_PUBLIC_DOMAIN || process.env.PUBLIC_DOMAIN || 'https://www.dex.com';
         let clean = raw.trim().replace(/\/+$/, '');
-        if (clean.includes('rummydex.com')) return 'https://www.rummydex.com';
         return clean;
       })();
-      canonicalUrlOverride = getField(app, 'canonical_url') || `${canonicalBaseHost}/app/${getField(app, 'slug')}`;
+      canonicalUrlOverride = getField(app, 'canonical_url') || `${canonicalBaseHost}/${getField(app, 'slug')}`;
       faviconUrl = getField(app, 'icon_url') || faviconUrl;
     } else {
       isNotFound = true;
@@ -977,9 +969,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       keywords = getField(app, 'seo_keywords') || keywords;
       ogImage = getField(app, 'og_image_url') || getField(app, 'icon_url') || ogImage;
       const canonicalBaseHost = ((): string => {
-        const raw = hostUrl || process.env.VITE_PUBLIC_DOMAIN || process.env.PUBLIC_DOMAIN || 'https://www.rummydex.com';
+        const raw = hostUrl || process.env.VITE_PUBLIC_DOMAIN || process.env.PUBLIC_DOMAIN || 'https://www.dex.com';
         let clean = raw.trim().replace(/\/+$/, '');
-        if (clean.includes('rummydex.com')) return 'https://www.rummydex.com';
         return clean;
       })();
       canonicalUrlOverride = `${canonicalBaseHost}${prefix}${getField(app, 'slug')}`;
@@ -1004,9 +995,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       ogImage = getField(newsItem, 'og_image_url') || getField(newsItem, 'logo_url') || ogImage;
       author = getField(newsItem, 'ceo_name') || siteTitle;
       const canonicalBaseHost = ((): string => {
-        const raw = hostUrl || process.env.VITE_PUBLIC_DOMAIN || process.env.PUBLIC_DOMAIN || 'https://www.rummydex.com';
+        const raw = hostUrl || process.env.VITE_PUBLIC_DOMAIN || process.env.PUBLIC_DOMAIN || 'https://www.dex.com';
         let clean = raw.trim().replace(/\/+$/, '');
-        if (clean.includes('rummydex.com')) return 'https://www.rummydex.com';
         return clean;
       })();
       canonicalUrlOverride = getField(newsItem, 'canonical_url') || `${canonicalBaseHost}/news/${getField(newsItem, 'slug')}`;
@@ -1030,9 +1020,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       ogImage = getField(blogItem, 'cover_url') || ogImage;
       author = getField(blogItem, 'author') || siteTitle;
       const canonicalBaseHost = ((): string => {
-        const raw = hostUrl || process.env.VITE_PUBLIC_DOMAIN || process.env.PUBLIC_DOMAIN || 'https://www.rummydex.com';
+        const raw = hostUrl || process.env.VITE_PUBLIC_DOMAIN || process.env.PUBLIC_DOMAIN || 'https://www.dex.com';
         let clean = raw.trim().replace(/\/+$/, '');
-        if (clean.includes('rummydex.com')) return 'https://www.rummydex.com';
         return clean;
       })();
       canonicalUrlOverride = getField(blogItem, 'canonical_url') || `${canonicalBaseHost}/blog/${getField(blogItem, 'slug')}`;
@@ -1064,9 +1053,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
         ogImage = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
       }
       const canonicalBaseHost = ((): string => {
-        const raw = hostUrl || process.env.VITE_PUBLIC_DOMAIN || process.env.PUBLIC_DOMAIN || 'https://www.rummydex.com';
+        const raw = hostUrl || process.env.VITE_PUBLIC_DOMAIN || process.env.PUBLIC_DOMAIN || 'https://www.dex.com';
         let clean = raw.trim().replace(/\/+$/, '');
-        if (clean.includes('rummydex.com')) return 'https://www.rummydex.com';
         return clean;
       })();
       canonicalUrlOverride = `${canonicalBaseHost}/videos/${getField(videoItem, 'slug') || getField(videoItem, 'id')}`;
@@ -1159,9 +1147,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   }
 
   const fallbackHost = ((): string => {
-    const raw = hostUrl || process.env.PUBLIC_DOMAIN || 'https://www.rummydex.com';
+    const raw = hostUrl || process.env.PUBLIC_DOMAIN || process.env.VITE_PUBLIC_DOMAIN || 'https://www.dex.com';
     let clean = raw.trim().replace(/\/+$/, '');
-    if (clean.includes('rummydex.com')) return 'https://www.rummydex.com';
     return clean;
   })();
   const cleanHost = fallbackHost;
@@ -1174,10 +1161,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   const absoluteUrl = `${cleanHost}${normalizedPath}`;
 
   let finalCanonicalUrl = canonicalUrlOverride || absoluteUrl;
-  if (finalCanonicalUrl.includes('rummydex.com')) {
-    finalCanonicalUrl = finalCanonicalUrl.replace(/^http:\/\//i, 'https://').replace('https://rummydex.com', 'https://www.rummydex.com');
-  }
-  if (finalCanonicalUrl.length > 10 && finalCanonicalUrl.endsWith('/') && !finalCanonicalUrl.endsWith('://www.rummydex.com/')) {
+  if (finalCanonicalUrl.length > 10 && finalCanonicalUrl.endsWith('/') && !finalCanonicalUrl.endsWith('/dex.com/') && !finalCanonicalUrl.endsWith('.com/')) {
     finalCanonicalUrl = finalCanonicalUrl.slice(0, -1);
   }
 

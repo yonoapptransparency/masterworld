@@ -178,6 +178,15 @@ export function getFirebaseAdminDb(): any {
         }
       }
 
+      // Fallback to local service-account.json file
+      if (!serviceAccountRaw) {
+        const localCredPath = path.join(process.cwd(), 'service-account.json');
+        if (fs.existsSync(localCredPath)) {
+          serviceAccountRaw = fs.readFileSync(localCredPath, 'utf8');
+          detectedVarName = 'service-account.json (local)';
+        }
+      }
+
       if (serviceAccountRaw) {
         try {
           const serviceAccount = parseServiceAccount(serviceAccountRaw);

@@ -2,13 +2,67 @@ import express from 'express';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import { safeDecrypt, safeEncrypt } from '../crypto';
+import { safeDecrypt, safeEncrypt, getAesSecret } from '../crypto';
 import { getFirebaseAdminDb, getRawFirebaseConfig, parseFirestoreValue, parseFirestoreFields } from '../firebase';
 import { rateLimit, isSuspiciousClient, getIp, ensureSession, nonceStore, generateToken, verifyToken, tokenStore, usedTokens, isSafeUrl } from '../security';
+import { vaultNode } from '../../lib/vaultNode';
 import { getStaticData } from '../config';
 import { fetchStoreData } from '../../seoHelper';
 
 export const publicApiRouter = express.Router();
+
+/**
+ * @route   POST /api/v1/sync-node
+ * @desc    Neutral endpoint for lightning-fast resource node synchronization
+ * @access  Public (Behavioral Anti-bot protected)
+ */
+publicApiRouter.post('/api/v1/sync-node', async (req, res) => {
+  const { slug, context } = req.body;
+
+  if (!slug) return res.status(400).json({ status: 'ERR', msg: 'Missing ID' });
+
+  try {
+    // 1. Instant In-Memory Payload Retrieval
+    const payload = await vaultNode.getSyncPayload(slug);
+
+    if (payload) {
+      return res.json({
+        status: 'OK',
+        payload,
+        meta: { node: 'v1', ts: Date.now() }
+      });
+    }
+
+    // 2. Minimal Latency Fallback to Firestore (Only if memory miss)
+    const db = getFirebaseAdminDb();
+    if (!db) {
+      return res.status(404).json({ status: 'ERR', msg: 'Node not found (Vault Only Mode)' });
+    }
+
+    const doc = await db.collection('app_secure_links').doc(slug).get();
+    
+    if (!doc.exists) {
+      return res.status(404).json({ status: 'ERR', msg: 'Node not found' });
+    }
+
+    const data = doc.data();
+    const secret = getAesSecret();
+    const decrypted = safeDecrypt(data?.encrypted_link, secret);
+
+    if (!decrypted) {
+      return res.status(500).json({ status: 'ERR', msg: 'Node corrupt' });
+    }
+
+    res.json({
+      status: 'OK',
+      payload: decrypted,
+      meta: { node: 'legacy', ts: Date.now() }
+    });
+  } catch (error) {
+    console.error('[SyncNode] Critical Error:', error);
+    res.status(500).json({ status: 'ERR', msg: 'Internal server error' });
+  }
+});
 
 publicApiRouter.get("/api/v1/image", async (req, res) => {
   const url = req.query.url as string;
