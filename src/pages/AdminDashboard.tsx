@@ -143,7 +143,7 @@ export default function AdminDashboard() {
       setAppsList(updatedApps);
       setEditingAppId(null);
       toast('Application saved successfully!', 'success');
-      syncSecureVault();
+      syncSecureVault(forceBypassVaultError);
     } catch (err: any) {
       toast('Save failed: ' + err.message, 'error');
     } finally { setSaving(false); }

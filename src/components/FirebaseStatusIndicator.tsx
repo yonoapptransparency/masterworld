@@ -7,6 +7,7 @@ interface StatusResult {
   adminSdk: boolean;
   firestoreWrite: boolean;
   firestoreRead: boolean;
+  aesConfigured: boolean;
   readLatencyMs?: number;
   writeLatencyMs?: number;
   error?: string;
@@ -18,7 +19,8 @@ export const FirebaseStatusIndicator: React.FC = () => {
     status: 'checking', 
     adminSdk: false, 
     firestoreWrite: false, 
-    firestoreRead: false 
+    firestoreRead: false,
+    aesConfigured: false
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -37,6 +39,7 @@ export const FirebaseStatusIndicator: React.FC = () => {
           adminSdk: data.results.adminSdk || false,
           firestoreWrite: data.results.firestoreWrite || false,
           firestoreRead: data.results.firestoreRead || false,
+          aesConfigured: data.results.aesConfigured || false,
           readLatencyMs: data.results.readLatencyMs,
           writeLatencyMs: data.results.writeLatencyMs,
           projectId: data.details?.projectId,
@@ -104,15 +107,18 @@ Project: ${result.projectId || 'ai-studio-yonostore'}
 Reads: OK (${result.readLatencyMs || 0}ms)
 Writes: OK (${result.writeLatencyMs || 0}ms)
 Admin SDK: ${result.adminSdk ? 'Active' : 'REST Proxy Mode'}
+Vault Security: ${result.aesConfigured ? 'AES ACTIVE' : 'AES MISSING'}
 Click to run instant re-test`
     : isReadOnly
       ? `Firestore Read-Only Mode
 Project: ${result.projectId || 'ai-studio-yonostore'}
 Reads: Operational (${result.readLatencyMs || 0}ms)
 Writes: Failing (Requires Service Account or Write Rule Authority)
+Vault Security: ${result.aesConfigured ? 'AES ACTIVE' : 'AES MISSING'}
 Click to run instant re-test`
       : `Firestore Offline or Unreachable
 Project: ${result.projectId || 'ai-studio-yonostore'}
+Vault Security: ${result.aesConfigured ? 'AES ACTIVE' : 'AES MISSING'}
 Error: ${result.error || 'Connection check failed'}
 Click to run instant re-test`;
 

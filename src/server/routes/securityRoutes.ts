@@ -18,14 +18,16 @@ securityRouter.get('/api/v1/_chal', (req, res) => {
   const difficulty = "0000"; 
   const expiry = Date.now() + 600000; // 10 minutes
   
-  // Create a stateless signed nonce: realNonce.expiry.signature
   const secret = getAesSecret();
+  // Sign with SID for binding, but also expiry for statelessness
   const signature = crypto.createHmac('sha256', secret)
     .update(`${realNonce}:${sid}:${difficulty}:${expiry}`)
     .digest('hex').substring(0, 16);
     
   const statelessNonce = `${realNonce}.${expiry}.${signature}`;
   
+  // Set sid in header as fallback for client
+  res.setHeader('X-Session-ID', sid);
   res.json({ nonce: statelessNonce, difficulty, sid });
 });
 
@@ -54,18 +56,20 @@ securityRouter.post('/api/v1/_proc', async (req, res) => {
   const secret = getAesSecret();
   
   // Verify with the sid from the request (body or cookie)
-  const expectedSignature = crypto.createHmac('sha256', secret)
+  let expectedSignature = crypto.createHmac('sha256', secret)
     .update(`${realNonce}:${sid}:${difficulty}:${expiry}`)
     .digest('hex').substring(0, 16);
 
   if (signature !== expectedSignature) {
-    // Try fallback without sid if signature fails (for legacy or transition sessions)
-    const fallbackSignature = crypto.createHmac('sha256', secret)
+    // Robust Fallback: Log mismatch details but try a more lenient match if SID is provided in different ways
+    console.warn(`[SECURITY] Signature mismatch for SID: ${sid}. Checking fallbacks...`);
+    
+    // Check if maybe it was signed without the SID (unlikely but possible during deployment transitions)
+    const altSignature = crypto.createHmac('sha256', secret)
       .update(`${realNonce}:${difficulty}:${expiry}`)
       .digest('hex').substring(0, 16);
       
-    if (signature !== fallbackSignature) {
-      console.warn(`[SECURITY] Signature mismatch. SID: ${sid}`);
+    if (signature !== altSignature) {
       return res.status(403).json({ error: 'Challenge invalid or tampered' });
     }
   }
@@ -258,9 +262,20 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
 
         if (doc.exists) {
           const data = doc.data();
-          const decrypted = safeDecrypt(data?.more_information_url || data?.encrypted_link, AES_SECRET);
-          if (decrypted && decrypted.startsWith('http')) {
-             return res.redirect(302, decrypted);
+          const encrypted = data?.more_information_url || data?.encrypted_link;
+          
+          if (encrypted) {
+            const decrypted = safeDecrypt(encrypted, AES_SECRET);
+            if (decrypted && decrypted.startsWith('http')) {
+              return res.redirect(302, decrypted);
+            } else {
+              console.error(`[SECURITY] Decryption FAILED for appId: ${appId}. This usually means the AES_SECRET is incorrect for this database record.`);
+              // If it's not encrypted (raw URL fallback for debugging)
+              if (encrypted.startsWith('http')) {
+                console.warn(`[SECURITY] Using raw URL fallback for ${appId} - Link was not encrypted.`);
+                return res.redirect(302, encrypted);
+              }
+            }
           }
         }
       } else {
