@@ -35,7 +35,7 @@ publicApiRouter.post('/api/v1/sync-node', async (req, res) => {
 
   try {
     // 2. Instant In-Memory Payload Retrieval
-    const payload = await vaultNode.getSyncPayload(slug);
+    const payload = await vaultNode.getSyncPayload(appId) || await vaultNode.getSyncPayload(slug);
 
     if (payload) {
       return res.json({
@@ -51,10 +51,10 @@ publicApiRouter.post('/api/v1/sync-node', async (req, res) => {
       return res.status(404).json({ status: 'ERR', msg: 'Information unavailable' });
     }
 
-    const doc = await db.collection('app_secure_links').doc(slug).get();
+    const doc = await db.collection('store_data').doc('sec_vault').get();
     
     if (!doc.exists) {
-      console.warn(`[Sync] Node miss for slug: ${slug}`);
+      console.warn(`[Sync] Node miss for slug: ${slug} (No sec_vault)`);
       return res.status(404).json({ 
         status: 'ERR', 
         msg: 'Sync Node not yet active' 
@@ -63,7 +63,33 @@ publicApiRouter.post('/api/v1/sync-node', async (req, res) => {
 
     const data = doc.data();
     const secret = getAesSecret();
-    const decrypted = safeDecrypt(data?.encrypted_link, secret);
+    const decryptedVault = safeDecrypt(data?.encryptedData, secret);
+    
+    if (!decryptedVault) {
+      return res.status(500).json({ status: 'ERR', msg: 'System sync error (vault decryption)' });
+    }
+
+    const parsedVault = JSON.parse(decryptedVault);
+    let targetLink = null;
+    
+    if (Array.isArray(parsedVault)) {
+      const found = parsedVault.find((item: any) => item.id === appId || item.id === slug);
+      if (found) {
+        targetLink = found.url || found.payload;
+      }
+    } else {
+      targetLink = parsedVault[appId]?.url || parsedVault[appId]?.payload || parsedVault[slug]?.url || parsedVault[slug]?.payload;
+    }
+
+    if (!targetLink) {
+      console.warn(`[Sync] Node miss for slug/appId: ${slug}/${appId} (Not in vault)`);
+      return res.status(404).json({ 
+        status: 'ERR', 
+        msg: 'Sync Node not yet active' 
+      });
+    }
+
+    const decrypted = safeDecrypt(targetLink, secret);
 
     if (!decrypted) {
       return res.status(500).json({ status: 'ERR', msg: 'System sync error' });
