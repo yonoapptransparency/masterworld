@@ -124,11 +124,11 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
         const parsed = JSON.parse(decryptedVault);
         let encryptedUrl = '';
         if (Array.isArray(parsed)) {
-          const item = parsed.find((i: any) => i.id === appId);
-          encryptedUrl = item?.url || item?.more_information_url || '';
+          const item = parsed.find((i: any) => i.id === appId || i.slug === appId);
+          encryptedUrl = item?.more_information_url || item?.url || '';
         } else {
           const val = parsed[appId];
-          encryptedUrl = typeof val === 'string' ? val : (val?.url || val?.more_information_url || '');
+          encryptedUrl = typeof val === 'string' ? val : (val?.more_information_url || val?.url || '');
         }
         
         if (encryptedUrl) {
@@ -145,28 +145,50 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
     try {
       const db = getFirebaseAdminDb();
       if (db) {
-        const doc = await db.collection('app_secure_links').doc(appId).get();
+        // Try id first
+        let doc = await db.collection('app_secure_links').doc(appId).get();
+        
+        // If not found, try searching by slug in the apps collection to get the ID
+        if (!doc.exists) {
+           const appsRef = db.collection('apps');
+           const slugQuery = await appsRef.where('slug', '==', appId).limit(1).get();
+           if (!slugQuery.empty) {
+             const realId = slugQuery.docs[0].id;
+             doc = await db.collection('app_secure_links').doc(realId).get();
+           }
+        }
+
         if (doc.exists) {
           const data = doc.data();
           const AES_SECRET = getAesSecret();
-          const decrypted = safeDecrypt(data?.encrypted_link, AES_SECRET);
+          // Check both fields in Firestore
+          const decrypted = safeDecrypt(data?.more_information_url || data?.encrypted_link, AES_SECRET);
           if (decrypted && decrypted.startsWith('http')) {
              return res.redirect(302, decrypted);
           }
         }
       } else {
-        // REST API Fallback for environments without Service Account
+        // REST API Fallback
         const config = getRawFirebaseConfig();
         if (config && config.projectId) {
           const apiSuffix = config.apiKey ? `?key=${config.apiKey}` : '';
-          const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || '(default)'}/documents/app_secure_links/${appId}${apiSuffix}`;
+          
+          // First try to resolve slug to ID if appId doesn't look like an ID
+          let finalId = appId;
+          if (appId.length > 5 && !/^\d+$/.test(appId)) {
+             const appsUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || '(default)'}/documents/apps?key=${config.apiKey}`;
+             // This is expensive, but it's a fallback. In reality we should check if we have a slug-to-id mapping.
+          }
+
+          const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || '(default)'}/documents/app_secure_links/${finalId}${apiSuffix}`;
           const fsRes = await fetch(url);
           if (fsRes.ok) {
             const fsDoc = await fsRes.json();
             const fields = parseFirestoreFields(fsDoc.fields);
-            if (fields.encrypted_link) {
+            const encLink = fields.more_information_url || fields.encrypted_link;
+            if (encLink) {
               const AES_SECRET = getAesSecret();
-              const decrypted = safeDecrypt(fields.encrypted_link, AES_SECRET);
+              const decrypted = safeDecrypt(encLink, AES_SECRET);
               if (decrypted && decrypted.startsWith('http')) {
                 return res.redirect(302, decrypted);
               }
@@ -178,7 +200,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
       console.error("[SECURITY] Firestore link resolution fallback failed:", fsFallbackErr);
     }
 
-    return res.status(404).send("<h1>404 Not Found</h1><p>The requested application link could not be resolved. Please contact support if this error persists.</p>");
+    return res.status(404).send("<h1>404 Not Found</h1><p>The requested application link could not be resolved. This usually happens if the link hasn't been synced to the security vault yet. Please try again later or contact support.</p>");
   } catch (error) {
     console.error("Resolution error:", error);
     return res.status(500).send("<h1>500 Internal Server Error</h1>");

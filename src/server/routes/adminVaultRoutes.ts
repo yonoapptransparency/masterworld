@@ -453,8 +453,16 @@ adminVaultRouter.post("/api/v1/admin/seal-vault", verifyAdminToken, (req, res) =
 
     const vaultMap: Record<string, string> = {};
     items.forEach((item: any) => {
-      if (item.id && (item.url || item.more_information_url)) {
-        vaultMap[item.id] = item.url || item.more_information_url;
+      if (item.id) {
+        if (item.url && item.more_information_url) {
+          vaultMap[item.id] = {
+            url: item.url,
+            more_information_url: item.more_information_url,
+            slug: item.slug
+          } as any;
+        } else if (item.url || item.more_information_url) {
+          vaultMap[item.id] = item.url || item.more_information_url;
+        }
       }
     });
 
@@ -477,16 +485,20 @@ adminVaultRouter.post("/api/v1/admin/save-links-direct", verifyAdminToken, (req,
     const AES_SECRET = getAesSecret();
     const backupLinks: Record<string, string> = {};
     items.forEach((item: any) => {
-      const urlValue = item.url || item.more_information_url;
-      if (item.id && urlValue) {
-        if (urlValue.startsWith('U2FsdGVkX1')) {
-          backupLinks[item.id] = urlValue;
-        } else {
-          try {
-            backupLinks[item.id] = safeEncrypt(urlValue, AES_SECRET);
-          } catch (encryptErr) {
-            console.warn(`[SECURITY] Skipped backup link for ${item.id} due to encryption failure`);
-          }
+      const urlValue = item.url;
+      const moreInfoValue = item.more_information_url;
+      
+      if (item.id) {
+        if (urlValue && moreInfoValue) {
+           const payload = {
+             url: urlValue.startsWith('U2FsdGVkX1') ? urlValue : safeEncrypt(urlValue, AES_SECRET),
+             more_information_url: moreInfoValue.startsWith('U2FsdGVkX1') ? moreInfoValue : safeEncrypt(moreInfoValue, AES_SECRET),
+             slug: item.slug
+           };
+           backupLinks[item.id] = JSON.stringify(payload);
+        } else if (urlValue || moreInfoValue) {
+           const val = urlValue || moreInfoValue;
+           backupLinks[item.id] = val.startsWith('U2FsdGVkX1') ? val : safeEncrypt(val, AES_SECRET);
         }
       }
     });
