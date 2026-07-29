@@ -2,7 +2,8 @@ import express from 'express';
 import crypto from 'crypto';
 import { getIp, ensureSession, nonceStore, generateToken, verifyToken } from '../security';
 import { ENCRYPTED_LINKS } from '../../lib/secureVault';
-import { safeDecrypt } from '../crypto';
+import { safeDecrypt, getAesSecret } from '../crypto';
+import { getFirebaseAdminDb, getRawFirebaseConfig, parseFirestoreFields } from '../firebase';
 
 export const securityRouter = express.Router();
 
@@ -140,7 +141,44 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
       return res.redirect(302, targetUrl);
     }
     
-    return res.status(404).send("<h1>404 Not Found</h1><p>The requested application link could not be resolved.</p>");
+    // Attempt Fallback: Check Firestore Directly
+    try {
+      const db = getFirebaseAdminDb();
+      if (db) {
+        const doc = await db.collection('app_secure_links').doc(appId).get();
+        if (doc.exists) {
+          const data = doc.data();
+          const AES_SECRET = getAesSecret();
+          const decrypted = safeDecrypt(data?.encrypted_link, AES_SECRET);
+          if (decrypted && decrypted.startsWith('http')) {
+             return res.redirect(302, decrypted);
+          }
+        }
+      } else {
+        // REST API Fallback for environments without Service Account
+        const config = getRawFirebaseConfig();
+        if (config && config.projectId) {
+          const apiSuffix = config.apiKey ? `?key=${config.apiKey}` : '';
+          const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || '(default)'}/documents/app_secure_links/${appId}${apiSuffix}`;
+          const fsRes = await fetch(url);
+          if (fsRes.ok) {
+            const fsDoc = await fsRes.json();
+            const fields = parseFirestoreFields(fsDoc.fields);
+            if (fields.encrypted_link) {
+              const AES_SECRET = getAesSecret();
+              const decrypted = safeDecrypt(fields.encrypted_link, AES_SECRET);
+              if (decrypted && decrypted.startsWith('http')) {
+                return res.redirect(302, decrypted);
+              }
+            }
+          }
+        }
+      }
+    } catch (fsFallbackErr) {
+      console.error("[SECURITY] Firestore link resolution fallback failed:", fsFallbackErr);
+    }
+
+    return res.status(404).send("<h1>404 Not Found</h1><p>The requested application link could not be resolved. Please contact support if this error persists.</p>");
   } catch (error) {
     console.error("Resolution error:", error);
     return res.status(500).send("<h1>500 Internal Server Error</h1>");
