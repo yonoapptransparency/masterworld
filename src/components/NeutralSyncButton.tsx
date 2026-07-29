@@ -40,11 +40,18 @@ export default function NeutralSyncButton({ appId, slug, status }: NeutralSyncBu
     return Math.abs(hash).toString(16).padStart(8, '0');
   };
 
-  const solveChallenge = async (nonce: string, fingerprint: string) => {
-    const msgUint8 = new TextEncoder().encode(nonce + fingerprint);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  const solveChallenge = async (nonce: string, difficulty: string) => {
+    let counter = 0;
+    const encoder = new TextEncoder();
+    while (counter < 5000000) {
+      const msg = encoder.encode(nonce + counter);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msg);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      if (hashHex.startsWith(difficulty)) return counter;
+      counter++;
+    }
+    throw new Error('Mathematical limit exceeded');
   };
 
   const triggerSync = async (newTab: Window | null) => {
@@ -59,14 +66,14 @@ export default function NeutralSyncButton({ appId, slug, status }: NeutralSyncBu
       const chalData = await chalRes.json();
       if (!chalRes.ok) throw new Error(chalData.error || 'Identity Check Failed');
 
-      const { nonce, sid } = chalData;
+      const { nonce, difficulty, sid } = chalData;
 
       // 2. Solve & Get Token
-      const hash = await solveChallenge(nonce, fingerprint);
+      const solution = await solveChallenge(nonce, difficulty || "0000");
       const procRes = await fetch('/api/v1/_proc', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nonce, hash, fingerprint, appId, sid }),
+        body: JSON.stringify({ nonce, solution, fingerprint, appId, sid }),
       });
       const procData = await procRes.json();
       if (!procRes.ok) throw new Error(procData.error || 'Verification Failed');

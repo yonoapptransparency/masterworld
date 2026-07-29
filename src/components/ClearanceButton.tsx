@@ -655,16 +655,19 @@ export default function ClearanceButton({ appId, status, variant = 'default' }: 
       // Step 4: Construct the final clearance URL that resolves to the target via 302 redirect.
       const params = new URLSearchParams({ t: token, id: appId });
       if (sid) params.set('sid', sid);
+      if (fingerprint) params.set('fp', fingerprint);
       const payloadUrl = `${_EP.payload}?${params.toString()}`;
       
       setDynamicLink(payloadUrl);
       setPhase('ready');
       setTokenCountdown(600);
 
-      if (targetWin) {
+      if (targetWin && !targetWin.closed) {
         targetWin.location.href = payloadUrl;
       } else {
-        window.location.href = payloadUrl;
+        // If popup was blocked or closed, show a message instead of navigating away
+        setErrorMsg("The verification tab was closed or blocked. Please click the button below to continue.");
+        setPhase('ready'); // Leave it in ready state so they can use the direct link
       }
 
     } catch (err: any) {

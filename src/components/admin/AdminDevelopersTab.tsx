@@ -38,7 +38,7 @@ export const AdminDevelopersTab: React.FC<AdminDevelopersTabProps> = ({
       <form onSubmit={handleSaveDevelopers} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {developersList.map((dev: any, index: number) => (
-            <div key={index} className="bg-slate-50/50 dark:bg-slate-800/30 border border-slate-200/60 dark:border-slate-800/60 rounded-xl p-5 shadow-sm relative animate-fade-in">
+            <div key={`developer-${index}`} className="bg-slate-50/50 dark:bg-slate-800/30 border border-slate-200/60 dark:border-slate-800/60 rounded-xl p-5 shadow-sm relative animate-fade-in">
               <button
                 type="button"
                 onClick={() => handleRemoveDeveloper(index)}

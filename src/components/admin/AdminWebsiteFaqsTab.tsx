@@ -37,7 +37,7 @@ export const AdminWebsiteFaqsTab: React.FC<AdminWebsiteFaqsTabProps> = ({
       <form onSubmit={handleSaveWebsiteFaqs} className="space-y-6">
         <div className="grid grid-cols-1 gap-6">
           {websiteFaqsList.map((faq: any, index: number) => (
-            <div key={index} className="bg-slate-50/50 dark:bg-slate-800/30 border border-slate-200/60 dark:border-slate-800/60 rounded-xl p-5 shadow-sm relative animate-fade-in">
+            <div key={`website-faq-${index}`} className="bg-slate-50/50 dark:bg-slate-800/30 border border-slate-200/60 dark:border-slate-800/60 rounded-xl p-5 shadow-sm relative animate-fade-in">
               <button
                 type="button"
                 onClick={() => handleRemoveWebsiteFaq(index)}
