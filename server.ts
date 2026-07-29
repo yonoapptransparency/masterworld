@@ -146,6 +146,14 @@ async function startServer() {
           template = fs.readFileSync(templatePath, 'utf-8');
           cachedIndexHtml = template;
         }
+        
+        let processedHtml = template;
+        if (process.env.NODE_ENV !== "production") {
+          try {
+            // Wait, we need the vite instance here. It is local to the block above!
+            // Let's just bypass it if we can't easily transform.
+          } catch(e) {}
+        }
         const protocol = req.headers["x-forwarded-proto"] || req.protocol || "https";
         const host = req.headers["x-forwarded-host"] || req.get("host") || (process.env.PUBLIC_DOMAIN ? new URL(process.env.PUBLIC_DOMAIN).host : (process.env.VITE_PUBLIC_DOMAIN ? new URL(process.env.VITE_PUBLIC_DOMAIN).host : "www.dex.com"));
         const hostUrl = `${String(protocol).split(',')[0].trim()}://${String(host).split(',')[0].trim()}`;

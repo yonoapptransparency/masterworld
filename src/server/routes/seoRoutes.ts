@@ -71,7 +71,7 @@ seoRouter.get('/robots.txt', async (req, res) => {
     const hostHeader = req.get('host') || '';
     const hostLower = hostHeader.toLowerCase();
     let isMasterworldAdminDeployment = false;
-    if (hostLower.includes('masterworld') || hostLower.includes('dev-') || hostLower.includes('pre-') || hostLower.includes('localhost') || hostLower.includes('127.0.0.1')) {
+    if (hostLower.includes('masterworld')) {
       isMasterworldAdminDeployment = true;
     }
     if (isMasterworldAdminDeployment) {
@@ -99,7 +99,7 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
     const hostHeader = req.get('host') || '';
     const hostLower = hostHeader.toLowerCase();
     let isMasterworldAdminDeployment = false;
-    if (hostLower.includes('masterworld') || hostLower.includes('dev-') || hostLower.includes('pre-') || hostLower.includes('localhost') || hostLower.includes('127.0.0.1')) {
+    if (hostLower.includes('masterworld')) {
       isMasterworldAdminDeployment = true;
     }
     if (isMasterworldAdminDeployment) {
@@ -112,8 +112,8 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
     }
     const { apps = [], news = [], blogs = [], videos = [] } = data;
 
-    const baseUrlFallback = process.env.PUBLIC_DOMAIN || process.env.VITE_PUBLIC_DOMAIN || 'https://www.dex.com';
-    const host = req.headers.host ? `https://${req.headers.host}` : baseUrlFallback;
+    const baseUrlFallback = process.env.PUBLIC_DOMAIN || process.env.VITE_PUBLIC_DOMAIN || (req.headers.host ? `https://${req.headers.host}` : 'https://www.dex.com');
+    const host = baseUrlFallback.replace(/\/$/, '');
     let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
     xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
 

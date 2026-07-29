@@ -228,15 +228,27 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   let isNewsPage = false;
   let isBlogPage = false;
   let isVideoPage = false;
+  let isNotFound = false;
 
   const currentUrl = hostUrl ? `${hostUrl}${urlPath}` : urlPath;
 
-  if (cleanPathLower.startsWith('/admin') || cleanPathLower.startsWith('/masterworld')) {
+  if (cleanPathLower === '/' || cleanPathLower === '') {
+    // Home page, default title and description apply
+  } else if (cleanPathLower.startsWith('/admin') || cleanPathLower.startsWith('/masterworld')) {
     title = `Admin Panel | Masterworld`;
     description = `Masterworld Admin Control Dashboard`;
   } else if (cleanPathLower === '/new-apps') {
     title = `New Additions | ${siteTitle}`;
     description = `Explore the latest verified client lists on ${siteTitle}.`;
+  } else if (cleanPathLower.startsWith('/s/')) {
+    const slug = cleanPath.split('/s/')[1];
+    const app = apps.find((a: any) => getField(a, 'slug').toLowerCase() === slug);
+    if (app) {
+      title = `Download ${getField(app, 'name')} | ${siteTitle}`;
+      description = `Secure download link for ${getField(app, 'name')}.`;
+    } else {
+      isNotFound = true;
+    }
   } else if (cleanPathLower === '/news') {
     title = `News & Updates | ${siteTitle}`;
     description = `The latest gaming news, reports, and transparency updates.`;
@@ -246,6 +258,36 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   } else if (cleanPathLower === '/videos') {
     title = `Video Reviews | ${siteTitle}`;
     description = `Watch deep-dive reviews and gameplay analysis.`;
+  } else if (cleanPathLower.startsWith('/news/')) {
+    const slug = cleanPath.split('/news/')[1];
+    const newsItem = news.find((n: any) => getField(n, 'slug').toLowerCase() === slug);
+    if (newsItem) {
+      title = `${getField(newsItem, 'title')} | ${siteTitle}`;
+      description = getField(newsItem, 'description', '').substring(0, 160);
+      isNewsPage = true;
+    } else {
+      isNotFound = true;
+    }
+  } else if (cleanPathLower.startsWith('/blog/')) {
+    const slug = cleanPath.split('/blog/')[1];
+    const blogItem = blogs.find((b: any) => getField(b, 'slug').toLowerCase() === slug);
+    if (blogItem) {
+      title = `${getField(blogItem, 'title')} | ${siteTitle}`;
+      description = getField(blogItem, 'excerpt') || stripHtml(getField(blogItem, 'content')).substring(0, 160);
+      isBlogPage = true;
+    } else {
+      isNotFound = true;
+    }
+  } else if (cleanPathLower.startsWith('/videos/')) {
+    const slug = cleanPath.split('/videos/')[1];
+    const videoItem = videos.find((v: any) => getField(v, 'slug').toLowerCase() === slug);
+    if (videoItem) {
+      title = `${getField(videoItem, 'title')} | ${siteTitle}`;
+      description = getField(videoItem, 'description', '').substring(0, 160);
+      isVideoPage = true;
+    } else {
+      isNotFound = true;
+    }
   } else if (cleanPathLower === '/about') {
     title = `About Us | ${siteTitle}`;
     description = `Learn about our mission and transparency standards.`;
@@ -266,26 +308,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       description = cleanSeoDescription(getField(app, 'meta_description') || stripHtml(getField(app, 'description_html')).substring(0, 160));
       isAppPage = true;
     } else {
-      const newsItem = news.find((n: any) => getField(n, 'slug').toLowerCase() === appSlug);
-      if (newsItem) {
-        title = `${getField(newsItem, 'title')} | ${siteTitle}`;
-        description = getField(newsItem, 'description', '').substring(0, 160);
-        isNewsPage = true;
-      } else {
-        const blogItem = blogs.find((b: any) => getField(b, 'slug').toLowerCase() === appSlug);
-        if (blogItem) {
-          title = `${getField(blogItem, 'title')} | ${siteTitle}`;
-          description = getField(blogItem, 'excerpt') || stripHtml(getField(blogItem, 'content')).substring(0, 160);
-          isBlogPage = true;
-        } else {
-          const videoItem = videos.find((v: any) => getField(v, 'slug').toLowerCase() === appSlug);
-          if (videoItem) {
-            title = `${getField(videoItem, 'title')} | ${siteTitle}`;
-            description = getField(videoItem, 'description', '').substring(0, 160);
-            isVideoPage = true;
-          }
-        }
-      }
+      isNotFound = true;
     }
   }
 
@@ -311,5 +334,5 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     .replace(/<title>.*?<\/title>/i, seoTags)
     .replace(/<div id="root">([\s\S]*?)<\/div>/i, `<div id="root">${preRendered}</div>`);
 
-  return { html: finalHtml, isNotFound: false };
+  return { html: finalHtml, isNotFound };
 }
