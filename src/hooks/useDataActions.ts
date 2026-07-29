@@ -79,18 +79,23 @@ export function useDataActions(
       .map(a => ({ id: a.id, url: a.more_information_url || '' }));
 
     if (secureLinks.length > 0) {
-      adminFetch('/api/v1/admin/encrypt-links', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: secureLinks })
-      }).then(async (encRes) => {
-        if (encRes.ok) {
-          const encJSON = await encRes.json();
-          const encryptedData = encJSON.encrypted;
-          if (encryptedData && db) {
-            setDoc(doc(db, 'store_data', 'secure_links'), { encryptedData, lastUpdated: new Date().toISOString() }).catch(() => {});
+      getAdminToken().then(idToken => {
+        adminFetch('/api/v1/admin/encrypt-links', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`
+          },
+          body: JSON.stringify({ items: secureLinks })
+        }).then(async (encRes) => {
+          if (encRes.ok) {
+            const encJSON = await encRes.json();
+            const encryptedData = encJSON.encrypted;
+            if (encryptedData && db) {
+              setDoc(doc(db, 'store_data', 'secure_links'), { encryptedData, lastUpdated: new Date().toISOString() }).catch(() => {});
+            }
           }
-        }
+        }).catch(() => {});
       }).catch(() => {});
     }
   }, [settings, news, blogs, videos, apps, updateLocalContainerBackup]);

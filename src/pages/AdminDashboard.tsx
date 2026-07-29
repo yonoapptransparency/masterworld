@@ -137,11 +137,11 @@ export default function AdminDashboard() {
       else cachedSecureMapRef.current.delete(actualAppId);
 
       const updatedApps = editingAppId ? appsList.map(a => a.id === editingAppId ? { ...a, ...appData } : a) : [...appsList, appData];
+      await syncSecureVault(true);
       await saveApps(updatedApps);
       setAppsList(updatedApps);
       setEditingAppId(null);
       toast('Application saved successfully!', 'success');
-      syncSecureVault(true);
     } catch (err: any) {
       toast('Save failed: ' + err.message, 'error');
     } finally { setSaving(false); }

@@ -50,7 +50,8 @@ export const FirebaseStatusIndicator: React.FC = () => {
           status: 'offline', 
           adminSdk: false, 
           firestoreWrite: false, 
-          firestoreRead: false, 
+          firestoreRead: false,
+          aesConfigured: false,
           error: data.error || `HTTP ${response.status} - Status check failed` 
         });
       }
@@ -59,7 +60,8 @@ export const FirebaseStatusIndicator: React.FC = () => {
         status: 'offline', 
         adminSdk: false, 
         firestoreWrite: false, 
-        firestoreRead: false, 
+        firestoreRead: false,
+        aesConfigured: false,
         error: e.message 
       });
     } finally {

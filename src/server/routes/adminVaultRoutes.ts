@@ -184,10 +184,18 @@ adminVaultRouter.post("/api/v1/admin/decrypt-links", verifyAdminToken, async (re
   try {
     const decryptedText = safeDecrypt(encryptedData, AES_SECRET);
     if (!decryptedText) {
-      throw new Error("Empty decrypted block.");
+      console.warn("[WARNING] Decrypted block is empty or decryption failed. Returning empty vault.");
+      return res.json({ items: [] });
     }
 
-    let items = JSON.parse(decryptedText);
+    let items = [];
+    try {
+      items = JSON.parse(decryptedText);
+    } catch (e) {
+      console.warn("[WARNING] Failed to parse decrypted vault. Returning empty array.");
+      return res.json({ items: [] });
+    }
+    
     items = items.map((item: any) => {
       let finalUrl = item.url || '';
       if (finalUrl.startsWith('U2FsdGVkX1')) {
