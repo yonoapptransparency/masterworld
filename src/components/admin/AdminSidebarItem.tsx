@@ -18,7 +18,7 @@ export const AdminSidebarItem = React.memo(({
   return (
     <button 
       onClick={() => onClick(id)}
-      className={`flex items-center gap-3 w-full text-left px-4 py-3 rounded-xl transition-all min-h-[48px] font-semibold text-sm group border-0 cursor-pointer ${
+      className={`flex items-center gap-3 w-full text-left px-4 py-2 rounded-xl transition-all min-h-[40px] font-bold text-sm group border-0 cursor-pointer ${
         active 
           ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/15' 
           : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-800/40 hover:text-slate-900 dark:hover:text-white'

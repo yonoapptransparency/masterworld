@@ -62,9 +62,9 @@ export const AdminSidebar = ({
       </button>
 
       {/* Sidebar Navigation */}
-      <aside className={`fixed inset-y-0 left-0 z-40 w-72 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transition-transform duration-300 lg:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`fixed inset-y-0 left-0 z-40 w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transition-transform duration-300 lg:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex flex-col h-full">
-          <div className="p-6 border-b border-slate-100 dark:border-slate-800">
+          <div className="p-4 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20">
                 <ShieldAlert className="text-white" size={24} />
@@ -119,18 +119,18 @@ export const AdminSidebar = ({
                 type="button"
                 onClick={onRefresh}
                 disabled={isRefreshing}
-                className="flex items-center gap-3 w-full px-4 py-3 text-blue-600 dark:text-blue-400 font-bold text-sm hover:bg-blue-50 dark:hover:bg-blue-950/20 rounded-xl transition-all border-0 cursor-pointer disabled:opacity-50"
+                className="flex items-center gap-3 w-full px-4 py-2 text-blue-600 dark:text-blue-400 font-bold text-sm hover:bg-blue-50 dark:hover:bg-blue-950/20 rounded-xl transition-all border-0 cursor-pointer disabled:opacity-50"
               >
-                <RefreshCw size={20} className={isRefreshing ? 'animate-spin' : ''} />
+                <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
                 <span>{isRefreshing ? 'Syncing...' : 'Sync Data Now'}</span>
               </button>
             )}
             <button 
               type="button"
               onClick={handleLogout}
-              className="flex items-center gap-3 w-full px-4 py-3 text-rose-600 dark:text-rose-400 font-bold text-sm hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl transition-all border-0 cursor-pointer"
+              className="flex items-center gap-3 w-full px-4 py-2 text-rose-600 dark:text-rose-400 font-bold text-sm hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl transition-all border-0 cursor-pointer"
             >
-              <LogOut size={20} />
+              <LogOut size={18} />
               <span>Terminate Session</span>
             </button>
           </div>

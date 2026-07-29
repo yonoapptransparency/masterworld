@@ -120,12 +120,12 @@ Click to run instant re-test`;
     <button
       onClick={checkStatus}
       type="button"
-      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider cursor-pointer transition-all border shadow-xs hover:scale-105 active:scale-95 ${bgClass}`}
+      className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider cursor-pointer transition-all border shadow-xs hover:scale-105 active:scale-95 whitespace-nowrap ${bgClass}`}
       title={tooltip}
     >
-      <div className={`w-1.5 h-1.5 rounded-full ${dotClass}`}></div>
+      <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotClass}`}></div>
       <span>{label}</span>
-      <RefreshCw className={`w-2.5 h-2.5 opacity-60 ml-0.5 ${isRefreshing ? 'animate-spin text-blue-500' : ''}`} />
+      <RefreshCw className={`w-2.5 h-2.5 opacity-60 ml-0.5 shrink-0 ${isRefreshing ? 'animate-spin text-blue-500' : ''}`} />
     </button>
   );
 };

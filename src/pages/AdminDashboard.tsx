@@ -180,25 +180,25 @@ export default function AdminDashboard() {
         isRefreshing={saving}
       />
 
-      <main className="lg:pl-72 min-h-screen transition-all duration-300">
-        <header className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h2 className="text-xl font-black tracking-tight capitalize">{activeTab.replace('-', ' ')}</h2>
+      <main className="lg:pl-64 min-h-screen transition-all duration-300">
+        <header className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 px-4 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-black tracking-tight capitalize">{activeTab.replace('-', ' ')}</h2>
             <FirebaseStatusIndicator />
           </div>
           <div className="flex items-center gap-3">
              <button 
               onClick={handleReloadCloudData} 
               disabled={saving} 
-              className="flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl font-bold text-sm transition-all border-0 cursor-pointer shadow-sm shadow-blue-500/10 active:scale-95 disabled:opacity-50"
+              className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg font-bold text-xs transition-all border-0 cursor-pointer shadow-sm shadow-blue-500/10 active:scale-95 disabled:opacity-50 whitespace-nowrap"
              >
-                <RefreshCw size={18} className={saving ? 'animate-spin' : ''} />
+                <RefreshCw size={14} className={saving ? 'animate-spin' : ''} />
                 <span>{saving ? 'Syncing...' : 'Global Refresh'}</span>
              </button>
           </div>
         </header>
 
-        <div className="p-6 max-w-(--breakpoint-2xl) mx-auto">
+        <div className="p-4 max-w-(--breakpoint-2xl) mx-auto">
           <AdminTabContent 
             activeTab={activeTab} appsList={appsList} newsList={newsList} banners={banners} blogsList={blogsList} videosList={videosList}
             categoriesList={categoriesList} quickLinksList={quickLinksList} websiteFaqsList={websiteFaqsList} developersList={developersList}
