@@ -97,7 +97,8 @@ export function getRawFirebaseConfig(): any {
     // Proceed
   }
 
-  const finalApiKey = envApiKey || fileConfig.apiKey || "";
+  const DEFAULT_FALLBACK_API_KEY = "AIzaSyBey9sUbeWrcXS2kl4ewOzkTy4arg03Ok";
+  const finalApiKey = envApiKey || fileConfig.apiKey || DEFAULT_FALLBACK_API_KEY;
 
   // 1. Check environment variables first
   if (envProjectId) {
@@ -116,7 +117,7 @@ export function getRawFirebaseConfig(): any {
   // 2. Try firebase-applet-config.json
   if (fileConfig.projectId && isRealValue(fileConfig.projectId)) {
     fileConfig.firestoreDatabaseId = fileConfig.firestoreDatabaseId || fileConfig.databaseId || envDbId || fileConfig.projectId;
-    fileConfig.apiKey = fileConfig.apiKey || finalApiKey;
+    fileConfig.apiKey = finalApiKey;
     cachedRawFirebaseConfig = fileConfig;
     return fileConfig;
   }
@@ -125,12 +126,12 @@ export function getRawFirebaseConfig(): any {
   const defaultProjectId = "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a";
   cachedRawFirebaseConfig = {
     projectId: defaultProjectId,
-    appId: envAppId,
-    apiKey: envApiKey,
-    authDomain: envAuthDomain,
-    firestoreDatabaseId: envDbId || defaultProjectId,
-    storageBucket: envStorageBucket,
-    messagingSenderId: envMessagingSenderId
+    appId: envAppId || "1:103973989874:web:733a6afd8e837224900f6b",
+    apiKey: finalApiKey,
+    authDomain: envAuthDomain || "gen-lang-client-0825832493.firebaseapp.com",
+    firestoreDatabaseId: envDbId || "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a",
+    storageBucket: envStorageBucket || "gen-lang-client-0825832493.firebasestorage.app",
+    messagingSenderId: envMessagingSenderId || "103973989874"
   };
   return cachedRawFirebaseConfig;
 }
@@ -281,21 +282,26 @@ export function convertToFirestoreFields(obj: Record<string, any>): Record<strin
   return fields;
 }
 
-export async function writeFirestoreRestDoc(docId: string, data: any): Promise<boolean> {
+export async function writeFirestoreRestDoc(docId: string, data: any, authToken?: string): Promise<boolean> {
   try {
     const config = getRawFirebaseConfig();
     if (!config || !config.projectId) {
       console.warn(`[SERVER] Cannot write REST doc ${docId}: Missing project ID`);
       return false;
     }
-    const dbId = config.firestoreDatabaseId || '(default)';
+    const dbId = config.firestoreDatabaseId || config.databaseId || '(default)';
     const apiKeyParam = config.apiKey ? `?key=${config.apiKey}` : '';
     const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${dbId}/documents/store_data/${docId}${apiKeyParam}`;
 
     const fields = convertToFirestoreFields(data);
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authToken && authToken.trim() !== '') {
+      headers['Authorization'] = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`;
+    }
+
     const res = await fetch(url, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ fields })
     });
     if (!res.ok) {
@@ -307,6 +313,29 @@ export async function writeFirestoreRestDoc(docId: string, data: any): Promise<b
     return true;
   } catch (err: any) {
     console.error(`[SERVER] writeFirestoreRestDoc exception for ${docId}:`, err.message || err);
+    return false;
+  }
+}
+
+export async function deleteFirestoreRestDoc(docId: string, authToken?: string): Promise<boolean> {
+  try {
+    const config = getRawFirebaseConfig();
+    if (!config || !config.projectId) return false;
+    const dbId = config.firestoreDatabaseId || config.databaseId || '(default)';
+    const apiKeyParam = config.apiKey ? `?key=${config.apiKey}` : '';
+    const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${dbId}/documents/store_data/${docId}${apiKeyParam}`;
+
+    const headers: Record<string, string> = {};
+    if (authToken && authToken.trim() !== '') {
+      headers['Authorization'] = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`;
+    }
+
+    const res = await fetch(url, {
+      method: 'DELETE',
+      headers
+    });
+    return res.ok;
+  } catch (err) {
     return false;
   }
 }

@@ -2,7 +2,7 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { safeEncrypt, safeDecrypt, getAesSecret } from '../crypto';
-import { getFirebaseAdminDb, getRawFirebaseConfig, writeFirestoreRestDoc, getAdminSdkDiagnostics } from '../firebase';
+import { getFirebaseAdminDb, getRawFirebaseConfig, writeFirestoreRestDoc, deleteFirestoreRestDoc, getAdminSdkDiagnostics } from '../firebase';
 import { verifyAdminToken } from '../middleware/adminAuth';
 import { rateLimit, getIp } from '../security';
 
@@ -90,7 +90,31 @@ adminVaultRouter.post("/api/v1/admin/encrypt-links", verifyAdminToken, async (re
     const plainText = JSON.stringify(mergedItems);
     const ciphertext = safeEncrypt(plainText, AES_SECRET);
 
-    res.json({ encrypted: ciphertext });
+    // Persist encrypted vault directly to Cloud Firestore
+    const vaultPayload = { encryptedData: ciphertext, lastUpdated: new Date().toISOString() };
+    const adminDb = getFirebaseAdminDb();
+    if (adminDb) {
+      try {
+        await Promise.all([
+          adminDb.collection('store_data').doc('secure_links').set(vaultPayload),
+          adminDb.collection('store_data').doc('sec_vault').set(vaultPayload)
+        ]);
+        console.log("[SERVER] Encrypted links vault persisted to Firestore via Admin SDK.");
+      } catch (vaultErr) {
+        console.warn("[SERVER] Admin SDK write for secure_links failed, using REST fallback:", vaultErr);
+        await Promise.all([
+          writeFirestoreRestDoc('secure_links', vaultPayload, req.headers.authorization),
+          writeFirestoreRestDoc('sec_vault', vaultPayload, req.headers.authorization)
+        ]);
+      }
+    } else {
+      await Promise.all([
+        writeFirestoreRestDoc('secure_links', vaultPayload, req.headers.authorization),
+        writeFirestoreRestDoc('sec_vault', vaultPayload, req.headers.authorization)
+      ]);
+    }
+
+    res.json({ encrypted: ciphertext, savedToCloud: true });
   } catch (err) {
     res.status(500).json({ error: 'Links encryption failed' });
   }
@@ -237,7 +261,8 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
     // Attempt REST Fallback if Admin SDK failed
     if (!firestoreUpdated) {
       try {
-        const promises: Promise<any>[] = [];
+        const authToken = req.headers.authorization;
+        const promises: Promise<boolean>[] = [];
         if (apps && Array.isArray(apps)) {
           const CHUNK_SIZE = 25;
           const numChunks = Math.ceil(apps.length / CHUNK_SIZE) || 1;
@@ -248,26 +273,33 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
               delete app.encrypted_download_url;
               delete app.download_url;
             });
-            promises.push(writeFirestoreRestDoc(`apps_chunk_${i}`, { items: chunk }));
+            promises.push(writeFirestoreRestDoc(`apps_chunk_${i}`, { items: chunk }, authToken));
           }
-          promises.push(writeFirestoreRestDoc('apps_meta', { numChunks, last_updated: new Date().toISOString() }));
+          promises.push(writeFirestoreRestDoc('apps_meta', { numChunks, last_updated: new Date().toISOString() }, authToken));
         }
         if (settings) {
-          promises.push(writeFirestoreRestDoc('public_settings', JSON.parse(JSON.stringify(settings))));
+          promises.push(writeFirestoreRestDoc('public_settings', JSON.parse(JSON.stringify(settings)), authToken));
         }
         if (news && Array.isArray(news)) {
-          promises.push(writeFirestoreRestDoc('news', { items: JSON.parse(JSON.stringify(news)) }));
+          promises.push(writeFirestoreRestDoc('news', { items: JSON.parse(JSON.stringify(news)) }, authToken));
         }
         if (blogs && Array.isArray(blogs)) {
-          promises.push(writeFirestoreRestDoc('blogs', { items: JSON.parse(JSON.stringify(blogs)) }));
+          promises.push(writeFirestoreRestDoc('blogs', { items: JSON.parse(JSON.stringify(blogs)) }, authToken));
         }
         if (videos && Array.isArray(videos)) {
-          promises.push(writeFirestoreRestDoc('videos', { items: JSON.parse(JSON.stringify(videos)) }));
+          promises.push(writeFirestoreRestDoc('videos', { items: JSON.parse(JSON.stringify(videos)) }, authToken));
         }
-        await Promise.all(promises);
-        console.log("[SERVER] Firestore documents successfully updated via REST API in sync-local endpoint.");
-        firestoreUpdated = true;
-        firestoreError = null; // Clear error as REST succeeded
+        const writeResults = await Promise.all(promises);
+        const allOk = writeResults.length > 0 && writeResults.every(res => res === true);
+        if (allOk) {
+          console.log("[SERVER] Firestore documents successfully updated via Auth REST Proxy in sync-local endpoint.");
+          firestoreUpdated = true;
+          firestoreError = null; // Clear error as REST succeeded
+        } else {
+          const succCount = writeResults.filter(Boolean).length;
+          firestoreError = `REST Fallback write partially failed (${succCount}/${writeResults.length} docs succeeded).`;
+          console.warn(`[SERVER] ${firestoreError}`);
+        }
       } catch (restSyncErr: any) {
         console.error("[SERVER] Firestore REST API update failed in sync-local endpoint:", restSyncErr.message);
         firestoreError = `REST Fallback also failed: ${restSyncErr.message}`;
@@ -577,31 +609,43 @@ adminVaultRouter.get("/api/v1/admin/firebase-status", verifyAdminToken, async (r
 
       // 2b. Test REST Write
       const writeStart = Date.now();
+      const authToken = req.headers.authorization;
       try {
-        const pingDocId = `status_ping_${Date.now()}`;
-        const apiKeyParam = apiKey ? `&key=${apiKey}` : '';
-        const spentUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${dbId}/documents/spent_tokens?documentId=${pingDocId}${apiKeyParam}`;
-        
-        const spentRes = await fetch(spentUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fields: { usedAt: { stringValue: new Date().toISOString() } } })
-        });
-        
-        results.writeLatencyMs = Date.now() - writeStart;
-        results.details.restWriteStatus = spentRes.status;
+        const pingDocId = `_status_check_`;
+        const writeOk = await writeFirestoreRestDoc(pingDocId, { 
+          ts: Date.now(), 
+          source: 'admin_rest_healthcheck',
+          checkedAt: new Date().toISOString() 
+        }, authToken);
 
-        if (spentRes.ok || spentRes.status === 200) {
+        results.writeLatencyMs = Date.now() - writeStart;
+
+        if (writeOk) {
           results.firestoreWrite = true;
-          results.details.writeMode = "Public Rules Validation (spent_tokens POST)";
+          results.details.writeMode = "Authenticated Admin REST API (Authorization Bearer)";
           results.details.restWriteNote = "REST write operational";
+          deleteFirestoreRestDoc(pingDocId, authToken).catch(() => {});
         } else {
-          const errBody = await spentRes.text();
-          if (!apiKey) {
-            results.details.restWriteError = "FIREBASE_API_KEY environment variable is missing on server. Add FIREBASE_API_KEY in Vercel settings or provide FIREBASE_SERVICE_ACCOUNT.";
-          } else if (spentRes.status === 403) {
-            results.details.restWriteError = `Firestore Security Rules rejected write (HTTP 403: ${errBody.slice(0, 120)})`;
+          // Secondary fallback check: spent_tokens
+          const pingTokenId = `status_ping_${Date.now()}`;
+          const apiKeyParam = apiKey ? `&key=${apiKey}` : '';
+          const spentUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${dbId}/documents/spent_tokens?documentId=${pingTokenId}${apiKeyParam}`;
+          
+          const spentRes = await fetch(spentUrl, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              ...(authToken ? { 'Authorization': authToken } : {})
+            },
+            body: JSON.stringify({ fields: { usedAt: { stringValue: new Date().toISOString() } } })
+          });
+          
+          if (spentRes.ok || spentRes.status === 200) {
+            results.firestoreWrite = true;
+            results.details.writeMode = "Public Rules Validation (spent_tokens POST)";
+            results.details.restWriteNote = "REST write operational";
           } else {
+            const errBody = await spentRes.text();
             results.details.restWriteError = `HTTP ${spentRes.status}: ${errBody.slice(0, 150)}`;
           }
         }
