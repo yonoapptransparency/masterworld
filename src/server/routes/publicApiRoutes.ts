@@ -6,13 +6,58 @@ import { safeDecrypt, safeEncrypt, getAesSecret } from '../crypto';
 import { getFirebaseAdminDb, getRawFirebaseConfig, parseFirestoreValue, parseFirestoreFields } from '../firebase';
 import { rateLimit, isSuspiciousClient, getIp, ensureSession, nonceStore, generateToken, verifyToken, tokenStore, usedTokens, isSafeUrl } from '../security';
 import { vaultNode } from '../../lib/vaultNode';
+import { ENCRYPTED_LINKS } from '../../lib/secureVault';
 import { getStaticData } from '../config';
 import { fetchStoreData } from '../../seoHelper';
 
 export const publicApiRouter = express.Router();
 
 /**
- * @route   POST /api/v1/sync-node
+ * @route   GET /api/v1/_chal
+ * @desc    Security Challenge Initiation
+ */
+publicApiRouter.get('/api/v1/_chal', (req, res) => {
+  const ip = getIp(req);
+  const sid = ensureSession(req, res);
+  const nonce = crypto.randomBytes(16).toString('hex');
+  
+  nonceStore.set(nonce, { sessionId: sid, expiresAt: Date.now() + 120000, issuedAt: Date.now() });
+  
+  res.json({ nonce, sid });
+});
+
+/**
+ * @route   POST /v1/_proc
+ * @desc    Security Challenge Processing & Token Issuance
+ */
+publicApiRouter.post('/api/v1/_proc', async (req, res) => {
+  const { nonce, hash, fingerprint, appId, sid: clientSid } = req.body;
+  const ip = getIp(req);
+  const sid = req.cookies?.["__Host-sid"] || clientSid;
+
+  if (!nonce || !hash || !fingerprint || !appId || !sid) {
+    return res.status(400).json({ error: 'Incomplete security context' });
+  }
+
+  const challenge = nonceStore.get(nonce);
+  if (!challenge || challenge.sessionId !== sid) {
+    return res.status(403).json({ error: 'Challenge expired or invalid' });
+  }
+
+  // Simple PoW verification
+  const expectedHash = crypto.createHash('sha256').update(nonce + fingerprint).digest('hex');
+  if (hash !== expectedHash) {
+    return res.status(403).json({ error: 'Integrity check failed' });
+  }
+
+  const token = generateToken(ip, sid, fingerprint, appId);
+  nonceStore.delete(nonce);
+
+  res.json({ token });
+});
+
+/**
+ * @route   POST /v1/sync-node
  * @desc    Neutral endpoint for lightning-fast resource node synchronization
  * @access  Public (Behavioral Anti-bot protected)
  */
@@ -258,61 +303,6 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
       videos: dataObj.mockVideos || []
     });
   }
-});
-
-publicApiRouter.get(["/api/v1/_chal", "/api/v1/get-challenge", "/api/v1/init-file"], async (req, res) => {
-  const ip = getIp(req);
-  if (await rateLimit(ip)) return res.status(429).json({ error: "Too many requests. Please wait." });
-  if (isSuspiciousClient(req)) return res.status(403).json({ error: "Access denied." });
-  const sid = ensureSession(req, res);
-  const nonce = crypto.randomBytes(20).toString("hex");
-  const issuedAt = Date.now();
-  const jitter = Math.floor(Math.random() * 100) + 50;
-
-  nonceStore.set(nonce, {
-    sessionId: sid,
-    expiresAt: issuedAt + 120 * 1000,
-    issuedAt: issuedAt + jitter
-  });
-  setTimeout(() => {
-    res.json({
-      nonce,
-      difficulty: "0000",
-      sid
-    });
-  }, jitter);
-});
-
-publicApiRouter.post(["/api/v1/_proc", "/api/v1/get-token", "/api/v1/process-file"], async (req, res) => {
-  const ip = getIp(req);
-  if (await rateLimit(ip)) return res.status(429).json({ error: "Too many requests. Please wait." });
-  if (isSuspiciousClient(req)) return res.status(403).json({ error: "Access denied." });
-  const sid = req.body?.sid || req.cookies?.["__Host-sid"];
-  if (!sid) {
-    return res.status(403).json({ error: "Session expired. Please reload." });
-  }
-  const { nonce, hash, fingerprint, appId } = req.body || {};
-  if (!nonce || !hash || !fingerprint || !appId) {
-    return res.status(400).json({ error: "Invalid challenge payload." });
-  }
-
-  const nonceData = nonceStore.get(nonce);
-  if (!nonceData) {
-    return res.status(403).json({ error: "Challenge expired or invalid. Reload and retry." });
-  }
-  nonceStore.delete(nonce);
-
-  if (Date.now() < nonceData.issuedAt) {
-    return res.status(403).json({ error: "Verification failed. Rapid request rejected." });
-  }
-
-  const computedHash = crypto.createHash("sha256").update(`${nonce}${fingerprint}`).digest("hex");
-  if (hash !== computedHash) {
-    return res.status(403).json({ error: "Proof of Work challenge verification failed." });
-  }
-
-  const token = generateToken(ip, sid, fingerprint, appId);
-  return res.json({ token, expiresAt: Date.now() + 1800000 });
 });
 
 publicApiRouter.get(["/api/v1/link-check", "/api/v1/check-link"], async (req, res) => {
@@ -584,12 +574,64 @@ publicApiRouter.post("/api/v1/report-missing", async (req, res) => {
   return res.json({ success: true, message: "Report logged successfully." });
 });
 
-publicApiRouter.post("/api/v1/moreinfo-resolve", async (req, res) => {
-  const { appId } = req.body;
-  if (!appId) {
-    return res.status(400).json({ error: "Missing App ID parameter." });
+/**
+ * @route   GET /api/v1/moreinfo-resolve
+ * @desc    Resolves app more information URL with security verification
+ * @access  Public (Token protected)
+ */
+publicApiRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
+  const token = (req.query.token || req.query.t) as string;
+  const appId = req.query.id as string;
+  const ip = getIp(req);
+  const sid = req.cookies?.["__Host-sid"];
+  const fingerprint = req.query.fp as string;
+
+  if (!token || !appId) {
+    return res.status(400).send("<h1>400 Bad Request</h1><p>Missing security parameters.</p>");
   }
-  return res.json({ success: true, resolved: true });
+
+  // Security verification
+  if (fingerprint && sid) {
+    if (!verifyToken(token, ip, sid, fingerprint, appId)) {
+      console.warn(`[SECURITY] Invalid moreinfo-resolve token for appId: ${appId} from IP: ${ip}`);
+      return res.status(403).send("<h1>403 Forbidden</h1><p>Security signature mismatch. Please return to the app page and try again.</p>");
+    }
+  }
+
+  try {
+    let targetUrl = '';
+    
+    // Attempt to get from vault
+    const encryptedVault = ENCRYPTED_LINKS;
+    if (encryptedVault) {
+      const AES_SECRET = process.env.AES_SECRET || '';
+      const decryptedVault = safeDecrypt(encryptedVault, AES_SECRET);
+      if (decryptedVault) {
+        const parsed = JSON.parse(decryptedVault);
+        let encryptedUrl = '';
+        if (Array.isArray(parsed)) {
+          const item = parsed.find((i: any) => i.id === appId);
+          encryptedUrl = item?.url || item?.more_information_url || '';
+        } else {
+          const val = parsed[appId];
+          encryptedUrl = typeof val === 'string' ? val : (val?.url || val?.more_information_url || '');
+        }
+        
+        if (encryptedUrl) {
+          targetUrl = encryptedUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(encryptedUrl, AES_SECRET) : encryptedUrl;
+        }
+      }
+    }
+
+    if (targetUrl && targetUrl.startsWith('http')) {
+      return res.redirect(302, targetUrl);
+    }
+    
+    return res.status(404).send("<h1>404 Not Found</h1><p>The requested application link could not be resolved.</p>");
+  } catch (error) {
+    console.error("Resolution error:", error);
+    return res.status(500).send("<h1>500 Internal Server Error</h1>");
+  }
 });
 
 publicApiRouter.get("/api/v1/download/:id", async (req, res) => {
