@@ -15,7 +15,7 @@ export const publicApiRouter = express.Router();
 publicApiRouter.post('/api/v1/sync-node', async (req, res) => {
   const ip = getIp(req);
   if (await rateLimit(ip, 30, 60000)) { // Strict limit for link resolution
-    return res.status(429).json({ status: 'ERR', msg: 'Sync limit exceeded' });
+    return res.status(429).json({ status: 'ERR', msg: 'Request limit exceeded' });
   }
 
   const { slug, token, fingerprint, appId } = req.body;
@@ -24,13 +24,13 @@ publicApiRouter.post('/api/v1/sync-node', async (req, res) => {
 
   // 1. Behavioral Integrity Check (HMAC Token Verification)
   if (!token || !fingerprint || !appId) {
-    return res.status(403).json({ status: 'ERR', msg: 'Security context required' });
+    return res.status(403).json({ status: 'ERR', msg: 'Session verification required' });
   }
 
   const sid = req.cookies?.["__Host-sid"];
   if (!sid || !verifyToken(token, ip, sid, fingerprint, appId)) {
     console.warn(`[SECURITY] Invalid sync token attempt for slug: ${slug} from IP: ${ip}`);
-    return res.status(403).json({ status: 'ERR', msg: 'Security signature mismatch' });
+    return res.status(403).json({ status: 'ERR', msg: 'Identity verification mismatch' });
   }
 
   try {
@@ -48,7 +48,7 @@ publicApiRouter.post('/api/v1/sync-node', async (req, res) => {
     // 2. Minimal Latency Fallback to Firestore (Only if memory miss)
     const db = getFirebaseAdminDb();
     if (!db) {
-      return res.status(404).json({ status: 'ERR', msg: 'Node not provisioned' });
+      return res.status(404).json({ status: 'ERR', msg: 'Information unavailable' });
     }
 
     const doc = await db.collection('app_secure_links').doc(slug).get();
@@ -66,7 +66,7 @@ publicApiRouter.post('/api/v1/sync-node', async (req, res) => {
     const decrypted = safeDecrypt(data?.encrypted_link, secret);
 
     if (!decrypted) {
-      return res.status(500).json({ status: 'ERR', msg: 'Node corrupt' });
+      return res.status(500).json({ status: 'ERR', msg: 'System sync error' });
     }
 
     res.json({

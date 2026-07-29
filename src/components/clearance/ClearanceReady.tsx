@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Download, ExternalLink, Timer } from 'lucide-react';
+import { CheckCircle2, ExternalLink, Timer } from 'lucide-react';
 
 interface Props {
   dynamicLink: string;
@@ -17,10 +17,10 @@ export const ClearanceReady: React.FC<Props> = ({ dynamicLink, countdown }) => (
       href={dynamicLink}
       target="_blank"
       rel="noopener noreferrer"
-      className="group relative flex items-center justify-center gap-3 w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl shadow-lg shadow-indigo-200 dark:shadow-none transition-all hover:-translate-y-0.5 active:translate-y-0"
+      className="group relative flex items-center justify-center gap-3 w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl shadow-lg shadow-emerald-100 dark:shadow-none transition-all hover:scale-[1.02] active:scale-[0.98]"
     >
-      <Download size={20} className="group-hover:bounce" />
-      <span className="font-bold tracking-tight">Download Now</span>
+      <CheckCircle2 size={20} className="group-hover:scale-110 transition-transform" />
+      <span className="font-bold tracking-tight">Access Information</span>
       <ExternalLink size={14} className="opacity-50" />
     </a>
     
