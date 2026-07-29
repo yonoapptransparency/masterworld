@@ -44,6 +44,22 @@ export const AppForm = ({
 }: AppFormProps) => {
   return (
     <form onSubmit={handleSaveApp} className="flex flex-col h-full overflow-hidden">
+      {/* Hidden inputs to guarantee form state is preserved when submitted from any tab */}
+      <input type="hidden" name="hidden_more_information_url" value={formFields.more_information_url || ''} />
+      <input type="hidden" name="hidden_name" value={formFields.name || ''} />
+      <input type="hidden" name="hidden_slug" value={formFields.slug || ''} />
+      <input type="hidden" name="hidden_icon_url" value={formFields.icon_url || ''} />
+      <input type="hidden" name="hidden_seo_title" value={formFields.seo_title || ''} />
+      <input type="hidden" name="hidden_seo_description" value={formFields.seo_description || ''} />
+      <input type="hidden" name="hidden_seo_keywords" value={formFields.seo_keywords || ''} />
+      <input type="hidden" name="hidden_og_image_url" value={formFields.og_image_url || ''} />
+      <input type="hidden" name="hidden_description_html" value={formFields.description_html || ''} />
+      <input type="hidden" name="hidden_features_html" value={formFields.features_html || ''} />
+      <input type="hidden" name="hidden_red_box_msg" value={formFields.red_box_msg || ''} />
+      <input type="hidden" name="hidden_yellow_box_msg" value={formFields.yellow_box_msg || ''} />
+      <input type="hidden" name="hidden_idea_box_msg" value={formFields.idea_box_msg || ''} />
+      <input type="hidden" name="hidden_screenshots_json" value={JSON.stringify(formFields.screenshots || [])} />
+      <input type="hidden" name="hidden_faqs_json" value={JSON.stringify(formFields.faqs || [])} />
       {/* Form Sticky Header */}
       <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800/80 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50 shrink-0">
         <div className="min-w-0 flex items-center gap-2">

@@ -17,7 +17,6 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
 
   const syncSecureVault = async (force = false) => {
     if (!isInitialized) return;
-    if (fetchFailed && !force) return;
     try {
       const items = Array.from(cachedSecureMapRef.current.entries()).map(([k, v]) => ({ id: k, url: v }));
       const idToken = await auth?.currentUser?.getIdToken();

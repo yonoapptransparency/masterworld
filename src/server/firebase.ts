@@ -305,7 +305,7 @@ export async function writeFirestoreRestDoc(docId: string, data: any, authToken?
 
     const fields = convertToFirestoreFields(data);
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (authToken && authToken.trim() !== '' && authToken.includes('ya29.')) {
+    if (authToken && authToken.trim() !== '') {
       headers['Authorization'] = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`;
     }
 
@@ -336,7 +336,7 @@ export async function deleteFirestoreRestDoc(docId: string, authToken?: string):
     const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${dbId}/documents/store_data/${docId}${apiKeyParam}`;
 
     const headers: Record<string, string> = {};
-    if (authToken && authToken.trim() !== '' && authToken.includes('ya29.')) {
+    if (authToken && authToken.trim() !== '') {
       headers['Authorization'] = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`;
     }
 

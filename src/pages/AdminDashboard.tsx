@@ -23,7 +23,6 @@ export default function AdminDashboard() {
   const [saving, setSaving] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [editingAppId, setEditingAppId] = useState<string | null>(null);
-  const [forceBypassVaultError, setForceBypassVaultError] = useState(false);
 
   const { user, checkingAuth, isAdminUser, sessionTimeLeft, handleLogout } = useAdminAuth();
   
@@ -81,16 +80,14 @@ export default function AdminDashboard() {
 
   const handleSaveApp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (fetchFailed && !forceBypassVaultError) {
-       if (window.confirm("CRITICAL WARNING: Vault failed to load. Saving will wipe existing links. Force save?")) setForceBypassVaultError(true);
-       else return;
-    }
     setSaving(true);
     try {
       const formData = new FormData(e.currentTarget);
-      const name = formData.get('name') as string || 'New App';
-      const slug = (formData.get('slug') as string)?.trim().toLowerCase().replace(/[^a-z0-9-_]+/g, '-') || name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-      const inputUrl = (formData.get('more_information_url') as string)?.trim();
+      const name = (formData.get('name') as string || formData.get('hidden_name') as string) || 'New App';
+      const rawSlug = (formData.get('slug') as string || formData.get('hidden_slug') as string);
+      const slug = rawSlug?.trim().toLowerCase().replace(/[^a-z0-9-_]+/g, '-') || name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      const rawUrl = (formData.get('more_information_url') as string) ?? (formData.get('hidden_more_information_url') as string) ?? '';
+      const inputUrl = rawUrl.trim();
       
       let encryptedUrlVal = '';
       let plaintextUrl = inputUrl || '';
@@ -110,29 +107,29 @@ export default function AdminDashboard() {
         id: actualAppId,
         name,
         slug,
-        icon_url: formData.get('icon_url') as string,
-        category: (formData.getAll('category_list') as string[]).join(', ') || 'General',
+        icon_url: (formData.get('icon_url') as string || formData.get('hidden_icon_url') as string) || '',
+        category: (formData.getAll('category_list') as string[]).filter(Boolean).join(', ') || 'General',
         more_information_url: plaintextUrl,
         encrypted_link: encryptedUrlVal || (plaintextUrl.startsWith('U2FsdGVkX1') ? plaintextUrl : ''),
         rating: parseFloat(formData.get('rating') as string) || 5.0,
-        safety_status: formData.get('safety_status') as any || 'Verified',
+        safety_status: (formData.get('safety_status') as any) || 'Verified',
         serial_number: parseInt(formData.get('serial_number') as string) || appsList.length + 1,
         version: formData.get('version') as string || '1.0',
         file_size: formData.get('file_size') as string || 'Unknown',
         developer: formData.get('developer') as string || 'Admin',
-        description_html: formData.get('description_html') as string || '',
-        features_html: formData.get('features_html') as string || '',
-        seo_title: formData.get('seo_title') as string || '',
-        seo_description: formData.get('seo_description') as string || '',
-        seo_keywords: formData.get('seo_keywords') as string || '',
-        og_image_url: formData.get('og_image_url') as string || '',
-        red_box_msg: formData.get('red_box_msg') as string || '',
-        yellow_box_msg: formData.get('yellow_box_msg') as string || '',
-        idea_box_msg: formData.get('idea_box_msg') as string || '',
+        description_html: (formData.get('description_html') as string ?? formData.get('hidden_description_html') as string) || '',
+        features_html: (formData.get('features_html') as string ?? formData.get('hidden_features_html') as string) || '',
+        seo_title: (formData.get('seo_title') as string ?? formData.get('hidden_seo_title') as string) || '',
+        seo_description: (formData.get('seo_description') as string ?? formData.get('hidden_seo_description') as string) || '',
+        seo_keywords: (formData.get('seo_keywords') as string ?? formData.get('hidden_seo_keywords') as string) || '',
+        og_image_url: (formData.get('og_image_url') as string ?? formData.get('hidden_og_image_url') as string) || '',
+        red_box_msg: (formData.get('red_box_msg') as string ?? formData.get('hidden_red_box_msg') as string) || '',
+        yellow_box_msg: (formData.get('yellow_box_msg') as string ?? formData.get('hidden_yellow_box_msg') as string) || '',
+        idea_box_msg: (formData.get('idea_box_msg') as string ?? formData.get('hidden_idea_box_msg') as string) || '',
         is_new: formData.get('is_new') === 'on',
         is_coming_soon: formData.get('is_coming_soon') === 'on',
-        screenshots: JSON.parse((formData.get('screenshots_json') as string) || '[]'),
-        faqs: JSON.parse((formData.get('faqs_json') as string) || '[]'),
+        screenshots: JSON.parse((formData.get('screenshots_json') as string || formData.get('hidden_screenshots_json') as string) || '[]'),
+        faqs: JSON.parse((formData.get('faqs_json') as string || formData.get('hidden_faqs_json') as string) || '[]'),
         created_at: new Date().toISOString()
       };
 
@@ -144,7 +141,7 @@ export default function AdminDashboard() {
       setAppsList(updatedApps);
       setEditingAppId(null);
       toast('Application saved successfully!', 'success');
-      syncSecureVault(forceBypassVaultError);
+      syncSecureVault(true);
     } catch (err: any) {
       toast('Save failed: ' + err.message, 'error');
     } finally { setSaving(false); }
