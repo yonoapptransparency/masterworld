@@ -115,6 +115,7 @@ adminVaultRouter.post("/api/v1/admin/encrypt-links", verifyAdminToken, async (re
       ]);
     }
 
+    clearResolvedLinkCache();
     res.json({ encrypted: ciphertext, savedToCloud: true });
   } catch (err) {
     res.status(500).json({ error: 'Links encryption failed' });
