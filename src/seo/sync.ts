@@ -5,7 +5,7 @@ import { getRawFirebaseConfig, parseFirestoreDoc } from './firebaseConfig';
 // Dynamically resolve staticData to bypass TSX watcher
 const getStaticData = () => {
   try {
-    const staticDataModulePath = "../../lib/staticData";
+    const staticDataModulePath = "../lib/staticData";
     return require(staticDataModulePath);
   } catch (e) {
     return { mockApps: [], mockSettings: {}, mockNews: [], mockBlogs: [], mockVideos: [] };

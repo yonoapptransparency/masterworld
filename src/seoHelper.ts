@@ -1,9 +1,9 @@
 import fs from 'fs';
 import path from 'path';
-import { getSafeFirebaseConfig } from './server/seo/firebaseConfig';
-import { syncFromFirestore } from './server/seo/sync';
-import { getField, stripHtml } from './server/seo/utils';
-import * as renderers from './server/seo/renderers';
+import { getSafeFirebaseConfig } from './seo/firebaseConfig';
+import { syncFromFirestore } from './seo/sync';
+import { getField, stripHtml } from './seo/utils';
+import * as renderers from './seo/renderers';
 
 // Dynamically resolve staticData to bypass TSX watcher
 const getStaticData = () => {
