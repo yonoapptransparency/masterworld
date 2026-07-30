@@ -61,24 +61,9 @@ async function prerender() {
       }
     }
 
-    // 4. Generate Blog Routes
-    for (const blog of data.blogs || []) {
-      if (blog.slug) {
-        await generateRoute(`/blog/${blog.slug}`);
-      }
-    }
-    
-    // Generate Video Routes
-    for (const video of data.videos || []) {
-      if (video.slug) {
-        await generateRoute(`/videos/${video.slug}`);
-      }
-    }
-
     // 5. Generate Other Static Routes
     await generateRoute('/new-apps');
     await generateRoute('/news');
-    await generateRoute('/blogs');
     await generateRoute('/videos');
     await generateRoute('/about');
     await generateRoute('/developers');
@@ -106,7 +91,6 @@ async function prerender() {
       { path: '/', priority: '1.0', changefreq: 'daily' },
       { path: '/new-apps', priority: '0.8', changefreq: 'daily' },
       { path: '/news', priority: '0.8', changefreq: 'daily' },
-      { path: '/blogs', priority: '0.8', changefreq: 'daily' },
       { path: '/videos', priority: '0.8', changefreq: 'daily' },
       { path: '/about', priority: '0.5', changefreq: 'weekly' },
       { path: '/developers', priority: '0.5', changefreq: 'weekly' },
@@ -178,14 +162,6 @@ async function prerender() {
       const canonicalUrl = getField(newsItem, 'canonical_url');
       if (slug && !isExternalCanonical(canonicalUrl)) {
         xml += `  <url>\n    <loc>${host}/news/${escapeHtmlForSitemap(slug)}</loc>\n    <lastmod>${getFormattedDate(newsItem)}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
-      }
-    }
-
-    for (const blog of data.blogs || []) {
-      const slug = getField(blog, 'slug');
-      const canonicalUrl = getField(blog, 'canonical_url');
-      if (slug && !isExternalCanonical(canonicalUrl)) {
-        xml += `  <url>\n    <loc>${host}/blog/${escapeHtmlForSitemap(slug)}</loc>\n    <lastmod>${getFormattedDate(blog)}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
       }
     }
 

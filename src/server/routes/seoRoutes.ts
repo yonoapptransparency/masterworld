@@ -121,7 +121,6 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
     xml += `  <url>\n    <loc>${host}/</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>1.0</priority>\n  </url>\n`;
     xml += `  <url>\n    <loc>${host}/new-apps</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n  </url>\n`;
     xml += `  <url>\n    <loc>${host}/news</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n  </url>\n`;
-    xml += `  <url>\n    <loc>${host}/blogs</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n  </url>\n`;
     xml += `  <url>\n    <loc>${host}/videos</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n  </url>\n`;
     xml += `  <url>\n    <loc>${host}/about</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.5</priority>\n  </url>\n`;
     xml += `  <url>\n    <loc>${host}/developers</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.5</priority>\n  </url>\n`;
@@ -202,20 +201,6 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
         let urlXml = `  <url>\n`;
         urlXml += `    <loc>${loc}</loc>\n`;
         urlXml += `    <lastmod>${getFormattedDate(newsItem)}</lastmod>\n`;
-        urlXml += `    <changefreq>weekly</changefreq>\n`;
-        urlXml += `    <priority>0.7</priority>\n`;
-        urlXml += `  </url>\n`;
-        addUrl(urlXml, loc);
-      }
-    }
-    for (const blog of blogs) {
-      const slug = getField(blog, 'slug');
-      const canonicalUrl = getField(blog, 'canonical_url');
-      if (slug && !isExternalCanonical(canonicalUrl)) {
-        const loc = `${host}/blog/${escapeHtmlForSitemap(slug)}`;
-        let urlXml = `  <url>\n`;
-        urlXml += `    <loc>${loc}</loc>\n`;
-        urlXml += `    <lastmod>${getFormattedDate(blog)}</lastmod>\n`;
         urlXml += `    <changefreq>weekly</changefreq>\n`;
         urlXml += `    <priority>0.7</priority>\n`;
         urlXml += `  </url>\n`;

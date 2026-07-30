@@ -136,11 +136,6 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
   } else if (cleanPathLower.startsWith('/news/')) {
     const slug = cleanPath.split('/news/')[1];
     bodyContent = renderers.renderNewsDetail(slug, news, settings);
-  } else if (cleanPathLower === '/blogs') {
-    bodyContent = renderers.renderBlogsList(blogs, settings);
-  } else if (cleanPathLower.startsWith('/blog/')) {
-    const slug = cleanPath.split('/blog/')[1];
-    bodyContent = renderers.renderBlogDetail(slug, blogs, settings);
   } else if (cleanPathLower === '/videos') {
     bodyContent = renderers.renderVideosList(videos, settings);
   } else if (cleanPathLower.startsWith('/videos/')) {
