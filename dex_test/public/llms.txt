@@ -1,0 +1,11 @@
+# Application Hub
+
+> Application Hub is a digital platform providing a verified application catalog, technical specifications, industry news, and developer information.
+
+## Core Pages
+- [Home](https://www.rummydex.com/): Primary application directory and search.
+- [New Additions](https://www.rummydex.com/new-additions): Recently indexed applications.
+- [News](https://www.rummydex.com/news): Industry news and platform updates.
+- [Blogs](https://www.rummydex.com/blogs): Technical articles and guides.
+- [Developers](https://www.rummydex.com/developers): Developer portal and submission guidelines.
+- [About Us](https://www.rummydex.com/about): Information about Application Hub platform.
