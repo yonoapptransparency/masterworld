@@ -140,9 +140,10 @@ publicApiRouter.get("/api/v1/image", async (req, res) => {
 
 let backupDataCache: any = null;
 let backupDataCacheTime = 0;
-const BACKUP_DATA_CACHE_TTL = 0;
+const BACKUP_DATA_CACHE_TTL = 30000; // 30s cache for fast response times
 
 publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/public/backup-data", "/public/backup-data"], async (req, res) => {
+  res.set("Cache-Control", "public, max-age=15, stale-while-revalidate=30");
   try {
     const now = Date.now();
     if (backupDataCache && (now - backupDataCacheTime < BACKUP_DATA_CACHE_TTL)) {
