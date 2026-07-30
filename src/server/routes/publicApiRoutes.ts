@@ -172,13 +172,18 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
         const newsSnap = await adminDb.collection('store_data').doc('news').get();
         const blogsSnap = await adminDb.collection('store_data').doc('blogs').get();
         const videosSnap = await adminDb.collection('store_data').doc('videos').get();
+        const staticFallback = getStaticData();
+        const dbNews = newsSnap.exists ? newsSnap.data()?.items || [] : [];
+        const dbBlogs = blogsSnap.exists ? blogsSnap.data()?.items || [] : [];
+        const dbVideos = videosSnap.exists ? videosSnap.data()?.items || [] : [];
+
         if (apps.length > 0 || settingsSnap.exists) {
           const liveData = {
             apps,
             settings: settingsSnap.exists ? settingsSnap.data() : {},
-            news: newsSnap.exists ? newsSnap.data()?.items || [] : [],
-            blogs: blogsSnap.exists ? blogsSnap.data()?.items || [] : [],
-            videos: videosSnap.exists ? videosSnap.data()?.items || [] : []
+            news: dbNews.length > 0 ? dbNews : (staticFallback.mockNews || []),
+            blogs: dbBlogs.length > 0 ? dbBlogs : (staticFallback.mockBlogs || []),
+            videos: dbVideos.length > 0 ? dbVideos : (staticFallback.mockVideos || [])
           };
           backupDataCache = liveData;
           backupDataCacheTime = now;
@@ -228,13 +233,18 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
         try { if (newsRes.ok) newsObj = parseFirestoreFields((await newsRes.json() as any)?.fields); } catch (e) {}
         try { if (blogsRes.ok) blogsObj = parseFirestoreFields((await blogsRes.json() as any)?.fields); } catch (e) {}
         try { if (videosRes.ok) videosObj = parseFirestoreFields((await videosRes.json() as any)?.fields); } catch (e) {}
+        const staticFallbackRest = getStaticData();
+        const restNews = (newsObj.items && newsObj.items.length > 0) ? newsObj.items : (staticFallbackRest.mockNews || []);
+        const restBlogs = (blogsObj.items && blogsObj.items.length > 0) ? blogsObj.items : (staticFallbackRest.mockBlogs || []);
+        const restVideos = (videosObj.items && videosObj.items.length > 0) ? videosObj.items : (staticFallbackRest.mockVideos || []);
+
         if (apps.length > 0 || Object.keys(settingsObj).length > 0) {
           const restLiveData = {
             apps,
             settings: settingsObj,
-            news: newsObj.items || [],
-            blogs: blogsObj.items || [],
-            videos: videosObj.items || []
+            news: restNews,
+            blogs: restBlogs,
+            videos: restVideos
           };
           backupDataCache = restLiveData;
           backupDataCacheTime = now;

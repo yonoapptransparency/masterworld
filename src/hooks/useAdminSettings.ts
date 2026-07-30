@@ -47,13 +47,16 @@ export const useAdminSettings = (settings: any, news: any[], blogs: any[], video
     const newId = Math.random().toString(36).substr(2, 9);
     const newItem = {
       id: newId,
-      slug: 'new-news',
+      slug: `news-${newId}`,
       title: 'New News',
       logo_url: '',
       description: 'News description...',
       description_html: '<p>Content...</p>',
+      content: '<p>Content...</p>',
       image_url: '',
       created_at: new Date().toISOString(),
+      date: new Date().toISOString(),
+      published_at: new Date().toISOString(),
       is_breaking: false,
       is_new: true,
       category: 'General',
@@ -64,7 +67,17 @@ export const useAdminSettings = (settings: any, news: any[], blogs: any[], video
   };
 
   const handleNewsChange = (id: string, field: string, value: any) => {
-    setNewsList(newsList.map(n => n.id === id ? { ...n, [field]: value, updated_at: new Date().toISOString() } : n));
+    setNewsList(newsList.map(n => {
+      if (n.id !== id) return n;
+      const updated = { ...n, [field]: value, updated_at: new Date().toISOString() };
+      if (field === 'title' && (!n.slug || n.slug.startsWith('news-') || n.slug === 'new-news')) {
+        updated.slug = value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      }
+      if (field === 'content') {
+        updated.description_html = value;
+      }
+      return updated;
+    }));
   };
 
   const handleDeleteNews = (id: string) => {

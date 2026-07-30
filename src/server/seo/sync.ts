@@ -53,21 +53,21 @@ export async function syncFromFirestore(): Promise<any> {
     if (newsRes && newsRes.ok) {
       const docData = await newsRes.json();
       const parsed = parseFirestoreDoc(docData.fields);
-      if (parsed && Array.isArray(parsed.items)) news = parsed.items;
+      if (parsed && Array.isArray(parsed.items) && parsed.items.length > 0) news = parsed.items;
     }
 
     let blogs = mockBlogs;
     if (blogsRes && blogsRes.ok) {
       const docData = await blogsRes.json();
       const parsed = parseFirestoreDoc(docData.fields);
-      if (parsed && Array.isArray(parsed.items)) blogs = parsed.items;
+      if (parsed && Array.isArray(parsed.items) && parsed.items.length > 0) blogs = parsed.items;
     }
 
     let videos = mockVideos;
     if (videosRes && videosRes.ok) {
       const docData = await videosRes.json();
       const parsed = parseFirestoreDoc(docData.fields);
-      if (parsed && Array.isArray(parsed.items)) videos = parsed.items;
+      if (parsed && Array.isArray(parsed.items) && parsed.items.length > 0) videos = parsed.items;
     }
 
     let apps: any[] = [];

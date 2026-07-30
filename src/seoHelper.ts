@@ -24,13 +24,15 @@ const mockVideos = staticData.mockVideos || [];
 
 let cachedData: any = null;
 let lastFetchTime = 0;
-const CACHE_TTL = 3600000; // 1 hour
+const CACHE_TTL = 15000; // 15 seconds
 let isFetchingStoreData = false;
 
 export { getField, getSafeFirebaseConfig, syncFromFirestore };
 
 async function doFetchStoreData() {
   const now = Date.now();
+  const freshStatic = getStaticData();
+
   const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
   if (fs.existsSync(publicBackupPath)) {
     try {
@@ -39,9 +41,9 @@ async function doFetchStoreData() {
         const data = {
           apps: backup.apps || [],
           settings: backup.settings || {},
-          news: backup.news || [],
-          blogs: backup.blogs || [],
-          videos: backup.videos || []
+          news: (backup.news && backup.news.length > 0) ? backup.news : (freshStatic.mockNews || []),
+          blogs: (backup.blogs && backup.blogs.length > 0) ? backup.blogs : (freshStatic.mockBlogs || []),
+          videos: (backup.videos && backup.videos.length > 0) ? backup.videos : (freshStatic.mockVideos || [])
         };
         cachedData = data;
         lastFetchTime = now;
@@ -54,17 +56,26 @@ async function doFetchStoreData() {
 
   const synced = await syncFromFirestore();
   if (synced) {
+    if ((!synced.news || synced.news.length === 0) && freshStatic.mockNews?.length > 0) {
+      synced.news = freshStatic.mockNews;
+    }
+    if ((!synced.blogs || synced.blogs.length === 0) && freshStatic.mockBlogs?.length > 0) {
+      synced.blogs = freshStatic.mockBlogs;
+    }
+    if ((!synced.videos || synced.videos.length === 0) && freshStatic.mockVideos?.length > 0) {
+      synced.videos = freshStatic.mockVideos;
+    }
     cachedData = synced;
     lastFetchTime = now;
     return synced;
   }
 
   const data = {
-    apps: mockApps || [],
-    settings: mockSettings || {},
-    news: mockNews || [],
-    blogs: mockBlogs || [],
-    videos: mockVideos || []
+    apps: freshStatic.mockApps || [],
+    settings: freshStatic.mockSettings || {},
+    news: freshStatic.mockNews || [],
+    blogs: freshStatic.mockBlogs || [],
+    videos: freshStatic.mockVideos || []
   };
   
   cachedData = data;

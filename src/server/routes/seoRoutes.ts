@@ -183,14 +183,20 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
       const slug = getField(app, 'slug');
       const canonicalUrl = getField(app, 'canonical_url');
       if (slug && !isExternalCanonical(canonicalUrl)) {
-        const loc = `${host}/${escapeHtmlForSitemap(slug)}`;
-        let urlXml = `  <url>\n`;
-        urlXml += `    <loc>${loc}</loc>\n`;
-        urlXml += `    <lastmod>${getFormattedDate(app)}</lastmod>\n`;
-        urlXml += `    <changefreq>daily</changefreq>\n`;
-        urlXml += `    <priority>1.0</priority>\n`;
-        urlXml += `  </url>\n`;
-        addUrl(urlXml, loc);
+        const escapedSlug = escapeHtmlForSitemap(slug);
+        const appDate = getFormattedDate(app);
+
+        // Primary App detail route
+        const appLoc = `${host}/app/${escapedSlug}`;
+        addUrl(`  <url>\n    <loc>${appLoc}</loc>\n    <lastmod>${appDate}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>1.0</priority>\n  </url>\n`, appLoc);
+
+        // Neutral Safety status route
+        const sLoc = `${host}/s/${escapedSlug}`;
+        addUrl(`  <url>\n    <loc>${sLoc}</loc>\n    <lastmod>${appDate}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n  </url>\n`, sLoc);
+
+        // Short direct slug route
+        const directLoc = `${host}/${escapedSlug}`;
+        addUrl(`  <url>\n    <loc>${directLoc}</loc>\n    <lastmod>${appDate}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.9</priority>\n  </url>\n`, directLoc);
       }
     }
     for (const newsItem of news) {

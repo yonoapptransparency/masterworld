@@ -182,15 +182,6 @@ export const AdminTabContent = ({
           appsList={appsList}
         />
       );
-    case 'blogs':
-      return <BlogsTab 
-        blogs={blogsList}
-        saving={saving}
-        handleAddBlog={handleAddBlog}
-        handleBlogChange={handleBlogChange}
-        handleDeleteBlog={handleDeleteBlog}
-        handleSaveBlogs={handleSaveBlogs}
-      />;
     case 'videos':
       return (
         <AdminVideosTab 
