@@ -143,7 +143,7 @@ export const AdminTabContent = ({
         <AdminBannersTab 
           banners={banners} 
           saving={saving} 
-          handleSaveBanners={handleSaveSettings}
+          handleSaveBanners={(e: any) => { e?.preventDefault?.(); handleSaveSettings({ ...settings, banners }); }}
           handleAddBanner={handleAddBanner}
           handleBannerChange={handleBannerChange}
           handleDeleteBanner={handleDeleteBanner}
@@ -244,7 +244,15 @@ export const AdminTabContent = ({
         </div>
       );
     case 'settings':
-      return <SettingsTab settings={settings} saving={saving} handleSaveSettings={handleSaveSettings} />;
+      return <SettingsTab settings={settings} saving={saving} handleSaveSettings={(e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const formData = new FormData(e.currentTarget);
+        const updatedSettings = { ...settings };
+        formData.forEach((value, key) => {
+          updatedSettings[key] = value;
+        });
+        handleSaveSettings(updatedSettings);
+      }} />;
 
     default:
       return null;
