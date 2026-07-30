@@ -84,22 +84,39 @@ export const useAdminSettings = (settings: any, news: any[], blogs: any[], video
     setCategoriesList(categoriesList.filter(c => c !== cat));
   };
 
-  // Blogs
+  // App Updates
   const handleAddBlog = () => {
     const newId = Math.random().toString(36).substr(2, 9);
-    setBlogsList([...blogsList, {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const newUpdate = {
       id: newId,
-      slug: 'new-blog',
-      title: 'New Blog',
-      content: 'Content...',
+      slug: `app-update-${newId}`,
+      title: 'New App Update',
+      content: '## Version Release Notes\n\nWrite your update details here...',
+      author: 'Admin Team',
+      publish_date: todayStr,
+      published_at: todayStr,
       created_at: new Date().toISOString()
-    }]);
+    };
+    setBlogsList(prev => [...prev, newUpdate]);
+    return newId;
   };
   const handleDeleteBlog = (id: string) => {
-    setBlogsList(blogsList.filter(b => b.id !== id));
+    setBlogsList(prev => prev.filter(b => b.id !== id));
   };
   const handleBlogChange = (id: string, field: string, value: any) => {
-    setBlogsList(blogsList.map(b => b.id === id ? { ...b, [field]: value, updated_at: new Date().toISOString() } : b));
+    setBlogsList(prev => prev.map(b => {
+      if (b.id === id) {
+        const updated = { ...b, [field]: value, updated_at: new Date().toISOString() };
+        if (field === 'publish_date') {
+          updated.published_at = value;
+        } else if (field === 'published_at') {
+          updated.publish_date = value;
+        }
+        return updated;
+      }
+      return b;
+    }));
   };
 
   // Videos

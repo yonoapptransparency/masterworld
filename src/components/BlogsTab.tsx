@@ -3,6 +3,29 @@ import { FileText, Plus, Trash2, Edit2, LayoutDashboard, Globe, AlertTriangle, M
 import { motion, AnimatePresence } from 'framer-motion';
 
 import ImageUpload from "./ImageUpload";
+
+const getSafeDateInput = (val: any) => {
+  if (!val) return new Date().toISOString().split('T')[0];
+  if (typeof val === 'string') {
+    if (val.includes('T')) return val.split('T')[0];
+    if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+  }
+  try {
+    const d = new Date(val);
+    if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+  } catch (e) {}
+  return new Date().toISOString().split('T')[0];
+};
+
+const getSafeDisplayDate = (val: any) => {
+  if (!val) return new Date().toLocaleDateString();
+  try {
+    const d = new Date(val);
+    if (!isNaN(d.getTime())) return d.toLocaleDateString();
+  } catch (e) {}
+  return new Date().toLocaleDateString();
+};
+
 const BlogsTab = React.memo(({ blogs, handleAddBlog, handleDeleteBlog, handleBlogChange, handleSaveBlogs, saving }: any) => {
   const [editingBlogId, setEditingBlogId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -123,7 +146,7 @@ const BlogsTab = React.memo(({ blogs, handleAddBlog, handleDeleteBlog, handleBlo
                           </div>
                           <div>
                             <label className="block text-[11px] uppercase tracking-wider font-bold text-slate-500 mb-1.5">Publish Date</label>
-                            <input type="date" value={blog.publish_date ? new Date(blog.publish_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]} onChange={(e) => handleBlogChange(blog.id, 'publish_date', e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+                            <input type="date" value={getSafeDateInput(blog.publish_date || blog.published_at)} onChange={(e) => handleBlogChange(blog.id, 'publish_date', e.target.value)} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
                           </div>
                         </div>
                       </div>
@@ -228,7 +251,7 @@ const BlogsTab = React.memo(({ blogs, handleAddBlog, handleDeleteBlog, handleBlo
                         <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[10px] font-bold uppercase tracking-wider rounded-full">{blog.related_app_name || 'General'}</span>
                         <span className="text-xs text-slate-400 font-medium flex items-center gap-1">
                           <Calendar className="w-3 h-3" />
-                          {blog.publish_date ? new Date(blog.publish_date).toLocaleDateString() : new Date().toLocaleDateString()}
+                          {getSafeDisplayDate(blog.publish_date || blog.published_at || blog.created_at)}
                         </span>
                       </div>
                       <h3 className="font-bold text-lg text-slate-900 dark:text-white truncate">{blog.title || 'Untitled Update'}</h3>

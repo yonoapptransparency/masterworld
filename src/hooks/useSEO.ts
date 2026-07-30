@@ -101,8 +101,8 @@ export function useSEO(
       pageDesc = 'Read our official news and verified coverage.';
       pageKeywords = settings.seo_keywords || '';
     } else if (path === '/blogs') {
-      pageTitle = `Expert Strategy Blogs - ${siteTitle}`;
-      pageDesc = 'Comprehensive casual gaming strategy breakdowns, tips, and tutorials.';
+      pageTitle = `App Updates & Release Notes - ${siteTitle}`;
+      pageDesc = 'Read the latest app updates, version release notes, changelogs, and patch announcements.';
       pageKeywords = settings.seo_keywords || '';
     } else if (path === '/videos') {
       pageTitle = `Video Interface Walkthroughs - ${siteTitle}`;
