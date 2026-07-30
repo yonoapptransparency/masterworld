@@ -60,6 +60,11 @@ export const AppForm = ({
       <input type="hidden" name="hidden_idea_box_msg" value={formFields.idea_box_msg || ''} />
       <input type="hidden" name="hidden_screenshots_json" value={JSON.stringify(formFields.screenshots || [])} />
       <input type="hidden" name="hidden_faqs_json" value={JSON.stringify(formFields.faqs || [])} />
+      <input type="hidden" name="hidden_canonical_url" value={formFields.canonical_url || ''} />
+      <input type="hidden" name="hidden_publish_date" value={formFields.publish_date || ''} />
+      <input type="hidden" name="hidden_video_url" value={formFields.video_url || ''} />
+      <input type="hidden" name="hidden_release_notes" value={formFields.release_notes || ''} />
+
       {/* Form Sticky Header */}
       <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800/80 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50 shrink-0">
         <div className="min-w-0 flex items-center gap-2">

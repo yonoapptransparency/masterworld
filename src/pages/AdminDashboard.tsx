@@ -42,6 +42,7 @@ export default function AdminDashboard() {
     newCatInput, setNewCatInput,
     handleAddBanner, handleBannerChange, handleDeleteBanner,
     handleAddNews, handleNewsChange, handleDeleteNews,
+    handleAddBlog, handleBlogChange, handleDeleteBlog,
     handleAddCategory, handleRemoveCategory,
     handleAddVideo, handleDeleteVideo, handleVideosChange,
     handleAddWebsiteFaq, handleRemoveWebsiteFaq, handleWebsiteFaqChange,
@@ -103,6 +104,7 @@ export default function AdminDashboard() {
       }
 
       const actualAppId = editingAppId || Math.random().toString(36).substr(2, 9);
+      const existingApp = editingAppId ? appsList.find(a => a.id === editingAppId) : null;
       const appData = {
         id: actualAppId,
         name,
@@ -123,6 +125,10 @@ export default function AdminDashboard() {
         seo_description: (formData.get('seo_description') as string ?? formData.get('hidden_seo_description') as string) || '',
         seo_keywords: (formData.get('seo_keywords') as string ?? formData.get('hidden_seo_keywords') as string) || '',
         og_image_url: (formData.get('og_image_url') as string ?? formData.get('hidden_og_image_url') as string) || '',
+        canonical_url: (formData.get('canonical_url') as string ?? formData.get('hidden_canonical_url') as string) || '',
+        video_url: (formData.get('video_url') as string ?? formData.get('hidden_video_url') as string) || '',
+        publish_date: (formData.get('publish_date') as string ?? formData.get('hidden_publish_date') as string) || '',
+        release_notes: (formData.get('release_notes') as string ?? formData.get('hidden_release_notes') as string) || '',
         red_box_msg: (formData.get('red_box_msg') as string ?? formData.get('hidden_red_box_msg') as string) || '',
         yellow_box_msg: (formData.get('yellow_box_msg') as string ?? formData.get('hidden_yellow_box_msg') as string) || '',
         idea_box_msg: (formData.get('idea_box_msg') as string ?? formData.get('hidden_idea_box_msg') as string) || '',
@@ -130,7 +136,8 @@ export default function AdminDashboard() {
         is_coming_soon: formData.get('is_coming_soon') === 'on',
         screenshots: JSON.parse((formData.get('screenshots_json') as string || formData.get('hidden_screenshots_json') as string) || '[]'),
         faqs: JSON.parse((formData.get('faqs_json') as string || formData.get('hidden_faqs_json') as string) || '[]'),
-        created_at: new Date().toISOString()
+        created_at: existingApp?.created_at || new Date().toISOString(),
+        updated_at: new Date().toISOString()
       };
 
       if (plaintextUrl) cachedSecureMapRef.current.set(actualAppId, plaintextUrl);
@@ -219,6 +226,10 @@ export default function AdminDashboard() {
             handleAddNews={handleAddNews}
             handleNewsChange={handleNewsChange}
             handleDeleteNews={handleDeleteNews}
+            handleAddBlog={handleAddBlog}
+            handleBlogChange={handleBlogChange}
+            handleDeleteBlog={handleDeleteBlog}
+            handleSaveBlogs={() => saveBlogs(blogsList)}
             handleAddCategory={handleAddCategory}
             handleRemoveCategory={handleRemoveCategory}
             handleAddVideo={handleAddVideo}

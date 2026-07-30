@@ -134,7 +134,10 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
     xml += `  <url>\n    <loc>${host}/ethics</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
     xml += `  <url>\n    <loc>${host}/disclaimer</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
 
-    const escapeHtmlForSitemap = (unsafe: string) => {
+    const escapeHtmlForSitemap = (unsafe: any) => {
+      if (typeof unsafe !== 'string') {
+        unsafe = String(unsafe || '');
+      }
       return unsafe
          .replace(/&/g, "&amp;")
          .replace(/</g, "&lt;")
@@ -169,51 +172,67 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
       return false;
     };
 
+    const seenUrls = new Set<string>();
+    const addUrl = (urlXml: string, loc: string) => {
+      if (!seenUrls.has(loc)) {
+        seenUrls.add(loc);
+        xml += urlXml;
+      }
+    };
+
     for (const app of apps) {
       const slug = getField(app, 'slug');
       const canonicalUrl = getField(app, 'canonical_url');
       if (slug && !isExternalCanonical(canonicalUrl)) {
-        xml += `  <url>\n`;
-        xml += `    <loc>${host}/${escapeHtmlForSitemap(slug)}</loc>\n`;
-        xml += `    <lastmod>${getFormattedDate(app)}</lastmod>\n`;
-        xml += `    <changefreq>daily</changefreq>\n`;
-        xml += `    <priority>1.0</priority>\n`;
-        xml += `  </url>\n`;
+        const loc = `${host}/${escapeHtmlForSitemap(slug)}`;
+        let urlXml = `  <url>\n`;
+        urlXml += `    <loc>${loc}</loc>\n`;
+        urlXml += `    <lastmod>${getFormattedDate(app)}</lastmod>\n`;
+        urlXml += `    <changefreq>daily</changefreq>\n`;
+        urlXml += `    <priority>1.0</priority>\n`;
+        urlXml += `  </url>\n`;
+        addUrl(urlXml, loc);
       }
     }
     for (const newsItem of news) {
       const slug = getField(newsItem, 'slug');
       const canonicalUrl = getField(newsItem, 'canonical_url');
       if (slug && !isExternalCanonical(canonicalUrl)) {
-        xml += `  <url>\n`;
-        xml += `    <loc>${host}/news/${escapeHtmlForSitemap(slug)}</loc>\n`;
-        xml += `    <lastmod>${getFormattedDate(newsItem)}</lastmod>\n`;
-        xml += `    <changefreq>weekly</changefreq>\n`;
-        xml += `    <priority>0.7</priority>\n`;
-        xml += `  </url>\n`;
+        const loc = `${host}/news/${escapeHtmlForSitemap(slug)}`;
+        let urlXml = `  <url>\n`;
+        urlXml += `    <loc>${loc}</loc>\n`;
+        urlXml += `    <lastmod>${getFormattedDate(newsItem)}</lastmod>\n`;
+        urlXml += `    <changefreq>weekly</changefreq>\n`;
+        urlXml += `    <priority>0.7</priority>\n`;
+        urlXml += `  </url>\n`;
+        addUrl(urlXml, loc);
       }
     }
     for (const blog of blogs) {
       const slug = getField(blog, 'slug');
       const canonicalUrl = getField(blog, 'canonical_url');
       if (slug && !isExternalCanonical(canonicalUrl)) {
-        xml += `  <url>\n`;
-        xml += `    <loc>${host}/blog/${escapeHtmlForSitemap(slug)}</loc>\n`;
-        xml += `    <lastmod>${getFormattedDate(blog)}</lastmod>\n`;
-        xml += `    <changefreq>weekly</changefreq>\n`;
-        xml += `    <priority>0.7</priority>\n`;
-        xml += `  </url>\n`;
+        const loc = `${host}/blog/${escapeHtmlForSitemap(slug)}`;
+        let urlXml = `  <url>\n`;
+        urlXml += `    <loc>${loc}</loc>\n`;
+        urlXml += `    <lastmod>${getFormattedDate(blog)}</lastmod>\n`;
+        urlXml += `    <changefreq>weekly</changefreq>\n`;
+        urlXml += `    <priority>0.7</priority>\n`;
+        urlXml += `  </url>\n`;
+        addUrl(urlXml, loc);
       }
     }
     for (const video of videos) {
       const slug = getField(video, 'slug');
       if (slug) {
-        xml += `  <url>\n`;
-        xml += `    <loc>${host}/videos/${escapeHtmlForSitemap(slug)}</loc>\n`;
-        xml += `    <lastmod>${getFormattedDate(video)}</lastmod>\n`;
-        xml += `    <changefreq>weekly</changefreq>\n`;
-        xml += `    <priority>0.6</priority>\n`;
-        xml += `  </url>\n`;
+        const loc = `${host}/videos/${escapeHtmlForSitemap(slug)}`;
+        let urlXml = `  <url>\n`;
+        urlXml += `    <loc>${loc}</loc>\n`;
+        urlXml += `    <lastmod>${getFormattedDate(video)}</lastmod>\n`;
+        urlXml += `    <changefreq>weekly</changefreq>\n`;
+        urlXml += `    <priority>0.6</priority>\n`;
+        urlXml += `  </url>\n`;
+        addUrl(urlXml, loc);
       }
     }
 

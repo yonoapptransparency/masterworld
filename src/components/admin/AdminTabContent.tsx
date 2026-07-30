@@ -54,6 +54,10 @@ interface AdminTabContentProps {
   handleAddNews: () => string;
   handleNewsChange: (id: string, field: string, value: any) => void;
   handleDeleteNews: (id: string) => void;
+  handleAddBlog?: () => void;
+  handleBlogChange?: (id: string, field: string, value: any) => void;
+  handleDeleteBlog?: (id: string) => void;
+  handleSaveBlogs?: () => void;
   handleAddCategory: () => void;
   handleRemoveCategory: (cat: string) => void;
   handleAddVideo: () => void;
@@ -108,6 +112,10 @@ export const AdminTabContent = ({
   handleAddNews,
   handleNewsChange,
   handleDeleteNews,
+  handleAddBlog,
+  handleBlogChange,
+  handleDeleteBlog,
+  handleSaveBlogs,
   handleAddCategory,
   handleRemoveCategory,
   handleAddVideo,
@@ -175,7 +183,14 @@ export const AdminTabContent = ({
         />
       );
     case 'blogs':
-      return <BlogsTab />;
+      return <BlogsTab 
+        blogs={blogsList}
+        saving={saving}
+        handleAddBlog={handleAddBlog}
+        handleBlogChange={handleBlogChange}
+        handleDeleteBlog={handleDeleteBlog}
+        handleSaveBlogs={handleSaveBlogs}
+      />;
     case 'videos':
       return (
         <AdminVideosTab 

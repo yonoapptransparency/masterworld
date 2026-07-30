@@ -64,7 +64,7 @@ export const useAdminSettings = (settings: any, news: any[], blogs: any[], video
   };
 
   const handleNewsChange = (id: string, field: string, value: any) => {
-    setNewsList(newsList.map(n => n.id === id ? { ...n, [field]: value } : n));
+    setNewsList(newsList.map(n => n.id === id ? { ...n, [field]: value, updated_at: new Date().toISOString() } : n));
   };
 
   const handleDeleteNews = (id: string) => {
@@ -84,6 +84,24 @@ export const useAdminSettings = (settings: any, news: any[], blogs: any[], video
     setCategoriesList(categoriesList.filter(c => c !== cat));
   };
 
+  // Blogs
+  const handleAddBlog = () => {
+    const newId = Math.random().toString(36).substr(2, 9);
+    setBlogsList([...blogsList, {
+      id: newId,
+      slug: 'new-blog',
+      title: 'New Blog',
+      content: 'Content...',
+      created_at: new Date().toISOString()
+    }]);
+  };
+  const handleDeleteBlog = (id: string) => {
+    setBlogsList(blogsList.filter(b => b.id !== id));
+  };
+  const handleBlogChange = (id: string, field: string, value: any) => {
+    setBlogsList(blogsList.map(b => b.id === id ? { ...b, [field]: value, updated_at: new Date().toISOString() } : b));
+  };
+
   // Videos
   const handleAddVideo = () => {
     setVideosList([...videosList, {
@@ -101,7 +119,7 @@ export const useAdminSettings = (settings: any, news: any[], blogs: any[], video
   };
 
   const handleVideosChange = (id: string, field: string, value: any) => {
-    setVideosList(videosList.map(v => v.id === id ? { ...v, [field]: value } : v));
+    setVideosList(videosList.map(v => v.id === id ? { ...v, [field]: value, updated_at: new Date().toISOString() } : v));
   };
 
   // Website FAQs
@@ -167,6 +185,7 @@ export const useAdminSettings = (settings: any, news: any[], blogs: any[], video
     newCatInput, setNewCatInput,
     handleAddBanner, handleBannerChange, handleDeleteBanner,
     handleAddNews, handleNewsChange, handleDeleteNews,
+    handleAddBlog, handleBlogChange, handleDeleteBlog,
     handleAddCategory, handleRemoveCategory,
     handleAddVideo, handleDeleteVideo, handleVideosChange,
     handleAddWebsiteFaq, handleRemoveWebsiteFaq, handleWebsiteFaqChange,
