@@ -306,6 +306,18 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     title = `Report & Removal | ${siteTitle}`;
   } else if (cleanPathLower === '/terms') {
     title = `Terms of Service | ${siteTitle}`;
+
+  } else if (cleanPathLower.startsWith('/info/') || cleanPathLower.startsWith('/moreinfo/') || cleanPathLower.startsWith('/moredetail/')) {
+    const parts = cleanPathLower.split('/');
+    const slug = parts[parts.length - 1];
+    const app = apps.find((a: any) => getField(a, 'slug').toLowerCase() === slug);
+    if (app) {
+      title = `More Info: ${getField(app, 'name')} | ${siteTitle}`;
+      description = `Detailed information about ${getField(app, 'name')}.`;
+      isAppPage = true;
+    } else {
+      isNotFound = true;
+    }
   } else {
     const appSlug = cleanPathLower.replace(/^\/app\//, '/').replace(/^\/|\/$/g, '');
     const app = apps.find((a: any) => getField(a, 'slug').toLowerCase() === appSlug);
@@ -333,6 +345,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     <meta name="twitter:title" content="${title}">
     <meta name="twitter:description" content="${description}">
     <meta name="twitter:image" content="${logoUrl}">
+    ${(cleanPathLower.startsWith('/info/') || cleanPathLower.startsWith('/moreinfo/') || cleanPathLower.startsWith('/moredetail/')) ? '<meta name="robots" content="noindex">' : ''}
     <link rel="canonical" href="${currentUrl}">
   `;
 
