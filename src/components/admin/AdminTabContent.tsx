@@ -133,7 +133,7 @@ export const AdminTabContent = ({
 }: AdminTabContentProps) => {
   switch (activeTab) {
     case 'dashboard':
-      return <DashboardTab apps={appsList} news={newsList} updates={blogsList} />;
+      return <DashboardTab apps={appsList} news={newsList} />;
     case 'apps':
       return (
         <AppsTab 

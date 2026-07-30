@@ -189,7 +189,7 @@ export default function AdminDashboard() {
         <header className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 px-4 py-2 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h2 className="text-lg font-black tracking-tight capitalize">
-              {activeTab === 'blogs' ? 'App Updates' : activeTab.replace('-', ' ')}
+              {activeTab === 'news' ? 'News Section' : activeTab.replace('-', ' ')}
             </h2>
             <FirebaseStatusIndicator />
           </div>

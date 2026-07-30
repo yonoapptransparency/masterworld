@@ -7,10 +7,10 @@ import FirebaseStatusPanel from '../FirebaseStatusPanel';
 interface DashboardOverviewProps {
   apps: any[];
   news: any[];
-  updates: any[];
+  updates?: any[];
 }
 
-export const AdminDashboardOverview = React.memo(({ apps, news, updates }: DashboardOverviewProps) => {
+export const AdminDashboardOverview = React.memo(({ apps, news }: DashboardOverviewProps) => {
   const [pendingReviews, setPendingReviews] = useState<number | null>(null);
 
   useEffect(() => {
@@ -62,8 +62,8 @@ export const AdminDashboardOverview = React.memo(({ apps, news, updates }: Dashb
         <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/60 dark:border-slate-700/50 p-6 rounded-[2rem] shadow-xl shadow-indigo-500/5 flex items-center justify-between relative overflow-hidden group hover:scale-[1.02] transition-transform duration-300">
           <div className="absolute -right-8 -top-8 w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl group-hover:bg-indigo-500/20 transition-all"></div>
           <div className="relative z-10">
-            <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1.5">App Updates</div>
-            <div className="text-4xl font-black text-slate-900 dark:text-white">{updates?.length || 0}</div>
+            <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1.5">News Articles</div>
+            <div className="text-4xl font-black text-slate-900 dark:text-white">{news?.length || 0}</div>
           </div>
           <div className="relative z-10 w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-400 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
             <Newspaper className="w-6 h-6" />
