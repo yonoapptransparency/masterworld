@@ -181,18 +181,13 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
 
     for (const app of apps) {
       const slug = getField(app, 'slug');
-      const canonicalUrl = getField(app, 'canonical_url');
-      if (slug && !isExternalCanonical(canonicalUrl)) {
+      if (slug) {
         const escapedSlug = escapeHtmlForSitemap(slug);
         const appDate = getFormattedDate(app);
 
         // Primary App detail route
         const appLoc = `${host}/app/${escapedSlug}`;
         addUrl(`  <url>\n    <loc>${appLoc}</loc>\n    <lastmod>${appDate}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>1.0</priority>\n  </url>\n`, appLoc);
-
-        // Neutral Safety status route
-        const sLoc = `${host}/s/${escapedSlug}`;
-        addUrl(`  <url>\n    <loc>${sLoc}</loc>\n    <lastmod>${appDate}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n  </url>\n`, sLoc);
 
         // Short direct slug route
         const directLoc = `${host}/${escapedSlug}`;
@@ -201,8 +196,7 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
     }
     for (const newsItem of news) {
       const slug = getField(newsItem, 'slug');
-      const canonicalUrl = getField(newsItem, 'canonical_url');
-      if (slug && !isExternalCanonical(canonicalUrl)) {
+      if (slug) {
         const loc = `${host}/news/${escapeHtmlForSitemap(slug)}`;
         let urlXml = `  <url>\n`;
         urlXml += `    <loc>${loc}</loc>\n`;

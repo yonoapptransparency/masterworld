@@ -151,16 +151,14 @@ async function prerender() {
 
     for (const app of data.apps || []) {
       const slug = getField(app, 'slug');
-      const canonicalUrl = getField(app, 'canonical_url');
-      if (slug && !isExternalCanonical(canonicalUrl)) {
+      if (slug) {
         xml += `  <url>\n    <loc>${host}/app/${escapeHtmlForSitemap(slug)}</loc>\n    <lastmod>${getFormattedDate(app)}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.9</priority>\n  </url>\n`;
       }
     }
 
     for (const newsItem of data.news || []) {
       const slug = getField(newsItem, 'slug');
-      const canonicalUrl = getField(newsItem, 'canonical_url');
-      if (slug && !isExternalCanonical(canonicalUrl)) {
+      if (slug) {
         xml += `  <url>\n    <loc>${host}/news/${escapeHtmlForSitemap(slug)}</loc>\n    <lastmod>${getFormattedDate(newsItem)}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
       }
     }
