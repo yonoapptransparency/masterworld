@@ -176,9 +176,23 @@ export function useGitHubSync(
         content: updatedCode,
         message: `Admin Release: Manual content synchronization to ${targetRepo}`
       });
-      log(`GitHub Sync: ✅ staticData.ts successfully synced.`);
+      log(`GitHub Sync: ✅ staticData.ts successfully synced to ${targetRepo}.`);
+      
+      if (targetRepo.toLowerCase() !== 'masterworld') {
+        log(`GitHub Sync: Pushing staticData.ts to masterworld (Source of Truth)...`);
+        await commitFileToGitHub({
+          owner: configToUse.owner,
+          repo: 'masterworld',
+          token: configToUse.token,
+          branch: configToUse.branch || 'main',
+          path: 'src/lib/staticData.ts',
+          content: updatedCode,
+          message: `Admin Release: Manual content synchronization to masterworld`
+        });
+        log(`GitHub Sync: ✅ staticData.ts successfully synced to masterworld.`);
+      }
     } catch (err: any) {
-      throw new Error(`Failed to sync content to ${targetRepo}: ${err.message}`);
+      throw new Error(`Failed to sync staticData.ts: ${err.message}`);
     }
 
     try {
@@ -203,7 +217,21 @@ export function useGitHubSync(
               content: `export const ENCRYPTED_LINKS = "${vaultData.ciphertext}";\n`,
               message: `Admin Release: Secure vault synchronization for ${targetRepo}`
             });
-            log(`GitHub Sync: ✅ secureVault.ts successfully synced.`);
+            log(`GitHub Sync: ✅ secureVault.ts successfully synced to ${targetRepo}.`);
+            
+            if (targetRepo.toLowerCase() !== 'masterworld') {
+              log(`GitHub Sync: Pushing secureVault.ts to masterworld (Source of Truth)...`);
+              await commitFileToGitHub({
+                owner: configToUse.owner,
+                repo: 'masterworld',
+                token: configToUse.token,
+                branch: configToUse.branch || 'main',
+                path: 'src/lib/secureVault.ts',
+                content: `export const ENCRYPTED_LINKS = "${vaultData.ciphertext}";\n`,
+                message: `Admin Release: Secure vault synchronization for masterworld`
+              });
+              log(`GitHub Sync: ✅ secureVault.ts successfully synced to masterworld.`);
+            }
          }
       }
     } catch(err: any) {
