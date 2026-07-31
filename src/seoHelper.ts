@@ -29,36 +29,41 @@ let isFetchingStoreData = false;
 
 export { getField, getSafeFirebaseConfig, syncFromFirestore };
 
+export function clearSeoCache() {
+  cachedData = null;
+  lastFetchTime = 0;
+}
+
 async function doFetchStoreData() {
   const now = Date.now();
   const freshStatic = getStaticData();
 
-  const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
-  if (fs.existsSync(publicBackupPath)) {
-    try {
-      const backup = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
-      if (backup.apps && backup.apps.length > 0) {
-        const data = {
-          apps: backup.apps || [],
-          settings: backup.settings || {},
-          news: Array.isArray(backup.news) ? backup.news : (freshStatic.mockNews || []),
-          blogs: Array.isArray(backup.blogs) ? backup.blogs : (freshStatic.mockBlogs || []),
-          videos: Array.isArray(backup.videos) ? backup.videos : (freshStatic.mockVideos || [])
-        };
-        cachedData = data;
-        lastFetchTime = now;
-        return data;
-      }
-    } catch (e) {
-      console.error("Error reading public_backup.json in seoHelper:", e);
-    }
-  }
-
+  // Always try live Firestore database sync first
   const synced = await syncFromFirestore();
   if (synced) {
     cachedData = synced;
     lastFetchTime = now;
     return synced;
+  }
+
+  // Fallback to local backup file if Firestore is unreachable
+  const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
+  if (fs.existsSync(publicBackupPath)) {
+    try {
+      const backup = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
+      const data = {
+        apps: backup.apps || [],
+        settings: backup.settings || {},
+        news: Array.isArray(backup.news) ? backup.news : [],
+        blogs: Array.isArray(backup.blogs) ? backup.blogs : [],
+        videos: Array.isArray(backup.videos) ? backup.videos : []
+      };
+      cachedData = data;
+      lastFetchTime = now;
+      return data;
+    } catch (e) {
+      console.error("Error reading public_backup.json in seoHelper:", e);
+    }
   }
 
   const data = {

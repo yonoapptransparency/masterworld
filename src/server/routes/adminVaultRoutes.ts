@@ -6,6 +6,8 @@ import { getFirebaseAdminDb, getRawFirebaseConfig, writeFirestoreRestDoc, delete
 import { verifyAdminToken } from '../middleware/adminAuth';
 import { rateLimit, getIp } from '../security';
 import { clearResolvedLinkCache } from './securityRoutes';
+import { clearPublicBackupCache } from './publicApiRoutes';
+import { clearSeoCache } from '../../seoHelper';
 
 export const adminVaultRouter = express.Router();
 
@@ -330,6 +332,10 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
     } catch (e) {
       console.warn("[SERVER] Could not update public_backup.json:", e);
     }
+
+    // Clear in-memory server caches so public endpoints immediately serve updated data
+    clearPublicBackupCache();
+    clearSeoCache();
 
     if (firestoreUpdated) {
       res.json({ 

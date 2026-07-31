@@ -142,6 +142,11 @@ let backupDataCache: any = null;
 let backupDataCacheTime = 0;
 const BACKUP_DATA_CACHE_TTL = 30000; // 30s cache for fast response times
 
+export function clearPublicBackupCache() {
+  backupDataCache = null;
+  backupDataCacheTime = 0;
+}
+
 publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/public/backup-data", "/public/backup-data"], async (req, res) => {
   res.set("Cache-Control", "public, max-age=15, stale-while-revalidate=30");
   try {

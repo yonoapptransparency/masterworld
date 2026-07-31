@@ -50,21 +50,21 @@ export async function syncFromFirestore(): Promise<any> {
       if (parsed && Object.keys(parsed).length > 0) settings = parsed;
     }
 
-    let news = mockNews;
+    let news: any[] = [];
     if (newsRes && newsRes.ok) {
       const docData = await newsRes.json();
       const parsed = parseFirestoreDoc(docData.fields);
       if (parsed && Array.isArray(parsed.items)) news = parsed.items;
     }
 
-    let blogs = mockBlogs;
+    let blogs: any[] = [];
     if (blogsRes && blogsRes.ok) {
       const docData = await blogsRes.json();
       const parsed = parseFirestoreDoc(docData.fields);
       if (parsed && Array.isArray(parsed.items)) blogs = parsed.items;
     }
 
-    let videos = mockVideos;
+    let videos: any[] = [];
     if (videosRes && videosRes.ok) {
       const docData = await videosRes.json();
       const parsed = parseFirestoreDoc(docData.fields);
