@@ -260,23 +260,25 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
     } catch (restErr) {}
 
     const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
-    if (fs.existsSync(publicBackupPath)) {
-      try {
-        const backup = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
-        const data = {
-          apps: backup.apps || [],
-          settings: backup.settings || {},
-          news: backup.news || [],
-          blogs: backup.blogs || [],
-          videos: backup.videos || []
-        };
-        backupDataCache = data;
-        backupDataCacheTime = now;
-        return res.json(data);
-      } catch (e) {
+    try {
+      const backupRaw = await fs.promises.readFile(publicBackupPath, 'utf8');
+      const backup = JSON.parse(backupRaw);
+      const data = {
+        apps: backup.apps || [],
+        settings: backup.settings || {},
+        news: backup.news || [],
+        blogs: backup.blogs || [],
+        videos: backup.videos || []
+      };
+      backupDataCache = data;
+      backupDataCacheTime = now;
+      return res.json(data);
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== 'ENOENT') {
         console.error("Error reading public_backup.json in backup-data endpoint:", e);
       }
     }
+
     const dataObj = getStaticData();
     const fallbackData = {
       apps: dataObj.mockApps || [],
