@@ -36,8 +36,27 @@ export default class GlobalErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     this.setState({ errorInfo });
-    // Log the error securely to the console for developers
     console.error('Unhandled Application Shell Exception:', error, errorInfo);
+
+    // Auto-reload on chunk load failure (when Vercel deploys a new build and old JS hashes 404)
+    const errorMsg = String(error?.message || error || '');
+    const isChunkError =
+      error?.name === 'ChunkLoadError' ||
+      /Failed to fetch dynamically imported module/i.test(errorMsg) ||
+      /Loading chunk/i.test(errorMsg) ||
+      /Failed to load resource/i.test(errorMsg) ||
+      /Importing a module script failed/i.test(errorMsg);
+
+    if (isChunkError) {
+      const reloadKey = 'chunk_err_boundary_reload';
+      const lastReload = parseInt(sessionStorage.getItem(reloadKey) || '0', 10);
+      const now = Date.now();
+      if (now - lastReload > 10000) {
+        sessionStorage.setItem(reloadKey, String(now));
+        console.warn('[GlobalErrorBoundary] Chunk import failure detected. Auto-reloading page for fresh bundle...');
+        window.location.reload();
+      }
+    }
   }
 
   handleReset = (): void => {

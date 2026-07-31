@@ -311,7 +311,10 @@ export async function adminFetch(
     const finalHeaders = {
     ...options.headers,
     "Content-Type": "application/json",
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0"
   } as any;
   if (token) finalHeaders.Authorization = `Bearer ${token}`;
-  return fetch(url, { ...options, headers: finalHeaders });
+  return fetch(url, { ...options, headers: finalHeaders, cache: 'no-store' });
 }

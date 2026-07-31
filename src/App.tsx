@@ -3,11 +3,12 @@
  * Coordinates admin authentication, routing, and live layout configurations.
  */
 
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useLocation, BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { DataProvider, useData } from './contexts/DataContext';
 import { getAdminPath } from './lib/utils';
+import { lazyWithRetry } from './lib/lazyWithRetry';
 
 // Error Boundary component for robust UI
 class ErrorBoundary extends React.Component<any, any> {
@@ -33,25 +34,6 @@ function LoadingScreen() {
     </div>
   );
 }
-
-const lazyWithRetry = (componentImport: () => Promise<any>) =>
-  lazy(async () => {
-    const pageHasAlreadyBeenForceRefreshed = JSON.parse(
-      window.sessionStorage.getItem('page-has-been-force-refreshed') || 'false'
-    );
-    try {
-      const component = await componentImport();
-      window.sessionStorage.setItem('page-has-been-force-refreshed', 'false');
-      return component;
-    } catch (error) {
-      if (!pageHasAlreadyBeenForceRefreshed) {
-        window.sessionStorage.setItem('page-has-been-force-refreshed', 'true');
-        window.location.reload();
-        return new Promise(() => {});
-      }
-      throw error;
-    }
-  });
 
 const AdminLoginPageLazy = lazyWithRetry(() => import('./pages/AdminLogin'));
 const AdminDashboard = lazyWithRetry(() => import('./pages/AdminDashboard'));

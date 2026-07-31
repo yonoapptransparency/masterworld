@@ -118,6 +118,30 @@ if (typeof window !== 'undefined') {
       configurable: true
     });
   }
+  // Global chunk loading error handler to recover automatically when old assets are deleted after a new build/deployment
+  const handleChunkError = (event: ErrorEvent | PromiseRejectionEvent) => {
+    const error = 'reason' in event ? event.reason : event.error;
+    const errorMsg = String(error?.message || error || (event as ErrorEvent).message || '');
+    const isChunkError =
+      error?.name === 'ChunkLoadError' ||
+      /Failed to fetch dynamically imported module/i.test(errorMsg) ||
+      /Loading chunk/i.test(errorMsg) ||
+      /Failed to load resource/i.test(errorMsg);
+
+    if (isChunkError) {
+      const reloadKey = 'global_chunk_err_reload';
+      const lastReload = parseInt(sessionStorage.getItem(reloadKey) || '0', 10);
+      const now = Date.now();
+      if (now - lastReload > 10000) {
+        sessionStorage.setItem(reloadKey, String(now));
+        console.warn('[Global] Dynamic module chunk fetch failed. Auto reloading page for updated deployment bundle...');
+        window.location.reload();
+      }
+    }
+  };
+
+  window.addEventListener('error', handleChunkError);
+  window.addEventListener('unhandledrejection', handleChunkError);
 }
 
 // Remove the SSR SEO pre-rendered content off-screen div once React takes over to avoid duplicate content penalty
