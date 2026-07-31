@@ -17,6 +17,6 @@ export function safeHtml(val: any, fallback: string = ''): string {
     return DOMPurify.sanitize(rawStr);
   } catch (err) {
     console.warn("DOMPurify sanitization fallback:", err);
-    return rawStr;
+    return fallback;
   }
 }
