@@ -356,15 +356,14 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
   }
 });
 
-adminVaultRouter.get("/api/v1/admin/backup-links-get", verifyAdminToken, (req, res) => {
+adminVaultRouter.get("/api/v1/admin/backup-links-get", verifyAdminToken, async (req, res) => {
   try {
     const AES_SECRET = getAesSecret();
     const mergedBackup: Record<string, string> = {};
 
     const vaultPath = path.join(process.cwd(), 'src/lib/secureVault.ts');
-    if (fs.existsSync(vaultPath)) {
-      try {
-        const vaultContent = fs.readFileSync(vaultPath, 'utf8');
+    try {
+      const vaultContent = await fs.promises.readFile(vaultPath, 'utf8');
         const match = vaultContent.match(/export const ENCRYPTED_LINKS = "([^"]+)";/);
         if (match && match[1]) {
           const ciphertext = match[1];
@@ -383,18 +382,19 @@ adminVaultRouter.get("/api/v1/admin/backup-links-get", verifyAdminToken, (req, r
             console.log("backup-links-get: Loaded secure links from secureVault.ts");
           }
         }
-      } catch (vaultErr: any) {
+    } catch (vaultErr: any) {
+      if (vaultErr.code !== 'ENOENT') {
         console.warn("backup-links-get: Failed to parse secureVault.ts:", vaultErr.message);
       }
     }
 
     const backupPath = path.join(process.cwd(), '.local/secure_links_backup.json');
-    if (fs.existsSync(backupPath)) {
-      try {
-        const backupData = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
-        Object.assign(mergedBackup, backupData);
-        console.log("backup-links-get: Overlaid secure links with local backup JSON");
-      } catch (backupErr: any) {
+    try {
+      const backupData = JSON.parse(await fs.promises.readFile(backupPath, 'utf8'));
+      Object.assign(mergedBackup, backupData);
+      console.log("backup-links-get: Overlaid secure links with local backup JSON");
+    } catch (backupErr: any) {
+      if (backupErr.code !== 'ENOENT') {
         console.warn("backup-links-get: Failed to parse backup JSON:", backupErr.message);
       }
     }
@@ -493,7 +493,7 @@ adminVaultRouter.post("/api/v1/admin/seal-vault", verifyAdminToken, (req, res) =
   }
 });
 
-adminVaultRouter.post("/api/v1/admin/save-links-direct", verifyAdminToken, (req, res) => {
+adminVaultRouter.post("/api/v1/admin/save-links-direct", verifyAdminToken, async (req, res) => {
   try {
     const { items } = req.body;
     if (!items || !Array.isArray(items)) return res.status(400).json({ error: 'Valid items array required' });
@@ -521,12 +521,11 @@ adminVaultRouter.post("/api/v1/admin/save-links-direct", verifyAdminToken, (req,
 
     const backupPath = path.join(process.cwd(), '.local/secure_links_backup.json');
     let mergedBackup = backupLinks;
-    if (fs.existsSync(backupPath)) {
-      try {
-        const existingBackup = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
-        mergedBackup = { ...existingBackup, ...backupLinks };
-      } catch(e) {}
-    }
+    try {
+      const existingBackup = JSON.parse(await fs.promises.readFile(backupPath, 'utf8'));
+      mergedBackup = { ...existingBackup, ...backupLinks };
+    } catch(e) {}
+
     for (const [key, val] of Object.entries(mergedBackup)) {
       if (val && !val.startsWith('U2FsdGVkX1')) {
         try {
