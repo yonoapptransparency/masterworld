@@ -493,7 +493,7 @@ adminVaultRouter.post("/api/v1/admin/seal-vault", verifyAdminToken, (req, res) =
   }
 });
 
-adminVaultRouter.post("/api/v1/admin/save-links-direct", verifyAdminToken, (req, res) => {
+adminVaultRouter.post("/api/v1/admin/save-links-direct", verifyAdminToken, async (req, res) => {
   try {
     const { items } = req.body;
     if (!items || !Array.isArray(items)) return res.status(400).json({ error: 'Valid items array required' });
@@ -521,12 +521,10 @@ adminVaultRouter.post("/api/v1/admin/save-links-direct", verifyAdminToken, (req,
 
     const backupPath = path.join(process.cwd(), '.local/secure_links_backup.json');
     let mergedBackup = backupLinks;
-    if (fs.existsSync(backupPath)) {
-      try {
-        const existingBackup = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
-        mergedBackup = { ...existingBackup, ...backupLinks };
-      } catch(e) {}
-    }
+    try {
+      const existingBackup = JSON.parse(await fs.promises.readFile(backupPath, 'utf8'));
+      mergedBackup = { ...existingBackup, ...backupLinks };
+    } catch(e) {}
     for (const [key, val] of Object.entries(mergedBackup)) {
       if (val && !val.startsWith('U2FsdGVkX1')) {
         try {
