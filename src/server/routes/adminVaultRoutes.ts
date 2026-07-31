@@ -329,8 +329,13 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
         videos: videos || []
       };
       fs.writeFileSync(publicBackupPath, JSON.stringify(backupPayload, null, 2), 'utf8');
+      
+      const { generateStaticDataFileCode } = require('../../lib/githubSync');
+      const staticDataPath = path.join(process.cwd(), 'src/lib/staticData.ts');
+      const tsCode = generateStaticDataFileCode(apps, settings, news, blogs, videos);
+      fs.writeFileSync(staticDataPath, tsCode, 'utf8');
     } catch (e) {
-      console.warn("[SERVER] Could not update public_backup.json:", e);
+      console.warn("[SERVER] Could not update local file backups:", e);
     }
 
     // Clear in-memory server caches so public endpoints immediately serve updated data
