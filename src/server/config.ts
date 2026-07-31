@@ -5,7 +5,7 @@ declare global {
 }
 
 if (!process.env.AES_SECRET) {
-  console.warn("WARNING: AES_SECRET is not set. Using local development fallback.");
+  console.warn("WARNING: AES_SECRET is not set. Secure features may fail.");
 }
 
 if (!process.env.ADMIN_EMAIL) {
@@ -13,8 +13,7 @@ if (!process.env.ADMIN_EMAIL) {
   process.env.ADMIN_EMAIL = "defentechscholar@gmail.com";
 }
 
-export const getFallbackAes = () => ["fallback", "aes", "secret", "for", "local", "dev", "only"].join("_");
-global.AES_SECRET_GLOBAL = process.env.AES_SECRET || getFallbackAes();
+global.AES_SECRET_GLOBAL = process.env.AES_SECRET || '';
 
 export const getFallbackToken = () => ["fallback", "token", "secret"].join("_");
 export const TOKEN_SECRET = process.env.TOKEN_SECRET || getFallbackToken();
