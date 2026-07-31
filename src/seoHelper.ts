@@ -8,7 +8,7 @@ import * as renderers from './seo/renderers';
 // Dynamically resolve staticData to bypass TSX watcher
 const getStaticData = () => {
   try {
-    const staticDataModulePath = "./lib/staticData";
+    const staticDataModulePath = path.join(process.cwd(), 'src/lib/staticData');
     return require(staticDataModulePath);
   } catch (e) {
     return { mockApps: [], mockSettings: {}, mockNews: [], mockBlogs: [], mockVideos: [] };
