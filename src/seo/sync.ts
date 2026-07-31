@@ -54,21 +54,21 @@ export async function syncFromFirestore(): Promise<any> {
     if (newsRes && newsRes.ok) {
       const docData = await newsRes.json();
       const parsed = parseFirestoreDoc(docData.fields);
-      if (parsed && Array.isArray(parsed.items) && parsed.items.length > 0) news = parsed.items;
+      if (parsed && Array.isArray(parsed.items)) news = parsed.items;
     }
 
     let blogs = mockBlogs;
     if (blogsRes && blogsRes.ok) {
       const docData = await blogsRes.json();
       const parsed = parseFirestoreDoc(docData.fields);
-      if (parsed && Array.isArray(parsed.items) && parsed.items.length > 0) blogs = parsed.items;
+      if (parsed && Array.isArray(parsed.items)) blogs = parsed.items;
     }
 
     let videos = mockVideos;
     if (videosRes && videosRes.ok) {
       const docData = await videosRes.json();
       const parsed = parseFirestoreDoc(docData.fields);
-      if (parsed && Array.isArray(parsed.items) && parsed.items.length > 0) videos = parsed.items;
+      if (parsed && Array.isArray(parsed.items)) videos = parsed.items;
     }
 
     let apps: any[] = [];
@@ -118,7 +118,7 @@ export async function syncFromFirestore(): Promise<any> {
       fs.writeFileSync(publicBackupPath, JSON.stringify({ apps, settings, news, blogs, videos }, null, 2), 'utf8');
 
       try {
-        const { generateStaticDataFileCode } = require('../../lib/githubSync');
+        const { generateStaticDataFileCode } = require('../lib/githubSync');
         const tsCode = generateStaticDataFileCode(apps, settings, news, blogs, videos);
         fs.writeFileSync(path.join(process.cwd(), 'src/lib/staticData.ts'), tsCode, 'utf8');
       } catch (e: any) {

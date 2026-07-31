@@ -161,7 +161,7 @@ export const AdminNewsTab = React.memo(({
                     )}
                     <div>
                       <h3 className="font-bold text-lg dark:text-white">{item.title || 'Untitled News'}</h3>
-                      <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">{item.category || "Uncategorized"} • {new Date(item.date).toLocaleDateString()}</p>
+                      <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">{item.category || "Uncategorized"} • {new Date(item.created_at || item.updated_at || new Date()).toLocaleDateString()}</p>
                       {item.slug && <p className="text-xs font-mono text-slate-400 dark:text-slate-500 mt-1">{item.slug}</p>}
                     </div>
                   </div>

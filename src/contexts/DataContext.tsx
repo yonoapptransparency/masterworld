@@ -78,11 +78,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const isAdminRoute = window.location.pathname.startsWith('/' + getAdminPath());
         if (isFirebaseReal && isAdminRoute) return;
 
-        if (backup.apps?.length) sync.setApps(backup.apps);
+        if (Array.isArray(backup.apps)) sync.setApps(backup.apps);
         if (backup.settings?.site_title) sync.setSettings(backup.settings);
-        if (backup.news?.length) sync.setNews(backup.news);
-        if (backup.blogs?.length) sync.setBlogs(backup.blogs);
-        if (backup.videos?.length) sync.setVideos(backup.videos);
+        if (Array.isArray(backup.news)) sync.setNews(backup.news);
+        if (Array.isArray(backup.blogs)) sync.setBlogs(backup.blogs);
+        if (Array.isArray(backup.videos)) sync.setVideos(backup.videos);
       }
     };
     loadBackup();

@@ -173,17 +173,17 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
         const blogsSnap = await adminDb.collection('store_data').doc('blogs').get();
         const videosSnap = await adminDb.collection('store_data').doc('videos').get();
         const staticFallback = getStaticData();
-        const dbNews = newsSnap.exists ? newsSnap.data()?.items || [] : [];
-        const dbBlogs = blogsSnap.exists ? blogsSnap.data()?.items || [] : [];
-        const dbVideos = videosSnap.exists ? videosSnap.data()?.items || [] : [];
+        const dbNews = newsSnap.exists ? (newsSnap.data()?.items || []) : [];
+        const dbBlogs = blogsSnap.exists ? (blogsSnap.data()?.items || []) : [];
+        const dbVideos = videosSnap.exists ? (videosSnap.data()?.items || []) : [];
 
         if (apps.length > 0 || settingsSnap.exists) {
           const liveData = {
             apps,
             settings: settingsSnap.exists ? settingsSnap.data() : {},
-            news: dbNews.length > 0 ? dbNews : (staticFallback.mockNews || []),
-            blogs: dbBlogs.length > 0 ? dbBlogs : (staticFallback.mockBlogs || []),
-            videos: dbVideos.length > 0 ? dbVideos : (staticFallback.mockVideos || [])
+            news: newsSnap.exists ? dbNews : (staticFallback.mockNews || []),
+            blogs: blogsSnap.exists ? dbBlogs : (staticFallback.mockBlogs || []),
+            videos: videosSnap.exists ? dbVideos : (staticFallback.mockVideos || [])
           };
           backupDataCache = liveData;
           backupDataCacheTime = now;
@@ -234,9 +234,9 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
         try { if (blogsRes.ok) blogsObj = parseFirestoreFields((await blogsRes.json() as any)?.fields); } catch (e) {}
         try { if (videosRes.ok) videosObj = parseFirestoreFields((await videosRes.json() as any)?.fields); } catch (e) {}
         const staticFallbackRest = getStaticData();
-        const restNews = (newsObj.items && newsObj.items.length > 0) ? newsObj.items : (staticFallbackRest.mockNews || []);
-        const restBlogs = (blogsObj.items && blogsObj.items.length > 0) ? blogsObj.items : (staticFallbackRest.mockBlogs || []);
-        const restVideos = (videosObj.items && videosObj.items.length > 0) ? videosObj.items : (staticFallbackRest.mockVideos || []);
+        const restNews = newsRes.ok ? (newsObj.items || []) : (staticFallbackRest.mockNews || []);
+        const restBlogs = blogsRes.ok ? (blogsObj.items || []) : (staticFallbackRest.mockBlogs || []);
+        const restVideos = videosRes.ok ? (videosObj.items || []) : (staticFallbackRest.mockVideos || []);
 
         if (apps.length > 0 || Object.keys(settingsObj).length > 0) {
           const restLiveData = {
