@@ -238,8 +238,10 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
         const db = getFirebaseAdminDb();
         if (db) {
           const vaultDocs = ['sec_links_vault_3', 'sec_vault', 'secure_links'];
-          for (const docName of vaultDocs) {
-             const vaultSnap = await db.collection('store_data').doc(docName).get();
+          const docRefs = vaultDocs.map(docName => db.collection('store_data').doc(docName));
+          const vaultSnaps = await db.getAll(...docRefs);
+
+          for (const vaultSnap of vaultSnaps) {
              if (vaultSnap.exists) {
                 const data = vaultSnap.data();
                 const ciphertext = data?.encryptedData || data?.encrypted_links;
