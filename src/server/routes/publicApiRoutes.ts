@@ -154,6 +154,7 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
       if (adminDb) {
         const metaSnap = await adminDb.collection('store_data').doc('apps_meta').get();
         let apps: any[] = [];
+        let legacySnap: any = null;
         if (metaSnap.exists) {
           const numChunks = metaSnap.data()?.numChunks || 1;
           for (let i = 0; i < numChunks; i++) {
@@ -163,8 +164,8 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
             }
           }
         } else {
-          const legacySnap = await adminDb.collection('store_data').doc('apps').get();
-          if (legacySnap.exists && legacySnap.data()?.items) {
+          legacySnap = await adminDb.collection('store_data').doc('apps').get();
+          if (legacySnap && legacySnap.exists && legacySnap.data()?.items) {
             apps = legacySnap.data().items;
           }
         }
@@ -177,7 +178,7 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
         const dbBlogs = blogsSnap.exists ? (blogsSnap.data()?.items || []) : [];
         const dbVideos = videosSnap.exists ? (videosSnap.data()?.items || []) : [];
 
-        if (apps.length > 0 || settingsSnap.exists) {
+        if (metaSnap.exists || (legacySnap && legacySnap.exists) || settingsSnap.exists || newsSnap.exists || blogsSnap.exists || videosSnap.exists) {
           const liveData = {
             apps,
             settings: settingsSnap.exists ? settingsSnap.data() : {},
@@ -238,7 +239,7 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
         const restBlogs = blogsRes.ok ? (blogsObj.items || []) : (staticFallbackRest.mockBlogs || []);
         const restVideos = videosRes.ok ? (videosObj.items || []) : (staticFallbackRest.mockVideos || []);
 
-        if (apps.length > 0 || Object.keys(settingsObj).length > 0) {
+        if (metaRes.ok || settingsRes.ok || newsRes.ok || blogsRes.ok || videosRes.ok || apps.length > 0) {
           const restLiveData = {
             apps,
             settings: settingsObj,

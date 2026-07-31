@@ -111,7 +111,7 @@ export async function syncFromFirestore(): Promise<any> {
       }
     }
 
-    if (apps.length === 0) apps = mockApps;
+    // Preserve exact apps array from database (even if empty)
 
     try {
       const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
