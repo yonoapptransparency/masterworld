@@ -185,7 +185,7 @@ export const saveMockApps = (apps: AppConfig[]) => {
 };
 
 export const mockSettings: GlobalSettings = {
-  "site_title": "",
+  "site_title": "RummyDex",
   "meta_description": "",
   "logo_url": "",
   "favicon_url": "",

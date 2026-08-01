@@ -11,10 +11,10 @@ import './index.css';
 import './i18n';
 
 // Force wipe old mock/static data from local storage cache
-const CACHE_VERSION = '3.0';
+const CACHE_VERSION = '5.0';
 if (typeof window !== 'undefined' && window.localStorage) {
   if (localStorage.getItem('rummystore_cache_version') !== CACHE_VERSION) {
-    console.log("Upgrading cache to version", CACHE_VERSION, "and wiping all old mock/static data...");
+    console.log("Upgrading cache to version", CACHE_VERSION, "and wiping all old cached data...");
     localStorage.removeItem('rummystore_apps');
     localStorage.removeItem('rummystore_settings');
     localStorage.removeItem('rummystore_news');
@@ -24,6 +24,8 @@ if (typeof window !== 'undefined' && window.localStorage) {
     localStorage.removeItem('rummystore_cache');
     localStorage.removeItem('cached_firestore_data');
     localStorage.removeItem('rummystore_firestore_cache');
+    localStorage.removeItem('yd_public_data_cache');
+    localStorage.removeItem('yd_public_data');
     localStorage.setItem('rummystore_cache_version', CACHE_VERSION);
   }
 }

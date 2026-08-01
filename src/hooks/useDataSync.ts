@@ -77,6 +77,7 @@ export function useDataSync() {
             setApps(allApps);
             setFetchedStates(prev => ({ ...prev, apps: true }));
           } else {
+            setApps([]);
             setFetchedStates(prev => ({ ...prev, apps: true }));
           }
         } finally {
@@ -94,6 +95,7 @@ export function useDataSync() {
           setNews(snap.data().items || []);
           setFetchedStates(prev => ({ ...prev, news: true }));
         } else {
+          setNews([]);
           setFetchedStates(prev => ({ ...prev, news: true }));
         }
         checkLoaded('news');
@@ -103,6 +105,7 @@ export function useDataSync() {
           setBlogs(snap.data().items || []);
           setFetchedStates(prev => ({ ...prev, blogs: true }));
         } else {
+          setBlogs([]);
           setFetchedStates(prev => ({ ...prev, blogs: true }));
         }
         checkLoaded('blogs');
@@ -112,6 +115,7 @@ export function useDataSync() {
           setVideos(snap.data().items || []);
           setFetchedStates(prev => ({ ...prev, videos: true }));
         } else {
+          setVideos([]);
           setFetchedStates(prev => ({ ...prev, videos: true }));
         }
         checkLoaded('videos');

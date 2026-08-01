@@ -3,7 +3,7 @@ import { AppConfig, GlobalSettings, NewsItem, BlogPost, VideoItem } from '../typ
 export const mockApps: AppConfig[] = [];
 export const mockSettings: GlobalSettings = {
   logo_url: "",
-  site_title: "My Site",
+  site_title: "RummyDex",
   meta_description: "",
   favicon_url: "",
   helpline_whatsapp: "",
