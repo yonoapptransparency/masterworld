@@ -328,11 +328,11 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
         } catch (e) {}
       }
 
-      const finalApps = (apps && Array.isArray(apps) && apps.length > 0) ? apps : (existingBackup.apps || []);
+      const finalApps = apps || existingBackup.apps || [];
       const finalSettings = (settings && Object.keys(settings).length > 0) ? settings : (existingBackup.settings || {});
-      const finalNews = (news && Array.isArray(news) && news.length > 0) ? news : (existingBackup.news || []);
-      const finalBlogs = (blogs && Array.isArray(blogs) && blogs.length > 0) ? blogs : (existingBackup.blogs || []);
-      const finalVideos = (videos && Array.isArray(videos) && videos.length > 0) ? videos : (existingBackup.videos || []);
+      const finalNews = news || existingBackup.news || [];
+      const finalBlogs = blogs || existingBackup.blogs || [];
+      const finalVideos = videos || existingBackup.videos || [];
 
       const backupPayload = {
         apps: finalApps,

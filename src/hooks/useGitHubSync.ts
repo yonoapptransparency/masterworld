@@ -127,17 +127,17 @@ export function useGitHubSync(
       log("GitHub Sync Notice: Could not fetch live backup endpoint, using current memory.");
     }
 
-    const stateApps = (overrideApps && Array.isArray(overrideApps) && overrideApps.length > 0) ? overrideApps : apps;
-    const stateSettings = (overrideSettings && Object.keys(overrideSettings).length > 0) ? overrideSettings : settings;
-    const stateNews = (overrideNews && Array.isArray(overrideNews) && overrideNews.length > 0) ? overrideNews : news;
-    const stateBlogs = (overrideBlogs && Array.isArray(overrideBlogs) && overrideBlogs.length > 0) ? overrideBlogs : blogs;
-    const stateVideos = (overrideVideos && Array.isArray(overrideVideos) && overrideVideos.length > 0) ? overrideVideos : videos;
+    const stateApps = overrideApps || apps;
+    const stateSettings = overrideSettings || settings;
+    const stateNews = overrideNews || news;
+    const stateBlogs = overrideBlogs || blogs;
+    const stateVideos = overrideVideos || videos;
 
-    const targetApps = (stateApps && stateApps.length > 0) ? stateApps : (liveBackup?.apps || []);
+    const targetApps = stateApps || liveBackup?.apps || [];
     const targetSettings = (stateSettings && Object.keys(stateSettings).length > 0) ? stateSettings : (liveBackup?.settings || {});
-    const targetNews = (stateNews && stateNews.length > 0) ? stateNews : (liveBackup?.news || []);
-    const targetBlogs = (stateBlogs && stateBlogs.length > 0) ? stateBlogs : (liveBackup?.blogs || []);
-    const targetVideos = (stateVideos && stateVideos.length > 0) ? stateVideos : (liveBackup?.videos || []);
+    const targetNews = stateNews || liveBackup?.news || [];
+    const targetBlogs = stateBlogs || liveBackup?.blogs || [];
+    const targetVideos = stateVideos || liveBackup?.videos || [];
 
     let finalApps = targetApps;
     if (targetApps.length > 0) {

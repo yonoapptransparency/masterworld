@@ -185,10 +185,10 @@ export const saveMockApps = (apps: AppConfig[]) => {
 };
 
 export const mockSettings: GlobalSettings = {
-  "site_title": "RummyDex",
+  "site_title": "",
   "meta_description": "",
-  "logo_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784896838/ezgif-64180dd8ca74703b_rpungk.webp",
-  "favicon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784896838/ezgif-64180dd8ca74703b_rpungk.webp",
+  "logo_url": "",
+  "favicon_url": "",
   "helpline_whatsapp": "",
   "helpline_telegram": "",
   "support_email": "",
@@ -196,50 +196,11 @@ export const mockSettings: GlobalSettings = {
   "ethics_discrimination_text": "",
   "ticker_text": "",
   "animations_enabled": true,
-  "categories": [
-    "All Apps",
-    "Yono",
-    "Card",
-    "Fun games"
-  ],
+  "categories": [],
   "banners": [],
   "quick_links": [],
   "website_faqs": [],
-  "developers": [],
-  "social_links": {
-    "instagram": "",
-    "twitter": "",
-    "linkedin": "",
-    "youtube": "",
-    "facebook": ""
-  },
-  "portal_heading": "",
-  "report_removal_content": "",
-  "terms_content": "",
-  "trending_searches": "",
-  "hero_title_animation": "fade-in",
-  "responsibility_content": "",
-  "privacy_content": "",
-  "seo_keywords": "",
-  "hero_title_subtitle": "",
-  "disclaimer_heading": "",
-  "social_twitter": "",
-  "hero_title_text": "",
-  "social_facebook": "",
-  "last_updated": new Date().toISOString(),
-  "secure_index_title": "",
-  "important_notice": "",
-  "ga_tracking_id": "",
-  "social_youtube": "",
-  "hero_title_visible": "true",
-  "important_notice_heading": "",
-  "hero_title_color": "classic-dark",
-  "hero_title_style": "modern",
-  "ethics_heading": "",
-  "secure_index_subtitle": "",
-  "social_instagram": "",
-  "social_linkedin": "",
-  "about_content": ""
+  "developers": []
 } as any;
 
 export const saveMockSettings = (settings: GlobalSettings) => {
