@@ -316,22 +316,18 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
 
         // Direct fallback to 'apps' collection
         const appDocIds = Array.from(new Set([realId, appId]));
-        if (appDocIds.length > 0) {
-          const docRefs = appDocIds.map(id => db.collection('apps').doc(id));
-          const appSnaps = await db.getAll(...docRefs);
-
-          for (const appSnap of appSnaps) {
-            if (appSnap.exists) {
-              const appData = appSnap.data();
-              const rawUrl = appData?.more_information_url || appData?.download_url || appData?.encrypted_link || appData?.url;
-              if (rawUrl && typeof rawUrl === 'string') {
-                const dec = rawUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(rawUrl, AES_SECRET) : rawUrl;
-                if (dec && dec.startsWith('http')) {
-                  const entry = { url: dec, timestamp: Date.now() };
-                  resolvedLinkCache.set(appId.toLowerCase(), entry);
-                  resolvedLinkCache.set(realId.toLowerCase(), entry);
-                  return res.redirect(302, dec);
-                }
+        for (const targetId of appDocIds) {
+          const appSnap = await db.collection('apps').doc(targetId).get();
+          if (appSnap.exists) {
+            const appData = appSnap.data();
+            const rawUrl = appData?.more_information_url || appData?.download_url || appData?.encrypted_link || appData?.url;
+            if (rawUrl && typeof rawUrl === 'string') {
+              const dec = rawUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(rawUrl, AES_SECRET) : rawUrl;
+              if (dec && dec.startsWith('http')) {
+                const entry = { url: dec, timestamp: Date.now() };
+                resolvedLinkCache.set(appId.toLowerCase(), entry);
+                resolvedLinkCache.set(realId.toLowerCase(), entry);
+                return res.redirect(302, dec);
               }
             }
           }

@@ -79,18 +79,18 @@ seoRouter.get('/robots.txt', async (req, res) => {
       res.send("User-agent: *\nDisallow: /\n");
       return;
     }
-    const data = await fetchStoreData();
-    if (!data) throw new Error("No data");
+    let rawDomain = process.env.PUBLIC_DOMAIN || process.env.VITE_PUBLIC_DOMAIN || (req.get('host') ? `https://${req.get('host')}` : 'https://www.rummydex.com');
+    if (!rawDomain.startsWith('http://') && !rawDomain.startsWith('https://')) {
+      rawDomain = `https://${rawDomain}`;
+    }
+    const host = rawDomain.replace(/\/$/, '');
 
-    let robots = `User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /admin/\nDisallow: /login/\nDisallow: /s/\n`;
-    const baseUrlFallback = process.env.PUBLIC_DOMAIN || process.env.VITE_PUBLIC_DOMAIN || `https://${req.get('host')}`;
-    robots += `\nSitemap: ${baseUrlFallback.replace(/\/$/, '')}/sitemap.xml\n`;
+    let robots = `User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /admin/\nDisallow: /login/\nDisallow: /s/\n\nSitemap: ${host}/sitemap.xml\n`;
     res.set('Content-Type', 'text/plain');
     res.send(robots);
   } catch (err) {
     res.set('Content-Type', 'text/plain');
-    const baseUrlFallback = process.env.PUBLIC_DOMAIN || process.env.VITE_PUBLIC_DOMAIN || 'https://www.dex.com';
-    res.send(`User-agent: *\nAllow: /\nSitemap: ${baseUrlFallback.replace(/\/$/, '')}/sitemap.xml\n`);
+    res.send(`User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /admin/\nDisallow: /login/\n\nSitemap: https://www.rummydex.com/sitemap.xml\n`);
   }
 });
 
@@ -98,54 +98,45 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
   try {
     const hostHeader = req.get('host') || '';
     const hostLower = hostHeader.toLowerCase();
-    let isMasterworldAdminDeployment = false;
     if (hostLower.includes('masterworld')) {
-      isMasterworldAdminDeployment = true;
-    }
-    if (isMasterworldAdminDeployment) {
       res.status(404).send('Not Found');
       return;
     }
+
     const data = await fetchStoreData();
     if (!data) {
       throw new Error("Unable to fetch store data");
     }
     const { apps = [], news = [], blogs = [], videos = [] } = data;
 
-    const baseUrlFallback = process.env.PUBLIC_DOMAIN || process.env.VITE_PUBLIC_DOMAIN || (req.headers.host ? `https://${req.headers.host}` : 'https://www.dex.com');
-    const host = baseUrlFallback.replace(/\/$/, '');
+    let rawDomain = process.env.PUBLIC_DOMAIN || process.env.VITE_PUBLIC_DOMAIN || (req.headers.host ? `https://${req.headers.host}` : 'https://www.rummydex.com');
+    if (!rawDomain.startsWith('http://') && !rawDomain.startsWith('https://')) {
+      rawDomain = `https://${rawDomain}`;
+    }
+    const host = rawDomain.replace(/\/$/, '');
+
     let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
     xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
 
     const today = new Date().toISOString().split('T')[0];
-    xml += `  <url>\n    <loc>${host}/</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>1.0</priority>\n  </url>\n`;
-    xml += `  <url>\n    <loc>${host}/new-apps</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n  </url>\n`;
-    xml += `  <url>\n    <loc>${host}/news</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n  </url>\n`;
-    xml += `  <url>\n    <loc>${host}/videos</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n  </url>\n`;
-    xml += `  <url>\n    <loc>${host}/about</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.5</priority>\n  </url>\n`;
-    xml += `  <url>\n    <loc>${host}/developers</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.5</priority>\n  </url>\n`;
-    xml += `  <url>\n    <loc>${host}/contact</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.5</priority>\n  </url>\n`;
-    xml += `  <url>\n    <loc>${host}/privacy</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
-    xml += `  <url>\n    <loc>${host}/report-removal</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
-    xml += `  <url>\n    <loc>${host}/terms</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
-    xml += `  <url>\n    <loc>${host}/responsibility</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
-    xml += `  <url>\n    <loc>${host}/notice</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
-    xml += `  <url>\n    <loc>${host}/ethics</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
-    xml += `  <url>\n    <loc>${host}/disclaimer</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.3</priority>\n  </url>\n`;
 
-    const escapeHtmlForSitemap = (unsafe: any) => {
-      if (typeof unsafe !== 'string') {
-        unsafe = String(unsafe || '');
-      }
+    const escapeXml = (unsafe: any) => {
+      if (typeof unsafe !== 'string') unsafe = String(unsafe || '');
       return unsafe
-         .replace(/&/g, "&amp;")
-         .replace(/</g, "&lt;")
-         .replace(/>/g, "&gt;")
-         .replace(/"/g, "&quot;")
-         .replace(/'/g, "&#039;");
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
     };
+
+    const cleanSlug = (slug: string) => {
+      if (!slug) return '';
+      return escapeXml(encodeURI(slug.trim().replace(/^\/+|\/+$/g, '')));
+    };
+
     const getFormattedDate = (obj: any) => {
-      const dateStr = getField(obj, 'updated_at') || getField(obj, 'created_at');
+      const dateStr = getField(obj, 'updated_at') || getField(obj, 'created_at') || getField(obj, 'published_at') || getField(obj, 'date');
       if (dateStr) {
         try {
           if (typeof dateStr === 'object' && dateStr !== null && (dateStr as any).seconds) {
@@ -160,70 +151,97 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
           }
         } catch(e) {}
       }
-      return new Date().toISOString().split('T')[0];
-    };
-    const isExternalCanonical = (url?: string) => {
-      if (!url || typeof url !== 'string') return false;
-      const trimmed = url.trim().toLowerCase();
-      if (!trimmed) return false;
-      if (trimmed.startsWith('/') || (process.env.PUBLIC_DOMAIN && trimmed.includes(process.env.PUBLIC_DOMAIN)) || (process.env.VITE_PUBLIC_DOMAIN && trimmed.includes(process.env.VITE_PUBLIC_DOMAIN))) return false;
-      if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return true;
-      return false;
+      return today;
     };
 
     const seenUrls = new Set<string>();
-    const addUrl = (urlXml: string, loc: string) => {
+    const addUrl = (loc: string, lastmod: string, changefreq: string, priority: string) => {
       if (!seenUrls.has(loc)) {
         seenUrls.add(loc);
-        xml += urlXml;
+        xml += `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>${changefreq}</changefreq>\n    <priority>${priority}</priority>\n  </url>\n`;
       }
     };
 
+    // Static pages
+    const staticPages = [
+      { path: '/', priority: '1.0', changefreq: 'daily' },
+      { path: '/new-apps', priority: '0.8', changefreq: 'daily' },
+      { path: '/news', priority: '0.8', changefreq: 'daily' },
+      { path: '/blogs', priority: '0.8', changefreq: 'daily' },
+      { path: '/videos', priority: '0.8', changefreq: 'daily' },
+      { path: '/about', priority: '0.5', changefreq: 'weekly' },
+      { path: '/developers', priority: '0.5', changefreq: 'weekly' },
+      { path: '/contact', priority: '0.5', changefreq: 'weekly' },
+      { path: '/privacy', priority: '0.3', changefreq: 'weekly' },
+      { path: '/report-removal', priority: '0.3', changefreq: 'weekly' },
+      { path: '/terms', priority: '0.3', changefreq: 'weekly' },
+      { path: '/responsibility', priority: '0.3', changefreq: 'weekly' },
+      { path: '/notice', priority: '0.3', changefreq: 'weekly' },
+      { path: '/ethics', priority: '0.3', changefreq: 'weekly' },
+      { path: '/disclaimer', priority: '0.3', changefreq: 'weekly' },
+      { path: '/submit-app', priority: '0.5', changefreq: 'weekly' }
+    ];
+
+    const reservedSlugs = new Set(['app', 'news', 'blogs', 'videos', 'new-apps', 'about', 'developers', 'contact', 'privacy', 'terms', 'responsibility', 'notice', 'ethics', 'disclaimer', 'submit-app', 'admin', 'login', 'api']);
+
+    for (const page of staticPages) {
+      addUrl(`${host}${page.path}`, today, page.changefreq, page.priority);
+    }
+
+    // Apps
     for (const app of apps) {
       const slug = getField(app, 'slug');
       if (slug) {
-        const escapedSlug = escapeHtmlForSitemap(slug);
+        const cSlug = cleanSlug(slug);
         const appDate = getFormattedDate(app);
 
-        // Primary App detail route
-        const appLoc = `${host}/app/${escapedSlug}`;
-        addUrl(`  <url>\n    <loc>${appLoc}</loc>\n    <lastmod>${appDate}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>1.0</priority>\n  </url>\n`, appLoc);
+        // Standard App detail URL
+        const appLoc = `${host}/app/${cSlug}`;
+        addUrl(appLoc, appDate, 'daily', '1.0');
 
-        // Short direct slug route
-        const directLoc = `${host}/${escapedSlug}`;
-        addUrl(`  <url>\n    <loc>${directLoc}</loc>\n    <lastmod>${appDate}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.9</priority>\n  </url>\n`, directLoc);
+        // Direct slug route (if not reserved)
+        const rawSlug = slug.trim().toLowerCase();
+        if (!reservedSlugs.has(rawSlug)) {
+          const directLoc = `${host}/${cSlug}`;
+          addUrl(directLoc, appDate, 'daily', '0.9');
+        }
       }
     }
+
+    // News
     for (const newsItem of news) {
       const slug = getField(newsItem, 'slug');
       if (slug) {
-        const loc = `${host}/news/${escapeHtmlForSitemap(slug)}`;
-        let urlXml = `  <url>\n`;
-        urlXml += `    <loc>${loc}</loc>\n`;
-        urlXml += `    <lastmod>${getFormattedDate(newsItem)}</lastmod>\n`;
-        urlXml += `    <changefreq>weekly</changefreq>\n`;
-        urlXml += `    <priority>0.7</priority>\n`;
-        urlXml += `  </url>\n`;
-        addUrl(urlXml, loc);
+        const cSlug = cleanSlug(slug);
+        const newsLoc = `${host}/news/${cSlug}`;
+        addUrl(newsLoc, getFormattedDate(newsItem), 'weekly', '0.7');
       }
     }
+
+    // Blogs
+    for (const blogItem of blogs) {
+      const slug = getField(blogItem, 'slug');
+      if (slug) {
+        const cSlug = cleanSlug(slug);
+        const blogLoc = `${host}/blogs/${cSlug}`;
+        addUrl(blogLoc, getFormattedDate(blogItem), 'weekly', '0.7');
+      }
+    }
+
+    // Videos
     for (const video of videos) {
       const slug = getField(video, 'slug');
       if (slug) {
-        const loc = `${host}/videos/${escapeHtmlForSitemap(slug)}`;
-        let urlXml = `  <url>\n`;
-        urlXml += `    <loc>${loc}</loc>\n`;
-        urlXml += `    <lastmod>${getFormattedDate(video)}</lastmod>\n`;
-        urlXml += `    <changefreq>weekly</changefreq>\n`;
-        urlXml += `    <priority>0.6</priority>\n`;
-        urlXml += `  </url>\n`;
-        addUrl(urlXml, loc);
+        const cSlug = cleanSlug(slug);
+        const videoLoc = `${host}/videos/${cSlug}`;
+        addUrl(videoLoc, getFormattedDate(video), 'weekly', '0.6');
       }
     }
 
     xml += `</urlset>\n`;
 
-    res.header('Content-Type', 'application/xml');
+    res.set('Content-Type', 'application/xml; charset=utf-8');
+    res.set('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400');
     res.send(xml);
   } catch (e) {
     console.error('Sitemap Generation Error:', e);

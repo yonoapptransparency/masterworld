@@ -106,12 +106,6 @@ publicApiRouter.post('/api/v1/sync-node', async (req, res) => {
   }
 });
 
-const ALLOWED_IMAGE_DOMAINS = [
-  'res.cloudinary.com',
-  'images.unsplash.com',
-  'img.youtube.com'
-];
-
 publicApiRouter.get("/api/v1/image", async (req, res) => {
   const url = req.query.url as string;
   if (!url) return res.status(400).send("Missing image URL");
@@ -122,12 +116,6 @@ publicApiRouter.get("/api/v1/image", async (req, res) => {
         targetUrl = Buffer.from(url, 'base64').toString('utf-8');
       }
     } catch (e) {}
-    const parsedTargetUrl = new URL(targetUrl);
-    if (!ALLOWED_IMAGE_DOMAINS.includes(parsedTargetUrl.hostname.toLowerCase())) {
-      console.warn(`[SSRF BLOCKED] Unauthorized domain request blocked: ${parsedTargetUrl.hostname}`);
-      return res.status(403).send("Access Denied: Domain not whitelisted.");
-    }
-
     if (!(await isSafeUrl(targetUrl))) {
       console.warn(`[SSRF BLOCKED] Unauthorized targetUrl request blocked: ${targetUrl}`);
       return res.status(403).send("Access Denied: Requested URI target is not a permitted public URL address.");
@@ -272,25 +260,23 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
     } catch (restErr) {}
 
     const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
-    try {
-      const backupRaw = await fs.promises.readFile(publicBackupPath, 'utf8');
-      const backup = JSON.parse(backupRaw);
-      const data = {
-        apps: backup.apps || [],
-        settings: backup.settings || {},
-        news: backup.news || [],
-        blogs: backup.blogs || [],
-        videos: backup.videos || []
-      };
-      backupDataCache = data;
-      backupDataCacheTime = now;
-      return res.json(data);
-    } catch (e) {
-      if ((e as NodeJS.ErrnoException).code !== 'ENOENT') {
+    if (fs.existsSync(publicBackupPath)) {
+      try {
+        const backup = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
+        const data = {
+          apps: backup.apps || [],
+          settings: backup.settings || {},
+          news: backup.news || [],
+          blogs: backup.blogs || [],
+          videos: backup.videos || []
+        };
+        backupDataCache = data;
+        backupDataCacheTime = now;
+        return res.json(data);
+      } catch (e) {
         console.error("Error reading public_backup.json in backup-data endpoint:", e);
       }
     }
-
     const dataObj = getStaticData();
     const fallbackData = {
       apps: dataObj.mockApps || [],

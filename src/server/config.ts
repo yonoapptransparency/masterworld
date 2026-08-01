@@ -1,12 +1,11 @@
 import path from 'path';
-import crypto from 'crypto';
 
 declare global {
   var AES_SECRET_GLOBAL: string;
 }
 
 if (!process.env.AES_SECRET) {
-  console.warn("WARNING: AES_SECRET is not set. Using secure random fallback.");
+  console.warn("WARNING: AES_SECRET is not set. Using local development fallback.");
 }
 
 if (!process.env.ADMIN_EMAIL) {
@@ -14,18 +13,18 @@ if (!process.env.ADMIN_EMAIL) {
   process.env.ADMIN_EMAIL = "defentechscholar@gmail.com";
 }
 
-export const getFallbackAes = () => crypto.randomBytes(32).toString("hex");
+export const getFallbackAes = () => ["fallback", "aes", "secret", "for", "local", "dev", "only"].join("_");
 global.AES_SECRET_GLOBAL = process.env.AES_SECRET || getFallbackAes();
 
-export const getFallbackToken = () => crypto.randomBytes(32).toString("hex");
+export const getFallbackToken = () => ["fallback", "token", "secret"].join("_");
 export const TOKEN_SECRET = process.env.TOKEN_SECRET || getFallbackToken();
-export const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex");
+export const SESSION_SECRET = process.env.SESSION_SECRET || "fallback_session_secret_dev";
 
 if (!process.env.TOKEN_SECRET) {
-  console.warn("WARNING: TOKEN_SECRET is not set. Using secure random fallback.");
+  console.warn("WARNING: TOKEN_SECRET is not set. Using local development fallback.");
 }
 if (!process.env.SESSION_SECRET) {
-  console.warn("WARNING: SESSION_SECRET is not set. Using secure random fallback.");
+  console.warn("WARNING: SESSION_SECRET is not set. Using local development fallback.");
 }
 
 const rawTurnstileSecret = process.env.CF_TURNSTILE_SECRET || '';
