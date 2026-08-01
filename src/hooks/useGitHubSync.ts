@@ -115,11 +115,29 @@ export function useGitHubSync(
       if (onProgress) onProgress(msg);
     };
 
-    const targetApps = overrideApps || apps;
-    const targetSettings = overrideSettings || settings;
-    const targetNews = overrideNews || news;
-    const targetBlogs = overrideBlogs || blogs;
-    const targetVideos = overrideVideos || videos;
+    log("GitHub Sync: Querying live Firebase database for complete catalog (Apps, News, Settings, Blogs, Videos)...");
+    let liveBackup: any = null;
+    try {
+      const liveRes = await fetch('/api/v1/public/backup-data');
+      if (liveRes.ok) {
+        liveBackup = await liveRes.json();
+        log("GitHub Sync: Live Firebase content retrieved successfully.");
+      }
+    } catch (e) {
+      log("GitHub Sync Notice: Could not fetch live backup endpoint, using current memory.");
+    }
+
+    const stateApps = (overrideApps && Array.isArray(overrideApps) && overrideApps.length > 0) ? overrideApps : apps;
+    const stateSettings = (overrideSettings && Object.keys(overrideSettings).length > 0) ? overrideSettings : settings;
+    const stateNews = (overrideNews && Array.isArray(overrideNews) && overrideNews.length > 0) ? overrideNews : news;
+    const stateBlogs = (overrideBlogs && Array.isArray(overrideBlogs) && overrideBlogs.length > 0) ? overrideBlogs : blogs;
+    const stateVideos = (overrideVideos && Array.isArray(overrideVideos) && overrideVideos.length > 0) ? overrideVideos : videos;
+
+    const targetApps = (stateApps && stateApps.length > 0) ? stateApps : (liveBackup?.apps || []);
+    const targetSettings = (stateSettings && Object.keys(stateSettings).length > 0) ? stateSettings : (liveBackup?.settings || {});
+    const targetNews = (stateNews && stateNews.length > 0) ? stateNews : (liveBackup?.news || []);
+    const targetBlogs = (stateBlogs && stateBlogs.length > 0) ? stateBlogs : (liveBackup?.blogs || []);
+    const targetVideos = (stateVideos && stateVideos.length > 0) ? stateVideos : (liveBackup?.videos || []);
 
     let finalApps = targetApps;
     if (targetApps.length > 0) {
@@ -161,6 +179,14 @@ export function useGitHubSync(
     }
 
     const updatedCode = generateStaticDataFileCode(finalApps, targetSettings, targetNews, targetBlogs, targetVideos);
+    const backupJsonCode = JSON.stringify({
+      apps: finalApps,
+      settings: targetSettings,
+      news: targetNews,
+      blogs: targetBlogs,
+      videos: targetVideos
+    }, null, 2);
+
     let targetRepo = configToUse.repo || 'dex';
 
     if (!configToUse.owner) throw new Error("Missing GitHub repository owner configuration.");
@@ -177,6 +203,18 @@ export function useGitHubSync(
         message: `Admin Release: Manual content synchronization to ${targetRepo}`
       });
       log(`GitHub Sync: ✅ staticData.ts successfully synced to ${targetRepo}.`);
+
+      log(`GitHub Sync: Pushing public_backup.json to ${targetRepo}...`);
+      await commitFileToGitHub({
+        owner: configToUse.owner,
+        repo: targetRepo,
+        token: configToUse.token,
+        branch: configToUse.branch || 'main',
+        path: 'src/lib/public_backup.json',
+        content: backupJsonCode,
+        message: `Admin Release: Manual public_backup.json synchronization to ${targetRepo}`
+      });
+      log(`GitHub Sync: ✅ public_backup.json successfully synced to ${targetRepo}.`);
       
       if (targetRepo.toLowerCase() !== 'masterworld') {
         log(`GitHub Sync: Pushing staticData.ts to masterworld (Source of Truth)...`);
@@ -190,9 +228,21 @@ export function useGitHubSync(
           message: `Admin Release: Manual content synchronization to masterworld`
         });
         log(`GitHub Sync: ✅ staticData.ts successfully synced to masterworld.`);
+
+        log(`GitHub Sync: Pushing public_backup.json to masterworld...`);
+        await commitFileToGitHub({
+          owner: configToUse.owner,
+          repo: 'masterworld',
+          token: configToUse.token,
+          branch: configToUse.branch || 'main',
+          path: 'src/lib/public_backup.json',
+          content: backupJsonCode,
+          message: `Admin Release: Manual public_backup.json synchronization to masterworld`
+        });
+        log(`GitHub Sync: ✅ public_backup.json successfully synced to masterworld.`);
       }
     } catch (err: any) {
-      throw new Error(`Failed to sync staticData.ts: ${err.message}`);
+      throw new Error(`Failed to sync static data: ${err.message}`);
     }
 
     try {

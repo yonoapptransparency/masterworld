@@ -326,7 +326,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     }
   }
 
-  const preRendered = await getPagePreRender(urlPath, data);
+  // We only generate SEO tags now, not full body HTML to prevent layout shifting
+  // const preRendered = await getPagePreRender(urlPath, data);
 
   const seoTags = `
     <title>${title}</title>
@@ -346,8 +347,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   `;
 
   let finalHtml = template
-    .replace(/<title>.*?<\/title>/i, seoTags)
-    .replace(/<div id="root">([\s\S]*?)<\/div>/i, `<div id="root">${preRendered}</div>`);
+    .replace(/<title>Application Hub<\/title>[\s\S]*?<meta name="twitter:description" [^>]*\/>/i, seoTags);
 
   return { html: finalHtml, isNotFound };
 }

@@ -321,18 +321,31 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
     // Try local file backup (don't block the response on this)
     try {
       const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
+      let existingBackup: any = { apps: [], settings: {}, news: [], blogs: [], videos: [] };
+      if (fs.existsSync(publicBackupPath)) {
+        try {
+          existingBackup = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
+        } catch (e) {}
+      }
+
+      const finalApps = (apps && Array.isArray(apps) && apps.length > 0) ? apps : (existingBackup.apps || []);
+      const finalSettings = (settings && Object.keys(settings).length > 0) ? settings : (existingBackup.settings || {});
+      const finalNews = (news && Array.isArray(news) && news.length > 0) ? news : (existingBackup.news || []);
+      const finalBlogs = (blogs && Array.isArray(blogs) && blogs.length > 0) ? blogs : (existingBackup.blogs || []);
+      const finalVideos = (videos && Array.isArray(videos) && videos.length > 0) ? videos : (existingBackup.videos || []);
+
       const backupPayload = {
-        apps: apps || [],
-        settings: settings || {},
-        news: news || [],
-        blogs: blogs || [],
-        videos: videos || []
+        apps: finalApps,
+        settings: finalSettings,
+        news: finalNews,
+        blogs: finalBlogs,
+        videos: finalVideos
       };
       fs.writeFileSync(publicBackupPath, JSON.stringify(backupPayload, null, 2), 'utf8');
       
       const { generateStaticDataFileCode } = require('../../lib/githubSync');
       const staticDataPath = path.join(process.cwd(), 'src/lib/staticData.ts');
-      const tsCode = generateStaticDataFileCode(apps, settings, news, blogs, videos);
+      const tsCode = generateStaticDataFileCode(finalApps, finalSettings, finalNews, finalBlogs, finalVideos);
       fs.writeFileSync(staticDataPath, tsCode, 'utf8');
     } catch (e) {
       console.warn("[SERVER] Could not update local file backups:", e);

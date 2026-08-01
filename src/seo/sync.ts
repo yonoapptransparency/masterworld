@@ -43,28 +43,36 @@ export async function syncFromFirestore(): Promise<any> {
       fetch(`${baseUrl}/apps_meta${keyParam}`).catch(() => null)
     ]);
 
-    let settings = mockSettings;
+    let existingBackup: any = { apps: mockApps, settings: mockSettings, news: mockNews, blogs: mockBlogs, videos: mockVideos };
+    const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
+    if (fs.existsSync(publicBackupPath)) {
+      try {
+        existingBackup = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
+      } catch (e) {}
+    }
+
+    let settings = existingBackup.settings || mockSettings;
     if (settingsRes && settingsRes.ok) {
       const docData = await settingsRes.json();
       const parsed = parseFirestoreDoc(docData.fields);
       if (parsed && Object.keys(parsed).length > 0) settings = parsed;
     }
 
-    let news: any[] = [];
+    let news: any[] = existingBackup.news || [];
     if (newsRes && newsRes.ok) {
       const docData = await newsRes.json();
       const parsed = parseFirestoreDoc(docData.fields);
       if (parsed && Array.isArray(parsed.items)) news = parsed.items;
     }
 
-    let blogs: any[] = [];
+    let blogs: any[] = existingBackup.blogs || [];
     if (blogsRes && blogsRes.ok) {
       const docData = await blogsRes.json();
       const parsed = parseFirestoreDoc(docData.fields);
       if (parsed && Array.isArray(parsed.items)) blogs = parsed.items;
     }
 
-    let videos: any[] = [];
+    let videos: any[] = existingBackup.videos || [];
     if (videosRes && videosRes.ok) {
       const docData = await videosRes.json();
       const parsed = parseFirestoreDoc(docData.fields);
