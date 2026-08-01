@@ -46,22 +46,31 @@ adminVaultRouter.post("/api/v1/admin/encrypt-links", verifyAdminToken, async (re
     if (config) {
       const apiSuffix = config.apiKey ? `?key=${config.apiKey}` : '';
       const dbUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents`;
-      for (const docName of ['sec_links_vault_3', 'secure_links', 'sec_vault']) {
-        try {
-          const r = await fetch(`${dbUrl}/store_data/${docName}${apiSuffix}`);
-          const d = await r.json() as any;
-          if (d && !d.error && d.fields?.encryptedData?.stringValue) {
-            let decryptedBlob = safeDecrypt(d.fields.encryptedData.stringValue, AES_SECRET);
-            if (decryptedBlob) {
-              const parsed = JSON.parse(decryptedBlob);
-              if (Array.isArray(parsed)) {
-                existingItems = parsed;
-                break;
+      const docNames = ['sec_links_vault_3', 'secure_links', 'sec_vault'];
+
+      try {
+        const fetchPromises = docNames.map(docName =>
+          fetch(`${dbUrl}/store_data/${docName}${apiSuffix}`)
+            .then(r => r.json())
+            .catch(() => null)
+        );
+        const results = await Promise.all(fetchPromises);
+
+        for (const d of results as any[]) {
+          try {
+            if (d && !d.error && d.fields?.encryptedData?.stringValue) {
+              let decryptedBlob = safeDecrypt(d.fields.encryptedData.stringValue, AES_SECRET);
+              if (decryptedBlob) {
+                const parsed = JSON.parse(decryptedBlob);
+                if (Array.isArray(parsed)) {
+                  existingItems = parsed;
+                  break;
+                }
               }
             }
-          }
-        } catch (mergeErr) {}
-      }
+          } catch (mergeErr) {}
+        }
+      } catch (overallErr) {}
     }
     const finalMap = new Map();
     existingItems.forEach((existing: any) => {
