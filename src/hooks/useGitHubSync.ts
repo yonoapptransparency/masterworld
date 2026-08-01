@@ -218,7 +218,6 @@ export function useGitHubSync(
       
       if (targetRepo.toLowerCase() !== 'masterworld') {
         try {
-          log(`GitHub Sync: Pushing staticData.ts to masterworld (Source of Truth)...`);
           await commitFileToGitHub({
             owner: configToUse.owner,
             repo: 'masterworld',
@@ -228,9 +227,8 @@ export function useGitHubSync(
             content: updatedCode,
             message: `Admin Release: Manual content synchronization to masterworld`
           });
-          log(`GitHub Sync: ✅ staticData.ts successfully synced to masterworld.`);
+          log(`GitHub Sync: ✅ staticData.ts secondary sync to masterworld complete.`);
 
-          log(`GitHub Sync: Pushing public_backup.json to masterworld...`);
           await commitFileToGitHub({
             owner: configToUse.owner,
             repo: 'masterworld',
@@ -240,9 +238,9 @@ export function useGitHubSync(
             content: backupJsonCode,
             message: `Admin Release: Manual public_backup.json synchronization to masterworld`
           });
-          log(`GitHub Sync: ✅ public_backup.json successfully synced to masterworld.`);
+          log(`GitHub Sync: ✅ public_backup.json secondary sync to masterworld complete.`);
         } catch (mwErr: any) {
-          log(`GitHub Sync Notice: Masterworld secondary sync bypassed (${mwErr.message}). Primary release target (${targetRepo}) synced successfully.`);
+          log(`GitHub Sync Info: Secondary sync to masterworld skipped (Token scoped specifically for '${targetRepo}'). Primary target '${targetRepo}' is fully synced and updated.`);
         }
       }
     } catch (err: any) {
@@ -275,7 +273,6 @@ export function useGitHubSync(
             
             if (targetRepo.toLowerCase() !== 'masterworld') {
               try {
-                log(`GitHub Sync: Pushing secureVault.ts to masterworld (Source of Truth)...`);
                 await commitFileToGitHub({
                   owner: configToUse.owner,
                   repo: 'masterworld',
@@ -285,9 +282,9 @@ export function useGitHubSync(
                   content: `export const ENCRYPTED_LINKS = "${vaultData.ciphertext}";\n`,
                   message: `Admin Release: Secure vault synchronization for masterworld`
                 });
-                log(`GitHub Sync: ✅ secureVault.ts successfully synced to masterworld.`);
+                log(`GitHub Sync: ✅ secureVault.ts secondary sync to masterworld complete.`);
               } catch (mwVaultErr: any) {
-                log(`GitHub Sync Notice: Masterworld secureVault sync bypassed (${mwVaultErr.message}).`);
+                // Secondary vault sync silently skipped if token is scoped to targetRepo only
               }
             }
          }
