@@ -10,7 +10,8 @@
     "precommit": "test -f scripts/check-secrets.ts && tsx scripts/check-secrets.ts || echo \"Skipping secret check\"",
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "tsx --test src/**/*.test.ts"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
