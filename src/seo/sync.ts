@@ -12,223 +12,131 @@ const getStaticData = () => {
   }
 };
 
-const staticData = getStaticData();
-const mockApps = staticData.mockApps || [];
-const mockSettings = staticData.mockSettings || {};
-const mockNews = staticData.mockNews || [];
-const mockBlogs = staticData.mockBlogs || [];
-const mockVideos = staticData.mockVideos || [];
-
 export async function syncFromFirestore(): Promise<any> {
   console.log("CALLED syncFromFirestore");
   try {
-    // 1. Try Firebase Admin SDK first if running on Node server
+    // 1. Always load local container/repo backup first (authoritative Admin data)
+    const freshStatic = getStaticData();
+    let existingBackup: any = {
+      apps: freshStatic.mockApps || [],
+      settings: freshStatic.mockSettings || {},
+      news: freshStatic.mockNews || [],
+      blogs: freshStatic.mockBlogs || [],
+      videos: freshStatic.mockVideos || []
+    };
+
+    const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
+    if (fs.existsSync(publicBackupPath)) {
+      try {
+        const fileContent = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
+        if (fileContent) {
+          if (Array.isArray(fileContent.apps)) existingBackup.apps = fileContent.apps;
+          if (fileContent.settings && Object.keys(fileContent.settings).length > 0) existingBackup.settings = fileContent.settings;
+          if (Array.isArray(fileContent.news)) existingBackup.news = fileContent.news;
+          if (Array.isArray(fileContent.blogs)) existingBackup.blogs = fileContent.blogs;
+          if (Array.isArray(fileContent.videos)) existingBackup.videos = fileContent.videos;
+        }
+      } catch (e) {
+        console.warn("[SYNC] Error reading public_backup.json:", e);
+      }
+    }
+
+    let apps: any[] = existingBackup.apps || [];
+    let settings: any = existingBackup.settings || {};
+    let news: any[] = existingBackup.news || [];
+    let blogs: any[] = existingBackup.blogs || [];
+    let videos: any[] = existingBackup.videos || [];
+
+    // 2. Fallback to Firestore ONLY if local backup arrays are missing or empty
     try {
       const { getFirebaseAdminDb } = require('../server/firebase');
       const adminDb = getFirebaseAdminDb();
       if (adminDb) {
-        const metaSnap = await adminDb.collection('store_data').doc('apps_meta').get();
-        let apps: any[] = [];
-        let appsFetched = false;
-
-        if (metaSnap.exists) {
-          appsFetched = true;
-          const numChunks = metaSnap.data()?.numChunks || 1;
-          for (let i = 0; i < numChunks; i++) {
-            const chunkSnap = await adminDb.collection('store_data').doc(`apps_chunk_${i}`).get();
-            if (chunkSnap.exists && Array.isArray(chunkSnap.data()?.items)) {
-              apps.push(...chunkSnap.data().items);
+        if (news.length === 0) {
+          const newsSnap = await adminDb.collection('store_data').doc('news').get();
+          if (newsSnap.exists && Array.isArray(newsSnap.data()?.items)) {
+            news = newsSnap.data()!.items;
+          }
+        }
+        if (blogs.length === 0) {
+          const blogsSnap = await adminDb.collection('store_data').doc('blogs').get();
+          if (blogsSnap.exists && Array.isArray(blogsSnap.data()?.items)) {
+            blogs = blogsSnap.data()!.items;
+          }
+        }
+        if (videos.length === 0) {
+          const videosSnap = await adminDb.collection('store_data').doc('videos').get();
+          if (videosSnap.exists && Array.isArray(videosSnap.data()?.items)) {
+            videos = videosSnap.data()!.items;
+          }
+        }
+        if (apps.length === 0) {
+          const metaSnap = await adminDb.collection('store_data').doc('apps_meta').get();
+          if (metaSnap.exists) {
+            const numChunks = metaSnap.data()?.numChunks || 1;
+            for (let i = 0; i < numChunks; i++) {
+              const chunkSnap = await adminDb.collection('store_data').doc(`apps_chunk_${i}`).get();
+              if (chunkSnap.exists && Array.isArray(chunkSnap.data()?.items)) {
+                apps.push(...chunkSnap.data().items);
+              }
             }
           }
         }
 
-        if (!appsFetched || apps.length === 0) {
-          const chunk0Snap = await adminDb.collection('store_data').doc('apps_chunk_0').get();
-          if (chunk0Snap.exists && Array.isArray(chunk0Snap.data()?.items)) {
-            apps = chunk0Snap.data().items;
-            appsFetched = true;
+        // 3. Keep Firestore in sync by pushing authoritative Admin data to Firestore
+        try {
+          const promises: Promise<any>[] = [];
+          if (apps.length > 0) {
+            const CHUNK_SIZE = 25;
+            const numChunks = Math.ceil(apps.length / CHUNK_SIZE) || 1;
+            for (let i = 0; i < numChunks; i++) {
+              const chunk = JSON.parse(JSON.stringify(apps.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE)));
+              chunk.forEach((app: any) => {
+                delete app.more_information_url;
+                delete app.encrypted_download_url;
+                delete app.download_url;
+              });
+              promises.push(adminDb.collection('store_data').doc(`apps_chunk_${i}`).set({ items: chunk }));
+            }
+            promises.push(adminDb.collection('store_data').doc('apps_meta').set({ numChunks, last_updated: new Date().toISOString() }));
           }
-        }
-
-        if (!appsFetched || apps.length === 0) {
-          const legacySnap = await adminDb.collection('store_data').doc('apps').get();
-          if (legacySnap.exists && Array.isArray(legacySnap.data()?.items)) {
-            apps = legacySnap.data().items;
-            appsFetched = true;
+          if (settings && Object.keys(settings).length > 0) {
+            promises.push(adminDb.collection('store_data').doc('public_settings').set(JSON.parse(JSON.stringify(settings))));
           }
-        }
-
-        const settingsSnap = await adminDb.collection('store_data').doc('public_settings').get();
-        const newsSnap = await adminDb.collection('store_data').doc('news').get();
-        const blogsSnap = await adminDb.collection('store_data').doc('blogs').get();
-        const videosSnap = await adminDb.collection('store_data').doc('videos').get();
-
-        if (appsFetched || settingsSnap.exists || newsSnap.exists || blogsSnap.exists || videosSnap.exists) {
-          const freshStatic = getStaticData();
-          let existingBackup: any = { apps: freshStatic.mockApps || [], settings: freshStatic.mockSettings || {}, news: freshStatic.mockNews || [], blogs: freshStatic.mockBlogs || [], videos: freshStatic.mockVideos || [] };
-          const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
-          if (fs.existsSync(publicBackupPath)) {
-            try { existingBackup = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8')); } catch (e) {}
+          if (news.length > 0) {
+            promises.push(adminDb.collection('store_data').doc('news').set({ items: JSON.parse(JSON.stringify(news)) }));
           }
-
-          const settings = settingsSnap.exists ? settingsSnap.data() : (existingBackup.settings || freshStatic.mockSettings || {});
-          const news = newsSnap.exists && Array.isArray(newsSnap.data()?.items) ? newsSnap.data()!.items : (existingBackup.news || freshStatic.mockNews || []);
-          const blogs = blogsSnap.exists && Array.isArray(blogsSnap.data()?.items) ? blogsSnap.data()!.items : (existingBackup.blogs || freshStatic.mockBlogs || []);
-          const videos = videosSnap.exists && Array.isArray(videosSnap.data()?.items) ? videosSnap.data()!.items : (existingBackup.videos || freshStatic.mockVideos || []);
-
-          if (apps.length === 0 && Array.isArray(existingBackup.apps) && existingBackup.apps.length > 0) {
-            apps = existingBackup.apps;
+          if (blogs.length > 0) {
+            promises.push(adminDb.collection('store_data').doc('blogs').set({ items: JSON.parse(JSON.stringify(blogs)) }));
           }
-          if (apps.length === 0 && Array.isArray(freshStatic.mockApps) && freshStatic.mockApps.length > 0) {
-            apps = freshStatic.mockApps;
+          if (videos.length > 0) {
+            promises.push(adminDb.collection('store_data').doc('videos').set({ items: JSON.parse(JSON.stringify(videos)) }));
           }
-
-          try {
-            fs.writeFileSync(publicBackupPath, JSON.stringify({ apps, settings, news, blogs, videos }, null, 2), 'utf8');
-            try {
-              const { generateStaticDataFileCode } = require('../lib/githubSync');
-              const tsCode = generateStaticDataFileCode(apps, settings, news, blogs, videos);
-              fs.writeFileSync(path.join(process.cwd(), 'src/lib/staticData.ts'), tsCode, 'utf8');
-            } catch (e: any) {}
-          } catch (e: any) {}
-
-          return { apps, settings, news, blogs, videos };
+          if (promises.length > 0) {
+            await Promise.all(promises);
+            console.log("[SYNC] Successfully updated Cloud Firestore with Admin backup data.");
+          }
+        } catch (pushErr: any) {
+          console.warn("[SYNC] Could not auto-push Admin data to Firestore:", pushErr.message || pushErr);
         }
       }
-    } catch (adminErr) {
-      console.warn("[SYNC] Admin DB sync attempt failed, trying REST API fallback...", adminErr);
+    } catch (adminErr: any) {
+      console.warn("[SYNC] Admin DB sync attempt failed:", adminErr.message || adminErr);
     }
 
-    const config = getRawFirebaseConfig();
-    if (!config || !config.projectId) {
-      console.log("[SYNC] Skipping background Firestore sync: Firebase config not found.");
-      return null;
-    }
-    const projectId = config.projectId;
-    const dbId = config.firestoreDatabaseId || '(default)';
-    const apiKey = config.apiKey;
-    const keyParam = apiKey ? `?key=${apiKey}` : '';
-    const baseUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${dbId}/documents/store_data`;
-
-    console.log(`[SYNC] Syncing filesystem backup files with Firestore (${projectId})...`);
-
-    const [settingsRes, newsRes, blogsRes, videosRes, metaRes] = await Promise.all([
-      fetch(`${baseUrl}/public_settings${keyParam}`).catch(() => null),
-      fetch(`${baseUrl}/news${keyParam}`).catch(() => null),
-      fetch(`${baseUrl}/blogs${keyParam}`).catch(() => null),
-      fetch(`${baseUrl}/videos${keyParam}`).catch(() => null),
-      fetch(`${baseUrl}/apps_meta${keyParam}`).catch(() => null)
-    ]);
-
-    let existingBackup: any = { apps: mockApps, settings: mockSettings, news: mockNews, blogs: mockBlogs, videos: mockVideos };
-    const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
-    if (fs.existsSync(publicBackupPath)) {
-      try {
-        existingBackup = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
-      } catch (e) {}
-    }
-
-    let settings = existingBackup.settings || mockSettings;
-    if (settingsRes && settingsRes.ok) {
-      const docData = await settingsRes.json();
-      const parsed = parseFirestoreDoc(docData.fields);
-      if (parsed && Object.keys(parsed).length > 0) settings = parsed;
-    }
-
-    let news: any[] = existingBackup.news || [];
-    if (newsRes && newsRes.ok) {
-      const docData = await newsRes.json();
-      const parsed = parseFirestoreDoc(docData.fields);
-      if (parsed && Array.isArray(parsed.items)) news = parsed.items;
-    }
-
-    let blogs: any[] = existingBackup.blogs || [];
-    if (blogsRes && blogsRes.ok) {
-      const docData = await blogsRes.json();
-      const parsed = parseFirestoreDoc(docData.fields);
-      if (parsed && Array.isArray(parsed.items)) blogs = parsed.items;
-    }
-
-    let videos: any[] = existingBackup.videos || [];
-    if (videosRes && videosRes.ok) {
-      const docData = await videosRes.json();
-      const parsed = parseFirestoreDoc(docData.fields);
-      if (parsed && Array.isArray(parsed.items)) videos = parsed.items;
-    }
-
-    let apps: any[] = [];
-    let numChunks = 1;
-    let metaFetched = false;
-
-    if (metaRes && metaRes.ok) {
-      const metaData = await metaRes.json();
-      const parsedMeta = parseFirestoreDoc(metaData.fields);
-      if (parsedMeta && typeof parsedMeta.numChunks === 'number') {
-        numChunks = parsedMeta.numChunks;
-        metaFetched = true;
-      }
-    }
-
-    if (metaFetched) {
-      const chunkPromises = [];
-      for (let i = 0; i < numChunks; i++) {
-        chunkPromises.push(
-          fetch(`${baseUrl}/apps_chunk_${i}${keyParam}`)
-            .then(res => res.ok ? res.json() : null)
-            .catch(() => null)
-        );
-      }
-      const chunkDataList = await Promise.all(chunkPromises);
-      chunkDataList.forEach(chunkData => {
-        if (chunkData) {
-          const parsedChunk = parseFirestoreDoc(chunkData.fields);
-          if (parsedChunk && Array.isArray(parsedChunk.items)) {
-            apps.push(...parsedChunk.items);
-          }
-        }
-      });
-    }
-
-    if (apps.length === 0) {
-      const chunk0Res = await fetch(`${baseUrl}/apps_chunk_0${keyParam}`).catch(() => null);
-      if (chunk0Res && chunk0Res.ok) {
-        const chunkData = await chunk0Res.json();
-        const parsed = parseFirestoreDoc(chunkData.fields);
-        if (parsed && Array.isArray(parsed.items)) apps = parsed.items;
-      }
-    }
-
-    if (apps.length === 0) {
-      const appsRes = await fetch(`${baseUrl}/apps${keyParam}`).catch(() => null);
-      if (appsRes && appsRes.ok) {
-        const appsData = await appsRes.json();
-        const parsed = parseFirestoreDoc(appsData.fields);
-        if (parsed && Array.isArray(parsed.items)) apps = parsed.items;
-      }
-    }
-
-    if (apps.length === 0 && Array.isArray(existingBackup.apps) && existingBackup.apps.length > 0) {
-      apps = existingBackup.apps;
-    }
-
+    // 4. Write back clean authoritative Admin data to local backup files
     try {
-      const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
       fs.writeFileSync(publicBackupPath, JSON.stringify({ apps, settings, news, blogs, videos }, null, 2), 'utf8');
-
       try {
         const { generateStaticDataFileCode } = require('../lib/githubSync');
         const tsCode = generateStaticDataFileCode(apps, settings, news, blogs, videos);
         fs.writeFileSync(path.join(process.cwd(), 'src/lib/staticData.ts'), tsCode, 'utf8');
-      } catch (e: any) {
-        console.warn("Could not write staticData.ts fallback (skipping):", e.message);
-      }
-    } catch (fsError: any) {
-      console.warn("[SYNC] Could not write cache files to filesystem:", fsError.message);
-    }
+      } catch (e: any) {}
+    } catch (e: any) {}
 
     return { apps, settings, news, blogs, videos };
-  } catch (err: any) {
-    console.error("[SYNC] Sync error:", err);
+  } catch (err) {
+    console.error("Error in syncFromFirestore:", err);
     return null;
   }
 }
