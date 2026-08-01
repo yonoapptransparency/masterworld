@@ -257,6 +257,20 @@ export const AdminTabContent = ({
         formData.forEach((value, key) => {
           updatedSettings[key] = value;
         });
+        updatedSettings.social_links = {
+          facebook: (formData.get('social_facebook') as string) || '',
+          instagram: (formData.get('social_instagram') as string) || '',
+          twitter: (formData.get('social_twitter') as string) || '',
+          linkedin: (formData.get('social_linkedin') as string) || '',
+          youtube: (formData.get('social_youtube') as string) || '',
+        };
+        delete updatedSettings.social_facebook;
+        delete updatedSettings.social_instagram;
+        delete updatedSettings.social_twitter;
+        delete updatedSettings.social_linkedin;
+        delete updatedSettings.social_youtube;
+        updatedSettings.hero_title_visible = formData.get('hero_title_visible') === 'true';
+
         handleSaveSettings(updatedSettings);
       }} />;
 

@@ -3,6 +3,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db, isFirebaseReal, handleFirestoreError, OperationType } from '../lib/firebase';
 import { adminFetch, getValidAdminToken, loadSession } from '../services/adminAuthService';
 import { GitConfig, generateStaticDataFileCode, commitFileToGitHub } from '../lib/githubSync';
+import { ensureDefaultSettings } from '../lib/defaultLegalContent';
 import { AppConfig, GlobalSettings, NewsItem, BlogPost, VideoItem } from '../types';
 
 export function useGitHubSync(
@@ -178,10 +179,11 @@ export function useGitHubSync(
       }
     }
 
-    const updatedCode = generateStaticDataFileCode(finalApps, targetSettings, targetNews, targetBlogs, targetVideos);
+    const finalSettings = ensureDefaultSettings(targetSettings);
+    const updatedCode = generateStaticDataFileCode(finalApps, finalSettings, targetNews, targetBlogs, targetVideos);
     const backupJsonCode = JSON.stringify({
       apps: finalApps,
-      settings: targetSettings,
+      settings: finalSettings,
       news: targetNews,
       blogs: targetBlogs,
       videos: targetVideos

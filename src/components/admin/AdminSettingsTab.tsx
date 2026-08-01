@@ -1,6 +1,7 @@
 import React from 'react';
 import { Save } from 'lucide-react';
 import ImageUpload from '../ImageUpload';
+import { ensureDefaultSettings } from '../../lib/defaultLegalContent';
 
 interface AdminSettingsTabProps {
   settings: any;
@@ -8,7 +9,9 @@ interface AdminSettingsTabProps {
   saving: boolean;
 }
 
-export const AdminSettingsTab = React.memo(({ settings, handleSaveSettings, saving }: AdminSettingsTabProps) => (
+export const AdminSettingsTab = React.memo(({ settings: rawSettings, handleSaveSettings, saving }: AdminSettingsTabProps) => {
+  const settings = ensureDefaultSettings(rawSettings || {});
+  return (
   <div className="animate-fade-in space-y-8">
     <div className="flex justify-between items-center bg-white dark:bg-slate-900 p-6 rounded-2xl border border-black/10 dark:border-white/10 shadow-sm">
       <div>
@@ -235,7 +238,8 @@ export const AdminSettingsTab = React.memo(({ settings, handleSaveSettings, savi
       </div>
     </form>
   </div>
-));
+  );
+});
 
 AdminSettingsTab.displayName = 'AdminSettingsTab';
 

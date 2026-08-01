@@ -1,4 +1,14 @@
 import { getField } from './utils';
+import {
+  DEFAULT_DISCLAIMER_HTML,
+  DEFAULT_ETHICS_HTML,
+  DEFAULT_PRIVACY_HTML,
+  DEFAULT_TERMS_HTML,
+  DEFAULT_RESPONSIBILITY_HTML,
+  DEFAULT_REPORT_REMOVAL_HTML,
+  DEFAULT_NOTICE_HTML,
+  DEFAULT_ABOUT_HTML
+} from '../lib/defaultLegalContent';
 
 function escapeHtml(unsafe: string) {
   if (!unsafe) return '';
@@ -345,50 +355,50 @@ export function renderVideoDetail(slug: string, videos: any[], settings: any) {
 }
 
 export function renderAbout(settings: any) {
-  const content = getField(settings, 'about_content') || 'About our application services.';
+  const content = getField(settings, 'about_content') || DEFAULT_ABOUT_HTML;
   return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">About Us</h1><article class="prose text-zinc-750 leading-relaxed font-semibold">${content.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>')}</article></div>`;
 }
 
 export function renderContact(settings: any) {
   const content = getField(settings, 'contact_content') || 'Get in touch for active client files help.';
-  const email = getField(settings, 'support_email', 'support@example.com');
+  const email = getField(settings, 'support_email', 'support@rummydex.com');
   return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">Contact Us</h1><p class="prose mb-6 leading-relaxed font-semibold">${content}</p><div class="p-6 bg-zinc-50 rounded-2xl"><strong>Email support address:</strong><p class="text-blue-500 font-bold mt-1">${escapeHtml(email)}</p></div></div>`;
 }
 
 export function renderPrivacy(settings: any) {
-  const content = getField(settings, 'privacy_content') || 'No private data tracking.';
+  const content = getField(settings, 'privacy_content') || DEFAULT_PRIVACY_HTML;
   return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">Privacy Policy</h1><article class="prose text-zinc-750 leading-relaxed font-semibold">${content.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>')}</article></div>`;
 }
 
 export function renderReportRemoval(settings: any) {
-  const content = getField(settings, 'report_removal_content') || 'Report & Removal Policy compliance guidelines.';
+  const content = getField(settings, 'report_removal_content') || DEFAULT_REPORT_REMOVAL_HTML;
   return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">Report & Removal Policy</h1><article class="prose text-zinc-750 leading-relaxed font-semibold">${content.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>')}</article></div>`;
 }
 
 export function renderTerms(settings: any) {
-  const content = getField(settings, 'terms_content') || 'Service code terms of compliance.';
+  const content = getField(settings, 'terms_content') || DEFAULT_TERMS_HTML;
   return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">Terms of Service</h1><article class="prose text-zinc-750 leading-relaxed font-semibold">${content.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>')}</article></div>`;
 }
 
 export function renderResponsibility(settings: any) {
-  const content = getField(settings, 'responsibility_content') || 'Play safe for custom virtual entertainment.';
+  const content = getField(settings, 'responsibility_content') || DEFAULT_RESPONSIBILITY_HTML;
   return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">Responsible Gaming</h1><article class="prose text-zinc-750 leading-relaxed font-semibold">${content.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>')}</article></div>`;
 }
 
 export function renderNotice(settings: any) {
   const heading = getField(settings, 'important_notice_heading') || 'Important Notice';
-  const content = getField(settings, 'important_notice') || 'No important notices at this time.';
+  const content = getField(settings, 'important_notice') || DEFAULT_NOTICE_HTML;
   return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">${heading}</h1><article class="prose text-zinc-750 leading-relaxed font-semibold">${content}</article></div>`;
 }
 
 export function renderEthics(settings: any) {
   const heading = getField(settings, 'ethics_heading') || 'Ethics & Safety';
-  const content = getField(settings, 'ethics_discrimination_text') || 'Ethics and safety information goes here.';
+  const content = getField(settings, 'ethics_discrimination_text') || DEFAULT_ETHICS_HTML;
   return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">${heading}</h1><article class="prose text-zinc-750 leading-relaxed font-semibold">${content}</article></div>`;
 }
 
 export function renderDisclaimer(settings: any) {
   const heading = getField(settings, 'disclaimer_heading') || 'Disclaimer';
-  const content = getField(settings, 'disclaimer_text') || 'Disclaimer information goes here.';
+  const content = getField(settings, 'disclaimer_text') || DEFAULT_DISCLAIMER_HTML;
   return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">${heading}</h1><article class="prose text-zinc-750 leading-relaxed font-semibold">${content}</article></div>`;
 }

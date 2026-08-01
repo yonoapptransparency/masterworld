@@ -3,6 +3,8 @@
  * Responsible for backing up local game state logs, configs, and details on GitHub repos.
  */
 
+import { ensureDefaultSettings } from './defaultLegalContent';
+
 export interface GitConfig {
   owner: string;
   repo: string;
@@ -62,7 +64,7 @@ export function generateStaticDataFileCode(
     website_faqs: [],
     developers: []
   };
-  const cleanSettings = { ...defaultSettings, ...JSON.parse(JSON.stringify(settings || {})) };
+  const cleanSettings = ensureDefaultSettings({ ...defaultSettings, ...JSON.parse(JSON.stringify(settings || {})) });
   const cleanNews = JSON.parse(JSON.stringify(news || []));
   const cleanBlogs = JSON.parse(JSON.stringify(blogs || []));
   const cleanVideos = JSON.parse(JSON.stringify(videos || []));
