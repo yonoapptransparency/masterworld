@@ -165,22 +165,26 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
     // Static pages
     const staticPages = [
       { path: '/', priority: '1.0', changefreq: 'daily' },
-      { path: '/new-apps', priority: '0.8', changefreq: 'daily' },
+      { path: '/new-apps', priority: '0.9', changefreq: 'daily' },
       { path: '/news', priority: '0.8', changefreq: 'daily' },
-      { path: '/blogs', priority: '0.8', changefreq: 'daily' },
-      { path: '/videos', priority: '0.8', changefreq: 'daily' },
-      { path: '/about', priority: '0.5', changefreq: 'weekly' },
-      { path: '/developers', priority: '0.5', changefreq: 'weekly' },
-      { path: '/contact', priority: '0.5', changefreq: 'weekly' },
-      { path: '/privacy', priority: '0.3', changefreq: 'weekly' },
-      { path: '/report-removal', priority: '0.3', changefreq: 'weekly' },
-      { path: '/terms', priority: '0.3', changefreq: 'weekly' },
-      { path: '/responsibility', priority: '0.3', changefreq: 'weekly' },
-      { path: '/notice', priority: '0.3', changefreq: 'weekly' },
-      { path: '/ethics', priority: '0.3', changefreq: 'weekly' },
-      { path: '/disclaimer', priority: '0.3', changefreq: 'weekly' },
-      { path: '/submit-app', priority: '0.5', changefreq: 'weekly' }
+      { path: '/about', priority: '0.5', changefreq: 'monthly' },
+      { path: '/developers', priority: '0.5', changefreq: 'monthly' },
+      { path: '/contact', priority: '0.5', changefreq: 'monthly' },
+      { path: '/privacy', priority: '0.3', changefreq: 'monthly' },
+      { path: '/report-removal', priority: '0.3', changefreq: 'monthly' },
+      { path: '/terms', priority: '0.3', changefreq: 'monthly' },
+      { path: '/responsibility', priority: '0.3', changefreq: 'monthly' },
+      { path: '/notice', priority: '0.3', changefreq: 'monthly' },
+      { path: '/ethics', priority: '0.3', changefreq: 'monthly' },
+      { path: '/disclaimer', priority: '0.3', changefreq: 'monthly' }
     ];
+
+    if (videos && Array.isArray(videos) && videos.length > 0) {
+      staticPages.splice(3, 0, { path: '/videos', priority: '0.7', changefreq: 'weekly' });
+    }
+    if (blogs && Array.isArray(blogs) && blogs.length > 0) {
+      staticPages.splice(3, 0, { path: '/blogs', priority: '0.7', changefreq: 'weekly' });
+    }
 
     const reservedSlugs = new Set(['app', 'news', 'blogs', 'videos', 'new-apps', 'about', 'developers', 'contact', 'privacy', 'terms', 'responsibility', 'notice', 'ethics', 'disclaimer', 'submit-app', 'admin', 'login', 'api']);
 
@@ -197,7 +201,7 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
 
         // Standard App detail URL
         const appLoc = `${host}/app/${cSlug}`;
-        addUrl(appLoc, appDate, 'daily', '1.0');
+        addUrl(appLoc, appDate, 'daily', '0.9');
 
         // Direct slug route (if not reserved)
         const rawSlug = slug.trim().toLowerCase();
@@ -214,12 +218,12 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
       if (slug) {
         const cSlug = cleanSlug(slug);
         const newsLoc = `${host}/news/${cSlug}`;
-        addUrl(newsLoc, getFormattedDate(newsItem), 'weekly', '0.7');
+        addUrl(newsLoc, getFormattedDate(newsItem), 'weekly', '0.8');
       }
     }
 
-    // Blogs
-    for (const blogItem of blogs) {
+    // Blogs (only if items present)
+    for (const blogItem of (blogs || [])) {
       const slug = getField(blogItem, 'slug');
       if (slug) {
         const cSlug = cleanSlug(slug);
@@ -228,8 +232,8 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
       }
     }
 
-    // Videos
-    for (const video of videos) {
+    // Videos (only if items present)
+    for (const video of (videos || [])) {
       const slug = getField(video, 'slug');
       if (slug) {
         const cSlug = cleanSlug(slug);
