@@ -88,7 +88,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     loadBackup();
   }, []);
 
-  const testCloudConnection = async () => {
+  const testCloudConnection = React.useCallback(async () => {
     if (!isFirebaseReal || !db) return false;
     try {
       await getDocFromServer(doc(db, 'store_data', 'public_settings'));
@@ -98,9 +98,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     } catch {
       return false;
     }
-  };
+  }, [sync.setIsConnected, sync.setIsLive]);
 
-  const refreshAll = async (silent = false) => {
+  const refreshAll = React.useCallback(async (silent = false) => {
     if (!isFirebaseReal) return;
     if (!silent) sync.setLoading(true);
     try {
@@ -119,7 +119,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     } finally {
       sync.setLoading(false);
     }
-  };
+  }, [sync.setLoading, sync.setSyncVersion, sync.setLastSyncTime]);
 
   const resolvedSettings = useMemo(() => ({
     ...sync.settings,
