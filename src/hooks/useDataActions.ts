@@ -18,13 +18,17 @@ export function useDataActions(
   getAdminToken: () => Promise<string>
 ) {
 
-  const updateLocalContainerBackup = useCallback(async (
-    appsList: AppConfig[],
-    settingsObj: GlobalSettings,
-    newsList: NewsItem[],
-    blogsList: BlogPost[],
-    videosList: VideoItem[]
-  ) => {
+  const updateLocalContainerBackup = useCallback(async (payload: {
+    apps?: AppConfig[];
+    settings?: GlobalSettings;
+    news?: NewsItem[];
+    blogs?: BlogPost[];
+    videos?: VideoItem[];
+    allowEmptyApps?: boolean;
+    allowEmptyNews?: boolean;
+    allowEmptyBlogs?: boolean;
+    allowEmptyVideos?: boolean;
+  }) => {
     try {
       const idToken = await getAdminToken();
       const res = await adminFetch('/api/v1/admin/sync-local', {
@@ -33,13 +37,7 @@ export function useDataActions(
           'Content-Type': 'application/json',
           ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
         },
-        body: JSON.stringify({
-          apps: appsList,
-          settings: settingsObj,
-          news: newsList,
-          blogs: blogsList,
-          videos: videosList
-        })
+        body: JSON.stringify(payload)
       });
       if (!res.ok) throw new Error("Server Sync Failed");
     } catch (e) {
@@ -50,7 +48,7 @@ export function useDataActions(
   const saveApps = useCallback(async (newApps: AppConfig[]) => {
     setApps(newApps);
     try {
-      await updateLocalContainerBackup(newApps, settings, news, blogs, videos);
+      await updateLocalContainerBackup({ apps: newApps, allowEmptyApps: newApps.length === 0 });
     } catch (e) {}
 
     if (isFirebaseReal && db) {
@@ -58,6 +56,7 @@ export function useDataActions(
         const CHUNK_SIZE = 25;
         const numChunks = Math.ceil(newApps.length / CHUNK_SIZE) || 1;
         const now = new Date().toISOString();
+        const chunkPromises = [];
         for (let i = 0; i < numChunks; i++) {
           const chunk = JSON.parse(JSON.stringify(newApps.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE)));
           chunk.forEach((app: any) => {
@@ -65,10 +64,13 @@ export function useDataActions(
             delete app.encrypted_download_url;
             delete app.download_url;
           });
-          setDoc(doc(db, 'store_data', `apps_chunk_${i}`), { items: chunk }).catch(() => {});
+          chunkPromises.push(setDoc(doc(db, 'store_data', `apps_chunk_${i}`), { items: chunk }));
         }
-        setDoc(doc(db, 'store_data', 'apps_meta'), { numChunks, last_updated: now }).catch(() => {});
-      } catch (e) {}
+        await Promise.all(chunkPromises);
+        await setDoc(doc(db, 'store_data', 'apps_meta'), { numChunks, last_updated: now });
+      } catch (e) {
+        console.warn("Error saving apps to client Firestore:", e);
+      }
     }
 
     const secureLinks = newApps
@@ -79,69 +81,94 @@ export function useDataActions(
       .map(a => ({ id: a.id, url: a.more_information_url || '' }));
 
     if (secureLinks.length > 0) {
-      getAdminToken().then(idToken => {
-        adminFetch('/api/v1/admin/encrypt-links', {
+      try {
+        const idToken = await getAdminToken();
+        const encRes = await adminFetch('/api/v1/admin/encrypt-links', {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${idToken}`
           },
           body: JSON.stringify({ items: secureLinks })
-        }).then(async (encRes) => {
-          if (encRes.ok) {
-            const encJSON = await encRes.json();
-            const encryptedData = encJSON.encrypted;
-            if (encryptedData && db) {
-              setDoc(doc(db, 'store_data', 'secure_links'), { encryptedData, lastUpdated: new Date().toISOString() }).catch(() => {});
-            }
+        });
+        if (encRes.ok) {
+          const encJSON = await encRes.json();
+          const encryptedData = encJSON.encrypted;
+          if (encryptedData && db) {
+            await setDoc(doc(db, 'store_data', 'secure_links'), { encryptedData, lastUpdated: new Date().toISOString() });
           }
-        }).catch(() => {});
-      }).catch(() => {});
+        }
+      } catch (e) {
+        console.warn("Failed encrypting secure links:", e);
+      }
     }
-  }, [settings, news, blogs, videos, apps, updateLocalContainerBackup]);
+  }, [apps, updateLocalContainerBackup, getAdminToken]);
 
   const saveSettings = useCallback(async (newSettings: GlobalSettings) => {
     const now = new Date().toISOString();
-    const settingsWithTime = { ...settings, ...newSettings, last_updated: now };
+    const settingsWithTime: GlobalSettings = {
+      ...settings,
+      ...newSettings,
+      banners: newSettings.banners !== undefined ? newSettings.banners : (settings.banners || []),
+      categories: newSettings.categories !== undefined ? newSettings.categories : (settings.categories || []),
+      quick_links: newSettings.quick_links !== undefined ? newSettings.quick_links : (settings.quick_links || []),
+      website_faqs: newSettings.website_faqs !== undefined ? newSettings.website_faqs : (settings.website_faqs || []),
+      developers: newSettings.developers !== undefined ? newSettings.developers : (settings.developers || []),
+      last_updated: now
+    };
     setSettings(settingsWithTime);
     try {
-      await updateLocalContainerBackup(apps, settingsWithTime, news, blogs, videos);
+      await updateLocalContainerBackup({
+        apps,
+        settings: settingsWithTime,
+        news,
+        blogs,
+        videos
+      });
     } catch (e) {}
 
     if (isFirebaseReal && db) {
-      setDoc(doc(db, 'store_data', 'public_settings'), settingsWithTime, { merge: true }).catch(() => {});
+      try {
+        await setDoc(doc(db, 'store_data', 'public_settings'), settingsWithTime, { merge: true });
+      } catch (e) {}
     }
   }, [settings, apps, news, blogs, videos, updateLocalContainerBackup]);
 
   const saveNews = useCallback(async (newNews: NewsItem[]) => {
     setNews(newNews);
     try {
-      await updateLocalContainerBackup(apps, settings, newNews, blogs, videos);
+      await updateLocalContainerBackup({ news: newNews, allowEmptyNews: newNews.length === 0 });
     } catch (e) {}
     if (isFirebaseReal && db) {
-      setDoc(doc(db, 'store_data', 'news'), { items: newNews }).catch(() => {});
+      try {
+        await setDoc(doc(db, 'store_data', 'news'), { items: newNews });
+      } catch (e) {}
     }
-  }, [apps, settings, blogs, videos, updateLocalContainerBackup]);
+  }, [updateLocalContainerBackup]);
 
   const saveBlogs = useCallback(async (newBlogs: BlogPost[]) => {
     setBlogs(newBlogs);
     try {
-      await updateLocalContainerBackup(apps, settings, news, newBlogs, videos);
+      await updateLocalContainerBackup({ blogs: newBlogs, allowEmptyBlogs: newBlogs.length === 0 });
     } catch (e) {}
     if (isFirebaseReal && db) {
-      setDoc(doc(db, 'store_data', 'blogs'), { items: newBlogs }).catch(() => {});
+      try {
+        await setDoc(doc(db, 'store_data', 'blogs'), { items: newBlogs });
+      } catch (e) {}
     }
-  }, [apps, settings, news, videos, updateLocalContainerBackup]);
+  }, [updateLocalContainerBackup]);
 
   const saveVideos = useCallback(async (newVideos: VideoItem[]) => {
     setVideos(newVideos);
     try {
-      await updateLocalContainerBackup(apps, settings, news, blogs, newVideos);
+      await updateLocalContainerBackup({ videos: newVideos, allowEmptyVideos: newVideos.length === 0 });
     } catch (e) {}
     if (isFirebaseReal && db) {
-      setDoc(doc(db, 'store_data', 'videos'), { items: newVideos }).catch(() => {});
+      try {
+        await setDoc(doc(db, 'store_data', 'videos'), { items: newVideos });
+      } catch (e) {}
     }
-  }, [apps, settings, news, blogs, updateLocalContainerBackup]);
+  }, [updateLocalContainerBackup]);
 
   return {
     saveApps,

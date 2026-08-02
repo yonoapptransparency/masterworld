@@ -221,7 +221,7 @@ adminVaultRouter.post("/api/v1/admin/decrypt-links", verifyAdminToken, async (re
 adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: any, res) => {
   console.log("[DEBUG] sync-local endpoint hit!");
   try {
-    const { apps, settings, news, blogs, videos } = req.body;
+    const { apps, settings, news, blogs, videos, allowEmptyApps, allowEmptyNews, allowEmptyBlogs, allowEmptyVideos } = req.body;
     if (!apps && !settings && !news && !blogs && !videos) {
       return res.status(400).json({ error: "Invalid sync payload: no items provided." });
     }
@@ -232,10 +232,11 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
     try {
       const adminDb = getFirebaseAdminDb();
       if (adminDb) {
-        const promises: Promise<any>[] = [];
-        if (apps && Array.isArray(apps)) {
+        // Handle Apps chunking with sequential meta update
+        if (Array.isArray(apps) && (apps.length > 0 || allowEmptyApps)) {
           const CHUNK_SIZE = 25;
           const numChunks = Math.ceil(apps.length / CHUNK_SIZE) || 1;
+          const chunkPromises: Promise<any>[] = [];
           for (let i = 0; i < numChunks; i++) {
             const chunk = JSON.parse(JSON.stringify(apps.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE)));
             chunk.forEach((app: any) => {
@@ -243,23 +244,28 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
               delete app.encrypted_download_url;
               delete app.download_url;
             });
-            promises.push(adminDb.collection('store_data').doc(`apps_chunk_${i}`).set({ items: chunk }));
+            chunkPromises.push(adminDb.collection('store_data').doc(`apps_chunk_${i}`).set({ items: chunk }));
           }
-          promises.push(adminDb.collection('store_data').doc('apps_meta').set({ numChunks, last_updated: new Date().toISOString() }));
+          await Promise.all(chunkPromises);
+          await adminDb.collection('store_data').doc('apps_meta').set({ numChunks, last_updated: new Date().toISOString() });
         }
-        if (settings) {
-          promises.push(adminDb.collection('store_data').doc('public_settings').set(JSON.parse(JSON.stringify(settings))));
+
+        const otherPromises: Promise<any>[] = [];
+        if (settings && typeof settings === 'object' && Object.keys(settings).length > 0) {
+          otherPromises.push(adminDb.collection('store_data').doc('public_settings').set(JSON.parse(JSON.stringify(settings)), { merge: true }));
         }
-        if (news && Array.isArray(news)) {
-          promises.push(adminDb.collection('store_data').doc('news').set({ items: JSON.parse(JSON.stringify(news)) }));
+        if (Array.isArray(news) && (news.length > 0 || allowEmptyNews)) {
+          otherPromises.push(adminDb.collection('store_data').doc('news').set({ items: JSON.parse(JSON.stringify(news)) }));
         }
-        if (blogs && Array.isArray(blogs)) {
-          promises.push(adminDb.collection('store_data').doc('blogs').set({ items: JSON.parse(JSON.stringify(blogs)) }));
+        if (Array.isArray(blogs) && (blogs.length > 0 || allowEmptyBlogs)) {
+          otherPromises.push(adminDb.collection('store_data').doc('blogs').set({ items: JSON.parse(JSON.stringify(blogs)) }));
         }
-        if (videos && Array.isArray(videos)) {
-          promises.push(adminDb.collection('store_data').doc('videos').set({ items: JSON.parse(JSON.stringify(videos)) }));
+        if (Array.isArray(videos) && (videos.length > 0 || allowEmptyVideos)) {
+          otherPromises.push(adminDb.collection('store_data').doc('videos').set({ items: JSON.parse(JSON.stringify(videos)) }));
         }
-        await Promise.all(promises);
+        if (otherPromises.length > 0) {
+          await Promise.all(otherPromises);
+        }
         console.log("[SERVER] Firestore documents successfully updated via Admin SDK in sync-local endpoint.");
         firestoreUpdated = true;
       } else {
@@ -275,9 +281,11 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
       try {
         const authToken = req.headers.authorization;
         const promises: Promise<boolean>[] = [];
-        if (apps && Array.isArray(apps)) {
+        
+        if (Array.isArray(apps) && (apps.length > 0 || allowEmptyApps)) {
           const CHUNK_SIZE = 25;
           const numChunks = Math.ceil(apps.length / CHUNK_SIZE) || 1;
+          const chunkPromises: Promise<boolean>[] = [];
           for (let i = 0; i < numChunks; i++) {
             const chunk = JSON.parse(JSON.stringify(apps.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE)));
             chunk.forEach((app: any) => {
@@ -285,32 +293,38 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
               delete app.encrypted_download_url;
               delete app.download_url;
             });
-            promises.push(writeFirestoreRestDoc(`apps_chunk_${i}`, { items: chunk }, authToken));
+            chunkPromises.push(writeFirestoreRestDoc(`apps_chunk_${i}`, { items: chunk }, authToken));
           }
-          promises.push(writeFirestoreRestDoc('apps_meta', { numChunks, last_updated: new Date().toISOString() }, authToken));
+          await Promise.all(chunkPromises);
+          await writeFirestoreRestDoc('apps_meta', { numChunks, last_updated: new Date().toISOString() }, authToken);
         }
-        if (settings) {
-          promises.push(writeFirestoreRestDoc('public_settings', JSON.parse(JSON.stringify(settings)), authToken));
+
+        if (settings && typeof settings === 'object' && Object.keys(settings).length > 0) {
+          promises.push(writeFirestoreRestDoc('public_settings', JSON.parse(JSON.stringify(settings)), authToken, true));
         }
-        if (news && Array.isArray(news)) {
+        if (Array.isArray(news) && (news.length > 0 || allowEmptyNews)) {
           promises.push(writeFirestoreRestDoc('news', { items: JSON.parse(JSON.stringify(news)) }, authToken));
         }
-        if (blogs && Array.isArray(blogs)) {
+        if (Array.isArray(blogs) && (blogs.length > 0 || allowEmptyBlogs)) {
           promises.push(writeFirestoreRestDoc('blogs', { items: JSON.parse(JSON.stringify(blogs)) }, authToken));
         }
-        if (videos && Array.isArray(videos)) {
+        if (Array.isArray(videos) && (videos.length > 0 || allowEmptyVideos)) {
           promises.push(writeFirestoreRestDoc('videos', { items: JSON.parse(JSON.stringify(videos)) }, authToken));
         }
-        const writeResults = await Promise.all(promises);
-        const allOk = writeResults.length > 0 && writeResults.every(res => res === true);
-        if (allOk) {
-          console.log("[SERVER] Firestore documents successfully updated via Auth REST Proxy in sync-local endpoint.");
-          firestoreUpdated = true;
-          firestoreError = null; // Clear error as REST succeeded
+        if (promises.length > 0) {
+          const writeResults = await Promise.all(promises);
+          const allOk = writeResults.every(res => res === true);
+          if (allOk) {
+            console.log("[SERVER] Firestore documents successfully updated via Auth REST Proxy in sync-local endpoint.");
+            firestoreUpdated = true;
+            firestoreError = null;
+          } else {
+            const succCount = writeResults.filter(Boolean).length;
+            firestoreError = `REST Fallback write partially failed (${succCount}/${writeResults.length} docs succeeded).`;
+            console.warn(`[SERVER] ${firestoreError}`);
+          }
         } else {
-          const succCount = writeResults.filter(Boolean).length;
-          firestoreError = `REST Fallback write partially failed (${succCount}/${writeResults.length} docs succeeded).`;
-          console.warn(`[SERVER] ${firestoreError}`);
+          firestoreUpdated = true;
         }
       } catch (restSyncErr: any) {
         console.error("[SERVER] Firestore REST API update failed in sync-local endpoint:", restSyncErr.message);
@@ -318,7 +332,7 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
       }
     }
 
-    // Try local file backup (don't block the response on this)
+    // Try local file backup safely without wiping non-empty arrays with empty truthy []
     try {
       const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
       let existingBackup: any = { apps: [], settings: {}, news: [], blogs: [], videos: [] };
@@ -328,11 +342,18 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
         } catch (e) {}
       }
 
-      const finalApps = apps || existingBackup.apps || [];
-      const finalSettings = (settings && Object.keys(settings).length > 0) ? settings : (existingBackup.settings || {});
-      const finalNews = news || existingBackup.news || [];
-      const finalBlogs = blogs || existingBackup.blogs || [];
-      const finalVideos = videos || existingBackup.videos || [];
+      const { mockApps, mockSettings, mockNews, mockBlogs, mockVideos } = require('../../lib/staticData');
+      const baseApps = (Array.isArray(existingBackup.apps) && existingBackup.apps.length > 0) ? existingBackup.apps : (mockApps || []);
+      const baseSettings = (existingBackup.settings && typeof existingBackup.settings === 'object' && Object.keys(existingBackup.settings).length > 0) ? existingBackup.settings : (mockSettings || {});
+      const baseNews = (Array.isArray(existingBackup.news) && existingBackup.news.length > 0) ? existingBackup.news : (mockNews || []);
+      const baseBlogs = (Array.isArray(existingBackup.blogs) && existingBackup.blogs.length > 0) ? existingBackup.blogs : (mockBlogs || []);
+      const baseVideos = (Array.isArray(existingBackup.videos) && existingBackup.videos.length > 0) ? existingBackup.videos : (mockVideos || []);
+
+      const finalApps = (Array.isArray(apps) && (apps.length > 0 || allowEmptyApps)) ? apps : baseApps;
+      const finalSettings = (settings && typeof settings === 'object' && Object.keys(settings).length > 0) ? { ...baseSettings, ...settings } : baseSettings;
+      const finalNews = (Array.isArray(news) && (news.length > 0 || allowEmptyNews)) ? news : baseNews;
+      const finalBlogs = (Array.isArray(blogs) && (blogs.length > 0 || allowEmptyBlogs)) ? blogs : baseBlogs;
+      const finalVideos = (Array.isArray(videos) && (videos.length > 0 || allowEmptyVideos)) ? videos : baseVideos;
 
       const backupPayload = {
         apps: finalApps,

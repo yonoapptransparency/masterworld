@@ -101,7 +101,7 @@ export async function syncFromFirestore(): Promise<any> {
             promises.push(adminDb.collection('store_data').doc('apps_meta').set({ numChunks, last_updated: new Date().toISOString() }));
           }
           if (settings && Object.keys(settings).length > 0) {
-            promises.push(adminDb.collection('store_data').doc('public_settings').set(JSON.parse(JSON.stringify(settings))));
+            promises.push(adminDb.collection('store_data').doc('public_settings').set(JSON.parse(JSON.stringify(settings)), { merge: true }));
           }
           if (news.length > 0) {
             promises.push(adminDb.collection('store_data').doc('news').set({ items: JSON.parse(JSON.stringify(news)) }));

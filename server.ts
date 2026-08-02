@@ -164,8 +164,12 @@ async function startServer() {
           } catch(e) {}
         }
         const protocol = req.headers["x-forwarded-proto"] || req.protocol || "https";
-        const host = req.headers["x-forwarded-host"] || req.get("host") || (process.env.PUBLIC_DOMAIN ? new URL(process.env.PUBLIC_DOMAIN).host : (process.env.VITE_PUBLIC_DOMAIN ? new URL(process.env.VITE_PUBLIC_DOMAIN).host : "www.dex.com"));
-        const hostUrl = `${String(protocol).split(',')[0].trim()}://${String(host).split(',')[0].trim()}`;
+        let hostHeader = req.headers["x-forwarded-host"] || req.get("host") || (process.env.PUBLIC_DOMAIN ? new URL(process.env.PUBLIC_DOMAIN).host : (process.env.VITE_PUBLIC_DOMAIN ? new URL(process.env.VITE_PUBLIC_DOMAIN).host : "www.rummydex.com"));
+        let cleanHost = String(hostHeader).split(',')[0].trim();
+        if (cleanHost === 'rummydex.com') {
+          cleanHost = 'www.rummydex.com';
+        }
+        const hostUrl = `${String(protocol).split(',')[0].trim()}://${cleanHost}`;
         const userAgent = req.headers['user-agent'] || '';
         const seoResult = await injectSeoTags(template, req.originalUrl, hostUrl, userAgent);
         const html = typeof seoResult === 'string' ? seoResult : (seoResult.html || template);

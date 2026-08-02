@@ -33,6 +33,7 @@ export function useDataSync() {
 
   const [fetchedStates, setFetchedStates] = useState({
     apps: false,
+    settings: false,
     news: false,
     blogs: false,
     videos: false
@@ -68,13 +69,16 @@ export function useDataSync() {
       onSnapshot(doc(db, 'store_data', 'apps_meta'), async (snap) => {
         try {
           if (snap.exists()) {
+            if (snap.metadata.hasPendingWrites) return;
             const numChunks = snap.data().numChunks || 1;
             const allApps = [];
             for (let i = 0; i < numChunks; i++) {
               const chunkSnap = await getDoc(doc(db, 'store_data', `apps_chunk_${i}`));
               if (chunkSnap.exists()) allApps.push(...chunkSnap.data().items);
             }
-            setApps(allApps);
+            if (allApps.length > 0) {
+              setApps(allApps);
+            }
             setFetchedStates(prev => ({ ...prev, apps: true }));
           } else {
             setApps([]);
@@ -85,36 +89,39 @@ export function useDataSync() {
         }
       }),
       onSnapshot(doc(db, 'store_data', 'public_settings'), (snap) => {
-        if (snap.exists()) {
+        if (snap.exists() && !snap.metadata.hasPendingWrites) {
           setSettings(snap.data() as GlobalSettings);
+          setFetchedStates(prev => ({ ...prev, settings: true }));
+        } else if (!snap.exists()) {
+          setFetchedStates(prev => ({ ...prev, settings: true }));
         }
         checkLoaded('settings');
       }),
       onSnapshot(doc(db, 'store_data', 'news'), (snap) => {
-        if (snap.exists()) {
+        if (snap.exists() && !snap.metadata.hasPendingWrites) {
           setNews(snap.data().items || []);
           setFetchedStates(prev => ({ ...prev, news: true }));
-        } else {
+        } else if (!snap.exists()) {
           setNews([]);
           setFetchedStates(prev => ({ ...prev, news: true }));
         }
         checkLoaded('news');
       }),
       onSnapshot(doc(db, 'store_data', 'blogs'), (snap) => {
-        if (snap.exists()) {
+        if (snap.exists() && !snap.metadata.hasPendingWrites) {
           setBlogs(snap.data().items || []);
           setFetchedStates(prev => ({ ...prev, blogs: true }));
-        } else {
+        } else if (!snap.exists()) {
           setBlogs([]);
           setFetchedStates(prev => ({ ...prev, blogs: true }));
         }
         checkLoaded('blogs');
       }),
       onSnapshot(doc(db, 'store_data', 'videos'), (snap) => {
-        if (snap.exists()) {
+        if (snap.exists() && !snap.metadata.hasPendingWrites) {
           setVideos(snap.data().items || []);
           setFetchedStates(prev => ({ ...prev, videos: true }));
-        } else {
+        } else if (!snap.exists()) {
           setVideos([]);
           setFetchedStates(prev => ({ ...prev, videos: true }));
         }

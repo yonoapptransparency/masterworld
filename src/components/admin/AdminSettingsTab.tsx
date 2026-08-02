@@ -19,7 +19,7 @@ export const AdminSettingsTab = React.memo(({ settings: rawSettings, handleSaveS
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Manage global identity, content, and legal text.</p>
       </div>
     </div>
-    <form onSubmit={handleSaveSettings} className="space-y-8">
+    <form key={settings.last_updated || settings.site_title || 'settings-form'} onSubmit={handleSaveSettings} className="space-y-8">
       
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-6">
         <h3 className="font-bold text-sm text-slate-900 dark:text-white border-b border-black/5 dark:border-white/5 pb-2">Branding & Identity</h3>
@@ -50,11 +50,11 @@ export const AdminSettingsTab = React.memo(({ settings: rawSettings, handleSaveS
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Main Index Heading</label>
-            <input type="text" name="secure_index_title" defaultValue={settings.secure_index_title || 'Secure Index'} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            <input type="text" name="secure_index_title" defaultValue={settings.secure_index_title ?? ''} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Main Index Subtitle</label>
-            <input type="text" name="secure_index_subtitle" defaultValue={settings.secure_index_subtitle || 'Verified & Transparent App Marketplace'} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            <input type="text" name="secure_index_subtitle" defaultValue={settings.secure_index_subtitle ?? ''} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
           </div>
           <div className="sm:col-span-2">
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Trending Searches (Comma Separated)</label>
@@ -173,12 +173,12 @@ export const AdminSettingsTab = React.memo(({ settings: rawSettings, handleSaveS
 
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Hero Banner Writing Text (Title)</label>
-            <input type="text" name="hero_title_text" defaultValue={settings.hero_title_text || 'RUMMY STORE GAMING DIRECTORY'} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            <input type="text" name="hero_title_text" defaultValue={settings.hero_title_text ?? ''} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Hero Tagline / Subtitle</label>
-            <input type="text" name="hero_title_subtitle" defaultValue={settings.hero_title_subtitle || 'COMPREHENSIVE SOCIAL CASUAL E-SPORTS METRICS & UNBIASED INTEGRITY REVIEWS'} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            <input type="text" name="hero_title_subtitle" defaultValue={settings.hero_title_subtitle ?? ''} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
           </div>
         </div>
       </div>

@@ -79,16 +79,16 @@ export default function AdminDashboard() {
     } finally { setSaving(false); }
   };
 
-  const handleSaveApp = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSaveApp = async (e: React.FormEvent<HTMLFormElement> | any, formFieldsOverride?: any) => {
+    e?.preventDefault?.();
     setSaving(true);
     try {
-      const formData = new FormData(e.currentTarget);
-      const name = (formData.get('name') as string || formData.get('hidden_name') as string) || 'New App';
-      const rawSlug = (formData.get('slug') as string || formData.get('hidden_slug') as string);
+      const formData = e?.currentTarget ? new FormData(e.currentTarget) : null;
+      const name = formFieldsOverride?.name?.trim() || (formData ? (formData.get('name') as string || formData.get('hidden_name') as string) : '') || 'New App';
+      const rawSlug = formFieldsOverride?.slug || (formData ? (formData.get('slug') as string || formData.get('hidden_slug') as string) : '');
       const slug = rawSlug?.trim().toLowerCase().replace(/[^a-z0-9-_]+/g, '-') || name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-      const rawUrl = (formData.get('more_information_url') as string) ?? (formData.get('hidden_more_information_url') as string) ?? '';
-      const inputUrl = rawUrl.trim();
+      const rawUrl = formFieldsOverride?.more_information_url ?? (formData ? ((formData.get('more_information_url') as string) ?? (formData.get('hidden_more_information_url') as string)) : '');
+      const inputUrl = (rawUrl || '').trim();
       
       let encryptedUrlVal = '';
       let plaintextUrl = inputUrl || '';
@@ -103,39 +103,49 @@ export default function AdminDashboard() {
          if (res.ok) encryptedUrlVal = (await res.json()).encrypted;
       }
 
+      let category = 'General';
+      if (formFieldsOverride) {
+        let catArr: string[] = [];
+        if (Array.isArray(formFieldsOverride.category_list)) catArr = [...formFieldsOverride.category_list];
+        if (formFieldsOverride.custom_category?.trim()) catArr.push(formFieldsOverride.custom_category.trim());
+        if (catArr.length > 0) category = catArr.filter(Boolean).join(', ');
+      } else if (formData) {
+        category = (formData.getAll('category_list') as string[]).filter(Boolean).join(', ') || 'General';
+      }
+
       const actualAppId = editingAppId || Math.random().toString(36).substr(2, 9);
       const existingApp = editingAppId ? appsList.find(a => a.id === editingAppId) : null;
       const appData = {
         id: actualAppId,
         name,
         slug,
-        icon_url: (formData.get('icon_url') as string || formData.get('hidden_icon_url') as string) || '',
-        category: (formData.getAll('category_list') as string[]).filter(Boolean).join(', ') || 'General',
+        icon_url: (formFieldsOverride?.icon_url ?? (formData ? (formData.get('icon_url') as string || formData.get('hidden_icon_url') as string) : '')) || '',
+        category,
         more_information_url: plaintextUrl,
         encrypted_link: encryptedUrlVal || (plaintextUrl.startsWith('U2FsdGVkX1') ? plaintextUrl : ''),
-        rating: parseFloat(formData.get('rating') as string) || 5.0,
-        safety_status: (formData.get('safety_status') as any) || 'Verified',
-        serial_number: parseInt(formData.get('serial_number') as string) || appsList.length + 1,
-        version: formData.get('version') as string || '1.0',
-        file_size: formData.get('file_size') as string || 'Unknown',
-        developer: formData.get('developer') as string || 'Admin',
-        description_html: (formData.get('description_html') as string ?? formData.get('hidden_description_html') as string) || '',
-        features_html: (formData.get('features_html') as string ?? formData.get('hidden_features_html') as string) || '',
-        seo_title: (formData.get('seo_title') as string ?? formData.get('hidden_seo_title') as string) || '',
-        seo_description: (formData.get('seo_description') as string ?? formData.get('hidden_seo_description') as string) || '',
-        seo_keywords: (formData.get('seo_keywords') as string ?? formData.get('hidden_seo_keywords') as string) || '',
-        og_image_url: (formData.get('og_image_url') as string ?? formData.get('hidden_og_image_url') as string) || '',
-        canonical_url: (formData.get('canonical_url') as string ?? formData.get('hidden_canonical_url') as string) || '',
-        video_url: (formData.get('video_url') as string ?? formData.get('hidden_video_url') as string) || '',
-        publish_date: (formData.get('publish_date') as string ?? formData.get('hidden_publish_date') as string) || '',
-        release_notes: (formData.get('release_notes') as string ?? formData.get('hidden_release_notes') as string) || '',
-        red_box_msg: (formData.get('red_box_msg') as string ?? formData.get('hidden_red_box_msg') as string) || '',
-        yellow_box_msg: (formData.get('yellow_box_msg') as string ?? formData.get('hidden_yellow_box_msg') as string) || '',
-        idea_box_msg: (formData.get('idea_box_msg') as string ?? formData.get('hidden_idea_box_msg') as string) || '',
-        is_new: formData.get('is_new') === 'on',
-        is_coming_soon: formData.get('is_coming_soon') === 'on',
-        screenshots: JSON.parse((formData.get('screenshots_json') as string || formData.get('hidden_screenshots_json') as string) || '[]'),
-        faqs: JSON.parse((formData.get('faqs_json') as string || formData.get('hidden_faqs_json') as string) || '[]'),
+        rating: formFieldsOverride ? (parseFloat(formFieldsOverride.rating) || 5.0) : (parseFloat(formData?.get('rating') as string) || 5.0),
+        safety_status: formFieldsOverride?.safety_status || (formData?.get('safety_status') as any) || 'Verified',
+        serial_number: formFieldsOverride?.serial_number ? (parseInt(formFieldsOverride.serial_number) || appsList.length + 1) : (parseInt(formData?.get('serial_number') as string) || appsList.length + 1),
+        version: formFieldsOverride?.version ?? (formData?.get('version') as string) ?? '1.0',
+        file_size: formFieldsOverride?.file_size ?? (formData?.get('file_size') as string) ?? 'Unknown',
+        developer: formFieldsOverride?.developer ?? (formData?.get('developer') as string) ?? 'Admin',
+        description_html: formFieldsOverride?.description_html ?? (formData ? (formData.get('description_html') as string ?? formData.get('hidden_description_html') as string) : '') ?? '',
+        features_html: formFieldsOverride?.features_html ?? (formData ? (formData.get('features_html') as string ?? formData.get('hidden_features_html') as string) : '') ?? '',
+        seo_title: formFieldsOverride?.seo_title ?? (formData ? (formData.get('seo_title') as string ?? formData.get('hidden_seo_title') as string) : '') ?? '',
+        seo_description: formFieldsOverride?.seo_description ?? (formData ? (formData.get('seo_description') as string ?? formData.get('hidden_seo_description') as string) : '') ?? '',
+        seo_keywords: formFieldsOverride?.seo_keywords ?? (formData ? (formData.get('seo_keywords') as string ?? formData.get('hidden_seo_keywords') as string) : '') ?? '',
+        og_image_url: formFieldsOverride?.og_image_url ?? (formData ? (formData.get('og_image_url') as string ?? formData.get('hidden_og_image_url') as string) : '') ?? '',
+        canonical_url: formFieldsOverride?.canonical_url ?? (formData ? (formData.get('canonical_url') as string ?? formData.get('hidden_canonical_url') as string) : '') ?? '',
+        video_url: formFieldsOverride?.video_url ?? (formData ? (formData.get('video_url') as string ?? formData.get('hidden_video_url') as string) : '') ?? '',
+        publish_date: formFieldsOverride?.publish_date ?? (formData ? (formData.get('publish_date') as string ?? formData.get('hidden_publish_date') as string) : '') ?? '',
+        release_notes: formFieldsOverride?.release_notes ?? (formData ? (formData.get('release_notes') as string ?? formData.get('hidden_release_notes') as string) : '') ?? '',
+        red_box_msg: formFieldsOverride?.red_box_msg ?? (formData ? (formData.get('red_box_msg') as string ?? formData.get('hidden_red_box_msg') as string) : '') ?? '',
+        yellow_box_msg: formFieldsOverride?.yellow_box_msg ?? (formData ? (formData.get('yellow_box_msg') as string ?? formData.get('hidden_yellow_box_msg') as string) : '') ?? '',
+        idea_box_msg: formFieldsOverride?.idea_box_msg ?? (formData ? (formData.get('idea_box_msg') as string ?? formData.get('hidden_idea_box_msg') as string) : '') ?? '',
+        is_new: formFieldsOverride ? !!formFieldsOverride.is_new : (formData?.get('is_new') === 'on'),
+        is_coming_soon: formFieldsOverride ? !!formFieldsOverride.is_coming_soon : (formData?.get('is_coming_soon') === 'on'),
+        screenshots: formFieldsOverride?.screenshots ? formFieldsOverride.screenshots : JSON.parse((formData ? (formData.get('screenshots_json') as string || formData.get('hidden_screenshots_json') as string) : '') || '[]'),
+        faqs: formFieldsOverride?.faqs ? formFieldsOverride.faqs : JSON.parse((formData ? (formData.get('faqs_json') as string || formData.get('hidden_faqs_json') as string) : '') || '[]'),
         created_at: existingApp?.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
@@ -216,6 +226,7 @@ export default function AdminDashboard() {
             handleSaveQuickLinks={(e) => { e.preventDefault(); handleSaveSettingsBase({ ...settings, quick_links: quickLinksList }); }}
             handleSaveWebsiteFaqs={(e) => { e.preventDefault(); handleSaveSettingsBase({ ...settings, website_faqs: websiteFaqsList }); }}
             handleSaveDevelopers={(e) => { e.preventDefault(); handleSaveSettingsBase({ ...settings, developers: developersList }); }}
+            handleSaveVideos={() => saveVideos(videosList)}
             saveGitConfig={saveGitConfig} pushAllToGitHub={pushAllToGitHub} handleReloadCloudData={handleReloadCloudData} triggerHaptic={triggerHaptic}
             
             newCatInput={newCatInput}

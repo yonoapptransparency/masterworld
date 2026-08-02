@@ -23,7 +23,7 @@ interface AppFormProps {
   activeFormTab: string;
   setActiveFormTab: (tab: any) => void;
   handleFieldChange: (field: string, value: any) => void;
-  handleSaveApp: (e: React.FormEvent) => void;
+  handleSaveApp: (e: any, formFieldsOverride?: any) => void;
   handleQuickClean: () => void;
   setEditingAppId: (id: string | null) => void;
   categories: string[];
@@ -43,7 +43,7 @@ export const AppForm = ({
   saving
 }: AppFormProps) => {
   return (
-    <form onSubmit={handleSaveApp} className="flex flex-col h-full overflow-hidden">
+    <form onSubmit={(e) => { e.preventDefault(); handleSaveApp(e, formFields); }} className="flex flex-col h-full overflow-hidden">
       {/* Hidden inputs to guarantee form state is preserved when submitted from any tab */}
       <input type="hidden" name="hidden_more_information_url" value={formFields.more_information_url || ''} />
       <input type="hidden" name="hidden_name" value={formFields.name || ''} />

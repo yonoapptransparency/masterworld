@@ -40,6 +40,7 @@ interface AdminTabContentProps {
   handleSaveQuickLinks: (e: any) => void;
   handleSaveWebsiteFaqs: (e: any) => void;
   handleSaveDevelopers: (e: any) => void;
+  handleSaveVideos?: (e?: any) => Promise<void> | void;
   saveGitConfig: (conf: any) => Promise<void>;
   pushAllToGitHub: () => Promise<void>;
   handleReloadCloudData: () => void;
@@ -99,6 +100,7 @@ export const AdminTabContent = ({
   handleSaveQuickLinks,
   handleSaveWebsiteFaqs,
   handleSaveDevelopers,
+  handleSaveVideos,
   saveGitConfig,
   pushAllToGitHub,
   handleReloadCloudData,
@@ -190,7 +192,7 @@ export const AdminTabContent = ({
           handleAddVideo={handleAddVideo}
           handleDeleteVideo={handleDeleteVideo}
           handleVideosChange={handleVideosChange}
-          handleSaveVideos={async (e) => { e.preventDefault(); await handleReloadCloudData(); }}
+          handleSaveVideos={async (e) => { e?.preventDefault?.(); await handleSaveVideos?.(e); }}
         />
       );
     case 'faqs':
@@ -253,7 +255,14 @@ export const AdminTabContent = ({
       return <SettingsTab settings={settings} saving={saving} handleSaveSettings={(e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
-        const updatedSettings = { ...settings };
+        const updatedSettings = {
+          ...settings,
+          banners: banners ?? settings.banners ?? [],
+          categories: categoriesList ?? settings.categories ?? [],
+          quick_links: quickLinksList ?? settings.quick_links ?? [],
+          website_faqs: websiteFaqsList ?? settings.website_faqs ?? [],
+          developers: developersList ?? settings.developers ?? []
+        };
         formData.forEach((value, key) => {
           updatedSettings[key] = value;
         });

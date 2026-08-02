@@ -25,8 +25,8 @@ seoRouter.get([
     } catch (dataErr) {
       console.warn("Could not retrieve store settings for favicon, using default fallback:", dataErr);
     }
-    if (!imageUrl) {
-      imageUrl = 'https://res.cloudinary.com/diewalae4/image/upload/v1784896838/ezgif-64180dd8ca74703b_rpungk.webp';
+    if (!imageUrl || imageUrl.includes('ezgif-64180dd8ca74703b')) {
+      imageUrl = 'https://res.cloudinary.com/diewalae4/image/upload/v1785648485/ezgif-88d07abd3ef5753f_yz8ytg.webp';
     }
     console.log('--- FAVICON/LOGO ROUTE RESOLVED TO ---', imageUrl);
     try {
@@ -182,9 +182,6 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
     if (videos && Array.isArray(videos) && videos.length > 0) {
       staticPages.splice(3, 0, { path: '/videos', priority: '0.7', changefreq: 'weekly' });
     }
-    if (blogs && Array.isArray(blogs) && blogs.length > 0) {
-      staticPages.splice(3, 0, { path: '/blogs', priority: '0.7', changefreq: 'weekly' });
-    }
 
     const reservedSlugs = new Set(['app', 'news', 'blogs', 'videos', 'new-apps', 'about', 'developers', 'contact', 'privacy', 'terms', 'responsibility', 'notice', 'ethics', 'disclaimer', 'submit-app', 'admin', 'login', 'api']);
 
@@ -219,16 +216,6 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
         const cSlug = cleanSlug(slug);
         const newsLoc = `${host}/news/${cSlug}`;
         addUrl(newsLoc, getFormattedDate(newsItem), 'weekly', '0.8');
-      }
-    }
-
-    // Blogs (only if items present)
-    for (const blogItem of (blogs || [])) {
-      const slug = getField(blogItem, 'slug');
-      if (slug) {
-        const cSlug = cleanSlug(slug);
-        const blogLoc = `${host}/blogs/${cSlug}`;
-        addUrl(blogLoc, getFormattedDate(blogItem), 'weekly', '0.7');
       }
     }
 

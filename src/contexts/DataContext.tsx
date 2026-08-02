@@ -78,11 +78,21 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const isAdminRoute = window.location.pathname.startsWith('/' + getAdminPath());
         if (isFirebaseReal && isAdminRoute) return;
 
-        if (Array.isArray(backup.apps)) sync.setApps(backup.apps);
-        if (backup.settings?.site_title) sync.setSettings(backup.settings);
-        if (Array.isArray(backup.news)) sync.setNews(backup.news);
-        if (Array.isArray(backup.blogs)) sync.setBlogs(backup.blogs);
-        if (Array.isArray(backup.videos)) sync.setVideos(backup.videos);
+        if (!isFirebaseReal || !sync.fetchedStates.apps) {
+          if (Array.isArray(backup.apps) && backup.apps.length > 0) sync.setApps(backup.apps);
+        }
+        if (!isFirebaseReal || !sync.fetchedStates.settings) {
+          if (backup.settings?.site_title) sync.setSettings(backup.settings);
+        }
+        if (!isFirebaseReal || !sync.fetchedStates.news) {
+          if (Array.isArray(backup.news) && backup.news.length > 0) sync.setNews(backup.news);
+        }
+        if (!isFirebaseReal || !sync.fetchedStates.blogs) {
+          if (Array.isArray(backup.blogs) && backup.blogs.length > 0) sync.setBlogs(backup.blogs);
+        }
+        if (!isFirebaseReal || !sync.fetchedStates.videos) {
+          if (Array.isArray(backup.videos) && backup.videos.length > 0) sync.setVideos(backup.videos);
+        }
       }
     };
     loadBackup();
@@ -121,11 +131,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, [sync.setLoading, sync.setSyncVersion, sync.setLastSyncTime]);
 
-  const resolvedSettings = useMemo(() => ({
-    ...sync.settings,
-    favicon_url: sync.settings?.favicon_url || "https://res.cloudinary.com/diewalae4/image/upload/v1784896838/ezgif-64180dd8ca74703b_rpungk.webp",
-    logo_url: sync.settings?.logo_url || "https://res.cloudinary.com/diewalae4/image/upload/v1784896838/ezgif-64180dd8ca74703b_rpungk.webp"
-  }), [sync.settings]);
+  const resolvedSettings = useMemo(() => {
+    const defaultLogo = "https://res.cloudinary.com/diewalae4/image/upload/v1785648485/ezgif-88d07abd3ef5753f_yz8ytg.webp";
+    const fav = sync.settings?.favicon_url;
+    const logo = sync.settings?.logo_url;
+    return {
+      ...sync.settings,
+      favicon_url: (!fav || fav.includes("ezgif-64180dd8ca74703b")) ? defaultLogo : fav,
+      logo_url: (!logo || logo.includes("ezgif-64180dd8ca74703b")) ? defaultLogo : logo
+    };
+  }, [sync.settings]);
 
   const value = useMemo(() => ({
     apps: sync.apps,

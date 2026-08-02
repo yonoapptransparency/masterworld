@@ -129,8 +129,12 @@ export const AppListItem = React.memo(({ app, index }: { app: any; index?: numbe
               width={84}
               height={84}
               loading={index !== undefined && index <= 4 ? "eager" : "lazy"}
+              decoding="async"
               className="w-full h-full object-cover"
               referrerPolicy="no-referrer"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&h=128&fit=crop";
+              }}
             />
           </div>
           {app.is_hot ? (
@@ -199,8 +203,12 @@ export const TopChartItem = React.memo(({ rank, app }: { rank: number; app: any 
               width={84}
               height={84}
               loading={rank <= 4 ? "eager" : "lazy"}
+              decoding="async"
               className="w-full h-full object-cover"
               referrerPolicy="no-referrer"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&h=128&fit=crop";
+              }}
             />
           </div>
           {app.is_hot ? (

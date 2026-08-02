@@ -4,6 +4,7 @@ import { getSafeFirebaseConfig } from './seo/firebaseConfig';
 import { syncFromFirestore } from './seo/sync';
 import { getField, stripHtml } from './seo/utils';
 import * as renderers from './seo/renderers';
+import { getCleanCanonicalUrl } from './lib/seoUtils';
 
 // Dynamically resolve staticData to bypass TSX watcher
 const getStaticData = () => {
@@ -222,7 +223,10 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     if (keywordArray.length > 15) keywords = keywordArray.slice(0, 15).join(', ');
   }
 
-  const logoUrl = getField(settings, 'logo_url') || '/logo.png';
+  let logoUrl = getField(settings, 'logo_url') || '/logo.png';
+  if (!logoUrl || logoUrl === '/logo.png' || logoUrl.includes('ezgif-64180dd8ca74703b')) {
+    logoUrl = 'https://res.cloudinary.com/diewalae4/image/upload/v1785648485/ezgif-88d07abd3ef5753f_yz8ytg.webp';
+  }
   const cleanPath = urlPath.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
   const cleanPathLower = cleanPath.toLowerCase();
 
@@ -231,8 +235,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   let isBlogPage = false;
   let isVideoPage = false;
   let isNotFound = false;
-
-  const currentUrl = hostUrl ? `${hostUrl}${urlPath}` : urlPath;
+  let customCanonicalUrl: string | undefined = undefined;
 
   if (cleanPathLower === '/' || cleanPathLower === '') {
     // Home page, default title and description apply
@@ -248,6 +251,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     if (app) {
       title = `Download ${getField(app, 'name')} | ${siteTitle}`;
       description = `Secure download link for ${getField(app, 'name')}.`;
+      customCanonicalUrl = getField(app, 'canonical_url');
     } else {
       isNotFound = true;
     }
@@ -266,6 +270,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     if (newsItem) {
       title = `${getField(newsItem, 'title')} | ${siteTitle}`;
       description = getField(newsItem, 'description', '').substring(0, 160);
+      customCanonicalUrl = getField(newsItem, 'canonical_url');
       isNewsPage = true;
     } else {
       isNotFound = true;
@@ -276,6 +281,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     if (blogItem) {
       title = `${getField(blogItem, 'title')} | ${siteTitle}`;
       description = getField(blogItem, 'excerpt') || stripHtml(getField(blogItem, 'content')).substring(0, 160);
+      customCanonicalUrl = getField(blogItem, 'canonical_url');
       isBlogPage = true;
     } else {
       isNotFound = true;
@@ -310,6 +316,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     if (app) {
       title = `More Info: ${getField(app, 'name')} | ${siteTitle}`;
       description = `Detailed information about ${getField(app, 'name')}.`;
+      customCanonicalUrl = getField(app, 'canonical_url');
       isAppPage = true;
     } else {
       isNotFound = true;
@@ -320,34 +327,57 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     if (app) {
       title = `${getField(app, 'name')} | ${siteTitle}`;
       description = cleanSeoDescription(getField(app, 'meta_description') || stripHtml(getField(app, 'description_html')).substring(0, 160));
+      customCanonicalUrl = getField(app, 'canonical_url');
       isAppPage = true;
     } else {
       isNotFound = true;
     }
   }
 
+  const canonicalUrl = getCleanCanonicalUrl(customCanonicalUrl, urlPath);
+
   // We only generate SEO tags now, not full body HTML to prevent layout shifting
   // const preRendered = await getPagePreRender(urlPath, data);
 
   const seoTags = `
-    <title>${title}</title>
-    <meta name="description" content="${description}">
-    <meta name="keywords" content="${keywords}">
-    <meta property="og:title" content="${title}">
-    <meta property="og:description" content="${description}">
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="${currentUrl}">
-    <meta property="og:image" content="${logoUrl}">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="${title}">
-    <meta name="twitter:description" content="${description}">
-    <meta name="twitter:image" content="${logoUrl}">
-    ${(cleanPathLower.startsWith('/info/') || cleanPathLower.startsWith('/moreinfo/') || cleanPathLower.startsWith('/moredetail/')) ? '<meta name="robots" content="noindex">' : ''}
-    <link rel="canonical" href="${currentUrl}">
+    <title data-rh="true">${title}</title>
+    <meta data-rh="true" name="description" content="${description}">
+    <meta data-rh="true" name="keywords" content="${keywords}">
+    <meta data-rh="true" property="og:title" content="${title}">
+    <meta data-rh="true" property="og:description" content="${description}">
+    <meta data-rh="true" property="og:type" content="website">
+    <meta data-rh="true" property="og:url" content="${canonicalUrl}">
+    <meta data-rh="true" property="og:image" content="${logoUrl}">
+    <meta data-rh="true" name="twitter:card" content="summary_large_image">
+    <meta data-rh="true" name="twitter:title" content="${title}">
+    <meta data-rh="true" name="twitter:description" content="${description}">
+    <meta data-rh="true" name="twitter:image" content="${logoUrl}">
+    ${(cleanPathLower.startsWith('/info/') || cleanPathLower.startsWith('/moreinfo/') || cleanPathLower.startsWith('/moredetail/')) ? '<meta data-rh="true" name="robots" content="noindex">' : ''}
+    <link data-rh="true" rel="canonical" href="${canonicalUrl}">
   `;
+
+  const initialDataJson = JSON.stringify(data).replace(/</g, '\\u003c');
+  const initialDataScript = `<script>window.__INITIAL_DATA__ = ${initialDataJson};</script>`;
 
   let finalHtml = template
     .replace(/<title>Application Hub<\/title>[\s\S]*?<meta name="twitter:description" [^>]*\/>/i, seoTags);
+
+  // Optimize critical CSS stylesheet loading & priority
+  const cssMatch = finalHtml.match(/<link\s+rel="stylesheet"\s+[^>]*href="([^"]+\.css)"[^>]*>/i);
+  if (cssMatch && cssMatch[1]) {
+    const cssUrl = cssMatch[1];
+    const preloadLink = `<link rel="preload" href="${cssUrl}" as="style" fetchpriority="high">`;
+    if (!finalHtml.includes(`rel="preload" href="${cssUrl}"`)) {
+      finalHtml = finalHtml.replace(/<head>/i, `<head>\n    ${preloadLink}`);
+    }
+    finalHtml = finalHtml.replace(/<link\s+rel="stylesheet"\s+([^>]*)href=/i, `<link rel="stylesheet" fetchpriority="high" $1href=`);
+  }
+
+  if (finalHtml.includes('</head>')) {
+    finalHtml = finalHtml.replace('</head>', `${initialDataScript}\n</head>`);
+  } else {
+    finalHtml = `${initialDataScript}\n${finalHtml}`;
+  }
 
   return { html: finalHtml, isNotFound };
 }

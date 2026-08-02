@@ -53,10 +53,16 @@ export const FeaturedBanner = React.memo(({ items }: BannerProps) => {
               <div className="w-full h-full relative overflow-hidden select-none pointer-events-none">
                 <img 
                   loading={i === 0 ? "eager" : "lazy"}
+                  decoding="async"
+                  width={800}
+                  height={400}
                   src={item.image || `https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=800&h=400&fit=crop`} 
                   className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 pointer-events-none"
-                  alt="Banner"
+                  alt={item.title || "Featured banner"}
                   referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = `https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=800&h=400&fit=crop`;
+                  }}
                 />
                 
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent pt-10 pb-3 px-4 sm:px-6 flex flex-col justify-end" />

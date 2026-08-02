@@ -1,6 +1,7 @@
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useData } from '../contexts/DataContextPublic';
+import { getCleanCanonicalUrl } from '../lib/seoUtils';
 
 interface MetaProps {
   title?: string;
@@ -34,35 +35,10 @@ const Meta: React.FC<MetaProps> = ({
   const metaDescription = description || settings?.meta_description || 'Access application details and specifications.';
   const metaKeywords = keywords || settings?.seo_keywords || '';
   const metaImage = image || settings?.logo_url || '';
-  const getCleanCanonical = (rawUrl?: string): string => {
-    const defaultOrigin = 'https://www.rummydex.com';
-    const input = rawUrl || (typeof window !== 'undefined' ? window.location.href : defaultOrigin);
-    try {
-      const baseOrigin = typeof window !== 'undefined' ? window.location.origin : defaultOrigin;
-      const parsed = new URL(input, baseOrigin);
-      
-      // Enforce primary canonical domain (https://www.rummydex.com) for any rummydex.com URL
-      if (parsed.hostname === 'rummydex.com' || parsed.hostname === 'www.rummydex.com') {
-        parsed.hostname = 'www.rummydex.com';
-        parsed.protocol = 'https:';
-      }
-      
-      let pathname = parsed.pathname;
-      if (pathname.length > 1 && pathname.endsWith('/')) {
-        pathname = pathname.slice(0, -1);
-      }
-      return `${parsed.origin}${pathname}`;
-    } catch {
-      let clean = input.split('?')[0].split('#')[0];
-      if (clean.includes('rummydex.com')) {
-        clean = clean.replace(/^http:\/\//i, 'https://').replace('https://rummydex.com', 'https://www.rummydex.com');
-      }
-      return clean;
-    }
-  };
 
-  const metaUrl = url || (typeof window !== 'undefined' ? window.location.href : '');
-  const canonicalUrl = getCleanCanonical(canonical || metaUrl);
+  const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/';
+  const canonicalUrl = getCleanCanonicalUrl(canonical || url, currentPath);
+  const metaUrl = getCleanCanonicalUrl(url || canonical, currentPath);
 
   return (
     <Helmet>

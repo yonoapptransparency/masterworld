@@ -44,7 +44,6 @@ export function renderHeader(settings: any) {
           <a href="/">Home</a>
           <a href="/new-apps">New Apps</a>
           <a href="/news">News</a>
-          <a href="/blogs">Blogs</a>
           <a href="/videos">Videos</a>
           <a href="/about">About</a>
           <a href="/contact">Contact</a>
@@ -71,8 +70,6 @@ export function renderFooter(settings: any) {
           <a href="/">Home</a>
           <a href="/about">About</a>
           <a href="/contact">Contact</a>
-          <a href="/videos">Apps</a>
-          <a href="/blogs">Blog</a>
           <a href="/privacy">Privacy</a>
           <a href="/report-removal">Report & Removal</a>
           <a href="/terms">Terms</a>

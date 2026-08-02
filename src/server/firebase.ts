@@ -292,7 +292,7 @@ export function convertToFirestoreFields(obj: Record<string, any>): Record<strin
   return fields;
 }
 
-export async function writeFirestoreRestDoc(docId: string, data: any, authToken?: string): Promise<boolean> {
+export async function writeFirestoreRestDoc(docId: string, data: any, authToken?: string, merge: boolean = true): Promise<boolean> {
   try {
     const config = getRawFirebaseConfig();
     if (!config || !config.projectId) {
@@ -300,8 +300,15 @@ export async function writeFirestoreRestDoc(docId: string, data: any, authToken?
       return false;
     }
     const dbId = config.firestoreDatabaseId || config.databaseId || '(default)';
-    const apiKeyParam = config.apiKey ? `?key=${config.apiKey}` : '';
-    const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${dbId}/documents/store_data/${docId}${apiKeyParam}`;
+    const queryParams: string[] = [];
+    if (config.apiKey) queryParams.push(`key=${encodeURIComponent(config.apiKey)}`);
+    if (merge && data && typeof data === 'object') {
+      Object.keys(data).forEach(key => {
+        queryParams.push(`updateMask.fieldPaths=${encodeURIComponent(key)}`);
+      });
+    }
+    const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
+    const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${dbId}/documents/store_data/${docId}${queryString}`;
 
     const fields = convertToFirestoreFields(data);
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
