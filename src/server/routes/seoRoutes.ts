@@ -192,8 +192,6 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
       staticPages.splice(3, 0, { path: '/videos', priority: '0.7', changefreq: 'weekly' });
     }
 
-    const reservedSlugs = new Set(['app', 'news', 'blogs', 'videos', 'new-apps', 'about', 'developers', 'contact', 'privacy', 'terms', 'responsibility', 'notice', 'ethics', 'disclaimer', 'submit-app', 'admin', 'login', 'api']);
-
     for (const page of staticPages) {
       addUrl(`${host}${page.path}`, today, page.changefreq, page.priority);
     }
@@ -208,13 +206,6 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
         // Standard App detail URL
         const appLoc = `${host}/app/${cSlug}`;
         addUrl(appLoc, appDate, 'daily', '0.9');
-
-        // Direct slug route (if not reserved)
-        const rawSlug = slug.trim().toLowerCase();
-        if (!reservedSlugs.has(rawSlug)) {
-          const directLoc = `${host}/${cSlug}`;
-          addUrl(directLoc, appDate, 'daily', '0.9');
-        }
       }
     }
 
