@@ -90,7 +90,21 @@ export function useDataSync() {
       }),
       onSnapshot(doc(db, 'store_data', 'public_settings'), (snap) => {
         if (snap.exists() && !snap.metadata.hasPendingWrites) {
-          setSettings(snap.data() as GlobalSettings);
+          const data = snap.data() as Partial<GlobalSettings>;
+          setSettings(prev => {
+            const base = prev || mockSettings;
+            const updated: GlobalSettings = {
+              ...mockSettings,
+              ...base,
+              ...data,
+              banners: (Array.isArray(data.banners) && data.banners.length > 0) ? data.banners : (base.banners || []),
+              categories: (Array.isArray(data.categories) && data.categories.length > 0) ? data.categories : (base.categories || []),
+              quick_links: (Array.isArray(data.quick_links) && data.quick_links.length > 0) ? data.quick_links : (base.quick_links || []),
+              website_faqs: (Array.isArray(data.website_faqs) && data.website_faqs.length > 0) ? data.website_faqs : (base.website_faqs || []),
+              developers: (Array.isArray(data.developers) && data.developers.length > 0) ? data.developers : (base.developers || []),
+            };
+            return updated;
+          });
           setFetchedStates(prev => ({ ...prev, settings: true }));
         } else if (!snap.exists()) {
           setFetchedStates(prev => ({ ...prev, settings: true }));

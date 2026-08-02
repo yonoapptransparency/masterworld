@@ -32,7 +32,7 @@ interface DataContextType {
   refreshAll: (silent?: boolean) => Promise<void>;
   testCloudConnection: () => Promise<boolean>;
   saveApps: (apps: AppConfig[]) => Promise<void>;
-  saveSettings: (settings: GlobalSettings) => Promise<void>;
+  saveSettings: (settings: Partial<GlobalSettings>) => Promise<void>;
   saveNews: (news: NewsItem[]) => Promise<void>;
   saveBlogs: (blogs: BlogPost[]) => Promise<void>;
   saveVideos: (videos: VideoItem[]) => Promise<void>;

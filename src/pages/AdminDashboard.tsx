@@ -71,16 +71,32 @@ export default function AdminDashboard() {
   const handleSaveSettingsBase = async (updatedSettings: any) => {
     setSaving(true);
     try {
-      const fullSettings = {
-        ...settings,
-        banners,
-        categories: categoriesList,
-        quick_links: quickLinksList,
-        website_faqs: websiteFaqsList,
-        developers: developersList,
-        ...updatedSettings
-      };
-      await saveSettings(fullSettings);
+      let mergedSettings = {};
+      if (updatedSettings && updatedSettings.preventDefault) {
+        updatedSettings.preventDefault();
+        const formData = new FormData(updatedSettings.currentTarget);
+        const formSettings: any = {};
+        formData.forEach((value, key) => { formSettings[key] = value; });
+        mergedSettings = {
+          categories: categoriesList,
+          quick_links: quickLinksList,
+          website_faqs: websiteFaqsList,
+          developers: developersList,
+          banners: banners,
+          ...formSettings
+        };
+      } else {
+        mergedSettings = {
+          categories: categoriesList,
+          quick_links: quickLinksList,
+          website_faqs: websiteFaqsList,
+          developers: developersList,
+          banners: banners,
+          ...updatedSettings
+        };
+      }
+
+      await saveSettings(mergedSettings);
       triggerHaptic();
       toast('Settings saved successfully!', 'success');
     } catch (err: any) {
@@ -231,10 +247,10 @@ export default function AdminDashboard() {
             settings={settings} gitConfig={gitConfig} db={db} saving={saving} editingAppId={editingAppId}
             setEditingAppId={setEditingAppId}
             handleDeleteApp={handleDeleteApp} handleSaveApp={handleSaveApp} handleSaveSettings={handleSaveSettingsBase} handleSaveNews={(list?: any) => saveNews(list && Array.isArray(list) && list.length > 0 ? list : newsList)}
-            handleSaveCategories={(e) => { e.preventDefault(); handleSaveSettingsBase({ ...settings, categories: categoriesList }); }}
-            handleSaveQuickLinks={(e) => { e.preventDefault(); handleSaveSettingsBase({ ...settings, quick_links: quickLinksList }); }}
-            handleSaveWebsiteFaqs={(e) => { e.preventDefault(); handleSaveSettingsBase({ ...settings, website_faqs: websiteFaqsList }); }}
-            handleSaveDevelopers={(e) => { e.preventDefault(); handleSaveSettingsBase({ ...settings, developers: developersList }); }}
+            handleSaveCategories={(e) => { e.preventDefault(); handleSaveSettingsBase({ categories: categoriesList }); }}
+            handleSaveQuickLinks={(e) => { e.preventDefault(); handleSaveSettingsBase({ quick_links: quickLinksList }); }}
+            handleSaveWebsiteFaqs={(e) => { e.preventDefault(); handleSaveSettingsBase({ website_faqs: websiteFaqsList }); }}
+            handleSaveDevelopers={(e) => { e.preventDefault(); handleSaveSettingsBase({ developers: developersList }); }}
             handleSaveVideos={() => saveVideos(videosList)}
             saveGitConfig={saveGitConfig} pushAllToGitHub={pushAllToGitHub} handleReloadCloudData={handleReloadCloudData} triggerHaptic={triggerHaptic}
             

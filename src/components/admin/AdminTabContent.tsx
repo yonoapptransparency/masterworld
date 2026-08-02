@@ -153,7 +153,7 @@ export const AdminTabContent = ({
         <AdminBannersTab 
           banners={banners} 
           saving={saving} 
-          handleSaveBanners={(e: any) => { e?.preventDefault?.(); handleSaveSettings({ ...settings, banners }); }}
+          handleSaveBanners={(e: any) => { e?.preventDefault?.(); handleSaveSettings({ banners }); }}
           handleAddBanner={handleAddBanner}
           handleBannerChange={handleBannerChange}
           handleDeleteBanner={handleDeleteBanner}

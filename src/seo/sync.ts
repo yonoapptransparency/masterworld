@@ -47,46 +47,62 @@ export async function syncFromFirestore(): Promise<any> {
     let blogs: any[] = existingBackup.blogs || [];
     let videos: any[] = existingBackup.videos || [];
 
-    // 2. Fallback to Firestore ONLY if local backup arrays are missing or empty
+    // 2. Load Firestore data and prefer it over local backup (Firestore is live source of truth)
     try {
       const { getFirebaseAdminDb } = require('../server/firebase');
       const adminDb = getFirebaseAdminDb();
       if (adminDb) {
-        if (news.length === 0) {
-          const newsSnap = await adminDb.collection('store_data').doc('news').get();
-          if (newsSnap.exists && Array.isArray(newsSnap.data()?.items)) {
-            news = newsSnap.data()!.items;
-          }
+        // Always try to load from Firestore first
+        const newsSnap = await adminDb.collection('store_data').doc('news').get();
+        if (newsSnap.exists && Array.isArray(newsSnap.data()?.items) && newsSnap.data()!.items.length > 0) {
+          news = newsSnap.data()!.items;
         }
-        if (blogs.length === 0) {
-          const blogsSnap = await adminDb.collection('store_data').doc('blogs').get();
-          if (blogsSnap.exists && Array.isArray(blogsSnap.data()?.items)) {
-            blogs = blogsSnap.data()!.items;
-          }
+
+        const blogsSnap = await adminDb.collection('store_data').doc('blogs').get();
+        if (blogsSnap.exists && Array.isArray(blogsSnap.data()?.items) && blogsSnap.data()!.items.length > 0) {
+          blogs = blogsSnap.data()!.items;
         }
-        if (videos.length === 0) {
-          const videosSnap = await adminDb.collection('store_data').doc('videos').get();
-          if (videosSnap.exists && Array.isArray(videosSnap.data()?.items)) {
-            videos = videosSnap.data()!.items;
-          }
+
+        const videosSnap = await adminDb.collection('store_data').doc('videos').get();
+        if (videosSnap.exists && Array.isArray(videosSnap.data()?.items) && videosSnap.data()!.items.length > 0) {
+          videos = videosSnap.data()!.items;
         }
-        if (apps.length === 0) {
-          const metaSnap = await adminDb.collection('store_data').doc('apps_meta').get();
-          if (metaSnap.exists) {
-            const numChunks = metaSnap.data()?.numChunks || 1;
-            for (let i = 0; i < numChunks; i++) {
-              const chunkSnap = await adminDb.collection('store_data').doc(`apps_chunk_${i}`).get();
-              if (chunkSnap.exists && Array.isArray(chunkSnap.data()?.items)) {
-                apps.push(...chunkSnap.data().items);
-              }
-            }
+
+        const settingsSnap = await adminDb.collection('store_data').doc('public_settings').get();
+        if (settingsSnap.exists) {
+          const fsSettings = settingsSnap.data();
+          if (fsSettings && Object.keys(fsSettings).length > 0) {
+            settings = {
+              ...settings,
+              ...fsSettings,
+              banners: (Array.isArray(fsSettings.banners) && fsSettings.banners.length > 0) ? fsSettings.banners : (settings.banners || []),
+              categories: (Array.isArray(fsSettings.categories) && fsSettings.categories.length > 0) ? fsSettings.categories : (settings.categories || []),
+              quick_links: (Array.isArray(fsSettings.quick_links) && fsSettings.quick_links.length > 0) ? fsSettings.quick_links : (settings.quick_links || []),
+              website_faqs: (Array.isArray(fsSettings.website_faqs) && fsSettings.website_faqs.length > 0) ? fsSettings.website_faqs : (settings.website_faqs || []),
+              developers: (Array.isArray(fsSettings.developers) && fsSettings.developers.length > 0) ? fsSettings.developers : (settings.developers || []),
+            };
           }
         }
 
-        // 3. Keep Firestore in sync by pushing authoritative Admin data to Firestore
+        const metaSnap = await adminDb.collection('store_data').doc('apps_meta').get();
+        if (metaSnap.exists) {
+          const numChunks = metaSnap.data()?.numChunks || 1;
+          const fsApps: any[] = [];
+          for (let i = 0; i < numChunks; i++) {
+            const chunkSnap = await adminDb.collection('store_data').doc(`apps_chunk_${i}`).get();
+            if (chunkSnap.exists && Array.isArray(chunkSnap.data()?.items)) {
+              fsApps.push(...chunkSnap.data().items);
+            }
+          }
+          if (fsApps.length > 0) {
+            apps = fsApps;
+          }
+        }
+
+        // 3. Keep Firestore in sync by pushing local data to Firestore ONLY IF Firestore is empty
         try {
           const promises: Promise<any>[] = [];
-          if (apps.length > 0) {
+          if (!metaSnap.exists && apps.length > 0) {
             const CHUNK_SIZE = 25;
             const numChunks = Math.ceil(apps.length / CHUNK_SIZE) || 1;
             for (let i = 0; i < numChunks; i++) {
@@ -100,21 +116,21 @@ export async function syncFromFirestore(): Promise<any> {
             }
             promises.push(adminDb.collection('store_data').doc('apps_meta').set({ numChunks, last_updated: new Date().toISOString() }));
           }
-          if (settings && Object.keys(settings).length > 0) {
+          if (!settingsSnap.exists && settings && Object.keys(settings).length > 0) {
             promises.push(adminDb.collection('store_data').doc('public_settings').set(JSON.parse(JSON.stringify(settings)), { merge: true }));
           }
-          if (news.length > 0) {
+          if (!newsSnap.exists && news.length > 0) {
             promises.push(adminDb.collection('store_data').doc('news').set({ items: JSON.parse(JSON.stringify(news)) }));
           }
-          if (blogs.length > 0) {
+          if (!blogsSnap.exists && blogs.length > 0) {
             promises.push(adminDb.collection('store_data').doc('blogs').set({ items: JSON.parse(JSON.stringify(blogs)) }));
           }
-          if (videos.length > 0) {
+          if (!videosSnap.exists && videos.length > 0) {
             promises.push(adminDb.collection('store_data').doc('videos').set({ items: JSON.parse(JSON.stringify(videos)) }));
           }
           if (promises.length > 0) {
             await Promise.all(promises);
-            console.log("[SYNC] Successfully updated Cloud Firestore with Admin backup data.");
+            console.log("[SYNC] Successfully initialized Cloud Firestore with local backup data.");
           }
         } catch (pushErr: any) {
           console.warn("[SYNC] Could not auto-push Admin data to Firestore:", pushErr.message || pushErr);

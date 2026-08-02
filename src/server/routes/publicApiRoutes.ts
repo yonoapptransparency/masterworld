@@ -187,10 +187,22 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
         const finalBlogs = (dbBlogs && dbBlogs.length > 0) ? dbBlogs : (staticFallback.mockBlogs || []);
         const finalVideos = (dbVideos && dbVideos.length > 0) ? dbVideos : (staticFallback.mockVideos || []);
 
+        const rawFsSettings = settingsSnap.exists ? (settingsSnap.data() || {}) : {};
+        const baseMockSettings = staticFallback.mockSettings || {};
+        const mergedSettings = {
+          ...baseMockSettings,
+          ...rawFsSettings,
+          banners: (Array.isArray(rawFsSettings.banners) && rawFsSettings.banners.length > 0) ? rawFsSettings.banners : (baseMockSettings.banners || []),
+          categories: (Array.isArray(rawFsSettings.categories) && rawFsSettings.categories.length > 0) ? rawFsSettings.categories : (baseMockSettings.categories || []),
+          quick_links: (Array.isArray(rawFsSettings.quick_links) && rawFsSettings.quick_links.length > 0) ? rawFsSettings.quick_links : (baseMockSettings.quick_links || []),
+          website_faqs: (Array.isArray(rawFsSettings.website_faqs) && rawFsSettings.website_faqs.length > 0) ? rawFsSettings.website_faqs : (baseMockSettings.website_faqs || []),
+          developers: (Array.isArray(rawFsSettings.developers) && rawFsSettings.developers.length > 0) ? rawFsSettings.developers : (baseMockSettings.developers || []),
+        };
+
         if (metaSnap.exists || (legacySnap && legacySnap.exists) || settingsSnap.exists || newsSnap.exists || blogsSnap.exists || videosSnap.exists) {
           const liveData = {
             apps: (apps && apps.length > 0) ? apps : (staticFallback.mockApps || []),
-            settings: (settingsSnap.exists && Object.keys(settingsSnap.data() || {}).length > 0) ? settingsSnap.data() : (staticFallback.mockSettings || {}),
+            settings: mergedSettings,
             news: finalNews,
             blogs: finalBlogs,
             videos: finalVideos

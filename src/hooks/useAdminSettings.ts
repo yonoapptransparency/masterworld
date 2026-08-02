@@ -160,14 +160,32 @@ export const useAdminSettings = (settings: any, news: any[], blogs: any[], video
         });
       }
 
-      if (Array.isArray(settings.quick_links) && settings.quick_links.length > 0) {
-        setQuickLinksList(prev => (prev.length === 0 ? settings.quick_links : prev));
+      if (Array.isArray(settings.quick_links)) {
+        setQuickLinksList(prev => {
+          if (!prev || prev.length === 0) return settings.quick_links;
+          if (settings.quick_links.length > 0 && JSON.stringify(prev) !== JSON.stringify(settings.quick_links)) {
+            return settings.quick_links;
+          }
+          return prev;
+        });
       }
-      if (Array.isArray(settings.website_faqs) && settings.website_faqs.length > 0) {
-        setWebsiteFaqsList(prev => (prev.length === 0 ? settings.website_faqs : prev));
+      if (Array.isArray(settings.website_faqs)) {
+        setWebsiteFaqsList(prev => {
+          if (!prev || prev.length === 0) return settings.website_faqs;
+          if (settings.website_faqs.length > 0 && JSON.stringify(prev) !== JSON.stringify(settings.website_faqs)) {
+            return settings.website_faqs;
+          }
+          return prev;
+        });
       }
-      if (Array.isArray(settings.developers) && settings.developers.length > 0) {
-        setDevelopersList(prev => (prev.length === 0 ? settings.developers : prev));
+      if (Array.isArray(settings.developers)) {
+        setDevelopersList(prev => {
+          if (!prev || prev.length === 0) return settings.developers;
+          if (settings.developers.length > 0 && JSON.stringify(prev) !== JSON.stringify(settings.developers)) {
+            return settings.developers;
+          }
+          return prev;
+        });
       }
     }
   }, [settings, news, blogs, videos]);

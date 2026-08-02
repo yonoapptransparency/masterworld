@@ -358,7 +358,16 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
       const baseVideos = (Array.isArray(existingBackup.videos) && existingBackup.videos.length > 0) ? existingBackup.videos : (mockVideos || []);
 
       const finalApps = (Array.isArray(apps) && (apps.length > 0 || allowEmptyApps)) ? apps : baseApps;
-      const finalSettings = (settings && typeof settings === 'object' && Object.keys(settings).length > 0) ? settings : baseSettings;
+      const incomingSettings = (settings && typeof settings === 'object') ? settings : {};
+      const mergedSettings = { ...baseSettings, ...incomingSettings };
+      const finalSettings = {
+        ...mergedSettings,
+        banners: (Array.isArray(incomingSettings.banners) && incomingSettings.banners.length > 0) ? incomingSettings.banners : (baseSettings.banners || []),
+        categories: (Array.isArray(incomingSettings.categories) && incomingSettings.categories.length > 0) ? incomingSettings.categories : (baseSettings.categories || []),
+        quick_links: (Array.isArray(incomingSettings.quick_links) && incomingSettings.quick_links.length > 0) ? incomingSettings.quick_links : (baseSettings.quick_links || []),
+        website_faqs: (Array.isArray(incomingSettings.website_faqs) && incomingSettings.website_faqs.length > 0) ? incomingSettings.website_faqs : (baseSettings.website_faqs || []),
+        developers: (Array.isArray(incomingSettings.developers) && incomingSettings.developers.length > 0) ? incomingSettings.developers : (baseSettings.developers || []),
+      };
       const finalNews = (Array.isArray(news) && (news.length > 0 || allowEmptyNews)) ? news : baseNews;
       const finalBlogs = (Array.isArray(blogs) && (blogs.length > 0 || allowEmptyBlogs)) ? blogs : baseBlogs;
       const finalVideos = (Array.isArray(videos) && (videos.length > 0 || allowEmptyVideos)) ? videos : baseVideos;

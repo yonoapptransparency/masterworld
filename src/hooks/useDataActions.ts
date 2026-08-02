@@ -2,6 +2,7 @@ import React, { useCallback } from 'react';
 import { doc, setDoc } from 'firebase/firestore';
 import { db, isFirebaseReal } from '../lib/firebase';
 import { AppConfig, GlobalSettings, NewsItem, BlogPost, VideoItem } from '../types';
+import { mockSettings } from '../lib/lightFallback';
 import { adminFetch } from '../services/adminAuthService';
 
 export function useDataActions(
@@ -104,18 +105,20 @@ export function useDataActions(
     }
   }, [apps, updateLocalContainerBackup, getAdminToken]);
 
-  const saveSettings = useCallback(async (newSettings: GlobalSettings) => {
+  const saveSettings = useCallback(async (newSettings: Partial<GlobalSettings>) => {
     const now = new Date().toISOString();
+    const currentSettings = settings || mockSettings;
     const settingsWithTime: GlobalSettings = {
-      ...settings,
+      ...mockSettings,
+      ...currentSettings,
       ...newSettings,
-      banners: newSettings.banners !== undefined ? newSettings.banners : (settings.banners || []),
-      categories: newSettings.categories !== undefined ? newSettings.categories : (settings.categories || []),
-      quick_links: newSettings.quick_links !== undefined ? newSettings.quick_links : (settings.quick_links || []),
-      website_faqs: newSettings.website_faqs !== undefined ? newSettings.website_faqs : (settings.website_faqs || []),
-      developers: newSettings.developers !== undefined ? newSettings.developers : (settings.developers || []),
+      banners: newSettings.banners !== undefined ? newSettings.banners : (currentSettings.banners?.length ? currentSettings.banners : (mockSettings.banners || [])),
+      categories: newSettings.categories !== undefined ? newSettings.categories : (currentSettings.categories?.length ? currentSettings.categories : (mockSettings.categories || [])),
+      quick_links: newSettings.quick_links !== undefined ? newSettings.quick_links : (currentSettings.quick_links?.length ? currentSettings.quick_links : (mockSettings.quick_links || [])),
+      website_faqs: newSettings.website_faqs !== undefined ? newSettings.website_faqs : (currentSettings.website_faqs?.length ? currentSettings.website_faqs : (mockSettings.website_faqs || [])),
+      developers: newSettings.developers !== undefined ? newSettings.developers : (currentSettings.developers?.length ? currentSettings.developers : (mockSettings.developers || [])),
       last_updated: now
-    };
+    } as GlobalSettings;
     setSettings(settingsWithTime);
     try {
       await updateLocalContainerBackup({ settings: settingsWithTime });
