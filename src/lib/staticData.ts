@@ -173,7 +173,41 @@ export interface VideoItem {
   created_at: string;
 }
 
-export const mockApps: AppConfig[] = [] as any[];
+export const mockApps: AppConfig[] = [
+  {
+    "id": "yh9toduxk",
+    "name": "SPIN CRUSH",
+    "slug": "spin-crush",
+    "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1785670352/ezgif-82a15987d682a1a8_sdzpjc.webp",
+    "category": "All Apps, Yono",
+    "encrypted_link": "",
+    "rating": 4.1,
+    "safety_status": "Verified",
+    "serial_number": 1,
+    "version": "1.0.6",
+    "file_size": "44.8 MB",
+    "developer": "Bingo",
+    "description_html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\">\n<title>Spin Crush</title>\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<style>\nbody{font-family:Arial,Helvetica,sans-serif;color:#3c4043;max-width:700px;margin:40px auto;padding:0 20px;line-height:1.7;font-size:15px;background:#fff}\nh1{font-size:22px;color:#202124;font-weight:500;margin-top:44px;margin-bottom:10px}\nh1:first-of-type{margin-top:0}\np{margin:10px 0}\n.art{display:block;margin:18px 0}\n</style>\n</head>\n<body>\n\n<h1>A New Standard for Casual Arcade Gaming</h1>\n<svg class=\"art\" width=\"80\" height=\"80\" viewBox=\"0 0 80 80\">\n<circle cx=\"40\" cy=\"40\" r=\"25\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"3\"/>\n</svg>\n<p>Spin Crush redefines mobile entertainment by bringing an entire universe of casual mini-games into one accessible platform. Instead of offering a single repetitive loop, this app houses a vast collection of highly detailed thematic games. Whether you are looking for relaxing puzzle mechanics or fast-paced arcade action, this digital playground offers something for every type of player.</p>\n\n<h1>Explore a Diverse Universe of Mini-Games</h1>\n<svg class=\"art\" width=\"80\" height=\"80\" viewBox=\"0 0 80 80\">\n<rect x=\"15\" y=\"15\" width=\"50\" height=\"50\" rx=\"8\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"3\"/>\n</svg>\n<p>The true strength of Spin Crush lies in its incredible variety. You can step into a virtual kitchen and match culinary ingredients in \"Baking Master,\" or explore vibrant cultural themes in \"Wild Bandito\" and \"Pinata Frenzy.\" For fans of mythology and history, \"Thor God of Lightning\" and \"Xerxes\" offer epic visual animations and dynamic virtual coin collection. Action enthusiasts can dive into the tactical environment of \"Royale Battleground\" or step into the ring with \"Boxing King.\" Nature and fantasy lovers are also covered with the prehistoric adventures of \"Jurassic Kingdom,\" the fiery visual combos of \"Coin Volcano,\" and the mystical journey of \"Wukong.\"</p>\n\n<h1>Smooth Performance &amp; Immersive Gameplay</h1>\n<svg class=\"art\" width=\"80\" height=\"80\" viewBox=\"0 0 80 80\">\n<path d=\"M25 15l40 25-40 25z\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"3\" stroke-linejoin=\"round\"/>\n</svg>\n<p>Built with top-tier optimization, the app delivers a highly responsive user experience. The intuitive central lobby allows players to effortlessly navigate through different game categories without experiencing heavy loading screens. Every mini-game features sharp 3D graphics, bright colors, and satisfying sound effects that make virtual progression and matching mechanics incredibly engaging.</p>\n\n<h1>Safe, Virtual Entertainment</h1>\n<svg class=\"art\" width=\"80\" height=\"80\" viewBox=\"0 0 80 80\">\n<path d=\"M20 40l14 14 26-28\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n</svg>\n<p>Designed as a purely casual simulation, Spin Crush focuses entirely on risk-free fun. Players can dive into thrilling arcade features like the \"Fortune Wheel,\" \"Crazy 777,\" or \"Gemstones Gold\" utilizing strictly virtual points. It is the perfect daily companion for users seeking a polished gaming experience where the focus is on beating high scores, unlocking new visual levels, and enjoying pure digital entertainment.</p>\n\n</body>\n</html>\n",
+    "features_html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\">\n<title>Features — RummyDex</title>\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<style>\nbody{font-family:Arial,Helvetica,sans-serif;color:#3c4043;max-width:700px;margin:40px auto;padding:0 20px;line-height:1.7;font-size:15px;background:#fff}\nh1{font-size:26px;color:#202124;font-weight:400;margin-bottom:6px}\n.updated{color:#5f6368;font-size:13px;margin-bottom:28px}\nh2{font-size:19px;color:#202124;font-weight:500;margin-top:44px;display:flex;align-items:center;gap:10px}\nh2 svg{flex-shrink:0}\np{margin:10px 0}\n</style>\n</head>\n<body>\n\n<h1>Features</h1>\n\n<h2><svg width=\"26\" height=\"26\" viewBox=\"0 0 26 26\"><rect x=\"2\" y=\"2\" width=\"9\" height=\"9\" rx=\"2\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"2\"/><rect x=\"15\" y=\"2\" width=\"9\" height=\"9\" rx=\"2\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"2\"/><rect x=\"2\" y=\"15\" width=\"9\" height=\"9\" rx=\"2\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"2\"/><rect x=\"15\" y=\"15\" width=\"9\" height=\"9\" rx=\"2\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"2\"/></svg>Massive collection of thematic mini-games housed in one single app.</h2>\n\n<h2><svg width=\"26\" height=\"26\" viewBox=\"0 0 26 26\"><circle cx=\"13\" cy=\"13\" r=\"11\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"2\"/><path d=\"M10 8l8 5-8 5z\" fill=\"#1a73e8\"/></svg>Instant play mechanics with seamless switching between diverse game modes.</h2>\n\n<h2><svg width=\"26\" height=\"26\" viewBox=\"0 0 26 26\"><rect x=\"2\" y=\"4\" width=\"22\" height=\"18\" rx=\"2\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"2\"/><circle cx=\"9\" cy=\"10\" r=\"2\" fill=\"#1a73e8\"/><path d=\"M2 19l6-6 5 5 4-4 7 6\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"2\"/></svg>Stunning HD graphics ranging from culinary kitchens to ancient mythology.</h2>\n\n<h2><svg width=\"26\" height=\"26\" viewBox=\"0 0 26 26\"><path d=\"M13 2l9 4v6c0 6-4 10-9 12-5-2-9-6-9-12V6z\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"2\"/></svg>Offline gameplay support for uninterrupted casual entertainment.</h2>\n\n<h2><svg width=\"26\" height=\"26\" viewBox=\"0 0 26 26\"><circle cx=\"13\" cy=\"13\" r=\"11\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"2\"/><path d=\"M8 13l4 4 7-8\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>100% virtual rewards and safe, risk-free arcade progression systems.</h2>\n\n</body>\n</html>\n",
+    "seo_title": "Spin Crush - Casual Arcade Hub & Virtual Mini-Games",
+    "seo_description": "Know about Spin Crush, the ultimate casual gaming hub. Explore diverse offline mini-games, collect virtual coins, and enjoy safe arcade entertainment on RummyDex.",
+    "seo_keywords": "casual game hub, arcade collection, virtual coin games, offline mini-games, spin crush app",
+    "og_image_url": "",
+    "canonical_url": "",
+    "video_url": "",
+    "publish_date": "",
+    "release_notes": "",
+    "red_box_msg": "",
+    "yellow_box_msg": "It get slightly heat on below Android 13",
+    "idea_box_msg": "",
+    "is_new": true,
+    "is_coming_soon": false,
+    "screenshots": [],
+    "faqs": [],
+    "created_at": "2026-08-02T11:14:13.263Z",
+    "updated_at": "2026-08-02T11:32:45.813Z"
+  }
+] as any[];
 
 export const saveMockApps = (apps: AppConfig[]) => {
   try {

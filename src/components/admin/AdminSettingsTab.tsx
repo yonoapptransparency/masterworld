@@ -19,7 +19,7 @@ export const AdminSettingsTab = React.memo(({ settings: rawSettings, handleSaveS
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Manage global identity, content, and legal text.</p>
       </div>
     </div>
-    <form key={settings.last_updated || settings.site_title || 'settings-form'} onSubmit={handleSaveSettings} className="space-y-8">
+    <form key={settings.last_updated || (settings.privacy_content ? 'loaded' : 'unloaded') || settings.site_title || 'settings-form'} onSubmit={handleSaveSettings} className="space-y-8">
       
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-6">
         <h3 className="font-bold text-sm text-slate-900 dark:text-white border-b border-black/5 dark:border-white/5 pb-2">Branding & Identity</h3>
