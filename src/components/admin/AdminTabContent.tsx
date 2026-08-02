@@ -35,7 +35,7 @@ interface AdminTabContentProps {
   handleDeleteApp: (id: string) => void;
   handleSaveApp: (e: any) => void;
   handleSaveSettings: (e: any) => void;
-  handleSaveNews: () => void;
+  handleSaveNews: (list?: any) => void;
   handleSaveCategories: (e: any) => void;
   handleSaveQuickLinks: (e: any) => void;
   handleSaveWebsiteFaqs: (e: any) => void;
@@ -179,7 +179,7 @@ export const AdminTabContent = ({
           handleAddNews={handleAddNews}
           handleNewsChange={handleNewsChange}
           handleDeleteNews={handleDeleteNews}
-          saveNews={async (list) => { await handleSaveNews(); }}
+          saveNews={async (list) => { await handleSaveNews(list); }}
           setSaving={() => {}}
           appsList={appsList}
         />

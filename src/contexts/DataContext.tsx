@@ -75,24 +75,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const loadBackup = async () => {
       const backup = await fetchBackupData();
       if (backup) {
-        const pathName = window.location.pathname.toLowerCase();
-        const adminPath = getAdminPath().toLowerCase();
-        const isAdminRoute = pathName.includes('/admin') || pathName.includes(adminPath) || pathName.includes('/masterworld');
-        if (isAdminRoute) return;
-
-        if (!isFirebaseReal || !sync.fetchedStates.apps) {
+        if (!isFirebaseReal || !sync.fetchedStates.apps || sync.apps.length === 0) {
           if (Array.isArray(backup.apps) && backup.apps.length > 0) sync.setApps(backup.apps);
         }
-        if (!isFirebaseReal || !sync.fetchedStates.settings) {
+        if (!isFirebaseReal || !sync.fetchedStates.settings || !sync.settings?.site_title) {
           if (backup.settings?.site_title) sync.setSettings(backup.settings);
         }
-        if (!isFirebaseReal || !sync.fetchedStates.news) {
+        if (!isFirebaseReal || !sync.fetchedStates.news || sync.news.length === 0) {
           if (Array.isArray(backup.news) && backup.news.length > 0) sync.setNews(backup.news);
         }
-        if (!isFirebaseReal || !sync.fetchedStates.blogs) {
+        if (!isFirebaseReal || !sync.fetchedStates.blogs || sync.blogs.length === 0) {
           if (Array.isArray(backup.blogs) && backup.blogs.length > 0) sync.setBlogs(backup.blogs);
         }
-        if (!isFirebaseReal || !sync.fetchedStates.videos) {
+        if (!isFirebaseReal || !sync.fetchedStates.videos || sync.videos.length === 0) {
           if (Array.isArray(backup.videos) && backup.videos.length > 0) sync.setVideos(backup.videos);
         }
       }

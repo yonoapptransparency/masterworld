@@ -27,7 +27,7 @@ export default function AdminDashboard() {
   const { user, checkingAuth, isAdminUser, sessionTimeLeft, handleLogout } = useAdminAuth();
   
   const { 
-    appsList, setAppsList, fetchFailed, cachedSecureMapRef, syncSecureVault 
+    appsList, setAppsList, fetchFailed, cachedSecureMapRef, syncSecureVault, recordAppDeletion
   } = useAdminApps(apps, loading, isAdminUser);
 
   const {
@@ -179,9 +179,9 @@ export default function AdminDashboard() {
       onConfirm: async () => {
         try {
           cachedSecureMapRef.current.delete(id);
+          recordAppDeletion(id);
           const updatedApps = appsList.filter(a => a.id !== id);
           await saveApps(updatedApps);
-          setAppsList(updatedApps);
           toast('App deleted.', 'success');
         } catch (err: any) { toast('Delete failed.', 'error'); }
       }
@@ -230,7 +230,7 @@ export default function AdminDashboard() {
             categoriesList={categoriesList} quickLinksList={quickLinksList} websiteFaqsList={websiteFaqsList} developersList={developersList}
             settings={settings} gitConfig={gitConfig} db={db} saving={saving} editingAppId={editingAppId}
             setEditingAppId={setEditingAppId}
-            handleDeleteApp={handleDeleteApp} handleSaveApp={handleSaveApp} handleSaveSettings={handleSaveSettingsBase} handleSaveNews={() => saveNews(newsList)}
+            handleDeleteApp={handleDeleteApp} handleSaveApp={handleSaveApp} handleSaveSettings={handleSaveSettingsBase} handleSaveNews={(list?: any) => saveNews(list && Array.isArray(list) && list.length > 0 ? list : newsList)}
             handleSaveCategories={(e) => { e.preventDefault(); handleSaveSettingsBase({ ...settings, categories: categoriesList }); }}
             handleSaveQuickLinks={(e) => { e.preventDefault(); handleSaveSettingsBase({ ...settings, quick_links: quickLinksList }); }}
             handleSaveWebsiteFaqs={(e) => { e.preventDefault(); handleSaveSettingsBase({ ...settings, website_faqs: websiteFaqsList }); }}

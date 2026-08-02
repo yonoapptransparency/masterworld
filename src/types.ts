@@ -73,6 +73,11 @@ export interface NewsItem {
   date?: string;
   tags?: string[];
   related_app_id?: string;
+  created_at?: string;
+  updated_at?: string;
+  is_breaking?: boolean;
+  is_new?: boolean;
+  is_pinned?: boolean;
 }
 
 export interface AppConfig {

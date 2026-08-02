@@ -121,9 +121,9 @@ export function useDataActions(
       await updateLocalContainerBackup({
         apps,
         settings: settingsWithTime,
-        news,
-        blogs,
-        videos
+        news: news && news.length > 0 ? news : undefined,
+        blogs: blogs && blogs.length > 0 ? blogs : undefined,
+        videos: videos && videos.length > 0 ? videos : undefined
       });
     } catch (e) {}
 

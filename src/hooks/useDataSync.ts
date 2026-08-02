@@ -11,7 +11,7 @@ export function useDataSync() {
 
   const [apps, setApps] = useState<AppConfig[]>(() => initialData?.apps || []);
   const [settings, setSettings] = useState<GlobalSettings>(() => initialData?.settings || mockSettings);
-  const [news, setNews] = useState<NewsItem[]>(() => initialData?.news || []);
+  const [news, setNews] = useState<NewsItem[]>(() => (initialData?.news && Array.isArray(initialData.news) && initialData.news.length > 0) ? initialData.news : mockNews);
   const [blogs, setBlogs] = useState<BlogPost[]>(() => initialData?.blogs || []);
   const [videos, setVideos] = useState<VideoItem[]>(() => initialData?.videos || []);
   
@@ -99,30 +99,36 @@ export function useDataSync() {
       }),
       onSnapshot(doc(db, 'store_data', 'news'), (snap) => {
         if (snap.exists() && !snap.metadata.hasPendingWrites) {
-          setNews(snap.data().items || []);
+          const items = snap.data().items;
+          if (Array.isArray(items) && items.length > 0) {
+            setNews(items);
+          }
           setFetchedStates(prev => ({ ...prev, news: true }));
         } else if (!snap.exists()) {
-          setNews([]);
           setFetchedStates(prev => ({ ...prev, news: true }));
         }
         checkLoaded('news');
       }),
       onSnapshot(doc(db, 'store_data', 'blogs'), (snap) => {
         if (snap.exists() && !snap.metadata.hasPendingWrites) {
-          setBlogs(snap.data().items || []);
+          const items = snap.data().items;
+          if (Array.isArray(items) && items.length > 0) {
+            setBlogs(items);
+          }
           setFetchedStates(prev => ({ ...prev, blogs: true }));
         } else if (!snap.exists()) {
-          setBlogs([]);
           setFetchedStates(prev => ({ ...prev, blogs: true }));
         }
         checkLoaded('blogs');
       }),
       onSnapshot(doc(db, 'store_data', 'videos'), (snap) => {
         if (snap.exists() && !snap.metadata.hasPendingWrites) {
-          setVideos(snap.data().items || []);
+          const items = snap.data().items;
+          if (Array.isArray(items) && items.length > 0) {
+            setVideos(items);
+          }
           setFetchedStates(prev => ({ ...prev, videos: true }));
         } else if (!snap.exists()) {
-          setVideos([]);
           setFetchedStates(prev => ({ ...prev, videos: true }));
         }
         checkLoaded('videos');

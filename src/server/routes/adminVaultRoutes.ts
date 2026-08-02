@@ -342,7 +342,15 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
         } catch (e) {}
       }
 
-      const { mockApps, mockSettings, mockNews, mockBlogs, mockVideos } = require('../../lib/staticData');
+      const staticDataObj = require('../../lib/staticData');
+      const lightFallbackObj = require('../../lib/lightFallback');
+
+      const mockApps = (staticDataObj.mockApps && staticDataObj.mockApps.length > 0) ? staticDataObj.mockApps : lightFallbackObj.mockApps;
+      const mockSettings = (staticDataObj.mockSettings && Object.keys(staticDataObj.mockSettings).length > 0) ? staticDataObj.mockSettings : lightFallbackObj.mockSettings;
+      const mockNews = (staticDataObj.mockNews && staticDataObj.mockNews.length > 0) ? staticDataObj.mockNews : lightFallbackObj.mockNews;
+      const mockBlogs = (staticDataObj.mockBlogs && staticDataObj.mockBlogs.length > 0) ? staticDataObj.mockBlogs : lightFallbackObj.mockBlogs;
+      const mockVideos = (staticDataObj.mockVideos && staticDataObj.mockVideos.length > 0) ? staticDataObj.mockVideos : lightFallbackObj.mockVideos;
+
       const baseApps = (Array.isArray(existingBackup.apps) && existingBackup.apps.length > 0) ? existingBackup.apps : (mockApps || []);
       const baseSettings = (existingBackup.settings && typeof existingBackup.settings === 'object' && Object.keys(existingBackup.settings).length > 0) ? existingBackup.settings : (mockSettings || {});
       const baseNews = (Array.isArray(existingBackup.news) && existingBackup.news.length > 0) ? existingBackup.news : (mockNews || []);

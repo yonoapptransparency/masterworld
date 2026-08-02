@@ -1,34 +1,173 @@
 import { useState, useEffect, useRef } from 'react';
 
 export const useAdminSettings = (settings: any, news: any[], blogs: any[], videos: any[]) => {
-  const [newsList, setNewsList] = useState(news || []);
-  const [banners, setBanners] = useState(settings?.banners || []);
-  const [blogsList, setBlogsList] = useState(blogs || []);
-  const [videosList, setVideosList] = useState(videos || []);
+  const [newsList, setNewsList] = useState<any[]>(news || []);
+  const [banners, setBanners] = useState<any[]>(settings?.banners || []);
+  const [blogsList, setBlogsList] = useState<any[]>(blogs || []);
+  const [videosList, setVideosList] = useState<any[]>(videos || []);
   const [categoriesList, setCategoriesList] = useState<string[]>(settings?.categories || []);
-  const [quickLinksList, setQuickLinksList] = useState(settings?.quick_links || []);
-  const [websiteFaqsList, setWebsiteFaqsList] = useState(settings?.website_faqs || []);
-  const [developersList, setDevelopersList] = useState(settings?.developers || []);
+  const [quickLinksList, setQuickLinksList] = useState<any[]>(settings?.quick_links || []);
+  const [websiteFaqsList, setWebsiteFaqsList] = useState<any[]>(settings?.website_faqs || []);
+  const [developersList, setDevelopersList] = useState<any[]>(settings?.developers || []);
   const [newCatInput, setNewCatInput] = useState('');
 
-  const isInitializedRef = useRef(false);
+  const deletedNewsIdsRef = useRef(new Set<string>());
+  const deletedBannerIdsRef = useRef(new Set<string>());
+  const deletedBlogIdsRef = useRef(new Set<string>());
+  const deletedVideoIdsRef = useRef(new Set<string>());
+  const deletedCategoryNamesRef = useRef(new Set<string>());
 
-  // Initialize local state ONLY ONCE when data first arrives, or when explicitly forced
+  // Smart sync whenever data arrives from DataContext / Firestore
   useEffect(() => {
-    if (!isInitializedRef.current) {
-      if (Array.isArray(news) && news.length > 0) setNewsList(news);
-      if (settings && typeof settings === 'object') {
-        if (Array.isArray(settings.banners)) setBanners(settings.banners);
-        if (Array.isArray(settings.categories)) setCategoriesList(settings.categories);
-        if (Array.isArray(settings.quick_links)) setQuickLinksList(settings.quick_links);
-        if (Array.isArray(settings.website_faqs)) setWebsiteFaqsList(settings.website_faqs);
-        if (Array.isArray(settings.developers)) setDevelopersList(settings.developers);
-      }
-      if (Array.isArray(blogs) && blogs.length > 0) setBlogsList(blogs);
-      if (Array.isArray(videos) && videos.length > 0) setVideosList(videos);
+    if (Array.isArray(news) && news.length > 0) {
+      setNewsList(prev => {
+        if (!prev || prev.length === 0) {
+          return news.filter(n => !deletedNewsIdsRef.current.has(n.id));
+        }
+        const prevMap = new Map(prev.map(i => [i.id, i]));
+        const incomingMap = new Map(news.map(i => [i.id, i]));
+        const merged: any[] = [];
 
-      if ((settings && Object.keys(settings).length > 0) || (news && news.length > 0)) {
-        isInitializedRef.current = true;
+        // Keep local additions & edits
+        for (const item of prev) {
+          if (deletedNewsIdsRef.current.has(item.id)) continue;
+          const incoming = incomingMap.get(item.id);
+          if (!incoming) {
+            merged.push(item);
+          } else {
+            merged.push({ ...(incoming as object), ...(item as object) });
+          }
+        }
+
+        // Add brand new incoming items
+        for (const incoming of news) {
+          if (!prevMap.has(incoming.id) && !deletedNewsIdsRef.current.has(incoming.id)) {
+            merged.push(incoming);
+          }
+        }
+
+        if (JSON.stringify(prev) === JSON.stringify(merged)) return prev;
+        return merged;
+      });
+    }
+  }, [news]);
+
+  useEffect(() => {
+    if (Array.isArray(blogs) && blogs.length > 0) {
+      setBlogsList(prev => {
+        if (!prev || prev.length === 0) {
+          return blogs.filter(b => !deletedBlogIdsRef.current.has(b.id));
+        }
+        const prevMap = new Map(prev.map(i => [i.id, i]));
+        const incomingMap = new Map(blogs.map(i => [i.id, i]));
+        const merged: any[] = [];
+
+        for (const item of prev) {
+          if (deletedBlogIdsRef.current.has(item.id)) continue;
+          const incoming = incomingMap.get(item.id);
+          if (!incoming) {
+            merged.push(item);
+          } else {
+            merged.push({ ...(incoming as object), ...(item as object) });
+          }
+        }
+
+        for (const incoming of blogs) {
+          if (!prevMap.has(incoming.id) && !deletedBlogIdsRef.current.has(incoming.id)) {
+            merged.push(incoming);
+          }
+        }
+
+        if (JSON.stringify(prev) === JSON.stringify(merged)) return prev;
+        return merged;
+      });
+    }
+  }, [blogs]);
+
+  useEffect(() => {
+    if (Array.isArray(videos) && videos.length > 0) {
+      setVideosList(prev => {
+        if (!prev || prev.length === 0) {
+          return videos.filter(v => !deletedVideoIdsRef.current.has(v.id));
+        }
+        const prevMap = new Map(prev.map(i => [i.id, i]));
+        const incomingMap = new Map(videos.map(i => [i.id, i]));
+        const merged: any[] = [];
+
+        for (const item of prev) {
+          if (deletedVideoIdsRef.current.has(item.id)) continue;
+          const incoming = incomingMap.get(item.id);
+          if (!incoming) {
+            merged.push(item);
+          } else {
+            merged.push({ ...(incoming as object), ...(item as object) });
+          }
+        }
+
+        for (const incoming of videos) {
+          if (!prevMap.has(incoming.id) && !deletedVideoIdsRef.current.has(incoming.id)) {
+            merged.push(incoming);
+          }
+        }
+
+        if (JSON.stringify(prev) === JSON.stringify(merged)) return prev;
+        return merged;
+      });
+    }
+  }, [videos]);
+
+  useEffect(() => {
+    if (settings && typeof settings === 'object') {
+      if (Array.isArray(settings.banners) && settings.banners.length > 0) {
+        setBanners(prev => {
+          if (!prev || prev.length === 0) {
+            return settings.banners.filter((b: any) => !deletedBannerIdsRef.current.has(b.id));
+          }
+          const prevMap = new Map(prev.map((i: any) => [i.id, i]));
+          const incomingMap = new Map(settings.banners.map((i: any) => [i.id, i]));
+          const merged: any[] = [];
+
+          for (const item of prev) {
+            if (deletedBannerIdsRef.current.has(item.id)) continue;
+            const incoming = incomingMap.get(item.id);
+            if (!incoming) merged.push(item);
+            else merged.push({ ...(incoming as object), ...(item as object) });
+          }
+
+          for (const incoming of settings.banners) {
+            if (!prevMap.has(incoming.id) && !deletedBannerIdsRef.current.has(incoming.id)) {
+              merged.push(incoming);
+            }
+          }
+
+          if (JSON.stringify(prev) === JSON.stringify(merged)) return prev;
+          return merged;
+        });
+      }
+
+      if (Array.isArray(settings.categories) && settings.categories.length > 0) {
+        setCategoriesList(prev => {
+          if (!prev || prev.length === 0) {
+            return settings.categories.filter((c: string) => !deletedCategoryNamesRef.current.has(c));
+          }
+          const set = new Set(prev);
+          for (const cat of settings.categories) {
+            if (!deletedCategoryNamesRef.current.has(cat)) set.add(cat);
+          }
+          const merged = Array.from(set).filter((c: string) => !deletedCategoryNamesRef.current.has(c));
+          if (JSON.stringify(prev) === JSON.stringify(merged)) return prev;
+          return merged;
+        });
+      }
+
+      if (Array.isArray(settings.quick_links) && settings.quick_links.length > 0) {
+        setQuickLinksList(prev => (prev.length === 0 ? settings.quick_links : prev));
+      }
+      if (Array.isArray(settings.website_faqs) && settings.website_faqs.length > 0) {
+        setWebsiteFaqsList(prev => (prev.length === 0 ? settings.website_faqs : prev));
+      }
+      if (Array.isArray(settings.developers) && settings.developers.length > 0) {
+        setDevelopersList(prev => (prev.length === 0 ? settings.developers : prev));
       }
     }
   }, [settings, news, blogs, videos]);
@@ -42,15 +181,16 @@ export const useAdminSettings = (settings: any, news: any[], blogs: any[], video
       image: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800&q=80',
       link: '/'
     };
-    setBanners([...banners, newBanner]);
+    setBanners(prev => [...prev, newBanner]);
   };
 
   const handleBannerChange = (id: string, field: string, value: string) => {
-    setBanners(banners.map(b => b.id === id ? { ...b, [field]: value } : b));
+    setBanners(prev => prev.map(b => b.id === id ? { ...b, [field]: value } : b));
   };
 
   const handleDeleteBanner = (id: string) => {
-    setBanners(banners.filter(b => b.id !== id));
+    deletedBannerIdsRef.current.add(id);
+    setBanners(prev => prev.filter(b => b.id !== id));
   };
 
   // News
@@ -59,7 +199,7 @@ export const useAdminSettings = (settings: any, news: any[], blogs: any[], video
     const newItem = {
       id: newId,
       slug: `news-${newId}`,
-      title: 'New News',
+      title: 'New News Item',
       logo_url: '',
       description: 'News description...',
       description_html: '<p>Content...</p>',
@@ -73,15 +213,15 @@ export const useAdminSettings = (settings: any, news: any[], blogs: any[], video
       category: 'General',
       is_pinned: false
     };
-    setNewsList([...newsList, newItem]);
+    setNewsList(prev => [...prev, newItem]);
     return newId;
   };
 
   const handleNewsChange = (id: string, field: string, value: any) => {
-    setNewsList(newsList.map(n => {
+    setNewsList(prev => prev.map(n => {
       if (n.id !== id) return n;
       const updated = { ...n, [field]: value, updated_at: new Date().toISOString() };
-      if (field === 'title' && (!n.slug || n.slug.startsWith('news-') || n.slug === 'new-news')) {
+      if (field === 'title' && (!n.slug || n.slug.startsWith('news-') || n.slug === 'new-news-item')) {
         updated.slug = value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
       }
       if (field === 'content') {
@@ -92,23 +232,25 @@ export const useAdminSettings = (settings: any, news: any[], blogs: any[], video
   };
 
   const handleDeleteNews = (id: string) => {
-    setNewsList(newsList.filter(n => n.id !== id));
+    deletedNewsIdsRef.current.add(id);
+    setNewsList(prev => prev.filter(n => n.id !== id));
   };
 
   // Categories
   const handleAddCategory = () => {
     const trimmed = newCatInput.trim();
     if (trimmed && !categoriesList.includes(trimmed)) {
-      setCategoriesList([...categoriesList, trimmed]);
+      setCategoriesList(prev => [...prev, trimmed]);
       setNewCatInput('');
     }
   };
 
   const handleRemoveCategory = (cat: string) => {
-    setCategoriesList(categoriesList.filter(c => c !== cat));
+    deletedCategoryNamesRef.current.add(cat);
+    setCategoriesList(prev => prev.filter(c => c !== cat));
   };
 
-  // App Updates
+  // App Updates / Blogs
   const handleAddBlog = () => {
     const newId = Math.random().toString(36).substr(2, 9);
     const todayStr = new Date().toISOString().split('T')[0];
@@ -125,9 +267,12 @@ export const useAdminSettings = (settings: any, news: any[], blogs: any[], video
     setBlogsList(prev => [...prev, newUpdate]);
     return newId;
   };
+
   const handleDeleteBlog = (id: string) => {
+    deletedBlogIdsRef.current.add(id);
     setBlogsList(prev => prev.filter(b => b.id !== id));
   };
+
   const handleBlogChange = (id: string, field: string, value: any) => {
     setBlogsList(prev => prev.map(b => {
       if (b.id === id) {
@@ -145,8 +290,9 @@ export const useAdminSettings = (settings: any, news: any[], blogs: any[], video
 
   // Videos
   const handleAddVideo = () => {
-    setVideosList([...videosList, {
-      id: Math.random().toString(36).substr(2, 9),
+    const newId = Math.random().toString(36).substr(2, 9);
+    setVideosList(prev => [...prev, {
+      id: newId,
       title: 'New Video',
       url: '',
       thumbnail: '',
@@ -156,62 +302,75 @@ export const useAdminSettings = (settings: any, news: any[], blogs: any[], video
   };
 
   const handleDeleteVideo = (id: string) => {
-    setVideosList(videosList.filter(v => v.id !== id));
+    deletedVideoIdsRef.current.add(id);
+    setVideosList(prev => prev.filter(v => v.id !== id));
   };
 
   const handleVideosChange = (id: string, field: string, value: any) => {
-    setVideosList(videosList.map(v => v.id === id ? { ...v, [field]: value, updated_at: new Date().toISOString() } : v));
+    setVideosList(prev => prev.map(v => v.id === id ? { ...v, [field]: value, updated_at: new Date().toISOString() } : v));
   };
 
   // Website FAQs
   const handleAddWebsiteFaq = () => {
-    setWebsiteFaqsList([...websiteFaqsList, { question: 'New Question', answer: 'New Answer' }]);
+    setWebsiteFaqsList(prev => [...prev, { question: 'New Question', answer: 'New Answer' }]);
   };
 
   const handleRemoveWebsiteFaq = (index: number) => {
-    const updated = [...websiteFaqsList];
-    updated.splice(index, 1);
-    setWebsiteFaqsList(updated);
+    setWebsiteFaqsList(prev => {
+      const updated = [...prev];
+      updated.splice(index, 1);
+      return updated;
+    });
   };
 
   const handleWebsiteFaqChange = (index: number, field: string, value: any) => {
-    const updated = [...websiteFaqsList];
-    updated[index] = { ...updated[index], [field]: value };
-    setWebsiteFaqsList(updated);
+    setWebsiteFaqsList(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
   };
 
   // Quick Links
   const handleAddQuickLink = () => {
-    setQuickLinksList([...quickLinksList, { title: 'New Link', subtitle: 'Description', icon: 'compass', color: 'blue', url: '/' }]);
+    setQuickLinksList(prev => [...prev, { title: 'New Link', subtitle: 'Description', icon: 'compass', color: 'blue', url: '/' }]);
   };
 
   const handleRemoveQuickLink = (index: number) => {
-    const updated = [...quickLinksList];
-    updated.splice(index, 1);
-    setQuickLinksList(updated);
+    setQuickLinksList(prev => {
+      const updated = [...prev];
+      updated.splice(index, 1);
+      return updated;
+    });
   };
 
   const handleQuickLinkChange = (index: number, field: string, value: any) => {
-    const updated = [...quickLinksList];
-    updated[index] = { ...updated[index], [field]: value };
-    setQuickLinksList(updated);
+    setQuickLinksList(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
   };
 
   // Developers
   const handleAddDeveloper = () => {
-    setDevelopersList([...developersList, { name: 'New Developer', role: 'Role', image_url: '', github: '', twitter: '', bio: '' }]);
+    setDevelopersList(prev => [...prev, { name: 'New Developer', role: 'Role', image_url: '', github: '', twitter: '', bio: '' }]);
   };
 
   const handleRemoveDeveloper = (index: number) => {
-    const updated = [...developersList];
-    updated.splice(index, 1);
-    setDevelopersList(updated);
+    setDevelopersList(prev => {
+      const updated = [...prev];
+      updated.splice(index, 1);
+      return updated;
+    });
   };
 
   const handleDeveloperChange = (index: number, field: string, value: any) => {
-    const updated = [...developersList];
-    updated[index] = { ...updated[index], [field]: value };
-    setDevelopersList(updated);
+    setDevelopersList(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
   };
 
   return {

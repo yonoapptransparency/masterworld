@@ -183,13 +183,17 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
         const dbBlogs = blogsSnap.exists ? (blogsSnap.data()?.items || []) : [];
         const dbVideos = videosSnap.exists ? (videosSnap.data()?.items || []) : [];
 
+        const finalNews = (dbNews && dbNews.length > 0) ? dbNews : (staticFallback.mockNews || []);
+        const finalBlogs = (dbBlogs && dbBlogs.length > 0) ? dbBlogs : (staticFallback.mockBlogs || []);
+        const finalVideos = (dbVideos && dbVideos.length > 0) ? dbVideos : (staticFallback.mockVideos || []);
+
         if (metaSnap.exists || (legacySnap && legacySnap.exists) || settingsSnap.exists || newsSnap.exists || blogsSnap.exists || videosSnap.exists) {
           const liveData = {
-            apps,
-            settings: settingsSnap.exists ? settingsSnap.data() : {},
-            news: newsSnap.exists ? dbNews : (staticFallback.mockNews || []),
-            blogs: blogsSnap.exists ? dbBlogs : (staticFallback.mockBlogs || []),
-            videos: videosSnap.exists ? dbVideos : (staticFallback.mockVideos || [])
+            apps: (apps && apps.length > 0) ? apps : (staticFallback.mockApps || []),
+            settings: (settingsSnap.exists && Object.keys(settingsSnap.data() || {}).length > 0) ? settingsSnap.data() : (staticFallback.mockSettings || {}),
+            news: finalNews,
+            blogs: finalBlogs,
+            videos: finalVideos
           };
           backupDataCache = liveData;
           backupDataCacheTime = now;
