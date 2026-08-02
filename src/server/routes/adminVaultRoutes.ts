@@ -350,7 +350,7 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
       const baseVideos = (Array.isArray(existingBackup.videos) && existingBackup.videos.length > 0) ? existingBackup.videos : (mockVideos || []);
 
       const finalApps = (Array.isArray(apps) && (apps.length > 0 || allowEmptyApps)) ? apps : baseApps;
-      const finalSettings = (settings && typeof settings === 'object' && Object.keys(settings).length > 0) ? { ...baseSettings, ...settings } : baseSettings;
+      const finalSettings = (settings && typeof settings === 'object' && Object.keys(settings).length > 0) ? settings : baseSettings;
       const finalNews = (Array.isArray(news) && (news.length > 0 || allowEmptyNews)) ? news : baseNews;
       const finalBlogs = (Array.isArray(blogs) && (blogs.length > 0 || allowEmptyBlogs)) ? blogs : baseBlogs;
       const finalVideos = (Array.isArray(videos) && (videos.length > 0 || allowEmptyVideos)) ? videos : baseVideos;

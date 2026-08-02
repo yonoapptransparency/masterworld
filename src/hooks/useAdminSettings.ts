@@ -1,27 +1,36 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export const useAdminSettings = (settings: any, news: any[], blogs: any[], videos: any[]) => {
-  const [newsList, setNewsList] = useState(news);
-  const [banners, setBanners] = useState(settings.banners || []);
-  const [blogsList, setBlogsList] = useState(blogs);
-  const [videosList, setVideosList] = useState(videos);
-  const [categoriesList, setCategoriesList] = useState<string[]>(settings.categories || []);
-  const [quickLinksList, setQuickLinksList] = useState(settings.quick_links || []);
-  const [websiteFaqsList, setWebsiteFaqsList] = useState(settings.website_faqs || []);
-  const [developersList, setDevelopersList] = useState(settings.developers || []);
+  const [newsList, setNewsList] = useState(news || []);
+  const [banners, setBanners] = useState(settings?.banners || []);
+  const [blogsList, setBlogsList] = useState(blogs || []);
+  const [videosList, setVideosList] = useState(videos || []);
+  const [categoriesList, setCategoriesList] = useState<string[]>(settings?.categories || []);
+  const [quickLinksList, setQuickLinksList] = useState(settings?.quick_links || []);
+  const [websiteFaqsList, setWebsiteFaqsList] = useState(settings?.website_faqs || []);
+  const [developersList, setDevelopersList] = useState(settings?.developers || []);
   const [newCatInput, setNewCatInput] = useState('');
 
+  const isInitializedRef = useRef(false);
+
+  // Initialize local state ONLY ONCE when data first arrives, or when explicitly forced
   useEffect(() => {
-    if (Array.isArray(news) && news.length > 0) setNewsList(news);
-    if (settings && typeof settings === 'object') {
-      if (Array.isArray(settings.banners) && (settings.banners.length > 0 || banners.length === 0)) setBanners(settings.banners);
-      if (Array.isArray(settings.categories) && (settings.categories.length > 0 || categoriesList.length === 0)) setCategoriesList(settings.categories);
-      if (Array.isArray(settings.quick_links) && (settings.quick_links.length > 0 || quickLinksList.length === 0)) setQuickLinksList(settings.quick_links);
-      if (Array.isArray(settings.website_faqs) && (settings.website_faqs.length > 0 || websiteFaqsList.length === 0)) setWebsiteFaqsList(settings.website_faqs);
-      if (Array.isArray(settings.developers) && (settings.developers.length > 0 || developersList.length === 0)) setDevelopersList(settings.developers);
+    if (!isInitializedRef.current) {
+      if (Array.isArray(news) && news.length > 0) setNewsList(news);
+      if (settings && typeof settings === 'object') {
+        if (Array.isArray(settings.banners)) setBanners(settings.banners);
+        if (Array.isArray(settings.categories)) setCategoriesList(settings.categories);
+        if (Array.isArray(settings.quick_links)) setQuickLinksList(settings.quick_links);
+        if (Array.isArray(settings.website_faqs)) setWebsiteFaqsList(settings.website_faqs);
+        if (Array.isArray(settings.developers)) setDevelopersList(settings.developers);
+      }
+      if (Array.isArray(blogs) && blogs.length > 0) setBlogsList(blogs);
+      if (Array.isArray(videos) && videos.length > 0) setVideosList(videos);
+
+      if ((settings && Object.keys(settings).length > 0) || (news && news.length > 0)) {
+        isInitializedRef.current = true;
+      }
     }
-    if (Array.isArray(blogs) && blogs.length > 0) setBlogsList(blogs);
-    if (Array.isArray(videos) && videos.length > 0) setVideosList(videos);
   }, [settings, news, blogs, videos]);
 
   // Banners

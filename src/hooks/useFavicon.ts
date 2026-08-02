@@ -8,7 +8,7 @@ export function useFavicon(settings: GlobalSettings | null, apps: AppConfig[]) {
   useEffect(() => {
     if (!settings) return;
     
-    let targetUrl = settings.favicon_url || settings.logo_url;
+    let targetUrl = settings.favicon_url || settings.logo_url || "https://res.cloudinary.com/diewalae4/image/upload/v1785648485/ezgif-88d07abd3ef5753f_yz8ytg.webp";
     const path = location.pathname;
 
     if (path.startsWith('/app/')) {
@@ -25,7 +25,7 @@ export function useFavicon(settings: GlobalSettings | null, apps: AppConfig[]) {
       }
     } else {
       const possibleSlug = decodeURIComponent(path.replace(/^\/|\/$/g, ''));
-      if (possibleSlug && possibleSlug !== '') {
+      if (possibleSlug && possibleSlug !== '' && !['admin', 'news', 'blogs', 'videos', 'about', 'contact', 'privacy', 'terms', 'report-removal', 'ethics', 'disclaimer', 'responsibility', 'notice'].some(p => possibleSlug.toLowerCase().startsWith(p))) {
         const app = apps.find((a: any) => a?.slug?.toLowerCase() === possibleSlug.toLowerCase());
         if (app && app.icon_url) {
           targetUrl = app.icon_url;
@@ -46,6 +46,15 @@ export function useFavicon(settings: GlobalSettings | null, apps: AppConfig[]) {
         const newLink = document.createElement('link');
         newLink.rel = iconDef.rel;
         newLink.href = targetUrl;
+        if (targetUrl.includes('.webp')) {
+          newLink.type = 'image/webp';
+        } else if (targetUrl.includes('.png')) {
+          newLink.type = 'image/png';
+        } else if (targetUrl.includes('.ico')) {
+          newLink.type = 'image/x-icon';
+        } else if (targetUrl.includes('.svg')) {
+          newLink.type = 'image/svg+xml';
+        }
         document.head.appendChild(newLink);
       });
       

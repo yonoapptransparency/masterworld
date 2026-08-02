@@ -51,7 +51,7 @@ const Meta: React.FC<MetaProps> = ({
       <link rel="canonical" href={canonicalUrl} />
 
       {settings?.favicon_url && (
-        <link rel="icon" href={settings.favicon_url} />
+        <link rel="icon" type={settings.favicon_url.includes('.webp') ? 'image/webp' : undefined} href={settings.favicon_url} />
       )}
       {settings?.favicon_url && (
         <link rel="apple-touch-icon" href={settings.favicon_url} />

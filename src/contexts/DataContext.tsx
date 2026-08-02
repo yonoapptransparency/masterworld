@@ -75,8 +75,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const loadBackup = async () => {
       const backup = await fetchBackupData();
       if (backup) {
-        const isAdminRoute = window.location.pathname.startsWith('/' + getAdminPath());
-        if (isFirebaseReal && isAdminRoute) return;
+        const pathName = window.location.pathname.toLowerCase();
+        const adminPath = getAdminPath().toLowerCase();
+        const isAdminRoute = pathName.includes('/admin') || pathName.includes(adminPath) || pathName.includes('/masterworld');
+        if (isAdminRoute) return;
 
         if (!isFirebaseReal || !sync.fetchedStates.apps) {
           if (Array.isArray(backup.apps) && backup.apps.length > 0) sync.setApps(backup.apps);

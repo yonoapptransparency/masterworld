@@ -6,6 +6,7 @@ export const seoRouter = express.Router();
 seoRouter.get([
   '/favicon.ico',
   '/favicon.png',
+  '/favicon.webp',
   '/apple-touch-icon.png',
   '/apple-touch-icon-precomposed.png',
   '/favicon-32x32.png',
@@ -38,13 +39,21 @@ seoRouter.get([
       if (response.ok) {
         const arrayBuffer = await response.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
-        const originalContentType = response.headers.get('content-type');
+        const originalContentType = response.headers.get('content-type') || '';
 
-        let contentType = originalContentType || 'image/png';
-        if (req.originalUrl.includes('.ico')) {
-          contentType = 'image/x-icon';
-        } else if (req.originalUrl.includes('.png')) {
+        let contentType = 'image/png';
+        if (buffer.length >= 12 && buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50) {
+          contentType = 'image/webp';
+        } else if (buffer.length >= 4 && buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
           contentType = 'image/png';
+        } else if (buffer.length >= 4 && buffer[0] === 0x00 && buffer[1] === 0x00 && buffer[2] === 0x01 && buffer[3] === 0x00) {
+          contentType = 'image/x-icon';
+        } else if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+          contentType = 'image/jpeg';
+        } else if (buffer.toString('utf8', 0, Math.min(100, buffer.length)).includes('<svg')) {
+          contentType = 'image/svg+xml';
+        } else if (originalContentType) {
+          contentType = originalContentType.split(';')[0].trim();
         }
 
         res.set('Content-Type', contentType);

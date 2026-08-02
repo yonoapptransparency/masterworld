@@ -339,6 +339,11 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   // We only generate SEO tags now, not full body HTML to prevent layout shifting
   // const preRendered = await getPagePreRender(urlPath, data);
 
+  let faviconUrl = getField(settings, 'favicon_url') || getField(settings, 'logo_url') || '/favicon.png';
+  if (!faviconUrl || faviconUrl.includes('ezgif-64180dd8ca74703b')) {
+    faviconUrl = 'https://res.cloudinary.com/diewalae4/image/upload/v1785648485/ezgif-88d07abd3ef5753f_yz8ytg.webp';
+  }
+
   const seoTags = `
     <title data-rh="true">${title}</title>
     <meta data-rh="true" name="description" content="${description}">
@@ -352,6 +357,9 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     <meta data-rh="true" name="twitter:title" content="${title}">
     <meta data-rh="true" name="twitter:description" content="${description}">
     <meta data-rh="true" name="twitter:image" content="${logoUrl}">
+    <link data-rh="true" rel="icon" href="${faviconUrl}">
+    <link data-rh="true" rel="shortcut icon" href="${faviconUrl}">
+    <link data-rh="true" rel="apple-touch-icon" href="${faviconUrl}">
     ${(cleanPathLower.startsWith('/info/') || cleanPathLower.startsWith('/moreinfo/') || cleanPathLower.startsWith('/moredetail/')) ? '<meta data-rh="true" name="robots" content="noindex">' : ''}
     <link data-rh="true" rel="canonical" href="${canonicalUrl}">
   `;

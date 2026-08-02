@@ -71,7 +71,16 @@ export default function AdminDashboard() {
   const handleSaveSettingsBase = async (updatedSettings: any) => {
     setSaving(true);
     try {
-      await saveSettings(updatedSettings);
+      const fullSettings = {
+        ...settings,
+        banners,
+        categories: categoriesList,
+        quick_links: quickLinksList,
+        website_faqs: websiteFaqsList,
+        developers: developersList,
+        ...updatedSettings
+      };
+      await saveSettings(fullSettings);
       triggerHaptic();
       toast('Settings saved successfully!', 'success');
     } catch (err: any) {
