@@ -48,14 +48,7 @@ export function useDataActions(
   const saveApps = useCallback(async (newApps: AppConfig[]) => {
     setApps(newApps);
     try {
-      await updateLocalContainerBackup({ 
-        apps: newApps, 
-        settings, 
-        news, 
-        blogs, 
-        videos, 
-        allowEmptyApps: newApps.length === 0 
-      });
+      await updateLocalContainerBackup({ apps: newApps, allowEmptyApps: newApps.length === 0 });
     } catch (e) {}
 
     if (isFirebaseReal && db) {
@@ -109,7 +102,7 @@ export function useDataActions(
         console.warn("Failed encrypting secure links:", e);
       }
     }
-  }, [apps, settings, news, blogs, videos, updateLocalContainerBackup, getAdminToken]);
+  }, [apps, updateLocalContainerBackup, getAdminToken]);
 
   const saveSettings = useCallback(async (newSettings: GlobalSettings) => {
     const now = new Date().toISOString();
@@ -125,13 +118,7 @@ export function useDataActions(
     };
     setSettings(settingsWithTime);
     try {
-      await updateLocalContainerBackup({
-        apps,
-        settings: settingsWithTime,
-        news: news && news.length > 0 ? news : undefined,
-        blogs: blogs && blogs.length > 0 ? blogs : undefined,
-        videos: videos && videos.length > 0 ? videos : undefined
-      });
+      await updateLocalContainerBackup({ settings: settingsWithTime });
     } catch (e) {}
 
     if (isFirebaseReal && db) {
@@ -139,64 +126,43 @@ export function useDataActions(
         await setDoc(doc(db, 'store_data', 'public_settings'), settingsWithTime, { merge: true });
       } catch (e) {}
     }
-  }, [settings, apps, news, blogs, videos, updateLocalContainerBackup]);
+  }, [settings, updateLocalContainerBackup]);
 
   const saveNews = useCallback(async (newNews: NewsItem[]) => {
     setNews(newNews);
     try {
-      await updateLocalContainerBackup({ 
-        apps, 
-        settings, 
-        news: newNews, 
-        blogs, 
-        videos, 
-        allowEmptyNews: newNews.length === 0 
-      });
+      await updateLocalContainerBackup({ news: newNews, allowEmptyNews: newNews.length === 0 });
     } catch (e) {}
     if (isFirebaseReal && db) {
       try {
         await setDoc(doc(db, 'store_data', 'news'), { items: newNews });
       } catch (e) {}
     }
-  }, [apps, settings, blogs, videos, updateLocalContainerBackup]);
+  }, [updateLocalContainerBackup]);
 
   const saveBlogs = useCallback(async (newBlogs: BlogPost[]) => {
     setBlogs(newBlogs);
     try {
-      await updateLocalContainerBackup({ 
-        apps, 
-        settings, 
-        news, 
-        blogs: newBlogs, 
-        videos, 
-        allowEmptyBlogs: newBlogs.length === 0 
-      });
+      await updateLocalContainerBackup({ blogs: newBlogs, allowEmptyBlogs: newBlogs.length === 0 });
     } catch (e) {}
     if (isFirebaseReal && db) {
       try {
         await setDoc(doc(db, 'store_data', 'blogs'), { items: newBlogs });
       } catch (e) {}
     }
-  }, [apps, settings, news, videos, updateLocalContainerBackup]);
+  }, [updateLocalContainerBackup]);
 
   const saveVideos = useCallback(async (newVideos: VideoItem[]) => {
     setVideos(newVideos);
     try {
-      await updateLocalContainerBackup({ 
-        apps, 
-        settings, 
-        news, 
-        blogs, 
-        videos: newVideos, 
-        allowEmptyVideos: newVideos.length === 0 
-      });
+      await updateLocalContainerBackup({ videos: newVideos, allowEmptyVideos: newVideos.length === 0 });
     } catch (e) {}
     if (isFirebaseReal && db) {
       try {
         await setDoc(doc(db, 'store_data', 'videos'), { items: newVideos });
       } catch (e) {}
     }
-  }, [apps, settings, news, blogs, updateLocalContainerBackup]);
+  }, [updateLocalContainerBackup]);
 
   return {
     saveApps,
