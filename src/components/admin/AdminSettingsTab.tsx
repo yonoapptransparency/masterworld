@@ -58,7 +58,7 @@ export const AdminSettingsTab = React.memo(({ settings: rawSettings, handleSaveS
           </div>
           <div className="sm:col-span-2">
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Trending Searches (Comma Separated)</label>
-            <input type="text" name="trending_searches" defaultValue={settings.trending_searches ? (Array.isArray(settings.trending_searches) ? settings.trending_searches.join(', ') : settings.trending_searches) : ''} placeholder="e.g. Rummy Dex, Rummy Game, Bingo 101" className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            <input type="text" name="trending_searches" defaultValue={settings.trending_searches ? (Array.isArray(settings.trending_searches) ? settings.trending_searches.join(', ') : settings.trending_searches) : ''} placeholder="e.g. Action Games, Casual Apps, Tools" className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
           </div>
         </div>
       </div>

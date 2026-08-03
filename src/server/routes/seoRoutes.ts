@@ -27,7 +27,7 @@ seoRouter.get([
       console.warn("Could not retrieve store settings for favicon, using default fallback:", dataErr);
     }
     if (!imageUrl || imageUrl.includes('ezgif-64180dd8ca74703b')) {
-      imageUrl = 'https://res.cloudinary.com/diewalae4/image/upload/v1785648485/ezgif-88d07abd3ef5753f_yz8ytg.webp';
+      imageUrl = 'https://res.cloudinary.com/diewalae4/image/upload/v1785720339/1000132678_1_ro1ftj.png';
     }
     console.log('--- FAVICON/LOGO ROUTE RESOLVED TO ---', imageUrl);
     try {

@@ -8,7 +8,7 @@ export function useFavicon(settings: GlobalSettings | null, apps: AppConfig[]) {
   useEffect(() => {
     if (!settings) return;
     
-    let targetUrl = settings.favicon_url || settings.logo_url || "https://res.cloudinary.com/diewalae4/image/upload/v1785648485/ezgif-88d07abd3ef5753f_yz8ytg.webp";
+    let targetUrl = settings.favicon_url || settings.logo_url || "https://res.cloudinary.com/diewalae4/image/upload/v1785720339/1000132678_1_ro1ftj.png";
     const path = location.pathname;
 
     if (path.startsWith('/app/')) {

@@ -129,7 +129,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [sync.setLoading, sync.setSyncVersion, sync.setLastSyncTime]);
 
   const resolvedSettings = useMemo(() => {
-    const defaultLogo = "https://res.cloudinary.com/diewalae4/image/upload/v1785648485/ezgif-88d07abd3ef5753f_yz8ytg.webp";
+    const defaultLogo = "https://res.cloudinary.com/diewalae4/image/upload/v1785720339/1000132678_1_ro1ftj.png";
     const fav = sync.settings?.favicon_url;
     const logo = sync.settings?.logo_url;
     return {
