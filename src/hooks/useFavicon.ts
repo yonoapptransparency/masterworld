@@ -34,10 +34,14 @@ export function useFavicon(settings: GlobalSettings | null, apps: AppConfig[]) {
     }
 
     if (targetUrl) {
+      const isCustomAppIcon = targetUrl !== (settings.favicon_url || settings.logo_url || "https://res.cloudinary.com/diewalae4/image/upload/v1785720339/1000132678_1_ro1ftj.png");
+      
       const icons = [
-        { rel: 'icon' },
-        { rel: 'shortcut icon' },
-        { rel: 'apple-touch-icon' }
+        { rel: 'icon', sizes: '192x192', href: isCustomAppIcon ? targetUrl : '/favicon.png', type: 'image/png' },
+        { rel: 'icon', sizes: '32x32', href: isCustomAppIcon ? targetUrl : '/favicon-32x32.png', type: 'image/png' },
+        { rel: 'icon', sizes: '16x16', href: isCustomAppIcon ? targetUrl : '/favicon-16x16.png', type: 'image/png' },
+        { rel: 'shortcut icon', href: isCustomAppIcon ? targetUrl : '/favicon.ico', type: 'image/x-icon' },
+        { rel: 'apple-touch-icon', sizes: '180x180', href: isCustomAppIcon ? targetUrl : '/apple-touch-icon.png', type: 'image/png' }
       ];
       
       document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]').forEach(el => el.remove());
@@ -45,16 +49,9 @@ export function useFavicon(settings: GlobalSettings | null, apps: AppConfig[]) {
       icons.forEach(iconDef => {
         const newLink = document.createElement('link');
         newLink.rel = iconDef.rel;
-        newLink.href = targetUrl;
-        if (targetUrl.includes('.webp')) {
-          newLink.type = 'image/webp';
-        } else if (targetUrl.includes('.png')) {
-          newLink.type = 'image/png';
-        } else if (targetUrl.includes('.ico')) {
-          newLink.type = 'image/x-icon';
-        } else if (targetUrl.includes('.svg')) {
-          newLink.type = 'image/svg+xml';
-        }
+        newLink.href = iconDef.href;
+        if (iconDef.sizes) newLink.setAttribute('sizes', iconDef.sizes);
+        if (iconDef.type) newLink.type = iconDef.type;
         document.head.appendChild(newLink);
       });
       
@@ -64,11 +61,11 @@ export function useFavicon(settings: GlobalSettings | null, apps: AppConfig[]) {
             const rel = iconDef.rel;
             let parentLink: HTMLLinkElement | null = window.parent.document.querySelector(`link[rel="${rel}"]`) || window.parent.document.querySelector(`link[rel*="${rel}"]`);
             if (parentLink) {
-              parentLink.href = targetUrl;
+              parentLink.href = iconDef.href;
             } else {
               const newLink = window.parent.document.createElement('link');
               newLink.rel = rel;
-              newLink.href = targetUrl;
+              newLink.href = iconDef.href;
               window.parent.document.head.appendChild(newLink);
             }
           });

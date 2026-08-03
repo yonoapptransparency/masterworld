@@ -357,9 +357,12 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     <meta data-rh="true" name="twitter:title" content="${title}">
     <meta data-rh="true" name="twitter:description" content="${description}">
     <meta data-rh="true" name="twitter:image" content="${logoUrl}">
-    <link data-rh="true" rel="icon" href="${faviconUrl}">
-    <link data-rh="true" rel="shortcut icon" href="${faviconUrl}">
-    <link data-rh="true" rel="apple-touch-icon" href="${faviconUrl}">
+    <link data-rh="true" rel="icon" type="image/png" sizes="192x192" href="/favicon.png">
+    <link data-rh="true" rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link data-rh="true" rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link data-rh="true" rel="shortcut icon" href="/favicon.ico">
+    <link data-rh="true" rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link data-rh="true" rel="manifest" href="/site.webmanifest">
     ${(cleanPathLower.startsWith('/info/') || cleanPathLower.startsWith('/moreinfo/') || cleanPathLower.startsWith('/moredetail/')) ? '<meta data-rh="true" name="robots" content="noindex">' : ''}
     <link data-rh="true" rel="canonical" href="${canonicalUrl}">
   `;

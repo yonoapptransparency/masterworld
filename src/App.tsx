@@ -64,9 +64,11 @@ function AppContent() {
     const targetUrl = settings.favicon_url || settings.logo_url;
     if (targetUrl) {
       const icons = [
-        { rel: 'icon' },
-        { rel: 'shortcut icon' },
-        { rel: 'apple-touch-icon' }
+        { rel: 'icon', sizes: '192x192', href: '/favicon.png', type: 'image/png' },
+        { rel: 'icon', sizes: '32x32', href: '/favicon-32x32.png', type: 'image/png' },
+        { rel: 'icon', sizes: '16x16', href: '/favicon-16x16.png', type: 'image/png' },
+        { rel: 'shortcut icon', href: '/favicon.ico', type: 'image/x-icon' },
+        { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png', type: 'image/png' }
       ];
       
       // Remove old icons to prevent duplicates
@@ -75,7 +77,9 @@ function AppContent() {
       icons.forEach(iconDef => {
         const newLink = document.createElement('link');
         newLink.rel = iconDef.rel;
-        newLink.href = targetUrl;
+        newLink.href = iconDef.href;
+        if (iconDef.sizes) newLink.setAttribute('sizes', iconDef.sizes);
+        if (iconDef.type) newLink.type = iconDef.type;
         document.head.appendChild(newLink);
       });
     }

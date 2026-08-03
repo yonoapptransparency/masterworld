@@ -50,12 +50,12 @@ const Meta: React.FC<MetaProps> = ({
       <meta name="robots" content={noindex ? "noindex, nofollow" : "index, follow, max-image-preview:large"} />
       <link rel="canonical" href={canonicalUrl} />
 
-      {settings?.favicon_url && (
-        <link rel="icon" type={settings.favicon_url.includes('.webp') ? 'image/webp' : undefined} href={settings.favicon_url} />
-      )}
-      {settings?.favicon_url && (
-        <link rel="apple-touch-icon" href={settings.favicon_url} />
-      )}
+      <link rel="icon" type="image/png" sizes="192x192" href="/favicon.png" />
+      <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+      <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+      <link rel="shortcut icon" href="/favicon.ico" />
+      <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+      <link rel="manifest" href="/site.webmanifest" />
 
       {/* Open Graph / Facebook */}
       <meta property="og:type" content={type} />
