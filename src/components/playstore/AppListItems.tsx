@@ -125,7 +125,7 @@ export const AppListItem = React.memo(({ app, index }: { app: any; index?: numbe
           <div className="w-full h-full rounded-[18px] overflow-hidden bg-white shadow-sm border border-black/5 dark:border-white/10 relative z-10 transition-transform group-hover:-translate-y-0.5 duration-300">
             <img 
               src={app.icon_url || "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&h=128&fit=crop"} 
-              alt={app.name} 
+              alt={`${app.name} app icon`} 
               width={84}
               height={84}
               loading={index !== undefined && index <= 4 ? "eager" : "lazy"}
@@ -199,7 +199,7 @@ export const TopChartItem = React.memo(({ rank, app }: { rank: number; app: any 
           <div className="w-full h-full rounded-[18px] overflow-hidden bg-white shadow-sm border border-black/5 dark:border-white/10 relative z-10 transition-transform group-hover:-translate-y-0.5 duration-300">
             <img 
               src={app.icon_url || "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&h=128&fit=crop"} 
-              alt={app.name} 
+              alt={`${app.name} app icon`} 
               width={84}
               height={84}
               loading={rank <= 4 ? "eager" : "lazy"}

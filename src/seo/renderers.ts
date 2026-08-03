@@ -1,4 +1,4 @@
-import { getField } from './utils';
+import { getField, optimizeImageUrl } from './utils';
 import {
   DEFAULT_DISCLAIMER_HTML,
   DEFAULT_ETHICS_HTML,
@@ -33,11 +33,12 @@ function sanitizeHtml(html: string): string {
 export function renderHeader(settings: any) {
   const siteTitle = getField(settings, 'site_title');
   const logoUrl = getField(settings, 'logo_url');
+  const optimizedLogo = logoUrl ? optimizeImageUrl(logoUrl, 100) : '';
   return `
     <header class="py-3 border-b border-black/5 dark:border-white/5 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md">
       <div class="max-w-7xl mx-auto px-4 sm:px-8 flex justify-between items-center">
         <a href="/" class="flex items-center gap-3 font-bold text-lg text-zinc-900 dark:text-white">
-          ${logoUrl ? `<img src="${escapeHtml(logoUrl)}" loading="eager" width="40" height="40" class="w-10 h-10 object-contain" alt="Logo"/>` : ''}
+          ${logoUrl ? `<img src="${escapeHtml(optimizedLogo)}" loading="eager" decoding="async" width="40" height="40" class="w-10 h-10 object-contain" alt="${escapeHtml(siteTitle)} Official Logo"/>` : ''}
           <span>${escapeHtml(siteTitle)}</span>
         </a>
         <nav class="hidden md:flex gap-6 text-sm font-medium text-zinc-600 dark:text-zinc-300">
@@ -57,12 +58,13 @@ export function renderFooter(settings: any) {
   const siteTitle = getField(settings, 'site_title');
   const logoUrl = getField(settings, 'logo_url');
   const metaDescription = getField(settings, 'meta_description');
+  const optimizedLogo = logoUrl ? optimizeImageUrl(logoUrl, 80) : '';
 
   return `
     <footer class="pt-12 pb-8 border-t border-black/5 dark:border-white/5 bg-zinc-50 dark:bg-zinc-950 mt-12 text-center text-zinc-500 dark:text-zinc-400">
       <div class="max-w-7xl mx-auto px-6">
         <h3 class="text-xl font-bold flex items-center justify-center gap-2 text-zinc-900 dark:text-white mb-2">
-          ${logoUrl ? `<img src="${escapeHtml(logoUrl)}" loading="eager" width="32" height="32" class="w-8 h-8 object-contain" alt="Logo" />` : ''}
+          ${logoUrl ? `<img src="${escapeHtml(optimizedLogo)}" loading="lazy" decoding="async" width="32" height="32" class="w-8 h-8 object-contain" alt="${escapeHtml(siteTitle)} Brand Logo" />` : ''}
           <span>${escapeHtml(siteTitle)}</span>
         </h3>
         <p class="text-sm max-w-xl mx-auto mb-6 leading-relaxed">${escapeHtml(metaDescription)}</p>
@@ -83,7 +85,7 @@ export function renderFooter(settings: any) {
   `;
 }
 
-export function renderHome(apps: any[], settings: any, news: any[], blogs: any[], videos: any[]) {
+export function renderHome(apps: any[], settings: any, news: any[], videos: any[]) {
   const siteTitle = getField(settings, 'site_title');
   const desc = getField(settings, 'meta_description');
   
@@ -95,13 +97,14 @@ export function renderHome(apps: any[], settings: any, news: any[], blogs: any[]
     const slug = getField(app, 'slug');
     const category = getField(app, 'category');
     const rating = getField(app, 'rating', '5.0');
-    const icon = getField(app, 'icon_url');
+    const rawIcon = getField(app, 'icon_url') || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&fit=crop';
+    const icon = optimizeImageUrl(rawIcon, 128);
     const isNew = app.is_new === true || (app.is_new && app.is_new.booleanValue === true);
     
     appsHtml += `
       <a href="/${encodeURIComponent(slug)}" class="flex items-center gap-4 p-4 hover:bg-black/5 dark:hover:bg-white/5 rounded-2xl transition border-b border-black/5 dark:border-white/5">
         <span class="text-sm font-bold text-zinc-400 shrink-0 w-8 text-center">${i + 1}</span>
-        <img src="${icon || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&fit=crop'}" loading="lazy" width="64" height="64" class="w-16 h-16 rounded-[18px] object-cover bg-white shadow-sm shrink-0" alt="${escapeHtml(name)}"/>
+        <img src="${escapeHtml(icon)}" loading="lazy" decoding="async" width="64" height="64" class="w-16 h-16 rounded-[18px] object-cover bg-white shadow-sm shrink-0" alt="${escapeHtml(name)} app icon"/>
         <div class="flex-1 min-w-0 text-left">
           <h3 class="font-bold text-base text-zinc-900 dark:text-zinc-100 truncate">${escapeHtml(name)}</h3>
           <p class="text-xs text-zinc-500 truncate">${escapeHtml(category)}</p>
@@ -117,10 +120,16 @@ export function renderHome(apps: any[], settings: any, news: any[], blogs: any[]
 
   let newsHtml = '';
   news.slice(0, 3).forEach(n => {
+    const title = getField(n, 'title');
+    const logo = getField(n, 'logo_url');
+    const optimizedLogo = logo ? optimizeImageUrl(logo, 160) : '';
     newsHtml += `
-      <a href="/news/${encodeURIComponent(getField(n, 'slug'))}" class="block p-4 bg-zinc-50 dark:bg-zinc-900 border border-black/5 rounded-xl text-left">
-        <h4 class="font-bold text-sm text-zinc-900 dark:text-white leading-tight mb-1">${escapeHtml(getField(n, 'title'))}</h4>
-        <p class="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2">${escapeHtml(getField(n, 'description'))}</p>
+      <a href="/news/${encodeURIComponent(getField(n, 'slug'))}" class="flex gap-3 p-4 bg-zinc-50 dark:bg-zinc-900 border border-black/5 rounded-xl text-left items-center">
+        ${logo ? `<img src="${escapeHtml(optimizedLogo)}" loading="lazy" decoding="async" width="60" height="60" class="w-15 h-15 rounded-lg object-cover shrink-0" alt="${escapeHtml(title)} article thumbnail"/>` : ''}
+        <div class="min-w-0 flex-1">
+          <h4 class="font-bold text-sm text-zinc-900 dark:text-white leading-tight mb-1 truncate">${escapeHtml(title)}</h4>
+          <p class="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2">${escapeHtml(getField(n, 'description'))}</p>
+        </div>
       </a>
     `;
   });
@@ -133,12 +142,12 @@ export function renderHome(apps: any[], settings: any, news: any[], blogs: any[]
       </div>
       <div class="grid lg:grid-cols-[2fr,1fr] gap-8">
         <div class="bg-white dark:bg-zinc-900 p-6 rounded-[28px] border border-black/5 shadow-sm">
-          <h2 class="text-xl font-bold mb-4 px-2 text-left">Popular E-Sports virtual clients</h2>
+          <h2 class="text-xl font-bold mb-4 px-2 text-left">Popular Applications</h2>
           <div class="flex flex-col">${appsHtml}</div>
         </div>
         <div class="space-y-6">
           <div class="bg-white dark:bg-zinc-900 p-6 rounded-[28px] border border-black/5 shadow-sm">
-            <h3 class="font-bold text-md mb-4 text-left">Latest Archives</h3>
+            <h3 class="font-bold text-md mb-4 text-left">Latest News</h3>
             <div class="flex flex-col gap-3">${newsHtml}</div>
             <a href="/news" class="block text-xs font-bold text-blue-500 hover:underline mt-4 text-left">View All Updates →</a>
           </div>
@@ -158,11 +167,12 @@ export function renderNewApps(apps: any[], settings: any) {
     const slug = getField(app, 'slug');
     const cat = getField(app, 'category');
     const rating = getField(app, 'rating', '5.0');
-    const icon = getField(app, 'icon_url');
+    const rawIcon = getField(app, 'icon_url') || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&fit=crop';
+    const icon = optimizeImageUrl(rawIcon, 160);
     
     grid += `
       <a href="/${encodeURIComponent(slug)}" class="p-4 bg-white dark:bg-zinc-900 rounded-2xl border border-black/5 text-center flex flex-col items-center">
-        <img src="${icon || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&fit=crop'}" loading="lazy" width="80" height="80" class="w-20 h-20 rounded-2xl object-cover mb-3 shadow-sm bg-white" alt="icon"/>
+        <img src="${escapeHtml(icon)}" loading="lazy" decoding="async" width="80" height="80" class="w-20 h-20 rounded-2xl object-cover mb-3 shadow-sm bg-white" alt="${escapeHtml(name)} app icon"/>
         <h3 class="font-bold text-sm text-zinc-900 dark:text-white truncate w-full">${escapeHtml(name)}</h3>
         <p class="text-xs text-zinc-500 mt-1 truncate w-full">${escapeHtml(cat)}</p>
         <span class="text-xs text-zinc-650 dark:text-zinc-400 mt-2 font-bold">${rating} ★</span>
@@ -189,16 +199,32 @@ export function renderAppDetails(slug: string, apps: any[], settings: any) {
   const version = getField(app, 'version', 'Latest');
   const size = getField(app, 'file_size', 'Variable');
   const rating = getField(app, 'rating', '5.0');
-  const icon = getField(app, 'icon_url');
+  const rawIcon = getField(app, 'icon_url') || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&fit=crop';
+  const icon = optimizeImageUrl(rawIcon, 256);
   const desc = app.description_html ? sanitizeHtml(app.description_html) : `<p>No comprehensive details are configured yet for ${escapeHtml(name)}.</p>`;
   const features = app.features_html ? sanitizeHtml(app.features_html) : '';
   const featureSectionContext = features ? `<h2 class="text-lg font-bold mt-8 mb-4">App Features</h2><div class="prose dark:prose-invert text-zinc-650 leading-relaxed font-semibold">${features}</div>` : '';
   const pkg = getField(app, 'package_name', 'Not published');
 
+  let screenshotsHtml = '';
+  if (app.screenshots && Array.isArray(app.screenshots) && app.screenshots.length > 0) {
+    screenshotsHtml = `
+      <div class="mt-8 border-t border-black/5 pt-6">
+        <h2 class="text-lg font-bold mb-4">App Screenshots & Visual Preview</h2>
+        <div class="flex gap-4 overflow-x-auto pb-4">
+          ${app.screenshots.map((s: string, idx: number) => {
+            const shotUrl = optimizeImageUrl(s, 600);
+            return `<img src="${escapeHtml(shotUrl)}" loading="lazy" decoding="async" width="280" height="160" class="w-64 h-36 rounded-2xl object-cover border border-black/10 shrink-0 shadow-sm" alt="${escapeHtml(name)} screenshot ${idx + 1}"/>`;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }
+
   return `
     <div class="py-6">
       <div class="flex flex-col items-center text-center pb-8 border-b border-black/5 mb-8">
-        <img src="${icon || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&fit=crop'}" loading="lazy" width="96" height="96" class="w-24 h-24 sm:w-32 sm:h-32 rounded-[22px] object-cover mb-4 shadow" alt="icon"/>
+        <img src="${escapeHtml(icon)}" loading="eager" decoding="async" width="128" height="128" class="w-24 h-24 sm:w-32 sm:h-32 rounded-[22px] object-cover mb-4 shadow" alt="${escapeHtml(name)} application icon"/>
         <h1 class="text-3xl sm:text-5xl font-extrabold text-zinc-900 dark:text-white leading-tight mb-2">${escapeHtml(name)}</h1>
         <div class="flex gap-2 text-xs font-semibold mb-6">
           <span class="bg-blue-50 px-2.5 py-1 rounded-full text-blue-600">${escapeHtml(cat)}</span>
@@ -220,6 +246,7 @@ export function renderAppDetails(slug: string, apps: any[], settings: any) {
           <h2 class="text-lg font-bold mb-4">Detailed Game Review & Safe Guidelines</h2>
           <div class="prose dark:prose-invert text-zinc-650 leading-relaxed font-semibold">${desc}</div>
           ${featureSectionContext}
+          ${screenshotsHtml}
         </div>
         <div class="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-black/5 shadow-sm h-fit text-left">
           <h3 class="text-sm font-bold mb-4 uppercase tracking-wider text-zinc-400">Specifications</h3>
@@ -241,12 +268,13 @@ export function renderGateway(slug: string, apps: any[], settings: any) {
   if (!app) return `<div class="py-12 text-center"><h1 class="text-2xl font-bold mb-4">No App Detected</h1><a href="/" class="text-blue-500 hover:underline">Return Home</a></div>`;
 
   const name = getField(app, 'name');
-  const icon = getField(app, 'icon_url');
+  const rawIcon = getField(app, 'icon_url') || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&fit=crop';
+  const icon = optimizeImageUrl(rawIcon, 160);
   
   return `
     <div class="max-w-xl mx-auto py-12 px-4 shadow-sm bg-white dark:bg-zinc-900 rounded-3xl border border-black/5">
       <div class="text-center">
-        <img src="${icon || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&fit=crop'}" loading="lazy" width="80" height="80" class="w-20 h-20 rounded-2xl object-cover mx-auto mb-4 border" alt="icon"/>
+        <img src="${escapeHtml(icon)}" loading="lazy" decoding="async" width="80" height="80" class="w-20 h-20 rounded-2xl object-cover mx-auto mb-4 border" alt="${escapeHtml(name)} app icon"/>
         <h1 class="text-2xl font-bold text-zinc-900 dark:text-white leading-snug mb-1">${escapeHtml(name)}</h1>
         <p class="text-xs text-zinc-400 uppercase tracking-widest font-black mb-6">Information Hub</p>
         <p class="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed font-semibold mb-8">Access the application details and specifications below.</p>
@@ -260,13 +288,20 @@ export function renderGateway(slug: string, apps: any[], settings: any) {
 export function renderNewsList(news: any[], settings: any) {
   let cards = '';
   news.forEach(n => {
+    const title = getField(n, 'title');
+    const logo = getField(n, 'logo_url');
+    const optimizedLogo = logo ? optimizeImageUrl(logo, 300) : '';
+
     cards += `
-      <a href="/news/${encodeURIComponent(getField(n, 'slug'))}" class="block p-6 bg-white dark:bg-zinc-900 border border-black/5 hover:border-blue-500/25 rounded-3xl transition text-left" aria-label="Read full news article: ${escapeHtml(getField(n, 'title'))}">
-        <span class="text-[10px] font-bold text-blue-500 uppercase">${escapeHtml(getField(n, 'category') || 'Report')}</span>
-        <span class="text-[10px] font-bold text-zinc-400 uppercase ml-2">${escapeHtml(getField(n, 'created_at') || 'May 2026')}</span>
-        <h3 class="text-xl font-bold mt-1 mb-2 text-zinc-900 dark:text-white leading-snug">${escapeHtml(getField(n, 'title'))}</h3>
-        <p class="text-sm text-zinc-500 max-w-3xl line-clamp-2 leading-relaxed">${escapeHtml(getField(n, 'description'))}</p>
-        <span class="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 mt-3">Read Full Article: ${escapeHtml(getField(n, 'title'))} →</span>
+      <a href="/news/${encodeURIComponent(getField(n, 'slug'))}" class="flex flex-col sm:flex-row gap-4 p-6 bg-white dark:bg-zinc-900 border border-black/5 hover:border-blue-500/25 rounded-3xl transition text-left" aria-label="Read full news article: ${escapeHtml(title)}">
+        ${logo ? `<img src="${escapeHtml(optimizedLogo)}" loading="lazy" decoding="async" width="160" height="120" class="w-full sm:w-40 h-28 object-cover rounded-2xl shrink-0 border border-black/5" alt="${escapeHtml(title)} news cover banner"/>` : ''}
+        <div class="flex-1">
+          <span class="text-[10px] font-bold text-blue-500 uppercase">${escapeHtml(getField(n, 'category') || 'Report')}</span>
+          <span class="text-[10px] font-bold text-zinc-400 uppercase ml-2">${escapeHtml(getField(n, 'created_at') || 'May 2026')}</span>
+          <h3 class="text-xl font-bold mt-1 mb-2 text-zinc-900 dark:text-white leading-snug">${escapeHtml(title)}</h3>
+          <p class="text-sm text-zinc-500 max-w-3xl line-clamp-2 leading-relaxed">${escapeHtml(getField(n, 'description'))}</p>
+          <span class="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 mt-3">Read Full Article: ${escapeHtml(title)} →</span>
+        </div>
       </a>
     `;
   });
@@ -284,43 +319,17 @@ export function renderNewsDetail(slug: string, news: any[], settings: any) {
   const cat = getField(item, 'category', 'Report');
   const content = getField(item, 'content') || getField(item, 'description', '');
   const sanitizedContent = sanitizeHtml(content);
+  const logo = getField(item, 'logo_url');
+  const optimizedLogo = logo ? optimizeImageUrl(logo, 800) : '';
 
   return `
     <article class="max-w-3xl mx-auto py-12 px-4 text-left">
-      <header class="mb-6"><span class="text-xs text-blue-500 uppercase font-bold mr-2">${escapeHtml(cat)}</span><span class="text-xs text-zinc-400 uppercase font-bold">${dateStr} | By ${escapeHtml(author)}</span><h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight mt-2 leading-tight">${escapeHtml(title)}</h1></header>
-      <section class="prose dark:prose-invert text-zinc-700 leading-relaxed font-semibold">${sanitizedContent.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>')}</section>
-    </article>
-  `;
-}
-
-export function renderBlogsList(blogs: any[], settings: any) {
-  let cards = '';
-  blogs.forEach(b => {
-    cards += `
-      <a href="/blog/${encodeURIComponent(getField(b, 'slug'))}" class="block p-6 bg-white dark:bg-zinc-900 border border-black/5 hover:border-blue-500/25 rounded-3xl transition text-left">
-        <span class="text-[10px] font-bold text-zinc-400 uppercase">${escapeHtml(getField(b, 'created_at') || 'May 2026')}</span>
-        <h3 class="text-xl font-bold mt-1 mb-2 text-zinc-900 dark:text-white leading-snug">${escapeHtml(getField(b, 'title'))}</h3>
-        <p class="text-sm text-zinc-500 max-w-3xl line-clamp-2 leading-relaxed">${escapeHtml(getField(b, 'excerpt') || getField(b, 'content', '').substring(0, 140))}</p>
-      </a>
-    `;
-  });
-  return `<div class="py-6 text-center container max-w-3xl mx-auto"><h1 class="text-3xl font-extrabold mb-8 text-zinc-900 dark:text-white">Strategy Guides & Analysis</h1><div class="flex flex-col gap-4">${cards || '<p class="text-zinc-400 py-10">No strategy posts.</p>'}</div></div>`;
-}
-
-export function renderBlogDetail(slug: string, blogs: any[], settings: any) {
-  const cleanSlug = decodeURIComponent(slug).toLowerCase();
-  const item = blogs.find(b => getField(b, 'slug').toLowerCase() === cleanSlug);
-  if (!item) return `<div class="py-12 text-center"><h1 class="text-2xl font-bold">Failed to load guide.</h1><a href="/blogs" class="text-blue-500 hover:underline">Go Back</a></div>`;
-  
-  const title = getField(item, 'title');
-  const dateStr = getField(item, 'created_at') || 'May 2026';
-  const author = getField(item, 'author', 'System Author');
-  const content = getField(item, 'content', '');
-  const sanitizedContent = sanitizeHtml(content);
-
-  return `
-    <article class="max-w-3xl mx-auto py-12 px-4 text-left">
-      <header class="mb-6"><span class="text-xs text-zinc-400 uppercase font-bold">${dateStr} | Strategy by ${escapeHtml(author)}</span><h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight mt-2 leading-tight">${escapeHtml(title)}</h1></header>
+      <header class="mb-6">
+        <span class="text-xs text-blue-500 uppercase font-bold mr-2">${escapeHtml(cat)}</span>
+        <span class="text-xs text-zinc-400 uppercase font-bold">${dateStr} | By ${escapeHtml(author)}</span>
+        <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight mt-2 leading-tight">${escapeHtml(title)}</h1>
+      </header>
+      ${logo ? `<div class="mb-8 rounded-3xl overflow-hidden border border-black/5"><img src="${escapeHtml(optimizedLogo)}" loading="eager" decoding="async" width="800" height="450" class="w-full h-auto object-cover max-h-96" alt="${escapeHtml(title)} main cover article image"/></div>` : ''}
       <section class="prose dark:prose-invert text-zinc-700 leading-relaxed font-semibold">${sanitizedContent.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>')}</section>
     </article>
   `;
@@ -332,9 +341,19 @@ export function renderVideosList(videos: any[], settings: any) {
     const title = getField(v, 'title');
     const slug = getField(v, 'slug');
     const desc = getField(v, 'description','');
+    const videoUrl = getField(v, 'url', '');
+    let videoId = '';
+    if (videoUrl.includes('v=')) {
+      videoId = videoUrl.split('v=')[1]?.split('&')[0] || '';
+    } else if (videoUrl.includes('youtu.be/')) {
+      videoId = videoUrl.split('youtu.be/')[1]?.split('?')[0] || '';
+    }
+    const thumb = videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : '';
+
     cards += `
-      <a href="/videos/${encodeURIComponent(slug)}" class="block p-4 border border-black/5 bg-white rounded-3xl text-left">
-        <h3 class="font-bold text-lg text-zinc-900 truncate">${escapeHtml(title)}</h3>
+      <a href="/videos/${encodeURIComponent(slug)}" class="block p-4 border border-black/5 bg-white dark:bg-zinc-900 rounded-3xl text-left hover:shadow-md transition">
+        ${thumb ? `<img src="${escapeHtml(thumb)}" loading="lazy" decoding="async" width="360" height="200" class="w-full h-40 object-cover rounded-2xl mb-3 border border-black/5" alt="${escapeHtml(title)} video review thumbnail"/>` : ''}
+        <h3 class="font-bold text-lg text-zinc-900 dark:text-white truncate">${escapeHtml(title)}</h3>
         <p class="text-xs text-zinc-500 mt-2 line-clamp-2 leading-relaxed">${escapeHtml(desc)}</p>
       </a>
     `;
@@ -348,7 +367,22 @@ export function renderVideoDetail(slug: string, videos: any[], settings: any) {
   if (!v) return `<div class="py-12 text-center"><h1 class="text-2xl font-bold">Video not found.</h1><a href="/videos" class="text-blue-500 hover:underline">Go Back</a></div>`;
   const title = getField(v, 'title');
   const desc = getField(v, 'description');
-  return `<div class="max-w-2xl mx-auto py-12 text-left"><h1 class="text-3xl font-extrabold mb-4">${escapeHtml(title)}</h1><p class="prose text-zinc-650 leading-relaxed font-semibold">${desc.replace(/\n\n/g, '<br/><br/>')}</p></div>`;
+  const videoUrl = getField(v, 'url', '');
+  let videoId = '';
+  if (videoUrl.includes('v=')) {
+    videoId = videoUrl.split('v=')[1]?.split('&')[0] || '';
+  } else if (videoUrl.includes('youtu.be/')) {
+    videoId = videoUrl.split('youtu.be/')[1]?.split('?')[0] || '';
+  }
+  const thumb = videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : '';
+
+  return `
+    <div class="max-w-2xl mx-auto py-12 text-left">
+      <h1 class="text-3xl font-extrabold mb-4">${escapeHtml(title)}</h1>
+      ${thumb ? `<div class="mb-6 rounded-3xl overflow-hidden border border-black/5"><img src="${escapeHtml(thumb)}" loading="eager" decoding="async" width="640" height="360" class="w-full h-auto object-cover max-h-80" alt="${escapeHtml(title)} full video preview image"/></div>` : ''}
+      <p class="prose text-zinc-650 leading-relaxed font-semibold">${desc.replace(/\n\n/g, '<br/><br/>')}</p>
+    </div>
+  `;
 }
 
 export function renderAbout(settings: any) {
@@ -398,4 +432,22 @@ export function renderDisclaimer(settings: any) {
   const heading = getField(settings, 'disclaimer_heading') || 'Disclaimer';
   const content = getField(settings, 'disclaimer_text') || DEFAULT_DISCLAIMER_HTML;
   return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">${heading}</h1><article class="prose text-zinc-750 leading-relaxed font-semibold">${content}</article></div>`;
+}
+
+export function render404(urlPath: string, settings: any) {
+  const siteTitle = getField(settings, 'site_title') || 'RummyDex';
+  return `
+    <div class="py-16 text-center max-w-2xl mx-auto px-4">
+      <div class="inline-flex items-center justify-center w-20 h-20 bg-red-500/10 text-red-600 dark:text-red-400 rounded-3xl mb-6 font-extrabold text-3xl">404</div>
+      <h1 class="text-4xl sm:text-5xl font-extrabold text-zinc-900 dark:text-white mb-4">404 - Page Not Found</h1>
+      <h2 class="text-lg font-bold text-zinc-600 dark:text-zinc-400 mb-6">The requested resource could not be found on ${escapeHtml(siteTitle)}</h2>
+      <p class="text-sm text-zinc-500 dark:text-zinc-400 mb-8 leading-relaxed">
+        The URL <code class="bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded text-red-500 font-mono text-sm">${escapeHtml(urlPath)}</code> does not match any application listing, news bulletin, or page.
+      </p>
+      <div class="flex flex-wrap items-center justify-center gap-4">
+        <a href="/" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-8 rounded-2xl shadow-md transition">Return to Homepage</a>
+        <a href="/new-apps" class="bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white font-bold py-3.5 px-8 rounded-2xl transition">Browse New Apps</a>
+      </div>
+    </div>
+  `;
 }

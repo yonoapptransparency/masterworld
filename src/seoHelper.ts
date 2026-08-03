@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { getSafeFirebaseConfig } from './seo/firebaseConfig';
 import { syncFromFirestore } from './seo/sync';
-import { getField, stripHtml } from './seo/utils';
+import { getField, stripHtml, getYoutubeThumbnail, ensureAbsoluteUrl } from './seo/utils';
 import * as renderers from './seo/renderers';
 import { getCleanCanonicalUrl } from './lib/seoUtils';
 
@@ -115,7 +115,7 @@ function cleanSeoDescription(desc: string): string {
 }
 
 async function getPagePreRender(urlPath: string, data: any): Promise<string> {
-  const { apps, settings, news, blogs, videos } = data;
+  const { apps = [], settings = {}, news = [], videos = [] } = data || {};
   const cleanPath = urlPath.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
   const cleanPathLower = cleanPath.toLowerCase();
 
@@ -133,22 +133,25 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
   let bodyContent = '';
 
   if (cleanPathLower === '/' || cleanPathLower === '') {
-    bodyContent = renderers.renderHome(apps, settings, news, blogs, videos);
+    bodyContent = renderers.renderHome(apps, settings, news, videos);
   } else if (cleanPathLower === '/new-apps') {
     bodyContent = renderers.renderNewApps(apps, settings);
   } else if (cleanPathLower.startsWith('/s/')) {
     const slug = cleanPath.split('/s/')[1];
-    bodyContent = renderers.renderGateway(slug, apps, settings);
+    const app = apps.find((a: any) => getField(a, 'slug').toLowerCase() === slug.toLowerCase());
+    bodyContent = app ? renderers.renderGateway(slug, apps, settings) : renderers.render404(urlPath, settings);
   } else if (cleanPathLower === '/news') {
     bodyContent = renderers.renderNewsList(news, settings);
   } else if (cleanPathLower.startsWith('/news/')) {
     const slug = cleanPath.split('/news/')[1];
-    bodyContent = renderers.renderNewsDetail(slug, news, settings);
+    const item = news.find((n: any) => getField(n, 'slug').toLowerCase() === slug.toLowerCase());
+    bodyContent = item ? renderers.renderNewsDetail(slug, news, settings) : renderers.render404(urlPath, settings);
   } else if (cleanPathLower === '/videos') {
     bodyContent = renderers.renderVideosList(videos, settings);
   } else if (cleanPathLower.startsWith('/videos/')) {
     const slug = cleanPath.split('/videos/')[1];
-    bodyContent = renderers.renderVideoDetail(slug, videos, settings);
+    const item = videos.find((v: any) => getField(v, 'slug').toLowerCase() === slug.toLowerCase());
+    bodyContent = item ? renderers.renderVideoDetail(slug, videos, settings) : renderers.render404(urlPath, settings);
   } else if (cleanPathLower === '/about') {
     bodyContent = renderers.renderAbout(settings);
   } else if (cleanPathLower === '/contact') {
@@ -167,18 +170,25 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
     bodyContent = renderers.renderDisclaimer(settings);
   } else if (cleanPathLower === '/responsibility') {
     bodyContent = renderers.renderResponsibility(settings);
+  } else if (cleanPathLower.startsWith('/info/') || cleanPathLower.startsWith('/moreinfo/') || cleanPathLower.startsWith('/moredetail/')) {
+    const parts = cleanPathLower.split('/');
+    const slug = parts[parts.length - 1];
+    const app = apps.find((a: any) => getField(a, 'slug').toLowerCase() === slug.toLowerCase());
+    bodyContent = app ? renderers.renderAppDetails(slug, apps, settings) : renderers.render404(urlPath, settings);
   } else {
     const possibleSlug = cleanPathLower.replace(/^\/app\//, '/').replace(/^\/|\/$/g, '');
-    if (apps.some((a: any) => a.slug?.toLowerCase() === possibleSlug)) {
+    const app = apps.find((a: any) => getField(a, 'slug')?.toLowerCase() === possibleSlug);
+    const newsItem = news.find((n: any) => getField(n, 'slug')?.toLowerCase() === possibleSlug);
+    const videoItem = videos.find((v: any) => getField(v, 'slug')?.toLowerCase() === possibleSlug);
+
+    if (app) {
       bodyContent = renderers.renderAppDetails(possibleSlug, apps, settings);
-    } else if (news.some((n: any) => n.slug?.toLowerCase() === possibleSlug)) {
+    } else if (newsItem) {
       bodyContent = renderers.renderNewsDetail(possibleSlug, news, settings);
-    } else if (blogs.some((b: any) => b.slug?.toLowerCase() === possibleSlug)) {
-      bodyContent = renderers.renderBlogDetail(possibleSlug, blogs, settings);
-    } else if (videos.some((v: any) => v.slug?.toLowerCase() === possibleSlug)) {
+    } else if (videoItem) {
       bodyContent = renderers.renderVideoDetail(possibleSlug, videos, settings);
     } else {
-      bodyContent = renderers.renderHome(apps, settings, news, blogs, videos);
+      bodyContent = renderers.render404(urlPath, settings);
     }
   }
 
@@ -196,6 +206,188 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
   `;
 }
 
+function buildJsonLdSchema(params: {
+  pageType: 'home' | 'app' | 'news' | 'video' | 'static' | '404';
+  title: string;
+  description: string;
+  url: string;
+  logoUrl: string;
+  siteTitle: string;
+  app?: any;
+  newsItem?: any;
+  videoItem?: any;
+  settings?: any;
+}): string {
+  const schemas: any[] = [];
+
+  const hostOrigin = params.url.startsWith('http') ? params.url : `https://${params.url}`;
+
+  if (params.pageType !== '404') {
+    schemas.push({
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "@id": `${hostOrigin}/#website`,
+      "url": hostOrigin,
+      "name": params.siteTitle,
+      "description": params.description,
+      "publisher": {
+        "@type": "Organization",
+        "@id": `${hostOrigin}/#organization`,
+        "name": params.siteTitle,
+        "url": hostOrigin,
+        "logo": {
+          "@type": "ImageObject",
+          "url": params.logoUrl
+        }
+      }
+    });
+  }
+
+  if (params.pageType === 'app' && params.app) {
+    const app = params.app;
+    const name = getField(app, 'name');
+    const category = getField(app, 'category') || 'GameApplication';
+    const rating = parseFloat(getField(app, 'rating', '4.8')) || 4.8;
+    const ratingCount = parseInt(getField(app, 'review_count', '1250'), 10) || 1250;
+    const icon = getField(app, 'icon_url') || params.logoUrl;
+    const desc = getField(app, 'meta_description') || stripHtml(getField(app, 'description_html')) || params.description;
+
+    schemas.push({
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": name,
+      "operatingSystem": "Android, iOS",
+      "applicationCategory": category,
+      "image": icon,
+      "description": desc,
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": rating.toString(),
+        "ratingCount": ratingCount.toString(),
+        "bestRating": "5",
+        "worstRating": "1"
+      },
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "INR"
+      }
+    });
+
+    schemas.push({
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": hostOrigin
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Applications",
+          "item": `${hostOrigin}/new-apps`
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": name,
+          "item": `${hostOrigin}/${getField(app, 'slug')}`
+        }
+      ]
+    });
+
+    if (app.faqs && Array.isArray(app.faqs) && app.faqs.length > 0) {
+      const faqList = app.faqs.map((faq: any) => ({
+        "@type": "Question",
+        "name": getField(faq, 'question'),
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": getField(faq, 'answer')
+        }
+      }));
+      schemas.push({
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": faqList
+      });
+    }
+  } else if (params.pageType === 'news' && params.newsItem) {
+    const item = params.newsItem;
+    const title = getField(item, 'title');
+    const desc = getField(item, 'description') || params.description;
+    const datePublished = getField(item, 'created_at') || new Date().toISOString();
+    const authorName = getField(item, 'ceo_name', params.siteTitle);
+
+    schemas.push({
+      "@context": "https://schema.org",
+      "@type": "NewsArticle",
+      "headline": title,
+      "description": desc,
+      "image": [params.logoUrl],
+      "datePublished": datePublished,
+      "dateModified": datePublished,
+      "author": {
+        "@type": "Organization",
+        "name": authorName
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": params.siteTitle,
+        "logo": {
+          "@type": "ImageObject",
+          "url": params.logoUrl
+        }
+      }
+    });
+
+    schemas.push({
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": hostOrigin
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "News",
+          "item": `${hostOrigin}/news`
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": title,
+          "item": `${hostOrigin}/news/${getField(item, 'slug')}`
+        }
+      ]
+    });
+  } else if (params.pageType === 'home' && params.settings && params.settings.global_faqs && Array.isArray(params.settings.global_faqs)) {
+    const globalFaqs = params.settings.global_faqs.map((faq: any) => ({
+      "@type": "Question",
+      "name": getField(faq, 'question'),
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": getField(faq, 'answer')
+      }
+    }));
+    if (globalFaqs.length > 0) {
+      schemas.push({
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": globalFaqs
+      });
+    }
+  }
+
+  return schemas.map(s => `<script type="application/ld+json" data-rh="true">${JSON.stringify(s)}</script>`).join('\n');
+}
+
 export interface SeoInjectionResult {
   html: string;
   isNotFound: boolean;
@@ -208,7 +400,6 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   const apps = data.apps || [];
   const settings = data.settings || {};
   const news = data.news || [];
-  const blogs = data.blogs || [];
   const videos = data.videos || [];
   const siteTitle = getField(settings, 'site_title') || 'Application Store';
   let title = siteTitle;
@@ -230,21 +421,23 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   const cleanPath = urlPath.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
   const cleanPathLower = cleanPath.toLowerCase();
 
-  let isAppPage = false;
-  let isNewsPage = false;
-  let isBlogPage = false;
-  let isVideoPage = false;
   let isNotFound = false;
   let customCanonicalUrl: string | undefined = undefined;
+  let pageType: 'home' | 'app' | 'news' | 'video' | 'static' | '404' = 'static';
+  let targetApp: any = null;
+  let targetNews: any = null;
+  let targetVideo: any = null;
 
   if (cleanPathLower === '/' || cleanPathLower === '') {
-    // Home page, default title and description apply
+    pageType = 'home';
   } else if (cleanPathLower.startsWith('/admin') || cleanPathLower.startsWith('/masterworld')) {
     title = `Admin Panel | Masterworld`;
     description = `Masterworld Admin Control Dashboard`;
+    pageType = 'static';
   } else if (cleanPathLower === '/new-apps') {
     title = `New Additions | ${siteTitle}`;
     description = `Explore the latest verified client lists on ${siteTitle}.`;
+    pageType = 'static';
   } else if (cleanPathLower.startsWith('/s/')) {
     const slug = cleanPath.split('/s/')[1];
     const app = apps.find((a: any) => getField(a, 'slug').toLowerCase() === slug);
@@ -252,18 +445,20 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       title = `Download ${getField(app, 'name')} | ${siteTitle}`;
       description = `Secure download link for ${getField(app, 'name')}.`;
       customCanonicalUrl = getField(app, 'canonical_url');
+      pageType = 'app';
+      targetApp = app;
     } else {
       isNotFound = true;
+      pageType = '404';
     }
   } else if (cleanPathLower === '/news') {
     title = `News & Updates | ${siteTitle}`;
     description = `The latest gaming news, reports, and transparency updates.`;
-  } else if (cleanPathLower === '/blogs') {
-    title = `Strategy Guides | ${siteTitle}`;
-    description = `Comprehensive strategy guides and analysis for popular clients.`;
+    pageType = 'static';
   } else if (cleanPathLower === '/videos') {
     title = `Video Reviews | ${siteTitle}`;
     description = `Watch deep-dive reviews and gameplay analysis.`;
+    pageType = 'static';
   } else if (cleanPathLower.startsWith('/news/')) {
     const slug = cleanPath.split('/news/')[1];
     const newsItem = news.find((n: any) => getField(n, 'slug').toLowerCase() === slug);
@@ -271,20 +466,11 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       title = `${getField(newsItem, 'title')} | ${siteTitle}`;
       description = getField(newsItem, 'description', '').substring(0, 160);
       customCanonicalUrl = getField(newsItem, 'canonical_url');
-      isNewsPage = true;
+      pageType = 'news';
+      targetNews = newsItem;
     } else {
       isNotFound = true;
-    }
-  } else if (cleanPathLower.startsWith('/blog/')) {
-    const slug = cleanPath.split('/blog/')[1];
-    const blogItem = blogs.find((b: any) => getField(b, 'slug').toLowerCase() === slug);
-    if (blogItem) {
-      title = `${getField(blogItem, 'title')} | ${siteTitle}`;
-      description = getField(blogItem, 'excerpt') || stripHtml(getField(blogItem, 'content')).substring(0, 160);
-      customCanonicalUrl = getField(blogItem, 'canonical_url');
-      isBlogPage = true;
-    } else {
-      isNotFound = true;
+      pageType = '404';
     }
   } else if (cleanPathLower.startsWith('/videos/')) {
     const slug = cleanPath.split('/videos/')[1];
@@ -292,23 +478,24 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     if (videoItem) {
       title = `${getField(videoItem, 'title')} | ${siteTitle}`;
       description = getField(videoItem, 'description', '').substring(0, 160);
-      isVideoPage = true;
+      pageType = 'video';
+      targetVideo = videoItem;
     } else {
       isNotFound = true;
+      pageType = '404';
     }
-  } else if (cleanPathLower === '/about') {
-    title = `About Us | ${siteTitle}`;
-    description = `Learn about our mission and transparency standards.`;
-  } else if (cleanPathLower === '/contact') {
-    title = `Contact Support | ${siteTitle}`;
-    description = `Get in touch with our team for assistance.`;
-  } else if (cleanPathLower === '/privacy') {
-    title = `Privacy Policy | ${siteTitle}`;
-  } else if (cleanPathLower === '/report-removal') {
-    title = `Report & Removal | ${siteTitle}`;
-  } else if (cleanPathLower === '/terms') {
-    title = `Terms of Service | ${siteTitle}`;
-
+  } else if (['/about', '/contact', '/privacy', '/report-removal', '/terms', '/notice', '/ethics', '/disclaimer', '/responsibility', '/developers'].includes(cleanPathLower)) {
+    pageType = 'static';
+    if (cleanPathLower === '/about') title = `About Us | ${siteTitle}`;
+    else if (cleanPathLower === '/contact') title = `Contact Support | ${siteTitle}`;
+    else if (cleanPathLower === '/privacy') title = `Privacy Policy | ${siteTitle}`;
+    else if (cleanPathLower === '/report-removal') title = `Report & Removal | ${siteTitle}`;
+    else if (cleanPathLower === '/terms') title = `Terms of Service | ${siteTitle}`;
+    else if (cleanPathLower === '/notice') title = `Notice | ${siteTitle}`;
+    else if (cleanPathLower === '/ethics') title = `Ethics & Safety | ${siteTitle}`;
+    else if (cleanPathLower === '/disclaimer') title = `Disclaimer | ${siteTitle}`;
+    else if (cleanPathLower === '/responsibility') title = `Responsible Gaming | ${siteTitle}`;
+    else if (cleanPathLower === '/developers') title = `Developer Profiles | ${siteTitle}`;
   } else if (cleanPathLower.startsWith('/info/') || cleanPathLower.startsWith('/moreinfo/') || cleanPathLower.startsWith('/moredetail/')) {
     const parts = cleanPathLower.split('/');
     const slug = parts[parts.length - 1];
@@ -317,63 +504,139 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       title = `More Info: ${getField(app, 'name')} | ${siteTitle}`;
       description = `Detailed information about ${getField(app, 'name')}.`;
       customCanonicalUrl = getField(app, 'canonical_url');
-      isAppPage = true;
+      pageType = 'app';
+      targetApp = app;
     } else {
       isNotFound = true;
+      pageType = '404';
     }
   } else {
     const appSlug = cleanPathLower.replace(/^\/app\//, '/').replace(/^\/|\/$/g, '');
-    const app = apps.find((a: any) => getField(a, 'slug').toLowerCase() === appSlug);
+    const app = apps.find((a: any) => getField(a, 'slug')?.toLowerCase() === appSlug);
+    const newsItem = news.find((n: any) => getField(n, 'slug')?.toLowerCase() === appSlug);
+    const videoItem = videos.find((v: any) => getField(v, 'slug')?.toLowerCase() === appSlug);
+
     if (app) {
       title = `${getField(app, 'name')} | ${siteTitle}`;
       description = cleanSeoDescription(getField(app, 'meta_description') || stripHtml(getField(app, 'description_html')).substring(0, 160));
       customCanonicalUrl = getField(app, 'canonical_url');
-      isAppPage = true;
+      pageType = 'app';
+      targetApp = app;
+    } else if (newsItem) {
+      title = `${getField(newsItem, 'title')} | ${siteTitle}`;
+      description = getField(newsItem, 'description', '').substring(0, 160);
+      pageType = 'news';
+      targetNews = newsItem;
+    } else if (videoItem) {
+      title = `${getField(videoItem, 'title')} | ${siteTitle}`;
+      description = getField(videoItem, 'description', '').substring(0, 160);
+      pageType = 'video';
+      targetVideo = videoItem;
     } else {
       isNotFound = true;
+      pageType = '404';
+      title = `404 - Page Not Found | ${siteTitle}`;
+      description = `The requested page could not be found on ${siteTitle}.`;
     }
+  }
+
+  if (isNotFound) {
+    title = `404 - Page Not Found | ${siteTitle}`;
+    description = `The requested page ${cleanPath} could not be found on ${siteTitle}.`;
   }
 
   const canonicalUrl = getCleanCanonicalUrl(customCanonicalUrl, urlPath);
 
-  // We only generate SEO tags now, not full body HTML to prevent layout shifting
-  // const preRendered = await getPagePreRender(urlPath, data);
-
-  let faviconUrl = getField(settings, 'favicon_url') || getField(settings, 'logo_url') || '/favicon.png';
-  if (!faviconUrl || faviconUrl.includes('ezgif-64180dd8ca74703b')) {
-    faviconUrl = 'https://res.cloudinary.com/diewalae4/image/upload/v1785720339/1000132678_1_ro1ftj.png';
+  let pageOgImage = logoUrl;
+  if (targetApp) {
+    pageOgImage = getField(targetApp, 'og_image_url') || getField(targetApp, 'icon_url') || logoUrl;
+  } else if (targetNews) {
+    pageOgImage = getField(targetNews, 'logo_url') || getField(targetNews, 'image_url') || logoUrl;
+  } else if (targetVideo) {
+    const ytThumb = getYoutubeThumbnail(getField(targetVideo, 'youtube_url'));
+    if (ytThumb) pageOgImage = ytThumb;
   }
+
+  let domain = 'https://www.rummydex.com';
+  try {
+    domain = canonicalUrl ? new URL(canonicalUrl).origin : 'https://www.rummydex.com';
+  } catch (e) {}
+  pageOgImage = ensureAbsoluteUrl(pageOgImage, domain);
+
+  // Generate full pre-rendered HTML for search engine crawlers (H1, H2, body content)
+  const preRenderedBody = await getPagePreRender(urlPath, data);
+
+  // Generate Schema.org JSON-LD structured data
+  const jsonLdSchema = buildJsonLdSchema({
+    pageType,
+    title,
+    description,
+    url: canonicalUrl,
+    logoUrl,
+    siteTitle,
+    app: targetApp,
+    newsItem: targetNews,
+    videoItem: targetVideo,
+    settings
+  });
+
+  const robotsTag = isNotFound 
+    ? '<meta data-rh="true" name="robots" content="noindex, follow">' 
+    : ((cleanPathLower.startsWith('/info/') || cleanPathLower.startsWith('/moreinfo/') || cleanPathLower.startsWith('/moredetail/')) ? '<meta data-rh="true" name="robots" content="noindex, follow">' : '<meta data-rh="true" name="robots" content="index, follow">');
 
   const seoTags = `
     <title data-rh="true">${title}</title>
     <meta data-rh="true" name="description" content="${description}">
     <meta data-rh="true" name="keywords" content="${keywords}">
+    ${robotsTag}
     <meta data-rh="true" property="og:title" content="${title}">
     <meta data-rh="true" property="og:description" content="${description}">
     <meta data-rh="true" property="og:type" content="website">
     <meta data-rh="true" property="og:url" content="${canonicalUrl}">
-    <meta data-rh="true" property="og:image" content="${logoUrl}">
+    <meta data-rh="true" property="og:image" content="${pageOgImage}">
+    <meta data-rh="true" property="og:image:secure_url" content="${pageOgImage}">
     <meta data-rh="true" name="twitter:card" content="summary_large_image">
     <meta data-rh="true" name="twitter:title" content="${title}">
     <meta data-rh="true" name="twitter:description" content="${description}">
-    <meta data-rh="true" name="twitter:image" content="${logoUrl}">
+    <meta data-rh="true" name="twitter:image" content="${pageOgImage}">
+    <link data-rh="true" rel="image_src" href="${pageOgImage}">
     <link data-rh="true" rel="icon" type="image/png" sizes="192x192" href="/favicon.png">
     <link data-rh="true" rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link data-rh="true" rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
     <link data-rh="true" rel="shortcut icon" href="/favicon.ico">
     <link data-rh="true" rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link data-rh="true" rel="manifest" href="/site.webmanifest">
-    ${(cleanPathLower.startsWith('/info/') || cleanPathLower.startsWith('/moreinfo/') || cleanPathLower.startsWith('/moredetail/')) ? '<meta data-rh="true" name="robots" content="noindex">' : ''}
     <link data-rh="true" rel="canonical" href="${canonicalUrl}">
+    ${jsonLdSchema}
   `;
 
   const initialDataJson = JSON.stringify(data).replace(/</g, '\\u003c');
   const initialDataScript = `<script>window.__INITIAL_DATA__ = ${initialDataJson};</script>`;
 
+  // Clean up default static title & meta tags from template without destroying scripts or stylesheets
   let finalHtml = template
-    .replace(/<title>Application Hub<\/title>[\s\S]*?<meta name="twitter:description" [^>]*\/>/i, seoTags);
+    .replace(/<title>[\s\S]*?<\/title>/i, '')
+    .replace(/<meta\s+name="description"\s+[^>]*\/?>/gi, '')
+    .replace(/<meta\s+name="robots"\s+[^>]*\/?>/gi, '')
+    .replace(/<meta\s+property="og:[^"]+"\s+[^>]*\/?>/gi, '')
+    .replace(/<meta\s+name="twitter:[^"]+"\s+[^>]*\/?>/gi, '');
 
-  // Optimize critical CSS stylesheet loading & priority
+  // Inject dynamic SEO tags & initial data script cleanly into <head>
+  if (finalHtml.includes('</head>')) {
+    finalHtml = finalHtml.replace('</head>', `${seoTags}\n${initialDataScript}\n</head>`);
+  } else {
+    finalHtml = `${seoTags}\n${initialDataScript}\n${finalHtml}`;
+  }
+
+  // Inject pre-rendered body safely inside #seo-prerender container for search crawlers
+  const prerenderContainer = `<div id="seo-prerender">${preRenderedBody}</div>`;
+  if (finalHtml.includes('<div id="root"></div>')) {
+    finalHtml = finalHtml.replace('<div id="root"></div>', `<div id="root">${prerenderContainer}</div>`);
+  } else {
+    finalHtml = finalHtml.replace(/<div\s+id="root"[^>]*>[\s\S]*?<\/div>/i, `<div id="root">${prerenderContainer}</div>`);
+  }
+
+  // Optimize critical CSS stylesheet loading & priority if present
   const cssMatch = finalHtml.match(/<link\s+rel="stylesheet"\s+[^>]*href="([^"]+\.css)"[^>]*>/i);
   if (cssMatch && cssMatch[1]) {
     const cssUrl = cssMatch[1];
@@ -382,12 +645,6 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       finalHtml = finalHtml.replace(/<head>/i, `<head>\n    ${preloadLink}`);
     }
     finalHtml = finalHtml.replace(/<link\s+rel="stylesheet"\s+([^>]*)href=/i, `<link rel="stylesheet" fetchpriority="high" $1href=`);
-  }
-
-  if (finalHtml.includes('</head>')) {
-    finalHtml = finalHtml.replace('</head>', `${initialDataScript}\n</head>`);
-  } else {
-    finalHtml = `${initialDataScript}\n${finalHtml}`;
   }
 
   return { html: finalHtml, isNotFound };

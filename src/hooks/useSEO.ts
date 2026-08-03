@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { AppConfig, GlobalSettings, NewsItem, BlogPost, VideoItem } from '../types';
+import { ensureAbsoluteUrl, getYoutubeThumbnail as parseYoutubeThumbnail } from '../seo/utils';
 
 export function useSEO(
   settings: GlobalSettings | null,
@@ -158,36 +159,37 @@ export function useSEO(
       const slug = decodeURIComponent(path.split('/videos/')[1]?.split('/')[0]?.split('?')[0] || '');
       const videoItem = videos.find((v: any) => v?.slug?.toLowerCase() === slug.toLowerCase() || v?.id?.toLowerCase() === slug.toLowerCase());
       if (videoItem) {
-        const getYoutubeThumbnail = (urlStr: string) => {
-          if (!urlStr) return '';
-          let id = '';
-          try {
-            const url = new URL(urlStr);
-            if (url.hostname.includes('youtube.com')) {
-              if (url.pathname.startsWith('/shorts/') || url.pathname.startsWith('/live/') || url.pathname.startsWith('/embed/') || url.pathname.startsWith('/v/')) {
-                id = url.pathname.split('/')[2] || url.pathname.split('/')[1] || '';
-              } else {
-                id = url.searchParams.get('v') || '';
-              }
-            } else if (url.hostname.includes('youtu.be')) {
-              id = url.pathname.slice(1);
-            }
-          } catch (e) {
-            if (urlStr.length === 11 && !urlStr.includes('/')) id = urlStr;
-          }
-          if (!id) {
-            const m = urlStr.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|shorts\/|live\/|watch\?v=|watch\?.+&v=))([^&?\s]+)/);
-            if (m && m[1]) id = m[1];
-            else id = urlStr.split('/').pop()?.split('?')[0] || '';
-          }
-          return id ? `https://img.youtube.com/vi/${id}/maxresdefault.jpg` : '';
-        };
         pageTitle = videoItem.title ? `${videoItem.title} - ${siteTitle}` : siteTitle;
         pageDesc = videoItem.seo_description || videoItem.description || '';
         pageKeywords = settings.seo_keywords || '';
-        pageOgImage = getYoutubeThumbnail(videoItem.youtube_url) || settings.logo_url || '';
+        pageOgImage = parseYoutubeThumbnail(videoItem.youtube_url) || settings.logo_url || '';
+      }
+    } else if (path.startsWith('/info/') || path.startsWith('/moreinfo/') || path.startsWith('/moredetail/')) {
+      const parts = path.split('/');
+      const slug = decodeURIComponent(parts[parts.length - 1]?.split('?')[0] || '');
+      const app = apps.find((a: any) => a?.slug?.toLowerCase() === slug.toLowerCase());
+      if (app) {
+        pageTitle = `More Info: ${app.seo_title || app.name || siteTitle}`;
+        pageDesc = `Detailed information about ${app.name}.`;
+        pageKeywords = app.seo_keywords || '';
+        pageOgImage = app.og_image_url || app.icon_url || settings.logo_url || '';
+      }
+    } else {
+      const cleanSlug = path.replace(/^\/|\/$/g, '').split('?')[0];
+      if (cleanSlug) {
+        const app = apps.find((a: any) => a?.slug?.toLowerCase() === cleanSlug.toLowerCase());
+        if (app) {
+          pageTitle = app.seo_title || app.name || siteTitle;
+          const rawDesc = app.seo_description || '';
+          const rawHtml = app.description_html || '';
+          pageDesc = rawDesc ? rawDesc : (rawHtml ? stripHtml(rawHtml).substring(0, 160) : '');
+          pageKeywords = app.seo_keywords || '';
+          pageOgImage = app.og_image_url || app.icon_url || settings.logo_url || '';
+        }
       }
     }
+
+    pageOgImage = ensureAbsoluteUrl(pageOgImage, window.location.origin);
 
     document.title = pageTitle;
 
@@ -199,11 +201,25 @@ export function useSEO(
     setMetaTag('og:title', pageTitle, true);
     setMetaTag('og:description', pageDesc, true);
     setMetaTag('og:image', pageOgImage, true);
+    setMetaTag('og:image:secure_url', pageOgImage, true);
     setMetaTag('og:url', window.location.href, true);
 
     setMetaTag('twitter:title', pageTitle);
     setMetaTag('twitter:description', pageDesc);
     setMetaTag('twitter:image', pageOgImage);
+
+    // Update <link rel="image_src">
+    let imgLink = document.querySelector('link[rel="image_src"]');
+    if (pageOgImage) {
+      if (!imgLink) {
+        imgLink = document.createElement('link');
+        imgLink.setAttribute('rel', 'image_src');
+        document.head.appendChild(imgLink);
+      }
+      imgLink.setAttribute('href', pageOgImage);
+    } else if (imgLink) {
+      imgLink.remove();
+    }
 
     try {
       if (window.parent && window.parent !== window && window.parent.document) {

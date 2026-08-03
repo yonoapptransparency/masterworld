@@ -80,39 +80,42 @@ async function startServer() {
     });
   });
 
-  // Vite middleware for development
+  // Vite middleware for development or Static Assets for production
+  let viteDevServer: any = null;
   if (process.env.NODE_ENV !== "production") {
     try {
       const { createServer: createViteServer } = await import("vite");
       const isHmrDisabled = process.env.DISABLE_HMR === 'true';
-      const vite = await createViteServer({
+      viteDevServer = await createViteServer({
         server: {
           middlewareMode: true,
           hmr: isHmrDisabled ? false : undefined,
         },
-        appType: "spa",
+        appType: "custom",
       });
-      app.use(vite.middlewares);
+      app.use(viteDevServer.middlewares);
     } catch (e) {
       console.error("Failed to initialize Vite middleware:", e);
     }
-  } else {
-    const getDistPath = (): string => {
-      const pathsToTry = [
-        path.join(process.cwd(), 'dist'),
-        path.resolve(__dirname, 'dist'),
-        path.resolve(__dirname, '..', 'dist'),
-        __dirname
-      ];
-      for (const p of pathsToTry) {
-        if (fs.existsSync(path.join(p, 'index.html'))) {
-          return p;
-        }
-      }
-      return path.join(process.cwd(), 'dist');
-    };
-    const distPath = getDistPath();
+  }
 
+  const getDistPath = (): string => {
+    const pathsToTry = [
+      path.join(process.cwd(), 'dist'),
+      path.resolve(__dirname, 'dist'),
+      path.resolve(__dirname, '..', 'dist'),
+      __dirname
+    ];
+    for (const p of pathsToTry) {
+      if (fs.existsSync(path.join(p, 'index.html'))) {
+        return p;
+      }
+    }
+    return path.join(process.cwd(), 'dist');
+  };
+  const distPath = getDistPath();
+
+  if (process.env.NODE_ENV === "production") {
     app.use('/assets', express.static(path.join(distPath, 'assets'), {
       maxAge: '1y',
       immutable: true,
@@ -139,63 +142,82 @@ async function startServer() {
         }
       }
     }));
+  }
 
-    let cachedIndexHtml: string | null = null;
-    app.get('*', async (req, res) => {
-      if (req.originalUrl.match(/\.(php|env|yml|yaml|ini|conf|log|sql|tar|gz|zip|bak|git|rsa)$/i) || req.originalUrl.includes('/etc/') || req.originalUrl.includes('/proc/') || req.originalUrl.includes('../') || req.originalUrl.includes('/.aws/')) {
-        return res.status(404).type('text/plain').send('Not found');
-      }
-      let templatePath = path.join(distPath, 'index.html');
+  let cachedIndexHtml: string | null = null;
+
+  app.get('*', async (req, res, next) => {
+    if (req.originalUrl.match(/\.(php|env|yml|yaml|ini|conf|log|sql|tar|gz|zip|bak|git|rsa)$/i) || req.originalUrl.includes('/etc/') || req.originalUrl.includes('/proc/') || req.originalUrl.includes('../') || req.originalUrl.includes('/.aws/')) {
+      return res.status(404).type('text/plain').send('Not found');
+    }
+
+    // Pass non-HTML requests in dev mode to next/vite middleware
+    if (process.env.NODE_ENV !== "production" && (req.originalUrl.includes('/@') || req.originalUrl.includes('/node_modules/') || req.originalUrl.match(/\.(js|ts|tsx|jsx|css|json|png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf|eot)$/i))) {
+      return next();
+    }
+
+    let templatePath: string;
+    if (process.env.NODE_ENV !== "production") {
+      templatePath = path.join(process.cwd(), 'index.html');
+    } else {
+      templatePath = path.join(distPath, 'index.html');
       if (!fs.existsSync(templatePath)) {
         templatePath = path.join(process.cwd(), 'index.html');
       }
-      try {
-        let template = cachedIndexHtml;
-        if (!template) {
-          template = fs.readFileSync(templatePath, 'utf-8');
+    }
+
+    try {
+      let template = cachedIndexHtml;
+      if (!template || process.env.NODE_ENV !== "production") {
+        template = fs.readFileSync(templatePath, 'utf-8');
+        if (process.env.NODE_ENV === "production") {
           cachedIndexHtml = template;
         }
-        
-        let processedHtml = template;
-        if (process.env.NODE_ENV !== "production") {
-          try {
-            // Wait, we need the vite instance here. It is local to the block above!
-            // Let's just bypass it if we can't easily transform.
-          } catch(e) {}
-        }
-        const protocol = req.headers["x-forwarded-proto"] || req.protocol || "https";
-        let hostHeader = req.headers["x-forwarded-host"] || req.get("host") || (process.env.PUBLIC_DOMAIN ? new URL(process.env.PUBLIC_DOMAIN).host : (process.env.VITE_PUBLIC_DOMAIN ? new URL(process.env.VITE_PUBLIC_DOMAIN).host : "www.rummydex.com"));
-        let cleanHost = String(hostHeader).split(',')[0].trim();
-        if (cleanHost === 'rummydex.com') {
-          cleanHost = 'www.rummydex.com';
-        }
-        const hostUrl = `${String(protocol).split(',')[0].trim()}://${cleanHost}`;
-        const userAgent = req.headers['user-agent'] || '';
-        const seoResult = await injectSeoTags(template, req.originalUrl, hostUrl, userAgent);
-        const html = typeof seoResult === 'string' ? seoResult : (seoResult.html || template);
-        const isNotFound = typeof seoResult === 'object' && seoResult ? seoResult.isNotFound : false;
-        const statusCode = isNotFound ? 404 : 200;
-        let cacheControl = isNotFound ? 'no-cache, no-store, must-revalidate' : 'public, max-age=1800';
-        if (req.originalUrl === '/' || req.originalUrl === '') {
-          cacheControl = 'public, max-age=300';
-        } else if (['/about', '/contact', '/privacy', '/terms', '/ethics', '/disclaimer', '/notice', '/responsibility', '/developers', '/report-removal'].includes(req.originalUrl)) {
-          cacheControl = 'public, max-age=3600';
-        }
-        res.status(statusCode).set({
-          'Content-Type': 'text/html',
-          'Cache-Control': cacheControl,
-          'Pragma': isNotFound ? 'no-cache' : '',
-          'Expires': isNotFound ? '0' : ''
-        }).send(html);
-      } catch (e) {
-        console.error("SEO fallback error in catch-all, serving file as-is:", e);
-        res.status(200).set({
-          'Content-Type': 'text/html',
-          'Cache-Control': 'no-cache, no-store, must-revalidate'
-        }).sendFile(templatePath);
       }
-    });
-  }
+
+      if (viteDevServer) {
+        try {
+          template = await viteDevServer.transformIndexHtml(req.originalUrl, template);
+        } catch (e) {
+          console.warn("Vite transformIndexHtml failed:", e);
+        }
+      }
+
+      const protocol = req.headers["x-forwarded-proto"] || req.protocol || "https";
+      let hostHeader = req.headers["x-forwarded-host"] || req.get("host") || (process.env.PUBLIC_DOMAIN ? new URL(process.env.PUBLIC_DOMAIN).host : (process.env.VITE_PUBLIC_DOMAIN ? new URL(process.env.VITE_PUBLIC_DOMAIN).host : "www.rummydex.com"));
+      let cleanHost = String(hostHeader).split(',')[0].trim();
+      if (cleanHost === 'rummydex.com') {
+        cleanHost = 'www.rummydex.com';
+      }
+      const hostUrl = `${String(protocol).split(',')[0].trim()}://${cleanHost}`;
+      const userAgent = req.headers['user-agent'] || '';
+
+      const seoResult = await injectSeoTags(template, req.originalUrl, hostUrl, userAgent);
+      const html = typeof seoResult === 'string' ? seoResult : (seoResult.html || template);
+      const isNotFound = typeof seoResult === 'object' && seoResult ? seoResult.isNotFound : false;
+      const statusCode = isNotFound ? 404 : 200;
+
+      let cacheControl = isNotFound ? 'no-cache, no-store, must-revalidate' : 'public, max-age=1800';
+      if (req.originalUrl === '/' || req.originalUrl === '') {
+        cacheControl = 'public, max-age=300';
+      } else if (['/about', '/contact', '/privacy', '/terms', '/ethics', '/disclaimer', '/notice', '/responsibility', '/developers', '/report-removal'].includes(req.originalUrl)) {
+        cacheControl = 'public, max-age=3600';
+      }
+
+      res.status(statusCode).set({
+        'Content-Type': 'text/html',
+        'Cache-Control': cacheControl,
+        'Pragma': isNotFound ? 'no-cache' : '',
+        'Expires': isNotFound ? '0' : ''
+      }).send(html);
+    } catch (e) {
+      console.error("SEO fallback error in catch-all, serving file as-is:", e);
+      res.status(200).set({
+        'Content-Type': 'text/html',
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
+      }).sendFile(templatePath);
+    }
+  });
 
   // Global Express Error Handler
   app.use((err: any, req: any, res: any, next: any) => {

@@ -2,6 +2,7 @@ import React from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useData } from '../contexts/DataContextPublic';
 import { getCleanCanonicalUrl } from '../lib/seoUtils';
+import { ensureAbsoluteUrl } from '../seo/utils';
 
 interface MetaProps {
   title?: string;
@@ -34,7 +35,8 @@ const Meta: React.FC<MetaProps> = ({
   const fullTitle = title ? `${title} | ${siteTitle}` : siteTitle;
   const metaDescription = description || settings?.meta_description || 'Access application details and specifications.';
   const metaKeywords = keywords || settings?.seo_keywords || '';
-  const metaImage = image || settings?.logo_url || '';
+  const rawImage = image || settings?.logo_url || '';
+  const metaImage = ensureAbsoluteUrl(rawImage, typeof window !== 'undefined' ? window.location.origin : 'https://www.rummydex.com');
 
   const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/';
   const canonicalUrl = getCleanCanonicalUrl(canonical || url, currentPath);
@@ -63,7 +65,9 @@ const Meta: React.FC<MetaProps> = ({
       <meta property="og:title" content={fullTitle} />
       <meta property="og:description" content={metaDescription} />
       <meta property="og:image" content={metaImage} />
+      <meta property="og:image:secure_url" content={metaImage} />
       <meta property="og:site_name" content={siteTitle} />
+      <link rel="image_src" href={metaImage} />
 
       {/* Twitter */}
       <meta name="twitter:card" content="summary_large_image" />
