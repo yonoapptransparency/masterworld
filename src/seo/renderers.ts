@@ -392,8 +392,8 @@ export function renderAbout(settings: any) {
 
 export function renderContact(settings: any) {
   const content = getField(settings, 'contact_content') || 'Get in touch for active client files help.';
-  const email = getField(settings, 'support_email', 'support@rummydex.com');
-  return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">Contact Us</h1><p class="prose mb-6 leading-relaxed font-semibold">${content}</p><div class="p-6 bg-zinc-50 rounded-2xl"><strong>Email support address:</strong><p class="text-blue-500 font-bold mt-1">${escapeHtml(email)}</p></div></div>`;
+  const email = getField(settings, 'support_email', 'rummydex1@gmail.com');
+  return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">Contact Us</h1><p class="prose mb-6 leading-relaxed font-semibold">${content}</p><div class="grid gap-4 mt-6"><div class="p-6 bg-zinc-50 rounded-2xl"><strong>Email support address:</strong><p class="text-blue-500 font-bold mt-1">${escapeHtml(email)}</p></div><div class="p-6 bg-zinc-50 rounded-2xl"><strong>Live Chat Support:</strong><p class="text-zinc-800 font-semibold mt-1">Monday to Saturday, 10:00 AM - 3:00 PM (Instant reply in every section)</p></div><div class="p-6 bg-zinc-50 rounded-2xl"><strong>Registered Delhi Office:</strong><p class="text-zinc-800 font-semibold mt-1">Plot No. 18, 4th Floor, Commercial Complex, Sector 12, Dwarka, New Delhi, Delhi 110075, India</p></div></div></div>`;
 }
 
 export function renderPrivacy(settings: any) {
