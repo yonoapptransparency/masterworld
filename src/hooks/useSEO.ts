@@ -1,7 +1,9 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import i18n from '../i18n';
 import { AppConfig, GlobalSettings, NewsItem, BlogPost, VideoItem } from '../types';
 import { ensureAbsoluteUrl, getYoutubeThumbnail as parseYoutubeThumbnail } from '../seo/utils';
+import { getCleanCanonicalUrl } from '../lib/seoUtils';
 
 export function useSEO(
   settings: GlobalSettings | null,
@@ -36,7 +38,7 @@ export function useSEO(
       const selector = `meta[${attributeName}="${nameOrProperty}"]`;
       let element = document.querySelector(selector);
       if (!content) {
-        if (element) element.remove();
+        if (element) element.setAttribute('content', '');
         return;
       }
       if (!element) {
@@ -193,17 +195,45 @@ export function useSEO(
 
     document.title = pageTitle;
 
+    const currentLang = i18n.language || 'en';
+    document.documentElement.lang = currentLang;
+
+    const localeMap: Record<string, string> = {
+      en: 'en_IN',
+      hi: 'hi_IN',
+      es: 'es_ES',
+      fr: 'fr_FR'
+    };
+    const currentLocale = localeMap[currentLang.split('-')[0]] || 'en_IN';
+
     setMetaTag('description', pageDesc);
     setMetaTag('keywords', pageKeywords);
     setMetaTag('author', pageAuthor);
     setMetaTag('robots', pageRobots);
+    setMetaTag('application-name', siteTitle || 'RummyDex');
 
+    const cleanCanonical = getCleanCanonicalUrl(`${window.location.origin}${window.location.pathname}`);
+
+    let canonicalLink = document.querySelector('link[rel="canonical"]');
+    if (!canonicalLink) {
+      canonicalLink = document.createElement('link');
+      canonicalLink.setAttribute('rel', 'canonical');
+      document.head.appendChild(canonicalLink);
+    }
+    canonicalLink.setAttribute('href', cleanCanonical);
+
+    setMetaTag('og:site_name', siteTitle || 'RummyDex', true);
+    setMetaTag('og:locale', currentLocale, true);
     setMetaTag('og:title', pageTitle, true);
     setMetaTag('og:description', pageDesc, true);
     setMetaTag('og:image', pageOgImage, true);
     setMetaTag('og:image:secure_url', pageOgImage, true);
-    setMetaTag('og:url', window.location.href, true);
+    setMetaTag('og:image:width', '1200', true);
+    setMetaTag('og:image:height', '630', true);
+    setMetaTag('og:url', cleanCanonical, true);
 
+    setMetaTag('twitter:site', '@RummyDex');
+    setMetaTag('twitter:creator', '@RummyDex');
     setMetaTag('twitter:title', pageTitle);
     setMetaTag('twitter:description', pageDesc);
     setMetaTag('twitter:image', pageOgImage);
@@ -218,7 +248,7 @@ export function useSEO(
       }
       imgLink.setAttribute('href', pageOgImage);
     } else if (imgLink) {
-      imgLink.remove();
+      imgLink.setAttribute('href', '');
     }
 
     try {

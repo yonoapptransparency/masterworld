@@ -144,7 +144,7 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
       return escapeXml(encodeURI(slug.trim().replace(/^\/+|\/+$/g, '')));
     };
 
-    const getFormattedDate = (obj: any) => {
+    const getFormattedDate = (obj: any): string | null => {
       const dateStr = getField(obj, 'updated_at') || getField(obj, 'created_at') || getField(obj, 'published_at') || getField(obj, 'date');
       if (dateStr) {
         try {
@@ -160,14 +160,23 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
           }
         } catch(e) {}
       }
-      return today;
+      return null;
     };
 
     const seenUrls = new Set<string>();
-    const addUrl = (loc: string, lastmod: string, changefreq: string, priority: string, imageUrl?: string, imageTitle?: string) => {
+    const addUrl = (loc: string, lastmod?: string | null, changefreq?: string, priority?: string, imageUrl?: string, imageTitle?: string) => {
       if (!seenUrls.has(loc)) {
         seenUrls.add(loc);
-        let itemXml = `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>${changefreq}</changefreq>\n    <priority>${priority}</priority>\n`;
+        let itemXml = `  <url>\n    <loc>${loc}</loc>\n`;
+        if (lastmod) {
+          itemXml += `    <lastmod>${lastmod}</lastmod>\n`;
+        }
+        if (changefreq) {
+          itemXml += `    <changefreq>${changefreq}</changefreq>\n`;
+        }
+        if (priority) {
+          itemXml += `    <priority>${priority}</priority>\n`;
+        }
         if (imageUrl) {
           itemXml += `    <image:image>\n      <image:loc>${escapeXml(imageUrl)}</image:loc>\n`;
           if (imageTitle) {
@@ -202,7 +211,7 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
     }
 
     for (const page of staticPages) {
-      addUrl(`${host}${page.path}`, today, page.changefreq, page.priority);
+      addUrl(`${host}${page.path}`, null, page.changefreq, page.priority);
     }
 
     // Apps
@@ -215,8 +224,39 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
         const appName = getField(app, 'name');
 
         // Standard App detail URL
-        const appLoc = `${host}/app/${cSlug}`;
+        const appLoc = `${host}/${cSlug}`;
         addUrl(appLoc, appDate, 'daily', '0.9', appImage, appName);
+      }
+    }
+
+    // Blogs list + detail
+    if (blogs && Array.isArray(blogs) && blogs.length > 0) {
+      addUrl(`${host}/blogs`, null, 'daily', '0.8');
+      for (const blog of blogs) {
+        const slug = getField(blog, 'slug');
+        if (slug) {
+          const cSlug = cleanSlug(slug);
+          addUrl(
+            `${host}/blog/${cSlug}`,
+            getFormattedDate(blog),
+            'weekly',
+            '0.7',
+            getField(blog, 'cover_url') || getField(blog, 'image_url'),
+            getField(blog, 'title')
+          );
+        }
+      }
+    }
+
+    // Gateway + info routes for every app
+    for (const app of apps) {
+      const slug = getField(app, 'slug');
+      if (slug) {
+        const cSlug = cleanSlug(slug);
+        const appDate = getFormattedDate(app);
+        addUrl(`${host}/s/${cSlug}`, appDate, 'weekly', '0.8');
+        addUrl(`${host}/info/${cSlug}`, appDate, 'monthly', '0.6');
+        addUrl(`${host}/moreinfo/${cSlug}`, appDate, 'monthly', '0.6');
       }
     }
 

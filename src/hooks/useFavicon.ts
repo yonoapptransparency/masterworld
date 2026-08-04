@@ -8,8 +8,8 @@ export function useFavicon(settings: GlobalSettings | null, apps: AppConfig[]) {
   useEffect(() => {
     if (!settings) return;
     
-    // Always use the official website favicon / logo URL across all pages (Home, About, Disclaimer, News, App pages, etc.)
-    const officialFavicon = settings.favicon_url || settings.logo_url || "https://res.cloudinary.com/diewalae4/image/upload/v1785720339/1000132678_1_ro1ftj.png";
+    // Always use the official website favicon / logo URL across all pages
+    const officialFavicon = settings.favicon_url || settings.logo_url || "/favicon.png";
     
     const icons = [
       { rel: 'icon', sizes: '192x192', href: officialFavicon, type: 'image/png' },
@@ -19,15 +19,19 @@ export function useFavicon(settings: GlobalSettings | null, apps: AppConfig[]) {
       { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png', type: 'image/png' }
     ];
     
-    document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]').forEach(el => el.remove());
-    
     icons.forEach(iconDef => {
-      const newLink = document.createElement('link');
-      newLink.rel = iconDef.rel;
-      newLink.href = iconDef.href;
-      if (iconDef.sizes) newLink.setAttribute('sizes', iconDef.sizes);
-      if (iconDef.type) newLink.type = iconDef.type;
-      document.head.appendChild(newLink);
+      let link = document.querySelector(`link[rel="${iconDef.rel}"][sizes="${iconDef.sizes || ''}"]`) as HTMLLinkElement ||
+                 document.querySelector(`link[rel="${iconDef.rel}"]`) as HTMLLinkElement;
+      if (link) {
+        link.href = iconDef.href;
+      } else {
+        link = document.createElement('link');
+        link.rel = iconDef.rel;
+        link.href = iconDef.href;
+        if (iconDef.sizes) link.setAttribute('sizes', iconDef.sizes);
+        if (iconDef.type) link.type = iconDef.type;
+        document.head.appendChild(link);
+      }
     });
     
     try {

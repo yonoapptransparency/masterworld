@@ -32,6 +32,10 @@ export function optimizeImageUrl(url: string, width = 128): string {
       return `${url}${url.includes('?') ? '&' : '?'}fm=webp&q=80&w=${width}`;
     }
   }
+  // Firebase Storage optimization
+  if (url.includes('firebasestorage.app') || url.includes('firebasestorage.googleapis.com')) {
+    return url.includes('?') ? `${url}&alt=media` : `${url}?alt=media`;
+  }
   return url;
 }
 
@@ -57,7 +61,7 @@ export function getYoutubeThumbnail(urlStr: string): string {
     if (m && m[1]) id = m[1];
     else id = urlStr.split('/').pop()?.split('?')[0] || '';
   }
-  return id ? `https://img.youtube.com/vi/${id}/maxresdefault.jpg` : '';
+  return id ? `https://img.youtube.com/vi/${id}/mqdefault.jpg` : '';
 }
 
 export function ensureAbsoluteUrl(imgUrl?: string, origin = 'https://www.rummydex.com'): string {

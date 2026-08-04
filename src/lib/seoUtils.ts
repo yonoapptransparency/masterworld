@@ -11,14 +11,9 @@ export function getCleanCanonicalUrl(rawUrl?: string, fallbackPath: string = '/'
   try {
     const parsed = new URL(input, DEFAULT_PRIMARY_DOMAIN);
 
-    // Enforce primary domain (https://www.rummydex.com) for any rummydex.com variant
-    if (parsed.hostname === 'rummydex.com' || parsed.hostname === 'www.rummydex.com') {
-      parsed.hostname = 'www.rummydex.com';
-      parsed.protocol = 'https:';
-    } else if (!rawUrl) {
-      parsed.hostname = 'www.rummydex.com';
-      parsed.protocol = 'https:';
-    }
+    // Always enforce primary domain (https://www.rummydex.com) for canonical URLs
+    parsed.hostname = 'www.rummydex.com';
+    parsed.protocol = 'https:';
 
     let pathname = parsed.pathname;
     if (pathname.length > 1 && pathname.endsWith('/')) {
@@ -28,11 +23,9 @@ export function getCleanCanonicalUrl(rawUrl?: string, fallbackPath: string = '/'
     return `${parsed.origin}${pathname}`;
   } catch {
     let clean = input.split('?')[0].split('#')[0];
-    if (clean.includes('rummydex.com')) {
-      clean = clean
-        .replace(/^http:\/\//i, 'https://')
-        .replace('https://rummydex.com', 'https://www.rummydex.com');
-    }
+    clean = clean
+      .replace(/^http:\/\//i, 'https://')
+      .replace(/^https:\/\/[^\/]+/i, DEFAULT_PRIMARY_DOMAIN);
     if (clean.length > 1 && clean.endsWith('/')) {
       clean = clean.slice(0, -1);
     }

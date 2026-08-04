@@ -60,6 +60,15 @@ async function startServer() {
     next();
   });
 
+  // 301 Redirect non-www rummydex.com -> www.rummydex.com
+  app.use((req, res, next) => {
+    const host = (req.headers['x-forwarded-host'] as string || req.get('host') || '').split(',')[0].trim();
+    if (host === 'rummydex.com') {
+      return res.redirect(301, `https://www.rummydex.com${req.originalUrl}`);
+    }
+    next();
+  });
+
   // Health check
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });

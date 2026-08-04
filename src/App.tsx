@@ -71,16 +71,19 @@ function AppContent() {
         { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png', type: 'image/png' }
       ];
       
-      // Remove old icons to prevent duplicates
-      document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]').forEach(el => el.remove());
-      
       icons.forEach(iconDef => {
-        const newLink = document.createElement('link');
-        newLink.rel = iconDef.rel;
-        newLink.href = iconDef.href;
-        if (iconDef.sizes) newLink.setAttribute('sizes', iconDef.sizes);
-        if (iconDef.type) newLink.type = iconDef.type;
-        document.head.appendChild(newLink);
+        let link = document.querySelector(`link[rel="${iconDef.rel}"][sizes="${iconDef.sizes || ''}"]`) as HTMLLinkElement ||
+                   document.querySelector(`link[rel="${iconDef.rel}"]`) as HTMLLinkElement;
+        if (link) {
+          link.href = iconDef.href;
+        } else {
+          link = document.createElement('link');
+          link.rel = iconDef.rel;
+          link.href = iconDef.href;
+          if (iconDef.sizes) link.setAttribute('sizes', iconDef.sizes);
+          if (iconDef.type) link.type = iconDef.type;
+          document.head.appendChild(link);
+        }
       });
     }
   }, [settings]);

@@ -26,11 +26,11 @@ export const lazyWithRetry = <T extends ComponentType<any>>(
         /Failed to load resource/i.test(errorMsg) ||
         /Importing a module script failed/i.test(errorMsg);
 
-      if (!pageHasAlreadyBeenForceRefreshed || isChunkError) {
-        console.warn('[ChunkLoader] Chunk load failed. Force refreshing page for latest bundle:', errorMsg);
+      if (!pageHasAlreadyBeenForceRefreshed && isChunkError) {
+        console.warn('[ChunkLoader] Chunk load failed. Force refreshing page once for latest bundle:', errorMsg);
         window.sessionStorage.setItem(key, 'true');
         window.location.reload();
-        return new Promise<{ default: T }>(() => {});
+        throw error;
       }
       throw error;
     }

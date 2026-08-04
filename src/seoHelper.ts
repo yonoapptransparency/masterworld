@@ -41,7 +41,7 @@ async function doFetchStoreData() {
 
   // Always try live Firestore database sync first
   const synced = await syncFromFirestore();
-  if (synced) {
+  if (synced && Array.isArray(synced.apps) && synced.apps.length > 0) {
     cachedData = synced;
     lastFetchTime = now;
     return synced;
@@ -247,12 +247,12 @@ function buildJsonLdSchema(params: {
     const app = params.app;
     const name = getField(app, 'name');
     const category = getField(app, 'category') || 'GameApplication';
-    const rating = parseFloat(getField(app, 'rating', '4.8')) || 4.8;
-    const ratingCount = parseInt(getField(app, 'review_count', '1250'), 10) || 1250;
+    const realRating = parseFloat(getField(app, 'rating'));
+    const realCount = parseInt(getField(app, 'review_count'), 10);
     const appLogo = getField(app, 'icon_url') || getField(app, 'og_image_url') || params.logoUrl;
     const desc = getField(app, 'seo_description') || getField(app, 'meta_description') || stripHtml(getField(app, 'description_html')) || params.description;
 
-    schemas.push({
+    const softwareAppSchema: any = {
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
       "name": name,
@@ -261,19 +261,24 @@ function buildJsonLdSchema(params: {
       "image": appLogo,
       "logo": appLogo,
       "description": desc,
-      "aggregateRating": {
-        "@type": "AggregateRating",
-        "ratingValue": rating.toString(),
-        "ratingCount": ratingCount.toString(),
-        "bestRating": "5",
-        "worstRating": "1"
-      },
       "offers": {
         "@type": "Offer",
         "price": "0",
         "priceCurrency": "INR"
       }
-    });
+    };
+
+    if (!isNaN(realRating) && realRating > 0 && !isNaN(realCount) && realCount > 0) {
+      softwareAppSchema["aggregateRating"] = {
+        "@type": "AggregateRating",
+        "ratingValue": realRating.toString(),
+        "ratingCount": realCount.toString(),
+        "bestRating": "5",
+        "worstRating": "1"
+      };
+    }
+
+    schemas.push(softwareAppSchema);
 
     schemas.push({
       "@context": "https://schema.org",
@@ -382,25 +387,64 @@ function buildJsonLdSchema(params: {
         }
       ]
     });
-  } else if (params.pageType === 'home' && params.settings && params.settings.global_faqs && Array.isArray(params.settings.global_faqs)) {
-    const globalFaqs = params.settings.global_faqs.map((faq: any) => ({
-      "@type": "Question",
-      "name": getField(faq, 'question'),
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": getField(faq, 'answer')
+  } else if (params.pageType === 'video' && params.videoItem) {
+    const v = params.videoItem;
+    const youtubeUrl = getField(v, 'youtube_url') || getField(v, 'video_url') || getField(v, 'url');
+    schemas.push({
+      "@context": "https://schema.org",
+      "@type": "VideoObject",
+      "name": getField(v, 'title'),
+      "description": getField(v, 'description') || getField(v, 'title'),
+      "thumbnailUrl": getYoutubeThumbnail(youtubeUrl) || params.logoUrl,
+      "uploadDate": getField(v, 'created_at') || new Date().toISOString(),
+      "contentUrl": youtubeUrl
+    });
+    schemas.push({
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": hostOrigin
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Videos",
+          "item": `${hostOrigin}/videos`
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": getField(v, 'title'),
+          "item": `${hostOrigin}/videos/${getField(v, 'slug')}`
+        }
+      ]
+    });
+  } else if (params.pageType === 'home' && params.settings) {
+    const rawFaqs = params.settings.global_faqs || params.settings.website_faqs;
+    if (Array.isArray(rawFaqs) && rawFaqs.length > 0) {
+      const globalFaqs = rawFaqs.map((faq: any) => ({
+        "@type": "Question",
+        "name": getField(faq, 'question'),
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": getField(faq, 'answer')
+        }
+      }));
+      if (globalFaqs.length > 0) {
+        schemas.push({
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "mainEntity": globalFaqs
+        });
       }
-    }));
-    if (globalFaqs.length > 0) {
-      schemas.push({
-        "@context": "https://schema.org",
-        "@type": "FAQPage",
-        "mainEntity": globalFaqs
-      });
     }
   }
 
-  return schemas.map(s => `<script type="application/ld+json" data-rh="true">${JSON.stringify(s)}</script>`).join('\n');
+  return schemas.map(s => `<script type="application/ld+json" data-rh="true">${JSON.stringify(s).replace(/</g, '\\u003c')}</script>`).join('\n');
 }
 
 export interface SeoInjectionResult {
@@ -560,7 +604,15 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     description = `The requested page ${cleanPath} could not be found on ${siteTitle}.`;
   }
 
-  const canonicalUrl = getCleanCanonicalUrl(customCanonicalUrl, urlPath);
+  let canonicalPath = urlPath;
+  if (pageType === 'app' && targetApp) {
+    const appSlug = getField(targetApp, 'slug');
+    if (appSlug) {
+      canonicalPath = `/${appSlug.replace(/^\/+|\/+$/g, '')}`;
+    }
+  }
+
+  const canonicalUrl = getCleanCanonicalUrl(customCanonicalUrl, canonicalPath);
 
   let pageOgImage = logoUrl;
   if (targetApp) {
@@ -603,17 +655,26 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     <title data-rh="true">${title}</title>
     <meta data-rh="true" name="description" content="${description}">
     <meta data-rh="true" name="keywords" content="${keywords}">
+    <meta data-rh="true" name="application-name" content="${siteTitle}">
+    <meta data-rh="true" name="color-scheme" content="light dark">
     ${robotsTag}
+    <meta data-rh="true" property="og:site_name" content="${siteTitle}">
+    <meta data-rh="true" property="og:locale" content="en_IN">
     <meta data-rh="true" property="og:title" content="${title}">
     <meta data-rh="true" property="og:description" content="${description}">
     <meta data-rh="true" property="og:type" content="website">
     <meta data-rh="true" property="og:url" content="${canonicalUrl}">
     <meta data-rh="true" property="og:image" content="${pageOgImage}">
     <meta data-rh="true" property="og:image:secure_url" content="${pageOgImage}">
+    <meta data-rh="true" property="og:image:width" content="1200">
+    <meta data-rh="true" property="og:image:height" content="630">
     <meta data-rh="true" name="twitter:card" content="summary_large_image">
+    <meta data-rh="true" name="twitter:site" content="@RummyDex">
+    <meta data-rh="true" name="twitter:creator" content="@RummyDex">
     <meta data-rh="true" name="twitter:title" content="${title}">
     <meta data-rh="true" name="twitter:description" content="${description}">
     <meta data-rh="true" name="twitter:image" content="${pageOgImage}">
+    <link data-rh="true" rel="alternate" type="application/rss+xml" title="RummyDex News" href="/rss.xml">
     <link data-rh="true" rel="image_src" href="${pageOgImage}">
     <link data-rh="true" rel="icon" type="image/png" sizes="192x192" href="/favicon.png">
     <link data-rh="true" rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
