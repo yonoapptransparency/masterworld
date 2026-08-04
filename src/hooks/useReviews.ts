@@ -31,17 +31,21 @@ export function useReviews(appId: string, appTitle: string) {
 
       let combinedReviews = [...localReviews];
 
-      try {
-        const res = await fetch(`/api/v1/public/reviews?app_id=${appId}`).catch(() => null);
-        if (res && res.ok) {
-          const remoteData = await res.json().catch(() => []);
-          if (Array.isArray(remoteData) && remoteData.length > 0) {
-            const dbIds = new Set(remoteData.map((r: any) => r.id));
-            const filteredLocal = localReviews.filter(r => !dbIds.has(r.id));
-            combinedReviews = [...remoteData, ...filteredLocal];
+      const isCrawler = typeof navigator !== 'undefined' && /googlebot|google-inspectiontool|bingbot|slurp|duckduckbot|baiduspider|yandexbot|crawler|spider/i.test(navigator.userAgent || '');
+
+      if (!isCrawler && appId) {
+        try {
+          const res = await fetch(`/api/v1/public/reviews?app_id=${appId}`).catch(() => null);
+          if (res && res.ok) {
+            const remoteData = await res.json().catch(() => []);
+            if (Array.isArray(remoteData) && remoteData.length > 0) {
+              const dbIds = new Set(remoteData.map((r: any) => r.id));
+              const filteredLocal = localReviews.filter(r => !dbIds.has(r.id));
+              combinedReviews = [...remoteData, ...filteredLocal];
+            }
           }
-        }
-      } catch (dbErr) {}
+        } catch (dbErr) {}
+      }
 
       combinedReviews.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       setReviews(combinedReviews);

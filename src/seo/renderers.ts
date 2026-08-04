@@ -238,12 +238,12 @@ export function renderAppDetails(slug: string, apps: any[], settings: any) {
           <div class="p-2 border border-black/5 bg-zinc-50 rounded-xl"><span class="text-zinc-400 block pb-1 font-semibold text-[10px]">Rating</span><strong>${escapeHtml(rating)} ★</strong></div>
         </div>
 
-        <a href="/s/${encodeURIComponent(slug)}" class="bg-blue-600 text-white font-bold py-4 px-10 rounded-2xl shadow hover:opacity-95">Verify Safety Status 🚀</a>
+        <a href="/s/${encodeURIComponent(slug)}" class="bg-blue-600 text-white font-bold py-3.5 px-8 rounded-xl shadow hover:bg-blue-700 transition inline-flex items-center gap-2">Sync Node &rarr;</a>
       </div>
 
       <div class="grid md:grid-cols-[2fr,1fr] gap-8">
         <div class="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-black/5 shadow-sm text-left">
-          <h2 class="text-lg font-bold mb-4">Detailed Game Review & Safe Guidelines</h2>
+          <h2 class="text-xl font-bold mb-4">About this app</h2>
           <div class="prose dark:prose-invert text-zinc-650 leading-relaxed font-semibold">${desc}</div>
           ${featureSectionContext}
           ${screenshotsHtml}

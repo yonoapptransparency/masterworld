@@ -147,7 +147,35 @@ export function clearPublicBackupCache() {
   backupDataCacheTime = 0;
 }
 
+publicApiRouter.options(["/api/v1/public/reviews", "/api/v1/public/backup-data"], (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  return res.sendStatus(200);
+});
+
+publicApiRouter.get(["/api/v1/public/reviews", "/api/public/reviews"], async (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=120");
+  const appId = req.query.app_id as string;
+  if (!appId) {
+    return res.json([]);
+  }
+  try {
+    const adminDb = getFirebaseAdminDb();
+    if (adminDb) {
+      const snap = await adminDb.collection('app_reviews').where('app_id', '==', appId).limit(50).get();
+      if (!snap.empty) {
+        const reviews = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        return res.json(reviews);
+      }
+    }
+  } catch (e) {}
+  return res.json([]);
+});
+
 publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/public/backup-data", "/public/backup-data"], async (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
   res.set("Cache-Control", "public, max-age=15, stale-while-revalidate=30");
   try {
     const now = Date.now();

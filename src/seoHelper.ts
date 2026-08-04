@@ -606,6 +606,9 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     <link data-rh="true" rel="shortcut icon" href="/favicon.ico">
     <link data-rh="true" rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link data-rh="true" rel="manifest" href="/site.webmanifest">
+    <link data-rh="true" rel="preconnect" href="https://fonts.googleapis.com">
+    <link data-rh="true" rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link data-rh="true" rel="preconnect" href="https://res.cloudinary.com" crossorigin>
     <link data-rh="true" rel="canonical" href="${canonicalUrl}">
     ${jsonLdSchema}
   `;
@@ -628,23 +631,12 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     finalHtml = `${seoTags}\n${initialDataScript}\n${finalHtml}`;
   }
 
-  // Inject pre-rendered body safely inside #seo-prerender container for search crawlers
-  const prerenderContainer = `<div id="seo-prerender">${preRenderedBody}</div>`;
+  // Inject pre-rendered body safely inside hidden #seo-prerender container for search crawlers (so visual users directly see the main app without any flash/double load)
+  const prerenderContainer = `<div id="seo-prerender" style="display:none !important; visibility:hidden !important; opacity:0 !important; pointer-events:none !important;" aria-hidden="true" hidden>${preRenderedBody}</div>`;
   if (finalHtml.includes('<div id="root"></div>')) {
-    finalHtml = finalHtml.replace('<div id="root"></div>', `<div id="root">${prerenderContainer}</div>`);
+    finalHtml = finalHtml.replace('<div id="root"></div>', `<div id="root"></div>\n${prerenderContainer}`);
   } else {
-    finalHtml = finalHtml.replace(/<div\s+id="root"[^>]*>[\s\S]*?<\/div>/i, `<div id="root">${prerenderContainer}</div>`);
-  }
-
-  // Optimize critical CSS stylesheet loading & priority if present
-  const cssMatch = finalHtml.match(/<link\s+rel="stylesheet"\s+[^>]*href="([^"]+\.css)"[^>]*>/i);
-  if (cssMatch && cssMatch[1]) {
-    const cssUrl = cssMatch[1];
-    const preloadLink = `<link rel="preload" href="${cssUrl}" as="style" fetchpriority="high">`;
-    if (!finalHtml.includes(`rel="preload" href="${cssUrl}"`)) {
-      finalHtml = finalHtml.replace(/<head>/i, `<head>\n    ${preloadLink}`);
-    }
-    finalHtml = finalHtml.replace(/<link\s+rel="stylesheet"\s+([^>]*)href=/i, `<link rel="stylesheet" fetchpriority="high" $1href=`);
+    finalHtml = finalHtml.replace(/<div\s+id="root"[^>]*>[\s\S]*?<\/div>/i, `<div id="root"></div>\n${prerenderContainer}`);
   }
 
   return { html: finalHtml, isNotFound };
