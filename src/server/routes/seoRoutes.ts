@@ -1,8 +1,43 @@
 import express from 'express';
+import path from 'path';
+import fs from 'fs';
 import { fetchStoreData, getField } from '../../seoHelper';
 
 export const seoRouter = express.Router();
 
+// 1. WebManifest route
+seoRouter.get(['/site.webmanifest', '/manifest.json'], (req, res, next) => {
+  const publicPath = path.join(process.cwd(), 'public', 'site.webmanifest');
+  const distPath = path.join(process.cwd(), 'dist', 'site.webmanifest');
+  const targetPath = fs.existsSync(distPath) ? distPath : (fs.existsSync(publicPath) ? publicPath : null);
+
+  if (targetPath) {
+    res.set({
+      'Content-Type': 'application/manifest+json; charset=utf-8',
+      'Cache-Control': 'public, max-age=86400, stale-while-revalidate=43200'
+    });
+    return res.sendFile(targetPath);
+  }
+  return next();
+});
+
+// 2. LLMs text route
+seoRouter.get(['/llms.txt'], (req, res, next) => {
+  const publicPath = path.join(process.cwd(), 'public', 'llms.txt');
+  const distPath = path.join(process.cwd(), 'dist', 'llms.txt');
+  const targetPath = fs.existsSync(distPath) ? distPath : (fs.existsSync(publicPath) ? publicPath : null);
+
+  if (targetPath) {
+    res.set({
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'public, max-age=86400'
+    });
+    return res.sendFile(targetPath);
+  }
+  return next();
+});
+
+// 3. Favicon & Logo route with local file fallback
 seoRouter.get([
   '/favicon.ico',
   '/favicon.png',
@@ -13,23 +48,31 @@ seoRouter.get([
   '/favicon-16x16.png',
   '/logo.png'
 ], async (req, res, next) => {
-  console.log('--- FAVICON/LOGO ROUTE HIT ---', req.originalUrl);
+  const reqFilename = req.path.replace(/^\//, '');
+  const localPublicPath = path.join(process.cwd(), 'public', reqFilename);
+  const localDistPath = path.join(process.cwd(), 'dist', reqFilename);
+  const localFile = fs.existsSync(localDistPath) ? localDistPath : (fs.existsSync(localPublicPath) ? localPublicPath : null);
+
   try {
-    let imageUrl = '';
+    let customImageUrl = '';
     try {
       const storeData = await fetchStoreData();
       if (storeData && storeData.settings) {
-        imageUrl = (storeData.settings.favicon_url && storeData.settings.favicon_url.trim())
+        customImageUrl = (storeData.settings.favicon_url && storeData.settings.favicon_url.trim())
            || (storeData.settings.logo_url && storeData.settings.logo_url.trim())
            || '';
       }
     } catch (dataErr) {
       console.warn("Could not retrieve store settings for favicon, using default fallback:", dataErr);
     }
-    if (!imageUrl || imageUrl.includes('ezgif-64180dd8ca74703b')) {
-      imageUrl = 'https://res.cloudinary.com/diewalae4/image/upload/v1785720339/1000132678_1_ro1ftj.png';
+
+    // If no custom URL is set, or if custom URL matches generic placeholder, serve local static file if available
+    if ((!customImageUrl || customImageUrl.includes('ezgif-64180dd8ca74703b')) && localFile) {
+      res.set('Cache-Control', 'public, max-age=86400, stale-while-revalidate=43200');
+      return res.sendFile(localFile);
     }
-    console.log('--- FAVICON/LOGO ROUTE RESOLVED TO ---', imageUrl);
+
+    const imageUrl = customImageUrl || 'https://res.cloudinary.com/diewalae4/image/upload/v1785720339/1000132678_1_ro1ftj.png';
     try {
       const response = await fetch(imageUrl, {
         headers: {
@@ -58,21 +101,137 @@ seoRouter.get([
 
         res.set('Content-Type', contentType);
         res.set('Cache-Control', 'public, max-age=86400, stale-while-revalidate=43200');
-        console.log('--- FAVICON/LOGO PROXIED SECURELY ---', contentType, response.status);
         return res.status(200).send(buffer);
+      } else if (localFile) {
+        res.set('Cache-Control', 'public, max-age=86400, stale-while-revalidate=43200');
+        return res.sendFile(localFile);
       } else {
-        console.warn(`Favicon proxy fetch returned status ${response.status}. Falling back to 302 redirect.`);
         res.set('Cache-Control', 'public, max-age=3600');
         return res.redirect(302, imageUrl);
       }
     } catch (fetchErr) {
-      console.error("Failed to proxy favicon content, falling back to 302 redirect:", fetchErr);
+      if (localFile) {
+        res.set('Cache-Control', 'public, max-age=86400, stale-while-revalidate=43200');
+        return res.sendFile(localFile);
+      }
       return res.redirect(302, imageUrl);
     }
   } catch (err) {
-    console.error("Favicon/Logo proxy routing failed:", err);
+    if (localFile) {
+      return res.sendFile(localFile);
+    }
   }
   return next();
+});
+
+// 4. RSS Feed route (/rss.xml, /rss, /feed)
+seoRouter.get(['/rss.xml', '/rss', '/feed', '/feed.xml'], async (req, res) => {
+  try {
+    let rawDomain = process.env.PUBLIC_DOMAIN || process.env.VITE_PUBLIC_DOMAIN || (req.get('host') ? `https://${req.get('host')}` : 'https://www.rummydex.com');
+    if (!rawDomain.startsWith('http://') && !rawDomain.startsWith('https://')) {
+      rawDomain = `https://${rawDomain}`;
+    }
+    const host = rawDomain.replace(/\/$/, '');
+
+    const data = await fetchStoreData().catch(() => null);
+    const { apps = [], news = [], blogs = [] } = data || {};
+
+    const escapeXml = (unsafe: any) => {
+      if (typeof unsafe !== 'string') unsafe = String(unsafe || '');
+      return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    };
+
+    let itemsXml = '';
+
+    // Add News
+    for (const newsItem of (news || []).slice(0, 15)) {
+      const title = getField(newsItem, 'title');
+      const slug = getField(newsItem, 'slug');
+      const desc = getField(newsItem, 'excerpt') || getField(newsItem, 'summary') || getField(newsItem, 'content') || title;
+      const dateStr = getField(newsItem, 'created_at') || getField(newsItem, 'published_at') || new Date().toISOString();
+      const pubDate = new Date(dateStr).toUTCString();
+
+      if (title && slug) {
+        const link = `${host}/news/${encodeURI(slug.trim().replace(/^\/+|\/+$/g, ''))}`;
+        itemsXml += `
+    <item>
+      <title>${escapeXml(title)}</title>
+      <link>${escapeXml(link)}</link>
+      <guid isPermaLink="true">${escapeXml(link)}</guid>
+      <description>${escapeXml(desc)}</description>
+      <pubDate>${pubDate}</pubDate>
+    </item>`;
+      }
+    }
+
+    // Add Blogs
+    for (const blogItem of (blogs || []).slice(0, 10)) {
+      const title = getField(blogItem, 'title');
+      const slug = getField(blogItem, 'slug');
+      const desc = getField(blogItem, 'excerpt') || getField(blogItem, 'summary') || title;
+      const dateStr = getField(blogItem, 'created_at') || new Date().toISOString();
+      const pubDate = new Date(dateStr).toUTCString();
+
+      if (title && slug) {
+        const link = `${host}/blog/${encodeURI(slug.trim().replace(/^\/+|\/+$/g, ''))}`;
+        itemsXml += `
+    <item>
+      <title>${escapeXml(title)}</title>
+      <link>${escapeXml(link)}</link>
+      <guid isPermaLink="true">${escapeXml(link)}</guid>
+      <description>${escapeXml(desc)}</description>
+      <pubDate>${pubDate}</pubDate>
+    </item>`;
+      }
+    }
+
+    // Add Latest Apps
+    for (const appItem of (apps || []).slice(0, 10)) {
+      const name = getField(appItem, 'name');
+      const slug = getField(appItem, 'slug');
+      const desc = getField(appItem, 'short_description') || getField(appItem, 'description') || name;
+      const dateStr = getField(appItem, 'updated_at') || getField(appItem, 'created_at') || new Date().toISOString();
+      const pubDate = new Date(dateStr).toUTCString();
+
+      if (name && slug) {
+        const link = `${host}/${encodeURI(slug.trim().replace(/^\/+|\/+$/g, ''))}`;
+        itemsXml += `
+    <item>
+      <title>${escapeXml(name)} - Download APK &amp; Play</title>
+      <link>${escapeXml(link)}</link>
+      <guid isPermaLink="true">${escapeXml(link)}</guid>
+      <description>${escapeXml(desc)}</description>
+      <pubDate>${pubDate}</pubDate>
+    </item>`;
+      }
+    }
+
+    const rssXml = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>RummyDex News &amp; Latest Rummy Apps</title>
+    <link>${host}</link>
+    <description>Latest Rummy applications, card game news, updates, and reviews on RummyDex.</description>
+    <language>en-IN</language>
+    <atom:link href="${host}/rss.xml" rel="self" type="application/rss+xml" />
+    ${itemsXml}
+  </channel>
+</rss>`;
+
+    res.set({
+      'Content-Type': 'application/rss+xml; charset=utf-8',
+      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400'
+    });
+    return res.status(200).send(rssXml);
+  } catch (e) {
+    console.error("RSS feed generation error:", e);
+    res.status(500).type('text/plain').send('Error generating RSS feed');
+  }
 });
 
 seoRouter.get('/robots.txt', async (req, res) => {

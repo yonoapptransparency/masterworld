@@ -165,6 +165,15 @@ async function startServer() {
       return next();
     }
 
+    // In production, if an API request or static asset request reaches this catch-all, return a proper 404 instead of 50KB+ HTML
+    if (req.originalUrl.startsWith('/api/')) {
+      return res.status(404).json({ error: 'API endpoint not found' });
+    }
+
+    if (req.originalUrl.startsWith('/assets/') || req.originalUrl.match(/\.(js|css|json|png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf|eot|map|webmanifest|txt|xml)$/i)) {
+      return res.status(404).type('text/plain').send('File not found');
+    }
+
     let templatePath: string;
     if (process.env.NODE_ENV !== "production") {
       templatePath = path.join(process.cwd(), 'index.html');
