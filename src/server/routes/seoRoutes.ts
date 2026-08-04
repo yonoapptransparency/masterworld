@@ -125,7 +125,7 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
     const host = rawDomain.replace(/\/$/, '');
 
     let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
-    xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
+    xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n`;
 
     const today = new Date().toISOString().split('T')[0];
 
@@ -164,10 +164,19 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
     };
 
     const seenUrls = new Set<string>();
-    const addUrl = (loc: string, lastmod: string, changefreq: string, priority: string) => {
+    const addUrl = (loc: string, lastmod: string, changefreq: string, priority: string, imageUrl?: string, imageTitle?: string) => {
       if (!seenUrls.has(loc)) {
         seenUrls.add(loc);
-        xml += `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>${changefreq}</changefreq>\n    <priority>${priority}</priority>\n  </url>\n`;
+        let itemXml = `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>${changefreq}</changefreq>\n    <priority>${priority}</priority>\n`;
+        if (imageUrl) {
+          itemXml += `    <image:image>\n      <image:loc>${escapeXml(imageUrl)}</image:loc>\n`;
+          if (imageTitle) {
+            itemXml += `      <image:title>${escapeXml(imageTitle)}</image:title>\n`;
+          }
+          itemXml += `    </image:image>\n`;
+        }
+        itemXml += `  </url>\n`;
+        xml += itemXml;
       }
     };
 
@@ -202,10 +211,12 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
       if (slug) {
         const cSlug = cleanSlug(slug);
         const appDate = getFormattedDate(app);
+        const appImage = getField(app, 'icon_url') || getField(app, 'og_image_url');
+        const appName = getField(app, 'name');
 
         // Standard App detail URL
         const appLoc = `${host}/app/${cSlug}`;
-        addUrl(appLoc, appDate, 'daily', '0.9');
+        addUrl(appLoc, appDate, 'daily', '0.9', appImage, appName);
       }
     }
 

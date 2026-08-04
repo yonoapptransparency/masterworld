@@ -62,7 +62,6 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  transition: background-color 0.3s ease, color 0.3s ease;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -99,8 +98,8 @@ a {
   }
 }
 
-.glass-panel:active, button:active, .will-scale:active, a:active .glass-panel, a.group:active {
-  transform: scale(0.97) !important;
+.glass-panel:active, button:active, .will-scale:active, a:active .glass-panel {
+  transform: scale(0.98) !important;
   transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
@@ -179,7 +178,6 @@ a {
 
 .animate-list-item-fade {
   animation: listItemFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
-  will-change: transform, opacity;
 }
 
 /* Hardware accelerated horizontal scroll containers for maximum touch smoothness */

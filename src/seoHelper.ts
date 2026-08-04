@@ -249,8 +249,8 @@ function buildJsonLdSchema(params: {
     const category = getField(app, 'category') || 'GameApplication';
     const rating = parseFloat(getField(app, 'rating', '4.8')) || 4.8;
     const ratingCount = parseInt(getField(app, 'review_count', '1250'), 10) || 1250;
-    const icon = getField(app, 'icon_url') || params.logoUrl;
-    const desc = getField(app, 'meta_description') || stripHtml(getField(app, 'description_html')) || params.description;
+    const appLogo = getField(app, 'icon_url') || getField(app, 'og_image_url') || params.logoUrl;
+    const desc = getField(app, 'seo_description') || getField(app, 'meta_description') || stripHtml(getField(app, 'description_html')) || params.description;
 
     schemas.push({
       "@context": "https://schema.org",
@@ -258,7 +258,8 @@ function buildJsonLdSchema(params: {
       "name": name,
       "operatingSystem": "Android, iOS",
       "applicationCategory": category,
-      "image": icon,
+      "image": appLogo,
+      "logo": appLogo,
       "description": desc,
       "aggregateRating": {
         "@type": "AggregateRating",
@@ -271,6 +272,20 @@ function buildJsonLdSchema(params: {
         "@type": "Offer",
         "price": "0",
         "priceCurrency": "INR"
+      }
+    });
+
+    schemas.push({
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      "@id": `${hostOrigin}/${getField(app, 'slug')}#webpage`,
+      "url": `${hostOrigin}/${getField(app, 'slug')}`,
+      "name": params.title,
+      "description": desc,
+      "primaryImageOfPage": {
+        "@type": "ImageObject",
+        "url": appLogo,
+        "contentUrl": appLogo
       }
     });
 
@@ -517,8 +532,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     const videoItem = videos.find((v: any) => getField(v, 'slug')?.toLowerCase() === appSlug);
 
     if (app) {
-      title = `${getField(app, 'name')} | ${siteTitle}`;
-      description = cleanSeoDescription(getField(app, 'meta_description') || stripHtml(getField(app, 'description_html')).substring(0, 160));
+      title = getField(app, 'seo_title') || `${getField(app, 'name')} | ${siteTitle}`;
+      description = cleanSeoDescription(getField(app, 'seo_description') || getField(app, 'meta_description') || stripHtml(getField(app, 'description_html')).substring(0, 160));
       customCanonicalUrl = getField(app, 'canonical_url');
       pageType = 'app';
       targetApp = app;
@@ -549,7 +564,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
 
   let pageOgImage = logoUrl;
   if (targetApp) {
-    pageOgImage = getField(targetApp, 'og_image_url') || getField(targetApp, 'icon_url') || logoUrl;
+    pageOgImage = getField(targetApp, 'icon_url') || getField(targetApp, 'og_image_url') || logoUrl;
   } else if (targetNews) {
     pageOgImage = getField(targetNews, 'logo_url') || getField(targetNews, 'image_url') || logoUrl;
   } else if (targetVideo) {
