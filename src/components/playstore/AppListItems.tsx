@@ -27,7 +27,7 @@ const AppOptionsMenu = ({ app, onMenuToggle }: { app: any; onMenuToggle?: (isOpe
   const handleShare = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const appUrl = `${window.location.origin}/${app.slug}`;
+    const appUrl = `${window.location.origin}/app/${app.slug}`;
     if (navigator.share) {
       navigator.share({
         title: app.name,

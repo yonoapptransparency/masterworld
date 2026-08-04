@@ -29,8 +29,14 @@ export const lazyWithRetry = <T extends ComponentType<any>>(
       if (!pageHasAlreadyBeenForceRefreshed && isChunkError) {
         console.warn('[ChunkLoader] Chunk load failed. Force refreshing page once for latest bundle:', errorMsg);
         window.sessionStorage.setItem(key, 'true');
-        window.location.reload();
-        throw error;
+        try {
+          const url = new URL(window.location.href);
+          url.searchParams.set('_v', String(Date.now()));
+          window.location.href = url.toString();
+        } catch (e) {
+          window.location.reload();
+        }
+        return new Promise(() => {}); // Prevent throwing into ErrorBoundary while browser reloads
       }
       throw error;
     }

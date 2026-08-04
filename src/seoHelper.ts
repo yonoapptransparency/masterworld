@@ -283,8 +283,8 @@ function buildJsonLdSchema(params: {
     schemas.push({
       "@context": "https://schema.org",
       "@type": "WebPage",
-      "@id": `${hostOrigin}/${getField(app, 'slug')}#webpage`,
-      "url": `${hostOrigin}/${getField(app, 'slug')}`,
+      "@id": `${hostOrigin}/app/${getField(app, 'slug')}#webpage`,
+      "url": `${hostOrigin}/app/${getField(app, 'slug')}`,
       "name": params.title,
       "description": desc,
       "primaryImageOfPage": {
@@ -314,7 +314,7 @@ function buildJsonLdSchema(params: {
           "@type": "ListItem",
           "position": 3,
           "name": name,
-          "item": `${hostOrigin}/${getField(app, 'slug')}`
+          "item": `${hostOrigin}/app/${getField(app, 'slug')}`
         }
       ]
     });
@@ -608,7 +608,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   if (pageType === 'app' && targetApp) {
     const appSlug = getField(targetApp, 'slug');
     if (appSlug) {
-      canonicalPath = `/${appSlug.replace(/^\/+|\/+$/g, '')}`;
+      canonicalPath = `/app/${appSlug.replace(/^\/+|\/+$/g, '')}`;
     }
   }
 
