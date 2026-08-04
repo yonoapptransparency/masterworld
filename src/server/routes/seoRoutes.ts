@@ -54,25 +54,49 @@ seoRouter.get([
   const localFile = fs.existsSync(localDistPath) ? localDistPath : (fs.existsSync(localPublicPath) ? localPublicPath : null);
 
   try {
-    let customImageUrl = '';
+    let customFaviconUrl = '';
+    let customLogoUrl = '';
     try {
       const storeData = await fetchStoreData();
       if (storeData && storeData.settings) {
-        customImageUrl = (storeData.settings.favicon_url && storeData.settings.favicon_url.trim())
-           || (storeData.settings.logo_url && storeData.settings.logo_url.trim())
-           || '';
+        customFaviconUrl = (storeData.settings.favicon_url && storeData.settings.favicon_url.trim()) || '';
+        customLogoUrl = (storeData.settings.logo_url && storeData.settings.logo_url.trim()) || '';
       }
     } catch (dataErr) {
       console.warn("Could not retrieve store settings for favicon, using default fallback:", dataErr);
     }
 
-    // If no custom URL is set, or if custom URL matches generic placeholder, serve local static file if available
-    if ((!customImageUrl || customImageUrl.includes('ezgif-64180dd8ca74703b')) && localFile) {
-      res.set('Cache-Control', 'public, max-age=86400, stale-while-revalidate=43200');
+    const isDefaultOrPlaceholder = (url: string) => {
+      if (!url) return true;
+      return url.includes('ezgif-64180dd8ca74703b') ||
+             url.includes('1000132678_1_ro1ftj') ||
+             url.includes('v1785720339');
+    };
+
+    const isSizedFaviconReq = [
+      'favicon-16x16.png',
+      'favicon-32x32.png',
+      'favicon.ico',
+      'apple-touch-icon.png',
+      'apple-touch-icon-precomposed.png'
+    ].includes(reqFilename);
+
+    // If local static file exists AND (custom URL is default/placeholder OR it is a specific sized favicon request where customFaviconUrl is not explicitly custom):
+    if (localFile && (isSizedFaviconReq || isDefaultOrPlaceholder(customFaviconUrl))) {
+      const contentType = reqFilename.endsWith('.ico')
+        ? 'image/x-icon'
+        : (reqFilename.endsWith('.webp') ? 'image/webp' : 'image/png');
+      res.set({
+        'Content-Type': contentType,
+        'Cache-Control': 'public, max-age=31536000, immutable',
+        'Content-Disposition': `inline; filename="${reqFilename}"`
+      });
       return res.sendFile(localFile);
     }
 
-    const imageUrl = customImageUrl || 'https://res.cloudinary.com/diewalae4/image/upload/v1785720339/1000132678_1_ro1ftj.png';
+    const imageUrl = (!isDefaultOrPlaceholder(customFaviconUrl) ? customFaviconUrl : null) ||
+                     (!isDefaultOrPlaceholder(customLogoUrl) ? customLogoUrl : null) ||
+                     'https://res.cloudinary.com/diewalae4/image/upload/v1785720339/1000132678_1_ro1ftj.png';
     try {
       const response = await fetch(imageUrl, {
         headers: {
