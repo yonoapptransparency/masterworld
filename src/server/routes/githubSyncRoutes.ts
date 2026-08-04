@@ -1,8 +1,9 @@
 import express from 'express';
+import { verifyAdminToken } from '../middleware/adminAuth';
 
 export const githubSyncRouter = express.Router();
 
-githubSyncRouter.post("/api/github-sync/test", async (req, res) => {
+githubSyncRouter.post("/api/github-sync/test", verifyAdminToken, async (req, res) => {
   try {
     const { owner, repo, token } = req.body || {};
 
@@ -52,7 +53,7 @@ githubSyncRouter.post("/api/github-sync/test", async (req, res) => {
   }
 });
 
-githubSyncRouter.post("/api/github-sync/commit", async (req, res) => {
+githubSyncRouter.post("/api/github-sync/commit", verifyAdminToken, async (req, res) => {
   try {
     const { owner, repo, token, branch, path: filePath, content, message } = req.body || {};
 

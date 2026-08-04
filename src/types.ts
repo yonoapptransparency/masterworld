@@ -109,6 +109,7 @@ export interface AppConfig {
   is_hot?: boolean;
   release_notes: string;
   rating: number;
+  review_count?: number;
   created_at: string;
   custom_admin_box_html?: string;
   custom_admin_box_heading?: string;

@@ -10,43 +10,7 @@ import GlobalErrorBoundary from './components/GlobalErrorBoundary';
 import './index.css';
 import './i18n';
 
-// Prevent crashes caused by Google Translate or browser extension DOM mutations during React reconciliation
-if (typeof Node !== 'undefined' && Node.prototype) {
-  const originalRemoveChild = Node.prototype.removeChild;
-  Node.prototype.removeChild = function <T extends Node>(child: T): T {
-    if (!child) return child;
-    if (child.parentNode && child.parentNode !== this) {
-      return child.parentNode.removeChild(child) as T;
-    }
-    if (!child.parentNode) {
-      return child;
-    }
-    try {
-      return originalRemoveChild.call(this, child) as T;
-    } catch (e) {
-      return child;
-    }
-  };
 
-  const originalInsertBefore = Node.prototype.insertBefore;
-  Node.prototype.insertBefore = function <T extends Node>(node: T, child: Node | null): T {
-    if (child && child.parentNode !== this) {
-      if (child.parentNode) {
-        return child.parentNode.insertBefore(node, child) as T;
-      }
-      try {
-        return originalInsertBefore.call(this, node, null) as T;
-      } catch (e) {
-        return node;
-      }
-    }
-    try {
-      return originalInsertBefore.call(this, node, child) as T;
-    } catch (e) {
-      return node;
-    }
-  };
-}
 
 // Force wipe old mock/static data from local storage cache
 const CACHE_VERSION = '5.0';

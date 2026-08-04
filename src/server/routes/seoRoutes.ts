@@ -438,8 +438,10 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
         const cSlug = cleanSlug(slug);
         const appDate = getFormattedDate(app);
         addUrl(`${host}/s/${cSlug}`, appDate, 'weekly', '0.8');
+        addUrl(`${host}/app/${cSlug}`, appDate, 'daily', '0.8');
         addUrl(`${host}/info/${cSlug}`, appDate, 'monthly', '0.6');
         addUrl(`${host}/moreinfo/${cSlug}`, appDate, 'monthly', '0.6');
+        addUrl(`${host}/moredetail/${cSlug}`, appDate, 'monthly', '0.6');
       }
     }
 
