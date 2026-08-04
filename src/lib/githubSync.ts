@@ -4,6 +4,7 @@
  */
 
 import { ensureDefaultSettings } from './defaultLegalContent';
+import { adminFetch } from '../services/adminAuthService';
 
 export interface GitConfig {
   owner: string;
@@ -321,13 +322,8 @@ export async function commitFileToGitHub({
   content: string;
   message: string;
 }) {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json'
-  };
-
-  const response = await fetch('/api/github-sync/commit', {
+  const response = await adminFetch('/api/github-sync/commit', {
     method: 'POST',
-    headers,
     body: JSON.stringify({
       owner,
       repo,

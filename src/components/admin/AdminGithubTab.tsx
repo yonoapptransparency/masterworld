@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Github, Save, RefreshCw, Upload, FileText, ShieldAlert, Link as LinkIcon } from 'lucide-react';
 import { toast } from '../Toast';
+import { adminFetch } from '../../services/adminAuthService';
 
 interface AdminGithubTabProps {
   pushAllToGitHub: (e?: any, logCb?: (msg: string) => void, appsList?: any[], settings?: any, newsList?: any[], blogs?: any[], videosList?: any[]) => Promise<any>;
@@ -75,11 +76,8 @@ export const AdminGithubTab = React.memo(({
     setSyncing(true);
     setLogs(prev => [...prev, "Testing GitHub Connection..."]);
     try {
-      const res = await fetch('/api/github-sync/test', {
+      const res = await adminFetch('/api/github-sync/test', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify(localConfig)
       });
       
