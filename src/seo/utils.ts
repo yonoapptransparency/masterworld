@@ -72,3 +72,19 @@ export function ensureAbsoluteUrl(imgUrl?: string, origin = 'https://www.rummyde
   return `${origin}${imgUrl.startsWith('/') ? '' : '/'}${imgUrl}`;
 }
 
+export function getOgImageUrl(url?: string, origin = 'https://www.rummydex.com'): string {
+  if (!url) return '';
+  let absUrl = ensureAbsoluteUrl(url, origin);
+  if (absUrl.includes('res.cloudinary.com')) {
+    if (absUrl.includes('/upload/')) {
+      if (absUrl.includes('f_webp') || absUrl.includes('f_auto')) {
+        absUrl = absUrl.replace(/f_webp|f_auto/, 'f_jpg');
+      } else if (!absUrl.includes('f_jpg')) {
+        absUrl = absUrl.replace('/upload/', '/upload/f_jpg,q_auto/');
+      }
+    }
+  }
+  return absUrl;
+}
+
+

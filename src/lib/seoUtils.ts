@@ -1,3 +1,7 @@
+import { getOgImageUrl } from '../seo/utils';
+
+export { getOgImageUrl };
+
 export function getCleanCanonicalUrl(rawUrl?: string, fallbackPath: string = '/'): string {
   const DEFAULT_PRIMARY_DOMAIN = 'https://www.rummydex.com';
   let input = (rawUrl || '').trim();

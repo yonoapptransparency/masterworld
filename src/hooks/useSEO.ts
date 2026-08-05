@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import i18n from '../i18n';
 import { AppConfig, GlobalSettings, NewsItem, BlogPost, VideoItem } from '../types';
-import { ensureAbsoluteUrl, getYoutubeThumbnail as parseYoutubeThumbnail } from '../seo/utils';
+import { ensureAbsoluteUrl, getOgImageUrl, getYoutubeThumbnail as parseYoutubeThumbnail } from '../seo/utils';
 import { getCleanCanonicalUrl } from '../lib/seoUtils';
 
 export function useSEO(
@@ -120,7 +120,7 @@ export function useSEO(
         const rawHtml = app.description_html || '';
         pageDesc = rawDesc ? rawDesc : (rawHtml ? stripHtml(rawHtml).substring(0, 160) : '');
         pageKeywords = app.seo_keywords || '';
-        pageOgImage = app.icon_url || app.og_image_url || settings.logo_url || '';
+        pageOgImage = app.og_image_url || app.icon_url || settings.logo_url || '';
       }
     } else if (path.startsWith('/s/')) {
       const slug = decodeURIComponent(path.split('/s/')[1]?.split('?')[0] || '');
@@ -131,7 +131,7 @@ export function useSEO(
         const rawHtml = app.description_html || '';
         pageDesc = rawDesc ? rawDesc : (rawHtml ? stripHtml(rawHtml).substring(0, 160) : '');
         pageKeywords = app.seo_keywords || '';
-        pageOgImage = app.icon_url || app.og_image_url || settings.logo_url || '';
+        pageOgImage = app.og_image_url || app.icon_url || settings.logo_url || '';
       }
     } else if (path.startsWith('/news/') && path.length > 6) {
       const slug = decodeURIComponent(path.split('/news/')[1]?.split('/')[0]?.split('?')[0] || '');
@@ -142,7 +142,7 @@ export function useSEO(
         const rawContent = newsItem.description || '';
         pageDesc = rawDesc ? rawDesc : (rawContent ? stripHtml(rawContent).substring(0, 160) : '');
         pageKeywords = newsItem.seo_keywords || '';
-        pageOgImage = newsItem.logo_url || settings.logo_url || '';
+        pageOgImage = newsItem.og_image_url || newsItem.logo_url || settings.logo_url || '';
         pageAuthor = newsItem.ceo_name || siteTitle;
       }
     } else if (path.startsWith('/blog/') && path.length > 6) {
@@ -174,7 +174,7 @@ export function useSEO(
         pageTitle = `More Info: ${app.seo_title || app.name || siteTitle}`;
         pageDesc = `Detailed information about ${app.name}.`;
         pageKeywords = app.seo_keywords || '';
-        pageOgImage = app.icon_url || app.og_image_url || settings.logo_url || '';
+        pageOgImage = app.og_image_url || app.icon_url || settings.logo_url || '';
       }
     } else {
       const cleanSlug = path.replace(/^\/|\/$/g, '').split('?')[0];
@@ -186,12 +186,12 @@ export function useSEO(
           const rawHtml = app.description_html || '';
           pageDesc = rawDesc ? rawDesc : (rawHtml ? stripHtml(rawHtml).substring(0, 160) : '');
           pageKeywords = app.seo_keywords || '';
-          pageOgImage = app.icon_url || app.og_image_url || settings.logo_url || '';
+          pageOgImage = app.og_image_url || app.icon_url || settings.logo_url || '';
         }
       }
     }
 
-    pageOgImage = ensureAbsoluteUrl(pageOgImage, window.location.origin);
+    pageOgImage = getOgImageUrl(pageOgImage, window.location.origin);
 
     document.title = pageTitle;
 

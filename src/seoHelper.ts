@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { getSafeFirebaseConfig } from './seo/firebaseConfig';
 import { syncFromFirestore } from './seo/sync';
-import { getField, stripHtml, getYoutubeThumbnail, ensureAbsoluteUrl } from './seo/utils';
+import { getField, stripHtml, getYoutubeThumbnail, ensureAbsoluteUrl, getOgImageUrl } from './seo/utils';
 import * as renderers from './seo/renderers';
 import { getCleanCanonicalUrl } from './lib/seoUtils';
 
@@ -28,7 +28,7 @@ let lastFetchTime = 0;
 const CACHE_TTL = 15000; // 15 seconds
 let isFetchingStoreData = false;
 
-export { getField, getSafeFirebaseConfig, syncFromFirestore };
+export { getField, getSafeFirebaseConfig, syncFromFirestore, getOgImageUrl };
 
 export function clearSeoCache() {
   cachedData = null;
@@ -249,7 +249,7 @@ function buildJsonLdSchema(params: {
     const category = getField(app, 'category') || 'GameApplication';
     const realRating = parseFloat(getField(app, 'rating'));
     const realCount = parseInt(getField(app, 'review_count'), 10);
-    const appLogo = getField(app, 'icon_url') || getField(app, 'og_image_url') || params.logoUrl;
+    const appLogo = getOgImageUrl(getField(app, 'og_image_url') || getField(app, 'icon_url') || params.logoUrl, hostOrigin);
     const desc = getField(app, 'seo_description') || getField(app, 'meta_description') || stripHtml(getField(app, 'description_html')) || params.description;
 
     const softwareAppSchema: any = {
@@ -616,9 +616,9 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
 
   let pageOgImage = logoUrl;
   if (targetApp) {
-    pageOgImage = getField(targetApp, 'icon_url') || getField(targetApp, 'og_image_url') || logoUrl;
+    pageOgImage = getField(targetApp, 'og_image_url') || getField(targetApp, 'icon_url') || logoUrl;
   } else if (targetNews) {
-    pageOgImage = getField(targetNews, 'logo_url') || getField(targetNews, 'image_url') || logoUrl;
+    pageOgImage = getField(targetNews, 'og_image_url') || getField(targetNews, 'logo_url') || getField(targetNews, 'image_url') || logoUrl;
   } else if (targetVideo) {
     const ytThumb = getYoutubeThumbnail(getField(targetVideo, 'youtube_url'));
     if (ytThumb) pageOgImage = ytThumb;
@@ -628,7 +628,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   try {
     domain = canonicalUrl ? new URL(canonicalUrl).origin : 'https://www.rummydex.com';
   } catch (e) {}
-  pageOgImage = ensureAbsoluteUrl(pageOgImage, domain);
+  pageOgImage = getOgImageUrl(pageOgImage, domain);
 
   // Generate full pre-rendered HTML for search engine crawlers (H1, H2, body content)
   const preRenderedBody = await getPagePreRender(urlPath, data);
@@ -666,6 +666,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     <meta data-rh="true" property="og:url" content="${canonicalUrl}">
     <meta data-rh="true" property="og:image" content="${pageOgImage}">
     <meta data-rh="true" property="og:image:secure_url" content="${pageOgImage}">
+    <meta data-rh="true" property="og:image:type" content="image/jpeg">
     <meta data-rh="true" property="og:image:width" content="1200">
     <meta data-rh="true" property="og:image:height" content="630">
     <meta data-rh="true" name="twitter:card" content="summary_large_image">

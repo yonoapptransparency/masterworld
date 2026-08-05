@@ -1,7 +1,7 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
-import { fetchStoreData, getField } from '../../seoHelper';
+import { fetchStoreData, getField, getOgImageUrl } from '../../seoHelper';
 
 export const seoRouter = express.Router();
 
@@ -403,7 +403,7 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
       if (slug) {
         const cSlug = cleanSlug(slug);
         const appDate = getFormattedDate(app);
-        const appImage = getField(app, 'icon_url') || getField(app, 'og_image_url');
+        const appImage = getOgImageUrl(getField(app, 'og_image_url') || getField(app, 'icon_url'));
         const appName = getField(app, 'name');
 
         // Standard App detail URL
