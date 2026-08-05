@@ -58,6 +58,8 @@ export const AppForm = ({
       <input type="hidden" name="hidden_red_box_msg" value={formFields.red_box_msg || ''} />
       <input type="hidden" name="hidden_yellow_box_msg" value={formFields.yellow_box_msg || ''} />
       <input type="hidden" name="hidden_idea_box_msg" value={formFields.idea_box_msg || ''} />
+      <input type="hidden" name="hidden_custom_admin_box_heading" value={formFields.custom_admin_box_heading || ''} />
+      <input type="hidden" name="hidden_custom_admin_box_html" value={formFields.custom_admin_box_html || ''} />
       <input type="hidden" name="hidden_screenshots_json" value={JSON.stringify(formFields.screenshots || [])} />
       <input type="hidden" name="hidden_faqs_json" value={JSON.stringify(formFields.faqs || [])} />
       <input type="hidden" name="hidden_canonical_url" value={formFields.canonical_url || ''} />
