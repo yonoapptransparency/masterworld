@@ -176,6 +176,8 @@ export default function AdminDashboard() {
         developer: formFieldsOverride?.developer ?? (formData?.get('developer') as string) ?? 'Admin',
         description_html: formFieldsOverride?.description_html ?? (formData ? (formData.get('description_html') as string ?? formData.get('hidden_description_html') as string) : '') ?? '',
         features_html: formFieldsOverride?.features_html ?? (formData ? (formData.get('features_html') as string ?? formData.get('hidden_features_html') as string) : '') ?? '',
+        custom_admin_box_heading: formFieldsOverride?.custom_admin_box_heading ?? (formData ? (formData.get('custom_admin_box_heading') as string ?? formData.get('hidden_custom_admin_box_heading') as string) : '') ?? '',
+        custom_admin_box_html: formFieldsOverride?.custom_admin_box_html ?? (formData ? (formData.get('custom_admin_box_html') as string ?? formData.get('hidden_custom_admin_box_html') as string) : '') ?? '',
         seo_title: formFieldsOverride?.seo_title ?? (formData ? (formData.get('seo_title') as string ?? formData.get('hidden_seo_title') as string) : '') ?? '',
         seo_description: formFieldsOverride?.seo_description ?? (formData ? (formData.get('seo_description') as string ?? formData.get('hidden_seo_description') as string) : '') ?? '',
         seo_keywords: formFieldsOverride?.seo_keywords ?? (formData ? (formData.get('seo_keywords') as string ?? formData.get('hidden_seo_keywords') as string) : '') ?? '',
