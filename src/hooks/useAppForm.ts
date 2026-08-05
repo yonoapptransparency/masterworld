@@ -75,8 +75,17 @@ export const useAppForm = (editApp: any, editingAppId: string | null, appsList: 
           custom_admin_box_heading: editApp?.custom_admin_box_heading || '',
           custom_admin_box_html: editApp?.custom_admin_box_html || '',
           description_html: editApp?.description_html || '',
-          category_list: editApp?.category ? editApp.category.split(',').map((c: string) => c.trim()) : [],
-          custom_category: editApp?.category ? editApp.category.split(',').map((c: string) => c.trim()).filter((c: string) => !categories?.map((cg: string) => cg.toLowerCase()).includes(c.toLowerCase())).join(', ') : '',
+          category_list: (() => {
+            const allCats = editApp?.category ? editApp.category.split(',').map((c: string) => c.trim()).filter(Boolean) : [];
+            const categoriesLower = (categories || []).map((cg: string) => cg.toLowerCase());
+            return allCats.filter((c: string) => categoriesLower.includes(c.toLowerCase()));
+          })(),
+          custom_category: (() => {
+            const allCats = editApp?.category ? editApp.category.split(',').map((c: string) => c.trim()).filter(Boolean) : [];
+            const categoriesLower = (categories || []).map((cg: string) => cg.toLowerCase());
+            const customCats = allCats.filter((c: string) => !categoriesLower.includes(c.toLowerCase()));
+            return customCats.filter((c, i) => customCats.findIndex(x => x.toLowerCase() === c.toLowerCase()) === i).join(', ');
+          })(),
           faqs: editApp?.faqs || [],
           screenshots: editApp?.screenshots || []
         });

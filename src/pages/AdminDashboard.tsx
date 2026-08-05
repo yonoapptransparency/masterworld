@@ -131,11 +131,31 @@ export default function AdminDashboard() {
       let category = 'General';
       if (formFieldsOverride) {
         let catArr: string[] = [];
-        if (Array.isArray(formFieldsOverride.category_list)) catArr = [...formFieldsOverride.category_list];
-        if (formFieldsOverride.custom_category?.trim()) catArr.push(formFieldsOverride.custom_category.trim());
-        if (catArr.length > 0) category = catArr.filter(Boolean).join(', ');
+        if (Array.isArray(formFieldsOverride.category_list)) {
+          catArr = [...formFieldsOverride.category_list].filter(Boolean);
+        }
+        if (formFieldsOverride.custom_category?.trim()) {
+          const customItems = formFieldsOverride.custom_category
+            .split(',')
+            .map((s: string) => s.trim())
+            .filter(Boolean);
+          catArr.push(...customItems);
+        }
+        const uniqueCats = catArr.filter((item, index) => {
+          return catArr.findIndex(c => c.toLowerCase() === item.toLowerCase()) === index;
+        });
+        if (uniqueCats.length > 0) category = uniqueCats.join(', ');
       } else if (formData) {
-        category = (formData.getAll('category_list') as string[]).filter(Boolean).join(', ') || 'General';
+        let catArr: string[] = (formData.getAll('category_list') as string[]).filter(Boolean);
+        const customVal = (formData.get('custom_category') as string || '').trim();
+        if (customVal) {
+          const customItems = customVal.split(',').map((s: string) => s.trim()).filter(Boolean);
+          catArr.push(...customItems);
+        }
+        const uniqueCats = catArr.filter((item, index) => {
+          return catArr.findIndex(c => c.toLowerCase() === item.toLowerCase()) === index;
+        });
+        if (uniqueCats.length > 0) category = uniqueCats.join(', ');
       }
 
       const actualAppId = editingAppId || Math.random().toString(36).substr(2, 9);

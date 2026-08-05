@@ -172,7 +172,11 @@ export const AppForm = ({
           <div className="animate-fade-in space-y-4">
             <p className="text-xs text-slate-500 dark:text-slate-400">Manage interactive FAQs specific to this application. FAQs support structured HTML and formatting.</p>
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
-              <FaqEditor key={(editingAppId || 'new') + '_' + (formFields.faqs?.length || 0)} initialFaqs={formFields.faqs || []} />
+              <FaqEditor 
+                key={editingAppId || 'new'} 
+                initialFaqs={formFields.faqs || []} 
+                onChange={(updatedFaqs) => handleFieldChange('faqs', updatedFaqs)}
+              />
             </div>
           </div>
         )}
@@ -180,7 +184,11 @@ export const AppForm = ({
           <div className="animate-fade-in space-y-4">
             <p className="text-xs text-slate-500 dark:text-slate-400">Manage and preview high-quality optimized app screenshots for the detail page gallery.</p>
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
-              <ScreenshotsEditor key={(editingAppId || 'new') + '_screenshots_' + (formFields.screenshots?.length || 0)} initialScreenshots={formFields.screenshots || []} />
+              <ScreenshotsEditor 
+                key={editingAppId || 'new'} 
+                initialScreenshots={formFields.screenshots || []} 
+                onChange={(updatedScreenshots) => handleFieldChange('screenshots', updatedScreenshots)}
+              />
             </div>
           </div>
         )}

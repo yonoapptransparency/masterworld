@@ -1,19 +1,39 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 
 interface FaqEditorProps {
   initialFaqs: { question: string; answer: string }[];
+  onChange?: (faqs: { question: string; answer: string }[]) => void;
 }
 
-export function FaqEditor({ initialFaqs }: FaqEditorProps) {
-  const [faqs, setFaqs] = useState(initialFaqs || []);
+export function FaqEditor({ initialFaqs, onChange }: FaqEditorProps) {
+  const [faqs, setFaqs] = useState<{ question: string; answer: string }[]>(initialFaqs || []);
 
-  const addFaq = () => setFaqs([...faqs, { question: '', answer: '' }]);
-  const removeFaq = (index: number) => setFaqs(faqs.filter((_, i) => i !== index));
+  useEffect(() => {
+    setFaqs(initialFaqs || []);
+  }, [initialFaqs]);
+
+  const updateAndNotify = (newFaqs: { question: string; answer: string }[]) => {
+    setFaqs(newFaqs);
+    if (onChange) {
+      onChange(newFaqs);
+    }
+  };
+
+  const addFaq = () => {
+    const newFaqs = [...faqs, { question: '', answer: '' }];
+    updateAndNotify(newFaqs);
+  };
+
+  const removeFaq = (index: number) => {
+    const newFaqs = faqs.filter((_, i) => i !== index);
+    updateAndNotify(newFaqs);
+  };
+
   const updateFaq = (index: number, field: 'question' | 'answer', value: string) => {
     const newFaqs = [...faqs];
-    newFaqs[index][field] = value;
-    setFaqs(newFaqs);
+    newFaqs[index] = { ...newFaqs[index], [field]: value };
+    updateAndNotify(newFaqs);
   };
 
   return (

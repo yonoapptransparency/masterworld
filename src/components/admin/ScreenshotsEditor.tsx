@@ -1,19 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 
 interface ScreenshotsEditorProps {
   initialScreenshots: string[];
+  onChange?: (screenshots: string[]) => void;
 }
 
-export function ScreenshotsEditor({ initialScreenshots }: ScreenshotsEditorProps) {
+export function ScreenshotsEditor({ initialScreenshots, onChange }: ScreenshotsEditorProps) {
   const [urls, setUrls] = useState<string[]>(initialScreenshots || []);
 
-  const addUrl = () => setUrls([...urls, '']);
-  const removeUrl = (index: number) => setUrls(urls.filter((_, i) => i !== index));
+  useEffect(() => {
+    setUrls(initialScreenshots || []);
+  }, [initialScreenshots]);
+
+  const updateAndNotify = (newUrls: string[]) => {
+    setUrls(newUrls);
+    if (onChange) {
+      onChange(newUrls);
+    }
+  };
+
+  const addUrl = () => updateAndNotify([...urls, '']);
+  const removeUrl = (index: number) => updateAndNotify(urls.filter((_, i) => i !== index));
   const updateUrl = (index: number, value: string) => {
     const newUrls = [...urls];
     newUrls[index] = value;
-    setUrls(newUrls);
+    updateAndNotify(newUrls);
   };
 
   return (
