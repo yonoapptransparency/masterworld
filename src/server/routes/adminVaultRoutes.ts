@@ -31,6 +31,96 @@ adminVaultRouter.post("/api/v1/admin/encrypt", verifyAdminToken, async (req, res
   }
 });
 
+adminVaultRouter.post("/api/v1/admin/ai-format-html", verifyAdminToken, async (req: any, res: any) => {
+  const ip = getIp(req);
+  if (await rateLimit(ip)) {
+    return res.status(429).json({ error: 'Too many requests. Please wait.' });
+  }
+
+  const { content, appName } = req.body;
+  if (!content || typeof content !== 'string' || !content.trim()) {
+    return res.status(400).json({ error: 'Content is required for AI formatting.' });
+  }
+
+  try {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (apiKey && apiKey.trim() !== '') {
+      const { GoogleGenAI } = require("@google/genai");
+      const ai = new GoogleGenAI({ apiKey });
+
+      const prompt = `You are a professional web content and HTML structure optimizer for app reviews and directory websites.
+Your task is to convert the user's raw review script, rough notes, or unformatted HTML into clean, valid, semantically structured HTML.
+
+CRITICAL MANDATORY RULES:
+1. **STRICTLY DO NOT USE OR GENERATE ANY <h1> TAGS**. Main H1 heading is reserved for the App Name at the page header.
+2. Structure sections using <h2> and <h3> tags ONLY (e.g. <h2>Overview & Hands-on Review</h2>, <h2>Key Features</h2>, <h3>Gameplay Mechanics</h3>, <h3>Performance Benchmarks</h3>).
+3. Wrap all normal body paragraphs in clean <p>...</p> tags.
+4. Convert bullet points, lists, or features into <ul><li>...</li></ul> tags.
+5. Use <strong>...</strong> for key highlights, metric numbers, or emphasis.
+6. **PRESERVE ALL ORIGINAL TEXT, WORDS, SENTENCES, AND SPECIFIC REVIEW DETAILS EXACTLY**. Do NOT change the facts, do NOT shorten or hallucinate, and do NOT change the author's voice/script.
+7. Return ONLY clean fragment HTML without markdown blocks (\`\`\`html) or <html>/<body> tags.
+
+App Title Context: ${appName || 'Application'}
+
+RAW CONTENT TO FORMAT:
+${content}`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt
+      });
+
+      let formattedHtml = response.text || '';
+      // Remove codeblock wrappers if any
+      formattedHtml = formattedHtml.replace(/^```html\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/, '').trim();
+      // Ensure no <h1> tag exists in output
+      formattedHtml = formattedHtml.replace(/<h1([^>]*)>/gi, '<h2$1>').replace(/<\/h1>/gi, '</h2>');
+
+      if (formattedHtml && formattedHtml.length > 10) {
+        return res.json({ success: true, formattedHtml, source: 'gemini-ai' });
+      }
+    }
+
+    // Smart Local Fallback Formatter if Gemini Key is not set or API returns empty
+    let clean = content.trim();
+    // Strip document wrappers if full page HTML was pasted
+    clean = clean.replace(/<!DOCTYPE[^>]*>/gi, '')
+                 .replace(/<\/?(html|head|body)[^>]*>/gi, '')
+                 .replace(/<title>[^<]*<\/title>/gi, '')
+                 .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+                 .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+                 .replace(/<h1([^>]*)>/gi, '<h2$1>')
+                 .replace(/<\/h1>/gi, '</h2>')
+                 .trim();
+
+    if (!clean.includes('<p>') && !clean.includes('<h2>') && !clean.includes('<div>')) {
+      const lines = clean.split('\n');
+      const formattedLines = lines.map(line => {
+        const trimmed = line.trim();
+        if (!trimmed) return '';
+        if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+          return `<li>${trimmed.substring(2)}</li>`;
+        }
+        if (trimmed.length < 60 && !trimmed.endsWith('.')) {
+          return `<h2>${trimmed}</h2>`;
+        }
+        return `<p>${trimmed}</p>`;
+      });
+      clean = formattedLines.filter(Boolean).join('\n');
+      clean = clean.replace(/(<li>.*?<\/li>\n?)+/g, (match) => `<ul>\n${match}</ul>\n`);
+    }
+
+    return res.json({ success: true, formattedHtml: clean, source: 'local-formatter' });
+  } catch (err: any) {
+    console.error('[AI FORMAT HTML SERVER ERROR]', err);
+    let fallback = content
+      .replace(/<h1([^>]*)>/gi, '<h2$1>')
+      .replace(/<\/h1>/gi, '</h2>')
+      .trim();
+    return res.json({ success: true, formattedHtml: fallback, source: 'fallback', note: err.message });
+  }
+});
+
 adminVaultRouter.post("/api/v1/admin/encrypt-links", verifyAdminToken, async (req, res) => {
   const { items } = req.body;
   if (!items || !Array.isArray(items)) {

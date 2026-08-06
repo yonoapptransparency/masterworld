@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { adminFetch } from '../../../../services/adminAuthService';
+import { Sparkles, Loader2, ChevronDown, ChevronUp, CheckCircle, Info } from 'lucide-react';
 
 interface ContentSectionProps {
   formFields: any;
@@ -7,37 +8,83 @@ interface ContentSectionProps {
 }
 
 export const ContentSection = ({ formFields, handleFieldChange }: ContentSectionProps) => {
+  const [isFormatting, setIsFormatting] = useState(false);
+  const [aiStatusMsg, setAiStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  const handleAiFormatHtml = async () => {
+    const rawContent = formFields.description_html || '';
+    if (!rawContent.trim()) {
+      setAiStatusMsg({ type: 'error', text: 'Please paste or write your raw review text/script into the HTML box first.' });
+      return;
+    }
+
+    setIsFormatting(true);
+    setAiStatusMsg(null);
+
+    try {
+      const res = await adminFetch('/api/v1/admin/ai-format-html', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: rawContent,
+          appName: formFields.name || ''
+        })
+      });
+
+      const data = await res.json();
+      if (data.success && data.formattedHtml) {
+        handleFieldChange('description_html', data.formattedHtml);
+        setAiStatusMsg({
+          type: 'success',
+          text: data.source === 'gemini-ai'
+            ? '✨ HTML structured cleanly using Gemini AI! Preserved exact review words, converted headings to H2/H3, and removed invalid H1 tags.'
+            : '✨ Cleaned and formatted HTML structure! (H1 tags converted to H2).'
+        });
+      } else {
+        setAiStatusMsg({ type: 'error', text: data.error || 'Failed to format HTML.' });
+      }
+    } catch (err: any) {
+      setAiStatusMsg({ type: 'error', text: 'Error connecting to AI Formatter service.' });
+    } finally {
+      setIsFormatting(false);
+    }
+  };
+
   return (
-    <div className="animate-fade-in space-y-5">
+    <div className="animate-fade-in space-y-6">
+      {/* Primary Gateway Access Link */}
       <div>
-        <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Primary Gateway Access Link (Target URL to secure & encrypt)</label>
+        <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
+          Primary Gateway Access Link (Target URL to secure & encrypt)
+        </label>
         <div className="flex gap-2">
           <input 
             type="text" 
             name="more_information_url" 
-            value={formFields.more_information_url} 
+            value={formFields.more_information_url || ''} 
             onChange={e => handleFieldChange('more_information_url', e.target.value)} 
             placeholder="https://..." 
             className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 font-mono" 
           />
-          {formFields.more_information_url.startsWith('U2FsdGVkX1') && (
+          {formFields.more_information_url && formFields.more_information_url.startsWith('U2FsdGVkX1') && (
             <button
               type="button"
               onClick={async () => {
                 try {
                   const res = await adminFetch('/api/v1/admin/decrypt-url', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ encryptedUrl: formFields.more_information_url })
                   });
                   const data = await res.json();
                   if (data.decrypted) {
                     try {
-                        await navigator.clipboard.writeText(data.decrypted);
-                        alert('Link copied to clipboard (hidden for security)');
-                      } catch (e) {
-                        console.log('Failed to copy');
-                      }
+                      await navigator.clipboard.writeText(data.decrypted);
+                      alert('Link copied to clipboard (hidden for security)');
+                    } catch (e) {
+                      console.log('Failed to copy');
+                    }
                   } else {
                     alert('Failed to decrypt URL.');
                   }
@@ -51,59 +98,121 @@ export const ContentSection = ({ formFields, handleFieldChange }: ContentSection
             </button>
           )}
         </div>
-        <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-1">On save, APK-Gatekeeper will securely hash and encrypt this link on the server, keeping backend code completely invisible to client browsers.</p>
+        <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-1">
+          On save, APK-Gatekeeper will securely hash and encrypt this link on the server, keeping backend code completely invisible to client browsers.
+        </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Key Features HTML List</label>
-          <textarea 
-            name="features_html" 
-            value={formFields.features_html} 
-            onChange={e => handleFieldChange('features_html', e.target.value)} 
-            rows={6} 
-            className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 font-mono text-xs text-emerald-400 focus:outline-none focus:border-blue-500"
-            placeholder="<li>Secure encryption</li>&#10;<li>Unlimited bandwidth</li>"
-          ></textarea>
-        </div>
-        
-        <div className="space-y-4">
+      {/* Main Unified Description & Review HTML Box */}
+      <div className="bg-slate-900/50 dark:bg-slate-900/80 border border-slate-800 rounded-2xl p-4 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
           <div>
-            <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Custom Extra Box Banner Title</label>
-            <input 
-              type="text" 
-              name="custom_admin_box_heading" 
-              value={formFields.custom_admin_box_heading} 
-              onChange={e => handleFieldChange('custom_admin_box_heading', e.target.value)} 
-              placeholder="e.g. SPECIAL COMPATIBILITY NOTE"
-              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500" 
-            />
+            <h3 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+              <span>Full App Description & Review HTML</span>
+            </h3>
+            <p className="text-[10px] text-slate-400 mt-0.5">
+              Paste your raw script, review notes, or text here. Click AI Format to structure with clean H2, H3, P, and UL tags.
+            </p>
           </div>
 
-          <div>
-            <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Custom Extra Box HTML Description</label>
-            <textarea 
-              name="custom_admin_box_html" 
-              value={formFields.custom_admin_box_html} 
-              onChange={e => handleFieldChange('custom_admin_box_html', e.target.value)} 
-              rows={3} 
-              placeholder="<p>This VPN might require Google Services framework to operate optimally on newer tablets.</p>"
-              className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 font-mono text-xs text-blue-400 focus:outline-none focus:border-blue-500"
-            ></textarea>
-          </div>
+          <button
+            type="button"
+            onClick={handleAiFormatHtml}
+            disabled={isFormatting}
+            className="px-3.5 py-2 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-indigo-500/20 flex items-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 border-0 cursor-pointer"
+          >
+            {isFormatting ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>AI Structuring Content...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
+                <span>✨ AI Format & Structure HTML</span>
+              </>
+            )}
+          </button>
         </div>
-      </div>
 
-      <div>
-        <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Full Description Rich HTML Body</label>
+        {aiStatusMsg && (
+          <div className={`p-2.5 rounded-xl text-xs flex items-start gap-2 ${
+            aiStatusMsg.type === 'success' ? 'bg-emerald-950/60 border border-emerald-800/80 text-emerald-300' : 'bg-rose-950/60 border border-rose-800/80 text-rose-300'
+          }`}>
+            {aiStatusMsg.type === 'success' ? <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" /> : <Info className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />}
+            <span className="leading-relaxed">{aiStatusMsg.text}</span>
+          </div>
+        )}
+
         <textarea 
           name="description_html" 
-          value={formFields.description_html} 
+          value={formFields.description_html || ''} 
           onChange={e => handleFieldChange('description_html', e.target.value)} 
-          rows={12} 
-          className="w-full bg-slate-900 border border-slate-800 rounded-xl p-4 font-mono text-xs text-slate-300 focus:outline-none focus:border-blue-500"
-          placeholder="<p>Write standard paragraph HTML here...</p>"
+          rows={14} 
+          className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 font-mono text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 focus:ring-1 focus:ring-indigo-500/50 leading-relaxed"
+          placeholder="Paste raw text, review script, or rough notes here, then click '✨ AI Format & Structure HTML' above..."
         ></textarea>
+
+        <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1">
+          <span>💡 Note: H1 tag is strictly reserved for the App Title. AI converts any sub-headings to H2/H3 automatically.</span>
+          <span>Chars: {(formFields.description_html || '').length}</span>
+        </div>
+      </div>
+
+      {/* Optional Collapsible Extra Fields */}
+      <div className="border border-slate-800 rounded-2xl overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          className="w-full p-3 bg-slate-900/40 hover:bg-slate-900 text-left flex items-center justify-between text-xs font-semibold text-slate-400 transition-colors border-0 cursor-pointer"
+        >
+          <span>Advanced Extra Banners & Legacy Feature Lists (Optional)</span>
+          {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        </button>
+
+        {showAdvanced && (
+          <div className="p-4 bg-slate-950/50 border-t border-slate-800/80 space-y-4 animate-fade-in">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Key Features HTML List</label>
+                <textarea 
+                  name="features_html" 
+                  value={formFields.features_html || ''} 
+                  onChange={e => handleFieldChange('features_html', e.target.value)} 
+                  rows={4} 
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 font-mono text-xs text-emerald-400 focus:outline-none focus:border-blue-500"
+                  placeholder="<li>Secure encryption</li>&#10;<li>Unlimited bandwidth</li>"
+                ></textarea>
+              </div>
+              
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Custom Extra Box Banner Title</label>
+                  <input 
+                    type="text" 
+                    name="custom_admin_box_heading" 
+                    value={formFields.custom_admin_box_heading || ''} 
+                    onChange={e => handleFieldChange('custom_admin_box_heading', e.target.value)} 
+                    placeholder="e.g. SPECIAL COMPATIBILITY NOTE"
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500" 
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Custom Extra Box HTML Description</label>
+                  <textarea 
+                    name="custom_admin_box_html" 
+                    value={formFields.custom_admin_box_html || ''} 
+                    onChange={e => handleFieldChange('custom_admin_box_html', e.target.value)} 
+                    rows={2} 
+                    placeholder="<p>Extra banner text...</p>"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 font-mono text-xs text-blue-400 focus:outline-none focus:border-blue-500"
+                  ></textarea>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
