@@ -53,14 +53,17 @@ Your objective is to transform the user's raw text, review script, or rough note
 
 MANDATORY STRUCTURAL & SEQUENCING RULES:
 1. **STRICTLY NO <h1> TAGS**: Main H1 is reserved for the website header. Use <h2> for main section headings and <h3> for sub-sections.
-2. **ORGANIZED CONTENT SEQUENCE**:
+2. **ORGANIZED CONTENT SEQUENCE & SEPARATION**:
    - **Section 1: App Brief Overview**: Start with a well-crafted introductory paragraph (<p>...</p>) introducing ${appName || 'the application'}, its core purpose, and target audience. Bold essential keywords using <strong>...</strong>.
-   - **Section 2: Key Features & Strategic Highlights**: Group features logically under an <h2>Key Features</h2> heading using <ul><li><strong>Feature Title:</strong> Detailed description...</li></ul>.
-   - **Section 3: Core Mechanics & Hands-on Review**: Group deeper analysis, gameplay loops, benchmarks, or user experience under <h2>Core Mechanics & Review</h2> with clear <h3> subheadings.
-3. **STRATEGIC KEYWORD HIGHLIGHTING**: Bold important terms, key feature titles, numbers, metric stats, and core takeaways using <strong>...</strong> (e.g. <strong>13-Card Rummy</strong>, <strong>No Real-Money Stakes</strong>, <strong>60 FPS Performance</strong>) to make the text instantly scannable and engaging.
-4. **NO DOCUMENT WRAPPERS**: Do NOT include <!DOCTYPE>, <html>, <head>, <body>, <style>, or <script> tags. Return ONLY clean body fragment HTML.
-5. **NO MARKDOWN CODEBLOCKS**: Output pure HTML text directly without \`\`\`html wrapper blocks.
-6. **PRESERVE ALL ORIGINAL FACTS & DETAILS**: Keep all authentic review facts, numbers, feature details, and author insights intact while elevating the layout, flow, and emphasis.
+   - **Section 2: Key Features & Strategic Highlights**: Group features logically under an <h2>Key Features & Highlights</h2> heading. Format every feature point as an unordered list item: <ul><li><strong>Feature Title:</strong> Detailed explanation...</li></ul>.
+   - **Section 3: Core Mechanics & Review**: Group deeper analysis, gameplay loops, benchmarks, or user experience under <h2>Core Mechanics & Review</h2> with clear <h3> subheadings.
+3. **STRATEGIC KEYWORD & TITLE HIGHLIGHTING**:
+   - Always wrap feature titles, metric stats, key terms, and core takeaways in <strong>...</strong> tags (e.g., <strong>Reflex Testing:</strong>, <strong>Pattern Recognition:</strong>, <strong>60 FPS Performance</strong>) so key ideas jump out immediately.
+4. **PROPER GAPS & PARAGRAPH BREAKS**:
+   - Every distinct topic must be wrapped in its own <p>...</p> or <li>...</li> tag. Never smash multiple sub-topics into a single wall of text.
+5. **NO DOCUMENT WRAPPERS**: Do NOT include <!DOCTYPE>, <html>, <head>, <body>, <style>, or <script> tags. Return ONLY clean body fragment HTML.
+6. **NO MARKDOWN CODEBLOCKS**: Output pure HTML text directly without \`\`\`html wrapper blocks.
+7. **PRESERVE ALL ORIGINAL FACTS & DETAILS**: Keep all authentic review facts, numbers, feature details, and author insights intact while elevating the layout, flow, and emphasis.
 
 App Title Context: ${appName || 'Application'}
 
@@ -98,18 +101,33 @@ ${content}`;
     if (!clean.includes('<p>') && !clean.includes('<h2>') && !clean.includes('<div>')) {
       const lines = clean.split('\n');
       const formattedLines = lines.map(line => {
-        const trimmed = line.trim();
+        let trimmed = line.trim();
         if (!trimmed) return '';
-        if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-          return `<li>${trimmed.substring(2)}</li>`;
+        
+        let isBullet = false;
+        if (trimmed.startsWith('- ') || trimmed.startsWith('* ') || trimmed.startsWith('• ')) {
+          trimmed = trimmed.replace(/^[-*•]\s*/, '');
+          isBullet = true;
         }
-        if (trimmed.length < 60 && !trimmed.endsWith('.')) {
+
+        // Auto bold Title: before colon if present
+        if (!trimmed.includes('<strong>') && !trimmed.includes('<b>') && /^([A-Z0-9][A-Za-z0-9\s&—–-]{2,45}):\s+/.test(trimmed)) {
+          trimmed = trimmed.replace(/^([A-Z0-9][A-Za-z0-9\s&—–-]{2,45}):\s+/, '<strong>$1:</strong> ');
+        }
+
+        if (isBullet) {
+          return `<li>${trimmed}</li>`;
+        }
+        if (trimmed.length < 60 && !trimmed.endsWith('.') && !trimmed.endsWith(':')) {
           return `<h2>${trimmed}</h2>`;
         }
         return `<p>${trimmed}</p>`;
       });
       clean = formattedLines.filter(Boolean).join('\n');
       clean = clean.replace(/(<li>.*?<\/li>\n?)+/g, (match) => `<ul>\n${match}</ul>\n`);
+    } else {
+      // Auto bold Title: in existing paragraph tags if not already bolded
+      clean = clean.replace(/<p>\s*([A-Z0-9][A-Za-z0-9\s&—–-]{2,45}):\s+/g, '<p><strong>$1:</strong> ');
     }
 
     return res.json({ success: true, formattedHtml: clean, source: 'local-formatter' });
