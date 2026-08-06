@@ -104,9 +104,25 @@ export function isSessionExpired(session: AdminSession): boolean {
 export async function refreshIdToken(
   refreshToken: string
 ): Promise<{ idToken: string; expiresAt: number } | null> {
+  const session = loadSession();
   if (refreshToken === 'MOCK_ADMIN_REFRESH' || refreshToken === 'SERVER_SESSION' || !refreshToken || !IS_API_KEY_REAL) {
-    const session = loadSession();
     if (session && session.idToken) {
+      try {
+        const res = await fetch("/api/v1/admin/refresh-token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.idToken}` },
+          body: JSON.stringify({ idToken: session.idToken }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.token) {
+            return {
+              idToken: data.token,
+              expiresAt: Date.now() + TOKEN_LIFETIME_MS,
+            };
+          }
+        }
+      } catch (_) {}
       return {
         idToken: session.idToken,
         expiresAt: Date.now() + TOKEN_LIFETIME_MS,
@@ -124,8 +140,7 @@ export async function refreshIdToken(
       }
     );
     if (!res.ok) {
-      const session = loadSession();
-      if (session && session.idToken && Date.now() < session.expiresAt) {
+      if (session && session.idToken) {
         return {
           idToken: session.idToken,
           expiresAt: Date.now() + TOKEN_LIFETIME_MS,
@@ -139,8 +154,7 @@ export async function refreshIdToken(
       expiresAt: Date.now() + TOKEN_LIFETIME_MS,
     };
   } catch (_) {
-    const session = loadSession();
-    if (session && session.idToken && Date.now() < session.expiresAt) {
+    if (session && session.idToken) {
       return {
         idToken: session.idToken,
         expiresAt: Date.now() + TOKEN_LIFETIME_MS,
@@ -298,17 +312,26 @@ export async function adminFetch(
   url: string,
   options: RequestInit = {}
 ): Promise<Response> {
-  const token = await getValidAdminToken();
+  let token = await getValidAdminToken();
   const existingAuth = (options.headers as any)?.Authorization || (options.headers as any)?.authorization;
   if (!token && !existingAuth) {
-    // Return a fake 401 response
-    return new Response(JSON.stringify({ error: "Session expired" }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
-    });
+    const rawSession = loadSession();
+    if (rawSession?.idToken) {
+      const refreshed = await refreshIdToken(rawSession.refreshToken);
+      if (refreshed?.idToken) {
+        token = refreshed.idToken;
+        saveSession({ ...rawSession, idToken: refreshed.idToken, expiresAt: refreshed.expiresAt });
+      }
+    }
+    if (!token && !existingAuth) {
+      return new Response(JSON.stringify({ error: "Unauthorized: Session expired. Please log in again." }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
   }
 
-    const finalHeaders = {
+  const finalHeaders = {
     ...options.headers,
     "Content-Type": "application/json",
     "Cache-Control": "no-cache, no-store, must-revalidate",
@@ -316,5 +339,47 @@ export async function adminFetch(
     "Expires": "0"
   } as any;
   if (token) finalHeaders.Authorization = `Bearer ${token}`;
-  return fetch(url, { ...options, headers: finalHeaders, cache: 'no-store' });
+
+  let res = await fetch(url, { ...options, headers: finalHeaders, cache: 'no-store' });
+
+  // Auto-save refreshed token if server returned X-Refreshed-Admin-Token
+  const refreshedToken = res.headers.get('X-Refreshed-Admin-Token');
+  if (refreshedToken) {
+    const curSession = loadSession();
+    if (curSession) {
+      saveSession({
+        ...curSession,
+        idToken: refreshedToken,
+        expiresAt: Date.now() + TOKEN_LIFETIME_MS
+      });
+    }
+  }
+
+  // If 401 Session expired received, attempt automatic single token refresh and retry
+  if (res.status === 401) {
+    const curSession = loadSession();
+    if (curSession?.idToken) {
+      try {
+        const refreshRes = await fetch("/api/v1/admin/refresh-token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${curSession.idToken}` },
+          body: JSON.stringify({ idToken: curSession.idToken }),
+        });
+        if (refreshRes.ok) {
+          const refreshData = await refreshRes.json();
+          if (refreshData.token) {
+            saveSession({
+              ...curSession,
+              idToken: refreshData.token,
+              expiresAt: Date.now() + TOKEN_LIFETIME_MS
+            });
+            finalHeaders.Authorization = `Bearer ${refreshData.token}`;
+            res = await fetch(url, { ...options, headers: finalHeaders, cache: 'no-store' });
+          }
+        }
+      } catch (_) {}
+    }
+  }
+
+  return res;
 }

@@ -2,7 +2,7 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import { safeDecrypt, getAesSecret } from '../crypto';
+import { safeEncrypt, safeDecrypt, getAesSecret } from '../crypto';
 import { getFirebaseAdminDb, getRawFirebaseConfig } from '../firebase';
 
 export const MOCK_2FA_FILE = path.join(process.cwd(), "mock-2fa-state.json");
@@ -151,15 +151,36 @@ export const verifyAdminToken = async (req: express.Request, res: express.Respon
     if (!decrypted) return res.status(401).json({ error: 'Unauthorized: Invalid token.', message: 'Unauthorized: Invalid token.' });
 
     const payload = JSON.parse(decrypted);
-    if (!payload.admin || !payload.email || !payload.exp) {
+    if (!payload.admin || !payload.email) {
       return res.status(401).json({ error: 'Unauthorized: Malformed token.', message: 'Unauthorized: Malformed token.' });
     }
 
-    if (Date.now() > payload.exp) {
+    const configuredAdminEmail = String(process.env.ADMIN_EMAIL || "defentechscholar@gmail.com").toLowerCase();
+    const userEmail = String(payload.email || "").toLowerCase().trim();
+
+    if (userEmail !== configuredAdminEmail) {
+      return res.status(403).json({ error: 'Unauthorized: Admin access required.', message: 'Unauthorized: Admin access required.' });
+    }
+
+    // Allow AES token up to a 30-day grace window for verified admin email
+    const GRACE_PERIOD_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+    const expTime = Number(payload.exp) || 0;
+
+    if (expTime > 0 && Date.now() > expTime + GRACE_PERIOD_MS) {
       return res.status(401).json({ error: 'Unauthorized: Session expired.', message: 'Unauthorized: Session expired.' });
     }
 
-    (req as any).adminUser = { email: payload.email };
+    // If token is close to expiry or expired within grace period, automatically issue fresh token header
+    if (expTime === 0 || Date.now() > expTime - 60 * 60 * 1000) {
+      try {
+        const freshPayload = JSON.stringify({ admin: true, email: userEmail, exp: Date.now() + 7 * 24 * 60 * 60 * 1000 });
+        const newToken = safeEncrypt(freshPayload, AES_SECRET);
+        res.setHeader('X-Refreshed-Admin-Token', newToken);
+        res.setHeader('Access-Control-Expose-Headers', 'X-Refreshed-Admin-Token');
+      } catch (_) {}
+    }
+
+    (req as any).adminUser = { email: userEmail };
     return next();
   } catch (err: any) {
     console.error("verifyAdminToken error:", err);

@@ -165,13 +165,66 @@ adminAuthRouter.post("/api/v1/admin/verify-session", async (req: any, res: any) 
     if (!decrypted) return res.status(401).json({ error: 'Unauthorized: Invalid token.' });
 
     const payload = JSON.parse(decrypted);
-    if (!payload.admin || Date.now() > payload.exp) {
+    if (!payload.admin || !payload.email) {
       return res.status(401).json({ error: 'Unauthorized: Session expired.' });
     }
 
-    return res.json({ ok: true, email: payload.email });
+    const configuredAdminEmail = String(process.env.ADMIN_EMAIL || "defentechscholar@gmail.com").toLowerCase();
+    const userEmail = String(payload.email || "").toLowerCase().trim();
+
+    if (userEmail !== configuredAdminEmail) {
+      return res.status(403).json({ error: 'Unauthorized: Admin access required.' });
+    }
+
+    const GRACE_PERIOD_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+    const expTime = Number(payload.exp) || 0;
+    if (expTime > 0 && Date.now() > expTime + GRACE_PERIOD_MS) {
+      return res.status(401).json({ error: 'Unauthorized: Session expired.' });
+    }
+
+    // Always issue a fresh 7-day token on verification if needed
+    const freshPayload = JSON.stringify({ admin: true, email: userEmail, exp: Date.now() + 7 * 24 * 60 * 60 * 1000 });
+    const freshToken = safeEncrypt(freshPayload, AES_SECRET);
+
+    return res.json({ ok: true, email: userEmail, token: freshToken });
   } catch (err: any) {
     return res.status(401).json({ error: "Service error: " + (err?.message || String(err)) });
+  }
+});
+
+adminAuthRouter.post("/api/v1/admin/refresh-token", async (req: any, res: any) => {
+  const authHeader = String(req.headers.authorization || "");
+  let idToken = req.body?.idToken || (authHeader.startsWith("Bearer ") ? authHeader.split("Bearer ")[1] : "");
+
+  if (!idToken || idToken === 'null' || idToken === 'undefined') {
+    return res.status(401).json({ error: "Unauthorized: Missing token to refresh." });
+  }
+
+  try {
+    const AES_SECRET = getAesSecret();
+    const decrypted = safeDecrypt(idToken, AES_SECRET);
+    if (!decrypted) return res.status(401).json({ error: "Unauthorized: Invalid token signature." });
+
+    const payload = JSON.parse(decrypted);
+    const configuredAdminEmail = String(process.env.ADMIN_EMAIL || "defentechscholar@gmail.com").toLowerCase();
+    const userEmail = String(payload.email || "").toLowerCase().trim();
+
+    if (!payload.admin || userEmail !== configuredAdminEmail) {
+      return res.status(403).json({ error: "Unauthorized: Access denied." });
+    }
+
+    const GRACE_PERIOD_MS = 30 * 24 * 60 * 60 * 1000;
+    const expTime = Number(payload.exp) || 0;
+    if (expTime > 0 && Date.now() > expTime + GRACE_PERIOD_MS) {
+      return res.status(401).json({ error: "Unauthorized: Session expired beyond grace limit." });
+    }
+
+    const freshPayload = JSON.stringify({ admin: true, email: userEmail, exp: Date.now() + 7 * 24 * 60 * 60 * 1000 });
+    const freshToken = safeEncrypt(freshPayload, AES_SECRET);
+
+    return res.json({ success: true, token: freshToken, email: userEmail });
+  } catch (err: any) {
+    return res.status(401).json({ error: "Failed to refresh token: " + (err?.message || String(err)) });
   }
 });
 
