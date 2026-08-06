@@ -159,7 +159,7 @@ export default function NeutralSyncButton({ appId, slug, status }: NeutralSyncBu
               </>
             ) : (
               <>
-                <span>Sync Node</span>
+                <span>Download</span>
               </>
             )}
           </div>
