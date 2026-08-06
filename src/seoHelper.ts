@@ -697,11 +697,12 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
 
   // Clean up default static title & meta tags from template without destroying scripts or stylesheets
   let finalHtml = template
-    .replace(/<title>[\s\S]*?<\/title>/i, '')
+    .replace(/<title>[\s\S]*?<\/title>/gi, '')
     .replace(/<meta\s+name="description"\s+[^>]*\/?>/gi, '')
     .replace(/<meta\s+name="robots"\s+[^>]*\/?>/gi, '')
     .replace(/<meta\s+property="og:[^"]+"\s+[^>]*\/?>/gi, '')
-    .replace(/<meta\s+name="twitter:[^"]+"\s+[^>]*\/?>/gi, '');
+    .replace(/<meta\s+name="twitter:[^"]+"\s+[^>]*\/?>/gi, '')
+    .replace(/<link\s+rel="canonical"\s+[^>]*\/?>/gi, '');
 
   // Inject dynamic SEO tags & initial data script cleanly into <head>
   if (finalHtml.includes('</head>')) {
