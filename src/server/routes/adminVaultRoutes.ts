@@ -48,26 +48,32 @@ adminVaultRouter.post("/api/v1/admin/ai-format-html", verifyAdminToken, async (r
       const { GoogleGenAI } = require("@google/genai");
       const ai = new GoogleGenAI({ apiKey });
 
-      const prompt = `You are an expert SEO editor and HTML content architect for premium mobile app review directories.
-Your objective is to transform the user's raw text, review script, or rough notes into a perfectly structured, beautifully styled HTML fragment.
+      const prompt = `You are a world-class mobile app content architect and master HTML layout engineer.
+Your task is to transform the user's raw text, review script, or rough notes into an exceptionally clean, beautifully structured, and highly readable HTML document fragment.
 
-MANDATORY STRUCTURAL & SEQUENCING RULES:
-1. **STRICTLY NO <h1> TAGS**: Main H1 is reserved for the website header. Use <h2> for main section headings and <h3> for sub-sections.
-2. **ORGANIZED CONTENT SEQUENCE & SEPARATION**:
-   - **Section 1: App Brief Overview**: Start with a well-crafted introductory paragraph (<p>...</p>) introducing ${appName || 'the application'}, its core purpose, and target audience. Bold essential keywords using <strong>...</strong>.
-   - **Section 2: Key Features & Strategic Highlights**: Group features logically under an <h2>Key Features & Highlights</h2> heading. Format every feature point as an unordered list item: <ul><li><strong>Feature Title:</strong> Detailed explanation...</li></ul>.
-   - **Section 3: Core Mechanics & Review**: Group deeper analysis, gameplay loops, benchmarks, or user experience under <h2>Core Mechanics & Review</h2> with clear <h3> subheadings.
-3. **STRATEGIC KEYWORD & TITLE HIGHLIGHTING**:
-   - Always wrap feature titles, metric stats, key terms, and core takeaways in <strong>...</strong> tags (e.g., <strong>Reflex Testing:</strong>, <strong>Pattern Recognition:</strong>, <strong>60 FPS Performance</strong>) so key ideas jump out immediately.
-4. **PROPER GAPS & PARAGRAPH BREAKS**:
-   - Every distinct topic must be wrapped in its own <p>...</p> or <li>...</li> tag. Never smash multiple sub-topics into a single wall of text.
-5. **NO DOCUMENT WRAPPERS**: Do NOT include <!DOCTYPE>, <html>, <head>, <body>, <style>, or <script> tags. Return ONLY clean body fragment HTML.
-6. **NO MARKDOWN CODEBLOCKS**: Output pure HTML text directly without \`\`\`html wrapper blocks.
-7. **PRESERVE ALL ORIGINAL FACTS & DETAILS**: Keep all authentic review facts, numbers, feature details, and author insights intact while elevating the layout, flow, and emphasis.
+CRITICAL DIRECTIVE - 100% FAITHFUL CONTENT PRESERVATION:
+- Do NOT delete, omit, summarize away, or shorten ANY facts, sentences, specifications, or details provided by the user.
+- Preserve 100% of the information given in the input text while dramatically elevating its visual structure, typography, and scannability.
+
+MANDATORY STRUCTURAL & TYPOGRAPHY RULES:
+1. **STRICTLY NO <h1> TAGS**: Main H1 is reserved for the website header. Use <h2> for main section headings and <h3> for sub-headings.
+2. **HIGH-CONTRAST HEADINGS**:
+   - Wrap major section titles in <h2>...</h2> (e.g. <h2>Comprehensive Engagement and Reflex Development</h2>, <h2>The Core Arcade Mechanics</h2>, <h2>Technical Specifications & Device Footprint</h2>).
+   - Wrap sub-topics in <h3>...</h3> where applicable.
+3. **BOLD FEATURE TITLES & TOPIC HIGHLIGHTS**:
+   - Whenever a paragraph or bullet point starts with a feature or topic title before a colon (e.g., "Reflex Testing: Included mini-games...", "Goal Setting and Progression: The app teaches...", "Pattern Recognition: Players are constantly..."), you MUST wrap the topic title in <strong>...</strong> (e.g., <li><strong>Reflex Testing:</strong> Included mini-games...</li> or <p><strong>Goal Setting and Progression:</strong> The app teaches...</p>).
+   - Bold key numbers, stats, and important takeaway phrases using <strong>...</strong> (e.g., <strong>60 FPS</strong>, <strong>No Real-Money Stakes</strong>).
+4. **UNORDERED LISTS FOR BULLETED TOPICS**:
+   - Convert feature lists, bullet points, or list-like series into clean <ul><li><strong>Topic Title:</strong> Description...</li></ul> tags.
+5. **PROPER PARAGRAPH SPACING & GAPS**:
+   - Every paragraph MUST be wrapped in its own <p>...</p> tag.
+   - NEVER lump multiple distinct topics into a single continuous block of text. Ensure every topic is separated cleanly into its own paragraph or list item.
+6. **NO DOCUMENT WRAPPERS & NO MARKDOWN CODEBLOCKS**:
+   - Do NOT output <!DOCTYPE>, <html>, <head>, <body>, <style>, or \`\`\`html code blocks. Output ONLY raw clean HTML fragment.
 
 App Title Context: ${appName || 'Application'}
 
-RAW CONTENT TO FORMAT:
+RAW INPUT CONTENT TO FORMAT:
 ${content}`;
 
       const response = await ai.models.generateContent({
@@ -99,35 +105,67 @@ ${content}`;
                  .trim();
 
     if (!clean.includes('<p>') && !clean.includes('<h2>') && !clean.includes('<div>')) {
-      const lines = clean.split('\n');
-      const formattedLines = lines.map(line => {
-        let trimmed = line.trim();
-        if (!trimmed) return '';
-        
-        let isBullet = false;
-        if (trimmed.startsWith('- ') || trimmed.startsWith('* ') || trimmed.startsWith('• ')) {
-          trimmed = trimmed.replace(/^[-*•]\s*/, '');
-          isBullet = true;
+      const blocks = clean.split(/\n\s*\n/);
+      const processedBlocks = blocks.map(block => {
+        const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+        if (lines.length === 0) return '';
+
+        // Check if all lines are bullet points
+        const isListBlock = lines.every(l => /^[-*•]/.test(l));
+        if (isListBlock) {
+          const listItems = lines.map(l => {
+            let itemText = l.replace(/^[-*•]\s*/, '');
+            // Auto bold Title: before colon if present
+            if (!itemText.includes('<strong>') && !itemText.includes('<b>') && /^([A-Z0-9][A-Za-z0-9\s&—–-]{2,45}):\s+/.test(itemText)) {
+              itemText = itemText.replace(/^([A-Z0-9][A-Za-z0-9\s&—–-]{2,45}):\s+/, '<strong>$1:</strong> ');
+            }
+            return `  <li>${itemText}</li>`;
+          });
+          return `<ul>\n${listItems.join('\n')}\n</ul>`;
         }
 
-        // Auto bold Title: before colon if present
-        if (!trimmed.includes('<strong>') && !trimmed.includes('<b>') && /^([A-Z0-9][A-Za-z0-9\s&—–-]{2,45}):\s+/.test(trimmed)) {
-          trimmed = trimmed.replace(/^([A-Z0-9][A-Za-z0-9\s&—–-]{2,45}):\s+/, '<strong>$1:</strong> ');
+        // Single line block checks
+        if (lines.length === 1) {
+          let lineText = lines[0];
+          let isBullet = /^[-*•]\s*/.test(lineText);
+          if (isBullet) {
+            lineText = lineText.replace(/^[-*•]\s*/, '');
+            if (!lineText.includes('<strong>') && /^([A-Z0-9][A-Za-z0-9\s&—–-]{2,45}):\s+/.test(lineText)) {
+              lineText = lineText.replace(/^([A-Z0-9][A-Za-z0-9\s&—–-]{2,45}):\s+/, '<strong>$1:</strong> ');
+            }
+            return `<ul>\n  <li>${lineText}</li>\n</ul>`;
+          }
+
+          // Check if heading line
+          if (lineText.length < 70 && !lineText.endsWith('.') && !lineText.endsWith('!')) {
+            return `<h2>${lineText}</h2>`;
+          }
+
+          // Regular paragraph
+          if (!lineText.includes('<strong>') && /^([A-Z0-9][A-Za-z0-9\s&—–-]{2,45}):\s+/.test(lineText)) {
+            lineText = lineText.replace(/^([A-Z0-9][A-Za-z0-9\s&—–-]{2,45}):\s+/, '<strong>$1:</strong> ');
+          }
+          return `<p>${lineText}</p>`;
         }
 
-        if (isBullet) {
-          return `<li>${trimmed}</li>`;
-        }
-        if (trimmed.length < 60 && !trimmed.endsWith('.') && !trimmed.endsWith(':')) {
-          return `<h2>${trimmed}</h2>`;
-        }
-        return `<p>${trimmed}</p>`;
+        // Multi-line block
+        const formattedLines = lines.map(l => {
+          let t = l;
+          if (!t.includes('<strong>') && /^([A-Z0-9][A-Za-z0-9\s&—–-]{2,45}):\s+/.test(t)) {
+            t = t.replace(/^([A-Z0-9][A-Za-z0-9\s&—–-]{2,45}):\s+/, '<strong>$1:</strong> ');
+          }
+          return t;
+        });
+        return `<p>${formattedLines.join('<br />')}</p>`;
       });
-      clean = formattedLines.filter(Boolean).join('\n');
-      clean = clean.replace(/(<li>.*?<\/li>\n?)+/g, (match) => `<ul>\n${match}</ul>\n`);
+
+      clean = processedBlocks.filter(Boolean).join('\n\n');
     } else {
-      // Auto bold Title: in existing paragraph tags if not already bolded
-      clean = clean.replace(/<p>\s*([A-Z0-9][A-Za-z0-9\s&—–-]{2,45}):\s+/g, '<p><strong>$1:</strong> ');
+      // Auto bold Title: in existing paragraph tags or li tags if not already bolded
+      clean = clean.replace(/<(p|li)([^>]*)>\s*([A-Z0-9][A-Za-z0-9\s&—–-]{2,45}):\s+/g, (match, tag, attrs, title) => {
+        if (title.toLowerCase().startsWith('http') || title.toLowerCase().startsWith('www')) return match;
+        return `<${tag}${attrs}><strong>${title}:</strong> `;
+      });
     }
 
     return res.json({ success: true, formattedHtml: clean, source: 'local-formatter' });
