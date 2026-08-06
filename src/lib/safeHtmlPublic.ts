@@ -4,9 +4,17 @@ export function enhanceAndCleanHtml(rawHtml: string): string {
   if (!rawHtml || typeof rawHtml !== 'string') return rawHtml || '';
   let clean = rawHtml.trim();
 
-  // 1. If content has no HTML tags at all, automatically format plain text paragraphs, headings, and bullet points
+  // 1. Convert markdown headers (### -> h3, ## / # -> h2)
+  clean = clean.replace(/(?:^|\n)\s*####\s+(.*?)(?=\n|<|$)/gi, '\n<h3>$1</h3>')
+               .replace(/(?:^|\n)\s*###\s+(.*?)(?=\n|<|$)/gi, '\n<h3>$1</h3>')
+               .replace(/(?:^|\n)\s*##\s+(.*?)(?=\n|<|$)/gi, '\n<h2>$1</h2>')
+               .replace(/(?:^|\n)\s*#\s+(.*?)(?=\n|<|$)/gi, '\n<h2>$1</h2>');
+
+  // 2. If content has no HTML tags at all, automatically format plain text paragraphs, headings, and bullet points
   if (!clean.includes('<p>') && !clean.includes('<h2>') && !clean.includes('<h3>') && !clean.includes('<div>') && !clean.includes('<ul>')) {
     const blocks = clean.split(/\n\s*\n/);
+    let hasH2 = false;
+
     const processedBlocks = blocks.map(block => {
       const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
       if (lines.length === 0) return '';
@@ -26,6 +34,12 @@ export function enhanceAndCleanHtml(rawHtml: string): string {
 
       if (lines.length === 1) {
         let lineText = lines[0];
+
+        if (lineText.startsWith('<h2>') || lineText.startsWith('<h3>')) {
+          if (lineText.startsWith('<h2>')) hasH2 = true;
+          return lineText;
+        }
+
         let isBullet = /^[-*•]\s*/.test(lineText);
         if (isBullet) {
           lineText = lineText.replace(/^[-*•]\s*/, '');
@@ -35,9 +49,15 @@ export function enhanceAndCleanHtml(rawHtml: string): string {
           return `<ul><li>${lineText}</li></ul>`;
         }
 
-        // Heading candidate
+        // Heading candidate (H2 for primary sections, H3 for sub-sections)
         if (lineText.length < 75 && !lineText.endsWith('.') && !lineText.endsWith('!')) {
-          return `<h2>${lineText}</h2>`;
+          const isMajorSection = /overview|feature|mechanic|spec|gameplay|review|highlight|installation|verdict|summary|about|faq|requirement/i.test(lineText);
+          if (!hasH2 || isMajorSection) {
+            hasH2 = true;
+            return `<h2>${lineText}</h2>`;
+          } else {
+            return `<h3>${lineText}</h3>`;
+          }
         }
 
         // Regular paragraph with title check
@@ -60,19 +80,22 @@ export function enhanceAndCleanHtml(rawHtml: string): string {
     clean = processedBlocks.filter(Boolean).join('\n\n');
   }
 
-  // 2. Convert <h1> tags to <h2>
+  // 3. Convert <h1> tags to <h2>
   clean = clean.replace(/<h1([^>]*)>/gi, '<h2$1>').replace(/<\/h1>/gi, '</h2>');
 
-  // 3. Convert bullet text inside <p> like "<p>- Feature: ..." or "<p>• Feature: ..." into <li>
+  // 4. Convert bullet text inside <p> like "<p>- Feature: ..." or "<p>• Feature: ..." into <li>
   clean = clean.replace(/<p>\s*[-•*]\s*(.*?)<\/p>/gi, '<li>$1</li>');
 
-  // 4. Auto-wrap "Title:" patterns at start of <p> or <li> with <strong> if not already bolded
+  // 5. Convert consecutive <h2> tags into clean <h2> -> <h3> hierarchy
+  clean = clean.replace(/(<\/h2>\s*)<h2([^>]*)>(.*?)<\/h2>/gi, '$1<h3$2>$3</h3>');
+
+  // 6. Auto-wrap "Title:" patterns at start of <p> or <li> with <strong> if not already bolded
   clean = clean.replace(/<(p|li)([^>]*)>\s*([A-Z0-9][A-Za-z0-9\s&—–-]{2,45}):\s+/g, (match, tag, attrs, title) => {
     if (title.toLowerCase().startsWith('http') || title.toLowerCase().startsWith('www')) return match;
     return `<${tag}${attrs}><strong>${title}:</strong> `;
   });
 
-  // 5. Wrap orphaned <li> elements into <ul> if not already wrapped
+  // 7. Wrap orphaned <li> elements into <ul> if not already wrapped
   if (clean.includes('<li>') && !clean.includes('<ul>') && !clean.includes('<ol>')) {
     clean = clean.replace(/(<li>[\s\S]*?<\/li>\s*)+/gi, (match) => `<ul>\n${match}</ul>\n`);
   }

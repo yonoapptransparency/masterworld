@@ -84,8 +84,18 @@ ${content}`;
       let formattedHtml = response.text || '';
       // Remove codeblock wrappers if any
       formattedHtml = formattedHtml.replace(/^```html\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/, '').trim();
+      
+      // Convert any residual markdown headings into proper HTML tags
+      formattedHtml = formattedHtml.replace(/(?:^|\n)\s*####\s+(.*?)(?=\n|<|$)/gi, '\n<h3>$1</h3>')
+                                   .replace(/(?:^|\n)\s*###\s+(.*?)(?=\n|<|$)/gi, '\n<h3>$1</h3>')
+                                   .replace(/(?:^|\n)\s*##\s+(.*?)(?=\n|<|$)/gi, '\n<h2>$1</h2>')
+                                   .replace(/(?:^|\n)\s*#\s+(.*?)(?=\n|<|$)/gi, '\n<h2>$1</h2>');
+
       // Ensure no <h1> tag exists in output
       formattedHtml = formattedHtml.replace(/<h1([^>]*)>/gi, '<h2$1>').replace(/<\/h1>/gi, '</h2>');
+
+      // Convert consecutive <h2> tags to clean <h2> -> <h3> hierarchy
+      formattedHtml = formattedHtml.replace(/(<\/h2>\s*)<h2([^>]*)>(.*?)<\/h2>/gi, '$1<h3$2>$3</h3>');
 
       if (formattedHtml && formattedHtml.length > 10) {
         return res.json({ success: true, formattedHtml, source: 'gemini-ai' });
@@ -94,6 +104,13 @@ ${content}`;
 
     // Smart Local Fallback Formatter if Gemini Key is not set or API returns empty
     let clean = content.trim();
+
+    // Convert markdown headers in raw text to HTML tags
+    clean = clean.replace(/(?:^|\n)\s*####\s+(.*?)(?=\n|<|$)/gi, '\n<h3>$1</h3>')
+                 .replace(/(?:^|\n)\s*###\s+(.*?)(?=\n|<|$)/gi, '\n<h3>$1</h3>')
+                 .replace(/(?:^|\n)\s*##\s+(.*?)(?=\n|<|$)/gi, '\n<h2>$1</h2>')
+                 .replace(/(?:^|\n)\s*#\s+(.*?)(?=\n|<|$)/gi, '\n<h2>$1</h2>');
+
     // Strip document wrappers if full page HTML was pasted
     clean = clean.replace(/<!DOCTYPE[^>]*>/gi, '')
                  .replace(/<\/?(html|head|body)[^>]*>/gi, '')
@@ -104,8 +121,10 @@ ${content}`;
                  .replace(/<\/h1>/gi, '</h2>')
                  .trim();
 
-    if (!clean.includes('<p>') && !clean.includes('<h2>') && !clean.includes('<div>')) {
+    if (!clean.includes('<p>') && !clean.includes('<h2>') && !clean.includes('<h3>') && !clean.includes('<div>')) {
       const blocks = clean.split(/\n\s*\n/);
+      let hasH2 = false;
+
       const processedBlocks = blocks.map(block => {
         const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
         if (lines.length === 0) return '';
@@ -127,6 +146,13 @@ ${content}`;
         // Single line block checks
         if (lines.length === 1) {
           let lineText = lines[0];
+
+          // Check if markdown or HTML header already formatted
+          if (lineText.startsWith('<h2>') || lineText.startsWith('<h3>')) {
+            if (lineText.startsWith('<h2>')) hasH2 = true;
+            return lineText;
+          }
+
           let isBullet = /^[-*•]\s*/.test(lineText);
           if (isBullet) {
             lineText = lineText.replace(/^[-*•]\s*/, '');
@@ -137,8 +163,14 @@ ${content}`;
           }
 
           // Check if heading line
-          if (lineText.length < 70 && !lineText.endsWith('.') && !lineText.endsWith('!')) {
-            return `<h2>${lineText}</h2>`;
+          if (lineText.length < 75 && !lineText.endsWith('.') && !lineText.endsWith('!')) {
+            const isMajorSection = /overview|feature|mechanic|spec|gameplay|review|highlight|installation|verdict|summary|about|faq|requirement/i.test(lineText);
+            if (!hasH2 || isMajorSection) {
+              hasH2 = true;
+              return `<h2>${lineText}</h2>`;
+            } else {
+              return `<h3>${lineText}</h3>`;
+            }
           }
 
           // Regular paragraph
@@ -167,6 +199,9 @@ ${content}`;
         return `<${tag}${attrs}><strong>${title}:</strong> `;
       });
     }
+
+    // Ensure consecutive <h2> tags convert second to <h3>
+    clean = clean.replace(/(<\/h2>\s*)<h2([^>]*)>(.*?)<\/h2>/gi, '$1<h3$2>$3</h3>');
 
     return res.json({ success: true, formattedHtml: clean, source: 'local-formatter' });
   } catch (err: any) {
