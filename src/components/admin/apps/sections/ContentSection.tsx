@@ -104,13 +104,13 @@ export const ContentSection = ({ formFields, handleFieldChange }: ContentSection
       </div>
 
       {/* Main Unified Description & Review HTML Box */}
-      <div className="bg-slate-900/50 dark:bg-slate-900/80 border border-slate-800 rounded-2xl p-4 space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+      <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-xs">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
           <div>
-            <h3 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+            <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
               <span>Full App Description & Review HTML</span>
             </h3>
-            <p className="text-[10px] text-slate-400 mt-0.5">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
               Paste your raw script, review notes, or text here. Click AI Format to structure with clean H2, H3, P, and UL tags.
             </p>
           </div>
@@ -119,7 +119,7 @@ export const ContentSection = ({ formFields, handleFieldChange }: ContentSection
             type="button"
             onClick={handleAiFormatHtml}
             disabled={isFormatting}
-            className="px-3.5 py-2 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-indigo-500/20 flex items-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 border-0 cursor-pointer"
+            className="px-3.5 py-2 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:to-pink-700 text-white font-bold text-xs rounded-xl shadow-md shadow-indigo-500/15 flex items-center gap-2 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 border-0 cursor-pointer"
           >
             {isFormatting ? (
               <>
@@ -136,11 +136,11 @@ export const ContentSection = ({ formFields, handleFieldChange }: ContentSection
         </div>
 
         {aiStatusMsg && (
-          <div className={`p-2.5 rounded-xl text-xs flex items-start gap-2 ${
-            aiStatusMsg.type === 'success' ? 'bg-emerald-950/60 border border-emerald-800/80 text-emerald-300' : 'bg-rose-950/60 border border-rose-800/80 text-rose-300'
+          <div className={`p-3 rounded-xl text-xs flex items-start gap-2.5 ${
+            aiStatusMsg.type === 'success' ? 'bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/80 text-emerald-800 dark:text-emerald-300' : 'bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800/80 text-rose-800 dark:text-rose-300'
           }`}>
-            {aiStatusMsg.type === 'success' ? <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" /> : <Info className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />}
-            <span className="leading-relaxed">{aiStatusMsg.text}</span>
+            {aiStatusMsg.type === 'success' ? <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" /> : <Info className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />}
+            <span className="leading-relaxed font-medium">{aiStatusMsg.text}</span>
           </div>
         )}
 
@@ -149,64 +149,64 @@ export const ContentSection = ({ formFields, handleFieldChange }: ContentSection
           value={formFields.description_html || ''} 
           onChange={e => handleFieldChange('description_html', e.target.value)} 
           rows={14} 
-          className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 font-mono text-xs text-slate-200 focus:outline-none focus:border-indigo-500/70 focus:ring-1 focus:ring-indigo-500/50 leading-relaxed"
+          className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700/80 rounded-xl p-3.5 font-mono text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 leading-relaxed shadow-inner"
           placeholder="Paste raw text, review script, or rough notes here, then click '✨ AI Format & Structure HTML' above..."
         ></textarea>
 
-        <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1">
+        <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-1 gap-2">
           <span>💡 Note: H1 tag is strictly reserved for the App Title. AI converts any sub-headings to H2/H3 automatically.</span>
-          <span>Chars: {(formFields.description_html || '').length}</span>
+          <span className="font-semibold text-slate-700 dark:text-slate-300">Chars: {(formFields.description_html || '').length}</span>
         </div>
       </div>
 
       {/* Optional Collapsible Extra Fields */}
-      <div className="border border-slate-800 rounded-2xl overflow-hidden">
+      <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xs">
         <button
           type="button"
           onClick={() => setShowAdvanced(!showAdvanced)}
-          className="w-full p-3 bg-slate-900/40 hover:bg-slate-900 text-left flex items-center justify-between text-xs font-semibold text-slate-400 transition-colors border-0 cursor-pointer"
+          className="w-full p-3.5 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/80 text-left flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300 transition-colors border-0 cursor-pointer"
         >
           <span>Advanced Extra Banners & Legacy Feature Lists (Optional)</span>
-          {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          {showAdvanced ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
         </button>
 
         {showAdvanced && (
-          <div className="p-4 bg-slate-950/50 border-t border-slate-800/80 space-y-4 animate-fade-in">
+          <div className="p-4 bg-slate-50 dark:bg-slate-950/50 border-t border-slate-200 dark:border-slate-800/80 space-y-4 animate-fade-in">
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Key Features HTML List</label>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Key Features HTML List</label>
                 <textarea 
                   name="features_html" 
                   value={formFields.features_html || ''} 
                   onChange={e => handleFieldChange('features_html', e.target.value)} 
                   rows={4} 
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 font-mono text-xs text-emerald-400 focus:outline-none focus:border-blue-500"
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 font-mono text-xs text-slate-800 dark:text-emerald-400 focus:outline-none focus:border-blue-500"
                   placeholder="<li>Secure encryption</li>&#10;<li>Unlimited bandwidth</li>"
                 ></textarea>
               </div>
               
               <div className="space-y-3">
                 <div>
-                  <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Custom Extra Box Banner Title</label>
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Custom Extra Box Banner Title</label>
                   <input 
                     type="text" 
                     name="custom_admin_box_heading" 
                     value={formFields.custom_admin_box_heading || ''} 
                     onChange={e => handleFieldChange('custom_admin_box_heading', e.target.value)} 
                     placeholder="e.g. SPECIAL COMPATIBILITY NOTE"
-                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500" 
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500" 
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Custom Extra Box HTML Description</label>
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Custom Extra Box HTML Description</label>
                   <textarea 
                     name="custom_admin_box_html" 
                     value={formFields.custom_admin_box_html || ''} 
                     onChange={e => handleFieldChange('custom_admin_box_html', e.target.value)} 
                     rows={2} 
                     placeholder="<p>Extra banner text...</p>"
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 font-mono text-xs text-blue-400 focus:outline-none focus:border-blue-500"
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-3 font-mono text-xs text-slate-800 dark:text-blue-400 focus:outline-none focus:border-blue-500"
                   ></textarea>
                 </div>
               </div>
