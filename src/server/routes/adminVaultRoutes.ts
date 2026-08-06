@@ -31,6 +31,124 @@ adminVaultRouter.post("/api/v1/admin/encrypt", verifyAdminToken, async (req, res
   }
 });
 
+export function structureHtmlFragment(rawHtml: string): string {
+  if (!rawHtml || typeof rawHtml !== 'string') return '';
+  let str = rawHtml.trim();
+
+  // 1. Strip document wrappers if present
+  str = str.replace(/<!DOCTYPE[^>]*>/gi, '')
+           .replace(/<\/?(html|head|body)[^>]*>/gi, '')
+           .replace(/<title>[^<]*<\/title>/gi, '')
+           .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+           .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+           .trim();
+
+  // 2. Unpack smashed <p> tags containing <br> or multiple sections
+  str = str.replace(/<p\b[^>]*>([\s\S]*?)<\/p>/gi, (_match, inner) => {
+    return inner.replace(/<br\s*\/?>/gi, '\n\n');
+  });
+
+  // 3. Convert markdown headers if present
+  str = str.replace(/(?:^|\n)\s*####\s+(.*?)(?=\n|<|$)/gi, '\n<h3>$1</h3>')
+           .replace(/(?:^|\n)\s*###\s+(.*?)(?=\n|<|$)/gi, '\n<h3>$1</h3>')
+           .replace(/(?:^|\n)\s*##\s+(.*?)(?=\n|<|$)/gi, '\n<h2>$1</h2>')
+           .replace(/(?:^|\n)\s*#\s+(.*?)(?=\n|<|$)/gi, '\n<h2>$1</h2>');
+
+  // 4. Strip <h1> to <h2>
+  str = str.replace(/<h1([^>]*)>/gi, '<h2$1>').replace(/<\/h1>/gi, '</h2>');
+
+  // Replace remaining <br> with newlines for parsing
+  str = str.replace(/<br\s*\/?>/gi, '\n');
+
+  // Split lines
+  const rawLines = str.split(/\n+/).map(l => l.trim()).filter(Boolean);
+  if (rawLines.length === 0) return '';
+
+  const output: string[] = [];
+  let currentList: string[] = [];
+  let hasH2 = false;
+
+  const flushList = () => {
+    if (currentList.length > 0) {
+      output.push(`<ul>\n${currentList.join('\n')}\n</ul>`);
+      currentList = [];
+    }
+  };
+
+  for (let i = 0; i < rawLines.length; i++) {
+    let line = rawLines[i];
+
+    // Check if line is already a complete h2/h3/p/ul tag
+    if (/^<h[23]\b[^>]*>[\s\S]*<\/h[23]>$/i.test(line)) {
+      flushList();
+      if (/^<h2/i.test(line)) hasH2 = true;
+      output.push(line);
+      continue;
+    }
+
+    // Strip outer p tag if present
+    line = line.replace(/^<p\b[^>]*>/i, '').replace(/<\/p>$/i, '').trim();
+    if (!line) continue;
+
+    // Check Major Section Heading (Part 1, Part 2, Section 1, Overview, Key Features, Core Mechanics, etc.)
+    const isPartHeading = /^(?:<strong>)?\s*(Part\s+\d+:?|Section\s+\d+:?|Chapter\s+\d+:?|Overview|Key Features|Core Mechanics|User Experience|Technical Architecture|Monetization|Data Safety|Conclusion|Verdict|FAQ|Frequently Asked Questions)/i.test(line);
+
+    if (isPartHeading) {
+      flushList();
+      hasH2 = true;
+      let title = line.replace(/<\/?strong>/gi, '').replace(/<\/?b>/gi, '').trim();
+      title = title.replace(/^[:\s-]+/, '').trim();
+      output.push(`<h2>${title}</h2>`);
+      continue;
+    }
+
+    // Check Bullet Item
+    const isExplicitBullet = /^[-*•]\s*/.test(line);
+    const isFeatureTopicBullet = /^<strong>([A-Z0-9][A-Za-z0-9\s&—–-]{2,50}):<\/strong>\s+/.test(line) ||
+                                 (/^([A-Z0-9][A-Za-z0-9\s&—–-]{2,50}):\s+[A-Z]/.test(line) && line.length > 35 && !/[.!?]$/.test(line.split(':')[0]));
+
+    if (isExplicitBullet || isFeatureTopicBullet) {
+      let itemText = line.replace(/^[-*•]\s*/, '');
+      if (!itemText.includes('<strong>') && !itemText.includes('<b>') && /^([A-Z0-9][A-Za-z0-9\s&—–-]{2,50}):\s+/.test(itemText)) {
+        itemText = itemText.replace(/^([A-Z0-9][A-Za-z0-9\s&—–-]{2,50}):\s+/, '<strong>$1:</strong> ');
+      }
+      currentList.push(`  <li>${itemText}</li>`);
+      continue;
+    }
+
+    // Check Sub-heading (H3): short text (<75 chars), no ending punctuation, doesn't contain HTML tags except strong
+    const isSubHead = line.length < 75 && !/[.!?:;]$/.test(line) && !line.startsWith('<ul') && !line.startsWith('<ol');
+    if (isSubHead) {
+      flushList();
+      let subTitle = line.replace(/<\/?strong>/gi, '').replace(/<\/?b>/gi, '').trim();
+      if (!hasH2) {
+        hasH2 = true;
+        output.push(`<h2>${subTitle}</h2>`);
+      } else {
+        output.push(`<h3>${subTitle}</h3>`);
+      }
+      continue;
+    }
+
+    // Regular paragraph
+    flushList();
+    let pText = line;
+    if (!pText.includes('<strong>') && !pText.includes('<b>') && /^([A-Z0-9][A-Za-z0-9\s&—–-]{2,50}):\s+/.test(pText)) {
+      pText = pText.replace(/^([A-Z0-9][A-Za-z0-9\s&—–-]{2,50}):\s+/, '<strong>$1:</strong> ');
+    }
+    output.push(`<p>${pText}</p>`);
+  }
+
+  flushList();
+
+  let result = output.join('\n\n');
+
+  // Convert consecutive h2 tags to h3
+  result = result.replace(/(<\/h2>\s*)<h2([^>]*)>(.*?)<\/h2>/gi, '$1<h3$2>$3</h3>');
+
+  return result;
+}
+
 adminVaultRouter.post("/api/v1/admin/ai-format-html", verifyAdminToken, async (req: any, res: any) => {
   const ip = getIp(req);
   if (await rateLimit(ip)) {
@@ -57,17 +175,24 @@ CRITICAL DIRECTIVE - 100% FAITHFUL CONTENT PRESERVATION:
 
 MANDATORY STRUCTURAL & TYPOGRAPHY RULES:
 1. **STRICTLY NO <h1> TAGS**: Main H1 is reserved for the website header. Use <h2> for main section headings and <h3> for sub-headings.
-2. **HIGH-CONTRAST HEADINGS**:
-   - Wrap major section titles in <h2>...</h2> (e.g. <h2>Comprehensive Engagement and Reflex Development</h2>, <h2>The Core Arcade Mechanics</h2>, <h2>Technical Specifications & Device Footprint</h2>).
-   - Wrap sub-topics in <h3>...</h3> where applicable.
-3. **BOLD FEATURE TITLES & TOPIC HIGHLIGHTS**:
-   - Whenever a paragraph or bullet point starts with a feature or topic title before a colon (e.g., "Reflex Testing: Included mini-games...", "Goal Setting and Progression: The app teaches...", "Pattern Recognition: Players are constantly..."), you MUST wrap the topic title in <strong>...</strong> (e.g., <li><strong>Reflex Testing:</strong> Included mini-games...</li> or <p><strong>Goal Setting and Progression:</strong> The app teaches...</p>).
-   - Bold key numbers, stats, and important takeaway phrases using <strong>...</strong> (e.g., <strong>60 FPS</strong>, <strong>No Real-Money Stakes</strong>).
-4. **UNORDERED LISTS FOR BULLETED TOPICS**:
-   - Convert feature lists, bullet points, or list-like series into clean <ul><li><strong>Topic Title:</strong> Description...</li></ul> tags.
-5. **PROPER PARAGRAPH SPACING & GAPS**:
-   - Every paragraph MUST be wrapped in its own <p>...</p> tag.
-   - NEVER lump multiple distinct topics into a single continuous block of text. Ensure every topic is separated cleanly into its own paragraph or list item.
+2. **SECTION HEADINGS (<h2>)**:
+   - Convert major section titles, "Part 1:", "Part 2:", "Part 3:", "Section 1:", "Overview", "User Experience", "Technical Details" into <h2> headings.
+   - Example: <h2>Part 1: Key Features and Core Mechanics of ABC Rummy</h2>
+   - Never wrap heading text in <p> or <br /> or <strong> inside <h2>.
+3. **SUB-SECTION HEADINGS (<h3>)**:
+   - Convert sub-topics ("The Core Game Mechanics", "Educational and Strategic Value", "Visual Design and Interaction Dynamics", "System Specifications") into <h3> headings.
+   - Example: <h3>The Core Game Mechanics</h3>
+4. **UNORDERED LISTS FOR FEATURE POINTS (<ul><li>)**:
+   - Convert feature descriptions and topic bullet items into unordered list items <ul><li><strong>Topic Title:</strong> Description...</li></ul>.
+   - Example:
+     <ul>
+       <li><strong>Classic Gameplay:</strong> Players are tasked with forming valid sets...</li>
+       <li><strong>Smart Challenges:</strong> The game features intelligent AI opponents...</li>
+     </ul>
+5. **SEPARATE PARAGRAPHS (<p>)**:
+   - Every paragraph MUST be wrapped in its own individual <p>...</p> tag.
+   - ABSOLUTELY NO <br /> OR <br> TAGS inside <p> to separate sections!
+   - NEVER wrap the entire document or multiple sections inside a single <p> tag!
 6. **NO DOCUMENT WRAPPERS & NO MARKDOWN CODEBLOCKS**:
    - Do NOT output <!DOCTYPE>, <html>, <head>, <body>, <style>, or \`\`\`html code blocks. Output ONLY raw clean HTML fragment.
 
@@ -84,18 +209,9 @@ ${content}`;
       let formattedHtml = response.text || '';
       // Remove codeblock wrappers if any
       formattedHtml = formattedHtml.replace(/^```html\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/, '').trim();
-      
-      // Convert any residual markdown headings into proper HTML tags
-      formattedHtml = formattedHtml.replace(/(?:^|\n)\s*####\s+(.*?)(?=\n|<|$)/gi, '\n<h3>$1</h3>')
-                                   .replace(/(?:^|\n)\s*###\s+(.*?)(?=\n|<|$)/gi, '\n<h3>$1</h3>')
-                                   .replace(/(?:^|\n)\s*##\s+(.*?)(?=\n|<|$)/gi, '\n<h2>$1</h2>')
-                                   .replace(/(?:^|\n)\s*#\s+(.*?)(?=\n|<|$)/gi, '\n<h2>$1</h2>');
 
-      // Ensure no <h1> tag exists in output
-      formattedHtml = formattedHtml.replace(/<h1([^>]*)>/gi, '<h2$1>').replace(/<\/h1>/gi, '</h2>');
-
-      // Convert consecutive <h2> tags to clean <h2> -> <h3> hierarchy
-      formattedHtml = formattedHtml.replace(/(<\/h2>\s*)<h2([^>]*)>(.*?)<\/h2>/gi, '$1<h3$2>$3</h3>');
+      // Pass through master structure formatting
+      formattedHtml = structureHtmlFragment(formattedHtml);
 
       if (formattedHtml && formattedHtml.length > 10) {
         return res.json({ success: true, formattedHtml, source: 'gemini-ai' });
@@ -103,113 +219,12 @@ ${content}`;
     }
 
     // Smart Local Fallback Formatter if Gemini Key is not set or API returns empty
-    let clean = content.trim();
-
-    // Convert markdown headers in raw text to HTML tags
-    clean = clean.replace(/(?:^|\n)\s*####\s+(.*?)(?=\n|<|$)/gi, '\n<h3>$1</h3>')
-                 .replace(/(?:^|\n)\s*###\s+(.*?)(?=\n|<|$)/gi, '\n<h3>$1</h3>')
-                 .replace(/(?:^|\n)\s*##\s+(.*?)(?=\n|<|$)/gi, '\n<h2>$1</h2>')
-                 .replace(/(?:^|\n)\s*#\s+(.*?)(?=\n|<|$)/gi, '\n<h2>$1</h2>');
-
-    // Strip document wrappers if full page HTML was pasted
-    clean = clean.replace(/<!DOCTYPE[^>]*>/gi, '')
-                 .replace(/<\/?(html|head|body)[^>]*>/gi, '')
-                 .replace(/<title>[^<]*<\/title>/gi, '')
-                 .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-                 .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-                 .replace(/<h1([^>]*)>/gi, '<h2$1>')
-                 .replace(/<\/h1>/gi, '</h2>')
-                 .trim();
-
-    if (!clean.includes('<p>') && !clean.includes('<h2>') && !clean.includes('<h3>') && !clean.includes('<div>')) {
-      const blocks = clean.split(/\n\s*\n/);
-      let hasH2 = false;
-
-      const processedBlocks = blocks.map(block => {
-        const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
-        if (lines.length === 0) return '';
-
-        // Check if all lines are bullet points
-        const isListBlock = lines.every(l => /^[-*•]/.test(l));
-        if (isListBlock) {
-          const listItems = lines.map(l => {
-            let itemText = l.replace(/^[-*•]\s*/, '');
-            // Auto bold Title: before colon if present
-            if (!itemText.includes('<strong>') && !itemText.includes('<b>') && /^([A-Z0-9][A-Za-z0-9\s&—–-]{2,45}):\s+/.test(itemText)) {
-              itemText = itemText.replace(/^([A-Z0-9][A-Za-z0-9\s&—–-]{2,45}):\s+/, '<strong>$1:</strong> ');
-            }
-            return `  <li>${itemText}</li>`;
-          });
-          return `<ul>\n${listItems.join('\n')}\n</ul>`;
-        }
-
-        // Single line block checks
-        if (lines.length === 1) {
-          let lineText = lines[0];
-
-          // Check if markdown or HTML header already formatted
-          if (lineText.startsWith('<h2>') || lineText.startsWith('<h3>')) {
-            if (lineText.startsWith('<h2>')) hasH2 = true;
-            return lineText;
-          }
-
-          let isBullet = /^[-*•]\s*/.test(lineText);
-          if (isBullet) {
-            lineText = lineText.replace(/^[-*•]\s*/, '');
-            if (!lineText.includes('<strong>') && /^([A-Z0-9][A-Za-z0-9\s&—–-]{2,45}):\s+/.test(lineText)) {
-              lineText = lineText.replace(/^([A-Z0-9][A-Za-z0-9\s&—–-]{2,45}):\s+/, '<strong>$1:</strong> ');
-            }
-            return `<ul>\n  <li>${lineText}</li>\n</ul>`;
-          }
-
-          // Check if heading line
-          if (lineText.length < 75 && !lineText.endsWith('.') && !lineText.endsWith('!')) {
-            const isMajorSection = /overview|feature|mechanic|spec|gameplay|review|highlight|installation|verdict|summary|about|faq|requirement/i.test(lineText);
-            if (!hasH2 || isMajorSection) {
-              hasH2 = true;
-              return `<h2>${lineText}</h2>`;
-            } else {
-              return `<h3>${lineText}</h3>`;
-            }
-          }
-
-          // Regular paragraph
-          if (!lineText.includes('<strong>') && /^([A-Z0-9][A-Za-z0-9\s&—–-]{2,45}):\s+/.test(lineText)) {
-            lineText = lineText.replace(/^([A-Z0-9][A-Za-z0-9\s&—–-]{2,45}):\s+/, '<strong>$1:</strong> ');
-          }
-          return `<p>${lineText}</p>`;
-        }
-
-        // Multi-line block
-        const formattedLines = lines.map(l => {
-          let t = l;
-          if (!t.includes('<strong>') && /^([A-Z0-9][A-Za-z0-9\s&—–-]{2,45}):\s+/.test(t)) {
-            t = t.replace(/^([A-Z0-9][A-Za-z0-9\s&—–-]{2,45}):\s+/, '<strong>$1:</strong> ');
-          }
-          return t;
-        });
-        return `<p>${formattedLines.join('<br />')}</p>`;
-      });
-
-      clean = processedBlocks.filter(Boolean).join('\n\n');
-    } else {
-      // Auto bold Title: in existing paragraph tags or li tags if not already bolded
-      clean = clean.replace(/<(p|li)([^>]*)>\s*([A-Z0-9][A-Za-z0-9\s&—–-]{2,45}):\s+/g, (match, tag, attrs, title) => {
-        if (title.toLowerCase().startsWith('http') || title.toLowerCase().startsWith('www')) return match;
-        return `<${tag}${attrs}><strong>${title}:</strong> `;
-      });
-    }
-
-    // Ensure consecutive <h2> tags convert second to <h3>
-    clean = clean.replace(/(<\/h2>\s*)<h2([^>]*)>(.*?)<\/h2>/gi, '$1<h3$2>$3</h3>');
+    const clean = structureHtmlFragment(content);
 
     return res.json({ success: true, formattedHtml: clean, source: 'local-formatter' });
   } catch (err: any) {
     console.error('[AI FORMAT HTML SERVER ERROR]', err);
-    let fallback = content
-      .replace(/<h1([^>]*)>/gi, '<h2$1>')
-      .replace(/<\/h1>/gi, '</h2>')
-      .trim();
+    const fallback = structureHtmlFragment(content);
     return res.json({ success: true, formattedHtml: fallback, source: 'fallback', note: err.message });
   }
 });
