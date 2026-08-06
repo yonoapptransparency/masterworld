@@ -4,7 +4,7 @@ import { getSafeFirebaseConfig } from './seo/firebaseConfig';
 import { syncFromFirestore } from './seo/sync';
 import { getField, stripHtml, getYoutubeThumbnail, ensureAbsoluteUrl, getOgImageUrl } from './seo/utils';
 import * as renderers from './seo/renderers';
-import { getCleanCanonicalUrl } from './lib/seoUtils';
+import { getCleanCanonicalUrl, formatPageTitle } from './lib/seoUtils';
 
 // Dynamically resolve staticData to bypass TSX watcher
 const getStaticData = () => {
@@ -603,6 +603,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     title = `404 - Page Not Found | ${siteTitle}`;
     description = `The requested page ${cleanPath} could not be found on ${siteTitle}.`;
   }
+
+  title = formatPageTitle(title, siteTitle);
 
   let canonicalPath = urlPath;
   if (pageType === 'app' && targetApp) {

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useData } from '../contexts/DataContextPublic';
-import { getCleanCanonicalUrl } from '../lib/seoUtils';
+import { getCleanCanonicalUrl, formatPageTitle } from '../lib/seoUtils';
 import { ensureAbsoluteUrl, getOgImageUrl } from '../seo/utils';
 
 interface MetaProps {
@@ -31,8 +31,8 @@ const Meta: React.FC<MetaProps> = ({
 }) => {
   const { settings } = useData();
 
-  const siteTitle = settings?.site_title || 'Application Hub';
-  const fullTitle = title ? `${title} | ${siteTitle}` : siteTitle;
+  const siteTitle = settings?.site_title || 'RummyDex';
+  const fullTitle = formatPageTitle(title, siteTitle);
   const metaDescription = description || settings?.meta_description || 'Access application details and specifications.';
   const metaKeywords = keywords || settings?.seo_keywords || '';
   const rawImage = image || settings?.logo_url || '';

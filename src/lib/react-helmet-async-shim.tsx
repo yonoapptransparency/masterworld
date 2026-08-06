@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 
 export function HelmetProvider({ children }: { children: React.ReactNode; context?: any }) {
   return <>{children}</>;
@@ -9,7 +9,16 @@ interface HelmetProps {
 }
 
 export function Helmet({ children }: HelmetProps) {
-  // Return children directly so React 19's native document metadata hoisting handles it beautifully and safely
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      // Remove server-side static data-rh="true" tags once client React mounts
+      // This prevents duplicate <title> or <meta> tags in the browser DOM
+      const serverRhElements = document.querySelectorAll('[data-rh="true"]');
+      serverRhElements.forEach(el => el.remove());
+    }
+  }, []);
+
   return <>{children}</>;
 }
+
 

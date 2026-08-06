@@ -12,10 +12,8 @@ export function structureHtmlFragment(rawHtml: string): string {
            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
            .trim();
 
-  // 2. Unpack smashed <p> tags containing <br> or multiple sections
-  str = str.replace(/<p\b[^>]*>([\s\S]*?)<\/p>/gi, (_match, inner) => {
-    return inner.replace(/<br\s*\/?>/gi, '\n\n');
-  });
+  // 2. Convert <h1> tags to <h2>
+  str = str.replace(/<h1([^>]*)>/gi, '<h2$1>').replace(/<\/h1>/gi, '</h2>');
 
   // 3. Convert markdown headers if present
   str = str.replace(/(?:^|\n)\s*####\s+(.*?)(?=\n|<|$)/gi, '\n<h3>$1</h3>')
@@ -23,13 +21,37 @@ export function structureHtmlFragment(rawHtml: string): string {
            .replace(/(?:^|\n)\s*##\s+(.*?)(?=\n|<|$)/gi, '\n<h2>$1</h2>')
            .replace(/(?:^|\n)\s*#\s+(.*?)(?=\n|<|$)/gi, '\n<h2>$1</h2>');
 
-  // 4. Strip <h1> to <h2>
-  str = str.replace(/<h1([^>]*)>/gi, '<h2$1>').replace(/<\/h1>/gi, '</h2>');
+  // If input ALREADY has structured HTML block tags (p, h2, h3, ul, ol, li, div, section, article)
+  const hasStructuredTags = /<(p|h[23456]|ul|ol|li|div|section|article)\b/i.test(str);
 
-  // Replace remaining <br> with newlines for parsing
+  if (hasStructuredTags) {
+    let clean = str;
+
+    // Remove any <p> that wraps block elements like <ul>, <ol>, <h2>, <h3>, <li>, <div>, <section>
+    clean = clean.replace(/<p\b[^>]*>\s*(<(?:ul|ol|h[23456]|li|div|section|article)[^>]*>)/gi, '$1')
+                 .replace(/(<\/(?:ul|ol|h[23456]|li|div|section|article)>)\s*<\/p>/gi, '$1');
+
+    // Auto-bold Topic: inside <p> or <li> if not already bolded
+    clean = clean.replace(/<(p|li)([^>]*)>\s*([A-Z0-9][A-Za-z0-9\s&—–-]{2,50}):\s+/g, (match, tag, attrs, title) => {
+      if (title.toLowerCase().startsWith('http') || title.toLowerCase().startsWith('www')) return match;
+      return `<${tag}${attrs}><strong>${title}:</strong> `;
+    });
+
+    // Ensure consecutive <h2> tags convert second to <h3>
+    clean = clean.replace(/(<\/h2>\s*)<h2([^>]*)>(.*?)<\/h2>/gi, '$1<h3$2>$3</h3>');
+
+    // Clean up empty tags like <p></p>, <h3></h3>, <h2></h2>, <ul></ul>
+    clean = clean.replace(/<p\b[^>]*>\s*<\/p>/gi, '')
+                 .replace(/<h[23456]\b[^>]*>\s*<\/h[23456]>/gi, '')
+                 .replace(/<ul\b[^>]*>\s*<\/ul>/gi, '')
+                 .replace(/<ol\b[^>]*>\s*<\/ol>/gi, '');
+
+    return clean.trim();
+  }
+
+  // Otherwise, if raw text/markdown without HTML block structure, build paragraphs & lists cleanly
   str = str.replace(/<br\s*\/?>/gi, '\n');
 
-  // Split lines
   const rawLines = str.split(/\n+/).map(l => l.trim()).filter(Boolean);
   if (rawLines.length === 0) return '';
 
@@ -47,8 +69,8 @@ export function structureHtmlFragment(rawHtml: string): string {
   for (let i = 0; i < rawLines.length; i++) {
     let line = rawLines[i];
 
-    // Check if line is already a complete h2/h3/p/ul tag
-    if (/^<h[23]\b[^>]*>[\s\S]*<\/h[23]>$/i.test(line)) {
+    // Check if line is already an HTML tag or starts with <
+    if (/^<(h[23]|p|ul|ol|li)\b[^>]*>[\s\S]*<\/(h[23]|p|ul|ol|li)>$/i.test(line) || /^<\/?(ul|ol|li|h[23]|p|div)\b/i.test(line)) {
       flushList();
       if (/^<h2/i.test(line)) hasH2 = true;
       output.push(line);
@@ -59,7 +81,7 @@ export function structureHtmlFragment(rawHtml: string): string {
     line = line.replace(/^<p\b[^>]*>/i, '').replace(/<\/p>$/i, '').trim();
     if (!line) continue;
 
-    // Check Major Section Heading (Part 1, Part 2, Section 1, Overview, Key Features, Core Mechanics, etc.)
+    // Check Major Section Heading
     const isPartHeading = /^(?:<strong>)?\s*(Part\s+\d+:?|Section\s+\d+:?|Chapter\s+\d+:?|Overview|Key Features|Core Mechanics|User Experience|Technical Architecture|Monetization|Data Safety|Conclusion|Verdict|FAQ|Frequently Asked Questions)/i.test(line);
 
     if (isPartHeading) {
@@ -86,7 +108,7 @@ export function structureHtmlFragment(rawHtml: string): string {
     }
 
     // Check Sub-heading (H3): short text (<75 chars), no ending punctuation, doesn't contain HTML tags except strong
-    const isSubHead = line.length < 75 && !/[.!?:;]$/.test(line) && !line.startsWith('<ul') && !line.startsWith('<ol');
+    const isSubHead = line.length < 75 && !/[.!?:;]$/.test(line) && !line.startsWith('<ul') && !line.startsWith('<ol') && !line.startsWith('<li');
     if (isSubHead) {
       flushList();
       let subTitle = line.replace(/<\/?strong>/gi, '').replace(/<\/?b>/gi, '').trim();
@@ -115,7 +137,12 @@ export function structureHtmlFragment(rawHtml: string): string {
   // Convert consecutive h2 tags to h3
   result = result.replace(/(<\/h2>\s*)<h2([^>]*)>(.*?)<\/h2>/gi, '$1<h3$2>$3</h3>');
 
-  return result;
+  // Clean empty tags
+  result = result.replace(/<p\b[^>]*>\s*<\/p>/gi, '')
+                 .replace(/<h[23456]\b[^>]*>\s*<\/h[23456]>/gi, '')
+                 .replace(/<ul\b[^>]*>\s*<\/ul>/gi, '');
+
+  return result.trim();
 }
 
 export function enhanceAndCleanHtml(rawHtml: string): string {

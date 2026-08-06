@@ -2,6 +2,21 @@ import { getOgImageUrl } from '../seo/utils';
 
 export { getOgImageUrl };
 
+export function formatPageTitle(rawTitle?: string, siteTitle: string = 'RummyDex'): string {
+  if (!rawTitle || !rawTitle.trim()) return siteTitle;
+  let clean = rawTitle.trim().replace(/<[^>]*>/g, '').trim();
+
+  const escapedSite = siteTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const repeatedSuffixRegex = new RegExp(`(?:\\s*[|\\-]\\s*${escapedSite})+\\s*$`, 'i');
+  clean = clean.replace(repeatedSuffixRegex, '').trim();
+
+  if (!clean || clean.toLowerCase() === siteTitle.toLowerCase()) {
+    return siteTitle;
+  }
+
+  return `${clean} | ${siteTitle}`;
+}
+
 export function getCleanCanonicalUrl(rawUrl?: string, fallbackPath: string = '/'): string {
   const DEFAULT_PRIMARY_DOMAIN = 'https://www.rummydex.com';
   let input = (rawUrl || '').trim();
@@ -36,3 +51,4 @@ export function getCleanCanonicalUrl(rawUrl?: string, fallbackPath: string = '/'
     return clean || DEFAULT_PRIMARY_DOMAIN;
   }
 }
+
