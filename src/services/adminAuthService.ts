@@ -30,7 +30,16 @@ const TOKEN_LIFETIME_MS = 55 * 60 * 1000; // 55 minutes (Firebase tokens last 60
 const B64_FALLBACK = "ewogICJwcm9qZWN0SWQiOiAiZ2VuLWxhbmctY2xpZW50LTA4MjU4MzI0OTMiLAogICJhcHBJZCI6ICIxOjEwMzk3Mzk4OTg3NDp3ZWI6NzMzYTZhZmQ4ZTgzNzIyNDkwMGY2YiIsCiAgImFwaUtleSI6ICJBSXphU3lCZXk5c1ViZVdscmNYUzJrbDRld096a1R5NGFyZzAzT2siLAogICJhdXRoRG9tYWluIjogImdlbi1sYW5nLWNsaWVudC0wODI1ODMyNDkzLmZpcmViYXNlYXBwLmNvbSIsCiAgImZpcmVzdG9yZURhdGFiYXNlSWQiOiAiYWktc3R1ZGlvLXlvbm9zdG9yZS04ODYzMTVhNC04YjlmLTRmZjYtODk4Ni1hOTBhZDE3MjIxMGEiLAogICJzdG9yYWdlQnVja2V0IjogImdlbi1sYW5nLWNsaWVudC0wODI1ODMyNDkzLmZpcmViYXNlc3RvcmFnZS5hcHAiLAogICJtZXNzYWdpbmdTZW5kZXJJZCI6ICIxMDM5NzM5ODk4NzQiLAogICJtZWFzdXJlbWVudElkIjogIiIsCiAgIm9BdXRoQ2xpZW50SWQiOiAiMTAzOTczOTg5ODc0LXQ0N252ODdrNTMycHQ4NHMyaTF0a2wwdmttYmloOWs2LmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29tIiwKICAicmVjYXB0Y2hhU2l0ZUtleSI6ICIiCn0=";
 
 const getResolvedApiKey = (): string => {
-  const envKey = (import.meta as any).env?.VITE_FIREBASE_API_KEY || (import.meta as any).env?.FIREBASE_API_KEY;
+  let envKey: string | undefined;
+  if (typeof process !== 'undefined' && process.env) {
+    envKey = process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY;
+  }
+  if (!envKey) {
+    try {
+      const meta = (globalThis as any).importMetaEnv || (typeof import.meta !== 'undefined' ? (import.meta as any).env : undefined);
+      if (meta) envKey = meta.VITE_FIREBASE_API_KEY || meta.FIREBASE_API_KEY;
+    } catch (_) {}
+  }
   const cfgKey = (appletConfig as any)?.apiKey || "";
   
   const isRealValue = (key: string | undefined): boolean => {

@@ -48,17 +48,19 @@ adminVaultRouter.post("/api/v1/admin/ai-format-html", verifyAdminToken, async (r
       const { GoogleGenAI } = require("@google/genai");
       const ai = new GoogleGenAI({ apiKey });
 
-      const prompt = `You are a professional web content and HTML structure optimizer for app reviews and directory websites.
-Your task is to convert the user's raw review script, rough notes, or unformatted HTML into clean, valid, semantically structured HTML.
+      const prompt = `You are an expert SEO editor and HTML content architect for premium mobile app review directories.
+Your objective is to transform the user's raw text, review script, or rough notes into a perfectly structured, beautifully styled HTML fragment.
 
-CRITICAL MANDATORY RULES:
-1. **STRICTLY DO NOT USE OR GENERATE ANY <h1> TAGS**. Main H1 heading is reserved for the App Name at the page header.
-2. Structure sections using <h2> and <h3> tags ONLY (e.g. <h2>Overview & Hands-on Review</h2>, <h2>Key Features</h2>, <h3>Gameplay Mechanics</h3>, <h3>Performance Benchmarks</h3>).
-3. Wrap all normal body paragraphs in clean <p>...</p> tags.
-4. Convert bullet points, lists, or features into <ul><li>...</li></ul> tags.
-5. Use <strong>...</strong> for key highlights, metric numbers, or emphasis.
-6. **PRESERVE ALL ORIGINAL TEXT, WORDS, SENTENCES, AND SPECIFIC REVIEW DETAILS EXACTLY**. Do NOT change the facts, do NOT shorten or hallucinate, and do NOT change the author's voice/script.
-7. Return ONLY clean fragment HTML without markdown blocks (\`\`\`html) or <html>/<body> tags.
+MANDATORY STRUCTURAL & SEQUENCING RULES:
+1. **STRICTLY NO <h1> TAGS**: Main H1 is reserved for the website header. Use <h2> for main section headings and <h3> for sub-sections.
+2. **ORGANIZED CONTENT SEQUENCE**:
+   - **Section 1: App Brief Overview**: Start with a well-crafted introductory paragraph (<p>...</p>) introducing ${appName || 'the application'}, its core purpose, and target audience. Bold essential keywords using <strong>...</strong>.
+   - **Section 2: Key Features & Strategic Highlights**: Group features logically under an <h2>Key Features</h2> heading using <ul><li><strong>Feature Title:</strong> Detailed description...</li></ul>.
+   - **Section 3: Core Mechanics & Hands-on Review**: Group deeper analysis, gameplay loops, benchmarks, or user experience under <h2>Core Mechanics & Review</h2> with clear <h3> subheadings.
+3. **STRATEGIC KEYWORD HIGHLIGHTING**: Bold important terms, key feature titles, numbers, metric stats, and core takeaways using <strong>...</strong> (e.g. <strong>13-Card Rummy</strong>, <strong>No Real-Money Stakes</strong>, <strong>60 FPS Performance</strong>) to make the text instantly scannable and engaging.
+4. **NO DOCUMENT WRAPPERS**: Do NOT include <!DOCTYPE>, <html>, <head>, <body>, <style>, or <script> tags. Return ONLY clean body fragment HTML.
+5. **NO MARKDOWN CODEBLOCKS**: Output pure HTML text directly without \`\`\`html wrapper blocks.
+6. **PRESERVE ALL ORIGINAL FACTS & DETAILS**: Keep all authentic review facts, numbers, feature details, and author insights intact while elevating the layout, flow, and emphasis.
 
 App Title Context: ${appName || 'Application'}
 
