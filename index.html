@@ -55,6 +55,27 @@
     <meta name="twitter:title" content="RummyDex - Download Rummy Apps, APKs &amp; Card Games" />
     <meta name="twitter:description" content="Discover and download verified Rummy applications, APKs, card games, latest news, and features on RummyDex." />
     <meta name="twitter:image" content="https://www.rummydex.com/favicon.png" />
+    <script type="speculationrules">
+      {
+        "prefetch": [
+          {
+            "source": "list",
+            "urls": ["/new-apps", "/videos", "/news", "/about", "/contact"]
+          },
+          {
+            "source": "document",
+            "where": {
+              "and": [
+                { "href_matches": "/*" },
+                { "not": { "href_matches": "/admin/*" } },
+                { "not": { "href_matches": "/api/*" } }
+              ]
+            },
+            "eagerness": "moderate"
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <div id="root">
