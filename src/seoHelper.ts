@@ -28,6 +28,44 @@ let lastFetchTime = 0;
 const CACHE_TTL = 15000; // 15 seconds
 let isFetchingStoreData = false;
 
+export const SLUG_ALIAS_MAP: Record<string, string> = {
+  '567-slots': 'share-slots',
+  '777-rummy': '777-game',
+  'ind-club': 'jaiho-91',
+  'gogo-rummy': 'love-rummy',
+  'uno': 'rummy-ludo',
+  'slots': 'jaiho-slots',
+  'arcade': 'yono-arcade',
+  'vip': 'yono-vip'
+};
+
+export function resolveAppSlug(rawSlug: string, appsList: any[]): any | null {
+  if (!rawSlug) return null;
+  let clean = decodeURIComponent(rawSlug).replace(/^\/+|\/+$/g, '').toLowerCase().trim();
+  clean = clean.replace(/[-_]+$/g, ''); // Strip trailing hyphens like "uno-" -> "uno"
+
+  if (!clean) return null;
+
+  // 1. Direct slug match
+  let matched = appsList.find((a: any) => getField(a, 'slug')?.toLowerCase() === clean);
+  if (matched) return matched;
+
+  // 2. Alias match
+  const aliasTarget = SLUG_ALIAS_MAP[clean];
+  if (aliasTarget) {
+    matched = appsList.find((a: any) => getField(a, 'slug')?.toLowerCase() === aliasTarget);
+    if (matched) return matched;
+  }
+
+  // 3. Partial match
+  matched = appsList.find((a: any) => {
+    const s = getField(a, 'slug')?.toLowerCase();
+    return s && (s.includes(clean) || clean.includes(s));
+  });
+
+  return matched || null;
+}
+
 export { getField, getSafeFirebaseConfig, syncFromFirestore, getOgImageUrl };
 
 export function clearSeoCache() {
@@ -558,7 +596,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   } else if (cleanPathLower.startsWith('/info/') || cleanPathLower.startsWith('/moreinfo/') || cleanPathLower.startsWith('/moredetail/')) {
     const parts = cleanPathLower.split('/');
     const slug = parts[parts.length - 1];
-    const app = apps.find((a: any) => getField(a, 'slug').toLowerCase() === slug);
+    const app = resolveAppSlug(slug, apps);
     if (app) {
       title = `More Info: ${getField(app, 'name')} | ${siteTitle}`;
       description = `Detailed information about ${getField(app, 'name')}.`;
@@ -571,9 +609,9 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     }
   } else {
     const appSlug = cleanPathLower.replace(/^\/app\//, '/').replace(/^\/|\/$/g, '');
-    const app = apps.find((a: any) => getField(a, 'slug')?.toLowerCase() === appSlug);
-    const newsItem = news.find((n: any) => getField(n, 'slug')?.toLowerCase() === appSlug);
-    const videoItem = videos.find((v: any) => getField(v, 'slug')?.toLowerCase() === appSlug);
+    const app = resolveAppSlug(appSlug, apps);
+    const newsItem = news.find((n: any) => getField(n, 'slug')?.toLowerCase() === appSlug || getField(n, 'slug')?.toLowerCase() === appSlug.replace(/[-_]+$/g, ''));
+    const videoItem = videos.find((v: any) => getField(v, 'slug')?.toLowerCase() === appSlug || getField(v, 'slug')?.toLowerCase() === appSlug.replace(/[-_]+$/g, ''));
 
     if (app) {
       title = getField(app, 'seo_title') || `${getField(app, 'name')} | ${siteTitle}`;
