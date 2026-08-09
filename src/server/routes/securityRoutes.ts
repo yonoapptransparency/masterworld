@@ -268,7 +268,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
       } catch (vaultErr) {}
     }
 
-    if (targetUrl && targetUrl.trim().match(/^(http|https|intent|market)/i)) {
+    console.log("[SECURITY] Final targetUrl for " + appId + ": ", targetUrl); if (targetUrl && targetUrl.trim().length > 0) {
       const entry = { url: targetUrl, timestamp: Date.now() };
       resolvedLinkCache.set(appId.toLowerCase(), entry);
       resolvedLinkCache.set(realId.toLowerCase(), entry);
@@ -306,7 +306,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
               resolvedLinkCache.set(appId.toLowerCase(), entry);
               resolvedLinkCache.set(realId.toLowerCase(), entry);
               return res.redirect(302, decrypted.trim());
-            } else if (encrypted.trim().match(/^(http|https|intent|market)/i)) {
+            } else if (encrypted.trim().length > 0) {
               const entry = { url: encrypted, timestamp: Date.now() };
               resolvedLinkCache.set(appId.toLowerCase(), entry);
               resolvedLinkCache.set(realId.toLowerCase(), entry);
@@ -338,39 +338,37 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
         const config = getRawFirebaseConfig();
         if (config && config.projectId) {
           const apiSuffix = config.apiKey ? `?key=${config.apiKey}` : '';
-          const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || '(default)'}/documents/app_secure_links/${realId}${apiSuffix}`;
-          const fsRes = await fetch(url);
-          if (fsRes.ok) {
-            const fsDoc = await fsRes.json();
-            const fields = parseFirestoreFields(fsDoc.fields);
-            const encLink = fields.more_information_url || fields.encrypted_link;
-            if (encLink) {
-              const decrypted = safeDecrypt(encLink, AES_SECRET);
-              if (decrypted && decrypted.trim().length > 0) {
-                const entry = { url: decrypted.trim(), timestamp: Date.now() };
-                resolvedLinkCache.set(appId.toLowerCase(), entry);
-                resolvedLinkCache.set(realId.toLowerCase(), entry);
-                return res.redirect(302, decrypted.trim());
-              }
-            }
+          const headers = { 'Origin': 'https://rummydex.com', 'Referer': 'https://rummydex.com/' };
+          
+          const vaultDocs = ['sec_links_vault_3', 'sec_vault', 'secure_links'];
+          for (const docName of vaultDocs) {
+             const vaultUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || '(default)'}/documents/store_data/${docName}${apiSuffix}`;
+             const fsRes = await fetch(vaultUrl, { headers });
+             if (fsRes.ok) {
+                const fsDoc = await fsRes.json();
+                const fields = parseFirestoreFields(fsDoc.fields);
+                const ciphertext = fields.encryptedData || fields.encrypted_links;
+                if (ciphertext) {
+                   const dec = safeDecrypt(ciphertext, AES_SECRET);
+                   if (dec) {
+                      const parsed = JSON.parse(dec);
+                      let foundUrl = '';
+                      if (Array.isArray(parsed)) {
+                         const item = parsed.find((i: any) => i.id === realId || i.slug === realSlug || i.id === appId || i.slug === appId);
+                         foundUrl = item?.more_information_url || item?.url || '';
+                      } else {
+                         const val = parsed[realId] || parsed[realSlug] || parsed[appId];
+                         foundUrl = typeof val === 'string' ? val : (val?.more_information_url || val?.url || '');
+                      }
+                      if (foundUrl) {
+                         targetUrl = foundUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(foundUrl, AES_SECRET) : foundUrl;
+                         if (targetUrl) break;
+                      }
+                   }
+                }
+             }
           }
 
-          const appUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || '(default)'}/documents/apps/${realId}${apiSuffix}`;
-          const appFsRes = await fetch(appUrl);
-          if (appFsRes.ok) {
-            const appFsDoc = await appFsRes.json();
-            const fields = parseFirestoreFields(appFsDoc.fields);
-            const raw = fields.more_information_url || fields.download_url || fields.encrypted_link || fields.url;
-            if (raw && typeof raw === 'string') {
-              const decrypted = raw.startsWith('U2FsdGVkX1') ? safeDecrypt(raw, AES_SECRET) : raw;
-              if (decrypted && decrypted.trim().length > 0) {
-                const entry = { url: decrypted.trim(), timestamp: Date.now() };
-                resolvedLinkCache.set(appId.toLowerCase(), entry);
-                resolvedLinkCache.set(realId.toLowerCase(), entry);
-                return res.redirect(302, decrypted.trim());
-              }
-            }
-          }
         }
       }
     } catch (fsFallbackErr) {
