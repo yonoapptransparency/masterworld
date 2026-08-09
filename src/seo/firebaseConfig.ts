@@ -19,8 +19,7 @@ export function getRawFirebaseConfig(): any {
   }
 
   try {
-    const rawData = fs.readFileSync(path.join(process.cwd(), 'firebase-applet-config.json'), 'utf8');
-    const config = JSON.parse(rawData);
+    const config = require('../../firebase-applet-config.json');
     if (config.projectId && isRealValue(config.projectId)) {
       config.firestoreDatabaseId = config.firestoreDatabaseId || config.databaseId || process.env.VITE_FIREBASE_DATABASE_ID;
       config.apiKey = config.apiKey || process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY;

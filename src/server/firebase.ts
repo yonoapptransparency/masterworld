@@ -91,8 +91,7 @@ export function getRawFirebaseConfig(): any {
 
   let fileConfig: any = {};
   try {
-    const rawData = fs.readFileSync(path.join(process.cwd(), 'firebase-applet-config.json'), 'utf8');
-    fileConfig = JSON.parse(rawData) || {};
+    fileConfig = require('../../firebase-applet-config.json');
   } catch (err) {
     // Proceed
   }

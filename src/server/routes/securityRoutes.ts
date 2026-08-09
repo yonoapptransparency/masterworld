@@ -198,9 +198,9 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
         const appDirectUrl = app.more_information_url || app.download_url || app.encrypted_link || app.url;
         if (appDirectUrl && typeof appDirectUrl === 'string') {
           const dec = appDirectUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(appDirectUrl, AES_SECRET) : appDirectUrl;
-          if (dec && dec.trim().match(/^(http|https|intent|market)/i)) {
+          if (dec && dec.trim().length > 0) {
             console.log(`[SECURITY] Resolved link directly from storeData for ${appId}`);
-            const entry = { url: dec, timestamp: Date.now() };
+            const entry = { url: dec.trim(), timestamp: Date.now() };
             resolvedLinkCache.set(appId.toLowerCase(), entry);
             resolvedLinkCache.set(realId.toLowerCase(), entry);
             resolvedLinkCache.set(realSlug.toLowerCase(), entry);
@@ -301,8 +301,8 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
           
           if (encrypted) {
             const decrypted = safeDecrypt(encrypted, AES_SECRET);
-            if (decrypted && decrypted.trim().match(/^(http|https|intent|market)/i)) {
-              const entry = { url: decrypted, timestamp: Date.now() };
+            if (decrypted && decrypted.trim().length > 0) {
+              const entry = { url: decrypted.trim(), timestamp: Date.now() };
               resolvedLinkCache.set(appId.toLowerCase(), entry);
               resolvedLinkCache.set(realId.toLowerCase(), entry);
               return res.redirect(302, decrypted.trim());
@@ -324,8 +324,8 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
             const rawUrl = appData?.more_information_url || appData?.download_url || appData?.encrypted_link || appData?.url;
             if (rawUrl && typeof rawUrl === 'string') {
               const dec = rawUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(rawUrl, AES_SECRET) : rawUrl;
-              if (dec && dec.trim().match(/^(http|https|intent|market)/i)) {
-                const entry = { url: dec, timestamp: Date.now() };
+              if (dec && dec.trim().length > 0) {
+                const entry = { url: dec.trim(), timestamp: Date.now() };
                 resolvedLinkCache.set(appId.toLowerCase(), entry);
                 resolvedLinkCache.set(realId.toLowerCase(), entry);
                 return res.redirect(302, dec.trim());
@@ -346,8 +346,8 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
             const encLink = fields.more_information_url || fields.encrypted_link;
             if (encLink) {
               const decrypted = safeDecrypt(encLink, AES_SECRET);
-              if (decrypted && decrypted.trim().match(/^(http|https|intent|market)/i)) {
-                const entry = { url: decrypted, timestamp: Date.now() };
+              if (decrypted && decrypted.trim().length > 0) {
+                const entry = { url: decrypted.trim(), timestamp: Date.now() };
                 resolvedLinkCache.set(appId.toLowerCase(), entry);
                 resolvedLinkCache.set(realId.toLowerCase(), entry);
                 return res.redirect(302, decrypted.trim());
@@ -363,8 +363,8 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
             const raw = fields.more_information_url || fields.download_url || fields.encrypted_link || fields.url;
             if (raw && typeof raw === 'string') {
               const decrypted = raw.startsWith('U2FsdGVkX1') ? safeDecrypt(raw, AES_SECRET) : raw;
-              if (decrypted && decrypted.trim().match(/^(http|https|intent|market)/i)) {
-                const entry = { url: decrypted, timestamp: Date.now() };
+              if (decrypted && decrypted.trim().length > 0) {
+                const entry = { url: decrypted.trim(), timestamp: Date.now() };
                 resolvedLinkCache.set(appId.toLowerCase(), entry);
                 resolvedLinkCache.set(realId.toLowerCase(), entry);
                 return res.redirect(302, decrypted.trim());

@@ -5,8 +5,7 @@ import { getRawFirebaseConfig, parseFirestoreDoc } from './firebaseConfig';
 // Dynamically resolve staticData to bypass TSX watcher
 const getStaticData = () => {
   try {
-    const staticDataModulePath = path.join(process.cwd(), 'src/lib/staticData');
-    return require(staticDataModulePath);
+    return require('../lib/staticData');
   } catch (e) {
     return { mockApps: [], mockSettings: {}, mockNews: [], mockBlogs: [], mockVideos: [] };
   }
@@ -25,20 +24,17 @@ export async function syncFromFirestore(): Promise<any> {
       videos: freshStatic.mockVideos || []
     };
 
-    const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
-    if (fs.existsSync(publicBackupPath)) {
-      try {
-        const fileContent = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
-        if (fileContent) {
-          if (Array.isArray(fileContent.apps)) existingBackup.apps = fileContent.apps;
-          if (fileContent.settings && Object.keys(fileContent.settings).length > 0) existingBackup.settings = fileContent.settings;
-          if (Array.isArray(fileContent.news)) existingBackup.news = fileContent.news;
-          if (Array.isArray(fileContent.blogs)) existingBackup.blogs = fileContent.blogs;
-          if (Array.isArray(fileContent.videos)) existingBackup.videos = fileContent.videos;
-        }
-      } catch (e) {
-        console.warn("[SYNC] Error reading public_backup.json:", e);
+    try {
+      const fileContent = require('../lib/public_backup.json');
+      if (fileContent) {
+        if (Array.isArray(fileContent.apps)) existingBackup.apps = fileContent.apps;
+        if (fileContent.settings && Object.keys(fileContent.settings).length > 0) existingBackup.settings = fileContent.settings;
+        if (Array.isArray(fileContent.news)) existingBackup.news = fileContent.news;
+        if (Array.isArray(fileContent.blogs)) existingBackup.blogs = fileContent.blogs;
+        if (Array.isArray(fileContent.videos)) existingBackup.videos = fileContent.videos;
       }
+    } catch (e) {
+      console.warn("[SYNC] Error reading public_backup.json:", e);
     }
 
     let apps: any[] = existingBackup.apps || [];
