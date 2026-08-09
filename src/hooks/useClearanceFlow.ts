@@ -69,9 +69,7 @@ export const useClearanceFlow = (appId: string) => {
       if (targetWin && !targetWin.closed) {
         targetWin.location.href = payloadUrl;
       } else {
-        setTimeout(() => {
-          window.location.href = payloadUrl;
-        }, 500);
+        window.location.href = payloadUrl;
       }
 
     } catch (err: any) {

@@ -12,13 +12,14 @@ export const solveChallenge = async (
     let counter = 0;
     const encoder = new TextEncoder();
     
-    // Fast path optimization for difficulty "0000"
+    // Fast path optimization
     const isDifficulty4 = difficulty === "0000";
     const isDifficulty3 = difficulty === "000";
+    const isDifficulty2 = difficulty === "00";
 
     const processChunk = async () => {
-      // Process 300 hashes per chunk to maintain 60FPS UI responsiveness
-      const end = Math.min(counter + 300, maxIterations);
+      // Process 10000 hashes per chunk to finish instantly while still yielding
+      const end = Math.min(counter + 10000, maxIterations);
       
       for (; counter < end; counter++) {
         const msg = encoder.encode(nonce + counter);
@@ -32,6 +33,10 @@ export const solveChallenge = async (
           }
         } else if (isDifficulty3) {
           if (hashArray[0] === 0 && (hashArray[1] >> 4) === 0) {
+            return resolve(counter);
+          }
+        } else if (isDifficulty2) {
+          if (hashArray[0] === 0) {
             return resolve(counter);
           }
         } else {

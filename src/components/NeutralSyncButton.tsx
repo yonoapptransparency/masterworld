@@ -43,14 +43,7 @@ export default function NeutralSyncButton({ appId, slug, status }: NeutralSyncBu
   const triggerSync = async () => {
     setPhase('syncing');
     setError('');
-    
-    const msgs = ["Loading resources...", "Optimizing view...", "Preparing content..."];
-    let msgIdx = 0;
-    setSyncMessage(msgs[0]);
-    const msgInterval = setInterval(() => {
-      msgIdx = (msgIdx + 1) % msgs.length;
-      setSyncMessage(msgs[msgIdx]);
-    }, 800);
+    setSyncMessage("Processing...");
 
     try {
       const fingerprint = getFingerprint();
@@ -73,7 +66,6 @@ export default function NeutralSyncButton({ appId, slug, status }: NeutralSyncBu
       if (!procRes.ok) throw new Error(procData.error || 'Verification Failed');
       
       const { token } = procData;
-      setSyncMessage("Syncing...");
 
       // 3. Secure Node Synchronization
       const response = await fetch('/api/v1/sync-node', {
@@ -83,27 +75,21 @@ export default function NeutralSyncButton({ appId, slug, status }: NeutralSyncBu
       });
       const data = await response.json();
       
-      clearInterval(msgInterval);
-      
       if (data.status === 'OK' && data.payload) {
         setPhase('ready');
-        setSyncMessage("Completing...");
+        setSyncMessage("Done");
         
         // Instant Redirect directly on the same page for a 1-click experience.
-        // For file downloads, this won't even close the page.
+        window.location.href = data.payload;
+        
         setTimeout(() => {
-          window.location.href = data.payload;
-          
-          setTimeout(() => {
-            setPhase('idle');
-            setSyncMessage('Synchronizing');
-          }, 3000);
-        }, 300);
+          setPhase('idle');
+          setSyncMessage('Proceed');
+        }, 1000);
       } else {
         throw new Error(data.msg || 'Sync Node Offline');
       }
     } catch (err: any) {
-      clearInterval(msgInterval);
       console.error('[Sync] Failed:', err);
       setError(err.message || 'Sync Node Busy');
       setPhase('error');
