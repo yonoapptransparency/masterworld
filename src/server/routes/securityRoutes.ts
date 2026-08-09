@@ -238,7 +238,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
       try {
         const db = getFirebaseAdminDb();
         if (db) {
-          const vaultDocs = ['sec_links_vault_3', 'sec_vault', 'secure_links'];
+          const vaultDocs = ['sec_public_links', 'sec_links_vault_3', 'sec_vault', 'secure_links'];
           for (const docName of vaultDocs) {
              const vaultSnap = await db.collection('store_data').doc(docName).get();
              if (vaultSnap.exists) {
@@ -268,8 +268,8 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
       } catch (vaultErr) {}
     }
 
-    console.log("[SECURITY] Final targetUrl for " + appId + ": ", targetUrl); if (targetUrl && targetUrl.trim().length > 0) {
-      const entry = { url: targetUrl, timestamp: Date.now() };
+    if (targetUrl && targetUrl.trim().length > 0) {
+      const entry = { url: targetUrl.trim(), timestamp: Date.now() };
       resolvedLinkCache.set(appId.toLowerCase(), entry);
       resolvedLinkCache.set(realId.toLowerCase(), entry);
       resolvedLinkCache.set(realSlug.toLowerCase(), entry);
@@ -340,7 +340,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
           const apiSuffix = config.apiKey ? `?key=${config.apiKey}` : '';
           const headers = { 'Origin': 'https://rummydex.com', 'Referer': 'https://rummydex.com/' };
           
-          const vaultDocs = ['sec_links_vault_3', 'sec_vault', 'secure_links'];
+          const vaultDocs = ['sec_public_links', 'sec_links_vault_3', 'sec_vault', 'secure_links'];
           for (const docName of vaultDocs) {
              const vaultUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || '(default)'}/documents/store_data/${docName}${apiSuffix}`;
              const fsRes = await fetch(vaultUrl, { headers });
