@@ -26,24 +26,9 @@ export default function ClearanceButton({ appId, status, variant = 'default' }: 
   const [popMessage, setPopMessage] = useState(false);
 
   const handleStartHandshake = () => {
-    // Open a blank tab first to bypass pop-up blockers
-    const targetWin = window.open('', '_blank');
-    if (targetWin) {
-      targetWin.document.body.innerHTML = `
-        <div style="background:#0f172a; color:#f8fafc; display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; margin:0; font-family:sans-serif;">
-          <div style="padding:24px; border:1px solid #1e293b; background:#1e293b50; border-radius:24px; text-align:center;">
-            <b style="font-size:1.2rem; display:block; margin-bottom:8px;">🔐 Processing Request</b>
-            <small style="opacity:0.6; font-size:0.9rem;">Verifying connection and preparing details...</small>
-            <div style="margin-top:20px; color:#6366f1;">Connecting to information node...</div>
-          </div>
-        </div>
-      `;
-    } else {
-      setPopMessage(true);
-      setTimeout(() => setPopMessage(false), 5000);
-    }
-    
-    triggerHandshake(targetWin);
+    // Trigger handshake seamlessly on the same page for 1-click experience.
+    // No popup, so no popup blockers.
+    triggerHandshake(null);
   };
 
   const isCompact = variant === 'compact';
@@ -63,7 +48,7 @@ export default function ClearanceButton({ appId, status, variant = 'default' }: 
               onClick={handleStartHandshake}
               className="group relative flex items-center justify-center gap-3 w-full py-5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl transition-all hover:scale-[1.02] active:scale-[0.98] font-black shadow-lg shadow-emerald-200 dark:shadow-none uppercase tracking-widest text-sm"
             >
-              <span>Access Information</span>
+              <span>Continue</span>
             </button>
             
             {popMessage && (

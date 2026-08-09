@@ -219,7 +219,7 @@ const BlogsTab = React.memo(({ blogs, handleAddBlog, handleDeleteBlog, handleBlo
                           <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm relative group">
                             <img src={blog.cover_url} className="w-full h-40 object-cover" loading="lazy" width={800} height={400} alt="Cover Preview" onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=800&q=80'; }} />
                             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                              <span className="text-white text-xs font-bold uppercase tracking-wider bg-black/50 px-3 py-1 rounded-full backdrop-blur-sm">Image Preview</span>
+                              <span className="text-white text-xs font-bold uppercase tracking-wider bg-black/50 px-3 py-1 rounded-full ">Image Preview</span>
                             </div>
                           </div>
                         )}

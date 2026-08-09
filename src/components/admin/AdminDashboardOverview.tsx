@@ -48,7 +48,7 @@ export const AdminDashboardOverview = React.memo(({ apps, news }: DashboardOverv
       </div>
       
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/60 dark:border-slate-700/50 p-6 rounded-[2rem] shadow-xl shadow-blue-500/5 flex items-center justify-between relative overflow-hidden group hover:scale-[1.02] transition-transform duration-300">
+        <div className="bg-white/80 dark:bg-slate-900/80  border border-slate-200/60 dark:border-slate-700/50 p-6 rounded-[2rem] shadow-xl shadow-blue-500/5 flex items-center justify-between relative overflow-hidden group hover:scale-[1.02] transition-transform duration-300">
           <div className="absolute -right-8 -top-8 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-all"></div>
           <div className="relative z-10">
             <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1.5">Total Apps</div>
@@ -59,7 +59,7 @@ export const AdminDashboardOverview = React.memo(({ apps, news }: DashboardOverv
           </div>
         </div>
         
-        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/60 dark:border-slate-700/50 p-6 rounded-[2rem] shadow-xl shadow-indigo-500/5 flex items-center justify-between relative overflow-hidden group hover:scale-[1.02] transition-transform duration-300">
+        <div className="bg-white/80 dark:bg-slate-900/80  border border-slate-200/60 dark:border-slate-700/50 p-6 rounded-[2rem] shadow-xl shadow-indigo-500/5 flex items-center justify-between relative overflow-hidden group hover:scale-[1.02] transition-transform duration-300">
           <div className="absolute -right-8 -top-8 w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl group-hover:bg-indigo-500/20 transition-all"></div>
           <div className="relative z-10">
             <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1.5">News Articles</div>
@@ -70,7 +70,7 @@ export const AdminDashboardOverview = React.memo(({ apps, news }: DashboardOverv
           </div>
         </div>
 
-        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/60 dark:border-slate-700/50 p-6 rounded-[2rem] shadow-xl shadow-amber-500/5 flex items-center justify-between relative overflow-hidden group hover:scale-[1.02] transition-transform duration-300">
+        <div className="bg-white/80 dark:bg-slate-900/80  border border-slate-200/60 dark:border-slate-700/50 p-6 rounded-[2rem] shadow-xl shadow-amber-500/5 flex items-center justify-between relative overflow-hidden group hover:scale-[1.02] transition-transform duration-300">
           <div className="absolute -right-8 -top-8 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl group-hover:bg-amber-500/20 transition-all"></div>
           <div className="relative z-10">
             <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1.5">Pending Reviews</div>
@@ -81,7 +81,7 @@ export const AdminDashboardOverview = React.memo(({ apps, news }: DashboardOverv
           </div>
         </div>
 
-        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/60 dark:border-slate-700/50 p-6 rounded-[2rem] shadow-xl shadow-emerald-500/5 flex items-center justify-between relative overflow-hidden group hover:scale-[1.02] transition-transform duration-300">
+        <div className="bg-white/80 dark:bg-slate-900/80  border border-slate-200/60 dark:border-slate-700/50 p-6 rounded-[2rem] shadow-xl shadow-emerald-500/5 flex items-center justify-between relative overflow-hidden group hover:scale-[1.02] transition-transform duration-300">
           <div className="absolute -right-8 -top-8 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl group-hover:bg-emerald-500/20 transition-all"></div>
           <div className="relative z-10">
             <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1.5">Gateway Health</div>
@@ -94,7 +94,7 @@ export const AdminDashboardOverview = React.memo(({ apps, news }: DashboardOverv
       </div>
       
       <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/60 dark:border-slate-700/50 p-6 rounded-[2rem] shadow-xl shadow-blue-500/5">
+        <div className="lg:col-span-2 bg-white/80 dark:bg-slate-900/80  border border-slate-200/60 dark:border-slate-700/50 p-6 rounded-[2rem] shadow-xl shadow-blue-500/5">
           <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-6 uppercase tracking-widest flex items-center gap-2">
              <TrendingUp className="w-4 h-4 text-blue-500" /> Platform Traffic
           </h3>

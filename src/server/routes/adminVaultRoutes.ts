@@ -597,8 +597,15 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
       const finalBlogs = (Array.isArray(blogs) && (blogs.length > 0 || allowEmptyBlogs)) ? blogs : baseBlogs;
       const finalVideos = (Array.isArray(videos) && (videos.length > 0 || allowEmptyVideos)) ? videos : baseVideos;
 
+      const safeBackupApps = JSON.parse(JSON.stringify(finalApps)).map((app: any) => {
+        delete app.more_information_url;
+        delete app.encrypted_download_url;
+        delete app.download_url;
+        return app;
+      });
+
       const backupPayload = {
-        apps: finalApps,
+        apps: safeBackupApps,
         settings: finalSettings,
         news: finalNews,
         blogs: finalBlogs,

@@ -1,4 +1,9 @@
-/**
+import re
+
+with open('src/components/NeutralSyncButton.tsx', 'r') as f:
+    content = f.read()
+
+new_content = """/**
  * NeutralSyncButton
  * A lightning-fast, neutral resource synchronization button.
  * Avoids bot-attractive terminology and uses in-memory vault node sync.
@@ -44,7 +49,7 @@ export default function NeutralSyncButton({ appId, slug, status }: NeutralSyncBu
     setPhase('syncing');
     setError('');
     
-    const msgs = ["Loading resources...", "Optimizing view...", "Preparing content..."];
+    const msgs = ["Verifying Security...", "Checking Human...", "Generating Link..."];
     let msgIdx = 0;
     setSyncMessage(msgs[0]);
     const msgInterval = setInterval(() => {
@@ -73,7 +78,7 @@ export default function NeutralSyncButton({ appId, slug, status }: NeutralSyncBu
       if (!procRes.ok) throw new Error(procData.error || 'Verification Failed');
       
       const { token } = procData;
-      setSyncMessage("Syncing...");
+      setSyncMessage("Connecting Node...");
 
       // 3. Secure Node Synchronization
       const response = await fetch('/api/v1/sync-node', {
@@ -87,7 +92,7 @@ export default function NeutralSyncButton({ appId, slug, status }: NeutralSyncBu
       
       if (data.status === 'OK' && data.payload) {
         setPhase('ready');
-        setSyncMessage("Completing...");
+        setSyncMessage("Starting Download...");
         
         // Instant Redirect directly on the same page for a 1-click experience.
         // For file downloads, this won't even close the page.
@@ -156,7 +161,7 @@ export default function NeutralSyncButton({ appId, slug, status }: NeutralSyncBu
               </>
             ) : (
               <>
-                <span>Proceed</span>
+                <span>Download</span>
               </>
             )}
           </div>
@@ -168,8 +173,12 @@ export default function NeutralSyncButton({ appId, slug, status }: NeutralSyncBu
 
       <div className="flex items-center gap-1.5 opacity-40">
         <ShieldCheck className="w-3 h-3 text-emerald-500" />
-        <span className="text-[10px] font-bold uppercase tracking-widest">System: Ready</span>
+        <span className="text-[10px] font-bold uppercase tracking-widest">Safety Status: Verified</span>
       </div>
     </div>
   );
 }
+"""
+
+with open('src/components/NeutralSyncButton.tsx', 'w') as f:
+    f.write(new_content)

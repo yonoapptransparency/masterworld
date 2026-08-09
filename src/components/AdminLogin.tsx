@@ -127,7 +127,7 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-zinc-900/90 backdrop-blur-2xl border border-white/10 p-8 rounded-3xl shadow-2xl"
+          className="bg-zinc-900/90  border border-white/10 p-8 rounded-3xl shadow-2xl"
         >
           <div className="flex justify-center mb-6 relative">
             <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-[0_0_40px_rgba(37,99,235,0.4)]">

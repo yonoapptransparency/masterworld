@@ -62,14 +62,16 @@ export const useClearanceFlow = (appId: string) => {
         progress: 100,
         token,
         dynamicLink: payloadUrl,
-        tokenCountdown: 600
+        tokenCountdown: 30
       }));
 
-      // 4. Redirect the pre-opened tab
+      // 4. Redirect seamlessly in the same tab for a true 1-click experience
       if (targetWin && !targetWin.closed) {
         targetWin.location.href = payloadUrl;
       } else {
-        setState(prev => ({ ...prev, errorMsg: 'Pop-up was closed. Please use the direct link below.' }));
+        setTimeout(() => {
+          window.location.href = payloadUrl;
+        }, 500);
       }
 
     } catch (err: any) {

@@ -286,8 +286,8 @@ export const mockApps: AppConfig[] = [
         "answer": "Yes. Callbreak features robust offline AI single-player matches as well as local Wi-Fi connectivity, allowing you to play anywhere without an internet connection."
       },
       {
-        "answer": "Because the app utilizes clean 2D graphics and lightweight processing, it runs smoothly at 60 FPS on older devices while keeping battery drain and heat output very low.",
-        "question": "Q3: How does Callbreak perform on older or lower-spec smartphones?"
+        "question": "Q3: How does Callbreak perform on older or lower-spec smartphones?",
+        "answer": "Because the app utilizes clean 2D graphics and lightweight processing, it runs smoothly at 60 FPS on older devices while keeping battery drain and heat output very low."
       },
       {
         "answer": "The platform includes Super 8 Bid Challenge (racing to win eight hands against aggressive AI) and Blind Bid Mode (bidding before viewing player hands).",
@@ -340,8 +340,8 @@ export const mockApps: AppConfig[] = [
     "video_url": "",
     "faqs": [
       {
-        "answer": "Yes. Card Game 29 is free to download and play. The app also offers optional in-app purchases and displays advertisements, allowing users to unlock additional features or enjoy a more streamlined experience if they choose.",
-        "question": "1. Is Card Game 29 free to download and play?"
+        "question": "1. Is Card Game 29 free to download and play?",
+        "answer": "Yes. Card Game 29 is free to download and play. The app also offers optional in-app purchases and displays advertisements, allowing users to unlock additional features or enjoy a more streamlined experience if they choose."
       },
       {
         "answer": "Yes. The game includes an offline mode where you can play against AI opponents without an internet connection. However, online multiplayer features require an active internet connection.",
@@ -352,8 +352,8 @@ export const mockApps: AppConfig[] = [
         "answer": "Yes. Card Game 29 supports multiple ways to play, including online multiplayer, private rooms with friends, and local multiplayer options on supported devices, depending on the available features in your version of the app."
       },
       {
-        "answer": "Yes. While the game is based on the traditional rules of Twenty-Nine, its straightforward interface and offline practice mode make it accessible for new players. Experienced players can also enjoy advanced gameplay through bidding, partnerships, and customizable rule variations.",
-        "question": "4. Is Card Game 29 suitable for beginners?"
+        "question": "4. Is Card Game 29 suitable for beginners?",
+        "answer": "Yes. While the game is based on the traditional rules of Twenty-Nine, its straightforward interface and offline practice mode make it accessible for new players. Experienced players can also enjoy advanced gameplay through bidding, partnerships, and customizable rule variations."
       }
     ],
     "id": "colrcaih7",
@@ -407,12 +407,12 @@ export const mockApps: AppConfig[] = [
     "is_coming_soon": false,
     "faqs": [
       {
-        "question": "1. What type of rummy gameplay does Joy Rummy offer?",
-        "answer": "Joy Rummy is built around the traditional 13-card rummy format, where players organize cards into valid sequences and sets before declaring their hand. The gameplay emphasizes strategic planning, memory, and decision-making rather than relying solely on chance."
+        "answer": "Joy Rummy is built around the traditional 13-card rummy format, where players organize cards into valid sequences and sets before declaring their hand. The gameplay emphasizes strategic planning, memory, and decision-making rather than relying solely on chance.",
+        "question": "1. What type of rummy gameplay does Joy Rummy offer?"
       },
       {
-        "answer": "Yes. The application offers offline AI practice for learning strategies and improving gameplay, along with online matchmaking and private multiplayer rooms for users who want to compete with friends or players from around the world.",
-        "question": "2. Does Joy Rummy include both practice and competitive game modes?"
+        "question": "2. Does Joy Rummy include both practice and competitive game modes?",
+        "answer": "Yes. The application offers offline AI practice for learning strategies and improving gameplay, along with online matchmaking and private multiplayer rooms for users who want to compete with friends or players from around the world."
       },
       {
         "answer": "No. The core gameplay is available without making any purchases. Optional in-app purchases primarily focus on cosmetic enhancements and personalization features, allowing players to customize their experience without affecting competitive balance.",
@@ -442,12 +442,12 @@ export const mockApps: AppConfig[] = [
     "idea_box_msg": "",
     "faqs": [
       {
-        "answer": "Yes, Jaiho 91 is free to download. The app features a virtual progression system designed for casual card play and strategy practice.",
-        "question": "1. Is Jaiho 91 free to download and play?"
+        "question": "1. Is Jaiho 91 free to download and play?",
+        "answer": "Yes, Jaiho 91 is free to download. The app features a virtual progression system designed for casual card play and strategy practice."
       },
       {
-        "answer": "Yes, Jaiho 91 includes an offline AI mode, allowing you to play and practice your strategies against virtual opponents anytime without cellular data or Wi-Fi.",
-        "question": "2. Can I play Jaiho 91 without an internet connection?"
+        "question": "2. Can I play Jaiho 91 without an internet connection?",
+        "answer": "Yes, Jaiho 91 includes an offline AI mode, allowing you to play and practice your strategies against virtual opponents anytime without cellular data or Wi-Fi."
       },
       {
         "answer": "Jaiho 91 features classic 13-card Rummy and Teen Patti mechanics, along with a built-in Smart Hint System to help players learn hand rankings and set formations.",
@@ -483,12 +483,12 @@ export const mockApps: AppConfig[] = [
     "custom_admin_box_heading": "",
     "faqs": [
       {
-        "question": "1. Is OK Rummy free to download and play?",
-        "answer": "Yes, OK Rummy is completely free to download. The app provides full access to its puzzle map and levels without any mandatory purchases, supported entirely by in-app advertisements."
+        "answer": "Yes, OK Rummy is completely free to download. The app provides full access to its puzzle map and levels without any mandatory purchases, supported entirely by in-app advertisements.",
+        "question": "1. Is OK Rummy free to download and play?"
       },
       {
-        "question": "2. Can I play the game without an internet connection?",
-        "answer": "Yes, the core puzzle-solving mechanics and the primary progression map are fully available offline. You can enjoy the game uninterrupted even when you do not have a Wi-Fi or cellular connection."
+        "answer": "Yes, the core puzzle-solving mechanics and the primary progression map are fully available offline. You can enjoy the game uninterrupted even when you do not have a Wi-Fi or cellular connection.",
+        "question": "2. Can I play the game without an internet connection?"
       },
       {
         "answer": "Instead of traditional matches, the game uses a level-based map. You clear individual puzzle boards by forming valid card sequences, which earns you virtual stars to unlock new thematic zones and more complex challenges.",
@@ -537,8 +537,8 @@ export const mockApps: AppConfig[] = [
         "answer": "Yes, the application is completely free to download. All gameplay features, levels, and progression systems are accessible without mandatory purchases, supported entirely by a virtual coin economy and in-app advertisements."
       },
       {
-        "question": "2. Can I play the game offline?",
-        "answer": "Yes, the core reel-matching puzzles and level progression are fully functional offline. You can enjoy the game uninterrupted without an active Wi-Fi or cellular connection."
+        "answer": "Yes, the core reel-matching puzzles and level progression are fully functional offline. You can enjoy the game uninterrupted without an active Wi-Fi or cellular connection.",
+        "question": "2. Can I play the game offline?"
       },
       {
         "question": "3. How does the puzzle progression work?",
@@ -583,12 +583,12 @@ export const mockApps: AppConfig[] = [
         "answer": "Yono Arcade features a four-reel fruit tile system where players spin and match symbols. You win virtual rewards by aligning fruit symbols into specific shapes like horizontal lines, diagonals, triangles, and W patterns."
       },
       {
-        "question": "2. Is Yono Arcade free to download and play?",
-        "answer": "Yes, Yono Arcade is completely free to download. The application operates using a virtual arcade ecosystem designed entirely for casual entertainment and pattern-matching progression."
+        "answer": "Yes, Yono Arcade is completely free to download. The application operates using a virtual arcade ecosystem designed entirely for casual entertainment and pattern-matching progression.",
+        "question": "2. Is Yono Arcade free to download and play?"
       },
       {
-        "question": "3. Does the app collect my personal data?",
-        "answer": "No. According to the developer's data safety guidelines, Yono Arcade does not collect user data and does not share any data with third parties, ensuring a secure and private experience."
+        "answer": "No. According to the developer's data safety guidelines, Yono Arcade does not collect user data and does not share any data with third parties, ensuring a secure and private experience.",
+        "question": "3. Does the app collect my personal data?"
       }
     ],
     "custom_admin_box_heading": "",
@@ -651,12 +651,12 @@ export const mockApps: AppConfig[] = [
         "answer": "Yes, Bingo 101 is completely free to download. The app utilizes a virtual progression system designed purely for casual entertainment and daily activity tracking."
       },
       {
-        "question": "2. Can I play the game without an internet connection?",
-        "answer": "Yes, the app features a completely offline mode, allowing you to enjoy the classic number-matching gameplay and practice your skills without needing cellular data or Wi-Fi."
+        "answer": "Yes, the app features a completely offline mode, allowing you to enjoy the classic number-matching gameplay and practice your skills without needing cellular data or Wi-Fi.",
+        "question": "2. Can I play the game without an internet connection?"
       },
       {
-        "question": "3. What features are included besides the main game?",
-        "answer": "Alongside the core grid mechanics, the app includes an interactive spin wheel, daily missions, achievement tracking, and a personal profile section to monitor your activity history."
+        "answer": "Alongside the core grid mechanics, the app includes an interactive spin wheel, daily missions, achievement tracking, and a personal profile section to monitor your activity history.",
+        "question": "3. What features are included besides the main game?"
       }
     ],
     "custom_admin_box_html": "",
@@ -677,8 +677,8 @@ export const mockApps: AppConfig[] = [
         "question": "1. Can I play ABC Rummy without an internet connection?"
       },
       {
-        "question": "2. How do you win a match in ABC Rummy?",
-        "answer": "To win, you must engage in classic gameplay by organizing your hand into valid sets (3 to 4 cards of the same rank) and runs (3 or more consecutive cards of the same suit)."
+        "answer": "To win, you must engage in classic gameplay by organizing your hand into valid sets (3 to 4 cards of the same rank) and runs (3 or more consecutive cards of the same suit).",
+        "question": "2. How do you win a match in ABC Rummy?"
       },
       {
         "question": "3. What features are included besides the card game?",
@@ -791,8 +791,8 @@ export const mockApps: AppConfig[] = [
     "seo_keywords": "",
     "faqs": [
       {
-        "answer": "You level up by completing daily missions, participating in activity challenges, and using features like the Lucky Spin Wheel. Earning points through these tasks advances your profile through multiple achievement tiers.  ",
-        "question": "1. How do I level up in Love Rummy?"
+        "question": "1. How do I level up in Love Rummy?",
+        "answer": "You level up by completing daily missions, participating in activity challenges, and using features like the Lucky Spin Wheel. Earning points through these tasks advances your profile through multiple achievement tiers.  "
       },
       {
         "answer": "The personal profile acts as your main dashboard, where you can track your current level, review your completed milestones, and monitor your overall activity history.  ",
@@ -846,8 +846,8 @@ export const mockApps: AppConfig[] = [
     "is_coming_soon": false,
     "faqs": [
       {
-        "question": "1. What types of mini-games are available in Share Slots?",
-        "answer": "The app includes a dedicated Game Zone with seven different activities, including endless runners (Money Runner), reflex games (Speed Tap, Bubble Pop), and precision puzzles (Stack Tower, Number Dash).  "
+        "answer": "The app includes a dedicated Game Zone with seven different activities, including endless runners (Money Runner), reflex games (Speed Tap, Bubble Pop), and precision puzzles (Stack Tower, Number Dash).  ",
+        "question": "1. What types of mini-games are available in Share Slots?"
       },
       {
         "answer": "No, a major benefit of Share Slots is its offline capability. Select mini-games and progression features can be played without needing cellular data or a Wi-Fi connection.",
@@ -895,8 +895,8 @@ export const mockApps: AppConfig[] = [
         "question": "1. What exactly is the gameplay in YONO VIP?"
       },
       {
-        "question": "2. Can I play the puzzles without an internet connection?",
-        "answer": "Yes! The core grid-solving levels are fully available offline. You only need the internet if you want to update your daily mission logs or spin the daily Quantum Wheel."
+        "answer": "Yes! The core grid-solving levels are fully available offline. You only need the internet if you want to update your daily mission logs or spin the daily Quantum Wheel.",
+        "question": "2. Can I play the puzzles without an internet connection?"
       },
       {
         "question": "3. Is the game free to play?",
@@ -940,12 +940,12 @@ export const mockApps: AppConfig[] = [
     "og_image_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784879172/download_33_d1pgy0.webp",
     "faqs": [
       {
-        "question": "1. What kind of game is Maha Games?",
-        "answer": "Maha Games is a physics-based sandbox and puzzle application. You use mechanics like gravity inversion and momentum to guide objects through complex, 3D floating mazes."
+        "answer": "Maha Games is a physics-based sandbox and puzzle application. You use mechanics like gravity inversion and momentum to guide objects through complex, 3D floating mazes.",
+        "question": "1. What kind of game is Maha Games?"
       },
       {
-        "question": "2. Can I play the puzzles without an internet connection?",
-        "answer": "Yes, the core puzzle campaign and sandbox features are completely functional offline, allowing you to solve levels without needing an active data connection."
+        "answer": "Yes, the core puzzle campaign and sandbox features are completely functional offline, allowing you to solve levels without needing an active data connection.",
+        "question": "2. Can I play the puzzles without an internet connection?"
       },
       {
         "question": "3. Is there a time limit on the puzzles?",
@@ -992,8 +992,8 @@ export const mockApps: AppConfig[] = [
     "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784879252/download_34_wrdzdw.webp",
     "faqs": [
       {
-        "question": "1. How do you move in Rummy Ludo?",
-        "answer": "Instead of rolling dice, you move your board tokens by playing numbered tiles from your hand. You can also play sequences of tiles at once to unlock special safe zones and shortcuts on the board."
+        "answer": "Instead of rolling dice, you move your board tokens by playing numbered tiles from your hand. You can also play sequences of tiles at once to unlock special safe zones and shortcuts on the board.",
+        "question": "1. How do you move in Rummy Ludo?"
       },
       {
         "question": "2. What happens if I land on an opponent's token?",
@@ -1015,16 +1015,16 @@ export const mockApps: AppConfig[] = [
     "is_new": false,
     "faqs": [
       {
-        "answer": "You use a pull-and-release slingshot mechanic to fire numbered pods into the empty bays of a spinning orbital ring, adjusting for gravity curves along the way.",
-        "question": "1. How do you play 789 Jackports?"
+        "question": "1. How do you play 789 Jackports?",
+        "answer": "You use a pull-and-release slingshot mechanic to fire numbered pods into the empty bays of a spinning orbital ring, adjusting for gravity curves along the way."
       },
       {
-        "question": "2. What happens when you dock a 7, 8, and 9 together?",
-        "answer": "Docking those three numbers in a consecutive sequence triggers a massive chain reaction that clears the board and instantly completes the puzzle phase."
+        "answer": "Docking those three numbers in a consecutive sequence triggers a massive chain reaction that clears the board and instantly completes the puzzle phase.",
+        "question": "2. What happens when you dock a 7, 8, and 9 together?"
       },
       {
-        "answer": "No, the entire cosmic puzzle campaign and all physics-based levels are fully available offline.",
-        "question": "3. Do I need Wi-Fi to play this game?"
+        "question": "3. Do I need Wi-Fi to play this game?",
+        "answer": "No, the entire cosmic puzzle campaign and all physics-based levels are fully available offline."
       }
     ],
     "rating": 5,
@@ -1084,12 +1084,12 @@ export const mockApps: AppConfig[] = [
         "question": "1. What is the main gameplay in 777 Game?"
       },
       {
-        "answer": "Yes, the core 3D matrix puzzles and gravity challenges are fully functional offline, allowing you to play anywhere without needing Wi-Fi or mobile data.",
-        "question": "2. Can I play this puzzle game without an internet connection?"
+        "question": "2. Can I play this puzzle game without an internet connection?",
+        "answer": "Yes, the core 3D matrix puzzles and gravity challenges are fully functional offline, allowing you to play anywhere without needing Wi-Fi or mobile data."
       },
       {
-        "question": "3. Are there different visual styles for the puzzles?",
-        "answer": "Yes, as you play, you earn virtual progression points that allow you to unlock unique cosmetic skins for your cube, such as neon lights, glass, or metallic textures."
+        "answer": "Yes, as you play, you earn virtual progression points that allow you to unlock unique cosmetic skins for your cube, such as neon lights, glass, or metallic textures.",
+        "question": "3. Are there different visual styles for the puzzles?"
       }
     ],
     "encrypted_link": "",
@@ -1100,6 +1100,111 @@ export const mockApps: AppConfig[] = [
     "file_size": "71.11 MB",
     "publish_date": "",
     "video_url": ""
+  },
+  {
+    "id": "dttfvdp67",
+    "name": "BACCARIST",
+    "slug": "baccarist",
+    "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1786257953/1000133495_11zon_korvs3.webp",
+    "category": "Card Apps",
+    "encrypted_link": "",
+    "rating": 4.5,
+    "safety_status": "Verified",
+    "serial_number": 21,
+    "version": "75.8.0",
+    "file_size": "317 MB",
+    "developer": "KamaGames (published by Wise Wave Corporation Limited)",
+    "description_html": "<h2>1. Key Features &amp; User Interface</h2>\n\n<h3>1.1 Core &amp; Secondary Features</h3>\n\n<p>Baccarist delivers real-time multiplayer baccarat with the full classic bet set — Player, Banker, Tie, Player Pair, and</p>\n\n<p>Banker Pair — rendered in 3D with realistic tables, chips, and animations. New players get a built-in tutorial, while</p>\n\n<p>statistics and roadmap/history boards support more experienced betting decisions. Social depth comes from in-table</p>\n\n<p>chat, gift exchange, private tables, and profile customization, layered with retention hooks like daily free chips,</p>\n\n<p>quests, achievements, and a VIP program with exclusive tables and perks. A cross-game hub cross-promotes the</p>\n\n<p>publisher's Poker, Blackjack, Roulette, and Slots titles, and the app cites an externally audited RNG for fair-play</p>\n\n<p>certification.</p>\n\n<h3>1.2 User Interface &amp; Visual Layout</h3>\n\n<p>The design follows a polished, modern casino aesthetic — 3D chips and cards, glossy textures, and a high-contrast</p>\n\n<p>palette of deep blue, red, gold, and green. The central table shows betting zones with live odds, avatars with chip balances, table min/max limits, a hand counter, and an optional bead-plate overlay tracking results as red/blue</p>\n\n<p>markers. Secondary screens (lobby, quests, achievements) use large, colorful cards and clear progress indicators.</p>\n\n<p>Contrast and button legibility are generally strong, though small text (limits, history markers) may strain low-vision</p>\n\n<p>users, and there's no visible evidence of screen-reader support or colorblind modes.</p>\n\n<h3>1.3 In-App Utilities</h3>\n\n<p>Supporting tools include the tutorial, roadmap/bead-plate tracker, statistics panel, chat and emotes, friend system</p>\n\n<p>with private tables, quest/achievement trackers, daily bonus claims, a VIP benefits screen, an in-app purchase/store</p>\n\n<p>flow, and customer support via in-game tab or email.</p>\n\n<h2>2. Hands-On Review &amp; Real-World Performance</h2>\n\n<h3>2.1 System Performance &amp; Optimization</h3>\n\n<p>At 330.88 MB, the app is large for a card game — driven by high-resolution 3D assets, audio, multiple game modes,</p>\n\n<p>and its social layer. Performance should be smooth on mid-range to flagship devices, but older hardware may see</p>\n\n<p>longer load times or stutter. User reviews report recurring lag, glitches, and crashes, including mid-hand crashes</p>\n\n<p>where bets go unrefunded and general connection instability; these are anecdotal but frequent enough to flag as a</p>\n\n<p>real risk.</p>\n\n<h3>2.2 Hands-On Feel &amp; Usability</h3>\n\n<p>Built for portrait play, the core loop is a simple tap-to-select-chip, tap-to-bet flow, with a Repeat button for quick</p>\n\n<p>re-bets. Controls sit within thumb reach and large betting zones limit mis-taps. The roadmap and stats panels reward</p>\n\n<p>experienced players but may be hard for beginners to parse given small text and fast dealing animations. Chat,</p>\n\n<p>avatars, and animations combine to create a convincingly social, casino-like atmosphere, reinforced by private tables</p>\n\n<p>and the friend system.</p>\n\n<h3>2.3 User Journey &amp; Friction Points</h3>\n\n<p><strong>A typical session:</strong> open app → claim daily bonus → pick a table → bet → watch the deal → collect or lose chips →</p>\n\n<p>repeat, chat, claim quests, or browse the store. The tutorial eases onboarding and the daily bonus drives repeat</p>\n\n<p>visits. Reported friction includes crashes that erase bets, unskippable ads, rising table minimums and aggressive</p>\n\n<p>monetization after purchases, slow or unhelpful support, a perceived link between losing streaks and reduced</p>\n\n<p>spending, and fast dealing with no pause option.</p>\n\n<h3>2.4 User Emotional Experience</h3>\n\n<p>The 3D table, chip animations, and social chat create genuine glamour and excitement, and daily bonuses/quests</p>\n\n<p>deliver small wins. That tone can flip quickly, though — crashes, losing streaks, and purchase pressure drive</p>\n\n<p>frustration and distrust, with a notable share of reviews suggesting the game feels engineered to push spending</p>\n\n<p>rather than reward skill.</p>\n\n<h2>3. Full Interior Description &amp; Technical Mechanics</h2>\n\n<h3>3.1 Interior Ecosystem &amp; Facilitating Features</h3>\n\n<p><strong>The app runs a client-server model:</strong> the Android client renders the 3D table and UI, while game logic, RNG,</p>\n\n<p>balances, and matchmaking live on KamaGames' backend, requiring a persistent connection for real-time play. Chip</p>\n\n<p>balances, VIP status, achievements, and friends lists are stored server-side. The Play Store listing states certified</p>\n\n<p>RNG algorithms are used and externally audited, with terms of service and privacy policy linked from the store page.</p>\n\n<h3>3.2 Gameplay &amp; Interactive Mechanics</h3>\n\n<p>Players join a table, pick a chip value, and bet on Player, Banker, Tie, Player Pair, or Banker Pair. The server deals</p>\n\n<p>two hands under standard baccarat rules (closest to 9 wins), pays according to displayed odds, then opens a new</p>\n\n<p>round — a purely chance-based loop with no post-bet player decisions. The developer claims a certified, externally</p>\n\n<p>audited RNG, but a meaningful share of user reviews express skepticism, citing long losing streaks and perceived</p>\n\n<p>favoritism toward the house or new buyers. The client handles input, animation, and chat; the server resolves</p>\n\n<p>outcomes and balances; the roadmap/stats system aggregates recent server results client-side. Because high-action</p>\n\n<p>moments are limited to deal/payout animations, the heavy 3D table shouldn't cause CPU spikes during actual play.</p>\n\n<h3>3.3 Internal Drivers &amp; Monetization</h3>\n\n<p>Monetization combines in-app purchases of virtual chips/items with advertising — the Play Store listing confirms the</p>\n\n<p>app is free to play but allows real-money purchases and may show ads, which AppBrain also confirms. Retention is</p>\n\n<p>driven by daily bonuses, quests, achievements, and VIP tiers, reinforced by social features (chat, friends, gifts,</p>\n\n<p>private tables) and a cross-promotion hub for the publisher's other casino titles. User reviews frequently describe</p>\n\n<p>rising difficulty and table minimums after purchases stop, and rewards under-delivering versus advertised odds — a</p>\n\n<p>design that can feel aggressive even if technically compliant, resulting in a polarized player base.</p>",
+    "features_html": "",
+    "custom_admin_box_heading": "",
+    "custom_admin_box_html": "",
+    "seo_title": "Baccarat Online: Full App Review 2026 update |  RummyDex",
+    "seo_description": "In-depth review of Baccarat Online: Baccarist — gameplay, 3D graphics, VIP perks, crashes & monetization concerns. Everything before you download.",
+    "seo_keywords": "",
+    "og_image_url": "",
+    "canonical_url": "https://www.rummydex.com/app/baccarist",
+    "video_url": "",
+    "publish_date": "",
+    "release_notes": "Price Free to download\nAds Contains ads\nIn-App Purchases Yes — virtual chips and items with real money\nMinimum Android Android 4.1+\nFirst Released January 2017",
+    "red_box_msg": "",
+    "yellow_box_msg": "",
+    "idea_box_msg": "",
+    "is_new": false,
+    "is_coming_soon": false,
+    "screenshots": [],
+    "faqs": [],
+    "created_at": "2026-08-09T06:48:13.486Z",
+    "updated_at": "2026-08-09T07:51:25.689Z"
+  },
+  {
+    "id": "3h5w608rt",
+    "name": "SOLITAIRE",
+    "slug": "solitaire",
+    "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1786259914/1000133500_11zon_1_s5uttq.webp",
+    "category": "Card Apps",
+    "encrypted_link": "",
+    "rating": 4.8,
+    "safety_status": "Verified",
+    "serial_number": 22,
+    "version": "4.63.50",
+    "file_size": "104.5 MB",
+    "developer": "Guru Puzzle Game",
+    "description_html": "<h2>1. Key Features & User Interface</h2>\n\n<h3>1.1 Core & Secondary Features</h3>\n\n<p>This is a classic Klondike Solitaire app with single-card and three-card draw, plus standard and Vegas scoring</p>\n\n<p>modes. A Daily Challenge offers a new solvable puzzle each day with crowns, streaks, and monthly trophies, while</p>\n\n<p>the Extra Challenge mode lets players enter a level number to replay or share a specific layout. Unlimited hints and</p>\n\n<p>undo, plus auto-complete, make the game beginner-friendly, and detailed player statistics support longer-term play.</p>\n\n<p>Accessibility touches include left-handed mode and full landscape/portrait support, alongside customizable card</p>\n\n<p>faces, backs, backgrounds, and themes (scenery, animals, snowman, dogs, cats) with dynamic animations. The app</p>\n\n<p>is free and ad-supported, with optional in-app purchases.</p>\n\n<h3>1.2 User Interface & Visual Layout</h3>\n\n<p>The interface is clean and classical, built around the seven tableau columns, stock/waste piles, and four foundation</p>\n\n<p>piles, with large, easy-to-read card faces and a polished card-back design. The default classic green felt table can be</p>\n\n<p>swapped for scenic, animal, or seasonal backgrounds, keeping the palette bright, high-contrast, and casual-friendly.</p>\n\n<p>Menus stay simple, with quick settings for draw mode, scoring, and themes, a toolbar for hints/undo/auto-complete,</p>\n\n<p>and the Daily Challenge given prominent placement. The game supports both portrait and landscape orientations</p>\n\n<p>and a left-handed mode for larger devices. Controls are drag-and-drop and generally uncluttered, though some</p>\n\n<p>backgrounds are locked behind coins or rewarded ads, and there's no clear evidence of screen-reader support or</p>\n\n<p>colorblind modes.</p>\n\n<h3>1.3 In-App Utilities</h3>\n\n<p>Supporting tools include unlimited hint and undo buttons, auto-complete, a Daily Challenge calendar tracking</p>\n\n<p>crowns/streaks/trophies, a statistics screen for wins and best times, a theme store for card</p>\n\n<p>backs/faces/backgrounds, settings for draw mode/scoring/left-handed mode/orientation, a one-time ad removal</p>\n\n<p>purchase, and a coin store for buying hints/themes or earning coins via rewarded ads.</p>\n\n<h3>2. Hands-On Review & Real-World Performance</h3>\n\n<h3>2.1 System Performance & Optimization</h3>\n\n<p>The APK runs roughly 104–170 MB depending on source and variant, covering card assets, themes, animations,</p>\n\n<p>sound, and ad SDKs. The core Solitaire engine itself is lightweight, so most modern devices run it smoothly with</p>\n\n<p>short load times and moderate memory use. Some users report occasional freezing, ads that lock the app, and</p>\n\n<p>slower performance before updates, along with mentions of battery drain — though many players describe the</p>\n\n<p>experience as smooth and reliable overall. Performance can vary with device age and network conditions,</p>\n\n<p>particularly for ad delivery and Daily Challenge sync.</p>\n\n<h3>2.2 Hands-On Feel & Usability</h3>\n\n<p>Designed for one- or two-handed play, the game relies on drag-and-drop card movement with touch targets large</p>\n\n<p>enough for casual use; tap controls are also available for selecting cards and stacks. Always-on undo and hint</p>\n\n<p>buttons make it forgiving for beginners, while the Daily Challenge and statistics screens add a sense of progression,</p>\n\n<p>and left-handed mode is a thoughtful accessibility addition. The main usability friction is ad placement — ads can</p>\n\n<p>appear between games, after hints, or when unlocking themes, with some players reporting ads that are hard to</p>\n\n<p>close or skip.</p>\n\n<h3>2.3 User Journey & Friction Points</h3>\n\n<p><strong>A typical session:</strong> open the app → see a short ad → start a regular game or the Daily Challenge → arrange cards,</p>\n\n<p>using hints/undo if stuck → complete the game → watch an interstitial ad → return to the menu or start again. The</p>\n\n<p>Daily Challenge allows unlimited attempts to win a crown and build a streak. Frequent ads are the top complaint,</p>\n\n<p>including ads without a close button, ads that freeze the game, or ads that redirect to the app store; the push toward</p>\n\n<p>ad-removal and coin purchases can feel pushy. Some players also note repetitive deals, suggesting shuffle variety</p>\n\n<p>could improve, and the screen staying on during play, which can drain battery.</p>\n\n<h3>2.4 User Emotional Experience</h3>\n\n<p>The app is positioned as a relaxing, low-stakes puzzle — classic rules, soothing themes, and simple controls create</p>\n\n<p>a calm, meditative feel, while daily challenges and streaks give small, satisfying reasons to return. Intrusive ads are</p>\n\n<p>the main disruptor, breaking the relaxing mood and prompting frustration. Overall the game is seen as fun and</p>\n\n<p>habit-forming, with ad load as the recurring sore point.</p>\n\n<h3>3. Full Interior Description & Technical Mechanics</h3>\n\n<h3>3.1 Interior Ecosystem & Facilitating Features</h3>\n\n<p>This is a single-player card game built around a local Solitaire engine, with a network connection needed only for</p>\n\n<p>fetching and validating the Daily Challenge. Statistics and settings are stored locally, and the monetization stack</p>\n\n<p>layers in ad SDKs and in-app purchase billing; cloud sync for achievements/progress is typical for this publisher's</p>\n\n<p>apps, though not explicitly confirmed here. The Everyone rating implies minimal data collection, though as a free,</p>\n\n<p>ad-supported title it likely shares device identifiers and usage data with ad networks for targeting and performance.</p>\n\n<h3>3.2 Gameplay & Interactive Mechanics</h3>\n\n<p>The engine deals a standard 52-card deck into seven tableau columns (one card in the first, two in the second, and</p>\n\n<p>so on), with the top card of each column face-up and the remainder forming the stock pile. Players expose hidden</p>\n\n<p>cards, build descending alternating-color sequences in the tableau, and move Aces and ascending same-suit</p>\n\n<p>sequences to the foundations. Cards or valid stacks can be dragged or tapped to auto-move, the stock pile can be</p>\n\n<p>cycled, hints highlight a legal move, undo reverses the last action, and auto-complete finishes the board once a win</p>\n\n<p>is guaranteed. As a non-graphics-intensive genre, the main computational load is shuffle/deal logic and move</p>\n\n<p>validation — trivial for modern devices — with card animations, theme changes, and ad SDKs the more likely</p>\n\n<p>sources of occasional stutter or battery drain.</p>\n\n<h3>3.3 Internal Drivers & Monetization</h3>\n\n<p>The app monetizes through interstitial, rewarded video, and banner ads, plus purchases such as ad removal, coin</p>\n\n<p>packs, hints, and cosmetic themes — a roughly $7 permanent ad-removal purchase is a commonly mentioned</p>\n\n<p>option. Retention runs on Daily Challenges (crowns, streaks, monthly gold trophies), coin-gated theme customization</p>\n\n<p>that nudges players toward ads or purchases, and statistics/personal-best tracking for longer-term goals. Compared</p>\n\n<p>to casino-style apps the monetization is less aggressive, but ad frequency and cosmetic gating still create some</p>\n\n<p>pressure — an internal economy built around short, repeated sessions, ad views, and small impulse purchases.</p>",
+    "features_html": "",
+    "custom_admin_box_heading": "",
+    "custom_admin_box_html": "",
+    "seo_title": "Solitaire - Classic Card Games : latest info 2026 | RummyDex",
+    "seo_description": "In-depth review of Solitaire - Classic Card Games: features, performance, ad load, and monetization breakdown to help you decide before you download.",
+    "seo_keywords": "",
+    "og_image_url": "",
+    "canonical_url": "https://www.rummydex.com/app/solitaire",
+    "video_url": "",
+    "publish_date": "",
+    "release_notes": "In-App Purchases Yes — ad removal, coins, hints, and cosmetic items\nAds Contains ads (banner, interstitial, rewarded video)\nMinimum Android Android 5.0+ (varies by source)",
+    "red_box_msg": "",
+    "yellow_box_msg": "",
+    "idea_box_msg": "",
+    "is_new": false,
+    "is_coming_soon": false,
+    "screenshots": [],
+    "faqs": [],
+    "created_at": "2026-08-09T07:20:03.703Z",
+    "updated_at": "2026-08-09T07:50:52.720Z"
+  },
+  {
+    "id": "ne1n96k01",
+    "name": "VITA MAHJONG",
+    "slug": "vita-mahjong",
+    "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1786260770/1000133507_11zon_az6bbg.webp",
+    "category": "Card Apps",
+    "encrypted_link": "",
+    "rating": 4.8,
+    "safety_status": "Verified",
+    "serial_number": 23,
+    "version": "3.5.06",
+    "file_size": "207  MB",
+    "developer": "Vita Studio",
+    "description_html": "<h2>1. Key Features & User Interface</h2>\n\n<h3>1.1 Core & Secondary Features</h3>\n\n<p>Vita Mahjong is a classic Mahjong Solitaire tile-matching game with hundreds of boards and traditional card-style tile</p>\n\n<p>sets, plus special tiles that add twists beyond the classic rules. The design leans senior-friendly, with large, readable</p>\n\n<p>tiles, Active Mind levels aimed at memory and focus, and customizable scoring that lets players skip timer or score</p>\n\n<p>pressure entirely. Super Combo rewards consecutive matches, while hints, undo, and shuffle keep players unstuck.</p>\n\n<p>A Daily Challenge awards trophies for practice levels, Offline Mode allows play without internet, and the app is</p>\n\n<p>optimized across phones, tablets, and pads. Multiple tile themes (simple, classic, aventus, panda, poker, antique)</p>\n\n<p>and backgrounds add customization on top of ad-supported free play with optional ad-free purchase and power-ups.</p>\n\n<h3>1.2 User Interface & Visual Layout</h3>\n\n<p>The interface is built around accessibility and relaxation, especially for older adults — clean, bright, and low-clutter,</p>\n\n<p>with a soft backdrop behind large, high-contrast tile faces. The tile board dominates the screen, with a simple bottom toolbar for hint, undo, and shuffle. Warm wood tones and gentle greens form the default theme, with easily</p>\n\n<p>distinguishable tile art and optional decorative sets (panda, poker, antique) plus alternate backgrounds; fonts and</p>\n\n<p>labels stay large and legible throughout. Controls are simple tap/swipe gestures, menus are list-based and clearly</p>\n\n<p>labeled, and the Daily Challenge and level selectors appear as large cards. The portrait-oriented layout, oversized</p>\n\n<p>tiles, clear icons, and absence of a pressure timer reflect an explicitly senior-friendly design, reducing cognitive and</p>\n\n<p>visual strain for users with limited dexterity — though there's no obvious full screen-reader support or colorblind</p>\n\n<p>modes.</p>\n\n<h3>1.3 In-App Utilities</h3>\n\n<p>Supporting tools include a hint button for valid matches, an undo button, a shuffle button to reveal new matches, a</p>\n\n<p>Daily Challenge calendar for trophies, a themes screen for tile sets and backgrounds, Active Mind memory-focused</p>\n\n<p>puzzles, offline mode, an ad-free purchase option, and a power-up store for hints, shuffles, and undos.</p>\n\n<h3>2. Hands-On Review & Real-World Performance</h3>\n\n<h3>2.1 System Performance & Optimization</h3>\n\n<p>The APK runs roughly 200–212 MB, with the XAPK/OBB variant reaching 230–237 MB, covering tile art, themes,</p>\n\n<p>audio, animations, and ad SDKs. The core engine itself is lightweight, so the app runs well on most modern devices,</p>\n\n<p>and the developer's multi-device optimization claim is backed by a simple, scalable UI. Most users describe</p>\n\n<p>performance as smooth, though some report ads that load slowly or fail to close, occasionally restarting the game,</p>\n\n<p>with heavier ad loading causing stutters on lower-end devices. Battery and data use are generally modest except</p>\n\n<p>when ads are served frequently over a network connection.</p>\n\n<h3>2.2 Hands-On Feel & Usability</h3>\n\n<p>Gameplay is relaxed and casual — tap two matching tiles to clear them, with hint, undo, and shuffle always one tap</p>\n\n<p>away. The absence of a timer removes pressure and reinforces the senior-friendly positioning, and large tiles make</p>\n\n<p>matches easy to spot even on smaller screens. The main usability friction is ad placement: ads between levels can</p>\n\n<p>be long, repetitive, or hard to skip, ad-free purchase terms (one-time vs. recurring) aren't always clear, and rewarded</p>\n\n<p>ads for power-ups can interrupt flow. Players wanting uninterrupted sessions may need to pay the ad-removal fee.</p>\n\n<h3>2.3 User Journey & Friction Points</h3>\n\n<p><strong>A typical session:</strong> open the app → start a level → tap matching tiles to clear the board → use hints, undo, or shuffle if</p>\n\n<p>needed → complete the level → watch an ad → move to the next level or try the Daily Challenge, with trophy</p>\n\n<p>collection giving a reason to return daily. The most frequent complaints center on ad volume and length — ads that</p>\n\n<p>can't be closed, redirect to the app store, or restart the game after watching. A few players mention misleading ads</p>\n\n<p>for the app on other platforms, and while the ad-free purchase is presented as a fix, its pricing and subscription terms</p>\n\n<p>aren't always transparent. Some users also want more gameplay variety or additional tile themes.</p>\n\n<h3>2.4 User Emotional Experience</h3>\n\n<p>The app is positioned as a relaxing, mentally engaging puzzle — soft visuals, gentle audio, and timer-free play build</p>\n\n<p>a calm, meditative mood, and many players find it satisfying and addictive, with Active Mind levels and daily</p>\n\n<p>challenges adding a sense of accomplishment. The ad experience is the main disruptor, turning relaxation into</p>\n\n<p>frustration and creating a recurring tension between the game's soothing design and its ad load.</p>\n\n<h3>3. Full Interior Description & Technical Mechanics</h3>\n\n<h3>3.1 Interior Ecosystem & Facilitating Features</h3>\n\n<p>Vita Mahjong is a single-player puzzle game that can run fully offline, with level data, tile art, and audio bundled</p>\n\n<p>locally; only the Daily Challenge and ads require a network connection. Statistics, progress, and theme selections</p>\n\n<p>are stored locally by default, and the monetization stack layers in ad SDKs and in-app purchase billing. Developer</p>\n\n<p>Vita Studio also publishes other senior-focused puzzle games (Vita Solitaire, Vita Spider Solitaire, Vita Jigsaw, Vita</p>\n\n<p>Word Search, Vita Block, Vita Sudoku), which the app may cross-promote. The Everyone rating implies limited data</p>\n\n<p>collection, though as a free, ad-supported game it likely shares device identifiers and usage data with ad networks;</p>\n\n<p>support runs through support@vitastudio.ai.</p>\n\n<h3>3.2 Gameplay & Interactive Mechanics</h3>\n\n<p>Each level deals a fixed tile layout; players select two exposed matching tiles (not blocked by others) to remove</p>\n\n<p>them, aiming to clear the whole board. Special tiles introduce new matching rules or combo effects, and Active Mind</p>\n\n<p>mode may add timed or memory-based constraints for extra difficulty. Players tap or swipe to select and match, the</p>\n\n<p>hint system identifies a valid pair, undo reverses the last move, shuffle repositions tiles to escape deadlocks, and</p>\n\n<p>Super Combo rewards consecutive matches; scoring can be disabled entirely for a pressure-free experience. As a</p>\n\n<p>non-demanding genre, the main load is rendering the tile board, theme assets, and animations — trivial for modern</p>\n\n<p>phones — with rich-media ad SDKs the main risk to smoothness between levels.</p>\n\n<h3>3.3 Internal Drivers & Monetization</h3>\n\n<p>The app is free-to-play and ad-supported, monetizing through interstitial ads between levels, rewarded video for</p>\n\n<p>power-ups, and purchases like the ad-free upgrade, hint packs, shuffle packs, and undo packs. The ad-free</p>\n\n<p>purchase is reported around $5.99 USD, though its exact terms — one-time or recurring — aren't fully clear in the</p>\n\n<p>listing. Retention runs on the Daily Challenge (fresh puzzles and trophies), Active Mind's skill-building angle, and</p>\n\n<p>theme unlocks that encourage replay; the large install base and strong category rankings point to effective</p>\n\n<p>acquisition, likely driven by organic appeal, senior-focused marketing, and paid advertising. Monetization is typical</p>\n\n<p>for casual puzzle games, but the ad load feels heavy to some users, and unclear ad-free terms may reduce</p>\n\n<p>conversion — an internal economy built around repeated short sessions, ad impressions, and small impulse</p>\n\n<p>purchases.</p>",
+    "features_html": "",
+    "custom_admin_box_heading": "",
+    "custom_admin_box_html": "",
+    "seo_title": "VITA MAHJONG : latest information about app | RummyDex",
+    "seo_description": "Is Vita Mahjong worth installing? A full breakdown of its senior-friendly design, ad load, and hidden costs — read before you download.",
+    "seo_keywords": "",
+    "og_image_url": "",
+    "canonical_url": "https://www.rummydex.com/app/vita-mahjong",
+    "video_url": "",
+    "publish_date": "",
+    "release_notes": "",
+    "red_box_msg": "",
+    "yellow_box_msg": "",
+    "idea_box_msg": "",
+    "is_new": false,
+    "is_coming_soon": false,
+    "screenshots": [],
+    "faqs": [],
+    "created_at": "2026-08-09T07:36:43.647Z",
+    "updated_at": "2026-08-09T07:49:57.716Z"
   }
 ] as any[];
 
@@ -1125,7 +1230,6 @@ export const mockSettings: GlobalSettings = {
   "ticker_text": "",
   "animations_enabled": true,
   "categories": [
-    "All Apps",
     "Yono Apps",
     "Card Apps",
     "Funny games"
@@ -1185,7 +1289,7 @@ export const mockSettings: GlobalSettings = {
   "important_notice_heading": "Important Notice",
   "seo_keywords": "",
   "terms_content": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\">\n<title>Terms & Conditions — RummyDex</title>\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<style>\nbody{font-family:Arial,Helvetica,sans-serif;color:#3c4043;max-width:700px;margin:40px auto;padding:0 20px;line-height:1.7;font-size:15px;background:#fff}\nh1{font-size:26px;color:#202124;font-weight:400;margin-bottom:6px}\n.updated{color:#5f6368;font-size:13px;margin-bottom:28px}\nh2{font-size:19px;color:#202124;font-weight:500;margin-top:44px}\np{margin:10px 0}\nul{margin:10px 0;padding-left:22px}\nli{margin:8px 0}\n.art{display:block;margin:18px 0}\n.note{color:#5f6368;font-size:13px;margin-top:40px;border-top:1px solid #dadce0;padding-top:14px}\na{color:#1a73e8;text-decoration:none}\na:hover{text-decoration:underline}\n</style>\n</head>\n<body>\n\n<h1>Terms &amp; Conditions</h1>\n<p class=\"updated\">Effective Date: August 2, 2026</p>\n\n<h2>1. Agreement to Terms</h2>\n<svg class=\"art\" width=\"180\" height=\"130\" viewBox=\"0 0 180 130\">\n<rect x=\"55\" y=\"20\" width=\"70\" height=\"90\" rx=\"6\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M68 40h44M68 55h44M68 70h44\" stroke=\"#3c4043\" stroke-width=\"2\" stroke-linecap=\"round\"/>\n<path d=\"M70 88l10 10 20-20\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n</svg>\n<p>By accessing RummyDex, you agree to be bound by these Terms &amp; Conditions. If you disagree with any part of these terms, please do not use our app directory, news portal, or video features.</p>\n\n<h2>2. Intellectual Property</h2>\n<svg class=\"art\" width=\"180\" height=\"130\" viewBox=\"0 0 180 130\">\n<circle cx=\"90\" cy=\"60\" r=\"42\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M90 40a20 20 0 100 40 20 20 0 100-40\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"2\"/>\n<path d=\"M90 46v28M78 60h24\" stroke=\"#1a73e8\" stroke-width=\"2\" stroke-linecap=\"round\"/>\n</svg>\n<p>RummyDex retains ownership of its original content, design, and editorial features. However, we do not claim ownership of the third-party apps listed on our site. All app names, logos, and trademarks belong to their respective original developers.</p>\n\n<h2>3. Acceptable Use</h2>\n<svg class=\"art\" width=\"180\" height=\"130\" viewBox=\"0 0 180 130\">\n<circle cx=\"90\" cy=\"55\" r=\"30\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M68 33l44 44\" stroke=\"#ea4335\" stroke-width=\"3\" stroke-linecap=\"round\"/>\n<path d=\"M40 108h100\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n</svg>\n<p>RummyDex is provided for your personal, non-commercial use. You agree not to:</p>\n<ul>\n<li>Use automated bots or scrapers to extract our data or reviews.</li>\n<li>Interfere with the security or performance of our website.</li>\n<li>Submit false or spam requests through our App Reporting system.</li>\n</ul>\n\n<h2>4. Third-Party Links Disclaimer</h2>\n<svg class=\"art\" width=\"180\" height=\"130\" viewBox=\"0 0 180 130\">\n<rect x=\"30\" y=\"45\" width=\"45\" height=\"35\" rx=\"4\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<rect x=\"105\" y=\"45\" width=\"45\" height=\"35\" rx=\"4\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M75 62h30\" stroke=\"#fbbc04\" stroke-width=\"3\" stroke-linecap=\"round\"/>\n<circle cx=\"128\" cy=\"62\" r=\"6\" fill=\"none\" stroke=\"#ea4335\" stroke-width=\"2\"/>\n<path d=\"M125 62h6M128 59v6\" stroke=\"#ea4335\" stroke-width=\"2\" stroke-linecap=\"round\"/>\n</svg>\n<p>RummyDex acts solely as an informational bridge and does not host APK or software files on our servers.</p>\n<ul>\n<li>Clicking an external link directs you to a third-party destination that we do not control.</li>\n<li>Downloading and installing third-party software is done entirely at your own risk. RummyDex is not responsible for any device damage or data loss.</li>\n</ul>\n\n<h2>5. App Reporting &amp; Compliance</h2>\n<svg class=\"art\" width=\"180\" height=\"130\" viewBox=\"0 0 180 130\">\n<path d=\"M60 40h60l-6 68H66z\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M72 30h36l4 10H68z\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M78 55v38M90 55v38M102 55v38\" stroke=\"#ea4335\" stroke-width=\"3\" stroke-linecap=\"round\"/>\n</svg>\n<p>We enforce a strict zero-tolerance policy against apps containing malicious code or unauthorized real-money mechanics. We investigate user reports and reserve the right to remove or delist any application from our directory at any time without prior notice.</p>\n\n<h2>6. Limitation of Liability</h2>\n<svg class=\"art\" width=\"180\" height=\"130\" viewBox=\"0 0 180 130\">\n<circle cx=\"90\" cy=\"60\" r=\"42\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M90 40v26\" stroke=\"#fbbc04\" stroke-width=\"5\" stroke-linecap=\"round\"/>\n<circle cx=\"90\" cy=\"78\" r=\"3\" fill=\"#fbbc04\"/>\n</svg>\n<p>RummyDex is provided on an \"as is\" and \"as available\" basis. To the maximum extent permitted by law, RummyDex and its team shall not be liable for any direct or indirect damages, losses, or issues resulting from your use of our platform or the third-party apps we link to.</p>\n\n<h2>7. Modifications</h2>\n<svg class=\"art\" width=\"180\" height=\"130\" viewBox=\"0 0 180 130\">\n<path d=\"M65 45a30 30 0 1130 40\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"3\" stroke-linecap=\"round\"/>\n<path d=\"M60 38l5 12 12-4\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n<rect x=\"55\" y=\"90\" width=\"70\" height=\"18\" rx=\"4\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n</svg>\n<p>We reserve the right to update these terms at any time. By continuing to use RummyDex after changes are posted, you agree to be bound by the revised terms.</p>\n\n<h2>8. Contact Information</h2>\n<svg class=\"art\" width=\"180\" height=\"130\" viewBox=\"0 0 180 130\">\n<rect x=\"35\" y=\"40\" width=\"110\" height=\"55\" rx=\"6\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M35 46l55 35 55-35\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n</svg>\n<p>If you have any questions regarding these Terms &amp; Conditions, please contact us at:</p>\n<p>Support Email: <a href=\"mailto:rummydex1@gmail.com\">rummydex1@gmail.com</a></p>\n\n<p class=\"note\">RummyDex — keeping the directory safe, together.</p>\n\n</body>\n</html>\n",
-  "last_updated": "2026-08-06T13:14:09.726Z",
+  "last_updated": "2026-08-09T04:05:01.469Z",
   "important_notice": "",
   "ethics_heading": "Ethics & Safety",
   "hero_title_visible": true,
@@ -1293,52 +1397,7 @@ export const saveMockBlogs = (blogs: BlogPost[]) => {
   mockBlogs.splice(0, mockBlogs.length, ...blogs);
 };
 
-export const mockVideos: VideoItem[] = [
-  {
-    "id": "vid-spin-crush-review",
-    "slug": "spin-crush-gameplay-guide",
-    "title": "Spin Crush Gameplay Walkthrough & Features Review",
-    "description": "Watch a full hands-on gameplay review of Spin Crush. Learn about casual arcade mini-games, smooth 60FPS performance, and virtual coin mechanics.",
-    "youtube_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-    "seo_title": "Spin Crush Video Review & Walkthrough Guide | RummyDex",
-    "seo_description": "Watch full video walkthrough of Spin Crush. Detailed gameplay mechanics, features breakdown, and Android performance analysis.",
-    "seo_keywords": "spin crush video, spin crush gameplay, arcade mini games video, rummydex video review",
-    "created_at": "2026-08-05T10:00:00.000Z"
-  },
-  {
-    "id": "vid-rummy-77-guide",
-    "slug": "rummy-77-hands-on-video-guide",
-    "title": "Rummy 77 Table Mechanics & Auto-Sort Demonstration",
-    "description": "Comprehensive video breakdown of Rummy 77. See how the fast matchmaking, high-contrast 13-card table layout, and auto-sort features work in real time.",
-    "youtube_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-    "seo_title": "Rummy 77 Hands-On Video Guide & Table Mechanics | RummyDex",
-    "seo_description": "Watch Rummy 77 in action. Table layout, card sorting demonstration, battery performance test, and UI overview.",
-    "seo_keywords": "rummy 77 video, 13 card rummy gameplay, rummy 77 tutorial, rummydex walkthrough",
-    "created_at": "2026-08-05T11:00:00.000Z"
-  },
-  {
-    "id": "vid-yono-arcade-review",
-    "slug": "yono-arcade-app-inspection",
-    "title": "Yono Arcade Complete App Inspection & Multi-Game Hub Overview",
-    "description": "Deep dive video inspection of Yono Arcade. Explore the multi-game catalog, lobby navigation, and lightweight resource utilization on budget devices.",
-    "youtube_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-    "seo_title": "Yono Arcade App Inspection & Video Review | RummyDex",
-    "seo_description": "Detailed video walkthrough of Yono Arcade. Multi-game lobby inspection, interface features, and device compatibility test.",
-    "seo_keywords": "yono arcade video, yono arcade inspection, arcade app review, rummydex video hub",
-    "created_at": "2026-08-05T12:00:00.000Z"
-  },
-  {
-    "id": "vid-rummy-91-strategy",
-    "slug": "rummy-91-strategy-and-tips",
-    "title": "Rummy 91 Strategy, Game Modes & Teen Patti Lounge Walkthrough",
-    "description": "In-depth video walkthrough highlighting Rummy 91's practice lobbies, Teen Patti social rooms, and lightweight Ludo mode.",
-    "youtube_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-    "seo_title": "Rummy 91 Strategy & Features Walkthrough Video | RummyDex",
-    "seo_description": "Watch Rummy 91 strategy guide and features walkthrough. Practice room mechanics, Teen Patti lounge, and performance test.",
-    "seo_keywords": "rummy 91 video, rummy 91 strategy, card game video guide, rummydex video review",
-    "created_at": "2026-08-05T13:00:00.000Z"
-  }
-] as any[];
+export const mockVideos: VideoItem[] = [] as any[];
 
 export const saveMockVideos = (videos: VideoItem[]) => {
   try {

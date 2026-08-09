@@ -35,7 +35,7 @@ export function renderHeader(settings: any) {
   const logoUrl = getField(settings, 'logo_url');
   const optimizedLogo = logoUrl ? optimizeImageUrl(logoUrl, 100) : '';
   return `
-    <header class="py-3 border-b border-black/5 dark:border-white/5 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md">
+    <header class="py-3 border-b border-black/5 dark:border-white/5 bg-white/80 dark:bg-zinc-950/80 ">
       <div class="max-w-7xl mx-auto px-4 sm:px-8 flex justify-between items-center">
         <a href="/" class="flex items-center gap-3 font-bold text-lg text-zinc-900 dark:text-white">
           ${logoUrl ? `<img src="${escapeHtml(optimizedLogo)}" loading="eager" decoding="async" width="40" height="40" class="w-10 h-10 object-contain" alt="${escapeHtml(siteTitle)} Official Logo"/>` : ''}

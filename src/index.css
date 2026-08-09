@@ -150,7 +150,7 @@ a {
 .animate-marquee {
   display: inline-block;
   animation: marquee 25s linear infinite;
-  will-change: transform;
+  /* will-change removed for perf */
 }
 
 .search-input-premium {
@@ -394,7 +394,7 @@ a {
 .gpu-accelerated {
   transform: translate3d(0, 0, 0);
   -webkit-transform: translate3d(0, 0, 0);
-  will-change: transform;
+  /* will-change removed for perf */
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
 }
@@ -459,7 +459,7 @@ html.lenis-scrolling * {
 
   .glass-panel {
     transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease !important;
-    will-change: transform;
+    /* will-change removed for perf */
   }
 }
 
@@ -508,14 +508,14 @@ html.lenis-scrolling * {
 }
 
 .arrow-icon-loop {
-  animation: arrow-glide 1.6s ease-in-out infinite !important;
-  will-change: transform;
+  /* animation removed for perf */
+  /* will-change removed for perf */
 }
 
 .premium-action-btn {
   background: linear-gradient(135deg, #059669 0%, #10b981 50%, #0d9488 100%) !important;
   background-size: 200% auto !important;
-  animation: liquid-flow 5s ease infinite !important;
+  /* animation removed for perf */
   position: relative;
   overflow: visible !important; /* Allow the soft outer glow to bleed beautifully */
   border: none !important;
@@ -553,7 +553,7 @@ html.lenis-scrolling * {
   );
   pointer-events: none;
   z-index: 2;
-  will-change: transform;
+  /* will-change removed for perf */
   animation: hw-shimmer 4s infinite cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -570,7 +570,7 @@ html.lenis-scrolling * {
   background: linear-gradient(135deg, #10b981 0%, #0d9488 100%) !important;
   filter: blur(10px);
   pointer-events: none;
-  will-change: transform, opacity;
+  /* will-change removed for perf */
   animation: hw-glow-pulse 3s infinite ease-in-out;
 }
 
@@ -595,7 +595,7 @@ html.lenis-scrolling * {
 
 .arrow-icon {
   transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
-  will-change: transform;
+  /* will-change removed for perf */
 }
 
 .premium-action-btn:hover .arrow-icon {
@@ -628,8 +628,8 @@ html.lenis-scrolling * {
 }
 
 .vibrating-icon {
-  animation: gentle-vibration 4.5s infinite ease-in-out;
-  will-change: transform;
+  /* animation removed for perf */
+  /* will-change removed for perf */
 }
 
 /* Floating interactive state for Similar Apps items */
@@ -693,16 +693,16 @@ html.lenis-scrolling * {
   border-radius: 28px !important;
   filter: blur(12px) !important;
   z-index: 1 !important;
-  animation: logo-aura-wave 4.5s infinite ease-in-out !important;
-  will-change: transform, opacity;
+  /* animation removed for perf */
+  /* will-change removed for perf */
 }
 
 .premium-logo-image-frame {
   position: relative !important;
   overflow: hidden !important;
   z-index: 2 !important;
-  animation: logo-float-heartbeat 3.2s infinite ease-in-out !important;
-  will-change: transform;
+  /* animation removed for perf */
+  /* will-change removed for perf */
 }
 
 .premium-logo-shine-overlay {
@@ -719,8 +719,8 @@ html.lenis-scrolling * {
   ) !important;
   pointer-events: none !important;
   z-index: 10 !important;
-  animation: logo-sweep 3.5s infinite cubic-bezier(0.4, 0, 0.2, 1) !important;
-  will-change: transform;
+  /* animation removed for perf */
+  /* will-change removed for perf */
 }
 
 /* Beautiful "Blowing" Ripple-Pulse Ring Animation for Buttons */
@@ -742,9 +742,38 @@ html.lenis-scrolling * {
 }
 
 .premium-action-btn-blowing {
-  animation: button-blowing-glow 2.2s infinite cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+  /* animation removed for perf */
   
 }
 
 
 
+
+/* ====== GLOBAL TOUCH SMOOTHNESS PATCH ====== */
+/* Restores hardware acceleration and buttery-smooth touch responses */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button, a, .glass-panel, .sticky, .fixed, .premium-action-btn, img, .hover-float {
+  /* Force GPU compositing for instant touch feedback */
+  transform: translateZ(0);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Restore the fluid press physics */
+button:active, a:active, .glass-panel:active, .premium-action-btn:active {
+  transform: scale(0.97) translateZ(0) !important;
+  opacity: 0.92 !important;
+  transition: transform 0.1s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.1s ease !important;
+}
+
+/* Enable smooth scrolling in all scrollable containers */
+.overflow-y-auto, .overflow-x-auto, .overflow-auto {
+  -webkit-overflow-scrolling: touch !important;
+}
+
+/* Ensure body doesn't lag */
+body {
+  overscroll-behavior-y: none;
+}

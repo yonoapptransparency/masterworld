@@ -1,4 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import re
+
+with open('src/components/clearance/ClearanceLoading.tsx', 'r') as f:
+    content = f.read()
+
+new_content = """import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, ShieldCheck } from 'lucide-react';
 
@@ -8,14 +13,14 @@ interface Props {
 }
 
 export const ClearanceLoading: React.FC<Props> = ({ progress, phase }) => {
-  const [syncMessage, setSyncMessage] = useState('Loading resources...');
+  const [syncMessage, setSyncMessage] = useState('Connecting to secure node...');
 
   useEffect(() => {
     const msgs = [
-      "Fetching assets...", 
-      "Rendering view...", 
-      "Applying styles...",
-      "Optimizing layout...",
+      "Verifying Security...", 
+      "Checking Human...", 
+      "Connecting Node...",
+      "Generating Link...",
       "Almost Ready..."
     ];
     let msgIdx = 0;
@@ -54,8 +59,13 @@ export const ClearanceLoading: React.FC<Props> = ({ progress, phase }) => {
       </div>
       <div className="flex items-center gap-1.5 px-3 py-1 bg-green-50 dark:bg-green-950/20 text-green-600 dark:text-green-400 border border-green-200/50 dark:border-green-900/30 rounded-full">
         <ShieldCheck size={14} />
-        <span className="text-[10px] font-bold uppercase">System Ready</span>
+        <span className="text-[10px] font-bold uppercase">Secure connection active</span>
       </div>
     </div>
   );
 };
+"""
+
+with open('src/components/clearance/ClearanceLoading.tsx', 'w') as f:
+    f.write(new_content)
+

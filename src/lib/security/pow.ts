@@ -8,22 +8,51 @@ export const solveChallenge = async (
   difficulty: string, 
   maxIterations: number = 5000000
 ): Promise<number> => {
-  let counter = 0;
-  const encoder = new TextEncoder();
-  
-  while (counter < maxIterations) {
-    const msg = encoder.encode(nonce + counter);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', msg);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return new Promise((resolve, reject) => {
+    let counter = 0;
+    const encoder = new TextEncoder();
     
-    if (hashHex.startsWith(difficulty)) {
-      return counter;
-    }
-    counter++;
-  }
-  
-  throw new Error('Mathematical limit exceeded: Challenge too difficult or timeout.');
+    // Fast path optimization for difficulty "0000"
+    const isDifficulty4 = difficulty === "0000";
+    const isDifficulty3 = difficulty === "000";
+
+    const processChunk = async () => {
+      // Process 300 hashes per chunk to maintain 60FPS UI responsiveness
+      const end = Math.min(counter + 300, maxIterations);
+      
+      for (; counter < end; counter++) {
+        const msg = encoder.encode(nonce + counter);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msg);
+        const hashArray = new Uint8Array(hashBuffer);
+        
+        // Highly optimized byte checking (avoids slow hex string conversion)
+        if (isDifficulty4) {
+          if (hashArray[0] === 0 && hashArray[1] === 0) {
+            return resolve(counter);
+          }
+        } else if (isDifficulty3) {
+          if (hashArray[0] === 0 && (hashArray[1] >> 4) === 0) {
+            return resolve(counter);
+          }
+        } else {
+          // Fallback for custom difficulties
+          const hashHex = Array.from(hashArray).map(b => b.toString(16).padStart(2, '0')).join('');
+          if (hashHex.startsWith(difficulty)) {
+            return resolve(counter);
+          }
+        }
+      }
+      
+      if (counter >= maxIterations) {
+        reject(new Error('Mathematical limit exceeded: Challenge too difficult or timeout.'));
+      } else {
+        // Yield to the main browser thread to keep UI completely smooth
+        setTimeout(processChunk, 0);
+      }
+    };
+    
+    processChunk();
+  });
 };
 
 /**

@@ -197,7 +197,7 @@ export const AppForm = ({
       </div>
 
       {/* Form Sticky Action Footer */}
-      <div className="p-4 sm:p-5 border-t border-slate-100 dark:border-slate-800/80 flex justify-end items-center gap-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md shrink-0 sticky bottom-0 z-20 pb-safe shadow-lg">
+      <div className="p-4 sm:p-5 border-t border-slate-100 dark:border-slate-800/80 flex justify-end items-center gap-3 bg-white/95 dark:bg-slate-900/95  shrink-0 sticky bottom-0 z-20 pb-safe shadow-lg">
         <button 
           type="button"
           onClick={() => setEditingAppId(null)}

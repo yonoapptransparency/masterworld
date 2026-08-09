@@ -139,7 +139,7 @@ export const AdminSidebar = ({
       {/* Overlay */}
       {isMobileMenuOpen && (
         <div 
-          className="fixed inset-0 z-30 bg-slate-900/60 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-30 bg-slate-900/60  lg:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}

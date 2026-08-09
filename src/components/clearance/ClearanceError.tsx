@@ -15,7 +15,7 @@ export const ClearanceError: React.FC<Props> = ({ error, onRetry }) => (
   >
     <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
       <ShieldAlert size={18} />
-      <span className="text-sm font-semibold">Process Interrupted</span>
+      <span className="text-sm font-semibold">Loading Error</span>
     </div>
     <p className="text-xs text-center text-slate-600 dark:text-slate-400 max-w-[240px]">
       {error}
@@ -25,7 +25,7 @@ export const ClearanceError: React.FC<Props> = ({ error, onRetry }) => (
       className="flex items-center gap-2 px-4 py-2 text-xs font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-full transition-colors"
     >
       <RefreshCcw size={14} />
-      Restart Process
+      Try Again
     </button>
   </motion.div>
 );

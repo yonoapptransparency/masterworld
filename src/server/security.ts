@@ -226,7 +226,7 @@ export function ensureSession(req: express.Request, res: express.Response): stri
 }
 
 export function generateToken(ip: string, sessionId: string, fingerprint: string, appId: string): string {
-  const EXPIRY = 1800;
+  const EXPIRY = 30; // 30 seconds expiry for very strict anti-bot control
   const expires = Math.floor(Date.now() / 1000) + EXPIRY;
   const payload = `${ip}|${sessionId}|${fingerprint}|${appId}|${expires}`;
   const sig = crypto.createHmac("sha256", TOKEN_SECRET).update(payload).digest("hex");

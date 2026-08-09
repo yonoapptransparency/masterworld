@@ -181,8 +181,15 @@ export function useGitHubSync(
 
     const finalSettings = ensureDefaultSettings(targetSettings);
     const updatedCode = generateStaticDataFileCode(finalApps, finalSettings, targetNews, targetBlogs, targetVideos);
+    const safeBackupApps = JSON.parse(JSON.stringify(finalApps)).map((app: any) => {
+      delete app.more_information_url;
+      delete app.encrypted_download_url;
+      delete app.download_url;
+      return app;
+    });
+
     const backupJsonCode = JSON.stringify({
-      apps: finalApps,
+      apps: safeBackupApps,
       settings: finalSettings,
       news: targetNews,
       blogs: targetBlogs,

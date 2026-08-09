@@ -68,7 +68,7 @@ export const FeaturedBanner = React.memo(({ items }: BannerProps) => {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent pt-10 pb-3 px-4 sm:px-6 flex flex-col justify-end" />
                 
                 <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5 flex flex-col justify-end">
-                  <div className="flex items-center gap-1.5 mb-1 bg-black/40 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/10 w-fit">
+                  <div className="flex items-center gap-1.5 mb-1 bg-black/40  px-2 py-0.5 rounded-full border border-white/10 w-fit">
                     <Sparkles className="w-3 h-3 text-yellow-400 fill-yellow-400" />
                     <span className="text-white text-[9px] font-bold uppercase tracking-wider">Featured App</span>
                   </div>
@@ -121,14 +121,14 @@ export const FeaturedBanner = React.memo(({ items }: BannerProps) => {
         <>
           <button
             onClick={handlePrev}
-            className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 border border-white/10 text-white backdrop-blur-md opacity-0 group-hover/carousel:opacity-100 transition-opacity duration-200 focus:outline-none cursor-pointer hidden md:flex"
+            className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 border border-white/10 text-white  opacity-0 group-hover/carousel:opacity-100 transition-opacity duration-200 focus:outline-none cursor-pointer hidden md:flex"
             aria-label="Previous slide"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
           <button
             onClick={handleNext}
-            className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 border border-white/10 text-white backdrop-blur-md opacity-0 group-hover/carousel:opacity-100 transition-opacity duration-200 focus:outline-none cursor-pointer hidden md:flex"
+            className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 border border-white/10 text-white  opacity-0 group-hover/carousel:opacity-100 transition-opacity duration-200 focus:outline-none cursor-pointer hidden md:flex"
             aria-label="Next slide"
           >
             <ChevronRight className="w-4 h-4" />

@@ -16,7 +16,8 @@ securityRouter.get('/api/v1/_chal', (req, res) => {
   const sid = ensureSession(req, res);
   const realNonce = crypto.randomBytes(8).toString('hex');
   const difficulty = "0000"; 
-  const expiry = Date.now() + 600000; // 10 minutes
+  // 30 seconds expiry for very strict anti-bot control
+  const expiry = Date.now() + 30000;
   
   const secret = getAesSecret();
   // Sign with SID for binding, but also expiry for statelessness
