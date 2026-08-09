@@ -87,7 +87,7 @@ async function doFetchStoreData() {
 
   // Fallback to local backup file if Firestore is unreachable
   try {
-    const backup = require('./lib/public_backup.json');
+    const fsMod = require('fs'); const pathMod = require('path'); const p = pathMod.join(process.cwd(), 'src/lib/public_backup.json'); const backup = fsMod.existsSync(p) ? JSON.parse(fsMod.readFileSync(p, 'utf8')) : null;
     if (backup) {
       const data = {
         apps: backup.apps || [],
@@ -101,7 +101,7 @@ async function doFetchStoreData() {
       return data;
     }
   } catch (e) {
-    console.error("Error reading public_backup.json in seoHelper:", e);
+    // console.error("Error reading public_backup.json in seoHelper:", e);
   }
 
   const data = {

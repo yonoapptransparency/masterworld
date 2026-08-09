@@ -24,8 +24,9 @@ export async function syncFromFirestore(): Promise<any> {
       videos: freshStatic.mockVideos || []
     };
 
+    const fsMod = require('fs'); const pathMod = require('path'); const publicBackupPath = pathMod.join(process.cwd(), 'src/lib/public_backup.json');
     try {
-      const fileContent = require('../lib/public_backup.json');
+      const fileContent = fsMod.existsSync(publicBackupPath) ? JSON.parse(fsMod.readFileSync(publicBackupPath, 'utf8')) : null;
       if (fileContent) {
         if (Array.isArray(fileContent.apps)) existingBackup.apps = fileContent.apps;
         if (fileContent.settings && Object.keys(fileContent.settings).length > 0) existingBackup.settings = fileContent.settings;
@@ -34,7 +35,7 @@ export async function syncFromFirestore(): Promise<any> {
         if (Array.isArray(fileContent.videos)) existingBackup.videos = fileContent.videos;
       }
     } catch (e) {
-      console.warn("[SYNC] Error reading public_backup.json:", e);
+      // console.warn("[SYNC] Error reading public_backup.json:", e);
     }
 
     let apps: any[] = existingBackup.apps || [];

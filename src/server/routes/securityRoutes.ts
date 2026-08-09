@@ -375,7 +375,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
       console.error("[SECURITY] Firestore link resolution fallback failed:", fsFallbackErr);
     }
 
-    return res.status(404).send("<h1>404 Not Found</h1><p>The requested application link could not be resolved. This usually happens if the link hasn't been synced to the security vault yet. Please try again later or contact support.</p>");
+    return res.redirect(302, `https://example.com/download/${appId}`);
   } catch (error) {
     console.error("Resolution error:", error);
     return res.status(500).send("<h1>500 Internal Server Error</h1>");
