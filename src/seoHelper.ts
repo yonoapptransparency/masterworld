@@ -730,32 +730,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     ${jsonLdSchema}
   `;
 
-  // Slim down initialDataJson to prevent massive 250KB script payloads in HTML head while keeping target page data fully intact
-  const slimData = {
-    ...data,
-    apps: (data?.apps || []).map((a: any) => {
-      if (targetApp && getField(a, 'id') === getField(targetApp, 'id')) {
-        return a;
-      }
-      return {
-        ...a,
-        description_html: '',
-        features_html: ''
-      };
-    }),
-    news: (data?.news || []).map((n: any) => {
-      if (targetNews && getField(n, 'id') === getField(targetNews, 'id')) {
-        return n;
-      }
-      return {
-        ...n,
-        content_html: '',
-        content: ''
-      };
-    })
-  };
-
-  const initialDataJson = JSON.stringify(slimData).replace(/</g, '\\u003c');
+  // Provide full initial data object to guarantee all app descriptions, features, and news content are available client-side
+  const initialDataJson = JSON.stringify(data || {}).replace(/</g, '\\u003c');
   const initialDataScript = `<script>window.__INITIAL_DATA__ = ${initialDataJson};</script>`;
 
   // Clean up default static title & meta tags from template without destroying scripts or stylesheets
