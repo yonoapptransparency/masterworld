@@ -424,13 +424,69 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
                 }
              }
           }
+
+          // Fallback to check the 'apps' collection via REST API
+          if (!targetUrl) {
+            const appDocIds = Array.from(new Set([realId, appId]));
+            for (const targetId of appDocIds) {
+              const appUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || '(default)'}/documents/apps/${targetId}${apiSuffix}`;
+              try {
+                const appRes = await fetch(appUrl, { headers });
+                if (appRes.ok) {
+                  const appDoc = await appRes.json();
+                  const appData = parseFirestoreFields(appDoc.fields);
+                  const rawUrl = appData?.more_information_url || appData?.download_url || appData?.encrypted_link || appData?.url;
+                  if (rawUrl && typeof rawUrl === 'string') {
+                    const dec = rawUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(rawUrl, AES_SECRET) : rawUrl;
+                    if (dec && dec.trim().length > 0) {
+                      targetUrl = dec.trim();
+                      break;
+                    } else if (rawUrl.trim().length > 0) {
+                      targetUrl = rawUrl.trim();
+                      break;
+                    }
+                  }
+                }
+              } catch (e) {}
+            }
+          }
         }
       }
     } catch (fsFallbackErr) {
       console.error("[SECURITY] Firestore link resolution fallback failed:", fsFallbackErr);
     }
 
-    return res.status(404).send("<h1>404 Not Found</h1><p>The requested application link could not be resolved. This usually happens if the link hasn't been synced to the security vault yet. Please try again later or contact support.</p>");
+    if (targetUrl && targetUrl.trim().length > 0) {
+      const entry = { url: targetUrl.trim(), timestamp: Date.now() };
+      resolvedLinkCache.set(appId.toLowerCase(), entry);
+      resolvedLinkCache.set(realId.toLowerCase(), entry);
+      return res.redirect(302, targetUrl.trim());
+    }
+    
+    // 5. Final Last-Ditch Fallback: Check staticData directly in memory
+    try {
+       const staticDataObj = require('../../lib/staticData');
+       const mockApps = staticDataObj.mockApps || [];
+       const app = mockApps.find((a: any) => {
+         const id = (a.id || '').toLowerCase().trim();
+         const sl = (a.slug || '').toLowerCase().trim();
+         const cleanInput = appId.toLowerCase().trim().replace(/[-_ ]+$/, '');
+         return id === cleanInput || sl === cleanInput || sl === appId.toLowerCase().trim();
+       });
+       if (app) {
+         let rawUrl = app.more_information_url || app.download_url || app.url || app.encrypted_link;
+         if (rawUrl && typeof rawUrl === 'string') {
+           const dec = rawUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(rawUrl, AES_SECRET) : rawUrl;
+           if (dec && dec.trim().length > 0) {
+              return res.redirect(302, dec.trim());
+           } else if (rawUrl.trim().length > 0) {
+              return res.redirect(302, rawUrl.trim());
+           }
+         }
+       }
+    } catch (finalErr) {}
+
+    return res.status(404).send("<h1>404 Not Found</h1><p>The requested information link could not be resolved. This usually happens if the link hasn't been synced to the security vault yet. Please try again later.</p>");
   } catch (error) {
     console.error("Resolution error:", error);
     return res.status(500).send("<h1>500 Internal Server Error</h1>");
