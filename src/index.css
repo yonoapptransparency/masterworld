@@ -753,14 +753,19 @@ button, a, .glass-panel, .sticky, .fixed, .premium-action-btn {
     -webkit-backdrop-filter: none !important;
   }
 
-  /* Disable continuous background animations and text-shadows on mobile to save GPU cycles & battery */
+  /* Disable decorative ambient background animations on mobile to save GPU cycles & battery */
   .premium-action-btn-pulse::after,
   .premium-logo-slow-vibrate,
   .hw-shimmer,
-  .animate-pulse,
-  .animate-spin {
+  .animate-pulse {
     animation: none !important;
     filter: none !important;
+  }
+
+  /* Ensure loading spinners rotate smoothly on low-end hardware */
+  .animate-spin {
+    animation: spin 0.8s linear infinite !important;
+    will-change: transform;
   }
 
   /* Render images with content-visibility auto for instant GPU paint cycles */
