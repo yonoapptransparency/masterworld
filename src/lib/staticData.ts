@@ -228,7 +228,7 @@ export const mockApps: AppConfig[] = [
     "seo_keywords": "rummy 77 app, real rummy gameplay, rummy 77 review, 13 card rummy",
     "version": "1.0.6",
     "id": "i5uw2apum",
-    "encrypted_link": "U2FsdGVkX19fY9CEjgjI+kbC+daOMg2iuKN5UtZG27IiTPaBB2Y2+RYTB4QWi1nZ",
+    "encrypted_link": "U2FsdGVkX19P8rhLnbJK2MzOFMCtklGukFDOEIGsKL6KuxqyRe+yd6VMe+U0WXF7",
     "serial_number": 2,
     "updated_at": "2026-08-10T04:27:14.086Z",
     "canonical_url": "https://www.rummydex.com/app/rummy-77",
@@ -244,7 +244,7 @@ export const mockApps: AppConfig[] = [
     "url": "",
     "custom_admin_box_heading": "",
     "custom_admin_box_html": "",
-    "more_information_url": "U2FsdGVkX19fY9CEjgjI+kbC+daOMg2iuKN5UtZG27IiTPaBB2Y2+RYTB4QWi1nZ"
+    "more_information_url": "U2FsdGVkX19P8rhLnbJK2MzOFMCtklGukFDOEIGsKL6KuxqyRe+yd6VMe+U0WXF7"
   },
   {
     "og_image_url": "https://res.cloudinary.com/diewalae4/image/upload/v1785780996/download_22_vgi4h1_1_jjm7jx.webp",
@@ -259,7 +259,7 @@ export const mockApps: AppConfig[] = [
     "canonical_url": "https://www.rummydex.com/app/rummy-91",
     "faqs": [],
     "serial_number": 3,
-    "encrypted_link": "U2FsdGVkX1/ckxjJIlpuWY6wn6rWmxX1IwD8vNTlbDvKdWCKb8j6Kw8h8Al9MrY/Qp4m3m2Mz0hbhKfX2o9HqleHgi3jq9+Hhvyn8EO5VObh9dJN0ZAxv9UIeBYM9dla",
+    "encrypted_link": "U2FsdGVkX18N5yVrA1L1huFNQdR7WjGw3t++LsJn25I8lVZCmochG7iEu1Q2e8oy292WQedf6pS2RE6xIjohfI4dRH60sh2EotSiE0KtjlIp0r58ztiV/bdPe5gc6Ukb",
     "red_box_msg": "",
     "video_url": "",
     "is_new": false,
@@ -281,7 +281,7 @@ export const mockApps: AppConfig[] = [
     "url": "",
     "custom_admin_box_heading": "",
     "custom_admin_box_html": "",
-    "more_information_url": "U2FsdGVkX1/ckxjJIlpuWY6wn6rWmxX1IwD8vNTlbDvKdWCKb8j6Kw8h8Al9MrY/Qp4m3m2Mz0hbhKfX2o9HqleHgi3jq9+Hhvyn8EO5VObh9dJN0ZAxv9UIeBYM9dla"
+    "more_information_url": "U2FsdGVkX18N5yVrA1L1huFNQdR7WjGw3t++LsJn25I8lVZCmochG7iEu1Q2e8oy292WQedf6pS2RE6xIjohfI4dRH60sh2EotSiE0KtjlIp0r58ztiV/bdPe5gc6Ukb"
   },
   {
     "rating": 4,
@@ -291,23 +291,23 @@ export const mockApps: AppConfig[] = [
     "safety_status": "Verified",
     "faqs": [
       {
-        "answer": "Yes. Callbreak features robust offline AI single-player matches as well as local Wi-Fi connectivity, allowing you to play anywhere without an internet connection.",
-        "question": "Q1: Can I play Callbreak fully offline without mobile data?"
+        "question": "Q1: Can I play Callbreak fully offline without mobile data?",
+        "answer": "Yes. Callbreak features robust offline AI single-player matches as well as local Wi-Fi connectivity, allowing you to play anywhere without an internet connection."
       },
       {
         "answer": "Yes. Callbreak features robust offline AI single-player matches as well as local Wi-Fi connectivity, allowing you to play anywhere without an internet connection.",
         "question": "Q2: Are the in-game Gems and Coins tied to real-money rewards?"
       },
       {
-        "question": "Q3: How does Callbreak perform on older or lower-spec smartphones?",
-        "answer": "Because the app utilizes clean 2D graphics and lightweight processing, it runs smoothly at 60 FPS on older devices while keeping battery drain and heat output very low."
+        "answer": "Because the app utilizes clean 2D graphics and lightweight processing, it runs smoothly at 60 FPS on older devices while keeping battery drain and heat output very low.",
+        "question": "Q3: How does Callbreak perform on older or lower-spec smartphones?"
       },
       {
         "answer": "The platform includes Super 8 Bid Challenge (racing to win eight hands against aggressive AI) and Blind Bid Mode (bidding before viewing player hands).",
         "question": "Q4: What extra game modes are included besides standard 5-round matches?"
       }
     ],
-    "encrypted_link": "U2FsdGVkX1+q0sXmhv8t1MsITrWF5ygsrB/S5LMTUfaOowHD5YxVraJdHIH2n9uyZPhy3DsPhkbaqxzr6WSVOmglqKaL2eqyXKAm+QD+Cnapvr6tjRQbZJGvTkJc6aRchTR5PrsEFKUJJtdBniOqymmeaik6ROLf5/0GnhO/8lk=",
+    "encrypted_link": "U2FsdGVkX1/4cexFpgflfENWgsYX9pSolj5mltzd0cIuNDqE6uUPLk4O1ygMrulE2qtgs56RBUuZzS1/F9zQy4kypJUqSSOBOQGv58sdErqbT3EOG5CcFumGec4BlESlTsCb/rN3gQyQb8MSDIY2jxMBJg9rBozAYjusyRMgGSA=",
     "release_notes": "",
     "features_html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\">\n<title>Callbreak: What It's Actually Like to Play</title>\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<style>\nbody{font-family:Arial,Helvetica,sans-serif;color:#3c4043;max-width:700px;margin:40px auto;padding:0 20px;line-height:1.7;font-size:15px;background:#fff}\nh1{font-size:24px;color:#202124;font-weight:400;margin-bottom:6px}\n.tagline{color:#5f6368;font-size:14px;margin-bottom:28px;font-style:italic}\nh2{font-size:19px;color:#202124;font-weight:500;margin-top:40px}\np{margin:10px 0}\nul{margin:10px 0;padding-left:22px}\nli{margin:8px 0}\n</style>\n</head>\n<body>\n\n<h1>Callbreak: What It's Actually Like to Play</h1>\n<p class=\"tagline\">A look at how the game feels day to day — the wins, the friction, and everything in between.</p>\n\n<h2>First Impressions</h2>\n<p>Callbreak comes across as an engaging, easy-to-pick-up card game that brings the traditional South Asian trick-taking game to mobile in a way that feels smooth, polished, and beginner-friendly right from the start. Having offline AI play, online multiplayer, and quick matches all in one place gives players real flexibility, and that's a big part of why people keep coming back.</p>\n<p>The overall feeling is positive, but with some caveats. The core card game itself is satisfying and genuinely addictive — the friction tends to come from the ads, monetization, and occasional technical hiccups around the edges.</p>\n\n<h2>Getting Started</h2>\n<p>New players are guided in rather than dropped into a confusing menu. A beginner-friendly tutorial walks through the rules of Callbreak, bidding, trump suits, and trick-taking, and an in-app rulebook covers everything from the basics to more advanced strategy for players who want to improve over time.</p>\n<p>Difficulty settings run from novice to advanced, so beginners can ease in while experienced players have room to push themselves. Most people find the rules easy to pick up, while the strategy stays deep enough to hold their interest. The onboarding experience overall feels welcoming and low-pressure — most new players feel ready to jump in within minutes.</p>\n\n<h2>How a Match Feels</h2>\n<p>Quick match options get you into a game fast, while standard matches feel more like a complete session. Bidding sits at the center of the experience, and the interface makes calling your number straightforward. Touch controls for selecting and playing cards feel smooth and intuitive.</p>\n<p>Little quality-of-life touches make a real difference — the ability to undo a mis-tap takes the stress out of quick decisions, reviewing card history helps with strategic planning, and being able to reshuffle a genuinely bad hand is appreciated. Animations move at a good pace, and game speed can be adjusted if you want things faster or slower.</p>\n<p>Altogether, the gameplay loop feels rhythmic and satisfying — bid, play, win or lose the trick, watch the score update. The tactile card play and animated trick collection give it a real card-table feel.</p>\n\n<h2>Playing Against the AI</h2>\n<p>AI opponents are generally described as challenging and smart, adapting to how you play. That said, more advanced players report that the AI becomes predictable after extended play, which can wear down long-term replay value. One specific quirk that comes up is bots sometimes playing only their lowest available card, which can feel less realistic or strategically shallow.</p>\n<p>Being able to play entirely offline is a strong point, especially for anyone dealing with unreliable connectivity, and practice mode is genuinely useful for building up strategy before jumping into matches against real people. Overall, single-player is solid and convenient, though it can start to feel repetitive for players who've mastered the AI's patterns.</p>\n\n<h2>Playing With Others</h2>\n<p>Real-time matches against players from around the world add excitement and unpredictability that AI matches can't match. Matchmaking uses a skill-rating system to pair similar-level players, though some users report inconsistencies — trouble connecting with random opponents or with friends specifically.</p>\n<p>Private tables for playing with friends or family are well-liked, and local Wi-Fi play is praised for situations without internet access, like travel or gatherings. In-game chat and emojis add a bit of social warmth, though they're fairly minimal compared to dedicated chat apps. Network interruptions are a real pain point — they can cause bid failures, auto-resets, or disconnections mid-match. Referral-code invites and Facebook integration exist for connecting with friends, though some users run into friction there too.</p>\n<p>When it works, multiplayer is fun and competitive — but connection instability and matchmaking hiccups can make the experience inconsistent.</p>\n\n<h2>Look and Sound</h2>\n<p>The app gets frequent praise for its visuals — people describe the card animations as beautiful and the interface as sleek. The game board has a modern, premium look that adds to the overall sense of polish. Multiple card designs and table themes let players personalize things, and dealing, trick collection, and win/loss animations all feel smooth and satisfying.</p>\n<p>Sound design leans into authentic, realistic card shuffling and playing sounds, with background music and customization options available too. On supported devices, haptic feedback adds an extra layer of tactile feel. Altogether, the visuals and audio work together to create a premium, polished card-room atmosphere.</p>\n\n<h2>Controls and Navigation</h2>\n<p>Touch controls come across as smooth and intuitive, and the interface is generally easy to navigate. The main menu and home screen are clean, though some players wish settings were more directly accessible. Colorblind mode and multi-language support help make the app accessible to a wider audience.</p>\n<p>One recurring complaint is being forced to play a specific card in certain situations, when players would rather have more freedom. That said, the app is easy to operate one-handed, which matters a lot for a mobile card game — most of the friction comes from gameplay rules like forced suit-following rather than the interface itself.</p>\n\n<h2>Ads and Monetization</h2>\n<p>The game is genuinely free to download and play, which keeps the barrier to entry low. But ad frequency is by far the most frequently cited pain point — some users describe feeling like they spend the vast majority of their time watching ads rather than playing. Ads tend to show up between games or at natural breaks, but how often and how long they run can break immersion.</p>\n<p>A \"Remove Ads\" purchase is available, but some users report ads still showing up even after paying — which creates real frustration and damages trust. Gem packs are offered for unlocking assets; some players are fine with that, others feel pushed toward spending. The daily reward wheel and login bonuses add a sense of progression, though the rewards themselves can feel small.</p>\n<p>Monetization is the single biggest source of dissatisfaction here, and ads persisting after a paid removal is the kind of thing that really damages trust with paying users.</p>\n\n<h2>Progression and Rewards</h2>\n<p>Daily login rewards and the spin-based daily wheel encourage regular use and add small moments of anticipation. Global leaderboards give players a long-term goal to chase, and league progression — Bronze, Gold, Platinum, and so on — adds a sense of advancement. Detailed stats let players track their own improvement and compare themselves to others, and small skill-point bonuses for extra tricks offer little moments of satisfaction along the way.</p>\n<p>These systems are generally effective at keeping people engaged, though the rewards are modest and the competitive pace may feel slow for more casual players.</p>\n\n<h2>Where Things Get Frustrating</h2>\n<ul>\n<li><strong>Excessive ads</strong> — breaks immersion, fragments sessions, and is enough to make some players uninstall.</li>\n<li><strong>Ads after paying to remove them</strong> — a trust-breaking experience that has led to refund requests.</li>\n<li><strong>AI predictability</strong> — reduces long-term challenge for more experienced players.</li>\n<li><strong>Multiplayer connection issues</strong> — bid failures, disconnections, and trouble connecting with friends specifically.</li>\n<li><strong>No Nil Bid option</strong> — players coming from Spades or more advanced Callbreak variants miss this strategic choice.</li>\n<li><strong>Forced card play</strong> — some players want more freedom in which card they play.</li>\n<li><strong>Crashes and freezes</strong> — technical instability that can interrupt games and cost progress.</li>\n<li><strong>Login issues</strong> — problems signing in that affect multiplayer access and reward tracking.</li>\n<li><strong>Missing cards bug</strong> — connectivity or sync issues that can make cards appear to vanish mid-play.</li>\n</ul>\n\n<h2>The Emotional Highs and Lows</h2>\n<p>The delight moments are the ones you'd expect from a good card game — winning a tricky bid, watching a smooth animation play out, pulling off a perfect hand, unlocking a new theme, or beating a friend at a private table. The friction moments are just as clear: sitting through another ad, losing connection mid-bid, discovering ads still show up after paying to remove them, or watching the AI make another predictable low-card play.</p>\n<p>Long-term, the app is addictive and fun as a casual card game, but frequent players tend to hit a ceiling where the ads and AI predictability start to wear thin. The social multiplayer side keeps a lot of people engaged — but only when the connection actually holds up.</p>\n\n<h2>The Bottom Line</h2>\n<p>Callbreak delivers a polished, accessible, and strategically satisfying card game that works well for both casual players and longtime fans of the format. Its strongest points are its visual polish, smooth controls, offline flexibility, and social features. Its biggest weaknesses are ad overload and technical instability, especially around multiplayer and after paying to remove ads. Most players genuinely enjoy the core experience, but frequently wish for fewer ads, more reliable servers, and deeper AI strategy.</p>\n\n</body>\n</html>\n",
     "file_size": "51.11 MB",
@@ -335,7 +335,7 @@ export const mockApps: AppConfig[] = [
     "name": "CALLBREAK",
     "version": "1.0",
     "url": "",
-    "more_information_url": "U2FsdGVkX1+q0sXmhv8t1MsITrWF5ygsrB/S5LMTUfaOowHD5YxVraJdHIH2n9uyZPhy3DsPhkbaqxzr6WSVOmglqKaL2eqyXKAm+QD+Cnapvr6tjRQbZJGvTkJc6aRchTR5PrsEFKUJJtdBniOqymmeaik6ROLf5/0GnhO/8lk="
+    "more_information_url": "U2FsdGVkX1/4cexFpgflfENWgsYX9pSolj5mltzd0cIuNDqE6uUPLk4O1ygMrulE2qtgs56RBUuZzS1/F9zQy4kypJUqSSOBOQGv58sdErqbT3EOG5CcFumGec4BlESlTsCb/rN3gQyQb8MSDIY2jxMBJg9rBozAYjusyRMgGSA="
   },
   {
     "video_url": "",
@@ -356,16 +356,16 @@ export const mockApps: AppConfig[] = [
     "seo_keywords": "",
     "faqs": [
       {
-        "question": "1. Is Card Game 29 free to download and play?",
-        "answer": "Yes. Card Game 29 is free to download and play. The app also offers optional in-app purchases and displays advertisements, allowing users to unlock additional features or enjoy a more streamlined experience if they choose."
+        "answer": "Yes. Card Game 29 is free to download and play. The app also offers optional in-app purchases and displays advertisements, allowing users to unlock additional features or enjoy a more streamlined experience if they choose.",
+        "question": "1. Is Card Game 29 free to download and play?"
       },
       {
         "question": "2. Can I play Card Game 29 without an internet connection?",
         "answer": "Yes. The game includes an offline mode where you can play against AI opponents without an internet connection. However, online multiplayer features require an active internet connection."
       },
       {
-        "answer": "Yes. Card Game 29 supports multiple ways to play, including online multiplayer, private rooms with friends, and local multiplayer options on supported devices, depending on the available features in your version of the app.",
-        "question": "3. Does Card Game 29 support multiplayer gameplay?"
+        "question": "3. Does Card Game 29 support multiplayer gameplay?",
+        "answer": "Yes. Card Game 29 supports multiple ways to play, including online multiplayer, private rooms with friends, and local multiplayer options on supported devices, depending on the available features in your version of the app."
       },
       {
         "answer": "Yes. While the game is based on the traditional rules of Twenty-Nine, its straightforward interface and offline practice mode make it accessible for new players. Experienced players can also enjoy advanced gameplay through bidding, partnerships, and customizable rule variations.",
@@ -400,16 +400,16 @@ export const mockApps: AppConfig[] = [
     "canonical_url": "",
     "faqs": [
       {
-        "answer": "Joy Rummy is built around the traditional 13-card rummy format, where players organize cards into valid sequences and sets before declaring their hand. The gameplay emphasizes strategic planning, memory, and decision-making rather than relying solely on chance.",
-        "question": "1. What type of rummy gameplay does Joy Rummy offer?"
+        "question": "1. What type of rummy gameplay does Joy Rummy offer?",
+        "answer": "Joy Rummy is built around the traditional 13-card rummy format, where players organize cards into valid sequences and sets before declaring their hand. The gameplay emphasizes strategic planning, memory, and decision-making rather than relying solely on chance."
       },
       {
-        "answer": "Yes. The application offers offline AI practice for learning strategies and improving gameplay, along with online matchmaking and private multiplayer rooms for users who want to compete with friends or players from around the world.",
-        "question": "2. Does Joy Rummy include both practice and competitive game modes?"
+        "question": "2. Does Joy Rummy include both practice and competitive game modes?",
+        "answer": "Yes. The application offers offline AI practice for learning strategies and improving gameplay, along with online matchmaking and private multiplayer rooms for users who want to compete with friends or players from around the world."
       },
       {
-        "question": "3. Are in-app purchases required to enjoy the complete gameplay experience?",
-        "answer": "No. The core gameplay is available without making any purchases. Optional in-app purchases primarily focus on cosmetic enhancements and personalization features, allowing players to customize their experience without affecting competitive balance."
+        "answer": "No. The core gameplay is available without making any purchases. Optional in-app purchases primarily focus on cosmetic enhancements and personalization features, allowing players to customize their experience without affecting competitive balance.",
+        "question": "3. Are in-app purchases required to enjoy the complete gameplay experience?"
       },
       {
         "answer": "Joy Rummy combines skill-based gameplay with features such as global matchmaking, private rooms, AI practice, and regular content improvements. These features provide both new and experienced players with a consistent and engaging environment to refine their strategies over time.",
@@ -463,16 +463,16 @@ export const mockApps: AppConfig[] = [
     "rating": 4.6,
     "faqs": [
       {
-        "question": "1. Is Jaiho 91 free to download and play?",
-        "answer": "Yes, Jaiho 91 is free to download. The app features a virtual progression system designed for casual card play and strategy practice."
+        "answer": "Yes, Jaiho 91 is free to download. The app features a virtual progression system designed for casual card play and strategy practice.",
+        "question": "1. Is Jaiho 91 free to download and play?"
       },
       {
         "question": "2. Can I play Jaiho 91 without an internet connection?",
         "answer": "Yes, Jaiho 91 includes an offline AI mode, allowing you to play and practice your strategies against virtual opponents anytime without cellular data or Wi-Fi."
       },
       {
-        "question": "3. What card game formats are available in Jaiho 91?",
-        "answer": "Jaiho 91 features classic 13-card Rummy and Teen Patti mechanics, along with a built-in Smart Hint System to help players learn hand rankings and set formations."
+        "answer": "Jaiho 91 features classic 13-card Rummy and Teen Patti mechanics, along with a built-in Smart Hint System to help players learn hand rankings and set formations.",
+        "question": "3. What card game formats are available in Jaiho 91?"
       }
     ],
     "screenshots": [],
@@ -488,7 +488,7 @@ export const mockApps: AppConfig[] = [
     "url": ""
   },
   {
-    "category": "All Apps, Yono Apps",
+    "category": "Yono Apps, All Apps",
     "publish_date": "",
     "serial_number": 8,
     "canonical_url": "https://www.rummydex.com/app/ok-rummy",
@@ -500,16 +500,16 @@ export const mockApps: AppConfig[] = [
     "seo_description": "Read our comprehensive OK Rummy review on RummyDex. Explore unique puzzle-based card mechanics, level progression, and offline features.",
     "faqs": [
       {
-        "answer": "Yes, OK Rummy is completely free to download. The app provides full access to its puzzle map and levels without any mandatory purchases, supported entirely by in-app advertisements.",
-        "question": "1. Is OK Rummy free to download and play?"
+        "question": "1. Is OK Rummy free to download and play?",
+        "answer": "Yes, OK Rummy is completely free to download. The app provides full access to its puzzle map and levels without any mandatory purchases, supported entirely by in-app advertisements."
       },
       {
-        "question": "2. Can I play the game without an internet connection?",
-        "answer": "Yes, the core puzzle-solving mechanics and the primary progression map are fully available offline. You can enjoy the game uninterrupted even when you do not have a Wi-Fi or cellular connection."
+        "answer": "Yes, the core puzzle-solving mechanics and the primary progression map are fully available offline. You can enjoy the game uninterrupted even when you do not have a Wi-Fi or cellular connection.",
+        "question": "2. Can I play the game without an internet connection?"
       },
       {
-        "question": "3. How does the progression system work in this app?",
-        "answer": "Instead of traditional matches, the game uses a level-based map. You clear individual puzzle boards by forming valid card sequences, which earns you virtual stars to unlock new thematic zones and more complex challenges."
+        "answer": "Instead of traditional matches, the game uses a level-based map. You clear individual puzzle boards by forming valid card sequences, which earns you virtual stars to unlock new thematic zones and more complex challenges.",
+        "question": "3. How does the progression system work in this app?"
       }
     ],
     "is_coming_soon": false,
@@ -518,14 +518,14 @@ export const mockApps: AppConfig[] = [
     "release_notes": "",
     "features_html": "",
     "custom_admin_box_html": "",
-    "is_new": false,
+    "is_new": true,
     "safety_status": "Verified",
     "slug": "ok-rummy",
     "developer": "Nexus Card Studios",
     "idea_box_msg": "",
     "name": "OK RUMMY",
     "seo_keywords": "",
-    "updated_at": "2026-08-06T10:46:52.871Z",
+    "updated_at": "2026-08-10T14:53:45.550Z",
     "seo_title": "OK Rummy App Review: Puzzle-Based Gameplay & Features | RummyDex",
     "created_at": "2026-08-06T06:23:32.759Z",
     "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784877617/download_19_w2sxhp.webp",
@@ -542,8 +542,8 @@ export const mockApps: AppConfig[] = [
         "answer": "Yes, the application is completely free to download. All gameplay features, levels, and progression systems are accessible without mandatory purchases, supported entirely by a virtual coin economy and in-app advertisements."
       },
       {
-        "answer": "Yes, the core reel-matching puzzles and level progression are fully functional offline. You can enjoy the game uninterrupted without an active Wi-Fi or cellular connection.",
-        "question": "2. Can I play the game offline?"
+        "question": "2. Can I play the game offline?",
+        "answer": "Yes, the core reel-matching puzzles and level progression are fully functional offline. You can enjoy the game uninterrupted without an active Wi-Fi or cellular connection."
       },
       {
         "question": "3. How does the puzzle progression work?",
@@ -600,12 +600,12 @@ export const mockApps: AppConfig[] = [
         "answer": "Yono Arcade features a four-reel fruit tile system where players spin and match symbols. You win virtual rewards by aligning fruit symbols into specific shapes like horizontal lines, diagonals, triangles, and W patterns."
       },
       {
-        "question": "2. Is Yono Arcade free to download and play?",
-        "answer": "Yes, Yono Arcade is completely free to download. The application operates using a virtual arcade ecosystem designed entirely for casual entertainment and pattern-matching progression."
+        "answer": "Yes, Yono Arcade is completely free to download. The application operates using a virtual arcade ecosystem designed entirely for casual entertainment and pattern-matching progression.",
+        "question": "2. Is Yono Arcade free to download and play?"
       },
       {
-        "answer": "No. According to the developer's data safety guidelines, Yono Arcade does not collect user data and does not share any data with third parties, ensuring a secure and private experience.",
-        "question": "3. Does the app collect my personal data?"
+        "question": "3. Does the app collect my personal data?",
+        "answer": "No. According to the developer's data safety guidelines, Yono Arcade does not collect user data and does not share any data with third parties, ensuring a secure and private experience."
       }
     ],
     "features_html": "",
@@ -655,8 +655,8 @@ export const mockApps: AppConfig[] = [
     "description_html": "<h2>Part 1: Key Features and Core Mechanics of Bingo 101</h2>\n\n<p>Bingo 101 provides a dynamic digital adaptation of classic number-matching games, designed to offer an engaging and structured casual experience. Built for users who enjoy rapid pattern recognition and interactive tasks, the application serves as a dedicated platform for honing focus and quick reaction times in a relaxed virtual environment.</p>\n\n<h3>The Core Game Mechanics</h3>\n\n<p>The application faithfully recreates traditional grid architecture while introducing modern mobile elements:</p>\n\n<ul>\n  <li><strong>Number Matching:</strong> Players are presented with digital boards and must quickly identify and mark off numbers as they are sequentially generated by the system.</li>\n  <li><strong>Pattern Completion:</strong> The primary objective is to clear specific geometric patterns on the grid—such as straight lines, diagonals, or full houses—before the round concludes.</li>\n  <li><strong>Interactive Spin Wheel:</strong> Alongside the core grid gameplay, the app features an integrated spin wheel mechanism, allowing users to earn virtual progression rewards and unlock new in-app milestones.</li>\n</ul>\n\n<h3>Educational and Strategic Value</h3>\n\n<p>While providing casual entertainment, the platform encourages active cognitive engagement and mental sharpness:</p>\n\n<ul>\n  <li><strong>Visual Tracking:</strong> Players must rapidly scan multiple grid configurations simultaneously, improving their visual processing and spatial awareness.</li>\n  <li><strong>Focus and Concentration:</strong> The fast-paced nature of the number calling requires sustained attention, helping users build better short-term memory and concentration skills during quick sessions.</li>\n</ul>\n\n<h2>Part 2: The Hands-On User Experience</h2>\n\n<p>The user interface of Bingo 101 is specifically engineered for clarity and rapid engagement. By streamlining its menus and focusing on highly readable grids, the application ensures a smooth, frustration-free experience for users across all age groups.</p>\n\n<h3>Visual Design and Interaction Dynamics</h3>\n\n<ul>\n  <li><strong>High-Contrast Interface:</strong> The digital grids feature clear, bold typography and high-contrast colors, ensuring that numbers remain easily readable even on smaller mobile screens.</li>\n  <li><strong>Responsive Controls:</strong> Marking off numbers is accompanied by smooth animations and tactile feedback, making every successful match feel satisfying and immediate.</li>\n  <li><strong>Organized Dashboard:</strong> A centralized profile section allows users to easily track their achievement levels, monitor completed daily missions, and review their overall activity history at a glance.</li>\n</ul>\n\n<h3>Player Engagement and Accessibility</h3>\n\n<p>Based on standard engagement patterns, the platform maintains a strong reputation for its accessibility and consistent pacing:</p>\n\n<ul>\n  <li><strong>Offline Functionality:</strong> A major highlight of the application is its robust offline mode, which allows users to play the core game and practice their skills without needing an active Wi-Fi or cellular data connection.</li>\n  <li><strong>Daily Challenges:</strong> The inclusion of daily tasks and activity goals provides a structured progression loop, encouraging users to check in regularly and complete new milestones.</li>\n  <li><strong>Community Features:</strong> Users have the option to invite friends and share their digital progress, adding a light social element to the virtual progression system.</li>\n</ul>\n\n<h2>Part 3: Technical Architecture and Application Details</h2>\n\n<p>Featured on RummyDex, Bingo 101 combines engaging arcade elements with a lightweight digital footprint, ensuring it runs efficiently across the mobile ecosystem.</p>\n\n<h3>System Specifications and Footprint</h3>\n\n<ul>\n  <li><strong>Broad Device Compatibility:</strong> The application is highly optimized, ensuring stable performance and minimal battery drain across both modern flagship devices and entry-level smartphones.</li>\n  <li><strong>Active Developer Support:</strong> Developed and maintained by DAYALA TECH ENTERPRISES, the platform receives periodic updates to enhance interface stability and introduce new daily challenges.</li>\n  <li><strong>Content Governance:</strong> The application holds an \"Everyone\" rating, confirming its status as a universally appropriate platform free from mature content.</li>\n</ul>\n\n<h2>Monetization Framework and App Economy</h2>\n\n<ul>\n  <li><strong>Virtual Progression:</strong> The application operates entirely on a closed-loop virtual progression system. It is free to download, with all in-game achievements and levels earned strictly through gameplay and regular participation.</li>\n  <li><strong>Ad-Supported Access:</strong> To keep the platform free for its user base, it integrates standard digital advertisements that play seamlessly between completed rounds or spin activities.</li>\n</ul>\n\n<h2>Data Safety and Privacy</h2>\n\n<p>The application is structured to operate securely, prioritizing straightforward data practices:</p>\n\n<ul>\n  <li><strong>Minimal Data Collection:</strong> The developer explicitly notes that no personal data is shared with third parties, ensuring a highly private user experience.</li>\n  <li><strong>Local Processing:</strong> Because of its strong offline capabilities, the majority of progression and activity history can be saved locally on the user's device.</li>\n</ul>",
     "faqs": [
       {
-        "question": "1. Is Bingo 101 free to download and play?",
-        "answer": "Yes, Bingo 101 is completely free to download. The app utilizes a virtual progression system designed purely for casual entertainment and daily activity tracking."
+        "answer": "Yes, Bingo 101 is completely free to download. The app utilizes a virtual progression system designed purely for casual entertainment and daily activity tracking.",
+        "question": "1. Is Bingo 101 free to download and play?"
       },
       {
         "question": "2. Can I play the game without an internet connection?",
@@ -711,16 +711,16 @@ export const mockApps: AppConfig[] = [
     "og_image_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784878050/download_26_awtrna.webp",
     "faqs": [
       {
-        "question": "1. Can I play ABC Rummy without an internet connection?",
-        "answer": "Yes, ABC Rummy is completely offline. You can play matches, practice your skills, and challenge the AI without needing Wi-Fi or cellular data, making it perfect for travel."
+        "answer": "Yes, ABC Rummy is completely offline. You can play matches, practice your skills, and challenge the AI without needing Wi-Fi or cellular data, making it perfect for travel.",
+        "question": "1. Can I play ABC Rummy without an internet connection?"
       },
       {
-        "answer": "To win, you must engage in classic gameplay by organizing your hand into valid sets (3 to 4 cards of the same rank) and runs (3 or more consecutive cards of the same suit).",
-        "question": "2. How do you win a match in ABC Rummy?"
+        "question": "2. How do you win a match in ABC Rummy?",
+        "answer": "To win, you must engage in classic gameplay by organizing your hand into valid sets (3 to 4 cards of the same rank) and runs (3 or more consecutive cards of the same suit)."
       },
       {
-        "answer": "Alongside the card matches, the app features a spin wheel for bonus virtual coins, unlockable avatars, customizable themes, and a system to track your wins and high scores.",
-        "question": "3. What features are included besides the card game?"
+        "question": "3. What features are included besides the card game?",
+        "answer": "Alongside the card matches, the app features a spin wheel for bonus virtual coins, unlockable avatars, customizable themes, and a system to track your wins and high scores."
       }
     ],
     "red_box_msg": "",
@@ -749,12 +749,12 @@ export const mockApps: AppConfig[] = [
     "rating": 3.9,
     "faqs": [
       {
-        "answer": "Players take turns adding numbered cards to a central pile, maintaining a running total. The goal is to use action cards and numerical strategy to force your opponent to play a card that pushes the total sum over 77.",
-        "question": "1. How do you play the EVERY 77 card game?"
+        "question": "1. How do you play the EVERY 77 card game?",
+        "answer": "Players take turns adding numbered cards to a central pile, maintaining a running total. The goal is to use action cards and numerical strategy to force your opponent to play a card that pushes the total sum over 77."
       },
       {
-        "question": "2. Is EVERY 77 free to download and play?",
-        "answer": "Yes, the application is completely free to download. It features a virtual progression system for cosmetic unlocks and is supported by standard in-app advertisements."
+        "answer": "Yes, the application is completely free to download. It features a virtual progression system for cosmetic unlocks and is supported by standard in-app advertisements.",
+        "question": "2. Is EVERY 77 free to download and play?"
       },
       {
         "answer": "Yes, EVERY 77 includes a fully functional offline mode. You can practice against various levels of computer-controlled AI without needing a Wi-Fi or cellular data connection.",
@@ -811,12 +811,12 @@ export const mockApps: AppConfig[] = [
         "question": "1. How do I level up in Love Rummy?"
       },
       {
-        "answer": "The personal profile acts as your main dashboard, where you can track your current level, review your completed milestones, and monitor your overall activity history.  ",
-        "question": "2. What can I find inside the app's Personal Profile?"
+        "question": "2. What can I find inside the app's Personal Profile?",
+        "answer": "The personal profile acts as your main dashboard, where you can track your current level, review your completed milestones, and monitor your overall activity history.  "
       },
       {
-        "question": "3. Is there a way to connect with others in the game?",
-        "answer": "Yes, Love Rummy includes community participation features that allow you to invite friends to the app, making it easy to share your progress and enjoy the level-based challenges together"
+        "answer": "Yes, Love Rummy includes community participation features that allow you to invite friends to the app, making it easy to share your progress and enjoy the level-based challenges together",
+        "question": "3. Is there a way to connect with others in the game?"
       }
     ],
     "video_url": "",
@@ -844,8 +844,8 @@ export const mockApps: AppConfig[] = [
     "red_box_msg": "",
     "faqs": [
       {
-        "answer": "The app includes a dedicated Game Zone with seven different activities, including endless runners (Money Runner), reflex games (Speed Tap, Bubble Pop), and precision puzzles (Stack Tower, Number Dash).  ",
-        "question": "1. What types of mini-games are available in Share Slots?"
+        "question": "1. What types of mini-games are available in Share Slots?",
+        "answer": "The app includes a dedicated Game Zone with seven different activities, including endless runners (Money Runner), reflex games (Speed Tap, Bubble Pop), and precision puzzles (Stack Tower, Number Dash).  "
       },
       {
         "question": "2. Does the application require a constant internet connection?",
@@ -904,8 +904,8 @@ export const mockApps: AppConfig[] = [
         "answer": "Yes! The core grid-solving levels are fully available offline. You only need the internet if you want to update your daily mission logs or spin the daily Quantum Wheel."
       },
       {
-        "question": "3. Is the game free to play?",
-        "answer": "Absolutely. YONO VIP is entirely free to download. It relies on a virtual progression system where you earn \"Energy Cells\" through gameplay to unlock new levels and visual themes, supported by in-app advertisements."
+        "answer": "Absolutely. YONO VIP is entirely free to download. It relies on a virtual progression system where you earn \"Energy Cells\" through gameplay to unlock new levels and visual themes, supported by in-app advertisements.",
+        "question": "3. Is the game free to play?"
       }
     ],
     "screenshots": [],
@@ -930,16 +930,16 @@ export const mockApps: AppConfig[] = [
     "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784879172/download_33_d1pgy0.webp",
     "faqs": [
       {
-        "question": "1. What kind of game is Maha Games?",
-        "answer": "Maha Games is a physics-based sandbox and puzzle application. You use mechanics like gravity inversion and momentum to guide objects through complex, 3D floating mazes."
+        "answer": "Maha Games is a physics-based sandbox and puzzle application. You use mechanics like gravity inversion and momentum to guide objects through complex, 3D floating mazes.",
+        "question": "1. What kind of game is Maha Games?"
       },
       {
-        "answer": "Yes, the core puzzle campaign and sandbox features are completely functional offline, allowing you to solve levels without needing an active data connection.",
-        "question": "2. Can I play the puzzles without an internet connection?"
+        "question": "2. Can I play the puzzles without an internet connection?",
+        "answer": "Yes, the core puzzle campaign and sandbox features are completely functional offline, allowing you to solve levels without needing an active data connection."
       },
       {
-        "answer": "No, the main puzzle rooms do not have timers. The game is designed to be a stress-free environment that encourages you to take your time and experiment with different physics solutions.",
-        "question": "3. Is there a time limit on the puzzles?"
+        "question": "3. Is there a time limit on the puzzles?",
+        "answer": "No, the main puzzle rooms do not have timers. The game is designed to be a stress-free environment that encourages you to take your time and experiment with different physics solutions."
       }
     ],
     "developer": "Jagoan K3",
@@ -989,8 +989,8 @@ export const mockApps: AppConfig[] = [
         "answer": "Instead of rolling dice, you move your board tokens by playing numbered tiles from your hand. You can also play sequences of tiles at once to unlock special safe zones and shortcuts on the board."
       },
       {
-        "answer": "Unlike classic rules where the token is sent home, landing on an opponent in this game allows you to randomly steal one of the tiles from their hand, helping you build your own sets faster.",
-        "question": "2. What happens if I land on an opponent's token?"
+        "question": "2. What happens if I land on an opponent's token?",
+        "answer": "Unlike classic rules where the token is sent home, landing on an opponent in this game allows you to randomly steal one of the tiles from their hand, helping you build your own sets faster."
       },
       {
         "question": "3. Does the app support offline gameplay?",
@@ -1089,8 +1089,8 @@ export const mockApps: AppConfig[] = [
         "answer": "Instead of flat boards, you manipulate a massive 3D puzzle cube. You must rotate the structure and align 7 matching blocks within a 7-second window to clear the matrix before the time runs out."
       },
       {
-        "answer": "Yes, the core 3D matrix puzzles and gravity challenges are fully functional offline, allowing you to play anywhere without needing Wi-Fi or mobile data.",
-        "question": "2. Can I play this puzzle game without an internet connection?"
+        "question": "2. Can I play this puzzle game without an internet connection?",
+        "answer": "Yes, the core 3D matrix puzzles and gravity challenges are fully functional offline, allowing you to play anywhere without needing Wi-Fi or mobile data."
       },
       {
         "answer": "Yes, as you play, you earn virtual progression points that allow you to unlock unique cosmetic skins for your cube, such as neon lights, glass, or metallic textures.",
@@ -1150,7 +1150,7 @@ export const mockApps: AppConfig[] = [
     "release_notes": "In-App Purchases Yes — ad removal, coins, hints, and cosmetic items\nAds Contains ads (banner, interstitial, rewarded video)\nMinimum Android Android 5.0+ (varies by source)",
     "features_html": "",
     "seo_title": "Solitaire - Classic Card Games : latest info 2026 | RummyDex",
-    "is_new": false,
+    "is_new": true,
     "file_size": "104.5 MB",
     "idea_box_msg": "",
     "seo_keywords": "",
@@ -1174,7 +1174,7 @@ export const mockApps: AppConfig[] = [
     "publish_date": "",
     "name": "SOLITAIRE",
     "custom_admin_box_html": "",
-    "updated_at": "2026-08-09T07:50:52.720Z",
+    "updated_at": "2026-08-10T14:56:26.681Z",
     "is_coming_soon": false,
     "yellow_box_msg": "",
     "video_url": "",
@@ -1229,8 +1229,8 @@ export const saveMockApps = (apps: AppConfig[]) => {
 
 export const mockSettings: GlobalSettings = {
   "site_title": "RummyDex",
-  "meta_description": "RummyDex is the ultimate game directory. Access hand-tested reviews, verified secure links, and daily news to elevate your mobile experience.",
-  "logo_url": "https://res.cloudinary.com/diewalae4/image/upload/v1785720339/1000132678_1_ro1ftj.png",
+  "meta_description": "Your trusted bridge to the best mobile card games. Explore RummyDex for hands-on reviews, real-time news, and complete app knowledge.",
+  "logo_url": "https://res.cloudinary.com/diewalae4/image/upload/v1785648485/ezgif-88d07abd3ef5753f_yz8ytg.webp",
   "favicon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1785720339/1000132678_1_ro1ftj.png",
   "helpline_whatsapp": "",
   "helpline_telegram": "",
@@ -1290,8 +1290,8 @@ export const mockSettings: GlobalSettings = {
       "bio": "As the lead technical architect of RummyDex, the CTO drives the core engineering, database infrastructure, and platform security of the website. Responsible for maintaining a high-performance framework, the CTO ensures lightning-fast search indexing, real-time content delivery for our active News Hub, and robust server stability under heavy traffic. By continuously optimizing back-end operations and system architecture, the CTO guarantees that navigating RummyDex remains an exceptionally fast, smooth, and reliable experience for every user."
     }
   ],
-  "secure_index_subtitle": "RummyDex is the ultimate game directory. Access hand-tested reviews, verified secure links, and daily news to elevate your mobile experience.",
-  "hero_title_subtitle": "RummyDex is the ultimate game directory. Access hand-tested reviews, verified secure links, and daily news to elevate your mobile experience.",
+  "secure_index_subtitle": "​Your trusted bridge to the best mobile card games. Explore RummyDex for hands-on reviews, real-time news, and complete app knowledge.",
+  "hero_title_subtitle": "​Your trusted bridge to the best mobile card games. Explore RummyDex for hands-on reviews, real-time news, and complete app knowledge.",
   "social_linkedin": "",
   "responsibility_content": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\">\n<title>Platform Responsibility Clause — RummyDex</title>\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<style>\nbody{font-family:Arial,Helvetica,sans-serif;color:#3c4043;max-width:700px;margin:40px auto;padding:0 20px;line-height:1.7;font-size:15px;background:#fff}\nh1{font-size:26px;color:#202124;font-weight:400;margin-bottom:6px}\n.updated{color:#5f6368;font-size:13px;margin-bottom:28px}\nh2{font-size:19px;color:#202124;font-weight:500;margin-top:44px}\np{margin:10px 0}\n.art{display:block;margin:18px 0}\n.note{color:#5f6368;font-size:13px;margin-top:40px;border-top:1px solid #dadce0;padding-top:14px}\n</style>\n</head>\n<body>\n\n<h1>Platform Responsibility Clause</h1>\n<p class=\"updated\">Last modified: August 2, 2026</p>\n\n<h2>1. Technical Operations &amp; Secure Routing</h2>\n<svg class=\"art\" width=\"180\" height=\"130\" viewBox=\"0 0 180 130\">\n<rect x=\"30\" y=\"45\" width=\"45\" height=\"35\" rx=\"4\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<rect x=\"105\" y=\"45\" width=\"45\" height=\"35\" rx=\"4\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M75 62h30\" stroke=\"#1a73e8\" stroke-width=\"3\" stroke-linecap=\"round\"/>\n<path d=\"M96 54l9 8-9 8\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n<circle cx=\"52\" cy=\"62\" r=\"4\" fill=\"#3c4043\"/>\n<circle cx=\"128\" cy=\"62\" r=\"4\" fill=\"#3c4043\"/>\n</svg>\n<p>Our operational responsibility is strictly limited to maintaining the RummyDex directory infrastructure. We ensure that our platform accurately catalogs applications and that all outbound links securely and correctly route users to legitimate, third-party developer sources at the time of publication.</p>\n\n<h2>2. Limits of Content &amp; Software Liability</h2>\n<svg class=\"art\" width=\"180\" height=\"130\" viewBox=\"0 0 180 130\">\n<rect x=\"55\" y=\"20\" width=\"70\" height=\"90\" rx=\"6\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M68 40h44M68 55h44M68 70h30\" stroke=\"#3c4043\" stroke-width=\"2\" stroke-linecap=\"round\"/>\n<circle cx=\"90\" cy=\"93\" r=\"9\" fill=\"none\" stroke=\"#ea4335\" stroke-width=\"2\"/>\n<path d=\"M86 93h8M90 89v8\" stroke=\"#ea4335\" stroke-width=\"2\" stroke-linecap=\"round\"/>\n</svg>\n<p>RummyDex does not host software, APK files, or proprietary code on our servers. Because our control is limited entirely to our own website interface, we are not liable for the performance, data practices, or digital security of external third-party destinations. Downloading or installing software from external sources is conducted solely at the user's own risk.</p>\n\n<h2>3. Post-Listing Developer Modifications</h2>\n<svg class=\"art\" width=\"180\" height=\"130\" viewBox=\"0 0 180 130\">\n<rect x=\"40\" y=\"35\" width=\"55\" height=\"60\" rx=\"4\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M52 50h30M52 62h30M52 74h18\" stroke=\"#3c4043\" stroke-width=\"2\" stroke-linecap=\"round\"/>\n<path d=\"M108 45l14 14-14 14\" fill=\"none\" stroke=\"#fbbc04\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n<rect x=\"115\" y=\"70\" width=\"30\" height=\"30\" rx=\"4\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M122 85h16M122 92h10\" stroke=\"#3c4043\" stroke-width=\"2\" stroke-linecap=\"round\"/>\n</svg>\n<p>While our team conducts hands-on evaluations prior to listing any application, we do not govern external developers. We are not responsible for unannounced updates, post-launch mechanic changes, or software modifications implemented by third parties after an app has been published on our site.</p>\n\n<h2>4. Policy Enforcement &amp; User Experience</h2>\n<svg class=\"art\" width=\"180\" height=\"130\" viewBox=\"0 0 180 130\">\n<circle cx=\"65\" cy=\"55\" r=\"14\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M35 100c0-18 13-30 30-30s30 12 30 30\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<rect x=\"112\" y=\"35\" width=\"40\" height=\"52\" rx=\"4\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"2\"/>\n<path d=\"M120 50h24M120 61h24M120 72h16\" stroke=\"#1a73e8\" stroke-width=\"2\" stroke-linecap=\"round\"/>\n</svg>\n<p>For information regarding how RummyDex handles non-compliant developer updates, community oversight, and user-submitted reports, please refer to our dedicated Terms &amp; Conditions and our App Reporting system.</p>\n\n<p class=\"note\">RummyDex — keeping the directory safe, together.</p>\n\n</body>\n</html>\n",
   "portal_heading": "Official App Store & Gaming Directory",
@@ -1299,7 +1299,7 @@ export const mockSettings: GlobalSettings = {
   "important_notice_heading": "Important Notice",
   "seo_keywords": "",
   "terms_content": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\">\n<title>Terms & Conditions — RummyDex</title>\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<style>\nbody{font-family:Arial,Helvetica,sans-serif;color:#3c4043;max-width:700px;margin:40px auto;padding:0 20px;line-height:1.7;font-size:15px;background:#fff}\nh1{font-size:26px;color:#202124;font-weight:400;margin-bottom:6px}\n.updated{color:#5f6368;font-size:13px;margin-bottom:28px}\nh2{font-size:19px;color:#202124;font-weight:500;margin-top:44px}\np{margin:10px 0}\nul{margin:10px 0;padding-left:22px}\nli{margin:8px 0}\n.art{display:block;margin:18px 0}\n.note{color:#5f6368;font-size:13px;margin-top:40px;border-top:1px solid #dadce0;padding-top:14px}\na{color:#1a73e8;text-decoration:none}\na:hover{text-decoration:underline}\n</style>\n</head>\n<body>\n\n<h1>Terms &amp; Conditions</h1>\n<p class=\"updated\">Effective Date: August 2, 2026</p>\n\n<h2>1. Agreement to Terms</h2>\n<svg class=\"art\" width=\"180\" height=\"130\" viewBox=\"0 0 180 130\">\n<rect x=\"55\" y=\"20\" width=\"70\" height=\"90\" rx=\"6\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M68 40h44M68 55h44M68 70h44\" stroke=\"#3c4043\" stroke-width=\"2\" stroke-linecap=\"round\"/>\n<path d=\"M70 88l10 10 20-20\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n</svg>\n<p>By accessing RummyDex, you agree to be bound by these Terms &amp; Conditions. If you disagree with any part of these terms, please do not use our app directory, news portal, or video features.</p>\n\n<h2>2. Intellectual Property</h2>\n<svg class=\"art\" width=\"180\" height=\"130\" viewBox=\"0 0 180 130\">\n<circle cx=\"90\" cy=\"60\" r=\"42\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M90 40a20 20 0 100 40 20 20 0 100-40\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"2\"/>\n<path d=\"M90 46v28M78 60h24\" stroke=\"#1a73e8\" stroke-width=\"2\" stroke-linecap=\"round\"/>\n</svg>\n<p>RummyDex retains ownership of its original content, design, and editorial features. However, we do not claim ownership of the third-party apps listed on our site. All app names, logos, and trademarks belong to their respective original developers.</p>\n\n<h2>3. Acceptable Use</h2>\n<svg class=\"art\" width=\"180\" height=\"130\" viewBox=\"0 0 180 130\">\n<circle cx=\"90\" cy=\"55\" r=\"30\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M68 33l44 44\" stroke=\"#ea4335\" stroke-width=\"3\" stroke-linecap=\"round\"/>\n<path d=\"M40 108h100\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n</svg>\n<p>RummyDex is provided for your personal, non-commercial use. You agree not to:</p>\n<ul>\n<li>Use automated bots or scrapers to extract our data or reviews.</li>\n<li>Interfere with the security or performance of our website.</li>\n<li>Submit false or spam requests through our App Reporting system.</li>\n</ul>\n\n<h2>4. Third-Party Links Disclaimer</h2>\n<svg class=\"art\" width=\"180\" height=\"130\" viewBox=\"0 0 180 130\">\n<rect x=\"30\" y=\"45\" width=\"45\" height=\"35\" rx=\"4\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<rect x=\"105\" y=\"45\" width=\"45\" height=\"35\" rx=\"4\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M75 62h30\" stroke=\"#fbbc04\" stroke-width=\"3\" stroke-linecap=\"round\"/>\n<circle cx=\"128\" cy=\"62\" r=\"6\" fill=\"none\" stroke=\"#ea4335\" stroke-width=\"2\"/>\n<path d=\"M125 62h6M128 59v6\" stroke=\"#ea4335\" stroke-width=\"2\" stroke-linecap=\"round\"/>\n</svg>\n<p>RummyDex acts solely as an informational bridge and does not host APK or software files on our servers.</p>\n<ul>\n<li>Clicking an external link directs you to a third-party destination that we do not control.</li>\n<li>Downloading and installing third-party software is done entirely at your own risk. RummyDex is not responsible for any device damage or data loss.</li>\n</ul>\n\n<h2>5. App Reporting &amp; Compliance</h2>\n<svg class=\"art\" width=\"180\" height=\"130\" viewBox=\"0 0 180 130\">\n<path d=\"M60 40h60l-6 68H66z\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M72 30h36l4 10H68z\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M78 55v38M90 55v38M102 55v38\" stroke=\"#ea4335\" stroke-width=\"3\" stroke-linecap=\"round\"/>\n</svg>\n<p>We enforce a strict zero-tolerance policy against apps containing malicious code or unauthorized real-money mechanics. We investigate user reports and reserve the right to remove or delist any application from our directory at any time without prior notice.</p>\n\n<h2>6. Limitation of Liability</h2>\n<svg class=\"art\" width=\"180\" height=\"130\" viewBox=\"0 0 180 130\">\n<circle cx=\"90\" cy=\"60\" r=\"42\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M90 40v26\" stroke=\"#fbbc04\" stroke-width=\"5\" stroke-linecap=\"round\"/>\n<circle cx=\"90\" cy=\"78\" r=\"3\" fill=\"#fbbc04\"/>\n</svg>\n<p>RummyDex is provided on an \"as is\" and \"as available\" basis. To the maximum extent permitted by law, RummyDex and its team shall not be liable for any direct or indirect damages, losses, or issues resulting from your use of our platform or the third-party apps we link to.</p>\n\n<h2>7. Modifications</h2>\n<svg class=\"art\" width=\"180\" height=\"130\" viewBox=\"0 0 180 130\">\n<path d=\"M65 45a30 30 0 1130 40\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"3\" stroke-linecap=\"round\"/>\n<path d=\"M60 38l5 12 12-4\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n<rect x=\"55\" y=\"90\" width=\"70\" height=\"18\" rx=\"4\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n</svg>\n<p>We reserve the right to update these terms at any time. By continuing to use RummyDex after changes are posted, you agree to be bound by the revised terms.</p>\n\n<h2>8. Contact Information</h2>\n<svg class=\"art\" width=\"180\" height=\"130\" viewBox=\"0 0 180 130\">\n<rect x=\"35\" y=\"40\" width=\"110\" height=\"55\" rx=\"6\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M35 46l55 35 55-35\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n</svg>\n<p>If you have any questions regarding these Terms &amp; Conditions, please contact us at:</p>\n<p>Support Email: <a href=\"mailto:rummydex1@gmail.com\">rummydex1@gmail.com</a></p>\n\n<p class=\"note\">RummyDex — keeping the directory safe, together.</p>\n\n</body>\n</html>\n",
-  "last_updated": "2026-08-09T04:05:01.469Z",
+  "last_updated": "2026-08-10T14:41:54.781Z",
   "important_notice": "",
   "ethics_heading": "Ethics & Safety",
   "hero_title_visible": true,
@@ -1308,13 +1308,13 @@ export const mockSettings: GlobalSettings = {
   "privacy_content": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\">\n<title>Privacy Policy — RummyDex</title>\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<style>\nbody{font-family:Arial,Helvetica,sans-serif;color:#3c4043;max-width:700px;margin:40px auto;padding:0 20px;line-height:1.7;font-size:15px}\nh1{font-size:26px;color:#202124;font-weight:400;margin-bottom:6px}\n.updated{color:#5f6368;font-size:13px;margin-bottom:28px}\nh2{font-size:19px;color:#202124;font-weight:500;margin-top:40px}\np{margin:10px 0}\nul{margin:10px 0;padding-left:22px}\nli{margin:6px 0}\n.art{display:block;margin:16px 0}\n.note{color:#5f6368;font-size:13px;margin-top:36px;border-top:1px solid #dadce0;padding-top:14px}\na{color:#1a73e8}\n</style>\n</head>\n<body>\n\n<h1>Privacy Policy</h1>\n<p class=\"updated\">Effective Date: August 2 2026</p>\n\n<h2>1. Introduction</h2>\n<svg class=\"art\" width=\"150\" height=\"100\" viewBox=\"0 0 180 130\">\n<path d=\"M90 12 40 30v35c0 32 22 55 50 65 28-10 50-33 50-65V30z\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M74 78 86 90 112 58\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n</svg>\n<p>Welcome to RummyDex. This Privacy Policy governs the manner in which RummyDex collects, uses, maintains, and discloses information collected from users visiting our digital directory, news portal, and software index. We are dedicated to safeguarding your privacy and ensuring complete transparency regarding how data is handled while you explore our app listings, news updates, and video reviews.</p>\n\n<h2>2. Information Collection</h2>\n<p>RummyDex operates primarily as an open informational resource. We do not require visitors to register an account, subscribe, or submit sensitive personal identification information to access our app directory, read our news, or view video reviews.</p>\n<p><strong>Non-Personal Technical Data:</strong> Whenever you interact with RummyDex, our system may automatically collect non-personally identifiable technical information. This includes your browser type, device specifications, operating system, internet service provider (ISP), referring URLs, IP address, general geographic region, and interaction metrics on our site.</p>\n<p><strong>Direct Communication Data:</strong> If you contact us directly via email for support or feedback, we collect the email address and information you voluntarily provide to address your inquiry.</p>\n\n<h2>3. Web Browser Cookies &amp; Analytics</h2>\n<svg class=\"art\" width=\"150\" height=\"100\" viewBox=\"0 0 180 130\">\n<circle cx=\"90\" cy=\"60\" r=\"38\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<circle cx=\"75\" cy=\"48\" r=\"5\" fill=\"#fbbc04\"/>\n<circle cx=\"100\" cy=\"55\" r=\"4\" fill=\"#1a73e8\"/>\n<circle cx=\"105\" cy=\"78\" r=\"5\" fill=\"#ea4335\"/>\n</svg>\n<p>Our website utilizes \"cookies\" and similar web technologies to enhance user navigation, measure traffic patterns, and optimize the overall performance of our directory.</p>\n<ul>\n<li>A cookie is a small text file placed on your device's storage for record-keeping and traffic analysis.</li>\n<li>Cookies help us understand which app reviews, news articles, and video features are most useful to our community.</li>\n</ul>\n<p><strong>User Control:</strong> You retain full authority over your browser settings. You may set your web browser to reject cookies or alert you when cookies are being transmitted. Please note that disabling cookies may affect certain non-essential layout features on our site.</p>\n\n<h2>4. News, Media, and Lightweight Video Features</h2>\n<p>To provide comprehensive reviews, RummyDex features lightweight video snippets and daily news updates. Interacting with these features operates under strict data-minimization standards:</p>\n<ul>\n<li>Viewing media content embedded directly on RummyDex does not harvest personal user files or device storage.</li>\n<li>Aggregated, anonymous metrics (such as video view counts or news reading time) may be processed to help us improve content delivery and bandwidth efficiency.</li>\n</ul>\n\n<h2>5. External Links and Third-Party Software</h2>\n<svg class=\"art\" width=\"150\" height=\"100\" viewBox=\"0 0 180 130\">\n<rect x=\"30\" y=\"45\" width=\"45\" height=\"35\" rx=\"4\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<rect x=\"105\" y=\"45\" width=\"45\" height=\"35\" rx=\"4\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M75 62h30\" stroke=\"#fbbc04\" stroke-width=\"3\"/>\n<circle cx=\"128\" cy=\"62\" r=\"6\" fill=\"none\" stroke=\"#ea4335\" stroke-width=\"2\"/>\n</svg>\n<p>RummyDex functions strictly as an informational bridge. We do not host, store, or distribute APK files, application packages, or software directly on our primary servers. Instead, we evaluate software and provide safe, verified outgoing links to official developer sites or third-party platforms.</p>\n<p><strong>Leaving Our Portal:</strong> Clicking an external link directs you outside the jurisdiction of RummyDex.</p>\n<p><strong>Third-Party Policies:</strong> We do not own, manage, or control the privacy standards, security protocols, or data collection practices of external websites or applications. Interaction on any external platform is governed entirely by that third party's privacy policy and terms.</p>\n\n<h2>6. Data Security Practices</h2>\n<p>We implement appropriate data collection, storage, and processing practices alongside standard security measures to protect against unauthorized access, modification, or disclosure of technical log data stored on our servers. While we maintain rigorous standards to safeguard our digital portal, no electronic storage or internet transmission can be guaranteed as 100% immune to all vulnerabilities.</p>\n\n<h2>7. Changes to This Privacy Policy</h2>\n<p>RummyDex reserves the right to update, modify, or revise this Privacy Policy at any time. When updates occur, the revised date at the top of this page will be updated accordingly. We encourage users to periodically review this page to stay informed about how we protect visitor data.</p>\n\n<h2>8. Acceptance of These Terms</h2>\n<p>By utilizing RummyDex, you signify your explicit acceptance of this Privacy Policy. If you do not agree with these terms, please discontinue use of our platform. Your continued navigation of the site following posted policy updates constitutes acceptance of those changes.</p>\n\n<h2>9. Contacting Us</h2>\n<p>If you have questions, feedback, or concerns regarding this Privacy Policy or your interactions with our platform, please reach out to our team at:</p>\n<p>Support Email: <a href=\"mailto:rummydex1@gmail.com\">rummydex1@gmail.com</a></p>\n\n<p class=\"note\">RummyDex — keeping the directory safe, together.</p>\n\n</body>\n</html>\n",
   "social_instagram": "",
   "social_facebook": "",
-  "hero_title_color": "classic-dark",
+  "hero_title_color": "sunset-fire",
   "social_youtube": "",
   "hero_title_text": "RummyDex",
   "trending_searches": "",
-  "hero_title_style": "modern",
+  "hero_title_style": "serif",
   "report_removal_content": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\">\n<title>Report & Removal Policy — RummyDex</title>\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<style>\nbody{font-family:Arial,Helvetica,sans-serif;color:#3c4043;max-width:700px;margin:40px auto;padding:0 20px;line-height:1.7;font-size:15px;background:#fff}\nh1{font-size:26px;color:#202124;font-weight:400;margin-bottom:6px}\n.updated{color:#5f6368;font-size:13px;margin-bottom:28px}\nh2{font-size:19px;color:#202124;font-weight:500;margin-top:44px}\np{margin:10px 0}\nul{margin:10px 0;padding-left:22px}\nli{margin:8px 0}\n.art{display:block;margin:18px 0}\n.note{color:#5f6368;font-size:13px;margin-top:40px;border-top:1px solid #dadce0;padding-top:14px}\n</style>\n</head>\n<body>\n\n<h1>Report &amp; Removal Policy</h1>\n<p class=\"updated\">Effective Date: August 2, 2026</p>\n\n<h2>1. Our Commitment to a Safe Directory</h2>\n<svg class=\"art\" width=\"180\" height=\"130\" viewBox=\"0 0 180 130\">\n<path d=\"M90 12 40 30v35c0 32 22 55 50 65 28-10 50-33 50-65V30z\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M74 78 86 90 112 58\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n</svg>\n<p>RummyDex is dedicated to providing a secure, purely entertainment-focused digital index. Because third-party developers can alter their apps dynamically after our initial review, we rely on active community oversight to help maintain our platform's integrity.</p>\n\n<h2>2. What You Should Report</h2>\n<svg class=\"art\" width=\"180\" height=\"130\" viewBox=\"0 0 180 130\">\n<circle cx=\"90\" cy=\"60\" r=\"42\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M90 40v26\" stroke=\"#ea4335\" stroke-width=\"5\" stroke-linecap=\"round\"/>\n<circle cx=\"90\" cy=\"78\" r=\"3\" fill=\"#ea4335\"/>\n<path d=\"M40 105h100\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n</svg>\n<p>Please immediately report any listed application that exhibits the following violations:</p>\n<ul>\n<li><strong>Real-Money Gaming (RMG):</strong> The sudden introduction of mandatory deposits, gambling, or real-money betting mechanics.</li>\n<li><strong>Deceptive Updates:</strong> Drastic changes to core gameplay (e.g., an offline puzzle updating into an unverified casino app).</li>\n<li><strong>Broken or Malicious Links:</strong> A resource link that redirects to an unsafe, unverified page instead of the official developer source.</li>\n<li><strong>Intrusive Ads or Malware:</strong> Applications that introduce unskippable system-level ads or malicious behavior that compromises device performance.</li>\n</ul>\n\n<h2>3. How to Submit a Report</h2>\n<svg class=\"art\" width=\"180\" height=\"130\" viewBox=\"0 0 180 130\">\n<rect x=\"45\" y=\"20\" width=\"90\" height=\"70\" rx=\"6\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M60 40h60M60 55h60M60 70h35\" stroke=\"#3c4043\" stroke-width=\"2\" stroke-linecap=\"round\"/>\n<rect x=\"70\" y=\"95\" width=\"40\" height=\"18\" rx=\"4\" fill=\"#1a73e8\"/>\n</svg>\n<p>Reporting is simple and direct. Use the \"Report App\" button located at the bottom of every individual app review page. Select the reason for your report and provide a brief description of the issue you experienced.</p>\n\n<h2>4. Our Review Process</h2>\n<svg class=\"art\" width=\"180\" height=\"130\" viewBox=\"0 0 180 130\">\n<circle cx=\"75\" cy=\"45\" r=\"16\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M40 105c0-22 16-38 35-38s35 16 35 38\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<circle cx=\"122\" cy=\"82\" r=\"18\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"3\"/>\n<path d=\"M135 95l14 14\" stroke=\"#1a73e8\" stroke-width=\"3\" stroke-linecap=\"round\"/>\n</svg>\n<p>Every submitted report goes directly to our moderation team. We do not use automated bots for this process; a real team member will manually re-test the application and verify the outbound links to confirm the reported violations.</p>\n\n<h2>5. The 100% Permanent Removal Guarantee</h2>\n<svg class=\"art\" width=\"180\" height=\"130\" viewBox=\"0 0 180 130\">\n<path d=\"M60 40h60l-6 68H66z\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M72 30h36l4 10H68z\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M78 55v38M90 55v38M102 55v38\" stroke=\"#ea4335\" stroke-width=\"3\" stroke-linecap=\"round\"/>\n</svg>\n<p>We operate with a strict zero-tolerance policy for financial risk mechanisms and deceptive software. If we verify that an application violates our safety guidelines:</p>\n<ul>\n<li>The application's dedicated page will be immediately taken down.</li>\n<li>All outbound links to the software will be permanently severed.</li>\n<li>The developer will be strictly prohibited from relisting the application on our directory.</li>\n</ul>\n\n<h2>6. False Reporting</h2>\n<svg class=\"art\" width=\"180\" height=\"130\" viewBox=\"0 0 180 130\">\n<circle cx=\"90\" cy=\"60\" r=\"42\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M90 40v22\" stroke=\"#fbbc04\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n<path d=\"M90 62l14 8\" stroke=\"#fbbc04\" stroke-width=\"4\" stroke-linecap=\"round\"/>\n</svg>\n<p>We highly value genuine community feedback. However, deliberately spamming the system or submitting false claims to maliciously target specific games may result in a restriction of your ability to submit future reports or interact with platform features.</p>\n\n<p class=\"note\">RummyDex — keeping the directory safe, together.</p>\n\n</body>\n</html>\n",
-  "hero_title_animation": "fade-in",
+  "hero_title_animation": "bounce-in",
   "about_content": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\">\n<title>About Us — RummyDex</title>\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<style>\nbody{font-family:Arial,Helvetica,sans-serif;color:#3c4043;max-width:700px;margin:40px auto;padding:0 20px;line-height:1.7;font-size:15px;background:#fff}\nh1{font-size:26px;color:#202124;font-weight:400;margin-bottom:6px}\n.updated{color:#5f6368;font-size:13px;margin-bottom:28px}\nh2{font-size:19px;color:#202124;font-weight:500;margin-top:44px}\np{margin:10px 0}\n.art{display:block;margin:18px 0}\n.note{color:#5f6368;font-size:13px;margin-top:40px;border-top:1px solid #dadce0;padding-top:14px}\n</style>\n</head>\n<body>\n\n<h1>About Us</h1>\n<p class=\"updated\">Last modified: August 2, 2026</p>\n\n<h2>The Meaning of \"Dex\" (Who We Are)</h2>\n<svg class=\"art\" width=\"180\" height=\"130\" viewBox=\"0 0 180 130\">\n<rect x=\"55\" y=\"20\" width=\"70\" height=\"90\" rx=\"6\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M68 38h44M68 52h44M68 66h44M68 80h30\" stroke=\"#1a73e8\" stroke-width=\"2\" stroke-linecap=\"round\"/>\n</svg>\n<p>Welcome to RummyDex. The word \"Dex\" stands for index or directory, which perfectly describes our core identity. We are an independent digital library built to catalog, review, and provide structured, transparent information about casual games and digital applications. Our platform is designed to be a complete informational hub for entertainment enthusiasts, encompassing everything from app discovery to the latest daily updates.</p>\n\n<h2>How We Provide Information &amp; Links</h2>\n<svg class=\"art\" width=\"180\" height=\"130\" viewBox=\"0 0 180 130\">\n<rect x=\"30\" y=\"45\" width=\"45\" height=\"35\" rx=\"4\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<rect x=\"105\" y=\"45\" width=\"45\" height=\"35\" rx=\"4\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M75 62h30\" stroke=\"#1a73e8\" stroke-width=\"3\" stroke-linecap=\"round\"/>\n<path d=\"M96 54l9 8-9 8\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"3\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n</svg>\n<p>We function strictly as an informational bridge. Instead of hosting direct software or APK files on our servers, we provide comprehensive technical breakdowns, clear guides, and safe, direct links to third-party developer sources. This ensures that our platform remains fast and secure, and that you always access applications straight from the source.</p>\n\n<h2>Real Hands-On Testing &amp; Video Highlights</h2>\n<svg class=\"art\" width=\"180\" height=\"130\" viewBox=\"0 0 180 130\">\n<rect x=\"45\" y=\"30\" width=\"90\" height=\"60\" rx=\"6\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M80 48l22 12-22 12z\" fill=\"#1a73e8\"/>\n<path d=\"M65 100l10-10M115 100l-10-10\" stroke=\"#3c4043\" stroke-width=\"2\" stroke-linecap=\"round\"/>\n</svg>\n<p>We do not just list apps blindly. Before any application is published on our platform, our team conducts a real, hands-on test. We personally experience the app's performance, mechanics, and user interface to ensure it meets our strict entertainment standards. To give you a clear look at the gameplay, we also feature lightweight, optimized video snippets that showcase the app in action without slowing down your browsing experience.</p>\n\n<h2>Comprehensive News &amp; App Updates</h2>\n<svg class=\"art\" width=\"180\" height=\"130\" viewBox=\"0 0 180 130\">\n<rect x=\"50\" y=\"25\" width=\"80\" height=\"80\" rx=\"6\" fill=\"none\" stroke=\"#3c4043\" stroke-width=\"2\"/>\n<path d=\"M64 45h52M64 58h52M64 71h35\" stroke=\"#3c4043\" stroke-width=\"2\" stroke-linecap=\"round\"/>\n<circle cx=\"122\" cy=\"90\" r=\"14\" fill=\"#fbbc04\"/>\n<path d=\"M117 90h10M122 85v10\" stroke=\"#fff\" stroke-width=\"2\" stroke-linecap=\"round\"/>\n</svg>\n<p>Beyond our core app directory, RummyDex is a highly active, living ecosystem. We keep our community fully informed through our dedicated News Hub. Whether you are looking for general industry news, major platform shifts, or specific app update news detailing the latest patches and features, we provide all the necessary information so you are always up to date on your favorite digital retreats.</p>\n\n<p class=\"note\">RummyDex — keeping the directory safe, together.</p>\n\n</body>\n</html>\n",
   "social_twitter": "",
   "social_links": {
@@ -1345,12 +1345,12 @@ export const mockNews: NewsItem[] = [
     "created_at": "2026-08-01T04:29:15.305Z",
     "title": "Application Hub is LIVE! The Ultimate App Portal is Here",
     "date": "2026-08-01T04:29:15.305Z",
-    "canonical_url": "https://www.example.com/notice/",
+    "canonical_url": "https://www.rummydex.com/notice/",
     "is_breaking": false,
     "seo_description": "Welcome to Application Hub! Explore our newly launched platform dedicated to neutral, hand-tested app reviews. Our verified app vault is opening very soon.",
     "seo_title": "Application Hub is LIVE - Premium App Directory & Reviews",
     "is_pinned": false,
-    "link": "https://www.example.com/app-hub-is-live",
+    "link": "https://www.rummydex.com/news/app-hub-is-live",
     "description": "Application Hub is officially published! We are bringing you the absolute best in hand-tested mobile entertainment. Read our launch update while our first wave of premium apps undergoes final verification!",
     "ceo_description": "Editorial Board",
     "image_url": "",

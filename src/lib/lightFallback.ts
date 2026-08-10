@@ -40,10 +40,10 @@ export const mockNews: NewsItem[] = [
     "ceo_description": "Editorial Board",
     "seo_title": "Application Hub is LIVE - Premium App Directory & Reviews",
     "seo_description": "Welcome to Application Hub! Explore our newly launched platform dedicated to neutral, hand-tested app reviews. Our verified app vault is opening very soon.",
-    "canonical_url": "https://www.example.com/notice/",
+    "canonical_url": "https://www.rummydex.com/notice/",
     "og_image_url": "https://res.cloudinary.com/diewalae4/image/upload/v1785428224/ezgif-8cbbc4a0aaeb367e_s4k2nb.webp",
     "target_region": "Global ",
-    "link": "https://www.example.com/app-hub-is-live"
+    "link": "https://www.rummydex.com/news/app-hub-is-live"
   }
 ];
 export const mockBlogs: BlogPost[] = [];
