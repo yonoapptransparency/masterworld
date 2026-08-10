@@ -9,6 +9,7 @@ import { HelmetProvider } from 'react-helmet-async';
 import { DataProvider, useData } from './contexts/DataContext';
 import { getAdminPath } from './lib/utils';
 import { lazyWithRetry } from './lib/lazyWithRetry';
+import './index.css';
 
 // Error Boundary component for robust UI
 class ErrorBoundary extends React.Component<any, any> {
