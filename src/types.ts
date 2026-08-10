@@ -121,6 +121,8 @@ export interface AppConfig {
   top_chart_category?: string;
   video_url?: string;
   more_information_url?: string;
+  encrypted_link?: string;
+  url?: string;
   encrypted_download_url?: string;
   download_url?: string;
 }
