@@ -16,6 +16,7 @@ export const solveChallenge = async (
     const isDifficulty4 = difficulty === "0000";
     const isDifficulty3 = difficulty === "000";
     const isDifficulty2 = difficulty === "00";
+    const isDifficulty1 = difficulty === "0";
 
     const processChunk = async () => {
       // Process 10000 hashes per chunk to finish instantly while still yielding
@@ -27,16 +28,20 @@ export const solveChallenge = async (
         const hashArray = new Uint8Array(hashBuffer);
         
         // Highly optimized byte checking (avoids slow hex string conversion)
-        if (isDifficulty4) {
-          if (hashArray[0] === 0 && hashArray[1] === 0) {
+        if (isDifficulty1) {
+          if ((hashArray[0] >> 4) === 0) {
+            return resolve(counter);
+          }
+        } else if (isDifficulty2) {
+          if (hashArray[0] === 0) {
             return resolve(counter);
           }
         } else if (isDifficulty3) {
           if (hashArray[0] === 0 && (hashArray[1] >> 4) === 0) {
             return resolve(counter);
           }
-        } else if (isDifficulty2) {
-          if (hashArray[0] === 0) {
+        } else if (isDifficulty4) {
+          if (hashArray[0] === 0 && hashArray[1] === 0) {
             return resolve(counter);
           }
         } else {

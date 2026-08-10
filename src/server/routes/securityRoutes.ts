@@ -16,12 +16,12 @@ export const securityRouter = express.Router();
 securityRouter.get('/api/v1/_chal', (req, res) => {
   const sid = ensureSession(req, res);
   const realNonce = crypto.randomBytes(8).toString('hex');
-  const difficulty = "00"; 
-  // 30 seconds expiry for very strict anti-bot control
-  const expiry = Date.now() + 30000;
+  const difficulty = "0"; // Ultra-fast PoW (average 16 iterations, < 5ms execution time)
+  // 3 minutes expiry for seamless navigation without timeout errors
+  const expiry = Date.now() + 180000;
   
   const secret = getAesSecret();
-  // Sign with SID for binding, but also expiry for statelessness
+  // Sign with SID for binding and expiry for statelessness
   const signature = crypto.createHmac('sha256', secret)
     .update(`${realNonce}:${sid}:${difficulty}:${expiry}`)
     .digest('hex').substring(0, 16);
@@ -40,10 +40,10 @@ securityRouter.get('/api/v1/_chal', (req, res) => {
 securityRouter.post('/api/v1/_proc', async (req, res) => {
   const { nonce, solution, fingerprint, appId, sid: clientSid } = req.body;
   const ip = getIp(req);
-  const sid = req.cookies?.["__Host-sid"] || clientSid;
+  const cookieSid = req.cookies?.["__Host-sid"];
 
-  if (!nonce || solution === undefined || !fingerprint || !appId || !sid) {
-    console.warn(`[SECURITY] Missing context in _proc: sid=${!!sid}, nonce=${!!nonce}`);
+  if (!nonce || solution === undefined || !fingerprint || !appId) {
+    console.warn(`[SECURITY] Missing context in _proc: nonce=${!!nonce}, solution=${solution !== undefined}`);
     return res.status(400).json({ error: 'Incomplete security context' });
   }
 
@@ -54,30 +54,36 @@ securityRouter.post('/api/v1/_proc', async (req, res) => {
   }
 
   const [realNonce, expiry, signature] = parts;
-  const difficulty = "00";
+  const difficulty = "0";
   const secret = getAesSecret();
   
-  // Verify with the sid from the request (body or cookie)
-  let expectedSignature = crypto.createHmac('sha256', secret)
-    .update(`${realNonce}:${sid}:${difficulty}:${expiry}`)
-    .digest('hex').substring(0, 16);
+  // Test candidate SIDs (clientSid from body first, then cookieSid) to handle cookie latency or session refresh gracefully
+  const candidateSids = Array.from(new Set([clientSid, cookieSid].filter(Boolean))) as string[];
+  let matchedSid = candidateSids.find(s => {
+    const expectedSig = crypto.createHmac('sha256', secret)
+      .update(`${realNonce}:${s}:${difficulty}:${expiry}`)
+      .digest('hex').substring(0, 16);
+    return expectedSig === signature;
+  });
 
-  if (signature !== expectedSignature) {
-    // Robust Fallback: Log mismatch details but try a more lenient match if SID is provided in different ways
-    console.warn(`[SECURITY] Signature mismatch for SID: ${sid}. Checking fallbacks...`);
-    
-    // Check if maybe it was signed without the SID (unlikely but possible during deployment transitions)
+  if (!matchedSid) {
+    // Fallback: check if signed without SID
     const altSignature = crypto.createHmac('sha256', secret)
       .update(`${realNonce}:${difficulty}:${expiry}`)
       .digest('hex').substring(0, 16);
       
-    if (signature !== altSignature) {
-      return res.status(403).json({ error: 'Challenge invalid or tampered' });
+    if (signature === altSignature) {
+      matchedSid = clientSid || cookieSid || 'fallback_sid';
     }
   }
 
+  if (!matchedSid) {
+    console.warn(`[SECURITY] Signature mismatch for nonce. clientSid=${clientSid}, cookieSid=${cookieSid}`);
+    return res.status(403).json({ error: 'Challenge signature invalid. Please try again.' });
+  }
+
   if (Date.now() > Number(expiry)) {
-    return res.status(403).json({ error: 'Challenge expired' });
+    return res.status(403).json({ error: 'Challenge expired. Please try again.' });
   }
 
   // 2. PoW verification
@@ -86,7 +92,7 @@ securityRouter.post('/api/v1/_proc', async (req, res) => {
     return res.status(403).json({ error: 'Integrity check failed' });
   }
 
-  const token = generateToken(ip, sid, fingerprint, appId);
+  const token = generateToken(ip, matchedSid, fingerprint, appId);
   res.json({ token });
 });
 
