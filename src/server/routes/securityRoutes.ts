@@ -151,21 +151,9 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
   const ip = getIp(req);
   const sid = req.cookies?.["__Host-sid"] || (req.query.sid as string);
   const fingerprint = req.query.fp as string;
-  const wantsJson = req.query.json === 'true' || req.headers.accept?.includes('application/json');
-
-  const respondWithLink = (url: string) => {
-    const cleanUrl = url.trim();
-    if (wantsJson) {
-      return res.json({ success: true, url: cleanUrl });
-    }
-    return res.redirect(302, cleanUrl);
-  };
 
   if (!appId) {
     console.warn(`[SECURITY] Request missing appId parameter`);
-    if (wantsJson) {
-      return res.status(400).json({ success: false, error: 'Missing application identifier.' });
-    }
     return res.status(400).send("<h1>400 Bad Request</h1><p>Missing application identifier.</p>");
   }
 
@@ -180,7 +168,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
     const cached = resolvedLinkCache.get(k);
     if (cached && (Date.now() - cached.timestamp < LINK_CACHE_TTL)) {
       console.log(`[SECURITY] Memory cache hit (<2ms) for appId: ${appId}`);
-      return respondWithLink(cached.url);
+      return res.redirect(302, cached.url);
     }
   }
 
@@ -391,12 +379,12 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
               const entry = { url: decrypted.trim(), timestamp: Date.now() };
               resolvedLinkCache.set(appId.toLowerCase(), entry);
               resolvedLinkCache.set(realId.toLowerCase(), entry);
-              return respondWithLink(decrypted);
+              return res.redirect(302, decrypted.trim());
             } else if (isValidTargetUrl(encrypted)) {
               const entry = { url: encrypted.trim(), timestamp: Date.now() };
               resolvedLinkCache.set(appId.toLowerCase(), entry);
               resolvedLinkCache.set(realId.toLowerCase(), entry);
-              return respondWithLink(encrypted);
+              return res.redirect(302, encrypted.trim());
             }
           }
         }
@@ -414,7 +402,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
                 const entry = { url: dec.trim(), timestamp: Date.now() };
                 resolvedLinkCache.set(appId.toLowerCase(), entry);
                 resolvedLinkCache.set(realId.toLowerCase(), entry);
-                return respondWithLink(dec);
+                return res.redirect(302, dec.trim());
               }
             }
           }
@@ -480,7 +468,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
       const entry = { url: targetUrl.trim(), timestamp: Date.now() };
       resolvedLinkCache.set(appId.toLowerCase(), entry);
       resolvedLinkCache.set(realId.toLowerCase(), entry);
-      return respondWithLink(targetUrl);
+      return res.redirect(302, targetUrl.trim());
     }
     
     // 5. Final Last-Ditch Fallback: Check staticData directly in memory
@@ -498,15 +486,11 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
          if (rawUrl && typeof rawUrl === 'string') {
            const dec = rawUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(rawUrl, AES_SECRET) : rawUrl;
            if (isValidTargetUrl(dec)) {
-              return respondWithLink(dec);
+              return res.redirect(302, dec.trim());
            }
          }
        }
     } catch (finalErr) {}
-
-    if (wantsJson) {
-      return res.json({ success: false, message: 'The download / information link for this app is currently being updated or synced by the administrator. Please check back shortly!' });
-    }
 
     return res.status(200).send(`
       <!DOCTYPE html>
