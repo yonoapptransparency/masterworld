@@ -9,34 +9,47 @@ interface ClearanceButtonProps {
 
 export default function ClearanceButton({ appId }: ClearanceButtonProps) {
   const targetUrl = `/api/v1/moreinfo-resolve?id=${encodeURIComponent(appId)}`;
-  const [loadingStep, setLoadingStep] = useState<'idle' | 'encrypting' | 'decrypting' | 'processing'>('idle');
+  const [stepIndex, setStepIndex] = useState<number>(-1);
+
+  const steps = [
+    { short: 'Initializing...', detail: 'Initializing secure sequence...' },
+    { short: 'Encrypting...', detail: 'Encrypting data payload...' },
+    { short: 'Checking...', detail: 'Checking security protocols...' },
+    { short: 'Decrypting...', detail: 'Decrypting target endpoint...' },
+    { short: 'Verifying...', detail: 'Verifying verification token...' },
+    { short: 'Processing...', detail: 'Processing request queue...' },
+    { short: 'Validating...', detail: 'Validating system routing...' },
+    { short: 'Securing...', detail: 'Securing channel connection...' },
+    { short: 'Almost Done...', detail: 'Almost done, preparing output...' },
+    { short: 'Finalizing...', detail: 'Finalizing response structure...' },
+    { short: 'Completing...', detail: 'Completing verification step...' },
+    { short: 'Redirecting...', detail: 'Redirecting to destination...' },
+  ];
 
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
-    if (loadingStep !== 'idle') return;
+    if (stepIndex !== -1) return;
 
     // Immediately trigger location navigation so browser works in background with 0ms delay
     window.location.href = targetUrl;
 
     // Instantly show loading state on the surface UI
-    setLoadingStep('encrypting');
+    setStepIndex(0);
 
-    // Cycle dummy surface steps smoothly while browser processes redirect
-    const steps: Array<'encrypting' | 'decrypting' | 'processing'> = ['encrypting', 'decrypting', 'processing'];
-    let stepIdx = 0;
-
+    let current = 0;
     const interval = setInterval(() => {
-      stepIdx = (stepIdx + 1) % steps.length;
-      setLoadingStep(steps[stepIdx]);
-    }, 200);
+      current = (current + 1) % steps.length;
+      setStepIndex(current);
+    }, 250);
 
     // Safeguard to clear interval if page remains
     setTimeout(() => {
       clearInterval(interval);
-    }, 15000);
+    }, 20000);
   };
 
-  const isProcessing = loadingStep !== 'idle';
+  const isProcessing = stepIndex !== -1;
+  const currentStep = isProcessing ? steps[stepIndex] : null;
 
   return (
     <div className="w-full max-w-sm mx-auto flex flex-col items-center gap-2">
@@ -52,11 +65,7 @@ export default function ClearanceButton({ appId }: ClearanceButtonProps) {
         {isProcessing ? (
           <>
             <Loader2 className="w-4 h-4 text-emerald-100 animate-spin shrink-0" />
-            <span>
-              {loadingStep === 'encrypting' && 'Encrypting...'}
-              {loadingStep === 'decrypting' && 'Decrypting...'}
-              {loadingStep === 'processing' && 'Processing...'}
-            </span>
+            <span>{currentStep?.short}</span>
           </>
         ) : (
           <>
@@ -70,11 +79,7 @@ export default function ClearanceButton({ appId }: ClearanceButtonProps) {
       {isProcessing ? (
         <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 transition-all">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping shrink-0" />
-          <span>
-            {loadingStep === 'encrypting' && 'Encrypting data payload...'}
-            {loadingStep === 'decrypting' && 'Decrypting secure endpoint...'}
-            {loadingStep === 'processing' && 'Redirecting to target...'}
-          </span>
+          <span>{currentStep?.detail}</span>
         </div>
       ) : (
         <div className="text-[11px] text-zinc-400 dark:text-zinc-500 font-medium text-center">
