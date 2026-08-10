@@ -1,5 +1,6 @@
 import express from 'express';
 import crypto from 'crypto';
+import path from 'path';
 import { getIp, ensureSession, generateToken, verifyToken } from '../security';
 import { ENCRYPTED_LINKS } from '../../lib/secureVault';
 import { vaultNode } from '../../lib/vaultNode';
@@ -260,9 +261,52 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
       }
     }
 
-    // 2. Secondary resolution using storeData with fuzzy matching
     let realId = appId;
     let realSlug = appId;
+
+    // 1.5 FAST PATH: Synchronous in-memory check against staticData (<0.1ms)
+    try {
+      const staticDataPath = path.join(process.cwd(), 'src', 'lib', 'staticData');
+      const staticData = require(staticDataPath);
+      const mockAppsList = staticData?.mockApps || [];
+      const cleanInput = appId.toLowerCase().trim().replace(/[-_ ]+$/, '');
+      const cleanInputNoSep = cleanInput.replace(/[-_ ]/g, '');
+
+      const matchedApp = mockAppsList.find((a: any) => {
+        const sId = (a.id || '').toLowerCase().trim();
+        const sSlug = (a.slug || '').toLowerCase().trim();
+        const sIdClean = sId.replace(/[-_ ]+$/, '');
+        const sSlugClean = sSlug.replace(/[-_ ]+$/, '');
+        const sIdNoSep = sId.replace(/[-_ ]/g, '');
+        const sSlugNoSep = sSlug.replace(/[-_ ]/g, '');
+
+        return sId === cleanInput ||
+               sSlug === cleanInput ||
+               sIdClean === cleanInput ||
+               sSlugClean === cleanInput ||
+               sIdNoSep === cleanInputNoSep ||
+               sSlugNoSep === cleanInputNoSep;
+      });
+
+      if (matchedApp) {
+        realId = matchedApp.id || appId;
+        realSlug = matchedApp.slug || appId;
+        const directUrl = matchedApp.more_information_url || matchedApp.encrypted_link || matchedApp.download_url || matchedApp.url;
+        if (directUrl && typeof directUrl === 'string') {
+          const dec = directUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(directUrl, AES_SECRET) : directUrl;
+          if (isValidTargetUrl(dec)) {
+            console.log(`[SECURITY] Instant resolution from staticData for ${appId}`);
+            const entry = { url: dec.trim(), timestamp: Date.now() };
+            resolvedLinkCache.set(appId.toLowerCase(), entry);
+            resolvedLinkCache.set(realId.toLowerCase(), entry);
+            resolvedLinkCache.set(realSlug.toLowerCase(), entry);
+            return res.redirect(302, dec.trim());
+          }
+        }
+      }
+    } catch (e) {}
+
+    // 2. Secondary resolution using storeData with fuzzy matching
     try {
       const storeData = await fetchStoreData();
       const apps = storeData?.apps || [];

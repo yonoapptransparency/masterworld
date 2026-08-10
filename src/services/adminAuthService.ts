@@ -20,6 +20,7 @@ export interface AuthResult {
   error?: string;
 }
 
+// @ts-ignore
 import appletConfig from '../../firebase-applet-config.json';
 
 // ─────────────────────────────────────────────────────────────────────────────

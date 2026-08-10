@@ -6,6 +6,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, Auth } from 'firebase/auth';
 import { getAdminPath } from './utils';
+// @ts-ignore
 import appletConfig from '../../firebase-applet-config.json';
 
 // We rely on environment variables for production.
