@@ -24,7 +24,14 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
   const syncSecureVault = async (force = false) => {
     if (!isInitialized) return;
     try {
-      const items = Array.from(cachedSecureMapRef.current.entries()).map(([k, v]) => ({ id: k, url: v }));
+      const items = Array.from(cachedSecureMapRef.current.entries()).map(([k, v]) => {
+        const app = appsList.find(a => a.id === k || a.slug === k);
+        return {
+          id: app?.id || k,
+          slug: app?.slug || k,
+          url: v
+        };
+      });
       const idToken = await auth?.currentUser?.getIdToken();
       console.log("[DEBUG] syncSecureVault called. Items:", items.length, "Token exists:", !!idToken);
       const res = await adminFetch('/api/v1/admin/encrypt-links', {

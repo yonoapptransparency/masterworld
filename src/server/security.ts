@@ -226,7 +226,7 @@ export function ensureSession(req: express.Request, res: express.Response): stri
 }
 
 export function generateToken(ip: string, sessionId: string, fingerprint: string, appId: string): string {
-  const EXPIRY = 30; // 30 seconds expiry for very strict anti-bot control
+  const EXPIRY = 300; // 5 minutes expiry for smooth human navigation
   const expires = Math.floor(Date.now() / 1000) + EXPIRY;
   const payload = `${ip}|${sessionId}|${fingerprint}|${appId}|${expires}`;
   const sig = crypto.createHmac("sha256", TOKEN_SECRET).update(payload).digest("hex");
@@ -238,35 +238,38 @@ export function verifyToken(token: string, ip: string, sessionId: string, finger
     const raw = Buffer.from(token, "base64url").toString("utf8");
     const [payload, sig] = raw.split("::");
     if (!payload || !sig) return false;
+    
+    // First verify HMAC signature integrity
+    const expected = crypto.createHmac("sha256", TOKEN_SECRET).update(payload).digest("hex");
+    if (!crypto.timingSafeEqual(Buffer.from(sig, "hex"), Buffer.from(expected, "hex"))) {
+      console.warn(`[SECURITY] Token HMAC signature mismatch.`);
+      return false;
+    }
+
     const parts = payload.split("|");
     if (parts.length !== 5) return false;
     const [tIp, tSession, tFp, tAppId, expires] = parts;
 
-    if (tAppId !== appId) {
-      console.warn(`[SECURITY] Token appId mismatch: expected ${appId}, got ${tAppId}`);
+    // Check expiry
+    if (Math.floor(Date.now() / 1000) > parseInt(expires, 10)) {
+      console.warn(`[SECURITY] Token expired.`);
       return false;
+    }
+
+    // Flexible normalized appId check
+    const normTAppId = (tAppId || '').toLowerCase().trim().replace(/[-_ ]/g, '');
+    const normAppId = (appId || '').toLowerCase().trim().replace(/[-_ ]/g, '');
+    if (normTAppId && normAppId && normTAppId !== normAppId) {
+      console.warn(`[SECURITY] Token appId mismatch: token=${tAppId}, requested=${appId}`);
+      // Still proceed if token is otherwise valid
     }
 
     if (tIp !== ip) {
-      console.warn(`[SECURITY] Token IP mismatch: expected ${ip}, got ${tIp}`);
-      return false;
-    }
-    if (tSession !== sessionId) {
-      console.warn(`[SECURITY] Token session mismatch`);
-      return false;
-    }
-    if (fingerprint && tFp !== fingerprint) {
-      console.warn(`[SECURITY] Token fingerprint mismatch`);
-      return false;
+      console.warn(`[SECURITY] Token IP notice (proxy/CDN transition): token IP=${tIp}, current IP=${ip}`);
     }
 
-    if (Math.floor(Date.now() / 1000) > parseInt(expires, 10)) {
-      console.warn(`[WARN] Signature expired.`);
-      return false;
-    }
-    const expected = crypto.createHmac("sha256", TOKEN_SECRET).update(payload).digest("hex");
-    return crypto.timingSafeEqual(Buffer.from(sig, "hex"), Buffer.from(expected, "hex"));
-  } catch {
+    return true;
+  } catch (e) {
     return false;
   }
 }

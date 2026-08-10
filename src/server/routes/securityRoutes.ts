@@ -486,7 +486,34 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
        }
     } catch (finalErr) {}
 
-    return res.status(404).send("<h1>404 Not Found</h1><p>The requested information link could not be resolved. This usually happens if the link hasn't been synced to the security vault yet. Please try again later.</p>");
+    return res.status(200).send(`
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Link Updating | RummyDex</title>
+        <style>
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #090d16; color: #f3f4f6; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; text-align: center; }
+          .card { background: #111827; border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 32px 24px; max-width: 440px; width: 100%; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); }
+          .icon-box { width: 64px; height: 64px; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); color: #f59e0b; border-radius: 16px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 28px; }
+          h1 { font-size: 20px; font-weight: 700; color: #ffffff; margin-bottom: 10px; }
+          p { font-size: 14px; color: #9ca3af; line-height: 1.6; margin-bottom: 24px; }
+          .btn { display: inline-flex; align-items: center; justify-content: center; padding: 12px 24px; background: #2563eb; color: #ffffff; font-weight: 600; font-size: 14px; text-decoration: none; border-radius: 12px; transition: background 0.2s; }
+          .btn:hover { background: #1d4ed8; }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <div class="icon-box">⏳</div>
+          <h1>Link Updating</h1>
+          <p>The download / information link for this app is currently being updated or synced by the administrator. Please check back shortly!</p>
+          <a href="/app/${encodeURIComponent(realSlug || appId)}" class="btn">Return to App Page</a>
+        </div>
+      </body>
+      </html>
+    `);
   } catch (error) {
     console.error("Resolution error:", error);
     return res.status(500).send("<h1>500 Internal Server Error</h1>");

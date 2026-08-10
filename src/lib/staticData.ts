@@ -208,7 +208,7 @@ export const mockApps: AppConfig[] = [
     "custom_admin_box_html": "",
     "custom_admin_box_heading": "",
     "created_at": "2026-08-02T11:14:13.263Z",
-    "url": "https://play.google.com/store/apps/details?id=com.rummydex.spin-crush"
+    "url": ""
   },
   {
     "release_notes": "",
@@ -242,7 +242,7 @@ export const mockApps: AppConfig[] = [
     "yellow_box_msg": "Play in limit doing anything excess is not good so if you in limit everything are good ",
     "seo_description": "We went hands-on with Rummy 77. Read our neutral review detailing the actual table mechanics, card sorting features, and real-world battery performance.",
     "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1785722974/1000132690_11zon_1_l43qhv.jpg",
-    "url": "https://play.google.com/store/apps/details?id=com.rummydex.rummy-77"
+    "url": ""
   },
   {
     "og_image_url": "https://res.cloudinary.com/diewalae4/image/upload/v1785780996/download_22_vgi4h1_1_jjm7jx.webp",
@@ -276,7 +276,7 @@ export const mockApps: AppConfig[] = [
     "publish_date": "",
     "features_html": "",
     "release_notes": "",
-    "url": "https://play.google.com/store/apps/details?id=com.rummydex.rummy-91"
+    "url": ""
   },
   {
     "rating": 4,
@@ -329,7 +329,7 @@ export const mockApps: AppConfig[] = [
     "updated_at": "2026-08-09T12:58:39.401Z",
     "name": "CALLBREAK",
     "version": "1.0",
-    "url": "https://play.google.com/store/apps/details?id=com.rummydex.callbreak"
+    "url": ""
   },
   {
     "video_url": "",
@@ -380,7 +380,7 @@ export const mockApps: AppConfig[] = [
     "id": "colrcaih7",
     "yellow_box_msg": "",
     "is_coming_soon": false,
-    "url": "https://play.google.com/store/apps/details?id=com.rummydex.card-game-29"
+    "url": ""
   },
   {
     "custom_admin_box_html": "<section class=\"content-section\">\n  <h2>The Hands-On User Experience</h2>\n\n  <p>\n    The user interface of Joy Rummy is purposefully engineered to eliminate visual clutter, allowing players to focus entirely on tactical execution and board awareness.\n  </p>\n\n  <h3>Visual Design and Interaction Dynamics</h3>\n\n  <div class=\"feature-item\">\n    <h4>Fluid Drag-and-Drop Controls</h4>\n    <p>\n      Card movement relies on a responsive physics-based system where cards snap securely into position, offering satisfying tactile feedback during fast-paced turns.\n    </p>\n  </div>\n\n  <div class=\"feature-item\">\n    <h4>Smart Organization Tools</h4>\n    <p>\n      To alleviate screen-space limitations on smaller mobile displays, the app includes an \"Auto-Group\" feature that instantly categorizes hand components by suit and color.\n    </p>\n  </div>\n\n  <div class=\"feature-item\">\n    <h4>Distraction-Free Signaling</h4>\n    <p>\n      The digital table utilizes minimalist, high-contrast aesthetics, featuring subtle visual glows that indicate valid meld formations without pulling focus from the broader game state.\n    </p>\n  </div>\n\n  <div class=\"feature-item\">\n    <h4>Structured Communication</h4>\n    <p>\n      To maintain a positive community atmosphere, open text chat is replaced by a curated suite of animated emotes and quick phrases, enabling efficient expression without interrupting match pacing.\n    </p>\n  </div>\n\n  <h3>Player Engagement and Community Feedback</h3>\n\n  <p>\n    User interaction patterns and reviews highlight several core operational strengths alongside areas for continuous technical refinement.\n  </p>\n\n  <div class=\"feature-item\">\n    <h4>Rapid Match Initiation</h4>\n    <p>\n      Players frequently praise the speed of the global matchmaking queue, noting an average transition time of under ten seconds from the home screen to an active table.\n    </p>\n  </div>\n\n  <div class=\"feature-item\">\n    <h4>Pacing and Advertisement Flow</h4>\n    <p>\n      As a freemium platform, video advertisements are displayed between completed rounds. While necessary for platform maintenance, some users observe that ad frequency can occasionally disrupt long gaming sessions.\n    </p>\n  </div>\n\n  <div class=\"feature-item\">\n    <h4>Interface Density</h4>\n    <p>\n      While the responsive layout adapts well to modern devices, users operating older, compact smartphones occasionally report that managing 13 stacked cards requires precise touch inputs to avoid accidental discards.\n    </p>\n  </div>\n</section>",
@@ -433,7 +433,7 @@ export const mockApps: AppConfig[] = [
     "id": "e1qcs5ik7",
     "developer": "Pixel Card Studios",
     "version": "1.0",
-    "url": "https://play.google.com/store/apps/details?id=com.rummydex.joy-rummy"
+    "url": ""
   },
   {
     "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784877512/download_16_fznggx.webp",
@@ -482,7 +482,7 @@ export const mockApps: AppConfig[] = [
     "seo_keywords": "",
     "seo_description": "RummyDex. Discover the app's traditional 13-card rummy mechanics, Teen Patti hand rankings, smart hint system, and smooth offline performance.",
     "category": "All Apps, Yono Apps",
-    "url": "https://play.google.com/store/apps/details?id=com.rummydex.jaiho-91"
+    "url": ""
   },
   {
     "category": "All Apps, Yono Apps",
@@ -531,7 +531,7 @@ export const mockApps: AppConfig[] = [
     "file_size": "45 MB",
     "rating": 4.1,
     "og_image_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784877617/download_19_w2sxhp.webp",
-    "url": "https://play.google.com/store/apps/details?id=com.rummydex.ok-rummy"
+    "url": ""
   },
   {
     "faqs": [
@@ -580,7 +580,7 @@ export const mockApps: AppConfig[] = [
     "safety_status": "Verified",
     "slug": "jaiho-slots",
     "video_url": "",
-    "url": "https://play.google.com/store/apps/details?id=com.rummydex.jaiho-slots"
+    "url": ""
   },
   {
     "idea_box_msg": "",
@@ -629,7 +629,7 @@ export const mockApps: AppConfig[] = [
     "id": "l7e8oyo9m",
     "video_url": "",
     "encrypted_link": "",
-    "url": "https://play.google.com/store/apps/details?id=com.rummydex.yono-arcade"
+    "url": ""
   },
   {
     "custom_admin_box_html": "",
@@ -678,7 +678,7 @@ export const mockApps: AppConfig[] = [
     "encrypted_link": "",
     "seo_keywords": "",
     "idea_box_msg": "",
-    "url": "https://play.google.com/store/apps/details?id=com.rummydex.bingo-101"
+    "url": ""
   },
   {
     "id": "08exxq5q9",
@@ -727,7 +727,7 @@ export const mockApps: AppConfig[] = [
     ],
     "red_box_msg": "",
     "category": "All Apps, Yono Apps",
-    "url": "https://play.google.com/store/apps/details?id=com.rummydex.abc-rummy"
+    "url": ""
   },
   {
     "safety_status": "Verified",
@@ -776,7 +776,7 @@ export const mockApps: AppConfig[] = [
     "seo_keywords": "",
     "idea_box_msg": "",
     "red_box_msg": "",
-    "url": "https://play.google.com/store/apps/details?id=com.rummydex.ever-777"
+    "url": ""
   },
   {
     "description_html": "<h2>Part 1: Key Features and Core Mechanics of Love Rummy</h2>\n\n<p>Love Rummy moves beyond traditional tabletop formats to offer a highly structured, level-based engagement platform. Designed for users who enjoy unlocking milestones and tracking long-term progress, the application functions as an interactive hub filled with daily challenges and varied digital activities.</p>\n\n<h3>The Core Game Mechanics</h3>\n\n<p>The application is built around continuous interaction and unlocking new stages of play:</p>\n\n<p><ul></p>\n\n<p><li><strong>Level-by-Level Progression:</strong> Instead of single matches, players advance through multiple structured achievement tiers. Completing activities earns progression points that push your profile from beginner stages to advanced milestone levels.</li></p>\n\n<p><li><strong>Daily Missions:</strong> The game refreshes with new, specific activity goals every 24 hours. Successfully completing these daily checklists is the primary way to earn virtual rewards and advance to the next level.</li></p>\n\n<p><li><strong>The Lucky Spin Wheel:</strong> A prominent interactive feature that users can engage with to unlock special virtual bonuses, adding a layer of daily excitement to the standard progression loop.</li></p>\n\n<h3></ul></h3>\n\n<h3>Educational and Strategic Value</h3>\n\n<p>While designed purely for fun, the application encourages active task management:</p>\n\n<p><ul></p>\n\n<p><li><strong>Goal Orientation:</strong> Navigating the daily missions teaches users to prioritize specific tasks to maximize their daily virtual point earnings.</li></p>\n\n<p><li><strong>Consistency and Routine:</strong> The tiered achievement system encourages regular participation, rewarding players who log in daily and complete their milestone checklists over time.</li></p>\n\n<h3></ul></h3>\n\n<h2>Part 2: The Hands-On User Experience</h2>\n\n<p>The user interface of Love Rummy is designed to be highly intuitive, ensuring that players can easily track their levels and jump into activities without getting lost in complicated menus.</p>\n\n<h3>Visual Design and Interaction Dynamics</h3>\n\n<p><ul></p>\n\n<p><li><strong>Personal Profile Dashboard:</strong> The app features a centralized hub where users can instantly view their current level, activity history, and overall progress bar.</li></p>\n\n<p><li><strong>Smooth Navigation:</strong> Transitioning between the Spin Wheel, the daily mission log, and the active game zones is seamless, ensuring a responsive and enjoyable mobile experience.</li></p>\n\n<p><li><strong>Clear Visual Tracking:</strong> Whenever a milestone is reached or a level is completed, the app provides satisfying visual feedback, clearly indicating what new features or achievements have been unlocked.</li></p>\n\n<h3></ul></h3>\n\n<h3>Player Engagement and Community Feedback</h3>\n\n<p>Based on standard engagement patterns, the platform is praised for its structured pacing:</p>\n\n<p><ul></p>\n\n<p><li><strong>Community Connection:</strong> The application includes features to invite friends, allowing users to share their milestone progress and explore the level system alongside others.</li></p>\n\n<p><li><strong>Rewarding Loop:</strong> Users appreciate that the level-based design provides a constant sense of forward momentum, as there is always a new tier or daily task waiting to be completed.</li></p>\n\n<h3></ul></h3>\n\n<h2>Part 3: Technical Architecture and Application Details</h2>\n\n<p>Featured on RummyDex, Love Rummy provides a rich, multi-leveled experience while maintaining excellent performance standards across supported devices.</p>\n\n<h3>System Specifications and Footprint</h3>\n\n<p><ul></p>\n\n<p><li><strong>Optimized Performance:</strong> The application is engineered to provide a smooth, lag-free experience, ensuring that spin animations and level transitions do not slow down your device.</li></p>\n\n<p><li><strong>Accessible Design:</strong> Holding an \"Everyone\" rating, the application is universally accessible, featuring safe, family-friendly tasks and interactive features.</li></p>\n\n<h3></ul></h3>\n\n<h2>Monetization Framework and App Economy</h2>\n\n<p><ul></p>\n\n<p><li><strong>Entertainment-Only Focus:</strong> The platform operates strictly with virtual items and progression points. It is built entirely for recreational engagement and task completion.</li></p>\n\n<p><li><strong>Accessible Play:</strong> Players can access the core daily missions and level up their profiles through regular participation without mandatory requirements.</li></p>\n\n<h3></ul></h3>\n\n<h2>Data Safety and Permissions</h2>\n\n<p>The application maintains transparent operational guidelines regarding user interaction:</p>\n\n<p><ul></p>\n\n<p><li><strong>No Third-Party Sharing:</strong> The developer states that data is not shared with third-party companies, prioritizing user privacy during daily use.</li></p>\n\n<p><li><strong>Profile Management:</strong> User statistics, level progress, and activity history are managed directly within the app's secure profile system.</li></p>\n\n<h3></ul></h3>",
@@ -825,7 +825,7 @@ export const mockApps: AppConfig[] = [
     ],
     "video_url": "",
     "og_image_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784878950/download_31_s7fonv.webp",
-    "url": "https://play.google.com/store/apps/details?id=com.rummydex.love-rummy"
+    "url": ""
   },
   {
     "safety_status": "Verified",
@@ -874,7 +874,7 @@ export const mockApps: AppConfig[] = [
     "updated_at": "2026-08-06T10:52:17.329Z",
     "idea_box_msg": "",
     "seo_keywords": "",
-    "url": "https://play.google.com/store/apps/details?id=com.rummydex.share-slots"
+    "url": ""
   },
   {
     "publish_date": "",
@@ -923,7 +923,7 @@ export const mockApps: AppConfig[] = [
     "og_image_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784879809/download_39_znq2ql.webp",
     "serial_number": 16,
     "canonical_url": "https://www.rummydex.com/app/yono-vip",
-    "url": "https://play.google.com/store/apps/details?id=com.rummydex.yono-vip"
+    "url": ""
   },
   {
     "custom_admin_box_html": "",
@@ -972,7 +972,7 @@ export const mockApps: AppConfig[] = [
     "id": "m6bwb6cnb",
     "release_notes": "",
     "encrypted_link": "",
-    "url": "https://play.google.com/store/apps/details?id=com.rummydex.maha-games"
+    "url": ""
   },
   {
     "encrypted_link": "",
@@ -1021,7 +1021,7 @@ export const mockApps: AppConfig[] = [
     "seo_keywords": "",
     "idea_box_msg": "",
     "id": "y7lefyq14",
-    "url": "https://play.google.com/store/apps/details?id=com.rummydex.rummy-ludo"
+    "url": ""
   },
   {
     "is_coming_soon": false,
@@ -1070,7 +1070,7 @@ export const mockApps: AppConfig[] = [
     "file_size": "50 MB",
     "custom_admin_box_heading": "",
     "seo_title": "789 Jackports : Orbital Puzzles & Sequence Mechanics | RummyDex",
-    "url": "https://play.google.com/store/apps/details?id=com.rummydex.789-jackports"
+    "url": ""
   },
   {
     "release_notes": "",
@@ -1119,7 +1119,7 @@ export const mockApps: AppConfig[] = [
     "file_size": "71.11 MB",
     "category": "All Apps, Yono Apps",
     "seo_title": "777 Game App Review: The 3D Matrix & Spatial Puzzles | RummyDex",
-    "url": "https://play.google.com/store/apps/details?id=com.rummydex.777-game"
+    "url": ""
   },
   {
     "category": "Card Apps",
@@ -1155,7 +1155,7 @@ export const mockApps: AppConfig[] = [
     "release_notes": "Price Free to download\nAds Contains ads\nIn-App Purchases Yes — virtual chips and items with real money\nMinimum Android Android 4.1+\nFirst Released January 2017",
     "rating": 4.5,
     "features_html": "",
-    "url": "https://play.google.com/store/apps/details?id=com.rummydex.baccarist"
+    "url": ""
   },
   {
     "release_notes": "In-App Purchases Yes — ad removal, coins, hints, and cosmetic items\nAds Contains ads (banner, interstitial, rewarded video)\nMinimum Android Android 5.0+ (varies by source)",
@@ -1191,7 +1191,7 @@ export const mockApps: AppConfig[] = [
     "yellow_box_msg": "",
     "video_url": "",
     "screenshots": [],
-    "url": "https://play.google.com/store/apps/details?id=com.rummydex.solitaire"
+    "url": ""
   },
   {
     "red_box_msg": "",
@@ -1227,7 +1227,7 @@ export const mockApps: AppConfig[] = [
     "custom_admin_box_heading": "",
     "release_notes": "",
     "features_html": "",
-    "url": "https://play.google.com/store/apps/details?id=com.rummydex.vita-mahjong"
+    "url": ""
   }
 ] as any[];
 
