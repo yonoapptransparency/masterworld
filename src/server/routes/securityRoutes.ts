@@ -2,6 +2,7 @@ import express from 'express';
 import crypto from 'crypto';
 import { getIp, ensureSession, generateToken, verifyToken } from '../security';
 import { ENCRYPTED_LINKS } from '../../lib/secureVault';
+import { vaultNode } from '../../lib/vaultNode';
 import { safeDecrypt, getAesSecret } from '../crypto';
 import { getFirebaseAdminDb, getRawFirebaseConfig, parseFirestoreFields } from '../firebase';
 import { fetchStoreData } from '../../seoHelper';
@@ -212,23 +213,92 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
       console.warn("[SECURITY] Store data fetch failed during resolve:", e);
     }
     
-    // 2. Attempt to get from hardcoded vault
+    // 2. Attempt to get from vaultNode memory cache
+    try {
+      const payload = await vaultNode.getSyncPayload(realId) || 
+                      await vaultNode.getSyncPayload(realSlug) || 
+                      await vaultNode.getSyncPayload(appId);
+      if (payload && payload.trim().length > 0) {
+        console.log(`[SECURITY] Resolved link directly from vaultNode for ${appId}`);
+        const entry = { url: payload.trim(), timestamp: Date.now() };
+        resolvedLinkCache.set(appId.toLowerCase(), entry);
+        resolvedLinkCache.set(realId.toLowerCase(), entry);
+        resolvedLinkCache.set(realSlug.toLowerCase(), entry);
+        return res.redirect(302, payload.trim());
+      }
+    } catch (e) {
+      console.warn("[SECURITY] vaultNode lookup failed:", e);
+    }
+
+    function findUrlInVaultParsed(parsed: any, keysToSearch: string[], AES_SECRET: string): string {
+  if (!parsed) return '';
+  const searchSet = new Set(keysToSearch.map(k => k.toLowerCase().trim()).filter(Boolean));
+  const searchSetNoSep = new Set(keysToSearch.map(k => k.toLowerCase().trim().replace(/[-_ ]/g, '')).filter(Boolean));
+
+  let foundRaw = '';
+
+  if (Array.isArray(parsed)) {
+    const item = parsed.find((i: any) => {
+      const iId = (i.id || '').toLowerCase().trim();
+      const iSlug = (i.slug || '').toLowerCase().trim();
+      const iIdNoSep = iId.replace(/[-_ ]/g, '');
+      const iSlugNoSep = iSlug.replace(/[-_ ]/g, '');
+      return searchSet.has(iId) || searchSet.has(iSlug) || searchSetNoSep.has(iIdNoSep) || searchSetNoSep.has(iSlugNoSep);
+    });
+    if (item) {
+      foundRaw = item.more_information_url || item.url || item.payload || item.encrypted_link || item.download_url || '';
+    }
+  } else if (parsed && typeof parsed === 'object') {
+    for (const [k, v] of Object.entries(parsed)) {
+      const kClean = k.toLowerCase().trim();
+      const kNoSep = kClean.replace(/[-_ ]/g, '');
+      if (searchSet.has(kClean) || searchSetNoSep.has(kNoSep)) {
+        if (typeof v === 'string') {
+          foundRaw = v;
+        } else if (v && typeof v === 'object') {
+          foundRaw = (v as any).more_information_url || (v as any).url || (v as any).payload || (v as any).encrypted_link || (v as any).download_url || '';
+        }
+        if (foundRaw) break;
+      }
+    }
+  }
+
+  if (foundRaw && typeof foundRaw === 'string' && foundRaw.trim().length > 0) {
+    const trimmed = foundRaw.trim();
+    if (trimmed.startsWith('U2FsdGVkX1')) {
+      const dec = safeDecrypt(trimmed, AES_SECRET);
+      return (dec && dec.trim().length > 0) ? dec.trim() : '';
+    }
+    return trimmed;
+  }
+  return '';
+}
+
+// 3. Attempt to get from hardcoded static vault (ENCRYPTED_LINKS)
     const encryptedVault = ENCRYPTED_LINKS;
+    const searchKeys = Array.from(new Set([
+      appId,
+      realId,
+      realSlug,
+      appId.toLowerCase().trim(),
+      realId.toLowerCase().trim(),
+      realSlug.toLowerCase().trim(),
+      appId.toLowerCase().trim().replace(/[-_ ]+$/, ''),
+      realId.toLowerCase().trim().replace(/[-_ ]+$/, ''),
+      realSlug.toLowerCase().trim().replace(/[-_ ]+$/, '')
+    ])).filter(Boolean);
+
     if (encryptedVault) {
       const decryptedVault = safeDecrypt(encryptedVault, AES_SECRET);
       if (decryptedVault) {
-        const parsed = JSON.parse(decryptedVault);
-        let encryptedUrl = '';
-        if (Array.isArray(parsed)) {
-          const item = parsed.find((i: any) => i.id === realId || i.slug === realSlug || i.id === appId || i.slug === appId);
-          encryptedUrl = item?.more_information_url || item?.url || '';
-        } else {
-          const val = parsed[realId] || parsed[realSlug] || parsed[appId];
-          encryptedUrl = typeof val === 'string' ? val : (val?.more_information_url || val?.url || '');
-        }
-        
-        if (encryptedUrl) {
-          targetUrl = encryptedUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(encryptedUrl, AES_SECRET) : encryptedUrl;
+        try {
+          const parsed = JSON.parse(decryptedVault);
+          const foundUrl = findUrlInVaultParsed(parsed, searchKeys, AES_SECRET);
+          if (foundUrl) {
+            targetUrl = foundUrl;
+          }
+        } catch (jsonErr) {
+          console.warn("[SECURITY] Encrypted vault JSON parse failed:", jsonErr);
         }
       }
     }
@@ -248,17 +318,10 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
                    const dec = safeDecrypt(ciphertext, AES_SECRET);
                    if (dec) {
                       const parsed = JSON.parse(dec);
-                      let foundUrl = '';
-                      if (Array.isArray(parsed)) {
-                         const item = parsed.find((i: any) => i.id === realId || i.slug === realSlug || i.id === appId || i.slug === appId);
-                         foundUrl = item?.more_information_url || item?.url || '';
-                      } else {
-                         const val = parsed[realId] || parsed[realSlug] || parsed[appId];
-                         foundUrl = typeof val === 'string' ? val : (val?.more_information_url || val?.url || '');
-                      }
+                      const foundUrl = findUrlInVaultParsed(parsed, searchKeys, AES_SECRET);
                       if (foundUrl) {
-                         targetUrl = foundUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(foundUrl, AES_SECRET) : foundUrl;
-                         if (targetUrl) break;
+                         targetUrl = foundUrl;
+                         break;
                       }
                    }
                 }
@@ -352,23 +415,15 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
                    const dec = safeDecrypt(ciphertext, AES_SECRET);
                    if (dec) {
                       const parsed = JSON.parse(dec);
-                      let foundUrl = '';
-                      if (Array.isArray(parsed)) {
-                         const item = parsed.find((i: any) => i.id === realId || i.slug === realSlug || i.id === appId || i.slug === appId);
-                         foundUrl = item?.more_information_url || item?.url || '';
-                      } else {
-                         const val = parsed[realId] || parsed[realSlug] || parsed[appId];
-                         foundUrl = typeof val === 'string' ? val : (val?.more_information_url || val?.url || '');
-                      }
+                      const foundUrl = findUrlInVaultParsed(parsed, searchKeys, AES_SECRET);
                       if (foundUrl) {
-                         targetUrl = foundUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(foundUrl, AES_SECRET) : foundUrl;
-                         if (targetUrl) break;
+                         targetUrl = foundUrl;
+                         break;
                       }
                    }
                 }
              }
           }
-
         }
       }
     } catch (fsFallbackErr) {

@@ -8,6 +8,7 @@ import { rateLimit, getIp } from '../security';
 import { clearResolvedLinkCache } from './securityRoutes';
 import { clearPublicBackupCache } from './publicApiRoutes';
 import { clearSeoCache } from '../../seoHelper';
+import { vaultNode } from '../../lib/vaultNode';
 
 export const adminVaultRouter = express.Router();
 
@@ -343,6 +344,11 @@ adminVaultRouter.post("/api/v1/admin/encrypt-links", verifyAdminToken, async (re
     }
 
     clearResolvedLinkCache();
+    try {
+      vaultNode.refresh();
+    } catch (vErr) {
+      console.warn("[SERVER] VaultNode refresh error:", vErr);
+    }
     res.json({ encrypted: ciphertext, savedToCloud: true });
   } catch (err) {
     res.status(500).json({ error: 'Links encryption failed' });

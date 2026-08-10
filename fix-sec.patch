@@ -1,0 +1,10 @@
+--- src/server/routes/securityRoutes.ts
++++ src/server/routes/securityRoutes.ts
+@@ -370,6 +370,7 @@
+            }
+ 
+          }
++      }
+       }
+     } catch (fsFallbackErr) {
+       console.error("[SECURITY] Firestore link resolution fallback failed:", fsFallbackErr);

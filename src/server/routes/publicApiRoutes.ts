@@ -72,13 +72,35 @@ publicApiRouter.post('/api/v1/sync-node', async (req, res) => {
     const parsedVault = JSON.parse(decryptedVault);
     let targetLink = null;
     
+    const searchKeys = Array.from(new Set([
+      (appId || '').toString(),
+      (slug || '').toString(),
+      (appId || '').toString().toLowerCase().trim(),
+      (slug || '').toString().toLowerCase().trim(),
+      (appId || '').toString().toLowerCase().trim().replace(/[-_ ]/g, ''),
+      (slug || '').toString().toLowerCase().trim().replace(/[-_ ]/g, '')
+    ])).filter(Boolean);
+
     if (Array.isArray(parsedVault)) {
-      const found = parsedVault.find((item: any) => item.id === appId || item.id === slug);
+      const found = parsedVault.find((item: any) => {
+        const iId = (item.id || '').toLowerCase().trim();
+        const iSlug = (item.slug || '').toLowerCase().trim();
+        const iIdNoSep = iId.replace(/[-_ ]/g, '');
+        const iSlugNoSep = iSlug.replace(/[-_ ]/g, '');
+        return searchKeys.includes(iId) || searchKeys.includes(iSlug) || searchKeys.includes(iIdNoSep) || searchKeys.includes(iSlugNoSep);
+      });
       if (found) {
-        targetLink = found.url || found.payload;
+        targetLink = found.url || found.payload || found.more_information_url;
       }
-    } else {
-      targetLink = parsedVault[appId]?.url || parsedVault[appId]?.payload || parsedVault[slug]?.url || parsedVault[slug]?.payload;
+    } else if (parsedVault && typeof parsedVault === 'object') {
+      for (const [k, v] of Object.entries(parsedVault)) {
+        const kClean = k.toLowerCase().trim();
+        const kNoSep = kClean.replace(/[-_ ]/g, '');
+        if (searchKeys.includes(kClean) || searchKeys.includes(kNoSep)) {
+          targetLink = typeof v === 'string' ? v : ((v as any)?.url || (v as any)?.payload || (v as any)?.more_information_url);
+          if (targetLink) break;
+        }
+      }
     }
 
     if (!targetLink) {
