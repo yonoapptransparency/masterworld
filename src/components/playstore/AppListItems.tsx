@@ -110,7 +110,7 @@ export const AppListItem = React.memo(({ app, index }: { app: any; index?: numbe
       style={{
         animationDelay: `${((index || 0) % 15) * 15}ms`,
       }}
-      className={`animate-list-item-fade relative group ${isMenuOpen ? 'z-[60]' : 'z-1'}`}
+      className={`animate-list-item-fade cv-auto relative group ${isMenuOpen ? 'z-[60]' : 'z-1'}`}
     >
       <Link 
         to={`/app/${app.slug}`}
@@ -185,7 +185,7 @@ export const TopChartItem = React.memo(({ rank, app }: { rank: number; app: any 
       style={{
         animationDelay: `${(rank % 15) * 15}ms`,
       }}
-      className={`animate-list-item-fade relative group ${isMenuOpen ? 'z-[60]' : 'z-1'}`}
+      className={`animate-list-item-fade cv-auto relative group ${isMenuOpen ? 'z-[60]' : 'z-1'}`}
     >
       <Link 
         to={`/app/${app.slug}`}

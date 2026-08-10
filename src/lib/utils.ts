@@ -12,7 +12,11 @@ export function cn(...inputs: any[]): string {
 export function safeVibrate(pattern: number | number[]): void {
   try {
     if (typeof window !== 'undefined' && window.navigator && typeof window.navigator.vibrate === 'function') {
-      window.navigator.vibrate(pattern);
+      setTimeout(() => {
+        try {
+          window.navigator.vibrate(pattern);
+        } catch (e) {}
+      }, 0);
     }
   } catch (e) {
     // Catch security or iframe guest gesture exceptions silently

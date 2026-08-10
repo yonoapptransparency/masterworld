@@ -404,38 +404,12 @@ a {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Ultra-smooth 120fps performance tweaks */
-html.lenis, html.lenis body {
-  height: auto;
-}
-
-.lenis.lenis-smooth {
-  scroll-behavior: auto !important;
-}
-
-.lenis.lenis-smooth [data-lenis-prevent] {
-  overscroll-behavior: contain;
-}
-
-.lenis.lenis-stopped {
-  overflow: hidden;
-}
-
-.lenis.lenis-scrolling iframe {
-  pointer-events: none;
-}
-
-/* Disable hover effects while scrolling to maintain 120fps */
-html.lenis-scrolling * {
-  pointer-events: none !important;
-}
-
 /* Hardware acceleration for scrolling without memory thrashing */
 .overflow-y-auto, .overflow-x-auto {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Isolate list layout reflows & GPU composition for 120fps scrolling */
+/* Isolate list layout reflows & GPU composition for ultra-fast scrolling */
 .animate-list-item-fade {
   contain: layout style paint;
   content-visibility: auto;
@@ -755,17 +729,66 @@ html.lenis-scrolling * {
   -webkit-tap-highlight-color: transparent;
 }
 
-button, a, .glass-panel, .sticky, .fixed, .premium-action-btn, img, .hover-float {
-  /* Force GPU compositing for instant touch feedback */
-  transform: translateZ(0);
+button, a, .glass-panel, .sticky, .fixed, .premium-action-btn {
   -webkit-font-smoothing: antialiased;
+}
+
+/* ====== LOW-POWER / MOBILE SMARTPHONE ULTRA PERFORMANCE OPTIMIZATION ====== */
+@media (max-width: 768px) {
+  html {
+    scroll-behavior: auto !important; /* Eliminates touch scroll input lag on entry-level Android devices */
+  }
+
+  /* Disable heavy backdrop-filter blur on mobile to completely eliminate GPU scroll stuttering */
+  .glass-nav {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: var(--ticker-bg) !important;
+  }
+
+  .glass-panel {
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04) !important;
+    transition: none !important; /* Skip heavy layout transitions on mobile touch */
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  /* Disable continuous background animations and text-shadows on mobile to save GPU cycles & battery */
+  .premium-action-btn-pulse::after,
+  .premium-logo-slow-vibrate,
+  .hw-shimmer,
+  .animate-pulse,
+  .animate-spin {
+    animation: none !important;
+    filter: none !important;
+  }
+
+  /* Render images with content-visibility auto for instant GPU paint cycles */
+  img {
+    content-visibility: auto;
+  }
+
+  /* Instant list items rendering without staggered animation lag on low budget screens */
+  .animate-list-item-fade {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    content-visibility: auto;
+    contain-intrinsic-size: 1px 80px;
+  }
+
+  /* Off-screen rendering isolation for instant scrolling performance */
+  .cv-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: 1px 90px;
+  }
 }
 
 /* Restore the fluid press physics */
 button:active, a:active, .glass-panel:active, .premium-action-btn:active {
-  transform: scale(0.97) translateZ(0) !important;
+  transform: scale(0.98) !important;
   opacity: 0.92 !important;
-  transition: transform 0.1s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.1s ease !important;
+  transition: transform 0.08s ease, opacity 0.08s ease !important;
 }
 
 /* Enable smooth scrolling in all scrollable containers */
@@ -773,7 +796,7 @@ button:active, a:active, .glass-panel:active, .premium-action-btn:active {
   -webkit-overflow-scrolling: touch !important;
 }
 
-/* Ensure body doesn't lag */
+/* Ensure native scroll momentum on Android & iOS without resistance */
 body {
-  overscroll-behavior-y: none;
+  overscroll-behavior-y: auto;
 }
