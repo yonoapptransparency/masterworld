@@ -26,60 +26,14 @@ export const useClearanceFlow = (appId: string) => {
   }, [state.tokenCountdown]);
 
   const triggerHandshake = useCallback(async (targetWin: Window | null) => {
-    setState(prev => ({ ...prev, phase: 'handshake', progress: 10, errorMsg: '' }));
+    setState(prev => ({ ...prev, phase: 'ready', progress: 100 }));
 
-    try {
-      // 1. Get Challenge
-      const chalRes = await fetch('/api/v1/_chal');
-      if (!chalRes.ok) throw new Error('Security Node Unreachable');
-      const { nonce, difficulty, sid } = await chalRes.json();
-      
-      setState(prev => ({ ...prev, phase: 'solving', progress: 30, sid }));
+    const payloadUrl = `/api/v1/moreinfo-resolve?id=${encodeURIComponent(appId)}`;
 
-      // 2. Solve PoW and Fingerprint
-      const fingerprint = await generateFingerprint();
-      const solution = await solveChallenge(nonce, difficulty);
-
-      setState(prev => ({ ...prev, progress: 70 }));
-
-      // 3. Verify Solution
-      const procRes = await fetch('/api/v1/_proc', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nonce, solution, fingerprint, appId, sid }),
-      });
-
-      const procData = await procRes.json();
-      if (!procRes.ok) throw new Error(procData.error || 'Verification Failed');
-
-      const token = procData.token;
-      const params = new URLSearchParams({ t: token, id: appId, sid: sid || '', fp: fingerprint });
-      const payloadUrl = `/api/v1/moreinfo-resolve?${params.toString()}`;
-
-      setState(prev => ({
-        ...prev,
-        phase: 'ready',
-        progress: 100,
-        token,
-        dynamicLink: payloadUrl,
-        tokenCountdown: 30
-      }));
-
-      // 4. Redirect seamlessly in the same tab for a true 1-click experience
-      if (targetWin && !targetWin.closed) {
-        targetWin.location.href = payloadUrl;
-      } else {
-        window.location.href = payloadUrl;
-      }
-
-    } catch (err: any) {
-      console.error('[ClearanceFlow] Error:', err);
-      setState(prev => ({
-        ...prev,
-        phase: 'error',
-        errorMsg: err.message || 'An unexpected security error occurred.'
-      }));
-      if (targetWin) targetWin.close();
+    if (targetWin && !targetWin.closed) {
+      targetWin.location.href = payloadUrl;
+    } else {
+      window.location.href = payloadUrl;
     }
   }, [appId]);
 

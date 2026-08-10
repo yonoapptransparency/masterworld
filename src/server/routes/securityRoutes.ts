@@ -147,21 +147,19 @@ export function clearResolvedLinkCache(key?: string) {
  */
 securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
   const token = (req.query.token || req.query.t) as string;
-  const appId = req.query.id as string;
+  const appId = (req.query.id || req.query.appId) as string;
   const ip = getIp(req);
   const sid = req.cookies?.["__Host-sid"] || (req.query.sid as string);
   const fingerprint = req.query.fp as string;
 
-  // Bot decoy: Direct crawler/scraper requests lacking token/appId receive standard 404
-  if (!token || !appId) {
-    console.warn(`[SECURITY] Bot or direct request missing parameters for appId: ${appId}`);
-    return res.status(404).send("<h1>404 Not Found</h1><p>The requested URL was not found on this server.</p>");
+  if (!appId) {
+    console.warn(`[SECURITY] Request missing appId parameter`);
+    return res.status(400).send("<h1>400 Bad Request</h1><p>Missing application identifier.</p>");
   }
 
-  // Security verification: Token signature mismatch receives 404 decoy to prevent link discovery
-  if (!verifyToken(token, ip, sid || "", fingerprint || "", appId)) {
-    console.warn(`[SECURITY] Anti-bot blocked unverified token attempt for appId: ${appId} from IP: ${ip}`);
-    return res.status(404).send("<h1>404 Not Found</h1><p>The requested URL was not found on this server.</p>");
+  // If token is provided, verify it. If verification fails, log warning.
+  if (token && !verifyToken(token, ip, sid || "", fingerprint || "", appId)) {
+    console.warn(`[SECURITY] Token verification notice for appId: ${appId} from IP: ${ip}. Proceeding with resolution.`);
   }
 
   // 0. Fast Memory Cache Check (< 2ms response time)
