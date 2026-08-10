@@ -688,7 +688,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
 
   const robotsTag = isNotFound 
     ? '<meta data-rh="true" name="robots" content="noindex, follow">' 
-    : ((cleanPathLower.startsWith('/info/') || cleanPathLower.startsWith('/moreinfo/') || cleanPathLower.startsWith('/moredetail/')) ? '<meta data-rh="true" name="robots" content="noindex, follow">' : '<meta data-rh="true" name="robots" content="index, follow">');
+    : ((cleanPathLower.startsWith('/info/') || cleanPathLower.startsWith('/moreinfo/') || cleanPathLower.startsWith('/moredetail/')) ? '<meta data-rh="true" name="robots" content="noindex, follow">' : '<meta data-rh="true" name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">');
 
   const seoTags = `
     <title data-rh="true">${title}</title>

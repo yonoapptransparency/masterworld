@@ -397,7 +397,7 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
       addUrl(`${host}${page.path}`, null, page.changefreq, page.priority);
     }
 
-    // Apps
+    // Apps (canonical app detail URLs)
     for (const app of apps) {
       const slug = getField(app, 'slug');
       if (slug) {
@@ -428,19 +428,6 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
             getField(blog, 'title')
           );
         }
-      }
-    }
-
-    // Gateway + info routes for every app
-    for (const app of apps) {
-      const slug = getField(app, 'slug');
-      if (slug) {
-        const cSlug = cleanSlug(slug);
-        const appDate = getFormattedDate(app);
-        addUrl(`${host}/s/${cSlug}`, appDate, 'weekly', '0.8');
-        addUrl(`${host}/info/${cSlug}`, appDate, 'monthly', '0.6');
-        addUrl(`${host}/moreinfo/${cSlug}`, appDate, 'monthly', '0.6');
-        addUrl(`${host}/moredetail/${cSlug}`, appDate, 'monthly', '0.6');
       }
     }
 
