@@ -104,7 +104,7 @@ export const ReportAppModal: React.FC<ReportAppModalProps> = ({ app, onClose }) 
               {/* Reasons */}
               <div className="space-y-2">
                 {[
-                  { id: 'harmful', label: 'Harmful, malicious, or contains malware' },
+                  { id: 'harmful', label: 'Safety issue or malicious software' },
                   { id: 'spam', label: 'Spam, fake, or misleading metadata' },
                   { id: 'intellectual', label: 'Intellectual property or brand violation' },
                   { id: 'other', label: 'Other/safety violation' }
