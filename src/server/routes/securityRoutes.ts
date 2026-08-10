@@ -163,13 +163,22 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
     console.warn(`[SECURITY] Token verification notice for appId: ${appId} from IP: ${ip}. Proceeding with resolution.`);
   }
 
+  // Helper function to respond with JSON if requested or redirect via 302
+  function respondWithUrl(targetUrl: string) {
+    const cleanUrl = targetUrl.trim();
+    if (req.query.json === 'true' || (req.headers.accept && req.headers.accept.includes('application/json'))) {
+      return res.json({ success: true, url: cleanUrl });
+    }
+    return res.redirect(302, cleanUrl);
+  }
+
   // 0. Fast Memory Cache Check (< 2ms response time)
   const lookupKeys = [appId.toLowerCase(), appId.trim().toLowerCase()];
   for (const k of lookupKeys) {
     const cached = resolvedLinkCache.get(k);
     if (cached && (Date.now() - cached.timestamp < LINK_CACHE_TTL)) {
       console.log(`[SECURITY] Memory cache hit (<2ms) for appId: ${appId}`);
-      return res.redirect(302, cached.url);
+      return respondWithUrl(cached.url);
     }
   }
 
@@ -241,7 +250,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
         console.log(`[SECURITY] Instant resolution from vaultNode for ${appId}`);
         const entry = { url: payload.trim(), timestamp: Date.now() };
         resolvedLinkCache.set(appId.toLowerCase(), entry);
-        return res.redirect(302, payload.trim());
+        return respondWithUrl(payload.trim());
       }
     } catch (e) {}
 
@@ -255,7 +264,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
             console.log(`[SECURITY] Instant resolution from ENCRYPTED_LINKS for ${appId}`);
             const entry = { url: foundUrl.trim(), timestamp: Date.now() };
             resolvedLinkCache.set(appId.toLowerCase(), entry);
-            return res.redirect(302, foundUrl.trim());
+            return respondWithUrl(foundUrl.trim());
           }
         } catch (e) {}
       }
@@ -300,7 +309,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
             resolvedLinkCache.set(appId.toLowerCase(), entry);
             resolvedLinkCache.set(realId.toLowerCase(), entry);
             resolvedLinkCache.set(realSlug.toLowerCase(), entry);
-            return res.redirect(302, dec.trim());
+            return respondWithUrl(dec.trim());
           }
         }
       }
@@ -337,7 +346,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
             resolvedLinkCache.set(appId.toLowerCase(), entry);
             resolvedLinkCache.set(realId.toLowerCase(), entry);
             resolvedLinkCache.set(realSlug.toLowerCase(), entry);
-            return res.redirect(302, dec.trim());
+            return respondWithUrl(dec.trim());
           }
         }
       }
@@ -416,7 +425,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
       vaultNode.setPayload(appId, targetUrl.trim());
       vaultNode.setPayload(realId, targetUrl.trim());
       vaultNode.setPayload(realSlug, targetUrl.trim());
-      return res.redirect(302, targetUrl.trim());
+      return respondWithUrl(targetUrl.trim());
     }
     
     // 4. Attempt Fallback: Check Individual app_secure_links & apps collection
@@ -448,12 +457,12 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
               const entry = { url: decrypted.trim(), timestamp: Date.now() };
               resolvedLinkCache.set(appId.toLowerCase(), entry);
               resolvedLinkCache.set(realId.toLowerCase(), entry);
-              return res.redirect(302, decrypted.trim());
+              return respondWithUrl(decrypted.trim());
             } else if (isValidTargetUrl(encrypted)) {
               const entry = { url: encrypted.trim(), timestamp: Date.now() };
               resolvedLinkCache.set(appId.toLowerCase(), entry);
               resolvedLinkCache.set(realId.toLowerCase(), entry);
-              return res.redirect(302, encrypted.trim());
+              return respondWithUrl(encrypted.trim());
             }
           }
         }
@@ -471,7 +480,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
                 const entry = { url: dec.trim(), timestamp: Date.now() };
                 resolvedLinkCache.set(appId.toLowerCase(), entry);
                 resolvedLinkCache.set(realId.toLowerCase(), entry);
-                return res.redirect(302, dec.trim());
+                return respondWithUrl(dec.trim());
               }
             }
           }
@@ -543,7 +552,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
       const entry = { url: targetUrl.trim(), timestamp: Date.now() };
       resolvedLinkCache.set(appId.toLowerCase(), entry);
       resolvedLinkCache.set(realId.toLowerCase(), entry);
-      return res.redirect(302, targetUrl.trim());
+      return respondWithUrl(targetUrl.trim());
     }
     
     // 5. Final Last-Ditch Fallback: Check staticData directly in memory
@@ -561,7 +570,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
          if (rawUrl && typeof rawUrl === 'string') {
            const dec = rawUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(rawUrl, AES_SECRET) : rawUrl;
            if (isValidTargetUrl(dec)) {
-              return res.redirect(302, dec.trim());
+              return respondWithUrl(dec.trim());
            }
          }
        }

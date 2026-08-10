@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Lock, Loader2 } from 'lucide-react';
 
 interface ClearanceButtonProps {
@@ -10,6 +10,9 @@ interface ClearanceButtonProps {
 export default function ClearanceButton({ appId }: ClearanceButtonProps) {
   const targetUrl = `/api/v1/moreinfo-resolve?id=${encodeURIComponent(appId)}`;
   const [stepIndex, setStepIndex] = useState<number>(-1);
+  const resolvedUrlRef = useRef<string | null>(null);
+  const isFetchingRef = useRef<boolean>(false);
+  const clickedRef = useRef<boolean>(false);
 
   const steps = [
     { short: 'Initializing...', detail: 'Initializing secure sequence...' },
@@ -26,14 +29,50 @@ export default function ClearanceButton({ appId }: ClearanceButtonProps) {
     { short: 'Redirecting...', detail: 'Redirecting to destination...' },
   ];
 
+  // Pre-fetch in background silently as soon as page mounts
+  useEffect(() => {
+    let isMounted = true;
+    const prefetch = async () => {
+      if (isFetchingRef.current || resolvedUrlRef.current) return;
+      isFetchingRef.current = true;
+      try {
+        const res = await fetch(`/api/v1/moreinfo-resolve?id=${encodeURIComponent(appId)}&json=true`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.url && isMounted) {
+            resolvedUrlRef.current = data.url;
+            // If user clicked while prefetch was in flight, redirect INSTANTLY with 0ms delay!
+            if (clickedRef.current) {
+              window.location.href = data.url;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("[CLEARANCE] Background resolution notice:", e);
+      } finally {
+        isFetchingRef.current = false;
+      }
+    };
+
+    prefetch();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [appId]);
+
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
-    if (stepIndex !== -1) return;
+    if (clickedRef.current) return;
+    clickedRef.current = true;
 
-    // Immediately trigger location navigation so browser works in background with 0ms delay
-    window.location.href = targetUrl;
+    // IF background work ALREADY completed: ZERO MILLISECONDS DELAY!
+    if (resolvedUrlRef.current) {
+      window.location.href = resolvedUrlRef.current;
+      return;
+    }
 
-    // Instantly show loading state on the surface UI
+    // IF background work still in-flight: show surface status steps and redirect the EXACT millisecond it completes!
     setStepIndex(0);
 
     let current = 0;
@@ -42,10 +81,21 @@ export default function ClearanceButton({ appId }: ClearanceButtonProps) {
       setStepIndex(current);
     }, 250);
 
-    // Safeguard to clear interval if page remains
+    // Watch for resolution completion with zero delay
+    const checkTimer = setInterval(() => {
+      if (resolvedUrlRef.current) {
+        clearInterval(checkTimer);
+        clearInterval(interval);
+        window.location.href = resolvedUrlRef.current;
+      }
+    }, 20);
+
+    // Safety fallback: if pre-fetch doesn't resolve within 2s, trigger standard location redirect
     setTimeout(() => {
+      clearInterval(checkTimer);
       clearInterval(interval);
-    }, 20000);
+      window.location.href = targetUrl;
+    }, 2000);
   };
 
   const isProcessing = stepIndex !== -1;
