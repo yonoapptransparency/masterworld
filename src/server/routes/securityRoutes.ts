@@ -176,7 +176,91 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
     let targetUrl = '';
     const AES_SECRET = getAesSecret();
 
-    // 1. Resolve real ID/Slug using memory store with fuzzy matching
+    function isValidTargetUrl(url: string | undefined | null): boolean {
+      if (!url || typeof url !== 'string') return false;
+      const clean = url.trim().toLowerCase();
+      if (clean === '' || clean === 'undefined' || clean === 'null' || clean === '#') return false;
+      if (clean.includes('com.rummydex') || clean.includes('com.example')) return false;
+      return clean.startsWith('http://') || clean.startsWith('https://');
+    }
+
+    function findUrlInVaultParsed(parsed: any, keysToSearch: string[], AES_SECRET: string): string {
+      if (!parsed) return '';
+      const searchSet = new Set(keysToSearch.map(k => k.toLowerCase().trim()).filter(Boolean));
+      const searchSetNoSep = new Set(keysToSearch.map(k => k.toLowerCase().trim().replace(/[-_ ]/g, '')).filter(Boolean));
+
+      let foundRaw = '';
+
+      if (Array.isArray(parsed)) {
+        const item = parsed.find((i: any) => {
+          const iId = (i.id || '').toLowerCase().trim();
+          const iSlug = (i.slug || '').toLowerCase().trim();
+          const iIdNoSep = iId.replace(/[-_ ]/g, '');
+          const iSlugNoSep = iSlug.replace(/[-_ ]/g, '');
+          return searchSet.has(iId) || searchSet.has(iSlug) || searchSetNoSep.has(iIdNoSep) || searchSetNoSep.has(iSlugNoSep);
+        });
+        if (item) {
+          foundRaw = item.more_information_url || item.encrypted_link || item.download_url || item.payload || item.url || '';
+        }
+      } else if (parsed && typeof parsed === 'object') {
+        for (const [k, v] of Object.entries(parsed)) {
+          const kClean = k.toLowerCase().trim();
+          const kNoSep = kClean.replace(/[-_ ]/g, '');
+          if (searchSet.has(kClean) || searchSetNoSep.has(kNoSep)) {
+            if (typeof v === 'string') {
+              foundRaw = v;
+            } else if (v && typeof v === 'object') {
+              foundRaw = (v as any).more_information_url || (v as any).encrypted_link || (v as any).download_url || (v as any).payload || (v as any).url || '';
+            }
+            if (foundRaw) break;
+          }
+        }
+      }
+
+      if (foundRaw && typeof foundRaw === 'string' && foundRaw.trim().length > 0) {
+        const trimmed = foundRaw.trim();
+        const finalUrl = trimmed.startsWith('U2FsdGVkX1') ? safeDecrypt(trimmed, AES_SECRET) : trimmed;
+        if (isValidTargetUrl(finalUrl)) {
+          return finalUrl.trim();
+        }
+      }
+      return '';
+    }
+
+    // 1. FAST PATH: Instant in-memory check against vaultNode and ENCRYPTED_LINKS (<1ms)
+    const initialKeys = Array.from(new Set([
+      appId,
+      appId.toLowerCase().trim(),
+      appId.toLowerCase().trim().replace(/[-_ ]+$/, '')
+    ])).filter(Boolean);
+
+    try {
+      const payload = await vaultNode.getSyncPayload(appId);
+      if (payload && isValidTargetUrl(payload)) {
+        console.log(`[SECURITY] Instant resolution from vaultNode for ${appId}`);
+        const entry = { url: payload.trim(), timestamp: Date.now() };
+        resolvedLinkCache.set(appId.toLowerCase(), entry);
+        return res.redirect(302, payload.trim());
+      }
+    } catch (e) {}
+
+    if (ENCRYPTED_LINKS) {
+      const decryptedVault = safeDecrypt(ENCRYPTED_LINKS, AES_SECRET);
+      if (decryptedVault) {
+        try {
+          const parsed = JSON.parse(decryptedVault);
+          const foundUrl = findUrlInVaultParsed(parsed, initialKeys, AES_SECRET);
+          if (foundUrl && isValidTargetUrl(foundUrl)) {
+            console.log(`[SECURITY] Instant resolution from ENCRYPTED_LINKS for ${appId}`);
+            const entry = { url: foundUrl.trim(), timestamp: Date.now() };
+            resolvedLinkCache.set(appId.toLowerCase(), entry);
+            return res.redirect(302, foundUrl.trim());
+          }
+        } catch (e) {}
+      }
+    }
+
+    // 2. Secondary resolution using storeData with fuzzy matching
     let realId = appId;
     let realSlug = appId;
     try {
@@ -200,10 +284,10 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
         realSlug = app.slug || appId;
 
         // Check direct link on app record in storeData
-        const appDirectUrl = app.more_information_url || app.download_url || app.encrypted_link || app.url;
+        const appDirectUrl = app.more_information_url || app.encrypted_link || app.download_url;
         if (appDirectUrl && typeof appDirectUrl === 'string') {
           const dec = appDirectUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(appDirectUrl, AES_SECRET) : appDirectUrl;
-          if (dec && dec.trim().length > 0) {
+          if (isValidTargetUrl(dec)) {
             console.log(`[SECURITY] Resolved link directly from storeData for ${appId}`);
             const entry = { url: dec.trim(), timestamp: Date.now() };
             resolvedLinkCache.set(appId.toLowerCase(), entry);
@@ -216,74 +300,6 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
     } catch (e) {
       console.warn("[SECURITY] Store data fetch failed during resolve:", e);
     }
-    
-    function isValidTargetUrl(url: string | undefined | null): boolean {
-      if (!url || typeof url !== 'string') return false;
-      const clean = url.trim().toLowerCase();
-      if (clean === '' || clean === 'undefined' || clean === 'null' || clean === '#') return false;
-      if (clean.includes('com.rummydex') || clean.includes('com.example')) return false;
-      return clean.startsWith('http://') || clean.startsWith('https://');
-    }
-
-    // 2. Attempt to get from vaultNode memory cache
-    try {
-      const payload = await vaultNode.getSyncPayload(realId) || 
-                      await vaultNode.getSyncPayload(realSlug) || 
-                      await vaultNode.getSyncPayload(appId);
-      if (payload && isValidTargetUrl(payload)) {
-        console.log(`[SECURITY] Resolved link directly from vaultNode for ${appId}`);
-        const entry = { url: payload.trim(), timestamp: Date.now() };
-        resolvedLinkCache.set(appId.toLowerCase(), entry);
-        resolvedLinkCache.set(realId.toLowerCase(), entry);
-        resolvedLinkCache.set(realSlug.toLowerCase(), entry);
-        return res.redirect(302, payload.trim());
-      }
-    } catch (e) {
-      console.warn("[SECURITY] vaultNode lookup failed:", e);
-    }
-
-    function findUrlInVaultParsed(parsed: any, keysToSearch: string[], AES_SECRET: string): string {
-  if (!parsed) return '';
-  const searchSet = new Set(keysToSearch.map(k => k.toLowerCase().trim()).filter(Boolean));
-  const searchSetNoSep = new Set(keysToSearch.map(k => k.toLowerCase().trim().replace(/[-_ ]/g, '')).filter(Boolean));
-
-  let foundRaw = '';
-
-  if (Array.isArray(parsed)) {
-    const item = parsed.find((i: any) => {
-      const iId = (i.id || '').toLowerCase().trim();
-      const iSlug = (i.slug || '').toLowerCase().trim();
-      const iIdNoSep = iId.replace(/[-_ ]/g, '');
-      const iSlugNoSep = iSlug.replace(/[-_ ]/g, '');
-      return searchSet.has(iId) || searchSet.has(iSlug) || searchSetNoSep.has(iIdNoSep) || searchSetNoSep.has(iSlugNoSep);
-    });
-    if (item) {
-      foundRaw = item.more_information_url || item.encrypted_link || item.download_url || item.payload || item.url || '';
-    }
-  } else if (parsed && typeof parsed === 'object') {
-    for (const [k, v] of Object.entries(parsed)) {
-      const kClean = k.toLowerCase().trim();
-      const kNoSep = kClean.replace(/[-_ ]/g, '');
-      if (searchSet.has(kClean) || searchSetNoSep.has(kNoSep)) {
-        if (typeof v === 'string') {
-          foundRaw = v;
-        } else if (v && typeof v === 'object') {
-          foundRaw = (v as any).more_information_url || (v as any).encrypted_link || (v as any).download_url || (v as any).payload || (v as any).url || '';
-        }
-        if (foundRaw) break;
-      }
-    }
-  }
-
-  if (foundRaw && typeof foundRaw === 'string' && foundRaw.trim().length > 0) {
-    const trimmed = foundRaw.trim();
-    const finalUrl = trimmed.startsWith('U2FsdGVkX1') ? safeDecrypt(trimmed, AES_SECRET) : trimmed;
-    if (isValidTargetUrl(finalUrl)) {
-      return finalUrl.trim();
-    }
-  }
-  return '';
-}
 
 // 3. Attempt to get from hardcoded static vault (ENCRYPTED_LINKS)
     const encryptedVault = ENCRYPTED_LINKS;
@@ -498,12 +514,12 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Link Updating | RummyDex</title>
+        <title>Notice | RummyDex</title>
         <style>
           * { box-sizing: border-box; margin: 0; padding: 0; }
           body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #090d16; color: #f3f4f6; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; text-align: center; }
           .card { background: #111827; border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 32px 24px; max-width: 440px; width: 100%; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); }
-          .icon-box { width: 64px; height: 64px; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); color: #f59e0b; border-radius: 16px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 28px; }
+          .icon-box { width: 64px; height: 64px; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #3b82f6; border-radius: 16px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 28px; }
           h1 { font-size: 20px; font-weight: 700; color: #ffffff; margin-bottom: 10px; }
           p { font-size: 14px; color: #9ca3af; line-height: 1.6; margin-bottom: 24px; }
           .btn { display: inline-flex; align-items: center; justify-content: center; padding: 12px 24px; background: #2563eb; color: #ffffff; font-weight: 600; font-size: 14px; text-decoration: none; border-radius: 12px; transition: background 0.2s; }
@@ -512,10 +528,10 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
       </head>
       <body>
         <div class="card">
-          <div class="icon-box">⏳</div>
-          <h1>Link Updating</h1>
-          <p>The download / information link for this app is currently being updated or synced by the administrator. Please check back shortly!</p>
-          <a href="/app/${encodeURIComponent(realSlug || appId)}" class="btn">Return to App Page</a>
+          <div class="icon-box">ℹ️</div>
+          <h1>Notice</h1>
+          <p>This item is currently undergoing scheduled updates. Please check back shortly or return to the main overview.</p>
+          <a href="/app/${encodeURIComponent(realSlug || appId)}" class="btn">Return to Overview</a>
         </div>
       </body>
       </html>

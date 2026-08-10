@@ -49,23 +49,27 @@ export async function syncFromFirestore(): Promise<any> {
       const { getFirebaseAdminDb } = require('../server/firebase');
       const adminDb = getFirebaseAdminDb();
       if (adminDb) {
-        // Always try to load from Firestore first
-        const newsSnap = await adminDb.collection('store_data').doc('news').get();
+        // Load all base documents in parallel for maximum speed
+        const [newsSnap, blogsSnap, videosSnap, settingsSnap, metaSnap] = await Promise.all([
+          adminDb.collection('store_data').doc('news').get(),
+          adminDb.collection('store_data').doc('blogs').get(),
+          adminDb.collection('store_data').doc('videos').get(),
+          adminDb.collection('store_data').doc('public_settings').get(),
+          adminDb.collection('store_data').doc('apps_meta').get()
+        ]);
+
         if (newsSnap.exists && Array.isArray(newsSnap.data()?.items) && newsSnap.data()!.items.length > 0) {
           news = newsSnap.data()!.items;
         }
 
-        const blogsSnap = await adminDb.collection('store_data').doc('blogs').get();
         if (blogsSnap.exists && Array.isArray(blogsSnap.data()?.items) && blogsSnap.data()!.items.length > 0) {
           blogs = blogsSnap.data()!.items;
         }
 
-        const videosSnap = await adminDb.collection('store_data').doc('videos').get();
         if (videosSnap.exists && Array.isArray(videosSnap.data()?.items) && videosSnap.data()!.items.length > 0) {
           videos = videosSnap.data()!.items;
         }
 
-        const settingsSnap = await adminDb.collection('store_data').doc('public_settings').get();
         if (settingsSnap.exists) {
           const fsSettings = settingsSnap.data();
           if (fsSettings && Object.keys(fsSettings).length > 0) {
@@ -81,12 +85,15 @@ export async function syncFromFirestore(): Promise<any> {
           }
         }
 
-        const metaSnap = await adminDb.collection('store_data').doc('apps_meta').get();
         if (metaSnap.exists) {
           const numChunks = metaSnap.data()?.numChunks || 1;
-          const fsApps: any[] = [];
+          const chunkPromises: Promise<any>[] = [];
           for (let i = 0; i < numChunks; i++) {
-            const chunkSnap = await adminDb.collection('store_data').doc(`apps_chunk_${i}`).get();
+            chunkPromises.push(adminDb.collection('store_data').doc(`apps_chunk_${i}`).get());
+          }
+          const chunkSnaps = await Promise.all(chunkPromises);
+          const fsApps: any[] = [];
+          for (const chunkSnap of chunkSnaps) {
             if (chunkSnap.exists && Array.isArray(chunkSnap.data()?.items)) {
               fsApps.push(...chunkSnap.data().items);
             }
