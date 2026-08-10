@@ -9,14 +9,14 @@ export function useFavicon(settings: GlobalSettings | null, apps: AppConfig[]) {
     if (!settings) return;
     
     // Always use the official website favicon / logo URL across all pages
-    const officialFavicon = settings.favicon_url || settings.logo_url || "/favicon.png";
+    const officialFavicon = settings.favicon_url || settings.logo_url || "https://res.cloudinary.com/diewalae4/image/upload/v1785720339/1000132678_1_ro1ftj.png";
     
     const icons = [
       { rel: 'icon', sizes: '192x192', href: officialFavicon, type: 'image/png' },
-      { rel: 'icon', sizes: '32x32', href: '/favicon-32x32.png', type: 'image/png' },
-      { rel: 'icon', sizes: '16x16', href: '/favicon-16x16.png', type: 'image/png' },
-      { rel: 'shortcut icon', href: '/favicon.ico', type: 'image/x-icon' },
-      { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png', type: 'image/png' }
+      { rel: 'icon', sizes: '32x32', href: officialFavicon, type: 'image/png' },
+      { rel: 'icon', sizes: '16x16', href: officialFavicon, type: 'image/png' },
+      { rel: 'shortcut icon', href: officialFavicon, type: 'image/x-icon' },
+      { rel: 'apple-touch-icon', sizes: '180x180', href: officialFavicon, type: 'image/png' }
     ];
     
     icons.forEach(iconDef => {

@@ -514,6 +514,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   if (!logoUrl || logoUrl === '/logo.png' || logoUrl.includes('ezgif-64180dd8ca74703b')) {
     logoUrl = 'https://res.cloudinary.com/diewalae4/image/upload/v1785720339/1000132678_1_ro1ftj.png';
   }
+  const faviconUrl = getField(settings, 'favicon_url') || logoUrl;
   const cleanPath = urlPath.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
   const cleanPathLower = cleanPath.toLowerCase();
 
@@ -716,11 +717,11 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     <meta data-rh="true" name="twitter:image" content="${pageOgImage}">
     <link data-rh="true" rel="alternate" type="application/rss+xml" title="RummyDex News" href="/rss.xml">
     <link data-rh="true" rel="image_src" href="${pageOgImage}">
-    <link data-rh="true" rel="icon" type="image/png" sizes="192x192" href="/favicon.png">
-    <link data-rh="true" rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-    <link data-rh="true" rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-    <link data-rh="true" rel="shortcut icon" href="/favicon.ico">
-    <link data-rh="true" rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link data-rh="true" rel="icon" type="image/png" sizes="192x192" href="${faviconUrl}">
+    <link data-rh="true" rel="icon" type="image/png" sizes="32x32" href="${faviconUrl}">
+    <link data-rh="true" rel="icon" type="image/png" sizes="16x16" href="${faviconUrl}">
+    <link data-rh="true" rel="shortcut icon" href="${faviconUrl}">
+    <link data-rh="true" rel="apple-touch-icon" sizes="180x180" href="${faviconUrl}">
     <link data-rh="true" rel="manifest" href="/site.webmanifest">
     <link data-rh="true" rel="preconnect" href="https://fonts.googleapis.com">
     <link data-rh="true" rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

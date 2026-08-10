@@ -203,7 +203,6 @@ export const mockApps: AppConfig[] = [
     "description_html": "<h2><meta charset=\"UTF-8\"></h2>\n\n<h3><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"></h3>\n\n<h2>A New Standard for Casual Arcade Gaming</h2>\n\n<h3><svg class=\"art\" width=\"80\" height=\"80\" viewBox=\"0 0 80 80\"></h3>\n\n<p><circle cx=\"40\" cy=\"40\" r=\"25\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"3\"/></p>\n\n<h3></svg></h3>\n\n<p>Spin Crush redefines mobile entertainment by bringing an entire universe of casual mini-games into one accessible platform. Instead of offering a single repetitive loop, this app houses a vast collection of highly detailed thematic games. Whether you are looking for relaxing puzzle mechanics or fast-paced arcade action, this digital playground offers something for every type of player.</p>\n\n<h2>Explore a Diverse Universe of Mini-Games</h2>\n\n<h3><svg class=\"art\" width=\"80\" height=\"80\" viewBox=\"0 0 80 80\"></h3>\n\n<p><rect x=\"15\" y=\"15\" width=\"50\" height=\"50\" rx=\"8\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"3\"/></p>\n\n<h3></svg></h3>\n\n<p>The true strength of Spin Crush lies in its incredible variety. You can step into a virtual kitchen and match culinary ingredients in \"Baking Master,\" or explore vibrant cultural themes in \"Wild Bandito\" and \"Pinata Frenzy.\" For fans of mythology and history, \"Thor God of Lightning\" and \"Xerxes\" offer epic visual animations and dynamic virtual coin collection. Action enthusiasts can dive into the tactical environment of \"Royale Battleground\" or step into the ring with \"Boxing King.\" Nature and fantasy lovers are also covered with the prehistoric adventures of \"Jurassic Kingdom,\" the fiery visual combos of \"Coin Volcano,\" and the mystical journey of \"Wukong.\"</p>\n\n<h2>Smooth Performance &amp; Immersive Gameplay</h2>\n\n<h3><svg class=\"art\" width=\"80\" height=\"80\" viewBox=\"0 0 80 80\"></h3>\n\n<p><path d=\"M25 15l40 25-40 25z\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"3\" stroke-linejoin=\"round\"/></p>\n\n<h3></svg></h3>\n\n<p>Built with top-tier optimization, the app delivers a highly responsive user experience. The intuitive central lobby allows players to effortlessly navigate through different game categories without experiencing heavy loading screens. Every mini-game features sharp 3D graphics, bright colors, and satisfying sound effects that make virtual progression and matching mechanics incredibly engaging.</p>\n\n<h2>Safe, Virtual Entertainment</h2>\n\n<h3><svg class=\"art\" width=\"80\" height=\"80\" viewBox=\"0 0 80 80\"></h3>\n\n<p><path d=\"M20 40l14 14 26-28\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></p>\n\n<h3></svg></h3>\n\n<p>Designed as a purely casual simulation, Spin Crush focuses entirely on risk-free fun. Players can dive into thrilling arcade features like the \"Fortune Wheel,\" \"Crazy 777,\" or \"Gemstones Gold\" utilizing strictly virtual points. It is the perfect daily companion for users seeking a polished gaming experience where the focus is on beating high scores, unlocking new visual levels, and enjoying pure digital entertainment.</p>\n\n<h3><meta charset=\"UTF-8\"></h3>\n\n<h3><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"></h3>\n\n<h2>Features</h2>\n\n<h3><svg width=\"26\" height=\"26\" viewBox=\"0 0 26 26\"><rect x=\"2\" y=\"2\" width=\"9\" height=\"9\" rx=\"2\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"2\"/><rect x=\"15\" y=\"2\" width=\"9\" height=\"9\" rx=\"2\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"2\"/><rect x=\"2\" y=\"15\" width=\"9\" height=\"9\" rx=\"2\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"2\"/><rect x=\"15\" y=\"15\" width=\"9\" height=\"9\" rx=\"2\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"2\"/></svg>Massive collection of thematic mini-games housed in one single app.</h3>\n\n<h2><svg width=\"26\" height=\"26\" viewBox=\"0 0 26 26\"><circle cx=\"13\" cy=\"13\" r=\"11\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"2\"/><path d=\"M10 8l8 5-8 5z\" fill=\"#1a73e8\"/></svg>Instant play mechanics with seamless switching between diverse game modes.</h2>\n\n<h3><svg width=\"26\" height=\"26\" viewBox=\"0 0 26 26\"><rect x=\"2\" y=\"4\" width=\"22\" height=\"18\" rx=\"2\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"2\"/><circle cx=\"9\" cy=\"10\" r=\"2\" fill=\"#1a73e8\"/><path d=\"M2 19l6-6 5 5 4-4 7 6\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"2\"/></svg>Stunning HD graphics ranging from culinary kitchens to ancient mythology.</h3>\n\n<h2><svg width=\"26\" height=\"26\" viewBox=\"0 0 26 26\"><path d=\"M13 2l9 4v6c0 6-4 10-9 12-5-2-9-6-9-12V6z\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"2\"/></svg>Offline gameplay support for uninterrupted casual entertainment.</h2>\n\n<h3><svg width=\"26\" height=\"26\" viewBox=\"0 0 26 26\"><circle cx=\"13\" cy=\"13\" r=\"11\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"2\"/><path d=\"M8 13l4 4 7-8\" fill=\"none\" stroke=\"#1a73e8\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>100% virtual rewards and safe, risk-free arcade progression systems.</h3>",
     "faqs": [],
     "screenshots": [],
-    "encrypted_link": "",
     "updated_at": "2026-08-06T09:55:01.558Z",
     "custom_admin_box_html": "",
     "custom_admin_box_heading": "",
@@ -229,9 +228,9 @@ export const mockApps: AppConfig[] = [
     "seo_keywords": "rummy 77 app, real rummy gameplay, rummy 77 review, 13 card rummy",
     "version": "1.0.6",
     "id": "i5uw2apum",
-    "encrypted_link": "",
+    "encrypted_link": "U2FsdGVkX19fY9CEjgjI+kbC+daOMg2iuKN5UtZG27IiTPaBB2Y2+RYTB4QWi1nZ",
     "serial_number": 2,
-    "updated_at": "2026-08-03T02:38:06.645Z",
+    "updated_at": "2026-08-10T04:27:14.086Z",
     "canonical_url": "https://www.rummydex.com/app/rummy-77",
     "created_at": "2026-08-03T02:13:03.477Z",
     "faqs": [],
@@ -242,22 +241,25 @@ export const mockApps: AppConfig[] = [
     "yellow_box_msg": "Play in limit doing anything excess is not good so if you in limit everything are good ",
     "seo_description": "We went hands-on with Rummy 77. Read our neutral review detailing the actual table mechanics, card sorting features, and real-world battery performance.",
     "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1785722974/1000132690_11zon_1_l43qhv.jpg",
-    "url": ""
+    "url": "",
+    "custom_admin_box_heading": "",
+    "custom_admin_box_html": "",
+    "more_information_url": "U2FsdGVkX19fY9CEjgjI+kbC+daOMg2iuKN5UtZG27IiTPaBB2Y2+RYTB4QWi1nZ"
   },
   {
     "og_image_url": "https://res.cloudinary.com/diewalae4/image/upload/v1785780996/download_22_vgi4h1_1_jjm7jx.webp",
     "created_at": "2026-08-03T18:10:16.344Z",
     "rating": 4.4,
     "yellow_box_msg": "",
-    "updated_at": "2026-08-04T04:23:29.327Z",
+    "updated_at": "2026-08-10T04:27:57.209Z",
     "is_coming_soon": false,
     "seo_keywords": "",
     "idea_box_msg": "Almost In every android phone it can run well no issues ",
-    "category": "All Apps, Yono Apps",
+    "category": "Yono Apps, All Apps",
     "canonical_url": "https://www.rummydex.com/app/rummy-91",
     "faqs": [],
     "serial_number": 3,
-    "encrypted_link": "",
+    "encrypted_link": "U2FsdGVkX1/ckxjJIlpuWY6wn6rWmxX1IwD8vNTlbDvKdWCKb8j6Kw8h8Al9MrY/Qp4m3m2Mz0hbhKfX2o9HqleHgi3jq9+Hhvyn8EO5VObh9dJN0ZAxv9UIeBYM9dla",
     "red_box_msg": "",
     "video_url": "",
     "is_new": false,
@@ -276,7 +278,10 @@ export const mockApps: AppConfig[] = [
     "publish_date": "",
     "features_html": "",
     "release_notes": "",
-    "url": ""
+    "url": "",
+    "custom_admin_box_heading": "",
+    "custom_admin_box_html": "",
+    "more_information_url": "U2FsdGVkX1/ckxjJIlpuWY6wn6rWmxX1IwD8vNTlbDvKdWCKb8j6Kw8h8Al9MrY/Qp4m3m2Mz0hbhKfX2o9HqleHgi3jq9+Hhvyn8EO5VObh9dJN0ZAxv9UIeBYM9dla"
   },
   {
     "rating": 4,
@@ -298,8 +303,8 @@ export const mockApps: AppConfig[] = [
         "answer": "Because the app utilizes clean 2D graphics and lightweight processing, it runs smoothly at 60 FPS on older devices while keeping battery drain and heat output very low."
       },
       {
-        "question": "Q4: What extra game modes are included besides standard 5-round matches?",
-        "answer": "The platform includes Super 8 Bid Challenge (racing to win eight hands against aggressive AI) and Blind Bid Mode (bidding before viewing player hands)."
+        "answer": "The platform includes Super 8 Bid Challenge (racing to win eight hands against aggressive AI) and Blind Bid Mode (bidding before viewing player hands).",
+        "question": "Q4: What extra game modes are included besides standard 5-round matches?"
       }
     ],
     "encrypted_link": "U2FsdGVkX1+q0sXmhv8t1MsITrWF5ygsrB/S5LMTUfaOowHD5YxVraJdHIH2n9uyZPhy3DsPhkbaqxzr6WSVOmglqKaL2eqyXKAm+QD+Cnapvr6tjRQbZJGvTkJc6aRchTR5PrsEFKUJJtdBniOqymmeaik6ROLf5/0GnhO/8lk=",
@@ -329,7 +334,8 @@ export const mockApps: AppConfig[] = [
     "updated_at": "2026-08-09T12:58:39.401Z",
     "name": "CALLBREAK",
     "version": "1.0",
-    "url": ""
+    "url": "",
+    "more_information_url": "U2FsdGVkX1+q0sXmhv8t1MsITrWF5ygsrB/S5LMTUfaOowHD5YxVraJdHIH2n9uyZPhy3DsPhkbaqxzr6WSVOmglqKaL2eqyXKAm+QD+Cnapvr6tjRQbZJGvTkJc6aRchTR5PrsEFKUJJtdBniOqymmeaik6ROLf5/0GnhO/8lk="
   },
   {
     "video_url": "",
@@ -354,8 +360,8 @@ export const mockApps: AppConfig[] = [
         "answer": "Yes. Card Game 29 is free to download and play. The app also offers optional in-app purchases and displays advertisements, allowing users to unlock additional features or enjoy a more streamlined experience if they choose."
       },
       {
-        "answer": "Yes. The game includes an offline mode where you can play against AI opponents without an internet connection. However, online multiplayer features require an active internet connection.",
-        "question": "2. Can I play Card Game 29 without an internet connection?"
+        "question": "2. Can I play Card Game 29 without an internet connection?",
+        "answer": "Yes. The game includes an offline mode where you can play against AI opponents without an internet connection. However, online multiplayer features require an active internet connection."
       },
       {
         "answer": "Yes. Card Game 29 supports multiple ways to play, including online multiplayer, private rooms with friends, and local multiplayer options on supported devices, depending on the available features in your version of the app.",
@@ -367,7 +373,6 @@ export const mockApps: AppConfig[] = [
       }
     ],
     "category": "All Apps, Card Apps",
-    "encrypted_link": "",
     "file_size": "23.2 MB",
     "screenshots": [],
     "features_html": "<section class=\"content-section\">\n  <h2>Key Features and Deep Dive into Card Game 29</h2>\n\n  <p>\n    Card Game 29 isn't just a simple mobile game; it is a meticulous digital recreation of the beloved South Asian trick-taking classic.\n    The app is designed to bring the traditional flavor of the game to your smartphone, blending memory, intense strategy, and partnership coordination.\n  </p>\n\n  <h3>The Core Game Mechanics</h3>\n\n  <p>\n    At its heart, the app authentically replicates the traditional rules.\n    You play in a four-player setup with two fixed partnerships sitting across from one another.\n  </p>\n\n  <div class=\"feature-item\">\n    <h4>The Stripped Deck</h4>\n    <p>\n      The game removes the lower cards, utilizing a specific 32-card deck consisting only of the\n      7, 8, 9, 10, Jack, Queen, King, and Ace.\n    </p>\n  </div>\n\n  <div class=\"feature-item\">\n    <h4>Unique Card Values</h4>\n    <p>\n      Unlike standard games, the Jack is the ultimate powerhouse worth 3 points, followed by the 9\n      (worth 2 points), and the Ace and 10 (worth 1 point each). The total deck holds 28 points,\n      and winning the final trick grants the namesake 29th point.\n    </p>\n  </div>\n\n  <div class=\"feature-item\">\n    <h4>The Bidding War</h4>\n    <p>\n      The app beautifully captures the tension of the bidding phase. Players must bid between\n      16 and 28 points based on their hand's strength, and the highest bidder earns the crucial\n      right to set the trump suit.\n    </p>\n  </div>\n\n  <h3>Customizable House Rules</h3>\n\n  <p>\n    One of the most impressive features of the app is its \"Rules Popup\" configuration panel,\n    which respects that different regions have their own local variations. You can deeply\n    customize your match by enabling:\n  </p>\n\n  <div class=\"feature-item\">\n    <h4>Double &amp; Re-Double</h4>\n    <p>\n      To aggressively increase the stakes and score multipliers of a single hand.\n    </p>\n  </div>\n\n  <div class=\"feature-item\">\n    <h4>Pair / Marriage</h4>\n    <p>\n      A system that rewards bonus points if you are lucky enough to hold both the King and Queen\n      of the active trump suit.\n    </p>\n  </div>\n\n  <div class=\"feature-item\">\n    <h4>Specialized Trumping</h4>\n    <p>\n      Options like the \"7th Card Trump\" (where your 7th dealt card dictates the suit) or using\n      a Joker as a designated trump card.\n    </p>\n  </div>\n\n  <div class=\"feature-item\">\n    <h4>Single Hand &amp; Tenny</h4>\n    <p>\n      Niche modes where a solo player attempts to win the hand under special conditions,\n      or tries to sweep all four tricks without even relying on a trump card.\n    </p>\n  </div>\n\n  <h3>Versatile Play Modes</h3>\n\n  <p>\n    The application caters to exactly how you want to play at any given moment:\n  </p>\n\n  <div class=\"feature-item\">\n    <h4>Offline AI Mode</h4>\n    <p>\n      Perfect for offline practice, allowing you to play against computer-controlled opponents\n      without needing any internet connection.\n    </p>\n  </div>\n\n  <div class=\"feature-item\">\n    <h4>Online Multiplayer</h4>\n    <p>\n      You can jump into public matches or create private rooms with shareable links to play\n      with friends worldwide.\n    </p>\n  </div>\n\n  <div class=\"feature-item\">\n    <h4>Local Bluetooth</h4>\n    <p>\n      A standout feature that lets you connect locally with friends in the same room without\n      consuming any mobile data.\n    </p>\n  </div>\n</section>",
@@ -395,20 +400,20 @@ export const mockApps: AppConfig[] = [
     "canonical_url": "",
     "faqs": [
       {
-        "question": "1. What type of rummy gameplay does Joy Rummy offer?",
-        "answer": "Joy Rummy is built around the traditional 13-card rummy format, where players organize cards into valid sequences and sets before declaring their hand. The gameplay emphasizes strategic planning, memory, and decision-making rather than relying solely on chance."
+        "answer": "Joy Rummy is built around the traditional 13-card rummy format, where players organize cards into valid sequences and sets before declaring their hand. The gameplay emphasizes strategic planning, memory, and decision-making rather than relying solely on chance.",
+        "question": "1. What type of rummy gameplay does Joy Rummy offer?"
       },
       {
-        "question": "2. Does Joy Rummy include both practice and competitive game modes?",
-        "answer": "Yes. The application offers offline AI practice for learning strategies and improving gameplay, along with online matchmaking and private multiplayer rooms for users who want to compete with friends or players from around the world."
+        "answer": "Yes. The application offers offline AI practice for learning strategies and improving gameplay, along with online matchmaking and private multiplayer rooms for users who want to compete with friends or players from around the world.",
+        "question": "2. Does Joy Rummy include both practice and competitive game modes?"
       },
       {
         "question": "3. Are in-app purchases required to enjoy the complete gameplay experience?",
         "answer": "No. The core gameplay is available without making any purchases. Optional in-app purchases primarily focus on cosmetic enhancements and personalization features, allowing players to customize their experience without affecting competitive balance."
       },
       {
-        "question": "4. What makes Joy Rummy suitable for long-term players?",
-        "answer": "Joy Rummy combines skill-based gameplay with features such as global matchmaking, private rooms, AI practice, and regular content improvements. These features provide both new and experienced players with a consistent and engaging environment to refine their strategies over time."
+        "answer": "Joy Rummy combines skill-based gameplay with features such as global matchmaking, private rooms, AI practice, and regular content improvements. These features provide both new and experienced players with a consistent and engaging environment to refine their strategies over time.",
+        "question": "4. What makes Joy Rummy suitable for long-term players?"
       }
     ],
     "updated_at": "2026-08-06T05:58:39.493Z",
@@ -416,7 +421,6 @@ export const mockApps: AppConfig[] = [
     "category": "All Apps, Yono Apps",
     "is_new": false,
     "video_url": "",
-    "encrypted_link": "",
     "created_at": "2026-08-05T15:42:57.962Z",
     "og_image_url": "",
     "safety_status": "Verified",
@@ -443,7 +447,6 @@ export const mockApps: AppConfig[] = [
     "created_at": "2026-08-06T06:22:37.662Z",
     "developer": "Iskit tool",
     "red_box_msg": "",
-    "encrypted_link": "",
     "custom_admin_box_html": "",
     "updated_at": "2026-08-06T10:45:56.243Z",
     "features_html": "",
@@ -460,12 +463,12 @@ export const mockApps: AppConfig[] = [
     "rating": 4.6,
     "faqs": [
       {
-        "answer": "Yes, Jaiho 91 is free to download. The app features a virtual progression system designed for casual card play and strategy practice.",
-        "question": "1. Is Jaiho 91 free to download and play?"
+        "question": "1. Is Jaiho 91 free to download and play?",
+        "answer": "Yes, Jaiho 91 is free to download. The app features a virtual progression system designed for casual card play and strategy practice."
       },
       {
-        "answer": "Yes, Jaiho 91 includes an offline AI mode, allowing you to play and practice your strategies against virtual opponents anytime without cellular data or Wi-Fi.",
-        "question": "2. Can I play Jaiho 91 without an internet connection?"
+        "question": "2. Can I play Jaiho 91 without an internet connection?",
+        "answer": "Yes, Jaiho 91 includes an offline AI mode, allowing you to play and practice your strategies against virtual opponents anytime without cellular data or Wi-Fi."
       },
       {
         "question": "3. What card game formats are available in Jaiho 91?",
@@ -488,7 +491,6 @@ export const mockApps: AppConfig[] = [
     "category": "All Apps, Yono Apps",
     "publish_date": "",
     "serial_number": 8,
-    "encrypted_link": "",
     "canonical_url": "https://www.rummydex.com/app/ok-rummy",
     "custom_admin_box_heading": "",
     "video_url": "",
@@ -506,8 +508,8 @@ export const mockApps: AppConfig[] = [
         "answer": "Yes, the core puzzle-solving mechanics and the primary progression map are fully available offline. You can enjoy the game uninterrupted even when you do not have a Wi-Fi or cellular connection."
       },
       {
-        "answer": "Instead of traditional matches, the game uses a level-based map. You clear individual puzzle boards by forming valid card sequences, which earns you virtual stars to unlock new thematic zones and more complex challenges.",
-        "question": "3. How does the progression system work in this app?"
+        "question": "3. How does the progression system work in this app?",
+        "answer": "Instead of traditional matches, the game uses a level-based map. You clear individual puzzle boards by forming valid card sequences, which earns you virtual stars to unlock new thematic zones and more complex challenges."
       }
     ],
     "is_coming_soon": false,
@@ -536,12 +538,12 @@ export const mockApps: AppConfig[] = [
   {
     "faqs": [
       {
-        "answer": "Yes, the application is completely free to download. All gameplay features, levels, and progression systems are accessible without mandatory purchases, supported entirely by a virtual coin economy and in-app advertisements.",
-        "question": "1. Is Jaiho Slots free to download and play?"
+        "question": "1. Is Jaiho Slots free to download and play?",
+        "answer": "Yes, the application is completely free to download. All gameplay features, levels, and progression systems are accessible without mandatory purchases, supported entirely by a virtual coin economy and in-app advertisements."
       },
       {
-        "question": "2. Can I play the game offline?",
-        "answer": "Yes, the core reel-matching puzzles and level progression are fully functional offline. You can enjoy the game uninterrupted without an active Wi-Fi or cellular connection."
+        "answer": "Yes, the core reel-matching puzzles and level progression are fully functional offline. You can enjoy the game uninterrupted without an active Wi-Fi or cellular connection.",
+        "question": "2. Can I play the game offline?"
       },
       {
         "question": "3. How does the puzzle progression work?",
@@ -561,7 +563,6 @@ export const mockApps: AppConfig[] = [
     "publish_date": "",
     "red_box_msg": "",
     "og_image_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784877660/download_20_x106v3.webp",
-    "encrypted_link": "",
     "updated_at": "2026-08-06T10:47:46.035Z",
     "category": "All Apps, Yono Apps",
     "created_at": "2026-08-06T06:24:15.614Z",
@@ -595,16 +596,16 @@ export const mockApps: AppConfig[] = [
     "og_image_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784877459/download_14_krbwrv.webp",
     "faqs": [
       {
-        "answer": "Yono Arcade features a four-reel fruit tile system where players spin and match symbols. You win virtual rewards by aligning fruit symbols into specific shapes like horizontal lines, diagonals, triangles, and W patterns.",
-        "question": "1. What are the main gameplay mechanics in Yono Arcade?"
+        "question": "1. What are the main gameplay mechanics in Yono Arcade?",
+        "answer": "Yono Arcade features a four-reel fruit tile system where players spin and match symbols. You win virtual rewards by aligning fruit symbols into specific shapes like horizontal lines, diagonals, triangles, and W patterns."
       },
       {
         "question": "2. Is Yono Arcade free to download and play?",
         "answer": "Yes, Yono Arcade is completely free to download. The application operates using a virtual arcade ecosystem designed entirely for casual entertainment and pattern-matching progression."
       },
       {
-        "question": "3. Does the app collect my personal data?",
-        "answer": "No. According to the developer's data safety guidelines, Yono Arcade does not collect user data and does not share any data with third parties, ensuring a secure and private experience."
+        "answer": "No. According to the developer's data safety guidelines, Yono Arcade does not collect user data and does not share any data with third parties, ensuring a secure and private experience.",
+        "question": "3. Does the app collect my personal data?"
       }
     ],
     "features_html": "",
@@ -628,7 +629,6 @@ export const mockApps: AppConfig[] = [
     "description_html": "<h2>Key Features and Core Mechanics of Yono Arcade</h2>\n\n<p>Yono Arcade is a dynamic virtual arcade application that centers around engaging fruit tile reel mechanics. Designed purely for casual entertainment, the platform offers a vibrant, fast-paced environment where users can test their visual pattern recognition and timing. Operating within a closed virtual system, it provides a safe, structured playground for puzzle and arcade enthusiasts.</p>\n\n<h3>The Core Game Mechanics</h3>\n\n<p>The application revolves around spinning four fruit tile reels and aligning symbols to clear objectives. The core mechanics include:</p>\n\n<ul>\n  <li><strong>Reel Spinning Dynamics:</strong> Players initiate spins to watch various fruit symbols settle into place across the digital board.</li>\n  <li><strong>Complex Pattern Matching:</strong> Unlike basic linear matching, the game rewards players when matching symbols form specific shapes, including horizontal, vertical, diagonal, triangle, W, or inverted W patterns.</li>\n  <li><strong>Linked Symbol Visibility:</strong> Winning symbols are visually linked together on the board, making each successful match easy to see and highly satisfying to track in real-time.</li>\n</ul>\n\n<h3>Educational and Strategic Value</h3>\n\n<p>While designed as a casual arcade game, the app encourages active cognitive engagement:</p>\n\n<ul>\n  <li><strong>Visual Processing:</strong> The requirement to identify complex shapes (like triangles and inverted W patterns) from a grid of settling fruit symbols enhances quick spatial recognition.</li>\n  <li><strong>Focus and Timing:</strong> Players must remain attentive to the board's rapid changes, developing better hand-eye coordination and reaction speed during fast-paced play sessions.</li>\n</ul>\n\n<h2>Part 2: The Hands-On User Experience</h2>\n\n<p>The user interface of Yono Arcade is engineered to deliver a bright, engaging, and seamless arcade experience. By minimizing complex menus and focusing entirely on the reel board, the application ensures players can jump directly into the action.</p>\n\n<h3>Visual Design and Interaction Dynamics</h3>\n\n<ul>\n  <li><strong>Satisfying Visual Feedback:</strong> The moment symbols align into a required shape, the game provides immediate, vibrant visual linking, delivering a highly satisfying reward loop for the player.</li>\n  <li><strong>Intuitive Controls:</strong> The spin mechanics are built for easy one-handed mobile play. The interface is highly responsive, ensuring that every interaction feels crisp and immediate.</li>\n  <li><strong>Uncluttered Arcade View:</strong> The digital board is structured to keep all four fruit tile reels clearly visible, preventing visual fatigue even during extended puzzle-solving sessions.</li>\n</ul>\n\n<h3>Player Engagement and Accessibility</h3>\n\n<p>Based on standard engagement patterns, the platform maintains a solid reputation for casual accessibility:</p>\n\n<ul>\n  <li><strong>Quick Sessions:</strong> The fast-spinning nature of the game makes it perfect for short bursts of entertainment, easily fitting into a busy daily schedule.</li>\n  <li><strong>Casual Progression:</strong> The virtual ecosystem allows users to progress through simple, goal-oriented matching tasks without the pressure of intense competitive leaderboards.</li>\n</ul>\n\n<h2>Part 3: Technical Architecture and Application Details</h2>\n\n<p>Featured on RummyDex, Yono Arcade is designed as a lightweight and optimized application, ensuring it runs efficiently across a broad spectrum of Android devices.</p>\n\n<h3>System Specifications and Footprint</h3>\n\n<ul>\n  <li><strong>Broad Device Compatibility:</strong> The application is highly optimized, ensuring smooth animations and stable performance even on older or entry-level smartphones.</li>\n  <li><strong>Active Maintenance:</strong> The developer, dev akwdkowkd, actively maintains the platform, with a major update rolled out on May 1, 2026, to ensure bug-free gameplay.</li>\n  <li><strong>Content Governance:</strong> The application maintains an \"Everyone 10+\" rating on the digital storefront, ensuring compliance with broad content guidelines.</li>\n</ul>\n\n<h2>Monetization Framework and App Economy</h2>\n\n<ul>\n  <li><strong>Virtual Arcade Economy:</strong> The application utilizes a purely virtual progression system. It is free to download and does not require mandatory external purchases to enjoy the core reel-matching features.</li>\n  <li><strong>Accessible Entertainment:</strong> By relying on standard digital mechanics and occasional in-app interactions, the platform ensures that all players have equal access to the full suite of arcade challenges.</li>\n</ul>\n\n<h2>Data Safety and Privacy</h2>\n\n<p>The application is structured to prioritize user privacy with highly transparent data practices:</p>\n\n<ul>\n  <li><strong>No Data Collection:</strong> The developer explicitly declares that no user data is collected by the application, ensuring a highly private offline and online experience.</li>\n  <li><strong>No Third-Party Sharing:</strong> The platform is built with strict privacy guidelines, ensuring that no personal data is shared with third parties.</li>\n</ul>",
     "id": "l7e8oyo9m",
     "video_url": "",
-    "encrypted_link": "",
     "url": ""
   },
   {
@@ -655,12 +655,12 @@ export const mockApps: AppConfig[] = [
     "description_html": "<h2>Part 1: Key Features and Core Mechanics of Bingo 101</h2>\n\n<p>Bingo 101 provides a dynamic digital adaptation of classic number-matching games, designed to offer an engaging and structured casual experience. Built for users who enjoy rapid pattern recognition and interactive tasks, the application serves as a dedicated platform for honing focus and quick reaction times in a relaxed virtual environment.</p>\n\n<h3>The Core Game Mechanics</h3>\n\n<p>The application faithfully recreates traditional grid architecture while introducing modern mobile elements:</p>\n\n<ul>\n  <li><strong>Number Matching:</strong> Players are presented with digital boards and must quickly identify and mark off numbers as they are sequentially generated by the system.</li>\n  <li><strong>Pattern Completion:</strong> The primary objective is to clear specific geometric patterns on the grid—such as straight lines, diagonals, or full houses—before the round concludes.</li>\n  <li><strong>Interactive Spin Wheel:</strong> Alongside the core grid gameplay, the app features an integrated spin wheel mechanism, allowing users to earn virtual progression rewards and unlock new in-app milestones.</li>\n</ul>\n\n<h3>Educational and Strategic Value</h3>\n\n<p>While providing casual entertainment, the platform encourages active cognitive engagement and mental sharpness:</p>\n\n<ul>\n  <li><strong>Visual Tracking:</strong> Players must rapidly scan multiple grid configurations simultaneously, improving their visual processing and spatial awareness.</li>\n  <li><strong>Focus and Concentration:</strong> The fast-paced nature of the number calling requires sustained attention, helping users build better short-term memory and concentration skills during quick sessions.</li>\n</ul>\n\n<h2>Part 2: The Hands-On User Experience</h2>\n\n<p>The user interface of Bingo 101 is specifically engineered for clarity and rapid engagement. By streamlining its menus and focusing on highly readable grids, the application ensures a smooth, frustration-free experience for users across all age groups.</p>\n\n<h3>Visual Design and Interaction Dynamics</h3>\n\n<ul>\n  <li><strong>High-Contrast Interface:</strong> The digital grids feature clear, bold typography and high-contrast colors, ensuring that numbers remain easily readable even on smaller mobile screens.</li>\n  <li><strong>Responsive Controls:</strong> Marking off numbers is accompanied by smooth animations and tactile feedback, making every successful match feel satisfying and immediate.</li>\n  <li><strong>Organized Dashboard:</strong> A centralized profile section allows users to easily track their achievement levels, monitor completed daily missions, and review their overall activity history at a glance.</li>\n</ul>\n\n<h3>Player Engagement and Accessibility</h3>\n\n<p>Based on standard engagement patterns, the platform maintains a strong reputation for its accessibility and consistent pacing:</p>\n\n<ul>\n  <li><strong>Offline Functionality:</strong> A major highlight of the application is its robust offline mode, which allows users to play the core game and practice their skills without needing an active Wi-Fi or cellular data connection.</li>\n  <li><strong>Daily Challenges:</strong> The inclusion of daily tasks and activity goals provides a structured progression loop, encouraging users to check in regularly and complete new milestones.</li>\n  <li><strong>Community Features:</strong> Users have the option to invite friends and share their digital progress, adding a light social element to the virtual progression system.</li>\n</ul>\n\n<h2>Part 3: Technical Architecture and Application Details</h2>\n\n<p>Featured on RummyDex, Bingo 101 combines engaging arcade elements with a lightweight digital footprint, ensuring it runs efficiently across the mobile ecosystem.</p>\n\n<h3>System Specifications and Footprint</h3>\n\n<ul>\n  <li><strong>Broad Device Compatibility:</strong> The application is highly optimized, ensuring stable performance and minimal battery drain across both modern flagship devices and entry-level smartphones.</li>\n  <li><strong>Active Developer Support:</strong> Developed and maintained by DAYALA TECH ENTERPRISES, the platform receives periodic updates to enhance interface stability and introduce new daily challenges.</li>\n  <li><strong>Content Governance:</strong> The application holds an \"Everyone\" rating, confirming its status as a universally appropriate platform free from mature content.</li>\n</ul>\n\n<h2>Monetization Framework and App Economy</h2>\n\n<ul>\n  <li><strong>Virtual Progression:</strong> The application operates entirely on a closed-loop virtual progression system. It is free to download, with all in-game achievements and levels earned strictly through gameplay and regular participation.</li>\n  <li><strong>Ad-Supported Access:</strong> To keep the platform free for its user base, it integrates standard digital advertisements that play seamlessly between completed rounds or spin activities.</li>\n</ul>\n\n<h2>Data Safety and Privacy</h2>\n\n<p>The application is structured to operate securely, prioritizing straightforward data practices:</p>\n\n<ul>\n  <li><strong>Minimal Data Collection:</strong> The developer explicitly notes that no personal data is shared with third parties, ensuring a highly private user experience.</li>\n  <li><strong>Local Processing:</strong> Because of its strong offline capabilities, the majority of progression and activity history can be saved locally on the user's device.</li>\n</ul>",
     "faqs": [
       {
-        "answer": "Yes, Bingo 101 is completely free to download. The app utilizes a virtual progression system designed purely for casual entertainment and daily activity tracking.",
-        "question": "1. Is Bingo 101 free to download and play?"
+        "question": "1. Is Bingo 101 free to download and play?",
+        "answer": "Yes, Bingo 101 is completely free to download. The app utilizes a virtual progression system designed purely for casual entertainment and daily activity tracking."
       },
       {
-        "answer": "Yes, the app features a completely offline mode, allowing you to enjoy the classic number-matching gameplay and practice your skills without needing cellular data or Wi-Fi.",
-        "question": "2. Can I play the game without an internet connection?"
+        "question": "2. Can I play the game without an internet connection?",
+        "answer": "Yes, the app features a completely offline mode, allowing you to enjoy the classic number-matching gameplay and practice your skills without needing cellular data or Wi-Fi."
       },
       {
         "question": "3. What features are included besides the main game?",
@@ -675,7 +675,6 @@ export const mockApps: AppConfig[] = [
     "yellow_box_msg": "",
     "red_box_msg": "",
     "developer": "DAYALA TECH ENTERPRISES",
-    "encrypted_link": "",
     "seo_keywords": "",
     "idea_box_msg": "",
     "url": ""
@@ -688,7 +687,6 @@ export const mockApps: AppConfig[] = [
     "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784878050/download_26_awtrna.webp",
     "canonical_url": "https://www.rummydex.com/app/abc-rummy",
     "name": "ABC RUMMY",
-    "encrypted_link": "",
     "screenshots": [],
     "video_url": "",
     "updated_at": "2026-08-06T10:49:49.616Z",
@@ -713,16 +711,16 @@ export const mockApps: AppConfig[] = [
     "og_image_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784878050/download_26_awtrna.webp",
     "faqs": [
       {
-        "answer": "Yes, ABC Rummy is completely offline. You can play matches, practice your skills, and challenge the AI without needing Wi-Fi or cellular data, making it perfect for travel.",
-        "question": "1. Can I play ABC Rummy without an internet connection?"
+        "question": "1. Can I play ABC Rummy without an internet connection?",
+        "answer": "Yes, ABC Rummy is completely offline. You can play matches, practice your skills, and challenge the AI without needing Wi-Fi or cellular data, making it perfect for travel."
       },
       {
         "answer": "To win, you must engage in classic gameplay by organizing your hand into valid sets (3 to 4 cards of the same rank) and runs (3 or more consecutive cards of the same suit).",
         "question": "2. How do you win a match in ABC Rummy?"
       },
       {
-        "question": "3. What features are included besides the card game?",
-        "answer": "Alongside the card matches, the app features a spin wheel for bonus virtual coins, unlockable avatars, customizable themes, and a system to track your wins and high scores."
+        "answer": "Alongside the card matches, the app features a spin wheel for bonus virtual coins, unlockable avatars, customizable themes, and a system to track your wins and high scores.",
+        "question": "3. What features are included besides the card game?"
       }
     ],
     "red_box_msg": "",
@@ -737,7 +735,6 @@ export const mockApps: AppConfig[] = [
     "created_at": "2026-08-06T06:26:23.645Z",
     "updated_at": "2026-08-09T12:55:09.707Z",
     "features_html": "",
-    "encrypted_link": "",
     "release_notes": "",
     "version": "35.06",
     "publish_date": "",
@@ -756,12 +753,12 @@ export const mockApps: AppConfig[] = [
         "question": "1. How do you play the EVERY 77 card game?"
       },
       {
-        "answer": "Yes, the application is completely free to download. It features a virtual progression system for cosmetic unlocks and is supported by standard in-app advertisements.",
-        "question": "2. Is EVERY 77 free to download and play?"
+        "question": "2. Is EVERY 77 free to download and play?",
+        "answer": "Yes, the application is completely free to download. It features a virtual progression system for cosmetic unlocks and is supported by standard in-app advertisements."
       },
       {
-        "question": "3. Does the app support offline gameplay?",
-        "answer": "Yes, EVERY 77 includes a fully functional offline mode. You can practice against various levels of computer-controlled AI without needing a Wi-Fi or cellular data connection."
+        "answer": "Yes, EVERY 77 includes a fully functional offline mode. You can practice against various levels of computer-controlled AI without needing a Wi-Fi or cellular data connection.",
+        "question": "3. Does the app support offline gameplay?"
       }
     ],
     "developer": "Studio 77 Interactive",
@@ -799,7 +796,6 @@ export const mockApps: AppConfig[] = [
     "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784878950/download_31_s7fonv.webp",
     "developer": "BLG PLASTO PRIVATE LIMITED",
     "red_box_msg": "",
-    "encrypted_link": "",
     "serial_number": 14,
     "canonical_url": "https://www.rummydex.com/app/love-rummy",
     "seo_description": "Explore Love Rummy on RummyDex. Dive into this interactive app featuring a tiered achievement system, daily missions, and level-by-level engagement.",
@@ -852,8 +848,8 @@ export const mockApps: AppConfig[] = [
         "question": "1. What types of mini-games are available in Share Slots?"
       },
       {
-        "answer": "No, a major benefit of Share Slots is its offline capability. Select mini-games and progression features can be played without needing cellular data or a Wi-Fi connection.",
-        "question": "2. Does the application require a constant internet connection?"
+        "question": "2. Does the application require a constant internet connection?",
+        "answer": "No, a major benefit of Share Slots is its offline capability. Select mini-games and progression features can be played without needing cellular data or a Wi-Fi connection."
       },
       {
         "question": "3. How do the daily tasks work?",
@@ -867,7 +863,6 @@ export const mockApps: AppConfig[] = [
     "canonical_url": "https://www.rummydex.com/app/share-slots",
     "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784879544/download_36_zeiyxs.webp",
     "og_image_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784879544/download_36_zeiyxs.webp",
-    "encrypted_link": "",
     "screenshots": [],
     "created_at": "2026-08-06T06:27:21.563Z",
     "video_url": "",
@@ -887,7 +882,6 @@ export const mockApps: AppConfig[] = [
     "category": "All Apps, Yono Apps",
     "created_at": "2026-08-06T06:28:39.740Z",
     "rating": 3.9,
-    "encrypted_link": "",
     "name": "YONO VIP",
     "safety_status": "Verified",
     "slug": "yono-vip",
@@ -902,12 +896,12 @@ export const mockApps: AppConfig[] = [
     "idea_box_msg": "",
     "faqs": [
       {
-        "answer": "Unlike traditional tabletop apps, YONO VIP is a futuristic spatial puzzle game. You must draw lines to connect matching energy nodes on a neon grid without letting your paths cross, all while dodging moving obstacles.",
-        "question": "1. What exactly is the gameplay in YONO VIP?"
+        "question": "1. What exactly is the gameplay in YONO VIP?",
+        "answer": "Unlike traditional tabletop apps, YONO VIP is a futuristic spatial puzzle game. You must draw lines to connect matching energy nodes on a neon grid without letting your paths cross, all while dodging moving obstacles."
       },
       {
-        "answer": "Yes! The core grid-solving levels are fully available offline. You only need the internet if you want to update your daily mission logs or spin the daily Quantum Wheel.",
-        "question": "2. Can I play the puzzles without an internet connection?"
+        "question": "2. Can I play the puzzles without an internet connection?",
+        "answer": "Yes! The core grid-solving levels are fully available offline. You only need the internet if you want to update your daily mission logs or spin the daily Quantum Wheel."
       },
       {
         "question": "3. Is the game free to play?",
@@ -940,8 +934,8 @@ export const mockApps: AppConfig[] = [
         "answer": "Maha Games is a physics-based sandbox and puzzle application. You use mechanics like gravity inversion and momentum to guide objects through complex, 3D floating mazes."
       },
       {
-        "question": "2. Can I play the puzzles without an internet connection?",
-        "answer": "Yes, the core puzzle campaign and sandbox features are completely functional offline, allowing you to solve levels without needing an active data connection."
+        "answer": "Yes, the core puzzle campaign and sandbox features are completely functional offline, allowing you to solve levels without needing an active data connection.",
+        "question": "2. Can I play the puzzles without an internet connection?"
       },
       {
         "answer": "No, the main puzzle rooms do not have timers. The game is designed to be a stress-free environment that encourages you to take your time and experiment with different physics solutions.",
@@ -971,11 +965,9 @@ export const mockApps: AppConfig[] = [
     "features_html": "",
     "id": "m6bwb6cnb",
     "release_notes": "",
-    "encrypted_link": "",
     "url": ""
   },
   {
-    "encrypted_link": "",
     "created_at": "2026-08-06T06:29:45.975Z",
     "version": "28.9O v",
     "custom_admin_box_html": "",
@@ -993,16 +985,16 @@ export const mockApps: AppConfig[] = [
     "yellow_box_msg": "",
     "faqs": [
       {
-        "answer": "Instead of rolling dice, you move your board tokens by playing numbered tiles from your hand. You can also play sequences of tiles at once to unlock special safe zones and shortcuts on the board.",
-        "question": "1. How do you move in Rummy Ludo?"
+        "question": "1. How do you move in Rummy Ludo?",
+        "answer": "Instead of rolling dice, you move your board tokens by playing numbered tiles from your hand. You can also play sequences of tiles at once to unlock special safe zones and shortcuts on the board."
       },
       {
-        "question": "2. What happens if I land on an opponent's token?",
-        "answer": "Unlike classic rules where the token is sent home, landing on an opponent in this game allows you to randomly steal one of the tiles from their hand, helping you build your own sets faster."
+        "answer": "Unlike classic rules where the token is sent home, landing on an opponent in this game allows you to randomly steal one of the tiles from their hand, helping you build your own sets faster.",
+        "question": "2. What happens if I land on an opponent's token?"
       },
       {
-        "answer": "Yes, the application includes a robust offline mode with intelligent AI opponents, allowing you to practice your tile-drafting and board strategies without needing an internet connection.",
-        "question": "3. Does the app support offline gameplay?"
+        "question": "3. Does the app support offline gameplay?",
+        "answer": "Yes, the application includes a robust offline mode with intelligent AI opponents, allowing you to practice your tile-drafting and board strategies without needing an internet connection."
       }
     ],
     "file_size": "44.8 MB",
@@ -1033,7 +1025,6 @@ export const mockApps: AppConfig[] = [
     "is_new": false,
     "video_url": "",
     "category": "All Apps, Yono Apps",
-    "encrypted_link": "",
     "name": "789 JACKPORTS",
     "slug": "789-jackports",
     "seo_description": "Discover 789 Jackports on RummyDex. Explore this intense orbital puzzle game where you shoot numbered pods into rotating space rings to trigger massive visual combos.",
@@ -1045,16 +1036,16 @@ export const mockApps: AppConfig[] = [
     "release_notes": "",
     "faqs": [
       {
-        "question": "1. How do you play 789 Jackports?",
-        "answer": "You use a pull-and-release slingshot mechanic to fire numbered pods into the empty bays of a spinning orbital ring, adjusting for gravity curves along the way."
+        "answer": "You use a pull-and-release slingshot mechanic to fire numbered pods into the empty bays of a spinning orbital ring, adjusting for gravity curves along the way.",
+        "question": "1. How do you play 789 Jackports?"
       },
       {
-        "answer": "Docking those three numbers in a consecutive sequence triggers a massive chain reaction that clears the board and instantly completes the puzzle phase.",
-        "question": "2. What happens when you dock a 7, 8, and 9 together?"
+        "question": "2. What happens when you dock a 7, 8, and 9 together?",
+        "answer": "Docking those three numbers in a consecutive sequence triggers a massive chain reaction that clears the board and instantly completes the puzzle phase."
       },
       {
-        "answer": "No, the entire cosmic puzzle campaign and all physics-based levels are fully available offline.",
-        "question": "3. Do I need Wi-Fi to play this game?"
+        "question": "3. Do I need Wi-Fi to play this game?",
+        "answer": "No, the entire cosmic puzzle campaign and all physics-based levels are fully available offline."
       }
     ],
     "safety_status": "Verified",
@@ -1094,16 +1085,16 @@ export const mockApps: AppConfig[] = [
     "rating": 4,
     "faqs": [
       {
-        "answer": "Instead of flat boards, you manipulate a massive 3D puzzle cube. You must rotate the structure and align 7 matching blocks within a 7-second window to clear the matrix before the time runs out.",
-        "question": "1. What is the main gameplay in 777 Game?"
+        "question": "1. What is the main gameplay in 777 Game?",
+        "answer": "Instead of flat boards, you manipulate a massive 3D puzzle cube. You must rotate the structure and align 7 matching blocks within a 7-second window to clear the matrix before the time runs out."
       },
       {
-        "question": "2. Can I play this puzzle game without an internet connection?",
-        "answer": "Yes, the core 3D matrix puzzles and gravity challenges are fully functional offline, allowing you to play anywhere without needing Wi-Fi or mobile data."
+        "answer": "Yes, the core 3D matrix puzzles and gravity challenges are fully functional offline, allowing you to play anywhere without needing Wi-Fi or mobile data.",
+        "question": "2. Can I play this puzzle game without an internet connection?"
       },
       {
-        "question": "3. Are there different visual styles for the puzzles?",
-        "answer": "Yes, as you play, you earn virtual progression points that allow you to unlock unique cosmetic skins for your cube, such as neon lights, glass, or metallic textures."
+        "answer": "Yes, as you play, you earn virtual progression points that allow you to unlock unique cosmetic skins for your cube, such as neon lights, glass, or metallic textures.",
+        "question": "3. Are there different visual styles for the puzzles?"
       }
     ],
     "serial_number": 20,
@@ -1115,7 +1106,6 @@ export const mockApps: AppConfig[] = [
     "description_html": "<h2>Part 1: Key Features and Core Mechanics of 777 Game</h2>\n\n<p>​If you are expecting another standard, flat digital tabletop or repetitive matching game, 777 Game completely shatters those expectations. This application abandons 2D mechanics entirely and drops players into a chaotic, floating 3D environment. It is a wildly inventive spatial puzzle designed to test your reflexes, geometry skills, and ability to think in three dimensions under extreme pressure.</p>\n\n<h3>​The \"Crazy\" Core Gameplay</h3>\n\n<p>​The mechanics are completely unique, turning the traditional meaning of \"777\" into a high-speed geometric challenge:</p>\n\n<p>​The 7-Cube Matrix: You are in control of a massive, floating holographic hypercube made up of hundreds of smaller, shifting blocks. You must swipe across your screen to rapidly spin and rotate the entire 3D structure to locate unstable energy clusters.</p>\n\n<p>​The 7-7-7 Detonation Rule: The core objective is where the game gets its name. You must find and align exactly 7 blocks of the same color, lock them in a row, and trigger them within a 7-second countdown window. If you pull it off, the combo triggers a massive shockwave that collapses that section of the cube.</p>\n\n<p>​Gravity Shifts: Every time you clear a section of the matrix, the center of gravity shifts. The remaining blocks tumble and lock into completely new formations in real-time, forcing you to instantly readjust your spatial perspective.</p>\n\n<h3>​Strategic Value and Brain Training</h3>\n\n<p>​This platform is a massive, high-intensity workout for your brain:</p>\n\n<p>​Spatial Reasoning: You are constantly visualizing the hidden sides of a 3D object, calculating how a rotation on the X-axis will affect the blocks on the Y-axis.</p>\n\n<p>​Hyper-Focused Reflexes: The strict 7-second combo window eliminates overthinking. It trains your brain to recognize color and shape patterns instantly and execute complex swipe commands without hesitation.</p>\n\n<h3>​Part 2: The Hands-On User Experience</h3>\n\n<p>​The application is engineered to feel like an intense, futuristic hacking simulator. The interface strips away cluttered menus, ensuring your entire screen is dominated by the glowing, rotating matrix puzzle.</p>\n\n<h3>​Visual Design and Interaction Dynamics</h3>\n\n<p>​Neon Void Aesthetics: The game takes place against a pitch-black digital void. The blocks are beautifully rendered in glowing, translucent neon colors that cast dynamic shadows as you rotate the hypercube.</p>\n\n<p>​Fierce Haptic Feedback: The tactile immersion is incredible. When you spin the cube, you feel a smooth, rolling vibration. But when you successfully lock in a 7-7-7 combo, the screen flashes and your device delivers a heavy, concussive \"boom\" through the vibration motor.</p>\n\n<p>​Seamless Perspective Controls: Controlling a complex 3D object on a flat touchscreen can be difficult, but this app nails it. The swipe-to-rotate controls are buttery smooth and highly responsive, preventing any frustrating mis-swipes during the countdown.</p>\n\n<h3>​Player Engagement and Feedback</h3>\n\n<p>​The \"Zone\" State: Users frequently highlight how the game forces them into a state of hyper-focus. Because you are constantly fighting the 7-second timer and reacting to gravity shifts, there is no time to be distracted by anything else.</p>\n\n<p>​Zero Luck, Pure Skill: Players love that their success is dictated entirely by their own spatial awareness and reaction speed, completely removing random chance from the equation.</p>\n\n<h3>​Part 3: Technical Architecture and Application Details</h3>\n\n<p>​Featured on RummyDex, 777 Game manages to render complex 3D physics and lighting effects while remaining incredibly optimized for mobile devices.</p>\n\n<h3>​System Specifications and Footprint</h3>\n\n<p>​Optimized 3D Engine: Despite the high-quality holographic visuals and real-time gravity physics, the app is engineered to run smoothly on standard smartphones without causing severe battery drain or lag.</p>\n\n<p>​100% Offline Capability: The entire puzzle campaign operates completely offline. You can manipulate the matrix and challenge your high scores anywhere, without ever needing a cellular data or Wi-Fi connection.</p>\n\n<p>​Universal Content: The application maintains an \"Everyone\" rating, offering a purely neutral, geometry-based arcade experience that is suitable for puzzle fans of all ages.</p>\n\n<h3>​Virtual Ecosystem</h3>\n\n<p>​Free-to-Play Framework: The application is completely free to download and utilizes a closed, virtual progression system.</p>\n\n<p>​Cosmetic Unlocks: As you clear cubes, you earn virtual \"Core Fragments.\" These can be spent in the digital gallery to unlock crazy new textures for your matrix, such as liquid metal blocks, shattered glass effects, or pulsing laser grids.</p>",
     "is_new": false,
     "publish_date": "",
-    "encrypted_link": "",
     "file_size": "71.11 MB",
     "category": "All Apps, Yono Apps",
     "seo_title": "777 Game App Review: The 3D Matrix & Spatial Puzzles | RummyDex",
@@ -1123,7 +1113,6 @@ export const mockApps: AppConfig[] = [
   },
   {
     "category": "Card Apps",
-    "encrypted_link": "",
     "faqs": [],
     "og_image_url": "",
     "custom_admin_box_html": "",
@@ -1182,7 +1171,6 @@ export const mockApps: AppConfig[] = [
     "canonical_url": "https://www.rummydex.com/app/solitaire",
     "slug": "solitaire",
     "custom_admin_box_heading": "",
-    "encrypted_link": "",
     "publish_date": "",
     "name": "SOLITAIRE",
     "custom_admin_box_html": "",
@@ -1196,7 +1184,6 @@ export const mockApps: AppConfig[] = [
   {
     "red_box_msg": "",
     "custom_admin_box_html": "",
-    "encrypted_link": "",
     "is_new": false,
     "version": "3.5.06",
     "name": "VITA MAHJONG",
@@ -1243,7 +1230,7 @@ export const saveMockApps = (apps: AppConfig[]) => {
 export const mockSettings: GlobalSettings = {
   "site_title": "RummyDex",
   "meta_description": "RummyDex is the ultimate game directory. Access hand-tested reviews, verified secure links, and daily news to elevate your mobile experience.",
-  "logo_url": "https://res.cloudinary.com/diewalae4/image/upload/v1785648485/ezgif-88d07abd3ef5753f_yz8ytg.webp",
+  "logo_url": "https://res.cloudinary.com/diewalae4/image/upload/v1785720339/1000132678_1_ro1ftj.png",
   "favicon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1785720339/1000132678_1_ro1ftj.png",
   "helpline_whatsapp": "",
   "helpline_telegram": "",

@@ -68,35 +68,13 @@ seoRouter.get([
 
     const isDefaultOrPlaceholder = (url: string) => {
       if (!url) return true;
-      return url.includes('ezgif-64180dd8ca74703b') ||
-             url.includes('1000132678_1_ro1ftj') ||
-             url.includes('v1785720339');
+      return url.includes('ezgif-64180dd8ca74703b');
     };
-
-    const isSizedFaviconReq = [
-      'favicon-16x16.png',
-      'favicon-32x32.png',
-      'favicon.ico',
-      'apple-touch-icon.png',
-      'apple-touch-icon-precomposed.png'
-    ].includes(reqFilename);
-
-    // If local static file exists AND (custom URL is default/placeholder OR it is a specific sized favicon request where customFaviconUrl is not explicitly custom):
-    if (localFile && (isSizedFaviconReq || isDefaultOrPlaceholder(customFaviconUrl))) {
-      const contentType = reqFilename.endsWith('.ico')
-        ? 'image/x-icon'
-        : (reqFilename.endsWith('.webp') ? 'image/webp' : 'image/png');
-      res.set({
-        'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=31536000, immutable',
-        'Content-Disposition': `inline; filename="${reqFilename}"`
-      });
-      return res.sendFile(localFile);
-    }
 
     const imageUrl = (!isDefaultOrPlaceholder(customFaviconUrl) ? customFaviconUrl : null) ||
                      (!isDefaultOrPlaceholder(customLogoUrl) ? customLogoUrl : null) ||
                      'https://res.cloudinary.com/diewalae4/image/upload/v1785720339/1000132678_1_ro1ftj.png';
+
     try {
       const response = await fetch(imageUrl, {
         headers: {
@@ -106,7 +84,6 @@ seoRouter.get([
       if (response.ok) {
         const arrayBuffer = await response.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
-        const originalContentType = response.headers.get('content-type') || '';
 
         let contentType = 'image/png';
         if (buffer.length >= 12 && buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50) {
@@ -119,26 +96,29 @@ seoRouter.get([
           contentType = 'image/jpeg';
         } else if (buffer.toString('utf8', 0, Math.min(100, buffer.length)).includes('<svg')) {
           contentType = 'image/svg+xml';
-        } else if (originalContentType) {
-          contentType = originalContentType.split(';')[0].trim();
         }
 
-        res.set('Content-Type', contentType);
-        res.set('Cache-Control', 'public, max-age=86400, stale-while-revalidate=43200');
-        return res.status(200).send(buffer);
-      } else if (localFile) {
-        res.set('Cache-Control', 'public, max-age=86400, stale-while-revalidate=43200');
-        return res.sendFile(localFile);
-      } else {
-        res.set('Cache-Control', 'public, max-age=3600');
-        return res.redirect(302, imageUrl);
+        res.set({
+          'Content-Type': contentType,
+          'Cache-Control': 'public, max-age=31536000, immutable',
+          'Content-Disposition': `inline; filename="${reqFilename}"`
+        });
+        return res.send(buffer);
       }
     } catch (fetchErr) {
-      if (localFile) {
-        res.set('Cache-Control', 'public, max-age=86400, stale-while-revalidate=43200');
-        return res.sendFile(localFile);
-      }
-      return res.redirect(302, imageUrl);
+      console.warn("Failed to fetch image proxy for favicon/logo, falling back to local file:", fetchErr);
+    }
+
+    if (localFile) {
+      const contentType = reqFilename.endsWith('.ico')
+        ? 'image/x-icon'
+        : (reqFilename.endsWith('.webp') ? 'image/webp' : 'image/png');
+      res.set({
+        'Content-Type': contentType,
+        'Cache-Control': 'public, max-age=31536000, immutable',
+        'Content-Disposition': `inline; filename="${reqFilename}"`
+      });
+      return res.sendFile(localFile);
     }
   } catch (err) {
     if (localFile) {

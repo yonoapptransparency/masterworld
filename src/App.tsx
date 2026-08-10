@@ -62,14 +62,14 @@ function AppContent() {
     document.title = `Admin Dashboard - ${siteTitle}`;
 
     // Dynamically synchronize favicon with firebase database changes live
-    const targetUrl = settings.favicon_url || settings.logo_url;
+    const targetUrl = settings.favicon_url || settings.logo_url || "https://res.cloudinary.com/diewalae4/image/upload/v1785720339/1000132678_1_ro1ftj.png";
     if (targetUrl) {
       const icons = [
-        { rel: 'icon', sizes: '192x192', href: '/favicon.png', type: 'image/png' },
-        { rel: 'icon', sizes: '32x32', href: '/favicon-32x32.png', type: 'image/png' },
-        { rel: 'icon', sizes: '16x16', href: '/favicon-16x16.png', type: 'image/png' },
-        { rel: 'shortcut icon', href: '/favicon.ico', type: 'image/x-icon' },
-        { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png', type: 'image/png' }
+        { rel: 'icon', sizes: '192x192', href: targetUrl, type: 'image/png' },
+        { rel: 'icon', sizes: '32x32', href: targetUrl, type: 'image/png' },
+        { rel: 'icon', sizes: '16x16', href: targetUrl, type: 'image/png' },
+        { rel: 'shortcut icon', href: targetUrl, type: 'image/x-icon' },
+        { rel: 'apple-touch-icon', sizes: '180x180', href: targetUrl, type: 'image/png' }
       ];
       
       icons.forEach(iconDef => {
