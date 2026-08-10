@@ -374,29 +374,35 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
       }
     }
 
-    // 3. Attempt Fallback: Check Global Vault Documents in Firestore
+    // 3. Attempt Fallback: Check Global Vault Documents in Firestore (Parallel Execution)
     if (!targetUrl) {
       try {
         const db = getFirebaseAdminDb();
         if (db) {
           const vaultDocs = ['sec_public_links', 'sec_links_vault_3', 'sec_vault', 'secure_links'];
-          for (const docName of vaultDocs) {
-             const vaultSnap = await db.collection('store_data').doc(docName).get();
-             if (vaultSnap.exists) {
-                const data = vaultSnap.data();
-                const ciphertext = data?.encryptedData || data?.encrypted_links;
-                if (ciphertext) {
-                   const dec = safeDecrypt(ciphertext, AES_SECRET);
-                   if (dec) {
-                      const parsed = JSON.parse(dec);
-                      const foundUrl = findUrlInVaultParsed(parsed, searchKeys, AES_SECRET);
-                      if (foundUrl) {
-                         targetUrl = foundUrl;
-                         break;
-                      }
-                   }
+          const docSnaps = await Promise.all(
+            vaultDocs.map(docName => db.collection('store_data').doc(docName).get().catch(() => null))
+          );
+
+          for (const vaultSnap of docSnaps) {
+            if (vaultSnap && vaultSnap.exists) {
+              const data = vaultSnap.data();
+              const ciphertext = data?.encryptedData || data?.encrypted_links;
+              if (ciphertext) {
+                const dec = safeDecrypt(ciphertext, AES_SECRET);
+                if (dec) {
+                  try {
+                    const parsed = JSON.parse(dec);
+                    vaultNode.setPayloads(parsed);
+                    const foundUrl = findUrlInVaultParsed(parsed, searchKeys, AES_SECRET);
+                    if (foundUrl) {
+                      targetUrl = foundUrl;
+                      break;
+                    }
+                  } catch (e) {}
                 }
-             }
+              }
+            }
           }
         }
       } catch (vaultErr) {}
@@ -407,6 +413,9 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
       resolvedLinkCache.set(appId.toLowerCase(), entry);
       resolvedLinkCache.set(realId.toLowerCase(), entry);
       resolvedLinkCache.set(realSlug.toLowerCase(), entry);
+      vaultNode.setPayload(appId, targetUrl.trim());
+      vaultNode.setPayload(realId, targetUrl.trim());
+      vaultNode.setPayload(realSlug, targetUrl.trim());
       return res.redirect(302, targetUrl.trim());
     }
     
@@ -468,32 +477,38 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
           }
         }
       } else {
-        // REST API Fallback
+        // REST API Fallback (Parallelized)
         const config = getRawFirebaseConfig();
         if (config && config.projectId) {
           const apiSuffix = config.apiKey ? `?key=${config.apiKey}` : '';
           const headers = { 'Origin': 'https://rummydex.com', 'Referer': 'https://rummydex.com/' };
           
           const vaultDocs = ['sec_public_links', 'sec_links_vault_3', 'sec_vault', 'secure_links'];
-          for (const docName of vaultDocs) {
-             const vaultUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || '(default)'}/documents/store_data/${docName}${apiSuffix}`;
-             const fsRes = await fetch(vaultUrl, { headers });
-             if (fsRes.ok) {
-                const fsDoc = await fsRes.json();
-                const fields = parseFirestoreFields(fsDoc.fields);
-                const ciphertext = fields.encryptedData || fields.encrypted_links;
-                if (ciphertext) {
-                   const dec = safeDecrypt(ciphertext, AES_SECRET);
-                   if (dec) {
-                      const parsed = JSON.parse(dec);
-                      const foundUrl = findUrlInVaultParsed(parsed, searchKeys, AES_SECRET);
-                      if (isValidTargetUrl(foundUrl)) {
-                         targetUrl = foundUrl;
-                         break;
-                      }
-                   }
+          const fetchPromises = vaultDocs.map(docName => {
+            const vaultUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || '(default)'}/documents/store_data/${docName}${apiSuffix}`;
+            return fetch(vaultUrl, { headers }).then(r => r.ok ? r.json() : null).catch(() => null);
+          });
+
+          const fsDocs = await Promise.all(fetchPromises);
+          for (const fsDoc of fsDocs) {
+            if (fsDoc && fsDoc.fields) {
+              const fields = parseFirestoreFields(fsDoc.fields);
+              const ciphertext = fields.encryptedData || fields.encrypted_links;
+              if (ciphertext) {
+                const dec = safeDecrypt(ciphertext, AES_SECRET);
+                if (dec) {
+                  try {
+                    const parsed = JSON.parse(dec);
+                    vaultNode.setPayloads(parsed);
+                    const foundUrl = findUrlInVaultParsed(parsed, searchKeys, AES_SECRET);
+                    if (isValidTargetUrl(foundUrl)) {
+                      targetUrl = foundUrl;
+                      break;
+                    }
+                  } catch (e) {}
                 }
-             }
+              }
+            }
           }
 
           // Fallback to check the 'apps' collection via REST API

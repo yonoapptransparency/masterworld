@@ -86,21 +86,100 @@ class VaultNodeManager {
         }
       } catch (e) {}
 
-      // 3. Fallback to file for local dev
-      if (fs.existsSync(this.vaultPath)) {
-        try {
-          const data = JSON.parse(fs.readFileSync(this.vaultPath, 'utf8')) as Record<string, SecureNode>;
-          Object.entries(data).forEach(([slug, node]) => {
-            setInCache(slug, node.payload);
-            setInCache(node.id, node.payload);
-          });
-        } catch (e) {}
+      // 3. Fallback to file for local dev and persistent runtime backups
+      const diskBackupPaths = [
+        this.vaultPath,
+        path.join(process.cwd(), '.local', 'secure_vault.json'),
+        path.join(process.cwd(), '.local', 'secure_links_backup.json'),
+        path.join(process.cwd(), 'src', 'lib', 'secure_links_backup.json')
+      ];
+
+      for (const p of diskBackupPaths) {
+        if (fs.existsSync(p)) {
+          try {
+            const raw = fs.readFileSync(p, 'utf8');
+            const data = JSON.parse(raw);
+            if (Array.isArray(data)) {
+              data.forEach((node: any) => {
+                const target = node.more_information_url || node.encrypted_link || node.download_url || node.payload || node.url;
+                setInCache(node.id, target);
+                setInCache(node.slug, target);
+              });
+            } else if (data && typeof data === 'object') {
+              Object.entries(data).forEach(([key, node]: [string, any]) => {
+                const target = typeof node === 'string' ? node : (node.more_information_url || node.encrypted_link || node.download_url || node.payload || node.url);
+                setInCache(key, target);
+                if (node && typeof node === 'object') {
+                  setInCache(node.id, target);
+                  setInCache(node.slug, target);
+                }
+              });
+            }
+          } catch (e) {}
+        }
       }
 
       this.cache = newCache;
       console.log(`[VaultNode] Loaded ${this.cache.size} node key mappings into memory.`);
     } catch (error) {
       console.error('[VaultNode] Initialization failed:', error);
+    }
+  }
+
+  /**
+   * Directly injects or updates a key-value mapping in memory for instant resolution.
+   */
+  public setPayload(key: string | undefined | null, url: string | undefined | null) {
+    if (!key || !url || typeof key !== 'string' || typeof url !== 'string') return;
+    const cleanUrl = url.trim();
+    if (!cleanUrl) return;
+
+    const kExact = key.trim();
+    const kLower = kExact.toLowerCase();
+    const kClean = kLower.replace(/[-_ ]+$/, '');
+    const kNoSep = kLower.replace(/[-_ ]/g, '');
+
+    if (kExact) this.cache.set(kExact, cleanUrl);
+    if (kLower) this.cache.set(kLower, cleanUrl);
+    if (kClean) this.cache.set(kClean, cleanUrl);
+    if (kNoSep) this.cache.set(kNoSep, cleanUrl);
+  }
+
+  /**
+   * Ingests an array or object of item mappings directly into memory.
+   */
+  public setPayloads(items: any) {
+    if (!items) return;
+    const secret = getAesSecret();
+
+    const processItem = (node: any) => {
+      if (!node) return;
+      let target = typeof node === 'string' ? node : (node.more_information_url || node.encrypted_link || node.download_url || node.payload || node.url);
+      if (!target || typeof target !== 'string') return;
+
+      let trimmed = target.trim();
+      if (trimmed.startsWith('U2FsdGVkX1')) {
+        const dec = safeDecrypt(trimmed, secret);
+        if (dec && dec.trim().length > 0) {
+          trimmed = dec.trim();
+        }
+      }
+
+      if (typeof node === 'object') {
+        if (node.id) this.setPayload(node.id, trimmed);
+        if (node.slug) this.setPayload(node.slug, trimmed);
+      }
+    };
+
+    if (Array.isArray(items)) {
+      items.forEach(processItem);
+    } else if (typeof items === 'object') {
+      Object.entries(items).forEach(([key, node]: [string, any]) => {
+        this.setPayload(key, typeof node === 'string' ? node : (node.more_information_url || node.encrypted_link || node.download_url || node.payload || node.url));
+        if (node && typeof node === 'object') {
+          processItem(node);
+        }
+      });
     }
   }
 

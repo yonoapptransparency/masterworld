@@ -345,6 +345,8 @@ adminVaultRouter.post("/api/v1/admin/encrypt-links", verifyAdminToken, async (re
 
     clearResolvedLinkCache();
     try {
+      vaultNode.setPayloads(items);
+      vaultNode.setPayloads(mergedItems);
       vaultNode.refresh();
     } catch (vErr) {
       console.warn("[SERVER] VaultNode refresh error:", vErr);
@@ -831,7 +833,15 @@ adminVaultRouter.post("/api/v1/admin/save-links-direct", verifyAdminToken, (req,
       }
     }
 
+    fs.mkdirSync(path.dirname(backupPath), { recursive: true });
+    fs.writeFileSync(backupPath, JSON.stringify(mergedBackup, null, 2));
+
     clearResolvedLinkCache();
+    try {
+      vaultNode.setPayloads(items);
+      vaultNode.setPayloads(mergedBackup);
+    } catch (e) {}
+
     res.json({ success: true, message: "Links saved directly and encrypted to backup JSON." });
   } catch(err: any) {
     res.status(500).json({ error: err.message });
