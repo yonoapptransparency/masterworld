@@ -182,7 +182,23 @@ export function useGitHubSync(
     const finalSettings = ensureDefaultSettings(targetSettings);
     const updatedCode = generateStaticDataFileCode(finalApps, finalSettings, targetNews, targetBlogs, targetVideos);
     const safeBackupApps = JSON.parse(JSON.stringify(finalApps)).map((app: any) => {
-      delete app.more_information_url;
+      const rawTarget = app.more_information_url || app.download_url || app.encrypted_link || app.encrypted_download_url || '';
+      if (app.url && (app.url.includes('com.rummydex') || app.url.includes('com.example'))) {
+        app.url = '';
+      }
+      if (rawTarget && typeof rawTarget === 'string') {
+        const trimmed = rawTarget.trim();
+        if (trimmed && !trimmed.includes('com.rummydex') && !trimmed.includes('com.example')) {
+          app.more_information_url = trimmed.startsWith('U2FsdGVkX1') ? trimmed : trimmed;
+          app.encrypted_link = app.more_information_url;
+        } else {
+          delete app.more_information_url;
+          delete app.encrypted_link;
+        }
+      } else {
+        delete app.more_information_url;
+        delete app.encrypted_link;
+      }
       delete app.encrypted_download_url;
       delete app.download_url;
       return app;

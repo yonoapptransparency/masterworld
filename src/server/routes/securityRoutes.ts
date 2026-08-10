@@ -217,12 +217,20 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
       console.warn("[SECURITY] Store data fetch failed during resolve:", e);
     }
     
+    function isValidTargetUrl(url: string | undefined | null): boolean {
+      if (!url || typeof url !== 'string') return false;
+      const clean = url.trim().toLowerCase();
+      if (clean === '' || clean === 'undefined' || clean === 'null' || clean === '#') return false;
+      if (clean.includes('com.rummydex') || clean.includes('com.example')) return false;
+      return clean.startsWith('http://') || clean.startsWith('https://');
+    }
+
     // 2. Attempt to get from vaultNode memory cache
     try {
       const payload = await vaultNode.getSyncPayload(realId) || 
                       await vaultNode.getSyncPayload(realSlug) || 
                       await vaultNode.getSyncPayload(appId);
-      if (payload && payload.trim().length > 0) {
+      if (payload && isValidTargetUrl(payload)) {
         console.log(`[SECURITY] Resolved link directly from vaultNode for ${appId}`);
         const entry = { url: payload.trim(), timestamp: Date.now() };
         resolvedLinkCache.set(appId.toLowerCase(), entry);
@@ -250,7 +258,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
       return searchSet.has(iId) || searchSet.has(iSlug) || searchSetNoSep.has(iIdNoSep) || searchSetNoSep.has(iSlugNoSep);
     });
     if (item) {
-      foundRaw = item.more_information_url || item.url || item.payload || item.encrypted_link || item.download_url || '';
+      foundRaw = item.more_information_url || item.encrypted_link || item.download_url || item.payload || item.url || '';
     }
   } else if (parsed && typeof parsed === 'object') {
     for (const [k, v] of Object.entries(parsed)) {
@@ -260,7 +268,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
         if (typeof v === 'string') {
           foundRaw = v;
         } else if (v && typeof v === 'object') {
-          foundRaw = (v as any).more_information_url || (v as any).url || (v as any).payload || (v as any).encrypted_link || (v as any).download_url || '';
+          foundRaw = (v as any).more_information_url || (v as any).encrypted_link || (v as any).download_url || (v as any).payload || (v as any).url || '';
         }
         if (foundRaw) break;
       }
@@ -269,11 +277,10 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
 
   if (foundRaw && typeof foundRaw === 'string' && foundRaw.trim().length > 0) {
     const trimmed = foundRaw.trim();
-    if (trimmed.startsWith('U2FsdGVkX1')) {
-      const dec = safeDecrypt(trimmed, AES_SECRET);
-      return (dec && dec.trim().length > 0) ? dec.trim() : '';
+    const finalUrl = trimmed.startsWith('U2FsdGVkX1') ? safeDecrypt(trimmed, AES_SECRET) : trimmed;
+    if (isValidTargetUrl(finalUrl)) {
+      return finalUrl.trim();
     }
-    return trimmed;
   }
   return '';
 }
@@ -368,13 +375,13 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
           
           if (encrypted) {
             const decrypted = safeDecrypt(encrypted, AES_SECRET);
-            if (decrypted && decrypted.trim().length > 0) {
+            if (isValidTargetUrl(decrypted)) {
               const entry = { url: decrypted.trim(), timestamp: Date.now() };
               resolvedLinkCache.set(appId.toLowerCase(), entry);
               resolvedLinkCache.set(realId.toLowerCase(), entry);
               return res.redirect(302, decrypted.trim());
-            } else if (encrypted.trim().length > 0) {
-              const entry = { url: encrypted, timestamp: Date.now() };
+            } else if (isValidTargetUrl(encrypted)) {
+              const entry = { url: encrypted.trim(), timestamp: Date.now() };
               resolvedLinkCache.set(appId.toLowerCase(), entry);
               resolvedLinkCache.set(realId.toLowerCase(), entry);
               return res.redirect(302, encrypted.trim());
@@ -388,10 +395,10 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
           const appSnap = await db.collection('apps').doc(targetId).get();
           if (appSnap.exists) {
             const appData = appSnap.data();
-            const rawUrl = appData?.more_information_url || appData?.download_url || appData?.encrypted_link || appData?.url;
+            const rawUrl = appData?.more_information_url || appData?.encrypted_link || appData?.download_url;
             if (rawUrl && typeof rawUrl === 'string') {
               const dec = rawUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(rawUrl, AES_SECRET) : rawUrl;
-              if (dec && dec.trim().length > 0) {
+              if (isValidTargetUrl(dec)) {
                 const entry = { url: dec.trim(), timestamp: Date.now() };
                 resolvedLinkCache.set(appId.toLowerCase(), entry);
                 resolvedLinkCache.set(realId.toLowerCase(), entry);
@@ -420,7 +427,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
                    if (dec) {
                       const parsed = JSON.parse(dec);
                       const foundUrl = findUrlInVaultParsed(parsed, searchKeys, AES_SECRET);
-                      if (foundUrl) {
+                      if (isValidTargetUrl(foundUrl)) {
                          targetUrl = foundUrl;
                          break;
                       }
@@ -439,14 +446,11 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
                 if (appRes.ok) {
                   const appDoc = await appRes.json();
                   const appData = parseFirestoreFields(appDoc.fields);
-                  const rawUrl = appData?.more_information_url || appData?.download_url || appData?.encrypted_link || appData?.url;
+                  const rawUrl = appData?.more_information_url || appData?.encrypted_link || appData?.download_url;
                   if (rawUrl && typeof rawUrl === 'string') {
                     const dec = rawUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(rawUrl, AES_SECRET) : rawUrl;
-                    if (dec && dec.trim().length > 0) {
+                    if (isValidTargetUrl(dec)) {
                       targetUrl = dec.trim();
-                      break;
-                    } else if (rawUrl.trim().length > 0) {
-                      targetUrl = rawUrl.trim();
                       break;
                     }
                   }
@@ -460,7 +464,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
       console.error("[SECURITY] Firestore link resolution fallback failed:", fsFallbackErr);
     }
 
-    if (targetUrl && targetUrl.trim().length > 0) {
+    if (isValidTargetUrl(targetUrl)) {
       const entry = { url: targetUrl.trim(), timestamp: Date.now() };
       resolvedLinkCache.set(appId.toLowerCase(), entry);
       resolvedLinkCache.set(realId.toLowerCase(), entry);
@@ -478,13 +482,11 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
          return id === cleanInput || sl === cleanInput || sl === appId.toLowerCase().trim();
        });
        if (app) {
-         let rawUrl = app.more_information_url || app.download_url || app.url || app.encrypted_link;
+         let rawUrl = app.more_information_url || app.encrypted_link || app.download_url;
          if (rawUrl && typeof rawUrl === 'string') {
            const dec = rawUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(rawUrl, AES_SECRET) : rawUrl;
-           if (dec && dec.trim().length > 0) {
+           if (isValidTargetUrl(dec)) {
               return res.redirect(302, dec.trim());
-           } else if (rawUrl.trim().length > 0) {
-              return res.redirect(302, rawUrl.trim());
            }
          }
        }

@@ -61,7 +61,20 @@ export function useDataActions(
         for (let i = 0; i < numChunks; i++) {
           const chunk = JSON.parse(JSON.stringify(newApps.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE)));
           chunk.forEach((app: any) => {
-            delete app.more_information_url;
+            const rawTarget = app.more_information_url || app.encrypted_link || app.download_url || '';
+            if (rawTarget && typeof rawTarget === 'string' && rawTarget.trim().length > 0) {
+              const trimmed = rawTarget.trim();
+              if (!trimmed.includes('com.rummydex') && !trimmed.includes('com.example')) {
+                app.more_information_url = trimmed;
+                app.encrypted_link = trimmed;
+              } else {
+                delete app.more_information_url;
+                delete app.encrypted_link;
+              }
+            } else {
+              delete app.more_information_url;
+              delete app.encrypted_link;
+            }
             delete app.encrypted_download_url;
             delete app.download_url;
           });
@@ -76,10 +89,10 @@ export function useDataActions(
 
     const secureLinks = newApps
       .filter(a => {
-        const oldApp = apps.find(o => o.id === a.id);
-        return !oldApp || oldApp.more_information_url !== a.more_information_url;
+        const target = a.more_information_url || a.encrypted_link || '';
+        return target && typeof target === 'string' && target.trim().length > 0 && !target.includes('com.rummydex') && !target.includes('com.example');
       })
-      .map(a => ({ id: a.id, url: a.more_information_url || '' }));
+      .map(a => ({ id: a.id, slug: a.slug, url: a.more_information_url || a.encrypted_link || '' }));
 
     if (secureLinks.length > 0) {
       try {

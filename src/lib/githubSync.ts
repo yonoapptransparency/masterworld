@@ -3,8 +3,22 @@
  * Responsible for backing up local game state logs, configs, and details on GitHub repos.
  */
 
+import CryptoJS from 'crypto-js';
 import { ensureDefaultSettings } from './defaultLegalContent';
 import { adminFetch } from '../services/adminAuthService';
+
+function encryptUrlIfNeeded(url: string): string {
+  if (!url || typeof url !== 'string') return '';
+  const trimmed = url.trim();
+  if (trimmed === '' || trimmed.includes('com.rummydex') || trimmed.includes('com.example')) return '';
+  if (trimmed.startsWith('U2FsdGVkX1')) return trimmed;
+  const secret = process.env.AES_SECRET || 'YonoVaultSecret2026MasterKey!';
+  try {
+    return CryptoJS.AES.encrypt(trimmed, secret).toString();
+  } catch (e) {
+    return trimmed;
+  }
+}
 
 export interface GitConfig {
   owner: string;
@@ -40,9 +54,23 @@ export function generateStaticDataFileCode(
   blogs: any[] = [],
   videos: any[] = []
 ): string {
-  // Let us clean up and default any potential circular refs or undef values by round-tripping
+  // Clean up apps: encrypt and preserve real target URLs, remove dummy com.rummydex URLs
   const cleanApps = JSON.parse(JSON.stringify(apps || [])).map((app: any) => {
-    delete app.more_information_url;
+    const rawTarget = app.more_information_url || app.download_url || app.encrypted_link || app.encrypted_download_url || '';
+    const encryptedTarget = encryptUrlIfNeeded(rawTarget);
+    
+    // Clean out dummy com.rummydex / com.example URLs from url field
+    if (app.url && (app.url.includes('com.rummydex') || app.url.includes('com.example'))) {
+      app.url = '';
+    }
+
+    if (encryptedTarget) {
+      app.more_information_url = encryptedTarget;
+      app.encrypted_link = encryptedTarget;
+    } else {
+      delete app.more_information_url;
+      delete app.encrypted_link;
+    }
     delete app.encrypted_download_url;
     delete app.download_url;
     return app;
