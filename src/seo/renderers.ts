@@ -156,38 +156,6 @@ export function renderHome(apps: any[], settings: any, news: any[], videos: any[
   `;
 }
 
-export function renderNewApps(apps: any[], settings: any) {
-  let grid = '';
-  const list = apps.filter(a => a.is_new === true || (a.is_new && a.is_new.booleanValue === true));
-  const display = list.length > 0 ? list : apps;
-  
-  display.forEach(app => {
-    const name = getField(app, 'name');
-    const slug = getField(app, 'slug');
-    const cat = getField(app, 'category');
-    const rating = getField(app, 'rating', '5.0');
-    const rawIcon = getField(app, 'icon_url') || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&fit=crop';
-    const icon = optimizeImageUrl(rawIcon, 160);
-    
-    grid += `
-      <a href="/${encodeURIComponent(slug)}" class="p-4 bg-white dark:bg-zinc-900 rounded-2xl border border-black/5 text-center flex flex-col items-center">
-        <img src="${escapeHtml(icon)}" loading="lazy" decoding="async" width="80" height="80" class="w-20 h-20 rounded-2xl object-cover mb-3 shadow-sm bg-white" alt="${escapeHtml(name)} app icon"/>
-        <h3 class="font-bold text-sm text-zinc-900 dark:text-white truncate w-full">${escapeHtml(name)}</h3>
-        <p class="text-xs text-zinc-500 mt-1 truncate w-full">${escapeHtml(cat)}</p>
-        <span class="text-xs text-zinc-650 dark:text-zinc-400 mt-2 font-bold">${rating} ★</span>
-      </a>
-    `;
-  });
-
-  return `
-    <div class="py-6">
-      <h1 class="text-3xl font-extrabold mb-2 text-center text-zinc-900 dark:text-white">New Additions</h1>
-      <p class="text-sm text-zinc-500 text-center mb-8">Our latest verified client lists</p>
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">${grid}</div>
-    </div>
-  `;
-}
-
 export function renderAppDetails(slug: string, apps: any[], settings: any) {
   const cleanSlug = decodeURIComponent(slug).toLowerCase();
   const app = apps.find(a => getField(a, 'slug').toLowerCase() === cleanSlug);

@@ -3,7 +3,6 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { safeDecrypt, safeEncrypt, getAesSecret } from '../crypto';
-import { getFirebaseAdminDb, getRawFirebaseConfig, parseFirestoreValue, parseFirestoreFields } from '../firebase';
 import { rateLimit, isSuspiciousClient, getIp, ensureSession, nonceStore, generateToken, verifyToken, tokenStore, usedTokens, isSafeUrl } from '../security';
 import { vaultNode } from '../../lib/vaultNode';
 import { ENCRYPTED_LINKS } from '../../lib/secureVault';
@@ -45,82 +44,10 @@ publicApiRouter.post('/api/v1/sync-node', async (req, res) => {
       });
     }
 
-    // 2. Minimal Latency Fallback to Firestore (Only if memory miss)
-    const db = getFirebaseAdminDb();
-    if (!db) {
-      return res.status(404).json({ status: 'ERR', msg: 'Information unavailable' });
-    }
-
-    const doc = await db.collection('store_data').doc('sec_vault').get();
-    
-    if (!doc.exists) {
-      console.warn(`[Sync] Node miss for slug: ${slug} (No sec_vault)`);
-      return res.status(404).json({ 
-        status: 'ERR', 
-        msg: 'Sync Node not yet active' 
-      });
-    }
-
-    const data = doc.data();
-    const secret = getAesSecret();
-    const decryptedVault = safeDecrypt(data?.encryptedData, secret);
-    
-    if (!decryptedVault) {
-      return res.status(500).json({ status: 'ERR', msg: 'System sync error (vault decryption)' });
-    }
-
-    const parsedVault = JSON.parse(decryptedVault);
-    let targetLink = null;
-    
-    const searchKeys = Array.from(new Set([
-      (appId || '').toString(),
-      (slug || '').toString(),
-      (appId || '').toString().toLowerCase().trim(),
-      (slug || '').toString().toLowerCase().trim(),
-      (appId || '').toString().toLowerCase().trim().replace(/[-_ ]/g, ''),
-      (slug || '').toString().toLowerCase().trim().replace(/[-_ ]/g, '')
-    ])).filter(Boolean);
-
-    if (Array.isArray(parsedVault)) {
-      const found = parsedVault.find((item: any) => {
-        const iId = (item.id || '').toLowerCase().trim();
-        const iSlug = (item.slug || '').toLowerCase().trim();
-        const iIdNoSep = iId.replace(/[-_ ]/g, '');
-        const iSlugNoSep = iSlug.replace(/[-_ ]/g, '');
-        return searchKeys.includes(iId) || searchKeys.includes(iSlug) || searchKeys.includes(iIdNoSep) || searchKeys.includes(iSlugNoSep);
-      });
-      if (found) {
-        targetLink = found.url || found.payload || found.more_information_url;
-      }
-    } else if (parsedVault && typeof parsedVault === 'object') {
-      for (const [k, v] of Object.entries(parsedVault)) {
-        const kClean = k.toLowerCase().trim();
-        const kNoSep = kClean.replace(/[-_ ]/g, '');
-        if (searchKeys.includes(kClean) || searchKeys.includes(kNoSep)) {
-          targetLink = typeof v === 'string' ? v : ((v as any)?.url || (v as any)?.payload || (v as any)?.more_information_url);
-          if (targetLink) break;
-        }
-      }
-    }
-
-    if (!targetLink) {
-      console.warn(`[Sync] Node miss for slug/appId: ${slug}/${appId} (Not in vault)`);
-      return res.status(404).json({ 
-        status: 'ERR', 
-        msg: 'Sync Node not yet active' 
-      });
-    }
-
-    const decrypted = safeDecrypt(targetLink, secret);
-
-    if (!decrypted) {
-      return res.status(500).json({ status: 'ERR', msg: 'System sync error' });
-    }
-
-    res.json({
-      status: 'OK',
-      payload: decrypted,
-      meta: { node: 'legacy', ts: Date.now() }
+    console.warn(`[Sync] Node miss for slug/appId: ${slug}/${appId} (Not in vaultNode)`);
+    return res.status(404).json({ 
+      status: 'ERR', 
+      msg: 'Sync Node not yet active' 
     });
   } catch (error) {
     console.error('[SyncNode] Critical Error:', error);
@@ -179,20 +106,6 @@ publicApiRouter.options(["/api/v1/public/reviews", "/api/v1/public/backup-data"]
 publicApiRouter.get(["/api/v1/public/reviews", "/api/public/reviews"], async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=120");
-  const appId = req.query.app_id as string;
-  if (!appId) {
-    return res.json([]);
-  }
-  try {
-    const adminDb = getFirebaseAdminDb();
-    if (adminDb) {
-      const snap = await adminDb.collection('app_reviews').where('app_id', '==', appId).limit(50).get();
-      if (!snap.empty) {
-        const reviews = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        return res.json(reviews);
-      }
-    }
-  } catch (e) {}
   return res.json([]);
 });
 
@@ -204,126 +117,6 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
     if (backupDataCache && (now - backupDataCacheTime < BACKUP_DATA_CACHE_TTL)) {
       return res.json(backupDataCache);
     }
-    try {
-      const adminDb = getFirebaseAdminDb();
-      if (adminDb) {
-        const metaSnap = await adminDb.collection('store_data').doc('apps_meta').get();
-        let apps: any[] = [];
-        let legacySnap: any = null;
-        if (metaSnap.exists) {
-          const numChunks = metaSnap.data()?.numChunks || 1;
-          for (let i = 0; i < numChunks; i++) {
-            const chunkSnap = await adminDb.collection('store_data').doc(`apps_chunk_${i}`).get();
-            if (chunkSnap.exists && chunkSnap.data()?.items) {
-              apps.push(...chunkSnap.data().items);
-            }
-          }
-        } else {
-          legacySnap = await adminDb.collection('store_data').doc('apps').get();
-          if (legacySnap && legacySnap.exists && legacySnap.data()?.items) {
-            apps = legacySnap.data().items;
-          }
-        }
-        const settingsSnap = await adminDb.collection('store_data').doc('public_settings').get();
-        const newsSnap = await adminDb.collection('store_data').doc('news').get();
-        const blogsSnap = await adminDb.collection('store_data').doc('blogs').get();
-        const videosSnap = await adminDb.collection('store_data').doc('videos').get();
-        const staticFallback = getStaticData();
-        const dbNews = newsSnap.exists ? (newsSnap.data()?.items || []) : [];
-        const dbBlogs = blogsSnap.exists ? (blogsSnap.data()?.items || []) : [];
-        const dbVideos = videosSnap.exists ? (videosSnap.data()?.items || []) : [];
-
-        const finalNews = (dbNews && dbNews.length > 0) ? dbNews : (staticFallback.mockNews || []);
-        const finalBlogs = (dbBlogs && dbBlogs.length > 0) ? dbBlogs : (staticFallback.mockBlogs || []);
-        const finalVideos = (dbVideos && dbVideos.length > 0) ? dbVideos : (staticFallback.mockVideos || []);
-
-        const rawFsSettings = settingsSnap.exists ? (settingsSnap.data() || {}) : {};
-        const baseMockSettings = staticFallback.mockSettings || {};
-        const mergedSettings = {
-          ...baseMockSettings,
-          ...rawFsSettings,
-          banners: (Array.isArray(rawFsSettings.banners) && rawFsSettings.banners.length > 0) ? rawFsSettings.banners : (baseMockSettings.banners || []),
-          categories: (Array.isArray(rawFsSettings.categories) && rawFsSettings.categories.length > 0) ? rawFsSettings.categories : (baseMockSettings.categories || []),
-          quick_links: (Array.isArray(rawFsSettings.quick_links) && rawFsSettings.quick_links.length > 0) ? rawFsSettings.quick_links : (baseMockSettings.quick_links || []),
-          website_faqs: (Array.isArray(rawFsSettings.website_faqs) && rawFsSettings.website_faqs.length > 0) ? rawFsSettings.website_faqs : (baseMockSettings.website_faqs || []),
-          developers: (Array.isArray(rawFsSettings.developers) && rawFsSettings.developers.length > 0) ? rawFsSettings.developers : (baseMockSettings.developers || []),
-        };
-
-        if (metaSnap.exists || (legacySnap && legacySnap.exists) || settingsSnap.exists || newsSnap.exists || blogsSnap.exists || videosSnap.exists) {
-          const liveData = {
-            apps: (apps && apps.length > 0) ? apps : (staticFallback.mockApps || []),
-            settings: mergedSettings,
-            news: finalNews,
-            blogs: finalBlogs,
-            videos: finalVideos
-          };
-          backupDataCache = liveData;
-          backupDataCacheTime = now;
-          return res.json(liveData);
-        }
-      }
-    } catch (fsErr: any) {}
-
-    try {
-      const config = getRawFirebaseConfig();
-      if (config && config.projectId) {
-        const apiSuffix = config.apiKey ? `?key=${config.apiKey}` : '';
-        const baseUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || '(default)'}/documents/store_data`;
-        const metaRes = await fetch(`${baseUrl}/apps_meta${apiSuffix}`);
-        let apps: any[] = [];
-        if (metaRes.ok) {
-          const metaDoc = await metaRes.json() as any;
-          const numChunks = metaDoc.fields?.numChunks?.integerValue ? parseInt(metaDoc.fields.numChunks.integerValue, 10) : 1;
-          for (let i = 0; i < numChunks; i++) {
-            const chunkRes = await fetch(`${baseUrl}/apps_chunk_${i}${apiSuffix}`);
-            if (chunkRes.ok) {
-              const chunkDoc = await chunkRes.json() as any;
-              if (chunkDoc.fields?.items?.arrayValue?.values) {
-                const parsedChunk = chunkDoc.fields.items.arrayValue.values.map((v: any) => parseFirestoreValue(v));
-                apps.push(...parsedChunk);
-              }
-            }
-          }
-        } else {
-          const legacyRes = await fetch(`${baseUrl}/apps${apiSuffix}`);
-          if (legacyRes.ok) {
-            const legacyDoc = await legacyRes.json() as any;
-            if (legacyDoc.fields?.items?.arrayValue?.values) {
-              apps = legacyDoc.fields.items.arrayValue.values.map((v: any) => parseFirestoreValue(v));
-            }
-          }
-        }
-        const settingsRes = await fetch(`${baseUrl}/public_settings${apiSuffix}`);
-        const newsRes = await fetch(`${baseUrl}/news${apiSuffix}`);
-        const blogsRes = await fetch(`${baseUrl}/blogs${apiSuffix}`);
-        const videosRes = await fetch(`${baseUrl}/videos${apiSuffix}`);
-        let settingsObj = {};
-        let newsObj: any = {};
-        let blogsObj: any = {};
-        let videosObj: any = {};
-        try { if (settingsRes.ok) settingsObj = parseFirestoreFields((await settingsRes.json() as any)?.fields); } catch (e) {}
-        try { if (newsRes.ok) newsObj = parseFirestoreFields((await newsRes.json() as any)?.fields); } catch (e) {}
-        try { if (blogsRes.ok) blogsObj = parseFirestoreFields((await blogsRes.json() as any)?.fields); } catch (e) {}
-        try { if (videosRes.ok) videosObj = parseFirestoreFields((await videosRes.json() as any)?.fields); } catch (e) {}
-        const staticFallbackRest = getStaticData();
-        const restNews = newsRes.ok ? (newsObj.items || []) : (staticFallbackRest.mockNews || []);
-        const restBlogs = blogsRes.ok ? (blogsObj.items || []) : (staticFallbackRest.mockBlogs || []);
-        const restVideos = videosRes.ok ? (videosObj.items || []) : (staticFallbackRest.mockVideos || []);
-
-        if (metaRes.ok || settingsRes.ok || newsRes.ok || blogsRes.ok || videosRes.ok || apps.length > 0) {
-          const restLiveData = {
-            apps,
-            settings: settingsObj,
-            news: restNews,
-            blogs: restBlogs,
-            videos: restVideos
-          };
-          backupDataCache = restLiveData;
-          backupDataCacheTime = now;
-          return res.json(restLiveData);
-        }
-      }
-    } catch (restErr) {}
 
     const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
     if (fs.existsSync(publicBackupPath)) {
@@ -339,21 +132,21 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
         backupDataCache = data;
         backupDataCacheTime = now;
         return res.json(data);
-      } catch (e) {
-        console.error("Error reading public_backup.json in backup-data endpoint:", e);
-      }
+      } catch (e) {}
     }
+
     const dataObj = getStaticData();
-    const fallbackData = {
+    const validatedData = {
       apps: dataObj.mockApps || [],
       settings: dataObj.mockSettings || {},
       news: dataObj.mockNews || [],
       blogs: dataObj.mockBlogs || [],
       videos: dataObj.mockVideos || []
     };
-    return res.json(fallbackData);
+    backupDataCache = validatedData;
+    backupDataCacheTime = now;
+    return res.json(validatedData);
   } catch (err: any) {
-    console.error("public backup endpoint error:", err);
     const dataObj = getStaticData();
     return res.status(200).json({
       apps: dataObj.mockApps || [],

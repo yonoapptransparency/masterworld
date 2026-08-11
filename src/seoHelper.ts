@@ -77,32 +77,24 @@ async function doFetchStoreData() {
   const now = Date.now();
   const freshStatic = getStaticData();
 
-  // Always try live Firestore database sync first
-  const synced = await syncFromFirestore();
-  if (synced && Array.isArray(synced.apps) && synced.apps.length > 0) {
-    cachedData = synced;
-    lastFetchTime = now;
-    return synced;
-  }
-
-  // Fallback to local backup file if Firestore is unreachable
   try {
-    const fsMod = require('fs'); const pathMod = require('path'); const p = pathMod.join(process.cwd(), 'src/lib/public_backup.json'); const backup = fsMod.existsSync(p) ? JSON.parse(fsMod.readFileSync(p, 'utf8')) : null;
+    const fsMod = require('fs'); 
+    const pathMod = require('path'); 
+    const p = pathMod.join(process.cwd(), 'src/lib/public_backup.json'); 
+    const backup = fsMod.existsSync(p) ? JSON.parse(fsMod.readFileSync(p, 'utf8')) : null;
     if (backup) {
       const data = {
-        apps: backup.apps || [],
-        settings: backup.settings || {},
-        news: Array.isArray(backup.news) ? backup.news : [],
-        blogs: Array.isArray(backup.blogs) ? backup.blogs : [],
-        videos: Array.isArray(backup.videos) ? backup.videos : []
+        apps: Array.isArray(backup.apps) ? backup.apps : (freshStatic.mockApps || []),
+        settings: backup.settings || (freshStatic.mockSettings || {}),
+        news: Array.isArray(backup.news) ? backup.news : (freshStatic.mockNews || []),
+        blogs: Array.isArray(backup.blogs) ? backup.blogs : (freshStatic.mockBlogs || []),
+        videos: Array.isArray(backup.videos) ? backup.videos : (freshStatic.mockVideos || [])
       };
       cachedData = data;
       lastFetchTime = now;
       return data;
     }
-  } catch (e) {
-    // console.error("Error reading public_backup.json in seoHelper:", e);
-  }
+  } catch (e) {}
 
   const data = {
     apps: freshStatic.mockApps || [],
