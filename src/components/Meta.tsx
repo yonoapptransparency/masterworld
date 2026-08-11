@@ -53,11 +53,7 @@ const Meta: React.FC<MetaProps> = ({
       <meta name="robots" content={noindex ? "noindex, nofollow" : "index, follow, max-image-preview:large"} />
       <link rel="canonical" href={canonicalUrl} />
 
-      <link rel="icon" type="image/png" sizes="192x192" href={favIconUrl} />
-      <link rel="icon" type="image/png" sizes="32x32" href={favIconUrl} />
-      <link rel="icon" type="image/png" sizes="16x16" href={favIconUrl} />
-      <link rel="shortcut icon" href={favIconUrl} />
-      <link rel="apple-touch-icon" sizes="180x180" href={favIconUrl} />
+      <link rel="icon" type="image/png" href={favIconUrl} />
       <link rel="manifest" href="/site.webmanifest" />
 
       {/* Open Graph / Facebook */}

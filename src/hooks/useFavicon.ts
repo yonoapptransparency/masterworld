@@ -11,43 +11,39 @@ export function useFavicon(settings: GlobalSettings | null, apps: AppConfig[]) {
     // Always use the official website favicon / logo URL across all pages
     const officialFavicon = settings.favicon_url || settings.logo_url || "https://res.cloudinary.com/diewalae4/image/upload/v1785720339/1000132678_1_ro1ftj.png";
     
-    const icons = [
-      { rel: 'icon', sizes: '192x192', href: officialFavicon, type: 'image/png' },
-      { rel: 'icon', sizes: '32x32', href: officialFavicon, type: 'image/png' },
-      { rel: 'icon', sizes: '16x16', href: officialFavicon, type: 'image/png' },
-      { rel: 'shortcut icon', href: officialFavicon, type: 'image/x-icon' },
-      { rel: 'apple-touch-icon', sizes: '180x180', href: officialFavicon, type: 'image/png' }
-    ];
-    
-    icons.forEach(iconDef => {
-      let link = document.querySelector(`link[rel="${iconDef.rel}"][sizes="${iconDef.sizes || ''}"]`) as HTMLLinkElement ||
-                 document.querySelector(`link[rel="${iconDef.rel}"]`) as HTMLLinkElement;
-      if (link) {
-        link.href = iconDef.href;
-      } else {
-        link = document.createElement('link');
-        link.rel = iconDef.rel;
-        link.href = iconDef.href;
-        if (iconDef.sizes) link.setAttribute('sizes', iconDef.sizes);
-        if (iconDef.type) link.type = iconDef.type;
-        document.head.appendChild(link);
+    const syncSingleIcon = (doc: Document) => {
+      const existingIcons = Array.from(doc.querySelectorAll('link[rel*="icon"]'));
+      
+      let mainIcon: HTMLLinkElement | null = null;
+      
+      existingIcons.forEach((el) => {
+        const link = el as HTMLLinkElement;
+        if (!mainIcon) {
+          mainIcon = link;
+          link.rel = 'icon';
+          link.type = 'image/png';
+          link.href = officialFavicon;
+          link.removeAttribute('sizes');
+        } else {
+          // Prune duplicate favicon tags to prevent multiple network requests
+          link.remove();
+        }
+      });
+
+      if (!mainIcon) {
+        const newLink = doc.createElement('link');
+        newLink.rel = 'icon';
+        newLink.type = 'image/png';
+        newLink.href = officialFavicon;
+        doc.head.appendChild(newLink);
       }
-    });
-    
+    };
+
+    syncSingleIcon(document);
+
     try {
       if (window.parent && window.parent !== window && window.parent.document) {
-        icons.forEach(iconDef => {
-          const rel = iconDef.rel;
-          let parentLink: HTMLLinkElement | null = window.parent.document.querySelector(`link[rel="${rel}"]`) || window.parent.document.querySelector(`link[rel*="${rel}"]`);
-          if (parentLink) {
-            parentLink.href = iconDef.href;
-          } else {
-            const newLink = window.parent.document.createElement('link');
-            newLink.rel = rel;
-            newLink.href = iconDef.href;
-            window.parent.document.head.appendChild(newLink);
-          }
-        });
+        syncSingleIcon(window.parent.document);
       }
     } catch (e) {}
   }, [settings, location.pathname]);

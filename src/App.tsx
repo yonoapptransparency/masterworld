@@ -64,28 +64,27 @@ function AppContent() {
     // Dynamically synchronize favicon with firebase database changes live
     const targetUrl = settings.favicon_url || settings.logo_url || "https://res.cloudinary.com/diewalae4/image/upload/v1785720339/1000132678_1_ro1ftj.png";
     if (targetUrl) {
-      const icons = [
-        { rel: 'icon', sizes: '192x192', href: targetUrl, type: 'image/png' },
-        { rel: 'icon', sizes: '32x32', href: targetUrl, type: 'image/png' },
-        { rel: 'icon', sizes: '16x16', href: targetUrl, type: 'image/png' },
-        { rel: 'shortcut icon', href: targetUrl, type: 'image/x-icon' },
-        { rel: 'apple-touch-icon', sizes: '180x180', href: targetUrl, type: 'image/png' }
-      ];
-      
-      icons.forEach(iconDef => {
-        let link = document.querySelector(`link[rel="${iconDef.rel}"][sizes="${iconDef.sizes || ''}"]`) as HTMLLinkElement ||
-                   document.querySelector(`link[rel="${iconDef.rel}"]`) as HTMLLinkElement;
-        if (link) {
-          link.href = iconDef.href;
+      const existingIcons = Array.from(document.querySelectorAll('link[rel*="icon"]'));
+      let mainIcon: HTMLLinkElement | null = null;
+      existingIcons.forEach((el) => {
+        const link = el as HTMLLinkElement;
+        if (!mainIcon) {
+          mainIcon = link;
+          link.rel = 'icon';
+          link.type = 'image/png';
+          link.href = targetUrl;
+          link.removeAttribute('sizes');
         } else {
-          link = document.createElement('link');
-          link.rel = iconDef.rel;
-          link.href = iconDef.href;
-          if (iconDef.sizes) link.setAttribute('sizes', iconDef.sizes);
-          if (iconDef.type) link.type = iconDef.type;
-          document.head.appendChild(link);
+          link.remove();
         }
       });
+      if (!mainIcon) {
+        const newLink = document.createElement('link');
+        newLink.rel = 'icon';
+        newLink.type = 'image/png';
+        newLink.href = targetUrl;
+        document.head.appendChild(newLink);
+      }
     }
   }, [settings]);
 
