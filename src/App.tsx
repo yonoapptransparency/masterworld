@@ -64,21 +64,12 @@ function AppContent() {
     // Dynamically synchronize favicon with firebase database changes live
     const targetUrl = settings.favicon_url || settings.logo_url || "https://res.cloudinary.com/diewalae4/image/upload/v1785720339/1000132678_1_ro1ftj.png";
     if (targetUrl) {
-      const existingIcons = Array.from(document.querySelectorAll('link[rel*="icon"]'));
-      let mainIcon: HTMLLinkElement | null = null;
-      existingIcons.forEach((el) => {
-        const link = el as HTMLLinkElement;
-        if (!mainIcon) {
-          mainIcon = link;
-          link.rel = 'icon';
-          link.type = 'image/png';
+      const allIcons = Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel*="icon"]'));
+      if (allIcons.length > 0) {
+        allIcons.forEach((link) => {
           link.href = targetUrl;
-          link.removeAttribute('sizes');
-        } else {
-          link.remove();
-        }
-      });
-      if (!mainIcon) {
+        });
+      } else {
         const newLink = document.createElement('link');
         newLink.rel = 'icon';
         newLink.type = 'image/png';

@@ -11,39 +11,30 @@ export function useFavicon(settings: GlobalSettings | null, apps: AppConfig[]) {
     // Always use the official website favicon / logo URL across all pages
     const officialFavicon = settings.favicon_url || settings.logo_url || "https://res.cloudinary.com/diewalae4/image/upload/v1785720339/1000132678_1_ro1ftj.png";
     
-    const syncSingleIcon = (doc: Document) => {
-      const existingIcons = Array.from(doc.querySelectorAll('link[rel*="icon"]'));
+    const syncFavicons = (doc: Document) => {
+      const allIcons = Array.from(doc.querySelectorAll<HTMLLinkElement>('link[rel*="icon"]'));
       
-      let mainIcon: HTMLLinkElement | null = null;
-      
-      existingIcons.forEach((el) => {
-        const link = el as HTMLLinkElement;
-        if (!mainIcon) {
-          mainIcon = link;
-          link.rel = 'icon';
-          link.type = 'image/png';
+      if (allIcons.length > 0) {
+        allIcons.forEach((link) => {
           link.href = officialFavicon;
-          link.removeAttribute('sizes');
-        } else {
-          // Prune duplicate favicon tags to prevent multiple network requests
-          link.remove();
-        }
-      });
-
-      if (!mainIcon) {
-        const newLink = doc.createElement('link');
-        newLink.rel = 'icon';
-        newLink.type = 'image/png';
-        newLink.href = officialFavicon;
-        doc.head.appendChild(newLink);
+        });
+      } else {
+        const rels = ['icon', 'shortcut icon', 'apple-touch-icon', 'apple-touch-icon-precomposed'];
+        rels.forEach((rel) => {
+          const newLink = doc.createElement('link');
+          newLink.rel = rel;
+          if (rel === 'icon') newLink.type = 'image/png';
+          newLink.href = officialFavicon;
+          doc.head.appendChild(newLink);
+        });
       }
     };
 
-    syncSingleIcon(document);
+    syncFavicons(document);
 
     try {
       if (window.parent && window.parent !== window && window.parent.document) {
-        syncSingleIcon(window.parent.document);
+        syncFavicons(window.parent.document);
       }
     } catch (e) {}
   }, [settings, location.pathname]);
