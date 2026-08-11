@@ -385,7 +385,6 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
     // Static pages
     const staticPages = [
       { path: '/', priority: '1.0', changefreq: 'daily' },
-      { path: '/new-apps', priority: '0.9', changefreq: 'daily' },
       { path: '/news', priority: '0.8', changefreq: 'daily' },
       { path: '/about', priority: '0.5', changefreq: 'monthly' },
       { path: '/developers', priority: '0.5', changefreq: 'monthly' },

@@ -169,10 +169,8 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
 
   let bodyContent = '';
 
-  if (cleanPathLower === '/' || cleanPathLower === '') {
+  if (cleanPathLower === '/' || cleanPathLower === '' || cleanPathLower === '/new-apps') {
     bodyContent = renderers.renderHome(apps, settings, news, videos);
-  } else if (cleanPathLower === '/new-apps') {
-    bodyContent = renderers.renderNewApps(apps, settings);
   } else if (cleanPathLower.startsWith('/s/')) {
     const slug = cleanPath.split('/s/')[1];
     const app = apps.find((a: any) => getField(a, 'slug').toLowerCase() === slug.toLowerCase());
@@ -344,12 +342,6 @@ function buildJsonLdSchema(params: {
         {
           "@type": "ListItem",
           "position": 2,
-          "name": "Applications",
-          "item": `${hostOrigin}/new-apps`
-        },
-        {
-          "@type": "ListItem",
-          "position": 3,
           "name": name,
           "item": `${hostOrigin}/app/${getField(app, 'slug')}`
         }
@@ -530,10 +522,6 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   } else if (cleanPathLower.startsWith('/admin') || cleanPathLower.startsWith('/masterworld')) {
     title = `Admin Panel | Masterworld`;
     description = `Masterworld Admin Control Dashboard`;
-    pageType = 'static';
-  } else if (cleanPathLower === '/new-apps') {
-    title = `New Additions | ${siteTitle}`;
-    description = `Explore the latest verified client lists on ${siteTitle}.`;
     pageType = 'static';
   } else if (cleanPathLower.startsWith('/s/')) {
     const slug = cleanPath.split('/s/')[1];

@@ -43,7 +43,6 @@ export function renderHeader(settings: any) {
         </a>
         <nav class="hidden md:flex gap-6 text-sm font-medium text-zinc-600 dark:text-zinc-300">
           <a href="/">Home</a>
-          <a href="/new-apps">New Apps</a>
           <a href="/news">News</a>
           <a href="/videos">Videos</a>
           <a href="/about">About</a>
@@ -446,7 +445,7 @@ export function render404(urlPath: string, settings: any) {
       </p>
       <div class="flex flex-wrap items-center justify-center gap-4">
         <a href="/" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-8 rounded-2xl shadow-md transition">Return to Homepage</a>
-        <a href="/new-apps" class="bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white font-bold py-3.5 px-8 rounded-2xl transition">Browse New Apps</a>
+        <a href="/news" class="bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white font-bold py-3.5 px-8 rounded-2xl transition">Latest News</a>
       </div>
     </div>
   `;
