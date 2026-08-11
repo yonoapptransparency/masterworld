@@ -4,7 +4,15 @@ import { getFallbackAes } from "./config";
 export function safeDecrypt(ciphertext: string, secret: string): string {
   const fallback = getFallbackAes();
   const globalSecret = (global as any).AES_SECRET_GLOBAL;
-  const keys = [secret, process.env.AES_SECRET, globalSecret, fallback].filter(Boolean) as string[];
+  const keys = [
+    secret, 
+    process.env.AES_SECRET, 
+    globalSecret, 
+    'YonoVaultSecret2026MasterKey!', 
+    'YonoVaultSecret2026MasterKey',
+    'rummydex_master_vault_key_2026',
+    fallback
+  ].filter(Boolean) as string[];
   const uniqueKeys = Array.from(new Set(keys));
   for (const key of uniqueKeys) {
     if (!key || key.trim() === '') continue;

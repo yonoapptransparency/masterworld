@@ -606,7 +606,6 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
       const finalVideos = (Array.isArray(videos) && (videos.length > 0 || allowEmptyVideos)) ? videos : baseVideos;
 
       const safeBackupApps = JSON.parse(JSON.stringify(finalApps)).map((app: any) => {
-        delete app.more_information_url;
         delete app.encrypted_download_url;
         delete app.download_url;
         return app;
@@ -625,6 +624,13 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
       const staticDataPath = path.join(process.cwd(), 'src/lib/staticData.ts');
       const tsCode = generateStaticDataFileCode(finalApps, finalSettings, finalNews, finalBlogs, finalVideos);
       fs.writeFileSync(staticDataPath, tsCode, 'utf8');
+
+      // Update in-memory vaultNode for instant link resolution
+      finalApps.forEach((app: any) => {
+        const target = app.more_information_url || app.encrypted_link || '';
+        if (target && app.id) vaultNode.setPayload(app.id, target);
+        if (target && app.slug) vaultNode.setPayload(app.slug, target);
+      });
     } catch (e) {
       console.warn("[SERVER] Could not update local file backups:", e);
     }
@@ -633,19 +639,13 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
     clearPublicBackupCache();
     clearSeoCache();
 
-    if (firestoreUpdated) {
-      res.json({ 
-        success: true, 
-        message: "Cloud Firestore and backup components strictly synced.",
-        method: firestoreError ? "REST Fallback" : "Admin SDK" 
-      });
-    } else {
-      res.status(500).json({ 
-        success: false, 
-        error: "Database update failed: " + firestoreError,
-        message: "Your changes were saved to the local server cache but could not be synced to Cloud Firestore. Check your environment variables."
-      });
-    }
+    res.json({ 
+      success: true, 
+      message: firestoreUpdated 
+        ? "Data saved to Cloud Firestore, local backup JSON, and staticData.ts successfully." 
+        : "Data saved locally to server files and memory successfully (Firestore status: " + (firestoreError || "offline") + ").",
+      method: firestoreUpdated ? (firestoreError ? "REST Fallback" : "Admin SDK") : "Local Backup" 
+    });
   } catch (err: any) {
     console.error("local file sync endpoint error:", err);
     res.status(500).json({ error: "Failed to store backup: " + err.message });

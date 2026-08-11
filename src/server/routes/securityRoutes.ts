@@ -1,6 +1,7 @@
 import express from 'express';
 import crypto from 'crypto';
 import path from 'path';
+import fs from 'fs';
 import { getIp, ensureSession, generateToken, verifyToken } from '../security';
 import { ENCRYPTED_LINKS } from '../../lib/secureVault';
 import { vaultNode } from '../../lib/vaultNode';
@@ -158,17 +159,33 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
     return res.status(400).send("<h1>400 Bad Request</h1><p>Missing application identifier.</p>");
   }
 
-  // If token is provided, verify it. If verification fails, log warning.
-  if (token && !verifyToken(token, ip, sid || "", fingerprint || "", appId)) {
-    console.warn(`[SECURITY] Token verification notice for appId: ${appId} from IP: ${ip}. Proceeding with resolution.`);
+  // Enforce strict security token verification
+  if (!token || !verifyToken(token, ip, sid || "", fingerprint || "", appId)) {
+    console.warn(`[SECURITY] Blocked unauthenticated link resolution attempt for appId: ${appId} from IP: ${ip}`);
+    return res.status(403).send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Access Protected - Security Verification Required</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        </head>
+        <body style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #09090b; color: #f4f4f5; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 1rem; box-sizing: border-box;">
+          <div style="text-align: center; max-width: 420px; width: 100%; padding: 2.5rem 2rem; background: #18181b; border-radius: 1.5rem; border: 1px solid #27272a; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
+            <div style="width: 56px; height: 56px; background: rgba(239, 68, 68, 0.1); color: #ef4444; border-radius: 1rem; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 1.25rem;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </div>
+            <h2 style="font-size: 1.25rem; font-weight: 800; color: #ffffff; margin: 0 0 0.5rem 0;">Link Protection Active</h2>
+            <p style="color: #a1a1aa; font-size: 0.875rem; line-height: 1.5; margin: 0 0 1.5rem 0;">Direct link access is restricted. Please complete security clearance to access this resource.</p>
+            <a href="/moreinfo/${encodeURIComponent(appId)}" style="display: inline-block; width: 100%; padding: 0.875rem 1.5rem; background: #2563eb; color: #ffffff; border-radius: 0.875rem; text-decoration: none; font-weight: 700; font-size: 0.875rem; box-sizing: border-box;">Proceed via Clearance Portal</a>
+          </div>
+        </body>
+      </html>
+    `);
   }
 
-  // Helper function to respond with JSON if requested or redirect via 302
+  // Helper function to respond via HTTP 302 redirect
   function respondWithUrl(targetUrl: string) {
     const cleanUrl = targetUrl.trim();
-    if (req.query.json === 'true' || (req.headers.accept && req.headers.accept.includes('application/json'))) {
-      return res.json({ success: true, url: cleanUrl });
-    }
     return res.redirect(302, cleanUrl);
   }
 
@@ -555,7 +572,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
       return respondWithUrl(targetUrl.trim());
     }
     
-    // 5. Final Last-Ditch Fallback: Check staticData directly in memory
+    // 5. Final Fallback: Check staticData, public_backup.json, and secure_links_backup.json directly
     try {
        const staticDataObj = require('../../lib/staticData');
        const mockApps = staticDataObj.mockApps || [];
@@ -566,15 +583,52 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
          return id === cleanInput || sl === cleanInput || sl === appId.toLowerCase().trim();
        });
        if (app) {
-         let rawUrl = app.more_information_url || app.encrypted_link || app.download_url;
+         let rawUrl = app.more_information_url || app.encrypted_link || app.download_url || app.url;
          if (rawUrl && typeof rawUrl === 'string') {
            const dec = rawUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(rawUrl, AES_SECRET) : rawUrl;
            if (isValidTargetUrl(dec)) {
+              console.log(`[SECURITY] Resolved link from staticData for ${appId}`);
               return respondWithUrl(dec.trim());
            }
          }
        }
     } catch (finalErr) {}
+
+    try {
+      const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
+      if (fs.existsSync(publicBackupPath)) {
+        const backupJson = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
+        const mockApps = backupJson.apps || backupJson.mockApps || [];
+        const cleanInput = appId.toLowerCase().trim().replace(/[-_ ]+$/, '');
+        const app = mockApps.find((a: any) => {
+          const id = (a.id || '').toLowerCase().trim();
+          const sl = (a.slug || '').toLowerCase().trim();
+          return id === cleanInput || sl === cleanInput || sl === appId.toLowerCase().trim();
+        });
+        if (app) {
+          let rawUrl = app.more_information_url || app.encrypted_link || app.download_url || app.url;
+          if (rawUrl && typeof rawUrl === 'string') {
+            const dec = rawUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(rawUrl, AES_SECRET) : rawUrl;
+            if (isValidTargetUrl(dec)) {
+              console.log(`[SECURITY] Resolved link from public_backup.json for ${appId}`);
+              return respondWithUrl(dec.trim());
+            }
+          }
+        }
+      }
+    } catch (e) {}
+
+    try {
+      const secureLinksBackupPath = path.join(process.cwd(), '.local/secure_links_backup.json');
+      if (fs.existsSync(secureLinksBackupPath)) {
+        const backupData = JSON.parse(fs.readFileSync(secureLinksBackupPath, 'utf8'));
+        const foundUrl = findUrlInVaultParsed(backupData, [appId, realId, realSlug], AES_SECRET);
+        if (isValidTargetUrl(foundUrl)) {
+          console.log(`[SECURITY] Resolved link from secure_links_backup.json for ${appId}`);
+          return respondWithUrl(foundUrl.trim());
+        }
+      }
+    } catch (e) {}
 
     const fallbackTarget = `/app/${encodeURIComponent(realSlug || appId)}`;
     if (req.query.json === 'true' || (req.headers.accept && req.headers.accept.includes('application/json'))) {
