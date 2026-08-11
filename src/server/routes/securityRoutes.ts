@@ -576,34 +576,11 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
        }
     } catch (finalErr) {}
 
-    return res.status(200).send(`
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Notice | RummyDex</title>
-        <style>
-          * { box-sizing: border-box; margin: 0; padding: 0; }
-          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #090d16; color: #f3f4f6; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; text-align: center; }
-          .card { background: #111827; border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 32px 24px; max-width: 440px; width: 100%; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); }
-          .icon-box { width: 64px; height: 64px; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); color: #3b82f6; border-radius: 16px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 28px; }
-          h1 { font-size: 20px; font-weight: 700; color: #ffffff; margin-bottom: 10px; }
-          p { font-size: 14px; color: #9ca3af; line-height: 1.6; margin-bottom: 24px; }
-          .btn { display: inline-flex; align-items: center; justify-content: center; padding: 12px 24px; background: #2563eb; color: #ffffff; font-weight: 600; font-size: 14px; text-decoration: none; border-radius: 12px; transition: background 0.2s; }
-          .btn:hover { background: #1d4ed8; }
-        </style>
-      </head>
-      <body>
-        <div class="card">
-          <div class="icon-box">ℹ️</div>
-          <h1>Notice</h1>
-          <p>This item is currently undergoing scheduled updates. Please check back shortly or return to the main overview.</p>
-          <a href="/app/${encodeURIComponent(realSlug || appId)}" class="btn">Return to Overview</a>
-        </div>
-      </body>
-      </html>
-    `);
+    const fallbackTarget = `/app/${encodeURIComponent(realSlug || appId)}`;
+    if (req.query.json === 'true' || (req.headers.accept && req.headers.accept.includes('application/json'))) {
+      return res.json({ success: false, url: fallbackTarget });
+    }
+    return res.redirect(302, fallbackTarget);
   } catch (error) {
     console.error("Resolution error:", error);
     return res.status(500).send("<h1>500 Internal Server Error</h1>");
