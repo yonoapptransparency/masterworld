@@ -46,9 +46,12 @@ seoRouter.get([
   '/apple-touch-icon-precomposed.png',
   '/favicon-32x32.png',
   '/favicon-16x16.png',
+  '/android-chrome-192x192.png',
+  '/android-chrome-512x512.png',
   '/logo.png'
 ], async (req, res, next) => {
-  const reqFilename = req.path.replace(/^\//, '');
+  const rawPath = (req.originalUrl || req.url || req.path || '').split('?')[0];
+  const reqFilename = path.basename(rawPath) || 'favicon.png';
   const localPublicPath = path.join(process.cwd(), 'public', reqFilename);
   const localDistPath = path.join(process.cwd(), 'dist', reqFilename);
   const localFile = fs.existsSync(localDistPath) ? localDistPath : (fs.existsSync(localPublicPath) ? localPublicPath : null);
