@@ -98,7 +98,6 @@ async function startServer() {
       viteDevServer = await createViteServer({
         server: {
           middlewareMode: true,
-          hmr: isHmrDisabled ? false : undefined,
         },
         appType: "custom",
       });
@@ -196,6 +195,18 @@ async function startServer() {
       if (viteDevServer) {
         try {
           template = await viteDevServer.transformIndexHtml(req.originalUrl, template);
+          // Inject a bulletproof fallback for React Refresh to prevent blank screen crashes
+          // if the /@react-refresh virtual module fails to load due to middleware ordering.
+          const fallbackScript = `<script>
+            window.$RefreshReg$ = window.$RefreshReg$ || function() {};
+            window.$RefreshSig$ = window.$RefreshSig$ || function() { return function(type) { return type; }; };
+            window.__vite_plugin_react_preamble_installed__ = true;
+          </script>`;
+          if (template.includes('<head>')) {
+            template = template.replace('<head>', '<head>' + fallbackScript);
+          } else {
+            template = fallbackScript + template;
+          }
         } catch (e) {
           console.warn("Vite transformIndexHtml failed:", e);
         }
@@ -215,11 +226,13 @@ async function startServer() {
       const isNotFound = typeof seoResult === 'object' && seoResult ? seoResult.isNotFound : false;
       const statusCode = isNotFound ? 404 : 200;
 
-      let cacheControl = isNotFound ? 'no-cache, no-store, must-revalidate' : 'public, max-age=1800';
-      if (req.originalUrl === '/' || req.originalUrl === '') {
-        cacheControl = 'public, max-age=300';
-      } else if (['/about', '/contact', '/privacy', '/terms', '/ethics', '/disclaimer', '/notice', '/responsibility', '/developers', '/report-removal'].includes(req.originalUrl)) {
-        cacheControl = 'public, max-age=3600';
+      let cacheControl = process.env.NODE_ENV !== "production" ? 'no-cache, no-store, must-revalidate' : (isNotFound ? 'no-cache, no-store, must-revalidate' : 'public, max-age=1800');
+      if (process.env.NODE_ENV === "production") {
+        if (req.originalUrl === '/' || req.originalUrl === '') {
+          cacheControl = 'public, max-age=300';
+        } else if (['/about', '/contact', '/privacy', '/terms', '/ethics', '/disclaimer', '/notice', '/responsibility', '/developers', '/report-removal'].includes(req.originalUrl)) {
+          cacheControl = 'public, max-age=3600';
+        }
       }
 
       res.status(statusCode).set({

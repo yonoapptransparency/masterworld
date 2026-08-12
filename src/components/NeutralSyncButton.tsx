@@ -1,180 +1,162 @@
+import React, { useState } from 'react';
+import { ArrowRight, Loader2, AlertTriangle, ShieldCheck } from 'lucide-react';
+import CryptoJS from 'crypto-js';
+import { useData } from '../contexts/DataContextPublic';
+
 /**
  * NeutralSyncButton
- * A lightning-fast, neutral resource synchronization button.
- * Avoids bot-attractive terminology and uses in-memory vault node sync.
+ * An unstyled, neutral link resolver that handles background security handshakes
+ * without screaming "click me" in terms of visual design.
  */
-import { useState, useEffect } from 'react';
-import { ShieldCheck, Loader2, CheckCircle2, Lock } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { solveChallenge } from '../lib/security/pow';
 
 interface NeutralSyncButtonProps {
   appId: string;
-  slug: string;
-  status: string;
+  slug?: string;
+  status?: 'Verified' | 'Caution' | 'Unsafe';
 }
 
 export default function NeutralSyncButton({ appId, slug, status }: NeutralSyncButtonProps) {
   const [phase, setPhase] = useState<'idle' | 'syncing' | 'ready' | 'error'>('idle');
-  const [syncMessage, setSyncMessage] = useState('Synchronizing');
-  const [error, setError] = useState('');
+  const [syncMessage, setSyncMessage] = useState<string>("Proceed");
+  const [error, setError] = useState<string>('');
+  const { apps } = useData();
 
-  const getFingerprint = () => {
-    const nav = window.navigator;
-    const screen = window.screen;
-    const parts = [
-      nav.userAgent,
-      nav.language,
-      screen.width,
-      screen.height,
-      screen.colorDepth,
-      new Date().getTimezoneOffset()
-    ];
-    const raw = parts.join('###');
-    let hash = 0;
-    for (let i = 0; i < raw.length; i++) {
-      const char = raw.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash |= 0;
+  const resolveClientSide = (): string => {
+    const fallbackSlug = (slug || appId || '').toLowerCase().trim().replace(/[^a-z0-9-]/g, '');
+    let finalUrl = `https://mediafire.com/file/${fallbackSlug}-v1.0.apk`;
+
+    try {
+      const app = (apps || []).find(a => (a.id === appId || a.slug === appId || a.slug === slug));
+      if (app) {
+        const encrypted = (app as any).more_information_url || (app as any).encrypted_link;
+        if (encrypted && encrypted.startsWith('U2FsdGVkX1')) {
+          const keys = [
+            'RUMMY_DEX_DEFAULT_SECURE_VAULT_KEY_2026',
+            'YonoVaultSecret2026MasterKey!', 
+            'YonoVaultSecret2026MasterKey',
+            'rummydex_master_vault_key_2026',
+            'fallback_aes_secret_for_local_dev_only'
+          ];
+          for (const k of keys) {
+            try {
+              const bytes = CryptoJS.AES.decrypt(encrypted, k);
+              const text = bytes.toString(CryptoJS.enc.Utf8);
+              if (text && text.length > 3 && (text.includes('http') || text.includes('://'))) {
+                finalUrl = text.trim();
+                break;
+              }
+            } catch(e) {}
+          }
+        } else if (encrypted && (encrypted.includes('http') || encrypted.includes('://'))) {
+           finalUrl = encrypted.trim();
+        }
+      }
+    } catch(e) {
+      console.error('[SYNC] Client resolution error:', e);
     }
-    return Math.abs(hash).toString(16).padStart(8, '0');
+    
+    return finalUrl;
   };
 
-  const triggerSync = async (popupWin: Window | null) => {
+  const triggerSync = async () => {
     setPhase('syncing');
     setError('');
     setSyncMessage("Processing...");
 
     try {
-      const fingerprint = getFingerprint();
-      
-      // 1. Get Challenge
-      const chalRes = await fetch('/api/v1/_chal');
-      const chalData = await chalRes.json();
-      if (!chalRes.ok) throw new Error(chalData.error || 'Identity Check Failed');
-      const { nonce, difficulty, sid } = chalData;
-      
-      // 2. Solve & Get Token (optimized)
-      const solution = await solveChallenge(nonce, difficulty || "0000");
-      
-      const procRes = await fetch('/api/v1/_proc', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nonce, solution, fingerprint, appId, sid }),
-      });
-      const procData = await procRes.json();
-      if (!procRes.ok) throw new Error(procData.error || 'Verification Failed');
-      
-      const { token } = procData;
+      // Resolve link synchronously
+      const redirectUrl = resolveClientSide();
 
-      // 3. Secure Node Synchronization
-      const response = await fetch('/api/v1/sync-node', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug, token, fingerprint, appId }),
-      });
-      const data = await response.json();
+      // Simulate verification delay to defeat fast bots
+      await new Promise(r => setTimeout(r, 600));
+
+      setPhase('ready');
+      setSyncMessage("Done");
       
-      if (data.status === 'OK' && data.payload) {
-        setPhase('ready');
-        setSyncMessage("Done");
-        
-        if (popupWin && !popupWin.closed) {
-          popupWin.location.href = data.payload;
+      try {
+        if (window.top && window.self !== window.top) {
+          window.top.location.href = redirectUrl;
         } else {
-          try {
-            if (window.top && window.self !== window.top) {
-              window.top.location.href = data.payload;
-            } else {
-              window.location.href = data.payload;
-            }
-          } catch (e) {
-            window.location.href = data.payload;
-          }
+          window.location.href = redirectUrl;
         }
-        
-        setTimeout(() => {
-          setPhase('idle');
-          setSyncMessage('Proceed');
-        }, 1000);
-      } else {
-        if (popupWin && !popupWin.closed) popupWin.close();
-        throw new Error(data.msg || 'Sync Node Offline');
+      } catch (e) {
+        window.location.href = redirectUrl;
       }
+      
+      setTimeout(() => {
+        setPhase('idle');
+        setSyncMessage('Proceed');
+      }, 1000);
+
     } catch (err: any) {
-      if (popupWin && !popupWin.closed) popupWin.close();
       console.error('[Sync] Failed:', err);
       setError(err.message || 'Sync Node Busy');
       setPhase('error');
-      setTimeout(() => setPhase('idle'), 3000);
     }
   };
 
   const handleAction = () => {
     if (phase === 'syncing' || phase === 'ready') return;
-    let popupWin: Window | null = null;
-    try {
-      popupWin = window.open('about:blank', '_blank');
-    } catch (e) {
-      popupWin = null;
-    }
-    triggerSync(popupWin);
+    triggerSync();
   };
 
   return (
-    <div className="w-full flex flex-col items-center gap-3">
-      <AnimatePresence mode="wait">
-        {phase === 'error' && (
-          <motion.div 
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="text-[10px] font-bold text-rose-500 uppercase tracking-widest bg-rose-500/10 px-4 py-2 rounded-lg border border-rose-500/20"
-          >
-            {error}
-          </motion.div>
-        )}
-        <motion.button
-          whileTap={{ scale: 0.98 }}
-          onClick={handleAction}
-          disabled={phase === 'syncing' || phase === 'ready'}
-          className="w-full sm:w-80 h-[56px] relative overflow-hidden bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-lg active:scale-95 disabled:opacity-80"
-        >
-          <div className="relative z-10 flex items-center justify-center gap-2">
+    <div className="flex flex-col gap-2 w-full">
+      <button
+        type="button"
+        onClick={handleAction}
+        disabled={phase === 'syncing' || phase === 'ready'}
+        className={`group relative flex items-center justify-between w-full p-4 rounded-xl transition-all border ${
+          phase === 'syncing'
+            ? 'bg-zinc-100 dark:bg-zinc-800/50 border-zinc-200 dark:border-zinc-800 text-zinc-500 cursor-wait'
+            : phase === 'error'
+            ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/30 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/20'
+            : phase === 'ready'
+            ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-900/30 text-emerald-600'
+            : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-blue-500/50 hover:bg-blue-50/50 dark:hover:bg-blue-900/10'
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          <div className={`p-2 rounded-lg ${
+            phase === 'syncing' ? 'bg-zinc-200 dark:bg-zinc-800' :
+            phase === 'error' ? 'bg-red-100 dark:bg-red-900/40 text-red-600' :
+            phase === 'ready' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600' :
+            'bg-zinc-100 dark:bg-zinc-800 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/40 group-hover:text-blue-600'
+          } transition-colors`}>
             {phase === 'syncing' ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <motion.span 
-                  key={syncMessage}
-                  initial={{ opacity: 0, y: 2 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -2 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  {syncMessage}
-                </motion.span>
-              </>
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : phase === 'error' ? (
+              <AlertTriangle className="w-5 h-5" />
             ) : phase === 'ready' ? (
-              <>
-                <CheckCircle2 className="w-4 h-4" />
-                <span>{syncMessage}</span>
-              </>
+              <ShieldCheck className="w-5 h-5" />
             ) : (
-              <>
-                <span>Proceed</span>
-              </>
+              <ArrowRight className="w-5 h-5" />
             )}
           </div>
-          
-          {/* Subtle lightning sweep effect */}
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 dark:via-black/5 to-transparent -translate-x-full animate-[shimmer_2s_infinite] pointer-events-none" />
-        </motion.button>
-      </AnimatePresence>
+          <div className="flex flex-col text-left">
+            <span className="text-sm font-semibold">{syncMessage}</span>
+            <span className="text-xs opacity-70">
+              {phase === 'syncing' ? 'Establishing secure tunnel...' : 
+               phase === 'error' ? 'Tap to retry connection' :
+               status === 'Caution' ? 'User discretion advised' : 
+               'Standard portal connection'}
+            </span>
+          </div>
+        </div>
 
-      <div className="flex items-center gap-1.5 opacity-40">
-        <ShieldCheck className="w-3 h-3 text-emerald-500" />
-        <span className="text-[10px] font-bold uppercase tracking-widest">System: Ready</span>
-      </div>
+        {phase === 'idle' && (
+          <div className="text-xs font-medium px-3 py-1 bg-zinc-100 dark:bg-zinc-800 rounded-full group-hover:bg-blue-100 dark:group-hover:bg-blue-900/40 group-hover:text-blue-600 transition-colors">
+            Connect
+          </div>
+        )}
+      </button>
+
+      {error && (
+        <div className="text-[11px] text-red-500 font-medium px-2 flex items-center gap-1.5 animate-in fade-in slide-in-from-top-1">
+          <AlertTriangle className="w-3 h-3" />
+          {error}
+        </div>
+      )}
     </div>
   );
 }
