@@ -249,7 +249,7 @@ export const mockApps: AppConfig[] = [
     "url": "",
     "custom_admin_box_heading": "",
     "custom_admin_box_html": "",
-    "more_information_url": "U2FsdGVkX1+0BhPNGXoM+DJOR7QLNgt6fgP69ZbRwNvyU/sLKUhtyjbniLihvjLjwpm6WgrKEGTbogBope+Wow=="
+    "more_information_url": "U2FsdGVkX1841ZHdJGNdO9yz4bzmrOYNxB2AGWPxIMaWAoZxk2wjO4+PKX1bQzzQ0l2ZoDYHR6u0dLiMm+VDDQ=="
   },
   {
     "og_image_url": "https://res.cloudinary.com/diewalae4/image/upload/v1785780996/download_22_vgi4h1_1_jjm7jx.webp",
@@ -286,7 +286,7 @@ export const mockApps: AppConfig[] = [
     "url": "",
     "custom_admin_box_heading": "",
     "custom_admin_box_html": "",
-    "more_information_url": "U2FsdGVkX1+44iZcMd9BaRmCuVY60nAJMNFc4ZHXZ4x7hzcabGU2/jkZy56MgBf7ik2Gpe3VjHXOgYssSP8Qlg=="
+    "more_information_url": "U2FsdGVkX1/LtHUztwaGgH3pIEU4vU8hPL0EZ4sKC97HecL5/9Jcb/7XC3gCzpvaFnnYKQYQc4wyog3/ljkozg=="
   },
   {
     "rating": 4,
@@ -340,7 +340,7 @@ export const mockApps: AppConfig[] = [
     "name": "CALLBREAK",
     "version": "1.0",
     "url": "",
-    "more_information_url": "U2FsdGVkX18TzTNlni1a4w7AcGVbCaXxptIjqBG3X13MYZ8KEOYJiq40ptgpPsIKx16E27ziawT1l+KRV3XugA=="
+    "more_information_url": "U2FsdGVkX1/lLRvpxwBYYm22soFUc3mR1fS1j0Gf3lTnpU2GrcvOcJ5QQPbqu361kmqqucnP2GV0zsAl9s0icg=="
   },
   {
     "video_url": "",

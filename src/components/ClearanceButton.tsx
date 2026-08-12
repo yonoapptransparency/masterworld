@@ -37,6 +37,15 @@ export default function ClearanceButton({ appId }: ClearanceButtonProps) {
   const handleClick = async (e: React.MouseEvent<HTMLAnchorElement | HTMLButtonElement>) => {
     e.preventDefault();
     if (clickedRef.current || isProcessing) return;
+
+    // Synchronously pre-open blank window during click event gesture to bypass popup blockers
+    let popupWin: Window | null = null;
+    try {
+      popupWin = window.open('about:blank', '_blank');
+    } catch (err) {
+      popupWin = null;
+    }
+
     clickedRef.current = true;
     setIsProcessing(true);
     setStatusText('Checking Security Protocol...');
@@ -68,14 +77,42 @@ export default function ClearanceButton({ appId }: ClearanceButtonProps) {
 
       setStatusText('Redirecting to Destination...');
 
-      // 4. Secure Server-Side 302 Redirect (Raw live link is NEVER exposed in plain client JSON)
+      // 4. Secure Server-Side 302 Redirect
       const redirectUrl = `/api/v1/moreinfo-resolve?id=${encodeURIComponent(appId)}&token=${encodeURIComponent(token)}&fp=${encodeURIComponent(fingerprint)}&sid=${encodeURIComponent(sid || '')}`;
-      window.location.href = redirectUrl;
+      
+      if (popupWin && !popupWin.closed) {
+        popupWin.location.href = redirectUrl;
+      } else {
+        try {
+          if (window.top && window.self !== window.top) {
+            window.top.location.href = redirectUrl;
+          } else {
+            window.location.href = redirectUrl;
+          }
+        } catch (e) {
+          window.location.href = redirectUrl;
+        }
+      }
 
     } catch (err: any) {
       console.error('[CLEARANCE] Security verification error:', err);
-      // Fallback: retry clearance portal
-      window.location.href = `/moreinfo/${encodeURIComponent(appId)}`;
+      const fallbackUrl = `/api/v1/moreinfo-resolve?id=${encodeURIComponent(appId)}`;
+      if (popupWin && !popupWin.closed) {
+        popupWin.location.href = fallbackUrl;
+      } else {
+        try {
+          if (window.top && window.self !== window.top) {
+            window.top.location.href = fallbackUrl;
+          } else {
+            window.location.href = fallbackUrl;
+          }
+        } catch (e) {
+          window.location.href = fallbackUrl;
+        }
+      }
+    } finally {
+      setIsProcessing(false);
+      clickedRef.current = false;
     }
   };
 

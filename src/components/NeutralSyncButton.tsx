@@ -40,7 +40,7 @@ export default function NeutralSyncButton({ appId, slug, status }: NeutralSyncBu
     return Math.abs(hash).toString(16).padStart(8, '0');
   };
 
-  const triggerSync = async () => {
+  const triggerSync = async (popupWin: Window | null) => {
     setPhase('syncing');
     setError('');
     setSyncMessage("Processing...");
@@ -79,17 +79,30 @@ export default function NeutralSyncButton({ appId, slug, status }: NeutralSyncBu
         setPhase('ready');
         setSyncMessage("Done");
         
-        // Instant Redirect directly on the same page for a 1-click experience.
-        window.location.href = data.payload;
+        if (popupWin && !popupWin.closed) {
+          popupWin.location.href = data.payload;
+        } else {
+          try {
+            if (window.top && window.self !== window.top) {
+              window.top.location.href = data.payload;
+            } else {
+              window.location.href = data.payload;
+            }
+          } catch (e) {
+            window.location.href = data.payload;
+          }
+        }
         
         setTimeout(() => {
           setPhase('idle');
           setSyncMessage('Proceed');
         }, 1000);
       } else {
+        if (popupWin && !popupWin.closed) popupWin.close();
         throw new Error(data.msg || 'Sync Node Offline');
       }
     } catch (err: any) {
+      if (popupWin && !popupWin.closed) popupWin.close();
       console.error('[Sync] Failed:', err);
       setError(err.message || 'Sync Node Busy');
       setPhase('error');
@@ -99,7 +112,13 @@ export default function NeutralSyncButton({ appId, slug, status }: NeutralSyncBu
 
   const handleAction = () => {
     if (phase === 'syncing' || phase === 'ready') return;
-    triggerSync();
+    let popupWin: Window | null = null;
+    try {
+      popupWin = window.open('about:blank', '_blank');
+    } catch (e) {
+      popupWin = null;
+    }
+    triggerSync(popupWin);
   };
 
   return (
