@@ -164,7 +164,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
     console.warn(`[SECURITY] Unauthenticated or direct resolution attempt for appId: ${appId} from IP: ${ip}`);
   }
 
-  // Helper function to respond via HTTP 302 redirect
+  // Helper function to respond via Secure Anonymous Bounce Page
   function respondWithUrl(targetUrl: string) {
     let finalUrl = targetUrl.trim();
     if (!finalUrl.toLowerCase().startsWith('http://') && !finalUrl.toLowerCase().startsWith('https://')) {
@@ -175,8 +175,29 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    console.log(`[SECURITY] Successful redirect for appId: ${appId}`);
-    return res.redirect(302, finalUrl);
+    
+    // The ultimate Anonymizer Response: HTML Meta Refresh destroys browser origin context
+    const bounceHtml = `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="referrer" content="no-referrer">
+    <meta http-equiv="refresh" content="0;url=${finalUrl}">
+    <title>Connecting...</title>
+    <style>
+      body { background: #09090b; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: system-ui, -apple-system, sans-serif; }
+      .loader { width: 32px; height: 32px; border: 3px solid #27272a; border-bottom-color: #3b82f6; border-radius: 50%; display: inline-block; box-sizing: border-box; animation: rotation 1s linear infinite; }
+      @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+  </head>
+  <body>
+    <span class="loader"></span>
+    <script>
+      setTimeout(function() { window.location.replace("${finalUrl}"); }, 10);
+    </script>
+  </body>
+</html>`;
+    return res.status(200).send(bounceHtml);
   }
 
   // 0. Fast Memory Cache Check (< 2ms response time)
@@ -184,7 +205,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
   for (const k of lookupKeys) {
     const cached = resolvedLinkCache.get(k);
     if (cached && (Date.now() - cached.timestamp < LINK_CACHE_TTL)) {
-      console.log(`[SECURITY] Memory cache hit (<2ms) for appId: ${appId}`);
+      
       return respondWithUrl(cached.url);
     }
   }
@@ -336,7 +357,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
                   vaultNode.setPayloads(parsed);
                   const foundUrl = findUrlInVaultParsed(parsed, initialKeys, AES_SECRET);
                   if (foundUrl && isValidTargetUrl(foundUrl)) {
-                    console.log(`[SECURITY] Instant resolution from Firestore global vault for ${appId}`);
+                    
                     const entry = { url: foundUrl.trim(), timestamp: Date.now() };
                     resolvedLinkCache.set(appId.toLowerCase(), entry);
                     return respondWithUrl(foundUrl.trim());
@@ -352,7 +373,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
     try {
       const payload = await vaultNode.getSyncPayload(appId);
       if (payload && isValidTargetUrl(payload)) {
-        console.log(`[SECURITY] Instant resolution from vaultNode for ${appId}`);
+        
         const entry = { url: payload.trim(), timestamp: Date.now() };
         resolvedLinkCache.set(appId.toLowerCase(), entry);
         return respondWithUrl(payload.trim());
@@ -366,7 +387,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
           const parsed = JSON.parse(decryptedVault);
           const foundUrl = findUrlInVaultParsed(parsed, initialKeys, AES_SECRET);
           if (foundUrl && isValidTargetUrl(foundUrl)) {
-            console.log(`[SECURITY] Instant resolution from ENCRYPTED_LINKS for ${appId}`);
+            
             const entry = { url: foundUrl.trim(), timestamp: Date.now() };
             resolvedLinkCache.set(appId.toLowerCase(), entry);
             return respondWithUrl(foundUrl.trim());
@@ -406,7 +427,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
         if (directUrl && typeof directUrl === 'string') {
           const dec = directUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(directUrl, AES_SECRET) : directUrl;
           if (isValidTargetUrl(dec)) {
-            console.log(`[SECURITY] Instant resolution from staticData for ${appId}`);
+            
             const entry = { url: dec.trim(), timestamp: Date.now() };
             resolvedLinkCache.set(appId.toLowerCase(), entry);
             resolvedLinkCache.set(realId.toLowerCase(), entry);
@@ -443,7 +464,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
         if (appDirectUrl && typeof appDirectUrl === 'string') {
           const dec = appDirectUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(appDirectUrl, AES_SECRET) : appDirectUrl;
           if (isValidTargetUrl(dec)) {
-            console.log(`[SECURITY] Resolved link directly from storeData for ${appId}`);
+            
             const entry = { url: dec.trim(), timestamp: Date.now() };
             resolvedLinkCache.set(appId.toLowerCase(), entry);
             resolvedLinkCache.set(realId.toLowerCase(), entry);
@@ -490,7 +511,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
                   vaultNode.setPayloads(parsed);
                   const foundUrl = findUrlInVaultParsed(parsed, searchKeys, AES_SECRET);
                   if (foundUrl && isValidTargetUrl(foundUrl)) {
-                    console.log(`[SECURITY] Resolved dynamically added link from Firestore for ${appId}`);
+                    
                     const entry = { url: foundUrl.trim(), timestamp: Date.now() };
                     resolvedLinkCache.set(appId.toLowerCase(), entry);
                     resolvedLinkCache.set(realId.toLowerCase(), entry);
@@ -707,7 +728,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
          if (rawUrl && typeof rawUrl === 'string') {
            const dec = rawUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(rawUrl, AES_SECRET) : rawUrl;
            if (isValidTargetUrl(dec)) {
-              console.log(`[SECURITY] Resolved link from staticData for ${appId}`);
+              
               return respondWithUrl(dec.trim());
            }
          }
@@ -730,7 +751,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
           if (rawUrl && typeof rawUrl === 'string') {
             const dec = rawUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(rawUrl, AES_SECRET) : rawUrl;
             if (isValidTargetUrl(dec)) {
-              console.log(`[SECURITY] Resolved link from public_backup.json for ${appId}`);
+              
               return respondWithUrl(dec.trim());
             }
           }
@@ -744,7 +765,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
         const backupData = JSON.parse(fs.readFileSync(secureLinksBackupPath, 'utf8'));
         const foundUrl = findUrlInVaultParsed(backupData, [appId, realId, realSlug], AES_SECRET);
         if (isValidTargetUrl(foundUrl)) {
-          console.log(`[SECURITY] Resolved link from secure_links_backup.json for ${appId}`);
+          
           return respondWithUrl(foundUrl.trim());
         }
       }
