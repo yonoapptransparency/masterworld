@@ -189,7 +189,13 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
     if (!finalUrl.toLowerCase().startsWith('http://') && !finalUrl.toLowerCase().startsWith('https://')) {
       finalUrl = 'https://' + finalUrl;
     }
-    console.log(`[SECURITY] Successful redirect to: ${finalUrl}`);
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    console.log(`[SECURITY] Successful redirect for appId: ${appId}`);
     return res.redirect(302, finalUrl);
   }
 
@@ -271,11 +277,48 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
       return '';
     }
 
+    let realId = appId;
+    let realSlug = appId;
+
+    try {
+      const staticDataObj = require('../../lib/staticData');
+      const mockAppsList = staticDataObj?.mockApps || [];
+      const cleanInput = appId.toLowerCase().trim().replace(/[-_ ]+$/, '');
+      const cleanInputNoSep = cleanInput.replace(/[-_ ]/g, '');
+
+      const matchedApp = mockAppsList.find((a: any) => {
+        const sId = (a.id || '').toLowerCase().trim();
+        const sSlug = (a.slug || '').toLowerCase().trim();
+        const sIdClean = sId.replace(/[-_ ]+$/, '');
+        const sSlugClean = sSlug.replace(/[-_ ]+$/, '');
+        const sIdNoSep = sId.replace(/[-_ ]/g, '');
+        const sSlugNoSep = sSlug.replace(/[-_ ]/g, '');
+
+        return sId === cleanInput ||
+               sSlug === cleanInput ||
+               sIdClean === cleanInput ||
+               sSlugClean === cleanInput ||
+               sIdNoSep === cleanInputNoSep ||
+               sSlugNoSep === cleanInputNoSep;
+      });
+
+      if (matchedApp) {
+        realId = matchedApp.id || appId;
+        realSlug = matchedApp.slug || appId;
+      }
+    } catch (e) {}
+
     // 1. FAST PATH: Instant in-memory check against vaultNode and ENCRYPTED_LINKS (<1ms)
     const initialKeys = Array.from(new Set([
       appId,
+      realId,
+      realSlug,
       appId.toLowerCase().trim(),
-      appId.toLowerCase().trim().replace(/[-_ ]+$/, '')
+      realId.toLowerCase().trim(),
+      realSlug.toLowerCase().trim(),
+      appId.toLowerCase().trim().replace(/[-_ ]+$/, ''),
+      realId.toLowerCase().trim().replace(/[-_ ]+$/, ''),
+      realSlug.toLowerCase().trim().replace(/[-_ ]+$/, '')
     ])).filter(Boolean);
 
     // 0.5 PRIMARY PATH: Always fetch latest from Firestore first to avoid serving stale static data
@@ -336,9 +379,6 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
         } catch (e) {}
       }
     }
-
-    let realId = appId;
-    let realSlug = appId;
 
     // 1.5 FAST PATH: Synchronous in-memory check against staticData (<0.1ms)
     try {
