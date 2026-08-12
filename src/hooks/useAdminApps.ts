@@ -21,11 +21,12 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
     setAppsList(prev => prev.filter(a => a.id !== id));
   };
 
-  const syncSecureVault = async (force = false) => {
+  const syncSecureVault = async (force = false, latestAppsList?: any[]) => {
     if (!isInitialized) return;
     try {
+      const currentList = latestAppsList || appsList;
       const items = Array.from(cachedSecureMapRef.current.entries()).map(([k, v]) => {
-        const app = appsList.find(a => a.id === k || a.slug === k);
+        const app = currentList.find(a => a.id === k || a.slug === k);
         return {
           id: app?.id || k,
           slug: app?.slug || k,

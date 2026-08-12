@@ -118,6 +118,10 @@ export default function AdminDashboard() {
       let encryptedUrlVal = '';
       let plaintextUrl = inputUrl || '';
 
+      if (plaintextUrl && !plaintextUrl.startsWith('U2FsdGVkX1') && !plaintextUrl.toLowerCase().startsWith('http://') && !plaintextUrl.toLowerCase().startsWith('https://')) {
+        plaintextUrl = 'https://' + plaintextUrl;
+      }
+
       if (plaintextUrl && !plaintextUrl.startsWith('U2FsdGVkX1')) {
          const idToken = await user?.getIdToken();
          const res = await adminFetch('/api/v1/admin/encrypt', {
@@ -201,7 +205,7 @@ export default function AdminDashboard() {
       else cachedSecureMapRef.current.delete(actualAppId);
 
       const updatedApps = editingAppId ? appsList.map(a => a.id === editingAppId ? { ...a, ...appData } : a) : [...appsList, appData];
-      await syncSecureVault(true);
+      await syncSecureVault(true, updatedApps);
       await saveApps(updatedApps);
       setAppsList(updatedApps);
       setEditingAppId(null);

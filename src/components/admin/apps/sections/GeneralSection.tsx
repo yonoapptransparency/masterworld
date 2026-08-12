@@ -77,6 +77,23 @@ export const GeneralSection = ({ formFields, handleFieldChange, categories }: Ge
         </div>
       </div>
 
+      <div className="grid gap-4 sm:grid-cols-1">
+        <div className="bg-blue-50/40 dark:bg-blue-950/20 p-4 rounded-xl border border-blue-200/60 dark:border-blue-800/50">
+          <label className="block text-[10px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-1">Download / Target Destination URL (External APK / Store Link)</label>
+          <input 
+            type="text" 
+            name="more_information_url" 
+            value={formFields.more_information_url || ''} 
+            onChange={e => handleFieldChange('more_information_url', e.target.value)} 
+            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 font-mono" 
+            placeholder="e.g. https://drive.google.com/file/d/... or https://mediafire.com/... or https://t.me/..."
+          />
+          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 leading-normal">
+            This is the secure destination URL that users will be redirected to after completing security clearance. Must be a valid external website or cloud storage link (e.g. Google Drive, MediaFire, Telegram, S3, or direct APK URL).
+          </p>
+        </div>
+      </div>
+
       <div className="bg-slate-100/50 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-200/40 dark:border-slate-800/50">
         <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2">Assign Categories</label>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">

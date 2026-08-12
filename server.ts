@@ -257,7 +257,7 @@ async function startServer() {
   });
 
   const server = app.listen(PORT as number, "0.0.0.0", () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`Server running on http://localhost:${PORT}`);
     fetchStoreData()
       .then(() => {
         console.log("Local store cache warmed up successfully from backup files.");

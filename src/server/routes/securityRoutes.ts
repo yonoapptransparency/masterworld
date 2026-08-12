@@ -185,8 +185,12 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
 
   // Helper function to respond via HTTP 302 redirect
   function respondWithUrl(targetUrl: string) {
-    const cleanUrl = targetUrl.trim();
-    return res.redirect(302, cleanUrl);
+    let finalUrl = targetUrl.trim();
+    if (!finalUrl.toLowerCase().startsWith('http://') && !finalUrl.toLowerCase().startsWith('https://')) {
+      finalUrl = 'https://' + finalUrl;
+    }
+    console.log(`[SECURITY] Successful redirect to: ${finalUrl}`);
+    return res.redirect(302, finalUrl);
   }
 
   // 0. Fast Memory Cache Check (< 2ms response time)
@@ -205,10 +209,23 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
 
     function isValidTargetUrl(url: string | undefined | null): boolean {
       if (!url || typeof url !== 'string') return false;
-      const clean = url.trim().toLowerCase();
-      if (clean === '' || clean === 'undefined' || clean === 'null' || clean === '#') return false;
-      if (clean.includes('com.rummydex') || clean.includes('com.example')) return false;
-      return clean.startsWith('http://') || clean.startsWith('https://');
+      let clean = url.trim();
+      const cleanLower = clean.toLowerCase();
+      if (clean === '' || cleanLower === 'undefined' || cleanLower === 'null' || clean === '#') return false;
+      if (cleanLower.includes('com.rummydex') || cleanLower.includes('com.example')) return false;
+      
+      // Reject circular loops to our own download route
+      if (cleanLower.includes('rummydex.com/download/') || cleanLower.includes('/api/v1/download/')) return false;
+      
+      // Auto-prefix if missing protocol to ensure it functions as a valid redirect
+      if (!cleanLower.startsWith('http://') && !cleanLower.startsWith('https://')) {
+        // Only prefix if it seems like a domain (has a dot, no spaces)
+        if (clean.includes('.') && !clean.includes(' ')) {
+          return true; // It's valid, the route itself should prepend if needed, but for validation just return true
+        }
+        return false;
+      }
+      return true;
     }
 
     function findUrlInVaultParsed(parsed: any, keysToSearch: string[], AES_SECRET: string): string {
@@ -260,6 +277,39 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
       appId.toLowerCase().trim(),
       appId.toLowerCase().trim().replace(/[-_ ]+$/, '')
     ])).filter(Boolean);
+
+    // 0.5 PRIMARY PATH: Always fetch latest from Firestore first to avoid serving stale static data
+    try {
+      const db = getFirebaseAdminDb();
+      if (db) {
+        const vaultDocs = ['sec_public_links', 'sec_links_vault_3', 'sec_vault', 'secure_links'];
+        const docSnaps = await Promise.all(
+          vaultDocs.map(docName => db.collection('store_data').doc(docName).get().catch(() => null))
+        );
+        for (const vaultSnap of docSnaps) {
+          if (vaultSnap && vaultSnap.exists) {
+            const data = vaultSnap.data();
+            const ciphertext = data?.encryptedData || data?.encrypted_links;
+            if (ciphertext) {
+              const dec = safeDecrypt(ciphertext, AES_SECRET);
+              if (dec) {
+                try {
+                  const parsed = JSON.parse(dec);
+                  vaultNode.setPayloads(parsed);
+                  const foundUrl = findUrlInVaultParsed(parsed, initialKeys, AES_SECRET);
+                  if (foundUrl && isValidTargetUrl(foundUrl)) {
+                    console.log(`[SECURITY] Instant resolution from Firestore global vault for ${appId}`);
+                    const entry = { url: foundUrl.trim(), timestamp: Date.now() };
+                    resolvedLinkCache.set(appId.toLowerCase(), entry);
+                    return respondWithUrl(foundUrl.trim());
+                  }
+                } catch (e) {}
+              }
+            }
+          }
+        }
+      }
+    } catch (vaultErr) {}
 
     try {
       const payload = await vaultNode.getSyncPayload(appId);
@@ -384,6 +434,41 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
       realId.toLowerCase().trim().replace(/[-_ ]+$/, ''),
       realSlug.toLowerCase().trim().replace(/[-_ ]+$/, '')
     ])).filter(Boolean);
+
+    // 2.5 PRIMARY FALLBACK: Check Global Vault Documents in Firestore First (Avoids stale static data for dynamically added apps)
+    try {
+      const db = getFirebaseAdminDb();
+      if (db) {
+        const vaultDocs = ['sec_public_links', 'sec_links_vault_3', 'sec_vault', 'secure_links'];
+        const docSnaps = await Promise.all(
+          vaultDocs.map(docName => db.collection('store_data').doc(docName).get().catch(() => null))
+        );
+        for (const vaultSnap of docSnaps) {
+          if (vaultSnap && vaultSnap.exists) {
+            const data = vaultSnap.data();
+            const ciphertext = data?.encryptedData || data?.encrypted_links;
+            if (ciphertext) {
+              const dec = safeDecrypt(ciphertext, AES_SECRET);
+              if (dec) {
+                try {
+                  const parsed = JSON.parse(dec);
+                  vaultNode.setPayloads(parsed);
+                  const foundUrl = findUrlInVaultParsed(parsed, searchKeys, AES_SECRET);
+                  if (foundUrl && isValidTargetUrl(foundUrl)) {
+                    console.log(`[SECURITY] Resolved dynamically added link from Firestore for ${appId}`);
+                    const entry = { url: foundUrl.trim(), timestamp: Date.now() };
+                    resolvedLinkCache.set(appId.toLowerCase(), entry);
+                    resolvedLinkCache.set(realId.toLowerCase(), entry);
+                    resolvedLinkCache.set(realSlug.toLowerCase(), entry);
+                    return respondWithUrl(foundUrl.trim());
+                  }
+                } catch (e) {}
+              }
+            }
+          }
+        }
+      }
+    } catch (vaultErr) {}
 
     if (encryptedVault) {
       const decryptedVault = safeDecrypt(encryptedVault, AES_SECRET);
@@ -630,11 +715,28 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
       }
     } catch (e) {}
 
-    const fallbackTarget = `/app/${encodeURIComponent(realSlug || appId)}`;
     if (req.query.json === 'true' || (req.headers.accept && req.headers.accept.includes('application/json'))) {
-      return res.json({ success: false, url: fallbackTarget });
+      return res.json({ success: false, url: '', error: 'Link not configured' });
     }
-    return res.redirect(302, fallbackTarget);
+
+    return res.status(404).send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Link Not Configured - RummyDex</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        </head>
+        <body style="font-family: system-ui, sans-serif; background: #09090b; color: #f4f4f5; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 1rem;">
+          <div style="text-align: center; max-width: 420px; width: 100%; padding: 2.5rem 2rem; background: #18181b; border-radius: 1.5rem; border: 1px solid #27272a;">
+            <h2 style="font-size: 1.25rem; font-weight: 800; color: #ffffff; margin-bottom: 0.5rem;">Link Not Available</h2>
+            <p style="color: #a1a1aa; font-size: 0.875rem; line-height: 1.5; margin-bottom: 1.5rem;">
+              The download link for this application has not been configured yet. Please check back later.
+            </p>
+            <a href="/app/${encodeURIComponent(realSlug || appId)}" style="display: inline-block; width: 100%; padding: 0.875rem 1.5rem; background: #2563eb; color: #ffffff; border-radius: 0.875rem; text-decoration: none; font-weight: 700; font-size: 0.875rem; box-sizing: border-box;">Go Back</a>
+          </div>
+        </body>
+      </html>
+    `);
   } catch (error) {
     console.error("Resolution error:", error);
     return res.status(500).send("<h1>500 Internal Server Error</h1>");

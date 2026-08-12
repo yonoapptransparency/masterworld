@@ -347,7 +347,7 @@ adminVaultRouter.post("/api/v1/admin/encrypt-links", verifyAdminToken, async (re
     try {
       vaultNode.setPayloads(items);
       vaultNode.setPayloads(mergedItems);
-      vaultNode.refresh();
+      // vaultNode.refresh(); // Removed to prevent wiping the newly set cache
     } catch (vErr) {
       console.warn("[SERVER] VaultNode refresh error:", vErr);
     }
@@ -758,29 +758,42 @@ adminVaultRouter.get("/api/v1/admin/fix-db-links", verifyAdminToken, async (req,
   }
 });
 
-adminVaultRouter.post("/api/v1/admin/seal-vault", verifyAdminToken, (req, res) => {
+adminVaultRouter.post("/api/v1/admin/seal-vault", verifyAdminToken, async (req, res) => {
   try {
-    const { items } = req.body;
-    if (!items || !Array.isArray(items)) return res.status(400).json({ error: 'Valid items array required' });
-
-    const vaultMap: Record<string, string> = {};
-    items.forEach((item: any) => {
-      if (item.id) {
-        if (item.url && item.more_information_url) {
-          vaultMap[item.id] = {
-            url: item.url,
-            more_information_url: item.more_information_url,
-            slug: item.slug
-          } as any;
-        } else if (item.url || item.more_information_url) {
-          vaultMap[item.id] = item.url || item.more_information_url;
+    const db = getFirebaseAdminDb();
+    if (db) {
+      const doc = await db.collection('store_data').doc('secure_links').get();
+      if (doc.exists) {
+        const data = doc.data();
+        if (data && (data.encryptedData || data.encrypted_links)) {
+           return res.json({ success: true, ciphertext: data.encryptedData || data.encrypted_links });
         }
       }
-    });
-
+    }
+    
+    // Fallback if db read fails
     const AES_SECRET = getAesSecret();
     if (!AES_SECRET) {
       return res.status(400).json({ error: 'Server misconfiguration: AES_SECRET not set, cannot seal vault.' });
+    }
+    
+    // As a last resort, just seal whatever was passed, though it likely lacks URLs
+    const { items } = req.body;
+    const vaultMap: Record<string, string> = {};
+    if (items && Array.isArray(items)) {
+      items.forEach((item: any) => {
+        if (item.id) {
+          if (item.url && item.more_information_url) {
+            vaultMap[item.id] = {
+              url: item.url,
+              more_information_url: item.more_information_url,
+              slug: item.slug
+            } as any;
+          } else if (item.url || item.more_information_url) {
+            vaultMap[item.id] = item.url || item.more_information_url;
+          }
+        }
+      });
     }
     const ciphertext = safeEncrypt(JSON.stringify(vaultMap), AES_SECRET);
     res.json({ success: true, ciphertext });
