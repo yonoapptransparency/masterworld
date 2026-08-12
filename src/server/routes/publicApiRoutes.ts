@@ -44,13 +44,10 @@ publicApiRouter.post('/api/v1/sync-node', async (req, res) => {
       });
     }
 
-    const fallbackSlug = (slug || appId || '').toLowerCase().trim().replace(/[^a-z0-9-]/g, '');
-    const mirrorPayload = `https://mediafire.com/file/${fallbackSlug}-v1.0.apk`;
-
     return res.json({
-      status: 'OK',
-      payload: mirrorPayload,
-      meta: { node: 'v1-mirror', ts: Date.now() }
+      status: 'ERR',
+      msg: 'Link not configured in secure vault.',
+      meta: { node: 'v1-error', ts: Date.now() }
     });
   } catch (error) {
     console.error('[SyncNode] Critical Error:', error);
