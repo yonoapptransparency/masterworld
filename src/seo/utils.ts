@@ -82,6 +82,7 @@ export function getOgImageUrl(url?: string, origin = 'https://www.rummydex.com')
       } else if (!absUrl.includes('f_jpg')) {
         absUrl = absUrl.replace('/upload/', '/upload/f_jpg,q_auto/');
       }
+      absUrl = absUrl.replace(/\.(webp|png|gif|jpeg)$/i, '.jpg');
     }
   }
   return absUrl;
