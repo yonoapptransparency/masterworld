@@ -22,8 +22,7 @@ export default function NeutralSyncButton({ appId, slug, status }: NeutralSyncBu
   const { apps } = useData();
 
   const resolveClientSide = (): string => {
-    const fallbackSlug = (slug || appId || '').toLowerCase().trim().replace(/[^a-z0-9-]/g, '');
-    let finalUrl = `https://mediafire.com/file/${fallbackSlug}-v1.0.apk`;
+    let finalUrl = '';
 
     try {
       const app = (apps || []).find(a => (a.id === appId || a.slug === appId || a.slug === slug));
@@ -52,7 +51,7 @@ export default function NeutralSyncButton({ appId, slug, status }: NeutralSyncBu
         }
       }
     } catch(e) {
-      console.error('[SYNC] Client resolution error:', e);
+      console.warn('[SYNC] Client resolution error:', e);
     }
     
     return finalUrl;
@@ -66,6 +65,7 @@ export default function NeutralSyncButton({ appId, slug, status }: NeutralSyncBu
     try {
       // Resolve link synchronously
       const redirectUrl = resolveClientSide();
+      const finalRedirect = redirectUrl || `/api/v1/moreinfo-resolve?id=${appId}`;
 
       // Simulate verification delay to defeat fast bots
       await new Promise(r => setTimeout(r, 600));
@@ -75,12 +75,12 @@ export default function NeutralSyncButton({ appId, slug, status }: NeutralSyncBu
       
       try {
         if (window.top && window.self !== window.top) {
-          window.top.location.href = redirectUrl;
+          window.top.location.href = finalRedirect;
         } else {
-          window.location.href = redirectUrl;
+          window.location.href = finalRedirect;
         }
       } catch (e) {
-        window.location.href = redirectUrl;
+        window.location.href = finalRedirect;
       }
       
       setTimeout(() => {
@@ -89,7 +89,7 @@ export default function NeutralSyncButton({ appId, slug, status }: NeutralSyncBu
       }, 1000);
 
     } catch (err: any) {
-      console.error('[Sync] Failed:', err);
+      console.warn('[Sync] Failed:', err);
       setError(err.message || 'Sync Node Busy');
       setPhase('error');
     }

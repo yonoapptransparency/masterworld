@@ -16,8 +16,7 @@ export default function ClearanceButton({ appId }: ClearanceButtonProps) {
   const { apps } = useData();
 
   const resolveClientSide = (): string => {
-    const fallbackSlug = (appId || '').toLowerCase().trim().replace(/[^a-z0-9-]/g, '');
-    let finalUrl = `https://mediafire.com/file/${fallbackSlug}-v1.0.apk`;
+    let finalUrl = '';
 
     try {
       const app = (apps || []).find(a => (a.id === appId || a.slug === appId));
@@ -46,7 +45,7 @@ export default function ClearanceButton({ appId }: ClearanceButtonProps) {
         }
       }
     } catch(e) {
-      console.error('[CLEARANCE] Client resolution error:', e);
+      console.warn('[CLEARANCE] Client resolution error:', e);
     }
     
     return finalUrl;
@@ -64,6 +63,8 @@ export default function ClearanceButton({ appId }: ClearanceButtonProps) {
       // Resolve link synchronously
       const redirectUrl = resolveClientSide();
 
+      const finalRedirect = redirectUrl || `/api/v1/moreinfo-resolve?id=${appId}`;
+
       // Small delay to simulate PoW and defeat simple headless scrapers
       await new Promise(resolve => setTimeout(resolve, 800));
       setStatusText('Redirecting to Destination...');
@@ -71,17 +72,17 @@ export default function ClearanceButton({ appId }: ClearanceButtonProps) {
       // Safely redirect current tab
       try {
         if (window.top && window.self !== window.top) {
-          window.top.location.href = redirectUrl;
+          window.top.location.href = finalRedirect;
         } else {
-          window.location.href = redirectUrl;
+          window.location.href = finalRedirect;
         }
       } catch (e) {
-        window.location.href = redirectUrl;
+        window.location.href = finalRedirect;
       }
     } catch (err: any) {
-      console.error('[CLEARANCE] Security verification error:', err);
-      const fallbackUrl = `https://mediafire.com/file/${appId}-v1.0.apk`;
-      window.location.href = fallbackUrl;
+      console.warn('[CLEARANCE] Security verification error:', err);
+      setStatusText('Link Not Available');
+      // Do not redirect if link is not configured
     } finally {
       setIsProcessing(false);
       clickedRef.current = false;
