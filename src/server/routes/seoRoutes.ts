@@ -71,7 +71,7 @@ seoRouter.get([
     try {
       const storeData = await fetchStoreData();
       if (storeData && storeData.settings) {
-        customFaviconUrl = 'https://res.cloudinary.com/diewalae4/image/upload/v1786556304/1000134161_11zon_fgqzz6.png';
+        customFaviconUrl = '/logo.png';
         customLogoUrl = customFaviconUrl;
       }
     } catch (dataErr) {
@@ -83,7 +83,7 @@ seoRouter.get([
     if (hasCustomOverride) {
       let imageUrl = (!isDefaultOrPlaceholder(customFaviconUrl) ? customFaviconUrl : null) ||
                      (!isDefaultOrPlaceholder(customLogoUrl) ? customLogoUrl : null) ||
-                     'https://res.cloudinary.com/diewalae4/image/upload/v1786556304/1000134161_11zon_fgqzz6.png';
+                     '/logo.png';
 
       // Transform Cloudinary URL for the requested icon size
       if (imageUrl.includes('res.cloudinary.com') && imageUrl.includes('/upload/')) {
@@ -107,36 +107,38 @@ seoRouter.get([
         }
       }
 
-      try {
-        const response = await fetch(imageUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-          }
-        });
-        if (response.ok) {
-          const arrayBuffer = await response.arrayBuffer();
-          const buffer = Buffer.from(arrayBuffer);
-          let contentType = 'image/png';
-          if (buffer.length >= 12 && buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50) {
-            contentType = 'image/webp';
-          } else if (buffer.length >= 4 && buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
-            contentType = 'image/png';
-          } else if (buffer.length >= 4 && buffer[0] === 0x00 && buffer[1] === 0x00 && buffer[2] === 0x01 && buffer[3] === 0x00) {
-            contentType = 'image/x-icon';
-          } else if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
-            contentType = 'image/jpeg';
-          } else if (buffer.toString('utf8', 0, Math.min(100, buffer.length)).includes('<svg')) {
-            contentType = 'image/svg+xml';
-          }
-          res.set({
-            'Content-Type': contentType,
-            'Cache-Control': 'public, max-age=31536000, immutable',
-            'Content-Disposition': `inline; filename="${reqFilename}"`
+      if (imageUrl.startsWith('http')) {
+        try {
+          const response = await fetch(imageUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
           });
-          return res.send(buffer);
+          if (response.ok) {
+            const arrayBuffer = await response.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+            let contentType = 'image/png';
+            if (buffer.length >= 12 && buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50) {
+              contentType = 'image/webp';
+            } else if (buffer.length >= 4 && buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
+              contentType = 'image/png';
+            } else if (buffer.length >= 4 && buffer[0] === 0x00 && buffer[1] === 0x00 && buffer[2] === 0x01 && buffer[3] === 0x00) {
+              contentType = 'image/x-icon';
+            } else if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+              contentType = 'image/jpeg';
+            } else if (buffer.toString('utf8', 0, Math.min(100, buffer.length)).includes('<svg')) {
+              contentType = 'image/svg+xml';
+            }
+            res.set({
+              'Content-Type': contentType,
+              'Cache-Control': 'public, max-age=31536000, immutable',
+              'Content-Disposition': `inline; filename="${reqFilename}"`
+            });
+            return res.send(buffer);
+          }
+        } catch (fetchErr) {
+          console.warn("Failed to fetch custom image proxy for favicon/logo, falling back:", fetchErr);
         }
-      } catch (fetchErr) {
-        console.warn("Failed to fetch custom image proxy for favicon/logo, falling back:", fetchErr);
       }
     }
   } catch (err) {

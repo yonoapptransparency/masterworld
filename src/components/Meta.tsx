@@ -35,9 +35,9 @@ const Meta: React.FC<MetaProps> = ({
   const fullTitle = formatPageTitle(title, siteTitle);
   const metaDescription = description || settings?.meta_description || 'Access application details and specifications.';
   const metaKeywords = keywords || settings?.seo_keywords || '';
-  const rawImage = image || 'https://res.cloudinary.com/diewalae4/image/upload/v1786556304/1000134161_11zon_fgqzz6.png';
+  const rawImage = image || '/logo.png';
   const metaImage = getOgImageUrl(rawImage, typeof window !== 'undefined' ? window.location.origin : 'https://www.rummydex.com');
-  const favIconUrl = 'https://res.cloudinary.com/diewalae4/image/upload/v1786556304/1000134161_11zon_fgqzz6.png';
+  const favIconUrl = '/logo.png';
 
   const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/';
   const canonicalUrl = getCleanCanonicalUrl(canonical || url, currentPath);
@@ -52,11 +52,14 @@ const Meta: React.FC<MetaProps> = ({
       <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
       <meta name="robots" content={noindex ? "noindex, nofollow" : "index, follow, max-image-preview:large"} />
       <link rel="canonical" href={canonicalUrl} />
-      <link rel="icon" type="image/x-icon" href={favIconUrl.includes('res.cloudinary.com') ? favIconUrl.replace(/\/upload\/([^\/]+)\//, '/upload/w_32,h_32,c_fit,f_ico,q_auto/') : favIconUrl} />
-      <link rel="icon" type="image/png" sizes="32x32" href={favIconUrl.includes('res.cloudinary.com') ? favIconUrl.replace(/\/upload\/([^\/]+)\//, '/upload/w_32,h_32,c_fit,f_png,q_auto/') : favIconUrl} />
-      <link rel="icon" type="image/png" sizes="192x192" href={favIconUrl.includes('res.cloudinary.com') ? favIconUrl.replace(/\/upload\/([^\/]+)\//, '/upload/w_192,h_192,c_fit,f_png,q_auto/') : favIconUrl} />
-      <link rel="icon" type="image/png" sizes="512x512" href={favIconUrl.includes('res.cloudinary.com') ? favIconUrl.replace(/\/upload\/([^\/]+)\//, '/upload/w_512,h_512,c_fit,f_png,q_auto/') : favIconUrl} />
-      <link rel="apple-touch-icon" sizes="180x180" href={favIconUrl.includes('res.cloudinary.com') ? favIconUrl.replace(/\/upload\/([^\/]+)\//, '/upload/w_180,h_180,c_fit,f_png,q_auto/') : favIconUrl} />
+      <link rel="icon" type="image/x-icon" href="/logo.png" />
+      <link rel="icon" type="image/png" sizes="32x32" href="/logo.png" />
+      <link rel="icon" type="image/png" sizes="48x48" href="/logo.png" />
+      <link rel="icon" type="image/png" sizes="96x96" href="/logo.png" />
+      <link rel="icon" type="image/png" sizes="144x144" href="/logo.png" />
+      <link rel="icon" type="image/png" sizes="192x192" href="/logo.png" />
+      <link rel="icon" type="image/png" sizes="512x512" href="/logo.png" />
+      <link rel="apple-touch-icon" sizes="180x180" href="/logo.png" />
 
       {/* Open Graph / Facebook */}
       <meta property="og:type" content={type} />

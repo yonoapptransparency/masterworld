@@ -62,7 +62,7 @@ function AppContent() {
     document.title = `Admin Dashboard - ${siteTitle}`;
 
     // Dynamically synchronize favicon with firebase database changes live
-    const targetUrl = "https://res.cloudinary.com/diewalae4/image/upload/v1786556304/1000134161_11zon_fgqzz6.png";
+    const targetUrl = "/logo.png";
     if (targetUrl) {
       const allIcons = Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel*="icon"]'));
       if (allIcons.length > 0) {

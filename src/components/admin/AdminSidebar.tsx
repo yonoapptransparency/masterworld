@@ -76,7 +76,7 @@ export const AdminSidebar = ({
           <div className="p-4 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-3">
               <img 
-                src="https://res.cloudinary.com/diewalae4/image/upload/w_120,h_120,c_fit,q_auto/v1786556304/1000134161_11zon_fgqzz6.png" 
+                src="/logo.png" 
                 alt="Admin Logo" 
                 className="w-10 h-10 object-contain drop-shadow-sm" 
                 loading="lazy" 

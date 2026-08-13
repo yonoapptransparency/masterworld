@@ -494,7 +494,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     if (keywordArray.length > 15) keywords = keywordArray.slice(0, 15).join(', ');
   }
 
-  const logoUrl = 'https://res.cloudinary.com/diewalae4/image/upload/v1786556304/1000134161_11zon_fgqzz6.png';
+  const logoUrl = '/logo.png';
   const faviconUrl = logoUrl;
   const cleanPath = urlPath.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
   const cleanPathLower = cleanPath.toLowerCase();
@@ -647,7 +647,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   } catch (e) {}
   
   if (pageOgImage && (pageOgImage.includes('1000132678_1_ro1ftj') || pageOgImage.includes('ezgif-64180dd8ca74703b') || pageOgImage.includes('ezgif-88d07abd3ef5753f_yz8ytg') || pageOgImage.includes('ezgif-8cbbc4a0aaeb367e_s4k2nb'))) {
-    pageOgImage = 'https://res.cloudinary.com/diewalae4/image/upload/v1786556304/1000134161_11zon_fgqzz6.png';
+    pageOgImage = '/logo.png';
   }
   
   pageOgImage = getOgImageUrl(pageOgImage, domain);

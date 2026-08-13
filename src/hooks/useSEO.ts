@@ -27,7 +27,7 @@ export function useSEO(
     let pageTitle = siteTitle;
     let pageDesc = settings.meta_description || '';
     let pageKeywords = settings.seo_keywords || '';
-    const hardcodedLogo = 'https://res.cloudinary.com/diewalae4/image/upload/v1786556304/1000134161_11zon_fgqzz6.png';
+    const hardcodedLogo = typeof window !== 'undefined' ? window.location.origin + '/logo.png' : 'https://www.rummydex.com/logo.png';
     let pageOgImage = hardcodedLogo;
     let pageAuthor = siteTitle;
     let pageRobots = 'index, follow';
