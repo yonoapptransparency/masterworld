@@ -83,7 +83,7 @@ export const ContentSection = ({ formFields, handleFieldChange }: ContentSection
                       await navigator.clipboard.writeText(data.decrypted);
                       alert('Link copied to clipboard (hidden for security)');
                     } catch (e) {
-                      console.log('Failed to copy');
+                      // Ignore clipboard errors
                     }
                   } else {
                     alert('Failed to decrypt URL.');
