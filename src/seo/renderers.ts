@@ -32,7 +32,7 @@ function sanitizeHtml(html: string): string {
 
 export function renderHeader(settings: any) {
   const siteTitle = getField(settings, 'site_title');
-  const logoUrl = getField(settings, 'logo_url');
+  const logoUrl = 'https://res.cloudinary.com/diewalae4/image/upload/v1786556304/1000134161_11zon_fgqzz6.png';
   const optimizedLogo = logoUrl ? optimizeImageUrl(logoUrl, 100) : '';
   return `
     <header class="py-3 border-b border-black/5 dark:border-white/5 bg-white/80 dark:bg-zinc-950/80 ">
@@ -55,7 +55,7 @@ export function renderHeader(settings: any) {
 
 export function renderFooter(settings: any) {
   const siteTitle = getField(settings, 'site_title');
-  const logoUrl = getField(settings, 'logo_url');
+  const logoUrl = 'https://res.cloudinary.com/diewalae4/image/upload/v1786556304/1000134161_11zon_fgqzz6.png';
   const metaDescription = getField(settings, 'meta_description');
   const optimizedLogo = logoUrl ? optimizeImageUrl(logoUrl, 80) : '';
 

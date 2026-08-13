@@ -71,8 +71,8 @@ seoRouter.get([
     try {
       const storeData = await fetchStoreData();
       if (storeData && storeData.settings) {
-        customFaviconUrl = (storeData.settings.favicon_url && storeData.settings.favicon_url.trim()) || '';
-        customLogoUrl = (storeData.settings.logo_url && storeData.settings.logo_url.trim()) || '';
+        customFaviconUrl = 'https://res.cloudinary.com/diewalae4/image/upload/v1786556304/1000134161_11zon_fgqzz6.png';
+        customLogoUrl = customFaviconUrl;
       }
     } catch (dataErr) {
       console.warn("Could not retrieve store settings for favicon, using default fallback:", dataErr);
