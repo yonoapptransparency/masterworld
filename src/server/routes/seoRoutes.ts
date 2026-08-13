@@ -333,6 +333,8 @@ seoRouter.get(['/rss.xml', '/rss', '/feed', '/feed.xml'], async (req, res) => {
       }
     }
 
+    const siteLogo = getField(data?.settings, 'logo_url') || getField(data?.settings, 'favicon_url') || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
+
     const rssXml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
   <channel>
@@ -340,6 +342,11 @@ seoRouter.get(['/rss.xml', '/rss', '/feed', '/feed.xml'], async (req, res) => {
     <link>${host}</link>
     <description>Latest Rummy applications, card game news, updates, and reviews on RummyDex.</description>
     <language>en-IN</language>
+    <image>
+      <url>${escapeXml(siteLogo)}</url>
+      <title>RummyDex</title>
+      <link>${host}</link>
+    </image>
     <atom:link href="${host}/rss.xml" rel="self" type="application/rss+xml" />
     ${itemsXml}
   </channel>
@@ -486,12 +493,18 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
       { path: '/disclaimer', priority: '0.3', changefreq: 'monthly' }
     ];
 
+    const siteLogo = getField(data?.settings, 'logo_url') || getField(data?.settings, 'favicon_url') || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
+
     if (videos && Array.isArray(videos) && videos.length > 0) {
       staticPages.splice(3, 0, { path: '/videos', priority: '0.7', changefreq: 'weekly' });
     }
 
     for (const page of staticPages) {
-      addUrl(`${host}${page.path}`, null, page.changefreq, page.priority);
+      if (page.path === '/') {
+        addUrl(`${host}${page.path}`, today, page.changefreq, page.priority, siteLogo, 'RummyDex Official Logo');
+      } else {
+        addUrl(`${host}${page.path}`, today, page.changefreq, page.priority, siteLogo, 'RummyDex');
+      }
     }
 
     // Apps (canonical app detail URLs)
@@ -500,8 +513,8 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
       if (slug) {
         const cSlug = cleanSlug(slug);
         const appDate = getFormattedDate(app);
-        const appImage = getOgImageUrl(getField(app, 'og_image_url') || getField(app, 'icon_url'));
-        const appName = getField(app, 'name');
+        const appImage = getOgImageUrl(getField(app, 'og_image_url') || getField(app, 'icon_url') || siteLogo);
+        const appName = getField(app, 'name') || 'Application';
 
         // Standard App detail URL
         const appLoc = `${host}/app/${cSlug}`;
@@ -511,7 +524,7 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
 
     // Blogs list + detail
     if (blogs && Array.isArray(blogs) && blogs.length > 0) {
-      addUrl(`${host}/blogs`, null, 'daily', '0.8');
+      addUrl(`${host}/blogs`, today, 'daily', '0.8', siteLogo, 'RummyDex Blogs');
       for (const blog of blogs) {
         const slug = getField(blog, 'slug');
         if (slug) {
@@ -521,8 +534,8 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
             getFormattedDate(blog),
             'weekly',
             '0.7',
-            getField(blog, 'cover_url') || getField(blog, 'image_url'),
-            getField(blog, 'title')
+            getField(blog, 'cover_url') || getField(blog, 'image_url') || siteLogo,
+            getField(blog, 'title') || 'Blog'
           );
         }
       }
@@ -534,7 +547,9 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
       if (slug) {
         const cSlug = cleanSlug(slug);
         const newsLoc = `${host}/news/${cSlug}`;
-        addUrl(newsLoc, getFormattedDate(newsItem), 'weekly', '0.8');
+        const newsImage = getField(newsItem, 'cover_url') || getField(newsItem, 'image_url') || siteLogo;
+        const newsTitle = getField(newsItem, 'title') || 'News Article';
+        addUrl(newsLoc, getFormattedDate(newsItem), 'weekly', '0.8', newsImage, newsTitle);
       }
     }
 
@@ -544,7 +559,9 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
       if (slug) {
         const cSlug = cleanSlug(slug);
         const videoLoc = `${host}/videos/${cSlug}`;
-        addUrl(videoLoc, getFormattedDate(video), 'weekly', '0.6');
+        const videoImage = getField(video, 'thumbnail_url') || siteLogo;
+        const videoTitle = getField(video, 'title') || 'Video';
+        addUrl(videoLoc, getFormattedDate(video), 'weekly', '0.6', videoImage, videoTitle);
       }
     }
 
