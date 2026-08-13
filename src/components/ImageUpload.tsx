@@ -11,7 +11,7 @@ interface ImageUploadProps {
   className?: string;
 }
 
-export default function ImageUpload({ value, defaultValue, onChange, name, placeholder, className }: ImageUploadProps) {
+export default function ImageUpload({ value, defaultValue, onChange, name, placeholder, className, format = 'webp' }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [internalValue, setInternalValue] = useState(defaultValue || '');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -36,58 +36,83 @@ export default function ImageUpload({ value, defaultValue, onChange, name, place
 
   const compressImageToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
-      const img = new Image();
-      const objectUrl = URL.createObjectURL(file);
-      
-      img.onload = () => {
-        URL.revokeObjectURL(objectUrl);
-        const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 512;
-        const MAX_HEIGHT = 512;
-        let width = img.width;
-        let height = img.height;
+      // 10 second failsafe timeout to prevent infinite spinning
+      const timeoutId = setTimeout(() => {
+        reject(new Error("Upload timed out. The file might be corrupted or unsupported."));
+      }, 10000);
 
-        if (width > height) {
-          if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width;
-            width = MAX_WIDTH;
+      const reader = new FileReader();
+      reader.onerror = (err) => {
+        clearTimeout(timeoutId);
+        reject(err);
+      };
+      reader.onload = (event) => {
+        const rawDataUrl = event.target?.result as string;
+        
+        // Bypass Canvas completely for Logos/Favicons. 
+        // This preserves exact transparency, and fully supports ICO, SVG, and GIF files 
+        // which often fail or hang when processed through an HTML Canvas.
+        if (format === 'png') {
+          clearTimeout(timeoutId);
+          if (file.size > 2 * 1024 * 1024) {
+             reject(new Error("Image is too large. Please upload an image under 2MB."));
+             return;
           }
-        } else {
-          if (height > MAX_HEIGHT) {
-            width *= MAX_HEIGHT / height;
-            height = MAX_HEIGHT;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error("Failed to get canvas context"));
+          resolve(rawDataUrl);
           return;
         }
-        
-        // Only fill white background if converting to webp (to avoid black backgrounds on transparent regions)
-        if (format === 'webp') {
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, width, height);
-        }
-        
-        ctx.drawImage(img, 0, 0, width, height);
-        
-        // Use PNG for logos/favicons to preserve transparency, otherwise WebP
-        const dataUrl = format === 'png' 
-          ? canvas.toDataURL('image/png') 
-          : canvas.toDataURL('image/webp', 0.6);
-        resolve(dataUrl);
+
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            const MAX_WIDTH = 512;
+            const MAX_HEIGHT = 512;
+            let width = img.width;
+            let height = img.height;
+            if (width > height) {
+              if (width > MAX_WIDTH) {
+                height *= MAX_WIDTH / width;
+                width = MAX_WIDTH;
+              }
+            } else {
+              if (height > MAX_HEIGHT) {
+                width *= MAX_HEIGHT / height;
+                height = MAX_HEIGHT;
+              }
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              clearTimeout(timeoutId);
+              reject(new Error("Failed to get canvas context"));
+              return;
+            }
+            
+            // Only fill white background if converting to webp
+            if (format === 'webp') {
+              ctx.fillStyle = '#ffffff';
+              ctx.fillRect(0, 0, width, height);
+            }
+            
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            const dataUrl = canvas.toDataURL('image/webp', 0.6);
+            clearTimeout(timeoutId);
+            resolve(dataUrl);
+          } catch (err) {
+            clearTimeout(timeoutId);
+            reject(err);
+          }
+        };
+        img.onerror = (error) => {
+          clearTimeout(timeoutId);
+          reject(new Error("Browser failed to decode image."));
+        };
+        img.src = rawDataUrl;
       };
-      
-      img.onerror = (error) => {
-        URL.revokeObjectURL(objectUrl);
-        reject(error);
-      };
-      
-      img.src = objectUrl;
+      reader.readAsDataURL(file);
     });
   };
 
