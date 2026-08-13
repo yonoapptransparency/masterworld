@@ -699,9 +699,6 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     <meta data-rh="true" name="twitter:image" content="${pageOgImage}">
     <link data-rh="true" rel="alternate" type="application/rss+xml" title="RummyDex News" href="/rss.xml">
     <link data-rh="true" rel="image_src" href="${pageOgImage}">
-    <link data-rh="true" rel="preconnect" href="https://fonts.googleapis.com">
-    <link data-rh="true" rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link data-rh="true" rel="preconnect" href="https://res.cloudinary.com" crossorigin>
     <link data-rh="true" rel="canonical" href="${canonicalUrl}">
     <link data-rh="true" rel="shortcut icon" href="${domain}/favicon.ico">
     <link data-rh="true" rel="icon" type="image/x-icon" href="${domain}/favicon.ico">
