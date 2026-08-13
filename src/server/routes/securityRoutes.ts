@@ -627,9 +627,11 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
 
         // Direct fallback to 'apps' collection
         const appDocIds = Array.from(new Set([realId, appId]));
-        for (const targetId of appDocIds) {
-          const appSnap = await db.collection('apps').doc(targetId).get();
-          if (appSnap.exists) {
+        const appSnaps = await Promise.all(
+          appDocIds.map(targetId => db.collection('apps').doc(targetId).get().catch(() => null))
+        );
+        for (const appSnap of appSnaps) {
+          if (appSnap && appSnap.exists) {
             const appData = appSnap.data();
             const rawUrl = appData?.more_information_url || appData?.encrypted_link || appData?.download_url;
             if (rawUrl && typeof rawUrl === 'string') {
