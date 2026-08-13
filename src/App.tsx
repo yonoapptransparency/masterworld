@@ -64,7 +64,7 @@ function AppContent() {
     // Dynamically synchronize favicon with firebase database changes live
     const targetUrl = settings.favicon_url || settings.logo_url || "https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png";
     if (targetUrl) {
-      const allIcons = Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel*="icon"]'));
+      const allIcons = Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel*="icon"], link[rel*="apple-touch-icon"]'));
       if (allIcons.length > 0) {
         allIcons.forEach((link) => {
           link.href = targetUrl;

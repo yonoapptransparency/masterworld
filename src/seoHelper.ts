@@ -688,7 +688,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     <meta data-rh="true" property="og:url" content="${canonicalUrl}">
     <meta data-rh="true" property="og:image" content="${pageOgImage}">
     <meta data-rh="true" property="og:image:secure_url" content="${pageOgImage}">
-    <meta data-rh="true" property="og:image:type" content="image/jpeg">
+    <meta data-rh="true" property="og:image:type" content="${pageOgImage.includes('.jpg') || pageOgImage.includes('f_jpg') ? 'image/jpeg' : 'image/png'}">
     <meta data-rh="true" property="og:image:width" content="1200">
     <meta data-rh="true" property="og:image:height" content="630">
     <meta data-rh="true" name="twitter:card" content="summary_large_image">

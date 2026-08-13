@@ -58,6 +58,8 @@ const Meta: React.FC<MetaProps> = ({
       <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
       <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
       <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+      <link rel="apple-touch-icon-precomposed" href="/apple-touch-icon-precomposed.png" />
+      <link rel="manifest" href="/site.webmanifest" />
 
       {/* Open Graph / Facebook */}
       <meta property="og:type" content={type} />
@@ -66,7 +68,7 @@ const Meta: React.FC<MetaProps> = ({
       <meta property="og:description" content={metaDescription} />
       <meta property="og:image" content={metaImage} />
       <meta property="og:image:secure_url" content={metaImage} />
-      <meta property="og:image:type" content="image/jpeg" />
+      <meta property="og:image:type" content={metaImage.includes('.jpg') || metaImage.includes('f_jpg') ? 'image/jpeg' : 'image/png'} />
       <meta property="og:site_name" content={siteTitle} />
       <link rel="image_src" href={metaImage} />
 
