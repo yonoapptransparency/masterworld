@@ -83,4 +83,14 @@ export function getOgImageUrl(url?: string, origin = 'https://www.rummydex.com')
   return absUrl;
 }
 
+export function getOptimizedImageUrl(url?: string, width = 160): string {
+  if (!url) return '';
+  if (url.includes('res.cloudinary.com') && url.includes('/upload/')) {
+    if (!url.includes('f_auto') && !url.includes('w_')) {
+      return url.replace('/upload/', `/upload/f_auto,q_auto,w_${width}/`);
+    }
+  }
+  return url;
+}
+
 

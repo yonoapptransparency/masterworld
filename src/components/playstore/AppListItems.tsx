@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Star, ShieldCheck, MoreVertical, Share2, Flag } from 'lucide-react';
 import { cn, safeVibrate } from '../../lib/utilsPublic';
+import { getOptimizedImageUrl } from '../../seo/utils';
 
 const AppOptionsMenu = ({ app, onMenuToggle }: { app: any; onMenuToggle?: (isOpen: boolean) => void }) => {
   const [menuOpen, setMenuOpen] = React.useState(false);
@@ -124,7 +125,7 @@ export const AppListItem = React.memo(({ app, index }: { app: any; index?: numbe
         <div className="relative w-[72px] h-[72px] sm:w-[84px] sm:h-[84px] shrink-0">
           <div className="w-full h-full rounded-[18px] overflow-hidden bg-white shadow-sm border border-black/5 dark:border-white/10 relative z-10 transition-transform group-hover:-translate-y-0.5 duration-300">
             <img 
-              src={app.icon_url || "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&h=128&fit=crop"} 
+              src={getOptimizedImageUrl(app.icon_url, 160) || "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&h=128&fit=crop"} 
               alt={`${app.name} app icon`} 
               width={84}
               height={84}
@@ -199,7 +200,7 @@ export const TopChartItem = React.memo(({ rank, app }: { rank: number; app: any 
         <div className="relative w-[72px] h-[72px] sm:w-[84px] sm:h-[84px] shrink-0">
           <div className="w-full h-full rounded-[18px] overflow-hidden bg-white shadow-sm border border-black/5 dark:border-white/10 relative z-10 transition-transform group-hover:-translate-y-0.5 duration-300">
             <img 
-              src={app.icon_url || "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&h=128&fit=crop"} 
+              src={getOptimizedImageUrl(app.icon_url, 160) || "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&h=128&fit=crop"} 
               alt={`${app.name} app icon`} 
               width={84}
               height={84}
