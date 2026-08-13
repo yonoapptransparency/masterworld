@@ -41,13 +41,36 @@ export const AdminSettingsTab = React.memo(({ settings: rawSettings, handleSaveS
             <input type="text" name="ga_tracking_id" defaultValue={settings.ga_tracking_id || settings.google_analytics_id} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" placeholder="G-XXXXXXXXXX" />
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Main Logo URL</label>
-            <ImageUpload name="logo_url" format="png" defaultValue={settings.logo_url} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm dark:text-white focus-within:ring-2 focus-within:ring-blue-500 overflow-hidden" />
+          <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200/80 dark:border-slate-700/80 space-y-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-900 dark:text-slate-100 mb-1">
+                Main Logo URL (Website Header & Footer)
+              </label>
+              <div className="text-[11px] text-slate-600 dark:text-slate-300 space-y-1 mb-3 bg-white dark:bg-slate-900 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700/60">
+                <p><strong>Recommended Size:</strong> <span className="text-blue-600 dark:text-blue-400 font-semibold">512 × 512 px</span> (Square) or <span className="text-blue-600 dark:text-blue-400 font-semibold">800 × 250 px</span> (Horizontal)</p>
+                <p><strong>Format:</strong> PNG with Transparent Background (&lt; 150 KB)</p>
+                <p><strong>Where it is used:</strong> Main website Header Navigation bar, Footer brand logo, Social Media Open Graph (OG) shares.</p>
+              </div>
+              <ImageUpload name="logo_url" format="png" defaultValue={settings.logo_url} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm dark:text-white focus-within:ring-2 focus-within:ring-blue-500 overflow-hidden" />
+            </div>
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Favicon URL</label>
-            <ImageUpload name="favicon_url" format="png" defaultValue={settings.favicon_url} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm dark:text-white focus-within:ring-2 focus-within:ring-blue-500 overflow-hidden" />
+
+          <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200/80 dark:border-slate-700/80 space-y-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-900 dark:text-slate-100 mb-1">
+                Favicon URL (Google Search, Browser Tabs & Mobile Icons)
+              </label>
+              <div className="text-[11px] text-slate-600 dark:text-slate-300 space-y-1 mb-3 bg-white dark:bg-slate-900 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700/60">
+                <p><strong>Recommended Size:</strong> <span className="text-emerald-600 dark:text-emerald-400 font-semibold">256 × 256 px</span> or <span className="text-emerald-600 dark:text-emerald-400 font-semibold">512 × 512 px</span> (Square)</p>
+                <p><strong>Format:</strong> PNG with Transparent Background (&lt; 50 KB)</p>
+                <p><strong>Where it is used:</strong> Google Search snippet icon, Browser Tab Favicon, Android Chrome Home Screen shortcuts, Apple Safari bookmarks.</p>
+                <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-[10.5px] text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
+                  <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                  <span><strong>Automatic Optimization Active:</strong> Our server automatically resizes your 256/512px upload into 16x16, 32x32, and 192x192 byte-sized files on demand. Zero bandwidth is wasted!</span>
+                </div>
+              </div>
+              <ImageUpload name="favicon_url" format="png" defaultValue={settings.favicon_url} className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm dark:text-white focus-within:ring-2 focus-within:ring-blue-500 overflow-hidden" />
+            </div>
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Main Index Heading</label>

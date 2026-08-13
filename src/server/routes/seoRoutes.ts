@@ -92,6 +92,24 @@ seoRouter.get(['/llms.txt'], (req, res, next) => {
   return next();
 });
 
+// 2b. Browserconfig.xml route
+seoRouter.get(['/browserconfig.xml'], (req, res) => {
+  const xmlContent = `<?xml version="1.0" encoding="utf-8"?>
+<browserconfig>
+  <msapplication>
+    <tile>
+      <square150x150logo src="/mstile-150x150.png"/>
+      <TileColor>#dc2626</TileColor>
+    </tile>
+  </msapplication>
+</browserconfig>`;
+  res.set({
+    'Content-Type': 'application/xml; charset=utf-8',
+    'Cache-Control': 'public, max-age=86400'
+  });
+  return res.send(xmlContent);
+});
+
 // 3. Favicon & Logo route with dynamic admin priority and local fallback
 seoRouter.get([
   '/favicon.ico',
@@ -99,10 +117,14 @@ seoRouter.get([
   '/favicon.webp',
   '/apple-touch-icon.png',
   '/apple-touch-icon-precomposed.png',
+  '/apple-touch-icon-120x120.png',
+  '/apple-touch-icon-152x152.png',
+  '/apple-touch-icon-180x180.png',
   '/favicon-32x32.png',
   '/favicon-16x16.png',
   '/android-chrome-192x192.png',
   '/android-chrome-512x512.png',
+  '/mstile-150x150.png',
   '/logo.png'
 ], async (req, res, next) => {
   const rawPath = (req.originalUrl || req.url || req.path || '').split('?')[0];
@@ -136,9 +158,16 @@ seoRouter.get([
     const hasCustomOverride = (!isDefaultOrPlaceholder(customFaviconUrl) || !isDefaultOrPlaceholder(customLogoUrl));
     
     if (hasCustomOverride) {
-      let imageUrl = (!isDefaultOrPlaceholder(customFaviconUrl) ? customFaviconUrl : null) ||
-                     (!isDefaultOrPlaceholder(customLogoUrl) ? customLogoUrl : null) ||
-                     '/logo.png';
+      let imageUrl = '';
+      if (reqFilename === 'logo.png') {
+        imageUrl = (!isDefaultOrPlaceholder(customLogoUrl) ? customLogoUrl : null) ||
+                   (!isDefaultOrPlaceholder(customFaviconUrl) ? customFaviconUrl : null) ||
+                   '/logo.png';
+      } else {
+        imageUrl = (!isDefaultOrPlaceholder(customFaviconUrl) ? customFaviconUrl : null) ||
+                   (!isDefaultOrPlaceholder(customLogoUrl) ? customLogoUrl : null) ||
+                   '/logo.png';
+      }
 
       // 1. Handle base64 Data URLs (e.g. data:image/png;base64,iVBORw0...)
       if (imageUrl.startsWith('data:')) {
