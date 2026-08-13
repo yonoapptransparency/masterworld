@@ -42,25 +42,6 @@ const Meta: React.FC<MetaProps> = ({
   const canonicalUrl = getCleanCanonicalUrl(canonical || url, currentPath);
   const metaUrl = getCleanCanonicalUrl(url || canonical, currentPath);
 
-  React.useEffect(() => {
-    if (typeof document !== 'undefined') {
-      const activeIcon = '/favicon.ico';
-      const activeApple = '/apple-touch-icon.png';
-      const iconLinks = document.querySelectorAll<HTMLLinkElement>("link[rel*='icon'], link[rel='apple-touch-icon']");
-      iconLinks.forEach(link => {
-        if (link.rel.includes('apple')) {
-          link.href = activeApple;
-        } else if (link.rel.includes('32x32')) {
-          link.href = '/favicon-32x32.png';
-        } else if (link.rel.includes('192x192')) {
-          link.href = '/android-chrome-192x192.png';
-        } else {
-          link.href = activeIcon;
-        }
-      });
-    }
-  }, []);
-
   return (
     <Helmet>
       {/* Basic Meta Tags */}
