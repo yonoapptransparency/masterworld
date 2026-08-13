@@ -9,7 +9,7 @@ export function useFavicon(settings: GlobalSettings | null, apps: AppConfig[]) {
     if (!settings) return;
     
     // Always use the official website favicon / logo URL across all pages
-    const officialFavicon = settings.favicon_url || settings.logo_url || "https://res.cloudinary.com/diewalae4/image/upload/v1785720339/1000132678_1_ro1ftj.png";
+    const officialFavicon = settings.favicon_url || settings.logo_url || "https://res.cloudinary.com/diewalae4/image/upload/v1786556304/1000134161_11zon_fgqzz6.png";
     
     const syncFavicons = (doc: Document) => {
       const allIcons = Array.from(doc.querySelectorAll<HTMLLinkElement>('link[rel*="icon"]'));

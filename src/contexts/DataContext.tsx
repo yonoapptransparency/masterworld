@@ -129,13 +129,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [sync.setLoading, sync.setSyncVersion, sync.setLastSyncTime]);
 
   const resolvedSettings = useMemo(() => {
-    const defaultLogo = "https://res.cloudinary.com/diewalae4/image/upload/v1785720339/1000132678_1_ro1ftj.png";
+    const defaultLogo = "https://res.cloudinary.com/diewalae4/image/upload/v1786556304/1000134161_11zon_fgqzz6.png";
     const fav = sync.settings?.favicon_url;
     const logo = sync.settings?.logo_url;
     return {
       ...sync.settings,
-      favicon_url: (!fav || fav.includes("ezgif-64180dd8ca74703b")) ? defaultLogo : fav,
-      logo_url: (!logo || logo.includes("ezgif-64180dd8ca74703b")) ? defaultLogo : logo
+      favicon_url: (!fav || fav.includes('1000132678_1_ro1ftj') || fav.includes('ezgif-64180dd8ca74703b') || fav.includes('ezgif-88d07abd3ef5753f_yz8ytg') || fav.includes('ezgif-8cbbc4a0aaeb367e_s4k2nb')) ? defaultLogo : fav,
+      logo_url: (!logo || logo.includes('1000132678_1_ro1ftj') || logo.includes('ezgif-64180dd8ca74703b') || logo.includes('ezgif-88d07abd3ef5753f_yz8ytg') || logo.includes('ezgif-8cbbc4a0aaeb367e_s4k2nb')) ? defaultLogo : logo
     };
   }, [sync.settings]);
 

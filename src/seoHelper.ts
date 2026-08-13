@@ -495,8 +495,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   }
 
   let logoUrl = getField(settings, 'logo_url') || '/logo.png';
-  if (!logoUrl || logoUrl === '/logo.png' || logoUrl.includes('ezgif-64180dd8ca74703b')) {
-    logoUrl = 'https://res.cloudinary.com/diewalae4/image/upload/v1785720339/1000132678_1_ro1ftj.png';
+  if (!logoUrl || logoUrl === '/logo.png' || logoUrl.includes('1000132678_1_ro1ftj') || logoUrl.includes('ezgif-64180dd8ca74703b') || logoUrl.includes('ezgif-88d07abd3ef5753f_yz8ytg') || logoUrl.includes('ezgif-8cbbc4a0aaeb367e_s4k2nb')) {
+    logoUrl = 'https://res.cloudinary.com/diewalae4/image/upload/v1786556304/1000134161_11zon_fgqzz6.png';
   }
   const faviconUrl = getField(settings, 'favicon_url') || logoUrl;
   const cleanPath = urlPath.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
@@ -648,6 +648,11 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   try {
     domain = canonicalUrl ? new URL(canonicalUrl).origin : 'https://www.rummydex.com';
   } catch (e) {}
+  
+  if (pageOgImage && (pageOgImage.includes('1000132678_1_ro1ftj') || pageOgImage.includes('ezgif-64180dd8ca74703b') || pageOgImage.includes('ezgif-88d07abd3ef5753f_yz8ytg') || pageOgImage.includes('ezgif-8cbbc4a0aaeb367e_s4k2nb'))) {
+    pageOgImage = 'https://res.cloudinary.com/diewalae4/image/upload/v1786556304/1000134161_11zon_fgqzz6.png';
+  }
+  
   pageOgImage = getOgImageUrl(pageOgImage, domain);
 
   // Generate full pre-rendered HTML for search engine crawlers (H1, H2, body content)

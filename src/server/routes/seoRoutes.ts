@@ -94,15 +94,31 @@ seoRouter.get([
 
     const isDefaultOrPlaceholder = (url: string) => {
       if (!url) return true;
-      return url.includes('ezgif-64180dd8ca74703b');
+      if (url.includes('1000132678_1_ro1ftj')) return true;
+      if (url.includes('ezgif-64180dd8ca74703b')) return true;
+      if (url.includes('ezgif-88d07abd3ef5753f_yz8ytg')) return true;
+      if (url.includes('ezgif-8cbbc4a0aaeb367e_s4k2nb')) return true;
+      return false;
     };
 
     const hasCustomOverride = (!isDefaultOrPlaceholder(customFaviconUrl) || !isDefaultOrPlaceholder(customLogoUrl));
 
     if (hasCustomOverride) {
-      const imageUrl = (!isDefaultOrPlaceholder(customFaviconUrl) ? customFaviconUrl : null) ||
+      let imageUrl = (!isDefaultOrPlaceholder(customFaviconUrl) ? customFaviconUrl : null) ||
                        (!isDefaultOrPlaceholder(customLogoUrl) ? customLogoUrl : null) ||
-                       'https://res.cloudinary.com/diewalae4/image/upload/v1785720339/1000132678_1_ro1ftj.png';
+                       'https://res.cloudinary.com/diewalae4/image/upload/v1786556304/1000134161_11zon_fgqzz6.png';
+
+            if (imageUrl && imageUrl.includes('res.cloudinary.com') && imageUrl.includes('/upload/')) {
+        const targetFormat = reqFilename.endsWith('.ico') ? 'ico' : 'png';
+        const uploadIndex = imageUrl.indexOf('/upload/');
+        const prefix = imageUrl.substring(0, uploadIndex + 8);
+        const suffix = imageUrl.substring(uploadIndex + 8);
+        if (suffix.match(/^[a-z_]+,[a-z0-9_,]+.*\//)) {
+            imageUrl = imageUrl.replace(/\/upload\/([^\/]+)\//, `/upload/$1,f_${targetFormat},q_auto/`);
+        } else {
+            imageUrl = `${prefix}f_${targetFormat},q_auto/${suffix}`;
+        }
+      }
 
       try {
         const response = await fetch(imageUrl, {

@@ -62,7 +62,7 @@ function AppContent() {
     document.title = `Admin Dashboard - ${siteTitle}`;
 
     // Dynamically synchronize favicon with firebase database changes live
-    const targetUrl = settings.favicon_url || settings.logo_url || "https://res.cloudinary.com/diewalae4/image/upload/v1785720339/1000132678_1_ro1ftj.png";
+    const targetUrl = settings.favicon_url || settings.logo_url || "https://res.cloudinary.com/diewalae4/image/upload/v1786556304/1000134161_11zon_fgqzz6.png";
     if (targetUrl) {
       const allIcons = Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel*="icon"]'));
       if (allIcons.length > 0) {
