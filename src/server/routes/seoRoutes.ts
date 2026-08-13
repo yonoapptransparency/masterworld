@@ -71,8 +71,8 @@ seoRouter.get([
     try {
       const storeData = await fetchStoreData();
       if (storeData && storeData.settings) {
-        customFaviconUrl = '/logo.png';
-        customLogoUrl = customFaviconUrl;
+        customFaviconUrl = (storeData.settings.favicon_url && storeData.settings.favicon_url.trim()) || '';
+        customLogoUrl = (storeData.settings.logo_url && storeData.settings.logo_url.trim()) || '';
       }
     } catch (dataErr) {
       console.warn("Could not retrieve store settings for favicon, using default fallback:", dataErr);
@@ -89,12 +89,12 @@ seoRouter.get([
       if (imageUrl.includes('res.cloudinary.com') && imageUrl.includes('/upload/')) {
         let transforms = 'f_png,q_auto';
         
-        if (reqFilename === 'favicon.ico') transforms = 'w_32,h_32,c_fill,f_ico,q_auto';
-        else if (reqFilename === 'favicon-16x16.png') transforms = 'w_16,h_16,c_fill,f_png,q_auto';
-        else if (reqFilename === 'favicon-32x32.png') transforms = 'w_32,h_32,c_fill,f_png,q_auto';
-        else if (reqFilename === 'apple-touch-icon.png' || reqFilename === 'apple-touch-icon-precomposed.png') transforms = 'w_180,h_180,c_fill,f_png,q_auto';
-        else if (reqFilename === 'android-chrome-192x192.png') transforms = 'w_192,h_192,c_fill,f_png,q_auto';
-        else if (reqFilename === 'android-chrome-512x512.png') transforms = 'w_512,h_512,c_fill,f_png,q_auto';
+        if (reqFilename === 'favicon.ico') transforms = 'w_32,h_32,c_scale,f_ico,q_auto';
+        else if (reqFilename === 'favicon-16x16.png') transforms = 'w_16,h_16,c_scale,f_png,q_auto';
+        else if (reqFilename === 'favicon-32x32.png') transforms = 'w_32,h_32,c_scale,f_png,q_auto';
+        else if (reqFilename === 'apple-touch-icon.png' || reqFilename === 'apple-touch-icon-precomposed.png') transforms = 'w_180,h_180,c_scale,f_png,q_auto';
+        else if (reqFilename === 'android-chrome-192x192.png') transforms = 'w_192,h_192,c_scale,f_png,q_auto';
+        else if (reqFilename === 'android-chrome-512x512.png') transforms = 'w_512,h_512,c_scale,f_png,q_auto';
 
         const uploadIndex = imageUrl.indexOf('/upload/');
         const prefix = imageUrl.substring(0, uploadIndex + 8);

@@ -30,15 +30,15 @@ const Meta: React.FC<MetaProps> = ({
   noindex = false
 }) => {
   const { settings } = useData();
-
   const siteTitle = settings?.site_title || 'RummyDex';
   const fullTitle = formatPageTitle(title, siteTitle);
   const metaDescription = description || settings?.meta_description || 'Access application details and specifications.';
   const metaKeywords = keywords || settings?.seo_keywords || '';
-  const rawImage = image || '/logo.png';
+  
+  const rawImage = image || settings?.logo_url || settings?.favicon_url || 'https://res.cloudinary.com/diewalae4/image/upload/v1786556304/1000134161_11zon_fgqzz6.png';
   const metaImage = getOgImageUrl(rawImage, typeof window !== 'undefined' ? window.location.origin : 'https://www.rummydex.com');
-  const favIconUrl = '/logo.png';
-
+  const favIconUrl = settings?.favicon_url || settings?.logo_url || 'https://res.cloudinary.com/diewalae4/image/upload/v1786556304/1000134161_11zon_fgqzz6.png';
+  
   const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/';
   const canonicalUrl = getCleanCanonicalUrl(canonical || url, currentPath);
   const metaUrl = getCleanCanonicalUrl(url || canonical, currentPath);
@@ -52,14 +52,8 @@ const Meta: React.FC<MetaProps> = ({
       <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
       <meta name="robots" content={noindex ? "noindex, nofollow" : "index, follow, max-image-preview:large"} />
       <link rel="canonical" href={canonicalUrl} />
-      <link rel="icon" type="image/x-icon" href="/logo.png" />
-      <link rel="icon" type="image/png" sizes="32x32" href="/logo.png" />
-      <link rel="icon" type="image/png" sizes="48x48" href="/logo.png" />
-      <link rel="icon" type="image/png" sizes="96x96" href="/logo.png" />
-      <link rel="icon" type="image/png" sizes="144x144" href="/logo.png" />
-      <link rel="icon" type="image/png" sizes="192x192" href="/logo.png" />
-      <link rel="icon" type="image/png" sizes="512x512" href="/logo.png" />
-      <link rel="apple-touch-icon" sizes="180x180" href="/logo.png" />
+      
+      {/* We do NOT include <link rel="icon"> here because they are hardcoded in index.html for Google crawler optimization */}
 
       {/* Open Graph / Facebook */}
       <meta property="og:type" content={type} />

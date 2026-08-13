@@ -27,8 +27,8 @@ export function useSEO(
     let pageTitle = siteTitle;
     let pageDesc = settings.meta_description || '';
     let pageKeywords = settings.seo_keywords || '';
-    const hardcodedLogo = typeof window !== 'undefined' ? window.location.origin + '/logo.png' : 'https://www.rummydex.com/logo.png';
-    let pageOgImage = hardcodedLogo;
+    
+    let pageOgImage = settings.logo_url || '';
     let pageAuthor = siteTitle;
     let pageRobots = 'index, follow';
 
@@ -59,7 +59,7 @@ export function useSEO(
       pageTitle = siteTitle;
       pageDesc = settings.meta_description || '';
       pageKeywords = settings.seo_keywords || '';
-      pageOgImage = hardcodedLogo || '';
+      pageOgImage = settings.logo_url || '';
     } else if (path === '/about') {
       pageTitle = `About Us - ${siteTitle}`;
       pageDesc = settings.meta_description || '';
@@ -121,7 +121,7 @@ export function useSEO(
         const rawHtml = app.description_html || '';
         pageDesc = rawDesc ? rawDesc : (rawHtml ? stripHtml(rawHtml).substring(0, 160) : '');
         pageKeywords = app.seo_keywords || '';
-        pageOgImage = app.og_image_url || app.icon_url || hardcodedLogo || '';
+        pageOgImage = app.og_image_url || app.icon_url || settings.logo_url || '';
       }
     } else if (path.startsWith('/s/')) {
       const slug = decodeURIComponent(path.split('/s/')[1]?.split('?')[0] || '');
@@ -132,7 +132,7 @@ export function useSEO(
         const rawHtml = app.description_html || '';
         pageDesc = rawDesc ? rawDesc : (rawHtml ? stripHtml(rawHtml).substring(0, 160) : '');
         pageKeywords = app.seo_keywords || '';
-        pageOgImage = app.og_image_url || app.icon_url || hardcodedLogo || '';
+        pageOgImage = app.og_image_url || app.icon_url || settings.logo_url || '';
       }
     } else if (path.startsWith('/news/') && path.length > 6) {
       const slug = decodeURIComponent(path.split('/news/')[1]?.split('/')[0]?.split('?')[0] || '');
@@ -143,7 +143,7 @@ export function useSEO(
         const rawContent = newsItem.description || '';
         pageDesc = rawDesc ? rawDesc : (rawContent ? stripHtml(rawContent).substring(0, 160) : '');
         pageKeywords = newsItem.seo_keywords || '';
-        pageOgImage = newsItem.og_image_url || newsItem.logo_url || hardcodedLogo || '';
+        pageOgImage = newsItem.og_image_url || newsItem.logo_url || settings.logo_url || '';
         pageAuthor = newsItem.ceo_name || siteTitle;
       }
     } else if (path.startsWith('/blog/') && path.length > 6) {
@@ -155,7 +155,7 @@ export function useSEO(
         const rawContent = blogItem.content || '';
         pageDesc = rawDesc ? rawDesc : (rawContent ? stripHtml(rawContent).substring(0, 160) : '');
         pageKeywords = blogItem.seo_keywords || '';
-        pageOgImage = blogItem.cover_url || hardcodedLogo || '';
+        pageOgImage = blogItem.cover_url || settings.logo_url || '';
         pageAuthor = blogItem.author || siteTitle;
       }
     } else if (path.startsWith('/videos/') && path.length > 8) {
@@ -165,7 +165,7 @@ export function useSEO(
         pageTitle = videoItem.title ? `${videoItem.title} - ${siteTitle}` : siteTitle;
         pageDesc = videoItem.seo_description || videoItem.description || '';
         pageKeywords = settings.seo_keywords || '';
-        pageOgImage = parseYoutubeThumbnail(videoItem.youtube_url) || hardcodedLogo || '';
+        pageOgImage = parseYoutubeThumbnail(videoItem.youtube_url) || settings.logo_url || '';
       }
     } else if (path.startsWith('/info/') || path.startsWith('/moreinfo/') || path.startsWith('/moredetail/')) {
       const parts = path.split('/');
@@ -175,7 +175,7 @@ export function useSEO(
         pageTitle = `More Info: ${app.seo_title || app.name || siteTitle}`;
         pageDesc = `Detailed information about ${app.name}.`;
         pageKeywords = app.seo_keywords || '';
-        pageOgImage = app.og_image_url || app.icon_url || hardcodedLogo || '';
+        pageOgImage = app.og_image_url || app.icon_url || settings.logo_url || '';
       }
     } else {
       const cleanSlug = path.replace(/^\/|\/$/g, '').split('?')[0];
@@ -187,7 +187,7 @@ export function useSEO(
           const rawHtml = app.description_html || '';
           pageDesc = rawDesc ? rawDesc : (rawHtml ? stripHtml(rawHtml).substring(0, 160) : '');
           pageKeywords = app.seo_keywords || '';
-          pageOgImage = app.og_image_url || app.icon_url || hardcodedLogo || '';
+          pageOgImage = app.og_image_url || app.icon_url || settings.logo_url || '';
         }
       }
     }

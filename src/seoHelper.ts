@@ -494,8 +494,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     if (keywordArray.length > 15) keywords = keywordArray.slice(0, 15).join(', ');
   }
 
-  const logoUrl = '/logo.png';
-  const faviconUrl = logoUrl;
+  let logoUrl = getField(settings, 'logo_url') || '/logo.png';
+  const faviconUrl = getField(settings, 'favicon_url') || logoUrl;
   const cleanPath = urlPath.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
   const cleanPathLower = cleanPath.toLowerCase();
 

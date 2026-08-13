@@ -54,7 +54,7 @@ export const AdminSidebar = ({
 
   const getTransformedUrl = (url: string) => {
     if (url && url.includes('res.cloudinary.com')) {
-      return url.replace(/\/upload\/([^\/]+)\//, '/upload/w_120,h_120,c_fit,q_auto/');
+      return url.replace(/\/upload\/([^\/]+)\//, '/upload/w_120,h_120,c_scale,q_auto/');
     }
     return url;
   };
@@ -75,8 +75,7 @@ export const AdminSidebar = ({
         <div className="flex flex-col h-full">
           <div className="p-4 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-3">
-              <img 
-                src="/logo.png" 
+              <img src={getTransformedUrl(settings?.logo_url || '')} 
                 alt="Admin Logo" 
                 className="w-10 h-10 object-contain drop-shadow-sm" 
                 loading="lazy" 
