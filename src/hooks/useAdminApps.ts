@@ -34,7 +34,6 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
         };
       });
       const idToken = await auth?.currentUser?.getIdToken();
-      console.log("[DEBUG] syncSecureVault called. Items:", items.length, "Token exists:", !!idToken);
       const res = await adminFetch('/api/v1/admin/encrypt-links', {
         method: 'POST',
         headers: {
@@ -43,17 +42,14 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
         },
         body: JSON.stringify({ items })
       });
-      console.log("[DEBUG] syncSecureVault res.ok:", res.ok);
       if (res.ok) {
         const { encrypted } = await res.json();
         const payload = { encryptedData: encrypted, lastUpdated: new Date().toISOString() };
-        console.log("[DEBUG] syncSecureVault writing to Firestore client...");
         await setDoc(doc(db, 'store_data', 'sec_vault'), payload);
         await setDoc(doc(db, 'store_data', 'secure_links'), payload);
         await setDoc(doc(db, 'store_data', 'sec_public_links'), payload);
-        console.log("[DEBUG] syncSecureVault finished Firestore client writes.");
       } else {
-         console.warn("[DEBUG] syncSecureVault failed:", await res.text());
+         console.warn("syncSecureVault failed:", await res.text());
       }
     } catch (e: any) {
       console.warn("Failed to sync secure vault:", e.message || e);
