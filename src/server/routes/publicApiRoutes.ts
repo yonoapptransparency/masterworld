@@ -87,6 +87,25 @@ publicApiRouter.get("/api/v1/image", async (req, res) => {
   }
 });
 
+function getAllowedOrigin(req: express.Request): string {
+  const origin = req.headers.origin;
+  const configuredDomain = process.env.VITE_PUBLIC_DOMAIN;
+
+  if (!origin) {
+    return configuredDomain || '';
+  }
+
+  if (configuredDomain && origin === configuredDomain) {
+    return origin;
+  }
+
+  if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+    return origin;
+  }
+
+  return configuredDomain || '';
+}
+
 let backupDataCache: any = null;
 let backupDataCacheTime = 0;
 const BACKUP_DATA_CACHE_TTL = 30000; // 30s cache for fast response times
@@ -97,20 +116,20 @@ export function clearPublicBackupCache() {
 }
 
 publicApiRouter.options(["/api/v1/public/reviews", "/api/v1/public/backup-data"], (req, res) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Origin", getAllowedOrigin(req));
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   return res.sendStatus(200);
 });
 
 publicApiRouter.get(["/api/v1/public/reviews", "/api/public/reviews"], async (req, res) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Origin", getAllowedOrigin(req));
   res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=120");
   return res.json([]);
 });
 
 publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/public/backup-data", "/public/backup-data"], async (req, res) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Origin", getAllowedOrigin(req));
   res.set("Cache-Control", "public, max-age=15, stale-while-revalidate=30");
   try {
     const now = Date.now();
