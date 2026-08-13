@@ -37,7 +37,7 @@ seoRouter.get(['/llms.txt'], (req, res, next) => {
   return next();
 });
 
-// 3. Favicon & Logo route with local file fallback
+// 3. Favicon & Logo route with dynamic admin priority and local fallback
 seoRouter.get([
   '/favicon.ico',
   '/favicon.png',
@@ -56,28 +56,14 @@ seoRouter.get([
   const localDistPath = path.join(process.cwd(), 'dist', reqFilename);
   const localFile = fs.existsSync(localDistPath) ? localDistPath : (fs.existsSync(localPublicPath) ? localPublicPath : null);
 
-  // For specific resized icon filenames, serve the local optimized asset immediately
-  const isSizedIcon = [
-    'favicon.ico',
-    'favicon-32x32.png',
-    'favicon-16x16.png',
-    'apple-touch-icon.png',
-    'apple-touch-icon-precomposed.png',
-    'android-chrome-192x192.png',
-    'android-chrome-512x512.png'
-  ].includes(reqFilename);
-
-  if (isSizedIcon && localFile) {
-    const contentType = reqFilename.endsWith('.ico')
-      ? 'image/x-icon'
-      : 'image/png';
-    res.set({
-      'Content-Type': contentType,
-      'Cache-Control': 'public, max-age=31536000, immutable',
-      'Content-Disposition': `inline; filename="${reqFilename}"`
-    });
-    return res.sendFile(localFile);
-  }
+  const isDefaultOrPlaceholder = (url) => {
+    if (!url) return true;
+    if (url.includes('1000132678_1_ro1ftj')) return true;
+    if (url.includes('ezgif-64180dd8ca74703b')) return true;
+    if (url.includes('ezgif-88d07abd3ef5753f_yz8ytg')) return true;
+    if (url.includes('ezgif-8cbbc4a0aaeb367e_s4k2nb')) return true;
+    return false;
+  };
 
   try {
     let customFaviconUrl = '';
@@ -92,31 +78,32 @@ seoRouter.get([
       console.warn("Could not retrieve store settings for favicon, using default fallback:", dataErr);
     }
 
-    const isDefaultOrPlaceholder = (url: string) => {
-      if (!url) return true;
-      if (url.includes('1000132678_1_ro1ftj')) return true;
-      if (url.includes('ezgif-64180dd8ca74703b')) return true;
-      if (url.includes('ezgif-88d07abd3ef5753f_yz8ytg')) return true;
-      if (url.includes('ezgif-8cbbc4a0aaeb367e_s4k2nb')) return true;
-      return false;
-    };
-
     const hasCustomOverride = (!isDefaultOrPlaceholder(customFaviconUrl) || !isDefaultOrPlaceholder(customLogoUrl));
-
+    
     if (hasCustomOverride) {
       let imageUrl = (!isDefaultOrPlaceholder(customFaviconUrl) ? customFaviconUrl : null) ||
-                       (!isDefaultOrPlaceholder(customLogoUrl) ? customLogoUrl : null) ||
-                       'https://res.cloudinary.com/diewalae4/image/upload/v1786556304/1000134161_11zon_fgqzz6.png';
+                     (!isDefaultOrPlaceholder(customLogoUrl) ? customLogoUrl : null) ||
+                     'https://res.cloudinary.com/diewalae4/image/upload/v1786556304/1000134161_11zon_fgqzz6.png';
 
-            if (imageUrl && imageUrl.includes('res.cloudinary.com') && imageUrl.includes('/upload/')) {
-        const targetFormat = reqFilename.endsWith('.ico') ? 'ico' : 'png';
+      // Transform Cloudinary URL for the requested icon size
+      if (imageUrl.includes('res.cloudinary.com') && imageUrl.includes('/upload/')) {
+        let transforms = 'f_png,q_auto';
+        
+        if (reqFilename === 'favicon.ico') transforms = 'w_32,h_32,c_fill,f_ico,q_auto';
+        else if (reqFilename === 'favicon-16x16.png') transforms = 'w_16,h_16,c_fill,f_png,q_auto';
+        else if (reqFilename === 'favicon-32x32.png') transforms = 'w_32,h_32,c_fill,f_png,q_auto';
+        else if (reqFilename === 'apple-touch-icon.png' || reqFilename === 'apple-touch-icon-precomposed.png') transforms = 'w_180,h_180,c_fill,f_png,q_auto';
+        else if (reqFilename === 'android-chrome-192x192.png') transforms = 'w_192,h_192,c_fill,f_png,q_auto';
+        else if (reqFilename === 'android-chrome-512x512.png') transforms = 'w_512,h_512,c_fill,f_png,q_auto';
+
         const uploadIndex = imageUrl.indexOf('/upload/');
         const prefix = imageUrl.substring(0, uploadIndex + 8);
         const suffix = imageUrl.substring(uploadIndex + 8);
+        
         if (suffix.match(/^[a-z_]+,[a-z0-9_,]+.*\//)) {
-            imageUrl = imageUrl.replace(/\/upload\/([^\/]+)\//, `/upload/$1,f_${targetFormat},q_auto/`);
+            imageUrl = imageUrl.replace(/\/upload\/([^\/]+)\//, `/upload/${transforms}/`);
         } else {
-            imageUrl = `${prefix}f_${targetFormat},q_auto/${suffix}`;
+            imageUrl = `${prefix}${transforms}/${suffix}`;
         }
       }
 
@@ -129,7 +116,6 @@ seoRouter.get([
         if (response.ok) {
           const arrayBuffer = await response.arrayBuffer();
           const buffer = Buffer.from(arrayBuffer);
-
           let contentType = 'image/png';
           if (buffer.length >= 12 && buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50) {
             contentType = 'image/webp';
@@ -142,7 +128,6 @@ seoRouter.get([
           } else if (buffer.toString('utf8', 0, Math.min(100, buffer.length)).includes('<svg')) {
             contentType = 'image/svg+xml';
           }
-
           res.set({
             'Content-Type': contentType,
             'Cache-Control': 'public, max-age=31536000, immutable',
@@ -151,30 +136,29 @@ seoRouter.get([
           return res.send(buffer);
         }
       } catch (fetchErr) {
-        console.warn("Failed to fetch image proxy for favicon/logo, falling back to local file:", fetchErr);
+        console.warn("Failed to fetch custom image proxy for favicon/logo, falling back:", fetchErr);
       }
     }
-
-    if (localFile) {
-      const contentType = reqFilename.endsWith('.ico')
-        ? 'image/x-icon'
-        : (reqFilename.endsWith('.webp') ? 'image/webp' : 'image/png');
-      res.set({
-        'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=31536000, immutable',
-        'Content-Disposition': `inline; filename="${reqFilename}"`
-      });
-      return res.sendFile(localFile);
-    }
   } catch (err) {
-    if (localFile) {
-      return res.sendFile(localFile);
-    }
+    console.error("Error serving favicon/logo:", err);
   }
-  return next();
+
+  // Fallback to local files if custom fetch fails or isn't set
+  if (localFile) {
+    const contentType = reqFilename.endsWith('.ico')
+      ? 'image/x-icon'
+      : 'image/png';
+    res.set({
+      'Content-Type': contentType,
+      'Cache-Control': 'public, max-age=31536000, immutable',
+      'Content-Disposition': `inline; filename="${reqFilename}"`
+    });
+    return res.sendFile(localFile);
+  }
+
+  res.status(404).send('Not found');
 });
 
-// 4. RSS Feed route (/rss.xml, /rss, /feed)
 seoRouter.get(['/rss.xml', '/rss', '/feed', '/feed.xml'], async (req, res) => {
   try {
     let rawDomain = process.env.PUBLIC_DOMAIN || process.env.VITE_PUBLIC_DOMAIN || (req.get('host') ? `https://${req.get('host')}` : 'https://www.rummydex.com');

@@ -706,6 +706,9 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     <link data-rh="true" rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link data-rh="true" rel="preconnect" href="https://res.cloudinary.com" crossorigin>
     <link data-rh="true" rel="canonical" href="${canonicalUrl}">
+    <link data-rh="true" rel="icon" type="image/x-icon" href="${faviconUrl.includes('res.cloudinary.com') ? faviconUrl.replace(/\/upload\/([^\/]+)\//, '/upload/w_32,h_32,c_fill,f_ico,q_auto/') : faviconUrl}">
+    <link data-rh="true" rel="icon" type="image/png" sizes="32x32" href="${faviconUrl.includes('res.cloudinary.com') ? faviconUrl.replace(/\/upload\/([^\/]+)\//, '/upload/w_32,h_32,c_fill,f_png,q_auto/') : faviconUrl}">
+    <link data-rh="true" rel="apple-touch-icon" sizes="180x180" href="${faviconUrl.includes('res.cloudinary.com') ? faviconUrl.replace(/\/upload\/([^\/]+)\//, '/upload/w_180,h_180,c_fill,f_png,q_auto/') : faviconUrl}">
     ${jsonLdSchema}
   `;
 
@@ -720,7 +723,9 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     .replace(/<meta\s+name="robots"\s+[^>]*\/?>/gi, '')
     .replace(/<meta\s+property="og:[^"]+"\s+[^>]*\/?>/gi, '')
     .replace(/<meta\s+name="twitter:[^"]+"\s+[^>]*\/?>/gi, '')
-    .replace(/<link\s+rel="canonical"\s+[^>]*\/?>/gi, '');
+    .replace(/<link\s+rel="canonical"\s+[^>]*\/?>/gi, '')
+    .replace(/<link\s+rel="icon"\s+[^>]*\/?>/gi, '')
+    .replace(/<link\s+rel="apple-touch-icon[^"]*"\s+[^>]*\/?>/gi, '');
 
   // Inject dynamic SEO tags & initial data script cleanly into <head>
   if (finalHtml.includes('</head>')) {
