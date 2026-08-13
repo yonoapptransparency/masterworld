@@ -43,6 +43,16 @@ const Meta: React.FC<MetaProps> = ({
   const canonicalUrl = getCleanCanonicalUrl(canonical || url, currentPath);
   const metaUrl = getCleanCanonicalUrl(url || canonical, currentPath);
 
+  React.useEffect(() => {
+    if (typeof document !== 'undefined' && favIconUrl) {
+      const activeFavicon = (favIconUrl.startsWith('data:') || favIconUrl.startsWith('http')) ? favIconUrl : '/favicon.ico';
+      const iconLinks = document.querySelectorAll<HTMLLinkElement>("link[rel*='icon'], link[rel='apple-touch-icon']");
+      iconLinks.forEach(link => {
+        link.href = activeFavicon;
+      });
+    }
+  }, [favIconUrl]);
+
   return (
     <Helmet>
       {/* Basic Meta Tags */}
@@ -53,7 +63,10 @@ const Meta: React.FC<MetaProps> = ({
       <meta name="robots" content={noindex ? "noindex, nofollow" : "index, follow, max-image-preview:large"} />
       <link rel="canonical" href={canonicalUrl} />
       
-      {/* We do NOT include <link rel="icon"> here because they are hardcoded in index.html for Google crawler optimization */}
+      {/* Favicons & Mobile Icons */}
+      <link rel="shortcut icon" href={favIconUrl.startsWith('data:') || favIconUrl.startsWith('http') ? favIconUrl : '/favicon.ico'} />
+      <link rel="icon" type="image/x-icon" href={favIconUrl.startsWith('data:') || favIconUrl.startsWith('http') ? favIconUrl : '/favicon.ico'} />
+      <link rel="apple-touch-icon" href={favIconUrl.startsWith('data:') || favIconUrl.startsWith('http') ? favIconUrl : '/apple-touch-icon.png'} />
 
       {/* Open Graph / Facebook */}
       <meta property="og:type" content={type} />

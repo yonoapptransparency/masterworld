@@ -6,19 +6,72 @@ import { fetchStoreData, getField, getOgImageUrl } from '../../seoHelper';
 export const seoRouter = express.Router();
 
 // 1. WebManifest route
-seoRouter.get(['/site.webmanifest', '/manifest.json'], (req, res, next) => {
-  const publicPath = path.join(process.cwd(), 'public', 'site.webmanifest');
-  const distPath = path.join(process.cwd(), 'dist', 'site.webmanifest');
-  const targetPath = fs.existsSync(distPath) ? distPath : (fs.existsSync(publicPath) ? publicPath : null);
+seoRouter.get(['/site.webmanifest', '/manifest.json'], async (req, res, next) => {
+  try {
+    let siteTitle = 'RummyDex';
+    try {
+      const storeData = await fetchStoreData();
+      if (storeData && storeData.settings && storeData.settings.site_title) {
+        siteTitle = storeData.settings.site_title;
+      }
+    } catch (e) {}
 
-  if (targetPath) {
+    const manifestObj = {
+      "id": "/",
+      "start_url": "/",
+      "scope": "/",
+      "name": siteTitle,
+      "short_name": siteTitle,
+      "display": "standalone",
+      "orientation": "portrait",
+      "lang": "en-IN",
+      "icons": [
+        {
+          "src": "/android-chrome-192x192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        },
+        {
+          "src": "/android-chrome-512x512.png",
+          "sizes": "512x512",
+          "type": "image/png"
+        },
+        {
+          "src": "/logo.png",
+          "sizes": "192x192 512x512",
+          "type": "image/png",
+          "purpose": "any maskable"
+        }
+      ],
+      "theme_color": "#dc2626",
+      "background_color": "#ffffff",
+      "shortcuts": [
+        {
+          "name": "News",
+          "url": "/news"
+        }
+      ]
+    };
+
     res.set({
       'Content-Type': 'application/manifest+json; charset=utf-8',
-      'Cache-Control': 'public, max-age=86400, stale-while-revalidate=43200'
+      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400'
     });
-    return res.sendFile(targetPath);
+    return res.json(manifestObj);
+  } catch (err) {
+    const publicPath = path.join(process.cwd(), 'public', 'site.webmanifest');
+    const distPath = path.join(process.cwd(), 'dist', 'site.webmanifest');
+    const targetPath = fs.existsSync(distPath) ? distPath : (fs.existsSync(publicPath) ? publicPath : null);
+
+    if (targetPath) {
+      res.set({
+        'Content-Type': 'application/manifest+json; charset=utf-8',
+        'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400'
+      });
+      return res.sendFile(targetPath);
+    }
+    return next();
   }
-  return next();
 });
 
 // 2. LLMs text route
@@ -56,7 +109,7 @@ seoRouter.get([
   const localDistPath = path.join(process.cwd(), 'dist', reqFilename);
   const localFile = fs.existsSync(localDistPath) ? localDistPath : (fs.existsSync(localPublicPath) ? localPublicPath : null);
 
-  const isDefaultOrPlaceholder = (url) => {
+  const isDefaultOrPlaceholder = (url?: string) => {
     if (!url) return true;
     if (url.includes('1000132678_1_ro1ftj')) return true;
     if (url.includes('ezgif-64180dd8ca74703b')) return true;
@@ -85,7 +138,25 @@ seoRouter.get([
                      (!isDefaultOrPlaceholder(customLogoUrl) ? customLogoUrl : null) ||
                      '/logo.png';
 
-      // Transform Cloudinary URL for the requested icon size
+      // 1. Handle base64 Data URLs (e.g. data:image/png;base64,iVBORw0...)
+      if (imageUrl.startsWith('data:')) {
+        const matches = imageUrl.match(/^data:([^;]+);base64,(.+)$/);
+        if (matches) {
+          let contentType = matches[1] || 'image/png';
+          if (reqFilename.endsWith('.ico')) {
+            contentType = 'image/x-icon';
+          }
+          const buffer = Buffer.from(matches[2], 'base64');
+          res.set({
+            'Content-Type': contentType,
+            'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+            'Content-Disposition': `inline; filename="${reqFilename}"`
+          });
+          return res.send(buffer);
+        }
+      }
+
+      // 2. Transform Cloudinary URL for the requested icon size
       if (imageUrl.includes('res.cloudinary.com') && imageUrl.includes('/upload/')) {
         let transforms = 'f_png,q_auto';
         
@@ -107,6 +178,7 @@ seoRouter.get([
         }
       }
 
+      // 3. Fetch HTTP image
       if (imageUrl.startsWith('http')) {
         try {
           const response = await fetch(imageUrl, {
@@ -131,7 +203,7 @@ seoRouter.get([
             }
             res.set({
               'Content-Type': contentType,
-              'Cache-Control': 'public, max-age=31536000, immutable',
+              'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
               'Content-Disposition': `inline; filename="${reqFilename}"`
             });
             return res.send(buffer);
@@ -152,7 +224,7 @@ seoRouter.get([
       : 'image/png';
     res.set({
       'Content-Type': contentType,
-      'Cache-Control': 'public, max-age=31536000, immutable',
+      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
       'Content-Disposition': `inline; filename="${reqFilename}"`
     });
     return res.sendFile(localFile);
