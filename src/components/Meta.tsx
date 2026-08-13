@@ -52,9 +52,11 @@ const Meta: React.FC<MetaProps> = ({
       <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
       <meta name="robots" content={noindex ? "noindex, nofollow" : "index, follow, max-image-preview:large"} />
       <link rel="canonical" href={canonicalUrl} />
-      <link rel="icon" type="image/x-icon" href={favIconUrl.includes('res.cloudinary.com') ? favIconUrl.replace(/\/upload\/([^\/]+)\//, '/upload/w_32,h_32,c_fill,f_ico,q_auto/') : favIconUrl} />
-      <link rel="icon" type="image/png" sizes="32x32" href={favIconUrl.includes('res.cloudinary.com') ? favIconUrl.replace(/\/upload\/([^\/]+)\//, '/upload/w_32,h_32,c_fill,f_png,q_auto/') : favIconUrl} />
-      <link rel="apple-touch-icon" sizes="180x180" href={favIconUrl.includes('res.cloudinary.com') ? favIconUrl.replace(/\/upload\/([^\/]+)\//, '/upload/w_180,h_180,c_fill,f_png,q_auto/') : favIconUrl} />
+      <link rel="icon" type="image/x-icon" href={favIconUrl.includes('res.cloudinary.com') ? favIconUrl.replace(/\/upload\/([^\/]+)\//, '/upload/w_32,h_32,c_fit,f_ico,q_auto/') : favIconUrl} />
+      <link rel="icon" type="image/png" sizes="32x32" href={favIconUrl.includes('res.cloudinary.com') ? favIconUrl.replace(/\/upload\/([^\/]+)\//, '/upload/w_32,h_32,c_fit,f_png,q_auto/') : favIconUrl} />
+      <link rel="icon" type="image/png" sizes="192x192" href={favIconUrl.includes('res.cloudinary.com') ? favIconUrl.replace(/\/upload\/([^\/]+)\//, '/upload/w_192,h_192,c_fit,f_png,q_auto/') : favIconUrl} />
+      <link rel="icon" type="image/png" sizes="512x512" href={favIconUrl.includes('res.cloudinary.com') ? favIconUrl.replace(/\/upload\/([^\/]+)\//, '/upload/w_512,h_512,c_fit,f_png,q_auto/') : favIconUrl} />
+      <link rel="apple-touch-icon" sizes="180x180" href={favIconUrl.includes('res.cloudinary.com') ? favIconUrl.replace(/\/upload\/([^\/]+)\//, '/upload/w_180,h_180,c_fit,f_png,q_auto/') : favIconUrl} />
 
       {/* Open Graph / Facebook */}
       <meta property="og:type" content={type} />

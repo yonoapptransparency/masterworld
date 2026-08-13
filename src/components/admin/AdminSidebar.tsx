@@ -21,6 +21,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { AdminSidebarItem as SidebarItem } from './AdminSidebarItem';
+import { useData } from '../../contexts/DataContext';
 
 interface AdminSidebarProps {
   activeTab: string;
@@ -43,11 +44,19 @@ export const AdminSidebar = ({
   onRefresh,
   isRefreshing
 }: AdminSidebarProps) => {
-  
+  const { settings } = useData();
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getTransformedUrl = (url: string) => {
+    if (url && url.includes('res.cloudinary.com')) {
+      return url.replace(/\/upload\/([^\/]+)\//, '/upload/w_120,h_120,c_fit,q_auto/');
+    }
+    return url;
   };
 
   return (
@@ -66,11 +75,22 @@ export const AdminSidebar = ({
         <div className="flex flex-col h-full">
           <div className="p-4 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-                <ShieldAlert className="text-white" size={24} />
-              </div>
+              {settings?.logo_url ? (
+                <img 
+                  src={getTransformedUrl(settings.logo_url)} 
+                  alt="Admin Logo" 
+                  className="w-10 h-10 object-contain drop-shadow-sm" 
+                  loading="lazy" 
+                  width={40} 
+                  height={40} 
+                />
+              ) : (
+                <div className="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                  <ShieldAlert className="text-white" size={24} />
+                </div>
+              )}
               <div>
-                <h1 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">MasterWorld</h1>
+                <h1 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">{settings?.site_title || 'MasterWorld'}</h1>
                 <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest">Admin Control</p>
               </div>
             </div>
