@@ -681,23 +681,30 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
           // Fallback to check the 'apps' collection via REST API
           if (!targetUrl) {
             const appDocIds = Array.from(new Set([realId, appId]));
-            for (const targetId of appDocIds) {
+            const appFetchPromises = appDocIds.map(async (targetId) => {
               const appUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || '(default)'}/documents/apps/${targetId}${apiSuffix}`;
               try {
                 const appRes = await fetch(appUrl, { headers });
                 if (appRes.ok) {
                   const appDoc = await appRes.json();
-                  const appData = parseFirestoreFields(appDoc.fields);
-                  const rawUrl = appData?.more_information_url || appData?.encrypted_link || appData?.download_url;
-                  if (rawUrl && typeof rawUrl === 'string') {
-                    const dec = rawUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(rawUrl, AES_SECRET) : rawUrl;
-                    if (isValidTargetUrl(dec)) {
-                      targetUrl = dec.trim();
-                      break;
-                    }
-                  }
+                  return parseFirestoreFields(appDoc.fields);
                 }
               } catch (e) {}
+              return null;
+            });
+
+            const appResults = await Promise.all(appFetchPromises);
+            for (const appData of appResults) {
+              if (appData) {
+                const rawUrl = appData?.more_information_url || appData?.encrypted_link || appData?.download_url;
+                if (rawUrl && typeof rawUrl === 'string') {
+                  const dec = rawUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(rawUrl, AES_SECRET) : rawUrl;
+                  if (isValidTargetUrl(dec)) {
+                    targetUrl = dec.trim();
+                    break;
+                  }
+                }
+              }
             }
           }
         }
