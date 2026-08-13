@@ -627,8 +627,8 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
 
         // Direct fallback to 'apps' collection
         const appDocIds = Array.from(new Set([realId, appId]));
-        for (const targetId of appDocIds) {
-          const appSnap = await db.collection('apps').doc(targetId).get();
+        const appSnaps = await Promise.all(appDocIds.map(targetId => db.collection('apps').doc(targetId).get()));
+        for (const appSnap of appSnaps) {
           if (appSnap.exists) {
             const appData = appSnap.data();
             const rawUrl = appData?.more_information_url || appData?.encrypted_link || appData?.download_url;
@@ -681,12 +681,17 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
           // Fallback to check the 'apps' collection via REST API
           if (!targetUrl) {
             const appDocIds = Array.from(new Set([realId, appId]));
-            for (const targetId of appDocIds) {
+            const appFetches = appDocIds.map(targetId => {
               const appUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || '(default)'}/documents/apps/${targetId}${apiSuffix}`;
-              try {
-                const appRes = await fetch(appUrl, { headers });
-                if (appRes.ok) {
-                  const appDoc = await appRes.json();
+              return fetch(appUrl, { headers })
+                .then(r => r.ok ? r.json() : null)
+                .catch(() => null);
+            });
+            const appDocs = await Promise.all(appFetches);
+
+            for (const appDoc of appDocs) {
+              if (appDoc && appDoc.fields) {
+                try {
                   const appData = parseFirestoreFields(appDoc.fields);
                   const rawUrl = appData?.more_information_url || appData?.encrypted_link || appData?.download_url;
                   if (rawUrl && typeof rawUrl === 'string') {
@@ -696,8 +701,8 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
                       break;
                     }
                   }
-                }
-              } catch (e) {}
+                } catch (e) {}
+              }
             }
           }
         }
