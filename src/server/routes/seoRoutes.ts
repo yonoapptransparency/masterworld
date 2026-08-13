@@ -133,12 +133,15 @@ seoRouter.get([
   const localDistPath = path.join(process.cwd(), 'dist', reqFilename);
   const localFile = fs.existsSync(localDistPath) ? localDistPath : (fs.existsSync(localPublicPath) ? localPublicPath : null);
 
+  const DEFAULT_LOGO_URL = 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
+
   const isDefaultOrPlaceholder = (url?: string) => {
     if (!url) return true;
     if (url.includes('1000132678_1_ro1ftj')) return true;
     if (url.includes('ezgif-64180dd8ca74703b')) return true;
     if (url.includes('ezgif-88d07abd3ef5753f_yz8ytg')) return true;
     if (url.includes('ezgif-8cbbc4a0aaeb367e_s4k2nb')) return true;
+    if (url.includes('1000134161_11zon_fgqzz6')) return true;
     return false;
   };
 
@@ -155,49 +158,41 @@ seoRouter.get([
       console.warn("Could not retrieve store settings for favicon, using default fallback:", dataErr);
     }
 
-    const hasCustomOverride = (!isDefaultOrPlaceholder(customFaviconUrl) || !isDefaultOrPlaceholder(customLogoUrl));
-    
-    if (hasCustomOverride) {
-      let imageUrl = '';
-      if (reqFilename === 'logo.png') {
-        imageUrl = (!isDefaultOrPlaceholder(customLogoUrl) ? customLogoUrl : null) ||
-                   (!isDefaultOrPlaceholder(customFaviconUrl) ? customFaviconUrl : null) ||
-                   '/logo.png';
-      } else {
-        imageUrl = (!isDefaultOrPlaceholder(customFaviconUrl) ? customFaviconUrl : null) ||
-                   (!isDefaultOrPlaceholder(customLogoUrl) ? customLogoUrl : null) ||
-                   '/logo.png';
-      }
+    if (!customFaviconUrl || isDefaultOrPlaceholder(customFaviconUrl)) customFaviconUrl = DEFAULT_LOGO_URL;
+    if (!customLogoUrl || isDefaultOrPlaceholder(customLogoUrl)) customLogoUrl = DEFAULT_LOGO_URL;
 
-      // 1. Handle base64 Data URLs (e.g. data:image/png;base64,iVBORw0...)
-      if (imageUrl.startsWith('data:')) {
-        const matches = imageUrl.match(/^data:([^;]+);base64,(.+)$/);
-        if (matches) {
-          let contentType = matches[1] || 'image/png';
-          if (reqFilename.endsWith('.ico')) {
-            contentType = 'image/x-icon';
-          }
-          const buffer = Buffer.from(matches[2], 'base64');
-          res.set({
-            'Content-Type': contentType,
-            'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
-            'Content-Disposition': `inline; filename="${reqFilename}"`
-          });
-          return res.send(buffer);
+    let imageUrl = reqFilename === 'logo.png' ? customLogoUrl : customFaviconUrl;
+    if (!imageUrl) imageUrl = DEFAULT_LOGO_URL;
+
+    // 1. Handle base64 Data URLs (e.g. data:image/png;base64,iVBORw0...)
+    if (imageUrl.startsWith('data:')) {
+      const matches = imageUrl.match(/^data:([^;]+);base64,(.+)$/);
+      if (matches) {
+        let contentType = matches[1] || 'image/png';
+        if (reqFilename.endsWith('.ico')) {
+          contentType = 'image/x-icon';
         }
+        const buffer = Buffer.from(matches[2], 'base64');
+        res.set({
+          'Content-Type': contentType,
+          'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+          'Content-Disposition': `inline; filename="${reqFilename}"`
+        });
+        return res.send(buffer);
       }
+    }
 
-      // 2. Transform Cloudinary URL for the requested icon size
-      if (imageUrl.includes('res.cloudinary.com') && imageUrl.includes('/upload/')) {
-        let transforms = 'f_png,q_100';
-        
-        if (reqFilename === 'favicon.ico') transforms = 'w_32,h_32,c_fit,f_ico,q_auto';
-        else if (reqFilename === 'favicon-16x16.png') transforms = 'w_16,h_16,c_fit,f_png,q_auto';
-        else if (reqFilename === 'favicon-32x32.png') transforms = 'w_32,h_32,c_fit,f_png,q_auto';
-        else if (reqFilename === 'apple-touch-icon.png' || reqFilename === 'apple-touch-icon-precomposed.png') transforms = 'w_180,h_180,c_fit,f_png,q_auto';
-        else if (reqFilename === 'android-chrome-192x192.png') transforms = 'w_192,h_192,c_fit,f_png,q_auto';
-        else if (reqFilename === 'android-chrome-512x512.png') transforms = 'w_512,h_512,c_fit,f_png,q_auto';
-        else if (reqFilename === 'logo.png') transforms = 'w_512,h_512,c_fit,f_png,q_auto';
+    // 2. Transform Cloudinary URL for the requested icon size
+    if (imageUrl.includes('res.cloudinary.com') && imageUrl.includes('/upload/')) {
+      let transforms = 'f_png,q_100';
+      
+      if (reqFilename === 'favicon.ico') transforms = 'w_64,h_64,c_fit,f_ico,q_100';
+      else if (reqFilename === 'favicon-16x16.png') transforms = 'w_32,h_32,c_fit,f_png,q_100';
+      else if (reqFilename === 'favicon-32x32.png') transforms = 'w_64,h_64,c_fit,f_png,q_100';
+      else if (reqFilename === 'apple-touch-icon.png' || reqFilename === 'apple-touch-icon-precomposed.png') transforms = 'w_256,h_256,c_fit,f_png,q_100';
+      else if (reqFilename === 'android-chrome-192x192.png') transforms = 'w_256,h_256,c_fit,f_png,q_100';
+      else if (reqFilename === 'android-chrome-512x512.png') transforms = 'w_512,h_512,c_fit,f_png,q_100';
+      else if (reqFilename === 'logo.png') transforms = 'w_800,h_800,c_fit,f_png,q_100';
 
         const uploadIndex = imageUrl.indexOf('/upload/');
         const prefix = imageUrl.substring(0, uploadIndex + 8);
@@ -244,7 +239,6 @@ seoRouter.get([
           console.warn("Failed to fetch custom image proxy for favicon/logo, falling back:", fetchErr);
         }
       }
-    }
   } catch (err) {
     console.error("Error serving favicon/logo:", err);
   }

@@ -2,10 +2,10 @@ import { AppConfig, GlobalSettings, NewsItem, BlogPost, VideoItem } from '../typ
 
 export const mockApps: AppConfig[] = [];
 export const mockSettings: GlobalSettings = {
-  logo_url: "https://res.cloudinary.com/diewalae4/image/upload/v1786556304/1000134161_11zon_fgqzz6.png",
+  logo_url: "https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png",
   site_title: "Application Hub",
   meta_description: "",
-  favicon_url: "https://res.cloudinary.com/diewalae4/image/upload/v1786556304/1000134161_11zon_fgqzz6.png",
+  favicon_url: "https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png",
   helpline_whatsapp: "",
   helpline_telegram: "",
   support_email: "",
@@ -41,7 +41,7 @@ export const mockNews: NewsItem[] = [
     "seo_title": "Application Hub is LIVE - Premium App Directory & Reviews",
     "seo_description": "Welcome to Application Hub! Explore our newly launched platform dedicated to neutral, hand-tested app reviews. Our verified app vault is opening very soon.",
     "canonical_url": "https://www.rummydex.com/notice/",
-    "og_image_url": "https://res.cloudinary.com/diewalae4/image/upload/v1786556304/1000134161_11zon_fgqzz6.png",
+    "og_image_url": "https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png",
     "target_region": "Global ",
     "link": "https://www.rummydex.com/news/app-hub-is-live"
   }

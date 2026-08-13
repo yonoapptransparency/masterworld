@@ -1273,8 +1273,8 @@ export const saveMockApps = (apps: AppConfig[]) => {
 export const mockSettings: GlobalSettings = {
   "site_title": "RummyDex",
   "meta_description": "Your trusted bridge to the best mobile card games. Explore RummyDex for hands-on reviews, real-time news, and complete app knowledge.",
-  "logo_url": "https://res.cloudinary.com/diewalae4/image/upload/v1786556304/1000134161_11zon_fgqzz6.png",
-  "favicon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1786556304/1000134161_11zon_fgqzz6.png",
+  "logo_url": "https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png",
+  "favicon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png",
   "helpline_whatsapp": "",
   "helpline_telegram": "",
   "support_email": "rummydex1@gmail.com",
@@ -1400,8 +1400,8 @@ export const mockNews: NewsItem[] = [
     "published_at": "2026-08-01T04:29:15.305Z",
     "is_new": true,
     "category": "Announcements",
-    "og_image_url": "https://res.cloudinary.com/diewalae4/image/upload/v1786556304/1000134161_11zon_fgqzz6.png",
-    "logo_url": "https://res.cloudinary.com/diewalae4/image/upload/v1786556304/1000134161_11zon_fgqzz6.png",
+    "og_image_url": "https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png",
+    "logo_url": "https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png",
     "updated_at": "2026-08-01T04:33:51.227Z",
     "slug": "app-hub-is-live"
   },

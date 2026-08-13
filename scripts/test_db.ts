@@ -7,9 +7,9 @@ async function getFirebaseLogo() {
   
   try {
     const res = await fetch(url);
-    const data = await res.json();
-    console.log("Firebase settings:", JSON.stringify(data.fields.logo_url, null, 2));
-    console.log("Firebase favicon:", JSON.stringify(data.fields.favicon_url, null, 2));
+    const data = (await res.json()) as any;
+    console.log("Firebase settings:", JSON.stringify(data.fields?.logo_url, null, 2));
+    console.log("Firebase favicon:", JSON.stringify(data.fields?.favicon_url, null, 2));
   } catch (err) {
     console.error(err);
   }

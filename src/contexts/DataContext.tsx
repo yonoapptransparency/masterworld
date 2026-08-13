@@ -129,13 +129,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [sync.setLoading, sync.setSyncVersion, sync.setLastSyncTime]);
 
   const resolvedSettings = useMemo(() => {
-    const defaultLogo = "/logo.png";
+    const defaultLogo = "https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png";
     const fav = sync.settings?.favicon_url;
     const logo = sync.settings?.logo_url;
     return {
       ...sync.settings,
-      favicon_url: (!fav || fav.includes('1000132678_1_ro1ftj') || fav.includes('ezgif')) ? defaultLogo : fav,
-      logo_url: (!logo || logo.includes('1000132678_1_ro1ftj') || logo.includes('ezgif')) ? defaultLogo : logo
+      favicon_url: (!fav || fav.includes('1000132678_1_ro1ftj') || fav.includes('ezgif') || fav.includes('1000134161_11zon_fgqzz6')) ? defaultLogo : fav,
+      logo_url: (!logo || logo.includes('1000132678_1_ro1ftj') || logo.includes('ezgif') || logo.includes('1000134161_11zon_fgqzz6')) ? defaultLogo : logo
     };
   }, [sync.settings]);
 
