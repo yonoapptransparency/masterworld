@@ -35,7 +35,9 @@ const Meta: React.FC<MetaProps> = ({
   const metaDescription = description || settings?.meta_description || 'Access application details and specifications.';
   const metaKeywords = keywords || settings?.seo_keywords || '';
   
-  const rawImage = image || settings?.logo_url || settings?.favicon_url || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
+  const DEFAULT_ICON = 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
+  const faviconUrl = (settings?.favicon_url && settings.favicon_url.trim()) || DEFAULT_ICON;
+  const rawImage = image || settings?.logo_url || settings?.favicon_url || DEFAULT_ICON;
   const metaImage = getOgImageUrl(rawImage, typeof window !== 'undefined' ? window.location.origin : 'https://www.rummydex.com');
   
   const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/';
@@ -52,20 +54,15 @@ const Meta: React.FC<MetaProps> = ({
       <meta name="robots" content={noindex ? "noindex, nofollow" : "index, follow, max-image-preview:large"} />
       <link rel="canonical" href={canonicalUrl} />
       
-      {/* Favicons & Mobile Icons - Google Search & Mobile Chrome same-origin compliant */}
-      <link rel="shortcut icon" href={`${origin}/favicon.ico`} />
-      <link rel="icon" type="image/x-icon" href={`${origin}/favicon.ico`} />
-      <link rel="icon" type="image/png" sizes="16x16" href={`${origin}/favicon-16x16.png`} />
-      <link rel="icon" type="image/png" sizes="32x32" href={`${origin}/favicon-32x32.png`} />
-      <link rel="icon" type="image/png" sizes="48x48" href={`${origin}/favicon-32x32.png`} />
-      <link rel="icon" type="image/png" sizes="96x96" href={`${origin}/android-chrome-192x192.png`} />
-      <link rel="icon" type="image/png" sizes="144x144" href={`${origin}/android-chrome-192x192.png`} />
-      <link rel="icon" type="image/png" sizes="192x192" href={`${origin}/android-chrome-192x192.png`} />
-      <link rel="icon" type="image/png" sizes="512x512" href={`${origin}/android-chrome-512x512.png`} />
-      <link rel="apple-touch-icon" href={`${origin}/apple-touch-icon.png`} />
-      <link rel="apple-touch-icon" sizes="180x180" href={`${origin}/apple-touch-icon.png`} />
-      <link rel="apple-touch-icon-precomposed" href={`${origin}/apple-touch-icon-precomposed.png`} />
-      <link rel="manifest" href={`${origin}/site.webmanifest`} />
+      {/* Favicons & Mobile Icons - Direct Cloudinary icon support */}
+      <link rel="shortcut icon" href={faviconUrl} />
+      <link rel="icon" type="image/png" href={faviconUrl} />
+      <link rel="icon" type="image/png" sizes="32x32" href={faviconUrl} />
+      <link rel="icon" type="image/png" sizes="192x192" href={faviconUrl} />
+      <link rel="apple-touch-icon" href={faviconUrl} />
+      <link rel="apple-touch-icon" sizes="180x180" href={faviconUrl} />
+      <link rel="apple-touch-icon-precomposed" href={faviconUrl} />
+      <link rel="manifest" href="/site.webmanifest" />
 
       {/* Open Graph / Facebook */}
       <meta property="og:type" content={type} />
