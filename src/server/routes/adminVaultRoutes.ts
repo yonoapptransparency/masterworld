@@ -569,10 +569,11 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
     try {
       const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
       let existingBackup: any = { apps: [], settings: {}, news: [], blogs: [], videos: [] };
-      if (fs.existsSync(publicBackupPath)) {
-        try {
-          existingBackup = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
-        } catch (e) {}
+      try {
+        const fileContent = await fs.promises.readFile(publicBackupPath, 'utf8');
+        existingBackup = JSON.parse(fileContent);
+      } catch (e) {
+        // Ignore if file doesn't exist or is invalid JSON
       }
 
       const staticDataObj = require('../../lib/staticData');
