@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { UploadCloud, Loader2 } from 'lucide-react';
 
 interface ImageUploadProps {
+  format?: 'webp' | 'png';
   value?: string;
   defaultValue?: string;
   onChange?: (value: string) => void;
@@ -66,13 +67,18 @@ export default function ImageUpload({ value, defaultValue, onChange, name, place
           return;
         }
         
-        // Fill white background in case of transparent images converting to WebP/JPEG
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, width, height);
+        // Only fill white background if converting to webp (to avoid black backgrounds on transparent regions)
+        if (format === 'webp') {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, width, height);
+        }
+        
         ctx.drawImage(img, 0, 0, width, height);
         
-        // Compress to WEBP with 0.6 quality for SUPER lightweight images (often < 10KB)
-        const dataUrl = canvas.toDataURL('image/webp', 0.6);
+        // Use PNG for logos/favicons to preserve transparency, otherwise WebP
+        const dataUrl = format === 'png' 
+          ? canvas.toDataURL('image/png') 
+          : canvas.toDataURL('image/webp', 0.6);
         resolve(dataUrl);
       };
       
@@ -111,7 +117,7 @@ export default function ImageUpload({ value, defaultValue, onChange, name, place
 
   // Helper to show a truncated value if it's a huge base64 string
   const displayValue = currentValue.length > 200 && currentValue.startsWith('data:image') 
-    ? 'Base64 Image Data (Compressed)' 
+    ? 'Image Uploaded Successfully' 
     : currentValue;
 
   return (
@@ -122,7 +128,7 @@ export default function ImageUpload({ value, defaultValue, onChange, name, place
         value={displayValue}
         onChange={(e) => {
            // Only allow manual editing if it's not our placeholder
-           if (e.target.value !== 'Base64 Image Data (Compressed)') {
+           if (e.target.value !== 'Image Uploaded Successfully') {
               handleChange(e.target.value);
            }
         }}
