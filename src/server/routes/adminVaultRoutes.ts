@@ -272,21 +272,25 @@ adminVaultRouter.post("/api/v1/admin/encrypt-links", verifyAdminToken, async (re
     if (config) {
       const apiSuffix = config.apiKey ? `?key=${config.apiKey}` : '';
       const dbUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents`;
-      for (const docName of ['sec_links_vault_3', 'secure_links', 'sec_vault']) {
-        try {
-          const r = await fetch(`${dbUrl}/store_data/${docName}${apiSuffix}`);
-          const d = await r.json() as any;
-          if (d && !d.error && d.fields?.encryptedData?.stringValue) {
-            let decryptedBlob = safeDecrypt(d.fields.encryptedData.stringValue, AES_SECRET);
-            if (decryptedBlob) {
-              const parsed = JSON.parse(decryptedBlob);
-              if (Array.isArray(parsed)) {
-                existingItems = parsed;
-                break;
+      try {
+        existingItems = await Promise.any(
+          ['sec_links_vault_3', 'secure_links', 'sec_vault'].map(async (docName) => {
+            const r = await fetch(`${dbUrl}/store_data/${docName}${apiSuffix}`);
+            const d = await r.json() as any;
+            if (d && !d.error && d.fields?.encryptedData?.stringValue) {
+              let decryptedBlob = safeDecrypt(d.fields.encryptedData.stringValue, AES_SECRET);
+              if (decryptedBlob) {
+                const parsed = JSON.parse(decryptedBlob);
+                if (Array.isArray(parsed)) {
+                  return parsed;
+                }
               }
             }
-          }
-        } catch (mergeErr) {}
+            throw new Error('Invalid data or decryption failed');
+          })
+        );
+      } catch (aggregateErr) {
+        // All fetch attempts failed or returned invalid data, existingItems remains []
       }
     }
     const finalMap = new Map();
