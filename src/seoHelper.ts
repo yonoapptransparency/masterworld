@@ -723,7 +723,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     .replace(/<meta\s+property="og:[^"]+"\s+[^>]*\/?>/gi, '')
     .replace(/<meta\s+name="twitter:[^"]+"\s+[^>]*\/?>/gi, '')
     .replace(/<link\s+rel="canonical"\s+[^>]*\/?>/gi, '')
-    .replace(/<link\s+rel="icon"\s+[^>]*\/?>/gi, '')
+    .replace(/<link\s+rel="(?:shortcut\s+)?icon"\s+[^>]*\/?>/gi, '')
     .replace(/<link\s+rel="apple-touch-icon[^"]*"\s+[^>]*\/?>/gi, '');
 
   // Inject dynamic SEO tags & initial data script cleanly into <head>
