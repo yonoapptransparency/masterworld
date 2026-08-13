@@ -646,8 +646,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     domain = canonicalUrl ? new URL(canonicalUrl).origin : 'https://www.rummydex.com';
   } catch (e) {}
   
-  if (pageOgImage && (pageOgImage.includes('1000132678_1_ro1ftj') || pageOgImage.includes('ezgif-64180dd8ca74703b') || pageOgImage.includes('ezgif-88d07abd3ef5753f_yz8ytg') || pageOgImage.includes('ezgif-8cbbc4a0aaeb367e_s4k2nb'))) {
-    pageOgImage = '/logo.png';
+  if (!pageOgImage || pageOgImage.includes('1000132678_1_ro1ftj') || pageOgImage.includes('ezgif-64180dd8ca74703b') || pageOgImage.includes('ezgif-88d07abd3ef5753f_yz8ytg') || pageOgImage.includes('ezgif-8cbbc4a0aaeb367e_s4k2nb') || pageOgImage.includes('1000134161_11zon_fgqzz6')) {
+    pageOgImage = `${domain}/logo.png`;
   }
   
   pageOgImage = getOgImageUrl(pageOgImage, domain);
@@ -703,11 +703,19 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     <link data-rh="true" rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link data-rh="true" rel="preconnect" href="https://res.cloudinary.com" crossorigin>
     <link data-rh="true" rel="canonical" href="${canonicalUrl}">
-    <link data-rh="true" rel="shortcut icon" href="/favicon.ico">
-    <link data-rh="true" rel="icon" type="image/x-icon" href="/favicon.ico">
-    <link data-rh="true" rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-    <link data-rh="true" rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-    <link data-rh="true" rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link data-rh="true" rel="shortcut icon" href="${domain}/favicon.ico">
+    <link data-rh="true" rel="icon" type="image/x-icon" href="${domain}/favicon.ico">
+    <link data-rh="true" rel="icon" type="image/png" sizes="16x16" href="${domain}/favicon-16x16.png">
+    <link data-rh="true" rel="icon" type="image/png" sizes="32x32" href="${domain}/favicon-32x32.png">
+    <link data-rh="true" rel="icon" type="image/png" sizes="48x48" href="${domain}/favicon-32x32.png">
+    <link data-rh="true" rel="icon" type="image/png" sizes="96x96" href="${domain}/android-chrome-192x192.png">
+    <link data-rh="true" rel="icon" type="image/png" sizes="144x144" href="${domain}/android-chrome-192x192.png">
+    <link data-rh="true" rel="icon" type="image/png" sizes="192x192" href="${domain}/android-chrome-192x192.png">
+    <link data-rh="true" rel="icon" type="image/png" sizes="512x512" href="${domain}/android-chrome-512x512.png">
+    <link data-rh="true" rel="apple-touch-icon" href="${domain}/apple-touch-icon.png">
+    <link data-rh="true" rel="apple-touch-icon" sizes="180x180" href="${domain}/apple-touch-icon.png">
+    <link data-rh="true" rel="apple-touch-icon-precomposed" href="${domain}/apple-touch-icon-precomposed.png">
+    <link data-rh="true" rel="manifest" href="${domain}/site.webmanifest">
     ${jsonLdSchema}
   `;
 
