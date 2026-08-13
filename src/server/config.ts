@@ -9,8 +9,7 @@ if (!process.env.AES_SECRET) {
 }
 
 if (!process.env.ADMIN_EMAIL) {
-  console.warn("WARNING: ADMIN_EMAIL is not set. Admin features will use default fallback.");
-  process.env.ADMIN_EMAIL = "defentechscholar@gmail.com";
+  console.warn("WARNING: ADMIN_EMAIL is not set. Admin features may not work correctly.");
 }
 
 export const getFallbackAes = () => ["fallback", "aes", "secret", "for", "local", "dev", "only"].join("_");

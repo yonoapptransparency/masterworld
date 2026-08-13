@@ -131,7 +131,10 @@ export const verifyAdminToken = async (req: express.Request, res: express.Respon
           }
         }
       }
-      const configuredAdminEmail = String(process.env.ADMIN_EMAIL || "defentechscholar@gmail.com").toLowerCase();
+      const configuredAdminEmail = process.env.ADMIN_EMAIL ? process.env.ADMIN_EMAIL.toLowerCase() : "";
+      if (!configuredAdminEmail) {
+        return res.status(503).json({ error: 'Server misconfiguration: ADMIN_EMAIL is not set.', message: 'Server misconfiguration: ADMIN_EMAIL is not set.' });
+      }
       if (email && email.toLowerCase().trim() === configuredAdminEmail) {
         (req as any).adminUser = { email: email.toLowerCase().trim() };
         return next();
@@ -155,7 +158,10 @@ export const verifyAdminToken = async (req: express.Request, res: express.Respon
       return res.status(401).json({ error: 'Unauthorized: Malformed token.', message: 'Unauthorized: Malformed token.' });
     }
 
-    const configuredAdminEmail = String(process.env.ADMIN_EMAIL || "defentechscholar@gmail.com").toLowerCase();
+    const configuredAdminEmail = process.env.ADMIN_EMAIL ? process.env.ADMIN_EMAIL.toLowerCase() : "";
+    if (!configuredAdminEmail) {
+      return res.status(503).json({ error: 'Server misconfiguration: ADMIN_EMAIL is not set.', message: 'Server misconfiguration: ADMIN_EMAIL is not set.' });
+    }
     const userEmail = String(payload.email || "").toLowerCase().trim();
 
     if (userEmail !== configuredAdminEmail) {

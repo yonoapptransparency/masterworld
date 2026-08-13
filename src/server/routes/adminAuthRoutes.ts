@@ -23,8 +23,11 @@ adminAuthRouter.post("/api/v1/admin/login", async (req: any, res: any) => {
     await _recordAdminFail(ip);
     return res.status(400).json({ error: "Missing email or password." });
   }
-  const configuredAdminEmail = String(process.env.ADMIN_EMAIL || "defentechscholar@gmail.com").toLowerCase();
-  const configuredAdminPass = String(process.env.ADMIN_PASSWORD || "PicPass2026!");
+  const configuredAdminEmail = process.env.ADMIN_EMAIL ? process.env.ADMIN_EMAIL.toLowerCase() : "";
+  const configuredAdminPass = process.env.ADMIN_PASSWORD || "";
+  if (!configuredAdminEmail) {
+    return res.status(503).json({ error: "Server misconfiguration: ADMIN_EMAIL is not set." });
+  }
   if (!configuredAdminPass) {
     return res.status(503).json({ error: "Server misconfiguration: ADMIN_PASSWORD is not set." });
   }
@@ -97,7 +100,10 @@ adminAuthRouter.post("/api/v1/admin/google-login", async (req: any, res: any) =>
       return res.status(401).json({ error: "Unauthorized: Could not verify identity token." });
     }
 
-    const configuredAdminEmail = String(process.env.ADMIN_EMAIL || "defentechscholar@gmail.com").toLowerCase();
+    const configuredAdminEmail = process.env.ADMIN_EMAIL ? process.env.ADMIN_EMAIL.toLowerCase() : "";
+    if (!configuredAdminEmail) {
+      return res.status(503).json({ error: "Server misconfiguration: ADMIN_EMAIL is not set." });
+    }
     if (email.toLowerCase().trim() !== configuredAdminEmail) {
       return res.status(403).json({ error: `Unauthorized: ${email} is not configured as an administrator.` });
     }
@@ -140,7 +146,10 @@ adminAuthRouter.post("/api/v1/admin/verify-session", async (req: any, res: any) 
           }
         }
       }
-      const configuredAdminEmail = String(process.env.ADMIN_EMAIL || "defentechscholar@gmail.com").toLowerCase();
+      const configuredAdminEmail = process.env.ADMIN_EMAIL ? process.env.ADMIN_EMAIL.toLowerCase() : "";
+      if (!configuredAdminEmail) {
+        return res.status(503).json({ error: "Server misconfiguration: ADMIN_EMAIL is not set." });
+      }
       if (email && email.toLowerCase().trim() === configuredAdminEmail) {
         const code = req.body.code;
         const mfaCheck = await check2FAForLogin(email.toLowerCase().trim(), code);
@@ -169,7 +178,10 @@ adminAuthRouter.post("/api/v1/admin/verify-session", async (req: any, res: any) 
       return res.status(401).json({ error: 'Unauthorized: Session expired.' });
     }
 
-    const configuredAdminEmail = String(process.env.ADMIN_EMAIL || "defentechscholar@gmail.com").toLowerCase();
+    const configuredAdminEmail = process.env.ADMIN_EMAIL ? process.env.ADMIN_EMAIL.toLowerCase() : "";
+    if (!configuredAdminEmail) {
+      return res.status(503).json({ error: "Server misconfiguration: ADMIN_EMAIL is not set." });
+    }
     const userEmail = String(payload.email || "").toLowerCase().trim();
 
     if (userEmail !== configuredAdminEmail) {
@@ -206,7 +218,10 @@ adminAuthRouter.post("/api/v1/admin/refresh-token", async (req: any, res: any) =
     if (!decrypted) return res.status(401).json({ error: "Unauthorized: Invalid token signature." });
 
     const payload = JSON.parse(decrypted);
-    const configuredAdminEmail = String(process.env.ADMIN_EMAIL || "defentechscholar@gmail.com").toLowerCase();
+    const configuredAdminEmail = process.env.ADMIN_EMAIL ? process.env.ADMIN_EMAIL.toLowerCase() : "";
+    if (!configuredAdminEmail) {
+      return res.status(503).json({ error: "Server misconfiguration: ADMIN_EMAIL is not set." });
+    }
     const userEmail = String(payload.email || "").toLowerCase().trim();
 
     if (!payload.admin || userEmail !== configuredAdminEmail) {
