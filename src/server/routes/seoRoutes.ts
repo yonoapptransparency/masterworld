@@ -160,14 +160,14 @@ seoRouter.get([
 
       // 2. Transform Cloudinary URL for the requested icon size
       if (imageUrl.includes('res.cloudinary.com') && imageUrl.includes('/upload/')) {
-        let transforms = 'f_png,q_auto';
+        let transforms = 'f_png,q_100';
         
-        if (reqFilename === 'favicon.ico') transforms = 'w_32,h_32,c_scale,f_ico,q_auto';
-        else if (reqFilename === 'favicon-16x16.png') transforms = 'w_16,h_16,c_scale,f_png,q_auto';
-        else if (reqFilename === 'favicon-32x32.png') transforms = 'w_32,h_32,c_scale,f_png,q_auto';
-        else if (reqFilename === 'apple-touch-icon.png' || reqFilename === 'apple-touch-icon-precomposed.png') transforms = 'w_180,h_180,c_scale,f_png,q_auto';
-        else if (reqFilename === 'android-chrome-192x192.png') transforms = 'w_192,h_192,c_scale,f_png,q_auto';
-        else if (reqFilename === 'android-chrome-512x512.png') transforms = 'w_512,h_512,c_scale,f_png,q_auto';
+        if (reqFilename === 'favicon.ico') transforms = 'w_64,h_64,c_fit,f_ico,q_100';
+        else if (reqFilename === 'favicon-16x16.png') transforms = 'w_32,h_32,c_fit,f_png,q_100';
+        else if (reqFilename === 'favicon-32x32.png') transforms = 'w_128,h_128,c_fit,f_png,q_100';
+        else if (reqFilename === 'apple-touch-icon.png' || reqFilename === 'apple-touch-icon-precomposed.png') transforms = 'w_256,h_256,c_fit,f_png,q_100';
+        else if (reqFilename === 'android-chrome-192x192.png') transforms = 'w_256,h_256,c_fit,f_png,q_100';
+        else if (reqFilename === 'android-chrome-512x512.png' || reqFilename === 'logo.png') transforms = 'w_512,h_512,c_fit,f_png,q_100';
 
         const uploadIndex = imageUrl.indexOf('/upload/');
         const prefix = imageUrl.substring(0, uploadIndex + 8);
