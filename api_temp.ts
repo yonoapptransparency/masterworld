@@ -29,8 +29,19 @@ import { securityRouter } from './src/server/routes/securityRoutes';
 
   app.use(compression());
   app.use(cookieParser());
+
+  const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+    : ['http://localhost:3000', 'https://rummydex.com', 'https://www.rummydex.com'];
+
   app.use(cors({
-    origin: true,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
   }));
 
