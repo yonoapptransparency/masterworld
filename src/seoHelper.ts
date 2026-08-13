@@ -703,9 +703,11 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     <link data-rh="true" rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link data-rh="true" rel="preconnect" href="https://res.cloudinary.com" crossorigin>
     <link data-rh="true" rel="canonical" href="${canonicalUrl}">
-    <link data-rh="true" rel="icon" type="image/x-icon" href="${faviconUrl.includes('res.cloudinary.com') ? faviconUrl.replace(/\/upload\/([^\/]+)\//, '/upload/w_32,h_32,c_fill,f_ico,q_auto/') : faviconUrl}">
-    <link data-rh="true" rel="icon" type="image/png" sizes="32x32" href="${faviconUrl.includes('res.cloudinary.com') ? faviconUrl.replace(/\/upload\/([^\/]+)\//, '/upload/w_32,h_32,c_fill,f_png,q_auto/') : faviconUrl}">
-    <link data-rh="true" rel="apple-touch-icon" sizes="180x180" href="${faviconUrl.includes('res.cloudinary.com') ? faviconUrl.replace(/\/upload\/([^\/]+)\//, '/upload/w_180,h_180,c_fill,f_png,q_auto/') : faviconUrl}">
+    <link data-rh="true" rel="shortcut icon" href="${faviconUrl && faviconUrl.startsWith('http') && !faviconUrl.startsWith('data:') ? (faviconUrl.includes('res.cloudinary.com') ? faviconUrl.replace(/\/upload\/([^\/]+)\//, '/upload/w_32,h_32,c_fill,f_ico,q_auto/') : faviconUrl) : '/favicon.ico'}">
+    <link data-rh="true" rel="icon" type="image/x-icon" href="${faviconUrl && faviconUrl.startsWith('http') && !faviconUrl.startsWith('data:') ? (faviconUrl.includes('res.cloudinary.com') ? faviconUrl.replace(/\/upload\/([^\/]+)\//, '/upload/w_32,h_32,c_fill,f_ico,q_auto/') : faviconUrl) : '/favicon.ico'}">
+    <link data-rh="true" rel="icon" type="image/png" sizes="32x32" href="${faviconUrl && faviconUrl.startsWith('http') && !faviconUrl.startsWith('data:') ? (faviconUrl.includes('res.cloudinary.com') ? faviconUrl.replace(/\/upload\/([^\/]+)\//, '/upload/w_32,h_32,c_fill,f_png,q_auto/') : faviconUrl) : '/favicon-32x32.png'}">
+    <link data-rh="true" rel="icon" type="image/png" sizes="192x192" href="${faviconUrl && faviconUrl.startsWith('http') && !faviconUrl.startsWith('data:') ? (faviconUrl.includes('res.cloudinary.com') ? faviconUrl.replace(/\/upload\/([^\/]+)\//, '/upload/w_192,h_192,c_fill,f_png,q_auto/') : faviconUrl) : '/android-chrome-192x192.png'}">
+    <link data-rh="true" rel="apple-touch-icon" sizes="180x180" href="${faviconUrl && faviconUrl.startsWith('http') && !faviconUrl.startsWith('data:') ? (faviconUrl.includes('res.cloudinary.com') ? faviconUrl.replace(/\/upload\/([^\/]+)\//, '/upload/w_180,h_180,c_fill,f_png,q_auto/') : faviconUrl) : '/apple-touch-icon.png'}">
     ${jsonLdSchema}
   `;
 

@@ -37,21 +37,32 @@ const Meta: React.FC<MetaProps> = ({
   
   const rawImage = image || settings?.logo_url || settings?.favicon_url || 'https://res.cloudinary.com/diewalae4/image/upload/v1786556304/1000134161_11zon_fgqzz6.png';
   const metaImage = getOgImageUrl(rawImage, typeof window !== 'undefined' ? window.location.origin : 'https://www.rummydex.com');
-  const favIconUrl = settings?.favicon_url || settings?.logo_url || 'https://res.cloudinary.com/diewalae4/image/upload/v1786556304/1000134161_11zon_fgqzz6.png';
+  const favIconUrl = settings?.favicon_url || settings?.logo_url || '';
+  const isHttpUrl = favIconUrl && favIconUrl.startsWith('http') && !favIconUrl.startsWith('data:');
+
+  const iconIcoHref = isHttpUrl ? favIconUrl : '/favicon.ico';
+  const icon32Href = isHttpUrl ? favIconUrl : '/favicon-32x32.png';
+  const icon192Href = isHttpUrl ? favIconUrl : '/android-chrome-192x192.png';
+  const appleIconHref = isHttpUrl ? favIconUrl : '/apple-touch-icon.png';
   
   const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/';
   const canonicalUrl = getCleanCanonicalUrl(canonical || url, currentPath);
   const metaUrl = getCleanCanonicalUrl(url || canonical, currentPath);
 
   React.useEffect(() => {
-    if (typeof document !== 'undefined' && favIconUrl) {
-      const activeFavicon = (favIconUrl.startsWith('data:') || favIconUrl.startsWith('http')) ? favIconUrl : '/favicon.ico';
+    if (typeof document !== 'undefined') {
+      const activeIcon = isHttpUrl ? favIconUrl : '/favicon.ico';
+      const activeApple = isHttpUrl ? favIconUrl : '/apple-touch-icon.png';
       const iconLinks = document.querySelectorAll<HTMLLinkElement>("link[rel*='icon'], link[rel='apple-touch-icon']");
       iconLinks.forEach(link => {
-        link.href = activeFavicon;
+        if (link.rel.includes('apple')) {
+          link.href = activeApple;
+        } else {
+          link.href = activeIcon;
+        }
       });
     }
-  }, [favIconUrl]);
+  }, [favIconUrl, isHttpUrl]);
 
   return (
     <Helmet>
@@ -63,10 +74,12 @@ const Meta: React.FC<MetaProps> = ({
       <meta name="robots" content={noindex ? "noindex, nofollow" : "index, follow, max-image-preview:large"} />
       <link rel="canonical" href={canonicalUrl} />
       
-      {/* Favicons & Mobile Icons */}
-      <link rel="shortcut icon" href={favIconUrl.startsWith('data:') || favIconUrl.startsWith('http') ? favIconUrl : '/favicon.ico'} />
-      <link rel="icon" type="image/x-icon" href={favIconUrl.startsWith('data:') || favIconUrl.startsWith('http') ? favIconUrl : '/favicon.ico'} />
-      <link rel="apple-touch-icon" href={favIconUrl.startsWith('data:') || favIconUrl.startsWith('http') ? favIconUrl : '/apple-touch-icon.png'} />
+      {/* Favicons & Mobile Icons - Google Search & Mobile Chrome compliant */}
+      <link rel="shortcut icon" href={iconIcoHref} />
+      <link rel="icon" type="image/x-icon" href={iconIcoHref} />
+      <link rel="icon" type="image/png" sizes="32x32" href={icon32Href} />
+      <link rel="icon" type="image/png" sizes="192x192" href={icon192Href} />
+      <link rel="apple-touch-icon" sizes="180x180" href={appleIconHref} />
 
       {/* Open Graph / Facebook */}
       <meta property="og:type" content={type} />
