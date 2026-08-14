@@ -91,8 +91,8 @@ export function getOgImageUrl(url?: string, origin = 'https://www.rummydex.com')
   if (!url) return '';
   let absUrl = ensureAbsoluteUrl(url, origin);
   if (absUrl.includes('res.cloudinary.com') && absUrl.includes('/upload/')) {
-    if (!absUrl.includes('f_png') && !absUrl.includes('f_jpg') && !absUrl.includes('f_auto')) {
-      absUrl = absUrl.replace('/upload/', '/upload/f_png,q_100/');
+    if (!absUrl.includes('f_png') && !absUrl.includes('f_jpg') && !absUrl.includes('f_auto') && !absUrl.includes('f_webp')) {
+      absUrl = absUrl.replace('/upload/', '/upload/f_jpg,q_auto,w_1200,h_630,c_fill/');
     }
   }
   return absUrl;

@@ -592,6 +592,18 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   const CLOUDINARY_ICON = 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
   let logoUrl = getField(settings, 'logo_url') || CLOUDINARY_ICON;
   const faviconUrl = getField(settings, 'favicon_url') || CLOUDINARY_ICON;
+  
+  const getFaviconWithSize = (url: string, size: number) => {
+    if (!url) return '';
+    if (url.includes('res.cloudinary.com') && url.includes('/upload/')) {
+      return url.replace('/upload/', `/upload/f_png,q_auto,w_${size},h_${size},c_fill/`);
+    }
+    return url;
+  };
+  const favicon32 = getFaviconWithSize(faviconUrl, 32);
+  const favicon180 = getFaviconWithSize(faviconUrl, 180);
+  const favicon192 = getFaviconWithSize(faviconUrl, 192);
+
   const cleanPath = urlPath.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
   const cleanPathLower = cleanPath.toLowerCase();
 
@@ -842,13 +854,13 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     <link data-rh="true" rel="alternate" type="application/rss+xml" title="RummyDex News" href="/rss.xml">
     <link data-rh="true" rel="image_src" href="${pageOgImage}">
     <link data-rh="true" rel="canonical" href="${canonicalUrl}">
-    <link data-rh="true" rel="shortcut icon" href="${faviconUrl}">
-    <link data-rh="true" rel="icon" type="image/png" href="${faviconUrl}">
-    <link data-rh="true" rel="icon" type="image/png" sizes="32x32" href="${faviconUrl}">
-    <link data-rh="true" rel="icon" type="image/png" sizes="192x192" href="${faviconUrl}">
-    <link data-rh="true" rel="apple-touch-icon" href="${faviconUrl}">
-    <link data-rh="true" rel="apple-touch-icon" sizes="180x180" href="${faviconUrl}">
-    <link data-rh="true" rel="apple-touch-icon-precomposed" href="${faviconUrl}">
+    <link data-rh="true" rel="shortcut icon" href="${favicon32}">
+    <link data-rh="true" rel="icon" type="image/png" href="${favicon32}">
+    <link data-rh="true" rel="icon" type="image/png" sizes="32x32" href="${favicon32}">
+    <link data-rh="true" rel="icon" type="image/png" sizes="192x192" href="${favicon192}">
+    <link data-rh="true" rel="apple-touch-icon" href="${favicon180}">
+    <link data-rh="true" rel="apple-touch-icon" sizes="180x180" href="${favicon180}">
+    <link data-rh="true" rel="apple-touch-icon-precomposed" href="${favicon180}">
     <link data-rh="true" rel="manifest" href="/site.webmanifest">
     ${jsonLdSchema}
   `;
