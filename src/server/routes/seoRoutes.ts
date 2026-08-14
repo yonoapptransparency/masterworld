@@ -98,6 +98,22 @@ seoRouter.get(['/browserconfig.xml'], (req, res) => {
   return res.send(xmlContent);
 });
 
+// 2c. OpenSearch XML route
+seoRouter.get(['/opensearch.xml'], (req, res, next) => {
+  const publicPath = path.join(process.cwd(), 'public', 'opensearch.xml');
+  const distPath = path.join(process.cwd(), 'dist', 'opensearch.xml');
+  const targetPath = fs.existsSync(distPath) ? distPath : (fs.existsSync(publicPath) ? publicPath : null);
+
+  if (targetPath) {
+    res.set({
+      'Content-Type': 'application/opensearchdescription+xml; charset=utf-8',
+      'Cache-Control': 'public, max-age=86400'
+    });
+    return res.sendFile(targetPath);
+  }
+  return next();
+});
+
 // 3. Favicon & Logo route with dynamic admin priority and local fallback
 seoRouter.get([
   '/favicon.ico',

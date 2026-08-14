@@ -7,7 +7,7 @@ import { rateLimit, isSuspiciousClient, getIp, ensureSession, nonceStore, genera
 import { vaultNode } from '../../lib/vaultNode';
 import { ENCRYPTED_LINKS } from '../../lib/secureVault';
 import { getStaticData } from '../config';
-import { fetchStoreData } from '../../seoHelper';
+import { fetchStoreData, resolveAppSlug } from '../../seoHelper';
 
 export const publicApiRouter = express.Router();
 
@@ -96,11 +96,40 @@ export function clearPublicBackupCache() {
   backupDataCacheTime = 0;
 }
 
-publicApiRouter.options(["/api/v1/public/reviews", "/api/v1/public/backup-data"], (req, res) => {
+publicApiRouter.options(["/api/v1/public/reviews", "/api/v1/public/backup-data", "/api/v1/public/app/:slug"], (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   return res.sendStatus(200);
+});
+
+// Dedicated single-app detail endpoint (Returns rich breakdown for ONLY the requested app)
+publicApiRouter.get(["/api/v1/public/app/:slug", "/api/public/app/:slug"], async (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.set("Cache-Control", "public, max-age=60, stale-while-revalidate=120");
+
+  const rawSlug = req.params.slug;
+  if (!rawSlug) {
+    return res.status(400).json({ status: "ERR", msg: "Missing app identifier" });
+  }
+
+  try {
+    const storeData = await fetchStoreData();
+    const appsList = storeData?.apps || [];
+    const app = resolveAppSlug(rawSlug, appsList);
+
+    if (!app) {
+      return res.status(404).json({ status: "ERR", msg: "App not found" });
+    }
+
+    return res.json({
+      status: "OK",
+      app: app
+    });
+  } catch (err: any) {
+    console.error("[SingleAppApi] Error fetching app details for slug:", rawSlug, err);
+    return res.status(500).json({ status: "ERR", msg: "Internal server error" });
+  }
 });
 
 publicApiRouter.get(["/api/v1/public/reviews", "/api/public/reviews"], async (req, res) => {
@@ -108,6 +137,36 @@ publicApiRouter.get(["/api/v1/public/reviews", "/api/public/reviews"], async (re
   res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=120");
   return res.json([]);
 });
+
+function trimAppsForCatalog(appsList: any[]) {
+  if (!Array.isArray(appsList)) return [];
+  return appsList.map((app: any) => ({
+    id: app.id,
+    name: app.name,
+    slug: app.slug,
+    icon_url: app.icon_url,
+    og_image_url: app.og_image_url,
+    rating: app.rating,
+    category: app.category,
+    is_new: app.is_new,
+    is_hot: app.is_hot,
+    file_size: app.file_size,
+    developer: app.developer,
+    safety_status: app.safety_status,
+    updated_at: app.updated_at,
+    serial_number: app.serial_number,
+    is_coming_soon: app.is_coming_soon,
+    publish_date: app.publish_date,
+    version: app.version,
+    url: app.url,
+    encrypted_link: app.encrypted_link,
+    yellow_box_msg: app.yellow_box_msg,
+    red_box_msg: app.red_box_msg,
+    idea_box_msg: app.idea_box_msg,
+    seo_description: app.seo_description,
+    seo_keywords: app.seo_keywords
+  }));
+}
 
 publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/public/backup-data", "/public/backup-data"], async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -123,7 +182,7 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
       try {
         const backup = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
         const data = {
-          apps: backup.apps || [],
+          apps: trimAppsForCatalog(backup.apps || []),
           settings: backup.settings || {},
           news: backup.news || [],
           blogs: backup.blogs || [],
@@ -137,7 +196,7 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
 
     const dataObj = getStaticData();
     const validatedData = {
-      apps: dataObj.mockApps || [],
+      apps: trimAppsForCatalog(dataObj.mockApps || []),
       settings: dataObj.mockSettings || {},
       news: dataObj.mockNews || [],
       blogs: dataObj.mockBlogs || [],
@@ -149,7 +208,7 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
   } catch (err: any) {
     const dataObj = getStaticData();
     return res.status(200).json({
-      apps: dataObj.mockApps || [],
+      apps: trimAppsForCatalog(dataObj.mockApps || []),
       settings: dataObj.mockSettings || {},
       news: dataObj.mockNews || [],
       blogs: dataObj.mockBlogs || [],

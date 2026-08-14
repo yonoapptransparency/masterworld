@@ -1,119 +1,183 @@
-# Project Instructions: Yono Transparency Single-Target Sync System
+# Project Architecture & Developer Guide: RummyDex Transparency System
 
-## Core Architecture
-This repository acts as the **Source of Truth**. It uses a GitHub Actions workflow (`.github/workflows/split-sync.yml`) to automatically split, clean, and synchronize code directly to the public website:
+This repository serves as the **Source of Truth** for **RummyDex** ([https://www.rummydex.com](https://www.rummydex.com)), an all-in-one transparency platform, app store catalog, news portal, and review hub for Rummy, Teen Patti, Yono, and casual card/arcade applications.
 
-1.  **Dex (Public)**: A public repository containing only the user-facing website. All sensitive admin files and backend scripts are **automatically removed** during the sync process to guarantee security.
+---
 
-**Note on Admin (Masterworld)**: The admin repository (`masterworld`) is **INCLUDED** in the automated sync process. It is managed as a standalone "Admin Control" environment. All public-facing website pages and components are **automatically removed** during the sync process to keep the admin interface clean and focused.
+## 1. Core System Architecture
 
-## Critical Sync Rules
-When adding new files or features, you MUST follow these rules to maintain security and repo isolation:
+- **Platform Architecture**: Full-Stack Single Page Application (SPA) powered by Express.js (`server.ts`) and React 18 with Vite and TypeScript.
+- **Server Environment**: Runs an Express backend on port `3000` (0.0.0.0) that handles API requests, Turnstile anti-bot checks, dynamic SEO meta tag pre-rendering, XML sitemaps, RSS feeds, and static file serving.
+- **Database & Storage**:
+  - **Primary**: Cloud Firestore project (`ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a`, Database ID `(default)`).
+  - **Collections**: `store_data` (documents: `apps_chunk_0`, `apps_chunk_1`, `settings`, `news`, `blogs`, `videos`, `quick_links`, `faqs`, `developers`, `secure_links`).
+  - **Static High-Availability Fallback**: `/src/lib/staticData.json` guarantees 100% website uptime if Firestore is offline or rate-limited.
+- **Build & Execution Scripts**:
+  - **Dev Server**: `npm run dev` (`tsx server.ts` running on port 3000)
+  - **Production Build**: `npm run build` (`vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs`)
+  - **Production Start**: `npm run start` (`node dist/server.cjs`)
 
-### Admin-Only Files (Stripped from Public Dex)
-The following files and directories must **NEVER** exist in the `Dex` (Public) repository. They are defined in the `ADMIN_ONLY_FILES` list within `split-sync.yml`:
-- **Pages**: `src/pages/AdminDashboard.tsx`, `src/pages/AdminLogin.tsx`.
-- **Components**: `src/components/AdminLogin.tsx`, `src/components/NewsTab.tsx`, `src/components/SecurityTab.tsx`, `src/components/FirebaseStatusPanel.tsx`.
-- **Services/Lib**: `src/services/adminAuthService.ts`, `src/lib/githubSync.ts`, `src/lib/totp.ts`, `src/lib/secureVault.ts`, `src/lib/secureStorage.ts`.
-- **Data Backups**: `src/lib/secure_links_backup.json`, `src/lib/public_backup.json`.
-- **Backend/Config**: `api/`, `server.ts`, `firebase.json`, `firestore.rules`, `.firebaserc`, `vercel.json`.
-- **Maintenance**: All root-level `.ts` and `.js` scripts (e.g., `fix-*.ts`, `test-*.ts`, `verify-*.js`) and the `scripts/` directory.
+---
 
-### Public-Only Files (Stripped from Admin Masterworld)
-The following files and directories are **EXCLUDED** from the `Masterworld` (Admin) repository to prevent bloat:
-- **Pages**: All user-facing pages like `Home.tsx`, `AppDetails.tsx`, `Blogs.tsx`, etc.
-- **Components**: Public UI elements like `Ticker.tsx`, `PublicChatbot.tsx`, `StarRatingFeedback.tsx`, etc.
-- **Assets**: The entire `public/` directory (static assets for the main site).
+## 2. Dual-Repo Automated Split-Sync System (`.github/workflows/split-sync.yml`)
 
-### Adding New Features
-If you create a new component or page:
-1.  Add the file to the project as usual.
-2.  **If Admin-Only**: Update `ADMIN_ONLY_FILES` in `split-sync.yml`.
-3.  **If Public-Only**: Update `PUBLIC_ONLY_FILES` in `split-sync.yml`.
+This monorepo automatically splits and synchronizes changes to two isolated external GitHub repositories on every push to `main`:
 
-## Security & Routing
-- The admin dashboard path is dynamic and should be handled with care in `src/App.tsx`.
-- Use `lazyWithRetry` for admin components to keep the main bundle clean.
-- Ensure any new API routes added to the Express server (`server.ts`) are properly protected.
+1. **Dex Repository (Public Site)**: Public website repo (`www.rummydex.com`). All admin components, backend authentication routes, vault keys, and internal scripts are **automatically removed** during sync to guarantee security.
+2. **Masterworld Repository (Admin Control)**: Admin control repo. All user-facing public pages (`Home.tsx`, `AppDetails.tsx`), public UI components, and static assets in `/public/` are **automatically removed** during sync to keep the admin interface clean and isolated.
 
-## Modular Server Files & Route Architecture Guide
+### Sync Rules for Adding Files
+When creating new components or pages, maintain repo isolation:
+- **Admin-Only Files**: Add path to `ADMIN_ONLY_FILES` in `.github/workflows/split-sync.yml`.
+- **Public-Only Files**: Add path to `PUBLIC_ONLY_FILES` in `.github/workflows/split-sync.yml`.
 
-Below is a clear, simple list of all newly created server files and sub-routes, along with what each file does:
+---
 
-### 1. Configuration Files
-- **`firebase-applet-config.json`**: Stores the default Firebase Project ID (`ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a`) and Firestore Database ID to prevent database configuration errors.
+## 3. Complete Directory & File Architecture
 
-### 2. Backend Server Routes (`/src/server/routes/`)
-- **`src/server/routes/adminAuthRoutes.ts`**:
-  - **Work**: Handles admin login, 2FA security verification, session logout, password changes, and admin action logging. Keeps authentication logic isolated and secure.
-- **`src/server/routes/adminVaultRoutes.ts`**:
-  - **Work**: Manages secure vault operations including encrypting/decrypting app download links, database link repairs, link backups, and Firebase connection status checks.
-- **`src/server/routes/githubSyncRoutes.ts`**:
-  - **Work**: Manages the GitHub automated split-sync webhooks, synchronization triggers, and status checks between the source repo and the public website.
-- **`src/server/routes/publicApiRoutes.ts`**:
-  - **Work**: Serves public website features including secure download link validation, image proxying, backup data fallbacks, anti-bot challenge nonces, and report submissions.
-- **`src/server/routes/seoRoutes.ts`**:
-  - **Work**: Generates dynamic SEO files (`sitemap.xml`, `robots.txt`, RSS feeds, open-search) for apps, news, blogs, and videos to boost search engine indexing.
+```
+/
+├── server.ts                             # Main Express server entrypoint (API routes, static serving, rate limiting)
+├── index.html                            # Primary HTML template with SEO placeholder tags
+├── package.json                          # Dependencies & scripts (dev, build, start, lint)
+├── vite.config.ts                        # Vite bundler configuration
+├── firebase-applet-config.json           # Firebase Project & Database credentials
+├── .github/workflows/split-sync.yml      # Dual-repo automated split & sync pipeline
+│
+├── public/                               # Static Public Assets
+│   ├── favicon.ico / logo.png            # Branding & favicons
+│   ├── site.webmanifest                  # Web App Manifest
+│   ├── robots.txt / opensearch.xml       # Search Engine Indexing configs
+│
+├── src/
+│   ├── main.tsx                          # React DOM client entrypoint
+│   ├── App.tsx                           # Master App router (Public + Dynamic Admin Lazy Route)
+│   ├── AppPublic.tsx                     # Main Public Layout router (Header, Pages, Footer, Navigation)
+│   ├── seoHelper.ts                      # Server-side HTML injection, OpenGraph meta tags, INITIAL_DATA payload trimmer
+│   ├── types.ts                          # Global TypeScript interfaces & types
+│
+│   ├── seo/                              # SEO Helper Utilities
+│   │   └── utils.ts                      # URL formatters, OpenGraph image resolvers, Cloudinary optimizer
+│
+│   ├── server/                           # Backend Server Modules & API Routers
+│   │   ├── firebase.ts                   # Server-side Firebase Admin REST SDK initializer
+│   │   ├── security.ts                   # Cloudflare Turnstile anti-bot verification & link nonces
+│   │   ├── middleware/adminAuth.ts       # Admin JWT & Audit Logging middleware
+│   │   └── routes/
+│   │       ├── adminAuthRoutes.ts        # Admin login, 2FA/TOTP verification, logout, session management
+│   │       ├── adminVaultRoutes.ts       # Secure link vault encryption, decryption, DB repair, backups
+│   │       ├── githubSyncRoutes.ts       # Split-sync webhooks and manual triggers
+│   │       ├── publicApiRoutes.ts        # Public APIs (Download link decryption, reviews, feedback, reports)
+│   │       └── seoRoutes.ts              # Dynamic sitemap.xml, rss.xml, robots.txt, opensearch.xml generators
+│
+│   ├── contexts/                         # React State Management
+│   │   └── DataContextPublic.tsx         # Public context (apps catalog, settings, news, search, filters)
+│
+│   ├── pages/                            # Page Components
+│   │   ├── Home.tsx                      # Primary catalog homepage (Featured banners, categories, search)
+│   │   ├── AppDetails.tsx                # App details view (Deep-link auto-sync, safety alerts, specs, reviews)
+│   │   ├── Blogs.tsx / BlogDetail.tsx    # Strategy blogs & articles
+│   │   ├── NewsPage.tsx                  # Latest industry news & announcements
+│   │   ├── VideosPage.tsx                # Media & gameplay video gallery
+│   │   ├── DevelopersPage.tsx            # Developer profile directory
+│   │   ├── Contact.tsx / AboutPage.tsx   # Contact forms & transparency details
+│   │   ├── LegalPage.tsx                 # Dynamic legal & terms pages
+│   │   ├── AdminDashboard.tsx            # Admin Control Panel (Admin only)
+│   │   └── AdminLogin.tsx                # Admin Authentication Portal (Admin only)
+│   │
+│   ├── components/
+│   │   ├── public/                       # Modular Public UI Components
+│   │   │   ├── PublicHeader.tsx          # Main top navigation header with live search & categories
+│   │   │   ├── PublicFooter.tsx          # Site footer with dynamic SEO links & copyright
+│   │   │   ├── PublicBottomNav.tsx       # Floating mobile bottom navigation bar
+│   │   │   ├── PublicBackToTop.tsx       # Scroll-to-top floating control
+│   │   │   ├── AppHeader.tsx             # App details hero header (Icon, developer, download button)
+│   │   │   ├── AppSpecsBar.tsx           # Quick metric bar (Rating, Size, Version, Category)
+│   │   │   ├── AppSafetyBoxes.tsx        # Security, warning, and idea callout notices
+│   │   │   ├── AppAboutSection.tsx       # Sanitized HTML app description & feature lists
+│   │   │   ├── AppScreenshots.tsx        # Interactive screenshot gallery modal
+│   │   │   ├── ReviewScoreSummary.tsx    # Rating breakdown & star distribution widget
+│   │   │   ├── ReviewItem.tsx            # Individual review card with voting & reporting
+│   │   │   ├── ReviewForm.tsx            # User star rating & review submission form
+│   │   │   ├── YouTubePlayer.tsx         # Embedded YouTube video player component
+│   │   │   ├── NewAdditions.tsx          # Newly added apps ticker component
+│   │   │   ├── PublicChatbot.tsx         # Interactive AI assistant widget
+│   │   │   └── StarRatingFeedback.tsx    # Site rating floating widget
+│   │   │
+│   │   ├── playstore/                    # Google Play Store Design System Components
+│   │   │   ├── AppListItems.tsx          # Responsive app list cards with Cloudinary auto-optimization
+│   │   │   ├── FeaturedBanner.tsx        # Featured top app hero banner
+│   │   │   ├── PlayStoreCategoryRow.tsx  # Horizontal scrolling category app row
+│   │   │   └── PlayStoreUI.tsx           # Full Play Store styled catalog view
+│   │   │
+│   │   └── admin/                        # Admin Dashboard UI Components (Admin only)
+│   │       ├── AdminSidebar.tsx          # Dashboard navigation sidebar
+│   │       ├── AdminTabContent.tsx       # Module tab content manager
+│   │       ├── AdminAppsTab.tsx          # Catalog management view
+│   │       ├── AdminNewsTab.tsx          # News management view
+│   │       ├── AdminBlogsTab.tsx         # Blog management view
+│   │       ├── AdminVideosTab.tsx        # Video management view
+│   │       ├── AdminQuickLinksTab.tsx    # Quick links editor
+│   │       ├── AdminWebsiteFaqsTab.tsx   # FAQ manager
+│   │       ├── AdminDevelopersTab.tsx    # Developer profiles manager
+│   │       ├── AdminSettingsTab.tsx      # Global settings editor
+│   │       ├── AppInspector.tsx          # Read-only configuration inspector
+│   │       ├── AppForm.tsx               # App editor with modular form sections
+│   │       └── apps/sections/            # Modular App Form Sections (General, SEO, Content, Alerts)
+│   │
+│   ├── hooks/                            # Custom React Hooks
+│   │   ├── useAdminAuth.ts               # Admin session & 2FA state manager
+│   │   ├── useAdminApps.ts               # Admin catalog & vault sync hook
+│   │   ├── useAdminSettings.ts           # Admin global settings CRUD hook
+│   │   ├── useAppFilters.ts              # Catalog search, filter, and sorting logic
+│   │   ├── useAppForm.ts                 # App editor state manager
+│   │   ├── useReviews.ts                 # User reviews fetcher and submitter
+│   │   ├── useGitHubSync.ts              # Split-sync trigger hook
+│   │   └── useSEO.ts                     # Client-side dynamic title & meta tag manager
+│   │
+│   └── lib/                              # Core Utility Libraries & Data Backups
+│       ├── staticData.json               # Full high-availability fallback dataset
+│       ├── utilsPublic.ts / utils.ts     # Styling helpers (cn, safeVibrate)
+│       ├── secureVault.ts                # AES Link Encryption / Decryption engine
+│       ├── secureStorage.ts              # Encrypted local storage wrapper
+│       ├── totp.ts                       # 2FA Time-based One-Time Password generator & validator
+│       └── lazyWithRetry.ts              # Network fault-tolerant dynamic import wrapper
+```
 
-### 3. Modular Admin UI Components (`src/components/admin/`)
-- **`src/components/admin/AdminSidebar.tsx`**:
-  - **Work**: The primary vertical navigation sidebar for the admin dashboard, handling tab switching and branding.
-- **`src/components/admin/AdminTabContent.tsx`**:
-  - **Work**: The central layout router for the dashboard that renders specific tab modules (Apps, News, Settings, etc.) based on user navigation.
-- **`src/components/admin/AdminQuickLinksTab.tsx`**:
-  - **Work**: Encapsulates the Quick Links management interface inside the Admin Dashboard.
-- **`src/components/admin/AdminWebsiteFaqsTab.tsx`**:
-  - **Work**: Encapsulates the global Website FAQ management interface inside the Admin Dashboard.
-- **`src/components/admin/AdminDevelopersTab.tsx`**:
-  - **Work**: Encapsulates the Developer Profiles management interface inside the Admin Dashboard.
-- **`src/components/admin/apps/AppInspector.tsx`**:
-  - **Work**: Detailed read-only configuration viewer for applications, allowing admins to verify settings before editing.
-- **`src/components/admin/apps/AppForm.tsx`**:
-  - **Work**: The main application editor interface, utilizing modular form sections for scalable management.
-- **`src/components/admin/apps/sections/`**:
-  - **Work**: Directory containing modularized form sections: `GeneralSection.tsx`, `SEOSection.tsx`, `ContentSection.tsx`, and `AlertsSection.tsx`.
-- **`src/components/admin/FaqEditor.tsx`**:
-  - **Work**: Sub-component for editing individual application FAQs inside the Apps module.
-- **`src/components/admin/ScreenshotsEditor.tsx`**:
-  - **Work**: Sub-component for managing screenshot gallery links inside the Apps module.
+---
 
-### 4. Modular Public UI Components (`src/components/public/`)
-- **`src/components/public/PublicHeader.tsx`**:
-  - **Work**: Public website navigation header component extracted from `AppPublic.tsx`.
-- **`src/components/public/PublicFooter.tsx`**:
-  - **Work**: Public website footer component extracted from `AppPublic.tsx`.
-- **`src/components/public/PublicBottomNav.tsx`**:
-  - **Work**: Floating mobile navigation bar component extracted from `AppPublic.tsx`.
-- **`src/components/public/PublicBackToTop.tsx`**:
-  - **Work**: Smooth scroll-to-top floating button component extracted from `AppPublic.tsx`.
-- **`src/components/public/AppDetailsSkeleton.tsx`**:
-  - **Work**: Loading skeleton UI placeholder for the application details page.
-- **`src/components/public/YouTubePlayer.tsx`**:
-  - **Work**: Interactive YouTube video embed and preview player component for app media galleries.
-- **`src/components/public/AppSafetyBoxes.tsx`**:
-  - **Work**: Alert, warning, and idea notice callout banners for application details pages.
-- **`src/components/public/AppSpecsBar.tsx`**:
-  - **Work**: Key app metrics bar displaying rating, file size, category, and version details.
-- **`src/components/public/ReviewScoreSummary.tsx`**:
-  - **Work**: Overall rating breakdown and star distribution summary widget.
-- **`src/components/public/ReviewItem.tsx`**:
-  - **Work**: Individual user review card with voting, report actions, and expandable text.
+## 4. Key Performance & Optimization Rules
 
-### 5. Server Core Files
-- **`server.ts`**:
-  - **Work**: The main Express backend server entry point. Connects all sub-routers, handles rate limiting, security headers, and static file serving.
-- **`src/server/firebase.ts`**:
-  - **Work**: Initializes the server-side Firebase Admin SDK with automatic fallback configuration to prevent database server crashes.
+To maintain maximum Google Search Console indexing, 100% PageSpeed Scores, and instantaneous mobile loading, **ALWAYS** follow these performance rules:
 
-### 6. Admin Business Logic Hooks (`src/hooks/`)
-- **`src/hooks/useAdminAuth.ts`**:
-  - **Work**: Manages admin session lifecycle, auto-logout on inactivity, and secure authentication state.
-- **`src/hooks/useAdminApps.ts`**:
-  - **Work**: Centralizes application catalog management, including Firebase fetching and secure link synchronization with the vault.
-- **`src/hooks/useAdminSettings.ts`**:
-  - **Work**: Shared state manager for global website settings, news, banners, and developer profiles with built-in CRUD handlers.
-- **`src/hooks/useAppFilters.ts`**:
-  - **Work**: Encapsulates complex search, filtering, and sorting logic for the large application catalog.
-- **`src/hooks/useAppForm.ts`**:
-  - **Work**: Manages the state and validation of the multifaceted application creation and edit forms.
+1. **Cloudinary Automatic Image Optimization**:
+   - Never render raw Cloudinary URLs directly without optimization.
+   - Always wrap Cloudinary URLs in `getOptimizedImageUrl(url, width)` (defined in `src/seo/utils.ts`).
+   - This automatically injects `/upload/f_auto,q_auto,w_<width>/`, reducing average icon size from **~370 KB to ~6 KB** (an 85%+ payload reduction).
 
+2. **Server HTML Pre-Rendering Payload Control**:
+   - `src/seoHelper.ts` pre-renders initial page HTML for Googlebot and populates `window.__INITIAL_DATA__`.
+   - **Critical**: Never dump large HTML strings (`description_html`, `features_html`, etc.) for all 230+ apps into `window.__INITIAL_DATA__` on index pages. `seoHelper.ts` strips `description_html` for non-target app items on list pages, keeping the initial HTML payload under **~100 KB**.
+   - If a user navigates directly to a deep app link (`/app/:slug`), `AppDetails.tsx` automatically detects missing details and fetches full item details smoothly in the background.
+
+3. **No Speculation Rules Script**:
+   - Do **NOT** insert `<script type="speculationrules">` into `index.html`. Synthetic testing tools (Pingdom, Lighthouse, Googlebot headless renderers) cancel background prefetch requests, triggering false `4xx / aborted` network error reports.
+
+4. **Lazy Loading & Code Splitting**:
+   - Use `lazyWithRetry()` for admin views and heavy page modules to keep the core user-facing JavaScript bundle lightweight.
+
+---
+
+## 5. Security & Link Protection Engine
+
+- All app download links are encrypted inside the **Secure Link Vault**.
+- Public clients request secure download links via `/api/v1/public/secure-link` using Turnstile anti-bot nonces to prevent scraper bots from hijacking download links.
+- Admin routes require TOTP 2FA verification (`totp.ts`) and JWT bearer tokens (`adminAuthRoutes.ts`). Audit logs are written to Firestore for all administrative actions.
+
+---
+
+## 6. How to Extend & Maintain the Application
+
+- **Adding a New App**: Manage via the Admin Dashboard or update `src/lib/staticData.json`.
+- **Modifying Backend API Routes**: Add new express endpoints under `/src/server/routes/` and mount them in `server.ts`.
+- **Verifying Builds**: Run `npm run build` and `npm run lint` before committing to ensure TypeScript compilation succeeds without errors.

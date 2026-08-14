@@ -17,7 +17,6 @@ body {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   -webkit-tap-highlight-color: transparent;
-  transform: translateZ(0);
 }
 
 a {

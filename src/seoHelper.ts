@@ -144,7 +144,7 @@ function cleanSeoDescription(desc: string): string {
 }
 
 async function getPagePreRender(urlPath: string, data: any): Promise<string> {
-  const { apps = [], settings = {}, news = [], videos = [] } = data || {};
+  const { apps = [], settings = {}, news = [], blogs = [], videos = [], developers = [] } = data || {};
   const cleanPath = urlPath.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
   const cleanPathLower = cleanPath.toLowerCase();
 
@@ -173,12 +173,21 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
     const slug = cleanPath.split('/news/')[1];
     const item = news.find((n: any) => getField(n, 'slug').toLowerCase() === slug.toLowerCase());
     bodyContent = item ? renderers.renderNewsDetail(slug, news, settings) : renderers.render404(urlPath, settings);
+  } else if (cleanPathLower === '/blogs') {
+    bodyContent = renderers.renderBlogsList(blogs, settings);
+  } else if (cleanPathLower.startsWith('/blog/') || cleanPathLower.startsWith('/blogs/') || cleanPathLower.startsWith('/article/')) {
+    const parts = cleanPath.split('/');
+    const slug = parts[parts.length - 1];
+    const item = (blogs || []).find((b: any) => getField(b, 'slug')?.toLowerCase() === slug.toLowerCase() || getField(b, 'id')?.toLowerCase() === slug.toLowerCase());
+    bodyContent = item ? renderers.renderBlogDetail(slug, blogs, settings) : renderers.render404(urlPath, settings);
   } else if (cleanPathLower === '/videos') {
     bodyContent = renderers.renderVideosList(videos, settings);
   } else if (cleanPathLower.startsWith('/videos/')) {
     const slug = cleanPath.split('/videos/')[1];
     const item = videos.find((v: any) => getField(v, 'slug').toLowerCase() === slug.toLowerCase());
     bodyContent = item ? renderers.renderVideoDetail(slug, videos, settings) : renderers.render404(urlPath, settings);
+  } else if (cleanPathLower === '/developers') {
+    bodyContent = renderers.renderDevelopersList(developers, settings);
   } else if (cleanPathLower === '/about') {
     bodyContent = renderers.renderAbout(settings);
   } else if (cleanPathLower === '/contact') {
@@ -206,12 +215,15 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
     const possibleSlug = cleanPathLower.replace(/^\/app\//, '/').replace(/^\/|\/$/g, '');
     const app = apps.find((a: any) => getField(a, 'slug')?.toLowerCase() === possibleSlug);
     const newsItem = news.find((n: any) => getField(n, 'slug')?.toLowerCase() === possibleSlug);
+    const blogItem = (blogs || []).find((b: any) => getField(b, 'slug')?.toLowerCase() === possibleSlug || getField(b, 'id')?.toLowerCase() === possibleSlug);
     const videoItem = videos.find((v: any) => getField(v, 'slug')?.toLowerCase() === possibleSlug);
 
     if (app) {
       bodyContent = renderers.renderAppDetails(possibleSlug, apps, settings);
     } else if (newsItem) {
       bodyContent = renderers.renderNewsDetail(possibleSlug, news, settings);
+    } else if (blogItem) {
+      bodyContent = renderers.renderBlogDetail(possibleSlug, blogs, settings);
     } else if (videoItem) {
       bodyContent = renderers.renderVideoDetail(possibleSlug, videos, settings);
     } else {
@@ -234,7 +246,7 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
 }
 
 function buildJsonLdSchema(params: {
-  pageType: 'home' | 'app' | 'news' | 'video' | 'static' | '404';
+  pageType: 'home' | 'app' | 'news' | 'blog' | 'video' | 'static' | '404';
   title: string;
   description: string;
   url: string;
@@ -242,6 +254,7 @@ function buildJsonLdSchema(params: {
   siteTitle: string;
   app?: any;
   newsItem?: any;
+  blogItem?: any;
   videoItem?: any;
   settings?: any;
 }): string {
@@ -268,6 +281,22 @@ function buildJsonLdSchema(params: {
         }
       }
     });
+
+    if (params.settings?.website_faqs && Array.isArray(params.settings.website_faqs) && params.settings.website_faqs.length > 0) {
+      const faqList = params.settings.website_faqs.map((faq: any) => ({
+        "@type": "Question",
+        "name": getField(faq, 'question'),
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": stripHtml(getField(faq, 'answer'))
+        }
+      }));
+      schemas.push({
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": faqList
+      });
+    }
   }
 
   if (params.pageType === 'app' && params.app) {
@@ -355,6 +384,66 @@ function buildJsonLdSchema(params: {
         "mainEntity": faqList
       });
     }
+  } else if (params.pageType === 'blog' && params.blogItem) {
+    const blog = params.blogItem;
+    const title = getField(blog, 'title');
+    const desc = getField(blog, 'seo_description') || getField(blog, 'description') || getField(blog, 'content', '').substring(0, 160) || params.description;
+    const datePublished = getField(blog, 'publish_date') || getField(blog, 'published_at') || getField(blog, 'created_at') || new Date().toISOString();
+    const authorName = getField(blog, 'author') || params.siteTitle;
+    const cover = getField(blog, 'cover_url') || getField(blog, 'thumbnail_url') || params.logoUrl;
+    const coverUrl = getOgImageUrl(cover, hostOrigin);
+    const blogSlug = getField(blog, 'slug') || getField(blog, 'id');
+
+    schemas.push({
+      "@context": "https://schema.org",
+      "@type": "BlogPosting",
+      "headline": title,
+      "description": desc,
+      "image": [coverUrl],
+      "datePublished": datePublished,
+      "dateModified": datePublished,
+      "author": {
+        "@type": "Person",
+        "name": authorName
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": params.siteTitle,
+        "logo": {
+          "@type": "ImageObject",
+          "url": params.logoUrl
+        }
+      },
+      "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": `${hostOrigin}/blog/${blogSlug}`
+      }
+    });
+
+    schemas.push({
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": hostOrigin
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Guides & Articles",
+          "item": `${hostOrigin}/blogs`
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": title,
+          "item": `${hostOrigin}/blog/${blogSlug}`
+        }
+      ]
+    });
   } else if (params.pageType === 'news' && params.newsItem) {
     const item = params.newsItem;
     const title = getField(item, 'title');
@@ -471,6 +560,10 @@ function buildJsonLdSchema(params: {
 export interface SeoInjectionResult {
   html: string;
   isNotFound: boolean;
+  canonicalUrl?: string;
+  pageType?: string;
+  title?: string;
+  description?: string;
 }
 
 export async function injectSeoTags(template: string, urlPath: string, hostUrl?: string, userAgent: string = ''): Promise<SeoInjectionResult> {
@@ -480,11 +573,13 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   const apps = data.apps || [];
   const settings = data.settings || {};
   const news = data.news || [];
+  const blogs = data.blogs || [];
   const videos = data.videos || [];
-  const siteTitle = getField(settings, 'site_title') || 'Application Store';
+  const developers = data.developers || [];
+  const siteTitle = getField(settings, 'site_title') || 'RummyDex';
   let title = siteTitle;
   let description = getField(settings, 'meta_description', '');
-  if (!description) description = "A premium digital platform for applications and tools.";
+  if (!description) description = "A transparency platform and directory for verified applications.";
   
   let keywords = getField(settings, 'seo_keywords', '');
   if (!keywords) keywords = "app clearance, premium applications, digital tools, platform, tech specs, verified apps";
@@ -502,12 +597,13 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
 
   let isNotFound = false;
   let customCanonicalUrl: string | undefined = undefined;
-  let pageType: 'home' | 'app' | 'news' | 'video' | 'static' | '404' = 'static';
+  let pageType: 'home' | 'app' | 'news' | 'blog' | 'video' | 'static' | '404' = 'static';
   let targetApp: any = null;
   let targetNews: any = null;
+  let targetBlog: any = null;
   let targetVideo: any = null;
 
-  if (cleanPathLower === '/' || cleanPathLower === '') {
+  if (cleanPathLower === '/' || cleanPathLower === '' || cleanPathLower === '/new-apps') {
     pageType = 'home';
   } else if (cleanPathLower.startsWith('/admin') || cleanPathLower.startsWith('/masterworld')) {
     title = `Admin Panel | Masterworld`;
@@ -530,6 +626,24 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     title = `News & Updates | ${siteTitle}`;
     description = `The latest gaming news, reports, and transparency updates.`;
     pageType = 'static';
+  } else if (cleanPathLower === '/blogs') {
+    title = `App Updates & Walkthrough Guides | ${siteTitle}`;
+    description = `Read expert tutorials, gameplay walkthrough guides, and developer release notes.`;
+    pageType = 'static';
+  } else if (cleanPathLower.startsWith('/blog/') || cleanPathLower.startsWith('/blogs/') || cleanPathLower.startsWith('/article/')) {
+    const parts = cleanPath.split('/');
+    const slug = parts[parts.length - 1];
+    const blogItem = (blogs || []).find((b: any) => getField(b, 'slug')?.toLowerCase() === slug.toLowerCase() || getField(b, 'id')?.toLowerCase() === slug.toLowerCase());
+    if (blogItem) {
+      title = getField(blogItem, 'seo_title') || `${getField(blogItem, 'title')} | ${siteTitle}`;
+      description = getField(blogItem, 'seo_description') || getField(blogItem, 'description') || getField(blogItem, 'content', '').substring(0, 160);
+      customCanonicalUrl = getField(blogItem, 'canonical_url');
+      pageType = 'blog';
+      targetBlog = blogItem;
+    } else {
+      isNotFound = true;
+      pageType = '404';
+    }
   } else if (cleanPathLower === '/videos') {
     title = `Video Reviews | ${siteTitle}`;
     description = `Watch deep-dive reviews and gameplay analysis.`;
@@ -589,6 +703,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     const appSlug = cleanPathLower.replace(/^\/app\//, '/').replace(/^\/|\/$/g, '');
     const app = resolveAppSlug(appSlug, apps);
     const newsItem = news.find((n: any) => getField(n, 'slug')?.toLowerCase() === appSlug || getField(n, 'slug')?.toLowerCase() === appSlug.replace(/[-_]+$/g, ''));
+    const blogItem = (blogs || []).find((b: any) => getField(b, 'slug')?.toLowerCase() === appSlug || getField(b, 'id')?.toLowerCase() === appSlug);
     const videoItem = videos.find((v: any) => getField(v, 'slug')?.toLowerCase() === appSlug || getField(v, 'slug')?.toLowerCase() === appSlug.replace(/[-_]+$/g, ''));
 
     if (app) {
@@ -602,6 +717,12 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       description = getField(newsItem, 'description', '').substring(0, 160);
       pageType = 'news';
       targetNews = newsItem;
+    } else if (blogItem) {
+      title = getField(blogItem, 'seo_title') || `${getField(blogItem, 'title')} | ${siteTitle}`;
+      description = getField(blogItem, 'seo_description') || getField(blogItem, 'description') || getField(blogItem, 'content', '').substring(0, 160);
+      customCanonicalUrl = getField(blogItem, 'canonical_url');
+      pageType = 'blog';
+      targetBlog = blogItem;
     } else if (videoItem) {
       title = `${getField(videoItem, 'title')} | ${siteTitle}`;
       description = getField(videoItem, 'description', '').substring(0, 160);
@@ -628,6 +749,11 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     if (appSlug) {
       canonicalPath = `/app/${appSlug.replace(/^\/+|\/+$/g, '')}`;
     }
+  } else if (pageType === 'blog' && targetBlog) {
+    const bSlug = getField(targetBlog, 'slug') || getField(targetBlog, 'id');
+    if (bSlug) {
+      canonicalPath = `/blog/${bSlug.replace(/^\/+|\/+$/g, '')}`;
+    }
   }
 
   const canonicalUrl = getCleanCanonicalUrl(customCanonicalUrl, canonicalPath);
@@ -635,6 +761,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   let pageOgImage = logoUrl;
   if (targetApp) {
     pageOgImage = getField(targetApp, 'og_image_url') || getField(targetApp, 'icon_url') || logoUrl;
+  } else if (targetBlog) {
+    pageOgImage = getField(targetBlog, 'cover_url') || getField(targetBlog, 'thumbnail_url') || logoUrl;
   } else if (targetNews) {
     pageOgImage = getField(targetNews, 'og_image_url') || getField(targetNews, 'logo_url') || getField(targetNews, 'image_url') || logoUrl;
   } else if (targetVideo) {
@@ -666,6 +794,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     siteTitle,
     app: targetApp,
     newsItem: targetNews,
+    blogItem: targetBlog,
     videoItem: targetVideo,
     settings
   });
@@ -685,7 +814,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     <meta data-rh="true" property="og:locale" content="en_IN">
     <meta data-rh="true" property="og:title" content="${title}">
     <meta data-rh="true" property="og:description" content="${description}">
-    <meta data-rh="true" property="og:type" content="website">
+    <meta data-rh="true" property="og:type" content="${pageType === 'blog' || pageType === 'news' ? 'article' : 'website'}">
     <meta data-rh="true" property="og:url" content="${canonicalUrl}">
     <meta data-rh="true" property="og:image" content="${pageOgImage}">
     <meta data-rh="true" property="og:image:secure_url" content="${pageOgImage}">
@@ -712,8 +841,44 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     ${jsonLdSchema}
   `;
 
-  // Provide full initial data object to guarantee all app descriptions, features, and news content are available client-side
-  const initialDataJson = JSON.stringify(data || {}).replace(/</g, '\\u003c');
+  // Optimize initial data payload size by stripping heavy HTML descriptions from non-target apps for ultra-fast page loads
+  let initialDataPayload = data;
+  if (data && Array.isArray(data.apps)) {
+    const targetSlug = targetApp ? getField(targetApp, 'slug')?.toLowerCase() : null;
+    const optimizedApps = data.apps.map((app: any) => {
+      const isTarget = targetSlug && getField(app, 'slug')?.toLowerCase() === targetSlug;
+      if (isTarget) return app; // Keep full details for the target page app
+
+      // Trim heavy HTML strings for list view items
+      return {
+        id: app.id,
+        name: app.name,
+        slug: app.slug,
+        icon_url: app.icon_url,
+        og_image_url: app.og_image_url,
+        rating: app.rating,
+        category: app.category,
+        is_new: app.is_new,
+        file_size: app.file_size,
+        developer: app.developer,
+        safety_status: app.safety_status,
+        updated_at: app.updated_at,
+        serial_number: app.serial_number,
+        is_coming_soon: app.is_coming_soon,
+        version: app.version,
+        url: app.url,
+        encrypted_link: app.encrypted_link,
+        yellow_box_msg: app.yellow_box_msg,
+        red_box_msg: app.red_box_msg,
+        idea_box_msg: app.idea_box_msg,
+        seo_description: app.seo_description,
+        seo_keywords: app.seo_keywords
+      };
+    });
+    initialDataPayload = { ...data, apps: optimizedApps };
+  }
+
+  const initialDataJson = JSON.stringify(initialDataPayload || {}).replace(/</g, '\\u003c');
   const initialDataScript = `<script>window.__INITIAL_DATA__ = ${initialDataJson};</script>`;
 
   // Clean up default static title & meta tags from template without destroying scripts or stylesheets
@@ -734,13 +899,12 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     finalHtml = `${seoTags}\n${initialDataScript}\n${finalHtml}`;
   }
 
-  // Inject pre-rendered body safely inside hidden #seo-prerender container for search crawlers (so visual users directly see the main app without any flash/double load)
-  const prerenderContainer = `<div id="seo-prerender" style="display:none !important; visibility:hidden !important; opacity:0 !important; pointer-events:none !important;" aria-hidden="true" hidden>${preRenderedBody}</div>`;
+  // Inject pre-rendered body directly inside #root for 100% visible, fully crawlable SSR content
   if (finalHtml.includes('<div id="root"></div>')) {
-    finalHtml = finalHtml.replace('<div id="root"></div>', `<div id="root"></div>\n${prerenderContainer}`);
+    finalHtml = finalHtml.replace('<div id="root"></div>', `<div id="root">${preRenderedBody}</div>`);
   } else {
-    finalHtml = finalHtml.replace(/<div\s+id="root"[^>]*>[\s\S]*?<\/div>/i, `<div id="root"></div>\n${prerenderContainer}`);
+    finalHtml = finalHtml.replace(/<div\s+id="root"[^>]*>[\s\S]*?<\/div>/i, `<div id="root">${preRenderedBody}</div>`);
   }
 
-  return { html: finalHtml, isNotFound };
+  return { html: finalHtml, isNotFound, canonicalUrl, pageType, title, description };
 }

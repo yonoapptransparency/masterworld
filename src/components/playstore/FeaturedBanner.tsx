@@ -2,6 +2,7 @@ import React from 'react';
 import { ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '../../lib/utilsPublic';
+import { getOptimizedImageUrl } from '../../seo/utils';
 
 interface BannerProps {
   items: any[];
@@ -54,9 +55,10 @@ export const FeaturedBanner = React.memo(({ items }: BannerProps) => {
                 <img 
                   loading={i === 0 ? "eager" : "lazy"}
                   decoding="async"
+                  {...(i === 0 ? { fetchPriority: "high" as const } : { fetchPriority: "low" as const })}
                   width={800}
                   height={400}
-                  src={item.image || `https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=800&h=400&fit=crop`} 
+                  src={getOptimizedImageUrl(item.image, 800) || `https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=800&h=400&fit=crop`} 
                   className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 pointer-events-none"
                   alt={item.title || "Featured banner"}
                   referrerPolicy="no-referrer"

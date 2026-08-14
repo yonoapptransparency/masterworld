@@ -109,13 +109,12 @@ export const AppListItem = React.memo(({ app, index }: { app: any; index?: numbe
   return (
     <div
       style={{
-        animationDelay: `${((index || 0) % 15) * 15}ms`,
+        animationDelay: `${((index || 0) % 10) * 15}ms`,
       }}
       className={`animate-list-item-fade cv-auto relative group ${isMenuOpen ? 'z-[60]' : 'z-1'}`}
     >
       <Link 
         to={`/app/${app.slug}`}
-        onClick={() => safeVibrate(10)}
         className="flex items-center gap-2.5 sm:gap-4 py-2.5 pl-2 pr-12 sm:pl-4 sm:pr-14 sm:py-3.5 mb-0 sm:mb-2 hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-200 rounded-xl sm:rounded-2xl relative active:bg-black/5 dark:active:bg-white/5 w-full"
       >
         <div className="w-5 sm:w-7 text-[15px] sm:text-[17px] font-black text-zinc-400 dark:text-zinc-500 text-center shrink-0">
@@ -184,13 +183,12 @@ export const TopChartItem = React.memo(({ rank, app }: { rank: number; app: any 
   return (
     <div
       style={{
-        animationDelay: `${(rank % 15) * 15}ms`,
+        animationDelay: `${(rank % 10) * 15}ms`,
       }}
       className={`animate-list-item-fade cv-auto relative group ${isMenuOpen ? 'z-[60]' : 'z-1'}`}
     >
       <Link 
         to={`/app/${app.slug}`}
-        onClick={() => safeVibrate(10)}
         className="flex items-center gap-2.5 sm:gap-4 py-2.5 pl-2 pr-12 sm:pl-4 sm:pr-14 sm:py-3.5 mb-0 sm:mb-2 hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-200 rounded-xl sm:rounded-2xl relative active:bg-black/5 dark:active:bg-white/5 w-full"
       >
         <div className="w-5 sm:w-7 text-[15px] sm:text-[17px] font-black text-zinc-400 dark:text-zinc-500 text-center shrink-0">

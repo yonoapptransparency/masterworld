@@ -224,28 +224,51 @@ async function startServer() {
       const seoResult = await injectSeoTags(template, req.originalUrl, hostUrl, userAgent);
       const html = typeof seoResult === 'string' ? seoResult : (seoResult.html || template);
       const isNotFound = typeof seoResult === 'object' && seoResult ? seoResult.isNotFound : false;
+      const canonicalUrl = typeof seoResult === 'object' && seoResult ? seoResult.canonicalUrl : undefined;
       const statusCode = isNotFound ? 404 : 200;
 
-      let cacheControl = process.env.NODE_ENV !== "production" ? 'no-cache, no-store, must-revalidate' : (isNotFound ? 'no-cache, no-store, must-revalidate' : 'public, max-age=1800');
+      let cacheControl = process.env.NODE_ENV !== "production" ? 'no-cache, no-store, must-revalidate' : (isNotFound ? 'no-cache, no-store, must-revalidate' : 'public, max-age=1800, stale-while-revalidate=86400');
       if (process.env.NODE_ENV === "production") {
-        if (req.originalUrl === '/' || req.originalUrl === '') {
-          cacheControl = 'public, max-age=300';
+        if (req.originalUrl === '/' || req.originalUrl === '' || req.originalUrl === '/new-apps') {
+          cacheControl = 'public, max-age=300, stale-while-revalidate=3600';
+        } else if (req.originalUrl === '/news' || req.originalUrl === '/blogs' || req.originalUrl === '/videos') {
+          cacheControl = 'public, max-age=600, stale-while-revalidate=7200';
         } else if (['/about', '/contact', '/privacy', '/terms', '/ethics', '/disclaimer', '/notice', '/responsibility', '/developers', '/report-removal'].includes(req.originalUrl)) {
-          cacheControl = 'public, max-age=3600';
+          cacheControl = 'public, max-age=3600, stale-while-revalidate=86400';
         }
       }
 
-      res.status(statusCode).set({
-        'Content-Type': 'text/html',
+      const robotsHeader = isNotFound 
+        ? 'noindex, follow' 
+        : ((req.originalUrl.startsWith('/info/') || req.originalUrl.startsWith('/moreinfo/') || req.originalUrl.startsWith('/moredetail/')) 
+            ? 'noindex, follow' 
+            : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1');
+
+      const responseHeaders: Record<string, string> = {
+        'Content-Type': 'text/html; charset=utf-8',
         'Cache-Control': cacheControl,
-        'Pragma': isNotFound ? 'no-cache' : '',
-        'Expires': isNotFound ? '0' : ''
-      }).send(html);
+        'X-Robots-Tag': robotsHeader,
+        'X-Content-Type-Options': 'nosniff',
+        'Referrer-Policy': 'strict-origin-when-cross-origin',
+        'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+        'Vary': 'Accept-Encoding, User-Agent',
+      };
+
+      if (canonicalUrl) {
+        responseHeaders['Link'] = `<${canonicalUrl}>; rel="canonical"`;
+      }
+      if (isNotFound) {
+        responseHeaders['Pragma'] = 'no-cache';
+        responseHeaders['Expires'] = '0';
+      }
+
+      res.status(statusCode).set(responseHeaders).send(html);
     } catch (e) {
       console.error("SEO fallback error in catch-all, serving file as-is:", e);
       res.status(200).set({
-        'Content-Type': 'text/html',
-        'Cache-Control': 'no-cache, no-store, must-revalidate'
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'X-Robots-Tag': 'index, follow'
       }).sendFile(templatePath);
     }
   });

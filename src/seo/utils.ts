@@ -85,9 +85,19 @@ export function getOgImageUrl(url?: string, origin = 'https://www.rummydex.com')
 
 export function getOptimizedImageUrl(url?: string, width = 160): string {
   if (!url) return '';
+  // Cloudinary dynamic optimization
   if (url.includes('res.cloudinary.com') && url.includes('/upload/')) {
-    if (!url.includes('f_auto') && !url.includes('w_')) {
+    // If already has transformation parameters, adjust width if needed or ensure f_auto,q_auto
+    if (!url.includes('/upload/f_auto') && !url.includes('/upload/f_webp')) {
       return url.replace('/upload/', `/upload/f_auto,q_auto,w_${width}/`);
+    } else if (url.includes('w_')) {
+      return url.replace(/w_\d+/, `w_${width}`);
+    }
+  }
+  // Unsplash dynamic optimization
+  if (url.includes('images.unsplash.com')) {
+    if (!url.includes('fm=webp') && !url.includes('auto=format')) {
+      return `${url}${url.includes('?') ? '&' : '?'}auto=format&fit=crop&q=80&w=${width}`;
     }
   }
   return url;
