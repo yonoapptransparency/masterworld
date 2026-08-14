@@ -1,0 +1,3 @@
+## 2026-08-14 - Add aria-label and focus-visible to icon-only buttons
+**Learning:** Found an icon-only button (trash icon for removing categories) lacking an `aria-label` for screen readers and `focus-visible` states for keyboard navigation in `src/components/admin/AdminCategoriesTab.tsx`. Removing default focus outlines (`focus:outline-none`) is bad for accessibility unless a replacement outline (`focus-visible:ring-2`) is provided.
+**Action:** When finding `focus:outline-none` on interactive elements, always ensure there is a corresponding `focus-visible` class to maintain keyboard navigability. Always provide `aria-label`s for icon-only buttons.
