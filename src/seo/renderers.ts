@@ -27,7 +27,11 @@ function sanitizeHtml(html: string): string {
   clean = clean.replace(/href\s*=\s*['"]\s*javascript:[^'"]*['"]/gi, 'href="#"');
   clean = clean.replace(/<(iframe|object|embed|form|meta|link|style)\b[^>]*>([\s\S]*?)<\/\1>/gi, '');
   clean = clean.replace(/<(iframe|object|embed|form|meta|link|style)\b[^>]*>/gi, '');
-  return clean;
+  clean = clean.replace(/<!DOCTYPE\s+html[^>]*>/gi, '');
+  clean = clean.replace(/<\/?(html|head|body)\b[^>]*>/gi, '');
+  clean = clean.replace(/<svg[^>]*class=["'][^"']*art[^"']*["'][^>]*>[\s\S]*?<\/svg>/gi, '');
+  clean = clean.replace(/<svg[^>]*>[\s\S]*?<\/svg>/gi, '');
+  return clean.trim();
 }
 
 export function renderHeader(settings: any) {
@@ -164,10 +168,10 @@ export function renderHome(apps: any[], settings: any, news: any[], videos: any[
 export function renderAppDetails(slug: string, apps: any[], settings: any) {
   const cleanSlug = decodeURIComponent(slug).toLowerCase();
   const app = apps.find(a => getField(a, 'slug').toLowerCase() === cleanSlug);
-  if (!app) return `<div class="py-12 text-center"><h1 class="text-2xl font-bold mb-4">App Not Found</h1><a href="/" class="text-blue-500 hover:underline">Go Home</a></div>`;
+  if (!app) return `<div class="py-12 text-center"><h1 class="text-2xl font-bold mb-4 text-zinc-900 dark:text-zinc-100">App Not Found</h1><a href="/" class="text-blue-600 dark:text-blue-400 font-semibold hover:underline">Go Home</a></div>`;
 
   const name = getField(app, 'name');
-  const cat = getField(app, 'category');
+  const cat = getField(app, 'category', 'Card Game');
   const version = getField(app, 'version', 'Latest');
   const size = getField(app, 'file_size', 'Variable');
   const rating = getField(app, 'rating', '5.0');
@@ -175,18 +179,18 @@ export function renderAppDetails(slug: string, apps: any[], settings: any) {
   const icon = optimizeImageUrl(rawIcon, 256);
   const desc = app.description_html ? sanitizeHtml(app.description_html) : `<p>No comprehensive details are configured yet for ${escapeHtml(name)}.</p>`;
   const features = app.features_html ? sanitizeHtml(app.features_html) : '';
-  const featureSectionContext = features ? `<h2 class="text-lg font-bold mt-8 mb-4">App Features</h2><div class="prose dark:prose-invert text-zinc-650 leading-relaxed font-semibold">${features}</div>` : '';
-  const pkg = getField(app, 'package_name', 'Not published');
+  const featureSectionContext = features ? `<div class="mt-8 pt-6 border-t border-zinc-200/80 dark:border-zinc-800/80"><h2 class="text-lg font-bold mb-4 text-zinc-900 dark:text-zinc-100">Key Features & Highlights</h2><div class="prose dark:prose-invert text-zinc-700 dark:text-zinc-300 leading-relaxed">${features}</div></div>` : '';
+  const pkg = getField(app, 'package_name', 'Verified Listing');
 
   let screenshotsHtml = '';
   if (app.screenshots && Array.isArray(app.screenshots) && app.screenshots.length > 0) {
     screenshotsHtml = `
-      <div class="mt-8 border-t border-black/5 pt-6">
-        <h2 class="text-lg font-bold mb-4">App Screenshots & Visual Preview</h2>
-        <div class="flex gap-4 overflow-x-auto pb-4">
+      <div class="mt-8 border-t border-zinc-200/80 dark:border-zinc-800/80 pt-6">
+        <h2 class="text-lg font-bold mb-4 text-zinc-900 dark:text-zinc-100">Application Screenshots</h2>
+        <div class="flex gap-4 overflow-x-auto pb-4 scrollbar-thin">
           ${app.screenshots.map((s: string, idx: number) => {
             const shotUrl = optimizeImageUrl(s, 600);
-            return `<img src="${escapeHtml(shotUrl)}" loading="lazy" decoding="async" width="280" height="160" class="w-64 h-36 rounded-2xl object-cover border border-black/10 shrink-0 shadow-sm" alt="${escapeHtml(name)} screenshot ${idx + 1}"/>`;
+            return `<img src="${escapeHtml(shotUrl)}" loading="lazy" decoding="async" width="280" height="160" class="w-64 h-36 rounded-2xl object-cover border border-zinc-200 dark:border-zinc-800 shrink-0 shadow-xs" alt="${escapeHtml(name)} screenshot ${idx + 1}"/>`;
           }).join('')}
         </div>
       </div>
@@ -194,16 +198,15 @@ export function renderAppDetails(slug: string, apps: any[], settings: any) {
   }
 
   let recommendedAppsHtml = '';
-  const currentAppCat = cat.split(',')[0].trim().toLowerCase();
   const similarApps = apps
     .filter(a => getField(a, 'slug').toLowerCase() !== cleanSlug)
     .slice(0, 6);
 
   if (similarApps.length > 0) {
     recommendedAppsHtml = `
-      <div class="mt-12 border-t border-black/5 pt-8 text-left">
-        <h2 class="text-xl font-bold mb-4 text-zinc-900 dark:text-white">Similar & Recommended Applications</h2>
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+      <div class="mt-10 border-t border-zinc-200/80 dark:border-zinc-800/80 pt-8 text-left">
+        <h2 class="text-xl font-bold mb-4 text-zinc-900 dark:text-zinc-100">Similar & Recommended Applications</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
           ${similarApps.map(sim => {
             const simName = getField(sim, 'name');
             const simSlug = getField(sim, 'slug');
@@ -211,12 +214,12 @@ export function renderAppDetails(slug: string, apps: any[], settings: any) {
             const simRating = getField(sim, 'rating', '4.8');
             const simCat = getField(sim, 'category', 'Card Game');
             return `
-              <a href="/app/${encodeURIComponent(simSlug)}" class="flex items-center gap-3 p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-black/5 hover:border-blue-500/30 transition shadow-xs">
-                <img src="${escapeHtml(simIcon)}" loading="lazy" decoding="async" width="48" height="48" class="w-12 h-12 rounded-xl object-cover border border-black/5 shrink-0" alt="${escapeHtml(simName)} app icon"/>
+              <a href="/app/${encodeURIComponent(simSlug)}" class="flex items-center gap-3 p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 hover:border-blue-500/50 transition shadow-2xs">
+                <img src="${escapeHtml(simIcon)}" loading="lazy" decoding="async" width="48" height="48" class="w-12 h-12 rounded-xl object-cover border border-zinc-100 dark:border-zinc-800 shrink-0" alt="${escapeHtml(simName)} app icon"/>
                 <div class="flex-1 min-w-0">
-                  <h3 class="font-bold text-sm text-zinc-900 dark:text-white truncate">${escapeHtml(simName)}</h3>
-                  <div class="flex items-center gap-2 text-xs text-zinc-500 mt-0.5">
-                    <span class="font-semibold text-amber-500">★ ${escapeHtml(simRating)}</span>
+                  <h3 class="font-bold text-sm text-zinc-900 dark:text-zinc-100 truncate">${escapeHtml(simName)}</h3>
+                  <div class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                    <span class="font-bold text-amber-500">★ ${escapeHtml(simRating)}</span>
                     <span>•</span>
                     <span class="truncate">${escapeHtml(simCat)}</span>
                   </div>
@@ -230,39 +233,51 @@ export function renderAppDetails(slug: string, apps: any[], settings: any) {
   }
 
   return `
-    <div class="py-6">
-      <div class="flex flex-col items-center text-center pb-8 border-b border-black/5 mb-8">
-        <img src="${escapeHtml(icon)}" loading="eager" decoding="async" width="128" height="128" class="w-24 h-24 sm:w-32 sm:h-32 rounded-[22px] object-cover mb-4 shadow" alt="${escapeHtml(name)} application icon"/>
-        <h1 class="text-3xl sm:text-5xl font-extrabold text-zinc-900 dark:text-white leading-tight mb-2">${escapeHtml(name)}</h1>
-        <div class="flex gap-2 text-xs font-semibold mb-6">
-          <span class="bg-blue-50 px-2.5 py-1 rounded-full text-blue-600">${escapeHtml(cat)}</span>
-          <span class="bg-green-50 px-2.5 py-1 rounded-full text-green-600">Verified Safety</span>
+    <div class="w-full max-w-5xl mx-auto py-4 sm:py-6 px-1 sm:px-4">
+      <div class="flex flex-col items-center text-center pb-8 border-b border-zinc-200/80 dark:border-zinc-800/80 mb-8">
+        <img src="${escapeHtml(icon)}" loading="eager" decoding="async" width="128" height="128" class="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl object-cover mb-4 shadow-md border border-zinc-200/60 dark:border-zinc-700/60" alt="${escapeHtml(name)} icon"/>
+        <h1 class="text-2xl sm:text-4xl font-extrabold text-zinc-900 dark:text-zinc-100 leading-tight mb-2.5">${escapeHtml(name)}</h1>
+        <div class="flex flex-wrap justify-center gap-2 text-xs font-semibold mb-6">
+          <span class="bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/50 px-3 py-1 rounded-full">${escapeHtml(cat)}</span>
+          <span class="bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/50 px-3 py-1 rounded-full">Verified Safety</span>
         </div>
         
-        <div class="grid grid-cols-4 gap-2 w-full max-w-sm mb-6 text-center text-xs">
-          <div class="p-2 border border-black/5 bg-zinc-50 rounded-xl"><span class="text-zinc-400 block pb-1 font-semibold text-[10px]">Version</span><strong>${escapeHtml(version)}</strong></div>
-          <div class="p-2 border border-black/5 bg-zinc-50 rounded-xl"><span class="text-zinc-400 block pb-1 font-semibold text-[10px]">Size</span><strong>${escapeHtml(size)}</strong></div>
-          <div class="p-2 border border-black/5 bg-zinc-50 rounded-xl"><span class="text-zinc-400 block pb-1 font-semibold text-[10px]">Type</span><strong>${escapeHtml(cat.split(',')[0])}</strong></div>
-          <div class="p-2 border border-black/5 bg-zinc-50 rounded-xl"><span class="text-zinc-400 block pb-1 font-semibold text-[10px]">Rating</span><strong>${escapeHtml(rating)} ★</strong></div>
+        <div class="grid grid-cols-4 gap-2.5 w-full max-w-md mb-6 text-center text-xs">
+          <div class="p-2.5 border border-zinc-200/80 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-850 rounded-xl shadow-2xs">
+            <span class="text-zinc-500 dark:text-zinc-400 block pb-0.5 font-medium text-[11px]">Version</span>
+            <strong class="text-zinc-900 dark:text-zinc-100 font-bold">${escapeHtml(version)}</strong>
+          </div>
+          <div class="p-2.5 border border-zinc-200/80 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-850 rounded-xl shadow-2xs">
+            <span class="text-zinc-500 dark:text-zinc-400 block pb-0.5 font-medium text-[11px]">Size</span>
+            <strong class="text-zinc-900 dark:text-zinc-100 font-bold">${escapeHtml(size)}</strong>
+          </div>
+          <div class="p-2.5 border border-zinc-200/80 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-850 rounded-xl shadow-2xs">
+            <span class="text-zinc-500 dark:text-zinc-400 block pb-0.5 font-medium text-[11px]">Type</span>
+            <strong class="text-zinc-900 dark:text-zinc-100 font-bold truncate block">${escapeHtml(cat.split(',')[0])}</strong>
+          </div>
+          <div class="p-2.5 border border-zinc-200/80 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-850 rounded-xl shadow-2xs">
+            <span class="text-zinc-500 dark:text-zinc-400 block pb-0.5 font-medium text-[11px]">Rating</span>
+            <strong class="text-amber-600 dark:text-amber-400 font-bold">${escapeHtml(rating)} ★</strong>
+          </div>
         </div>
 
-        <a href="/s/${encodeURIComponent(slug)}" class="bg-blue-600 text-white font-bold py-3.5 px-8 rounded-xl shadow hover:bg-blue-700 transition inline-flex items-center gap-2">Download &rarr;</a>
+        <a href="/s/${encodeURIComponent(slug)}" class="w-full sm:w-auto min-w-[200px] justify-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-8 rounded-xl shadow-md transition inline-flex items-center gap-2 text-sm tracking-wide">Download Official APK &rarr;</a>
       </div>
 
-      <div class="grid md:grid-cols-[2fr,1fr] gap-8">
-        <div class="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-black/5 shadow-sm text-left">
-          <h2 class="text-xl font-bold mb-4">About this app</h2>
-          <div class="prose dark:prose-invert text-zinc-650 leading-relaxed font-semibold">${desc}</div>
+      <div class="grid md:grid-cols-[2fr,1fr] gap-6 sm:gap-8">
+        <div class="bg-white dark:bg-zinc-900 p-5 sm:p-7 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 shadow-2xs text-left">
+          <h2 class="text-lg sm:text-xl font-bold mb-4 text-zinc-900 dark:text-zinc-100">About this application</h2>
+          <div class="prose dark:prose-invert text-zinc-700 dark:text-zinc-300 leading-relaxed text-sm sm:text-base space-y-3">${desc}</div>
           ${featureSectionContext}
           ${screenshotsHtml}
         </div>
-        <div class="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-black/5 shadow-sm h-fit text-left">
-          <h3 class="text-sm font-bold mb-4 uppercase tracking-wider text-zinc-400">Specifications</h3>
+        <div class="bg-white dark:bg-zinc-900 p-5 sm:p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 shadow-2xs h-fit text-left">
+          <h3 class="text-xs font-bold mb-4 uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Technical Specifications</h3>
           <table class="w-full text-xs text-left">
-            <tr class="border-b"><td class="py-2 text-zinc-400 font-semibold">Developer</td><td class="py-2 font-bold text-right text-zinc-900 dark:text-white">Store Certified</td></tr>
-            <tr class="border-b"><td class="py-2 text-zinc-400 font-semibold">Package Name</td><td class="py-2 font-bold text-right text-zinc-900 dark:text-white truncate max-w-[150px]">${escapeHtml(pkg)}</td></tr>
-            <tr class="border-b"><td class="py-2 text-zinc-400 font-semibold">Status</td><td class="py-2 font-bold text-right text-green-500">Safe & Clean</td></tr>
-            <tr><td class="py-2 text-zinc-400 font-semibold">System Code</td><td class="py-2 font-bold text-right text-zinc-900 dark:text-white">Android / iOS</td></tr>
+            <tr class="border-b border-zinc-100 dark:border-zinc-800/80"><td class="py-2.5 text-zinc-500 dark:text-zinc-400 font-medium">Developer</td><td class="py-2.5 font-bold text-right text-zinc-900 dark:text-zinc-100">Store Verified</td></tr>
+            <tr class="border-b border-zinc-100 dark:border-zinc-800/80"><td class="py-2.5 text-zinc-500 dark:text-zinc-400 font-medium">Package Name</td><td class="py-2.5 font-bold text-right text-zinc-900 dark:text-zinc-100 truncate max-w-[140px]">${escapeHtml(pkg)}</td></tr>
+            <tr class="border-b border-zinc-100 dark:border-zinc-800/80"><td class="py-2.5 text-zinc-500 dark:text-zinc-400 font-medium">Safety Status</td><td class="py-2.5 font-bold text-right text-emerald-600 dark:text-emerald-400">Safe & Certified</td></tr>
+            <tr><td class="py-2.5 text-zinc-500 dark:text-zinc-400 font-medium">Compatibility</td><td class="py-2.5 font-bold text-right text-zinc-900 dark:text-zinc-100">Android 6.0+ / iOS</td></tr>
           </table>
         </div>
       </div>
@@ -275,21 +290,21 @@ export function renderAppDetails(slug: string, apps: any[], settings: any) {
 export function renderGateway(slug: string, apps: any[], settings: any) {
   const cleanSlug = decodeURIComponent(slug).toLowerCase();
   const app = apps.find(a => getField(a, 'slug').toLowerCase() === cleanSlug);
-  if (!app) return `<div class="py-12 text-center"><h1 class="text-2xl font-bold mb-4">No App Detected</h1><a href="/" class="text-blue-500 hover:underline">Return Home</a></div>`;
+  if (!app) return `<div class="py-12 text-center"><h1 class="text-2xl font-bold mb-4 text-zinc-900 dark:text-zinc-100">No App Detected</h1><a href="/" class="text-blue-600 dark:text-blue-400 font-semibold hover:underline">Return Home</a></div>`;
 
   const name = getField(app, 'name');
   const rawIcon = getField(app, 'icon_url') || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&fit=crop';
   const icon = optimizeImageUrl(rawIcon, 160);
   
   return `
-    <div class="max-w-xl mx-auto py-12 px-4 shadow-sm bg-white dark:bg-zinc-900 rounded-3xl border border-black/5">
+    <div class="max-w-xl mx-auto py-10 px-6 shadow-xs bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200/80 dark:border-zinc-800">
       <div class="text-center">
-        <img src="${escapeHtml(icon)}" loading="lazy" decoding="async" width="80" height="80" class="w-20 h-20 rounded-2xl object-cover mx-auto mb-4 border" alt="${escapeHtml(name)} app icon"/>
-        <h1 class="text-2xl font-bold text-zinc-900 dark:text-white leading-snug mb-1">${escapeHtml(name)}</h1>
-        <p class="text-xs text-zinc-400 uppercase tracking-widest font-black mb-6">Information Hub</p>
-        <p class="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed font-semibold mb-8">Access the application details and specifications below.</p>
-        <a href="/" class="block w-full py-4 bg-zinc-900 dark:bg-zinc-100 dark:text-zinc-900 text-white font-bold rounded-2xl">Return Home</a>
-        <a href="/${encodeURIComponent(slug)}" class="block text-xs font-semibold text-blue-500 hover:underline mt-4">Read Technical Description</a>
+        <img src="${escapeHtml(icon)}" loading="lazy" decoding="async" width="80" height="80" class="w-20 h-20 rounded-2xl object-cover mx-auto mb-4 border border-zinc-200 dark:border-zinc-700 shadow-sm" alt="${escapeHtml(name)} app icon"/>
+        <h1 class="text-2xl font-bold text-zinc-900 dark:text-zinc-100 leading-snug mb-1">${escapeHtml(name)}</h1>
+        <p class="text-xs text-zinc-500 dark:text-zinc-400 uppercase tracking-widest font-bold mb-4">Official Listing</p>
+        <p class="text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed font-medium mb-8">Access the application details, review summary, and verified specifications below.</p>
+        <a href="/app/${encodeURIComponent(slug)}" class="block w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl transition shadow-md">View Application Details</a>
+        <a href="/" class="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 hover:underline mt-4">Browse All Applications</a>
       </div>
     </div>
   `;

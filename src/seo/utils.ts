@@ -1,3 +1,18 @@
+export function escapeHtml(unsafe: string) {
+  if (!unsafe) return '';
+  return String(unsafe)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+export function isBotUserAgent(userAgent?: string): boolean {
+  if (!userAgent) return false;
+  return /googlebot|google-inspectiontool|bingbot|yandexbot|duckduckbot|baiduspider|slurp|facebookexternalhit|facebot|twitterbot|linkedinbot|embedly|quora link preview|showyoubot|outbrain|pinterest\/|slackbot|vkShare|W3C_Validator|whatsapp|telegrambot|discordbot|applebot|petalbot|crawler|spider|screaming frog|semrushbot|ahrefsbot|rogerbot|exabot|dotbot/i.test(userAgent);
+}
+
 export function getField(obj: any, key: string, fallback = ''): string {
   if (!obj) return fallback;
   const value = obj[key];

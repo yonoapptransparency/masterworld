@@ -238,11 +238,22 @@ async function startServer() {
         }
       }
 
-      const robotsHeader = isNotFound 
-        ? 'noindex, follow' 
-        : ((req.originalUrl.startsWith('/info/') || req.originalUrl.startsWith('/moreinfo/') || req.originalUrl.startsWith('/moredetail/')) 
-            ? 'noindex, follow' 
-            : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1');
+      const reqUrlLower = req.originalUrl.toLowerCase();
+      const isGatewayOrLinkRoute = isNotFound ||
+        reqUrlLower.startsWith('/s/') ||
+        reqUrlLower.startsWith('/dl/') ||
+        reqUrlLower.startsWith('/out/') ||
+        reqUrlLower.startsWith('/gateway/') ||
+        reqUrlLower.startsWith('/info/') ||
+        reqUrlLower.startsWith('/moreinfo/') ||
+        reqUrlLower.startsWith('/moredetail/') ||
+        reqUrlLower.startsWith('/admin') ||
+        reqUrlLower.startsWith('/login') ||
+        reqUrlLower.startsWith('/masterworld');
+
+      const robotsHeader = isGatewayOrLinkRoute
+        ? 'noindex, nofollow' 
+        : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1';
 
       const responseHeaders: Record<string, string> = {
         'Content-Type': 'text/html; charset=utf-8',

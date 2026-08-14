@@ -398,12 +398,40 @@ seoRouter.get('/robots.txt', async (req, res) => {
     }
     const host = rawDomain.replace(/\/$/, '');
 
-    let robots = `User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /admin/\nDisallow: /login/\nDisallow: /s/\n\nSitemap: ${host}/sitemap.xml\n`;
+    let robots = `User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /login/
+Disallow: /s/
+Disallow: /dl/
+Disallow: /out/
+Disallow: /gateway/
+Disallow: /info/
+Disallow: /moreinfo/
+Disallow: /moredetail/
+
+Sitemap: ${host}/sitemap.xml
+`;
     res.set('Content-Type', 'text/plain');
     res.send(robots);
   } catch (err) {
     res.set('Content-Type', 'text/plain');
-    res.send(`User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /admin/\nDisallow: /login/\n\nSitemap: https://www.rummydex.com/sitemap.xml\n`);
+    res.send(`User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /login/
+Disallow: /s/
+Disallow: /dl/
+Disallow: /out/
+Disallow: /gateway/
+Disallow: /info/
+Disallow: /moreinfo/
+Disallow: /moredetail/
+
+Sitemap: https://www.rummydex.com/sitemap.xml
+`);
   }
 });
 

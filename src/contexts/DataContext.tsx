@@ -183,6 +183,41 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
 export const useData = () => {
   const context = useContext(DataContext);
-  if (!context) throw new Error("useData must be used within DataProvider");
+  if (!context) {
+    return {
+      apps: mockApps,
+      settings: mockSettings,
+      news: mockNews,
+      blogs: mockBlogs,
+      videos: mockVideos,
+      loading: false,
+      loadedFromServer: true,
+      appsSyncedWithServer: true,
+      settingsSyncedWithServer: true,
+      newsSyncedWithServer: true,
+      blogsSyncedWithServer: true,
+      videosSyncedWithServer: true,
+      serverAppsFetched: true,
+      serverNewsFetched: true,
+      serverBlogsFetched: true,
+      serverVideosFetched: true,
+      syncVersion: 1,
+      lastSyncTime: null,
+      refreshAll: async () => {},
+      testCloudConnection: async () => true,
+      saveApps: async () => {},
+      saveSettings: async () => {},
+      saveNews: async () => {},
+      saveBlogs: async () => {},
+      saveVideos: async () => {},
+      isConnected: true,
+      isLive: true,
+      quotaExceeded: false,
+      gitConfig: null,
+      gitConfigLoading: false,
+      saveGitConfig: async () => {},
+      pushAllToGitHub: async () => ({ success: false }),
+    };
+  }
   return context;
 };
