@@ -911,9 +911,13 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     finalHtml = `${seoTags}\n${initialDataScript}\n${finalHtml}`;
   }
 
-  // Serve full semantic, instant SSR markup directly inside #root for both users and crawlers
-  // This achieves true 0ms / 0.1s instant visual loading on the first frame with zero holding screens or logo delays
-  const rootContent = preRenderedBody;
+  const isBot = isBotUserAgent(userAgent);
+
+  // If a search engine crawler visits the page, serve semantic SSR markup directly inside #root for 100% SEO indexing.
+  // For human browser users, keep #root clean with a <noscript> fallback so React mounts the real website immediately without any flash of different interim markup.
+  const rootContent = isBot 
+    ? preRenderedBody 
+    : `<noscript>${preRenderedBody}</noscript>`;
 
   if (finalHtml.includes('<div id="root"></div>')) {
     finalHtml = finalHtml.replace('<div id="root"></div>', `<div id="root">${rootContent}</div>`);
