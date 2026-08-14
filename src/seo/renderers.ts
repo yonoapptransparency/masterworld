@@ -42,7 +42,7 @@ export function renderHeader(settings: any) {
     <header class="py-3 border-b border-black/5 dark:border-white/5 bg-white/80 dark:bg-zinc-950/80">
       <div class="max-w-7xl mx-auto px-4 sm:px-8 flex justify-between items-center">
         <a href="/" class="flex items-center gap-3 font-bold text-lg text-zinc-900 dark:text-white" aria-label="${escapeHtml(siteTitle)} Home">
-          ${logoUrl ? `<img src="${escapeHtml(optimizedLogo)}" loading="eager" decoding="async" width="40" height="40" class="w-10 h-10 object-contain" alt="${escapeHtml(siteTitle)} Official Logo"/>` : ''}
+          ${logoUrl ? `<img src="${escapeHtml(optimizedLogo)}" loading="eager" fetchpriority="high" decoding="async" width="40" height="40" class="w-10 h-10 object-contain" alt="${escapeHtml(siteTitle)} Official Logo"/>` : ''}
           <span>${escapeHtml(siteTitle)}</span>
         </a>
         <nav class="hidden md:flex gap-6 text-sm font-medium text-zinc-600 dark:text-zinc-300" aria-label="Main Navigation">
@@ -108,11 +108,12 @@ export function renderHome(apps: any[], settings: any, news: any[], videos: any[
     const rawIcon = getField(app, 'icon_url') || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&fit=crop';
     const icon = optimizeImageUrl(rawIcon, 128);
     const isNew = app.is_new === true || (app.is_new && app.is_new.booleanValue === true);
+    const isTopItem = i < 4;
     
     appsHtml += `
       <a href="/${encodeURIComponent(slug)}" class="flex items-center gap-4 p-4 hover:bg-black/5 dark:hover:bg-white/5 rounded-2xl transition border-b border-black/5 dark:border-white/5">
         <span class="text-sm font-bold text-zinc-400 shrink-0 w-8 text-center">${i + 1}</span>
-        <img src="${escapeHtml(icon)}" loading="lazy" decoding="async" width="64" height="64" class="w-16 h-16 rounded-[18px] object-cover bg-white shadow-sm shrink-0" alt="${escapeHtml(name)} app icon"/>
+        <img src="${escapeHtml(icon)}" ${isTopItem ? 'loading="eager" fetchpriority="high"' : 'loading="lazy"'} decoding="async" width="64" height="64" class="w-16 h-16 rounded-[18px] object-cover bg-white shadow-sm shrink-0" alt="${escapeHtml(name)} app icon"/>
         <div class="flex-1 min-w-0 text-left">
           <h3 class="font-bold text-base text-zinc-900 dark:text-zinc-100 truncate">${escapeHtml(name)}</h3>
           <p class="text-xs text-zinc-500 truncate">${escapeHtml(category)}</p>

@@ -904,43 +904,16 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     .replace(/<link\s+rel="(?:shortcut\s+)?icon"\s+[^>]*\/?>/gi, '')
     .replace(/<link\s+rel="apple-touch-icon[^"]*"\s+[^>]*\/?>/gi, '');
 
-  const isBot = isBotUserAgent(userAgent);
-  const loaderStyle = `
-    <style id="app-initial-loader-css">
-      @keyframes appLoadPulse { 0% { transform: translateX(-100%); } 100% { transform: translateX(200%); } }
-      .app-initial-loader { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: #ffffff; color: #18181b; }
-      @media (prefers-color-scheme: dark) {
-        .app-initial-loader { background-color: #09090b !important; color: #f4f4f5 !important; }
-      }
-      html.dark .app-initial-loader { background-color: #09090b !important; color: #f4f4f5 !important; }
-    </style>
-  `;
-
   // Inject dynamic SEO tags, styles & initial data script cleanly into <head>
   if (finalHtml.includes('</head>')) {
-    finalHtml = finalHtml.replace('</head>', `${loaderStyle}\n${seoTags}\n${initialDataScript}\n</head>`);
+    finalHtml = finalHtml.replace('</head>', `${seoTags}\n${initialDataScript}\n</head>`);
   } else {
-    finalHtml = `${loaderStyle}\n${seoTags}\n${initialDataScript}\n${finalHtml}`;
+    finalHtml = `${seoTags}\n${initialDataScript}\n${finalHtml}`;
   }
 
-  // If a search engine crawler or scraper requests the page, serve 100% full semantic SSR markup inside #root
-  // If a regular user visits the site, serve a clean, instant theme-matching loader inside #root with <noscript> fallback
-  // This completely eliminates the ugly flash of unstyled/dummy content (FOUC) while preserving 100% SEO indexing
-  const rootContent = isBot 
-    ? preRenderedBody 
-    : `
-      <div class="app-initial-loader" style="font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif;">
-        <div style="display:flex;flex-direction:column;align-items:center;gap:14px;transform:translateY(-12px);">
-          ${logoUrl ? `<img src="${escapeHtml(logoUrl)}" width="60" height="60" style="width:60px;height:60px;border-radius:18px;object-fit:contain;box-shadow:0 4px 14px rgba(0,0,0,0.06);" alt="${escapeHtml(siteTitle)}"/>` : ''}
-          <div style="width:48px;height:3px;background:rgba(120,120,120,0.15);border-radius:999px;overflow:hidden;position:relative;">
-            <div style="position:absolute;top:0;left:0;bottom:0;width:50%;background:#dc2626;border-radius:999px;animation:appLoadPulse 1.1s infinite ease-in-out;"></div>
-          </div>
-        </div>
-      </div>
-      <noscript>
-        ${preRenderedBody}
-      </noscript>
-    `;
+  // Serve full semantic, instant SSR markup directly inside #root for both users and crawlers
+  // This achieves true 0ms / 0.1s instant visual loading on the first frame with zero holding screens or logo delays
+  const rootContent = preRenderedBody;
 
   if (finalHtml.includes('<div id="root"></div>')) {
     finalHtml = finalHtml.replace('<div id="root"></div>', `<div id="root">${rootContent}</div>`);
