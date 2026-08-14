@@ -151,23 +151,18 @@ export default defineConfig(({mode}) => {
         output: {
           manualChunks(id) {
             if (id.includes('node_modules')) {
-              if (id.includes('lucide-react')) {
-                return 'vendor-icons';
-              }
-              if (id.includes('i18next') || id.includes('react-i18next')) {
-                return 'vendor-i18n';
-              }
-              if (id.includes('react-router') || id.includes('@remix-run')) {
-                return 'vendor-router';
+              // Group heavy animation and firebase into async standalone chunks
+              if (id.includes('firebase')) {
+                return 'vendor-firebase';
               }
               if (id.includes('framer-motion') || id.includes('motion')) {
                 return 'vendor-motion';
               }
-              if (id.includes('firebase')) {
-                return 'vendor-firebase';
-              }
-              if (/\bnode_modules\/(react|react-dom|scheduler)\//.test(id)) {
-                return 'vendor-react';
+              // Group core app runtime together so browser executes in 1 parallel network request
+              if (
+                /\bnode_modules\/(react|react-dom|scheduler|react-router|@remix-run|lucide-react|i18next|react-i18next)\//.test(id)
+              ) {
+                return 'vendor-core';
               }
             }
             // Isolate Legal subpages into a standalone chunk so initial visitor bundle remains tiny
@@ -175,7 +170,7 @@ export default defineConfig(({mode}) => {
               return 'subpages-legal';
             }
             // Isolate Media & Editorial subpages
-            if (id.includes('/pages/NewsPage') || id.includes('/pages/NewsDetailPage') || id.includes('/pages/Blogs') || id.includes('/pages/BlogDetailPage') || id.includes('/pages/VideosPage') || id.includes('/pages/VideoDetailPage') || id.includes('/pages/Developers')) {
+            if (id.includes('/pages/NewsDetailPage') || id.includes('/pages/Blogs') || id.includes('/pages/BlogDetailPage') || id.includes('/pages/VideosPage') || id.includes('/pages/VideoDetailPage') || id.includes('/pages/Developers') || id.includes('/pages/SafetyStatus')) {
               return 'subpages-media';
             }
           }
