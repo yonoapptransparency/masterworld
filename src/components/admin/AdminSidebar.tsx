@@ -84,7 +84,7 @@ export const AdminSidebar = ({
               />
               <div>
                 <h1 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">{settings?.site_title || 'MasterWorld'}</h1>
-                <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest">Admin Control</p>
+                <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest">Admin Portal</p>
               </div>
             </div>
             <div className="mt-4 px-3 py-2 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700/50">
