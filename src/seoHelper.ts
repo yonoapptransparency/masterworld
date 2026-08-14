@@ -907,25 +907,12 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   const isBot = isBotUserAgent(userAgent);
   const loaderStyle = `
     <style id="app-initial-loader-css">
-      @keyframes skelPulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.45; }
-      }
-      .skel-pulse { animation: skelPulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-      .skel-box { background-color: #e4e4e7; animation: skelPulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-      .skel-subtle { background-color: #f4f4f5; }
-      .skel-border { border-color: rgba(0, 0, 0, 0.08); }
-      .skel-page { min-height: 100vh; background-color: #ffffff; color: #18181b; }
+      @keyframes appLoadPulse { 0% { transform: translateX(-100%); } 100% { transform: translateX(200%); } }
+      .app-initial-loader { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: #ffffff; color: #18181b; }
       @media (prefers-color-scheme: dark) {
-        .skel-page { background-color: #09090b !important; color: #f4f4f5 !important; }
-        .skel-box { background-color: #27272a !important; }
-        .skel-subtle { background-color: #18181b !important; }
-        .skel-border { border-color: rgba(255, 255, 255, 0.08) !important; }
+        .app-initial-loader { background-color: #09090b !important; color: #f4f4f5 !important; }
       }
-      html.dark .skel-page { background-color: #09090b !important; color: #f4f4f5 !important; }
-      html.dark .skel-box { background-color: #27272a !important; }
-      html.dark .skel-subtle { background-color: #18181b !important; }
-      html.dark .skel-border { border-color: rgba(255, 255, 255, 0.08) !important; }
+      html.dark .app-initial-loader { background-color: #09090b !important; color: #f4f4f5 !important; }
     </style>
   `;
 
@@ -936,128 +923,20 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     finalHtml = `${loaderStyle}\n${seoTags}\n${initialDataScript}\n${finalHtml}`;
   }
 
-  // Generate lightweight, instantaneous skeleton markup for human users
-  const isAppDetailRoute = pageType === 'app' || Boolean(targetApp);
-  const isArticleRoute = pageType === 'news' || pageType === 'blog';
-
-  let userSkeletonHtml = '';
-  if (isAppDetailRoute) {
-    userSkeletonHtml = `
-      <div class="skel-page" style="font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif;">
-        <!-- Header skeleton -->
-        <div style="height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid;" class="skel-border">
-          <div style="display:flex;align-items:center;gap:12px;">
-            <div style="width:36px;height:36px;border-radius:10px;" class="skel-box"></div>
-            <div style="width:96px;height:16px;border-radius:6px;" class="skel-box"></div>
-          </div>
-          <div style="width:36px;height:36px;border-radius:50%;" class="skel-box"></div>
-        </div>
-        <!-- App Details skeleton container -->
-        <div style="max-width:960px;margin:0 auto;padding:24px 16px;">
-          <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding-bottom:24px;border-bottom:1px solid;margin-bottom:24px;" class="skel-border">
-            <div style="width:96px;height:96px;border-radius:22px;margin-bottom:16px;" class="skel-box"></div>
-            <div style="width:200px;height:24px;border-radius:8px;margin-bottom:12px;" class="skel-box"></div>
-            <div style="display:flex;gap:8px;margin-bottom:20px;">
-              <div style="width:80px;height:24px;border-radius:999px;" class="skel-box"></div>
-              <div style="width:96px;height:24px;border-radius:999px;" class="skel-box"></div>
-            </div>
-            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;width:100%;max-width:380px;margin-bottom:20px;">
-              <div style="height:52px;border-radius:12px;" class="skel-box"></div>
-              <div style="height:52px;border-radius:12px;" class="skel-box"></div>
-              <div style="height:52px;border-radius:12px;" class="skel-box"></div>
-              <div style="height:52px;border-radius:12px;" class="skel-box"></div>
-            </div>
-            <div style="width:200px;height:44px;border-radius:12px;" class="skel-box"></div>
-          </div>
-          <!-- Description skeleton -->
-          <div style="padding:16px;border-radius:16px;border:1px solid;display:flex;flex-direction:column;gap:12px;" class="skel-border">
-            <div style="width:140px;height:20px;border-radius:6px;" class="skel-box"></div>
-            <div style="width:100%;height:14px;border-radius:4px;" class="skel-box"></div>
-            <div style="width:94%;height:14px;border-radius:4px;" class="skel-box"></div>
-            <div style="width:88%;height:14px;border-radius:4px;" class="skel-box"></div>
-            <div style="width:65%;height:14px;border-radius:4px;" class="skel-box"></div>
-          </div>
-        </div>
-      </div>
-    `;
-  } else if (isArticleRoute) {
-    userSkeletonHtml = `
-      <div class="skel-page" style="font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif;">
-        <!-- Header skeleton -->
-        <div style="height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid;" class="skel-border">
-          <div style="display:flex;align-items:center;gap:12px;">
-            <div style="width:36px;height:36px;border-radius:10px;" class="skel-box"></div>
-            <div style="width:96px;height:16px;border-radius:6px;" class="skel-box"></div>
-          </div>
-          <div style="width:36px;height:36px;border-radius:50%;" class="skel-box"></div>
-        </div>
-        <!-- Article skeleton container -->
-        <div style="max-width:860px;margin:0 auto;padding:24px 16px;">
-          <div style="width:75%;height:32px;border-radius:8px;margin-bottom:16px;" class="skel-box"></div>
-          <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
-            <div style="width:36px;height:36px;border-radius:50%;" class="skel-box"></div>
-            <div style="width:120px;height:14px;border-radius:4px;" class="skel-box"></div>
-          </div>
-          <div style="width:100%;aspect-ratio:16/9;max-height:360px;border-radius:16px;margin-bottom:24px;" class="skel-box"></div>
-          <div style="display:flex;flex-direction:column;gap:12px;">
-            <div style="width:100%;height:14px;border-radius:4px;" class="skel-box"></div>
-            <div style="width:96%;height:14px;border-radius:4px;" class="skel-box"></div>
-            <div style="width:90%;height:14px;border-radius:4px;" class="skel-box"></div>
-            <div style="width:70%;height:14px;border-radius:4px;" class="skel-box"></div>
-          </div>
-        </div>
-      </div>
-    `;
-  } else {
-    // Default Catalog / Homepage skeleton
-    userSkeletonHtml = `
-      <div class="skel-page" style="font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif;">
-        <!-- Header skeleton -->
-        <div style="height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid;gap:16px;" class="skel-border">
-          <div style="display:flex;align-items:center;gap:12px;shrink:0;">
-            <div style="width:38px;height:38px;border-radius:10px;" class="skel-box"></div>
-            <div style="width:96px;height:16px;border-radius:6px;" class="skel-box"></div>
-          </div>
-          <div style="flex:1;max-width:440px;height:38px;border-radius:12px;" class="skel-box"></div>
-          <div style="width:38px;height:38px;border-radius:50%;" class="skel-box"></div>
-        </div>
-        <!-- Main body skeleton -->
-        <div style="max-width:1200px;margin:0 auto;padding:16px;">
-          <!-- Featured banner skeleton -->
-          <div style="width:100%;aspect-ratio:24/9;max-height:260px;border-radius:20px;margin-bottom:20px;" class="skel-box"></div>
-          <!-- Category pills skeleton -->
-          <div style="display:flex;gap:8px;margin-bottom:24px;overflow:hidden;">
-            <div style="width:88px;height:36px;border-radius:999px;flex-shrink:0;" class="skel-box"></div>
-            <div style="width:104px;height:36px;border-radius:999px;flex-shrink:0;" class="skel-box"></div>
-            <div style="width:80px;height:36px;border-radius:999px;flex-shrink:0;" class="skel-box"></div>
-            <div style="width:96px;height:36px;border-radius:999px;flex-shrink:0;" class="skel-box"></div>
-            <div style="width:90px;height:36px;border-radius:999px;flex-shrink:0;" class="skel-box"></div>
-          </div>
-          <!-- App List skeleton rows -->
-          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:12px;">
-            ${Array.from({ length: 6 }).map((_, i) => `
-              <div style="display:flex;align-items:center;gap:14px;padding:12px;border-radius:16px;border:1px solid;" class="skel-border">
-                <div style="width:20px;height:16px;border-radius:4px;text-align:center;" class="skel-box"></div>
-                <div style="width:68px;height:68px;border-radius:16px;flex-shrink:0;" class="skel-box"></div>
-                <div style="flex:1;display:flex;flex-direction:column;gap:8px;">
-                  <div style="width:65%;height:15px;border-radius:4px;" class="skel-box"></div>
-                  <div style="width:45%;height:12px;border-radius:4px;" class="skel-box"></div>
-                  <div style="width:30px;height:12px;border-radius:4px;" class="skel-box"></div>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
   // If a search engine crawler or scraper requests the page, serve 100% full semantic SSR markup inside #root
-  // If a regular user visits the site, serve a clean, instant theme-matching skeleton loader inside #root with <noscript> fallback
+  // If a regular user visits the site, serve a clean, instant theme-matching loader inside #root with <noscript> fallback
+  // This completely eliminates the ugly flash of unstyled/dummy content (FOUC) while preserving 100% SEO indexing
   const rootContent = isBot 
     ? preRenderedBody 
     : `
-      ${userSkeletonHtml}
+      <div class="app-initial-loader" style="font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif;">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:14px;transform:translateY(-12px);">
+          ${logoUrl ? `<img src="${escapeHtml(logoUrl)}" width="60" height="60" style="width:60px;height:60px;border-radius:18px;object-fit:contain;box-shadow:0 4px 14px rgba(0,0,0,0.06);" alt="${escapeHtml(siteTitle)}"/>` : ''}
+          <div style="width:48px;height:3px;background:rgba(120,120,120,0.15);border-radius:999px;overflow:hidden;position:relative;">
+            <div style="position:absolute;top:0;left:0;bottom:0;width:50%;background:#dc2626;border-radius:999px;animation:appLoadPulse 1.1s infinite ease-in-out;"></div>
+          </div>
+        </div>
+      </div>
       <noscript>
         ${preRenderedBody}
       </noscript>
