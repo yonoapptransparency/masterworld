@@ -91,9 +91,8 @@ export function getOgImageUrl(url?: string, origin = 'https://www.rummydex.com')
   if (!url) return '';
   let absUrl = ensureAbsoluteUrl(url, origin);
   if (absUrl.includes('res.cloudinary.com') && absUrl.includes('/upload/')) {
-    if (!absUrl.includes('f_png') && !absUrl.includes('f_jpg') && !absUrl.includes('f_auto') && !absUrl.includes('f_webp')) {
-      absUrl = absUrl.replace('/upload/', '/upload/f_jpg,q_auto,w_1200,h_630,c_fill/');
-    }
+    // Strip any existing transformations and apply OpenGraph specific ones
+    absUrl = absUrl.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_jpg,q_auto,w_1200,h_630,c_fill/$1');
   }
   return absUrl;
 }
@@ -102,12 +101,8 @@ export function getOptimizedImageUrl(url?: string, width = 160): string {
   if (!url) return '';
   // Cloudinary dynamic optimization
   if (url.includes('res.cloudinary.com') && url.includes('/upload/')) {
-    // If already has transformation parameters, adjust width if needed or ensure f_auto,q_auto
-    if (!url.includes('/upload/f_auto') && !url.includes('/upload/f_webp')) {
-      return url.replace('/upload/', `/upload/f_auto,q_auto,w_${width}/`);
-    } else if (url.includes('w_')) {
-      return url.replace(/w_\d+/, `w_${width}`);
-    }
+    // Strip any existing transformations and apply ours
+    return url.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, `/upload/f_webp,q_auto,w_${width}/$1`);
   }
   // Unsplash dynamic optimization
   if (url.includes('images.unsplash.com')) {

@@ -590,19 +590,22 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   }
 
   const CLOUDINARY_ICON = 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
-  let logoUrl = getField(settings, 'logo_url') || CLOUDINARY_ICON;
+  let rawLogoUrl = getField(settings, 'logo_url') || CLOUDINARY_ICON;
   const faviconUrl = getField(settings, 'favicon_url') || CLOUDINARY_ICON;
   
   const getFaviconWithSize = (url: string, size: number) => {
     if (!url) return '';
     if (url.includes('res.cloudinary.com') && url.includes('/upload/')) {
-      return url.replace('/upload/', `/upload/f_png,q_auto,w_${size},h_${size},c_fill/`);
+      return url.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, `/upload/f_png,q_auto,w_${size},h_${size},c_fill/$1`);
     }
     return url;
   };
   const favicon32 = getFaviconWithSize(faviconUrl, 32);
   const favicon180 = getFaviconWithSize(faviconUrl, 180);
   const favicon192 = getFaviconWithSize(faviconUrl, 192);
+  
+  // Use a properly sized square logo for JSON-LD schemas to prevent raw image pre-fetches
+  let logoUrl = getFaviconWithSize(rawLogoUrl, 512);
 
   const cleanPath = urlPath.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
   const cleanPathLower = cleanPath.toLowerCase();
@@ -902,7 +905,15 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     initialDataPayload = { ...data, apps: optimizedApps };
   }
 
-  const initialDataJson = JSON.stringify(initialDataPayload || {}).replace(/</g, '\\u003c');
+  let initialDataJson = JSON.stringify(initialDataPayload || {}).replace(/</g, '\\u003c');
+  
+  // Aggressively rewrite raw Cloudinary URLs in the initial data payload to tiny WebP placeholders.
+  // This prevents headless bot scanners (like Pingdom) from discovering and pre-fetching unoptimized 16.7KB raw images.
+  initialDataJson = initialDataJson.replace(
+    /https:\/\/res\.cloudinary\.com\/diewalae4\/image\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/[a-zA-Z0-9_-]+\.[a-zA-Z]+)/g,
+    'https://res.cloudinary.com/diewalae4/image/upload/f_webp,q_auto,w_256,h_256,c_fill/$1'
+  );
+
   const initialDataScript = `<script>window.__INITIAL_DATA__ = ${initialDataJson};</script>`;
 
   // Clean up default static title & meta tags from template without destroying scripts or stylesheets
