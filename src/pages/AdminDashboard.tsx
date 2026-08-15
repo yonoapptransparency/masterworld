@@ -270,9 +270,22 @@ export default function AdminDashboard() {
           <AdminTabContent 
             activeTab={activeTab} appsList={appsList} newsList={newsList} banners={banners} blogsList={blogsList} videosList={videosList}
             categoriesList={categoriesList} quickLinksList={quickLinksList} websiteFaqsList={websiteFaqsList} developersList={developersList}
-            settings={settings} gitConfig={gitConfig} db={db} saving={saving} editingAppId={editingAppId}
+            settings={settings} gitConfig={gitConfig} db={db} saving={saving} setSaving={setSaving} editingAppId={editingAppId}
             setEditingAppId={setEditingAppId}
-            handleDeleteApp={handleDeleteApp} handleSaveApp={handleSaveApp} handleSaveSettings={handleSaveSettingsBase} handleSaveNews={(list?: any) => saveNews(list && Array.isArray(list) && list.length > 0 ? list : newsList)}
+            handleDeleteApp={handleDeleteApp} handleSaveApp={handleSaveApp} handleSaveSettings={handleSaveSettingsBase} 
+            handleSaveNews={async (list?: any) => {
+              setSaving(true);
+              try {
+                const targetList = (list && Array.isArray(list) && list.length > 0) ? list : newsList;
+                await saveNews(targetList);
+                triggerHaptic();
+                toast('News saved and synchronized successfully!', 'success');
+              } catch (err: any) {
+                toast('Save failed: ' + (err?.message || 'Unknown error'), 'error');
+              } finally {
+                setSaving(false);
+              }
+            }}
             handleSaveCategories={(e) => { e.preventDefault(); handleSaveSettingsBase({ categories: categoriesList }); }}
             handleSaveQuickLinks={(e) => { e.preventDefault(); handleSaveSettingsBase({ quick_links: quickLinksList }); }}
             handleSaveWebsiteFaqs={(e) => { e.preventDefault(); handleSaveSettingsBase({ website_faqs: websiteFaqsList }); }}

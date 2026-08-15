@@ -145,38 +145,56 @@ export function useDataActions(
   }, [settings, updateLocalContainerBackup]);
 
   const saveNews = useCallback(async (newNews: NewsItem[]) => {
-    setNews(newNews);
+    const cleanNews = JSON.parse(JSON.stringify(newNews || []));
+    setNews(cleanNews);
     try {
-      await updateLocalContainerBackup({ news: newNews, allowEmptyNews: newNews.length === 0 });
-    } catch (e) {}
+      await updateLocalContainerBackup({ news: cleanNews, allowEmptyNews: cleanNews.length === 0 });
+    } catch (e) {
+      console.warn("Local container backup failed for news:", e);
+    }
     if (isFirebaseReal && db) {
       try {
-        await setDoc(doc(db, 'store_data', 'news'), { items: newNews });
-      } catch (e) {}
+        await setDoc(doc(db, 'store_data', 'news'), { items: cleanNews });
+      } catch (e) {
+        console.error("Firestore setDoc failed for store_data/news:", e);
+        throw e;
+      }
     }
   }, [updateLocalContainerBackup]);
 
   const saveBlogs = useCallback(async (newBlogs: BlogPost[]) => {
-    setBlogs(newBlogs);
+    const cleanBlogs = JSON.parse(JSON.stringify(newBlogs || []));
+    setBlogs(cleanBlogs);
     try {
-      await updateLocalContainerBackup({ blogs: newBlogs, allowEmptyBlogs: newBlogs.length === 0 });
-    } catch (e) {}
+      await updateLocalContainerBackup({ blogs: cleanBlogs, allowEmptyBlogs: cleanBlogs.length === 0 });
+    } catch (e) {
+      console.warn("Local container backup failed for blogs:", e);
+    }
     if (isFirebaseReal && db) {
       try {
-        await setDoc(doc(db, 'store_data', 'blogs'), { items: newBlogs });
-      } catch (e) {}
+        await setDoc(doc(db, 'store_data', 'blogs'), { items: cleanBlogs });
+      } catch (e) {
+        console.error("Firestore setDoc failed for store_data/blogs:", e);
+        throw e;
+      }
     }
   }, [updateLocalContainerBackup]);
 
   const saveVideos = useCallback(async (newVideos: VideoItem[]) => {
-    setVideos(newVideos);
+    const cleanVideos = JSON.parse(JSON.stringify(newVideos || []));
+    setVideos(cleanVideos);
     try {
-      await updateLocalContainerBackup({ videos: newVideos, allowEmptyVideos: newVideos.length === 0 });
-    } catch (e) {}
+      await updateLocalContainerBackup({ videos: cleanVideos, allowEmptyVideos: cleanVideos.length === 0 });
+    } catch (e) {
+      console.warn("Local container backup failed for videos:", e);
+    }
     if (isFirebaseReal && db) {
       try {
-        await setDoc(doc(db, 'store_data', 'videos'), { items: newVideos });
-      } catch (e) {}
+        await setDoc(doc(db, 'store_data', 'videos'), { items: cleanVideos });
+      } catch (e) {
+        console.error("Firestore setDoc failed for store_data/videos:", e);
+        throw e;
+      }
     }
   }, [updateLocalContainerBackup]);
 

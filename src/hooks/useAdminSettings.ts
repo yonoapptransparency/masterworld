@@ -231,19 +231,21 @@ export const useAdminSettings = (settings: any, news: any[], blogs: any[], video
       category: 'General',
       is_pinned: false
     };
-    setNewsList(prev => [...prev, newItem]);
+    setNewsList(prev => [newItem, ...prev]);
     return newId;
   };
 
   const handleNewsChange = (id: string, field: string, value: any) => {
     setNewsList(prev => prev.map(n => {
       if (n.id !== id) return n;
-      const updated = { ...n, [field]: value, updated_at: new Date().toISOString() };
+      const updated: any = { ...n, [field]: value, updated_at: new Date().toISOString() };
       if (field === 'title' && (!n.slug || n.slug.startsWith('news-') || n.slug === 'new-news-item')) {
         updated.slug = value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
       }
       if (field === 'content') {
         updated.description_html = value;
+      } else if (field === 'description_html') {
+        updated.content = value;
       }
       return updated;
     }));

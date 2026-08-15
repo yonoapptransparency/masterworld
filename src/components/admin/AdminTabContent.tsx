@@ -30,6 +30,7 @@ interface AdminTabContentProps {
   gitConfig: any;
   db: any;
   saving: boolean;
+  setSaving?: (saving: boolean) => void;
   editingAppId: string | null;
   setEditingAppId: (id: string | null) => void;
   handleDeleteApp: (id: string) => void;
@@ -90,6 +91,7 @@ export const AdminTabContent = ({
   gitConfig,
   db,
   saving,
+  setSaving,
   editingAppId,
   setEditingAppId,
   handleDeleteApp,
@@ -180,7 +182,7 @@ export const AdminTabContent = ({
           handleNewsChange={handleNewsChange}
           handleDeleteNews={handleDeleteNews}
           saveNews={async (list) => { await handleSaveNews(list); }}
-          setSaving={() => {}}
+          setSaving={setSaving || (() => {})}
           appsList={appsList}
         />
       );
