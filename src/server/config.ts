@@ -56,7 +56,7 @@ export const MOCK_2FA_FILE = path.join(process.cwd(), "src/lib/mock_2fa_store.js
 
 export const getStaticData = () => {
   try {
-    const staticDataModulePath = path.join(process.cwd(), "src/lib/staticData");
+    const staticDataModulePath = path.join(process.cwd(), "src/lib/staticData.json");
     try {
       const resolvedPath = require.resolve(staticDataModulePath);
       delete require.cache[resolvedPath];
