@@ -188,23 +188,7 @@ async function startServer() {
       if (!template || process.env.NODE_ENV !== "production") {
         template = fs.readFileSync(templatePath, 'utf-8');
         
-        // Inline CSS in production to eliminate render-blocking stylesheet requests
         if (process.env.NODE_ENV === "production") {
-          try {
-            template = template.replace(
-              /<link\s+rel="stylesheet"[^>]*href="\/assets\/([^"]+\.css)"[^>]*>/i,
-              (match, cssFilename) => {
-                const cssPath = path.join(distPath, 'assets', cssFilename);
-                if (fs.existsSync(cssPath)) {
-                  const cssContent = fs.readFileSync(cssPath, 'utf-8');
-                  return `<style id="inlined-css">${cssContent}</style>`;
-                }
-                return match; // Fallback to link if file not found
-              }
-            );
-          } catch (cssInlineError) {
-            console.error("Failed to inline CSS:", cssInlineError);
-          }
           cachedIndexHtml = template;
         }
       }

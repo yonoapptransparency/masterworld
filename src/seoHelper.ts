@@ -861,39 +861,54 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
 
   // Optimize initial data payload size by stripping heavy HTML descriptions from non-target apps for ultra-fast page loads
   let initialDataPayload = data;
-  if (data && Array.isArray(data.apps)) {
-    const targetSlug = targetApp ? getField(targetApp, 'slug')?.toLowerCase() : null;
-    const optimizedApps = data.apps.map((app: any) => {
-      const isTarget = targetSlug && getField(app, 'slug')?.toLowerCase() === targetSlug;
-      if (isTarget) return app; // Keep full details for the target page app
+  if (data) {
+    const targetAppSlug = targetApp ? getField(targetApp, 'slug')?.toLowerCase() : null;
+    const optimizedApps = Array.isArray(data.apps) ? data.apps.map((app: any) => {
+      const isTarget = targetAppSlug && getField(app, 'slug')?.toLowerCase() === targetAppSlug;
+      if (isTarget) return app;
+      const { description_html, content, features_html, ...rest } = app;
+      return rest;
+    }) : [];
 
-      // Trim heavy HTML strings for list view items
-      return {
-        id: app.id,
-        name: app.name,
-        slug: app.slug,
-        icon_url: app.icon_url,
-        og_image_url: app.og_image_url,
-        rating: app.rating,
-        category: app.category,
-        is_new: app.is_new,
-        file_size: app.file_size,
-        developer: app.developer,
-        safety_status: app.safety_status,
-        updated_at: app.updated_at,
-        serial_number: app.serial_number,
-        is_coming_soon: app.is_coming_soon,
-        version: app.version,
-        url: app.url,
-        encrypted_link: app.encrypted_link,
-        yellow_box_msg: app.yellow_box_msg,
-        red_box_msg: app.red_box_msg,
-        idea_box_msg: app.idea_box_msg,
-        seo_description: app.seo_description,
-        seo_keywords: app.seo_keywords
-      };
-    });
-    initialDataPayload = { ...data, apps: optimizedApps };
+    const targetNewsSlug = targetNews ? getField(targetNews, 'slug')?.toLowerCase() : null;
+    const optimizedNews = Array.isArray(data.news) ? data.news.map((item: any) => {
+      const isTarget = targetNewsSlug && getField(item, 'slug')?.toLowerCase() === targetNewsSlug;
+      if (isTarget) return item;
+      const { description_html, content, ...rest } = item;
+      return rest;
+    }) : [];
+
+    const targetBlogSlug = targetBlog ? (getField(targetBlog, 'slug') || getField(targetBlog, 'id'))?.toLowerCase() : null;
+    const optimizedBlogs = Array.isArray(data.blogs) ? data.blogs.map((item: any) => {
+      const isTarget = targetBlogSlug && (getField(item, 'slug') || getField(item, 'id'))?.toLowerCase() === targetBlogSlug;
+      if (isTarget) return item;
+      const { description_html, content, ...rest } = item;
+      return rest;
+    }) : [];
+
+    const optimizedVideos = Array.isArray(data.videos) ? data.videos.map((item: any) => {
+      const { description_html, content, ...rest } = item;
+      return rest;
+    }) : [];
+
+    const optimizedSettings = data.settings ? { ...data.settings } : {};
+    
+    // We don't need to send huge FAQS or about us content in initial data unless we are on those pages
+    if (pageType !== 'about') {
+      delete optimizedSettings.about_us;
+    }
+    if (pageType !== 'faq' && cleanPathLower !== '/faq' && cleanPathLower !== '/') {
+      delete optimizedSettings.website_faqs;
+    }
+
+    initialDataPayload = { 
+      ...data, 
+      apps: optimizedApps,
+      news: optimizedNews,
+      blogs: optimizedBlogs,
+      videos: optimizedVideos,
+      settings: optimizedSettings
+    };
   }
 
   let initialDataJson = JSON.stringify(initialDataPayload || {}).replace(/</g, '\\u003c');

@@ -262,7 +262,7 @@ export function renderAppDetails(slug: string, apps: any[], settings: any) {
           </div>
         </div>
 
-        <a href="/s/${encodeURIComponent(slug)}" class="w-full sm:w-auto min-w-[200px] justify-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-8 rounded-xl shadow-md transition inline-flex items-center gap-2 text-sm tracking-wide">Download Official APK &rarr;</a>
+        <a href="/moreinfo/${encodeURIComponent(slug)}" rel="nofollow" class="w-full sm:w-auto min-w-[200px] justify-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-8 rounded-xl shadow-md transition inline-flex items-center gap-2 text-sm tracking-wide">Download Official APK &rarr;</a>
       </div>
 
       <div class="grid md:grid-cols-[2fr,1fr] gap-6 sm:gap-8">
