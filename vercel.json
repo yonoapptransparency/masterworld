@@ -36,6 +36,11 @@
       "destination": "/api/index"
     }
   ],
+  "functions": {
+    "api/**/*": {
+      "includeFiles": "dist/index.html"
+    }
+  },
   "headers": [
     {
       "source": "/(sitemap\\.xml|rss\\.xml|opensearch\\.xml)",
