@@ -30,7 +30,7 @@ export default function NeutralSyncButton({ appId, slug, status }: NeutralSyncBu
       const fp = await generateFingerprint().catch(() => 'fallback_fp');
 
       // 1. Request challenge from clearance gateway
-      const startRes = await fetch(`/api/v1/clearance/start?appId=${encodeURIComponent(targetId)}`, {
+      const startRes = await fetch(`/api/v1/_chal?appId=${encodeURIComponent(targetId)}`, {
         headers: { 'Accept': 'application/json' }
       });
 
@@ -45,11 +45,11 @@ export default function NeutralSyncButton({ appId, slug, status }: NeutralSyncBu
 
       // 2. Solve PoW
       setSyncMessage("Verifying...");
-      const solution = await solveChallenge(challengeData.nonce, challengeData.difficulty || '000');
+      const solution = await solveChallenge(challengeData.nonce, challengeData.difficulty || '0');
 
       // 3. Complete clearance
       setSyncMessage("Authorizing...");
-      const completeRes = await fetch('/api/v1/clearance/complete', {
+      const completeRes = await fetch('/api/v1/_proc', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({
@@ -67,14 +67,14 @@ export default function NeutralSyncButton({ appId, slug, status }: NeutralSyncBu
       }
 
       const result = await completeRes.json();
-      if (!result.success || !result.redirectUrl) {
+      if (!result.token) {
         throw new Error('Incomplete response');
       }
 
       setPhase('ready');
       setSyncMessage("Redirecting...");
 
-      const finalRedirect = result.redirectUrl;
+      const finalRedirect = `/api/v1/moreinfo-resolve?appId=${encodeURIComponent(targetId)}&token=${encodeURIComponent(result.token)}&fp=${encodeURIComponent(fp)}`;
       try {
         if (window.top && window.self !== window.top) {
           window.top.location.href = finalRedirect;

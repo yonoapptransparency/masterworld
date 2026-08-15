@@ -30,7 +30,7 @@ export default function ClearanceButton({ appId }: ClearanceButtonProps) {
 
       // 2. Request stateless challenge from server
       setStatusText('Connecting to Security Gateway...');
-      const startRes = await fetch(`/api/v1/clearance/start?appId=${encodeURIComponent(appId)}`, {
+      const startRes = await fetch(`/api/v1/_chal?appId=${encodeURIComponent(appId)}`, {
         headers: { 'Accept': 'application/json' }
       });
 
@@ -45,11 +45,11 @@ export default function ClearanceButton({ appId }: ClearanceButtonProps) {
 
       // 3. Solve cryptographic Proof-of-Work challenge
       setStatusText('Verifying Proof of Humanity...');
-      const solution = await solveChallenge(challengeData.nonce, challengeData.difficulty || '000');
+      const solution = await solveChallenge(challengeData.nonce, challengeData.difficulty || '0');
 
-      // 4. Complete clearance and obtain single-use authorization nonce
+      // 4. Complete clearance and obtain authorization token
       setStatusText('Authorizing Clearance...');
-      const completeRes = await fetch('/api/v1/clearance/complete', {
+      const completeRes = await fetch('/api/v1/_proc', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({
@@ -67,14 +67,14 @@ export default function ClearanceButton({ appId }: ClearanceButtonProps) {
       }
 
       const result = await completeRes.json();
-      if (!result.success || !result.redirectUrl) {
+      if (!result.token) {
         throw new Error('Authorization response incomplete.');
       }
 
       setStatusText('Redirecting to Destination...');
 
       // 5. Navigate via Server-Authoritative Clearance Gateway
-      const finalRedirect = result.redirectUrl;
+      const finalRedirect = `/api/v1/moreinfo-resolve?appId=${encodeURIComponent(appId)}&token=${encodeURIComponent(result.token)}&fp=${encodeURIComponent(fingerprint)}`;
       try {
         if (window.top && window.self !== window.top) {
           window.top.location.href = finalRedirect;
