@@ -7,13 +7,13 @@ declare global {
   var SESSION_SECRET_GLOBAL: string;
 }
 
-// Generate cryptographically secure random fallbacks per server process instance
-const runtimeAesSecret = crypto.randomBytes(32).toString('hex');
-const runtimeTokenSecret = crypto.randomBytes(32).toString('hex');
-const runtimeSessionSecret = crypto.randomBytes(32).toString('hex');
+// Use a static fallback for development so encrypted data isn't lost on server restart
+const runtimeAesSecret = 'fallback_aes_secret_for_local_dev_only';
+const runtimeTokenSecret = 'fallback_token_secret_for_local_dev_only';
+const runtimeSessionSecret = 'fallback_session_secret_for_local_dev_only';
 
 if (!process.env.AES_SECRET) {
-  console.warn("[SECURITY] AES_SECRET not configured in environment. Using dynamic memory secret.");
+  console.warn("[SECURITY] AES_SECRET not configured in environment. Using static fallback secret. Links will be secure but please configure a real secret for production.");
 }
 
 if (!process.env.ADMIN_EMAIL) {

@@ -35,7 +35,8 @@ function isValidTargetUrl(url: string | undefined | null): boolean {
 
   // Reject circular loops to our own site or internal routes
   if (
-    cleanLower.includes('rummydex.com') ||
+    cleanLower.includes('rummydex.com/download/') ||
+    cleanLower.includes('rummydex.com/api/') ||
     cleanLower.includes('localhost') ||
     cleanLower.includes('0.0.0.0') ||
     cleanLower.includes('127.0.0.1') ||
