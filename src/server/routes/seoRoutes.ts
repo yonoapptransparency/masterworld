@@ -349,7 +349,10 @@ seoRouter.get(['/rss.xml', '/rss', '/feed', '/feed.xml'], async (req, res) => {
       }
     }
 
-    const siteLogo = getField(data?.settings, 'logo_url') || getField(data?.settings, 'favicon_url') || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
+    let siteLogo = getField(data?.settings, 'logo_url') || getField(data?.settings, 'favicon_url') || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
+    if (siteLogo && siteLogo.includes('res.cloudinary.com')) {
+      siteLogo = siteLogo.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_webp,q_auto,w_800/$1');
+    }
 
     const rssXml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
@@ -500,6 +503,11 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
       if (!seenUrls.has(loc)) {
         seenUrls.add(loc);
         let itemXml = `  <url>\n    <loc>${loc}</loc>\n`;
+        
+        if (imageUrl && imageUrl.includes('res.cloudinary.com')) {
+          imageUrl = imageUrl.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_webp,q_auto,w_800/$1');
+        }
+
         if (lastmod) {
           itemXml += `    <lastmod>${lastmod}</lastmod>\n`;
         }

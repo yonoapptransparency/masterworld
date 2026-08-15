@@ -260,7 +260,13 @@ function buildJsonLdSchema(params: {
 }): string {
   const schemas: any[] = [];
 
-  const hostOrigin = params.url.startsWith('http') ? params.url : `https://${params.url}`;
+  let hostOrigin = 'https://www.rummydex.com';
+  try {
+    const fullUrl = params.url.startsWith('http') ? params.url : `https://${params.url}`;
+    hostOrigin = new URL(fullUrl).origin;
+  } catch (e) {
+    hostOrigin = params.url.startsWith('http') ? params.url : `https://${params.url}`;
+  }
 
   if (params.pageType !== '404') {
     schemas.push({
@@ -324,11 +330,12 @@ function buildJsonLdSchema(params: {
       }
     };
 
-    if (!isNaN(realRating) && realRating > 0 && !isNaN(realCount) && realCount > 0) {
+    const aggregateCount = (!isNaN(realCount) && realCount > 0) ? realCount : 1;
+    if (!isNaN(realRating) && realRating > 0) {
       softwareAppSchema["aggregateRating"] = {
         "@type": "AggregateRating",
         "ratingValue": realRating.toString(),
-        "ratingCount": realCount.toString(),
+        "ratingCount": aggregateCount.toString(),
         "bestRating": "5",
         "worstRating": "1"
       };
@@ -534,24 +541,7 @@ function buildJsonLdSchema(params: {
       ]
     });
   } else if (params.pageType === 'home' && params.settings) {
-    const rawFaqs = params.settings.global_faqs || params.settings.website_faqs;
-    if (Array.isArray(rawFaqs) && rawFaqs.length > 0) {
-      const globalFaqs = rawFaqs.map((faq: any) => ({
-        "@type": "Question",
-        "name": getField(faq, 'question'),
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": getField(faq, 'answer')
-        }
-      }));
-      if (globalFaqs.length > 0) {
-        schemas.push({
-          "@context": "https://schema.org",
-          "@type": "FAQPage",
-          "mainEntity": globalFaqs
-        });
-      }
-    }
+    // FAQs are already injected globally, no need to duplicate them here
   }
 
   return schemas.map(s => `<script type="application/ld+json" data-rh="true">${JSON.stringify(s).replace(/</g, '\\u003c')}</script>`).join('\n');
@@ -620,6 +610,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
 
   if (cleanPathLower === '/' || cleanPathLower === '' || cleanPathLower === '/new-apps') {
     pageType = 'home';
+    title = 'Official App Hub & Transparency Directory';
   } else if (cleanPathLower.startsWith('/admin') || cleanPathLower.startsWith('/masterworld')) {
     title = `Admin Panel | Masterworld`;
     description = `Masterworld Admin Control Dashboard`;
@@ -690,16 +681,16 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     }
   } else if (['/about', '/contact', '/privacy', '/report-removal', '/terms', '/notice', '/ethics', '/disclaimer', '/responsibility', '/developers'].includes(cleanPathLower)) {
     pageType = 'static';
-    if (cleanPathLower === '/about') title = `About Us | ${siteTitle}`;
-    else if (cleanPathLower === '/contact') title = `Contact Support | ${siteTitle}`;
-    else if (cleanPathLower === '/privacy') title = `Privacy Policy | ${siteTitle}`;
-    else if (cleanPathLower === '/report-removal') title = `Report & Removal | ${siteTitle}`;
-    else if (cleanPathLower === '/terms') title = `Terms of Service | ${siteTitle}`;
-    else if (cleanPathLower === '/notice') title = `Notice | ${siteTitle}`;
-    else if (cleanPathLower === '/ethics') title = `Ethics & Safety | ${siteTitle}`;
-    else if (cleanPathLower === '/disclaimer') title = `Disclaimer | ${siteTitle}`;
-    else if (cleanPathLower === '/responsibility') title = `Responsible Gaming | ${siteTitle}`;
-    else if (cleanPathLower === '/developers') title = `Developer Profiles | ${siteTitle}`;
+    if (cleanPathLower === '/about') { title = `About Us | ${siteTitle}`; description = `Learn more about ${siteTitle}, our mission, and our dedicated team.`; }
+    else if (cleanPathLower === '/contact') { title = `Contact Support | ${siteTitle}`; description = `Get in touch with ${siteTitle} support for any queries or assistance.`; }
+    else if (cleanPathLower === '/privacy') { title = `Privacy Policy | ${siteTitle}`; description = `Read the Privacy Policy of ${siteTitle} to understand how we protect your data.`; }
+    else if (cleanPathLower === '/report-removal') { title = `Report & Removal | ${siteTitle}`; description = `Report content or request removal of specific applications on ${siteTitle}.`; }
+    else if (cleanPathLower === '/terms') { title = `Terms of Service | ${siteTitle}`; description = `Review the Terms of Service and usage guidelines for ${siteTitle}.`; }
+    else if (cleanPathLower === '/notice') { title = `Legal Notice | ${siteTitle}`; description = `Important legal notices and compliance information for ${siteTitle}.`; }
+    else if (cleanPathLower === '/ethics') { title = `Ethics & Safety | ${siteTitle}`; description = `Our commitment to ethics, safety, and transparent reviews at ${siteTitle}.`; }
+    else if (cleanPathLower === '/disclaimer') { title = `Disclaimer | ${siteTitle}`; description = `Read the official disclaimer regarding the content and apps on ${siteTitle}.`; }
+    else if (cleanPathLower === '/responsibility') { title = `Responsible Gaming | ${siteTitle}`; description = `Information and resources for responsible gaming and app usage on ${siteTitle}.`; }
+    else if (cleanPathLower === '/developers') { title = `Developer Profiles | ${siteTitle}`; description = `Browse profiles of top app developers featured on ${siteTitle}.`; }
   } else if (cleanPathLower.startsWith('/info/') || cleanPathLower.startsWith('/moreinfo/') || cleanPathLower.startsWith('/moredetail/')) {
     const parts = cleanPathLower.split('/');
     const slug = parts[parts.length - 1];
@@ -831,8 +822,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     : '<meta data-rh="true" name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">';
 
   const seoTags = `
-    <title data-rh="true">${title}</title>
-    <meta data-rh="true" name="description" content="${description}">
+    <title>${title}</title>
+    <meta name="description" content="${description}">
     <meta data-rh="true" name="keywords" content="${keywords}">
     <meta data-rh="true" name="application-name" content="${siteTitle}">
     <meta data-rh="true" name="color-scheme" content="light dark">
