@@ -171,10 +171,11 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
           {mode === 'password' ? (
             <form onSubmit={handlePasswordSignIn} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-zinc-400 mb-1.5 uppercase tracking-wider">Admin Email</label>
+                <label htmlFor="email" className="block text-xs font-bold text-zinc-400 mb-1.5 uppercase tracking-wider">Admin Email</label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
+                    id="email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -186,10 +187,11 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-zinc-400 mb-1.5 uppercase tracking-wider">Password</label>
+                <label htmlFor="password" className="block text-xs font-bold text-zinc-400 mb-1.5 uppercase tracking-wider">Password</label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
+                    id="password"
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -203,8 +205,9 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
               
           {showMfa && (
             <div className="mb-4">
-              <label className="block text-xs font-bold text-zinc-400 mb-1.5 uppercase tracking-wider">2FA Authenticator Code</label>
+              <label htmlFor="mfaCode" className="block text-xs font-bold text-zinc-400 mb-1.5 uppercase tracking-wider">2FA Authenticator Code</label>
               <input
+                id="mfaCode"
                 type="text"
                 value={mfaCode}
                 onChange={(e) => setMfaCode(e.target.value)}
