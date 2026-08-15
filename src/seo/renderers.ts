@@ -199,9 +199,24 @@ export function renderAppDetails(slug: string, apps: any[], settings: any) {
   }
 
   let recommendedAppsHtml = '';
-  const similarApps = apps
-    .filter(a => getField(a, 'slug').toLowerCase() !== cleanSlug)
-    .slice(0, 6);
+  const appCategory = getField(app, 'category', '');
+  const specificCats = appCategory
+    ? appCategory.toLowerCase().split(',').map((c: string) => c.trim()).filter((c: string) => c && c !== 'all apps' && c !== 'all' && c !== 'apps' && c !== 'general')
+    : [];
+
+  let similarApps = apps.filter((a: any) => {
+    if (getField(a, 'slug').toLowerCase() === cleanSlug) return false;
+    const simCat = getField(a, 'category', '').toLowerCase();
+    const simSpecificCats = simCat.split(',').map((c: string) => c.trim()).filter((c: string) => c && c !== 'all apps' && c !== 'all' && c !== 'apps' && c !== 'general');
+    return specificCats.some((sc: string) => simSpecificCats.includes(sc) || simSpecificCats.some((asc: string) => asc.includes(sc) || sc.includes(asc)));
+  });
+
+  if (similarApps.length < 3) {
+    const matchedSlugs = new Set(similarApps.map((a: any) => getField(a, 'slug').toLowerCase()));
+    const remaining = apps.filter((a: any) => getField(a, 'slug').toLowerCase() !== cleanSlug && !matchedSlugs.has(getField(a, 'slug').toLowerCase()));
+    similarApps = [...similarApps, ...remaining];
+  }
+  similarApps = similarApps.slice(0, 6);
 
   if (similarApps.length > 0) {
     recommendedAppsHtml = `

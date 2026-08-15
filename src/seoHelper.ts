@@ -317,6 +317,12 @@ function buildJsonLdSchema(params: {
     const appLogo = getOgImageUrl(getField(app, 'og_image_url') || getField(app, 'icon_url') || params.logoUrl, hostOrigin);
     const desc = getField(app, 'seo_description') || getField(app, 'meta_description') || stripHtml(getField(app, 'description_html')) || params.description;
 
+    const rawCat = getField(app, 'category');
+    const specificCat = rawCat ? rawCat.split(',').map((c: string) => c.trim()).filter((c: string) => c && c.toLowerCase() !== 'all apps' && c.toLowerCase() !== 'all' && c.toLowerCase() !== 'apps' && c.toLowerCase() !== 'general')[0] : '';
+    const developer = getField(app, 'developer') || params.siteTitle || 'RummyDex';
+    const fileSize = getField(app, 'file_size') || '45 MB';
+    const version = getField(app, 'version') || '2.0.6';
+
     const softwareAppSchema: any = {
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
@@ -326,6 +332,12 @@ function buildJsonLdSchema(params: {
       "image": appLogo,
       "logo": appLogo,
       "description": desc,
+      "fileSize": fileSize,
+      "softwareVersion": version,
+      "author": {
+        "@type": "Organization",
+        "name": developer
+      },
       "offers": {
         "@type": "Offer",
         "price": "0",
@@ -360,23 +372,41 @@ function buildJsonLdSchema(params: {
       }
     });
 
+    const breadcrumbs: any[] = [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": hostOrigin
+      }
+    ];
+
+    if (specificCat) {
+      breadcrumbs.push({
+        "@type": "ListItem",
+        "position": 2,
+        "name": specificCat,
+        "item": `${hostOrigin}/?tab=${encodeURIComponent(specificCat)}`
+      });
+      breadcrumbs.push({
+        "@type": "ListItem",
+        "position": 3,
+        "name": name,
+        "item": `${hostOrigin}/app/${getField(app, 'slug')}`
+      });
+    } else {
+      breadcrumbs.push({
+        "@type": "ListItem",
+        "position": 2,
+        "name": name,
+        "item": `${hostOrigin}/app/${getField(app, 'slug')}`
+      });
+    }
+
     schemas.push({
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
-      "itemListElement": [
-        {
-          "@type": "ListItem",
-          "position": 1,
-          "name": "Home",
-          "item": hostOrigin
-        },
-        {
-          "@type": "ListItem",
-          "position": 2,
-          "name": name,
-          "item": `${hostOrigin}/app/${getField(app, 'slug')}`
-        }
-      ]
+      "itemListElement": breadcrumbs
     });
 
     if (app.faqs && Array.isArray(app.faqs) && app.faqs.length > 0) {

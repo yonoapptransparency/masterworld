@@ -116,11 +116,15 @@ export function useSEO(
       const slug = decodeURIComponent(path.split('/app/')[1]?.split('/')[0]?.split('?')[0] || '');
       const app = apps.find((a: any) => a?.slug?.toLowerCase() === slug.toLowerCase());
       if (app) {
-        pageTitle = app.seo_title || app.name || siteTitle;
+        if (app.seo_title) {
+          pageTitle = app.seo_title.includes(siteTitle) ? app.seo_title : `${app.seo_title} | ${siteTitle}`;
+        } else {
+          pageTitle = `${app.name || 'Application Details'} - Features, Specs & Overview | ${siteTitle}`;
+        }
         const rawDesc = app.seo_description || '';
         const rawHtml = app.description_html || '';
-        pageDesc = rawDesc ? rawDesc : (rawHtml ? stripHtml(rawHtml).substring(0, 160) : '');
-        pageKeywords = app.seo_keywords || '';
+        pageDesc = rawDesc ? rawDesc : (rawHtml ? stripHtml(rawHtml).substring(0, 160) : settings.meta_description || '');
+        pageKeywords = app.seo_keywords || settings.seo_keywords || '';
         pageOgImage = app.og_image_url || app.icon_url || settings.logo_url || '';
       }
     } else if (path.startsWith('/s/')) {
