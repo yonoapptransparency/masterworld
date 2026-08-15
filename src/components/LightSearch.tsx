@@ -156,6 +156,7 @@ export default function LightSearch({ isOpen, onClose }: LightSearchProps) {
           <Search className="w-5 h-5 text-blue-500 shrink-0" />
           <input
             ref={inputRef}
+            aria-label="Search queries"
             type="search"
             enterKeyHint="search"
             value={query}
