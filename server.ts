@@ -228,7 +228,7 @@ async function startServer() {
       const canonicalUrl = typeof seoResult === 'object' && seoResult ? seoResult.canonicalUrl : undefined;
       const statusCode = isNotFound ? 404 : 200;
 
-      let cacheControl = process.env.NODE_ENV !== "production" ? 'no-cache, no-store, must-revalidate' : (isNotFound ? 'no-cache, no-store, must-revalidate' : 'public, max-age=1800, stale-while-revalidate=86400');
+      let cacheControl = 'no-cache, no-store, must-revalidate';
       if (process.env.NODE_ENV === "production") {
         if (req.originalUrl === '/' || req.originalUrl === '' || req.originalUrl === '/new-apps') {
           cacheControl = 'public, max-age=300, stale-while-revalidate=3600';

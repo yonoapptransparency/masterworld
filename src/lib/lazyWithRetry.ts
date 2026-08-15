@@ -9,13 +9,14 @@ export const lazyWithRetry = <T extends ComponentType<any>>(
 ) =>
   lazy(async () => {
     const key = 'chunk_reload_retry_' + window.location.pathname;
-    const pageHasAlreadyBeenForceRefreshed = JSON.parse(
-      window.sessionStorage.getItem(key) || 'false'
-    );
+    let pageHasAlreadyBeenForceRefreshed = false;
+    try {
+      pageHasAlreadyBeenForceRefreshed = JSON.parse(window.sessionStorage.getItem(key) || 'false');
+    } catch (e) {}
 
     try {
       const component = await componentImport();
-      window.sessionStorage.setItem(key, 'false');
+      try { window.sessionStorage.setItem(key, 'false'); } catch (e) {}
       return component;
     } catch (error: any) {
       const errorMsg = String(error?.message || error || '');
@@ -28,7 +29,7 @@ export const lazyWithRetry = <T extends ComponentType<any>>(
 
       if (!pageHasAlreadyBeenForceRefreshed && isChunkError) {
         console.warn('[ChunkLoader] Chunk load failed. Force refreshing page once for latest bundle:', errorMsg);
-        window.sessionStorage.setItem(key, 'true');
+        try { window.sessionStorage.setItem(key, 'true'); } catch(e) {}
         try {
           const url = new URL(window.location.href);
           url.searchParams.set('_v', String(Date.now()));
