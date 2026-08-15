@@ -33,14 +33,9 @@
     },
     {
       "source": "/(.*)",
-      "destination": "/api/index"
+      "destination": "/index.html"
     }
   ],
-  "functions": {
-    "api/**/*": {
-      "includeFiles": "dist/index.html"
-    }
-  },
   "headers": [
     {
       "source": "/(sitemap\\.xml|rss\\.xml|opensearch\\.xml)",

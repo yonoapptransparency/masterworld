@@ -265,7 +265,7 @@ seoRouter.get([
 
 seoRouter.get(['/rss.xml', '/rss', '/feed', '/feed.xml'], async (req, res) => {
   try {
-    let rawDomain = 'https://www.rummydex.com';
+    let rawDomain = process.env.PUBLIC_DOMAIN || process.env.VITE_PUBLIC_DOMAIN || (req.get('host') ? `https://${req.get('host')}` : 'https://www.rummydex.com');
     if (!rawDomain.startsWith('http://') && !rawDomain.startsWith('https://')) {
       rawDomain = `https://${rawDomain}`;
     }
@@ -395,7 +395,7 @@ seoRouter.get('/robots.txt', async (req, res) => {
       res.send("User-agent: *\nDisallow: /\n");
       return;
     }
-    let rawDomain = 'https://www.rummydex.com';
+    let rawDomain = process.env.PUBLIC_DOMAIN || process.env.VITE_PUBLIC_DOMAIN || (req.get('host') ? `https://${req.get('host')}` : 'https://www.rummydex.com');
     if (!rawDomain.startsWith('http://') && !rawDomain.startsWith('https://')) {
       rawDomain = `https://${rawDomain}`;
     }
@@ -453,7 +453,7 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
     }
     const { apps = [], news = [], blogs = [], videos = [] } = data;
 
-    let rawDomain = 'https://www.rummydex.com';
+    let rawDomain = process.env.PUBLIC_DOMAIN || process.env.VITE_PUBLIC_DOMAIN || (req.headers.host ? `https://${req.headers.host}` : 'https://www.rummydex.com');
     if (!rawDomain.startsWith('http://') && !rawDomain.startsWith('https://')) {
       rawDomain = `https://${rawDomain}`;
     }
@@ -461,6 +461,8 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
 
     let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
     xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n`;
+
+    const today = new Date().toISOString().split('T')[0];
 
     const escapeXml = (unsafe: any) => {
       if (typeof unsafe !== 'string') unsafe = String(unsafe || '');
@@ -545,43 +547,15 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
 
     const siteLogo = getField(data?.settings, 'logo_url') || getField(data?.settings, 'favicon_url') || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
 
-    // Find latest update dates for dynamic aggregations (Home and News pages)
-    let latestAppDateStr = '';
-    for (const app of apps) {
-      const d = getFormattedDate(app);
-      if (d && d > latestAppDateStr) latestAppDateStr = d;
-    }
-
-    let latestNewsDateStr = '';
-    for (const n of news) {
-      const d = getFormattedDate(n);
-      if (d && d > latestNewsDateStr) latestNewsDateStr = d;
-    }
-    
-    let latestBlogDateStr = '';
-    for (const b of blogs) {
-      const d = getFormattedDate(b);
-      if (d && d > latestBlogDateStr) latestBlogDateStr = d;
-    }
-
     if (videos && Array.isArray(videos) && videos.length > 0) {
       staticPages.splice(3, 0, { path: '/videos', priority: '0.7', changefreq: 'weekly' });
     }
 
     for (const page of staticPages) {
-      let pageLastMod = null;
       if (page.path === '/') {
-        pageLastMod = latestAppDateStr || null;
-      } else if (page.path === '/news') {
-        pageLastMod = latestNewsDateStr || null;
-      } else if (page.path === '/blogs') {
-        pageLastMod = latestBlogDateStr || null;
-      }
-
-      if (page.path === '/') {
-        addUrl(`${host}${page.path}`, pageLastMod, page.changefreq, page.priority, siteLogo, 'RummyDex Official Logo');
+        addUrl(`${host}${page.path}`, today, page.changefreq, page.priority, siteLogo, 'RummyDex Official Logo');
       } else {
-        addUrl(`${host}${page.path}`, pageLastMod, page.changefreq, page.priority, siteLogo, 'RummyDex');
+        addUrl(`${host}${page.path}`, today, page.changefreq, page.priority, siteLogo, 'RummyDex');
       }
     }
 
@@ -602,7 +576,7 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
 
     // Blogs list + detail
     if (blogs && Array.isArray(blogs) && blogs.length > 0) {
-      addUrl(`${host}/blogs`, latestBlogDateStr || null, 'daily', '0.8', siteLogo, 'RummyDex Blogs');
+      addUrl(`${host}/blogs`, today, 'daily', '0.8', siteLogo, 'RummyDex Blogs');
       for (const blog of blogs) {
         const slug = getField(blog, 'slug');
         if (slug) {

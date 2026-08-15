@@ -894,10 +894,10 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     const optimizedSettings = data.settings ? { ...data.settings } : {};
     
     // We don't need to send huge FAQS or about us content in initial data unless we are on those pages
-    if (cleanPathLower !== '/about') {
+    if (pageType !== 'about') {
       delete optimizedSettings.about_us;
     }
-    if (cleanPathLower !== '/faq' && cleanPathLower !== '/') {
+    if (pageType !== 'faq' && cleanPathLower !== '/faq' && cleanPathLower !== '/') {
       delete optimizedSettings.website_faqs;
     }
 
