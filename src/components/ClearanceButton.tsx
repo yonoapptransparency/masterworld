@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { Lock, Loader2 } from 'lucide-react';
-import CryptoJS from 'crypto-js';
-import { useData } from '../contexts/DataContextPublic';
+import { Lock, Loader2, AlertCircle } from 'lucide-react';
+import { solveChallenge } from '../lib/security/pow';
+import { generateFingerprint } from '../lib/security/fingerprint';
 
 interface ClearanceButtonProps {
   appId: string;
@@ -12,78 +12,81 @@ interface ClearanceButtonProps {
 export default function ClearanceButton({ appId }: ClearanceButtonProps) {
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [statusText, setStatusText] = useState<string>('Verifying Clearance...');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const clickedRef = useRef<boolean>(false);
-  const { apps } = useData();
 
-  const resolveClientSide = (): string => {
-    let finalUrl = '';
-
-    try {
-      const app = (apps || []).find(a => (a.id === appId || a.slug === appId));
-      if (app) {
-        const encrypted = (app as any).more_information_url || (app as any).encrypted_link;
-        if (encrypted && encrypted.startsWith('U2FsdGVkX1')) {
-          const keys = [
-            'RUMMY_DEX_DEFAULT_SECURE_VAULT_KEY_2026',
-            'YonoVaultSecret2026MasterKey!', 
-            'YonoVaultSecret2026MasterKey',
-            'rummydex_master_vault_key_2026',
-            'fallback_aes_secret_for_local_dev_only'
-          ];
-          for (const k of keys) {
-            try {
-              const bytes = CryptoJS.AES.decrypt(encrypted, k);
-              const text = bytes.toString(CryptoJS.enc.Utf8);
-              if (text && text.length > 3 && (text.includes('http') || text.includes('://'))) {
-                finalUrl = text.trim();
-                break;
-              }
-            } catch(e) {}
-          }
-        } else if (encrypted && (encrypted.includes('http') || encrypted.includes('://'))) {
-           finalUrl = encrypted.trim();
-        }
-      }
-    } catch(e) {
-      console.warn('[CLEARANCE] Client resolution error:', e);
-    }
-    
-    return finalUrl;
-  };
-
-  const handleClick = async (e: React.MouseEvent<HTMLAnchorElement | HTMLButtonElement>) => {
+  const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     if (clickedRef.current || isProcessing) return;
 
     clickedRef.current = true;
     setIsProcessing(true);
-    setStatusText('Checking Security Protocol...');
+    setErrorMessage(null);
+    setStatusText('Initializing Security Check...');
 
     try {
-      // Resolve link synchronously
-      const redirectUrl = resolveClientSide();
+      // 1. Generate browser-unique security signal
+      const fingerprint = await generateFingerprint().catch(() => 'fallback_fp');
 
-      const finalRedirect = redirectUrl || `/api/v1/moreinfo-resolve?id=${appId}`;
+      // 2. Request stateless challenge from server
+      setStatusText('Connecting to Security Gateway...');
+      const startRes = await fetch(`/api/v1/clearance/start?appId=${encodeURIComponent(appId)}`, {
+        headers: { 'Accept': 'application/json' }
+      });
 
-      // Small delay to simulate PoW and defeat simple headless scrapers
-      await new Promise(resolve => setTimeout(resolve, 800));
+      if (!startRes.ok) {
+        throw new Error('Security service unavailable. Please retry.');
+      }
+
+      const challengeData = await startRes.json();
+      if (!challengeData || !challengeData.nonce) {
+        throw new Error('Invalid security challenge received.');
+      }
+
+      // 3. Solve cryptographic Proof-of-Work challenge
+      setStatusText('Verifying Proof of Humanity...');
+      const solution = await solveChallenge(challengeData.nonce, challengeData.difficulty || '000');
+
+      // 4. Complete clearance and obtain single-use authorization nonce
+      setStatusText('Authorizing Clearance...');
+      const completeRes = await fetch('/api/v1/clearance/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          nonce: challengeData.nonce,
+          solution,
+          fingerprint,
+          appId,
+          sid: challengeData.sid
+        })
+      });
+
+      if (!completeRes.ok) {
+        const errorData = await completeRes.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Verification declined.');
+      }
+
+      const result = await completeRes.json();
+      if (!result.success || !result.redirectUrl) {
+        throw new Error('Authorization response incomplete.');
+      }
+
       setStatusText('Redirecting to Destination...');
 
-      // Safely redirect current tab
+      // 5. Navigate via Server-Authoritative Clearance Gateway
+      const finalRedirect = result.redirectUrl;
       try {
         if (window.top && window.self !== window.top) {
           window.top.location.href = finalRedirect;
         } else {
           window.location.href = finalRedirect;
         }
-      } catch (e) {
+      } catch (_) {
         window.location.href = finalRedirect;
       }
     } catch (err: any) {
-      console.warn('[CLEARANCE] Security verification error:', err);
-      setStatusText('Link Not Available');
-      // Do not redirect if link is not configured
-    } finally {
+      console.warn('[CLEARANCE] Clearance handshake notice:', err?.message || err);
+      setErrorMessage(err?.message || 'Verification could not be completed.');
       setIsProcessing(false);
       clickedRef.current = false;
     }
@@ -93,6 +96,7 @@ export default function ClearanceButton({ appId }: ClearanceButtonProps) {
     <div className="w-full max-w-sm mx-auto flex flex-col items-center gap-2">
       <button
         type="button"
+        id={`clearance-btn-${appId}`}
         onClick={handleClick}
         disabled={isProcessing}
         className={`group relative flex items-center justify-center gap-2.5 w-full py-4 px-6 text-white rounded-2xl transition-all font-bold shadow-md uppercase tracking-wider text-sm text-center select-none cursor-pointer ${
@@ -115,12 +119,21 @@ export default function ClearanceButton({ appId }: ClearanceButtonProps) {
       </button>
 
       {/* Surface status indicator */}
-      {isProcessing ? (
+      {isProcessing && (
         <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 transition-all">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping shrink-0" />
           <span>{statusText}</span>
         </div>
-      ) : (
+      )}
+
+      {errorMessage && !isProcessing && (
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 transition-all text-center">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+          <span>{errorMessage} (Tap to retry)</span>
+        </div>
+      )}
+
+      {!isProcessing && !errorMessage && (
         <div className="text-[11px] text-zinc-400 dark:text-zinc-500 font-medium text-center">
           100% Encrypted & Protected
         </div>

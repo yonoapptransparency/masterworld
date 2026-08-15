@@ -3,8 +3,6 @@
  * Includes CSS class merging and admin route path resolution securely.
  */
 
-import * as CryptoJS from 'crypto-js';
-
 export function cn(...inputs: any[]): string {
   return inputs.filter(Boolean).join(' ');
 }

@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { ArrowRight, Loader2, AlertTriangle, ShieldCheck } from 'lucide-react';
-import CryptoJS from 'crypto-js';
-import { useData } from '../contexts/DataContextPublic';
+import { solveChallenge } from '../lib/security/pow';
+import { generateFingerprint } from '../lib/security/fingerprint';
 
 /**
  * NeutralSyncButton
  * An unstyled, neutral link resolver that handles background security handshakes
- * without screaming "click me" in terms of visual design.
+ * through the server-authoritative clearance protocol.
  */
 
 interface NeutralSyncButtonProps {
@@ -19,78 +19,80 @@ export default function NeutralSyncButton({ appId, slug, status }: NeutralSyncBu
   const [phase, setPhase] = useState<'idle' | 'syncing' | 'ready' | 'error'>('idle');
   const [syncMessage, setSyncMessage] = useState<string>("Proceed");
   const [error, setError] = useState<string>('');
-  const { apps } = useData();
-
-  const resolveClientSide = (): string => {
-    let finalUrl = '';
-
-    try {
-      const app = (apps || []).find(a => (a.id === appId || a.slug === appId || a.slug === slug));
-      if (app) {
-        const encrypted = (app as any).more_information_url || (app as any).encrypted_link;
-        if (encrypted && encrypted.startsWith('U2FsdGVkX1')) {
-          const keys = [
-            'RUMMY_DEX_DEFAULT_SECURE_VAULT_KEY_2026',
-            'YonoVaultSecret2026MasterKey!', 
-            'YonoVaultSecret2026MasterKey',
-            'rummydex_master_vault_key_2026',
-            'fallback_aes_secret_for_local_dev_only'
-          ];
-          for (const k of keys) {
-            try {
-              const bytes = CryptoJS.AES.decrypt(encrypted, k);
-              const text = bytes.toString(CryptoJS.enc.Utf8);
-              if (text && text.length > 3 && (text.includes('http') || text.includes('://'))) {
-                finalUrl = text.trim();
-                break;
-              }
-            } catch(e) {}
-          }
-        } else if (encrypted && (encrypted.includes('http') || encrypted.includes('://'))) {
-           finalUrl = encrypted.trim();
-        }
-      }
-    } catch(e) {
-      console.warn('[SYNC] Client resolution error:', e);
-    }
-    
-    return finalUrl;
-  };
 
   const triggerSync = async () => {
     setPhase('syncing');
     setError('');
-    setSyncMessage("Processing...");
+    setSyncMessage("Verifying Security...");
 
     try {
-      // Resolve link synchronously
-      const redirectUrl = resolveClientSide();
-      const finalRedirect = redirectUrl || `/api/v1/moreinfo-resolve?id=${appId}`;
+      const targetId = slug || appId;
+      const fp = await generateFingerprint().catch(() => 'fallback_fp');
 
-      // Simulate verification delay to defeat fast bots
-      await new Promise(r => setTimeout(r, 600));
+      // 1. Request challenge from clearance gateway
+      const startRes = await fetch(`/api/v1/clearance/start?appId=${encodeURIComponent(targetId)}`, {
+        headers: { 'Accept': 'application/json' }
+      });
+
+      if (!startRes.ok) {
+        throw new Error('Security gateway unavailable');
+      }
+
+      const challengeData = await startRes.json();
+      if (!challengeData || !challengeData.nonce) {
+        throw new Error('Invalid challenge context');
+      }
+
+      // 2. Solve PoW
+      setSyncMessage("Verifying...");
+      const solution = await solveChallenge(challengeData.nonce, challengeData.difficulty || '000');
+
+      // 3. Complete clearance
+      setSyncMessage("Authorizing...");
+      const completeRes = await fetch('/api/v1/clearance/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          nonce: challengeData.nonce,
+          solution,
+          fingerprint: fp,
+          appId: targetId,
+          sid: challengeData.sid
+        })
+      });
+
+      if (!completeRes.ok) {
+        const errorData = await completeRes.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Clearance authorization failed');
+      }
+
+      const result = await completeRes.json();
+      if (!result.success || !result.redirectUrl) {
+        throw new Error('Incomplete response');
+      }
 
       setPhase('ready');
-      setSyncMessage("Done");
-      
+      setSyncMessage("Redirecting...");
+
+      const finalRedirect = result.redirectUrl;
       try {
         if (window.top && window.self !== window.top) {
           window.top.location.href = finalRedirect;
         } else {
           window.location.href = finalRedirect;
         }
-      } catch (e) {
+      } catch (_) {
         window.location.href = finalRedirect;
       }
-      
+
       setTimeout(() => {
         setPhase('idle');
         setSyncMessage('Proceed');
-      }, 1000);
+      }, 1500);
 
     } catch (err: any) {
-      console.warn('[Sync] Failed:', err);
-      setError(err.message || 'Sync Node Busy');
+      console.warn('[Sync] Clearance notice:', err?.message || err);
+      setError(err?.message || 'Verification failed');
       setPhase('error');
     }
   };
@@ -104,6 +106,7 @@ export default function NeutralSyncButton({ appId, slug, status }: NeutralSyncBu
     <div className="flex flex-col gap-2 w-full">
       <button
         type="button"
+        id={`neutral-sync-btn-${appId}`}
         onClick={handleAction}
         disabled={phase === 'syncing' || phase === 'ready'}
         className={`group relative flex items-center justify-between w-full p-4 rounded-xl transition-all border ${
@@ -136,7 +139,7 @@ export default function NeutralSyncButton({ appId, slug, status }: NeutralSyncBu
           <div className="flex flex-col text-left">
             <span className="text-sm font-semibold">{syncMessage}</span>
             <span className="text-xs opacity-70">
-              {phase === 'syncing' ? 'Establishing secure tunnel...' : 
+              {phase === 'syncing' ? 'Establishing secure clearance...' : 
                phase === 'error' ? 'Tap to retry connection' :
                status === 'Caution' ? 'User discretion advised' : 
                'Standard portal connection'}

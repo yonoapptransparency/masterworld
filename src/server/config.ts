@@ -1,24 +1,31 @@
 import path from 'path';
+import crypto from 'crypto';
 
 declare global {
   var AES_SECRET_GLOBAL: string;
+  var TOKEN_SECRET_GLOBAL: string;
+  var SESSION_SECRET_GLOBAL: string;
 }
 
+// Generate cryptographically secure random fallbacks per server process instance
+const runtimeAesSecret = crypto.randomBytes(32).toString('hex');
+const runtimeTokenSecret = crypto.randomBytes(32).toString('hex');
+const runtimeSessionSecret = crypto.randomBytes(32).toString('hex');
+
 if (!process.env.AES_SECRET) {
-  console.warn("WARNING: AES_SECRET is not set. Using local development fallback.");
+  console.warn("[SECURITY] AES_SECRET not configured in environment. Using dynamic memory secret.");
 }
 
 if (!process.env.ADMIN_EMAIL) {
-  console.warn("WARNING: ADMIN_EMAIL is not set. Admin features will use default fallback.");
+  console.warn("[SECURITY] ADMIN_EMAIL not configured.");
   process.env.ADMIN_EMAIL = "defentechscholar@gmail.com";
 }
 
-export const getFallbackAes = () => ["fallback", "aes", "secret", "for", "local", "dev", "only"].join("_");
-global.AES_SECRET_GLOBAL = process.env.AES_SECRET || getFallbackAes();
+global.AES_SECRET_GLOBAL = process.env.AES_SECRET || runtimeAesSecret;
+export const getFallbackAes = () => global.AES_SECRET_GLOBAL;
 
-export const getFallbackToken = () => ["fallback", "token", "secret"].join("_");
-export const TOKEN_SECRET = process.env.TOKEN_SECRET || getFallbackToken();
-export const SESSION_SECRET = process.env.SESSION_SECRET || "fallback_session_secret_dev";
+export const TOKEN_SECRET = process.env.TOKEN_SECRET || runtimeTokenSecret;
+export const SESSION_SECRET = process.env.SESSION_SECRET || runtimeSessionSecret;
 
 if (!process.env.TOKEN_SECRET) {
   console.warn("WARNING: TOKEN_SECRET is not set. Using local development fallback.");

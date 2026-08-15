@@ -211,8 +211,6 @@ export const mockApps: AppConfig[] = [
     "custom_admin_box_heading": "",
     "created_at": "2026-08-02T11:14:13.263Z",
     "url": "",
-    "more_information_url": "U2FsdGVkX18QyABZOaU0rCyX5WWH3n1I/afpMwqWV9rsG/L5upr4reGD6UwOE4NPih7DWpa5EDCLKDYCuRCFcA==",
-    "encrypted_link": "U2FsdGVkX1/PhTuzI5yNFlYVpnUbgD8Bf5kbTR9xFXe7LetZpIU/qOlnxR3Jg8vi0Wz+gGxyWo1b/pnAhOEIoA=="
   },
   {
     "release_notes": "",
@@ -233,7 +231,6 @@ export const mockApps: AppConfig[] = [
     "seo_keywords": "rummy 77 app, real rummy gameplay, rummy 77 review, 13 card rummy",
     "version": "1.0.6",
     "id": "i5uw2apum",
-    "encrypted_link": "U2FsdGVkX1+ku7NEq6bs5/mUg3y0kwYO1/XaBi3BZ28E6e0ton4y6W2flTk9A+XmwAfcrf2SMtYWv2aOyIMPUQ==",
     "serial_number": 2,
     "updated_at": "2026-08-10T04:27:14.086Z",
     "canonical_url": "https://www.rummydex.com/app/rummy-77",
@@ -249,7 +246,6 @@ export const mockApps: AppConfig[] = [
     "url": "",
     "custom_admin_box_heading": "",
     "custom_admin_box_html": "",
-    "more_information_url": "U2FsdGVkX1841ZHdJGNdO9yz4bzmrOYNxB2AGWPxIMaWAoZxk2wjO4+PKX1bQzzQ0l2ZoDYHR6u0dLiMm+VDDQ=="
   },
   {
     "og_image_url": "https://res.cloudinary.com/diewalae4/image/upload/v1785780996/download_22_vgi4h1_1_jjm7jx.webp",
@@ -264,7 +260,6 @@ export const mockApps: AppConfig[] = [
     "canonical_url": "https://www.rummydex.com/app/rummy-91",
     "faqs": [],
     "serial_number": 3,
-    "encrypted_link": "U2FsdGVkX18wpe+M/g6eK5qSO6lI3XGHx/AjsVipn5xf6iHDnaTtJhGQFiuGlTCoEXO2ubeJIQ4/8eDgsSWNSg==",
     "red_box_msg": "",
     "video_url": "",
     "is_new": false,
@@ -286,7 +281,6 @@ export const mockApps: AppConfig[] = [
     "url": "",
     "custom_admin_box_heading": "",
     "custom_admin_box_html": "",
-    "more_information_url": "U2FsdGVkX1/LtHUztwaGgH3pIEU4vU8hPL0EZ4sKC97HecL5/9Jcb/7XC3gCzpvaFnnYKQYQc4wyog3/ljkozg=="
   },
   {
     "rating": 4,
@@ -312,7 +306,6 @@ export const mockApps: AppConfig[] = [
         "question": "Q4: What extra game modes are included besides standard 5-round matches?"
       }
     ],
-    "encrypted_link": "U2FsdGVkX19LhS1FPXUfMyt/9VsFG3Ooi/VJP8EeMmg81JRcjl3J/9uzUVPAjI6yCpUluTXTxkBBDbbZRpX1fw==",
     "release_notes": "",
     "features_html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\">\n<title>Callbreak: What It's Actually Like to Play</title>\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<style>\nbody{font-family:Arial,Helvetica,sans-serif;color:#3c4043;max-width:700px;margin:40px auto;padding:0 20px;line-height:1.7;font-size:15px;background:#fff}\nh1{font-size:24px;color:#202124;font-weight:400;margin-bottom:6px}\n.tagline{color:#5f6368;font-size:14px;margin-bottom:28px;font-style:italic}\nh2{font-size:19px;color:#202124;font-weight:500;margin-top:40px}\np{margin:10px 0}\nul{margin:10px 0;padding-left:22px}\nli{margin:8px 0}\n</style>\n</head>\n<body>\n\n<h1>Callbreak: What It's Actually Like to Play</h1>\n<p class=\"tagline\">A look at how the game feels day to day — the wins, the friction, and everything in between.</p>\n\n<h2>First Impressions</h2>\n<p>Callbreak comes across as an engaging, easy-to-pick-up card game that brings the traditional South Asian trick-taking game to mobile in a way that feels smooth, polished, and beginner-friendly right from the start. Having offline AI play, online multiplayer, and quick matches all in one place gives players real flexibility, and that's a big part of why people keep coming back.</p>\n<p>The overall feeling is positive, but with some caveats. The core card game itself is satisfying and genuinely addictive — the friction tends to come from the ads, monetization, and occasional technical hiccups around the edges.</p>\n\n<h2>Getting Started</h2>\n<p>New players are guided in rather than dropped into a confusing menu. A beginner-friendly tutorial walks through the rules of Callbreak, bidding, trump suits, and trick-taking, and an in-app rulebook covers everything from the basics to more advanced strategy for players who want to improve over time.</p>\n<p>Difficulty settings run from novice to advanced, so beginners can ease in while experienced players have room to push themselves. Most people find the rules easy to pick up, while the strategy stays deep enough to hold their interest. The onboarding experience overall feels welcoming and low-pressure — most new players feel ready to jump in within minutes.</p>\n\n<h2>How a Match Feels</h2>\n<p>Quick match options get you into a game fast, while standard matches feel more like a complete session. Bidding sits at the center of the experience, and the interface makes calling your number straightforward. Touch controls for selecting and playing cards feel smooth and intuitive.</p>\n<p>Little quality-of-life touches make a real difference — the ability to undo a mis-tap takes the stress out of quick decisions, reviewing card history helps with strategic planning, and being able to reshuffle a genuinely bad hand is appreciated. Animations move at a good pace, and game speed can be adjusted if you want things faster or slower.</p>\n<p>Altogether, the gameplay loop feels rhythmic and satisfying — bid, play, win or lose the trick, watch the score update. The tactile card play and animated trick collection give it a real card-table feel.</p>\n\n<h2>Playing Against the AI</h2>\n<p>AI opponents are generally described as challenging and smart, adapting to how you play. That said, more advanced players report that the AI becomes predictable after extended play, which can wear down long-term replay value. One specific quirk that comes up is bots sometimes playing only their lowest available card, which can feel less realistic or strategically shallow.</p>\n<p>Being able to play entirely offline is a strong point, especially for anyone dealing with unreliable connectivity, and practice mode is genuinely useful for building up strategy before jumping into matches against real people. Overall, single-player is solid and convenient, though it can start to feel repetitive for players who've mastered the AI's patterns.</p>\n\n<h2>Playing With Others</h2>\n<p>Real-time matches against players from around the world add excitement and unpredictability that AI matches can't match. Matchmaking uses a skill-rating system to pair similar-level players, though some users report inconsistencies — trouble connecting with random opponents or with friends specifically.</p>\n<p>Private tables for playing with friends or family are well-liked, and local Wi-Fi play is praised for situations without internet access, like travel or gatherings. In-game chat and emojis add a bit of social warmth, though they're fairly minimal compared to dedicated chat apps. Network interruptions are a real pain point — they can cause bid failures, auto-resets, or disconnections mid-match. Referral-code invites and Facebook integration exist for connecting with friends, though some users run into friction there too.</p>\n<p>When it works, multiplayer is fun and competitive — but connection instability and matchmaking hiccups can make the experience inconsistent.</p>\n\n<h2>Look and Sound</h2>\n<p>The app gets frequent praise for its visuals — people describe the card animations as beautiful and the interface as sleek. The game board has a modern, premium look that adds to the overall sense of polish. Multiple card designs and table themes let players personalize things, and dealing, trick collection, and win/loss animations all feel smooth and satisfying.</p>\n<p>Sound design leans into authentic, realistic card shuffling and playing sounds, with background music and customization options available too. On supported devices, haptic feedback adds an extra layer of tactile feel. Altogether, the visuals and audio work together to create a premium, polished card-room atmosphere.</p>\n\n<h2>Controls and Navigation</h2>\n<p>Touch controls come across as smooth and intuitive, and the interface is generally easy to navigate. The main menu and home screen are clean, though some players wish settings were more directly accessible. Colorblind mode and multi-language support help make the app accessible to a wider audience.</p>\n<p>One recurring complaint is being forced to play a specific card in certain situations, when players would rather have more freedom. That said, the app is easy to operate one-handed, which matters a lot for a mobile card game — most of the friction comes from gameplay rules like forced suit-following rather than the interface itself.</p>\n\n<h2>Ads and Monetization</h2>\n<p>The game is genuinely free to download and play, which keeps the barrier to entry low. But ad frequency is by far the most frequently cited pain point — some users describe feeling like they spend the vast majority of their time watching ads rather than playing. Ads tend to show up between games or at natural breaks, but how often and how long they run can break immersion.</p>\n<p>A \"Remove Ads\" purchase is available, but some users report ads still showing up even after paying — which creates real frustration and damages trust. Gem packs are offered for unlocking assets; some players are fine with that, others feel pushed toward spending. The daily reward wheel and login bonuses add a sense of progression, though the rewards themselves can feel small.</p>\n<p>Monetization is the single biggest source of dissatisfaction here, and ads persisting after a paid removal is the kind of thing that really damages trust with paying users.</p>\n\n<h2>Progression and Rewards</h2>\n<p>Daily login rewards and the spin-based daily wheel encourage regular use and add small moments of anticipation. Global leaderboards give players a long-term goal to chase, and league progression — Bronze, Gold, Platinum, and so on — adds a sense of advancement. Detailed stats let players track their own improvement and compare themselves to others, and small skill-point bonuses for extra tricks offer little moments of satisfaction along the way.</p>\n<p>These systems are generally effective at keeping people engaged, though the rewards are modest and the competitive pace may feel slow for more casual players.</p>\n\n<h2>Where Things Get Frustrating</h2>\n<ul>\n<li><strong>Excessive ads</strong> — breaks immersion, fragments sessions, and is enough to make some players uninstall.</li>\n<li><strong>Ads after paying to remove them</strong> — a trust-breaking experience that has led to refund requests.</li>\n<li><strong>AI predictability</strong> — reduces long-term challenge for more experienced players.</li>\n<li><strong>Multiplayer connection issues</strong> — bid failures, disconnections, and trouble connecting with friends specifically.</li>\n<li><strong>No Nil Bid option</strong> — players coming from Spades or more advanced Callbreak variants miss this strategic choice.</li>\n<li><strong>Forced card play</strong> — some players want more freedom in which card they play.</li>\n<li><strong>Crashes and freezes</strong> — technical instability that can interrupt games and cost progress.</li>\n<li><strong>Login issues</strong> — problems signing in that affect multiplayer access and reward tracking.</li>\n<li><strong>Missing cards bug</strong> — connectivity or sync issues that can make cards appear to vanish mid-play.</li>\n</ul>\n\n<h2>The Emotional Highs and Lows</h2>\n<p>The delight moments are the ones you'd expect from a good card game — winning a tricky bid, watching a smooth animation play out, pulling off a perfect hand, unlocking a new theme, or beating a friend at a private table. The friction moments are just as clear: sitting through another ad, losing connection mid-bid, discovering ads still show up after paying to remove them, or watching the AI make another predictable low-card play.</p>\n<p>Long-term, the app is addictive and fun as a casual card game, but frequent players tend to hit a ceiling where the ads and AI predictability start to wear thin. The social multiplayer side keeps a lot of people engaged — but only when the connection actually holds up.</p>\n\n<h2>The Bottom Line</h2>\n<p>Callbreak delivers a polished, accessible, and strategically satisfying card game that works well for both casual players and longtime fans of the format. Its strongest points are its visual polish, smooth controls, offline flexibility, and social features. Its biggest weaknesses are ad overload and technical instability, especially around multiplayer and after paying to remove ads. Most players genuinely enjoy the core experience, but frequently wish for fewer ads, more reliable servers, and deeper AI strategy.</p>\n\n</body>\n</html>\n",
     "file_size": "51.11 MB",
@@ -340,7 +333,6 @@ export const mockApps: AppConfig[] = [
     "name": "CALLBREAK",
     "version": "1.0",
     "url": "",
-    "more_information_url": "U2FsdGVkX1/lLRvpxwBYYm22soFUc3mR1fS1j0Gf3lTnpU2GrcvOcJ5QQPbqu361kmqqucnP2GV0zsAl9s0icg=="
   },
   {
     "video_url": "",
@@ -391,8 +383,6 @@ export const mockApps: AppConfig[] = [
     "yellow_box_msg": "",
     "is_coming_soon": false,
     "url": "",
-    "more_information_url": "U2FsdGVkX18z+31v1xNClLpM3omL5ScaBd4KlNAxJGnNsJwdTwwu8d7C5+nl/SQC2rbVK8SSYP3J6SruvApVACzx7F+ZcoYnstg56MEbyvA=",
-    "encrypted_link": "U2FsdGVkX1+wWmkMFT6nhkeVRWJHVUHg+9pxVi43np+AvMax9UVW5yLV9eULJ6a8b35fFWK+S9V1IlYGBh0uHg=="
   },
   {
     "custom_admin_box_html": "<section class=\"content-section\">\n  <h2>The Hands-On User Experience</h2>\n\n  <p>\n    The user interface of Joy Rummy is purposefully engineered to eliminate visual clutter, allowing players to focus entirely on tactical execution and board awareness.\n  </p>\n\n  <h3>Visual Design and Interaction Dynamics</h3>\n\n  <div class=\"feature-item\">\n    <h4>Fluid Drag-and-Drop Controls</h4>\n    <p>\n      Card movement relies on a responsive physics-based system where cards snap securely into position, offering satisfying tactile feedback during fast-paced turns.\n    </p>\n  </div>\n\n  <div class=\"feature-item\">\n    <h4>Smart Organization Tools</h4>\n    <p>\n      To alleviate screen-space limitations on smaller mobile displays, the app includes an \"Auto-Group\" feature that instantly categorizes hand components by suit and color.\n    </p>\n  </div>\n\n  <div class=\"feature-item\">\n    <h4>Distraction-Free Signaling</h4>\n    <p>\n      The digital table utilizes minimalist, high-contrast aesthetics, featuring subtle visual glows that indicate valid meld formations without pulling focus from the broader game state.\n    </p>\n  </div>\n\n  <div class=\"feature-item\">\n    <h4>Structured Communication</h4>\n    <p>\n      To maintain a positive community atmosphere, open text chat is replaced by a curated suite of animated emotes and quick phrases, enabling efficient expression without interrupting match pacing.\n    </p>\n  </div>\n\n  <h3>Player Engagement and Community Feedback</h3>\n\n  <p>\n    User interaction patterns and reviews highlight several core operational strengths alongside areas for continuous technical refinement.\n  </p>\n\n  <div class=\"feature-item\">\n    <h4>Rapid Match Initiation</h4>\n    <p>\n      Players frequently praise the speed of the global matchmaking queue, noting an average transition time of under ten seconds from the home screen to an active table.\n    </p>\n  </div>\n\n  <div class=\"feature-item\">\n    <h4>Pacing and Advertisement Flow</h4>\n    <p>\n      As a freemium platform, video advertisements are displayed between completed rounds. While necessary for platform maintenance, some users observe that ad frequency can occasionally disrupt long gaming sessions.\n    </p>\n  </div>\n\n  <div class=\"feature-item\">\n    <h4>Interface Density</h4>\n    <p>\n      While the responsive layout adapts well to modern devices, users operating older, compact smartphones occasionally report that managing 13 stacked cards requires precise touch inputs to avoid accidental discards.\n    </p>\n  </div>\n</section>",
@@ -445,8 +435,6 @@ export const mockApps: AppConfig[] = [
     "developer": "Pixel Card Studios",
     "version": "1.0",
     "url": "",
-    "more_information_url": "U2FsdGVkX1+xeHzMossiLoThM8hfAlcGw/rD2efDFgUlf5+a29Lwo2uo3VsSg2TT7CD2tXtBH3C4Mes9AKCTLA==",
-    "encrypted_link": "U2FsdGVkX19a27dVT6shBlwtx0Z80l8rwLqCAbBhhBlCm/ei+c0rFSUHedjCuUepKKYbStKRFGEVgDZ4PUJJCA=="
   },
   {
     "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784877512/download_16_fznggx.webp",
@@ -495,8 +483,6 @@ export const mockApps: AppConfig[] = [
     "seo_description": "RummyDex. Discover the app's traditional 13-card rummy mechanics, Teen Patti hand rankings, smart hint system, and smooth offline performance.",
     "category": "All Apps, Yono Apps",
     "url": "",
-    "more_information_url": "U2FsdGVkX1/NPc6PbyljkqKNCyDsUwbcSTbo7al44tOosuDjkrFh6Z3NB4MXHWqhr4GZd9s7Loe6BcM1Y5YqSw==",
-    "encrypted_link": "U2FsdGVkX18a6lVjurWzrwyfJDmguWRebsVMkMkhh06zyHXUbKciDOb0hk4h9Ko6Xax/DHV3kvTQaHl6g+1Kgg=="
   },
   {
     "category": "Yono Apps, All Apps",
@@ -545,8 +531,6 @@ export const mockApps: AppConfig[] = [
     "rating": 4.1,
     "og_image_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784877617/download_19_w2sxhp.webp",
     "url": "",
-    "more_information_url": "U2FsdGVkX1/bX4XCs3bvOQNEzWZzr5WESR7HeZkhvBVOPOtwUGO/mUlkiIvwpeXwYMLXV21B5fusUOgCO1w5rg==",
-    "encrypted_link": "U2FsdGVkX1/9dotVlj8uyF/O2fjUAtsKKWW5b7ZK5eQTseNsT/MpCgAOWLS9+Aa4hTYHPiSEHNclRy8Oy0mfAg=="
   },
   {
     "faqs": [
@@ -595,8 +579,6 @@ export const mockApps: AppConfig[] = [
     "slug": "jaiho-slots",
     "video_url": "",
     "url": "",
-    "more_information_url": "U2FsdGVkX18hzxnQqzTHBK0FI5AvI4yteod/1zYznbcEpf93Y0EVrKelDXGtpqeJdmHMX8UjEWt6P9zVL5O4Pg==",
-    "encrypted_link": "U2FsdGVkX18o5glQ7C0G2sG5lwQhcoGMqvlxxQ++8y5U6Ybiwcovm4CDPu5l4G3RuMx30f1VRCtIlDhRiXxV2w=="
   },
   {
     "idea_box_msg": "",
@@ -645,8 +627,6 @@ export const mockApps: AppConfig[] = [
     "id": "l7e8oyo9m",
     "video_url": "",
     "url": "",
-    "more_information_url": "U2FsdGVkX1+d5zGUixNW03yCMZt2kIkUhEpozVINWNugRaKeFTYsYtti01c68cUmHTiBi1o6Q2ha9lRNSaSoZQ==",
-    "encrypted_link": "U2FsdGVkX18pzFQnbs+3nBBgJp5hGam2q5PI8koBpD2c/UWr5+4opcNQic0zOPuyQl4lNeL1owrMknGqNi5jyA=="
   },
   {
     "custom_admin_box_html": "",
@@ -695,8 +675,6 @@ export const mockApps: AppConfig[] = [
     "seo_keywords": "",
     "idea_box_msg": "",
     "url": "",
-    "more_information_url": "U2FsdGVkX1+TTgBnDMU/WfmUOctntR9Q0qjBLTO454GsDpd8xIDtZQEDdlw5ssEPO4TZgz1g17L5x3qRVbrutQ==",
-    "encrypted_link": "U2FsdGVkX19M4zhDeP6qZKNa4TIGlhbFmkqSaRxc2yPcjwuCTXD0VP6snRwS16nuhrRd6f8hiGPp9wBTePGM3Q=="
   },
   {
     "id": "08exxq5q9",
@@ -745,8 +723,6 @@ export const mockApps: AppConfig[] = [
     "red_box_msg": "",
     "category": "All Apps, Yono Apps",
     "url": "",
-    "more_information_url": "U2FsdGVkX195kAqq7AUafnERpO0EQq4sCd4Je8SbjfwpyXCExYVjyNHM4XcdhriM36da9Ep8VnnHgR0SNGaz0g==",
-    "encrypted_link": "U2FsdGVkX1+4AIJmrYUY0fxV/hWv9qAswqh15WAOXVq4ubdVoe3BRVWSnkLAQxkDvphEOcN07zM0cK9JsZv5pw=="
   },
   {
     "safety_status": "Verified",
@@ -795,8 +771,6 @@ export const mockApps: AppConfig[] = [
     "idea_box_msg": "",
     "red_box_msg": "",
     "url": "",
-    "more_information_url": "U2FsdGVkX18duLfGQwwCR9ioL0gXuT6DSZ0Va2VcmcfLbl/VXdzdoLUaRo50d6nbPZPzSTMjRI3xb+C60oa8Cw==",
-    "encrypted_link": "U2FsdGVkX1/hKo6QeOWcR5uxEHFWbnpZTWkeLQF5YLsU2N+JlrUcUNJaz5h6dyKT2aMWy/C2S9Ss+VEOUFEDrA=="
   },
   {
     "description_html": "<h2>Part 1: Key Features and Core Mechanics of Love Rummy</h2>\n\n<p>Love Rummy moves beyond traditional tabletop formats to offer a highly structured, level-based engagement platform. Designed for users who enjoy unlocking milestones and tracking long-term progress, the application functions as an interactive hub filled with daily challenges and varied digital activities.</p>\n\n<h3>The Core Game Mechanics</h3>\n\n<p>The application is built around continuous interaction and unlocking new stages of play:</p>\n\n<p><ul></p>\n\n<p><li><strong>Level-by-Level Progression:</strong> Instead of single matches, players advance through multiple structured achievement tiers. Completing activities earns progression points that push your profile from beginner stages to advanced milestone levels.</li></p>\n\n<p><li><strong>Daily Missions:</strong> The game refreshes with new, specific activity goals every 24 hours. Successfully completing these daily checklists is the primary way to earn virtual rewards and advance to the next level.</li></p>\n\n<p><li><strong>The Lucky Spin Wheel:</strong> A prominent interactive feature that users can engage with to unlock special virtual bonuses, adding a layer of daily excitement to the standard progression loop.</li></p>\n\n<h3></ul></h3>\n\n<h3>Educational and Strategic Value</h3>\n\n<p>While designed purely for fun, the application encourages active task management:</p>\n\n<p><ul></p>\n\n<p><li><strong>Goal Orientation:</strong> Navigating the daily missions teaches users to prioritize specific tasks to maximize their daily virtual point earnings.</li></p>\n\n<p><li><strong>Consistency and Routine:</strong> The tiered achievement system encourages regular participation, rewarding players who log in daily and complete their milestone checklists over time.</li></p>\n\n<h3></ul></h3>\n\n<h2>Part 2: The Hands-On User Experience</h2>\n\n<p>The user interface of Love Rummy is designed to be highly intuitive, ensuring that players can easily track their levels and jump into activities without getting lost in complicated menus.</p>\n\n<h3>Visual Design and Interaction Dynamics</h3>\n\n<p><ul></p>\n\n<p><li><strong>Personal Profile Dashboard:</strong> The app features a centralized hub where users can instantly view their current level, activity history, and overall progress bar.</li></p>\n\n<p><li><strong>Smooth Navigation:</strong> Transitioning between the Spin Wheel, the daily mission log, and the active game zones is seamless, ensuring a responsive and enjoyable mobile experience.</li></p>\n\n<p><li><strong>Clear Visual Tracking:</strong> Whenever a milestone is reached or a level is completed, the app provides satisfying visual feedback, clearly indicating what new features or achievements have been unlocked.</li></p>\n\n<h3></ul></h3>\n\n<h3>Player Engagement and Community Feedback</h3>\n\n<p>Based on standard engagement patterns, the platform is praised for its structured pacing:</p>\n\n<p><ul></p>\n\n<p><li><strong>Community Connection:</strong> The application includes features to invite friends, allowing users to share their milestone progress and explore the level system alongside others.</li></p>\n\n<p><li><strong>Rewarding Loop:</strong> Users appreciate that the level-based design provides a constant sense of forward momentum, as there is always a new tier or daily task waiting to be completed.</li></p>\n\n<h3></ul></h3>\n\n<h2>Part 3: Technical Architecture and Application Details</h2>\n\n<p>Featured on RummyDex, Love Rummy provides a rich, multi-leveled experience while maintaining excellent performance standards across supported devices.</p>\n\n<h3>System Specifications and Footprint</h3>\n\n<p><ul></p>\n\n<p><li><strong>Optimized Performance:</strong> The application is engineered to provide a smooth, lag-free experience, ensuring that spin animations and level transitions do not slow down your device.</li></p>\n\n<p><li><strong>Accessible Design:</strong> Holding an \"Everyone\" rating, the application is universally accessible, featuring safe, family-friendly tasks and interactive features.</li></p>\n\n<h3></ul></h3>\n\n<h2>Monetization Framework and App Economy</h2>\n\n<p><ul></p>\n\n<p><li><strong>Entertainment-Only Focus:</strong> The platform operates strictly with virtual items and progression points. It is built entirely for recreational engagement and task completion.</li></p>\n\n<p><li><strong>Accessible Play:</strong> Players can access the core daily missions and level up their profiles through regular participation without mandatory requirements.</li></p>\n\n<h3></ul></h3>\n\n<h2>Data Safety and Permissions</h2>\n\n<p>The application maintains transparent operational guidelines regarding user interaction:</p>\n\n<p><ul></p>\n\n<p><li><strong>No Third-Party Sharing:</strong> The developer states that data is not shared with third-party companies, prioritizing user privacy during daily use.</li></p>\n\n<p><li><strong>Profile Management:</strong> User statistics, level progress, and activity history are managed directly within the app's secure profile system.</li></p>\n\n<h3></ul></h3>",
@@ -845,8 +819,6 @@ export const mockApps: AppConfig[] = [
     "video_url": "",
     "og_image_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784878950/download_31_s7fonv.webp",
     "url": "",
-    "more_information_url": "U2FsdGVkX1/F2NojjCpxRdTBE5eQ3SgQbFhKj+C0JF6UeSW8vS8oUiiDluDLOy75B3Z9o7cdBrq5SZLXaAr3Yg==",
-    "encrypted_link": "U2FsdGVkX1/BBxJXlDDrble03mzkhNbSa3qDQotGy1rnXUvR7RSEoo5Q9Hm0oZiWDwSiMlhLh8z3DhvFTa+YbQ=="
   },
   {
     "safety_status": "Verified",
@@ -895,8 +867,6 @@ export const mockApps: AppConfig[] = [
     "idea_box_msg": "",
     "seo_keywords": "",
     "url": "",
-    "more_information_url": "U2FsdGVkX1+k6Eg0scdMsEc/o9bEo7AxU7+wDI/5iEsYQG/ZGC6tt2bTAYeykrh89ZDqXaqRQb3yYINDefdoiA==",
-    "encrypted_link": "U2FsdGVkX19PSGuNzXY3skkuhB+8x5LdqGpLSaNw1hD03VdFof3KWc0m0VQO0dBB2dFrCRHKLC9pe39gmExSnw=="
   },
   {
     "publish_date": "",
@@ -945,8 +915,6 @@ export const mockApps: AppConfig[] = [
     "serial_number": 16,
     "canonical_url": "https://www.rummydex.com/app/yono-vip",
     "url": "",
-    "more_information_url": "U2FsdGVkX1+lcOX4gHB/g6vr4oJ8nA4Cf30ChTYjapOR02fAjC1+KlAIY5Zu5ZpWU+5qmoCjy7k7u/R0RyFjww==",
-    "encrypted_link": "U2FsdGVkX19YRrJyFkezrfCzZHyxgfrc+XvdR4iNQamicqQUeKPGIVN7fuZfOl2kOHk/kIWpAzNvRMR2jb5j9Q=="
   },
   {
     "custom_admin_box_html": "",
@@ -995,8 +963,6 @@ export const mockApps: AppConfig[] = [
     "id": "m6bwb6cnb",
     "release_notes": "",
     "url": "",
-    "more_information_url": "U2FsdGVkX1++gIGCgrW3GpiXxA+tTbDbmLxHEwZMVI9ESs7ejhPOwrApuj0I1qpPNaLfIxPnfEwGiAVOtOVTlg==",
-    "encrypted_link": "U2FsdGVkX1+sUDIPsE6+ggedN0FtKZ8/ydMt6nzxfNaA6x3lwnRgRcSxkHrqD6WWsOVijSt2xqDh+cjtJxiiQg=="
   },
   {
     "created_at": "2026-08-06T06:29:45.975Z",
@@ -1045,8 +1011,6 @@ export const mockApps: AppConfig[] = [
     "idea_box_msg": "",
     "id": "y7lefyq14",
     "url": "",
-    "more_information_url": "U2FsdGVkX19sdR0K+pPgWdL5ET+XbL8omiSQJjLE3qCnyB8IpnIIGH7Z2QqQLs5B1wDqN0wSxYW9iFesIlfM7A==",
-    "encrypted_link": "U2FsdGVkX1/it04tOK7WKulhPj0s/pfflH9a15lORALxs0HbQcS+l8qoHedTAuyLKgrcz6RRNFL/LGxhaZ3rJQ=="
   },
   {
     "is_coming_soon": false,
@@ -1095,8 +1059,6 @@ export const mockApps: AppConfig[] = [
     "custom_admin_box_heading": "",
     "seo_title": "789 Jackports : Orbital Puzzles & Sequence Mechanics | RummyDex",
     "url": "",
-    "more_information_url": "U2FsdGVkX1+bJkGfrofIOT6Yez6UaLohwTB0Nol0wkZrEuWpt93yJY7ROSDOZh29/By9QxZrW9rdQSu8hZXbq+/FieUnFkVOoKvr+Gy79zo=",
-    "encrypted_link": "U2FsdGVkX19dS+e3PRgBYmiOiJLWMvwRgrsfQ9pJarrTJA7hnFWTIIdrpPaPqwTI1JcY7uoix+GgxD2gWb4fTA=="
   },
   {
     "release_notes": "",
@@ -1145,8 +1107,6 @@ export const mockApps: AppConfig[] = [
     "category": "All Apps, Yono Apps",
     "seo_title": "777 Game App Review: The 3D Matrix & Spatial Puzzles | RummyDex",
     "url": "",
-    "more_information_url": "U2FsdGVkX19zknn8RLvHMq4qxQXLBnWqEV9tPA5gTKPx8U0kxoXPuSFRQ7ZJ5WNE5KUnwEJYsG/GwsoL5msnmQ==",
-    "encrypted_link": "U2FsdGVkX1/0LEazCFfbQD9GIn1l9uStcoT4Phr81yvLi5SVCNPHzqP1380G5hzM9CiZGEYDlIB66SZKl7Lycg=="
   },
   {
     "category": "Card Apps",
@@ -1182,8 +1142,6 @@ export const mockApps: AppConfig[] = [
     "rating": 4.5,
     "features_html": "",
     "url": "",
-    "more_information_url": "U2FsdGVkX19fRXnXB4X0rMB7fwDKYOXHCqBo75i1faJDfvNbScRV/v8+BOfqbDn6ziCZ3azXgO/lTv52BQelGg==",
-    "encrypted_link": "U2FsdGVkX1+O8SvBETneqo75fvkaG1hAg5tSDUA5VzuASkZ/k43ov6WliSIl5jResBxPRDHwbjcFqUxMOObxrg=="
   },
   {
     "release_notes": "In-App Purchases Yes — ad removal, coins, hints, and cosmetic items\nAds Contains ads (banner, interstitial, rewarded video)\nMinimum Android Android 5.0+ (varies by source)",
@@ -1219,8 +1177,6 @@ export const mockApps: AppConfig[] = [
     "video_url": "",
     "screenshots": [],
     "url": "",
-    "more_information_url": "U2FsdGVkX1+bhSAXiCVRcD6Zji4SdlNQ3pA3xeZWZIPcQab/Vb0PU5DuXJX/Jrzrj3tSRBeJDOl5mkU0SYooyg==",
-    "encrypted_link": "U2FsdGVkX19779XZcxAdJWZvk0XjrvuRG9/mkRX3kcjSkCq6B3bUcvUqAiMzXE7T6R3b2iIaV603fQgZvg6dMA=="
   },
   {
     "red_box_msg": "",
@@ -1256,8 +1212,6 @@ export const mockApps: AppConfig[] = [
     "release_notes": "",
     "features_html": "",
     "url": "",
-    "more_information_url": "U2FsdGVkX18Uzr/zManpEMVY2kVlf83errp09OqkypXl1ousNzUL1jXDfH1GTTt+nLCO9d0ZzktYysQrK9bU6oN1djOuMa4oES3xSO1bSn0=",
-    "encrypted_link": "U2FsdGVkX1+bOZ0+1OrhAHvRClS2Kunf9AqDiJIti4iSPkcN/V+maFMb7vuBR9M/GysOvaw4gMFCbwgOdwgR0A=="
   }
 ];
 

@@ -185,12 +185,23 @@ export async function isSafeUrl(urlString: string): Promise<boolean> {
   }
 }
 
-export interface NonceEntry {
+export interface ClearanceNonce {
+  appId: string;
   sessionId: string;
+  ip: string;
+  fingerprint: string;
+  createdAt: number;
   expiresAt: number;
-  issuedAt: number;
+  consumed: boolean;
 }
 
+export interface NonceEntry {
+  expiresAt: number;
+  ip?: string;
+  appId?: string;
+}
+
+export const clearanceNonceStore = new Map<string, ClearanceNonce>();
 export const nonceStore = new Map<string, NonceEntry>();
 export const usedTokens = new Set<string>();
 
@@ -202,8 +213,14 @@ export interface TokenData {
 
 export const tokenStore = new Map<string, TokenData>();
 
+// Automated cleanup of expired security nonces & tokens
 setInterval(() => {
   const now = Date.now();
+  for (const [nonce, data] of clearanceNonceStore.entries()) {
+    if (data.expiresAt < now || data.consumed) {
+      clearanceNonceStore.delete(nonce);
+    }
+  }
   for (const [nonce, data] of nonceStore.entries()) {
     if (data.expiresAt < now) {
       nonceStore.delete(nonce);
@@ -214,19 +231,87 @@ setInterval(() => {
       tokenStore.delete(token);
     }
   }
-}, 30000);
+}, 15000);
+
+export function issueClearanceNonce(appId: string, sessionId: string, ip: string, fingerprint: string): string {
+  const nonce = crypto.randomBytes(32).toString('hex');
+  const now = Date.now();
+  clearanceNonceStore.set(nonce, {
+    appId: (appId || '').toLowerCase().trim(),
+    sessionId: (sessionId || '').trim(),
+    ip: (ip || '').trim(),
+    fingerprint: (fingerprint || '').trim(),
+    createdAt: now,
+    expiresAt: now + 90000, // Strict 90 seconds lifetime
+    consumed: false
+  });
+  return nonce;
+}
+
+export function consumeClearanceNonce(
+  nonce: string,
+  reqAppId: string,
+  reqSessionId: string,
+  reqIp: string
+): { valid: boolean; reason?: string } {
+  if (!nonce || typeof nonce !== 'string') {
+    return { valid: false, reason: 'Missing clearance nonce' };
+  }
+
+  const record = clearanceNonceStore.get(nonce);
+  if (!record) {
+    return { valid: false, reason: 'Nonce not found or already consumed' };
+  }
+
+  const now = Date.now();
+  // Check expiry
+  if (now > record.expiresAt) {
+    clearanceNonceStore.delete(nonce);
+    return { valid: false, reason: 'Clearance token expired' };
+  }
+
+  // Check consumed (Replay prevention)
+  if (record.consumed) {
+    clearanceNonceStore.delete(nonce);
+    return { valid: false, reason: 'Clearance token already used' };
+  }
+
+  // Atomically mark consumed and remove immediately
+  record.consumed = true;
+  clearanceNonceStore.delete(nonce);
+
+  // App ID strict binding
+  const normReq = (reqAppId || '').toLowerCase().trim().replace(/[-_ ]/g, '');
+  const normStored = (record.appId || '').toLowerCase().trim().replace(/[-_ ]/g, '');
+  if (normReq && normStored && normReq !== normStored) {
+    console.warn(`[SECURITY] Clearance app ID mismatch: expected ${record.appId}, got ${reqAppId}`);
+    return { valid: false, reason: 'Token not issued for this application' };
+  }
+
+  // Session ID check if provided
+  if (record.sessionId && reqSessionId && record.sessionId !== reqSessionId) {
+    console.warn(`[SECURITY] Clearance session mismatch: stored=${record.sessionId}, req=${reqSessionId}`);
+    return { valid: false, reason: 'Session context mismatch' };
+  }
+
+  return { valid: true };
+}
 
 export function ensureSession(req: express.Request, res: express.Response): string {
-  if (!req.cookies || !req.cookies["__Host-sid"]) {
-    const sid = crypto.randomBytes(24).toString("hex");
-    res.cookie("__Host-sid", sid, { httpOnly: true, sameSite: "lax", maxAge: 300000, secure: true, path: "/" });
-    return sid;
+  const existingSid = req.cookies?.["__Host-sid"] || req.cookies?.["sid"];
+  if (existingSid && typeof existingSid === 'string' && existingSid.length >= 16) {
+    return existingSid;
   }
-  return req.cookies["__Host-sid"];
+  const sid = crypto.randomBytes(24).toString("hex");
+  try {
+    res.cookie("__Host-sid", sid, { httpOnly: true, sameSite: "lax", maxAge: 300000, secure: true, path: "/" });
+    res.cookie("sid", sid, { httpOnly: true, sameSite: "lax", maxAge: 300000, path: "/" });
+  } catch (_) {}
+  return sid;
 }
 
 export function generateToken(ip: string, sessionId: string, fingerprint: string, appId: string): string {
-  const EXPIRY = 300; // 5 minutes expiry for smooth human navigation
+  const EXPIRY = 120; // 2 minutes expiry
   const expires = Math.floor(Date.now() / 1000) + EXPIRY;
   const payload = `${ip}|${sessionId}|${fingerprint}|${appId}|${expires}`;
   const sig = crypto.createHmac("sha256", TOKEN_SECRET).update(payload).digest("hex");
@@ -235,14 +320,17 @@ export function generateToken(ip: string, sessionId: string, fingerprint: string
 
 export function verifyToken(token: string, ip: string, sessionId: string, fingerprint: string, appId: string): boolean {
   try {
+    if (!token || typeof token !== 'string') return false;
     const raw = Buffer.from(token, "base64url").toString("utf8");
     const [payload, sig] = raw.split("::");
     if (!payload || !sig) return false;
     
-    // First verify HMAC signature integrity
+    // Constant-time HMAC verification
     const expected = crypto.createHmac("sha256", TOKEN_SECRET).update(payload).digest("hex");
-    if (!crypto.timingSafeEqual(Buffer.from(sig, "hex"), Buffer.from(expected, "hex"))) {
-      console.warn(`[SECURITY] Token HMAC signature mismatch.`);
+    const sigBuf = Buffer.from(sig, "hex");
+    const expBuf = Buffer.from(expected, "hex");
+    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+      console.warn(`[SECURITY] Token signature verification failed.`);
       return false;
     }
 
@@ -256,16 +344,12 @@ export function verifyToken(token: string, ip: string, sessionId: string, finger
       return false;
     }
 
-    // Flexible normalized appId check
+    // Strict normalized appId check
     const normTAppId = (tAppId || '').toLowerCase().trim().replace(/[-_ ]/g, '');
     const normAppId = (appId || '').toLowerCase().trim().replace(/[-_ ]/g, '');
     if (normTAppId && normAppId && normTAppId !== normAppId) {
       console.warn(`[SECURITY] Token appId mismatch: token=${tAppId}, requested=${appId}`);
-      // Still proceed if token is otherwise valid
-    }
-
-    if (tIp !== ip) {
-      console.warn(`[SECURITY] Token IP notice (proxy/CDN transition): token IP=${tIp}, current IP=${ip}`);
+      return false;
     }
 
     return true;
