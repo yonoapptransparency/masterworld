@@ -47,13 +47,13 @@ if (listenIdx !== -1) {
 
 // 4. Strip Vite/Static block (not needed in Serverless Function)
 const startComment = '// Vite middleware for development';
-const endComment = '// Global Express Error Handler';
+const endComment = 'let cachedIndexHtml: string | null = null;';
 const vIdx = content.indexOf(startComment);
 const eIdx = content.indexOf(endComment);
 
 if (vIdx !== -1 && eIdx !== -1) {
     console.log('Stripping Vite/Static block from API build...');
-    content = content.substring(0, vIdx) + '\n\n' + content.substring(eIdx);
+    content = content.substring(0, vIdx) + '\nlet viteDevServer: any = null;\n' + content.substring(eIdx);
 }
 
 fs.writeFileSync('api_temp.ts', content);
@@ -63,3 +63,4 @@ console.log("Compiling api_temp.ts to api/index.js...");
 execSync('npx esbuild api_temp.ts --bundle --platform=node --format=cjs --define:import.meta.env=process.env --packages=external --minify --outfile=api/index.js', { stdio: 'inherit' });
 console.log("api/index.js generated successfully.");
 console.log('api_temp.ts');
+fs.unlinkSync('api_temp.ts');
