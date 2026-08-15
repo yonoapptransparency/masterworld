@@ -308,7 +308,10 @@ function buildJsonLdSchema(params: {
   if (params.pageType === 'app' && params.app) {
     const app = params.app;
     const name = getField(app, 'name');
-    const category = getField(app, 'category') || 'GameApplication';
+    let category = getField(app, 'category') || 'GameApplication';
+    if (!category.includes('Application')) {
+      category = 'GameApplication'; // Schema.org valid category fallback
+    }
     const realRating = parseFloat(getField(app, 'rating'));
     const realCount = parseInt(getField(app, 'review_count'), 10);
     const appLogo = getOgImageUrl(getField(app, 'og_image_url') || getField(app, 'icon_url') || params.logoUrl, hostOrigin);
@@ -859,45 +862,122 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     ${jsonLdSchema}
   `;
 
-  // Optimize initial data payload size by stripping heavy HTML descriptions from non-target apps for ultra-fast page loads
+  // Optimize initial data payload size by stripping heavy HTML descriptions and inner app data from non-target apps for ultra-fast page loads
   let initialDataPayload = data;
   if (data) {
     const targetAppSlug = targetApp ? getField(targetApp, 'slug')?.toLowerCase() : null;
     const optimizedApps = Array.isArray(data.apps) ? data.apps.map((app: any) => {
       const isTarget = targetAppSlug && getField(app, 'slug')?.toLowerCase() === targetAppSlug;
       if (isTarget) return app;
-      const { description_html, content, features_html, ...rest } = app;
-      return rest;
+      return {
+        id: app.id,
+        name: app.name,
+        slug: app.slug,
+        icon_url: app.icon_url,
+        og_image_url: app.og_image_url,
+        category: app.category,
+        rating: app.rating,
+        review_count: app.review_count,
+        developer: app.developer,
+        file_size: app.file_size,
+        version: app.version,
+        is_featured: app.is_featured,
+        is_new: app.is_new,
+        is_hot: app.is_hot,
+        is_top_chart: app.is_top_chart,
+        top_chart_category: app.top_chart_category,
+        safety_status: app.safety_status,
+        is_coming_soon: app.is_coming_soon,
+        publish_date: app.publish_date,
+        serial_number: app.serial_number,
+        tags: app.tags
+      };
     }) : [];
 
     const targetNewsSlug = targetNews ? getField(targetNews, 'slug')?.toLowerCase() : null;
     const optimizedNews = Array.isArray(data.news) ? data.news.map((item: any) => {
       const isTarget = targetNewsSlug && getField(item, 'slug')?.toLowerCase() === targetNewsSlug;
       if (isTarget) return item;
-      const { description_html, content, ...rest } = item;
-      return rest;
+      return {
+        id: item.id,
+        slug: item.slug,
+        title: item.title,
+        logo_url: item.logo_url,
+        category: item.category,
+        published_at: item.published_at,
+        date: item.date,
+        read_time: item.read_time,
+        is_breaking: item.is_breaking,
+        is_new: item.is_new,
+        is_pinned: item.is_pinned
+      };
     }) : [];
 
     const targetBlogSlug = targetBlog ? (getField(targetBlog, 'slug') || getField(targetBlog, 'id'))?.toLowerCase() : null;
     const optimizedBlogs = Array.isArray(data.blogs) ? data.blogs.map((item: any) => {
       const isTarget = targetBlogSlug && (getField(item, 'slug') || getField(item, 'id'))?.toLowerCase() === targetBlogSlug;
       if (isTarget) return item;
-      const { description_html, content, ...rest } = item;
-      return rest;
+      return {
+        id: item.id,
+        slug: item.slug,
+        title: item.title,
+        cover_image: item.cover_image,
+        category: item.category,
+        published_at: item.published_at,
+        read_time: item.read_time,
+        related_app_slug: item.related_app_slug
+      };
     }) : [];
 
     const optimizedVideos = Array.isArray(data.videos) ? data.videos.map((item: any) => {
-      const { description_html, content, ...rest } = item;
-      return rest;
+      const isTarget = targetVideo && (getField(item, 'slug') || getField(item, 'id'))?.toLowerCase() === (getField(targetVideo, 'slug') || getField(targetVideo, 'id'))?.toLowerCase();
+      if (isTarget) return item;
+      return {
+        id: item.id,
+        slug: item.slug,
+        title: item.title,
+        thumbnail_url: item.thumbnail_url,
+        video_url: item.video_url,
+        duration: item.duration,
+        category: item.category
+      };
     }) : [];
 
     const optimizedSettings = data.settings ? { ...data.settings } : {};
     
-    // We don't need to send huge FAQS or about us content in initial data unless we are on those pages
-    if (pageType !== 'about') {
+    // Prune heavy subpage bodies from initial data unless user is actively on that specific page
+    if (cleanPathLower !== '/about') {
       delete optimizedSettings.about_us;
+      delete optimizedSettings.about_content;
     }
-    if (pageType !== 'faq' && cleanPathLower !== '/faq' && cleanPathLower !== '/') {
+    if (cleanPathLower !== '/contact') {
+      delete optimizedSettings.contact_content;
+    }
+    if (cleanPathLower !== '/privacy') {
+      delete optimizedSettings.privacy_content;
+    }
+    if (cleanPathLower !== '/terms') {
+      delete optimizedSettings.terms_content;
+    }
+    if (cleanPathLower !== '/responsibility') {
+      delete optimizedSettings.responsibility_content;
+    }
+    if (cleanPathLower !== '/report-removal') {
+      delete optimizedSettings.report_removal_content;
+    }
+    if (cleanPathLower !== '/notice') {
+      delete optimizedSettings.important_notice;
+    }
+    if (cleanPathLower !== '/ethics') {
+      delete optimizedSettings.ethics_discrimination_text;
+    }
+    if (cleanPathLower !== '/disclaimer') {
+      delete optimizedSettings.disclaimer_text;
+    }
+    if (cleanPathLower !== '/developers') {
+      delete optimizedSettings.developers;
+    }
+    if (cleanPathLower !== '/faq' && cleanPathLower !== '/') {
       delete optimizedSettings.website_faqs;
     }
 

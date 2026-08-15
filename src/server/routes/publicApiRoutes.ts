@@ -147,24 +147,21 @@ function trimAppsForCatalog(appsList: any[]) {
     icon_url: app.icon_url,
     og_image_url: app.og_image_url,
     rating: app.rating,
+    review_count: app.review_count,
     category: app.category,
+    is_featured: app.is_featured,
     is_new: app.is_new,
     is_hot: app.is_hot,
+    is_top_chart: app.is_top_chart,
+    top_chart_category: app.top_chart_category,
     file_size: app.file_size,
     developer: app.developer,
     safety_status: app.safety_status,
-    updated_at: app.updated_at,
     serial_number: app.serial_number,
     is_coming_soon: app.is_coming_soon,
     publish_date: app.publish_date,
     version: app.version,
-    url: app.url,
-    encrypted_link: app.encrypted_link,
-    yellow_box_msg: app.yellow_box_msg,
-    red_box_msg: app.red_box_msg,
-    idea_box_msg: app.idea_box_msg,
-    seo_description: app.seo_description,
-    seo_keywords: app.seo_keywords
+    tags: app.tags
   }));
 }
 

@@ -111,7 +111,7 @@ export function renderHome(apps: any[], settings: any, news: any[], videos: any[
     const isTopItem = i < 4;
     
     appsHtml += `
-      <a href="/${encodeURIComponent(slug)}" class="flex items-center gap-4 p-4 hover:bg-black/5 dark:hover:bg-white/5 rounded-2xl transition border-b border-black/5 dark:border-white/5">
+      <a href="/app/${encodeURIComponent(slug)}" class="flex items-center gap-4 p-4 hover:bg-black/5 dark:hover:bg-white/5 rounded-2xl transition border-b border-black/5 dark:border-white/5" title="${escapeHtml(name)} review and details">
         <span class="text-sm font-bold text-zinc-400 shrink-0 w-8 text-center">${i + 1}</span>
         <img src="${escapeHtml(icon)}" ${isTopItem ? 'loading="eager" fetchpriority="high"' : 'loading="lazy"'} decoding="async" width="64" height="64" class="w-16 h-16 rounded-[18px] object-cover bg-white shadow-sm shrink-0" alt="${escapeHtml(name)} app icon"/>
         <div class="flex-1 min-w-0 text-left">
@@ -122,7 +122,7 @@ export function renderHome(apps: any[], settings: any, news: any[], videos: any[
             ${isNew ? `<span class="bg-blue-500/10 text-blue-600 text-[10px] font-bold px-1.5 py-0.5 rounded">NEW</span>` : ''}
           </div>
         </div>
-        <span class="bg-black/5 dark:bg-white/10 text-zinc-900 dark:text-zinc-100 px-4 py-1 text-xs font-bold rounded-full select-none">MORE</span>
+        <span class="bg-black/5 dark:bg-white/10 text-zinc-900 dark:text-zinc-100 px-4 py-1 text-xs font-bold rounded-full select-none">DETAILS</span>
       </a>
     `;
   });

@@ -265,7 +265,7 @@ seoRouter.get([
 
 seoRouter.get(['/rss.xml', '/rss', '/feed', '/feed.xml'], async (req, res) => {
   try {
-    let rawDomain = process.env.PUBLIC_DOMAIN || process.env.VITE_PUBLIC_DOMAIN || (req.get('host') ? `https://${req.get('host')}` : 'https://www.rummydex.com');
+    let rawDomain = 'https://www.rummydex.com';
     if (!rawDomain.startsWith('http://') && !rawDomain.startsWith('https://')) {
       rawDomain = `https://${rawDomain}`;
     }
@@ -395,7 +395,7 @@ seoRouter.get('/robots.txt', async (req, res) => {
       res.send("User-agent: *\nDisallow: /\n");
       return;
     }
-    let rawDomain = process.env.PUBLIC_DOMAIN || process.env.VITE_PUBLIC_DOMAIN || (req.get('host') ? `https://${req.get('host')}` : 'https://www.rummydex.com');
+    let rawDomain = 'https://www.rummydex.com';
     if (!rawDomain.startsWith('http://') && !rawDomain.startsWith('https://')) {
       rawDomain = `https://${rawDomain}`;
     }
@@ -453,7 +453,7 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
     }
     const { apps = [], news = [], blogs = [], videos = [] } = data;
 
-    let rawDomain = process.env.PUBLIC_DOMAIN || process.env.VITE_PUBLIC_DOMAIN || (req.headers.host ? `https://${req.headers.host}` : 'https://www.rummydex.com');
+    let rawDomain = 'https://www.rummydex.com';
     if (!rawDomain.startsWith('http://') && !rawDomain.startsWith('https://')) {
       rawDomain = `https://${rawDomain}`;
     }
