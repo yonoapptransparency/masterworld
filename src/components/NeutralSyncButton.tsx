@@ -30,8 +30,9 @@ export default function NeutralSyncButton({ appId, slug, status }: NeutralSyncBu
       const fp = await generateFingerprint().catch(() => 'fallback_fp');
 
       // 1. Request challenge from clearance gateway
-      const startRes = await fetch(`/api/v1/_chal?appId=${encodeURIComponent(targetId)}`, {
-        headers: { 'Accept': 'application/json' }
+      const startRes = await fetch(`/api/v1/_chal?appId=${encodeURIComponent(targetId)}&_t=${Date.now()}`, {
+        headers: { 'Accept': 'application/json' },
+        cache: 'no-store'
       });
 
       if (!startRes.ok) {

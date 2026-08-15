@@ -30,8 +30,9 @@ export default function ClearanceButton({ appId }: ClearanceButtonProps) {
 
       // 2. Request stateless challenge from server
       setStatusText('Connecting to Security Gateway...');
-      const startRes = await fetch(`/api/v1/_chal?appId=${encodeURIComponent(appId)}`, {
-        headers: { 'Accept': 'application/json' }
+      const startRes = await fetch(`/api/v1/_chal?appId=${encodeURIComponent(appId)}&_t=${Date.now()}`, {
+        headers: { 'Accept': 'application/json' },
+        cache: 'no-store'
       });
 
       if (!startRes.ok) {
