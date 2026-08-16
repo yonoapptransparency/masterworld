@@ -66,12 +66,15 @@ export const AdminSidebar = ({
         type="button"
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
         className="lg:hidden fixed top-4 right-4 z-50 p-2.5 bg-blue-600 text-white rounded-2xl shadow-lg border-0 cursor-pointer"
+        aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
+        aria-expanded={isMobileMenuOpen}
+        aria-controls="admin-sidebar-menu"
       >
         {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
       </button>
 
       {/* Sidebar Navigation */}
-      <aside className={`fixed inset-y-0 left-0 z-40 w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transition-transform duration-300 lg:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside id="admin-sidebar-menu" className={`fixed inset-y-0 left-0 z-40 w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transition-transform duration-300 lg:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex flex-col h-full">
           <div className="p-4 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-3">
