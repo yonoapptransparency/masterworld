@@ -10,7 +10,7 @@ export function escapeHtml(unsafe: string) {
 
 export function isBotUserAgent(userAgent?: string): boolean {
   if (!userAgent) return false;
-  return /googlebot|google-inspectiontool|bingbot|yandexbot|duckduckbot|baiduspider|slurp|facebookexternalhit|facebot|twitterbot|linkedinbot|embedly|quora link preview|showyoubot|outbrain|pinterest\/|slackbot|vkShare|W3C_Validator|whatsapp|telegrambot|discordbot|applebot|petalbot|crawler|spider|screaming frog|semrushbot|ahrefsbot|rogerbot|exabot|dotbot/i.test(userAgent);
+  return /googlebot|google-inspectiontool|bingbot|yandexbot|duckduckbot|baiduspider|slurp|facebookexternalhit|facebot|twitterbot|linkedinbot|embedly|quora link preview|showyoubot|outbrain|pinterest\/|slackbot|vkShare|W3C_Validator|whatsapp|telegrambot|discordbot|applebot|petalbot|crawler|spider|screaming frog|semrushbot|ahrefsbot|rogerbot|exabot|dotbot|chatgpt|gptbot|oai-searchbot|anthropic|claude|cohere|perplexity|amazonbot|bytespider/i.test(userAgent);
 }
 
 export function getField(obj: any, key: string, fallback = ''): string {
