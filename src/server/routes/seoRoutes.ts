@@ -383,6 +383,21 @@ seoRouter.get('/robots.txt', async (req, res) => {
     let robots = `User-agent: *
 Allow: /$
 Allow: /app/
+Allow: /news
+Allow: /news/
+Allow: /new-apps
+Allow: /videos
+Allow: /developers
+Allow: /about
+Allow: /contact
+Allow: /privacy
+Allow: /terms
+Allow: /disclaimer
+Allow: /responsibility
+Allow: /report-removal
+Allow: /notice
+Allow: /ethics
+
 Disallow: /api/
 Disallow: /admin/
 Disallow: /login/
@@ -395,22 +410,13 @@ Disallow: /gateway/
 Disallow: /info/
 Disallow: /moreinfo/
 Disallow: /moredetail/
-Disallow: /news
 Disallow: /blogs
 Disallow: /blog/
-Disallow: /videos
-Disallow: /about
-Disallow: /contact
-Disallow: /developers
-Disallow: /privacy
-Disallow: /terms
-Disallow: /report-removal
-Disallow: /responsibility
-Disallow: /notice
-Disallow: /ethics
-Disallow: /disclaimer
 
 Sitemap: ${host}/sitemap.xml
+Sitemap: ${host}/sitemap-apps.xml
+Sitemap: ${host}/sitemap-news.xml
+Sitemap: ${host}/sitemap-static.xml
 `;
     res.set('Content-Type', 'text/plain');
     res.send(robots);
@@ -419,6 +425,8 @@ Sitemap: ${host}/sitemap.xml
     res.send(`User-agent: *
 Allow: /$
 Allow: /app/
+Allow: /news
+Allow: /news/
 Disallow: /api/
 Disallow: /admin/
 Disallow: /login/
@@ -431,27 +439,86 @@ Disallow: /gateway/
 Disallow: /info/
 Disallow: /moreinfo/
 Disallow: /moredetail/
-Disallow: /news
 Disallow: /blogs
 Disallow: /blog/
-Disallow: /videos
-Disallow: /about
-Disallow: /contact
-Disallow: /developers
-Disallow: /privacy
-Disallow: /terms
-Disallow: /report-removal
-Disallow: /responsibility
-Disallow: /notice
-Disallow: /ethics
-Disallow: /disclaimer
 
 Sitemap: https://www.rummydex.com/sitemap.xml
+Sitemap: https://www.rummydex.com/sitemap-apps.xml
+Sitemap: https://www.rummydex.com/sitemap-news.xml
+Sitemap: https://www.rummydex.com/sitemap-static.xml
 `);
   }
 });
 
+const escapeXml = (unsafe: any) => {
+  if (typeof unsafe !== 'string') unsafe = String(unsafe || '');
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+};
+
+const cleanSlug = (slug: string) => {
+  if (!slug) return '';
+  return escapeXml(encodeURI(slug.trim().replace(/^\/+|\/+$/g, '')));
+};
+
+const getFormattedDate = (obj: any): string | null => {
+  const dateStr = getField(obj, 'updated_at') || getField(obj, 'created_at') || getField(obj, 'published_at') || getField(obj, 'date');
+  if (dateStr) {
+    try {
+      if (typeof dateStr === 'object' && dateStr !== null && (dateStr as any).seconds) {
+        return new Date((dateStr as any).seconds * 1000).toISOString().split('T')[0];
+      }
+      if (typeof dateStr === 'object' && dateStr !== null && (dateStr as any)._seconds) {
+        return new Date((dateStr as any)._seconds * 1000).toISOString().split('T')[0];
+      }
+      const date = new Date(dateStr);
+      if (!isNaN(date.getTime())) {
+        return date.toISOString().split('T')[0];
+      }
+    } catch(e) {}
+  }
+  return null;
+};
+
+// 1. Master Sitemap Index (/sitemap.xml)
 seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], async (req, res) => {
+  try {
+    const hostHeader = req.get('host') || '';
+    const hostLower = hostHeader.toLowerCase();
+    if (hostLower.includes('masterworld')) {
+      res.status(404).send('Not Found');
+      return;
+    }
+
+    let rawDomain = 'https://www.rummydex.com';
+    if (!rawDomain.startsWith('http://') && !rawDomain.startsWith('https://')) {
+      rawDomain = `https://${rawDomain}`;
+    }
+    const host = rawDomain.replace(/\/$/, '');
+    const today = new Date().toISOString().split('T')[0];
+
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+    xml += `<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
+    xml += `  <sitemap>\n    <loc>${host}/sitemap-apps.xml</loc>\n    <lastmod>${today}</lastmod>\n  </sitemap>\n`;
+    xml += `  <sitemap>\n    <loc>${host}/sitemap-news.xml</loc>\n    <lastmod>${today}</lastmod>\n  </sitemap>\n`;
+    xml += `  <sitemap>\n    <loc>${host}/sitemap-static.xml</loc>\n    <lastmod>${today}</lastmod>\n  </sitemap>\n`;
+    xml += `</sitemapindex>\n`;
+
+    res.set('Content-Type', 'application/xml; charset=utf-8');
+    res.set('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400');
+    res.send(xml);
+  } catch (e) {
+    console.error('Master Sitemap Generation Error:', e);
+    res.status(500).send('Error generating master sitemap index');
+  }
+});
+
+// 2. Apps Sitemap (/sitemap-apps.xml)
+seoRouter.get(['/sitemap-apps.xml', '/api/sitemap-apps.xml'], async (req, res) => {
   try {
     const hostHeader = req.get('host') || '';
     const hostLower = hostHeader.toLowerCase();
@@ -471,94 +538,38 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
       rawDomain = `https://${rawDomain}`;
     }
     const host = rawDomain.replace(/\/$/, '');
+    const siteLogo = getField(data?.settings, 'logo_url') || getField(data?.settings, 'favicon_url') || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
 
     let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
     xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n`;
 
-    const today = new Date().toISOString().split('T')[0];
-
-    const escapeXml = (unsafe: any) => {
-      if (typeof unsafe !== 'string') unsafe = String(unsafe || '');
-      return unsafe
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-    };
-
-    const cleanSlug = (slug: string) => {
-      if (!slug) return '';
-      return escapeXml(encodeURI(slug.trim().replace(/^\/+|\/+$/g, '')));
-    };
-
-    const getFormattedDate = (obj: any): string | null => {
-      const dateStr = getField(obj, 'updated_at') || getField(obj, 'created_at') || getField(obj, 'published_at') || getField(obj, 'date');
-      if (dateStr) {
-        try {
-          if (typeof dateStr === 'object' && dateStr !== null && (dateStr as any).seconds) {
-            return new Date((dateStr as any).seconds * 1000).toISOString().split('T')[0];
-          }
-          if (typeof dateStr === 'object' && dateStr !== null && (dateStr as any)._seconds) {
-            return new Date((dateStr as any)._seconds * 1000).toISOString().split('T')[0];
-          }
-          const date = new Date(dateStr);
-          if (!isNaN(date.getTime())) {
-            return date.toISOString().split('T')[0];
-          }
-        } catch(e) {}
-      }
-      return null;
-    };
-
     const seenUrls = new Set<string>();
-    const addUrl = (loc: string, lastmod?: string | null, changefreq?: string, priority?: string, imageUrl?: string, imageTitle?: string) => {
-      if (!seenUrls.has(loc)) {
-        seenUrls.add(loc);
-        let itemXml = `  <url>\n    <loc>${loc}</loc>\n`;
-        
-        if (imageUrl && imageUrl.includes('res.cloudinary.com')) {
-          imageUrl = imageUrl.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_webp,q_auto,w_800/$1');
-        }
 
-        if (lastmod) {
-          itemXml += `    <lastmod>${lastmod}</lastmod>\n`;
-        }
-        if (changefreq) {
-          itemXml += `    <changefreq>${changefreq}</changefreq>\n`;
-        }
-        if (priority) {
-          itemXml += `    <priority>${priority}</priority>\n`;
-        }
-        if (imageUrl) {
-          itemXml += `    <image:image>\n      <image:loc>${escapeXml(imageUrl)}</image:loc>\n`;
-          if (imageTitle) {
-            itemXml += `      <image:title>${escapeXml(imageTitle)}</image:title>\n`;
-          }
-          itemXml += `    </image:image>\n`;
-        }
-        itemXml += `  </url>\n`;
-        xml += itemXml;
-      }
-    };
-
-    const siteLogo = getField(data?.settings, 'logo_url') || getField(data?.settings, 'favicon_url') || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
-
-    // 1. Homepage ONLY
-    addUrl(`${host}/`, today, 'daily', '1.0', siteLogo, 'RummyDex Official Logo');
-
-    // 2. Canonical App Detail Pages ONLY
     for (const app of apps) {
       const slug = getField(app, 'slug');
       if (slug) {
         const cSlug = cleanSlug(slug);
-        const appDate = getFormattedDate(app);
-        const appImage = getOgImageUrl(getField(app, 'og_image_url') || getField(app, 'icon_url') || siteLogo);
-        const appName = getField(app, 'name') || 'Application';
-
-        // Canonical App detail URL
         const appLoc = `${host}/app/${cSlug}`;
-        addUrl(appLoc, appDate, 'daily', '0.9', appImage, appName);
+
+        if (!seenUrls.has(appLoc)) {
+          seenUrls.add(appLoc);
+          const appDate = getFormattedDate(app) || new Date().toISOString().split('T')[0];
+          let appImage = getOgImageUrl(getField(app, 'og_image_url') || getField(app, 'icon_url') || siteLogo);
+          if (appImage && appImage.includes('res.cloudinary.com')) {
+            appImage = appImage.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_webp,q_auto,w_800/$1');
+          }
+          const appName = getField(app, 'name') || 'Application';
+
+          xml += `  <url>\n`;
+          xml += `    <loc>${appLoc}</loc>\n`;
+          xml += `    <lastmod>${appDate}</lastmod>\n`;
+          xml += `    <changefreq>daily</changefreq>\n`;
+          xml += `    <priority>0.9</priority>\n`;
+          if (appImage) {
+            xml += `    <image:image>\n      <image:loc>${escapeXml(appImage)}</image:loc>\n      <image:title>${escapeXml(appName)}</image:title>\n    </image:image>\n`;
+          }
+          xml += `  </url>\n`;
+        }
       }
     }
 
@@ -568,8 +579,141 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
     res.set('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400');
     res.send(xml);
   } catch (e) {
-    console.error('Sitemap Generation Error:', e);
-    res.status(500).send('Error generating sitemap');
+    console.error('Apps Sitemap Generation Error:', e);
+    res.status(500).send('Error generating apps sitemap');
+  }
+});
+
+// 3. News Sitemap (/sitemap-news.xml)
+seoRouter.get(['/sitemap-news.xml', '/api/sitemap-news.xml'], async (req, res) => {
+  try {
+    const hostHeader = req.get('host') || '';
+    const hostLower = hostHeader.toLowerCase();
+    if (hostLower.includes('masterworld')) {
+      res.status(404).send('Not Found');
+      return;
+    }
+
+    const data = await fetchStoreData();
+    if (!data) {
+      throw new Error("Unable to fetch store data");
+    }
+    const { news = [] } = data;
+
+    let rawDomain = 'https://www.rummydex.com';
+    if (!rawDomain.startsWith('http://') && !rawDomain.startsWith('https://')) {
+      rawDomain = `https://${rawDomain}`;
+    }
+    const host = rawDomain.replace(/\/$/, '');
+    const siteLogo = getField(data?.settings, 'logo_url') || getField(data?.settings, 'favicon_url') || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
+    const today = new Date().toISOString().split('T')[0];
+
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+    xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n`;
+
+    // Main news index
+    xml += `  <url>\n    <loc>${host}/news</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n  </url>\n`;
+
+    const seenUrls = new Set<string>();
+
+    for (const newsItem of news) {
+      const slug = getField(newsItem, 'slug');
+      if (slug) {
+        const cSlug = cleanSlug(slug);
+        const newsLoc = `${host}/news/${cSlug}`;
+
+        if (!seenUrls.has(newsLoc)) {
+          seenUrls.add(newsLoc);
+          const newsDate = getFormattedDate(newsItem) || today;
+          let newsImage = getOgImageUrl(getField(newsItem, 'image_url') || getField(newsItem, 'cover_image') || siteLogo);
+          if (newsImage && newsImage.includes('res.cloudinary.com')) {
+            newsImage = newsImage.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_webp,q_auto,w_800/$1');
+          }
+          const newsTitle = getField(newsItem, 'title') || 'News Update';
+
+          xml += `  <url>\n`;
+          xml += `    <loc>${newsLoc}</loc>\n`;
+          xml += `    <lastmod>${newsDate}</lastmod>\n`;
+          xml += `    <changefreq>weekly</changefreq>\n`;
+          xml += `    <priority>0.7</priority>\n`;
+          if (newsImage) {
+            xml += `    <image:image>\n      <image:loc>${escapeXml(newsImage)}</image:loc>\n      <image:title>${escapeXml(newsTitle)}</image:title>\n    </image:image>\n`;
+          }
+          xml += `  </url>\n`;
+        }
+      }
+    }
+
+    xml += `</urlset>\n`;
+
+    res.set('Content-Type', 'application/xml; charset=utf-8');
+    res.set('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400');
+    res.send(xml);
+  } catch (e) {
+    console.error('News Sitemap Generation Error:', e);
+    res.status(500).send('Error generating news sitemap');
+  }
+});
+
+// 4. Static Pages Sitemap (/sitemap-static.xml)
+seoRouter.get(['/sitemap-static.xml', '/api/sitemap-static.xml'], async (req, res) => {
+  try {
+    const hostHeader = req.get('host') || '';
+    const hostLower = hostHeader.toLowerCase();
+    if (hostLower.includes('masterworld')) {
+      res.status(404).send('Not Found');
+      return;
+    }
+
+    const data = await fetchStoreData();
+    let rawDomain = 'https://www.rummydex.com';
+    if (!rawDomain.startsWith('http://') && !rawDomain.startsWith('https://')) {
+      rawDomain = `https://${rawDomain}`;
+    }
+    const host = rawDomain.replace(/\/$/, '');
+    const siteLogo = getField(data?.settings, 'logo_url') || getField(data?.settings, 'favicon_url') || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
+    const today = new Date().toISOString().split('T')[0];
+
+    const staticRoutes = [
+      { path: '/', priority: '1.0', changefreq: 'daily' },
+      { path: '/new-apps', priority: '0.9', changefreq: 'daily' },
+      { path: '/videos', priority: '0.7', changefreq: 'weekly' },
+      { path: '/developers', priority: '0.7', changefreq: 'weekly' },
+      { path: '/about', priority: '0.5', changefreq: 'monthly' },
+      { path: '/contact', priority: '0.5', changefreq: 'monthly' },
+      { path: '/privacy', priority: '0.3', changefreq: 'yearly' },
+      { path: '/terms', priority: '0.3', changefreq: 'yearly' },
+      { path: '/disclaimer', priority: '0.3', changefreq: 'yearly' },
+      { path: '/responsibility', priority: '0.3', changefreq: 'yearly' },
+      { path: '/report-removal', priority: '0.3', changefreq: 'yearly' },
+      { path: '/notice', priority: '0.3', changefreq: 'yearly' },
+      { path: '/ethics', priority: '0.3', changefreq: 'yearly' }
+    ];
+
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+    xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n`;
+
+    for (const route of staticRoutes) {
+      const loc = `${host}${route.path === '/' ? '' : route.path}`;
+      xml += `  <url>\n`;
+      xml += `    <loc>${loc}</loc>\n`;
+      xml += `    <lastmod>${today}</lastmod>\n`;
+      xml += `    <changefreq>${route.changefreq}</changefreq>\n`;
+      xml += `    <priority>${route.priority}</priority>\n`;
+      if (route.path === '/') {
+        xml += `    <image:image>\n      <image:loc>${escapeXml(siteLogo)}</image:loc>\n      <image:title>RummyDex Official Logo</image:title>\n    </image:image>\n`;
+      }
+      xml += `  </url>\n`;
+    }
+
+    xml += `</urlset>\n`;
+
+    res.set('Content-Type', 'application/xml; charset=utf-8');
+    res.set('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400');
+    res.send(xml);
+  } catch (e) {
+    console.error('Static Sitemap Generation Error:', e);
+    res.status(500).send('Error generating static sitemap');
   }
 });
 
