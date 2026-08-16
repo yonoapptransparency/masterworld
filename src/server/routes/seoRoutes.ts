@@ -484,8 +484,8 @@ const getFormattedDate = (obj: any): string | null => {
   return null;
 };
 
-// 1. Master Sitemap Index (/sitemap.xml)
-seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], async (req, res) => {
+// 1. Master All-In-One Sitemap (/sitemap.xml) - Contains ALL Apps, News, and Static Pages directly
+seoRouter.get(['/sitemap.xml', '/sitemap.xml/', '/sitemap', '/sitemap/', '/api/sitemap', '/api/sitemap.xml'], async (req, res) => {
   try {
     const hostHeader = req.get('host') || '';
     const hostLower = hostHeader.toLowerCase();
@@ -494,6 +494,113 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
       return;
     }
 
+    const data = await fetchStoreData();
+    if (!data) {
+      throw new Error("Unable to fetch store data");
+    }
+    const { apps = [], news = [] } = data;
+
+    let rawDomain = 'https://www.rummydex.com';
+    if (!rawDomain.startsWith('http://') && !rawDomain.startsWith('https://')) {
+      rawDomain = `https://${rawDomain}`;
+    }
+    const host = rawDomain.replace(/\/$/, '');
+    const today = new Date().toISOString().split('T')[0];
+    const siteLogo = getField(data?.settings, 'logo_url') || getField(data?.settings, 'favicon_url') || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
+
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+    xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n`;
+
+    const seenUrls = new Set<string>();
+
+    const addUrl = (loc: string, lastmod?: string | null, changefreq?: string, priority?: string, imageUrl?: string, imageTitle?: string) => {
+      if (!seenUrls.has(loc)) {
+        seenUrls.add(loc);
+        let itemXml = `  <url>\n    <loc>${loc}</loc>\n`;
+        
+        if (imageUrl && imageUrl.includes('res.cloudinary.com')) {
+          imageUrl = imageUrl.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_webp,q_auto,w_800/$1');
+        }
+
+        if (lastmod) {
+          itemXml += `    <lastmod>${lastmod}</lastmod>\n`;
+        }
+        if (changefreq) {
+          itemXml += `    <changefreq>${changefreq}</changefreq>\n`;
+        }
+        if (priority) {
+          itemXml += `    <priority>${priority}</priority>\n`;
+        }
+        if (imageUrl) {
+          itemXml += `    <image:image>\n      <image:loc>${escapeXml(imageUrl)}</image:loc>\n`;
+          if (imageTitle) {
+            itemXml += `      <image:title>${escapeXml(imageTitle)}</image:title>\n`;
+          }
+          itemXml += `    </image:image>\n`;
+        }
+        itemXml += `  </url>\n`;
+        xml += itemXml;
+      }
+    };
+
+    // 1. Homepage & Top Static Hubs
+    addUrl(`${host}/`, today, 'daily', '1.0', siteLogo, 'RummyDex Official Logo');
+    addUrl(`${host}/new-apps`, today, 'daily', '0.9');
+    addUrl(`${host}/news`, today, 'daily', '0.8');
+    addUrl(`${host}/videos`, today, 'weekly', '0.7');
+    addUrl(`${host}/developers`, today, 'weekly', '0.7');
+    addUrl(`${host}/about`, today, 'monthly', '0.5');
+    addUrl(`${host}/contact`, today, 'monthly', '0.5');
+    addUrl(`${host}/privacy`, today, 'yearly', '0.3');
+    addUrl(`${host}/terms`, today, 'yearly', '0.3');
+    addUrl(`${host}/disclaimer`, today, 'yearly', '0.3');
+    addUrl(`${host}/responsibility`, today, 'yearly', '0.3');
+    addUrl(`${host}/report-removal`, today, 'yearly', '0.3');
+    addUrl(`${host}/notice`, today, 'yearly', '0.3');
+    addUrl(`${host}/ethics`, today, 'yearly', '0.3');
+
+    // 2. All App Detail Pages
+    for (const app of apps) {
+      const slug = getField(app, 'slug');
+      if (slug) {
+        const cSlug = cleanSlug(slug);
+        const appLoc = `${host}/app/${cSlug}`;
+        const appDate = getFormattedDate(app) || today;
+        const appImage = getOgImageUrl(getField(app, 'og_image_url') || getField(app, 'icon_url') || siteLogo);
+        const appName = getField(app, 'name') || 'Application';
+
+        addUrl(appLoc, appDate, 'daily', '0.9', appImage, appName);
+      }
+    }
+
+    // 3. All News Articles
+    for (const newsItem of news) {
+      const slug = getField(newsItem, 'slug');
+      if (slug) {
+        const cSlug = cleanSlug(slug);
+        const newsLoc = `${host}/news/${cSlug}`;
+        const newsDate = getFormattedDate(newsItem) || today;
+        const newsImage = getOgImageUrl(getField(newsItem, 'image_url') || getField(newsItem, 'cover_image') || siteLogo);
+        const newsTitle = getField(newsItem, 'title') || 'News Update';
+
+        addUrl(newsLoc, newsDate, 'weekly', '0.7', newsImage, newsTitle);
+      }
+    }
+
+    xml += `</urlset>\n`;
+
+    res.set('Content-Type', 'application/xml; charset=utf-8');
+    res.set('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400');
+    res.send(xml);
+  } catch (e) {
+    console.error('All-in-One Sitemap Generation Error:', e);
+    res.status(500).send('Error generating sitemap');
+  }
+});
+
+// 2. Sitemap Index (/sitemap_index.xml)
+seoRouter.get(['/sitemap_index.xml', '/sitemap-index.xml'], async (req, res) => {
+  try {
     let rawDomain = 'https://www.rummydex.com';
     if (!rawDomain.startsWith('http://') && !rawDomain.startsWith('https://')) {
       rawDomain = `https://${rawDomain}`;
@@ -512,8 +619,7 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
     res.set('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400');
     res.send(xml);
   } catch (e) {
-    console.error('Master Sitemap Generation Error:', e);
-    res.status(500).send('Error generating master sitemap index');
+    res.status(500).send('Error generating sitemap index');
   }
 });
 
