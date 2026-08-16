@@ -831,8 +831,6 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
     addUrl(`${host}/`, today, 'daily', '1.0', siteLogo, 'RummyDex Official Logo');
     addUrl(`${host}/new-apps`, today, 'daily', '0.9');
     addUrl(`${host}/news`, today, 'daily', '0.8');
-    addUrl(`${host}/blogs`, today, 'daily', '0.8');
-    addUrl(`${host}/videos`, today, 'weekly', '0.7');
     addUrl(`${host}/developers`, today, 'weekly', '0.7');
     addUrl(`${host}/about`, today, 'monthly', '0.5');
     addUrl(`${host}/contact`, today, 'monthly', '0.5');
@@ -865,30 +863,6 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
         const itemImage = getOgImageUrl(getField(item, 'og_image_url') || getField(item, 'logo_url') || getField(item, 'image_url') || siteLogo);
         const itemTitle = getField(item, 'title') || 'News Bulletin';
         addUrl(`${host}/news/${cSlug}`, itemDate, 'daily', '0.8', itemImage, itemTitle);
-      }
-    }
-
-    // 4. Blog Posts
-    for (const item of blogs) {
-      const slug = getField(item, 'slug') || getField(item, 'id');
-      if (slug) {
-        const cSlug = cleanSlug(slug);
-        const itemDate = getFormattedDate(item);
-        const itemImage = getOgImageUrl(getField(item, 'cover_url') || getField(item, 'thumbnail_url') || siteLogo);
-        const itemTitle = getField(item, 'title') || 'Blog Article';
-        addUrl(`${host}/blog/${cSlug}`, itemDate, 'daily', '0.8', itemImage, itemTitle);
-      }
-    }
-
-    // 5. Videos
-    for (const item of videos) {
-      const slug = getField(item, 'slug') || getField(item, 'id');
-      if (slug) {
-        const cSlug = cleanSlug(slug);
-        const itemDate = getFormattedDate(item);
-        const itemImage = getOgImageUrl(getField(item, 'thumbnail_url') || siteLogo);
-        const itemTitle = getField(item, 'title') || 'Video Review';
-        addUrl(`${host}/videos/${cSlug}`, itemDate, 'weekly', '0.7', itemImage, itemTitle);
       }
     }
 
