@@ -8,7 +8,7 @@
       "destination": "/api/index"
     },
     {
-      "source": "/sitemap.xml",
+      "source": "/(sitemap.*\\.xml)",
       "destination": "/api/index"
     },
     {
@@ -38,7 +38,7 @@
   ],
   "headers": [
     {
-      "source": "/(sitemap\\.xml|rss\\.xml|opensearch\\.xml)",
+      "source": "/(sitemap.*\\.xml|rss\\.xml|opensearch\\.xml)",
       "headers": [
         {
           "key": "Cache-Control",

@@ -432,11 +432,18 @@ Disallow: /ethics
 Disallow: /disclaimer
 
 Sitemap: ${host}/sitemap.xml
+Sitemap: ${host}/sitemap_index.xml
+Sitemap: ${host}/sitemap-apps.xml
+Sitemap: ${host}/sitemap-static.xml
+Sitemap: ${host}/sitemap-news.xml
+Sitemap: ${host}/sitemap-blogs.xml
+Sitemap: ${host}/sitemap-videos.xml
+Sitemap: ${host}/sitemap-developers.xml
 `;
-    res.set('Content-Type', 'text/plain');
+    res.set('Content-Type', 'text/plain; charset=utf-8');
     res.send(robots);
   } catch (err) {
-    res.set('Content-Type', 'text/plain');
+    res.set('Content-Type', 'text/plain; charset=utf-8');
     res.send(`User-agent: *
 Allow: /$
 Allow: /app/
@@ -468,10 +475,422 @@ Disallow: /ethics
 Disallow: /disclaimer
 
 Sitemap: https://www.rummydex.com/sitemap.xml
+Sitemap: https://www.rummydex.com/sitemap_index.xml
+Sitemap: https://www.rummydex.com/sitemap-apps.xml
+Sitemap: https://www.rummydex.com/sitemap-static.xml
+Sitemap: https://www.rummydex.com/sitemap-news.xml
+Sitemap: https://www.rummydex.com/sitemap-blogs.xml
+Sitemap: https://www.rummydex.com/sitemap-videos.xml
+Sitemap: https://www.rummydex.com/sitemap-developers.xml
 `);
   }
 });
 
+// Helper for sitemap XML generation
+const escapeXml = (unsafe: any) => {
+  if (typeof unsafe !== 'string') unsafe = String(unsafe || '');
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+};
+
+const cleanSlug = (slug: string) => {
+  if (!slug) return '';
+  return escapeXml(encodeURI(slug.trim().replace(/^\/+|\/+$/g, '')));
+};
+
+const getFormattedDate = (obj: any): string | null => {
+  const dateStr = getField(obj, 'updated_at') || getField(obj, 'created_at') || getField(obj, 'published_at') || getField(obj, 'publish_date') || getField(obj, 'date');
+  if (dateStr) {
+    try {
+      if (typeof dateStr === 'object' && dateStr !== null && (dateStr as any).seconds) {
+        return new Date((dateStr as any).seconds * 1000).toISOString().split('T')[0];
+      }
+      if (typeof dateStr === 'object' && dateStr !== null && (dateStr as any)._seconds) {
+        return new Date((dateStr as any)._seconds * 1000).toISOString().split('T')[0];
+      }
+      const date = new Date(dateStr);
+      if (!isNaN(date.getTime())) {
+        return date.toISOString().split('T')[0];
+      }
+    } catch(e) {}
+  }
+  return null;
+};
+
+const getHostUrl = (req: express.Request): string => {
+  let rawDomain = 'https://www.rummydex.com';
+  if (!rawDomain.startsWith('http://') && !rawDomain.startsWith('https://')) {
+    rawDomain = `https://${rawDomain}`;
+  }
+  return rawDomain.replace(/\/$/, '');
+};
+
+// 1. Sitemap Index Route (/sitemap_index.xml, /sitemap-index.xml)
+seoRouter.get(['/sitemap_index.xml', '/sitemap-index.xml', '/sitemapindex.xml'], async (req, res) => {
+  try {
+    const hostHeader = req.get('host') || '';
+    if (hostHeader.toLowerCase().includes('masterworld')) {
+      return res.status(404).send('Not Found');
+    }
+
+    const host = getHostUrl(req);
+    const today = new Date().toISOString().split('T')[0];
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap>
+    <loc>${host}/sitemap-apps.xml</loc>
+    <lastmod>${today}</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>${host}/sitemap-static.xml</loc>
+    <lastmod>${today}</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>${host}/sitemap-news.xml</loc>
+    <lastmod>${today}</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>${host}/sitemap-blogs.xml</loc>
+    <lastmod>${today}</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>${host}/sitemap-videos.xml</loc>
+    <lastmod>${today}</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>${host}/sitemap-developers.xml</loc>
+    <lastmod>${today}</lastmod>
+  </sitemap>
+</sitemapindex>`;
+
+    res.set({
+      'Content-Type': 'application/xml; charset=utf-8',
+      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400'
+    });
+    return res.send(xml);
+  } catch (e) {
+    console.error('Sitemap Index Generation Error:', e);
+    return res.status(500).type('text/plain').send('Error generating sitemap index');
+  }
+});
+
+// 2. Apps Sitemap Route (/sitemap-apps.xml, /sitemap_apps.xml, /sitemap-app.xml)
+seoRouter.get(['/sitemap-apps.xml', '/sitemap_apps.xml', '/sitemap-app.xml', '/sitemap_app.xml'], async (req, res) => {
+  try {
+    const hostHeader = req.get('host') || '';
+    if (hostHeader.toLowerCase().includes('masterworld')) {
+      return res.status(404).send('Not Found');
+    }
+
+    const data = await fetchStoreData();
+    const { apps = [] } = data || {};
+    const host = getHostUrl(req);
+    const siteLogo = getField(data?.settings, 'logo_url') || getField(data?.settings, 'favicon_url') || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
+
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+    xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n`;
+
+    const seenUrls = new Set<string>();
+    for (const app of apps) {
+      const slug = getField(app, 'slug');
+      if (slug) {
+        const cSlug = cleanSlug(slug);
+        const appLoc = `${host}/app/${cSlug}`;
+        if (!seenUrls.has(appLoc)) {
+          seenUrls.add(appLoc);
+          const appDate = getFormattedDate(app);
+          let appImage = getOgImageUrl(getField(app, 'og_image_url') || getField(app, 'icon_url') || siteLogo);
+          if (appImage && appImage.includes('res.cloudinary.com')) {
+            appImage = appImage.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_webp,q_auto,w_800/$1');
+          }
+          const appName = getField(app, 'name') || 'Application';
+
+          xml += `  <url>\n    <loc>${appLoc}</loc>\n`;
+          if (appDate) xml += `    <lastmod>${appDate}</lastmod>\n`;
+          xml += `    <changefreq>daily</changefreq>\n    <priority>0.9</priority>\n`;
+          if (appImage) {
+            xml += `    <image:image>\n      <image:loc>${escapeXml(appImage)}</image:loc>\n      <image:title>${escapeXml(appName)}</image:title>\n    </image:image>\n`;
+          }
+          xml += `  </url>\n`;
+        }
+      }
+    }
+
+    xml += `</urlset>\n`;
+
+    res.set({
+      'Content-Type': 'application/xml; charset=utf-8',
+      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400'
+    });
+    return res.send(xml);
+  } catch (e) {
+    console.error('Apps Sitemap Error:', e);
+    return res.status(500).type('text/plain').send('Error generating apps sitemap');
+  }
+});
+
+// 3. Static Pages Sitemap Route (/sitemap-static.xml, /sitemap_static.xml, /sitemap-pages.xml)
+seoRouter.get(['/sitemap-static.xml', '/sitemap_static.xml', '/sitemap-pages.xml', '/sitemap_pages.xml'], async (req, res) => {
+  try {
+    const hostHeader = req.get('host') || '';
+    if (hostHeader.toLowerCase().includes('masterworld')) {
+      return res.status(404).send('Not Found');
+    }
+
+    const data = await fetchStoreData();
+    const host = getHostUrl(req);
+    const today = new Date().toISOString().split('T')[0];
+    let siteLogo = getField(data?.settings, 'logo_url') || getField(data?.settings, 'favicon_url') || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
+    if (siteLogo && siteLogo.includes('res.cloudinary.com')) {
+      siteLogo = siteLogo.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_webp,q_auto,w_800/$1');
+    }
+
+    const staticPages = [
+      { path: '/', priority: '1.0', changefreq: 'daily', title: 'RummyDex - Official App Hub & Transparency Directory', image: siteLogo },
+      { path: '/new-apps', priority: '0.9', changefreq: 'daily', title: 'New Apps Catalog' },
+      { path: '/news', priority: '0.8', changefreq: 'daily', title: 'Gaming News & Announcements' },
+      { path: '/blogs', priority: '0.8', changefreq: 'daily', title: 'Strategy Guides & Blog Articles' },
+      { path: '/videos', priority: '0.7', changefreq: 'weekly', title: 'Video Reviews & Gameplay Gallery' },
+      { path: '/developers', priority: '0.7', changefreq: 'weekly', title: 'Developer Profiles' },
+      { path: '/about', priority: '0.5', changefreq: 'monthly', title: 'About RummyDex' },
+      { path: '/contact', priority: '0.5', changefreq: 'monthly', title: 'Contact Support' },
+      { path: '/privacy', priority: '0.3', changefreq: 'monthly', title: 'Privacy Policy' },
+      { path: '/terms', priority: '0.3', changefreq: 'monthly', title: 'Terms of Service' },
+      { path: '/disclaimer', priority: '0.3', changefreq: 'monthly', title: 'Disclaimer' },
+      { path: '/notice', priority: '0.3', changefreq: 'monthly', title: 'Important Legal Notice' },
+      { path: '/ethics', priority: '0.3', changefreq: 'monthly', title: 'Ethics & Transparency Commitment' },
+      { path: '/responsibility', priority: '0.3', changefreq: 'monthly', title: 'Responsible Gaming Policy' },
+      { path: '/report-removal', priority: '0.3', changefreq: 'monthly', title: 'Report & Removal Requests' }
+    ];
+
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+    xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n`;
+
+    for (const page of staticPages) {
+      const loc = `${host}${page.path === '/' ? '/' : page.path}`;
+      xml += `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>${page.changefreq}</changefreq>\n    <priority>${page.priority}</priority>\n`;
+      if (page.image) {
+        xml += `    <image:image>\n      <image:loc>${escapeXml(page.image)}</image:loc>\n      <image:title>${escapeXml(page.title)}</image:title>\n    </image:image>\n`;
+      }
+      xml += `  </url>\n`;
+    }
+
+    xml += `</urlset>\n`;
+
+    res.set({
+      'Content-Type': 'application/xml; charset=utf-8',
+      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400'
+    });
+    return res.send(xml);
+  } catch (e) {
+    console.error('Static Sitemap Error:', e);
+    return res.status(500).type('text/plain').send('Error generating static sitemap');
+  }
+});
+
+// 4. News Sitemap Route (/sitemap-news.xml, /sitemap_news.xml, /sitemap-posts.xml)
+seoRouter.get(['/sitemap-news.xml', '/sitemap_news.xml', '/sitemap-posts.xml', '/sitemap_posts.xml'], async (req, res) => {
+  try {
+    const hostHeader = req.get('host') || '';
+    if (hostHeader.toLowerCase().includes('masterworld')) {
+      return res.status(404).send('Not Found');
+    }
+
+    const data = await fetchStoreData();
+    const { news = [] } = data || {};
+    const host = getHostUrl(req);
+    const siteLogo = getField(data?.settings, 'logo_url') || getField(data?.settings, 'favicon_url') || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
+
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+    xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n`;
+
+    const seenUrls = new Set<string>();
+    for (const item of news) {
+      const slug = getField(item, 'slug');
+      if (slug) {
+        const cSlug = cleanSlug(slug);
+        const itemLoc = `${host}/news/${cSlug}`;
+        if (!seenUrls.has(itemLoc)) {
+          seenUrls.add(itemLoc);
+          const itemDate = getFormattedDate(item);
+          let itemImage = getOgImageUrl(getField(item, 'og_image_url') || getField(item, 'logo_url') || getField(item, 'image_url') || siteLogo);
+          if (itemImage && itemImage.includes('res.cloudinary.com')) {
+            itemImage = itemImage.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_webp,q_auto,w_800/$1');
+          }
+          const itemTitle = getField(item, 'title') || 'News Bulletin';
+
+          xml += `  <url>\n    <loc>${itemLoc}</loc>\n`;
+          if (itemDate) xml += `    <lastmod>${itemDate}</lastmod>\n`;
+          xml += `    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n`;
+          if (itemImage) {
+            xml += `    <image:image>\n      <image:loc>${escapeXml(itemImage)}</image:loc>\n      <image:title>${escapeXml(itemTitle)}</image:title>\n    </image:image>\n`;
+          }
+          xml += `  </url>\n`;
+        }
+      }
+    }
+
+    xml += `</urlset>\n`;
+
+    res.set({
+      'Content-Type': 'application/xml; charset=utf-8',
+      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400'
+    });
+    return res.send(xml);
+  } catch (e) {
+    console.error('News Sitemap Error:', e);
+    return res.status(500).type('text/plain').send('Error generating news sitemap');
+  }
+});
+
+// 5. Blogs Sitemap Route (/sitemap-blogs.xml, /sitemap_blogs.xml, /sitemap-blog.xml)
+seoRouter.get(['/sitemap-blogs.xml', '/sitemap_blogs.xml', '/sitemap-blog.xml', '/sitemap_blog.xml'], async (req, res) => {
+  try {
+    const hostHeader = req.get('host') || '';
+    if (hostHeader.toLowerCase().includes('masterworld')) {
+      return res.status(404).send('Not Found');
+    }
+
+    const data = await fetchStoreData();
+    const { blogs = [] } = data || {};
+    const host = getHostUrl(req);
+    const siteLogo = getField(data?.settings, 'logo_url') || getField(data?.settings, 'favicon_url') || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
+
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+    xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n`;
+
+    const seenUrls = new Set<string>();
+    for (const item of blogs) {
+      const slug = getField(item, 'slug') || getField(item, 'id');
+      if (slug) {
+        const cSlug = cleanSlug(slug);
+        const itemLoc = `${host}/blog/${cSlug}`;
+        if (!seenUrls.has(itemLoc)) {
+          seenUrls.add(itemLoc);
+          const itemDate = getFormattedDate(item);
+          let itemImage = getOgImageUrl(getField(item, 'cover_url') || getField(item, 'thumbnail_url') || siteLogo);
+          if (itemImage && itemImage.includes('res.cloudinary.com')) {
+            itemImage = itemImage.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_webp,q_auto,w_800/$1');
+          }
+          const itemTitle = getField(item, 'title') || 'Blog Article';
+
+          xml += `  <url>\n    <loc>${itemLoc}</loc>\n`;
+          if (itemDate) xml += `    <lastmod>${itemDate}</lastmod>\n`;
+          xml += `    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n`;
+          if (itemImage) {
+            xml += `    <image:image>\n      <image:loc>${escapeXml(itemImage)}</image:loc>\n      <image:title>${escapeXml(itemTitle)}</image:title>\n    </image:image>\n`;
+          }
+          xml += `  </url>\n`;
+        }
+      }
+    }
+
+    xml += `</urlset>\n`;
+
+    res.set({
+      'Content-Type': 'application/xml; charset=utf-8',
+      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400'
+    });
+    return res.send(xml);
+  } catch (e) {
+    console.error('Blogs Sitemap Error:', e);
+    return res.status(500).type('text/plain').send('Error generating blogs sitemap');
+  }
+});
+
+// 6. Videos Sitemap Route (/sitemap-videos.xml, /sitemap_videos.xml, /sitemap-video.xml)
+seoRouter.get(['/sitemap-videos.xml', '/sitemap_videos.xml', '/sitemap-video.xml', '/sitemap_video.xml'], async (req, res) => {
+  try {
+    const hostHeader = req.get('host') || '';
+    if (hostHeader.toLowerCase().includes('masterworld')) {
+      return res.status(404).send('Not Found');
+    }
+
+    const data = await fetchStoreData();
+    const { videos = [] } = data || {};
+    const host = getHostUrl(req);
+    const siteLogo = getField(data?.settings, 'logo_url') || getField(data?.settings, 'favicon_url') || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
+
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+    xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n`;
+
+    const seenUrls = new Set<string>();
+    for (const item of videos) {
+      const slug = getField(item, 'slug') || getField(item, 'id');
+      if (slug) {
+        const cSlug = cleanSlug(slug);
+        const itemLoc = `${host}/videos/${cSlug}`;
+        if (!seenUrls.has(itemLoc)) {
+          seenUrls.add(itemLoc);
+          const itemDate = getFormattedDate(item);
+          let itemImage = getOgImageUrl(getField(item, 'thumbnail_url') || siteLogo);
+          if (itemImage && itemImage.includes('res.cloudinary.com')) {
+            itemImage = itemImage.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_webp,q_auto,w_800/$1');
+          }
+          const itemTitle = getField(item, 'title') || 'Video Review';
+
+          xml += `  <url>\n    <loc>${itemLoc}</loc>\n`;
+          if (itemDate) xml += `    <lastmod>${itemDate}</lastmod>\n`;
+          xml += `    <changefreq>weekly</changefreq>\n    <priority>0.7</priority>\n`;
+          if (itemImage) {
+            xml += `    <image:image>\n      <image:loc>${escapeXml(itemImage)}</image:loc>\n      <image:title>${escapeXml(itemTitle)}</image:title>\n    </image:image>\n`;
+          }
+          xml += `  </url>\n`;
+        }
+      }
+    }
+
+    xml += `</urlset>\n`;
+
+    res.set({
+      'Content-Type': 'application/xml; charset=utf-8',
+      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400'
+    });
+    return res.send(xml);
+  } catch (e) {
+    console.error('Videos Sitemap Error:', e);
+    return res.status(500).type('text/plain').send('Error generating videos sitemap');
+  }
+});
+
+// 7. Developers Sitemap Route (/sitemap-developers.xml, /sitemap_developers.xml)
+seoRouter.get(['/sitemap-developers.xml', '/sitemap_developers.xml'], async (req, res) => {
+  try {
+    const hostHeader = req.get('host') || '';
+    if (hostHeader.toLowerCase().includes('masterworld')) {
+      return res.status(404).send('Not Found');
+    }
+
+    const host = getHostUrl(req);
+    const today = new Date().toISOString().split('T')[0];
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>${host}/developers</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+</urlset>`;
+
+    res.set({
+      'Content-Type': 'application/xml; charset=utf-8',
+      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400'
+    });
+    return res.send(xml);
+  } catch (e) {
+    console.error('Developers Sitemap Error:', e);
+    return res.status(500).type('text/plain').send('Error generating developers sitemap');
+  }
+});
+
+// 8. Master Comprehensive Sitemap Route (/sitemap.xml, /sitemap, /api/sitemap, /api/sitemap.xml)
 seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], async (req, res) => {
   try {
     const hostHeader = req.get('host') || '';
@@ -485,52 +904,13 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
     if (!data) {
       throw new Error("Unable to fetch store data");
     }
-    const { apps = [] } = data;
-
-    let rawDomain = 'https://www.rummydex.com';
-    if (!rawDomain.startsWith('http://') && !rawDomain.startsWith('https://')) {
-      rawDomain = `https://${rawDomain}`;
-    }
-    const host = rawDomain.replace(/\/$/, '');
+    const { apps = [], news = [], blogs = [], videos = [] } = data;
+    const host = getHostUrl(req);
 
     let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
     xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n`;
 
     const today = new Date().toISOString().split('T')[0];
-
-    const escapeXml = (unsafe: any) => {
-      if (typeof unsafe !== 'string') unsafe = String(unsafe || '');
-      return unsafe
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-    };
-
-    const cleanSlug = (slug: string) => {
-      if (!slug) return '';
-      return escapeXml(encodeURI(slug.trim().replace(/^\/+|\/+$/g, '')));
-    };
-
-    const getFormattedDate = (obj: any): string | null => {
-      const dateStr = getField(obj, 'updated_at') || getField(obj, 'created_at') || getField(obj, 'published_at') || getField(obj, 'date');
-      if (dateStr) {
-        try {
-          if (typeof dateStr === 'object' && dateStr !== null && (dateStr as any).seconds) {
-            return new Date((dateStr as any).seconds * 1000).toISOString().split('T')[0];
-          }
-          if (typeof dateStr === 'object' && dateStr !== null && (dateStr as any)._seconds) {
-            return new Date((dateStr as any)._seconds * 1000).toISOString().split('T')[0];
-          }
-          const date = new Date(dateStr);
-          if (!isNaN(date.getTime())) {
-            return date.toISOString().split('T')[0];
-          }
-        } catch(e) {}
-      }
-      return null;
-    };
 
     const seenUrls = new Set<string>();
     const addUrl = (loc: string, lastmod?: string | null, changefreq?: string, priority?: string, imageUrl?: string, imageTitle?: string) => {
@@ -563,12 +943,26 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
       }
     };
 
-    const siteLogo = getField(data?.settings, 'logo_url') || getField(data?.settings, 'favicon_url') || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
+    let siteLogo = getField(data?.settings, 'logo_url') || getField(data?.settings, 'favicon_url') || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
 
-    // 1. Homepage ONLY
+    // 1. Core Static Pages
     addUrl(`${host}/`, today, 'daily', '1.0', siteLogo, 'RummyDex Official Logo');
+    addUrl(`${host}/new-apps`, today, 'daily', '0.9');
+    addUrl(`${host}/news`, today, 'daily', '0.8');
+    addUrl(`${host}/blogs`, today, 'daily', '0.8');
+    addUrl(`${host}/videos`, today, 'weekly', '0.7');
+    addUrl(`${host}/developers`, today, 'weekly', '0.7');
+    addUrl(`${host}/about`, today, 'monthly', '0.5');
+    addUrl(`${host}/contact`, today, 'monthly', '0.5');
+    addUrl(`${host}/privacy`, today, 'monthly', '0.3');
+    addUrl(`${host}/terms`, today, 'monthly', '0.3');
+    addUrl(`${host}/disclaimer`, today, 'monthly', '0.3');
+    addUrl(`${host}/notice`, today, 'monthly', '0.3');
+    addUrl(`${host}/ethics`, today, 'monthly', '0.3');
+    addUrl(`${host}/responsibility`, today, 'monthly', '0.3');
+    addUrl(`${host}/report-removal`, today, 'monthly', '0.3');
 
-    // 2. Canonical App Detail Pages ONLY
+    // 2. Canonical App Detail Pages
     for (const app of apps) {
       const slug = getField(app, 'slug');
       if (slug) {
@@ -576,10 +970,43 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
         const appDate = getFormattedDate(app);
         const appImage = getOgImageUrl(getField(app, 'og_image_url') || getField(app, 'icon_url') || siteLogo);
         const appName = getField(app, 'name') || 'Application';
+        addUrl(`${host}/app/${cSlug}`, appDate, 'daily', '0.9', appImage, appName);
+      }
+    }
 
-        // Canonical App detail URL
-        const appLoc = `${host}/app/${cSlug}`;
-        addUrl(appLoc, appDate, 'daily', '0.9', appImage, appName);
+    // 3. News Articles
+    for (const item of news) {
+      const slug = getField(item, 'slug');
+      if (slug) {
+        const cSlug = cleanSlug(slug);
+        const itemDate = getFormattedDate(item);
+        const itemImage = getOgImageUrl(getField(item, 'og_image_url') || getField(item, 'logo_url') || getField(item, 'image_url') || siteLogo);
+        const itemTitle = getField(item, 'title') || 'News Bulletin';
+        addUrl(`${host}/news/${cSlug}`, itemDate, 'daily', '0.8', itemImage, itemTitle);
+      }
+    }
+
+    // 4. Blog Posts
+    for (const item of blogs) {
+      const slug = getField(item, 'slug') || getField(item, 'id');
+      if (slug) {
+        const cSlug = cleanSlug(slug);
+        const itemDate = getFormattedDate(item);
+        const itemImage = getOgImageUrl(getField(item, 'cover_url') || getField(item, 'thumbnail_url') || siteLogo);
+        const itemTitle = getField(item, 'title') || 'Blog Article';
+        addUrl(`${host}/blog/${cSlug}`, itemDate, 'daily', '0.8', itemImage, itemTitle);
+      }
+    }
+
+    // 5. Videos
+    for (const item of videos) {
+      const slug = getField(item, 'slug') || getField(item, 'id');
+      if (slug) {
+        const cSlug = cleanSlug(slug);
+        const itemDate = getFormattedDate(item);
+        const itemImage = getOgImageUrl(getField(item, 'thumbnail_url') || siteLogo);
+        const itemTitle = getField(item, 'title') || 'Video Review';
+        addUrl(`${host}/videos/${cSlug}`, itemDate, 'weekly', '0.7', itemImage, itemTitle);
       }
     }
 
@@ -590,7 +1017,7 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
     res.send(xml);
   } catch (e) {
     console.error('Sitemap Generation Error:', e);
-    res.status(500).send('Error generating sitemap');
+    res.status(500).type('text/plain').send('Error generating sitemap');
   }
 });
 
