@@ -436,8 +436,6 @@ Sitemap: ${host}/sitemap_index.xml
 Sitemap: ${host}/sitemap-apps.xml
 Sitemap: ${host}/sitemap-static.xml
 Sitemap: ${host}/sitemap-news.xml
-Sitemap: ${host}/sitemap-blogs.xml
-Sitemap: ${host}/sitemap-videos.xml
 Sitemap: ${host}/sitemap-developers.xml
 `;
     res.set('Content-Type', 'text/plain; charset=utf-8');
@@ -479,8 +477,6 @@ Sitemap: https://www.rummydex.com/sitemap_index.xml
 Sitemap: https://www.rummydex.com/sitemap-apps.xml
 Sitemap: https://www.rummydex.com/sitemap-static.xml
 Sitemap: https://www.rummydex.com/sitemap-news.xml
-Sitemap: https://www.rummydex.com/sitemap-blogs.xml
-Sitemap: https://www.rummydex.com/sitemap-videos.xml
 Sitemap: https://www.rummydex.com/sitemap-developers.xml
 `);
   }
@@ -507,14 +503,14 @@ const getFormattedDate = (obj: any): string | null => {
   if (dateStr) {
     try {
       if (typeof dateStr === 'object' && dateStr !== null && (dateStr as any).seconds) {
-        return new Date((dateStr as any).seconds * 1000).toISOString().split('T')[0];
+        return new Date((dateStr as any).seconds * 1000).toISOString();
       }
       if (typeof dateStr === 'object' && dateStr !== null && (dateStr as any)._seconds) {
-        return new Date((dateStr as any)._seconds * 1000).toISOString().split('T')[0];
+        return new Date((dateStr as any)._seconds * 1000).toISOString();
       }
       const date = new Date(dateStr);
       if (!isNaN(date.getTime())) {
-        return date.toISOString().split('T')[0];
+        return date.toISOString();
       }
     } catch(e) {}
   }
@@ -538,7 +534,7 @@ seoRouter.get(['/sitemap_index.xml', '/sitemap-index.xml', '/sitemapindex.xml'],
     }
 
     const host = getHostUrl(req);
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toISOString();
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -555,11 +551,9 @@ seoRouter.get(['/sitemap_index.xml', '/sitemap-index.xml', '/sitemapindex.xml'],
     <lastmod>${today}</lastmod>
   </sitemap>
   <sitemap>
-    <loc>${host}/sitemap-blogs.xml</loc>
     <lastmod>${today}</lastmod>
   </sitemap>
   <sitemap>
-    <loc>${host}/sitemap-videos.xml</loc>
     <lastmod>${today}</lastmod>
   </sitemap>
   <sitemap>
@@ -644,7 +638,7 @@ seoRouter.get(['/sitemap-static.xml', '/sitemap_static.xml', '/sitemap-pages.xml
 
     const data = await fetchStoreData();
     const host = getHostUrl(req);
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toISOString();
     let siteLogo = getField(data?.settings, 'logo_url') || getField(data?.settings, 'favicon_url') || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
     if (siteLogo && siteLogo.includes('res.cloudinary.com')) {
       siteLogo = siteLogo.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_webp,q_auto,w_800/$1');
@@ -747,118 +741,6 @@ seoRouter.get(['/sitemap-news.xml', '/sitemap_news.xml', '/sitemap-posts.xml', '
     return res.status(500).type('text/plain').send('Error generating news sitemap');
   }
 });
-
-// 5. Blogs Sitemap Route (/sitemap-blogs.xml, /sitemap_blogs.xml, /sitemap-blog.xml)
-seoRouter.get(['/sitemap-blogs.xml', '/sitemap_blogs.xml', '/sitemap-blog.xml', '/sitemap_blog.xml'], async (req, res) => {
-  try {
-    const hostHeader = req.get('host') || '';
-    if (hostHeader.toLowerCase().includes('masterworld')) {
-      return res.status(404).send('Not Found');
-    }
-
-    const data = await fetchStoreData();
-    const { blogs = [] } = data || {};
-    const host = getHostUrl(req);
-    const siteLogo = getField(data?.settings, 'logo_url') || getField(data?.settings, 'favicon_url') || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
-
-    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
-    xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n`;
-
-    const seenUrls = new Set<string>();
-    for (const item of blogs) {
-      const slug = getField(item, 'slug') || getField(item, 'id');
-      if (slug) {
-        const cSlug = cleanSlug(slug);
-        const itemLoc = `${host}/blog/${cSlug}`;
-        if (!seenUrls.has(itemLoc)) {
-          seenUrls.add(itemLoc);
-          const itemDate = getFormattedDate(item);
-          let itemImage = getOgImageUrl(getField(item, 'cover_url') || getField(item, 'thumbnail_url') || siteLogo);
-          if (itemImage && itemImage.includes('res.cloudinary.com')) {
-            itemImage = itemImage.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_webp,q_auto,w_800/$1');
-          }
-          const itemTitle = getField(item, 'title') || 'Blog Article';
-
-          xml += `  <url>\n    <loc>${itemLoc}</loc>\n`;
-          if (itemDate) xml += `    <lastmod>${itemDate}</lastmod>\n`;
-          xml += `    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n`;
-          if (itemImage) {
-            xml += `    <image:image>\n      <image:loc>${escapeXml(itemImage)}</image:loc>\n      <image:title>${escapeXml(itemTitle)}</image:title>\n    </image:image>\n`;
-          }
-          xml += `  </url>\n`;
-        }
-      }
-    }
-
-    xml += `</urlset>\n`;
-
-    res.set({
-      'Content-Type': 'application/xml; charset=utf-8',
-      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400'
-    });
-    return res.send(xml);
-  } catch (e) {
-    console.error('Blogs Sitemap Error:', e);
-    return res.status(500).type('text/plain').send('Error generating blogs sitemap');
-  }
-});
-
-// 6. Videos Sitemap Route (/sitemap-videos.xml, /sitemap_videos.xml, /sitemap-video.xml)
-seoRouter.get(['/sitemap-videos.xml', '/sitemap_videos.xml', '/sitemap-video.xml', '/sitemap_video.xml'], async (req, res) => {
-  try {
-    const hostHeader = req.get('host') || '';
-    if (hostHeader.toLowerCase().includes('masterworld')) {
-      return res.status(404).send('Not Found');
-    }
-
-    const data = await fetchStoreData();
-    const { videos = [] } = data || {};
-    const host = getHostUrl(req);
-    const siteLogo = getField(data?.settings, 'logo_url') || getField(data?.settings, 'favicon_url') || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
-
-    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
-    xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n`;
-
-    const seenUrls = new Set<string>();
-    for (const item of videos) {
-      const slug = getField(item, 'slug') || getField(item, 'id');
-      if (slug) {
-        const cSlug = cleanSlug(slug);
-        const itemLoc = `${host}/videos/${cSlug}`;
-        if (!seenUrls.has(itemLoc)) {
-          seenUrls.add(itemLoc);
-          const itemDate = getFormattedDate(item);
-          let itemImage = getOgImageUrl(getField(item, 'thumbnail_url') || siteLogo);
-          if (itemImage && itemImage.includes('res.cloudinary.com')) {
-            itemImage = itemImage.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_webp,q_auto,w_800/$1');
-          }
-          const itemTitle = getField(item, 'title') || 'Video Review';
-
-          xml += `  <url>\n    <loc>${itemLoc}</loc>\n`;
-          if (itemDate) xml += `    <lastmod>${itemDate}</lastmod>\n`;
-          xml += `    <changefreq>weekly</changefreq>\n    <priority>0.7</priority>\n`;
-          if (itemImage) {
-            xml += `    <image:image>\n      <image:loc>${escapeXml(itemImage)}</image:loc>\n      <image:title>${escapeXml(itemTitle)}</image:title>\n    </image:image>\n`;
-          }
-          xml += `  </url>\n`;
-        }
-      }
-    }
-
-    xml += `</urlset>\n`;
-
-    res.set({
-      'Content-Type': 'application/xml; charset=utf-8',
-      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400'
-    });
-    return res.send(xml);
-  } catch (e) {
-    console.error('Videos Sitemap Error:', e);
-    return res.status(500).type('text/plain').send('Error generating videos sitemap');
-  }
-});
-
-// 7. Developers Sitemap Route (/sitemap-developers.xml, /sitemap_developers.xml)
 seoRouter.get(['/sitemap-developers.xml', '/sitemap_developers.xml'], async (req, res) => {
   try {
     const hostHeader = req.get('host') || '';
@@ -867,7 +749,7 @@ seoRouter.get(['/sitemap-developers.xml', '/sitemap_developers.xml'], async (req
     }
 
     const host = getHostUrl(req);
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toISOString();
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -910,7 +792,7 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
     let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
     xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n`;
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toISOString();
 
     const seenUrls = new Set<string>();
     const addUrl = (loc: string, lastmod?: string | null, changefreq?: string, priority?: string, imageUrl?: string, imageTitle?: string) => {
