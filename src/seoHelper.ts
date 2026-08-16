@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { getSafeFirebaseConfig } from './seo/firebaseConfig';
 import { syncFromFirestore } from './seo/sync';
-import { getField, stripHtml, getYoutubeThumbnail, ensureAbsoluteUrl, getOgImageUrl, isBotUserAgent, escapeHtml } from './seo/utils';
+import { getField, stripHtml, getYoutubeThumbnail, ensureAbsoluteUrl, getOgImageUrl, isBotUserAgent, escapeHtml, optimizeImageUrl } from './seo/utils';
 import * as renderers from './seo/renderers';
 import { getCleanCanonicalUrl, formatPageTitle } from './lib/seoUtils';
 
@@ -40,30 +40,40 @@ export const SLUG_ALIAS_MAP: Record<string, string> = {
 };
 
 export function resolveAppSlug(rawSlug: string, appsList: any[]): any | null {
-  if (!rawSlug) return null;
+  if (!rawSlug || !Array.isArray(appsList) || appsList.length === 0) return null;
   let clean = decodeURIComponent(rawSlug).replace(/^\/+|\/+$/g, '').toLowerCase().trim();
   clean = clean.replace(/[-_]+$/g, ''); // Strip trailing hyphens like "uno-" -> "uno"
 
   if (!clean) return null;
 
-  // 1. Direct slug match
+  // 1. Direct exact slug match
   let matched = appsList.find((a: any) => getField(a, 'slug')?.toLowerCase() === clean);
   if (matched) return matched;
 
-  // 2. Alias match
+  // 2. Direct exact ID match
+  matched = appsList.find((a: any) => getField(a, 'id')?.toLowerCase() === clean);
+  if (matched) return matched;
+
+  // 3. Exact alias match
   const aliasTarget = SLUG_ALIAS_MAP[clean];
   if (aliasTarget) {
     matched = appsList.find((a: any) => getField(a, 'slug')?.toLowerCase() === aliasTarget);
     if (matched) return matched;
   }
 
-  // 3. Partial match
-  matched = appsList.find((a: any) => {
-    const s = getField(a, 'slug')?.toLowerCase();
-    return s && (s.includes(clean) || clean.includes(s));
-  });
+  // 4. Normalized exact match (hyphens/underscores/spaces standardized)
+  const normalizedClean = clean.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  if (normalizedClean) {
+    matched = appsList.find((a: any) => {
+      const s = getField(a, 'slug')?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      return s === normalizedClean;
+    });
+    if (matched) return matched;
+  }
 
-  return matched || null;
+  // Strict: Do not do loose partial substring matching (e.g. s.includes(clean))
+  // because that causes unrelated apps with common words like "rummy" or "slots" to cross-match!
+  return null;
 }
 
 export { getField, getSafeFirebaseConfig, syncFromFirestore, getOgImageUrl };
@@ -206,11 +216,10 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
     bodyContent = renderers.renderDisclaimer(settings);
   } else if (cleanPathLower === '/responsibility') {
     bodyContent = renderers.renderResponsibility(settings);
-  } else if (cleanPathLower.startsWith('/info/') || cleanPathLower.startsWith('/moreinfo/') || cleanPathLower.startsWith('/moredetail/')) {
+  } else if (cleanPathLower.startsWith('/info/') || cleanPathLower.startsWith('/moreinfo/') || cleanPathLower.startsWith('/moredetail/') || cleanPathLower.startsWith('/gateway/') || cleanPathLower.startsWith('/download/')) {
     const parts = cleanPathLower.split('/');
     const slug = parts[parts.length - 1];
-    const app = apps.find((a: any) => getField(a, 'slug').toLowerCase() === slug.toLowerCase());
-    bodyContent = app ? renderers.renderAppDetails(slug, apps, settings) : renderers.render404(urlPath, settings);
+    bodyContent = renderers.renderGateway(slug, settings);
   } else {
     const possibleSlug = cleanPathLower.replace(/^\/app\//, '/').replace(/^\/|\/$/g, '');
     const app = apps.find((a: any) => getField(a, 'slug')?.toLowerCase() === possibleSlug);
@@ -246,7 +255,7 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
 }
 
 function buildJsonLdSchema(params: {
-  pageType: 'home' | 'app' | 'news' | 'blog' | 'video' | 'static' | '404';
+  pageType: 'home' | 'app' | 'news' | 'blog' | 'video' | 'static' | 'gateway' | '404';
   title: string;
   description: string;
   url: string;
@@ -314,7 +323,8 @@ function buildJsonLdSchema(params: {
     }
     const realRating = parseFloat(getField(app, 'rating'));
     const realCount = parseInt(getField(app, 'review_count'), 10);
-    const appLogo = getOgImageUrl(getField(app, 'og_image_url') || getField(app, 'icon_url') || params.logoUrl, hostOrigin);
+    const appRawIcon = getField(app, 'icon_url') || getField(app, 'og_image_url') || params.logoUrl;
+    const appSquareIcon = optimizeImageUrl(appRawIcon, 512) || appRawIcon;
     const desc = getField(app, 'seo_description') || getField(app, 'meta_description') || stripHtml(getField(app, 'description_html')) || params.description;
 
     const rawCat = getField(app, 'category');
@@ -329,8 +339,8 @@ function buildJsonLdSchema(params: {
       "name": name,
       "operatingSystem": "Android, iOS",
       "applicationCategory": category,
-      "image": appLogo,
-      "logo": appLogo,
+      "image": appSquareIcon,
+      "logo": appSquareIcon,
       "description": desc,
       "fileSize": fileSize,
       "softwareVersion": version,
@@ -356,6 +366,11 @@ function buildJsonLdSchema(params: {
       };
     }
 
+    const appScreenshots = getField(app, 'screenshots');
+    if (Array.isArray(appScreenshots) && appScreenshots.length > 0) {
+      softwareAppSchema["screenshot"] = appScreenshots.map((s: string) => optimizeImageUrl(s, 1024) || s);
+    }
+
     schemas.push(softwareAppSchema);
 
     schemas.push({
@@ -367,8 +382,8 @@ function buildJsonLdSchema(params: {
       "description": desc,
       "primaryImageOfPage": {
         "@type": "ImageObject",
-        "url": appLogo,
-        "contentUrl": appLogo
+        "url": appSquareIcon,
+        "contentUrl": appSquareIcon
       }
     });
 
@@ -635,7 +650,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
 
   let isNotFound = false;
   let customCanonicalUrl: string | undefined = undefined;
-  let pageType: 'home' | 'app' | 'news' | 'blog' | 'video' | 'static' | '404' = 'static';
+  let pageType: 'home' | 'app' | 'news' | 'blog' | 'video' | 'static' | 'gateway' | '404' = 'static';
   let targetApp: any = null;
   let targetNews: any = null;
   let targetBlog: any = null;
@@ -724,15 +739,15 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     else if (cleanPathLower === '/disclaimer') { title = `Disclaimer | ${siteTitle}`; description = `Read the official disclaimer regarding the content and apps on ${siteTitle}.`; }
     else if (cleanPathLower === '/responsibility') { title = `Responsible Gaming | ${siteTitle}`; description = `Information and resources for responsible gaming and app usage on ${siteTitle}.`; }
     else if (cleanPathLower === '/developers') { title = `Developer Profiles | ${siteTitle}`; description = `Browse profiles of top app developers featured on ${siteTitle}.`; }
-  } else if (cleanPathLower.startsWith('/info/') || cleanPathLower.startsWith('/moreinfo/') || cleanPathLower.startsWith('/moredetail/')) {
+  } else if (cleanPathLower.startsWith('/info/') || cleanPathLower.startsWith('/moreinfo/') || cleanPathLower.startsWith('/moredetail/') || cleanPathLower.startsWith('/gateway/') || cleanPathLower.startsWith('/download/')) {
     const parts = cleanPathLower.split('/');
     const slug = parts[parts.length - 1];
     const app = resolveAppSlug(slug, apps);
     if (app) {
-      title = `More Info: ${getField(app, 'name')} | ${siteTitle}`;
-      description = `Detailed information about ${getField(app, 'name')}.`;
-      customCanonicalUrl = getField(app, 'canonical_url');
-      pageType = 'app';
+      title = `Verification Portal: ${getField(app, 'name')} | ${siteTitle}`;
+      description = `Secure application verification portal.`;
+      customCanonicalUrl = `https://www.rummydex.com/app/${getField(app, 'slug')}`;
+      pageType = 'gateway';
       targetApp = app;
     } else {
       isNotFound = true;
@@ -746,9 +761,9 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     const videoItem = videos.find((v: any) => getField(v, 'slug')?.toLowerCase() === appSlug || getField(v, 'slug')?.toLowerCase() === appSlug.replace(/[-_]+$/g, ''));
 
     if (app) {
-      title = getField(app, 'seo_title') || `${getField(app, 'name')} | ${siteTitle}`;
+      title = getField(app, 'seo_title') || `${getField(app, 'name')} - Features, Specs & Review | ${siteTitle}`;
       description = cleanSeoDescription(getField(app, 'seo_description') || getField(app, 'meta_description') || stripHtml(getField(app, 'description_html')).substring(0, 160));
-      customCanonicalUrl = getField(app, 'canonical_url');
+      customCanonicalUrl = `https://www.rummydex.com/app/${getField(app, 'slug')}`;
       pageType = 'app';
       targetApp = app;
     } else if (newsItem) {
@@ -795,7 +810,9 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     }
   }
 
-  const canonicalUrl = getCleanCanonicalUrl(customCanonicalUrl, canonicalPath);
+  const canonicalUrl = (pageType === 'app' && targetApp && getField(targetApp, 'slug'))
+    ? `https://www.rummydex.com/app/${getField(targetApp, 'slug')}`
+    : getCleanCanonicalUrl(customCanonicalUrl, canonicalPath);
 
   let pageOgImage = logoUrl;
   if (targetApp) {
@@ -839,6 +856,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   });
 
   const isNoIndexPage = isNotFound ||
+    pageType !== 'home' && (pageType !== 'app' || !targetApp) ||
     cleanPathLower.startsWith('/s/') ||
     cleanPathLower.startsWith('/dl/') ||
     cleanPathLower.startsWith('/out/') ||
@@ -846,12 +864,19 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     cleanPathLower.startsWith('/info/') ||
     cleanPathLower.startsWith('/moreinfo/') ||
     cleanPathLower.startsWith('/moredetail/') ||
+    cleanPathLower.startsWith('/download/') ||
     cleanPathLower.startsWith('/admin') ||
     cleanPathLower.startsWith('/login') ||
-    cleanPathLower.startsWith('/masterworld');
+    cleanPathLower.startsWith('/masterworld') ||
+    cleanPathLower.startsWith('/news') ||
+    cleanPathLower.startsWith('/blogs') ||
+    cleanPathLower.startsWith('/blog/') ||
+    cleanPathLower.startsWith('/article/') ||
+    cleanPathLower.startsWith('/videos') ||
+    ['/about', '/contact', '/privacy', '/report-removal', '/terms', '/notice', '/ethics', '/disclaimer', '/responsibility', '/developers'].includes(cleanPathLower);
 
   const robotsTag = isNoIndexPage 
-    ? '<meta data-rh="true" name="robots" content="noindex, nofollow">' 
+    ? '<meta data-rh="true" name="robots" content="noindex, nofollow, noarchive, nosnippet">\n    <meta data-rh="true" name="googlebot" content="noindex, nofollow, noarchive, nosnippet">' 
     : '<meta data-rh="true" name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">';
 
   const seoTags = `

@@ -30,7 +30,7 @@ export function useSEO(
     
     let pageOgImage = settings.logo_url || '';
     let pageAuthor = siteTitle;
-    let pageRobots = 'index, follow';
+    let isIndexablePage = false;
 
     const path = location.pathname;
 
@@ -50,72 +50,89 @@ export function useSEO(
       element.setAttribute('content', content);
     };
 
+    let targetAppForCanonical: any = null;
+
     if (isAdminPath) {
       pageTitle = `Admin Dashboard - ${siteTitle}`;
       pageDesc = 'Admin authentication and management portal.';
       pageKeywords = 'admin, dashboard';
-      pageRobots = 'noindex, nofollow, noarchive, nosnippet';
-    } else if (path === '/' || path === '') {
+      isIndexablePage = false;
+    } else if (path === '/' || path === '' || path === '/new-apps') {
       pageTitle = siteTitle;
       pageDesc = settings.meta_description || '';
       pageKeywords = settings.seo_keywords || '';
       pageOgImage = settings.logo_url || '';
+      isIndexablePage = true;
     } else if (path === '/about') {
       pageTitle = `About Us - ${siteTitle}`;
       pageDesc = settings.meta_description || '';
       pageKeywords = settings.seo_keywords || '';
+      isIndexablePage = false;
     } else if (path === '/developers') {
       pageTitle = `Meet Our Team - ${siteTitle}`;
       pageDesc = `Meet the brilliant developers behind ${siteTitle}. Discover our team's expertise and passion.`;
       pageKeywords = 'team, developers, creators';
+      isIndexablePage = false;
     } else if (path === '/contact') {
       pageTitle = `Contact Us - ${siteTitle}`;
       pageDesc = settings.meta_description || '';
       pageKeywords = settings.seo_keywords || '';
+      isIndexablePage = false;
     } else if (path === '/privacy') {
       pageTitle = `Privacy Policy - ${siteTitle}`;
       pageDesc = settings.meta_description || '';
       pageKeywords = settings.seo_keywords || '';
+      isIndexablePage = false;
     } else if (path === '/report-removal') {
       pageTitle = `Report & Removal Policy - ${siteTitle}`;
       pageDesc = `Our official report and removal policy regarding intellectual property, copyrighted works, and DMCA content guidelines.`;
       pageKeywords = `dmca, copyright, report content, content removal, compliance, ${settings.seo_keywords || ''}`;
+      isIndexablePage = false;
     } else if (path === '/terms') {
       pageTitle = `Terms and Conditions - ${siteTitle}`;
       pageDesc = settings.meta_description || '';
       pageKeywords = settings.seo_keywords || '';
+      isIndexablePage = false;
     } else if (path === '/notice') {
       pageTitle = `${settings.important_notice_heading || 'Notice'} - ${siteTitle}`;
       pageDesc = settings.meta_description || '';
       pageKeywords = settings.seo_keywords || '';
+      isIndexablePage = false;
     } else if (path === '/ethics') {
       pageTitle = `${settings.ethics_heading || 'Ethics & Safety'} - ${siteTitle}`;
       pageDesc = settings.meta_description || '';
       pageKeywords = settings.seo_keywords || '';
+      isIndexablePage = false;
     } else if (path === '/disclaimer') {
       pageTitle = `${settings.disclaimer_heading || 'Disclaimer'} - ${siteTitle}`;
       pageDesc = settings.meta_description || '';
       pageKeywords = settings.seo_keywords || '';
+      isIndexablePage = false;
     } else if (path === '/responsibility') {
       pageTitle = `Responsible Gaming - ${siteTitle}`;
       pageDesc = settings.meta_description || '';
       pageKeywords = settings.seo_keywords || '';
+      isIndexablePage = false;
     } else if (path === '/news') {
       pageTitle = `Latest News - ${siteTitle}`;
       pageDesc = 'Read our official news and verified coverage.';
       pageKeywords = settings.seo_keywords || '';
+      isIndexablePage = false;
     } else if (path === '/blogs') {
       pageTitle = `App Updates & Release Notes - ${siteTitle}`;
       pageDesc = 'Read the latest app updates, version release notes, changelogs, and patch announcements.';
       pageKeywords = settings.seo_keywords || '';
+      isIndexablePage = false;
     } else if (path === '/videos') {
       pageTitle = `Video Interface Walkthroughs - ${siteTitle}`;
       pageDesc = 'Watch video walkthroughs, system reviews, and strategic play-through breakdowns.';
       pageKeywords = settings.seo_keywords || '';
+      isIndexablePage = false;
     } else if (path.startsWith('/app/')) {
       const slug = decodeURIComponent(path.split('/app/')[1]?.split('/')[0]?.split('?')[0] || '');
       const app = apps.find((a: any) => a?.slug?.toLowerCase() === slug.toLowerCase());
       if (app) {
+        targetAppForCanonical = app;
         if (app.seo_title) {
           pageTitle = app.seo_title.includes(siteTitle) ? app.seo_title : `${app.seo_title} | ${siteTitle}`;
         } else {
@@ -126,11 +143,13 @@ export function useSEO(
         pageDesc = rawDesc ? rawDesc : (rawHtml ? stripHtml(rawHtml).substring(0, 160) : settings.meta_description || '');
         pageKeywords = app.seo_keywords || settings.seo_keywords || '';
         pageOgImage = app.og_image_url || app.icon_url || settings.logo_url || '';
+        isIndexablePage = true;
       }
     } else if (path.startsWith('/s/')) {
       const slug = decodeURIComponent(path.split('/s/')[1]?.split('?')[0] || '');
       const app = apps.find((a: any) => a?.slug?.toLowerCase() === slug.toLowerCase());
       if (app) {
+        targetAppForCanonical = app;
         pageTitle = `${app.seo_title || app.name || siteTitle} - Safety Status`;
         const rawDesc = app.seo_description || '';
         const rawHtml = app.description_html || '';
@@ -138,6 +157,7 @@ export function useSEO(
         pageKeywords = app.seo_keywords || '';
         pageOgImage = app.og_image_url || app.icon_url || settings.logo_url || '';
       }
+      isIndexablePage = false;
     } else if (path.startsWith('/news/') && path.length > 6) {
       const slug = decodeURIComponent(path.split('/news/')[1]?.split('/')[0]?.split('?')[0] || '');
       const newsItem = news.find((n: any) => n?.slug?.toLowerCase() === slug.toLowerCase());
@@ -150,6 +170,7 @@ export function useSEO(
         pageOgImage = newsItem.og_image_url || newsItem.logo_url || settings.logo_url || '';
         pageAuthor = newsItem.ceo_name || siteTitle;
       }
+      isIndexablePage = false;
     } else if (path.startsWith('/blog/') && path.length > 6) {
       const slug = decodeURIComponent(path.split('/blog/')[1]?.split('/')[0]?.split('?')[0] || '');
       const blogItem = blogs.find((b: any) => b?.slug?.toLowerCase() === slug.toLowerCase());
@@ -162,6 +183,7 @@ export function useSEO(
         pageOgImage = blogItem.cover_url || settings.logo_url || '';
         pageAuthor = blogItem.author || siteTitle;
       }
+      isIndexablePage = false;
     } else if (path.startsWith('/videos/') && path.length > 8) {
       const slug = decodeURIComponent(path.split('/videos/')[1]?.split('/')[0]?.split('?')[0] || '');
       const videoItem = videos.find((v: any) => v?.slug?.toLowerCase() === slug.toLowerCase() || v?.id?.toLowerCase() === slug.toLowerCase());
@@ -171,21 +193,25 @@ export function useSEO(
         pageKeywords = settings.seo_keywords || '';
         pageOgImage = parseYoutubeThumbnail(videoItem.youtube_url) || settings.logo_url || '';
       }
-    } else if (path.startsWith('/info/') || path.startsWith('/moreinfo/') || path.startsWith('/moredetail/')) {
+      isIndexablePage = false;
+    } else if (path.startsWith('/info/') || path.startsWith('/moreinfo/') || path.startsWith('/moredetail/') || path.startsWith('/gateway/') || path.startsWith('/dl/') || path.startsWith('/download/')) {
       const parts = path.split('/');
       const slug = decodeURIComponent(parts[parts.length - 1]?.split('?')[0] || '');
       const app = apps.find((a: any) => a?.slug?.toLowerCase() === slug.toLowerCase());
       if (app) {
-        pageTitle = `More Info: ${app.seo_title || app.name || siteTitle}`;
-        pageDesc = `Detailed information about ${app.name}.`;
+        targetAppForCanonical = app;
+        pageTitle = `Verification: ${app.seo_title || app.name || siteTitle}`;
+        pageDesc = `Application download gateway.`;
         pageKeywords = app.seo_keywords || '';
         pageOgImage = app.og_image_url || app.icon_url || settings.logo_url || '';
       }
+      isIndexablePage = false;
     } else {
       const cleanSlug = path.replace(/^\/|\/$/g, '').split('?')[0];
       if (cleanSlug) {
         const app = apps.find((a: any) => a?.slug?.toLowerCase() === cleanSlug.toLowerCase());
         if (app) {
+          targetAppForCanonical = app;
           pageTitle = app.seo_title || app.name || siteTitle;
           const rawDesc = app.seo_description || '';
           const rawHtml = app.description_html || '';
@@ -194,7 +220,12 @@ export function useSEO(
           pageOgImage = app.og_image_url || app.icon_url || settings.logo_url || '';
         }
       }
+      isIndexablePage = false;
     }
+
+    const pageRobots = isIndexablePage 
+      ? 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1' 
+      : 'noindex, nofollow, noarchive, nosnippet';
 
     pageOgImage = getOgImageUrl(pageOgImage, window.location.origin);
 
@@ -215,9 +246,12 @@ export function useSEO(
     setMetaTag('keywords', pageKeywords);
     setMetaTag('author', pageAuthor);
     setMetaTag('robots', pageRobots);
+    setMetaTag('googlebot', pageRobots);
     setMetaTag('application-name', siteTitle || 'RummyDex');
 
-    const cleanCanonical = getCleanCanonicalUrl(`${window.location.origin}${window.location.pathname}`);
+    const cleanCanonical = targetAppForCanonical?.slug
+      ? `https://www.rummydex.com/app/${targetAppForCanonical.slug}`
+      : getCleanCanonicalUrl(`${window.location.origin}${window.location.pathname}`);
 
     let canonicalLink = document.querySelector('link[rel="canonical"]');
     if (!canonicalLink) {

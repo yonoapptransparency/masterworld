@@ -129,13 +129,14 @@ export function getRawFirebaseConfig(): any {
   }
 
   // 3. Fallback configuration
-  const defaultProjectId = "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a";
+  const defaultProjectId = "gen-lang-client-0825832493";
+  const defaultDbId = "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a";
   cachedRawFirebaseConfig = {
     projectId: defaultProjectId,
     appId: envAppId || "1:103973989874:web:733a6afd8e837224900f6b",
     apiKey: finalApiKey,
     authDomain: envAuthDomain || "gen-lang-client-0825832493.firebaseapp.com",
-    firestoreDatabaseId: resolveDbId(envDbId, defaultProjectId),
+    firestoreDatabaseId: resolveDbId(envDbId || defaultDbId, defaultProjectId),
     storageBucket: envStorageBucket || "gen-lang-client-0825832493.firebasestorage.app",
     messagingSenderId: envMessagingSenderId || "103973989874"
   };

@@ -217,5 +217,5 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
 publicApiRouter.get("/api/v1/download/:id", async (req, res) => {
   const appId = req.params.id;
   if (!appId) return res.status(400).send("Bad Request");
-  return res.redirect(302, `/moreinfo/${appId}`);
+  return res.redirect(302, `/app/${appId}`);
 });

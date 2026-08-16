@@ -42,14 +42,7 @@ function isValidTargetUrl(url: string | undefined | null): boolean {
     cleanLower.includes('127.0.0.1') ||
     cleanLower.includes('ais-dev-') ||
     cleanLower.includes('ais-pre-') ||
-    cleanLower.includes('.run.app') ||
-    cleanLower.includes('/download/') ||
-    cleanLower.includes('/moreinfo/') ||
-    cleanLower.includes('/moredetail/') ||
-    cleanLower.includes('/info/') ||
-    cleanLower.includes('/s/') ||
-    cleanLower.includes('/app/') ||
-    cleanLower.includes('/api/')
+    cleanLower.includes('.run.app')
   ) return false;
 
   // Check valid protocol or domain
@@ -147,7 +140,7 @@ export async function resolveDestinationForApp(appId: string): Promise<string> {
     }
   } catch (_) {}
 
-  // 3. Check Firestore live vault documents
+  // 3. Check Firestore live vault documents (Admin SDK or REST fallback)
   try {
     const db = getFirebaseAdminDb();
     if (db) {
@@ -173,6 +166,37 @@ export async function resolveDestinationForApp(appId: string): Promise<string> {
               } catch (_) {}
             }
           }
+        }
+      }
+    } else {
+      // Vercel Serverless Fallback: Use REST API to fetch vault data
+      const { getRawFirebaseConfig } = require('../firebase');
+      const config = getRawFirebaseConfig();
+      if (config && config.projectId) {
+        const dbId = config.firestoreDatabaseId || config.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+        const apiKeyParam = config.apiKey ? `?key=${config.apiKey}` : '';
+        const vaultDocs = ['sec_public_links', 'sec_links_vault_3', 'sec_vault', 'secure_links'];
+        for (const docName of vaultDocs) {
+          try {
+            const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${dbId}/documents/store_data/${docName}${apiKeyParam}`;
+            const restRes = await fetch(url);
+            if (restRes.ok) {
+              const data = await restRes.json();
+              const ciphertext = data.fields?.encryptedData?.stringValue || data.fields?.encrypted_links?.stringValue;
+              if (ciphertext) {
+                const dec = safeDecrypt(ciphertext, AES_SECRET);
+                if (dec) {
+                  const parsed = JSON.parse(dec);
+                  vaultNode.setPayloads(parsed);
+                  const foundUrl = findUrlInVaultParsed(parsed, searchKeys, AES_SECRET);
+                  if (foundUrl && isValidTargetUrl(foundUrl)) {
+                    resolvedLinkCache.set(lowerAppId, { url: foundUrl, timestamp: Date.now() });
+                    return foundUrl;
+                  }
+                }
+              }
+            }
+          } catch(e) {}
         }
       }
     }
@@ -249,7 +273,6 @@ function sendAnonymousBouncePage(res: express.Response, targetUrl: string) {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="referrer" content="no-referrer">
-    <meta http-equiv="refresh" content="0;url=${finalUrl}">
     <title>Connecting...</title>
     <style>
       body { background: #09090b; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; font-family: system-ui, -apple-system, sans-serif; }
@@ -265,7 +288,10 @@ function sendAnonymousBouncePage(res: express.Response, targetUrl: string) {
       <div class="text">Connecting to destination...</div>
     </div>
     <script>
-      setTimeout(function() { window.location.replace("${finalUrl}"); }, 10);
+      setTimeout(function() { 
+        var _u = "${Buffer.from(finalUrl).toString('base64')}";
+        window.location.replace(atob(_u)); 
+      }, 500);
     </script>
   </body>
 </html>`;

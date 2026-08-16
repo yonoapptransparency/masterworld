@@ -239,22 +239,33 @@ async function startServer() {
         }
       }
 
-      const reqUrlLower = req.originalUrl.toLowerCase();
-      const isGatewayOrLinkRoute = isNotFound ||
+      const reqUrlLower = req.originalUrl.toLowerCase().split('?')[0].replace(/\/+$/, '') || '/';
+      const isHomePage = reqUrlLower === '/' || reqUrlLower === '/new-apps';
+      const isAppDetailPage = reqUrlLower.startsWith('/app/');
+      const isDisallowedRoute = isNotFound ||
         reqUrlLower.startsWith('/s/') ||
         reqUrlLower.startsWith('/dl/') ||
         reqUrlLower.startsWith('/out/') ||
+        reqUrlLower.startsWith('/download/') ||
         reqUrlLower.startsWith('/gateway/') ||
         reqUrlLower.startsWith('/info/') ||
         reqUrlLower.startsWith('/moreinfo/') ||
         reqUrlLower.startsWith('/moredetail/') ||
         reqUrlLower.startsWith('/admin') ||
         reqUrlLower.startsWith('/login') ||
-        reqUrlLower.startsWith('/masterworld');
+        reqUrlLower.startsWith('/masterworld') ||
+        reqUrlLower.startsWith('/news') ||
+        reqUrlLower.startsWith('/blogs') ||
+        reqUrlLower.startsWith('/blog/') ||
+        reqUrlLower.startsWith('/videos') ||
+        ['/about', '/contact', '/privacy', '/report-removal', '/terms', '/notice', '/ethics', '/disclaimer', '/responsibility', '/developers'].includes(reqUrlLower);
 
-      const robotsHeader = isGatewayOrLinkRoute
-        ? 'noindex, nofollow' 
-        : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1';
+      // Only homepage and app detail pages are indexable
+      const isIndexable = !isDisallowedRoute && (isHomePage || isAppDetailPage);
+
+      const robotsHeader = isIndexable
+        ? 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'
+        : 'noindex, nofollow, noarchive, nosnippet';
 
       const responseHeaders: Record<string, string> = {
         'Content-Type': 'text/html; charset=utf-8',

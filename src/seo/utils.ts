@@ -91,8 +91,16 @@ export function getOgImageUrl(url?: string, origin = 'https://www.rummydex.com')
   if (!url) return '';
   let absUrl = ensureAbsoluteUrl(url, origin);
   if (absUrl.includes('res.cloudinary.com') && absUrl.includes('/upload/')) {
-    // Strip any existing transformations and apply OpenGraph specific ones
-    absUrl = absUrl.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_jpg,q_auto,w_1200,h_630,c_fill/$1');
+    if (absUrl.includes('w_1200') && absUrl.includes('h_630')) {
+      return absUrl;
+    }
+    return absUrl.replace(
+      /\/upload\/(?:(?:[a-z]{1,3}_[a-zA-Z0-9_.:-]+,?)+\/)*(?:(v\d+)\/)?/,
+      (_match, version) => {
+        const v = version ? `${version}/` : '';
+        return `/upload/f_jpg,q_auto,w_1200,h_630,c_fill/${v}`;
+      }
+    );
   }
   return absUrl;
 }
@@ -101,8 +109,16 @@ export function getOptimizedImageUrl(url?: string, width = 160): string {
   if (!url) return '';
   // Cloudinary dynamic optimization
   if (url.includes('res.cloudinary.com') && url.includes('/upload/')) {
-    // Strip any existing transformations and apply ours
-    return url.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, `/upload/f_webp,q_auto,w_${width}/$1`);
+    if (url.includes(`w_${width}`)) {
+      return url;
+    }
+    return url.replace(
+      /\/upload\/(?:(?:[a-z]{1,3}_[a-zA-Z0-9_.:-]+,?)+\/)*(?:(v\d+)\/)?/,
+      (_match, version) => {
+        const v = version ? `${version}/` : '';
+        return `/upload/f_webp,q_auto,w_${width}/${v}`;
+      }
+    );
   }
   // Unsplash dynamic optimization
   if (url.includes('images.unsplash.com')) {

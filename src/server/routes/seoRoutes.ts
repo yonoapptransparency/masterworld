@@ -307,29 +307,8 @@ seoRouter.get(['/rss.xml', '/rss', '/feed', '/feed.xml'], async (req, res) => {
       }
     }
 
-    // Add Blogs
-    for (const blogItem of (blogs || []).slice(0, 10)) {
-      const title = getField(blogItem, 'title');
-      const slug = getField(blogItem, 'slug');
-      const desc = getField(blogItem, 'excerpt') || getField(blogItem, 'summary') || title;
-      const dateStr = getField(blogItem, 'created_at') || new Date().toISOString();
-      const pubDate = new Date(dateStr).toUTCString();
-
-      if (title && slug) {
-        const link = `${host}/blog/${encodeURI(slug.trim().replace(/^\/+|\/+$/g, ''))}`;
-        itemsXml += `
-    <item>
-      <title>${escapeXml(title)}</title>
-      <link>${escapeXml(link)}</link>
-      <guid isPermaLink="true">${escapeXml(link)}</guid>
-      <description>${escapeXml(desc)}</description>
-      <pubDate>${pubDate}</pubDate>
-    </item>`;
-      }
-    }
-
     // Add Latest Apps
-    for (const appItem of (apps || []).slice(0, 10)) {
+    for (const appItem of (apps || []).slice(0, 15)) {
       const name = getField(appItem, 'name');
       const slug = getField(appItem, 'slug');
       const desc = getField(appItem, 'short_description') || getField(appItem, 'description') || name;
@@ -402,17 +381,34 @@ seoRouter.get('/robots.txt', async (req, res) => {
     const host = rawDomain.replace(/\/$/, '');
 
     let robots = `User-agent: *
-Allow: /
+Allow: /$
+Allow: /app/
 Disallow: /api/
 Disallow: /admin/
 Disallow: /login/
+Disallow: /masterworld/
 Disallow: /s/
 Disallow: /dl/
 Disallow: /out/
+Disallow: /download/
 Disallow: /gateway/
 Disallow: /info/
 Disallow: /moreinfo/
 Disallow: /moredetail/
+Disallow: /news
+Disallow: /blogs
+Disallow: /blog/
+Disallow: /videos
+Disallow: /about
+Disallow: /contact
+Disallow: /developers
+Disallow: /privacy
+Disallow: /terms
+Disallow: /report-removal
+Disallow: /responsibility
+Disallow: /notice
+Disallow: /ethics
+Disallow: /disclaimer
 
 Sitemap: ${host}/sitemap.xml
 `;
@@ -421,17 +417,34 @@ Sitemap: ${host}/sitemap.xml
   } catch (err) {
     res.set('Content-Type', 'text/plain');
     res.send(`User-agent: *
-Allow: /
+Allow: /$
+Allow: /app/
 Disallow: /api/
 Disallow: /admin/
 Disallow: /login/
+Disallow: /masterworld/
 Disallow: /s/
 Disallow: /dl/
 Disallow: /out/
+Disallow: /download/
 Disallow: /gateway/
 Disallow: /info/
 Disallow: /moreinfo/
 Disallow: /moredetail/
+Disallow: /news
+Disallow: /blogs
+Disallow: /blog/
+Disallow: /videos
+Disallow: /about
+Disallow: /contact
+Disallow: /developers
+Disallow: /privacy
+Disallow: /terms
+Disallow: /report-removal
+Disallow: /responsibility
+Disallow: /notice
+Disallow: /ethics
+Disallow: /disclaimer
 
 Sitemap: https://www.rummydex.com/sitemap.xml
 `);
@@ -451,7 +464,7 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
     if (!data) {
       throw new Error("Unable to fetch store data");
     }
-    const { apps = [], news = [], blogs = [], videos = [] } = data;
+    const { apps = [] } = data;
 
     let rawDomain = 'https://www.rummydex.com';
     if (!rawDomain.startsWith('http://') && !rawDomain.startsWith('https://')) {
@@ -529,37 +542,12 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
       }
     };
 
-    // Static pages
-    const staticPages = [
-      { path: '/', priority: '1.0', changefreq: 'daily' },
-      { path: '/news', priority: '0.8', changefreq: 'daily' },
-      { path: '/about', priority: '0.5', changefreq: 'monthly' },
-      { path: '/developers', priority: '0.5', changefreq: 'monthly' },
-      { path: '/contact', priority: '0.5', changefreq: 'monthly' },
-      { path: '/privacy', priority: '0.3', changefreq: 'monthly' },
-      { path: '/report-removal', priority: '0.3', changefreq: 'monthly' },
-      { path: '/terms', priority: '0.3', changefreq: 'monthly' },
-      { path: '/responsibility', priority: '0.3', changefreq: 'monthly' },
-      { path: '/notice', priority: '0.3', changefreq: 'monthly' },
-      { path: '/ethics', priority: '0.3', changefreq: 'monthly' },
-      { path: '/disclaimer', priority: '0.3', changefreq: 'monthly' }
-    ];
-
     const siteLogo = getField(data?.settings, 'logo_url') || getField(data?.settings, 'favicon_url') || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
 
-    if (videos && Array.isArray(videos) && videos.length > 0) {
-      staticPages.splice(3, 0, { path: '/videos', priority: '0.7', changefreq: 'weekly' });
-    }
+    // 1. Homepage ONLY
+    addUrl(`${host}/`, today, 'daily', '1.0', siteLogo, 'RummyDex Official Logo');
 
-    for (const page of staticPages) {
-      if (page.path === '/') {
-        addUrl(`${host}${page.path}`, today, page.changefreq, page.priority, siteLogo, 'RummyDex Official Logo');
-      } else {
-        addUrl(`${host}${page.path}`, today, page.changefreq, page.priority, siteLogo, 'RummyDex');
-      }
-    }
-
-    // Apps (canonical app detail URLs)
+    // 2. Canonical App Detail Pages ONLY
     for (const app of apps) {
       const slug = getField(app, 'slug');
       if (slug) {
@@ -568,52 +556,9 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
         const appImage = getOgImageUrl(getField(app, 'og_image_url') || getField(app, 'icon_url') || siteLogo);
         const appName = getField(app, 'name') || 'Application';
 
-        // Standard App detail URL
+        // Canonical App detail URL
         const appLoc = `${host}/app/${cSlug}`;
         addUrl(appLoc, appDate, 'daily', '0.9', appImage, appName);
-      }
-    }
-
-    // Blogs list + detail
-    if (blogs && Array.isArray(blogs) && blogs.length > 0) {
-      addUrl(`${host}/blogs`, today, 'daily', '0.8', siteLogo, 'RummyDex Blogs');
-      for (const blog of blogs) {
-        const slug = getField(blog, 'slug');
-        if (slug) {
-          const cSlug = cleanSlug(slug);
-          addUrl(
-            `${host}/blog/${cSlug}`,
-            getFormattedDate(blog),
-            'weekly',
-            '0.7',
-            getField(blog, 'cover_url') || getField(blog, 'image_url') || siteLogo,
-            getField(blog, 'title') || 'Blog'
-          );
-        }
-      }
-    }
-
-    // News
-    for (const newsItem of news) {
-      const slug = getField(newsItem, 'slug');
-      if (slug) {
-        const cSlug = cleanSlug(slug);
-        const newsLoc = `${host}/news/${cSlug}`;
-        const newsImage = getField(newsItem, 'cover_url') || getField(newsItem, 'image_url') || siteLogo;
-        const newsTitle = getField(newsItem, 'title') || 'News Article';
-        addUrl(newsLoc, getFormattedDate(newsItem), 'weekly', '0.8', newsImage, newsTitle);
-      }
-    }
-
-    // Videos (only if items present)
-    for (const video of (videos || [])) {
-      const slug = getField(video, 'slug');
-      if (slug) {
-        const cSlug = cleanSlug(slug);
-        const videoLoc = `${host}/videos/${cSlug}`;
-        const videoImage = getField(video, 'thumbnail_url') || siteLogo;
-        const videoTitle = getField(video, 'title') || 'Video';
-        addUrl(videoLoc, getFormattedDate(video), 'weekly', '0.6', videoImage, videoTitle);
       }
     }
 

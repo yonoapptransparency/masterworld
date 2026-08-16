@@ -44,6 +44,33 @@ const Meta: React.FC<MetaProps> = ({
   const canonicalUrl = getCleanCanonicalUrl(canonical || url, currentPath);
   const metaUrl = getCleanCanonicalUrl(url || canonical, currentPath);
 
+  const cleanPathLower = currentPath.toLowerCase().replace(/\/+$/, '') || '/';
+  const isHomePage = cleanPathLower === '/' || cleanPathLower === '/new-apps';
+  const isAppDetailPage = cleanPathLower.startsWith('/app/');
+  const isDisallowedPrefix = 
+    cleanPathLower.startsWith('/s/') ||
+    cleanPathLower.startsWith('/dl/') ||
+    cleanPathLower.startsWith('/out/') ||
+    cleanPathLower.startsWith('/gateway/') ||
+    cleanPathLower.startsWith('/info/') ||
+    cleanPathLower.startsWith('/moreinfo/') ||
+    cleanPathLower.startsWith('/moredetail/') ||
+    cleanPathLower.startsWith('/download/') ||
+    cleanPathLower.startsWith('/admin') ||
+    cleanPathLower.startsWith('/login') ||
+    cleanPathLower.startsWith('/masterworld') ||
+    cleanPathLower.startsWith('/news') ||
+    cleanPathLower.startsWith('/blogs') ||
+    cleanPathLower.startsWith('/blog/') ||
+    cleanPathLower.startsWith('/videos');
+
+  const isExplicitNonAppPage = ['/about', '/contact', '/privacy', '/report-removal', '/terms', '/notice', '/ethics', '/disclaimer', '/responsibility', '/developers'].includes(cleanPathLower);
+
+  const isIndexable = !noindex && !isDisallowedPrefix && !isExplicitNonAppPage && (isHomePage || isAppDetailPage);
+  const robotsDirective = isIndexable 
+    ? "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" 
+    : "noindex, nofollow, noarchive, nosnippet";
+
   return (
     <Helmet>
       {/* Basic Meta Tags */}
@@ -51,7 +78,8 @@ const Meta: React.FC<MetaProps> = ({
       <meta name="description" content={metaDescription} />
       {metaKeywords && <meta name="keywords" content={metaKeywords} />}
       <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
-      <meta name="robots" content={noindex ? "noindex, nofollow" : "index, follow, max-image-preview:large"} />
+      <meta name="robots" content={robotsDirective} />
+      <meta name="googlebot" content={robotsDirective} />
       <link rel="canonical" href={canonicalUrl} />
       
       {/* Favicons & Mobile Icons - Direct Cloudinary icon support */}
