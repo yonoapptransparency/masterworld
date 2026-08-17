@@ -220,16 +220,21 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
     const parts = cleanPathLower.split('/');
     const slug = parts[parts.length - 1];
     bodyContent = renderers.renderGateway(slug, settings);
-  } else {
+  } else if (cleanPathLower.startsWith('/app/')) {
     const possibleSlug = cleanPathLower.replace(/^\/app\//, '/').replace(/^\/|\/$/g, '');
     const app = apps.find((a: any) => getField(a, 'slug')?.toLowerCase() === possibleSlug);
+    if (app) {
+      bodyContent = renderers.renderAppDetails(possibleSlug, apps, settings);
+    } else {
+      bodyContent = renderers.render404(urlPath, settings);
+    }
+  } else {
+    const possibleSlug = cleanPathLower.replace(/^\/|\/$/g, '');
     const newsItem = news.find((n: any) => getField(n, 'slug')?.toLowerCase() === possibleSlug);
     const blogItem = (blogs || []).find((b: any) => getField(b, 'slug')?.toLowerCase() === possibleSlug || getField(b, 'id')?.toLowerCase() === possibleSlug);
     const videoItem = videos.find((v: any) => getField(v, 'slug')?.toLowerCase() === possibleSlug);
 
-    if (app) {
-      bodyContent = renderers.renderAppDetails(possibleSlug, apps, settings);
-    } else if (newsItem) {
+    if (newsItem) {
       bodyContent = renderers.renderNewsDetail(possibleSlug, news, settings);
     } else if (blogItem) {
       bodyContent = renderers.renderBlogDetail(possibleSlug, blogs, settings);
@@ -753,20 +758,28 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       isNotFound = true;
       pageType = '404';
     }
-  } else {
+  } else if (cleanPathLower.startsWith('/app/')) {
     const appSlug = cleanPathLower.replace(/^\/app\//, '/').replace(/^\/|\/$/g, '');
     const app = resolveAppSlug(appSlug, apps);
-    const newsItem = news.find((n: any) => getField(n, 'slug')?.toLowerCase() === appSlug || getField(n, 'slug')?.toLowerCase() === appSlug.replace(/[-_]+$/g, ''));
-    const blogItem = (blogs || []).find((b: any) => getField(b, 'slug')?.toLowerCase() === appSlug || getField(b, 'id')?.toLowerCase() === appSlug);
-    const videoItem = videos.find((v: any) => getField(v, 'slug')?.toLowerCase() === appSlug || getField(v, 'slug')?.toLowerCase() === appSlug.replace(/[-_]+$/g, ''));
-
     if (app) {
       title = getField(app, 'seo_title') || `${getField(app, 'name')} - Features, Specs & Review | ${siteTitle}`;
       description = cleanSeoDescription(getField(app, 'seo_description') || getField(app, 'meta_description') || stripHtml(getField(app, 'description_html')).substring(0, 160));
       customCanonicalUrl = `https://www.rummydex.com/app/${getField(app, 'slug')}`;
       pageType = 'app';
       targetApp = app;
-    } else if (newsItem) {
+    } else {
+      isNotFound = true;
+      pageType = '404';
+      title = `404 - Page Not Found | ${siteTitle}`;
+      description = `The requested page could not be found on ${siteTitle}.`;
+    }
+  } else {
+    const appSlug = cleanPathLower.replace(/^\/|\/$/g, '');
+    const newsItem = news.find((n: any) => getField(n, 'slug')?.toLowerCase() === appSlug || getField(n, 'slug')?.toLowerCase() === appSlug.replace(/[-_]+$/g, ''));
+    const blogItem = (blogs || []).find((b: any) => getField(b, 'slug')?.toLowerCase() === appSlug || getField(b, 'id')?.toLowerCase() === appSlug);
+    const videoItem = videos.find((v: any) => getField(v, 'slug')?.toLowerCase() === appSlug || getField(v, 'slug')?.toLowerCase() === appSlug.replace(/[-_]+$/g, ''));
+
+    if (newsItem) {
       title = `${getField(newsItem, 'title')} | ${siteTitle}`;
       description = getField(newsItem, 'description', '').substring(0, 160);
       pageType = 'news';
