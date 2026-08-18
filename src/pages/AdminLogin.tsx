@@ -32,6 +32,9 @@ export default function AdminLoginPage() {
   return (
     <AdminLoginComponent 
       onSuccess={(idToken, refreshToken, email) => {
+        try {
+          localStorage.setItem('rummydex_admin_welcome_last_shown', '0');
+        } catch (e) {}
         saveSession({
           idToken,
           refreshToken,

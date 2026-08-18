@@ -10,6 +10,7 @@ import { useAdminApps } from '../hooks/useAdminApps';
 import { useAdminSettings } from '../hooks/useAdminSettings';
 import { AdminSidebar } from '../components/admin/AdminSidebar';
 import { AdminTabContent } from '../components/admin/AdminTabContent';
+import { AdminWelcomeBanner3D } from '../components/admin/AdminWelcomeBanner3D';
 import { FirebaseStatusIndicator } from '../components/FirebaseStatusIndicator';
 
 export default function AdminDashboard() {
@@ -335,6 +336,13 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
+
+      {/* 3D Lightweight Floating Welcome & Happiness Banner */}
+      <AdminWelcomeBanner3D 
+        sessionTimeLeft={sessionTimeLeft} 
+        adminEmail={user?.email} 
+        onRefreshSession={handleReloadCloudData}
+      />
     </div>
   );
 }
