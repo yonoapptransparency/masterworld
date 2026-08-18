@@ -11,6 +11,7 @@ import { useAdminSettings } from '../hooks/useAdminSettings';
 import { AdminSidebar } from '../components/admin/AdminSidebar';
 import { AdminTabContent } from '../components/admin/AdminTabContent';
 import { FirebaseStatusIndicator } from '../components/FirebaseStatusIndicator';
+import { WelcomeAdminPopup } from '../components/admin/WelcomeAdminPopup';
 
 export default function AdminDashboard() {
   const { 
@@ -235,6 +236,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-blue-100 dark:selection:bg-blue-900/30">
+      <WelcomeAdminPopup />
       <AdminSidebar 
         activeTab={activeTab} 
         onTabChange={setActiveTab} 
