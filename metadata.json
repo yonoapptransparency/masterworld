@@ -1,0 +1,6 @@
+{
+  "name": "RummyDex",
+  "description": "RummyDex game directory, reviews, and secure download links.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

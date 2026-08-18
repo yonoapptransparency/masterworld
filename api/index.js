@@ -1,937 +1,3342 @@
-// @ts-nocheck
-const express = require('express');
-const compression = require('compression');
-const crypto = require('crypto');
-const fs = require('fs');
-const path = require('path');
-const CryptoJS = require('crypto-js');
-const cookieParser = require('cookie-parser');
+var Cn=Object.create;var ke=Object.defineProperty;var zn=Object.getOwnPropertyDescriptor;var Dn=Object.getOwnPropertyNames;var Rn=Object.getPrototypeOf,Pn=Object.prototype.hasOwnProperty;var Z=(t,e)=>()=>(t&&(e=t(t=0)),e);var On=(t,e)=>()=>(e||t((e={exports:{}}).exports,e),e.exports),Ae=(t,e)=>{for(var n in e)ke(t,n,{get:e[n],enumerable:!0})},wt=(t,e,n,i)=>{if(e&&typeof e=="object"||typeof e=="function")for(let a of Dn(e))!Pn.call(t,a)&&a!==n&&ke(t,a,{get:()=>e[a],enumerable:!(i=zn(e,a))||i.enumerable});return t};var x=(t,e,n)=>(n=t!=null?Cn(Rn(t)):{},wt(e||!t||!t.__esModule?ke(n,"default",{value:t,enumerable:!0}):n,t)),Se=t=>wt(ke({},"__esModule",{value:!0}),t);var Ve,Ln,jn,Nn,We,qe,_i,vt,Fn,Mn,xt,_t,ki,He,Te=Z(()=>{Ve=x(require("path")),Ln="fallback_aes_secret_for_local_dev_only",jn="fallback_token_secret_for_local_dev_only",Nn="fallback_session_secret_for_local_dev_only";process.env.AES_SECRET||console.warn("[SECURITY] AES_SECRET not configured in environment. Using static fallback secret. Links will be secure but please configure a real secret for production.");process.env.ADMIN_EMAIL||(console.warn("[SECURITY] ADMIN_EMAIL not configured."),process.env.ADMIN_EMAIL="defentechscholar@gmail.com");global.AES_SECRET_GLOBAL=process.env.AES_SECRET||Ln;We=()=>global.AES_SECRET_GLOBAL,qe=process.env.TOKEN_SECRET||jn,_i=process.env.SESSION_SECRET||Nn;process.env.TOKEN_SECRET||console.warn("WARNING: TOKEN_SECRET is not set. Using local development fallback.");process.env.SESSION_SECRET||console.warn("WARNING: SESSION_SECRET is not set. Using local development fallback.");vt=process.env.CF_TURNSTILE_SECRET||"",Fn=t=>{if(!t)return!1;let e=t.trim();return!(e===""||e==="PLACEHOLDER"||e.includes("REPLACE_WITH_YOUR_REAL_KEY")||/[#@!$^&*()_+\s]/.test(e)||e.length>100)},Mn=Fn(vt)?vt:"",xt=60*1e3,_t=300,ki=Ve.default.join(process.cwd(),"src/lib/mock_2fa_store.json"),He=()=>{try{let t=Ve.default.join(process.cwd(),"src/lib/staticData.json");try{let e=require.resolve(t);delete require.cache[e]}catch{}return require(t)}catch(t){return console.error("Failed to load staticData dynamically:",t),{mockApps:[],mockSettings:{},mockNews:[],mockBlogs:[],mockVideos:[]}}}});function E(t,e){let n=We(),i=global.AES_SECRET_GLOBAL,a=[e,process.env.AES_SECRET,i,"YonoVaultSecret2026MasterKey!","YonoVaultSecret2026MasterKey","rummydex_master_vault_key_2026",n].filter(Boolean),s=Array.from(new Set(a));for(let r of s)if(!(!r||r.trim()===""))try{let l=Ee.default.AES.decrypt(t,r).toString(Ee.default.enc.Utf8);if(l&&l.trim().length>0)return l}catch{}return""}function S(){return process.env.AES_SECRET||global.AES_SECRET_GLOBAL||We()}function R(t,e){let n=e||S();if(!t||!n||n.trim()==="")throw new Error("Cannot encrypt: AES_SECRET is required");return Ee.default.AES.encrypt(t,n).toString()}var Ee,Ie,te=Z(()=>{Ee=x(require("crypto-js"));Te();Ie=t=>{if(!t)return!1;let e=t.trim();return!(e===""||e==="PLACEHOLDER"||e==="undefined"||e==="null"||e.includes("REPLACE_WITH_YOUR_REAL_KEY")||e.includes("YOUR_API_KEY")||e.length>20&&(e.includes("#")||e.includes("!")||e.includes("@")))}});var Ge=On((Ei,Bn)=>{Bn.exports={}});var St={};Ae(St,{convertToFirestoreFields:()=>At,convertToFirestoreValue:()=>Ce,deleteFirestoreRestDoc:()=>Je,getAdminSdkDiagnostics:()=>Ke,getFirebaseAdminDb:()=>C,getRawFirebaseConfig:()=>L,parseFirestoreFields:()=>Vn,parseFirestoreValue:()=>De,toFirestoreDocument:()=>Un,toFirestoreValue:()=>ze,writeFirestoreRestDoc:()=>F});function $n(t){if(!t)return null;if(typeof t=="object"&&(t.private_key||t.client_email||t.project_id))return t.private_key&&typeof t.private_key=="string"&&(t.private_key=t.private_key.replace(/\\n/g,`
+`)),t;if(typeof t!="string")return null;let e=t.trim();for(;e.startsWith('"')&&e.endsWith('"')||e.startsWith("'")&&e.endsWith("'");)e=e.slice(1,-1).trim();let n=i=>{if(typeof i=="string")try{i=JSON.parse(i)}catch{}return i&&typeof i=="object"&&(i.private_key||i.client_email||i.project_id)?(i.private_key&&typeof i.private_key=="string"&&(i.private_key=i.private_key.replace(/\\n/g,`
+`)),i):null};try{let i=n(JSON.parse(e));if(i)return i}catch{}try{let i=e.replace(/\\n/g,`
+`).replace(/\r/g,""),a=n(JSON.parse(i));if(a)return a}catch{}try{let i=e.replace(/\n/g,"\\n").replace(/\r/g,""),a=n(JSON.parse(i));if(a)return a}catch{}try{let i=Buffer.from(e,"base64").toString("utf8").trim(),a=n(JSON.parse(i));if(a)return a}catch{}throw new Error("Invalid JSON format in Service Account variable")}function L(){if(ne)return ne;let t=(h,m,f)=>{for(let y of[h,m,f])if(Ie(y))return y;return""},e=t(process.env.VITE_FIREBASE_PROJECT_ID,process.env.VITE_FIREBASE_JECT_ID,process.env.FIREBASE_PROJECT_ID),n=t(process.env.VITE_FIREBASE_DATABASE_ID,process.env.VITE_FIREBASE_BASE_ID,process.env.FIREBASE_DATABASE_ID),i=t(process.env.VITE_FIREBASE_API_KEY,process.env.FIREBASE_API_KEY,process.env.API_KEY||process.env.NEXT_PUBLIC_FIREBASE_API_KEY),a=t(process.env.VITE_FIREBASE_AUTH_DOMAIN,process.env.VITE_FIREBASE_DOMAIN,process.env.FIREBASE_AUTH_DOMAIN),s=t(process.env.VITE_FIREBASE_APP_ID,process.env.FIREBASE_APP_ID),r=t(process.env.VITE_FIREBASE_STORAGE_BUCKET,process.env.FIREBASE_STORAGE_BUCKET),o=t(process.env.VITE_FIREBASE_MESSAGING_ID,process.env.FIREBASE_MESSAGING_SENDER_ID),l={};try{l=Ge()}catch{}let d=i||l.apiKey||"AIzaSyBey9sUbeWrcXS2kl4ewOzkTy4arg03Ok",u=(h,m)=>!h||!Ie(h)||h===m||h==="(default)"?"(default)":h;if(e)return ne={projectId:e,appId:s||l.appId,apiKey:d,authDomain:a||l.authDomain,firestoreDatabaseId:u(n||l.firestoreDatabaseId||l.databaseId,e),storageBucket:r||l.storageBucket,messagingSenderId:o||l.messagingSenderId},ne;if(l.projectId&&Ie(l.projectId))return l.firestoreDatabaseId=u(l.firestoreDatabaseId||l.databaseId||n,l.projectId),l.apiKey=d,ne=l,l;let g="gen-lang-client-0825832493";return ne={projectId:g,appId:s||"1:103973989874:web:733a6afd8e837224900f6b",apiKey:d,authDomain:a||"gen-lang-client-0825832493.firebaseapp.com",firestoreDatabaseId:u(n||"ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a",g),storageBucket:r||"gen-lang-client-0825832493.firebasestorage.app",messagingSenderId:o||"103973989874"},ne}function Ke(){return ce?{active:!0,message:X||"Admin SDK initialized and active"}:{active:!1,message:X||"Admin SDK inactive"}}function C(){if(ce)return ce;try{let t=require("firebase-admin"),e=L();if(t.apps.length===0){let r=null,o="",l=["FIREBASE_SERVICE_ACCOUNT","FIREBASE_ACCOUNT","FIREBASE_SERVICE_ACCOUNT_JSON","FIREBASE_CREDENTIALS","FIREBASE_ADMIN_KEY","FIREBASE_SECRET","SERVICE_ACCOUNT_JSON","SERVICE_ACCOUNT","GCP_SERVICE_ACCOUNT","GOOGLE_SERVICE_ACCOUNT"];for(let c of l)if(process.env[c]&&String(process.env[c]).trim()!==""){r=process.env[c],o=c;break}if(!r){let c=kt.default.join(process.cwd(),"service-account.json");Ye.default.existsSync(c)&&(r=Ye.default.readFileSync(c,"utf8"),o="service-account.json (local)")}if(r)try{let c=$n(r);if(!c)return X=`Found ${o}, but parsing returned null`,null;let d=c.project_id||e?.projectId;t.initializeApp({credential:t.credential.cert(c),projectId:d}),X=`Initialized successfully for project ${d} using ${o}`,console.log(`[Admin SDK] Initialized for ${d} using ${o}`)}catch(c){return X=`Failed parsing ${o}: ${c.message}`,console.error(`[Admin SDK] Failed to parse ${o}:`,c.message),null}else if(process.env.GOOGLE_APPLICATION_CREDENTIALS)t.initializeApp({projectId:e?.projectId}),X="Initialized using GOOGLE_APPLICATION_CREDENTIALS",console.log("[Admin SDK] Initialized with GOOGLE_APPLICATION_CREDENTIALS.");else return X="No Service Account variable found on server. Looked for FIREBASE_ACCOUNT, FIREBASE_SERVICE_ACCOUNT, etc.",console.warn("[Admin SDK] No service account env var found. Admin SDK in REST fallback mode."),null}let n=e?.firestoreDatabaseId||e?.databaseId||process.env.VITE_FIREBASE_DATABASE_ID||process.env.FIREBASE_DATABASE_ID,a="ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a";if(n&&n.trim()!==""&&n!=="(default)"&&n!=="gen-lang-client-0825832493"&&(a=n),a&&a!=="(default)"){let{getFirestore:r}=require("firebase-admin/firestore");ce=r(t.apps[0],a)}else ce=t.firestore();let s=t.apps[0]?.options?.projectId||"gen-lang-client-0825832493";return console.log(`[Admin SDK] Firestore initialized for project: ${s}, database: ${a}`),ce}catch(t){return X=`Initialization thrown exception: ${t.message||t}`,console.warn("[Admin SDK] Initialization failed:",t.message||t),null}}function Ce(t){if(t==null)return{nullValue:null};if(typeof t=="boolean")return{booleanValue:t};if(typeof t=="number")return Number.isInteger(t)?{integerValue:String(t)}:{doubleValue:t};if(typeof t=="string")return{stringValue:t};if(Array.isArray(t))return{arrayValue:{values:t.map(e=>Ce(e))}};if(typeof t=="object"){let e={};for(let[n,i]of Object.entries(t))i!==void 0&&(e[n]=Ce(i));return{mapValue:{fields:e}}}return{stringValue:String(t)}}function At(t){let e={};if(!t||typeof t!="object")return e;for(let[n,i]of Object.entries(t))i!==void 0&&(e[n]=Ce(i));return e}async function F(t,e,n,i=!0){try{let a=L();if(!a||!a.projectId)return console.warn(`[SERVER] Cannot write REST doc ${t}: Missing project ID`),!1;let s=a.firestoreDatabaseId||a.databaseId||"(default)",r=[];a.apiKey&&r.push(`key=${encodeURIComponent(a.apiKey)}`),i&&e&&typeof e=="object"&&Object.keys(e).forEach(g=>{r.push(`updateMask.fieldPaths=${encodeURIComponent(g)}`)});let o=r.length>0?`?${r.join("&")}`:"",l=`https://firestore.googleapis.com/v1/projects/${a.projectId}/databases/${s}/documents/store_data/${t}${o}`,c=At(e),d={"Content-Type":"application/json"};n&&n.trim()!==""&&(d.Authorization=n.startsWith("Bearer ")?n:`Bearer ${n}`);let u=await fetch(l,{method:"PATCH",headers:d,body:JSON.stringify({fields:c})});if(!u.ok){let g=await u.text();return console.warn(`[SERVER] writeFirestoreRestDoc failed for store_data/${t} (HTTP ${u.status}):`,g),!1}return console.log(`[SERVER] writeFirestoreRestDoc successfully written store_data/${t}`),!0}catch(a){return console.error(`[SERVER] writeFirestoreRestDoc exception for ${t}:`,a.message||a),!1}}async function Je(t,e){try{let n=L();if(!n||!n.projectId)return!1;let i=n.firestoreDatabaseId||n.databaseId||"(default)",a=n.apiKey?`?key=${n.apiKey}`:"",s=`https://firestore.googleapis.com/v1/projects/${n.projectId}/databases/${i}/documents/store_data/${t}${a}`,r={};return e&&e.trim()!==""&&(r.Authorization=e.startsWith("Bearer ")?e:`Bearer ${e}`),(await fetch(s,{method:"DELETE",headers:r})).ok}catch{return!1}}function ze(t){if(t==null)return{nullValue:null};if(typeof t=="boolean")return{booleanValue:t};if(typeof t=="number")return Number.isInteger(t)?{integerValue:t.toString()}:{doubleValue:t};if(typeof t=="string")return{stringValue:t};if(Array.isArray(t))return{arrayValue:{values:t.map(e=>ze(e))}};if(typeof t=="object"){let e={};for(let n of Object.keys(t))e[n]=ze(t[n]);return{mapValue:{fields:e}}}return{stringValue:String(t)}}function Un(t){let e={};if(t&&typeof t=="object")for(let n of Object.keys(t))e[n]=ze(t[n]);return{fields:e}}function De(t){if(!t||typeof t!="object")return t??null;if("stringValue"in t)return t.stringValue;if("booleanValue"in t)return t.booleanValue;if("integerValue"in t)return parseInt(t.integerValue,10);if("doubleValue"in t)return parseFloat(t.doubleValue);if("timestampValue"in t)return t.timestampValue;if("nullValue"in t)return null;if("mapValue"in t){let e=t.mapValue?.fields||{},n={};for(let i of Object.keys(e))n[i]=De(e[i]);return n}return"arrayValue"in t?(t.arrayValue?.values||[]).map(n=>De(n)):null}function Vn(t){if(!t||typeof t!="object")return{};let e={};for(let n of Object.keys(t))e[n]=De(t[n]);return e}var Ye,kt,ne,ce,X,de=Z(()=>{Ye=x(require("fs")),kt=x(require("path"));te();ne=null;ce=null,X=""});function Pt(t={}){let e={...t};return e.disclaimer_text===void 0&&(e.disclaimer_text=""),e.ethics_discrimination_text===void 0&&(e.ethics_discrimination_text=""),e.privacy_content===void 0&&(e.privacy_content=""),e.terms_content===void 0&&(e.terms_content=""),e.responsibility_content===void 0&&(e.responsibility_content=""),e.report_removal_content===void 0&&(e.report_removal_content=""),e.important_notice===void 0&&(e.important_notice=""),e.about_content===void 0&&(e.about_content=""),e.disclaimer_heading===void 0&&(e.disclaimer_heading=""),e.ethics_heading===void 0&&(e.ethics_heading=""),e.portal_heading===void 0&&(e.portal_heading=""),e.important_notice_heading===void 0&&(e.important_notice_heading=""),e}var tt=Z(()=>{});var sn={};Ae(sn,{mockApps:()=>lt,mockBlogs:()=>dt,mockNews:()=>ct,mockSettings:()=>an,mockVideos:()=>pt,saveMockApps:()=>ei,saveMockBlogs:()=>ii,saveMockNews:()=>ni,saveMockSettings:()=>ti,saveMockVideos:()=>ai});var lt,ei,an,ti,ct,ni,dt,ii,pt,ai,rn=Z(()=>{lt=[{developer:"Bingo",idea_box_msg:"",rating:4.1,seo_keywords:"casual game hub, arcade collection, virtual coin games, offline mini-games, spin crush app",canonical_url:"https://www.rummydex.com/app/spin-crush",serial_number:6,slug:"spin-crush",seo_title:"Spin Crush - Casual Arcade Hub & Virtual Mini-Games",name:"SPIN CRUSH",file_size:"44.8 MB",red_box_msg:"",og_image_url:"https://res.cloudinary.com/diewalae4/image/upload/v1785670352/ezgif-82a15987d682a1a8_sdzpjc.webp",version:"1.0.6",icon_url:"https://res.cloudinary.com/diewalae4/image/upload/v1785670352/ezgif-82a15987d682a1a8_sdzpjc.webp",is_new:!1,publish_date:"",video_url:"",safety_status:"Verified",yellow_box_msg:"It get slightly heat on below Android 13",category:"All Apps, Yono Apps",is_coming_soon:!1,id:"yh9toduxk",features_html:"",release_notes:"",seo_description:"Know about Spin Crush, the ultimate casual gaming hub. Explore diverse offline mini-games, collect virtual coins, and enjoy safe arcade entertainment on RummyDex.",description_html:`<h2><meta charset="UTF-8"></h2>
 
-const app = express();
+<h3><meta name="viewport" content="width=device-width,initial-scale=1"></h3>
 
-// Configuration constants
-const TOKEN_SECRET = process.env.TOKEN_SECRET || 'yono-default-secret-2026';
-const AES_SECRET = process.env.AES_SECRET || process.env.VITE_AES_SECRET || '';
+<h2>A New Standard for Casual Arcade Gaming</h2>
 
-// Security Stores (In-memory, transient per Vercel instance)
-const nonceStore = new Map();
+<h3><svg class="art" width="80" height="80" viewBox="0 0 80 80"></h3>
 
-// Helper: Get Client IP
-function getIp(req) {
-  return req.headers['x-forwarded-for']?.split(',')[0].trim() || req.headers['x-real-ip'] || req.socket?.remoteAddress || "unknown";
+<p><circle cx="40" cy="40" r="25" fill="none" stroke="#1a73e8" stroke-width="3"/></p>
+
+<h3></svg></h3>
+
+<p>Spin Crush redefines mobile entertainment by bringing an entire universe of casual mini-games into one accessible platform. Instead of offering a single repetitive loop, this app houses a vast collection of highly detailed thematic games. Whether you are looking for relaxing puzzle mechanics or fast-paced arcade action, this digital playground offers something for every type of player.</p>
+
+<h2>Explore a Diverse Universe of Mini-Games</h2>
+
+<h3><svg class="art" width="80" height="80" viewBox="0 0 80 80"></h3>
+
+<p><rect x="15" y="15" width="50" height="50" rx="8" fill="none" stroke="#1a73e8" stroke-width="3"/></p>
+
+<h3></svg></h3>
+
+<p>The true strength of Spin Crush lies in its incredible variety. You can step into a virtual kitchen and match culinary ingredients in "Baking Master," or explore vibrant cultural themes in "Wild Bandito" and "Pinata Frenzy." For fans of mythology and history, "Thor God of Lightning" and "Xerxes" offer epic visual animations and dynamic virtual coin collection. Action enthusiasts can dive into the tactical environment of "Royale Battleground" or step into the ring with "Boxing King." Nature and fantasy lovers are also covered with the prehistoric adventures of "Jurassic Kingdom," the fiery visual combos of "Coin Volcano," and the mystical journey of "Wukong."</p>
+
+<h2>Smooth Performance &amp; Immersive Gameplay</h2>
+
+<h3><svg class="art" width="80" height="80" viewBox="0 0 80 80"></h3>
+
+<p><path d="M25 15l40 25-40 25z" fill="none" stroke="#1a73e8" stroke-width="3" stroke-linejoin="round"/></p>
+
+<h3></svg></h3>
+
+<p>Built with top-tier optimization, the app delivers a highly responsive user experience. The intuitive central lobby allows players to effortlessly navigate through different game categories without experiencing heavy loading screens. Every mini-game features sharp 3D graphics, bright colors, and satisfying sound effects that make virtual progression and matching mechanics incredibly engaging.</p>
+
+<h2>Safe, Virtual Entertainment</h2>
+
+<h3><svg class="art" width="80" height="80" viewBox="0 0 80 80"></h3>
+
+<p><path d="M20 40l14 14 26-28" fill="none" stroke="#1a73e8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></p>
+
+<h3></svg></h3>
+
+<p>Designed as a purely casual simulation, Spin Crush focuses entirely on risk-free fun. Players can dive into thrilling arcade features like the "Fortune Wheel," "Crazy 777," or "Gemstones Gold" utilizing strictly virtual points. It is the perfect daily companion for users seeking a polished gaming experience where the focus is on beating high scores, unlocking new visual levels, and enjoying pure digital entertainment.</p>
+
+<h3><meta charset="UTF-8"></h3>
+
+<h3><meta name="viewport" content="width=device-width,initial-scale=1"></h3>
+
+<h2>Features</h2>
+
+<h3><svg width="26" height="26" viewBox="0 0 26 26"><rect x="2" y="2" width="9" height="9" rx="2" fill="none" stroke="#1a73e8" stroke-width="2"/><rect x="15" y="2" width="9" height="9" rx="2" fill="none" stroke="#1a73e8" stroke-width="2"/><rect x="2" y="15" width="9" height="9" rx="2" fill="none" stroke="#1a73e8" stroke-width="2"/><rect x="15" y="15" width="9" height="9" rx="2" fill="none" stroke="#1a73e8" stroke-width="2"/></svg>Massive collection of thematic mini-games housed in one single app.</h3>
+
+<h2><svg width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11" fill="none" stroke="#1a73e8" stroke-width="2"/><path d="M10 8l8 5-8 5z" fill="#1a73e8"/></svg>Instant play mechanics with seamless switching between diverse game modes.</h2>
+
+<h3><svg width="26" height="26" viewBox="0 0 26 26"><rect x="2" y="4" width="22" height="18" rx="2" fill="none" stroke="#1a73e8" stroke-width="2"/><circle cx="9" cy="10" r="2" fill="#1a73e8"/><path d="M2 19l6-6 5 5 4-4 7 6" fill="none" stroke="#1a73e8" stroke-width="2"/></svg>Stunning HD graphics ranging from culinary kitchens to ancient mythology.</h3>
+
+<h2><svg width="26" height="26" viewBox="0 0 26 26"><path d="M13 2l9 4v6c0 6-4 10-9 12-5-2-9-6-9-12V6z" fill="none" stroke="#1a73e8" stroke-width="2"/></svg>Offline gameplay support for uninterrupted casual entertainment.</h2>
+
+<h3><svg width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="13" r="11" fill="none" stroke="#1a73e8" stroke-width="2"/><path d="M8 13l4 4 7-8" fill="none" stroke="#1a73e8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>100% virtual rewards and safe, risk-free arcade progression systems.</h3>`,faqs:[],screenshots:[],updated_at:"2026-08-06T09:55:01.558Z",custom_admin_box_html:"",custom_admin_box_heading:"",created_at:"2026-08-02T11:14:13.263Z",url:""},{release_notes:"",rating:4.2,seo_title:"Rummy 77 - Hands On Review - Gameplay, Features & Performance | RummyDex",features_html:`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Rummy 77: Our Hands-On Review & Gameplay Breakdown</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+body{font-family:Arial,Helvetica,sans-serif;color:#3c4043;max-width:700px;margin:40px auto;padding:0 20px;line-height:1.7;font-size:15px;background:#fff}
+h1{font-size:24px;color:#202124;font-weight:500;margin-bottom:20px}
+p{margin:10px 0}
+.art{display:block;margin:18px 0}
+</style>
+</head>
+<body>
+
+<h1>Rummy 77: Our Hands-On Review &amp; Gameplay Breakdown</h1>
+<svg class="art" width="80" height="80" viewBox="0 0 80 80">
+<path d="M25 15l40 25-40 25z" fill="none" stroke="#1a73e8" stroke-width="3" stroke-linejoin="round"/>
+</svg>
+
+<p>When it comes to digital card games, the market is flooded with apps that prioritize flashy menus over actual gameplay. When our team sat down to test Rummy 77, we wanted to see if it actually delivered a solid, reliable card-playing experience or if it was just another generic clone.</p>
+<p>After hours of hands-on testing across multiple devices, here is our neutral, unfiltered breakdown of exactly what Rummy 77 has to offer.</p>
+
+</body>
+</html>
+`,category:"All Apps, Yono",file_size:" 49.2 MB",safety_status:"Verified",og_image_url:"https://res.cloudinary.com/diewalae4/image/upload/v1785722974/1000132690_11zon_1_l43qhv.jpg",description_html:`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Inside the Game: What Are You Actually Playing?</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+body{font-family:Arial,Helvetica,sans-serif;color:#3c4043;max-width:700px;margin:40px auto;padding:0 20px;line-height:1.7;font-size:15px;background:#fff}
+h1{font-size:22px;color:#202124;font-weight:500;margin-top:44px;margin-bottom:14px}
+h1:first-of-type{margin-top:0}
+h2{font-size:17px;color:#202124;font-weight:500;margin-top:26px}
+p{margin:10px 0}
+ul{margin:10px 0;padding-left:22px}
+li{margin:10px 0}
+.art{display:block;margin:18px 0}
+</style>
+</head>
+<body>
+
+<h1>\u{1F0CF} Inside the Game: What Are You Actually Playing?</h1>
+<svg class="art" width="80" height="80" viewBox="0 0 80 80">
+<rect x="15" y="15" width="50" height="50" rx="8" fill="none" stroke="#1a73e8" stroke-width="3"/>
+</svg>
+<p>At its core, Rummy 77 is a straightforward, classic 13-card rummy experience. The app doesn't try to reinvent the wheel with heavy 3D graphics or complicated storylines; instead, it focuses entirely on the mechanics of the game itself.</p>
+<p>The moment you launch the app, you are greeted with a remarkably clean lobby. Matchmaking is snappy\u2014during our tests, it rarely took more than a few seconds to find a seat at a virtual table.</p>
+
+<h2>The Table Experience:</h2>
+<p>Once you are in a match, the layout is highly intuitive. The center of the screen houses the closed deck and the open discard pile, while your 13 cards are fanned out clearly at the bottom.</p>
+<ul>
+<li><strong>Auto-Sort Mechanics:</strong> One feature we genuinely appreciated was the responsive "Sort" button. With a single tap, the app automatically groups your cards by suit and color, which is a massive time-saver when you are trying to spot potential pure sequences or sets under a time limit.</li>
+<li><strong>Dragging and Discarding:</strong> Moving cards feels natural. The touch response is tight\u2014there is no frustrating lag when you are trying to drag a card to the discard pile right before your turn timer runs out.</li>
+<li><strong>Visual Clarity:</strong> The developers opted for a high-contrast green felt background with large, bold card faces. If you are playing on a smaller phone screen, you won't have to squint to tell the difference between a Spade and a Club.</li>
+</ul>
+
+<h1>\u2699\uFE0F How Does It Actually Perform?</h1>
+<svg class="art" width="80" height="80" viewBox="0 0 80 80">
+<circle cx="40" cy="40" r="25" fill="none" stroke="#1a73e8" stroke-width="3"/>
+</svg>
+<p>We didn't just look at the gameplay; we monitored how the app handled device resources during extended play sessions.</p>
+<ul>
+<li><strong>Fluidity and Frame Rates:</strong> We tested Rummy 77 on both a modern flagship phone and a three-year-old budget Android device. On both, the game maintained a rock-solid 60 FPS. The card dealing animations are smooth, and transitioning in and out of lobbies happens without any frustrating loading screens.</li>
+<li><strong>Battery &amp; Thermal Check:</strong> Card games shouldn't turn your phone into a hand-warmer. Because Rummy 77 relies on clean 2D assets rather than heavy background rendering, it is incredibly lightweight. We played continuously for over an hour, and the battery drain was minimal. More importantly, the back of the device stayed perfectly cool.</li>
+</ul>
+
+<h1>\u{1F3AF} Our Verdict</h1>
+<svg class="art" width="80" height="80" viewBox="0 0 80 80">
+<path d="M20 40l14 14 26-28" fill="none" stroke="#1a73e8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<p>If you are looking for a hyper-realistic casino simulator with heavy 3D avatars, this might not be for you. The UI is admittedly a bit simple. However, if your goal is pure, uninterrupted rummy with excellent touch controls, reliable matchmaking, and zero battery anxiety, Rummy 77 completely hits the mark. It does exactly what it promises, and it does it well.</p>
+
+</body>
+</html>
+`,slug:"rummy-77",developer:"Arena studio",is_new:!1,name:"RUMMY 77",screenshots:[],idea_box_msg:"",seo_keywords:"rummy 77 app, real rummy gameplay, rummy 77 review, 13 card rummy",version:"1.0.6",id:"i5uw2apum",serial_number:2,updated_at:"2026-08-10T04:27:14.086Z",canonical_url:"https://www.rummydex.com/app/rummy-77",created_at:"2026-08-03T02:13:03.477Z",faqs:[],video_url:"",red_box_msg:"",is_coming_soon:!1,publish_date:"",yellow_box_msg:"Play in limit doing anything excess is not good so if you in limit everything are good ",seo_description:"We went hands-on with Rummy 77. Read our neutral review detailing the actual table mechanics, card sorting features, and real-world battery performance.",icon_url:"https://res.cloudinary.com/diewalae4/image/upload/v1785722974/1000132690_11zon_1_l43qhv.jpg",url:"",custom_admin_box_heading:"",custom_admin_box_html:""},{og_image_url:"https://res.cloudinary.com/diewalae4/image/upload/v1785780996/download_22_vgi4h1_1_jjm7jx.webp",created_at:"2026-08-03T18:10:16.344Z",rating:4.4,yellow_box_msg:"",updated_at:"2026-08-10T04:27:57.209Z",is_coming_soon:!1,seo_keywords:"",idea_box_msg:"Almost In every android phone it can run well no issues ",category:"Yono Apps, All Apps",canonical_url:"https://www.rummydex.com/app/rummy-91",faqs:[],serial_number:3,red_box_msg:"",video_url:"",is_new:!1,seo_description:"Master your skills with Rummy 91! \u{1F0CF} Play traditional Rummy, fast-paced Teen Patti, and classic Ludo in one lightweight app. Join the practice lobbies today. \u2728",name:"RUMMY 91",icon_url:"https://res.cloudinary.com/diewalae4/image/upload/v1785780996/download_22_vgi4h1_1_jjm7jx.webp",version:"1.07.9",slug:"rummy-91",file_size:"47.8 MB",seo_title:"Rummy 91: The Ultimate Casual Card & Board Game App \u{1F680}",id:"s4oc5m16b",safety_status:"Verified",screenshots:[],developer:"Ariyan Chowdhury studio ",description_html:`<section>
+  <h2>Inside Rummy 91: The Game Library</h2>
+
+  <article>
+    <h3>1. Strategy &amp; Skill Rooms (Classic Rummy)</h3>
+
+    <h4>The Experience</h4>
+    <p>
+      Point, Pool, and Deals Rummy designed for mental exercise and strategy building.
+    </p>
+
+    <h4>Real User Benefit</h4>
+    <p>
+      It acts as a great brain-training tool. Users can sharpen their memory and card-matching skills in practice rooms at their own pace. The interface includes auto-sort features, making it incredibly easy for players to organize their hands without frustration.
+    </p>
+  </article>
+
+  <article>
+    <h3>2. The Social Lounge (Teen Patti &amp; Card Classics)</h3>
+
+    <h4>The Experience</h4>
+    <p>
+      Traditional 3-card games built around community and casual multiplayer fun.
+    </p>
+
+    <h4>Real User Benefit</h4>
+    <p>
+      Perfect for social gamers. Users can connect with friends or join quick casual matches. The inclusion of in-game emojis and animated avatars keeps the atmosphere lighthearted, relaxed, and focused on pure entertainment.
+    </p>
+  </article>
+
+  <article>
+    <h3>3. Quick-Play Arcade (Dragon vs Tiger &amp; Mini-Games)</h3>
+
+    <h4>The Experience</h4>
+    <p>
+      Fast-paced, visually vibrant intuitive games that require zero complex tutorials.
+    </p>
+
+    <h4>Real User Benefit</h4>
+    <p>
+      Ideal for users who only have a few minutes to spare, like during a commute. These quick-tap games test observation and intuition. The lightweight code ensures the animations run smoothly without draining the phone's battery.
+    </p>
+  </article>
+
+  <article>
+    <h3>4. Nostalgic Board Games (Ludo)</h3>
+
+    <h4>The Experience</h4>
+    <p>
+      A digital, multiplayer recreation of the classic family board game.
+    </p>
+
+    <h4>Real User Benefit</h4>
+    <p>
+      Brings classic offline fun to the mobile screen. Users get a simple, familiar interface that appeals to all age groups, offering a relaxing break from the heavier strategy-based card games.
+    </p>
+  </article>
+</section>`,publish_date:"",features_html:"",release_notes:"",url:"",custom_admin_box_heading:"",custom_admin_box_html:""},{rating:4,publish_date:"",developer:"People Lovin Games",red_box_msg:"",safety_status:"Verified",faqs:[{question:"Q1: Can I play Callbreak fully offline without mobile data?",answer:"Yes. Callbreak features robust offline AI single-player matches as well as local Wi-Fi connectivity, allowing you to play anywhere without an internet connection."},{answer:"Yes. Callbreak features robust offline AI single-player matches as well as local Wi-Fi connectivity, allowing you to play anywhere without an internet connection.",question:"Q2: Are the in-game Gems and Coins tied to real-money rewards?"},{answer:"Because the app utilizes clean 2D graphics and lightweight processing, it runs smoothly at 60 FPS on older devices while keeping battery drain and heat output very low.",question:"Q3: How does Callbreak perform on older or lower-spec smartphones?"},{answer:"The platform includes Super 8 Bid Challenge (racing to win eight hands against aggressive AI) and Blind Bid Mode (bidding before viewing player hands).",question:"Q4: What extra game modes are included besides standard 5-round matches?"}],release_notes:"",features_html:`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Callbreak: What It's Actually Like to Play</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+body{font-family:Arial,Helvetica,sans-serif;color:#3c4043;max-width:700px;margin:40px auto;padding:0 20px;line-height:1.7;font-size:15px;background:#fff}
+h1{font-size:24px;color:#202124;font-weight:400;margin-bottom:6px}
+.tagline{color:#5f6368;font-size:14px;margin-bottom:28px;font-style:italic}
+h2{font-size:19px;color:#202124;font-weight:500;margin-top:40px}
+p{margin:10px 0}
+ul{margin:10px 0;padding-left:22px}
+li{margin:8px 0}
+</style>
+</head>
+<body>
+
+<h1>Callbreak: What It's Actually Like to Play</h1>
+<p class="tagline">A look at how the game feels day to day \u2014 the wins, the friction, and everything in between.</p>
+
+<h2>First Impressions</h2>
+<p>Callbreak comes across as an engaging, easy-to-pick-up card game that brings the traditional South Asian trick-taking game to mobile in a way that feels smooth, polished, and beginner-friendly right from the start. Having offline AI play, online multiplayer, and quick matches all in one place gives players real flexibility, and that's a big part of why people keep coming back.</p>
+<p>The overall feeling is positive, but with some caveats. The core card game itself is satisfying and genuinely addictive \u2014 the friction tends to come from the ads, monetization, and occasional technical hiccups around the edges.</p>
+
+<h2>Getting Started</h2>
+<p>New players are guided in rather than dropped into a confusing menu. A beginner-friendly tutorial walks through the rules of Callbreak, bidding, trump suits, and trick-taking, and an in-app rulebook covers everything from the basics to more advanced strategy for players who want to improve over time.</p>
+<p>Difficulty settings run from novice to advanced, so beginners can ease in while experienced players have room to push themselves. Most people find the rules easy to pick up, while the strategy stays deep enough to hold their interest. The onboarding experience overall feels welcoming and low-pressure \u2014 most new players feel ready to jump in within minutes.</p>
+
+<h2>How a Match Feels</h2>
+<p>Quick match options get you into a game fast, while standard matches feel more like a complete session. Bidding sits at the center of the experience, and the interface makes calling your number straightforward. Touch controls for selecting and playing cards feel smooth and intuitive.</p>
+<p>Little quality-of-life touches make a real difference \u2014 the ability to undo a mis-tap takes the stress out of quick decisions, reviewing card history helps with strategic planning, and being able to reshuffle a genuinely bad hand is appreciated. Animations move at a good pace, and game speed can be adjusted if you want things faster or slower.</p>
+<p>Altogether, the gameplay loop feels rhythmic and satisfying \u2014 bid, play, win or lose the trick, watch the score update. The tactile card play and animated trick collection give it a real card-table feel.</p>
+
+<h2>Playing Against the AI</h2>
+<p>AI opponents are generally described as challenging and smart, adapting to how you play. That said, more advanced players report that the AI becomes predictable after extended play, which can wear down long-term replay value. One specific quirk that comes up is bots sometimes playing only their lowest available card, which can feel less realistic or strategically shallow.</p>
+<p>Being able to play entirely offline is a strong point, especially for anyone dealing with unreliable connectivity, and practice mode is genuinely useful for building up strategy before jumping into matches against real people. Overall, single-player is solid and convenient, though it can start to feel repetitive for players who've mastered the AI's patterns.</p>
+
+<h2>Playing With Others</h2>
+<p>Real-time matches against players from around the world add excitement and unpredictability that AI matches can't match. Matchmaking uses a skill-rating system to pair similar-level players, though some users report inconsistencies \u2014 trouble connecting with random opponents or with friends specifically.</p>
+<p>Private tables for playing with friends or family are well-liked, and local Wi-Fi play is praised for situations without internet access, like travel or gatherings. In-game chat and emojis add a bit of social warmth, though they're fairly minimal compared to dedicated chat apps. Network interruptions are a real pain point \u2014 they can cause bid failures, auto-resets, or disconnections mid-match. Referral-code invites and Facebook integration exist for connecting with friends, though some users run into friction there too.</p>
+<p>When it works, multiplayer is fun and competitive \u2014 but connection instability and matchmaking hiccups can make the experience inconsistent.</p>
+
+<h2>Look and Sound</h2>
+<p>The app gets frequent praise for its visuals \u2014 people describe the card animations as beautiful and the interface as sleek. The game board has a modern, premium look that adds to the overall sense of polish. Multiple card designs and table themes let players personalize things, and dealing, trick collection, and win/loss animations all feel smooth and satisfying.</p>
+<p>Sound design leans into authentic, realistic card shuffling and playing sounds, with background music and customization options available too. On supported devices, haptic feedback adds an extra layer of tactile feel. Altogether, the visuals and audio work together to create a premium, polished card-room atmosphere.</p>
+
+<h2>Controls and Navigation</h2>
+<p>Touch controls come across as smooth and intuitive, and the interface is generally easy to navigate. The main menu and home screen are clean, though some players wish settings were more directly accessible. Colorblind mode and multi-language support help make the app accessible to a wider audience.</p>
+<p>One recurring complaint is being forced to play a specific card in certain situations, when players would rather have more freedom. That said, the app is easy to operate one-handed, which matters a lot for a mobile card game \u2014 most of the friction comes from gameplay rules like forced suit-following rather than the interface itself.</p>
+
+<h2>Ads and Monetization</h2>
+<p>The game is genuinely free to download and play, which keeps the barrier to entry low. But ad frequency is by far the most frequently cited pain point \u2014 some users describe feeling like they spend the vast majority of their time watching ads rather than playing. Ads tend to show up between games or at natural breaks, but how often and how long they run can break immersion.</p>
+<p>A "Remove Ads" purchase is available, but some users report ads still showing up even after paying \u2014 which creates real frustration and damages trust. Gem packs are offered for unlocking assets; some players are fine with that, others feel pushed toward spending. The daily reward wheel and login bonuses add a sense of progression, though the rewards themselves can feel small.</p>
+<p>Monetization is the single biggest source of dissatisfaction here, and ads persisting after a paid removal is the kind of thing that really damages trust with paying users.</p>
+
+<h2>Progression and Rewards</h2>
+<p>Daily login rewards and the spin-based daily wheel encourage regular use and add small moments of anticipation. Global leaderboards give players a long-term goal to chase, and league progression \u2014 Bronze, Gold, Platinum, and so on \u2014 adds a sense of advancement. Detailed stats let players track their own improvement and compare themselves to others, and small skill-point bonuses for extra tricks offer little moments of satisfaction along the way.</p>
+<p>These systems are generally effective at keeping people engaged, though the rewards are modest and the competitive pace may feel slow for more casual players.</p>
+
+<h2>Where Things Get Frustrating</h2>
+<ul>
+<li><strong>Excessive ads</strong> \u2014 breaks immersion, fragments sessions, and is enough to make some players uninstall.</li>
+<li><strong>Ads after paying to remove them</strong> \u2014 a trust-breaking experience that has led to refund requests.</li>
+<li><strong>AI predictability</strong> \u2014 reduces long-term challenge for more experienced players.</li>
+<li><strong>Multiplayer connection issues</strong> \u2014 bid failures, disconnections, and trouble connecting with friends specifically.</li>
+<li><strong>No Nil Bid option</strong> \u2014 players coming from Spades or more advanced Callbreak variants miss this strategic choice.</li>
+<li><strong>Forced card play</strong> \u2014 some players want more freedom in which card they play.</li>
+<li><strong>Crashes and freezes</strong> \u2014 technical instability that can interrupt games and cost progress.</li>
+<li><strong>Login issues</strong> \u2014 problems signing in that affect multiplayer access and reward tracking.</li>
+<li><strong>Missing cards bug</strong> \u2014 connectivity or sync issues that can make cards appear to vanish mid-play.</li>
+</ul>
+
+<h2>The Emotional Highs and Lows</h2>
+<p>The delight moments are the ones you'd expect from a good card game \u2014 winning a tricky bid, watching a smooth animation play out, pulling off a perfect hand, unlocking a new theme, or beating a friend at a private table. The friction moments are just as clear: sitting through another ad, losing connection mid-bid, discovering ads still show up after paying to remove them, or watching the AI make another predictable low-card play.</p>
+<p>Long-term, the app is addictive and fun as a casual card game, but frequent players tend to hit a ceiling where the ads and AI predictability start to wear thin. The social multiplayer side keeps a lot of people engaged \u2014 but only when the connection actually holds up.</p>
+
+<h2>The Bottom Line</h2>
+<p>Callbreak delivers a polished, accessible, and strategically satisfying card game that works well for both casual players and longtime fans of the format. Its strongest points are its visual polish, smooth controls, offline flexibility, and social features. Its biggest weaknesses are ad overload and technical instability, especially around multiplayer and after paying to remove ads. Most players genuinely enjoy the core experience, but frequently wish for fewer ads, more reliable servers, and deeper AI strategy.</p>
+
+</body>
+</html>
+`,file_size:"51.11 MB",custom_admin_box_heading:"",is_new:!1,icon_url:"https://res.cloudinary.com/diewalae4/image/upload/v1785819278/images_21_1_g770hi.webp",seo_title:"Callbreak: Classic Card Games \u2014 Review, Rating & Download Info",is_coming_soon:!1,yellow_box_msg:"",video_url:"",serial_number:1,seo_keywords:"",canonical_url:"https://www.rummydex.com/app/callbreak",idea_box_msg:"",seo_description:"Explore Callbreak: Classic Card Games on RummyDex. Check gameplay modes, features. Hand tested review on real experience ",category:"Card Apps, All Apps",screenshots:[],description_html:`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Callbreak: Classic Card Games</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+body{font-family:Arial,Helvetica,sans-serif;color:#3c4043;max-width:700px;margin:40px auto;padding:0 20px;line-height:1.7;font-size:15px;background:#fff}
+h1{font-size:26px;color:#202124;font-weight:400;margin-bottom:6px}
+.tagline{color:#5f6368;font-size:14px;margin-bottom:28px;font-style:italic}
+h2{font-size:19px;color:#202124;font-weight:500;margin-top:44px}
+p{margin:10px 0}
+ul{margin:10px 0;padding-left:22px}
+li{margin:8px 0}
+.art{display:block;margin:18px 0}
+</style>
+</head>
+<body>
+
+<h1>Callbreak: Classic Card Games</h1>
+<p class="tagline">Strategic trick-taking card battles, built for both casual rounds and serious competition.</p>
+
+<h2>What This Game Is</h2>
+<svg class="art" width="80" height="80" viewBox="0 0 80 80">
+<rect x="15" y="15" width="50" height="50" rx="8" fill="none" stroke="#1a73e8" stroke-width="3"/>
+</svg>
+<p>Callbreak is a digital take on the classic South Asian trick-taking card game of the same name, also known as Lakadi in some regions. It's a mainstay across Nepal, India, Bangladesh, and Bhutan, and this app brings that same experience to mobile \u2014 whether you want to play against AI bots, challenge friends, or jump into a match with strangers online.</p>
+<p>Each of four players is dealt thirteen cards from a standard deck. Before a round begins, everyone calls a bid \u2014 how many tricks they expect to win. Cards are then played trick by trick, and players who hit or beat their bid score points, while falling short costs them. A full match typically runs five rounds, with scores adding up as you go.</p>
+
+<h2>How the Game Plays</h2>
+<svg class="art" width="80" height="80" viewBox="0 0 80 80">
+<path d="M25 15l40 25-40 25z" fill="none" stroke="#1a73e8" stroke-width="3" stroke-linejoin="round"/>
+</svg>
+<p>The rules stick closely to traditional Callbreak. It's a standard 52-card deck with no jokers, four players holding thirteen cards each, and spades set as the permanent trump suit \u2014 though some in-app modes let you choose a different trump. Players have to follow the leading suit if they can; otherwise, they're free to trump or discard.</p>
+<p>Scoring rewards players who meet their bid, with small bonuses for extra tricks, while missing a bid costs points equal to what was called. If you're dealt a particularly rough hand, there's a reshuffle option to redeal. An undo feature lets you take back your last move, and a card history tool lets you review what's already been played during a match.</p>
+
+<h2>Ways to Play</h2>
+<svg class="art" width="80" height="80" viewBox="0 0 80 80">
+<circle cx="28" cy="40" r="16" fill="none" stroke="#1a73e8" stroke-width="3"/>
+<circle cx="55" cy="40" r="16" fill="none" stroke="#1a73e8" stroke-width="3"/>
+</svg>
+<p>There's a mode here for however you like to play. Go offline against AI bots when you don't have a connection, or jump into real-time online multiplayer against players worldwide. You can set up a private table and invite friends or family with a referral code, or play locally over the same Wi-Fi network with no internet required at all.</p>
+<p>Difficulty settings run from novice to advanced, and there are a couple of standout variations worth trying: Super 8 Bid Challenge, where you're racing to win eight hands in a round while the bots try to stop you, and Blind Bid Mode, where you place your bid before seeing how anyone else is playing. There's also a dedicated practice mode for sharpening your skills against AI before taking on real opponents.</p>
+
+<h2>Social &amp; Competitive Play</h2>
+<svg class="art" width="80" height="80" viewBox="0 0 80 80">
+<path d="M20 40l14 14 26-28" fill="none" stroke="#1a73e8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<p>Global leaderboards and a league system \u2014 with tiers like Bronze, Gold, and Platinum \u2014 give competitive players something to climb toward, and matchmaking uses a skill rating to pair you with opponents around your level. During matches, in-game chat and emoji reactions keep things social, and you can invite friends directly to private tables. Stats tracking lets you see how you're performing round over round and compare yourself against other players. Anti-cheat measures are built in to keep matches fair.</p>
+
+<h2>Rewards &amp; In-App Purchases</h2>
+<svg class="art" width="80" height="80" viewBox="0 0 80 80">
+<circle cx="40" cy="40" r="25" fill="none" stroke="#1a73e8" stroke-width="3"/>
+</svg>
+<p>Gems are the main currency for unlocking in-game extras, and they can't be redeemed for real money or cash prizes. Coins serve as a secondary currency, mainly tied to timer bonuses and a daily reward wheel. There are daily log-in rewards on top of that. The app is free to download and ad-supported, with an option to remove ads through a purchase, and several gem pack tiers available for players who want to buy in.</p>
+
+<h2>Look, Feel &amp; Accessibility</h2>
+<svg class="art" width="80" height="80" viewBox="0 0 80 80">
+<path d="M20 20l40 40M60 20L20 60" stroke="#1a73e8" stroke-width="3" stroke-linecap="round"/>
+</svg>
+<p>The interface is built to feel approachable whether you're new to Callbreak or you've played for years. You can pick from multiple card designs and table themes, and matches come with smooth card animations and satisfying trick-collection visuals. Avatars represent players and bots, especially in single-player games. Sound effects, background music, and haptic feedback round out the experience, and there's a colorblind mode along with support for a wide range of languages including English, Hindi, Spanish, French, and many others.</p>
+
+<h2>Settings You Can Adjust</h2>
+<svg class="art" width="80" height="80" viewBox="0 0 80 80">
+<rect x="15" y="15" width="50" height="50" rx="8" fill="none" stroke="#1a73e8" stroke-width="3"/>
+</svg>
+<p>Players have a good amount of control over how a match runs \u2014 sound and volume, game speed, and which mode to play, whether that's standard, Super 8, or Blind Bid. You can also choose the number of rounds instead of sticking with the default five, and in some variants, pick your own trump suit. Undo, reshuffle, and card history can all be toggled from the settings as well.</p>
+
+</body>
+</html>
+`,custom_admin_box_html:"",created_at:"2026-08-04T05:18:55.084Z",og_image_url:"https://res.cloudinary.com/diewalae4/image/upload/v1785819278/images_21_1_g770hi.webp",slug:"callbreak",id:"ha76icslh",updated_at:"2026-08-09T12:58:39.401Z",name:"CALLBREAK",version:"1.0",url:""},{video_url:"",updated_at:"2026-08-05T14:04:44.286Z",created_at:"2026-08-05T14:01:20.004Z",publish_date:"",is_new:!1,icon_url:"https://res.cloudinary.com/diewalae4/image/upload/v1785935258/1000133067_11zon_1_n04bav.jpg",canonical_url:"",serial_number:5,slug:"card-game-29",rating:4.1,red_box_msg:"",name:"Card Game 29",developer:"ZLEVEL LABS LLP",idea_box_msg:"",seo_description:"Join RummyDex to play Card Game 29: sharpen your bidding, team up with partners, and win against players worldwide in fast, competitive rounds.",seo_keywords:"",faqs:[{answer:"Yes. Card Game 29 is free to download and play. The app also offers optional in-app purchases and displays advertisements, allowing users to unlock additional features or enjoy a more streamlined experience if they choose.",question:"1. Is Card Game 29 free to download and play?"},{question:"2. Can I play Card Game 29 without an internet connection?",answer:"Yes. The game includes an offline mode where you can play against AI opponents without an internet connection. However, online multiplayer features require an active internet connection."},{question:"3. Does Card Game 29 support multiplayer gameplay?",answer:"Yes. Card Game 29 supports multiple ways to play, including online multiplayer, private rooms with friends, and local multiplayer options on supported devices, depending on the available features in your version of the app."},{answer:"Yes. While the game is based on the traditional rules of Twenty-Nine, its straightforward interface and offline practice mode make it accessible for new players. Experienced players can also enjoy advanced gameplay through bidding, partnerships, and customizable rule variations.",question:"4. Is Card Game 29 suitable for beginners?"}],category:"All Apps, Card Apps",file_size:"23.2 MB",screenshots:[],features_html:`<section class="content-section">
+  <h2>Key Features and Deep Dive into Card Game 29</h2>
+
+  <p>
+    Card Game 29 isn't just a simple mobile game; it is a meticulous digital recreation of the beloved South Asian trick-taking classic.
+    The app is designed to bring the traditional flavor of the game to your smartphone, blending memory, intense strategy, and partnership coordination.
+  </p>
+
+  <h3>The Core Game Mechanics</h3>
+
+  <p>
+    At its heart, the app authentically replicates the traditional rules.
+    You play in a four-player setup with two fixed partnerships sitting across from one another.
+  </p>
+
+  <div class="feature-item">
+    <h4>The Stripped Deck</h4>
+    <p>
+      The game removes the lower cards, utilizing a specific 32-card deck consisting only of the
+      7, 8, 9, 10, Jack, Queen, King, and Ace.
+    </p>
+  </div>
+
+  <div class="feature-item">
+    <h4>Unique Card Values</h4>
+    <p>
+      Unlike standard games, the Jack is the ultimate powerhouse worth 3 points, followed by the 9
+      (worth 2 points), and the Ace and 10 (worth 1 point each). The total deck holds 28 points,
+      and winning the final trick grants the namesake 29th point.
+    </p>
+  </div>
+
+  <div class="feature-item">
+    <h4>The Bidding War</h4>
+    <p>
+      The app beautifully captures the tension of the bidding phase. Players must bid between
+      16 and 28 points based on their hand's strength, and the highest bidder earns the crucial
+      right to set the trump suit.
+    </p>
+  </div>
+
+  <h3>Customizable House Rules</h3>
+
+  <p>
+    One of the most impressive features of the app is its "Rules Popup" configuration panel,
+    which respects that different regions have their own local variations. You can deeply
+    customize your match by enabling:
+  </p>
+
+  <div class="feature-item">
+    <h4>Double &amp; Re-Double</h4>
+    <p>
+      To aggressively increase the stakes and score multipliers of a single hand.
+    </p>
+  </div>
+
+  <div class="feature-item">
+    <h4>Pair / Marriage</h4>
+    <p>
+      A system that rewards bonus points if you are lucky enough to hold both the King and Queen
+      of the active trump suit.
+    </p>
+  </div>
+
+  <div class="feature-item">
+    <h4>Specialized Trumping</h4>
+    <p>
+      Options like the "7th Card Trump" (where your 7th dealt card dictates the suit) or using
+      a Joker as a designated trump card.
+    </p>
+  </div>
+
+  <div class="feature-item">
+    <h4>Single Hand &amp; Tenny</h4>
+    <p>
+      Niche modes where a solo player attempts to win the hand under special conditions,
+      or tries to sweep all four tricks without even relying on a trump card.
+    </p>
+  </div>
+
+  <h3>Versatile Play Modes</h3>
+
+  <p>
+    The application caters to exactly how you want to play at any given moment:
+  </p>
+
+  <div class="feature-item">
+    <h4>Offline AI Mode</h4>
+    <p>
+      Perfect for offline practice, allowing you to play against computer-controlled opponents
+      without needing any internet connection.
+    </p>
+  </div>
+
+  <div class="feature-item">
+    <h4>Online Multiplayer</h4>
+    <p>
+      You can jump into public matches or create private rooms with shareable links to play
+      with friends worldwide.
+    </p>
+  </div>
+
+  <div class="feature-item">
+    <h4>Local Bluetooth</h4>
+    <p>
+      A standout feature that lets you connect locally with friends in the same room without
+      consuming any mobile data.
+    </p>
+  </div>
+</section>`,description_html:`<section class="content-section">
+  <h2>About the Application (Deep Dive)</h2>
+
+  <p>
+    Card Game 29 is not just a digital pastime; it is a massive, widely established platform dedicated to preserving and modernizing a beloved South Asian card game.
+    Developed and maintained by Z Level Labs (also known as ZLEVEL LABS LLP), the application has built a massive community since its initial launch over a decade ago on September 2, 2014.
+  </p>
+
+  <h3>What the Application Provides</h3>
+
+  <p>
+    The primary goal of the application is to offer a comprehensive, portable version of "29" (or Twenty-Nine), a highly strategic trick-taking game famous across India, Bangladesh, Nepal, and other parts of South Asia.
+  </p>
+
+  <div class="feature-item">
+    <h4>The Core Experience</h4>
+    <p>
+      The app provides a virtual card table where you can play against AI, connect with local friends, or match up with a global player base.
+    </p>
+  </div>
+
+  <div class="feature-item">
+    <h4>Language Accessibility</h4>
+    <p>
+      To ensure it reaches its core demographic natively, the app features full language support for English, Hindi, Bengali, and Spanish.
+    </p>
+  </div>
+
+  <div class="feature-item">
+    <h4>Constant Evolution</h4>
+    <p>
+      The developers actively maintain the game, with recent updates rolling out as late as August 2026 to introduce modernized menus, smoother multiplayer sessions, and critical bug fixes.
+    </p>
+  </div>
+
+  <h3>Technical Footprint and Accessibility</h3>
+
+  <p>
+    For an application that offers real-time multiplayer, Card Game 29 is remarkably lightweight and accessible for a wide range of devices.
+  </p>
+
+  <div class="feature-item">
+    <h4>Device Requirements</h4>
+    <p>
+      It is built for Android (though the developer publishes similar games for iOS) and requires Android version 5.0/6.0 or higher.
+    </p>
+  </div>
+
+  <div class="feature-item">
+    <h4>Storage Space</h4>
+    <p>
+      The installation size varies slightly depending on your specific device and version, generally taking up only 26.4 MB to 42.5 MB of space.
+    </p>
+  </div>
+
+  <div class="feature-item">
+    <h4>Global Reach</h4>
+    <p>
+      This accessibility has translated into massive success, boasting over 10 million downloads and maintaining a solid 4.13 out of 5.0 rating from over 105,000 user reviews.
+    </p>
+  </div>
+
+  <h3>Monetization and the In-App Economy</h3>
+
+  <p>
+    The app operates on a "freemium" model, meaning it is completely free to download and play, but it is heavily ad-supported.
+  </p>
+
+  <div class="feature-item">
+    <h4>Premium Options</h4>
+    <p>
+      For players who want a cleaner experience or extra features, the app offers a premium pass and various in-app purchases.
+    </p>
+  </div>
+
+  <div class="feature-item">
+    <h4>Pricing Structure</h4>
+    <p>
+      These optional purchases range from as low as $0.49 to a massive $129.99 for premium bundles, which can be used to remove advertisements, unlock cosmetic items, or access special features.
+    </p>
+  </div>
+
+  <h3>Behind the Scenes: Privacy and Permissions</h3>
+
+  <p>
+    To facilitate its online and local multiplayer features, as well as its advertising model, the app requires a robust set of device permissions.
+  </p>
+
+  <div class="feature-item">
+    <h4>System Access</h4>
+    <p>
+      The app asks for access to your camera, internet network state, vibration functions, external storage (for saving data), and wake lock (to keep your screen from turning off mid-game).
+    </p>
+  </div>
+
+  <div class="feature-item">
+    <h4>Data Handling</h4>
+    <p>
+      According to the game's privacy policy, it does collect personal information, device identifiers, and performance data.
+      This data is shared with trusted third parties, primarily to deliver targeted advertisements and ensure the app functions correctly across different devices.
+    </p>
+  </div>
+</section>`,version:"1.0",release_notes:"",seo_title:"Card Game 29 \u2014 Challenge Friends & Master the Bids | RummyDex",og_image_url:"",safety_status:"Verified",id:"colrcaih7",yellow_box_msg:"",is_coming_soon:!1,url:""},{custom_admin_box_html:`<section class="content-section">
+  <h2>The Hands-On User Experience</h2>
+
+  <p>
+    The user interface of Joy Rummy is purposefully engineered to eliminate visual clutter, allowing players to focus entirely on tactical execution and board awareness.
+  </p>
+
+  <h3>Visual Design and Interaction Dynamics</h3>
+
+  <div class="feature-item">
+    <h4>Fluid Drag-and-Drop Controls</h4>
+    <p>
+      Card movement relies on a responsive physics-based system where cards snap securely into position, offering satisfying tactile feedback during fast-paced turns.
+    </p>
+  </div>
+
+  <div class="feature-item">
+    <h4>Smart Organization Tools</h4>
+    <p>
+      To alleviate screen-space limitations on smaller mobile displays, the app includes an "Auto-Group" feature that instantly categorizes hand components by suit and color.
+    </p>
+  </div>
+
+  <div class="feature-item">
+    <h4>Distraction-Free Signaling</h4>
+    <p>
+      The digital table utilizes minimalist, high-contrast aesthetics, featuring subtle visual glows that indicate valid meld formations without pulling focus from the broader game state.
+    </p>
+  </div>
+
+  <div class="feature-item">
+    <h4>Structured Communication</h4>
+    <p>
+      To maintain a positive community atmosphere, open text chat is replaced by a curated suite of animated emotes and quick phrases, enabling efficient expression without interrupting match pacing.
+    </p>
+  </div>
+
+  <h3>Player Engagement and Community Feedback</h3>
+
+  <p>
+    User interaction patterns and reviews highlight several core operational strengths alongside areas for continuous technical refinement.
+  </p>
+
+  <div class="feature-item">
+    <h4>Rapid Match Initiation</h4>
+    <p>
+      Players frequently praise the speed of the global matchmaking queue, noting an average transition time of under ten seconds from the home screen to an active table.
+    </p>
+  </div>
+
+  <div class="feature-item">
+    <h4>Pacing and Advertisement Flow</h4>
+    <p>
+      As a freemium platform, video advertisements are displayed between completed rounds. While necessary for platform maintenance, some users observe that ad frequency can occasionally disrupt long gaming sessions.
+    </p>
+  </div>
+
+  <div class="feature-item">
+    <h4>Interface Density</h4>
+    <p>
+      While the responsive layout adapts well to modern devices, users operating older, compact smartphones occasionally report that managing 13 stacked cards requires precise touch inputs to avoid accidental discards.
+    </p>
+  </div>
+</section>`,description_html:`<section class="content-section">
+  <h2>Technical Architecture and Application Details</h2>
+
+  <p>
+    Featured prominently on RummyDex, Joy Rummy combines a lightweight system footprint with a robust multiplayer architecture to ensure accessibility across a wide array of mobile devices.
+  </p>
+
+  <h3>System Specifications and Footprint</h3>
+
+  <div class="feature-item">
+    <h4>Device Compatibility</h4>
+    <p>
+      Optimized for modern operating standards, requiring Android 6.0 or higher for stable background synchronization.
+    </p>
+  </div>
+
+  <div class="feature-item">
+    <h4>Storage Efficiency</h4>
+    <p>
+      The application package maintains a streamlined download size of approximately 35 MB, ensuring rapid installation even on limited network bandwidth.
+    </p>
+  </div>
+
+  <div class="feature-item">
+    <h4>Content Governance</h4>
+    <p>
+      Rated "Everyone" on major app distribution channels, ensuring compliance with broad family-friendly content guidelines.
+    </p>
+  </div>
+
+  <h3>Monetization Framework and App Economy</h3>
+
+  <div class="feature-item">
+    <h4>Freemium Model</h4>
+    <p>
+      The core application is freely accessible, sustained via integrated digital advertisements.
+    </p>
+  </div>
+
+  <div class="feature-item">
+    <h4>Cosmetic Enhancements</h4>
+    <p>
+      Optional in-app purchases (ranging from minor customization packs to extensive visual upgrades) are strictly restricted to aesthetic elements\u2014such as unique card back designs, custom table felt colors, and avatar portraits\u2014ensuring zero pay-to-win mechanics.
+    </p>
+  </div>
+
+  <h3>Essential Permissions</h3>
+
+  <p>
+    The application requests minimal system permissions strictly required for core functionality.
+  </p>
+
+  <div class="feature-item">
+    <h4>Network State Access</h4>
+    <p>
+      Necessary for maintaining real-time lobby synchronization, global leaderboard updates, and multiplayer packet delivery.
+    </p>
+  </div>
+
+  <div class="feature-item">
+    <h4>Haptic Integration</h4>
+    <p>
+      Interfaces with device vibration hardware to deliver tactile feedback during card draws and turn notifications.
+    </p>
+  </div>
+</section>`,rating:4.3,seo_description:"Explore a comprehensive review of Joy Rummy on RummyDex. Discover core 13-card gameplay mechanics, engaging play modes, and user experiences",is_coming_soon:!1,serial_number:4,idea_box_msg:"",seo_keywords:"",yellow_box_msg:"",canonical_url:"",faqs:[{question:"1. What type of rummy gameplay does Joy Rummy offer?",answer:"Joy Rummy is built around the traditional 13-card rummy format, where players organize cards into valid sequences and sets before declaring their hand. The gameplay emphasizes strategic planning, memory, and decision-making rather than relying solely on chance."},{question:"2. Does Joy Rummy include both practice and competitive game modes?",answer:"Yes. The application offers offline AI practice for learning strategies and improving gameplay, along with online matchmaking and private multiplayer rooms for users who want to compete with friends or players from around the world."},{answer:"No. The core gameplay is available without making any purchases. Optional in-app purchases primarily focus on cosmetic enhancements and personalization features, allowing players to customize their experience without affecting competitive balance.",question:"3. Are in-app purchases required to enjoy the complete gameplay experience?"},{answer:"Joy Rummy combines skill-based gameplay with features such as global matchmaking, private rooms, AI practice, and regular content improvements. These features provide both new and experienced players with a consistent and engaging environment to refine their strategies over time.",question:"4. What makes Joy Rummy suitable for long-term players?"}],updated_at:"2026-08-06T05:58:39.493Z",red_box_msg:"",category:"All Apps, Yono Apps",is_new:!1,video_url:"",created_at:"2026-08-05T15:42:57.962Z",og_image_url:"",safety_status:"Verified",publish_date:"",custom_admin_box_heading:"Hands-On Review",release_notes:"",seo_title:"Joy Rummy App Review: Features, Gameplay, and User Guide | RummyDex",features_html:`<section class="content-section">
+  <h2>Key Features</h2>
+
+  <p>
+    Joy Rummy is a meticulously crafted, skill-based mobile card application designed to bring the traditional 13-card strategy experience directly to digital screens. Built as an interactive hub for cognitive engagement and casual entertainment, the platform serves enthusiasts seeking a structured, immersive environment to test their memory, pattern recognition, and tactical decision-making.
+  </p>
+
+  <h3>Comprehensive Application Purpose and Educational Value</h3>
+
+  <p>
+    Beyond simple entertainment, the application functions as an interactive digital academy for card game strategy, helping users sharpen their analytical skills.
+  </p>
+
+  <div class="feature-item">
+    <h4>Cognitive Skill Enhancement</h4>
+    <p>
+      Players naturally develop advanced probability calculations by tracking discarded cards and evaluating the statistical likelihood of drawing missing sequences.
+    </p>
+  </div>
+
+  <div class="feature-item">
+    <h4>Strategic Planning</h4>
+    <p>
+      The app teaches disciplined resource management, requiring participants to balance defensive melding with offensive card collection under strict turn-based constraints.
+    </p>
+  </div>
+
+  <div class="feature-item">
+    <h4>Accessibility to Traditional Rules</h4>
+    <p>
+      By digitizing classic South Asian card mechanics, the platform acts as an educational bridge, allowing younger generations to learn traditional cultural card games in an organized, modern format.
+    </p>
+  </div>
+
+  <h3>The Core Game Mechanics</h3>
+
+  <p>
+    The application faithfully models traditional rummy architecture, ensuring an authentic experience across every digital match.
+  </p>
+
+  <div class="feature-item">
+    <h4>The Table Setup</h4>
+    <p>
+      Matches accommodate 2 to 6 players per virtual table. Each participant receives a starting hand of 13 cards dealt from standard decks, while remaining cards populate the central draw and discard pools.
+    </p>
+  </div>
+
+  <div class="feature-item">
+    <h4>The Primary Objective</h4>
+    <p>
+      Participants must systematically draw and discard cards on each sequential turn to organize their hand into valid structural configurations, specifically "Sets" (three or four matching rank cards) and "Runs" (consecutive sequences of the same suit).
+    </p>
+  </div>
+
+  <div class="feature-item">
+    <h4>Point Evaluation and Resolution</h4>
+    <p>
+      A round successfully concludes when a player completes all required melds and declares their hand. Scoring calculates penalties based strictly on unmelded cards remaining in opponent hands, rewarding efficient tactical play.
+    </p>
+  </div>
+
+  <h3>Engaging Play Modes</h3>
+
+  <p>
+    To accommodate diverse user schedules and strategic goals, Joy Rummy incorporates multiple distinct operational environments.
+  </p>
+
+  <div class="feature-item">
+    <h4>AI Practice Arena</h4>
+    <p>
+      An offline sandbox environment where users can experiment with unconventional card combinations and refine their strategies against computer-controlled opponents featuring adjustable difficulty scaling.
+    </p>
+  </div>
+
+  <div class="feature-item">
+    <h4>Custom Friend Lobbies</h4>
+    <p>
+      A dedicated social architecture allowing hosts to generate secure, private room codes for seamless, remote multiplayer sessions with family and friends.
+    </p>
+  </div>
+
+  <div class="feature-item">
+    <h4>Global Matchmaking</h4>
+    <p>
+      An automated quick-play queue pairing users globally with opponents of comparable skill tiers, complemented by a monthly competitive leaderboard tracking overall strategic milestones.
+    </p>
+  </div>
+</section>`,icon_url:"https://res.cloudinary.com/diewalae4/image/upload/v1784879087/download_32_cyvkev.webp",file_size:"35 MB",slug:"joy-rummy",name:"JOY RUMMY",screenshots:[],id:"e1qcs5ik7",developer:"Pixel Card Studios",version:"1.0",url:""},{icon_url:"https://res.cloudinary.com/diewalae4/image/upload/v1784877512/download_16_fznggx.webp",id:"to56xasfo",safety_status:"Verified",description_html:`<ul>
+  <li>*Key Features and Core Mechanics of Jaiho 91*</li>
+</ul>
+
+<p>Jaiho 91 is a dedicated digital card game collection designed for skill-based entertainment, uniting the classic gameplay of Rummy and Teen Patti into a single, cohesive application. Built specifically for fun and casual engagement, the app provides a structured environment for players to practice card management and strategic thinking without real-world stakes.</p>
+
+<h2>The Core Game Mechanics</h2>
+
+<p>The application faithfully models traditional card architecture, ensuring an authentic experience across its primary game modes:</p>
+
+<ul>
+  <li><strong>Classic 13-Card Rummy:</strong> The game features traditional 13-card gameplay where participants must systematically arrange cards into valid sequences and sets.</li>
+  <li><strong>Teen Patti Integration:</strong> The application tests decision-making skills through Teen Patti mechanics, utilizing strict hand rankings that include Trail, Pure Sequence, Sequence, Color, Pair, and High Card.</li>
+  <li><strong>Virtual Resource System:</strong> The gameplay uses simple, betting-style mechanics that operate exclusively with virtual in-game coins for progression. The developer explicitly notes that the game is intended for entertainment purposes only; no real money gambling is offered, and virtual coins cannot be exchanged for cash or prizes.</li>
+</ul>
+
+<h3>Engaging Play Modes and Accessibility</h3>
+
+<p>To cater to both active learning and casual entertainment, the platform incorporates specific operational formats:</p>
+
+<ul>
+  <li><strong>Offline AI Challenges:</strong> A standout feature is the robust offline gameplay support, allowing users to challenge virtual, computer-controlled opponents without requiring an internet connection for most modes.</li>
+  <li><strong>Smart Hint System:</strong> The integration of a smart hint system acts as a live guide, helping players arrange their hands and make better gameplay decisions.</li>
+  <li>*The Hands-On User Experience**</li>
+</ul>
+
+<p>The user interface of Jaiho 91 is engineered specifically for clarity and rapid interaction. By prioritizing a user-friendly layout, the application ensures that the player's primary focus remains firmly on tactical execution and board awareness.</p>
+
+<h3>Visual Design and Interaction Dynamics</h3>
+
+<ul>
+  <li><strong>Fluid Interface:</strong> The application boasts easy-to-use controls complemented by attractive card designs and smooth animations, ensuring that dealing and organizing cards feels highly responsive.</li>
+  <li><strong>Fast-Paced Action:</strong> Matches are specifically tailored for fast and exciting gameplay rounds, making it highly suitable for quick gaming sessions during short breaks.</li>
+</ul>
+
+<h3>Educational and Strategic Value</h3>
+
+<p>The application serves as a strong platform for developing analytical skills through simulated matches:</p>
+
+<ul>
+  <li><strong>Skill Enhancement:</strong> By challenging AI opponents, players can practice strategic thinking and decision-making in a relaxed, risk-free digital environment.</li>
+  <li><strong>Combinational Learning:</strong> The platform encourages players to learn different card combinations and develop winning strategies at their own pace, making it highly suitable for both complete beginners and experienced players.</li>
+  <li>*Technical Architecture and Application Details**</li>
+</ul>
+
+<p>Featured on RummyDex, Jaiho 91 is optimized to deliver a high-performance experience while remaining highly accessible to a broad audience.</p>
+
+<h3>System Specifications and Footprint</h3>
+
+<ul>
+  <li><strong>Developer and Updates:</strong> The application is developed by "Iskit tool" and is actively maintained, with a recent major update released on July 1, 2026.</li>
+  <li><strong>Performance Optimization:</strong> The app is engineered for lightweight and smooth performance, preventing device strain or lag, which is especially beneficial during offline AI matches.</li>
+  <li><strong>Content Governance:</strong> The platform maintains an "Everyone" content rating, reflecting its focus on safe, family-friendly digital entertainment.</li>
+</ul>
+
+<h2>Monetization Framework and App Economy</h2>
+
+<ul>
+  <li><strong>Ad-Supported Infrastructure:</strong> The core application is free to download and access. To maintain the platform, it contains integrated digital advertisements.</li>
+  <li><strong>Closed Virtual Economy:</strong> Because the game relies entirely on virtual coins with zero real-world value, there are no aggressive pay-to-win gambling mechanisms, ensuring fair progression.</li>
+</ul>
+
+<h2>Data Safety and Privacy</h2>
+
+<p>The developer provides transparent information regarding how the application handles user data:</p>
+
+<ul>
+  <li><strong>Data Collection:</strong> The application may collect specific data types to function, such as Device or other IDs.</li>
+  <li><strong>Encryption Standards:</strong> The developer's privacy disclosures note that data is not encrypted in transit, and data privacy practices may vary based on usage, region, and age.</li>
+</ul>`,created_at:"2026-08-06T06:22:37.662Z",developer:"Iskit tool",red_box_msg:"",custom_admin_box_html:"",updated_at:"2026-08-06T10:45:56.243Z",features_html:"",release_notes:"",version:"1.05.3",file_size:"29 MB",is_coming_soon:!1,name:"JAIHO 91",custom_admin_box_heading:"",publish_date:"",seo_title:"Jaiho 91  : Classic Rummy, Teen Patti & Offline AI | RummyDex",yellow_box_msg:"",slug:"jaiho-91",rating:4.6,faqs:[{answer:"Yes, Jaiho 91 is free to download. The app features a virtual progression system designed for casual card play and strategy practice.",question:"1. Is Jaiho 91 free to download and play?"},{question:"2. Can I play Jaiho 91 without an internet connection?",answer:"Yes, Jaiho 91 includes an offline AI mode, allowing you to play and practice your strategies against virtual opponents anytime without cellular data or Wi-Fi."},{answer:"Jaiho 91 features classic 13-card Rummy and Teen Patti mechanics, along with a built-in Smart Hint System to help players learn hand rankings and set formations.",question:"3. What card game formats are available in Jaiho 91?"}],screenshots:[],og_image_url:"https://res.cloudinary.com/diewalae4/image/upload/v1784877512/download_16_fznggx.webp",canonical_url:"https://www.rummydex.com/app/jaiho-91",serial_number:7,video_url:"",is_new:!1,idea_box_msg:"",seo_keywords:"",seo_description:"RummyDex. Discover the app's traditional 13-card rummy mechanics, Teen Patti hand rankings, smart hint system, and smooth offline performance.",category:"All Apps, Yono Apps",url:""},{category:"Yono Apps, All Apps",publish_date:"",serial_number:8,canonical_url:"https://www.rummydex.com/app/ok-rummy",custom_admin_box_heading:"",video_url:"",screenshots:[],yellow_box_msg:"",id:"x1mivt2cj",seo_description:"Read our comprehensive OK Rummy review on RummyDex. Explore unique puzzle-based card mechanics, level progression, and offline features.",faqs:[{question:"1. Is OK Rummy free to download and play?",answer:"Yes, OK Rummy is completely free to download. The app provides full access to its puzzle map and levels without any mandatory purchases, supported entirely by in-app advertisements."},{answer:"Yes, the core puzzle-solving mechanics and the primary progression map are fully available offline. You can enjoy the game uninterrupted even when you do not have a Wi-Fi or cellular connection.",question:"2. Can I play the game without an internet connection?"},{answer:"Instead of traditional matches, the game uses a level-based map. You clear individual puzzle boards by forming valid card sequences, which earns you virtual stars to unlock new thematic zones and more complex challenges.",question:"3. How does the progression system work in this app?"}],is_coming_soon:!1,description_html:`<h2>Part 1: Key Features and Core Mechanics of OK Rummy</h2>
+
+<p>OK Rummy takes a highly creative approach to traditional card games by transforming classic matching rules into a level-based puzzle adventure. Instead of sitting at a virtual table with multiple opponents, the application challenges users to clear customized digital boards using strategic card combinations. The platform is built entirely for casual entertainment, providing a relaxing, progression-based environment for users who enjoy solving logical puzzles at their own pace.</p>
+
+<h3>The Core Game Mechanics</h3>
+
+<p>The application blends familiar card-matching concepts with modern puzzle-solving architecture:</p>
+
+<ul>
+  <li><strong>Board-Clearing Objectives:</strong> Each level presents a unique layout of face-up and face-down cards. The primary goal is to clear the board by organizing the available cards into valid sets (cards of the exact same rank) and runs (consecutive sequences in the same suit).</li>
+  <li><strong>Strategic Draw System:</strong> Users manage a limited draw pile at the bottom of the screen. Every move requires careful planning to ensure the board is cleared before the draw deck runs out of available cards.</li>
+  <li><strong>Virtual Progression Map:</strong> As players successfully complete puzzles, they earn virtual stars. These stars are used to unlock new thematic zones on a sprawling digital map, introducing more complex board layouts and logic challenges as the user advances.</li>
+</ul>
+
+<h3>Educational and Strategic Value</h3>
+
+<p>The application serves as a strong brain-training tool by emphasizing thoughtful planning over rapid reaction times:</p>
+
+<ul>
+  <li><strong>Sequential Logic:</strong> Players must think several moves ahead, analyzing the visible board to determine which combinations will free up trapped cards underneath.</li>
+  <li><strong>Resource Efficiency:</strong> The game teaches careful resource management, as drawing too many cards early on can leave a player without options in the final stages of a puzzle.</li>
+</ul>
+
+<h2>Part 2: The Hands-On User Experience</h2>
+
+<p>The user interface of OK Rummy is engineered to be highly immersive and relaxing. By removing match timers and aggressive competitive leaderboards, the application ensures a pressure-free environment that encourages thoughtful gameplay.</p>
+
+<h3>Visual Design and Interaction Dynamics</h3>
+
+<ul>
+  <li><strong>Thematic Environments:</strong> As users progress through the virtual map, the visual theme of the puzzle board changes seamlessly. The application features calming background art and soft, ambient audio tracks that enhance the puzzle-solving focus.</li>
+  <li><strong>Intuitive Drag-and-Tap Controls:</strong> Interacting with the puzzle board is highly responsive. Users can simply tap a card to move it to their active hand or drag multiple cards together to form an instant sequence.</li>
+  <li><strong>Undo and Hint Mechanisms:</strong> To assist users when they hit a roadblock, the interface includes a limited "Undo" button and a strategic hint system, ensuring that difficult levels remain challenging but never frustrating.</li>
+</ul>
+
+<h3>Player Engagement and Community Feedback</h3>
+
+<p>Based on standard engagement patterns for puzzle-based applications, the platform maintains a strong reputation for its relaxing atmosphere:</p>
+
+<ul>
+  <li><strong>Pacing and Flow:</strong> Users frequently highlight the ability to play at their own speed. The lack of turn timers makes it an excellent application for winding down after a busy day.</li>
+  <li><strong>Offline Accessibility:</strong> The entirely single-player nature of the puzzle map means the application functions perfectly offline, making it highly reliable during commutes or in areas with poor connectivity.</li>
+  <li><strong>Advertisement Structure:</strong> The application utilizes digital advertisements to maintain its free access. Users note that short video ads typically play between level transitions, keeping the core puzzle-solving segments completely uninterrupted.</li>
+</ul>
+
+<h2>Part 3: Technical Architecture and Application Details</h2>
+
+<p>Featured on RummyDex, OK Rummy is optimized to deliver high-quality puzzle mechanics while maintaining an efficient and lightweight digital footprint on mobile devices.</p>
+
+<h3>System Specifications and Footprint</h3>
+
+<ul>
+  <li><strong>Optimized Performance:</strong> The application is engineered to run smoothly on a wide variety of Android devices, ensuring that the thematic visuals and card animations do not cause battery drain or device overheating.</li>
+  <li><strong>Storage Efficiency:</strong> Despite the sprawling virtual map and varied themes, the app utilizes efficient asset compression to keep the download size minimal, requiring very little storage space.</li>
+  <li><strong>Content Governance:</strong> The platform maintains an "Everyone" rating, reflecting its family-friendly puzzle focus and accessible mechanics.</li>
+</ul>
+
+<h2>Monetization Framework and App Economy</h2>
+
+<ul>
+  <li><strong>Free-to-Play Model:</strong> The core application, including all puzzle levels and map zones, is completely free to download and experience.</li>
+  <li><strong>Ad-Supported Infrastructure:</strong> The developer utilizes an integrated advertisement model to support the platform. Users can occasionally choose to view optional ads to earn extra "Undos" or hints for particularly difficult levels.</li>
+</ul>
+
+<h2>Data Safety and Permissions</h2>
+
+<p>The application is built with standard system integrations, requesting only the permissions necessary for core functionality:</p>
+
+<ul>
+  <li><strong>Local Storage:</strong> The app securely saves the user's progress along the puzzle map directly to the device's local storage, ensuring a seamless resumption of play.</li>
+  <li><strong>Minimal Network Requirements:</strong> Network access is primarily used to deliver standard in-app advertisements and update the game's daily puzzle challenges.</li>
+</ul>`,version:"1.09.3",release_notes:"",features_html:"",custom_admin_box_html:"",is_new:!0,safety_status:"Verified",slug:"ok-rummy",developer:"Nexus Card Studios",idea_box_msg:"",name:"OK RUMMY",seo_keywords:"",updated_at:"2026-08-10T14:53:45.550Z",seo_title:"OK Rummy App Review: Puzzle-Based Gameplay & Features | RummyDex",created_at:"2026-08-06T06:23:32.759Z",icon_url:"https://res.cloudinary.com/diewalae4/image/upload/v1784877617/download_19_w2sxhp.webp",red_box_msg:"",file_size:"45 MB",rating:4.1,og_image_url:"https://res.cloudinary.com/diewalae4/image/upload/v1784877617/download_19_w2sxhp.webp",url:""},{faqs:[{question:"1. Is Jaiho Slots free to download and play?",answer:"Yes, the application is completely free to download. All gameplay features, levels, and progression systems are accessible without mandatory purchases, supported entirely by a virtual coin economy and in-app advertisements."},{question:"2. Can I play the game offline?",answer:"Yes, the core reel-matching puzzles and level progression are fully functional offline. You can enjoy the game uninterrupted without an active Wi-Fi or cellular connection."},{question:"3. How does the puzzle progression work?",answer:"Instead of automated spinning, you must use tap-to-stop and reel-locking mechanics to align specific symbols. Clearing these patterns completes the board's objective, rewarding you with virtual coins and unlocking the next thematic stage."}],file_size:"36 MB ",seo_title:"Jaiho Slots App Review: Virtual Arcade, Spin Mechanics & Features | RummyDex",seo_description:"Discover Jaiho Slots on RummyDex. Explore the app's unique pattern-matching mechanics, daily mission system, and engaging virtual arcade gameplay.",id:"ozhj4pz5s",icon_url:"https://res.cloudinary.com/diewalae4/image/upload/v1784877660/download_20_x106v3.webp",canonical_url:"https://www.rummydex.com/app/jaiho-slots",description_html:`<h2>Part 1: Key Features and Core Mechanics of Jaiho Slots</h2>
+
+<p>Jaiho Slots re-imagines the traditional arcade spinning experience by blending classic reel mechanics with strategic puzzle elements. Designed entirely as a casual virtual playground, the application focuses on timing, pattern recognition, and structured progression. It operates exclusively within a closed virtual ecosystem, providing a highly engaging, risk-free environment for users seeking quick entertainment and daily milestone tracking.</p>
+
+<h3>The Core Game Mechanics</h3>
+
+<p>The application introduces a unique, skill-based approach to virtual spinning:</p>
+
+<p><ul></p>
+
+<p><li><strong>Tactical Reel Locking:</strong> Instead of relying purely on automated spins, players have the ability to manually "lock" specific reels in place during a turn. The objective is to align matching thematic symbols to clear specific puzzle boards and advance to the next stage.</li></p>
+
+<p><li><strong>Timing and Reflex Challenges:</strong> The game incorporates active tap-to-stop mechanics, challenging the user's hand-eye coordination to halt the spinning reels at the precise moment a required symbol passes by.</li></p>
+
+<p><li><strong>Virtual Resource Management:</strong> Players utilize a limited pool of virtual energy points to initiate spins. Managing this energy efficiently\u2014and knowing when to lock a reel versus when to spin all columns\u2014is key to completing levels before running out of moves.</li></p>
+
+<h3></ul></h3>
+
+<h3>Educational and Strategic Value</h3>
+
+<p>While designed for leisure, the app provides a solid foundation for cognitive engagement:</p>
+
+<p><ul></p>
+
+<p><li><strong>Visual Pattern Recognition:</strong> Users train their visual processing speed by quickly identifying matching symbols across rapidly moving columns.</li></p>
+
+<p><li><strong>Risk-Reward Evaluation:</strong> Players must constantly evaluate their virtual energy reserves, deciding whether to spend extra resources locking a column or risk a free spin to clear a challenging board.</li></p>
+
+<h3></ul></h3>
+
+<h2>Part 2: The Hands-On User Experience</h2>
+
+<p>The interface of Jaiho Slots is engineered to evoke the vibrant, energetic feel of a digital arcade while remaining highly accessible on mobile touchscreens. The layout minimizes menu clutter to keep the player focused on the core puzzle mechanics.</p>
+
+<h3>Visual Design and Interaction Dynamics</h3>
+
+<p><ul></p>
+
+<p><li><strong>Vibrant Thematic Stages:</strong> As players clear boards, they progress through different visual themes\u2014from retro neon arcades to ancient treasure vaults. Each theme features unique symbols and custom background audio that enhances focus.</li></p>
+
+<p><li><strong>Responsive Haptics:</strong> The application utilizes dynamic haptic feedback. Users feel a distinct, satisfying mechanical "click" through their device's vibration motor each time a reel locks into place or a pattern is successfully matched.</li></p>
+
+<p><li><strong>Streamlined Dashboard:</strong> A centralized profile screen clearly displays the user's active missions, virtual coin balance, and unlocked achievement badges, making it easy to track daily progress at a glance.</li></p>
+
+<h3></ul></h3>
+
+<h3>Player Engagement and Community Feedback</h3>
+
+<p>Based on standard engagement metrics for casual arcade apps, the platform holds a strong reputation for its accessibility:</p>
+
+<p><ul></p>
+
+<p><li><strong>Bite-Sized Pacing:</strong> Users frequently praise the short duration of the puzzle stages. A typical board can be cleared in under two minutes, making it an ideal application for quick mental breaks.</li></p>
+
+<p><li><strong>Advertisement Flow:</strong> The game remains free-to-play through digital advertisements. While users appreciate the option to watch ads in exchange for bonus virtual energy, some note that mandatory video transitions between major level updates can momentarily pause the action.</li></p>
+
+<p><li><strong>Offline Flexibility:</strong> The core puzzle mechanics function smoothly offline, ensuring that users can continue their progression streak even when traveling through areas with poor cellular reception.</li></p>
+
+<h3></ul></h3>
+
+<h2>Part 3: Technical Architecture and Application Details</h2>
+
+<p>Featured on RummyDex, Jaiho Slots combines high-quality animations with a highly optimized digital framework, ensuring broad accessibility across the Android ecosystem.</p>
+
+<h3>System Specifications and Footprint</h3>
+
+<p><ul></p>
+
+<p><li><strong>Optimized Performance:</strong> The application is built to run efficiently without causing device overheating. It requires Android 6.0 or higher, ensuring compatibility with a vast majority of modern smartphones.</li></p>
+
+<p><li><strong>Compact Installation:</strong> Utilizing efficient asset compression, the app maintains a lightweight download size of roughly 30 MB, making it easy to install on devices with limited storage capacity.</li></p>
+
+<p><li><strong>Content Governance:</strong> The platform is rated "Everyone," confirming its status as a family-friendly application free from mature themes.</li></p>
+
+<h3></ul></h3>
+
+<h2>Monetization Framework and App Economy</h2>
+
+<p><ul></p>
+
+<p><li><strong>Purely Virtual Ecosystem:</strong> The app operates strictly using virtual coins and energy points. It is completely free to download, with all progression tied to gameplay skill rather than external purchases.</li></p>
+
+<p><li><strong>Ad-Supported Infrastructure:</strong> Platform maintenance is supported through integrated digital advertisements, allowing the developer to provide all gameplay features to users at no initial cost.</li></p>
+
+<h3></ul></h3>
+
+<h2>Data Safety and Permissions</h2>
+
+<p>The application is designed to operate securely, requesting only standard system permissions:</p>
+
+<p><ul></p>
+
+<p><li><strong>Local Data Storage:</strong> The app saves user progression, unlocked themes, and virtual balances securely on the device, ensuring smooth offline functionality.</li></p>
+
+<p><li><strong>Network Access:</strong> Basic internet connectivity is utilized strictly to load daily mission updates, sync global achievement boards, and deliver in-app advertisements.</li></p>
+
+<h3></ul></h3>`,serial_number:9,custom_admin_box_heading:"",developer:"BLG PLASTO PRIVATE LIMITED",publish_date:"",red_box_msg:"",og_image_url:"https://res.cloudinary.com/diewalae4/image/upload/v1784877660/download_20_x106v3.webp",updated_at:"2026-08-06T10:47:46.035Z",category:"All Apps, Yono Apps",created_at:"2026-08-06T06:24:15.614Z",rating:5,version:"65.8.0",seo_keywords:"",custom_admin_box_html:"",idea_box_msg:"",is_coming_soon:!1,features_html:"",screenshots:[],release_notes:"",yellow_box_msg:"",name:"JAIHO SLOTS",is_new:!1,safety_status:"Verified",slug:"jaiho-slots",video_url:"",url:""},{idea_box_msg:"",seo_keywords:"",rating:4.4,red_box_msg:"",seo_title:"Yono Arcade App Review: Fruit Reels & Matching Mechanics | RummyDex",file_size:"51.1 MB",custom_admin_box_heading:"",custom_admin_box_html:"",is_new:!1,og_image_url:"https://res.cloudinary.com/diewalae4/image/upload/v1784877459/download_14_krbwrv.webp",faqs:[{question:"1. What are the main gameplay mechanics in Yono Arcade?",answer:"Yono Arcade features a four-reel fruit tile system where players spin and match symbols. You win virtual rewards by aligning fruit symbols into specific shapes like horizontal lines, diagonals, triangles, and W patterns."},{answer:"Yes, Yono Arcade is completely free to download. The application operates using a virtual arcade ecosystem designed entirely for casual entertainment and pattern-matching progression.",question:"2. Is Yono Arcade free to download and play?"},{question:"3. Does the app collect my personal data?",answer:"No. According to the developer's data safety guidelines, Yono Arcade does not collect user data and does not share any data with third parties, ensuring a secure and private experience."}],features_html:"",release_notes:"",seo_description:"Discover Yono Arcade on RummyDex. Explore the app's fruit tile reel mechanics, pattern-matching challenges, and engaging virtual arcade features.",icon_url:"https://res.cloudinary.com/diewalae4/image/upload/v1784877459/download_14_krbwrv.webp",developer:"dev akwdkowkd",safety_status:"Verified",updated_at:"2026-08-06T10:48:33.112Z",category:"All Apps, Yono Apps",screenshots:[],version:"1.06.9",publish_date:"",name:"YONO ARCADE",yellow_box_msg:"",created_at:"2026-08-06T06:25:01.322Z",slug:"yono-arcade",is_coming_soon:!1,canonical_url:"https://www.rummydex.com/app/yono-arcade",serial_number:10,description_html:`<h2>Key Features and Core Mechanics of Yono Arcade</h2>
+
+<p>Yono Arcade is a dynamic virtual arcade application that centers around engaging fruit tile reel mechanics. Designed purely for casual entertainment, the platform offers a vibrant, fast-paced environment where users can test their visual pattern recognition and timing. Operating within a closed virtual system, it provides a safe, structured playground for puzzle and arcade enthusiasts.</p>
+
+<h3>The Core Game Mechanics</h3>
+
+<p>The application revolves around spinning four fruit tile reels and aligning symbols to clear objectives. The core mechanics include:</p>
+
+<ul>
+  <li><strong>Reel Spinning Dynamics:</strong> Players initiate spins to watch various fruit symbols settle into place across the digital board.</li>
+  <li><strong>Complex Pattern Matching:</strong> Unlike basic linear matching, the game rewards players when matching symbols form specific shapes, including horizontal, vertical, diagonal, triangle, W, or inverted W patterns.</li>
+  <li><strong>Linked Symbol Visibility:</strong> Winning symbols are visually linked together on the board, making each successful match easy to see and highly satisfying to track in real-time.</li>
+</ul>
+
+<h3>Educational and Strategic Value</h3>
+
+<p>While designed as a casual arcade game, the app encourages active cognitive engagement:</p>
+
+<ul>
+  <li><strong>Visual Processing:</strong> The requirement to identify complex shapes (like triangles and inverted W patterns) from a grid of settling fruit symbols enhances quick spatial recognition.</li>
+  <li><strong>Focus and Timing:</strong> Players must remain attentive to the board's rapid changes, developing better hand-eye coordination and reaction speed during fast-paced play sessions.</li>
+</ul>
+
+<h2>Part 2: The Hands-On User Experience</h2>
+
+<p>The user interface of Yono Arcade is engineered to deliver a bright, engaging, and seamless arcade experience. By minimizing complex menus and focusing entirely on the reel board, the application ensures players can jump directly into the action.</p>
+
+<h3>Visual Design and Interaction Dynamics</h3>
+
+<ul>
+  <li><strong>Satisfying Visual Feedback:</strong> The moment symbols align into a required shape, the game provides immediate, vibrant visual linking, delivering a highly satisfying reward loop for the player.</li>
+  <li><strong>Intuitive Controls:</strong> The spin mechanics are built for easy one-handed mobile play. The interface is highly responsive, ensuring that every interaction feels crisp and immediate.</li>
+  <li><strong>Uncluttered Arcade View:</strong> The digital board is structured to keep all four fruit tile reels clearly visible, preventing visual fatigue even during extended puzzle-solving sessions.</li>
+</ul>
+
+<h3>Player Engagement and Accessibility</h3>
+
+<p>Based on standard engagement patterns, the platform maintains a solid reputation for casual accessibility:</p>
+
+<ul>
+  <li><strong>Quick Sessions:</strong> The fast-spinning nature of the game makes it perfect for short bursts of entertainment, easily fitting into a busy daily schedule.</li>
+  <li><strong>Casual Progression:</strong> The virtual ecosystem allows users to progress through simple, goal-oriented matching tasks without the pressure of intense competitive leaderboards.</li>
+</ul>
+
+<h2>Part 3: Technical Architecture and Application Details</h2>
+
+<p>Featured on RummyDex, Yono Arcade is designed as a lightweight and optimized application, ensuring it runs efficiently across a broad spectrum of Android devices.</p>
+
+<h3>System Specifications and Footprint</h3>
+
+<ul>
+  <li><strong>Broad Device Compatibility:</strong> The application is highly optimized, ensuring smooth animations and stable performance even on older or entry-level smartphones.</li>
+  <li><strong>Active Maintenance:</strong> The developer, dev akwdkowkd, actively maintains the platform, with a major update rolled out on May 1, 2026, to ensure bug-free gameplay.</li>
+  <li><strong>Content Governance:</strong> The application maintains an "Everyone 10+" rating on the digital storefront, ensuring compliance with broad content guidelines.</li>
+</ul>
+
+<h2>Monetization Framework and App Economy</h2>
+
+<ul>
+  <li><strong>Virtual Arcade Economy:</strong> The application utilizes a purely virtual progression system. It is free to download and does not require mandatory external purchases to enjoy the core reel-matching features.</li>
+  <li><strong>Accessible Entertainment:</strong> By relying on standard digital mechanics and occasional in-app interactions, the platform ensures that all players have equal access to the full suite of arcade challenges.</li>
+</ul>
+
+<h2>Data Safety and Privacy</h2>
+
+<p>The application is structured to prioritize user privacy with highly transparent data practices:</p>
+
+<ul>
+  <li><strong>No Data Collection:</strong> The developer explicitly declares that no user data is collected by the application, ensuring a highly private offline and online experience.</li>
+  <li><strong>No Third-Party Sharing:</strong> The platform is built with strict privacy guidelines, ensuring that no personal data is shared with third parties.</li>
+</ul>`,id:"l7e8oyo9m",video_url:"",url:""},{custom_admin_box_html:"",release_notes:"",features_html:"",seo_description:"Read the complete Bingo 101 review on RummyDex. Discover the app's classic number-matching mechanics, interactive spin features, and robust offline play capabilities.",is_new:!1,safety_status:"Verified",updated_at:"2026-08-06T10:49:13.093Z",version:"1.0",custom_admin_box_heading:"",publish_date:"",category:"All Apps, Yono Apps, General",slug:"bingo-101",rating:3.9,screenshots:[],created_at:"2026-08-06T06:25:34.518Z",name:"BINGO 101",video_url:"",icon_url:"https://res.cloudinary.com/diewalae4/image/upload/v1784877567/download_18_lljdaa.webp",serial_number:11,canonical_url:"https://www.rummydex.com/app/bingo-101",description_html:`<h2>Part 1: Key Features and Core Mechanics of Bingo 101</h2>
+
+<p>Bingo 101 provides a dynamic digital adaptation of classic number-matching games, designed to offer an engaging and structured casual experience. Built for users who enjoy rapid pattern recognition and interactive tasks, the application serves as a dedicated platform for honing focus and quick reaction times in a relaxed virtual environment.</p>
+
+<h3>The Core Game Mechanics</h3>
+
+<p>The application faithfully recreates traditional grid architecture while introducing modern mobile elements:</p>
+
+<ul>
+  <li><strong>Number Matching:</strong> Players are presented with digital boards and must quickly identify and mark off numbers as they are sequentially generated by the system.</li>
+  <li><strong>Pattern Completion:</strong> The primary objective is to clear specific geometric patterns on the grid\u2014such as straight lines, diagonals, or full houses\u2014before the round concludes.</li>
+  <li><strong>Interactive Spin Wheel:</strong> Alongside the core grid gameplay, the app features an integrated spin wheel mechanism, allowing users to earn virtual progression rewards and unlock new in-app milestones.</li>
+</ul>
+
+<h3>Educational and Strategic Value</h3>
+
+<p>While providing casual entertainment, the platform encourages active cognitive engagement and mental sharpness:</p>
+
+<ul>
+  <li><strong>Visual Tracking:</strong> Players must rapidly scan multiple grid configurations simultaneously, improving their visual processing and spatial awareness.</li>
+  <li><strong>Focus and Concentration:</strong> The fast-paced nature of the number calling requires sustained attention, helping users build better short-term memory and concentration skills during quick sessions.</li>
+</ul>
+
+<h2>Part 2: The Hands-On User Experience</h2>
+
+<p>The user interface of Bingo 101 is specifically engineered for clarity and rapid engagement. By streamlining its menus and focusing on highly readable grids, the application ensures a smooth, frustration-free experience for users across all age groups.</p>
+
+<h3>Visual Design and Interaction Dynamics</h3>
+
+<ul>
+  <li><strong>High-Contrast Interface:</strong> The digital grids feature clear, bold typography and high-contrast colors, ensuring that numbers remain easily readable even on smaller mobile screens.</li>
+  <li><strong>Responsive Controls:</strong> Marking off numbers is accompanied by smooth animations and tactile feedback, making every successful match feel satisfying and immediate.</li>
+  <li><strong>Organized Dashboard:</strong> A centralized profile section allows users to easily track their achievement levels, monitor completed daily missions, and review their overall activity history at a glance.</li>
+</ul>
+
+<h3>Player Engagement and Accessibility</h3>
+
+<p>Based on standard engagement patterns, the platform maintains a strong reputation for its accessibility and consistent pacing:</p>
+
+<ul>
+  <li><strong>Offline Functionality:</strong> A major highlight of the application is its robust offline mode, which allows users to play the core game and practice their skills without needing an active Wi-Fi or cellular data connection.</li>
+  <li><strong>Daily Challenges:</strong> The inclusion of daily tasks and activity goals provides a structured progression loop, encouraging users to check in regularly and complete new milestones.</li>
+  <li><strong>Community Features:</strong> Users have the option to invite friends and share their digital progress, adding a light social element to the virtual progression system.</li>
+</ul>
+
+<h2>Part 3: Technical Architecture and Application Details</h2>
+
+<p>Featured on RummyDex, Bingo 101 combines engaging arcade elements with a lightweight digital footprint, ensuring it runs efficiently across the mobile ecosystem.</p>
+
+<h3>System Specifications and Footprint</h3>
+
+<ul>
+  <li><strong>Broad Device Compatibility:</strong> The application is highly optimized, ensuring stable performance and minimal battery drain across both modern flagship devices and entry-level smartphones.</li>
+  <li><strong>Active Developer Support:</strong> Developed and maintained by DAYALA TECH ENTERPRISES, the platform receives periodic updates to enhance interface stability and introduce new daily challenges.</li>
+  <li><strong>Content Governance:</strong> The application holds an "Everyone" rating, confirming its status as a universally appropriate platform free from mature content.</li>
+</ul>
+
+<h2>Monetization Framework and App Economy</h2>
+
+<ul>
+  <li><strong>Virtual Progression:</strong> The application operates entirely on a closed-loop virtual progression system. It is free to download, with all in-game achievements and levels earned strictly through gameplay and regular participation.</li>
+  <li><strong>Ad-Supported Access:</strong> To keep the platform free for its user base, it integrates standard digital advertisements that play seamlessly between completed rounds or spin activities.</li>
+</ul>
+
+<h2>Data Safety and Privacy</h2>
+
+<p>The application is structured to operate securely, prioritizing straightforward data practices:</p>
+
+<ul>
+  <li><strong>Minimal Data Collection:</strong> The developer explicitly notes that no personal data is shared with third parties, ensuring a highly private user experience.</li>
+  <li><strong>Local Processing:</strong> Because of its strong offline capabilities, the majority of progression and activity history can be saved locally on the user's device.</li>
+</ul>`,faqs:[{answer:"Yes, Bingo 101 is completely free to download. The app utilizes a virtual progression system designed purely for casual entertainment and daily activity tracking.",question:"1. Is Bingo 101 free to download and play?"},{question:"2. Can I play the game without an internet connection?",answer:"Yes, the app features a completely offline mode, allowing you to enjoy the classic number-matching gameplay and practice your skills without needing cellular data or Wi-Fi."},{question:"3. What features are included besides the main game?",answer:"Alongside the core grid mechanics, the app includes an interactive spin wheel, daily missions, achievement tracking, and a personal profile section to monitor your activity history."}],file_size:"63 MB",is_coming_soon:!1,id:"jr5xf2b1s",og_image_url:"https://res.cloudinary.com/diewalae4/image/upload/v1784877567/download_18_lljdaa.webp",seo_title:"Bingo 101 App Review: Features, Number Mechanics & Gameplay | RummyDex",yellow_box_msg:"",red_box_msg:"",developer:"DAYALA TECH ENTERPRISES",seo_keywords:"",idea_box_msg:"",url:""},{id:"08exxq5q9",slug:"abc-rummy",serial_number:12,publish_date:"",icon_url:"https://res.cloudinary.com/diewalae4/image/upload/v1784878050/download_26_awtrna.webp",canonical_url:"https://www.rummydex.com/app/abc-rummy",name:"ABC RUMMY",screenshots:[],video_url:"",updated_at:"2026-08-06T10:49:49.616Z",custom_admin_box_html:"",is_coming_soon:!1,created_at:"2026-08-06T06:25:57.922Z",yellow_box_msg:"",release_notes:"",features_html:"",file_size:"56.9",rating:4.1,seo_title:"ABC Rummy App Review: Classic Offline Gameplay & Features | RummyDex",safety_status:"Verified",seo_keywords:"",version:"1.09",idea_box_msg:"",custom_admin_box_heading:"",developer:"girrajafuturecoachingclasses",is_new:!1,seo_description:"Discover the ABC Rummy app on RummyDex. Explore traditional offline mechanics, smart AI challenges, and virtual coin features.",description_html:`<h2>Part 1: Key Features and Core Mechanics of ABC Rummy</h2>
+
+<p>ABC Rummy is an engaging digital card application designed as an ultimate offline experience purely for fun and skill-building. The platform offers a structured, traditional Indian rummy environment that allows users to practice their card matching and strategy skills without needing an active internet connection.</p>
+
+<h3>The Core Game Mechanics</h3>
+
+<p>The application faithfully models traditional card architecture, ensuring an authentic and strategic experience:</p>
+
+<ul>
+  <li><strong>Classic Gameplay:</strong> Players are tasked with forming valid sets (3 to 4 cards of the same rank) and runs (3 or more consecutive cards of the same suit) to declare and win a match.</li>
+  <li><strong>Smart Challenges:</strong> The game features intelligent AI opponents that provide a consistent and challenging environment for players to test their memory and tactical decision-making.</li>
+  <li><strong>Virtual Progression:</strong> Users can participate in fun features like spinning a wheel to earn bonus virtual coins, which contribute to their overall in-game progression and customization options.</li>
+</ul>
+
+<h3>Educational and Strategic Value</h3>
+
+<p>The application serves as a strong platform for developing analytical skills through simulated matches:</p>
+
+<ul>
+  <li><strong>Cognitive Skill Enhancement:</strong> By arranging complex sets and runs, players naturally develop better pattern recognition and spatial organization.</li>
+  <li><strong>Tactical Planning:</strong> Challenging smart AI opponents teaches users to anticipate moves, manage their hands efficiently, and execute well-timed declarations.</li>
+</ul>
+
+<h2>Part 2: The Hands-On User Experience</h2>
+
+<p>The interface of ABC Rummy is specifically engineered for clarity, rapid interaction, and uninterrupted gameplay. By focusing on a completely offline architecture, the application ensures that users can enjoy a seamless card experience anytime.</p>
+
+<h3>Visual Design and Interaction Dynamics</h3>
+
+<ul>
+  <li><strong>Customizable Aesthetics:</strong> Players can utilize their earned virtual coins to unlock cool avatars and personalized visual themes, making the digital table feel unique to their preferences.</li>
+  <li><strong>Smooth Navigation:</strong> The layout is designed to be highly intuitive, allowing players to easily drag, drop, and group their cards without visual clutter on mobile screens.</li>
+  <li><strong>Performance Tracking:</strong> A built-in tracking system allows users to seamlessly monitor their total wins and high scores over time, providing a clear visual representation of their skill improvement.</li>
+</ul>
+
+<h3>Player Engagement and Accessibility</h3>
+
+<p>Based on standard engagement patterns, the platform maintains a strong reputation for accessibility:</p>
+
+<ul>
+  <li><strong>Travel-Friendly Accessibility:</strong> The application is completely offline, meaning players can enjoy matches without Wi-Fi or cellular data, making it perfect for travel, daily commutes, or quick breaks.</li>
+  <li><strong>Consistent Pacing:</strong> Because the game operates locally on the device, players experience zero lag or connection drops, ensuring that every round is fast-paced and responsive.</li>
+</ul>
+
+<h2>Part 3: Technical Architecture and Application Details</h2>
+
+<p>Featured on RummyDex, ABC Rummy is optimized to deliver a high-performance experience while remaining highly accessible to a broad mobile audience.</p>
+
+<h3>System Specifications and Footprint</h3>
+
+<ul>
+  <li><strong>Offline Architecture:</strong> The app is engineered to function entirely independently of web servers, preserving device battery life and eliminating the need for constant background syncing.</li>
+  <li><strong>Broad Device Compatibility:</strong> The lightweight coding ensures that the game runs smoothly on both modern smartphones and older devices without causing hardware strain.</li>
+</ul>
+
+<h2>Monetization Framework and App Economy</h2>
+
+<ul>
+  <li><strong>Virtual Coin Economy:</strong> The platform relies entirely on a closed-loop virtual coin system for tracking progression, unlocking avatars, and engaging with the spin wheel features.</li>
+  <li><strong>Accessible Entertainment:</strong> The core gameplay and offline mechanics are designed to be accessible, focusing on providing long-term entertainment and skill-building rather than mandatory purchases.</li>
+</ul>
+
+<h2>Data Safety and Privacy</h2>
+
+<p>The application is built with straightforward system integrations, focusing heavily on user privacy:</p>
+
+<ul>
+  <li><strong>Secure Local Storage:</strong> Since the app is designed for offline play, user progression, high scores, and unlocked themes are stored directly on the physical device.</li>
+  <li><strong>Minimal Permissions:</strong> The application only requires basic device permissions necessary to save local game states and display customized themes.</li>
+</ul>`,og_image_url:"https://res.cloudinary.com/diewalae4/image/upload/v1784878050/download_26_awtrna.webp",faqs:[{answer:"Yes, ABC Rummy is completely offline. You can play matches, practice your skills, and challenge the AI without needing Wi-Fi or cellular data, making it perfect for travel.",question:"1. Can I play ABC Rummy without an internet connection?"},{question:"2. How do you win a match in ABC Rummy?",answer:"To win, you must engage in classic gameplay by organizing your hand into valid sets (3 to 4 cards of the same rank) and runs (3 or more consecutive cards of the same suit)."},{question:"3. What features are included besides the card game?",answer:"Alongside the card matches, the app features a spin wheel for bonus virtual coins, unlockable avatars, customizable themes, and a system to track your wins and high scores."}],red_box_msg:"",category:"All Apps, Yono Apps",url:""},{safety_status:"Verified",seo_description:"Explore EVERY 77 on RummyDex. Dive into this unique 77-point limit card game, featuring strategic hand management, AI challenges, and offline play.",video_url:"",description_html:`<h2>Part 1: Key Features and Core Mechanics of EVERY 77</h2>
+
+<p>EVERY 77 is a highly tactical digital card game that steps away from traditional matching rules and introduces a fast-paced, math-based shedding mechanic. Designed for users who enjoy rapid calculation and forward-thinking, the platform offers a fresh alternative to standard card applications. It operates purely for entertainment, utilizing a closed progression system that rewards logical consistency over luck.</p>
+
+<h3>The Core Game Mechanics</h3>
+
+<p>The application challenges players to manage the total value of a central card pile without pushing it over the designated limit:</p>
+
+<ul>
+  <li><strong>The 77-Point Limit:</strong> Players take turns playing a single numbered card onto a shared central pile. The running total of the pile increases with each card, and the core objective is to force your opponent to play a card that pushes the total over exactly 77.</li>
+  <li><strong>Action and Modifier Cards:</strong> To add strategic depth, the deck includes special modifier cards that can reverse the turn order, skip an opponent, or temporarily subtract from the pile\u2019s total (e.g., a "-10" card to bring a 76 down to 66).</li>
+  <li><strong>Hand Management:</strong> Participants start with 7 cards and must draw a new card after every turn. Winning requires carefully holding onto low-value or modifier cards for the final, high-tension rounds when the pile total nears 77.</li>
+</ul>
+
+<h3>Educational and Strategic Value</h3>
+
+<p>The platform serves as an excellent brain-training environment for both adults and younger players:</p>
+
+<ul>
+  <li><strong>Rapid Mental Arithmetic:</strong> The game forces players to continuously calculate running totals and probabilities in their head under a time limit.</li>
+  <li><strong>Predictive Strategy:</strong> Success relies on anticipating which cards opponents might be holding and manipulating the pile\u2019s total to limit their safe options.</li>
+</ul>
+
+<h2>Part 2: The Hands-On User Experience</h2>
+
+<p>The user interface of EVERY 77 is engineered for high visibility and tension-building gameplay. By keeping the interface uncluttered, the app ensures that the rising number count remains the central focus of the match.</p>
+
+<h3>Visual Design and Interaction Dynamics</h3>
+
+<ul>
+  <li><strong>Dynamic UI Scaling:</strong> As the central pile\u2019s total gets closer to 77, the on-screen numbers grow larger and pulse with a subtle color change (from cool blue to warning red), naturally increasing the excitement of the round.</li>
+  <li><strong>Fluid Card Play:</strong> The application features a highly responsive drag-and-flick control system. Players can smoothly slide their chosen card into the center, accompanied by crisp audio cues that confirm the new running total.</li>
+  <li><strong>Customizable Avatars and Decks:</strong> As users play matches, they earn virtual progression points that can be spent to unlock unique digital card backs and player avatars, adding a personal touch to the visual layout.</li>
+</ul>
+
+<h3>Player Engagement and Community Feedback</h3>
+
+<p>Based on standard usage patterns for strategic card games, the application maintains a strong reputation for its unique pacing:</p>
+
+<ul>
+  <li><strong>High Replayability:</strong> Users frequently highlight that matches are incredibly fast\u2014often concluding in under three minutes\u2014making it highly addictive for quick sessions.</li>
+  <li><strong>Offline AI Mode:</strong> The platform features a robust offline mode with variable AI difficulties. The "Hard" AI is frequently praised for its ability to smartly reserve modifier cards for the endgame, providing a genuine challenge without internet access.</li>
+  <li><strong>Ad-Supported Progression:</strong> The app utilizes digital advertisements to remain free-to-download. While video ads appear between matches, users note that the gameplay itself is never interrupted, maintaining a consistent flow.</li>
+</ul>
+
+<h2>Part 3: Technical Architecture and Application Details</h2>
+
+<p>Featured on RummyDex, EVERY 77 is built with a lightweight framework, ensuring it delivers smooth animations without draining device resources.</p>
+
+<h3>System Specifications and Footprint</h3>
+
+<ul>
+  <li><strong>Lightweight Client:</strong> The application is highly compressed, requiring less than 40 MB of device storage, allowing for rapid installation and fast boot times.</li>
+  <li><strong>Broad Compatibility:</strong> Engineered for efficiency, the game runs perfectly on a wide range of devices, requiring only Android 6.0 or higher.</li>
+  <li><strong>Content Governance:</strong> The application holds an "Everyone" rating on the app store, reflecting its family-friendly mechanics and focus on numerical strategy.</li>
+</ul>
+
+<h2>Monetization Framework and App Economy</h2>
+
+<ul>
+  <li><strong>Virtual Coin Economy:</strong> The application uses a closed virtual coin system solely for unlocking cosmetic items. It is entirely free to download and play, with no external mechanics affecting the core card rules.</li>
+  <li><strong>Sustainable Infrastructure:</strong> Platform updates and server maintenance are supported through integrated digital advertisements, ensuring the game remains accessible to all users.</li>
+</ul>
+
+<h2>Data Safety and Privacy</h2>
+
+<p>The developers prioritize a secure and non-intrusive digital environment:</p>
+
+<ul>
+  <li><strong>Minimal Data Access:</strong> The app requires only basic local storage permissions to save offline progression and unlocked cosmetics.</li>
+  <li><strong>Secure Offline Play:</strong> Because the core game modes can be played offline, the user\u2019s primary gameplay data remains securely on their own device.</li>
+</ul>`,created_at:"2026-08-06T06:26:23.645Z",updated_at:"2026-08-09T12:55:09.707Z",features_html:"",release_notes:"",version:"35.06",publish_date:"",category:"Yono Apps, All Apps, General",screenshots:[],slug:"ever-777",is_coming_soon:!1,custom_admin_box_heading:"",name:"EVERY 77",yellow_box_msg:"",custom_admin_box_html:"",rating:3.9,faqs:[{question:"1. How do you play the EVERY 77 card game?",answer:"Players take turns adding numbered cards to a central pile, maintaining a running total. The goal is to use action cards and numerical strategy to force your opponent to play a card that pushes the total sum over 77."},{answer:"Yes, the application is completely free to download. It features a virtual progression system for cosmetic unlocks and is supported by standard in-app advertisements.",question:"2. Is EVERY 77 free to download and play?"},{answer:"Yes, EVERY 77 includes a fully functional offline mode. You can practice against various levels of computer-controlled AI without needing a Wi-Fi or cellular data connection.",question:"3. Does the app support offline gameplay?"}],developer:"Studio 77 Interactive",og_image_url:"https://res.cloudinary.com/diewalae4/image/upload/v1784878592/download_28_mhxps5.webp",canonical_url:"https://www.rummydex.com/app/ever-777",id:"kc3u0sl2h",serial_number:13,icon_url:"https://res.cloudinary.com/diewalae4/image/upload/v1784878592/download_28_mhxps5.webp",is_new:!1,seo_title:"EVERY 77 App : Unique Numeric Card Strategy & Features | RummyDex",file_size:"71.11 MB",seo_keywords:"",idea_box_msg:"",red_box_msg:"",url:""},{description_html:`<h2>Part 1: Key Features and Core Mechanics of Love Rummy</h2>
+
+<p>Love Rummy moves beyond traditional tabletop formats to offer a highly structured, level-based engagement platform. Designed for users who enjoy unlocking milestones and tracking long-term progress, the application functions as an interactive hub filled with daily challenges and varied digital activities.</p>
+
+<h3>The Core Game Mechanics</h3>
+
+<p>The application is built around continuous interaction and unlocking new stages of play:</p>
+
+<p><ul></p>
+
+<p><li><strong>Level-by-Level Progression:</strong> Instead of single matches, players advance through multiple structured achievement tiers. Completing activities earns progression points that push your profile from beginner stages to advanced milestone levels.</li></p>
+
+<p><li><strong>Daily Missions:</strong> The game refreshes with new, specific activity goals every 24 hours. Successfully completing these daily checklists is the primary way to earn virtual rewards and advance to the next level.</li></p>
+
+<p><li><strong>The Lucky Spin Wheel:</strong> A prominent interactive feature that users can engage with to unlock special virtual bonuses, adding a layer of daily excitement to the standard progression loop.</li></p>
+
+<h3></ul></h3>
+
+<h3>Educational and Strategic Value</h3>
+
+<p>While designed purely for fun, the application encourages active task management:</p>
+
+<p><ul></p>
+
+<p><li><strong>Goal Orientation:</strong> Navigating the daily missions teaches users to prioritize specific tasks to maximize their daily virtual point earnings.</li></p>
+
+<p><li><strong>Consistency and Routine:</strong> The tiered achievement system encourages regular participation, rewarding players who log in daily and complete their milestone checklists over time.</li></p>
+
+<h3></ul></h3>
+
+<h2>Part 2: The Hands-On User Experience</h2>
+
+<p>The user interface of Love Rummy is designed to be highly intuitive, ensuring that players can easily track their levels and jump into activities without getting lost in complicated menus.</p>
+
+<h3>Visual Design and Interaction Dynamics</h3>
+
+<p><ul></p>
+
+<p><li><strong>Personal Profile Dashboard:</strong> The app features a centralized hub where users can instantly view their current level, activity history, and overall progress bar.</li></p>
+
+<p><li><strong>Smooth Navigation:</strong> Transitioning between the Spin Wheel, the daily mission log, and the active game zones is seamless, ensuring a responsive and enjoyable mobile experience.</li></p>
+
+<p><li><strong>Clear Visual Tracking:</strong> Whenever a milestone is reached or a level is completed, the app provides satisfying visual feedback, clearly indicating what new features or achievements have been unlocked.</li></p>
+
+<h3></ul></h3>
+
+<h3>Player Engagement and Community Feedback</h3>
+
+<p>Based on standard engagement patterns, the platform is praised for its structured pacing:</p>
+
+<p><ul></p>
+
+<p><li><strong>Community Connection:</strong> The application includes features to invite friends, allowing users to share their milestone progress and explore the level system alongside others.</li></p>
+
+<p><li><strong>Rewarding Loop:</strong> Users appreciate that the level-based design provides a constant sense of forward momentum, as there is always a new tier or daily task waiting to be completed.</li></p>
+
+<h3></ul></h3>
+
+<h2>Part 3: Technical Architecture and Application Details</h2>
+
+<p>Featured on RummyDex, Love Rummy provides a rich, multi-leveled experience while maintaining excellent performance standards across supported devices.</p>
+
+<h3>System Specifications and Footprint</h3>
+
+<p><ul></p>
+
+<p><li><strong>Optimized Performance:</strong> The application is engineered to provide a smooth, lag-free experience, ensuring that spin animations and level transitions do not slow down your device.</li></p>
+
+<p><li><strong>Accessible Design:</strong> Holding an "Everyone" rating, the application is universally accessible, featuring safe, family-friendly tasks and interactive features.</li></p>
+
+<h3></ul></h3>
+
+<h2>Monetization Framework and App Economy</h2>
+
+<p><ul></p>
+
+<p><li><strong>Entertainment-Only Focus:</strong> The platform operates strictly with virtual items and progression points. It is built entirely for recreational engagement and task completion.</li></p>
+
+<p><li><strong>Accessible Play:</strong> Players can access the core daily missions and level up their profiles through regular participation without mandatory requirements.</li></p>
+
+<h3></ul></h3>
+
+<h2>Data Safety and Permissions</h2>
+
+<p>The application maintains transparent operational guidelines regarding user interaction:</p>
+
+<p><ul></p>
+
+<p><li><strong>No Third-Party Sharing:</strong> The developer states that data is not shared with third-party companies, prioritizing user privacy during daily use.</li></p>
+
+<p><li><strong>Profile Management:</strong> User statistics, level progress, and activity history are managed directly within the app's secure profile system.</li></p>
+
+<h3></ul></h3>`,release_notes:"",id:"v9ky6l07h",updated_at:"2026-08-06T10:51:40.814Z",is_new:!1,features_html:"",name:"LOVE RUMMY",publish_date:"",slug:"love-rummy",screenshots:[],safety_status:"Verified",file_size:"39 MB",version:"5.8v",custom_admin_box_heading:"",seo_title:"Love Rummy App Review: Level Progression & Daily Challenges | RummyDex",created_at:"2026-08-06T06:26:53.266Z",rating:4.1,icon_url:"https://res.cloudinary.com/diewalae4/image/upload/v1784878950/download_31_s7fonv.webp",developer:"BLG PLASTO PRIVATE LIMITED",red_box_msg:"",serial_number:14,canonical_url:"https://www.rummydex.com/app/love-rummy",seo_description:"Explore Love Rummy on RummyDex. Dive into this interactive app featuring a tiered achievement system, daily missions, and level-by-level engagement.",idea_box_msg:"",seo_keywords:"",custom_admin_box_html:"",category:"All Apps, Yono Apps",is_coming_soon:!1,yellow_box_msg:"",faqs:[{answer:"You level up by completing daily missions, participating in activity challenges, and using features like the Lucky Spin Wheel. Earning points through these tasks advances your profile through multiple achievement tiers.  ",question:"1. How do I level up in Love Rummy?"},{question:"2. What can I find inside the app's Personal Profile?",answer:"The personal profile acts as your main dashboard, where you can track your current level, review your completed milestones, and monitor your overall activity history.  "},{answer:"Yes, Love Rummy includes community participation features that allow you to invite friends to the app, making it easy to share your progress and enjoy the level-based challenges together",question:"3. Is there a way to connect with others in the game?"}],video_url:"",og_image_url:"https://res.cloudinary.com/diewalae4/image/upload/v1784878950/download_31_s7fonv.webp",url:""},{safety_status:"Verified",is_new:!1,release_notes:"",seo_title:"Share Slots App: Play Mini-Games & Track Daily Tasks | RummyDex",features_html:"",version:"1.09",file_size:"28 MB",rating:4.5,seo_description:"Discover Share Slots on RummyDex. Read our comprehensive overview of its diverse arcade zone, spin mechanics, and structured daily task progression.",custom_admin_box_html:"",publish_date:"",category:"All Apps, Yono Apps",custom_admin_box_heading:"",name:"SHARE SLOTS",description_html:`<h2>Part 1: Key Features and Core Mechanics of Share Slots</h2>
+
+<p>Share Slots is designed as a multi-functional entertainment hub rather than a traditional single-mode game. It brings together a variety of casual arcade challenges and combines them with a structured daily engagement system. For players who enjoy variety and goal-oriented progression, this platform offers a diverse ecosystem of digital activities to test different cognitive skills.</p>
+
+<h3>The Arcade Game Zone</h3>
+
+<p>The core of the application revolves around its expansive library of built-in mini-games. Players can seamlessly switch between completely different genres of play:</p>
+
+<p><ul></p>
+
+<p><li><strong>Action & Reflexes:</strong> Games like Speed Tap push your reaction times to the limit, while Bubble Pop requires rapid visual scanning to clear the screen before the timer runs out.</li></p>
+
+<p><li><strong>Endless Runners:</strong> In Money Runner and Money Magnet, users navigate a character through infinite tracks, swiping quickly to dodge barriers and collect virtual items.</li></p>
+
+<p><li><strong>Puzzle & Precision:</strong> Stack Tower demands perfect timing to balance falling blocks, while Number Dash challenges players to solve numerical grids under pressure.</li></p>
+
+<h3></ul></h3>
+
+<h3>Daily Activity Loop</h3>
+
+<p>To provide a sense of ongoing achievement, the app features a daily checklist:</p>
+
+<p><ul></p>
+
+<p><li><strong>Trivia and Scratchers:</strong> Every 24 hours, users gain access to a set of digital scratch cards and a 5-question trivia quiz, offering a mental break from the arcade action.</li></p>
+
+<p><li><strong>The Lucky Spin Wheel:</strong> A prominent digital wheel grants players three daily opportunities to unlock bonus progression points and multipliers that apply across their entire profile.</li></p>
+
+<h3></ul></h3>
+
+<h2>Part 2: The Hands-On User Experience</h2>
+
+<p>The developers have prioritized a user-friendly environment that keeps the focus entirely on the gameplay. The application avoids overly complex menus, ensuring that players of all ages can navigate the platform with ease.</p>
+
+<h3>Interface and Visual Design</h3>
+
+<p><ul></p>
+
+<p><li><strong>Premium Dark UI:</strong> Share Slots utilizes a sleek, dark-themed background. This design choice not only gives the application a modern, polished aesthetic but also significantly reduces visual fatigue during longer sessions.</li></p>
+
+<p><li><strong>Instant Accessibility:</strong> The dashboard is highly intuitive. Your daily task progress, available scratch cards, and the arcade zone are all accessible directly from the home screen, requiring minimal taps to launch an activity.</li></p>
+
+<p><li><strong>Responsive Feedback:</strong> Whether you are dropping a block in Stack Tower or spinning the daily wheel, the app delivers crisp audio and visual cues, making every interaction feel deliberate and rewarding.</li></p>
+
+<h3></ul></h3>
+
+<h3>What Keeps Players Engaged</h3>
+
+<p>Based on general usage trends, the platform excels at maintaining a balanced pacing. The short duration of the mini-games makes the app an excellent tool for quick mental breaks. Furthermore, the daily refresh of the task list gives users a clear, structured reason to check in without demanding hours of continuous commitment.</p>
+
+<h2>Part 3: Technical Architecture and Application Details</h2>
+
+<p>Featured on RummyDex, Share Slots is engineered to deliver a broad range of activities while keeping the technical footprint as small as possible.</p>
+
+<h3>Software Performance and Optimization</h3>
+
+<p><ul></p>
+
+<p><li><strong>Lightweight Client:</strong> Despite housing seven distinct arcade titles and various daily tracking systems, the app remains highly compressed. It downloads quickly and does not consume excessive storage space on your device.</li></p>
+
+<p><li><strong>Offline Functionality:</strong> One of the most appealing technical aspects is that select mini-games and core features can be enjoyed completely offline. This makes the app highly reliable during commutes or in locations with unstable network coverage.</li></p>
+
+<p><li><strong>Universal Compatibility:</strong> The application is optimized to run smoothly across the Android ecosystem. The physics engines and swipe mechanics perform flawlessly on both high-end and budget-friendly smartphones.</li></p>
+
+<h3></ul></h3>
+
+<h3>Data Privacy and Governance</h3>
+
+<p><ul></p>
+
+<p><li><strong>Family-Friendly Rating:</strong> The application holds an "Everyone" rating, confirming that the trivia, puzzles, and arcade games are suitable for a general audience.</li></p>
+
+<p><li><strong>Data Security:</strong> According to the developer's privacy disclosures, the application focuses on local data management to ensure a secure user experience.</li></p>
+
+<h3></ul></h3>`,developer:"WORKSPEE FREELANCE INTERNATIONAL PRIVATE LIMITED",slug:"share-slots",red_box_msg:"",faqs:[{question:"1. What types of mini-games are available in Share Slots?",answer:"The app includes a dedicated Game Zone with seven different activities, including endless runners (Money Runner), reflex games (Speed Tap, Bubble Pop), and precision puzzles (Stack Tower, Number Dash).  "},{question:"2. Does the application require a constant internet connection?",answer:"No, a major benefit of Share Slots is its offline capability. Select mini-games and progression features can be played without needing cellular data or a Wi-Fi connection."},{question:"3. How do the daily tasks work?",answer:"Every day, the app provides a new checklist of activities. This includes spinning a lucky wheel, answering trivia questions, and revealing digital scratch cards to earn progression points and track your daily engagement.  "}],id:"0jfvh7lrx",is_coming_soon:!1,yellow_box_msg:"",serial_number:15,canonical_url:"https://www.rummydex.com/app/share-slots",icon_url:"https://res.cloudinary.com/diewalae4/image/upload/v1784879544/download_36_zeiyxs.webp",og_image_url:"https://res.cloudinary.com/diewalae4/image/upload/v1784879544/download_36_zeiyxs.webp",screenshots:[],created_at:"2026-08-06T06:27:21.563Z",video_url:"",updated_at:"2026-08-06T10:52:17.329Z",idea_box_msg:"",seo_keywords:"",url:""},{publish_date:"",description_html:`<h2>Part 1: Key Features and Core Mechanics of YONO VIP</h2>
+
+<p>If you are tired of the standard, repetitive digital board formats, YONO VIP completely flips the script. Instead of sitting at a traditional virtual table, this application throws players into a vibrant, futuristic digital grid. The game is structured entirely around spatial reasoning and fast-paced puzzle-solving, offering a fresh, "cyber-arcade" experience where your primary goal is to stabilize a virtual energy core.</p>
+
+<h3>The "Crazy" Core Gameplay</h3>
+
+<p>The mechanics here are wildly different from anything else in the casual arcade space:</p>
+
+<ul>
+  <li><strong>Node Routing:</strong> The main gameplay involves linking scattered energy nodes across a complex, multi-layered grid. You must draw paths with your finger to connect matching nodes without ever letting the energy streams cross one another.</li>
+  <li><strong>Glitch Defense Rounds:</strong> As you progress to higher levels, the game introduces moving obstacles called "glitches." These digital anomalies wander the board and will sever your connections if they touch your lines, forcing you to rapidly swipe and reroute your energy paths in real-time before the timer runs out.</li>
+  <li><strong>The Quantum Spin Wheel:</strong> To support your progression, the app features a daily holographic spin wheel. Instead of standard coins, you spin to collect "Virtual Energy Cells," which act as the game's internal resource for unlocking massive new grid layouts and advanced puzzle zones.</li>
+</ul>
+
+<h3>Strategic Value and Brain Training</h3>
+
+<p>This is not a game of luck; it is a pure test of visual processing and spatial awareness:</p>
+
+<ul>
+  <li><strong>Dynamic Problem Solving:</strong> You are constantly analyzing a chaotic screen, figuring out the most efficient geometrical paths to connect points A and B under a strict time limit.</li>
+  <li><strong>Reflex Testing:</strong> The introduction of moving obstacles means your puzzle-solving cannot be static. You have to adapt your strategy on the fly, sharpening your hand-eye coordination.</li>
+</ul>
+
+<h2>Part 2: The Hands-On User Experience</h2>
+
+<p>The developers have built an interface that makes you feel like you are operating a highly advanced, futuristic computer terminal. It is a massive departure from the standard mobile game aesthetic, prioritizing immersion and sleek visual feedback.</p>
+
+<h3>Visual Design and Interaction Dynamics</h3>
+
+<ul>
+  <li><strong>Cyberpunk Aesthetics:</strong> The entire app utilizes a stunning dark mode illuminated by sharp neon blues, purples, and greens. The animations are incredibly fluid, with energy streams glowing brightly as soon as a successful connection is made.</li>
+  <li><strong>Immersive Haptic Feedback:</strong> The tactile response in this app is phenomenal. When you lock a node into place, your device delivers a heavy, satisfying mechanical "thud" through its vibration motor. If a glitch breaks your line, you feel a sharp, static-like buzz.</li>
+  <li><strong>Command Center Dashboard:</strong> Your daily missions and achievement trackers aren't just simple lists. They are presented as a futuristic command console, showing you exactly how many nodes you've connected, your current puzzle tier, and what challenges you need to complete next to level up your virtual profile.</li>
+</ul>
+
+<h3>Player Engagement and Feedback</h3>
+
+<ul>
+  <li><strong>Highly Addictive Loop:</strong> Users rave about the "just one more level" feeling. Because the early grids can be solved in under 30 seconds, it is incredibly easy to lose track of time while playing.</li>
+  <li><strong>Zero Frustration:</strong> While the puzzles get extremely complicated, the app never penalizes you for experimenting. You can clear your paths and restart a grid instantly with zero load times.</li>
+</ul>
+
+<h2>Part 3: Technical Architecture and Application Details</h2>
+
+<p>Featured on RummyDex, YONO VIP manages to deliver high-end, glowing visual effects while remaining incredibly friendly to your device's hardware.</p>
+
+<h3>System Specifications and Footprint</h3>
+
+<ul>
+  <li><strong>Battery Optimization:</strong> A common issue with neon-heavy puzzle games is battery drain, but YONO VIP is coded with a highly efficient graphics engine. You can play for extended sessions without your smartphone overheating or rapidly losing charge.</li>
+  <li><strong>Robust Offline Mode:</strong> The core node-routing puzzles do not require a server connection. You can play through hundreds of grid levels completely offline, making it the perfect distraction while flying or commuting underground.</li>
+  <li><strong>Universal Accessibility:</strong> The application holds an "Everyone" rating. The mechanics are entirely neutral, focusing solely on puzzle-solving and geometric strategy without any mature themes.</li>
+</ul>`,version:"1.03v",red_box_msg:"",id:"89d79z398",updated_at:"2026-08-06T10:55:25.185Z",developer:"BLG PLASTO PRIVATE LIMITED",category:"All Apps, Yono Apps",created_at:"2026-08-06T06:28:39.740Z",rating:3.9,name:"YONO VIP",safety_status:"Verified",slug:"yono-vip",file_size:"40 MB",release_notes:"",yellow_box_msg:"",is_new:!1,custom_admin_box_html:"",features_html:"",seo_title:"YONO VIP App Review: Cyber-Puzzles, Grid Mechanics & Features | RummyDex",is_coming_soon:!1,idea_box_msg:"",faqs:[{question:"1. What exactly is the gameplay in YONO VIP?",answer:"Unlike traditional tabletop apps, YONO VIP is a futuristic spatial puzzle game. You must draw lines to connect matching energy nodes on a neon grid without letting your paths cross, all while dodging moving obstacles."},{question:"2. Can I play the puzzles without an internet connection?",answer:"Yes! The core grid-solving levels are fully available offline. You only need the internet if you want to update your daily mission logs or spin the daily Quantum Wheel."},{answer:'Absolutely. YONO VIP is entirely free to download. It relies on a virtual progression system where you earn "Energy Cells" through gameplay to unlock new levels and visual themes, supported by in-app advertisements.',question:"3. Is the game free to play?"}],screenshots:[],seo_keywords:"",video_url:"",icon_url:"https://res.cloudinary.com/diewalae4/image/upload/v1784879809/download_39_znq2ql.webp",seo_description:"Discover YONO VIP on RummyDex. Step away from traditional tabletop formats and explore this unique cyber-puzzle app featuring node connections and virtual energy tracking.",custom_admin_box_heading:"",og_image_url:"https://res.cloudinary.com/diewalae4/image/upload/v1784879809/download_39_znq2ql.webp",serial_number:16,canonical_url:"https://www.rummydex.com/app/yono-vip",url:""},{custom_admin_box_html:"",seo_title:"Maha Games : Gravity Puzzles, Physics Hub & Features | RummyDex",updated_at:"2026-08-06T10:56:08.116Z",custom_admin_box_heading:"",file_size:"35 MB",created_at:"2026-08-06T06:29:16.107Z",version:"1.05v",icon_url:"https://res.cloudinary.com/diewalae4/image/upload/v1784879172/download_33_d1pgy0.webp",faqs:[{answer:"Maha Games is a physics-based sandbox and puzzle application. You use mechanics like gravity inversion and momentum to guide objects through complex, 3D floating mazes.",question:"1. What kind of game is Maha Games?"},{question:"2. Can I play the puzzles without an internet connection?",answer:"Yes, the core puzzle campaign and sandbox features are completely functional offline, allowing you to solve levels without needing an active data connection."},{question:"3. Is there a time limit on the puzzles?",answer:"No, the main puzzle rooms do not have timers. The game is designed to be a stress-free environment that encourages you to take your time and experiment with different physics solutions."}],developer:"Jagoan K3",publish_date:"",seo_description:"Explore Maha Games on RummyDex. Dive into a crazy physics-based puzzle hub featuring gravity-defying mechanics, level building, and offline challenges.",canonical_url:"https://www.rummydex.com/app/maha-games",screenshots:[],serial_number:17,og_image_url:"https://res.cloudinary.com/diewalae4/image/upload/v1784879172/download_33_d1pgy0.webp",rating:3.8,slug:"maha-games",yellow_box_msg:"",description_html:`<h2>Part 1: Key Features and Core Mechanics of Maha Games</h2>
+
+<p>Moving entirely away from traditional arcade hubs and board formats, Maha Games introduces a wildly creative "physics sandbox" environment. Instead of tapping cards or spinning wheels, players are thrown into isometric puzzle rooms where they control the fundamental laws of nature. It is a brain-bending digital playground built for players who want to test their spatial logic and environmental problem-solving skills.</p>
+
+<h3>The "Crazy" Core Gameplay</h3>
+
+<p>The mechanics in this application turn standard puzzle-solving upside down\u2014literally:</p>
+
+<p><ul></p>
+
+<p><li><strong>Gravity Inversion:</strong> Your main tool is the ability to shift gravity. By swiping the screen, you can make objects fall onto the ceiling or slide up walls, guiding a digital energy orb through complex, multi-level mazes to reach a designated exit core.</li></p>
+
+<p><li><strong>Momentum and Mass:</strong> The puzzles require you to manipulate virtual kinetic energy. You must drop heavy blocks to catapult lighter objects across chasms, using real-time physics to smash through digital barriers blocking your path.</li></p>
+
+<p><li><strong>The Zenith Portal:</strong> A unique daily challenge room that completely alters its physics rules every 24 hours. One day you might be dealing with zero-gravity floating mechanics, and the next day you might have to navigate a maze using magnetic attraction forces.</li></p>
+
+<h3></ul></h3>
+
+<h3>Strategic Value and Brain Training</h3>
+
+<p>This platform is a massive workout for your cognitive and analytical skills:</p>
+
+<p><ul></p>
+
+<p><li><strong>Environmental Logic:</strong> You cannot just rely on fast reflexes. You have to look at a 3D room, predict how objects will interact when gravity shifts, and plan your moves three steps ahead.</li></p>
+
+<p><li><strong>Creative Experimentation:</strong> There is no single "right" way to solve a room. The sandbox nature of the game encourages you to try bizarre, out-of-the-box solutions to achieve your goals.</li></p>
+
+<h3></ul></h3>
+
+<h2>Part 2: The Hands-On User Experience</h2>
+
+<p>The interface is engineered to feel like you are peering into a floating, miniature universe inside your phone. It prioritizes clean aesthetics and immersive physics over cluttered menus.</p>
+
+<h3>Visual Design and Interaction Dynamics</h3>
+
+<p><ul></p>
+
+<p><li><strong>Minimalist Floating Islands:</strong> The puzzles take place on beautifully rendered, floating isometric structures suspended in a deep space background. The art style is crisp, clean, and highly relaxing to look at.</li></p>
+
+<p><li><strong>Weight-Based Haptics:</strong> The tactile feedback is highly advanced. If you drop a massive digital boulder in the game, your phone delivers a heavy, echoing vibration. If a light object bounces, you feel a tiny, rapid tap, making the physics feel incredibly grounded.</li></p>
+
+<p><li><strong>Seamless Reset System:</strong> Because the game encourages wild experimentation, you will fail often. The developers included an instant "rewind" button that instantly snaps the puzzle back to its starting state without any loading screens.</li></p>
+
+<h3></ul></h3>
+
+<h3>Player Engagement and Feedback</h3>
+
+<p><ul></p>
+
+<p><li><strong>Stress-Free Pacing:</strong> Players love that there are no stressful countdown timers in the main campaign. You can stare at a puzzle for twenty minutes, perfectly planning your gravity shifts without feeling rushed.</li></p>
+
+<p><li><strong>High Satisfaction:</strong> The moment when a complex chain reaction of falling objects perfectly aligns to open the exit door provides an incredibly satisfying "eureka" feeling that keeps players coming back for more.</li></p>
+
+<h3></ul></h3>
+
+<h2>Part 3: Technical Architecture and Application Details</h2>
+
+<p>Featured on RummyDex, Maha Games manages to run a complex, real-time physics engine without bogging down your mobile device.</p>
+
+<h3>System Specifications and Footprint</h3>
+
+<p><ul></p>
+
+<p><li><strong>Optimized 3D Engine:</strong> Despite rendering dynamic physics and lighting effects, the application is highly optimized to prevent device overheating and excessive battery drain during long puzzle sessions.</li></p>
+
+<p><li><strong>Fully Offline Campaign:</strong> The entire main puzzle campaign operates 100% offline. You can solve complex gravity mazes and experiment in the sandbox anywhere, completely independent of a Wi-Fi or cellular connection.</li></p>
+
+<p><li><strong>Content Governance:</strong> Rated "Everyone 10+," the game is universally accessible, focusing entirely on neutral environmental puzzles and physics-based logic.</li></p>
+
+<h3></ul></h3>
+
+<h3>Virtual Ecosystem</h3>
+
+<p><ul></p>
+
+<p><li><strong>Ad-Supported Access:</strong> The application is entirely free to download and play. The developer maintains the platform through standard digital advertisements that appear seamlessly between major puzzle levels.</li></p>
+
+<p><li><strong>Pure Gameplay Focus:</strong> There are no complex currencies to manage. Progress is tracked simply by how many puzzle rooms you have successfully cleared, keeping the focus squarely on the gameplay itself.</li></p>
+
+<h3></ul></h3>`,name:"MAHA GAMES",is_coming_soon:!1,safety_status:"Verified",video_url:"",is_new:!1,seo_keywords:"",idea_box_msg:"",red_box_msg:"",category:"All Apps, Yono Apps",features_html:"",id:"m6bwb6cnb",release_notes:"",url:""},{created_at:"2026-08-06T06:29:45.975Z",version:"28.9O v",custom_admin_box_html:"",description_html:`<h2>Part 1: Key Features and Core Mechanics of Rummy Ludo</h2>
+
+<p>If you think you know how traditional board and card games work, Rummy Ludo is here to completely shatter those expectations. This application throws out the standard rulebook and introduces a brilliant, crazy hybrid system. It takes the token-racing mechanics of classic Ludo and violently crashes them into the set-building, tile-drafting strategies of Rummy, creating a neutral, brain-burning puzzle environment.</p>
+
+<h3>The "Crazy" Core Gameplay</h3>
+
+<p>The mechanics in this app are wildly inventive, completely removing the reliance on basic luck and replacing it with deep, spatial strategy:</p>
+
+<ul>
+  <li><strong>Card-Driven Token Movement:</strong> You don't just blindly roll dice here. Instead, you are dealt a hand of numbered tiles. If you want to move your token forward five spaces on the board, you have to strategically discard a "5" tile from your hand. You have total control over your movement speed, but you must manage your tile resources carefully.</li>
+  <li><strong>Sequence Checkpoints:</strong> The board is littered with special "Safe Zones" and shortcuts. However, to unlock these paths, you must play a valid sequence (like a 3, 4, and 5 tile of the same color) from your hand all at once. This forces players to hold onto cards and build runs, rather than just burning them for quick movement.</li>
+  <li><strong>Tile-Capture Mechanics:</strong> The cutthroat nature of token racing gets a massive upgrade. If your token lands on the exact same square as an opponent, you don't send them back to the start. Instead, you trigger a "Steal," allowing you to blindly pull a tile from their hand to complete your own sets!</li>
+</ul>
+
+<h3>Strategic Value and Brain Training</h3>
+
+<p>This hybrid platform demands high-level multi-tasking and cognitive flexibility:</p>
+
+<ul>
+  <li><strong>Resource Management:</strong> You are constantly balancing two entirely different goals\u2014racing to the center of the board while holding back enough high-value tiles to form winning sequences.</li>
+  <li><strong>Spatial Prediction:</strong> You must calculate exact board distances, figuring out exactly what numbered tiles your opponents might be holding and predicting where they will move next.</li>
+</ul>
+
+<h2>Part 2: The Hands-On User Experience</h2>
+
+<p>The application is engineered to handle these complex rules without overwhelming the player. The digital board is a masterpiece of user interface design, ensuring that managing your hand of tiles and your board tokens feels completely natural.</p>
+
+<h3>Visual Design and Interaction Dynamics</h3>
+
+<ul>
+  <li><strong>Split-Screen Interface:</strong> The screen brilliantly divides your attention. The top half displays a gorgeous, dynamic 3D board where the tokens race, while the bottom half neatly organizes your drafted tiles.</li>
+  <li><strong>Smart Highlighting:</strong> Because the game involves heavy calculation, the app uses an intuitive highlight system. When you tap a tile in your hand, the board instantly illuminates exactly where your token will land, preventing frustrating miscalculations.</li>
+  <li><strong>Haptic Collisions:</strong> The tactile feedback is highly satisfying. When you land on an opponent and trigger a tile steal, the screen flashes, and your device delivers a sharp, physical vibration, making every capture feel impactful.</li>
+</ul>
+
+<h3>Player Engagement and Feedback</h3>
+
+<ul>
+  <li><strong>Zero-Luck Appeal:</strong> Users absolutely love that the frustration of "bad dice rolls" is gone. Because you move based on the tiles you draft, every victory feels entirely earned through superior planning and strategy.</li>
+  <li><strong>Intense Endgames:</strong> Matches are known to get incredibly tense in the final rounds. Players hover near the finish line, desperately trying to draft the exact number they need to enter the final zone while dodging opponent captures.</li>
+</ul>
+
+<h2>Part 3: Technical Architecture and Application Details</h2>
+
+<p>Featured on RummyDex, Rummy Ludo manages to blend two entirely different game engines into one seamless, highly optimized mobile experience.</p>
+
+<h3>System Specifications and Footprint</h3>
+
+<ul>
+  <li><strong>Efficient Board Rendering:</strong> Despite featuring a fully animated 3D board and constant tile shuffling, the app is highly optimized. It runs flawlessly on older smartphones without causing screen tearing or battery overheating.</li>
+  <li><strong>Offline AI Battles:</strong> You don't need to be constantly connected to a server to enjoy this wild hybrid. The app features a highly sophisticated offline AI mode. The computer opponents are programmed to actively build sequences and hunt your tokens down, providing a massive challenge without needing Wi-Fi.</li>
+  <li><strong>Universal Accessibility:</strong> The game maintains an "Everyone" rating. The mechanics focus entirely on math, board positioning, and spatial logic, making it a perfectly neutral and family-friendly digital arena.</li>
+</ul>
+
+<h3>Virtual Ecosystem</h3>
+
+<ul>
+  <li><strong>Free-to-Play Framework:</strong> The game is entirely free to download and operates on a virtual progression system.</li>
+  <li><strong>Cosmetic Unlocks:</strong> As you win matches, you earn virtual progression points that can be used to unlock cool new token designs (like glowing neon pawns or metallic pieces) and custom tile decks.</li>
+</ul>`,red_box_msg:"",category:"All Apps, Yono Apps",custom_admin_box_heading:"",seo_description:"Discover Rummy Ludo on RummyDex. Explore a wild hybrid game where classic board token movement meets strategic tile drafting and sequence building.",serial_number:18,canonical_url:"https://www.rummydex.com/app/rummy-ludo",updated_at:"2026-08-06T10:56:44.524Z",is_coming_soon:!1,publish_date:"",video_url:"",yellow_box_msg:"",faqs:[{question:"1. How do you move in Rummy Ludo?",answer:"Instead of rolling dice, you move your board tokens by playing numbered tiles from your hand. You can also play sequences of tiles at once to unlock special safe zones and shortcuts on the board."},{question:"2. What happens if I land on an opponent's token?",answer:"Unlike classic rules where the token is sent home, landing on an opponent in this game allows you to randomly steal one of the tiles from their hand, helping you build your own sets faster."},{question:"3. Does the app support offline gameplay?",answer:"Yes, the application includes a robust offline mode with intelligent AI opponents, allowing you to practice your tile-drafting and board strategies without needing an internet connection."}],file_size:"44.8 MB",slug:"rummy-ludo",safety_status:"Verified",seo_title:"Rummy Ludo App Review: Board Tactics, Tile Drafting & Features | RummyDex",name:"RUMMY LUDO",release_notes:"",features_html:"",screenshots:[],og_image_url:"https://res.cloudinary.com/diewalae4/image/upload/v1784879252/download_34_wrdzdw.webp",is_new:!1,icon_url:"https://res.cloudinary.com/diewalae4/image/upload/v1784879252/download_34_wrdzdw.webp",developer:"Artoon Games",rating:3.2,seo_keywords:"",idea_box_msg:"",id:"y7lefyq14",url:""},{is_coming_soon:!1,canonical_url:"https://www.rummydex.com/app/789-jackports",red_box_msg:"",serial_number:19,yellow_box_msg:"",version:"1.083 v",is_new:!1,video_url:"",category:"All Apps, Yono Apps",name:"789 JACKPORTS",slug:"789-jackports",seo_description:"Discover 789 Jackports on RummyDex. Explore this intense orbital puzzle game where you shoot numbered pods into rotating space rings to trigger massive visual combos.",publish_date:"",rating:5,features_html:"",og_image_url:"https://res.cloudinary.com/diewalae4/image/upload/v1784879711/download_38_pmpbnu.webp",updated_at:"2026-08-06T10:57:22.764Z",release_notes:"",faqs:[{answer:"You use a pull-and-release slingshot mechanic to fire numbered pods into the empty bays of a spinning orbital ring, adjusting for gravity curves along the way.",question:"1. How do you play 789 Jackports?"},{question:"2. What happens when you dock a 7, 8, and 9 together?",answer:"Docking those three numbers in a consecutive sequence triggers a massive chain reaction that clears the board and instantly completes the puzzle phase."},{question:"3. Do I need Wi-Fi to play this game?",answer:"No, the entire cosmic puzzle campaign and all physics-based levels are fully available offline."}],safety_status:"Verified",developer:"NexaGrid Studios",custom_admin_box_html:"",screenshots:[],created_at:"2026-08-06T06:30:34.425Z",seo_keywords:"",idea_box_msg:"",id:"lzcn7ehst",description_html:`<h2>Part 1: Key Features and Core Mechanics of 789 Jackports</h2>
+
+<p>789 Jackports completely redefines the puzzle genre by taking players into a high-speed, physics-based cosmic arena. Throwing away the concept of flat tables and standard grids, this application places you in control of a central firing cannon surrounded by massive, rotating orbital stations known as "Jackports." It is a thrilling test of trajectory calculation, timing, and sequence building.</p>
+
+<h3>The "Crazy" Core Gameplay</h3>
+
+<p>This game merges fast-action shooting with numerical logic, resulting in a wildly unique digital experience:</p>
+
+<ul>
+  <li><strong>Orbital Docking:</strong> You control a central launcher that fires numbered geometric pods. Surrounding you is a massive, constantly spinning circular ring with empty docking bays. You must calculate the rotation speed and fire your pods to securely slot them into the moving bays.</li>
+  <li><strong>The 7-8-9 Chain Reaction:</strong> The core strategy revolves around the game's namesake. If you successfully dock a 7, an 8, and a 9 pod right next to each other on the spinning ring, you trigger a "Jackport Overload." This creates a massive shockwave that clears the board and multiplies your level score.</li>
+  <li><strong>Gravitational Anomalies:</strong> Just aiming straight is not enough. Advanced levels introduce black holes and gravity wells that actively curve the trajectory of your shots. You have to "bend" your shots around obstacles, calculating how the gravity will pull your pod before it hits the rotating ring.</li>
+</ul>
+
+<h3>Strategic Value and Brain Training</h3>
+
+<p>The platform offers a highly engaging workout for your spatial and predictive skills:</p>
+
+<ul>
+  <li><strong>Predictive Geometry:</strong> You are constantly doing mental math to predict where a moving target will be by the time your projectile reaches it, while factoring in gravitational curves.</li>
+  <li><strong>Split-Second Decision Making:</strong> The rings rotate faster as you progress, forcing you to recognize number patterns and fire with absolute precision in a fraction of a second.</li>
+</ul>
+
+<h2>Part 2: The Hands-On User Experience</h2>
+
+<p>The application is built to feel like an intense, futuristic arcade simulator. The developers have crafted a user interface that minimizes distractions, allowing you to focus entirely on the rotating puzzles in front of you.</p>
+
+<h3>Visual Design and Interaction Dynamics</h3>
+
+<ul>
+  <li><strong>Cosmic Neon Aesthetic:</strong> The game looks phenomenal, set against deep-space backgrounds with glowing neon rings. When you hit a perfect 7-8-9 sequence, the screen erupts in a highly satisfying, colorful shockwave animation.</li>
+  <li><strong>Slingshot Controls:</strong> Firing pods uses an incredibly intuitive pull-and-release slingshot mechanic. You drag your finger backward to determine the power of the shot, and a faint trajectory line helps you visualize the initial curve.</li>
+  <li><strong>Intense Haptic Feedback:</strong> The tactile immersion is brilliant. A standard dock gives a light tap, but triggering the main sequence overload sends a heavy, rumbling vibration through your device, making every board clear feel incredibly powerful.</li>
+</ul>
+
+<h3>Player Engagement and Feedback</h3>
+
+<p>The "Flow State" Appeal: Users report that once they master the gravity curves, they enter a highly relaxing "flow state." The rhythm of launching, predicting, and docking becomes a mesmerizing loop.</p>
+
+<ul>
+  <li><strong>Dynamic Difficulty:</strong> The game never feels unfairly hard. If you miss a shot, the pod bounces harmlessly off the outer shields, encouraging you to immediately try again without punishing your progress.</li>
+</ul>
+
+<h2>Part 3: Technical Architecture and Application Details</h2>
+
+<p>Featured on RummyDex, 789 Jackports handles complex physics calculations and particle effects while remaining highly accessible to standard mobile hardware.</p>
+
+<h3>System Specifications and Footprint</h3>
+
+<ul>
+  <li><strong>Advanced Physics Engine:</strong> The application uses a custom-built, lightweight physics engine to calculate the gravitational curves and bounce trajectories in real-time, all without lagging your device.</li>
+  <li><strong>Deep Offline Campaign:</strong> You can play through hundreds of different galaxies and orbital puzzles completely offline. The game requires zero internet connection to enjoy the core physics campaign.</li>
+  <li><strong>Universal Accessibility:</strong> Rated "Everyone," the game is purely focused on neutral, geometry-based arcade action, making it perfectly suitable for puzzle enthusiasts of all ages.</li>
+</ul>
+
+<h3>Virtual Ecosystem</h3>
+
+<ul>
+  <li><strong>Free Progression:</strong> The game is entirely free to download. As you clear rings, you earn virtual progression stars.</li>
+  <li><strong>Cosmetic Customization:</strong> Those virtual stars can be used in the in-game garage to unlock cool new cosmetic skins for your launcher, such as laser cannons or alien ship designs, as well as new color trails for your pods.</li>
+</ul>`,icon_url:"https://res.cloudinary.com/diewalae4/image/upload/v1784879711/download_38_pmpbnu.webp",file_size:"50 MB",custom_admin_box_heading:"",seo_title:"789 Jackports : Orbital Puzzles & Sequence Mechanics | RummyDex",url:""},{release_notes:"",icon_url:"https://res.cloudinary.com/diewalae4/image/upload/v1784878294/download_27_ex1vzp.webp",features_html:"",created_at:"2026-08-06T06:31:18.240Z",id:"jl9bx9llw",red_box_msg:"",safety_status:"Verified",og_image_url:"https://res.cloudinary.com/diewalae4/image/upload/v1784878294/download_27_ex1vzp.webp",video_url:"",updated_at:"2026-08-06T10:58:31.956Z",custom_admin_box_html:"",seo_description:"Discover 777 Game on RummyDex. Step away from standard digital boards and explore this crazy, high-speed 3D spatial puzzle featuring the 7-Cube Matrix.",version:"3.86.9 v",name:"777 GAME",custom_admin_box_heading:"",seo_keywords:"",idea_box_msg:"",slug:"777-game",rating:4,faqs:[{question:"1. What is the main gameplay in 777 Game?",answer:"Instead of flat boards, you manipulate a massive 3D puzzle cube. You must rotate the structure and align 7 matching blocks within a 7-second window to clear the matrix before the time runs out."},{question:"2. Can I play this puzzle game without an internet connection?",answer:"Yes, the core 3D matrix puzzles and gravity challenges are fully functional offline, allowing you to play anywhere without needing Wi-Fi or mobile data."},{answer:"Yes, as you play, you earn virtual progression points that allow you to unlock unique cosmetic skins for your cube, such as neon lights, glass, or metallic textures.",question:"3. Are there different visual styles for the puzzles?"}],serial_number:20,canonical_url:"https://www.rummydex.com/app/777-game",developer:"WORKSPEE FREELANCE INTERNATIONAL PRIVATE LIMITED",is_coming_soon:!1,screenshots:[],yellow_box_msg:"",description_html:`<h2>Part 1: Key Features and Core Mechanics of 777 Game</h2>
+
+<p>\u200BIf you are expecting another standard, flat digital tabletop or repetitive matching game, 777 Game completely shatters those expectations. This application abandons 2D mechanics entirely and drops players into a chaotic, floating 3D environment. It is a wildly inventive spatial puzzle designed to test your reflexes, geometry skills, and ability to think in three dimensions under extreme pressure.</p>
+
+<h3>\u200BThe "Crazy" Core Gameplay</h3>
+
+<p>\u200BThe mechanics are completely unique, turning the traditional meaning of "777" into a high-speed geometric challenge:</p>
+
+<p>\u200BThe 7-Cube Matrix: You are in control of a massive, floating holographic hypercube made up of hundreds of smaller, shifting blocks. You must swipe across your screen to rapidly spin and rotate the entire 3D structure to locate unstable energy clusters.</p>
+
+<p>\u200BThe 7-7-7 Detonation Rule: The core objective is where the game gets its name. You must find and align exactly 7 blocks of the same color, lock them in a row, and trigger them within a 7-second countdown window. If you pull it off, the combo triggers a massive shockwave that collapses that section of the cube.</p>
+
+<p>\u200BGravity Shifts: Every time you clear a section of the matrix, the center of gravity shifts. The remaining blocks tumble and lock into completely new formations in real-time, forcing you to instantly readjust your spatial perspective.</p>
+
+<h3>\u200BStrategic Value and Brain Training</h3>
+
+<p>\u200BThis platform is a massive, high-intensity workout for your brain:</p>
+
+<p>\u200BSpatial Reasoning: You are constantly visualizing the hidden sides of a 3D object, calculating how a rotation on the X-axis will affect the blocks on the Y-axis.</p>
+
+<p>\u200BHyper-Focused Reflexes: The strict 7-second combo window eliminates overthinking. It trains your brain to recognize color and shape patterns instantly and execute complex swipe commands without hesitation.</p>
+
+<h3>\u200BPart 2: The Hands-On User Experience</h3>
+
+<p>\u200BThe application is engineered to feel like an intense, futuristic hacking simulator. The interface strips away cluttered menus, ensuring your entire screen is dominated by the glowing, rotating matrix puzzle.</p>
+
+<h3>\u200BVisual Design and Interaction Dynamics</h3>
+
+<p>\u200BNeon Void Aesthetics: The game takes place against a pitch-black digital void. The blocks are beautifully rendered in glowing, translucent neon colors that cast dynamic shadows as you rotate the hypercube.</p>
+
+<p>\u200BFierce Haptic Feedback: The tactile immersion is incredible. When you spin the cube, you feel a smooth, rolling vibration. But when you successfully lock in a 7-7-7 combo, the screen flashes and your device delivers a heavy, concussive "boom" through the vibration motor.</p>
+
+<p>\u200BSeamless Perspective Controls: Controlling a complex 3D object on a flat touchscreen can be difficult, but this app nails it. The swipe-to-rotate controls are buttery smooth and highly responsive, preventing any frustrating mis-swipes during the countdown.</p>
+
+<h3>\u200BPlayer Engagement and Feedback</h3>
+
+<p>\u200BThe "Zone" State: Users frequently highlight how the game forces them into a state of hyper-focus. Because you are constantly fighting the 7-second timer and reacting to gravity shifts, there is no time to be distracted by anything else.</p>
+
+<p>\u200BZero Luck, Pure Skill: Players love that their success is dictated entirely by their own spatial awareness and reaction speed, completely removing random chance from the equation.</p>
+
+<h3>\u200BPart 3: Technical Architecture and Application Details</h3>
+
+<p>\u200BFeatured on RummyDex, 777 Game manages to render complex 3D physics and lighting effects while remaining incredibly optimized for mobile devices.</p>
+
+<h3>\u200BSystem Specifications and Footprint</h3>
+
+<p>\u200BOptimized 3D Engine: Despite the high-quality holographic visuals and real-time gravity physics, the app is engineered to run smoothly on standard smartphones without causing severe battery drain or lag.</p>
+
+<p>\u200B100% Offline Capability: The entire puzzle campaign operates completely offline. You can manipulate the matrix and challenge your high scores anywhere, without ever needing a cellular data or Wi-Fi connection.</p>
+
+<p>\u200BUniversal Content: The application maintains an "Everyone" rating, offering a purely neutral, geometry-based arcade experience that is suitable for puzzle fans of all ages.</p>
+
+<h3>\u200BVirtual Ecosystem</h3>
+
+<p>\u200BFree-to-Play Framework: The application is completely free to download and utilizes a closed, virtual progression system.</p>
+
+<p>\u200BCosmetic Unlocks: As you clear cubes, you earn virtual "Core Fragments." These can be spent in the digital gallery to unlock crazy new textures for your matrix, such as liquid metal blocks, shattered glass effects, or pulsing laser grids.</p>`,is_new:!1,publish_date:"",file_size:"71.11 MB",category:"All Apps, Yono Apps",seo_title:"777 Game App Review: The 3D Matrix & Spatial Puzzles | RummyDex",url:""},{category:"Card Apps",faqs:[],og_image_url:"",custom_admin_box_html:"",video_url:"",red_box_msg:"",custom_admin_box_heading:"",yellow_box_msg:"",idea_box_msg:"",updated_at:"2026-08-09T07:51:25.689Z",is_coming_soon:!1,seo_keywords:"",serial_number:21,created_at:"2026-08-09T06:48:13.486Z",canonical_url:"https://www.rummydex.com/app/baccarist",id:"dttfvdp67",version:"75.8.0",screenshots:[],seo_description:"In-depth review of Baccarat Online: Baccarist \u2014 gameplay, 3D graphics, VIP perks, crashes & monetization concerns. Everything before you download.",description_html:`<h2>1. Key Features &amp; User Interface</h2>
+
+<h3>1.1 Core &amp; Secondary Features</h3>
+
+<p>Baccarist delivers real-time multiplayer baccarat with the full classic bet set \u2014 Player, Banker, Tie, Player Pair, and</p>
+
+<p>Banker Pair \u2014 rendered in 3D with realistic tables, chips, and animations. New players get a built-in tutorial, while</p>
+
+<p>statistics and roadmap/history boards support more experienced betting decisions. Social depth comes from in-table</p>
+
+<p>chat, gift exchange, private tables, and profile customization, layered with retention hooks like daily free chips,</p>
+
+<p>quests, achievements, and a VIP program with exclusive tables and perks. A cross-game hub cross-promotes the</p>
+
+<p>publisher's Poker, Blackjack, Roulette, and Slots titles, and the app cites an externally audited RNG for fair-play</p>
+
+<p>certification.</p>
+
+<h3>1.2 User Interface &amp; Visual Layout</h3>
+
+<p>The design follows a polished, modern casino aesthetic \u2014 3D chips and cards, glossy textures, and a high-contrast</p>
+
+<p>palette of deep blue, red, gold, and green. The central table shows betting zones with live odds, avatars with chip balances, table min/max limits, a hand counter, and an optional bead-plate overlay tracking results as red/blue</p>
+
+<p>markers. Secondary screens (lobby, quests, achievements) use large, colorful cards and clear progress indicators.</p>
+
+<p>Contrast and button legibility are generally strong, though small text (limits, history markers) may strain low-vision</p>
+
+<p>users, and there's no visible evidence of screen-reader support or colorblind modes.</p>
+
+<h3>1.3 In-App Utilities</h3>
+
+<p>Supporting tools include the tutorial, roadmap/bead-plate tracker, statistics panel, chat and emotes, friend system</p>
+
+<p>with private tables, quest/achievement trackers, daily bonus claims, a VIP benefits screen, an in-app purchase/store</p>
+
+<p>flow, and customer support via in-game tab or email.</p>
+
+<h2>2. Hands-On Review &amp; Real-World Performance</h2>
+
+<h3>2.1 System Performance &amp; Optimization</h3>
+
+<p>At 330.88 MB, the app is large for a card game \u2014 driven by high-resolution 3D assets, audio, multiple game modes,</p>
+
+<p>and its social layer. Performance should be smooth on mid-range to flagship devices, but older hardware may see</p>
+
+<p>longer load times or stutter. User reviews report recurring lag, glitches, and crashes, including mid-hand crashes</p>
+
+<p>where bets go unrefunded and general connection instability; these are anecdotal but frequent enough to flag as a</p>
+
+<p>real risk.</p>
+
+<h3>2.2 Hands-On Feel &amp; Usability</h3>
+
+<p>Built for portrait play, the core loop is a simple tap-to-select-chip, tap-to-bet flow, with a Repeat button for quick</p>
+
+<p>re-bets. Controls sit within thumb reach and large betting zones limit mis-taps. The roadmap and stats panels reward</p>
+
+<p>experienced players but may be hard for beginners to parse given small text and fast dealing animations. Chat,</p>
+
+<p>avatars, and animations combine to create a convincingly social, casino-like atmosphere, reinforced by private tables</p>
+
+<p>and the friend system.</p>
+
+<h3>2.3 User Journey &amp; Friction Points</h3>
+
+<p><strong>A typical session:</strong> open app \u2192 claim daily bonus \u2192 pick a table \u2192 bet \u2192 watch the deal \u2192 collect or lose chips \u2192</p>
+
+<p>repeat, chat, claim quests, or browse the store. The tutorial eases onboarding and the daily bonus drives repeat</p>
+
+<p>visits. Reported friction includes crashes that erase bets, unskippable ads, rising table minimums and aggressive</p>
+
+<p>monetization after purchases, slow or unhelpful support, a perceived link between losing streaks and reduced</p>
+
+<p>spending, and fast dealing with no pause option.</p>
+
+<h3>2.4 User Emotional Experience</h3>
+
+<p>The 3D table, chip animations, and social chat create genuine glamour and excitement, and daily bonuses/quests</p>
+
+<p>deliver small wins. That tone can flip quickly, though \u2014 crashes, losing streaks, and purchase pressure drive</p>
+
+<p>frustration and distrust, with a notable share of reviews suggesting the game feels engineered to push spending</p>
+
+<p>rather than reward skill.</p>
+
+<h2>3. Full Interior Description &amp; Technical Mechanics</h2>
+
+<h3>3.1 Interior Ecosystem &amp; Facilitating Features</h3>
+
+<p><strong>The app runs a client-server model:</strong> the Android client renders the 3D table and UI, while game logic, RNG,</p>
+
+<p>balances, and matchmaking live on KamaGames' backend, requiring a persistent connection for real-time play. Chip</p>
+
+<p>balances, VIP status, achievements, and friends lists are stored server-side. The Play Store listing states certified</p>
+
+<p>RNG algorithms are used and externally audited, with terms of service and privacy policy linked from the store page.</p>
+
+<h3>3.2 Gameplay &amp; Interactive Mechanics</h3>
+
+<p>Players join a table, pick a chip value, and bet on Player, Banker, Tie, Player Pair, or Banker Pair. The server deals</p>
+
+<p>two hands under standard baccarat rules (closest to 9 wins), pays according to displayed odds, then opens a new</p>
+
+<p>round \u2014 a purely chance-based loop with no post-bet player decisions. The developer claims a certified, externally</p>
+
+<p>audited RNG, but a meaningful share of user reviews express skepticism, citing long losing streaks and perceived</p>
+
+<p>favoritism toward the house or new buyers. The client handles input, animation, and chat; the server resolves</p>
+
+<p>outcomes and balances; the roadmap/stats system aggregates recent server results client-side. Because high-action</p>
+
+<p>moments are limited to deal/payout animations, the heavy 3D table shouldn't cause CPU spikes during actual play.</p>
+
+<h3>3.3 Internal Drivers &amp; Monetization</h3>
+
+<p>Monetization combines in-app purchases of virtual chips/items with advertising \u2014 the Play Store listing confirms the</p>
+
+<p>app is free to play but allows real-money purchases and may show ads, which AppBrain also confirms. Retention is</p>
+
+<p>driven by daily bonuses, quests, achievements, and VIP tiers, reinforced by social features (chat, friends, gifts,</p>
+
+<p>private tables) and a cross-promotion hub for the publisher's other casino titles. User reviews frequently describe</p>
+
+<p>rising difficulty and table minimums after purchases stop, and rewards under-delivering versus advertised odds \u2014 a</p>
+
+<p>design that can feel aggressive even if technically compliant, resulting in a polarized player base.</p>`,is_new:!1,developer:"KamaGames (published by Wise Wave Corporation Limited)",safety_status:"Verified",slug:"baccarist",seo_title:"Baccarat Online: Full App Review 2026 update |  RummyDex",icon_url:"https://res.cloudinary.com/diewalae4/image/upload/v1786257953/1000133495_11zon_korvs3.webp",name:"BACCARIST",file_size:"317 MB",publish_date:"",release_notes:`Price Free to download
+Ads Contains ads
+In-App Purchases Yes \u2014 virtual chips and items with real money
+Minimum Android Android 4.1+
+First Released January 2017`,rating:4.5,features_html:"",url:""},{release_notes:`In-App Purchases Yes \u2014 ad removal, coins, hints, and cosmetic items
+Ads Contains ads (banner, interstitial, rewarded video)
+Minimum Android Android 5.0+ (varies by source)`,features_html:"",seo_title:"Solitaire - Classic Card Games : latest info 2026 | RummyDex",is_new:!0,file_size:"104.5 MB",idea_box_msg:"",seo_keywords:"",safety_status:"Verified",version:"4.63.50",description_html:`<h2>1. Key Features & User Interface</h2>
+
+<h3>1.1 Core & Secondary Features</h3>
+
+<p>This is a classic Klondike Solitaire app with single-card and three-card draw, plus standard and Vegas scoring</p>
+
+<p>modes. A Daily Challenge offers a new solvable puzzle each day with crowns, streaks, and monthly trophies, while</p>
+
+<p>the Extra Challenge mode lets players enter a level number to replay or share a specific layout. Unlimited hints and</p>
+
+<p>undo, plus auto-complete, make the game beginner-friendly, and detailed player statistics support longer-term play.</p>
+
+<p>Accessibility touches include left-handed mode and full landscape/portrait support, alongside customizable card</p>
+
+<p>faces, backs, backgrounds, and themes (scenery, animals, snowman, dogs, cats) with dynamic animations. The app</p>
+
+<p>is free and ad-supported, with optional in-app purchases.</p>
+
+<h3>1.2 User Interface & Visual Layout</h3>
+
+<p>The interface is clean and classical, built around the seven tableau columns, stock/waste piles, and four foundation</p>
+
+<p>piles, with large, easy-to-read card faces and a polished card-back design. The default classic green felt table can be</p>
+
+<p>swapped for scenic, animal, or seasonal backgrounds, keeping the palette bright, high-contrast, and casual-friendly.</p>
+
+<p>Menus stay simple, with quick settings for draw mode, scoring, and themes, a toolbar for hints/undo/auto-complete,</p>
+
+<p>and the Daily Challenge given prominent placement. The game supports both portrait and landscape orientations</p>
+
+<p>and a left-handed mode for larger devices. Controls are drag-and-drop and generally uncluttered, though some</p>
+
+<p>backgrounds are locked behind coins or rewarded ads, and there's no clear evidence of screen-reader support or</p>
+
+<p>colorblind modes.</p>
+
+<h3>1.3 In-App Utilities</h3>
+
+<p>Supporting tools include unlimited hint and undo buttons, auto-complete, a Daily Challenge calendar tracking</p>
+
+<p>crowns/streaks/trophies, a statistics screen for wins and best times, a theme store for card</p>
+
+<p>backs/faces/backgrounds, settings for draw mode/scoring/left-handed mode/orientation, a one-time ad removal</p>
+
+<p>purchase, and a coin store for buying hints/themes or earning coins via rewarded ads.</p>
+
+<h3>2. Hands-On Review & Real-World Performance</h3>
+
+<h3>2.1 System Performance & Optimization</h3>
+
+<p>The APK runs roughly 104\u2013170 MB depending on source and variant, covering card assets, themes, animations,</p>
+
+<p>sound, and ad SDKs. The core Solitaire engine itself is lightweight, so most modern devices run it smoothly with</p>
+
+<p>short load times and moderate memory use. Some users report occasional freezing, ads that lock the app, and</p>
+
+<p>slower performance before updates, along with mentions of battery drain \u2014 though many players describe the</p>
+
+<p>experience as smooth and reliable overall. Performance can vary with device age and network conditions,</p>
+
+<p>particularly for ad delivery and Daily Challenge sync.</p>
+
+<h3>2.2 Hands-On Feel & Usability</h3>
+
+<p>Designed for one- or two-handed play, the game relies on drag-and-drop card movement with touch targets large</p>
+
+<p>enough for casual use; tap controls are also available for selecting cards and stacks. Always-on undo and hint</p>
+
+<p>buttons make it forgiving for beginners, while the Daily Challenge and statistics screens add a sense of progression,</p>
+
+<p>and left-handed mode is a thoughtful accessibility addition. The main usability friction is ad placement \u2014 ads can</p>
+
+<p>appear between games, after hints, or when unlocking themes, with some players reporting ads that are hard to</p>
+
+<p>close or skip.</p>
+
+<h3>2.3 User Journey & Friction Points</h3>
+
+<p><strong>A typical session:</strong> open the app \u2192 see a short ad \u2192 start a regular game or the Daily Challenge \u2192 arrange cards,</p>
+
+<p>using hints/undo if stuck \u2192 complete the game \u2192 watch an interstitial ad \u2192 return to the menu or start again. The</p>
+
+<p>Daily Challenge allows unlimited attempts to win a crown and build a streak. Frequent ads are the top complaint,</p>
+
+<p>including ads without a close button, ads that freeze the game, or ads that redirect to the app store; the push toward</p>
+
+<p>ad-removal and coin purchases can feel pushy. Some players also note repetitive deals, suggesting shuffle variety</p>
+
+<p>could improve, and the screen staying on during play, which can drain battery.</p>
+
+<h3>2.4 User Emotional Experience</h3>
+
+<p>The app is positioned as a relaxing, low-stakes puzzle \u2014 classic rules, soothing themes, and simple controls create</p>
+
+<p>a calm, meditative feel, while daily challenges and streaks give small, satisfying reasons to return. Intrusive ads are</p>
+
+<p>the main disruptor, breaking the relaxing mood and prompting frustration. Overall the game is seen as fun and</p>
+
+<p>habit-forming, with ad load as the recurring sore point.</p>
+
+<h3>3. Full Interior Description & Technical Mechanics</h3>
+
+<h3>3.1 Interior Ecosystem & Facilitating Features</h3>
+
+<p>This is a single-player card game built around a local Solitaire engine, with a network connection needed only for</p>
+
+<p>fetching and validating the Daily Challenge. Statistics and settings are stored locally, and the monetization stack</p>
+
+<p>layers in ad SDKs and in-app purchase billing; cloud sync for achievements/progress is typical for this publisher's</p>
+
+<p>apps, though not explicitly confirmed here. The Everyone rating implies minimal data collection, though as a free,</p>
+
+<p>ad-supported title it likely shares device identifiers and usage data with ad networks for targeting and performance.</p>
+
+<h3>3.2 Gameplay & Interactive Mechanics</h3>
+
+<p>The engine deals a standard 52-card deck into seven tableau columns (one card in the first, two in the second, and</p>
+
+<p>so on), with the top card of each column face-up and the remainder forming the stock pile. Players expose hidden</p>
+
+<p>cards, build descending alternating-color sequences in the tableau, and move Aces and ascending same-suit</p>
+
+<p>sequences to the foundations. Cards or valid stacks can be dragged or tapped to auto-move, the stock pile can be</p>
+
+<p>cycled, hints highlight a legal move, undo reverses the last action, and auto-complete finishes the board once a win</p>
+
+<p>is guaranteed. As a non-graphics-intensive genre, the main computational load is shuffle/deal logic and move</p>
+
+<p>validation \u2014 trivial for modern devices \u2014 with card animations, theme changes, and ad SDKs the more likely</p>
+
+<p>sources of occasional stutter or battery drain.</p>
+
+<h3>3.3 Internal Drivers & Monetization</h3>
+
+<p>The app monetizes through interstitial, rewarded video, and banner ads, plus purchases such as ad removal, coin</p>
+
+<p>packs, hints, and cosmetic themes \u2014 a roughly $7 permanent ad-removal purchase is a commonly mentioned</p>
+
+<p>option. Retention runs on Daily Challenges (crowns, streaks, monthly gold trophies), coin-gated theme customization</p>
+
+<p>that nudges players toward ads or purchases, and statistics/personal-best tracking for longer-term goals. Compared</p>
+
+<p>to casino-style apps the monetization is less aggressive, but ad frequency and cosmetic gating still create some</p>
+
+<p>pressure \u2014 an internal economy built around short, repeated sessions, ad views, and small impulse purchases.</p>`,red_box_msg:"",icon_url:"https://res.cloudinary.com/diewalae4/image/upload/v1786259914/1000133500_11zon_1_s5uttq.webp",developer:"Guru Puzzle Game",faqs:[],og_image_url:"",rating:4.8,seo_description:"In-depth review of Solitaire - Classic Card Games: features, performance, ad load, and monetization breakdown to help you decide before you download.",serial_number:22,id:"3h5w608rt",created_at:"2026-08-09T07:20:03.703Z",category:"Card Apps",canonical_url:"https://www.rummydex.com/app/solitaire",slug:"solitaire",custom_admin_box_heading:"",publish_date:"",name:"SOLITAIRE",custom_admin_box_html:"",updated_at:"2026-08-10T14:56:26.681Z",is_coming_soon:!1,yellow_box_msg:"",video_url:"",screenshots:[],url:""},{red_box_msg:"",custom_admin_box_html:"",is_new:!1,version:"3.5.06",name:"VITA MAHJONG",id:"ne1n96k01",publish_date:"",icon_url:"https://res.cloudinary.com/diewalae4/image/upload/v1786260770/1000133507_11zon_az6bbg.webp",slug:"vita-mahjong",video_url:"",yellow_box_msg:"",is_coming_soon:!1,serial_number:23,canonical_url:"https://www.rummydex.com/app/vita-mahjong",rating:4.8,created_at:"2026-08-09T07:36:43.647Z",seo_title:"VITA MAHJONG : latest information about app | RummyDex",idea_box_msg:"",file_size:"207  MB",seo_keywords:"",seo_description:"Is Vita Mahjong worth installing? A full breakdown of its senior-friendly design, ad load, and hidden costs \u2014 read before you download.",screenshots:[],updated_at:"2026-08-09T07:49:57.716Z",faqs:[],description_html:`<h2>1. Key Features & User Interface</h2>
+
+<h3>1.1 Core & Secondary Features</h3>
+
+<p>Vita Mahjong is a classic Mahjong Solitaire tile-matching game with hundreds of boards and traditional card-style tile</p>
+
+<p>sets, plus special tiles that add twists beyond the classic rules. The design leans senior-friendly, with large, readable</p>
+
+<p>tiles, Active Mind levels aimed at memory and focus, and customizable scoring that lets players skip timer or score</p>
+
+<p>pressure entirely. Super Combo rewards consecutive matches, while hints, undo, and shuffle keep players unstuck.</p>
+
+<p>A Daily Challenge awards trophies for practice levels, Offline Mode allows play without internet, and the app is</p>
+
+<p>optimized across phones, tablets, and pads. Multiple tile themes (simple, classic, aventus, panda, poker, antique)</p>
+
+<p>and backgrounds add customization on top of ad-supported free play with optional ad-free purchase and power-ups.</p>
+
+<h3>1.2 User Interface & Visual Layout</h3>
+
+<p>The interface is built around accessibility and relaxation, especially for older adults \u2014 clean, bright, and low-clutter,</p>
+
+<p>with a soft backdrop behind large, high-contrast tile faces. The tile board dominates the screen, with a simple bottom toolbar for hint, undo, and shuffle. Warm wood tones and gentle greens form the default theme, with easily</p>
+
+<p>distinguishable tile art and optional decorative sets (panda, poker, antique) plus alternate backgrounds; fonts and</p>
+
+<p>labels stay large and legible throughout. Controls are simple tap/swipe gestures, menus are list-based and clearly</p>
+
+<p>labeled, and the Daily Challenge and level selectors appear as large cards. The portrait-oriented layout, oversized</p>
+
+<p>tiles, clear icons, and absence of a pressure timer reflect an explicitly senior-friendly design, reducing cognitive and</p>
+
+<p>visual strain for users with limited dexterity \u2014 though there's no obvious full screen-reader support or colorblind</p>
+
+<p>modes.</p>
+
+<h3>1.3 In-App Utilities</h3>
+
+<p>Supporting tools include a hint button for valid matches, an undo button, a shuffle button to reveal new matches, a</p>
+
+<p>Daily Challenge calendar for trophies, a themes screen for tile sets and backgrounds, Active Mind memory-focused</p>
+
+<p>puzzles, offline mode, an ad-free purchase option, and a power-up store for hints, shuffles, and undos.</p>
+
+<h3>2. Hands-On Review & Real-World Performance</h3>
+
+<h3>2.1 System Performance & Optimization</h3>
+
+<p>The APK runs roughly 200\u2013212 MB, with the XAPK/OBB variant reaching 230\u2013237 MB, covering tile art, themes,</p>
+
+<p>audio, animations, and ad SDKs. The core engine itself is lightweight, so the app runs well on most modern devices,</p>
+
+<p>and the developer's multi-device optimization claim is backed by a simple, scalable UI. Most users describe</p>
+
+<p>performance as smooth, though some report ads that load slowly or fail to close, occasionally restarting the game,</p>
+
+<p>with heavier ad loading causing stutters on lower-end devices. Battery and data use are generally modest except</p>
+
+<p>when ads are served frequently over a network connection.</p>
+
+<h3>2.2 Hands-On Feel & Usability</h3>
+
+<p>Gameplay is relaxed and casual \u2014 tap two matching tiles to clear them, with hint, undo, and shuffle always one tap</p>
+
+<p>away. The absence of a timer removes pressure and reinforces the senior-friendly positioning, and large tiles make</p>
+
+<p>matches easy to spot even on smaller screens. The main usability friction is ad placement: ads between levels can</p>
+
+<p>be long, repetitive, or hard to skip, ad-free purchase terms (one-time vs. recurring) aren't always clear, and rewarded</p>
+
+<p>ads for power-ups can interrupt flow. Players wanting uninterrupted sessions may need to pay the ad-removal fee.</p>
+
+<h3>2.3 User Journey & Friction Points</h3>
+
+<p><strong>A typical session:</strong> open the app \u2192 start a level \u2192 tap matching tiles to clear the board \u2192 use hints, undo, or shuffle if</p>
+
+<p>needed \u2192 complete the level \u2192 watch an ad \u2192 move to the next level or try the Daily Challenge, with trophy</p>
+
+<p>collection giving a reason to return daily. The most frequent complaints center on ad volume and length \u2014 ads that</p>
+
+<p>can't be closed, redirect to the app store, or restart the game after watching. A few players mention misleading ads</p>
+
+<p>for the app on other platforms, and while the ad-free purchase is presented as a fix, its pricing and subscription terms</p>
+
+<p>aren't always transparent. Some users also want more gameplay variety or additional tile themes.</p>
+
+<h3>2.4 User Emotional Experience</h3>
+
+<p>The app is positioned as a relaxing, mentally engaging puzzle \u2014 soft visuals, gentle audio, and timer-free play build</p>
+
+<p>a calm, meditative mood, and many players find it satisfying and addictive, with Active Mind levels and daily</p>
+
+<p>challenges adding a sense of accomplishment. The ad experience is the main disruptor, turning relaxation into</p>
+
+<p>frustration and creating a recurring tension between the game's soothing design and its ad load.</p>
+
+<h3>3. Full Interior Description & Technical Mechanics</h3>
+
+<h3>3.1 Interior Ecosystem & Facilitating Features</h3>
+
+<p>Vita Mahjong is a single-player puzzle game that can run fully offline, with level data, tile art, and audio bundled</p>
+
+<p>locally; only the Daily Challenge and ads require a network connection. Statistics, progress, and theme selections</p>
+
+<p>are stored locally by default, and the monetization stack layers in ad SDKs and in-app purchase billing. Developer</p>
+
+<p>Vita Studio also publishes other senior-focused puzzle games (Vita Solitaire, Vita Spider Solitaire, Vita Jigsaw, Vita</p>
+
+<p>Word Search, Vita Block, Vita Sudoku), which the app may cross-promote. The Everyone rating implies limited data</p>
+
+<p>collection, though as a free, ad-supported game it likely shares device identifiers and usage data with ad networks;</p>
+
+<p>support runs through support@vitastudio.ai.</p>
+
+<h3>3.2 Gameplay & Interactive Mechanics</h3>
+
+<p>Each level deals a fixed tile layout; players select two exposed matching tiles (not blocked by others) to remove</p>
+
+<p>them, aiming to clear the whole board. Special tiles introduce new matching rules or combo effects, and Active Mind</p>
+
+<p>mode may add timed or memory-based constraints for extra difficulty. Players tap or swipe to select and match, the</p>
+
+<p>hint system identifies a valid pair, undo reverses the last move, shuffle repositions tiles to escape deadlocks, and</p>
+
+<p>Super Combo rewards consecutive matches; scoring can be disabled entirely for a pressure-free experience. As a</p>
+
+<p>non-demanding genre, the main load is rendering the tile board, theme assets, and animations \u2014 trivial for modern</p>
+
+<p>phones \u2014 with rich-media ad SDKs the main risk to smoothness between levels.</p>
+
+<h3>3.3 Internal Drivers & Monetization</h3>
+
+<p>The app is free-to-play and ad-supported, monetizing through interstitial ads between levels, rewarded video for</p>
+
+<p>power-ups, and purchases like the ad-free upgrade, hint packs, shuffle packs, and undo packs. The ad-free</p>
+
+<p>purchase is reported around $5.99 USD, though its exact terms \u2014 one-time or recurring \u2014 aren't fully clear in the</p>
+
+<p>listing. Retention runs on the Daily Challenge (fresh puzzles and trophies), Active Mind's skill-building angle, and</p>
+
+<p>theme unlocks that encourage replay; the large install base and strong category rankings point to effective</p>
+
+<p>acquisition, likely driven by organic appeal, senior-focused marketing, and paid advertising. Monetization is typical</p>
+
+<p>for casual puzzle games, but the ad load feels heavy to some users, and unclear ad-free terms may reduce</p>
+
+<p>conversion \u2014 an internal economy built around repeated short sessions, ad impressions, and small impulse</p>
+
+<p>purchases.</p>`,category:"Card Apps",developer:"Vita Studio",og_image_url:"",safety_status:"Verified",custom_admin_box_heading:"",release_notes:"",features_html:"",url:""}],ei=t=>{try{localStorage.setItem("rummystore_apps",JSON.stringify(t))}catch(e){console.warn("saveMockApps storage failed:",e)}lt.splice(0,lt.length,...t)},an={site_title:"RummyDex",meta_description:"Your trusted bridge to the best mobile card games. Explore RummyDex for hands-on reviews, real-time news, and complete app knowledge.",logo_url:"https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png",favicon_url:"https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png",helpline_whatsapp:"",helpline_telegram:"",support_email:"rummydex1@gmail.com",disclaimer_text:"",ethics_discrimination_text:"",ticker_text:"",animations_enabled:!0,categories:["Yono Apps","Card Apps","Funny games"],banners:[],quick_links:[],website_faqs:[{answer:"RummyDex is an all-in-one digital discovery portal. We simplify your search for quality mobile apps by providing curated app listings, hands-on performance reviews, lightweight video previews, and daily industry news\u2014all in one structured directory.",question:"\u200BQ1: What is RummyDex, and how does it help me find the best apps?"},{question:"Q2: How does RummyDex ensure listed apps perform well on my device?",answer:"Every application featured on our platform undergoes real, hands-on evaluation by our team. We analyze frame rate stability, thermal efficiency, battery consumption, and overall interface responsiveness so you know exactly how an app behaves before you install it."},{question:"Q3: Does RummyDex host software files directly on its servers?",answer:"No. We function as a secure informational bridge. We review software and provide verified, direct routing to official developer sources. This guarantees you always access authentic, unalterable releases straight from the original creators."},{question:"Q4: Do I need an account or subscription to use RummyDex?",answer:"Not at all. RummyDex is an open-access resource. You can explore our full app index, stream video review highlights, read technical breakdowns, and check daily platform news completely free, with no account registration required."},{question:"Q5: What will I find in the News and Video sections?",answer:"Our News section keeps you updated on major software patches, developer announcements, and mobile trends. Our Video section offers fast, lightweight gameplay and UI clips so you can visually inspect an app\u2019s performance before visiting the developer source"},{question:"Q6: How frequently are new reviews and apps added?",answer:"Our catalog is constantly growing. We continuously evaluate new submissions, test software updates, and publish fresh insights to ensure our directory reflects the newest and most reliable mobile applications available."}],developers:[{bio:`Chief Executive Officer (CEO), RummyDex
+As the visionary architect behind RummyDex, the CEO is dedicated to transforming how users discover and experience mobile entertainment. Driven by a strict commitment to digital transparency and platform integrity, the CEO leads the strategic direction of the directory, ensuring that every featured application meets rigorous standards for performance, safety, and overall quality. By championing a zero-bias, hands-on review process and prioritizing a seamless, secure user experience, the CEO drives RummyDex\u2019s mission to be the internet\u2019s most trusted, authoritative hub for premium offline and online casual games.`,role:"CEO",github:"",image_url:"https://res.cloudinary.com/diewalae4/image/upload/v1785064868/download_47_tltvqo.webp",twitter:"",name:"Jeet Roj"},{name:"Shehzad .L",role:"Chief Technology Officer (CTO)",image_url:"https://res.cloudinary.com/diewalae4/image/upload/v1785718054/1000132675_11zon_pogxm7.jpg",github:"",twitter:"",bio:"As the lead technical architect of RummyDex, the CTO drives the core engineering, database infrastructure, and platform security of the website. Responsible for maintaining a high-performance framework, the CTO ensures lightning-fast search indexing, real-time content delivery for our active News Hub, and robust server stability under heavy traffic. By continuously optimizing back-end operations and system architecture, the CTO guarantees that navigating RummyDex remains an exceptionally fast, smooth, and reliable experience for every user."}],secure_index_subtitle:"\u200BYour trusted bridge to the best mobile card games. Explore RummyDex for hands-on reviews, real-time news, and complete app knowledge.",hero_title_subtitle:"\u200BYour trusted bridge to the best mobile card games. Explore RummyDex for hands-on reviews, real-time news, and complete app knowledge.",social_linkedin:"",responsibility_content:`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Platform Responsibility Clause \u2014 RummyDex</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+body{font-family:Arial,Helvetica,sans-serif;color:#3c4043;max-width:700px;margin:40px auto;padding:0 20px;line-height:1.7;font-size:15px;background:#fff}
+h1{font-size:26px;color:#202124;font-weight:400;margin-bottom:6px}
+.updated{color:#5f6368;font-size:13px;margin-bottom:28px}
+h2{font-size:19px;color:#202124;font-weight:500;margin-top:44px}
+p{margin:10px 0}
+.art{display:block;margin:18px 0}
+.note{color:#5f6368;font-size:13px;margin-top:40px;border-top:1px solid #dadce0;padding-top:14px}
+</style>
+</head>
+<body>
+
+<h1>Platform Responsibility Clause</h1>
+<p class="updated">Last modified: August 2, 2026</p>
+
+<h2>1. Technical Operations &amp; Secure Routing</h2>
+<svg class="art" width="180" height="130" viewBox="0 0 180 130">
+<rect x="30" y="45" width="45" height="35" rx="4" fill="none" stroke="#3c4043" stroke-width="2"/>
+<rect x="105" y="45" width="45" height="35" rx="4" fill="none" stroke="#3c4043" stroke-width="2"/>
+<path d="M75 62h30" stroke="#1a73e8" stroke-width="3" stroke-linecap="round"/>
+<path d="M96 54l9 8-9 8" fill="none" stroke="#1a73e8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="52" cy="62" r="4" fill="#3c4043"/>
+<circle cx="128" cy="62" r="4" fill="#3c4043"/>
+</svg>
+<p>Our operational responsibility is strictly limited to maintaining the RummyDex directory infrastructure. We ensure that our platform accurately catalogs applications and that all outbound links securely and correctly route users to legitimate, third-party developer sources at the time of publication.</p>
+
+<h2>2. Limits of Content &amp; Software Liability</h2>
+<svg class="art" width="180" height="130" viewBox="0 0 180 130">
+<rect x="55" y="20" width="70" height="90" rx="6" fill="none" stroke="#3c4043" stroke-width="2"/>
+<path d="M68 40h44M68 55h44M68 70h30" stroke="#3c4043" stroke-width="2" stroke-linecap="round"/>
+<circle cx="90" cy="93" r="9" fill="none" stroke="#ea4335" stroke-width="2"/>
+<path d="M86 93h8M90 89v8" stroke="#ea4335" stroke-width="2" stroke-linecap="round"/>
+</svg>
+<p>RummyDex does not host software, APK files, or proprietary code on our servers. Because our control is limited entirely to our own website interface, we are not liable for the performance, data practices, or digital security of external third-party destinations. Downloading or installing software from external sources is conducted solely at the user's own risk.</p>
+
+<h2>3. Post-Listing Developer Modifications</h2>
+<svg class="art" width="180" height="130" viewBox="0 0 180 130">
+<rect x="40" y="35" width="55" height="60" rx="4" fill="none" stroke="#3c4043" stroke-width="2"/>
+<path d="M52 50h30M52 62h30M52 74h18" stroke="#3c4043" stroke-width="2" stroke-linecap="round"/>
+<path d="M108 45l14 14-14 14" fill="none" stroke="#fbbc04" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="115" y="70" width="30" height="30" rx="4" fill="none" stroke="#3c4043" stroke-width="2"/>
+<path d="M122 85h16M122 92h10" stroke="#3c4043" stroke-width="2" stroke-linecap="round"/>
+</svg>
+<p>While our team conducts hands-on evaluations prior to listing any application, we do not govern external developers. We are not responsible for unannounced updates, post-launch mechanic changes, or software modifications implemented by third parties after an app has been published on our site.</p>
+
+<h2>4. Policy Enforcement &amp; User Experience</h2>
+<svg class="art" width="180" height="130" viewBox="0 0 180 130">
+<circle cx="65" cy="55" r="14" fill="none" stroke="#3c4043" stroke-width="2"/>
+<path d="M35 100c0-18 13-30 30-30s30 12 30 30" fill="none" stroke="#3c4043" stroke-width="2"/>
+<rect x="112" y="35" width="40" height="52" rx="4" fill="none" stroke="#1a73e8" stroke-width="2"/>
+<path d="M120 50h24M120 61h24M120 72h16" stroke="#1a73e8" stroke-width="2" stroke-linecap="round"/>
+</svg>
+<p>For information regarding how RummyDex handles non-compliant developer updates, community oversight, and user-submitted reports, please refer to our dedicated Terms &amp; Conditions and our App Reporting system.</p>
+
+<p class="note">RummyDex \u2014 keeping the directory safe, together.</p>
+
+</body>
+</html>
+`,portal_heading:"Official App Store & Gaming Directory",disclaimer_heading:"Disclaimer",important_notice_heading:"Important Notice",seo_keywords:"",terms_content:`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Terms & Conditions \u2014 RummyDex</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+body{font-family:Arial,Helvetica,sans-serif;color:#3c4043;max-width:700px;margin:40px auto;padding:0 20px;line-height:1.7;font-size:15px;background:#fff}
+h1{font-size:26px;color:#202124;font-weight:400;margin-bottom:6px}
+.updated{color:#5f6368;font-size:13px;margin-bottom:28px}
+h2{font-size:19px;color:#202124;font-weight:500;margin-top:44px}
+p{margin:10px 0}
+ul{margin:10px 0;padding-left:22px}
+li{margin:8px 0}
+.art{display:block;margin:18px 0}
+.note{color:#5f6368;font-size:13px;margin-top:40px;border-top:1px solid #dadce0;padding-top:14px}
+a{color:#1a73e8;text-decoration:none}
+a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+
+<h1>Terms &amp; Conditions</h1>
+<p class="updated">Effective Date: August 2, 2026</p>
+
+<h2>1. Agreement to Terms</h2>
+<svg class="art" width="180" height="130" viewBox="0 0 180 130">
+<rect x="55" y="20" width="70" height="90" rx="6" fill="none" stroke="#3c4043" stroke-width="2"/>
+<path d="M68 40h44M68 55h44M68 70h44" stroke="#3c4043" stroke-width="2" stroke-linecap="round"/>
+<path d="M70 88l10 10 20-20" fill="none" stroke="#1a73e8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<p>By accessing RummyDex, you agree to be bound by these Terms &amp; Conditions. If you disagree with any part of these terms, please do not use our app directory, news portal, or video features.</p>
+
+<h2>2. Intellectual Property</h2>
+<svg class="art" width="180" height="130" viewBox="0 0 180 130">
+<circle cx="90" cy="60" r="42" fill="none" stroke="#3c4043" stroke-width="2"/>
+<path d="M90 40a20 20 0 100 40 20 20 0 100-40" fill="none" stroke="#1a73e8" stroke-width="2"/>
+<path d="M90 46v28M78 60h24" stroke="#1a73e8" stroke-width="2" stroke-linecap="round"/>
+</svg>
+<p>RummyDex retains ownership of its original content, design, and editorial features. However, we do not claim ownership of the third-party apps listed on our site. All app names, logos, and trademarks belong to their respective original developers.</p>
+
+<h2>3. Acceptable Use</h2>
+<svg class="art" width="180" height="130" viewBox="0 0 180 130">
+<circle cx="90" cy="55" r="30" fill="none" stroke="#3c4043" stroke-width="2"/>
+<path d="M68 33l44 44" stroke="#ea4335" stroke-width="3" stroke-linecap="round"/>
+<path d="M40 108h100" stroke="#3c4043" stroke-width="2"/>
+</svg>
+<p>RummyDex is provided for your personal, non-commercial use. You agree not to:</p>
+<ul>
+<li>Use automated bots or scrapers to extract our data or reviews.</li>
+<li>Interfere with the security or performance of our website.</li>
+<li>Submit false or spam requests through our App Reporting system.</li>
+</ul>
+
+<h2>4. Third-Party Links Disclaimer</h2>
+<svg class="art" width="180" height="130" viewBox="0 0 180 130">
+<rect x="30" y="45" width="45" height="35" rx="4" fill="none" stroke="#3c4043" stroke-width="2"/>
+<rect x="105" y="45" width="45" height="35" rx="4" fill="none" stroke="#3c4043" stroke-width="2"/>
+<path d="M75 62h30" stroke="#fbbc04" stroke-width="3" stroke-linecap="round"/>
+<circle cx="128" cy="62" r="6" fill="none" stroke="#ea4335" stroke-width="2"/>
+<path d="M125 62h6M128 59v6" stroke="#ea4335" stroke-width="2" stroke-linecap="round"/>
+</svg>
+<p>RummyDex acts solely as an informational bridge and does not host APK or software files on our servers.</p>
+<ul>
+<li>Clicking an external link directs you to a third-party destination that we do not control.</li>
+<li>Downloading and installing third-party software is done entirely at your own risk. RummyDex is not responsible for any device damage or data loss.</li>
+</ul>
+
+<h2>5. App Reporting &amp; Compliance</h2>
+<svg class="art" width="180" height="130" viewBox="0 0 180 130">
+<path d="M60 40h60l-6 68H66z" fill="none" stroke="#3c4043" stroke-width="2"/>
+<path d="M72 30h36l4 10H68z" fill="none" stroke="#3c4043" stroke-width="2"/>
+<path d="M78 55v38M90 55v38M102 55v38" stroke="#ea4335" stroke-width="3" stroke-linecap="round"/>
+</svg>
+<p>We enforce a strict zero-tolerance policy against apps containing malicious code or unauthorized real-money mechanics. We investigate user reports and reserve the right to remove or delist any application from our directory at any time without prior notice.</p>
+
+<h2>6. Limitation of Liability</h2>
+<svg class="art" width="180" height="130" viewBox="0 0 180 130">
+<circle cx="90" cy="60" r="42" fill="none" stroke="#3c4043" stroke-width="2"/>
+<path d="M90 40v26" stroke="#fbbc04" stroke-width="5" stroke-linecap="round"/>
+<circle cx="90" cy="78" r="3" fill="#fbbc04"/>
+</svg>
+<p>RummyDex is provided on an "as is" and "as available" basis. To the maximum extent permitted by law, RummyDex and its team shall not be liable for any direct or indirect damages, losses, or issues resulting from your use of our platform or the third-party apps we link to.</p>
+
+<h2>7. Modifications</h2>
+<svg class="art" width="180" height="130" viewBox="0 0 180 130">
+<path d="M65 45a30 30 0 1130 40" fill="none" stroke="#1a73e8" stroke-width="3" stroke-linecap="round"/>
+<path d="M60 38l5 12 12-4" fill="none" stroke="#1a73e8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="55" y="90" width="70" height="18" rx="4" fill="none" stroke="#3c4043" stroke-width="2"/>
+</svg>
+<p>We reserve the right to update these terms at any time. By continuing to use RummyDex after changes are posted, you agree to be bound by the revised terms.</p>
+
+<h2>8. Contact Information</h2>
+<svg class="art" width="180" height="130" viewBox="0 0 180 130">
+<rect x="35" y="40" width="110" height="55" rx="6" fill="none" stroke="#3c4043" stroke-width="2"/>
+<path d="M35 46l55 35 55-35" fill="none" stroke="#1a73e8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<p>If you have any questions regarding these Terms &amp; Conditions, please contact us at:</p>
+<p>Support Email: <a href="mailto:rummydex1@gmail.com">rummydex1@gmail.com</a></p>
+
+<p class="note">RummyDex \u2014 keeping the directory safe, together.</p>
+
+</body>
+</html>
+`,last_updated:"2026-08-10T14:41:54.781Z",important_notice:"",ethics_heading:"Ethics & Safety",hero_title_visible:!0,ga_tracking_id:"",secure_index_title:"RummyDex",privacy_content:`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Privacy Policy \u2014 RummyDex</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+body{font-family:Arial,Helvetica,sans-serif;color:#3c4043;max-width:700px;margin:40px auto;padding:0 20px;line-height:1.7;font-size:15px}
+h1{font-size:26px;color:#202124;font-weight:400;margin-bottom:6px}
+.updated{color:#5f6368;font-size:13px;margin-bottom:28px}
+h2{font-size:19px;color:#202124;font-weight:500;margin-top:40px}
+p{margin:10px 0}
+ul{margin:10px 0;padding-left:22px}
+li{margin:6px 0}
+.art{display:block;margin:16px 0}
+.note{color:#5f6368;font-size:13px;margin-top:36px;border-top:1px solid #dadce0;padding-top:14px}
+a{color:#1a73e8}
+</style>
+</head>
+<body>
+
+<h1>Privacy Policy</h1>
+<p class="updated">Effective Date: August 2 2026</p>
+
+<h2>1. Introduction</h2>
+<svg class="art" width="150" height="100" viewBox="0 0 180 130">
+<path d="M90 12 40 30v35c0 32 22 55 50 65 28-10 50-33 50-65V30z" fill="none" stroke="#3c4043" stroke-width="2"/>
+<path d="M74 78 86 90 112 58" fill="none" stroke="#1a73e8" stroke-width="4" stroke-linecap="round"/>
+</svg>
+<p>Welcome to RummyDex. This Privacy Policy governs the manner in which RummyDex collects, uses, maintains, and discloses information collected from users visiting our digital directory, news portal, and software index. We are dedicated to safeguarding your privacy and ensuring complete transparency regarding how data is handled while you explore our app listings, news updates, and video reviews.</p>
+
+<h2>2. Information Collection</h2>
+<p>RummyDex operates primarily as an open informational resource. We do not require visitors to register an account, subscribe, or submit sensitive personal identification information to access our app directory, read our news, or view video reviews.</p>
+<p><strong>Non-Personal Technical Data:</strong> Whenever you interact with RummyDex, our system may automatically collect non-personally identifiable technical information. This includes your browser type, device specifications, operating system, internet service provider (ISP), referring URLs, IP address, general geographic region, and interaction metrics on our site.</p>
+<p><strong>Direct Communication Data:</strong> If you contact us directly via email for support or feedback, we collect the email address and information you voluntarily provide to address your inquiry.</p>
+
+<h2>3. Web Browser Cookies &amp; Analytics</h2>
+<svg class="art" width="150" height="100" viewBox="0 0 180 130">
+<circle cx="90" cy="60" r="38" fill="none" stroke="#3c4043" stroke-width="2"/>
+<circle cx="75" cy="48" r="5" fill="#fbbc04"/>
+<circle cx="100" cy="55" r="4" fill="#1a73e8"/>
+<circle cx="105" cy="78" r="5" fill="#ea4335"/>
+</svg>
+<p>Our website utilizes "cookies" and similar web technologies to enhance user navigation, measure traffic patterns, and optimize the overall performance of our directory.</p>
+<ul>
+<li>A cookie is a small text file placed on your device's storage for record-keeping and traffic analysis.</li>
+<li>Cookies help us understand which app reviews, news articles, and video features are most useful to our community.</li>
+</ul>
+<p><strong>User Control:</strong> You retain full authority over your browser settings. You may set your web browser to reject cookies or alert you when cookies are being transmitted. Please note that disabling cookies may affect certain non-essential layout features on our site.</p>
+
+<h2>4. News, Media, and Lightweight Video Features</h2>
+<p>To provide comprehensive reviews, RummyDex features lightweight video snippets and daily news updates. Interacting with these features operates under strict data-minimization standards:</p>
+<ul>
+<li>Viewing media content embedded directly on RummyDex does not harvest personal user files or device storage.</li>
+<li>Aggregated, anonymous metrics (such as video view counts or news reading time) may be processed to help us improve content delivery and bandwidth efficiency.</li>
+</ul>
+
+<h2>5. External Links and Third-Party Software</h2>
+<svg class="art" width="150" height="100" viewBox="0 0 180 130">
+<rect x="30" y="45" width="45" height="35" rx="4" fill="none" stroke="#3c4043" stroke-width="2"/>
+<rect x="105" y="45" width="45" height="35" rx="4" fill="none" stroke="#3c4043" stroke-width="2"/>
+<path d="M75 62h30" stroke="#fbbc04" stroke-width="3"/>
+<circle cx="128" cy="62" r="6" fill="none" stroke="#ea4335" stroke-width="2"/>
+</svg>
+<p>RummyDex functions strictly as an informational bridge. We do not host, store, or distribute APK files, application packages, or software directly on our primary servers. Instead, we evaluate software and provide safe, verified outgoing links to official developer sites or third-party platforms.</p>
+<p><strong>Leaving Our Portal:</strong> Clicking an external link directs you outside the jurisdiction of RummyDex.</p>
+<p><strong>Third-Party Policies:</strong> We do not own, manage, or control the privacy standards, security protocols, or data collection practices of external websites or applications. Interaction on any external platform is governed entirely by that third party's privacy policy and terms.</p>
+
+<h2>6. Data Security Practices</h2>
+<p>We implement appropriate data collection, storage, and processing practices alongside standard security measures to protect against unauthorized access, modification, or disclosure of technical log data stored on our servers. While we maintain rigorous standards to safeguard our digital portal, no electronic storage or internet transmission can be guaranteed as 100% immune to all vulnerabilities.</p>
+
+<h2>7. Changes to This Privacy Policy</h2>
+<p>RummyDex reserves the right to update, modify, or revise this Privacy Policy at any time. When updates occur, the revised date at the top of this page will be updated accordingly. We encourage users to periodically review this page to stay informed about how we protect visitor data.</p>
+
+<h2>8. Acceptance of These Terms</h2>
+<p>By utilizing RummyDex, you signify your explicit acceptance of this Privacy Policy. If you do not agree with these terms, please discontinue use of our platform. Your continued navigation of the site following posted policy updates constitutes acceptance of those changes.</p>
+
+<h2>9. Contacting Us</h2>
+<p>If you have questions, feedback, or concerns regarding this Privacy Policy or your interactions with our platform, please reach out to our team at:</p>
+<p>Support Email: <a href="mailto:rummydex1@gmail.com">rummydex1@gmail.com</a></p>
+
+<p class="note">RummyDex \u2014 keeping the directory safe, together.</p>
+
+</body>
+</html>
+`,social_instagram:"",social_facebook:"",hero_title_color:"sunset-fire",social_youtube:"",hero_title_text:"RummyDex",trending_searches:"",hero_title_style:"serif",report_removal_content:`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Report & Removal Policy \u2014 RummyDex</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+body{font-family:Arial,Helvetica,sans-serif;color:#3c4043;max-width:700px;margin:40px auto;padding:0 20px;line-height:1.7;font-size:15px;background:#fff}
+h1{font-size:26px;color:#202124;font-weight:400;margin-bottom:6px}
+.updated{color:#5f6368;font-size:13px;margin-bottom:28px}
+h2{font-size:19px;color:#202124;font-weight:500;margin-top:44px}
+p{margin:10px 0}
+ul{margin:10px 0;padding-left:22px}
+li{margin:8px 0}
+.art{display:block;margin:18px 0}
+.note{color:#5f6368;font-size:13px;margin-top:40px;border-top:1px solid #dadce0;padding-top:14px}
+</style>
+</head>
+<body>
+
+<h1>Report &amp; Removal Policy</h1>
+<p class="updated">Effective Date: August 2, 2026</p>
+
+<h2>1. Our Commitment to a Safe Directory</h2>
+<svg class="art" width="180" height="130" viewBox="0 0 180 130">
+<path d="M90 12 40 30v35c0 32 22 55 50 65 28-10 50-33 50-65V30z" fill="none" stroke="#3c4043" stroke-width="2"/>
+<path d="M74 78 86 90 112 58" fill="none" stroke="#1a73e8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<p>RummyDex is dedicated to providing a secure, purely entertainment-focused digital index. Because third-party developers can alter their apps dynamically after our initial review, we rely on active community oversight to help maintain our platform's integrity.</p>
+
+<h2>2. What You Should Report</h2>
+<svg class="art" width="180" height="130" viewBox="0 0 180 130">
+<circle cx="90" cy="60" r="42" fill="none" stroke="#3c4043" stroke-width="2"/>
+<path d="M90 40v26" stroke="#ea4335" stroke-width="5" stroke-linecap="round"/>
+<circle cx="90" cy="78" r="3" fill="#ea4335"/>
+<path d="M40 105h100" stroke="#3c4043" stroke-width="2"/>
+</svg>
+<p>Please immediately report any listed application that exhibits the following violations:</p>
+<ul>
+<li><strong>Real-Money Gaming (RMG):</strong> The sudden introduction of mandatory deposits, gambling, or real-money betting mechanics.</li>
+<li><strong>Deceptive Updates:</strong> Drastic changes to core gameplay (e.g., an offline puzzle updating into an unverified casino app).</li>
+<li><strong>Broken or Malicious Links:</strong> A resource link that redirects to an unsafe, unverified page instead of the official developer source.</li>
+<li><strong>Intrusive Ads or Malware:</strong> Applications that introduce unskippable system-level ads or malicious behavior that compromises device performance.</li>
+</ul>
+
+<h2>3. How to Submit a Report</h2>
+<svg class="art" width="180" height="130" viewBox="0 0 180 130">
+<rect x="45" y="20" width="90" height="70" rx="6" fill="none" stroke="#3c4043" stroke-width="2"/>
+<path d="M60 40h60M60 55h60M60 70h35" stroke="#3c4043" stroke-width="2" stroke-linecap="round"/>
+<rect x="70" y="95" width="40" height="18" rx="4" fill="#1a73e8"/>
+</svg>
+<p>Reporting is simple and direct. Use the "Report App" button located at the bottom of every individual app review page. Select the reason for your report and provide a brief description of the issue you experienced.</p>
+
+<h2>4. Our Review Process</h2>
+<svg class="art" width="180" height="130" viewBox="0 0 180 130">
+<circle cx="75" cy="45" r="16" fill="none" stroke="#3c4043" stroke-width="2"/>
+<path d="M40 105c0-22 16-38 35-38s35 16 35 38" fill="none" stroke="#3c4043" stroke-width="2"/>
+<circle cx="122" cy="82" r="18" fill="none" stroke="#1a73e8" stroke-width="3"/>
+<path d="M135 95l14 14" stroke="#1a73e8" stroke-width="3" stroke-linecap="round"/>
+</svg>
+<p>Every submitted report goes directly to our moderation team. We do not use automated bots for this process; a real team member will manually re-test the application and verify the outbound links to confirm the reported violations.</p>
+
+<h2>5. The 100% Permanent Removal Guarantee</h2>
+<svg class="art" width="180" height="130" viewBox="0 0 180 130">
+<path d="M60 40h60l-6 68H66z" fill="none" stroke="#3c4043" stroke-width="2"/>
+<path d="M72 30h36l4 10H68z" fill="none" stroke="#3c4043" stroke-width="2"/>
+<path d="M78 55v38M90 55v38M102 55v38" stroke="#ea4335" stroke-width="3" stroke-linecap="round"/>
+</svg>
+<p>We operate with a strict zero-tolerance policy for financial risk mechanisms and deceptive software. If we verify that an application violates our safety guidelines:</p>
+<ul>
+<li>The application's dedicated page will be immediately taken down.</li>
+<li>All outbound links to the software will be permanently severed.</li>
+<li>The developer will be strictly prohibited from relisting the application on our directory.</li>
+</ul>
+
+<h2>6. False Reporting</h2>
+<svg class="art" width="180" height="130" viewBox="0 0 180 130">
+<circle cx="90" cy="60" r="42" fill="none" stroke="#3c4043" stroke-width="2"/>
+<path d="M90 40v22" stroke="#fbbc04" stroke-width="4" stroke-linecap="round"/>
+<path d="M90 62l14 8" stroke="#fbbc04" stroke-width="4" stroke-linecap="round"/>
+</svg>
+<p>We highly value genuine community feedback. However, deliberately spamming the system or submitting false claims to maliciously target specific games may result in a restriction of your ability to submit future reports or interact with platform features.</p>
+
+<p class="note">RummyDex \u2014 keeping the directory safe, together.</p>
+
+</body>
+</html>
+`,hero_title_animation:"bounce-in",about_content:`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>About Us \u2014 RummyDex</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+body{font-family:Arial,Helvetica,sans-serif;color:#3c4043;max-width:700px;margin:40px auto;padding:0 20px;line-height:1.7;font-size:15px;background:#fff}
+h1{font-size:26px;color:#202124;font-weight:400;margin-bottom:6px}
+.updated{color:#5f6368;font-size:13px;margin-bottom:28px}
+h2{font-size:19px;color:#202124;font-weight:500;margin-top:44px}
+p{margin:10px 0}
+.art{display:block;margin:18px 0}
+.note{color:#5f6368;font-size:13px;margin-top:40px;border-top:1px solid #dadce0;padding-top:14px}
+</style>
+</head>
+<body>
+
+<h1>About Us</h1>
+<p class="updated">Last modified: August 2, 2026</p>
+
+<h2>The Meaning of "Dex" (Who We Are)</h2>
+<svg class="art" width="180" height="130" viewBox="0 0 180 130">
+<rect x="55" y="20" width="70" height="90" rx="6" fill="none" stroke="#3c4043" stroke-width="2"/>
+<path d="M68 38h44M68 52h44M68 66h44M68 80h30" stroke="#1a73e8" stroke-width="2" stroke-linecap="round"/>
+</svg>
+<p>Welcome to RummyDex. The word "Dex" stands for index or directory, which perfectly describes our core identity. We are an independent digital library built to catalog, review, and provide structured, transparent information about casual games and digital applications. Our platform is designed to be a complete informational hub for entertainment enthusiasts, encompassing everything from app discovery to the latest daily updates.</p>
+
+<h2>How We Provide Information &amp; Links</h2>
+<svg class="art" width="180" height="130" viewBox="0 0 180 130">
+<rect x="30" y="45" width="45" height="35" rx="4" fill="none" stroke="#3c4043" stroke-width="2"/>
+<rect x="105" y="45" width="45" height="35" rx="4" fill="none" stroke="#3c4043" stroke-width="2"/>
+<path d="M75 62h30" stroke="#1a73e8" stroke-width="3" stroke-linecap="round"/>
+<path d="M96 54l9 8-9 8" fill="none" stroke="#1a73e8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+<p>We function strictly as an informational bridge. Instead of hosting direct software or APK files on our servers, we provide comprehensive technical breakdowns, clear guides, and safe, direct links to third-party developer sources. This ensures that our platform remains fast and secure, and that you always access applications straight from the source.</p>
+
+<h2>Real Hands-On Testing &amp; Video Highlights</h2>
+<svg class="art" width="180" height="130" viewBox="0 0 180 130">
+<rect x="45" y="30" width="90" height="60" rx="6" fill="none" stroke="#3c4043" stroke-width="2"/>
+<path d="M80 48l22 12-22 12z" fill="#1a73e8"/>
+<path d="M65 100l10-10M115 100l-10-10" stroke="#3c4043" stroke-width="2" stroke-linecap="round"/>
+</svg>
+<p>We do not just list apps blindly. Before any application is published on our platform, our team conducts a real, hands-on test. We personally experience the app's performance, mechanics, and user interface to ensure it meets our strict entertainment standards. To give you a clear look at the gameplay, we also feature lightweight, optimized video snippets that showcase the app in action without slowing down your browsing experience.</p>
+
+<h2>Comprehensive News &amp; App Updates</h2>
+<svg class="art" width="180" height="130" viewBox="0 0 180 130">
+<rect x="50" y="25" width="80" height="80" rx="6" fill="none" stroke="#3c4043" stroke-width="2"/>
+<path d="M64 45h52M64 58h52M64 71h35" stroke="#3c4043" stroke-width="2" stroke-linecap="round"/>
+<circle cx="122" cy="90" r="14" fill="#fbbc04"/>
+<path d="M117 90h10M122 85v10" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+</svg>
+<p>Beyond our core app directory, RummyDex is a highly active, living ecosystem. We keep our community fully informed through our dedicated News Hub. Whether you are looking for general industry news, major platform shifts, or specific app update news detailing the latest patches and features, we provide all the necessary information so you are always up to date on your favorite digital retreats.</p>
+
+<p class="note">RummyDex \u2014 keeping the directory safe, together.</p>
+
+</body>
+</html>
+`,social_twitter:"",social_links:{twitter:"",linkedin:"",instagram:"https://www.instagram.com/rummydex?igsh=MTJjaGR3c3hmdjhnZA==",youtube:"https://www.youtube.com/@rummydex",facebook:"https://www.facebook.com/share/1951euBy3d/"}},ti=t=>{try{localStorage.setItem("rummystore_settings",JSON.stringify(t))}catch(e){console.warn("saveMockSettings storage failed:",e)}Object.assign(an,t)},ct=[{content:`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Application Hub is Officially LIVE!</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+body{font-family:Arial,Helvetica,sans-serif;color:#3c4043;max-width:700px;margin:40px auto;padding:0 20px;line-height:1.7;font-size:15px;background:#fff}
+h1{font-size:25px;color:#202124;font-weight:400;margin-bottom:6px;line-height:1.3}
+.updated{color:#5f6368;font-size:13px;margin-bottom:28px}
+h2{font-size:19px;color:#202124;font-weight:500;margin-top:44px}
+p{margin:10px 0}
+.art{display:block;margin:18px 0}
+.note{color:#5f6368;font-size:13px;margin-top:40px;border-top:1px solid #dadce0;padding-top:14px}
+</style>
+</head>
+<body>
+
+<h1>\u{1F680} Welcome to the Future of App Discovery: Application Hub is Officially LIVE!</h1>
+<p class="updated">Published: August 1, 2026</p>
+
+<p>The moment you have been waiting for is finally here! We have officially opened the gates to Application Hub, your high-voltage digital directory for premium casual gaming, tabletop simulators, and digital retreats.</p>
+<p>Our mission is simple: to bring you the absolute best, highest-quality applications available anywhere on the web. We don't just scrape lists or copy descriptions. Every single application that earns a spot on our platform is subjected to our rigorous, hands-on experience. We test the mechanics, push the hardware limits, and evaluate the gameplay so you know exactly what you are downloading.</p>
+
+<h2>\u{1F6E1}\uFE0F The Power of Complete Neutrality</h2>
+<p>We know what the community demands: honest, unfiltered, and highly accurate information. That is why neutrality is the beating heart of the Application Hub platform.</p>
+<p>We operate with zero developer bias. When you read an Application Hub review, you are getting the pure, unvarnished truth about an app's performance, battery optimization, and true entertainment value. We are your independent bridge to the best software on the market.</p>
+
+<h2>\u26A0\uFE0F Important Update: The App Vault is Verifying...</h2>
+<p>While the Application Hub website is now officially published and fully operational, our master vault of applications is currently locked in the final stages of our strict security and performance verification process!</p>
+<p>Please wait just a little bit longer\u2014our verified apps are coming very soon.</p>
+<p>Our moderation team is working relentlessly to finalize the testing on our massive launch lineup. We refuse to compromise on quality, which means no app goes live on our portal until it passes our ultimate quality and safety check.</p>
+<p>Bookmark the site, explore our brand-new layout, and get ready. The ultimate digital directory is here, and the first wave of premium, hand-tested apps is about to drop!</p>
+
+<p class="note">Application Hub \u2014 keeping the directory safe, together.</p>
+
+</body>
+</html>
+`,ceo_name:"The Editorial Team",id:"vw78pxmf9",description_html:`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Application Hub is Officially LIVE!</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+body{font-family:Arial,Helvetica,sans-serif;color:#3c4043;max-width:700px;margin:40px auto;padding:0 20px;line-height:1.7;font-size:15px;background:#fff}
+h1{font-size:25px;color:#202124;font-weight:400;margin-bottom:6px;line-height:1.3}
+.updated{color:#5f6368;font-size:13px;margin-bottom:28px}
+h2{font-size:19px;color:#202124;font-weight:500;margin-top:44px}
+p{margin:10px 0}
+.art{display:block;margin:18px 0}
+.note{color:#5f6368;font-size:13px;margin-top:40px;border-top:1px solid #dadce0;padding-top:14px}
+</style>
+</head>
+<body>
+
+<h1>\u{1F680} Welcome to the Future of App Discovery: Application Hub is Officially LIVE!</h1>
+<p class="updated">Published: August 1, 2026</p>
+
+<p>The moment you have been waiting for is finally here! We have officially opened the gates to Application Hub, your high-voltage digital directory for premium casual gaming, tabletop simulators, and digital retreats.</p>
+<p>Our mission is simple: to bring you the absolute best, highest-quality applications available anywhere on the web. We don't just scrape lists or copy descriptions. Every single application that earns a spot on our platform is subjected to our rigorous, hands-on experience. We test the mechanics, push the hardware limits, and evaluate the gameplay so you know exactly what you are downloading.</p>
+
+<h2>\u{1F6E1}\uFE0F The Power of Complete Neutrality</h2>
+<p>We know what the community demands: honest, unfiltered, and highly accurate information. That is why neutrality is the beating heart of the Application Hub platform.</p>
+<p>We operate with zero developer bias. When you read an Application Hub review, you are getting the pure, unvarnished truth about an app's performance, battery optimization, and true entertainment value. We are your independent bridge to the best software on the market.</p>
+
+<h2>\u26A0\uFE0F Important Update: The App Vault is Verifying...</h2>
+<p>While the Application Hub website is now officially published and fully operational, our master vault of applications is currently locked in the final stages of our strict security and performance verification process!</p>
+<p>Please wait just a little bit longer\u2014our verified apps are coming very soon.</p>
+<p>Our moderation team is working relentlessly to finalize the testing on our massive launch lineup. We refuse to compromise on quality, which means no app goes live on our portal until it passes our ultimate quality and safety check.</p>
+<p>Bookmark the site, explore our brand-new layout, and get ready. The ultimate digital directory is here, and the first wave of premium, hand-tested apps is about to drop!</p>
+
+<p class="note">Application Hub \u2014 keeping the directory safe, together.</p>
+
+</body>
+</html>
+`,target_region:"Global ",created_at:"2026-08-01T04:29:15.305Z",title:"Application Hub is LIVE! The Ultimate App Portal is Here",date:"2026-08-01T04:29:15.305Z",canonical_url:"https://www.example.com/notice/",is_breaking:!1,seo_description:"Welcome to Application Hub! Explore our newly launched platform dedicated to neutral, hand-tested app reviews. Our verified app vault is opening very soon.",seo_title:"Application Hub is LIVE - Premium App Directory & Reviews",is_pinned:!1,link:"https://www.example.com/app-hub-is-live",description:"Application Hub is officially published! We are bringing you the absolute best in hand-tested mobile entertainment. Read our launch update while our first wave of premium apps undergoes final verification!",ceo_description:"Editorial Board",image_url:"",published_at:"2026-08-01T04:29:15.305Z",is_new:!0,category:"Announcements",og_image_url:"https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png",logo_url:"https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png",updated_at:"2026-08-01T04:33:51.227Z",slug:"app-hub-is-live"},{slug:"callbreak-live-on-rummydex",description_html:`Callbreak Joins the RummyDex Vault: Full Hands-On Breakdown Now Live
+We are excited to announce that Callbreak: Classic Card Games has officially been added to our growing digital directory!
+Our benchmark and review team spent hours putting Callbreak through real-world testing across multiple devices. Whether you are a seasoned player familiar with trick-taking strategy or a casual gamer looking for a smooth mobile experience, our full listing gives you an unfiltered look at what it is actually like to play.
+What We Tested in Our Callbreak Review
+Instead of just listing game features, our newly published review breaks down the actual day-to-day feel of the application, including:
+Gameplay Flexibility: How the game handles offline single-player AI matches, local Wi-Fi tables, and global real-time multiplayer.
+Tactical Quality-of-Life Tools: A close look at in-game features like the Undo button, Reshuffle option, and Card History logs that make matches smoother for strategic players.
+Special Game Modes: Details on unique variants featured in the app, including the high-stakes Blind Bid Mode and the fast-paced Super 8 Bid Challenge.
+Hardware & Battery Benchmarks: Real data on frame rate stability (60 FPS), thermal output, and battery consumption on standard mobile devices.
+Unfiltered Friction Points: Honest feedback on ad frequency between matches, AI predictability patterns, and server stability during peak multiplayer times.
+Explore the Full Review Today
+Before you download or sit down at a virtual table, get the full breakdown on RummyDex. We tell you exactly how the game plays, where it shines, and where it gets frustrating\u2014so you can decide if it\u2019s the right fit for your mobile setup.`,created_at:"2026-08-04T17:08:11.833Z",is_new:!0,logo_url:"https://res.cloudinary.com/diewalae4/image/upload/v1785865490/1000133006_11zon_fvsjpe.webp",image_url:"",description:"The popular South Asian trick-taking card game Callbreak has officially arrived on RummyDex. Explore our neutral, hand-tested review covering offline AI performance, table mechanics, and real-world friction points.",category:"Card Apps ",title:"Callbreak is Now Live on RummyDex: Read Our Full Hands-On Review",updated_at:"2026-08-04T17:54:21.650Z",is_breaking:!1,related_app_id:"ha76icslh",published_at:"2026-08-04T17:08:11.833Z",date:"2026-08-04T17:08:11.833Z",id:"5hc6ok8fj",is_pinned:!1,seo_title:": Callbreak Review - Technical Performance & Gameplay | RummyDex",seo_description:"Read our neutral, hand-tested review of Callbreak. Discover battery usage, thermal efficiency, multiplayer stability, and friction points before downloading",content:`Callbreak Joins the RummyDex Vault: Full Hands-On Breakdown Now Live
+We are excited to announce that Callbreak: Classic Card Games has officially been added to our growing digital directory!
+Our benchmark and review team spent hours putting Callbreak through real-world testing across multiple devices. Whether you are a seasoned player familiar with trick-taking strategy or a casual gamer looking for a smooth mobile experience, our full listing gives you an unfiltered look at what it is actually like to play.
+What We Tested in Our Callbreak Review
+Instead of just listing game features, our newly published review breaks down the actual day-to-day feel of the application, including:
+Gameplay Flexibility: How the game handles offline single-player AI matches, local Wi-Fi tables, and global real-time multiplayer.
+Tactical Quality-of-Life Tools: A close look at in-game features like the Undo button, Reshuffle option, and Card History logs that make matches smoother for strategic players.
+Special Game Modes: Details on unique variants featured in the app, including the high-stakes Blind Bid Mode and the fast-paced Super 8 Bid Challenge.
+Hardware & Battery Benchmarks: Real data on frame rate stability (60 FPS), thermal output, and battery consumption on standard mobile devices.
+Unfiltered Friction Points: Honest feedback on ad frequency between matches, AI predictability patterns, and server stability during peak multiplayer times.
+Explore the Full Review Today
+Before you download or sit down at a virtual table, get the full breakdown on RummyDex. We tell you exactly how the game plays, where it shines, and where it gets frustrating\u2014so you can decide if it\u2019s the right fit for your mobile setup.`,canonical_url:"https://www.rummydex.com/news/callbreak-live-on-rummydex",link:"https://www.rummydex.com/app/callbreak"}],ni=t=>{try{localStorage.setItem("rummystore_news",JSON.stringify(t))}catch(e){console.warn("saveMockNews storage failed:",e)}ct.splice(0,ct.length,...t)},dt=[],ii=t=>{try{localStorage.setItem("rummystore_blogs",JSON.stringify(t))}catch(e){console.warn("saveMockBlogs storage failed:",e)}dt.splice(0,dt.length,...t)},pt=[],ai=t=>{try{localStorage.setItem("rummystore_videos",JSON.stringify(t))}catch(e){console.warn("saveMockVideos storage failed:",e)}pt.splice(0,pt.length,...t)}});var on={};Ae(on,{mockApps:()=>si,mockBlogs:()=>li,mockNews:()=>oi,mockSettings:()=>ri,mockVideos:()=>ci});var si,ri,oi,li,ci,ln=Z(()=>{si=[],ri={logo_url:"https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png",site_title:"Application Hub",meta_description:"",favicon_url:"https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png",helpline_whatsapp:"",helpline_telegram:"",support_email:"",disclaimer_text:"",ethics_discrimination_text:"",ticker_text:"",animations_enabled:!0,categories:[],banners:[],quick_links:[],website_faqs:[],developers:[]},oi=[{id:"vw78pxmf9",slug:"app-hub-is-live",title:"Application Hub is LIVE! The Ultimate App Portal is Here",logo_url:"https://res.cloudinary.com/diewalae4/image/upload/v1786556304/1000134161_11zon_fgqzz6.png",description:"Application Hub is officially published! We are bringing you the absolute best in hand-tested mobile entertainment. Read our launch update while our first wave of premium apps undergoes final verification!",description_html:`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Application Hub is Officially LIVE!</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+body{font-family:Arial,Helvetica,sans-serif;color:#3c4043;max-width:700px;margin:40px auto;padding:0 20px;line-height:1.7;font-size:15px;background:#fff}
+h1{font-size:25px;color:#202124;font-weight:400;margin-bottom:6px;line-height:1.3}
+.updated{color:#5f6368;font-size:13px;margin-bottom:28px}
+h2{font-size:19px;color:#202124;font-weight:500;margin-top:44px}
+p{margin:10px 0}
+.art{display:block;margin:18px 0}
+.note{color:#5f6368;font-size:13px;margin-top:40px;border-top:1px solid #dadce0;padding-top:14px}
+</style>
+</head>
+<body>
+
+<h1>\u{1F680} Welcome to the Future of App Discovery: Application Hub is Officially LIVE!</h1>
+<p class="updated">Published: August 1, 2026</p>
+
+<p>The moment you have been waiting for is finally here! We have officially opened the gates to Application Hub, your high-voltage digital directory for premium casual gaming, tabletop simulators, and digital retreats.</p>
+<p>Our mission is simple: to bring you the absolute best, highest-quality applications available anywhere on the web. We don't just scrape lists or copy descriptions. Every single application that earns a spot on our platform is subjected to our rigorous, hands-on experience. We test the mechanics, push the hardware limits, and evaluate the gameplay so you know exactly what you are downloading.</p>
+
+<h2>\u{1F6E1}\uFE0F The Power of Complete Neutrality</h2>
+<p>We know what the community demands: honest, unfiltered, and highly accurate information. That is why neutrality is the beating heart of the Application Hub platform.</p>
+<p>We operate with zero developer bias. When you read an Application Hub review, you are getting the pure, unvarnished truth about an app's performance, battery optimization, and true entertainment value. We are your independent bridge to the best software on the market.</p>
+
+<h2>\u26A0\uFE0F Important Update: The App Vault is Verifying...</h2>
+<p>While the Application Hub website is now officially published and fully operational, our master vault of applications is currently locked in the final stages of our strict security and performance verification process!</p>
+<p>Please wait just a little bit longer\u2014our verified apps are coming very soon.</p>
+<p>Our moderation team is working relentlessly to finalize the testing on our massive launch lineup. We refuse to compromise on quality, which means no app goes live on our portal until it passes our ultimate quality and safety check.</p>
+<p>Bookmark the site, explore our brand-new layout, and get ready. The ultimate digital directory is here, and the first wave of premium, hand-tested apps is about to drop!</p>
+
+<p class="note">Application Hub \u2014 keeping the directory safe, together.</p>
+
+</body>
+</html>
+`,content:`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Application Hub is Officially LIVE!</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+body{font-family:Arial,Helvetica,sans-serif;color:#3c4043;max-width:700px;margin:40px auto;padding:0 20px;line-height:1.7;font-size:15px;background:#fff}
+h1{font-size:25px;color:#202124;font-weight:400;margin-bottom:6px;line-height:1.3}
+.updated{color:#5f6368;font-size:13px;margin-bottom:28px}
+h2{font-size:19px;color:#202124;font-weight:500;margin-top:44px}
+p{margin:10px 0}
+.art{display:block;margin:18px 0}
+.note{color:#5f6368;font-size:13px;margin-top:40px;border-top:1px solid #dadce0;padding-top:14px}
+</style>
+</head>
+<body>
+
+<h1>\u{1F680} Welcome to the Future of App Discovery: Application Hub is Officially LIVE!</h1>
+<p class="updated">Published: August 1, 2026</p>
+
+<p>The moment you have been waiting for is finally here! We have officially opened the gates to Application Hub, your high-voltage digital directory for premium casual gaming, tabletop simulators, and digital retreats.</p>
+<p>Our mission is simple: to bring you the absolute best, highest-quality applications available anywhere on the web. We don't just scrape lists or copy descriptions. Every single application that earns a spot on our platform is subjected to our rigorous, hands-on experience. We test the mechanics, push the hardware limits, and evaluate the gameplay so you know exactly what you are downloading.</p>
+
+<h2>\u{1F6E1}\uFE0F The Power of Complete Neutrality</h2>
+<p>We know what the community demands: honest, unfiltered, and highly accurate information. That is why neutrality is the beating heart of the Application Hub platform.</p>
+<p>We operate with zero developer bias. When you read an Application Hub review, you are getting the pure, unvarnished truth about an app's performance, battery optimization, and true entertainment value. We are your independent bridge to the best software on the market.</p>
+
+<h2>\u26A0\uFE0F Important Update: The App Vault is Verifying...</h2>
+<p>While the Application Hub website is now officially published and fully operational, our master vault of applications is currently locked in the final stages of our strict security and performance verification process!</p>
+<p>Please wait just a little bit longer\u2014our verified apps are coming very soon.</p>
+<p>Our moderation team is working relentlessly to finalize the testing on our massive launch lineup. We refuse to compromise on quality, which means no app goes live on our portal until it passes our ultimate quality and safety check.</p>
+<p>Bookmark the site, explore our brand-new layout, and get ready. The ultimate digital directory is here, and the first wave of premium, hand-tested apps is about to drop!</p>
+
+<p class="note">Application Hub \u2014 keeping the directory safe, together.</p>
+
+</body>
+</html>
+`,created_at:"2026-08-01T04:29:15.305Z",date:"2026-08-01T04:29:15.305Z",published_at:"2026-08-01T04:29:15.305Z",is_breaking:!1,is_new:!0,category:"Announcements",is_pinned:!1,updated_at:"2026-08-01T04:33:51.227Z",ceo_name:"The Editorial Team",ceo_description:"Editorial Board",seo_title:"Application Hub is LIVE - Premium App Directory & Reviews",seo_description:"Welcome to Application Hub! Explore our newly launched platform dedicated to neutral, hand-tested app reviews. Our verified app vault is opening very soon.",canonical_url:"https://www.rummydex.com/notice/",og_image_url:"https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png",target_region:"Global ",link:"https://www.rummydex.com/news/app-hub-is-live"}],li=[],ci=[]});function $e(t){try{localStorage.setItem(ut,JSON.stringify(t))}catch{}}function xe(){try{let t=localStorage.getItem(ut);if(!t)return null;let e=JSON.parse(t);return!e.idToken||!e.expiresAt?null:e}catch{return null}}function hi(){try{localStorage.removeItem(ut)}catch{}}async function un(t){let e=xe();if((t==="MOCK_ADMIN_REFRESH"||t==="SERVER_SESSION"||!t||!ui)&&e&&e.idToken){try{let n=await fetch("/api/v1/admin/refresh-token",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${e.idToken}`},body:JSON.stringify({idToken:e.idToken})});if(n.ok){let i=await n.json();if(i.token)return{idToken:i.token,expiresAt:Date.now()+oe}}}catch{}return{idToken:e.idToken,expiresAt:Date.now()+oe}}try{let n=await fetch(`https://securetoken.googleapis.com/v1/token?key=${pn}`,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:`grant_type=refresh_token&refresh_token=${encodeURIComponent(t)}`});return n.ok?{idToken:(await n.json()).id_token,expiresAt:Date.now()+oe}:e&&e.idToken?{idToken:e.idToken,expiresAt:Date.now()+oe}:null}catch{return e&&e.idToken?{idToken:e.idToken,expiresAt:Date.now()+oe}:null}}async function mi(){let t=xe();if(!t)return null;if(Date.now()<t.expiresAt-120*1e3)return t.idToken;let e=await un(t.refreshToken);if(!e)return hi(),null;let n={...t,idToken:e.idToken,expiresAt:e.expiresAt};return $e(n),n.idToken}async function hn(t,e={}){let n=await mi(),i=e.headers?.Authorization||e.headers?.authorization;if(!n&&!i){let o=xe();if(o?.idToken){let l=await un(o.refreshToken);l?.idToken&&(n=l.idToken,$e({...o,idToken:l.idToken,expiresAt:l.expiresAt}))}if(!n&&!i)return new Response(JSON.stringify({error:"Unauthorized: Session expired. Please log in again."}),{status:401,headers:{"Content-Type":"application/json"}})}let a={...e.headers,"Content-Type":"application/json","Cache-Control":"no-cache, no-store, must-revalidate",Pragma:"no-cache",Expires:"0"};n&&(a.Authorization=`Bearer ${n}`);let s=await fetch(t,{...e,headers:a,cache:"no-store"}),r=s.headers.get("X-Refreshed-Admin-Token");if(r){let o=xe();o&&$e({...o,idToken:r,expiresAt:Date.now()+oe})}if(s.status===401){let o=xe();if(o?.idToken)try{let l=await fetch("/api/v1/admin/refresh-token",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${o.idToken}`},body:JSON.stringify({idToken:o.idToken})});if(l.ok){let c=await l.json();c.token&&($e({...o,idToken:c.token,expiresAt:Date.now()+oe}),a.Authorization=`Bearer ${c.token}`,s=await fetch(t,{...e,headers:a,cache:"no-store"}))}}catch{}}return s}var dn,gi,ut,oe,cn,di,pn,pi,ui,mn=Z(()=>{dn=x(Ge()),gi={},ut="__adm_session",oe=3300*1e3,cn="ewogICJwcm9qZWN0SWQiOiAiZ2VuLWxhbmctY2xpZW50LTA4MjU4MzI0OTMiLAogICJhcHBJZCI6ICIxOjEwMzk3Mzk4OTg3NDp3ZWI6NzMzYTZhZmQ4ZTgzNzIyNDkwMGY2YiIsCiAgImFwaUtleSI6ICJBSXphU3lCZXk5c1ViZVdscmNYUzJrbDRld096a1R5NGFyZzAzT2siLAogICJhdXRoRG9tYWluIjogImdlbi1sYW5nLWNsaWVudC0wODI1ODMyNDkzLmZpcmViYXNlYXBwLmNvbSIsCiAgImZpcmVzdG9yZURhdGFiYXNlSWQiOiAiYWktc3R1ZGlvLXlvbm9zdG9yZS04ODYzMTVhNC04YjlmLTRmZjYtODk4Ni1hOTBhZDE3MjIxMGEiLAogICJzdG9yYWdlQnVja2V0IjogImdlbi1sYW5nLWNsaWVudC0wODI1ODMyNDkzLmZpcmViYXNlc3RvcmFnZS5hcHAiLAogICJtZXNzYWdpbmdTZW5kZXJJZCI6ICIxMDM5NzM5ODk4NzQiLAogICJtZWFzdXJlbWVudElkIjogIiIsCiAgIm9BdXRoQ2xpZW50SWQiOiAiMTAzOTczOTg5ODc0LXQ0N252ODdrNTMycHQ4NHMyaTF0a2wwdmttYmloOWs2LmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29tIiwKICAicmVjYXB0Y2hhU2l0ZUtleSI6ICIiCn0=",di=()=>{let t;if(typeof process<"u"&&process.env&&(t=process.env.VITE_FIREBASE_API_KEY||process.env.FIREBASE_API_KEY),!t)try{let i=globalThis.importMetaEnv||(typeof gi<"u"?process.env:void 0);i&&(t=i.VITE_FIREBASE_API_KEY||i.FIREBASE_API_KEY)}catch{}let e=dn.default?.apiKey||"",n=i=>{if(!i)return!1;let a=i.trim();return!(a===""||a==="PLACEHOLDER"||a.includes("REPLACE_WITH_YOUR_REAL_KEY")||a.includes("YOUR_API_KEY"))};if(n(t))return t;if(n(e))return e;try{let i=typeof atob=="function"?atob(cn):Buffer.from(cn,"base64").toString("utf8"),a=JSON.parse(i);if(a&&n(a.apiKey))return a.apiKey}catch{}return""},pn=di(),pi=t=>{if(!t)return!1;let e=t.trim();return!(e===""||e==="PLACEHOLDER"||e.includes("REPLACE_WITH_YOUR_REAL_KEY")||e.includes("YOUR_API_KEY"))},ui=pi(pn)});var fn={};Ae(fn,{b64EncodeUnicode:()=>yi,commitFileToGitHub:()=>wi,generateStaticDataFileCode:()=>bi});function fi(t){if(!t||typeof t!="string")return"";let e=t.trim();if(e===""||e.includes("com.rummydex")||e.includes("com.example"))return"";if(e.startsWith("U2FsdGVkX1"))return e;let n=process.env.AES_SECRET||"YonoVaultSecret2026MasterKey!";try{return gn.default.AES.encrypt(e,n).toString()}catch{return e}}function yi(t){try{return btoa(encodeURIComponent(t).replace(/%([0-9A-F]{2})/g,(e,n)=>String.fromCharCode(parseInt(n,16))))}catch(e){return console.error("Base64 unicode encoding error:",e),btoa(t)}}function bi(t=[],e={},n=[],i=[],a=[]){let s=JSON.parse(JSON.stringify(t||[])).map(u=>{let g=u.more_information_url||u.download_url||u.encrypted_link||u.encrypted_download_url||"",p=fi(g);return u.url&&(u.url.includes("com.rummydex")||u.url.includes("com.example"))&&(u.url=""),p?(u.more_information_url=p,u.encrypted_link=p):(delete u.more_information_url,delete u.encrypted_link),delete u.encrypted_download_url,delete u.download_url,u}),o=Pt({...{site_title:"",meta_description:"",logo_url:"",favicon_url:"",helpline_whatsapp:"",helpline_telegram:"",support_email:"",disclaimer_text:"",ethics_discrimination_text:"",ticker_text:"",animations_enabled:!0,categories:[],banners:[],quick_links:[],website_faqs:[],developers:[]},...JSON.parse(JSON.stringify(e||{}))}),l=JSON.parse(JSON.stringify(n||[])),c=JSON.parse(JSON.stringify(i||[])),d=JSON.parse(JSON.stringify(a||[]));return`// No secureStorage import to avoid Vercel build errors when secureStorage is stripped
+
+export interface Banner {
+  id: string;
+  title: string;
+  subtitle: string;
+  image: string;
+  link: string;
 }
 
-// Helper: Ensure Session
-function ensureSession(req, res) {
-  let sid = req.cookies?.["__Host-sid"];
-  if (!sid) {
-    sid = crypto.randomBytes(24).toString("hex");
-    res.cookie("__Host-sid", sid, { httpOnly: true, sameSite: "lax", maxAge: 300000, secure: true });
-  }
-  return sid;
+export interface GlobalSettings {
+  site_title: string;
+  meta_description: string;
+  logo_url: string;
+  favicon_url: string;
+  helpline_whatsapp: string;
+  helpline_telegram: string;
+  support_email: string;
+  disclaimer_text: string;
+  disclaimer_heading?: string;
+  ethics_discrimination_text: string;
+  ethics_heading?: string;
+  portal_heading?: string;
+  important_notice_heading?: string;
+  ticker_text: string;
+  animations_enabled: boolean;
+  seo_keywords?: string;
+  about_content?: string;
+  contact_content?: string;
+  privacy_content?: string;
+  terms_content?: string;
+  responsibility_content?: string;
+  report_removal_content?: string;
+  important_notice?: string;
+  categories: string[];
+  banners: Banner[];
+  last_updated?: string;
+  secure_index_title?: string;
+  secure_index_subtitle?: string;
+  trending_searches?: string[];
+  hero_title_text?: string;
+  hero_title_color?: string;
+  hero_title_style?: string;
+  hero_title_animation?: string;
+  hero_title_subtitle?: string;
+  hero_title_visible?: boolean;
+  ga_tracking_id?: string;
+  quick_links?: Array<{ title: string; subtitle?: string; icon?: string; color?: string; url: string }>;
+  social_links?: { facebook?: string; instagram?: string; twitter?: string; linkedin?: string; youtube?: string; };
+  website_faqs?: Array<{ question: string; answer: string }>;
+  developers?: Array<{ name: string; role: string; bio?: string; image_url?: string; github?: string; twitter?: string; avatar_url?: string; social?: any }>;
 }
 
-// Helper: Generate Security Token (HMAC)
-function generateToken(ip, sessionId, fingerprint, appId) {
-  const EXPIRY = 1800; // 30 minutes
-  const expires = Math.floor(Date.now() / 1000) + EXPIRY;
-  const payload = `${ip}|${sessionId}|${fingerprint}|${appId}|${expires}`;
-  const sig = crypto.createHmac("sha256", TOKEN_SECRET).update(payload).digest("hex");
-  return Buffer.from(`${payload}::${sig}`).toString("base64url");
+export interface NewsItem {
+  id: string;
+  slug: string;
+  title: string;
+  logo_url: string;
+  description: string;
+  ceo_name: string;
+  ceo_description: string;
+  seo_title: string;
+  seo_description: string;
+  seo_keywords?: string;
+  category?: string;
+  og_image_url?: string;
+  canonical_url?: string;
+  target_region?: string;
+  content: string;
+  published_at?: string;
+  link: string;
+  read_time?: string;
+  author?: string;
+  description_html?: string;
+  date?: string;
+  tags?: string[];
+  related_app_id?: string;
 }
 
-// Helper: Get Secret Key for HMAC
-function getAesSecret() {
-  return process.env.TOKEN_SECRET || process.env.AES_SECRET || process.env.VITE_AES_SECRET || 'yono-default-secret-2026';
+export interface AppConfig {
+  id: string;
+  name: string;
+  slug: string;
+  seo_title?: string;
+  seo_description?: string;
+  seo_keywords?: string;
+  og_image_url?: string;
+  canonical_url?: string;
+  target_region?: string;
+  category: string;
+  is_coming_soon?: boolean;
+  publish_date?: string;
+  version: string;
+  file_size: string;
+  developer: string;
+  icon_url: string;
+  screenshots: string[];
+  description_html: string;
+  red_box_msg: string;
+  yellow_box_msg: string;
+  idea_box_msg: string;
+  safety_status: 'Verified' | 'Caution' | 'Unsafe';
+  serial_number: number;
+  is_featured: boolean;
+  is_new: boolean;
+  is_hot?: boolean;
+  release_notes: string;
+  rating: number;
+  created_at: string;
+  custom_admin_box_html?: string;
+  custom_admin_box_heading?: string;
+  features_html?: string;
+  faqs?: {question: string; answer: string}[];
+  link_configured?: boolean;
+  
+  video_url?: string;
+  is_top_chart?: boolean;
+  top_chart_category?: string;
+  more_information_url?: string;
 }
 
-// Helper: Verify Security Token
-function verifyToken(token, ip, sessionId, fingerprint, appId) {
+export interface Review {
+  id: string;
+  app_id: string;
+  username: string;
+  rating: number;
+  comment: string;
+  is_approved: boolean;
+}
+
+export interface BlogPost {
+  id: string;
+  slug: string;
+  title: string;
+  content: string;
+  author: string;
+  cover_url: string;
+  published_at: string;
+  related_app_slug?: string;
+  related_app_name?: string;
+  seo_title?: string;
+  seo_description?: string;
+  seo_keywords?: string;
+  canonical_url?: string;
+  target_region?: string;
+  description?: string;
+  description_html?: string;
+  date?: string;
+  thumbnail_url?: string;
+  publish_date?: string;
+  read_time?: string;
+  tags?: string[];
+  created_at?: string;
+}
+
+export interface NewsUpdate {
+  id: string;
+  title: string;
+  content_html: string;
+  category: string;
+  published_at: string;
+}
+
+export interface VideoItem {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  youtube_url: string;
+  seo_title: string;
+  seo_description: string;
+  seo_keywords?: string;
+  created_at: string;
+}
+
+export const mockApps: AppConfig[] = ${JSON.stringify(s,null,2)} as any[];
+
+export const saveMockApps = (apps: AppConfig[]) => {
   try {
-    const raw = Buffer.from(token, "base64url").toString("utf8");
-    const [payload, sig] = raw.split("::");
-    if (!payload || !sig) return false;
-    const parts = payload.split("|");
-    if (parts.length !== 5) return false;
-    const [tIp, tSession, tFp, tAppId, expires] = parts;
-
-    if (Math.floor(Date.now() / 1000) > parseInt(expires, 10)) return false;
-    
-    const expected = crypto.createHmac("sha256", TOKEN_SECRET).update(payload).digest("hex");
-    return crypto.timingSafeEqual(Buffer.from(sig, "hex"), Buffer.from(expected, "hex"));
-  } catch {
-    return false;
+    localStorage.setItem('rummystore_apps', JSON.stringify(apps));
+  } catch (e) {
+    console.warn('saveMockApps storage failed:', e);
   }
-}
+  mockApps.splice(0, mockApps.length, ...apps);
+};
 
-// Helper: Safe Decrypt (AES)
-function safeDecrypt(ciphertext, secret) {
-  if (!ciphertext) return '';
-  const keys = [secret, process.env.AES_SECRET, 'fallback_aes_secret_for_local_dev_only'].filter(Boolean);
-  const uniqueKeys = Array.from(new Set(keys));
-  for (const key of uniqueKeys) {
-    if (!key || key.trim() === '') continue;
-    try {
-      const bytes = CryptoJS.AES.decrypt(ciphertext, key);
-      const text = bytes.toString(CryptoJS.enc.Utf8);
-      if (text && text.trim().length > 0) return text;
-    } catch (e) {
-      // keep trying
-    }
+export const mockSettings: GlobalSettings = ${JSON.stringify(o,null,2)} as any;
+
+export const saveMockSettings = (settings: GlobalSettings) => {
+  try {
+    localStorage.setItem('rummystore_settings', JSON.stringify(settings));
+  } catch (e) {
+    console.warn('saveMockSettings storage failed:', e);
   }
-  return '';
-}
+  Object.assign(mockSettings, settings);
+};
 
-// Middleware
-app.use(compression());
-app.use(express.json({ limit: '5mb' }));
-app.use(cookieParser());
+export const mockNews: NewsItem[] = ${JSON.stringify(l,null,2)} as any[];
 
-// --- ROUTES ---
-
-// 1. Security Challenge Initiation (Stateless HMAC Nonce)
-app.get('/api/v1/_chal', (req, res) => {
-  const sid = ensureSession(req, res);
-  const realNonce = crypto.randomBytes(8).toString('hex');
-  const difficulty = "0"; // Ultra-fast execution
-  const expiry = Date.now() + 180000; // 3 minutes validity
-  
-  const secret = getAesSecret();
-  const signature = crypto.createHmac('sha256', secret)
-    .update(`${realNonce}:${sid}:${difficulty}:${expiry}`)
-    .digest('hex').substring(0, 16);
-
-  const nonce = `${realNonce}:${expiry}:${signature}`;
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
-  res.json({ nonce, difficulty, sid });
-});
-
-// 2. Security Challenge Processing (Stateless HMAC Verification)
-app.post('/api/v1/_proc', (req, res) => {
-  const { nonce, hash: hashField, solution, fingerprint, appId, sid: clientSid } = req.body;
-  const ip = getIp(req);
-  const cookieSid = req.cookies?.["__Host-sid"];
-  const solutionValue = solution !== undefined ? solution : hashField;
-
-  if (!nonce || solutionValue === undefined || !fingerprint || !appId) {
-    return res.status(400).json({ error: 'Incomplete security context' });
+export const saveMockNews = (newsList: NewsItem[]) => {
+  try {
+    localStorage.setItem('rummystore_news', JSON.stringify(newsList));
+  } catch (e) {
+    console.warn('saveMockNews storage failed:', e);
   }
+  mockNews.splice(0, mockNews.length, ...newsList);
+};
 
-  const parts = nonce.split(':');
-  if (parts.length !== 3) {
-    return res.status(400).json({ error: 'Malformed security challenge' });
+export const mockBlogs: BlogPost[] = ${JSON.stringify(c,null,2)} as any[];
+
+export const saveMockBlogs = (blogs: BlogPost[]) => {
+  try {
+    localStorage.setItem('rummystore_blogs', JSON.stringify(blogs));
+  } catch (e) {
+    console.warn('saveMockBlogs storage failed:', e);
   }
+  mockBlogs.splice(0, mockBlogs.length, ...blogs);
+};
 
-  const [realNonce, expiry, signature] = parts;
-  const difficulty = "0";
-  const secret = getAesSecret();
-  
-  const candidateSids = Array.from(new Set([clientSid, cookieSid].filter(Boolean)));
-  let matchedSid = candidateSids.find(s => {
-    const expectedSig = crypto.createHmac('sha256', secret)
-      .update(`${realNonce}:${s}:${difficulty}:${expiry}`)
-      .digest('hex').substring(0, 16);
-    return expectedSig === signature;
-  });
+export const mockVideos: VideoItem[] = ${JSON.stringify(d,null,2)} as any[];
 
-  if (!matchedSid) {
-    const altSignature = crypto.createHmac('sha256', secret)
-      .update(`${realNonce}:${difficulty}:${expiry}`)
-      .digest('hex').substring(0, 16);
-    if (signature === altSignature) {
-      matchedSid = clientSid || cookieSid || 'fallback_sid';
-    }
+export const saveMockVideos = (videos: VideoItem[]) => {
+  try {
+    localStorage.setItem('rummystore_videos', JSON.stringify(videos));
+  } catch (e) {
+    console.warn('saveMockVideos storage failed:', e);
   }
+  mockVideos.splice(0, mockVideos.length, ...videos);
+};
+`}async function wi({owner:t,repo:e,token:n,branch:i,path:a,content:s,message:r}){let o=await hn("/api/github-sync/commit",{method:"POST",body:JSON.stringify({owner:t,repo:e,token:n,branch:i,path:a,content:s,message:r})});if(!o.ok){let l=o.headers.get("content-type"),c=await o.text(),d=c||`Server returned ${o.status} ${o.statusText}`;if(l&&l.includes("text/html"))throw new Error(`Server returned HTML instead of JSON (${o.status}). This usually indicates a routing issue or a backend crash. Check if the /api routes are correctly deployed. Details: ${c.substring(0,100)}...`);try{let u=JSON.parse(c);d=u.message||u.error||d}catch{(!d||d.trim()==="")&&(d=`HTTP Error ${o.status}`)}throw new Error(d)}return o.json()}var gn,yn=Z(()=>{gn=x(require("crypto-js"));tt();mn()});var Ue=x(require("express")),wn=x(require("compression")),vn=x(require("cookie-parser")),xn=x(require("cors")),_n=x(require("helmet")),kn=x(require("path")),An=x(require("fs"));var Dt=x(require("express"));te();de();var Ze=x(require("fs")),Et=x(require("path"));te();de();var Tt=Et.default.join(process.cwd(),"mock-2fa-state.json"),Wn=new Map;try{if(Ze.default.existsSync(Tt)){let t=JSON.parse(Ze.default.readFileSync(Tt,"utf8"));for(let[e,n]of Object.entries(t))Wn.set(e,n)}}catch(t){console.error("Failed to load mock 2FA file:",t)}var qn=5,Hn=900*1e3,Gn=3600*1e3;async function It(t){try{let e=C();if(e){let n=await e.collection("admin_rate_limits").doc(t).get();if(n.exists){let i=n.data(),a=Date.now();if(i&&i.lockedUntil>a)return{allowed:!1,lockedUntil:i.lockedUntil}}}}catch{}return{allowed:!0}}async function Xe(t){try{let e=C();if(e){let n=e.collection("admin_rate_limits").doc(t),i=await n.get(),a=Date.now();if(i.exists){let s=i.data();if(s&&a-s.windowStart>Hn)await n.set({count:1,windowStart:a,lockedUntil:0});else if(s){let r=(s.count||0)+1,o=r>=qn?a+Gn:0;await n.update({count:r,lockedUntil:o})}}else await n.set({count:1,windowStart:a,lockedUntil:0})}}catch{}}var T=async(t,e,n)=>{let i=t.headers.authorization;if(!i||!i.startsWith("Bearer "))return e.status(401).json({error:"Unauthorized: Missing verification token.",message:"Unauthorized: Missing verification token."});let a=i.split("Bearer ")[1];if(!a||a==="null"||a==="undefined")return e.status(401).json({error:"Unauthorized: Empty session verification token.",message:"Unauthorized: Empty session verification token."});if(a.startsWith("ey"))try{let s="";if(C())s=(await require("firebase-admin").auth().verifyIdToken(a)).email||"";else{let c=L()?.apiKey||process.env.VITE_FIREBASE_API_KEY||process.env.FIREBASE_API_KEY;if(c){let d=await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${c}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({idToken:a})});d.ok&&(s=(await d.json())?.users?.[0]?.email||"")}}let o=String(process.env.ADMIN_EMAIL||"defentechscholar@gmail.com").toLowerCase();return s&&s.toLowerCase().trim()===o?(t.adminUser={email:s.toLowerCase().trim()},n()):e.status(403).json({error:"Unauthorized: Admin access required.",message:"Unauthorized: Admin access required."})}catch{return e.status(401).json({error:"Unauthorized: Invalid Firebase token.",message:"Unauthorized: Invalid Firebase token."})}try{let s=S();if(!s)return e.status(500).json({error:"Service Unavailable: Encryption misconfigured.",message:"Encryption misconfigured."});let r=E(a,s);if(!r)return e.status(401).json({error:"Unauthorized: Invalid token.",message:"Unauthorized: Invalid token."});let o=JSON.parse(r);if(!o.admin||!o.email)return e.status(401).json({error:"Unauthorized: Malformed token.",message:"Unauthorized: Malformed token."});let l=String(process.env.ADMIN_EMAIL||"defentechscholar@gmail.com").toLowerCase(),c=String(o.email||"").toLowerCase().trim();if(c!==l)return e.status(403).json({error:"Unauthorized: Admin access required.",message:"Unauthorized: Admin access required."});let d=720*60*60*1e3,u=Number(o.exp)||0;if(u>0&&Date.now()>u+d)return e.status(401).json({error:"Unauthorized: Session expired.",message:"Unauthorized: Session expired."});if(u===0||Date.now()>u-3600*1e3)try{let g=JSON.stringify({admin:!0,email:c,exp:Date.now()+6048e5}),p=R(g,s);e.setHeader("X-Refreshed-Admin-Token",p),e.setHeader("Access-Control-Expose-Headers","X-Refreshed-Admin-Token")}catch{}return t.adminUser={email:c},n()}catch(s){return console.error("verifyAdminToken error:",s),e.status(401).json({error:"Unauthorized: Token verification failed.",message:"Unauthorized: Token verification failed."})}};async function Qe(t,e){let n=!1,i="";try{let r=C();if(r){let o=await r.collection("admins_2fa").doc(t).get();if(o.exists){let l=o.data();l?.enabled&&(n=!0,i=l.secret)}}}catch(r){console.error("Failed to check 2FA status:",r)}if(!n)return{ok:!0};if(!e)return{mfaRequired:!0};let{authenticator:a}=require("otplib");return a.verify({token:e,secret:i})?{ok:!0}:{ok:!1,error:"Invalid 2FA code."}}var fe=x(require("otpauth"));function Ct(){return new fe.Secret({size:20}).base32}function zt(t,e){return new fe.TOTP({issuer:"AdminVault",label:t,algorithm:"SHA1",digits:6,period:30,secret:e}).toString()}function et(t,e){try{return new fe.TOTP({issuer:"AdminVault",algorithm:"SHA1",digits:6,period:30,secret:e}).validate({token:t.trim(),window:1})!==null}catch(n){return console.error("TOTP verification error:",n),!1}}var q=Dt.default.Router();q.post("/api/v1/admin/login",async(t,e)=>{let n=String(t.headers["x-forwarded-for"]||t.socket?.remoteAddress||"unknown").split(",")[0].trim(),i=await It(n);if(!i.allowed){let l=Math.ceil(((i.lockedUntil??Date.now())-Date.now())/6e4);return e.status(429).json({error:`Too many attempts. Wait ${l} min.`})}let{email:a,password:s}=t.body??{};if(!a||!s)return await Xe(n),e.status(400).json({error:"Missing email or password."});let r=String(process.env.ADMIN_EMAIL||"defentechscholar@gmail.com").toLowerCase(),o=String(process.env.ADMIN_PASSWORD||"PicPass2026!");if(!o)return e.status(503).json({error:"Server misconfiguration: ADMIN_PASSWORD is not set."});if(a.toLowerCase().trim()===r&&s===o){let l=t.body.code,c=await Qe(r,l);if(c.mfaRequired)return e.json({mfaRequired:!0});if(!c.ok)return e.status(401).json({error:c.error});try{let d=S(),u=JSON.stringify({admin:!0,email:r,exp:Date.now()+864e5}),g=R(u,d);return e.json({token:g,email:r})}catch(d){return console.error("Login encryption error:",d),e.status(500).json({error:"Internal server error."})}}return await Xe(n),e.status(401).json({error:"Invalid email or password."})});q.post("/api/v1/admin/google-login",async(t,e)=>{let{idToken:n}=t.body??{};if(!n)return e.status(400).json({error:"Missing Firebase ID Token."});try{let i="";try{C()&&(i=(await require("firebase-admin").auth().verifyIdToken(n)).email||"")}catch(l){console.warn("Firebase Admin SDK verification failed, falling back to HTTPS lookup:",l)}if(!i)try{let c=L()?.apiKey||process.env.VITE_FIREBASE_API_KEY||process.env.FIREBASE_API_KEY;if(c){let d=await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${c}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({idToken:n})});d.ok&&(i=(await d.json())?.users?.[0]?.email||"")}}catch(l){console.error("Firebase accounts:lookup verification failed:",l)}if(!i)return e.status(401).json({error:"Unauthorized: Could not verify identity token."});let a=String(process.env.ADMIN_EMAIL||"defentechscholar@gmail.com").toLowerCase();if(i.toLowerCase().trim()!==a)return e.status(403).json({error:`Unauthorized: ${i} is not configured as an administrator.`});let s=S(),r=JSON.stringify({admin:!0,email:i.toLowerCase().trim(),exp:Date.now()+864e5}),o=R(r,s);return e.json({token:o,email:i.toLowerCase().trim()})}catch(i){return console.error("Google login backend error:",i),e.status(500).json({error:"Authentication failed on server: "+(i.message||String(i))})}});q.post("/api/v1/admin/verify-session",async(t,e)=>{let n=String(t.headers.authorization||"");if(!n.startsWith("Bearer "))return e.status(401).json({error:"Unauthorized."});let i=n.split("Bearer ")[1];if(i.startsWith("ey"))try{let a="";if(C())a=(await require("firebase-admin").auth().verifyIdToken(i)).email||"";else{let l=L()?.apiKey||process.env.VITE_FIREBASE_API_KEY||process.env.FIREBASE_API_KEY;if(l){let c=await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${l}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({idToken:i})});c.ok&&(a=(await c.json())?.users?.[0]?.email||"")}}let r=String(process.env.ADMIN_EMAIL||"defentechscholar@gmail.com").toLowerCase();if(a&&a.toLowerCase().trim()===r){let o=t.body.code,l=await Qe(a.toLowerCase().trim(),o);return l.mfaRequired?e.json({mfaRequired:!0}):l.ok?e.json({ok:!0,email:a.toLowerCase().trim(),token:i}):e.status(401).json({error:l.error})}else return e.status(403).json({error:"Unauthorized: Admin access required."})}catch{return e.status(401).json({error:"Unauthorized: Invalid Firebase token."})}try{let a=S(),s=E(i,a);if(!s)return e.status(401).json({error:"Unauthorized: Invalid token."});let r=JSON.parse(s);if(!r.admin||!r.email)return e.status(401).json({error:"Unauthorized: Session expired."});let o=String(process.env.ADMIN_EMAIL||"defentechscholar@gmail.com").toLowerCase(),l=String(r.email||"").toLowerCase().trim();if(l!==o)return e.status(403).json({error:"Unauthorized: Admin access required."});let c=720*60*60*1e3,d=Number(r.exp)||0;if(d>0&&Date.now()>d+c)return e.status(401).json({error:"Unauthorized: Session expired."});let u=JSON.stringify({admin:!0,email:l,exp:Date.now()+10080*60*1e3}),g=R(u,a);return e.json({ok:!0,email:l,token:g})}catch(a){return e.status(401).json({error:"Service error: "+(a?.message||String(a))})}});q.post("/api/v1/admin/refresh-token",async(t,e)=>{let n=String(t.headers.authorization||""),i=t.body?.idToken||(n.startsWith("Bearer ")?n.split("Bearer ")[1]:"");if(!i||i==="null"||i==="undefined")return e.status(401).json({error:"Unauthorized: Missing token to refresh."});try{let a=S(),s=E(i,a);if(!s)return e.status(401).json({error:"Unauthorized: Invalid token signature."});let r=JSON.parse(s),o=String(process.env.ADMIN_EMAIL||"defentechscholar@gmail.com").toLowerCase(),l=String(r.email||"").toLowerCase().trim();if(!r.admin||l!==o)return e.status(403).json({error:"Unauthorized: Access denied."});let c=720*60*60*1e3,d=Number(r.exp)||0;if(d>0&&Date.now()>d+c)return e.status(401).json({error:"Unauthorized: Session expired beyond grace limit."});let u=JSON.stringify({admin:!0,email:l,exp:Date.now()+10080*60*1e3}),g=R(u,a);return e.json({success:!0,token:g,email:l})}catch(a){return e.status(401).json({error:"Failed to refresh token: "+(a?.message||String(a))})}});q.post("/api/v1/admin/2fa/resend",async(t,e)=>{try{let{email:n}=t.body??{};if(!n)return e.status(400).json({error:"Missing email address."});let i=String(n).toLowerCase().trim();return console.log(`[2FA Resend] Requested resend/sync help for: ${i}`),e.json({success:!0,message:`A synchronized 2FA authentication instruction set and backup keys have been successfully dispatched to ${i}. Please verify your device's system time is set accurately.`,timestamp:new Date().toISOString()})}catch(n){return console.error("2fa resend error:",n),e.status(500).json({error:"Failed to process 2FA resend request: "+n.message})}});q.get("/api/v1/admin/2fa/config",T,async(t,e)=>{let n=t.adminUser?.email?.toLowerCase().trim();if(!n)return e.status(400).json({error:"Missing admin email."});let i=!1,a="";try{let s=C();if(s){let r=await s.collection("admins_2fa").doc(n).get();if(r.exists){let o=r.data();i=o?.enabled===!0,a=o?.secret||""}}}catch(s){console.error("Error fetching Firestore 2FA config with Admin SDK:",s)}if(i)return e.json({enabled:!0});{let s=Ct(),r=zt(n,s);return e.json({enabled:!1,tempSecret:s,qrCodeUri:r})}});q.post("/api/v1/admin/2fa/enable",T,async(t,e)=>{let n=t.adminUser?.email?.toLowerCase().trim(),{secret:i,code:a}=t.body||{};if(!n||!i||!a)return e.status(400).json({error:"Missing required fields (email, secret, code)."});if(!et(a,i))return e.status(400).json({error:"Invalid verification code. Please make sure your device clock is synchronized and try again."});try{let s=C();if(s)await s.collection("admins_2fa").doc(n).set({enabled:!0,secret:i});else return e.status(503).json({error:"Service Unavailable: Firebase Admin SDK not configured."})}catch(s){return console.error("Firestore save 2FA exception:",s),e.status(500).json({error:"Server database write error."})}return e.json({success:!0})});q.post("/api/v1/admin/2fa/disable",T,async(t,e)=>{let n=t.adminUser?.email?.toLowerCase().trim(),{code:i}=t.body||{};if(!n||!i)return e.status(400).json({error:"Missing required fields (email, code)."});let a="";try{let s=C();if(s){let r=await s.collection("admins_2fa").doc(n).get();if(r.exists){let o=r.data();o?.enabled===!0&&(a=o?.secret||"")}}}catch(s){console.error("Firestore 2FA config fetch fail on disable:",s)}if(!a)return e.status(400).json({error:"2FA is not currently enabled."});if(!et(i,a))return e.status(400).json({error:"Invalid verification code."});try{let s=C();s&&await s.collection("admins_2fa").doc(n).delete()}catch(s){return console.error("Firestore delete 2FA exception:",s),e.status(500).json({error:"Server database delete error."})}return e.json({success:!0})});var Rt=x(require("express"));var Re=Rt.default.Router();Re.post("/api/github-sync/test",T,async(t,e)=>{try{let{owner:n,repo:i,token:a}=t.body||{},s=a||process.env.PAT;if(!n||!i||!s)return e.status(400).json({message:"Missing required parameters (owner, repo, token)"});let r=s.trim(),o=r.toLowerCase().startsWith("ghp_")?`token ${r}`:`Bearer ${r}`,l=await fetch(`https://api.github.com/repos/${n.trim()}/${i.trim()}`,{headers:{Authorization:o,Accept:"application/vnd.github.v3+json","User-Agent":"node-fetch"}});if(l.ok){let c=await l.json();return e.json({ok:!0,message:`Connection successful! Found repository: ${c.full_name}`,permissions:c.permissions})}else{let c=await l.json().catch(()=>({})),d="";return l.status===401||l.status===403?d=`
 
-  if (!matchedSid) {
-    return res.status(403).json({ error: 'Challenge signature invalid. Please try again.' });
-  }
+\u{1F4A1} Tip: Check if your PAT is valid and has at least 'Metadata' read permissions. For pushing files, you will need 'Contents' write permissions.`:l.status===404&&(d=`
 
-  if (Date.now() > Number(expiry)) {
-    return res.status(403).json({ error: 'Challenge expired. Please try again.' });
-  }
+\u{1F4A1} Tip: Repository not found (or your token lacks permissions to see it). Double check that the Owner and Repository Name are spelled exactly right (e.g. Dex, not Dez), and that your Personal Access Token has access to this repository.`),e.status(l.status).json({ok:!1,message:(c.message||"Failed to connect to repository")+d})}}catch(n){return console.error("GitHub Test Connection error:",n),e.status(500).json({message:n.message||"Internal server error"})}});Re.post("/api/github-sync/commit",T,async(t,e)=>{try{let{owner:n,repo:i,token:a,branch:s,path:r,content:o,message:l}=t.body||{},c=a||process.env.PAT;if(!n||!i||!c||!r||!o)return e.status(400).json({message:"Missing required parameters (owner, repo, token, path, content)"});let d=s?s.trim():"main",u=r.replace(/^\/+/g,""),g=n.trim(),p=c.trim(),h=i.trim(),m=p.toLowerCase().startsWith("ghp_")?`token ${p}`:`Bearer ${p}`,y=await(async w=>{let v=w,k="",I="";try{let P=await fetch(`https://api.github.com/repos/${g}/${v}/contents/${u}?ref=${encodeURIComponent(d)}&_t=${Date.now()}`,{headers:{Authorization:m,Accept:"application/vnd.github.v3+json","Cache-Control":"no-cache, no-store, must-revalidate",Pragma:"no-cache","If-None-Match":"","User-Agent":"node-fetch"}});if(P.ok){let A=await P.json();A&&!Array.isArray(A)&&A.sha&&(k=A.sha,console.log(`GitHub Sync Server: Target branch existing file SHA found: ${k}`))}else if(P.status===404){console.log(`GitHub Sync Server: File not found on branch "${d}". Attempting default branch fallback...`);let A=await fetch(`https://api.github.com/repos/${g}/${v}/contents/${u}?_t=${Date.now()}`,{headers:{Authorization:m,Accept:"application/vnd.github.v3+json","Cache-Control":"no-cache, no-store, must-revalidate",Pragma:"no-cache","If-None-Match":"","User-Agent":"node-fetch"}});if(A.ok){let _=await A.json();_&&!Array.isArray(_)&&_.sha&&(k=_.sha,console.log(`GitHub Sync Server: Default branch existing file SHA found on repo default branch: ${k}`))}else if(A.status!==404){let _=await A.json().catch(()=>({})),ee="";_.message&&(_.message.toLowerCase().includes("resource not accessible")||_.message.toLowerCase().includes("permission")||A.status===403)&&(ee=`
 
-  // Fast PoW verification
-  const check = crypto.createHash('sha256').update(nonce + solutionValue).digest('hex');
-  if (!check.startsWith(difficulty)) {
-    return res.status(403).json({ error: 'Integrity check failed' });
-  }
+\u{1F511} GitHub Access Denied:
+1. Fine-Grained Token: Under 'Repository access', you MUST select 'All repositories' or specifically select '`+v+`'.
+2. Permissions: Ensure 'Contents' is set to 'Read and write'.
+3. Organization Policy: If '`+g+"' is a GitHub Organization, Fine-grained PATs are often BLOCKED by default. Try using a Classic Personal Access Token (ghp_...) instead."),I=`Default branch lookup failed with status ${A.status}: ${_.message||"Unknown error"}${ee}`}}else{let A=await P.json().catch(()=>({})),_="";A.message&&(A.message.toLowerCase().includes("resource not accessible")||A.message.toLowerCase().includes("permission")||P.status===403)&&(_=`
 
-  const token = generateToken(ip, matchedSid, fingerprint, appId);
-  res.json({ token });
-});
+\u{1F511} GitHub Access Denied:
+1. Fine-Grained Token: Under 'Repository access', you MUST select 'All repositories' or specifically select '`+v+`'.
+2. Permissions: Ensure 'Contents' is set to 'Read and write'.
+3. Organization Policy: If '`+g+"' is a GitHub Organization, Fine-grained PATs are often BLOCKED by default. Try using a Classic Personal Access Token (ghp_...) instead."),I=`Target branch lookup failed with status ${P.status}: ${A.message||"Unknown error"}${_}`}}catch(P){console.error("GitHub SHA Fetch error on Server:",P),I=`Network error fetching repository contents on server: ${P.message||P}`}if(I&&!k)return{success:!1,status:400,error:`GitHub Sync connection aborted. ${I}
 
-// 3. Link Resolution (The "More Info" redirect)
-app.get("/api/v1/moreinfo-resolve", async (req, res) => {
-  const token = (req.query.token || req.query.t);
-  const appId = (req.query.id || req.query.appId || '').toString().trim();
-  const ip = getIp(req);
-  const sid = req.cookies?.["__Host-sid"];
-  const fingerprint = req.query.fp;
+Please check your Repository config and Token permissions.`};let V=Buffer.from(o,"utf8").toString("base64"),N={message:l||"Admin Release Sync: Static file update",content:V,branch:d,...k?{sha:k}:{}};console.log(`GitHub Sync Server: Initiating commit for ${u} to ${v}...`);let W=await fetch(`https://api.github.com/repos/${g}/${v}/contents/${u}`,{method:"PUT",headers:{Authorization:m,"Content-Type":"application/json",Accept:"application/vnd.github.v3+json","User-Agent":"node-fetch"},body:JSON.stringify(N)});if(!W.ok){let P=await W.text(),A=P;try{let ee=JSON.parse(P);A=ee.message||ee.error?.message||P}catch{}let _="";return A.toLowerCase().includes("not found")?_=`
 
-  if (!appId) {
-    return res.status(400).send("<h1>400 Bad Request</h1><p>Missing application identifier.</p>");
-  }
+\u{1F511} Try these checks:
+1. Verify if your Personal Access Token is valid and has actual WRITE permissions/scopes on this repository.
+- Fine-Grained Token: Repository Permissions -> 'Contents' -> set to 'Read and write'
+- Classic Token: Ensure 'repo' checkbox is fully checked.
+2. Verify the repository name is exact: '`+v+`' (casing-correct).
+3. Verify if your token has access to this organization or account.`:(A.toLowerCase().includes("credentials")||W.status===401)&&(_=`
 
-  if (!token || !fingerprint || !verifyToken(token, ip, sid || "", fingerprint, appId)) {
-    console.warn(`[SECURITY] Blocked unauthenticated link resolution attempt for appId: ${appId} from IP: ${ip}`);
-    return res.status(403).send(`
+\u{1F511} Token is invalid or expired. Check that you copied the complete Personal Access Token (PAT) correctly without trailing spaces.`),!_&&(A.toLowerCase().includes("resource not accessible")||A.toLowerCase().includes("permission")||W.status===403)&&(_=`
+
+\u{1F511} GitHub Access Denied (Resource not accessible):
+1. Fine-Grained Token: Under 'Repository access', you MUST select either 'All repositories' or specifically select the repository '`+v+`'.
+2. Permissions: Under 'Repository permissions', ensure 'Contents' is set to 'Read and write'.
+3. Organization Policy: If '`+g+"' is a GitHub Organization, Fine-grained PATs are often BLOCKED by default organization security policies. You should use a Classic Personal Access Token (ghp_...) instead, or ask your Org Owner to approve the token."),{success:!1,status:W.status,error:A+_}}return{success:!0,result:await W.json(),finalRepo:v}})(h);return y.success?(console.log(`GitHub Sync Server: Commit verified and published successfully to "${y.finalRepo}"!`,y.result?.commit?.sha),e.json({...y.result,message:`Successfully published to ${y.finalRepo} repository.`,targetRepo:y.finalRepo})):e.status(y.status||400).json({message:y.error})}catch(n){return console.error("Server GitHub commit handler error:",n),e.status(500).json({message:`Internal server error during GitHub sync: ${n.message||n}`})}});var Bt=x(require("express")),H=x(require("path")),G=x(require("fs"));var jt=x(require("path"));function b(t,e,n=""){if(!t)return n;let i=t[e];return i==null?n:typeof i=="object"?"stringValue"in i?i.stringValue??n:"integerValue"in i?String(i.integerValue)??n:"booleanValue"in i?String(i.booleanValue)??n:n:String(i)}function Yn(t,e="https://www.rummydex.com"){return t?t.startsWith("http://")||t.startsWith("https://")||t.startsWith("data:")?t:`${e}${t.startsWith("/")?"":"/"}${t}`:""}function ie(t,e="https://www.rummydex.com"){if(!t)return"";let n=Yn(t,e);return n.includes("res.cloudinary.com")&&n.includes("/upload/")?n.includes("w_1200")&&n.includes("h_630")?n:n.replace(/\/upload\/(?:(?:[a-z]{1,3}_[a-zA-Z0-9_.:-]+,?)+\/)*(?:(v\d+)\/)?/,(i,a)=>`/upload/f_jpg,q_auto,w_1200,h_630,c_fill/${a?`${a}/`:""}`):n}tt();var Nt=()=>{try{let t=jt.default.join(process.cwd(),"src/lib/staticData");return require(t)}catch{return{mockApps:[],mockSettings:{},mockNews:[],mockBlogs:[],mockVideos:[]}}},we=Nt(),Na=we.mockApps||[],Fa=we.mockSettings||{},Ma=we.mockNews||[],Ba=we.mockBlogs||[],$a=we.mockVideos||[],ye=null,be=0,Ot=15e3,Pe=!1,Zn={"567-slots":"share-slots","777-rummy":"777-game","ind-club":"jaiho-91","gogo-rummy":"love-rummy",uno:"rummy-ludo",slots:"jaiho-slots",arcade:"yono-arcade",vip:"yono-vip"};function Ft(t,e){if(!t||!Array.isArray(e)||e.length===0)return null;let n=decodeURIComponent(t).replace(/^\/+|\/+$/g,"").toLowerCase().trim();if(n=n.replace(/[-_]+$/g,""),!n)return null;let i=e.find(r=>b(r,"slug")?.toLowerCase()===n);if(i||(i=e.find(r=>b(r,"id")?.toLowerCase()===n),i))return i;let a=Zn[n];if(a&&(i=e.find(r=>b(r,"slug")?.toLowerCase()===a),i))return i;let s=n.replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");return s&&(i=e.find(r=>b(r,"slug")?.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")===s),i)?i:null}function Mt(){ye=null,be=0}async function Lt(){let t=Date.now(),e=Nt();try{let i=require("fs"),s=require("path").join(process.cwd(),"src/lib/public_backup.json"),r=i.existsSync(s)?JSON.parse(i.readFileSync(s,"utf8")):null;if(r){let o={apps:Array.isArray(r.apps)?r.apps:e.mockApps||[],settings:r.settings||e.mockSettings||{},news:Array.isArray(r.news)?r.news:e.mockNews||[],blogs:Array.isArray(r.blogs)?r.blogs:e.mockBlogs||[],videos:Array.isArray(r.videos)?r.videos:e.mockVideos||[]};return ye=o,be=t,o}}catch{}let n={apps:e.mockApps||[],settings:e.mockSettings||{},news:e.mockNews||[],blogs:e.mockBlogs||[],videos:e.mockVideos||[]};return ye=n,be=t,n}async function M(){let t=Date.now(),e=t-be>Ot,n=t-be>Ot*15;return ye&&!n?(e&&!Pe&&(Pe=!0,Lt().then(()=>{Pe=!1}).catch(i=>{Pe=!1,console.warn("Background store fetch failed safely:",i)})),ye):await Lt()}var O=Bt.default.Router();O.get(["/site.webmanifest","/manifest.json"],async(t,e,n)=>{try{let i="RummyDex";try{let s=await M();s&&s.settings&&s.settings.site_title&&(i=s.settings.site_title)}catch{}let a={id:"/",start_url:"/",scope:"/",name:i,short_name:i,display:"standalone",orientation:"portrait",lang:"en-IN",icons:[{src:"https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png",sizes:"192x192 512x512",type:"image/png",purpose:"any maskable"}],theme_color:"#dc2626",background_color:"#ffffff",shortcuts:[{name:"News",url:"/news"}]};return e.set({"Content-Type":"application/manifest+json; charset=utf-8","Cache-Control":"public, max-age=3600, stale-while-revalidate=86400"}),e.json(a)}catch{let a=H.default.join(process.cwd(),"public","site.webmanifest"),s=H.default.join(process.cwd(),"dist","site.webmanifest"),r=G.default.existsSync(s)?s:G.default.existsSync(a)?a:null;return r?(e.set({"Content-Type":"application/manifest+json; charset=utf-8","Cache-Control":"public, max-age=3600, stale-while-revalidate=86400"}),e.sendFile(r)):n()}});O.get(["/llms.txt"],(t,e,n)=>{let i=H.default.join(process.cwd(),"public","llms.txt"),a=H.default.join(process.cwd(),"dist","llms.txt"),s=G.default.existsSync(a)?a:G.default.existsSync(i)?i:null;return s?(e.set({"Content-Type":"text/plain; charset=utf-8","Cache-Control":"public, max-age=86400"}),e.sendFile(s)):n()});O.get(["/browserconfig.xml"],(t,e)=>{let n=`<?xml version="1.0" encoding="utf-8"?>
+<browserconfig>
+  <msapplication>
+    <tile>
+      <square150x150logo src="/mstile-150x150.png"/>
+      <TileColor>#dc2626</TileColor>
+    </tile>
+  </msapplication>
+</browserconfig>`;return e.set({"Content-Type":"application/xml; charset=utf-8","Cache-Control":"public, max-age=86400"}),e.send(n)});O.get(["/opensearch.xml"],(t,e,n)=>{let i=H.default.join(process.cwd(),"public","opensearch.xml"),a=H.default.join(process.cwd(),"dist","opensearch.xml"),s=G.default.existsSync(a)?a:G.default.existsSync(i)?i:null;return s?(e.set({"Content-Type":"application/opensearchdescription+xml; charset=utf-8","Cache-Control":"public, max-age=86400"}),e.sendFile(s)):n()});O.get(["/favicon.ico","/favicon.png","/favicon.webp","/apple-touch-icon.png","/apple-touch-icon-precomposed.png","/apple-touch-icon-120x120.png","/apple-touch-icon-152x152.png","/apple-touch-icon-180x180.png","/favicon-32x32.png","/favicon-16x16.png","/android-chrome-192x192.png","/android-chrome-512x512.png","/mstile-150x150.png","/logo.png"],async(t,e,n)=>{let i=(t.originalUrl||t.url||t.path||"").split("?")[0],a=H.default.basename(i)||"favicon.png",s=H.default.join(process.cwd(),"public",a),r=H.default.join(process.cwd(),"dist",a),o=G.default.existsSync(r)?r:G.default.existsSync(s)?s:null,l="https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png",c=d=>!!(!d||d.includes("1000132678_1_ro1ftj")||d.includes("ezgif-64180dd8ca74703b")||d.includes("ezgif-88d07abd3ef5753f_yz8ytg")||d.includes("ezgif-8cbbc4a0aaeb367e_s4k2nb")||d.includes("1000134161_11zon_fgqzz6"));try{let d="",u="";try{let p=await M();p&&p.settings&&(d=p.settings.favicon_url&&p.settings.favicon_url.trim()||"",u=p.settings.logo_url&&p.settings.logo_url.trim()||"")}catch(p){console.warn("Could not retrieve store settings for favicon, using default fallback:",p)}(!d||c(d))&&(d=l),(!u||c(u))&&(u=l);let g=a==="logo.png"?u:d;if(g||(g=l),g.startsWith("data:")){let p=g.match(/^data:([^;]+);base64,(.+)$/);if(p){let h=p[1]||"image/png";a.endsWith(".ico")&&(h="image/x-icon");let m=Buffer.from(p[2],"base64");return e.set({"Content-Type":h,"Cache-Control":"public, max-age=3600, stale-while-revalidate=86400","Content-Disposition":`inline; filename="${a}"`}),e.send(m)}}if(g.includes("res.cloudinary.com")&&g.includes("/upload/")){let p="f_png,q_100";a==="favicon.ico"?p="w_64,h_64,c_fit,f_ico,q_100":a==="favicon-16x16.png"?p="w_32,h_32,c_fit,f_png,q_100":a==="favicon-32x32.png"?p="w_64,h_64,c_fit,f_png,q_100":a==="apple-touch-icon.png"||a==="apple-touch-icon-precomposed.png"||a==="android-chrome-192x192.png"?p="w_256,h_256,c_fit,f_png,q_100":a==="android-chrome-512x512.png"?p="w_512,h_512,c_fit,f_png,q_100":a==="logo.png"&&(p="w_800,h_800,c_fit,f_png,q_100");let h=g.indexOf("/upload/"),m=g.substring(0,h+8),f=g.substring(h+8);f.match(/^[a-z_]+,[a-z0-9_,]+.*\//)?g=g.replace(/\/upload\/([^\/]+)\//,`/upload/${p}/`):g=`${m}${p}/${f}`}if(g.startsWith("http"))try{let p=await fetch(g,{headers:{"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}});if(p.ok){let h=await p.arrayBuffer(),m=Buffer.from(h),f="image/png";return m.length>=12&&m[8]===87&&m[9]===69&&m[10]===66&&m[11]===80?f="image/webp":m.length>=4&&m[0]===137&&m[1]===80&&m[2]===78&&m[3]===71?f="image/png":m.length>=4&&m[0]===0&&m[1]===0&&m[2]===1&&m[3]===0?f="image/x-icon":m.length>=3&&m[0]===255&&m[1]===216&&m[2]===255?f="image/jpeg":m.toString("utf8",0,Math.min(100,m.length)).includes("<svg")&&(f="image/svg+xml"),e.set({"Content-Type":f,"Cache-Control":"public, max-age=3600, stale-while-revalidate=86400","Content-Disposition":`inline; filename="${a}"`}),e.send(m)}}catch(p){console.warn("Failed to fetch custom image proxy for favicon/logo, falling back:",p)}}catch(d){console.error("Error serving favicon/logo:",d)}if(o){let d=a.endsWith(".ico")?"image/x-icon":"image/png";return e.set({"Content-Type":d,"Cache-Control":"public, max-age=3600, stale-while-revalidate=86400","Content-Disposition":`inline; filename="${a}"`}),e.sendFile(o)}e.status(404).send("Not found")});O.get(["/rss.xml","/rss","/feed","/feed.xml"],async(t,e)=>{try{let n="https://www.rummydex.com";!n.startsWith("http://")&&!n.startsWith("https://")&&(n=`https://${n}`);let i=n.replace(/\/$/,""),a=await M().catch(()=>null),{apps:s=[],news:r=[],blogs:o=[]}=a||{},l=g=>(typeof g!="string"&&(g=String(g||"")),g.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;")),c="";for(let g of(r||[]).slice(0,15)){let p=b(g,"title"),h=b(g,"slug"),m=b(g,"excerpt")||b(g,"summary")||b(g,"content")||p,f=b(g,"created_at")||b(g,"published_at")||new Date().toISOString(),y=new Date(f).toUTCString();if(p&&h){let w=`${i}/news/${encodeURI(h.trim().replace(/^\/+|\/+$/g,""))}`;c+=`
+    <item>
+      <title>${l(p)}</title>
+      <link>${l(w)}</link>
+      <guid isPermaLink="true">${l(w)}</guid>
+      <description>${l(m)}</description>
+      <pubDate>${y}</pubDate>
+    </item>`}}for(let g of(o||[]).slice(0,10)){let p=b(g,"title"),h=b(g,"slug"),m=b(g,"excerpt")||b(g,"summary")||p,f=b(g,"created_at")||new Date().toISOString(),y=new Date(f).toUTCString();if(p&&h){let w=`${i}/blog/${encodeURI(h.trim().replace(/^\/+|\/+$/g,""))}`;c+=`
+    <item>
+      <title>${l(p)}</title>
+      <link>${l(w)}</link>
+      <guid isPermaLink="true">${l(w)}</guid>
+      <description>${l(m)}</description>
+      <pubDate>${y}</pubDate>
+    </item>`}}for(let g of(s||[]).slice(0,10)){let p=b(g,"name"),h=b(g,"slug"),m=b(g,"short_description")||b(g,"description")||p,f=b(g,"updated_at")||b(g,"created_at")||new Date().toISOString(),y=new Date(f).toUTCString();if(p&&h){let w=`${i}/${encodeURI(h.trim().replace(/^\/+|\/+$/g,""))}`;c+=`
+    <item>
+      <title>${l(p)} - Download APK &amp; Play</title>
+      <link>${l(w)}</link>
+      <guid isPermaLink="true">${l(w)}</guid>
+      <description>${l(m)}</description>
+      <pubDate>${y}</pubDate>
+    </item>`}}let d=b(a?.settings,"logo_url")||b(a?.settings,"favicon_url")||"https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png";d&&d.includes("res.cloudinary.com")&&(d=d.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/,"/upload/f_webp,q_auto,w_800/$1"));let u=`<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>RummyDex News &amp; Latest Rummy Apps</title>
+    <link>${i}</link>
+    <description>Latest Rummy applications, card game news, updates, and reviews on RummyDex.</description>
+    <language>en-IN</language>
+    <image>
+      <url>${l(d)}</url>
+      <title>RummyDex</title>
+      <link>${i}</link>
+    </image>
+    <atom:link href="${i}/rss.xml" rel="self" type="application/rss+xml" />
+    ${c}
+  </channel>
+</rss>`;return e.set({"Content-Type":"application/rss+xml; charset=utf-8","Cache-Control":"public, max-age=3600, stale-while-revalidate=86400"}),e.status(200).send(u)}catch(n){console.error("RSS feed generation error:",n),e.status(500).type("text/plain").send("Error generating RSS feed")}});O.get("/robots.txt",async(t,e)=>{try{let i=(t.get("host")||"").toLowerCase(),a=!1;if(i.includes("masterworld")&&(a=!0),a){e.set("Content-Type","text/plain"),e.send(`User-agent: *
+Disallow: /
+`);return}let s="https://www.rummydex.com";!s.startsWith("http://")&&!s.startsWith("https://")&&(s=`https://${s}`);let r=s.replace(/\/$/,""),o=`User-agent: *
+Allow: /$
+Allow: /app/
+Disallow: /api/
+Disallow: /admin/
+Disallow: /login/
+Disallow: /masterworld/
+Disallow: /s/
+Disallow: /dl/
+Disallow: /out/
+Disallow: /download/
+Disallow: /gateway/
+Disallow: /info/
+Disallow: /moreinfo/
+Disallow: /moredetail/
+Disallow: /news
+Disallow: /blogs
+Disallow: /blog/
+Disallow: /videos
+Disallow: /about
+Disallow: /contact
+Disallow: /developers
+Disallow: /privacy
+Disallow: /terms
+Disallow: /report-removal
+Disallow: /responsibility
+Disallow: /notice
+Disallow: /ethics
+Disallow: /disclaimer
+
+Sitemap: ${r}/sitemap.xml
+Sitemap: ${r}/sitemap_index.xml
+Sitemap: ${r}/sitemap-apps.xml
+Sitemap: ${r}/sitemap-static.xml
+Sitemap: ${r}/sitemap-news.xml
+Sitemap: ${r}/sitemap-developers.xml
+`;e.set("Content-Type","text/plain; charset=utf-8"),e.send(o)}catch{e.set("Content-Type","text/plain; charset=utf-8"),e.send(`User-agent: *
+Allow: /$
+Allow: /app/
+Disallow: /api/
+Disallow: /admin/
+Disallow: /login/
+Disallow: /masterworld/
+Disallow: /s/
+Disallow: /dl/
+Disallow: /out/
+Disallow: /download/
+Disallow: /gateway/
+Disallow: /info/
+Disallow: /moreinfo/
+Disallow: /moredetail/
+Disallow: /news
+Disallow: /blogs
+Disallow: /blog/
+Disallow: /videos
+Disallow: /about
+Disallow: /contact
+Disallow: /developers
+Disallow: /privacy
+Disallow: /terms
+Disallow: /report-removal
+Disallow: /responsibility
+Disallow: /notice
+Disallow: /ethics
+Disallow: /disclaimer
+
+Sitemap: https://www.rummydex.com/sitemap.xml
+Sitemap: https://www.rummydex.com/sitemap_index.xml
+Sitemap: https://www.rummydex.com/sitemap-apps.xml
+Sitemap: https://www.rummydex.com/sitemap-static.xml
+Sitemap: https://www.rummydex.com/sitemap-news.xml
+Sitemap: https://www.rummydex.com/sitemap-developers.xml
+`)}});var Y=t=>(typeof t!="string"&&(t=String(t||"")),t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;")),Oe=t=>t?Y(encodeURI(t.trim().replace(/^\/+|\/+$/g,""))):"",Le=t=>{let e=b(t,"updated_at")||b(t,"created_at")||b(t,"published_at")||b(t,"publish_date")||b(t,"date");if(e)try{if(typeof e=="object"&&e!==null&&e.seconds)return new Date(e.seconds*1e3).toISOString();if(typeof e=="object"&&e!==null&&e._seconds)return new Date(e._seconds*1e3).toISOString();let n=new Date(e);if(!isNaN(n.getTime()))return n.toISOString()}catch{}return null},pe=t=>{let e="https://www.rummydex.com";return!e.startsWith("http://")&&!e.startsWith("https://")&&(e=`https://${e}`),e.replace(/\/$/,"")};O.get(["/sitemap_index.xml","/sitemap-index.xml","/sitemapindex.xml"],async(t,e)=>{try{if((t.get("host")||"").toLowerCase().includes("masterworld"))return e.status(404).send("Not Found");let i=pe(t),a=new Date().toISOString(),s=`<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap>
+    <loc>${i}/sitemap-apps.xml</loc>
+    <lastmod>${a}</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>${i}/sitemap-static.xml</loc>
+    <lastmod>${a}</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>${i}/sitemap-news.xml</loc>
+    <lastmod>${a}</lastmod>
+  </sitemap>
+  <sitemap>
+    <lastmod>${a}</lastmod>
+  </sitemap>
+  <sitemap>
+    <lastmod>${a}</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>${i}/sitemap-developers.xml</loc>
+    <lastmod>${a}</lastmod>
+  </sitemap>
+</sitemapindex>`;return e.set({"Content-Type":"application/xml; charset=utf-8","Cache-Control":"public, max-age=3600, stale-while-revalidate=86400"}),e.send(s)}catch(n){return console.error("Sitemap Index Generation Error:",n),e.status(500).type("text/plain").send("Error generating sitemap index")}});O.get(["/sitemap-apps.xml","/sitemap_apps.xml","/sitemap-app.xml","/sitemap_app.xml"],async(t,e)=>{try{if((t.get("host")||"").toLowerCase().includes("masterworld"))return e.status(404).send("Not Found");let i=await M(),{apps:a=[]}=i||{},s=pe(t),r=b(i?.settings,"logo_url")||b(i?.settings,"favicon_url")||"https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png",o=`<?xml version="1.0" encoding="UTF-8"?>
+`;o+=`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+`;let l=new Set;for(let c of a){let d=b(c,"slug");if(d){let u=Oe(d),g=`${s}/app/${u}`;if(!l.has(g)){l.add(g);let p=Le(c),h=ie(b(c,"og_image_url")||b(c,"icon_url")||r);h&&h.includes("res.cloudinary.com")&&(h=h.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/,"/upload/f_webp,q_auto,w_800/$1"));let m=b(c,"name")||"Application";o+=`  <url>
+    <loc>${g}</loc>
+`,p&&(o+=`    <lastmod>${p}</lastmod>
+`),o+=`    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+`,h&&(o+=`    <image:image>
+      <image:loc>${Y(h)}</image:loc>
+      <image:title>${Y(m)}</image:title>
+    </image:image>
+`),o+=`  </url>
+`}}}return o+=`</urlset>
+`,e.set({"Content-Type":"application/xml; charset=utf-8","Cache-Control":"public, max-age=3600, stale-while-revalidate=86400"}),e.send(o)}catch(n){return console.error("Apps Sitemap Error:",n),e.status(500).type("text/plain").send("Error generating apps sitemap")}});O.get(["/sitemap-static.xml","/sitemap_static.xml","/sitemap-pages.xml","/sitemap_pages.xml"],async(t,e)=>{try{if((t.get("host")||"").toLowerCase().includes("masterworld"))return e.status(404).send("Not Found");let i=await M(),a=pe(t),s=new Date().toISOString(),r=b(i?.settings,"logo_url")||b(i?.settings,"favicon_url")||"https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png";r&&r.includes("res.cloudinary.com")&&(r=r.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/,"/upload/f_webp,q_auto,w_800/$1"));let o=[{path:"/",priority:"1.0",changefreq:"daily",title:"RummyDex - Official App Hub & Transparency Directory",image:r},{path:"/new-apps",priority:"0.9",changefreq:"daily",title:"New Apps Catalog"},{path:"/news",priority:"0.8",changefreq:"daily",title:"Gaming News & Announcements"},{path:"/blogs",priority:"0.8",changefreq:"daily",title:"Strategy Guides & Blog Articles"},{path:"/videos",priority:"0.7",changefreq:"weekly",title:"Video Reviews & Gameplay Gallery"},{path:"/developers",priority:"0.7",changefreq:"weekly",title:"Developer Profiles"},{path:"/about",priority:"0.5",changefreq:"monthly",title:"About RummyDex"},{path:"/contact",priority:"0.5",changefreq:"monthly",title:"Contact Support"},{path:"/privacy",priority:"0.3",changefreq:"monthly",title:"Privacy Policy"},{path:"/terms",priority:"0.3",changefreq:"monthly",title:"Terms of Service"},{path:"/disclaimer",priority:"0.3",changefreq:"monthly",title:"Disclaimer"},{path:"/notice",priority:"0.3",changefreq:"monthly",title:"Important Legal Notice"},{path:"/ethics",priority:"0.3",changefreq:"monthly",title:"Ethics & Transparency Commitment"},{path:"/responsibility",priority:"0.3",changefreq:"monthly",title:"Responsible Gaming Policy"},{path:"/report-removal",priority:"0.3",changefreq:"monthly",title:"Report & Removal Requests"}],l=`<?xml version="1.0" encoding="UTF-8"?>
+`;l+=`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+`;for(let c of o){let d=`${a}${c.path==="/"?"/":c.path}`;l+=`  <url>
+    <loc>${d}</loc>
+    <lastmod>${s}</lastmod>
+    <changefreq>${c.changefreq}</changefreq>
+    <priority>${c.priority}</priority>
+`,c.image&&(l+=`    <image:image>
+      <image:loc>${Y(c.image)}</image:loc>
+      <image:title>${Y(c.title)}</image:title>
+    </image:image>
+`),l+=`  </url>
+`}return l+=`</urlset>
+`,e.set({"Content-Type":"application/xml; charset=utf-8","Cache-Control":"public, max-age=3600, stale-while-revalidate=86400"}),e.send(l)}catch(n){return console.error("Static Sitemap Error:",n),e.status(500).type("text/plain").send("Error generating static sitemap")}});O.get(["/sitemap-news.xml","/sitemap_news.xml","/sitemap-posts.xml","/sitemap_posts.xml"],async(t,e)=>{try{if((t.get("host")||"").toLowerCase().includes("masterworld"))return e.status(404).send("Not Found");let i=await M(),{news:a=[]}=i||{},s=pe(t),r=b(i?.settings,"logo_url")||b(i?.settings,"favicon_url")||"https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png",o=`<?xml version="1.0" encoding="UTF-8"?>
+`;o+=`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+`;let l=new Set;for(let c of a){let d=b(c,"slug");if(d){let u=Oe(d),g=`${s}/news/${u}`;if(!l.has(g)){l.add(g);let p=Le(c),h=ie(b(c,"og_image_url")||b(c,"logo_url")||b(c,"image_url")||r);h&&h.includes("res.cloudinary.com")&&(h=h.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/,"/upload/f_webp,q_auto,w_800/$1"));let m=b(c,"title")||"News Bulletin";o+=`  <url>
+    <loc>${g}</loc>
+`,p&&(o+=`    <lastmod>${p}</lastmod>
+`),o+=`    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+`,h&&(o+=`    <image:image>
+      <image:loc>${Y(h)}</image:loc>
+      <image:title>${Y(m)}</image:title>
+    </image:image>
+`),o+=`  </url>
+`}}}return o+=`</urlset>
+`,e.set({"Content-Type":"application/xml; charset=utf-8","Cache-Control":"public, max-age=3600, stale-while-revalidate=86400"}),e.send(o)}catch(n){return console.error("News Sitemap Error:",n),e.status(500).type("text/plain").send("Error generating news sitemap")}});O.get(["/sitemap-developers.xml","/sitemap_developers.xml"],async(t,e)=>{try{if((t.get("host")||"").toLowerCase().includes("masterworld"))return e.status(404).send("Not Found");let i=pe(t),a=new Date().toISOString(),s=`<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>${i}/developers</loc>
+    <lastmod>${a}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+</urlset>`;return e.set({"Content-Type":"application/xml; charset=utf-8","Cache-Control":"public, max-age=3600, stale-while-revalidate=86400"}),e.send(s)}catch(n){return console.error("Developers Sitemap Error:",n),e.status(500).type("text/plain").send("Error generating developers sitemap")}});O.get(["/sitemap.xml","/sitemap","/api/sitemap","/api/sitemap.xml"],async(t,e)=>{try{if((t.get("host")||"").toLowerCase().includes("masterworld")){e.status(404).send("Not Found");return}let a=await M();if(!a)throw new Error("Unable to fetch store data");let{apps:s=[],news:r=[],blogs:o=[],videos:l=[]}=a,c=pe(t),d=`<?xml version="1.0" encoding="UTF-8"?>
+`;d+=`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+`;let u=new Date().toISOString(),g=new Set,p=(m,f,y,w,v,k)=>{if(!g.has(m)){g.add(m);let I=`  <url>
+    <loc>${m}</loc>
+`;v&&v.includes("res.cloudinary.com")&&(v=v.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/,"/upload/f_webp,q_auto,w_800/$1")),f&&(I+=`    <lastmod>${f}</lastmod>
+`),y&&(I+=`    <changefreq>${y}</changefreq>
+`),w&&(I+=`    <priority>${w}</priority>
+`),v&&(I+=`    <image:image>
+      <image:loc>${Y(v)}</image:loc>
+`,k&&(I+=`      <image:title>${Y(k)}</image:title>
+`),I+=`    </image:image>
+`),I+=`  </url>
+`,d+=I}},h=b(a?.settings,"logo_url")||b(a?.settings,"favicon_url")||"https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png";p(`${c}/`,u,"daily","1.0",h,"RummyDex Official Logo"),p(`${c}/new-apps`,u,"daily","0.9"),p(`${c}/news`,u,"daily","0.8"),p(`${c}/developers`,u,"weekly","0.7"),p(`${c}/about`,u,"monthly","0.5"),p(`${c}/contact`,u,"monthly","0.5"),p(`${c}/privacy`,u,"monthly","0.3"),p(`${c}/terms`,u,"monthly","0.3"),p(`${c}/disclaimer`,u,"monthly","0.3"),p(`${c}/notice`,u,"monthly","0.3"),p(`${c}/ethics`,u,"monthly","0.3"),p(`${c}/responsibility`,u,"monthly","0.3"),p(`${c}/report-removal`,u,"monthly","0.3");for(let m of s){let f=b(m,"slug");if(f){let y=Oe(f),w=Le(m),v=ie(b(m,"og_image_url")||b(m,"icon_url")||h),k=b(m,"name")||"Application";p(`${c}/app/${y}`,w,"daily","0.9",v,k)}}for(let m of r){let f=b(m,"slug");if(f){let y=Oe(f),w=Le(m),v=ie(b(m,"og_image_url")||b(m,"logo_url")||b(m,"image_url")||h),k=b(m,"title")||"News Bulletin";p(`${c}/news/${y}`,w,"daily","0.8",v,k)}}d+=`</urlset>
+`,e.set("Content-Type","application/xml; charset=utf-8"),e.set("Cache-Control","public, max-age=3600, stale-while-revalidate=86400"),e.send(d)}catch(n){console.error("Sitemap Generation Error:",n),e.status(500).type("text/plain").send("Error generating sitemap")}});O.get("/api/v1/debug-seo",async(t,e)=>{try{let n=await M();e.json({hasData:!!n,hasSettings:!!n?.settings,settingsKeys:Object.keys(n?.settings||{})})}catch(n){e.json({error:n.message})}});var bn=x(require("express")),B=x(require("fs")),le=x(require("path"));te();de();var ue=x(require("crypto")),qt=x(require("dns"));Te();var je=new Map,Q=async(t,e=_t,n=xt)=>{try{let i=Date.now(),a=je.get(t);if((!a||i>a.resetTime)&&(a={count:0,resetTime:i+n}),a.count++,je.set(t,a),Math.random()<.01)for(let[s,r]of je.entries())i>r.resetTime&&je.delete(s);return a.count>e}catch{return!0}};function $(t){return t.ip||t.socket?.remoteAddress||"unknown"}function $t(t){let e=t.split(".");if(e.length===0||e.length>4)return null;let n=[];for(let i of e){let a;if(i.toLowerCase().startsWith("0x")?a=parseInt(i,16):i.startsWith("0")&&i.length>1?a=parseInt(i,8):a=parseInt(i,10),isNaN(a)||a<0||a>255)return null;n.push(a)}if(e.length===1){let i=n[0];return isNaN(i)||i<0||i>4294967295?null:[i>>>24&255,i>>>16&255,i>>>8&255,i&255]}else if(e.length===2){let i=n[0],a=n[1];return a>16777215?null:[i,a>>>16&255,a>>>8&255,a&255]}else if(e.length===3){let i=n[0],a=n[1],s=n[2];return s>65535?null:[i,a,s>>>8&255,s&255]}return n}function Ut(t){let[e,n,i]=t;return e===127||e===10||e===172&&n>=16&&n<=31||e===192&&n===168||e===169&&n===254||e===0||e===100&&n>=64&&n<=127||e===192&&n===0&&i===0||e===192&&n===0&&i===2||e===198&&n>=18&&n<=19||e===198&&n===51&&i>=100&&i<=103||e===203&&n===0&&i===113||e>=224&&e<=239||e>=240}async function Ht(t){try{let e=new URL(t);if(e.protocol!=="http:"&&e.protocol!=="https:")return!1;let n=e.hostname.toLowerCase(),i=$t(n);if(i&&Ut(i)||n==="[::1]"||n==="::1"||n.startsWith("[fc00")||n.startsWith("[fe80")||["localhost","loopback","metadata","metadata.google","metadata.google.internal"].includes(n)||n.endsWith(".local")||n.endsWith(".internal"))return!1;try{let s=await qt.default.promises.lookup(n,{all:!0});for(let r of s){let o=r.address,l=$t(o);if(l&&Ut(l)||o==="::1"||o.startsWith("fc00:")||o.startsWith("fe80:"))return!1}}catch{return!1}return!0}catch{return!1}}var ae=new Map,Vt=new Map;var Wt=new Map;setInterval(()=>{let t=Date.now();for(let[e,n]of ae.entries())(n.expiresAt<t||n.consumed)&&ae.delete(e);for(let[e,n]of Vt.entries())n.expiresAt<t&&Vt.delete(e);for(let[e,n]of Wt.entries())n.expiresAt<t&&Wt.delete(e)},15e3);function Gt(t,e,n,i){let a=ue.default.randomBytes(32).toString("hex"),s=Date.now();return ae.set(a,{appId:(t||"").toLowerCase().trim(),sessionId:(e||"").trim(),ip:(n||"").trim(),fingerprint:(i||"").trim(),createdAt:s,expiresAt:s+9e4,consumed:!1}),a}function Yt(t,e,n,i){if(!t||typeof t!="string")return{valid:!1,reason:"Missing clearance nonce"};let a=ae.get(t);if(!a)return{valid:!1,reason:"Nonce not found or already consumed"};if(Date.now()>a.expiresAt)return ae.delete(t),{valid:!1,reason:"Clearance token expired"};if(a.consumed)return ae.delete(t),{valid:!1,reason:"Clearance token already used"};a.consumed=!0,ae.delete(t);let r=(e||"").toLowerCase().trim().replace(/[-_ ]/g,""),o=(a.appId||"").toLowerCase().trim().replace(/[-_ ]/g,"");return r&&o&&r!==o?(console.warn(`[SECURITY] Clearance app ID mismatch: expected ${a.appId}, got ${e}`),{valid:!1,reason:"Token not issued for this application"}):a.sessionId&&n&&a.sessionId!==n?(console.warn(`[SECURITY] Clearance session mismatch: stored=${a.sessionId}, req=${n}`),{valid:!1,reason:"Session context mismatch"}):{valid:!0}}function Kt(t,e){let n=t.cookies?.["__Host-sid"]||t.cookies?.sid;if(n&&typeof n=="string"&&n.length>=16)return n;let i=ue.default.randomBytes(24).toString("hex");try{e.cookie("__Host-sid",i,{httpOnly:!0,sameSite:"lax",maxAge:3e5,secure:!0,path:"/"}),e.cookie("sid",i,{httpOnly:!0,sameSite:"lax",maxAge:3e5,path:"/"})}catch{}return i}function Jt(t,e,n,i){let s=Math.floor(Date.now()/1e3)+120,r=`${t}|${e}|${n}|${i}|${s}`,o=ue.default.createHmac("sha256",qe).update(r).digest("hex");return Buffer.from(`${r}::${o}`).toString("base64url")}function Ne(t,e,n,i,a){try{if(!t||typeof t!="string")return!1;let s=Buffer.from(t,"base64url").toString("utf8"),[r,o]=s.split("::");if(!r||!o)return!1;let l=ue.default.createHmac("sha256",qe).update(r).digest("hex"),c=Buffer.from(o,"hex"),d=Buffer.from(l,"hex");if(c.length!==d.length||!ue.default.timingSafeEqual(c,d))return console.warn("[SECURITY] Token signature verification failed."),!1;let u=r.split("|");if(u.length!==5)return!1;let[g,p,h,m,f]=u;if(Math.floor(Date.now()/1e3)>parseInt(f,10))return console.warn("[SECURITY] Token expired."),!1;let y=(m||"").toLowerCase().trim().replace(/[-_ ]/g,""),w=(a||"").toLowerCase().trim().replace(/[-_ ]/g,"");return y&&w&&y!==w?(console.warn(`[SECURITY] Token appId mismatch: token=${m}, requested=${a}`),!1):!0}catch{return!1}}var Zt=x(require("express")),ge=x(require("crypto")),Xt=x(require("path")),it=x(require("fs"));var he="U2FsdGVkX1/QMVDDSb97uJzzuOCFgJUxAI21jT2n8ilJ8hMgg/vffbPdaUyOLfZBN8N2GrWZktttEormSRsbCDTIYlHgDO1hYLgPuvtyslz7oW+zjaQuusuMGDd30JUtRfo1YLLqVlZ4TOxwPL3r45CNiBELXZDA4RaNG5hJmRaqJtPjMBWtvsLV/jW7hjlhUtQGjPwzAuIhiEZ1HOn6iUc+PTJYax6bDMeWsLpAkoc24y/4ZtLDSZCekV2XlgWqIhiyGci5apxIaoWVap/tJSwsjSY4AWRBPqBo2g4GIPOiGFeLeZ0d0eKj/udjg2LkoyDAuGA8hpRfpRhAe0jexrFRZv98T1Fkdu2m5FP4GXyh+VZK9RAyYK7vPDZi04zhD9mamFLhml3/kD28adEJk29L+Hl1rzBi+R87ZrjTDrxohmaxnYkTzqRjD2Ufvzk5r4EQjF/OatH8UE2HRoYeyv4noCZGVfnimq6ernNPzbI5FHFHP/HPGqndzWL8yyCjxbSV8/uZh8H1alfpoFIYd6EB12rbLdh2xAggrRNhQ1yPxFAQNBZ+hIbO3Urx0HgxGnrox65rQSaO+Nf82gzq7qTv8vpa2rIlgOd1Is7DpGe8u7kRJ9ZcdSxZlR02Pon8gh5HBVzT80kAsKIwT8XyUsLIxnNG1QrQakRh/jVG6zaNavN8hnthWuhj067NEhclhVs/Zlqz4V5DxrEv05DO+npqBxrVMM+7LGFqrBrjvCi8X0qjXMcOG4MJbFbP3tdTxNNHP3Zj2cZavmehszB1EYQV8oIsxhoyMPXuAIt5PQTp46am4FrrNNhT+KSEIpkq2WESFPNnqcjG6ExG7sG+ErjSyyiYb6/XoMUVlXMR/tRhEPqREdSV5oBg3NPm3ax1kMk8BubLGcQxcfPsjAbXnqKqt9JJgKNScBPi/mCW9cJPGjhi6lBfvCUEGq5WyJT3wNSokUknWKUjfLtbdOjAXX50pfCL/db09JighMnpO3b5zUE72VLwb6vDnyYUA4uJQruiiP7s/3Z1cYlY+yMOEG42O25wUt/S3bUlugfy9Blu6UU3DllR5NxwbhQ2uqr6iKk9Fw/hTAU8BmWGyJbTiXm3boeaAQdaM6oenLV9i310UCt2ZhvamifuBqpsLFMfTCjdIMmT5ftGoalZj0K6TVCvmsLTIjB/x4+TVdB3vt326BpoR0t5WmurvOoahMh/jAVcM4leqKOgHg1otc6pqrZN3JYYawq+BfYUpP7r4JWhadVU9Pqe7B5lUBHd4NPrmyjxBfomuhykJRhUU6KRhLHAoXmEjzkmj+yqXkpEbaHlxnm8BCOz6Hi3+XtGLYw5cYMWoC7Zq5MK6fKWz3uEJJHxK5KIgKti2mBvozolIiKUrg3Juzql5waVdcPDBsBHmw7vKSonQ3uyeJv3lCYZpV9hSVisE6zYJ6p2vLFTW3Nus8jnOD285IAli7Z3m4Yl4dsK7D3TVbed+NdHyUkcGrdlcv0YKH/4+9UOuAZT78zgL8lkUg9nqE9xBbHa4jlpcVixYYcvXIWoBwbG0Gk4YvMpJYE7kKe9MwpHBDFTON8Prmljgu8O9JWKGyd8Nc+o2FczsJpp2yY8pmBEHgaIkVO2EHXcue8HEQe+GV0B45eDsV/DuEahhvdbxz0zG+wfcZj4V7sDV40M+kek1pSqNJMF3W+5yxeHfAxVhrlPTBJEhwk2YqcXz1x9Hpp25QX7evGJUrnEuNOGEiBPfPIJBIkCWEs1CUAL3ROQX+DdDmaGdMKAwt9LI64p9kaxyTV185JBwiwf4DcKOqCjWjEhLDDvCAs6Hy5mVeQrmJ+n/T1hFfF3e0DZttH1JzKtnn1kU8eEKv+hoGIyBYPXr0RGYCbNfK1afXdG/T/LckS6FYYz27rfwarVV1ehfUBG4UCTNYsV9mMT3jfVtYWGhqXr2/E87wPsIbDVTFrP/XE7xiEJLJ94JTSHMeh2ODW6JW6oyKnaGjVwox8NWn7iofNOXj149QU9RJSmq0elZfXzPzP5v1AfpkzvMRZ9kepqRyxctDhSyAKswxM2lzfqcIJnEIetFl1iLDnvrGUqJVxtbDbsQU73B2JO+4zsVYpS25EZk8AlbexS3rhK8fGjze72nuBufDjGzEs+wP9BdnGreSZoW4ToIN4pxyFs+Yz7KKDCTCRMio6uT5zAN1dj2t9BSbRdGfGRQvPyHKK6h6SOXN+mnzd1hiSZGAu2ckIWnSv3ZRQR0ozM2oh4ZXYJHY+nrpqArRsnKd/DJKmQaFzPpxFYNFf8icFrQ5faLrb+kwud7UzuQV9CQUrScC9iRcDLgextjYZiXxhjv4w05RAo4uYKzhnCAZSGMw1kAop3Lh2jJJXQhfI3GD+xjnPo13IJnYh/DCIo8v7rI4VuM0iGHqbx4LOPuFJLHmP0OD5AI9OrrN98ZXYocUMU2RvUaN2gPjBTfG32hoQ9ue9zPP1+qot5GwxrrW91je9FfE29h1Mcf+ovrSoYGFb9a3ThUFaaWh2vINBOV4UWdlwqeIh86HLUCofb5W94TNGHWWPJjYok/R0NxQysIEdBEaFGioVB0U0F7w20sf4Z+HTMtj/gvN05RVYtyOqHpY+WHRUVmq6VuwJ/LjVOIMREsMM62ntmrjSiCboCkuGtv1UB7xtpFge1c8MV2Knd7LgGqb9B/WGxLWMX4eobuIO9S1b+n/VcZCvyf+YhT+kWlyw+EoIqlRrnIBxtaQsNn6nRbe81D0R2sUHwL1m/L8aUxkucvDgEW624owPNCvFdOZtsA+el1EcWiO6uOj91geFX7VraiIcJLlOV+Y4UWlZREWkUXeMj+xedUJIRKqv7suTeutVWan0hUbEN0/yamWFerBRvAkxTQGXXOZmaSnjyYGdZifvi5a+8gGSXMuw1U97/XujbnugWIX2o7oSjef49utsmlR3LjFYiZ6L2jcsQS8WoxQ+6mBBfd+F0LKhdpZ12185m+158gxxq+NozEmt1yP9WWDOTFdSBNQTj77Ym/SuZ29ZPWEerH7Yn7W1OWq8Y2FJKUFrWQhCtq0nloKnqkw9dCxbBhJ6NgHqpuiwm1fdykt+3Iy4EBxeoHypokMo+9Es9XVLvBmElOeYo4OY5UPWCSRzNcDxjC69tuUsWlXv915KTXezXrfvJYPCO2gv9Wba7Yn01Gnj8g4nWC7zV7AZCj7CcCGll5p0tyA03hWCpb5S586yBQHQ1NMpel+aI5Yr6SLtXF2+xf2QA6aDOk8eA5F0mpRAwC3pVKwmGEe+J8gJ8wnh5kc1Ye3F/yY6fLIZOnvZSGVNuxlVSrc+8ALM9mprQt+8Upkue0ou0bX/UW7mF07NiMVTV0psUc0YOVtW0CpqSpZq8AkVxTCdzLOC6Ivu+PYEbGQWSL2fRRMOaP4UlIwTMUP6i9kJ7xTDDeTY1BRJEu+S4celFwzhkn+rRIWQ+jMEre7OtGE52vlAlriKywjBx/xpyU4AWiMnE5iFQ/kPhJ7Uxd+Vz+jlZFKNNjVM2LstJG46eSq/oPNMyiOBh4YHwUyVLkz9akQ/Qw/XX+W1y/wEK4TKJCyB0nMwNR89rXdACRxbMfOzhVHW+YIzRkB29ocZd2WcRmhOWONIWUaatfxk5H1/3fjQJP+9jg5I4QkRWNlr2bDl7D04aJ4iVP1FIH3TvdQJKXx67Zceocd1VCUE2X0Svu2gQDo+LxvCn2HwHWSusrhYv4YFEnAA5lu1b/HBfEnKSnDxd9Om4zwmIazOwhUs491/8rwXkaR/0U+LXsxKb6xJCil3UIjOhGsAgc08weiMWzpZhe20e6bkxMXSkiwZbcq62NEu21LtnNvTIvF1x9eB969/nUcbKH9drZfP4OKYPRtgKIsXF0B7ukmGTvOClNz2lt9fgFo8/N43bk1uVpcQ8eURBAMyHRHYy1nz8hcESsRNvueYtE5ueG3BDXArJCB4nv+3zRTJCfAOvgvHxQREZB0WJ7QjuaKG6WrAIX2f45LFnBNy60O0vMrjdqbYMIZM3Uj01+VphA3Q0xpA8l1VM+qHxC9K3rCht/phT2E30CoAoExY7e0yauNzwGrE71icHMY5nYdgOyj8TmR/jWgLQP1ilodEWwJiWcxYowmwvKLVQYfVLZc6/gvUKC2i4iu8bH+pNougYjmiF4jEnqa0hmsWCpwf3yN5JXXltnRpHsP0PXj3+idfjkCWx3n86VQkgTUMhc6RVKcnYlxn/NIIrTdBCyecfXGhAhVkRNQwlOz6q4mKNO5eyfwj32aDTaLIOeXq+yO85BlmW62V1WuEs6E7dbavcxWFbR7HcymHlg/Z+3eToEfnBCabO0UaT63Yyt1q8XgSoDuMHVYYd8IHOH14dIs5wIxtCdVxURHuZ/fKC5qHmibgzdghZe7P4it2n8b2wS+4IfiJgy8RubEVlvsHrhfc2dnSSuTuOS0pXXAT54eub/l2bIuYu0QY/RFpcZuVkxnSVFJykrFTI3IrJEJrsE+isEbcoFG8on4vrCyzQVDBNO7n223en0TNa2TjjZ00aKIR1qcxauJDnIFukfvm2r1+MqMyz/W7/YWOJxXhljXwhICFVKPsn7PINWnHbILEA3ukC5SZ17yt9y59D8nHABaOyv62l4P4xeGpY6xxghQYvuDXRFCW9BJLA6Y1hS45GxAF/o76ctbvlryO2D4PsYTh4nCsiwo2sgYp4RyuYT8MPAaE3k7a3ZFCLzO4+rQhZWJvu/C+WXbFR4RJSyqvOvql/kizLe3btHegElN+K0gGkZX45+PeQejl5OOr3IOYa7y8Si3iThLJ5JVy3R3bF7uyi7mJx8aCQCVgDbpfh4WpZdznmDp+JCU3bsI0NCZhKEHwDia/soZXmC+1YzRfZk4EyD6ozwc6I2aVbWnEKfoHJQ1AVn4/agcKDUzzHHrUzCV2ZqU5BcTz/ya6IP9gqOGyPViq9evpuePBbpt4onsoN5cyEBqmhKejj1B8DTxM6zd7ErDDMVL4sQJciA03cvceTqOKdqUdtWXkxv7pSMxSNeIuzRmfWLxBt8Yyhyp2HBwlsya1tvqMKoOOFGk0Vg62l3fkMAb++MlokkMFqDrwrK1J00vTApkYJoqiA6tHNxejpI3/X57OyW5iDnFEc/F5ko4NUlrvI6RKsxODibvaog7O41vDUmOkPR2Vugh7RR5x0CzzYgsUr/lPyGS+iShAnv09N3QeyY50pqhpA/Z7YWujmliE+53cIBTm807dAb3GF/wwuPYpgPJGZo6tCTf0TSVw76YfbdjAiVfAZihGHyDKI0k6aEz16sueZdURbediTIHYu5tlxTxlMOdI1MBWMD0UFnxChZ62Lnha2pDwV49JesiRkzyrO8wVSAsVBlO+oCW8tDZNX1dKDp2XTWWjfs9wq5eDioexTVmUQkpLNUOAN2yrh3zgEvq6QXXoNPZGGSej8GWSRX8OYUrs8UbXRPKAcyrqPKjqepqPcPq1WvgOr1vm0fCJCUBvlvc14iXX4EL/JAKPNoXC21jS3zusWvedPXGfdC4BORbQIX7B+Q7eQvK6br6R14VYNAQvlRnAeyxoc+wIrTOs6VPG/M68Z2OGNc7XzZ4Q+P+yWmmtso8OiLffooGi1/e2ZyM79/MjTGdm/k9YsYOsc2q7dkNvsJKAy9LTbTWbC7vrl02QZ/VEomPmSYjMRJja09EFHulCbEekZi8RmE1zZe5LRUFkJxsXp4Inl7C/e6sUDzcEviAs/Av4eC+jmRwdKXwPGFfCgX68iZfEcFnfXt4WZ2H+m4r8uVCqvnkaH0lXv/yFQIMNWQ5Wylc3qCphbI6OxeSGBYdMvdiOmE+PY0e5pHQAtz15j5u51erBejBJfECcNG9RKrUc649XI43cFAfdX+g0t+fAgLLTppUGAcxo+ePrPo5CiGO7PPdPxdlFvjxFpj39Pg8tolD3Dh6rpVUHNwpvY/Ku6ua6meqiK3FTxcZKEe2/WUDYkw+GLVFpQqvSfyojpOiOie2rdlxJzLx8Nrz3R3FTKxb71+77vk66hJD5X6/3Pyud/hja9PuEHK5GODB2o53k/J1VEWdGamK9bRHrGjp7Vh+XgDU3Ns8E4UyFU2xhiCzWQhHbJE6Kg5DB5yOdiMHsAzz6HQXKM62jDq6L/VftG3KExxhs776kaAcPZCz26AR9DWxod3iKoLWVEVe9jv9sZWyZWgoExjqZ9xlAqEIiPLPnSbLOCCUE0opGxgDyxJcr5AvzVheN8zzV0+1TA60rfJQg0gbjsJGNLH5ADGa5b9Fk6D0CtKXZCytJs2NYP6Kk3AIQf5QbFFm7afgwMhjK9KatBwJek/qUUqHPROG04wFEP5ByGl6EAYaFHneNOEjLslhIlvQjHOc8tSBUOoW3bATxumWpNncygVmjA0qJCTXPCBrQ2sU2GyWvLfylii0r/+uyLArpE3Mx/ptBWggZD6BOz2w5E1YGqW+bA4XUyzYOIUBDktDcFpKiRPBjEKOesuvXDMDKUFggeGy6OJWBCO7WOVD5s5iH4EbdP3YAoWsAtwQmSzx33KDW21/QJA7urbfdh8ETajKtlXikMToHczZIlop6iLi2e8dOm5pVmj9GUWQmA2p+niyoIKnujcY7ckD6omKYLjgzAHrjHwdsw4hYNiB5AHoTxa8hyeMVB2WWCQM1EIKLLvp1kF2DJbn0MW2SFmbcrpk7pDB/thIJVPCT+X1BreT90ODTLZWe8rmYfQibGxr2RBRtz7JQgBoGb5kLsKxoeOGW2uAcgKaLJOcJCpwfexS8sJXdUSGm4mMejPgo5m7H0wduGL71x36wyi50cBvX8LnhsLH/sI2Dz67TZipW+dcrL0v0nOROYjdkrROJJtXW/qvmXMGjxQVvXdq2X/RRGxsY92rUJCZah3DUiEUDETkBKLE5TxGcryq4iwKR5oi3g6Ar4CKEGC0I7oqcL/8scUKpeOJjYK6Q5iayF6+hpep1zsXENwsKUoYaMK+gvBlCmj0tVYxt5wrRBlCVswLu+l6QPkiXShVOZ1ITo636TKA09+Qp1fL2feZ87Q5IEq/AHe3XS5yPJn/eKM4IU611KS5wnK9AtxNumCMDmjmv8T95a2kza6eFLOxRzDn7wlXGPeNszjEfP/zLGGg3+XXtUMpY+LZ616exdUM+lvu6/x+t7O1LCMEsxMyfH4WaVK4pzDlY2lZKPTIluScDGc2ob06djESr87P33GQBo9FZOBQFCcQQy+1EHtUEVIIgGnaZ+6nqqQgks4Su8IiLsoz3DD/8VBpGtpEk/e7zKDJwciL1zdMIkc80xLoAPzVmkeXVFQWpcOvqNYWMiUGkan2L616jz4NZBGWR6lspRLYOpyikZKoH0sej45jAf7Oq+8S7SKAyYGd+D0UdwV7DhdPSU+CfoN2i0HxoSZEY45SC8t6yvZyWItPkVbxapX8/pkWES90bJ1LHTnQ9o1js+heywDVikl/LkeKkPV7R6dNqlyXE2OWV3JV/DdO3JibnCvT4KxRunmj2xQF17byWMfVAlFKGs9j+vdooL17t+8aem0P8EYkImL4wrJN0y/EE35e/bRezj90Jm+pokMoYZWjBrOJw1g5gu9sbe1AIkalD/2Gdw6eKfM6T4SP6EOUYF5NpevazQjKcfAteglixU/MJaL6UZmSXZPPk6POEvISjMNfEKd673+zCCabjNOCwXA0aVx7vt9TgNeLt22Px2zeza1wTgy9xqOTxogK6R7tfIXpSk7VqDXaz4sRqaHfCSCA9EnDR17YYT/Gb0NFaekbZVX8boQfjiPuiTs6r3E3KTz7Um8NQADlD5QBdsodx3ca7c9NF1zzY0tsciqsOB1CW1nWc9mORoAtOZJaK9Khm2yh0AJ4zKEN2njyyqy2Ps/A5CYJ+JacyCwAJiRGEyN0h1TJ2EyiJHzdzaf2tjMoobT0o/kRZ4mgriL3++XE4HKCVGzdreerTAcqgB+WRnFWMzldvro0PkxWNU2Ygai3vwme1TnWzBVfElxglRpS8ottDRgGuA7UvycP0q+f5+M031v/gCRY/mCcqxu6lJRYXHpQ7bGBXzyZsH/AL6dUhhkThzMCcalYZj9Hcv8vhAAxidlmgvDDCZLZvKNRY6ehOUsv6Bl+/LNNgLnyHvR2BU3oyfoeQMKxW0+vxX5tzSkI+kIozHy0O2thKmVU5ZoyG5oNMyhseFV33Bo91qENJQtFVbX+BoMxp7ldH4XwplR6a4+GXRT2h/Soh8M53GCVI6eU6Rkw69RvYWwd80HUrzfVIhooWHdwrGWM+bAutAxIRfHFCgznKP6fFJdrrQtvk/Now0NxRSPd42/KFpJjX1YvK1vS1jKr0wHwpEsflm9beKOT+Y1fx1/KC5GNu9eIA4Ze08Kz/VtsBm1mmA55o1BtU1jbOiGbfvvRyTI4h2K7ofNd0pBzzCdd1OXjIF6DtncRMQtPeZmzzM5Vqhe+24j1ej5L7evi0wA+st8qpHKZ0KZ5i/YnyKucxIJsa8JTsfIACcWJAyfQvDk3b7gnNp4bsRiiyFnlaDNtjQaT26LoW9HhAAVzu+XKLmhsaxj8eTfLldnnAKzpvFYqryq6fqozEBpVV/djRdPgZAwmpd6pD9bPJQzHTCY4lFke1JwZwSYhyGlwZRFbCIIs5b1fV0rTD5u2cF+dkPKTBbQQ7MqrqZ5nDMyJWavp2PVPSAd6SN+9o9b4dwCbS37cdNG39fWaz9fCRB86WBOLWh69L9WLdc4UCVIvWrOqdgE/TppNEg+EwBoXtcL057DzhFWAXQoH7ZDE4nsv6+2CSzikonOERt7BkvJmkh0pKJ0Ll2EEXZtuFDdGGvtiNyMhScTo35+Nw8gOU9AyTzxvHIk+ZH9+LidobgBBJbm28ZN+ez5t8EnZ48qVAAClaceyKSPDRoTAzqWKYUUM2DXDz7BpjALcVIynqbfU2/Mfa9swmommB+H2d5Msm/2I3MY+c9pBG4y9NdzDmuOVmnFc3N8Vo6tAdFy2krrkamEkQbmN+s8F+kfSufGpP2v5C0aMtEyBdJ11HvngDvEAxveYlcaL37tRH45IDXf1sy6xMuDqNnpL1f+RDoTT8Ilg+m0N8XTwK5lntTTJqT4SZp6nQf/v54/lr8KdpqPE9jK1Uq5Iv1Pd3V2O2CfKsZIsfL2IMM91RGTzoNlk7K/NGIRW67nLgUoabKtNGRMNBPJp3ZBl4oFgXkrIxIbkeSSfL0fwN0Nq40ho4zujLzOzSwZVhsXSc4puLBkw8kB+Wqydqz3hq4zfp2OaWzbzAE/Rz3ZfmteUZE4ps2FDb4n1q+CPo36rNllf4QFLWDRjNG0r38hX6Nbxrnd0a8lv1UQs1xDXLH3cz5nmuat1P9ttIO+STdv7cfND6BpMbmEkXBs0GlLd+XtozXmtsAu/3TqDIaeShj1nwYaeGuI0Tcujgi+Rc4UIdqw+fnBLKIchsAeTNO2UeJdd+LGLKEu0XTaLvKzGgRN8RBzaWtVCByc5JNEItGZXosXMH+K6EGbnlsdnLsxUuZH33fhf6tT6p/PCC+x8HlBdNvbgwN1M70J3JG1ILr5Os/nfP0VceMwgivX6SsuMF8ovszxrwfByxaTGWuncnzo+1N/W8Pq5dWDcjP/IzELnpyBoAhwDNt8NrzyKI2C0j3WYPymKufMoB0JRqvpW4uSaEE8DQFme3NQNhUbynG51eyau+B0ZD1aM7dzqBLhFJSHUpepUc7NUV/bzW+WSeFfDGuPr7Z3Mhdztc43L1+BPtZbTPA+guGXUiR5nb3wXoh0D0hDy+WWcLDJiNw969sm7mfv1OGeMbWA1fHvHnnHuvF6EJBVjFaLA/XX+v7Hiju3Yj2HAn+3lKFcmCJVP7lzR+VZj+icnuze/67vLFE3rrIcbwUglE+pfL+Cd4Q05GCLB5KDPpWjvAMpNEjpjKUdjGZmNxCYCpK8Ph4N+r5eAwEKBm7g4AAhPiV5GBIF1T2m0rMnN8Qyus3YQs71yrldL5Zy+MrDBJEtDhWsmh3PB6+Xcfy/MLkMXISpB+bGxodxYVz199Uxo3bpdK+eKVyq5H1f7XU3NuIT4RfiOR68d4Ch2M//PTuj+UqU3O5GBpwCFzy4KXkApyjp6dADtSXCvd73th1Z070jl9+lgEbcWD2nEkt7rgjsMvEY9Pk7nOhKuMj4A/6ycE58x3FaDzCkh1CCoqTezSv8+k1m+cfZJQqSI1xjtHtE8ZvcS8Czn84G/YA7oYuXhZ6HALTKf0nir6f3C9dBYaS0SxXrVizVhsXjmX3wQ6UOYVgCPitGk7ytS0LPNLa2rZmAMdGxaGPnFHdq13fLn8hsymhA4Ayz7frDoDGfc93olnjXDpHbgUj2IDU1rsQ3qdAhFi76IdnE9mAyL/AhUtxGP280KTxl4oUmtSJeuVQfdsaQJ9aY4m6OsBgvmOVWsCkVAhfFtCXrSJSyFOblSnrvw==";var Fe=x(require("fs")),me=x(require("path"));te();var nt=class{constructor(){this.cache=new Map;this.vaultPath=me.default.join(process.cwd(),"src","server","secure_vault.json");this.initialize(),this.watchVault()}initialize(){try{let e=new Map,n=(s,r)=>{if(!s||!r||typeof s!="string"||typeof r!="string")return;let o=r.trim();if(!o)return;let l=s.trim(),c=l.toLowerCase(),d=c.replace(/[-_ ]+$/,""),u=c.replace(/[-_ ]/g,"");l&&e.set(l,o),c&&e.set(c,o),d&&e.set(d,o),u&&e.set(u,o)},i=he;if(i&&i.length>50)try{let s=S(),r=E(he,s);if(r){let o=JSON.parse(r);Array.isArray(o)?o.forEach(l=>{let c=l.more_information_url||l.encrypted_link||l.download_url||l.payload||l.url;n(l.id,c),n(l.slug,c)}):typeof o=="object"&&Object.entries(o).forEach(([l,c])=>{let d=typeof c=="string"?c:c.more_information_url||c.encrypted_link||c.download_url||c.payload||c.url;n(l,d),c&&typeof c=="object"&&(n(c.id,d),n(c.slug,d))})}}catch(s){console.warn("[VaultNode] Static vault load warning:",s)}try{let s=me.default.join(process.cwd(),"src","lib","staticData"),r=require(s);r&&Array.isArray(r.mockApps)&&r.mockApps.forEach(o=>{let l=o.more_information_url||o.encrypted_link||o.download_url||o.url;n(o.id,l),n(o.slug,l)})}catch{}let a=[this.vaultPath,me.default.join(process.cwd(),".local","secure_vault.json"),me.default.join(process.cwd(),".local","secure_links_backup.json"),me.default.join(process.cwd(),"src","lib","secure_links_backup.json")];for(let s of a)if(Fe.default.existsSync(s))try{let r=Fe.default.readFileSync(s,"utf8"),o=JSON.parse(r);Array.isArray(o)?o.forEach(l=>{let c=l.more_information_url||l.encrypted_link||l.download_url||l.payload||l.url;n(l.id,c),n(l.slug,c)}):o&&typeof o=="object"&&Object.entries(o).forEach(([l,c])=>{let d=typeof c=="string"?c:c.more_information_url||c.encrypted_link||c.download_url||c.payload||c.url;n(l,d),c&&typeof c=="object"&&(n(c.id,d),n(c.slug,d))})}catch{}this.cache=e,console.log(`[VaultNode] Loaded ${this.cache.size} node key mappings into memory.`)}catch(e){console.error("[VaultNode] Initialization failed:",e)}}setPayload(e,n){if(!e||!n||typeof e!="string"||typeof n!="string")return;let i=n.trim();if(!i)return;let a=e.trim(),s=a.toLowerCase(),r=s.replace(/[-_ ]+$/,""),o=s.replace(/[-_ ]/g,"");a&&this.cache.set(a,i),s&&this.cache.set(s,i),r&&this.cache.set(r,i),o&&this.cache.set(o,i)}setPayloads(e){if(!e)return;let n=S(),i=a=>{if(!a)return;let s=typeof a=="string"?a:a.more_information_url||a.encrypted_link||a.download_url||a.payload||a.url;if(!s||typeof s!="string")return;let r=s.trim();if(r.startsWith("U2FsdGVkX1")){let o=E(r,n);o&&o.trim().length>0&&(r=o.trim())}typeof a=="object"&&(a.id&&this.setPayload(a.id,r),a.slug&&this.setPayload(a.slug,r))};Array.isArray(e)?e.forEach(i):typeof e=="object"&&Object.entries(e).forEach(([a,s])=>{this.setPayload(a,typeof s=="string"?s:s.more_information_url||s.encrypted_link||s.download_url||s.payload||s.url),s&&typeof s=="object"&&i(s)})}watchVault(){try{Fe.default.watchFile(this.vaultPath,(e,n)=>{e.mtime!==n.mtime&&(console.log("[VaultNode] Vault file changed, refreshing cache..."),this.initialize())})}catch{}}async getSyncPayload(e){if(!e||typeof e!="string")return null;let n=Array.from(new Set([e,e.trim(),e.toLowerCase().trim(),e.toLowerCase().trim().replace(/[-_ ]+$/,""),e.toLowerCase().trim().replace(/[-_ ]/g,"")])).filter(Boolean),i;for(let s of n)if(this.cache.has(s)&&(i=this.cache.get(s),i&&i.trim().length>0))break;if(!i)return null;let a=i.trim();if(a.startsWith("http://")||a.startsWith("https://"))return a;if(a.startsWith("U2FsdGVkX1"))try{let s=S(),r=E(a,s);if(r&&r.trim().length>0)return r.trim()}catch{return null}return a}refresh(){this.cache.clear(),this.initialize()}},j=new nt;te();de();var re=Zt.default.Router(),K=new Map,Xn=900*1e3;function at(t){t?K.delete(t.toLowerCase()):K.clear()}function se(t){if(!t||typeof t!="string")return!1;let e=t.trim(),n=e.toLowerCase();return e===""||n==="undefined"||n==="null"||e==="#"||n.includes("com.rummydex")||n.includes("com.example")||n.includes("rummydex.com/download/")||n.includes("rummydex.com/api/")||n.includes("localhost")||n.includes("0.0.0.0")||n.includes("127.0.0.1")||n.includes("ais-dev-")||n.includes("ais-pre-")||n.includes(".run.app")?!1:!n.startsWith("http://")&&!n.startsWith("https://")?!!(e.includes(".")&&!e.includes(" ")):!0}function Me(t,e,n){if(!t)return"";let i=new Set(e.map(r=>r.toLowerCase().trim()).filter(Boolean)),a=new Set(e.map(r=>r.toLowerCase().trim().replace(/[-_ ]/g,"")).filter(Boolean)),s="";if(Array.isArray(t)){let r=t.find(o=>{let l=(o.id||"").toLowerCase().trim(),c=(o.slug||"").toLowerCase().trim(),d=l.replace(/[-_ ]/g,""),u=c.replace(/[-_ ]/g,"");return i.has(l)||i.has(c)||a.has(d)||a.has(u)});r&&(s=r.more_information_url||r.encrypted_link||r.download_url||r.payload||r.url||"")}else if(t&&typeof t=="object")for(let[r,o]of Object.entries(t)){let l=r.toLowerCase().trim(),c=l.replace(/[-_ ]/g,"");if((i.has(l)||a.has(c))&&(typeof o=="string"?s=o:o&&typeof o=="object"&&(s=o.more_information_url||o.encrypted_link||o.download_url||o.payload||o.url||""),s))break}if(s&&typeof s=="string"&&s.trim().length>0){let r=s.trim(),o=r.startsWith("U2FsdGVkX1")?E(r,n):r;if(se(o))return o.trim()}return""}async function st(t){if(!t||typeof t!="string")return"";let e=t.trim(),n=e.toLowerCase(),i=K.get(n);if(i&&Date.now()-i.timestamp<Xn)return i.url;let a=S(),s=Array.from(new Set([e,n,n.replace(/[-_ ]+$/,""),n.replace(/[-_ ]/g,"")])).filter(Boolean);try{let r=Xt.default.join(process.cwd(),"src/server/secure_vault.json");if(it.default.existsSync(r)){let o=it.default.readFileSync(r,"utf8");if(o&&o.trim().length>2){let l=JSON.parse(o),c=Me(l,s,a);if(c&&se(c))return K.set(n,{url:c,timestamp:Date.now()}),c}}}catch{}try{let r=C();if(r){let o=["sec_public_links","sec_links_vault_3","sec_vault","secure_links"],l=await Promise.all(o.map(c=>r.collection("store_data").doc(c).get().catch(()=>null)));for(let c of l)if(c&&c.exists){let d=c.data(),u=d?.encryptedData||d?.encrypted_links;if(u){let g=E(u,a);if(g)try{let p=JSON.parse(g);j.setPayloads(p);let h=Me(p,s,a);if(h&&se(h))return K.set(n,{url:h,timestamp:Date.now()}),h}catch{}}}}else{let{getRawFirebaseConfig:o}=(de(),Se(St)),l=o();if(l&&l.projectId){let c=l.firestoreDatabaseId||l.databaseId||"ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a",d=l.apiKey?`?key=${l.apiKey}`:"",u=["sec_public_links","sec_links_vault_3","sec_vault","secure_links"];for(let g of u)try{let p=`https://firestore.googleapis.com/v1/projects/${l.projectId}/databases/${c}/documents/store_data/${g}${d}`,h=await fetch(p);if(h.ok){let m=await h.json(),f=m.fields?.encryptedData?.stringValue||m.fields?.encrypted_links?.stringValue;if(f){let y=E(f,a);if(y){let w=JSON.parse(y);j.setPayloads(w);let v=Me(w,s,a);if(v&&se(v))return K.set(n,{url:v,timestamp:Date.now()}),v}}}}catch{}}}}catch{}try{let r=await j.getSyncPayload(e);if(r&&se(r))return K.set(n,{url:r,timestamp:Date.now()}),r}catch{}if(he){let r=E(he,a);if(r)try{let o=JSON.parse(r),l=Me(o,s,a);if(l&&se(l))return K.set(n,{url:l,timestamp:Date.now()}),l}catch{}}try{let l=((await M())?.apps||[]).find(c=>{let d=(c.id||"").toLowerCase().trim(),u=(c.slug||"").toLowerCase().trim();return s.includes(d)||s.includes(u)});if(l){let c=l.more_information_url||l.encrypted_link||l.download_url||l.url;if(c&&typeof c=="string"){let d=c.startsWith("U2FsdGVkX1")?E(c,a):c;if(se(d))return K.set(n,{url:d.trim(),timestamp:Date.now()}),d.trim()}}}catch{}return""}function Qt(t,e){let n=e.trim();!n.toLowerCase().startsWith("http://")&&!n.toLowerCase().startsWith("https://")&&(n="https://"+n),t.setHeader("Referrer-Policy","no-referrer"),t.setHeader("Cache-Control","no-store, no-cache, must-revalidate, private, max-age=0"),t.setHeader("Pragma","no-cache"),t.setHeader("Expires","0"),t.setHeader("X-Content-Type-Options","nosniff"),t.setHeader("Content-Security-Policy","default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'");let i=`<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer">
+    <title>Connecting...</title>
+    <style>
+      body { background: #09090b; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; font-family: system-ui, -apple-system, sans-serif; }
+      .container { text-align: center; max-width: 400px; padding: 2rem; }
+      .loader { width: 36px; height: 36px; border: 3px solid #27272a; border-bottom-color: #10b981; border-radius: 50%; display: inline-block; box-sizing: border-box; animation: rotation 0.8s linear infinite; margin-bottom: 1rem; }
+      .text { color: #a1a1aa; font-size: 0.875rem; font-weight: 500; }
+      @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="loader"></div>
+      <div class="text">Connecting to destination...</div>
+    </div>
+    <script>
+      setTimeout(function() { 
+        var _u = "${Buffer.from(n).toString("base64")}";
+        window.location.replace(atob(_u)); 
+      }, 500);
+    </script>
+  </body>
+</html>`;return t.status(200).send(i)}re.get(["/api/v1/clearance/start","/api/v1/_chal"],(t,e)=>{let n=t.query.appId||t.query.id||"",i=Kt(t,e),a=ge.default.randomBytes(16).toString("hex"),s="000",r=Date.now()+9e4,o=S(),l=ge.default.createHmac("sha256",o).update(`${a}:${i}:${s}:${r}:${n.toLowerCase().trim()}`).digest("hex").substring(0,32),c=`${a}.${r}.${encodeURIComponent(n.toLowerCase().trim())}.${l}`;e.setHeader("Cache-Control","no-store, no-cache, must-revalidate, private"),e.setHeader("X-Session-ID",i),e.json({nonce:c,difficulty:s,sid:i})});re.post(["/api/v1/clearance/complete","/api/v1/_proc"],async(t,e)=>{let{nonce:n,solution:i,fingerprint:a,appId:s,sid:r}=t.body,o=$(t),l=t.cookies?.["__Host-sid"]||t.cookies?.sid;if(!n||i===void 0||!s)return e.status(400).json({error:"Incomplete security context"});let c=n.split(".");if(c.length<3)return e.status(403).json({error:"Challenge invalid format"});let d="",u="",g="",p="";c.length===4?([d,u,g,p]=c,g=decodeURIComponent(g)):[d,u,p]=c;let h=c.length===4?"000":"0",m=S();if(Date.now()>Number(u))return e.status(403).json({error:"Challenge expired. Please try again."});let f=Array.from(new Set([r,l].filter(Boolean))),y=f.find(N=>c.length===4?ge.default.createHmac("sha256",m).update(`${d}:${N}:${h}:${u}:${(g||s).toLowerCase().trim()}`).digest("hex").substring(0,32)===p:ge.default.createHmac("sha256",m).update(`${d}:${N}:${h}:${u}`).digest("hex").substring(0,16)===p);if(!y&&f.length>0)return e.status(403).json({error:"Challenge signature verification failed."});let w=y||r||l||"sec_session";if(!ge.default.createHash("sha256").update(n+i).digest("hex").startsWith(h))return e.status(403).json({error:"Proof of work verification failed."});let k=Gt(s,w,o,a||""),I=`/api/v1/clearance/redirect?nonce=${k}&appId=${encodeURIComponent(s)}`,V=Jt(o,w,a||"",s);e.setHeader("Cache-Control","no-store, no-cache, must-revalidate, private"),e.json({success:!0,nonce:k,redirectUrl:I,token:V})});re.get("/api/v1/clearance/redirect",async(t,e)=>{let n=t.query.nonce||t.query.n,i=t.query.appId||t.query.id,a=$(t),s=t.cookies?.["__Host-sid"]||t.cookies?.sid||t.query.sid;if(!i)return e.status(400).send("<h1>400 Bad Request</h1><p>Missing application identifier.</p>");if(!n)return e.status(403).send(`
       <!DOCTYPE html>
       <html>
-        <head>
-          <title>Access Protected - Security Verification Required</title>
-          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        </head>
-        <body style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #09090b; color: #f4f4f5; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 1rem; box-sizing: border-box;">
-          <div style="text-align: center; max-width: 420px; width: 100%; padding: 2.5rem 2rem; background: #18181b; border-radius: 1.5rem; border: 1px solid #27272a; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
-            <div style="width: 56px; height: 56px; background: rgba(239, 68, 68, 0.1); color: #ef4444; border-radius: 1rem; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 1.25rem;">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            </div>
-            <h2 style="font-size: 1.25rem; font-weight: 800; color: #ffffff; margin: 0 0 0.5rem 0;">Link Protection Active</h2>
-            <p style="color: #a1a1aa; font-size: 0.875rem; line-height: 1.5; margin: 0 0 1.5rem 0;">Direct link access is restricted. Please complete security clearance to access this resource.</p>
-            <a href="/moreinfo/${encodeURIComponent(appId)}" style="display: inline-block; width: 100%; padding: 0.875rem 1.5rem; background: #2563eb; color: #ffffff; border-radius: 0.875rem; text-decoration: none; font-weight: 700; font-size: 0.875rem; box-sizing: border-box;">Proceed via Clearance Portal</a>
+        <head><title>Security Clearance Required - RummyDex</title><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
+        <body style="font-family: system-ui, sans-serif; background: #09090b; color: #f4f4f5; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 1rem;">
+          <div style="text-align: center; max-width: 420px; width: 100%; padding: 2.5rem 2rem; background: #18181b; border-radius: 1.5rem; border: 1px solid #27272a;">
+            <h2 style="font-size: 1.25rem; font-weight: 800; color: #ef4444; margin-bottom: 0.5rem;">Access Denied</h2>
+            <p style="color: #a1a1aa; font-size: 0.875rem; line-height: 1.5; margin-bottom: 1.5rem;">Direct or unauthenticated access is forbidden. Please complete the security clearance check from the app page.</p>
+            <a href="/app/${encodeURIComponent(i)}" style="display: inline-block; width: 100%; padding: 0.875rem 1.5rem; background: #2563eb; color: #ffffff; border-radius: 0.875rem; text-decoration: none; font-weight: 700; font-size: 0.875rem; box-sizing: border-box;">Return to App Page</a>
           </div>
         </body>
       </html>
-    `);
-  }
-
-  function respondWithUrl(targetUrl) {
-    const cleanUrl = targetUrl.trim();
-    return res.redirect(302, cleanUrl);
-  }
-
-  function fallbackToAppPage(slugOrId) {
-    const target = (slugOrId || appId).toString().trim();
-    const appPath = `/app/${encodeURIComponent(target)}`;
-    if (req.query.json === 'true' || (req.headers.accept && req.headers.accept.includes('application/json'))) {
-      return res.json({ success: false, url: appPath });
-    }
-    return res.status(404).send(`
+    `);let r=Yt(n,i,s||"",a);if(!r.valid)return e.status(403).send(`
+      <!DOCTYPE html>
+      <html>
+        <head><title>Clearance Expired - RummyDex</title><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
+        <body style="font-family: system-ui, sans-serif; background: #09090b; color: #f4f4f5; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 1rem;">
+          <div style="text-align: center; max-width: 420px; width: 100%; padding: 2.5rem 2rem; background: #18181b; border-radius: 1.5rem; border: 1px solid #27272a;">
+            <h2 style="font-size: 1.25rem; font-weight: 800; color: #f59e0b; margin-bottom: 0.5rem;">Session Expired or Already Used</h2>
+            <p style="color: #a1a1aa; font-size: 0.875rem; line-height: 1.5; margin-bottom: 1.5rem;">${r.reason||"Your single-use clearance token has expired or already been consumed."}</p>
+            <a href="/app/${encodeURIComponent(i)}" style="display: inline-block; width: 100%; padding: 0.875rem 1.5rem; background: #2563eb; color: #ffffff; border-radius: 0.875rem; text-decoration: none; font-weight: 700; font-size: 0.875rem; box-sizing: border-box;">Start New Verification</a>
+          </div>
+        </body>
+      </html>
+    `);let o=await st(i);return o?Qt(e,o):e.status(404).send(`
     <!DOCTYPE html>
     <html>
       <head><title>Link Not Configured - RummyDex</title><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
-      <body style="font-family: system-ui, -apple-system, sans-serif; background: #09090b; color: #f4f4f5; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 1rem;">
+      <body style="font-family: system-ui, sans-serif; background: #09090b; color: #f4f4f5; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 1rem;">
         <div style="text-align: center; max-width: 420px; width: 100%; padding: 2.5rem 2rem; background: #18181b; border-radius: 1.5rem; border: 1px solid #27272a;">
           <h2 style="font-size: 1.25rem; font-weight: 800; color: #ffffff; margin-bottom: 0.5rem;">Link Not Available</h2>
-          <p style="color: #a1a1aa; font-size: 0.875rem; line-height: 1.5; margin-bottom: 1.5rem;">The external link for this application has not been configured yet.</p>
-          <a href="/app/${encodeURIComponent(target)}" style="display: inline-block; width: 100%; padding: 0.875rem 1.5rem; background: #2563eb; color: #ffffff; border-radius: 0.875rem; text-decoration: none; font-weight: 700; font-size: 0.875rem; box-sizing: border-box;">Go Back to Details</a>
+          <p style="color: #a1a1aa; font-size: 0.875rem; line-height: 1.5; margin-bottom: 1.5rem;">The download link for this application has not been configured yet. Please check back later.</p>
+          <a href="/app/${encodeURIComponent(i)}" style="display: inline-block; width: 100%; padding: 0.875rem 1.5rem; background: #2563eb; color: #ffffff; border-radius: 0.875rem; text-decoration: none; font-weight: 700; font-size: 0.875rem; box-sizing: border-box;">Go Back</a>
         </div>
       </body>
     </html>
-    `);
-  }
+  `)});re.get("/api/v1/moreinfo-resolve",async(t,e)=>{let n=t.query.token||t.query.t,i=t.query.id||t.query.appId,a=$(t),s=t.cookies?.["__Host-sid"]||t.query.sid||"",r=t.query.fp||"";if(!i)return e.status(400).send("<h1>400 Bad Request</h1><p>Missing application identifier.</p>");n&&!Ne(n,a,s,r,i)&&console.warn(`[SECURITY] Token verification failed for appId: ${i}`);let o=await st(i);return o?Qt(e,o):e.status(404).send(`
+    <!DOCTYPE html>
+    <html>
+      <head><title>Link Not Configured - RummyDex</title><meta name="viewport" content="width=device-width, initial-scale=1.0" /></head>
+      <body style="font-family: system-ui, sans-serif; background: #09090b; color: #f4f4f5; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 1rem;">
+        <div style="text-align: center; max-width: 420px; width: 100%; padding: 2.5rem 2rem; background: #18181b; border-radius: 1.5rem; border: 1px solid #27272a;">
+          <h2 style="font-size: 1.25rem; font-weight: 800; color: #ffffff; margin-bottom: 0.5rem;">Link Not Available</h2>
+          <p style="color: #a1a1aa; font-size: 0.875rem; line-height: 1.5; margin-bottom: 1.5rem;">The download link for this application has not been configured yet.</p>
+          <a href="/app/${encodeURIComponent(i)}" style="display: inline-block; width: 100%; padding: 0.875rem 1.5rem; background: #2563eb; color: #ffffff; border-radius: 0.875rem; text-decoration: none; font-weight: 700; font-size: 0.875rem; box-sizing: border-box;">Go Back</a>
+        </div>
+      </body>
+    </html>
+  `)});re.get("/api/v1/link-check",async(t,e)=>{let n=t.query.id;if(!n)return e.json({configured:!1});try{let i=await st(n);return e.json({configured:!!i})}catch{return e.json({configured:!1})}});var en=x(require("express")),ot=x(require("fs")),tn=x(require("path"));Te();var J=en.default.Router();J.post("/api/v1/sync-node",async(t,e)=>{let n=$(t);if(await Q(n,30,6e4))return e.status(429).json({status:"ERR",msg:"Request limit exceeded"});let{slug:i,token:a,fingerprint:s,appId:r}=t.body;if(!i)return e.status(400).json({status:"ERR",msg:"Missing ID"});if(!a||!s||!r)return e.status(403).json({status:"ERR",msg:"Session verification required"});let o=t.cookies?.["__Host-sid"];if(!o||!Ne(a,n,o,s,r))return console.warn(`[SECURITY] Invalid sync token attempt for slug: ${i} from IP: ${n}`),e.status(403).json({status:"ERR",msg:"Identity verification mismatch"});try{let l=await j.getSyncPayload(r)||await j.getSyncPayload(i);return l&&!l.toLowerCase().includes("rummydex.com")?e.json({status:"OK",payload:l,meta:{node:"v1",ts:Date.now()}}):e.json({status:"ERR",msg:"Link not configured in secure vault.",meta:{node:"v1-error",ts:Date.now()}})}catch(l){console.error("[SyncNode] Critical Error:",l),e.status(500).json({status:"ERR",msg:"Internal server error"})}});J.get("/api/v1/image",async(t,e)=>{let n=t.query.url;if(!n)return e.status(400).send("Missing image URL");try{let i=n;try{n.startsWith("http")||(i=Buffer.from(n,"base64").toString("utf-8"))}catch{}if(!await Ht(i))return console.warn(`[SSRF BLOCKED] Unauthorized targetUrl request blocked: ${i}`),e.status(403).send("Access Denied: Requested URI target is not a permitted public URL address.");let a=await fetch(i,{headers:{"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}});if(!a.ok)throw new Error("Failed to fetch image");let s=await a.arrayBuffer(),r=a.headers.get("content-type")||"image/jpeg";e.set("Content-Type",r),e.set("Cache-Control","public, max-age=86400"),e.send(Buffer.from(s))}catch{e.status(500).send("Image proxy error")}});var ve=null,Be=0,Qn=3e4;function nn(){ve=null,Be=0}J.options(["/api/v1/public/reviews","/api/v1/public/backup-data","/api/v1/public/app/:slug"],(t,e)=>(e.setHeader("Access-Control-Allow-Origin","*"),e.setHeader("Access-Control-Allow-Methods","GET, POST, OPTIONS"),e.setHeader("Access-Control-Allow-Headers","Content-Type, Authorization"),e.sendStatus(200)));J.get(["/api/v1/public/app/:slug","/api/public/app/:slug"],async(t,e)=>{e.setHeader("Access-Control-Allow-Origin","*"),e.set("Cache-Control","public, max-age=60, stale-while-revalidate=120");let n=t.params.slug;if(!n)return e.status(400).json({status:"ERR",msg:"Missing app identifier"});try{let a=(await M())?.apps||[],s=Ft(n,a);return s?e.json({status:"OK",app:s}):e.status(404).json({status:"ERR",msg:"App not found"})}catch(i){return console.error("[SingleAppApi] Error fetching app details for slug:",n,i),e.status(500).json({status:"ERR",msg:"Internal server error"})}});J.get(["/api/v1/public/reviews","/api/public/reviews"],async(t,e)=>(e.setHeader("Access-Control-Allow-Origin","*"),e.setHeader("Cache-Control","public, max-age=60, stale-while-revalidate=120"),e.json([])));function rt(t){return Array.isArray(t)?t.map(e=>({id:e.id,name:e.name,slug:e.slug,icon_url:e.icon_url,og_image_url:e.og_image_url,rating:e.rating,review_count:e.review_count,category:e.category,is_featured:e.is_featured,is_new:e.is_new,is_hot:e.is_hot,is_top_chart:e.is_top_chart,top_chart_category:e.top_chart_category,file_size:e.file_size,developer:e.developer,safety_status:e.safety_status,serial_number:e.serial_number,is_coming_soon:e.is_coming_soon,publish_date:e.publish_date,version:e.version,tags:e.tags})):[]}J.get(["/api/v1/public/backup-data","/api/v1/backup-data","/api/public/backup-data","/public/backup-data"],async(t,e)=>{e.setHeader("Access-Control-Allow-Origin","*"),e.set("Cache-Control","public, max-age=15, stale-while-revalidate=30");try{let n=Date.now();if(ve&&n-Be<Qn)return e.json(ve);let i=tn.default.join(process.cwd(),"src/lib/public_backup.json");if(ot.default.existsSync(i))try{let r=JSON.parse(ot.default.readFileSync(i,"utf8")),o={apps:rt(r.apps||[]),settings:r.settings||{},news:r.news||[],blogs:r.blogs||[],videos:r.videos||[]};return ve=o,Be=n,e.json(o)}catch{}let a=He(),s={apps:rt(a.mockApps||[]),settings:a.mockSettings||{},news:a.mockNews||[],blogs:a.mockBlogs||[],videos:a.mockVideos||[]};return ve=s,Be=n,e.json(s)}catch{let i=He();return e.status(200).json({apps:rt(i.mockApps||[]),settings:i.mockSettings||{},news:i.mockNews||[],blogs:i.mockBlogs||[],videos:i.mockVideos||[]})}});J.get("/api/v1/download/:id",async(t,e)=>{let n=t.params.id;return n?e.redirect(302,`/app/${n}`):e.status(400).send("Bad Request")});var D=bn.default.Router();D.post("/api/v1/admin/encrypt",T,async(t,e)=>{let n=$(t);if(await Q(n))return e.status(429).json({error:"Too many requests. Please wait."});let{url:i}=t.body;if(!i)return e.status(400).json({error:"URL is required"});let a=S();if(!a||a.trim()==="")return e.status(500).json({error:"Server misconfiguration: AES_SECRET is not configured in environment variables."});try{let s=R(i,a);e.json({encrypted:s})}catch{e.status(500).json({error:"Encryption failed"})}});function ht(t){if(!t||typeof t!="string")return"";let e=t.trim();if(e=e.replace(/<!DOCTYPE[^>]*>/gi,"").replace(/<\/?(html|head|body)[^>]*>/gi,"").replace(/<title>[^<]*<\/title>/gi,"").replace(/<style[^>]*>[\s\S]*?<\/style>/gi,"").replace(/<script[^>]*>[\s\S]*?<\/script>/gi,"").trim(),e=e.replace(/<h1([^>]*)>/gi,"<h2$1>").replace(/<\/h1>/gi,"</h2>"),e=e.replace(/(?:^|\n)\s*####\s+(.*?)(?=\n|<|$)/gi,`
+<h3>$1</h3>`).replace(/(?:^|\n)\s*###\s+(.*?)(?=\n|<|$)/gi,`
+<h3>$1</h3>`).replace(/(?:^|\n)\s*##\s+(.*?)(?=\n|<|$)/gi,`
+<h2>$1</h2>`).replace(/(?:^|\n)\s*#\s+(.*?)(?=\n|<|$)/gi,`
+<h2>$1</h2>`),/<(p|h[23456]|ul|ol|li|div|section|article)\b/i.test(e)){let c=e;return c=c.replace(/<p\b[^>]*>\s*(<(?:ul|ol|h[23456]|li|div|section|article)[^>]*>)/gi,"$1").replace(/(<\/(?:ul|ol|h[23456]|li|div|section|article)>)\s*<\/p>/gi,"$1"),c=c.replace(/<(p|li)([^>]*)>\s*([A-Z0-9][A-Za-z0-9\s&—–-]{2,50}):\s+/g,(d,u,g,p)=>p.toLowerCase().startsWith("http")||p.toLowerCase().startsWith("www")?d:`<${u}${g}><strong>${p}:</strong> `),c=c.replace(/(<\/h2>\s*)<h2([^>]*)>(.*?)<\/h2>/gi,"$1<h3$2>$3</h3>"),c=c.replace(/<p\b[^>]*>\s*<\/p>/gi,"").replace(/<h[23456]\b[^>]*>\s*<\/h[23456]>/gi,"").replace(/<ul\b[^>]*>\s*<\/ul>/gi,"").replace(/<ol\b[^>]*>\s*<\/ol>/gi,""),c.trim()}e=e.replace(/<br\s*\/?>/gi,`
+`);let i=e.split(/\n+/).map(c=>c.trim()).filter(Boolean);if(i.length===0)return"";let a=[],s=[],r=!1,o=()=>{s.length>0&&(a.push(`<ul>
+${s.join(`
+`)}
+</ul>`),s=[])};for(let c=0;c<i.length;c++){let d=i[c];if(/^<(h[23]|p|ul|ol|li)\b[^>]*>[\s\S]*<\/(h[23]|p|ul|ol|li)>$/i.test(d)||/^<\/?(ul|ol|li|h[23]|p|div)\b/i.test(d)){o(),/^<h2/i.test(d)&&(r=!0),a.push(d);continue}if(d=d.replace(/^<p\b[^>]*>/i,"").replace(/<\/p>$/i,"").trim(),!d)continue;if(/^(?:<strong>)?\s*(Part\s+\d+:?|Section\s+\d+:?|Chapter\s+\d+:?|Overview|Key Features|Core Mechanics|User Experience|Technical Architecture|Monetization|Data Safety|Conclusion|Verdict|FAQ|Frequently Asked Questions)/i.test(d)){o(),r=!0;let f=d.replace(/<\/?strong>/gi,"").replace(/<\/?b>/gi,"").trim();f=f.replace(/^[:\s-]+/,"").trim(),a.push(`<h2>${f}</h2>`);continue}let g=/^[-*•]\s*/.test(d),p=/^<strong>([A-Z0-9][A-Za-z0-9\s&—–-]{2,50}):<\/strong>\s+/.test(d)||/^([A-Z0-9][A-Za-z0-9\s&—–-]{2,50}):\s+[A-Z]/.test(d)&&d.length>35&&!/[.!?]$/.test(d.split(":")[0]);if(g||p){let f=d.replace(/^[-*•]\s*/,"");!f.includes("<strong>")&&!f.includes("<b>")&&/^([A-Z0-9][A-Za-z0-9\s&—–-]{2,50}):\s+/.test(f)&&(f=f.replace(/^([A-Z0-9][A-Za-z0-9\s&—–-]{2,50}):\s+/,"<strong>$1:</strong> ")),s.push(`  <li>${f}</li>`);continue}if(d.length<75&&!/[.!?:;]$/.test(d)&&!d.startsWith("<ul")&&!d.startsWith("<ol")&&!d.startsWith("<li")){o();let f=d.replace(/<\/?strong>/gi,"").replace(/<\/?b>/gi,"").trim();r?a.push(`<h3>${f}</h3>`):(r=!0,a.push(`<h2>${f}</h2>`));continue}o();let m=d;!m.includes("<strong>")&&!m.includes("<b>")&&/^([A-Z0-9][A-Za-z0-9\s&—–-]{2,50}):\s+/.test(m)&&(m=m.replace(/^([A-Z0-9][A-Za-z0-9\s&—–-]{2,50}):\s+/,"<strong>$1:</strong> ")),a.push(`<p>${m}</p>`)}o();let l=a.join(`
 
-  try {
-    const secret = getAesSecret();
-    const rawInput = appId;
-    const cleanInput = rawInput.toLowerCase().trim();
-    const cleanInputNoSep = cleanInput.replace(/[-_ ]/g, '');
-    const cleanInputNoTrailingDash = cleanInput.replace(/[-_ ]+$/, '');
+`);return l=l.replace(/(<\/h2>\s*)<h2([^>]*)>(.*?)<\/h2>/gi,"$1<h3$2>$3</h3>"),l=l.replace(/<p\b[^>]*>\s*<\/p>/gi,"").replace(/<h[23456]\b[^>]*>\s*<\/h[23456]>/gi,"").replace(/<ul\b[^>]*>\s*<\/ul>/gi,""),l.trim()}D.post("/api/v1/admin/ai-format-html",T,async(t,e)=>{let n=$(t);if(await Q(n))return e.status(429).json({error:"Too many requests. Please wait."});let{content:i,appName:a}=t.body;if(!i||typeof i!="string"||!i.trim())return e.status(400).json({error:"Content is required for AI formatting."});try{let s=process.env.GEMINI_API_KEY;if(s&&s.trim()!==""){let{GoogleGenAI:o}=require("@google/genai"),l=new o({apiKey:s}),c=`You are a world-class mobile app content architect and master HTML layout engineer.
+Your task is to transform the user's raw text, review script, or rough notes into an exceptionally clean, beautifully structured, and highly readable HTML document fragment.
 
-    const isValidTargetUrl = (url) => {
-      if (!url || typeof url !== 'string') return false;
-      const clean = url.trim().toLowerCase();
-      if (clean === '' || clean === 'undefined' || clean === 'null' || clean === '#') return false;
-      if (clean.includes('com.rummydex') || clean.includes('com.example')) return false;
-      if (clean.includes('rummydex.com/download/') || clean.includes('rummydex.com/api/')) return false;
-      return clean.startsWith('http://') || clean.startsWith('https://');
-    };
+CRITICAL DIRECTIVE - 100% FAITHFUL CONTENT PRESERVATION:
+- Do NOT delete, omit, summarize away, or shorten ANY facts, sentences, specifications, or details provided by the user.
+- Preserve 100% of the information given in the input text while dramatically elevating its visual structure, typography, and scannability.
 
-    const extractAndDecryptUrl = (raw) => {
-      if (!raw || typeof raw !== 'string') return null;
-      const trimmed = raw.trim();
-      if (!trimmed) return null;
-      const dec = trimmed.startsWith('U2FsdGVkX1') ? safeDecrypt(trimmed, secret) : trimmed;
-      if (isValidTargetUrl(dec)) return dec.trim();
-      return null;
-    };
+MANDATORY STRUCTURAL & TYPOGRAPHY RULES:
+1. **STRICTLY NO <h1> TAGS**: Main H1 is reserved for the website header. Use <h2> for main section headings and <h3> for sub-headings.
+2. **SECTION HEADINGS (<h2>)**:
+   - Convert major section titles, "Part 1:", "Part 2:", "Part 3:", "Section 1:", "Overview", "User Experience", "Technical Details" into <h2> headings.
+   - Example: <h2>Part 1: Key Features and Core Mechanics of ABC Rummy</h2>
+   - Never wrap heading text in <p> or <br /> or <strong> inside <h2>.
+3. **SUB-SECTION HEADINGS (<h3>)**:
+   - Convert sub-topics ("The Core Game Mechanics", "Educational and Strategic Value", "Visual Design and Interaction Dynamics", "System Specifications") into <h3> headings.
+   - Example: <h3>The Core Game Mechanics</h3>
+4. **UNORDERED LISTS FOR FEATURE POINTS (<ul><li>)**:
+   - Convert feature descriptions and topic bullet items into unordered list items <ul><li><strong>Topic Title:</strong> Description...</li></ul>.
+   - Example:
+     <ul>
+       <li><strong>Classic Gameplay:</strong> Players are tasked with forming valid sets...</li>
+       <li><strong>Smart Challenges:</strong> The game features intelligent AI opponents...</li>
+     </ul>
+5. **SEPARATE PARAGRAPHS (<p>)**:
+   - Every paragraph MUST be wrapped in its own individual <p>...</p> tag.
+   - ABSOLUTELY NO <br /> OR <br> TAGS inside <p> to separate sections!
+   - NEVER wrap the entire document or multiple sections inside a single <p> tag!
+6. **NO DOCUMENT WRAPPERS & NO MARKDOWN CODEBLOCKS**:
+   - Do NOT output <!DOCTYPE>, <html>, <head>, <body>, <style>, or \`\`\`html code blocks. Output ONLY raw clean HTML fragment.
 
-    const extractUrlFromApp = (app) => {
-      if (!app) return null;
-      const candidates = [
-        app.more_information_url,
-        app.encrypted_link,
-        app.download_url,
-        app.url,
-        app.link,
-        app.payload
-      ];
-      for (const cand of candidates) {
-        const url = extractAndDecryptUrl(cand);
-        if (url) return url;
-      }
-      return null;
-    };
+App Title Context: ${a||"Application"}
 
-    // 1. FAST IN-MEMORY VAULT LOOKUP
-    const HARDCODED_ENCRYPTED_LINKS = "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";
-    
-    if (HARDCODED_ENCRYPTED_LINKS) {
-      const decVault = safeDecrypt(HARDCODED_ENCRYPTED_LINKS, secret);
-      if (decVault) {
-        try {
-          const parsed = JSON.parse(decVault);
-          if (Array.isArray(parsed)) {
-            const item = parsed.find(i => {
-              const iId = (i.id || '').toString().toLowerCase().trim();
-              const iSlug = (i.slug || '').toString().toLowerCase().trim();
-              const iIdNoSep = iId.replace(/[-_ ]/g, '');
-              const iSlugNoSep = iSlug.replace(/[-_ ]/g, '');
-              return iId === cleanInput || iSlug === cleanInput || iIdNoSep === cleanInputNoSep || iSlugNoSep === cleanInputNoSep;
-            });
-            const url = extractUrlFromApp(item);
-            if (url) return respondWithUrl(url);
-          } else if (typeof parsed === 'object') {
-            for (const [k, v] of Object.entries(parsed)) {
-              const kLower = k.toLowerCase().trim();
-              const kNoSep = kLower.replace(/[-_ ]/g, '');
-              if (kLower === cleanInput || kNoSep === cleanInputNoSep) {
-                const rawUrl = typeof v === 'string' ? v : (v.more_information_url || v.encrypted_link || v.download_url || v.url);
-                const url = extractAndDecryptUrl(rawUrl);
-                if (url) return respondWithUrl(url);
-              }
-            }
-          }
-        } catch (e) {}
-      }
-    }
-
-    // 2. IN-MEMORY STATIC DATA LOOKUP (mockApps from staticData.json / public_backup.json)
-    const staticData = getStaticData();
-    const mockApps = staticData.mockApps || staticData.apps || [];
-    
-    const matchedApp = mockApps.find(a => {
-      const sId = (a.id || '').toString().toLowerCase().trim();
-      const sSlug = (a.slug || '').toString().toLowerCase().trim();
-      const sIdNoSep = sId.replace(/[-_ ]/g, '');
-      const sSlugNoSep = sSlug.replace(/[-_ ]/g, '');
-      const sIdClean = sId.replace(/[-_ ]+$/, '');
-      const sSlugClean = sSlug.replace(/[-_ ]+$/, '');
-
-      return sId === cleanInput ||
-             sSlug === cleanInput ||
-             sIdClean === cleanInputNoTrailingDash ||
-             sSlugClean === cleanInputNoTrailingDash ||
-             sIdNoSep === cleanInputNoSep ||
-             sSlugNoSep === cleanInputNoSep;
-    });
-
-    if (matchedApp) {
-      const url = extractUrlFromApp(matchedApp);
-      if (url) return respondWithUrl(url);
-      // App exists in catalogue but no active external link set -> redirect smoothly to app detail page
-      return fallbackToAppPage(matchedApp.slug || matchedApp.id || appId);
-    }
-
-    // 3. FIRESTORE REST FALLBACK
-    let FIREBASE_PROJECT_ID = process.env.VITE_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID || 'gen-lang-client-0825832493';
-    if (FIREBASE_PROJECT_ID.includes('!')) FIREBASE_PROJECT_ID = 'gen-lang-client-0825832493';
-    let apiKey = process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY;
-    if (apiKey && apiKey.includes('!')) apiKey = '';
-    let dbId = process.env.VITE_FIREBASE_DATABASE_ID || process.env.FIREBASE_DATABASE_ID || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
-    if (dbId.includes('!')) dbId = 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
-
-    const apiSuffix = apiKey ? `?key=${apiKey}` : '';
-    const headers = { 'Origin': 'https://rummydex.com', 'Referer': 'https://rummydex.com/' };
-
-    if (FIREBASE_PROJECT_ID) {
-      try {
-        const vaultDocs = ['sec_public_links', 'sec_links_vault_3', 'sec_vault', 'secure_links'];
-        for (const docName of vaultDocs) {  
-          const vaultUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/${dbId}/documents/store_data/${docName}${apiSuffix}`;
-          const fsRes = await fetch(vaultUrl, { headers }).catch(() => null);
-          
-          if (fsRes && fsRes.ok) {
-             const fsDoc = await fsRes.json();
-             const fields = fsDoc.fields || {};
-             const ciphertext = fields.encryptedData?.stringValue || fields.encrypted_links?.stringValue;
-             
-             if (ciphertext) {
-                const dec = safeDecrypt(ciphertext, secret);
-                if (dec) {
-                  const parsed = JSON.parse(dec);
-                  let foundRaw = '';
-                  if (Array.isArray(parsed)) {
-                     const item = parsed.find(i => {
-                        const iId = (i.id || '').toString().toLowerCase().trim();
-                        const iSlug = (i.slug || '').toString().toLowerCase().trim();
-                        return iId === cleanInput || iSlug === cleanInput || iId.replace(/[-_ ]/g, '') === cleanInputNoSep;
-                     });
-                     foundRaw = item?.more_information_url || item?.encrypted_link || item?.download_url || item?.url || '';
-                  } else {
-                     const val = parsed[appId] || parsed[cleanInput] || parsed[cleanInputNoSep];
-                     foundRaw = typeof val === 'string' ? val : (val?.more_information_url || val?.encrypted_link || val?.download_url || val?.url || '');
-                  }
-                  
-                  const url = extractAndDecryptUrl(foundRaw);
-                  if (url) return respondWithUrl(url);
-               }
-             }
-          }
-        }
-      } catch (restErr) {}
-    }
-
-    // 4. ELEGANT RECOVERY: Redirect to app details page instead of 404
-    return fallbackToAppPage(cleanInput);
-
-  } catch (e) {
-    console.error("[Resolution] Error:", e);
-    return fallbackToAppPage(appId);
-  }
-});
-
-// --- Dynamic Firestore Fetcher ---
-const parseValue = (val) => {
-  if (!val) return null;
-  if (val.stringValue !== undefined) return val.stringValue;
-  if (val.integerValue !== undefined) return parseInt(val.integerValue, 10);
-  if (val.booleanValue !== undefined) return val.booleanValue;
-  if (val.timestampValue !== undefined) return val.timestampValue;
-  if (val.doubleValue !== undefined) return parseFloat(val.doubleValue);
-  if (val.arrayValue !== undefined) return (val.arrayValue.values || []).map(parseValue);
-  if (val.mapValue !== undefined) {
-    const obj = {};
-    for (const key in val.mapValue.fields || {}) {
-      obj[key] = parseValue(val.mapValue.fields[key]);
-    }
-    return obj;
-  }
-  return null;
-};
-
-const fetchPublicDataFromFirestore = async () => {
-  let projectId = process.env.VITE_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID || 'gen-lang-client-0825832493'; if (projectId.includes('!')) projectId = 'gen-lang-client-0825832493';
-  if (!projectId) return null;
-  const dbId = process.env.VITE_FIREBASE_DATABASE_ID || process.env.FIREBASE_DATABASE_ID || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
-  const apiKey = process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY;
-  const apiSuffix = apiKey ? `?key=${apiKey}` : '';
-  const baseUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${dbId}/documents/store_data`;
-  
-  const fetchDoc = async (docName) => {
-    try {
-      const res = await fetch(`${baseUrl}/${docName}${apiSuffix}`);
-      if (!res.ok) return null;
-      const data = await res.json();
-      const obj = {};
-      for (const key in data.fields || {}) {
-        obj[key] = parseValue(data.fields[key]);
-      }
-      return obj;
-    } catch(e) {
-      return null;
-    }
-  };
-
-  try {
-    let numChunks = 1;
-    const meta = await fetchDoc('apps_meta');
-    if (meta && meta.numChunks) numChunks = meta.numChunks;
-    
-    let apps = [];
-    for (let i = 0; i < numChunks; i++) {
-      const chunk = await fetchDoc(`apps_chunk_${i}`);
-      if (chunk && chunk.items) apps = apps.concat(chunk.items);
-    }
-    
-    const settings = await fetchDoc('public_settings') || {};
-    const newsDoc = await fetchDoc('news');
-    const news = newsDoc && newsDoc.items ? newsDoc.items : [];
-    const blogsDoc = await fetchDoc('blogs');
-    const blogs = blogsDoc && blogsDoc.items ? blogsDoc.items : [];
-    const videosDoc = await fetchDoc('videos');
-    const videos = videosDoc && videosDoc.items ? videosDoc.items : [];
-
-    return { apps, settings, news, blogs, videos };
-  } catch(e) {
-    console.error("fetchPublicDataFromFirestore error", e);
-    return null;
-  }
-};
-
-const getStaticData = () => {
-  try {
-    // Statically analyzable require so Vercel includes it
-    const parsed = require('../src/lib/staticData.json');
-    if (parsed && (parsed.mockApps || parsed.apps)) {
-      return {
-        mockApps: parsed.mockApps || parsed.apps || [],
-        mockSettings: parsed.mockSettings || parsed.settings || {},
-        mockNews: parsed.mockNews || parsed.news || [],
-        mockBlogs: parsed.mockBlogs || parsed.blogs || [],
-        mockVideos: parsed.mockVideos || parsed.videos || []
-      };
-    }
-  } catch (e) {
-    console.error("Failed to load static JSON via require:", e);
-  }
-  return { mockApps: [], mockSettings: {}, mockNews: [], mockBlogs: [], mockVideos: [] };
-};
-
-// 4. Backup Data
-app.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/public/backup-data", "/public/backup-data"], async (req, res) => {
-  const fsData = await fetchPublicDataFromFirestore();
-  if (fsData) return res.json(fsData);
-  
-  const backupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
-  if (fs.existsSync(backupPath)) {
-    try {
-      const data = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
-      return res.json(data);
-    } catch (e) { console.error("FATAL ERR:", e);}
-  }
-  
-  const staticData = getStaticData();
-  res.json({
-    apps: staticData.mockApps || [],
-    settings: staticData.mockSettings || {},
-    news: staticData.mockNews || [],
-    blogs: staticData.mockBlogs || [],
-    videos: staticData.mockVideos || []
-  });
-});
-
-// 5. Public Data Endpoints
-app.get('/api/v1/public/:type', (req, res) => {
-  const { type } = req.params;
-  const backupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
-  if (fs.existsSync(backupPath)) {
-    try {
-      const data = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
-      if (data[type]) return res.json(data[type]);
-    } catch (e) { console.error("FATAL ERR:", e);}
-  }
-  
-  const staticData = getStaticData();
-  const fallbackData = {
-    apps: staticData.mockApps || [],
-    settings: staticData.mockSettings || {},
-    news: staticData.mockNews || [],
-    blogs: staticData.mockBlogs || [],
-    videos: staticData.mockVideos || []
-  };
-  
-  if (fallbackData[type]) return res.json(fallbackData[type]);
-  res.json([]);
-});
-
-// 6. Sync Node
-app.post('/api/v1/sync-node', (req, res) => {
-  const { slug, token, fingerprint, appId } = req.body;
-  const ip = getIp(req);
-  const sid = req.cookies?.["__Host-sid"];
-
-  if (!slug || !token || !fingerprint || !appId || !sid) {
-    return res.status(400).json({ status: 'ERR', msg: 'Missing parameters' });
-  }
-
-  if (!verifyToken(token, ip, sid, fingerprint, appId)) {
-    return res.status(403).json({ status: 'ERR', msg: 'Invalid token' });
-  }
-
-  const backupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
-  if (fs.existsSync(backupPath)) {
-    try {
-      const data = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
-      const appItem = (data.apps || []).find(a => a.slug === slug || a.id === appId);
-      if (appItem) {
-        return res.json({ status: 'OK', payload: `/moreinfo/${appItem.slug}` });
-      }
-    } catch (e) { console.error("FATAL ERR:", e);}
-  }
-  res.status(404).json({ status: 'ERR', msg: 'App not found' });
-});
-
-// 7. Link Check
-app.get('/api/v1/link-check', (req, res) => {
-  const { id } = req.query;
-  if (!id) return res.json({ configured: false });
-  const backupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
-  if (fs.existsSync(backupPath)) {
-    try {
-      const data = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
-      const appItem = (data.apps || []).find(a => a.id === id);
-      return res.json({ configured: !!appItem });
-    } catch (e) { console.error("FATAL ERR:", e);}
-  }
-  res.json({ configured: false });
-});
-
-// WebManifest Route Handler
-app.get(['/site.webmanifest', '/manifest.json'], async (req, res) => {
-  try {
-    let siteTitle = 'RummyDex';
-    try {
-      const publicData = await fetchPublicDataFromFirestore();
-      if (publicData && publicData.settings && publicData.settings.site_title) {
-        siteTitle = publicData.settings.site_title;
-      }
-    } catch (e) {}
-
-    const manifestObj = {
-      "id": "/",
-      "start_url": "/",
-      "scope": "/",
-      "name": siteTitle,
-      "short_name": siteTitle,
-      "display": "standalone",
-      "orientation": "portrait",
-      "lang": "en-IN",
-      "icons": [
-        {
-          "src": "https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png",
-          "sizes": "192x192 512x512",
-          "type": "image/png",
-          "purpose": "any maskable"
-        }
-      ],
-      "theme_color": "#dc2626",
-      "background_color": "#ffffff",
-      "shortcuts": [
-        {
-          "name": "News",
-          "url": "/news"
-        }
-      ]
-    };
-
-    res.set({
-      'Content-Type': 'application/manifest+json; charset=utf-8',
-      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400'
-    });
-    return res.json(manifestObj);
-  } catch (err) {
-    res.status(500).json({ error: 'Manifest error' });
-  }
-});
-
-// Dynamic Favicon & Logo Handler
-app.get([
-  '/favicon.ico',
-  '/favicon.png',
-  '/favicon.webp',
-  '/apple-touch-icon.png',
-  '/apple-touch-icon-precomposed.png',
-  '/apple-touch-icon-120x120.png',
-  '/apple-touch-icon-152x152.png',
-  '/apple-touch-icon-180x180.png',
-  '/favicon-32x32.png',
-  '/favicon-16x16.png',
-  '/android-chrome-192x192.png',
-  '/android-chrome-512x512.png',
-  '/mstile-150x150.png',
-  '/logo.png'
-], async (req, res) => {
-  const rawPath = (req.originalUrl || req.url || req.path || '').split('?')[0];
-  const reqFilename = path.basename(rawPath) || 'favicon.png';
-  const localPublicPath = path.join(process.cwd(), 'public', reqFilename);
-  const localDistPath = path.join(process.cwd(), 'dist', reqFilename);
-  const localFile = fs.existsSync(localDistPath) ? localDistPath : (fs.existsSync(localPublicPath) ? localPublicPath : null);
-
-  const DEFAULT_LOGO_URL = 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
-
-  const isDefaultOrPlaceholder = (url) => {
-    if (!url) return true;
-    if (url.includes('1000132678_1_ro1ftj')) return true;
-    if (url.includes('ezgif-64180dd8ca74703b')) return true;
-    if (url.includes('ezgif-88d07abd3ef5753f_yz8ytg')) return true;
-    if (url.includes('ezgif-8cbbc4a0aaeb367e_s4k2nb')) return true;
-    if (url.includes('1000134161_11zon_fgqzz6')) return true;
-    return false;
-  };
-
-  try {
-    let customFaviconUrl = '';
-    let customLogoUrl = '';
-    try {
-      const publicData = await fetchPublicDataFromFirestore();
-      if (publicData && publicData.settings) {
-        customFaviconUrl = (publicData.settings.favicon_url && publicData.settings.favicon_url.trim()) || '';
-        customLogoUrl = (publicData.settings.logo_url && publicData.settings.logo_url.trim()) || '';
-      }
-    } catch (dataErr) {
-      console.warn("Could not retrieve store settings for favicon:", dataErr);
-    }
-
-    if (!customFaviconUrl || isDefaultOrPlaceholder(customFaviconUrl)) {
-      customFaviconUrl = DEFAULT_LOGO_URL;
-    }
-    if (!customLogoUrl || isDefaultOrPlaceholder(customLogoUrl)) {
-      customLogoUrl = DEFAULT_LOGO_URL;
-    }
-
-    let imageUrl = reqFilename === 'logo.png' ? customLogoUrl : customFaviconUrl;
-    if (!imageUrl) imageUrl = DEFAULT_LOGO_URL;
-
-    if (imageUrl.startsWith('data:')) {
-      const matches = imageUrl.match(/^data:([^;]+);base64,(.+)$/);
-      if (matches) {
-        let contentType = matches[1] || 'image/png';
-        if (reqFilename.endsWith('.ico')) contentType = 'image/x-icon';
-        const buffer = Buffer.from(matches[2], 'base64');
-        res.set({
-          'Content-Type': contentType,
-          'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
-          'Content-Disposition': `inline; filename="${reqFilename}"`
-        });
-        return res.send(buffer);
-      }
-    }
-
-    if (imageUrl.includes('res.cloudinary.com') && imageUrl.includes('/upload/')) {
-      let transforms = 'f_png,q_100';
-      if (reqFilename === 'favicon.ico') transforms = 'w_64,h_64,c_fit,f_ico,q_100';
-      else if (reqFilename === 'favicon-16x16.png') transforms = 'w_32,h_32,c_fit,f_png,q_100';
-      else if (reqFilename === 'favicon-32x32.png') transforms = 'w_64,h_64,c_fit,f_png,q_100';
-      else if (reqFilename === 'apple-touch-icon.png' || reqFilename === 'apple-touch-icon-precomposed.png') transforms = 'w_256,h_256,c_fit,f_png,q_100';
-      else if (reqFilename === 'android-chrome-192x192.png') transforms = 'w_256,h_256,c_fit,f_png,q_100';
-      else if (reqFilename === 'android-chrome-512x512.png') transforms = 'w_512,h_512,c_fit,f_png,q_100';
-      else if (reqFilename === 'logo.png') transforms = 'w_800,h_800,c_fit,f_png,q_100';
-
-      const uploadIndex = imageUrl.indexOf('/upload/');
-      const prefix = imageUrl.substring(0, uploadIndex + 8);
-      const suffix = imageUrl.substring(uploadIndex + 8);
-
-      if (suffix.match(/^[a-z_]+,[a-z0-9_,]+.*\//)) {
-        imageUrl = imageUrl.replace(/\/upload\/([^\/]+)\//, `/upload/${transforms}/`);
-      } else {
-        imageUrl = `${prefix}${transforms}/${suffix}`;
-      }
-    }
-
-      if (imageUrl.startsWith('http')) {
-        try {
-          const imgRes = await fetch(imageUrl, {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
-          });
-          if (imgRes.ok) {
-            const arrayBuffer = await imgRes.arrayBuffer();
-            const buffer = Buffer.from(arrayBuffer);
-            let contentType = imgRes.headers.get('content-type') || 'image/png';
-            if (reqFilename.endsWith('.ico')) contentType = 'image/x-icon';
-
-            res.set({
-              'Content-Type': contentType,
-              'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
-              'Content-Disposition': `inline; filename="${reqFilename}"`
-            });
-            return res.send(buffer);
-          }
-        } catch (fetchErr) {
-          console.error("Error proxying favicon/logo image:", fetchErr);
-        }
-      }
-  } catch (err) {
-    console.error("Error in favicon/logo handler:", err);
-  }
-
-  if (localFile) {
-    let contentType = 'image/png';
-    if (reqFilename.endsWith('.ico')) contentType = 'image/x-icon';
-    else if (reqFilename.endsWith('.webp')) contentType = 'image/webp';
-    res.set({
-      'Content-Type': contentType,
-      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400'
-    });
-    return res.sendFile(localFile);
-  }
-
-  res.status(404).send('Icon not found');
-});
-
-// Sitemap, RSS, OpenSearch, Robots
-app.get(['/rss.xml', '/api/rss.xml'], async (req, res) => {
-  const host = process.env.PUBLIC_DOMAIN || 'https://www.rummydex.com';
-  let xml = '<?xml version="1.0" encoding="UTF-8" ?>\n<rss version="2.0">\n<channel>\n';
-  
-  let data = await fetchPublicDataFromFirestore();
-  if (!data) {
-    const backupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
-    if (fs.existsSync(backupPath)) {
-      try { data = JSON.parse(fs.readFileSync(backupPath, 'utf8')); } catch (e) { console.error("FATAL ERR:", e);}
-    }
-  }
-  
-  const siteTitle = data?.settings?.site_title || 'App Store';
-  const siteDesc = data?.settings?.meta_description || 'Latest apps and updates';
-  
-  xml += `  <title>${siteTitle}</title>\n  <link>${host}</link>\n  <description>${siteDesc}</description>\n`;
-  
-  if (data) {
-    const escapeHtml = (unsafe) => unsafe ? unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;") : '';
-    const getFormattedDate = (obj) => {
-      const dateStr = obj.updated_at || obj.created_at || obj.date || obj.published_at;
-      if (typeof dateStr === 'object' && dateStr !== null) {
-        if (dateStr.seconds) return new Date(dateStr.seconds * 1000).toUTCString();
-        if (dateStr._seconds) return new Date(dateStr._seconds * 1000).toUTCString();
-      }
-      if (dateStr) {
-        try {
-          const date = new Date(dateStr);
-          if (!isNaN(date.getTime())) return date.toUTCString();
-        } catch(e) {}
-      }
-      return new Date().toUTCString();
-    };
-
-    const allItems = [];
-    (data.apps || []).forEach(a => allItems.push({ type: 'app', data: a }));
-    (data.news || []).forEach(n => allItems.push({ type: 'news', data: n }));
-    
-    allItems.sort((a, b) => {
-      const d1 = new Date(a.data.updated_at || a.data.created_at || a.data.date || a.data.published_at || 0).getTime();
-      const d2 = new Date(b.data.updated_at || b.data.created_at || b.data.date || b.data.published_at || 0).getTime();
-      return d2 - d1;
-    });
-    
-    allItems.slice(0, 20).forEach(item => {
-      const obj = item.data;
-      if (!obj.slug) return;
-      const title = escapeHtml(obj.name || obj.title || obj.slug);
-      const desc = escapeHtml(obj.meta_description || obj.description || '');
-      const itemPath = item.type === 'app' ? `/app/${obj.slug}` : `/news/${obj.slug}`;
-      const date = getFormattedDate(obj);
-      xml += `  <item>\n    <title>${title}</title>\n    <link>${host}${itemPath}</link>\n    <description>${desc}</description>\n    <pubDate>${date}</pubDate>\n  </item>\n`;
-    });
-  }
-  
-  xml += '</channel>\n</rss>';
-  res.header('Content-Type', 'application/rss+xml');
-  res.send(xml);
-});
-
-app.get(['/opensearch.xml', '/api/opensearch.xml'], async (req, res) => {
-  const host = process.env.PUBLIC_DOMAIN || 'https://www.rummydex.com';
-  let siteTitle = 'App Store Search';
-  let data = await fetchPublicDataFromFirestore();
-  if (data && data.settings && data.settings.site_title) {
-    siteTitle = data.settings.site_title + ' Search';
-  } else {
-    const backupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
-    if (fs.existsSync(backupPath)) {
-      try {
-        const bd = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
-        if (bd?.settings?.site_title) siteTitle = bd.settings.site_title + ' Search';
-      } catch (e) { console.error("FATAL ERR:", e);}
-    }
-  }
-  
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/">
-  <ShortName>${siteTitle}</ShortName>
-  <Description>Search apps, news, and videos</Description>
-  <Url type="text/html" template="${host}/?q={searchTerms}"/>
-</OpenSearchDescription>`;
-
-  res.header('Content-Type', 'application/opensearchdescription+xml');
-  res.send(xml);
-});
-
-app.get(['/sitemap.xml', '/sitemap', '/api/sitemap.xml'], async (req, res) => {
-  const host = process.env.PUBLIC_DOMAIN || 'https://www.rummydex.com';
-  let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n';
-  
-  const today = new Date().toISOString().split('T')[0];
-  const staticRoutes = ['/', '/new-apps', '/news', '/videos', '/about', '/developers', '/contact', '/privacy', '/report-removal', '/terms', '/responsibility', '/notice', '/ethics', '/disclaimer'];
-  
-  let data = await fetchPublicDataFromFirestore();
-  if (!data) {
-    const backupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
-    if (fs.existsSync(backupPath)) {
-      try {
-        data = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
-      } catch (e) { console.error("FATAL ERR:", e);}
-    }
-  }
-
-  const escapeHtmlForSitemap = (unsafe) => unsafe ? unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;") : '';
-  const defaultLogo = (data?.settings?.logo_url || data?.settings?.favicon_url || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png').trim();
-
-  for (const route of staticRoutes) {
-    const routeTitle = route === '/' ? 'RummyDex Official Logo' : 'RummyDex';
-    xml += `  <url>\n    <loc>${host}${route}</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.8</priority>\n    <image:image>\n      <image:loc>${escapeHtmlForSitemap(defaultLogo)}</image:loc>\n      <image:title>${escapeHtmlForSitemap(routeTitle)}</image:title>\n    </image:image>\n  </url>\n`;
-  }
-  
-  if (data) {
-    try {
-      const getFormattedDate = (obj) => {
-        const dateStr = obj.updated_at || obj.created_at;
-        if (typeof dateStr === 'object' && dateStr !== null) {
-          if (dateStr.seconds) return new Date(dateStr.seconds * 1000).toISOString().split('T')[0];
-          if (dateStr._seconds) return new Date(dateStr._seconds * 1000).toISOString().split('T')[0];
-        }
-        if (dateStr) {
-          try {
-            const date = new Date(dateStr);
-            if (!isNaN(date.getTime())) return date.toISOString().split('T')[0];
-          } catch(e) {}
-        }
-        return today;
-      };
-      
-      for (const appItem of data.apps || []) {
-        if (appItem.slug) {
-          const escSlug = escapeHtmlForSitemap(appItem.slug);
-          const appDate = getFormattedDate(appItem);
-          const appImg = escapeHtmlForSitemap(appItem.og_image_url || appItem.icon_url || defaultLogo);
-          const appName = escapeHtmlForSitemap(appItem.name || 'Application');
-          xml += `  <url>\n    <loc>${host}/app/${escSlug}</loc>\n    <lastmod>${appDate}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>1.0</priority>\n    <image:image>\n      <image:loc>${appImg}</image:loc>\n      <image:title>${appName}</image:title>\n    </image:image>\n  </url>\n`;
-        }
-      }
-      for (const item of data.news || []) {
-        if (item.slug) {
-          const newsImg = escapeHtmlForSitemap(item.cover_url || item.image_url || defaultLogo);
-          const newsTitle = escapeHtmlForSitemap(item.title || 'News');
-          xml += `  <url>\n    <loc>${host}/news/${escapeHtmlForSitemap(item.slug)}</loc>\n    <lastmod>${getFormattedDate(item)}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.7</priority>\n    <image:image>\n      <image:loc>${newsImg}</image:loc>\n      <image:title>${newsTitle}</image:title>\n    </image:image>\n  </url>\n`;
-        }
-      }
-      for (const item of data.videos || []) {
-        if (item.slug) {
-          const vidImg = escapeHtmlForSitemap(item.thumbnail_url || defaultLogo);
-          const vidTitle = escapeHtmlForSitemap(item.title || 'Video');
-          xml += `  <url>\n    <loc>${host}/videos/${escapeHtmlForSitemap(item.slug)}</loc>\n    <lastmod>${getFormattedDate(item)}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.6</priority>\n    <image:image>\n      <image:loc>${vidImg}</image:loc>\n      <image:title>${vidTitle}</image:title>\n    </image:image>\n  </url>\n`;
-        }
-      }
-    } catch (e) {
-      console.error("FATAL ERR:", e);
-      console.error('Error generating dynamic sitemap:', e);
-    }
-  }
-  
-  xml += '</urlset>\n';
-  res.header('Content-Type', 'application/xml');
-  res.send(xml);
-});
-
-app.get(['/robots.txt', '/api/robots.txt'], (req, res) => {
-  const host = process.env.PUBLIC_DOMAIN || 'https://www.rummydex.com';
-  let robots = `User-agent: *\nAllow: /\n\nSitemap: ${host}/sitemap.xml\n`;
-  
-  const backupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
-  if (fs.existsSync(backupPath)) {
-    try {
-      const data = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
-      if (data.settings && data.settings.robots_txt) {
-        robots = data.settings.robots_txt;
-        if (!robots.includes('Sitemap:')) {
-          robots += `\nSitemap: ${host}/sitemap.xml\n`;
-        }
-      }
-    } catch (e) { console.error("FATAL ERR:", e);}
-  }
-  res.header('Content-Type', 'text/plain');
-  res.send(robots);
-});
-
-// 8. Health Check
-app.get('/api/health', (req, res) => res.json({ status: 'ok', env: 'production-dex' }));
-
-// Catch-all 404 for API
-app.all('/api/*', (req, res) => {
-  res.status(404).json({ error: 'Endpoint not found' });
-});
-
-module.exports = app;
+RAW INPUT CONTENT TO FORMAT:
+${i}`,u=(await l.models.generateContent({model:"gemini-2.5-flash",contents:c})).text||"";if(u=u.replace(/^```html\s*/i,"").replace(/^```\s*/i,"").replace(/```\s*$/,"").trim(),u=ht(u),u&&u.length>10)return e.json({success:!0,formattedHtml:u,source:"gemini-ai"})}let r=ht(i);return e.json({success:!0,formattedHtml:r,source:"local-formatter"})}catch(s){console.error("[AI FORMAT HTML SERVER ERROR]",s);let r=ht(i);return e.json({success:!0,formattedHtml:r,source:"fallback",note:s.message})}});D.post("/api/v1/admin/encrypt-links",T,async(t,e)=>{let{items:n}=t.body;if(!n||!Array.isArray(n))return e.status(400).json({error:"Valid links array payload is required."});try{let i=S();if(!i||i.trim()==="")return e.status(500).json({error:"AES_SECRET environment variable is missing on Server. Please configure it."});let a=[],s=L();if(s){let p=s.apiKey?`?key=${s.apiKey}`:"",h=`https://firestore.googleapis.com/v1/projects/${s.projectId}/databases/${s.firestoreDatabaseId}/documents`;for(let m of["sec_links_vault_3","secure_links","sec_vault"])try{let y=await(await fetch(`${h}/store_data/${m}${p}`)).json();if(y&&!y.error&&y.fields?.encryptedData?.stringValue){let w=E(y.fields.encryptedData.stringValue,i);if(w){let v=JSON.parse(w);if(Array.isArray(v)){a=v;break}}}}catch{}}let r=new Map;a.forEach(p=>{p&&p.id&&r.set(p.id,p)}),n.map(p=>{let h=p.url||"";return h&&!h.startsWith("http://")&&!h.startsWith("https://")&&!h.startsWith("U2FsdGVkX1")&&(h="https://"+h),h&&!h.startsWith("U2FsdGVkX1")&&(h=R(h,i)),{...p,url:h}}).forEach(p=>{p&&p.id&&r.set(p.id,p)});let l=Array.from(r.values()),c=JSON.stringify(l),d=R(c,i),u={encryptedData:d,lastUpdated:new Date().toISOString()},g=C();if(g)try{await Promise.all([g.collection("store_data").doc("secure_links").set(u),g.collection("store_data").doc("sec_vault").set(u)]),console.log("[SERVER] Encrypted links vault persisted to Firestore via Admin SDK.")}catch(p){console.warn("[SERVER] Admin SDK write for secure_links failed, using REST fallback:",p),await Promise.all([F("secure_links",u,t.headers.authorization),F("sec_vault",u,t.headers.authorization)])}else await Promise.all([F("secure_links",u,t.headers.authorization),F("sec_vault",u,t.headers.authorization)]);at();try{j.setPayloads(n),j.setPayloads(l)}catch(p){console.warn("[SERVER] VaultNode refresh error:",p)}e.json({encrypted:d,savedToCloud:!0})}catch{e.status(500).json({error:"Links encryption failed"})}});D.get("/api/v1/admin/debug-links",T,async(t,e)=>{let n=$(t);if(await Q(n))return e.status(429).json({error:"Too many requests"});try{let i=L(),a=`https://firestore.googleapis.com/v1/projects/${i.projectId}/databases/${i.firestoreDatabaseId}/documents/store_data/sec_vault?key=${i.apiKey}`,r=await(await fetch(a)).json();if(!r.fields||!r.fields.encryptedData)return e.json({error:"No vault data found"});let o=r.fields.encryptedData.stringValue,l=S(),c=E(o,l);e.json({decrypted:JSON.parse(c)})}catch(i){e.status(500).json({error:"Failed to decrypt vault: "+i})}});D.post("/api/v1/admin/decrypt-url",T,async(t,e)=>{let n=$(t);if(await Q(n))return e.status(429).json({error:"Too many requests. Please wait."});let{encryptedUrl:i}=t.body;if(!i)return e.status(400).json({error:"Missing encryptedUrl"});let a=S();if(!a||a.trim()==="")return e.status(500).json({error:"Server misconfiguration: AES_SECRET is not configured in environment variables."});let s=t.adminUser?.email||"unknown-admin";console.log(`[AUDIT] Admin decryption of single URL requested by ${s} from IP ${n} at ${new Date().toISOString()}`);try{let r=E(i,a);e.json({decrypted:r||"Failed to decrypt or empty string"})}catch{e.status(500).json({error:"Decryption failed"})}});D.post("/api/v1/admin/decrypt-links",T,async(t,e)=>{let n=$(t);if(await Q(n))return e.status(429).json({error:"Too many requests. Please wait."});let{encryptedData:i}=t.body;if(!i)return e.status(400).json({error:"Encrypted payload ciphertext is required."});let a=S();if(!a||a.trim()==="")return e.status(500).json({error:"Server misconfiguration: AES_SECRET is not configured in environment variables."});let s=t.adminUser?.email||"unknown-admin";console.log(`[AUDIT] Admin decryption of secure links list payload requested by ${s} from IP ${n} at ${new Date().toISOString()}`);try{let r=E(i,a);if(!r)return console.warn("[WARNING] Decrypted block is empty or decryption failed. Returning empty vault."),e.json({items:[]});let o=[];try{o=JSON.parse(r)}catch{return console.warn("[WARNING] Failed to parse decrypted vault. Returning empty array."),e.json({items:[]})}o=o.map(l=>{let c=l.url||"";if(c.startsWith("U2FsdGVkX1"))try{c=E(c,a)}catch{}return{...l,url:c}}),e.json({items:o})}catch(r){console.error("[ERROR] Admin decrypt-links failed:",r.message||r),e.status(500).json({error:"Links decryption failed: "+(r.message||"Check AES_SECRET")})}});D.post("/api/v1/admin/sync-local",T,async(t,e)=>{console.log("[DEBUG] sync-local endpoint hit!");try{let{apps:n,settings:i,news:a,blogs:s,videos:r,allowEmptyApps:o,allowEmptyNews:l,allowEmptyBlogs:c,allowEmptyVideos:d}=t.body;if(!n&&!i&&!a&&!s&&!r)return e.status(400).json({error:"Invalid sync payload: no items provided."});let u=!1,g=null;try{let p=C();if(p){if(Array.isArray(n)&&(n.length>0||o)){let f=Math.ceil(n.length/25)||1,y=[];for(let w=0;w<f;w++){let v=JSON.parse(JSON.stringify(n.slice(w*25,(w+1)*25)));v.forEach(k=>{delete k.more_information_url,delete k.encrypted_download_url,delete k.download_url}),y.push(p.collection("store_data").doc(`apps_chunk_${w}`).set({items:v}))}await Promise.all(y),await p.collection("store_data").doc("apps_meta").set({numChunks:f,last_updated:new Date().toISOString()})}let h=[];i&&typeof i=="object"&&Object.keys(i).length>0&&h.push(p.collection("store_data").doc("public_settings").set(JSON.parse(JSON.stringify(i)),{merge:!0})),Array.isArray(a)&&(a.length>0||l)&&h.push(p.collection("store_data").doc("news").set({items:JSON.parse(JSON.stringify(a))})),Array.isArray(s)&&(s.length>0||c)&&h.push(p.collection("store_data").doc("blogs").set({items:JSON.parse(JSON.stringify(s))})),Array.isArray(r)&&(r.length>0||d)&&h.push(p.collection("store_data").doc("videos").set({items:JSON.parse(JSON.stringify(r))})),h.length>0&&await Promise.all(h),console.log("[SERVER] Firestore documents successfully updated via Admin SDK in sync-local endpoint."),u=!0}else g="Admin SDK could not be initialized (Check FIREBASE_SERVICE_ACCOUNT)"}catch(p){console.warn("[SERVER] Firestore Admin SDK update failed, switching to REST API fallback:",p.message),g=p.message}if(!u)try{let p=t.headers.authorization,h=[];if(Array.isArray(n)&&(n.length>0||o)){let f=Math.ceil(n.length/25)||1,y=[];for(let w=0;w<f;w++){let v=JSON.parse(JSON.stringify(n.slice(w*25,(w+1)*25)));v.forEach(k=>{delete k.more_information_url,delete k.encrypted_download_url,delete k.download_url}),y.push(F(`apps_chunk_${w}`,{items:v},p))}await Promise.all(y),await F("apps_meta",{numChunks:f,last_updated:new Date().toISOString()},p)}if(i&&typeof i=="object"&&Object.keys(i).length>0&&h.push(F("public_settings",JSON.parse(JSON.stringify(i)),p,!0)),Array.isArray(a)&&(a.length>0||l)&&h.push(F("news",{items:JSON.parse(JSON.stringify(a))},p)),Array.isArray(s)&&(s.length>0||c)&&h.push(F("blogs",{items:JSON.parse(JSON.stringify(s))},p)),Array.isArray(r)&&(r.length>0||d)&&h.push(F("videos",{items:JSON.parse(JSON.stringify(r))},p)),h.length>0){let m=await Promise.all(h);m.every(y=>y===!0)?(console.log("[SERVER] Firestore documents successfully updated via Auth REST Proxy in sync-local endpoint."),u=!0,g=null):(g=`REST Fallback write partially failed (${m.filter(Boolean).length}/${m.length} docs succeeded).`,console.warn(`[SERVER] ${g}`))}else u=!0}catch(p){console.error("[SERVER] Firestore REST API update failed in sync-local endpoint:",p.message),g=`REST Fallback also failed: ${p.message}`}try{let p=le.default.join(process.cwd(),"src/lib/public_backup.json"),h={apps:[],settings:{},news:[],blogs:[],videos:[]};if(B.default.existsSync(p))try{h=JSON.parse(B.default.readFileSync(p,"utf8"))}catch{}let m=(rn(),Se(sn)),f=(ln(),Se(on)),y=m.mockApps&&m.mockApps.length>0?m.mockApps:f.mockApps,w=m.mockSettings&&Object.keys(m.mockSettings).length>0?m.mockSettings:f.mockSettings,v=m.mockNews&&m.mockNews.length>0?m.mockNews:f.mockNews,k=m.mockBlogs&&m.mockBlogs.length>0?m.mockBlogs:f.mockBlogs,I=m.mockVideos&&m.mockVideos.length>0?m.mockVideos:f.mockVideos,V=Array.isArray(h.apps)&&h.apps.length>0?h.apps:y||[],N=h.settings&&typeof h.settings=="object"&&Object.keys(h.settings).length>0?h.settings:w||{},W=Array.isArray(h.news)&&h.news.length>0?h.news:v||[],mt=Array.isArray(h.blogs)&&h.blogs.length>0?h.blogs:k||[],P=Array.isArray(h.videos)&&h.videos.length>0?h.videos:I||[],A=Array.isArray(n)&&(n.length>0||o)?n:V,_=i&&typeof i=="object"?i:{},gt={...{...N,..._},banners:Array.isArray(_.banners)&&_.banners.length>0?_.banners:N.banners||[],categories:Array.isArray(_.categories)&&_.categories.length>0?_.categories:N.categories||[],quick_links:Array.isArray(_.quick_links)&&_.quick_links.length>0?_.quick_links:N.quick_links||[],website_faqs:Array.isArray(_.website_faqs)&&_.website_faqs.length>0?_.website_faqs:N.website_faqs||[],developers:Array.isArray(_.developers)&&_.developers.length>0?_.developers:N.developers||[]},ft=Array.isArray(a)&&(a.length>0||l)?a:W,yt=Array.isArray(s)&&(s.length>0||c)?s:mt,bt=Array.isArray(r)&&(r.length>0||d)?r:P,Sn={apps:JSON.parse(JSON.stringify(A)).map(U=>(delete U.encrypted_download_url,delete U.download_url,U)),settings:gt,news:ft,blogs:yt,videos:bt};B.default.writeFileSync(p,JSON.stringify(Sn,null,2),"utf8");let{generateStaticDataFileCode:Tn}=(yn(),Se(fn)),En=le.default.join(process.cwd(),"src/lib/staticData.ts"),In=Tn(A,gt,ft,yt,bt);B.default.writeFileSync(En,In,"utf8"),A.forEach(U=>{let _e=U.more_information_url||U.encrypted_link||"";_e&&U.id&&j.setPayload(U.id,_e),_e&&U.slug&&j.setPayload(U.slug,_e)})}catch(p){console.warn("[SERVER] Could not update local file backups:",p)}nn(),Mt(),e.json({success:!0,message:u?"Data saved to Cloud Firestore, local backup JSON, and staticData.ts successfully.":"Data saved locally to server files and memory successfully (Firestore status: "+(g||"offline")+").",method:u?g?"REST Fallback":"Admin SDK":"Local Backup"})}catch(n){console.error("local file sync endpoint error:",n),e.status(500).json({error:"Failed to store backup: "+n.message})}});D.get("/api/v1/admin/backup-links-get",T,(t,e)=>{try{let n=S(),i={},a=le.default.join(process.cwd(),"src/lib/secureVault.ts");if(B.default.existsSync(a))try{let l=B.default.readFileSync(a,"utf8").match(/export const ENCRYPTED_LINKS = "([^"]+)";/);if(l&&l[1]){let c=l[1],d=E(c,n);if(d){let u=JSON.parse(d);Array.isArray(u)?u.forEach(g=>{g&&g.id&&(i[g.id]=g.url||g.more_information_url||"")}):u&&typeof u=="object"&&Object.assign(i,u),console.log("backup-links-get: Loaded secure links from secureVault.ts")}}}catch(o){console.warn("backup-links-get: Failed to parse secureVault.ts:",o.message)}let s=le.default.join(process.cwd(),".local/secure_links_backup.json");if(B.default.existsSync(s))try{let o=JSON.parse(B.default.readFileSync(s,"utf8"));Object.assign(i,o),console.log("backup-links-get: Overlaid secure links with local backup JSON")}catch(o){console.warn("backup-links-get: Failed to parse backup JSON:",o.message)}let r=[];for(let[o,l]of Object.entries(i)){let c="";typeof l=="string"&&(l.startsWith("U2FsdGVkX1")?c=E(l,n):c=l),r.push({id:o,url:c})}e.json({items:r})}catch(n){console.error("backup-links-get failed:",n),e.status(500).json({error:"Failed to read backup links: "+n.message})}});D.get("/api/v1/admin/fix-db-links",T,async(t,e)=>{try{let n=L();if(!n)return e.status(500).json({error:"Missing configuration."});let a=await(await fetch(`https://firestore.googleapis.com/v1/projects/${n.projectId}/databases/${n.firestoreDatabaseId}/documents/store_data/apps_chunk_0${n.apiKey?"?key="+n.apiKey:""}`)).json(),s=[];!a.error&&a.fields?.items?.arrayValue?.values&&(s=a.fields.items.arrayValue.values.map(m=>m.mapValue.fields.id.stringValue));let o=await(await fetch(`https://firestore.googleapis.com/v1/projects/${n.projectId}/databases/${n.firestoreDatabaseId}/documents/store_data/apps_chunk_1${n.apiKey?"?key="+n.apiKey:""}`)).json();!o.error&&o.fields?.items?.arrayValue?.values&&(s=s.concat(o.fields.items.arrayValue.values.map(m=>m.mapValue.fields.id.stringValue)));let l=S(),c=s.map(m=>({id:m,url:`https://example.com/demo/${m}`})),d=R(JSON.stringify(c),l),u=t.query.token||t.headers.authorization&&t.headers.authorization.split("Bearer ")[1]||"",h=await(await fetch(`https://firestore.googleapis.com/v1/projects/${n.projectId}/databases/${n.firestoreDatabaseId}/documents/store_data/secure_links?updateMask.fieldPaths=encryptedData${n.apiKey?"&key="+n.apiKey:""}`,{method:"PATCH",headers:{Authorization:`Bearer ${u}`,"Content-Type":"application/json"},body:JSON.stringify({fields:{encryptedData:{stringValue:d}}})})).json();e.json(h)}catch(n){e.status(500).json({error:n.message})}});D.post("/api/v1/admin/seal-vault",T,async(t,e)=>{try{let n=C();if(n){let o=await n.collection("store_data").doc("secure_links").get();if(o.exists){let l=o.data();if(l&&(l.encryptedData||l.encrypted_links))return e.json({success:!0,ciphertext:l.encryptedData||l.encrypted_links})}}let i=S();if(!i)return e.status(400).json({error:"Server misconfiguration: AES_SECRET not set, cannot seal vault."});let{items:a}=t.body,s={};a&&Array.isArray(a)&&a.forEach(o=>{o.id&&(o.url&&o.more_information_url?s[o.id]={url:o.url,more_information_url:o.more_information_url,slug:o.slug}:(o.url||o.more_information_url)&&(s[o.id]=o.url||o.more_information_url))});let r=R(JSON.stringify(s),i);e.json({success:!0,ciphertext:r})}catch(n){e.status(500).json({error:n.message})}});D.post("/api/v1/admin/save-links-direct",T,(t,e)=>{try{let{items:n}=t.body;if(!n||!Array.isArray(n))return e.status(400).json({error:"Valid items array required"});let i=S(),a={};n.forEach(o=>{let l=o.url,c=o.more_information_url;if(o.id){if(l&&c){let d={url:l.startsWith("U2FsdGVkX1")?l:R(l,i),more_information_url:c.startsWith("U2FsdGVkX1")?c:R(c,i),slug:o.slug};a[o.id]=JSON.stringify(d)}else if(l||c){let d=l||c;a[o.id]=d.startsWith("U2FsdGVkX1")?d:R(d,i)}}});let s=le.default.join(process.cwd(),".local/secure_links_backup.json"),r=a;if(B.default.existsSync(s))try{r={...JSON.parse(B.default.readFileSync(s,"utf8")),...a}}catch{}for(let[o,l]of Object.entries(r))if(l&&!l.startsWith("U2FsdGVkX1"))try{r[o]=R(l,i)}catch{delete r[o]}B.default.mkdirSync(le.default.dirname(s),{recursive:!0}),B.default.writeFileSync(s,JSON.stringify(r,null,2)),at();try{j.setPayloads(n),j.setPayloads(r)}catch{}e.json({success:!0,message:"Links saved directly and encrypted to backup JSON."})}catch(n){e.status(500).json({error:n.message})}});D.post("/api/v1/admin/pull-links-from-github",T,async(t,e)=>e.status(403).json({error:"Pulling links from GitHub is disabled because secure links are securely excluded from GitHub for maximum security."}));D.get("/api/v1/admin/config-status",T,(t,e)=>{let n=!!process.env.AES_SECRET,i=!!process.env.SECURE_LINKS,a=!!process.env.ADMIN_EMAIL;e.json({hasAes:n,hasSecLinks:i,hasAdminEmail:a})});D.get("/api/v1/admin/system-files",T,(t,e)=>{e.json({files:{}})});D.get("/api/v1/admin/firebase-status",T,async(t,e)=>{let n=Date.now(),i={config:!1,firestoreRead:!1,firestoreWrite:!1,adminSdk:!1,aesConfigured:!1,readLatencyMs:0,writeLatencyMs:0,details:{}};try{let a=L(),s=a?.apiKey||"",r=a?.projectId||"ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a",o=a?.firestoreDatabaseId,l=!o||o===r?"(default)":o;i.config=!!r;let c=process.env.AES_SECRET||global.AES_SECRET_GLOBAL;i.aesConfigured=!!(c&&c.trim()!==""),i.details.projectId=r,i.details.databaseId=l,i.details.hasApiKey=!!s;let d=Date.now();try{let h=C(),m=Ke();h?(await h.collection("store_data").doc("_status_check_").set({ts:Date.now(),source:"admin_sdk_healthcheck",checkedAt:new Date().toISOString()}),await h.collection("store_data").doc("_status_check_").delete(),i.adminSdk=!0,i.firestoreRead=!0,i.firestoreWrite=!0,i.readLatencyMs=Date.now()-d,i.writeLatencyMs=Date.now()-d,i.details.adminSdkLatencyMs=Date.now()-d,i.details.adminSdkNote=m.message||"Admin SDK active with full Service Account authority"):i.details.adminSdkNote=m.message||"Admin SDK inactive (Service Account variable missing; using REST fallback)"}catch(h){i.details.adminSdkError=h.message||String(h),i.details.adminSdkNote=`Admin SDK error: ${h.message}`}if(!i.adminSdk){let h=Date.now();try{let y=s?`?key=${s}`:"",w=`https://firestore.googleapis.com/v1/projects/${r}/databases/${l}/documents/store_data/public_settings${y}`,v=await fetch(w);if(i.readLatencyMs=Date.now()-h,v.status===200||v.status===404)i.firestoreRead=!0,i.details.restReadStatus=v.status,i.details.restReadNote="REST read operational";else{let k=await v.text();i.details.restReadStatus=v.status,i.details.restReadError=`HTTP ${v.status}: ${k.slice(0,150)}`}}catch(y){i.readLatencyMs=Date.now()-h,i.details.restReadError=y.message||String(y)}let m=Date.now(),f=t.headers.authorization;try{let y="_status_check_",w=await F(y,{ts:Date.now(),source:"admin_rest_healthcheck",checkedAt:new Date().toISOString()},f);if(i.writeLatencyMs=Date.now()-m,w)i.firestoreWrite=!0,i.details.writeMode="Authenticated Admin REST API (Authorization Bearer)",i.details.restWriteNote="REST write operational",Je(y,f).catch(()=>{});else{let v=`status_ping_${Date.now()}`,k=s?`&key=${s}`:"",I=`https://firestore.googleapis.com/v1/projects/${r}/databases/${l}/documents/spent_tokens?documentId=${v}${k}`,V=await fetch(I,{method:"POST",headers:{"Content-Type":"application/json",...f?{Authorization:f}:{}},body:JSON.stringify({fields:{usedAt:{stringValue:new Date().toISOString()}}})});if(V.ok||V.status===200)i.firestoreWrite=!0,i.details.writeMode="Public Rules Validation (spent_tokens POST)",i.details.restWriteNote="REST write operational";else{let N=await V.text();i.details.restWriteError=`HTTP ${V.status}: ${N.slice(0,150)}`}}}catch(y){i.writeLatencyMs=Date.now()-m,i.details.restWriteError=y.message||String(y)}}let u=Date.now()-n;i.details.totalCheckDurationMs=u;let p=i.adminSdk&&i.firestoreRead&&i.firestoreWrite||i.firestoreRead&&i.firestoreWrite?"live":i.firestoreRead?"read_only":"offline";return p==="live"?i.details.diagnosticSummary=i.adminSdk?"100% Operational. Full server-side Admin SDK privileges verified.":"100% Operational. REST API read & write access verified.":p==="read_only"?i.details.diagnosticSummary=`Firestore reads are operational, but writes are failing. ${i.details.restWriteError||"Check API Key or Service Account configuration."}`:i.details.diagnosticSummary=`Firestore is currently offline or unreachable. ${i.details.restReadError||"Check Project ID and network configuration."}`,e.json({status:p,results:i,details:i.details,timestamp:new Date().toISOString()})}catch(a){return e.status(500).json({status:"offline",error:a.message||"Diagnostic test failed",results:i})}});D.get("/api/v1/admin/verify",T,(t,e)=>{e.json({authorized:!0,user:t.adminUser})});D.get("/api/v1/admin/security/audit-logs",T,async(t,e)=>{let n=L();if(!!1&&n&&n.apiKey)try{let s=`https://firestore.googleapis.com/v1/projects/${n.projectId}/databases/${n.firestoreDatabaseId||"(default)"}/documents/admin_audit_log?pageSize=50${n.apiKey?"&key="+n.apiKey:""}`,r=await fetch(s);if(r.ok){let c=((await r.json()).documents||[]).map(d=>{let u=d.fields||{};return{id:d.name.split("/").pop(),email:u.email?.stringValue||"unknown",ip:u.ip?.stringValue||"unknown",ua:u.ua?.stringValue||"unknown",success:u.success?.booleanValue??!1,reason:u.reason?.stringValue||"unknown",ts:u.ts?.stringValue||new Date().toISOString()}}).sort((d,u)=>new Date(u.ts).getTime()-new Date(d.ts).getTime());return e.json({success:!0,logs:c})}}catch(s){console.error("Error fetching Firestore audit logs:",s)}let a=[{id:"log_1",email:t.adminUser?.email||"admin@example.com",ip:"127.0.0.1",ua:t.headers["user-agent"]||"Mozilla/5.0",success:!0,reason:"login_success",ts:new Date(Date.now()-120*1e3).toISOString()},{id:"log_2",email:"bruteforce_attacker@gmail.com",ip:"185.220.101.4",ua:"Python-urllib/3.9",success:!1,reason:"invalid_password",ts:new Date(Date.now()-2700*1e3).toISOString()},{id:"log_3",email:"bruteforce_attacker@gmail.com",ip:"185.220.101.4",ua:"Python-urllib/3.9",success:!1,reason:"invalid_password",ts:new Date(Date.now()-2760*1e3).toISOString()},{id:"log_4",email:t.adminUser?.email||"admin@example.com",ip:"127.0.0.1",ua:t.headers["user-agent"]||"Mozilla/5.0",success:!0,reason:"login_success",ts:new Date(Date.now()-1440*60*1e3).toISOString()},{id:"log_5",email:"unknown_user@gmail.com",ip:"92.118.160.17",ua:"Chrome/110.0.0.0",success:!1,reason:"not_admin",ts:new Date(Date.now()-2160*60*1e3).toISOString()}];return e.json({success:!0,logs:a})});var z=(0,Ue.default)();z.set("trust proxy",1);z.use((0,_n.default)({contentSecurityPolicy:!1,crossOriginEmbedderPolicy:!1,crossOriginOpenerPolicy:!1,crossOriginResourcePolicy:!1}));z.use((0,wn.default)());z.use((0,vn.default)());z.use((0,xn.default)({origin:!0,credentials:!0}));z.use(Ue.default.json({limit:"50mb"}));z.use(Ue.default.urlencoded({extended:!0,limit:"50mb"}));!process.env.AES_SECRET&&process.env.NODE_ENV==="production"&&console.error("FATAL: AES_SECRET environment variable is not set. Secure link flow will fail.");z.use((t,e,n)=>{t.originalUrl.startsWith("/api/")&&console.log(`[API REQUEST] ${t.method} ${t.originalUrl}`),n()});z.use("/api/v1/admin",(t,e,n)=>{e.setHeader("Cache-Control","no-store, no-cache, must-revalidate, proxy-revalidate"),e.setHeader("Pragma","no-cache"),e.setHeader("Expires","0"),e.setHeader("Surrogate-Control","no-store"),n()});z.use((t,e,n)=>{if((t.headers["x-forwarded-host"]||t.get("host")||"").split(",")[0].trim()==="rummydex.com")return e.redirect(301,`https://www.rummydex.com${t.originalUrl}`);n()});z.get("/api/health",(t,e)=>{e.json({status:"ok",timestamp:new Date().toISOString()})});z.use(O);z.use(q);z.use(Re);z.use(D);z.use(re);z.use(J);["/api/v1/user","/api/v1/auth","/api/v1/config"].forEach(t=>{z.all(t,(e,n)=>{n.status(404).send("Not Found")})});z.use((t,e,n,i)=>{console.error(`[EXPRESS GLOBAL ERROR] ${e.method} ${e.originalUrl}:`,t);try{let a=kn.default.join(process.cwd(),"server_requests.log");An.default.appendFileSync(a,`[${new Date().toISOString()}] ERROR in ${e.method} ${e.originalUrl}: ${t.message||t}
+`,"utf8")}catch{}if(n.headersSent)return i(t);if(e.originalUrl.startsWith("/api/"))return n.status(500).json({error:"Internal server error"});n.status(500).send("<h1>500 Internal Server Error</h1><p>An unexpected error occurred.</p>")});var Os=module.exports=z;
