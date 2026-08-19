@@ -4,9 +4,7 @@ export { getOgImageUrl };
 
 export function formatPageTitle(rawTitle?: string, siteTitle: string = 'RummyDex'): string {
   if (!rawTitle || !rawTitle.trim()) return siteTitle;
-  // If title contains multiple lines or linebreaks, take only the primary first line
-  const firstLine = rawTitle.split(/\r?\n/)[0] || rawTitle;
-  let clean = firstLine.trim().replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+  let clean = rawTitle.trim().replace(/<[^>]*>/g, '').trim();
 
   const escapedSite = siteTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const repeatedSuffixRegex = new RegExp(`(?:\\s*[|\\-]\\s*${escapedSite})+\\s*$`, 'i');
@@ -14,14 +12,6 @@ export function formatPageTitle(rawTitle?: string, siteTitle: string = 'RummyDex
 
   if (!clean || clean.toLowerCase() === siteTitle.toLowerCase()) {
     return siteTitle;
-  }
-
-  // Cap base title so total title stays <= 60 characters for Google SERP
-  const maxBaseLength = Math.max(20, 58 - siteTitle.length - 3);
-  if (clean.length > maxBaseLength) {
-    const truncated = clean.substring(0, maxBaseLength);
-    const lastSpace = truncated.lastIndexOf(' ');
-    clean = lastSpace > 20 ? truncated.substring(0, lastSpace) : truncated;
   }
 
   return `${clean} | ${siteTitle}`;

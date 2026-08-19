@@ -342,11 +342,11 @@ export function renderNewsList(news: any[], settings: any) {
   news.forEach(n => {
     const title = getField(n, 'title');
     const logo = getField(n, 'logo_url');
-    const optimizedLogo = logo ? optimizeImageUrl(logo, 600) : '';
+    const optimizedLogo = logo ? optimizeImageUrl(logo, 300) : '';
 
     cards += `
-      <a href="/news/${encodeURIComponent(getField(n, 'slug'))}" class="flex flex-col sm:flex-row gap-4 p-5 bg-white dark:bg-zinc-900 border border-black/10 dark:border-white/10 hover:border-blue-500/30 rounded-2xl transition text-left" aria-label="Read full news article: ${escapeHtml(title)}">
-        ${logo ? `<div class="w-full sm:w-48 h-auto max-h-36 bg-zinc-100 dark:bg-zinc-800 rounded-xl overflow-hidden flex items-center justify-center p-1 shrink-0 border border-black/5"><img src="${escapeHtml(optimizedLogo)}" loading="lazy" decoding="async" class="w-full h-auto max-h-32 object-contain rounded-lg" alt="${escapeHtml(title)} news cover banner"/></div>` : ''}
+      <a href="/news/${encodeURIComponent(getField(n, 'slug'))}" class="flex flex-col sm:flex-row gap-4 p-6 bg-white dark:bg-zinc-900 border border-black/5 hover:border-blue-500/25 rounded-3xl transition text-left" aria-label="Read full news article: ${escapeHtml(title)}">
+        ${logo ? `<img src="${escapeHtml(optimizedLogo)}" loading="lazy" decoding="async" width="160" height="120" class="w-full sm:w-40 h-28 object-cover rounded-2xl shrink-0 border border-black/5" alt="${escapeHtml(title)} news cover banner"/>` : ''}
         <div class="flex-1">
           <span class="text-[10px] font-bold text-blue-500 uppercase">${escapeHtml(getField(n, 'category') || 'Report')}</span>
           <span class="text-[10px] font-bold text-zinc-400 uppercase ml-2">${escapeHtml(getField(n, 'created_at') || 'May 2026')}</span>
@@ -381,7 +381,7 @@ export function renderNewsDetail(slug: string, news: any[], settings: any) {
         <span class="text-xs text-zinc-400 uppercase font-bold">${dateStr} | By ${escapeHtml(author)}</span>
         <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight mt-2 leading-tight">${escapeHtml(title)}</h1>
       </header>
-      ${logo ? `<div class="mb-8 rounded-2xl overflow-hidden border border-black/10 dark:border-white/10 bg-zinc-100 dark:bg-zinc-800 p-2 flex items-center justify-center"><img src="${escapeHtml(optimizedLogo)}" loading="eager" decoding="async" class="w-full h-auto max-h-[500px] object-contain rounded-xl" alt="${escapeHtml(title)} main cover article image"/></div>` : ''}
+      ${logo ? `<div class="mb-8 rounded-3xl overflow-hidden border border-black/5"><img src="${escapeHtml(optimizedLogo)}" loading="eager" decoding="async" width="800" height="450" class="w-full h-auto object-cover max-h-96" alt="${escapeHtml(title)} main cover article image"/></div>` : ''}
       <section class="prose dark:prose-invert text-zinc-700 leading-relaxed font-semibold">${sanitizedContent.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>')}</section>
     </article>
   `;

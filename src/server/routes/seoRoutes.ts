@@ -272,7 +272,7 @@ seoRouter.get(['/rss.xml', '/rss', '/feed', '/feed.xml'], async (req, res) => {
     const host = rawDomain.replace(/\/$/, '');
 
     const data = await fetchStoreData().catch(() => null);
-    const { apps = [], news = [] } = data || {};
+    const { apps = [], news = [], blogs = [] } = data || {};
 
     const escapeXml = (unsafe: any) => {
       if (typeof unsafe !== 'string') unsafe = String(unsafe || '');
@@ -307,6 +307,27 @@ seoRouter.get(['/rss.xml', '/rss', '/feed', '/feed.xml'], async (req, res) => {
       }
     }
 
+    // Add Blogs
+    for (const blogItem of (blogs || []).slice(0, 10)) {
+      const title = getField(blogItem, 'title');
+      const slug = getField(blogItem, 'slug');
+      const desc = getField(blogItem, 'excerpt') || getField(blogItem, 'summary') || title;
+      const dateStr = getField(blogItem, 'created_at') || new Date().toISOString();
+      const pubDate = new Date(dateStr).toUTCString();
+
+      if (title && slug) {
+        const link = `${host}/blog/${encodeURI(slug.trim().replace(/^\/+|\/+$/g, ''))}`;
+        itemsXml += `
+    <item>
+      <title>${escapeXml(title)}</title>
+      <link>${escapeXml(link)}</link>
+      <guid isPermaLink="true">${escapeXml(link)}</guid>
+      <description>${escapeXml(desc)}</description>
+      <pubDate>${pubDate}</pubDate>
+    </item>`;
+      }
+    }
+
     // Add Latest Apps
     for (const appItem of (apps || []).slice(0, 10)) {
       const name = getField(appItem, 'name');
@@ -316,7 +337,7 @@ seoRouter.get(['/rss.xml', '/rss', '/feed', '/feed.xml'], async (req, res) => {
       const pubDate = new Date(dateStr).toUTCString();
 
       if (name && slug) {
-        const link = `${host}/app/${encodeURI(slug.trim().replace(/^\/+|\/+$/g, ''))}`;
+        const link = `${host}/${encodeURI(slug.trim().replace(/^\/+|\/+$/g, ''))}`;
         itemsXml += `
     <item>
       <title>${escapeXml(name)} - Download APK &amp; Play</title>
@@ -381,21 +402,8 @@ seoRouter.get('/robots.txt', async (req, res) => {
     const host = rawDomain.replace(/\/$/, '');
 
     let robots = `User-agent: *
-Allow: /
+Allow: /$
 Allow: /app/
-Allow: /news
-Allow: /news/
-Allow: /developers
-Allow: /videos
-Allow: /about
-Allow: /contact
-Allow: /privacy
-Allow: /terms
-Allow: /disclaimer
-Allow: /notice
-Allow: /ethics
-Allow: /responsibility
-Allow: /report-removal
 Disallow: /api/
 Disallow: /admin/
 Disallow: /login/
@@ -408,30 +416,35 @@ Disallow: /gateway/
 Disallow: /info/
 Disallow: /moreinfo/
 Disallow: /moredetail/
+Disallow: /news
+Disallow: /blogs
+Disallow: /blog/
+Disallow: /videos
+Disallow: /about
+Disallow: /contact
+Disallow: /developers
+Disallow: /privacy
+Disallow: /terms
+Disallow: /report-removal
+Disallow: /responsibility
+Disallow: /notice
+Disallow: /ethics
+Disallow: /disclaimer
 
-Sitemap: ${host}/sitemap_index.xml
 Sitemap: ${host}/sitemap.xml
+Sitemap: ${host}/sitemap_index.xml
+Sitemap: ${host}/sitemap-apps.xml
+Sitemap: ${host}/sitemap-static.xml
+Sitemap: ${host}/sitemap-news.xml
+Sitemap: ${host}/sitemap-developers.xml
 `;
     res.set('Content-Type', 'text/plain; charset=utf-8');
     res.send(robots);
   } catch (err) {
     res.set('Content-Type', 'text/plain; charset=utf-8');
     res.send(`User-agent: *
-Allow: /
+Allow: /$
 Allow: /app/
-Allow: /news
-Allow: /news/
-Allow: /developers
-Allow: /videos
-Allow: /about
-Allow: /contact
-Allow: /privacy
-Allow: /terms
-Allow: /disclaimer
-Allow: /notice
-Allow: /ethics
-Allow: /responsibility
-Allow: /report-removal
 Disallow: /api/
 Disallow: /admin/
 Disallow: /login/
@@ -444,9 +457,27 @@ Disallow: /gateway/
 Disallow: /info/
 Disallow: /moreinfo/
 Disallow: /moredetail/
+Disallow: /news
+Disallow: /blogs
+Disallow: /blog/
+Disallow: /videos
+Disallow: /about
+Disallow: /contact
+Disallow: /developers
+Disallow: /privacy
+Disallow: /terms
+Disallow: /report-removal
+Disallow: /responsibility
+Disallow: /notice
+Disallow: /ethics
+Disallow: /disclaimer
 
-Sitemap: https://www.rummydex.com/sitemap_index.xml
 Sitemap: https://www.rummydex.com/sitemap.xml
+Sitemap: https://www.rummydex.com/sitemap_index.xml
+Sitemap: https://www.rummydex.com/sitemap-apps.xml
+Sitemap: https://www.rummydex.com/sitemap-static.xml
+Sitemap: https://www.rummydex.com/sitemap-news.xml
+Sitemap: https://www.rummydex.com/sitemap-developers.xml
 `);
   }
 });
@@ -517,6 +548,12 @@ seoRouter.get(['/sitemap_index.xml', '/sitemap-index.xml', '/sitemapindex.xml'],
   </sitemap>
   <sitemap>
     <loc>${host}/sitemap-news.xml</loc>
+    <lastmod>${today}</lastmod>
+  </sitemap>
+  <sitemap>
+    <lastmod>${today}</lastmod>
+  </sitemap>
+  <sitemap>
     <lastmod>${today}</lastmod>
   </sitemap>
   <sitemap>
@@ -609,9 +646,11 @@ seoRouter.get(['/sitemap-static.xml', '/sitemap_static.xml', '/sitemap-pages.xml
 
     const staticPages = [
       { path: '/', priority: '1.0', changefreq: 'daily', title: 'RummyDex - Official App Hub & Transparency Directory', image: siteLogo },
+      { path: '/new-apps', priority: '0.9', changefreq: 'daily', title: 'New Apps Catalog' },
       { path: '/news', priority: '0.8', changefreq: 'daily', title: 'Gaming News & Announcements' },
-      { path: '/developers', priority: '0.7', changefreq: 'weekly', title: 'Developer Profiles' },
+      { path: '/blogs', priority: '0.8', changefreq: 'daily', title: 'Strategy Guides & Blog Articles' },
       { path: '/videos', priority: '0.7', changefreq: 'weekly', title: 'Video Reviews & Gameplay Gallery' },
+      { path: '/developers', priority: '0.7', changefreq: 'weekly', title: 'Developer Profiles' },
       { path: '/about', priority: '0.5', changefreq: 'monthly', title: 'About RummyDex' },
       { path: '/contact', priority: '0.5', changefreq: 'monthly', title: 'Contact Support' },
       { path: '/privacy', priority: '0.3', changefreq: 'monthly', title: 'Privacy Policy' },
@@ -790,9 +829,9 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
 
     // 1. Core Static Pages
     addUrl(`${host}/`, today, 'daily', '1.0', siteLogo, 'RummyDex Official Logo');
+    addUrl(`${host}/new-apps`, today, 'daily', '0.9');
     addUrl(`${host}/news`, today, 'daily', '0.8');
     addUrl(`${host}/developers`, today, 'weekly', '0.7');
-    addUrl(`${host}/videos`, today, 'weekly', '0.7');
     addUrl(`${host}/about`, today, 'monthly', '0.5');
     addUrl(`${host}/contact`, today, 'monthly', '0.5');
     addUrl(`${host}/privacy`, today, 'monthly', '0.3');

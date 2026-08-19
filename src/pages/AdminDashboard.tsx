@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Navigate } from 'react-router-dom';
-import { RefreshCw, Sparkles } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { toast } from "../components/Toast";
 import { useData } from '../contexts/DataContext';
 import { isFirebaseConfigured, db } from '../lib/firebase';
@@ -11,7 +11,6 @@ import { useAdminSettings } from '../hooks/useAdminSettings';
 import { AdminSidebar } from '../components/admin/AdminSidebar';
 import { AdminTabContent } from '../components/admin/AdminTabContent';
 import { FirebaseStatusIndicator } from '../components/FirebaseStatusIndicator';
-import { AdminWelcomeOverlay } from '../components/admin/AdminWelcomeOverlay';
 
 export default function AdminDashboard() {
   const { 
@@ -24,20 +23,6 @@ export default function AdminDashboard() {
   const [saving, setSaving] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [editingAppId, setEditingAppId] = useState<string | null>(null);
-  const [showWelcomeOverlay, setShowWelcomeOverlay] = useState<boolean>(() => {
-    try {
-      return !sessionStorage.getItem('masterworld_welcome_shown');
-    } catch (e) {
-      return true;
-    }
-  });
-
-  const handleWelcomeComplete = () => {
-    setShowWelcomeOverlay(false);
-    try {
-      sessionStorage.setItem('masterworld_welcome_shown', 'true');
-    } catch (e) {}
-  };
 
   const { user, checkingAuth, isAdminUser, sessionTimeLeft, handleLogout } = useAdminAuth();
   
@@ -271,15 +256,6 @@ export default function AdminDashboard() {
           </div>
           <div className="flex items-center gap-3">
              <button 
-              type="button"
-              onClick={() => setShowWelcomeOverlay(true)}
-              title="Replay Welcome Experience"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-lg font-bold text-xs transition-all border border-amber-500/20 cursor-pointer active:scale-95 whitespace-nowrap"
-             >
-                <Sparkles size={13} className="text-amber-500" />
-                <span className="hidden sm:inline">Welcome Intro</span>
-             </button>
-             <button 
               onClick={handleReloadCloudData} 
               disabled={saving} 
               className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg font-bold text-xs transition-all border-0 cursor-pointer shadow-sm shadow-blue-500/10 active:scale-95 disabled:opacity-50 whitespace-nowrap"
@@ -358,14 +334,6 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
-      )}
-
-      {showWelcomeOverlay && (
-        <AdminWelcomeOverlay 
-          onComplete={handleWelcomeComplete}
-          siteTitle={settings?.site_title || 'MasterWorld'}
-          adminName="Boss"
-        />
       )}
     </div>
   );
