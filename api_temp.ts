@@ -6,7 +6,7 @@ import helmet from 'helmet';
 import path from 'path';
 import fs from 'fs';
 
-import { injectSeoTags, fetchStoreData } from './src/seoHelper';
+import { injectSeoTags, fetchStoreData, resolveAppSlug } from './src/seoHelper';
 import { adminAuthRouter } from './src/server/routes/adminAuthRoutes';
 import { githubSyncRouter } from './src/server/routes/githubSyncRoutes';
 import { seoRouter } from './src/server/routes/seoRoutes';

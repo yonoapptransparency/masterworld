@@ -45,8 +45,6 @@ const Meta: React.FC<MetaProps> = ({
   const metaUrl = getCleanCanonicalUrl(url || canonical, currentPath);
 
   const cleanPathLower = currentPath.toLowerCase().replace(/\/+$/, '') || '/';
-  const isHomePage = cleanPathLower === '/' || cleanPathLower === '/new-apps';
-  const isAppDetailPage = cleanPathLower.startsWith('/app/');
   const isDisallowedPrefix = 
     cleanPathLower.startsWith('/s/') ||
     cleanPathLower.startsWith('/dl/') ||
@@ -58,15 +56,9 @@ const Meta: React.FC<MetaProps> = ({
     cleanPathLower.startsWith('/download/') ||
     cleanPathLower.startsWith('/admin') ||
     cleanPathLower.startsWith('/login') ||
-    cleanPathLower.startsWith('/masterworld') ||
-    cleanPathLower.startsWith('/news') ||
-    cleanPathLower.startsWith('/blogs') ||
-    cleanPathLower.startsWith('/blog/') ||
-    cleanPathLower.startsWith('/videos');
+    cleanPathLower.startsWith('/masterworld');
 
-  const isExplicitNonAppPage = ['/about', '/contact', '/privacy', '/report-removal', '/terms', '/notice', '/ethics', '/disclaimer', '/responsibility', '/developers'].includes(cleanPathLower);
-
-  const isIndexable = !noindex && !isDisallowedPrefix && !isExplicitNonAppPage && (isHomePage || isAppDetailPage);
+  const isIndexable = !noindex && !isDisallowedPrefix;
   const robotsDirective = isIndexable 
     ? "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" 
     : "noindex, nofollow, noarchive, nosnippet";

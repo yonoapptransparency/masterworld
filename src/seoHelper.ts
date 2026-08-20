@@ -303,19 +303,23 @@ function buildJsonLdSchema(params: {
     });
 
     if (params.settings?.website_faqs && Array.isArray(params.settings.website_faqs) && params.settings.website_faqs.length > 0) {
-      const faqList = params.settings.website_faqs.map((faq: any) => ({
-        "@type": "Question",
-        "name": getField(faq, 'question'),
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": stripHtml(getField(faq, 'answer'))
-        }
-      }));
-      schemas.push({
-        "@context": "https://schema.org",
-        "@type": "FAQPage",
-        "mainEntity": faqList
-      });
+      const faqList = params.settings.website_faqs
+        .filter((faq: any) => getField(faq, 'question')?.trim() && getField(faq, 'answer')?.trim())
+        .map((faq: any) => ({
+          "@type": "Question",
+          "name": stripHtml(getField(faq, 'question')),
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": stripHtml(getField(faq, 'answer'))
+          }
+        }));
+      if (faqList.length > 0) {
+        schemas.push({
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "mainEntity": faqList
+        });
+      }
     }
   }
 
@@ -324,7 +328,7 @@ function buildJsonLdSchema(params: {
     const name = getField(app, 'name');
     let category = getField(app, 'category') || 'GameApplication';
     if (!category.includes('Application')) {
-      category = 'GameApplication'; // Schema.org valid category fallback
+      category = 'GameApplication';
     }
     const realRating = parseFloat(getField(app, 'rating'));
     const realCount = parseInt(getField(app, 'review_count'), 10);
@@ -342,7 +346,7 @@ function buildJsonLdSchema(params: {
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
       "name": name,
-      "operatingSystem": "Android, iOS",
+      "operatingSystem": "Android",
       "applicationCategory": category,
       "image": appSquareIcon,
       "logo": appSquareIcon,
@@ -360,12 +364,11 @@ function buildJsonLdSchema(params: {
       }
     };
 
-    const aggregateCount = (!isNaN(realCount) && realCount > 0) ? realCount : 1;
-    if (!isNaN(realRating) && realRating > 0) {
+    if (!isNaN(realRating) && realRating > 0 && !isNaN(realCount) && realCount > 0) {
       softwareAppSchema["aggregateRating"] = {
         "@type": "AggregateRating",
         "ratingValue": realRating.toString(),
-        "ratingCount": aggregateCount.toString(),
+        "ratingCount": realCount.toString(),
         "bestRating": "5",
         "worstRating": "1"
       };
@@ -430,19 +433,23 @@ function buildJsonLdSchema(params: {
     });
 
     if (app.faqs && Array.isArray(app.faqs) && app.faqs.length > 0) {
-      const faqList = app.faqs.map((faq: any) => ({
-        "@type": "Question",
-        "name": getField(faq, 'question'),
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": getField(faq, 'answer')
-        }
-      }));
-      schemas.push({
-        "@context": "https://schema.org",
-        "@type": "FAQPage",
-        "mainEntity": faqList
-      });
+      const faqList = app.faqs
+        .filter((faq: any) => getField(faq, 'question')?.trim() && getField(faq, 'answer')?.trim())
+        .map((faq: any) => ({
+          "@type": "Question",
+          "name": stripHtml(getField(faq, 'question')),
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": stripHtml(getField(faq, 'answer'))
+          }
+        }));
+      if (faqList.length > 0) {
+        schemas.push({
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "mainEntity": faqList
+        });
+      }
     }
   } else if (params.pageType === 'blog' && params.blogItem) {
     const blog = params.blogItem;
@@ -868,8 +875,17 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     settings
   });
 
+  // Ensure meta description is clean and within 160 characters for Google SERP
+  if (description) {
+    description = stripHtml(description).replace(/\s+/g, ' ').trim();
+    if (description.length > 160) {
+      const truncated = description.substring(0, 157);
+      const lastSpace = truncated.lastIndexOf(' ');
+      description = (lastSpace > 100 ? truncated.substring(0, lastSpace) : truncated) + '...';
+    }
+  }
+
   const isNoIndexPage = isNotFound ||
-    pageType !== 'home' && (pageType !== 'app' || !targetApp) ||
     cleanPathLower.startsWith('/s/') ||
     cleanPathLower.startsWith('/dl/') ||
     cleanPathLower.startsWith('/out/') ||
@@ -880,13 +896,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     cleanPathLower.startsWith('/download/') ||
     cleanPathLower.startsWith('/admin') ||
     cleanPathLower.startsWith('/login') ||
-    cleanPathLower.startsWith('/masterworld') ||
-    cleanPathLower.startsWith('/news') ||
-    cleanPathLower.startsWith('/blogs') ||
-    cleanPathLower.startsWith('/blog/') ||
-    cleanPathLower.startsWith('/article/') ||
-    cleanPathLower.startsWith('/videos') ||
-    ['/about', '/contact', '/privacy', '/report-removal', '/terms', '/notice', '/ethics', '/disclaimer', '/responsibility', '/developers'].includes(cleanPathLower);
+    cleanPathLower.startsWith('/masterworld');
 
   const robotsTag = isNoIndexPage 
     ? '<meta data-rh="true" name="robots" content="noindex, nofollow, noarchive, nosnippet">\n    <meta data-rh="true" name="googlebot" content="noindex, nofollow, noarchive, nosnippet">' 

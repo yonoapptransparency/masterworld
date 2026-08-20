@@ -6,7 +6,7 @@ import helmet from 'helmet';
 import path from 'path';
 import fs from 'fs';
 
-import { injectSeoTags, fetchStoreData } from './src/seoHelper';
+import { injectSeoTags, fetchStoreData, resolveAppSlug } from './src/seoHelper';
 import { adminAuthRouter } from './src/server/routes/adminAuthRoutes';
 import { githubSyncRouter } from './src/server/routes/githubSyncRoutes';
 import { seoRouter } from './src/server/routes/seoRoutes';
@@ -171,6 +171,102 @@ async function startServer() {
 
     if (req.originalUrl.startsWith('/assets/') || req.originalUrl.match(/\.(js|css|json|png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf|eot|map|webmanifest|txt|xml)$/i)) {
       return res.status(404).type('text/plain').send('File not found');
+    }
+
+    const rawPath = req.originalUrl.split('?')[0];
+    const pathLower = rawPath.toLowerCase();
+
+    // 1. Permanently 301 redirect any legacy paths (/moreinfo/:slug, /info/:slug, /download/:slug, /moredetail/:slug, /gateway/:slug)
+    const legacyPrefixMatch = rawPath.match(/^\/(moreinfo|info|download|moredetail|gateway)\/([a-zA-Z0-9_-]+)/i);
+    if (legacyPrefixMatch) {
+      const targetSlug = legacyPrefixMatch[2];
+      res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
+      return res.redirect(301, `/app/${targetSlug}`);
+    }
+
+    // 2. Canonicalize trailing slashes (e.g. /app/a23-rummy/ -> /app/a23-rummy) except root
+    if (rawPath.length > 1 && rawPath.endsWith('/')) {
+      const query = req.originalUrl.includes('?') ? '?' + req.originalUrl.split('?')[1] : '';
+      return res.redirect(301, rawPath.replace(/\/+$/, '') + query);
+    }
+
+    // 3. Handle root-level single slugs (e.g. /a23-rummy -> 301 to canonical /app/a23-rummy)
+    const cleanSegment = rawPath.replace(/^\/+|\/+$/g, '').toLowerCase();
+    const knownTopLevelRoutes = new Set([
+      '',
+      'new-apps',
+      'news',
+      'blogs',
+      'videos',
+      'developers',
+      'about',
+      'contact',
+      'privacy',
+      'terms',
+      'disclaimer',
+      'notice',
+      'ethics',
+      'responsibility',
+      'report-removal',
+      'sitemap.xml',
+      'sitemap_index.xml',
+      'sitemap-apps.xml',
+      'sitemap-static.xml',
+      'sitemap-news.xml',
+      'sitemap-blogs.xml',
+      'sitemap-videos.xml',
+      'sitemap-developers.xml',
+      'robots.txt',
+      'rss.xml',
+      'opensearch.xml',
+      'site.webmanifest',
+      'favicon.ico',
+      'wp-admin',
+      'dashboard',
+      'panel',
+      'login',
+      'masterworld'
+    ]);
+
+    if (
+      cleanSegment &&
+      !cleanSegment.includes('/') &&
+      !knownTopLevelRoutes.has(cleanSegment) &&
+      !pathLower.startsWith('/app/') &&
+      !pathLower.startsWith('/s/') &&
+      !pathLower.startsWith('/news/') &&
+      !pathLower.startsWith('/blog/') &&
+      !pathLower.startsWith('/videos/') &&
+      !pathLower.startsWith('/admin')
+    ) {
+      try {
+        const storeData = await fetchStoreData();
+        const resolvedApp = resolveAppSlug(cleanSegment, storeData.apps || []);
+        if (resolvedApp && (resolvedApp.slug || resolvedApp.id)) {
+          res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
+          return res.redirect(301, `/app/${resolvedApp.slug || resolvedApp.id}`);
+        }
+
+        const newsItem = (storeData.news || []).find((n: any) => n.slug?.toLowerCase() === cleanSegment);
+        if (newsItem && newsItem.slug) {
+          res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
+          return res.redirect(301, `/news/${newsItem.slug}`);
+        }
+
+        const blogItem = (storeData.blogs || []).find((b: any) => b.slug?.toLowerCase() === cleanSegment || b.id?.toLowerCase() === cleanSegment);
+        if (blogItem && (blogItem.slug || blogItem.id)) {
+          res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
+          return res.redirect(301, `/blog/${blogItem.slug || blogItem.id}`);
+        }
+
+        const videoItem = (storeData.videos || []).find((v: any) => v.slug?.toLowerCase() === cleanSegment);
+        if (videoItem && videoItem.slug) {
+          res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
+          return res.redirect(301, `/videos/${videoItem.slug}`);
+        }
+      } catch (err) {
+        console.warn('[SERVER REDIRECT] Error resolving slug:', err);
+      }
     }
 
     let templatePath: string;
