@@ -109,7 +109,7 @@ export const AppInspector = ({
           </h4>
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs max-w-full font-sans">
             <div className="text-[12px] text-slate-500 dark:text-slate-400 font-normal truncate flex items-center gap-1">
-              <span>https://apk-gatekeeper.com</span>
+              <span>https://verification-gatekeeper.com</span>
               <span className="text-slate-400">› apps › {selectedApp.slug || selectedApp.id}</span>
             </div>
             <div className="text-[18px] text-blue-600 dark:text-blue-400 font-medium hover:underline cursor-pointer leading-tight truncate mt-0.5">

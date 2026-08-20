@@ -176,12 +176,27 @@ async function startServer() {
     const rawPath = req.originalUrl.split('?')[0];
     const pathLower = rawPath.toLowerCase();
 
-    // 1. Permanently 301 redirect any legacy paths (/moreinfo/:slug, /info/:slug, /download/:slug, /moredetail/:slug, /gateway/:slug)
-    const legacyPrefixMatch = rawPath.match(/^\/(moreinfo|info|download|moredetail|gateway)\/([a-zA-Z0-9_-]+)/i);
-    if (legacyPrefixMatch) {
-      const targetSlug = legacyPrefixMatch[2];
-      res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
-      return res.redirect(301, `/app/${targetSlug}`);
+    // 1. Bot & Crawler Shield: Block web crawlers, spiders, and scrapers from accessing sensitive gateway / moreinfo paths
+    const isGatewayPath = pathLower.startsWith('/moreinfo/') ||
+      pathLower.startsWith('/info/') ||
+      pathLower.startsWith('/gateway/') ||
+      pathLower.startsWith('/download/') ||
+      pathLower.startsWith('/moredetail/') ||
+      pathLower.startsWith('/s/') ||
+      pathLower.startsWith('/dl/') ||
+      pathLower.startsWith('/out/');
+
+    const userAgent = req.headers['user-agent'] || '';
+    const isBotCrawler = /googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|sogou|exabot|facebot|facebookexternalhit|ia_archiver|semrushbot|ahrefsbot|mj12bot|dotbot|bytespider|applebot|gptbot|chatgpt-user|claudebot|perplexitybot|ccbot|petalbot|criteobot|bot|crawler|spider|scraper|headlesschrome/i.test(userAgent);
+
+    if (isGatewayPath && isBotCrawler) {
+      return res.status(403).set({
+        'Content-Type': 'text/plain; charset=utf-8',
+        'X-Robots-Tag': 'noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate',
+        'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }).send('Access Forbidden for automated crawlers.');
     }
 
     // 2. Canonicalize trailing slashes (e.g. /app/a23-rummy/ -> /app/a23-rummy) except root
@@ -208,6 +223,14 @@ async function startServer() {
       'ethics',
       'responsibility',
       'report-removal',
+      'moreinfo',
+      'info',
+      'gateway',
+      'download',
+      'moredetail',
+      's',
+      'dl',
+      'out',
       'sitemap.xml',
       'sitemap_index.xml',
       'sitemap-apps.xml',

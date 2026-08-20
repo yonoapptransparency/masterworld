@@ -13,7 +13,7 @@ export const SEOSection = ({ formFields, handleFieldChange }: SEOSectionProps) =
         <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">Live Google SERP Simulator Preview</label>
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs max-w-full font-sans">
           <div className="text-[12px] text-slate-500 dark:text-slate-400 font-normal truncate flex items-center gap-1">
-            <span>https://apk-gatekeeper.com</span>
+            <span>https://verification-gatekeeper.com</span>
             <span className="text-slate-400">› {formFields.slug || 'url-slug'}</span>
           </div>
           <div className="text-[18px] text-blue-600 dark:text-blue-400 font-medium hover:underline cursor-pointer leading-tight truncate mt-0.5">
@@ -33,7 +33,7 @@ export const SEOSection = ({ formFields, handleFieldChange }: SEOSectionProps) =
           value={formFields.seo_title} 
           onChange={e => handleFieldChange('seo_title', e.target.value)} 
           className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500" 
-          placeholder="e.g. Free VPN Download - Safe APK Gatekeeper"
+          placeholder="e.g. Free VPN Download - Safe Verification Portal"
         />
       </div>
 

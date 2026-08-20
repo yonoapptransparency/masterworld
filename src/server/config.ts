@@ -47,7 +47,11 @@ export const CF_TURNSTILE_SECRET = isRealValueForSecret(rawTurnstileSecret) ? ra
 
 export const BAD_UA = [
   /zgrab/i, /masscan/i, /nmap/i, /nuclei/i, /sqlmap/i,
-  /nikto/i, /dirbuster/i, /gobuster/i, /wfuzz/i
+  /nikto/i, /dirbuster/i, /gobuster/i, /wfuzz/i,
+  /python-requests/i, /python-urllib/i, /curl\//i, /wget\//i,
+  /scrapy/i, /postmanruntime/i, /httpclient/i, /go-http-client/i,
+  /headlesschrome/i, /phantomjs/i, /selenium/i, /puppeteer/i, /playwright/i,
+  /spider/i, /crawl/i, /bot\b/i, /crawler/i, /scraper/i
 ];
 
 export const WINDOW = 60 * 1000;

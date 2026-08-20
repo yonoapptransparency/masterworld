@@ -181,3 +181,19 @@ To maintain maximum Google Search Console indexing, 100% PageSpeed Scores, and i
 - **Adding a New App**: Manage via the Admin Dashboard or update `src/lib/staticData.json`.
 - **Modifying Backend API Routes**: Add new express endpoints under `/src/server/routes/` and mount them in `server.ts`.
 - **Verifying Builds**: Run `npm run build` and `npm run lint` before committing to ensure TypeScript compilation succeeds without errors.
+
+---
+
+## 7. More Information (`/moreinfo`) Gateway & Link Security Protocol
+
+> [!IMPORTANT]
+> **MANDATORY INSTRUCTION:** Every time you work on the More Information page, clearance buttons, link encryption, or anti-bot resolution, you **MUST** consult and update `/MORE_INFO_SECURITY_ARCHITECTURE.md`.
+
+- **Source of Truth File**: `/MORE_INFO_SECURITY_ARCHITECTURE.md`
+- **Page Locations**: `/moreinfo/:slug` and `/moreinfo/:id` rendered by `src/pages/GatewayPage.tsx`.
+- **Frontend Clearance**: Handled by `src/components/ClearanceButton.tsx` (displays "Proceed" and fast resolution).
+- **Backend API**: `POST/GET /api/v1/public/secure-link` in `src/server/routes/securityRoutes.ts` with bad-UA filters, rate limiting, and zero-referrer anonymous bounce pages.
+- **Strict Neutral Vocabulary**:
+  - App page main action button must strictly say **"Download"** (NEVER "Download APK").
+  - More Info page must strictly use neutral terms: **"Proceed"**, **"Click Here to Proceed"**, **"Verification Portal"**, **"Connecting..."**. No sensitive trigger words.
+- **Update Requirement**: Any future change to more info routes or security logic MUST immediately be documented in `/MORE_INFO_SECURITY_ARCHITECTURE.md`.

@@ -61,7 +61,7 @@ const Meta: React.FC<MetaProps> = ({
   const isIndexable = !noindex && !isDisallowedPrefix;
   const robotsDirective = isIndexable 
     ? "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" 
-    : "noindex, nofollow, noarchive, nosnippet";
+    : "noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate";
 
   return (
     <Helmet>
@@ -72,6 +72,11 @@ const Meta: React.FC<MetaProps> = ({
       <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
       <meta name="robots" content={robotsDirective} />
       <meta name="googlebot" content={robotsDirective} />
+      <meta name="bingbot" content={robotsDirective} />
+      <meta name="slurp" content={robotsDirective} />
+      <meta name="baiduspider" content={robotsDirective} />
+      <meta name="yandex" content={robotsDirective} />
+      <meta name="duckduckbot" content={robotsDirective} />
       <link rel="canonical" href={canonicalUrl} />
       
       {/* Favicons & Mobile Icons - Direct Cloudinary icon support */}

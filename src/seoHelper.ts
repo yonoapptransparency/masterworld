@@ -282,10 +282,13 @@ function buildJsonLdSchema(params: {
     hostOrigin = params.url.startsWith('http') ? params.url : `https://${params.url}`;
   }
 
-  if (params.pageType !== '404') {
-    schemas.push({
-      "@context": "https://schema.org",
-      "@type": "WebSite",
+  if (params.pageType === 'gateway' || params.pageType === '404') {
+    return '';
+  }
+
+  schemas.push({
+    "@context": "https://schema.org",
+    "@type": "WebSite",
       "@id": `${hostOrigin}/#website`,
       "url": hostOrigin,
       "name": params.siteTitle,
@@ -321,7 +324,6 @@ function buildJsonLdSchema(params: {
         });
       }
     }
-  }
 
   if (params.pageType === 'app' && params.app) {
     const app = params.app;
@@ -899,7 +901,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     cleanPathLower.startsWith('/masterworld');
 
   const robotsTag = isNoIndexPage 
-    ? '<meta data-rh="true" name="robots" content="noindex, nofollow, noarchive, nosnippet">\n    <meta data-rh="true" name="googlebot" content="noindex, nofollow, noarchive, nosnippet">' 
+    ? '<meta data-rh="true" name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate">\n    <meta data-rh="true" name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate">\n    <meta data-rh="true" name="bingbot" content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate">\n    <meta data-rh="true" name="slurp" content="noindex, nofollow, noarchive, nosnippet">\n    <meta data-rh="true" name="baiduspider" content="noindex, nofollow, noarchive, nosnippet">\n    <meta data-rh="true" name="yandex" content="noindex, nofollow, noarchive, nosnippet">\n    <meta data-rh="true" name="duckduckbot" content="noindex, nofollow, noarchive, nosnippet">' 
     : '<meta data-rh="true" name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">';
 
   const seoTags = `

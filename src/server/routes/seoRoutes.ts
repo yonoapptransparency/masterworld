@@ -319,7 +319,7 @@ seoRouter.get(['/rss.xml', '/rss', '/feed', '/feed.xml'], async (req, res) => {
         const link = `${host}/app/${encodeURI(slug.trim().replace(/^\/+|\/+$/g, ''))}`;
         itemsXml += `
     <item>
-      <title>${escapeXml(name)} - Download APK &amp; Play</title>
+      <title>${escapeXml(name)} - Download &amp; Play</title>
       <link>${escapeXml(link)}</link>
       <guid isPermaLink="true">${escapeXml(link)}</guid>
       <description>${escapeXml(desc)}</description>
@@ -381,59 +381,224 @@ seoRouter.get('/robots.txt', async (req, res) => {
     const host = rawDomain.replace(/\/$/, '');
 
     let robots = `User-agent: *
-Allow: /
+Allow: /$
 Allow: /app/
-Allow: /news
-Allow: /news/
-Allow: /developers
-Allow: /videos
-Allow: /about
-Allow: /contact
-Allow: /privacy
-Allow: /terms
-Allow: /disclaimer
-Allow: /notice
-Allow: /ethics
-Allow: /responsibility
-Allow: /report-removal
 Disallow: /api/
 Disallow: /admin/
 Disallow: /login/
 Disallow: /masterworld/
 Disallow: /s/
+Disallow: /s/*
+Disallow: /dl/
+Disallow: /dl/*
+Disallow: /out/
+Disallow: /out/*
+Disallow: /moreinfo/
+Disallow: /moreinfo/*
+Disallow: /info/
+Disallow: /info/*
+Disallow: /gateway/
+Disallow: /gateway/*
+Disallow: /download/
+Disallow: /download/*
+Disallow: /moredetail/
+Disallow: /moredetail/*
+Disallow: /news
+Disallow: /blogs
+Disallow: /blog/
+Disallow: /videos
+Disallow: /about
+Disallow: /contact
+Disallow: /developers
+Disallow: /privacy
+Disallow: /terms
+Disallow: /report-removal
+Disallow: /responsibility
+Disallow: /notice
+Disallow: /ethics
+Disallow: /disclaimer
+
+User-agent: Googlebot
+Disallow: /moreinfo/
+Disallow: /moreinfo/*
+Disallow: /info/
+Disallow: /info/*
+Disallow: /gateway/
+Disallow: /gateway/*
+Disallow: /download/
+Disallow: /download/*
+Disallow: /moredetail/
+Disallow: /moredetail/*
+Disallow: /s/
 Disallow: /dl/
 Disallow: /out/
+Disallow: /admin/
+Disallow: /login/
+Disallow: /api/
+
+User-agent: Bingbot
+Disallow: /moreinfo/
+Disallow: /moreinfo/*
+Disallow: /info/
+Disallow: /info/*
+Disallow: /gateway/
+Disallow: /gateway/*
+Disallow: /download/
+Disallow: /download/*
+Disallow: /moredetail/
+Disallow: /moredetail/*
+Disallow: /s/
+Disallow: /dl/
+Disallow: /out/
+Disallow: /admin/
+Disallow: /login/
+Disallow: /api/
+
+User-agent: Applebot
+Disallow: /moreinfo/
+Disallow: /moreinfo/*
+Disallow: /info/
+Disallow: /info/*
+Disallow: /gateway/
+Disallow: /gateway/*
+Disallow: /download/
+Disallow: /download/*
+Disallow: /moredetail/
+
+User-agent: DuckDuckBot
+Disallow: /moreinfo/
+Disallow: /moreinfo/*
+Disallow: /info/
+Disallow: /info/*
+Disallow: /gateway/
+Disallow: /gateway/*
+Disallow: /download/
+Disallow: /download/*
+Disallow: /moredetail/
+
+User-agent: Baiduspider
+Disallow: /moreinfo/
+Disallow: /moreinfo/*
+Disallow: /info/
+Disallow: /info/*
+Disallow: /gateway/
+Disallow: /gateway/*
+Disallow: /download/
+Disallow: /download/*
+Disallow: /moredetail/
+
+User-agent: YandexBot
+Disallow: /moreinfo/
+Disallow: /moreinfo/*
+Disallow: /info/
+Disallow: /info/*
+Disallow: /gateway/
+Disallow: /gateway/*
+Disallow: /download/
+Disallow: /download/*
+Disallow: /moredetail/
+
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ChatGPT-User
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: PerplexityBot
+Disallow: /
+
+User-agent: SemrushBot
+Disallow: /moreinfo/
+Disallow: /info/
+Disallow: /gateway/
+Disallow: /download/
+Disallow: /moredetail/
+
+User-agent: AhrefsBot
+Disallow: /moreinfo/
+Disallow: /info/
+Disallow: /gateway/
+Disallow: /download/
+Disallow: /moredetail/
 
 Sitemap: ${host}/sitemap_index.xml
 Sitemap: ${host}/sitemap.xml
+Sitemap: ${host}/sitemap-apps.xml
+Sitemap: ${host}/sitemap-static.xml
+Sitemap: ${host}/sitemap-news.xml
+Sitemap: ${host}/sitemap-blogs.xml
+Sitemap: ${host}/sitemap-videos.xml
+Sitemap: ${host}/sitemap-developers.xml
 `;
     res.set('Content-Type', 'text/plain; charset=utf-8');
     res.send(robots);
   } catch (err) {
     res.set('Content-Type', 'text/plain; charset=utf-8');
     res.send(`User-agent: *
-Allow: /
+Allow: /$
 Allow: /app/
-Allow: /news
-Allow: /news/
-Allow: /developers
-Allow: /videos
-Allow: /about
-Allow: /contact
-Allow: /privacy
-Allow: /terms
-Allow: /disclaimer
-Allow: /notice
-Allow: /ethics
-Allow: /responsibility
-Allow: /report-removal
 Disallow: /api/
 Disallow: /admin/
 Disallow: /login/
 Disallow: /masterworld/
 Disallow: /s/
+Disallow: /s/*
 Disallow: /dl/
+Disallow: /dl/*
 Disallow: /out/
+Disallow: /out/*
+Disallow: /moreinfo/
+Disallow: /moreinfo/*
+Disallow: /info/
+Disallow: /info/*
+Disallow: /gateway/
+Disallow: /gateway/*
+Disallow: /download/
+Disallow: /download/*
+Disallow: /moredetail/
+Disallow: /moredetail/*
+
+User-agent: Googlebot
+Disallow: /moreinfo/
+Disallow: /moreinfo/*
+Disallow: /info/
+Disallow: /info/*
+Disallow: /gateway/
+Disallow: /gateway/*
+Disallow: /download/
+Disallow: /download/*
+Disallow: /moredetail/
+Disallow: /moredetail/*
+
+User-agent: Bingbot
+Disallow: /moreinfo/
+Disallow: /moreinfo/*
+Disallow: /info/
+Disallow: /info/*
+Disallow: /gateway/
+Disallow: /gateway/*
+Disallow: /download/
+Disallow: /download/*
+Disallow: /moredetail/
+Disallow: /moredetail/*
+
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: PerplexityBot
+Disallow: /
 
 Sitemap: https://www.rummydex.com/sitemap_index.xml
 Sitemap: https://www.rummydex.com/sitemap.xml

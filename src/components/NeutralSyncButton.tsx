@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, Loader2, AlertTriangle, ShieldCheck } from 'lucide-react';
-import { solveChallenge } from '../lib/security/pow';
-import { generateFingerprint } from '../lib/security/fingerprint';
+import { ArrowRight, Loader2, AlertTriangle, ShieldCheck, ExternalLink } from 'lucide-react';
 
 /**
  * NeutralSyncButton
@@ -19,6 +17,7 @@ export default function NeutralSyncButton({ appId, slug, status }: NeutralSyncBu
   const [phase, setPhase] = useState<'idle' | 'syncing' | 'ready' | 'error'>('idle');
   const [syncMessage, setSyncMessage] = useState<string>("Proceed");
   const [error, setError] = useState<string>('');
+  const [directUrl, setDirectUrl] = useState<string | null>(null);
 
   const triggerSync = async () => {
     setPhase('syncing');
@@ -27,69 +26,47 @@ export default function NeutralSyncButton({ appId, slug, status }: NeutralSyncBu
 
     try {
       const targetId = slug || appId;
-      const fp = await generateFingerprint().catch(() => 'fallback_fp');
-
-      // 1. Request challenge from clearance gateway
-      const startRes = await fetch(`/api/v1/_chal?appId=${encodeURIComponent(targetId)}&_t=${Date.now()}`, {
-        headers: { 'Accept': 'application/json' },
+      const res = await fetch('/api/v1/public/secure-link', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ appId: targetId }),
         cache: 'no-store'
       });
 
-      if (!startRes.ok) {
-        throw new Error('Security gateway unavailable');
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Clearance authorization failed');
       }
 
-      const challengeData = await startRes.json();
-      if (!challengeData || !challengeData.nonce) {
-        throw new Error('Invalid challenge context');
+      const result = await res.json();
+      if (!result || !result.url) {
+        throw new Error('Access link is temporarily unavailable.');
       }
 
-      // 2. Solve PoW
-      setSyncMessage("Verifying...");
-      const solution = await solveChallenge(challengeData.nonce, challengeData.difficulty || '0');
-
-      // 3. Complete clearance
-      setSyncMessage("Authorizing...");
-      const completeRes = await fetch('/api/v1/_proc', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({
-          nonce: challengeData.nonce,
-          solution,
-          fingerprint: fp,
-          appId: targetId,
-          sid: challengeData.sid
-        })
-      });
-
-      if (!completeRes.ok) {
-        const errorData = await completeRes.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Clearance authorization failed');
-      }
-
-      const result = await completeRes.json();
-      if (!result.token) {
-        throw new Error('Incomplete response');
-      }
-
+      const targetUrl = result.url;
+      setDirectUrl(targetUrl);
       setPhase('ready');
-      setSyncMessage("Redirecting...");
+      setSyncMessage("Connecting...");
 
-      const finalRedirect = `/api/v1/moreinfo-resolve?appId=${encodeURIComponent(targetId)}&token=${encodeURIComponent(result.token)}&fp=${encodeURIComponent(fp)}`;
       try {
-        if (window.top && window.self !== window.top) {
-          window.top.location.href = finalRedirect;
-        } else {
-          window.location.href = finalRedirect;
-        }
+        const a = document.createElement('a');
+        a.href = targetUrl;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer nofollow';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
       } catch (_) {
-        window.location.href = finalRedirect;
+        window.location.href = targetUrl;
       }
 
       setTimeout(() => {
         setPhase('idle');
         setSyncMessage('Proceed');
-      }, 1500);
+      }, 2000);
 
     } catch (err: any) {
       console.warn('[Sync] Clearance notice:', err?.message || err);

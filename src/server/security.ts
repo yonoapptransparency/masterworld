@@ -34,7 +34,9 @@ export async function verifyTurnstile(token: string, ip: string): Promise<boolea
 
 export const isSuspiciousClient = (req: express.Request): boolean => {
   const ua = (req.headers['user-agent'] || '') as string;
-  if (ua && BAD_UA.some(rx => rx.test(ua))) return true;
+  const trimmed = ua.trim();
+  if (!trimmed || trimmed.length < 5) return true;
+  if (BAD_UA.some(rx => rx.test(ua))) return true;
   return false;
 };
 
