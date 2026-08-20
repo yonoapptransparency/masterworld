@@ -47,7 +47,7 @@ export const AdminCategoriesTab = React.memo(({
               {categoriesList.map((cat: string, index: number) => (
                 <div key={index} className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-200 dark:border-slate-700">
                   <span>{cat}</span>
-                  <button type="button" onClick={() => onRemove(cat)} className="text-slate-400 hover:text-rose-500 transition-colors focus:outline-none">
+                  <button type="button" aria-label={`Remove category ${cat}`} onClick={() => onRemove(cat)} className="text-slate-400 hover:text-rose-500 transition-colors focus:outline-none">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
