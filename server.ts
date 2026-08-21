@@ -27,7 +27,16 @@ async function startServer() {
     crossOriginResourcePolicy: false,
   }));
 
-  app.use(compression());
+  app.use(compression({
+    threshold: 256,
+    level: 6,
+    filter: (req, res) => {
+      if (req.headers['x-no-compression']) {
+        return false;
+      }
+      return compression.filter(req, res);
+    }
+  }));
   app.use(cookieParser());
   app.use(cors({
     origin: true,

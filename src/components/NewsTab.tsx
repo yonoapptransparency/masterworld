@@ -168,8 +168,8 @@ const NewsTab = React.memo(({ newsList, handleAddNews, handleDeleteNews, handleN
                       </div>
                       
                       {item.logo_url && (
-                        <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm relative group h-40">
-                          <img src={item.logo_url} className="w-full h-full object-cover" loading="lazy" width={800} height={450} alt="Preview" />
+                        <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm relative group aspect-video max-h-56 bg-slate-950 flex items-center justify-center">
+                          <img src={item.logo_url} className="w-full h-full object-contain" loading="lazy" width={800} height={450} alt="Preview" />
                         </div>
                       )}
                       
@@ -189,8 +189,8 @@ const NewsTab = React.memo(({ newsList, handleAddNews, handleDeleteNews, handleN
             ) : (
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
                 <div className="flex items-center gap-5 w-full">
-                  <div className="w-24 h-24 rounded-xl overflow-hidden border border-black/5 dark:border-white/10 shrink-0 shadow-sm hidden sm:block">
-                    <img src={item.logo_url || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=200&h=200&fit=crop'} alt={item.title} loading="lazy" width={200} height={200} className="w-full h-full object-cover" />
+                  <div className="w-36 h-20 aspect-video rounded-xl overflow-hidden border border-black/5 dark:border-white/10 shrink-0 shadow-sm hidden sm:flex items-center justify-center bg-slate-950">
+                    <img src={item.logo_url || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800&q=80'} alt={item.title} loading="lazy" width={320} height={180} className="w-full h-full object-contain" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1.5">

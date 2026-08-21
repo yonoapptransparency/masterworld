@@ -346,7 +346,7 @@ export function renderNewsList(news: any[], settings: any) {
 
     cards += `
       <a href="/news/${encodeURIComponent(getField(n, 'slug'))}" class="flex flex-col sm:flex-row gap-4 p-6 bg-white dark:bg-zinc-900 border border-black/5 hover:border-blue-500/25 rounded-3xl transition text-left" aria-label="Read full news article: ${escapeHtml(title)}">
-        ${logo ? `<img src="${escapeHtml(optimizedLogo)}" loading="lazy" decoding="async" width="160" height="120" class="w-full sm:w-40 h-28 object-cover rounded-2xl shrink-0 border border-black/5" alt="${escapeHtml(title)} news cover banner"/>` : ''}
+        ${logo ? `<div class="w-full sm:w-48 aspect-video rounded-xl bg-zinc-950 flex items-center justify-center overflow-hidden shrink-0 border border-black/5"><img src="${escapeHtml(optimizedLogo)}" loading="lazy" decoding="async" width="192" height="108" class="w-full h-full object-contain" alt="${escapeHtml(title)} news cover banner"/></div>` : ''}
         <div class="flex-1">
           <span class="text-[10px] font-bold text-blue-500 uppercase">${escapeHtml(getField(n, 'category') || 'Report')}</span>
           <span class="text-[10px] font-bold text-zinc-400 uppercase ml-2">${escapeHtml(getField(n, 'created_at') || 'May 2026')}</span>
@@ -381,7 +381,7 @@ export function renderNewsDetail(slug: string, news: any[], settings: any) {
         <span class="text-xs text-zinc-400 uppercase font-bold">${dateStr} | By ${escapeHtml(author)}</span>
         <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight mt-2 leading-tight">${escapeHtml(title)}</h1>
       </header>
-      ${logo ? `<div class="mb-8 rounded-3xl overflow-hidden border border-black/5"><img src="${escapeHtml(optimizedLogo)}" loading="eager" decoding="async" width="800" height="450" class="w-full h-auto object-cover max-h-96" alt="${escapeHtml(title)} main cover article image"/></div>` : ''}
+      ${logo ? `<div class="mb-8 rounded-2xl overflow-hidden border border-black/5 aspect-video bg-zinc-950 flex items-center justify-center"><img src="${escapeHtml(optimizedLogo)}" loading="eager" decoding="async" width="800" height="450" class="w-full h-full object-contain" alt="${escapeHtml(title)} main cover article image"/></div>` : ''}
       <section class="prose dark:prose-invert text-zinc-700 leading-relaxed font-semibold">${sanitizedContent.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>')}</section>
     </article>
   `;
