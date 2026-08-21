@@ -187,14 +187,19 @@ export const AdminNewsTab = React.memo(({
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Logo / Banner URL</label>
+                          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">News Cover / Thumbnail URL (16:9)</label>
                           <input
                             type="text"
                             value={item.logo_url || ''}
                             onChange={e => handleNewsChange(item.id, 'logo_url', e.target.value)}
                             className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white font-mono focus:ring-2 focus:ring-blue-500 transition-all"
-                            placeholder="https://..."
+                            placeholder="https://... (16:9 YouTube thumbnail recommended)"
                           />
+                          {item.logo_url && (
+                            <div className="mt-2 w-full max-w-sm aspect-video rounded-xl overflow-hidden border border-black/10 dark:border-white/10 bg-slate-100 dark:bg-slate-800">
+                              <img src={item.logo_url} alt="Thumbnail Preview" className="w-full h-full object-cover" />
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div>
@@ -373,15 +378,15 @@ export const AdminNewsTab = React.memo(({
                     {item.logo_url ? (
                       <img
                         src={item.logo_url}
-                        className="w-14 h-14 object-cover rounded-xl border border-black/10 shadow-sm shrink-0"
+                        className="w-20 aspect-video object-cover rounded-xl border border-black/10 shadow-sm shrink-0"
                         loading="lazy"
-                        width={56}
-                        height={56}
+                        width={80}
+                        height={45}
                         alt={item.title}
                       />
                     ) : (
-                      <div className="w-14 h-14 bg-blue-50 dark:bg-blue-900/20 text-blue-500 rounded-xl flex items-center justify-center border border-blue-100 dark:border-blue-800 shrink-0">
-                        <Newspaper className="w-6 h-6" />
+                      <div className="w-20 aspect-video bg-blue-50 dark:bg-blue-900/20 text-blue-500 rounded-xl flex items-center justify-center border border-blue-100 dark:border-blue-800 shrink-0">
+                        <Newspaper className="w-5 h-5" />
                       </div>
                     )}
                     <div>

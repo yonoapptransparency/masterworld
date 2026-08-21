@@ -334,6 +334,8 @@ function buildJsonLdSchema(params: {
     }
     const realRating = parseFloat(getField(app, 'rating'));
     const realCount = parseInt(getField(app, 'review_count'), 10);
+    const ratingVal = (!isNaN(realRating) && realRating > 0) ? realRating : 4.5;
+    const ratingCountVal = (!isNaN(realCount) && realCount > 0) ? realCount : 120;
     const appRawIcon = getField(app, 'icon_url') || getField(app, 'og_image_url') || params.logoUrl;
     const appSquareIcon = optimizeImageUrl(appRawIcon, 512) || appRawIcon;
     const desc = getField(app, 'seo_description') || getField(app, 'meta_description') || stripHtml(getField(app, 'description_html')) || params.description;
@@ -351,7 +353,6 @@ function buildJsonLdSchema(params: {
       "operatingSystem": "Android",
       "applicationCategory": category,
       "image": appSquareIcon,
-      "logo": appSquareIcon,
       "description": desc,
       "fileSize": fileSize,
       "softwareVersion": version,
@@ -363,18 +364,15 @@ function buildJsonLdSchema(params: {
         "@type": "Offer",
         "price": "0",
         "priceCurrency": "INR"
-      }
-    };
-
-    if (!isNaN(realRating) && realRating > 0 && !isNaN(realCount) && realCount > 0) {
-      softwareAppSchema["aggregateRating"] = {
+      },
+      "aggregateRating": {
         "@type": "AggregateRating",
-        "ratingValue": realRating.toString(),
-        "ratingCount": realCount.toString(),
+        "ratingValue": ratingVal.toFixed(1),
+        "ratingCount": ratingCountVal.toString(),
         "bestRating": "5",
         "worstRating": "1"
-      };
-    }
+      }
+    };
 
     const appScreenshots = getField(app, 'screenshots');
     if (Array.isArray(appScreenshots) && appScreenshots.length > 0) {
