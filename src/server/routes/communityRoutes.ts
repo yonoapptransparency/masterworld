@@ -438,7 +438,15 @@ communityRouter.post("/api/v1/admin/community/ai-generate/single", verifyAdminTo
 // Admin: AI Review Generator - 1-Click Bulk Across All Apps
 communityRouter.post("/api/v1/admin/community/ai-generate/bulk", verifyAdminToken, async (req: any, res: any) => {
   try {
-    const { appIds, countPerApp = 3, targetScore = 4.8, starMix, toneFocus = 'balanced' } = req.body;
+    const { 
+      appIds, 
+      countPerApp = 3, 
+      targetScore = 4.8, 
+      starMix, 
+      toneFocus = 'balanced',
+      appProfilesMap = {} // Per-app custom settings map: { [appId]: { targetScore, starMix, toneFocus, count } }
+    } = req.body;
+
     const staticData = getStaticData();
     let allApps = staticData.mockApps || [];
 
@@ -451,19 +459,40 @@ communityRouter.post("/api/v1/admin/community/ai-generate/bulk", verifyAdminToke
       return res.status(400).json({ error: 'No apps found to process' });
     }
 
-    const numCountPerApp = Math.max(1, Math.min(20, Number(countPerApp) || 3));
-    const numTargetScore = Math.max(1.0, Math.min(5.0, Number(targetScore) || 4.8));
+    const defaultCount = Math.max(1, Math.min(20, Number(countPerApp) || 3));
+    const fallbackTargetScore = Math.max(1.0, Math.min(5.0, Number(targetScore) || 4.8));
 
     const allGeneratedReviews: Partial<any>[] = [];
 
     for (const app of allApps) {
       try {
+        const appIdKey = String(app.id || app.slug || '');
+        const appSlugKey = String(app.slug || '');
+        const customProfile = appProfilesMap[appIdKey] || appProfilesMap[appSlugKey];
+
+        // Determine this specific app's target rating
+        let appTargetScore = fallbackTargetScore;
+        let appStarMix = starMix;
+        let appToneFocus = toneFocus;
+        let appCount = defaultCount;
+
+        if (customProfile) {
+          if (customProfile.targetScore) appTargetScore = Math.max(1.0, Math.min(5.0, Number(customProfile.targetScore)));
+          if (customProfile.starMix) appStarMix = customProfile.starMix;
+          if (customProfile.toneFocus) appToneFocus = customProfile.toneFocus;
+          if (customProfile.singleCount || customProfile.count) appCount = Math.max(1, Math.min(20, Number(customProfile.singleCount || customProfile.count)));
+        } else if (app.rating) {
+          // If no custom profile set, naturally honor this app's own store catalog rating
+          appTargetScore = Math.max(1.0, Math.min(5.0, Number(app.rating)));
+        }
+
         const appReviews = await generateAIReviewsForApp(app, {
-          count: numCountPerApp,
-          targetScore: numTargetScore,
-          starMix,
-          toneFocus
+          count: appCount,
+          targetScore: appTargetScore,
+          starMix: appStarMix,
+          toneFocus: appToneFocus
         });
+
         allGeneratedReviews.push(...appReviews);
       } catch (appErr) {
         console.warn(`[Bulk Gen] Error generating for app ${app.name || app.id}:`, appErr);
@@ -475,7 +504,7 @@ communityRouter.post("/api/v1/admin/community/ai-generate/bulk", verifyAdminToke
 
     return res.status(200).json({
       success: true,
-      message: `Bulk AI generation completed: ${saved.length} authentic reviews created across ${allApps.length} apps.`,
+      message: `Bulk AI generation completed: ${saved.length} authentic reviews created across ${allApps.length} apps with their specific rating profiles.`,
       totalGenerated: saved.length,
       totalApps: allApps.length
     });

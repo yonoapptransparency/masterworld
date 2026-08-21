@@ -1,32 +1,102 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { 
   Sparkles, 
-  Bot, 
   Smartphone, 
-  Layers, 
   Star, 
-  Play, 
   CheckCircle2, 
   RefreshCw, 
   Sliders, 
   Trash2, 
-  Edit3, 
   Check, 
   ShieldCheck, 
-  AlertCircle,
-  Zap,
-  Users,
+  Zap, 
   Search,
-  ExternalLink,
-  ChevronRight
+  BookmarkCheck,
+  RotateCcw,
+  SlidersHorizontal,
+  Flame,
+  Award,
+  Scale,
+  BarChart3,
+  MessageSquarePlus,
+  Info
 } from 'lucide-react';
 import { toast } from '../Toast';
 import { adminFetch } from '../../services/adminAuthService';
+
+export interface AppReviewProfile {
+  targetScore: number;
+  customDistribution: boolean;
+  starMix: {
+    star5: number;
+    star4: number;
+    star3: number;
+    star2: number;
+    star1: number;
+  };
+  toneFocus: 'balanced' | 'performance' | 'gameplay' | 'ui_graphics' | 'casual';
+  singleCount: number;
+  updatedAt?: string;
+}
 
 interface AdminAIReviewStudioTabProps {
   appsList: any[];
   onReviewsGenerated?: () => void;
 }
+
+const STORAGE_KEY_PROFILES = 'rummydex_admin_ai_app_profiles';
+const STORAGE_KEY_DEFAULT_COUNT = 'rummydex_admin_ai_review_count';
+
+// Helper to load all per-app profiles
+function loadAllAppProfiles(): Record<string, AppReviewProfile> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_PROFILES);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+// Helper to save all per-app profiles
+function saveAllAppProfiles(profiles: Record<string, AppReviewProfile>) {
+  try {
+    localStorage.setItem(STORAGE_KEY_PROFILES, JSON.stringify(profiles));
+  } catch (e) {
+    console.warn("Failed to persist AI review profiles to localStorage", e);
+  }
+}
+
+// Preset distribution configurations
+const PRESET_DISTRIBUTIONS = [
+  {
+    name: 'Overwhelmingly Positive',
+    icon: Flame,
+    score: 4.9,
+    mix: { star5: 90, star4: 10, star3: 0, star2: 0, star1: 0 },
+    color: 'from-amber-500 to-rose-500 text-amber-500'
+  },
+  {
+    name: 'Top Tier Verified',
+    icon: Award,
+    score: 4.7,
+    mix: { star5: 75, star4: 20, star3: 5, star2: 0, star1: 0 },
+    color: 'from-blue-500 to-indigo-500 text-blue-500'
+  },
+  {
+    name: 'Balanced Genuine',
+    icon: Scale,
+    score: 4.5,
+    mix: { star5: 60, star4: 30, star3: 8, star2: 2, star1: 0 },
+    color: 'from-emerald-500 to-teal-500 text-emerald-500'
+  },
+  {
+    name: 'Organic Mixed',
+    icon: BarChart3,
+    score: 4.1,
+    mix: { star5: 45, star4: 35, star3: 15, star2: 5, star1: 0 },
+    color: 'from-purple-500 to-indigo-500 text-purple-500'
+  }
+];
 
 export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({ 
   appsList = [],
@@ -35,32 +105,20 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
   // Mode: 'single' or 'bulk'
   const [mode, setMode] = useState<'single' | 'bulk'>('single');
 
-  // Single App Settings (Persisted in localStorage)
+  // Persistent Map of all App Profiles
+  const [appProfiles, setAppProfiles] = useState<Record<string, AppReviewProfile>>(loadAllAppProfiles);
+
+  // Selected App
   const [selectedAppId, setSelectedAppId] = useState<string>(appsList[0]?.id || '');
   const [appSearch, setAppSearch] = useState('');
-  const [singleCount, setSingleCount] = useState<number>(() => {
-    try {
-      const saved = localStorage.getItem('rummydex_admin_ai_review_count');
-      return saved ? Math.max(1, parseInt(saved, 10)) : 5;
-    } catch {
-      return 5;
-    }
-  });
-  const [targetScore, setTargetScore] = useState<number>(4.8);
-  const [toneFocus, setToneFocus] = useState<'balanced' | 'performance' | 'gameplay' | 'ui_graphics' | 'casual'>('balanced');
 
-  // Handle saving the user's preset default count
-  const handleUpdateSingleCount = (count: number) => {
-    setSingleCount(count);
-    try {
-      localStorage.setItem('rummydex_admin_ai_review_count', String(count));
-      toast(`Saved ${count} reviews as your default 1-click preset!`, 'success');
-    } catch (e) {
-      console.warn(e);
-    }
-  };
-  
-  // Custom Distribution Toggle
+  // Current Target App Details
+  const currentApp = useMemo(() => {
+    return appsList.find(a => a.id === selectedAppId || a.slug === selectedAppId) || appsList[0];
+  }, [appsList, selectedAppId]);
+
+  // Current App Profile State
+  const [targetScore, setTargetScore] = useState<number>(4.8);
   const [customDistribution, setCustomDistribution] = useState(false);
   const [starMix, setStarMix] = useState({
     star5: 70,
@@ -69,6 +127,141 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
     star2: 3,
     star1: 0
   });
+  const [toneFocus, setToneFocus] = useState<'balanced' | 'performance' | 'gameplay' | 'ui_graphics' | 'casual'>('balanced');
+  const [singleCount, setSingleCount] = useState<number>(5);
+  const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
+
+  // Synchronize state when selected app changes
+  useEffect(() => {
+    if (!currentApp) return;
+
+    const appId = String(currentApp.id || currentApp.slug || '');
+    const saved = appProfiles[appId] || appProfiles[String(currentApp.slug || '')];
+
+    if (saved) {
+      setTargetScore(saved.targetScore ?? 4.8);
+      setCustomDistribution(saved.customDistribution ?? false);
+      setStarMix(saved.starMix ?? { star5: 70, star4: 20, star3: 7, star2: 3, star1: 0 });
+      setToneFocus(saved.toneFocus ?? 'balanced');
+      setSingleCount(saved.singleCount ?? 5);
+      setLastSavedTime(saved.updatedAt || 'Saved');
+    } else {
+      // Natural fallback to app's own store rating
+      const initialScore = currentApp.rating ? Math.min(5.0, Math.max(3.0, Number(currentApp.rating))) : 4.8;
+      setTargetScore(initialScore);
+      setCustomDistribution(false);
+      setStarMix({
+        star5: initialScore >= 4.7 ? 80 : initialScore >= 4.4 ? 65 : 45,
+        star4: initialScore >= 4.7 ? 15 : initialScore >= 4.4 ? 25 : 35,
+        star3: initialScore >= 4.7 ? 5 : initialScore >= 4.4 ? 8 : 15,
+        star2: initialScore >= 4.7 ? 0 : initialScore >= 4.4 ? 2 : 5,
+        star1: 0
+      });
+      setToneFocus('balanced');
+      setSingleCount(5);
+      setLastSavedTime(null);
+    }
+  }, [currentApp, appProfiles]);
+
+  // Save current preferences for current selected app
+  const persistCurrentAppProfile = useCallback((updates: Partial<AppReviewProfile>) => {
+    if (!currentApp) return;
+    const appId = String(currentApp.id || currentApp.slug || '');
+    
+    setAppProfiles(prev => {
+      const current = prev[appId] || {
+        targetScore: 4.8,
+        customDistribution: false,
+        starMix: { star5: 70, star4: 20, star3: 7, star2: 3, star1: 0 },
+        toneFocus: 'balanced',
+        singleCount: 5
+      };
+
+      const updated: AppReviewProfile = {
+        ...current,
+        ...updates,
+        updatedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+
+      const nextProfiles = {
+        ...prev,
+        [appId]: updated,
+        [String(currentApp.slug || '')]: updated
+      };
+
+      saveAllAppProfiles(nextProfiles);
+      setLastSavedTime(updated.updatedAt || 'Just now');
+      return nextProfiles;
+    });
+  }, [currentApp]);
+
+  // Handlers with instant auto-save per app
+  const handleScoreChange = (score: number) => {
+    setTargetScore(score);
+    persistCurrentAppProfile({ targetScore: score });
+  };
+
+  const handleCustomDistributionToggle = (active: boolean) => {
+    setCustomDistribution(active);
+    persistCurrentAppProfile({ customDistribution: active });
+  };
+
+  const handleStarMixChange = (field: keyof typeof starMix, val: number) => {
+    const nextMix = { ...starMix, [field]: Math.max(0, Math.min(100, val)) };
+    setStarMix(nextMix);
+    persistCurrentAppProfile({ starMix: nextMix, customDistribution: true });
+  };
+
+  const handleApplyPreset = (preset: typeof PRESET_DISTRIBUTIONS[0]) => {
+    setTargetScore(preset.score);
+    setStarMix(preset.mix);
+    setCustomDistribution(true);
+    persistCurrentAppProfile({ 
+      targetScore: preset.score, 
+      starMix: preset.mix, 
+      customDistribution: true 
+    });
+    toast(`Applied "${preset.name}" preset (⭐ ${preset.score}) for ${currentApp?.name}!`, 'success');
+  };
+
+  const handleToneChange = (tone: any) => {
+    setToneFocus(tone);
+    persistCurrentAppProfile({ toneFocus: tone });
+  };
+
+  const handleCountChange = (count: number) => {
+    setSingleCount(count);
+    persistCurrentAppProfile({ singleCount: count });
+    try {
+      localStorage.setItem(STORAGE_KEY_DEFAULT_COUNT, String(count));
+    } catch {}
+    toast(`Saved ${count} reviews count for ${currentApp?.name}!`, 'success');
+  };
+
+  const handleResetToAppDefault = () => {
+    if (!currentApp) return;
+    const initialScore = currentApp.rating ? Math.min(5.0, Math.max(3.0, Number(currentApp.rating))) : 4.8;
+    const initialMix = {
+      star5: initialScore >= 4.7 ? 80 : initialScore >= 4.4 ? 65 : 45,
+      star4: initialScore >= 4.7 ? 15 : initialScore >= 4.4 ? 25 : 35,
+      star3: initialScore >= 4.7 ? 5 : initialScore >= 4.4 ? 8 : 15,
+      star2: initialScore >= 4.7 ? 0 : initialScore >= 4.4 ? 2 : 5,
+      star1: 0
+    };
+    setTargetScore(initialScore);
+    setStarMix(initialMix);
+    setCustomDistribution(false);
+    setToneFocus('balanced');
+    setSingleCount(5);
+    persistCurrentAppProfile({
+      targetScore: initialScore,
+      starMix: initialMix,
+      customDistribution: false,
+      toneFocus: 'balanced',
+      singleCount: 5
+    });
+    toast(`Reset settings to catalog default (⭐ ${initialScore.toFixed(1)}) for ${currentApp.name}`, 'info');
+  };
 
   // Staged Preview Reviews (Single App)
   const [stagedReviews, setStagedReviews] = useState<any[]>([]);
@@ -91,11 +284,6 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
       (a.category && a.category.toLowerCase().includes(q))
     );
   }, [appsList, appSearch]);
-
-  // Current Target App Details
-  const currentApp = useMemo(() => {
-    return appsList.find(a => a.id === selectedAppId || a.slug === selectedAppId) || appsList[0];
-  }, [appsList, selectedAppId]);
 
   // Categories list
   const categories = useMemo(() => {
@@ -135,7 +323,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
       if (!res.ok) throw new Error(data.error || 'Failed to generate reviews');
 
       if (instantSave) {
-        toast(`Generated and published ${data.count || singleCount} reviews!`, "success");
+        toast(`Generated and published ${data.count || singleCount} reviews for ${currentApp.name}!`, "success");
         setStagedReviews([]);
         if (onReviewsGenerated) onReviewsGenerated();
       } else {
@@ -160,6 +348,8 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             appId: currentApp.id,
+            appSlug: currentApp.slug,
+            appName: currentApp.name,
             userName: rev.userName,
             rating: rev.rating,
             reviewText: rev.reviewText,
@@ -179,7 +369,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
     }
   };
 
-  // Run 1-Click Bulk Generator in Safe Batches of 5 apps
+  // Run 1-Click Bulk Generator with per-app custom profiles
   const handleRunBulk = async () => {
     let targetApps = appsList;
     if (bulkCategory !== 'all') {
@@ -191,8 +381,9 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
       return;
     }
 
+    const customCount = Object.keys(appProfiles).length;
     const confirmed = window.confirm(
-      `Generate AI reviews for ${targetApps.length} apps (${bulkCountPerApp} reviews each = ~${targetApps.length * bulkCountPerApp} total reviews)?\n\nThis will process smoothly in smart batches to ensure peak quality and save directly into the database.`
+      `Generate authentic AI reviews for ${targetApps.length} apps (${bulkCountPerApp} reviews each = ~${targetApps.length * bulkCountPerApp} total reviews)?\n\n✓ Each app will use its own saved rating/star distribution profile (${customCount} custom app profiles active).\n✓ Apps without custom profiles will use their individual catalog rating.\n✓ Reviews will be created in smart safe batches.`
     );
     if (!confirmed) return;
 
@@ -222,7 +413,8 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
             countPerApp: bulkCountPerApp,
             targetScore,
             toneFocus,
-            starMix: customDistribution ? starMix : undefined
+            starMix: customDistribution ? starMix : undefined,
+            appProfilesMap: appProfiles // Passes all per-app custom profiles to backend!
           })
         });
 
@@ -237,7 +429,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
         totalApps: targetApps.length
       });
 
-      toast(`Bulk generation complete! ${totalCreated} reviews created across ${targetApps.length} apps.`, "success");
+      toast(`Bulk generation complete! ${totalCreated} reviews created across ${targetApps.length} apps with their individual rating profiles.`, "success");
       if (onReviewsGenerated) onReviewsGenerated();
     } catch (err: any) {
       toast(err.message || "Bulk generation encountered an issue", "error");
@@ -261,7 +453,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
               Authentic AI Peer Reviews Engine
             </h1>
             <p className="text-slate-300 text-xs sm:text-sm max-w-2xl leading-relaxed">
-              Generate 100% human-sounding, contextual reviews referencing real game mechanics, 60fps performance, table animations, and device responsiveness. Full control over star rating distributions (5★, 4★, 3★, 2★) with zero financial trigger words.
+              Synthesize 100% human-like reviews deeply grounded in every detail of your app descriptions (specific game modes, QoL features, UI aesthetics, 60fps performance). Per-app star distributions and target scores are permanently saved.
             </p>
           </div>
 
@@ -270,7 +462,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
             <button
               type="button"
               onClick={() => setMode('single')}
-              className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${
+              className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                 mode === 'single'
                   ? 'bg-blue-600 text-white shadow-md'
                   : 'text-slate-400 hover:text-slate-200'
@@ -282,7 +474,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
             <button
               type="button"
               onClick={() => setMode('bulk')}
-              className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${
+              className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                 mode === 'bulk'
                   ? 'bg-blue-600 text-white shadow-md'
                   : 'text-slate-400 hover:text-slate-200'
@@ -300,13 +492,13 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
         <div className="flex items-center gap-2.5 text-emerald-800 dark:text-emerald-300 font-medium">
           <ShieldCheck size={18} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
           <span>
-            <strong>Anti-Financial Guardrails Active:</strong> Reviews focus strictly on game graphics, UI animations, touch responsiveness, matchmaking speed, and device FPS. Real money / cash / deposit keywords are automatically sanitized.
+            <strong>Zero Financial Words Policy Active:</strong> Automatically prevents mentions of money, deposit, cash, or withdrawal. Context focuses purely on gameplay mechanics, animations, touch response, and phone FPS.
           </span>
         </div>
         <div className="inline-flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-mono text-[11px] shrink-0">
           <span>Staggered Dates (5–90 Days)</span>
           <span>•</span>
-          <span>Google Schema Synced</span>
+          <span>Per-App Profiles Synced</span>
         </div>
       </div>
 
@@ -316,18 +508,26 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
         {/* Left Column: Parameter Controls */}
         <div className="lg:col-span-1 space-y-6">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-5">
-            <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-slate-100 pb-3 border-b border-slate-100 dark:border-slate-800">
-              <Sliders size={16} className="text-blue-600" />
-              <span>Rating & Persona Controls</span>
+            
+            {/* Header with Auto-Saved Badge */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-slate-100">
+                <Sliders size={16} className="text-blue-600" />
+                <span>Rating & Star Mix</span>
+              </div>
+              <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-full border border-emerald-200/50">
+                <BookmarkCheck size={12} />
+                <span>Saved Permanently</span>
+              </div>
             </div>
 
             {/* Target Score Controller */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                  Target Average Score
+                  Target Rating for {currentApp?.name ? `"${currentApp.name}"` : 'App'}
                 </label>
-                <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 text-xs font-black rounded-md flex items-center gap-1">
+                <span className="px-2.5 py-0.5 bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-xs font-black rounded-md flex items-center gap-1 border border-amber-300/40">
                   ⭐ {targetScore.toFixed(1)} / 5.0
                 </span>
               </div>
@@ -337,104 +537,158 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
                 max="5.0"
                 step="0.1"
                 value={targetScore}
-                onChange={(e) => setTargetScore(parseFloat(e.target.value))}
+                onChange={(e) => handleScoreChange(parseFloat(e.target.value))}
                 className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
               />
               <div className="flex justify-between text-[10px] text-slate-400 font-medium">
-                <span>3.0 (Mixed/Critique)</span>
-                <span>4.5 (High Quality)</span>
-                <span>4.8 (Top Tier)</span>
-                <span>5.0 (Flawless)</span>
+                <span>3.0 (Mixed)</span>
+                <span>4.1 (Organic)</span>
+                <span>4.5 (Balanced)</span>
+                <span>4.8 (Top)</span>
+                <span>5.0 (Max)</span>
               </div>
             </div>
 
-            {/* Persona / Tone Focus */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                Review Tone & Focus
+            {/* Fast Star Mix Presets */}
+            <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center justify-between">
+                <span>Quick Star Mix Presets</span>
+                <span className="text-[10px] text-slate-400 font-normal">Click to apply & save</span>
               </label>
-              <select
-                value={toneFocus}
-                onChange={(e: any) => setToneFocus(e.target.value)}
-                className="w-full text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="balanced">Balanced Variety (Mix of Gamers & Casuals)</option>
-                <option value="performance">Performance & FPS (Smoothness, Device Mention, No Lag)</option>
-                <option value="ui_graphics">UI & Graphics (Table Design, 3D Chips, Audio)</option>
-                <option value="gameplay">Gameplay & Rules (Fast Rounds, Matchmaking, Offline)</option>
-                <option value="casual">Casual Commuter (Quick Breaks, Intuitive Controls)</option>
-              </select>
+              <div className="grid grid-cols-2 gap-2">
+                {PRESET_DISTRIBUTIONS.map((preset, pIdx) => {
+                  const Icon = preset.icon;
+                  const isMatch = Math.abs(targetScore - preset.score) < 0.05 && customDistribution;
+                  return (
+                    <button
+                      key={pIdx}
+                      type="button"
+                      onClick={() => handleApplyPreset(preset)}
+                      className={`p-2 rounded-xl text-left border text-xs transition-all cursor-pointer ${
+                        isMatch
+                          ? 'bg-blue-50 dark:bg-blue-950/50 border-blue-400 text-blue-900 dark:text-blue-200 font-bold shadow-xs'
+                          : 'bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/60 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 font-bold mb-0.5">
+                        <Icon size={13} className={preset.color} />
+                        <span className="truncate">{preset.name}</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
+                        <span>⭐ {preset.score}</span>
+                        <span>5★: {preset.mix.star5}%</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Custom Star Mix Accordion */}
             <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Custom Star Mix</span>
-                <button
-                  type="button"
-                  onClick={() => setCustomDistribution(!customDistribution)}
-                  className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-colors ${
-                    customDistribution 
-                      ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' 
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                  }`}
-                >
-                  {customDistribution ? 'Custom Active' : 'Auto Calculate'}
-                </button>
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Custom Star Percentages</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleCustomDistributionToggle(!customDistribution)}
+                    className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                      customDistribution 
+                        ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' 
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                    }`}
+                  >
+                    {customDistribution ? 'Custom Active' : 'Auto Math'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleResetToAppDefault}
+                    title="Reset to app catalog default"
+                    className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded cursor-pointer"
+                  >
+                    <RotateCcw size={13} />
+                  </button>
+                </div>
               </div>
 
               {customDistribution && (
                 <div className="space-y-2 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-200 dark:border-slate-700/60 text-xs">
                   <div className="flex items-center justify-between">
-                    <span className="text-amber-500 font-bold">5 Stars</span>
+                    <span className="text-amber-500 font-bold flex items-center gap-1">
+                      <Star size={12} className="fill-amber-400" /> 5 Stars
+                    </span>
                     <input 
                       type="number" 
                       min="0" 
                       max="100" 
                       value={starMix.star5}
-                      onChange={(e) => setStarMix({...starMix, star5: parseInt(e.target.value) || 0})}
-                      className="w-16 text-right px-2 py-1 bg-white dark:bg-slate-900 border rounded text-xs" 
+                      onChange={(e) => handleStarMixChange('star5', parseInt(e.target.value, 10) || 0)}
+                      className="w-16 text-right px-2 py-1 bg-white dark:bg-slate-900 border rounded text-xs font-bold" 
                     />
                     <span className="text-slate-400">%</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-amber-500 font-bold">4 Stars</span>
+                    <span className="text-amber-500 font-bold flex items-center gap-1">
+                      <Star size={12} className="fill-amber-400" /> 4 Stars
+                    </span>
                     <input 
                       type="number" 
                       min="0" 
                       max="100" 
                       value={starMix.star4}
-                      onChange={(e) => setStarMix({...starMix, star4: parseInt(e.target.value) || 0})}
-                      className="w-16 text-right px-2 py-1 bg-white dark:bg-slate-900 border rounded text-xs" 
+                      onChange={(e) => handleStarMixChange('star4', parseInt(e.target.value, 10) || 0)}
+                      className="w-16 text-right px-2 py-1 bg-white dark:bg-slate-900 border rounded text-xs font-bold" 
                     />
                     <span className="text-slate-400">%</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-amber-500 font-bold">3 Stars</span>
+                    <span className="text-amber-500 font-bold flex items-center gap-1">
+                      <Star size={12} className="fill-amber-400" /> 3 Stars
+                    </span>
                     <input 
                       type="number" 
                       min="0" 
                       max="100" 
                       value={starMix.star3}
-                      onChange={(e) => setStarMix({...starMix, star3: parseInt(e.target.value) || 0})}
-                      className="w-16 text-right px-2 py-1 bg-white dark:bg-slate-900 border rounded text-xs" 
+                      onChange={(e) => handleStarMixChange('star3', parseInt(e.target.value, 10) || 0)}
+                      className="w-16 text-right px-2 py-1 bg-white dark:bg-slate-900 border rounded text-xs font-bold" 
                     />
                     <span className="text-slate-400">%</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-amber-500 font-bold">2 Stars</span>
+                    <span className="text-amber-500 font-bold flex items-center gap-1">
+                      <Star size={12} className="fill-amber-400" /> 2 Stars
+                    </span>
                     <input 
                       type="number" 
                       min="0" 
                       max="100" 
                       value={starMix.star2}
-                      onChange={(e) => setStarMix({...starMix, star2: parseInt(e.target.value) || 0})}
-                      className="w-16 text-right px-2 py-1 bg-white dark:bg-slate-900 border rounded text-xs" 
+                      onChange={(e) => handleStarMixChange('star2', parseInt(e.target.value, 10) || 0)}
+                      className="w-16 text-right px-2 py-1 bg-white dark:bg-slate-900 border rounded text-xs font-bold" 
                     />
                     <span className="text-slate-400">%</span>
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Persona / Tone Focus */}
+            <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                Review Tone & Creative Angle
+              </label>
+              <select
+                value={toneFocus}
+                onChange={(e) => handleToneChange(e.target.value)}
+                className="w-full text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+              >
+                <option value="balanced">Balanced Variety (Mix of Gamers, Tech & Casuals)</option>
+                <option value="performance">Performance & FPS (Smoothness, Device Mention, No Lag)</option>
+                <option value="gameplay">Gameplay & In-App Mechanics (Modes, Rules, Undo, Auto-Sort)</option>
+                <option value="ui_graphics">UI & Graphics (Table Felt, 3D Chips, Sound Effects, Skins)</option>
+                <option value="casual">Casual Commuter (Quick Breaks, Intuitive Controls)</option>
+              </select>
             </div>
           </div>
         </div>
@@ -449,7 +703,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                     <Smartphone size={16} className="text-blue-600" />
-                    <span>Select Target App</span>
+                    <span>Select Target App & Profile</span>
                   </div>
 
                   {/* Search Bar for Apps */}
@@ -471,10 +725,10 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
                     <img 
                       src={currentApp.icon_url} 
                       alt={currentApp.name} 
-                      className="w-12 h-12 rounded-xl object-contain shadow-xs bg-white dark:bg-slate-800" 
+                      className="w-12 h-12 rounded-xl object-contain shadow-xs bg-white dark:bg-slate-800 shrink-0" 
                     />
                   ) : (
-                    <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-950 flex items-center justify-center font-bold text-blue-600">
+                    <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-950 flex items-center justify-center font-bold text-blue-600 shrink-0">
                       {currentApp?.name?.charAt(0) || 'A'}
                     </div>
                   )}
@@ -485,14 +739,27 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
                       onChange={(e) => setSelectedAppId(e.target.value)}
                       className="w-full text-sm font-bold bg-transparent text-slate-900 dark:text-white border-0 cursor-pointer focus:outline-none"
                     >
-                      {filteredApps.map(app => (
-                        <option key={app.id} value={app.id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
-                          {app.name} ({app.category || 'General'})
-                        </option>
-                      ))}
+                      {filteredApps.map(app => {
+                        const hasCustom = !!appProfiles[app.id] || !!appProfiles[app.slug];
+                        return (
+                          <option key={app.id} value={app.id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+                            {app.name} ({app.category || 'General'}) {hasCustom ? '★ Custom Saved' : `(Store: ${app.rating || '4.8'}★)`}
+                          </option>
+                        );
+                      })}
                     </select>
-                    <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                      Developer: {currentApp?.developer || 'Official Studio'} • Size: {currentApp?.file_size || 'N/A'} • ID: {currentApp?.id}
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5 flex items-center gap-2">
+                      <span>Developer: {currentApp?.developer || 'Official Studio'}</span>
+                      <span>•</span>
+                      <span>Catalog Rating: ⭐ {currentApp?.rating || '4.8'}</span>
+                      {lastSavedTime && (
+                        <>
+                          <span>•</span>
+                          <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                            Profile Saved ✓
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -504,18 +771,26 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
                     </div>
                     <select
                       value={singleCount}
-                      onChange={(e) => handleUpdateSingleCount(parseInt(e.target.value, 10))}
-                      className="text-xs font-bold bg-white dark:bg-slate-800 border-2 border-blue-500/40 dark:border-blue-500/40 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-600 shadow-xs"
-                      title="This preset is automatically saved. Every time you trigger generation, this exact count will be created."
+                      onChange={(e) => handleCountChange(parseInt(e.target.value, 10))}
+                      className="text-xs font-bold bg-white dark:bg-slate-800 border-2 border-blue-500/40 dark:border-blue-500/40 rounded-lg px-2.5 py-1.5 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-600 shadow-xs cursor-pointer"
+                      title="This preset is automatically saved per app. Every time you trigger generation, this exact count will be created."
                     >
-                      <option value={1}>1 Review (Single)</option>
+                      <option value={1}>1 Review</option>
                       <option value={3}>3 Reviews</option>
-                      <option value={5}>5 Reviews (Recommended)</option>
+                      <option value={5}>5 Reviews (Standard)</option>
                       <option value={8}>8 Reviews (Varied Mix)</option>
                       <option value={10}>10 Reviews (Full Thread)</option>
                       <option value={15}>15 Reviews</option>
                       <option value={20}>20 Reviews</option>
                     </select>
+                  </div>
+                </div>
+
+                {/* Grounded Description Notice */}
+                <div className="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 rounded-xl p-3 text-xs text-blue-900 dark:text-blue-300 flex items-start gap-2.5">
+                  <Info size={16} className="shrink-0 text-blue-600 mt-0.5" />
+                  <div className="text-[11px] leading-relaxed">
+                    <strong>Creative Context Grounding Active:</strong> The AI extracts real features, game modes, and rules from <em>{currentApp?.name}</em>'s admin description. Each review takes a unique angle (table mechanics, 60fps frame rate, undo tools, UI theme).
                   </div>
                 </div>
 
@@ -530,7 +805,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
                     {generating ? (
                       <>
                         <RefreshCw size={16} className="animate-spin" />
-                        <span>Synthesizing Authentic Reviews...</span>
+                        <span>Synthesizing Contextual Reviews...</span>
                       </>
                     ) : (
                       <>
@@ -547,7 +822,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
                     className="flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md transition-all cursor-pointer"
                   >
                     <CheckCircle2 size={16} />
-                    <span>Instant Publish</span>
+                    <span>Instant 1-Click Publish</span>
                   </button>
                 </div>
               </div>
@@ -646,7 +921,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
                     1-Click Bulk Review Deployment
                   </h3>
                   <p className="text-xs text-slate-500">
-                    Populate your entire app catalog with authentic human reviews in a single batch operation.
+                    Populate your entire app catalog with authentic human reviews. Each app honors its own saved rating profile and specific description features!
                   </p>
                 </div>
               </div>
@@ -660,7 +935,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
                   <select
                     value={bulkCategory}
                     onChange={(e) => setBulkCategory(e.target.value)}
-                    className="w-full text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-800 dark:text-slate-200"
+                    className="w-full text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-800 dark:text-slate-200 cursor-pointer"
                   >
                     <option value="all">All Categories ({appsList.length} Apps)</option>
                     {categories.map(cat => (
@@ -675,8 +950,8 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
                   </label>
                   <select
                     value={bulkCountPerApp}
-                    onChange={(e) => setBulkCountPerApp(parseInt(e.target.value))}
-                    className="w-full text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-800 dark:text-slate-200"
+                    onChange={(e) => setBulkCountPerApp(parseInt(e.target.value, 10))}
+                    className="w-full text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-800 dark:text-slate-200 cursor-pointer"
                   >
                     <option value={2}>2 Reviews per App</option>
                     <option value={3}>3 Reviews per App (Recommended)</option>
@@ -686,15 +961,15 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
                 </div>
               </div>
 
-              {/* Estimated Math Box */}
-              <div className="bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 p-4 rounded-xl flex items-center justify-between text-xs">
+              {/* Multi-Profile Math Notice Box */}
+              <div className="bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 p-4 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
                 <div className="space-y-0.5">
-                  <div className="font-bold text-blue-900 dark:text-blue-200">Estimated Generation Volume:</div>
+                  <div className="font-bold text-blue-900 dark:text-blue-200">Dynamic Multi-App Profile Execution:</div>
                   <div className="text-blue-700 dark:text-blue-400 text-[11px]">
-                    Target Average: ⭐ {targetScore.toFixed(1)} • Staggered dates across 90 days • Schema Synced
+                    {Object.keys(appProfiles).length} custom saved app profiles active. Non-customized apps will automatically use their individual store ratings so every app has distinct organic score averages.
                   </div>
                 </div>
-                <div className="text-right font-mono font-bold text-blue-600 dark:text-blue-300 text-sm">
+                <div className="text-right font-mono font-bold text-blue-600 dark:text-blue-300 text-sm shrink-0">
                   {bulkCategory === 'all' ? appsList.length : appsList.filter(a => a.category?.includes(bulkCategory)).length} Apps × {bulkCountPerApp} = ~
                   {(bulkCategory === 'all' ? appsList.length : appsList.filter(a => a.category?.includes(bulkCategory)).length) * bulkCountPerApp} Reviews
                 </div>
@@ -708,10 +983,15 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
                       <RefreshCw size={14} className="animate-spin text-blue-600" />
                       <span>Synthesizing batch reviews with Gemini AI...</span>
                     </span>
-                    <span className="font-mono text-blue-600">Processing...</span>
+                    <span className="font-mono text-blue-600">
+                      {bulkProgress ? `${bulkProgress.current} / ${bulkProgress.total}` : 'Processing...'}
+                    </span>
                   </div>
                   <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
-                    <div className="bg-blue-600 h-full animate-pulse w-full rounded-full" />
+                    <div 
+                      className="bg-blue-600 h-full transition-all duration-300 rounded-full"
+                      style={{ width: bulkProgress ? `${(bulkProgress.current / bulkProgress.total) * 100}%` : '50%' }}
+                    />
                   </div>
                 </div>
               )}

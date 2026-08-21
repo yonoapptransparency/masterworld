@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { ReviewRecord } from "./communityStoreService";
+import { ReviewRecord, sanitizeReviewText } from "./communityStoreService";
 
 interface StarDistribution {
   star5?: number;
@@ -20,13 +20,47 @@ interface GenerateOptions {
 function stripHtml(html: string): string {
   if (!html) return '';
   return html
-    .replace(/<[^>]+>/g, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<\/?[^>]+(>|$)/g, ' ')
     .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+// Extract distinct feature sections, headings and bullet points from rich HTML
+function extractAppFeatureHighlights(app: any): string[] {
+  const fullHtml = `${app?.description_html || ''} ${app?.features_html || ''} ${app?.custom_admin_box_html || ''}`;
+  const highlights: string[] = [];
+  
+  // Extract <h2> and <h3> section headings
+  const headingMatches = fullHtml.match(/<h[23][^>]*>(.*?)<\/h[23]>/gi);
+  if (headingMatches) {
+    headingMatches.forEach(h => {
+      const clean = stripHtml(h);
+      if (clean && clean.length > 3 && !highlights.includes(clean)) {
+        highlights.push(clean);
+      }
+    });
+  }
+
+  // Extract <li> list items or <strong> feature callouts
+  const listMatches = fullHtml.match(/<li[^>]*>(.*?)<\/li>/gi) || fullHtml.match(/<strong>(.*?)<\/strong>/gi);
+  if (listMatches) {
+    listMatches.slice(0, 8).forEach(li => {
+      const clean = stripHtml(li);
+      if (clean && clean.length > 5 && clean.length < 120 && !highlights.includes(clean)) {
+        highlights.push(clean);
+      }
+    });
+  }
+
+  return highlights;
 }
 
 // Calculate discrete star ratings for N reviews that average to targetScore
@@ -158,7 +192,9 @@ export async function generateAIReviewsForApp(app: any, options: GenerateOptions
   const appDeveloper = app?.developer || 'Gaming Studio';
   const rawDesc = stripHtml(app?.description_html || app?.description || '');
   const rawFeatures = stripHtml(app?.features_html || app?.features || '');
-  const appFileSize = app?.file_size || 'Unknown size';
+  const rawSafety = stripHtml(app?.safety_boxes?.join(' ') || app?.custom_admin_box_html || '');
+  const featureHighlights = extractAppFeatureHighlights(app);
+  const appFileSize = app?.file_size || 'Lightweight APK';
 
   // Calculate rating numbers for this batch
   const ratings = calculateRatingArray(count, targetScore, starMix);
@@ -177,53 +213,49 @@ export async function generateAIReviewsForApp(app: any, options: GenerateOptions
         }
       });
 
-      const prompt = `You are a real-world mobile gamer and app store user review synthesizer.
-Your goal is to write exactly ${count} authentic, 100% human-written reviews for the Android application detailed below.
+      const prompt = `You are a real-world mobile gamer, tactical player, and app store user review synthesizer.
+Your goal is to write exactly ${count} authentic, vibrant, completely unique, 100% human-written reviews for this Android application.
 
-### REAL APP INFORMATION (Grounded Context):
+### DETAILED APP SPECIFICATIONS (READ CAREFULLY & EXTRACT SPECIFIC CONCEPTS):
 - App Name: "${appName}"
 - Category / Genre: "${appCategory}"
 - Studio / Developer: "${appDeveloper}"
-- App Download Size: "${appFileSize}"
-- About App & Description: "${rawDesc.substring(0, 1400)}"
-- Key Features & Mechanics: "${rawFeatures.substring(0, 800)}"
+- Download Size: "${appFileSize}"
+- Tone / Focus Preference: "${toneFocus}"
+
+### FULL APP DESCRIPTION (The admin has written every detail here):
+"""
+${rawDesc.substring(0, 3000)}
+"""
+
+### KEY FEATURES, GAME MODES & MECHANICS:
+"""
+${rawFeatures.substring(0, 2000)}
+${featureHighlights.length > 0 ? `\nExtracted Feature Highlights:\n- ` + featureHighlights.join('\n- ') : ''}
+"""
+${rawSafety ? `### ADDITIONAL APP CONTEXT / NOTES:\n"""\n${rawSafety.substring(0, 1000)}\n"""` : ''}
 
 ### REQUIRED RATINGS TO ASSIGN (Strict):
 Assign these exact integer star ratings to the ${count} reviews in order:
 ${JSON.stringify(ratings)}
 
 ### STRICT POLICY / SAFETY NEGATIVE CONSTRAINTS (MANDATORY):
-- NEVER mention "money", "real money", "cash", "rupees", "INR", "deposit", "withdrawal", "wallet payout", "earning", "bank account", "bonus cash", "paisa", "invest", or betting.
-- Instead, talk ONLY about:
-  * Gameplay mechanics, table speed, card shuffling, 3D chip animations, UI layout
-  * 60fps smoothness, touch latency, app load times, battery efficiency, phone models (e.g. Redmi, OnePlus, Samsung Galaxy, Realme, Vivo, iQOO)
-  * Sound effects, background music, dark table themes, avatars, bots/multiplayer lobby, offline modes
-  * Fun factor, casual pastime, friendly competition, learning rules
+- ABSOLUTELY NEVER mention "money", "real money", "cash", "rupees", "INR", "deposit", "withdrawal", "wallet payout", "earning", "bank account", "bonus cash", "paisa", "invest", "betting", or financial transactions.
+- Instead, ground your reviews deeply in the ACTUAL mechanics, features, game modes, and descriptions provided above.
 
-### HUMAN REALISM & LINGUISTIC TRAINING (CRITICAL):
-1. **Dynamic Length Variety**:
-   - ~40% SHORT reviews (1 punchy line, 4-10 words): e.g. "mast game hai, smooth animations 🔥", "superb ui no lag at all 👍", "Best card game for timepass 💯"
-   - ~40% MEDIUM reviews (2-3 natural sentences): e.g. "Been playing this daily during my metro commute. The card dealing animation is silky smooth and rules are easy to understand. Loved the dark theme 🤩"
-   - ~20% DETAILED/EXPERIENTIAL reviews (3-4 sentences): e.g. "Downloaded ${appName} last week on my Redmi Note 12. Impressed by how lightweight it is despite having 3D table graphics. Matchmaking takes less than 3 seconds. Highly recommended! 👏"
-
-2. **Casual Human Imperfections & Slang**:
-   - Real humans don't write like formal essays. Use casual typing styles:
-   - Occasional lowercase starts (e.g. "very nice game...", "smooth gameplay...")
-   - Casual abbreviations & slang (e.g. "op game", "vry smooth", "mast", "osm ui", "no lag", "superb", "pls add...", "battery friendly")
-   - Varied punctuation (some with '!', some with '...', some with just an emoji at the end).
-
-3. **Natural Emoji Usage (SUBTLE - DO NOT OVERUSE)**:
-   - Real humans do NOT put emojis in every review!
-   - At least 50% to 60% of reviews should have NO emojis at all (plain text only with normal punctuation).
-   - ~30% of reviews should have just ONE subtle emoji at the end (e.g. 👍, 🔥, 💯, 👏, 👌).
-   - Only ~10% to 15% should have 2 emojis (e.g. 🎮✨).
-   - Never use more than 2 emojis in a single review. Overusing emojis looks fake and bot-like.
-
-4. **Sentiment Matching by Star Rating**:
-   - **5 Stars**: Enthusiastic praise for speed, graphics, zero lag, intuitive touch controls, lightweight APK.
-   - **4 Stars**: Great appreciation for the core game, but includes a natural wish-list item (e.g., "Pls add custom card backs", "Great graphics, hope you add more sound options in next update").
-   - **3 Stars**: Balanced real feedback (e.g., "Good table design, but takes a few seconds to connect on mobile data. Works fine on Wi-Fi though").
-   - **2 Stars**: Constructive feedback about minor technical aspects (e.g., "Core rules are fun, but font size is a bit small on compact screens. Hope devs optimize it").
+### DIVERSITY, CREATIVITY & DEEP FEATURE ANGLE MANDATES (CRUCIAL):
+Every single review in this batch MUST take a DIFFERENT, CREATIVE ANGLE from the app's detailed description:
+1. **Specific In-App Features & Quality of Life**: Point out specific buttons/features described in the text (e.g. Undo option, Blind bid mode, Super 8 challenge, Card history log, Auto-sort suits, Discard pile viewer, Timer extensions, Reconnect buffer, Table skin choices, Avatar selections).
+2. **Game Modes & Rule Variants**: Mention specific game modes described (e.g. 13-Card table, Point/Deal/Pool tables, 7 Up 7 Down, Callbreak Spade Trump, Dragon vs Tiger, Ludo 4-player, etc.).
+3. **UI/UX & Aesthetics**: Talk about the visual table felt, 3D chip animations, crisp card face contrast, dark theme, fluid 60fps animations, sound effects.
+4. **Performance & Hardware**: Mention smooth play on phones (e.g. Redmi Note 12, Samsung M34, OnePlus Nord, Vivo T2, Moto G54, Pixel), low storage footprint, zero overheating during long sessions, stable 4G/5G/Wi-Fi connection.
+5. **Tutorial & Learning vs Competitive**: Praise the interactive beginner tutorial, offline AI bots practice, or the rush of multiplayer matchmaking in under 3 seconds.
+6. **Vary Form & Style**:
+   - ~35% Short punchy comments (1 short sentence, casual slang: "mast card animations", "osm ui no lag", "superb table gameplay", "best pastime game", "smooth dealing flow").
+   - ~45% Medium comments (2 natural sentences).
+   - ~20% Detailed experiential stories (3-4 sentences detailing their playtime).
+7. **Natural Slang & Imperfect Typing**: Mix natural Indian conversational expressions ("mast", "osm ui", "no lag at all", "superb", "pls add...", "battery friendly").
+8. **Emojis**: Over 50% NO emojis. Remaining have maximum 1 subtle emoji (👍, 🔥, 💯, 👏, 👌).
 
 ### OUTPUT FORMAT:
 Return a JSON array of ${count} objects with fields:
@@ -264,13 +296,12 @@ Return a JSON array of ${count} objects with fields:
             const days = Number(item.daysAgo) || (3 + idx * 4);
             const pastDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000 - Math.random() * 3600000).toISOString();
             
-            // Clean reviewText to strictly filter any accidental banned financial keywords
-            let safeText = String(item.reviewText || '')
-              .replace(/\b(money|real money|deposit|withdrawal|withdraw|cash|earning|rupees|inr|payout)\b/gi, 'game points')
-              .trim();
+            const safeText = sanitizeReviewText(String(item.reviewText || ''), app.name);
 
             return {
               appId: String(app.id || app.slug || '').trim(),
+              appSlug: String(app.slug || '').trim(),
+              appName: String(app.name || '').trim(),
               userName: String(item.userName || getRandomUserName(idx)).trim(),
               rating: star,
               reviewText: safeText,
@@ -292,57 +323,90 @@ Return a JSON array of ${count} objects with fields:
   return generateContextualFallbackReviews(app, ratings);
 }
 
-// Algorithmic contextual fallback generator adhering strictly to user guidelines
+// Algorithmic contextual fallback generator that parses the app's real description and features
 function generateContextualFallbackReviews(app: any, ratings: number[]): Partial<ReviewRecord>[] {
-  const appName = app?.name || 'this app';
-  const devices = ['Redmi Note 12', 'OnePlus Nord', 'Samsung M34', 'Realme 11', 'iQOO Z7', 'Moto G54', 'Pixel 7a', 'Vivo T2'];
+  const appName = app?.name || 'this game';
+  const desc = stripHtml(app?.description_html || app?.description || app?.features_html || '');
+  const highlights = extractAppFeatureHighlights(app);
+  const devices = ['Redmi Note 12', 'OnePlus Nord CE', 'Samsung Galaxy M34', 'Realme Narzo 60', 'iQOO Z7', 'Moto G54', 'Pixel 7a', 'Vivo T2 5G'];
+
+  // Check specific game keywords and features from description
+  const isCallbreak = /callbreak|call break|spade|trick/i.test(appName + ' ' + desc);
+  const isRummy = /rummy|pure sequence|13 card|points rummy|pool/i.test(appName + ' ' + desc);
+  const isTeenPatti = /teen patti|3 patti|blind|chaal|show/i.test(appName + ' ' + desc);
+  const isLudo = /ludo|dice|token|board/i.test(appName + ' ' + desc);
+  const hasTournaments = /tournament|championship|league|leaderboard/i.test(desc);
+  const hasDailyBonus = /daily|mission|reward|wheel|spin/i.test(desc);
+  const hasTutorial = /tutorial|beginner|practice|guide|learn|rules/i.test(desc);
+  const hasAvatar = /avatar|profile|custom|theme|skin|table/i.test(desc);
+  const hasOffline = /offline|bot|practice mode|ai/i.test(desc);
+  const hasUndo = /undo|history|discard|auto-sort|sort/i.test(desc);
+
+  // Dynamic feature mentions picked directly from the app description
+  const dynamicFeature1 = highlights[0] || (isCallbreak ? 'the auto-sort spade trump rules' : isRummy ? 'the smart 13-card grouping' : isTeenPatti ? 'the fast-action blind bid tables' : 'the intuitive touch controls');
+  const dynamicFeature2 = highlights[1] || (hasOffline ? 'the offline practice AI bot mode' : hasTournaments ? 'the competitive leaderboard tournaments' : 'the smooth 60fps table animations');
+  const dynamicFeature3 = highlights[2] || (hasUndo ? 'the card history log and undo mechanic' : hasAvatar ? 'the custom table themes and avatar skins' : 'the lightweight APK storage optimization');
 
   const short5Star = [
-    `mast game hai, smooth animations`,
-    `Superb UI and fast matching 👍`,
-    `Best card game for timepass`,
-    `Love the 3D table graphics! 🤩`,
-    `Very smooth on my phone, 5 stars`,
-    `Awesome gameplay bro`,
-    `Zero lag, pure fun 🎮`
+    `mast game hai, ultra smooth animations 🔥`,
+    `superb UI and quick matchmaking 👍`,
+    `best card app for daily timepass`,
+    `love the table visual effects! 🤩`,
+    `super lightweight on storage, 5 stars`,
+    `awesome card flow, zero lag`,
+    `zero lag during matches, pure entertainment 🎮`,
+    `very neat interface and fast response 👌`,
+    `smooth 60fps frame rate on mobile`,
+    `great update, ${dynamicFeature1} works flawlessly!`
   ];
 
   const medium5Star = [
-    `Really impressed with the 3D graphics and table animations. The matchmaking is instant and the UI is very clean.`,
-    `One of the best optimized apps in this category. Great battery efficiency and intuitive interface. 5 stars! 👍`,
-    `The visual presentation of ${appName} is top notch. Smooth dealing animations and great sound effects.`,
-    `Loved the gameplay flow. Zero lag even during long sessions and the tutorial made the rules very easy to learn.`,
-    `Clean dark theme table design and easy touch controls. Everything feels responsive and polished. ✨`
+    `Really impressed with ${dynamicFeature1} on ${appName}. Matchmaking takes less than 3 seconds and the sound effects are crisp.`,
+    `One of the most optimized apps in this genre. ${dynamicFeature2} runs without any stuttering. Great battery efficiency and intuitive interface. 5 stars! 👍`,
+    `The visual presentation of ${appName} is top notch. Smooth card dealing, clean dark theme, and ${dynamicFeature3}.`,
+    hasTutorial 
+      ? `Loved the gameplay flow. The step-by-step tutorial and ${dynamicFeature1} made the game rules very clear even for beginners.` 
+      : `Solid mechanics and super responsive touch controls. ${dynamicFeature1} makes every round exciting!`,
+    hasTournaments 
+      ? `The tournament lobby mode is super engaging. Love the competitive leaderboard system and ${dynamicFeature2}!` 
+      : `Clean table design and easy card grouping. Everything feels responsive and polished.`,
+    hasDailyBonus
+      ? `The daily mission rewards keep it fun every day. Very reliable and quick to launch with ${dynamicFeature1}.`
+      : `Been playing with friends during lunch break. Very stable connection and fun experience with ${dynamicFeature3}.`
   ];
 
   const long5Star = [
-    `Downloaded ${appName} last week on my ${devices[0]}. Impressed by how lightweight it is despite having rich 3D table graphics. Matchmaking takes less than 3 seconds. Highly recommended!`,
-    `Been playing daily during my commute. The card dealing animation is silky smooth and rules are easy to understand. Great frame rate and no overheating at all! 🎮🔥`
+    `Installed ${appName} recently on my ${devices[0]}. Impressed by how lightweight it is despite having rich table graphics. Match connection is instant, ${dynamicFeature1} is silky smooth, and battery drain is minimal. Highly recommended!`,
+    `Been playing daily during my commute. The card handling is silky smooth, ${dynamicFeature2} keeps things engaging, and the interface is clear and modern. Great frame rate and no heating issues at all! 🎮`,
+    hasAvatar
+      ? `Really like ${dynamicFeature3} and the sound design. The visual clarity on ${appName} makes long sessions easy on the eyes. Top tier development!`
+      : `The table speed and sound design on ${appName} make every match feel authentic. Extremely smooth execution with ${dynamicFeature1} on 5G network.`
   ];
 
   const short4Star = [
-    `Nice gameplay, smooth 60fps`,
-    `Good game, pls add more themes 👍`,
-    `Very responsive UI and clean design`,
-    `Enjoying it a lot with friends`
+    `nice gameplay, smooth 60fps`,
+    `good game, pls add more custom themes 👍`,
+    `very responsive UI and clean design`,
+    `enjoying the matches, ${dynamicFeature1} is great`,
+    `solid performance, minor sound tweaks needed 👌`
   ];
 
   const medium4Star = [
-    `Great card game with slick animations. Runs super smooth on my phone. Would love to see more custom table themes in the next update!`,
-    `Solid gameplay and very stable connection. The UI is straightforward. A landscape view option would make it even better.`,
-    `Really fun mechanics and nice sound effects. Only minor request is to make the card fonts slightly bigger on small screens. 👌`,
-    `Very well made app. Quick match finding and nice animations. 4 stars, just waiting for the next feature update!`
+    `Great game with slick animations. ${dynamicFeature1} runs super smooth on my phone. Would love to see more custom table themes in the next update!`,
+    `Solid gameplay and very stable connection. The UI is straightforward and ${dynamicFeature2} is well designed. A custom card back option would make it even better.`,
+    `Really fun mechanics and nice sound effects. ${dynamicFeature1} works great. Only minor request is to make the card numbers slightly larger on compact screens. 👌`,
+    `Very well made app with ${dynamicFeature3}. Quick match finding and nice animations. 4 stars, just waiting for the next feature update!`
   ];
 
   const reviews3Star = [
-    `Gameplay mechanics are fun and table design is great, but takes a few seconds longer to load on mobile 4G data. Works great on Wi-Fi though.`,
-    `Decent card game with good animations. Would be great if they optimized the battery usage a bit more during extended play.`,
-    `Good concept and responsive touch controls. The in-game guide could be a bit more detailed for new players.`
+    `Gameplay mechanics are fun and ${dynamicFeature1} is great, but takes a few seconds longer to connect on weak mobile data. Works great on Wi-Fi though.`,
+    `Decent game with good animations and ${dynamicFeature2}. Would be great if they optimized the battery usage a bit more during extended 2-hour sessions.`,
+    `Good concept and responsive touch controls. The in-game guide for ${dynamicFeature1} could be a bit more detailed for new players.`
   ];
 
   const reviews2Star = [
-    `The core game rules are good, but the app heats up my older phone a bit after 30 minutes of continuous play. Needs optimization.`,
-    `Graphics are nice, but font sizes on smaller screens feel a bit cramped. Hope the developers address this in the next patch.`
+    `The core game rules and ${dynamicFeature1} are good, but the app heats up my older phone a bit after 30 minutes of continuous play. Needs optimization.`,
+    `Graphics are nice, but font sizes on smaller screens feel a bit cramped. Hope the developers refine ${dynamicFeature3} in the next patch.`
   ];
 
   return ratings.map((star, idx) => {
@@ -372,9 +436,11 @@ function generateContextualFallbackReviews(app: any, ratings: number[]): Partial
 
     return {
       appId: String(app.id || app.slug || '').trim(),
+      appSlug: String(app.slug || '').trim(),
+      appName: String(app.name || '').trim(),
       userName: getRandomUserName(idx),
       rating: star,
-      reviewText: text,
+      reviewText: sanitizeReviewText(text, app.name),
       timestamp: getRandomPastDate(idx, ratings.length),
       status: 'published',
       helpful_count: Math.floor(Math.random() * 8),
