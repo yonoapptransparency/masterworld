@@ -155,15 +155,24 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
       const secureMap = cachedSecureMapRef.current;
       setAppsList(prev => {
         if (!prev || prev.length === 0) {
-          return apps.map(a => ({
-            ...a,
-            more_information_url: secureMap.get(a.id) || a.more_information_url
-          }));
+          const mapped = apps.map(a => {
+            const link = a.more_information_url || secureMap.get(a.id) || '';
+            if (link && link !== secureMap.get(a.id)) {
+              secureMap.set(a.id, link);
+            }
+            return {
+              ...a,
+              more_information_url: link
+            };
+          });
+          syncSecureVault(true, mapped);
+          return mapped;
         }
 
         const prevMap = new Map(prev.map(item => [item.id, item]));
         const incomingMap = new Map(apps.map(item => [item.id, item]));
         const merged: any[] = [];
+        let mapChanged = false;
 
         // 1. Keep existing local apps (preserves local additions & edits) if not explicitly deleted
         for (const prevItem of prev) {
@@ -174,7 +183,11 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
             merged.push(prevItem);
           } else {
             // Item exists in both: merge, giving local edits precedence
-            const link = secureMap.get(prevItem.id) || prevItem.more_information_url || incoming.more_information_url;
+            const link = incoming.more_information_url || prevItem.more_information_url || secureMap.get(prevItem.id) || '';
+            if (link && link !== secureMap.get(prevItem.id)) {
+              secureMap.set(prevItem.id, link);
+              mapChanged = true;
+            }
             merged.push({
               ...incoming,
               ...prevItem,
@@ -186,12 +199,20 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
         // 2. Add brand new apps from incoming that aren't in prev & not deleted
         for (const incomingItem of apps) {
           if (!prevMap.has(incomingItem.id) && !deletedAppIdsRef.current.has(incomingItem.id)) {
-            const link = secureMap.get(incomingItem.id) || incomingItem.more_information_url;
+            const link = incomingItem.more_information_url || secureMap.get(incomingItem.id) || '';
+            if (link && link !== secureMap.get(incomingItem.id)) {
+              secureMap.set(incomingItem.id, link);
+              mapChanged = true;
+            }
             merged.push({
               ...incomingItem,
               more_information_url: link
             });
           }
+        }
+        
+        if (mapChanged) {
+          syncSecureVault(true, merged);
         }
 
         if (JSON.stringify(prev) === JSON.stringify(merged)) return prev;

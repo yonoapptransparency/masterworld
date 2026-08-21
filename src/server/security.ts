@@ -32,11 +32,32 @@ export async function verifyTurnstile(token: string, ip: string): Promise<boolea
   }
 }
 
+
+export function validateAppId(appId: string | undefined | null): string | null {
+  if (typeof appId !== 'string') return null;
+  const clean = appId.trim();
+  if (clean.length < 1 || clean.length > 64) return null;
+  return /^[a-zA-Z0-9-_]+$/.test(clean) ? clean.toLowerCase() : null;
+}
+
 export const isSuspiciousClient = (req: express.Request): boolean => {
   const ua = (req.headers['user-agent'] || '') as string;
   const trimmed = ua.trim();
   if (!trimmed || trimmed.length < 5) return true;
   if (BAD_UA.some(rx => rx.test(ua))) return true;
+
+  // Browser Context Checks: Verifies typical browser request indicators
+  const acceptHeader = req.headers.accept || '';
+  const hasAccept = acceptHeader.includes('text/html') || acceptHeader.includes('application/json');
+  const hasSecFetch = req.headers['sec-fetch-site'] || req.headers['sec-fetch-mode'];
+  const hasOrigin = req.headers.origin || req.headers.referer;
+
+  // Real browsers sending POST should typically have an origin, referer, or sec-fetch headers
+  // We only reject if ALL of these browser context indicators are completely missing (e.g. basic scripts)
+  if (!hasAccept && !hasSecFetch && !hasOrigin && req.method === 'POST') {
+    return true;
+  }
+
   return false;
 };
 

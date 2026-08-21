@@ -274,3 +274,60 @@ Whenever any developer or AI agent modifies More Info gateway logic:
 5. [ ] **Verify Fail-Safe**: Ensure `<ClearanceButton />` maintains the permanent fallback button (`"Click Here to Proceed"`) for blocked popups.
 6. [ ] **Update This Specification**: Document any changes in `MORE_INFO_SECURITY_ARCHITECTURE.md`.
 7. [ ] **Run Verification**: Execute `npm run lint` and `npm run build` to confirm zero errors.
+
+---
+
+## 9. Vercel Serverless Architecture (Dex Repository)
+
+**CRITICAL DEPLOYMENT CONTEXT**: The primary Express server (`server.ts` / `src/server/routes/securityRoutes.ts`) is used for local development and the Admin Masterworld deployment. However, the public website (`www.rummydex.com`) is deployed to **Vercel** via the isolated Dex repository.
+
+- **Vercel API Entrypoint**: `public-api/index.js` (which is automatically renamed to `api/index.js` by the `.github/workflows/split-sync.yml` action during deployment).
+- **Standalone Nature**: `public-api/index.js` is completely standalone. It does NOT import from `src/server/`. It has its own isolated implementation of `safeDecrypt`, `isValidTargetUrl`, and the `/api/v1/public/secure-link` endpoint.
+- **Why this matters**: If you update the link resolution logic in `src/server/routes/securityRoutes.ts`, **you MUST also manually patch `public-api/index.js`** to ensure the public Vercel production site receives the security updates. Failure to do so will result in 404 "Endpoint not found" errors on production because Vercel routes `/api/*` to `public-api/index.js`.
+
+---
+
+## 10. Lightweight High-Performance Defense Shields (Best Practices)
+
+To maintain lightning-fast response times (<5ms) while guaranteeing bulletproof security against bots and scrapers, the system adopts these 5 lightweight defense shields:
+
+### Shield 1: Strict Whitelist Input Validation ⛔
+Reject malformed or malicious inputs before touching cache, database, or crypto engines:
+```javascript
+export function validateAppId(appId) {
+  if (typeof appId !== 'string') return null;
+  const clean = appId.trim();
+  if (clean.length < 1 || clean.length > 64) return null;
+  // Strictly allow alphanumeric characters, hyphens, and underscores only
+  return /^[a-zA-Z0-9\-_]+$/.test(clean) ? clean.toLowerCase() : null;
+}
+```
+*Benefits*: Instantly prevents path traversal (`../`), SQLi/NoSQL injection payloads, and XSS probe attempts.
+
+### Shield 2: Browser Signal Verification & Scraper Signatures 🎯
+Real browsers naturally transmit contextual headers that basic scrapers (Python, curl, headless tools) omit or mismatch:
+- **Bot Signature Blacklist**: Detects known scraper tools (`python-requests`, `curl`, `wget`, `scrapy`, `selenium`, `puppeteer`, `headlesschrome`, `nmap`, etc.).
+- **Browser Context Checks**: Verifies typical browser request indicators (e.g. `sec-fetch-site`, `accept`, `origin` / `referer`).
+
+### Shield 3: Zero-Overhead IP Sliding Window Rate Limiting 🚦
+Restricts rapid-fire automated scraping with minimal memory overhead:
+- **Limit**: Max 30 requests per minute per IP address.
+- **Eviction**: Automatically purges expired timestamps older than 60 seconds.
+
+### Shield 4: Target URL Integrity & Double-Encryption Protection 🔐
+- Checks `url.startsWith('U2FsdGVkX1')` before encrypting or decrypting to prevent ciphertext corruption.
+- Verifies resolved target URLs have valid `http://` or `https://` protocols and filters out internal self-referencing loops.
+
+### Shield 5: Structured Security Audit Logging 📊
+Logs security incidents in structured JSON format for instant observability without degrading server throughput:
+```javascript
+{
+  "timestamp": "2026-08-20T17:40:00.000Z",
+  "eventType": "BOT_DETECTED" | "RATE_LIMIT_EXCEEDED" | "INVALID_INPUT",
+  "clientIP": "203.0.113.1",
+  "userAgent": "python-requests/2.31.0",
+  "appId": "spin-crush",
+  "reason": "Known scraper signature detected"
+}
+```
+

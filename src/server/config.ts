@@ -55,7 +55,7 @@ export const BAD_UA = [
 ];
 
 export const WINDOW = 60 * 1000;
-export const MAX_HITS = 300;
+export const MAX_HITS = 30;
 export const MOCK_2FA_FILE = path.join(process.cwd(), "src/lib/mock_2fa_store.json");
 
 export const getStaticData = () => {

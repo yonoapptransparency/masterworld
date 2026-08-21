@@ -52,18 +52,8 @@ export default function ClearanceButton({ appId }: ClearanceButtonProps) {
       setResolvedUrl(targetUrl);
       setStatusText('Ready');
 
-      // Trigger instant direct navigation via native anchor element
-      try {
-        const anchor = document.createElement('a');
-        anchor.href = targetUrl;
-        anchor.target = '_blank';
-        anchor.rel = 'noopener noreferrer nofollow';
-        document.body.appendChild(anchor);
-        anchor.click();
-        document.body.removeChild(anchor);
-      } catch (_) {
-        window.location.href = targetUrl;
-      }
+      // Trigger instant direct navigation
+      window.location.href = targetUrl;
 
       setTimeout(() => {
         setIsProcessing(false);

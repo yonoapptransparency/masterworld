@@ -947,30 +947,36 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   if (data) {
     const targetAppSlug = targetApp ? getField(targetApp, 'slug')?.toLowerCase() : null;
     const optimizedApps = Array.isArray(data.apps) ? data.apps.map((app: any) => {
+      const sanitizedApp = { ...app };
+      delete sanitizedApp.more_information_url;
+      delete sanitizedApp.download_url;
+      delete sanitizedApp.encrypted_link;
+      delete sanitizedApp.url;
+
       const isTarget = targetAppSlug && getField(app, 'slug')?.toLowerCase() === targetAppSlug;
-      if (isTarget) return app;
+      if (isTarget) return sanitizedApp;
       return {
-        id: app.id,
-        name: app.name,
-        slug: app.slug,
-        icon_url: app.icon_url,
-        og_image_url: app.og_image_url,
-        category: app.category,
-        rating: app.rating,
-        review_count: app.review_count,
-        developer: app.developer,
-        file_size: app.file_size,
-        version: app.version,
-        is_featured: app.is_featured,
-        is_new: app.is_new,
-        is_hot: app.is_hot,
-        is_top_chart: app.is_top_chart,
-        top_chart_category: app.top_chart_category,
-        safety_status: app.safety_status,
-        is_coming_soon: app.is_coming_soon,
-        publish_date: app.publish_date,
-        serial_number: app.serial_number,
-        tags: app.tags
+        id: sanitizedApp.id,
+        name: sanitizedApp.name,
+        slug: sanitizedApp.slug,
+        icon_url: sanitizedApp.icon_url,
+        og_image_url: sanitizedApp.og_image_url,
+        category: sanitizedApp.category,
+        rating: sanitizedApp.rating,
+        review_count: sanitizedApp.review_count,
+        developer: sanitizedApp.developer,
+        file_size: sanitizedApp.file_size,
+        version: sanitizedApp.version,
+        is_featured: sanitizedApp.is_featured,
+        is_new: sanitizedApp.is_new,
+        is_hot: sanitizedApp.is_hot,
+        is_top_chart: sanitizedApp.is_top_chart,
+        top_chart_category: sanitizedApp.top_chart_category,
+        safety_status: sanitizedApp.safety_status,
+        is_coming_soon: sanitizedApp.is_coming_soon,
+        publish_date: sanitizedApp.publish_date,
+        serial_number: sanitizedApp.serial_number,
+        tags: sanitizedApp.tags
       };
     }) : [];
 

@@ -16,13 +16,8 @@ export function safeDecrypt(ciphertext: string, secret?: string): string {
   const cleanCipher = ciphertext.trim().replace(/^["']|["']$/g, '');
   if (!cleanCipher) return '';
 
-  // If already a plain URL, return directly
-  if (
-    cleanCipher.startsWith('http://') || 
-    cleanCipher.startsWith('https://') || 
-    cleanCipher.startsWith('market://') || 
-    cleanCipher.startsWith('intent://')
-  ) {
+  // If already a plain URL or not AES encrypted, return directly
+  if (!cleanCipher.startsWith('U2FsdGVkX1')) {
     return cleanCipher;
   }
 
@@ -54,8 +49,11 @@ export function getAesSecret(): string {
 }
 
 export function safeEncrypt(text: string, secret: string): string {
+  if (!text) return '';
+  if (text.startsWith('U2FsdGVkX1')) return text; // Prevent double encryption
+
   const encKey = secret || getAesSecret();
-  if (!text || !encKey || encKey.trim() === '') {
+  if (!encKey || encKey.trim() === '') {
     throw new Error('Cannot encrypt: AES_SECRET is required');
   }
   return CryptoJS.AES.encrypt(text, encKey).toString();
