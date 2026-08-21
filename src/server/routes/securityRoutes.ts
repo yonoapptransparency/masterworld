@@ -98,6 +98,7 @@ function findUrlInVaultParsed(parsed: any, keysToSearch: string[], AES_SECRET: s
       return finalUrl.trim();
     }
   }
+
   return '';
 }
 
@@ -265,6 +266,34 @@ export async function resolveDestinationForApp(appId: string): Promise<string> {
         return searchKeys.includes(sId) || searchKeys.includes(sSlug) || searchKeys.includes(sIdStripped) || searchKeys.includes(sSlugStripped);
       });
 
+      if (matched) {
+        const rawUrl = matched.more_information_url || matched.encrypted_link || matched.download_url || matched.url;
+        if (rawUrl && typeof rawUrl === 'string') {
+          const dec = rawUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(rawUrl, AES_SECRET) : rawUrl;
+          if (isValidTargetUrl(dec)) {
+            resolvedLinkCache.set(lowerAppId, { url: dec.trim(), timestamp: Date.now() });
+            return dec.trim();
+          }
+        }
+      }
+    }
+  } catch (_) {}
+
+
+  // 8. Check public_backup.json fallback
+  try {
+    const backupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
+    if (fs.existsSync(backupPath)) {
+      const rawStatic = fs.readFileSync(backupPath, 'utf8');
+      const parsedStatic = JSON.parse(rawStatic);
+      const apps = parsedStatic?.apps || parsedStatic?.mockApps || [];
+      const matched = apps.find((a: any) => {
+        const sId = (a.id || '').toLowerCase().trim();
+        const sSlug = (a.slug || '').toLowerCase().trim();
+        const sIdStripped = sId.replace(/[-_ ]/g, '');
+        const sSlugStripped = sSlug.replace(/[-_ ]/g, '');
+        return searchKeys.includes(sId) || searchKeys.includes(sSlug) || searchKeys.includes(sIdStripped) || searchKeys.includes(sSlugStripped);
+      });
       if (matched) {
         const rawUrl = matched.more_information_url || matched.encrypted_link || matched.download_url || matched.url;
         if (rawUrl && typeof rawUrl === 'string') {
