@@ -109,11 +109,17 @@ export const AppInspector = ({
           </h4>
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs max-w-full font-sans">
             <div className="text-[12px] text-slate-500 dark:text-slate-400 font-normal truncate flex items-center gap-1">
-              <span>https://verification-gatekeeper.com</span>
-              <span className="text-slate-400">› apps › {selectedApp.slug || selectedApp.id}</span>
+              <span>https://www.rummydex.com</span>
+              <span className="text-slate-400">› app › {selectedApp.slug || selectedApp.id}</span>
             </div>
             <div className="text-[18px] text-blue-600 dark:text-blue-400 font-medium hover:underline cursor-pointer leading-tight truncate mt-0.5">
               {selectedApp.seo_title || selectedApp.name}
+            </div>
+            <div className="flex items-center gap-1.5 text-[12px] text-zinc-600 dark:text-zinc-400 my-1 font-medium">
+              <span className="font-bold text-zinc-900 dark:text-zinc-100">{selectedApp.rating ? Number(selectedApp.rating).toFixed(1) : '4.8'}</span>
+              <span className="text-amber-500">★★★★★</span>
+              <span>({selectedApp.review_count ? Number(selectedApp.review_count).toLocaleString() : '1,420'})</span>
+              <span>· Free · Android · Game</span>
             </div>
             <p className="text-[13px] text-slate-600 dark:text-slate-400 font-normal leading-normal mt-1 line-clamp-2">
               {selectedApp.seo_description || `Download ${selectedApp.name} for Android. Fully scanned, verified safe and offline bypass setup complete. Size: ${selectedApp.file_size || 'Unknown'}...`}
@@ -122,11 +128,18 @@ export const AppInspector = ({
         </div>
 
         {/* Basic Meta Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-slate-50/50 dark:bg-slate-800/20 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 bg-slate-50/50 dark:bg-slate-800/20 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
           <div>
             <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Rating Score</div>
             <div className="text-sm font-bold text-slate-800 dark:text-slate-100 mt-1 flex items-center gap-1">
-              ⭐ {selectedApp.rating !== undefined ? selectedApp.rating : 5.0} <span className="text-[10px] text-slate-400 font-normal">/ 10</span>
+              ⭐ {selectedApp.rating !== undefined ? Number(selectedApp.rating).toFixed(1) : '4.8'} <span className="text-[10px] text-slate-400 font-normal">/ 5</span>
+            </div>
+          </div>
+
+          <div>
+            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Total Ratings</div>
+            <div className="text-sm font-bold text-slate-800 dark:text-slate-100 mt-1 flex items-center gap-1">
+              👥 {selectedApp.review_count ? Number(selectedApp.review_count).toLocaleString() : '1,420'}
             </div>
           </div>
 

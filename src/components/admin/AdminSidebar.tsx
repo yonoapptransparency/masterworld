@@ -18,7 +18,8 @@ import {
   Settings,
   Shield,
   MessageSquare,
-  RefreshCw
+  RefreshCw,
+  Sparkles
 } from 'lucide-react';
 import { AdminSidebarItem as SidebarItem } from './AdminSidebarItem';
 import { useData } from '../../contexts/DataContext';
@@ -118,6 +119,7 @@ export const AdminSidebar = ({
 
             <div className="pt-4 pb-2 px-3 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">Moderation & Community</div>
             <SidebarItem id="reviews" icon={MessageSquare} label="App Reviews" active={activeTab === 'reviews'} onClick={onTabChange} />
+            <SidebarItem id="ai-reviews" icon={Sparkles} label="AI Review Studio" active={activeTab === 'ai-reviews'} onClick={onTabChange} />
             <SidebarItem id="reports" icon={ShieldAlert} label="User Reports" active={activeTab === 'reports'} onClick={onTabChange} />
 
             <div className="pt-4 pb-2 px-3 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">System & Sync</div>

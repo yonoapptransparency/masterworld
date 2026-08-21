@@ -63,11 +63,15 @@ When creating new components or pages, maintain repo isolation:
 │   │   ├── firebase.ts                   # Server-side Firebase Admin REST SDK initializer
 │   │   ├── security.ts                   # Cloudflare Turnstile anti-bot verification & link nonces
 │   │   ├── middleware/adminAuth.ts       # Admin JWT & Audit Logging middleware
+│   │   ├── services/
+│   │   │   └── communityStoreService.ts  # Multi-tier Firestore reviews & reports storage service
 │   │   └── routes/
 │   │       ├── adminAuthRoutes.ts        # Admin login, 2FA/TOTP verification, logout, session management
 │   │       ├── adminVaultRoutes.ts       # Secure link vault encryption, decryption, DB repair, backups
+│   │       ├── communityRoutes.ts        # Community reviews API (CRUD, helpful voting, moderation, replies)
+│   │       ├── reportRoutes.ts           # Ultra-lightweight flag/report submission & admin pipeline
 │   │       ├── githubSyncRoutes.ts       # Split-sync webhooks and manual triggers
-│   │       ├── publicApiRoutes.ts        # Public APIs (Download link decryption, reviews, feedback, reports)
+│   │       ├── publicApiRoutes.ts        # Public APIs (Download link decryption, feedback)
 │   │       └── seoRoutes.ts              # Dynamic sitemap.xml, rss.xml, robots.txt, opensearch.xml generators
 │
 │   ├── contexts/                         # React State Management
@@ -117,6 +121,8 @@ When creating new components or pages, maintain repo isolation:
 │   │       ├── AdminNewsTab.tsx          # News management view
 │   │       ├── AdminBlogsTab.tsx         # Blog management view
 │   │       ├── AdminVideosTab.tsx        # Video management view
+│   │       ├── AdminReviewsTab.tsx       # Full app reviews moderation console (CRUD, status, replies, pin, votes)
+│   │       ├── AdminReportsTab.tsx       # User reports & content flags center (app flags, review flags, notes)
 │   │       ├── AdminQuickLinksTab.tsx    # Quick links editor
 │   │       ├── AdminWebsiteFaqsTab.tsx   # FAQ manager
 │   │       ├── AdminDevelopersTab.tsx    # Developer profiles manager
@@ -197,3 +203,56 @@ To maintain maximum Google Search Console indexing, 100% PageSpeed Scores, and i
   - App page main action button must strictly say **"Download"** (NEVER "Download APK").
   - More Info page must strictly use neutral terms: **"Proceed"**, **"Click Here to Proceed"**, **"Verification Portal"**, **"Connecting..."**. No sensitive trigger words.
 - **Update Requirement**: Any future change to more info routes or security logic MUST immediately be documented in `/MORE_INFO_SECURITY_ARCHITECTURE.md`.
+
+---
+
+## 8. Community Reviews & Ratings Architecture
+
+- **Public Review Components**:
+  - `src/components/public/ReviewItem.tsx`: Individual review presentation card supporting pinned badges, star rendering, user helpful voting, flag triggers, and official developer/admin replies. *(Note: Unwanted "Verified Player" badge removed for clean presentation)*.
+  - `src/components/public/ReviewForm.tsx`: High-contrast, theme-adaptive review submission form with explicit input text colors for dark and light modes.
+  - `src/components/public/ReviewScoreSummary.tsx`: Google Play-styled star rating distribution and aggregate breakdown.
+  - `src/hooks/useReviews.ts`: React hook managing cursor-based pagination, local optimism, helpful voting, and flag reporting.
+
+- **Backend & Storage Engine (`src/server/services/communityStoreService.ts` & `src/server/routes/communityRoutes.ts`)**:
+  - **Multi-tier Sync Engine**: Real-time memory cache + local JSON persistence fallback + background Firestore sync.
+  - **Endpoints**:
+    - `POST /api/v1/public/community/reviews`: Submit review with Turnstile bot filtering.
+    - `POST /api/v1/public/community/reviews/helpful`: Increment helpful vote count with permanent Firestore persistence.
+    - `POST /api/v1/public/community/reviews/report`: Flag review directly into the moderation queue.
+    - `GET /api/v1/public/community/reviews/:appId`: Cursor-paginated public reviews feed.
+    - `GET /api/v1/public/community/stats/:appId`: App aggregate ratings and star distribution.
+    - `GET /api/v1/admin/community/reviews`: Admin review query with filters (`status`, `rating`, `search`, `appId`, `isPinned`, `sortBy`).
+    - `POST /api/v1/admin/community/reviews`: Admin manual verified review creation.
+    - `PUT /api/v1/admin/community/reviews/:id`: Admin full review edit (text, rating, status, pin, official reply, votes).
+    - `PATCH /api/v1/admin/community/reviews/:id/status` & `.../pin`: Quick status toggle & pinning.
+    - `DELETE /api/v1/admin/community/reviews/:id`: Admin review deletion.
+    - `POST /api/v1/admin/community/reviews/bulk`: Bulk publish, pending, reject, pin, or delete operations.
+
+---
+
+## 9. Ultra-Lightweight User Reporting & Flagging System
+
+- **Public Component**: `src/components/ReportAppModal.tsx`
+  - Zero-latency modal allowing users to flag safety concerns, copyright/DMCA issues, broken links, or review abuse.
+  - Submits minimal lightweight payloads without loading previous reports, guaranteeing instantaneous client performance.
+
+- **Backend & Moderation Pipeline (`src/server/routes/reportRoutes.ts`)**:
+  - **Endpoints**:
+    - `POST /api/v1/public/reports`: Public report submission writing directly to `communityStoreService.ts` and Firestore.
+    - `GET /api/v1/admin/reports`: Admin report query filtered by status (`pending`, `in_review`, `resolved`, `dismissed`), type (`app_flag`, `review_flag`), search keyword, or target app ID.
+    - `PATCH/PUT /api/v1/admin/reports/:id`: Status update and moderator investigation notes.
+    - `DELETE /api/v1/admin/reports/:id`: Permanent report dismissal/deletion.
+    - `POST /api/v1/admin/reports/bulk`: Batch resolution, dismissal, or deletion of reports.
+
+---
+
+## 10. Split-Sync Repo Routing Reference (`.github/workflows/split-sync.yml`)
+
+Ensure any newly created files strictly follow repo-isolation boundaries:
+
+| Repository | Included Modules | Excluded Modules |
+| :--- | :--- | :--- |
+| **Dex (Public Site)** | `src/pages/` (Public pages), `src/components/public/`, `src/components/playstore/`, `src/components/ReportAppModal.tsx`, `src/components/ClearanceButton.tsx`, `src/hooks/useReviews.ts`, `src/contexts/DataContextPublic.tsx`, `/public/` static assets | All `src/components/admin/`, `src/pages/Admin*`, `src/server/middleware/adminAuth.ts`, `src/server/routes/admin*`, `src/lib/secureVault.ts`, `src/lib/totp.ts` |
+| **Masterworld (Admin Site)** | `src/components/admin/`, `src/pages/AdminDashboard.tsx`, `src/pages/AdminLogin.tsx`, `src/server/`, `src/lib/`, backend services & moderation tools | Public marketing/home pages (`Home.tsx`, `AppDetails.tsx`, `Blogs.tsx`), public promotional UI components |
+

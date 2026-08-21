@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { verifyTurnstile, getIp, rateLimit } from '../security';
 import { verifyAdminToken } from '../middleware/adminAuth';
 import { communityStore } from '../services/communityStoreService';
+import { generateAIReviewsForApp } from '../services/aiReviewGeneratorService';
+import { getStaticData } from '../config';
 
 export const communityRouter = Router();
 
@@ -9,14 +11,18 @@ export const communityRouter = Router();
 // PUBLIC APIS
 // =========================================================================
 
-// Submit a new review from public frontend
-communityRouter.post("/api/v1/public/community/reviews", async (req: any, res: any) => {
+// Submit a new review from public frontend (and support /api/v1/public/rating alias)
+communityRouter.post(["/api/v1/public/community/reviews", "/api/v1/public/rating"], async (req: any, res: any) => {
   const ip = getIp(req);
   if (await rateLimit(ip, 30, 60000)) {
     return res.status(429).json({ error: 'Too many requests. Please wait a moment.' });
   }
 
-  const { appId, rating, reviewText, userName, turnstileToken } = req.body;
+  const appId = req.body.appId || req.body.app_id || req.body.slug;
+  const rating = req.body.rating;
+  const reviewText = req.body.reviewText || req.body.comment;
+  const userName = req.body.userName || req.body.username;
+  const turnstileToken = req.body.turnstileToken;
 
   if (!appId || !rating || !reviewText || !userName) {
     return res.status(400).json({ error: 'Missing required review fields' });
@@ -105,8 +111,9 @@ communityRouter.post("/api/v1/public/community/reviews/report", async (req: any,
 // Get App Rating Stats
 communityRouter.get("/api/v1/public/community/stats/:appId", async (req: any, res: any) => {
   const { appId } = req.params;
+  const rating = Number(req.query.rating) || 4.8;
   try {
-    const stats = communityStore.getAppStats(String(appId).trim());
+    const stats = communityStore.getAppStats(String(appId).trim(), rating);
     return res.status(200).json({ success: true, stats });
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
@@ -116,16 +123,18 @@ communityRouter.get("/api/v1/public/community/stats/:appId", async (req: any, re
 // Public Cursor-based Reviews fetch for App Page
 communityRouter.get("/api/v1/public/community/reviews/:appId", async (req: any, res: any) => {
   const { appId } = req.params;
-  const { cursor, limit = 10 } = req.query;
+  const { cursor, limit = 10, appTitle, rating } = req.query;
 
   try {
     const result = communityStore.getReviewsForApp(
       String(appId).trim(),
       cursor ? String(cursor) : undefined,
-      Math.min(50, Number(limit) || 10)
+      Math.min(50, Number(limit) || 10),
+      appTitle ? String(appTitle) : undefined,
+      Number(rating) || 5.0
     );
 
-    const stats = communityStore.getAppStats(String(appId).trim());
+    const stats = communityStore.getAppStats(String(appId).trim(), Number(rating) || 4.8);
 
     return res.status(200).json({
       success: true,
@@ -374,3 +383,105 @@ communityRouter.post("/api/v1/admin/community/recalculate-all", verifyAdminToken
     return res.status(500).json({ error: err.message || 'Failed recalculation' });
   }
 });
+
+// Admin: AI Review Generator - Single App
+communityRouter.post("/api/v1/admin/community/ai-generate/single", verifyAdminToken, async (req: any, res: any) => {
+  try {
+    const { appId, appData, count = 5, targetScore = 4.8, starMix, toneFocus = 'balanced', saveDirectly = false } = req.body;
+
+    if (!appId && !appData) {
+      return res.status(400).json({ error: 'App ID or App Data is required' });
+    }
+
+    let targetApp = appData;
+    if (!targetApp) {
+      const staticData = getStaticData();
+      targetApp = (staticData.mockApps || []).find((a: any) => a.id === appId || a.slug === appId);
+    }
+
+    if (!targetApp) {
+      return res.status(404).json({ error: `App ${appId} not found in catalog` });
+    }
+
+    const numCount = Math.max(1, Math.min(50, Number(count) || 5));
+    const numTargetScore = Math.max(1.0, Math.min(5.0, Number(targetScore) || 4.8));
+
+    const generatedReviews = await generateAIReviewsForApp(targetApp, {
+      count: numCount,
+      targetScore: numTargetScore,
+      starMix,
+      toneFocus
+    });
+
+    if (saveDirectly) {
+      const saved = await communityStore.addMultipleReviews(generatedReviews);
+      return res.status(200).json({
+        success: true,
+        message: `Successfully generated and published ${saved.length} AI reviews for ${targetApp.name}.`,
+        reviews: saved,
+        count: saved.length
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Generated ${generatedReviews.length} AI reviews for review & staging.`,
+      reviews: generatedReviews,
+      count: generatedReviews.length
+    });
+  } catch (err: any) {
+    console.error("AI Single Review Gen Error:", err);
+    return res.status(500).json({ error: 'Failed to generate reviews: ' + (err.message || String(err)) });
+  }
+});
+
+// Admin: AI Review Generator - 1-Click Bulk Across All Apps
+communityRouter.post("/api/v1/admin/community/ai-generate/bulk", verifyAdminToken, async (req: any, res: any) => {
+  try {
+    const { appIds, countPerApp = 3, targetScore = 4.8, starMix, toneFocus = 'balanced' } = req.body;
+    const staticData = getStaticData();
+    let allApps = staticData.mockApps || [];
+
+    if (Array.isArray(appIds) && appIds.length > 0) {
+      const idSet = new Set(appIds.map((id: any) => String(id).trim()));
+      allApps = allApps.filter((a: any) => idSet.has(String(a.id)) || idSet.has(String(a.slug)));
+    }
+
+    if (allApps.length === 0) {
+      return res.status(400).json({ error: 'No apps found to process' });
+    }
+
+    const numCountPerApp = Math.max(1, Math.min(20, Number(countPerApp) || 3));
+    const numTargetScore = Math.max(1.0, Math.min(5.0, Number(targetScore) || 4.8));
+
+    const allGeneratedReviews: Partial<any>[] = [];
+
+    for (const app of allApps) {
+      try {
+        const appReviews = await generateAIReviewsForApp(app, {
+          count: numCountPerApp,
+          targetScore: numTargetScore,
+          starMix,
+          toneFocus
+        });
+        allGeneratedReviews.push(...appReviews);
+      } catch (appErr) {
+        console.warn(`[Bulk Gen] Error generating for app ${app.name || app.id}:`, appErr);
+      }
+    }
+
+    // Save all to database
+    const saved = await communityStore.addMultipleReviews(allGeneratedReviews);
+
+    return res.status(200).json({
+      success: true,
+      message: `Bulk AI generation completed: ${saved.length} authentic reviews created across ${allApps.length} apps.`,
+      totalGenerated: saved.length,
+      totalApps: allApps.length
+    });
+  } catch (err: any) {
+    console.error("AI Bulk Review Gen Error:", err);
+    return res.status(500).json({ error: 'Failed bulk review generation: ' + (err.message || String(err)) });
+  }
+});
+

@@ -134,7 +134,7 @@ export const GeneralSection = ({ formFields, handleFieldChange, categories }: Ge
         </div>
       </div>
 
-      <div className="grid gap-4 grid-cols-2 sm:grid-cols-3">
+      <div className="grid gap-4 grid-cols-2 sm:grid-cols-4">
         <div>
           <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">App Status *</label>
           <select 
@@ -162,16 +162,29 @@ export const GeneralSection = ({ formFields, handleFieldChange, categories }: Ge
         </div>
 
         <div>
-          <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Rating (Out of 10) *</label>
+          <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Rating (Out of 5) *</label>
           <input 
             type="number" 
             step="0.1" 
-            min="0.0" 
-            max="10.0" 
+            min="1.0" 
+            max="5.0" 
             name="rating" 
             required
             value={formFields.rating} 
-            onChange={e => handleFieldChange('rating', parseFloat(e.target.value) || 5.0)} 
+            onChange={e => handleFieldChange('rating', parseFloat(e.target.value) || 4.8)} 
+            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500" 
+          />
+        </div>
+
+        <div>
+          <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Total Ratings / Review Count</label>
+          <input 
+            type="number" 
+            min="1"
+            name="review_count" 
+            placeholder="e.g. 381, 1420"
+            value={formFields.review_count || ''} 
+            onChange={e => handleFieldChange('review_count', e.target.value ? parseInt(e.target.value, 10) : '')} 
             className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500" 
           />
         </div>

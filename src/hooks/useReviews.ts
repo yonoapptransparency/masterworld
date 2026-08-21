@@ -31,12 +31,18 @@ export function useReviews(appId: string, appTitle: string, inView: boolean = tr
       if (isLoadMore) setLoadingMore(true);
       else setLoading(true);
 
-      const url = new URL(`/api/v1/public/community/reviews/${appId}`, window.location.origin);
+      const queryParams = new URLSearchParams();
       if (isLoadMore && nextCursor) {
-        url.searchParams.append('cursor', nextCursor);
+        queryParams.append('cursor', nextCursor);
+      }
+      if (appTitle) {
+        queryParams.append('appTitle', appTitle);
       }
 
-      const res = await fetch(url.toString());
+      const queryString = queryParams.toString();
+      const endpoint = `/api/v1/public/community/reviews/${encodeURIComponent(appId)}${queryString ? `?${queryString}` : ''}`;
+
+      const res = await fetch(endpoint);
       if (res.ok) {
         const data = await res.json();
         
@@ -51,7 +57,8 @@ export function useReviews(appId: string, appTitle: string, inView: boolean = tr
           reported: Boolean(r.reported),
           report_count: Number(r.report_count) || 0,
           source: r.source || 'community',
-          isPinned: Boolean(r.isPinned)
+          isPinned: Boolean(r.isPinned),
+          adminReply: r.adminReply || null
         }));
 
         setReviews(prev => {
@@ -85,14 +92,29 @@ export function useReviews(appId: string, appTitle: string, inView: boolean = tr
       else setLoading(false);
       setInitialLoadDone(true);
     }
-  }, [appId, nextCursor]);
+  }, [appId, appTitle, nextCursor]);
 
-  // Initial lazy load trigger
+  // Initial load trigger on mount or appId change
   useEffect(() => {
-    if (inView && !initialLoadDone && !loading) {
-      fetchReviews(false);
-    }
-  }, [inView, initialLoadDone, loading, fetchReviews]);
+    setInitialLoadDone(false);
+    fetchReviews(false);
+  }, [appId, fetchReviews]);
+
+  // Listen to community-review-added event across tabs/components
+  useEffect(() => {
+    const handleNewReview = (e: any) => {
+      const newRev = e?.detail?.newReview;
+      if (newRev && (newRev.app_id === appId || newRev.appId === appId)) {
+        setReviews(prev => {
+          if (prev.some(r => r.id === newRev.id)) return prev;
+          return [newRev, ...prev];
+        });
+      }
+    };
+
+    window.addEventListener('community-review-added', handleNewReview);
+    return () => window.removeEventListener('community-review-added', handleNewReview);
+  }, [appId]);
 
   const loadMore = useCallback(() => {
     if (!loadingMore && hasMore) {

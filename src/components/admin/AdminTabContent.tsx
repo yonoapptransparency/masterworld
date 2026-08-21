@@ -16,6 +16,7 @@ import { AdminDevelopersTab } from './AdminDevelopersTab';
 import AdminReviewsTab from './AdminReviewsTab';
 import AdminReportsTab from './AdminReportsTab';
 import AdminCommunityTab from './AdminCommunityTab';
+import AdminAIReviewStudioTab from './AdminAIReviewStudioTab';
 
 interface AdminTabContentProps {
   activeTab: string;
@@ -248,6 +249,8 @@ export const AdminTabContent = ({
       );
     case 'reviews':
       return <AdminReviewsTab appsList={appsList} />;
+    case 'ai-reviews':
+      return <AdminAIReviewStudioTab appsList={appsList} />;
     case 'reports':
       return <AdminReportsTab appsList={appsList} />;
     case 'security':

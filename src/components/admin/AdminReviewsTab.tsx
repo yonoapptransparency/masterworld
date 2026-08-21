@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { toast } from '../Toast';
 import { adminFetch } from '../../services/adminAuthService';
+import AdminAIReviewStudioTab from './AdminAIReviewStudioTab';
 
 interface AdminReviewsTabProps {
   appsList?: any[];
@@ -72,6 +73,7 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
   const [editModalReview, setEditModalReview] = useState<Partial<ReviewData> | null>(null);
   const [isAddMode, setIsAddMode] = useState(false);
   const [replyModalReview, setReplyModalReview] = useState<ReviewData | null>(null);
+  const [showAIModal, setShowAIModal] = useState(false);
   const [replyText, setReplyText] = useState('');
   const [replyAuthor, setReplyAuthor] = useState('RummyDex Official Support');
   const [recalculating, setRecalculating] = useState(false);
@@ -405,6 +407,15 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
 
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-2.5 relative z-10">
+          <button
+            onClick={() => setShowAIModal(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-bold text-xs shadow-lg shadow-indigo-500/25 transition-all active:scale-95 cursor-pointer uppercase tracking-wider"
+            title="Open Gemini AI Review Generator Studio"
+          >
+            <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
+            AI Review Studio
+          </button>
+
           <button
             onClick={() => {
               setIsAddMode(true);
@@ -1163,6 +1174,50 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
                   Publish Reply
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Review Studio Modal */}
+      {showAIModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-6xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="p-5 sm:p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-blue-600/10 text-blue-600 rounded-xl">
+                  <Sparkles size={22} className="text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-black text-slate-900 dark:text-white">
+                    Gemini AI Review Studio
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Generate authentic, human-like reviews with full control over ratings and bulk deployment.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAIModal(false);
+                  fetchReviews(true);
+                }}
+                className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Content Body */}
+            <div className="p-5 sm:p-6 overflow-y-auto flex-1">
+              <AdminAIReviewStudioTab
+                appsList={appsList}
+                onReviewsGenerated={() => {
+                  fetchReviews(true);
+                }}
+              />
             </div>
           </div>
         </div>
