@@ -511,7 +511,7 @@ securityRouter.post(['/api/v1/clearance/complete', '/api/v1/_proc'], async (req,
     [realNonce, expiry, signature] = parts;
   }
 
-  const difficulty = parts.length === 4 ? "000" : "0";
+  const difficulty = parts.length === 4 ? "0" : "0";
   const secret = getAesSecret();
 
   if (Date.now() > Number(expiry)) {

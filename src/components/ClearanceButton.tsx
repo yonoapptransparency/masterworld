@@ -14,20 +14,17 @@ export default function ClearanceButton({ appId }: ClearanceButtonProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const clickedRef = useRef<boolean>(false);
 
-  const handleClick = async (e: React.MouseEvent<HTMLButtonElement | HTMLAnchorElement>) => {
-    if (resolvedUrl) {
-      return;
-    }
-
+  const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     if (clickedRef.current || isProcessing) return;
-
+    
     clickedRef.current = true;
     setIsProcessing(true);
     setErrorMessage(null);
-    setStatusText('Connecting...');
-
+    
     try {
+      setStatusText('Connecting...');
+      
       const res = await fetch('/api/v1/public/secure-link', {
         method: 'POST',
         headers: {
@@ -40,25 +37,31 @@ export default function ClearanceButton({ appId }: ClearanceButtonProps) {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || 'Unable to connect to destination. Please retry.');
+        throw new Error(data.error || 'Verification failed. Please retry.');
       }
 
       const result = await res.json();
-      if (!result || !result.url) {
+      if (!result || !result.success || !result.url) {
         throw new Error('Destination is temporarily unavailable.');
       }
 
       const targetUrl = result.url;
       setResolvedUrl(targetUrl);
-      setStatusText('Ready');
+      setStatusText('Verification Complete');
+      setIsProcessing(false);
 
-      // Trigger instant direct navigation
-      window.location.href = targetUrl;
-
-      setTimeout(() => {
-        setIsProcessing(false);
-        clickedRef.current = false;
-      }, 1000);
+      // Automated Trigger
+      try {
+        const link = document.createElement('a');
+        link.href = targetUrl;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer nofollow';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch (e) {
+        console.warn('Auto-redirect blocked by browser pop-up blocker');
+      }
     } catch (err: any) {
       console.warn('[CLEARANCE] Connection error:', err?.message || err);
       setErrorMessage(err?.message || 'Verification could not be completed.');
@@ -116,18 +119,13 @@ export default function ClearanceButton({ appId }: ClearanceButtonProps) {
         </div>
       )}
 
-      {resolvedUrl && !isProcessing && (
-        <div className="flex items-center gap-1.5 text-xs font-medium text-zinc-500 dark:text-zinc-400 text-center">
-          <span>Popup blocked? Tap the green button above to proceed.</span>
-        </div>
-      )}
-
       {errorMessage && !isProcessing && (
         <div className="flex items-center gap-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 transition-all text-center">
           <AlertCircle className="w-3.5 h-3.5 shrink-0" />
           <span>{errorMessage} (Tap to retry)</span>
         </div>
       )}
+
       {!isProcessing && !errorMessage && !resolvedUrl && (
         <div className="text-[11px] text-zinc-400 dark:text-zinc-500 font-medium text-center">
           100% Encrypted & Bot Protected
