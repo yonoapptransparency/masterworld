@@ -37,9 +37,9 @@ export const ContentSection = ({ formFields, handleFieldChange }: ContentSection
         handleFieldChange('description_html', data.formattedHtml);
         setAiStatusMsg({
           type: 'success',
-          text: data.source === 'gemini-ai'
-            ? '✨ HTML structured cleanly using Gemini AI! Preserved exact review words, converted headings to H2/H3, and removed invalid H1 tags.'
-            : '✨ Cleaned and formatted HTML structure! (H1 tags converted to H2).'
+          text: (data.source === 'gemini-ai' || data.source === 'gemini-ai-pro')
+            ? '✨ HTML perfectly structured using Gemini Pro! Applied logical reasoning for H2/H3 headings and highlighted key terms.'
+            : '✨ Cleaned and formatted HTML structure.'
         });
       } else {
         setAiStatusMsg({ type: 'error', text: data.error || 'Failed to format HTML.' });

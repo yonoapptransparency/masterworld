@@ -196,8 +196,8 @@ export const AdminNewsTab = React.memo(({
                             placeholder="https://... (16:9 YouTube thumbnail recommended)"
                           />
                           {item.logo_url && (
-                            <div className="mt-2 w-full max-w-sm aspect-video rounded-xl overflow-hidden border border-black/10 dark:border-white/10 bg-slate-100 dark:bg-slate-800">
-                              <img src={item.logo_url} alt="Thumbnail Preview" className="w-full h-full object-cover" />
+                            <div className="mt-4 flex items-center justify-center w-full max-w-sm rounded-xl overflow-hidden border border-black/10 dark:border-white/10 bg-slate-100 dark:bg-slate-800 p-2">
+                              <img src={item.logo_url} alt="Thumbnail Preview" className="max-w-full h-auto max-h-48 object-contain rounded-md shadow-sm" />
                             </div>
                           )}
                         </div>
@@ -376,16 +376,16 @@ export const AdminNewsTab = React.memo(({
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <div className="flex items-start gap-4">
                     {item.logo_url ? (
-                      <img
-                        src={item.logo_url}
-                        className="w-20 aspect-video object-cover rounded-xl border border-black/10 shadow-sm shrink-0"
-                        loading="lazy"
-                        width={80}
-                        height={45}
-                        alt={item.title}
-                      />
+                      <div className="w-24 h-16 bg-slate-50 dark:bg-slate-900/50 rounded-xl flex items-center justify-center border border-black/10 shadow-sm shrink-0 p-1">
+                        <img
+                          src={item.logo_url}
+                          className="max-w-full max-h-full object-contain rounded-md"
+                          loading="lazy"
+                          alt={item.title}
+                        />
+                      </div>
                     ) : (
-                      <div className="w-20 aspect-video bg-blue-50 dark:bg-blue-900/20 text-blue-500 rounded-xl flex items-center justify-center border border-blue-100 dark:border-blue-800 shrink-0">
+                      <div className="w-24 h-16 bg-blue-50 dark:bg-blue-900/20 text-blue-500 rounded-xl flex items-center justify-center border border-blue-100 dark:border-blue-800 shrink-0">
                         <Newspaper className="w-5 h-5" />
                       </div>
                     )}

@@ -190,70 +190,75 @@ adminVaultRouter.post("/api/v1/admin/ai-format-html", verifyAdminToken, async (r
 
   try {
     const apiKey = process.env.GEMINI_API_KEY;
-    if (apiKey && apiKey.trim() !== '') {
-      const { GoogleGenAI } = require("@google/genai");
-      const ai = new GoogleGenAI({ apiKey });
+    if (!apiKey || apiKey.trim() === '') {
+      return res.status(400).json({ error: 'GEMINI_API_KEY is not configured. AI Formatting requires a valid Gemini API key.' });
+    }
 
-      const prompt = `You are a world-class mobile app content architect and master HTML layout engineer.
-Your task is to transform the user's raw text, review script, or rough notes into an exceptionally clean, beautifully structured, and highly readable HTML document fragment.
+    const { GoogleGenAI } = require("@google/genai");
+    const ai = new GoogleGenAI({ apiKey });
 
-CRITICAL DIRECTIVE - 100% FAITHFUL CONTENT PRESERVATION:
-- Do NOT delete, omit, summarize away, or shorten ANY facts, sentences, specifications, or details provided by the user.
-- Preserve 100% of the information given in the input text while dramatically elevating its visual structure, typography, and scannability.
+    const prompt = `You are an elite Content Strategist, Semantic Architect, and master HTML layout engineer.
+Your task is to transform the user's raw text, review script, or rough notes into a beautifully structured, highly readable, and semantically correct HTML document fragment.
 
-MANDATORY STRUCTURAL & TYPOGRAPHY RULES:
-1. **STRICTLY NO <h1> TAGS**: Main H1 is reserved for the website header. Use <h2> for main section headings and <h3> for sub-headings.
-2. **SECTION HEADINGS (<h2>)**:
-   - Convert major section titles, "Part 1:", "Part 2:", "Part 3:", "Section 1:", "Overview", "User Experience", "Technical Details" into <h2> headings.
-   - Example: <h2>Part 1: Key Features and Core Mechanics of ABC Rummy</h2>
-   - Never wrap heading text in <p> or <br /> or <strong> inside <h2>.
-3. **SUB-SECTION HEADINGS (<h3>)**:
-   - Convert sub-topics ("The Core Game Mechanics", "Educational and Strategic Value", "Visual Design and Interaction Dynamics", "System Specifications") into <h3> headings.
-   - Example: <h3>The Core Game Mechanics</h3>
-4. **UNORDERED LISTS FOR FEATURE POINTS (<ul><li>)**:
-   - Convert feature descriptions and topic bullet items into unordered list items <ul><li><strong>Topic Title:</strong> Description...</li></ul>.
-   - Example:
-     <ul>
-       <li><strong>Classic Gameplay:</strong> Players are tasked with forming valid sets...</li>
-       <li><strong>Smart Challenges:</strong> The game features intelligent AI opponents...</li>
-     </ul>
-5. **SEPARATE PARAGRAPHS (<p>)**:
-   - Every paragraph MUST be wrapped in its own individual <p>...</p> tag.
-   - ABSOLUTELY NO <br /> OR <br> TAGS inside <p> to separate sections!
-   - NEVER wrap the entire document or multiple sections inside a single <p> tag!
-6. **NO DOCUMENT WRAPPERS & NO MARKDOWN CODEBLOCKS**:
-   - Do NOT output <!DOCTYPE>, <html>, <head>, <body>, <style>, or \`\`\`html code blocks. Output ONLY raw clean HTML fragment.
+CRITICAL DIRECTIVES:
+1. **REASONING FIRST (<thinking>)**:
+   - Before writing any HTML, you MUST output a <thinking> block.
+   - In this block, carefully and logically analyze the content step-by-step.
+   - Identify the Major Themes (which will become H2).
+   - Identify the Sub-topics within those themes (which will become H3).
+   - Identify key terms, unique mechanics, and metrics that need to be highlighted.
+2. **HIERARCHY & SEMANTICS (Proper H2 vs H3 Alignment)**:
+   - **STRICTLY NO <h1> TAGS**: <h1> is reserved for the page title. You MUST start at <h2>.
+   - **MAJOR THEMATIC HEADINGS (<h2>)**: Use for distinct, top-level sections.
+     - Example: <h2>Overview</h2>, <h2>Core Gameplay Mechanics</h2>, <h2>Monetization & Ads</h2>.
+   - **SUB-TOPIC HEADINGS (<h3>)**: Use for detailed sub-sections that logically fall UNDER a major <h2> theme.
+     - Example: Under <h2>Core Gameplay Mechanics</h2>, you might have <h3>Combat System</h3> and <h3>Progression</h3>.
+   - NEVER skip heading levels (do not jump from H2 to H4).
+3. **HIGHLIGHTING IMPORTANT WORDS (CRITICAL)**:
+   - You MUST use <strong> to bold important keywords, unique mechanics, specific metrics, and critical features inside <p> and <li> tags.
+   - This makes the text highly scannable and engaging. Bold the concepts that stand out.
+4. **PARAGRAPHS & LISTS**:
+   - Wrap all standard body text in <p> tags. Break long walls of text into smaller, digestible paragraphs.
+   - Use <ul><li> for any feature lists or enumerations. Bold the lead-in term in lists (e.g., <li><strong>Daily Bonuses:</strong> Players get...</li>).
+5. **OUTPUT FORMAT**:
+   - After your <thinking> block, output the final HTML wrapped exactly in \`\`\`html ... \`\`\` codeblocks.
+   - Preserve 100% of the information provided by the user. Do not summarize or omit facts.
 
 App Title Context: ${appName || 'Application'}
 
-RAW INPUT CONTENT TO FORMAT:
+RAW INPUT CONTENT TO ANALYZE AND FORMAT:
 ${content}`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt
-      });
-
-      let formattedHtml = response.text || '';
-      // Remove codeblock wrappers if any
-      formattedHtml = formattedHtml.replace(/^```html\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/, '').trim();
-
-      // Pass through master structure formatting
-      formattedHtml = structureHtmlFragment(formattedHtml);
-
-      if (formattedHtml && formattedHtml.length > 10) {
-        return res.json({ success: true, formattedHtml, source: 'gemini-ai' });
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-pro',
+      contents: prompt,
+      config: {
+        temperature: 0.2,
       }
+    });
+
+    let rawOutput = response.text || '';
+    let formattedHtml = '';
+    
+    // Extract HTML from the codeblock
+    const htmlMatch = rawOutput.match(/```html\s*([\s\S]*?)\s*```/i);
+    if (htmlMatch) {
+      formattedHtml = htmlMatch[1].trim();
+    } else {
+      // Fallback: strip <thinking> block if present, and trim
+      formattedHtml = rawOutput.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').trim();
+      formattedHtml = formattedHtml.replace(/^```html\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/, '').trim();
     }
 
-    // Smart Local Fallback Formatter if Gemini Key is not set or API returns empty
-    const clean = structureHtmlFragment(content);
+    if (formattedHtml && formattedHtml.length > 10) {
+      return res.json({ success: true, formattedHtml, source: 'gemini-ai-pro' });
+    }
 
-    return res.json({ success: true, formattedHtml: clean, source: 'local-formatter' });
+    return res.status(500).json({ error: 'AI failed to generate structural HTML.' });
+
   } catch (err: any) {
     console.error('[AI FORMAT HTML SERVER ERROR]', err);
-    const fallback = structureHtmlFragment(content);
-    return res.json({ success: true, formattedHtml: fallback, source: 'fallback', note: err.message });
+    return res.status(500).json({ error: 'AI Formatting failed: ' + err.message });
   }
 });
 
