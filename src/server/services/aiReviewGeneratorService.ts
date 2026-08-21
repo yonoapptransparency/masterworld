@@ -14,6 +14,7 @@ interface GenerateOptions {
   targetScore: number;
   starMix?: StarDistribution;
   toneFocus?: 'balanced' | 'performance' | 'gameplay' | 'ui_graphics' | 'casual';
+  customPrompt?: string;
 }
 
 // Strip HTML tags for clean AI prompt comprehension
@@ -186,7 +187,7 @@ function getRandomPastDate(index: number, total: number): string {
  * Service to generate 100% human-like app reviews using Gemini API
  */
 export async function generateAIReviewsForApp(app: any, options: GenerateOptions): Promise<Partial<ReviewRecord>[]> {
-  const { count, targetScore, starMix, toneFocus = 'balanced' } = options;
+  const { count, targetScore, starMix, toneFocus = 'balanced', customPrompt } = options;
   const appName = app?.name || 'Card Game';
   const appCategory = app?.category || 'Casual, Card';
   const appDeveloper = app?.developer || 'Gaming Studio';
@@ -257,6 +258,7 @@ Every single review in this batch MUST take a DIFFERENT, CREATIVE ANGLE from the
 7. **Natural Slang & Imperfect Typing**: Mix natural Indian conversational expressions ("mast", "osm ui", "no lag at all", "superb", "pls add...", "battery friendly").
 8. **Emojis**: Over 50% NO emojis. Remaining have maximum 1 subtle emoji (👍, 🔥, 💯, 👏, 👌).
 
+${customPrompt ? `### USER CUSTOM INSTRUCTIONS (MANDATORY TO FOLLOW FOR ALL REVIEWS):\n${customPrompt}\n` : ''}
 ### OUTPUT FORMAT:
 Return a JSON array of ${count} objects with fields:
 - "userName": A realistic human name or casual gamer username (mix of Indian full names, handles like rahul_gamer, priya.k, tech_rohit, vikram07, etc.)

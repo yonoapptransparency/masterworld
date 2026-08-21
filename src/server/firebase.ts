@@ -337,7 +337,7 @@ export function convertToFirestoreFields(obj: Record<string, any>): Record<strin
   return fields;
 }
 
-export async function writeFirestoreRestDoc(docId: string, data: any, authToken?: string, merge: boolean = true): Promise<boolean> {
+export async function writeFirestoreRestDoc(docId: string, data: any, authToken?: string, merge: boolean = true, collectionPath: string = 'store_data'): Promise<boolean> {
   try {
     const config = getRawFirebaseConfig();
     if (!config || !config.projectId) {
@@ -353,7 +353,7 @@ export async function writeFirestoreRestDoc(docId: string, data: any, authToken?
       });
     }
     const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
-    const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${dbId}/documents/store_data/${docId}${queryString}`;
+    const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${dbId}/documents/${collectionPath}/${docId}${queryString}`;
 
     const fields = convertToFirestoreFields(data);
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -379,13 +379,13 @@ export async function writeFirestoreRestDoc(docId: string, data: any, authToken?
   }
 }
 
-export async function deleteFirestoreRestDoc(docId: string, authToken?: string): Promise<boolean> {
+export async function deleteFirestoreRestDoc(docId: string, authToken?: string, collectionPath: string = 'store_data'): Promise<boolean> {
   try {
     const config = getRawFirebaseConfig();
     if (!config || !config.projectId) return false;
     const dbId = config.firestoreDatabaseId || config.databaseId || '(default)';
     const apiKeyParam = config.apiKey ? `?key=${config.apiKey}` : '';
-    const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${dbId}/documents/store_data/${docId}${apiKeyParam}`;
+    const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${dbId}/documents/${collectionPath}/${docId}${apiKeyParam}`;
 
     const headers: Record<string, string> = {};
     if (authToken && authToken.trim() !== '') {
@@ -399,6 +399,39 @@ export async function deleteFirestoreRestDoc(docId: string, authToken?: string):
     return res.ok;
   } catch (err) {
     return false;
+  }
+}
+
+export async function readFirestoreRestCollection(collectionPath: string, authToken?: string): Promise<any[]> {
+  try {
+    const config = getRawFirebaseConfig();
+    if (!config || !config.projectId) return [];
+    
+    const dbId = config.firestoreDatabaseId || config.databaseId || '(default)';
+    const apiKeyParam = config.apiKey ? `?key=${config.apiKey}` : '';
+    const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${dbId}/documents/${collectionPath}${apiKeyParam}`;
+
+    const headers: Record<string, string> = {};
+    if (authToken && authToken.trim() !== '') {
+      headers['Authorization'] = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`;
+    }
+
+    const res = await fetch(url, { headers });
+    if (!res.ok) {
+      console.warn(`[SERVER] readFirestoreRestCollection failed for ${collectionPath} (HTTP ${res.status})`);
+      return [];
+    }
+
+    const data = await res.json();
+    const documents = data.documents || [];
+    
+    return documents.map((doc: any) => {
+      const id = doc.name.split('/').pop();
+      return { id, ...parseFirestoreFields(doc.fields) };
+    });
+  } catch (err) {
+    console.error(`[SERVER] readFirestoreRestCollection exception for ${collectionPath}:`, err);
+    return [];
   }
 }
 

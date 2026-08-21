@@ -1215,6 +1215,7 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
               <AdminAIReviewStudioTab
                 appsList={appsList}
                 onReviewsGenerated={() => {
+                  setShowAIModal(false);
                   fetchReviews(true);
                 }}
               />

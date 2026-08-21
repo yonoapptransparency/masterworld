@@ -36,6 +36,7 @@ export interface AppReviewProfile {
   };
   toneFocus: 'balanced' | 'performance' | 'gameplay' | 'ui_graphics' | 'casual';
   singleCount: number;
+  customPrompt?: string;
   updatedAt?: string;
 }
 
@@ -128,6 +129,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
     star1: 0
   });
   const [toneFocus, setToneFocus] = useState<'balanced' | 'performance' | 'gameplay' | 'ui_graphics' | 'casual'>('balanced');
+  const [customPrompt, setCustomPrompt] = useState<string>('');
   const [singleCount, setSingleCount] = useState<number>(5);
   const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
 
@@ -144,6 +146,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
       setStarMix(saved.starMix ?? { star5: 70, star4: 20, star3: 7, star2: 3, star1: 0 });
       setToneFocus(saved.toneFocus ?? 'balanced');
       setSingleCount(saved.singleCount ?? 5);
+      setCustomPrompt(saved.customPrompt ?? '');
       setLastSavedTime(saved.updatedAt || 'Saved');
     } else {
       // Natural fallback to app's own store rating
@@ -159,6 +162,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
       });
       setToneFocus('balanced');
       setSingleCount(5);
+      setCustomPrompt('');
       setLastSavedTime(null);
     }
   }, [currentApp, appProfiles]);
@@ -238,6 +242,11 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
     toast(`Saved ${count} reviews count for ${currentApp?.name}!`, 'success');
   };
 
+  const handleCustomPromptBlur = () => {
+    persistCurrentAppProfile({ customPrompt: customPrompt.trim() });
+    toast(`Saved custom instructions for ${currentApp?.name}`, 'success');
+  };
+
   const handleResetToAppDefault = () => {
     if (!currentApp) return;
     const initialScore = currentApp.rating ? Math.min(5.0, Math.max(3.0, Number(currentApp.rating))) : 4.8;
@@ -314,6 +323,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           count: singleCount,
           targetScore,
           toneFocus,
+          customPrompt: customPrompt.trim(),
           starMix: customDistribution ? starMix : undefined,
           saveDirectly: instantSave
         })
@@ -397,7 +407,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
 
       for (let i = 0; i < targetApps.length; i += BATCH_SIZE) {
         const chunk = targetApps.slice(i, i + BATCH_SIZE);
-        const chunkAppIds = chunk.map(a => a.id);
+        const chunkAppIds = chunk.map(a => a.id || a.slug);
 
         setBulkProgress({
           current: Math.min(i + BATCH_SIZE, targetApps.length),
@@ -411,9 +421,6 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           body: JSON.stringify({
             appIds: chunkAppIds,
             countPerApp: bulkCountPerApp,
-            targetScore,
-            toneFocus,
-            starMix: customDistribution ? starMix : undefined,
             appProfilesMap: appProfiles // Passes all per-app custom profiles to backend!
           })
         });
@@ -690,6 +697,21 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
                 <option value="casual">Casual Commuter (Quick Breaks, Intuitive Controls)</option>
               </select>
             </div>
+
+            {/* Custom AI Prompt (Optional) */}
+            <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1">
+                <Sparkles size={12} className="text-blue-500" /> Optional Custom Instructions
+              </label>
+              <textarea
+                value={customPrompt}
+                onChange={(e) => setCustomPrompt(e.target.value)}
+                onBlur={handleCustomPromptBlur}
+                placeholder="E.g. 'Make sure all reviews mention the new Dragon vs Tiger mode and how it helped them win.'"
+                className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none h-20"
+              />
+              <p className="text-[10px] text-slate-500 leading-tight">Add specific keywords or themes you want the AI to include in the generated reviews for this app.</p>
+            </div>
           </div>
         </div>
 
@@ -946,18 +968,19 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
 
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                    Reviews Per App
+                    Fallback Reviews Per App
                   </label>
                   <select
                     value={bulkCountPerApp}
                     onChange={(e) => setBulkCountPerApp(parseInt(e.target.value, 10))}
                     className="w-full text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-800 dark:text-slate-200 cursor-pointer"
                   >
-                    <option value={2}>2 Reviews per App</option>
-                    <option value={3}>3 Reviews per App (Recommended)</option>
-                    <option value={5}>5 Reviews per App</option>
-                    <option value={10}>10 Reviews per App</option>
+                    <option value={2}>2 Reviews per App (Fallback)</option>
+                    <option value={3}>3 Reviews per App (Recommended Fallback)</option>
+                    <option value={5}>5 Reviews per App (Fallback)</option>
+                    <option value={10}>10 Reviews per App (Fallback)</option>
                   </select>
+                  <div className="text-[10px] text-slate-500">Apps without custom profiles will use this count.</div>
                 </div>
               </div>
 
@@ -969,9 +992,11 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
                     {Object.keys(appProfiles).length} custom saved app profiles active. Non-customized apps will automatically use their individual store ratings so every app has distinct organic score averages.
                   </div>
                 </div>
-                <div className="text-right font-mono font-bold text-blue-600 dark:text-blue-300 text-sm shrink-0">
-                  {bulkCategory === 'all' ? appsList.length : appsList.filter(a => a.category?.includes(bulkCategory)).length} Apps × {bulkCountPerApp} = ~
-                  {(bulkCategory === 'all' ? appsList.length : appsList.filter(a => a.category?.includes(bulkCategory)).length) * bulkCountPerApp} Reviews
+                <div className="text-right font-mono font-bold text-blue-600 dark:text-blue-300 text-sm shrink-0 flex flex-col items-end">
+                  <span>{bulkCategory === 'all' ? appsList.length : appsList.filter(a => a.category?.includes(bulkCategory)).length} Target Apps</span>
+                  <span className="text-[11px] text-blue-500 dark:text-blue-400 font-medium tracking-tight">
+                    ~ {(bulkCategory === 'all' ? appsList : appsList.filter(a => a.category?.includes(bulkCategory))).reduce((sum, app) => sum + (appProfiles[app.id || app.slug]?.singleCount || bulkCountPerApp), 0)} Total Reviews
+                  </span>
                 </div>
               </div>
 

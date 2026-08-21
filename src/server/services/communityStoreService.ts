@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { getCommunityAdminDb, writeFirestoreRestDoc, parseFirestoreFields, getRawFirebaseConfig } from '../firebase';
+import { getCommunityAdminDb, writeFirestoreRestDoc, deleteFirestoreRestDoc, readFirestoreRestCollection, parseFirestoreFields, getRawFirebaseConfig } from '../firebase';
 import { getStaticData } from '../config';
 
 export interface ReviewRecord {
@@ -233,37 +233,94 @@ class CommunityStoreService {
               updated_at: d.updated_at
             });
           });
-        } catch (e) {}
+        } catch (e) {
+          console.warn('[CommunityStore] Firestore init warning:', e);
+        }
       } else {
-        // Fallback REST doc check
-        const config = getRawFirebaseConfig();
-        if (config?.projectId) {
-          const dbId = config.firestoreDatabaseId || config.databaseId || '(default)';
-          const apiKeyParam = config.apiKey ? `?key=${encodeURIComponent(config.apiKey)}` : '';
-          const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${dbId}/documents/store_data/community_store${apiKeyParam}`;
-          try {
-            const res = await fetch(url);
-            if (res.ok) {
-              const json = await res.json();
-              if (json?.fields) {
-                const parsed = parseFirestoreFields(json.fields);
-                if (parsed?.reviews && Array.isArray(parsed.reviews)) {
-                  parsed.reviews.forEach((r: ReviewRecord) => {
-                    if (r?.id && !this.reviews.has(r.id)) {
-                      r.reviewText = sanitizeReviewText(r.reviewText);
-                      this.reviews.set(r.id, r);
-                    }
-                  });
-                }
-                if (parsed?.reports && Array.isArray(parsed.reports)) {
-                  parsed.reports.forEach((rep: ReportRecord) => {
-                    if (rep?.id && !this.reports.has(rep.id)) this.reports.set(rep.id, rep);
-                  });
-                }
+        // Fallback to REST API if Admin SDK is not initialized
+        try {
+          const restReviews = await readFirestoreRestCollection('reviews');
+          restReviews.forEach((d: any) => {
+            if (d && d.id && !this.reviews.has(d.id)) {
+              this.reviews.set(d.id, {
+                id: d.id,
+                appId: d.appId || '',
+                appSlug: d.appSlug || '',
+                appName: d.appName || '',
+                userName: d.userName || 'Player',
+                rating: Number(d.rating) || 5,
+                reviewText: sanitizeReviewText(d.reviewText || ''),
+                timestamp: d.timestamp || new Date().toISOString(),
+                status: d.status || 'published',
+                helpful_count: Number(d.helpful_count) || 0,
+                isPinned: Boolean(d.isPinned),
+                reported: Boolean(d.reported),
+                report_count: Number(d.report_count) || 0,
+                source: d.source || 'community',
+                adminReply: d.adminReply || null,
+                updated_at: d.updated_at
+              });
+            }
+          });
+
+          const restReports = await readFirestoreRestCollection('reports');
+          restReports.forEach((d: any) => {
+            if (d && d.id && !this.reports.has(d.id)) {
+              this.reports.set(d.id, {
+                id: d.id,
+                type: d.type || 'app_flag',
+                appId: d.appId || '',
+                appName: d.appName || '',
+                reviewId: d.reviewId || '',
+                reviewAuthor: d.reviewAuthor || '',
+                reviewComment: d.reviewComment || '',
+                reason: d.reason || 'Flag',
+                description: d.description || '',
+                reporterEmail: d.reporterEmail || '',
+                reporterName: d.reporterName || '',
+                status: d.status || 'pending',
+                created_at: d.created_at || new Date().toISOString(),
+                ip: d.ip || '',
+                userAgent: d.userAgent || '',
+                adminNotes: d.adminNotes || '',
+                updated_at: d.updated_at
+              });
+            }
+          });
+          console.log(`[CommunityStore] Initialized via REST with ${this.reviews.size} reviews and ${this.reports.size} reports.`);
+        } catch (restError) {
+          console.warn('[CommunityStore] REST Firestore init failed:', restError);
+        }
+      }
+      
+      // Fallback REST doc check for community_store
+      const config = getRawFirebaseConfig();
+      if (config?.projectId) {
+        const dbId = config.firestoreDatabaseId || config.databaseId || '(default)';
+        const apiKeyParam = config.apiKey ? `?key=${encodeURIComponent(config.apiKey)}` : '';
+        const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${dbId}/documents/store_data/community_store${apiKeyParam}`;
+        try {
+          const res = await fetch(url);
+          if (res.ok) {
+            const json = await res.json();
+            if (json?.fields) {
+              const parsed = parseFirestoreFields(json.fields);
+              if (parsed?.reviews && Array.isArray(parsed.reviews)) {
+                parsed.reviews.forEach((r: ReviewRecord) => {
+                  if (r?.id && !this.reviews.has(r.id)) {
+                    r.reviewText = sanitizeReviewText(r.reviewText);
+                    this.reviews.set(r.id, r);
+                  }
+                });
+              }
+              if (parsed?.reports && Array.isArray(parsed.reports)) {
+                parsed.reports.forEach((rep: ReportRecord) => {
+                  if (rep?.id && !this.reports.has(rep.id)) this.reports.set(rep.id, rep);
+                });
               }
             }
-          } catch (e) {}
-        }
+          }
+        } catch (e) {}
       }
       this.initialized = true;
       console.log(`[CommunityStore] Firestore sync complete: ${this.reviews.size} reviews, ${this.reports.size} reports.`);
@@ -324,6 +381,8 @@ class CommunityStoreService {
     const db = getCommunityAdminDb();
     if (db) {
       db.collection('reviews').doc(id).set(newRev).catch((e: any) => console.warn(e));
+    } else {
+      writeFirestoreRestDoc(id, newRev, undefined, true, 'reviews').catch(() => {});
     }
 
     this.saveToDiskAndQueueCloudSync();
@@ -367,6 +426,8 @@ class CommunityStoreService {
 
       if (db) {
         db.collection('reviews').doc(id).set(newRev).catch((e: any) => console.warn(e));
+      } else {
+        writeFirestoreRestDoc(id, newRev, undefined, true, 'reviews').catch(() => {});
       }
     }
 
@@ -400,6 +461,8 @@ class CommunityStoreService {
     const db = getCommunityAdminDb();
     if (db) {
       db.collection('reviews').doc(reviewId).set({ helpful_count: rev.helpful_count }, { merge: true }).catch(() => {});
+    } else {
+      writeFirestoreRestDoc(reviewId, { helpful_count: rev.helpful_count }, undefined, true, 'reviews').catch(() => {});
     }
 
     this.saveToDiskAndQueueCloudSync();
@@ -438,6 +501,11 @@ class CommunityStoreService {
         db.collection('reviews').doc(reviewId).set({ reported: true, report_count: rev.report_count }, { merge: true }).catch(() => {});
       }
       db.collection('reports').doc(reportId).set(newReport).catch(() => {});
+    } else {
+      if (rev) {
+        writeFirestoreRestDoc(reviewId, { reported: true, report_count: rev.report_count }, undefined, true, 'reviews').catch(() => {});
+      }
+      writeFirestoreRestDoc(reportId, newReport, undefined, true, 'reports').catch(() => {});
     }
 
     this.saveToDiskAndQueueCloudSync();
@@ -460,6 +528,8 @@ class CommunityStoreService {
     const db = getCommunityAdminDb();
     if (db) {
       db.collection('reviews').doc(id).set(updated, { merge: true }).catch(() => {});
+    } else {
+      writeFirestoreRestDoc(id, updated, undefined, true, 'reviews').catch(() => {});
     }
 
     this.saveToDiskAndQueueCloudSync();
@@ -471,6 +541,8 @@ class CommunityStoreService {
     const db = getCommunityAdminDb();
     if (db) {
       db.collection('reviews').doc(id).delete().catch(() => {});
+    } else {
+      deleteFirestoreRestDoc(id, undefined, 'reviews').catch(() => {});
     }
     this.saveToDiskAndQueueCloudSync();
     return existed;
@@ -507,73 +579,6 @@ class CommunityStoreService {
           (rAppName && aliasKeys.has(rAppName))
         );
       });
-
-    // If no custom reviews yet, generate authentic, clean entertainment default reviews
-    if (all.length === 0) {
-      const cleanTitle = matchedApp?.name || appTitle || (target.length > 2 && isNaN(Number(target)) ? target.replace(/-/g, ' ') : 'this game');
-      const seedAppId = matchedApp?.id ? String(matchedApp.id) : appIdentifier;
-      const seedAppSlug = matchedApp?.slug || '';
-      const seedAppName = matchedApp?.name || cleanTitle;
-
-      const seedReviews: ReviewRecord[] = [
-        {
-          id: `seed_${seedAppId}_1`,
-          appId: seedAppId,
-          appSlug: seedAppSlug,
-          appName: seedAppName,
-          userName: 'Vikram Sharma',
-          rating: 5,
-          reviewText: `Superb interface and ultra smooth table animations on ${cleanTitle}. Graphics are crisp and touch response is instant.`,
-          timestamp: new Date(Date.now() - 2 * 86400000).toISOString(),
-          status: 'published',
-          helpful_count: 14,
-          isPinned: true,
-          reported: false,
-          report_count: 0,
-          source: 'community'
-        },
-        {
-          id: `seed_${seedAppId}_2`,
-          appId: seedAppId,
-          appSlug: seedAppSlug,
-          appName: seedAppName,
-          userName: 'Rahul Verma',
-          rating: 5,
-          reviewText: `Clean UI, zero frame drops during multiplayer matches, and balanced mechanics. Highly recommend trying out ${cleanTitle}.`,
-          timestamp: new Date(Date.now() - 5 * 86400000).toISOString(),
-          status: 'published',
-          helpful_count: 9,
-          isPinned: false,
-          reported: false,
-          report_count: 0,
-          source: 'community'
-        },
-        {
-          id: `seed_${seedAppId}_3`,
-          appId: seedAppId,
-          appSlug: seedAppSlug,
-          appName: seedAppName,
-          userName: 'Amit Patel',
-          rating: 4,
-          reviewText: `Great visual presentation and intuitive table layout. Runs smoothly on my phone without lag.`,
-          timestamp: new Date(Date.now() - 8 * 86400000).toISOString(),
-          status: 'published',
-          helpful_count: 6,
-          isPinned: false,
-          reported: false,
-          report_count: 0,
-          source: 'community'
-        }
-      ];
-
-      seedReviews.forEach(r => {
-        if (!this.reviews.has(r.id)) {
-          this.reviews.set(r.id, r);
-        }
-      });
-
-      all = seedReviews;
-    }
 
     all.sort((a, b) => {
       if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
@@ -704,6 +709,8 @@ class CommunityStoreService {
     const db = getCommunityAdminDb();
     if (db) {
       db.collection('reports').doc(id).set(newReport).catch(() => {});
+    } else {
+      writeFirestoreRestDoc(id, newReport, undefined, true, 'reports').catch(() => {});
     }
 
     this.saveToDiskAndQueueCloudSync();
@@ -784,6 +791,8 @@ class CommunityStoreService {
     const db = getCommunityAdminDb();
     if (db) {
       db.collection('reports').doc(id).set(updated, { merge: true }).catch(() => {});
+    } else {
+      writeFirestoreRestDoc(id, updated, undefined, true, 'reports').catch(() => {});
     }
 
     this.saveToDiskAndQueueCloudSync();
@@ -795,6 +804,8 @@ class CommunityStoreService {
     const db = getCommunityAdminDb();
     if (db) {
       db.collection('reports').doc(id).delete().catch(() => {});
+    } else {
+      deleteFirestoreRestDoc(id, undefined, 'reports').catch(() => {});
     }
     this.saveToDiskAndQueueCloudSync();
     return existed;
@@ -828,30 +839,31 @@ class CommunityStoreService {
         total += r.rating;
       });
 
-      const averageRating = parseFloat((total / appReviews.length).toFixed(1));
+      const averageRating = total / appReviews.length;
+
       return {
         appId: matchedApp?.id ? String(matchedApp.id) : appIdentifier,
-        averageRating,
+        averageRating: parseFloat(averageRating.toFixed(1)),
         totalReviews: appReviews.length,
         starCounts
       };
     }
 
-    // Default authentic baseline for apps
-    const baseRating = Math.max(1, Math.min(5, Number(fallbackRating) || 4.8));
-    const baseTotal = 1420;
+    // Real authentic stats
+    const baseTotal = matchedApp?.review_count ? Number(matchedApp.review_count) : 0;
+    const baseRating = matchedApp?.rating ? Number(matchedApp.rating) : 0;
     const starCounts = {
-      '5': Math.round(baseTotal * 0.82),
-      '4': Math.round(baseTotal * 0.12),
-      '3': Math.round(baseTotal * 0.04),
-      '2': Math.round(baseTotal * 0.01),
-      '1': Math.round(baseTotal * 0.01)
+      '5': 0,
+      '4': 0,
+      '3': 0,
+      '2': 0,
+      '1': 0
     };
 
     return {
       appId: matchedApp?.id ? String(matchedApp.id) : appIdentifier,
-      averageRating: parseFloat(baseRating.toFixed(1)),
-      totalReviews: baseTotal,
+      averageRating: 0,
+      totalReviews: 0,
       starCounts
     };
   }

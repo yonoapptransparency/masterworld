@@ -387,7 +387,7 @@ communityRouter.post("/api/v1/admin/community/recalculate-all", verifyAdminToken
 // Admin: AI Review Generator - Single App
 communityRouter.post("/api/v1/admin/community/ai-generate/single", verifyAdminToken, async (req: any, res: any) => {
   try {
-    const { appId, appData, count = 5, targetScore = 4.8, starMix, toneFocus = 'balanced', saveDirectly = false } = req.body;
+    const { appId, appData, count = 5, targetScore = 4.8, starMix, toneFocus = 'balanced', customPrompt, saveDirectly = false } = req.body;
 
     if (!appId && !appData) {
       return res.status(400).json({ error: 'App ID or App Data is required' });
@@ -410,7 +410,8 @@ communityRouter.post("/api/v1/admin/community/ai-generate/single", verifyAdminTo
       count: numCount,
       targetScore: numTargetScore,
       starMix,
-      toneFocus
+      toneFocus,
+      customPrompt
     });
 
     if (saveDirectly) {
@@ -475,12 +476,14 @@ communityRouter.post("/api/v1/admin/community/ai-generate/bulk", verifyAdminToke
         let appStarMix = starMix;
         let appToneFocus = toneFocus;
         let appCount = defaultCount;
+        let appCustomPrompt = undefined;
 
         if (customProfile) {
           if (customProfile.targetScore) appTargetScore = Math.max(1.0, Math.min(5.0, Number(customProfile.targetScore)));
           if (customProfile.starMix) appStarMix = customProfile.starMix;
           if (customProfile.toneFocus) appToneFocus = customProfile.toneFocus;
           if (customProfile.singleCount || customProfile.count) appCount = Math.max(1, Math.min(20, Number(customProfile.singleCount || customProfile.count)));
+          if (customProfile.customPrompt) appCustomPrompt = customProfile.customPrompt;
         } else if (app.rating) {
           // If no custom profile set, naturally honor this app's own store catalog rating
           appTargetScore = Math.max(1.0, Math.min(5.0, Number(app.rating)));
@@ -490,7 +493,8 @@ communityRouter.post("/api/v1/admin/community/ai-generate/bulk", verifyAdminToke
           count: appCount,
           targetScore: appTargetScore,
           starMix: appStarMix,
-          toneFocus: appToneFocus
+          toneFocus: appToneFocus,
+          customPrompt: appCustomPrompt
         });
 
         allGeneratedReviews.push(...appReviews);
