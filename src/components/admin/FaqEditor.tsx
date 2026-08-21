@@ -44,6 +44,7 @@ export function FaqEditor({ initialFaqs, onChange }: FaqEditorProps) {
         <div key={idx} className="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200/60 dark:border-slate-800/80 space-y-3 relative">
           <button 
             type="button" 
+            aria-label="Remove FAQ"
             onClick={() => removeFaq(idx)} 
             className="absolute top-3 right-3 text-rose-500 hover:text-rose-600 bg-rose-50 dark:bg-rose-950/20 p-1.5 rounded-lg transition-all border-0 cursor-pointer"
           >

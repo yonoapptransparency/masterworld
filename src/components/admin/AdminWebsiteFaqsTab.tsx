@@ -40,6 +40,7 @@ export const AdminWebsiteFaqsTab: React.FC<AdminWebsiteFaqsTabProps> = ({
             <div key={`website-faq-${index}`} className="bg-slate-50/50 dark:bg-slate-800/30 border border-slate-200/60 dark:border-slate-800/60 rounded-xl p-5 shadow-sm relative animate-fade-in">
               <button
                 type="button"
+                aria-label="Remove FAQ"
                 onClick={() => handleRemoveWebsiteFaq(index)}
                 className="absolute top-4 right-4 text-rose-500 bg-rose-50 dark:bg-rose-950/40 p-2 rounded-lg hover:bg-rose-500 hover:text-white transition-all border border-rose-100 dark:border-rose-900/30 cursor-pointer"
               >
