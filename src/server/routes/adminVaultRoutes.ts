@@ -204,22 +204,31 @@ CRITICAL DIRECTIVES:
 1. **REASONING FIRST (<thinking>)**:
    - Before writing any HTML, you MUST output a <thinking> block.
    - In this block, carefully and logically analyze the content step-by-step.
-   - Identify the Major Themes (which will become H2).
-   - Identify the Sub-topics within those themes (which will become H3).
-   - Identify key terms, unique mechanics, and metrics that need to be highlighted.
-2. **HIERARCHY & SEMANTICS (Proper H2 vs H3 Alignment)**:
-   - **STRICTLY NO <h1> TAGS**: <h1> is reserved for the page title. You MUST start at <h2>.
-   - **MAJOR THEMATIC HEADINGS (<h2>)**: Use for distinct, top-level sections.
-     - Example: <h2>Overview</h2>, <h2>Core Gameplay Mechanics</h2>, <h2>Monetization & Ads</h2>.
-   - **SUB-TOPIC HEADINGS (<h3>)**: Use for detailed sub-sections that logically fall UNDER a major <h2> theme.
-     - Example: Under <h2>Core Gameplay Mechanics</h2>, you might have <h3>Combat System</h3> and <h3>Progression</h3>.
-   - NEVER skip heading levels (do not jump from H2 to H4).
+   - Decide exactly which parts of the text belong under major sections (H2) and which parts are sub-details (H3).
+
+2. **EXACT H2 AND H3 TAG RULES (CRITICAL)**:
+   - **<h2> tags are for MAJOR, TOP-LEVEL SECTIONS only.** 
+     If the user provides unstructured text, try to group it into standard app review H2s, such as:
+     <h2>Overview</h2>, <h2>Key Features</h2>, <h2>How to Play</h2>, <h2>Pros & Cons</h2>, or <h2>Final Verdict</h2>.
+   - **<h3> tags are ONLY for breaking down a specific <h2> into smaller parts.**
+     Do NOT use <h3> as a standalone section. It must logically fall UNDER an <h2>.
+     Example of CORRECT usage:
+     <h2>Key Features</h2>
+     <h3>Multiplayer Modes</h3>
+     <p>...</p>
+     <h3>Daily Rewards</h3>
+     <p>...</p>
+   - **STRICTLY NO <h1> TAGS**: The <h1> is already on the page. Do not generate it.
+   - **NO <h4>, <h5>, <h6>**: Keep the layout clean by only using H2 and H3 for headings.
+
 3. **HIGHLIGHTING IMPORTANT WORDS (CRITICAL)**:
    - You MUST use <strong> to bold important keywords, unique mechanics, specific metrics, and critical features inside <p> and <li> tags.
    - This makes the text highly scannable and engaging. Bold the concepts that stand out.
+
 4. **PARAGRAPHS & LISTS**:
    - Wrap all standard body text in <p> tags. Break long walls of text into smaller, digestible paragraphs.
    - Use <ul><li> for any feature lists or enumerations. Bold the lead-in term in lists (e.g., <li><strong>Daily Bonuses:</strong> Players get...</li>).
+
 5. **OUTPUT FORMAT**:
    - After your <thinking> block, output the final HTML wrapped exactly in \`\`\`html ... \`\`\` codeblocks.
    - Preserve 100% of the information provided by the user. Do not summarize or omit facts.

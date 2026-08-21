@@ -8,6 +8,8 @@ import fs from 'fs';
 
 import { injectSeoTags, fetchStoreData, resolveAppSlug } from './src/seoHelper';
 import { adminAuthRouter } from './src/server/routes/adminAuthRoutes';
+import { communityRouter } from './src/server/routes/communityRoutes';
+import { reportRouter } from './src/server/routes/reportRoutes';
 import { githubSyncRouter } from './src/server/routes/githubSyncRoutes';
 import { seoRouter } from './src/server/routes/seoRoutes';
 import { adminVaultRouter } from './src/server/routes/adminVaultRoutes';
@@ -86,6 +88,8 @@ async function startServer() {
   // Mount API & SEO Routes
   app.use(seoRouter);
   app.use(adminAuthRouter);
+  app.use(communityRouter);
+  app.use(reportRouter);
   app.use(githubSyncRouter);
   app.use(adminVaultRouter);
   app.use(securityRouter);

@@ -24,22 +24,34 @@ export const ReportAppModal: React.FC<ReportAppModalProps> = ({ app, onClose }) 
     };
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     
-    // Simulate lightweight server feedback delay
-    setTimeout(() => {
+    try {
+      await fetch('/api/v1/public/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'app_flag',
+          appId: app.id || app.slug || 'unknown',
+          appName: app.name,
+          reason: reason,
+          description: comment,
+          turnstileToken: 'frontend_token_placeholder'
+        })
+      });
+    } catch (err) {
+      console.error('Error submitting report:', err);
+    } finally {
       setSubmitting(false);
       setSubmitted(true);
-      
-      // Also trigger haptic feedback if available
       if (window.navigator && window.navigator.vibrate) {
         try {
           window.navigator.vibrate([30, 50, 30]);
         } catch (_) {}
       }
-    }, 600);
+    }
   };
 
   return (

@@ -13,7 +13,9 @@ import { AdminVideosTab } from './AdminVideosTab';
 import { AdminQuickLinksTab } from './AdminQuickLinksTab';
 import { AdminWebsiteFaqsTab } from './AdminWebsiteFaqsTab';
 import { AdminDevelopersTab } from './AdminDevelopersTab';
-import { AdminReviewsTab } from './AdminReviewsTab';
+import AdminReviewsTab from './AdminReviewsTab';
+import AdminReportsTab from './AdminReportsTab';
+import AdminCommunityTab from './AdminCommunityTab';
 
 interface AdminTabContentProps {
   activeTab: string;
@@ -245,7 +247,9 @@ export const AdminTabContent = ({
         />
       );
     case 'reviews':
-      return <AdminReviewsTab db={db} />;
+      return <AdminReviewsTab appsList={appsList} />;
+    case 'reports':
+      return <AdminReportsTab appsList={appsList} />;
     case 'security':
       return (
         <div className="space-y-6">

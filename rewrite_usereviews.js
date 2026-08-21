@@ -1,4 +1,9 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+const fs = require('fs');
+const path = require('path');
+
+const filePath = path.join(__dirname, 'src', 'hooks', 'useReviews.ts');
+
+const newContent = `import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Review } from '../components/public/ReviewItem';
 
 export function useReviews(appId: string, appTitle: string, inView: boolean = true) {
@@ -31,7 +36,7 @@ export function useReviews(appId: string, appTitle: string, inView: boolean = tr
       if (isLoadMore) setLoadingMore(true);
       else setLoading(true);
 
-      const url = new URL(`/api/v1/public/community/reviews/${appId}`, window.location.origin);
+      const url = new URL(\`/api/v1/public/community/reviews/\${appId}\`, window.location.origin);
       if (isLoadMore && nextCursor) {
         url.searchParams.append('cursor', nextCursor);
       }
@@ -40,18 +45,20 @@ export function useReviews(appId: string, appTitle: string, inView: boolean = tr
       if (res.ok) {
         const data = await res.json();
         
-        let remoteReviews = (data.reviews || []).map((r: any) => ({
+        let remoteReviews = data.reviews || [];
+        // Map backend community structure to frontend Review interface if needed
+        remoteReviews = remoteReviews.map((r: any) => ({
+          ...r,
           id: r.id,
-          app_id: r.app_id || r.appId || appId,
-          username: r.username || r.userName || 'Player',
-          rating: Number(r.rating) || 5,
-          comment: r.comment || r.reviewText || '',
-          created_at: r.created_at || r.timestamp || new Date().toISOString(),
-          helpful_count: Number(r.helpful_count) || 0,
-          reported: Boolean(r.reported),
-          report_count: Number(r.report_count) || 0,
-          source: r.source || 'community',
-          isPinned: Boolean(r.isPinned)
+          app_id: r.appId,
+          username: r.userName,
+          rating: r.rating,
+          comment: r.reviewText,
+          created_at: r.timestamp,
+          helpful_count: r.helpful_count || 0,
+          reported: false,
+          report_count: 0,
+          source: 'community'
         }));
 
         setReviews(prev => {
@@ -63,7 +70,7 @@ export function useReviews(appId: string, appTitle: string, inView: boolean = tr
             // For initial load, we also merge local optimistic reviews
             let localReviews: Review[] = [];
             try {
-              const stored = localStorage.getItem(`local_user_reviews_${appId}`);
+              const stored = localStorage.getItem(\`local_user_reviews_\${appId}\`);
               if (stored) {
                 localReviews = JSON.parse(stored);
               }
@@ -115,17 +122,11 @@ export function useReviews(appId: string, appTitle: string, inView: boolean = tr
       })
     );
     setVotedReviews(prev => ({ ...prev, [id]: true }));
-    fetch('/api/v1/public/community/reviews/helpful', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reviewId: id })
-    }).catch(() => {});
   }, [votedReviews]);
 
   const handleReportReview = useCallback((id: string) => {
     if (reportedReviews[id]) return;
     setReportedReviews(prev => ({ ...prev, [id]: true }));
-    const targetRev = reviews.find(r => r.id === id);
     setReviews(prev =>
       prev.map(r => {
         if (r.id === id) {
@@ -134,17 +135,7 @@ export function useReviews(appId: string, appTitle: string, inView: boolean = tr
         return r;
       })
     );
-    fetch('/api/v1/public/community/reviews/report', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        reviewId: id,
-        appId: appId,
-        reason: 'User Flagged Review',
-        details: targetRev?.comment || ''
-      })
-    }).catch(() => {});
-  }, [reportedReviews, reviews, appId]);
+  }, [reportedReviews]);
 
   const sortedReviews = useMemo(() => {
     const list = [...reviews];
@@ -188,3 +179,7 @@ export function useReviews(appId: string, appTitle: string, inView: boolean = tr
     filteredReviews
   };
 }
+`;
+
+fs.writeFileSync(filePath, newContent);
+console.log('Rewrote useReviews.ts for lazy loading & pagination');

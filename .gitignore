@@ -12,3 +12,4 @@ service-account.json
 src/lib/public_backup.json
 src/lib/secure_links_backup.json
 .local/
+community-service-account.json

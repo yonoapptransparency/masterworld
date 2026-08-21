@@ -116,10 +116,13 @@ export const AdminSidebar = ({
             <SidebarItem id="faqs" icon={HelpCircle} label="Website FAQs" active={activeTab === 'faqs'} onClick={onTabChange} />
             <SidebarItem id="quick-links" icon={LinkIcon} label="Quick Links" active={activeTab === 'quick-links'} onClick={onTabChange} />
 
+            <div className="pt-4 pb-2 px-3 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">Moderation & Community</div>
+            <SidebarItem id="reviews" icon={MessageSquare} label="App Reviews" active={activeTab === 'reviews'} onClick={onTabChange} />
+            <SidebarItem id="reports" icon={ShieldAlert} label="User Reports" active={activeTab === 'reports'} onClick={onTabChange} />
+
             <div className="pt-4 pb-2 px-3 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">System & Sync</div>
             <SidebarItem id="github" icon={Github} label="GitHub Sync" active={activeTab === 'github'} onClick={onTabChange} />
             <SidebarItem id="developers" icon={Users} label="Developer Team" active={activeTab === 'developers'} onClick={onTabChange} />
-            <SidebarItem id="reviews" icon={MessageSquare} label="App Reviews" active={activeTab === 'reviews'} onClick={onTabChange} />
             <SidebarItem id="security" icon={Shield} label="Security Panel" active={activeTab === 'security'} onClick={onTabChange} />
             <SidebarItem id="settings" icon={Settings} label="Global Settings" active={activeTab === 'settings'} onClick={onTabChange} />
           </nav>
