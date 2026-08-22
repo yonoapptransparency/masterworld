@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Edit2, 
   Trash2, 
@@ -6,7 +6,8 @@ import {
   AlertTriangle, 
   Sparkles, 
   MessageSquare,
-  LayoutDashboard
+  LayoutDashboard,
+  Star
 } from 'lucide-react';
 import { safeHtml } from '../../../lib/safeHtml';
 
@@ -26,6 +27,21 @@ export const AppInspector = ({
   handleDeleteApp 
 }: AppInspectorProps) => {
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
+  const [liveStats, setLiveStats] = useState<{ averageRating: number; totalReviews: number } | null>(null);
+
+  useEffect(() => {
+    if (selectedApp?.id) {
+      setLiveStats(null);
+      fetch(`/api/v1/public/community/stats/${selectedApp.id}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.stats) {
+            setLiveStats(data.stats);
+          }
+        })
+        .catch(err => console.error("Error fetching live stats for inspector:", err));
+    }
+  }, [selectedApp?.id]);
 
   if (!selectedApp) {
     return (
@@ -116,9 +132,21 @@ export const AppInspector = ({
               {selectedApp.seo_title || selectedApp.name}
             </div>
             <div className="flex items-center gap-1.5 text-[12px] text-zinc-600 dark:text-zinc-400 my-1 font-medium">
-              <span className="font-bold text-zinc-900 dark:text-zinc-100">{selectedApp.rating ? Number(selectedApp.rating).toFixed(1) : '4.8'}</span>
-              <span className="text-amber-500">★★★★★</span>
-              <span>({selectedApp.review_count ? Number(selectedApp.review_count).toLocaleString() : '0'})</span>
+              <span className="font-bold text-zinc-900 dark:text-zinc-100">
+                {liveStats ? liveStats.averageRating.toFixed(1) : (selectedApp.rating ? Number(selectedApp.rating).toFixed(1) : '4.8')}
+              </span>
+              <div className="flex text-[#fbbc04] gap-[1px]">
+                {[...Array(5)].map((_, i) => {
+                  const ratingVal = liveStats ? liveStats.averageRating : (selectedApp.rating ? Number(selectedApp.rating) : 4.8);
+                  return (
+                    <Star 
+                      key={i} 
+                      className={`w-3.5 h-3.5 ${i < Math.round(ratingVal) ? 'fill-current' : 'text-slate-300 dark:text-slate-600'}`} 
+                    />
+                  );
+                })}
+              </div>
+              <span>({liveStats ? liveStats.totalReviews.toLocaleString() : (selectedApp.review_count ? Number(selectedApp.review_count).toLocaleString() : '0')})</span>
               <span>· Free · Android · Game</span>
             </div>
             <p className="text-[13px] text-slate-600 dark:text-slate-400 font-normal leading-normal mt-1 line-clamp-2">
@@ -132,14 +160,14 @@ export const AppInspector = ({
           <div>
             <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Rating Score</div>
             <div className="text-sm font-bold text-slate-800 dark:text-slate-100 mt-1 flex items-center gap-1">
-              ⭐ {selectedApp.rating !== undefined ? Number(selectedApp.rating).toFixed(1) : '4.8'} <span className="text-[10px] text-slate-400 font-normal">/ 5</span>
+              ⭐ {liveStats ? liveStats.averageRating.toFixed(1) : (selectedApp.rating !== undefined ? Number(selectedApp.rating).toFixed(1) : '4.8')} <span className="text-[10px] text-slate-400 font-normal">/ 5</span>
             </div>
           </div>
 
           <div>
             <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Total Ratings</div>
             <div className="text-sm font-bold text-slate-800 dark:text-slate-100 mt-1 flex items-center gap-1">
-              👥 {selectedApp.review_count ? Number(selectedApp.review_count).toLocaleString() : '0'}
+              👥 {liveStats ? liveStats.totalReviews.toLocaleString() : (selectedApp.review_count ? Number(selectedApp.review_count).toLocaleString() : '0')}
             </div>
           </div>
 
