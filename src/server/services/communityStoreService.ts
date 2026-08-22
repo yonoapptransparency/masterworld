@@ -130,9 +130,12 @@ class CommunityStoreService {
     this.initFromFirestore().catch(() => {});
 
     // Periodically poll Firestore to keep multi-instance Cloud Run environments in sync
-    setInterval(() => {
+    const intervalId = setInterval(() => {
       this.initFromFirestore(true).catch(() => {});
     }, 15000);
+    if (typeof intervalId.unref === 'function') {
+      intervalId.unref();
+    }
   }
 
   // Load from local JSON disk backup on startup
@@ -328,7 +331,9 @@ class CommunityStoreService {
         } catch (e) {}
       }
       this.initialized = true;
-      console.log(`[CommunityStore] Firestore sync complete: ${this.reviews.size} reviews, ${this.reports.size} reports.`);
+      if (!forceSync) {
+        console.log(`[CommunityStore] Firestore sync complete: ${this.reviews.size} reviews, ${this.reports.size} reports.`);
+      }
     } catch (err) {
       console.warn('[CommunityStore] Init failed gracefully:', err);
     }
