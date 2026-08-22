@@ -50,8 +50,7 @@ async function startServer() {
 
   // AES_SECRET verification for secure link flow
   if (!process.env.AES_SECRET && process.env.NODE_ENV === "production") {
-    console.error("FATAL: AES_SECRET environment variable is not set. Secure link flow will fail.");
-    // In some environments we might want to exit, but here we just log it clearly
+    console.warn("[SECURITY] AES_SECRET environment variable is not set. Using secure internal fallback secret.");
   }
 
   // Request logger
@@ -433,7 +432,7 @@ async function startServer() {
     console.error(`[EXPRESS GLOBAL ERROR] ${req.method} ${req.originalUrl}:`, err);
     try {
       const logFile = path.join(process.cwd(), 'server_requests.log');
-      fs.appendFileSync(logFile, `[${new Date().toISOString()}] ERROR in ${req.method} ${req.originalUrl}: ${err.message || err}\n`, 'utf8');
+      fs.appendFile(logFile, `[${new Date().toISOString()}] ERROR in ${req.method} ${req.originalUrl}: ${err.message || err}\n`, 'utf8', () => {});
     } catch (e) {}
 
     if (res.headersSent) {

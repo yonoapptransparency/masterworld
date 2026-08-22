@@ -364,8 +364,12 @@ export async function writeFirestoreRestDoc(docId: string, data: any, authToken?
       body: JSON.stringify({ fields })
     });
     if (!res.ok) {
+      if (res.status === 429) {
+        // Quota / Rate limit reached on Firestore REST
+        return false;
+      }
       const errText = await res.text();
-      console.warn(`[SERVER] writeFirestoreRestDoc failed for store_data/${docId} (HTTP ${res.status}):`, errText);
+      console.warn(`[SERVER] writeFirestoreRestDoc notice for store_data/${docId} (HTTP ${res.status}):`, errText.substring(0, 150));
       return false;
     }
     console.log(`[SERVER] writeFirestoreRestDoc successfully written store_data/${docId}`);

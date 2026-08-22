@@ -237,7 +237,7 @@ export interface TokenData {
 export const tokenStore = new Map<string, TokenData>();
 
 // Automated cleanup of expired security nonces & tokens
-setInterval(() => {
+const securityCleanupTimer = setInterval(() => {
   const now = Date.now();
   for (const [nonce, data] of clearanceNonceStore.entries()) {
     if (data.expiresAt < now || data.consumed) {
@@ -255,6 +255,9 @@ setInterval(() => {
     }
   }
 }, 15000);
+if (typeof securityCleanupTimer.unref === 'function') {
+  securityCleanupTimer.unref();
+}
 
 export function issueClearanceNonce(appId: string, sessionId: string, ip: string, fingerprint: string): string {
   const nonce = crypto.randomBytes(32).toString('hex');

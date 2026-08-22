@@ -29,53 +29,9 @@ let lastFetchTime = 0;
 const CACHE_TTL = 15000; // 15 seconds
 let isFetchingStoreData = false;
 
-export const SLUG_ALIAS_MAP: Record<string, string> = {
-  '567-slots': 'share-slots',
-  '777-rummy': '777-game',
-  'ind-club': 'jaiho-91',
-  'gogo-rummy': 'love-rummy',
-  'uno': 'rummy-ludo',
-  'slots': 'jaiho-slots',
-  'arcade': 'yono-arcade',
-  'vip': 'yono-vip'
-};
+import { resolveAppSlug, SLUG_ALIAS_MAP } from './lib/slugResolver';
 
-export function resolveAppSlug(rawSlug: string, appsList: any[]): any | null {
-  if (!rawSlug || !Array.isArray(appsList) || appsList.length === 0) return null;
-  let clean = decodeURIComponent(rawSlug).replace(/^\/+|\/+$/g, '').toLowerCase().trim();
-  clean = clean.replace(/[-_]+$/g, ''); // Strip trailing hyphens like "uno-" -> "uno"
-
-  if (!clean) return null;
-
-  // 1. Direct exact slug match
-  let matched = appsList.find((a: any) => getField(a, 'slug')?.toLowerCase() === clean);
-  if (matched) return matched;
-
-  // 2. Direct exact ID match
-  matched = appsList.find((a: any) => getField(a, 'id')?.toLowerCase() === clean);
-  if (matched) return matched;
-
-  // 3. Exact alias match
-  const aliasTarget = SLUG_ALIAS_MAP[clean];
-  if (aliasTarget) {
-    matched = appsList.find((a: any) => getField(a, 'slug')?.toLowerCase() === aliasTarget);
-    if (matched) return matched;
-  }
-
-  // 4. Normalized exact match (hyphens/underscores/spaces standardized)
-  const normalizedClean = clean.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-  if (normalizedClean) {
-    matched = appsList.find((a: any) => {
-      const s = getField(a, 'slug')?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-      return s === normalizedClean;
-    });
-    if (matched) return matched;
-  }
-
-  // Strict: Do not do loose partial substring matching (e.g. s.includes(clean))
-  // because that causes unrelated apps with common words like "rummy" or "slots" to cross-match!
-  return null;
-}
+export { resolveAppSlug, SLUG_ALIAS_MAP };
 
 export { getField, getSafeFirebaseConfig, syncFromFirestore, getOgImageUrl };
 

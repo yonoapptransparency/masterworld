@@ -7,7 +7,8 @@ import { rateLimit, isSuspiciousClient, getIp, ensureSession, nonceStore, genera
 import { vaultNode } from '../../lib/vaultNode';
 import { ENCRYPTED_LINKS } from '../../lib/secureVault';
 import { getStaticData } from '../config';
-import { fetchStoreData, resolveAppSlug } from '../../seoHelper';
+import { fetchStoreData } from '../../seoHelper';
+import { resolveAppSlug } from '../../lib/slugResolver';
 
 export const publicApiRouter = express.Router();
 

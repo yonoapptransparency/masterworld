@@ -122,6 +122,8 @@ class CommunityStoreService {
   private reviews: Map<string, ReviewRecord> = new Map();
   private reports: Map<string, ReportRecord> = new Map();
   private initialized = false;
+  private isSyncing = false;
+  private quotaExhaustedUntil = 0;
   private syncTimer: NodeJS.Timeout | null = null;
   private localBackupPath = path.join(process.cwd(), 'community_local_backup.json');
 
@@ -129,13 +131,21 @@ class CommunityStoreService {
     this.loadFromLocalBackup();
     this.initFromFirestore().catch(() => {});
 
-    // Periodically poll Firestore to keep multi-instance Cloud Run environments in sync
+    // Periodically poll Firestore in the background (60s) to keep multi-instance environments synchronized
     const intervalId = setInterval(() => {
       this.initFromFirestore(true).catch(() => {});
-    }, 15000);
+    }, 60000);
     if (typeof intervalId.unref === 'function') {
       intervalId.unref();
     }
+  }
+
+  // Check if error is a Firestore quota / rate exhaustion
+  private isQuotaError(err: any): boolean {
+    if (!err) return false;
+    const msg = String(err.message || err.details || err || '');
+    const code = err.code || err.status;
+    return code === 8 || code === 429 || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('Quota exceeded');
   }
 
   // Load from local JSON disk backup on startup
@@ -182,11 +192,22 @@ class CommunityStoreService {
     this.syncTimer = setTimeout(() => {
       this.syncAllToFirestore().catch(() => {});
     }, 1500);
+    if (typeof (this.syncTimer as any).unref === 'function') {
+      (this.syncTimer as any).unref();
+    }
   }
 
   // Initialize and pull latest from Firestore
   public async initFromFirestore(forceSync = false) {
-    if (this.initialized && !forceSync) return;
+    if ((this.initialized && !forceSync) || this.isSyncing) return;
+    if (Date.now() < this.quotaExhaustedUntil) {
+      if (!this.initialized) {
+        this.initialized = true;
+        console.log(`[CommunityStore] Active cache ready (${this.reviews.size} reviews, ${this.reports.size} reports from local storage).`);
+      }
+      return;
+    }
+    this.isSyncing = true;
     try {
       const db = getCommunityAdminDb();
       if (db) {
@@ -214,35 +235,48 @@ class CommunityStoreService {
               updated_at: d.updated_at
             });
           });
-        } catch (e) {}
+        } catch (e: any) {
+          if (this.isQuotaError(e)) {
+            this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000;
+            if (!this.initialized) {
+              console.log(`[CommunityStore] Firestore free quota active; serving ${this.reviews.size} reviews and ${this.reports.size} reports from local storage.`);
+            }
+          }
+        }
 
         // Load reports
-        try {
-          const rSnap = await db.collection('reports').limit(500).get();
-          rSnap.docs.forEach((doc: any) => {
-            const d = doc.data();
-            this.reports.set(doc.id, {
-              id: doc.id,
-              type: d.type || 'app_flag',
-              appId: d.appId || d.app_id || '',
-              appName: d.appName || '',
-              reviewId: d.reviewId || '',
-              reviewAuthor: d.reviewAuthor || '',
-              reviewComment: d.reviewComment || '',
-              reason: d.reason || 'Flag',
-              description: d.description || '',
-              reporterEmail: d.reporterEmail || '',
-              reporterName: d.reporterName || '',
-              status: d.status || 'pending',
-              created_at: d.created_at || new Date().toISOString(),
-              ip: d.ip || '',
-              userAgent: d.userAgent || '',
-              adminNotes: d.adminNotes || '',
-              updated_at: d.updated_at
+        if (Date.now() >= this.quotaExhaustedUntil) {
+          try {
+            const rSnap = await db.collection('reports').limit(500).get();
+            rSnap.docs.forEach((doc: any) => {
+              const d = doc.data();
+              this.reports.set(doc.id, {
+                id: doc.id,
+                type: d.type || 'app_flag',
+                appId: d.appId || d.app_id || '',
+                appName: d.appName || '',
+                reviewId: d.reviewId || '',
+                reviewAuthor: d.reviewAuthor || '',
+                reviewComment: d.reviewComment || '',
+                reason: d.reason || 'Flag',
+                description: d.description || '',
+                reporterEmail: d.reporterEmail || '',
+                reporterName: d.reporterName || '',
+                status: d.status || 'pending',
+                created_at: d.created_at || new Date().toISOString(),
+                ip: d.ip || '',
+                userAgent: d.userAgent || '',
+                adminNotes: d.adminNotes || '',
+                updated_at: d.updated_at
+              });
             });
-          });
-        } catch (e) {
-          console.warn('[CommunityStore] Firestore init warning:', e);
+          } catch (e: any) {
+            if (this.isQuotaError(e)) {
+              this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000;
+            } else if (!forceSync) {
+              console.warn('[CommunityStore] Firestore init notice:', e?.message || e);
+            }
+          }
         }
       } else {
         // Fallback to REST API if Admin SDK is not initialized
@@ -295,9 +329,13 @@ class CommunityStoreService {
               });
             }
           });
-          console.log(`[CommunityStore] Initialized via REST with ${this.reviews.size} reviews and ${this.reports.size} reports.`);
-        } catch (restError) {
-          console.warn('[CommunityStore] REST Firestore init failed:', restError);
+          if (!this.initialized) {
+            console.log(`[CommunityStore] Initialized via REST with ${this.reviews.size} reviews and ${this.reports.size} reports.`);
+          }
+        } catch (restError: any) {
+          if (!this.initialized) {
+            console.warn('[CommunityStore] REST Firestore init notice:', restError?.message || restError);
+          }
         }
       }
       
@@ -330,12 +368,16 @@ class CommunityStoreService {
           }
         } catch (e) {}
       }
-      this.initialized = true;
-      if (!forceSync) {
+      if (!this.initialized && !forceSync) {
         console.log(`[CommunityStore] Firestore sync complete: ${this.reviews.size} reviews, ${this.reports.size} reports.`);
       }
+      this.initialized = true;
     } catch (err) {
-      console.warn('[CommunityStore] Init failed gracefully:', err);
+      if (!this.initialized) {
+        console.warn('[CommunityStore] Init failed gracefully:', err);
+      }
+    } finally {
+      this.isSyncing = false;
     }
   }
 
@@ -390,7 +432,11 @@ class CommunityStoreService {
     // Save to Firestore Admin DB if available
     const db = getCommunityAdminDb();
     if (db) {
-      db.collection('reviews').doc(id).set(newRev).catch((e: any) => console.warn(e));
+      db.collection('reviews').doc(id).set(newRev).catch((e: any) => {
+        if (this.isQuotaError(e)) {
+          this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000;
+        }
+      });
     } else {
       writeFirestoreRestDoc(id, newRev, undefined, true, 'reviews').catch(() => {});
     }
@@ -435,7 +481,11 @@ class CommunityStoreService {
       added.push(newRev);
 
       if (db) {
-        db.collection('reviews').doc(id).set(newRev).catch((e: any) => console.warn(e));
+        db.collection('reviews').doc(id).set(newRev).catch((e: any) => {
+          if (this.isQuotaError(e)) {
+            this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000;
+          }
+        });
       } else {
         writeFirestoreRestDoc(id, newRev, undefined, true, 'reviews').catch(() => {});
       }
