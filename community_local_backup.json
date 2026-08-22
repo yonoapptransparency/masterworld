@@ -1293,6 +1293,24 @@
       "source": "community",
       "adminReply": null,
       "updated_at": "2026-08-22T10:05:55.610Z"
+    },
+    {
+      "id": "rev_1787398432675_l7x6l",
+      "appId": "test",
+      "appSlug": "",
+      "appName": "",
+      "userName": "testuser",
+      "rating": 5,
+      "reviewText": "this is a test review with enough words to pass validation",
+      "timestamp": "2026-08-22T11:33:52.676Z",
+      "status": "published",
+      "helpful_count": 0,
+      "isPinned": false,
+      "reported": false,
+      "report_count": 0,
+      "source": "community",
+      "adminReply": null,
+      "updated_at": "2026-08-22T11:33:52.676Z"
     }
   ],
   "reports": [
@@ -1316,5 +1334,5 @@
       "updated_at": "2026-08-22T01:23:41.751Z"
     }
   ],
-  "updated_at": "2026-08-22T10:05:55.618Z"
+  "updated_at": "2026-08-22T11:33:52.687Z"
 }

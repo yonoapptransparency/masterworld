@@ -289,13 +289,13 @@ function buildJsonLdSchema(params: {
     if (!category.includes('Application')) {
       category = 'GameApplication';
     }
-    const defaultRating = parseFloat(getField(app, 'rating')) || 4.8;
-    const defaultCount = parseInt(getField(app, 'review_count'), 10) || 120;
+    const defaultRating = parseFloat(getField(app, 'rating')) || 0;
+    const defaultCount = parseInt(getField(app, 'review_count') || getField(app, 'reviews'), 10) || 0;
     
-    // Get live stats from communityStore to ensure real reviews are sent to Googlebot
+    // Get live stats from communityStore to ensure real reviews are sent to Googlebot if available
     const liveStats = communityStore.getAppStats(getField(app, 'slug') || getField(app, 'id'), defaultRating);
     
-    const ratingVal = liveStats.averageRating;
+    const ratingVal = liveStats.totalReviews > 0 ? liveStats.averageRating : defaultRating;
     const ratingCountVal = liveStats.totalReviews > 0 ? liveStats.totalReviews : defaultCount;
     const appRawIcon = getField(app, 'icon_url') || getField(app, 'og_image_url') || params.logoUrl;
     const appSquareIcon = optimizeImageUrl(appRawIcon, 512) || appRawIcon;
@@ -325,15 +325,18 @@ function buildJsonLdSchema(params: {
         "@type": "Offer",
         "price": "0",
         "priceCurrency": "INR"
-      },
-      "aggregateRating": {
+      }
+    };
+
+    if (ratingCountVal > 0 && ratingVal > 0) {
+      softwareAppSchema.aggregateRating = {
         "@type": "AggregateRating",
         "ratingValue": ratingVal.toFixed(1),
         "ratingCount": ratingCountVal.toString(),
         "bestRating": "5",
         "worstRating": "1"
-      }
-    };
+      };
+    }
 
     const appScreenshots = getField(app, 'screenshots');
     if (Array.isArray(appScreenshots) && appScreenshots.length > 0) {

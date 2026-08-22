@@ -129,11 +129,11 @@ class CommunityStoreService {
 
   constructor() {
     this.loadFromLocalBackup();
-    this.initFromFirestore().catch(() => {});
+    this.initFromFirestore().catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
 
     // Periodically poll Firestore in the background (60s) to keep multi-instance environments synchronized
     const intervalId = setInterval(() => {
-      this.initFromFirestore(true).catch(() => {});
+      this.initFromFirestore(true).catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
     }, 60000);
     if (typeof intervalId.unref === 'function') {
       intervalId.unref();
@@ -183,14 +183,16 @@ class CommunityStoreService {
         reports: Array.from(this.reports.values()),
         updated_at: new Date().toISOString()
       };
-      fs.writeFileSync(this.localBackupPath, JSON.stringify(data, null, 2), 'utf8');
+      const tempPath = this.localBackupPath + '.tmp';
+      fs.writeFileSync(tempPath, JSON.stringify(data, null, 2), 'utf8');
+      fs.renameSync(tempPath, this.localBackupPath);
     } catch (e) {
       console.warn('[CommunityStore] Local backup write error:', e);
     }
 
     if (this.syncTimer) clearTimeout(this.syncTimer);
     this.syncTimer = setTimeout(() => {
-      this.syncAllToFirestore().catch(() => {});
+      this.syncAllToFirestore().catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
     }, 1500);
     if (typeof (this.syncTimer as any).unref === 'function') {
       (this.syncTimer as any).unref();
@@ -216,6 +218,14 @@ class CommunityStoreService {
           const snap = await db.collection('reviews').limit(500).get();
           snap.docs.forEach((doc: any) => {
             const d = doc.data();
+            const existing = this.reviews.get(doc.id);
+            if (existing && existing.updated_at) {
+              const remoteTime = d.updated_at ? new Date(d.updated_at).getTime() : 0;
+              const localTime = new Date(existing.updated_at).getTime();
+              if (localTime >= remoteTime) {
+                return;
+              }
+            }
             this.reviews.set(doc.id, {
               id: doc.id,
               appId: d.appId || d.app_id || '',
@@ -250,6 +260,14 @@ class CommunityStoreService {
             const rSnap = await db.collection('reports').limit(500).get();
             rSnap.docs.forEach((doc: any) => {
               const d = doc.data();
+              const existing = this.reports.get(doc.id);
+              if (existing && existing.updated_at) {
+              const remoteTime = d.updated_at ? new Date(d.updated_at).getTime() : 0;
+              const localTime = new Date(existing.updated_at).getTime();
+              if (localTime >= remoteTime) {
+                return;
+              }
+            }
               this.reports.set(doc.id, {
                 id: doc.id,
                 type: d.type || 'app_flag',
@@ -283,7 +301,15 @@ class CommunityStoreService {
         try {
           const restReviews = await readFirestoreRestCollection('reviews');
           restReviews.forEach((d: any) => {
-            if (d && d.id && !this.reviews.has(d.id)) {
+            if (d && d.id) {
+              const existing = this.reviews.get(d.id);
+              if (existing && existing.updated_at) {
+              const remoteTime = d.updated_at ? new Date(d.updated_at).getTime() : 0;
+              const localTime = new Date(existing.updated_at).getTime();
+              if (localTime >= remoteTime) {
+                return;
+              }
+            }
               this.reviews.set(d.id, {
                 id: d.id,
                 appId: d.appId || d.app_id || '',
@@ -307,7 +333,15 @@ class CommunityStoreService {
 
           const restReports = await readFirestoreRestCollection('reports');
           restReports.forEach((d: any) => {
-            if (d && d.id && !this.reports.has(d.id)) {
+            if (d && d.id) {
+              const existing = this.reports.get(d.id);
+              if (existing && existing.updated_at) {
+              const remoteTime = d.updated_at ? new Date(d.updated_at).getTime() : 0;
+              const localTime = new Date(existing.updated_at).getTime();
+              if (localTime >= remoteTime) {
+                return;
+              }
+            }
               this.reports.set(d.id, {
                 id: d.id,
                 type: d.type || 'app_flag',
@@ -438,7 +472,7 @@ class CommunityStoreService {
         }
       });
     } else {
-      writeFirestoreRestDoc(id, newRev, undefined, true, 'reviews').catch(() => {});
+      writeFirestoreRestDoc(id, newRev, undefined, true, 'reviews').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
     }
 
     this.saveToDiskAndQueueCloudSync();
@@ -487,7 +521,7 @@ class CommunityStoreService {
           }
         });
       } else {
-        writeFirestoreRestDoc(id, newRev, undefined, true, 'reviews').catch(() => {});
+        writeFirestoreRestDoc(id, newRev, undefined, true, 'reviews').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
       }
     }
 
@@ -520,9 +554,9 @@ class CommunityStoreService {
 
     const db = getCommunityAdminDb();
     if (db) {
-      db.collection('reviews').doc(reviewId).set({ helpful_count: rev.helpful_count }, { merge: true }).catch(() => {});
+      db.collection('reviews').doc(reviewId).set({ helpful_count: rev.helpful_count }, { merge: true }).catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
     } else {
-      writeFirestoreRestDoc(reviewId, { helpful_count: rev.helpful_count }, undefined, true, 'reviews').catch(() => {});
+      writeFirestoreRestDoc(reviewId, { helpful_count: rev.helpful_count }, undefined, true, 'reviews').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
     }
 
     this.saveToDiskAndQueueCloudSync();
@@ -558,14 +592,14 @@ class CommunityStoreService {
     const db = getCommunityAdminDb();
     if (db) {
       if (rev) {
-        db.collection('reviews').doc(reviewId).set({ reported: true, report_count: rev.report_count }, { merge: true }).catch(() => {});
+        db.collection('reviews').doc(reviewId).set({ reported: true, report_count: rev.report_count }, { merge: true }).catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
       }
-      db.collection('reports').doc(reportId).set(newReport).catch(() => {});
+      db.collection('reports').doc(reportId).set(newReport).catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
     } else {
       if (rev) {
-        writeFirestoreRestDoc(reviewId, { reported: true, report_count: rev.report_count }, undefined, true, 'reviews').catch(() => {});
+        writeFirestoreRestDoc(reviewId, { reported: true, report_count: rev.report_count }, undefined, true, 'reviews').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
       }
-      writeFirestoreRestDoc(reportId, newReport, undefined, true, 'reports').catch(() => {});
+      writeFirestoreRestDoc(reportId, newReport, undefined, true, 'reports').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
     }
 
     this.saveToDiskAndQueueCloudSync();
@@ -587,9 +621,9 @@ class CommunityStoreService {
 
     const db = getCommunityAdminDb();
     if (db) {
-      db.collection('reviews').doc(id).set(updated, { merge: true }).catch(() => {});
+      db.collection('reviews').doc(id).set(updated, { merge: true }).catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
     } else {
-      writeFirestoreRestDoc(id, updated, undefined, true, 'reviews').catch(() => {});
+      writeFirestoreRestDoc(id, updated, undefined, true, 'reviews').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
     }
 
     this.saveToDiskAndQueueCloudSync();
@@ -600,9 +634,9 @@ class CommunityStoreService {
     const existed = this.reviews.delete(id);
     const db = getCommunityAdminDb();
     if (db) {
-      db.collection('reviews').doc(id).delete().catch(() => {});
+      db.collection('reviews').doc(id).delete().catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
     } else {
-      deleteFirestoreRestDoc(id, undefined, 'reviews').catch(() => {});
+      deleteFirestoreRestDoc(id, undefined, 'reviews').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
     }
     this.saveToDiskAndQueueCloudSync();
     return existed;
@@ -768,9 +802,9 @@ class CommunityStoreService {
 
     const db = getCommunityAdminDb();
     if (db) {
-      db.collection('reports').doc(id).set(newReport).catch(() => {});
+      db.collection('reports').doc(id).set(newReport).catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
     } else {
-      writeFirestoreRestDoc(id, newReport, undefined, true, 'reports').catch(() => {});
+      writeFirestoreRestDoc(id, newReport, undefined, true, 'reports').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
     }
 
     this.saveToDiskAndQueueCloudSync();
@@ -850,9 +884,9 @@ class CommunityStoreService {
 
     const db = getCommunityAdminDb();
     if (db) {
-      db.collection('reports').doc(id).set(updated, { merge: true }).catch(() => {});
+      db.collection('reports').doc(id).set(updated, { merge: true }).catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
     } else {
-      writeFirestoreRestDoc(id, updated, undefined, true, 'reports').catch(() => {});
+      writeFirestoreRestDoc(id, updated, undefined, true, 'reports').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
     }
 
     this.saveToDiskAndQueueCloudSync();
@@ -863,9 +897,9 @@ class CommunityStoreService {
     const existed = this.reports.delete(id);
     const db = getCommunityAdminDb();
     if (db) {
-      db.collection('reports').doc(id).delete().catch(() => {});
+      db.collection('reports').doc(id).delete().catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
     } else {
-      deleteFirestoreRestDoc(id, undefined, 'reports').catch(() => {});
+      deleteFirestoreRestDoc(id, undefined, 'reports').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
     }
     this.saveToDiskAndQueueCloudSync();
     return existed;
