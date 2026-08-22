@@ -99,67 +99,6 @@ export function useReviews(
       }
 
       // -------------------------------------------------------------
-      // TIER 2: Firestore Direct REST API Fallback (for static site)
-      // -------------------------------------------------------------
-      if (fetchedReviews.length === 0 && !isLoadMore) {
-        try {
-          const projectId = 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
-          const firestoreUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/store_data/community_store`;
-          
-          const fsRes = await fetch(firestoreUrl);
-          if (fsRes.ok) {
-            const fsData = await fsRes.json();
-            const rawReviews = fsData?.fields?.reviews?.arrayValue?.values;
-            if (Array.isArray(rawReviews)) {
-              const matchedReviews: Review[] = [];
-              const searchKeys = new Set([
-                cleanAppId.toLowerCase(),
-                cleanAppSlug.toLowerCase(),
-                cleanAppTitle.toLowerCase()
-              ].filter(Boolean));
-
-              rawReviews.forEach((item: any) => {
-                const map = item?.mapValue?.fields;
-                if (map) {
-                  const rAppId = (map.appId?.stringValue || '').toLowerCase().trim();
-                  const rAppSlug = (map.appSlug?.stringValue || '').toLowerCase().trim();
-                  const rAppName = (map.appName?.stringValue || '').toLowerCase().trim();
-                  const rStatus = map.status?.stringValue || 'published';
-
-                  if (rStatus === 'published' && (searchKeys.has(rAppId) || searchKeys.has(rAppSlug) || searchKeys.has(rAppName))) {
-                    matchedReviews.push({
-                      id: map.id?.stringValue || `rev_${Math.random()}`,
-                      app_id: map.appId?.stringValue || cleanAppId,
-                      username: map.userName?.stringValue || 'Verified Player',
-                      rating: Number(map.rating?.integerValue || map.rating?.doubleValue || 5),
-                      comment: map.reviewText?.stringValue || '',
-                      created_at: map.timestamp?.stringValue || new Date().toISOString(),
-                      helpful_count: Number(map.helpful_count?.integerValue || 0),
-                      reported: Boolean(map.reported?.booleanValue),
-                      report_count: Number(map.report_count?.integerValue || 0),
-                      source: map.source?.stringValue || 'community',
-                      isPinned: Boolean(map.isPinned?.booleanValue),
-                      adminReply: map.adminReply?.mapValue?.fields ? {
-                        text: map.adminReply.mapValue.fields.text?.stringValue || '',
-                        author: map.adminReply.mapValue.fields.author?.stringValue || 'Support Team',
-                        timestamp: map.adminReply.mapValue.fields.timestamp?.stringValue || ''
-                      } : null
-                    });
-                  }
-                }
-              });
-
-              if (matchedReviews.length > 0) {
-                fetchedReviews = matchedReviews;
-              }
-            }
-          }
-        } catch (tier2Err) {
-          // Tier 2 fallback silently
-        }
-      }
-
-      // -------------------------------------------------------------
       // TIER 3: Local Storage Merge & Optimistic Reviews
       // -------------------------------------------------------------
       let localReviews: Review[] = [];

@@ -118,7 +118,7 @@ export const AppInspector = ({
             <div className="flex items-center gap-1.5 text-[12px] text-zinc-600 dark:text-zinc-400 my-1 font-medium">
               <span className="font-bold text-zinc-900 dark:text-zinc-100">{selectedApp.rating ? Number(selectedApp.rating).toFixed(1) : '4.8'}</span>
               <span className="text-amber-500">★★★★★</span>
-              <span>({selectedApp.review_count ? Number(selectedApp.review_count).toLocaleString() : '1,420'})</span>
+              <span>({selectedApp.review_count ? Number(selectedApp.review_count).toLocaleString() : '0'})</span>
               <span>· Free · Android · Game</span>
             </div>
             <p className="text-[13px] text-slate-600 dark:text-slate-400 font-normal leading-normal mt-1 line-clamp-2">
@@ -139,7 +139,7 @@ export const AppInspector = ({
           <div>
             <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Total Ratings</div>
             <div className="text-sm font-bold text-slate-800 dark:text-slate-100 mt-1 flex items-center gap-1">
-              👥 {selectedApp.review_count ? Number(selectedApp.review_count).toLocaleString() : '1,420'}
+              👥 {selectedApp.review_count ? Number(selectedApp.review_count).toLocaleString() : '0'}
             </div>
           </div>
 

@@ -128,6 +128,11 @@ class CommunityStoreService {
   constructor() {
     this.loadFromLocalBackup();
     this.initFromFirestore().catch(() => {});
+
+    // Periodically poll Firestore to keep multi-instance Cloud Run environments in sync
+    setInterval(() => {
+      this.initFromFirestore(true).catch(() => {});
+    }, 15000);
   }
 
   // Load from local JSON disk backup on startup
@@ -177,8 +182,8 @@ class CommunityStoreService {
   }
 
   // Initialize and pull latest from Firestore
-  public async initFromFirestore() {
-    if (this.initialized) return;
+  public async initFromFirestore(forceSync = false) {
+    if (this.initialized && !forceSync) return;
     try {
       const db = getCommunityAdminDb();
       if (db) {
@@ -189,14 +194,14 @@ class CommunityStoreService {
             const d = doc.data();
             this.reviews.set(doc.id, {
               id: doc.id,
-              appId: d.appId || '',
+              appId: d.appId || d.app_id || '',
               appSlug: d.appSlug || '',
               appName: d.appName || '',
-              userName: d.userName || 'Player',
+              userName: d.userName || d.username || 'Player',
               rating: Number(d.rating) || 5,
-              reviewText: sanitizeReviewText(d.reviewText || ''),
-              timestamp: d.timestamp || new Date().toISOString(),
-              status: d.status || 'published',
+              reviewText: sanitizeReviewText(d.reviewText || d.comment || ''),
+              timestamp: d.timestamp || d.created_at || new Date().toISOString(),
+              status: d.status || (d.is_approved ? 'published' : 'pending') || 'published',
               helpful_count: Number(d.helpful_count) || 0,
               isPinned: Boolean(d.isPinned),
               reported: Boolean(d.reported),
@@ -216,7 +221,7 @@ class CommunityStoreService {
             this.reports.set(doc.id, {
               id: doc.id,
               type: d.type || 'app_flag',
-              appId: d.appId || '',
+              appId: d.appId || d.app_id || '',
               appName: d.appName || '',
               reviewId: d.reviewId || '',
               reviewAuthor: d.reviewAuthor || '',
@@ -244,14 +249,14 @@ class CommunityStoreService {
             if (d && d.id && !this.reviews.has(d.id)) {
               this.reviews.set(d.id, {
                 id: d.id,
-                appId: d.appId || '',
+                appId: d.appId || d.app_id || '',
                 appSlug: d.appSlug || '',
                 appName: d.appName || '',
-                userName: d.userName || 'Player',
+                userName: d.userName || d.username || 'Player',
                 rating: Number(d.rating) || 5,
-                reviewText: sanitizeReviewText(d.reviewText || ''),
-                timestamp: d.timestamp || new Date().toISOString(),
-                status: d.status || 'published',
+                reviewText: sanitizeReviewText(d.reviewText || d.comment || ''),
+                timestamp: d.timestamp || d.created_at || new Date().toISOString(),
+                status: d.status || (d.is_approved ? 'published' : 'pending') || 'published',
                 helpful_count: Number(d.helpful_count) || 0,
                 isPinned: Boolean(d.isPinned),
                 reported: Boolean(d.reported),
@@ -269,7 +274,7 @@ class CommunityStoreService {
               this.reports.set(d.id, {
                 id: d.id,
                 type: d.type || 'app_flag',
-                appId: d.appId || '',
+                appId: d.appId || d.app_id || '',
                 appName: d.appName || '',
                 reviewId: d.reviewId || '',
                 reviewAuthor: d.reviewAuthor || '',

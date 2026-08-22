@@ -82,9 +82,6 @@ export function getRawFirebaseConfig(): any {
   };
 
   let envProjectId = getValidEnv(process.env.VITE_FIREBASE_PROJECT_ID, process.env.VITE_FIREBASE_JECT_ID, process.env.FIREBASE_PROJECT_ID);
-  if (envProjectId === 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a') {
-    envProjectId = 'gen-lang-client-0825832493';
-  }
   const envDbId = getValidEnv(process.env.VITE_FIREBASE_DATABASE_ID, process.env.VITE_FIREBASE_BASE_ID, process.env.FIREBASE_DATABASE_ID);
   let envApiKey = getValidEnv(process.env.VITE_FIREBASE_API_KEY, process.env.FIREBASE_API_KEY, process.env.API_KEY || process.env.NEXT_PUBLIC_FIREBASE_API_KEY);
   const envAuthDomain = getValidEnv(process.env.VITE_FIREBASE_AUTH_DOMAIN, process.env.VITE_FIREBASE_DOMAIN, process.env.FIREBASE_AUTH_DOMAIN);
@@ -132,15 +129,15 @@ export function getRawFirebaseConfig(): any {
   }
 
   // 3. Fallback configuration
-  const defaultProjectId = "gen-lang-client-0825832493";
+  const defaultProjectId = "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a";
   const defaultDbId = "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a";
   cachedRawFirebaseConfig = {
     projectId: defaultProjectId,
     appId: envAppId || "1:103973989874:web:733a6afd8e837224900f6b",
     apiKey: finalApiKey,
-    authDomain: envAuthDomain || "gen-lang-client-0825832493.firebaseapp.com",
+    authDomain: envAuthDomain || "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a.firebaseapp.com",
     firestoreDatabaseId: resolveDbId(envDbId || defaultDbId, defaultProjectId),
-    storageBucket: envStorageBucket || "gen-lang-client-0825832493.firebasestorage.app",
+    storageBucket: envStorageBucket || "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a.firebasestorage.app",
     messagingSenderId: envMessagingSenderId || "103973989874"
   };
   return cachedRawFirebaseConfig;
@@ -236,7 +233,7 @@ export function getFirebaseAdminDb(): any {
     const defaultAiStudioDbId = 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
     
     let dbId = defaultAiStudioDbId;
-    if (envDbId && envDbId.trim() !== '' && envDbId !== '(default)' && envDbId !== 'gen-lang-client-0825832493') {
+    if (envDbId && envDbId.trim() !== '' && envDbId !== '(default)' && envDbId !== 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a') {
       dbId = envDbId;
     }
 
@@ -247,7 +244,7 @@ export function getFirebaseAdminDb(): any {
       cachedAdminDb = admin.firestore();
     }
 
-    const activeProjectId = admin.apps[0]?.options?.projectId || 'gen-lang-client-0825832493';
+    const activeProjectId = admin.apps[0]?.options?.projectId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
     console.log(`[Admin SDK] Firestore initialized for project: ${activeProjectId}, database: ${dbId}`);
     return cachedAdminDb;
   } catch (err: any) {

@@ -19,6 +19,7 @@ import {
   Scale,
   BarChart3,
   MessageSquarePlus,
+  Lock,
   Info
 } from 'lucide-react';
 import { toast } from '../Toast';
@@ -119,15 +120,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
   }, [appsList, selectedAppId]);
 
   // Current App Profile State
-  const [targetScore, setTargetScore] = useState<number>(4.8);
-  const [customDistribution, setCustomDistribution] = useState(false);
-  const [starMix, setStarMix] = useState({
-    star5: 70,
-    star4: 20,
-    star3: 7,
-    star2: 3,
-    star1: 0
-  });
+  const targetScore = currentApp?.rating ? Math.min(5.0, Math.max(3.0, Number(currentApp.rating))) : 4.8;
   const [toneFocus, setToneFocus] = useState<'balanced' | 'performance' | 'gameplay' | 'ui_graphics' | 'casual'>('balanced');
   const [customPrompt, setCustomPrompt] = useState<string>('');
   const [singleCount, setSingleCount] = useState<number>(5);
@@ -141,25 +134,11 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
     const saved = appProfiles[appId] || appProfiles[String(currentApp.slug || '')];
 
     if (saved) {
-      setTargetScore(saved.targetScore ?? 4.8);
-      setCustomDistribution(saved.customDistribution ?? false);
-      setStarMix(saved.starMix ?? { star5: 70, star4: 20, star3: 7, star2: 3, star1: 0 });
       setToneFocus(saved.toneFocus ?? 'balanced');
       setSingleCount(saved.singleCount ?? 5);
       setCustomPrompt(saved.customPrompt ?? '');
       setLastSavedTime(saved.updatedAt || 'Saved');
     } else {
-      // Natural fallback to app's own store rating
-      const initialScore = currentApp.rating ? Math.min(5.0, Math.max(3.0, Number(currentApp.rating))) : 4.8;
-      setTargetScore(initialScore);
-      setCustomDistribution(false);
-      setStarMix({
-        star5: initialScore >= 4.7 ? 80 : initialScore >= 4.4 ? 65 : 45,
-        star4: initialScore >= 4.7 ? 15 : initialScore >= 4.4 ? 25 : 35,
-        star3: initialScore >= 4.7 ? 5 : initialScore >= 4.4 ? 8 : 15,
-        star2: initialScore >= 4.7 ? 0 : initialScore >= 4.4 ? 2 : 5,
-        star1: 0
-      });
       setToneFocus('balanced');
       setSingleCount(5);
       setCustomPrompt('');
@@ -200,34 +179,6 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
   }, [currentApp]);
 
   // Handlers with instant auto-save per app
-  const handleScoreChange = (score: number) => {
-    setTargetScore(score);
-    persistCurrentAppProfile({ targetScore: score });
-  };
-
-  const handleCustomDistributionToggle = (active: boolean) => {
-    setCustomDistribution(active);
-    persistCurrentAppProfile({ customDistribution: active });
-  };
-
-  const handleStarMixChange = (field: keyof typeof starMix, val: number) => {
-    const nextMix = { ...starMix, [field]: Math.max(0, Math.min(100, val)) };
-    setStarMix(nextMix);
-    persistCurrentAppProfile({ starMix: nextMix, customDistribution: true });
-  };
-
-  const handleApplyPreset = (preset: typeof PRESET_DISTRIBUTIONS[0]) => {
-    setTargetScore(preset.score);
-    setStarMix(preset.mix);
-    setCustomDistribution(true);
-    persistCurrentAppProfile({ 
-      targetScore: preset.score, 
-      starMix: preset.mix, 
-      customDistribution: true 
-    });
-    toast(`Applied "${preset.name}" preset (⭐ ${preset.score}) for ${currentApp?.name}!`, 'success');
-  };
-
   const handleToneChange = (tone: any) => {
     setToneFocus(tone);
     persistCurrentAppProfile({ toneFocus: tone });
@@ -249,27 +200,13 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
 
   const handleResetToAppDefault = () => {
     if (!currentApp) return;
-    const initialScore = currentApp.rating ? Math.min(5.0, Math.max(3.0, Number(currentApp.rating))) : 4.8;
-    const initialMix = {
-      star5: initialScore >= 4.7 ? 80 : initialScore >= 4.4 ? 65 : 45,
-      star4: initialScore >= 4.7 ? 15 : initialScore >= 4.4 ? 25 : 35,
-      star3: initialScore >= 4.7 ? 5 : initialScore >= 4.4 ? 8 : 15,
-      star2: initialScore >= 4.7 ? 0 : initialScore >= 4.4 ? 2 : 5,
-      star1: 0
-    };
-    setTargetScore(initialScore);
-    setStarMix(initialMix);
-    setCustomDistribution(false);
     setToneFocus('balanced');
     setSingleCount(5);
     persistCurrentAppProfile({
-      targetScore: initialScore,
-      starMix: initialMix,
-      customDistribution: false,
       toneFocus: 'balanced',
       singleCount: 5
     });
-    toast(`Reset settings to catalog default (⭐ ${initialScore.toFixed(1)}) for ${currentApp.name}`, 'info');
+    toast(`Reset settings to catalog default for ${currentApp.name}`, 'info');
   };
 
   // Staged Preview Reviews (Single App)
@@ -324,7 +261,6 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           targetScore,
           toneFocus,
           customPrompt: customPrompt.trim(),
-          starMix: customDistribution ? starMix : undefined,
           saveDirectly: instantSave
         })
       });
@@ -528,7 +464,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
               </div>
             </div>
 
-            {/* Target Score Controller */}
+            {/* Target Score Controller (Locked to App Catalog) */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
@@ -538,146 +474,13 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
                   ⭐ {targetScore.toFixed(1)} / 5.0
                 </span>
               </div>
-              <input
-                type="range"
-                min="3.0"
-                max="5.0"
-                step="0.1"
-                value={targetScore}
-                onChange={(e) => handleScoreChange(parseFloat(e.target.value))}
-                className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
-              />
-              <div className="flex justify-between text-[10px] text-slate-400 font-medium">
-                <span>3.0 (Mixed)</span>
-                <span>4.1 (Organic)</span>
-                <span>4.5 (Balanced)</span>
-                <span>4.8 (Top)</span>
-                <span>5.0 (Max)</span>
+              <div className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-xs text-slate-500 dark:text-slate-400">
+                <p className="flex items-center gap-1.5 mb-1 text-slate-700 dark:text-slate-300 font-bold">
+                  <ShieldCheck size={14} className="text-amber-500" />
+                  Locked to App Catalog
+                </p>
+                The AI will mathematically balance all generated reviews to naturally achieve a <strong>{targetScore.toFixed(1)}</strong> rating. To change this rating, edit the app in the Catalog section.
               </div>
-            </div>
-
-            {/* Fast Star Mix Presets */}
-            <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center justify-between">
-                <span>Quick Star Mix Presets</span>
-                <span className="text-[10px] text-slate-400 font-normal">Click to apply & save</span>
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                {PRESET_DISTRIBUTIONS.map((preset, pIdx) => {
-                  const Icon = preset.icon;
-                  const isMatch = Math.abs(targetScore - preset.score) < 0.05 && customDistribution;
-                  return (
-                    <button
-                      key={pIdx}
-                      type="button"
-                      onClick={() => handleApplyPreset(preset)}
-                      className={`p-2 rounded-xl text-left border text-xs transition-all cursor-pointer ${
-                        isMatch
-                          ? 'bg-blue-50 dark:bg-blue-950/50 border-blue-400 text-blue-900 dark:text-blue-200 font-bold shadow-xs'
-                          : 'bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/60 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-1.5 font-bold mb-0.5">
-                        <Icon size={13} className={preset.color} />
-                        <span className="truncate">{preset.name}</span>
-                      </div>
-                      <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
-                        <span>⭐ {preset.score}</span>
-                        <span>5★: {preset.mix.star5}%</span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Custom Star Mix Accordion */}
-            <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Custom Star Percentages</span>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleCustomDistributionToggle(!customDistribution)}
-                    className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
-                      customDistribution 
-                        ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' 
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                    }`}
-                  >
-                    {customDistribution ? 'Custom Active' : 'Auto Math'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleResetToAppDefault}
-                    title="Reset to app catalog default"
-                    className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded cursor-pointer"
-                  >
-                    <RotateCcw size={13} />
-                  </button>
-                </div>
-              </div>
-
-              {customDistribution && (
-                <div className="space-y-2 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-200 dark:border-slate-700/60 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-amber-500 font-bold flex items-center gap-1">
-                      <Star size={12} className="fill-amber-400" /> 5 Stars
-                    </span>
-                    <input 
-                      type="number" 
-                      min="0" 
-                      max="100" 
-                      value={starMix.star5}
-                      onChange={(e) => handleStarMixChange('star5', parseInt(e.target.value, 10) || 0)}
-                      className="w-16 text-right px-2 py-1 bg-white dark:bg-slate-900 border rounded text-xs font-bold" 
-                    />
-                    <span className="text-slate-400">%</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-amber-500 font-bold flex items-center gap-1">
-                      <Star size={12} className="fill-amber-400" /> 4 Stars
-                    </span>
-                    <input 
-                      type="number" 
-                      min="0" 
-                      max="100" 
-                      value={starMix.star4}
-                      onChange={(e) => handleStarMixChange('star4', parseInt(e.target.value, 10) || 0)}
-                      className="w-16 text-right px-2 py-1 bg-white dark:bg-slate-900 border rounded text-xs font-bold" 
-                    />
-                    <span className="text-slate-400">%</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-amber-500 font-bold flex items-center gap-1">
-                      <Star size={12} className="fill-amber-400" /> 3 Stars
-                    </span>
-                    <input 
-                      type="number" 
-                      min="0" 
-                      max="100" 
-                      value={starMix.star3}
-                      onChange={(e) => handleStarMixChange('star3', parseInt(e.target.value, 10) || 0)}
-                      className="w-16 text-right px-2 py-1 bg-white dark:bg-slate-900 border rounded text-xs font-bold" 
-                    />
-                    <span className="text-slate-400">%</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-amber-500 font-bold flex items-center gap-1">
-                      <Star size={12} className="fill-amber-400" /> 2 Stars
-                    </span>
-                    <input 
-                      type="number" 
-                      min="0" 
-                      max="100" 
-                      value={starMix.star2}
-                      onChange={(e) => handleStarMixChange('star2', parseInt(e.target.value, 10) || 0)}
-                      className="w-16 text-right px-2 py-1 bg-white dark:bg-slate-900 border rounded text-xs font-bold" 
-                    />
-                    <span className="text-slate-400">%</span>
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Persona / Tone Focus */}
@@ -875,7 +678,10 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
                   {/* List of generated reviews */}
                   <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
                     {stagedReviews.map((rev, idx) => (
-                      <div key={idx} className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200 dark:border-slate-700/70 space-y-2.5">
+                      <div key={idx} className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200 dark:border-slate-700/70 space-y-2.5 relative">
+                        <div className="absolute -top-3 -left-3 bg-blue-600 text-white font-bold text-xs px-2 py-1 rounded-full shadow-sm">
+                          #{idx + 1}
+                        </div>
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2">
                             <input
@@ -892,8 +698,13 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
                               {Array.from({ length: 5 }).map((_, sIdx) => (
                                 <Star
                                   key={sIdx}
-                                  size={13}
-                                  className={sIdx < rev.rating ? "fill-amber-400 text-amber-400" : "text-slate-300 dark:text-slate-600"}
+                                  size={16}
+                                  onClick={() => {
+                                    const copy = [...stagedReviews];
+                                    copy[idx].rating = sIdx + 1;
+                                    setStagedReviews(copy);
+                                  }}
+                                  className={`cursor-pointer transition-colors ${sIdx < rev.rating ? "fill-amber-400 text-amber-400" : "text-slate-300 dark:text-slate-600 hover:text-amber-300"}`}
                                 />
                               ))}
                             </div>

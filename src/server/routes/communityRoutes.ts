@@ -4,6 +4,7 @@ import { verifyAdminToken } from '../middleware/adminAuth';
 import { communityStore } from '../services/communityStoreService';
 import { generateAIReviewsForApp } from '../services/aiReviewGeneratorService';
 import { getStaticData } from '../config';
+import { fetchStoreData } from '../../seoHelper';
 
 export const communityRouter = Router();
 
@@ -393,13 +394,24 @@ communityRouter.post("/api/v1/admin/community/ai-generate/single", verifyAdminTo
       return res.status(400).json({ error: 'App ID or App Data is required' });
     }
 
-    let targetApp = appData;
-    if (!targetApp) {
-      const staticData = getStaticData();
-      targetApp = (staticData.mockApps || []).find((a: any) => a.id === appId || a.slug === appId);
+    let targetApp = appData || {};
+    try {
+      const storeData = await fetchStoreData();
+      const fullApp = storeData?.apps?.find((a: any) => a.id === appId || a.slug === appId);
+      if (fullApp) {
+        targetApp = { ...targetApp, ...fullApp };
+      } else {
+        const staticData = getStaticData();
+        const fallbackApp = staticData.apps?.find((a: any) => a.id === appId || a.slug === appId) || staticData.mockApps?.find((a: any) => a.id === appId || a.slug === appId);
+        if (fallbackApp) {
+          targetApp = { ...targetApp, ...fallbackApp };
+        }
+      }
+    } catch(e) {
+      console.warn("Failed to fetch full app data for AI generation", e);
     }
 
-    if (!targetApp) {
+    if (!targetApp || (!targetApp.id && !targetApp.name)) {
       return res.status(404).json({ error: `App ${appId} not found in catalog` });
     }
 
@@ -448,8 +460,19 @@ communityRouter.post("/api/v1/admin/community/ai-generate/bulk", verifyAdminToke
       appProfilesMap = {} // Per-app custom settings map: { [appId]: { targetScore, starMix, toneFocus, count } }
     } = req.body;
 
-    const staticData = getStaticData();
-    let allApps = staticData.mockApps || [];
+    let allApps: any[] = [];
+    try {
+      const storeData = await fetchStoreData();
+      if (storeData && storeData.apps) {
+        allApps = storeData.apps;
+      }
+    } catch(e) {
+      console.warn("Bulk AI: fetchStoreData failed, using static data", e);
+    }
+    if (allApps.length === 0) {
+      const staticData = getStaticData();
+      allApps = staticData.apps || staticData.mockApps || [];
+    }
 
     if (Array.isArray(appIds) && appIds.length > 0) {
       const idSet = new Set(appIds.map((id: any) => String(id).trim()));

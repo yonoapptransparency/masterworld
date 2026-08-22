@@ -151,7 +151,7 @@ function calculateRatingArray(count: number, targetScore: number, starMix?: Star
   return ratings;
 }
 
-// Generate realistic Indian & global usernames
+// Generate realistic Indian & global usernames with high diversity
 const USERNAME_TEMPLATES = [
   'Rahul Sharma', 'Vikas Verma', 'Amit Trivedi', 'Pooja Patel', 'Sneha_Gamer',
   'Rohit Kumar', 'Deepak_07', 'Karan Mehta', 'Ankit Singh', 'Sanjay Rajput',
@@ -159,15 +159,36 @@ const USERNAME_TEMPLATES = [
   'Nikhil_K', 'Gaurav Das', 'Suresh Reddy', 'Mohit_GamerX', 'Rajesh K.',
   'Pankaj_01', 'Abhishek Dubey', 'Ritu_Sharma', 'Vikram_Singh', 'Harish Nair',
   'Sunil Choudhary', 'Dinesh_Pro', 'Anand_Play', 'Manoj Kumar', 'Ajay_Tech',
-  'Kunal Roy', 'Rakesh_Dev', 'Alok Verma', 'Tanmay_7', 'Saurabh J.'
+  'Kunal Roy', 'Rakesh_Dev', 'Alok Verma', 'Tanmay_7', 'Saurabh J.',
+  'Neha_S', 'Riya_Gupta', 'Isha_Singh', 'Kritika_M', 'Simran_Kaur',
+  'Akash_Deep', 'Ravi_Shankar', 'Suraj_Prasad', 'Vijay_Kumar', 'Ramesh_G',
+  'Sandeep_Yadav', 'Ranjan_B', 'Ashish_T', 'Nitin_S', 'Prashant_K',
+  'Tushar_Gamer', 'Gagan_Playz', 'Bipin_R', 'Hemant_S', 'Lokesh_M',
+  'Gautam_D', 'Sumit_Bhai', 'Yogesh_Gaming', 'Tarun_Kumar', 'Naveen_R',
+  'Mohd_Ali', 'Imran_Khan', 'Tariq_Ahmed', 'Sameer_S', 'Rizwan_M',
+  'Abdul_Rahman', 'Zaid_Khan', 'Faisal_A', 'Waseem_Akram', 'Nadim_P',
+  'Arif_M', 'Salman_K', 'Shoaib_M', 'Junaid_A', 'Iqbal_S',
+  'ProPlayer99', 'King_Rahul', 'Master_Ankit', 'Sniper_Vikas', 'Gaming_Beast',
+  'Lone_Wolf_IND', 'Ninja_Gamer', 'Shadow_Hunter', 'Mortal_Soul', 'Viper_X',
+  'Dark_Knight', 'Ghost_Rider', 'Thunder_Bolt', 'Alpha_Male', 'Beta_Tester',
+  'Crazy_Gamer', 'Desi_Boy', 'Cool_Dude', 'Smart_Boy', 'Bad_Boy',
+  'Sweet_Girl', 'Angel_Priya', 'Cute_Munda', 'Desi_Girl', 'Punjabi_Munda',
+  'Gujrati_Boy', 'Marathi_Manus', 'South_Indian_Gamer', 'Delhi_Bhai', 'Mumbai_Don'
 ];
 
 function getRandomUserName(index: number): string {
-  const base = USERNAME_TEMPLATES[(index + Math.floor(Math.random() * USERNAME_TEMPLATES.length)) % USERNAME_TEMPLATES.length];
-  // Occasionally add random digits or handle style
-  if (Math.random() > 0.6) {
-    const num = Math.floor(Math.random() * 90) + 10;
+  // Use crypto.randomUUID or Math.random to make it truly random and diverse
+  const randIdx = Math.floor(Math.random() * USERNAME_TEMPLATES.length);
+  const base = USERNAME_TEMPLATES[(index * 7 + randIdx) % USERNAME_TEMPLATES.length];
+  
+  // Occasionally add random digits, handle styles, or lowercase
+  const dice = Math.random();
+  if (dice > 0.7) {
+    const num = Math.floor(Math.random() * 9000) + 100;
     return `${base.replace(/\s+/g, '_').toLowerCase()}${num}`;
+  } else if (dice > 0.4) {
+    const num = Math.floor(Math.random() * 90) + 10;
+    return `${base.replace(/\s+/g, '')}${num}`;
   }
   return base;
 }
@@ -196,13 +217,15 @@ export async function generateAIReviewsForApp(app: any, options: GenerateOptions
   const rawSafety = stripHtml(app?.safety_boxes?.join(' ') || app?.custom_admin_box_html || '');
   const featureHighlights = extractAppFeatureHighlights(app);
   const appFileSize = app?.file_size || 'Lightweight APK';
+  const appRating = app?.rating || '4.8';
+  const metaTitle = app?.seo_title || app?.name || '';
+  const metaDesc = app?.seo_description || app?.meta_description || '';
 
   // Calculate rating numbers for this batch
   const ratings = calculateRatingArray(count, targetScore, starMix);
 
   // Check if Gemini API key exists
   const apiKey = process.env.GEMINI_API_KEY;
-
   if (apiKey && apiKey.trim() !== '') {
     try {
       const ai = new GoogleGenAI({ 
@@ -222,6 +245,9 @@ Your goal is to write exactly ${count} authentic, vibrant, completely unique, 10
 - Category / Genre: "${appCategory}"
 - Studio / Developer: "${appDeveloper}"
 - Download Size: "${appFileSize}"
+- Official Rating: "${appRating} Stars"
+- Meta Title: "${metaTitle}"
+- Meta Description: "${metaDesc}"
 - Tone / Focus Preference: "${toneFocus}"
 
 ### FULL APP DESCRIPTION (The admin has written every detail here):
@@ -242,30 +268,32 @@ ${JSON.stringify(ratings)}
 
 ### STRICT POLICY / SAFETY NEGATIVE CONSTRAINTS (MANDATORY):
 - ABSOLUTELY NEVER mention "money", "real money", "cash", "rupees", "INR", "deposit", "withdrawal", "wallet payout", "earning", "bank account", "bonus cash", "paisa", "invest", "betting", or financial transactions.
+- ZERO CONTAMINATION: YOU ARE STRICTLY FORBIDDEN from mentioning any other applications, brands, software, or competitors (e.g., NEVER mention Instagram, Twitter, Facebook, PUBG, Free Fire, etc). You are ONLY reviewing "${appName}" and nothing else. If you hallucinate another app, you fail.
 - Instead, ground your reviews deeply in the ACTUAL mechanics, features, game modes, and descriptions provided above.
 
 ### DIVERSITY, CREATIVITY & DEEP FEATURE ANGLE MANDATES (CRUCIAL):
 Every single review in this batch MUST take a DIFFERENT, CREATIVE ANGLE from the app's detailed description:
-1. **Specific In-App Features & Quality of Life**: Point out specific buttons/features described in the text (e.g. Undo option, Blind bid mode, Super 8 challenge, Card history log, Auto-sort suits, Discard pile viewer, Timer extensions, Reconnect buffer, Table skin choices, Avatar selections).
-2. **Game Modes & Rule Variants**: Mention specific game modes described (e.g. 13-Card table, Point/Deal/Pool tables, 7 Up 7 Down, Callbreak Spade Trump, Dragon vs Tiger, Ludo 4-player, etc.).
+1. **Specific In-App Features & Quality of Life**: Point out specific buttons/features described in the text.
+2. **Extreme Username Diversity**: DO NOT reuse the same names. Generate highly diverse names (e.g., unique Indian names, creative gamer tags, casual handles like Rahul88, sneaky_sniper, P.Sharma, etc.).
 3. **UI/UX & Aesthetics**: Talk about the visual table felt, 3D chip animations, crisp card face contrast, dark theme, fluid 60fps animations, sound effects.
-4. **Performance & Hardware**: Mention smooth play on phones (e.g. Redmi Note 12, Samsung M34, OnePlus Nord, Vivo T2, Moto G54, Pixel), low storage footprint, zero overheating during long sessions, stable 4G/5G/Wi-Fi connection.
-5. **Tutorial & Learning vs Competitive**: Praise the interactive beginner tutorial, offline AI bots practice, or the rush of multiplayer matchmaking in under 3 seconds.
-6. **Vary Form & Style**:
-   - ~35% Short punchy comments (1 short sentence, casual slang: "mast card animations", "osm ui no lag", "superb table gameplay", "best pastime game", "smooth dealing flow").
-   - ~45% Medium comments (2 natural sentences).
-   - ~20% Detailed experiential stories (3-4 sentences detailing their playtime).
-7. **Natural Slang & Imperfect Typing**: Mix natural Indian conversational expressions ("mast", "osm ui", "no lag at all", "superb", "pls add...", "battery friendly").
-8. **Emojis**: Over 50% NO emojis. Remaining have maximum 1 subtle emoji (👍, 🔥, 💯, 👏, 👌).
+4. **Maximum Expressiveness & Open Talk**: BEYOND the financial words restriction, you must OPEN YOUR MOUTH AND TALK freely! Be wildly expressive. Talk openly and deeply about the gameplay, the vibe, the app features, the graphics, the ease of use, or the community. Do not hold back or sound restricted. Speak exactly how a passionate human gamer speaks!
+5. **Performance & Hardware**: Mention smooth play on phones, low storage footprint, zero overheating.
+6. **Tutorial & Learning vs Competitive**: Praise the interactive beginner tutorial, offline AI bots practice, or the rush of multiplayer matchmaking in under 3 seconds.
+7. **Ultimate Language & Script Freedom (Authentic Indian Tone)**: You MUST write exactly like real Indian users. Do not sound like a robot. 
+   - **Hinglish**: Heavily use Hindi written in English letters (e.g., "bhai mast game hai", "kya graphics hai", "ek number app").
+   - **Devanagari (Hindi Script)**: Feel free to mix in pure Hindi letters occasionally (e.g., "बहुत बढ़िया गेम है", "मजा आ गया").
+   - **Arabic/Urdu Slang**: Occasionally use common Urdu/Arabic words used in India (e.g., "Mashallah kya game hai", "Inshallah jeetunga", "Wallah bhai").
+   - **English**: Use broken, casual English mixed in ("pls update bro", "osm ui", "nyc game").
+8. **Human Imperfections**: Real users make typos, use shorthand (u, r, thx, plzz), and have imperfect grammar. Emulate this perfectly. Be raw and completely unfiltered.
+9. **Emojis**: Over 50% NO emojis. Remaining have maximum 1 subtle emoji (👍, 🔥, 💯, 👏, 👌).
 
 ${customPrompt ? `### USER CUSTOM INSTRUCTIONS (MANDATORY TO FOLLOW FOR ALL REVIEWS):\n${customPrompt}\n` : ''}
 ### OUTPUT FORMAT:
 Return a JSON array of ${count} objects with fields:
-- "userName": A realistic human name or casual gamer username (mix of Indian full names, handles like rahul_gamer, priya.k, tech_rohit, vikram07, etc.)
+- "userName": A realistic human name or casual gamer username. MUST BE HIGHLY DIVERSE.
 - "rating": The assigned integer star rating (1 to 5)
 - "reviewText": The natural, human-like comment
-- "helpful_count": An integer between 0 and 18 representing helpful votes
-- "daysAgo": An integer between 3 and 85 indicating how many days ago it was posted`;
+- "helpful_count": An integer between 0 and 18 representing helpful votes`;
 
       const response = await ai.models.generateContent({
         model: "gemini-3.7-flash",
@@ -280,8 +308,7 @@ Return a JSON array of ${count} objects with fields:
                 userName: { type: Type.STRING },
                 rating: { type: Type.INTEGER },
                 reviewText: { type: Type.STRING },
-                helpful_count: { type: Type.INTEGER },
-                daysAgo: { type: Type.INTEGER }
+                helpful_count: { type: Type.INTEGER }
               },
               required: ["userName", "rating", "reviewText"]
             }
@@ -307,7 +334,7 @@ Return a JSON array of ${count} objects with fields:
               userName: String(item.userName || getRandomUserName(idx)).trim(),
               rating: star,
               reviewText: safeText,
-              timestamp: pastDate,
+              timestamp: new Date().toISOString(),
               status: 'published',
               helpful_count: Math.max(0, Number(item.helpful_count) || Math.floor(Math.random() * 9)),
               source: 'ai_generated',
@@ -443,7 +470,7 @@ function generateContextualFallbackReviews(app: any, ratings: number[]): Partial
       userName: getRandomUserName(idx),
       rating: star,
       reviewText: sanitizeReviewText(text, app.name),
-      timestamp: getRandomPastDate(idx, ratings.length),
+      timestamp: new Date().toISOString(),
       status: 'published',
       helpful_count: Math.floor(Math.random() * 8),
       source: 'ai_generated',
