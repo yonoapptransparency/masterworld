@@ -22,7 +22,7 @@ service cloud.firestore {
 
     // Comprehensive payload validation for reviews
     function isValidReview(data) {
-      return (data.keys().hasAll(['appId', 'userName', 'rating', 'reviewText', 'timestamp', 'status']) ||
+      return (data.keys().hasAll(['appId', 'userName', 'rating', 'reviewText', 'created_at', 'status']) ||
               data.keys().hasAll(['app_id', 'username', 'rating', 'comment', 'created_at', 'source'])) &&
              data.rating is number && data.rating >= 1 && data.rating <= 5;
     }
