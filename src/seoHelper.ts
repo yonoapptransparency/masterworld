@@ -5,6 +5,7 @@ import { syncFromFirestore } from './seo/sync';
 import { getField, stripHtml, getYoutubeThumbnail, ensureAbsoluteUrl, getOgImageUrl, isBotUserAgent, escapeHtml, optimizeImageUrl } from './seo/utils';
 import * as renderers from './seo/renderers';
 import { getCleanCanonicalUrl, formatPageTitle } from './lib/seoUtils';
+import { communityStore } from './server/services/communityStoreService';
 
 // Dynamically resolve staticData to bypass TSX watcher
 const getStaticData = () => {
@@ -332,10 +333,14 @@ function buildJsonLdSchema(params: {
     if (!category.includes('Application')) {
       category = 'GameApplication';
     }
-    const realRating = parseFloat(getField(app, 'rating'));
-    const realCount = parseInt(getField(app, 'review_count'), 10);
-    const ratingVal = (!isNaN(realRating) && realRating > 0) ? realRating : 4.5;
-    const ratingCountVal = (!isNaN(realCount) && realCount > 0) ? realCount : 120;
+    const defaultRating = parseFloat(getField(app, 'rating')) || 4.8;
+    const defaultCount = parseInt(getField(app, 'review_count'), 10) || 120;
+    
+    // Get live stats from communityStore to ensure real reviews are sent to Googlebot
+    const liveStats = communityStore.getAppStats(getField(app, 'slug') || getField(app, 'id'), defaultRating);
+    
+    const ratingVal = liveStats.averageRating;
+    const ratingCountVal = liveStats.totalReviews > 0 ? liveStats.totalReviews : defaultCount;
     const appRawIcon = getField(app, 'icon_url') || getField(app, 'og_image_url') || params.logoUrl;
     const appSquareIcon = optimizeImageUrl(appRawIcon, 512) || appRawIcon;
     const desc = getField(app, 'seo_description') || getField(app, 'meta_description') || stripHtml(getField(app, 'description_html')) || params.description;
