@@ -139,6 +139,7 @@ export function useGitHubSync(
     const targetNews = stateNews || liveBackup?.news || [];
     const targetBlogs = stateBlogs || liveBackup?.blogs || [];
     const targetVideos = stateVideos || liveBackup?.videos || [];
+      let targetReviews: any[] = [];
 
     let finalApps = targetApps;
     if (targetApps.length > 0) {
@@ -171,6 +172,16 @@ export function useGitHubSync(
                 };
               });
               log("GitHub Sync: Secure link verification and merging completed.");
+            }
+          }
+          const revRes = await adminFetch('/api/v1/admin/community/reviews?limit=1000', {
+            headers: { 'Authorization': `Bearer ${idToken}` }
+          });
+          if (revRes.ok) {
+            const revData = await revRes.json();
+            if (revData && revData.reviews) {
+              targetReviews = revData.reviews.filter((r: any) => r.status === 'published');
+              log(`GitHub Sync: Fetched ${targetReviews.length} published reviews for static backup.`);
             }
           }
         }
@@ -209,7 +220,8 @@ export function useGitHubSync(
       settings: finalSettings,
       news: targetNews,
       blogs: targetBlogs,
-      videos: targetVideos
+      videos: targetVideos,
+      reviews: targetReviews
     }, null, 2);
 
     let targetRepo = configToUse.repo || 'dex';
