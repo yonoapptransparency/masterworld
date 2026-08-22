@@ -269,10 +269,6 @@ export function getFirebaseAdminDb(): any {
 let cachedCommunityDb: any = null;
 
 export function getCommunityAdminDb(): any {
-  // Always prefer the primary initialized Firestore admin DB
-  const mainDb = getFirebaseAdminDb();
-  if (mainDb) return mainDb;
-
   if (cachedCommunityDb) return cachedCommunityDb;
 
   try {
@@ -287,6 +283,20 @@ export function getCommunityAdminDb(): any {
 
     // Initialize community app
     const serviceAccountPath = path.join(process.cwd(), 'community-service-account.json');
+    if (process.env.COMMUNITY_FIREBASE_SERVICE_ACCOUNT) {
+      try {
+        const serviceAccount = JSON.parse(process.env.COMMUNITY_FIREBASE_SERVICE_ACCOUNT);
+        const communityApp = admin.initializeApp({
+          credential: admin.credential.cert(serviceAccount),
+          projectId: serviceAccount.project_id
+        }, 'communityApp');
+        cachedCommunityDb = communityApp.firestore();
+        console.log('[Community Admin SDK] Firestore initialized successfully from COMMUNITY_FIREBASE_SERVICE_ACCOUNT.');
+        return cachedCommunityDb;
+      } catch (err) {
+        console.error('[Community Admin SDK] Failed to parse COMMUNITY_FIREBASE_SERVICE_ACCOUNT:', err);
+      }
+    }
     if (fs.existsSync(serviceAccountPath)) {
       const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf-8'));
       const communityApp = admin.initializeApp({
@@ -352,16 +362,25 @@ export async function writeFirestoreRestDoc(docId: string, data: any, authToken?
       console.warn(`[SERVER] Cannot write REST doc ${docId}: Missing project ID`);
       return false;
     }
+    
+    let targetProjectId = config.projectId;
+    let targetApiKey = config.apiKey;
+    if (['reviews', 'reports', 'support_tickets', 'website_feedback'].includes(collectionPath)) {
+      targetProjectId = 'rummydexcommunity';
+      targetApiKey = 'AIzaSyCzhWEDLQsZ-HL8iVMcINq78lB-RzYPxi0';
+    }
+
     const dbId = config.firestoreDatabaseId || config.databaseId || '(default)';
     const queryParams: string[] = [];
-    if (config.apiKey) queryParams.push(`key=${encodeURIComponent(config.apiKey)}`);
+    if (targetApiKey) queryParams.push(`key=${encodeURIComponent(targetApiKey)}`);
     if (merge && data && typeof data === 'object') {
       Object.keys(data).forEach(key => {
         queryParams.push(`updateMask.fieldPaths=${encodeURIComponent(key)}`);
       });
     }
+    
     const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
-    const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${dbId}/documents/${collectionPath}/${docId}${queryString}`;
+    const url = `https://firestore.googleapis.com/v1/projects/${targetProjectId}/databases/${dbId}/documents/${collectionPath}/${docId}${queryString}`;
 
     const fields = convertToFirestoreFields(data);
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -397,7 +416,16 @@ export async function deleteFirestoreRestDoc(docId: string, authToken?: string, 
     if (!config || !config.projectId) return false;
     const dbId = config.firestoreDatabaseId || config.databaseId || '(default)';
     const apiKeyParam = config.apiKey ? `?key=${config.apiKey}` : '';
-    const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${dbId}/documents/${collectionPath}/${docId}${apiKeyParam}`;
+    
+    let targetProjectId = config.projectId;
+    let targetApiKey = config.apiKey;
+    if (['reviews', 'reports', 'support_tickets', 'website_feedback'].includes(collectionPath)) {
+      targetProjectId = 'rummydexcommunity';
+      targetApiKey = 'AIzaSyCzhWEDLQsZ-HL8iVMcINq78lB-RzYPxi0';
+    }
+    const finalApiKeyParam = targetApiKey ? `?key=${targetApiKey}` : '';
+    const url = `https://firestore.googleapis.com/v1/projects/${targetProjectId}/databases/${dbId}/documents/${collectionPath}/${docId}${finalApiKeyParam}`;
+  
 
     const headers: Record<string, string> = {};
     if (authToken && authToken.trim() !== '') {
@@ -421,7 +449,17 @@ export async function readFirestoreRestCollection(collectionPath: string, authTo
     
     const dbId = config.firestoreDatabaseId || config.databaseId || '(default)';
     const apiKeyParam = config.apiKey ? `?key=${config.apiKey}` : '';
-    const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${dbId}/documents/${collectionPath}${apiKeyParam}`;
+    
+    let targetProjectId = config.projectId;
+    let targetApiKey = config.apiKey;
+    const baseCollection = collectionPath.split('/')[0];
+    if (['reviews', 'reports', 'support_tickets', 'website_feedback'].includes(baseCollection)) {
+      targetProjectId = 'rummydexcommunity';
+      targetApiKey = 'AIzaSyCzhWEDLQsZ-HL8iVMcINq78lB-RzYPxi0';
+    }
+    const finalApiKeyParam = targetApiKey ? `?key=${targetApiKey}` : '';
+    const url = `https://firestore.googleapis.com/v1/projects/${targetProjectId}/databases/${dbId}/documents/${collectionPath}${finalApiKeyParam}`;
+  
 
     const headers: Record<string, string> = {};
     if (authToken && authToken.trim() !== '') {

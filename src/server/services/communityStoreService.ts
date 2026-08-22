@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { getCommunityAdminDb, writeFirestoreRestDoc, deleteFirestoreRestDoc, readFirestoreRestCollection, parseFirestoreFields, getRawFirebaseConfig } from '../firebase';
 import { getStaticData } from '../config';
+import { STATIC_COMMUNITY_REVIEWS } from '../../lib/communityReviewsData';
 
 export interface ReviewRecord {
   id: string;
@@ -151,6 +152,32 @@ class CommunityStoreService {
   // Load from local JSON disk backup on startup
   private loadFromLocalBackup() {
     try {
+      // First seed memory cache with all verified static reviews
+      if (Array.isArray(STATIC_COMMUNITY_REVIEWS)) {
+        STATIC_COMMUNITY_REVIEWS.forEach((r: any) => {
+          if (r && r.id) {
+            this.reviews.set(r.id, {
+              id: r.id,
+              appId: r.appId || r.app_id || '',
+              appSlug: r.appSlug || '',
+              appName: r.appName || '',
+              userName: r.userName || r.username || 'Player',
+              rating: Number(r.rating) || 5,
+              reviewText: sanitizeReviewText(r.reviewText || r.comment || ''),
+              timestamp: r.timestamp || r.created_at || new Date().toISOString(),
+              status: r.status || 'published',
+              helpful_count: Number(r.helpful_count) || 0,
+              isPinned: Boolean(r.isPinned),
+              reported: Boolean(r.reported),
+              report_count: Number(r.report_count) || 0,
+              source: r.source || 'admin_created',
+              adminReply: r.adminReply || null,
+              updated_at: r.updated_at
+            });
+          }
+        });
+      }
+
       if (fs.existsSync(this.localBackupPath)) {
         const raw = fs.readFileSync(this.localBackupPath, 'utf8');
         const data = JSON.parse(raw);

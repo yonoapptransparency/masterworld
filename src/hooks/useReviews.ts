@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Review } from '../components/public/ReviewItem';
+import { STATIC_COMMUNITY_REVIEWS } from '../lib/communityReviewsData';
 
 interface AppReviewSeedConfig {
   appId: string;
@@ -34,6 +35,37 @@ export function useReviews(
   const cleanAppId = String(appId || '').trim();
   const cleanAppSlug = String(appSlug || '').trim();
   const cleanAppTitle = String(appTitle || '').trim();
+
+  const getStaticFallbackReviews = useCallback((): Review[] => {
+    const targetId = (cleanAppId || '').toLowerCase();
+    const targetSlug = (cleanAppSlug || '').toLowerCase();
+    const targetTitle = (cleanAppTitle || '').toLowerCase();
+
+    return STATIC_COMMUNITY_REVIEWS.filter(r => {
+      const rAppId = String(r.appId || '').toLowerCase();
+      const rAppSlug = String(r.appSlug || '').toLowerCase();
+      const rAppName = String(r.appName || '').toLowerCase();
+
+      return (targetId && rAppId === targetId) ||
+             (targetSlug && rAppSlug === targetSlug) ||
+             (targetTitle && rAppName === targetTitle) ||
+             (targetSlug && rAppName.includes(targetSlug)) ||
+             (targetTitle && rAppSlug.includes(targetTitle));
+    }).map((r: any) => ({
+      id: r.id || `rev_${Math.random()}`,
+      app_id: r.appId || cleanAppId,
+      username: r.userName || 'Verified Player',
+      rating: Number(r.rating) || 5,
+      comment: r.reviewText || '',
+      created_at: r.timestamp || new Date().toISOString(),
+      helpful_count: Number(r.helpful_count) || 0,
+      reported: Boolean(r.reported),
+      report_count: Number(r.report_count) || 0,
+      source: r.source || 'admin_created',
+      isPinned: Boolean(r.isPinned),
+      adminReply: r.adminReply || null
+    }));
+  }, [cleanAppId, cleanAppSlug, cleanAppTitle]);
 
   // Multi-tier resilient review fetcher
   const fetchReviews = useCallback(async (isLoadMore = false) => {
@@ -119,18 +151,19 @@ export function useReviews(
       // -------------------------------------------------------------
       // TIER 4: Guaranteed Never-Empty Verified Reviews Fallback
       // -------------------------------------------------------------
-      // Removed default verified reviews to ensure reviews are only from real sources or AI generation studio
+      const staticReviews = getStaticFallbackReviews();
+      const combinedFetched = fetchedReviews.length > 0 ? fetchedReviews : staticReviews;
 
       // Merge remote, local, and default items smoothly
       setReviews(prev => {
         if (isLoadMore) {
           const existingIds = new Set(prev.map(p => p.id));
-          const newUnique = fetchedReviews.filter(r => !existingIds.has(r.id));
+          const newUnique = combinedFetched.filter(r => !existingIds.has(r.id));
           return [...prev, ...newUnique];
         } else {
-          const dbIds = new Set(fetchedReviews.map(r => r.id));
+          const dbIds = new Set(combinedFetched.map(r => r.id));
           const filteredLocal = localReviews.filter(r => !dbIds.has(r.id));
-          return [...filteredLocal, ...fetchedReviews];
+          return [...filteredLocal, ...combinedFetched];
         }
       });
 
@@ -141,14 +174,14 @@ export function useReviews(
       console.error('Reviews load pipeline error:', err);
       // Fallback on catastrophic failure
       if (!isLoadMore) {
-        setReviews([]);
+        setReviews(getStaticFallbackReviews());
       }
     } finally {
       if (isLoadMore) setLoadingMore(false);
       else setLoading(false);
       setInitialLoadDone(true);
     }
-  }, [cleanAppId, cleanAppSlug, cleanAppTitle, category, overallRating, nextCursor]);
+  }, [cleanAppId, cleanAppSlug, cleanAppTitle, category, overallRating, nextCursor, getStaticFallbackReviews]);
 
   const prevAppRef = useRef<string | null>(null);
 
