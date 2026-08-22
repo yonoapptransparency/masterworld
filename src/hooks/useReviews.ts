@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Review } from '../components/public/ReviewItem';
 
 interface AppReviewSeedConfig {
@@ -147,8 +147,18 @@ export function useReviews(
     }
   }, [cleanAppId, cleanAppSlug, cleanAppTitle, category, overallRating, nextCursor]);
 
+  const prevAppRef = useRef<string | null>(null);
+
   // Initial load trigger on mount or appId change
   useEffect(() => {
+    const targetKey = cleanAppId || cleanAppSlug;
+    if (prevAppRef.current !== null && prevAppRef.current !== targetKey) {
+      setReviews([]);
+      setNextCursor(null);
+      setHasMore(false);
+    }
+    prevAppRef.current = targetKey;
+
     setInitialLoadDone(false);
     fetchReviews(false);
   }, [cleanAppId, cleanAppSlug]);
