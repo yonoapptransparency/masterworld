@@ -15,8 +15,8 @@ import { AdminWelcomeOverlay } from '../components/admin/AdminWelcomeOverlay';
 
 export default function AdminDashboard() {
   const { 
-    apps, settings, news, blogs: contextBlogs, videos, 
-    saveApps, saveSettings, saveNews, saveBlogs, saveVideos,
+    apps, settings, news, videos, 
+    saveApps, saveSettings, saveNews, saveVideos,
     loading, refreshAll, gitConfig, gitConfigLoading, saveGitConfig, pushAllToGitHub
   } = useData();
 
@@ -48,7 +48,6 @@ export default function AdminDashboard() {
   const {
     newsList, setNewsList,
     banners, setBanners,
-    blogsList, setBlogsList,
     videosList, setVideosList,
     categoriesList, setCategoriesList,
     quickLinksList, setQuickLinksList,
@@ -57,13 +56,12 @@ export default function AdminDashboard() {
     newCatInput, setNewCatInput,
     handleAddBanner, handleBannerChange, handleDeleteBanner,
     handleAddNews, handleNewsChange, handleDeleteNews,
-    handleAddBlog, handleBlogChange, handleDeleteBlog,
     handleAddCategory, handleRemoveCategory,
     handleAddVideo, handleDeleteVideo, handleVideosChange,
     handleAddWebsiteFaq, handleRemoveWebsiteFaq, handleWebsiteFaqChange,
     handleAddQuickLink, handleRemoveQuickLink, handleQuickLinkChange,
     handleAddDeveloper, handleRemoveDeveloper, handleDeveloperChange
-  } = useAdminSettings(settings, news, contextBlogs, videos);
+  } = useAdminSettings(settings, news, videos);
 
   const [confirmConfig, setConfirmConfig] = useState<{
     isOpen: boolean; title: string; message: string; confirmText?: string; cancelText?: string; onConfirm: () => void | Promise<void>;
@@ -292,7 +290,7 @@ export default function AdminDashboard() {
 
         <div className="p-4 max-w-(--breakpoint-2xl) mx-auto">
           <AdminTabContent 
-            activeTab={activeTab} appsList={appsList} newsList={newsList} banners={banners} blogsList={blogsList} videosList={videosList}
+            activeTab={activeTab} appsList={appsList} newsList={newsList} banners={banners} videosList={videosList}
             categoriesList={categoriesList} quickLinksList={quickLinksList} websiteFaqsList={websiteFaqsList} developersList={developersList}
             settings={settings} gitConfig={gitConfig} db={db} saving={saving} setSaving={setSaving} editingAppId={editingAppId}
             setEditingAppId={setEditingAppId}
@@ -325,10 +323,6 @@ export default function AdminDashboard() {
             handleAddNews={handleAddNews}
             handleNewsChange={handleNewsChange}
             handleDeleteNews={handleDeleteNews}
-            handleAddBlog={handleAddBlog}
-            handleBlogChange={handleBlogChange}
-            handleDeleteBlog={handleDeleteBlog}
-            handleSaveBlogs={() => saveBlogs(blogsList)}
             handleAddCategory={handleAddCategory}
             handleRemoveCategory={handleRemoveCategory}
             handleAddVideo={handleAddVideo}

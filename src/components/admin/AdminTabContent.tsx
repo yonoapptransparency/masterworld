@@ -1,6 +1,5 @@
 import React from 'react';
 import AppsTab from '../AppsTab';
-import BlogsTab from '../BlogsTab';
 import SecurityTab from '../SecurityTab';
 import FirebaseStatusPanel from '../FirebaseStatusPanel';
 import { AdminDashboardOverview as DashboardTab } from './AdminDashboardOverview';
@@ -23,7 +22,6 @@ interface AdminTabContentProps {
   appsList: any[];
   newsList: any[];
   banners: any[];
-  blogsList: any[];
   videosList: any[];
   categoriesList: string[];
   quickLinksList: any[];
@@ -59,10 +57,6 @@ interface AdminTabContentProps {
   handleAddNews: () => string;
   handleNewsChange: (id: string, field: string, value: any) => void;
   handleDeleteNews: (id: string) => void;
-  handleAddBlog?: () => void;
-  handleBlogChange?: (id: string, field: string, value: any) => void;
-  handleDeleteBlog?: (id: string) => void;
-  handleSaveBlogs?: () => void;
   handleAddCategory: () => void;
   handleRemoveCategory: (cat: string) => void;
   handleAddVideo: () => void;
@@ -84,7 +78,6 @@ export const AdminTabContent = ({
   appsList,
   newsList,
   banners,
-  blogsList,
   videosList,
   categoriesList,
   quickLinksList,
@@ -119,10 +112,6 @@ export const AdminTabContent = ({
   handleAddNews,
   handleNewsChange,
   handleDeleteNews,
-  handleAddBlog,
-  handleBlogChange,
-  handleDeleteBlog,
-  handleSaveBlogs,
   handleAddCategory,
   handleRemoveCategory,
   handleAddVideo,
@@ -231,7 +220,6 @@ export const AdminTabContent = ({
           appsList={appsList}
           settings={settings}
           newsList={newsList}
-          blogs={blogsList}
           videosList={videosList}
           generatePreview={() => "Preview not available in this view"}
         />

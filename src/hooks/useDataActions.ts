@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import { doc, setDoc } from 'firebase/firestore';
 import { db, isFirebaseReal } from '../lib/firebase';
-import { AppConfig, GlobalSettings, NewsItem, BlogPost, VideoItem } from '../types';
+import { AppConfig, GlobalSettings, NewsItem, VideoItem } from '../types';
 import { mockSettings } from '../lib/lightFallback';
 import { adminFetch } from '../services/adminAuthService';
 
@@ -12,8 +12,6 @@ export function useDataActions(
   setSettings: React.Dispatch<React.SetStateAction<GlobalSettings>>,
   news: NewsItem[],
   setNews: React.Dispatch<React.SetStateAction<NewsItem[]>>,
-  blogs: BlogPost[],
-  setBlogs: React.Dispatch<React.SetStateAction<BlogPost[]>>,
   videos: VideoItem[],
   setVideos: React.Dispatch<React.SetStateAction<VideoItem[]>>,
   getAdminToken: () => Promise<string>
@@ -23,11 +21,9 @@ export function useDataActions(
     apps?: AppConfig[];
     settings?: GlobalSettings;
     news?: NewsItem[];
-    blogs?: BlogPost[];
     videos?: VideoItem[];
     allowEmptyApps?: boolean;
     allowEmptyNews?: boolean;
-    allowEmptyBlogs?: boolean;
     allowEmptyVideos?: boolean;
   }) => {
     try {
@@ -162,24 +158,6 @@ export function useDataActions(
     }
   }, [updateLocalContainerBackup]);
 
-  const saveBlogs = useCallback(async (newBlogs: BlogPost[]) => {
-    const cleanBlogs = JSON.parse(JSON.stringify(newBlogs || []));
-    setBlogs(cleanBlogs);
-    try {
-      await updateLocalContainerBackup({ blogs: cleanBlogs, allowEmptyBlogs: cleanBlogs.length === 0 });
-    } catch (e) {
-      console.warn("Local container backup failed for blogs:", e);
-    }
-    if (isFirebaseReal && db) {
-      try {
-        await setDoc(doc(db, 'store_data', 'blogs'), { items: cleanBlogs });
-      } catch (e) {
-        console.error("Firestore setDoc failed for store_data/blogs:", e);
-        throw e;
-      }
-    }
-  }, [updateLocalContainerBackup]);
-
   const saveVideos = useCallback(async (newVideos: VideoItem[]) => {
     const cleanVideos = JSON.parse(JSON.stringify(newVideos || []));
     setVideos(cleanVideos);
@@ -202,7 +180,6 @@ export function useDataActions(
     saveApps,
     saveSettings,
     saveNews,
-    saveBlogs,
     saveVideos,
     updateLocalContainerBackup
   };

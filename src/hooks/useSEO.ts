@@ -1,12 +1,11 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { AppConfig, GlobalSettings, NewsItem, BlogPost, VideoItem } from '../types';
+import { AppConfig, GlobalSettings, NewsItem, VideoItem } from '../types';
 
 export function useSEO(
   settings: GlobalSettings | null,
   apps: AppConfig[],
   news: NewsItem[],
-  blogs: BlogPost[],
   videos: VideoItem[],
   isAdminPath: boolean = false
 ) {

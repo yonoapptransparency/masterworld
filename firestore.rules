@@ -76,7 +76,7 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
-    // 5. Store data collection (app catalog, public settings, news, blogs, videos, secure links vault)
+    // 5. Store data collection (app catalog, public settings, news, videos, secure links vault)
     match /store_data/{docId} {
       allow read: if true;
       allow write: if isAdmin();

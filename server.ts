@@ -217,13 +217,18 @@ async function startServer() {
       return res.redirect(301, rawPath.replace(/\/+$/, '') + query);
     }
 
+    // 2.1 Permanent 301 Redirect old blog paths to home
+    if (pathLower === '/blogs' || pathLower === '/blog' || pathLower.startsWith('/blogs/') || pathLower.startsWith('/blog/')) {
+      res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
+      return res.redirect(301, '/');
+    }
+
     // 3. Handle root-level single slugs (e.g. /a23-rummy -> 301 to canonical /app/a23-rummy)
     const cleanSegment = rawPath.replace(/^\/+|\/+$/g, '').toLowerCase();
     const knownTopLevelRoutes = new Set([
       '',
       'new-apps',
       'news',
-      'blogs',
       'videos',
       'developers',
       'about',
@@ -245,12 +250,24 @@ async function startServer() {
       'out',
       'sitemap.xml',
       'sitemap_index.xml',
+      'sitemap-index.xml',
+      'sitemapindex.xml',
       'sitemap-apps.xml',
+      'sitemap_apps.xml',
+      'sitemap-app.xml',
+      'sitemap_app.xml',
       'sitemap-static.xml',
+      'sitemap_static.xml',
+      'sitemap-pages.xml',
+      'sitemap_pages.xml',
       'sitemap-news.xml',
-      'sitemap-blogs.xml',
+      'sitemap_news.xml',
+      'sitemap-posts.xml',
+      'sitemap_posts.xml',
       'sitemap-videos.xml',
+      'sitemap_videos.xml',
       'sitemap-developers.xml',
+      'sitemap_developers.xml',
       'robots.txt',
       'rss.xml',
       'opensearch.xml',
@@ -270,7 +287,6 @@ async function startServer() {
       !pathLower.startsWith('/app/') &&
       !pathLower.startsWith('/s/') &&
       !pathLower.startsWith('/news/') &&
-      !pathLower.startsWith('/blog/') &&
       !pathLower.startsWith('/videos/') &&
       !pathLower.startsWith('/admin')
     ) {
@@ -286,12 +302,6 @@ async function startServer() {
         if (newsItem && newsItem.slug) {
           res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
           return res.redirect(301, `/news/${newsItem.slug}`);
-        }
-
-        const blogItem = (storeData.blogs || []).find((b: any) => b.slug?.toLowerCase() === cleanSegment || b.id?.toLowerCase() === cleanSegment);
-        if (blogItem && (blogItem.slug || blogItem.id)) {
-          res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
-          return res.redirect(301, `/blog/${blogItem.slug || blogItem.id}`);
         }
 
         const videoItem = (storeData.videos || []).find((v: any) => v.slug?.toLowerCase() === cleanSegment);
@@ -363,7 +373,7 @@ async function startServer() {
       if (process.env.NODE_ENV === "production") {
         if (req.originalUrl === '/' || req.originalUrl === '' || req.originalUrl === '/new-apps') {
           cacheControl = 'public, max-age=300, stale-while-revalidate=3600';
-        } else if (req.originalUrl === '/news' || req.originalUrl === '/blogs' || req.originalUrl === '/videos') {
+        } else if (req.originalUrl === '/news' || req.originalUrl === '/videos') {
           cacheControl = 'public, max-age=600, stale-while-revalidate=7200';
         } else if (['/about', '/contact', '/privacy', '/terms', '/ethics', '/disclaimer', '/notice', '/responsibility', '/developers', '/report-removal'].includes(req.originalUrl)) {
           cacheControl = 'public, max-age=3600, stale-while-revalidate=86400';
@@ -386,8 +396,6 @@ async function startServer() {
         reqUrlLower.startsWith('/login') ||
         reqUrlLower.startsWith('/masterworld') ||
         reqUrlLower.startsWith('/news') ||
-        reqUrlLower.startsWith('/blogs') ||
-        reqUrlLower.startsWith('/blog/') ||
         reqUrlLower.startsWith('/videos') ||
         ['/about', '/contact', '/privacy', '/report-removal', '/terms', '/notice', '/ethics', '/disclaimer', '/responsibility', '/developers'].includes(reqUrlLower);
 

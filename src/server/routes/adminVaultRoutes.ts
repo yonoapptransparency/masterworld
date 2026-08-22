@@ -468,8 +468,8 @@ adminVaultRouter.post("/api/v1/admin/decrypt-links", verifyAdminToken, async (re
 adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: any, res) => {
   console.log("[DEBUG] sync-local endpoint hit!");
   try {
-    const { apps, settings, news, blogs, videos, allowEmptyApps, allowEmptyNews, allowEmptyBlogs, allowEmptyVideos } = req.body;
-    if (!apps && !settings && !news && !blogs && !videos) {
+    const { apps, settings, news, videos, allowEmptyApps, allowEmptyNews, allowEmptyVideos } = req.body;
+    if (!apps && !settings && !news && !videos) {
       return res.status(400).json({ error: "Invalid sync payload: no items provided." });
     }
 
@@ -503,9 +503,6 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
         }
         if (Array.isArray(news) && (news.length > 0 || allowEmptyNews)) {
           otherPromises.push(adminDb.collection('store_data').doc('news').set({ items: JSON.parse(JSON.stringify(news)) }));
-        }
-        if (Array.isArray(blogs) && (blogs.length > 0 || allowEmptyBlogs)) {
-          otherPromises.push(adminDb.collection('store_data').doc('blogs').set({ items: JSON.parse(JSON.stringify(blogs)) }));
         }
         if (Array.isArray(videos) && (videos.length > 0 || allowEmptyVideos)) {
           otherPromises.push(adminDb.collection('store_data').doc('videos').set({ items: JSON.parse(JSON.stringify(videos)) }));
@@ -552,9 +549,6 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
         if (Array.isArray(news) && (news.length > 0 || allowEmptyNews)) {
           promises.push(writeFirestoreRestDoc('news', { items: JSON.parse(JSON.stringify(news)) }, authToken));
         }
-        if (Array.isArray(blogs) && (blogs.length > 0 || allowEmptyBlogs)) {
-          promises.push(writeFirestoreRestDoc('blogs', { items: JSON.parse(JSON.stringify(blogs)) }, authToken));
-        }
         if (Array.isArray(videos) && (videos.length > 0 || allowEmptyVideos)) {
           promises.push(writeFirestoreRestDoc('videos', { items: JSON.parse(JSON.stringify(videos)) }, authToken));
         }
@@ -582,7 +576,7 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
     // Try local file backup safely without wiping non-empty arrays with empty truthy []
     try {
       const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
-      let existingBackup: any = { apps: [], settings: {}, news: [], blogs: [], videos: [] };
+      let existingBackup: any = { apps: [], settings: {}, news: [], videos: [] };
       if (fs.existsSync(publicBackupPath)) {
         try {
           existingBackup = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
@@ -595,13 +589,11 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
       const mockApps = (staticDataObj.mockApps && staticDataObj.mockApps.length > 0) ? staticDataObj.mockApps : lightFallbackObj.mockApps;
       const mockSettings = (staticDataObj.mockSettings && Object.keys(staticDataObj.mockSettings).length > 0) ? staticDataObj.mockSettings : lightFallbackObj.mockSettings;
       const mockNews = (staticDataObj.mockNews && staticDataObj.mockNews.length > 0) ? staticDataObj.mockNews : lightFallbackObj.mockNews;
-      const mockBlogs = (staticDataObj.mockBlogs && staticDataObj.mockBlogs.length > 0) ? staticDataObj.mockBlogs : lightFallbackObj.mockBlogs;
       const mockVideos = (staticDataObj.mockVideos && staticDataObj.mockVideos.length > 0) ? staticDataObj.mockVideos : lightFallbackObj.mockVideos;
 
       const baseApps = (Array.isArray(existingBackup.apps) && existingBackup.apps.length > 0) ? existingBackup.apps : (mockApps || []);
       const baseSettings = (existingBackup.settings && typeof existingBackup.settings === 'object' && Object.keys(existingBackup.settings).length > 0) ? existingBackup.settings : (mockSettings || {});
       const baseNews = (Array.isArray(existingBackup.news) && existingBackup.news.length > 0) ? existingBackup.news : (mockNews || []);
-      const baseBlogs = (Array.isArray(existingBackup.blogs) && existingBackup.blogs.length > 0) ? existingBackup.blogs : (mockBlogs || []);
       const baseVideos = (Array.isArray(existingBackup.videos) && existingBackup.videos.length > 0) ? existingBackup.videos : (mockVideos || []);
 
       const finalApps = (Array.isArray(apps) && (apps.length > 0 || allowEmptyApps)) ? apps : baseApps;
@@ -616,7 +608,6 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
         developers: (Array.isArray(incomingSettings.developers) && incomingSettings.developers.length > 0) ? incomingSettings.developers : (baseSettings.developers || []),
       };
       const finalNews = (Array.isArray(news) && (news.length > 0 || allowEmptyNews)) ? news : baseNews;
-      const finalBlogs = (Array.isArray(blogs) && (blogs.length > 0 || allowEmptyBlogs)) ? blogs : baseBlogs;
       const finalVideos = (Array.isArray(videos) && (videos.length > 0 || allowEmptyVideos)) ? videos : baseVideos;
 
       const safeBackupApps = JSON.parse(JSON.stringify(finalApps)).map((app: any) => {
@@ -629,14 +620,13 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
         apps: safeBackupApps,
         settings: finalSettings,
         news: finalNews,
-        blogs: finalBlogs,
         videos: finalVideos
       };
       fs.writeFileSync(publicBackupPath, JSON.stringify(backupPayload, null, 2), 'utf8');
       
       const { generateStaticDataFileCode } = require('../../lib/githubSync');
       const staticDataPath = path.join(process.cwd(), 'src/lib/staticData.ts');
-      const tsCode = generateStaticDataFileCode(finalApps, finalSettings, finalNews, finalBlogs, finalVideos);
+      const tsCode = generateStaticDataFileCode(finalApps, finalSettings, finalNews, finalVideos);
       fs.writeFileSync(staticDataPath, tsCode, 'utf8');
 
       // Update in-memory vaultNode for instant link resolution

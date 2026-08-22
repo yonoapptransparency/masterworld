@@ -126,31 +126,6 @@ export interface Review {
   is_approved: boolean;
 }
 
-export interface BlogPost {
-  id: string;
-  slug: string;
-  title: string;
-  content: string;
-  author: string;
-  cover_url: string;
-  published_at: string;
-  related_app_slug?: string;
-  related_app_name?: string;
-  seo_title?: string;
-  seo_description?: string;
-  seo_keywords?: string;
-  canonical_url?: string;
-  target_region?: string;
-  description?: string;
-  description_html?: string;
-  date?: string;
-  thumbnail_url?: string;
-  publish_date?: string;
-  read_time?: string;
-  tags?: string[];
-  created_at?: string;
-}
-
 export interface NewsUpdate {
   id: string;
   title: string;

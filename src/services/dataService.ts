@@ -1,7 +1,7 @@
 import { collection, doc, getDoc, getDocFromServer, getDocs, setDoc } from 'firebase/firestore';
 import { db, isFirebaseReal } from '../lib/firebase';
-import { AppConfig, GlobalSettings, NewsItem, BlogPost, VideoItem } from '../types';
-import { mockApps, mockSettings, mockNews, mockBlogs, mockVideos } from '../lib/lightFallback';
+import { AppConfig, GlobalSettings, NewsItem, VideoItem } from '../types';
+import { mockApps, mockSettings, mockNews, mockVideos } from '../lib/lightFallback';
 
 export const FETCH_TIMEOUT = 15000;
 

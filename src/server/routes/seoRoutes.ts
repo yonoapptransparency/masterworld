@@ -1,7 +1,7 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
-import { fetchStoreData, getField, getOgImageUrl } from '../../seoHelper';
+import { fetchStoreData, getField, getOgImageUrl, getYoutubeThumbnail } from '../../seoHelper';
 
 export const seoRouter = express.Router();
 
@@ -381,8 +381,7 @@ seoRouter.get('/robots.txt', async (req, res) => {
     const host = rawDomain.replace(/\/$/, '');
 
     let robots = `User-agent: *
-Allow: /$
-Allow: /app/
+Allow: /
 Disallow: /api/
 Disallow: /admin/
 Disallow: /login/
@@ -403,20 +402,6 @@ Disallow: /download/
 Disallow: /download/*
 Disallow: /moredetail/
 Disallow: /moredetail/*
-Disallow: /news
-Disallow: /blogs
-Disallow: /blog/
-Disallow: /videos
-Disallow: /about
-Disallow: /contact
-Disallow: /developers
-Disallow: /privacy
-Disallow: /terms
-Disallow: /report-removal
-Disallow: /responsibility
-Disallow: /notice
-Disallow: /ethics
-Disallow: /disclaimer
 
 User-agent: Googlebot
 Disallow: /moreinfo/
@@ -532,7 +517,6 @@ Sitemap: ${host}/sitemap.xml
 Sitemap: ${host}/sitemap-apps.xml
 Sitemap: ${host}/sitemap-static.xml
 Sitemap: ${host}/sitemap-news.xml
-Sitemap: ${host}/sitemap-blogs.xml
 Sitemap: ${host}/sitemap-videos.xml
 Sitemap: ${host}/sitemap-developers.xml
 `;
@@ -541,8 +525,7 @@ Sitemap: ${host}/sitemap-developers.xml
   } catch (err) {
     res.set('Content-Type', 'text/plain; charset=utf-8');
     res.send(`User-agent: *
-Allow: /$
-Allow: /app/
+Allow: /
 Disallow: /api/
 Disallow: /admin/
 Disallow: /login/
@@ -672,6 +655,10 @@ seoRouter.get(['/sitemap_index.xml', '/sitemap-index.xml', '/sitemapindex.xml'],
   </sitemap>
   <sitemap>
     <loc>${host}/sitemap-news.xml</loc>
+    <lastmod>${today}</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>${host}/sitemap-videos.xml</loc>
     <lastmod>${today}</lastmod>
   </sitemap>
   <sitemap>
@@ -857,6 +844,62 @@ seoRouter.get(['/sitemap-news.xml', '/sitemap_news.xml', '/sitemap-posts.xml', '
     return res.status(500).type('text/plain').send('Error generating news sitemap');
   }
 });
+
+// 5. Videos Sitemap Route (/sitemap-videos.xml, /sitemap_videos.xml, /sitemap-video.xml)
+seoRouter.get(['/sitemap-videos.xml', '/sitemap_videos.xml', '/sitemap-video.xml', '/sitemap_video.xml'], async (req, res) => {
+  try {
+    const hostHeader = req.get('host') || '';
+    if (hostHeader.toLowerCase().includes('masterworld')) {
+      return res.status(404).send('Not Found');
+    }
+
+    const data = await fetchStoreData();
+    const { videos = [] } = data || {};
+    const host = getHostUrl(req);
+    const siteLogo = getField(data?.settings, 'logo_url') || getField(data?.settings, 'favicon_url') || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
+
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+    xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n`;
+
+    const seenUrls = new Set<string>();
+    for (const item of videos) {
+      const slug = getField(item, 'slug') || getField(item, 'id');
+      if (slug) {
+        const cSlug = cleanSlug(slug);
+        const itemLoc = `${host}/videos/${cSlug}`;
+        if (!seenUrls.has(itemLoc)) {
+          seenUrls.add(itemLoc);
+          const itemDate = getFormattedDate(item);
+          const ytThumb = getYoutubeThumbnail(getField(item, 'youtube_url') || getField(item, 'video_url') || getField(item, 'url'));
+          let itemImage = ytThumb || siteLogo;
+
+          const itemTitle = getField(item, 'title') || 'Video Walkthrough';
+
+          xml += `  <url>\n    <loc>${itemLoc}</loc>\n`;
+          if (itemDate) xml += `    <lastmod>${itemDate}</lastmod>\n`;
+          xml += `    <changefreq>weekly</changefreq>\n    <priority>0.7</priority>\n`;
+          if (itemImage) {
+            xml += `    <image:image>\n      <image:loc>${escapeXml(itemImage)}</image:loc>\n      <image:title>${escapeXml(itemTitle)}</image:title>\n    </image:image>\n`;
+          }
+          xml += `  </url>\n`;
+        }
+      }
+    }
+
+    xml += `</urlset>\n`;
+
+    res.set({
+      'Content-Type': 'application/xml; charset=utf-8',
+      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400'
+    });
+    return res.send(xml);
+  } catch (e) {
+    console.error('Videos Sitemap Error:', e);
+    return res.status(500).type('text/plain').send('Error generating videos sitemap');
+  }
+});
+
+// 7. Developers Sitemap Route
 seoRouter.get(['/sitemap-developers.xml', '/sitemap_developers.xml'], async (req, res) => {
   try {
     const hostHeader = req.get('host') || '';
@@ -902,7 +945,7 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
     if (!data) {
       throw new Error("Unable to fetch store data");
     }
-    const { apps = [], news = [], blogs = [], videos = [] } = data;
+    const { apps = [], news = [], videos = [] } = data;
     const host = getHostUrl(req);
 
     let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
@@ -979,6 +1022,19 @@ seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], 
         const itemImage = getOgImageUrl(getField(item, 'og_image_url') || getField(item, 'logo_url') || getField(item, 'image_url') || siteLogo);
         const itemTitle = getField(item, 'title') || 'News Bulletin';
         addUrl(`${host}/news/${cSlug}`, itemDate, 'daily', '0.8', itemImage, itemTitle);
+      }
+    }
+
+    // 4. Videos
+    for (const item of videos) {
+      const slug = getField(item, 'slug') || getField(item, 'id');
+      if (slug) {
+        const cSlug = cleanSlug(slug);
+        const itemDate = getFormattedDate(item);
+        const ytThumb = getYoutubeThumbnail(getField(item, 'youtube_url') || getField(item, 'video_url') || getField(item, 'url'));
+        const itemImage = ytThumb || siteLogo;
+        const itemTitle = getField(item, 'title') || 'Video Walkthrough';
+        addUrl(`${host}/videos/${cSlug}`, itemDate, 'weekly', '0.7', itemImage, itemTitle);
       }
     }
 

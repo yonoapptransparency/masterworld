@@ -128,39 +128,6 @@ export interface Review {
   is_approved: boolean;
 }
 
-export interface BlogPost {
-  id: string;
-  slug: string;
-  title: string;
-  content: string;
-  author: string;
-  cover_url: string;
-  published_at: string;
-  related_app_slug?: string;
-  related_app_name?: string;
-  seo_title?: string;
-  seo_description?: string;
-  seo_keywords?: string;
-  canonical_url?: string;
-  target_region?: string;
-  description?: string;
-  description_html?: string;
-  date?: string;
-  thumbnail_url?: string;
-  publish_date?: string;
-  read_time?: string;
-  tags?: string[];
-  created_at?: string;
-}
-
-export interface NewsUpdate {
-  id: string;
-  title: string;
-  content_html: string;
-  category: string;
-  published_at: string;
-}
-
 export interface VideoItem {
   id: string;
   slug: string;
@@ -2056,17 +2023,6 @@ export const saveMockNews = (newsList: NewsItem[]) => {
     console.warn('saveMockNews storage failed:', e);
   }
   mockNews.splice(0, mockNews.length, ...newsList);
-};
-
-export const mockBlogs: BlogPost[] = [] as any[];
-
-export const saveMockBlogs = (blogs: BlogPost[]) => {
-  try {
-    localStorage.setItem('rummystore_blogs', JSON.stringify(blogs));
-  } catch (e) {
-    console.warn('saveMockBlogs storage failed:', e);
-  }
-  mockBlogs.splice(0, mockBlogs.length, ...blogs);
 };
 
 export const mockVideos: VideoItem[] = [] as any[];

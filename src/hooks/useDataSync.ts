@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { doc, onSnapshot, getDoc, setDoc, getDocFromServer } from 'firebase/firestore';
 import { db, isFirebaseReal, isFirebaseConfigured, handleFirestoreError, OperationType } from '../lib/firebase';
-import { AppConfig, GlobalSettings, NewsItem, BlogPost, VideoItem } from '../types';
-import { mockApps, mockSettings, mockNews, mockBlogs, mockVideos } from '../lib/lightFallback';
+import { AppConfig, GlobalSettings, NewsItem, VideoItem } from '../types';
+import { mockApps, mockSettings, mockNews, mockVideos } from '../lib/lightFallback';
 import { adminFetch, loadSession } from '../services/adminAuthService';
 import { getAdminPath } from '../lib/utils';
 
@@ -12,7 +12,6 @@ export function useDataSync() {
   const [apps, setApps] = useState<AppConfig[]>(() => initialData?.apps || []);
   const [settings, setSettings] = useState<GlobalSettings>(() => initialData?.settings || mockSettings);
   const [news, setNews] = useState<NewsItem[]>(() => (initialData?.news && Array.isArray(initialData.news) && initialData.news.length > 0) ? initialData.news : mockNews);
-  const [blogs, setBlogs] = useState<BlogPost[]>(() => initialData?.blogs || []);
   const [videos, setVideos] = useState<VideoItem[]>(() => initialData?.videos || []);
   
   const [loading, setLoading] = useState(!initialData);
@@ -27,7 +26,6 @@ export function useDataSync() {
     apps: !!initialData?.apps,
     settings: !!initialData?.settings,
     news: !!initialData?.news,
-    blogs: !!initialData?.blogs,
     videos: !!initialData?.videos
   });
 
@@ -35,7 +33,6 @@ export function useDataSync() {
     apps: false,
     settings: false,
     news: false,
-    blogs: false,
     videos: false
   });
 
@@ -123,18 +120,6 @@ export function useDataSync() {
         }
         checkLoaded('news');
       }),
-      onSnapshot(doc(db, 'store_data', 'blogs'), (snap) => {
-        if (snap.exists() && !snap.metadata.hasPendingWrites) {
-          const items = snap.data().items;
-          if (Array.isArray(items) && items.length > 0) {
-            setBlogs(items);
-          }
-          setFetchedStates(prev => ({ ...prev, blogs: true }));
-        } else if (!snap.exists()) {
-          setFetchedStates(prev => ({ ...prev, blogs: true }));
-        }
-        checkLoaded('blogs');
-      }),
       onSnapshot(doc(db, 'store_data', 'videos'), (snap) => {
         if (snap.exists() && !snap.metadata.hasPendingWrites) {
           const items = snap.data().items;
@@ -175,7 +160,6 @@ export function useDataSync() {
     apps, setApps,
     settings, setSettings,
     news, setNews,
-    blogs, setBlogs,
     videos, setVideos,
     loading, setLoading,
     loadedFromServer, setLoadedFromServer,

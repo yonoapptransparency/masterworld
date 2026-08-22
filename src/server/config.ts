@@ -68,6 +68,6 @@ export const getStaticData = () => {
     return require(staticDataModulePath);
   } catch (e) {
     console.error("Failed to load staticData dynamically:", e);
-    return { mockApps: [], mockSettings: {}, mockNews: [], mockBlogs: [], mockVideos: [] };
+    return { mockApps: [], mockSettings: {}, mockNews: [], mockVideos: [] };
   }
 };

@@ -7,7 +7,7 @@ const getStaticData = () => {
   try {
     return require('../lib/staticData');
   } catch (e) {
-    return { mockApps: [], mockSettings: {}, mockNews: [], mockBlogs: [], mockVideos: [] };
+    return { mockApps: [], mockSettings: {}, mockNews: [], mockVideos: [] };
   }
 };
 
@@ -18,7 +18,6 @@ export async function syncFromFirestore(): Promise<any> {
       apps: freshStatic.mockApps || [],
       settings: freshStatic.mockSettings || {},
       news: freshStatic.mockNews || [],
-      blogs: freshStatic.mockBlogs || [],
       videos: freshStatic.mockVideos || []
     };
 
@@ -31,7 +30,6 @@ export async function syncFromFirestore(): Promise<any> {
         if (Array.isArray(fileContent.apps)) existingBackup.apps = fileContent.apps;
         if (fileContent.settings && Object.keys(fileContent.settings).length > 0) existingBackup.settings = fileContent.settings;
         if (Array.isArray(fileContent.news)) existingBackup.news = fileContent.news;
-        if (Array.isArray(fileContent.blogs)) existingBackup.blogs = fileContent.blogs;
         if (Array.isArray(fileContent.videos)) existingBackup.videos = fileContent.videos;
       }
     } catch (e) {}

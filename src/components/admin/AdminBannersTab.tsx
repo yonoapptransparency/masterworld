@@ -13,7 +13,6 @@ interface AdminBannersTabProps {
   saving: boolean;
   setSaving?: (saving: boolean) => void;
   appsList?: any[];
-  blogs?: any[];
   newsList?: any[];
   saveSettings?: (settings: any) => Promise<void>;
   settings?: any;

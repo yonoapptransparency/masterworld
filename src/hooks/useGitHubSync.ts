@@ -4,13 +4,12 @@ import { auth, db, isFirebaseReal, handleFirestoreError, OperationType } from '.
 import { adminFetch, getValidAdminToken, loadSession } from '../services/adminAuthService';
 import { GitConfig, generateStaticDataFileCode, commitFileToGitHub } from '../lib/githubSync';
 import { ensureDefaultSettings } from '../lib/defaultLegalContent';
-import { AppConfig, GlobalSettings, NewsItem, BlogPost, VideoItem } from '../types';
+import { AppConfig, GlobalSettings, NewsItem, VideoItem } from '../types';
 
 export function useGitHubSync(
   apps: AppConfig[],
   settings: GlobalSettings,
   news: NewsItem[],
-  blogs: BlogPost[],
   videos: VideoItem[],
   updateLocalContainerBackup: any
 ) {
@@ -104,7 +103,6 @@ export function useGitHubSync(
     overrideApps?: any[],
     overrideSettings?: any,
     overrideNews?: any[],
-    overrideBlogs?: any[],
     overrideVideos?: any[]
   ) => {
     const configToUse = customConfig || gitConfig;
@@ -116,7 +114,7 @@ export function useGitHubSync(
       if (onProgress) onProgress(msg);
     };
 
-    log("GitHub Sync: Querying live Firebase database for complete catalog (Apps, News, Settings, Blogs, Videos)...");
+    log("GitHub Sync: Querying live Firebase database for complete catalog (Apps, News, Settings, Videos)...");
     let liveBackup: any = null;
     try {
       const liveRes = await fetch('/api/v1/public/backup-data');
@@ -131,13 +129,11 @@ export function useGitHubSync(
     const stateApps = overrideApps || apps;
     const stateSettings = overrideSettings || settings;
     const stateNews = overrideNews || news;
-    const stateBlogs = overrideBlogs || blogs;
     const stateVideos = overrideVideos || videos;
 
     const targetApps = stateApps || liveBackup?.apps || [];
     const targetSettings = (stateSettings && Object.keys(stateSettings).length > 0) ? stateSettings : (liveBackup?.settings || {});
     const targetNews = stateNews || liveBackup?.news || [];
-    const targetBlogs = stateBlogs || liveBackup?.blogs || [];
     const targetVideos = stateVideos || liveBackup?.videos || [];
       let targetReviews: any[] = [];
 
@@ -207,7 +203,7 @@ export function useGitHubSync(
     }
 
     const finalSettings = ensureDefaultSettings(targetSettings);
-    const updatedCode = generateStaticDataFileCode(finalApps, finalSettings, targetNews, targetBlogs, targetVideos);
+    const updatedCode = generateStaticDataFileCode(finalApps, finalSettings, targetNews, targetVideos);
     const safeBackupApps = JSON.parse(JSON.stringify(finalApps)).map((app: any) => {
       const rawTarget = app.more_information_url || app.download_url || app.encrypted_link || app.encrypted_download_url || '';
       if (app.url && (app.url.includes('com.rummydex') || app.url.includes('com.example'))) {
@@ -235,7 +231,6 @@ export function useGitHubSync(
       apps: safeBackupApps,
       settings: finalSettings,
       news: targetNews,
-      blogs: targetBlogs,
       videos: targetVideos,
       reviews: targetReviews
     }, null, 2);
@@ -347,11 +342,11 @@ export function useGitHubSync(
     }
 
     try {
-      await updateLocalContainerBackup(finalApps, targetSettings, targetNews, targetBlogs, targetVideos);
+      await updateLocalContainerBackup(finalApps, targetSettings, targetNews, targetVideos);
     } catch (err: any) {}
 
     return { success: true, targetRepo, timestamp: new Date().toISOString() };
-  }, [gitConfig, apps, settings, news, blogs, videos, updateLocalContainerBackup]);
+  }, [gitConfig, apps, settings, news, videos, updateLocalContainerBackup]);
 
   return {
     gitConfig,

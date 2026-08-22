@@ -1,8 +1,7 @@
-import React from 'react';
-import { Helmet } from 'react-helmet-async';
+import React, { useEffect } from 'react';
 import { useData } from '../contexts/DataContextPublic';
 import { getCleanCanonicalUrl, formatPageTitle } from '../lib/seoUtils';
-import { ensureAbsoluteUrl, getOgImageUrl } from '../seo/utils';
+import { getOgImageUrl } from '../seo/utils';
 
 interface MetaProps {
   title?: string;
@@ -32,13 +31,14 @@ const Meta: React.FC<MetaProps> = ({
   const { settings } = useData();
   const siteTitle = settings?.site_title || 'RummyDex';
   const fullTitle = formatPageTitle(title, siteTitle);
-  const metaDescription = description || settings?.meta_description || 'Access application details and specifications.';
+  const metaDescription = description || settings?.meta_description || 'Discover and download verified Rummy applications, APKs, card games, latest news, and features on RummyDex.';
   const metaKeywords = keywords || settings?.seo_keywords || '';
   
   const DEFAULT_ICON = 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
   const faviconUrl = (settings?.favicon_url && settings.favicon_url.trim()) || DEFAULT_ICON;
   const rawImage = image || settings?.logo_url || settings?.favicon_url || DEFAULT_ICON;
-  const metaImage = getOgImageUrl(rawImage, typeof window !== 'undefined' ? window.location.origin : 'https://www.rummydex.com');
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.rummydex.com';
+  const metaImage = getOgImageUrl(rawImage, origin);
   
   const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/';
   const canonicalUrl = getCleanCanonicalUrl(canonical || url, currentPath);
@@ -63,86 +63,104 @@ const Meta: React.FC<MetaProps> = ({
     ? "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" 
     : "noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate";
 
-  return (
-    <Helmet>
-      {/* Basic Meta Tags */}
-      <title>{fullTitle}</title>
-      <meta name="description" content={metaDescription} />
-      {metaKeywords && <meta name="keywords" content={metaKeywords} />}
-      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
-      <meta name="robots" content={robotsDirective} />
-      <meta name="googlebot" content={robotsDirective} />
-      <meta name="bingbot" content={robotsDirective} />
-      <meta name="slurp" content={robotsDirective} />
-      <meta name="baiduspider" content={robotsDirective} />
-      <meta name="yandex" content={robotsDirective} />
-      <meta name="duckduckbot" content={robotsDirective} />
-      <link rel="canonical" href={canonicalUrl} />
-      
-      {/* Favicons & Mobile Icons - Direct Cloudinary icon support */}
-      <link rel="shortcut icon" href={faviconUrl} />
-      <link rel="icon" type="image/png" href={faviconUrl} />
-      <link rel="icon" type="image/png" sizes="32x32" href={faviconUrl} />
-      <link rel="icon" type="image/png" sizes="192x192" href={faviconUrl} />
-      <link rel="apple-touch-icon" href={faviconUrl} />
-      <link rel="apple-touch-icon" sizes="180x180" href={faviconUrl} />
-      <link rel="apple-touch-icon-precomposed" href={faviconUrl} />
-      <link rel="manifest" href="/site.webmanifest" />
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
 
-      {/* Open Graph / Facebook */}
-      <meta property="og:type" content={type} />
-      <meta property="og:url" content={metaUrl} />
-      <meta property="og:title" content={fullTitle} />
-      <meta property="og:description" content={metaDescription} />
-      <meta property="og:image" content={metaImage} />
-      <meta property="og:image:secure_url" content={metaImage} />
-      <meta property="og:image:type" content={metaImage.includes('.jpg') || metaImage.includes('f_jpg') ? 'image/jpeg' : 'image/png'} />
-      <meta property="og:site_name" content={siteTitle} />
-      <link rel="image_src" href={metaImage} />
+    // 1. Update document title
+    document.title = fullTitle;
 
-      {/* Twitter */}
-      <meta name="twitter:card" content="summary_large_image" />
-      <meta name="twitter:url" content={metaUrl} />
-      <meta name="twitter:title" content={fullTitle} />
-      <meta name="twitter:description" content={metaDescription} />
-      <meta name="twitter:image" content={metaImage} />
+    // Helper to update or create a meta tag in document.head
+    const setMetaTag = (attrName: string, attrVal: string, contentVal: string) => {
+      let meta = document.head.querySelector(`meta[${attrName}="${attrVal}"]`);
+      if (!meta) {
+        meta = document.createElement('meta');
+        meta.setAttribute(attrName, attrVal);
+        document.head.appendChild(meta);
+      }
+      meta.setAttribute('content', contentVal);
+    };
 
-      {/* Mobile Fitness / Theme */}
-      <meta name="theme-color" content="#dc2626" />
-      <meta name="apple-mobile-web-app-capable" content="yes" />
-      <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    // 2. Standard Meta Tags
+    setMetaTag('name', 'description', metaDescription);
+    if (metaKeywords) {
+      setMetaTag('name', 'keywords', metaKeywords);
+    }
+    setMetaTag('name', 'robots', robotsDirective);
+    setMetaTag('name', 'googlebot', robotsDirective);
+    setMetaTag('name', 'bingbot', robotsDirective);
 
-      {/* JSON-LD Structured Data */}
-      {schema && (
-        <script type="application/ld+json">
-          {JSON.stringify(schema)}
-        </script>
-      )}
-      {faqSchema && (
-        <script type="application/ld+json">
-          {JSON.stringify(faqSchema)}
-        </script>
-      )}
+    // 3. Strict Single Canonical Tag Enforcement in <head>
+    // Remove ANY duplicate or rogue canonical links anywhere in document
+    const allCanonicals = document.querySelectorAll('link[rel="canonical"]');
+    let headCanonical: HTMLLinkElement | null = null;
+    allCanonicals.forEach((linkEl) => {
+      if (linkEl.parentElement === document.head && !headCanonical) {
+        headCanonical = linkEl as HTMLLinkElement;
+      } else {
+        linkEl.remove();
+      }
+    });
 
-      {/* Default WebSite Schema if on Home */}
-      {window.location.pathname === '/' && !schema && (
-        <script type="application/ld+json">
-          {JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "WebSite",
-            "name": siteTitle,
-            "url": window.location.origin,
-            "description": metaDescription,
-            "potentialAction": {
-              "@type": "SearchAction",
-              "target": `${window.location.origin}/?q={search_term_string}`,
-              "query-input": "required name=search_term_string"
-            }
-          })}
-        </script>
-      )}
-    </Helmet>
-  );
+    if (headCanonical) {
+      (headCanonical as HTMLLinkElement).setAttribute('href', canonicalUrl);
+    } else {
+      const link = document.createElement('link');
+      link.setAttribute('rel', 'canonical');
+      link.setAttribute('href', canonicalUrl);
+      document.head.appendChild(link);
+    }
+
+    // 4. OpenGraph Tags
+    setMetaTag('property', 'og:type', type);
+    setMetaTag('property', 'og:url', metaUrl);
+    setMetaTag('property', 'og:title', fullTitle);
+    setMetaTag('property', 'og:description', metaDescription);
+    setMetaTag('property', 'og:image', metaImage);
+    setMetaTag('property', 'og:image:secure_url', metaImage);
+    setMetaTag('property', 'og:site_name', siteTitle);
+
+    // 5. Twitter Card Tags
+    setMetaTag('name', 'twitter:card', 'summary_large_image');
+    setMetaTag('name', 'twitter:url', metaUrl);
+    setMetaTag('name', 'twitter:title', fullTitle);
+    setMetaTag('name', 'twitter:description', metaDescription);
+    setMetaTag('name', 'twitter:image', metaImage);
+
+    // 6. JSON-LD Structured Data in <head>
+    const existingSchemaScript = document.head.querySelector('script[data-dynamic-schema="true"]');
+    if (existingSchemaScript) {
+      existingSchemaScript.remove();
+    }
+
+    const schemasToInject: any[] = [];
+    if (schema) schemasToInject.push(schema);
+    if (faqSchema) schemasToInject.push(faqSchema);
+
+    if (currentPath === '/' && !schema) {
+      schemasToInject.push({
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": siteTitle,
+        "url": origin,
+        "description": metaDescription,
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": `${origin}/?q={search_term_string}`,
+          "query-input": "required name=search_term_string"
+        }
+      });
+    }
+
+    if (schemasToInject.length > 0) {
+      const script = document.createElement('script');
+      script.type = 'application/ld+json';
+      script.setAttribute('data-dynamic-schema', 'true');
+      script.textContent = schemasToInject.length === 1 ? JSON.stringify(schemasToInject[0]) : JSON.stringify(schemasToInject);
+      document.head.appendChild(script);
+    }
+  }, [fullTitle, metaDescription, metaKeywords, robotsDirective, canonicalUrl, metaUrl, type, metaImage, siteTitle, schema, faqSchema, currentPath, origin]);
+
+  return null;
 };
 
 export default Meta;

@@ -183,7 +183,6 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
           apps: trimAppsForCatalog(backup.apps || []),
           settings: backup.settings || {},
           news: backup.news || [],
-          blogs: backup.blogs || [],
           videos: backup.videos || []
         };
         backupDataCache = data;
@@ -197,7 +196,6 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
       apps: trimAppsForCatalog(dataObj.mockApps || []),
       settings: dataObj.mockSettings || {},
       news: dataObj.mockNews || [],
-      blogs: dataObj.mockBlogs || [],
       videos: dataObj.mockVideos || []
     };
     backupDataCache = validatedData;
@@ -209,7 +207,6 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
       apps: trimAppsForCatalog(dataObj.mockApps || []),
       settings: dataObj.mockSettings || {},
       news: dataObj.mockNews || [],
-      blogs: dataObj.mockBlogs || [],
       videos: dataObj.mockVideos || []
     });
   }

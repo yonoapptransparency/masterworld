@@ -1,31 +1,28 @@
 import React, { createContext, useContext, useMemo, useEffect } from 'react';
 import { doc, getDocFromServer } from 'firebase/firestore';
 import { db, isFirebaseReal } from '../lib/firebase';
-import { AppConfig, GlobalSettings, NewsItem, BlogPost, VideoItem } from '../types';
+import { AppConfig, GlobalSettings, NewsItem, VideoItem } from '../types';
 import { useDataSync } from '../hooks/useDataSync';
 import { useGitHubSync } from '../hooks/useGitHubSync';
 import { useDataActions } from '../hooks/useDataActions';
 import { fetchBackupData } from '../services/dataService';
 import { getAdminPath } from '../lib/utils';
 import { toast } from '../components/Toast';
-import { mockApps, mockSettings, mockNews, mockBlogs, mockVideos } from '../lib/lightFallback';
+import { mockApps, mockSettings, mockNews, mockVideos } from '../lib/lightFallback';
 
 interface DataContextType {
   apps: AppConfig[];
   settings: GlobalSettings;
   news: NewsItem[];
-  blogs: BlogPost[];
   videos: VideoItem[];
   loading: boolean;
   loadedFromServer: boolean;
   appsSyncedWithServer: boolean;
   settingsSyncedWithServer: boolean;
   newsSyncedWithServer: boolean;
-  blogsSyncedWithServer: boolean;
   videosSyncedWithServer: boolean;
   serverAppsFetched: boolean;
   serverNewsFetched: boolean;
-  serverBlogsFetched: boolean;
   serverVideosFetched: boolean;
   syncVersion: number;
   lastSyncTime: string | null;
@@ -34,7 +31,6 @@ interface DataContextType {
   saveApps: (apps: AppConfig[]) => Promise<void>;
   saveSettings: (settings: Partial<GlobalSettings>) => Promise<void>;
   saveNews: (news: NewsItem[]) => Promise<void>;
-  saveBlogs: (blogs: BlogPost[]) => Promise<void>;
   saveVideos: (videos: VideoItem[]) => Promise<void>;
   isConnected: boolean | null;
   isLive: boolean;
@@ -53,7 +49,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     sync.apps, 
     sync.settings, 
     sync.news, 
-    sync.blogs, 
     sync.videos, 
     null // Placeholder for now, we will assign it below
   );
@@ -62,7 +57,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     sync.apps, sync.setApps,
     sync.settings, sync.setSettings,
     sync.news, sync.setNews,
-    sync.blogs, sync.setBlogs,
     sync.videos, sync.setVideos,
     github.getAdminToken
   );
@@ -83,9 +77,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         }
         if (!isFirebaseReal || !sync.fetchedStates.news || sync.news.length === 0) {
           if (Array.isArray(backup.news) && backup.news.length > 0) sync.setNews(backup.news);
-        }
-        if (!isFirebaseReal || !sync.fetchedStates.blogs || sync.blogs.length === 0) {
-          if (Array.isArray(backup.blogs) && backup.blogs.length > 0) sync.setBlogs(backup.blogs);
         }
         if (!isFirebaseReal || !sync.fetchedStates.videos || sync.videos.length === 0) {
           if (Array.isArray(backup.videos) && backup.videos.length > 0) sync.setVideos(backup.videos);
@@ -143,18 +134,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     apps: sync.apps,
     settings: resolvedSettings,
     news: sync.news,
-    blogs: sync.blogs,
     videos: sync.videos,
     loading: sync.loading,
     loadedFromServer: sync.loadedFromServer,
     appsSyncedWithServer: sync.syncStates.apps,
     settingsSyncedWithServer: sync.syncStates.settings,
     newsSyncedWithServer: sync.syncStates.news,
-    blogsSyncedWithServer: sync.syncStates.blogs,
     videosSyncedWithServer: sync.syncStates.videos,
     serverAppsFetched: sync.fetchedStates.apps,
     serverNewsFetched: sync.fetchedStates.news,
-    serverBlogsFetched: sync.fetchedStates.blogs,
     serverVideosFetched: sync.fetchedStates.videos,
     syncVersion: sync.syncVersion,
     lastSyncTime: sync.lastSyncTime,
@@ -163,7 +151,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     saveApps: actions.saveApps,
     saveSettings: actions.saveSettings,
     saveNews: actions.saveNews,
-    saveBlogs: actions.saveBlogs,
     saveVideos: actions.saveVideos,
     isConnected: sync.isConnected,
     isLive: sync.isLive,
@@ -188,18 +175,15 @@ export const useData = () => {
       apps: mockApps,
       settings: mockSettings,
       news: mockNews,
-      blogs: mockBlogs,
       videos: mockVideos,
       loading: false,
       loadedFromServer: true,
       appsSyncedWithServer: true,
       settingsSyncedWithServer: true,
       newsSyncedWithServer: true,
-      blogsSyncedWithServer: true,
       videosSyncedWithServer: true,
       serverAppsFetched: true,
       serverNewsFetched: true,
-      serverBlogsFetched: true,
       serverVideosFetched: true,
       syncVersion: 1,
       lastSyncTime: null,
@@ -208,7 +192,6 @@ export const useData = () => {
       saveApps: async () => {},
       saveSettings: async () => {},
       saveNews: async () => {},
-      saveBlogs: async () => {},
       saveVideos: async () => {},
       isConnected: true,
       isLive: true,

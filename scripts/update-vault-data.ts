@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { mockApps, mockSettings, mockNews, mockBlogs, mockVideos } from '../src/lib/staticData';
+import { mockApps, mockSettings, mockNews, mockVideos } from '../src/lib/staticData';
 import { safeEncrypt, safeDecrypt, getAesSecret } from '../src/server/crypto';
 
 async function main() {
@@ -55,12 +55,10 @@ async function main() {
     mockApps: updatedMockApps,
     mockSettings,
     mockNews,
-    mockBlogs,
     mockVideos,
     apps: updatedMockApps,
     settings: mockSettings,
     news: mockNews,
-    blogs: mockBlogs,
     videos: mockVideos
   };
 

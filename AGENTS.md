@@ -10,7 +10,7 @@ This repository serves as the **Source of Truth** for **RummyDex** ([https://www
 - **Server Environment**: Runs an Express backend on port `3000` (0.0.0.0) that handles API requests, Turnstile anti-bot checks, dynamic SEO meta tag pre-rendering, XML sitemaps, RSS feeds, and static file serving.
 - **Database & Storage**:
   - **Primary**: Cloud Firestore project (`ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a`, Database ID `(default)`).
-  - **Collections**: `store_data` (documents: `apps_chunk_0`, `apps_chunk_1`, `settings`, `news`, `blogs`, `videos`, `quick_links`, `faqs`, `developers`, `secure_links`).
+  - **Collections**: `store_data` (documents: `apps_chunk_0`, `apps_chunk_1`, `settings`, `news`, `videos`, `quick_links`, `faqs`, `developers`, `secure_links`).
   - **Static High-Availability Fallback**: `/src/lib/staticData.json` guarantees 100% website uptime if Firestore is offline or rate-limited.
 - **Build & Execution Scripts**:
   - **Dev Server**: `npm run dev` (`tsx server.ts` running on port 3000)
@@ -80,7 +80,6 @@ When creating new components or pages, maintain repo isolation:
 │   ├── pages/                            # Page Components
 │   │   ├── Home.tsx                      # Primary catalog homepage (Featured banners, categories, search)
 │   │   ├── AppDetails.tsx                # App details view (Deep-link auto-sync, safety alerts, specs, reviews)
-│   │   ├── Blogs.tsx / BlogDetail.tsx    # Strategy blogs & articles
 │   │   ├── NewsPage.tsx                  # Latest industry news & announcements
 │   │   ├── VideosPage.tsx                # Media & gameplay video gallery
 │   │   ├── DevelopersPage.tsx            # Developer profile directory
@@ -119,7 +118,6 @@ When creating new components or pages, maintain repo isolation:
 │   │       ├── AdminTabContent.tsx       # Module tab content manager
 │   │       ├── AdminAppsTab.tsx          # Catalog management view
 │   │       ├── AdminNewsTab.tsx          # News management view
-│   │       ├── AdminBlogsTab.tsx         # Blog management view
 │   │       ├── AdminVideosTab.tsx        # Video management view
 │   │       ├── AdminReviewsTab.tsx       # Full app reviews moderation console (CRUD, status, replies, pin, votes)
 │   │       ├── AdminReportsTab.tsx       # User reports & content flags center (app flags, review flags, notes)
@@ -254,5 +252,5 @@ Ensure any newly created files strictly follow repo-isolation boundaries:
 | Repository | Included Modules | Excluded Modules |
 | :--- | :--- | :--- |
 | **Dex (Public Site)** | `src/pages/` (Public pages), `src/components/public/`, `src/components/playstore/`, `src/components/ReportAppModal.tsx`, `src/components/ClearanceButton.tsx`, `src/hooks/useReviews.ts`, `src/contexts/DataContextPublic.tsx`, `/public/` static assets | All `src/components/admin/`, `src/pages/Admin*`, `src/server/middleware/adminAuth.ts`, `src/server/routes/admin*`, `src/lib/secureVault.ts`, `src/lib/totp.ts` |
-| **Masterworld (Admin Site)** | `src/components/admin/`, `src/pages/AdminDashboard.tsx`, `src/pages/AdminLogin.tsx`, `src/server/`, `src/lib/`, backend services & moderation tools | Public marketing/home pages (`Home.tsx`, `AppDetails.tsx`, `Blogs.tsx`), public promotional UI components |
+| **Masterworld (Admin Site)** | `src/components/admin/`, `src/pages/AdminDashboard.tsx`, `src/pages/AdminLogin.tsx`, `src/server/`, `src/lib/`, backend services & moderation tools | Public marketing/home pages (`Home.tsx`, `AppDetails.tsx`), public promotional UI components |
 

@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 
-export const useAdminSettings = (settings: any, news: any[], blogs: any[], videos: any[]) => {
+export const useAdminSettings = (settings: any, news: any[], videos: any[]) => {
   const [newsList, setNewsList] = useState<any[]>(news || []);
   const [banners, setBanners] = useState<any[]>(settings?.banners || []);
-  const [blogsList, setBlogsList] = useState<any[]>(blogs || []);
   const [videosList, setVideosList] = useState<any[]>(videos || []);
   const [categoriesList, setCategoriesList] = useState<string[]>(settings?.categories || []);
   const [quickLinksList, setQuickLinksList] = useState<any[]>(settings?.quick_links || []);
@@ -13,7 +12,6 @@ export const useAdminSettings = (settings: any, news: any[], blogs: any[], video
 
   const deletedNewsIdsRef = useRef(new Set<string>());
   const deletedBannerIdsRef = useRef(new Set<string>());
-  const deletedBlogIdsRef = useRef(new Set<string>());
   const deletedVideoIdsRef = useRef(new Set<string>());
   const deletedCategoryNamesRef = useRef(new Set<string>());
 
@@ -51,38 +49,6 @@ export const useAdminSettings = (settings: any, news: any[], blogs: any[], video
       });
     }
   }, [news]);
-
-  useEffect(() => {
-    if (Array.isArray(blogs) && blogs.length > 0) {
-      setBlogsList(prev => {
-        if (!prev || prev.length === 0) {
-          return blogs.filter(b => !deletedBlogIdsRef.current.has(b.id));
-        }
-        const prevMap = new Map(prev.map(i => [i.id, i]));
-        const incomingMap = new Map(blogs.map(i => [i.id, i]));
-        const merged: any[] = [];
-
-        for (const item of prev) {
-          if (deletedBlogIdsRef.current.has(item.id)) continue;
-          const incoming = incomingMap.get(item.id);
-          if (!incoming) {
-            merged.push(item);
-          } else {
-            merged.push({ ...(incoming as object), ...(item as object) });
-          }
-        }
-
-        for (const incoming of blogs) {
-          if (!prevMap.has(incoming.id) && !deletedBlogIdsRef.current.has(incoming.id)) {
-            merged.push(incoming);
-          }
-        }
-
-        if (JSON.stringify(prev) === JSON.stringify(merged)) return prev;
-        return merged;
-      });
-    }
-  }, [blogs]);
 
   useEffect(() => {
     if (Array.isArray(videos) && videos.length > 0) {
@@ -188,7 +154,7 @@ export const useAdminSettings = (settings: any, news: any[], blogs: any[], video
         });
       }
     }
-  }, [settings, news, blogs, videos]);
+  }, [settings, news, videos]);
 
   // Banners
   const handleAddBanner = () => {
@@ -268,44 +234,6 @@ export const useAdminSettings = (settings: any, news: any[], blogs: any[], video
   const handleRemoveCategory = (cat: string) => {
     deletedCategoryNamesRef.current.add(cat);
     setCategoriesList(prev => prev.filter(c => c !== cat));
-  };
-
-  // App Updates / Blogs
-  const handleAddBlog = () => {
-    const newId = Math.random().toString(36).substr(2, 9);
-    const todayStr = new Date().toISOString().split('T')[0];
-    const newUpdate = {
-      id: newId,
-      slug: `app-update-${newId}`,
-      title: 'New App Update',
-      content: '## Version Release Notes\n\nWrite your update details here...',
-      author: 'Admin Team',
-      publish_date: todayStr,
-      published_at: todayStr,
-      created_at: new Date().toISOString()
-    };
-    setBlogsList(prev => [...prev, newUpdate]);
-    return newId;
-  };
-
-  const handleDeleteBlog = (id: string) => {
-    deletedBlogIdsRef.current.add(id);
-    setBlogsList(prev => prev.filter(b => b.id !== id));
-  };
-
-  const handleBlogChange = (id: string, field: string, value: any) => {
-    setBlogsList(prev => prev.map(b => {
-      if (b.id === id) {
-        const updated = { ...b, [field]: value, updated_at: new Date().toISOString() };
-        if (field === 'publish_date') {
-          updated.published_at = value;
-        } else if (field === 'published_at') {
-          updated.publish_date = value;
-        }
-        return updated;
-      }
-      return b;
-    }));
   };
 
   // Videos
@@ -396,7 +324,6 @@ export const useAdminSettings = (settings: any, news: any[], blogs: any[], video
   return {
     newsList, setNewsList,
     banners, setBanners,
-    blogsList, setBlogsList,
     videosList, setVideosList,
     categoriesList, setCategoriesList,
     quickLinksList, setQuickLinksList,
@@ -405,7 +332,6 @@ export const useAdminSettings = (settings: any, news: any[], blogs: any[], video
     newCatInput, setNewCatInput,
     handleAddBanner, handleBannerChange, handleDeleteBanner,
     handleAddNews, handleNewsChange, handleDeleteNews,
-    handleAddBlog, handleBlogChange, handleDeleteBlog,
     handleAddCategory, handleRemoveCategory,
     handleAddVideo, handleDeleteVideo, handleVideosChange,
     handleAddWebsiteFaq, handleRemoveWebsiteFaq, handleWebsiteFaqChange,

@@ -85,12 +85,6 @@ export default defineConfig(({mode}) => {
             : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
         },
         { 
-          find: /.*\/components\/BlogsTab$/, 
-          replacement: fs.existsSync(path.resolve(__dirname, 'src/components/BlogsTab.tsx')) 
-            ? path.resolve(__dirname, 'src/components/BlogsTab.tsx') 
-            : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
-        },
-        { 
           find: /.*\/services\/adminAuthService$/, 
           replacement: fs.existsSync(path.resolve(__dirname, 'src/services/adminAuthService.ts')) 
             ? path.resolve(__dirname, 'src/services/adminAuthService.ts') 
@@ -170,7 +164,7 @@ export default defineConfig(({mode}) => {
               return 'subpages-legal';
             }
             // Isolate Media & Editorial subpages
-            if (id.includes('/pages/NewsDetailPage') || id.includes('/pages/Blogs') || id.includes('/pages/BlogDetailPage') || id.includes('/pages/VideosPage') || id.includes('/pages/VideoDetailPage') || id.includes('/pages/Developers') || id.includes('/pages/SafetyStatus')) {
+            if (id.includes('/pages/NewsDetailPage') || id.includes('/pages/VideosPage') || id.includes('/pages/VideoDetailPage') || id.includes('/pages/Developers') || id.includes('/pages/SafetyStatus')) {
               return 'subpages-media';
             }
           }

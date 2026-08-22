@@ -4,14 +4,13 @@ import { toast } from '../Toast';
 import { adminFetch } from '../../services/adminAuthService';
 
 interface AdminGithubTabProps {
-  pushAllToGitHub: (e?: any, logCb?: (msg: string) => void, appsList?: any[], settings?: any, newsList?: any[], blogs?: any[], videosList?: any[]) => Promise<any>;
+  pushAllToGitHub: (e?: any, logCb?: (msg: string) => void, appsList?: any[], settings?: any, newsList?: any[], videosList?: any[]) => Promise<any>;
   gitConfig: any;
   saveGitConfig: (config: any) => Promise<void>;
   generatePreview: () => string;
   appsList: any[];
   settings: any;
   newsList: any[];
-  blogs: any[];
   videosList: any[];
 }
 
@@ -23,7 +22,6 @@ export const AdminGithubTab = React.memo(({
   appsList,
   settings,
   newsList,
-  blogs,
   videosList
 }: AdminGithubTabProps) => {
   const [logs, setLogs] = useState<string[]>([]);
@@ -60,7 +58,6 @@ export const AdminGithubTab = React.memo(({
         appsList,
         settings,
         newsList,
-        blogs,
         videosList
       );
       const targetMsg = (result as any)?.targetRepo ? ` to ${(result as any).targetRepo}` : "";

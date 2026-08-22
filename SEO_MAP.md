@@ -34,7 +34,7 @@ The following routes are explicitly mapped and indexed by Googlebot via `sitemap
 
 ### Dynamic Routes
 *   `/app/:slug` — Individual App Details Page (e.g., `/app/callbreak`, `/app/spin-crush`). Injects app-specific descriptions, ratings, schema, and optimized icon URLs.
-*   `/news/:slug` — Individual News/Blog Articles (e.g., `/news/callbreak-live-on-rummydex`). Injects article schemas and publication dates.
+*   `/news/:slug` — Individual News Articles (e.g., `/news/callbreak-live-on-rummydex`). Injects article schemas and publication dates.
 
 ---
 
