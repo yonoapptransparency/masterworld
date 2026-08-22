@@ -61,6 +61,8 @@ export function ScreenshotsEditor({ initialScreenshots, onChange }: ScreenshotsE
             )}
             <button 
               type="button" 
+              aria-label="Remove screenshot"
+              title="Remove screenshot"
               onClick={() => removeUrl(idx)} 
               className="text-rose-500 hover:text-rose-600 bg-rose-50 dark:bg-rose-950/20 p-2 rounded-lg transition-all border-0 cursor-pointer shrink-0"
             >
