@@ -237,25 +237,25 @@ export async function generateAIReviewsForApp(app: any, options: GenerateOptions
         }
       });
 
-      const prompt = `You are a real-world mobile gamer, tactical player, and app store user review synthesizer.
+      const prompt = `You are a real-world app store user review synthesizer.
 Your goal is to write exactly ${count} authentic, vibrant, completely unique, 100% human-written reviews for this Android application.
 
-### DETAILED APP SPECIFICATIONS (READ CAREFULLY & EXTRACT SPECIFIC CONCEPTS):
+### CRITICAL REQUIREMENT: READ THE ADMIN'S TEXT!
+The admin has provided specific details, SEO meta tags, and long descriptions below. YOU MUST READ EVERY WORD OF IT. Do not invent generic features. Do not use repetitive templates. You MUST extract specific concepts, unique game modes, UI details, and the core purpose directly from the text below, and inject them naturally into the reviews.
+
+### DETAILED APP SPECIFICATIONS:
 - App Name: "${appName}"
 - Category / Genre: "${appCategory}"
-- Studio / Developer: "${appDeveloper}"
-- Download Size: "${appFileSize}"
-- Official Rating: "${appRating} Stars"
 - Meta Title: "${metaTitle}"
 - Meta Description: "${metaDesc}"
 - Tone / Focus Preference: "${toneFocus}"
 
-### FULL APP DESCRIPTION (The admin has written every detail here):
+### FULL APP DESCRIPTION (Read thoroughly and use these exact ideas):
 """
 ${rawDesc.substring(0, 3000)}
 """
 
-### KEY FEATURES, GAME MODES & MECHANICS:
+### KEY FEATURES & MECHANICS (Base your reviews on these):
 """
 ${rawFeatures.substring(0, 2000)}
 ${featureHighlights.length > 0 ? `\nExtracted Feature Highlights:\n- ` + featureHighlights.join('\n- ') : ''}
@@ -268,24 +268,16 @@ ${JSON.stringify(ratings)}
 
 ### STRICT POLICY / SAFETY NEGATIVE CONSTRAINTS (MANDATORY):
 - ABSOLUTELY NEVER mention "money", "real money", "cash", "rupees", "INR", "deposit", "withdrawal", "wallet payout", "earning", "bank account", "bonus cash", "paisa", "invest", "betting", or financial transactions.
-- ZERO CONTAMINATION: YOU ARE STRICTLY FORBIDDEN from mentioning any other applications, brands, software, or competitors (e.g., NEVER mention Instagram, Twitter, Facebook, PUBG, Free Fire, etc). You are ONLY reviewing "${appName}" and nothing else. If you hallucinate another app, you fail.
-- Instead, ground your reviews deeply in the ACTUAL mechanics, features, game modes, and descriptions provided above.
+- ZERO CONTAMINATION: YOU ARE STRICTLY FORBIDDEN from mentioning any other applications, brands, software, or competitors.
 
-### DIVERSITY, CREATIVITY & DEEP FEATURE ANGLE MANDATES (CRUCIAL):
-Every single review in this batch MUST take a DIFFERENT, CREATIVE ANGLE from the app's detailed description:
-1. **Specific In-App Features & Quality of Life**: Point out specific buttons/features described in the text.
-2. **Extreme Username Diversity**: DO NOT reuse the same names. Generate highly diverse names (e.g., unique Indian names, creative gamer tags, casual handles like Rahul88, sneaky_sniper, P.Sharma, etc.).
-3. **UI/UX & Aesthetics**: Talk about the visual table felt, 3D chip animations, crisp card face contrast, dark theme, fluid 60fps animations, sound effects.
-4. **Maximum Expressiveness & Open Talk**: BEYOND the financial words restriction, you must OPEN YOUR MOUTH AND TALK freely! Be wildly expressive. Talk openly and deeply about the gameplay, the vibe, the app features, the graphics, the ease of use, or the community. Do not hold back or sound restricted. Speak exactly how a passionate human gamer speaks!
-5. **Performance & Hardware**: Mention smooth play on phones, low storage footprint, zero overheating.
-6. **Tutorial & Learning vs Competitive**: Praise the interactive beginner tutorial, offline AI bots practice, or the rush of multiplayer matchmaking in under 3 seconds.
-7. **Ultimate Language & Script Freedom (Authentic Indian Tone)**: You MUST write exactly like real Indian users. Do not sound like a robot. 
-   - **Hinglish**: Heavily use Hindi written in English letters (e.g., "bhai mast game hai", "kya graphics hai", "ek number app").
-   - **Devanagari (Hindi Script)**: Feel free to mix in pure Hindi letters occasionally (e.g., "बहुत बढ़िया गेम है", "मजा आ गया").
-   - **Arabic/Urdu Slang**: Occasionally use common Urdu/Arabic words used in India (e.g., "Mashallah kya game hai", "Inshallah jeetunga", "Wallah bhai").
-   - **English**: Use broken, casual English mixed in ("pls update bro", "osm ui", "nyc game").
-8. **Human Imperfections**: Real users make typos, use shorthand (u, r, thx, plzz), and have imperfect grammar. Emulate this perfectly. Be raw and completely unfiltered.
-9. **Emojis**: Over 50% NO emojis. Remaining have maximum 1 subtle emoji (👍, 🔥, 💯, 👏, 👌).
+### DIVERSITY & DEEP FEATURE ANGLE MANDATES (CRUCIAL):
+Every single review MUST take a DIFFERENT, CREATIVE ANGLE based on the Admin's text:
+1. **Directly Reference Admin Content**: Pick a specific feature, unique keyword, or core purpose from the 'FULL APP DESCRIPTION' or 'KEY FEATURES' and base the review around it. Do not just say "great graphics" — say *why* it's great based on the description!
+2. **Extreme Username Diversity**: Generate highly diverse Indian and global names (e.g., unique regional Indian names, creative gamer tags, casual handles).
+3. **Core Purpose**: React to the actual core purpose of the app. If the admin wrote about a specific game mode, talk about playing that game mode. If the admin wrote about low battery usage, praise that.
+4. **Ultimate Language & Script Freedom**: Write exactly like real Indian users. Mix Hindi written in English (Hinglish), pure Hindi (Devanagari), casual broken English, and natural shorthand (u, r, thx, plzz).
+5. **Human Imperfections**: Be raw and unfiltered. Humans have varied opinions, typos, and write exactly what is on their mind based on the app's actual features.
+6. **Emojis**: Over 50% NO emojis. Remaining have maximum 1 subtle emoji (👍, 🔥, 💯, 👏, 👌).
 
 ${customPrompt ? `### USER CUSTOM INSTRUCTIONS (MANDATORY TO FOLLOW FOR ALL REVIEWS):\n${customPrompt}\n` : ''}
 ### OUTPUT FORMAT:
