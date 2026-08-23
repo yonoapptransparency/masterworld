@@ -365,11 +365,8 @@ export async function writeFirestoreRestDoc(docId: string, data: any, authToken?
     
     let targetProjectId = config.projectId;
     let targetApiKey = config.apiKey;
-    if (['reviews', 'reports', 'support_tickets', 'website_feedback'].includes(collectionPath)) {
-      targetProjectId = 'rummydexcommunity';
-      targetApiKey = 'AIzaSyCzhWEDLQsZ-HL8iVMcINq78lB-RzYPxi0';
-    }
-
+    // Removed hardcoded 'rummydexcommunity' overrides so reviews go to primary db
+    
     const dbId = config.firestoreDatabaseId || config.databaseId || '(default)';
     const queryParams: string[] = [];
     if (targetApiKey) queryParams.push(`key=${encodeURIComponent(targetApiKey)}`);
@@ -419,10 +416,7 @@ export async function deleteFirestoreRestDoc(docId: string, authToken?: string, 
     
     let targetProjectId = config.projectId;
     let targetApiKey = config.apiKey;
-    if (['reviews', 'reports', 'support_tickets', 'website_feedback'].includes(collectionPath)) {
-      targetProjectId = 'rummydexcommunity';
-      targetApiKey = 'AIzaSyCzhWEDLQsZ-HL8iVMcINq78lB-RzYPxi0';
-    }
+    // Removed hardcoded 'rummydexcommunity' overrides so reviews go to primary db
     const finalApiKeyParam = targetApiKey ? `?key=${targetApiKey}` : '';
     const url = `https://firestore.googleapis.com/v1/projects/${targetProjectId}/databases/${dbId}/documents/${collectionPath}/${docId}${finalApiKeyParam}`;
   
@@ -453,10 +447,7 @@ export async function readFirestoreRestCollection(collectionPath: string, authTo
     let targetProjectId = config.projectId;
     let targetApiKey = config.apiKey;
     const baseCollection = collectionPath.split('/')[0];
-    if (['reviews', 'reports', 'support_tickets', 'website_feedback'].includes(baseCollection)) {
-      targetProjectId = 'rummydexcommunity';
-      targetApiKey = 'AIzaSyCzhWEDLQsZ-HL8iVMcINq78lB-RzYPxi0';
-    }
+    // Removed hardcoded 'rummydexcommunity' overrides so reviews go to primary db
     const finalApiKeyParam = targetApiKey ? `?key=${targetApiKey}` : '';
     const url = `https://firestore.googleapis.com/v1/projects/${targetProjectId}/databases/${dbId}/documents/${collectionPath}${finalApiKeyParam}`;
   
@@ -468,6 +459,10 @@ export async function readFirestoreRestCollection(collectionPath: string, authTo
 
     const res = await fetch(url, { headers });
     if (!res.ok) {
+      if (res.status === 403 || res.status === 404) {
+        // Suppress noisy warnings for unpopulated or restricted collections
+        return [];
+      }
       console.warn(`[SERVER] readFirestoreRestCollection failed for ${collectionPath} (HTTP ${res.status})`);
       return [];
     }

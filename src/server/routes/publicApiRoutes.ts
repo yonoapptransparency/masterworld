@@ -183,7 +183,8 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
           apps: trimAppsForCatalog(backup.apps || []),
           settings: backup.settings || {},
           news: backup.news || [],
-          videos: backup.videos || []
+          videos: backup.videos || [],
+          reviews: backup.reviews || []
         };
         backupDataCache = data;
         backupDataCacheTime = now;

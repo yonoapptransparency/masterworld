@@ -211,7 +211,7 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
       setRefreshing(true);
       const res = await adminFetch('/api/v1/admin/community/reviews/bulk', {
         method: 'POST',
-        body: JSON.stringify({ ids: selectedReviewIds, action })
+        body: JSON.stringify({ reviewIds: selectedReviewIds, action })
       });
 
       if (res.ok) {

@@ -22,8 +22,10 @@ service cloud.firestore {
 
     // Comprehensive payload validation for reviews
     function isValidReview(data) {
-      return (data.keys().hasAll(['appId', 'userName', 'rating', 'reviewText', 'created_at', 'status']) ||
-              data.keys().hasAll(['app_id', 'username', 'rating', 'comment', 'created_at', 'source'])) &&
+      return data.keys().hasAny(['appId', 'app_id']) &&
+             data.keys().hasAny(['userName', 'username']) &&
+             data.keys().hasAny(['rating']) &&
+             data.keys().hasAny(['reviewText', 'comment']) &&
              data.rating is number && data.rating >= 1 && data.rating <= 5;
     }
 
@@ -73,6 +75,13 @@ service cloud.firestore {
     match /support_tickets/{ticketId} {
       allow read: if isAdmin(); // Only admins can read tickets
       allow create: if isValidTicket(request.resource.data); // Anyone can open a ticket
+      allow update, delete: if isAdmin();
+    }
+
+    // 5b. Reports collection
+    match /reports/{reportId} {
+      allow read: if isAdmin();
+      allow create: if true;
       allow update, delete: if isAdmin();
     }
 

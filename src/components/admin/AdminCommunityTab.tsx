@@ -93,7 +93,7 @@ const AdminCommunityTab: React.FC = () => {
             Community & Reviews
           </h2>
           <p className="text-sm font-semibold text-slate-500 dark:text-zinc-400 mt-1">
-            Sandboxed moderation queue connected exclusively to Database B (rummydexcommunity)
+            Integrated moderation queue connected directly to the primary Firestore database.
           </p>
         </div>
         <div className="bg-indigo-500/10 text-indigo-500 px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest border border-indigo-500/20">

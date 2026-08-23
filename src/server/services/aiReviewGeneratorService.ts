@@ -237,60 +237,63 @@ export async function generateAIReviewsForApp(app: any, options: GenerateOptions
         }
       });
 
-      const prompt = `You are a real-world app store user review synthesizer.
-Your goal is to write exactly ${count} authentic, vibrant, completely unique, 100% human-written reviews for this Android application.
+      const prompt = `You are a world-class expert app store user review synthesizer and deep semantic analyzer powered by Gemini 3.7 Flash.
+Your absolute mission is to write exactly ${count} completely unique, deeply contextual, 100% human-like reviews for the Android application described below.
 
-### CRITICAL REQUIREMENT: READ THE ADMIN'S TEXT!
-The admin has provided specific details, SEO meta tags, and long descriptions below. YOU MUST READ EVERY WORD OF IT. Do not invent generic features. Do not use repetitive templates. You MUST extract specific concepts, unique game modes, UI details, and the core purpose directly from the text below, and inject them naturally into the reviews.
+### 🛑 ANTI-DUMMY & ANTI-GENERIC MANDATE:
+Do NOT write generic placeholder comments like "nice app" or "good gameplay". Every single review MUST explicitly reference unique technical specifications, specific gameplay mechanics, UI layouts, features, or terminology found ONLY in the admin's text provided below. If someone reading the review could swap the app name and have it apply to any random app, you have failed. Make each review hyper-specific to this exact app.
 
-### DETAILED APP SPECIFICATIONS:
+### 📱 APP TECHNICAL SPECIFICATIONS & PROFILE:
 - App Name: "${appName}"
-- Category / Genre: "${appCategory}"
-- Meta Title: "${metaTitle}"
-- Meta Description: "${metaDesc}"
+- Developer: "${appDeveloper}"
+- Category: "${appCategory}"
+- File Size / Specs: "${appFileSize}"
+- Official Rating Benchmark: "${appRating} / 5.0"
+- SEO Meta Title: "${metaTitle}"
+- SEO Meta Description: "${metaDesc}"
 - Tone / Focus Preference: "${toneFocus}"
 
-### FULL APP DESCRIPTION (Read thoroughly and use these exact ideas):
+### 📖 FULL APPLICATION OVERVIEW & DESCRIPTION (Must be deeply analyzed):
 """
-${rawDesc.substring(0, 3000)}
+${rawDesc.substring(0, 4000)}
 """
 
-### KEY FEATURES & MECHANICS (Base your reviews on these):
+### ⚙️ TECHNICAL SPECIFICATIONS & KEY FEATURES (Must be cited or reacted to):
 """
-${rawFeatures.substring(0, 2000)}
+${rawFeatures.substring(0, 3000)}
 ${featureHighlights.length > 0 ? `\nExtracted Feature Highlights:\n- ` + featureHighlights.join('\n- ') : ''}
 """
-${rawSafety ? `### ADDITIONAL APP CONTEXT / NOTES:\n"""\n${rawSafety.substring(0, 1000)}\n"""` : ''}
+${rawSafety ? `### ADDITIONAL ADMIN SAFETY / APP NOTES:\n"""\n${rawSafety.substring(0, 1500)}\n"""` : ''}
 
-### REQUIRED RATINGS TO ASSIGN (Strict):
+### 🎯 REQUIRED RATINGS TO ASSIGN (Strict Order):
 Assign these exact integer star ratings to the ${count} reviews in order:
 ${JSON.stringify(ratings)}
 
-### STRICT POLICY / SAFETY NEGATIVE CONSTRAINTS (MANDATORY):
+### 🚫 STRICT POLICY / SAFETY CONSTRAINTS (MANDATORY):
 - ABSOLUTELY NEVER mention "money", "real money", "cash", "rupees", "INR", "deposit", "withdrawal", "wallet payout", "earning", "bank account", "bonus cash", "paisa", "invest", "betting", or financial transactions.
 - ZERO CONTAMINATION: YOU ARE STRICTLY FORBIDDEN from mentioning any other applications, brands, software, or competitors.
 
-### DIVERSITY & DEEP FEATURE ANGLE MANDATES (CRUCIAL):
-Every single review MUST take a DIFFERENT, CREATIVE ANGLE based on the Admin's text:
-1. **Directly Reference Admin Content**: Pick a specific feature, unique keyword, or core purpose from the 'FULL APP DESCRIPTION' or 'KEY FEATURES' and base the review around it. Do not just say "great graphics" — say *why* it's great based on the description!
-2. **Extreme Username Diversity**: Generate highly diverse Indian and global names (e.g., unique regional Indian names, creative gamer tags, casual handles).
-3. **Core Purpose**: React to the actual core purpose of the app. If the admin wrote about a specific game mode, talk about playing that game mode. If the admin wrote about low battery usage, praise that.
-4. **Ultimate Language & Script Freedom**: Write exactly like real Indian users. Mix Hindi written in English (Hinglish), pure Hindi (Devanagari), casual broken English, and natural shorthand (u, r, thx, plzz).
-5. **Human Imperfections**: Be raw and unfiltered. Humans have varied opinions, typos, and write exactly what is on their mind based on the app's actual features.
-6. **Emojis**: Over 50% NO emojis. Remaining have maximum 1 subtle emoji (👍, 🔥, 💯, 👏, 👌).
+### ✍️ DEEP CONTEXTUAL DIVERSITY MANDATES:
+1. **Specific Feature Citing**: Each review must mention or react to at least one distinct feature, mechanic, loading speed, UI color scheme, or rule set mentioned in the description or features above.
+2. **Extreme Username Diversity**: Generate authentic Indian and global user names (e.g., regional names, casual handles, gamer tags).
+3. **Natural Human Language & Style**: Write like real mobile users. Mix casual English, Hinglish, occasional shorthand, and natural typos or unfiltered thoughts.
+4. **Varied Sentiments**: Match the assigned star rating organically. 5-star reviews praise specific mechanics; 4-star reviews mention minor UI quirks or suggestions; 3-star reviews discuss performance or device compatibility.
+5. **Emoji Control**: Over 50% NO emojis. Remaining have maximum 1 subtle emoji (👍, 🔥, 💯, 👏, 👌).
 
-${customPrompt ? `### USER CUSTOM INSTRUCTIONS (MANDATORY TO FOLLOW FOR ALL REVIEWS):\n${customPrompt}\n` : ''}
+${customPrompt ? `### 📝 USER CUSTOM INSTRUCTIONS (MANDATORY TO FOLLOW FOR ALL REVIEWS):\n${customPrompt}\n` : ''}
 ### OUTPUT FORMAT:
 Return a JSON array of ${count} objects with fields:
-- "userName": A realistic human name or casual gamer username. MUST BE HIGHLY DIVERSE.
+- "userName": A realistic human name or casual gamer username.
 - "rating": The assigned integer star rating (1 to 5)
-- "reviewText": The natural, human-like comment
-- "helpful_count": An integer between 0 and 18 representing helpful votes`;
+- "reviewText": The natural, hyper-specific human-like comment
+- "helpful_count": An integer between 0 and 22 representing helpful votes`;
 
       const response = await ai.models.generateContent({
         model: "gemini-3.7-flash",
         contents: prompt,
         config: {
+          temperature: 0.95,
+          topP: 0.95,
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.ARRAY,

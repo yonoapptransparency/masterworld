@@ -126,7 +126,7 @@ class CommunityStoreService {
   private isSyncing = false;
   private quotaExhaustedUntil = 0;
   private syncTimer: NodeJS.Timeout | null = null;
-  private localBackupPath = path.join(process.cwd(), 'community_local_backup.json');
+  private localBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
 
   constructor() {
     this.loadFromLocalBackup();
@@ -205,16 +205,33 @@ class CommunityStoreService {
   // Save in-memory cache to disk and queue Firestore cloud write
   private saveToDiskAndQueueCloudSync() {
     try {
+      let existingData: any = {};
+      if (fs.existsSync(this.localBackupPath)) {
+        try {
+          existingData = JSON.parse(fs.readFileSync(this.localBackupPath, 'utf8'));
+        } catch (e) {
+          console.warn('[CommunityStore] Failed to parse existing backup, creating new:', e);
+        }
+      }
+
       const data = {
+        ...existingData,
         reviews: Array.from(this.reviews.values()),
         reports: Array.from(this.reports.values()),
         updated_at: new Date().toISOString()
       };
+      
       const tempPath = this.localBackupPath + '.tmp';
       fs.writeFileSync(tempPath, JSON.stringify(data, null, 2), 'utf8');
       fs.renameSync(tempPath, this.localBackupPath);
     } catch (e) {
       console.warn('[CommunityStore] Local backup write error:', e);
+    }
+
+    // Skip cloud sync if quota is exhausted
+    if (Date.now() < this.quotaExhaustedUntil) {
+      console.log('[CommunityStore] Skipping cloud sync due to quota exhaustion.');
+      return;
     }
 
     if (this.syncTimer) clearTimeout(this.syncTimer);

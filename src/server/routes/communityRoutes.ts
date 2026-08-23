@@ -543,3 +543,46 @@ communityRouter.post("/api/v1/admin/community/ai-generate/bulk", verifyAdminToke
   }
 });
 
+// Admin: Check Gemini AI Status & Quota Health
+communityRouter.get("/api/v1/admin/ai-status", verifyAdminToken, async (req: any, res: any) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey.trim() === "") {
+    return res.json({
+      configured: false,
+      model: "gemini-3.7-flash",
+      status: "unconfigured",
+      message: "GEMINI_API_KEY is not configured."
+    });
+  }
+
+  try {
+    const { GoogleGenAI } = require("@google/genai");
+    const ai = new GoogleGenAI({ apiKey, httpOptions: { headers: { "User-Agent": "aistudio-build" } } });
+    
+    // Quick test ping
+    const testRes = await ai.models.generateContent({
+      model: "gemini-3.7-flash",
+      contents: "Reply with the single word: OK",
+    });
+
+    const text = testRes.text?.trim() || "";
+    return res.json({
+      configured: true,
+      model: "gemini-3.7-flash",
+      status: "online",
+      message: "Gemini API is online, active, and responding successfully.",
+      responseSnippet: text
+    });
+  } catch (err: any) {
+    const errStr = String(err?.message || err);
+    const isQuota = errStr.includes("resource_exhausted") || errStr.includes("429") || errStr.includes("quota");
+    return res.json({
+      configured: true,
+      model: "gemini-3.7-flash",
+      status: isQuota ? "quota_exhausted" : "error",
+      message: isQuota ? "Gemini API Quota Exhausted / Rate Limit Exceeded. (Fallback contextual generator active)." : `Gemini API Error: ${errStr}`
+    });
+  }
+});
+
+

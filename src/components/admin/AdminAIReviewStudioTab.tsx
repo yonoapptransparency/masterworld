@@ -214,6 +214,30 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
   const [generating, setGenerating] = useState(false);
   const [savingStaged, setSavingStaged] = useState(false);
 
+  // AI Model & Quota Status Check State
+  const [aiStatus, setAiStatus] = useState<{ configured: boolean; model: string; status: 'online' | 'quota_exhausted' | 'unconfigured' | 'error'; message: string; responseSnippet?: string } | null>(null);
+  const [checkingAiStatus, setCheckingAiStatus] = useState(false);
+
+  const checkAiStatus = useCallback(async () => {
+    try {
+      setCheckingAiStatus(true);
+      const res = await adminFetch('/api/v1/admin/ai-status');
+      if (res.ok) {
+        const data = await res.json();
+        setAiStatus(data);
+      }
+    } catch (e) {
+      console.warn("Failed to check AI status", e);
+    } finally {
+      setCheckingAiStatus(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    checkAiStatus();
+  }, [checkAiStatus]);
+
+
   // Bulk Generation State
   const [bulkCountPerApp, setBulkCountPerApp] = useState<number>(3);
   const [bulkCategory, setBulkCategory] = useState<string>('all');
@@ -444,6 +468,53 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           <span>Per-App Profiles Synced</span>
         </div>
       </div>
+
+      {/* AI Model & Quota Live Status Widget */}
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
+            aiStatus?.status === 'online' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
+            aiStatus?.status === 'quota_exhausted' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' :
+            'bg-blue-500/10 text-blue-500 border border-blue-500/20'
+          }`}>
+            <Sparkles size={24} className={checkingAiStatus ? 'animate-spin' : ''} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                Gemini Model & Quota Status Monitor
+              </h3>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                aiStatus?.status === 'online' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' :
+                aiStatus?.status === 'quota_exhausted' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300' :
+                'bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-300'
+              }`}>
+                {checkingAiStatus ? 'Checking...' : aiStatus?.status === 'online' ? 'Online & Active' : aiStatus?.status === 'quota_exhausted' ? 'Quota Exhausted' : 'Unconfigured'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+              {aiStatus?.message || 'Checking live API connection status for gemini-3.7-flash...'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 self-stretch md:self-auto justify-end">
+          <div className="text-right hidden sm:block">
+            <div className="text-[11px] font-semibold text-slate-400">MODEL</div>
+            <div className="text-xs font-mono font-bold text-slate-700 dark:text-zinc-300">gemini-3.7-flash</div>
+          </div>
+          <button
+            type="button"
+            onClick={checkAiStatus}
+            disabled={checkingAiStatus}
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+          >
+            <RefreshCw size={14} className={checkingAiStatus ? 'animate-spin' : ''} />
+            <span>Test Live Connection</span>
+          </button>
+        </div>
+      </div>
+
 
       {/* Main Studio Controls */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
