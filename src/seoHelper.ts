@@ -50,10 +50,10 @@ async function doFetchStoreData() {
     const backup = fsMod.existsSync(p) ? JSON.parse(fsMod.readFileSync(p, 'utf8')) : null;
     if (backup) {
       const data = {
-        apps: Array.isArray(backup.apps) ? backup.apps : (freshStatic.apps || freshStatic.mockApps || []),
+        apps: (Array.isArray(backup.apps) && backup.apps.length > 0) ? backup.apps : (freshStatic.apps || freshStatic.mockApps || []),
         settings: backup.settings || (freshStatic.settings || freshStatic.mockSettings || {}),
-        news: Array.isArray(backup.news) ? backup.news : (freshStatic.news || freshStatic.mockNews || []),
-        videos: Array.isArray(backup.videos) ? backup.videos : (freshStatic.videos || freshStatic.mockVideos || [])
+        news: (Array.isArray(backup.news) && backup.news.length > 0) ? backup.news : (freshStatic.news || freshStatic.mockNews || []),
+        videos: (Array.isArray(backup.videos) && backup.videos.length > 0) ? backup.videos : (freshStatic.videos || freshStatic.mockVideos || [])
       };
       cachedData = data;
       lastFetchTime = now;

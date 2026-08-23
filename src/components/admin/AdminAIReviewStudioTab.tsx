@@ -118,6 +118,10 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
   // Auto-Pilot Engine State
   const [autoPilotStatus, setAutoPilotStatus] = useState<any>(null);
   const [autoPilotLoading, setAutoPilotLoading] = useState(false);
+  const [selectedAutoPilotAppIds, setSelectedAutoPilotAppIds] = useState<string[]>([]);
+  const [autoPilotAppSearch, setAutoPilotAppSearch] = useState('');
+  const [autoPilotCustomPrompt, setAutoPilotCustomPrompt] = useState('');
+
   const [autoPilotOptions, setAutoPilotOptions] = useState({
     countPerApp: 10,
     skipAppsWithReviews: true,
@@ -125,6 +129,37 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
     overrideTargetScore: null as number | null,
     toneFocus: 'balanced' as any
   });
+
+  // Automatically initialize selectedAutoPilotAppIds with all app IDs when appsList loads
+  useEffect(() => {
+    if (appsList && appsList.length > 0 && selectedAutoPilotAppIds.length === 0) {
+      setSelectedAutoPilotAppIds(appsList.map(a => String(a.id || a.slug || '')));
+    }
+  }, [appsList]);
+
+  const toggleAutoPilotApp = (appIdentifier: string) => {
+    setSelectedAutoPilotAppIds(prev => {
+      const exists = prev.includes(appIdentifier);
+      if (exists) {
+        return prev.filter(id => id !== appIdentifier);
+      } else {
+        return [...prev, appIdentifier];
+      }
+    });
+  };
+
+  const handleSelectAllAutoPilotApps = () => {
+    setSelectedAutoPilotAppIds(appsList.map(a => String(a.id || a.slug || '')));
+  };
+
+  const handleDeselectAllAutoPilotApps = () => {
+    setSelectedAutoPilotAppIds([]);
+  };
+
+  const handleInvertAutoPilotApps = () => {
+    const allIds = appsList.map(a => String(a.id || a.slug || ''));
+    setSelectedAutoPilotAppIds(allIds.filter(id => !selectedAutoPilotAppIds.includes(id)));
+  };
 
   const fetchAutoPilotStatus = useCallback(async () => {
     try {
@@ -149,16 +184,25 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
   }, [fetchAutoPilotStatus]);
 
   const handleStartAutoPilot = async () => {
+    if (selectedAutoPilotAppIds.length === 0) {
+      toast("Please select at least 1 app to process with Auto-Pilot", "error");
+      return;
+    }
     try {
       setAutoPilotLoading(true);
+      const payload = {
+        ...autoPilotOptions,
+        selectedAppIds: selectedAutoPilotAppIds,
+        customPrompt: autoPilotCustomPrompt.trim() || undefined
+      };
       const res = await adminFetch('/api/v1/admin/autopilot/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(autoPilotOptions)
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to start Auto-Pilot');
-      toast("🚀 Auto-Pilot Queue Engine Launched!", "success");
+      toast(`🚀 Auto-Pilot Queue Engine Launched for ${data.status?.totalApps || selectedAutoPilotAppIds.length} Apps!`, "success");
       setAutoPilotStatus(data.status);
     } catch (err: any) {
       toast(err.message || "Failed to start Auto-Pilot", "error");
@@ -785,58 +829,219 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
               </div>
             ) : null}
 
-            {/* Configuration Settings Box */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-                  Reviews Per App
-                </label>
-                <select
-                  value={autoPilotOptions.countPerApp}
-                  onChange={(e) => setAutoPilotOptions(prev => ({ ...prev, countPerApp: parseInt(e.target.value, 10) }))}
-                  disabled={autoPilotStatus?.state === 'running'}
-                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-200 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                >
-                  <option value={5}>5 Reviews per App (Fast)</option>
-                  <option value={10}>10 Reviews per App (Recommended)</option>
-                  <option value={15}>15 Reviews per App</option>
-                  <option value={20}>20 Reviews per App (Comprehensive)</option>
-                </select>
-              </div>
+            {/* Interactive Target App Scope Selection Card */}
+            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-5 border border-slate-200 dark:border-slate-700 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-700">
+                <div>
+                  <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white text-sm">
+                    <Sliders size={16} className="text-blue-500" />
+                    <span>Target App Selection Scope ({selectedAutoPilotAppIds.length} of {appsList.length} Apps Selected)</span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Customize exactly which catalog apps receive AI generated reviews during this Auto-Pilot execution.
+                  </p>
+                </div>
 
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-                  Skip Apps Threshold
-                </label>
-                <label className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={autoPilotOptions.skipAppsWithReviews}
-                    onChange={(e) => setAutoPilotOptions(prev => ({ ...prev, skipAppsWithReviews: e.target.checked }))}
+                {/* Scope Action Buttons */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={handleSelectAllAutoPilotApps}
                     disabled={autoPilotStatus?.state === 'running'}
-                    className="rounded text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-slate-800 dark:text-slate-200 font-medium">
-                    Skip if app has &ge; {autoPilotOptions.skipThreshold} reviews
-                  </span>
-                </label>
+                    className="px-2.5 py-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-semibold rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    Select All ({appsList.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeselectAllAutoPilotApps}
+                    disabled={autoPilotStatus?.state === 'running'}
+                    className="px-2.5 py-1 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    Clear All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleInvertAutoPilotApps}
+                    disabled={autoPilotStatus?.state === 'running'}
+                    className="px-2.5 py-1 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-xs font-semibold rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    Invert
+                  </button>
+                </div>
               </div>
 
+              {/* App Search Bar */}
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Filter catalog apps by name or category..."
+                  value={autoPilotAppSearch}
+                  onChange={(e) => setAutoPilotAppSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* App Checklist Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 max-h-64 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
+                {appsList
+                  .filter(a => {
+                    if (!autoPilotAppSearch.trim()) return true;
+                    const query = autoPilotAppSearch.toLowerCase();
+                    return (a.name || '').toLowerCase().includes(query) || (a.category || '').toLowerCase().includes(query);
+                  })
+                  .map(app => {
+                    const identifier = String(app.id || app.slug || '');
+                    const isSelected = selectedAutoPilotAppIds.includes(identifier);
+
+                    return (
+                      <div
+                        key={identifier}
+                        onClick={() => {
+                          if (autoPilotStatus?.state !== 'running') {
+                            toggleAutoPilotApp(identifier);
+                          }
+                        }}
+                        className={`flex items-center gap-2.5 p-2 rounded-xl border transition-all select-none text-xs ${
+                          autoPilotStatus?.state === 'running' ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'
+                        } ${
+                          isSelected 
+                            ? 'bg-blue-50/80 dark:bg-blue-950/40 border-blue-500/50 text-slate-900 dark:text-white shadow-sm' 
+                            : 'bg-white dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 opacity-60 hover:opacity-100'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {}}
+                          disabled={autoPilotStatus?.state === 'running'}
+                          className="rounded text-blue-600 focus:ring-blue-500 pointer-events-none"
+                        />
+                        {app.icon_url ? (
+                          <img src={app.icon_url} alt="" className="w-7 h-7 rounded-lg object-contain bg-slate-100 dark:bg-slate-800 border shrink-0" />
+                        ) : (
+                          <div className="w-7 h-7 rounded-lg bg-blue-600 text-white font-bold flex items-center justify-center text-xs shrink-0">
+                            {app.name?.charAt(0) || 'A'}
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="font-bold truncate text-[11px] leading-tight text-slate-900 dark:text-slate-100">
+                            {app.name}
+                          </div>
+                          <div className="text-[10px] text-slate-400 truncate flex items-center gap-1 mt-0.5">
+                            <span>{app.category || 'Card'}</span>
+                            <span>•</span>
+                            <span className="text-amber-500 font-medium">⭐ {app.rating || '4.8'}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+
+            {/* Configuration Tuning & Directives Box */}
+            <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                    Reviews Per App
+                  </label>
+                  <select
+                    value={autoPilotOptions.countPerApp}
+                    onChange={(e) => setAutoPilotOptions(prev => ({ ...prev, countPerApp: parseInt(e.target.value, 10) }))}
+                    disabled={autoPilotStatus?.state === 'running'}
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-200 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                  >
+                    <option value={5}>5 Reviews per App (Fast)</option>
+                    <option value={10}>10 Reviews per App (Recommended)</option>
+                    <option value={15}>15 Reviews per App</option>
+                    <option value={20}>20 Reviews per App</option>
+                    <option value={25}>25 Reviews per App</option>
+                    <option value={30}>30 Reviews per App (Deep)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                    Override Target Score
+                  </label>
+                  <select
+                    value={autoPilotOptions.overrideTargetScore === null ? 'default' : String(autoPilotOptions.overrideTargetScore)}
+                    onChange={(e) => setAutoPilotOptions(prev => ({ ...prev, overrideTargetScore: e.target.value === 'default' ? null : parseFloat(e.target.value) }))}
+                    disabled={autoPilotStatus?.state === 'running'}
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-200 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                  >
+                    <option value="default">Default (Use App Catalog Rating)</option>
+                    <option value="5.0">5.0 Stars (Perfect Score)</option>
+                    <option value="4.8">4.8 Stars (Highly Recommended)</option>
+                    <option value="4.5">4.5 Stars (Very Positive)</option>
+                    <option value="4.2">4.2 Stars (Positive)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                    Review Tone Focus
+                  </label>
+                  <select
+                    value={autoPilotOptions.toneFocus}
+                    onChange={(e) => setAutoPilotOptions(prev => ({ ...prev, toneFocus: e.target.value as any }))}
+                    disabled={autoPilotStatus?.state === 'running'}
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-200 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                  >
+                    <option value="balanced">Balanced Variety (Gamers, Tech, Casuals)</option>
+                    <option value="performance">Performance & FPS Focus</option>
+                    <option value="gameplay">Gameplay & In-App Mechanics Focus</option>
+                    <option value="ui_graphics">UI & Table Graphics Focus</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                    Skip Apps Threshold
+                  </label>
+                  <div className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5">
+                    <input
+                      type="checkbox"
+                      checked={autoPilotOptions.skipAppsWithReviews}
+                      onChange={(e) => setAutoPilotOptions(prev => ({ ...prev, skipAppsWithReviews: e.target.checked }))}
+                      disabled={autoPilotStatus?.state === 'running'}
+                      className="rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                    />
+                    <span className="text-slate-800 dark:text-slate-200 font-medium whitespace-nowrap">
+                      Skip if &ge;
+                    </span>
+                    <select
+                      value={autoPilotOptions.skipThreshold}
+                      onChange={(e) => setAutoPilotOptions(prev => ({ ...prev, skipThreshold: parseInt(e.target.value, 10) }))}
+                      disabled={!autoPilotOptions.skipAppsWithReviews || autoPilotStatus?.state === 'running'}
+                      className="bg-transparent text-blue-600 dark:text-blue-400 font-bold focus:outline-none cursor-pointer"
+                    >
+                      <option value={5}>5 reviews</option>
+                      <option value={10}>10 reviews</option>
+                      <option value={15}>15 reviews</option>
+                      <option value={20}>20 reviews</option>
+                      <option value={50}>50 reviews</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Custom Directives Text Area */}
               <div>
                 <label className="block font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-                  Review Tone Focus
+                  Custom AI Directives / Prompts for Auto-Pilot (Optional)
                 </label>
-                <select
-                  value={autoPilotOptions.toneFocus}
-                  onChange={(e) => setAutoPilotOptions(prev => ({ ...prev, toneFocus: e.target.value as any }))}
+                <textarea
+                  rows={2}
+                  value={autoPilotCustomPrompt}
+                  onChange={(e) => setAutoPilotCustomPrompt(e.target.value)}
                   disabled={autoPilotStatus?.state === 'running'}
-                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-200 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                >
-                  <option value="balanced">Balanced Variety (Gamers, Tech, Casuals)</option>
-                  <option value="performance">Performance & FPS Focus</option>
-                  <option value="gameplay">Gameplay & In-App Mechanics Focus</option>
-                  <option value="ui_graphics">UI & Table Graphics Focus</option>
-                </select>
+                  placeholder="e.g. Focus on smooth frame rates, table physics, undo mechanics, and fast deal speed. Keep reviewer tones natural, excited, and in conversational Hinglish."
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-200 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs resize-none"
+                />
               </div>
             </div>
           </div>

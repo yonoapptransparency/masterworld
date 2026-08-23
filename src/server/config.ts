@@ -65,9 +65,17 @@ export const getStaticData = () => {
       const resolvedPath = require.resolve(staticDataModulePath);
       delete require.cache[resolvedPath];
     } catch (_) {}
-    return require(staticDataModulePath);
+    const data = require(staticDataModulePath);
+    if (data) {
+      const catalogApps = (Array.isArray(data.apps) && data.apps.length > 0)
+        ? data.apps
+        : ((Array.isArray(data.mockApps) && data.mockApps.length > 0) ? data.mockApps : []);
+      data.apps = catalogApps;
+      data.mockApps = catalogApps;
+    }
+    return data;
   } catch (e) {
     console.error("Failed to load staticData dynamically:", e);
-    return { mockApps: [], mockSettings: {}, mockNews: [], mockVideos: [] };
+    return { apps: [], mockApps: [], mockSettings: {}, mockNews: [], mockVideos: [] };
   }
 };

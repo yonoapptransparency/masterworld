@@ -163,10 +163,21 @@ class AutoPilotQueueService {
       allApps = staticData.apps || staticData.mockApps || [];
     }
 
-    // Filter by selected app IDs if specified
+    // Filter by selected app IDs if explicitly specified and non-empty
     if (Array.isArray(options.selectedAppIds) && options.selectedAppIds.length > 0) {
-      const idSet = new Set(options.selectedAppIds.map(id => String(id).trim().toLowerCase()));
-      allApps = allApps.filter(a => idSet.has(String(a.id || '').toLowerCase()) || idSet.has(String(a.slug || '').toLowerCase()));
+      const validSelected = options.selectedAppIds.map(id => String(id || '').trim().toLowerCase()).filter(Boolean);
+      if (validSelected.length > 0) {
+        const idSet = new Set(validSelected);
+        const filtered = allApps.filter(a => idSet.has(String(a.id || '').toLowerCase()) || idSet.has(String(a.slug || '').toLowerCase()));
+        if (filtered.length > 0) {
+          allApps = filtered;
+        }
+      }
+    }
+
+    if (allApps.length === 0) {
+      const staticData = getStaticData();
+      allApps = staticData.apps || staticData.mockApps || [];
     }
 
     if (allApps.length === 0) {
@@ -369,11 +380,17 @@ class AutoPilotQueueService {
         this.status.status = 'completed';
         this.status.endTime = new Date().toISOString();
         this.status.currentApp = null;
+        
+        let completionMsg = `🎉 Auto-Pilot Execution Completed! Processed ${this.status.processedAppsCount} apps, generated ${this.status.generatedReviewsCount} reviews, skipped ${this.status.skippedAppsCount} apps.`;
+        if (this.status.skippedAppsCount === this.appQueue.length) {
+          completionMsg += ` (Note: All apps skipped as they have >= ${this.status.options.skipThreshold} reviews. Uncheck 'Skip apps threshold' if you wish to generate additional reviews).`;
+        }
+
         this.addLog({
           appId: 'system',
           appName: 'Catalog Auto-Pilot Engine',
-          message: `🎉 Auto-Pilot Execution Completed! Processed ${this.status.processedAppsCount} apps, generated ${this.status.generatedReviewsCount} reviews, skipped ${this.status.skippedAppsCount} apps.`,
-          type: 'success'
+          message: completionMsg,
+          type: 'info'
         });
       }
     } finally {

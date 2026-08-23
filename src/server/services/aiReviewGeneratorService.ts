@@ -283,35 +283,40 @@ export async function generateAIReviewsForApp(app: any, options: GenerateOptions
   const appName = app?.name || 'Card Game';
   const appCategory = app?.category || 'Casual, Card';
   const appDeveloper = app?.developer || 'Gaming Studio';
-  const shortDesc = stripHtml(app?.short_description || app?.meta_description || app?.seo_description || '');
+  const shortDesc = app?.short_description || app?.meta_description || app?.seo_description || '';
   
-  // Assemble comprehensive full description across all potential text & HTML fields
-  const descCandidates = [
-    app?.description_html,
-    app?.description,
-    app?.content_overview,
-    app?.features_html,
-    app?.features,
-    app?.yellow_box_msg,
-    app?.short_description,
-    app?.meta_description,
-    app?.seo_description,
-    app?.custom_admin_box_html
-  ].map(s => stripHtml(s || '')).filter(Boolean);
+  // Assemble full RAW HTML and plain text dossiers without artificial length restrictions
+  const rawHtmlSections = [
+    app?.description_html ? `### RAW APP DESCRIPTION (HTML):\n${app.description_html}` : '',
+    app?.features_html ? `### RAW FEATURE BREAKDOWN (HTML):\n${app.features_html}` : '',
+    app?.custom_admin_box_html ? `### CUSTOM ADMIN / SPECIAL NOTICES (HTML):\n${app.custom_admin_box_html}` : '',
+    app?.yellow_box_msg ? `### NOTICE / HIGHLIGHT BOX (HTML):\n${app.yellow_box_msg}` : '',
+    app?.content_overview ? `### CONTENT OVERVIEW:\n${app.content_overview}` : ''
+  ].filter(Boolean).join('\n\n');
 
-  // Filter out redundant/duplicate strings
-  const uniqueDescSet = new Set<string>();
-  descCandidates.forEach(text => {
-    if (text.length > 8 && !Array.from(uniqueDescSet).some(existing => existing.includes(text) || text.includes(existing))) {
-      uniqueDescSet.add(text);
-    }
-  });
+  const plainTextDossier = [
+    app?.description ? `Plain Text Description:\n${app.description}` : '',
+    app?.features ? `Plain Text Features:\n${app.features}` : '',
+    app?.short_description ? `Short Description:\n${app.short_description}` : '',
+    app?.seo_description ? `SEO Meta Description:\n${app.seo_description}` : ''
+  ].filter(Boolean).join('\n\n');
 
-  const fullDesc = Array.from(uniqueDescSet).join('\n\n') || `${appName} is an interactive ${appCategory} mobile application developed by ${appDeveloper}.`;
-  const featureHighlights = extractAppFeatureHighlights(app);
   const specificPhrases = extractSpecificPhrasesFromApp(app);
   const metaTitle = app?.seo_title || app?.name || '';
   const metaDesc = app?.seo_description || app?.meta_description || '';
+
+  // App specs and metadata
+  const appSpecs = `
+- App Name: "${appName}"
+- Slug / ID: "${app?.slug || app?.id}"
+- Category: "${appCategory}"
+- Developer: "${appDeveloper}"
+- Package / App ID: "${app?.package_name || app?.app_id || 'N/A'}"
+- Current Store Benchmark Rating: ${app?.rating || targetScore} / 5.0
+- App Size / Version: "${app?.size || 'Varies'} | V${app?.version || '1.0'}"
+- Meta Title: "${metaTitle}"
+- Meta Description: "${metaDesc}"
+  `.trim();
 
   // Calculate rating numbers for this batch
   const ratings = calculateRatingArray(count, targetScore, starMix);
@@ -322,27 +327,25 @@ export async function generateAIReviewsForApp(app: any, options: GenerateOptions
     try {
       const ai = new GoogleGenAI({ apiKey });
 
-      const prompt = `You are an authentic user writing store reviews for the Indian app store listing of "${appName}".
+      const prompt = `You are an advanced AI reasoning engine & authentic store review generator for the app store listing of "${appName}".
 
-### 🎯 CRITICAL REQUIREMENT (GROUND IN THIS APP DESCRIPTION):
-- EVERY review MUST directly touch, quote, react to, or reference a SPECIFIC feature, rule, setting, notice, mode, or claim mentioned in THIS APP'S DESCRIPTION below.
-- NEVER generate generic stock template reviews like "enjoying the matches", "decent game with good animations", or "one of the most optimized apps".
-- DO NOT generate device context fields or device model names unless organically spoken by a reviewer.
-- Dates MUST be formatted strictly as YYYY-MM-DD (Year-Month-Date only, NO clock time or hours/seconds).
+### 🧠 DEEP REASONING & SYNTHESIS DIRECTIVE:
+1. **Analyze Full Dossier**: Carefully read the COMPLETE raw HTML and plain text details of "${appName}" below — including headers (<h2>, <h3>), feature lists (<ul>, <li>), game modes, UI claims, table mechanics, undo tools, frame rate claims, and notices.
+2. **Perform Step-by-Step Reasoning**: Think deeply about what real-world Indian players, casual gamers, power users, or tech reviewers experience when downloading and using this app based on the features described.
+3. **DO NOT COPY-PASTE**: Do NOT lazily quote or copy-paste full sentences verbatim from the description. Instead, translate the features, rules, and mechanics into realistic human opinions, praise, or constructive feedback in natural conversational language.
+4. **Dates**: Dates MUST be formatted strictly as "YYYY-MM-DD" (Year-Month-Date only, NO clock time).
 
-### 📱 APP DESCRIPTION & SPECIFIC DETAILS FOR "${appName}":
-- App Name: "${appName}"
-- Category: "${appCategory}"
-- Developer: "${appDeveloper}"
-- Meta Title: "${metaTitle}"
-- Meta Description: "${metaDesc}"
-- Short Description: "${shortDesc}"
-- Full App Description & Feature Details:
-"""
-${fullDesc.substring(0, 4000)}
-"""
-- Specific Extracted Phrases/Rules from Description:
-"${specificPhrases.slice(0, 10).join(' | ')}"
+### 📱 COMPLETE APP DOSSIER FOR "${appName}":
+${appSpecs}
+
+#### RAW HTML CONTENT & FEATURES:
+${rawHtmlSections || 'No raw HTML available.'}
+
+#### PLAIN TEXT DOSSIER:
+${plainTextDossier || 'No plain text available.'}
+
+#### EXTRACTED KEY CLAIMS & MECHANICS:
+"${specificPhrases.slice(0, 15).join(' | ')}"
 
 ### 🎯 REQUIRED RATINGS TO ASSIGN (Strict Order):
 Assign these exact integer star ratings to the ${count} reviews in order:
@@ -353,14 +356,16 @@ ${JSON.stringify(ratings)}
 2. Frame everything strictly as skill-based / social / entertainment gaming, never real-money gambling.
 3. ZERO CONTAMINATION: Do not mention any other external apps, brands, or competitors.
 
-### ✍️ PER-REVIEW INSTRUCTIONS:
-1. **Pick a unique detail**: Pick one specific sentence, feature, rule, or claim from the app description above and write a human reaction to it.
-2. **Sentiment**: Match the assigned star rating organically. 4-5 stars for positive sentiment; 2-3 stars for mild, honest caution.
-3. **Reviewer Name**: Generate a realistic Indian username (casual handle format).
-4. **Style**: Write in natural Hinglish with realistic variations in length and tone.
-5. **Date**: Set a clean date string in "YYYY-MM-DD" format (e.g. "2026-08-20").
+### ✍️ PER-REVIEW CREATIVE INSTRUCTIONS:
+1. **Pick a unique detail**: Focus each review on a different feature, mode, UI layout, control mechanic, frame rate, or table setting mentioned in the dossier above.
+2. **Sentiment Alignment**: 4-5 stars = enthusiastic approval, highlighting smoothness or game modes; 2-3 stars = constructive feedback or honest mild caution.
+3. **Reviewer Name**: Generate realistic, diverse Indian usernames (casual handles, gaming handles).
+4. **Language Style**: Write in natural, expressive Hinglish / English as spoken by real mobile users across India.
+5. **Tone Focus**: ${toneFocus === 'performance' ? 'Focus heavily on FPS, smoothness, and zero lag.' : toneFocus === 'gameplay' ? 'Focus heavily on game rules, undo mechanics, and table physics.' : toneFocus === 'ui_graphics' ? 'Focus heavily on visual themes, clean UI, and table graphics.' : 'Maintain a balanced variety of perspectives across all user types.'}
+6. **Date**: Set a clean date string in "YYYY-MM-DD" format (e.g. "2026-08-20").
 
 ${customPrompt ? `### 📝 USER CUSTOM INSTRUCTIONS (MANDATORY TO FOLLOW):\n${customPrompt}\n` : ''}
+
 ### OUTPUT FORMAT:
 Return ONLY a valid JSON array of ${count} objects matching this schema:
 [
@@ -442,39 +447,43 @@ Return ONLY a valid JSON array of ${count} objects matching this schema:
   return generateContextualFallbackReviews(app, ratings);
 }
 
-// Algorithmic contextual fallback generator that directly parses the app's real description
+// Algorithmic contextual fallback generator that directly synthesizes natural human reviews from the app's real facts
 function generateContextualFallbackReviews(app: any, ratings: number[]): Partial<ReviewRecord>[] {
   const appName = app?.name || 'this app';
-  const phrases = extractSpecificPhrasesFromApp(app);
+  const rawPhrases = extractSpecificPhrasesFromApp(app);
 
-  // Pick dynamic specific feature or description snippets
-  const p1 = phrases[0] || `${appName} features smooth table controls`;
-  const p2 = phrases[1] || `fast matchmaking and clean interface`;
-  const p3 = phrases[2] || `responsive touch controls with quick card dealing`;
-  const p4 = phrases[3] || `lightweight installation and fast loading`;
+  // Clean phrases into natural lower-case fragments without punctuation or quotes
+  const cleanPhrases = rawPhrases.map(p => {
+    return p.replace(/^[^\w]+|[^\w]+$/g, '').replace(/["']/g, '').trim();
+  }).filter(p => p.length > 5 && p.length < 80);
+
+  const p1 = cleanPhrases[0] || `${appName} has very smooth controls and quick dealing`;
+  const p2 = cleanPhrases[1] || `the table animations and UI layout look super clean`;
+  const p3 = cleanPhrases[2] || `fast matchmaking with zero lag during card games`;
+  const p4 = cleanPhrases[3] || `lightweight installation and fast loading speed`;
 
   const reviews5Star = [
-    `Read in the description about "${p1}" — tested it today and it actually works great! Very smooth experience.`,
-    `Really liked how "${p2}" is implemented in ${appName}. Clean design and zero lag. 🔥`,
-    `Extremely well made! The detail about "${p3}" in the app overview is 100% spot on. Great job.`,
-    `Tested ${appName} for a few rounds. "${p1}" makes the gameplay feel very responsive. 5 stars! 👍`,
-    `Best app for ${appName}! Love the interface and "${p4}" feature.`
+    `Honestly impressed with ${appName}! The gameplay feels very responsive and ${p1.toLowerCase()} is super smooth. 🔥`,
+    `Really smooth experience playing ${appName}. ${p2.toLowerCase()} makes it a joy to play every evening.`,
+    `Extremely well optimized app! Tested for a few matches today and ${p3.toLowerCase()} worked flawlessly. Great job! 👍`,
+    `Super fluid performance on my device. ${appName} loads fast and ${p4.toLowerCase()} is really convenient. 5 stars!`,
+    `Best app for casual card gaming! Clean design, zero lag, and very intuitive interface.`
   ];
 
   const reviews4Star = [
-    `Good experience overall. "${p1}" is well implemented. Would love to see more custom themes in the next update.`,
-    `Solid app! "${p2}" works as described. Minor UI polish would make it even better. 👌`,
-    `Enjoyed playing ${appName}. "${p3}" is very helpful for quick matches.`
+    `Good experience overall with ${appName}. The game runs nicely and ${p1.toLowerCase()} is well designed. Hope for more themes soon.`,
+    `Solid and reliable app! ${p2.toLowerCase()} works well as described. Minor visual polish would make it 5 stars. 👌`,
+    `Enjoyed playing ${appName} with friends. Very fast card dealing and clean table layouts.`
   ];
 
   const reviews3Star = [
-    `App is decent and "${p1}" works fine, but connection takes a bit longer on weak mobile network.`,
-    `Good concept with "${p2}", but battery usage could be optimized during longer sessions.`
+    `App is decent overall and ${p1.toLowerCase()} works fine, but connection takes a bit longer on weak mobile signals.`,
+    `Nice table design and concept, but battery consumption could be slightly better during long sessions.`
   ];
 
   const reviews2Star = [
-    `The option for "${p1}" is nice, but text size on compact screens feels slightly small.`,
-    `Nice graphics but "${p2}" needs better optimization for older phones.`
+    `The interface looks fine, but text size on compact screens feels slightly small during fast matches.`,
+    `Decent graphics, but needs better frame rate optimization for older budget devices.`
   ];
 
   return ratings.map((star, idx) => {

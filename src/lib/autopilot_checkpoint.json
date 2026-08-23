@@ -1,0 +1,692 @@
+{
+  "status": {
+    "jobId": "autopilot_1787474458872",
+    "status": "running",
+    "totalApps": 37,
+    "processedAppsCount": 13,
+    "skippedAppsCount": 17,
+    "generatedReviewsCount": 65,
+    "currentAppIndex": 29,
+    "currentApp": {
+      "id": "3m2tlug3g",
+      "name": "GOGO RUMMY",
+      "slug": "gogo-rummy",
+      "targetScore": 3.9,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1786545476/1000134098_11zon_fafk2d.webp",
+      "existingReviewsCount": 5
+    },
+    "logs": [
+      {
+        "timestamp": "2026-08-23T08:41:33.286Z",
+        "appId": "3m2tlug3g",
+        "appName": "GOGO RUMMY",
+        "message": "✅ Success \"GOGO RUMMY\": Created & published 5 AI reviews directly to Firestore (Exact target: 3.9★).",
+        "type": "success",
+        "generatedCount": 5,
+        "targetScore": 3.9
+      },
+      {
+        "timestamp": "2026-08-23T08:41:33.184Z",
+        "appId": "3m2tlug3g",
+        "appName": "GOGO RUMMY",
+        "message": "⚙️ Processing \"GOGO RUMMY\": Target Score 3.9★ | Generating 5 reviews...",
+        "type": "info",
+        "targetScore": 3.9
+      },
+      {
+        "timestamp": "2026-08-23T08:41:31.171Z",
+        "appId": "pdwnq0nu8",
+        "appName": "BOSS RUMMY",
+        "message": "✅ Success \"BOSS RUMMY\": Created & published 5 AI reviews directly to Firestore (Exact target: 5.0★).",
+        "type": "success",
+        "generatedCount": 5,
+        "targetScore": 5
+      },
+      {
+        "timestamp": "2026-08-23T08:41:31.050Z",
+        "appId": "pdwnq0nu8",
+        "appName": "BOSS RUMMY",
+        "message": "⚙️ Processing \"BOSS RUMMY\": Target Score 5.0★ | Generating 5 reviews...",
+        "type": "info",
+        "targetScore": 5
+      },
+      {
+        "timestamp": "2026-08-23T08:41:29.032Z",
+        "appId": "x4zbfgc7f",
+        "appName": "SPIN 777",
+        "message": "✅ Success \"SPIN 777\": Created & published 5 AI reviews directly to Firestore (Exact target: 3.9★).",
+        "type": "success",
+        "generatedCount": 5,
+        "targetScore": 3.9
+      },
+      {
+        "timestamp": "2026-08-23T08:41:28.895Z",
+        "appId": "x4zbfgc7f",
+        "appName": "SPIN 777",
+        "message": "⚙️ Processing \"SPIN 777\": Target Score 3.9★ | Generating 5 reviews...",
+        "type": "info",
+        "targetScore": 3.9
+      },
+      {
+        "timestamp": "2026-08-23T08:41:26.880Z",
+        "appId": "syq9cwkda",
+        "appName": "YONO RUMMY",
+        "message": "✅ Success \"YONO RUMMY\": Created & published 5 AI reviews directly to Firestore (Exact target: 4.6★).",
+        "type": "success",
+        "generatedCount": 5,
+        "targetScore": 4.6
+      },
+      {
+        "timestamp": "2026-08-23T08:41:26.789Z",
+        "appId": "syq9cwkda",
+        "appName": "YONO RUMMY",
+        "message": "⚙️ Processing \"YONO RUMMY\": Target Score 4.6★ | Generating 5 reviews...",
+        "type": "info",
+        "targetScore": 4.6
+      },
+      {
+        "timestamp": "2026-08-23T08:41:24.778Z",
+        "appId": "83kr7f5cx",
+        "appName": "YONO GAMES",
+        "message": "✅ Success \"YONO GAMES\": Created & published 5 AI reviews directly to Firestore (Exact target: 4.5★).",
+        "type": "success",
+        "generatedCount": 5,
+        "targetScore": 4.5
+      },
+      {
+        "timestamp": "2026-08-23T08:41:24.675Z",
+        "appId": "83kr7f5cx",
+        "appName": "YONO GAMES",
+        "message": "⚙️ Processing \"YONO GAMES\": Target Score 4.5★ | Generating 5 reviews...",
+        "type": "info",
+        "targetScore": 4.5
+      },
+      {
+        "timestamp": "2026-08-23T08:41:22.661Z",
+        "appId": "vm84dmv3k",
+        "appName": "DHAN GAME",
+        "message": "✅ Success \"DHAN GAME\": Created & published 5 AI reviews directly to Firestore (Exact target: 3.9★).",
+        "type": "success",
+        "generatedCount": 5,
+        "targetScore": 3.9
+      },
+      {
+        "timestamp": "2026-08-23T08:41:22.510Z",
+        "appId": "vm84dmv3k",
+        "appName": "DHAN GAME",
+        "message": "⚙️ Processing \"DHAN GAME\": Target Score 3.9★ | Generating 5 reviews...",
+        "type": "info",
+        "targetScore": 3.9
+      },
+      {
+        "timestamp": "2026-08-23T08:41:20.496Z",
+        "appId": "0w7b3vc4p",
+        "appName": "GOLD RUMMY",
+        "message": "✅ Success \"GOLD RUMMY\": Created & published 5 AI reviews directly to Firestore (Exact target: 4.2★).",
+        "type": "success",
+        "generatedCount": 5,
+        "targetScore": 4.2
+      },
+      {
+        "timestamp": "2026-08-23T08:41:20.289Z",
+        "appId": "0w7b3vc4p",
+        "appName": "GOLD RUMMY",
+        "message": "⚙️ Processing \"GOLD RUMMY\": Target Score 4.2★ | Generating 5 reviews...",
+        "type": "info",
+        "targetScore": 4.2
+      },
+      {
+        "timestamp": "2026-08-23T08:41:19.776Z",
+        "appId": "ne1n96k01",
+        "appName": "VITA MAHJONG",
+        "message": "⏭️ Skipped \"VITA MAHJONG\": Already has 10 reviews (Threshold: 10).",
+        "type": "warning",
+        "targetScore": 4.6
+      },
+      {
+        "timestamp": "2026-08-23T08:41:17.766Z",
+        "appId": "3h5w608rt",
+        "appName": "SOLITAIRE",
+        "message": "✅ Success \"SOLITAIRE\": Created & published 5 AI reviews directly to Firestore (Exact target: 4.5★).",
+        "type": "success",
+        "generatedCount": 5,
+        "targetScore": 4.5
+      },
+      {
+        "timestamp": "2026-08-23T08:41:17.684Z",
+        "appId": "3h5w608rt",
+        "appName": "SOLITAIRE",
+        "message": "⚙️ Processing \"SOLITAIRE\": Target Score 4.5★ | Generating 5 reviews...",
+        "type": "info",
+        "targetScore": 4.5
+      },
+      {
+        "timestamp": "2026-08-23T08:41:17.173Z",
+        "appId": "dttfvdp67",
+        "appName": "BACCARIST",
+        "message": "⏭️ Skipped \"BACCARIST\": Already has 11 reviews (Threshold: 10).",
+        "type": "warning",
+        "targetScore": 4.5
+      },
+      {
+        "timestamp": "2026-08-23T08:41:16.663Z",
+        "appId": "jl9bx9llw",
+        "appName": "777 GAME",
+        "message": "⏭️ Skipped \"777 GAME\": Already has 10 reviews (Threshold: 10).",
+        "type": "warning",
+        "targetScore": 4.6
+      },
+      {
+        "timestamp": "2026-08-23T08:41:14.642Z",
+        "appId": "lzcn7ehst",
+        "appName": "789 JACKPORTS",
+        "message": "✅ Success \"789 JACKPORTS\": Created & published 5 AI reviews directly to Firestore (Exact target: 4.5★).",
+        "type": "success",
+        "generatedCount": 5,
+        "targetScore": 4.5
+      },
+      {
+        "timestamp": "2026-08-23T08:41:14.582Z",
+        "appId": "lzcn7ehst",
+        "appName": "789 JACKPORTS",
+        "message": "⚙️ Processing \"789 JACKPORTS\": Target Score 4.5★ | Generating 5 reviews...",
+        "type": "info",
+        "targetScore": 4.5
+      },
+      {
+        "timestamp": "2026-08-23T08:41:14.076Z",
+        "appId": "y7lefyq14",
+        "appName": "RUMMY LUDO",
+        "message": "⏭️ Skipped \"RUMMY LUDO\": Already has 11 reviews (Threshold: 10).",
+        "type": "warning",
+        "targetScore": 4.5
+      },
+      {
+        "timestamp": "2026-08-23T08:41:13.568Z",
+        "appId": "m6bwb6cnb",
+        "appName": "MAHA GAMES",
+        "message": "⏭️ Skipped \"MAHA GAMES\": Already has 10 reviews (Threshold: 10).",
+        "type": "warning",
+        "targetScore": 4.6
+      },
+      {
+        "timestamp": "2026-08-23T08:41:11.561Z",
+        "appId": "89d79z398",
+        "appName": "YONO VIP",
+        "message": "✅ Success \"YONO VIP\": Created & published 5 AI reviews directly to Firestore (Exact target: 4.5★).",
+        "type": "success",
+        "generatedCount": 5,
+        "targetScore": 4.5
+      },
+      {
+        "timestamp": "2026-08-23T08:41:11.498Z",
+        "appId": "89d79z398",
+        "appName": "YONO VIP",
+        "message": "⚙️ Processing \"YONO VIP\": Target Score 4.5★ | Generating 5 reviews...",
+        "type": "info",
+        "targetScore": 4.5
+      },
+      {
+        "timestamp": "2026-08-23T08:41:10.990Z",
+        "appId": "0jfvh7lrx",
+        "appName": "SHARE SLOTS",
+        "message": "⏭️ Skipped \"SHARE SLOTS\": Already has 11 reviews (Threshold: 10).",
+        "type": "warning",
+        "targetScore": 4.5
+      },
+      {
+        "timestamp": "2026-08-23T08:41:10.483Z",
+        "appId": "v9ky6l07h",
+        "appName": "LOVE RUMMY",
+        "message": "⏭️ Skipped \"LOVE RUMMY\": Already has 10 reviews (Threshold: 10).",
+        "type": "warning",
+        "targetScore": 4.6
+      },
+      {
+        "timestamp": "2026-08-23T08:41:08.475Z",
+        "appId": "kc3u0sl2h",
+        "appName": "EVERY 77",
+        "message": "✅ Success \"EVERY 77\": Created & published 5 AI reviews directly to Firestore (Exact target: 4.5★).",
+        "type": "success",
+        "generatedCount": 5,
+        "targetScore": 4.5
+      },
+      {
+        "timestamp": "2026-08-23T08:41:08.394Z",
+        "appId": "kc3u0sl2h",
+        "appName": "EVERY 77",
+        "message": "⚙️ Processing \"EVERY 77\": Target Score 4.5★ | Generating 5 reviews...",
+        "type": "info",
+        "targetScore": 4.5
+      },
+      {
+        "timestamp": "2026-08-23T08:41:07.888Z",
+        "appId": "08exxq5q9",
+        "appName": "ABC RUMMY",
+        "message": "⏭️ Skipped \"ABC RUMMY\": Already has 10 reviews (Threshold: 10).",
+        "type": "warning",
+        "targetScore": 4.2
+      },
+      {
+        "timestamp": "2026-08-23T08:41:07.380Z",
+        "appId": "jr5xf2b1s",
+        "appName": "BINGO 101",
+        "message": "⏭️ Skipped \"BINGO 101\": Already has 10 reviews (Threshold: 10).",
+        "type": "warning",
+        "targetScore": 4.6
+      },
+      {
+        "timestamp": "2026-08-23T08:41:06.873Z",
+        "appId": "l7e8oyo9m",
+        "appName": "YONO ARCADE",
+        "message": "⏭️ Skipped \"YONO ARCADE\": Already has 10 reviews (Threshold: 10).",
+        "type": "warning",
+        "targetScore": 4.6
+      },
+      {
+        "timestamp": "2026-08-23T08:41:06.365Z",
+        "appId": "ozhj4pz5s",
+        "appName": "JAIHO SLOTS",
+        "message": "⏭️ Skipped \"JAIHO SLOTS\": Already has 11 reviews (Threshold: 10).",
+        "type": "warning",
+        "targetScore": 4.5
+      },
+      {
+        "timestamp": "2026-08-23T08:41:05.856Z",
+        "appId": "x1mivt2cj",
+        "appName": "OK RUMMY",
+        "message": "⏭️ Skipped \"OK RUMMY\": Already has 10 reviews (Threshold: 10).",
+        "type": "warning",
+        "targetScore": 4.6
+      },
+      {
+        "timestamp": "2026-08-23T08:41:03.848Z",
+        "appId": "to56xasfo",
+        "appName": "JAIHO 91",
+        "message": "✅ Success \"JAIHO 91\": Created & published 5 AI reviews directly to Firestore (Exact target: 4.5★).",
+        "type": "success",
+        "generatedCount": 5,
+        "targetScore": 4.5
+      },
+      {
+        "timestamp": "2026-08-23T08:41:03.763Z",
+        "appId": "to56xasfo",
+        "appName": "JAIHO 91",
+        "message": "⚙️ Processing \"JAIHO 91\": Target Score 4.5★ | Generating 5 reviews...",
+        "type": "info",
+        "targetScore": 4.5
+      },
+      {
+        "timestamp": "2026-08-23T08:41:03.256Z",
+        "appId": "e1qcs5ik7",
+        "appName": "JOY RUMMY",
+        "message": "⏭️ Skipped \"JOY RUMMY\": Already has 13 reviews (Threshold: 10).",
+        "type": "warning",
+        "targetScore": 4.5
+      },
+      {
+        "timestamp": "2026-08-23T08:41:02.749Z",
+        "appId": "colrcaih7",
+        "appName": "Card Game 29",
+        "message": "⏭️ Skipped \"Card Game 29\": Already has 10 reviews (Threshold: 10).",
+        "type": "warning",
+        "targetScore": 4.6
+      },
+      {
+        "timestamp": "2026-08-23T08:41:00.742Z",
+        "appId": "ha76icslh",
+        "appName": "CALLBREAK",
+        "message": "✅ Success \"CALLBREAK\": Created & published 5 AI reviews directly to Firestore (Exact target: 4.7★).",
+        "type": "success",
+        "generatedCount": 5,
+        "targetScore": 4.7
+      },
+      {
+        "timestamp": "2026-08-23T08:41:00.657Z",
+        "appId": "ha76icslh",
+        "appName": "CALLBREAK",
+        "message": "⚙️ Processing \"CALLBREAK\": Target Score 4.7★ | Generating 5 reviews...",
+        "type": "info",
+        "targetScore": 4.7
+      },
+      {
+        "timestamp": "2026-08-23T08:41:00.149Z",
+        "appId": "s4oc5m16b",
+        "appName": "RUMMY 91",
+        "message": "⏭️ Skipped \"RUMMY 91\": Already has 10 reviews (Threshold: 10).",
+        "type": "warning",
+        "targetScore": 4.4
+      },
+      {
+        "timestamp": "2026-08-23T08:40:59.640Z",
+        "appId": "i5uw2apum",
+        "appName": "RUMMY 77",
+        "message": "⏭️ Skipped \"RUMMY 77\": Already has 16 reviews (Threshold: 10).",
+        "type": "warning",
+        "targetScore": 4.4
+      },
+      {
+        "timestamp": "2026-08-23T08:40:58.882Z",
+        "appId": "yh9toduxk",
+        "appName": "SPIN CRUSH",
+        "message": "⏭️ Skipped \"SPIN CRUSH\": Already has 43 reviews (Threshold: 10).",
+        "type": "warning",
+        "targetScore": 4.6
+      },
+      {
+        "timestamp": "2026-08-23T08:40:58.872Z",
+        "appId": "system",
+        "appName": "Catalog Auto-Pilot Engine",
+        "message": "🚀 Auto-Pilot Started: Queued 37 apps. 5 reviews per app.",
+        "type": "info"
+      }
+    ],
+    "startTime": "2026-08-23T08:40:58.872Z",
+    "options": {
+      "countPerApp": 5,
+      "skipAppsWithReviews": true,
+      "skipThreshold": 10,
+      "overrideTargetScore": null,
+      "toneFocus": "balanced"
+    }
+  },
+  "appQueue": [
+    {
+      "id": "yh9toduxk",
+      "slug": "spin-crush",
+      "name": "SPIN CRUSH",
+      "category": "Yono Apps",
+      "rating": 4.6,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1785670352/ezgif-82a15987d682a1a8_sdzpjc.webp"
+    },
+    {
+      "id": "i5uw2apum",
+      "slug": "rummy-77",
+      "name": "RUMMY 77",
+      "category": "Yono Apps",
+      "rating": 4.4,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1785722974/1000132690_11zon_1_l43qhv.jpg"
+    },
+    {
+      "id": "s4oc5m16b",
+      "slug": "rummy-91",
+      "name": "RUMMY 91",
+      "category": "Yono Apps",
+      "rating": 4.4,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1785780996/download_22_vgi4h1_1_jjm7jx.webp"
+    },
+    {
+      "id": "ha76icslh",
+      "slug": "callbreak",
+      "name": "CALLBREAK",
+      "category": "Card Apps",
+      "rating": 4.7,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1785819278/images_21_1_g770hi.webp"
+    },
+    {
+      "id": "colrcaih7",
+      "slug": "card-game-29",
+      "name": "Card Game 29",
+      "category": "Card Apps",
+      "rating": 4.6,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1785935258/1000133067_11zon_1_n04bav.jpg"
+    },
+    {
+      "id": "e1qcs5ik7",
+      "slug": "joy-rummy",
+      "name": "JOY RUMMY",
+      "category": "Yono Apps",
+      "rating": 4.5,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784879087/download_32_cyvkev.webp"
+    },
+    {
+      "id": "to56xasfo",
+      "slug": "jaiho-91",
+      "name": "JAIHO 91",
+      "category": "Yono Apps",
+      "rating": 4.5,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784877512/download_16_fznggx.webp"
+    },
+    {
+      "id": "x1mivt2cj",
+      "slug": "ok-rummy",
+      "name": "OK RUMMY",
+      "category": "Yono Apps",
+      "rating": 4.6,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784877617/download_19_w2sxhp.webp"
+    },
+    {
+      "id": "ozhj4pz5s",
+      "slug": "jaiho-slots",
+      "name": "JAIHO SLOTS",
+      "category": "Yono Apps",
+      "rating": 4.5,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784877660/download_20_x106v3.webp"
+    },
+    {
+      "id": "l7e8oyo9m",
+      "slug": "yono-arcade",
+      "name": "YONO ARCADE",
+      "category": "Yono Apps",
+      "rating": 4.6,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784877459/download_14_krbwrv.webp"
+    },
+    {
+      "id": "jr5xf2b1s",
+      "slug": "bingo-101",
+      "name": "BINGO 101",
+      "category": "Yono Apps",
+      "rating": 4.6,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784877567/download_18_lljdaa.webp"
+    },
+    {
+      "id": "08exxq5q9",
+      "slug": "abc-rummy",
+      "name": "ABC RUMMY",
+      "category": "Yono Apps",
+      "rating": 4.2,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784878050/download_26_awtrna.webp"
+    },
+    {
+      "id": "kc3u0sl2h",
+      "slug": "ever-777",
+      "name": "EVERY 77",
+      "category": "Yono Apps",
+      "rating": 4.5,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784878592/download_28_mhxps5.webp"
+    },
+    {
+      "id": "v9ky6l07h",
+      "slug": "love-rummy",
+      "name": "LOVE RUMMY",
+      "category": "Yono Apps",
+      "rating": 4.6,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784878950/download_31_s7fonv.webp"
+    },
+    {
+      "id": "0jfvh7lrx",
+      "slug": "share-slots",
+      "name": "SHARE SLOTS",
+      "category": "Yono Apps",
+      "rating": 4.5,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784879544/download_36_zeiyxs.webp"
+    },
+    {
+      "id": "89d79z398",
+      "slug": "yono-vip",
+      "name": "YONO VIP",
+      "category": "All Apps, Yono Apps",
+      "rating": 4.5,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784879809/download_39_znq2ql.webp"
+    },
+    {
+      "id": "m6bwb6cnb",
+      "slug": "maha-games",
+      "name": "MAHA GAMES",
+      "category": "Yono Apps",
+      "rating": 4.6,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784879172/download_33_d1pgy0.webp"
+    },
+    {
+      "id": "y7lefyq14",
+      "slug": "rummy-ludo",
+      "name": "RUMMY LUDO",
+      "category": "Yono Apps",
+      "rating": 4.5,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784879252/download_34_wrdzdw.webp"
+    },
+    {
+      "id": "lzcn7ehst",
+      "slug": "789-jackports",
+      "name": "789 JACKPORTS",
+      "category": "Yono Apps",
+      "rating": 4.5,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784879711/download_38_pmpbnu.webp"
+    },
+    {
+      "id": "jl9bx9llw",
+      "slug": "777-game",
+      "name": "777 GAME",
+      "category": "Yono Apps",
+      "rating": 4.6,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1784878294/download_27_ex1vzp.webp"
+    },
+    {
+      "id": "dttfvdp67",
+      "slug": "baccarist",
+      "name": "BACCARIST",
+      "category": "Card Apps",
+      "rating": 4.5,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1786257953/1000133495_11zon_korvs3.webp"
+    },
+    {
+      "id": "3h5w608rt",
+      "slug": "solitaire",
+      "name": "SOLITAIRE",
+      "category": "Card Apps",
+      "rating": 4.5,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1786259914/1000133500_11zon_1_s5uttq.webp"
+    },
+    {
+      "id": "ne1n96k01",
+      "slug": "vita-mahjong",
+      "name": "VITA MAHJONG",
+      "category": "Card Apps",
+      "rating": 4.6,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1786260770/1000133507_11zon_az6bbg.webp"
+    },
+    {
+      "id": "0w7b3vc4p",
+      "slug": "gold-rummy",
+      "name": "GOLD RUMMY",
+      "category": "Yono Apps",
+      "rating": 4.2,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1786501994/1000134012_11zon_awjhul.webp"
+    },
+    {
+      "id": "vm84dmv3k",
+      "slug": "dhan-game",
+      "name": "DHAN GAME",
+      "category": "Yono Apps",
+      "rating": 3.9,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1786540130/1000134073_11zon_zn5wg8.webp"
+    },
+    {
+      "id": "83kr7f5cx",
+      "slug": "yono-games",
+      "name": "YONO GAMES",
+      "category": "Yono Apps",
+      "rating": 4.5,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1786545477/1000134097_11zon_avladx.webp"
+    },
+    {
+      "id": "syq9cwkda",
+      "slug": "yono-rummy",
+      "name": "YONO RUMMY",
+      "category": "Yono Apps",
+      "rating": 4.6,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1786545477/1000134094_11zon_zf9ocy.webp"
+    },
+    {
+      "id": "x4zbfgc7f",
+      "slug": "spin-777",
+      "name": "SPIN 777",
+      "category": "Yono Apps, General",
+      "rating": 3.9,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1786545477/1000134095_11zon_vwn1hd.webp"
+    },
+    {
+      "id": "pdwnq0nu8",
+      "slug": "boss-rummy",
+      "name": "BOSS RUMMY",
+      "category": "Yono Apps",
+      "rating": 54.5,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1786545476/1000134102_11zon_cvxa3g.webp"
+    },
+    {
+      "id": "3m2tlug3g",
+      "slug": "gogo-rummy",
+      "name": "GOGO RUMMY",
+      "category": "Yono Apps",
+      "rating": 3.9,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1786545476/1000134098_11zon_fafk2d.webp"
+    },
+    {
+      "id": "fuma9mbmc",
+      "slug": "rummy-888",
+      "name": "RUMMY 888",
+      "category": "Yono Apps",
+      "rating": 4.2,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1786545949/1000134114_11zon_1_mymv9y.webp"
+    },
+    {
+      "id": "h68oygebw",
+      "slug": "win-rummy",
+      "name": "WIN RUMMY",
+      "category": "Yono Apps",
+      "rating": 3.9,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1786546190/1000134120_11zon_m6sn6w.webp"
+    },
+    {
+      "id": "fil7vo6d8",
+      "slug": "a23-rummy",
+      "name": "A23 RUMMY",
+      "category": "Card Apps",
+      "rating": 5,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1786546882/1000134126_11zon_1_nnkj4g.webp"
+    },
+    {
+      "id": "2fpshclmr",
+      "slug": "roz-rummy",
+      "name": "Roz Rummy",
+      "category": "Card Apps",
+      "rating": 2.7,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1786547334/1000134133_11zon_natoxe.webp"
+    },
+    {
+      "id": "44ytfljrm",
+      "slug": "rummy-rush",
+      "name": "RUMMY RUSH",
+      "category": "Card Apps",
+      "rating": 4.5,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1786547577/1000134136_11zon_wer4gp.webp"
+    },
+    {
+      "id": "2ovzpzjxy",
+      "slug": "rum-rummy",
+      "name": "RUM RUMMY",
+      "category": "Card Apps",
+      "rating": 3.8,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1786547775/1000134139_11zon_nvph4r.webp"
+    },
+    {
+      "id": "7rk45110u",
+      "slug": "indian-rummy-fun",
+      "name": "INDIAN RUMMY FUN",
+      "category": "Card Apps",
+      "rating": 3.5,
+      "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1786550532/1000134142_11zon_s6sigl.webp"
+    }
+  ],
+  "saved_at": "2026-08-23T08:41:33.286Z"
+}
