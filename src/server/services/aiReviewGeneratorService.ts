@@ -244,11 +244,21 @@ function getTodayDateString(): string {
  * Extract specific phrases, feature sentences, and description callouts directly from the app
  */
 export function extractAppDossierFacts(app: any): string[] {
+  const faqTexts = Array.isArray(app?.faqs) 
+    ? app.faqs.map((f: any) => `${f.question || f.q || ''} ${f.answer || f.a || ''}`).join(' ')
+    : '';
+
   const sources = [
     app?.description_html,
     app?.features_html,
     app?.yellow_box_msg,
+    app?.red_box_msg,
+    app?.idea_box_msg,
     app?.custom_admin_box_html,
+    app?.custom_admin_box_heading,
+    app?.release_notes,
+    app?.content_overview,
+    faqTexts,
     app?.short_description,
     app?.description,
     app?.features,
@@ -262,7 +272,7 @@ export function extractAppDossierFacts(app: any): string[] {
     chunks.forEach(c => {
       const clean = c.trim();
       const isEditorial = /review|hands-on|verdict|breakdown|inside the game|how does it|actually perform/i.test(clean);
-      if (clean.length >= 12 && clean.length <= 110 && !isEditorial && !phrases.includes(clean)) {
+      if (clean.length >= 10 && clean.length <= 120 && !isEditorial && !phrases.includes(clean)) {
         phrases.push(clean);
       }
     });
@@ -278,8 +288,33 @@ function extractSpecificPhrasesFromApp(app: any): string[] {
 /**
  * Service to generate 100% human-like app reviews using Gemini API
  */
-export async function generateAIReviewsForApp(app: any, options: GenerateOptions): Promise<Partial<ReviewRecord>[]> {
+export async function generateAIReviewsForApp(appInput: any, options: GenerateOptions): Promise<Partial<ReviewRecord>[]> {
   const { count, targetScore, starMix, toneFocus = 'balanced', customPrompt } = options;
+
+  // Hydrate full app details if app object is missing rich content fields
+  let app = { ...appInput };
+  if ((!app.description_html && !app.description) && (app.id || app.slug || app.name)) {
+    try {
+      const fsMod = require('fs');
+      const pathMod = require('path');
+      const staticP = pathMod.join(process.cwd(), 'src/lib/staticData.json');
+      if (fsMod.existsSync(staticP)) {
+        const staticData = JSON.parse(fsMod.readFileSync(staticP, 'utf8'));
+        const catalog = staticData.apps || staticData.mockApps || [];
+        const matched = catalog.find((a: any) => 
+          (a.id && String(a.id).toLowerCase() === String(app.id || app.slug).toLowerCase()) ||
+          (a.slug && String(a.slug).toLowerCase() === String(app.slug || app.id).toLowerCase()) ||
+          (a.name && String(a.name).toLowerCase() === String(app.name).toLowerCase())
+        );
+        if (matched) {
+          app = { ...matched, ...app };
+        }
+      }
+    } catch (e) {
+      console.warn("[AI Review Gen] Full app hydration warning:", e);
+    }
+  }
+
   const appName = app?.name || 'Card Game';
   const appCategory = app?.category || 'Casual, Card';
   const appDeveloper = app?.developer || 'Gaming Studio';
@@ -291,7 +326,11 @@ export async function generateAIReviewsForApp(app: any, options: GenerateOptions
     app?.features_html ? `### RAW FEATURE BREAKDOWN (HTML):\n${app.features_html}` : '',
     app?.custom_admin_box_html ? `### CUSTOM ADMIN / SPECIAL NOTICES (HTML):\n${app.custom_admin_box_html}` : '',
     app?.yellow_box_msg ? `### NOTICE / HIGHLIGHT BOX (HTML):\n${app.yellow_box_msg}` : '',
-    app?.content_overview ? `### CONTENT OVERVIEW:\n${app.content_overview}` : ''
+    app?.red_box_msg ? `### CRITICAL NOTICE / RED BOX (HTML):\n${app.red_box_msg}` : '',
+    app?.idea_box_msg ? `### IDEA / HIGHLIGHT BOX (HTML):\n${app.idea_box_msg}` : '',
+    app?.content_overview ? `### CONTENT OVERVIEW:\n${app.content_overview}` : '',
+    app?.release_notes ? `### RELEASE NOTES / WHAT'S NEW:\n${app.release_notes}` : '',
+    Array.isArray(app?.faqs) && app.faqs.length > 0 ? `### FREQUENTLY ASKED QUESTIONS:\n${app.faqs.map((f: any) => `Q: ${f.question || f.q || ''}\nA: ${f.answer || f.a || ''}`).join('\n')}` : ''
   ].filter(Boolean).join('\n\n');
 
   const plainTextDossier = [
@@ -313,7 +352,8 @@ export async function generateAIReviewsForApp(app: any, options: GenerateOptions
 - Developer: "${appDeveloper}"
 - Package / App ID: "${app?.package_name || app?.app_id || 'N/A'}"
 - Current Store Benchmark Rating: ${app?.rating || targetScore} / 5.0
-- App Size / Version: "${app?.size || 'Varies'} | V${app?.version || '1.0'}"
+- App Size / Version: "${app?.file_size || app?.size || 'Varies'} | V${app?.version || '1.0'}"
+- Safety Status: "${app?.safety_status || 'Verified Clean'}"
 - Meta Title: "${metaTitle}"
 - Meta Description: "${metaDesc}"
   `.trim();
@@ -327,13 +367,28 @@ export async function generateAIReviewsForApp(app: any, options: GenerateOptions
     try {
       const ai = new GoogleGenAI({ apiKey });
 
-      const prompt = `You are an advanced AI reasoning engine & authentic store review generator for the app store listing of "${appName}".
+      const prompt = `You are Steve, an advanced AI review generator for the store listing of "${appName}".
 
-### 🧠 DEEP REASONING & SYNTHESIS DIRECTIVE:
-1. **Analyze Full Dossier**: Carefully read the COMPLETE raw HTML and plain text details of "${appName}" below — including headers (<h2>, <h3>), feature lists (<ul>, <li>), game modes, UI claims, table mechanics, undo tools, frame rate claims, and notices.
-2. **Perform Step-by-Step Reasoning**: Think deeply about what real-world Indian players, casual gamers, power users, or tech reviewers experience when downloading and using this app based on the features described.
-3. **DO NOT COPY-PASTE**: Do NOT lazily quote or copy-paste full sentences verbatim from the description. Instead, translate the features, rules, and mechanics into realistic human opinions, praise, or constructive feedback in natural conversational language.
-4. **Dates**: Dates MUST be formatted strictly as "YYYY-MM-DD" (Year-Month-Date only, NO clock time).
+### 🧠 STEP-BY-STEP REASONING & SYNTHESIS DIRECTIVE FOR STEVE:
+STEP 1: DOSSIER COMPREHENSION
+- Thoroughly inspect all extracted specs, HTML descriptions, feature callouts, safety notices, FAQs, and developer notes for "${appName}".
+- Identify the exact game type (Rummy, Teen Patti, Slots, Arcade, Callbreak, Solitaire, Mahjong, Ludo), game rules, table speed, UI theme, undo options, matchmaking speed, and performance details.
+
+STEP 2: USER PERSONA & ASPECT MAPPING
+- Distribute the ${count} reviews across realistic player personas (e.g., daily casual player, competitive tournament player, UI/graphics enthusiast, low-end device user, long-time fan).
+- Ensure each review focuses on a DIFFERENT specific aspect or feature found in the dossier (e.g., table layout, card dealing animation, frame rate stability, offline mode, multi-table support, sound effects).
+
+STEP 3: NATURAL OPINION TRANSLATION
+- Translate the app's features into authentic, conversational human opinions in natural Indian Hinglish / English.
+- DO NOT copy-paste sentences verbatim from the description or marketing copy.
+- DO NOT use banned financial terms (deposit, withdraw, cash, bonus, real money, bet, wager, rupees, earnings).
+- Format dates strictly as clean "YYYY-MM-DD" strings without clock time.
+
+STEP 4: RATING & SENTIMENT ALIGNMENT
+- Match each review's tone to its assigned star rating (${JSON.stringify(ratings)}).
+- 5 stars: High praise for speed, smoothness, or specific gameplay mode.
+- 4 stars: Overall great experience with minor constructive notes or wishlist items.
+- 2-3 stars: Honest feedback on device performance, font size, or signal handling.
 
 ### 📱 COMPLETE APP DOSSIER FOR "${appName}":
 ${appSpecs}
@@ -345,7 +400,7 @@ ${rawHtmlSections || 'No raw HTML available.'}
 ${plainTextDossier || 'No plain text available.'}
 
 #### EXTRACTED KEY CLAIMS & MECHANICS:
-"${specificPhrases.slice(0, 15).join(' | ')}"
+"${specificPhrases.slice(0, 20).join(' | ')}"
 
 ### 🎯 REQUIRED RATINGS TO ASSIGN (Strict Order):
 Assign these exact integer star ratings to the ${count} reviews in order:

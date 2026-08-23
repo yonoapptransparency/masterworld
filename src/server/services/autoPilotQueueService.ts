@@ -121,11 +121,21 @@ class AutoPilotQueueService {
   }
 
   public getStatus(): AutoPilotJobStatus {
-    const total = this.status.totalApps || 1;
-    const done = this.status.processedAppsCount + this.status.skippedAppsCount;
-    const percent = Math.min(100, Math.round((done / total) * 100));
+    let total = this.status.totalApps;
+    if (!total || total === 0) {
+      try {
+        const freshStatic = getStaticData();
+        total = freshStatic.apps?.length || freshStatic.mockApps?.length || 37;
+      } catch (e) {
+        total = 37;
+      }
+    }
+
+    const done = (this.status.processedAppsCount || 0) + (this.status.skippedAppsCount || 0);
+    const percent = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
     return {
       ...this.status,
+      totalApps: total,
       percent
     };
   }
@@ -147,41 +157,63 @@ class AutoPilotQueueService {
       throw new Error("Auto-Pilot is already running!");
     }
 
-    // Load full catalog apps
+    // Multi-tier catalog app loading with live Admin UI apps precedence
     let allApps: any[] = [];
-    try {
-      const storeData = await fetchStoreData();
-      if (storeData && Array.isArray(storeData.apps) && storeData.apps.length > 0) {
-        allApps = storeData.apps;
+    if (Array.isArray((options as any).appsList) && (options as any).appsList.length > 0) {
+      allApps = (options as any).appsList;
+    } else if (Array.isArray((options as any).apps) && (options as any).apps.length > 0) {
+      allApps = (options as any).apps;
+    } else {
+      try {
+        const storeData = await fetchStoreData();
+        if (storeData && Array.isArray(storeData.apps) && storeData.apps.length > 0) {
+          allApps = storeData.apps;
+        }
+      } catch (e) {
+        console.warn("[AutoPilot] fetchStoreData failed, falling back to static data", e);
       }
-    } catch (e) {
-      console.warn("[AutoPilot] fetchStoreData failed, falling back to static data", e);
     }
 
-    if (allApps.length === 0) {
+    if (!allApps || allApps.length === 0) {
       const staticData = getStaticData();
       allApps = staticData.apps || staticData.mockApps || [];
     }
 
-    // Filter by selected app IDs if explicitly specified and non-empty
+    // Extra fallback check to public_backup.json or staticData.json directly
+    if (!allApps || allApps.length === 0) {
+      try {
+        const fsMod = require('fs');
+        const pathMod = require('path');
+        const backupP = pathMod.join(process.cwd(), 'src/lib/public_backup.json');
+        if (fsMod.existsSync(backupP)) {
+          const bData = JSON.parse(fsMod.readFileSync(backupP, 'utf8'));
+          if (Array.isArray(bData.apps) && bData.apps.length > 0) {
+            allApps = bData.apps;
+          }
+        }
+      } catch (e) {}
+    }
+
+    if (!allApps || allApps.length === 0) {
+      throw new Error("No apps found in store catalog to process.");
+    }
+
+    // Robust filter by selected app IDs if explicitly specified and non-empty
     if (Array.isArray(options.selectedAppIds) && options.selectedAppIds.length > 0) {
-      const validSelected = options.selectedAppIds.map(id => String(id || '').trim().toLowerCase()).filter(Boolean);
-      if (validSelected.length > 0) {
-        const idSet = new Set(validSelected);
-        const filtered = allApps.filter(a => idSet.has(String(a.id || '').toLowerCase()) || idSet.has(String(a.slug || '').toLowerCase()));
+      const validSelected = new Set(options.selectedAppIds.map(id => String(id || '').trim().toLowerCase()).filter(Boolean));
+      if (validSelected.size > 0) {
+        const filtered = allApps.filter(a => {
+          const id = String(a.id || '').trim().toLowerCase();
+          const slug = String(a.slug || '').trim().toLowerCase();
+          const name = String(a.name || '').trim().toLowerCase();
+          return validSelected.has(id) || validSelected.has(slug) || validSelected.has(name);
+        });
+
+        // Only restrict to filtered list if at least 1 app matched
         if (filtered.length > 0) {
           allApps = filtered;
         }
       }
-    }
-
-    if (allApps.length === 0) {
-      const staticData = getStaticData();
-      allApps = staticData.apps || staticData.mockApps || [];
-    }
-
-    if (allApps.length === 0) {
-      throw new Error("No apps found in store catalog to process.");
     }
 
     const mergedOptions: AutoPilotOptions = {
@@ -204,7 +236,7 @@ class AutoPilotQueueService {
       generatedReviewsCount: 0,
       currentAppIndex: 0,
       currentApp: null,
-      logs: [],
+      logs: this.status.logs || [],
       startTime: new Date().toISOString(),
       options: mergedOptions
     };
@@ -212,12 +244,23 @@ class AutoPilotQueueService {
     this.addLog({
       appId: 'system',
       appName: 'Catalog Auto-Pilot Engine',
-      message: `🚀 Auto-Pilot Started: Queued ${allApps.length} apps. ${mergedOptions.countPerApp} reviews per app.`,
+      message: `🚀 Auto-Pilot Job Launched: Queued ${allApps.length} catalog apps (${mergedOptions.countPerApp} reviews/app, skip threshold >= ${mergedOptions.skipThreshold}).`,
       type: 'info'
     });
 
-    // Start background processing loop asynchronously
-    this.runQueueLoop();
+    this.saveCheckpoint();
+
+    // Trigger background loop non-blockingly
+    this.runQueueLoop().catch(err => {
+      console.error("[AutoPilot] Fatal queue error:", err);
+      this.status.status = 'failed';
+      this.addLog({
+        appId: 'system',
+        appName: 'Catalog Auto-Pilot Engine',
+        message: `❌ Fatal Queue Error: ${err.message || String(err)}`,
+        type: 'error'
+      });
+    });
 
     return this.getStatus();
   }
@@ -288,13 +331,17 @@ class AutoPilotQueueService {
         const existingReviews = communityStore.getReviewsForApp(appId, undefined, 1000, appName);
         const existingCount = existingReviews?.reviews ? existingReviews.reviews.length : 0;
 
+        // Extract facts for status reporting
+        const facts = extractAppDossierFacts(app);
+
         this.status.currentApp = {
           id: appId,
           name: appName,
           slug: app.slug,
           targetScore,
           icon_url: app.icon_url,
-          existingReviewsCount: existingCount
+          existingReviewsCount: existingCount,
+          dossierFacts: facts
         };
 
         // Check if we should skip this app
@@ -306,7 +353,7 @@ class AutoPilotQueueService {
           this.addLog({
             appId,
             appName,
-            message: `⏭️ Skipped "${appName}": Already has ${existingCount} reviews (Threshold: ${this.status.options.skipThreshold}).`,
+            message: `⏭️ [Step 1/3 Skipped] "${appName}": Already has ${existingCount} reviews (Threshold: ${this.status.options.skipThreshold}).`,
             type: 'warning',
             targetScore
           });
@@ -321,7 +368,15 @@ class AutoPilotQueueService {
         this.addLog({
           appId,
           appName,
-          message: `⚙️ Processing "${appName}": Target Score ${targetScore.toFixed(1)}★ | Generating ${this.status.options.countPerApp} reviews...`,
+          message: `⚙️ [Step 1/3 Dossier Extracted] "${appName}": Found ${facts.length} key facts & features | Target: ${targetScore.toFixed(1)}★`,
+          type: 'info',
+          targetScore
+        });
+
+        this.addLog({
+          appId,
+          appName,
+          message: `⚙️ [Step 2/3 AI Reasoning] Steve AI generating ${this.status.options.countPerApp} natural reviews from dossier...`,
           type: 'info',
           targetScore
         });
@@ -343,7 +398,7 @@ class AutoPilotQueueService {
             this.addLog({
               appId,
               appName,
-              message: `✅ Success "${appName}": Created & published ${saved.length} AI reviews directly to Firestore (Exact target: ${targetScore.toFixed(1)}★).`,
+              message: `✅ [Step 3/3 Success] "${appName}": Created & published ${saved.length} AI reviews to Firestore (${targetScore.toFixed(1)}★ average).`,
               type: 'success',
               generatedCount: saved.length,
               targetScore

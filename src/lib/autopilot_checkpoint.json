@@ -1,7 +1,7 @@
 {
   "status": {
     "jobId": "autopilot_1787474458872",
-    "status": "running",
+    "status": "paused",
     "totalApps": 37,
     "processedAppsCount": 13,
     "skippedAppsCount": 17,
@@ -16,6 +16,62 @@
       "existingReviewsCount": 5
     },
     "logs": [
+      {
+        "timestamp": "2026-08-23T09:43:17.036Z",
+        "appId": "system",
+        "appName": "Catalog Auto-Pilot Engine",
+        "message": "🔄 Restored Auto-Pilot Checkpoint: 13 processed, 17 skipped. Status: paused.",
+        "type": "info"
+      },
+      {
+        "timestamp": "2026-08-23T09:43:14.718Z",
+        "appId": "system",
+        "appName": "Catalog Auto-Pilot Engine",
+        "message": "🔄 Restored Auto-Pilot Checkpoint: 13 processed, 17 skipped. Status: paused.",
+        "type": "info"
+      },
+      {
+        "timestamp": "2026-08-23T09:40:12.245Z",
+        "appId": "system",
+        "appName": "Catalog Auto-Pilot Engine",
+        "message": "🔄 Restored Auto-Pilot Checkpoint: 13 processed, 17 skipped. Status: paused.",
+        "type": "info"
+      },
+      {
+        "timestamp": "2026-08-23T09:40:01.250Z",
+        "appId": "system",
+        "appName": "Catalog Auto-Pilot Engine",
+        "message": "🔄 Restored Auto-Pilot Checkpoint: 13 processed, 17 skipped. Status: paused.",
+        "type": "info"
+      },
+      {
+        "timestamp": "2026-08-23T09:37:56.069Z",
+        "appId": "system",
+        "appName": "Catalog Auto-Pilot Engine",
+        "message": "🔄 Restored Auto-Pilot Checkpoint: 13 processed, 17 skipped. Status: paused.",
+        "type": "info"
+      },
+      {
+        "timestamp": "2026-08-23T09:24:50.076Z",
+        "appId": "system",
+        "appName": "Catalog Auto-Pilot Engine",
+        "message": "🔄 Restored Auto-Pilot Checkpoint: 13 processed, 17 skipped. Status: paused.",
+        "type": "info"
+      },
+      {
+        "timestamp": "2026-08-23T09:23:49.571Z",
+        "appId": "system",
+        "appName": "Catalog Auto-Pilot Engine",
+        "message": "🔄 Restored Auto-Pilot Checkpoint: 13 processed, 17 skipped. Status: paused.",
+        "type": "info"
+      },
+      {
+        "timestamp": "2026-08-23T09:20:20.210Z",
+        "appId": "system",
+        "appName": "Catalog Auto-Pilot Engine",
+        "message": "🔄 Restored Auto-Pilot Checkpoint: 13 processed, 17 skipped. Status: paused.",
+        "type": "info"
+      },
       {
         "timestamp": "2026-08-23T08:41:33.286Z",
         "appId": "3m2tlug3g",
@@ -688,5 +744,5 @@
       "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1786550532/1000134142_11zon_s6sigl.webp"
     }
   ],
-  "saved_at": "2026-08-23T08:41:33.286Z"
+  "saved_at": "2026-08-23T09:43:17.036Z"
 }

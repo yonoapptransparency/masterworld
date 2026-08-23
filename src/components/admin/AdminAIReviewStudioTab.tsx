@@ -124,7 +124,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
 
   const [autoPilotOptions, setAutoPilotOptions] = useState({
     countPerApp: 10,
-    skipAppsWithReviews: true,
+    skipAppsWithReviews: false,
     skipThreshold: 10,
     overrideTargetScore: null as number | null,
     toneFocus: 'balanced' as any
@@ -192,6 +192,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
       setAutoPilotLoading(true);
       const payload = {
         ...autoPilotOptions,
+        appsList: appsList,
         selectedAppIds: selectedAutoPilotAppIds,
         customPrompt: autoPilotCustomPrompt.trim() || undefined
       };
@@ -1059,9 +1060,19 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
                   Auto-Polling Active (2s)
                 </span>
                 {autoPilotStatus?.logs?.length > 0 && (
-                  <span className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded">
-                    {autoPilotStatus.logs.length} events
-                  </span>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await adminFetch('/api/v1/admin/autopilot/logs', { method: 'DELETE' });
+                        fetchAutoPilotStatus();
+                        toast("Terminal logs cleared", "info");
+                      } catch (e) {}
+                    }}
+                    className="text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded transition-colors cursor-pointer"
+                  >
+                    Clear Logs ({autoPilotStatus.logs.length})
+                  </button>
                 )}
               </div>
             </div>
@@ -1072,16 +1083,18 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
                   Ready to start. Click "Launch Auto-Pilot for All Apps" above to begin full-catalog background generation.
                 </div>
               ) : (
-                autoPilotStatus.logs.slice().reverse().map((log: string, idx: number) => {
-                  const isSuccess = log.includes('✅');
-                  const isSkip = log.includes('⏭️');
-                  const isError = log.includes('❌') || log.includes('Error');
-                  const isStart = log.includes('🚀') || log.includes('▶️');
+                autoPilotStatus.logs.map((logItem: any, idx: number) => {
+                  const message = typeof logItem === 'string' ? logItem : (logItem.message || '');
+                  const time = typeof logItem === 'object' && logItem.timestamp ? new Date(logItem.timestamp).toLocaleTimeString() : '';
+                  const isSuccess = message.includes('✅') || logItem?.type === 'success';
+                  const isSkip = message.includes('⏭️') || logItem?.type === 'warning';
+                  const isError = message.includes('❌') || message.includes('Error') || logItem?.type === 'error';
+                  const isStart = message.includes('🚀') || message.includes('▶️');
                   
                   return (
                     <div
                       key={idx}
-                      className={`py-1 px-2.5 rounded border transition-all ${
+                      className={`py-1.5 px-2.5 rounded border transition-all flex items-start justify-between gap-2 ${
                         isSuccess ? 'bg-emerald-950/30 text-emerald-300 border-emerald-900/40' :
                         isSkip ? 'bg-amber-950/30 text-amber-300 border-amber-900/40' :
                         isError ? 'bg-rose-950/40 text-rose-300 border-rose-900/50' :
@@ -1089,7 +1102,8 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
                         'bg-slate-900/50 text-slate-300 border-slate-800/50'
                       }`}
                     >
-                      {log}
+                      <span className="flex-1 break-words">{message}</span>
+                      {time && <span className="text-[10px] text-slate-500 shrink-0 font-mono">{time}</span>}
                     </div>
                   );
                 })
