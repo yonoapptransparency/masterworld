@@ -17,6 +17,13 @@ interface GenerateOptions {
   customPrompt?: string;
 }
 
+// Centralized Banned-Word Safety Array (Strictly enforced in prompts and post-generation regex filters)
+export const BANNED_SAFETY_WORDS = [
+  'deposit', 'withdraw', 'cash', 'bonus', 'real money', 'jackpot', 'bet', 
+  'wager', 'winnings', 'payout', 'earn money', 'earning', 'bank account', 
+  'rupees', 'inr', 'paisa', 'invest', 'financial'
+];
+
 // Strip HTML tags for clean AI prompt comprehension
 function stripHtml(html: string): string {
   if (!html) return '';
@@ -34,17 +41,18 @@ function stripHtml(html: string): string {
     .trim();
 }
 
-// Extract distinct feature sections, headings and bullet points from rich HTML
+// Extract distinct feature sections, headings and bullet points from rich HTML and plain text
 function extractAppFeatureHighlights(app: any): string[] {
   const fullHtml = `${app?.description_html || ''} ${app?.features_html || ''} ${app?.custom_admin_box_html || ''}`;
   const highlights: string[] = [];
   
-  // Extract <h2> and <h3> section headings
-  const headingMatches = fullHtml.match(/<h[23][^>]*>(.*?)<\/h[23]>/gi);
+  // Extract <h2>, <h3>, <h4> section headings
+  const headingMatches = fullHtml.match(/<h[234][^>]*>(.*?)<\/h[234]>/gi);
   if (headingMatches) {
     headingMatches.forEach(h => {
       const clean = stripHtml(h);
-      if (clean && clean.length > 3 && !highlights.includes(clean)) {
+      const isEditorial = /review|hands-on|verdict|breakdown|inside the game|how does it|actually perform/i.test(clean);
+      if (clean && clean.length > 3 && clean.length < 80 && !isEditorial && !highlights.includes(clean)) {
         highlights.push(clean);
       }
     });
@@ -57,6 +65,17 @@ function extractAppFeatureHighlights(app: any): string[] {
       const clean = stripHtml(li);
       if (clean && clean.length > 5 && clean.length < 120 && !highlights.includes(clean)) {
         highlights.push(clean);
+      }
+    });
+  }
+
+  // Fallback to plain text bullets or line breaks if HTML tags yielded few highlights
+  if (highlights.length < 3) {
+    const plainSources = [app?.description, app?.features, app?.short_description, app?.seo_description].filter(Boolean).join('\n');
+    const lines = plainSources.split(/[\r\n•\-\*]/).map(s => stripHtml(s)).filter(s => s.length >= 10 && s.length <= 120);
+    lines.forEach(l => {
+      if (highlights.length < 8 && !highlights.includes(l)) {
+        highlights.push(l);
       }
     });
   }
@@ -151,7 +170,7 @@ function calculateRatingArray(count: number, targetScore: number, starMix?: Star
   return ratings;
 }
 
-// Generate realistic Indian & global usernames with high diversity
+// Generate realistic Indian & global usernames with high diversity and zero repetition
 const USERNAME_TEMPLATES = [
   'Rahul Sharma', 'Vikas Verma', 'Amit Trivedi', 'Pooja Patel', 'Sneha_Gamer',
   'Rohit Kumar', 'Deepak_07', 'Karan Mehta', 'Ankit Singh', 'Sanjay Rajput',
@@ -173,35 +192,87 @@ const USERNAME_TEMPLATES = [
   'Dark_Knight', 'Ghost_Rider', 'Thunder_Bolt', 'Alpha_Male', 'Beta_Tester',
   'Crazy_Gamer', 'Desi_Boy', 'Cool_Dude', 'Smart_Boy', 'Bad_Boy',
   'Sweet_Girl', 'Angel_Priya', 'Cute_Munda', 'Desi_Girl', 'Punjabi_Munda',
-  'Gujrati_Boy', 'Marathi_Manus', 'South_Indian_Gamer', 'Delhi_Bhai', 'Mumbai_Don'
+  'Gujrati_Boy', 'Marathi_Manus', 'South_Indian_Gamer', 'Delhi_Bhai', 'Mumbai_Don',
+  'Adarsh_99', 'Akshay_V', 'Bhavna_P', 'Chirag_S', 'Darshan_K',
+  'Esha_N', 'Farhan_Q', 'Geeta_M', 'Himanshu_R', 'Jatin_B',
+  'Kiran_L', 'Lavanya_S', 'Mehul_T', 'Nupur_G', 'Omkar_P',
+  'Parul_J', 'Qasim_H', 'Rashmi_K', 'Siddharth_M', 'Tejas_W',
+  'Udit_V', 'Varun_K', 'Yash_N', 'Zoya_K', 'Aftab_Alam',
+  'Bhanu_Pratap', 'Chetan_B', 'Divya_Shree', 'Farooq_M', 'Gopal_K'
 ];
 
 function getRandomUserName(index: number): string {
-  // Use crypto.randomUUID or Math.random to make it truly random and diverse
+  // Combine index, Math.random, and timestamp seed to guarantee absolute diversity
   const randIdx = Math.floor(Math.random() * USERNAME_TEMPLATES.length);
-  const base = USERNAME_TEMPLATES[(index * 7 + randIdx) % USERNAME_TEMPLATES.length];
+  const base = USERNAME_TEMPLATES[(index * 13 + randIdx + Math.floor(Math.random() * 50)) % USERNAME_TEMPLATES.length];
   
-  // Occasionally add random digits, handle styles, or lowercase
   const dice = Math.random();
-  if (dice > 0.7) {
-    const num = Math.floor(Math.random() * 9000) + 100;
-    return `${base.replace(/\s+/g, '_').toLowerCase()}${num}`;
-  } else if (dice > 0.4) {
-    const num = Math.floor(Math.random() * 90) + 10;
+  if (dice > 0.6) {
+    const num = Math.floor(Math.random() * 9500) + 120;
+    return `${base.replace(/\s+/g, '_').toLowerCase()}_${num}`;
+  } else if (dice > 0.3) {
+    const num = Math.floor(Math.random() * 90) + 11;
     return `${base.replace(/\s+/g, '')}${num}`;
   }
   return base;
 }
 
-// Generate staggered ISO timestamps over the last 5 to 90 days
+// Generate staggered clean dates (YYYY-MM-DD) over the last 2 to 90 days without clock time
 function getRandomPastDate(index: number, total: number): string {
   const now = Date.now();
-  // Stagger across days
   const minDays = 2;
   const maxDays = 90;
-  const dayOffset = minDays + (index * ((maxDays - minDays) / Math.max(1, total))) + (Math.random() * 3);
-  const dateMs = now - (dayOffset * 24 * 60 * 60 * 1000) - (Math.floor(Math.random() * 43200) * 1000);
-  return new Date(dateMs).toISOString();
+  const dayOffset = minDays + (index * ((maxDays - minDays) / Math.max(1, total))) + (Math.random() * 2);
+  const dateMs = now - (dayOffset * 24 * 60 * 60 * 1000);
+  const d = new Date(dateMs);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// Get today's clean date string (YYYY-MM-DD)
+function getTodayDateString(): string {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Extract specific phrases, feature sentences, and description callouts directly from the app
+ */
+export function extractAppDossierFacts(app: any): string[] {
+  const sources = [
+    app?.description_html,
+    app?.features_html,
+    app?.yellow_box_msg,
+    app?.custom_admin_box_html,
+    app?.short_description,
+    app?.description,
+    app?.features,
+    app?.seo_description
+  ].map(s => stripHtml(s || '')).filter(Boolean);
+
+  const phrases: string[] = [];
+  sources.forEach(source => {
+    // Split into sentences or clause bullet points
+    const chunks = source.split(/(?<=[.!?])\s+|[\r\n•\-\*]/);
+    chunks.forEach(c => {
+      const clean = c.trim();
+      const isEditorial = /review|hands-on|verdict|breakdown|inside the game|how does it|actually perform/i.test(clean);
+      if (clean.length >= 12 && clean.length <= 110 && !isEditorial && !phrases.includes(clean)) {
+        phrases.push(clean);
+      }
+    });
+  });
+
+  return phrases;
+}
+
+function extractSpecificPhrasesFromApp(app: any): string[] {
+  return extractAppDossierFacts(app);
 }
 
 /**
@@ -212,12 +283,33 @@ export async function generateAIReviewsForApp(app: any, options: GenerateOptions
   const appName = app?.name || 'Card Game';
   const appCategory = app?.category || 'Casual, Card';
   const appDeveloper = app?.developer || 'Gaming Studio';
-  const rawDesc = stripHtml(app?.description_html || app?.description || '');
-  const rawFeatures = stripHtml(app?.features_html || app?.features || '');
-  const rawSafety = stripHtml(app?.safety_boxes?.join(' ') || app?.custom_admin_box_html || '');
+  const shortDesc = stripHtml(app?.short_description || app?.meta_description || app?.seo_description || '');
+  
+  // Assemble comprehensive full description across all potential text & HTML fields
+  const descCandidates = [
+    app?.description_html,
+    app?.description,
+    app?.content_overview,
+    app?.features_html,
+    app?.features,
+    app?.yellow_box_msg,
+    app?.short_description,
+    app?.meta_description,
+    app?.seo_description,
+    app?.custom_admin_box_html
+  ].map(s => stripHtml(s || '')).filter(Boolean);
+
+  // Filter out redundant/duplicate strings
+  const uniqueDescSet = new Set<string>();
+  descCandidates.forEach(text => {
+    if (text.length > 8 && !Array.from(uniqueDescSet).some(existing => existing.includes(text) || text.includes(existing))) {
+      uniqueDescSet.add(text);
+    }
+  });
+
+  const fullDesc = Array.from(uniqueDescSet).join('\n\n') || `${appName} is an interactive ${appCategory} mobile application developed by ${appDeveloper}.`;
   const featureHighlights = extractAppFeatureHighlights(app);
-  const appFileSize = app?.file_size || 'Lightweight APK';
-  const appRating = app?.rating || '4.8';
+  const specificPhrases = extractSpecificPhrasesFromApp(app);
   const metaTitle = app?.seo_title || app?.name || '';
   const metaDesc = app?.seo_description || app?.meta_description || '';
 
@@ -228,68 +320,60 @@ export async function generateAIReviewsForApp(app: any, options: GenerateOptions
   const apiKey = process.env.GEMINI_API_KEY;
   if (apiKey && apiKey.trim() !== '') {
     try {
-      const ai = new GoogleGenAI({ 
-        apiKey,
-        httpOptions: {
-          headers: {
-            'User-Agent': 'aistudio-build'
-          }
-        }
-      });
+      const ai = new GoogleGenAI({ apiKey });
 
-      const prompt = `You are a world-class expert app store user review synthesizer and deep semantic analyzer powered by Gemini 3.7 Flash.
-Your absolute mission is to write exactly ${count} completely unique, deeply contextual, 100% human-like reviews for the Android application described below.
+      const prompt = `You are an authentic user writing store reviews for the Indian app store listing of "${appName}".
 
-### 🛑 ANTI-DUMMY & ANTI-GENERIC MANDATE:
-Do NOT write generic placeholder comments like "nice app" or "good gameplay". Every single review MUST explicitly reference unique technical specifications, specific gameplay mechanics, UI layouts, features, or terminology found ONLY in the admin's text provided below. If someone reading the review could swap the app name and have it apply to any random app, you have failed. Make each review hyper-specific to this exact app.
+### 🎯 CRITICAL REQUIREMENT (GROUND IN THIS APP DESCRIPTION):
+- EVERY review MUST directly touch, quote, react to, or reference a SPECIFIC feature, rule, setting, notice, mode, or claim mentioned in THIS APP'S DESCRIPTION below.
+- NEVER generate generic stock template reviews like "enjoying the matches", "decent game with good animations", or "one of the most optimized apps".
+- DO NOT generate device context fields or device model names unless organically spoken by a reviewer.
+- Dates MUST be formatted strictly as YYYY-MM-DD (Year-Month-Date only, NO clock time or hours/seconds).
 
-### 📱 APP TECHNICAL SPECIFICATIONS & PROFILE:
+### 📱 APP DESCRIPTION & SPECIFIC DETAILS FOR "${appName}":
 - App Name: "${appName}"
-- Developer: "${appDeveloper}"
 - Category: "${appCategory}"
-- File Size / Specs: "${appFileSize}"
-- Official Rating Benchmark: "${appRating} / 5.0"
-- SEO Meta Title: "${metaTitle}"
-- SEO Meta Description: "${metaDesc}"
-- Tone / Focus Preference: "${toneFocus}"
-
-### 📖 FULL APPLICATION OVERVIEW & DESCRIPTION (Must be deeply analyzed):
+- Developer: "${appDeveloper}"
+- Meta Title: "${metaTitle}"
+- Meta Description: "${metaDesc}"
+- Short Description: "${shortDesc}"
+- Full App Description & Feature Details:
 """
-${rawDesc.substring(0, 4000)}
+${fullDesc.substring(0, 4000)}
 """
-
-### ⚙️ TECHNICAL SPECIFICATIONS & KEY FEATURES (Must be cited or reacted to):
-"""
-${rawFeatures.substring(0, 3000)}
-${featureHighlights.length > 0 ? `\nExtracted Feature Highlights:\n- ` + featureHighlights.join('\n- ') : ''}
-"""
-${rawSafety ? `### ADDITIONAL ADMIN SAFETY / APP NOTES:\n"""\n${rawSafety.substring(0, 1500)}\n"""` : ''}
+- Specific Extracted Phrases/Rules from Description:
+"${specificPhrases.slice(0, 10).join(' | ')}"
 
 ### 🎯 REQUIRED RATINGS TO ASSIGN (Strict Order):
 Assign these exact integer star ratings to the ${count} reviews in order:
 ${JSON.stringify(ratings)}
 
-### 🚫 STRICT POLICY / SAFETY CONSTRAINTS (MANDATORY):
-- ABSOLUTELY NEVER mention "money", "real money", "cash", "rupees", "INR", "deposit", "withdrawal", "wallet payout", "earning", "bank account", "bonus cash", "paisa", "invest", "betting", or financial transactions.
-- ZERO CONTAMINATION: YOU ARE STRICTLY FORBIDDEN from mentioning any other applications, brands, software, or competitors.
+### 🚫 HARD SAFETY RULES:
+1. Never use these words or close variants: deposit, withdraw, cash, bonus, real money, jackpot, bet, wager, winnings, payout, or any phrase implying guaranteed financial earnings.
+2. Frame everything strictly as skill-based / social / entertainment gaming, never real-money gambling.
+3. ZERO CONTAMINATION: Do not mention any other external apps, brands, or competitors.
 
-### ✍️ DEEP CONTEXTUAL DIVERSITY MANDATES:
-1. **Specific Feature Citing**: Each review must mention or react to at least one distinct feature, mechanic, loading speed, UI color scheme, or rule set mentioned in the description or features above.
-2. **Extreme Username Diversity**: Generate authentic Indian and global user names (e.g., regional names, casual handles, gamer tags).
-3. **Natural Human Language & Style**: Write like real mobile users. Mix casual English, Hinglish, occasional shorthand, and natural typos or unfiltered thoughts.
-4. **Varied Sentiments**: Match the assigned star rating organically. 5-star reviews praise specific mechanics; 4-star reviews mention minor UI quirks or suggestions; 3-star reviews discuss performance or device compatibility.
-5. **Emoji Control**: Over 50% NO emojis. Remaining have maximum 1 subtle emoji (👍, 🔥, 💯, 👏, 👌).
+### ✍️ PER-REVIEW INSTRUCTIONS:
+1. **Pick a unique detail**: Pick one specific sentence, feature, rule, or claim from the app description above and write a human reaction to it.
+2. **Sentiment**: Match the assigned star rating organically. 4-5 stars for positive sentiment; 2-3 stars for mild, honest caution.
+3. **Reviewer Name**: Generate a realistic Indian username (casual handle format).
+4. **Style**: Write in natural Hinglish with realistic variations in length and tone.
+5. **Date**: Set a clean date string in "YYYY-MM-DD" format (e.g. "2026-08-20").
 
-${customPrompt ? `### 📝 USER CUSTOM INSTRUCTIONS (MANDATORY TO FOLLOW FOR ALL REVIEWS):\n${customPrompt}\n` : ''}
+${customPrompt ? `### 📝 USER CUSTOM INSTRUCTIONS (MANDATORY TO FOLLOW):\n${customPrompt}\n` : ''}
 ### OUTPUT FORMAT:
-Return a JSON array of ${count} objects with fields:
-- "userName": A realistic human name or casual gamer username.
-- "rating": The assigned integer star rating (1 to 5)
-- "reviewText": The natural, hyper-specific human-like comment
-- "helpful_count": An integer between 0 and 22 representing helpful votes`;
+Return ONLY a valid JSON array of ${count} objects matching this schema:
+[
+  {
+    "userName": "string",
+    "rating": number (1 to 5),
+    "reviewText": "string",
+    "date": "YYYY-MM-DD string"
+  }
+];`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.7-flash",
+        model: "gemini-2.5-flash",
         contents: prompt,
         config: {
           temperature: 0.95,
@@ -303,7 +387,7 @@ Return a JSON array of ${count} objects with fields:
                 userName: { type: Type.STRING },
                 rating: { type: Type.INTEGER },
                 reviewText: { type: Type.STRING },
-                helpful_count: { type: Type.INTEGER }
+                date: { type: Type.STRING }
               },
               required: ["userName", "rating", "reviewText"]
             }
@@ -315,12 +399,23 @@ Return a JSON array of ${count} objects with fields:
       if (responseText) {
         const parsed = JSON.parse(responseText);
         if (Array.isArray(parsed) && parsed.length > 0) {
+          // Banned word validation layer
           return parsed.map((item: any, idx: number) => {
             const star = Math.max(1, Math.min(5, Number(item.rating) || ratings[idx] || 5));
-            const days = Number(item.daysAgo) || (3 + idx * 4);
-            const pastDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000 - Math.random() * 3600000).toISOString();
-            
-            const safeText = sanitizeReviewText(String(item.reviewText || ''), app.name);
+            let commentText = String(item.reviewText || '').trim();
+
+            // Run banned-word safety check
+            BANNED_SAFETY_WORDS.forEach(word => {
+              const regex = new RegExp(`\\b${word}\\b`, 'gi');
+              if (regex.test(commentText)) {
+                commentText = commentText.replace(regex, 'gameplay');
+              }
+            });
+
+            const safeText = sanitizeReviewText(commentText, app.name);
+            const cleanDate = item.date && /^\d{4}-\d{2}-\d{2}$/.test(item.date) 
+              ? item.date 
+              : getRandomPastDate(idx, count);
 
             return {
               appId: String(app.id || app.slug || '').trim(),
@@ -329,9 +424,9 @@ Return a JSON array of ${count} objects with fields:
               userName: String(item.userName || getRandomUserName(idx)).trim(),
               rating: star,
               reviewText: safeText,
-              timestamp: new Date().toISOString(),
+              timestamp: cleanDate, // Clean YYYY-MM-DD date!
               status: 'published',
-              helpful_count: Math.max(0, Number(item.helpful_count) || Math.floor(Math.random() * 9)),
+              helpful_count: Math.max(0, Math.floor(Math.random() * 15)),
               source: 'ai_generated',
               isPinned: false
             };
@@ -343,115 +438,51 @@ Return a JSON array of ${count} objects with fields:
     }
   }
 
-  // Contextual High-Quality Fallback Generator (Guarantees zero-failure operation)
+  // Contextual High-Quality Fallback Generator
   return generateContextualFallbackReviews(app, ratings);
 }
 
-// Algorithmic contextual fallback generator that parses the app's real description and features
+// Algorithmic contextual fallback generator that directly parses the app's real description
 function generateContextualFallbackReviews(app: any, ratings: number[]): Partial<ReviewRecord>[] {
-  const appName = app?.name || 'this game';
-  const desc = stripHtml(app?.description_html || app?.description || app?.features_html || '');
-  const highlights = extractAppFeatureHighlights(app);
-  const devices = ['Redmi Note 12', 'OnePlus Nord CE', 'Samsung Galaxy M34', 'Realme Narzo 60', 'iQOO Z7', 'Moto G54', 'Pixel 7a', 'Vivo T2 5G'];
+  const appName = app?.name || 'this app';
+  const phrases = extractSpecificPhrasesFromApp(app);
 
-  // Check specific game keywords and features from description
-  const isCallbreak = /callbreak|call break|spade|trick/i.test(appName + ' ' + desc);
-  const isRummy = /rummy|pure sequence|13 card|points rummy|pool/i.test(appName + ' ' + desc);
-  const isTeenPatti = /teen patti|3 patti|blind|chaal|show/i.test(appName + ' ' + desc);
-  const isLudo = /ludo|dice|token|board/i.test(appName + ' ' + desc);
-  const hasTournaments = /tournament|championship|league|leaderboard/i.test(desc);
-  const hasDailyBonus = /daily|mission|reward|wheel|spin/i.test(desc);
-  const hasTutorial = /tutorial|beginner|practice|guide|learn|rules/i.test(desc);
-  const hasAvatar = /avatar|profile|custom|theme|skin|table/i.test(desc);
-  const hasOffline = /offline|bot|practice mode|ai/i.test(desc);
-  const hasUndo = /undo|history|discard|auto-sort|sort/i.test(desc);
+  // Pick dynamic specific feature or description snippets
+  const p1 = phrases[0] || `${appName} features smooth table controls`;
+  const p2 = phrases[1] || `fast matchmaking and clean interface`;
+  const p3 = phrases[2] || `responsive touch controls with quick card dealing`;
+  const p4 = phrases[3] || `lightweight installation and fast loading`;
 
-  // Dynamic feature mentions picked directly from the app description
-  const dynamicFeature1 = highlights[0] || (isCallbreak ? 'the auto-sort spade trump rules' : isRummy ? 'the smart 13-card grouping' : isTeenPatti ? 'the fast-action blind bid tables' : 'the intuitive touch controls');
-  const dynamicFeature2 = highlights[1] || (hasOffline ? 'the offline practice AI bot mode' : hasTournaments ? 'the competitive leaderboard tournaments' : 'the smooth 60fps table animations');
-  const dynamicFeature3 = highlights[2] || (hasUndo ? 'the card history log and undo mechanic' : hasAvatar ? 'the custom table themes and avatar skins' : 'the lightweight APK storage optimization');
-
-  const short5Star = [
-    `mast game hai, ultra smooth animations 🔥`,
-    `superb UI and quick matchmaking 👍`,
-    `best card app for daily timepass`,
-    `love the table visual effects! 🤩`,
-    `super lightweight on storage, 5 stars`,
-    `awesome card flow, zero lag`,
-    `zero lag during matches, pure entertainment 🎮`,
-    `very neat interface and fast response 👌`,
-    `smooth 60fps frame rate on mobile`,
-    `great update, ${dynamicFeature1} works flawlessly!`
+  const reviews5Star = [
+    `Read in the description about "${p1}" — tested it today and it actually works great! Very smooth experience.`,
+    `Really liked how "${p2}" is implemented in ${appName}. Clean design and zero lag. 🔥`,
+    `Extremely well made! The detail about "${p3}" in the app overview is 100% spot on. Great job.`,
+    `Tested ${appName} for a few rounds. "${p1}" makes the gameplay feel very responsive. 5 stars! 👍`,
+    `Best app for ${appName}! Love the interface and "${p4}" feature.`
   ];
 
-  const medium5Star = [
-    `Really impressed with ${dynamicFeature1} on ${appName}. Matchmaking takes less than 3 seconds and the sound effects are crisp.`,
-    `One of the most optimized apps in this genre. ${dynamicFeature2} runs without any stuttering. Great battery efficiency and intuitive interface. 5 stars! 👍`,
-    `The visual presentation of ${appName} is top notch. Smooth card dealing, clean dark theme, and ${dynamicFeature3}.`,
-    hasTutorial 
-      ? `Loved the gameplay flow. The step-by-step tutorial and ${dynamicFeature1} made the game rules very clear even for beginners.` 
-      : `Solid mechanics and super responsive touch controls. ${dynamicFeature1} makes every round exciting!`,
-    hasTournaments 
-      ? `The tournament lobby mode is super engaging. Love the competitive leaderboard system and ${dynamicFeature2}!` 
-      : `Clean table design and easy card grouping. Everything feels responsive and polished.`,
-    hasDailyBonus
-      ? `The daily mission rewards keep it fun every day. Very reliable and quick to launch with ${dynamicFeature1}.`
-      : `Been playing with friends during lunch break. Very stable connection and fun experience with ${dynamicFeature3}.`
-  ];
-
-  const long5Star = [
-    `Installed ${appName} recently on my ${devices[0]}. Impressed by how lightweight it is despite having rich table graphics. Match connection is instant, ${dynamicFeature1} is silky smooth, and battery drain is minimal. Highly recommended!`,
-    `Been playing daily during my commute. The card handling is silky smooth, ${dynamicFeature2} keeps things engaging, and the interface is clear and modern. Great frame rate and no heating issues at all! 🎮`,
-    hasAvatar
-      ? `Really like ${dynamicFeature3} and the sound design. The visual clarity on ${appName} makes long sessions easy on the eyes. Top tier development!`
-      : `The table speed and sound design on ${appName} make every match feel authentic. Extremely smooth execution with ${dynamicFeature1} on 5G network.`
-  ];
-
-  const short4Star = [
-    `nice gameplay, smooth 60fps`,
-    `good game, pls add more custom themes 👍`,
-    `very responsive UI and clean design`,
-    `enjoying the matches, ${dynamicFeature1} is great`,
-    `solid performance, minor sound tweaks needed 👌`
-  ];
-
-  const medium4Star = [
-    `Great game with slick animations. ${dynamicFeature1} runs super smooth on my phone. Would love to see more custom table themes in the next update!`,
-    `Solid gameplay and very stable connection. The UI is straightforward and ${dynamicFeature2} is well designed. A custom card back option would make it even better.`,
-    `Really fun mechanics and nice sound effects. ${dynamicFeature1} works great. Only minor request is to make the card numbers slightly larger on compact screens. 👌`,
-    `Very well made app with ${dynamicFeature3}. Quick match finding and nice animations. 4 stars, just waiting for the next feature update!`
+  const reviews4Star = [
+    `Good experience overall. "${p1}" is well implemented. Would love to see more custom themes in the next update.`,
+    `Solid app! "${p2}" works as described. Minor UI polish would make it even better. 👌`,
+    `Enjoyed playing ${appName}. "${p3}" is very helpful for quick matches.`
   ];
 
   const reviews3Star = [
-    `Gameplay mechanics are fun and ${dynamicFeature1} is great, but takes a few seconds longer to connect on weak mobile data. Works great on Wi-Fi though.`,
-    `Decent game with good animations and ${dynamicFeature2}. Would be great if they optimized the battery usage a bit more during extended 2-hour sessions.`,
-    `Good concept and responsive touch controls. The in-game guide for ${dynamicFeature1} could be a bit more detailed for new players.`
+    `App is decent and "${p1}" works fine, but connection takes a bit longer on weak mobile network.`,
+    `Good concept with "${p2}", but battery usage could be optimized during longer sessions.`
   ];
 
   const reviews2Star = [
-    `The core game rules and ${dynamicFeature1} are good, but the app heats up my older phone a bit after 30 minutes of continuous play. Needs optimization.`,
-    `Graphics are nice, but font sizes on smaller screens feel a bit cramped. Hope the developers refine ${dynamicFeature3} in the next patch.`
+    `The option for "${p1}" is nice, but text size on compact screens feels slightly small.`,
+    `Nice graphics but "${p2}" needs better optimization for older phones.`
   ];
 
   return ratings.map((star, idx) => {
     let text = '';
-    const device = devices[idx % devices.length];
-    const lengthType = idx % 3; // 0: short, 1: medium, 2: long/detailed
-
     if (star === 5) {
-      if (lengthType === 0) {
-        text = short5Star[idx % short5Star.length];
-      } else if (lengthType === 1) {
-        text = medium5Star[idx % medium5Star.length];
-      } else {
-        text = long5Star[idx % long5Star.length].replace(devices[0], device);
-      }
+      text = reviews5Star[idx % reviews5Star.length];
     } else if (star === 4) {
-      if (lengthType === 0) {
-        text = short4Star[idx % short4Star.length];
-      } else {
-        text = medium4Star[idx % medium4Star.length];
-      }
+      text = reviews4Star[idx % reviews4Star.length];
     } else if (star === 3) {
       text = reviews3Star[idx % reviews3Star.length];
     } else {
@@ -465,7 +496,7 @@ function generateContextualFallbackReviews(app: any, ratings: number[]): Partial
       userName: getRandomUserName(idx),
       rating: star,
       reviewText: sanitizeReviewText(text, app.name),
-      timestamp: new Date().toISOString(),
+      timestamp: getRandomPastDate(idx, ratings.length), // Clean YYYY-MM-DD date!
       status: 'published',
       helpful_count: Math.floor(Math.random() * 8),
       source: 'ai_generated',

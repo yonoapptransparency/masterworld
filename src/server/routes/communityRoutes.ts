@@ -3,6 +3,7 @@ import { verifyTurnstile, getIp, rateLimit } from '../security';
 import { verifyAdminToken } from '../middleware/adminAuth';
 import { communityStore } from '../services/communityStoreService';
 import { generateAIReviewsForApp } from '../services/aiReviewGeneratorService';
+import { autoPilotService } from '../services/autoPilotQueueService';
 import { getStaticData } from '../config';
 import { fetchStoreData } from '../../seoHelper';
 
@@ -204,10 +205,20 @@ communityRouter.get("/api/v1/admin/community/reviews", verifyAdminToken, async (
   }
 });
 
-// Admin: Create Manual Review
+// Admin: Create Manual or Batch Reviews
 communityRouter.post("/api/v1/admin/community/reviews", verifyAdminToken, async (req: any, res: any) => {
   try {
-    const { appId, userName, rating, reviewText, status = 'published', isPinned = false, helpful_count = 0, adminReply } = req.body;
+    if (Array.isArray(req.body.reviews)) {
+      const added = await communityStore.addMultipleReviews(req.body.reviews);
+      return res.status(200).json({
+        success: true,
+        message: `Successfully saved ${added.length} reviews.`,
+        count: added.length,
+        reviews: added
+      });
+    }
+
+    const { appId, appSlug, appName, userName, rating, reviewText, status = 'published', isPinned = false, helpful_count = 0, adminReply } = req.body;
 
     if (!appId || !userName || !rating || !reviewText) {
       return res.status(400).json({ error: 'Missing required review fields' });
@@ -216,6 +227,8 @@ communityRouter.post("/api/v1/admin/community/reviews", verifyAdminToken, async 
     const cleanAppId = String(appId).trim();
     const newReview = await communityStore.addReview({
       appId: cleanAppId,
+      appSlug: appSlug ? String(appSlug).trim() : undefined,
+      appName: appName ? String(appName).trim() : undefined,
       userName: String(userName).trim().substring(0, 50),
       rating: Math.max(1, Math.min(5, Math.round(Number(rating)))),
       reviewText: String(reviewText).trim(),
@@ -401,12 +414,30 @@ communityRouter.post("/api/v1/admin/community/ai-generate/single", verifyAdminTo
       const storeData = await fetchStoreData();
       const fullApp = storeData?.apps?.find((a: any) => a.id === appId || a.slug === appId);
       if (fullApp) {
-        targetApp = { ...targetApp, ...fullApp };
+        targetApp = {
+          ...fullApp,
+          ...targetApp,
+          description_html: (targetApp.description_html && targetApp.description_html.length > (fullApp.description_html || '').length) 
+            ? targetApp.description_html : (fullApp.description_html || targetApp.description_html || ''),
+          description: (targetApp.description && targetApp.description.length > (fullApp.description || '').length) 
+            ? targetApp.description : (fullApp.description || targetApp.description || ''),
+          features_html: (targetApp.features_html && targetApp.features_html.length > (fullApp.features_html || '').length) 
+            ? targetApp.features_html : (fullApp.features_html || targetApp.features_html || '')
+        };
       } else {
         const staticData = getStaticData();
         const fallbackApp = staticData.apps?.find((a: any) => a.id === appId || a.slug === appId) || staticData.mockApps?.find((a: any) => a.id === appId || a.slug === appId);
         if (fallbackApp) {
-          targetApp = { ...targetApp, ...fallbackApp };
+          targetApp = {
+            ...fallbackApp,
+            ...targetApp,
+            description_html: (targetApp.description_html && targetApp.description_html.length > (fallbackApp.description_html || '').length) 
+              ? targetApp.description_html : (fallbackApp.description_html || targetApp.description_html || ''),
+            description: (targetApp.description && targetApp.description.length > (fallbackApp.description || '').length) 
+              ? targetApp.description : (fallbackApp.description || targetApp.description || ''),
+            features_html: (targetApp.features_html && targetApp.features_html.length > (fallbackApp.features_html || '').length) 
+              ? targetApp.features_html : (fallbackApp.features_html || targetApp.features_html || '')
+          };
         }
       }
     } catch(e) {
@@ -582,6 +613,91 @@ communityRouter.get("/api/v1/admin/ai-status", verifyAdminToken, async (req: any
       status: isQuota ? "quota_exhausted" : "error",
       message: isQuota ? "Gemini API Quota Exhausted / Rate Limit Exceeded. (Fallback contextual generator active)." : `Gemini API Error: ${errStr}`
     });
+  }
+});
+
+// =========================================================================
+// AUTO-PILOT QUEUE ENGINE APIS
+// =========================================================================
+
+// Get Auto-Pilot Status
+communityRouter.get("/api/v1/admin/autopilot/status", verifyAdminToken, async (req: any, res: any) => {
+  return res.json({
+    success: true,
+    status: autoPilotService.getStatus()
+  });
+});
+
+// Start Auto-Pilot Job
+communityRouter.post("/api/v1/admin/autopilot/start", verifyAdminToken, async (req: any, res: any) => {
+  try {
+    const jobStatus = await autoPilotService.startJob(req.body || {});
+    return res.json({
+      success: true,
+      message: "🚀 Auto-Pilot execution started successfully.",
+      status: jobStatus
+    });
+  } catch (err: any) {
+    return res.status(400).json({ error: err.message || "Failed to start Auto-Pilot" });
+  }
+});
+
+// Pause Auto-Pilot Job
+communityRouter.post("/api/v1/admin/autopilot/pause", verifyAdminToken, async (req: any, res: any) => {
+  const jobStatus = autoPilotService.pauseJob();
+  return res.json({
+    success: true,
+    message: "⏸️ Auto-Pilot job paused.",
+    status: jobStatus
+  });
+});
+
+// Resume Auto-Pilot Job
+communityRouter.post("/api/v1/admin/autopilot/resume", verifyAdminToken, async (req: any, res: any) => {
+  const jobStatus = autoPilotService.resumeJob();
+  return res.json({
+    success: true,
+    message: "▶️ Auto-Pilot job resumed.",
+    status: jobStatus
+  });
+});
+
+// Stop Auto-Pilot Job
+communityRouter.post("/api/v1/admin/autopilot/stop", verifyAdminToken, async (req: any, res: any) => {
+  const jobStatus = autoPilotService.stopJob();
+  return res.json({
+    success: true,
+    message: "🛑 Auto-Pilot job stopped.",
+    status: jobStatus
+  });
+});
+
+// Clear Auto-Pilot Logs
+communityRouter.delete("/api/v1/admin/autopilot/logs", verifyAdminToken, async (req: any, res: any) => {
+  const status = autoPilotService.getStatus();
+  status.logs = [];
+  return res.json({
+    success: true,
+    message: "Auto-Pilot logs cleared.",
+    status
+  });
+});
+
+// Clear All Generated Reviews for Specific App
+communityRouter.post("/api/v1/admin/community/reviews/clear-app", verifyAdminToken, async (req: any, res: any) => {
+  try {
+    const { appId } = req.body || {};
+    if (!appId) {
+      return res.status(400).json({ error: "Missing required appId parameter." });
+    }
+    const deletedCount = await communityStore.deleteReviewsForApp(appId);
+    return res.json({
+      success: true,
+      message: `Cleared ${deletedCount} reviews for app ${appId}.`,
+      deletedCount
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || "Failed to clear app reviews." });
   }
 });
 

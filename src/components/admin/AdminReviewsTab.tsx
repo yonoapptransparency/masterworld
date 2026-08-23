@@ -88,6 +88,46 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
     return map;
   }, [appsList]);
 
+  // Calculate reviews count per app for the app browser bar
+  const appReviewCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    reviews.forEach(r => {
+      const key = String(r.appId || '').toLowerCase();
+      counts.set(key, (counts.get(key) || 0) + 1);
+    });
+    return counts;
+  }, [reviews]);
+
+  // Currently selected app details
+  const activeApp = useMemo(() => {
+    if (selectedAppId === 'all') return null;
+    return appMap.get(selectedAppId) || { id: selectedAppId, name: selectedAppId, slug: selectedAppId };
+  }, [selectedAppId, appMap]);
+
+  // Handle clearing reviews for active app
+  const handleClearAppReviews = async (appIdToClear: string) => {
+    if (!window.confirm(`Are you sure you want to delete ALL reviews for "${appIdToClear}"? This action cannot be undone.`)) return;
+    try {
+      setRefreshing(true);
+      const res = await adminFetch('/api/v1/admin/community/reviews/clear-app', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appId: appIdToClear })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast(data.message || 'App reviews cleared successfully', 'success');
+        await fetchReviews(true);
+      } else {
+        toast(data.error || 'Failed to clear app reviews', 'error');
+      }
+    } catch (err) {
+      toast('Error clearing reviews', 'error');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   // Fetch reviews from backend
   const fetchReviews = useCallback(async (isRefresh = false) => {
     try {
@@ -100,7 +140,7 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
       if (selectedRating !== 'all') params.set('rating', selectedRating);
       if (searchQuery.trim()) params.set('search', searchQuery.trim());
       params.set('sortBy', sortBy);
-      params.set('limit', '200');
+      params.set('limit', '5000');
 
       const res = await adminFetch(`/api/v1/admin/community/reviews?${params.toString()}`);
       if (res.ok) {
@@ -455,6 +495,136 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
           </button>
         </div>
       </div>
+
+      {/* Visual Interactive App Catalog Selector Carousel */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-3xl shadow-sm space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Layers className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
+              Select Application to Manage Reviews ({appsList.length} Apps)
+            </h3>
+          </div>
+          <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">
+            Click any app card to filter reviews
+          </span>
+        </div>
+
+        {/* Scrollable Horizontal App Strip */}
+        <div className="flex items-center gap-3 overflow-x-auto pb-2 pt-1 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
+          
+          {/* "All Applications" Card */}
+          <button
+            onClick={() => setSelectedAppId('all')}
+            className={`flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all shrink-0 cursor-pointer text-left ${
+              selectedAppId === 'all'
+                ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-500/25 ring-2 ring-blue-500/30'
+                : 'bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-400'
+            }`}
+          >
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm shrink-0 ${
+              selectedAppId === 'all' ? 'bg-white/20 text-white' : 'bg-blue-500/10 text-blue-600'
+            }`}>
+              📱
+            </div>
+            <div>
+              <div className="text-xs font-black leading-tight">All Applications</div>
+              <div className={`text-[10px] font-medium mt-0.5 ${selectedAppId === 'all' ? 'text-blue-100' : 'text-slate-400'}`}>
+                {reviews.length} total reviews
+              </div>
+            </div>
+          </button>
+
+          {/* Individual App Cards */}
+          {appsList.map((app) => {
+            const appKey = (app.slug || app.id || '').toLowerCase();
+            const revCount = appReviewCounts.get(appKey) || appReviewCounts.get((app.id || '').toLowerCase()) || 0;
+            const isSelected = selectedAppId === (app.slug || app.id);
+
+            return (
+              <button
+                key={app.id || app.slug}
+                onClick={() => setSelectedAppId(app.slug || app.id)}
+                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-2xl border transition-all shrink-0 cursor-pointer text-left max-w-[210px] ${
+                  isSelected
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-500/25 ring-2 ring-blue-500/30'
+                    : 'bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500'
+                }`}
+              >
+                <img
+                  src={app.icon_url || 'https://via.placeholder.com/48'}
+                  alt={app.name}
+                  className="w-10 h-10 rounded-xl object-cover border border-black/10 shrink-0 bg-slate-200 dark:bg-slate-700"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-black truncate leading-tight">{app.name}</div>
+                  <div className={`text-[10px] font-medium mt-0.5 flex items-center gap-1.5 ${
+                    isSelected ? 'text-blue-100' : 'text-slate-400'
+                  }`}>
+                    <span className="truncate">{app.category || 'Card Game'}</span>
+                    <span>•</span>
+                    <span className={`font-bold ${isSelected ? 'text-amber-200' : 'text-amber-500'}`}>
+                      {revCount} revs
+                    </span>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Selected App Context Banner (App Spotlight) */}
+      {activeApp && selectedAppId !== 'all' && (
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/30 p-5 md:p-6 rounded-3xl text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-in fade-in duration-200">
+          <div className="flex items-center gap-4">
+            <img
+              src={activeApp.icon_url || 'https://via.placeholder.com/64'}
+              alt={activeApp.name}
+              className="w-14 h-14 md:w-16 md:h-16 rounded-2xl object-cover border-2 border-white/20 shadow-lg shrink-0 bg-slate-800"
+            />
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg md:text-xl font-black">{activeApp.name}</h2>
+                <span className="bg-indigo-500/20 text-indigo-300 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-indigo-400/30 uppercase tracking-wider">
+                  {activeApp.category || 'Card Game'}
+                </span>
+              </div>
+              <p className="text-xs text-indigo-200/80 font-medium mt-0.5">
+                Slug: <code className="bg-white/10 px-1.5 py-0.5 rounded text-amber-300">{selectedAppId}</code> •
+                Package: <code className="text-slate-300">{activeApp.package_name || 'N/A'}</code>
+              </p>
+              <div className="flex items-center gap-3 mt-1.5 text-xs text-indigo-200">
+                <span className="font-bold flex items-center gap-1 text-amber-400">
+                  <Star className="w-3.5 h-3.5 fill-current" /> {activeApp.rating || '4.8'} Avg
+                </span>
+                <span>•</span>
+                <span className="font-bold text-white">
+                  {reviews.length} Filtered Reviews
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => setShowAIModal(true)}
+              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-md transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" /> Generate Reviews for App
+            </button>
+            <button
+              onClick={() => handleClearAppReviews(selectedAppId)}
+              className="px-3.5 py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-400/30 rounded-xl font-bold text-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Clear App Reviews
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Metrics Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">

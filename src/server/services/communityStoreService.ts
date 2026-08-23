@@ -108,10 +108,10 @@ export function findAppInCatalog(appIdentifier: string): any {
   if (!appIdentifier) return null;
   const target = String(appIdentifier).toLowerCase().trim();
   const staticData = getStaticData();
-  const apps = staticData.mockApps || [];
+  const apps = staticData.apps || staticData.mockApps || [];
 
   return apps.find((a: any) => 
-    String(a.id).toLowerCase().trim() === target ||
+    (a.id && String(a.id).toLowerCase().trim() === target) ||
     (a.slug && String(a.slug).toLowerCase().trim() === target) ||
     (a.name && String(a.name).toLowerCase().trim() === target) ||
     (a.package_name && String(a.package_name).toLowerCase().trim() === target)
@@ -259,7 +259,7 @@ class CommunityStoreService {
       if (db) {
         // Load reviews
         try {
-          const snap = await db.collection('reviews').limit(500).get();
+          const snap = await db.collection('reviews').limit(5000).get();
           snap.docs.forEach((doc: any) => {
             const d = doc.data();
             const existing = this.reviews.get(doc.id);
@@ -301,7 +301,7 @@ class CommunityStoreService {
         // Load reports
         if (Date.now() >= this.quotaExhaustedUntil) {
           try {
-            const rSnap = await db.collection('reports').limit(500).get();
+            const rSnap = await db.collection('reports').limit(5000).get();
             rSnap.docs.forEach((doc: any) => {
               const d = doc.data();
               const existing = this.reports.get(doc.id);
@@ -462,10 +462,11 @@ class CommunityStoreService {
   // Backup write to Firestore
   public async syncAllToFirestore() {
     try {
+      const allReviews = Array.from(this.reviews.values());
       const data = {
-        reviews: Array.from(this.reviews.values()),
+        reviews: allReviews,
         reports: Array.from(this.reports.values()),
-        count_reviews: this.reviews.size,
+        count_reviews: allReviews.length,
         count_reports: this.reports.size,
         updated_at: new Date().toISOString()
       };
@@ -686,22 +687,78 @@ class CommunityStoreService {
     return existed;
   }
 
-  /**
-   * Universal App Review Resolver:
-   * Accurately finds all reviews for any app by ID, Slug, Name, or Package without any cross-app mixups.
-   */
-  public getReviewsForApp(appIdentifier: string, cursor?: string, limitCount = 10, appTitle?: string, overallRating = 5.0) {
-    const target = String(appIdentifier || '').toLowerCase().trim();
-    const matchedApp = findAppInCatalog(target) || (appTitle ? findAppInCatalog(appTitle) : null);
+  public async deleteReviewsForApp(appIdentifier: string): Promise<number> {
+    const aliasKeys = this.getAliasKeysForApp(appIdentifier);
+    let count = 0;
+    const db = getCommunityAdminDb();
 
-    // Build comprehensive alias key set for this specific app
-    const aliasKeys = new Set<string>([target]);
+    for (const [id, rev] of Array.from(this.reviews.entries())) {
+      const revAppId = String(rev.appId || '').toLowerCase().trim();
+      const revSlug = String(rev.appSlug || '').toLowerCase().trim();
+      const revName = String(rev.appName || '').toLowerCase().trim();
+
+      if (aliasKeys.has(revAppId) || aliasKeys.has(revSlug) || aliasKeys.has(revName)) {
+        this.reviews.delete(id);
+        count++;
+        if (db) {
+          db.collection('reviews').doc(id).delete().catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
+        } else {
+          deleteFirestoreRestDoc(id, undefined, 'reviews').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
+        }
+      }
+    }
+
+    if (count > 0) {
+      this.saveToDiskAndQueueCloudSync();
+    }
+    return count;
+  }
+
+  /**
+   * Universal App Review Resolver Helper:
+   * Dynamically resolves all alias keys (ID, slug, name, package) across catalog and stored reviews.
+   */
+  private getAliasKeysForApp(target: string, appTitle?: string): Set<string> {
+    const aliasKeys = new Set<string>();
+    const cleanTarget = String(target || '').toLowerCase().trim();
+    if (cleanTarget) aliasKeys.add(cleanTarget);
+    if (appTitle) aliasKeys.add(String(appTitle).toLowerCase().trim());
+
+    const matchedApp = findAppInCatalog(cleanTarget) || (appTitle ? findAppInCatalog(appTitle) : null);
     if (matchedApp) {
       if (matchedApp.id) aliasKeys.add(String(matchedApp.id).toLowerCase().trim());
       if (matchedApp.slug) aliasKeys.add(String(matchedApp.slug).toLowerCase().trim());
       if (matchedApp.name) aliasKeys.add(String(matchedApp.name).toLowerCase().trim());
       if (matchedApp.package_name) aliasKeys.add(String(matchedApp.package_name).toLowerCase().trim());
     }
+
+    // Cross-reference existing review records to discover linked appId <-> appSlug <-> appName pairs
+    let expanded = true;
+    while (expanded) {
+      const prevSize = aliasKeys.size;
+      for (const r of this.reviews.values()) {
+        const rId = String(r.appId || '').toLowerCase().trim();
+        const rSlug = String(r.appSlug || '').toLowerCase().trim();
+        const rName = String(r.appName || '').toLowerCase().trim();
+
+        if ((rId && aliasKeys.has(rId)) || (rSlug && aliasKeys.has(rSlug)) || (rName && aliasKeys.has(rName))) {
+          if (rId) aliasKeys.add(rId);
+          if (rSlug) aliasKeys.add(rSlug);
+          if (rName) aliasKeys.add(rName);
+        }
+      }
+      expanded = aliasKeys.size > prevSize;
+    }
+
+    return aliasKeys;
+  }
+
+  /**
+   * Universal App Review Resolver:
+   * Accurately finds all reviews for any app by ID, Slug, Name, or Package without any cross-app mixups.
+   */
+  public getReviewsForApp(appIdentifier: string, cursor?: string, limitCount = 10, appTitle?: string, overallRating = 5.0) {
+    const aliasKeys = this.getAliasKeysForApp(appIdentifier, appTitle);
 
     // Filter published reviews matching ANY of this app's alias keys
     let all = Array.from(this.reviews.values())
@@ -748,14 +805,7 @@ class CommunityStoreService {
     let list = Array.from(this.reviews.values());
 
     if (query.appId && query.appId !== 'all') {
-      const target = String(query.appId).toLowerCase().trim();
-      const matchedApp = findAppInCatalog(target);
-      const aliasKeys = new Set<string>([target]);
-      if (matchedApp) {
-        if (matchedApp.id) aliasKeys.add(String(matchedApp.id).toLowerCase().trim());
-        if (matchedApp.slug) aliasKeys.add(String(matchedApp.slug).toLowerCase().trim());
-        if (matchedApp.name) aliasKeys.add(String(matchedApp.name).toLowerCase().trim());
-      }
+      const aliasKeys = this.getAliasKeysForApp(query.appId);
 
       list = list.filter(r => {
         const rAppId = String(r.appId || '').toLowerCase().trim();
@@ -799,7 +849,7 @@ class CommunityStoreService {
       return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
     });
 
-    const max = Math.min(300, Number(query.limit) || 100);
+    const max = Math.min(10000, Number(query.limit) || 1000);
     const sliced = list.slice(0, max);
 
     const stats = {
@@ -950,14 +1000,8 @@ class CommunityStoreService {
   }
 
   public getAppStats(appIdentifier: string, fallbackRating = 4.8) {
-    const target = String(appIdentifier || '').toLowerCase().trim();
-    const matchedApp = findAppInCatalog(target);
-    const aliasKeys = new Set<string>([target]);
-    if (matchedApp) {
-      if (matchedApp.id) aliasKeys.add(String(matchedApp.id).toLowerCase().trim());
-      if (matchedApp.slug) aliasKeys.add(String(matchedApp.slug).toLowerCase().trim());
-      if (matchedApp.name) aliasKeys.add(String(matchedApp.name).toLowerCase().trim());
-    }
+    const aliasKeys = this.getAliasKeysForApp(appIdentifier);
+    const matchedApp = findAppInCatalog(appIdentifier);
 
     const appReviews = Array.from(this.reviews.values())
       .filter(r => {

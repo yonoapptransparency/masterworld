@@ -307,10 +307,18 @@ export function getCommunityAdminDb(): any {
       cachedCommunityDb = communityApp.firestore();
       console.log('[Community Admin SDK] Firestore initialized successfully.');
       return cachedCommunityDb;
-    } else {
-      console.warn('[Community Admin SDK] No Firestore DB available.');
-      return null;
     }
+    
+    // Fallback to primary Firebase Admin SDK instance
+    const primaryDb = getFirebaseAdminDb();
+    if (primaryDb) {
+      cachedCommunityDb = primaryDb;
+      console.log('[Community Admin SDK] Using primary Firebase Admin SDK instance.');
+      return cachedCommunityDb;
+    }
+
+    console.warn('[Community Admin SDK] No Firestore DB available.');
+    return null;
   } catch (err: any) {
     console.warn('[Community Admin SDK] Initialization failed:', err.message || err);
     return null;
@@ -449,7 +457,8 @@ export async function readFirestoreRestCollection(collectionPath: string, authTo
     const baseCollection = collectionPath.split('/')[0];
     // Removed hardcoded 'rummydexcommunity' overrides so reviews go to primary db
     const finalApiKeyParam = targetApiKey ? `?key=${targetApiKey}` : '';
-    const url = `https://firestore.googleapis.com/v1/projects/${targetProjectId}/databases/${dbId}/documents/${collectionPath}${finalApiKeyParam}`;
+    const connector = finalApiKeyParam ? '&' : '?';
+    const url = `https://firestore.googleapis.com/v1/projects/${targetProjectId}/databases/${dbId}/documents/${collectionPath}${finalApiKeyParam}${connector}pageSize=1000`;
   
 
     const headers: Record<string, string> = {};

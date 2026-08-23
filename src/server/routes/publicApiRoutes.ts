@@ -194,10 +194,10 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
 
     const dataObj = getStaticData();
     const validatedData = {
-      apps: trimAppsForCatalog(dataObj.mockApps || []),
-      settings: dataObj.mockSettings || {},
-      news: dataObj.mockNews || [],
-      videos: dataObj.mockVideos || []
+      apps: trimAppsForCatalog(dataObj.apps || dataObj.mockApps || []),
+      settings: dataObj.settings || dataObj.mockSettings || {},
+      news: dataObj.news || dataObj.mockNews || [],
+      videos: dataObj.videos || dataObj.mockVideos || []
     };
     backupDataCache = validatedData;
     backupDataCacheTime = now;
@@ -205,10 +205,10 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
   } catch (err: any) {
     const dataObj = getStaticData();
     return res.status(200).json({
-      apps: trimAppsForCatalog(dataObj.mockApps || []),
-      settings: dataObj.mockSettings || {},
-      news: dataObj.mockNews || [],
-      videos: dataObj.mockVideos || []
+      apps: trimAppsForCatalog(dataObj.apps || dataObj.mockApps || []),
+      settings: dataObj.settings || dataObj.mockSettings || {},
+      news: dataObj.news || dataObj.mockNews || [],
+      videos: dataObj.videos || dataObj.mockVideos || []
     });
   }
 });

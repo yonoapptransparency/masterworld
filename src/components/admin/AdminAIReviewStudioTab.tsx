@@ -20,7 +20,15 @@ import {
   BarChart3,
   MessageSquarePlus,
   Lock,
-  Info
+  Info,
+  Play,
+  Pause,
+  Square,
+  Bot,
+  Terminal,
+  Activity,
+  Clock,
+  AlertCircle
 } from 'lucide-react';
 import { toast } from '../Toast';
 import { adminFetch } from '../../services/adminAuthService';
@@ -104,8 +112,93 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
   appsList = [],
   onReviewsGenerated 
 }) => {
-  // Mode: 'single' or 'bulk'
-  const [mode, setMode] = useState<'single' | 'bulk'>('single');
+  // Mode: 'autopilot' | 'single' | 'bulk'
+  const [mode, setMode] = useState<'autopilot' | 'single' | 'bulk'>('autopilot');
+
+  // Auto-Pilot Engine State
+  const [autoPilotStatus, setAutoPilotStatus] = useState<any>(null);
+  const [autoPilotLoading, setAutoPilotLoading] = useState(false);
+  const [autoPilotOptions, setAutoPilotOptions] = useState({
+    countPerApp: 10,
+    skipAppsWithReviews: true,
+    skipThreshold: 10,
+    overrideTargetScore: null as number | null,
+    toneFocus: 'balanced' as any
+  });
+
+  const fetchAutoPilotStatus = useCallback(async () => {
+    try {
+      const res = await adminFetch('/api/v1/admin/autopilot/status');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status) {
+          setAutoPilotStatus(data.status);
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to fetch autopilot status", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAutoPilotStatus();
+    const interval = setInterval(() => {
+      fetchAutoPilotStatus();
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [fetchAutoPilotStatus]);
+
+  const handleStartAutoPilot = async () => {
+    try {
+      setAutoPilotLoading(true);
+      const res = await adminFetch('/api/v1/admin/autopilot/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(autoPilotOptions)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to start Auto-Pilot');
+      toast("🚀 Auto-Pilot Queue Engine Launched!", "success");
+      setAutoPilotStatus(data.status);
+    } catch (err: any) {
+      toast(err.message || "Failed to start Auto-Pilot", "error");
+    } finally {
+      setAutoPilotLoading(false);
+    }
+  };
+
+  const handlePauseAutoPilot = async () => {
+    try {
+      const res = await adminFetch('/api/v1/admin/autopilot/pause', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) setAutoPilotStatus(data.status);
+      toast("⏸️ Auto-Pilot Paused", "info");
+    } catch (err: any) {
+      toast(err.message, "error");
+    }
+  };
+
+  const handleResumeAutoPilot = async () => {
+    try {
+      const res = await adminFetch('/api/v1/admin/autopilot/resume', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) setAutoPilotStatus(data.status);
+      toast("▶️ Auto-Pilot Resumed", "success");
+    } catch (err: any) {
+      toast(err.message, "error");
+    }
+  };
+
+  const handleStopAutoPilot = async () => {
+    try {
+      const res = await adminFetch('/api/v1/admin/autopilot/stop', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) setAutoPilotStatus(data.status);
+      toast("🛑 Auto-Pilot Stopped", "info");
+    } catch (err: any) {
+      toast(err.message, "error");
+    }
+  };
 
   // Persistent Map of all App Profiles
   const [appProfiles, setAppProfiles] = useState<Record<string, AppReviewProfile>>(loadAllAppProfiles);
@@ -295,6 +388,9 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
       if (instantSave) {
         toast(`Generated and published ${data.count || singleCount} reviews for ${currentApp.name}!`, "success");
         setStagedReviews([]);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('community-review-added', { detail: { appId: currentApp.id, appSlug: currentApp.slug } }));
+        }
         if (onReviewsGenerated) onReviewsGenerated();
       } else {
         setStagedReviews(data.reviews || []);
@@ -312,25 +408,30 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
     if (stagedReviews.length === 0) return;
     try {
       setSavingStaged(true);
-      for (const rev of stagedReviews) {
-        await adminFetch('/api/v1/admin/community/reviews', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            appId: currentApp.id,
-            appSlug: currentApp.slug,
-            appName: currentApp.name,
-            userName: rev.userName,
-            rating: rev.rating,
-            reviewText: rev.reviewText,
-            status: 'published',
-            helpful_count: rev.helpful_count || 0
-          })
-        });
-      }
+      const reviewsToSave = stagedReviews.map(rev => ({
+        appId: currentApp.id,
+        appSlug: currentApp.slug,
+        appName: currentApp.name,
+        userName: rev.userName,
+        rating: rev.rating,
+        reviewText: rev.reviewText,
+        status: 'published',
+        helpful_count: rev.helpful_count || 0
+      }));
 
-      toast(`Successfully published ${stagedReviews.length} reviews to ${currentApp.name}!`, "success");
+      const res = await adminFetch('/api/v1/admin/community/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reviews: reviewsToSave })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to publish staged reviews');
+
+      toast(`Successfully published ${reviewsToSave.length} reviews to ${currentApp.name}!`, "success");
       setStagedReviews([]);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('community-review-added', { detail: { appId: currentApp.id, appSlug: currentApp.slug } }));
+      }
       if (onReviewsGenerated) onReviewsGenerated();
     } catch (err: any) {
       toast(err.message || "Failed to publish staged reviews", "error");
@@ -425,7 +526,19 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           </div>
 
           {/* Mode Switcher Tabs */}
-          <div className="flex items-center bg-slate-800/80 p-1.5 rounded-xl border border-slate-700 backdrop-blur-sm self-stretch md:self-auto">
+          <div className="flex flex-wrap items-center bg-slate-800/80 p-1.5 rounded-xl border border-slate-700 backdrop-blur-sm self-stretch md:self-auto gap-1">
+            <button
+              type="button"
+              onClick={() => setMode('autopilot')}
+              className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                mode === 'autopilot'
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg ring-1 ring-blue-400/50'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Bot size={16} className="text-amber-400" />
+              <span>🚀 Catalog Auto-Pilot</span>
+            </button>
             <button
               type="button"
               onClick={() => setMode('single')}
@@ -448,7 +561,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
               }`}
             >
               <Zap size={16} />
-              <span>1-Click Bulk Generator</span>
+              <span>Bulk Batch</span>
             </button>
           </div>
         </div>
@@ -517,7 +630,271 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
 
 
       {/* Main Studio Controls */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {mode === 'autopilot' ? (
+        /* Dedicated Full-Catalog Auto-Pilot Command Center */
+        <div className="space-y-6">
+          {/* Realtime Engine Control Header Card */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-md space-y-6">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-5">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-lg shrink-0">
+                  <Bot size={26} className={autoPilotStatus?.state === 'running' ? 'animate-bounce text-amber-300' : 'text-white'} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-black text-slate-900 dark:text-white">
+                      Full-Catalog AI Review Auto-Pilot
+                    </h2>
+                    {autoPilotStatus?.state === 'running' && (
+                      <span className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-bold rounded-full border border-emerald-500/20 animate-pulse">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                        RUNNING
+                      </span>
+                    )}
+                    {autoPilotStatus?.state === 'paused' && (
+                      <span className="px-3 py-1 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-bold rounded-full border border-amber-500/20">
+                        ⏸️ PAUSED
+                      </span>
+                    )}
+                    {autoPilotStatus?.state === 'completed' && (
+                      <span className="px-3 py-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs font-bold rounded-full border border-blue-500/20">
+                        🎉 COMPLETED
+                      </span>
+                    )}
+                    {(!autoPilotStatus?.state || autoPilotStatus?.state === 'idle' || autoPilotStatus?.state === 'stopped') && (
+                      <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-xs font-bold rounded-full">
+                        READY / IDLE
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Processes all {appsList.length} catalog apps sequentially with isolated context, target rating distribution, and non-blocking background queue.
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Controls */}
+              <div className="flex items-center gap-3 w-full md:w-auto">
+                {(!autoPilotStatus?.state || autoPilotStatus?.state === 'idle' || autoPilotStatus?.state === 'completed' || autoPilotStatus?.state === 'stopped') ? (
+                  <button
+                    type="button"
+                    onClick={handleStartAutoPilot}
+                    disabled={autoPilotLoading}
+                    className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-sm font-black shadow-lg shadow-blue-500/20 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <Play size={18} fill="currentColor" />
+                    <span>{autoPilotLoading ? 'Launching Queue...' : 'Launch Auto-Pilot for All Apps'}</span>
+                  </button>
+                ) : autoPilotStatus?.state === 'running' ? (
+                  <div className="flex items-center gap-2 w-full md:w-auto">
+                    <button
+                      type="button"
+                      onClick={handlePauseAutoPilot}
+                      className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer"
+                    >
+                      <Pause size={16} fill="currentColor" />
+                      <span>Pause</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleStopAutoPilot}
+                      className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer"
+                    >
+                      <Square size={16} fill="currentColor" />
+                      <span>Stop</span>
+                    </button>
+                  </div>
+                ) : autoPilotStatus?.state === 'paused' ? (
+                  <div className="flex items-center gap-2 w-full md:w-auto">
+                    <button
+                      type="button"
+                      onClick={handleResumeAutoPilot}
+                      className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer"
+                    >
+                      <Play size={16} fill="currentColor" />
+                      <span>Resume Queue</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleStopAutoPilot}
+                      className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer"
+                    >
+                      <Square size={16} fill="currentColor" />
+                      <span>Stop</span>
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            {/* Realtime Progress Meter */}
+            {autoPilotStatus && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold">
+                  <span className="text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <Activity size={14} className="text-blue-500" />
+                    <span>Overall Catalog Progress: {autoPilotStatus.processedAppsCount + autoPilotStatus.skippedAppsCount} / {autoPilotStatus.totalApps} Apps</span>
+                  </span>
+                  <span className="text-blue-600 dark:text-blue-400 font-mono">
+                    {autoPilotStatus.percent}% Completed ({autoPilotStatus.generatedReviewsCount} Total Reviews Created)
+                  </span>
+                </div>
+                <div className="w-full h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden p-0.5 border border-slate-200 dark:border-slate-700">
+                  <div
+                    className="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-500 rounded-full transition-all duration-500 shadow-sm"
+                    style={{ width: `${Math.min(100, Math.max(0, autoPilotStatus.percent || 0))}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-1">
+                  <span>✅ Processed: {autoPilotStatus.processedAppsCount} Apps</span>
+                  <span>⏭️ Skipped: {autoPilotStatus.skippedAppsCount} Apps</span>
+                  <span>❌ Failed: {autoPilotStatus.failedAppsCount} Apps</span>
+                </div>
+              </div>
+            )}
+
+            {/* Active App Spotlight Card */}
+            {autoPilotStatus?.activeApp ? (
+              <div className="bg-gradient-to-r from-blue-900/10 via-indigo-900/10 to-slate-900/10 dark:from-blue-950/40 dark:to-slate-950/40 border border-blue-500/30 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5">
+                  {autoPilotStatus.activeApp.icon_url ? (
+                    <img src={autoPilotStatus.activeApp.icon_url} alt="" className="w-12 h-12 rounded-xl object-contain bg-white dark:bg-slate-800 shadow-md border border-slate-200/50" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-lg shadow-md">
+                      {autoPilotStatus.activeApp.name?.charAt(0) || 'A'}
+                    </div>
+                  )}
+                  <div>
+                    <div className="text-xs text-blue-600 dark:text-blue-400 font-semibold uppercase tracking-wider">
+                      Currently Processing App ({autoPilotStatus.currentIndex + 1} of {autoPilotStatus.totalApps})
+                    </div>
+                    <h3 className="text-sm font-black text-slate-900 dark:text-white">
+                      {autoPilotStatus.activeApp.name}
+                    </h3>
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-0.5">
+                      <span>Category: {autoPilotStatus.activeApp.category || 'General'}</span>
+                      <span>•</span>
+                      <span className="font-bold text-amber-500">Target Rating: ⭐ {autoPilotStatus.activeApp.targetScore || autoPilotStatus.activeApp.rating || '4.8'}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 text-xs bg-white dark:bg-slate-800 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 font-mono">
+                  <RefreshCw size={14} className="animate-spin text-blue-500" />
+                  <span>Generating & Syncing Reviews...</span>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Configuration Settings Box */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                  Reviews Per App
+                </label>
+                <select
+                  value={autoPilotOptions.countPerApp}
+                  onChange={(e) => setAutoPilotOptions(prev => ({ ...prev, countPerApp: parseInt(e.target.value, 10) }))}
+                  disabled={autoPilotStatus?.state === 'running'}
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-200 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                >
+                  <option value={5}>5 Reviews per App (Fast)</option>
+                  <option value={10}>10 Reviews per App (Recommended)</option>
+                  <option value={15}>15 Reviews per App</option>
+                  <option value={20}>20 Reviews per App (Comprehensive)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                  Skip Apps Threshold
+                </label>
+                <label className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={autoPilotOptions.skipAppsWithReviews}
+                    onChange={(e) => setAutoPilotOptions(prev => ({ ...prev, skipAppsWithReviews: e.target.checked }))}
+                    disabled={autoPilotStatus?.state === 'running'}
+                    className="rounded text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-slate-800 dark:text-slate-200 font-medium">
+                    Skip if app has &ge; {autoPilotOptions.skipThreshold} reviews
+                  </span>
+                </label>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                  Review Tone Focus
+                </label>
+                <select
+                  value={autoPilotOptions.toneFocus}
+                  onChange={(e) => setAutoPilotOptions(prev => ({ ...prev, toneFocus: e.target.value as any }))}
+                  disabled={autoPilotStatus?.state === 'running'}
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-200 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                >
+                  <option value="balanced">Balanced Variety (Gamers, Tech, Casuals)</option>
+                  <option value="performance">Performance & FPS Focus</option>
+                  <option value="gameplay">Gameplay & In-App Mechanics Focus</option>
+                  <option value="ui_graphics">UI & Table Graphics Focus</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Live Terminal Streaming Logs */}
+          <div className="bg-slate-950 text-slate-200 rounded-2xl p-5 border border-slate-800 shadow-xl space-y-3 font-mono text-xs">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2 font-bold text-blue-400">
+                <Terminal size={16} className="text-amber-400" />
+                <span>Live Auto-Pilot Execution Logs</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="flex items-center gap-1 text-[11px] text-slate-400">
+                  <Clock size={12} />
+                  Auto-Polling Active (2s)
+                </span>
+                {autoPilotStatus?.logs?.length > 0 && (
+                  <span className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded">
+                    {autoPilotStatus.logs.length} events
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="h-80 overflow-y-auto space-y-1.5 pr-2 text-[11px] leading-relaxed scrollbar-thin scrollbar-thumb-slate-800">
+              {(!autoPilotStatus?.logs || autoPilotStatus.logs.length === 0) ? (
+                <div className="h-full flex items-center justify-center text-slate-500 italic">
+                  Ready to start. Click "Launch Auto-Pilot for All Apps" above to begin full-catalog background generation.
+                </div>
+              ) : (
+                autoPilotStatus.logs.slice().reverse().map((log: string, idx: number) => {
+                  const isSuccess = log.includes('✅');
+                  const isSkip = log.includes('⏭️');
+                  const isError = log.includes('❌') || log.includes('Error');
+                  const isStart = log.includes('🚀') || log.includes('▶️');
+                  
+                  return (
+                    <div
+                      key={idx}
+                      className={`py-1 px-2.5 rounded border transition-all ${
+                        isSuccess ? 'bg-emerald-950/30 text-emerald-300 border-emerald-900/40' :
+                        isSkip ? 'bg-amber-950/30 text-amber-300 border-amber-900/40' :
+                        isError ? 'bg-rose-950/40 text-rose-300 border-rose-900/50' :
+                        isStart ? 'bg-blue-950/40 text-blue-300 border-blue-900/50' :
+                        'bg-slate-900/50 text-slate-300 border-slate-800/50'
+                      }`}
+                    >
+                      {log}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* Single or Bulk Studio Controls */
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Left Column: Parameter Controls */}
         <div className="lg:col-span-1 space-y-6">
@@ -680,6 +1057,50 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
                       <option value={20}>20 Reviews</option>
                     </select>
                   </div>
+                </div>
+
+                {/* Grounded Description & Context Inspector Box */}
+                <div className="bg-slate-900 text-slate-100 rounded-xl p-4 border border-slate-800 space-y-3 font-mono text-xs">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <div className="flex items-center gap-2 font-bold text-blue-400">
+                      <Sparkles size={14} className="text-amber-400" />
+                      <span>Live AI Source & Context Inspector Box</span>
+                    </div>
+                    <span className="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded font-sans">
+                      Gemini 3.7 Flash (Temp 0.98)
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px] text-slate-300 font-sans">
+                    <div>
+                      <span className="text-slate-500 font-mono">APP TITLE:</span> <strong className="text-white">{currentApp?.name || 'N/A'}</strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 font-mono">CATEGORY:</span> <strong className="text-white">{currentApp?.category || 'General'}</strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 font-mono">DEVELOPER:</span> <strong className="text-white">{currentApp?.developer || 'Studio'}</strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 font-mono">BENCHMARK RATING:</span> <strong className="text-amber-400">⭐ {currentApp?.rating || '4.8'} / 5.0</strong>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="text-[10px] text-slate-500 uppercase tracking-wider">Loaded Description & Feature Snippet Sent to AI:</div>
+                    <div className="bg-slate-950 p-2.5 rounded-lg text-slate-300 text-[11px] max-h-28 overflow-y-auto leading-relaxed border border-slate-800/80 font-sans">
+                      {currentApp?.description_html ? currentApp.description_html.replace(/<\/?[^>]+(>|$)/g, ' ').substring(0, 400) + '...' : currentApp?.description || 'No description provided.'}
+                    </div>
+                  </div>
+
+                  {customPrompt && (
+                    <div className="space-y-1">
+                      <div className="text-[10px] text-blue-400 uppercase tracking-wider">Custom Admin Instructions:</div>
+                      <div className="bg-blue-950/30 border border-blue-900/40 p-2 rounded text-blue-200 text-[11px] font-sans">
+                        {customPrompt}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Grounded Description Notice */}
@@ -939,6 +1360,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           )}
         </div>
       </div>
+      )}
     </div>
   );
 };

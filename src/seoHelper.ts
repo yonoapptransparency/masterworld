@@ -18,10 +18,10 @@ const getStaticData = () => {
 };
 
 const staticData = getStaticData();
-const mockApps = staticData.mockApps || [];
-const mockSettings = staticData.mockSettings || {};
-const mockNews = staticData.mockNews || [];
-const mockVideos = staticData.mockVideos || [];
+const mockApps = staticData.apps || staticData.mockApps || [];
+const mockSettings = staticData.settings || staticData.mockSettings || {};
+const mockNews = staticData.news || staticData.mockNews || [];
+const mockVideos = staticData.videos || staticData.mockVideos || [];
 
 let cachedData: any = null;
 let lastFetchTime = 0;
@@ -50,10 +50,10 @@ async function doFetchStoreData() {
     const backup = fsMod.existsSync(p) ? JSON.parse(fsMod.readFileSync(p, 'utf8')) : null;
     if (backup) {
       const data = {
-        apps: Array.isArray(backup.apps) ? backup.apps : (freshStatic.mockApps || []),
-        settings: backup.settings || (freshStatic.mockSettings || {}),
-        news: Array.isArray(backup.news) ? backup.news : (freshStatic.mockNews || []),
-        videos: Array.isArray(backup.videos) ? backup.videos : (freshStatic.mockVideos || [])
+        apps: Array.isArray(backup.apps) ? backup.apps : (freshStatic.apps || freshStatic.mockApps || []),
+        settings: backup.settings || (freshStatic.settings || freshStatic.mockSettings || {}),
+        news: Array.isArray(backup.news) ? backup.news : (freshStatic.news || freshStatic.mockNews || []),
+        videos: Array.isArray(backup.videos) ? backup.videos : (freshStatic.videos || freshStatic.mockVideos || [])
       };
       cachedData = data;
       lastFetchTime = now;
@@ -62,10 +62,10 @@ async function doFetchStoreData() {
   } catch (e) {}
 
   const data = {
-    apps: freshStatic.mockApps || [],
-    settings: freshStatic.mockSettings || {},
-    news: freshStatic.mockNews || [],
-    videos: freshStatic.mockVideos || []
+    apps: freshStatic.apps || freshStatic.mockApps || [],
+    settings: freshStatic.settings || freshStatic.mockSettings || {},
+    news: freshStatic.news || freshStatic.mockNews || [],
+    videos: freshStatic.videos || freshStatic.mockVideos || []
   };
   
   cachedData = data;

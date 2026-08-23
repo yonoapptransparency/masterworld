@@ -77,8 +77,9 @@ class VaultNodeManager {
       try {
         const staticDataPath = path.join(process.cwd(), 'src', 'lib', 'staticData');
         const staticData = require(staticDataPath);
-        if (staticData && Array.isArray(staticData.mockApps)) {
-          staticData.mockApps.forEach((app: any) => {
+        const staticDataApps = (staticData && (Array.isArray(staticData.apps) ? staticData.apps : staticData.mockApps)) || [];
+        if (Array.isArray(staticDataApps)) {
+          staticDataApps.forEach((app: any) => {
             const target = app.more_information_url || app.encrypted_link || app.download_url || app.url;
             setInCache(app.id, target);
             setInCache(app.slug, target);
