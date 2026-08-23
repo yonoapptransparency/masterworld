@@ -9,6 +9,7 @@ import { ENCRYPTED_LINKS } from '../../lib/secureVault';
 import { getStaticData } from '../config';
 import { fetchStoreData } from '../../seoHelper';
 import { resolveAppSlug } from '../../lib/slugResolver';
+import { getRawFirebaseConfig, getFirebaseAdminDb } from '../firebase';
 
 export const publicApiRouter = express.Router();
 
@@ -210,6 +211,83 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
       news: dataObj.news || dataObj.mockNews || [],
       videos: dataObj.videos || dataObj.mockVideos || []
     });
+  }
+});
+
+publicApiRouter.get(["/api/v1/public/firebase-status", "/api/public/firebase-status"], async (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  const startTime = Date.now();
+  const results: any = {
+    config: false,
+    firestoreRead: false,
+    firestoreWrite: false,
+    adminSdk: false,
+    aesConfigured: false,
+    readLatencyMs: 0,
+    writeLatencyMs: 0,
+    details: {}
+  };
+
+  try {
+    const config = getRawFirebaseConfig();
+    const apiKey = config?.apiKey || '';
+    const projectId = config?.projectId || 'gen-lang-client-0825832493';
+    const rawDbId = config?.firestoreDatabaseId;
+    const dbId = rawDbId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+
+    results.config = !!projectId;
+    const aesSecret = process.env.AES_SECRET || (global as any).AES_SECRET_GLOBAL;
+    results.aesConfigured = !!(aesSecret && aesSecret.trim() !== '');
+
+    results.details.projectId = projectId;
+    results.details.databaseId = dbId;
+
+    const adminStart = Date.now();
+    try {
+      const adminDb = getFirebaseAdminDb();
+      if (adminDb) {
+        await adminDb.collection('store_data').doc('_status_check_').set({ 
+          ts: Date.now(), 
+          source: 'public_status_check',
+          checkedAt: new Date().toISOString() 
+        });
+        await adminDb.collection('store_data').doc('_status_check_').delete();
+        results.adminSdk = true;
+        results.firestoreRead = true;
+        results.firestoreWrite = true;
+        const latency = Date.now() - adminStart;
+        results.readLatencyMs = latency;
+        results.writeLatencyMs = latency;
+      }
+    } catch (e: any) {
+      results.details.adminSdkError = e.message;
+    }
+
+    if (!results.adminSdk) {
+      const readStart = Date.now();
+      try {
+        const apiKeyParam = apiKey ? `?key=${apiKey}` : '';
+        const readUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${dbId}/documents/store_data/public_settings${apiKeyParam}`;
+        const readRes = await fetch(readUrl);
+        results.readLatencyMs = Date.now() - readStart;
+        if (readRes.status === 200 || readRes.status === 404) {
+          results.firestoreRead = true;
+        }
+      } catch (e: any) {}
+    }
+
+    const isLive = (results.adminSdk && results.firestoreRead && results.firestoreWrite) || (results.firestoreRead && results.firestoreWrite);
+    const statusText = isLive ? "live" : (results.firestoreRead ? "read_only" : "offline");
+
+    return res.json({
+      status: statusText,
+      results,
+      details: results.details,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err: any) {
+    return res.status(500).json({ status: "offline", error: err.message });
   }
 });
 

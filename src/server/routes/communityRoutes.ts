@@ -113,9 +113,16 @@ communityRouter.post("/api/v1/public/community/reviews/report", async (req: any,
 // Get App Rating Stats
 communityRouter.get("/api/v1/public/community/stats/:appId", async (req: any, res: any) => {
   const { appId } = req.params;
-  const rating = Number(req.query.rating) || 4.8;
+  const { rating, appTitle, slug, appSlug } = req.query;
+  const numRating = Number(rating) || 4.8;
+  const targetSlug = slug || appSlug;
   try {
-    const stats = communityStore.getAppStats(String(appId).trim(), rating);
+    const stats = communityStore.getAppStats(
+      String(appId).trim(), 
+      numRating, 
+      appTitle ? String(appTitle) : undefined, 
+      targetSlug ? String(targetSlug) : undefined
+    );
     return res.status(200).json({ success: true, stats });
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
@@ -124,10 +131,11 @@ communityRouter.get("/api/v1/public/community/stats/:appId", async (req: any, re
 
 // Public Cursor-based Reviews fetch for App Page
 communityRouter.get("/api/v1/public/community/reviews/:appId", async (req: any, res: any) => {
-  console.log("[GET REVIEWS API] Requested appId:", req.params.appId);
+  console.log("[GET REVIEWS API] Requested appId:", req.params.appId, "query:", req.query);
 
   const { appId } = req.params;
-  const { cursor, limit = 10, appTitle, rating } = req.query;
+  const { cursor, limit = 10, appTitle, rating, slug, appSlug } = req.query;
+  const targetSlug = slug || appSlug;
 
   try {
     const result = communityStore.getReviewsForApp(
@@ -135,10 +143,16 @@ communityRouter.get("/api/v1/public/community/reviews/:appId", async (req: any, 
       cursor ? String(cursor) : undefined,
       Math.min(50, Number(limit) || 10),
       appTitle ? String(appTitle) : undefined,
-      Number(rating) || 5.0
+      Number(rating) || 5.0,
+      targetSlug ? String(targetSlug) : undefined
     );
 
-    const stats = communityStore.getAppStats(String(appId).trim(), Number(rating) || 4.8);
+    const stats = communityStore.getAppStats(
+      String(appId).trim(), 
+      Number(rating) || 4.8, 
+      appTitle ? String(appTitle) : undefined, 
+      targetSlug ? String(targetSlug) : undefined
+    );
 
     return res.status(200).json({
       success: true,

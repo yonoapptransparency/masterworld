@@ -37,20 +37,18 @@ export function useReviews(
   const cleanAppTitle = String(appTitle || '').trim();
 
   const getStaticFallbackReviews = useCallback((): Review[] => {
-    const targetId = (cleanAppId || '').toLowerCase();
-    const targetSlug = (cleanAppSlug || '').toLowerCase();
-    const targetTitle = (cleanAppTitle || '').toLowerCase();
+    const targetId = (cleanAppId || '').toLowerCase().trim();
+    const targetSlug = (cleanAppSlug || '').toLowerCase().trim();
+    const targetTitle = (cleanAppTitle || '').toLowerCase().trim();
 
     return STATIC_COMMUNITY_REVIEWS.filter(r => {
-      const rAppId = String(r.appId || '').toLowerCase();
-      const rAppSlug = String(r.appSlug || '').toLowerCase();
-      const rAppName = String(r.appName || '').toLowerCase();
+      const rAppId = String(r.appId || '').toLowerCase().trim();
+      const rAppSlug = String(r.appSlug || '').toLowerCase().trim();
+      const rAppName = String(r.appName || '').toLowerCase().trim();
 
       return (targetId && rAppId === targetId) ||
              (targetSlug && rAppSlug === targetSlug) ||
-             (targetTitle && rAppName === targetTitle) ||
-             (targetSlug && rAppName.includes(targetSlug)) ||
-             (targetTitle && rAppSlug.includes(targetTitle));
+             (targetTitle && rAppName === targetTitle);
     }).map((r: any) => ({
       id: r.id || `rev_${Math.random()}`,
       app_id: r.appId || cleanAppId,
@@ -95,6 +93,7 @@ export function useReviews(
         if (isLoadMore && nextCursor) queryParams.append('cursor', nextCursor);
         if (cleanAppTitle) queryParams.append('appTitle', cleanAppTitle);
         if (cleanAppSlug) queryParams.append('slug', cleanAppSlug);
+        if (cleanAppId) queryParams.append('appId', cleanAppId);
         if (overallRating) queryParams.append('rating', String(overallRating));
 
         const targetKey = cleanAppId || cleanAppSlug;

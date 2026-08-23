@@ -896,9 +896,9 @@ adminVaultRouter.get("/api/v1/admin/firebase-status", verifyAdminToken, async (r
   try {
     const config = getRawFirebaseConfig();
     const apiKey = config?.apiKey || '';
-    const projectId = config?.projectId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+    const projectId = config?.projectId || 'gen-lang-client-0825832493';
     const rawDbId = config?.firestoreDatabaseId;
-    const dbId = (!rawDbId || rawDbId === projectId) ? '(default)' : rawDbId;
+    const dbId = rawDbId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
 
     results.config = !!projectId;
     
@@ -1052,7 +1052,7 @@ adminVaultRouter.get("/api/v1/admin/security/audit-logs", verifyAdminToken, asyn
   const isMock = false;
   if (!isMock && config && config.apiKey) {
     try {
-      const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || "(default)"}/documents/admin_audit_log?pageSize=50${config.apiKey ? "&key=" + config.apiKey : ""}`;
+      const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a"}/documents/admin_audit_log?pageSize=50${config.apiKey ? "&key=" + config.apiKey : ""}`;
       const logsRes = await fetch(url);
       if (logsRes.ok) {
         const data = await logsRes.json() as any;

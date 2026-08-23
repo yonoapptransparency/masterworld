@@ -86,7 +86,7 @@ export async function _logAdminAttempt(config: any, d: { email: string; ip: stri
   if (!config?.projectId) return;
   try {
     const id = `${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
-    await fetch(`https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || "(default)"}/documents/admin_audit_log/${id}${config.apiKey ? "?key=" + config.apiKey : ""}`, {
+    await fetch(`https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a"}/documents/admin_audit_log/${id}${config.apiKey ? "?key=" + config.apiKey : ""}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fields: {

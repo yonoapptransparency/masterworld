@@ -224,6 +224,16 @@ class CommunityStoreService {
       const tempPath = this.localBackupPath + '.tmp';
       fs.writeFileSync(tempPath, JSON.stringify(data, null, 2), 'utf8');
       fs.renameSync(tempPath, this.localBackupPath);
+
+      // Synchronize with static TypeScript file so git sync and public website receive all reviews
+      try {
+        const staticTsPath = path.join(process.cwd(), 'src/lib/communityReviewsData.ts');
+        const allReviewsList = Array.from(this.reviews.values());
+        const tsContent = `// Auto-generated verified community reviews dataset\nexport interface StaticReviewRecord {\n  id: string;\n  appId: string;\n  appSlug?: string;\n  appName?: string;\n  userName: string;\n  rating: number;\n  reviewText: string;\n  timestamp: string;\n  status: 'published' | 'pending' | 'rejected' | string;\n  helpful_count: number;\n  isPinned?: boolean;\n  reported?: boolean;\n  report_count?: number;\n  source?: string;\n  adminReply?: {\n    text: string;\n    author: string;\n    timestamp: string;\n  } | null;\n  updated_at?: string;\n}\n\nexport const STATIC_COMMUNITY_REVIEWS: StaticReviewRecord[] = ${JSON.stringify(allReviewsList, null, 2)};\n`;
+        fs.writeFileSync(staticTsPath, tsContent, 'utf8');
+      } catch (tsErr) {
+        console.warn('[CommunityStore] Failed to update communityReviewsData.ts:', tsErr);
+      }
     } catch (e) {
       console.warn('[CommunityStore] Local backup write error:', e);
     }
@@ -420,7 +430,7 @@ class CommunityStoreService {
       // Fallback REST doc check for community_store
       const config = getRawFirebaseConfig();
       if (config?.projectId) {
-        const dbId = config.firestoreDatabaseId || config.databaseId || '(default)';
+        const dbId = config.firestoreDatabaseId || config.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
         const apiKeyParam = config.apiKey ? `?key=${encodeURIComponent(config.apiKey)}` : '';
         const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${dbId}/documents/store_data/community_store${apiKeyParam}`;
         try {
@@ -716,38 +726,37 @@ class CommunityStoreService {
 
   /**
    * Universal App Review Resolver Helper:
-   * Dynamically resolves all alias keys (ID, slug, name, package) across catalog and stored reviews.
+   * Dynamically resolves all alias keys (ID, slug, name, package) for an app without cross-app contamination.
    */
-  private getAliasKeysForApp(target: string, appTitle?: string): Set<string> {
+  private getAliasKeysForApp(target: string, appTitle?: string, appSlug?: string): Set<string> {
     const aliasKeys = new Set<string>();
     const cleanTarget = String(target || '').toLowerCase().trim();
-    if (cleanTarget) aliasKeys.add(cleanTarget);
-    if (appTitle) aliasKeys.add(String(appTitle).toLowerCase().trim());
+    const cleanTitle = String(appTitle || '').toLowerCase().trim();
+    const cleanSlug = String(appSlug || '').toLowerCase().trim();
 
-    const matchedApp = findAppInCatalog(cleanTarget) || (appTitle ? findAppInCatalog(appTitle) : null);
+    if (cleanTarget) aliasKeys.add(cleanTarget);
+    if (cleanTitle) aliasKeys.add(cleanTitle);
+    if (cleanSlug) aliasKeys.add(cleanSlug);
+
+    // Add normalized slug / title variants
+    if (cleanTitle) {
+      const slugified = cleanTitle.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      if (slugified) aliasKeys.add(slugified);
+    }
+    if (cleanSlug) {
+      const titleified = cleanSlug.replace(/-/g, ' ').trim();
+      if (titleified) aliasKeys.add(titleified);
+    }
+
+    const matchedApp = findAppInCatalog(cleanTarget) || 
+                       (cleanSlug ? findAppInCatalog(cleanSlug) : null) || 
+                       (cleanTitle ? findAppInCatalog(cleanTitle) : null);
+
     if (matchedApp) {
       if (matchedApp.id) aliasKeys.add(String(matchedApp.id).toLowerCase().trim());
       if (matchedApp.slug) aliasKeys.add(String(matchedApp.slug).toLowerCase().trim());
       if (matchedApp.name) aliasKeys.add(String(matchedApp.name).toLowerCase().trim());
       if (matchedApp.package_name) aliasKeys.add(String(matchedApp.package_name).toLowerCase().trim());
-    }
-
-    // Cross-reference existing review records to discover linked appId <-> appSlug <-> appName pairs
-    let expanded = true;
-    while (expanded) {
-      const prevSize = aliasKeys.size;
-      for (const r of this.reviews.values()) {
-        const rId = String(r.appId || '').toLowerCase().trim();
-        const rSlug = String(r.appSlug || '').toLowerCase().trim();
-        const rName = String(r.appName || '').toLowerCase().trim();
-
-        if ((rId && aliasKeys.has(rId)) || (rSlug && aliasKeys.has(rSlug)) || (rName && aliasKeys.has(rName))) {
-          if (rId) aliasKeys.add(rId);
-          if (rSlug) aliasKeys.add(rSlug);
-          if (rName) aliasKeys.add(rName);
-        }
-      }
-      expanded = aliasKeys.size > prevSize;
     }
 
     return aliasKeys;
@@ -757,19 +766,19 @@ class CommunityStoreService {
    * Universal App Review Resolver:
    * Accurately finds all reviews for any app by ID, Slug, Name, or Package without any cross-app mixups.
    */
-  public getReviewsForApp(appIdentifier: string, cursor?: string, limitCount = 10, appTitle?: string, overallRating = 5.0) {
-    const aliasKeys = this.getAliasKeysForApp(appIdentifier, appTitle);
+  public getReviewsForApp(appIdentifier: string, cursor?: string, limitCount = 10, appTitle?: string, overallRating = 5.0, appSlug?: string) {
+    const aliasKeys = this.getAliasKeysForApp(appIdentifier, appTitle, appSlug);
 
-    // Filter published reviews matching ANY of this app's alias keys
+    // Filter published or approved reviews matching ANY of this app's alias keys
     let all = Array.from(this.reviews.values())
       .filter(r => {
-        if (r.status !== 'published' && r.status) return false;
+        if (r.status && r.status !== 'published' && r.status !== 'approved') return false;
         const rAppId = String(r.appId || '').toLowerCase().trim();
         const rAppSlug = String(r.appSlug || '').toLowerCase().trim();
         const rAppName = String(r.appName || '').toLowerCase().trim();
 
         return (
-          aliasKeys.has(rAppId) ||
+          (rAppId && aliasKeys.has(rAppId)) ||
           (rAppSlug && aliasKeys.has(rAppSlug)) ||
           (rAppName && aliasKeys.has(rAppName))
         );
@@ -999,13 +1008,13 @@ class CommunityStoreService {
     return existed;
   }
 
-  public getAppStats(appIdentifier: string, fallbackRating = 4.8) {
-    const aliasKeys = this.getAliasKeysForApp(appIdentifier);
-    const matchedApp = findAppInCatalog(appIdentifier);
+  public getAppStats(appIdentifier: string, fallbackRating = 4.8, appTitle?: string, appSlug?: string) {
+    const aliasKeys = this.getAliasKeysForApp(appIdentifier, appTitle, appSlug);
+    const matchedApp = findAppInCatalog(appIdentifier) || (appSlug ? findAppInCatalog(appSlug) : null) || (appTitle ? findAppInCatalog(appTitle) : null);
 
     const appReviews = Array.from(this.reviews.values())
       .filter(r => {
-        if (r.status !== 'published' && r.status) return false;
+        if (r.status && r.status !== 'published' && r.status !== 'approved') return false;
         const rAppId = String(r.appId || '').toLowerCase().trim();
         const rAppSlug = String(r.appSlug || '').toLowerCase().trim();
         const rAppName = String(r.appName || '').toLowerCase().trim();

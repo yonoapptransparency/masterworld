@@ -37,7 +37,7 @@ export function getRawFirebaseConfig(): any {
       appId: process.env.VITE_FIREBASE_APP_ID || process.env.FIREBASE_APP_ID,
       apiKey: envApiKey,
       authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || process.env.FIREBASE_AUTH_DOMAIN,
-      firestoreDatabaseId: envDbId || '(default)',
+      firestoreDatabaseId: envDbId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a',
       storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || process.env.VITE_FIREBASE_STORAGE_BUCKET,
       messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_ID || process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || process.env.FIREBASE_MESSAGING_SENDER_ID
     };

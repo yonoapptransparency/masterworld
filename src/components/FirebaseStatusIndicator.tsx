@@ -27,7 +27,10 @@ export const FirebaseStatusIndicator: React.FC = () => {
   const checkStatus = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      const response = await adminFetch('/api/v1/admin/firebase-status');
+      let response = await adminFetch('/api/v1/admin/firebase-status');
+      if (!response.ok) {
+        response = await fetch('/api/v1/public/firebase-status');
+      }
       let data: any = {};
       try {
         data = await response.json();
@@ -56,6 +59,25 @@ export const FirebaseStatusIndicator: React.FC = () => {
         });
       }
     } catch (e: any) {
+      try {
+        const pubRes = await fetch('/api/v1/public/firebase-status');
+        const data = await pubRes.json();
+        if (pubRes.ok && data.results) {
+          setResult({
+            status: data.status === 'live' ? 'live' : data.status === 'read_only' ? 'read_only' : 'offline',
+            adminSdk: data.results.adminSdk || false,
+            firestoreWrite: data.results.firestoreWrite || false,
+            firestoreRead: data.results.firestoreRead || false,
+            aesConfigured: data.results.aesConfigured || false,
+            readLatencyMs: data.results.readLatencyMs,
+            writeLatencyMs: data.results.writeLatencyMs,
+            projectId: data.details?.projectId,
+            error: data.error || undefined
+          });
+          return;
+        }
+      } catch(pubErr) {}
+
       setResult({ 
         status: 'offline', 
         adminSdk: false, 

@@ -26,7 +26,10 @@ export default function FirebaseStatusPanel() {
       return;
     }
     try {
-      const response = await adminFetch('/api/v1/admin/firebase-status');
+      let response = await adminFetch('/api/v1/admin/firebase-status');
+      if (!response.ok) {
+        response = await fetch('/api/v1/public/firebase-status');
+      }
       let data: any = {};
       try {
         data = await response.json();

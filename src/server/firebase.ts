@@ -99,9 +99,9 @@ export function getRawFirebaseConfig(): any {
   const DEFAULT_FALLBACK_API_KEY = "AIzaSyBey9sUbeWrcXS2kl4ewOzkTy4arg03Ok";
   const finalApiKey = envApiKey || fileConfig.apiKey || DEFAULT_FALLBACK_API_KEY;
 
-  const resolveDbId = (rawDbId?: string, pId?: string) => {
-    if (!rawDbId || !isRealValue(rawDbId) || rawDbId === pId || rawDbId === '(default)') {
-      return '(default)';
+  const resolveDbId = (rawDbId?: string, _pId?: string) => {
+    if (!rawDbId || !isRealValue(rawDbId)) {
+      return 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
     }
     return rawDbId;
   };
@@ -129,15 +129,15 @@ export function getRawFirebaseConfig(): any {
   }
 
   // 3. Fallback configuration
-  const defaultProjectId = "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a";
+  const defaultProjectId = "gen-lang-client-0825832493";
   const defaultDbId = "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a";
   cachedRawFirebaseConfig = {
     projectId: defaultProjectId,
     appId: envAppId || "1:103973989874:web:733a6afd8e837224900f6b",
     apiKey: finalApiKey,
-    authDomain: envAuthDomain || "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a.firebaseapp.com",
+    authDomain: envAuthDomain || "gen-lang-client-0825832493.firebasestorage.app",
     firestoreDatabaseId: resolveDbId(envDbId || defaultDbId, defaultProjectId),
-    storageBucket: envStorageBucket || "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a.firebasestorage.app",
+    storageBucket: envStorageBucket || "gen-lang-client-0825832493.firebasestorage.app",
     messagingSenderId: envMessagingSenderId || "103973989874"
   };
   return cachedRawFirebaseConfig;
@@ -375,7 +375,7 @@ export async function writeFirestoreRestDoc(docId: string, data: any, authToken?
     let targetApiKey = config.apiKey;
     // Removed hardcoded 'rummydexcommunity' overrides so reviews go to primary db
     
-    const dbId = config.firestoreDatabaseId || config.databaseId || '(default)';
+    const dbId = config.firestoreDatabaseId || config.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
     const queryParams: string[] = [];
     if (targetApiKey) queryParams.push(`key=${encodeURIComponent(targetApiKey)}`);
     if (merge && data && typeof data === 'object') {
@@ -419,7 +419,7 @@ export async function deleteFirestoreRestDoc(docId: string, authToken?: string, 
   try {
     const config = getRawFirebaseConfig();
     if (!config || !config.projectId) return false;
-    const dbId = config.firestoreDatabaseId || config.databaseId || '(default)';
+    const dbId = config.firestoreDatabaseId || config.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
     const apiKeyParam = config.apiKey ? `?key=${config.apiKey}` : '';
     
     let targetProjectId = config.projectId;
@@ -449,7 +449,7 @@ export async function readFirestoreRestCollection(collectionPath: string, authTo
     const config = getRawFirebaseConfig();
     if (!config || !config.projectId) return [];
     
-    const dbId = config.firestoreDatabaseId || config.databaseId || '(default)';
+    const dbId = config.firestoreDatabaseId || config.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
     const apiKeyParam = config.apiKey ? `?key=${config.apiKey}` : '';
     
     let targetProjectId = config.projectId;
