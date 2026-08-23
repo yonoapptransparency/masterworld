@@ -111,7 +111,7 @@ async function startServer() {
         server: {
           middlewareMode: true,
         },
-        appType: "custom",
+        appType: "spa",
       });
       app.use(viteDevServer.middlewares);
     } catch (e) {
@@ -172,7 +172,13 @@ async function startServer() {
     }
 
     // Pass non-HTML requests in dev mode to next/vite middleware
-    if (process.env.NODE_ENV !== "production" && (req.originalUrl.includes('/@') || req.originalUrl.includes('/node_modules/') || req.originalUrl.match(/\.(js|ts|tsx|jsx|css|json|png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf|eot)$/i))) {
+    const reqPath = req.path || req.originalUrl.split('?')[0];
+    if (process.env.NODE_ENV !== "production" && (
+      req.originalUrl.includes('/@') || 
+      req.originalUrl.includes('/node_modules/') || 
+      reqPath.startsWith('/src/') ||
+      reqPath.match(/\.(js|ts|tsx|jsx|css|json|png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf|eot|map)$/i)
+    )) {
       return next();
     }
 
@@ -181,7 +187,7 @@ async function startServer() {
       return res.status(404).json({ error: 'API endpoint not found' });
     }
 
-    if (req.originalUrl.startsWith('/assets/') || req.originalUrl.match(/\.(js|css|json|png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf|eot|map|webmanifest|txt|xml)$/i)) {
+    if (req.originalUrl.startsWith('/assets/') || reqPath.match(/\.(js|css|json|png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf|eot|map|webmanifest|txt|xml)$/i)) {
       return res.status(404).type('text/plain').send('File not found');
     }
 

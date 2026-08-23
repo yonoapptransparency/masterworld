@@ -288,7 +288,7 @@ export default function AdminDashboard() {
           </div>
         </header>
 
-        <div className="p-4 max-w-(--breakpoint-2xl) mx-auto">
+        <div className="p-4 max-w-7xl mx-auto">
           <AdminTabContent 
             activeTab={activeTab} appsList={appsList} newsList={newsList} banners={banners} videosList={videosList}
             categoriesList={categoriesList} quickLinksList={quickLinksList} websiteFaqsList={websiteFaqsList} developersList={developersList}
