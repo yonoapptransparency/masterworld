@@ -8,6 +8,7 @@ export interface Banner {
 
 export interface GlobalSettings {
   site_title: string;
+  seo_title?: string;
   meta_description: string;
   logo_url: string;
   favicon_url: string;
@@ -142,6 +143,7 @@ export interface VideoItem {
   youtube_url: string;
   seo_title: string;
   seo_description: string;
+  meta_description?: string;
   seo_keywords?: string;
   created_at: string;
 }

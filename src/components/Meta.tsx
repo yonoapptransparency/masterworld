@@ -13,6 +13,7 @@ interface MetaProps {
   canonical?: string;
   schema?: any;
   faqSchema?: any;
+  breadcrumbSchema?: any;
   noindex?: boolean;
 }
 
@@ -26,12 +27,13 @@ const Meta: React.FC<MetaProps> = ({
   canonical,
   schema,
   faqSchema,
+  breadcrumbSchema,
   noindex = false
 }) => {
   const { settings } = useData();
   const siteTitle = settings?.site_title || 'RummyDex';
   const fullTitle = formatPageTitle(title, siteTitle);
-  const metaDescription = description || settings?.meta_description || 'Discover and download verified Rummy applications, APKs, card games, latest news, and features on RummyDex.';
+  const metaDescription = description || settings?.meta_description || '';
   const metaKeywords = keywords || settings?.seo_keywords || '';
   
   const DEFAULT_ICON = 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
@@ -135,6 +137,7 @@ const Meta: React.FC<MetaProps> = ({
     const schemasToInject: any[] = [];
     if (schema) schemasToInject.push(schema);
     if (faqSchema) schemasToInject.push(faqSchema);
+    if (breadcrumbSchema) schemasToInject.push(breadcrumbSchema);
 
     if (currentPath === '/' && !schema) {
       schemasToInject.push({
@@ -158,7 +161,7 @@ const Meta: React.FC<MetaProps> = ({
       script.textContent = schemasToInject.length === 1 ? JSON.stringify(schemasToInject[0]) : JSON.stringify(schemasToInject);
       document.head.appendChild(script);
     }
-  }, [fullTitle, metaDescription, metaKeywords, robotsDirective, canonicalUrl, metaUrl, type, metaImage, siteTitle, schema, faqSchema, currentPath, origin]);
+  }, [fullTitle, metaDescription, metaKeywords, robotsDirective, canonicalUrl, metaUrl, type, metaImage, siteTitle, schema, faqSchema, breadcrumbSchema, currentPath, origin]);
 
   return null;
 };

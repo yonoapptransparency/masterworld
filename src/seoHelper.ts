@@ -516,12 +516,10 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   const videos = data.videos || [];
   const developers = data.developers || [];
   const siteTitle = getField(settings, 'site_title') || 'RummyDex';
-  let title = siteTitle;
+  let title = getField(settings, 'seo_title') || siteTitle;
   let description = getField(settings, 'meta_description', '');
-  if (!description) description = "A transparency platform and directory for verified applications.";
   
   let keywords = getField(settings, 'seo_keywords', '');
-  if (!keywords) keywords = "app clearance, premium applications, digital tools, platform, tech specs, verified apps";
   
   if (keywords) {
     const keywordArray = keywords.split(',').map((k: string) => k.trim()).filter(Boolean);
@@ -558,10 +556,11 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
 
   if (cleanPathLower === '/' || cleanPathLower === '' || cleanPathLower === '/new-apps') {
     pageType = 'home';
-    title = 'Official App Hub & Transparency Directory';
+    title = getField(settings, 'seo_title') || siteTitle;
+    description = getField(settings, 'meta_description', '');
   } else if (cleanPathLower.startsWith('/admin') || cleanPathLower.startsWith('/masterworld')) {
-    title = `Admin Panel | Masterworld`;
-    description = `Masterworld Admin Control Dashboard`;
+    title = `Admin Panel | ${siteTitle}`;
+    description = `Admin Control Dashboard`;
     pageType = 'static';
   } else if (cleanPathLower.startsWith('/s/')) {
     const slug = cleanPath.split('/s/')[1];
@@ -588,8 +587,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     const slug = cleanPath.split('/news/')[1];
     const newsItem = news.find((n: any) => getField(n, 'slug').toLowerCase() === slug);
     if (newsItem) {
-      title = `${getField(newsItem, 'title')} | ${siteTitle}`;
-      description = getField(newsItem, 'description', '').substring(0, 160);
+      title = getField(newsItem, 'seo_title') || `${getField(newsItem, 'title')} | ${siteTitle}`;
+      description = getField(newsItem, 'seo_description') || getField(newsItem, 'meta_description') || getField(newsItem, 'description', '').substring(0, 160);
       customCanonicalUrl = getField(newsItem, 'canonical_url');
       pageType = 'news';
       targetNews = newsItem;
@@ -601,8 +600,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     const slug = cleanPath.split('/videos/')[1];
     const videoItem = videos.find((v: any) => getField(v, 'slug').toLowerCase() === slug);
     if (videoItem) {
-      title = `${getField(videoItem, 'title')} | ${siteTitle}`;
-      description = getField(videoItem, 'description', '').substring(0, 160);
+      title = getField(videoItem, 'seo_title') || `${getField(videoItem, 'title')} | ${siteTitle}`;
+      description = getField(videoItem, 'seo_description') || getField(videoItem, 'meta_description') || getField(videoItem, 'description', '').substring(0, 160);
       pageType = 'video';
       targetVideo = videoItem;
     } else {
@@ -639,7 +638,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     const appSlug = cleanPathLower.replace(/^\/app\//, '/').replace(/^\/|\/$/g, '');
     const app = resolveAppSlug(appSlug, apps);
     if (app) {
-      title = getField(app, 'seo_title') || `${getField(app, 'name')} - Features, Specs & Review | ${siteTitle}`;
+      title = getField(app, 'seo_title') || `${getField(app, 'name')} | ${siteTitle}`;
       description = cleanSeoDescription(getField(app, 'seo_description') || getField(app, 'meta_description') || stripHtml(getField(app, 'description_html')).substring(0, 160));
       customCanonicalUrl = `https://www.rummydex.com/app/${getField(app, 'slug')}`;
       pageType = 'app';
@@ -656,13 +655,13 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     const videoItem = videos.find((v: any) => getField(v, 'slug')?.toLowerCase() === appSlug || getField(v, 'slug')?.toLowerCase() === appSlug.replace(/[-_]+$/g, ''));
 
     if (newsItem) {
-      title = `${getField(newsItem, 'title')} | ${siteTitle}`;
-      description = getField(newsItem, 'description', '').substring(0, 160);
+      title = getField(newsItem, 'seo_title') || `${getField(newsItem, 'title')} | ${siteTitle}`;
+      description = getField(newsItem, 'seo_description') || getField(newsItem, 'meta_description') || getField(newsItem, 'description', '').substring(0, 160);
       pageType = 'news';
       targetNews = newsItem;
     } else if (videoItem) {
-      title = `${getField(videoItem, 'title')} | ${siteTitle}`;
-      description = getField(videoItem, 'description', '').substring(0, 160);
+      title = getField(videoItem, 'seo_title') || `${getField(videoItem, 'title')} | ${siteTitle}`;
+      description = getField(videoItem, 'seo_description') || getField(videoItem, 'meta_description') || getField(videoItem, 'description', '').substring(0, 160);
       pageType = 'video';
       targetVideo = videoItem;
     } else {

@@ -504,6 +504,7 @@ Disallow: /info/
 Disallow: /gateway/
 Disallow: /download/
 Disallow: /moredetail/
+Crawl-delay: 2
 
 User-agent: AhrefsBot
 Disallow: /moreinfo/
@@ -511,14 +512,9 @@ Disallow: /info/
 Disallow: /gateway/
 Disallow: /download/
 Disallow: /moredetail/
+Crawl-delay: 2
 
-Sitemap: ${host}/sitemap_index.xml
 Sitemap: ${host}/sitemap.xml
-Sitemap: ${host}/sitemap-apps.xml
-Sitemap: ${host}/sitemap-static.xml
-Sitemap: ${host}/sitemap-news.xml
-Sitemap: ${host}/sitemap-videos.xml
-Sitemap: ${host}/sitemap-developers.xml
 `;
     res.set('Content-Type', 'text/plain; charset=utf-8');
     res.send(robots);
@@ -935,117 +931,45 @@ seoRouter.get(['/sitemap-developers.xml', '/sitemap_developers.xml'], async (req
 seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], async (req, res) => {
   try {
     const hostHeader = req.get('host') || '';
-    const hostLower = hostHeader.toLowerCase();
-    if (hostLower.includes('masterworld')) {
-      res.status(404).send('Not Found');
-      return;
+    if (hostHeader.toLowerCase().includes('masterworld')) {
+      return res.status(404).send('Not Found');
     }
 
-    const data = await fetchStoreData();
-    if (!data) {
-      throw new Error("Unable to fetch store data");
-    }
-    const { apps = [], news = [], videos = [] } = data;
     const host = getHostUrl(req);
-
-    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
-    xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n`;
-
     const today = new Date().toISOString();
 
-    const seenUrls = new Set<string>();
-    const addUrl = (loc: string, lastmod?: string | null, changefreq?: string, priority?: string, imageUrl?: string, imageTitle?: string) => {
-      if (!seenUrls.has(loc)) {
-        seenUrls.add(loc);
-        let itemXml = `  <url>\n    <loc>${loc}</loc>\n`;
-        
-        if (imageUrl && imageUrl.includes('res.cloudinary.com')) {
-          imageUrl = imageUrl.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_webp,q_auto,w_800/$1');
-        }
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap>
+    <loc>${host}/sitemap-apps.xml</loc>
+    <lastmod>${today}</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>${host}/sitemap-static.xml</loc>
+    <lastmod>${today}</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>${host}/sitemap-news.xml</loc>
+    <lastmod>${today}</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>${host}/sitemap-videos.xml</loc>
+    <lastmod>${today}</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>${host}/sitemap-developers.xml</loc>
+    <lastmod>${today}</lastmod>
+  </sitemap>
+</sitemapindex>`;
 
-        if (lastmod) {
-          itemXml += `    <lastmod>${lastmod}</lastmod>\n`;
-        }
-        if (changefreq) {
-          itemXml += `    <changefreq>${changefreq}</changefreq>\n`;
-        }
-        if (priority) {
-          itemXml += `    <priority>${priority}</priority>\n`;
-        }
-        if (imageUrl) {
-          itemXml += `    <image:image>\n      <image:loc>${escapeXml(imageUrl)}</image:loc>\n`;
-          if (imageTitle) {
-            itemXml += `      <image:title>${escapeXml(imageTitle)}</image:title>\n`;
-          }
-          itemXml += `    </image:image>\n`;
-        }
-        itemXml += `  </url>\n`;
-        xml += itemXml;
-      }
-    };
-
-    let siteLogo = getField(data?.settings, 'logo_url') || getField(data?.settings, 'favicon_url') || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
-
-    // 1. Core Static Pages
-    addUrl(`${host}/`, today, 'daily', '1.0', siteLogo, 'RummyDex Official Logo');
-    addUrl(`${host}/news`, today, 'daily', '0.8');
-    addUrl(`${host}/developers`, today, 'weekly', '0.7');
-    addUrl(`${host}/videos`, today, 'weekly', '0.7');
-    addUrl(`${host}/about`, today, 'monthly', '0.5');
-    addUrl(`${host}/contact`, today, 'monthly', '0.5');
-    addUrl(`${host}/privacy`, today, 'monthly', '0.3');
-    addUrl(`${host}/terms`, today, 'monthly', '0.3');
-    addUrl(`${host}/disclaimer`, today, 'monthly', '0.3');
-    addUrl(`${host}/notice`, today, 'monthly', '0.3');
-    addUrl(`${host}/ethics`, today, 'monthly', '0.3');
-    addUrl(`${host}/responsibility`, today, 'monthly', '0.3');
-    addUrl(`${host}/report-removal`, today, 'monthly', '0.3');
-
-    // 2. Canonical App Detail Pages
-    for (const app of apps) {
-      const slug = getField(app, 'slug');
-      if (slug) {
-        const cSlug = cleanSlug(slug);
-        const appDate = getFormattedDate(app);
-        const appImage = getOgImageUrl(getField(app, 'og_image_url') || getField(app, 'icon_url') || siteLogo);
-        const appName = getField(app, 'name') || 'Application';
-        addUrl(`${host}/app/${cSlug}`, appDate, 'daily', '0.9', appImage, appName);
-      }
-    }
-
-    // 3. News Articles
-    for (const item of news) {
-      const slug = getField(item, 'slug');
-      if (slug) {
-        const cSlug = cleanSlug(slug);
-        const itemDate = getFormattedDate(item);
-        const itemImage = getOgImageUrl(getField(item, 'og_image_url') || getField(item, 'logo_url') || getField(item, 'image_url') || siteLogo);
-        const itemTitle = getField(item, 'title') || 'News Bulletin';
-        addUrl(`${host}/news/${cSlug}`, itemDate, 'daily', '0.8', itemImage, itemTitle);
-      }
-    }
-
-    // 4. Videos
-    for (const item of videos) {
-      const slug = getField(item, 'slug') || getField(item, 'id');
-      if (slug) {
-        const cSlug = cleanSlug(slug);
-        const itemDate = getFormattedDate(item);
-        const ytThumb = getYoutubeThumbnail(getField(item, 'youtube_url') || getField(item, 'video_url') || getField(item, 'url'));
-        const itemImage = ytThumb || siteLogo;
-        const itemTitle = getField(item, 'title') || 'Video Walkthrough';
-        addUrl(`${host}/videos/${cSlug}`, itemDate, 'weekly', '0.7', itemImage, itemTitle);
-      }
-    }
-
-    xml += `</urlset>\n`;
-
-    res.set('Content-Type', 'application/xml; charset=utf-8');
-    res.set('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400');
-    res.send(xml);
+    res.set({
+      'Content-Type': 'application/xml; charset=utf-8',
+      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400'
+    });
+    return res.send(xml);
   } catch (e) {
-    console.error('Sitemap Generation Error:', e);
-    res.status(500).type('text/plain').send('Error generating sitemap');
+    console.error('Sitemap Index Generation Error:', e);
+    return res.status(500).type('text/plain').send('Error generating sitemap index');
   }
 });
 

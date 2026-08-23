@@ -254,3 +254,15 @@ Ensure any newly created files strictly follow repo-isolation boundaries:
 | **Dex (Public Site)** | `src/pages/` (Public pages), `src/components/public/`, `src/components/playstore/`, `src/components/ReportAppModal.tsx`, `src/components/ClearanceButton.tsx`, `src/hooks/useReviews.ts`, `src/contexts/DataContextPublic.tsx`, `/public/` static assets | All `src/components/admin/`, `src/pages/Admin*`, `src/server/middleware/adminAuth.ts`, `src/server/routes/admin*`, `src/lib/secureVault.ts`, `src/lib/totp.ts` |
 | **Masterworld (Admin Site)** | `src/components/admin/`, `src/pages/AdminDashboard.tsx`, `src/pages/AdminLogin.tsx`, `src/server/`, `src/lib/`, backend services & moderation tools | Public marketing/home pages (`Home.tsx`, `AppDetails.tsx`), public promotional UI components |
 
+---
+
+## 11. Strict Content & SEO Rules (AI FORBIDDEN FROM WRITING CONTENT)
+
+> [!CRITICAL]
+> **MANDATORY INSTRUCTION:** The AI agent is **STRICTLY FORBIDDEN** from writing, generating, or editing any website content, app descriptions, meta descriptions, SEO titles, or marketing copy.
+
+- **Admin is the Single Source of Truth:** ALL content (titles, meta descriptions, H1 tags, app details, faqs, etc.) MUST be written manually by the Admin via the Admin Dashboard and stored in the database.
+- **No Placeholder Content:** The AI must never invent or inject placeholder SEO text (e.g., "RummyDex - Download Rummy Apps...") into the code. 
+- **SEO Strategy:** The AI's role in SEO is purely structural and architectural. The AI handles server-side HTML injection (`seoHelper.ts`), `sitemap.xml` index architecture, and canonical/OG tag logic, ensuring the platform cleanly serves the *Admin's database content* to web crawlers (like Googlebot and Ahrefs). The AI must NEVER alter the actual words being served.
+
+
