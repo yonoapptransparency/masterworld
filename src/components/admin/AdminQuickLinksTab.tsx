@@ -42,6 +42,8 @@ export const AdminQuickLinksTab: React.FC<AdminQuickLinksTabProps> = ({
                 type="button"
                 onClick={() => handleRemoveQuickLink(index)}
                 className="absolute top-4 right-4 text-rose-500 bg-rose-50 dark:bg-rose-950/40 p-2 rounded-lg hover:bg-rose-500 hover:text-white transition-all border border-rose-100 dark:border-rose-900/30 cursor-pointer"
+                aria-label="Remove quick link"
+                title="Remove quick link"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
