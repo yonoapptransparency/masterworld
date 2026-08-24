@@ -255,6 +255,8 @@ async function startServer() {
       's',
       'dl',
       'out',
+      'category',
+      'categories',
       'sitemap.xml',
       'sitemap_index.xml',
       'sitemap-index.xml',
@@ -263,6 +265,10 @@ async function startServer() {
       'sitemap_apps.xml',
       'sitemap-app.xml',
       'sitemap_app.xml',
+      'sitemap-categories.xml',
+      'sitemap_categories.xml',
+      'sitemap-category.xml',
+      'sitemap_category.xml',
       'sitemap-static.xml',
       'sitemap_static.xml',
       'sitemap-pages.xml',
@@ -292,6 +298,8 @@ async function startServer() {
       !cleanSegment.includes('/') &&
       !knownTopLevelRoutes.has(cleanSegment) &&
       !pathLower.startsWith('/app/') &&
+      !pathLower.startsWith('/category/') &&
+      !pathLower.startsWith('/categories/') &&
       !pathLower.startsWith('/s/') &&
       !pathLower.startsWith('/news/') &&
       !pathLower.startsWith('/videos/') &&

@@ -125,7 +125,7 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
 
   let bodyContent = '';
 
-  if (cleanPathLower === '/' || cleanPathLower === '' || cleanPathLower === '/new-apps') {
+  if (cleanPathLower === '/' || cleanPathLower === '' || cleanPathLower === '/new-apps' || cleanPathLower.startsWith('/category/') || cleanPathLower.startsWith('/categories/') || cleanPathLower === '/categories') {
     bodyContent = renderers.renderHome(apps, settings, news, videos);
   } else if (cleanPathLower.startsWith('/s/')) {
     const slug = cleanPath.split('/s/')[1];
@@ -580,6 +580,15 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     pageType = 'home';
     title = getField(settings, 'seo_title') || siteTitle;
     description = getField(settings, 'meta_description', '');
+  } else if (cleanPathLower.startsWith('/category/') || cleanPathLower.startsWith('/categories/') || cleanPathLower === '/categories') {
+    const rawCatSlug = cleanPathLower.replace(/^\/(category|categories)\/?/, '').replace(/^\/|\/$/g, '');
+    const catName = rawCatSlug
+      ? rawCatSlug.split(/[-_]+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+      : 'All Categories';
+    pageType = 'home';
+    title = `${catName} - Download & Reviews | ${siteTitle}`;
+    description = `Explore top ${catName}, verified reviews, download ratings, and bonus updates on ${siteTitle}.`;
+    customCanonicalUrl = `https://www.rummydex.com/category/${rawCatSlug || 'all'}`;
   } else if (cleanPathLower.startsWith('/admin') || cleanPathLower.startsWith('/masterworld')) {
     title = `Admin Panel | ${siteTitle}`;
     description = `Admin Control Dashboard`;
@@ -598,12 +607,12 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       pageType = '404';
     }
   } else if (cleanPathLower === '/news') {
-    title = `News & Updates | ${siteTitle}`;
-    description = `The latest gaming news, reports, and transparency updates.`;
+    title = getField(settings, 'news_meta_title') || `News & Updates | ${siteTitle}`;
+    description = getField(settings, 'news_meta_description') || `The latest gaming news, reports, and transparency updates.`;
     pageType = 'static';
   } else if (cleanPathLower === '/videos') {
-    title = `Video Reviews | ${siteTitle}`;
-    description = `Watch deep-dive reviews and gameplay analysis.`;
+    title = getField(settings, 'videos_meta_title') || `Video Reviews | ${siteTitle}`;
+    description = getField(settings, 'videos_meta_description') || `Watch deep-dive reviews and gameplay analysis.`;
     pageType = 'static';
   } else if (cleanPathLower.startsWith('/news/')) {
     const slug = cleanPath.split('/news/')[1];
@@ -632,16 +641,37 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     }
   } else if (['/about', '/contact', '/privacy', '/report-removal', '/terms', '/notice', '/ethics', '/disclaimer', '/responsibility', '/developers'].includes(cleanPathLower)) {
     pageType = 'static';
-    if (cleanPathLower === '/about') { title = `About Us | ${siteTitle}`; description = `Learn more about ${siteTitle}, our mission, and our dedicated team.`; }
-    else if (cleanPathLower === '/contact') { title = `Contact Support | ${siteTitle}`; description = `Get in touch with ${siteTitle} support for any queries or assistance.`; }
-    else if (cleanPathLower === '/privacy') { title = `Privacy Policy | ${siteTitle}`; description = `Read the Privacy Policy of ${siteTitle} to understand how we protect your data.`; }
-    else if (cleanPathLower === '/report-removal') { title = `Report & Removal | ${siteTitle}`; description = `Report content or request removal of specific applications on ${siteTitle}.`; }
-    else if (cleanPathLower === '/terms') { title = `Terms of Service | ${siteTitle}`; description = `Review the Terms of Service and usage guidelines for ${siteTitle}.`; }
-    else if (cleanPathLower === '/notice') { title = `Legal Notice | ${siteTitle}`; description = `Important legal notices and compliance information for ${siteTitle}.`; }
-    else if (cleanPathLower === '/ethics') { title = `Ethics & Safety | ${siteTitle}`; description = `Our commitment to ethics, safety, and transparent reviews at ${siteTitle}.`; }
-    else if (cleanPathLower === '/disclaimer') { title = `Disclaimer | ${siteTitle}`; description = `Read the official disclaimer regarding the content and apps on ${siteTitle}.`; }
-    else if (cleanPathLower === '/responsibility') { title = `Responsible Gaming | ${siteTitle}`; description = `Information and resources for responsible gaming and app usage on ${siteTitle}.`; }
-    else if (cleanPathLower === '/developers') { title = `Developer Profiles | ${siteTitle}`; description = `Browse profiles of top app developers featured on ${siteTitle}.`; }
+    if (cleanPathLower === '/about') {
+      title = getField(settings, 'about_meta_title') || `About Us | ${siteTitle}`;
+      description = getField(settings, 'about_meta_description') || `Learn more about ${siteTitle}, our mission, and our dedicated team.`;
+    } else if (cleanPathLower === '/contact') {
+      title = getField(settings, 'contact_meta_title') || `Contact Support | ${siteTitle}`;
+      description = getField(settings, 'contact_meta_description') || `Get in touch with ${siteTitle} support for any queries or assistance.`;
+    } else if (cleanPathLower === '/privacy') {
+      title = getField(settings, 'privacy_meta_title') || `Privacy Policy | ${siteTitle}`;
+      description = getField(settings, 'privacy_meta_description') || `Read the Privacy Policy of ${siteTitle} to understand how we protect your data.`;
+    } else if (cleanPathLower === '/report-removal') {
+      title = getField(settings, 'report_removal_meta_title') || `Report & Removal | ${siteTitle}`;
+      description = getField(settings, 'report_removal_meta_description') || `Report content or request removal of specific applications on ${siteTitle}.`;
+    } else if (cleanPathLower === '/terms') {
+      title = getField(settings, 'terms_meta_title') || `Terms of Service | ${siteTitle}`;
+      description = getField(settings, 'terms_meta_description') || `Review the Terms of Service and usage guidelines for ${siteTitle}.`;
+    } else if (cleanPathLower === '/notice') {
+      title = getField(settings, 'notice_meta_title') || getField(settings, 'important_notice_heading') || `Legal Notice | ${siteTitle}`;
+      description = getField(settings, 'notice_meta_description') || `Important legal notices and compliance information for ${siteTitle}.`;
+    } else if (cleanPathLower === '/ethics') {
+      title = getField(settings, 'ethics_meta_title') || getField(settings, 'ethics_heading') || `Ethics & Safety | ${siteTitle}`;
+      description = getField(settings, 'ethics_meta_description') || `Our commitment to ethics, safety, and transparent reviews at ${siteTitle}.`;
+    } else if (cleanPathLower === '/disclaimer') {
+      title = getField(settings, 'disclaimer_meta_title') || getField(settings, 'disclaimer_heading') || `Disclaimer | ${siteTitle}`;
+      description = getField(settings, 'disclaimer_meta_description') || `Read the official disclaimer regarding the content and apps on ${siteTitle}.`;
+    } else if (cleanPathLower === '/responsibility') {
+      title = getField(settings, 'responsibility_meta_title') || `Responsible Gaming | ${siteTitle}`;
+      description = getField(settings, 'responsibility_meta_description') || `Information and resources for responsible gaming and app usage on ${siteTitle}.`;
+    } else if (cleanPathLower === '/developers') {
+      title = getField(settings, 'developers_meta_title') || `Developer Profiles | ${siteTitle}`;
+      description = getField(settings, 'developers_meta_description') || `Browse profiles of top app developers featured on ${siteTitle}.`;
+    }
   } else if (cleanPathLower.startsWith('/info/') || cleanPathLower.startsWith('/moreinfo/') || cleanPathLower.startsWith('/moredetail/') || cleanPathLower.startsWith('/gateway/') || cleanPathLower.startsWith('/download/')) {
     const parts = cleanPathLower.split('/');
     const slug = parts[parts.length - 1];
@@ -847,7 +877,11 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
         category: sanitizedApp.category,
         rating: sanitizedApp.rating,
         review_count: sanitizedApp.review_count,
+        reviews: sanitizedApp.reviews,
         developer: sanitizedApp.developer,
+        version: sanitizedApp.version,
+        file_size: sanitizedApp.file_size,
+        short_description: sanitizedApp.short_description,
         is_featured: sanitizedApp.is_featured,
         is_new: sanitizedApp.is_new,
         is_hot: sanitizedApp.is_hot,
@@ -856,7 +890,14 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
         safety_status: sanitizedApp.safety_status,
         is_coming_soon: sanitizedApp.is_coming_soon,
         publish_date: sanitizedApp.publish_date,
-        serial_number: sanitizedApp.serial_number
+        updated_at: sanitizedApp.updated_at,
+        serial_number: sanitizedApp.serial_number,
+        seo_title: sanitizedApp.seo_title,
+        seo_description: sanitizedApp.seo_description,
+        seo_keywords: sanitizedApp.seo_keywords,
+        meta_description: sanitizedApp.meta_description,
+        og_image_url: sanitizedApp.og_image_url,
+        canonical_url: sanitizedApp.canonical_url
       };
     }) : [];
 

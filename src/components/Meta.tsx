@@ -37,7 +37,6 @@ const Meta: React.FC<MetaProps> = ({
   const metaKeywords = keywords || settings?.seo_keywords || '';
   
   const DEFAULT_ICON = 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
-  const faviconUrl = (settings?.favicon_url && settings.favicon_url.trim()) || DEFAULT_ICON;
   const rawImage = image || settings?.logo_url || settings?.favicon_url || DEFAULT_ICON;
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.rummydex.com';
   const metaImage = getOgImageUrl(rawImage, origin);
@@ -102,7 +101,6 @@ const Meta: React.FC<MetaProps> = ({
     setMetaTag('name', 'bingbot', robotsDirective);
 
     // 3. Strict Single Canonical Tag Enforcement in <head>
-    // Remove ANY duplicate or rogue canonical links anywhere in document
     const allCanonicals = document.querySelectorAll('link[rel="canonical"]');
     let headCanonical: HTMLLinkElement | null = null;
     allCanonicals.forEach((linkEl) => {
@@ -122,27 +120,55 @@ const Meta: React.FC<MetaProps> = ({
       document.head.appendChild(link);
     }
 
-    // 4. OpenGraph Tags
+    // 4. Strict Single Image Source Link Tag Enforcement
+    const allImageLinks = document.querySelectorAll('link[rel="image_src"]');
+    let headImageLink: HTMLLinkElement | null = null;
+    allImageLinks.forEach((linkEl) => {
+      if (linkEl.parentElement === document.head && !headImageLink) {
+        headImageLink = linkEl as HTMLLinkElement;
+      } else {
+        linkEl.remove();
+      }
+    });
+    if (metaImage) {
+      if (headImageLink) {
+        (headImageLink as HTMLLinkElement).setAttribute('href', metaImage);
+      } else {
+        const link = document.createElement('link');
+        link.setAttribute('rel', 'image_src');
+        link.setAttribute('href', metaImage);
+        document.head.appendChild(link);
+      }
+    } else if (headImageLink) {
+      (headImageLink as HTMLLinkElement).remove();
+    }
+
+    // 5. OpenGraph Tags
     setMetaTag('property', 'og:type', type);
     setMetaTag('property', 'og:url', metaUrl);
     setMetaTag('property', 'og:title', fullTitle);
     setMetaTag('property', 'og:description', metaDescription);
     setMetaTag('property', 'og:image', metaImage);
     setMetaTag('property', 'og:image:secure_url', metaImage);
+    setMetaTag('property', 'og:image:type', metaImage.includes('.jpg') || metaImage.includes('f_jpg') ? 'image/jpeg' : 'image/png');
+    setMetaTag('property', 'og:image:width', '1200');
+    setMetaTag('property', 'og:image:height', '630');
     setMetaTag('property', 'og:site_name', siteTitle);
+    setMetaTag('property', 'og:locale', 'en_IN');
 
-    // 5. Twitter Card Tags
+    // 6. Twitter Card Tags
     setMetaTag('name', 'twitter:card', 'summary_large_image');
+    setMetaTag('name', 'twitter:site', '@RummyDex');
+    setMetaTag('name', 'twitter:creator', '@RummyDex');
     setMetaTag('name', 'twitter:url', metaUrl);
     setMetaTag('name', 'twitter:title', fullTitle);
     setMetaTag('name', 'twitter:description', metaDescription);
     setMetaTag('name', 'twitter:image', metaImage);
 
-    // 6. JSON-LD Structured Data in <head>
-    const existingSchemaScript = document.head.querySelector('script[data-dynamic-schema="true"]');
-    if (existingSchemaScript) {
-      existingSchemaScript.remove();
-    }
+    // 7. Schema.org JSON-LD Structured Data in <head>
+    // Purge ALL existing JSON-LD scripts to completely avoid duplicates on SSR or client navigation
+    const allSchemaScripts = document.head.querySelectorAll('script[type="application/ld+json"]');
+    allSchemaScripts.forEach((s) => s.remove());
 
     const schemasToInject: any[] = [];
     if (schema) schemasToInject.push(schema);
@@ -165,11 +191,13 @@ const Meta: React.FC<MetaProps> = ({
     }
 
     if (schemasToInject.length > 0) {
-      const script = document.createElement('script');
-      script.type = 'application/ld+json';
-      script.setAttribute('data-dynamic-schema', 'true');
-      script.textContent = schemasToInject.length === 1 ? JSON.stringify(schemasToInject[0]) : JSON.stringify(schemasToInject);
-      document.head.appendChild(script);
+      schemasToInject.forEach((s) => {
+        const script = document.createElement('script');
+        script.type = 'application/ld+json';
+        script.setAttribute('data-dynamic-schema', 'true');
+        script.textContent = JSON.stringify(s);
+        document.head.appendChild(script);
+      });
     }
   }, [fullTitle, metaDescription, metaKeywords, robotsDirective, canonicalUrl, metaUrl, type, metaImage, siteTitle, schema, faqSchema, breadcrumbSchema, currentPath, origin]);
 

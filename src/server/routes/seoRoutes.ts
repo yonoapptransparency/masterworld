@@ -579,7 +579,6 @@ Disallow: /
 User-agent: PerplexityBot
 Disallow: /
 
-Sitemap: https://www.rummydex.com/sitemap_index.xml
 Sitemap: https://www.rummydex.com/sitemap.xml
 `);
   }
@@ -601,23 +600,71 @@ const cleanSlug = (slug: string) => {
   return escapeXml(encodeURI(slug.trim().replace(/^\/+|\/+$/g, '')));
 };
 
-const getFormattedDate = (obj: any): string | null => {
-  const dateStr = getField(obj, 'updated_at') || getField(obj, 'created_at') || getField(obj, 'published_at') || getField(obj, 'publish_date') || getField(obj, 'date');
-  if (dateStr) {
+/**
+ * Robust date extractor that finds the latest exact update/upload/creation timestamp
+ * across Firestore Timestamps, ISO strings, timestamps, and custom dates.
+ */
+const getFormattedDate = (obj: any): string => {
+  if (!obj || typeof obj !== 'object') return new Date().toISOString();
+
+  const candidateKeys = [
+    'updated_at',
+    'created_at',
+    'publish_date',
+    'published_at',
+    'last_updated',
+    'date',
+    'timestamp'
+  ];
+
+  let latestTimestamp = 0;
+
+  for (const key of candidateKeys) {
+    const val = getField(obj, key);
+    if (!val) continue;
+
     try {
-      if (typeof dateStr === 'object' && dateStr !== null && (dateStr as any).seconds) {
-        return new Date((dateStr as any).seconds * 1000).toISOString();
+      // Handle Firestore Timestamp object or serialized timestamp
+      if (typeof val === 'object' && val !== null) {
+        if (typeof (val as any).seconds === 'number') {
+          const ms = (val as any).seconds * 1000;
+          if (ms > latestTimestamp) latestTimestamp = ms;
+          continue;
+        }
+        if (typeof (val as any)._seconds === 'number') {
+          const ms = (val as any)._seconds * 1000;
+          if (ms > latestTimestamp) latestTimestamp = ms;
+          continue;
+        }
+        if (typeof (val as any).toMillis === 'function') {
+          const ms = (val as any).toMillis();
+          if (ms > latestTimestamp) latestTimestamp = ms;
+          continue;
+        }
       }
-      if (typeof dateStr === 'object' && dateStr !== null && (dateStr as any)._seconds) {
-        return new Date((dateStr as any)._seconds * 1000).toISOString();
+
+      // Handle numeric timestamps
+      if (typeof val === 'number' && val > 0) {
+        const ms = val > 1e11 ? val : val * 1000;
+        if (ms > latestTimestamp) latestTimestamp = ms;
+        continue;
       }
-      const date = new Date(dateStr);
-      if (!isNaN(date.getTime())) {
-        return date.toISOString();
+
+      // Handle string dates (ISO 8601, YYYY-MM-DD, etc.)
+      if (typeof val === 'string' && val.trim().length > 0) {
+        const parsed = new Date(val.trim()).getTime();
+        if (!isNaN(parsed) && parsed > 0) {
+          if (parsed > latestTimestamp) latestTimestamp = parsed;
+        }
       }
-    } catch(e) {}
+    } catch (e) {}
   }
-  return null;
+
+  if (latestTimestamp > 0) {
+    return new Date(latestTimestamp).toISOString();
+  }
+
+  return new Date().toISOString();
 };
 
 const getHostUrl = (req: express.Request): string => {
@@ -628,38 +675,77 @@ const getHostUrl = (req: express.Request): string => {
   return rawDomain.replace(/\/$/, '');
 };
 
-// 1. Sitemap Index Route (/sitemap_index.xml, /sitemap-index.xml)
-seoRouter.get(['/sitemap_index.xml', '/sitemap-index.xml', '/sitemapindex.xml'], async (req, res) => {
+// 1. Master Comprehensive Sitemap Index Route (/sitemap.xml, /sitemap_index.xml, /sitemap-index.xml)
+seoRouter.get(['/sitemap.xml', '/sitemap_index.xml', '/sitemap-index.xml', '/sitemapindex.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], async (req, res) => {
   try {
     const hostHeader = req.get('host') || '';
     if (hostHeader.toLowerCase().includes('masterworld')) {
       return res.status(404).send('Not Found');
     }
 
+    const data = await fetchStoreData();
+    const { apps = [], news = [], videos = [] } = data || {};
     const host = getHostUrl(req);
     const today = new Date().toISOString();
+
+    // Find the latest update date across all apps
+    let latestAppDate = today;
+    if (apps.length > 0) {
+      let maxTs = 0;
+      for (const app of apps) {
+        const d = new Date(getFormattedDate(app)).getTime();
+        if (d > maxTs) maxTs = d;
+      }
+      if (maxTs > 0) latestAppDate = new Date(maxTs).toISOString();
+    }
+
+    // Find the latest update date across news
+    let latestNewsDate = today;
+    if (news.length > 0) {
+      let maxTs = 0;
+      for (const item of news) {
+        const d = new Date(getFormattedDate(item)).getTime();
+        if (d > maxTs) maxTs = d;
+      }
+      if (maxTs > 0) latestNewsDate = new Date(maxTs).toISOString();
+    }
+
+    // Find the latest update date across videos
+    let latestVideoDate = today;
+    if (videos.length > 0) {
+      let maxTs = 0;
+      for (const v of videos) {
+        const d = new Date(getFormattedDate(v)).getTime();
+        if (d > maxTs) maxTs = d;
+      }
+      if (maxTs > 0) latestVideoDate = new Date(maxTs).toISOString();
+    }
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <sitemap>
     <loc>${host}/sitemap-apps.xml</loc>
-    <lastmod>${today}</lastmod>
+    <lastmod>${latestAppDate}</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>${host}/sitemap-categories.xml</loc>
+    <lastmod>${latestAppDate}</lastmod>
   </sitemap>
   <sitemap>
     <loc>${host}/sitemap-static.xml</loc>
-    <lastmod>${today}</lastmod>
+    <lastmod>${latestAppDate}</lastmod>
   </sitemap>
   <sitemap>
     <loc>${host}/sitemap-news.xml</loc>
-    <lastmod>${today}</lastmod>
+    <lastmod>${latestNewsDate}</lastmod>
   </sitemap>
   <sitemap>
     <loc>${host}/sitemap-videos.xml</loc>
-    <lastmod>${today}</lastmod>
+    <lastmod>${latestVideoDate}</lastmod>
   </sitemap>
   <sitemap>
     <loc>${host}/sitemap-developers.xml</loc>
-    <lastmod>${today}</lastmod>
+    <lastmod>${latestAppDate}</lastmod>
   </sitemap>
 </sitemapindex>`;
 
@@ -687,11 +773,18 @@ seoRouter.get(['/sitemap-apps.xml', '/sitemap_apps.xml', '/sitemap-app.xml', '/s
     const host = getHostUrl(req);
     const siteLogo = getField(data?.settings, 'logo_url') || getField(data?.settings, 'favicon_url') || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
 
+    // Sort apps so latest updated apps appear at top
+    const sortedApps = [...apps].sort((a, b) => {
+      const ta = new Date(getFormattedDate(a)).getTime();
+      const tb = new Date(getFormattedDate(b)).getTime();
+      return tb - ta;
+    });
+
     let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
     xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n`;
 
     const seenUrls = new Set<string>();
-    for (const app of apps) {
+    for (const app of sortedApps) {
       const slug = getField(app, 'slug');
       if (slug) {
         const cSlug = cleanSlug(slug);
@@ -729,7 +822,109 @@ seoRouter.get(['/sitemap-apps.xml', '/sitemap_apps.xml', '/sitemap-app.xml', '/s
   }
 });
 
-// 3. Static Pages Sitemap Route (/sitemap-static.xml, /sitemap_static.xml, /sitemap-pages.xml)
+// 3. Categories Sitemap Route (/sitemap-categories.xml, /sitemap_categories.xml, /sitemap-category.xml)
+seoRouter.get(['/sitemap-categories.xml', '/sitemap_categories.xml', '/sitemap-category.xml', '/sitemap_category.xml'], async (req, res) => {
+  try {
+    const hostHeader = req.get('host') || '';
+    if (hostHeader.toLowerCase().includes('masterworld')) {
+      return res.status(404).send('Not Found');
+    }
+
+    const data = await fetchStoreData();
+    const { apps = [], settings = {} } = data || {};
+    const host = getHostUrl(req);
+    const siteLogo = getField(settings, 'logo_url') || getField(settings, 'favicon_url') || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
+
+    // Extract all unique categories
+    const categorySet = new Set<string>();
+    
+    // Add categories from settings if defined
+    if (Array.isArray(settings?.categories)) {
+      for (const cat of settings.categories) {
+        if (typeof cat === 'string' && cat.trim() && cat.trim().toLowerCase() !== 'all apps') {
+          categorySet.add(cat.trim());
+        }
+      }
+    }
+
+    // Add categories from apps
+    for (const app of apps) {
+      const rawCat = getField(app, 'category');
+      if (rawCat && typeof rawCat === 'string') {
+        rawCat.split(',').forEach((c: string) => {
+          const trimmed = c.trim();
+          if (trimmed && trimmed.toLowerCase() !== 'all apps' && trimmed.toLowerCase() !== 'all' && trimmed.toLowerCase() !== 'apps') {
+            categorySet.add(trimmed);
+          }
+        });
+      }
+    }
+
+    // Always ensure key popular gaming categories exist
+    const defaultCategories = ['Rummy Apps', 'Yono Apps', 'Teen Patti', 'Casino', 'Slot Games', 'Arcade', 'Board', 'Casual'];
+    defaultCategories.forEach(c => categorySet.add(c));
+
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+    xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n`;
+
+    const seenUrls = new Set<string>();
+    for (const cat of Array.from(categorySet)) {
+      const catSlug = cat.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      if (!catSlug) continue;
+
+      const catLoc = `${host}/category/${catSlug}`;
+      if (!seenUrls.has(catLoc)) {
+        seenUrls.add(catLoc);
+
+        // Find the latest update date among apps belonging to this category
+        const catApps = apps.filter(a => {
+          const appCat = getField(a, 'category') || '';
+          return appCat.toLowerCase().includes(cat.toLowerCase()) || appCat.toLowerCase().includes(catSlug.replace(/-/g, ' '));
+        });
+
+        let catLatestDate = new Date().toISOString();
+        if (catApps.length > 0) {
+          let maxTs = 0;
+          for (const ca of catApps) {
+            const d = new Date(getFormattedDate(ca)).getTime();
+            if (d > maxTs) maxTs = d;
+          }
+          if (maxTs > 0) catLatestDate = new Date(maxTs).toISOString();
+        }
+
+        // Pick icon of first app in category or site logo
+        let catImage = siteLogo;
+        if (catApps.length > 0) {
+          catImage = getField(catApps[0], 'og_image_url') || getField(catApps[0], 'icon_url') || siteLogo;
+        }
+        if (catImage && catImage.includes('res.cloudinary.com')) {
+          catImage = catImage.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_webp,q_auto,w_800/$1');
+        }
+
+        xml += `  <url>\n    <loc>${catLoc}</loc>\n`;
+        xml += `    <lastmod>${catLatestDate}</lastmod>\n`;
+        xml += `    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n`;
+        if (catImage) {
+          xml += `    <image:image>\n      <image:loc>${escapeXml(catImage)}</image:loc>\n      <image:title>${escapeXml(`${cat} - RummyDex`)}</image:title>\n    </image:image>\n`;
+        }
+        xml += `  </url>\n`;
+      }
+    }
+
+    xml += `</urlset>\n`;
+
+    res.set({
+      'Content-Type': 'application/xml; charset=utf-8',
+      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400'
+    });
+    return res.send(xml);
+  } catch (e) {
+    console.error('Categories Sitemap Error:', e);
+    return res.status(500).type('text/plain').send('Error generating categories sitemap');
+  }
+});
+
+// 4. Static Pages Sitemap Route (/sitemap-static.xml, /sitemap_static.xml, /sitemap-pages.xml)
 seoRouter.get(['/sitemap-static.xml', '/sitemap_static.xml', '/sitemap-pages.xml', '/sitemap_pages.xml'], async (req, res) => {
   try {
     const hostHeader = req.get('host') || '';
@@ -738,27 +933,39 @@ seoRouter.get(['/sitemap-static.xml', '/sitemap_static.xml', '/sitemap-pages.xml
     }
 
     const data = await fetchStoreData();
+    const { apps = [] } = data || {};
     const host = getHostUrl(req);
-    const today = new Date().toISOString();
+    
+    // Find latest app date for homepage lastmod
+    let latestAppDate = new Date().toISOString();
+    if (apps.length > 0) {
+      let maxTs = 0;
+      for (const a of apps) {
+        const d = new Date(getFormattedDate(a)).getTime();
+        if (d > maxTs) maxTs = d;
+      }
+      if (maxTs > 0) latestAppDate = new Date(maxTs).toISOString();
+    }
+
     let siteLogo = getField(data?.settings, 'logo_url') || getField(data?.settings, 'favicon_url') || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
     if (siteLogo && siteLogo.includes('res.cloudinary.com')) {
       siteLogo = siteLogo.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_webp,q_auto,w_800/$1');
     }
 
     const staticPages = [
-      { path: '/', priority: '1.0', changefreq: 'daily', title: 'RummyDex - Official App Hub & Transparency Directory', image: siteLogo },
-      { path: '/news', priority: '0.8', changefreq: 'daily', title: 'Gaming News & Announcements' },
-      { path: '/developers', priority: '0.7', changefreq: 'weekly', title: 'Developer Profiles' },
-      { path: '/videos', priority: '0.7', changefreq: 'weekly', title: 'Video Reviews & Gameplay Gallery' },
-      { path: '/about', priority: '0.5', changefreq: 'monthly', title: 'About RummyDex' },
-      { path: '/contact', priority: '0.5', changefreq: 'monthly', title: 'Contact Support' },
-      { path: '/privacy', priority: '0.3', changefreq: 'monthly', title: 'Privacy Policy' },
-      { path: '/terms', priority: '0.3', changefreq: 'monthly', title: 'Terms of Service' },
-      { path: '/disclaimer', priority: '0.3', changefreq: 'monthly', title: 'Disclaimer' },
-      { path: '/notice', priority: '0.3', changefreq: 'monthly', title: 'Important Legal Notice' },
-      { path: '/ethics', priority: '0.3', changefreq: 'monthly', title: 'Ethics & Transparency Commitment' },
-      { path: '/responsibility', priority: '0.3', changefreq: 'monthly', title: 'Responsible Gaming Policy' },
-      { path: '/report-removal', priority: '0.3', changefreq: 'monthly', title: 'Report & Removal Requests' }
+      { path: '/', priority: '1.0', changefreq: 'daily', title: 'RummyDex - Official App Hub & Transparency Directory', image: siteLogo, lastmod: latestAppDate },
+      { path: '/news', priority: '0.8', changefreq: 'daily', title: 'Gaming News & Announcements', lastmod: latestAppDate },
+      { path: '/developers', priority: '0.7', changefreq: 'weekly', title: 'Developer Profiles', lastmod: latestAppDate },
+      { path: '/videos', priority: '0.7', changefreq: 'weekly', title: 'Video Reviews & Gameplay Gallery', lastmod: latestAppDate },
+      { path: '/about', priority: '0.5', changefreq: 'monthly', title: 'About RummyDex', lastmod: latestAppDate },
+      { path: '/contact', priority: '0.5', changefreq: 'monthly', title: 'Contact Support', lastmod: latestAppDate },
+      { path: '/privacy', priority: '0.3', changefreq: 'monthly', title: 'Privacy Policy', lastmod: latestAppDate },
+      { path: '/terms', priority: '0.3', changefreq: 'monthly', title: 'Terms of Service', lastmod: latestAppDate },
+      { path: '/disclaimer', priority: '0.3', changefreq: 'monthly', title: 'Disclaimer', lastmod: latestAppDate },
+      { path: '/notice', priority: '0.3', changefreq: 'monthly', title: 'Important Legal Notice', lastmod: latestAppDate },
+      { path: '/ethics', priority: '0.3', changefreq: 'monthly', title: 'Ethics & Transparency Commitment', lastmod: latestAppDate },
+      { path: '/responsibility', priority: '0.3', changefreq: 'monthly', title: 'Responsible Gaming Policy', lastmod: latestAppDate },
+      { path: '/report-removal', priority: '0.3', changefreq: 'monthly', title: 'Report & Removal Requests', lastmod: latestAppDate }
     ];
 
     let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
@@ -766,7 +973,7 @@ seoRouter.get(['/sitemap-static.xml', '/sitemap_static.xml', '/sitemap-pages.xml
 
     for (const page of staticPages) {
       const loc = `${host}${page.path === '/' ? '/' : page.path}`;
-      xml += `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>${page.changefreq}</changefreq>\n    <priority>${page.priority}</priority>\n`;
+      xml += `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${page.lastmod}</lastmod>\n    <changefreq>${page.changefreq}</changefreq>\n    <priority>${page.priority}</priority>\n`;
       if (page.image) {
         xml += `    <image:image>\n      <image:loc>${escapeXml(page.image)}</image:loc>\n      <image:title>${escapeXml(page.title)}</image:title>\n    </image:image>\n`;
       }
@@ -786,7 +993,7 @@ seoRouter.get(['/sitemap-static.xml', '/sitemap_static.xml', '/sitemap-pages.xml
   }
 });
 
-// 4. News Sitemap Route (/sitemap-news.xml, /sitemap_news.xml, /sitemap-posts.xml)
+// 5. News Sitemap Route (/sitemap-news.xml, /sitemap_news.xml, /sitemap-posts.xml)
 seoRouter.get(['/sitemap-news.xml', '/sitemap_news.xml', '/sitemap-posts.xml', '/sitemap_posts.xml'], async (req, res) => {
   try {
     const hostHeader = req.get('host') || '';
@@ -841,7 +1048,7 @@ seoRouter.get(['/sitemap-news.xml', '/sitemap_news.xml', '/sitemap-posts.xml', '
   }
 });
 
-// 5. Videos Sitemap Route (/sitemap-videos.xml, /sitemap_videos.xml, /sitemap-video.xml)
+// 6. Videos Sitemap Route (/sitemap-videos.xml, /sitemap_videos.xml, /sitemap-video.xml)
 seoRouter.get(['/sitemap-videos.xml', '/sitemap_videos.xml', '/sitemap-video.xml', '/sitemap_video.xml'], async (req, res) => {
   try {
     const hostHeader = req.get('host') || '';
@@ -903,14 +1110,25 @@ seoRouter.get(['/sitemap-developers.xml', '/sitemap_developers.xml'], async (req
       return res.status(404).send('Not Found');
     }
 
+    const data = await fetchStoreData();
+    const { apps = [] } = data || {};
     const host = getHostUrl(req);
-    const today = new Date().toISOString();
+    
+    let latestAppDate = new Date().toISOString();
+    if (apps.length > 0) {
+      let maxTs = 0;
+      for (const a of apps) {
+        const d = new Date(getFormattedDate(a)).getTime();
+        if (d > maxTs) maxTs = d;
+      }
+      if (maxTs > 0) latestAppDate = new Date(maxTs).toISOString();
+    }
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>${host}/developers</loc>
-    <lastmod>${today}</lastmod>
+    <lastmod>${latestAppDate}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -924,52 +1142,6 @@ seoRouter.get(['/sitemap-developers.xml', '/sitemap_developers.xml'], async (req
   } catch (e) {
     console.error('Developers Sitemap Error:', e);
     return res.status(500).type('text/plain').send('Error generating developers sitemap');
-  }
-});
-
-// 8. Master Comprehensive Sitemap Route (/sitemap.xml, /sitemap, /api/sitemap, /api/sitemap.xml)
-seoRouter.get(['/sitemap.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], async (req, res) => {
-  try {
-    const hostHeader = req.get('host') || '';
-    if (hostHeader.toLowerCase().includes('masterworld')) {
-      return res.status(404).send('Not Found');
-    }
-
-    const host = getHostUrl(req);
-    const today = new Date().toISOString();
-
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <sitemap>
-    <loc>${host}/sitemap-apps.xml</loc>
-    <lastmod>${today}</lastmod>
-  </sitemap>
-  <sitemap>
-    <loc>${host}/sitemap-static.xml</loc>
-    <lastmod>${today}</lastmod>
-  </sitemap>
-  <sitemap>
-    <loc>${host}/sitemap-news.xml</loc>
-    <lastmod>${today}</lastmod>
-  </sitemap>
-  <sitemap>
-    <loc>${host}/sitemap-videos.xml</loc>
-    <lastmod>${today}</lastmod>
-  </sitemap>
-  <sitemap>
-    <loc>${host}/sitemap-developers.xml</loc>
-    <lastmod>${today}</lastmod>
-  </sitemap>
-</sitemapindex>`;
-
-    res.set({
-      'Content-Type': 'application/xml; charset=utf-8',
-      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400'
-    });
-    return res.send(xml);
-  } catch (e) {
-    console.error('Sitemap Index Generation Error:', e);
-    return res.status(500).type('text/plain').send('Error generating sitemap index');
   }
 });
 

@@ -48,6 +48,31 @@ export interface GlobalSettings {
   social_links?: { facebook?: string; instagram?: string; twitter?: string; linkedin?: string; youtube?: string; };
   website_faqs?: Array<{ question: string; answer: string }>;
   developers?: Array<{ id?: string; name: string; role: string; bio?: string; image_url?: string; github?: string; twitter?: string; avatar_url?: string; social?: any }>;
+  // Static Page SEO Titles & Descriptions
+  disclaimer_meta_title?: string;
+  disclaimer_meta_description?: string;
+  ethics_meta_title?: string;
+  ethics_meta_description?: string;
+  about_meta_title?: string;
+  about_meta_description?: string;
+  contact_meta_title?: string;
+  contact_meta_description?: string;
+  privacy_meta_title?: string;
+  privacy_meta_description?: string;
+  terms_meta_title?: string;
+  terms_meta_description?: string;
+  responsibility_meta_title?: string;
+  responsibility_meta_description?: string;
+  report_removal_meta_title?: string;
+  report_removal_meta_description?: string;
+  notice_meta_title?: string;
+  notice_meta_description?: string;
+  developers_meta_title?: string;
+  developers_meta_description?: string;
+  news_meta_title?: string;
+  news_meta_description?: string;
+  videos_meta_title?: string;
+  videos_meta_description?: string;
 }
 
 export interface NewsItem {

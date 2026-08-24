@@ -92,6 +92,170 @@ export const AdminSettingsTab = React.memo(({ settings: rawSettings, handleSaveS
       </div>
 
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-6">
+        <div>
+          <h3 className="font-bold text-sm text-slate-900 dark:text-white border-b border-black/5 dark:border-white/5 pb-2">Static & Legal Pages SEO (Meta Titles & Descriptions)</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Configure distinct, high-ranking meta titles and descriptions for all static and legal pages. If left blank, clean defaults will be used.</p>
+        </div>
+        <div className="grid gap-6 sm:grid-cols-2">
+          {/* Disclaimer */}
+          <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Disclaimer Page (/disclaimer)</h4>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">SEO Title</label>
+              <input type="text" name="disclaimer_meta_title" defaultValue={settings.disclaimer_meta_title ?? ''} placeholder="Disclaimer | RummyDex" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Meta Description</label>
+              <textarea name="disclaimer_meta_description" rows={2} defaultValue={settings.disclaimer_meta_description ?? ''} placeholder="Official platform disclaimer regarding application listings and content..." className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"></textarea>
+            </div>
+          </div>
+
+          {/* Ethics */}
+          <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Ethics & Safety Page (/ethics)</h4>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">SEO Title</label>
+              <input type="text" name="ethics_meta_title" defaultValue={settings.ethics_meta_title ?? ''} placeholder="Ethics & Safety | RummyDex" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Meta Description</label>
+              <textarea name="ethics_meta_description" rows={2} defaultValue={settings.ethics_meta_description ?? ''} placeholder="Our commitment to ethical gaming evaluation, player security, and unbiased reviews..." className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"></textarea>
+            </div>
+          </div>
+
+          {/* About Us */}
+          <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">About Us Page (/about)</h4>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">SEO Title</label>
+              <input type="text" name="about_meta_title" defaultValue={settings.about_meta_title ?? ''} placeholder="About Us | RummyDex" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Meta Description</label>
+              <textarea name="about_meta_description" rows={2} defaultValue={settings.about_meta_description ?? ''} placeholder="Learn more about our platform mission, safe verification frameworks, and transparency..." className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"></textarea>
+            </div>
+          </div>
+
+          {/* Contact */}
+          <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Contact Page (/contact)</h4>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">SEO Title</label>
+              <input type="text" name="contact_meta_title" defaultValue={settings.contact_meta_title ?? ''} placeholder="Contact Us | RummyDex" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Meta Description</label>
+              <textarea name="contact_meta_description" rows={2} defaultValue={settings.contact_meta_description ?? ''} placeholder="Get in touch with our helpdesk team. Submit your inquiries, suggestions, or feedback securely..." className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"></textarea>
+            </div>
+          </div>
+
+          {/* Privacy Policy */}
+          <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Privacy Policy Page (/privacy)</h4>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">SEO Title</label>
+              <input type="text" name="privacy_meta_title" defaultValue={settings.privacy_meta_title ?? ''} placeholder="Privacy Policy | RummyDex" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Meta Description</label>
+              <textarea name="privacy_meta_description" rows={2} defaultValue={settings.privacy_meta_description ?? ''} placeholder="Our official privacy guidelines explaining cookie protection, device logs, and storage security..." className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"></textarea>
+            </div>
+          </div>
+
+          {/* Terms */}
+          <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Terms of Service Page (/terms)</h4>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">SEO Title</label>
+              <input type="text" name="terms_meta_title" defaultValue={settings.terms_meta_title ?? ''} placeholder="Terms & Conditions | RummyDex" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Meta Description</label>
+              <textarea name="terms_meta_description" rows={2} defaultValue={settings.terms_meta_description ?? ''} placeholder="Official user agreement protocols, cookies consent directives, and listing guidelines..." className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"></textarea>
+            </div>
+          </div>
+
+          {/* Responsibility */}
+          <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Responsibility & Safety (/responsibility)</h4>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">SEO Title</label>
+              <input type="text" name="responsibility_meta_title" defaultValue={settings.responsibility_meta_title ?? ''} placeholder="Responsible Gaming | RummyDex" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Meta Description</label>
+              <textarea name="responsibility_meta_description" rows={2} defaultValue={settings.responsibility_meta_description ?? ''} placeholder="Official safety guidelines advising users on secure gaming techniques and safety benchmarks..." className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"></textarea>
+            </div>
+          </div>
+
+          {/* Report & Removal */}
+          <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Report & Removal Policy (/report-removal)</h4>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">SEO Title</label>
+              <input type="text" name="report_removal_meta_title" defaultValue={settings.report_removal_meta_title ?? ''} placeholder="Report & Removal Policy | RummyDex" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Meta Description</label>
+              <textarea name="report_removal_meta_description" rows={2} defaultValue={settings.report_removal_meta_description ?? ''} placeholder="Our official report and removal policy regarding intellectual property and DMCA content guidelines..." className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"></textarea>
+            </div>
+          </div>
+
+          {/* Legal Notice */}
+          <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Legal Notice Page (/notice)</h4>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">SEO Title</label>
+              <input type="text" name="notice_meta_title" defaultValue={settings.notice_meta_title ?? ''} placeholder="Legal Notice | RummyDex" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Meta Description</label>
+              <textarea name="notice_meta_description" rows={2} defaultValue={settings.notice_meta_description ?? ''} placeholder="Official notices, critical safety parameters, and legal transparency alerts..." className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"></textarea>
+            </div>
+          </div>
+
+          {/* Developers Directory */}
+          <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Developers Directory (/developers)</h4>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">SEO Title</label>
+              <input type="text" name="developers_meta_title" defaultValue={settings.developers_meta_title ?? ''} placeholder="Developer Profiles | RummyDex" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Meta Description</label>
+              <textarea name="developers_meta_description" rows={2} defaultValue={settings.developers_meta_description ?? ''} placeholder="Meet the talented engineering teams developing high-performance secure platforms..." className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"></textarea>
+            </div>
+          </div>
+
+          {/* News Index */}
+          <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">News Index (/news)</h4>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">SEO Title</label>
+              <input type="text" name="news_meta_title" defaultValue={settings.news_meta_title ?? ''} placeholder="News & Updates | RummyDex" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Meta Description</label>
+              <textarea name="news_meta_description" rows={2} defaultValue={settings.news_meta_description ?? ''} placeholder="Stay updated with the latest news, transmissions, and intel from our secure network..." className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"></textarea>
+            </div>
+          </div>
+
+          {/* Videos Index */}
+          <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Videos Index (/videos)</h4>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">SEO Title</label>
+              <input type="text" name="videos_meta_title" defaultValue={settings.videos_meta_title ?? ''} placeholder="Video Reviews | RummyDex" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Meta Description</label>
+              <textarea name="videos_meta_description" rows={2} defaultValue={settings.videos_meta_description ?? ''} placeholder="Watch high-quality video walkthroughs and tutorials of our catalog applications..." className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-6">
         <h3 className="font-bold text-sm text-slate-900 dark:text-white border-b border-black/5 dark:border-white/5 pb-2">Legal Content</h3>
         <div className="grid gap-6">
           <div>
