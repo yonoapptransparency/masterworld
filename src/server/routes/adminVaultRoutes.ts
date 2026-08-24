@@ -725,16 +725,17 @@ adminVaultRouter.get("/api/v1/admin/fix-db-links", verifyAdminToken, async (req,
       return res.status(500).json({ error: 'Missing configuration.' });
     }
 
-    const chunkResponse = await fetch(`https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/store_data/apps_chunk_0${config.apiKey ? "?key=" + config.apiKey : ""}`);
-    const chunkData = await chunkResponse.json() as any;
+    const metaResponse = await fetch(`https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/store_data/apps_meta${config.apiKey ? "?key=" + config.apiKey : ""}`);
+    const metaData = await metaResponse.json() as any;
+    const numChunks = metaData?.fields?.numChunks?.integerValue ? parseInt(metaData.fields.numChunks.integerValue, 10) : 1;
+    
     let apps: any[] = [];
-    if (!chunkData.error && chunkData.fields?.items?.arrayValue?.values) {
-      apps = chunkData.fields.items.arrayValue.values.map((v: any) => v.mapValue.fields.id.stringValue);
-    }
-    const chunk1Response = await fetch(`https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/store_data/apps_chunk_1${config.apiKey ? "?key=" + config.apiKey : ""}`);
-    const chunk1Data = await chunk1Response.json() as any;
-    if (!chunk1Data.error && chunk1Data.fields?.items?.arrayValue?.values) {
-      apps = apps.concat(chunk1Data.fields.items.arrayValue.values.map((v: any) => v.mapValue.fields.id.stringValue));
+    for (let i = 0; i < numChunks; i++) {
+      const chunkResponse = await fetch(`https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId}/documents/store_data/apps_chunk_${i}${config.apiKey ? "?key=" + config.apiKey : ""}`);
+      const chunkData = await chunkResponse.json() as any;
+      if (!chunkData.error && chunkData.fields?.items?.arrayValue?.values) {
+        apps = apps.concat(chunkData.fields.items.arrayValue.values.map((v: any) => v.mapValue.fields.id.stringValue));
+      }
     }
 
     const AES_SECRET = getAesSecret();

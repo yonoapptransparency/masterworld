@@ -45,6 +45,8 @@ export const AppForm = ({
   return (
     <form onSubmit={(e) => { e.preventDefault(); handleSaveApp(e, formFields); }} className="flex flex-col h-full overflow-hidden">
       {/* Hidden inputs to guarantee form state is preserved when submitted from any tab */}
+      <input type="hidden" name="hidden_rating" value={formFields.rating !== undefined ? formFields.rating : '4.8'} />
+      <input type="hidden" name="hidden_review_count" value={formFields.review_count !== undefined ? formFields.review_count : ''} />
       <input type="hidden" name="hidden_more_information_url" value={formFields.more_information_url || ''} />
       <input type="hidden" name="hidden_name" value={formFields.name || ''} />
       <input type="hidden" name="hidden_slug" value={formFields.slug || ''} />

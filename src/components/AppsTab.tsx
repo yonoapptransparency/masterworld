@@ -34,6 +34,12 @@ const AppsTab = React.memo(({ appsList, editingAppId, setEditingAppId, handleDel
     filteredApps
   } = useAppFilters(appsList);
 
+  const [displayLimit, setDisplayLimit] = useState(50);
+  
+  React.useEffect(() => {
+    setDisplayLimit(50);
+  }, [searchQuery, statusFilter, categoryFilter]);
+
   const selectedApp = appsList.find((a: any) => a.id === selectedAppId) || appsList[0];
 
   // Stats Counters
@@ -161,41 +167,42 @@ const AppsTab = React.memo(({ appsList, editingAppId, setEditingAppId, handleDel
                   <p className="text-xs text-slate-500 dark:text-slate-400">No applications match your search</p>
                 </div>
               ) : (
-                filteredApps.map((app: any) => {
-                  const isSelected = selectedAppId === app.id;
-                  const isBeingEdited = editingAppId === app.id;
-                  
-                  return (
-                    <div 
-                      key={app.id}
-                      onClick={() => {
-                        setSelectedAppId(app.id);
-                        if (editingAppId !== null && editingAppId !== app.id) {
-                          setEditingAppId(null);
-                        }
-                      }}
-                      onDoubleClick={() => {
-                        setEditingAppId(app.id);
-                        setActiveFormTab('general');
-                      }}
-                      className={`group relative rounded-xl p-3 border transition-all cursor-pointer flex items-center gap-3 select-none ${
-                        isBeingEdited 
-                          ? 'border-blue-500 bg-blue-500/10 dark:bg-blue-500/5' 
-                          : isSelected 
-                            ? 'border-blue-500/60 dark:border-blue-500/40 bg-white dark:bg-slate-900 shadow-sm ring-1 ring-blue-500/5' 
-                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700'
-                      }`}
-                    >
-                      <img 
-                        src={app.icon_url || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&h=128&fit=crop'} 
-                        loading="lazy"
-                        width={44}
-                        height={44}
-                        className="w-11 h-11 object-cover rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 shrink-0" 
-                        alt="" 
-                      />
-                      
-                      <div className="flex-1 min-w-0">
+                <>
+                  {filteredApps.slice(0, displayLimit).map((app: any) => {
+                    const isSelected = selectedAppId === app.id;
+                    const isBeingEdited = editingAppId === app.id;
+                    
+                    return (
+                      <div 
+                        key={app.id}
+                        onClick={() => {
+                          setSelectedAppId(app.id);
+                          if (editingAppId !== null && editingAppId !== app.id) {
+                            setEditingAppId(null);
+                          }
+                        }}
+                        onDoubleClick={() => {
+                          setEditingAppId(app.id);
+                          setActiveFormTab('general');
+                        }}
+                        className={`group relative rounded-xl p-3 border transition-all cursor-pointer flex items-center gap-3 select-none ${
+                          isBeingEdited 
+                            ? 'border-blue-500 bg-blue-500/10 dark:bg-blue-500/5' 
+                            : isSelected 
+                              ? 'border-blue-500/60 dark:border-blue-500/40 bg-white dark:bg-slate-900 shadow-sm ring-1 ring-blue-500/5' 
+                              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700'
+                        }`}
+                      >
+                        <img 
+                          src={app.icon_url || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&h=128&fit=crop'} 
+                          loading="lazy"
+                          width={44}
+                          height={44}
+                          className="w-11 h-11 object-cover rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 shrink-0" 
+                          alt="" 
+                        />
+                        
+                        <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-1">
                           <h4 className="font-semibold text-slate-900 dark:text-white text-xs truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                             {app.name}
@@ -235,7 +242,16 @@ const AppsTab = React.memo(({ appsList, editingAppId, setEditingAppId, handleDel
                       </div>
                     </div>
                   );
-                })
+                })}
+                {filteredApps.length > displayLimit && (
+                  <button
+                    onClick={() => setDisplayLimit(prev => prev + 50)}
+                    className="w-full py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-[11px] font-bold rounded-lg transition-colors cursor-pointer border border-slate-200 dark:border-slate-700 mt-2"
+                  >
+                    Load More Apps ({filteredApps.length - displayLimit} remaining)
+                  </button>
+                )}
+              </>
               )}
             </div>
           </div>

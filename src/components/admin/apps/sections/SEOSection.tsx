@@ -19,6 +19,13 @@ export const SEOSection = ({ formFields, handleFieldChange }: SEOSectionProps) =
           <div className="text-[18px] text-blue-600 dark:text-blue-400 font-medium hover:underline cursor-pointer leading-tight truncate mt-0.5">
             {formFields.seo_title || formFields.name || 'Set SEO title below...'}
           </div>
+          <div className="flex items-center gap-1 text-[12px] text-slate-500 dark:text-slate-400 mt-1">
+            <span className="text-amber-500 font-bold flex items-center">
+              ★ {parseFloat(formFields.rating || 4.8).toFixed(1)}
+            </span>
+            <span>({formFields.review_count || Math.floor(parseFloat(formFields.rating || 4.8) * 35 + 20)} reviews)</span>
+            <span>· Free · Android · Game</span>
+          </div>
           <p className="text-[13px] text-slate-600 dark:text-slate-400 font-normal leading-normal mt-1 line-clamp-2">
             {formFields.seo_description || 'Write an eye-catching SEO description to maximize organic click-through rate on Google...'}
           </p>

@@ -111,7 +111,7 @@ async function startServer() {
         server: {
           middlewareMode: true,
         },
-        appType: "spa",
+        appType: "custom",
       });
       app.use(viteDevServer.middlewares);
     } catch (e) {
@@ -152,6 +152,7 @@ async function startServer() {
       etag: true,
       lastModified: true,
       index: false,
+      redirect: false,
       setHeaders: (res, filePath) => {
         if (filePath.endsWith('.html')) {
           res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -324,21 +325,26 @@ async function startServer() {
     if (process.env.NODE_ENV !== "production") {
       templatePath = path.join(process.cwd(), 'index.html');
     } else {
-      templatePath = path.join(distPath, 'index.html');
-      if (!fs.existsSync(templatePath)) {
+      const possibleStaticFiles = [
+        path.join(distPath, `${reqPath}.html`),
+        path.join(distPath, reqPath, 'index.html'),
+        path.join(distPath, 'index.html')
+      ];
+
+      for (const staticPath of possibleStaticFiles) {
+        if (fs.existsSync(staticPath) && fs.statSync(staticPath).isFile()) {
+          templatePath = staticPath;
+          break;
+        }
+      }
+      
+      if (!templatePath) {
         templatePath = path.join(process.cwd(), 'index.html');
       }
     }
 
     try {
-      let template = cachedIndexHtml;
-      if (!template || process.env.NODE_ENV !== "production") {
-        template = fs.readFileSync(templatePath, 'utf-8');
-        
-        if (process.env.NODE_ENV === "production") {
-          cachedIndexHtml = template;
-        }
-      }
+      let template = fs.readFileSync(templatePath, 'utf-8');
 
       if (viteDevServer) {
         try {
@@ -371,6 +377,7 @@ async function startServer() {
 
       const seoResult = await injectSeoTags(template, req.originalUrl, hostUrl, userAgent);
       const html = typeof seoResult === 'string' ? seoResult : (seoResult.html || template);
+      console.log(`[SEO DEBUG] req=${req.originalUrl} | final html length=${html.length} | includes <title>Spin Crush</title> = ${html.includes('<title>Spin Crush</title>')}`);
       const isNotFound = typeof seoResult === 'object' && seoResult ? seoResult.isNotFound : false;
       const canonicalUrl = typeof seoResult === 'object' && seoResult ? seoResult.canonicalUrl : undefined;
       const statusCode = isNotFound ? 404 : 200;

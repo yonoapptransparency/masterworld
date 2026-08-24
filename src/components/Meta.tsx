@@ -71,15 +71,25 @@ const Meta: React.FC<MetaProps> = ({
     // 1. Update document title
     document.title = fullTitle;
 
-    // Helper to update or create a meta tag in document.head
+    // Helper to update exactly ONE meta tag in document.head and purge any duplicates
     const setMetaTag = (attrName: string, attrVal: string, contentVal: string) => {
-      let meta = document.head.querySelector(`meta[${attrName}="${attrVal}"]`);
-      if (!meta) {
-        meta = document.createElement('meta');
-        meta.setAttribute(attrName, attrVal);
-        document.head.appendChild(meta);
+      const allMatches = document.head.querySelectorAll(`meta[${attrName}="${attrVal}"]`);
+      let primaryMeta: HTMLMetaElement | null = null;
+      
+      allMatches.forEach((el, index) => {
+        if (index === 0) {
+          primaryMeta = el as HTMLMetaElement;
+        } else {
+          el.remove(); // Purge duplicate copies
+        }
+      });
+
+      if (!primaryMeta) {
+        primaryMeta = document.createElement('meta');
+        primaryMeta.setAttribute(attrName, attrVal);
+        document.head.appendChild(primaryMeta);
       }
-      meta.setAttribute('content', contentVal);
+      (primaryMeta as HTMLMetaElement).setAttribute('content', contentVal);
     };
 
     // 2. Standard Meta Tags
