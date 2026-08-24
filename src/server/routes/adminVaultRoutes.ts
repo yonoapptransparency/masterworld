@@ -623,6 +623,15 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
         videos: finalVideos
       };
       fs.writeFileSync(publicBackupPath, JSON.stringify(backupPayload, null, 2), 'utf8');
+
+      const staticJsonPath = path.join(process.cwd(), 'src/lib/staticData.json');
+      const staticJsonPayload = {
+        mockApps: safeBackupApps,
+        mockSettings: finalSettings,
+        mockNews: finalNews,
+        mockVideos: finalVideos
+      };
+      fs.writeFileSync(staticJsonPath, JSON.stringify(staticJsonPayload, null, 2), 'utf8');
       
       const { generateStaticDataFileCode } = require('../../lib/githubSync');
       const staticDataPath = path.join(process.cwd(), 'src/lib/staticData.ts');

@@ -185,6 +185,26 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
       return res.json(backupDataCache);
     }
 
+    // 1. Query live store data (Firestore sync with auto-backup update)
+    try {
+      const storeData = await fetchStoreData();
+      if (storeData && Array.isArray(storeData.apps) && storeData.apps.length > 0) {
+        const data = {
+          apps: trimAppsForCatalog(storeData.apps || []),
+          settings: storeData.settings || {},
+          news: storeData.news || [],
+          videos: storeData.videos || [],
+          reviews: storeData.reviews || []
+        };
+        backupDataCache = data;
+        backupDataCacheTime = now;
+        return res.json(data);
+      }
+    } catch (fetchErr) {
+      console.warn("[BackupDataAPI] fetchStoreData bypass:", fetchErr);
+    }
+
+    // 2. Fallback to public_backup.json if available
     const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
     if (fs.existsSync(publicBackupPath)) {
       try {
@@ -202,6 +222,7 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
       } catch (e) {}
     }
 
+    // 3. Fallback to static data
     const dataObj = getStaticData();
     const validatedData = {
       apps: trimAppsForCatalog(dataObj.apps || dataObj.mockApps || []),

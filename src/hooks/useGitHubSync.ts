@@ -235,6 +235,13 @@ export function useGitHubSync(
       reviews: targetReviews
     }, null, 2);
 
+    const staticJsonCode = JSON.stringify({
+      mockApps: safeBackupApps,
+      mockSettings: finalSettings,
+      mockNews: targetNews,
+      mockVideos: targetVideos
+    }, null, 2);
+
     let targetRepo = configToUse.repo || 'dex';
 
     if (!configToUse.owner) throw new Error("Missing GitHub repository owner configuration.");
@@ -263,6 +270,18 @@ export function useGitHubSync(
         message: `Admin Release: Manual public_backup.json synchronization to ${targetRepo}`
       });
       log(`GitHub Sync: ✅ public_backup.json successfully synced to ${targetRepo}.`);
+
+      log(`GitHub Sync: Pushing staticData.json to ${targetRepo}...`);
+      await commitFileToGitHub({
+        owner: configToUse.owner,
+        repo: targetRepo,
+        token: configToUse.token,
+        branch: configToUse.branch || 'main',
+        path: 'src/lib/staticData.json',
+        content: staticJsonCode,
+        message: `Admin Release: Manual staticData.json synchronization to ${targetRepo}`
+      });
+      log(`GitHub Sync: ✅ staticData.json successfully synced to ${targetRepo}.`);
       
       if (targetRepo.toLowerCase() !== 'masterworld') {
         try {
@@ -287,6 +306,17 @@ export function useGitHubSync(
             message: `Admin Release: Manual public_backup.json synchronization to masterworld`
           });
           log(`GitHub Sync: ✅ public_backup.json secondary sync to masterworld complete.`);
+
+          await commitFileToGitHub({
+            owner: configToUse.owner,
+            repo: 'masterworld',
+            token: configToUse.token,
+            branch: configToUse.branch || 'main',
+            path: 'src/lib/staticData.json',
+            content: staticJsonCode,
+            message: `Admin Release: Manual staticData.json synchronization to masterworld`
+          });
+          log(`GitHub Sync: ✅ staticData.json secondary sync to masterworld complete.`);
         } catch (mwErr: any) {
           log(`GitHub Sync Info: Secondary sync to masterworld skipped (Token scoped specifically for '${targetRepo}'). Primary target '${targetRepo}' is fully synced and updated.`);
         }

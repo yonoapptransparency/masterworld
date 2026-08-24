@@ -1,4 +1,5 @@
 import path from 'path';
+import fs from 'fs';
 import crypto from 'crypto';
 
 declare global {
@@ -59,6 +60,46 @@ export const MAX_HITS = 30;
 export const MOCK_2FA_FILE = path.join(process.cwd(), "src/lib/mock_2fa_store.json");
 
 export const getStaticData = () => {
+  try {
+    const publicBackupPath = path.join(process.cwd(), "src/lib/public_backup.json");
+    if (fs.existsSync(publicBackupPath)) {
+      const data = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
+      if (data && (Array.isArray(data.apps) && data.apps.length > 0)) {
+        const catalogApps = data.apps;
+        return {
+          apps: catalogApps,
+          mockApps: catalogApps,
+          settings: data.settings || {},
+          mockSettings: data.settings || {},
+          news: data.news || [],
+          mockNews: data.news || [],
+          videos: data.videos || [],
+          mockVideos: data.videos || []
+        };
+      }
+    }
+  } catch (_) {}
+
+  try {
+    const staticDataModulePath = path.join(process.cwd(), "src/lib/staticData");
+    const data = require(staticDataModulePath);
+    if (data) {
+      const catalogApps = (Array.isArray(data.apps) && data.apps.length > 0)
+        ? data.apps
+        : ((Array.isArray(data.mockApps) && data.mockApps.length > 0) ? data.mockApps : []);
+      return {
+        apps: catalogApps,
+        mockApps: catalogApps,
+        settings: data.settings || data.mockSettings || {},
+        mockSettings: data.settings || data.mockSettings || {},
+        news: data.news || data.mockNews || [],
+        mockNews: data.news || data.mockNews || [],
+        videos: data.videos || data.mockVideos || [],
+        mockVideos: data.videos || data.mockVideos || []
+      };
+    }
+  } catch (_) {}
+
   try {
     const staticDataModulePath = path.join(process.cwd(), "src/lib/staticData.json");
     try {
