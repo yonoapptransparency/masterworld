@@ -27,7 +27,7 @@ export function AdminFaqEditor({ initialFaqs }: FaqEditorProps) {
       <input type="hidden" name="faqs_json" value={JSON.stringify(faqs)} />
       {faqs.map((faq, idx) => (
         <div key={idx} className="bg-black/5 p-5 rounded-[1.5rem] border-2 border-black/10 space-y-4 relative shadow-lg">
-          <button type="button" onClick={() => removeFaq(idx)} className="absolute top-4 right-4 text-rose-500 hover:text-rose-600 bg-rose-500/10 p-2 rounded-full transition-all">
+          <button type="button" aria-label="Delete FAQ item" title="Delete FAQ item" onClick={() => removeFaq(idx)} className="absolute top-4 right-4 text-rose-500 hover:text-rose-600 bg-rose-500/10 p-2 rounded-full transition-all">
             <Trash2 className="w-4 h-4" />
           </button>
           <div className="grid gap-4">
