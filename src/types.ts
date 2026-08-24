@@ -180,5 +180,7 @@ export interface VideoItem {
   seo_description: string;
   meta_description?: string;
   seo_keywords?: string;
+  canonical_url?: string;
+  og_image_url?: string;
   created_at: string;
 }

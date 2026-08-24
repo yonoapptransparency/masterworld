@@ -41,26 +41,18 @@ export function clearSeoCache() {
 
 async function doFetchStoreData() {
   const now = Date.now();
-  const freshStatic = getStaticData();
-
   try {
-    const fsMod = require('fs'); 
-    const pathMod = require('path'); 
-    const p = pathMod.join(process.cwd(), 'src/lib/public_backup.json'); 
-    const backup = fsMod.existsSync(p) ? JSON.parse(fsMod.readFileSync(p, 'utf8')) : null;
-    if (backup) {
-      const data = {
-        apps: (Array.isArray(backup.apps) && backup.apps.length > 0) ? backup.apps : (freshStatic.apps || freshStatic.mockApps || []),
-        settings: backup.settings || (freshStatic.settings || freshStatic.mockSettings || {}),
-        news: (Array.isArray(backup.news) && backup.news.length > 0) ? backup.news : (freshStatic.news || freshStatic.mockNews || []),
-        videos: (Array.isArray(backup.videos) && backup.videos.length > 0) ? backup.videos : (freshStatic.videos || freshStatic.mockVideos || [])
-      };
-      cachedData = data;
+    const liveData = await syncFromFirestore();
+    if (liveData && Array.isArray(liveData.apps) && liveData.apps.length > 0) {
+      cachedData = liveData;
       lastFetchTime = now;
-      return data;
+      return liveData;
     }
-  } catch (e) {}
+  } catch (e) {
+    console.warn("Live Firestore sync failed in seoHelper, falling back to backup/static data:", e);
+  }
 
+  const freshStatic = getStaticData();
   const data = {
     apps: freshStatic.apps || freshStatic.mockApps || [],
     settings: freshStatic.settings || freshStatic.mockSettings || {},
@@ -750,7 +742,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   }
 
   const canonicalUrl = (pageType === 'app' && targetApp && getField(targetApp, 'slug'))
-    ? `https://www.rummydex.com/app/${getField(targetApp, 'slug')}`
+    ? (getField(targetApp, 'canonical_url') ? getCleanCanonicalUrl(getField(targetApp, 'canonical_url'), canonicalPath) : `https://www.rummydex.com/app/${getField(targetApp, 'slug')}`)
     : getCleanCanonicalUrl(customCanonicalUrl, canonicalPath);
 
   let pageOgImage = logoUrl;

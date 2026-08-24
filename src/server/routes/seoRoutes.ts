@@ -675,8 +675,8 @@ const getHostUrl = (req: express.Request): string => {
   return rawDomain.replace(/\/$/, '');
 };
 
-// 1. Master Comprehensive Sitemap Index Route (/sitemap.xml, /sitemap_index.xml, /sitemap-index.xml)
-seoRouter.get(['/sitemap.xml', '/sitemap_index.xml', '/sitemap-index.xml', '/sitemapindex.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml'], async (req, res) => {
+// 1. Master Comprehensive Sitemap Index Route (/sitemap.xml)
+seoRouter.get('/sitemap.xml', async (req, res) => {
   try {
     const hostHeader = req.get('host') || '';
     if (hostHeader.toLowerCase().includes('masterworld')) {
@@ -728,10 +728,6 @@ seoRouter.get(['/sitemap.xml', '/sitemap_index.xml', '/sitemap-index.xml', '/sit
     <lastmod>${latestAppDate}</lastmod>
   </sitemap>
   <sitemap>
-    <loc>${host}/sitemap-categories.xml</loc>
-    <lastmod>${latestAppDate}</lastmod>
-  </sitemap>
-  <sitemap>
     <loc>${host}/sitemap-static.xml</loc>
     <lastmod>${latestAppDate}</lastmod>
   </sitemap>
@@ -751,7 +747,7 @@ seoRouter.get(['/sitemap.xml', '/sitemap_index.xml', '/sitemap-index.xml', '/sit
 
     res.set({
       'Content-Type': 'application/xml; charset=utf-8',
-      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400'
+      'Cache-Control': 'public, max-age=120, stale-while-revalidate=600'
     });
     return res.send(xml);
   } catch (e) {
@@ -760,8 +756,13 @@ seoRouter.get(['/sitemap.xml', '/sitemap_index.xml', '/sitemap-index.xml', '/sit
   }
 });
 
-// 2. Apps Sitemap Route (/sitemap-apps.xml, /sitemap_apps.xml, /sitemap-app.xml)
-seoRouter.get(['/sitemap-apps.xml', '/sitemap_apps.xml', '/sitemap-app.xml', '/sitemap_app.xml'], async (req, res) => {
+// Redirect legacy duplicate index URLs to /sitemap.xml
+seoRouter.get(['/sitemap_index.xml', '/sitemap-index.xml', '/sitemapindex.xml', '/sitemap', '/api/sitemap', '/api/sitemap.xml', '/sitemap-blogs.xml', '/sitemap_blogs.xml'], (req, res) => {
+  return res.redirect(301, '/sitemap.xml');
+});
+
+// 2. Apps Sitemap Route (/sitemap-apps.xml)
+seoRouter.get('/sitemap-apps.xml', async (req, res) => {
   try {
     const hostHeader = req.get('host') || '';
     if (hostHeader.toLowerCase().includes('masterworld')) {
@@ -813,7 +814,7 @@ seoRouter.get(['/sitemap-apps.xml', '/sitemap_apps.xml', '/sitemap-app.xml', '/s
 
     res.set({
       'Content-Type': 'application/xml; charset=utf-8',
-      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400'
+      'Cache-Control': 'public, max-age=120, stale-while-revalidate=600'
     });
     return res.send(xml);
   } catch (e) {
@@ -822,110 +823,18 @@ seoRouter.get(['/sitemap-apps.xml', '/sitemap_apps.xml', '/sitemap-app.xml', '/s
   }
 });
 
-// 3. Categories Sitemap Route (/sitemap-categories.xml, /sitemap_categories.xml, /sitemap-category.xml)
-seoRouter.get(['/sitemap-categories.xml', '/sitemap_categories.xml', '/sitemap-category.xml', '/sitemap_category.xml'], async (req, res) => {
-  try {
-    const hostHeader = req.get('host') || '';
-    if (hostHeader.toLowerCase().includes('masterworld')) {
-      return res.status(404).send('Not Found');
-    }
-
-    const data = await fetchStoreData();
-    const { apps = [], settings = {} } = data || {};
-    const host = getHostUrl(req);
-    const siteLogo = getField(settings, 'logo_url') || getField(settings, 'favicon_url') || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
-
-    // Extract all unique categories
-    const categorySet = new Set<string>();
-    
-    // Add categories from settings if defined
-    if (Array.isArray(settings?.categories)) {
-      for (const cat of settings.categories) {
-        if (typeof cat === 'string' && cat.trim() && cat.trim().toLowerCase() !== 'all apps') {
-          categorySet.add(cat.trim());
-        }
-      }
-    }
-
-    // Add categories from apps
-    for (const app of apps) {
-      const rawCat = getField(app, 'category');
-      if (rawCat && typeof rawCat === 'string') {
-        rawCat.split(',').forEach((c: string) => {
-          const trimmed = c.trim();
-          if (trimmed && trimmed.toLowerCase() !== 'all apps' && trimmed.toLowerCase() !== 'all' && trimmed.toLowerCase() !== 'apps') {
-            categorySet.add(trimmed);
-          }
-        });
-      }
-    }
-
-    // Always ensure key popular gaming categories exist
-    const defaultCategories = ['Rummy Apps', 'Yono Apps', 'Teen Patti', 'Casino', 'Slot Games', 'Arcade', 'Board', 'Casual'];
-    defaultCategories.forEach(c => categorySet.add(c));
-
-    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
-    xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n`;
-
-    const seenUrls = new Set<string>();
-    for (const cat of Array.from(categorySet)) {
-      const catSlug = cat.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-      if (!catSlug) continue;
-
-      const catLoc = `${host}/category/${catSlug}`;
-      if (!seenUrls.has(catLoc)) {
-        seenUrls.add(catLoc);
-
-        // Find the latest update date among apps belonging to this category
-        const catApps = apps.filter(a => {
-          const appCat = getField(a, 'category') || '';
-          return appCat.toLowerCase().includes(cat.toLowerCase()) || appCat.toLowerCase().includes(catSlug.replace(/-/g, ' '));
-        });
-
-        let catLatestDate = new Date().toISOString();
-        if (catApps.length > 0) {
-          let maxTs = 0;
-          for (const ca of catApps) {
-            const d = new Date(getFormattedDate(ca)).getTime();
-            if (d > maxTs) maxTs = d;
-          }
-          if (maxTs > 0) catLatestDate = new Date(maxTs).toISOString();
-        }
-
-        // Pick icon of first app in category or site logo
-        let catImage = siteLogo;
-        if (catApps.length > 0) {
-          catImage = getField(catApps[0], 'og_image_url') || getField(catApps[0], 'icon_url') || siteLogo;
-        }
-        if (catImage && catImage.includes('res.cloudinary.com')) {
-          catImage = catImage.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_webp,q_auto,w_800/$1');
-        }
-
-        xml += `  <url>\n    <loc>${catLoc}</loc>\n`;
-        xml += `    <lastmod>${catLatestDate}</lastmod>\n`;
-        xml += `    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n`;
-        if (catImage) {
-          xml += `    <image:image>\n      <image:loc>${escapeXml(catImage)}</image:loc>\n      <image:title>${escapeXml(`${cat} - RummyDex`)}</image:title>\n    </image:image>\n`;
-        }
-        xml += `  </url>\n`;
-      }
-    }
-
-    xml += `</urlset>\n`;
-
-    res.set({
-      'Content-Type': 'application/xml; charset=utf-8',
-      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400'
-    });
-    return res.send(xml);
-  } catch (e) {
-    console.error('Categories Sitemap Error:', e);
-    return res.status(500).type('text/plain').send('Error generating categories sitemap');
-  }
+// Redirect legacy app sitemap aliases
+seoRouter.get(['/sitemap_apps.xml', '/sitemap-app.xml', '/sitemap_app.xml'], (req, res) => {
+  return res.redirect(301, '/sitemap-apps.xml');
 });
 
-// 4. Static Pages Sitemap Route (/sitemap-static.xml, /sitemap_static.xml, /sitemap-pages.xml)
-seoRouter.get(['/sitemap-static.xml', '/sitemap_static.xml', '/sitemap-pages.xml', '/sitemap_pages.xml'], async (req, res) => {
+// Redirect categories sitemap requests to master /sitemap.xml
+seoRouter.get(['/sitemap-categories.xml', '/sitemap_categories.xml', '/sitemap-category.xml', '/sitemap_category.xml'], (req, res) => {
+  return res.redirect(301, '/sitemap.xml');
+});
+
+// 4. Static Pages Sitemap Route (/sitemap-static.xml) - All Core & Footer/Legal Pages in one place
+seoRouter.get('/sitemap-static.xml', async (req, res) => {
   try {
     const hostHeader = req.get('host') || '';
     if (hostHeader.toLowerCase().includes('masterworld')) {
@@ -984,7 +893,7 @@ seoRouter.get(['/sitemap-static.xml', '/sitemap_static.xml', '/sitemap-pages.xml
 
     res.set({
       'Content-Type': 'application/xml; charset=utf-8',
-      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400'
+      'Cache-Control': 'public, max-age=120, stale-while-revalidate=600'
     });
     return res.send(xml);
   } catch (e) {
@@ -993,8 +902,13 @@ seoRouter.get(['/sitemap-static.xml', '/sitemap_static.xml', '/sitemap-pages.xml
   }
 });
 
-// 5. News Sitemap Route (/sitemap-news.xml, /sitemap_news.xml, /sitemap-posts.xml)
-seoRouter.get(['/sitemap-news.xml', '/sitemap_news.xml', '/sitemap-posts.xml', '/sitemap_posts.xml'], async (req, res) => {
+// Redirect legacy static sitemap aliases
+seoRouter.get(['/sitemap_static.xml', '/sitemap-pages.xml', '/sitemap_pages.xml'], (req, res) => {
+  return res.redirect(301, '/sitemap-static.xml');
+});
+
+// 5. News Sitemap Route (/sitemap-news.xml)
+seoRouter.get('/sitemap-news.xml', async (req, res) => {
   try {
     const hostHeader = req.get('host') || '';
     if (hostHeader.toLowerCase().includes('masterworld')) {
@@ -1039,7 +953,7 @@ seoRouter.get(['/sitemap-news.xml', '/sitemap_news.xml', '/sitemap-posts.xml', '
 
     res.set({
       'Content-Type': 'application/xml; charset=utf-8',
-      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400'
+      'Cache-Control': 'public, max-age=120, stale-while-revalidate=600'
     });
     return res.send(xml);
   } catch (e) {
@@ -1048,8 +962,13 @@ seoRouter.get(['/sitemap-news.xml', '/sitemap_news.xml', '/sitemap-posts.xml', '
   }
 });
 
-// 6. Videos Sitemap Route (/sitemap-videos.xml, /sitemap_videos.xml, /sitemap-video.xml)
-seoRouter.get(['/sitemap-videos.xml', '/sitemap_videos.xml', '/sitemap-video.xml', '/sitemap_video.xml'], async (req, res) => {
+// Redirect legacy news sitemap aliases
+seoRouter.get(['/sitemap_news.xml', '/sitemap-posts.xml', '/sitemap_posts.xml'], (req, res) => {
+  return res.redirect(301, '/sitemap-news.xml');
+});
+
+// 6. Videos Sitemap Route (/sitemap-videos.xml)
+seoRouter.get('/sitemap-videos.xml', async (req, res) => {
   try {
     const hostHeader = req.get('host') || '';
     if (hostHeader.toLowerCase().includes('masterworld')) {
@@ -1093,7 +1012,7 @@ seoRouter.get(['/sitemap-videos.xml', '/sitemap_videos.xml', '/sitemap-video.xml
 
     res.set({
       'Content-Type': 'application/xml; charset=utf-8',
-      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400'
+      'Cache-Control': 'public, max-age=120, stale-while-revalidate=600'
     });
     return res.send(xml);
   } catch (e) {
@@ -1102,8 +1021,13 @@ seoRouter.get(['/sitemap-videos.xml', '/sitemap_videos.xml', '/sitemap-video.xml
   }
 });
 
-// 7. Developers Sitemap Route
-seoRouter.get(['/sitemap-developers.xml', '/sitemap_developers.xml'], async (req, res) => {
+// Redirect legacy video sitemap aliases
+seoRouter.get(['/sitemap_videos.xml', '/sitemap-video.xml', '/sitemap_video.xml'], (req, res) => {
+  return res.redirect(301, '/sitemap-videos.xml');
+});
+
+// 7. Developers Sitemap Route (/sitemap-developers.xml)
+seoRouter.get('/sitemap-developers.xml', async (req, res) => {
   try {
     const hostHeader = req.get('host') || '';
     if (hostHeader.toLowerCase().includes('masterworld')) {
@@ -1136,13 +1060,18 @@ seoRouter.get(['/sitemap-developers.xml', '/sitemap_developers.xml'], async (req
 
     res.set({
       'Content-Type': 'application/xml; charset=utf-8',
-      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400'
+      'Cache-Control': 'public, max-age=120, stale-while-revalidate=600'
     });
     return res.send(xml);
   } catch (e) {
     console.error('Developers Sitemap Error:', e);
     return res.status(500).type('text/plain').send('Error generating developers sitemap');
   }
+});
+
+// Redirect legacy developers sitemap alias
+seoRouter.get('/sitemap_developers.xml', (req, res) => {
+  return res.redirect(301, '/sitemap-developers.xml');
 });
 
 seoRouter.get("/api/v1/debug-seo", async (req, res) => {
