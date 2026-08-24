@@ -420,6 +420,8 @@ export const AdminReportsTab: React.FC<AdminReportsTabProps> = ({ appsList = [] 
               <button 
                 onClick={() => setSearchQuery('')}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                aria-label="Clear search"
+                title="Clear search"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -759,6 +761,8 @@ export const AdminReportsTab: React.FC<AdminReportsTabProps> = ({ appsList = [] 
               <button 
                 onClick={() => setInspectReport(null)}
                 className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400"
+                aria-label="Close report details"
+                title="Close report details"
               >
                 <X className="w-5 h-5" />
               </button>
