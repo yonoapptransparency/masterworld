@@ -1,0 +1,3 @@
+## 2025-03-08 - Added Accessible Labels to Modals and Interactive Components
+**Learning:** Missing `aria-label` and `title` attributes on icon-only interactive elements (like modal close buttons or star rating selectors) is a common accessibility gap in this application's admin interfaces. Screen readers rely on these labels to announce the button's purpose.
+**Action:** When working on administrative modals, always enforce accessibility guidelines by adding `aria-label` and `title` to icon-only buttons (`<button><X /></button>`). Ensure dynamic inputs (like rating selectors) communicate their state and function clearly to screen readers.

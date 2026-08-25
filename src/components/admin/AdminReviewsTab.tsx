@@ -685,6 +685,8 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
               <button 
                 onClick={() => setSearchQuery('')}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                aria-label="Clear search"
+                title="Clear search"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1115,6 +1117,8 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
               <button 
                 onClick={() => setEditModalReview(null)}
                 className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400"
+                aria-label="Close modal"
+                title="Close modal"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1168,6 +1172,8 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
                         key={num}
                         onClick={() => setEditModalReview({ ...editModalReview, rating: num })}
                         className="p-1 hover:scale-110 transition-transform cursor-pointer"
+                        aria-label={`Set rating to ${num} stars`}
+                        title={`Set rating to ${num} stars`}
                       >
                         <Star
                           className={`w-6 h-6 ${
@@ -1291,6 +1297,8 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
               <button 
                 onClick={() => setReplyModalReview(null)}
                 className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400"
+                aria-label="Close modal"
+                title="Close modal"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1375,6 +1383,8 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
                   fetchReviews(true);
                 }}
                 className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all cursor-pointer"
+                aria-label="Close modal"
+                title="Close modal"
               >
                 <X size={20} />
               </button>
