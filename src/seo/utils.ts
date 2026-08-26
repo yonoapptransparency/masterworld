@@ -139,13 +139,14 @@ export function getOgImageUrl(url?: string, origin = 'https://www.rummydex.com')
     if (absUrl.includes('w_1200') && absUrl.includes('h_630')) {
       return absUrl;
     }
-    return absUrl.replace(
+    let finalUrl = absUrl.replace(
       /\/upload\/(?:(?:[a-z]{1,3}_[a-zA-Z0-9_.:-]+,?)+\/)*(?:(v\d+)\/)?/,
       (_match, version) => {
         const v = version ? `${version}/` : '';
         return `/upload/f_jpg,q_auto,w_1200,h_630,c_fill/${v}`;
       }
     );
+    return finalUrl.replace(/\.webp$/i, ".jpg").replace(/\.png$/i, ".jpg");
   }
   return absUrl;
 }

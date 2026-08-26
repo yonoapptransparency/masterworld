@@ -166,7 +166,7 @@ export function safeHtml(val: any, fallback: string = ''): string {
 
   try {
     // DOMPurify is fully compatible with both browser and node contexts
-    return DOMPurify.sanitize(enhancedStr);
+    return DOMPurify.sanitize(enhancedStr, { ADD_ATTR: ["target", "rel", "data-discover"] });
   } catch (err) {
     console.warn("DOMPurify sanitization fallback:", err);
     return enhancedStr;

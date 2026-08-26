@@ -72,6 +72,7 @@ export function useReviews(
     // Bots and crawlers skip loading dynamic reviews to keep DOM light for SEO
     const isCrawler = typeof navigator !== 'undefined' && /googlebot|google-inspectiontool|bingbot|slurp|duckduckbot|baiduspider|yandexbot|crawler|spider/i.test(navigator.userAgent || '');
     if (isCrawler) {
+       setReviews(getStaticFallbackReviews());
        setLoading(false);
        setHasMore(false);
        return;
