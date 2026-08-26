@@ -3,7 +3,7 @@ import { adminFetch } from '../services/adminAuthService';
 import { RefreshCw } from 'lucide-react';
 
 interface StatusResult {
-  status: 'live' | 'read_only' | 'offline' | 'checking';
+  status: 'live' | 'read_only' | 'write_only' | 'offline' | 'checking';
   adminSdk: boolean;
   firestoreWrite: boolean;
   firestoreRead: boolean;
@@ -38,7 +38,7 @@ export const FirebaseStatusIndicator: React.FC = () => {
       
       if (response.ok && data.results) {
         setResult({
-          status: data.status === 'live' ? 'live' : data.status === 'read_only' ? 'read_only' : 'offline',
+          status: data.status === 'live' ? 'live' : data.status === 'read_only' ? 'read_only' : data.status === 'write_only' ? 'write_only' : 'offline',
           adminSdk: data.results.adminSdk || false,
           firestoreWrite: data.results.firestoreWrite || false,
           firestoreRead: data.results.firestoreRead || false,
@@ -64,7 +64,7 @@ export const FirebaseStatusIndicator: React.FC = () => {
         const data = await pubRes.json();
         if (pubRes.ok && data.results) {
           setResult({
-            status: data.status === 'live' ? 'live' : data.status === 'read_only' ? 'read_only' : 'offline',
+            status: data.status === 'live' ? 'live' : data.status === 'read_only' ? 'read_only' : data.status === 'write_only' ? 'write_only' : 'offline',
             adminSdk: data.results.adminSdk || false,
             firestoreWrite: data.results.firestoreWrite || false,
             firestoreRead: data.results.firestoreRead || false,
@@ -98,13 +98,14 @@ export const FirebaseStatusIndicator: React.FC = () => {
   }, [checkStatus]);
 
   const isLive = result.status === 'live';
+  const isWriteOnly = result.status === 'write_only';
   const isReadOnly = result.status === 'read_only';
   const isChecking = result.status === 'checking' || isRefreshing;
   const isAesMissing = !result.aesConfigured;
 
   const bgClass = isLive 
     ? (isAesMissing ? 'bg-amber-500/10 text-amber-600 border-amber-500/30' : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30')
-    : isReadOnly
+    : (isReadOnly || isWriteOnly)
       ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30'
       : isChecking
         ? 'bg-blue-500/10 text-blue-600 border-blue-500/30'
@@ -112,7 +113,7 @@ export const FirebaseStatusIndicator: React.FC = () => {
         
   const dotClass = isLive
     ? (isAesMissing ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500 animate-pulse')
-    : isReadOnly
+    : (isReadOnly || isWriteOnly)
       ? 'bg-amber-500 animate-pulse'
       : isChecking
         ? 'bg-blue-500 animate-ping'
@@ -124,7 +125,9 @@ export const FirebaseStatusIndicator: React.FC = () => {
       ? (isAesMissing ? `Firestore: Live (SEC ERROR)` : `Firestore: Live${result.readLatencyMs ? ` (${result.readLatencyMs}ms)` : ''}`)
       : isReadOnly
         ? 'Firestore: Read-Only'
-        : `Firestore: Offline`;
+        : isWriteOnly
+          ? 'Firestore: Write-Only (Read Quota)'
+          : `Firestore: Offline`;
         
   const tooltip = isLive
     ? `Live Firestore Connection

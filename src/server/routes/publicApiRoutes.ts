@@ -318,7 +318,7 @@ publicApiRouter.get(["/api/v1/public/firebase-status", "/api/public/firebase-sta
     }
 
     const isLive = (results.adminSdk && results.firestoreRead && results.firestoreWrite) || (results.firestoreRead && results.firestoreWrite);
-    const statusText = isLive ? "live" : (results.firestoreRead ? "read_only" : "offline");
+    const statusText = isLive ? "live" : (results.firestoreRead && !results.firestoreWrite ? "read_only" : (!results.firestoreRead && results.firestoreWrite ? "write_only" : "offline"));
 
     return res.json({
       status: statusText,

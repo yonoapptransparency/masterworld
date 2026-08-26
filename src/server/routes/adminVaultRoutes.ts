@@ -1128,7 +1128,7 @@ adminVaultRouter.get("/api/v1/admin/firebase-status", verifyAdminToken, async (r
 
     // Calculate Overall Status
     const isLive = (results.adminSdk && results.firestoreRead && results.firestoreWrite) || (results.firestoreRead && results.firestoreWrite);
-    const statusText = isLive ? "live" : (results.firestoreRead ? "read_only" : "offline");
+    const statusText = isLive ? "live" : (results.firestoreRead && !results.firestoreWrite ? "read_only" : (!results.firestoreRead && results.firestoreWrite ? "write_only" : "offline"));
 
     // Diagnostic Summary Message
     if (statusText === 'live') {
@@ -1137,6 +1137,8 @@ adminVaultRouter.get("/api/v1/admin/firebase-status", verifyAdminToken, async (r
         : "100% Operational. REST API read & write access verified.";
     } else if (statusText === 'read_only') {
       results.details.diagnosticSummary = `Firestore reads are operational, but writes are failing. ${results.details.restWriteError || "Check API Key or Service Account configuration."}`;
+    } else if (statusText === 'write_only') {
+      results.details.diagnosticSummary = `Firestore writes are operational, but reads are failing due to quota or permissions. (Write Latency: ${results.writeLatencyMs}ms)`;
     } else {
       results.details.diagnosticSummary = `Firestore is currently offline or unreachable. ${results.details.restReadError || "Check Project ID and network configuration."}`;
     }

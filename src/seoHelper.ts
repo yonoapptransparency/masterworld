@@ -66,7 +66,7 @@ const mockVideos = staticData.videos || staticData.mockVideos || [];
 
 let cachedData: any = null;
 let lastFetchTime = 0;
-const CACHE_TTL = 15000; // 15 seconds
+const CACHE_TTL = 300000; // 5 minutes (prevent quota exhaustion)
 let isFetchingStoreData = false;
 
 import { resolveAppSlug, SLUG_ALIAS_MAP } from './lib/slugResolver';
