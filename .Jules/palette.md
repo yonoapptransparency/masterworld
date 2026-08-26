@@ -1,0 +1,3 @@
+## 2024-03-24 - Missing ARIA labels on icon-only buttons in Admin Components
+**Learning:** Found a recurring pattern in the admin components where icon-only buttons (like `Trash2` for removing items) lacked `aria-label` or `title` attributes. This makes them inaccessible to screen readers and doesn't provide visual tooltips on hover, which is especially important for destructive actions like delete/remove.
+**Action:** When adding or reviewing icon-only buttons, particularly for administrative or destructive actions, always ensure an appropriate `aria-label` and `title` are included. This improves both accessibility and general usability.
