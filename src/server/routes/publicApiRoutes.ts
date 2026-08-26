@@ -282,9 +282,19 @@ publicApiRouter.get(["/api/v1/public/firebase-status", "/api/public/firebase-sta
           source: 'public_status_check',
           checkedAt: new Date().toISOString() 
         });
+        
+        let readSuccess = false;
+        try {
+          await adminDb.collection('store_data').doc('_status_check_').get();
+          readSuccess = true;
+        } catch (readErr: any) {
+          console.warn("Status check read failed:", readErr.message);
+          results.details.readError = readErr.message;
+        }
+
         await adminDb.collection('store_data').doc('_status_check_').delete();
         results.adminSdk = true;
-        results.firestoreRead = true;
+        results.firestoreRead = readSuccess;
         results.firestoreWrite = true;
         const latency = Date.now() - adminStart;
         results.readLatencyMs = latency;

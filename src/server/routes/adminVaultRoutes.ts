@@ -698,6 +698,66 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
   }
 });
 
+adminVaultRouter.get("/api/v1/admin/data", verifyAdminToken, async (req: any, res: any) => {
+  try {
+    const adminDb = getFirebaseAdminDb();
+    if (!adminDb) {
+      throw new Error("Admin SDK not initialized");
+    }
+
+    const appsMetaSnap = await adminDb.collection('store_data').doc('apps_meta').get();
+    const numChunks = appsMetaSnap.exists ? (appsMetaSnap.data()?.numChunks || 1) : 1;
+    
+    let apps: any[] = [];
+    for (let i = 0; i < numChunks; i++) {
+      const chunkSnap = await adminDb.collection('store_data').doc(`apps_chunk_${i}`).get();
+      if (chunkSnap.exists) {
+        apps.push(...(chunkSnap.data()?.items || []));
+      }
+    }
+
+    const settingsSnap = await adminDb.collection('store_data').doc('public_settings').get();
+    const settings = settingsSnap.exists ? settingsSnap.data() : {};
+
+    const newsSnap = await adminDb.collection('store_data').doc('news').get();
+    const news = newsSnap.exists ? (newsSnap.data()?.items || []) : [];
+
+    const videosSnap = await adminDb.collection('store_data').doc('videos').get();
+    const videos = videosSnap.exists ? (videosSnap.data()?.items || []) : [];
+
+    return res.json({ apps, settings, news, videos, source: 'firebase' });
+  } catch (err: any) {
+    console.warn("[SERVER] Failed to fetch admin data via Admin SDK (quota limit or offline). Falling back to local backup:", err.message);
+    
+    try {
+      const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
+      let backupData = { apps: [], settings: {}, news: [], videos: [] };
+      
+      if (fs.existsSync(publicBackupPath)) {
+        backupData = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
+      } else {
+        const staticDataObj = require('../../lib/staticData');
+        const lightFallbackObj = require('../../lib/lightFallback');
+        backupData.apps = staticDataObj.mockApps || lightFallbackObj.mockApps || [];
+        backupData.settings = staticDataObj.mockSettings || lightFallbackObj.mockSettings || {};
+        backupData.news = staticDataObj.mockNews || lightFallbackObj.mockNews || [];
+        backupData.videos = staticDataObj.mockVideos || lightFallbackObj.mockVideos || [];
+      }
+      
+      return res.json({ 
+        apps: backupData.apps || [], 
+        settings: backupData.settings || {}, 
+        news: backupData.news || [], 
+        videos: backupData.videos || [],
+        source: 'local_backup'
+      });
+    } catch (fallbackErr: any) {
+      console.error("[SERVER] Local backup fallback also failed:", fallbackErr);
+      return res.status(500).json({ error: "Failed to load data from Firebase AND local backup." });
+    }
+  }
+});
+
 adminVaultRouter.get("/api/v1/admin/backup-links-get", verifyAdminToken, (req, res) => {
   try {
     const AES_SECRET = getAesSecret();
@@ -965,9 +1025,19 @@ adminVaultRouter.get("/api/v1/admin/firebase-status", verifyAdminToken, async (r
           source: 'admin_sdk_healthcheck',
           checkedAt: new Date().toISOString() 
         });
+
+        let readSuccess = false;
+        try {
+          await adminDb.collection('store_data').doc('_status_check_').get();
+          readSuccess = true;
+        } catch (readErr: any) {
+          console.warn("Status check read failed:", readErr.message);
+          results.details.readError = readErr.message;
+        }
+
         await adminDb.collection('store_data').doc('_status_check_').delete();
         results.adminSdk = true;
-        results.firestoreRead = true;
+        results.firestoreRead = readSuccess;
         results.firestoreWrite = true;
         results.readLatencyMs = Date.now() - adminStart;
         results.writeLatencyMs = Date.now() - adminStart;

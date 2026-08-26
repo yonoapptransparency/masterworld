@@ -55,96 +55,63 @@ export function useDataSync() {
 
   // Sync effect
   useEffect(() => {
-    if (!isFirebaseReal || !db) {
-      setIsConnected(false);
-      setLoading(false);
-      setLoadedFromServer(true);
-      return;
-    }
+    let mounted = true;
+    const loadData = async () => {
+      try {
+        const res = await adminFetch('/api/v1/admin/data');
+        if (!res.ok) throw new Error("Failed to fetch admin data");
+        
+        const data = await res.json();
+        if (!mounted) return;
 
-    const unsubs = [
-      onSnapshot(doc(db, 'store_data', 'apps_meta'), async (snap) => {
-        try {
-          if (snap.exists()) {
-            if (snap.metadata.hasPendingWrites) return;
-            const numChunks = snap.data().numChunks || 1;
-            const allApps = [];
-            for (let i = 0; i < numChunks; i++) {
-              const chunkSnap = await getDoc(doc(db, 'store_data', `apps_chunk_${i}`));
-              if (chunkSnap.exists()) allApps.push(...chunkSnap.data().items);
-            }
-            if (allApps.length > 0) {
-              setApps(allApps);
-            }
-            setFetchedStates(prev => ({ ...prev, apps: true }));
-          } else {
-            setApps([]);
-            setFetchedStates(prev => ({ ...prev, apps: true }));
-          }
-        } finally {
-          checkLoaded('apps');
+        if (Array.isArray(data.apps) && data.apps.length > 0) {
+          setApps(data.apps);
         }
-      }),
-      onSnapshot(doc(db, 'store_data', 'public_settings'), (snap) => {
-        if (snap.exists() && !snap.metadata.hasPendingWrites) {
-          const data = snap.data() as Partial<GlobalSettings>;
-          setSettings(prev => {
-            const base = prev || mockSettings;
-            const updated: GlobalSettings = {
-              ...mockSettings,
-              ...base,
-              ...data,
-              banners: (Array.isArray(data.banners) && data.banners.length > 0) ? data.banners : (base.banners || []),
-              categories: (Array.isArray(data.categories) && data.categories.length > 0) ? data.categories : (base.categories || []),
-              quick_links: (Array.isArray(data.quick_links) && data.quick_links.length > 0) ? data.quick_links : (base.quick_links || []),
-              website_faqs: (Array.isArray(data.website_faqs) && data.website_faqs.length > 0) ? data.website_faqs : (base.website_faqs || []),
-              developers: (Array.isArray(data.developers) && data.developers.length > 0) ? data.developers : (base.developers || []),
-            };
-            return updated;
-          });
-          setFetchedStates(prev => ({ ...prev, settings: true }));
-        } else if (!snap.exists()) {
-          setFetchedStates(prev => ({ ...prev, settings: true }));
+        if (data.settings && Object.keys(data.settings).length > 0) {
+          setSettings(prev => ({
+            ...mockSettings,
+            ...prev,
+            ...data.settings
+          }));
         }
-        checkLoaded('settings');
-      }),
-      onSnapshot(doc(db, 'store_data', 'news'), (snap) => {
-        if (snap.exists() && !snap.metadata.hasPendingWrites) {
-          const items = snap.data().items;
-          if (Array.isArray(items) && items.length > 0) {
-            setNews(items);
-          }
-          setFetchedStates(prev => ({ ...prev, news: true }));
-        } else if (!snap.exists()) {
-          setFetchedStates(prev => ({ ...prev, news: true }));
+        if (Array.isArray(data.news) && data.news.length > 0) {
+          setNews(data.news);
         }
-        checkLoaded('news');
-      }),
-      onSnapshot(doc(db, 'store_data', 'videos'), (snap) => {
-        if (snap.exists() && !snap.metadata.hasPendingWrites) {
-          const items = snap.data().items;
-          if (Array.isArray(items) && items.length > 0) {
-            setVideos(items);
-          }
-          setFetchedStates(prev => ({ ...prev, videos: true }));
-        } else if (!snap.exists()) {
-          setFetchedStates(prev => ({ ...prev, videos: true }));
+        if (Array.isArray(data.videos) && data.videos.length > 0) {
+          setVideos(data.videos);
         }
-        checkLoaded('videos');
-      })
-    ];
+
+        setFetchedStates({ apps: true, settings: true, news: true, videos: true });
+        setSyncStates({ apps: true, settings: true, news: true, videos: true });
+      } catch (err: any) {
+        console.error("useDataSync fetch error:", err);
+        if (checkIsQuotaError(err)) {
+          setQuotaExceeded(true);
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+          setLoadedFromServer(true);
+          setIsConnected(true);
+        }
+      }
+    };
+
+    loadData();
 
     // Safety timeout for loading state
     const timer = setTimeout(() => {
-      setLoading(false);
-      setLoadedFromServer(true);
+      if (mounted) {
+        setLoading(false);
+        setLoadedFromServer(true);
+      }
     }, 5000);
 
     return () => {
-      unsubs.forEach(u => u());
+      mounted = false;
       clearTimeout(timer);
     };
-  }, [checkLoaded]);
+  }, []);
 
   // Monitor syncStates to clear loading
   useEffect(() => {
