@@ -166,7 +166,7 @@ export function renderHome(apps: any[], settings: any, news: any[], videos: any[
   `;
 }
 
-export function renderAppDetails(slug: string, apps: any[], settings: any) {
+export function renderAppDetails(slug: string, apps: any[], settings: any, sampleReviews: any[] = []) {
   const cleanSlug = decodeURIComponent(slug).toLowerCase();
   const app = apps.find(a => getField(a, 'slug').toLowerCase() === cleanSlug);
   if (!app) return `<div class="py-12 text-center"><h1 class="text-2xl font-bold mb-4 text-zinc-900 dark:text-zinc-100">App Not Found</h1><a href="/" class="text-blue-600 dark:text-blue-400 font-semibold hover:underline">Go Home</a></div>`;
@@ -177,7 +177,7 @@ export function renderAppDetails(slug: string, apps: any[], settings: any) {
   const size = getField(app, 'file_size', 'Variable');
   const rawRating = parseFloat(getField(app, 'rating')) || 4.5;
   const rawCount = parseInt(getField(app, 'review_count') || getField(app, 'reviews') || '0', 10);
-  const ratingCountVal = rawCount > 0 ? rawCount : Math.floor(rawRating * 35 + 20);
+  const ratingCountVal = rawCount > 0 ? rawCount : (sampleReviews.length > 0 ? sampleReviews.length : Math.floor(rawRating * 35 + 20));
   const rating = rawRating.toFixed(1);
   const rawIcon = getField(app, 'icon_url') || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&fit=crop';
   const icon = optimizeImageUrl(rawIcon, 256);
@@ -185,6 +185,52 @@ export function renderAppDetails(slug: string, apps: any[], settings: any) {
   const features = app.features_html ? sanitizeHtml(app.features_html) : '';
   const featureSectionContext = features ? `<div class="mt-8 pt-6 border-t border-zinc-200/80 dark:border-zinc-800/80"><h2 class="text-lg font-bold mb-4 text-zinc-900 dark:text-zinc-100">Key Features & Highlights</h2><div class="prose dark:prose-invert text-zinc-700 dark:text-zinc-300 leading-relaxed">${features}</div></div>` : '';
   const pkg = getField(app, 'package_name', 'Verified Listing');
+
+  let reviewsSectionHtml = '';
+  if (Array.isArray(sampleReviews) && sampleReviews.length > 0) {
+    const reviewsCards = sampleReviews.map((r: any) => {
+      const author = escapeHtml(r.userName || 'Verified Player');
+      const revRating = Math.max(1, Math.min(5, Math.round(Number(r.rating) || 5)));
+      const starsStr = '★'.repeat(revRating) + '☆'.repeat(5 - revRating);
+      const text = escapeHtml(r.reviewText || '');
+      const dateStr = r.timestamp ? new Date(r.timestamp).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Verified User';
+      return `
+        <div class="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-850 border border-zinc-200/80 dark:border-zinc-800 space-y-2 text-left">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <div class="w-8 h-8 rounded-full bg-blue-600/10 dark:bg-blue-400/10 text-blue-600 dark:text-blue-400 font-bold flex items-center justify-center text-xs">
+                ${author.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <strong class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 block leading-tight">${author}</strong>
+                <span class="text-[11px] text-zinc-500 dark:text-zinc-400">${dateStr}</span>
+              </div>
+            </div>
+            <span class="text-amber-500 font-bold text-xs tracking-wider">${starsStr}</span>
+          </div>
+          <p class="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">${text}</p>
+        </div>
+      `;
+    }).join('');
+
+    reviewsSectionHtml = `
+      <div class="mt-8 border-t border-zinc-200/80 dark:border-zinc-800/80 pt-6 text-left">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-lg sm:text-xl font-bold text-zinc-900 dark:text-zinc-100">Ratings & Reviews</h2>
+            <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">${escapeHtml(rating)} out of 5 stars based on ${escapeHtml(String(ratingCountVal))} community ratings</p>
+          </div>
+          <div class="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-800/40 rounded-xl text-amber-700 dark:text-amber-300 font-bold text-sm">
+            <span>★</span>
+            <span>${escapeHtml(rating)}</span>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 mt-4">
+          ${reviewsCards}
+        </div>
+      </div>
+    `;
+  }
 
   let screenshotsHtml = '';
   if (app.screenshots && Array.isArray(app.screenshots) && app.screenshots.length > 0) {
@@ -301,6 +347,8 @@ export function renderAppDetails(slug: string, apps: any[], settings: any) {
           </table>
         </div>
       </div>
+
+      ${reviewsSectionHtml}
 
       ${recommendedAppsHtml}
     </div>

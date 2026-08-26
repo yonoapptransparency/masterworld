@@ -96,7 +96,9 @@ export default function AdminDashboard() {
           website_faqs: websiteFaqsList,
           developers: developersList,
           banners: banners,
-          ...formSettings
+          ...formSettings,
+          meta_description: formSettings.meta_description || formSettings.seo_description || '',
+          seo_description: formSettings.seo_description || formSettings.meta_description || ''
         };
       } else {
         mergedSettings = {
@@ -105,7 +107,9 @@ export default function AdminDashboard() {
           website_faqs: websiteFaqsList,
           developers: developersList,
           banners: banners,
-          ...updatedSettings
+          ...updatedSettings,
+          meta_description: updatedSettings.meta_description || updatedSettings.seo_description || '',
+          seo_description: updatedSettings.seo_description || updatedSettings.meta_description || ''
         };
       }
 
@@ -197,7 +201,10 @@ export default function AdminDashboard() {
         custom_admin_box_heading: formFieldsOverride?.custom_admin_box_heading ?? (formData ? (formData.get('custom_admin_box_heading') as string ?? formData.get('hidden_custom_admin_box_heading') as string) : '') ?? '',
         custom_admin_box_html: formFieldsOverride?.custom_admin_box_html ?? (formData ? (formData.get('custom_admin_box_html') as string ?? formData.get('hidden_custom_admin_box_html') as string) : '') ?? '',
         seo_title: formFieldsOverride?.seo_title ?? (formData ? (formData.get('seo_title') as string ?? formData.get('hidden_seo_title') as string) : '') ?? '',
+        meta_title: formFieldsOverride?.seo_title ?? (formData ? (formData.get('seo_title') as string ?? formData.get('hidden_seo_title') as string) : '') ?? '',
         seo_description: formFieldsOverride?.seo_description ?? (formData ? (formData.get('seo_description') as string ?? formData.get('hidden_seo_description') as string) : '') ?? '',
+        meta_description: formFieldsOverride?.seo_description ?? (formData ? (formData.get('seo_description') as string ?? formData.get('hidden_seo_description') as string) : '') ?? '',
+        reviews: formFieldsOverride?.review_count !== undefined ? formFieldsOverride.review_count : (formData?.get('review_count') as string || formData?.get('hidden_review_count') as string || ''),
         seo_keywords: formFieldsOverride?.seo_keywords ?? (formData ? (formData.get('seo_keywords') as string ?? formData.get('hidden_seo_keywords') as string) : '') ?? '',
         og_image_url: formFieldsOverride?.og_image_url ?? (formData ? (formData.get('og_image_url') as string ?? formData.get('hidden_og_image_url') as string) : '') ?? '',
         canonical_url: formFieldsOverride?.canonical_url ?? (formData ? (formData.get('canonical_url') as string ?? formData.get('hidden_canonical_url') as string) : '') ?? '',

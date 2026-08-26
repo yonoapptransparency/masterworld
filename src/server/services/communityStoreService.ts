@@ -858,7 +858,7 @@ class CommunityStoreService {
       return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
     });
 
-    const max = Math.min(10000, Number(query.limit) || 1000);
+    const max = query.limit ? Math.min(100000, Number(query.limit)) : 100000;
     const sliced = list.slice(0, max);
 
     const stats = {
@@ -873,6 +873,14 @@ class CommunityStoreService {
     };
 
     return { reviews: sliced, stats, totalCount: list.length };
+  }
+
+  public getAllReviews(): ReviewRecord[] {
+    return Array.from(this.reviews.values());
+  }
+
+  public getAllPublishedReviews(): ReviewRecord[] {
+    return Array.from(this.reviews.values()).filter(r => r.status !== 'rejected' && r.status !== 'pending');
   }
 
   // ==========================================

@@ -20,6 +20,7 @@ export function getField(obj: any, key: string, fallback = ''): string {
   if (typeof value === 'object') {
     if ('stringValue' in value) return value.stringValue ?? fallback;
     if ('integerValue' in value) return String(value.integerValue) ?? fallback;
+    if ('doubleValue' in value) return String(value.doubleValue) ?? fallback;
     if ('booleanValue' in value) return String(value.booleanValue) ?? fallback;
     return fallback;
   }
@@ -30,6 +31,50 @@ export function stripHtml(html: string) {
   if (!html) return '';
   const stripped = html.replace(/<[^>]*>?/gm, ' ');
   return stripped.replace(/\s+/g, ' ').trim();
+}
+
+export function normalizeSchemaCategory(rawCategory?: string): string {
+  if (!rawCategory || typeof rawCategory !== 'string') return 'GameApplication';
+  const clean = rawCategory.replace(/[\r\n\t]+/g, ' ').trim();
+  const lower = clean.toLowerCase();
+  
+  if (
+    lower.includes('card') ||
+    lower.includes('game') ||
+    lower.includes('rummy') ||
+    lower.includes('teen patti') ||
+    lower.includes('patti') ||
+    lower.includes('yono') ||
+    lower.includes('casino') ||
+    lower.includes('arcade') ||
+    lower.includes('slots') ||
+    lower.includes('poker') ||
+    lower.includes('board') ||
+    lower.includes('puzzle')
+  ) {
+    return 'GameApplication';
+  }
+  
+  if (lower.includes('tool') || lower.includes('utilit')) {
+    return 'UtilitiesApplication';
+  }
+  if (lower.includes('social') || lower.includes('chat') || lower.includes('communication')) {
+    return 'SocialNetworkingApplication';
+  }
+  if (lower.includes('finance') || lower.includes('money') || lower.includes('wallet') || lower.includes('pay')) {
+    return 'FinanceApplication';
+  }
+  if (lower.includes('business') || lower.includes('productivity')) {
+    return 'BusinessApplication';
+  }
+  if (lower.includes('shop') || lower.includes('store') || lower.includes('ecommerce')) {
+    return 'ShoppingApplication';
+  }
+  if (lower.includes('entertain') || lower.includes('media') || lower.includes('video') || lower.includes('music')) {
+    return 'EntertainmentApplication';
+  }
+  
+  return 'GameApplication';
 }
 
 export function optimizeImageUrl(url: string, width = 128): string {

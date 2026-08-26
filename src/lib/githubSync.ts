@@ -45,6 +45,32 @@ export function b64EncodeUnicode(str: string): string {
 }
 
 /**
+ * Dynamically generates the content of `src/lib/communityReviewsData.ts` based on current verified reviews state
+ */
+export function generateCommunityReviewsFileCode(reviews: any[] = []): string {
+  const cleanReviews = (reviews || []).map((r: any) => ({
+    id: r.id || `rev_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    appId: r.appId || r.app_id || '',
+    appSlug: r.appSlug || '',
+    appName: r.appName || '',
+    userName: r.userName || r.username || 'Player',
+    rating: Number(r.rating) || 5,
+    reviewText: r.reviewText || r.comment || '',
+    timestamp: r.timestamp || r.created_at || new Date().toISOString(),
+    status: r.status || 'published',
+    helpful_count: Number(r.helpful_count) || 0,
+    isPinned: Boolean(r.isPinned),
+    reported: Boolean(r.reported),
+    report_count: Number(r.report_count) || 0,
+    source: r.source || 'admin_created',
+    adminReply: r.adminReply || null,
+    updated_at: r.updated_at || r.timestamp || new Date().toISOString()
+  }));
+
+  return `// Auto-generated verified community reviews dataset\nexport interface StaticReviewRecord {\n  id: string;\n  appId: string;\n  appSlug?: string;\n  appName?: string;\n  userName: string;\n  rating: number;\n  reviewText: string;\n  timestamp: string;\n  status: "published" | "pending" | "rejected" | string;\n  helpful_count: number;\n  isPinned?: boolean;\n  reported?: boolean;\n  report_count?: number;\n  source?: string;\n  adminReply?: {\n    text: string;\n    author: string;\n    timestamp: string;\n  } | null;\n  updated_at?: string;\n}\n\nexport const STATIC_COMMUNITY_REVIEWS: StaticReviewRecord[] = ${JSON.stringify(cleanReviews, null, 2)};\n`;
+}
+
+/**
  * Dynamically generates the content of `src/lib/staticData.ts` based on current state
  */
 export function generateStaticDataFileCode(

@@ -2,10 +2,52 @@ import fs from 'fs';
 import path from 'path';
 import { getRawFirebaseConfig, parseFirestoreDoc } from './firebaseConfig';
 
-// Dynamically resolve staticData to bypass TSX watcher
+// Dynamically resolve staticData directly from filesystem to bypass caching
 const getStaticData = () => {
   try {
-    return require('../lib/staticData');
+    const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
+    if (fs.existsSync(publicBackupPath)) {
+      const data = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
+      if (data && (Array.isArray(data.apps) && data.apps.length > 0)) {
+        return {
+          apps: data.apps,
+          mockApps: data.apps,
+          settings: data.settings || {},
+          mockSettings: data.settings || {},
+          news: data.news || [],
+          mockNews: data.news || [],
+          videos: data.videos || [],
+          mockVideos: data.videos || []
+        };
+      }
+    }
+  } catch (_) {}
+
+  try {
+    const staticJsonPath = path.join(process.cwd(), 'src/lib/staticData.json');
+    if (fs.existsSync(staticJsonPath)) {
+      const data = JSON.parse(fs.readFileSync(staticJsonPath, 'utf8'));
+      if (data) {
+        return {
+          apps: data.mockApps || data.apps || [],
+          mockApps: data.mockApps || data.apps || [],
+          settings: data.mockSettings || data.settings || {},
+          mockSettings: data.mockSettings || data.settings || {},
+          news: data.mockNews || data.news || [],
+          mockNews: data.mockNews || data.news || [],
+          videos: data.mockVideos || data.videos || [],
+          mockVideos: data.mockVideos || data.videos || []
+        };
+      }
+    }
+  } catch (_) {}
+
+  try {
+    const staticDataModulePath = path.join(process.cwd(), 'src/lib/staticData');
+    try {
+      delete require.cache[require.resolve(staticDataModulePath)];
+    } catch (_) {}
+    return require(staticDataModulePath);
   } catch (e) {
     return { mockApps: [], mockSettings: {}, mockNews: [], mockVideos: [] };
   }
@@ -29,6 +71,7 @@ export async function syncFromFirestore(): Promise<any> {
         if (fileContent.settings && Object.keys(fileContent.settings).length > 0) fallbackData.settings = fileContent.settings;
         if (Array.isArray(fileContent.news) && fileContent.news.length > 0) fallbackData.news = fileContent.news;
         if (Array.isArray(fileContent.videos) && fileContent.videos.length > 0) fallbackData.videos = fileContent.videos;
+        if (Array.isArray(fileContent.reviews) && fileContent.reviews.length > 0) fallbackData.reviews = fileContent.reviews;
       }
     }
   } catch (e) {}
@@ -71,7 +114,7 @@ export async function syncFromFirestore(): Promise<any> {
       const videos = videosDoc?.exists && Array.isArray(videosDoc.data()?.items) ? videosDoc.data().items : fallbackData.videos;
 
       if (apps.length > 0) {
-        const result = { apps, settings, news, videos };
+        const result = { apps, settings, news, videos, reviews: fallbackData.reviews || [] };
         try {
           fs.writeFileSync(publicBackupPath, JSON.stringify(result, null, 2), 'utf8');
         } catch (e) {}
@@ -130,7 +173,7 @@ export async function syncFromFirestore(): Promise<any> {
       const videos = Array.isArray(videosParsed?.items) ? videosParsed.items : fallbackData.videos;
 
       if (apps.length > 0) {
-        const result = { apps, settings, news, videos };
+        const result = { apps, settings, news, videos, reviews: fallbackData.reviews || [] };
         try {
           fs.writeFileSync(publicBackupPath, JSON.stringify(result, null, 2), 'utf8');
         } catch (e) {}

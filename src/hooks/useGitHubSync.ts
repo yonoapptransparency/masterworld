@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db, isFirebaseReal, handleFirestoreError, OperationType } from '../lib/firebase';
 import { adminFetch, getValidAdminToken, loadSession } from '../services/adminAuthService';
-import { GitConfig, generateStaticDataFileCode, commitFileToGitHub } from '../lib/githubSync';
+import { GitConfig, generateStaticDataFileCode, generateCommunityReviewsFileCode, commitFileToGitHub } from '../lib/githubSync';
+import { STATIC_COMMUNITY_REVIEWS } from '../lib/communityReviewsData';
 import { ensureDefaultSettings } from '../lib/defaultLegalContent';
 import { AppConfig, GlobalSettings, NewsItem, VideoItem } from '../types';
 
@@ -170,31 +171,52 @@ export function useGitHubSync(
               log("GitHub Sync: Secure link verification and merging completed.");
             }
           }
-          const revRes = await adminFetch('/api/v1/admin/community/reviews?limit=1000', {
-            headers: { 'Authorization': `Bearer ${idToken}` }
-          });
-          if (revRes.ok) {
-            const revData = await revRes.json();
-            if (revData && revData.reviews) {
-                            targetReviews = revData.reviews.filter((r: any) => r.status === 'published');
-              log(`GitHub Sync: Fetched ${targetReviews.length} published reviews for static backup.`);
-              
-              // --- INJECT RATING RECALCULATION HERE ---
-              finalApps = finalApps.map((app: any) => {
-                const appReviews = targetReviews.filter((r: any) => r.appId === app.id || r.app_id === app.id || r.appSlug === app.slug);
-                if (appReviews.length > 0) {
-                  const total = appReviews.length;
-                  const sum = appReviews.reduce((acc: number, cur: any) => acc + (Number(cur.rating) || 5), 0);
-                  const newAvg = (sum / total).toFixed(1);
-                  app.rating = Number(newAvg);
-                  app.review_count = total;
-                }
-                return app;
-              });
-              log(`GitHub Sync: Recalculated and injected true star ratings and total counts from community reviews.`);
-              // -----------------------------------------
-
+          
+          let fetchedReviews: any[] = [];
+          try {
+            const revRes = await adminFetch('/api/v1/admin/community/reviews?limit=50000', {
+              headers: { 'Authorization': `Bearer ${idToken}` }
+            });
+            if (revRes.ok) {
+              const revData = await revRes.json();
+              if (revData && Array.isArray(revData.reviews)) {
+                fetchedReviews = revData.reviews;
+              }
             }
+          } catch (rErr: any) {
+            log(`GitHub Sync: Reviews fetch note: ${rErr.message}`);
+          }
+
+          if (fetchedReviews.length > 0) {
+            const published = fetchedReviews.filter((r: any) => r.status === 'published' || r.status === 'approved' || (!r.status) || r.status === 'active');
+            targetReviews = published.length > 0 ? published : fetchedReviews;
+            log(`GitHub Sync: Loaded ${targetReviews.length} community reviews for static backup.`);
+          } else if (Array.isArray(liveBackup?.reviews) && liveBackup.reviews.length > 0) {
+            targetReviews = liveBackup.reviews;
+            log(`GitHub Sync: Using ${targetReviews.length} cached community reviews from live backup.`);
+          } else if (Array.isArray(STATIC_COMMUNITY_REVIEWS) && STATIC_COMMUNITY_REVIEWS.length > 0) {
+            targetReviews = STATIC_COMMUNITY_REVIEWS;
+            log(`GitHub Sync: Using ${targetReviews.length} pre-bundled static community reviews.`);
+          }
+
+          // Inject true star ratings and total counts into apps from reviews
+          if (targetReviews.length > 0) {
+            finalApps = finalApps.map((app: any) => {
+              const appReviews = targetReviews.filter((r: any) => 
+                (r.appId && (r.appId === app.id || r.appId === app.slug)) ||
+                (r.app_id && (r.app_id === app.id || r.app_id === app.slug)) ||
+                (r.appSlug && (r.appSlug === app.id || r.appSlug === app.slug))
+              );
+              if (appReviews.length > 0) {
+                const total = appReviews.length;
+                const sum = appReviews.reduce((acc: number, cur: any) => acc + (Number(cur.rating) || 5), 0);
+                const newAvg = (sum / total).toFixed(1);
+                app.rating = Number(newAvg);
+                app.review_count = total;
+              }
+              return app;
+            });
+            log(`GitHub Sync: Recalculated and injected star ratings and review counts across catalog.`);
           }
         }
       } catch (bkErr: any) {
@@ -202,8 +224,18 @@ export function useGitHubSync(
       }
     }
 
+    if (targetReviews.length === 0) {
+      if (Array.isArray(liveBackup?.reviews) && liveBackup.reviews.length > 0) {
+        targetReviews = liveBackup.reviews;
+      } else if (Array.isArray(STATIC_COMMUNITY_REVIEWS) && STATIC_COMMUNITY_REVIEWS.length > 0) {
+        targetReviews = STATIC_COMMUNITY_REVIEWS;
+      }
+    }
+
     const finalSettings = ensureDefaultSettings(targetSettings);
     const updatedCode = generateStaticDataFileCode(finalApps, finalSettings, targetNews, targetVideos);
+    const communityReviewsCode = generateCommunityReviewsFileCode(targetReviews);
+
     const safeBackupApps = JSON.parse(JSON.stringify(finalApps)).map((app: any) => {
       const rawTarget = app.more_information_url || app.download_url || app.encrypted_link || app.encrypted_download_url || '';
       if (app.url && (app.url.includes('com.rummydex') || app.url.includes('com.example'))) {
@@ -239,7 +271,9 @@ export function useGitHubSync(
       mockApps: safeBackupApps,
       mockSettings: finalSettings,
       mockNews: targetNews,
-      mockVideos: targetVideos
+      mockVideos: targetVideos,
+      mockReviews: targetReviews,
+      reviews: targetReviews
     }, null, 2);
 
     let targetRepo = configToUse.repo || 'dex';
@@ -258,6 +292,18 @@ export function useGitHubSync(
         message: `Admin Release: Manual content synchronization to ${targetRepo}`
       });
       log(`GitHub Sync: ✅ staticData.ts successfully synced to ${targetRepo}.`);
+
+      log(`GitHub Sync: Pushing communityReviewsData.ts (${targetReviews.length} reviews) to ${targetRepo}...`);
+      await commitFileToGitHub({
+        owner: configToUse.owner,
+        repo: targetRepo,
+        token: configToUse.token,
+        branch: configToUse.branch || 'main',
+        path: 'src/lib/communityReviewsData.ts',
+        content: communityReviewsCode,
+        message: `Admin Release: Manual community reviews synchronization to ${targetRepo}`
+      });
+      log(`GitHub Sync: ✅ communityReviewsData.ts successfully synced to ${targetRepo}.`);
 
       log(`GitHub Sync: Pushing public_backup.json to ${targetRepo}...`);
       await commitFileToGitHub({
@@ -295,6 +341,17 @@ export function useGitHubSync(
             message: `Admin Release: Manual content synchronization to masterworld`
           });
           log(`GitHub Sync: ✅ staticData.ts secondary sync to masterworld complete.`);
+
+          await commitFileToGitHub({
+            owner: configToUse.owner,
+            repo: 'masterworld',
+            token: configToUse.token,
+            branch: configToUse.branch || 'main',
+            path: 'src/lib/communityReviewsData.ts',
+            content: communityReviewsCode,
+            message: `Admin Release: Manual community reviews synchronization to masterworld`
+          });
+          log(`GitHub Sync: ✅ communityReviewsData.ts secondary sync to masterworld complete.`);
 
           await commitFileToGitHub({
             owner: configToUse.owner,

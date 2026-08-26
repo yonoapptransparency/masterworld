@@ -204,7 +204,7 @@ communityRouter.get("/api/v1/admin/community/reviews", verifyAdminToken, async (
       appId: appId ? String(appId) : undefined,
       isPinned: isPinned ? String(isPinned) : undefined,
       sortBy: sortBy ? String(sortBy) : undefined,
-      limit: Number(limit) || 100
+      limit: req.query.limit !== undefined ? Number(req.query.limit) : 50000
     });
 
     return res.status(200).json({ 

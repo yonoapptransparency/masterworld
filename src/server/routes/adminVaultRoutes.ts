@@ -616,11 +616,32 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
         return app;
       });
 
+      let baseReviews: any[] = [];
+      if (Array.isArray(existingBackup.reviews) && existingBackup.reviews.length > 0) {
+        baseReviews = existingBackup.reviews;
+      } else {
+        try {
+          const { communityStore } = require('../services/communityStoreService');
+          if (communityStore) {
+            baseReviews = communityStore.getAllReviews();
+          }
+        } catch (e) {}
+      }
+      if (!baseReviews || baseReviews.length === 0) {
+        try {
+          const { STATIC_COMMUNITY_REVIEWS } = require('../../lib/communityReviewsData');
+          if (Array.isArray(STATIC_COMMUNITY_REVIEWS) && STATIC_COMMUNITY_REVIEWS.length > 0) {
+            baseReviews = STATIC_COMMUNITY_REVIEWS;
+          }
+        } catch (e) {}
+      }
+
       const backupPayload = {
         apps: safeBackupApps,
         settings: finalSettings,
         news: finalNews,
-        videos: finalVideos
+        videos: finalVideos,
+        reviews: baseReviews
       };
       fs.writeFileSync(publicBackupPath, JSON.stringify(backupPayload, null, 2), 'utf8');
 
@@ -629,14 +650,26 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
         mockApps: safeBackupApps,
         mockSettings: finalSettings,
         mockNews: finalNews,
-        mockVideos: finalVideos
+        mockVideos: finalVideos,
+        mockReviews: baseReviews,
+        reviews: baseReviews
       };
       fs.writeFileSync(staticJsonPath, JSON.stringify(staticJsonPayload, null, 2), 'utf8');
       
-      const { generateStaticDataFileCode } = require('../../lib/githubSync');
+      const { generateStaticDataFileCode, generateCommunityReviewsFileCode } = require('../../lib/githubSync');
       const staticDataPath = path.join(process.cwd(), 'src/lib/staticData.ts');
       const tsCode = generateStaticDataFileCode(finalApps, finalSettings, finalNews, finalVideos);
       fs.writeFileSync(staticDataPath, tsCode, 'utf8');
+
+      if (baseReviews && baseReviews.length > 0) {
+        try {
+          const communityReviewsTsPath = path.join(process.cwd(), 'src/lib/communityReviewsData.ts');
+          const revCode = generateCommunityReviewsFileCode(baseReviews);
+          fs.writeFileSync(communityReviewsTsPath, revCode, 'utf8');
+        } catch (revErr) {
+          console.warn("[SERVER] Could not update communityReviewsData.ts:", revErr);
+        }
+      }
 
       // Update in-memory vaultNode for instant link resolution
       finalApps.forEach((app: any) => {

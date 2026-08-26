@@ -2,15 +2,56 @@ import fs from 'fs';
 import path from 'path';
 import { getSafeFirebaseConfig } from './seo/firebaseConfig';
 import { syncFromFirestore } from './seo/sync';
-import { getField, stripHtml, getYoutubeThumbnail, ensureAbsoluteUrl, getOgImageUrl, isBotUserAgent, escapeHtml, optimizeImageUrl } from './seo/utils';
+import { getField, stripHtml, getYoutubeThumbnail, ensureAbsoluteUrl, getOgImageUrl, isBotUserAgent, escapeHtml, optimizeImageUrl, normalizeSchemaCategory } from './seo/utils';
 import * as renderers from './seo/renderers';
 import { getCleanCanonicalUrl, formatPageTitle } from './lib/seoUtils';
 import { communityStore } from './server/services/communityStoreService';
 
-// Dynamically resolve staticData to bypass TSX watcher
+// Dynamically resolve staticData directly from filesystem to bypass caching
 const getStaticData = () => {
   try {
+    const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
+    if (fs.existsSync(publicBackupPath)) {
+      const data = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
+      if (data && (Array.isArray(data.apps) && data.apps.length > 0)) {
+        return {
+          apps: data.apps,
+          mockApps: data.apps,
+          settings: data.settings || {},
+          mockSettings: data.settings || {},
+          news: data.news || [],
+          mockNews: data.news || [],
+          videos: data.videos || [],
+          mockVideos: data.videos || []
+        };
+      }
+    }
+  } catch (_) {}
+
+  try {
+    const staticJsonPath = path.join(process.cwd(), 'src/lib/staticData.json');
+    if (fs.existsSync(staticJsonPath)) {
+      const data = JSON.parse(fs.readFileSync(staticJsonPath, 'utf8'));
+      if (data) {
+        return {
+          apps: data.mockApps || data.apps || [],
+          mockApps: data.mockApps || data.apps || [],
+          settings: data.mockSettings || data.settings || {},
+          mockSettings: data.mockSettings || data.settings || {},
+          news: data.mockNews || data.news || [],
+          mockNews: data.mockNews || data.news || [],
+          videos: data.mockVideos || data.videos || [],
+          mockVideos: data.mockVideos || data.videos || []
+        };
+      }
+    }
+  } catch (_) {}
+
+  try {
     const staticDataModulePath = path.join(process.cwd(), 'src/lib/staticData');
+    try {
+      delete require.cache[require.resolve(staticDataModulePath)];
+    } catch (_) {}
     return require(staticDataModulePath);
   } catch (e) {
     return { mockApps: [], mockSettings: {}, mockNews: [], mockVideos: [] };
@@ -94,7 +135,7 @@ function cleanSeoDescription(desc: string): string {
     if (metaMatch && metaMatch[1]) return metaMatch[1].trim();
     const ogMatch = trimmed.match(/<meta\s+property=["']og:description["']\s+content=["'](.*?)["']/i);
     if (ogMatch && ogMatch[1]) return ogMatch[1].trim();
-    return stripHtml(trimmed).substring(0, 160);
+    return stripHtml(trimmed);
   }
   return trimmed;
 }
@@ -163,7 +204,10 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
     const possibleSlug = cleanPathLower.replace(/^\/app\//, '/').replace(/^\/|\/$/g, '');
     const app = apps.find((a: any) => getField(a, 'slug')?.toLowerCase() === possibleSlug);
     if (app) {
-      bodyContent = renderers.renderAppDetails(possibleSlug, apps, settings);
+      const appIdentifier = getField(app, 'slug') || getField(app, 'id');
+      const rawRatingVal = parseFloat(getField(app, 'rating')) || 4.5;
+      const appSampleReviews = communityStore.getReviewsForApp(appIdentifier, undefined, 6, getField(app, 'name'), rawRatingVal, getField(app, 'slug'))?.reviews || [];
+      bodyContent = renderers.renderAppDetails(possibleSlug, apps, settings, appSampleReviews);
     } else {
       bodyContent = renderers.render404(urlPath, settings);
     }
@@ -241,14 +285,21 @@ function buildJsonLdSchema(params: {
     });
 
     if (params.settings?.website_faqs && Array.isArray(params.settings.website_faqs) && params.settings.website_faqs.length > 0) {
+      const seenQuestions = new Set<string>();
       const faqList = params.settings.website_faqs
-        .filter((faq: any) => getField(faq, 'question')?.trim() && getField(faq, 'answer')?.trim())
+        .filter((faq: any) => {
+          const q = stripHtml(getField(faq, 'question')).trim();
+          const a = stripHtml(getField(faq, 'answer')).trim();
+          if (!q || !a || q.length < 5 || seenQuestions.has(q.toLowerCase())) return false;
+          seenQuestions.add(q.toLowerCase());
+          return true;
+        })
         .map((faq: any) => ({
           "@type": "Question",
-          "name": stripHtml(getField(faq, 'question')),
+          "name": stripHtml(getField(faq, 'question')).trim(),
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": stripHtml(getField(faq, 'answer'))
+            "text": stripHtml(getField(faq, 'answer')).trim()
           }
         }));
       if (faqList.length > 0) {
@@ -263,23 +314,28 @@ function buildJsonLdSchema(params: {
   if (params.pageType === 'app' && params.app) {
     const app = params.app;
     const name = getField(app, 'name');
-    let category = getField(app, 'category') || 'GameApplication';
-    if (!category.includes('Application')) {
-      category = 'GameApplication';
-    }
+    const category = normalizeSchemaCategory(getField(app, 'category'));
     const rawRating = getField(app, 'rating');
-    const defaultRating = parseFloat(rawRating) || 4.5;
-    const defaultCount = parseInt(getField(app, 'review_count') || getField(app, 'reviews') || '0', 10);
+    const configuredRating = parseFloat(rawRating);
+    const rawCount = getField(app, 'review_count') || getField(app, 'reviews') || '';
+    const configuredCount = parseInt(rawCount, 10);
     
-    // Get live stats from communityStore to ensure real reviews are sent to Googlebot if available
+    // Admin configured rating is the primary authority for the catalog
     const appIdentifier = getField(app, 'slug') || getField(app, 'id');
-    const liveStats = communityStore.getAppStats(appIdentifier, defaultRating);
+    const liveStats = communityStore.getAppStats(appIdentifier, !isNaN(configuredRating) && configuredRating > 0 ? configuredRating : 4.5);
     
-    const ratingVal = liveStats.totalReviews > 0 ? liveStats.averageRating : (defaultRating > 0 ? defaultRating : 4.5);
-    const ratingCountVal = liveStats.totalReviews > 0 ? liveStats.totalReviews : (defaultCount > 0 ? defaultCount : Math.floor(ratingVal * 35 + 20));
+    const finalRating = !isNaN(configuredRating) && configuredRating > 0 
+      ? configuredRating 
+      : (liveStats.totalReviews > 0 ? liveStats.averageRating : 4.5);
+    const clampedRating = Math.max(1.0, Math.min(5.0, finalRating));
+
+    const finalCount = !isNaN(configuredCount) && configuredCount > 0
+      ? configuredCount
+      : (liveStats.totalReviews > 0 ? liveStats.totalReviews : Math.floor(clampedRating * 35 + 20));
+
     const appRawIcon = getField(app, 'icon_url') || getField(app, 'og_image_url') || params.logoUrl;
     const appSquareIcon = optimizeImageUrl(appRawIcon, 512) || appRawIcon;
-    const desc = cleanSeoDescription(getField(app, 'meta_description') || getField(app, 'seo_description') || stripHtml(getField(app, 'description_html')).substring(0, 160) || params.description);
+    const desc = cleanSeoDescription(getField(app, 'seo_description') || getField(app, 'meta_description') || stripHtml(getField(app, 'description_html')).substring(0, 160) || params.description);
 
     const rawCat = getField(app, 'category');
     const specificCat = rawCat ? rawCat.split(',').map((c: string) => c.trim()).filter((c: string) => c && c.toLowerCase() !== 'all apps' && c.toLowerCase() !== 'all' && c.toLowerCase() !== 'apps' && c.toLowerCase() !== 'general')[0] : '';
@@ -291,6 +347,7 @@ function buildJsonLdSchema(params: {
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
       "name": name,
+      "url": `${hostOrigin}/app/${getField(app, 'slug')}`,
       "operatingSystem": "Android",
       "applicationCategory": category,
       "image": appSquareIcon,
@@ -308,9 +365,9 @@ function buildJsonLdSchema(params: {
       },
       "aggregateRating": {
         "@type": "AggregateRating",
-        "ratingValue": ratingVal.toFixed(1),
-        "ratingCount": ratingCountVal.toString(),
-        "reviewCount": ratingCountVal.toString(),
+        "ratingValue": clampedRating.toFixed(1),
+        "ratingCount": String(finalCount),
+        "reviewCount": String(finalCount),
         "bestRating": "5",
         "worstRating": "1"
       }
@@ -318,7 +375,7 @@ function buildJsonLdSchema(params: {
 
     // Include sample reviews if available to boost Google Rich Snippet compliance
     try {
-      const feed = communityStore.getReviewsForApp(appIdentifier, undefined, 4, name, ratingVal, getField(app, 'slug'));
+      const feed = communityStore.getReviewsForApp(appIdentifier, undefined, 4, name, clampedRating, getField(app, 'slug'));
       if (feed && Array.isArray(feed.reviews) && feed.reviews.length > 0) {
         softwareAppSchema["review"] = feed.reviews.map((rev: any) => ({
           "@type": "Review",
@@ -330,7 +387,7 @@ function buildJsonLdSchema(params: {
           "reviewBody": stripHtml(rev.reviewText || ''),
           "reviewRating": {
             "@type": "Rating",
-            "ratingValue": String(rev.rating || 5),
+            "ratingValue": String(Math.max(1, Math.min(5, rev.rating || 5))),
             "bestRating": "5",
             "worstRating": "1"
           }
@@ -373,7 +430,7 @@ function buildJsonLdSchema(params: {
         "@type": "ListItem",
         "position": 2,
         "name": specificCat,
-        "item": `${hostOrigin}/?tab=${encodeURIComponent(specificCat)}`
+        "item": `${hostOrigin}/category/${encodeURIComponent(specificCat.toLowerCase().replace(/\s+/g, '-'))}`
       });
       breadcrumbs.push({
         "@type": "ListItem",
@@ -397,14 +454,21 @@ function buildJsonLdSchema(params: {
     });
 
     if (app.faqs && Array.isArray(app.faqs) && app.faqs.length > 0) {
+      const seenAppFaqs = new Set<string>();
       const faqList = app.faqs
-        .filter((faq: any) => getField(faq, 'question')?.trim() && getField(faq, 'answer')?.trim())
+        .filter((faq: any) => {
+          const q = stripHtml(getField(faq, 'question')).trim();
+          const a = stripHtml(getField(faq, 'answer')).trim();
+          if (!q || !a || q.length < 5 || seenAppFaqs.has(q.toLowerCase())) return false;
+          seenAppFaqs.add(q.toLowerCase());
+          return true;
+        })
         .map((faq: any) => ({
           "@type": "Question",
-          "name": stripHtml(getField(faq, 'question')),
+          "name": stripHtml(getField(faq, 'question')).trim(),
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": stripHtml(getField(faq, 'answer'))
+            "text": stripHtml(getField(faq, 'answer')).trim()
           }
         }));
       if (faqList.length > 0) {
@@ -530,8 +594,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   const videos = data.videos || [];
   const developers = data.developers || [];
   const siteTitle = getField(settings, 'site_title') || 'RummyDex';
-  let title = getField(settings, 'seo_title') || siteTitle;
-  let description = getField(settings, 'meta_description', '');
+  let title = getField(settings, 'seo_title') || getField(settings, 'meta_title') || siteTitle;
+  let description = getField(settings, 'seo_description') || getField(settings, 'meta_description', '');
   
   let keywords = getField(settings, 'seo_keywords', '');
   
@@ -570,8 +634,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
 
   if (cleanPathLower === '/' || cleanPathLower === '' || cleanPathLower === '/new-apps') {
     pageType = 'home';
-    title = getField(settings, 'seo_title') || siteTitle;
-    description = getField(settings, 'meta_description', '');
+    title = getField(settings, 'seo_title') || getField(settings, 'meta_title') || siteTitle;
+    description = getField(settings, 'seo_description') || getField(settings, 'meta_description', '');
   } else if (cleanPathLower.startsWith('/category/') || cleanPathLower.startsWith('/categories/') || cleanPathLower === '/categories') {
     const rawCatSlug = cleanPathLower.replace(/^\/(category|categories)\/?/, '').replace(/^\/|\/$/g, '');
     const catName = rawCatSlug
@@ -682,7 +746,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     const appSlug = cleanPathLower.replace(/^\/app\//, '/').replace(/^\/|\/$/g, '');
     const app = resolveAppSlug(appSlug, apps);
     if (app) {
-      title = getField(app, 'seo_title') || `${getField(app, 'name')} | ${siteTitle}`;
+      title = getField(app, 'seo_title') || getField(app, 'meta_title') || `${getField(app, 'name')} | ${siteTitle}`;
       description = cleanSeoDescription(getField(app, 'seo_description') || getField(app, 'meta_description') || stripHtml(getField(app, 'description_html')).substring(0, 160));
       customCanonicalUrl = `https://www.rummydex.com/app/${getField(app, 'slug')}`;
       pageType = 'app';
@@ -783,14 +847,9 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     settings
   });
 
-  // Ensure meta description is clean and within 160 characters for Google SERP
+  // Ensure meta description is clean and formatted
   if (description) {
     description = stripHtml(description).replace(/\s+/g, ' ').trim();
-    if (description.length > 160) {
-      const truncated = description.substring(0, 157);
-      const lastSpace = truncated.lastIndexOf(' ');
-      description = (lastSpace > 100 ? truncated.substring(0, lastSpace) : truncated) + '...';
-    }
   }
 
   const isNoIndexPage = isNotFound ||
@@ -810,17 +869,22 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     ? '<meta data-rh="true" name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate">\n    <meta data-rh="true" name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate">\n    <meta data-rh="true" name="bingbot" content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate">\n    <meta data-rh="true" name="slurp" content="noindex, nofollow, noarchive, nosnippet">\n    <meta data-rh="true" name="baiduspider" content="noindex, nofollow, noarchive, nosnippet">\n    <meta data-rh="true" name="yandex" content="noindex, nofollow, noarchive, nosnippet">\n    <meta data-rh="true" name="duckduckbot" content="noindex, nofollow, noarchive, nosnippet">' 
     : '<meta data-rh="true" name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">';
 
+  const escapedTitle = escapeHtml(title);
+  const escapedDesc = escapeHtml(description);
+  const escapedSiteTitle = escapeHtml(siteTitle);
+  const escapedKeywords = escapeHtml(keywords);
+
   const seoTags = `
-    <title>${title}</title>
-    <meta name="description" content="${description}">
-    <meta data-rh="true" name="keywords" content="${keywords}">
-    <meta data-rh="true" name="application-name" content="${siteTitle}">
+    <title>${escapedTitle}</title>
+    <meta name="description" content="${escapedDesc}">
+    <meta data-rh="true" name="keywords" content="${escapedKeywords}">
+    <meta data-rh="true" name="application-name" content="${escapedSiteTitle}">
     <meta data-rh="true" name="color-scheme" content="light dark">
     ${robotsTag}
-    <meta data-rh="true" property="og:site_name" content="${siteTitle}">
+    <meta data-rh="true" property="og:site_name" content="${escapedSiteTitle}">
     <meta data-rh="true" property="og:locale" content="en_IN">
-    <meta data-rh="true" property="og:title" content="${title}">
-    <meta data-rh="true" property="og:description" content="${description}">
+    <meta data-rh="true" property="og:title" content="${escapedTitle}">
+    <meta data-rh="true" property="og:description" content="${escapedDesc}">
     <meta data-rh="true" property="og:type" content="${pageType === 'news' ? 'article' : 'website'}">
     <meta data-rh="true" property="og:url" content="${canonicalUrl}">
     <meta data-rh="true" property="og:image" content="${pageOgImage}">
@@ -831,8 +895,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     <meta data-rh="true" name="twitter:card" content="summary_large_image">
     <meta data-rh="true" name="twitter:site" content="@RummyDex">
     <meta data-rh="true" name="twitter:creator" content="@RummyDex">
-    <meta data-rh="true" name="twitter:title" content="${title}">
-    <meta data-rh="true" name="twitter:description" content="${description}">
+    <meta data-rh="true" name="twitter:title" content="${escapedTitle}">
+    <meta data-rh="true" name="twitter:description" content="${escapedDesc}">
     <meta data-rh="true" name="twitter:image" content="${pageOgImage}">
     <link data-rh="true" rel="alternate" type="application/rss+xml" title="RummyDex News" href="/rss.xml">
     <link data-rh="true" rel="image_src" href="${pageOgImage}">
