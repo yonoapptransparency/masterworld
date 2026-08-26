@@ -47,11 +47,7 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
       if (res.ok) {
         const { encrypted } = await res.json();
         const payload = { encryptedData: encrypted, lastUpdated: new Date().toISOString() };
-        console.log("[DEBUG] syncSecureVault writing to Firestore client...");
-        await setDoc(doc(db, 'store_data', 'sec_vault'), payload);
-        await setDoc(doc(db, 'store_data', 'secure_links'), payload);
-        await setDoc(doc(db, 'store_data', 'sec_public_links'), payload);
-        console.log("[DEBUG] syncSecureVault finished Firestore client writes.");
+        // syncSecureVault finished Firestore client writes. (Handled by Admin SDK)
       } else {
          console.warn("[DEBUG] syncSecureVault failed:", await res.text());
       }
@@ -68,49 +64,27 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
           return;
         }
         try {
-          const snap = await getDoc(doc(db, 'store_data', 'sec_public_links'));
           let secureMap = new Map();
-          let snapData = snap.exists() ? snap.data() : null;
-          const hadPublicLinks = snap.exists() && snap.data()?.encryptedData;
+          const idToken = await auth?.currentUser?.getIdToken();
           
-          if (!snapData || (!snapData.encryptedData && !snapData.items)) {
-              const slSnap = await getDoc(doc(db, 'store_data', 'secure_links'));
-              if (slSnap.exists()) snapData = slSnap.data();
-              else {
-                const vSnap = await getDoc(doc(db, 'store_data', 'sec_vault'));
-                if (vSnap.exists()) snapData = vSnap.data();
-              }
-          }
-
-          if (snapData) {
-            if (snapData.encryptedData) {
-              try {
-                const idToken = await auth?.currentUser?.getIdToken();
-                const res = await adminFetch('/api/v1/admin/decrypt-links', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${idToken}`
-                  },
-                  body: JSON.stringify({ encryptedData: snapData.encryptedData })
-                });
-                if (res.ok) {
-                  const decrypted = await res.json();
-                  if (decrypted.items) decrypted.items.forEach((it: any) => secureMap.set(it.id, it.url));
-                } else {
-                  if (isFirebaseReal) setFetchFailed(true);
+          if (idToken) {
+            try {
+              const debugRes = await adminFetch('/api/v1/admin/debug-links', {
+                headers: { 'Authorization': `Bearer ${idToken}` }
+              });
+              if (debugRes.ok) {
+                const debugData = await debugRes.json();
+                if (debugData.decrypted && Array.isArray(debugData.decrypted)) {
+                  debugData.decrypted.forEach((it: any) => secureMap.set(it.id, it.url));
                 }
-              } catch (decErr: any) {
-                if (isFirebaseReal) setFetchFailed(true);
               }
-            } else if (snapData.items) {
-              snapData.items.forEach((it: any) => secureMap.set(it.id, it.url));
+            } catch (debugErr) {
+              console.warn("Failed fetching debug-links, trying fallback...", debugErr);
             }
           }
 
           // Fallback from container backup
           try {
-            const idToken = await auth?.currentUser?.getIdToken();
             if (idToken) {
               const bkRes = await adminFetch('/api/v1/admin/backup-links-get', {
                 headers: { 'Authorization': `Bearer ${idToken}` }
@@ -140,10 +114,6 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
           }));
           setAppsList(mergedApps);
           setIsInitialized(true);
-
-          if (!hadPublicLinks && secureMap.size > 0 && !fetchFailed && isFirebaseReal) {
-            syncSecureVault();
-          }
         } catch (err) {
           if (isFirebaseReal) setFetchFailed(true);
           setAppsList(latestMockAppsRef.current || []);
