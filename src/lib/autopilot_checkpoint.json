@@ -17,6 +17,48 @@
     },
     "logs": [
       {
+        "timestamp": "2026-08-27T17:23:03.581Z",
+        "appId": "system",
+        "appName": "Catalog Auto-Pilot Engine",
+        "message": "🔄 Restored Auto-Pilot Checkpoint: 13 processed, 17 skipped. Status: paused.",
+        "type": "info"
+      },
+      {
+        "timestamp": "2026-08-27T17:16:43.217Z",
+        "appId": "system",
+        "appName": "Catalog Auto-Pilot Engine",
+        "message": "🔄 Restored Auto-Pilot Checkpoint: 13 processed, 17 skipped. Status: paused.",
+        "type": "info"
+      },
+      {
+        "timestamp": "2026-08-27T17:15:23.651Z",
+        "appId": "system",
+        "appName": "Catalog Auto-Pilot Engine",
+        "message": "🔄 Restored Auto-Pilot Checkpoint: 13 processed, 17 skipped. Status: paused.",
+        "type": "info"
+      },
+      {
+        "timestamp": "2026-08-27T17:13:58.394Z",
+        "appId": "system",
+        "appName": "Catalog Auto-Pilot Engine",
+        "message": "🔄 Restored Auto-Pilot Checkpoint: 13 processed, 17 skipped. Status: paused.",
+        "type": "info"
+      },
+      {
+        "timestamp": "2026-08-27T17:12:22.525Z",
+        "appId": "system",
+        "appName": "Catalog Auto-Pilot Engine",
+        "message": "🔄 Restored Auto-Pilot Checkpoint: 13 processed, 17 skipped. Status: paused.",
+        "type": "info"
+      },
+      {
+        "timestamp": "2026-08-27T16:57:55.863Z",
+        "appId": "system",
+        "appName": "Catalog Auto-Pilot Engine",
+        "message": "🔄 Restored Auto-Pilot Checkpoint: 13 processed, 17 skipped. Status: paused.",
+        "type": "info"
+      },
+      {
         "timestamp": "2026-08-26T06:23:32.195Z",
         "appId": "system",
         "appName": "Catalog Auto-Pilot Engine",
@@ -968,5 +1010,5 @@
       "icon_url": "https://res.cloudinary.com/diewalae4/image/upload/v1786550532/1000134142_11zon_s6sigl.webp"
     }
   ],
-  "saved_at": "2026-08-26T06:23:32.196Z"
+  "saved_at": "2026-08-27T17:23:03.581Z"
 }

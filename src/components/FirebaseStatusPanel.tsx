@@ -160,7 +160,7 @@ export default function FirebaseStatusPanel() {
             {app?.options?.projectId || statusDetails.projectId || 'gen-lang-client-0825832493'}
           </div>
           <div className="text-[10px] text-slate-400 font-medium mt-1">
-            Database: {statusDetails.databaseId || '(default)'}
+            Database: {statusDetails.details?.databaseId || '(default)'}
           </div>
         </div>
 

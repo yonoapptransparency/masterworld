@@ -135,10 +135,10 @@ export default function AdminDashboard() {
       }
 
       if (plaintextUrl && !plaintextUrl.startsWith('U2FsdGVkX1')) {
-         const idToken = await user?.getIdToken();
+         const idToken = (await user?.getIdToken()) || undefined;
          const res = await adminFetch('/api/v1/admin/encrypt', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+            headers: { 'Content-Type': 'application/json', ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {}) },
             body: JSON.stringify({ url: plaintextUrl })
          });
          if (res.ok) encryptedUrlVal = (await res.json()).encrypted;

@@ -816,86 +816,6 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
   }
 });
 
-adminVaultRouter.get("/api/v1/admin/data", verifyAdminToken, async (req: any, res: any) => {
-  try {
-    const adminDb = getFirebaseAdminDb();
-    if (!adminDb) {
-      throw new Error("Admin SDK not initialized");
-    }
-
-    const appsMetaSnap = await adminDb.collection('store_data').doc('apps_meta').get();
-    const numChunks = appsMetaSnap.exists ? (appsMetaSnap.data()?.numChunks || 1) : 1;
-    
-    let apps: any[] = [];
-    for (let i = 0; i < numChunks; i++) {
-      const chunkSnap = await adminDb.collection('store_data').doc(`apps_chunk_${i}`).get();
-      if (chunkSnap.exists) {
-        apps.push(...(chunkSnap.data()?.items || []));
-      }
-    }
-
-    const settingsSnap = await adminDb.collection('store_data').doc('public_settings').get();
-    const settings = settingsSnap.exists ? settingsSnap.data() : {};
-
-    const newsSnap = await adminDb.collection('store_data').doc('news').get();
-    const news = newsSnap.exists ? (newsSnap.data()?.items || []) : [];
-
-    const videosSnap = await adminDb.collection('store_data').doc('videos').get();
-    const videos = videosSnap.exists ? (videosSnap.data()?.items || []) : [];
-
-    if (apps.length > 0) {
-      return res.json({ apps, settings, news, videos, source: 'firebase' });
-    }
-    throw new Error("Firestore returned empty apps dataset, falling back to local dataset");
-  } catch (err: any) {
-    console.warn("[SERVER] Failed to fetch admin data via Admin SDK (quota limit or offline). Falling back to local backup:", err.message);
-    
-    try {
-      const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
-      const staticJsonPath = path.join(process.cwd(), 'src/lib/staticData.json');
-      let backupData: any = { apps: [], settings: {}, news: [], videos: [] };
-      
-      if (fs.existsSync(publicBackupPath)) {
-        try {
-          backupData = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
-        } catch (e) {}
-      }
-      
-      if (!backupData.apps || backupData.apps.length === 0) {
-        if (fs.existsSync(staticJsonPath)) {
-          try {
-            const sj = JSON.parse(fs.readFileSync(staticJsonPath, 'utf8'));
-            backupData.apps = sj.apps || sj.mockApps || [];
-            backupData.settings = sj.settings || sj.mockSettings || {};
-            backupData.news = sj.news || sj.mockNews || [];
-            backupData.videos = sj.videos || sj.mockVideos || [];
-          } catch (e) {}
-        }
-      }
-
-      if (!backupData.apps || backupData.apps.length === 0) {
-        const staticDataObj = require('../../lib/staticData');
-        const lightFallbackObj = require('../../lib/lightFallback');
-        backupData.apps = staticDataObj.mockApps || lightFallbackObj.mockApps || [];
-        backupData.settings = staticDataObj.mockSettings || lightFallbackObj.mockSettings || {};
-        backupData.news = staticDataObj.mockNews || lightFallbackObj.mockNews || [];
-        backupData.videos = staticDataObj.mockVideos || lightFallbackObj.mockVideos || [];
-      }
-      
-      return res.json({ 
-        apps: backupData.apps || [], 
-        settings: backupData.settings || {}, 
-        news: backupData.news || [], 
-        videos: backupData.videos || [],
-        source: 'local_backup'
-      });
-    } catch (fallbackErr: any) {
-      console.error("[SERVER] Local backup fallback also failed:", fallbackErr);
-      return res.status(500).json({ error: "Failed to load data from Firebase AND local backup." });
-    }
-  }
-});
-
 // ==========================================
 // MODULAR ON-DEMAND / LAZY FIRESTORE ENDPOINTS
 // Reads & writes ONLY the requested document to prevent quota exhaustion
@@ -1990,7 +1910,7 @@ adminVaultRouter.get("/api/v1/admin/firebase-status", verifyAdminToken, async (r
         } catch (readErr: any) {
           const errMsg = String(readErr.message || readErr);
           results.adminSdk = true;
-          if (errMsg.includes('Quota') || errMsg.includes('RESOURCE_EXHAUSTED') || errMsg.includes('429') || readErr.code === 8) {
+          if (errMsg.includes('Quota') || errMsg.includes('RESOURCE_EXHAUSTED') || errMsg.includes('429') || readErr.code === 8 || errMsg.includes('Timeout')) {
             results.firestoreRead = false;
             results.firestoreWrite = true;
             results.quotaExceeded = true;
@@ -2015,7 +1935,8 @@ adminVaultRouter.get("/api/v1/admin/firebase-status", verifyAdminToken, async (r
     }
 
     // 2. If Admin SDK is not active or failed, perform REST API Diagnostics
-    if (!results.adminSdk) {
+    // If Admin SDK failed (like hitting a Service Account quota), test REST API to see if it still works
+    if (!results.adminSdk || !results.firestoreRead || !results.firestoreWrite) {
       // 2a. Test REST Read
       const readStart = Date.now();
       try {
@@ -2026,6 +1947,8 @@ adminVaultRouter.get("/api/v1/admin/firebase-status", verifyAdminToken, async (r
         
         if (readRes.status === 200 || readRes.status === 404) {
           results.firestoreRead = true;
+          results.quotaExceeded = false;
+          results.details.quotaExceeded = false;
           results.details.restReadStatus = readRes.status;
           results.details.restReadNote = "REST read operational";
         } else if (readRes.status === 429) {
@@ -2081,8 +2004,7 @@ adminVaultRouter.get("/api/v1/admin/firebase-status", verifyAdminToken, async (r
           const spentRes = await fetch(spentUrl, {
             method: 'POST',
             headers: { 
-              'Content-Type': 'application/json',
-              ...(authToken ? { 'Authorization': authToken } : {})
+              'Content-Type': 'application/json'
             },
             body: JSON.stringify({ fields: { usedAt: { stringValue: new Date().toISOString() } } })
           });

@@ -154,6 +154,10 @@ export function getAdminSdkDiagnostics(): { active: boolean; message: string; en
 }
 
 export function getFirebaseAdminDb(): any {
+  // FAST-PATH: Admin SDK is currently hitting a quota/networking hang in the sandbox,
+  // causing every request to spin for 8 seconds. We disable it completely here so it 
+  // instantly falls back to the lightning-fast REST API endpoints.
+  return null;
   if (cachedAdminDb) return cachedAdminDb;
 
   try {
@@ -217,14 +221,17 @@ export function getFirebaseAdminDb(): any {
           console.error(`[Admin SDK] Failed to parse ${detectedVarName}:`, parseErr.message);
           return null;
         }
-      } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-        admin.initializeApp({ projectId: config?.projectId });
-        lastAdminSdkStatusMsg = "Initialized using GOOGLE_APPLICATION_CREDENTIALS";
-        console.log('[Admin SDK] Initialized with GOOGLE_APPLICATION_CREDENTIALS.');
       } else {
-        lastAdminSdkStatusMsg = "No Service Account variable found on server. Looked for FIREBASE_ACCOUNT, FIREBASE_SERVICE_ACCOUNT, etc.";
-        console.warn('[Admin SDK] No service account env var found. Admin SDK in REST fallback mode.');
-        return null;
+        // Fallback to Application Default Credentials (ADC) for Cloud Run
+        try {
+          admin.initializeApp({ projectId: config?.projectId });
+          lastAdminSdkStatusMsg = "Initialized using Application Default Credentials (Cloud Run)";
+          console.log('[Admin SDK] Initialized with ADC.');
+        } catch (e) {
+          lastAdminSdkStatusMsg = "ADC Initialization failed: " + e.message;
+          console.warn('[Admin SDK] ADC fallback failed.');
+          return null;
+        }
       }
     }
 
@@ -239,6 +246,10 @@ export function getFirebaseAdminDb(): any {
     } else {
       cachedAdminDb = admin.firestore();
     }
+    // Force REST mode to avoid silent gRPC hangs in sandboxed environments
+    try {
+      cachedAdminDb.settings({ preferRest: true });
+    } catch(e) {}
 
     const activeProjectId = admin.apps[0]?.options?.projectId || config?.projectId || 'gen-lang-client-0825832493';
     console.log(`[Admin SDK] Firestore initialized for project: ${activeProjectId}, database: ${dbId}`);
@@ -375,9 +386,7 @@ export async function writeFirestoreRestDoc(docId: string, data: any, authToken?
 
     const fields = convertToFirestoreFields(data);
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (authToken && authToken.trim() !== '') {
-      headers['Authorization'] = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`;
-    }
+    // DO NOT attach the local AES authToken to the Google API request, it will cause a 401 error.
 
     const res = await fetch(url, {
       method: 'PATCH',
@@ -415,9 +424,7 @@ export async function deleteFirestoreRestDoc(docId: string, authToken?: string, 
   
 
     const headers: Record<string, string> = {};
-    if (authToken && authToken.trim() !== '') {
-      headers['Authorization'] = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`;
-    }
+    // DO NOT attach the local AES authToken to the Google API request
 
     const res = await fetch(url, {
       method: 'DELETE',
@@ -443,9 +450,7 @@ export async function readFirestoreRestDoc(docId: string, authToken?: string, co
     const url = `https://firestore.googleapis.com/v1/projects/${targetProjectId}/databases/${dbId}/documents/${collectionPath}/${docId}${finalApiKeyParam}`;
 
     const headers: Record<string, string> = {};
-    if (authToken && authToken.trim() !== '') {
-      headers['Authorization'] = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`;
-    }
+    // DO NOT attach the local AES authToken to the Google API request
 
     const res = await fetch(url, { headers });
     if (!res.ok) {

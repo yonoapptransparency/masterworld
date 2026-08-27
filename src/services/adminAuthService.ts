@@ -323,7 +323,9 @@ export async function adminFetch(
   options: RequestInit = {}
 ): Promise<Response> {
   let token = await getValidAdminToken();
-  const existingAuth = (options.headers as any)?.Authorization || (options.headers as any)?.authorization;
+  const rawExistingAuth = (options.headers as any)?.Authorization || (options.headers as any)?.authorization;
+  const existingAuth = (rawExistingAuth && !rawExistingAuth.includes('undefined') && !rawExistingAuth.includes('null') && rawExistingAuth.trim() !== 'Bearer') ? rawExistingAuth : null;
+
   if (!token && !existingAuth) {
     const rawSession = loadSession();
     if (rawSession?.idToken) {
@@ -331,6 +333,8 @@ export async function adminFetch(
       if (refreshed?.idToken) {
         token = refreshed.idToken;
         saveSession({ ...rawSession, idToken: refreshed.idToken, expiresAt: refreshed.expiresAt });
+      } else {
+        token = rawSession.idToken;
       }
     }
     if (!token && !existingAuth) {
@@ -348,7 +352,11 @@ export async function adminFetch(
     "Pragma": "no-cache",
     "Expires": "0"
   } as any;
-  if (token) finalHeaders.Authorization = `Bearer ${token}`;
+  if (token) {
+    finalHeaders.Authorization = `Bearer ${token}`;
+  } else if (existingAuth) {
+    finalHeaders.Authorization = existingAuth;
+  }
 
   let res = await fetch(url, { ...options, headers: finalHeaders, cache: 'no-store' });
 
