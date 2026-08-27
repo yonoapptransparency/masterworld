@@ -21,8 +21,8 @@ export function getRawFirebaseConfig(): any {
   try {
     const config = require('../../firebase-applet-config.json');
     if (config.projectId && isRealValue(config.projectId)) {
-      const rawDb = config.firestoreDatabaseId || config.databaseId || process.env.VITE_FIREBASE_DATABASE_ID;
-      config.firestoreDatabaseId = (!rawDb || rawDb.includes('ai-studio-yonostore')) ? '(default)' : rawDb;
+      const rawDb = config.firestoreDatabaseId || config.databaseId || process.env.VITE_FIREBASE_DATABASE_ID || process.env.FIREBASE_DATABASE_ID;
+      config.firestoreDatabaseId = (rawDb && isRealValue(rawDb)) ? rawDb : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
       config.apiKey = config.apiKey || process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY;
       cachedRawFirebaseConfig = config;
       return config;
@@ -38,7 +38,7 @@ export function getRawFirebaseConfig(): any {
       appId: process.env.VITE_FIREBASE_APP_ID || process.env.FIREBASE_APP_ID,
       apiKey: envApiKey,
       authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || process.env.FIREBASE_AUTH_DOMAIN,
-      firestoreDatabaseId: (!envDbId || envDbId.includes('ai-studio-yonostore')) ? '(default)' : envDbId,
+      firestoreDatabaseId: (envDbId && isRealValue(envDbId)) ? envDbId : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a',
       storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || process.env.VITE_FIREBASE_STORAGE_BUCKET,
       messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_ID || process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || process.env.FIREBASE_MESSAGING_SENDER_ID
     };

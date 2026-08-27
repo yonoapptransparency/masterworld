@@ -99,11 +99,12 @@ export function getRawFirebaseConfig(): any {
   const DEFAULT_FALLBACK_API_KEY = "AIzaSyBey9sUbeWrcXS2kl4ewOzkTy4arg03Ok";
   const finalApiKey = envApiKey || fileConfig.apiKey || DEFAULT_FALLBACK_API_KEY;
 
+  const DEFAULT_DB_ID = "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a";
   const resolveDbId = (rawDbId?: string, _pId?: string) => {
-    if (!rawDbId || !isRealValue(rawDbId) || rawDbId.includes('ai-studio-yonostore') || rawDbId === '(default)') {
-      return '(default)';
+    if (rawDbId && isRealValue(rawDbId)) {
+      return rawDbId;
     }
-    return rawDbId;
+    return DEFAULT_DB_ID;
   };
 
   // 1. Check environment variables first
@@ -130,13 +131,12 @@ export function getRawFirebaseConfig(): any {
 
   // 3. Fallback configuration
   const defaultProjectId = "gen-lang-client-0825832493";
-  const defaultDbId = "(default)";
   cachedRawFirebaseConfig = {
     projectId: defaultProjectId,
     appId: envAppId || "1:103973989874:web:733a6afd8e837224900f6b",
     apiKey: finalApiKey,
     authDomain: envAuthDomain || "gen-lang-client-0825832493.firebasestorage.app",
-    firestoreDatabaseId: resolveDbId(envDbId || defaultDbId, defaultProjectId),
+    firestoreDatabaseId: resolveDbId(envDbId, defaultProjectId),
     storageBucket: envStorageBucket || "gen-lang-client-0825832493.firebasestorage.app",
     messagingSenderId: envMessagingSenderId || "103973989874"
   };
@@ -231,10 +231,7 @@ export function getFirebaseAdminDb(): any {
     // Determine the correct Database ID
     const envDbId = config?.firestoreDatabaseId || config?.databaseId || process.env.VITE_FIREBASE_DATABASE_ID || process.env.FIREBASE_DATABASE_ID;
     
-    let dbId = '(default)';
-    if (envDbId && envDbId.trim() !== '' && envDbId !== '(default)' && envDbId !== 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a') {
-      dbId = envDbId;
-    }
+    let dbId = (envDbId && envDbId.trim() !== '') ? envDbId : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
 
     if (dbId && dbId !== '(default)') {
       const { getFirestore } = require('firebase-admin/firestore');
@@ -364,7 +361,7 @@ export async function writeFirestoreRestDoc(docId: string, data: any, authToken?
     // Removed hardcoded 'rummydexcommunity' overrides so reviews go to primary db
     
     const rawDb = config.firestoreDatabaseId || config.databaseId;
-    const dbId = (!rawDb || rawDb === 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a') ? '(default)' : rawDb;
+    const dbId = (rawDb && rawDb.trim() !== '') ? rawDb : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
     const queryParams: string[] = [];
     if (targetApiKey) queryParams.push(`key=${encodeURIComponent(targetApiKey)}`);
     if (merge && data && typeof data === 'object') {
@@ -409,7 +406,7 @@ export async function deleteFirestoreRestDoc(docId: string, authToken?: string, 
     const config = getRawFirebaseConfig();
     if (!config || !config.projectId) return false;
     const rawDb = config.firestoreDatabaseId || config.databaseId;
-    const dbId = (!rawDb || rawDb === 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a') ? '(default)' : rawDb;
+    const dbId = (rawDb && rawDb.trim() !== '') ? rawDb : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
     
     let targetProjectId = config.projectId;
     let targetApiKey = config.apiKey;
@@ -438,7 +435,7 @@ export async function readFirestoreRestDoc(docId: string, authToken?: string, co
     if (!config || !config.projectId) return null;
     
     const rawDb = config.firestoreDatabaseId || config.databaseId;
-    const dbId = (!rawDb || rawDb === 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a') ? '(default)' : rawDb;
+    const dbId = (rawDb && rawDb.trim() !== '') ? rawDb : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
     
     let targetProjectId = config.projectId;
     let targetApiKey = config.apiKey;
@@ -469,7 +466,7 @@ export async function readFirestoreRestCollection(collectionPath: string, authTo
     if (!config || !config.projectId) return [];
     
     const rawDb = config.firestoreDatabaseId || config.databaseId;
-    const dbId = (!rawDb || rawDb === 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a') ? '(default)' : rawDb;
+    const dbId = (rawDb && rawDb.trim() !== '') ? rawDb : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
     
     let targetProjectId = config.projectId;
     let targetApiKey = config.apiKey;

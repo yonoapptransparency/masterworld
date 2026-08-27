@@ -72,7 +72,7 @@ const getResolvedConfig = () => {
     appId: isRealValue(envAppId) ? envAppId! : (cfg.appId || "1:103973989874:web:733a6afd8e837224900f6b"),
     apiKey: isRealValue(envApiKey) ? envApiKey! : (cfg.apiKey || "AIzaSyBey9sUbeWrcXS2kl4ewOzkTy4arg03Ok"),
     authDomain: isRealValue(envAuthDomain) ? envAuthDomain! : (cfg.authDomain || "gen-lang-client-0825832493.firebasestorage.app"),
-    firestoreDatabaseId: isRealValue(envDatabaseId) ? envDatabaseId! : ((cfg.firestoreDatabaseId && cfg.firestoreDatabaseId !== 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a') ? cfg.firestoreDatabaseId : (cfg.databaseId || "(default)")),
+    firestoreDatabaseId: isRealValue(envDatabaseId) ? envDatabaseId! : (cfg.firestoreDatabaseId || cfg.databaseId || "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a"),
     storageBucket: isRealValue(envStorageBucket) ? envStorageBucket! : (cfg.storageBucket || "gen-lang-client-0825832493.firebasestorage.app"),
     messagingSenderId: isRealValue(envMessagingSenderId) ? envMessagingSenderId! : (cfg.messagingSenderId || "103973989874"),
   };
@@ -144,7 +144,7 @@ let firestoreInstance: any = null;
 if (app && isFirebaseReal) {
   try {
     const rawDbId = firebaseConfig?.firestoreDatabaseId;
-    const dbId = (rawDbId && rawDbId !== 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a') ? rawDbId : '(default)';
+    const dbId = (rawDbId && isRealValue(rawDbId)) ? rawDbId : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
     firestoreInstance = dbId === '(default)' ? getFirestore(app) : getFirestore(app, dbId);
     console.log('[Firebase] Firestore initialized with database:', dbId);
   } catch(e) {
