@@ -39,7 +39,10 @@ export default function FirebaseStatusPanel() {
         setStatusDetails(data.results || {});
         setLastCheckTime(new Date().toLocaleTimeString());
         
-        if (data.status === 'live') {
+        if (data.status === 'live' || (data.results?.firestoreRead && data.results?.firestoreWrite)) {
+          setFirestoreStatus('connected');
+          setWriteStatus('ok');
+        } else if (data.status === 'write_only' || (!data.results?.firestoreRead && data.results?.firestoreWrite)) {
           setFirestoreStatus('connected');
           setWriteStatus('ok');
         } else if (data.status === 'quota_exceeded' || data.results?.quotaExceeded) {
@@ -154,10 +157,10 @@ export default function FirebaseStatusPanel() {
             <StatusIcon status={isFirebaseReal ? 'connected' : 'disconnected'} />
           </div>
           <div className="text-[11px] text-slate-600 font-semibold truncate">
-            {app?.options?.projectId || statusDetails.projectId || 'ai-studio-yonostore'}
+            {app?.options?.projectId || statusDetails.projectId || 'gen-lang-client-0825832493'}
           </div>
           <div className="text-[10px] text-slate-400 font-medium mt-1">
-            Database: {statusDetails.databaseId || 'ai-studio-yonostore'}
+            Database: {statusDetails.databaseId || '(default)'}
           </div>
         </div>
 

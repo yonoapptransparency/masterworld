@@ -9,10 +9,10 @@ import { getAdminPath } from '../lib/utils';
 export function useDataSync() {
   const initialData = (typeof window !== 'undefined' && (window as any).__INITIAL_DATA__) || null;
 
-  const [apps, setApps] = useState<AppConfig[]>(() => (initialData?.apps && initialData.apps.length > 0) ? initialData.apps : mockApps);
-  const [settings, setSettings] = useState<GlobalSettings>(() => initialData?.settings || mockSettings);
-  const [news, setNews] = useState<NewsItem[]>(() => (initialData?.news && Array.isArray(initialData.news) && initialData.news.length > 0) ? initialData.news : mockNews);
-  const [videos, setVideos] = useState<VideoItem[]>(() => (initialData?.videos && Array.isArray(initialData.videos) && initialData.videos.length > 0) ? initialData.videos : mockVideos);
+  const [apps, setApps] = useState<AppConfig[]>(() => (initialData?.apps && initialData.apps.length > 0) ? initialData.apps : (mockApps || []));
+  const [settings, setSettings] = useState<GlobalSettings>(() => initialData?.settings || mockSettings || {} as GlobalSettings);
+  const [news, setNews] = useState<NewsItem[]>(() => (initialData?.news && Array.isArray(initialData.news) && initialData.news.length > 0) ? initialData.news : (mockNews || []));
+  const [videos, setVideos] = useState<VideoItem[]>(() => (initialData?.videos && Array.isArray(initialData.videos) && initialData.videos.length > 0) ? initialData.videos : (mockVideos || []));
   
   const [loading, setLoading] = useState(!initialData);
   const [loadedFromServer, setLoadedFromServer] = useState(!!initialData);
@@ -70,14 +70,11 @@ export function useDataSync() {
         setQuotaExceeded(true);
       }
 
-      if (Array.isArray(data.apps) && data.apps.length > 0) {
+      if (Array.isArray(data.apps)) {
         setApps(data.apps);
       }
-      if (data.settings && Object.keys(data.settings).length > 0) {
-        setSettings({
-          ...mockSettings,
-          ...data.settings
-        });
+      if (data.settings && typeof data.settings === 'object') {
+        setSettings(data.settings);
       }
       if (Array.isArray(data.news)) {
         setNews(data.news);

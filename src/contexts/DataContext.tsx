@@ -72,28 +72,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   // Update github's reference to updateLocalContainerBackup
   (github as any).updateLocalContainerBackup = actions.updateLocalContainerBackup;
 
-  // Initial backup data load
-  useEffect(() => {
-    const loadBackup = async () => {
-      const backup = await fetchBackupData();
-      if (backup) {
-        if (!isFirebaseReal || !sync.fetchedStates.apps || sync.apps.length === 0) {
-          if (Array.isArray(backup.apps) && backup.apps.length > 0) sync.setApps(backup.apps);
-        }
-        if (!isFirebaseReal || !sync.fetchedStates.settings || !sync.settings?.site_title) {
-          if (backup.settings?.site_title) sync.setSettings(backup.settings);
-        }
-        if (!isFirebaseReal || !sync.fetchedStates.news || sync.news.length === 0) {
-          if (Array.isArray(backup.news) && backup.news.length > 0) sync.setNews(backup.news);
-        }
-        if (!isFirebaseReal || !sync.fetchedStates.videos || sync.videos.length === 0) {
-          if (Array.isArray(backup.videos) && backup.videos.length > 0) sync.setVideos(backup.videos);
-        }
-      }
-    };
-    loadBackup();
-  }, []);
-
   const testCloudConnection = React.useCallback(async () => {
     if (!isFirebaseReal || !db) return false;
     try {

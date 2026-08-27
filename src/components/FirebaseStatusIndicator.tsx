@@ -38,14 +38,15 @@ export const FirebaseStatusIndicator: React.FC = () => {
       } catch(e) {}
       
       if (response.ok && data.results) {
+        const isLiveOk = data.status === 'live' || (data.results.firestoreRead && data.results.firestoreWrite) || (data.results.firestoreWrite && !data.results.quotaExceeded);
         setResult({
-          status: data.status === 'live' 
+          status: isLiveOk 
             ? 'live' 
-            : data.status === 'quota_exceeded' 
+            : data.status === 'quota_exceeded' || data.results.quotaExceeded
               ? 'quota_exceeded' 
-              : data.status === 'read_only' 
+              : data.status === 'read_only' || (data.results.firestoreRead && !data.results.firestoreWrite)
                 ? 'read_only' 
-                : data.status === 'write_only' 
+                : data.status === 'write_only' || (!data.results.firestoreRead && data.results.firestoreWrite)
                   ? 'write_only' 
                   : 'offline',
           adminSdk: data.results.adminSdk || false,

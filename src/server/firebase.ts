@@ -100,8 +100,8 @@ export function getRawFirebaseConfig(): any {
   const finalApiKey = envApiKey || fileConfig.apiKey || DEFAULT_FALLBACK_API_KEY;
 
   const resolveDbId = (rawDbId?: string, _pId?: string) => {
-    if (!rawDbId || !isRealValue(rawDbId)) {
-      return 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+    if (!rawDbId || !isRealValue(rawDbId) || rawDbId.includes('ai-studio-yonostore') || rawDbId === '(default)') {
+      return '(default)';
     }
     return rawDbId;
   };
@@ -130,7 +130,7 @@ export function getRawFirebaseConfig(): any {
 
   // 3. Fallback configuration
   const defaultProjectId = "gen-lang-client-0825832493";
-  const defaultDbId = "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a";
+  const defaultDbId = "(default)";
   cachedRawFirebaseConfig = {
     projectId: defaultProjectId,
     appId: envAppId || "1:103973989874:web:733a6afd8e837224900f6b",
@@ -230,9 +230,8 @@ export function getFirebaseAdminDb(): any {
 
     // Determine the correct Database ID
     const envDbId = config?.firestoreDatabaseId || config?.databaseId || process.env.VITE_FIREBASE_DATABASE_ID || process.env.FIREBASE_DATABASE_ID;
-    const defaultAiStudioDbId = 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
     
-    let dbId = defaultAiStudioDbId;
+    let dbId = '(default)';
     if (envDbId && envDbId.trim() !== '' && envDbId !== '(default)' && envDbId !== 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a') {
       dbId = envDbId;
     }
@@ -244,7 +243,7 @@ export function getFirebaseAdminDb(): any {
       cachedAdminDb = admin.firestore();
     }
 
-    const activeProjectId = admin.apps[0]?.options?.projectId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+    const activeProjectId = admin.apps[0]?.options?.projectId || config?.projectId || 'gen-lang-client-0825832493';
     console.log(`[Admin SDK] Firestore initialized for project: ${activeProjectId}, database: ${dbId}`);
     return cachedAdminDb;
   } catch (err: any) {
@@ -364,7 +363,8 @@ export async function writeFirestoreRestDoc(docId: string, data: any, authToken?
     let targetApiKey = config.apiKey;
     // Removed hardcoded 'rummydexcommunity' overrides so reviews go to primary db
     
-    const dbId = config.firestoreDatabaseId || config.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+    const rawDb = config.firestoreDatabaseId || config.databaseId;
+    const dbId = (!rawDb || rawDb === 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a') ? '(default)' : rawDb;
     const queryParams: string[] = [];
     if (targetApiKey) queryParams.push(`key=${encodeURIComponent(targetApiKey)}`);
     if (merge && data && typeof data === 'object') {
@@ -408,12 +408,11 @@ export async function deleteFirestoreRestDoc(docId: string, authToken?: string, 
   try {
     const config = getRawFirebaseConfig();
     if (!config || !config.projectId) return false;
-    const dbId = config.firestoreDatabaseId || config.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
-    const apiKeyParam = config.apiKey ? `?key=${config.apiKey}` : '';
+    const rawDb = config.firestoreDatabaseId || config.databaseId;
+    const dbId = (!rawDb || rawDb === 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a') ? '(default)' : rawDb;
     
     let targetProjectId = config.projectId;
     let targetApiKey = config.apiKey;
-    // Removed hardcoded 'rummydexcommunity' overrides so reviews go to primary db
     const finalApiKeyParam = targetApiKey ? `?key=${targetApiKey}` : '';
     const url = `https://firestore.googleapis.com/v1/projects/${targetProjectId}/databases/${dbId}/documents/${collectionPath}/${docId}${finalApiKeyParam}`;
   
@@ -433,18 +432,47 @@ export async function deleteFirestoreRestDoc(docId: string, authToken?: string, 
   }
 }
 
+export async function readFirestoreRestDoc(docId: string, authToken?: string, collectionPath: string = 'store_data'): Promise<any | null> {
+  try {
+    const config = getRawFirebaseConfig();
+    if (!config || !config.projectId) return null;
+    
+    const rawDb = config.firestoreDatabaseId || config.databaseId;
+    const dbId = (!rawDb || rawDb === 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a') ? '(default)' : rawDb;
+    
+    let targetProjectId = config.projectId;
+    let targetApiKey = config.apiKey;
+    const finalApiKeyParam = targetApiKey ? `?key=${targetApiKey}` : '';
+    const url = `https://firestore.googleapis.com/v1/projects/${targetProjectId}/databases/${dbId}/documents/${collectionPath}/${docId}${finalApiKeyParam}`;
+
+    const headers: Record<string, string> = {};
+    if (authToken && authToken.trim() !== '') {
+      headers['Authorization'] = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`;
+    }
+
+    const res = await fetch(url, { headers });
+    if (!res.ok) {
+      return null;
+    }
+
+    const doc = await res.json();
+    if (!doc || !doc.fields) return null;
+    return parseFirestoreFields(doc.fields);
+  } catch (err) {
+    return null;
+  }
+}
+
 export async function readFirestoreRestCollection(collectionPath: string, authToken?: string): Promise<any[]> {
   try {
     const config = getRawFirebaseConfig();
     if (!config || !config.projectId) return [];
     
-    const dbId = config.firestoreDatabaseId || config.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
-    const apiKeyParam = config.apiKey ? `?key=${config.apiKey}` : '';
+    const rawDb = config.firestoreDatabaseId || config.databaseId;
+    const dbId = (!rawDb || rawDb === 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a') ? '(default)' : rawDb;
     
     let targetProjectId = config.projectId;
     let targetApiKey = config.apiKey;
-    const baseCollection = collectionPath.split('/')[0];
-    // Removed hardcoded 'rummydexcommunity' overrides so reviews go to primary db
     const finalApiKeyParam = targetApiKey ? `?key=${targetApiKey}` : '';
     const connector = finalApiKeyParam ? '&' : '?';
     const url = `https://firestore.googleapis.com/v1/projects/${targetProjectId}/databases/${dbId}/documents/${collectionPath}${finalApiKeyParam}${connector}pageSize=1000`;

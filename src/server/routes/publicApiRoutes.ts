@@ -277,8 +277,8 @@ publicApiRouter.get(["/api/v1/public/firebase-status", "/api/public/firebase-sta
     const config = getRawFirebaseConfig();
     const apiKey = config?.apiKey || '';
     const projectId = config?.projectId || 'gen-lang-client-0825832493';
-    const rawDbId = config?.firestoreDatabaseId;
-    const dbId = rawDbId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+    const rawDbId = config?.firestoreDatabaseId || config?.databaseId;
+    const dbId = (!rawDbId || rawDbId.includes('ai-studio-yonostore') || rawDbId === '(default)') ? '(default)' : rawDbId;
 
     results.config = !!projectId;
     const aesSecret = process.env.AES_SECRET || (global as any).AES_SECRET_GLOBAL;

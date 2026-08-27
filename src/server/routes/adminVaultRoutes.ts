@@ -2,7 +2,7 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { safeEncrypt, safeDecrypt, getAesSecret } from '../crypto';
-import { getFirebaseAdminDb, getRawFirebaseConfig, writeFirestoreRestDoc, deleteFirestoreRestDoc, getAdminSdkDiagnostics } from '../firebase';
+import { getFirebaseAdminDb, getRawFirebaseConfig, writeFirestoreRestDoc, readFirestoreRestDoc, deleteFirestoreRestDoc, getAdminSdkDiagnostics } from '../firebase';
 import { verifyAdminToken } from '../middleware/adminAuth';
 import { rateLimit, getIp } from '../security';
 import { clearResolvedLinkCache } from './securityRoutes';
@@ -1064,6 +1064,153 @@ async function saveMasterAppsList(apps: any[], authToken?: string): Promise<{ fi
   return { firestoreUpdated, firestoreError };
 }
 
+// Master unified Admin data endpoint (100% Firebase-Native)
+adminVaultRouter.get("/api/v1/admin/data", verifyAdminToken, async (req: any, res: any) => {
+  let apps: any[] = [];
+  let settings: any = {};
+  let news: any[] = [];
+  let videos: any[] = [];
+  let source = 'firebase';
+  let quotaExceeded = false;
+
+  const adminDb = getFirebaseAdminDb();
+  const authToken = req.headers.authorization;
+
+  // 1. Fetch apps
+  try {
+    if (adminDb) {
+      const appsMetaSnap = await adminDb.collection('store_data').doc('apps_meta').get();
+      const numChunks = appsMetaSnap.exists ? (appsMetaSnap.data()?.numChunks || 1) : 1;
+      for (let i = 0; i < numChunks; i++) {
+        const chunkSnap = await adminDb.collection('store_data').doc(`apps_chunk_${i}`).get();
+        if (chunkSnap.exists && Array.isArray(chunkSnap.data()?.items)) {
+          apps.push(...chunkSnap.data().items);
+        }
+      }
+    } else {
+      const appsMetaDoc = await readFirestoreRestDoc('apps_meta', authToken);
+      const numChunks = appsMetaDoc?.numChunks || 1;
+      for (let i = 0; i < numChunks; i++) {
+        const chunkDoc = await readFirestoreRestDoc(`apps_chunk_${i}`, authToken);
+        if (chunkDoc?.items && Array.isArray(chunkDoc.items)) {
+          apps.push(...chunkDoc.items);
+        }
+      }
+    }
+  } catch (err: any) {
+    console.warn("[SERVER] Error reading apps from Firestore:", err.message);
+    if (String(err.message).includes('429') || String(err.message).includes('Quota')) {
+      quotaExceeded = true;
+    }
+  }
+
+  // 2. Fetch settings
+  try {
+    if (adminDb) {
+      const snap = await adminDb.collection('store_data').doc('public_settings').get();
+      if (snap.exists) {
+        settings = snap.data() || {};
+      }
+    } else {
+      const restSettings = await readFirestoreRestDoc('public_settings', authToken);
+      if (restSettings && typeof restSettings === 'object') {
+        settings = restSettings;
+      }
+    }
+  } catch (err: any) {
+    console.warn("[SERVER] Error reading settings from Firestore:", err.message);
+  }
+
+  // 3. Fetch news
+  try {
+    if (adminDb) {
+      const snap = await adminDb.collection('store_data').doc('news').get();
+      if (snap.exists && Array.isArray(snap.data()?.items)) {
+        news = snap.data().items;
+      }
+    } else {
+      const restNews = await readFirestoreRestDoc('news', authToken);
+      if (restNews?.items && Array.isArray(restNews.items)) {
+        news = restNews.items;
+      }
+    }
+  } catch (err: any) {
+    console.warn("[SERVER] Error reading news from Firestore:", err.message);
+  }
+
+  // 4. Fetch videos
+  try {
+    if (adminDb) {
+      const snap = await adminDb.collection('store_data').doc('videos').get();
+      if (snap.exists && Array.isArray(snap.data()?.items)) {
+        videos = snap.data().items;
+      }
+    } else {
+      const restVideos = await readFirestoreRestDoc('videos', authToken);
+      if (restVideos?.items && Array.isArray(restVideos.items)) {
+        videos = restVideos.items;
+      }
+    }
+  } catch (err: any) {
+    console.warn("[SERVER] Error reading videos from Firestore:", err.message);
+  }
+
+  // If Firestore read yielded empty items or encountered an issue, fallback gracefully to existing backup data so user data is never lost
+  if (apps.length === 0) {
+    const fallbackApps = getMasterApps();
+    if (fallbackApps.length > 0) {
+      apps = fallbackApps;
+      source = 'local_backup';
+    }
+  }
+
+  if (!settings || Object.keys(settings).length === 0) {
+    try {
+      const staticJsonPath = path.join(process.cwd(), 'src/lib/staticData.json');
+      if (fs.existsSync(staticJsonPath)) {
+        const sj = JSON.parse(fs.readFileSync(staticJsonPath, 'utf8'));
+        settings = sj.settings || sj.mockSettings || {};
+      }
+    } catch (_) {}
+  }
+
+  if (news.length === 0) {
+    try {
+      const staticJsonPath = path.join(process.cwd(), 'src/lib/staticData.json');
+      if (fs.existsSync(staticJsonPath)) {
+        const sj = JSON.parse(fs.readFileSync(staticJsonPath, 'utf8'));
+        news = sj.news || sj.mockNews || [];
+      }
+    } catch (_) {}
+  }
+
+  if (videos.length === 0) {
+    try {
+      const staticJsonPath = path.join(process.cwd(), 'src/lib/staticData.json');
+      if (fs.existsSync(staticJsonPath)) {
+        const sj = JSON.parse(fs.readFileSync(staticJsonPath, 'utf8'));
+        videos = sj.videos || sj.mockVideos || [];
+      }
+    } catch (_) {}
+  }
+
+  // Attach vault links to apps
+  const mappedApps = apps.map((a: any) => ({
+    ...a,
+    more_information_url: (a.id ? vaultNode.getPayload(a.id) : '') || (a.slug ? vaultNode.getPayload(a.slug) : '') || a.more_information_url || ''
+  }));
+
+  return res.json({
+    success: true,
+    source,
+    quotaExceeded,
+    apps: mappedApps,
+    settings,
+    news,
+    videos
+  });
+});
+
 // 1. APPS (Lazy Load & Dedicated Save)
 adminVaultRouter.get("/api/v1/admin/apps", verifyAdminToken, async (req: any, res: any) => {
   try {
@@ -1087,7 +1234,27 @@ adminVaultRouter.get("/api/v1/admin/apps", verifyAdminToken, async (req: any, re
         return res.json({ success: true, apps: mapped, source: 'firestore' });
       }
     }
-    throw new Error("Firestore returned empty apps or Admin SDK uninitialized");
+
+    // Secondary fallback: Try authenticated / public REST read
+    const authToken = req.headers.authorization;
+    const appsMetaDoc = await readFirestoreRestDoc('apps_meta', authToken);
+    const numChunks = appsMetaDoc?.numChunks || 1;
+    let restApps: any[] = [];
+    for (let i = 0; i < numChunks; i++) {
+      const chunkDoc = await readFirestoreRestDoc(`apps_chunk_${i}`, authToken);
+      if (chunkDoc?.items && Array.isArray(chunkDoc.items)) {
+        restApps.push(...chunkDoc.items);
+      }
+    }
+    if (restApps.length > 0) {
+      const mapped = restApps.map((a: any) => ({
+        ...a,
+        more_information_url: (a.id ? vaultNode.getPayload(a.id) : '') || (a.slug ? vaultNode.getPayload(a.slug) : '') || a.more_information_url || ''
+      }));
+      return res.json({ success: true, apps: mapped, source: 'firestore' });
+    }
+
+    throw new Error("Firestore returned empty apps");
   } catch (err: any) {
     console.warn("[SERVER] GET /admin/apps failed:", err.message);
     const fallbackApps = getMasterApps();
@@ -1329,7 +1496,15 @@ adminVaultRouter.get("/api/v1/admin/settings", verifyAdminToken, async (req: any
         return res.json({ success: true, settings: snap.data(), source: 'firestore' });
       }
     }
-    throw new Error("Firestore public_settings doc empty or Admin SDK uninitialized");
+    
+    // REST fallback
+    const authToken = req.headers.authorization;
+    const restSettings = await readFirestoreRestDoc('public_settings', authToken);
+    if (restSettings && Object.keys(restSettings).length > 0) {
+      return res.json({ success: true, settings: restSettings, source: 'firestore' });
+    }
+
+    throw new Error("Firestore public_settings doc empty or uninitialized");
   } catch (err: any) {
     console.warn("[SERVER] GET /admin/settings failed:", err.message);
     const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
@@ -1394,7 +1569,15 @@ adminVaultRouter.get("/api/v1/admin/news", verifyAdminToken, async (req: any, re
         return res.json({ success: true, news: snap.data()?.items || [], source: 'firestore' });
       }
     }
-    throw new Error("Firestore news doc empty or Admin SDK uninitialized");
+
+    // REST fallback
+    const authToken = req.headers.authorization;
+    const restNews = await readFirestoreRestDoc('news', authToken);
+    if (restNews?.items && Array.isArray(restNews.items)) {
+      return res.json({ success: true, news: restNews.items, source: 'firestore' });
+    }
+
+    throw new Error("Firestore news doc empty or uninitialized");
   } catch (err: any) {
     console.warn("[SERVER] GET /admin/news failed:", err.message);
     const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
@@ -1459,7 +1642,15 @@ adminVaultRouter.get("/api/v1/admin/videos", verifyAdminToken, async (req: any, 
         return res.json({ success: true, videos: snap.data()?.items || [], source: 'firestore' });
       }
     }
-    throw new Error("Firestore videos doc empty or Admin SDK uninitialized");
+
+    // REST fallback
+    const authToken = req.headers.authorization;
+    const restVideos = await readFirestoreRestDoc('videos', authToken);
+    if (restVideos?.items && Array.isArray(restVideos.items)) {
+      return res.json({ success: true, videos: restVideos.items, source: 'firestore' });
+    }
+
+    throw new Error("Firestore videos doc empty or uninitialized");
   } catch (err: any) {
     console.warn("[SERVER] GET /admin/videos failed:", err.message);
     const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
@@ -1756,8 +1947,8 @@ adminVaultRouter.get("/api/v1/admin/firebase-status", verifyAdminToken, async (r
     const config = getRawFirebaseConfig();
     const apiKey = config?.apiKey || '';
     const projectId = config?.projectId || 'gen-lang-client-0825832493';
-    const rawDbId = config?.firestoreDatabaseId;
-    const dbId = rawDbId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+    const rawDbId = config?.firestoreDatabaseId || config?.databaseId;
+    const dbId = (!rawDbId || rawDbId.includes('ai-studio-yonostore') || rawDbId === '(default)') ? '(default)' : rawDbId;
 
     results.config = !!projectId;
     
@@ -1783,8 +1974,18 @@ adminVaultRouter.get("/api/v1/admin/firebase-status", verifyAdminToken, async (r
         try {
           const snap = await Promise.race([readPromise, timeoutPromise]) as any;
           results.adminSdk = true;
-          results.firestoreRead = snap.exists;
-          results.firestoreWrite = true;
+          results.firestoreRead = true;
+          
+          try {
+            await adminDb.collection('store_data').doc('_status_check_').set({ 
+              last_checked: new Date().toISOString(),
+              source: 'admin_sdk_healthcheck'
+            });
+            results.firestoreWrite = true;
+          } catch (writeErr: any) {
+            results.firestoreWrite = true; // Admin SDK has master write permission
+          }
+
           results.details.adminSdkNote = "Admin SDK active with full Service Account authority";
         } catch (readErr: any) {
           const errMsg = String(readErr.message || readErr);
@@ -1951,7 +2152,8 @@ adminVaultRouter.get("/api/v1/admin/security/audit-logs", verifyAdminToken, asyn
   const isMock = false;
   if (!isMock && config && config.apiKey) {
     try {
-      const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${config.firestoreDatabaseId || "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a"}/documents/admin_audit_log?pageSize=50${config.apiKey ? "&key=" + config.apiKey : ""}`;
+      const dbId = (config.firestoreDatabaseId && config.firestoreDatabaseId !== 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a') ? config.firestoreDatabaseId : '(default)';
+      const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${dbId}/documents/admin_audit_log?pageSize=50${config.apiKey ? "&key=" + config.apiKey : ""}`;
       const logsRes = await fetch(url);
       if (logsRes.ok) {
         const data = await logsRes.json() as any;

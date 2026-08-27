@@ -131,16 +131,15 @@ export function useDataActions(
 
   const saveSettings = useCallback(async (newSettings: Partial<GlobalSettings>) => {
     const now = new Date().toISOString();
-    const currentSettings = settings || mockSettings;
+    const currentSettings = settings || {} as GlobalSettings;
     const settingsWithTime: GlobalSettings = {
-      ...mockSettings,
       ...currentSettings,
       ...newSettings,
-      banners: newSettings.banners !== undefined ? newSettings.banners : (currentSettings.banners?.length ? currentSettings.banners : (mockSettings.banners || [])),
-      categories: newSettings.categories !== undefined ? newSettings.categories : (currentSettings.categories?.length ? currentSettings.categories : (mockSettings.categories || [])),
-      quick_links: newSettings.quick_links !== undefined ? newSettings.quick_links : (currentSettings.quick_links?.length ? currentSettings.quick_links : (mockSettings.quick_links || [])),
-      website_faqs: newSettings.website_faqs !== undefined ? newSettings.website_faqs : (currentSettings.website_faqs?.length ? currentSettings.website_faqs : (mockSettings.website_faqs || [])),
-      developers: newSettings.developers !== undefined ? newSettings.developers : (currentSettings.developers?.length ? currentSettings.developers : (mockSettings.developers || [])),
+      banners: newSettings.banners !== undefined ? newSettings.banners : (currentSettings.banners || []),
+      categories: newSettings.categories !== undefined ? newSettings.categories : (currentSettings.categories || []),
+      quick_links: newSettings.quick_links !== undefined ? newSettings.quick_links : (currentSettings.quick_links || []),
+      website_faqs: newSettings.website_faqs !== undefined ? newSettings.website_faqs : (currentSettings.website_faqs || []),
+      developers: newSettings.developers !== undefined ? newSettings.developers : (currentSettings.developers || []),
       last_updated: now
     } as GlobalSettings;
     setSettings(settingsWithTime);
