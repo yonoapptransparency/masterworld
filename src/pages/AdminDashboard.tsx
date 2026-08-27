@@ -18,7 +18,8 @@ export default function AdminDashboard() {
     apps, settings, news, videos, 
     saveApps, saveSettings, saveNews, saveVideos,
     saveAppSingle, deleteAppSingle, saveSettingsSection,
-    loading, refreshAll, gitConfig, gitConfigLoading, saveGitConfig, pushAllToGitHub
+    loading, refreshAll, reloadServerData, dataSource, isRefreshing: dataRefreshing, lastSyncTime,
+    gitConfig, gitConfigLoading, saveGitConfig, pushAllToGitHub
   } = useData();
 
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -75,12 +76,14 @@ export default function AdminDashboard() {
   const handleReloadCloudData = async () => {
     setSaving(true);
     try {
-      await refreshAll();
-      toast('Global sync successful.', 'success');
+      await reloadServerData(false);
+      await refreshAll(true);
+      toast('All data refreshed and synchronized from server across devices!', 'success');
     } catch (err: any) {
       toast('Sync failed: ' + err.message, 'error');
     } finally { setSaving(false); }
   };
+
 
   const handleSaveSettingsBase = async (updatedSettings: any) => {
     setSaving(true);
@@ -271,14 +274,30 @@ export default function AdminDashboard() {
       />
 
       <main className="lg:pl-64 min-h-screen transition-all duration-300">
-        <header className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80  border-b border-slate-200 dark:border-slate-800 px-4 py-2 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <header className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80  border-b border-slate-200 dark:border-slate-800 px-4 py-2 flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2.5 flex-wrap">
             <h2 className="text-lg font-black tracking-tight capitalize">
               {activeTab === 'news' ? 'News Section' : activeTab.replace('-', ' ')}
             </h2>
             <FirebaseStatusIndicator />
+            {dataSource === 'firebase' ? (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shadow-xs" title="Connected directly to Google Cloud Firestore Live Database">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>Data: Live Firestore</span>
+              </span>
+            ) : dataSource === 'local_backup' ? (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shadow-xs" title="Data served via local high-availability storage fallback due to Firestore daily free-tier read quota. Writes and cross-device syncs remain 100% active.">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                <span>Data: Local Fallback (Protected)</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider bg-blue-50 text-blue-700 border border-blue-200 shadow-xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping"></span>
+                <span>Connecting...</span>
+              </span>
+            )}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
              <button 
               type="button"
               onClick={() => setShowWelcomeOverlay(true)}
@@ -290,14 +309,16 @@ export default function AdminDashboard() {
              </button>
              <button 
               onClick={handleReloadCloudData} 
-              disabled={saving} 
+              disabled={saving || dataRefreshing} 
+              title={lastSyncTime ? `Last synced: ${lastSyncTime}. Click to pull latest updates across all devices.` : 'Pull latest updates across all devices'}
               className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg font-bold text-xs transition-all border-0 cursor-pointer shadow-sm shadow-blue-500/10 active:scale-95 disabled:opacity-50 whitespace-nowrap"
              >
-                <RefreshCw size={14} className={saving ? 'animate-spin' : ''} />
-                <span>{saving ? 'Syncing...' : 'Global Refresh'}</span>
+                <RefreshCw size={14} className={(saving || dataRefreshing) ? 'animate-spin' : ''} />
+                <span>{(saving || dataRefreshing) ? 'Syncing...' : 'Sync Devices'}</span>
              </button>
           </div>
         </header>
+
 
         <div className="p-4 max-w-7xl mx-auto">
           <AdminTabContent 

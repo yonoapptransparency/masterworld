@@ -15,146 +15,41 @@ export const useAdminSettings = (settings: any, news: any[], videos: any[]) => {
   const deletedVideoIdsRef = useRef(new Set<string>());
   const deletedCategoryNamesRef = useRef(new Set<string>());
 
-  // Smart sync whenever data arrives from DataContext / Firestore
+  // Synchronize news directly when fresh server data arrives
   useEffect(() => {
-    if (Array.isArray(news) && news.length > 0) {
-      setNewsList(prev => {
-        if (!prev || prev.length === 0) {
-          return news.filter(n => !deletedNewsIdsRef.current.has(n.id));
-        }
-        const prevMap = new Map(prev.map(i => [i.id, i]));
-        const incomingMap = new Map(news.map(i => [i.id, i]));
-        const merged: any[] = [];
-
-        // Keep local additions & edits
-        for (const item of prev) {
-          if (deletedNewsIdsRef.current.has(item.id)) continue;
-          const incoming = incomingMap.get(item.id);
-          if (!incoming) {
-            merged.push(item);
-          } else {
-            merged.push({ ...(incoming as object), ...(item as object) });
-          }
-        }
-
-        // Add brand new incoming items
-        for (const incoming of news) {
-          if (!prevMap.has(incoming.id) && !deletedNewsIdsRef.current.has(incoming.id)) {
-            merged.push(incoming);
-          }
-        }
-
-        if (JSON.stringify(prev) === JSON.stringify(merged)) return prev;
-        return merged;
-      });
+    if (Array.isArray(news)) {
+      setNewsList(news.filter(n => !deletedNewsIdsRef.current.has(n.id)));
     }
   }, [news]);
 
+  // Synchronize videos directly when fresh server data arrives
   useEffect(() => {
-    if (Array.isArray(videos) && videos.length > 0) {
-      setVideosList(prev => {
-        if (!prev || prev.length === 0) {
-          return videos.filter(v => !deletedVideoIdsRef.current.has(v.id));
-        }
-        const prevMap = new Map(prev.map(i => [i.id, i]));
-        const incomingMap = new Map(videos.map(i => [i.id, i]));
-        const merged: any[] = [];
-
-        for (const item of prev) {
-          if (deletedVideoIdsRef.current.has(item.id)) continue;
-          const incoming = incomingMap.get(item.id);
-          if (!incoming) {
-            merged.push(item);
-          } else {
-            merged.push({ ...(incoming as object), ...(item as object) });
-          }
-        }
-
-        for (const incoming of videos) {
-          if (!prevMap.has(incoming.id) && !deletedVideoIdsRef.current.has(incoming.id)) {
-            merged.push(incoming);
-          }
-        }
-
-        if (JSON.stringify(prev) === JSON.stringify(merged)) return prev;
-        return merged;
-      });
+    if (Array.isArray(videos)) {
+      setVideosList(videos.filter(v => !deletedVideoIdsRef.current.has(v.id)));
     }
   }, [videos]);
 
+  // Synchronize settings (banners, categories, faqs, quicklinks, developers)
   useEffect(() => {
     if (settings && typeof settings === 'object') {
-      if (Array.isArray(settings.banners) && settings.banners.length > 0) {
-        setBanners(prev => {
-          if (!prev || prev.length === 0) {
-            return settings.banners.filter((b: any) => !deletedBannerIdsRef.current.has(b.id));
-          }
-          const prevMap = new Map(prev.map((i: any) => [i.id, i]));
-          const incomingMap = new Map(settings.banners.map((i: any) => [i.id, i]));
-          const merged: any[] = [];
-
-          for (const item of prev) {
-            if (deletedBannerIdsRef.current.has(item.id)) continue;
-            const incoming = incomingMap.get(item.id);
-            if (!incoming) merged.push(item);
-            else merged.push({ ...(incoming as object), ...(item as object) });
-          }
-
-          for (const incoming of settings.banners) {
-            if (!prevMap.has(incoming.id) && !deletedBannerIdsRef.current.has(incoming.id)) {
-              merged.push(incoming);
-            }
-          }
-
-          if (JSON.stringify(prev) === JSON.stringify(merged)) return prev;
-          return merged;
-        });
+      if (Array.isArray(settings.banners)) {
+        setBanners(settings.banners.filter((b: any) => !deletedBannerIdsRef.current.has(b.id)));
       }
-
-      if (Array.isArray(settings.categories) && settings.categories.length > 0) {
-        setCategoriesList(prev => {
-          if (!prev || prev.length === 0) {
-            return settings.categories.filter((c: string) => !deletedCategoryNamesRef.current.has(c));
-          }
-          const set = new Set(prev);
-          for (const cat of settings.categories) {
-            if (!deletedCategoryNamesRef.current.has(cat)) set.add(cat);
-          }
-          const merged = Array.from(set).filter((c: string) => !deletedCategoryNamesRef.current.has(c));
-          if (JSON.stringify(prev) === JSON.stringify(merged)) return prev;
-          return merged;
-        });
+      if (Array.isArray(settings.categories)) {
+        setCategoriesList(settings.categories.filter((c: string) => !deletedCategoryNamesRef.current.has(c)));
       }
-
       if (Array.isArray(settings.quick_links)) {
-        setQuickLinksList(prev => {
-          if (!prev || prev.length === 0) return settings.quick_links;
-          if (settings.quick_links.length > 0 && JSON.stringify(prev) !== JSON.stringify(settings.quick_links)) {
-            return settings.quick_links;
-          }
-          return prev;
-        });
+        setQuickLinksList(settings.quick_links);
       }
       if (Array.isArray(settings.website_faqs)) {
-        setWebsiteFaqsList(prev => {
-          if (!prev || prev.length === 0) return settings.website_faqs;
-          if (settings.website_faqs.length > 0 && JSON.stringify(prev) !== JSON.stringify(settings.website_faqs)) {
-            return settings.website_faqs;
-          }
-          return prev;
-        });
+        setWebsiteFaqsList(settings.website_faqs);
       }
       if (Array.isArray(settings.developers)) {
-        setDevelopersList(prev => {
-          if (!prev || prev.length === 0) return settings.developers;
-          if (settings.developers.length > 0 && JSON.stringify(prev) !== JSON.stringify(settings.developers)) {
-            return settings.developers;
-          }
-          return prev;
-        });
+        setDevelopersList(settings.developers);
       }
     }
-  }, [settings, news, videos]);
+  }, [settings]);
+
 
   // Banners
   const handleAddBanner = () => {

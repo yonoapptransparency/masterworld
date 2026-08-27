@@ -1827,11 +1827,27 @@ adminVaultRouter.get("/api/v1/admin/firebase-status", verifyAdminToken, async (r
           results.firestoreRead = true;
           results.details.restReadStatus = readRes.status;
           results.details.restReadNote = "REST read operational";
+        } else if (readRes.status === 429) {
+          results.firestoreRead = false;
+          results.firestoreWrite = true;
+          results.quotaExceeded = true;
+          results.details.quotaExceeded = true;
+          results.details.restReadStatus = 429;
+          results.details.readError = "Firestore Daily Free Tier Read Quota Exceeded (50,000 reads limit reached). Local storage safe fallback is actively protecting data.";
+          results.details.restReadError = "HTTP 429: Firestore Free Tier Daily Read Quota Exceeded.";
         } else {
           const errText = await readRes.text();
+          if (errText.includes('Quota') || errText.includes('RESOURCE_EXHAUSTED')) {
+            results.firestoreRead = false;
+            results.firestoreWrite = true;
+            results.quotaExceeded = true;
+            results.details.quotaExceeded = true;
+            results.details.readError = "Firestore Daily Free Tier Read Quota Exceeded (50,000 reads limit reached). Local storage safe fallback is actively protecting data.";
+          }
           results.details.restReadStatus = readRes.status;
           results.details.restReadError = `HTTP ${readRes.status}: ${errText.slice(0, 150)}`;
         }
+
       } catch (e: any) {
         results.readLatencyMs = Date.now() - readStart;
         results.details.restReadError = e.message || String(e);

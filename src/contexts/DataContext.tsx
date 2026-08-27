@@ -27,6 +27,9 @@ interface DataContextType {
   serverVideosFetched: boolean;
   syncVersion: number;
   lastSyncTime: string | null;
+  dataSource: 'firebase' | 'local_backup' | 'loading';
+  isRefreshing: boolean;
+  reloadServerData: (silent?: boolean) => Promise<void>;
   refreshAll: (silent?: boolean) => Promise<void>;
   testCloudConnection: () => Promise<boolean>;
   saveAppSingle: (app: any) => Promise<any>;
@@ -44,6 +47,7 @@ interface DataContextType {
   saveGitConfig: (config: any) => Promise<void>;
   pushAllToGitHub: (customConfig?: any, onProgress?: any, ...args: any[]) => Promise<any>;
 }
+
 
 const DataContext = createContext<DataContextType | null>(null);
 
@@ -152,6 +156,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     serverVideosFetched: sync.fetchedStates.videos,
     syncVersion: sync.syncVersion,
     lastSyncTime: sync.lastSyncTime,
+    dataSource: sync.dataSource,
+    isRefreshing: sync.isRefreshing,
+    reloadServerData: sync.reloadServerData,
     refreshAll,
     testCloudConnection,
     saveAppSingle: actions.saveAppSingle,
@@ -168,7 +175,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     gitConfigLoading: github.gitConfigLoading,
     saveGitConfig: github.saveGitConfig,
     pushAllToGitHub: github.pushAllToGitHub
-  }), [sync, actions, github, resolvedSettings]);
+  }), [sync, actions, github, resolvedSettings, refreshAll, testCloudConnection]);
 
   return (
     <DataContext.Provider value={value}>
@@ -196,6 +203,9 @@ export const useData = () => {
       serverVideosFetched: true,
       syncVersion: 1,
       lastSyncTime: null,
+      dataSource: 'local_backup' as const,
+      isRefreshing: false,
+      reloadServerData: async () => {},
       refreshAll: async () => {},
       testCloudConnection: async () => true,
       saveAppSingle: async (app: any) => app,
@@ -216,3 +226,4 @@ export const useData = () => {
   }
   return context;
 };
+

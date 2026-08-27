@@ -21,6 +21,8 @@ export function useDataSync() {
   const [quotaExceeded, setQuotaExceeded] = useState(false);
   const [syncVersion, setSyncVersion] = useState(0);
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+  const [dataSource, setDataSource] = useState<'firebase' | 'local_backup' | 'loading'>('loading');
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const [syncStates, setSyncStates] = useState({
     apps: !!initialData?.apps,
@@ -53,65 +55,83 @@ export function useDataSync() {
     setSyncStates(prev => ({ ...prev, [key]: true }));
   }, []);
 
-  // Sync effect
-  useEffect(() => {
-    let mounted = true;
-    const loadData = async () => {
-      try {
-        const res = await adminFetch('/api/v1/admin/data');
-        if (!res.ok) throw new Error("Failed to fetch admin data");
-        
-        const data = await res.json();
-        if (!mounted) return;
-
-        if (Array.isArray(data.apps) && data.apps.length > 0) {
-          setApps(data.apps);
-        }
-        if (data.settings && Object.keys(data.settings).length > 0) {
-          setSettings(prev => ({
-            ...mockSettings,
-            ...prev,
-            ...data.settings
-          }));
-        }
-        if (Array.isArray(data.news) && data.news.length > 0) {
-          setNews(data.news);
-        }
-        if (Array.isArray(data.videos) && data.videos.length > 0) {
-          setVideos(data.videos);
-        }
-
-        setFetchedStates({ apps: true, settings: true, news: true, videos: true });
-        setSyncStates({ apps: true, settings: true, news: true, videos: true });
-      } catch (err: any) {
-        console.error("useDataSync fetch error:", err);
-        if (checkIsQuotaError(err)) {
-          setQuotaExceeded(true);
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-          setLoadedFromServer(true);
-          setIsConnected(true);
-        }
+  const loadData = useCallback(async (silent = false) => {
+    if (!silent) setIsRefreshing(true);
+    try {
+      const res = await adminFetch('/api/v1/admin/data');
+      if (!res.ok) throw new Error("Failed to fetch admin data");
+      
+      const data = await res.json();
+      
+      if (data.source === 'firebase' || data.source === 'local_backup') {
+        setDataSource(data.source);
       }
+      if (data.quotaExceeded) {
+        setQuotaExceeded(true);
+      }
+
+      if (Array.isArray(data.apps) && data.apps.length > 0) {
+        setApps(data.apps);
+      }
+      if (data.settings && Object.keys(data.settings).length > 0) {
+        setSettings({
+          ...mockSettings,
+          ...data.settings
+        });
+      }
+      if (Array.isArray(data.news)) {
+        setNews(data.news);
+      }
+      if (Array.isArray(data.videos)) {
+        setVideos(data.videos);
+      }
+
+      setFetchedStates({ apps: true, settings: true, news: true, videos: true });
+      setSyncStates({ apps: true, settings: true, news: true, videos: true });
+      setLastSyncTime(new Date().toLocaleTimeString());
+      setIsConnected(true);
+      setIsLive(true);
+    } catch (err: any) {
+      console.error("useDataSync fetch error:", err);
+      if (checkIsQuotaError(err)) {
+        setQuotaExceeded(true);
+        setDataSource('local_backup');
+      }
+    } finally {
+      setLoading(false);
+      setLoadedFromServer(true);
+      if (!silent) setIsRefreshing(false);
+    }
+  }, [checkIsQuotaError]);
+
+  // Initial load
+  useEffect(() => {
+    loadData(false);
+
+    // Auto-refresh when tab/window gains focus (syncs cross-device changes instantly)
+    const handleFocus = () => {
+      loadData(true);
     };
 
-    loadData();
-
-    // Safety timeout for loading state
-    const timer = setTimeout(() => {
-      if (mounted) {
-        setLoading(false);
-        setLoadedFromServer(true);
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        handleFocus();
       }
-    }, 5000);
+    });
+
+    // Background polling every 20 seconds for active cross-device collaboration
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        loadData(true);
+      }
+    }, 20000);
 
     return () => {
-      mounted = false;
-      clearTimeout(timer);
+      window.removeEventListener('focus', handleFocus);
+      clearInterval(interval);
     };
-  }, []);
+  }, [loadData]);
 
   // Monitor syncStates to clear loading
   useEffect(() => {
@@ -137,6 +157,9 @@ export function useDataSync() {
     fetchedStates, setFetchedStates,
     syncVersion, setSyncVersion,
     lastSyncTime, setLastSyncTime,
+    dataSource, setDataSource,
+    isRefreshing,
+    reloadServerData: loadData,
     checkIsQuotaError,
     withServerConfirmation
   };

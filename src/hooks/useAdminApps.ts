@@ -1,6 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { auth, db, isFirebaseConfigured, isFirebaseReal } from '../lib/firebase';
 import { adminFetch } from '../services/adminAuthService';
 import { sessionStore } from '../lib/sessionStore';
 
@@ -9,20 +7,14 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
   const [fetchFailed, setFetchFailed] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const cachedSecureMapRef = useRef(new Map());
-  const latestMockAppsRef = useRef(apps);
   const deletedAppIdsRef = useRef(new Set<string>());
-
-  useEffect(() => {
-    latestMockAppsRef.current = apps;
-  }, [apps]);
 
   const recordAppDeletion = (id: string) => {
     deletedAppIdsRef.current.add(id);
-    setAppsList(prev => prev.filter(a => a.id !== id));
+    setAppsList(prev => prev.filter(a => a.id !== id && a.slug !== id));
   };
 
   const syncSecureVault = async (force = false, latestAppsList?: any[]) => {
-    if (!isInitialized) return;
     try {
       const currentList = latestAppsList || appsList;
       const items = Array.from(cachedSecureMapRef.current.entries()).map(([k, v]) => {
@@ -33,6 +25,7 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
           url: v
         };
       });
+      if (items.length === 0) return;
       const res = await adminFetch('/api/v1/admin/encrypt-links', {
         method: 'POST',
         headers: {
@@ -40,22 +33,20 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
         },
         body: JSON.stringify({ items })
       });
-      if (res.ok) {
-        const { encrypted } = await res.json();
-        const payload = { encryptedData: encrypted, lastUpdated: new Date().toISOString() };
-      } else {
-         console.warn("[DEBUG] syncSecureVault failed:", await res.text());
+      if (!res.ok) {
+        console.warn("[DEBUG] syncSecureVault failed:", await res.text());
       }
     } catch (e: any) {
       console.warn("Failed to sync secure vault:", e.message || e);
     }
   };
 
+  // 1. Initial vault links loader
   useEffect(() => {
     if (!loading && isAdminUser === true && !isInitialized) {
       const loadVault = async () => {
         try {
-          let secureMap = new Map();
+          const secureMap = new Map();
           
           try {
             const debugRes = await adminFetch('/api/v1/admin/debug-links');
@@ -98,8 +89,11 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
           } catch (e) {}
 
           cachedSecureMapRef.current = secureMap;
-          const mergedApps = (latestMockAppsRef.current || []).map(a => {
-            const existingUrl = a.more_information_url || secureMap.get(a.id) || '';
+          
+          // Map incoming apps with decrypted links
+          const sourceApps = Array.isArray(apps) && apps.length > 0 ? apps : [];
+          const mergedApps = sourceApps.map(a => {
+            const existingUrl = a.more_information_url || secureMap.get(a.id) || secureMap.get(a.slug) || '';
             if (existingUrl && !secureMap.has(a.id)) {
               secureMap.set(a.id, existingUrl);
             }
@@ -111,81 +105,35 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
           setAppsList(mergedApps);
           setIsInitialized(true);
         } catch (err) {
-          if (isFirebaseReal) setFetchFailed(true);
-          setAppsList(latestMockAppsRef.current || []);
+          setFetchFailed(true);
+          setAppsList(Array.isArray(apps) ? apps : []);
           setIsInitialized(true);
         }
       };
       loadVault();
-    } else if (isInitialized && Array.isArray(apps) && apps.length > 0) {
-      const secureMap = cachedSecureMapRef.current;
-      setAppsList(prev => {
-        if (!prev || prev.length === 0) {
-          const mapped = apps.map(a => {
-            const link = a.more_information_url || secureMap.get(a.id) || '';
-            if (link && link !== secureMap.get(a.id)) {
-              secureMap.set(a.id, link);
-            }
-            return {
-              ...a,
-              more_information_url: link
-            };
-          });
-          syncSecureVault(true, mapped);
-          return mapped;
-        }
-
-        const prevMap = new Map(prev.map(item => [item.id, item]));
-        const incomingMap = new Map(apps.map(item => [item.id, item]));
-        const merged: any[] = [];
-        let mapChanged = false;
-
-        // 1. Keep existing local apps (preserves local additions & edits) if not explicitly deleted
-        for (const prevItem of prev) {
-          if (deletedAppIdsRef.current.has(prevItem.id)) continue;
-          const incoming = incomingMap.get(prevItem.id);
-          if (!incoming) {
-            // Newly added local app that hasn't synced back yet
-            merged.push(prevItem);
-          } else {
-            // Item exists in both: merge, giving local edits precedence
-            const link = prevItem.more_information_url || incoming.more_information_url || secureMap.get(prevItem.id) || '';
-            if (link && link !== secureMap.get(prevItem.id)) {
-              secureMap.set(prevItem.id, link);
-              mapChanged = true;
-            }
-            merged.push({
-              ...incoming,
-              ...prevItem,
-              more_information_url: link
-            });
-          }
-        }
-
-        // 2. Add brand new apps from incoming that aren't in prev & not deleted
-        for (const incomingItem of apps) {
-          if (!prevMap.has(incomingItem.id) && !deletedAppIdsRef.current.has(incomingItem.id)) {
-            const link = incomingItem.more_information_url || secureMap.get(incomingItem.id) || '';
-            if (link && link !== secureMap.get(incomingItem.id)) {
-              secureMap.set(incomingItem.id, link);
-              mapChanged = true;
-            }
-            merged.push({
-              ...incomingItem,
-              more_information_url: link
-            });
-          }
-        }
-        
-        if (mapChanged) {
-          syncSecureVault(true, merged);
-        }
-
-        if (JSON.stringify(prev) === JSON.stringify(merged)) return prev;
-        return merged;
-      });
     }
-  }, [loading, apps, isAdminUser, isInitialized]);
+  }, [loading, isAdminUser, isInitialized, apps]);
+
+  // 2. Authoritative Sync: Whenever fresh apps arrive from the server (multi-device sync), adopt them directly
+  useEffect(() => {
+    if (Array.isArray(apps) && apps.length > 0 && isInitialized) {
+      const secureMap = cachedSecureMapRef.current;
+      const mapped = apps
+        .filter(a => !deletedAppIdsRef.current.has(a.id) && !deletedAppIdsRef.current.has(a.slug))
+        .map(a => {
+          const link = a.more_information_url || secureMap.get(a.id) || secureMap.get(a.slug) || '';
+          if (link && !secureMap.has(a.id)) {
+            secureMap.set(a.id, link);
+          }
+          return {
+            ...a,
+            more_information_url: link
+          };
+        });
+
+      setAppsList(mapped);
+    }
+  }, [apps, isInitialized]);
 
   return {
     appsList,
@@ -197,3 +145,4 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
     deletedAppIdsRef
   };
 };
+
