@@ -10,7 +10,9 @@ export const FETCH_TIMEOUT = 15000;
  */
 export async function fetchBackupData() {
   try {
-    const res = await fetch('/api/v1/public/backup-data');
+    const isAdmin = typeof window !== 'undefined' && (window.location.pathname.startsWith('/admin') || window.location.pathname.startsWith('/masterworld'));
+    const url = isAdmin ? '/api/v1/public/backup-data-full' : '/api/v1/public/backup-data';
+    const res = await fetch(url);
     if (res.ok) {
       return await res.json();
     }

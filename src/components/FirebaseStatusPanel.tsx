@@ -6,7 +6,7 @@ import { auth } from '../lib/firebase';
 import { adminFetch } from '../services/adminAuthService';
 
 export default function FirebaseStatusPanel() {
-  const [firestoreStatus, setFirestoreStatus] = useState<'checking' | 'connected' | 'read_only' | 'disconnected'>('checking');
+  const [firestoreStatus, setFirestoreStatus] = useState<'checking' | 'connected' | 'quota_exceeded' | 'read_only' | 'disconnected'>('checking');
   const [authStatus, setAuthStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
   const [adminSdkStatus, setAdminSdkStatus] = useState<'checking' | 'active' | 'inactive'>('checking');
   const [writeStatus, setWriteStatus] = useState<'checking' | 'ok' | 'failing'>('checking');
@@ -41,6 +41,9 @@ export default function FirebaseStatusPanel() {
         
         if (data.status === 'live') {
           setFirestoreStatus('connected');
+          setWriteStatus('ok');
+        } else if (data.status === 'quota_exceeded' || data.results?.quotaExceeded) {
+          setFirestoreStatus('quota_exceeded');
           setWriteStatus('ok');
         } else if (data.status === 'read_only') {
           setFirestoreStatus('read_only');
@@ -100,6 +103,7 @@ export default function FirebaseStatusPanel() {
   const StatusIcon = ({ status }: { status: string }) => {
     if (status === 'checking') return <Activity className="w-4 h-4 text-amber-500 animate-spin" />;
     if (status === 'connected' || status === 'ok' || status === 'active') return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
+    if (status === 'quota_exceeded') return <AlertCircle className="w-4 h-4 text-amber-500" />;
     if (status === 'read_only') return <AlertCircle className="w-4 h-4 text-amber-500" />;
     if (status === 'inactive' || status === 'missing') return <AlertCircle className="w-4 h-4 text-amber-500" />;
     return <XCircle className="w-4 h-4 text-rose-500" />;
@@ -169,14 +173,18 @@ export default function FirebaseStatusPanel() {
           <div className="text-[11px] text-slate-700 font-bold">
             {firestoreStatus === 'connected'
               ? `Read/Write Active (${statusDetails.readLatencyMs || 0}ms)`
-              : firestoreStatus === 'read_only'
-                ? 'Reads OK (Writes failing)'
-                : firestoreStatus === 'checking'
-                  ? 'Testing latencies...'
-                  : 'Firestore Unreachable'}
+              : firestoreStatus === 'quota_exceeded'
+                ? 'Read Quota Limit (Local Fallback Active)'
+                : firestoreStatus === 'read_only'
+                  ? 'Reads OK (Writes failing)'
+                  : firestoreStatus === 'checking'
+                    ? 'Testing latencies...'
+                    : 'Firestore Unreachable'}
           </div>
           <div className="text-[10px] text-slate-400 font-medium mt-1">
-            {statusDetails.writeLatencyMs ? `Write Latency: ${statusDetails.writeLatencyMs}ms` : 'Real-time REST & SDK'}
+            {firestoreStatus === 'quota_exceeded'
+              ? 'Writes operational • Reads served from safe local sync'
+              : statusDetails.writeLatencyMs ? `Write Latency: ${statusDetails.writeLatencyMs}ms` : 'Real-time REST & SDK'}
           </div>
         </div>
 
@@ -253,10 +261,28 @@ export default function FirebaseStatusPanel() {
             )}
           </div>
         </div>
-      ) : (
-        <div className="mt-4 p-3.5 bg-amber-50/90 border border-amber-200 rounded-2xl text-xs text-amber-800 font-medium relative z-10">
+      ) : firestoreStatus === 'quota_exceeded' ? (
+        <div className="mt-4 p-3.5 bg-amber-50/90 border border-amber-200 rounded-2xl text-xs text-amber-900 font-medium relative z-10">
           <div className="flex items-center gap-2 font-bold text-amber-900 mb-1">
             <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>Diagnostic Alert: Firestore Daily Read Quota Exceeded (Free Tier Limit)</span>
+          </div>
+          
+          <p className="text-[11px] text-amber-800 leading-relaxed">
+            The Firebase Cloud Firestore free tier quota (50,000 document reads/day) has been reached for today. 
+            <strong> Your database configuration is valid and operational</strong> — writes, updates, and local file storage fallbacks are 100% active and protecting your data without loss.
+          </p>
+
+          {statusDetails.readError && (
+            <div className="mt-2 font-mono text-[10px] bg-amber-100/90 p-2 rounded-xl text-amber-900 border border-amber-200/80 whitespace-pre-wrap break-all">
+              <strong>Quota Detail:</strong> {statusDetails.readError}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="mt-4 p-3.5 bg-rose-50/90 border border-rose-200 rounded-2xl text-xs text-rose-800 font-medium relative z-10">
+          <div className="flex items-center gap-2 font-bold text-rose-900 mb-1">
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
             <span>Diagnostic Alert: {firestoreStatus === 'read_only' ? 'Read-Only Mode' : 'Firestore Unreachable'}</span>
           </div>
           

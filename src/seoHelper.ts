@@ -82,17 +82,6 @@ export function clearSeoCache() {
 
 async function doFetchStoreData() {
   const now = Date.now();
-  try {
-    const liveData = await syncFromFirestore();
-    if (liveData && Array.isArray(liveData.apps) && liveData.apps.length > 0) {
-      cachedData = liveData;
-      lastFetchTime = now;
-      return liveData;
-    }
-  } catch (e) {
-    console.warn("Live Firestore sync failed in seoHelper, falling back to backup/static data:", e);
-  }
-
   const freshStatic = getStaticData();
   const data = {
     apps: freshStatic.apps || freshStatic.mockApps || [],
@@ -914,7 +903,9 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
 
   // Optimize initial data payload size by stripping heavy HTML descriptions and inner app data from non-target apps for ultra-fast page loads
   let initialDataPayload = data;
-  if (data) {
+  const isAdminRoute = cleanPathLower.startsWith('/admin');
+
+  if (data && !isAdminRoute) {
     const targetAppSlug = targetApp ? getField(targetApp, 'slug')?.toLowerCase() : null;
     const optimizedApps = Array.isArray(data.apps) ? data.apps.map((app: any) => {
       const sanitizedApp = { ...app };

@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 import { doc, setDoc } from 'firebase/firestore';
 import { db, isFirebaseReal } from '../lib/firebase';
 import { AppConfig, GlobalSettings, NewsItem, VideoItem } from '../types';
-import { mockSettings } from '../lib/lightFallback';
+import { mockSettings } from '../lib/staticData';
 import { adminFetch } from '../services/adminAuthService';
 
 export function useDataActions(
@@ -17,33 +17,94 @@ export function useDataActions(
   getAdminToken: () => Promise<string>
 ) {
 
-  const updateLocalContainerBackup = useCallback(async (payload: {
-    apps?: AppConfig[];
-    settings?: GlobalSettings;
-    news?: NewsItem[];
-    videos?: VideoItem[];
-    allowEmptyApps?: boolean;
-    allowEmptyNews?: boolean;
-    allowEmptyVideos?: boolean;
-  }) => {
+  const saveAppSingle = useCallback(async (singleApp: any) => {
     const idToken = await getAdminToken();
-    const res = await adminFetch('/api/v1/admin/sync-local', {
+    const res = await adminFetch('/api/v1/admin/app/save', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({ app: singleApp })
     });
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`Server Sync Failed: ${text}`);
+      throw new Error(`Single App Save Failed: ${text}`);
     }
-  }, [getAdminToken]);
+    const data = await res.json();
+    const savedApp = data.app;
+    setApps(prev => {
+      const idx = prev.findIndex(a => a.id === savedApp.id || (savedApp.slug && a.slug === savedApp.slug));
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = { ...next[idx], ...savedApp };
+        return next;
+      }
+      return [...prev, savedApp];
+    });
+    return savedApp;
+  }, [getAdminToken, setApps]);
+
+  const deleteAppSingle = useCallback(async (appId: string) => {
+    const idToken = await getAdminToken();
+    const res = await adminFetch('/api/v1/admin/app/delete', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+      },
+      body: JSON.stringify({ id: appId })
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Single App Delete Failed: ${text}`);
+    }
+    setApps(prev => prev.filter(a => a.id !== appId && a.slug !== appId));
+  }, [getAdminToken, setApps]);
+
+  const saveSettingsSection = useCallback(async (section: string, data: any) => {
+    const idToken = await getAdminToken();
+    const res = await adminFetch('/api/v1/admin/settings/save-section', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+      },
+      body: JSON.stringify({ section, data })
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Save Section Failed: ${text}`);
+    }
+    const resData = await res.json();
+    if (resData.settings) {
+      setSettings(resData.settings);
+    } else {
+      setSettings(prev => {
+        if (section === 'general' || section === 'seo') {
+          return { ...prev, ...(data || {}) };
+        }
+        return { ...prev, [section]: data };
+      });
+    }
+    return resData;
+  }, [getAdminToken, setSettings]);
 
   const saveApps = useCallback(async (newApps: AppConfig[]) => {
     setApps(newApps);
-    await updateLocalContainerBackup({ apps: newApps, allowEmptyApps: newApps.length === 0 });
+    const idToken = await getAdminToken();
+    const res = await adminFetch('/api/v1/admin/save-apps', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+      },
+      body: JSON.stringify({ apps: newApps })
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Apps Save Failed: ${text}`);
+    }
 
     const secureLinks = newApps
       .filter(a => {
@@ -54,24 +115,19 @@ export function useDataActions(
 
     if (secureLinks.length > 0) {
       try {
-        const idToken = await getAdminToken();
-        const encRes = await adminFetch('/api/v1/admin/encrypt-links', {
+        await adminFetch('/api/v1/admin/encrypt-links', {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${idToken}`
+            ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
           },
           body: JSON.stringify({ items: secureLinks })
         });
-        if (encRes.ok) {
-          const encJSON = await encRes.json();
-          // The backend encrypt-links endpoint already saves this to Firestore via Admin SDK
-        }
       } catch (e) {
         console.warn("Failed encrypting secure links:", e);
       }
     }
-  }, [apps, updateLocalContainerBackup, getAdminToken]);
+  }, [getAdminToken, setApps]);
 
   const saveSettings = useCallback(async (newSettings: Partial<GlobalSettings>) => {
     const now = new Date().toISOString();
@@ -88,26 +144,66 @@ export function useDataActions(
       last_updated: now
     } as GlobalSettings;
     setSettings(settingsWithTime);
-    await updateLocalContainerBackup({ settings: settingsWithTime });
-  }, [settings, updateLocalContainerBackup]);
+
+    const idToken = await getAdminToken();
+    const res = await adminFetch('/api/v1/admin/save-settings', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+      },
+      body: JSON.stringify({ settings: settingsWithTime })
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Settings Save Failed: ${text}`);
+    }
+  }, [settings, getAdminToken, setSettings]);
 
   const saveNews = useCallback(async (newNews: NewsItem[]) => {
     const cleanNews = JSON.parse(JSON.stringify(newNews || []));
     setNews(cleanNews);
-    await updateLocalContainerBackup({ news: cleanNews, allowEmptyNews: cleanNews.length === 0 });
-  }, [updateLocalContainerBackup]);
+    const idToken = await getAdminToken();
+    const res = await adminFetch('/api/v1/admin/save-news', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+      },
+      body: JSON.stringify({ news: cleanNews })
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`News Save Failed: ${text}`);
+    }
+  }, [getAdminToken, setNews]);
 
   const saveVideos = useCallback(async (newVideos: VideoItem[]) => {
     const cleanVideos = JSON.parse(JSON.stringify(newVideos || []));
     setVideos(cleanVideos);
-    await updateLocalContainerBackup({ videos: cleanVideos, allowEmptyVideos: cleanVideos.length === 0 });
-  }, [updateLocalContainerBackup]);
+    const idToken = await getAdminToken();
+    const res = await adminFetch('/api/v1/admin/save-videos', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+      },
+      body: JSON.stringify({ videos: cleanVideos })
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Videos Save Failed: ${text}`);
+    }
+  }, [getAdminToken, setVideos]);
 
   return {
+    saveAppSingle,
+    deleteAppSingle,
+    saveSettingsSection,
     saveApps,
     saveSettings,
     saveNews,
     saveVideos,
-    updateLocalContainerBackup
+    updateLocalContainerBackup: saveSettings
   };
 }

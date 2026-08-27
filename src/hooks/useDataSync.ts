@@ -2,17 +2,17 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { doc, onSnapshot, getDoc, setDoc, getDocFromServer } from 'firebase/firestore';
 import { db, isFirebaseReal, isFirebaseConfigured, handleFirestoreError, OperationType } from '../lib/firebase';
 import { AppConfig, GlobalSettings, NewsItem, VideoItem } from '../types';
-import { mockApps, mockSettings, mockNews, mockVideos } from '../lib/lightFallback';
+import { mockApps, mockSettings, mockNews, mockVideos } from '../lib/staticData';
 import { adminFetch, loadSession } from '../services/adminAuthService';
 import { getAdminPath } from '../lib/utils';
 
 export function useDataSync() {
   const initialData = (typeof window !== 'undefined' && (window as any).__INITIAL_DATA__) || null;
 
-  const [apps, setApps] = useState<AppConfig[]>(() => initialData?.apps || []);
+  const [apps, setApps] = useState<AppConfig[]>(() => (initialData?.apps && initialData.apps.length > 0) ? initialData.apps : mockApps);
   const [settings, setSettings] = useState<GlobalSettings>(() => initialData?.settings || mockSettings);
   const [news, setNews] = useState<NewsItem[]>(() => (initialData?.news && Array.isArray(initialData.news) && initialData.news.length > 0) ? initialData.news : mockNews);
-  const [videos, setVideos] = useState<VideoItem[]>(() => initialData?.videos || []);
+  const [videos, setVideos] = useState<VideoItem[]>(() => (initialData?.videos && Array.isArray(initialData.videos) && initialData.videos.length > 0) ? initialData.videos : mockVideos);
   
   const [loading, setLoading] = useState(!initialData);
   const [loadedFromServer, setLoadedFromServer] = useState(!!initialData);

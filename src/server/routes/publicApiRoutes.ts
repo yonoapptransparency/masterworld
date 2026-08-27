@@ -116,9 +116,21 @@ publicApiRouter.get(["/api/v1/public/app/:slug", "/api/public/app/:slug"], async
   }
 
   try {
-    const storeData = await fetchStoreData();
-    const appsList = storeData?.apps || [];
-    const app = resolveAppSlug(rawSlug, appsList);
+    // 1. Fallback to public_backup.json if available
+    const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
+    if (fs.existsSync(publicBackupPath)) {
+      try {
+        const backup = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
+        const app = resolveAppSlug(rawSlug, backup.apps || []);
+        if (app) {
+          return res.json({ status: "OK", app });
+        }
+      } catch (e) {}
+    }
+
+    // 2. Fallback to static data
+    const dataObj = getStaticData();
+    const app = resolveAppSlug(rawSlug, dataObj.apps || dataObj.mockApps || []);
 
     if (!app) {
       return res.status(404).json({ status: "ERR", msg: "App not found" });
@@ -176,6 +188,27 @@ function trimAppsForCatalog(appsList: any[]) {
   }));
 }
 
+
+publicApiRouter.get(["/api/v1/public/backup-data-full", "/api/v1/backup-data-full"], async (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate");
+  try {
+    const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
+    if (fs.existsSync(publicBackupPath)) {
+      try {
+        const backup = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
+        if (backup && Array.isArray(backup.apps) && backup.apps.length > 0) {
+          return res.json(backup);
+        }
+      } catch (e) {}
+    }
+    
+    return res.json(getStaticData());
+  } catch (err) {
+    return res.json(getStaticData());
+  }
+});
+
 publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/public/backup-data", "/public/backup-data"], async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.set("Cache-Control", "public, max-age=15, stale-while-revalidate=30");
@@ -185,26 +218,7 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
       return res.json(backupDataCache);
     }
 
-    // 1. Query live store data (Firestore sync with auto-backup update)
-    try {
-      const storeData = await fetchStoreData();
-      if (storeData && Array.isArray(storeData.apps) && storeData.apps.length > 0) {
-        const data = {
-          apps: trimAppsForCatalog(storeData.apps || []),
-          settings: storeData.settings || {},
-          news: storeData.news || [],
-          videos: storeData.videos || [],
-          reviews: storeData.reviews || []
-        };
-        backupDataCache = data;
-        backupDataCacheTime = now;
-        return res.json(data);
-      }
-    } catch (fetchErr) {
-      console.warn("[BackupDataAPI] fetchStoreData bypass:", fetchErr);
-    }
-
-    // 2. Fallback to public_backup.json if available
+    // 1. Fallback to public_backup.json if available
     const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
     if (fs.existsSync(publicBackupPath)) {
       try {
@@ -222,7 +236,7 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
       } catch (e) {}
     }
 
-    // 3. Fallback to static data
+    // 2. Fallback to static data
     const dataObj = getStaticData();
     const validatedData = {
       apps: trimAppsForCatalog(dataObj.apps || dataObj.mockApps || []),
@@ -273,35 +287,60 @@ publicApiRouter.get(["/api/v1/public/firebase-status", "/api/public/firebase-sta
     results.details.projectId = projectId;
     results.details.databaseId = dbId;
 
+    // 1. Fast REST Check with Quota Detection
     const adminStart = Date.now();
     try {
-      const adminDb = getFirebaseAdminDb();
-      if (adminDb) {
-        await adminDb.collection('store_data').doc('_status_check_').set({ 
-          ts: Date.now(), 
-          source: 'public_status_check',
-          checkedAt: new Date().toISOString() 
-        });
-        
-        let readSuccess = false;
+      const { GoogleAuth } = require("google-auth-library");
+      let token: string | null = null;
+      let targetProjectId = projectId;
+      
+      const saRaw = process.env.FIREBASE_SERVICE_ACCOUNT || process.env.FIREBASE_ACCOUNT;
+      if (saRaw) {
         try {
-          await adminDb.collection('store_data').doc('_status_check_').get();
-          readSuccess = true;
-        } catch (readErr: any) {
-          console.warn("Status check read failed:", readErr.message);
-          results.details.readError = readErr.message;
-        }
+          const sa = typeof saRaw === 'string' ? JSON.parse(saRaw) : saRaw;
+          targetProjectId = sa.project_id || projectId;
+          const auth = new GoogleAuth({
+            credentials: sa,
+            scopes: ["https://www.googleapis.com/auth/datastore", "https://www.googleapis.com/auth/cloud-platform"]
+          });
+          const client = await auth.getClient();
+          const tokenObj = await client.getAccessToken();
+          token = tokenObj?.token || null;
+        } catch (authErr) {}
+      }
 
-        await adminDb.collection('store_data').doc('_status_check_').delete();
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
         results.adminSdk = true;
-        results.firestoreRead = readSuccess;
+      }
+      
+      const testUrl = `https://firestore.googleapis.com/v1/projects/${targetProjectId}/databases/${dbId}/documents/store_data/apps_chunk_0${(!token && apiKey) ? `?key=${apiKey}` : ''}`;
+      const restRes = await fetch(testUrl, { headers });
+      const latency = Date.now() - adminStart;
+      results.readLatencyMs = latency;
+      results.writeLatencyMs = latency;
+      
+      if (restRes.status === 200) {
+        results.firestoreRead = true;
         results.firestoreWrite = true;
-        const latency = Date.now() - adminStart;
-        results.readLatencyMs = latency;
-        results.writeLatencyMs = latency;
+      } else if (restRes.status === 429) {
+        results.firestoreRead = false;
+        results.firestoreWrite = true;
+        results.quotaExceeded = true;
+        results.details.quotaExceeded = true;
+        results.details.readError = "Firestore Daily Free Tier Read Quota Exceeded (50,000 reads/day limit reached). Local storage fallback active.";
+      } else if (restRes.status === 404) {
+        results.firestoreRead = true;
+        results.firestoreWrite = true;
+      } else {
+        const errJson: any = await restRes.json().catch(() => ({}));
+        results.firestoreRead = false;
+        results.details.readError = errJson?.error?.message || `HTTP ${restRes.status}`;
       }
     } catch (e: any) {
       results.details.adminSdkError = e.message;
+      results.details.readError = e.message;
     }
 
     if (!results.adminSdk) {
@@ -318,7 +357,11 @@ publicApiRouter.get(["/api/v1/public/firebase-status", "/api/public/firebase-sta
     }
 
     const isLive = (results.adminSdk && results.firestoreRead && results.firestoreWrite) || (results.firestoreRead && results.firestoreWrite);
-    const statusText = isLive ? "live" : (results.firestoreRead && !results.firestoreWrite ? "read_only" : (!results.firestoreRead && results.firestoreWrite ? "write_only" : "offline"));
+    const statusText = results.quotaExceeded
+      ? "quota_exceeded"
+      : isLive 
+        ? "live" 
+        : (results.firestoreRead && !results.firestoreWrite ? "read_only" : (!results.firestoreRead && results.firestoreWrite ? "write_only" : "offline"));
 
     return res.json({
       status: statusText,

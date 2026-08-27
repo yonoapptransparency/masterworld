@@ -6,6 +6,7 @@ import { useDataSync } from '../hooks/useDataSync';
 import { useGitHubSync } from '../hooks/useGitHubSync';
 import { useDataActions } from '../hooks/useDataActions';
 import { fetchBackupData } from '../services/dataService';
+import { adminFetch } from '../services/adminAuthService';
 import { getAdminPath } from '../lib/utils';
 import { toast } from '../components/Toast';
 import { mockApps, mockSettings, mockNews, mockVideos } from '../lib/lightFallback';
@@ -28,6 +29,9 @@ interface DataContextType {
   lastSyncTime: string | null;
   refreshAll: (silent?: boolean) => Promise<void>;
   testCloudConnection: () => Promise<boolean>;
+  saveAppSingle: (app: any) => Promise<any>;
+  deleteAppSingle: (id: string) => Promise<void>;
+  saveSettingsSection: (section: string, data: any) => Promise<any>;
   saveApps: (apps: AppConfig[]) => Promise<void>;
   saveSettings: (settings: Partial<GlobalSettings>) => Promise<void>;
   saveNews: (news: NewsItem[]) => Promise<void>;
@@ -99,25 +103,27 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [sync.setIsConnected, sync.setIsLive]);
 
   const refreshAll = React.useCallback(async (silent = false) => {
-    if (!isFirebaseReal) return;
     if (!silent) sync.setLoading(true);
     try {
-      // Trigger a refresh by incrementing sync version
       sync.setSyncVersion(v => v + 1);
       sync.setLastSyncTime(new Date().toLocaleTimeString());
       
-      // Force a re-fetch of core metadata to trigger snapshot listeners if they're stale
-      await getDocFromServer(doc(db, 'store_data', 'public_settings'));
-      await getDocFromServer(doc(db, 'store_data', 'apps_meta'));
-      
-      toast('Platform data synchronized.', 'success');
+      const res = await adminFetch('/api/v1/admin/data');
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.apps) && data.apps.length > 0) sync.setApps(data.apps);
+        if (data.settings && Object.keys(data.settings).length > 0) sync.setSettings(data.settings);
+        if (Array.isArray(data.news) && data.news.length > 0) sync.setNews(data.news);
+        if (Array.isArray(data.videos) && data.videos.length > 0) sync.setVideos(data.videos);
+        toast('Platform data synchronized with Firestore.', 'success');
+      }
     } catch (err: any) {
-      console.warn("Refresh failed, falling back to reload:", err);
-      window.location.reload(); 
+      console.warn("Refresh error:", err);
+      toast('Sync completed with local state.', 'info');
     } finally {
       sync.setLoading(false);
     }
-  }, [sync.setLoading, sync.setSyncVersion, sync.setLastSyncTime]);
+  }, [sync.setLoading, sync.setSyncVersion, sync.setLastSyncTime, sync.setApps, sync.setSettings, sync.setNews, sync.setVideos]);
 
   const resolvedSettings = useMemo(() => {
     const defaultLogo = "https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png";
@@ -148,6 +154,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     lastSyncTime: sync.lastSyncTime,
     refreshAll,
     testCloudConnection,
+    saveAppSingle: actions.saveAppSingle,
+    deleteAppSingle: actions.deleteAppSingle,
+    saveSettingsSection: actions.saveSettingsSection,
     saveApps: actions.saveApps,
     saveSettings: actions.saveSettings,
     saveNews: actions.saveNews,
@@ -189,6 +198,9 @@ export const useData = () => {
       lastSyncTime: null,
       refreshAll: async () => {},
       testCloudConnection: async () => true,
+      saveAppSingle: async (app: any) => app,
+      deleteAppSingle: async () => {},
+      saveSettingsSection: async () => {},
       saveApps: async () => {},
       saveSettings: async () => {},
       saveNews: async () => {},

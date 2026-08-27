@@ -266,3 +266,18 @@ Ensure any newly created files strictly follow repo-isolation boundaries:
 - **SEO Strategy:** The AI's role in SEO is purely structural and architectural. The AI handles server-side HTML injection (`seoHelper.ts`), `sitemap.xml` index architecture, and canonical/OG tag logic, ensuring the platform cleanly serves the *Admin's database content* to web crawlers (like Googlebot and Ahrefs). The AI must NEVER alter the actual words being served.
 
 
+
+---
+
+## 12. CRITICAL ARCHITECTURE RULE: No Firebase for Public Website (Hard-Coded Only)
+
+> [!CRITICAL]
+> **MANDATORY INSTRUCTION:** The Public Website MUST NEVER import or connect to the primary Firebase database for apps, metadata, settings, news, or videos. 
+> 
+> - **The Admin Dashboard** is the ONLY system permitted to use the main Firebase database.
+> - **The Public Website** must ONLY use the hard-coded static JSON (`staticData.json` or `public_backup.json`) synced via GitHub.
+> - Do not write or restore any `fetchStoreData()` or `syncFromFirestore()` paths into the public API routes (`publicApiRoutes.ts`).
+> - The public server endpoints (`/api/v1/public/backup-data` and `/api/v1/public/app/:slug`) MUST exclusively return data from `getStaticData()` or the local JSON fallback.
+> - The community database (reviews) uses a separate Firebase account and is exempt from this rule, but for main catalog data, Firebase is strictly banned from the public website!
+> 
+> **ANY AI THAT CONNECTS THE PUBLIC WEBSITE TO THE MAIN FIREBASE WILL BREAK THE SYSTEM ARCHITECTURE AND CAUSE READ QUOTA EXHAUSTION.**

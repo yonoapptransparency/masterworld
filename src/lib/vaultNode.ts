@@ -239,6 +239,27 @@ class VaultNodeManager {
   }
 
   /**
+   * Synchronously retrieves a resource URL from memory.
+   */
+  public getPayload(key: string | undefined | null): string {
+    if (!key || typeof key !== 'string') return '';
+    const candidates = [
+      key,
+      key.trim(),
+      key.toLowerCase().trim(),
+      key.toLowerCase().trim().replace(/[-_ ]+$/, ''),
+      key.toLowerCase().trim().replace(/[-_ ]/g, '')
+    ];
+    for (const cand of candidates) {
+      if (this.cache.has(cand)) {
+        const val = this.cache.get(cand);
+        if (val && val.trim().length > 0) return val.trim();
+      }
+    }
+    return '';
+  }
+
+  /**
    * Refreshes the in-memory cache.
    */
   public refresh() {

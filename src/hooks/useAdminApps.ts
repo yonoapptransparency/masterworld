@@ -33,21 +33,16 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
           url: v
         };
       });
-      const idToken = await auth?.currentUser?.getIdToken();
-      console.log("[DEBUG] syncSecureVault called. Items:", items.length, "Token exists:", !!idToken);
       const res = await adminFetch('/api/v1/admin/encrypt-links', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ items })
       });
-      console.log("[DEBUG] syncSecureVault res.ok:", res.ok);
       if (res.ok) {
         const { encrypted } = await res.json();
         const payload = { encryptedData: encrypted, lastUpdated: new Date().toISOString() };
-        // syncSecureVault finished Firestore client writes. (Handled by Admin SDK)
       } else {
          console.warn("[DEBUG] syncSecureVault failed:", await res.text());
       }
@@ -59,39 +54,34 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
   useEffect(() => {
     if (!loading && isAdminUser === true && !isInitialized) {
       const loadVault = async () => {
-        if (!isFirebaseConfigured || !db) {
-          setIsInitialized(true);
-          return;
-        }
         try {
           let secureMap = new Map();
-          const idToken = await auth?.currentUser?.getIdToken();
           
-          if (idToken) {
-            try {
-              const debugRes = await adminFetch('/api/v1/admin/debug-links', {
-                headers: { 'Authorization': `Bearer ${idToken}` }
-              });
-              if (debugRes.ok) {
-                const debugData = await debugRes.json();
-                if (debugData.decrypted && Array.isArray(debugData.decrypted)) {
-                  debugData.decrypted.forEach((it: any) => secureMap.set(it.id, it.url));
-                }
+          try {
+            const debugRes = await adminFetch('/api/v1/admin/debug-links');
+            if (debugRes.ok) {
+              const debugData = await debugRes.json();
+              if (debugData.decrypted && Array.isArray(debugData.decrypted)) {
+                debugData.decrypted.forEach((it: any) => {
+                  if (it && it.id && it.url) secureMap.set(it.id, it.url);
+                });
               }
-            } catch (debugErr) {
-              console.warn("Failed fetching debug-links, trying fallback...", debugErr);
             }
+          } catch (debugErr) {
+            console.warn("Failed fetching debug-links, trying fallback...", debugErr);
           }
 
           // Fallback from container backup
           try {
-            if (idToken) {
-              const bkRes = await adminFetch('/api/v1/admin/backup-links-get', {
-                headers: { 'Authorization': `Bearer ${idToken}` }
-              });
-              if (bkRes.ok) {
-                const bkJSON = await bkRes.json();
-                if (bkJSON && bkJSON.items) bkJSON.items.forEach((it: any) => { if (it.url) secureMap.set(it.id, it.url); });
+            const bkRes = await adminFetch('/api/v1/admin/backup-links-get');
+            if (bkRes.ok) {
+              const bkJSON = await bkRes.json();
+              if (bkJSON && bkJSON.items && Array.isArray(bkJSON.items)) {
+                bkJSON.items.forEach((it: any) => {
+                  if (it && it.id && it.url && !secureMap.has(it.id)) {
+                    secureMap.set(it.id, it.url);
+                  }
+                });
               }
             }
           } catch (bkErr) {}
@@ -108,10 +98,16 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
           } catch (e) {}
 
           cachedSecureMapRef.current = secureMap;
-          const mergedApps = (latestMockAppsRef.current || []).map(a => ({
-            ...a, 
-            more_information_url: secureMap.get(a.id) || a.more_information_url 
-          }));
+          const mergedApps = (latestMockAppsRef.current || []).map(a => {
+            const existingUrl = a.more_information_url || secureMap.get(a.id) || '';
+            if (existingUrl && !secureMap.has(a.id)) {
+              secureMap.set(a.id, existingUrl);
+            }
+            return {
+              ...a, 
+              more_information_url: existingUrl 
+            };
+          });
           setAppsList(mergedApps);
           setIsInitialized(true);
         } catch (err) {
@@ -153,7 +149,7 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
             merged.push(prevItem);
           } else {
             // Item exists in both: merge, giving local edits precedence
-            const link = incoming.more_information_url || prevItem.more_information_url || secureMap.get(prevItem.id) || '';
+            const link = prevItem.more_information_url || incoming.more_information_url || secureMap.get(prevItem.id) || '';
             if (link && link !== secureMap.get(prevItem.id)) {
               secureMap.set(prevItem.id, link);
               mapChanged = true;

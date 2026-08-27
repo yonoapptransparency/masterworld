@@ -17,6 +17,7 @@ export default function AdminDashboard() {
   const { 
     apps, settings, news, videos, 
     saveApps, saveSettings, saveNews, saveVideos,
+    saveAppSingle, deleteAppSingle, saveSettingsSection,
     loading, refreshAll, gitConfig, gitConfigLoading, saveGitConfig, pushAllToGitHub
   } = useData();
 
@@ -84,36 +85,27 @@ export default function AdminDashboard() {
   const handleSaveSettingsBase = async (updatedSettings: any) => {
     setSaving(true);
     try {
-      let mergedSettings = {};
       if (updatedSettings && updatedSettings.preventDefault) {
         updatedSettings.preventDefault();
         const formData = new FormData(updatedSettings.currentTarget);
         const formSettings: any = {};
         formData.forEach((value, key) => { formSettings[key] = value; });
-        mergedSettings = {
-          categories: categoriesList,
-          quick_links: quickLinksList,
-          website_faqs: websiteFaqsList,
-          developers: developersList,
-          banners: banners,
+        
+        await saveSettingsSection('general', {
           ...formSettings,
           meta_description: formSettings.meta_description || formSettings.seo_description || '',
           seo_description: formSettings.seo_description || formSettings.meta_description || ''
-        };
-      } else {
-        mergedSettings = {
-          categories: categoriesList,
-          quick_links: quickLinksList,
-          website_faqs: websiteFaqsList,
-          developers: developersList,
-          banners: banners,
-          ...updatedSettings,
-          meta_description: updatedSettings.meta_description || updatedSettings.seo_description || '',
-          seo_description: updatedSettings.seo_description || updatedSettings.meta_description || ''
-        };
+        });
+      } else if (updatedSettings && typeof updatedSettings === 'object') {
+        const keys = Object.keys(updatedSettings);
+        if (keys.length === 1) {
+          const sectionKey = keys[0];
+          await saveSettingsSection(sectionKey, updatedSettings[sectionKey]);
+        } else {
+          await saveSettingsSection('general', updatedSettings);
+        }
       }
 
-      await saveSettings(mergedSettings);
       triggerHaptic();
       toast('Settings saved successfully!', 'success');
     } catch (err: any) {
@@ -225,11 +217,21 @@ export default function AdminDashboard() {
       if (plaintextUrl) cachedSecureMapRef.current.set(actualAppId, plaintextUrl);
       else cachedSecureMapRef.current.delete(actualAppId);
 
-      const updatedApps = editingAppId ? appsList.map(a => a.id === editingAppId ? { ...a, ...appData } : a) : [...appsList, appData];
-      await syncSecureVault(true, updatedApps);
-      await saveApps(updatedApps);
-      setAppsList(updatedApps);
+      const savedResult = await saveAppSingle(appData);
+      const finalSavedApp = savedResult || appData;
+
+      setAppsList(prev => {
+        const idx = prev.findIndex(a => a.id === finalSavedApp.id || (finalSavedApp.slug && a.slug === finalSavedApp.slug));
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = finalSavedApp;
+          return next;
+        }
+        return [...prev, finalSavedApp];
+      });
+
       setEditingAppId(null);
+      triggerHaptic();
       toast('Application saved successfully!', 'success');
     } catch (err: any) {
       toast('Save failed: ' + err.message, 'error');
@@ -243,10 +245,11 @@ export default function AdminDashboard() {
         try {
           cachedSecureMapRef.current.delete(id);
           recordAppDeletion(id);
-          const updatedApps = appsList.filter(a => a.id !== id);
-          await saveApps(updatedApps);
-          toast('App deleted.', 'success');
-        } catch (err: any) { toast('Delete failed.', 'error'); }
+          await deleteAppSingle(id);
+          setAppsList(prev => prev.filter(a => a.id !== id));
+          triggerHaptic();
+          toast('App deleted successfully.', 'success');
+        } catch (err: any) { toast('Delete failed: ' + (err?.message || 'Unknown error'), 'error'); }
       }
     });
   };

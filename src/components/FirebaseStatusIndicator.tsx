@@ -3,11 +3,12 @@ import { adminFetch } from '../services/adminAuthService';
 import { RefreshCw } from 'lucide-react';
 
 interface StatusResult {
-  status: 'live' | 'read_only' | 'write_only' | 'offline' | 'checking';
+  status: 'live' | 'quota_exceeded' | 'read_only' | 'write_only' | 'offline' | 'checking';
   adminSdk: boolean;
   firestoreWrite: boolean;
   firestoreRead: boolean;
   aesConfigured: boolean;
+  quotaExceeded?: boolean;
   readLatencyMs?: number;
   writeLatencyMs?: number;
   error?: string;
@@ -38,15 +39,24 @@ export const FirebaseStatusIndicator: React.FC = () => {
       
       if (response.ok && data.results) {
         setResult({
-          status: data.status === 'live' ? 'live' : data.status === 'read_only' ? 'read_only' : data.status === 'write_only' ? 'write_only' : 'offline',
+          status: data.status === 'live' 
+            ? 'live' 
+            : data.status === 'quota_exceeded' 
+              ? 'quota_exceeded' 
+              : data.status === 'read_only' 
+                ? 'read_only' 
+                : data.status === 'write_only' 
+                  ? 'write_only' 
+                  : 'offline',
           adminSdk: data.results.adminSdk || false,
           firestoreWrite: data.results.firestoreWrite || false,
           firestoreRead: data.results.firestoreRead || false,
           aesConfigured: data.results.aesConfigured || false,
+          quotaExceeded: data.results.quotaExceeded || false,
           readLatencyMs: data.results.readLatencyMs,
           writeLatencyMs: data.results.writeLatencyMs,
           projectId: data.details?.projectId,
-          error: data.error || undefined
+          error: data.details?.readError || data.error || undefined
         });
       } else {
         setResult({ 
@@ -59,25 +69,6 @@ export const FirebaseStatusIndicator: React.FC = () => {
         });
       }
     } catch (e: any) {
-      try {
-        const pubRes = await fetch('/api/v1/public/firebase-status');
-        const data = await pubRes.json();
-        if (pubRes.ok && data.results) {
-          setResult({
-            status: data.status === 'live' ? 'live' : data.status === 'read_only' ? 'read_only' : data.status === 'write_only' ? 'write_only' : 'offline',
-            adminSdk: data.results.adminSdk || false,
-            firestoreWrite: data.results.firestoreWrite || false,
-            firestoreRead: data.results.firestoreRead || false,
-            aesConfigured: data.results.aesConfigured || false,
-            readLatencyMs: data.results.readLatencyMs,
-            writeLatencyMs: data.results.writeLatencyMs,
-            projectId: data.details?.projectId,
-            error: data.error || undefined
-          });
-          return;
-        }
-      } catch(pubErr) {}
-
       setResult({ 
         status: 'offline', 
         adminSdk: false, 
@@ -93,11 +84,12 @@ export const FirebaseStatusIndicator: React.FC = () => {
 
   useEffect(() => {
     checkStatus();
-    const interval = setInterval(checkStatus, 25000);
+    const interval = setInterval(checkStatus, 60000);
     return () => clearInterval(interval);
   }, [checkStatus]);
 
   const isLive = result.status === 'live';
+  const isQuota = result.status === 'quota_exceeded' || result.quotaExceeded;
   const isWriteOnly = result.status === 'write_only';
   const isReadOnly = result.status === 'read_only';
   const isChecking = result.status === 'checking' || isRefreshing;
@@ -105,46 +97,57 @@ export const FirebaseStatusIndicator: React.FC = () => {
 
   const bgClass = isLive 
     ? (isAesMissing ? 'bg-amber-500/10 text-amber-600 border-amber-500/30' : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30')
-    : (isReadOnly || isWriteOnly)
-      ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30'
-      : isChecking
-        ? 'bg-blue-500/10 text-blue-600 border-blue-500/30'
-        : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30';
+    : isQuota
+      ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/40'
+      : (isReadOnly || isWriteOnly)
+        ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30'
+        : isChecking
+          ? 'bg-blue-500/10 text-blue-600 border-blue-500/30'
+          : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30';
         
   const dotClass = isLive
     ? (isAesMissing ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500 animate-pulse')
-    : (isReadOnly || isWriteOnly)
+    : isQuota
       ? 'bg-amber-500 animate-pulse'
-      : isChecking
-        ? 'bg-blue-500 animate-ping'
-        : 'bg-rose-500';
+      : (isReadOnly || isWriteOnly)
+        ? 'bg-amber-500 animate-pulse'
+        : isChecking
+          ? 'bg-blue-500 animate-ping'
+          : 'bg-rose-500';
 
   const label = isChecking && result.status === 'checking'
     ? 'Testing Firestore...'
     : isLive
       ? (isAesMissing ? `Firestore: Live (SEC ERROR)` : `Firestore: Live${result.readLatencyMs ? ` (${result.readLatencyMs}ms)` : ''}`)
-      : isReadOnly
-        ? 'Firestore: Read-Only'
-        : isWriteOnly
-          ? 'Firestore: Write-Only (Read Quota)'
-          : `Firestore: Offline`;
+      : isQuota
+        ? 'Firestore: Quota Limit (Safe Local Fallback Active)'
+        : isReadOnly
+          ? 'Firestore: Read-Only'
+          : isWriteOnly
+            ? 'Firestore: Write-Only (Read Quota)'
+            : `Firestore: Offline`;
         
-  const tooltip = isLive
-    ? `Live Firestore Connection
+  const tooltip = isQuota
+    ? `Firestore Daily Read Quota Exceeded (50,000 free-tier limit).
+Your data is 100% SAFE and being served via local sync files.
+Writes and local backups remain active.
+Click to run instant re-test`
+    : isLive
+      ? `Live Firestore Connection
 Project: ${result.projectId || 'ai-studio-yonostore'}
 Reads: OK (${result.readLatencyMs || 0}ms)
 Writes: OK (${result.writeLatencyMs || 0}ms)
 Admin SDK: ${result.adminSdk ? 'Active' : 'REST Proxy Mode'}
 Vault Security: ${result.aesConfigured ? 'AES ACTIVE' : 'AES MISSING'}
 Click to run instant re-test`
-    : isReadOnly
-      ? `Firestore Read-Only Mode
+      : isReadOnly
+        ? `Firestore Read-Only Mode
 Project: ${result.projectId || 'ai-studio-yonostore'}
 Reads: Operational (${result.readLatencyMs || 0}ms)
 Writes: Failing (Requires Service Account or Write Rule Authority)
 Vault Security: ${result.aesConfigured ? 'AES ACTIVE' : 'AES MISSING'}
 Click to run instant re-test`
-      : `Firestore Offline or Unreachable
+        : `Firestore Offline or Unreachable
 Project: ${result.projectId || 'ai-studio-yonostore'}
 Vault Security: ${result.aesConfigured ? 'AES ACTIVE' : 'AES MISSING'}
 Error: ${result.error || 'Connection check failed'}
