@@ -94,7 +94,7 @@ export default function FirebaseStatusPanel() {
     }
 
     runDiagnostics();
-    const interval = setInterval(runDiagnostics, 30000);
+    const interval = setInterval(runDiagnostics, 600000); // 10 minutes
     
     return () => {
       mounted = false;

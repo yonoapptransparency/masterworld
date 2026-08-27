@@ -117,12 +117,12 @@ export function useDataSync() {
       }
     });
 
-    // Background polling every 20 seconds for active cross-device collaboration
+    // Background polling every 10 minutes to drastically save Firestore reads
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
         loadData(true);
       }
-    }, 20000);
+    }, 600000); // 10 minutes
 
     return () => {
       window.removeEventListener('focus', handleFocus);

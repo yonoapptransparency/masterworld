@@ -135,7 +135,7 @@ class CommunityStoreService {
     // Periodically poll Firestore in the background (60s) to keep multi-instance environments synchronized
     const intervalId = setInterval(() => {
       this.initFromFirestore(true).catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
-    }, 60000);
+    }, 3600000); // 1 hour polling instead of 1 minute to save quotas
     if (typeof intervalId.unref === 'function') {
       intervalId.unref();
     }

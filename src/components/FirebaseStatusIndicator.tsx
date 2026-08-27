@@ -85,7 +85,7 @@ export const FirebaseStatusIndicator: React.FC = () => {
 
   useEffect(() => {
     checkStatus();
-    const interval = setInterval(checkStatus, 60000);
+    const interval = setInterval(checkStatus, 300000); // 5 minutes
     return () => clearInterval(interval);
   }, [checkStatus]);
 
