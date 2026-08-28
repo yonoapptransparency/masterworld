@@ -2,7 +2,7 @@ import express from 'express';
 import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs';
-import { validateAppId, getIp, ensureSession, generateToken, verifyToken, issueClearanceNonce, consumeClearanceNonce, isSuspiciousClient, rateLimit } from '../security';
+import { validateAppId, getIp, ensureSession, generateToken, verifyToken, issueClearanceNonce, consumeClearanceNonce, isSuspiciousClient, rateLimit, verifyTurnstile } from '../security';
 import { ENCRYPTED_LINKS } from '../../lib/secureVault';
 import { vaultNode } from '../../lib/vaultNode';
 import { safeDecrypt, getAesSecret } from '../crypto';
@@ -405,56 +405,45 @@ securityRouter.all(['/api/v1/public/secure-link', '/api/v1/secure-link', '/api/v
   const appId = validateAppId(rawAppId);
   const ip = getIp(req);
 
+
+  const turnstileToken = (req.body?.turnstileToken || req.query?.turnstileToken || '') as string;
+  const isHuman = await verifyTurnstile(turnstileToken, ip);
+
+  const clearanceToken = (req.body?.token || req.query?.token || '') as string;
+  const sid = req.cookies?.["__Host-sid"] || req.cookies?.["sid"] || 'sec_session';
+  
+  // Verify cryptographic token if Turnstile is absent or fails
+  const isValidToken = clearanceToken ? verifyToken(clearanceToken, ip, sid, '', appId) : false;
+  
+  if (!isHuman && !isValidToken) {
+    
+    return res.status(404).json({ success: false, error: 'Content not found' });
+  }
+
+
+
   // 1. Anti-Bot Defense
   if (isSuspiciousClient(req)) {
-    console.warn(JSON.stringify({
-      timestamp: new Date().toISOString(),
-      eventType: "BOT_DETECTED",
-      clientIP: ip,
-      userAgent: req.headers['user-agent'],
-      appId: rawAppId,
-      reason: "Known scraper signature or missing browser context"
-    }));
-    return res.status(403).json({ success: false, error: 'Forbidden: Automated access blocked.' });
+    
+    return res.status(404).json({ success: false, error: 'Content not found' });
   }
 
   // Check User-Agent presence
   const ua = (req.headers['user-agent'] || '') as string;
   if (!ua || ua.trim().length < 5) {
-    console.warn(JSON.stringify({
-      timestamp: new Date().toISOString(),
-      eventType: "BOT_DETECTED",
-      clientIP: ip,
-      userAgent: ua,
-      appId: rawAppId,
-      reason: "Missing or truncated user agent"
-    }));
-    return res.status(403).json({ success: false, error: 'Forbidden: Valid browser agent required.' });
+    
+    return res.status(404).json({ success: false, error: 'Content not found' });
   }
 
   // Rate Limiting (30 requests / min per IP)
   const isLimited = await rateLimit(ip, 30, 60000);
   if (isLimited) {
-    console.warn(JSON.stringify({
-      timestamp: new Date().toISOString(),
-      eventType: "RATE_LIMIT_EXCEEDED",
-      clientIP: ip,
-      userAgent: ua,
-      appId: rawAppId,
-      reason: "Exceeded 30 requests per minute"
-    }));
-    return res.status(429).json({ success: false, error: 'Rate limit exceeded. Please wait a moment.' });
+    
+    return res.status(404).json({ success: false, error: 'Content not found' });
   }
 
   if (!appId) {
-    console.warn(JSON.stringify({
-      timestamp: new Date().toISOString(),
-      eventType: "INVALID_INPUT",
-      clientIP: ip,
-      userAgent: ua,
-      appId: rawAppId,
-      reason: "Malformed or missing application identifier"
-    }));
+    
     return res.status(400).json({ success: false, error: 'Invalid or missing application identifier.' });
   }
 
@@ -471,6 +460,12 @@ securityRouter.all(['/api/v1/public/secure-link', '/api/v1/secure-link', '/api/v
   res.setHeader('Expires', '0');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'no-referrer');
+
+  
+  // Add strict security headers directly to the secure endpoint
+  res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
 
   if (isJson) {
     return res.json({
@@ -493,7 +488,7 @@ securityRouter.get(['/api/v1/clearance/start', '/api/v1/_chal'], (req, res) => {
   const appId = (req.query.appId || req.query.id || '') as string;
   const sid = ensureSession(req, res);
   const realNonce = crypto.randomBytes(16).toString('hex');
-  const difficulty = "0"; // Ultra-fast PoW check (~1ms execution)
+  const difficulty = "000"; // PoW check (~10ms execution, ultra fast yet anti-bot)
   const expiry = Date.now() + 90000; // 90 seconds lifetime
   const secret = getAesSecret();
 
@@ -540,7 +535,7 @@ securityRouter.post(['/api/v1/clearance/complete', '/api/v1/_proc'], async (req,
     [realNonce, expiry, signature] = parts;
   }
 
-  const difficulty = parts.length === 4 ? "0" : "0";
+  const difficulty = "000";
   const secret = getAesSecret();
 
   if (Date.now() > Number(expiry)) {
@@ -597,7 +592,7 @@ securityRouter.get('/api/v1/clearance/redirect', async (req, res) => {
   const nonce = (req.query.nonce || req.query.n) as string;
   const appId = (req.query.appId || req.query.id) as string;
   const ip = getIp(req);
-  const sid = req.cookies?.["__Host-sid"] || req.cookies?.["sid"] || (req.query.sid as string);
+  const sid = req.cookies?.["__Host-sid"] || req.cookies?.["sid"] || (req.query.sid as string) || 'sec_session';
 
   if (!appId) {
     return res.status(400).send("<h1>400 Bad Request</h1><p>Missing application identifier.</p>");
@@ -666,7 +661,7 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
   const token = (req.query.token || req.query.t) as string;
   const appId = (req.query.id || req.query.appId) as string;
   const ip = getIp(req);
-  const sid = req.cookies?.["__Host-sid"] || (req.query.sid as string) || '';
+  const sid = req.cookies?.["__Host-sid"] || (req.query.sid as string) || 'sec_session';
   const fingerprint = (req.query.fp as string) || '';
 
   if (!appId) {
@@ -674,9 +669,12 @@ securityRouter.get("/api/v1/moreinfo-resolve", async (req, res) => {
   }
 
   // Verify token if provided
-  if (token && !verifyToken(token, ip, sid, fingerprint, appId)) {
-    console.warn(`[SECURITY] Token verification failed for appId: ${appId}`);
+  
+  // MANDATORY TOKEN VERIFICATION
+  if (!token || !verifyToken(token, ip, sid, fingerprint, appId)) {
+    return res.status(404).send("<h1>404 Not Found</h1><p>Content not found.</p>");
   }
+
 
   const targetUrl = await resolveDestinationForApp(appId);
   if (targetUrl) {

@@ -101,14 +101,14 @@ export function useReviews(
         const queryString = queryParams.toString();
         const endpoint = `/api/v1/public/community/reviews/${encodeURIComponent(targetKey)}${queryString ? `?${queryString}` : ''}`;
 
-        console.log("Fetching reviews from", endpoint);
+        
         const res = await fetch(endpoint);
-        console.log("Response status:", res.status);
+        
         if (res.ok) {
           const contentType = res.headers.get('content-type') || '';
           if (contentType.includes('application/json')) {
             const data = await res.json();
-            console.log("Fetched review data:", data.reviews?.length);
+            
             if (data && Array.isArray(data.reviews) && data.reviews.length > 0) {
               fetchedReviews = data.reviews.map((r: any) => ({
                 id: r.id || `rev_${Math.random()}`,
@@ -196,7 +196,7 @@ export function useReviews(
     prevAppRef.current = targetKey;
 
     setInitialLoadDone(false);
-    console.log("TRIGGERING fetchReviews for:", cleanAppId, cleanAppSlug);
+    
     fetchReviews(false);
   }, [cleanAppId, cleanAppSlug]);
 

@@ -24,4 +24,6 @@
     },
     "noEmit": true
   }
+,
+  "exclude": ["dist", "node_modules", "public-api", "api"]
 }

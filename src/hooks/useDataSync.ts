@@ -105,27 +105,14 @@ export function useDataSync() {
   useEffect(() => {
     loadData(false);
 
-    // Auto-refresh when tab/window gains focus (syncs cross-device changes instantly)
-    const handleFocus = () => {
-      loadData(true);
-    };
-
-    window.addEventListener('focus', handleFocus);
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        handleFocus();
-      }
-    });
-
-    // Background polling every 10 minutes to drastically save Firestore reads
+    // Background polling every 30 minutes to drastically save Firestore reads
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
         loadData(true);
       }
-    }, 600000); // 10 minutes
+    }, 1800000); // 30 minutes
 
     return () => {
-      window.removeEventListener('focus', handleFocus);
       clearInterval(interval);
     };
   }, [loadData]);

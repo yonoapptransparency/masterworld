@@ -1050,13 +1050,18 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   // Clean up default static title & meta tags from template without destroying scripts or stylesheets
   let finalHtml = template
     .replace(/<title>[\s\S]*?<\/title>/gi, '')
-    .replace(/<meta\s+name="description"\s+[^>]*\/?>/gi, '')
-    .replace(/<meta\s+name="robots"\s+[^>]*\/?>/gi, '')
-    .replace(/<meta\s+property="og:[^"]+"\s+[^>]*\/?>/gi, '')
-    .replace(/<meta\s+name="twitter:[^"]+"\s+[^>]*\/?>/gi, '')
-    .replace(/<link\s+rel="canonical"\s+[^>]*\/?>/gi, '')
-    .replace(/<link\s+rel="(?:shortcut\s+)?icon"\s+[^>]*\/?>/gi, '')
-    .replace(/<link\s+rel="apple-touch-icon[^"]*"\s+[^>]*\/?>/gi, '');
+    .replace(/<meta\s+[^>]*name=["']description["'][^>]*\/?>/gi, '')
+    .replace(/<meta\s+[^>]*name=["']robots["'][^>]*\/?>/gi, '')
+    .replace(/<meta\s+[^>]*name=["']keywords["'][^>]*\/?>/gi, '')
+    .replace(/<meta\s+[^>]*name=["']application-name["'][^>]*\/?>/gi, '')
+    .replace(/<meta\s+[^>]*property=["']og:[^"']+["'][^>]*\/?>/gi, '')
+    .replace(/<meta\s+[^>]*name=["']twitter:[^"']+["'][^>]*\/?>/gi, '')
+    .replace(/<link\s+[^>]*rel=["']canonical["'][^>]*\/?>/gi, '')
+    .replace(/<link\s+[^>]*rel=["']image_src["'][^>]*\/?>/gi, '')
+    .replace(/<link\s+[^>]*rel=["'](?:shortcut\s+)?icon["'][^>]*\/?>/gi, '')
+    .replace(/<link\s+[^>]*rel=["']apple-touch-icon[^"']*["'][^>]*\/?>/gi, '')
+    .replace(/<script\s+type=["']application\/ld\+json["'][^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<script>window\.__INITIAL_DATA__[\s\S]*?<\/script>/gi, '');
 
   // Inject dynamic SEO tags, styles & initial data script cleanly into <head>
   if (finalHtml.includes('</head>')) {

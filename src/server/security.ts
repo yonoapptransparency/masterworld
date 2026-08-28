@@ -4,7 +4,7 @@ import dns from 'dns';
 import { CF_TURNSTILE_SECRET, BAD_UA, WINDOW, MAX_HITS, TOKEN_SECRET } from './config';
 
 export async function verifyTurnstile(token: string, ip: string): Promise<boolean> {
-  if (!CF_TURNSTILE_SECRET) return true;
+  if (!CF_TURNSTILE_SECRET) return false;
   if (!token) {
     console.warn('[CF_TURNSTILE] Rejected: Token missing from request. IP:', ip);
     return false;

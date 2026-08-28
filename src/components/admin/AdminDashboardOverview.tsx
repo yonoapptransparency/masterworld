@@ -15,19 +15,27 @@ export const AdminDashboardOverview = React.memo(({ apps, news }: DashboardOverv
 
   useEffect(() => {
     if (!isFirebaseReal || !db) return;
+    let unsub = () => {};
+    let isMounted = true;
     try {
       import('firebase/firestore').then(({ collection, query, where, onSnapshot }) => {
+        if (!isMounted) return;
         const q = query(collection(db, 'reviews'), where('is_approved', '==', false));
-        const unsub = onSnapshot(q, (snap: any) => {
+        unsub = onSnapshot(q, (snap: any) => {
           setPendingReviews(snap.size);
         }, () => {
           setPendingReviews(0);
         });
-        return () => unsub();
-      }).catch(() => setPendingReviews(0));
+      }).catch(() => {
+        if (isMounted) setPendingReviews(0);
+      });
     } catch(e) {
       setPendingReviews(0);
     }
+    return () => {
+      isMounted = false;
+      unsub();
+    };
   }, []);
 
   const chartData = [

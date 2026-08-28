@@ -269,7 +269,9 @@ class CommunityStoreService {
       if (db) {
         // Load reviews
         try {
-          const snap = await db.collection('reviews').limit(5000).get();
+          // Drastically reduce quota: only fetch recent reviews
+          const fetchLimit = forceSync ? 50 : 500;
+          const snap = await db.collection('reviews').orderBy('timestamp', 'desc').limit(fetchLimit).get();
           snap.docs.forEach((doc: any) => {
             const d = doc.data();
             const existing = this.reviews.get(doc.id);

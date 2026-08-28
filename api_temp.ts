@@ -23,11 +23,20 @@ import { securityRouter } from './src/server/routes/securityRoutes';
   app.set('trust proxy', 1);
 
   app.use(helmet({
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: false, // We keep false if we rely on external scripts/images, but let's enable strict headers for the rest
     crossOriginEmbedderPolicy: false,
     crossOriginOpenerPolicy: false,
     crossOriginResourcePolicy: false,
+    hsts: { maxAge: 63072000, includeSubDomains: true, preload: true },
+    frameguard: { action: 'deny' },
+    xssFilter: true,
+    noSniff: true,
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
   }));
+  app.use((req, res, next) => {
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    next();
+  });
 
   app.use(compression({
     threshold: 256,
@@ -56,7 +65,7 @@ import { securityRouter } from './src/server/routes/securityRoutes';
   // Request logger
   app.use((req, res, next) => {
     if (req.originalUrl.startsWith('/api/')) {
-      console.log(`[API REQUEST] ${req.method} ${req.originalUrl}`);
+      
     }
     next();
   });
@@ -105,7 +114,10 @@ import { securityRouter } from './src/server/routes/securityRoutes';
 
 // Global Express Error Handler
   app.use((err: any, req: any, res: any, next: any) => {
-    console.error(`[EXPRESS GLOBAL ERROR] ${req.method} ${req.originalUrl}:`, err);
+    
+if (err.status !== 404 && err.statusCode !== 404) {
+  console.error(`[EXPRESS GLOBAL ERROR] ${req.method} ${req.originalUrl}:`, err);
+}
     try {
       const logFile = path.join(process.cwd(), 'server_requests.log');
       fs.appendFile(logFile, `[${new Date().toISOString()}] ERROR in ${req.method} ${req.originalUrl}: ${err.message || err}\n`, 'utf8', () => {});

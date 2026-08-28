@@ -154,10 +154,6 @@ export function getAdminSdkDiagnostics(): { active: boolean; message: string; en
 }
 
 export function getFirebaseAdminDb(): any {
-  // FAST-PATH: Admin SDK is currently hitting a quota/networking hang in the sandbox,
-  // causing every request to spin for 8 seconds. We disable it completely here so it 
-  // instantly falls back to the lightning-fast REST API endpoints.
-  return null;
   if (cachedAdminDb) return cachedAdminDb;
 
   try {
@@ -369,10 +365,12 @@ export async function writeFirestoreRestDoc(docId: string, data: any, authToken?
     
     let targetProjectId = config.projectId;
     let targetApiKey = config.apiKey;
-    // Removed hardcoded 'rummydexcommunity' overrides so reviews go to primary db
-    
-    const rawDb = config.firestoreDatabaseId || config.databaseId;
-    const dbId = (rawDb && rawDb.trim() !== '') ? rawDb : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+    let dbId = (config.firestoreDatabaseId || config.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a');
+    if (collectionPath === 'reviews' || collectionPath === 'reports' || collectionPath === 'community_store') {
+      targetProjectId = 'rummydexcommunity';
+      targetApiKey = process.env.COMMUNITY_FIREBASE_API_KEY || 'AIzaSyBey9sUbeWrcXS2kl4ewOzkTy4arg03Ok';
+      dbId = '(default)';
+    }
     const queryParams: string[] = [];
     if (targetApiKey) queryParams.push(`key=${encodeURIComponent(targetApiKey)}`);
     if (merge && data && typeof data === 'object') {
@@ -386,7 +384,9 @@ export async function writeFirestoreRestDoc(docId: string, data: any, authToken?
 
     const fields = convertToFirestoreFields(data);
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    // DO NOT attach the local AES authToken to the Google API request, it will cause a 401 error.
+    if (authToken && authToken.startsWith('Bearer ey')) {
+      headers['Authorization'] = authToken;
+    }
 
     const res = await fetch(url, {
       method: 'PATCH',
@@ -414,17 +414,22 @@ export async function deleteFirestoreRestDoc(docId: string, authToken?: string, 
   try {
     const config = getRawFirebaseConfig();
     if (!config || !config.projectId) return false;
-    const rawDb = config.firestoreDatabaseId || config.databaseId;
-    const dbId = (rawDb && rawDb.trim() !== '') ? rawDb : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
-    
     let targetProjectId = config.projectId;
     let targetApiKey = config.apiKey;
+    let dbId = (config.firestoreDatabaseId || config.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a');
+    if (collectionPath === 'reviews' || collectionPath === 'reports' || collectionPath === 'community_store') {
+      targetProjectId = 'rummydexcommunity';
+      targetApiKey = process.env.COMMUNITY_FIREBASE_API_KEY || 'AIzaSyBey9sUbeWrcXS2kl4ewOzkTy4arg03Ok';
+      dbId = '(default)';
+    }
     const finalApiKeyParam = targetApiKey ? `?key=${targetApiKey}` : '';
     const url = `https://firestore.googleapis.com/v1/projects/${targetProjectId}/databases/${dbId}/documents/${collectionPath}/${docId}${finalApiKeyParam}`;
   
 
     const headers: Record<string, string> = {};
-    // DO NOT attach the local AES authToken to the Google API request
+    if (authToken && authToken.startsWith('Bearer ey')) {
+      headers['Authorization'] = authToken;
+    }
 
     const res = await fetch(url, {
       method: 'DELETE',
@@ -441,16 +446,21 @@ export async function readFirestoreRestDoc(docId: string, authToken?: string, co
     const config = getRawFirebaseConfig();
     if (!config || !config.projectId) return null;
     
-    const rawDb = config.firestoreDatabaseId || config.databaseId;
-    const dbId = (rawDb && rawDb.trim() !== '') ? rawDb : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
-    
     let targetProjectId = config.projectId;
     let targetApiKey = config.apiKey;
+    let dbId = (config.firestoreDatabaseId || config.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a');
+    if (collectionPath === 'reviews' || collectionPath === 'reports' || collectionPath === 'community_store') {
+      targetProjectId = 'rummydexcommunity';
+      targetApiKey = process.env.COMMUNITY_FIREBASE_API_KEY || 'AIzaSyBey9sUbeWrcXS2kl4ewOzkTy4arg03Ok';
+      dbId = '(default)';
+    }
     const finalApiKeyParam = targetApiKey ? `?key=${targetApiKey}` : '';
     const url = `https://firestore.googleapis.com/v1/projects/${targetProjectId}/databases/${dbId}/documents/${collectionPath}/${docId}${finalApiKeyParam}`;
 
     const headers: Record<string, string> = {};
-    // DO NOT attach the local AES authToken to the Google API request
+    if (authToken && authToken.startsWith('Bearer ey')) {
+      headers['Authorization'] = authToken;
+    }
 
     const res = await fetch(url, { headers });
     if (!res.ok) {
@@ -470,11 +480,14 @@ export async function readFirestoreRestCollection(collectionPath: string, authTo
     const config = getRawFirebaseConfig();
     if (!config || !config.projectId) return [];
     
-    const rawDb = config.firestoreDatabaseId || config.databaseId;
-    const dbId = (rawDb && rawDb.trim() !== '') ? rawDb : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
-    
     let targetProjectId = config.projectId;
     let targetApiKey = config.apiKey;
+    let dbId = (config.firestoreDatabaseId || config.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a');
+    if (collectionPath === 'reviews' || collectionPath === 'reports' || collectionPath === 'community_store') {
+      targetProjectId = 'rummydexcommunity';
+      targetApiKey = process.env.COMMUNITY_FIREBASE_API_KEY || 'AIzaSyBey9sUbeWrcXS2kl4ewOzkTy4arg03Ok';
+      dbId = '(default)';
+    }
     const finalApiKeyParam = targetApiKey ? `?key=${targetApiKey}` : '';
     const connector = finalApiKeyParam ? '&' : '?';
     const url = `https://firestore.googleapis.com/v1/projects/${targetProjectId}/databases/${dbId}/documents/${collectionPath}${finalApiKeyParam}${connector}pageSize=1000`;
