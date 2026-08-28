@@ -1,0 +1,1 @@
+## 2024-05-18 - Added aria-label to icon-only button\n**Learning:** Icon-only buttons (using just SVG or Lucide icons) require explicit `aria-label` or `title` attributes for accessibility to ensure screen readers provide correct instructions to users, and to provide hover tooltips.\n**Action:** Always verify icon-only buttons include `aria-label` and `title` attributes.
