@@ -857,34 +857,69 @@ function updateLocalBackupSection(section: 'apps' | 'settings' | 'news' | 'video
 }
 
 // Helper to get master apps with secure links pre-populated
-function getMasterApps(): any[] {
-  let apps: any[] = [];
-  const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
-  const staticJsonPath = path.join(process.cwd(), 'src/lib/staticData.json');
-
-  if (fs.existsSync(publicBackupPath)) {
+async function getMasterApps(authToken?: string): Promise<any[]> {
+  const adminDb = getFirebaseAdminDb();
+  let firestoreApps: any[] | null = null;
+  
+  if (adminDb) {
     try {
-      const data = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
-      if (Array.isArray(data.apps) && data.apps.length > 0) apps = data.apps;
-    } catch (_) {}
+      const appsMetaSnap = await adminDb.collection('store_data').doc('apps_meta').get();
+      const numChunks = appsMetaSnap.exists ? (appsMetaSnap.data()?.numChunks || 1) : 1;
+      firestoreApps = [];
+      for (let i = 0; i < numChunks; i++) {
+        const chunkSnap = await adminDb.collection('store_data').doc(`apps_chunk_${i}`).get();
+        if (chunkSnap.exists && Array.isArray(chunkSnap.data()?.items)) {
+          firestoreApps.push(...chunkSnap.data().items);
+        }
+      }
+    } catch (fsErr: any) {
+      console.warn("[SERVER] Admin SDK read apps failed in getMasterApps:", fsErr.message);
+      firestoreApps = null;
+    }
+  }
+  
+  if (!firestoreApps) {
+    firestoreApps = [];
+    const appsMetaDoc = await readFirestoreRestDoc('apps_meta', authToken);
+    const numChunks = appsMetaDoc?.numChunks || 1;
+    for (let i = 0; i < numChunks; i++) {
+      const chunkDoc = await readFirestoreRestDoc(`apps_chunk_${i}`, authToken);
+      if (chunkDoc?.items && Array.isArray(chunkDoc.items)) {
+        firestoreApps.push(...chunkDoc.items);
+      }
+    }
   }
 
-  if (apps.length === 0 && fs.existsSync(staticJsonPath)) {
-    try {
-      const sj = JSON.parse(fs.readFileSync(staticJsonPath, 'utf8'));
-      apps = sj.apps || sj.mockApps || [];
-    } catch (_) {}
-  }
+  let apps = firestoreApps && firestoreApps.length > 0 ? firestoreApps : [];
 
   if (apps.length === 0) {
-    try {
-      const staticDataObj = require('../../lib/staticData');
-      const lightFallbackObj = require('../../lib/lightFallback');
-      apps = staticDataObj.mockApps || lightFallbackObj.mockApps || [];
-    } catch (_) {}
+    // Fallback to local
+    const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
+    const staticJsonPath = path.join(process.cwd(), 'src/lib/staticData.json');
+
+    if (fs.existsSync(publicBackupPath)) {
+      try {
+        const data = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
+        if (Array.isArray(data.apps) && data.apps.length > 0) apps = data.apps;
+      } catch (_) {}
+    }
+
+    if (apps.length === 0 && fs.existsSync(staticJsonPath)) {
+      try {
+        const sj = JSON.parse(fs.readFileSync(staticJsonPath, 'utf8'));
+        apps = sj.apps || sj.mockApps || [];
+      } catch (_) {}
+    }
+
+    if (apps.length === 0) {
+      try {
+        const staticDataObj = require('../../lib/staticData');
+        const lightFallbackObj = require('../../lib/lightFallback');
+        apps = staticDataObj.mockApps || lightFallbackObj.mockApps || [];
+      } catch (_) {}
+    }
   }
 
-  // Pre-populate more_information_url from vaultNode or secure_links backup
   return apps.map((app: any) => {
     const vaultUrl = (app.id ? vaultNode.getPayload(app.id) : '') || (app.slug ? vaultNode.getPayload(app.slug) : '') || app.more_information_url || '';
     return {
@@ -895,33 +930,56 @@ function getMasterApps(): any[] {
 }
 
 // Helper to get master settings
-function getMasterSettings(): any {
-  let settings: any = {};
-  const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
-  const staticJsonPath = path.join(process.cwd(), 'src/lib/staticData.json');
-
-  if (fs.existsSync(publicBackupPath)) {
+async function getMasterSettings(authToken?: string): Promise<any> {
+  const adminDb = getFirebaseAdminDb();
+  let firestoreSettings: any = null;
+  
+  if (adminDb) {
     try {
-      const data = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
-      if (data.settings && typeof data.settings === 'object') settings = data.settings;
-    } catch (_) {}
+      const snap = await adminDb.collection('store_data').doc('public_settings').get();
+      if (snap.exists) {
+        firestoreSettings = snap.data() || {};
+      }
+    } catch (fsErr: any) {
+      console.warn("[SERVER] Admin SDK read settings failed in getMasterSettings:", fsErr.message);
+    }
+  }
+  
+  if (!firestoreSettings) {
+    const restSettings = await readFirestoreRestDoc('public_settings', authToken);
+    if (restSettings && typeof restSettings === 'object') {
+      firestoreSettings = restSettings;
+    }
   }
 
-  if (Object.keys(settings).length === 0 && fs.existsSync(staticJsonPath)) {
-    try {
-      const sj = JSON.parse(fs.readFileSync(staticJsonPath, 'utf8'));
-      settings = sj.settings || sj.mockSettings || {};
-    } catch (_) {}
-  }
+  let settings = firestoreSettings || {};
 
   if (Object.keys(settings).length === 0) {
-    try {
-      const staticDataObj = require('../../lib/staticData');
-      const lightFallbackObj = require('../../lib/lightFallback');
-      settings = staticDataObj.mockSettings || lightFallbackObj.mockSettings || {};
-    } catch (_) {}
-  }
+    const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
+    const staticJsonPath = path.join(process.cwd(), 'src/lib/staticData.json');
 
+    if (fs.existsSync(publicBackupPath)) {
+      try {
+        const data = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
+        if (data.settings && typeof data.settings === 'object') settings = data.settings;
+      } catch (_) {}
+    }
+
+    if (Object.keys(settings).length === 0 && fs.existsSync(staticJsonPath)) {
+      try {
+        const sj = JSON.parse(fs.readFileSync(staticJsonPath, 'utf8'));
+        settings = sj.settings || sj.mockSettings || {};
+      } catch (_) {}
+    }
+
+    if (Object.keys(settings).length === 0) {
+      try {
+        const staticDataObj = require('../../lib/staticData');
+        const lightFallbackObj = require('../../lib/lightFallback');
+        settings = staticDataObj.mockSettings || lightFallbackObj.mockSettings || {};
+      } catch (_) {}
+    }
+  }
   return settings;
 }
 
@@ -995,6 +1053,7 @@ async function saveMasterAppsList(apps: any[], authToken?: string): Promise<{ fi
 
 // Master unified Admin data endpoint (100% Firebase-Native)
 adminVaultRouter.get("/api/v1/admin/data", verifyAdminToken, async (req: any, res: any) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   let apps: any[] = [];
   let settings: any = {};
   let news: any[] = [];
@@ -1136,7 +1195,7 @@ adminVaultRouter.get("/api/v1/admin/data", verifyAdminToken, async (req: any, re
 
   // If Firestore read yielded empty items or encountered an issue, fallback gracefully to existing backup data so user data is never lost
   if (apps.length === 0) {
-    const fallbackApps = getMasterApps();
+    const fallbackApps = await getMasterApps(req.headers.authorization);
     if (fallbackApps.length > 0) {
       apps = fallbackApps;
       source = 'local_backup';
@@ -1192,6 +1251,7 @@ adminVaultRouter.get("/api/v1/admin/data", verifyAdminToken, async (req: any, re
 
 // 1. APPS (Lazy Load & Dedicated Save)
 adminVaultRouter.get("/api/v1/admin/apps", verifyAdminToken, async (req: any, res: any) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   try {
     const adminDb = getFirebaseAdminDb();
     if (adminDb) {
@@ -1236,16 +1296,17 @@ adminVaultRouter.get("/api/v1/admin/apps", verifyAdminToken, async (req: any, re
     throw new Error("Firestore returned empty apps");
   } catch (err: any) {
     console.warn("[SERVER] GET /admin/apps failed:", err.message);
-    const fallbackApps = getMasterApps();
+    const fallbackApps = await getMasterApps(req.headers.authorization);
     return res.json({ success: true, apps: fallbackApps, source: 'local_backup', warning: err.message });
   }
 });
 
 // Single App Read
 adminVaultRouter.get("/api/v1/admin/app/:id", verifyAdminToken, async (req: any, res: any) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   try {
     const { id } = req.params;
-    const masterApps = getMasterApps();
+    const masterApps = await getMasterApps(req.headers.authorization);
     const app = masterApps.find((a: any) => a.id === id || a.slug === id);
     if (!app) {
       return res.status(404).json({ error: "App not found." });
@@ -1269,7 +1330,7 @@ adminVaultRouter.post("/api/v1/admin/app/save", verifyAdminToken, async (req: an
     const appSlug = String(app.slug || '').trim().toLowerCase().replace(/[^a-z0-9-_]+/g, '-') || appName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
     const inputUrl = String(app.more_information_url || '').trim();
 
-    const masterApps = getMasterApps();
+    const masterApps = await getMasterApps(req.headers.authorization);
     let existingIndex = -1;
 
     if (appId) {
@@ -1355,7 +1416,7 @@ adminVaultRouter.post("/api/v1/admin/app/delete", verifyAdminToken, async (req: 
       return res.status(400).json({ error: "App ID is required." });
     }
 
-    const masterApps = getMasterApps();
+    const masterApps = await getMasterApps(req.headers.authorization);
     const filteredApps = masterApps.filter((a: any) => a.id !== id && a.slug !== id);
 
     if (filteredApps.length === masterApps.length) {
@@ -1392,7 +1453,7 @@ adminVaultRouter.post("/api/v1/admin/settings/save-section", verifyAdminToken, a
       return res.status(400).json({ error: "section and data are required." });
     }
 
-    const masterSettings = getMasterSettings();
+    const masterSettings = await getMasterSettings(req.headers.authorization);
     const now = new Date().toISOString();
 
     if (section === 'general' || section === 'seo') {
@@ -1471,6 +1532,7 @@ adminVaultRouter.post("/api/v1/admin/save-apps", verifyAdminToken, async (req: a
 
 // 2. SETTINGS (Lazy Load & Dedicated Save - includes FAQs, Categories, Developers, Banners, Quick Links)
 adminVaultRouter.get("/api/v1/admin/settings", verifyAdminToken, async (req: any, res: any) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   try {
     const adminDb = getFirebaseAdminDb();
     if (adminDb) {
@@ -1548,6 +1610,7 @@ adminVaultRouter.post("/api/v1/admin/save-settings", verifyAdminToken, async (re
 
 // 3. NEWS (Lazy Load & Dedicated Save)
 adminVaultRouter.get("/api/v1/admin/news", verifyAdminToken, async (req: any, res: any) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   try {
     const adminDb = getFirebaseAdminDb();
     if (adminDb) {
@@ -1625,6 +1688,7 @@ adminVaultRouter.post("/api/v1/admin/save-news", verifyAdminToken, async (req: a
 
 // 4. VIDEOS (Lazy Load & Dedicated Save)
 adminVaultRouter.get("/api/v1/admin/videos", verifyAdminToken, async (req: any, res: any) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   try {
     const adminDb = getFirebaseAdminDb();
     if (adminDb) {
