@@ -26,6 +26,22 @@ export function clearResolvedLinkCache(key?: string) {
 /**
  * Validates whether a target URL is safe and valid for redirection
  */
+function normalizeTargetUrl(url: string | undefined | null): string {
+  if (!url || typeof url !== 'string') return '';
+  let clean = url.trim();
+  const cleanLower = clean.toLowerCase();
+  
+  if (!cleanLower.startsWith('http://') && 
+      !cleanLower.startsWith('https://') && 
+      !cleanLower.startsWith('intent://') && 
+      !cleanLower.startsWith('market://') &&
+      !cleanLower.startsWith('mailto:') &&
+      !cleanLower.startsWith('tel:')) {
+    clean = 'https://' + clean;
+  }
+  return clean;
+}
+
 function isValidTargetUrl(url: string | undefined | null): boolean {
   if (!url || typeof url !== 'string') return false;
   const clean = url.trim();
@@ -106,7 +122,7 @@ function findUrlInVaultParsed(parsed: any, keysToSearch: string[], AES_SECRET: s
  * Central Server-Authoritative Link Resolver
  * Looks up target destination securely without ever exposing keys or ciphertexts to the browser.
  */
-export async function resolveDestinationForApp(appId: string): Promise<string> {
+async function resolveDestinationForAppInner(appId: string): Promise<string> {
   if (!appId || typeof appId !== 'string') return '';
   const cleanAppId = appId.trim();
   const lowerAppId = cleanAppId.toLowerCase();
@@ -308,6 +324,12 @@ export async function resolveDestinationForApp(appId: string): Promise<string> {
   } catch (_) {}
 
   return '';
+}
+
+export async function resolveDestinationForApp(appId: string): Promise<string> {
+  const rawUrl = await resolveDestinationForAppInner(appId);
+  if (!rawUrl) return '';
+  return normalizeTargetUrl(rawUrl);
 }
 
 /**

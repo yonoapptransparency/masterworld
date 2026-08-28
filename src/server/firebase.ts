@@ -384,9 +384,10 @@ export async function writeFirestoreRestDoc(docId: string, data: any, authToken?
 
     const fields = convertToFirestoreFields(data);
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (authToken && authToken.startsWith('Bearer ey')) {
-      headers['Authorization'] = authToken;
-    }
+    // Do NOT pass custom Express JWTs to Google Firestore REST API (causes 401 Unauthenticated)
+    // if (authToken && authToken.startsWith('Bearer ey')) {
+    //   headers['Authorization'] = authToken;
+    // }
 
     const res = await fetch(url, {
       method: 'PATCH',
@@ -458,9 +459,10 @@ export async function readFirestoreRestDoc(docId: string, authToken?: string, co
     const url = `https://firestore.googleapis.com/v1/projects/${targetProjectId}/databases/${dbId}/documents/${collectionPath}/${docId}${finalApiKeyParam}`;
 
     const headers: Record<string, string> = {};
-    if (authToken && authToken.startsWith('Bearer ey')) {
-      headers['Authorization'] = authToken;
-    }
+    // Do NOT pass custom Express JWTs to Google Firestore REST API (causes 401 Unauthenticated)
+    // if (authToken && authToken.startsWith('Bearer ey')) {
+    //   headers['Authorization'] = authToken;
+    // }
 
     const res = await fetch(url, { headers });
     if (!res.ok) {

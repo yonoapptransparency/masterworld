@@ -657,8 +657,13 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
             });
             chunkPromises.push(writeFirestoreRestDoc(`apps_chunk_${i}`, { items: chunk }, authToken));
           }
-          await Promise.all(chunkPromises);
-          await writeFirestoreRestDoc('apps_meta', { numChunks, last_updated: new Date().toISOString() }, authToken);
+          const chunkResults = await Promise.all(chunkPromises);
+          const metaResult = await writeFirestoreRestDoc('apps_meta', { numChunks, last_updated: new Date().toISOString() }, authToken);
+          if (chunkResults.every(r => r === true) && metaResult) {
+            // all good
+          } else {
+            console.warn("[SERVER] Sync local failed to write some app chunks.");
+          }
         }
 
         if (settings && typeof settings === 'object' && Object.keys(settings).length > 0) {
@@ -962,10 +967,14 @@ async function saveMasterAppsList(apps: any[], authToken?: string): Promise<{ fi
         });
         chunkPromises.push(writeFirestoreRestDoc(`apps_chunk_${i}`, { items: chunk }, authToken));
       }
-      await Promise.all(chunkPromises);
-      await writeFirestoreRestDoc('apps_meta', { numChunks, last_updated: new Date().toISOString() }, authToken);
-      firestoreUpdated = true;
-      firestoreError = null;
+      const results = await Promise.all(chunkPromises);
+      const metaResult = await writeFirestoreRestDoc('apps_meta', { numChunks, last_updated: new Date().toISOString() }, authToken);
+      if (results.every(r => r === true) && metaResult) {
+        firestoreUpdated = true;
+        firestoreError = null;
+      } else {
+        firestoreError = "REST API fallback failed to save all chunks.";
+      }
     } catch (restErr: any) {
       firestoreError = restErr.message;
     }
@@ -998,44 +1007,70 @@ adminVaultRouter.get("/api/v1/admin/data", verifyAdminToken, async (req: any, re
 
   // 1. Fetch apps
   try {
+    let firestoreApps: any[] | null = null;
     if (adminDb) {
-      const appsMetaSnap = await adminDb.collection('store_data').doc('apps_meta').get();
-      const numChunks = appsMetaSnap.exists ? (appsMetaSnap.data()?.numChunks || 1) : 1;
-      for (let i = 0; i < numChunks; i++) {
-        const chunkSnap = await adminDb.collection('store_data').doc(`apps_chunk_${i}`).get();
-        if (chunkSnap.exists && Array.isArray(chunkSnap.data()?.items)) {
-          apps.push(...chunkSnap.data().items);
+      try {
+        const appsMetaSnap = await adminDb.collection('store_data').doc('apps_meta').get();
+        const numChunks = appsMetaSnap.exists ? (appsMetaSnap.data()?.numChunks || 1) : 1;
+        firestoreApps = [];
+        for (let i = 0; i < numChunks; i++) {
+          const chunkSnap = await adminDb.collection('store_data').doc(`apps_chunk_${i}`).get();
+          if (chunkSnap.exists && Array.isArray(chunkSnap.data()?.items)) {
+            firestoreApps.push(...chunkSnap.data().items);
+          }
+        }
+      } catch (fsErr: any) {
+        console.warn("[SERVER] Admin SDK read apps failed, falling back to REST:", fsErr.message);
+        firestoreApps = null;
+        if (String(fsErr.message).includes('429') || String(fsErr.message).includes('Quota')) {
+          quotaExceeded = true;
         }
       }
-    } else {
+    }
+    
+    if (!firestoreApps) {
+      firestoreApps = [];
       const appsMetaDoc = await readFirestoreRestDoc('apps_meta', authToken);
       const numChunks = appsMetaDoc?.numChunks || 1;
       for (let i = 0; i < numChunks; i++) {
         const chunkDoc = await readFirestoreRestDoc(`apps_chunk_${i}`, authToken);
         if (chunkDoc?.items && Array.isArray(chunkDoc.items)) {
-          apps.push(...chunkDoc.items);
+          firestoreApps.push(...chunkDoc.items);
         }
       }
     }
+    
+    if (firestoreApps.length > 0) {
+      apps = firestoreApps;
+    }
   } catch (err: any) {
     console.warn("[SERVER] Error reading apps from Firestore:", err.message);
-    if (String(err.message).includes('429') || String(err.message).includes('Quota')) {
-      quotaExceeded = true;
-    }
   }
 
   // 2. Fetch settings
   try {
+    let firestoreSettings: any = null;
     if (adminDb) {
-      const snap = await adminDb.collection('store_data').doc('public_settings').get();
-      if (snap.exists) {
-        settings = snap.data() || {};
+      try {
+        const snap = await adminDb.collection('store_data').doc('public_settings').get();
+        if (snap.exists) {
+          firestoreSettings = snap.data() || {};
+        }
+      } catch (fsErr: any) {
+        console.warn("[SERVER] Admin SDK read settings failed, falling back to REST:", fsErr.message);
+        firestoreSettings = null;
       }
-    } else {
+    }
+    
+    if (!firestoreSettings) {
       const restSettings = await readFirestoreRestDoc('public_settings', authToken);
       if (restSettings && typeof restSettings === 'object') {
-        settings = restSettings;
+        firestoreSettings = restSettings;
       }
+    }
+    
+    if (firestoreSettings) {
+      settings = firestoreSettings;
     }
   } catch (err: any) {
     console.warn("[SERVER] Error reading settings from Firestore:", err.message);
@@ -1043,16 +1078,28 @@ adminVaultRouter.get("/api/v1/admin/data", verifyAdminToken, async (req: any, re
 
   // 3. Fetch news
   try {
+    let firestoreNews: any[] | null = null;
     if (adminDb) {
-      const snap = await adminDb.collection('store_data').doc('news').get();
-      if (snap.exists && Array.isArray(snap.data()?.items)) {
-        news = snap.data().items;
+      try {
+        const snap = await adminDb.collection('store_data').doc('news').get();
+        if (snap.exists && Array.isArray(snap.data()?.items)) {
+          firestoreNews = snap.data().items;
+        }
+      } catch (fsErr: any) {
+        console.warn("[SERVER] Admin SDK read news failed, falling back to REST:", fsErr.message);
+        firestoreNews = null;
       }
-    } else {
+    }
+    
+    if (!firestoreNews) {
       const restNews = await readFirestoreRestDoc('news', authToken);
       if (restNews?.items && Array.isArray(restNews.items)) {
-        news = restNews.items;
+        firestoreNews = restNews.items;
       }
+    }
+    
+    if (firestoreNews) {
+      news = firestoreNews;
     }
   } catch (err: any) {
     console.warn("[SERVER] Error reading news from Firestore:", err.message);
@@ -1060,16 +1107,28 @@ adminVaultRouter.get("/api/v1/admin/data", verifyAdminToken, async (req: any, re
 
   // 4. Fetch videos
   try {
+    let firestoreVideos: any[] | null = null;
     if (adminDb) {
-      const snap = await adminDb.collection('store_data').doc('videos').get();
-      if (snap.exists && Array.isArray(snap.data()?.items)) {
-        videos = snap.data().items;
+      try {
+        const snap = await adminDb.collection('store_data').doc('videos').get();
+        if (snap.exists && Array.isArray(snap.data()?.items)) {
+          firestoreVideos = snap.data().items;
+        }
+      } catch (fsErr: any) {
+        console.warn("[SERVER] Admin SDK read videos failed, falling back to REST:", fsErr.message);
+        firestoreVideos = null;
       }
-    } else {
+    }
+    
+    if (!firestoreVideos) {
       const restVideos = await readFirestoreRestDoc('videos', authToken);
       if (restVideos?.items && Array.isArray(restVideos.items)) {
-        videos = restVideos.items;
+        firestoreVideos = restVideos.items;
       }
+    }
+    
+    if (firestoreVideos) {
+      videos = firestoreVideos;
     }
   } catch (err: any) {
     console.warn("[SERVER] Error reading videos from Firestore:", err.message);
@@ -1363,9 +1422,13 @@ adminVaultRouter.post("/api/v1/admin/settings/save-section", verifyAdminToken, a
     if (!firestoreUpdated) {
       try {
         const authToken = req.headers.authorization;
-        await writeFirestoreRestDoc('public_settings', JSON.parse(JSON.stringify(masterSettings)), authToken, true);
-        firestoreUpdated = true;
-        firestoreError = null;
+        const writeOk = await writeFirestoreRestDoc('public_settings', JSON.parse(JSON.stringify(masterSettings)), authToken, true);
+        if (writeOk) {
+          firestoreUpdated = true;
+          firestoreError = null;
+        } else {
+          firestoreError = "REST API fallback failed";
+        }
       } catch (restErr: any) {
         firestoreError = restErr.message;
       }
@@ -1459,9 +1522,13 @@ adminVaultRouter.post("/api/v1/admin/save-settings", verifyAdminToken, async (re
     if (!firestoreUpdated) {
       try {
         const authToken = req.headers.authorization;
-        await writeFirestoreRestDoc('public_settings', JSON.parse(JSON.stringify(settings)), authToken, true);
-        firestoreUpdated = true;
-        firestoreError = null;
+        const writeOk = await writeFirestoreRestDoc('public_settings', JSON.parse(JSON.stringify(settings)), authToken, true);
+        if (writeOk) {
+          firestoreUpdated = true;
+          firestoreError = null;
+        } else {
+          firestoreError = "REST API fallback failed";
+        }
       } catch (restErr: any) {
         firestoreError = restErr.message;
       }
@@ -1532,9 +1599,13 @@ adminVaultRouter.post("/api/v1/admin/save-news", verifyAdminToken, async (req: a
     if (!firestoreUpdated) {
       try {
         const authToken = req.headers.authorization;
-        await writeFirestoreRestDoc('news', { items: JSON.parse(JSON.stringify(news)) }, authToken);
-        firestoreUpdated = true;
-        firestoreError = null;
+        const writeOk = await writeFirestoreRestDoc('news', { items: JSON.parse(JSON.stringify(news)) }, authToken);
+        if (writeOk) {
+          firestoreUpdated = true;
+          firestoreError = null;
+        } else {
+          firestoreError = "REST API fallback failed";
+        }
       } catch (restErr: any) {
         firestoreError = restErr.message;
       }
@@ -1605,9 +1676,13 @@ adminVaultRouter.post("/api/v1/admin/save-videos", verifyAdminToken, async (req:
     if (!firestoreUpdated) {
       try {
         const authToken = req.headers.authorization;
-        await writeFirestoreRestDoc('videos', { items: JSON.parse(JSON.stringify(videos)) }, authToken);
-        firestoreUpdated = true;
-        firestoreError = null;
+        const writeOk = await writeFirestoreRestDoc('videos', { items: JSON.parse(JSON.stringify(videos)) }, authToken);
+        if (writeOk) {
+          firestoreUpdated = true;
+          firestoreError = null;
+        } else {
+          firestoreError = "REST API fallback failed";
+        }
       } catch (restErr: any) {
         firestoreError = restErr.message;
       }
