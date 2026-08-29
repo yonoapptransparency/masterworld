@@ -87,7 +87,14 @@ export const AdminBannersTab = React.memo(({
             <div key={banner.id || index} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-5">
               <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-slate-800">
                 <h4 className="font-semibold text-slate-700 dark:text-slate-300 text-sm">Banner #{index + 1}</h4>
-                <button onClick={() => onRemove(index, banner.id)} className="text-rose-500 hover:text-rose-600 p-1 cursor-pointer border-0 bg-transparent"><Trash2 className="w-4 h-4" /></button>
+                <button
+                  onClick={() => onRemove(index, banner.id)}
+                  className="text-rose-500 hover:text-rose-600 p-1 cursor-pointer border-0 bg-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 rounded-sm"
+                  aria-label={`Remove Banner ${index + 1}`}
+                  title={`Remove Banner ${index + 1}`}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <ImageUpload value={banner.image_url || banner.image} onChange={(val) => onUpdate(index, banner.id, banner.image_url !== undefined ? 'image_url' : 'image', val)} placeholder="Image URL" className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm dark:text-white focus-within:ring-2 focus-within:ring-blue-500 overflow-hidden" />
