@@ -191,21 +191,27 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
     bodyContent = renderers.renderGateway(slug, settings);
   } else if (cleanPathLower.startsWith('/app/')) {
     const possibleSlug = cleanPathLower.replace(/^\/app\//, '/').replace(/^\/|\/$/g, '');
-    const app = apps.find((a: any) => getField(a, 'slug')?.toLowerCase() === possibleSlug);
+    const app = resolveAppSlug(possibleSlug, apps) || apps.find((a: any) => getField(a, 'slug')?.toLowerCase() === possibleSlug);
     if (app) {
       const appIdentifier = getField(app, 'slug') || getField(app, 'id');
       const rawRatingVal = parseFloat(getField(app, 'rating')) || 4.5;
       const appSampleReviews = communityStore.getReviewsForApp(appIdentifier, undefined, 6, getField(app, 'name'), rawRatingVal, getField(app, 'slug'))?.reviews || [];
-      bodyContent = renderers.renderAppDetails(possibleSlug, apps, settings, appSampleReviews);
+      bodyContent = renderers.renderAppDetails(getField(app, 'slug') || possibleSlug, apps, settings, appSampleReviews);
     } else {
       bodyContent = renderers.render404(urlPath, settings);
     }
   } else {
     const possibleSlug = cleanPathLower.replace(/^\/|\/$/g, '');
+    const app = resolveAppSlug(possibleSlug, apps) || apps.find((a: any) => getField(a, 'slug')?.toLowerCase() === possibleSlug);
     const newsItem = news.find((n: any) => getField(n, 'slug')?.toLowerCase() === possibleSlug);
     const videoItem = videos.find((v: any) => getField(v, 'slug')?.toLowerCase() === possibleSlug);
 
-    if (newsItem) {
+    if (app) {
+      const appIdentifier = getField(app, 'slug') || getField(app, 'id');
+      const rawRatingVal = parseFloat(getField(app, 'rating')) || 4.5;
+      const appSampleReviews = communityStore.getReviewsForApp(appIdentifier, undefined, 6, getField(app, 'name'), rawRatingVal, getField(app, 'slug'))?.reviews || [];
+      bodyContent = renderers.renderAppDetails(getField(app, 'slug') || possibleSlug, apps, settings, appSampleReviews);
+    } else if (newsItem) {
       bodyContent = renderers.renderNewsDetail(possibleSlug, news, settings);
     } else if (videoItem) {
       bodyContent = renderers.renderVideoDetail(possibleSlug, videos, settings);
@@ -254,52 +260,7 @@ function buildJsonLdSchema(params: {
     return '';
   }
 
-  schemas.push({
-    "@context": "https://schema.org",
-    "@type": "WebSite",
-      "@id": `${hostOrigin}/#website`,
-      "url": hostOrigin,
-      "name": params.siteTitle,
-      "description": params.description,
-      "publisher": {
-        "@type": "Organization",
-        "@id": `${hostOrigin}/#organization`,
-        "name": params.siteTitle,
-        "url": hostOrigin,
-        "logo": {
-          "@type": "ImageObject",
-          "url": params.logoUrl
-        }
-      }
-    });
-
-    if (params.settings?.website_faqs && Array.isArray(params.settings.website_faqs) && params.settings.website_faqs.length > 0) {
-      const seenQuestions = new Set<string>();
-      const faqList = params.settings.website_faqs
-        .filter((faq: any) => {
-          const q = stripHtml(getField(faq, 'question')).trim();
-          const a = stripHtml(getField(faq, 'answer')).trim();
-          if (!q || !a || q.length < 5 || seenQuestions.has(q.toLowerCase())) return false;
-          seenQuestions.add(q.toLowerCase());
-          return true;
-        })
-        .map((faq: any) => ({
-          "@type": "Question",
-          "name": stripHtml(getField(faq, 'question')).trim(),
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": stripHtml(getField(faq, 'answer')).trim()
-          }
-        }));
-      if (faqList.length > 0) {
-        schemas.push({
-          "@context": "https://schema.org",
-          "@type": "FAQPage",
-          "mainEntity": faqList
-        });
-      }
-    }
-
+  // 1. APP DETAILS PAGE: SoftwareApplication is the single primary entity
   if (params.pageType === 'app' && params.app) {
     const app = params.app;
     const name = getField(app, 'name');
@@ -350,7 +311,8 @@ function buildJsonLdSchema(params: {
       "offers": {
         "@type": "Offer",
         "price": "0",
-        "priceCurrency": "INR"
+        "priceCurrency": "INR",
+        "availability": "https://schema.org/InStock"
       },
       "aggregateRating": {
         "@type": "AggregateRating",
@@ -362,25 +324,32 @@ function buildJsonLdSchema(params: {
       }
     };
 
-    // Include sample reviews if available to boost Google Rich Snippet compliance
+    // Include sample reviews if available to boost Google Rich Snippet compliance (without nested itemReviewed)
     try {
       const feed = communityStore.getReviewsForApp(appIdentifier, undefined, 5, name, clampedRating, getField(app, 'slug'));
       if (feed && Array.isArray(feed.reviews) && feed.reviews.length > 0) {
-        softwareAppSchema["review"] = feed.reviews.slice(0, 5).map((rev: any) => ({
-          "@type": "Review",
-          "author": {
-            "@type": "Person",
-            "name": rev.userName || 'Verified Player'
-          },
-          "datePublished": (rev.timestamp ? new Date(rev.timestamp).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
-          "reviewBody": stripHtml(rev.reviewText || ''),
-          "reviewRating": {
-            "@type": "Rating",
-            "ratingValue": Math.max(1, Math.min(5, Number(rev.rating) || 5)),
-            "bestRating": 5,
-            "worstRating": 1
-          }
-        }));
+        const validReviews = feed.reviews
+          .filter((rev: any) => rev && stripHtml(rev.reviewText || '').trim().length >= 3)
+          .slice(0, 5)
+          .map((rev: any) => ({
+            "@type": "Review",
+            "author": {
+              "@type": "Person",
+              "name": rev.userName ? String(rev.userName).trim() : 'Verified Player'
+            },
+            "datePublished": (rev.timestamp ? new Date(rev.timestamp).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
+            "reviewBody": stripHtml(rev.reviewText || '').trim(),
+            "reviewRating": {
+              "@type": "Rating",
+              "ratingValue": Math.max(1, Math.min(5, Number(rev.rating) || 5)),
+              "bestRating": 5,
+              "worstRating": 1
+            }
+          }));
+
+        if (validReviews.length > 0) {
+          softwareAppSchema["review"] = validReviews;
+        }
       }
     } catch (revErr) {}
 
@@ -389,22 +358,10 @@ function buildJsonLdSchema(params: {
       softwareAppSchema["screenshot"] = appScreenshots.map((s: string) => optimizeImageUrl(s, 1024) || s);
     }
 
+    // Push the primary entity FIRST
     schemas.push(softwareAppSchema);
 
-    schemas.push({
-      "@context": "https://schema.org",
-      "@type": "WebPage",
-      "@id": `${hostOrigin}/app/${getField(app, 'slug')}#webpage`,
-      "url": `${hostOrigin}/app/${getField(app, 'slug')}`,
-      "name": params.title,
-      "description": desc,
-      "primaryImageOfPage": {
-        "@type": "ImageObject",
-        "url": appSquareIcon,
-        "contentUrl": appSquareIcon
-      }
-    });
-
+    // BreadcrumbList navigation schema
     const breadcrumbs: any[] = [
       {
         "@type": "ListItem",
@@ -442,6 +399,7 @@ function buildJsonLdSchema(params: {
       "itemListElement": breadcrumbs
     });
 
+    // App-specific FAQs (if present)
     if (app.faqs && Array.isArray(app.faqs) && app.faqs.length > 0) {
       const seenAppFaqs = new Set<string>();
       const faqList = app.faqs
@@ -557,8 +515,58 @@ function buildJsonLdSchema(params: {
         }
       ]
     });
-  } else if (params.pageType === 'home' && params.settings) {
-    // FAQs are already injected globally, no need to duplicate them here
+  } else {
+    // HOME & GENERAL PAGES: WebSite schema is only on root/general pages
+    schemas.push({
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "@id": `${hostOrigin}/#website`,
+      "url": hostOrigin,
+      "name": params.siteTitle,
+      "description": params.description,
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": `${hostOrigin}/?q={search_term_string}`,
+        "query-input": "required name=search_term_string"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "@id": `${hostOrigin}/#organization`,
+        "name": params.siteTitle,
+        "url": hostOrigin,
+        "logo": {
+          "@type": "ImageObject",
+          "url": params.logoUrl
+        }
+      }
+    });
+
+    if (params.settings?.website_faqs && Array.isArray(params.settings.website_faqs) && params.settings.website_faqs.length > 0) {
+      const seenQuestions = new Set<string>();
+      const faqList = params.settings.website_faqs
+        .filter((faq: any) => {
+          const q = stripHtml(getField(faq, 'question')).trim();
+          const a = stripHtml(getField(faq, 'answer')).trim();
+          if (!q || !a || q.length < 5 || seenQuestions.has(q.toLowerCase())) return false;
+          seenQuestions.add(q.toLowerCase());
+          return true;
+        })
+        .map((faq: any) => ({
+          "@type": "Question",
+          "name": stripHtml(getField(faq, 'question')).trim(),
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": stripHtml(getField(faq, 'answer')).trim()
+          }
+        }));
+      if (faqList.length > 0) {
+        schemas.push({
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "mainEntity": faqList
+        });
+      }
+    }
   }
 
   return schemas.map(s => `<script type="application/ld+json" data-rh="true">${JSON.stringify(s).replace(/</g, '\\u003c')}</script>`).join('\n');
@@ -595,7 +603,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
 
   const CLOUDINARY_ICON = 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
   let rawLogoUrl = getField(settings, 'logo_url') || CLOUDINARY_ICON;
-  const faviconUrl = getField(settings, 'favicon_url') || CLOUDINARY_ICON;
+  const rawFaviconSetting = getField(settings, 'favicon_url');
   
   const getFaviconWithSize = (url: string, size: number) => {
     if (!url) return '';
@@ -604,9 +612,12 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     }
     return url;
   };
-  const favicon32 = getFaviconWithSize(faviconUrl, 32);
-  const favicon180 = getFaviconWithSize(faviconUrl, 180);
-  const favicon192 = getFaviconWithSize(faviconUrl, 192);
+
+  const isCustomFavicon = rawFaviconSetting && !rawFaviconSetting.includes('1000134293_sbicyb.png');
+  const faviconIco = isCustomFavicon ? getFaviconWithSize(rawFaviconSetting, 32) : '/favicon.ico';
+  const favicon32 = isCustomFavicon ? getFaviconWithSize(rawFaviconSetting, 32) : '/favicon-32x32.png';
+  const favicon16 = isCustomFavicon ? getFaviconWithSize(rawFaviconSetting, 16) : '/favicon-16x16.png';
+  const favicon180 = isCustomFavicon ? getFaviconWithSize(rawFaviconSetting, 180) : '/apple-touch-icon.png';
   
   // Use a properly sized square logo for JSON-LD schemas to prevent raw image pre-fetches
   let logoUrl = getFaviconWithSize(rawLogoUrl, 512);
@@ -748,10 +759,17 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     }
   } else {
     const appSlug = cleanPathLower.replace(/^\/|\/$/g, '');
+    const app = resolveAppSlug(appSlug, apps) || apps.find((a: any) => getField(a, 'slug')?.toLowerCase() === appSlug || getField(a, 'slug')?.toLowerCase() === appSlug.replace(/[-_]+$/g, ''));
     const newsItem = news.find((n: any) => getField(n, 'slug')?.toLowerCase() === appSlug || getField(n, 'slug')?.toLowerCase() === appSlug.replace(/[-_]+$/g, ''));
     const videoItem = videos.find((v: any) => getField(v, 'slug')?.toLowerCase() === appSlug || getField(v, 'slug')?.toLowerCase() === appSlug.replace(/[-_]+$/g, ''));
 
-    if (newsItem) {
+    if (app) {
+      title = getField(app, 'seo_title') || getField(app, 'meta_title') || `${getField(app, 'name')} | ${siteTitle}`;
+      description = cleanSeoDescription(getField(app, 'seo_description') || getField(app, 'meta_description') || stripHtml(getField(app, 'description_html')).substring(0, 160));
+      customCanonicalUrl = `https://www.rummydex.com/app/${getField(app, 'slug')}`;
+      pageType = 'app';
+      targetApp = app;
+    } else if (newsItem) {
       title = getField(newsItem, 'seo_title') || `${getField(newsItem, 'title')} | ${siteTitle}`;
       description = getField(newsItem, 'seo_description') || getField(newsItem, 'meta_description') || getField(newsItem, 'description', '').substring(0, 160);
       pageType = 'news';
@@ -890,13 +908,10 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     <link data-rh="true" rel="alternate" type="application/rss+xml" title="RummyDex News" href="/rss.xml">
     <link data-rh="true" rel="image_src" href="${pageOgImage}">
     <link data-rh="true" rel="canonical" href="${canonicalUrl}">
-    <link data-rh="true" rel="shortcut icon" href="${favicon32}">
-    <link data-rh="true" rel="icon" type="image/png" href="${favicon32}">
+    <link data-rh="true" rel="icon" type="image/x-icon" href="${faviconIco}">
     <link data-rh="true" rel="icon" type="image/png" sizes="32x32" href="${favicon32}">
-    <link data-rh="true" rel="icon" type="image/png" sizes="192x192" href="${favicon192}">
-    <link data-rh="true" rel="apple-touch-icon" href="${favicon180}">
+    <link data-rh="true" rel="icon" type="image/png" sizes="16x16" href="${favicon16}">
     <link data-rh="true" rel="apple-touch-icon" sizes="180x180" href="${favicon180}">
-    <link data-rh="true" rel="apple-touch-icon-precomposed" href="${favicon180}">
     <link data-rh="true" rel="manifest" href="/site.webmanifest">
     ${jsonLdSchema}
   `;

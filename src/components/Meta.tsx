@@ -166,10 +166,6 @@ const Meta: React.FC<MetaProps> = ({
     setMetaTag('name', 'twitter:image', metaImage);
 
     // 7. Schema.org JSON-LD Structured Data in <head>
-    // Purge ALL existing JSON-LD scripts to completely avoid duplicates on SSR or client navigation
-    const allSchemaScripts = document.head.querySelectorAll('script[type="application/ld+json"]');
-    allSchemaScripts.forEach((s) => s.remove());
-
     const schemasToInject: any[] = [];
     if (schema) schemasToInject.push(schema);
     if (faqSchema) schemasToInject.push(faqSchema);
@@ -191,6 +187,10 @@ const Meta: React.FC<MetaProps> = ({
     }
 
     if (schemasToInject.length > 0) {
+      // Remove previous dynamic or SSR schemas now that we have fresh schemas to inject
+      const allSchemaScripts = document.head.querySelectorAll('script[type="application/ld+json"]');
+      allSchemaScripts.forEach((s) => s.remove());
+
       schemasToInject.forEach((s) => {
         const script = document.createElement('script');
         script.type = 'application/ld+json';
