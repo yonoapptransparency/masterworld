@@ -16,7 +16,6 @@ import './i18n';
 const CACHE_VERSION = '5.0';
 if (typeof window !== 'undefined' && window.localStorage) {
   if (localStorage.getItem('rummystore_cache_version') !== CACHE_VERSION) {
-    console.log("Upgrading cache to version", CACHE_VERSION, "and wiping all old cached data...");
     localStorage.removeItem('rummystore_apps');
     localStorage.removeItem('rummystore_settings');
     localStorage.removeItem('rummystore_news');

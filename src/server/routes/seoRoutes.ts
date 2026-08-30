@@ -382,6 +382,7 @@ seoRouter.get('/robots.txt', async (req, res) => {
 
     let robots = `User-agent: *
 Allow: /
+Allow: /api/v1/public/
 Disallow: /api/
 Disallow: /admin/
 Disallow: /login/
@@ -404,6 +405,8 @@ Disallow: /moredetail/
 Disallow: /moredetail/*
 
 User-agent: Googlebot
+Allow: /
+Allow: /api/v1/public/
 Disallow: /moreinfo/
 Disallow: /moreinfo/*
 Disallow: /info/
@@ -422,6 +425,8 @@ Disallow: /login/
 Disallow: /api/
 
 User-agent: Bingbot
+Allow: /
+Allow: /api/v1/public/
 Disallow: /moreinfo/
 Disallow: /moreinfo/*
 Disallow: /info/
@@ -522,6 +527,7 @@ Sitemap: ${host}/sitemap.xml
     res.set('Content-Type', 'text/plain; charset=utf-8');
     res.send(`User-agent: *
 Allow: /
+Allow: /api/v1/public/
 Disallow: /api/
 Disallow: /admin/
 Disallow: /login/
@@ -544,6 +550,8 @@ Disallow: /moredetail/
 Disallow: /moredetail/*
 
 User-agent: Googlebot
+Allow: /
+Allow: /api/v1/public/
 Disallow: /moreinfo/
 Disallow: /moreinfo/*
 Disallow: /info/
@@ -554,8 +562,16 @@ Disallow: /download/
 Disallow: /download/*
 Disallow: /moredetail/
 Disallow: /moredetail/*
+Disallow: /s/
+Disallow: /dl/
+Disallow: /out/
+Disallow: /admin/
+Disallow: /login/
+Disallow: /api/
 
 User-agent: Bingbot
+Allow: /
+Allow: /api/v1/public/
 Disallow: /moreinfo/
 Disallow: /moreinfo/*
 Disallow: /info/
@@ -566,6 +582,12 @@ Disallow: /download/
 Disallow: /download/*
 Disallow: /moredetail/
 Disallow: /moredetail/*
+Disallow: /s/
+Disallow: /dl/
+Disallow: /out/
+Disallow: /admin/
+Disallow: /login/
+Disallow: /api/
 
 User-agent: GPTBot
 Disallow: /

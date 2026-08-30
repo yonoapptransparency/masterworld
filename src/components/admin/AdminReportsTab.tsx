@@ -20,6 +20,7 @@ import {
   Eye, 
   Flag,
   HelpCircle,
+  ChevronLeft,
   ChevronRight,
   ShieldCheck,
   Send
@@ -63,10 +64,17 @@ export const AdminReportsTab: React.FC<AdminReportsTabProps> = ({ appsList = [] 
   const [selectedAppId, setSelectedAppId] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedReportIds, setSelectedReportIds] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   // Modals & Inspectors
   const [inspectReport, setInspectReport] = useState<ReportItem | null>(null);
   const [editingNotes, setEditingNotes] = useState('');
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedType, selectedStatus, selectedAppId, searchQuery]);
 
   // App Lookup Map
   const appMap = useMemo(() => {
@@ -252,11 +260,21 @@ export const AdminReportsTab: React.FC<AdminReportsTabProps> = ({ appsList = [] 
     }
   };
 
+  // Paginated reports slice
+  const totalPages = Math.ceil(reports.length / pageSize) || 1;
+  const paginatedReports = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return reports.slice(startIndex, startIndex + pageSize);
+  }, [reports, currentPage, pageSize]);
+
   const toggleSelectAll = () => {
-    if (selectedReportIds.length === reports.length) {
-      setSelectedReportIds([]);
+    const pageIds = paginatedReports.map(r => r.id);
+    const allPageSelected = pageIds.length > 0 && pageIds.every(id => selectedReportIds.includes(id));
+
+    if (allPageSelected) {
+      setSelectedReportIds(prev => prev.filter(id => !pageIds.includes(id)));
     } else {
-      setSelectedReportIds(reports.map(r => r.id));
+      setSelectedReportIds(prev => Array.from(new Set([...prev, ...pageIds])));
     }
   };
 
@@ -530,22 +548,66 @@ export const AdminReportsTab: React.FC<AdminReportsTabProps> = ({ appsList = [] 
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm overflow-hidden">
         
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
+        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-800/30">
           <div className="flex items-center gap-3">
             <button
               onClick={toggleSelectAll}
               className="text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-              title="Select all visible"
+              title="Select all on this page"
             >
-              {selectedReportIds.length === reports.length && reports.length > 0 ? (
+              {paginatedReports.length > 0 && paginatedReports.every(r => selectedReportIds.includes(r.id)) ? (
                 <CheckSquare className="w-5 h-5 text-rose-600" />
               ) : (
                 <Square className="w-5 h-5" />
               )}
             </button>
             <span className="text-xs font-black uppercase tracking-wider text-slate-500">
-              Showing {reports.length} User Reports
+              Showing {reports.length === 0 ? 0 : (currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, reports.length)} of {reports.length} Reports
             </span>
+          </div>
+
+          {/* Page Size & Pagination Controls */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 text-xs text-slate-500 font-bold">
+              <span>Per page:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="px-2 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-800 dark:text-white cursor-pointer focus:outline-none"
+              >
+                <option value={15}>15</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <button
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                  title="Previous Page"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-xs font-bold px-2 text-slate-700 dark:text-slate-300">
+                  {currentPage} / {totalPages}
+                </span>
+                <button
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                  title="Next Page"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -563,8 +625,9 @@ export const AdminReportsTab: React.FC<AdminReportsTabProps> = ({ appsList = [] 
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100 dark:divide-slate-800/60">
-            {reports.map((report) => {
+          <>
+            <div className="divide-y divide-slate-100 dark:divide-slate-800/60">
+              {paginatedReports.map((report) => {
               const isSelected = selectedReportIds.includes(report.id);
               const matchedApp = report.appId ? appMap.get(report.appId) : null;
 
@@ -732,6 +795,42 @@ export const AdminReportsTab: React.FC<AdminReportsTabProps> = ({ appsList = [] 
               );
             })}
           </div>
+
+          {/* Bottom Pagination Bar */}
+          {totalPages > 1 && (
+            <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-800/30">
+              <span className="text-xs font-bold text-slate-500">
+                Page {currentPage} of {totalPages} ({reports.length} total reports)
+              </span>
+
+              <div className="flex items-center gap-1">
+                <button
+                  disabled={currentPage <= 1}
+                  onClick={() => {
+                    setCurrentPage(prev => Math.max(1, prev - 1));
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 transition-all cursor-pointer"
+                >
+                  <ChevronLeft className="w-4 h-4" /> Previous
+                </button>
+                <div className="px-3 text-xs font-bold text-slate-700 dark:text-slate-300">
+                  {currentPage} / {totalPages}
+                </div>
+                <button
+                  disabled={currentPage >= totalPages}
+                  onClick={() => {
+                    setCurrentPage(prev => Math.min(totalPages, prev + 1));
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 transition-all cursor-pointer"
+                >
+                  Next <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+        </>
         )}
       </div>
 

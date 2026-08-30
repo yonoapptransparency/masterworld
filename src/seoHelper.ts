@@ -354,19 +354,19 @@ function buildJsonLdSchema(params: {
       },
       "aggregateRating": {
         "@type": "AggregateRating",
-        "ratingValue": clampedRating.toFixed(1),
-        "ratingCount": String(finalCount),
-        "reviewCount": String(finalCount),
-        "bestRating": "5",
-        "worstRating": "1"
+        "ratingValue": parseFloat(clampedRating.toFixed(1)),
+        "ratingCount": Math.round(finalCount),
+        "reviewCount": Math.round(finalCount),
+        "bestRating": 5,
+        "worstRating": 1
       }
     };
 
     // Include sample reviews if available to boost Google Rich Snippet compliance
     try {
-      const feed = communityStore.getReviewsForApp(appIdentifier, undefined, 4, name, clampedRating, getField(app, 'slug'));
+      const feed = communityStore.getReviewsForApp(appIdentifier, undefined, 5, name, clampedRating, getField(app, 'slug'));
       if (feed && Array.isArray(feed.reviews) && feed.reviews.length > 0) {
-        softwareAppSchema["review"] = feed.reviews.map((rev: any) => ({
+        softwareAppSchema["review"] = feed.reviews.slice(0, 5).map((rev: any) => ({
           "@type": "Review",
           "author": {
             "@type": "Person",
@@ -376,9 +376,9 @@ function buildJsonLdSchema(params: {
           "reviewBody": stripHtml(rev.reviewText || ''),
           "reviewRating": {
             "@type": "Rating",
-            "ratingValue": String(Math.max(1, Math.min(5, rev.rating || 5))),
-            "bestRating": "5",
-            "worstRating": "1"
+            "ratingValue": Math.max(1, Math.min(5, Number(rev.rating) || 5)),
+            "bestRating": 5,
+            "worstRating": 1
           }
         }));
       }

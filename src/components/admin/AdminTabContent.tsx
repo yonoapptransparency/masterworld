@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { Suspense } from 'react';
+import { lazyWithRetry } from '../../lib/lazyWithRetry';
 import AppsTab from '../AppsTab';
 import SecurityTab from '../SecurityTab';
 import FirebaseStatusPanel from '../FirebaseStatusPanel';
@@ -12,10 +13,19 @@ import { AdminVideosTab } from './AdminVideosTab';
 import { AdminQuickLinksTab } from './AdminQuickLinksTab';
 import { AdminWebsiteFaqsTab } from './AdminWebsiteFaqsTab';
 import { AdminDevelopersTab } from './AdminDevelopersTab';
-import AdminReviewsTab from './AdminReviewsTab';
-import AdminReportsTab from './AdminReportsTab';
-import AdminCommunityTab from './AdminCommunityTab';
-import AdminAIReviewStudioTab from './AdminAIReviewStudioTab';
+
+// Lazy load heavy admin modules on demand with retry
+const AdminReviewsTab = lazyWithRetry(() => import('./AdminReviewsTab'));
+const AdminReportsTab = lazyWithRetry(() => import('./AdminReportsTab'));
+const AdminCommunityTab = lazyWithRetry(() => import('./AdminCommunityTab'));
+const AdminAIReviewStudioTab = lazyWithRetry(() => import('./AdminAIReviewStudioTab'));
+
+const TabLoadingFallback = () => (
+  <div className="flex flex-col items-center justify-center py-24 gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8">
+    <div className="animate-spin rounded-full h-10 w-10 border-3 border-blue-600 border-t-transparent" />
+    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Loading Module...</p>
+  </div>
+);
 
 interface AdminTabContentProps {
   activeTab: string;
@@ -236,11 +246,23 @@ export const AdminTabContent = ({
         />
       );
     case 'reviews':
-      return <AdminReviewsTab appsList={appsList} />;
+      return (
+        <Suspense fallback={<TabLoadingFallback />}>
+          <AdminReviewsTab appsList={appsList} />
+        </Suspense>
+      );
     case 'ai-reviews':
-      return <AdminAIReviewStudioTab appsList={appsList} />;
+      return (
+        <Suspense fallback={<TabLoadingFallback />}>
+          <AdminAIReviewStudioTab appsList={appsList} />
+        </Suspense>
+      );
     case 'reports':
-      return <AdminReportsTab appsList={appsList} />;
+      return (
+        <Suspense fallback={<TabLoadingFallback />}>
+          <AdminReportsTab appsList={appsList} />
+        </Suspense>
+      );
     case 'security':
       return (
         <div className="space-y-6">

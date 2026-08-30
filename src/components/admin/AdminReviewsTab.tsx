@@ -24,6 +24,8 @@ import {
   X, 
   ExternalLink,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Layers,
   Calculator
 } from 'lucide-react';
@@ -68,6 +70,8 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
   const [selectedRating, setSelectedRating] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
   const [selectedReviewIds, setSelectedReviewIds] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   // Modals
   const [editModalReview, setEditModalReview] = useState<Partial<ReviewData> | null>(null);
@@ -162,6 +166,11 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
     fetchReviews();
   }, [fetchReviews]);
 
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedAppId, selectedStatus, selectedRating, searchQuery, sortBy]);
+
   // Calculate quick metrics
   const stats = useMemo(() => {
     const total = reviews.length;
@@ -175,6 +184,13 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
 
     return { total, published, pending, rejected, flagged, avg };
   }, [reviews]);
+
+  // Paginated reviews slice
+  const totalPages = Math.ceil(reviews.length / pageSize) || 1;
+  const paginatedReviews = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return reviews.slice(startIndex, startIndex + pageSize);
+  }, [reviews, currentPage, pageSize]);
 
   // Individual Actions
   const handleUpdateStatus = async (review: ReviewData, newStatus: 'published' | 'pending' | 'rejected') => {
@@ -410,10 +426,15 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
   };
 
   const toggleSelectAll = () => {
-    if (selectedReviewIds.length === reviews.length) {
-      setSelectedReviewIds([]);
+    const pageIds = paginatedReviews.map(r => r.id);
+    const allPageSelected = pageIds.length > 0 && pageIds.every(id => selectedReviewIds.includes(id));
+    
+    if (allPageSelected) {
+      // Unselect all on current page
+      setSelectedReviewIds(prev => prev.filter(id => !pageIds.includes(id)));
     } else {
-      setSelectedReviewIds(reviews.map(r => r.id));
+      // Select all on current page
+      setSelectedReviewIds(prev => Array.from(new Set([...prev, ...pageIds])));
     }
   };
 
@@ -843,22 +864,66 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm overflow-hidden">
         
         {/* List Header */}
-        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
+        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-800/30">
           <div className="flex items-center gap-3">
             <button
               onClick={toggleSelectAll}
               className="text-slate-400 hover:text-blue-600 transition-colors cursor-pointer"
-              title="Select all visible"
+              title="Select all on this page"
             >
-              {selectedReviewIds.length === reviews.length && reviews.length > 0 ? (
+              {paginatedReviews.length > 0 && paginatedReviews.every(r => selectedReviewIds.includes(r.id)) ? (
                 <CheckSquare className="w-5 h-5 text-blue-600" />
               ) : (
                 <Square className="w-5 h-5" />
               )}
             </button>
             <span className="text-xs font-black uppercase tracking-wider text-slate-500">
-              Showing {reviews.length} Reviews
+              Showing {reviews.length === 0 ? 0 : (currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, reviews.length)} of {reviews.length} Reviews
             </span>
+          </div>
+
+          {/* Page Size & Pagination Controls */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 text-xs text-slate-500 font-bold">
+              <span>Per page:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="px-2 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-800 dark:text-white cursor-pointer focus:outline-none"
+              >
+                <option value={15}>15</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <button
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                  title="Previous Page"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-xs font-bold px-2 text-slate-700 dark:text-slate-300">
+                  {currentPage} / {totalPages}
+                </span>
+                <button
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                  title="Next Page"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -876,8 +941,9 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100 dark:divide-slate-800/60">
-            {reviews.map((rev) => {
+          <>
+            <div className="divide-y divide-slate-100 dark:divide-slate-800/60">
+              {paginatedReviews.map((rev) => {
               const matchedApp = appMap.get(rev.appId);
               const isSelected = selectedReviewIds.includes(rev.id);
 
@@ -1088,6 +1154,42 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
               );
             })}
           </div>
+
+          {/* Bottom Pagination Bar */}
+          {totalPages > 1 && (
+            <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-800/30">
+              <span className="text-xs font-bold text-slate-500">
+                Page {currentPage} of {totalPages} ({reviews.length} total reviews)
+              </span>
+
+              <div className="flex items-center gap-1">
+                <button
+                  disabled={currentPage <= 1}
+                  onClick={() => {
+                    setCurrentPage(prev => Math.max(1, prev - 1));
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 transition-all cursor-pointer"
+                >
+                  <ChevronLeft className="w-4 h-4" /> Previous
+                </button>
+                <div className="px-3 text-xs font-bold text-slate-700 dark:text-slate-300">
+                  {currentPage} / {totalPages}
+                </div>
+                <button
+                  disabled={currentPage >= totalPages}
+                  onClick={() => {
+                    setCurrentPage(prev => Math.min(totalPages, prev + 1));
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 transition-all cursor-pointer"
+                >
+                  Next <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+        </>
         )}
       </div>
 
