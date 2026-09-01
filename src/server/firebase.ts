@@ -69,6 +69,22 @@ function parseServiceAccount(rawInput: any): any {
 
 let cachedRawFirebaseConfig: any = null;
 
+export async function adminDbGetWithTimeout(docRef: any, timeoutMs: number = 3000) {
+  let timer: any;
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error('Firestore operation timed out')), timeoutMs);
+  });
+  return Promise.race([docRef.get(), timeoutPromise]).finally(() => clearTimeout(timer));
+}
+
+export async function adminDbSetWithTimeout(docRef: any, data: any, options?: any, timeoutMs: number = 3000) {
+  let timer: any;
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error('Firestore operation timed out')), timeoutMs);
+  });
+  return Promise.race([options ? docRef.set(data, options) : docRef.set(data), timeoutPromise]).finally(() => clearTimeout(timer));
+}
+
 export function getRawFirebaseConfig(): any {
   if (cachedRawFirebaseConfig) {
     return cachedRawFirebaseConfig;

@@ -1,10 +1,6 @@
 import React, { useCallback } from 'react';
-import { doc, setDoc } from 'firebase/firestore';
-import { db, isFirebaseReal } from '../lib/firebase';
 import { AppConfig, GlobalSettings, NewsItem, VideoItem } from '../types';
-import { mockSettings } from '../lib/staticData';
 import { adminFetch } from '../services/adminAuthService';
-import { firestoreSyncService } from '../services/firestoreSyncService';
 
 export function useDataActions(
   apps: AppConfig[],
@@ -44,20 +40,8 @@ export function useDataActions(
       return [...prev, savedApp];
     });
 
-    if (db && isFirebaseReal) {
-      try {
-        const currentApps = [...apps];
-        const idx = currentApps.findIndex(a => a.id === savedApp.id || (savedApp.slug && a.slug === savedApp.slug));
-        if (idx >= 0) currentApps[idx] = savedApp;
-        else currentApps.push(savedApp);
-        await firestoreSyncService.writeChunkedData('apps_meta', 'apps_chunk', currentApps);
-      } catch (e) {
-        console.warn("Direct Firestore app update notice:", e);
-      }
-    }
-
     return savedApp;
-  }, [apps, getAdminToken, setApps]);
+  }, [getAdminToken, setApps]);
 
   const deleteAppSingle = useCallback(async (appId: string) => {
     const idToken = await getAdminToken();
@@ -73,17 +57,8 @@ export function useDataActions(
       const text = await res.text();
       throw new Error(`Single App Delete Failed: ${text}`);
     }
-    const updatedApps = apps.filter(a => a.id !== appId && a.slug !== appId);
-    setApps(updatedApps);
-
-    if (db && isFirebaseReal) {
-      try {
-        await firestoreSyncService.writeChunkedData('apps_meta', 'apps_chunk', updatedApps);
-      } catch (e) {
-        console.warn("Direct Firestore app delete notice:", e);
-      }
-    }
-  }, [apps, getAdminToken, setApps]);
+    setApps(prev => prev.filter(a => a.id !== appId && a.slug !== appId));
+  }, [getAdminToken, setApps]);
 
   const saveSettingsSection = useCallback(async (section: string, data: any) => {
     const idToken = await getAdminToken();
@@ -111,30 +86,11 @@ export function useDataActions(
       });
     }
 
-    if (db && isFirebaseReal) {
-      try {
-        const updatePayload = (section === 'general' || section === 'seo') 
-          ? { ...(data || {}), last_updated: new Date().toISOString() } 
-          : { [section]: data, last_updated: new Date().toISOString() };
-        await setDoc(doc(db, 'store_data', 'public_settings'), updatePayload, { merge: true });
-      } catch (e) {
-        console.warn("Direct Firestore settings section notice:", e);
-      }
-    }
-
     return resData;
   }, [getAdminToken, setSettings]);
 
   const saveApps = useCallback(async (newApps: AppConfig[]) => {
     setApps(newApps);
-
-    if (db && isFirebaseReal) {
-      try {
-        await firestoreSyncService.writeChunkedData('apps_meta', 'apps_chunk', newApps);
-      } catch (e) {
-        console.warn("Direct Firestore apps write notice:", e);
-      }
-    }
 
     const idToken = await getAdminToken();
     const res = await adminFetch('/api/v1/admin/save-apps', {
@@ -188,14 +144,6 @@ export function useDataActions(
     } as GlobalSettings;
     setSettings(settingsWithTime);
 
-    if (db && isFirebaseReal) {
-      try {
-        await setDoc(doc(db, 'store_data', 'public_settings'), settingsWithTime, { merge: true });
-      } catch (e) {
-        console.warn("Direct Firestore settings save notice:", e);
-      }
-    }
-
     const idToken = await getAdminToken();
     const res = await adminFetch('/api/v1/admin/save-settings', {
       method: 'POST',
@@ -215,14 +163,6 @@ export function useDataActions(
     const cleanNews = JSON.parse(JSON.stringify(newNews || []));
     setNews(cleanNews);
 
-    if (db && isFirebaseReal) {
-      try {
-        await setDoc(doc(db, 'store_data', 'news'), { items: cleanNews });
-      } catch (e) {
-        console.warn("Direct Firestore news save notice:", e);
-      }
-    }
-
     const idToken = await getAdminToken();
     const res = await adminFetch('/api/v1/admin/save-news', {
       method: 'POST',
@@ -241,14 +181,6 @@ export function useDataActions(
   const saveVideos = useCallback(async (newVideos: VideoItem[]) => {
     const cleanVideos = JSON.parse(JSON.stringify(newVideos || []));
     setVideos(cleanVideos);
-
-    if (db && isFirebaseReal) {
-      try {
-        await setDoc(doc(db, 'store_data', 'videos'), { items: cleanVideos });
-      } catch (e) {
-        console.warn("Direct Firestore videos save notice:", e);
-      }
-    }
 
     const idToken = await getAdminToken();
     const res = await adminFetch('/api/v1/admin/save-videos', {

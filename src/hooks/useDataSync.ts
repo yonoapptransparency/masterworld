@@ -1,11 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { doc, onSnapshot, getDoc } from 'firebase/firestore';
-import { db, isFirebaseReal, isFirebaseConfigured, handleFirestoreError, OperationType } from '../lib/firebase';
 import { AppConfig, GlobalSettings, NewsItem, VideoItem } from '../types';
 import { mockApps, mockSettings, mockNews, mockVideos } from '../lib/staticData';
-import { adminFetch, loadSession } from '../services/adminAuthService';
-import { getAdminPath } from '../lib/utils';
-import { firestoreSyncService } from '../services/firestoreSyncService';
+import { adminFetch } from '../services/adminAuthService';
 
 export function useDataSync() {
   const initialData = (typeof window !== 'undefined' && (window as any).__INITIAL_DATA__) || null;
@@ -146,128 +142,6 @@ export function useDataSync() {
   useEffect(() => {
     loadData(false);
   }, [loadData]);
-
-  // Real-time Firestore onSnapshot listeners for Live synchronization
-  useEffect(() => {
-    if (!db || !isFirebaseReal) return;
-
-    let isMounted = true;
-    const unsubscribers: (() => void)[] = [];
-
-    try {
-      // 1. Live Public Settings listener
-      const unsubSettings = onSnapshot(
-        doc(db, 'store_data', 'public_settings'),
-        (snapshot) => {
-          if (!isMounted) return;
-          if (snapshot.exists()) {
-            const liveSettings = snapshot.data() as GlobalSettings;
-            if (liveSettings && typeof liveSettings === 'object' && Object.keys(liveSettings).length > 0) {
-              setSettings(liveSettings);
-              setDataSource('firebase');
-              setIsConnected(true);
-              setIsLive(true);
-              setLastSyncTime(new Date().toLocaleTimeString());
-            }
-          }
-        },
-        (err) => {
-          console.warn("[Firestore Live] Settings listener notice:", err.message);
-          if (checkIsQuotaError(err)) setQuotaExceeded(true);
-        }
-      );
-      unsubscribers.push(unsubSettings);
-
-      // 2. Live News listener
-      const unsubNews = onSnapshot(
-        doc(db, 'store_data', 'news'),
-        (snapshot) => {
-          if (!isMounted) return;
-          if (snapshot.exists()) {
-            const data = snapshot.data();
-            if (data?.items && Array.isArray(data.items)) {
-              setNews(data.items);
-              setDataSource('firebase');
-              setIsConnected(true);
-              setIsLive(true);
-              setLastSyncTime(new Date().toLocaleTimeString());
-            }
-          }
-        },
-        (err) => {
-          console.warn("[Firestore Live] News listener notice:", err.message);
-        }
-      );
-      unsubscribers.push(unsubNews);
-
-      // 3. Live Videos listener
-      const unsubVideos = onSnapshot(
-        doc(db, 'store_data', 'videos'),
-        (snapshot) => {
-          if (!isMounted) return;
-          if (snapshot.exists()) {
-            const data = snapshot.data();
-            if (data?.items && Array.isArray(data.items)) {
-              setVideos(data.items);
-              setDataSource('firebase');
-              setIsConnected(true);
-              setIsLive(true);
-              setLastSyncTime(new Date().toLocaleTimeString());
-            }
-          }
-        },
-        (err) => {
-          console.warn("[Firestore Live] Videos listener notice:", err.message);
-        }
-      );
-      unsubscribers.push(unsubVideos);
-
-      // 4. Live Apps Meta & Chunks listener
-      const unsubAppsMeta = onSnapshot(
-        doc(db, 'store_data', 'apps_meta'),
-        async (snapshot) => {
-          if (!isMounted) return;
-          if (snapshot.exists()) {
-            const numChunks = snapshot.data()?.numChunks || 1;
-            const chunkPromises = [];
-            for (let i = 0; i < numChunks; i++) {
-              chunkPromises.push(
-                getDoc(doc(db, 'store_data', `apps_chunk_${i}`)).then(snap => {
-                  if (snap.exists() && Array.isArray(snap.data()?.items)) {
-                    return snap.data()?.items as AppConfig[];
-                  }
-                  return [] as AppConfig[];
-                }).catch(() => [] as AppConfig[])
-              );
-            }
-            const results = await Promise.all(chunkPromises);
-            const combinedApps = results.flat();
-            if (combinedApps.length > 0 && isMounted) {
-              setApps(combinedApps);
-              setDataSource('firebase');
-              setIsConnected(true);
-              setIsLive(true);
-              setLastSyncTime(new Date().toLocaleTimeString());
-            }
-          }
-        },
-        (err) => {
-          console.warn("[Firestore Live] Apps meta listener notice:", err.message);
-        }
-      );
-      unsubscribers.push(unsubAppsMeta);
-
-    } catch (e: any) {
-      console.warn("[Firestore Live] Failed to attach snapshot listeners:", e.message);
-    }
-
-    return () => {
-      isMounted = false;
-      unsubscribers.forEach(unsub => {
-        try { unsub(); } catch (_) {}
-      });
-    };
-  }, [checkIsQuotaError]);
 
   // Monitor syncStates to clear loading
   useEffect(() => {

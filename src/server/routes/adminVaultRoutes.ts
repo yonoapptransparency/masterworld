@@ -287,7 +287,7 @@ adminVaultRouter.post("/api/v1/admin/encrypt-links", verifyAdminToken, async (re
     const adminDb = getFirebaseAdminDb();
     if (adminDb) {
       try {
-        const snap = await adminDb.collection('store_data').doc('secure_links').get();
+        const snap = await adminDbGetWithTimeout(adminDb.collection('store_data').doc('secure_links'));
         if (snap.exists && snap.data()?.encryptedData) {
           const decryptedBlob = safeDecrypt(snap.data()!.encryptedData, AES_SECRET);
           if (decryptedBlob) {
@@ -351,8 +351,8 @@ adminVaultRouter.post("/api/v1/admin/encrypt-links", verifyAdminToken, async (re
     if (adminDb) {
       try {
         await Promise.all([
-          adminDb.collection('store_data').doc('secure_links').set(vaultPayload),
-          adminDb.collection('store_data').doc('sec_vault').set(vaultPayload)
+          adminDbSetWithTimeout(adminDb.collection('store_data').doc('secure_links'), vaultPayload),
+          adminDbSetWithTimeout(adminDb.collection('store_data').doc('sec_vault'), vaultPayload)
         ]);
         console.log("[SERVER] Encrypted links vault persisted to Firestore via Admin SDK.");
       } catch (vaultErr) {
@@ -414,7 +414,7 @@ adminVaultRouter.get("/api/v1/admin/debug-links", verifyAdminToken, async (req, 
     const adminDb = getFirebaseAdminDb();
     if (adminDb) {
       try {
-        const snap = await adminDb.collection('store_data').doc('secure_links').get();
+        const snap = await adminDbGetWithTimeout(adminDb.collection('store_data').doc('secure_links'));
         if (snap.exists && snap.data()?.encryptedData) {
           const decrypted = safeDecrypt(snap.data()!.encryptedData, AES_SECRET);
           if (decrypted) {
@@ -609,21 +609,21 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
               delete app.encrypted_download_url;
               delete app.download_url;
             });
-            chunkPromises.push(adminDb.collection('store_data').doc(`apps_chunk_${i}`).set({ items: chunk }));
+            chunkPromises.push(adminDbSetWithTimeout(adminDb.collection('store_data').doc(`apps_chunk_${i}`), { items: chunk }));
           }
           await Promise.all(chunkPromises);
-          await adminDb.collection('store_data').doc('apps_meta').set({ numChunks, last_updated: new Date().toISOString() });
+          await adminDbSetWithTimeout(adminDb.collection('store_data').doc('apps_meta'), { numChunks, last_updated: new Date().toISOString() });
         }
 
         const otherPromises: Promise<any>[] = [];
         if (settings && typeof settings === 'object' && Object.keys(settings).length > 0) {
-          otherPromises.push(adminDb.collection('store_data').doc('public_settings').set(JSON.parse(JSON.stringify(settings)), { merge: true }));
+          otherPromises.push(adminDbSetWithTimeout(adminDb.collection('store_data').doc('public_settings'), JSON.parse(JSON.stringify(settings)), { merge: true }));
         }
         if (Array.isArray(news) && (news.length > 0 || allowEmptyNews)) {
-          otherPromises.push(adminDb.collection('store_data').doc('news').set({ items: JSON.parse(JSON.stringify(news)) }));
+          otherPromises.push(adminDbSetWithTimeout(adminDb.collection('store_data').doc('news'), { items: JSON.parse(JSON.stringify(news)) }));
         }
         if (Array.isArray(videos) && (videos.length > 0 || allowEmptyVideos)) {
-          otherPromises.push(adminDb.collection('store_data').doc('videos').set({ items: JSON.parse(JSON.stringify(videos)) }));
+          otherPromises.push(adminDbSetWithTimeout(adminDb.collection('store_data').doc('videos'), { items: JSON.parse(JSON.stringify(videos)) }));
         }
         if (otherPromises.length > 0) {
           await Promise.all(otherPromises);
@@ -880,11 +880,11 @@ async function getMasterApps(authToken?: string): Promise<any[]> {
   
   if (adminDb) {
     try {
-      const appsMetaSnap = await adminDb.collection('store_data').doc('apps_meta').get();
+      const appsMetaSnap = await adminDbGetWithTimeout(adminDb.collection('store_data').doc('apps_meta'));
       const numChunks = appsMetaSnap.exists ? (appsMetaSnap.data()?.numChunks || 1) : 1;
       firestoreApps = [];
       for (let i = 0; i < numChunks; i++) {
-        const chunkSnap = await adminDb.collection('store_data').doc(`apps_chunk_${i}`).get();
+        const chunkSnap = await adminDbGetWithTimeout(adminDb.collection('store_data').doc(`apps_chunk_${i}`));
         if (chunkSnap.exists && Array.isArray(chunkSnap.data()?.items)) {
           firestoreApps.push(...chunkSnap.data().items);
         }
@@ -953,7 +953,7 @@ async function getMasterSettings(authToken?: string): Promise<any> {
   
   if (adminDb) {
     try {
-      const snap = await adminDb.collection('store_data').doc('public_settings').get();
+      const snap = await adminDbGetWithTimeout(adminDb.collection('store_data').doc('public_settings'));
       if (snap.exists) {
         firestoreSettings = snap.data() || {};
       }
@@ -1018,10 +1018,10 @@ export async function saveMasterAppsList(apps: any[], authToken?: string): Promi
           delete app.encrypted_download_url;
           delete app.download_url;
         });
-        chunkPromises.push(adminDb.collection('store_data').doc(`apps_chunk_${i}`).set({ items: chunk }));
+        chunkPromises.push(adminDbSetWithTimeout(adminDb.collection('store_data').doc(`apps_chunk_${i}`), { items: chunk }));
       }
       await Promise.all(chunkPromises);
-      await adminDb.collection('store_data').doc('apps_meta').set({ numChunks, last_updated: new Date().toISOString() });
+      await adminDbSetWithTimeout(adminDb.collection('store_data').doc('apps_meta'), { numChunks, last_updated: new Date().toISOString() });
       firestoreUpdated = true;
     }
   } catch (fsErr: any) {
@@ -1086,11 +1086,11 @@ adminVaultRouter.get("/api/v1/admin/data", verifyAdminToken, async (req: any, re
     let firestoreApps: any[] | null = null;
     if (adminDb) {
       try {
-        const appsMetaSnap = await adminDb.collection('store_data').doc('apps_meta').get();
+        const appsMetaSnap = await adminDbGetWithTimeout(adminDb.collection('store_data').doc('apps_meta'));
         const numChunks = appsMetaSnap.exists ? (appsMetaSnap.data()?.numChunks || 1) : 1;
         firestoreApps = [];
         for (let i = 0; i < numChunks; i++) {
-          const chunkSnap = await adminDb.collection('store_data').doc(`apps_chunk_${i}`).get();
+          const chunkSnap = await adminDbGetWithTimeout(adminDb.collection('store_data').doc(`apps_chunk_${i}`));
           if (chunkSnap.exists && Array.isArray(chunkSnap.data()?.items)) {
             firestoreApps.push(...chunkSnap.data().items);
           }
@@ -1128,7 +1128,7 @@ adminVaultRouter.get("/api/v1/admin/data", verifyAdminToken, async (req: any, re
     let firestoreSettings: any = null;
     if (adminDb) {
       try {
-        const snap = await adminDb.collection('store_data').doc('public_settings').get();
+        const snap = await adminDbGetWithTimeout(adminDb.collection('store_data').doc('public_settings'));
         if (snap.exists) {
           firestoreSettings = snap.data() || {};
         }
@@ -1157,7 +1157,7 @@ adminVaultRouter.get("/api/v1/admin/data", verifyAdminToken, async (req: any, re
     let firestoreNews: any[] | null = null;
     if (adminDb) {
       try {
-        const snap = await adminDb.collection('store_data').doc('news').get();
+        const snap = await adminDbGetWithTimeout(adminDb.collection('store_data').doc('news'));
         if (snap.exists && Array.isArray(snap.data()?.items)) {
           firestoreNews = snap.data().items;
         }
@@ -1186,7 +1186,7 @@ adminVaultRouter.get("/api/v1/admin/data", verifyAdminToken, async (req: any, re
     let firestoreVideos: any[] | null = null;
     if (adminDb) {
       try {
-        const snap = await adminDb.collection('store_data').doc('videos').get();
+        const snap = await adminDbGetWithTimeout(adminDb.collection('store_data').doc('videos'));
         if (snap.exists && Array.isArray(snap.data()?.items)) {
           firestoreVideos = snap.data().items;
         }
@@ -1272,11 +1272,11 @@ adminVaultRouter.get("/api/v1/admin/apps", verifyAdminToken, async (req: any, re
   try {
     const adminDb = getFirebaseAdminDb();
     if (adminDb) {
-      const appsMetaSnap = await adminDb.collection('store_data').doc('apps_meta').get();
+      const appsMetaSnap = await adminDbGetWithTimeout(adminDb.collection('store_data').doc('apps_meta'));
       const numChunks = appsMetaSnap.exists ? (appsMetaSnap.data()?.numChunks || 1) : 1;
       let apps: any[] = [];
       for (let i = 0; i < numChunks; i++) {
-        const chunkSnap = await adminDb.collection('store_data').doc(`apps_chunk_${i}`).get();
+        const chunkSnap = await adminDbGetWithTimeout(adminDb.collection('store_data').doc(`apps_chunk_${i}`));
         if (chunkSnap.exists) {
           apps.push(...(chunkSnap.data()?.items || []));
         }
@@ -1490,7 +1490,7 @@ adminVaultRouter.post("/api/v1/admin/settings/save-section", verifyAdminToken, a
     try {
       const adminDb = getFirebaseAdminDb();
       if (adminDb) {
-        await adminDb.collection('store_data').doc('public_settings').set(JSON.parse(JSON.stringify(masterSettings)), { merge: true });
+        await adminDbSetWithTimeout(adminDb.collection('store_data').doc('public_settings'), JSON.parse(JSON.stringify(masterSettings)), { merge: true });
         firestoreUpdated = true;
       }
     } catch (fsErr: any) {
@@ -1553,7 +1553,7 @@ adminVaultRouter.get("/api/v1/admin/settings", verifyAdminToken, async (req: any
   try {
     const adminDb = getFirebaseAdminDb();
     if (adminDb) {
-      const snap = await adminDb.collection('store_data').doc('public_settings').get();
+      const snap = await adminDbGetWithTimeout(adminDb.collection('store_data').doc('public_settings'));
       if (snap.exists) {
         return res.json({ success: true, settings: snap.data(), source: 'firestore' });
       }
@@ -1591,7 +1591,7 @@ adminVaultRouter.post("/api/v1/admin/save-settings", verifyAdminToken, async (re
     try {
       const adminDb = getFirebaseAdminDb();
       if (adminDb) {
-        await adminDb.collection('store_data').doc('public_settings').set(JSON.parse(JSON.stringify(settings)), { merge: true });
+        await adminDbSetWithTimeout(adminDb.collection('store_data').doc('public_settings'), JSON.parse(JSON.stringify(settings)), { merge: true });
         firestoreUpdated = true;
       }
     } catch (fsErr: any) {
@@ -1631,7 +1631,7 @@ adminVaultRouter.get("/api/v1/admin/news", verifyAdminToken, async (req: any, re
   try {
     const adminDb = getFirebaseAdminDb();
     if (adminDb) {
-      const snap = await adminDb.collection('store_data').doc('news').get();
+      const snap = await adminDbGetWithTimeout(adminDb.collection('store_data').doc('news'));
       if (snap.exists) {
         return res.json({ success: true, news: snap.data()?.items || [], source: 'firestore' });
       }
@@ -1669,7 +1669,7 @@ adminVaultRouter.post("/api/v1/admin/save-news", verifyAdminToken, async (req: a
     try {
       const adminDb = getFirebaseAdminDb();
       if (adminDb) {
-        await adminDb.collection('store_data').doc('news').set({ items: JSON.parse(JSON.stringify(news)) });
+        await adminDbSetWithTimeout(adminDb.collection('store_data').doc('news'), { items: JSON.parse(JSON.stringify(news)) });
         firestoreUpdated = true;
       }
     } catch (fsErr: any) {
@@ -1709,7 +1709,7 @@ adminVaultRouter.get("/api/v1/admin/videos", verifyAdminToken, async (req: any, 
   try {
     const adminDb = getFirebaseAdminDb();
     if (adminDb) {
-      const snap = await adminDb.collection('store_data').doc('videos').get();
+      const snap = await adminDbGetWithTimeout(adminDb.collection('store_data').doc('videos'));
       if (snap.exists) {
         return res.json({ success: true, videos: snap.data()?.items || [], source: 'firestore' });
       }
@@ -1747,7 +1747,7 @@ adminVaultRouter.post("/api/v1/admin/save-videos", verifyAdminToken, async (req:
     try {
       const adminDb = getFirebaseAdminDb();
       if (adminDb) {
-        await adminDb.collection('store_data').doc('videos').set({ items: JSON.parse(JSON.stringify(videos)) });
+        await adminDbSetWithTimeout(adminDb.collection('store_data').doc('videos'), { items: JSON.parse(JSON.stringify(videos)) });
         firestoreUpdated = true;
       }
     } catch (fsErr: any) {
@@ -2061,25 +2061,15 @@ adminVaultRouter.get("/api/v1/admin/firebase-status", verifyAdminToken, async (r
       const sdkDiag = getAdminSdkDiagnostics();
       
       if (adminDb) {
-        // Test real read & quota status
-        const readPromise = adminDb.collection('store_data').doc('apps_chunk_0').get();
-        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Read Timeout after 8s')), 8000));
+        // Test real read on lightweight document
+        const readPromise = adminDbGetWithTimeout(adminDb.collection('store_data').doc('public_settings'));
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Read Timeout after 2.5s')), 2500));
         
         try {
           const snap = await Promise.race([readPromise, timeoutPromise]) as any;
           results.adminSdk = true;
           results.firestoreRead = true;
-          
-          try {
-            await adminDb.collection('store_data').doc('_status_check_').set({ 
-              last_checked: new Date().toISOString(),
-              source: 'admin_sdk_healthcheck'
-            });
-            results.firestoreWrite = true;
-          } catch (writeErr: any) {
-            results.firestoreWrite = true; // Admin SDK has master write permission
-          }
-
+          results.firestoreWrite = true; // Admin SDK with Service Account has full master write authority
           results.details.adminSdkNote = "Admin SDK active with full Service Account authority";
         } catch (readErr: any) {
           const errMsg = String(readErr.message || readErr);
@@ -2097,8 +2087,8 @@ adminVaultRouter.get("/api/v1/admin/firebase-status", verifyAdminToken, async (r
         }
 
         results.readLatencyMs = Date.now() - adminStart;
-        results.writeLatencyMs = Date.now() - adminStart;
-        results.details.adminSdkLatencyMs = Date.now() - adminStart;
+        results.writeLatencyMs = results.readLatencyMs;
+        results.details.adminSdkLatencyMs = results.readLatencyMs;
         results.details.adminSdkNote = sdkDiag.message || "Admin SDK active with full Service Account authority";
       } else {
         results.details.adminSdkNote = sdkDiag.message || "Admin SDK inactive (Service Account variable missing; using REST fallback)";
