@@ -45,7 +45,9 @@ export function FaqEditor({ initialFaqs, onChange }: FaqEditorProps) {
           <button 
             type="button" 
             onClick={() => removeFaq(idx)} 
-            className="absolute top-3 right-3 text-rose-500 hover:text-rose-600 bg-rose-50 dark:bg-rose-950/20 p-1.5 rounded-lg transition-all border-0 cursor-pointer"
+            className="absolute top-3 right-3 text-rose-500 hover:text-rose-600 bg-rose-50 dark:bg-rose-950/20 p-1.5 rounded-lg transition-all border-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+            aria-label="Delete FAQ"
+            title="Delete FAQ"
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>

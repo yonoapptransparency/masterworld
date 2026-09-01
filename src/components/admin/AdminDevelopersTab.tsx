@@ -42,7 +42,9 @@ export const AdminDevelopersTab: React.FC<AdminDevelopersTabProps> = ({
               <button
                 type="button"
                 onClick={() => handleRemoveDeveloper(index)}
-                className="absolute top-4 right-4 text-rose-500 bg-rose-50 dark:bg-rose-950/40 p-2 rounded-lg hover:bg-rose-500 hover:text-white transition-all border border-rose-100 dark:border-rose-900/30 cursor-pointer z-10"
+                className="absolute top-4 right-4 text-rose-500 bg-rose-50 dark:bg-rose-950/40 p-2 rounded-lg hover:bg-rose-500 hover:text-white transition-all border border-rose-100 dark:border-rose-900/30 cursor-pointer z-10 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+                aria-label="Remove developer"
+                title="Remove developer"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
