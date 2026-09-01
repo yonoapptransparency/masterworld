@@ -1,29 +1,13 @@
-import { lazy, ComponentType, LazyExoticComponent } from 'react';
-
-export type PreloadableComponent<T extends ComponentType<any>> = LazyExoticComponent<T> & {
-  preload: () => Promise<{ default: T }>;
-};
+import { lazy, ComponentType } from 'react';
 
 /**
  * Robust lazy import with automatic retry and page reload fallback for chunk loading errors.
- * Supports .preload() method for instant prefetching during idle time or user hover/touch.
+ * Handles Vite production deployment updates (when asset hashes change on Vercel).
  */
 export const lazyWithRetry = <T extends ComponentType<any>>(
   componentImport: () => Promise<{ default: T }>
-): PreloadableComponent<T> => {
-  let preloadedPromise: Promise<{ default: T }> | null = null;
-
-  const preload = () => {
-    if (!preloadedPromise) {
-      preloadedPromise = componentImport().catch(err => {
-        preloadedPromise = null;
-        throw err;
-      });
-    }
-    return preloadedPromise;
-  };
-
-  const LazyComponent = lazy(async () => {
+) =>
+  lazy(async () => {
     const key = 'chunk_reload_retry_' + window.location.pathname;
     let pageHasAlreadyBeenForceRefreshed = false;
     try {
@@ -31,11 +15,10 @@ export const lazyWithRetry = <T extends ComponentType<any>>(
     } catch (e) {}
 
     try {
-      const component = preloadedPromise ? await preloadedPromise : await componentImport();
+      const component = await componentImport();
       try { window.sessionStorage.setItem(key, 'false'); } catch (e) {}
       return component;
     } catch (error: any) {
-      preloadedPromise = null;
       const errorMsg = String(error?.message || error || '');
       const isChunkError =
         error?.name === 'ChunkLoadError' ||
@@ -54,12 +37,8 @@ export const lazyWithRetry = <T extends ComponentType<any>>(
         } catch (e) {
           window.location.reload();
         }
-        return new Promise<{ default: T }>(() => {}); // Prevent throwing into ErrorBoundary while browser reloads
+        return new Promise(() => {}); // Prevent throwing into ErrorBoundary while browser reloads
       }
       throw error;
     }
   });
-
-  return Object.assign(LazyComponent, { preload });
-};
-

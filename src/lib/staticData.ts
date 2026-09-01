@@ -144,13 +144,7 @@ export interface VideoItem {
   created_at: string;
 }
 
-import staticDataJson from './staticData.json';
-
-const rawStaticData = staticDataJson as any;
-
-export const mockApps: AppConfig[] = (Array.isArray(rawStaticData.mockApps) && rawStaticData.mockApps.length > 0)
-  ? rawStaticData.mockApps
-  : ((Array.isArray(rawStaticData.apps) && rawStaticData.apps.length > 0) ? rawStaticData.apps : []);
+export const mockApps: AppConfig[] = [];
 
 export const saveMockApps = (apps: AppConfig[]) => {
   try {
@@ -174,8 +168,7 @@ export const mockSettings: GlobalSettings = {
   ticker_text: "",
   animations_enabled: true,
   categories: ["All", "Rummy", "Teen Patti", "Yono", "Casino", "Slot", "Arcade"],
-  banners: [],
-  ...(rawStaticData.mockSettings || rawStaticData.settings || {})
+  banners: []
 };
 
 export const saveMockSettings = (settings: GlobalSettings) => {
@@ -187,9 +180,7 @@ export const saveMockSettings = (settings: GlobalSettings) => {
   Object.assign(mockSettings, settings);
 };
 
-export const mockNews: NewsItem[] = (Array.isArray(rawStaticData.mockNews) && rawStaticData.mockNews.length > 0)
-  ? rawStaticData.mockNews
-  : ((Array.isArray(rawStaticData.news) && rawStaticData.news.length > 0) ? rawStaticData.news : []);
+export const mockNews: NewsItem[] = [];
 
 export const saveMockNews = (newsList: NewsItem[]) => {
   try {
@@ -200,9 +191,7 @@ export const saveMockNews = (newsList: NewsItem[]) => {
   mockNews.splice(0, mockNews.length, ...newsList);
 };
 
-export const mockVideos: VideoItem[] = (Array.isArray(rawStaticData.mockVideos) && rawStaticData.mockVideos.length > 0)
-  ? rawStaticData.mockVideos
-  : ((Array.isArray(rawStaticData.videos) && rawStaticData.videos.length > 0) ? rawStaticData.videos : []);
+export const mockVideos: VideoItem[] = [];
 
 export const saveMockVideos = (videos: VideoItem[]) => {
   try {

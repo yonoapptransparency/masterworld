@@ -81,28 +81,6 @@ export const getStaticData = () => {
   } catch (_) {}
 
   try {
-    const staticJsonPath = path.join(process.cwd(), "src/lib/staticData.json");
-    if (fs.existsSync(staticJsonPath)) {
-      const data = JSON.parse(fs.readFileSync(staticJsonPath, 'utf8'));
-      if (data) {
-        const catalogApps = (Array.isArray(data.apps) && data.apps.length > 0)
-          ? data.apps
-          : ((Array.isArray(data.mockApps) && data.mockApps.length > 0) ? data.mockApps : []);
-        return {
-          apps: catalogApps,
-          mockApps: catalogApps,
-          settings: data.settings || data.mockSettings || {},
-          mockSettings: data.settings || data.mockSettings || {},
-          news: data.news || data.mockNews || [],
-          mockNews: data.news || data.mockNews || [],
-          videos: data.videos || data.mockVideos || [],
-          mockVideos: data.videos || data.mockVideos || []
-        };
-      }
-    }
-  } catch (_) {}
-
-  try {
     const staticDataModulePath = path.join(process.cwd(), "src/lib/staticData");
     const data = require(staticDataModulePath);
     if (data) {
@@ -122,5 +100,23 @@ export const getStaticData = () => {
     }
   } catch (_) {}
 
-  return { apps: [], mockApps: [], mockSettings: {}, mockNews: [], mockVideos: [] };
+  try {
+    const staticDataModulePath = path.join(process.cwd(), "src/lib/staticData.json");
+    try {
+      const resolvedPath = require.resolve(staticDataModulePath);
+      delete require.cache[resolvedPath];
+    } catch (_) {}
+    const data = require(staticDataModulePath);
+    if (data) {
+      const catalogApps = (Array.isArray(data.apps) && data.apps.length > 0)
+        ? data.apps
+        : ((Array.isArray(data.mockApps) && data.mockApps.length > 0) ? data.mockApps : []);
+      data.apps = catalogApps;
+      data.mockApps = catalogApps;
+    }
+    return data;
+  } catch (e) {
+    console.error("Failed to load staticData dynamically:", e);
+    return { apps: [], mockApps: [], mockSettings: {}, mockNews: [], mockVideos: [] };
+  }
 };
