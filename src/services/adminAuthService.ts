@@ -30,6 +30,14 @@ const SESSION_KEY = "__adm_session";
 const TOKEN_LIFETIME_MS = 55 * 60 * 1000; // 55 minutes (Firebase tokens last 60m)
 const B64_FALLBACK = "ewogICJwcm9qZWN0SWQiOiAiZ2VuLWxhbmctY2xpZW50LTA4MjU4MzI0OTMiLAogICJhcHBJZCI6ICIxOjEwMzk3Mzk4OTg3NDp3ZWI6NzMzYTZhZmQ4ZTgzNzIyNDkwMGY2YiIsCiAgImFwaUtleSI6ICJBSXphU3lCZXk5c1ViZVdscmNYUzJrbDRld096a1R5NGFyZzAzT2siLAogICJhdXRoRG9tYWluIjogImdlbi1sYW5nLWNsaWVudC0wODI1ODMyNDkzLmZpcmViYXNlYXBwLmNvbSIsCiAgImZpcmVzdG9yZURhdGFiYXNlSWQiOiAiYWktc3R1ZGlvLXlvbm9zdG9yZS04ODYzMTVhNC04YjlmLTRmZjYtODk4Ni1hOTBhZDE3MjIxMGEiLAogICJzdG9yYWdlQnVja2V0IjogImdlbi1sYW5nLWNsaWVudC0wODI1ODMyNDkzLmZpcmViYXNlc3RvcmFnZS5hcHAiLAogICJtZXNzYWdpbmdTZW5kZXJJZCI6ICIxMDM5NzM5ODk4NzQiLAogICJtZWFzdXJlbWVudElkIjogIiIsCiAgIm9BdXRoQ2xpZW50SWQiOiAiMTAzOTczOTg5ODc0LXQ0N252ODdrNTMycHQ4NHMyaTF0a2wwdmttYmloOWs2LmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29tIiwKICAicmVjYXB0Y2hhU2l0ZUtleSI6ICIiCn0=";
 
+const isRealValue = (key: string | undefined): boolean => {
+  if (!key) return false;
+  const clean = key.trim();
+  if (clean === '' || clean === 'PLACEHOLDER' || clean === 'undefined' || clean === 'null' || clean.includes('REPLACE_WITH_YOUR_REAL_KEY') || clean.includes('YOUR_API_KEY')) return false;
+  if (clean.includes('#') || clean.includes('!') || clean.includes('@') || clean.includes('&') || clean.includes('*') || clean.includes('$') || clean.includes('^') || clean.includes('+') || clean.includes('proj-U7m') || clean.includes('Db7!Xp2') || clean.includes('Sy8@Kp3')) return false;
+  return true;
+};
+
 const getResolvedApiKey = (): string => {
   let envKey: string | undefined;
   if (typeof process !== 'undefined' && process.env) {
@@ -42,13 +50,6 @@ const getResolvedApiKey = (): string => {
     } catch (_) {}
   }
   const cfgKey = (appletConfig as any)?.apiKey || "";
-  
-  const isRealValue = (key: string | undefined): boolean => {
-    if (!key) return false;
-    const clean = key.trim();
-    if (clean === '' || clean === 'PLACEHOLDER' || clean.includes('REPLACE_WITH_YOUR_REAL_KEY') || clean.includes('YOUR_API_KEY')) return false;
-    return true;
-  };
 
   if (isRealValue(envKey)) return envKey!;
   if (isRealValue(cfgKey)) return cfgKey;
@@ -69,10 +70,7 @@ const getResolvedApiKey = (): string => {
 const FIREBASE_API_KEY = getResolvedApiKey();
 
 const isFirebaseApiKeyReal = (key: string | undefined): boolean => {
-  if (!key) return false;
-  const clean = key.trim();
-  if (clean === '' || clean === 'PLACEHOLDER' || clean.includes('REPLACE_WITH_YOUR_REAL_KEY') || clean.includes('YOUR_API_KEY')) return false;
-  return true;
+  return isRealValue(key);
 };
 
 const IS_API_KEY_REAL = isFirebaseApiKeyReal(FIREBASE_API_KEY);

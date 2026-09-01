@@ -20,7 +20,7 @@ const isRealValue = (id: string | undefined): boolean => {
       clean.includes('REPLACE_WITH_YOUR_REAL_KEY') || 
       clean.includes('YOUR_API_KEY')) return false;
   
-  if (clean.length > 20 && (clean.includes('#') || clean.includes('!') || clean.includes('@') || clean.includes('proj-U7m'))) return false;
+  if (clean.includes('#') || clean.includes('!') || clean.includes('@') || clean.includes('&') || clean.includes('*') || clean.includes('$') || clean.includes('^') || clean.includes('+') || clean.includes('proj-U7m') || clean.includes('Db7!Xp2') || clean.includes('Sy8@Kp3')) return false;
   return true;
 };
 

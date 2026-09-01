@@ -232,9 +232,8 @@ export function getFirebaseAdminDb(): any {
     }
 
     // Determine the correct Database ID
-    const envDbId = config?.firestoreDatabaseId || config?.databaseId || process.env.VITE_FIREBASE_DATABASE_ID || process.env.FIREBASE_DATABASE_ID;
-    
-    let dbId = (envDbId && envDbId.trim() !== '') ? envDbId : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+    const rawDb = config?.firestoreDatabaseId || config?.databaseId || process.env.VITE_FIREBASE_DATABASE_ID || process.env.FIREBASE_DATABASE_ID;
+    let dbId = (rawDb && isRealValue(rawDb) && rawDb.trim() !== '') ? rawDb.trim() : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
 
     if (dbId && dbId !== '(default)') {
       const { getFirestore } = require('firebase-admin/firestore');

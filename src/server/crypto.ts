@@ -70,7 +70,7 @@ export const isRealValue = (id: string | undefined): boolean => {
       clean.includes('YOUR_API_KEY')) return false;
 
   // Reject scrambled/sandbox values (contain # ! @ & * and look like a hash but aren't real)
-  if (clean.length > 20 && (clean.includes('#') || clean.includes('!') || clean.includes('@'))) return false;
+  if (clean.includes('#') || clean.includes('!') || clean.includes('@') || clean.includes('&') || clean.includes('*') || clean.includes('$') || clean.includes('^') || clean.includes('+') || clean.includes('proj-U7m') || clean.includes('Db7!Xp2') || clean.includes('Sy8@Kp3')) return false;
 
   return true;
 };
