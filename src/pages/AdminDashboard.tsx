@@ -43,6 +43,13 @@ export default function AdminDashboard() {
 
   const { user, checkingAuth, isAdminUser, sessionTimeLeft, handleLogout } = useAdminAuth();
   
+  // When admin logs in or dashboard mounts with active admin user, automatically pull latest live data from Firestore
+  useEffect(() => {
+    if (isAdminUser === true) {
+      reloadServerData(true);
+    }
+  }, [isAdminUser, reloadServerData]);
+
   const { 
     appsList, setAppsList, fetchFailed, cachedSecureMapRef, syncSecureVault, recordAppDeletion
   } = useAdminApps(apps, loading, isAdminUser);
@@ -344,7 +351,18 @@ export default function AdminDashboard() {
             handleSaveQuickLinks={(e) => { e.preventDefault(); handleSaveSettingsBase({ quick_links: quickLinksList }); }}
             handleSaveWebsiteFaqs={(e) => { e.preventDefault(); handleSaveSettingsBase({ website_faqs: websiteFaqsList }); }}
             handleSaveDevelopers={(e) => { e.preventDefault(); handleSaveSettingsBase({ developers: developersList }); }}
-            handleSaveVideos={() => saveVideos(videosList)}
+            handleSaveVideos={async () => {
+              setSaving(true);
+              try {
+                await saveVideos(videosList);
+                triggerHaptic();
+                toast('Videos saved and synchronized successfully!', 'success');
+              } catch (err: any) {
+                toast('Save failed: ' + (err?.message || 'Unknown error'), 'error');
+              } finally {
+                setSaving(false);
+              }
+            }}
             saveGitConfig={saveGitConfig} pushAllToGitHub={pushAllToGitHub} handleReloadCloudData={handleReloadCloudData} triggerHaptic={triggerHaptic}
             
             newCatInput={newCatInput}
