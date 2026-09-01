@@ -287,22 +287,6 @@ export default function AdminDashboard() {
               {activeTab === 'news' ? 'News Section' : activeTab.replace('-', ' ')}
             </h2>
             <FirebaseStatusIndicator />
-            {dataSource === 'firebase' ? (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shadow-xs" title="Connected directly to Google Cloud Firestore Live Database">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>Data: Live Firestore</span>
-              </span>
-            ) : dataSource === 'local_backup' ? (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shadow-xs" title="Data served via local high-availability storage fallback due to Firestore daily free-tier read quota. Writes and cross-device syncs remain 100% active.">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                <span>Data: Local Fallback (Protected)</span>
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider bg-blue-50 text-blue-700 border border-blue-200 shadow-xs">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping"></span>
-                <span>Connecting...</span>
-              </span>
-            )}
           </div>
           <div className="flex items-center gap-2">
              <button 
