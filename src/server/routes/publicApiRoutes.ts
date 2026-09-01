@@ -152,15 +152,40 @@ publicApiRouter.get(["/api/v1/public/reviews", "/api/public/reviews"], async (re
   return res.json([]);
 });
 
-function sanitizeAppsForPublic(appsList: any[]) {
+function trimAppsForCatalog(appsList: any[]) {
   if (!Array.isArray(appsList)) return [];
-  return appsList.map((app: any) => {
-    const cleanApp = { ...app };
-    // Only strip raw direct unencrypted download URLs if they should be sealed
-    delete cleanApp.download_url;
-    delete cleanApp.encrypted_download_url;
-    return cleanApp;
-  });
+  return appsList.map((app: any) => ({
+    id: app.id,
+    name: app.name,
+    slug: app.slug,
+    icon_url: app.icon_url,
+    og_image_url: app.og_image_url,
+    rating: app.rating,
+    review_count: app.review_count,
+    reviews: app.reviews,
+    category: app.category,
+    seo_title: app.seo_title,
+    seo_description: app.seo_description,
+    seo_keywords: app.seo_keywords,
+    canonical_url: app.canonical_url,
+    meta_description: app.meta_description,
+    short_description: app.short_description,
+    is_featured: app.is_featured,
+    is_new: app.is_new,
+    is_hot: app.is_hot,
+    is_top_chart: app.is_top_chart,
+    top_chart_category: app.top_chart_category,
+    file_size: app.file_size,
+    developer: app.developer,
+    package_name: app.package_name,
+    safety_status: app.safety_status,
+    serial_number: app.serial_number,
+    is_coming_soon: app.is_coming_soon,
+    publish_date: app.publish_date,
+    updated_at: app.updated_at,
+    version: app.version,
+    tags: app.tags
+  }));
 }
 
 
@@ -199,7 +224,7 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
       try {
         const backup = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
         const data = {
-          apps: sanitizeAppsForPublic(backup.apps || []),
+          apps: trimAppsForCatalog(backup.apps || []),
           settings: backup.settings || {},
           news: backup.news || [],
           videos: backup.videos || [],
@@ -214,7 +239,7 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
     // 2. Fallback to static data
     const dataObj = getStaticData();
     const validatedData = {
-      apps: sanitizeAppsForPublic(dataObj.apps || dataObj.mockApps || []),
+      apps: trimAppsForCatalog(dataObj.apps || dataObj.mockApps || []),
       settings: dataObj.settings || dataObj.mockSettings || {},
       news: dataObj.news || dataObj.mockNews || [],
       videos: dataObj.videos || dataObj.mockVideos || []
@@ -225,7 +250,7 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
   } catch (err: any) {
     const dataObj = getStaticData();
     return res.status(200).json({
-      apps: sanitizeAppsForPublic(dataObj.apps || dataObj.mockApps || []),
+      apps: trimAppsForCatalog(dataObj.apps || dataObj.mockApps || []),
       settings: dataObj.settings || dataObj.mockSettings || {},
       news: dataObj.news || dataObj.mockNews || [],
       videos: dataObj.videos || dataObj.mockVideos || []

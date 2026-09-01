@@ -843,28 +843,11 @@ function updateLocalBackupSection(section: 'apps' | 'settings' | 'news' | 'video
     if (fs.existsSync(staticJsonPath)) {
       try { staticCur = JSON.parse(fs.readFileSync(staticJsonPath, 'utf8')); } catch (_) {}
     }
-    if (section === 'apps') {
-      staticCur.mockApps = data;
-      staticCur.apps = data;
-    }
-    if (section === 'settings') {
-      staticCur.mockSettings = data;
-      staticCur.settings = data;
-    }
-    if (section === 'news') {
-      staticCur.mockNews = data;
-      staticCur.news = data;
-    }
-    if (section === 'videos') {
-      staticCur.mockVideos = data;
-      staticCur.videos = data;
-    }
+    if (section === 'apps') staticCur.mockApps = data;
+    if (section === 'settings') staticCur.mockSettings = data;
+    if (section === 'news') staticCur.mockNews = data;
+    if (section === 'videos') staticCur.mockVideos = data;
     fs.writeFileSync(staticJsonPath, JSON.stringify(staticCur, null, 2), 'utf8');
-
-    const publicApiJsonPath = path.join(process.cwd(), 'public-api/staticData.json');
-    if (fs.existsSync(path.dirname(publicApiJsonPath))) {
-      fs.writeFileSync(publicApiJsonPath, JSON.stringify(staticCur, null, 2), 'utf8');
-    }
 
     clearPublicBackupCache();
     clearSeoCache();
