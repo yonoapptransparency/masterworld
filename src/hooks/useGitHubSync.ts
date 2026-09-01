@@ -115,13 +115,18 @@ export function useGitHubSync(
       if (onProgress) onProgress(msg);
     };
 
-    log("GitHub Sync: Querying live Firebase database for complete catalog (Apps, News, Settings, Videos)...");
+    log("GitHub Sync: Querying live database for complete catalog (Apps, News, Settings, Videos)...");
     let liveBackup: any = null;
     try {
-      const liveRes = await fetch('/api/v1/public/backup-data');
+      const liveRes = await fetch('/api/v1/public/backup-data-full');
       if (liveRes.ok) {
         liveBackup = await liveRes.json();
-        log("GitHub Sync: Live Firebase content retrieved successfully.");
+        log("GitHub Sync: Live complete catalog retrieved successfully.");
+      } else {
+        const fallbackRes = await fetch('/api/v1/public/backup-data');
+        if (fallbackRes.ok) {
+          liveBackup = await fallbackRes.json();
+        }
       }
     } catch (e) {
       log("GitHub Sync Notice: Could not fetch live backup endpoint, using current memory.");
@@ -328,6 +333,19 @@ export function useGitHubSync(
         message: `Admin Release: Manual staticData.json synchronization to ${targetRepo}`
       });
       log(`GitHub Sync: ✅ staticData.json successfully synced to ${targetRepo}.`);
+
+      try {
+        await commitFileToGitHub({
+          owner: configToUse.owner,
+          repo: targetRepo,
+          token: configToUse.token,
+          branch: configToUse.branch || 'main',
+          path: 'public-api/staticData.json',
+          content: staticJsonCode,
+          message: `Admin Release: Manual public-api/staticData.json synchronization to ${targetRepo}`
+        });
+        log(`GitHub Sync: ✅ public-api/staticData.json successfully synced to ${targetRepo}.`);
+      } catch (_) {}
       
       if (targetRepo.toLowerCase() !== 'masterworld') {
         try {
