@@ -135,7 +135,7 @@ export function getRawFirebaseConfig(): any {
     projectId: defaultProjectId,
     appId: envAppId || "1:103973989874:web:733a6afd8e837224900f6b",
     apiKey: finalApiKey,
-    authDomain: envAuthDomain || "gen-lang-client-0825832493.firebasestorage.app",
+    authDomain: envAuthDomain || "gen-lang-client-0825832493.firebaseapp.com",
     firestoreDatabaseId: resolveDbId(envDbId, defaultProjectId),
     storageBucket: envStorageBucket || "gen-lang-client-0825832493.firebasestorage.app",
     messagingSenderId: envMessagingSenderId || "103973989874"

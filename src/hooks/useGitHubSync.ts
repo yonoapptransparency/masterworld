@@ -115,13 +115,18 @@ export function useGitHubSync(
       if (onProgress) onProgress(msg);
     };
 
-    log("GitHub Sync: Querying live Firebase database for complete catalog (Apps, News, Settings, Videos)...");
+    log("GitHub Sync: Querying live database for complete catalog (Apps, News, Settings, Videos)...");
     let liveBackup: any = null;
     try {
-      const liveRes = await fetch('/api/v1/public/backup-data');
+      const liveRes = await fetch('/api/v1/public/backup-data-full');
       if (liveRes.ok) {
         liveBackup = await liveRes.json();
-        log("GitHub Sync: Live Firebase content retrieved successfully.");
+        log("GitHub Sync: Live complete catalog retrieved successfully.");
+      } else {
+        const fallbackRes = await fetch('/api/v1/public/backup-data');
+        if (fallbackRes.ok) {
+          liveBackup = await fallbackRes.json();
+        }
       }
     } catch (e) {
       log("GitHub Sync Notice: Could not fetch live backup endpoint, using current memory.");
@@ -328,6 +333,19 @@ export function useGitHubSync(
         message: `Admin Release: Manual staticData.json synchronization to ${targetRepo}`
       });
       log(`GitHub Sync: ✅ staticData.json successfully synced to ${targetRepo}.`);
+
+      try {
+        await commitFileToGitHub({
+          owner: configToUse.owner,
+          repo: targetRepo,
+          token: configToUse.token,
+          branch: configToUse.branch || 'main',
+          path: 'public-api/staticData.json',
+          content: staticJsonCode,
+          message: `Admin Release: Manual public-api/staticData.json synchronization to ${targetRepo}`
+        });
+        log(`GitHub Sync: ✅ public-api/staticData.json successfully synced to ${targetRepo}.`);
+      } catch (_) {}
       
       if (targetRepo.toLowerCase() !== 'masterworld') {
         try {
@@ -421,6 +439,31 @@ export function useGitHubSync(
               } catch (mwVaultErr: any) {
                 // Secondary vault sync silently skipped if token is scoped to targetRepo only
               }
+            }
+            
+            log(`GitHub Sync: Building fresh public API bundle for Vercel...`);
+            const apiRes = await adminFetch('/api/v1/admin/build-public-api', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {}) },
+              body: JSON.stringify({ ciphertext: vaultData.ciphertext })
+            });
+            if (apiRes.ok) {
+              const apiData = await apiRes.json();
+              if (apiData.content) {
+                log(`GitHub Sync: Pushing updated api/index.js to ${targetRepo}...`);
+                await commitFileToGitHub({
+                  owner: configToUse.owner,
+                  repo: targetRepo,
+                  token: configToUse.token,
+                  branch: configToUse.branch || 'main',
+                  path: 'api/index.js',
+                  content: apiData.content,
+                  message: `Admin Release: Public API bundle synchronization for ${targetRepo}`
+                });
+                log(`GitHub Sync: ✅ api/index.js successfully synced to ${targetRepo}.`);
+              }
+            } else {
+              log(`GitHub Sync Error: Failed to build API bundle (${apiRes.status})`);
             }
          }
       }

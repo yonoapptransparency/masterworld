@@ -58,29 +58,65 @@ export function useDataSync() {
   const loadData = useCallback(async (silent = false) => {
     if (!silent) setIsRefreshing(true);
     try {
-      const res = await adminFetch('/api/v1/admin/data');
-      if (!res.ok) throw new Error("Failed to fetch admin data");
-      
-      const data = await res.json();
-      
-      if (data.source === 'firebase' || data.source === 'local_backup') {
-        setDataSource(data.source);
-      }
-      if (data.quotaExceeded) {
-        setQuotaExceeded(true);
+      let data: any = null;
+      try {
+        const res = await adminFetch('/api/v1/admin/data');
+        if (res.ok) {
+          data = await res.json();
+        }
+      } catch (adminErr) {
+        console.warn("adminFetch /api/v1/admin/data error:", adminErr);
       }
 
-      if (Array.isArray(data.apps)) {
-        setApps(data.apps);
-      }
-      if (data.settings && typeof data.settings === 'object') {
-        setSettings(data.settings);
-      }
-      if (Array.isArray(data.news)) {
-        setNews(data.news);
-      }
-      if (Array.isArray(data.videos)) {
-        setVideos(data.videos);
+      // If admin data fetch succeeded
+      if (data && (Array.isArray(data.apps) || data.settings)) {
+        if (data.source === 'firebase' || data.source === 'local_backup') {
+          setDataSource(data.source);
+        } else {
+          setDataSource('firebase');
+        }
+        if (data.quotaExceeded) {
+          setQuotaExceeded(true);
+        }
+        if (Array.isArray(data.apps) && data.apps.length > 0) {
+          setApps(data.apps);
+        }
+        if (data.settings && typeof data.settings === 'object' && Object.keys(data.settings).length > 0) {
+          setSettings(data.settings);
+        }
+        if (Array.isArray(data.news)) {
+          setNews(data.news);
+        }
+        if (Array.isArray(data.videos)) {
+          setVideos(data.videos);
+        }
+      } else {
+        // Fallback: try public backup-data endpoint
+        try {
+          const publicRes = await fetch('/api/v1/public/backup-data');
+          if (publicRes.ok) {
+            const publicData = await publicRes.json();
+            if (Array.isArray(publicData.apps) && publicData.apps.length > 0) {
+              setApps(publicData.apps);
+            }
+            if (publicData.settings && Object.keys(publicData.settings).length > 0) {
+              setSettings(publicData.settings);
+            }
+            if (Array.isArray(publicData.news) && publicData.news.length > 0) {
+              setNews(publicData.news);
+            }
+            if (Array.isArray(publicData.videos) && publicData.videos.length > 0) {
+              setVideos(publicData.videos);
+            }
+          }
+        } catch (_) {}
+
+        // Guarantee mockApps fallback if apps are still empty
+        setApps(prev => (prev && prev.length > 0 ? prev : (mockApps || [])));
+        setSettings(prev => (prev && Object.keys(prev).length > 0 ? prev : (mockSettings || {} as GlobalSettings)));
+        setNews(prev => (prev && prev.length > 0 ? prev : (mockNews || [])));
+        setVideos(prev => (prev && prev.length > 0 ? prev : (mockVideos || [])));
+        setDataSource('local_backup');
       }
 
       setFetchedStates({ apps: true, settings: true, news: true, videos: true });
@@ -90,9 +126,13 @@ export function useDataSync() {
       setIsLive(true);
     } catch (err: any) {
       console.error("useDataSync fetch error:", err);
+      setApps(prev => (prev && prev.length > 0 ? prev : (mockApps || [])));
+      setSettings(prev => (prev && Object.keys(prev).length > 0 ? prev : (mockSettings || {} as GlobalSettings)));
+      setNews(prev => (prev && prev.length > 0 ? prev : (mockNews || [])));
+      setVideos(prev => (prev && prev.length > 0 ? prev : (mockVideos || [])));
+      setDataSource('local_backup');
       if (checkIsQuotaError(err)) {
         setQuotaExceeded(true);
-        setDataSource('local_backup');
       }
     } finally {
       setLoading(false);

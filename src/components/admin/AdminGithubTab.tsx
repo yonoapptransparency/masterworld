@@ -14,6 +14,12 @@ interface AdminGithubTabProps {
   videosList: any[];
 }
 
+interface LogEntry {
+  id: string;
+  time: string;
+  text: string;
+}
+
 export const AdminGithubTab = React.memo(({
   pushAllToGitHub,
   gitConfig,
@@ -24,11 +30,22 @@ export const AdminGithubTab = React.memo(({
   newsList,
   videosList
 }: AdminGithubTabProps) => {
-  const [logs, setLogs] = useState<string[]>([]);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
   const [syncing, setSyncing] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [previewContent, setPreviewContent] = useState<string>("");
   const [localConfig, setLocalConfig] = useState(gitConfig || { owner: '', repo: '', branch: 'main', token: '' });
+
+  const appendLog = (text: string) => {
+    setLogs(prev => [
+      ...prev,
+      {
+        id: `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        time: new Date().toLocaleTimeString(),
+        text
+      }
+    ]);
+  };
 
   useEffect(() => {
     if (gitConfig) {
@@ -48,12 +65,16 @@ export const AdminGithubTab = React.memo(({
 
   const handleManualSync = async () => {
     setSyncing(true);
-    setLogs(["Starting Manual GitHub Sync..."]);
+    setLogs([{
+      id: `${Date.now()}_start`,
+      time: new Date().toLocaleTimeString(),
+      text: "Starting Manual GitHub Sync..."
+    }]);
     try {
       const result = await pushAllToGitHub(
         undefined, 
         (msg: string) => {
-          setLogs(prev => [...prev, msg]);
+          appendLog(msg);
         }, 
         appsList,
         settings,
@@ -61,9 +82,9 @@ export const AdminGithubTab = React.memo(({
         videosList
       );
       const targetMsg = (result as any)?.targetRepo ? ` to ${(result as any).targetRepo}` : "";
-      setLogs(prev => [...prev, `Sync completed successfully${targetMsg}!`]);
+      appendLog(`Sync completed successfully${targetMsg}!`);
     } catch (err: any) {
-      setLogs(prev => [...prev, `ERROR: ${err.message || 'Push failed'}`]);
+      appendLog(`ERROR: ${err.message || 'Push failed'}`);
     } finally {
       setSyncing(false);
     }
@@ -71,7 +92,7 @@ export const AdminGithubTab = React.memo(({
 
   const handleTestConnection = async () => {
     setSyncing(true);
-    setLogs(prev => [...prev, "Testing GitHub Connection..."]);
+    appendLog("Testing GitHub Connection...");
     try {
       const res = await adminFetch('/api/github-sync/test', {
         method: 'POST',
@@ -87,21 +108,21 @@ export const AdminGithubTab = React.memo(({
       }
 
       if (res.ok) {
-        setLogs(prev => [...prev, `SUCCESS: ${data.message || 'Connection successful!'}`]);
+        appendLog(`SUCCESS: ${data.message || 'Connection successful!'}`);
         if (data.permissions) {
-          setLogs(prev => [...prev, `Permissions: Push=${data.permissions.push ? '✅' : '❌'}, Pull=${data.permissions.pull ? '✅' : '❌'}, Admin=${data.permissions.admin ? '✅' : '❌'}`]);
+          appendLog(`Permissions: Push=${data.permissions.push ? '✅' : '❌'}, Pull=${data.permissions.pull ? '✅' : '❌'}, Admin=${data.permissions.admin ? '✅' : '❌'}`);
           if (!data.permissions.push) {
-            setLogs(prev => [...prev, "⚠️ WARNING: Token does not have PUSH permissions. Sync will fail."]);
+            appendLog("⚠️ WARNING: Token does not have PUSH permissions. Sync will fail.");
           }
         }
         toast("GitHub Connection Successful!", "success");
       } else {
         const errMsg = data.message || data.error || data.details || `HTTP ${res.status} Error`;
-        setLogs(prev => [...prev, `CONNECTION FAILED: ${errMsg}`]);
+        appendLog(`CONNECTION FAILED: ${errMsg}`);
         toast(`Connection Failed: ${errMsg}`, "error");
       }
     } catch (err: any) {
-      setLogs(prev => [...prev, `ERROR: ${err.message}`]);
+      appendLog(`ERROR: ${err.message}`);
       toast(`Error testing connection: ${err.message}`, "error");
     } finally {
       setSyncing(false);
@@ -183,16 +204,27 @@ export const AdminGithubTab = React.memo(({
       </div>
 
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-6">
-        <h3 className="font-bold text-sm text-slate-900 dark:text-white border-b border-black/5 dark:border-white/5 pb-2">Live Synchronization Logs</h3>
+        <div className="flex items-center justify-between border-b border-black/5 dark:border-white/5 pb-2">
+          <h3 className="font-bold text-sm text-slate-900 dark:text-white">Live Synchronization Logs</h3>
+          {logs.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setLogs([])}
+              className="text-xs text-slate-500 hover:text-red-500 transition-colors"
+            >
+              Clear Logs ({logs.length})
+            </button>
+          )}
+        </div>
         
         <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 h-[250px] overflow-y-auto font-mono text-xs text-emerald-400 space-y-1 shadow-inner">
           {logs.length === 0 ? (
             <p className="text-slate-500">System ready to synchronize target repository...</p>
           ) : (
-            logs.map((log, i) => (
-              <div key={i} className="flex gap-2">
-                <span className="text-slate-600">[{new Date().toLocaleTimeString()}]</span>
-                <span>{log}</span>
+            logs.map((log) => (
+              <div key={log.id} className="flex gap-2">
+                <span className="text-slate-600 shrink-0">[{log.time}]</span>
+                <span className={log.text.startsWith('ERROR') || log.text.includes('FAILED') ? 'text-rose-400' : log.text.startsWith('SUCCESS') || log.text.includes('✅') ? 'text-emerald-400' : log.text.includes('WARNING') || log.text.includes('⚠️') ? 'text-amber-400' : 'text-slate-300'}>{log.text}</span>
               </div>
             ))
           )}

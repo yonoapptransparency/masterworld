@@ -70,9 +70,12 @@ const Meta: React.FC<MetaProps> = ({
     // 1. Update document title
     document.title = fullTitle;
 
-    // Helper to update exactly ONE meta tag in document.head and purge any duplicates
-    const setMetaTag = (attrName: string, attrVal: string, contentVal: string) => {
-      const allMatches = document.head.querySelectorAll(`meta[${attrName}="${attrVal}"]`);
+    // Helper to update exactly ONE meta tag in document.head and purge any duplicates (checking both name and property)
+    const setMetaTag = (attrName: 'name' | 'property', attrVal: string, contentVal: string) => {
+      // Find all matches across name, property, or case variations
+      const allMatches = document.head.querySelectorAll(
+        `meta[${attrName}="${attrVal}" i], meta[${attrName === 'name' ? 'property' : 'name'}="${attrVal}" i]`
+      );
       let primaryMeta: HTMLMetaElement | null = null;
       
       allMatches.forEach((el, index) => {
@@ -85,10 +88,10 @@ const Meta: React.FC<MetaProps> = ({
 
       if (!primaryMeta) {
         primaryMeta = document.createElement('meta');
-        primaryMeta.setAttribute(attrName, attrVal);
         document.head.appendChild(primaryMeta);
       }
-      (primaryMeta as HTMLMetaElement).setAttribute('content', contentVal);
+      (primaryMeta as HTMLMetaElement).setAttribute(attrName, attrVal);
+      (primaryMeta as HTMLMetaElement).setAttribute('content', contentVal || '');
     };
 
     // 2. Standard Meta Tags

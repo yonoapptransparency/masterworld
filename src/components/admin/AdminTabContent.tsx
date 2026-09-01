@@ -54,7 +54,7 @@ interface AdminTabContentProps {
   handleSaveDevelopers: (e: any) => void;
   handleSaveVideos?: (e?: any) => Promise<void> | void;
   saveGitConfig: (conf: any) => Promise<void>;
-  pushAllToGitHub: () => Promise<void>;
+  pushAllToGitHub: (customConfig?: any, onProgress?: any, ...args: any[]) => Promise<any>;
   handleReloadCloudData: () => void;
   triggerHaptic: () => void;
   

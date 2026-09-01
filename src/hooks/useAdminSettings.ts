@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
+import { mockNews, mockVideos, mockSettings } from '../lib/staticData';
 
 export const useAdminSettings = (settings: any, news: any[], videos: any[]) => {
-  const [newsList, setNewsList] = useState<any[]>(news || []);
-  const [banners, setBanners] = useState<any[]>(settings?.banners || []);
-  const [videosList, setVideosList] = useState<any[]>(videos || []);
-  const [categoriesList, setCategoriesList] = useState<string[]>(settings?.categories || []);
-  const [quickLinksList, setQuickLinksList] = useState<any[]>(settings?.quick_links || []);
-  const [websiteFaqsList, setWebsiteFaqsList] = useState<any[]>(settings?.website_faqs || []);
-  const [developersList, setDevelopersList] = useState<any[]>(settings?.developers || []);
+  const [newsList, setNewsList] = useState<any[]>(() => (Array.isArray(news) && news.length > 0 ? news : (mockNews || [])));
+  const [banners, setBanners] = useState<any[]>(() => (settings?.banners || mockSettings?.banners || []));
+  const [videosList, setVideosList] = useState<any[]>(() => (Array.isArray(videos) && videos.length > 0 ? videos : (mockVideos || [])));
+  const [categoriesList, setCategoriesList] = useState<string[]>(() => (settings?.categories || mockSettings?.categories || []));
+  const [quickLinksList, setQuickLinksList] = useState<any[]>(() => (settings?.quick_links || mockSettings?.quick_links || []));
+  const [websiteFaqsList, setWebsiteFaqsList] = useState<any[]>(() => (settings?.website_faqs || mockSettings?.website_faqs || []));
+  const [developersList, setDevelopersList] = useState<any[]>(() => (settings?.developers || mockSettings?.developers || []));
   const [newCatInput, setNewCatInput] = useState('');
 
   const deletedNewsIdsRef = useRef(new Set<string>());
@@ -17,14 +18,14 @@ export const useAdminSettings = (settings: any, news: any[], videos: any[]) => {
 
   // Synchronize news directly when fresh server data arrives
   useEffect(() => {
-    if (Array.isArray(news)) {
+    if (Array.isArray(news) && news.length > 0) {
       setNewsList(news.filter(n => !deletedNewsIdsRef.current.has(n.id)));
     }
   }, [news]);
 
   // Synchronize videos directly when fresh server data arrives
   useEffect(() => {
-    if (Array.isArray(videos)) {
+    if (Array.isArray(videos) && videos.length > 0) {
       setVideosList(videos.filter(v => !deletedVideoIdsRef.current.has(v.id)));
     }
   }, [videos]);

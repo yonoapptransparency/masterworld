@@ -84,20 +84,15 @@ class AutoPilotQueueService {
         const data = JSON.parse(raw);
         if (data && data.status) {
           const restoredStatus = data.status;
+          const wasRunning = restoredStatus.status === 'running';
           // If server restarted while queue was running, set to paused so user can safely resume
-          if (restoredStatus.status === 'running') {
+          if (wasRunning) {
             restoredStatus.status = 'paused';
           }
           this.status = restoredStatus;
           if (Array.isArray(data.appQueue)) {
             this.appQueue = data.appQueue;
           }
-          this.addLog({
-            appId: 'system',
-            appName: 'Catalog Auto-Pilot Engine',
-            message: `🔄 Restored Auto-Pilot Checkpoint: ${this.status.processedAppsCount} processed, ${this.status.skippedAppsCount} skipped. Status: ${this.status.status}.`,
-            type: 'info'
-          });
         }
       }
     } catch (e) {

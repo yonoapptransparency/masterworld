@@ -9,7 +9,7 @@ import { fetchBackupData } from '../services/dataService';
 import { adminFetch } from '../services/adminAuthService';
 import { getAdminPath } from '../lib/utils';
 import { toast } from '../components/Toast';
-import { mockApps, mockSettings, mockNews, mockVideos } from '../lib/lightFallback';
+import { mockApps, mockSettings, mockNews, mockVideos } from '../lib/staticData';
 
 interface DataContextType {
   apps: AppConfig[];

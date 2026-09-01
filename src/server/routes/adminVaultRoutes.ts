@@ -843,11 +843,28 @@ function updateLocalBackupSection(section: 'apps' | 'settings' | 'news' | 'video
     if (fs.existsSync(staticJsonPath)) {
       try { staticCur = JSON.parse(fs.readFileSync(staticJsonPath, 'utf8')); } catch (_) {}
     }
-    if (section === 'apps') staticCur.mockApps = data;
-    if (section === 'settings') staticCur.mockSettings = data;
-    if (section === 'news') staticCur.mockNews = data;
-    if (section === 'videos') staticCur.mockVideos = data;
+    if (section === 'apps') {
+      staticCur.mockApps = data;
+      staticCur.apps = data;
+    }
+    if (section === 'settings') {
+      staticCur.mockSettings = data;
+      staticCur.settings = data;
+    }
+    if (section === 'news') {
+      staticCur.mockNews = data;
+      staticCur.news = data;
+    }
+    if (section === 'videos') {
+      staticCur.mockVideos = data;
+      staticCur.videos = data;
+    }
     fs.writeFileSync(staticJsonPath, JSON.stringify(staticCur, null, 2), 'utf8');
+
+    const publicApiJsonPath = path.join(process.cwd(), 'public-api/staticData.json');
+    if (fs.existsSync(path.dirname(publicApiJsonPath))) {
+      fs.writeFileSync(publicApiJsonPath, JSON.stringify(staticCur, null, 2), 'utf8');
+    }
 
     clearPublicBackupCache();
     clearSeoCache();
@@ -984,7 +1001,7 @@ async function getMasterSettings(authToken?: string): Promise<any> {
 }
 
 // Helper to save master apps to Firestore and local backup
-async function saveMasterAppsList(apps: any[], authToken?: string): Promise<{ firestoreUpdated: boolean; firestoreError: string | null }> {
+export async function saveMasterAppsList(apps: any[], authToken?: string): Promise<{ firestoreUpdated: boolean; firestoreError: string | null }> {
   let firestoreUpdated = false;
   let firestoreError = null;
 
@@ -1910,6 +1927,24 @@ adminVaultRouter.post("/api/v1/admin/seal-vault", verifyAdminToken, async (req, 
     }
     const ciphertext = safeEncrypt(JSON.stringify(vaultMap), AES_SECRET);
     res.json({ success: true, ciphertext });
+  } catch(err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+adminVaultRouter.post("/api/v1/admin/build-public-api", verifyAdminToken, async (req, res) => {
+  try {
+    const { ciphertext } = req.body;
+    if (ciphertext) {
+      fs.writeFileSync(path.join(process.cwd(), 'src/lib/secureVault.ts'), `export const ENCRYPTED_LINKS = "${ciphertext}";\n`);
+    }
+    require('child_process').execSync('node scripts/build-api.js', { stdio: 'inherit', cwd: process.cwd() });
+    const apiPath = path.join(process.cwd(), 'api', 'index.js');
+    if (!fs.existsSync(apiPath)) {
+      return res.status(500).json({ error: "API build failed" });
+    }
+    const content = fs.readFileSync(apiPath, 'utf8');
+    res.json({ success: true, content });
   } catch(err: any) {
     res.status(500).json({ error: err.message });
   }

@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { adminFetch } from '../services/adminAuthService';
 import { sessionStore } from '../lib/sessionStore';
+import { mockApps } from '../lib/staticData';
 
 export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean | null) => {
-  const [appsList, setAppsList] = useState<any[]>(apps || []);
+  const [appsList, setAppsList] = useState<any[]>(() => (Array.isArray(apps) && apps.length > 0 ? apps : (mockApps || [])));
   const [fetchFailed, setFetchFailed] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const cachedSecureMapRef = useRef(new Map());
@@ -91,7 +92,7 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
           cachedSecureMapRef.current = secureMap;
           
           // Map incoming apps with decrypted links
-          const sourceApps = Array.isArray(apps) && apps.length > 0 ? apps : [];
+          const sourceApps = (Array.isArray(apps) && apps.length > 0) ? apps : (appsList.length > 0 ? appsList : (mockApps || []));
           const mergedApps = sourceApps.map(a => {
             const existingUrl = a.more_information_url || secureMap.get(a.id) || secureMap.get(a.slug) || '';
             if (existingUrl && !secureMap.has(a.id)) {
@@ -106,7 +107,7 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
           setIsInitialized(true);
         } catch (err) {
           setFetchFailed(true);
-          setAppsList(Array.isArray(apps) ? apps : []);
+          setAppsList(prev => (Array.isArray(prev) && prev.length > 0 ? prev : (Array.isArray(apps) && apps.length > 0 ? apps : (mockApps || []))));
           setIsInitialized(true);
         }
       };
@@ -116,7 +117,7 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
 
   // 2. Authoritative Sync: Whenever fresh apps arrive from the server (multi-device sync), adopt them directly
   useEffect(() => {
-    if (Array.isArray(apps) && apps.length > 0 && isInitialized) {
+    if (Array.isArray(apps) && apps.length > 0) {
       const secureMap = cachedSecureMapRef.current;
       const mapped = apps
         .filter(a => !deletedAppIdsRef.current.has(a.id) && !deletedAppIdsRef.current.has(a.slug))
@@ -133,7 +134,7 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
 
       setAppsList(mapped);
     }
-  }, [apps, isInitialized]);
+  }, [apps]);
 
   return {
     appsList,
