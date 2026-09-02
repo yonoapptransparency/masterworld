@@ -62,7 +62,9 @@ export const ToastContainer: React.FC = () => {
             <span className="flex-1 leading-snug">{toast.message}</span>
             <button 
               onClick={() => removeToast(toast.id)}
-              className="ml-auto text-slate-400 hover:text-slate-700 transition-colors bg-slate-100 hover:bg-slate-200 p-1 rounded-md"
+              aria-label="Close toast"
+              title="Close toast"
+              className="ml-auto text-slate-400 hover:text-slate-700 transition-colors bg-slate-100 hover:bg-slate-200 p-1 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1"
             >
               <XCircle className="w-4 h-4" />
             </button>
