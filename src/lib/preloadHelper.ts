@@ -1,11 +1,18 @@
-import { lazyWithRetry } from './lazyWithRetry';
+import AppDetailsComponent from '../pages/AppDetails';
 
-export const AppDetails = lazyWithRetry(() => import('../pages/AppDetails'));
+export const AppDetails = AppDetailsComponent as any;
 
-export const preloadAppDetails = () => {
-  try {
-    AppDetails.preload();
-  } catch (e) {
-    // Ignore preload error on unsupported browsers/environments
+const prefetchedSlugs = new Set<string>();
+
+export const preloadAppDetails = (slug?: string | any) => {
+  if (slug && typeof slug === 'string' && !prefetchedSlugs.has(slug)) {
+    prefetchedSlugs.add(slug);
+    // Prefetch the rich data payload so it's already in the browser cache 
+    // by the time the user clicks and the page transitions.
+    // We use a low priority fetch so it doesn't block critical resources.
+    const url = `/api/v1/public/app/${encodeURIComponent(slug)}`;
+    if ('fetch' in window) {
+      window.fetch(url, { priority: 'low' } as RequestInit).catch(() => {});
+    }
   }
 };

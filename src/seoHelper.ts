@@ -595,11 +595,6 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   let description = getField(settings, 'seo_description') || getField(settings, 'meta_description', '');
   
   let keywords = getField(settings, 'seo_keywords', '');
-  
-  if (keywords) {
-    const keywordArray = keywords.split(',').map((k: string) => k.trim()).filter(Boolean);
-    if (keywordArray.length > 15) keywords = keywordArray.slice(0, 15).join(', ');
-  }
 
   const CLOUDINARY_ICON = 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
   let rawLogoUrl = getField(settings, 'logo_url') || CLOUDINARY_ICON;
@@ -878,6 +873,19 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
 
   const escapedTitle = escapeHtml(title);
   const escapedDesc = escapeHtml(description);
+  if (targetApp && getField(targetApp, 'seo_keywords')) {
+    keywords = getField(targetApp, 'seo_keywords');
+  } else if (targetNews && getField(targetNews, 'seo_keywords')) {
+    keywords = getField(targetNews, 'seo_keywords');
+  } else if (targetVideo && getField(targetVideo, 'seo_keywords')) {
+    keywords = getField(targetVideo, 'seo_keywords');
+  }
+  
+  if (keywords) {
+    const keywordArray = keywords.split(',').map((k: string) => k.trim()).filter(Boolean);
+    if (keywordArray.length > 15) keywords = keywordArray.slice(0, 15).join(', ');
+  }
+
   const escapedSiteTitle = escapeHtml(siteTitle);
   const escapedKeywords = escapeHtml(keywords);
 

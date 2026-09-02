@@ -7,7 +7,7 @@ import CryptoJS from 'crypto-js';
 import { ensureDefaultSettings } from './defaultLegalContent';
 import { adminFetch } from '../services/adminAuthService';
 
-function encryptUrlIfNeeded(url: string): string {
+export function encryptUrlIfNeeded(url: string): string {
   if (!url || typeof url !== 'string') return '';
   const trimmed = url.trim();
   if (trimmed === '' || trimmed.includes('com.rummydex') || trimmed.includes('com.example')) return '';
