@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Newspaper, Plus, Trash2, LayoutDashboard, Edit2, Save, X, CheckCircle2, RefreshCw } from 'lucide-react';
 import { toast } from '../Toast';
+import ImageUpload from '../ImageUpload';
 
 interface AdminNewsTabProps {
   newsList: any[];
@@ -188,11 +189,10 @@ export const AdminNewsTab = React.memo(({
                         </div>
                         <div>
                           <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">News Cover / Thumbnail URL (16:9)</label>
-                          <input
-                            type="text"
+                          <ImageUpload
                             value={item.logo_url || ''}
-                            onChange={e => handleNewsChange(item.id, 'logo_url', e.target.value)}
-                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white font-mono focus:ring-2 focus:ring-blue-500 transition-all"
+                            onChange={val => handleNewsChange(item.id, 'logo_url', val)}
+                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm dark:text-white font-mono focus-within:ring-2 focus-within:ring-blue-500 transition-all overflow-hidden"
                             placeholder="https://... (16:9 YouTube thumbnail recommended)"
                           />
                           {item.logo_url && (
@@ -264,11 +264,10 @@ export const AdminNewsTab = React.memo(({
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Social OG Image</label>
-                            <input
-                              type="text"
+                            <ImageUpload
                               value={item.og_image_url || ''}
-                              onChange={e => handleNewsChange(item.id, 'og_image_url', e.target.value)}
-                              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white font-mono focus:ring-2 focus:ring-blue-500 transition-all"
+                              onChange={val => handleNewsChange(item.id, 'og_image_url', val)}
+                              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm dark:text-white font-mono focus-within:ring-2 focus-within:ring-blue-500 transition-all overflow-hidden"
                               placeholder="https://..."
                             />
                           </div>

@@ -15,6 +15,7 @@ import { seoRouter } from './src/server/routes/seoRoutes';
 import { adminVaultRouter } from './src/server/routes/adminVaultRoutes';
 import { publicApiRouter } from './src/server/routes/publicApiRoutes';
 import { securityRouter } from './src/server/routes/securityRoutes';
+import uploadRouter from './src/server/routes/uploadRoutes';
 
 async function startServer() {
   const app = express();
@@ -102,6 +103,7 @@ async function startServer() {
   app.use(adminVaultRouter);
   app.use(securityRouter);
   app.use(publicApiRouter);
+  app.use(uploadRouter);
 
   // Roadblocks
   ["/api/v1/user", "/api/v1/auth", "/api/v1/config"].forEach(pathway => {

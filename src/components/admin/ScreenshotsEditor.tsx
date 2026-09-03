@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
+import ImageUpload from '../ImageUpload';
 
 interface ScreenshotsEditorProps {
   initialScreenshots: string[];
@@ -36,12 +37,11 @@ export function ScreenshotsEditor({ initialScreenshots, onChange }: ScreenshotsE
         {urls.map((url, idx) => (
           <div key={idx} className="flex gap-3 items-center bg-slate-50 dark:bg-slate-900/60 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800/80">
             <span className="text-xs font-mono font-bold text-slate-400 w-6 text-center shrink-0">#{idx + 1}</span>
-            <input 
-              type="text" 
-              value={url} 
-              onChange={e => updateUrl(idx, e.target.value)} 
-              className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-2.5 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 font-mono" 
-              placeholder="e.g. https://images.unsplash.com/photo-... or custom URL" 
+            <ImageUpload
+               value={url}
+               onChange={(val) => updateUrl(idx, val)}
+               className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-100 focus-within:ring-2 focus-within:ring-blue-500 font-mono overflow-hidden"
+               placeholder="e.g. https://images.unsplash.com/photo-... or custom URL"
             />
             {url && (
               <div className="relative group w-10 h-16 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden shrink-0">
@@ -79,4 +79,5 @@ export function ScreenshotsEditor({ initialScreenshots, onChange }: ScreenshotsE
     </div>
   );
 }
+
 export default ScreenshotsEditor;

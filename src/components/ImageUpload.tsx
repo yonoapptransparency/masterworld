@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { UploadCloud, Loader2 } from 'lucide-react';
+import { useAdminAuth } from '../hooks/useAdminAuth';
 
 interface ImageUploadProps {
   format?: 'webp' | 'png';
@@ -12,108 +13,22 @@ interface ImageUploadProps {
 }
 
 export default function ImageUpload({ value, defaultValue, onChange, name, placeholder, className, format = 'webp' }: ImageUploadProps) {
+  const { token } = useAdminAuth();
   const [uploading, setUploading] = useState(false);
-  const [internalValue, setInternalValue] = useState(defaultValue || '');
+  const [internalValue, setInternalValue] = useState<string>(value !== undefined ? value : (defaultValue || ''));
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const isControlled = value !== undefined;
-  const currentValue = isControlled ? value : internalValue;
-
   useEffect(() => {
-    if (!isControlled && defaultValue !== undefined) {
-      setInternalValue(defaultValue);
+    if (value !== undefined) {
+      setInternalValue(value);
     }
-  }, [defaultValue, isControlled]);
+  }, [value]);
 
   const handleChange = (newVal: string) => {
-    if (!isControlled) {
-      setInternalValue(newVal);
-    }
+    setInternalValue(newVal);
     if (onChange) {
       onChange(newVal);
     }
-  };
-
-  const compressImageToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      // 10 second failsafe timeout to prevent infinite spinning
-      const timeoutId = setTimeout(() => {
-        reject(new Error("Upload timed out. The file might be corrupted or unsupported."));
-      }, 10000);
-
-      const reader = new FileReader();
-      reader.onerror = (err) => {
-        clearTimeout(timeoutId);
-        reject(err);
-      };
-      reader.onload = (event) => {
-        const rawDataUrl = event.target?.result as string;
-        
-        // Bypass Canvas completely for Logos/Favicons. 
-        // This preserves exact transparency, and fully supports ICO, SVG, and GIF files 
-        // which often fail or hang when processed through an HTML Canvas.
-        if (format === 'png') {
-          clearTimeout(timeoutId);
-          if (file.size > 2 * 1024 * 1024) {
-             reject(new Error("Image is too large. Please upload an image under 2MB."));
-             return;
-          }
-          resolve(rawDataUrl);
-          return;
-        }
-
-        const img = new Image();
-        img.onload = () => {
-          try {
-            const canvas = document.createElement('canvas');
-            const MAX_WIDTH = 512;
-            const MAX_HEIGHT = 512;
-            let width = img.width;
-            let height = img.height;
-            if (width > height) {
-              if (width > MAX_WIDTH) {
-                height *= MAX_WIDTH / width;
-                width = MAX_WIDTH;
-              }
-            } else {
-              if (height > MAX_HEIGHT) {
-                width *= MAX_HEIGHT / height;
-                height = MAX_HEIGHT;
-              }
-            }
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) {
-              clearTimeout(timeoutId);
-              reject(new Error("Failed to get canvas context"));
-              return;
-            }
-            
-            // Only fill white background if converting to webp
-            if (format === 'webp') {
-              ctx.fillStyle = '#ffffff';
-              ctx.fillRect(0, 0, width, height);
-            }
-            
-            ctx.drawImage(img, 0, 0, width, height);
-            
-            const dataUrl = canvas.toDataURL('image/webp', 0.6);
-            clearTimeout(timeoutId);
-            resolve(dataUrl);
-          } catch (err) {
-            clearTimeout(timeoutId);
-            reject(err);
-          }
-        };
-        img.onerror = (error) => {
-          clearTimeout(timeoutId);
-          reject(new Error("Browser failed to decode image."));
-        };
-        img.src = rawDataUrl;
-      };
-      reader.readAsDataURL(file);
-    });
   };
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -122,13 +37,27 @@ export default function ImageUpload({ value, defaultValue, onChange, name, place
 
     setUploading(true);
     try {
-      // Compress image and convert directly to base64 Data URL
-      const base64Url = await compressImageToBase64(file);
-      
-      // UX: tiny delay so spinner is visible for a moment
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      handleChange(base64Url);
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/v1/admin/upload', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error(`Upload failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (data.status === 'OK' && data.secure_url) {
+        handleChange(data.secure_url);
+      } else {
+        throw new Error(data.msg || 'Upload failed');
+      }
     } catch (error: any) {
       console.error("Upload error:", error);
       alert("Failed to process image. " + (error.message || ""));
@@ -140,40 +69,38 @@ export default function ImageUpload({ value, defaultValue, onChange, name, place
     }
   };
 
-  // Helper to show a truncated value if it's a huge base64 string
-  const displayValue = currentValue.length > 200 && currentValue.startsWith('data:image') 
+  const displayValue = internalValue.length > 200 && internalValue.startsWith('data:image') 
     ? 'Image Uploaded Successfully' 
-    : currentValue;
+    : internalValue;
 
   return (
-    <div className={`flex items-center w-full px-2 py-1 ${className || ''}`}>
-      {name && <input type="hidden" name={name} value={currentValue} />}
+    <div className={`relative flex items-center w-full ${className || ''}`}>
+      {name && <input type="hidden" name={name} value={internalValue || ''} />}
       <input
         type="text"
-        value={displayValue}
-        onChange={(e) => {
-           // Only allow manual editing if it's not our placeholder
+        value={displayValue || ''}
+        onChange={(e) => { 
            if (e.target.value !== 'Image Uploaded Successfully') {
               handleChange(e.target.value);
            }
         }}
-        className="flex-1 bg-transparent border-none outline-none focus:ring-0 p-1 m-0 text-[inherit] w-full"
-        style={{ minWidth: 0 }}
+        className="flex-1 bg-transparent border-none outline-none focus:ring-0 px-3 py-2 text-[inherit] w-full min-w-0"
         placeholder={placeholder || "https://..."}
       />
-      <div className="relative shrink-0 ml-2">
+      <div className="shrink-0 flex items-center pr-2">
         <input
           type="file"
           ref={fileInputRef}
           onChange={handleUpload}
           accept="image/*"
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-          disabled={uploading}
+          className="hidden"
         />
         <button
           type="button"
+          onClick={() => fileInputRef.current?.click()}
           disabled={uploading}
-          className="flex items-center justify-center bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+          className="flex items-center justify-center bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 px-3 py-1 rounded-md font-medium transition-colors disabled:opacity-70 disabled:cursor-not-allowed border border-slate-200 dark:border-slate-700"
+          title="Upload to Cloudinary"
         >
           {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />}
         </button>
