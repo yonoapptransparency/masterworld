@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { UploadCloud, Loader2 } from 'lucide-react';
-import { useAdminAuth } from '../hooks/useAdminAuth';
+import { adminFetch } from '../services/adminAuthService';
 
 interface ImageUploadProps {
   format?: 'webp' | 'png';
@@ -13,7 +13,6 @@ interface ImageUploadProps {
 }
 
 export default function ImageUpload({ value, defaultValue, onChange, name, placeholder, className, format = 'webp' }: ImageUploadProps) {
-  const { token } = useAdminAuth();
   const [uploading, setUploading] = useState(false);
   const [internalValue, setInternalValue] = useState<string>(value !== undefined ? value : (defaultValue || ''));
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -37,27 +36,41 @@ export default function ImageUpload({ value, defaultValue, onChange, name, place
 
     setUploading(true);
     try {
+      // 1. Get secure upload signature from our backend
+      const sigRes = await adminFetch('/api/v1/admin/upload/signature');
+      const sigData = await sigRes.json();
+      
+      if (!sigRes.ok || sigData.status !== 'OK') {
+        throw new Error(sigData.msg || 'Failed to get upload signature from server. Check Cloudinary API Keys.');
+      }
+
+      // 2. Upload file directly from browser to Cloudinary API
+      // This bypasses Vercel 4.5MB payload limits completely.
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('api_key', sigData.api_key);
+      formData.append('timestamp', sigData.timestamp.toString());
+      formData.append('signature', sigData.signature);
+      formData.append('folder', sigData.folder);
 
-      const response = await fetch('/api/v1/admin/upload', {
+      const cloudinaryRes = await fetch(`https://api.cloudinary.com/v1_1/${sigData.cloud_name}/image/upload`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
         body: formData
       });
 
-      if (!response.ok) {
-        throw new Error(`Upload failed with status ${response.status}`);
+      const cloudinaryData = await cloudinaryRes.json();
+
+      if (!cloudinaryRes.ok) {
+        throw new Error(cloudinaryData.error?.message || 'Cloudinary upload failed.');
       }
 
-      const data = await response.json();
-      if (data.status === 'OK' && data.secure_url) {
-        handleChange(data.secure_url);
+      // 3. Success! Set the returned secure URL
+      if (cloudinaryData.secure_url) {
+        handleChange(cloudinaryData.secure_url);
       } else {
-        throw new Error(data.msg || 'Upload failed');
+        throw new Error('Cloudinary did not return a secure URL.');
       }
+
     } catch (error: any) {
       console.error("Upload error:", error);
       alert("Failed to process image. " + (error.message || ""));
