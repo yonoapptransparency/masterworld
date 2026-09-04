@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { 
+import { Cpu, Globe, 
   Sparkles, 
   Smartphone, 
   Star, 
@@ -59,6 +59,7 @@ const STORAGE_KEY_DEFAULT_COUNT = 'rummydex_admin_ai_review_count';
 
 // Helper to load all per-app profiles
 function loadAllAppProfiles(): Record<string, AppReviewProfile> {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return {};
   try {
     const raw = localStorage.getItem(STORAGE_KEY_PROFILES);
     return raw ? JSON.parse(raw) : {};
@@ -69,6 +70,7 @@ function loadAllAppProfiles(): Record<string, AppReviewProfile> {
 
 // Helper to save all per-app profiles
 function saveAllAppProfiles(profiles: Record<string, AppReviewProfile>) {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
   try {
     localStorage.setItem(STORAGE_KEY_PROFILES, JSON.stringify(profiles));
   } catch (e) {
@@ -253,12 +255,20 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
   const [appProfiles, setAppProfiles] = useState<Record<string, AppReviewProfile>>(loadAllAppProfiles);
 
   // Selected App
-  const [selectedAppId, setSelectedAppId] = useState<string>(appsList[0]?.id || '');
+  const [selectedAppId, setSelectedAppId] = useState<string>(appsList?.[0]?.id || '');
   const [appSearch, setAppSearch] = useState('');
+
+  // Keep selectedAppId in sync if appsList loads after initial render
+  useEffect(() => {
+    if (!selectedAppId && appsList && appsList.length > 0) {
+      setSelectedAppId(appsList[0]?.id || appsList[0]?.slug || '');
+    }
+  }, [appsList, selectedAppId]);
 
   // Current Target App Details
   const currentApp = useMemo(() => {
-    return appsList.find(a => a.id === selectedAppId || a.slug === selectedAppId) || appsList[0];
+    if (!appsList || appsList.length === 0) return null;
+    return appsList.find(a => (a?.id && a.id === selectedAppId) || (a?.slug && a.slug === selectedAppId)) || appsList[0] || null;
   }, [appsList, selectedAppId]);
 
   // Current App Profile State
@@ -1255,7 +1265,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
                   {currentApp?.icon_url ? (
                     <img 
                       src={currentApp.icon_url} 
-                      alt={currentApp.name} 
+                      alt={currentApp?.name || 'App'} 
                       className="w-12 h-12 rounded-xl object-contain shadow-xs bg-white dark:bg-slate-800 shrink-0" 
                     />
                   ) : (
@@ -1554,9 +1564,9 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
                   </div>
                 </div>
                 <div className="text-right font-mono font-bold text-blue-600 dark:text-blue-300 text-sm shrink-0 flex flex-col items-end">
-                  <span>{bulkCategory === 'all' ? appsList.length : appsList.filter(a => a.category?.includes(bulkCategory)).length} Target Apps</span>
+                  <span>{bulkCategory === 'all' ? (appsList || []).length : (appsList || []).filter(a => a?.category?.includes(bulkCategory)).length} Target Apps</span>
                   <span className="text-[11px] text-blue-500 dark:text-blue-400 font-medium tracking-tight">
-                    ~ {(bulkCategory === 'all' ? appsList : appsList.filter(a => a.category?.includes(bulkCategory))).reduce((sum, app) => sum + (appProfiles[app.id || app.slug]?.singleCount || bulkCountPerApp), 0)} Total Reviews
+                    ~ {(bulkCategory === 'all' ? (appsList || []) : (appsList || []).filter(a => a?.category?.includes(bulkCategory))).reduce((sum, app) => sum + (appProfiles[app?.id || app?.slug || '']?.singleCount || bulkCountPerApp), 0)} Total Reviews
                   </span>
                 </div>
               </div>

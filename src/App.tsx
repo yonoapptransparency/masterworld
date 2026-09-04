@@ -12,16 +12,31 @@ import { lazyWithRetry } from './lib/lazyWithRetry';
 import './index.css';
 
 // Error Boundary component for robust UI
-class ErrorBoundary extends React.Component<any, any> {
-  state = { hasError: false };
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error?: any }> {
+  state: { hasError: boolean; error?: any } = { hasError: false };
   constructor(props: any) {
     super(props);
     this.state = { hasError: false };
   }
-  static getDerivedStateFromError() { return { hasError: true }; }
+  static getDerivedStateFromError(error: any) { return { hasError: true, error }; }
   componentDidCatch(error: any, errorInfo: any) { console.error("Admin Load Error:", error, errorInfo); }
   render() {
-    if (this.state.hasError) return this.props.fallback;
+    if (this.state.hasError) {
+      return (
+        <div className="p-8 max-w-lg mx-auto my-16 bg-white dark:bg-slate-900 border border-red-200 dark:border-red-900/50 rounded-2xl shadow-sm text-center space-y-3">
+          <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-950/50 text-red-600 flex items-center justify-center mx-auto text-lg font-bold">!</div>
+          <h2 className="text-base font-bold text-slate-900 dark:text-white">Admin Panel Notice</h2>
+          <p className="text-xs text-slate-500 break-words">{this.state.error?.message || this.state.error?.toString() || "An unexpected error occurred while loading this view."}</p>
+          <button 
+            type="button"
+            onClick={() => { this.setState({ hasError: false, error: null }); window.location.reload(); }} 
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow cursor-pointer transition-all"
+          >
+            Reload Admin
+          </button>
+        </div>
+      );
+    }
     return this.props.children;
   }
 }
@@ -116,9 +131,9 @@ function AppContent() {
         <Suspense fallback={<LoadingScreen />}>
           <Routes location={location}>
             <Route path="/" element={<Navigate to={`/${adminPath}/login`} replace />} />
-            <Route path={`/${adminPath}`} element={<ErrorBoundary fallback={<LoadingScreen />}><AdminLoginPageLazy /></ErrorBoundary>} />
-            <Route path={`/${adminPath}/login`} element={<ErrorBoundary fallback={<LoadingScreen />}><AdminLoginPageLazy /></ErrorBoundary>} />
-            <Route path={`/${adminPath}/*`} element={<ErrorBoundary fallback={<LoadingScreen />}><AdminDashboard /></ErrorBoundary>} />
+            <Route path={`/${adminPath}`} element={<ErrorBoundary><AdminLoginPageLazy /></ErrorBoundary>} />
+            <Route path={`/${adminPath}/login`} element={<ErrorBoundary><AdminLoginPageLazy /></ErrorBoundary>} />
+            <Route path={`/${adminPath}/*`} element={<ErrorBoundary><AdminDashboard /></ErrorBoundary>} />
             <Route path="*" element={<Navigate to={`/${adminPath}/login`} replace />} />
           </Routes>
         </Suspense>

@@ -2,7 +2,7 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { safeEncrypt, safeDecrypt, getAesSecret } from '../crypto';
-import { getFirebaseAdminDb, getRawFirebaseConfig, writeFirestoreRestDoc, readFirestoreRestDoc, deleteFirestoreRestDoc, getAdminSdkDiagnostics } from '../firebase';
+import { getFirebaseAdminDb, adminDbGetWithTimeout, adminDbSetWithTimeout, getRawFirebaseConfig, writeFirestoreRestDoc, readFirestoreRestDoc, deleteFirestoreRestDoc, getAdminSdkDiagnostics } from '../firebase';
 import { verifyAdminToken } from '../middleware/adminAuth';
 import { rateLimit, getIp } from '../security';
 import { clearResolvedLinkCache } from './securityRoutes';

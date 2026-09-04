@@ -54,7 +54,13 @@ export const lazyWithRetry = <T extends ComponentType<any>>(
         } catch (e) {
           window.location.reload();
         }
-        return new Promise<{ default: T }>(() => {}); // Prevent throwing into ErrorBoundary while browser reloads
+        // In iframe or sandboxed environments, window.location.reload() can be blocked or delayed.
+        // Reject after 3 seconds so the app doesn't hang on an infinite loading spinner.
+        return new Promise<{ default: T }>((_, reject) => {
+          setTimeout(() => {
+            reject(new Error(`Module load timed out: ${errorMsg}. Please refresh the page.`));
+          }, 3000);
+        });
       }
       throw error;
     }
