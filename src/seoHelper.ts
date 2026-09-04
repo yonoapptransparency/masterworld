@@ -889,6 +889,9 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   const escapedSiteTitle = escapeHtml(siteTitle);
   const escapedKeywords = escapeHtml(keywords);
 
+  const ogImageWidth = pageOgImage.includes('w_600') ? '600' : '1200';
+  const ogImageHeight = pageOgImage.includes('w_600') ? '600' : '630';
+
   const seoTags = `
     <title>${escapedTitle}</title>
     <meta name="description" content="${escapedDesc}">
@@ -905,8 +908,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     <meta data-rh="true" property="og:image" content="${pageOgImage}">
     <meta data-rh="true" property="og:image:secure_url" content="${pageOgImage}">
     <meta data-rh="true" property="og:image:type" content="${pageOgImage.includes('.jpg') || pageOgImage.includes('f_jpg') ? 'image/jpeg' : 'image/png'}">
-    <meta data-rh="true" property="og:image:width" content="1200">
-    <meta data-rh="true" property="og:image:height" content="630">
+    <meta data-rh="true" property="og:image:width" content="${ogImageWidth}">
+    <meta data-rh="true" property="og:image:height" content="${ogImageHeight}">
     <meta data-rh="true" name="twitter:card" content="summary_large_image">
     <meta data-rh="true" name="twitter:site" content="@RummyDex">
     <meta data-rh="true" name="twitter:creator" content="@RummyDex">

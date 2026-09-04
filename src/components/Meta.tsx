@@ -154,8 +154,10 @@ const Meta: React.FC<MetaProps> = ({
     setMetaTag('property', 'og:image', metaImage);
     setMetaTag('property', 'og:image:secure_url', metaImage);
     setMetaTag('property', 'og:image:type', metaImage.includes('.jpg') || metaImage.includes('f_jpg') ? 'image/jpeg' : 'image/png');
-    setMetaTag('property', 'og:image:width', '1200');
-    setMetaTag('property', 'og:image:height', '630');
+    const ogWidth = metaImage.includes('w_600') ? '600' : '1200';
+    const ogHeight = metaImage.includes('w_600') ? '600' : '630';
+    setMetaTag('property', 'og:image:width', ogWidth);
+    setMetaTag('property', 'og:image:height', ogHeight);
     setMetaTag('property', 'og:site_name', siteTitle);
     setMetaTag('property', 'og:locale', 'en_IN');
 
