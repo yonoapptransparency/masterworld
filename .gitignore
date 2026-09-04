@@ -18,4 +18,3 @@ mock-2fa-state.json
 community_local_backup.json*
 *.tmp
 api_temp.ts
-api/index.js
