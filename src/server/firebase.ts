@@ -381,7 +381,13 @@ export async function writeFirestoreRestDoc(docId: string, data: any, authToken?
     let targetProjectId = config.projectId;
     let targetApiKey = config.apiKey;
     let dbId = (config.firestoreDatabaseId || config.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a');
-    if (collectionPath === 'reviews' || collectionPath === 'reports' || collectionPath === 'community_store') {
+    const isCommunity = collectionPath === 'reviews' || 
+      collectionPath === 'reports' || 
+      collectionPath === 'community_store' || 
+      collectionPath.startsWith('community_') || 
+      docId.startsWith('community_') || 
+      docId.startsWith('rev_');
+    if (isCommunity) {
       targetProjectId = 'rummydexcommunity';
       targetApiKey = process.env.COMMUNITY_FIREBASE_API_KEY || 'AIzaSyBey9sUbeWrcXS2kl4ewOzkTy4arg03Ok';
       dbId = '(default)';
@@ -433,7 +439,13 @@ export async function deleteFirestoreRestDoc(docId: string, authToken?: string, 
     let targetProjectId = config.projectId;
     let targetApiKey = config.apiKey;
     let dbId = (config.firestoreDatabaseId || config.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a');
-    if (collectionPath === 'reviews' || collectionPath === 'reports' || collectionPath === 'community_store') {
+    const isCommunity = collectionPath === 'reviews' || 
+      collectionPath === 'reports' || 
+      collectionPath === 'community_store' || 
+      collectionPath.startsWith('community_') || 
+      docId.startsWith('community_') || 
+      docId.startsWith('rev_');
+    if (isCommunity) {
       targetProjectId = 'rummydexcommunity';
       targetApiKey = process.env.COMMUNITY_FIREBASE_API_KEY || 'AIzaSyBey9sUbeWrcXS2kl4ewOzkTy4arg03Ok';
       dbId = '(default)';
@@ -465,7 +477,13 @@ export async function readFirestoreRestDoc(docId: string, authToken?: string, co
     let targetProjectId = config.projectId;
     let targetApiKey = config.apiKey;
     let dbId = (config.firestoreDatabaseId || config.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a');
-    if (collectionPath === 'reviews' || collectionPath === 'reports' || collectionPath === 'community_store') {
+    const isCommunity = collectionPath === 'reviews' || 
+      collectionPath === 'reports' || 
+      collectionPath === 'community_store' || 
+      collectionPath.startsWith('community_') || 
+      docId.startsWith('community_') || 
+      docId.startsWith('rev_');
+    if (isCommunity) {
       targetProjectId = 'rummydexcommunity';
       targetApiKey = process.env.COMMUNITY_FIREBASE_API_KEY || 'AIzaSyBey9sUbeWrcXS2kl4ewOzkTy4arg03Ok';
       dbId = '(default)';
@@ -474,11 +492,6 @@ export async function readFirestoreRestDoc(docId: string, authToken?: string, co
     const url = `https://firestore.googleapis.com/v1/projects/${targetProjectId}/databases/${dbId}/documents/${collectionPath}/${docId}${finalApiKeyParam}`;
 
     const headers: Record<string, string> = {};
-    // Do NOT pass custom Express JWTs to Google Firestore REST API (causes 401 Unauthenticated)
-    // if (authToken && authToken.startsWith('Bearer ey')) {
-    //   headers['Authorization'] = authToken;
-    // }
-
     const res = await fetch(url, { headers });
     if (!res.ok) {
       return null;
@@ -500,38 +513,53 @@ export async function readFirestoreRestCollection(collectionPath: string, authTo
     let targetProjectId = config.projectId;
     let targetApiKey = config.apiKey;
     let dbId = (config.firestoreDatabaseId || config.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a');
-    if (collectionPath === 'reviews' || collectionPath === 'reports' || collectionPath === 'community_store') {
+    const isCommunity = collectionPath === 'reviews' || 
+      collectionPath === 'reports' || 
+      collectionPath === 'community_store' || 
+      collectionPath.startsWith('community_');
+    if (isCommunity) {
       targetProjectId = 'rummydexcommunity';
       targetApiKey = process.env.COMMUNITY_FIREBASE_API_KEY || 'AIzaSyBey9sUbeWrcXS2kl4ewOzkTy4arg03Ok';
       dbId = '(default)';
     }
-    const finalApiKeyParam = targetApiKey ? `?key=${targetApiKey}` : '';
-    const connector = finalApiKeyParam ? '&' : '?';
-    const url = `https://firestore.googleapis.com/v1/projects/${targetProjectId}/databases/${dbId}/documents/${collectionPath}${finalApiKeyParam}${connector}pageSize=1000`;
-  
 
     const headers: Record<string, string> = {};
     if (authToken && authToken.trim() !== '') {
       headers['Authorization'] = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`;
     }
 
-    const res = await fetch(url, { headers });
-    if (!res.ok) {
-      if (res.status === 403 || res.status === 404) {
-        // Suppress noisy warnings for unpopulated or restricted collections
-        return [];
-      }
-      console.warn(`[SERVER] readFirestoreRestCollection failed for ${collectionPath} (HTTP ${res.status})`);
-      return [];
-    }
+    const allDocuments: any[] = [];
+    let pageToken = '';
+    let pageCount = 0;
+    const maxPages = 20; // Support up to 20,000 items safely
 
-    const data = await res.json();
-    const documents = data.documents || [];
-    
-    return documents.map((doc: any) => {
-      const id = doc.name.split('/').pop();
-      return { id, ...parseFirestoreFields(doc.fields) };
-    });
+    do {
+      pageCount++;
+      const queryParams: string[] = ['pageSize=1000'];
+      if (targetApiKey) queryParams.push(`key=${encodeURIComponent(targetApiKey)}`);
+      if (pageToken) queryParams.push(`pageToken=${encodeURIComponent(pageToken)}`);
+
+      const url = `https://firestore.googleapis.com/v1/projects/${targetProjectId}/databases/${dbId}/documents/${collectionPath}?${queryParams.join('&')}`;
+      const res = await fetch(url, { headers });
+      if (!res.ok) {
+        if (res.status === 403 || res.status === 404) {
+          return allDocuments;
+        }
+        console.warn(`[SERVER] readFirestoreRestCollection failed for ${collectionPath} page ${pageCount} (HTTP ${res.status})`);
+        break;
+      }
+
+      const data = await res.json();
+      const documents = data.documents || [];
+      for (const doc of documents) {
+        const id = doc.name.split('/').pop();
+        allDocuments.push({ id, ...parseFirestoreFields(doc.fields) });
+      }
+
+      pageToken = data.nextPageToken || '';
+    } while (pageToken && pageCount < maxPages);
+
+    return allDocuments;
   } catch (err) {
     console.error(`[SERVER] readFirestoreRestCollection exception for ${collectionPath}:`, err);
     return [];

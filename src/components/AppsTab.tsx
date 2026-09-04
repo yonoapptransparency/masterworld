@@ -4,7 +4,9 @@ import {
   Plus, 
   RefreshCw, 
   ChevronRight, 
-  Search
+  Search,
+  Globe,
+  Lock
 } from 'lucide-react';
 import { useAppForm } from '../hooks/useAppForm';
 import { useAppFilters } from '../hooks/useAppFilters';
@@ -12,7 +14,7 @@ import { AppForm } from './admin/apps/AppForm';
 import { AppInspector } from './admin/apps/AppInspector';
 
 // Main AppsTab Component
-const AppsTab = React.memo(({ appsList, editingAppId, setEditingAppId, handleDeleteApp, handleSaveApp, categories, saving }: any) => {
+const AppsTab = React.memo(({ appsList, editingAppId, setEditingAppId, handleDeleteApp, handleSaveApp, categories, saving, handleTogglePublicSync }: any) => {
   const editApp = editingAppId ? appsList.find((a: any) => a.id === editingAppId) : null;
   const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
 
@@ -44,6 +46,8 @@ const AppsTab = React.memo(({ appsList, editingAppId, setEditingAppId, handleDel
 
   // Stats Counters
   const totalAppsCount = appsList.length;
+  const syncedCount = appsList.filter((a: any) => a.sync_to_public !== false).length;
+  const adminOnlyCount = appsList.filter((a: any) => a.sync_to_public === false).length;
   const verifiedCount = appsList.filter((a: any) => a.safety_status === 'Verified').length;
   const cautionCount = appsList.filter((a: any) => a.safety_status === 'Caution').length;
   const unsafeCount = appsList.filter((a: any) => a.safety_status === 'Unsafe').length;
@@ -53,13 +57,15 @@ const AppsTab = React.memo(({ appsList, editingAppId, setEditingAppId, handleDel
   return (
     <div className="animate-fade-in space-y-6">
       {/* Metrics Row at the Top */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
         {[
           { id: 'all', label: 'All Catalog', count: totalAppsCount, color: 'blue' },
+          { id: 'synced', label: '🌐 Live Web', count: syncedCount, color: 'emerald' },
+          { id: 'admin_only', label: '🔒 Admin Only', count: adminOnlyCount, color: 'amber' },
           { id: 'Verified', label: '🟢 Verified', count: verifiedCount, color: 'emerald' },
           { id: 'Caution', label: '🟡 Caution', count: cautionCount, color: 'amber' },
           { id: 'Unsafe', label: '🔴 Unsafe', count: unsafeCount, color: 'rose' },
-          { id: 'is_new', label: '🔥 New Badges', count: newCount, color: 'blue' },
+          { id: 'is_new', label: '🔥 New Tag', count: newCount, color: 'blue' },
           { id: 'is_coming_soon', label: '⏳ Soon', count: soonCount, color: 'indigo' },
         ].map((stat) => (
           <button 
@@ -217,6 +223,16 @@ const AppsTab = React.memo(({ appsList, editingAppId, setEditingAppId, handleDel
                         </p>
 
                         <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                          {app.sync_to_public === false ? (
+                            <span className="bg-amber-100/80 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800/60 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider flex items-center gap-0.5">
+                              <Lock className="w-2.5 h-2.5" /> DRAFT
+                            </span>
+                          ) : (
+                            <span className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-900/30 px-1 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider flex items-center gap-0.5">
+                              <Globe className="w-2.5 h-2.5" /> LIVE
+                            </span>
+                          )}
+
                           <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium leading-none ${
                             app.safety_status === 'Verified' 
                               ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-900/30' 
@@ -285,6 +301,7 @@ const AppsTab = React.memo(({ appsList, editingAppId, setEditingAppId, handleDel
               setEditingAppId={setEditingAppId}
               setActiveFormTab={setActiveFormTab}
               handleDeleteApp={handleDeleteApp}
+              handleTogglePublicSync={handleTogglePublicSync}
             />
           )}
         </div>

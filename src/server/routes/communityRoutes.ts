@@ -465,7 +465,7 @@ communityRouter.post("/api/v1/admin/community/ai-generate/single", verifyAdminTo
     const numCount = Math.max(1, Math.min(50, Number(count) || 5));
     const numTargetScore = Math.max(1.0, Math.min(5.0, Number(targetScore) || 4.8));
 
-    const generatedReviews = await generateAIReviewsForApp(targetApp, {
+    const result: any = await generateAIReviewsForApp(targetApp, {
       count: numCount,
       targetScore: numTargetScore,
       starMix,
@@ -473,6 +473,8 @@ communityRouter.post("/api/v1/admin/community/ai-generate/single", verifyAdminTo
       customPrompt,
       mode
     });
+
+    const generatedReviews = Array.isArray(result) ? result : (result.reviews || []);
 
     if (saveDirectly) {
       const saved = await communityStore.addMultipleReviews(generatedReviews);
@@ -488,7 +490,13 @@ communityRouter.post("/api/v1/admin/community/ai-generate/single", verifyAdminTo
       success: true,
       message: `Generated ${generatedReviews.length} AI reviews for review & staging.`,
       reviews: generatedReviews,
-      count: generatedReviews.length
+      count: generatedReviews.length,
+      mode: result.mode || mode,
+      modelUsed: result.modelUsed || (mode === 'research' ? 'gemini-2.5-flash' : 'gemini-2.5-pro'),
+      searchQueries: result.searchQueries || [],
+      groundedSources: result.groundedSources || [],
+      searchStatus: result.searchStatus || (mode === 'research' ? 'Live Web Search Active' : 'Dossier Analyzed'),
+      dossierHighlights: result.dossierHighlights || []
     });
   } catch (err: any) {
     console.error("AI Single Review Gen Error:", err);
@@ -561,7 +569,7 @@ communityRouter.post("/api/v1/admin/community/ai-generate/bulk", verifyAdminToke
           appTargetScore = Math.max(1.0, Math.min(5.0, Number(app.rating)));
         }
 
-        const appReviews = await generateAIReviewsForApp(app, {
+        const appResult: any = await generateAIReviewsForApp(app, {
           count: appCount,
           targetScore: appTargetScore,
           starMix: appStarMix,
@@ -570,6 +578,7 @@ communityRouter.post("/api/v1/admin/community/ai-generate/bulk", verifyAdminToke
           mode
         });
 
+        const appReviews = Array.isArray(appResult) ? appResult : (appResult?.reviews || []);
         allGeneratedReviews.push(...appReviews);
       } catch (appErr) {
         console.warn(`[Bulk Gen] Error generating for app ${app.name || app.id}:`, appErr);
@@ -597,7 +606,7 @@ communityRouter.get("/api/v1/admin/ai-status", verifyAdminToken, async (req: any
   if (!apiKey || apiKey.trim() === "") {
     return res.json({
       configured: false,
-      model: "gemini-3.7-flash",
+      model: "gemini-2.5-flash",
       status: "unconfigured",
       message: "GEMINI_API_KEY is not configured."
     });
@@ -607,16 +616,21 @@ communityRouter.get("/api/v1/admin/ai-status", verifyAdminToken, async (req: any
     const { GoogleGenAI } = require("@google/genai");
     const ai = new GoogleGenAI({ apiKey, httpOptions: { headers: { "User-Agent": "aistudio-build" } } });
     
-    // Quick test ping
-    const testRes = await ai.models.generateContent({
-      model: "gemini-3.7-flash",
+    // Quick test ping with 4-second timeout to avoid any hang
+    const testPingPromise = ai.models.generateContent({
+      model: "gemini-2.5-flash",
       contents: "Reply with the single word: OK",
     });
 
-    const text = testRes.text?.trim() || "";
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error("Gemini API test ping timed out (4s)")), 4000)
+    );
+
+    const testRes: any = await Promise.race([testPingPromise, timeoutPromise]);
+    const text = testRes?.text?.trim() || "";
     return res.json({
       configured: true,
-      model: "gemini-3.7-flash",
+      model: "gemini-2.5-flash",
       status: "online",
       message: "Gemini API is online, active, and responding successfully.",
       responseSnippet: text
@@ -626,9 +640,9 @@ communityRouter.get("/api/v1/admin/ai-status", verifyAdminToken, async (req: any
     const isQuota = errStr.includes("resource_exhausted") || errStr.includes("429") || errStr.includes("quota");
     return res.json({
       configured: true,
-      model: "gemini-3.7-flash",
+      model: "gemini-2.5-flash",
       status: isQuota ? "quota_exhausted" : "error",
-      message: isQuota ? "Gemini API Quota Exhausted / Rate Limit Exceeded. (Fallback contextual generator active)." : `Gemini API Error: ${errStr}`
+      message: isQuota ? "Gemini API Quota Exhausted / Rate Limit Exceeded. (Fallback contextual generator active)." : `Gemini API: ${errStr}`
     });
   }
 });

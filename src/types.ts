@@ -104,6 +104,7 @@ export interface NewsItem {
   is_breaking?: boolean;
   is_new?: boolean;
   is_pinned?: boolean;
+  sync_to_public?: boolean;
 }
 
 export interface AppConfig {
@@ -151,6 +152,7 @@ export interface AppConfig {
   url?: string;
   encrypted_download_url?: string;
   download_url?: string;
+  sync_to_public?: boolean;
 }
 
 export interface Review {

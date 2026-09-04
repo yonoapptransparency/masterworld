@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { getCommunityAdminDb, writeFirestoreRestDoc, deleteFirestoreRestDoc, readFirestoreRestCollection, parseFirestoreFields, getRawFirebaseConfig } from '../firebase';
+import { getCommunityAdminDb, writeFirestoreRestDoc, readFirestoreRestDoc, deleteFirestoreRestDoc, readFirestoreRestCollection, parseFirestoreFields, getRawFirebaseConfig } from '../firebase';
 import { getStaticData } from '../config';
 import { STATIC_COMMUNITY_REVIEWS } from '../../lib/communityReviewsData';
 
@@ -269,8 +269,8 @@ class CommunityStoreService {
       if (db) {
         // Load reviews
         try {
-          // Drastically reduce quota: only fetch recent reviews
-          const fetchLimit = forceSync ? 50 : 500;
+          // Fetch reviews up to 10,000 to ensure full historical catalog is loaded without 500 limit
+          const fetchLimit = forceSync ? 5000 : 10000;
           const snap = await db.collection('reviews').orderBy('timestamp', 'desc').limit(fetchLimit).get();
           snap.docs.forEach((doc: any) => {
             const d = doc.data();
@@ -429,35 +429,48 @@ class CommunityStoreService {
         }
       }
       
-      // Fallback REST doc check for community_store
-      const config = getRawFirebaseConfig();
-      if (config?.projectId) {
-        const dbId = config.firestoreDatabaseId || config.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
-        const apiKeyParam = config.apiKey ? `?key=${encodeURIComponent(config.apiKey)}` : '';
-        const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${dbId}/documents/store_data/community_store${apiKeyParam}`;
-        try {
-          const res = await fetch(url);
-          if (res.ok) {
-            const json = await res.json();
-            if (json?.fields) {
-              const parsed = parseFirestoreFields(json.fields);
-              if (parsed?.reviews && Array.isArray(parsed.reviews)) {
-                parsed.reviews.forEach((r: ReviewRecord) => {
-                  if (r?.id && !this.reviews.has(r.id)) {
-                    r.reviewText = sanitizeReviewText(r.reviewText);
+      // Restore chunked Firestore documents to ensure 1,000+ reviews load completely
+      try {
+        const metaDoc = await readFirestoreRestDoc('community_store_meta', undefined, 'community_store');
+        if (metaDoc && metaDoc.chunks_count) {
+          const numChunks = Math.min(40, Number(metaDoc.chunks_count) || 1);
+          for (let i = 0; i < numChunks; i++) {
+            const chunkDoc = await readFirestoreRestDoc(`community_reviews_chunk_${i}`, undefined, 'community_store');
+            if (chunkDoc?.reviews && Array.isArray(chunkDoc.reviews)) {
+              chunkDoc.reviews.forEach((r: ReviewRecord) => {
+                if (r?.id) {
+                  const existing = this.reviews.get(r.id);
+                  if (!existing || (r.updated_at && (!existing.updated_at || new Date(r.updated_at).getTime() > new Date(existing.updated_at).getTime()))) {
+                    r.reviewText = sanitizeReviewText(r.reviewText, r.appName);
                     this.reviews.set(r.id, r);
                   }
-                });
-              }
-              if (parsed?.reports && Array.isArray(parsed.reports)) {
-                parsed.reports.forEach((rep: ReportRecord) => {
-                  if (rep?.id && !this.reports.has(rep.id)) this.reports.set(rep.id, rep);
-                });
-              }
+                }
+              });
             }
           }
-        } catch (e) {}
+        }
+      } catch (chunkErr) {
+        console.warn('[CommunityStore] Chunked restore notice:', chunkErr);
       }
+
+      // Fallback REST doc check for legacy community_store
+      try {
+        const legacyDoc = await readFirestoreRestDoc('community_store', undefined, 'community_store');
+        if (legacyDoc?.reviews && Array.isArray(legacyDoc.reviews)) {
+          legacyDoc.reviews.forEach((r: ReviewRecord) => {
+            if (r?.id && !this.reviews.has(r.id)) {
+              r.reviewText = sanitizeReviewText(r.reviewText, r.appName);
+              this.reviews.set(r.id, r);
+            }
+          });
+        }
+        if (legacyDoc?.reports && Array.isArray(legacyDoc.reports)) {
+          legacyDoc.reports.forEach((rep: ReportRecord) => {
+            if (rep?.id && !this.reports.has(rep.id)) this.reports.set(rep.id, rep);
+          });
+        }
+      } catch (e) {}
+
       if (!this.initialized && !forceSync) {
         console.log(`[CommunityStore] Firestore sync complete: ${this.reviews.size} reviews, ${this.reports.size} reports.`);
       }
@@ -471,19 +484,49 @@ class CommunityStoreService {
     }
   }
 
-  // Backup write to Firestore
+  // Backup write to Firestore with automatic chunking to safely support 10,000+ reviews without hitting 1MB document limit
   public async syncAllToFirestore() {
     try {
       const allReviews = Array.from(this.reviews.values());
-      const data = {
-        reviews: allReviews,
-        reports: Array.from(this.reports.values()),
-        count_reviews: allReviews.length,
-        count_reports: this.reports.size,
+      const allReports = Array.from(this.reports.values());
+      const CHUNK_SIZE = 250; // ~120KB per chunk, safely below 1MB Firestore document limit
+      const numChunks = Math.max(1, Math.ceil(allReviews.length / CHUNK_SIZE));
+
+      // 1. Write chunked metadata manifest
+      const metaData = {
+        total_reviews: allReviews.length,
+        total_reports: allReports.length,
+        chunks_count: numChunks,
+        chunk_size: CHUNK_SIZE,
+        reports: allReports,
         updated_at: new Date().toISOString()
       };
-      await writeFirestoreRestDoc('community_store', data, undefined, true);
-    } catch (e) {}
+      await writeFirestoreRestDoc('community_store_meta', metaData, undefined, true, 'community_store');
+
+      // 2. Write individual review chunks
+      for (let i = 0; i < numChunks; i++) {
+        const chunk = allReviews.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+        await writeFirestoreRestDoc(`community_reviews_chunk_${i}`, {
+          chunk_index: i,
+          reviews: chunk,
+          count: chunk.length,
+          updated_at: new Date().toISOString()
+        }, undefined, true, 'community_store');
+      }
+
+      // Also maintain legacy community_store with recent reviews for backward compatibility
+      if (allReviews.length <= 400) {
+        await writeFirestoreRestDoc('community_store', {
+          reviews: allReviews,
+          reports: allReports,
+          count_reviews: allReviews.length,
+          count_reports: allReports.length,
+          updated_at: new Date().toISOString()
+        }, undefined, true, 'community_store');
+      }
+    } catch (e: any) {
+      console.warn('[CommunityStore] Chunked sync to Firestore notice:', e?.message || e);
+    }
   }
 
   // ==========================================

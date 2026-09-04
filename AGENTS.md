@@ -281,3 +281,65 @@ Ensure any newly created files strictly follow repo-isolation boundaries:
 > - The community database (reviews) uses a separate Firebase account and is exempt from this rule, but for main catalog data, Firebase is strictly banned from the public website!
 > 
 > **ANY AI THAT CONNECTS THE PUBLIC WEBSITE TO THE MAIN FIREBASE WILL BREAK THE SYSTEM ARCHITECTURE AND CAUSE READ QUOTA EXHAUSTION.**
+
+---
+
+## 13. Dual-Brain AI Review Studio Architecture & Workflow
+
+The **Admin AI Review Studio** (`src/components/admin/AdminAIReviewStudioTab.tsx`) uses two distinct AI generation brains, each powered by specific models and operational pipelines, backed by a human-in-the-loop staging workspace and a high-volume Firestore storage engine.
+
+### 1. The Two Reviewers & Their AI Models
+
+#### Reviewer 1: Brain 1 — Deep Admin Dossier Engine
+- **Primary AI Model**: `gemini-2.5-pro` (Gemini's flagship deep comprehension and reasoning model with a 1,000,000+ token context window).
+- **Fallback Models**: Gracefully cascades to `gemini-3.8-flash` and `gemini-2.5-flash` if rate limits or transient errors occur.
+- **Service & Implementation**: `src/server/services/aiReviewGeneratorService.ts` (`generateAIReviewsForApp`, `mode: 'local'`).
+- **Data Fed to AI**: The AI receives the **complete internal Admin database dossier** for the selected app:
+  - App name, package ID, version, file size, developer name, and benchmark rating.
+  - Complete raw HTML description (`description_html`) and feature breakdown (`features_html`).
+  - Custom Admin notices (`custom_admin_box_html` & `custom_admin_box_heading`).
+  - Yellow highlight callout box (`yellow_box_msg`).
+  - Red critical warning/safety box (`red_box_msg`).
+  - Idea/tips box (`idea_box_msg`).
+  - All Frequently Asked Questions (`faqs` Q&A pairs).
+  - Release notes & what's new history (`release_notes`).
+- **Comprehension & Anti-Repetition Mandate**: Brain 1 analyzes this full content to extract real game mechanics (Points, Deals, Pool, 10/13/21 card modes, table timers, card sorting, discard piles, battery optimization, network stability). It roleplays authentic Indian player personas with varying comment lengths (from 2-word slang like *"Mast app"* up to 3 sentences of detailed feedback), natural Hinglish expressions, and distinct feature focus so that no two reviews ever sound identical.
+
+#### Reviewer 2: Brain 2 — Live Internet Web Researcher
+- **Primary AI Model**: `gemini-2.5-flash` equipped with **Google Search Grounding** (`tools: [{ googleSearch: {} }]`).
+- **Fallback Model**: `gemini-3.8-flash`.
+- **API Key Routing**: Uses `GEMINI_RESEARCH_API_KEY` (or falls back to `GEMINI_API_KEY`).
+- **Service & Implementation**: `src/server/services/aiReviewGeneratorService.ts` (`generateAIReviewsForApp`, `mode: 'research'`).
+- **Workflow & Live Grounding**:
+  1. Executes real-time Google Search queries targeting Google Play Store user reviews, Reddit card game discussions, and community forums for the app.
+  2. Synthesizes authentic player feedback, complaints, bug reports, and praise reflecting actual live internet sentiment.
+  3. Returns telemetry metadata including exact search queries executed (`webSearchQueries`) and live cited source URLs (`groundingChunks`) visible directly in the admin dashboard.
+
+---
+
+### 2. Staging & Manual Review Workflow (Human-in-the-Loop)
+
+**Reviews are NEVER auto-saved blindly to the live database.** The workflow strictly follows these steps:
+
+1. **Generation Step**: Admin selects an app, picks the Reviewer Brain (Dossier vs. Live Web), configures count (1–50) and target score, and clicks **Generate**.
+2. **Staging Display**: Reviews are returned to the client and rendered in the **Staged Reviews Workspace** placed directly below the generation controls. The UI automatically scrolls smoothly to this section.
+3. **Inspection & Editing**:
+   - Each review card displays the generated user name, star rating, text, and timestamp.
+   - Admin can edit the star rating or review text directly inside the card before saving.
+4. **Action Controls**:
+   - **Save Review (Single)**: Publishes that specific individual review to the database and removes it from staging.
+   - **Discard (Trash)**: Removes that individual review from staging without saving.
+   - **Publish All Staged**: Publishes all currently staged reviews in one batch to the database.
+   - **Discard All**: Clears the staging workspace completely.
+
+---
+
+### 3. High-Capacity Firestore Storage Engine (10,000+ Reviews)
+
+The backend (`src/server/services/communityStoreService.ts` and `src/server/firebase.ts`) is architected to safely store and serve tens of thousands of reviews without hitting Firestore constraints:
+
+- **Bypassing Document Size Limits (1MB)**: A single Firestore document cannot exceed 1MB (~600 reviews). The system writes chunked documents (`community_reviews_chunk_0`, `community_reviews_chunk_1`, etc.) containing 250 reviews each (~120KB per chunk) along with a metadata manifest (`community_store_meta`).
+- **Bypassing 1,000-Document Pagination Limits**: The REST reader (`readFirestoreRestCollection`) and Admin SDK readers automatically follow `nextPageToken` in a loop across up to 20 pages (20,000 records), ensuring that reviews beyond 1,000 are never truncated or lost.
+- **Dedicated Community Database**: All community review and report operations route to the isolated `rummydexcommunity` Firestore project (database ID `(default)`), completely isolating community review read/write quotas from the main app catalog.
+- **Hard Safety & Sanitization**: Every review passes through `sanitizeReviewText()` on both save and retrieval, strictly purging financial/gambling keywords (cash, withdraw, deposit, bet, rupees, ₹) and transforming them into safe, playstore-compliant skill gaming terminology.
+

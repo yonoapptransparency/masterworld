@@ -7,7 +7,9 @@ import {
   Sparkles, 
   MessageSquare,
   LayoutDashboard,
-  Star
+  Star,
+  Globe,
+  Lock
 } from 'lucide-react';
 import { safeHtml } from '../../../lib/safeHtml';
 
@@ -17,6 +19,7 @@ interface AppInspectorProps {
   setEditingAppId: (id: string | null) => void;
   setActiveFormTab: (tab: any) => void;
   handleDeleteApp: (id: string) => void;
+  handleTogglePublicSync?: (id: string) => Promise<void> | void;
 }
 
 export const AppInspector = ({ 
@@ -24,7 +27,8 @@ export const AppInspector = ({
   setSelectedAppId, 
   setEditingAppId, 
   setActiveFormTab, 
-  handleDeleteApp 
+  handleDeleteApp,
+  handleTogglePublicSync
 }: AppInspectorProps) => {
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
   const [liveStats, setLiveStats] = useState<{ averageRating: number; totalReviews: number } | null>(null);
@@ -91,7 +95,7 @@ export const AppInspector = ({
               Folder: <span className="text-blue-500 dark:text-blue-400 font-semibold">{selectedApp.category}</span>
             </p>
 
-            <div className="flex gap-2 mt-2">
+            <div className="flex flex-wrap gap-2 mt-2">
               <button 
                 type="button"
                 onClick={() => {
@@ -102,6 +106,21 @@ export const AppInspector = ({
               >
                 <Edit2 className="w-3.5 h-3.5" /> Edit Configuration
               </button>
+              {handleTogglePublicSync && (
+                <button 
+                  type="button"
+                  onClick={() => handleTogglePublicSync(selectedApp.id)}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-all border ${
+                    selectedApp.sync_to_public !== false 
+                      ? 'bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+                      : 'bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/20 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800'
+                  }`}
+                  title={selectedApp.sync_to_public !== false ? "Click to set this app to Admin Only (unsynced from public)" : "Click to publish this app to public website"}
+                >
+                  {selectedApp.sync_to_public !== false ? <Globe className="w-3.5 h-3.5 text-emerald-500" /> : <Lock className="w-3.5 h-3.5 text-amber-500" />}
+                  <span>{selectedApp.sync_to_public !== false ? 'Live on Web' : 'Admin Only (Draft)'}</span>
+                </button>
+              )}
               <button 
                 type="button"
                 onClick={() => handleDeleteApp(selectedApp.id)}
@@ -116,6 +135,34 @@ export const AppInspector = ({
 
       {/* Selected App Body Panel (Previews & Detailed Metrics) */}
       <div className="flex-1 overflow-y-auto p-5 sm:p-6 pb-20 space-y-6 custom-scrollbar bg-white dark:bg-slate-900">
+        {/* Sync Status Banner */}
+        {selectedApp.sync_to_public === false ? (
+          <div className="bg-amber-50/80 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800/60 rounded-xl p-3.5 flex items-start gap-3 shadow-xs">
+            <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+            <div className="text-xs text-amber-800 dark:text-amber-300">
+              <div className="font-bold flex items-center gap-1.5">
+                Admin Only Mode (Unsynced)
+                <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-200/60 dark:bg-amber-900/50 text-amber-900 dark:text-amber-200 uppercase font-black tracking-wider">Draft</span>
+              </div>
+              <p className="text-[11px] text-amber-700/90 dark:text-amber-400/90 mt-1 leading-relaxed">
+                This app and all its details stay strictly inside the Admin Panel. When pushing code via GitHub sync, it is completely excluded from the public website, catalog, sitemaps, and search index.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-800/50 rounded-xl p-3.5 flex items-start gap-3 shadow-xs">
+            <Globe className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
+            <div className="text-xs text-emerald-800 dark:text-emerald-300">
+              <div className="font-bold flex items-center gap-1.5">
+                Public Website Sync Active
+                <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-200/60 dark:bg-emerald-900/50 text-emerald-900 dark:text-emerald-200 uppercase font-black tracking-wider">Live</span>
+              </div>
+              <p className="text-[11px] text-emerald-700/90 dark:text-emerald-400/90 mt-1 leading-relaxed">
+                This app is published. Clicking GitHub Sync pushes this app directly to the public website, catalog, and sitemaps.
+              </p>
+            </div>
+          </div>
+        )}
         
         {/* Google SERP Preview simulator */}
         <div className="space-y-2">

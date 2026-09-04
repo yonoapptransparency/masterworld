@@ -10,6 +10,42 @@ interface GeneralSectionProps {
 export const GeneralSection = ({ formFields, handleFieldChange, categories }: GeneralSectionProps) => {
   return (
     <div className="animate-fade-in space-y-5">
+      {/* Public Website Sync Switch */}
+      <div className={`p-4 rounded-xl border transition-all ${formFields.sync_to_public !== false ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-800/50 shadow-xs' : 'bg-amber-50/50 dark:bg-amber-950/20 border-amber-200/80 dark:border-amber-800/50 shadow-xs'}`}>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <span className={`inline-block w-2.5 h-2.5 rounded-full ${formFields.sync_to_public !== false ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+              <span className="font-bold text-slate-900 dark:text-white text-xs sm:text-sm">
+                {formFields.sync_to_public !== false ? 'Sync to Public Website (Published)' : 'Admin Only / Unsynced (Draft)'}
+              </span>
+              <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full border ${
+                formFields.sync_to_public !== false 
+                  ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800' 
+                  : 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800'
+              }`}>
+                {formFields.sync_to_public !== false ? 'Active' : 'Admin Only'}
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
+              {formFields.sync_to_public !== false
+                ? 'When enabled, this app will be pushed to the public website when synchronized, and included in public catalog, sitemaps, and prerendered SEO pages.'
+                : 'When turned off, this app and all its details stay strictly inside the Admin Panel. It will NOT be sent to the public website when pushing code by sync.'}
+            </p>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer select-none shrink-0">
+            <input 
+              type="checkbox" 
+              name="sync_to_public" 
+              checked={formFields.sync_to_public !== false} 
+              onChange={e => handleFieldChange('sync_to_public', e.target.checked)} 
+              className="sr-only peer" 
+            />
+            <div className="w-12 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+          </label>
+        </div>
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">App Name *</label>

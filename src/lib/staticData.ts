@@ -76,6 +76,7 @@ export interface NewsItem {
   date?: string;
   tags?: string[];
   related_app_id?: string;
+  sync_to_public?: boolean;
 }
 
 export interface AppConfig {
@@ -118,6 +119,7 @@ export interface AppConfig {
   is_top_chart?: boolean;
   top_chart_category?: string;
   more_information_url?: string;
+  sync_to_public?: boolean;
 }
 
 export interface Review {

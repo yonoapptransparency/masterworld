@@ -131,9 +131,13 @@ function AppContent() {
         <Suspense fallback={<LoadingScreen />}>
           <Routes location={location}>
             <Route path="/" element={<Navigate to={`/${adminPath}/login`} replace />} />
-            <Route path={`/${adminPath}`} element={<ErrorBoundary><AdminLoginPageLazy /></ErrorBoundary>} />
-            <Route path={`/${adminPath}/login`} element={<ErrorBoundary><AdminLoginPageLazy /></ErrorBoundary>} />
-            <Route path={`/${adminPath}/*`} element={<ErrorBoundary><AdminDashboard /></ErrorBoundary>} />
+            {Array.from(new Set([adminPath, 'admin', 'masterworld'])).map(base => (
+              <React.Fragment key={base}>
+                <Route path={`/${base}`} element={<ErrorBoundary><AdminLoginPageLazy /></ErrorBoundary>} />
+                <Route path={`/${base}/login`} element={<ErrorBoundary><AdminLoginPageLazy /></ErrorBoundary>} />
+                <Route path={`/${base}/*`} element={<ErrorBoundary><AdminDashboard /></ErrorBoundary>} />
+              </React.Fragment>
+            ))}
             <Route path="*" element={<Navigate to={`/${adminPath}/login`} replace />} />
           </Routes>
         </Suspense>

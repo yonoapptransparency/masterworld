@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Newspaper, Plus, Trash2, LayoutDashboard, Edit2, Save, X, CheckCircle2, RefreshCw } from 'lucide-react';
+import { Newspaper, Plus, Trash2, LayoutDashboard, Edit2, Save, X, CheckCircle2, RefreshCw, Globe, Lock } from 'lucide-react';
 import { toast } from '../Toast';
 import ImageUpload from '../ImageUpload';
 
@@ -153,7 +153,49 @@ export const AdminNewsTab = React.memo(({
                   </div>
 
                   {/* Form Grid */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <div className="space-y-6">
+                    {/* Public Website Sync Toggle Card */}
+                    <div className="bg-slate-50 dark:bg-slate-800/80 p-4 rounded-xl border border-slate-200 dark:border-slate-700/80 flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                          item.sync_to_public !== false 
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' 
+                            : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                        }`}>
+                          {item.sync_to_public !== false ? <Globe className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-slate-900 dark:text-white">
+                              Public Website Sync
+                            </span>
+                            <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                              item.sync_to_public !== false
+                                ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800'
+                                : 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-800'
+                            }`}>
+                              {item.sync_to_public !== false ? 'Live on Public' : 'Admin Only (Draft)'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                            {item.sync_to_public !== false 
+                              ? 'This news article will be included when code is pushed/synced to the public website.'
+                              : 'This news article stays strictly inside the Admin Panel and will NOT be pushed to the public website.'}
+                          </p>
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input 
+                          type="checkbox"
+                          checked={item.sync_to_public !== false}
+                          onChange={e => handleNewsChange(item.id, 'sync_to_public', e.target.checked)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-12 h-6 bg-slate-300 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                      </label>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     <div className="space-y-5">
                       <h4 className="font-bold text-sm text-slate-900 dark:text-white border-b border-black/5 dark:border-white/5 pb-2">General Information</h4>
                       <div>
@@ -334,6 +376,7 @@ export const AdminNewsTab = React.memo(({
                       </div>
                     </div>
                   </div>
+                  </div>
 
                   {/* HTML Content Body */}
                   <div className="space-y-3 pt-4 border-t border-black/10 dark:border-white/10">
@@ -389,8 +432,17 @@ export const AdminNewsTab = React.memo(({
                       </div>
                     )}
                     <div>
-                      <h3 className="font-bold text-base dark:text-white flex items-center gap-2">
+                      <h3 className="font-bold text-base dark:text-white flex items-center gap-2 flex-wrap">
                         {item.title || 'Untitled News'}
+                        {item.sync_to_public === false ? (
+                          <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 flex items-center gap-1">
+                            <Lock className="w-2.5 h-2.5" /> Admin Only
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-900/30 flex items-center gap-1">
+                            <Globe className="w-2.5 h-2.5" /> Live
+                          </span>
+                        )}
                         {item.category && (
                           <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                             {item.category}
@@ -413,10 +465,28 @@ export const AdminNewsTab = React.memo(({
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newStatus = !(item.sync_to_public !== false);
+                        handleNewsChange(item.id, 'sync_to_public', newStatus);
+                        const updatedList = newsList.map(n => n.id === item.id ? { ...n, sync_to_public: newStatus } : n);
+                        handleSaveAll(updatedList);
+                      }}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg font-semibold text-xs transition-all border cursor-pointer ${
+                        item.sync_to_public !== false
+                          ? 'bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+                          : 'bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/20 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800'
+                      }`}
+                      title={item.sync_to_public !== false ? "Click to set this news to Admin Only (unsync from public)" : "Click to publish this news to public website"}
+                    >
+                      {item.sync_to_public !== false ? <Globe className="w-3.5 h-3.5 text-emerald-500" /> : <Lock className="w-3.5 h-3.5 text-amber-500" />}
+                      <span>{item.sync_to_public !== false ? 'Live' : 'Admin Only'}</span>
+                    </button>
                     <button
                       onClick={() => setEditingNewsId(item.id)}
-                      className="flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-3.5 py-2 rounded-lg font-semibold text-xs transition-all"
+                      className="flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-3.5 py-2 rounded-lg font-semibold text-xs transition-all cursor-pointer"
                     >
                       <Edit2 className="w-3.5 h-3.5" /> Edit
                     </button>

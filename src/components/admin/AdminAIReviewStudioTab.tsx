@@ -28,7 +28,10 @@ import { Cpu, Globe,
   Terminal,
   Activity,
   Clock,
-  AlertCircle
+  AlertCircle,
+  ExternalLink,
+  FileText,
+  Upload
 } from 'lucide-react';
 import { toast } from '../Toast';
 import { adminFetch } from '../../services/adminAuthService';
@@ -365,6 +368,17 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
   const [stagedReviews, setStagedReviews] = useState<any[]>([]);
   const [generating, setGenerating] = useState(false);
   const [savingStaged, setSavingStaged] = useState(false);
+  const [savingReviewIndex, setSavingReviewIndex] = useState<number | null>(null);
+
+  // Live Research & Grounding Telemetry
+  const [generationTelemetry, setGenerationTelemetry] = useState<{
+    mode: 'local' | 'research';
+    modelUsed?: string;
+    searchQueries?: string[];
+    groundedSources?: Array<{ title: string; url: string; snippet?: string }>;
+    searchStatus?: string;
+    dossierHighlights?: string[];
+  } | null>(null);
 
   // AI Model & Quota Status Check State
   const [aiStatus, setAiStatus] = useState<{ configured: boolean; model: string; status: 'online' | 'quota_exhausted' | 'unconfigured' | 'error'; message: string; responseSnippet?: string } | null>(null);
@@ -418,8 +432,8 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
     return Array.from(cats);
   }, [appsList]);
 
-  // Generate for Single App (Preview/Stage)
-  const handleGenerateSingle = async (instantSave = false) => {
+  // Generate for Single App (Always stage for manual review first)
+  const handleGenerateSingle = async () => {
     if (!currentApp) {
       toast("Please select an app first", "error");
       return;
@@ -437,7 +451,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           targetScore,
           toneFocus,
           customPrompt: customPrompt.trim(),
-          saveDirectly: instantSave,
+          saveDirectly: false, // Never auto-save directly; admin must inspect!
           mode: aiGenerationMode
         })
       });
@@ -445,17 +459,22 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to generate reviews');
 
-      if (instantSave) {
-        toast(`Generated and published ${data.count || singleCount} reviews for ${currentApp.name}!`, "success");
-        setStagedReviews([]);
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('community-review-added', { detail: { appId: currentApp.id, appSlug: currentApp.slug } }));
-        }
-        if (onReviewsGenerated) onReviewsGenerated();
-      } else {
-        setStagedReviews(data.reviews || []);
-        toast(`Generated ${data.reviews?.length || 0} reviews ready for your review!`, "success");
-      }
+      setStagedReviews(data.reviews || []);
+      setGenerationTelemetry({
+        mode: data.mode || aiGenerationMode,
+        modelUsed: data.modelUsed,
+        searchQueries: data.searchQueries || [],
+        groundedSources: data.groundedSources || [],
+        searchStatus: data.searchStatus,
+        dossierHighlights: data.dossierHighlights || []
+      });
+
+      toast(`Synthesized ${data.reviews?.length || 0} reviews! Review them below before publishing.`, "success");
+
+      setTimeout(() => {
+        const el = document.getElementById('staged-reviews-section');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 150);
     } catch (err: any) {
       toast(err.message || "Generation error", "error");
     } finally {
@@ -463,7 +482,63 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
     }
   };
 
-  // Publish Staged Reviews
+  // Save an individual single review from staging
+  const handleSaveIndividualReview = async (index: number) => {
+    const rev = stagedReviews[index];
+    if (!rev || !currentApp) return;
+
+    try {
+      setSavingReviewIndex(index);
+      const res = await adminFetch('/api/v1/admin/community/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          appId: currentApp.id,
+          appSlug: currentApp.slug,
+          appName: currentApp.name,
+          userName: rev.userName,
+          rating: rev.rating,
+          reviewText: rev.reviewText,
+          status: 'published',
+          helpful_count: rev.helpful_count || 0,
+          source: rev.source || (aiGenerationMode === 'research' ? 'live_web_research' : 'ai_generated')
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save review');
+
+      toast(`Saved review by ${rev.userName} to ${currentApp.name}!`, "success");
+      setStagedReviews(prev => prev.filter((_, i) => i !== index));
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('community-review-added', { detail: { appId: currentApp.id, appSlug: currentApp.slug } }));
+      }
+      if (onReviewsGenerated) onReviewsGenerated();
+    } catch (err: any) {
+      toast(err.message || "Failed to save review", "error");
+    } finally {
+      setSavingReviewIndex(null);
+    }
+  };
+
+  // Discard an individual single review from staging
+  const handleDiscardIndividualReview = (index: number) => {
+    const rev = stagedReviews[index];
+    setStagedReviews(prev => prev.filter((_, i) => i !== index));
+    toast(`Discarded review #${index + 1} (${rev?.userName || 'Player'})`, "info");
+  };
+
+  // Discard all staged reviews
+  const handleDiscardAll = () => {
+    if (window.confirm(`Discard all ${stagedReviews.length} staged reviews?`)) {
+      setStagedReviews([]);
+      setGenerationTelemetry(null);
+      toast("All staged reviews discarded.", "info");
+    }
+  };
+
+  // Publish All Staged Reviews
   const handlePublishStaged = async () => {
     if (stagedReviews.length === 0) return;
     try {
@@ -476,7 +551,8 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
         rating: rev.rating,
         reviewText: rev.reviewText,
         status: 'published',
-        helpful_count: rev.helpful_count || 0
+        helpful_count: rev.helpful_count || 0,
+        source: rev.source || (aiGenerationMode === 'research' ? 'live_web_research' : 'ai_generated')
       }));
 
       const res = await adminFetch('/api/v1/admin/community/reviews', {
@@ -487,8 +563,9 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to publish staged reviews');
 
-      toast(`Successfully published ${reviewsToSave.length} reviews to ${currentApp.name}!`, "success");
+      toast(`Successfully published all ${reviewsToSave.length} reviews to ${currentApp.name}!`, "success");
       setStagedReviews([]);
+      setGenerationTelemetry(null);
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('community-review-added', { detail: { appId: currentApp.id, appSlug: currentApp.slug } }));
       }
@@ -1379,71 +1456,183 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
                   </div>
                 </div>
 
-                {/* Action Buttons */}
-                <div className="flex flex-wrap items-center gap-3 pt-2">
+                {/* Action Button */}
+                <div className="pt-2">
                   <button
                     type="button"
-                    onClick={() => handleGenerateSingle(false)}
+                    onClick={handleGenerateSingle}
                     disabled={generating}
-                    className="flex-1 flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md transition-all cursor-pointer"
+                    className="w-full flex items-center justify-center gap-2.5 px-6 py-3.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 disabled:opacity-50 text-white font-black text-xs sm:text-sm rounded-xl shadow-lg hover:shadow-indigo-500/25 transition-all cursor-pointer"
                   >
                     {generating ? (
                       <>
-                        <RefreshCw size={16} className="animate-spin" />
-                        <span>Synthesizing Contextual Reviews...</span>
+                        <RefreshCw size={18} className="animate-spin text-amber-300" />
+                        <span>
+                          {aiGenerationMode === 'research'
+                            ? `Searching Live Web & Grounding Comments (${singleCount} Reviews)...`
+                            : `Synthesizing Dossier-Grounded Reviews (${singleCount} Reviews)...`}
+                        </span>
                       </>
                     ) : (
                       <>
-                        <Sparkles size={16} />
-                        <span>Generate & Preview ({singleCount} Reviews)</span>
+                        <Sparkles size={18} className="text-amber-300" />
+                        <span>
+                          Generate {singleCount} Reviews for Inspection ({aiGenerationMode === 'research' ? 'Brain 2: Live Internet' : 'Brain 1: Deep Dossier'})
+                        </span>
                       </>
                     )}
                   </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleGenerateSingle(true)}
-                    disabled={generating}
-                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md transition-all cursor-pointer"
-                  >
-                    <CheckCircle2 size={16} />
-                    <span>Instant 1-Click Publish</span>
-                  </button>
+                  <p className="text-[11px] text-center text-slate-500 dark:text-slate-400 mt-2">
+                    Reviews are generated into your review staging workspace below. You can read, edit, delete, or save them one-by-one or all at once.
+                  </p>
                 </div>
               </div>
 
-              {/* Staged Reviews Preview Cards */}
+              {/* Staged Reviews Preview & Manual Review Workspace */}
               {stagedReviews.length > 0 && (
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs space-y-4">
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <div id="staged-reviews-section" className="bg-white dark:bg-slate-900 border-2 border-blue-500/30 dark:border-blue-500/30 rounded-2xl p-5 sm:p-6 shadow-xl space-y-5">
+                  {/* Staging Header */}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
                     <div>
-                      <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                        <CheckCircle2 size={16} className="text-emerald-500" />
-                        <span>Staged AI Reviews ({stagedReviews.length})</span>
-                      </h3>
-                      <p className="text-[11px] text-slate-500">Edit text or usernames before publishing to Firestore.</p>
+                      <div className="flex items-center gap-2">
+                        <span className="p-1.5 bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 rounded-lg">
+                          <CheckCircle2 size={18} />
+                        </span>
+                        <h3 className="text-base font-black text-slate-900 dark:text-slate-100">
+                          Inspect Staged AI Reviews ({stagedReviews.length})
+                        </h3>
+                        <span className="px-2.5 py-0.5 bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 text-[11px] font-bold rounded-full border border-amber-300 dark:border-amber-800/40">
+                          Awaiting Your Review
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        Read through each comment below. You can edit text, adjust stars, delete bad comments, or save them individually or in bulk.
+                      </p>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={handlePublishStaged}
-                      disabled={savingStaged}
-                      className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md cursor-pointer disabled:opacity-50"
-                    >
-                      {savingStaged ? <RefreshCw size={14} className="animate-spin" /> : <Check size={14} />}
-                      <span>Publish All to Database</span>
-                    </button>
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                      <button
+                        type="button"
+                        onClick={handleDiscardAll}
+                        disabled={savingStaged}
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-rose-50 dark:bg-slate-800 dark:hover:bg-rose-950/30 text-slate-600 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer transition-colors"
+                      >
+                        <Trash2 size={14} />
+                        <span>Discard All</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handlePublishStaged}
+                        disabled={savingStaged}
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl shadow-md cursor-pointer disabled:opacity-50 transition-colors"
+                      >
+                        {savingStaged ? <RefreshCw size={14} className="animate-spin" /> : <Upload size={14} />}
+                        <span>Publish All Remaining ({stagedReviews.length})</span>
+                      </button>
+                    </div>
                   </div>
 
-                  {/* List of generated reviews */}
-                  <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
-                    {stagedReviews.map((rev, idx) => (
-                      <div key={idx} className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200 dark:border-slate-700/70 space-y-2.5 relative">
-                        <div className="absolute -top-3 -left-3 bg-blue-600 text-white font-bold text-xs px-2 py-1 rounded-full shadow-sm">
-                          #{idx + 1}
+                  {/* Telemetry & Provenance Banner */}
+                  {generationTelemetry && (
+                    <div className={`p-4 rounded-xl border text-xs space-y-2.5 ${
+                      generationTelemetry.mode === 'research'
+                        ? 'bg-gradient-to-r from-amber-950/30 via-slate-900 to-amber-950/10 border-amber-500/30 text-amber-200'
+                        : 'bg-gradient-to-r from-blue-950/30 via-slate-900 to-indigo-950/10 border-blue-500/30 text-blue-200'
+                    }`}>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 font-bold">
+                          {generationTelemetry.mode === 'research' ? (
+                            <>
+                              <Globe size={16} className="text-amber-400 animate-pulse" />
+                              <span className="text-amber-300 font-black">Brain 2: Live Internet Grounding Telemetry</span>
+                            </>
+                          ) : (
+                            <>
+                              <Cpu size={16} className="text-blue-400" />
+                              <span className="text-blue-300 font-black">Brain 1: Deep Admin Dossier Telemetry</span>
+                            </>
+                          )}
                         </div>
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 bg-slate-800/90 text-slate-300 text-[10px] rounded-md font-mono border border-slate-700">
+                          {generationTelemetry.modelUsed || (generationTelemetry.mode === 'research' ? 'gemini-2.5-flash' : 'gemini-2.5-pro')}
+                        </span>
+                      </div>
+
+                      {/* Research Mode Search Queries */}
+                      {generationTelemetry.mode === 'research' && generationTelemetry.searchQueries && generationTelemetry.searchQueries.length > 0 && (
+                        <div className="space-y-1 pt-1">
+                          <div className="text-[10px] text-amber-400/80 font-bold uppercase tracking-wider flex items-center gap-1">
+                            <Search size={12} />
+                            <span>Live Search Queries Executed:</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {generationTelemetry.searchQueries.map((q, qIdx) => (
+                              <span key={qIdx} className="px-2 py-0.5 bg-amber-950/60 border border-amber-500/20 text-amber-300 text-[11px] rounded-md font-mono">
+                                🔍 {q}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Grounded Sources */}
+                      {generationTelemetry.groundedSources && generationTelemetry.groundedSources.length > 0 && (
+                        <div className="space-y-1 pt-1">
+                          <div className="text-[10px] text-amber-400/80 font-bold uppercase tracking-wider flex items-center gap-1">
+                            <Globe size={12} />
+                            <span>Web Sources & Grounding Citations:</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {generationTelemetry.groundedSources.map((src, sIdx) => (
+                              <a
+                                key={sIdx}
+                                href={src.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 hover:text-white border border-slate-700 text-[11px] rounded-md transition-colors"
+                              >
+                                <span>{src.title}</span>
+                                <ExternalLink size={10} className="text-slate-400" />
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Dossier Mode Highlights */}
+                      {generationTelemetry.mode === 'local' && generationTelemetry.dossierHighlights && generationTelemetry.dossierHighlights.length > 0 && (
+                        <div className="space-y-1 pt-1">
+                          <div className="text-[10px] text-blue-400/80 font-bold uppercase tracking-wider flex items-center gap-1">
+                            <FileText size={12} />
+                            <span>Admin Description Features & Rules Digested:</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {generationTelemetry.dossierHighlights.map((hl, hIdx) => (
+                              <span key={hIdx} className="px-2 py-0.5 bg-blue-950/60 border border-blue-500/20 text-blue-300 text-[11px] rounded-md">
+                                ✓ {hl}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* List of Individual Staged Reviews with 1-by-1 Save & Delete Controls */}
+                  <div className="space-y-3.5 max-h-[600px] overflow-y-auto pr-1">
+                    {stagedReviews.map((rev, idx) => (
+                      <div
+                        key={idx}
+                        className="bg-slate-50 dark:bg-slate-800/70 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-700/80 space-y-3 relative hover:border-blue-400/40 dark:hover:border-blue-500/40 transition-all shadow-xs"
+                      >
+                        {/* Review Header Bar */}
+                        <div className="flex flex-wrap items-center justify-between gap-2.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="px-2 py-0.5 bg-blue-600 text-white font-black text-xs rounded-md shadow-xs">
+                              #{idx + 1}
+                            </span>
+
                             <input
                               type="text"
                               value={rev.userName}
@@ -1452,50 +1641,100 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
                                 copy[idx].userName = e.target.value;
                                 setStagedReviews(copy);
                               }}
-                              className="text-xs font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-2 py-1 rounded"
+                              placeholder="Reviewer Name"
+                              className="text-xs font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-2.5 py-1 rounded-lg focus:ring-2 focus:ring-blue-500 max-w-[150px]"
                             />
-                            <div className="flex items-center text-amber-500 text-xs">
+
+                            {/* Interactive Clickable Star Rating */}
+                            <div className="flex items-center text-amber-500 gap-0.5 bg-white dark:bg-slate-900 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
                               {Array.from({ length: 5 }).map((_, sIdx) => (
                                 <Star
                                   key={sIdx}
-                                  size={16}
+                                  size={15}
                                   onClick={() => {
                                     const copy = [...stagedReviews];
                                     copy[idx].rating = sIdx + 1;
                                     setStagedReviews(copy);
                                   }}
-                                  className={`cursor-pointer transition-colors ${sIdx < rev.rating ? "fill-amber-400 text-amber-400" : "text-slate-300 dark:text-slate-600 hover:text-amber-300"}`}
+                                  className={`cursor-pointer transition-transform hover:scale-125 ${
+                                    sIdx < rev.rating
+                                      ? "fill-amber-400 text-amber-400"
+                                      : "text-slate-300 dark:text-slate-600 hover:text-amber-300"
+                                  }`}
                                 />
                               ))}
+                              <span className="text-[11px] font-black ml-1 text-slate-700 dark:text-slate-300">
+                                {rev.rating}.0
+                              </span>
                             </div>
+
+                            {/* Source Badge */}
+                            {rev.source === 'live_web_research' ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 text-[10px] font-bold rounded-md border border-amber-200 dark:border-amber-800/40">
+                                <Globe size={11} />
+                                <span>Live Web Grounded</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 text-[10px] font-bold rounded-md border border-blue-200 dark:border-blue-800/40">
+                                <Cpu size={11} />
+                                <span>Dossier Grounded</span>
+                              </span>
+                            )}
                           </div>
 
                           <div className="flex items-center gap-2">
                             <span className="text-[10px] text-slate-400 font-mono">
                               {rev.timestamp ? new Date(rev.timestamp).toLocaleDateString() : 'Recent'}
                             </span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setStagedReviews(stagedReviews.filter((_, i) => i !== idx));
-                              }}
-                              className="p-1 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded cursor-pointer"
-                            >
-                              <Trash2 size={13} />
-                            </button>
                           </div>
                         </div>
 
+                        {/* Review Content Textarea */}
                         <textarea
-                          rows={2}
+                          rows={3}
                           value={rev.reviewText}
                           onChange={(e) => {
                             const copy = [...stagedReviews];
                             copy[idx].reviewText = e.target.value;
                             setStagedReviews(copy);
                           }}
-                          className="w-full text-xs text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-2.5 rounded-lg focus:ring-1 focus:ring-blue-500"
+                          placeholder="Review text..."
+                          className="w-full text-xs leading-relaxed text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-3 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
                         />
+
+                        {/* Per-Review Action Controls (Save 1-by-1 or Delete 1-by-1) */}
+                        <div className="flex items-center justify-between pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+                          <span className="text-[11px] text-slate-400">
+                            Helpful votes: <strong>{rev.helpful_count || 0}</strong>
+                          </span>
+
+                          <div className="flex items-center gap-2">
+                            {/* Individual Delete Button */}
+                            <button
+                              type="button"
+                              onClick={() => handleDiscardIndividualReview(idx)}
+                              className="flex items-center gap-1 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-900/40 text-rose-600 dark:text-rose-400 text-xs font-bold rounded-lg border border-rose-200 dark:border-rose-800/60 cursor-pointer transition-colors"
+                            >
+                              <Trash2 size={13} />
+                              <span>Delete</span>
+                            </button>
+
+                            {/* Individual Save Button */}
+                            <button
+                              type="button"
+                              onClick={() => handleSaveIndividualReview(idx)}
+                              disabled={savingReviewIndex === idx}
+                              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm cursor-pointer disabled:opacity-50 transition-colors"
+                            >
+                              {savingReviewIndex === idx ? (
+                                <RefreshCw size={13} className="animate-spin" />
+                              ) : (
+                                <Check size={13} />
+                              )}
+                              <span>Save & Publish</span>
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>

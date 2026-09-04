@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Navigate } from 'react-router-dom';
+import { useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { RefreshCw, Sparkles } from 'lucide-react';
 import { toast } from "../components/Toast";
 import { useData } from '../contexts/DataContext';
@@ -12,6 +12,7 @@ import { AdminSidebar } from '../components/admin/AdminSidebar';
 import { AdminTabContent } from '../components/admin/AdminTabContent';
 import { FirebaseStatusIndicator } from '../components/FirebaseStatusIndicator';
 import { AdminWelcomeOverlay } from '../components/admin/AdminWelcomeOverlay';
+import { getAdminPath } from '../lib/utils';
 
 export default function AdminDashboard() {
   const { 
@@ -22,7 +23,57 @@ export default function AdminDashboard() {
     gitConfig, gitConfigLoading, saveGitConfig, pushAllToGitHub
   } = useData();
 
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const location = useLocation();
+  const navigate = useNavigate();
+  const adminPath = getAdminPath();
+
+  const resolveTabFromPath = (pathname: string): string | null => {
+    const segments = pathname.toLowerCase().split('/').filter(Boolean);
+    const base = segments[0] || '';
+    const possibleTab = ['admin', 'masterworld', adminPath.toLowerCase()].includes(base)
+      ? segments[1]
+      : segments[0];
+
+    if (!possibleTab) return null;
+    if (['ai-reviews', 'ai-review', 'ai-create-review', 'ai', 'create-review'].includes(possibleTab)) return 'ai-reviews';
+    if (['reviews', 'review'].includes(possibleTab)) return 'reviews';
+    if (['apps', 'app'].includes(possibleTab)) return 'apps';
+    if (['news'].includes(possibleTab)) return 'news';
+    if (['videos', 'video'].includes(possibleTab)) return 'videos';
+    if (['categories', 'category'].includes(possibleTab)) return 'categories';
+    if (['banners', 'banner'].includes(possibleTab)) return 'banners';
+    if (['github', 'sync'].includes(possibleTab)) return 'github';
+    if (['quick-links', 'links'].includes(possibleTab)) return 'quick-links';
+    if (['faqs', 'faq'].includes(possibleTab)) return 'faqs';
+    if (['developers', 'developer'].includes(possibleTab)) return 'developers';
+    if (['reports', 'report'].includes(possibleTab)) return 'reports';
+    if (['security'].includes(possibleTab)) return 'security';
+    if (['settings', 'setting'].includes(possibleTab)) return 'settings';
+    if (['dashboard'].includes(possibleTab)) return 'dashboard';
+    return null;
+  };
+
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    return resolveTabFromPath(window.location.pathname) || 'dashboard';
+  });
+
+  const handleTabChange = (tabId: string) => {
+    setActiveTab(tabId);
+    const pathLower = window.location.pathname.toLowerCase();
+    const currentBase = pathLower.startsWith('/masterworld') ? 'masterworld' : adminPath;
+    const targetUrl = tabId === 'dashboard' ? `/${currentBase}` : `/${currentBase}/${tabId}`;
+    if (window.location.pathname !== targetUrl) {
+      window.history.replaceState(null, '', targetUrl);
+    }
+  };
+
+  useEffect(() => {
+    const tabFromUrl = resolveTabFromPath(location.pathname);
+    if (tabFromUrl && tabFromUrl !== activeTab) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [location.pathname]);
+
   const [saving, setSaving] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [editingAppId, setEditingAppId] = useState<string | null>(null);
@@ -218,6 +269,13 @@ export default function AdminDashboard() {
         idea_box_msg: formFieldsOverride?.idea_box_msg ?? (formData ? (formData.get('idea_box_msg') as string ?? formData.get('hidden_idea_box_msg') as string) : '') ?? '',
         is_new: formFieldsOverride ? !!formFieldsOverride.is_new : (formData?.get('is_new') === 'on'),
         is_coming_soon: formFieldsOverride ? !!formFieldsOverride.is_coming_soon : (formData?.get('is_coming_soon') === 'on'),
+        sync_to_public: formFieldsOverride?.sync_to_public !== undefined
+          ? Boolean(formFieldsOverride.sync_to_public)
+          : (formData?.get('sync_to_public_val') !== null && formData?.get('sync_to_public_val') !== undefined
+              ? formData?.get('sync_to_public_val') === 'true'
+              : (formData?.get('sync_to_public') !== null && formData?.get('sync_to_public') !== undefined
+                  ? (formData?.get('sync_to_public') === 'on' || formData?.get('sync_to_public') === 'true')
+                  : (existingApp?.sync_to_public !== false))),
         screenshots: formFieldsOverride?.screenshots ? formFieldsOverride.screenshots : JSON.parse((formData ? (formData.get('screenshots_json') as string || formData.get('hidden_screenshots_json') as string) : '') || '[]'),
         faqs: formFieldsOverride?.faqs ? formFieldsOverride.faqs : JSON.parse((formData ? (formData.get('faqs_json') as string || formData.get('hidden_faqs_json') as string) : '') || '[]'),
         created_at: existingApp?.created_at || new Date().toISOString(),
@@ -248,6 +306,21 @@ export default function AdminDashboard() {
     } finally { setSaving(false); }
   };
 
+  const handleTogglePublicSync = async (appId: string) => {
+    const targetApp = appsList.find(a => a.id === appId);
+    if (!targetApp) return;
+    const newStatus = !(targetApp.sync_to_public !== false);
+    const updatedApp = { ...targetApp, sync_to_public: newStatus, updated_at: new Date().toISOString() };
+    try {
+      await saveAppSingle(updatedApp);
+      setAppsList(prev => prev.map(a => a.id === appId ? updatedApp : a));
+      triggerHaptic();
+      toast(newStatus ? `"${targetApp.name}" will sync to public website.` : `"${targetApp.name}" is now Admin Only (unsynced from public).`, 'success');
+    } catch (err: any) {
+      toast('Failed to update sync status: ' + (err?.message || 'Error'), 'error');
+    }
+  };
+
   const handleDeleteApp = (id: string) => {
     setConfirmConfig({
       isOpen: true, title: 'Delete App', message: 'Permanently delete this app?',
@@ -264,14 +337,15 @@ export default function AdminDashboard() {
     });
   };
 
+  const currentBase = window.location.pathname.toLowerCase().startsWith('/masterworld') ? 'masterworld' : adminPath;
   if (checkingAuth) return <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center"><RefreshCw className="animate-spin text-blue-600" /></div>;
-  if (!user || isAdminUser === false) return <Navigate to={getAdminPath('/login')} replace />;
+  if (!user || isAdminUser === false) return <Navigate to={`/${currentBase}/login`} replace />;
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-blue-100 dark:selection:bg-blue-900/30">
       <AdminSidebar 
         activeTab={activeTab} 
-        onTabChange={setActiveTab} 
+        onTabChange={handleTabChange} 
         isMobileMenuOpen={isMobileMenuOpen} 
         setIsMobileMenuOpen={setIsMobileMenuOpen} 
         handleLogout={handleLogout} 
@@ -317,7 +391,7 @@ export default function AdminDashboard() {
             categoriesList={categoriesList} quickLinksList={quickLinksList} websiteFaqsList={websiteFaqsList} developersList={developersList}
             settings={settings} gitConfig={gitConfig} db={db} saving={saving} setSaving={setSaving} editingAppId={editingAppId}
             setEditingAppId={setEditingAppId}
-            handleDeleteApp={handleDeleteApp} handleSaveApp={handleSaveApp} handleSaveSettings={handleSaveSettingsBase} 
+            handleDeleteApp={handleDeleteApp} handleSaveApp={handleSaveApp} handleTogglePublicSync={handleTogglePublicSync} handleSaveSettings={handleSaveSettingsBase} 
             handleSaveNews={async (list?: any) => {
               setSaving(true);
               try {
@@ -398,8 +472,3 @@ export default function AdminDashboard() {
     </div>
   );
 }
-
-const getAdminPath = (path: string) => {
-  const adminBase = import.meta.env.VITE_ADMIN_PATH || 'masterworld';
-  return `/${adminBase}${path}`;
-};

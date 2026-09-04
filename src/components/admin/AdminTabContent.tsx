@@ -87,6 +87,7 @@ interface AdminTabContentProps {
   setEditingAppId: (id: string | null) => void;
   handleDeleteApp: (id: string) => void;
   handleSaveApp: (e: any) => void;
+  handleTogglePublicSync?: (id: string) => Promise<void> | void;
   handleSaveSettings: (e: any) => void;
   handleSaveNews: (list?: any) => void;
   handleSaveCategories: (e: any) => void;
@@ -143,6 +144,7 @@ export const AdminTabContent = ({
   setEditingAppId,
   handleDeleteApp,
   handleSaveApp,
+  handleTogglePublicSync,
   handleSaveSettings,
   handleSaveNews,
   handleSaveCategories,
@@ -190,6 +192,7 @@ export const AdminTabContent = ({
             setEditingAppId={setEditingAppId} 
             handleDeleteApp={handleDeleteApp}
             handleSaveApp={handleSaveApp}
+            handleTogglePublicSync={handleTogglePublicSync}
             categories={categoriesList}
             saving={saving}
           />

@@ -286,8 +286,8 @@ seoRouter.get(['/rss.xml', '/rss', '/feed', '/feed.xml'], async (req, res) => {
 
     let itemsXml = '';
 
-    // Add News
-    for (const newsItem of (news || []).slice(0, 15)) {
+    // Add News (Only public synced news)
+    for (const newsItem of (news || []).filter((n: any) => n.sync_to_public !== false).slice(0, 15)) {
       const title = getField(newsItem, 'title');
       const slug = getField(newsItem, 'slug');
       const desc = getField(newsItem, 'excerpt') || getField(newsItem, 'summary') || getField(newsItem, 'content') || title;
@@ -307,8 +307,8 @@ seoRouter.get(['/rss.xml', '/rss', '/feed', '/feed.xml'], async (req, res) => {
       }
     }
 
-    // Add Latest Apps
-    for (const appItem of (apps || []).slice(0, 10)) {
+    // Add Latest Apps (Only public synced apps)
+    for (const appItem of (apps || []).filter((a: any) => a.sync_to_public !== false).slice(0, 10)) {
       const name = getField(appItem, 'name');
       const slug = getField(appItem, 'slug');
       const desc = getField(appItem, 'short_description') || getField(appItem, 'description') || name;
@@ -796,8 +796,8 @@ seoRouter.get('/sitemap-apps.xml', async (req, res) => {
     const host = getHostUrl(req);
     const siteLogo = getField(data?.settings, 'logo_url') || getField(data?.settings, 'favicon_url') || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
 
-    // Sort apps so latest updated apps appear at top
-    const sortedApps = [...apps].sort((a, b) => {
+    // Sort apps so latest updated apps appear at top (Only public synced apps)
+    const sortedApps = [...apps.filter((a: any) => a.sync_to_public !== false)].sort((a, b) => {
       const ta = new Date(getFormattedDate(a)).getTime();
       const tb = new Date(getFormattedDate(b)).getTime();
       return tb - ta;
@@ -946,7 +946,7 @@ seoRouter.get('/sitemap-news.xml', async (req, res) => {
     xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n`;
 
     const seenUrls = new Set<string>();
-    for (const item of news) {
+    for (const item of (news || []).filter((n: any) => n.sync_to_public !== false)) {
       const slug = getField(item, 'slug');
       if (slug) {
         const cSlug = cleanSlug(slug);

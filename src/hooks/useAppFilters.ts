@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 export const useAppFilters = (appsList: any[]) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'Verified' | 'Caution' | 'Unsafe' | 'is_new' | 'is_coming_soon'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'Verified' | 'Caution' | 'Unsafe' | 'is_new' | 'is_coming_soon' | 'admin_only' | 'synced'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
   const filteredApps = appsList.filter((app: any) => {
@@ -22,7 +22,9 @@ export const useAppFilters = (appsList: any[]) => {
       (statusFilter === 'Caution' && app.safety_status === 'Caution') ||
       (statusFilter === 'Unsafe' && app.safety_status === 'Unsafe') ||
       (statusFilter === 'is_new' && app.is_new) ||
-      (statusFilter === 'is_coming_soon' && app.is_coming_soon);
+      (statusFilter === 'is_coming_soon' && app.is_coming_soon) ||
+      (statusFilter === 'admin_only' && app.sync_to_public === false) ||
+      (statusFilter === 'synced' && app.sync_to_public !== false);
 
     return matchesSearch && matchesCategory && matchesStatus;
   });

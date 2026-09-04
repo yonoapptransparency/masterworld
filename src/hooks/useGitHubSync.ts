@@ -237,11 +237,21 @@ export function useGitHubSync(
       }
     }
 
+    // Filter apps and news based on sync_to_public status (default is true for live public)
+    const publicApps = finalApps.filter((app: any) => app.sync_to_public !== false);
+    const publicNews = targetNews.filter((item: any) => item.sync_to_public !== false);
+    const unpushedAppsCount = finalApps.length - publicApps.length;
+    const unpushedNewsCount = targetNews.length - publicNews.length;
+
+    if (unpushedAppsCount > 0 || unpushedNewsCount > 0) {
+      log(`GitHub Sync: Kept ${unpushedAppsCount} draft app(s) and ${unpushedNewsCount} draft news item(s) in Admin Only (Public Sync = OFF). Pushing ${publicApps.length} live app(s) and ${publicNews.length} live news item(s) to public website.`);
+    }
+
     const finalSettings = ensureDefaultSettings(targetSettings);
-    const updatedCode = generateStaticDataFileCode(finalApps, finalSettings, targetNews, targetVideos);
+    const updatedCode = generateStaticDataFileCode(publicApps, finalSettings, publicNews, targetVideos);
     const communityReviewsCode = generateCommunityReviewsFileCode(targetReviews);
 
-    const safeBackupApps = JSON.parse(JSON.stringify(finalApps)).map((app: any) => {
+    const safeBackupApps = JSON.parse(JSON.stringify(publicApps)).map((app: any) => {
       const rawTarget = app.more_information_url || app.download_url || app.encrypted_link || app.encrypted_download_url || '';
       
       // Clean out dummy com.rummydex / com.example URLs from url field
@@ -267,7 +277,7 @@ export function useGitHubSync(
     const backupJsonCode = JSON.stringify({
       apps: safeBackupApps,
       settings: finalSettings,
-      news: targetNews,
+      news: publicNews,
       videos: targetVideos,
       reviews: targetReviews
     }, null, 2);
@@ -275,7 +285,7 @@ export function useGitHubSync(
     const staticJsonCode = JSON.stringify({
       mockApps: safeBackupApps,
       mockSettings: finalSettings,
-      mockNews: targetNews,
+      mockNews: publicNews,
       mockVideos: targetVideos,
       mockReviews: targetReviews,
       reviews: targetReviews
