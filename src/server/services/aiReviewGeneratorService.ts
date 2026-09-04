@@ -15,6 +15,7 @@ interface GenerateOptions {
   starMix?: StarDistribution;
   toneFocus?: 'balanced' | 'performance' | 'gameplay' | 'ui_graphics' | 'casual';
   customPrompt?: string;
+  mode?: 'local' | 'research';
 }
 
 // Centralized Banned-Word Safety Array (Strictly enforced in prompts and post-generation regex filters)
@@ -361,68 +362,41 @@ export async function generateAIReviewsForApp(appInput: any, options: GenerateOp
   // Calculate rating numbers for this batch
   const ratings = calculateRatingArray(count, targetScore, starMix);
 
-  // Check if Gemini API key exists
-  const apiKey = process.env.GEMINI_API_KEY;
+  const isResearchMode = options.mode === 'research';
+  // Use the specific API key for research mode if provided, otherwise fallback to standard
+  const apiKey = isResearchMode ? (process.env.GEMINI_RESEARCH_API_KEY || process.env.GEMINI_API_KEY) : process.env.GEMINI_API_KEY;
+  
   if (apiKey && apiKey.trim() !== '') {
     try {
       const ai = new GoogleGenAI({ apiKey });
 
-      const prompt = `You are Steve, an advanced AI review generator for the store listing of "${appName}".
+      let prompt = '';
+      if (isResearchMode) {
+        prompt = `You are a Live Internet Scraper and AI Researcher. Your task is to generate ${count} ultra-realistic user reviews for the app "${appName}" by finding REAL reviews on the internet.
 
-### 🧠 STEP-BY-STEP REASONING & SYNTHESIS DIRECTIVE FOR STEVE:
-STEP 1: DOSSIER COMPREHENSION
-- Thoroughly inspect all extracted specs, HTML descriptions, feature callouts, safety notices, FAQs, and developer notes for "${appName}".
-- Identify the exact game type (Rummy, Teen Patti, Slots, Arcade, Callbreak, Solitaire, Mahjong, Ludo), game rules, table speed, UI theme, undo options, matchmaking speed, and performance details.
+### 🧠 CRITICAL DIRECTIVE: LIVE WEB RESEARCH
+You MUST use the Google Search tool to search for real user reviews, comments on Google Play Store, App Store, Reddit, Quora, or gaming forums about the app "${appName}".
+Do NOT invent fake reviews. You can copy-paste real reviews directly or slightly paraphrase them to fit the required star ratings.
 
-STEP 2: USER PERSONA & ASPECT MAPPING
-- Distribute the ${count} reviews across realistic player personas (e.g., daily casual player, competitive tournament player, UI/graphics enthusiast, low-end device user, long-time fan).
-- Ensure each review focuses on a DIFFERENT specific aspect or feature found in the dossier (e.g., table layout, card dealing animation, frame rate stability, offline mode, multi-table support, sound effects).
+### STEP 1: GATHER REAL INFORMATION
+Search for: "${appName} app review", "${appName} game play store reviews", "${appName} reddit comments".
+Read the search results to find out what real people are saying. What are their actual complaints? What do they actually praise?
 
-STEP 3: NATURAL OPINION TRANSLATION
-- Translate the app's features into authentic, conversational human opinions in natural Indian Hinglish / English.
-- DO NOT copy-paste sentences verbatim from the description or marketing copy.
-- DO NOT use banned financial terms (deposit, withdraw, cash, bonus, real money, bet, wager, rupees, earnings).
-- Format dates strictly as clean "YYYY-MM-DD" strings without clock time.
+### STEP 2: FORMAT INTO REVIEWS
+Select or adapt the real comments you found to match EXACTLY these star ratings in this exact order: ${JSON.stringify(ratings)}.
+- Maintain the original tone, grammar mistakes, and Hinglish/English style used by the real reviewers on the internet.
+- Create realistic Indian usernames for each review.
+- NEVER start multiple reviews with the same word. Force extreme variety.
 
-STEP 4: RATING & SENTIMENT ALIGNMENT
-- Match each review's tone to its assigned star rating (${JSON.stringify(ratings)}).
-- 5 stars: High praise for speed, smoothness, or specific gameplay mode.
-- 4 stars: Overall great experience with minor constructive notes or wishlist items.
-- 2-3 stars: Honest feedback on device performance, font size, or signal handling.
-
-### 📱 COMPLETE APP DOSSIER FOR "${appName}":
+### 📱 APP DOSSIER FOR CONTEXT:
 ${appSpecs}
 
-#### RAW HTML CONTENT & FEATURES:
-${rawHtmlSections || 'No raw HTML available.'}
-
-#### PLAIN TEXT DOSSIER:
-${plainTextDossier || 'No plain text available.'}
-
-#### EXTRACTED KEY CLAIMS & MECHANICS:
-"${specificPhrases.slice(0, 20).join(' | ')}"
-
-### 🎯 REQUIRED RATINGS TO ASSIGN (Strict Order):
-Assign these exact integer star ratings to the ${count} reviews in order:
-${JSON.stringify(ratings)}
-
-### 🚫 HARD SAFETY RULES:
-1. Never use these words or close variants: deposit, withdraw, cash, bonus, real money, jackpot, bet, wager, winnings, payout, or any phrase implying guaranteed financial earnings.
-2. Frame everything strictly as skill-based / social / entertainment gaming, never real-money gambling.
-3. ZERO CONTAMINATION: Do not mention any other external apps, brands, or competitors.
-
-### ✍️ PER-REVIEW CREATIVE INSTRUCTIONS:
-1. **Pick a unique detail**: Focus each review on a different feature, mode, UI layout, control mechanic, frame rate, or table setting mentioned in the dossier above.
-2. **Sentiment Alignment**: 4-5 stars = enthusiastic approval, highlighting smoothness or game modes; 2-3 stars = constructive feedback or honest mild caution.
-3. **Reviewer Name**: Generate realistic, diverse Indian usernames (casual handles, gaming handles).
-4. **Language Style**: Write in natural, expressive Hinglish / English as spoken by real mobile users across India.
-5. **Tone Focus**: ${toneFocus === 'performance' ? 'Focus heavily on FPS, smoothness, and zero lag.' : toneFocus === 'gameplay' ? 'Focus heavily on game rules, undo mechanics, and table physics.' : toneFocus === 'ui_graphics' ? 'Focus heavily on visual themes, clean UI, and table graphics.' : 'Maintain a balanced variety of perspectives across all user types.'}
-6. **Date**: Set a clean date string in "YYYY-MM-DD" format (e.g. "2026-08-20").
-
-${customPrompt ? `### 📝 USER CUSTOM INSTRUCTIONS (MANDATORY TO FOLLOW):\n${customPrompt}\n` : ''}
+### 🚫 HARD SAFETY RULES (MANDATORY):
+1. ZERO FINANCIAL WORDS: Never use deposit, withdraw, cash, bonus, real money, jackpot, bet, wager, winnings, payout, rupees, ₹. 
+2. ZERO CONTAMINATION: Do not mention other app names.
 
 ### OUTPUT FORMAT:
-Return ONLY a valid JSON array of ${count} objects matching this schema:
+Return ONLY a valid JSON array of exactly ${count} objects. No markdown formatting.
 [
   {
     "userName": "string",
@@ -430,32 +404,115 @@ Return ONLY a valid JSON array of ${count} objects matching this schema:
     "reviewText": "string",
     "date": "YYYY-MM-DD string"
   }
-];`;
+]`;
+      } else {
+        prompt = `You are a highly advanced AI analyzing the store listing for the app "${appName}". Your task is to generate ${count} ultra-realistic user reviews. 
+
+### 🧠 CRITICAL DIRECTIVE: AVOID "AI LOOPING" & REPETITION
+Your previous outputs suffered from "AI looping"—using the same sentence structures, similar commentary, and identical examples across different reviews. You must BREAK this habit. 
+To prove you have a "bright brain", you must invent a COMPLETELY DIFFERENT real-world situation, personality, and focus for EVERY SINGLE REVIEW. No two reviews should sound like they were written by the same person.
+
+### STEP 1: DEEP DOSSIER COMPREHENSION
+Read everything provided in the dossier below. Do not skim.
+- Find obscure features, specific game modes, UI details, and performance claims to inject into the reviews.
+
+### STEP 2: HYPER-SPECIFIC SITUATIONAL ROLEPLAY
+For each of the ${count} reviews, adopt a completely unique scenario. Force extreme variety. Real humans write differently.
+- **Example angles (DO NOT reuse these exactly, invent your own)**: A user who plays on a train commute, a user comparing to an older version, a user strictly complaining about battery drain on a specific old phone, a user who loves a highly specific game mode.
+- **Vary Length Drastically**: Some reviews should be 2 words ("Op app", "mast app"). Some should be 3-4 meandering sentences.
+- **Vary Grammar/Spelling**: Real people make typos. Use lowercase sometimes. Use poor grammar on purpose for 30% of reviews (e.g., "plz update this", "wrost expirence").
+- **Language**: Mix pure English with Indian Hinglish (e.g., "bhai ek number app hai", "time pass ke liye best").
+- **Repetition Ban**: NEVER start multiple reviews with the same word. NEVER use the same phrase twice. NEVER use corporate marketing speak.
+
+### STEP 3: CONTENT INJECTION (PROVE YOU READ THE DESCRIPTION)
+- Do not just say "the game is good". Explicitly mention the specific game modes, features, or UI elements you found in the description. 
+
+### STEP 4: RATING SENTIMENT ALIGNMENT (${JSON.stringify(ratings)})
+You must strictly assign the exact integer star ratings requested in order: ${JSON.stringify(ratings)}.
+- 5 stars: Absolute praise, specific feature shoutouts.
+- 4 stars: Great but with a minor issue or feature request.
+- 3 stars: Average, neutral, or experiencing a bug.
+- 2/1 stars: Frustrated with a specific bug, lag, or UI issue.
+
+### 📱 COMPLETE APP DOSSIER FOR "${appName}":
+${appSpecs}
+
+#### RAW HTML CONTENT & FEATURES (READ THIS CAREFULLY):
+${rawHtmlSections || 'No raw HTML available.'}
+
+#### PLAIN TEXT DOSSIER:
+${plainTextDossier || 'No plain text available.'}
+
+#### EXTRACTED KEY CLAIMS & MECHANICS:
+"${specificPhrases.join(' | ')}"
+
+### 🚫 HARD SAFETY RULES (MANDATORY):
+1. ZERO FINANCIAL WORDS: Never use deposit, withdraw, cash, bonus, real money, jackpot, bet, wager, winnings, payout, rupees, ₹. 
+2. Frame everything as free-to-play, casual entertainment, or skill gaming.
+3. ZERO CONTAMINATION: Do not mention other app names.
+
+### ✍️ TONE & CUSTOM INSTRUCTIONS:
+Tone Focus: ${toneFocus === 'performance' ? 'Focus heavily on FPS, smoothness, lag, and phone heating.' : toneFocus === 'gameplay' ? 'Focus heavily on game rules, card dealing, matchmaking, and features.' : toneFocus === 'ui_graphics' ? 'Focus heavily on visual themes, UI buttons, sound, and graphics.' : 'Maintain a chaotic, highly varied mix of perspectives (some short, some long).'}
+${customPrompt ? `\nUSER CUSTOM INSTRUCTIONS (FOLLOW STRICTLY):\n${customPrompt}\n` : ''}
+
+### OUTPUT FORMAT:
+Return ONLY a valid JSON array of exactly ${count} objects. No markdown formatting.
+[
+  {
+    "userName": "string",
+    "rating": number (1 to 5),
+    "reviewText": "string",
+    "date": "YYYY-MM-DD string"
+  }
+]`;
+      }
+
+      const config: any = {
+        temperature: isResearchMode ? 0.7 : 1.15,
+        topP: 0.95,
+      };
+
+      if (isResearchMode) {
+        config.thinkingConfig = { thinkingLevel: "HIGH" }; // Use thinking mode for better reasoning
+      } else {
+        config.responseMimeType = "application/json";
+        config.responseSchema = {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              userName: { type: Type.STRING },
+              rating: { type: Type.INTEGER },
+              reviewText: { type: Type.STRING },
+              date: { type: Type.STRING }
+            },
+            required: ["userName", "rating", "reviewText"]
+          }
+        };
+      }
 
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: isResearchMode ? "gemini-3.7-flash" : "gemini-2.5-pro",
         contents: prompt,
-        config: {
-          temperature: 0.95,
-          topP: 0.95,
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                userName: { type: Type.STRING },
-                rating: { type: Type.INTEGER },
-                reviewText: { type: Type.STRING },
-                date: { type: Type.STRING }
-              },
-              required: ["userName", "rating", "reviewText"]
-            }
-          }
-        }
+        config
       });
 
-      const responseText = response.text?.trim();
+      let responseText = response.text?.trim() || "";
+      
+      // Robust JSON parsing to handle grounding citations or markdown blocks
+      if (responseText.includes('```json')) {
+        responseText = responseText.split('```json')[1].split('```')[0].trim();
+      } else if (responseText.includes('```')) {
+        responseText = responseText.split('```')[1].split('```')[0].trim();
+      }
+      
+      // Remove potential search grounding citations at the end of the text
+      const firstBracket = responseText.indexOf('[');
+      const lastBracket = responseText.lastIndexOf(']');
+      if (firstBracket >= 0 && lastBracket > firstBracket) {
+        responseText = responseText.substring(firstBracket, lastBracket + 1);
+      }
+
       if (responseText) {
         const parsed = JSON.parse(responseText);
         if (Array.isArray(parsed) && parsed.length > 0) {

@@ -23,6 +23,7 @@ export interface AutoPilotOptions {
   toneFocus?: 'balanced' | 'performance' | 'gameplay' | 'ui_graphics' | 'casual';
   customPrompt?: string;
   selectedAppIds?: string[]; // If empty, process ALL apps in catalog
+  mode?: 'local' | 'research';
 }
 
 export interface AutoPilotJobStatus {
@@ -381,7 +382,8 @@ class AutoPilotQueueService {
             count: this.status.options.countPerApp,
             targetScore,
             toneFocus: this.status.options.toneFocus,
-            customPrompt: this.status.options.customPrompt
+            customPrompt: this.status.options.customPrompt,
+            mode: this.status.options.mode
           });
 
           if (generatedReviews && generatedReviews.length > 0) {

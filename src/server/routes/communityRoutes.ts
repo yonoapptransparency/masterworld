@@ -417,7 +417,7 @@ communityRouter.post("/api/v1/admin/community/recalculate-all", verifyAdminToken
 // Admin: AI Review Generator - Single App
 communityRouter.post("/api/v1/admin/community/ai-generate/single", verifyAdminToken, async (req: any, res: any) => {
   try {
-    const { appId, appData, count = 5, targetScore = 4.8, starMix, toneFocus = 'balanced', customPrompt, saveDirectly = false } = req.body;
+    const { appId, appData, count = 5, targetScore = 4.8, starMix, toneFocus = 'balanced', customPrompt, mode = 'local', saveDirectly = false } = req.body;
 
     if (!appId && !appData) {
       return res.status(400).json({ error: 'App ID or App Data is required' });
@@ -470,7 +470,8 @@ communityRouter.post("/api/v1/admin/community/ai-generate/single", verifyAdminTo
       targetScore: numTargetScore,
       starMix,
       toneFocus,
-      customPrompt
+      customPrompt,
+      mode
     });
 
     if (saveDirectly) {
@@ -504,6 +505,7 @@ communityRouter.post("/api/v1/admin/community/ai-generate/bulk", verifyAdminToke
       targetScore = 4.8, 
       starMix, 
       toneFocus = 'balanced',
+      mode = 'local',
       appProfilesMap = {} // Per-app custom settings map: { [appId]: { targetScore, starMix, toneFocus, count } }
     } = req.body;
 
@@ -564,7 +566,8 @@ communityRouter.post("/api/v1/admin/community/ai-generate/bulk", verifyAdminToke
           targetScore: appTargetScore,
           starMix: appStarMix,
           toneFocus: appToneFocus,
-          customPrompt: appCustomPrompt
+          customPrompt: appCustomPrompt,
+          mode
         });
 
         allGeneratedReviews.push(...appReviews);

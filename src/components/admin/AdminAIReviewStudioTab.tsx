@@ -115,6 +115,9 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
   // Mode: 'autopilot' | 'single' | 'bulk'
   const [mode, setMode] = useState<'autopilot' | 'single' | 'bulk'>('autopilot');
 
+  // AI Brain Selector: 'local' (Dossier) | 'research' (Live Web)
+  const [aiGenerationMode, setAiGenerationMode] = useState<'local' | 'research'>('local');
+
   // Auto-Pilot Engine State
   const [autoPilotStatus, setAutoPilotStatus] = useState<any>(null);
   const [autoPilotLoading, setAutoPilotLoading] = useState(false);
@@ -194,7 +197,8 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
         ...autoPilotOptions,
         appsList: appsList,
         selectedAppIds: selectedAutoPilotAppIds,
-        customPrompt: autoPilotCustomPrompt.trim() || undefined
+        customPrompt: autoPilotCustomPrompt.trim() || undefined,
+        mode: aiGenerationMode
       };
       const res = await adminFetch('/api/v1/admin/autopilot/start', {
         method: 'POST',
@@ -423,7 +427,8 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           targetScore,
           toneFocus,
           customPrompt: customPrompt.trim(),
-          saveDirectly: instantSave
+          saveDirectly: instantSave,
+          mode: aiGenerationMode
         })
       });
 
@@ -527,7 +532,8 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           body: JSON.stringify({
             appIds: chunkAppIds,
             countPerApp: bulkCountPerApp,
-            appProfilesMap: appProfiles // Passes all per-app custom profiles to backend!
+            appProfilesMap: appProfiles, // Passes all per-app custom profiles to backend!
+            mode: aiGenerationMode
           })
         });
 
@@ -607,6 +613,39 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
             >
               <Zap size={16} />
               <span>Bulk Batch</span>
+            </button>
+          </div>
+        </div>
+
+        {/* AI Brain Selection */}
+        <div className="relative z-10 mt-4 pt-4 border-t border-indigo-500/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="text-sm font-bold text-slate-200">
+            Select AI Brain Engine:
+          </div>
+          <div className="flex flex-wrap items-center bg-slate-800/80 p-1.5 rounded-xl border border-slate-700 backdrop-blur-sm self-stretch md:self-auto gap-1">
+            <button
+              type="button"
+              onClick={() => setAiGenerationMode('local')}
+              className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                aiGenerationMode === 'local'
+                  ? 'bg-emerald-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Cpu size={16} />
+              <span>Brain 1: Local Context</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setAiGenerationMode('research')}
+              className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                aiGenerationMode === 'research'
+                  ? 'bg-purple-600 text-white shadow-md ring-1 ring-purple-400/50'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Globe size={16} className={aiGenerationMode === 'research' ? 'text-amber-400' : ''} />
+              <span>Brain 2: Live Web Research</span>
             </button>
           </div>
         </div>
