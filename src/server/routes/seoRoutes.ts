@@ -365,12 +365,8 @@ seoRouter.get('/robots.txt', async (req, res) => {
   try {
     const hostHeader = req.get('host') || '';
     const hostLower = hostHeader.toLowerCase();
-    let isMasterworldAdminDeployment = false;
     if (hostLower.includes('masterworld')) {
-      isMasterworldAdminDeployment = true;
-    }
-    if (isMasterworldAdminDeployment) {
-      res.set('Content-Type', 'text/plain');
+      res.set('Content-Type', 'text/plain; charset=utf-8');
       res.send("User-agent: *\nDisallow: /\n");
       return;
     }
@@ -380,7 +376,7 @@ seoRouter.get('/robots.txt', async (req, res) => {
     }
     const host = rawDomain.replace(/\/$/, '');
 
-    let robots = `User-agent: *
+    const robots = `User-agent: *
 Allow: /
 Allow: /api/v1/public/
 Disallow: /api/
@@ -445,6 +441,8 @@ Disallow: /login/
 Disallow: /api/
 
 User-agent: Applebot
+Allow: /
+Allow: /api/v1/public/
 Disallow: /moreinfo/
 Disallow: /moreinfo/*
 Disallow: /info/
@@ -454,8 +452,11 @@ Disallow: /gateway/*
 Disallow: /download/
 Disallow: /download/*
 Disallow: /moredetail/
+Disallow: /moredetail/*
 
 User-agent: DuckDuckBot
+Allow: /
+Allow: /api/v1/public/
 Disallow: /moreinfo/
 Disallow: /moreinfo/*
 Disallow: /info/
@@ -465,8 +466,11 @@ Disallow: /gateway/*
 Disallow: /download/
 Disallow: /download/*
 Disallow: /moredetail/
+Disallow: /moredetail/*
 
 User-agent: Baiduspider
+Allow: /
+Allow: /api/v1/public/
 Disallow: /moreinfo/
 Disallow: /moreinfo/*
 Disallow: /info/
@@ -476,8 +480,11 @@ Disallow: /gateway/*
 Disallow: /download/
 Disallow: /download/*
 Disallow: /moredetail/
+Disallow: /moredetail/*
 
 User-agent: YandexBot
+Allow: /
+Allow: /api/v1/public/
 Disallow: /moreinfo/
 Disallow: /moreinfo/*
 Disallow: /info/
@@ -487,6 +494,7 @@ Disallow: /gateway/*
 Disallow: /download/
 Disallow: /download/*
 Disallow: /moredetail/
+Disallow: /moredetail/*
 
 User-agent: GPTBot
 Disallow: /
@@ -504,105 +512,36 @@ User-agent: PerplexityBot
 Disallow: /
 
 User-agent: SemrushBot
+Allow: /api/v1/public/
 Disallow: /moreinfo/
 Disallow: /info/
 Disallow: /gateway/
 Disallow: /download/
 Disallow: /moredetail/
-Crawl-delay: 2
 
 User-agent: AhrefsBot
+Allow: /api/v1/public/
 Disallow: /moreinfo/
 Disallow: /info/
 Disallow: /gateway/
 Disallow: /download/
 Disallow: /moredetail/
-Crawl-delay: 2
 
 Sitemap: ${host}/sitemap.xml
 `;
-    res.set('Content-Type', 'text/plain; charset=utf-8');
-    res.send(robots);
+    res.set({
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400'
+    });
+    return res.send(robots);
   } catch (err) {
+    const publicPath = path.join(process.cwd(), 'public', 'robots.txt');
+    if (fs.existsSync(publicPath)) {
+      res.set('Content-Type', 'text/plain; charset=utf-8');
+      return res.sendFile(publicPath);
+    }
     res.set('Content-Type', 'text/plain; charset=utf-8');
-    res.send(`User-agent: *
-Allow: /
-Allow: /api/v1/public/
-Disallow: /api/
-Disallow: /admin/
-Disallow: /login/
-Disallow: /masterworld/
-Disallow: /s/
-Disallow: /s/*
-Disallow: /dl/
-Disallow: /dl/*
-Disallow: /out/
-Disallow: /out/*
-Disallow: /moreinfo/
-Disallow: /moreinfo/*
-Disallow: /info/
-Disallow: /info/*
-Disallow: /gateway/
-Disallow: /gateway/*
-Disallow: /download/
-Disallow: /download/*
-Disallow: /moredetail/
-Disallow: /moredetail/*
-
-User-agent: Googlebot
-Allow: /
-Allow: /api/v1/public/
-Disallow: /moreinfo/
-Disallow: /moreinfo/*
-Disallow: /info/
-Disallow: /info/*
-Disallow: /gateway/
-Disallow: /gateway/*
-Disallow: /download/
-Disallow: /download/*
-Disallow: /moredetail/
-Disallow: /moredetail/*
-Disallow: /s/
-Disallow: /dl/
-Disallow: /out/
-Disallow: /admin/
-Disallow: /login/
-Disallow: /api/
-
-User-agent: Bingbot
-Allow: /
-Allow: /api/v1/public/
-Disallow: /moreinfo/
-Disallow: /moreinfo/*
-Disallow: /info/
-Disallow: /info/*
-Disallow: /gateway/
-Disallow: /gateway/*
-Disallow: /download/
-Disallow: /download/*
-Disallow: /moredetail/
-Disallow: /moredetail/*
-Disallow: /s/
-Disallow: /dl/
-Disallow: /out/
-Disallow: /admin/
-Disallow: /login/
-Disallow: /api/
-
-User-agent: GPTBot
-Disallow: /
-
-User-agent: ClaudeBot
-Disallow: /
-
-User-agent: CCBot
-Disallow: /
-
-User-agent: PerplexityBot
-Disallow: /
-
-Sitemap: https://www.rummydex.com/sitemap.xml
-`);
+    return res.send("User-agent: *\nAllow: /\nSitemap: https://www.rummydex.com/sitemap.xml\n");
   }
 });
 
@@ -614,7 +553,7 @@ const escapeXml = (unsafe: any) => {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+    .replace(/'/g, "&apos;");
 };
 
 const cleanSlug = (slug: string) => {
@@ -623,11 +562,12 @@ const cleanSlug = (slug: string) => {
 };
 
 /**
- * Robust date extractor that finds the latest exact update/upload/creation timestamp
- * across Firestore Timestamps, ISO strings, timestamps, and custom dates.
+ * Robust date extractor that outputs W3C Datetime format (YYYY-MM-DDTHH:mm:ss+00:00)
+ * compliant with Google Search Console sitemap 0.9 specification (without milliseconds).
  */
 const getFormattedDate = (obj: any): string => {
-  if (!obj || typeof obj !== 'object') return new Date().toISOString();
+  const defaultIso = new Date().toISOString().replace(/\.\d{3}Z$/, '+00:00');
+  if (!obj || typeof obj !== 'object') return defaultIso;
 
   const candidateKeys = [
     'updated_at',
@@ -683,10 +623,10 @@ const getFormattedDate = (obj: any): string => {
   }
 
   if (latestTimestamp > 0) {
-    return new Date(latestTimestamp).toISOString();
+    return new Date(latestTimestamp).toISOString().replace(/\.\d{3}Z$/, '+00:00');
   }
 
-  return new Date().toISOString();
+  return defaultIso;
 };
 
 const getHostUrl = (req: express.Request): string => {
@@ -708,70 +648,83 @@ seoRouter.get('/sitemap.xml', async (req, res) => {
     const data = await fetchStoreData();
     const { apps = [], news = [], videos = [] } = data || {};
     const host = getHostUrl(req);
-    const today = new Date().toISOString();
+    const today = new Date().toISOString().replace(/\.\d{3}Z$/, '+00:00');
 
-    // Find the latest update date across all apps
+    // Find the latest update date across all public apps
+    const publicApps = (apps || []).filter((a: any) => a && a.sync_to_public !== false);
     let latestAppDate = today;
-    if (apps.length > 0) {
+    if (publicApps.length > 0) {
       let maxTs = 0;
-      for (const app of apps) {
+      for (const app of publicApps) {
         const d = new Date(getFormattedDate(app)).getTime();
         if (d > maxTs) maxTs = d;
       }
-      if (maxTs > 0) latestAppDate = new Date(maxTs).toISOString();
+      if (maxTs > 0) latestAppDate = new Date(maxTs).toISOString().replace(/\.\d{3}Z$/, '+00:00');
     }
 
-    // Find the latest update date across news
-    let latestNewsDate = today;
-    if (news.length > 0) {
+    // Build dynamic sub-sitemaps list
+    const subSitemaps: Array<{ loc: string; lastmod: string }> = [];
+
+    // Always include apps sitemap if apps exist
+    if (publicApps.length > 0) {
+      subSitemaps.push({
+        loc: `${host}/sitemap-apps.xml`,
+        lastmod: latestAppDate
+      });
+    }
+
+    // Always include static pages sitemap
+    subSitemaps.push({
+      loc: `${host}/sitemap-static.xml`,
+      lastmod: latestAppDate
+    });
+
+    // Find the latest update date across public news
+    const publicNews = (news || []).filter((n: any) => n && n.sync_to_public !== false);
+    if (publicNews.length > 0) {
       let maxTs = 0;
-      for (const item of news) {
+      for (const item of publicNews) {
         const d = new Date(getFormattedDate(item)).getTime();
         if (d > maxTs) maxTs = d;
       }
-      if (maxTs > 0) latestNewsDate = new Date(maxTs).toISOString();
+      subSitemaps.push({
+        loc: `${host}/sitemap-news.xml`,
+        lastmod: maxTs > 0 ? new Date(maxTs).toISOString().replace(/\.\d{3}Z$/, '+00:00') : today
+      });
     }
 
-    // Find the latest update date across videos
-    let latestVideoDate = today;
-    if (videos.length > 0) {
+    // Only include videos sitemap if videos exist
+    if (videos && videos.length > 0) {
       let maxTs = 0;
       for (const v of videos) {
         const d = new Date(getFormattedDate(v)).getTime();
         if (d > maxTs) maxTs = d;
       }
-      if (maxTs > 0) latestVideoDate = new Date(maxTs).toISOString();
+      subSitemaps.push({
+        loc: `${host}/sitemap-videos.xml`,
+        lastmod: maxTs > 0 ? new Date(maxTs).toISOString().replace(/\.\d{3}Z$/, '+00:00') : today
+      });
     }
 
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <sitemap>
-    <loc>${host}/sitemap-apps.xml</loc>
-    <lastmod>${latestAppDate}</lastmod>
-  </sitemap>
-  <sitemap>
-    <loc>${host}/sitemap-static.xml</loc>
-    <lastmod>${latestAppDate}</lastmod>
-  </sitemap>
-  <sitemap>
-    <loc>${host}/sitemap-news.xml</loc>
-    <lastmod>${latestNewsDate}</lastmod>
-  </sitemap>
-  <sitemap>
-    <loc>${host}/sitemap-videos.xml</loc>
-    <lastmod>${latestVideoDate}</lastmod>
-  </sitemap>
-  <sitemap>
-    <loc>${host}/sitemap-developers.xml</loc>
-    <lastmod>${latestAppDate}</lastmod>
-  </sitemap>
-</sitemapindex>`;
+    // Developers sitemap
+    subSitemaps.push({
+      loc: `${host}/sitemap-developers.xml`,
+      lastmod: latestAppDate
+    });
+
+    let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+    xml += `<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
+    for (const sm of subSitemaps) {
+      xml += `  <sitemap>\n    <loc>${sm.loc}</loc>\n    <lastmod>${sm.lastmod}</lastmod>\n  </sitemap>\n`;
+    }
+    xml += `</sitemapindex>`;
 
     res.set({
       'Content-Type': 'application/xml; charset=utf-8',
+      'X-Content-Type-Options': 'nosniff',
       'Cache-Control': 'public, max-age=120, stale-while-revalidate=600'
     });
-    return res.send(xml);
+    return res.status(200).send(xml);
   } catch (e) {
     console.error('Sitemap Index Generation Error:', e);
     return res.status(500).type('text/plain').send('Error generating sitemap index');
@@ -868,14 +821,14 @@ seoRouter.get('/sitemap-static.xml', async (req, res) => {
     const host = getHostUrl(req);
     
     // Find latest app date for homepage lastmod
-    let latestAppDate = new Date().toISOString();
+    let latestAppDate = new Date().toISOString().replace(/\.\d{3}Z$/, '+00:00');
     if (apps.length > 0) {
       let maxTs = 0;
       for (const a of apps) {
         const d = new Date(getFormattedDate(a)).getTime();
         if (d > maxTs) maxTs = d;
       }
-      if (maxTs > 0) latestAppDate = new Date(maxTs).toISOString();
+      if (maxTs > 0) latestAppDate = new Date(maxTs).toISOString().replace(/\.\d{3}Z$/, '+00:00');
     }
 
     let siteLogo = getField(data?.settings, 'logo_url') || getField(data?.settings, 'favicon_url') || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
@@ -1030,13 +983,20 @@ seoRouter.get('/sitemap-videos.xml', async (req, res) => {
       }
     }
 
+    // Fallback if no specific video items exist: include main videos gallery page
+    if (seenUrls.size === 0) {
+      const today = new Date().toISOString().replace(/\.\d{3}Z$/, '+00:00');
+      xml += `  <url>\n    <loc>${host}/videos</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
+    }
+
     xml += `</urlset>\n`;
 
     res.set({
       'Content-Type': 'application/xml; charset=utf-8',
+      'X-Content-Type-Options': 'nosniff',
       'Cache-Control': 'public, max-age=120, stale-while-revalidate=600'
     });
-    return res.send(xml);
+    return res.status(200).send(xml);
   } catch (e) {
     console.error('Videos Sitemap Error:', e);
     return res.status(500).type('text/plain').send('Error generating videos sitemap');
@@ -1060,14 +1020,14 @@ seoRouter.get('/sitemap-developers.xml', async (req, res) => {
     const { apps = [] } = data || {};
     const host = getHostUrl(req);
     
-    let latestAppDate = new Date().toISOString();
+    let latestAppDate = new Date().toISOString().replace(/\.\d{3}Z$/, '+00:00');
     if (apps.length > 0) {
       let maxTs = 0;
       for (const a of apps) {
         const d = new Date(getFormattedDate(a)).getTime();
         if (d > maxTs) maxTs = d;
       }
-      if (maxTs > 0) latestAppDate = new Date(maxTs).toISOString();
+      if (maxTs > 0) latestAppDate = new Date(maxTs).toISOString().replace(/\.\d{3}Z$/, '+00:00');
     }
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
