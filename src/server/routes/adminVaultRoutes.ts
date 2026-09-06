@@ -9,6 +9,7 @@ import { clearResolvedLinkCache } from './securityRoutes';
 import { clearPublicBackupCache } from './publicApiRoutes';
 import { clearSeoCache } from '../../seoHelper';
 import { vaultNode } from '../../lib/vaultNode';
+import { generateAllSitemaps } from '../../lib/sitemapGenerator';
 
 export const adminVaultRouter = express.Router();
 
@@ -800,6 +801,21 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
         if (target && app.id) vaultNode.setPayload(app.id, target);
         if (target && app.slug) vaultNode.setPayload(app.slug, target);
       });
+
+      // Regenerate all sitemaps in public and dist so search crawlers always see new apps
+      try {
+        const sitemaps = generateAllSitemaps(backupPayload);
+        for (const [filename, content] of Object.entries(sitemaps)) {
+          const publicSmPath = path.join(process.cwd(), 'public', filename);
+          fs.writeFileSync(publicSmPath, content as string, 'utf8');
+          const distSmPath = path.join(process.cwd(), 'dist', filename);
+          if (fs.existsSync(path.dirname(distSmPath))) {
+            fs.writeFileSync(distSmPath, content as string, 'utf8');
+          }
+        }
+      } catch (smErr) {
+        console.warn('[SERVER] Could not auto-regenerate sitemaps in sync-local:', smErr);
+      }
     } catch (e) {
       console.warn("[SERVER] Could not update local file backups:", e);
     }
@@ -866,8 +882,42 @@ function updateLocalBackupSection(section: 'apps' | 'settings' | 'news' | 'video
       fs.writeFileSync(publicApiJsonPath, JSON.stringify(staticCur, null, 2), 'utf8');
     }
 
+    // Automatically regenerate all static sitemaps so search crawlers always see new apps
+    try {
+      const sitemaps = generateAllSitemaps(current);
+      for (const [filename, content] of Object.entries(sitemaps)) {
+        const publicSmPath = path.join(process.cwd(), 'public', filename);
+        fs.writeFileSync(publicSmPath, content as string, 'utf8');
+        const distSmPath = path.join(process.cwd(), 'dist', filename);
+        if (fs.existsSync(path.dirname(distSmPath))) {
+          fs.writeFileSync(distSmPath, content as string, 'utf8');
+        }
+      }
+    } catch (smErr) {
+      console.warn('[SERVER] Auto-regenerate sitemaps warning:', smErr);
+    }
+
     clearPublicBackupCache();
     clearSeoCache();
+
+    // Dynamically regenerate all XML sitemaps whenever data updates
+    try {
+      const { generateAllSitemaps } = require('../../lib/sitemapGenerator');
+      const sitemaps = generateAllSitemaps(current);
+      const publicDir = path.join(process.cwd(), 'public');
+      const distDir = path.join(process.cwd(), 'dist');
+      for (const [filename, xmlContent] of Object.entries(sitemaps)) {
+        if (fs.existsSync(publicDir)) {
+          fs.writeFileSync(path.join(publicDir, filename), xmlContent as string, 'utf8');
+        }
+        if (fs.existsSync(distDir)) {
+          fs.writeFileSync(path.join(distDir, filename), xmlContent as string, 'utf8');
+        }
+      }
+      console.log(`[SERVER] XML sitemaps updated in public/ and dist/ (${current.apps?.length || 0} apps in catalog).`);
+    } catch (smErr) {
+      console.warn(`[SERVER] Could not regenerate sitemaps on backup update:`, smErr);
+    }
   } catch (e) {
     console.warn(`[SERVER] Failed to update local backup section ${section}:`, e);
   }

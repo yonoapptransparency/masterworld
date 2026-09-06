@@ -8,26 +8,6 @@
       "destination": "/api/index"
     },
     {
-      "source": "/(sitemap.*\\.xml)",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/robots.txt",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/rss.xml",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/opensearch.xml",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/(site\\.webmanifest|manifest\\.json|favicon\\.ico|favicon\\.png|favicon-32x32\\.png|favicon-16x16\\.png|apple-touch-icon\\.png|apple-touch-icon-precomposed\\.png|android-chrome-192x192\\.png|android-chrome-512x512\\.png|logo\\.png)",
-      "destination": "/api/index"
-    },
-    {
       "source": "/api/(.*)",
       "destination": "/api/index"
     },
@@ -41,12 +21,33 @@
       "source": "/(sitemap.*\\.xml|rss\\.xml|opensearch\\.xml)",
       "headers": [
         {
+          "key": "Content-Type",
+          "value": "application/xml; charset=utf-8"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
           "key": "Cache-Control",
           "value": "public, max-age=60, s-maxage=60, stale-while-revalidate=600"
         },
         {
           "key": "Vary",
           "value": "Accept-Encoding"
+        }
+      ]
+    },
+    {
+      "source": "/robots.txt",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/plain; charset=utf-8"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600, stale-while-revalidate=86400"
         }
       ]
     },

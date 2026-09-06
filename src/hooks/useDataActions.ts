@@ -197,6 +197,36 @@ export function useDataActions(
     }
   }, [getAdminToken, setVideos]);
 
+  const updateLocalContainerBackup = useCallback(async (
+    targetApps?: AppConfig[],
+    targetSettings?: Partial<GlobalSettings>,
+    targetNews?: NewsItem[],
+    targetVideos?: VideoItem[]
+  ) => {
+    try {
+      const idToken = await getAdminToken();
+      const res = await adminFetch('/api/v1/admin/sync-local', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+        },
+        body: JSON.stringify({
+          apps: targetApps || apps,
+          settings: targetSettings || settings,
+          news: targetNews || news,
+          videos: targetVideos || videos
+        })
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        console.warn(`[WARN] updateLocalContainerBackup failed: ${text}`);
+      }
+    } catch (err: any) {
+      console.warn(`[WARN] updateLocalContainerBackup network error: ${err.message}`);
+    }
+  }, [getAdminToken, apps, settings, news, videos]);
+
   return {
     saveAppSingle,
     deleteAppSingle,
@@ -205,6 +235,6 @@ export function useDataActions(
     saveSettings,
     saveNews,
     saveVideos,
-    updateLocalContainerBackup: saveSettings
+    updateLocalContainerBackup
   };
 }

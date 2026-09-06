@@ -3,6 +3,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db, isFirebaseReal, handleFirestoreError, OperationType } from '../lib/firebase';
 import { adminFetch, getValidAdminToken, loadSession } from '../services/adminAuthService';
 import { GitConfig, generateStaticDataFileCode, generateCommunityReviewsFileCode, commitFileToGitHub, encryptUrlIfNeeded } from '../lib/githubSync';
+import { generateAllSitemaps } from '../lib/sitemapGenerator';
 import { STATIC_COMMUNITY_REVIEWS } from '../lib/communityReviewsData';
 import { ensureDefaultSettings } from '../lib/defaultLegalContent';
 import { AppConfig, GlobalSettings, NewsItem, VideoItem } from '../types';
@@ -137,7 +138,22 @@ export function useGitHubSync(
     const stateNews = overrideNews || news;
     const stateVideos = overrideVideos || videos;
 
-    const targetApps = stateApps || liveBackup?.apps || [];
+    // Comprehensive union of stateApps and liveBackup.apps to ensure all newly added apps are included
+    const appMap = new Map();
+    if (Array.isArray(stateApps)) {
+      stateApps.forEach((a: any) => { if (a && (a.id || a.slug)) appMap.set(a.id || a.slug, a); });
+    }
+    if (Array.isArray(liveBackup?.apps)) {
+      liveBackup.apps.forEach((a: any) => {
+        const key = a.id || a.slug;
+        if (key && !appMap.has(key)) {
+          appMap.set(key, a);
+        } else if (key && appMap.has(key)) {
+          appMap.set(key, { ...appMap.get(key), ...a });
+        }
+      });
+    }
+    const targetApps = appMap.size > 0 ? Array.from(appMap.values()) : (stateApps || liveBackup?.apps || []);
     const targetSettings = (stateSettings && Object.keys(stateSettings).length > 0) ? stateSettings : (liveBackup?.settings || {});
     const targetNews = stateNews || liveBackup?.news || [];
     const targetVideos = stateVideos || liveBackup?.videos || [];
@@ -348,6 +364,42 @@ export function useGitHubSync(
         content: staticJsonCode,
         message: `Admin Release: Manual public-api/staticData.json synchronization to ${targetRepo}`
       }).then(() => log(`GitHub Sync: ✅ public-api/staticData.json successfully synced to ${targetRepo}.`)).catch(() => {}));
+
+      // Generate XML sitemaps for instant static hosting and search engine discoverability
+      try {
+        const sitemaps = generateAllSitemaps({
+          apps: publicApps,
+          settings: finalSettings,
+          news: publicNews,
+          videos: targetVideos
+        });
+        for (const [filename, xmlContent] of Object.entries(sitemaps)) {
+          primaryCommits.push(commitFileToGitHub({
+            owner: configToUse.owner,
+            repo: targetRepo,
+            token: configToUse.token,
+            branch: configToUse.branch || 'main',
+            path: `public/${filename}`,
+            content: xmlContent,
+            message: `Admin Release: Auto-generate ${filename} for ${publicApps.length} apps`
+          }).then(() => log(`GitHub Sync: ✅ public/${filename} updated with ${publicApps.length} live apps.`)).catch((err: any) => {
+            log(`GitHub Sync Notice: public/${filename} note: ${err?.message || 'skipped'}`);
+          }));
+        }
+
+        const robotsContent = `User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /admin/\nDisallow: /login/\nDisallow: /masterworld/\nSitemap: https://www.rummydex.com/sitemap.xml\n`;
+        primaryCommits.push(commitFileToGitHub({
+          owner: configToUse.owner,
+          repo: targetRepo,
+          token: configToUse.token,
+          branch: configToUse.branch || 'main',
+          path: 'public/robots.txt',
+          content: robotsContent,
+          message: 'Admin Release: Sync robots.txt with sitemap reference'
+        }).then(() => log('GitHub Sync: ✅ public/robots.txt synced.')).catch(() => {}));
+      } catch (sitemapErr) {
+        log(`GitHub Sync Warning: Could not auto-generate public XML sitemaps: ${(sitemapErr as any)?.message}`);
+      }
 
       await Promise.all(primaryCommits);
 
