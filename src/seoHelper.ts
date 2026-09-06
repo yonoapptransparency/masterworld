@@ -5,7 +5,7 @@ import { syncFromFirestore } from './seo/sync';
 import { getField, stripHtml, getYoutubeThumbnail, ensureAbsoluteUrl, getOgImageUrl, isBotUserAgent, escapeHtml, optimizeImageUrl, normalizeSchemaCategory } from './seo/utils';
 import * as renderers from './seo/renderers';
 import { getCleanCanonicalUrl, formatPageTitle } from './lib/seoUtils';
-import { communityStore } from './server/services/communityStoreService';
+import { communityStore } from './lib/communityStoreFallback';
 
 // Dynamically resolve staticData directly from filesystem to bypass caching
 const getStaticData = () => {

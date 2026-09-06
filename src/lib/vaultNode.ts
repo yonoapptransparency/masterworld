@@ -5,7 +5,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { safeDecrypt, getAesSecret } from '../server/crypto';
+import { safeDecrypt, getAesSecret } from './cryptoUtils';
 import { ENCRYPTED_LINKS } from './secureVault';
 
 interface SecureNode {

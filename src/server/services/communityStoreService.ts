@@ -1114,3 +1114,9 @@ class CommunityStoreService {
 }
 
 export const communityStore = new CommunityStoreService();
+try {
+  const { communityStore: fallbackStore } = require('../../lib/communityStoreFallback');
+  if (fallbackStore && typeof fallbackStore.setDynamicProvider === 'function') {
+    fallbackStore.setDynamicProvider(communityStore);
+  }
+} catch (e) {}
