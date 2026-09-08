@@ -29,7 +29,7 @@ async function startServer() {
     crossOriginOpenerPolicy: false,
     crossOriginResourcePolicy: false,
     hsts: { maxAge: 63072000, includeSubDomains: true, preload: true },
-    frameguard: { action: 'deny' },
+    frameguard: false,
     xssFilter: true,
     noSniff: true,
     referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
@@ -121,6 +121,7 @@ async function startServer() {
       viteDevServer = await createViteServer({
         server: {
           middlewareMode: true,
+          hmr: isHmrDisabled ? false : undefined,
         },
         appType: "custom",
       });
@@ -402,8 +403,12 @@ async function startServer() {
       const statusCode = isNotFound ? 404 : 200;
 
       let cacheControl = 'no-cache, no-store, must-revalidate';
+      const reqUrlLower = req.originalUrl.toLowerCase().split('?')[0].replace(/\/+$/, '') || '/';
+
       if (process.env.NODE_ENV === "production") {
         if (req.originalUrl === '/' || req.originalUrl === '' || req.originalUrl === '/new-apps') {
+          cacheControl = 'public, max-age=300, stale-while-revalidate=3600';
+        } else if (reqUrlLower.startsWith('/app/') || reqUrlLower.startsWith('/category/') || reqUrlLower.startsWith('/categories')) {
           cacheControl = 'public, max-age=300, stale-while-revalidate=3600';
         } else if (req.originalUrl === '/news' || req.originalUrl === '/videos') {
           cacheControl = 'public, max-age=600, stale-while-revalidate=7200';
@@ -411,8 +416,6 @@ async function startServer() {
           cacheControl = 'public, max-age=3600, stale-while-revalidate=86400';
         }
       }
-
-      const reqUrlLower = req.originalUrl.toLowerCase().split('?')[0].replace(/\/+$/, '') || '/';
       const isHomePage = reqUrlLower === '/' || reqUrlLower === '/new-apps';
       const isAppDetailPage = reqUrlLower.startsWith('/app/');
       const isDisallowedRoute = isNotFound ||
