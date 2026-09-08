@@ -40,62 +40,40 @@ import {
   Layers,
   Compass,
   CheckSquare,
-  XSquare
+  XSquare,
+  X,
+  Send,
+  Key,
+  Radio
 } from 'lucide-react';
 import { toast } from '../Toast';
 import { adminFetch } from '../../services/adminAuthService';
+import { 
+  AppReviewProfile, 
+  loadAllAppProfiles, 
+  saveAllAppProfiles, 
+  stripHtmlTags, 
+  STORAGE_KEY_PROFILES, 
+  STORAGE_KEY_DEFAULT_COUNT,
+  AutobotStage,
+  AutobotLog,
+  AutobotSessionStats,
+  Brain2AutobotStage,
+  Brain2AutobotLog,
+  Brain2AutobotSessionStats,
+  GenerationTelemetry
+} from './aistudio/types';
+import { Brain1Studio } from './aistudio/Brain1Studio';
+import { Brain2Studio } from './aistudio/Brain2Studio';
+import { StagedReviewsWorkspace } from './aistudio/StagedReviewsWorkspace';
+import { AutopilotStudio } from './aistudio/AutopilotStudio';
+import { BulkStudio } from './aistudio/BulkStudio';
 
-export interface AppReviewProfile {
-  targetScore: number;
-  customDistribution: boolean;
-  starMix: {
-    star5: number;
-    star4: number;
-    star3: number;
-    star2: number;
-    star1: number;
-  };
-  toneFocus: 'balanced' | 'performance' | 'gameplay' | 'ui_graphics' | 'casual';
-  singleCount: number;
-  customPrompt?: string;
-  updatedAt?: string;
-}
+export { type AppReviewProfile };
 
 interface AdminAIReviewStudioTabProps {
   appsList: any[];
   onReviewsGenerated?: () => void;
-}
-
-const STORAGE_KEY_PROFILES = 'rummydex_admin_ai_app_profiles';
-const STORAGE_KEY_DEFAULT_COUNT = 'rummydex_admin_ai_review_count';
-
-function loadAllAppProfiles(): Record<string, AppReviewProfile> {
-  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return {};
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY_PROFILES);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
-
-function saveAllAppProfiles(profiles: Record<string, AppReviewProfile>) {
-  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
-  try {
-    localStorage.setItem(STORAGE_KEY_PROFILES, JSON.stringify(profiles));
-  } catch (e) {
-    console.warn("Failed to persist AI review profiles to localStorage", e);
-  }
-}
-
-function stripHtmlTags(html: string): string {
-  if (!html) return '';
-  return html
-    .replace(/<[^>]*>?/gm, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/\s+/g, ' ')
-    .trim();
 }
 
 export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({ 
@@ -138,6 +116,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
   // ==========================================
   const targetScore = currentApp?.rating ? Math.min(5.0, Math.max(3.0, Number(currentApp.rating))) : 4.8;
   const [toneFocus, setToneFocus] = useState<'balanced' | 'performance' | 'gameplay' | 'ui_graphics' | 'casual'>('balanced');
+  const [brain1LanguageStyle, setBrain1LanguageStyle] = useState<'proper_english' | 'hinglish' | 'natural_mix'>('proper_english');
   const [customPrompt, setCustomPrompt] = useState<string>('');
   const [singleCount, setSingleCount] = useState<number>(5);
   const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
@@ -263,6 +242,65 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
     }
   }, [selectedAppId, fetchBrain1Dossier, fetchBrain2TargetInfo]);
 
+  // ==========================================
+  // Gemini AI Engine & Multi-Key Diagnostics
+  // ==========================================
+  const [showAiDiagnosticsModal, setShowAiDiagnosticsModal] = useState<boolean>(false);
+  const [aiStatusData, setAiStatusData] = useState<any>(null);
+  const [loadingAiStatus, setLoadingAiStatus] = useState<boolean>(false);
+  const [pingTesting, setPingTesting] = useState<boolean>(false);
+  const [pingModel, setPingModel] = useState<string>('gemini-3.6-flash');
+  const [pingPrompt, setPingPrompt] = useState<string>('Confirm RummyDex AI engine status and connectivity.');
+  const [pingResult, setPingResult] = useState<any>(null);
+
+  const fetchAiStatus = useCallback(async () => {
+    setLoadingAiStatus(true);
+    try {
+      const res = await adminFetch('/api/v1/admin/ai-status');
+      if (res.ok) {
+        const data = await res.json();
+        setAiStatusData(data);
+      }
+    } catch (err) {
+      console.warn("Could not fetch AI status:", err);
+    } finally {
+      setLoadingAiStatus(false);
+    }
+  }, []);
+
+  const runPingTest = async (modelToTest?: string) => {
+    setPingTesting(true);
+    setPingResult(null);
+    try {
+      const targetModel = modelToTest || pingModel;
+      const res = await adminFetch('/api/v1/admin/ai-test-ping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: targetModel,
+          prompt: pingPrompt
+        })
+      });
+      const data = await res.json();
+      setPingResult(data);
+      if (res.ok && data.success) {
+        toast(`API Test Passed! Latency: ${data.latencyMs}ms (${data.modelUsed})`, 'success');
+        fetchAiStatus();
+      } else {
+        toast(data.error || 'AI Ping test failed', 'error');
+      }
+    } catch (err: any) {
+      setPingResult({ success: false, error: err.message || 'Network request failed' });
+      toast('AI Ping failed: ' + (err.message || 'Error'), 'error');
+    } finally {
+      setPingTesting(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAiStatus();
+  }, [fetchAiStatus]);
+
   // Clean up autobot timers on unmount
   useEffect(() => {
     return () => {
@@ -280,11 +318,13 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
     const saved = appProfiles[appId] || appProfiles[String(currentApp.slug || '')];
     if (saved) {
       setToneFocus(saved.toneFocus ?? 'balanced');
+      setBrain1LanguageStyle(saved.languageStyle ?? 'proper_english');
       setSingleCount(saved.singleCount ?? 5);
       setCustomPrompt(saved.customPrompt ?? '');
       setLastSavedTime(saved.updatedAt || 'Saved');
     } else {
       setToneFocus('balanced');
+      setBrain1LanguageStyle('proper_english');
       setSingleCount(5);
       setCustomPrompt('');
       setLastSavedTime(null);
@@ -317,6 +357,11 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
       return nextProfiles;
     });
   }, [currentApp]);
+
+  const handleSetBrain1LanguageStyle = useCallback((style: 'proper_english' | 'hinglish' | 'natural_mix') => {
+    setBrain1LanguageStyle(style);
+    persistCurrentAppProfile({ languageStyle: style });
+  }, [persistCurrentAppProfile]);
 
   // Dossier Health Computation for Current App
   const dossierHealth = useMemo(() => {
@@ -517,6 +562,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number; active: boolean } | null>(null);
   const [bulkResult, setBulkResult] = useState<{ totalGenerated: number; totalApps: number } | null>(null);
   const [bulkBrainChoice, setBulkBrainChoice] = useState<'local' | 'research'>('local');
+  const [bulkLanguageStyle, setBulkLanguageStyle] = useState<'proper_english' | 'hinglish' | 'natural_mix'>('proper_english');
 
   const categories = useMemo(() => {
     const cats = new Set<string>();
@@ -562,6 +608,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           count: stepCount,
           targetScore,
           customPrompt: customPrompt.trim() || undefined,
+          languageStyle: brain1LanguageStyle,
           saveDirectly: directSave
         })
       });
@@ -1073,7 +1120,8 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           appIds: targetApps.map(a => a.id),
           countPerApp: bulkCountPerApp,
           targetScore: 4.8,
-          mode: bulkBrainChoice
+          mode: bulkBrainChoice,
+          languageStyle: bulkLanguageStyle
         })
       });
 
@@ -1117,22 +1165,57 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
             </div>
           </div>
 
-          {/* Real-time System Status Pills */}
+          {/* Real-time System Status Pills with Interactive Diagnostic Button */}
           <div className="flex flex-wrap items-center gap-2.5 text-xs font-semibold">
-            <div className="flex items-center gap-2 bg-slate-800/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-700/60 shadow-xs">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-slate-300">Brain 1:</span>
-              <span className="text-emerald-400 font-bold">Deep Dossier Active</span>
+            {/* Live Gemini Engine Status Badge */}
+            <div 
+              onClick={() => { fetchAiStatus(); setShowAiDiagnosticsModal(true); }}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border backdrop-blur-md shadow-xs cursor-pointer transition-all hover:scale-105 active:scale-95 ${
+                aiStatusData?.overallStatus === 'all_systems_operational'
+                  ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-300 hover:border-emerald-400'
+                  : aiStatusData?.overallStatus === 'quota_warning'
+                  ? 'bg-amber-950/60 border-amber-500/50 text-amber-300 hover:border-amber-400'
+                  : 'bg-slate-800/80 border-slate-700/60 text-slate-300 hover:border-slate-500'
+              }`}
+              title="Click to view Gemini API Keys and Model Diagnostics"
+            >
+              <span className={`w-2 h-2 rounded-full ${
+                aiStatusData?.overallStatus === 'all_systems_operational'
+                  ? 'bg-emerald-400 animate-pulse'
+                  : 'bg-amber-400'
+              }`} />
+              <span className="text-slate-300">Gemini:</span>
+              <span className="font-bold">
+                {loadingAiStatus 
+                  ? 'Checking...' 
+                  : aiStatusData?.overallStatus === 'all_systems_operational'
+                  ? `${aiStatusData?.activeModel || '3.6-flash'} (Online)`
+                  : aiStatusData?.configured
+                  ? 'Key Active'
+                  : 'Needs Review'}
+              </span>
             </div>
+
+            {/* Test API Keys Action Button */}
+            <button
+              onClick={() => { fetchAiStatus(); setShowAiDiagnosticsModal(true); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-cyan-500/50 bg-cyan-950/60 hover:bg-cyan-900/70 text-cyan-300 shadow-xs cursor-pointer transition-all active:scale-95 text-xs font-bold"
+              title="Open full AI API Diagnostics & Model Testing Sandbox"
+            >
+              <Activity size={14} className="text-cyan-400 animate-pulse" />
+              <span>Test API Keys</span>
+            </button>
+
             <div className="flex items-center gap-2 bg-slate-800/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-700/60 shadow-xs">
               <span className="w-2 h-2 rounded-full bg-indigo-400" />
               <span className="text-slate-300">Brain 2:</span>
-              <span className="text-indigo-300 font-bold">Live Web Grounding</span>
+              <span className="text-indigo-300 font-bold">Web Grounding</span>
             </div>
+            
             <div className="flex items-center gap-2 bg-slate-800/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-700/60 shadow-xs">
               <ShieldCheck size={14} className="text-emerald-400" />
               <span className="text-slate-300">Database:</span>
-              <span className="text-emerald-400 font-bold">Firestore Connected</span>
+              <span className="text-emerald-400 font-bold">Firestore</span>
             </div>
           </div>
         </div>
@@ -1240,1527 +1323,412 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* 2. PART 1: BRAIN 1 — DEEP DOSSIER AUTOBOT ENGINE (DEDICATED INTERFACE) */}
+      {/* 2. PART 1: BRAIN 1 — DEEP DOSSIER AUTOBOT ENGINE */}
       {/* ========================================================================= */}
       {mode === 'brain1' && (
-        <div className="space-y-6">
-          
-          {/* HEADER & AUTOBOT STATUS BAR */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-6">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
-              <div>
-                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-xs font-black uppercase tracking-wider">
-                  <Cpu size={16} />
-                  <span>Part 1: Brain 1 — Deep Dossier Autobot Engine</span>
-                </div>
-                <h2 className="text-xl font-black text-slate-900 dark:text-white mt-1 flex items-center gap-2">
-                  <span>Autonomous Auto-Commenter & 360° Dossier Ingestion</span>
-                </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Autobot first reads all app details, rules, warnings, and FAQs from your database, then creates authentic human reviews freely with zero forced templates.
-                </p>
-              </div>
-
-              {/* Real-time Status Indicator Pill */}
-              <div className="flex items-center gap-3">
-                {autobotActive ? (
-                  autobotPaused ? (
-                    <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-500 text-xs font-bold animate-pulse">
-                      <Pause size={13} />
-                      <span>AUTOBOT PAUSED</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 text-xs font-black">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                      <span>AUTOBOT ONLINE • {autobotCurrentStage.toUpperCase()}</span>
-                    </div>
-                  )
-                ) : (
-                  <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 text-xs font-bold">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                    <span>AUTOBOT STANDBY</span>
-                  </div>
-                )}
-
-                {/* App Search Bar */}
-                <div className="relative w-full lg:w-64">
-                  <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Search app in catalog..."
-                    value={appSearch}
-                    onChange={(e) => setAppSearch(e.target.value)}
-                    className="w-full text-xs pl-9 pr-3.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Selected App & Ingested Information Cockpit */}
-            <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-200 dark:border-slate-700/80 space-y-4">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                
-                {/* App Identity */}
-                <div className="flex items-center gap-3.5 min-w-0">
-                  {currentApp?.icon_url ? (
-                    <img 
-                      src={currentApp.icon_url} 
-                      alt={currentApp?.name || 'App'} 
-                      className="w-14 h-14 rounded-2xl object-contain shadow-xs bg-white dark:bg-slate-800 shrink-0 border border-slate-200 dark:border-slate-700" 
-                    />
-                  ) : (
-                    <div className="w-14 h-14 rounded-2xl bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center font-black text-emerald-600 shrink-0 text-xl">
-                      {currentApp?.name?.charAt(0) || 'A'}
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <select
-                      value={selectedAppId}
-                      onChange={(e) => setSelectedAppId(e.target.value)}
-                      className="w-full text-base font-black bg-transparent text-slate-900 dark:text-white border-0 cursor-pointer focus:outline-none truncate"
-                    >
-                      {filteredApps.map(app => (
-                        <option key={app.id} value={app.id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
-                          {app.name} ({app.category || 'General'}) • Store: {app.rating || '4.8'}★
-                        </option>
-                      ))}
-                    </select>
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      <span>Developer: <strong>{currentApp?.developer || 'Studio'}</strong></span>
-                      <span>•</span>
-                      <span>Category: <strong>{currentApp?.category || 'Card'}</strong></span>
-                      <span>•</span>
-                      <span>Size: <strong>{currentApp?.file_size || 'Fast DL'}</strong></span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Live Ingested Information Metrics Chips */}
-                <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold">
-                  <div className="bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 px-3 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800/70 flex items-center gap-1.5">
-                    <FileText size={13} className="text-emerald-500" />
-                    <span>Chars Ingested: <strong>{brain1Dossier?.dossierStats?.totalChars || dossierHealth.descChars}</strong></span>
-                  </div>
-                  <div className="bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 px-3 py-1.5 rounded-xl border border-blue-200 dark:border-blue-800/70 flex items-center gap-1.5">
-                    <Compass size={13} className="text-blue-500" />
-                    <span>Mechanics: <strong>{brain1Dossier?.highlights?.length || dossierHealth.modes.length}</strong></span>
-                  </div>
-                  <div className="bg-purple-50 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 px-3 py-1.5 rounded-xl border border-purple-200 dark:border-purple-800/70 flex items-center gap-1.5">
-                    <Info size={13} className="text-purple-500" />
-                    <span>FAQs: <strong>{brain1Dossier?.dossierStats?.faqCount || 0}</strong></span>
-                  </div>
-                  <button
-                    onClick={() => setShowDossierDrawer(!showDossierDrawer)}
-                    className="bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 px-3.5 py-1.5 rounded-xl hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors flex items-center gap-1.5 cursor-pointer font-bold"
-                  >
-                    <Eye size={13} />
-                    <span>{showDossierDrawer ? 'Hide 360° Info' : 'Inspect 360° App Info'}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Expandable 360° Broad Information Explorer */}
-              {showDossierDrawer && (
-                <div className="bg-slate-900 text-slate-200 rounded-2xl border border-slate-800 overflow-hidden space-y-3 animate-in fade-in duration-200">
-                  <div className="p-3.5 bg-slate-950/60 border-b border-slate-800/80 flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 text-xs font-bold text-emerald-400">
-                      <Terminal size={15} />
-                      <span>Complete App Dossier Ingested by Brain 1 for "{currentApp?.name}"</span>
-                    </div>
-                    
-                    {/* Dossier Tabs */}
-                    <div className="flex items-center gap-1">
-                      {(['overview', 'description', 'features', 'safety', 'faqs', 'raw'] as const).map(tab => (
-                        <button
-                          key={tab}
-                          onClick={() => setDossierActiveTab(tab)}
-                          className={`px-2.5 py-1 text-[10px] font-bold rounded-lg uppercase tracking-wider transition-colors cursor-pointer ${
-                            dossierActiveTab === tab
-                              ? 'bg-emerald-500 text-white shadow-xs'
-                              : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
-                          }`}
-                        >
-                          {tab}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="p-4 max-h-56 overflow-y-auto text-xs text-slate-300 leading-relaxed space-y-2 pr-3 scrollbar-thin">
-                    {dossierActiveTab === 'overview' && (
-                      <div className="space-y-2">
-                        <div className="flex flex-wrap gap-1.5">
-                          {(brain1Dossier?.highlights || dossierHealth.modes).map((m: string, i: number) => (
-                            <span key={i} className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 text-[11px] font-bold">
-                              ✓ {m}
-                            </span>
-                          ))}
-                        </div>
-                        <p className="text-slate-400 text-xs mt-2">{brain1Dossier?.descriptionSummary || dossierHealth.summary}</p>
-                      </div>
-                    )}
-
-                    {dossierActiveTab === 'description' && (
-                      <div className="space-y-1">
-                        <div className="text-emerald-400 font-bold text-[11px]">Database App Description:</div>
-                        <p className="whitespace-pre-wrap font-mono text-[11px] text-slate-300">
-                          {stripHtmlTags(currentApp?.description_html || currentApp?.description || 'No description provided')}
-                        </p>
-                      </div>
-                    )}
-
-                    {dossierActiveTab === 'features' && (
-                      <div className="space-y-1">
-                        <div className="text-emerald-400 font-bold text-[11px]">Features Breakdown:</div>
-                        <p className="whitespace-pre-wrap font-mono text-[11px] text-slate-300">
-                          {stripHtmlTags(currentApp?.features_html || currentApp?.features || 'No features list provided')}
-                        </p>
-                      </div>
-                    )}
-
-                    {dossierActiveTab === 'safety' && (
-                      <div className="space-y-2">
-                        {currentApp?.red_box_msg && (
-                          <div className="p-2.5 rounded-xl bg-rose-950/40 border border-rose-800/60 text-rose-300">
-                            <span className="font-bold text-xs">Critical Notice: </span>
-                            {stripHtmlTags(currentApp.red_box_msg)}
-                          </div>
-                        )}
-                        {currentApp?.yellow_box_msg && (
-                          <div className="p-2.5 rounded-xl bg-amber-950/40 border border-amber-800/60 text-amber-300">
-                            <span className="font-bold text-xs">Caution Notice: </span>
-                            {stripHtmlTags(currentApp.yellow_box_msg)}
-                          </div>
-                        )}
-                        {currentApp?.idea_box_msg && (
-                          <div className="p-2.5 rounded-xl bg-blue-950/40 border border-blue-800/60 text-blue-300">
-                            <span className="font-bold text-xs">Admin Tips: </span>
-                            {stripHtmlTags(currentApp.idea_box_msg)}
-                          </div>
-                        )}
-                        {!currentApp?.red_box_msg && !currentApp?.yellow_box_msg && !currentApp?.idea_box_msg && (
-                          <p className="text-slate-400 text-xs">No special safety alerts assigned to this app.</p>
-                        )}
-                      </div>
-                    )}
-
-                    {dossierActiveTab === 'faqs' && (
-                      <div className="space-y-2 font-mono text-[11px]">
-                        {brain1Dossier?.faqsList && brain1Dossier.faqsList.length > 0 ? (
-                          brain1Dossier.faqsList.map((f: any, i: number) => (
-                            <div key={i} className="p-2 bg-slate-800/60 rounded-lg">
-                              <span className="text-emerald-400 font-bold">Q: {f.question}</span>
-                              <p className="text-slate-300 mt-0.5">A: {f.answer}</p>
-                            </div>
-                          ))
-                        ) : (
-                          <p className="text-slate-400 text-xs">No FAQs logged for this app.</p>
-                        )}
-                      </div>
-                    )}
-
-                    {dossierActiveTab === 'raw' && (
-                      <pre className="font-mono text-[10px] text-slate-300 whitespace-pre-wrap leading-tight">
-                        {brain1Dossier?.fullSummary || dossierHealth.summary}
-                      </pre>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* AUTOBOT WORKFLOW CONTROLS & UNFORCED CREATIVITY SETTINGS */}
-            <div className="space-y-4">
-              
-              {/* Human Freedom Guarantee Banner */}
-              <div className="bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-blue-500/10 border border-emerald-500/30 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
-                    <Sparkles size={18} />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-                      <span>Unforced Human Freedom Engine Active</span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500 text-white font-bold">Zero Templates</span>
-                    </h4>
-                    <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
-                      The autobot creates unforced, natural Indian player thoughts based on the broad app details. No rigid formulas or repetitive phrasing.
-                    </p>
-                  </div>
-                </div>
-                
-                {/* Target Score Chip */}
-                <div className="flex items-center gap-2 self-start sm:self-center shrink-0 bg-white dark:bg-slate-800 px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-slate-200 shadow-xs">
-                  <Star size={14} className="text-amber-400 fill-amber-400" />
-                  <span>Store Benchmark: <strong>{targetScore.toFixed(1)}★</strong></span>
-                </div>
-              </div>
-
-              {/* Autobot Execution Parameters Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                
-                {/* 1. Execution Flow */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                    <Play size={13} className="text-emerald-500" />
-                    Autobot Execution Mode
-                  </label>
-                  <select
-                    value={autobotExecutionMode}
-                    onChange={(e) => setAutobotExecutionMode(e.target.value as any)}
-                    className="w-full text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-                  >
-                    <option value="paced">Paced Stream (Loop with live reasoning)</option>
-                    <option value="instant">Instant Batch (Fast 1-shot generation)</option>
-                  </select>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400">Paced stream shows live thinking & drafting in terminal.</p>
-                </div>
-
-                {/* 2. Destination */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                    <CheckCircle2 size={13} className="text-emerald-500" />
-                    Publishing Destination
-                  </label>
-                  <select
-                    value={autobotSaveDirectly ? 'direct' : 'staging'}
-                    onChange={(e) => setAutobotSaveDirectly(e.target.value === 'direct')}
-                    className="w-full text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-                  >
-                    <option value="staging">Staging Deck (Inspect & 1-Click Approve)</option>
-                    <option value="direct">Autonomous Auto-Publish (Direct to Live DB)</option>
-                  </select>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400">Safe staging lets you verify or edit before publishing.</p>
-                </div>
-
-                {/* 3. Target Review Goal */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                    <Award size={13} className="text-emerald-500" />
-                    Target Review Goal
-                  </label>
-                  <select
-                    value={autobotTargetGoal}
-                    onChange={(e) => setAutobotTargetGoal(parseInt(e.target.value, 10))}
-                    className="w-full text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-                  >
-                    <option value={5}>5 Reviews Total</option>
-                    <option value={10}>10 Reviews Total</option>
-                    <option value={20}>20 Reviews Total</option>
-                    <option value={30}>30 Reviews Total</option>
-                    <option value={50}>50 Reviews Total</option>
-                    <option value={-1}>Continuous Loop (Run until stopped)</option>
-                  </select>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400">Autobot stops automatically when goal is reached.</p>
-                </div>
-
-                {/* 4. Batch Size & Cycle Delay */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                    <Clock size={13} className="text-emerald-500" />
-                    Cycle Pace & Rate
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <select
-                      value={autobotBatchSize}
-                      onChange={(e) => setAutobotBatchSize(parseInt(e.target.value, 10))}
-                      className="text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2 py-2.5 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-                    >
-                      <option value={1}>1 / cycle</option>
-                      <option value={2}>2 / cycle</option>
-                      <option value={3}>3 / cycle</option>
-                      <option value={5}>5 / cycle</option>
-                    </select>
-                    <select
-                      value={autobotCycleDelay}
-                      onChange={(e) => setAutobotCycleDelay(parseInt(e.target.value, 10))}
-                      className="text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2 py-2.5 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-                    >
-                      <option value={2}>2s delay</option>
-                      <option value={3}>3s delay</option>
-                      <option value={5}>5s delay</option>
-                    </select>
-                  </div>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400">Controls generation rhythm and rate limiting.</p>
-                </div>
-
-              </div>
-
-              {/* Optional Soft Inspiration Input */}
-              <div className="bg-slate-50 dark:bg-slate-800/40 p-3 rounded-xl border border-slate-200 dark:border-slate-700/60 flex flex-col sm:flex-row sm:items-center gap-3">
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 shrink-0">
-                  <Sparkles size={14} className="text-emerald-500" />
-                  <span>Optional Topic Spark:</span>
-                </div>
-                <input
-                  type="text"
-                  placeholder="E.g., 'Mention fast card auto-sort or smooth table felt' (Soft guidance only, does not force AI)"
-                  value={customPrompt}
-                  onChange={(e) => setCustomPrompt(e.target.value)}
-                  className="flex-1 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              {/* AUTOBOT PRIMARY ACTION CONTROLS */}
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                
-                <div className="flex items-center gap-2">
-                  {!autobotActive ? (
-                    <button
-                      onClick={startAutobotRunner}
-                      className="px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs shadow-lg shadow-emerald-600/30 transition-all flex items-center gap-2 cursor-pointer ring-2 ring-emerald-400/40 hover:scale-[1.02]"
-                    >
-                      <Play size={15} className="fill-white" />
-                      <span>Start Autobot Runner (Autonomous Flow)</span>
-                    </button>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      {autobotPaused ? (
-                        <button
-                          onClick={resumeAutobotRunner}
-                          className="px-5 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-md transition-all flex items-center gap-2 cursor-pointer"
-                        >
-                          <Play size={14} className="fill-white" />
-                          <span>Resume Autobot</span>
-                        </button>
-                      ) : (
-                        <button
-                          onClick={pauseAutobotRunner}
-                          className="px-5 py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-white font-black text-xs shadow-md transition-all flex items-center gap-2 cursor-pointer"
-                        >
-                          <Pause size={14} />
-                          <span>Pause Autobot</span>
-                        </button>
-                      )}
-                      <button
-                        onClick={stopAutobotRunner}
-                        className="px-5 py-3 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs shadow-md transition-all flex items-center gap-2 cursor-pointer"
-                      >
-                        <Square size={14} className="fill-white" />
-                        <span>Stop & Disengage</span>
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Single Step Trigger */}
-                  <button
-                    onClick={() => executeAutobotStep(true)}
-                    disabled={autobotActive}
-                    className="px-4 py-3 rounded-2xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
-                  >
-                    <Zap size={14} className="text-emerald-500" />
-                    <span>Run Single Step (1-Shot)</span>
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={resetAutobotSession}
-                    className="px-3.5 py-2 rounded-xl text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer"
-                    title="Reset session telemetry and logs"
-                  >
-                    <RotateCcw size={13} />
-                    <span>Reset Session</span>
-                  </button>
-                </div>
-
-              </div>
-
-            </div>
-
-          </div>
-
-          {/* MULTITASK TELEMETRY HUD & LIVE TERMINAL CONSOLE */}
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-lg space-y-4">
-            
-            {/* Stage Pipeline Indicator */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
-              <div className="flex items-center gap-2 text-xs font-black text-slate-300 uppercase tracking-wider">
-                <Activity size={15} className="text-emerald-400" />
-                <span>Multitask Reasoning & Execution Pipeline</span>
-              </div>
-              
-              {/* Dynamic Pipeline Steps */}
-              <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-bold">
-                {[
-                  { key: 'ingesting', label: '1. Ingest Dossier' },
-                  { key: 'reasoning', label: '2. Human Reasoning' },
-                  { key: 'synthesizing', label: '3. Draft Reviews' },
-                  { key: 'sanitizing', label: '4. Safety Guard' },
-                  { key: 'published', label: '5. Commit Store' }
-                ].map((step, idx) => {
-                  const isCurrent = autobotCurrentStage === step.key;
-                  return (
-                    <div
-                      key={step.key}
-                      className={`px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition-all ${
-                        isCurrent
-                          ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30 scale-105'
-                          : 'bg-slate-800/80 text-slate-400'
-                      }`}
-                    >
-                      {isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />}
-                      <span>{step.label}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Telemetry Stats HUD Counters */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-              <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
-                <div className="text-[10px] uppercase font-bold text-slate-400">Total Generated</div>
-                <div className="text-xl font-black text-emerald-400 mt-0.5">{autobotSessionStats.totalGenerated}</div>
-              </div>
-              <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
-                <div className="text-[10px] uppercase font-bold text-slate-400">Auto-Published</div>
-                <div className="text-xl font-black text-blue-400 mt-0.5">{autobotSessionStats.autoPublished}</div>
-              </div>
-              <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
-                <div className="text-[10px] uppercase font-bold text-slate-400">Staged In Deck</div>
-                <div className="text-xl font-black text-purple-400 mt-0.5">{autobotSessionStats.staged}</div>
-              </div>
-              <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
-                <div className="text-[10px] uppercase font-bold text-slate-400">Cycles Run</div>
-                <div className="text-xl font-black text-amber-400 mt-0.5">{autobotSessionStats.cyclesCompleted}</div>
-              </div>
-              <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
-                <div className="text-[10px] uppercase font-bold text-slate-400">Engine Model</div>
-                <div className="text-xs font-bold text-slate-300 mt-1 truncate">
-                  {autobotSessionStats.lastModel || 'gemini-3.8-flash'}
-                </div>
-              </div>
-              <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
-                <div className="text-[10px] uppercase font-bold text-slate-400">Last Latency</div>
-                <div className="text-xs font-bold text-slate-300 mt-1">
-                  {autobotSessionStats.lastLatencyMs ? `${(autobotSessionStats.lastLatencyMs / 1000).toFixed(1)}s` : 'Ready'}
-                </div>
-              </div>
-            </div>
-
-            {/* Live Terminal Log Feed */}
-            <div className="bg-slate-950 rounded-2xl border border-slate-800 p-3.5 space-y-2">
-              <div className="flex items-center justify-between text-xs font-mono text-slate-400 pb-2 border-b border-slate-800/80">
-                <span className="flex items-center gap-1.5 text-emerald-400 font-bold">
-                  <Terminal size={14} />
-                  <span>Autobot Live Telemetry Feed</span>
-                </span>
-                <span className="text-[10px] text-slate-500">
-                  {autobotLogs.length} events logged this session
-                </span>
-              </div>
-
-              <div className="h-44 overflow-y-auto font-mono text-[11px] space-y-1.5 pr-2 scrollbar-thin text-slate-300">
-                {autobotLogs.length === 0 ? (
-                  <div className="text-slate-600 italic py-6 text-center">
-                    Autobot telemetry terminal ready. Click "Start Autobot Runner" or "Run Single Step" to begin streaming reviews.
-                  </div>
-                ) : (
-                  autobotLogs.map((log) => {
-                    let colorClass = 'text-slate-300';
-                    if (log.type === 'success') colorClass = 'text-emerald-400 font-semibold';
-                    if (log.type === 'reasoning') colorClass = 'text-blue-400';
-                    if (log.type === 'safety') colorClass = 'text-purple-300';
-                    if (log.type === 'warn') colorClass = 'text-amber-400';
-
-                    return (
-                      <div key={log.id} className="leading-relaxed flex items-start gap-2">
-                        <span className="text-slate-500 shrink-0 text-[10px]">[{log.time}]</span>
-                        <span className={`${colorClass} flex-1 break-words`}>{log.text}</span>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-
-          </div>
-
-        </div>
+        <Brain1Studio
+          currentApp={currentApp}
+          filteredApps={filteredApps}
+          selectedAppId={selectedAppId}
+          setSelectedAppId={setSelectedAppId}
+          appSearch={appSearch}
+          setAppSearch={setAppSearch}
+          targetScore={targetScore}
+          customPrompt={customPrompt}
+          setCustomPrompt={setCustomPrompt}
+          brain1LanguageStyle={brain1LanguageStyle}
+          setBrain1LanguageStyle={handleSetBrain1LanguageStyle}
+          autobotActive={autobotActive}
+          autobotPaused={autobotPaused}
+          autobotExecutionMode={autobotExecutionMode}
+          setAutobotExecutionMode={setAutobotExecutionMode}
+          autobotSaveDirectly={autobotSaveDirectly}
+          setAutobotSaveDirectly={setAutobotSaveDirectly}
+          autobotTargetGoal={autobotTargetGoal}
+          setAutobotTargetGoal={setAutobotTargetGoal}
+          autobotBatchSize={autobotBatchSize}
+          setAutobotBatchSize={setAutobotBatchSize}
+          autobotCycleDelay={autobotCycleDelay}
+          setAutobotCycleDelay={setAutobotCycleDelay}
+          autobotCurrentStage={autobotCurrentStage}
+          autobotSessionStats={autobotSessionStats}
+          autobotLogs={autobotLogs}
+          brain1Dossier={brain1Dossier}
+          dossierHealth={dossierHealth}
+          onStartAutobot={startAutobotRunner}
+          onPauseAutobot={pauseAutobotRunner}
+          onResumeAutobot={resumeAutobotRunner}
+          onStopAutobot={stopAutobotRunner}
+          onExecuteStep={executeAutobotStep}
+          onResetSession={resetAutobotSession}
+        />
       )}
 
       {/* ========================================================================= */}
       {/* 3. PART 2: BRAIN 2 — LIVE INTERNET WEB RESEARCHER AUTOBOT */}
       {/* ========================================================================= */}
       {mode === 'brain2' && (
-        <div className="space-y-6">
-          
-          {/* Status & Mode Banner */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-5">
+        <Brain2Studio
+          currentApp={currentApp}
+          filteredApps={filteredApps}
+          selectedAppId={selectedAppId}
+          setSelectedAppId={setSelectedAppId}
+          appSearch={appSearch}
+          setAppSearch={setAppSearch}
+          brain2TargetScore={brain2TargetScore}
+          setBrain2TargetScore={setBrain2TargetScore}
+          brain2CustomQuery={brain2CustomQuery}
+          setBrain2CustomQuery={setBrain2CustomQuery}
+          brain2AutobotActive={brain2AutobotActive}
+          brain2AutobotPaused={brain2AutobotPaused}
+          brain2ExecutionMode={brain2ExecutionMode}
+          setBrain2ExecutionMode={setBrain2ExecutionMode}
+          brain2SaveDirectly={brain2SaveDirectly}
+          setBrain2SaveDirectly={setBrain2SaveDirectly}
+          brain2TargetGoal={brain2TargetGoal}
+          setBrain2TargetGoal={setBrain2TargetGoal}
+          brain2BatchSize={brain2BatchSize}
+          setBrain2BatchSize={setBrain2BatchSize}
+          brain2CycleDelay={brain2CycleDelay}
+          setBrain2CycleDelay={setBrain2CycleDelay}
+          brain2CurrentStage={brain2CurrentStage}
+          brain2SessionStats={brain2SessionStats}
+          brain2Logs={brain2Logs}
+          brain2TargetInfo={brain2TargetInfo}
+          brain2GroundedSources={brain2GroundedSources}
+          showBrain2SourcesDrawer={showBrain2SourcesDrawer}
+          setShowBrain2SourcesDrawer={setShowBrain2SourcesDrawer}
+          onStartBrain2Autobot={startBrain2AutobotRunner}
+          onPauseBrain2Autobot={pauseBrain2AutobotRunner}
+          onResumeBrain2Autobot={resumeBrain2AutobotRunner}
+          onStopBrain2Autobot={stopBrain2AutobotRunner}
+          onExecuteBrain2Step={executeBrain2Step}
+          onResetBrain2Session={resetBrain2Session}
+        />
+      )}
+
+      {/* ========================================================================= */}
+      {/* 4 & 5. STAGED REVIEWS & TELEMETRY */}
+      {/* ========================================================================= */}
+      <StagedReviewsWorkspace
+        stagedReviews={stagedReviews}
+        generationTelemetry={generationTelemetry}
+        savingStaged={savingStaged}
+        savingReviewIndex={savingReviewIndex}
+        onUpdateReviewName={handleUpdateReviewName}
+        onUpdateReviewRating={handleUpdateReviewRating}
+        onUpdateReviewText={handleUpdateReviewText}
+        onDiscardReview={handleDiscardReview}
+        onDiscardAll={handleDiscardAll}
+        onSaveReviewToLive={handleSaveReviewToLive}
+        onSaveAllStaged={handleSaveAllStaged}
+      />
+
+      {/* ========================================================================= */}
+      {/* 6. PART 3: CATALOG AUTO-PILOT ENGINE */}
+      {/* ========================================================================= */}
+      {mode === 'autopilot' && (
+        <AutopilotStudio
+          appsList={appsList}
+          autoPilotStatus={autoPilotStatus}
+          autoPilotLoading={autoPilotLoading}
+          selectedAutoPilotAppIds={selectedAutoPilotAppIds}
+          autoPilotAppSearch={autoPilotAppSearch}
+          setAutoPilotAppSearch={setAutoPilotAppSearch}
+          autoPilotBrainChoice={autoPilotBrainChoice}
+          setAutoPilotBrainChoice={setAutoPilotBrainChoice}
+          autoPilotOptions={autoPilotOptions}
+          setAutoPilotOptions={setAutoPilotOptions}
+          onToggleAutoPilotApp={toggleAutoPilotApp}
+          onSelectAllAutoPilotApps={handleSelectAllAutoPilotApps}
+          onDeselectAllAutoPilotApps={handleDeselectAllAutoPilotApps}
+          onStartAutoPilot={handleStartAutoPilot}
+          onPauseAutoPilot={handlePauseAutoPilot}
+          onResumeAutoPilot={handleResumeAutoPilot}
+          onStopAutoPilot={handleStopAutoPilot}
+          onClearAutoPilotLogs={handleClearAutoPilotLogs}
+        />
+      )}
+
+      {/* ========================================================================= */}
+      {/* 7. PART 4: 1-CLICK BULK BATCH STUDIO */}
+      {/* ========================================================================= */}
+      {mode === 'bulk' && (
+        <BulkStudio
+          appsList={appsList}
+          categories={categories}
+          bulkCategory={bulkCategory}
+          setBulkCategory={setBulkCategory}
+          bulkCountPerApp={bulkCountPerApp}
+          setBulkCountPerApp={setBulkCountPerApp}
+          bulkBrainChoice={bulkBrainChoice}
+          setBulkBrainChoice={setBulkBrainChoice}
+          bulkLanguageStyle={bulkLanguageStyle}
+          setBulkLanguageStyle={setBulkLanguageStyle}
+          bulkProgress={bulkProgress}
+          onRunBulkBatch={handleRunBulkBatch}
+        />
+      )}
+
+      {/* ========================================================================= */}
+      {/* 8. GEMINI AI ENGINE & MULTI-KEY DIAGNOSTICS MODAL */}
+      {/* ========================================================================= */}
+      {showAiDiagnosticsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+          <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl shadow-black/80 p-6 text-slate-200">
             
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
-              <div>
-                <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 text-xs font-bold uppercase tracking-wider">
-                  <Globe size={15} />
-                  <span>Brain 2: Live Internet Web Researcher Autobot</span>
-                  {brain2AutobotActive && !brain2AutobotPaused && (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-indigo-500 text-white animate-pulse">
-                      <span className="w-1.5 h-1.5 rounded-full bg-white" />
-                      AUTONOMOUS WEB RESEARCH ACTIVE
-                    </span>
-                  )}
-                  {brain2AutobotActive && brain2AutobotPaused && (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-white">
-                      PAUSED
-                    </span>
-                  )}
-                  {!brain2AutobotActive && (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                      STANDBY
-                    </span>
-                  )}
+            {/* Header */}
+            <div className="flex items-start justify-between pb-4 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-cyan-950/80 border border-cyan-500/40 text-cyan-400">
+                  <Activity size={22} className="animate-pulse" />
                 </div>
-                <h2 className="text-lg font-black text-slate-900 dark:text-white mt-1 flex items-center gap-2">
-                  <span>Targeted App + Developer Web Research Engine</span>
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/80">
-                    Google Search Grounded
-                  </span>
-                </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-3xl">
-                  Identifies the exact app via <strong>App Name</strong> and <strong>Developer Name</strong> on Google Play Store and user review portals. Gathers authentic human sentiment with strict rating synchronization. Works seamlessly across any app category.
-                </p>
+                <div>
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    Gemini AI Engine & Multi-Key Diagnostics
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-500/30">
+                      Live Monitor
+                    </span>
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Real-time latency testing, API key health inspection, and interactive model ping sandbox.
+                  </p>
+                </div>
               </div>
-
-              {/* App Search Bar */}
-              <div className="relative w-full lg:w-72">
-                <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search target app in catalog..."
-                  value={appSearch}
-                  onChange={(e) => setAppSearch(e.target.value)}
-                  className="w-full text-xs pl-9 pr-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={fetchAiStatus}
+                  disabled={loadingAiStatus}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 border border-slate-700 transition cursor-pointer"
+                >
+                  <RefreshCw size={12} className={loadingAiStatus ? 'animate-spin text-cyan-400' : ''} />
+                  <span>Refresh</span>
+                </button>
+                <button
+                  onClick={() => setShowAiDiagnosticsModal(false)}
+                  className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
               </div>
             </div>
 
-            {/* Target App Card & Exact Identity Cockpit */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-200 dark:border-slate-700/70">
-              
-              <div className="lg:col-span-5 flex items-center gap-4">
-                {currentApp?.icon_url ? (
-                  <img 
-                    src={currentApp.icon_url} 
-                    alt={currentApp?.name || 'App'} 
-                    className="w-14 h-14 rounded-2xl object-contain shadow-xs bg-white dark:bg-slate-800 shrink-0 border border-slate-200 dark:border-slate-700" 
-                  />
-                ) : (
-                  <div className="w-14 h-14 rounded-2xl bg-indigo-100 dark:bg-indigo-950 flex items-center justify-center font-black text-indigo-600 shrink-0 text-xl">
-                    {currentApp?.name?.charAt(0) || 'A'}
-                  </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <select
-                    value={selectedAppId}
-                    onChange={(e) => setSelectedAppId(e.target.value)}
-                    className="w-full text-base font-black bg-transparent text-slate-900 dark:text-white border-0 cursor-pointer focus:outline-none truncate"
-                  >
-                    {filteredApps.map(app => (
-                      <option key={app.id} value={app.id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
-                        {app.name} — {app.developer || 'Studio'}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                      Developer: <strong className="text-slate-800 dark:text-slate-200">{currentApp?.developer || 'Studio'}</strong>
-                    </span>
-                    <span className="text-slate-300 dark:text-slate-600">•</span>
-                    <span className="text-[11px] font-bold text-amber-500 flex items-center gap-0.5">
-                      <Star size={11} className="fill-amber-400" />
-                      {currentApp?.rating || 4.2}★ Base
-                    </span>
+            {/* Overall Status Banner */}
+            <div className="mt-4 p-4 rounded-xl border bg-slate-800/60 border-slate-700 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className={`w-3.5 h-3.5 rounded-full ${
+                  aiStatusData?.overallStatus === 'all_systems_operational'
+                    ? 'bg-emerald-400 ring-4 ring-emerald-500/20 animate-pulse'
+                    : 'bg-amber-400 ring-4 ring-amber-500/20'
+                }`} />
+                <div>
+                  <div className="text-xs font-bold uppercase tracking-wider text-slate-400">System Health Status</div>
+                  <div className="text-sm font-semibold text-white">
+                    {aiStatusData?.overallStatus === 'all_systems_operational'
+                      ? 'All AI Review Systems Operational'
+                      : aiStatusData?.overallStatus === 'quota_warning'
+                      ? 'High Quota Traffic Detected (Failover Active)'
+                      : 'AI Review Configuration Active'}
                   </div>
                 </div>
               </div>
-
-              {/* Exact Identity Resolution & Live Play Store Query Preview */}
-              <div className="lg:col-span-7 bg-white dark:bg-slate-900 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-indigo-600 dark:text-indigo-400">
-                    <Globe size={13} />
-                    <span>Exact Identity Live Search Grounding Signature:</span>
-                  </div>
-                  {brain2TargetInfo?.googlePlaySearchUrl && (
-                    <a
-                      href={brain2TargetInfo.googlePlaySearchUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
-                    >
-                      <span>Play Store Target</span>
-                      <ExternalLink size={10} />
-                    </a>
-                  )}
+              <div className="flex items-center gap-4 text-xs">
+                <div>
+                  <span className="text-slate-400">Primary Key: </span>
+                  <span className="font-mono text-cyan-300 font-semibold">{aiStatusData?.activeKeySource || 'Auto-Detected'}</span>
                 </div>
-
-                <div className="flex flex-wrap gap-1.5">
-                  <span className="text-[10px] font-mono bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 px-2.5 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800/60">
-                    site:play.google.com/store/apps "{currentApp?.name}" "{currentApp?.developer || 'Studio'}"
-                  </span>
-                  <span className="text-[10px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
-                    "{currentApp?.name}" "{currentApp?.developer || 'Studio'}" user reviews complaints
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400 pt-1">
-                  <span>Exact Match: App Name + Developer Name (Category assumption omitted)</span>
-                  {brain2GroundedSources.length > 0 && (
-                    <button
-                      onClick={() => setShowBrain2SourcesDrawer(!showBrain2SourcesDrawer)}
-                      className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline flex items-center gap-1 cursor-pointer"
-                    >
-                      <Eye size={11} />
-                      <span>{showBrain2SourcesDrawer ? 'Hide' : 'View'} Grounded Sources ({brain2GroundedSources.length})</span>
-                    </button>
-                  )}
+                <div>
+                  <span className="text-slate-400">Primary Model: </span>
+                  <span className="font-mono text-emerald-300 font-semibold">{aiStatusData?.activeModel || 'gemini-3.6-flash'}</span>
                 </div>
               </div>
-
             </div>
 
-            {/* Discovered Grounded Sources Drawer */}
-            {showBrain2SourcesDrawer && brain2GroundedSources.length > 0 && (
-              <div className="bg-indigo-950/20 border border-indigo-500/20 rounded-2xl p-3.5 space-y-2">
-                <div className="flex items-center justify-between text-xs font-bold text-indigo-700 dark:text-indigo-300">
-                  <span className="flex items-center gap-1.5">
-                    <Globe size={13} />
-                    <span>Discovered Live Web Sources & Review Citations</span>
-                  </span>
-                  <span className="text-[10px] text-slate-500">{brain2GroundedSources.length} links discovered</span>
-                </div>
-                <div className="max-h-36 overflow-y-auto space-y-1.5 pr-2">
-                  {brain2GroundedSources.map((source, idx) => (
-                    <div key={idx} className="text-[11px] bg-white dark:bg-slate-900 p-2 rounded-lg border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
-                      <span className="font-semibold text-slate-800 dark:text-slate-200 truncate">{source.title}</span>
-                      <a
-                        href={source.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-indigo-600 dark:text-indigo-400 hover:underline shrink-0 flex items-center gap-1 text-[10px]"
-                      >
-                        <span>Open Link</span>
-                        <ExternalLink size={10} />
-                      </a>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* AUTONOMOUS AUTOBOT CONFIGURATION PANEL */}
-            <div className="space-y-4 pt-2">
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                
-                {/* 1. Execution Stream Mode */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                    <Bot size={13} className="text-indigo-500" />
-                    Autobot Mode
-                  </label>
-                  <select
-                    value={brain2ExecutionMode}
-                    onChange={(e) => setBrain2ExecutionMode(e.target.value as any)}
-                    className="w-full text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-                  >
-                    <option value="paced">Paced Stream (Loop with research pause)</option>
-                    <option value="instant">Instant Batch (Single cycle)</option>
-                  </select>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400">Streams live reviews with continuous web queries.</p>
-                </div>
-
-                {/* 2. Target Score Calibration */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center justify-between">
-                    <span className="flex items-center gap-1.5">
-                      <Star size={13} className="text-amber-400 fill-amber-400" />
-                      Target Benchmark
-                    </span>
-                    <span className="text-indigo-600 dark:text-indigo-400 font-bold">
-                      {brain2TargetScore.toFixed(1)}★
-                    </span>
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="range"
-                      min="1.0"
-                      max="5.0"
-                      step="0.1"
-                      value={brain2TargetScore}
-                      onChange={(e) => setBrain2TargetScore(parseFloat(e.target.value))}
-                      className="w-full accent-indigo-600 cursor-pointer"
-                    />
-                  </div>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400">Review sentiment strictly synchronizes with rating.</p>
-                </div>
-
-                {/* 3. Output Destination */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                    <CheckCircle2 size={13} className="text-indigo-500" />
-                    Storage Destination
-                  </label>
-                  <select
-                    value={brain2SaveDirectly ? 'live' : 'staging'}
-                    onChange={(e) => setBrain2SaveDirectly(e.target.value === 'live')}
-                    className="w-full text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-                  >
-                    <option value="staging">Staging Deck (Inspect before publishing)</option>
-                    <option value="live">Auto-Publish (Direct to live database)</option>
-                  </select>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400">Where extracted reviews are committed.</p>
-                </div>
-
-                {/* 4. Batch Size & Cycle Delay */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center justify-between">
-                    <span className="flex items-center gap-1.5">
-                      <Clock size={13} className="text-indigo-500" />
-                      Batch & Delay
-                    </span>
-                    <span className="text-indigo-600 dark:text-indigo-400 text-[11px] font-bold">
-                      Goal: {brain2TargetGoal === -1 ? 'Continuous' : `${brain2TargetGoal} reviews`}
-                    </span>
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <select
-                      value={brain2BatchSize}
-                      onChange={(e) => setBrain2BatchSize(parseInt(e.target.value, 10))}
-                      className="text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2 py-2.5 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-                    >
-                      <option value={1}>1 / cycle</option>
-                      <option value={2}>2 / cycle</option>
-                      <option value={3}>3 / cycle</option>
-                      <option value={5}>5 / cycle</option>
-                    </select>
-                    <select
-                      value={brain2CycleDelay}
-                      onChange={(e) => setBrain2CycleDelay(parseInt(e.target.value, 10))}
-                      className="text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2 py-2.5 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-                    >
-                      <option value={2}>2s delay</option>
-                      <option value={3}>3s delay</option>
-                      <option value={5}>5s delay</option>
-                    </select>
-                  </div>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400">Controls research speed and rate pacing.</p>
-                </div>
-
-              </div>
-
-              {/* Optional Custom Search Focus */}
-              <div className="bg-slate-50 dark:bg-slate-800/40 p-3 rounded-xl border border-slate-200 dark:border-slate-700/60 flex flex-col sm:flex-row sm:items-center gap-3">
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 shrink-0">
-                  <Sparkles size={14} className="text-indigo-500" />
-                  <span>Optional Search Focus:</span>
-                </div>
-                <input
-                  type="text"
-                  placeholder="E.g., 'Recent update stutter or UI smoothness' (Directs Google search grounding without rigid forcing)"
-                  value={brain2CustomQuery}
-                  onChange={(e) => setBrain2CustomQuery(e.target.value)}
-                  className="flex-1 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-
-              {/* AUTOBOT PRIMARY ACTION CONTROLS */}
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                
-                <div className="flex items-center gap-2">
-                  {!brain2AutobotActive ? (
-                    <button
-                      onClick={startBrain2AutobotRunner}
-                      className="px-6 py-3 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 hover:from-indigo-500 hover:to-purple-500 text-white font-black text-xs shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-2 cursor-pointer ring-2 ring-indigo-400/40 hover:scale-[1.02]"
-                    >
-                      <Play size={15} className="fill-white" />
-                      <span>Start Web Researcher Autobot (Autonomous Flow)</span>
-                    </button>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      {brain2AutobotPaused ? (
-                        <button
-                          onClick={resumeBrain2AutobotRunner}
-                          className="px-5 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs shadow-md transition-all flex items-center gap-2 cursor-pointer"
-                        >
-                          <Play size={14} className="fill-white" />
-                          <span>Resume Autobot</span>
-                        </button>
-                      ) : (
-                        <button
-                          onClick={pauseBrain2AutobotRunner}
-                          className="px-5 py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-white font-black text-xs shadow-md transition-all flex items-center gap-2 cursor-pointer"
-                        >
-                          <Pause size={14} />
-                          <span>Pause Autobot</span>
-                        </button>
-                      )}
-                      <button
-                        onClick={stopBrain2AutobotRunner}
-                        className="px-5 py-3 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs shadow-md transition-all flex items-center gap-2 cursor-pointer"
-                      >
-                        <Square size={14} className="fill-white" />
-                        <span>Stop & Disengage</span>
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Single Step Trigger */}
-                  <button
-                    onClick={() => executeBrain2Step(true)}
-                    disabled={brain2AutobotActive}
-                    className="px-4 py-3 rounded-2xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
-                  >
-                    <Zap size={14} className="text-indigo-500" />
-                    <span>Run Single Step (1-Shot Web Research)</span>
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={resetBrain2Session}
-                    className="px-3.5 py-2 rounded-xl text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer"
-                    title="Reset session telemetry and logs"
-                  >
-                    <RotateCcw size={13} />
-                    <span>Reset Session</span>
-                  </button>
-                </div>
-
-              </div>
-
-            </div>
-
-          </div>
-
-          {/* MULTITASK TELEMETRY HUD & LIVE TERMINAL CONSOLE FOR BRAIN 2 */}
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-lg space-y-4">
-            
-            {/* Stage Pipeline Indicator */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
-              <div className="flex items-center gap-2 text-xs font-black text-slate-300 uppercase tracking-wider">
-                <Activity size={15} className="text-indigo-400" />
-                <span>Brain 2 Web Research & Grounding Pipeline</span>
+            {/* Configured Keys Breakdown */}
+            <div className="mt-5 space-y-3">
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <Key size={14} className="text-cyan-400" />
+                <span>Detected API Keys & Health Status</span>
               </div>
               
-              {/* Dynamic Pipeline Steps */}
-              <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-bold">
-                {[
-                  { key: 'resolving_target', label: '1. Resolve Identity' },
-                  { key: 'web_searching', label: '2. Google Search Grounding' },
-                  { key: 'extracting_reviews', label: '3. Extract Real Reviews' },
-                  { key: 'rating_aligning', label: '4. Rating Alignment' },
-                  { key: 'sanitizing', label: '5. Safety Guard' },
-                  { key: 'published', label: '6. Commit Live' }
-                ].map((step) => {
-                  const isCurrent = brain2CurrentStage === step.key;
-                  return (
-                    <div
-                      key={step.key}
-                      className={`px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition-all ${
-                        isCurrent
-                          ? 'bg-indigo-500 text-white shadow-md shadow-indigo-500/30 scale-105'
-                          : 'bg-slate-800/80 text-slate-400'
-                      }`}
-                    >
-                      {isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />}
-                      <span>{step.label}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Telemetry Stats HUD Counters */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-              <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
-                <div className="text-[10px] uppercase font-bold text-slate-400">Researched</div>
-                <div className="text-xl font-black text-indigo-400 mt-0.5">{brain2SessionStats.totalGenerated}</div>
-              </div>
-              <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
-                <div className="text-[10px] uppercase font-bold text-slate-400">Auto-Published</div>
-                <div className="text-xl font-black text-emerald-400 mt-0.5">{brain2SessionStats.autoPublished}</div>
-              </div>
-              <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
-                <div className="text-[10px] uppercase font-bold text-slate-400">Staged In Deck</div>
-                <div className="text-xl font-black text-purple-400 mt-0.5">{brain2SessionStats.staged}</div>
-              </div>
-              <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
-                <div className="text-[10px] uppercase font-bold text-slate-400">Search Queries</div>
-                <div className="text-xl font-black text-cyan-400 mt-0.5">{brain2SessionStats.queriesRun}</div>
-              </div>
-              <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
-                <div className="text-[10px] uppercase font-bold text-slate-400">Engine Model</div>
-                <div className="text-xs font-bold text-slate-300 mt-1 truncate">
-                  {brain2SessionStats.lastModel || 'gemini-3.8-flash + Search'}
-                </div>
-              </div>
-              <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
-                <div className="text-[10px] uppercase font-bold text-slate-400">Last Latency</div>
-                <div className="text-xs font-bold text-slate-300 mt-1">
-                  {brain2SessionStats.lastLatencyMs ? `${(brain2SessionStats.lastLatencyMs / 1000).toFixed(1)}s` : 'Ready'}
-                </div>
-              </div>
-            </div>
-
-            {/* Live Terminal Log Feed */}
-            <div className="bg-slate-950 rounded-2xl border border-slate-800 p-3.5 space-y-2">
-              <div className="flex items-center justify-between text-xs font-mono text-slate-400 pb-2 border-b border-slate-800/80">
-                <span className="flex items-center gap-1.5 text-indigo-400 font-bold">
-                  <Terminal size={14} />
-                  <span>Brain 2 Web Researcher Live Terminal Feed</span>
-                </span>
-                <span className="text-[10px] text-slate-500">
-                  {brain2Logs.length} research events logged
-                </span>
-              </div>
-
-              <div className="h-44 overflow-y-auto font-mono text-[11px] space-y-1.5 pr-2 scrollbar-thin text-slate-300">
-                {brain2Logs.length === 0 ? (
-                  <div className="text-slate-600 italic py-6 text-center">
-                    Brain 2 terminal standing by. Click "Start Web Researcher Autobot" or "Run Single Step" to begin autonomous web search.
-                  </div>
-                ) : (
-                  brain2Logs.map((log) => {
-                    let colorClass = 'text-slate-300';
-                    if (log.type === 'success') colorClass = 'text-indigo-400 font-semibold';
-                    if (log.type === 'reasoning') colorClass = 'text-cyan-400';
-                    if (log.type === 'safety') colorClass = 'text-purple-300';
-                    if (log.type === 'warn') colorClass = 'text-amber-400';
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {aiStatusData?.keys && aiStatusData.keys.length > 0 ? (
+                  aiStatusData.keys.map((k: any, idx: number) => {
+                    const isOnline = k.status === 'online';
+                    const isAuthError = k.status === 'auth_error';
+                    const isQuotaError = k.status === 'quota_error';
 
                     return (
-                      <div key={log.id} className="leading-relaxed flex items-start gap-2">
-                        <span className="text-slate-500 shrink-0 text-[10px]">[{log.time}]</span>
-                        <span className={`${colorClass} flex-1 break-words`}>{log.text}</span>
+                      <div 
+                        key={idx} 
+                        className={`p-4 rounded-xl border transition ${
+                          isOnline 
+                            ? 'bg-emerald-950/20 border-emerald-500/30' 
+                            : isAuthError
+                            ? 'bg-amber-950/20 border-amber-500/30'
+                            : 'bg-slate-800/40 border-slate-700/60'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <span className="font-mono text-xs font-bold text-white block">{k.name}</span>
+                            <span className="text-[11px] text-slate-400 block mt-0.5">{k.role}</span>
+                          </div>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${
+                            isOnline 
+                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                              : isAuthError
+                              ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                              : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                          }`}>
+                            {isOnline ? 'Online' : isAuthError ? 'Auth Notice' : isQuotaError ? 'Quota Exceeded' : k.status}
+                          </span>
+                        </div>
+
+                        <div className="mt-3 pt-3 border-t border-slate-800 flex items-center justify-between text-xs">
+                          <span className="font-mono text-slate-400 text-[11px]">{k.masked || '••••••••'}</span>
+                          {k.latencyMs > 0 && (
+                            <span className="text-cyan-400 font-mono text-[11px]">
+                              {k.latencyMs}ms latency
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="mt-2 text-[11px] text-slate-300 leading-relaxed">
+                          {k.message}
+                        </p>
                       </div>
                     );
                   })
-                )}
-              </div>
-            </div>
-
-          </div>
-
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* 4. TELEMETRY DISPLAY (Shown when Brain 1 or Brain 2 finishes generation) */}
-      {/* ========================================================================= */}
-      {generationTelemetry && (
-        <div className={`p-4 rounded-2xl border text-xs space-y-3 ${
-          generationTelemetry.mode === 'research'
-            ? 'bg-indigo-950/40 border-indigo-500/30 text-indigo-200'
-            : 'bg-emerald-950/40 border-emerald-500/30 text-emerald-200'
-        }`}>
-          <div className="flex items-center justify-between border-b pb-2 border-slate-700/50">
-            <div className="flex items-center gap-2 font-bold">
-              {generationTelemetry.mode === 'research' ? <Globe size={15} /> : <Cpu size={15} />}
-              <span>
-                {generationTelemetry.mode === 'research' ? 'Brain 2 Live Web Grounding Telemetry' : 'Brain 1 Dossier Comprehension Telemetry'}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 text-[11px]">
-              <span className="font-mono bg-slate-800/80 px-2 py-0.5 rounded border border-slate-700">
-                Model: {generationTelemetry.modelUsed || 'gemini-3.8-flash'}
-              </span>
-              <span className="font-semibold text-emerald-400">
-                Status: {generationTelemetry.searchStatus}
-              </span>
-            </div>
-          </div>
-
-          {generationTelemetry.dossierHighlights && generationTelemetry.dossierHighlights.length > 0 && (
-            <div>
-              <span className="font-bold text-emerald-300">Dossier Features Ingested:</span>
-              <div className="flex flex-wrap gap-1.5 mt-1">
-                {generationTelemetry.dossierHighlights.map((h, i) => (
-                  <span key={i} className="bg-emerald-900/60 text-emerald-200 text-[10px] font-semibold px-2 py-0.5 rounded-md border border-emerald-700/50">
-                    • {h}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {generationTelemetry.searchQueries && generationTelemetry.searchQueries.length > 0 && (
-            <div>
-              <span className="font-bold text-indigo-300">Google Searches Executed:</span>
-              <div className="flex flex-wrap gap-1.5 mt-1 font-mono text-[10px]">
-                {generationTelemetry.searchQueries.map((q, i) => (
-                  <span key={i} className="bg-indigo-900/60 text-indigo-200 px-2 py-0.5 rounded-md border border-indigo-700/50">
-                    🔍 {q}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {generationTelemetry.groundedSources && generationTelemetry.groundedSources.length > 0 && (
-            <div>
-              <span className="font-bold text-indigo-300">Live Sources & Discussions Discovered:</span>
-              <div className="flex flex-wrap gap-2 mt-1">
-                {generationTelemetry.groundedSources.map((s, i) => (
-                  <a
-                    key={i}
-                    href={s.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-[11px] text-blue-300 hover:text-white underline underline-offset-2"
-                  >
-                    <ExternalLink size={10} />
-                    <span>{s.title}</span>
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* 5. STAGED REVIEWS WORKSPACE (Preview, Edit & Single/Batch Approval) */}
-      {/* ========================================================================= */}
-      {stagedReviews.length > 0 && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
-            <div>
-              <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
-                <CheckSquare size={18} className="text-emerald-500" />
-                <span>Staged Reviews for Approval ({stagedReviews.length} Ready)</span>
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Edit ratings, reviewer names, or text before publishing to the live website community.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleDiscardAll}
-                className="px-3.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 rounded-xl hover:bg-rose-100 transition-colors cursor-pointer"
-              >
-                Discard All
-              </button>
-              <button
-                onClick={handleSaveAllStaged}
-                disabled={savingStaged}
-                className="px-5 py-2 text-xs font-black text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl shadow-md shadow-emerald-600/20 transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
-              >
-                {savingStaged ? (
-                  <>
-                    <RefreshCw size={13} className="animate-spin" />
-                    <span>Publishing to Database...</span>
-                  </>
                 ) : (
-                  <>
-                    <Check size={14} />
-                    <span>Publish All Staged ({stagedReviews.length})</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Staged Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {stagedReviews.map((rev, idx) => (
-              <div 
-                key={idx} 
-                className="bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 space-y-3"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  {/* Name input */}
-                  <input
-                    type="text"
-                    value={rev.userName || ''}
-                    onChange={(e) => handleUpdateReviewName(idx, e.target.value)}
-                    className="text-xs font-black bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 text-slate-900 dark:text-white"
-                  />
-
-                  {/* Interactive Star Selector */}
-                  <div className="flex items-center gap-1">
-                    {[1, 2, 3, 4, 5].map(starVal => (
-                      <button
-                        key={starVal}
-                        type="button"
-                        onClick={() => handleUpdateReviewRating(idx, starVal)}
-                        className="cursor-pointer"
-                      >
-                        <Star 
-                          size={15} 
-                          className={starVal <= rev.rating ? "text-amber-400 fill-amber-400" : "text-slate-300 dark:text-slate-600"} 
-                        />
-                      </button>
-                    ))}
+                  <div className="col-span-2 p-4 rounded-xl bg-slate-800/40 border border-slate-700 text-xs text-slate-400">
+                    Loading key diagnostics...
                   </div>
-                </div>
-
-                {/* Editable review text */}
-                <textarea
-                  value={rev.reviewText || ''}
-                  onChange={(e) => handleUpdateReviewText(idx, e.target.value)}
-                  rows={3}
-                  className="w-full text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 leading-relaxed resize-none"
-                />
-
-                {/* Card footer */}
-                <div className="flex items-center justify-between pt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                  <div className="flex items-center gap-2">
-                    <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] ${
-                      rev._brainMode === 'brain2' 
-                        ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300' 
-                        : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-                    }`}>
-                      {rev._brainMode === 'brain2' ? '🌐 Brain 2 Web' : '🧠 Brain 1 Dossier'}
-                    </span>
-                    <span>{rev.reviewText?.length || 0} chars</span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => handleDiscardReview(idx)}
-                      className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors cursor-pointer"
-                      title="Discard review"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                    <button
-                      onClick={() => handleSaveReviewToLive(idx)}
-                      disabled={savingReviewIndex === idx}
-                      className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-[11px] transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                    >
-                      {savingReviewIndex === idx ? <RefreshCw size={11} className="animate-spin" /> : <Check size={11} />}
-                      <span>Publish</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* 6. PART 3: CATALOG AUTO-PILOT ENGINE (DEDICATED INTERFACE) */}
-      {/* ========================================================================= */}
-      {mode === 'autopilot' && (
-        <div className="space-y-6">
-          
-          {/* Status Banner */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
-              <div>
-                <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 text-xs font-bold uppercase tracking-wider">
-                  <Play size={15} />
-                  <span>Autonomous Catalog Queue Runner</span>
-                </div>
-                <h2 className="text-lg font-black text-slate-900 dark:text-white mt-1">
-                  Catalog Auto-Pilot Engine
-                </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Select apps, choose Brain 1 or Brain 2, and launch hands-free background generation.
-                </p>
-              </div>
-
-              {/* Status Badge */}
-              <div className="flex items-center gap-2">
-                <span className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 border ${
-                  autoPilotStatus?.status === 'running' 
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-400 dark:border-emerald-800'
-                    : autoPilotStatus?.status === 'paused'
-                    ? 'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/60 dark:text-amber-400 dark:border-amber-800'
-                    : 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
-                }`}>
-                  <span className={`w-2 h-2 rounded-full ${
-                    autoPilotStatus?.status === 'running' ? 'bg-emerald-500 animate-pulse' : autoPilotStatus?.status === 'paused' ? 'bg-amber-500' : 'bg-slate-400'
-                  }`} />
-                  {autoPilotStatus?.status ? autoPilotStatus.status.toUpperCase() : 'IDLE'}
-                </span>
-              </div>
-            </div>
-
-            {/* Auto-Pilot Engine Controls */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-200 dark:border-slate-700">
-              
-              {/* Brain Engine Choice */}
-              <div>
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Generation Brain:</label>
-                <select
-                  value={autoPilotBrainChoice}
-                  onChange={(e) => setAutoPilotBrainChoice(e.target.value as any)}
-                  className="w-full text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200 mt-1 cursor-pointer"
-                >
-                  <option value="local">🧠 Brain 1: Deep Dossier Comprehension</option>
-                  <option value="research">🌐 Brain 2: Live Internet Web Researcher</option>
-                </select>
-              </div>
-
-              {/* Reviews per app */}
-              <div>
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Reviews Per App:</label>
-                <select
-                  value={autoPilotOptions.countPerApp}
-                  onChange={(e) => setAutoPilotOptions(prev => ({ ...prev, countPerApp: parseInt(e.target.value, 10) }))}
-                  className="w-full text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200 mt-1 cursor-pointer"
-                >
-                  <option value={3}>3 Reviews per App</option>
-                  <option value={5}>5 Reviews per App</option>
-                  <option value={10}>10 Reviews per App</option>
-                  <option value={15}>15 Reviews per App</option>
-                </select>
-              </div>
-
-              {/* Skip Threshold */}
-              <div>
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Skip Apps with Reviews:</label>
-                <select
-                  value={autoPilotOptions.skipAppsWithReviews ? 'yes' : 'no'}
-                  onChange={(e) => setAutoPilotOptions(prev => ({ ...prev, skipAppsWithReviews: e.target.value === 'yes' }))}
-                  className="w-full text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200 mt-1 cursor-pointer"
-                >
-                  <option value="no">Generate for all selected apps</option>
-                  <option value="yes">Skip apps with &gt; 10 reviews</option>
-                </select>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-end gap-2">
-                {autoPilotStatus?.status === 'running' ? (
-                  <>
-                    <button
-                      onClick={handlePauseAutoPilot}
-                      className="flex-1 px-3 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-black transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <Pause size={14} /> Pause
-                    </button>
-                    <button
-                      onClick={handleStopAutoPilot}
-                      className="flex-1 px-3 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-black transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <Square size={14} /> Stop
-                    </button>
-                  </>
-                ) : autoPilotStatus?.status === 'paused' ? (
-                  <>
-                    <button
-                      onClick={handleResumeAutoPilot}
-                      className="flex-1 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <Play size={14} /> Resume
-                    </button>
-                    <button
-                      onClick={handleStopAutoPilot}
-                      className="flex-1 px-3 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-black transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <Square size={14} /> Stop
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    onClick={handleStartAutoPilot}
-                    disabled={autoPilotLoading || selectedAutoPilotAppIds.length === 0}
-                    className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-black shadow-md shadow-blue-600/20 transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                  >
-                    <Play size={14} /> Launch Auto-Pilot ({selectedAutoPilotAppIds.length} Apps)
-                  </button>
                 )}
               </div>
-
             </div>
 
-            {/* App Selection Grid */}
-            <div className="space-y-3 pt-2">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                    Queue Apps Selection ({selectedAutoPilotAppIds.length} of {appsList.length} Selected)
-                  </span>
-                  <button onClick={handleSelectAllAutoPilotApps} className="text-[11px] text-blue-600 dark:text-blue-400 font-semibold hover:underline cursor-pointer">
-                    Select All
-                  </button>
-                  <span>•</span>
-                  <button onClick={handleDeselectAllAutoPilotApps} className="text-[11px] text-slate-500 hover:underline cursor-pointer">
-                    Deselect All
-                  </button>
-                </div>
-                <input
-                  type="text"
-                  placeholder="Filter apps..."
-                  value={autoPilotAppSearch}
-                  onChange={(e) => setAutoPilotAppSearch(e.target.value)}
-                  className="text-xs px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 w-full sm:w-48"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 max-h-52 overflow-y-auto pr-1 scrollbar-thin">
-                {appsList
-                  .filter(a => !autoPilotAppSearch.trim() || a.name?.toLowerCase().includes(autoPilotAppSearch.toLowerCase()))
-                  .map(app => {
-                    const appId = String(app.id || app.slug || '');
-                    const isSelected = selectedAutoPilotAppIds.includes(appId);
-                    return (
-                      <button
-                        key={appId}
-                        onClick={() => toggleAutoPilotApp(appId)}
-                        className={`flex items-center gap-2 p-2 rounded-xl border text-left transition-all cursor-pointer ${
-                          isSelected 
-                            ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-400 text-blue-900 dark:text-blue-100'
-                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
-                        }`}
-                      >
-                        {app.icon_url ? (
-                          <img src={app.icon_url} alt="" className="w-6 h-6 rounded-md object-contain shrink-0" />
-                        ) : (
-                          <div className="w-6 h-6 rounded-md bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px] font-bold">
-                            {app.name?.charAt(0)}
-                          </div>
-                        )}
-                        <span className="text-[11px] font-bold truncate flex-1">{app.name}</span>
-                        {isSelected && <Check size={12} className="text-blue-600 shrink-0" />}
-                      </button>
-                    );
-                  })}
-              </div>
-            </div>
-
-            {/* Live Terminal Streaming Execution Logs */}
-            <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+            {/* Interactive Model Test Sandbox */}
+            <div className="mt-6 p-4 rounded-xl border border-slate-700 bg-slate-950/60 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                  <Terminal size={14} className="text-blue-500" />
-                  Live Queue Terminal Logs
-                </span>
+                <div className="flex items-center gap-2">
+                  <Terminal size={16} className="text-cyan-400" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-white">Interactive Model Ping Sandbox</span>
+                </div>
+                <span className="text-[11px] text-slate-400">Direct server-to-Gemini roundtrip test</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-400 block mb-1">Target Model</label>
+                  <select
+                    value={pingModel}
+                    onChange={(e) => setPingModel(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-2.5 py-1.5 text-xs font-mono focus:outline-hidden focus:border-cyan-400"
+                  >
+                    <option value="gemini-3.6-flash">gemini-3.6-flash (Fast & Recommended)</option>
+                    <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (Ultra-Fast)</option>
+                    <option value="gemini-flash-latest">gemini-flash-latest (Auto Latest)</option>
+                    <option value="gemini-3.8-flash">gemini-3.8-flash (High Reasoning)</option>
+                    <option value="gemini-3.1-pro-preview">gemini-3.1-pro-preview (Deep Thinking)</option>
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-[11px] font-semibold text-slate-400 block mb-1">Test Prompt</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={pingPrompt}
+                      onChange={(e) => setPingPrompt(e.target.value)}
+                      placeholder="Enter ping prompt..."
+                      className="flex-1 bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-1.5 text-xs focus:outline-hidden focus:border-cyan-400"
+                    />
+                    <button
+                      onClick={() => runPingTest()}
+                      disabled={pingTesting}
+                      className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white text-xs font-bold transition cursor-pointer"
+                    >
+                      {pingTesting ? (
+                        <>
+                          <RefreshCw size={12} className="animate-spin" />
+                          <span>Testing...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send size={12} />
+                          <span>Send Ping</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Presets */}
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                <span className="text-slate-500 font-medium">Quick Prompts:</span>
                 <button
-                  onClick={handleClearAutoPilotLogs}
-                  className="text-[11px] text-slate-400 hover:text-rose-500 cursor-pointer"
+                  type="button"
+                  onClick={() => setPingPrompt("Confirm RummyDex AI engine status and connectivity.")}
+                  className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer"
                 >
-                  Clear Logs
+                  Health Ping
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPingPrompt("Generate 1 short positive Hinglish card game review in JSON format.")}
+                  className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer"
+                >
+                  Hinglish Review Ping
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPingPrompt("Generate 1 short English review emphasizing smooth card table animations in JSON format.")}
+                  className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer"
+                >
+                  English Review Ping
                 </button>
               </div>
 
-              <div className="bg-slate-950 text-slate-300 font-mono text-xs p-4 rounded-2xl border border-slate-800 max-h-52 overflow-y-auto space-y-1.5 scrollbar-thin">
-                {autoPilotStatus?.logs && autoPilotStatus.logs.length > 0 ? (
-                  autoPilotStatus.logs.map((log: any, i: number) => (
-                    <div key={i} className="flex items-start gap-2 leading-relaxed">
-                      <span className="text-slate-500 text-[10px] shrink-0 font-sans">
-                        {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              {/* Ping Result Display */}
+              {pingResult && (
+                <div className={`mt-3 p-3 rounded-lg border font-mono text-xs ${
+                  pingResult.success
+                    ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-200'
+                    : 'bg-red-950/40 border-red-500/40 text-red-200'
+                }`}>
+                  <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10 text-[11px]">
+                    <span className="font-bold flex items-center gap-1.5">
+                      {pingResult.success ? <CheckCircle2 size={13} className="text-emerald-400" /> : <AlertCircle size={13} className="text-red-400" />}
+                      {pingResult.success ? 'API Response Received (HTTP 200)' : 'API Ping Failed'}
+                    </span>
+                    {pingResult.latencyMs && (
+                      <span className="text-cyan-300">
+                        {pingResult.latencyMs}ms • Key: {pingResult.keyUsed} • Model: {pingResult.modelUsed}
                       </span>
-                      <span className={
-                        log.type === 'success' ? 'text-emerald-400' :
-                        log.type === 'warning' ? 'text-amber-400' :
-                        log.type === 'error' ? 'text-rose-400' : 'text-slate-300'
-                      }>
-                        {log.message}
-                      </span>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-slate-500 text-xs italic">Queue terminal idle. Ready for launch.</p>
-                )}
-              </div>
-            </div>
-
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* 7. PART 4: 1-CLICK BULK BATCH STUDIO (DEDICATED INTERFACE) */}
-      {/* ========================================================================= */}
-      {mode === 'bulk' && (
-        <div className="space-y-6">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-5">
-            
-            {/* Header */}
-            <div className="pb-4 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2 text-cyan-600 dark:text-cyan-400 text-xs font-bold uppercase tracking-wider">
-                <Zap size={15} />
-                <span>Fast Multi-App Category Batch</span>
-              </div>
-              <h2 className="text-lg font-black text-slate-900 dark:text-white mt-1">
-                1-Click Bulk Batch Review Generator
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Generate and automatically publish authentic reviews for entire catalog categories in a single action.
-              </p>
-            </div>
-
-            {/* Bulk Controls */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              
-              {/* Category selector */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Category Filter:</label>
-                <select
-                  value={bulkCategory}
-                  onChange={(e) => setBulkCategory(e.target.value)}
-                  className="w-full text-xs font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-800 dark:text-slate-200 cursor-pointer"
-                >
-                  <option value="all">All Apps Catalog ({appsList.length} Apps)</option>
-                  {categories.map(c => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Reviews per app */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Reviews Per App:</label>
-                <select
-                  value={bulkCountPerApp}
-                  onChange={(e) => setBulkCountPerApp(parseInt(e.target.value, 10))}
-                  className="w-full text-xs font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-800 dark:text-slate-200 cursor-pointer"
-                >
-                  <option value={2}>2 Reviews per App</option>
-                  <option value={3}>3 Reviews per App (Standard)</option>
-                  <option value={5}>5 Reviews per App</option>
-                </select>
-              </div>
-
-              {/* Brain Engine */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">AI Intelligence Engine:</label>
-                <select
-                  value={bulkBrainChoice}
-                  onChange={(e) => setBulkBrainChoice(e.target.value as any)}
-                  className="w-full text-xs font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-slate-800 dark:text-slate-200 cursor-pointer"
-                >
-                  <option value="local">🧠 Brain 1: Deep Dossier Comprehension</option>
-                  <option value="research">🌐 Brain 2: Live Internet Web Researcher</option>
-                </select>
-              </div>
-
-            </div>
-
-            {/* Progress Bar if running */}
-            {bulkProgress?.active && (
-              <div className="bg-cyan-50 dark:bg-cyan-950/40 p-4 rounded-2xl border border-cyan-200 dark:border-cyan-800/60 space-y-2">
-                <div className="flex items-center justify-between text-xs font-bold text-cyan-800 dark:text-cyan-200">
-                  <span className="flex items-center gap-1.5">
-                    <RefreshCw size={14} className="animate-spin" />
-                    Executing Bulk Generation...
-                  </span>
-                  <span>{bulkProgress.current} / {bulkProgress.total} Apps</span>
+                    )}
+                  </div>
+                  <div className="whitespace-pre-wrap max-h-32 overflow-y-auto leading-relaxed text-slate-300">
+                    {pingResult.responseText || pingResult.error || JSON.stringify(pingResult, null, 2)}
+                  </div>
                 </div>
-                <div className="w-full bg-cyan-200 dark:bg-cyan-900 rounded-full h-2 overflow-hidden">
-                  <div 
-                    className="bg-cyan-500 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${(bulkProgress.current / bulkProgress.total) * 100}%` }}
-                  />
-                </div>
-              </div>
-            )}
+              )}
+            </div>
 
-            {/* Launch Action */}
-            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-              <button
-                onClick={handleRunBulkBatch}
-                disabled={bulkProgress?.active}
-                className="px-6 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl text-xs font-black shadow-lg shadow-cyan-600/20 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
-              >
-                <Zap size={14} />
-                <span>Launch 1-Click Bulk Batch</span>
-              </button>
+            {/* Architecture Safety Guarantees */}
+            <div className="mt-5 pt-4 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
+              <div className="flex items-center gap-2">
+                <ShieldCheck size={14} className="text-emerald-400" />
+                <span>Zero-Failure Fallback: Active</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Bot size={14} className="text-indigo-400" />
+                <span>Brain 1: Hinglish & English Dictionaries Ingested</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Globe size={14} className="text-cyan-400" />
+                <span>Brain 2: Live Play Store Grounding Active</span>
+              </div>
             </div>
 
           </div>

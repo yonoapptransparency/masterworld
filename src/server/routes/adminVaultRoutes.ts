@@ -190,9 +190,12 @@ adminVaultRouter.post("/api/v1/admin/ai-format-html", verifyAdminToken, async (r
   }
 
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey || apiKey.trim() === '') {
-      return res.status(400).json({ error: 'GEMINI_API_KEY is not configured. AI Formatting requires a valid Gemini API key.' });
+    const apiKey = (process.env.GEMINI_RESEARCH_API_KEY && process.env.GEMINI_RESEARCH_API_KEY.trim()) 
+      ? process.env.GEMINI_RESEARCH_API_KEY.trim() 
+      : (process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.trim() : '');
+
+    if (!apiKey) {
+      return res.status(400).json({ error: 'Gemini API key is not configured. AI Formatting requires a valid Gemini API key.' });
     }
 
     const { GoogleGenAI } = require("@google/genai");

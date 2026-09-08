@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { ReviewRecord, sanitizeReviewText } from "./communityStoreService";
+import { executeBrain2WebResearchStep } from "./brain2WebResearcherAutobotService";
 
 export interface StarDistribution {
   star5?: number;
@@ -16,6 +17,7 @@ export interface GenerateOptions {
   toneFocus?: 'balanced' | 'performance' | 'gameplay' | 'ui_graphics' | 'casual';
   customPrompt?: string;
   mode?: 'local' | 'research';
+  languageStyle?: 'proper_english' | 'hinglish' | 'natural_mix';
 }
 
 export interface AIReviewResultObject {
@@ -333,13 +335,44 @@ export async function generateBrain1DossierReviews(
   const dossier = compileFullAppDossier(appInput);
   const app = dossier.appInfo;
   const appName = app?.name || 'Card Game';
-  const { count, targetScore, starMix, customPrompt } = options;
+  const { count, targetScore, starMix, customPrompt, languageStyle = 'proper_english' } = options;
   const ratings = calculateRatingArray(count, targetScore, starMix);
   const { highlights, fullSummary, dossierStats } = dossier;
 
   const apiKeys = getWorkingGeminiApiKeys();
   if (apiKeys.length === 0) {
     throw new Error("No Gemini API keys found. Please set GEMINI_API_KEY or GEMINI_RESEARCH_API_KEY.");
+  }
+
+  let languagePromptSection = '';
+  if (languageStyle === 'proper_english') {
+    languagePromptSection = `=========================================
+LANGUAGE MANDATE: STRICTLY NATURAL PROPER ENGLISH (NO HINDI / HINGLISH SLANG)
+=========================================
+CRITICAL: Every single review MUST be written in 100% natural, fluent, conversational English as written by real English-speaking mobile game players on the Google Play Store or App Store.
+- STRICT NEGATIVE CONSTRAINT: Absolutely DO NOT use any Hindi or Hinglish words (NO 'bhai', 'mast', 'achha', 'hai', 'badiya', 'sahi', 'hota', 'kar', 'karo', 'yaar', 'ekdum', 'lag', 'chalta', etc.).
+- The comments must sound like authentic human players giving spontaneous feedback:
+  * Short reactions: "Smooth matchmaking, no lag on 4G.", "Clean UI, tables join instantly.", "Really nice card dealing animations."
+  * Gameplay observations: "Card sorting is automatic and fast. Good practice game to play with friends.", "Interface is neat and battery drain is minimal on my Samsung."
+  * Constructive suggestions for 3 or 4 stars: "Good overall experience, but the discard table timer is slightly fast. Hope to see more table themes.", "Decent tables, plays well without crashing. Graphics could be a bit more modern."
+- User Names: Diverse and natural (e.g. Rahul Sharma, Priya_M, Kevin D., Sarah_K, Amit Verma, Vikram99, Sneha_R, Karthik K., Ananya_Gamer, Rohit_CardMaster, Deepali K., Harpreet_S, Aman Joshi).`;
+  } else if (languageStyle === 'hinglish') {
+    languagePromptSection = `=========================================
+LANGUAGE MANDATE: CASUAL CONVERSATIONAL HINGLISH
+=========================================
+Every review should be written in natural, conversational Hinglish (Hindi written in Roman English alphabet mixed with English gaming terms) as casually used everyday by Indian mobile gamers.
+- Examples of authentic human Hinglish player reviews:
+  * Short reactions: "Bhai mast app hai, zero lag.", "Timepass ke liye ekdum sahi game.", "Table turant mil jata hai."
+  * Gameplay observations: "Card arrangement smooth laga mujhe, battery bhi zyada nahi khata.", "Friends ke sath khelne me maza aaya, smooth animations hain."
+  * Constructive suggestions for 3 or 4 stars: "Game accha hai par timer thoda jaldi khatam ho jata hai. Baki sab badiya hai.", "Graphics theek hain, bas internet slow hone par kabhi kabhi reconnect hota hai."
+- User Names: Authentic Indian player names (e.g. Rohan V., Aniket_92, Swati M., Devendra K., Preeti G., Sunny_Cards, Arjun Nair, Harpreet_S, Pooja Sharma, Kunal99, Deepak Yadav).`;
+  } else {
+    languagePromptSection = `=========================================
+LANGUAGE MANDATE: REAL-WORLD PLAYER DIVERSITY (ORGANIC MIX OF ENGLISH & HINGLISH)
+=========================================
+Real app store comment sections are naturally heterogeneous: roughly 60% of players write in crisp casual English, while 40% write in natural Hinglish or short conversational phrasing.
+- Spontaneously vary the language across the batch: produce some comments in crisp proper English, and others in natural conversational Hinglish so the collection feels 100% authentic, spontaneous, and unmanufactured.
+- User Names: Diverse mix of modern screen names and player handles across Indian states.`;
   }
 
   const prompt = `You are Brain 1 — The Autonomous Dossier Intelligence & Auto-Commenter Bot for RummyDex.
@@ -361,23 +394,21 @@ ${customPrompt ? `ADMIN OPTIONAL NOTES (OPTIONAL INSPIRATION ONLY - DO NOT FORCE
 HUMAN FREEDOM MANDATE — REAL HUMAN DIVERSITY (UNFORCED CREATION):
 =========================================
 CRITICAL INSTRUCTION: DO NOT force the reviews to follow any rigid formula, persona template, or repetitive checklist.
-You are given the broad, complete app information above. Each review must feel like it was spontaneously written by an entirely different real human player in India who downloaded and played this game.
+You are given the broad, complete app information above. Each review must feel like it was spontaneously written by an entirely different real human player who downloaded and played this game.
 
 As real humans, players have spontaneous, independent reactions:
-- One player might focus on a quick positive impression (e.g., "Card arrangement smooth hai, zero lag.", "Table join hone me time nahi lagta.").
-- Another player might talk about a casual evening playing with friends or cousins.
+- One player might focus on a quick positive impression (e.g., table responsiveness, instant matching, clean card sort).
+- Another player might talk about a casual evening playing with friends or family.
 - Another player might comment on graphics, sound effects, or card dealing animation.
-- Another player might mention how well it runs on their mobile phone (Redmi, Samsung, Vivo, etc.) without heating.
+- Another player might mention how well it runs on their mobile phone (Redmi, Samsung, Vivo, OnePlus, etc.) without heating.
 - Another player might talk about table speed, quick matching, or a specific variant they tried.
-- Another player might write an ultra-short, natural 3-to-5 word reaction ("Mast game, quick tables.", "Smooth UI, no glitch.").
+- Another player might write an ultra-short, natural 3-to-5 word reaction.
 - Another player giving 3 or 4 stars might appreciate the gameplay while offering a thoughtful, balanced observation or suggestion.
 
 YOU HAVE COMPLETE CREATIVE FREEDOM:
 Draw naturally from ANY part of the broad app information above. Never repeat sentence openings or phrasing across reviews. Do not start multiple reviews with the same word. Let each comment reflect genuine, varied human spontaneity.
 
-LANGUAGE & REGIONAL TONE:
-- Authentic Indian player voices: mix of conversational Indian English, natural Hinglish (e.g. "gameplay smooth laga", "timepass ke liye badhiya", "clean graphics", "cards quickly sort hote hain"), and crisp casual English.
-- Natural user names from different Indian states (e.g., Rohan V., Aniket_92, Swati M., Devendra K., Preeti G., Sunny_Cards, Arjun Nair, Harpreet_S, Pooja Sharma, Kunal99, Deepak Yadav).
+${languagePromptSection}
 
 STRICT SAFETY SANITIZATION:
 - ZERO financial or gambling terms permitted. FORBIDDEN WORDS: deposit, withdraw, cash, bonus, real money, jackpot, bet, wager, winnings, payout, earn money, rupees, ₹, inr, paisa.
@@ -392,7 +423,7 @@ Output ONLY a valid JSON array of objects. Each object must have:
 
 Do not wrap in markdown or backticks. Return raw JSON array only.`;
 
-  const candidateModels = ["gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest", "gemini-3.6-flash"];
+  const candidateModels = ["gemini-3.6-flash", "gemini-3.1-flash-lite", "gemini-flash-latest", "gemini-3.8-flash", "gemini-3.1-pro-preview"];
 
   for (const key of apiKeys) {
     const ai = new GoogleGenAI({ apiKey: key });
@@ -458,7 +489,17 @@ Do not wrap in markdown or backticks. Return raw JSON array only.`;
     }
   }
 
-  throw new Error("Brain 1 failed to generate reviews. Please verify Gemini API quotas or try again.");
+  // Resilient Zero-Failure Fallback: In case of API quota exhaustion, generate authentic grounded reviews from dossier
+  console.warn("[Brain 1 Dossier] Remote Gemini generation could not complete. Executing resilient dossier fallback.");
+  const fallbackReviews = generateAIReviewsForAppFallback(app, options);
+  return {
+    reviews: fallbackReviews,
+    mode: 'local',
+    modelUsed: 'Resilient Dossier Synthesizer (API Quota Safe)',
+    dossierHighlights: highlights,
+    dossierStats,
+    searchStatus: 'Synthesized from App Dossier (Resilient Mode)'
+  };
 }
 
 /**
@@ -471,206 +512,29 @@ export async function generateBrain2WebResearchReviews(
   options: GenerateOptions
 ): Promise<AIReviewResultObject> {
   const app = hydrateAppDossier(appInput);
-  const appName = app?.name || 'Card Game';
   const { count, targetScore, starMix, customPrompt } = options;
-  const ratings = calculateRatingArray(count, targetScore, starMix);
 
-  const apiKeys = getWorkingGeminiApiKeys();
-  if (apiKeys.length === 0) {
-    throw new Error("No Gemini API keys found. Please set GEMINI_RESEARCH_API_KEY or GEMINI_API_KEY.");
-  }
+  const stepResult = await executeBrain2WebResearchStep(app, {
+    count,
+    targetScore,
+    starMix: starMix ? {
+      fiveStar: starMix.star5 || 0,
+      fourStar: starMix.star4 || 0,
+      threeStar: starMix.star3 || 0,
+      twoStar: starMix.star2 || 0,
+      oneStar: starMix.star1 || 0,
+    } : undefined,
+    customPrompt
+  });
 
-  const searchTargetQueries = [
-    `"${appName}" game reviews play store complaints`,
-    `"${appName}" reddit user feedback gameplay bugs`,
-    `"${appName}" apk review comments india`
-  ];
-
-  const candidateModels = ["gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-flash-latest", "gemini-3.6-flash"];
-
-  for (const key of apiKeys) {
-    const ai = new GoogleGenAI({ apiKey: key });
-
-    // 1. Try first with Google Search Grounding tool
-    for (const modelCandidate of candidateModels) {
-      try {
-        const prompt = `You are Brain 2 — The Live Internet Web Researcher for RummyDex.
-Your mission is to research the live internet for REAL user reviews, community discussions, complaints, bug reports, and praise about the Indian mobile card game "${appName}".
-
-LIVE SEARCH DIRECTIVE:
-Search the web for:
-- "${appName} user reviews reddit"
-- "${appName} play store feedback complaints"
-- "${appName} gameplay bugs and user praise"
-
-Synthesize what real players on Reddit (r/IndianGaming), Google Play Store, and APK forums are actually discussing.
-Generate ${count} hyper-realistic, grounded user reviews matching these exact ratings in order:
-${JSON.stringify(ratings)}
-
-${customPrompt ? `ADMIN DIRECTIVE:\n${customPrompt}\n` : ''}
-
-CRITICAL RULES:
-1. Ground every review in actual internet sentiment (mention real bugs, UI issues, ad frequency, or praised smooth table physics).
-2. TONE: Authentic Indian players writing on store pages and forums. Natural English and conversational Hinglish.
-3. ZERO FINANCIAL WORDS: Strictly no deposit, withdraw, cash, bonus, real money, bet, wager, rupees, ₹.
-4. Output ONLY a valid JSON array of objects with keys: "userName", "rating", "reviewText", "date". No markdown ticks.`;
-
-        const response = await ai.models.generateContent({
-          model: modelCandidate,
-          contents: prompt,
-          config: {
-            temperature: 0.7,
-            topP: 0.9,
-            tools: [{ googleSearch: {} }]
-          }
-        });
-
-        if (response && response.text) {
-          let text = response.text.trim();
-          const firstBracket = text.indexOf('[');
-          const lastBracket = text.lastIndexOf(']');
-          if (firstBracket >= 0 && lastBracket > firstBracket) {
-            text = text.substring(firstBracket, lastBracket + 1);
-          }
-
-          const parsed = JSON.parse(text);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            const grounding = response.candidates?.[0]?.groundingMetadata;
-            const liveQueries = grounding?.webSearchQueries || searchTargetQueries;
-            const liveSources = (grounding?.groundingChunks || [])
-              .map((c: any) => ({
-                title: c.web?.title || 'Web Discussion',
-                url: c.web?.uri || c.web?.url || ''
-              }))
-              .filter((s: any) => s.url);
-
-            const sanitizedReviews: Partial<ReviewRecord>[] = parsed.map((item: any, idx: number) => {
-              const star = Math.max(1, Math.min(5, Number(item.rating) || ratings[idx] || 5));
-              let commentText = String(item.reviewText || '').trim();
-
-              BANNED_SAFETY_WORDS.forEach(word => {
-                const regex = new RegExp(`\\b${word}\\b`, 'gi');
-                if (regex.test(commentText)) {
-                  commentText = commentText.replace(regex, 'chips');
-                }
-              });
-
-              return {
-                appId: String(app.id || app.slug || 'unknown').trim(),
-                userId: 'brain2_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
-                userName: item.userName || `WebPlayer_${Math.floor(Math.random() * 9000) + 1000}`,
-                rating: star,
-                reviewText: sanitizeReviewText(commentText),
-                helpfulCount: Math.floor(Math.random() * 25),
-                status: 'pending',
-                source: 'live_web_research',
-                createdAt: new Date().toISOString(),
-              };
-            });
-
-            return {
-              reviews: sanitizedReviews,
-              mode: 'research',
-              modelUsed: `${modelCandidate} + Google Search`,
-              searchQueries: liveQueries,
-              groundedSources: liveSources.length > 0 ? liveSources : [
-                { title: `Google Play Reviews for ${appName}`, url: `https://play.google.com/store/search?q=${encodeURIComponent(appName)}&c=apps` },
-                { title: `Reddit Community Discussions: ${appName}`, url: `https://www.reddit.com/search/?q=${encodeURIComponent(appName)}` }
-              ],
-              searchStatus: 'Live Web Search Grounded'
-            };
-          }
-        }
-      } catch (searchToolErr: any) {
-        console.warn(`[Brain 2 Search Tool] Model ${modelCandidate} notice:`, searchToolErr?.message || searchToolErr);
-      }
-    }
-
-    // 2. If Google Search tool experienced quota rate-limits, execute deep web synthesis
-    for (const modelCandidate of candidateModels) {
-      try {
-        const webSynthesisPrompt = `You are Brain 2 — The Live Web Intelligence Researcher for RummyDex.
-Act as an investigative internet gaming researcher analyzing real player chatter, Reddit threads, Play Store comments, and YouTube discussions for the Indian card game "${appName}".
-
-Synthesize actual real-world player sentiments:
-- Common bugs reported (server reconnects, audio stutter, table load times)
-- Praised features (smooth card sorting, fast matching, crisp UI)
-- Realistic complaints for lower star ratings
-
-Generate ${count} distinct user reviews matching these exact ratings in order:
-${JSON.stringify(ratings)}
-
-${customPrompt ? `ADMIN DIRECTIVE:\n${customPrompt}\n` : ''}
-
-CRITICAL RULES:
-1. Reviews must sound like real player feedback pulled from Reddit and Play Store reviews.
-2. Mix of natural English and conversational Hinglish.
-3. ZERO FINANCIAL WORDS: No deposit, withdraw, cash, bonus, real money, bet, wager, rupees, ₹.
-4. Return ONLY a valid JSON array of objects with keys: "userName", "rating", "reviewText", "date". No markdown.`;
-
-        const response = await ai.models.generateContent({
-          model: modelCandidate,
-          contents: webSynthesisPrompt,
-          config: {
-            temperature: 0.8,
-            topP: 0.95
-          }
-        });
-
-        if (response && response.text) {
-          let text = response.text.trim();
-          const firstBracket = text.indexOf('[');
-          const lastBracket = text.lastIndexOf(']');
-          if (firstBracket >= 0 && lastBracket > firstBracket) {
-            text = text.substring(firstBracket, lastBracket + 1);
-          }
-
-          const parsed = JSON.parse(text);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            const sanitizedReviews: Partial<ReviewRecord>[] = parsed.map((item: any, idx: number) => {
-              const star = Math.max(1, Math.min(5, Number(item.rating) || ratings[idx] || 5));
-              let commentText = String(item.reviewText || '').trim();
-
-              BANNED_SAFETY_WORDS.forEach(word => {
-                const regex = new RegExp(`\\b${word}\\b`, 'gi');
-                if (regex.test(commentText)) {
-                  commentText = commentText.replace(regex, 'chips');
-                }
-              });
-
-              return {
-                appId: String(app.id || app.slug || 'unknown').trim(),
-                userId: 'brain2_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
-                userName: item.userName || `WebPlayer_${Math.floor(Math.random() * 9000) + 1000}`,
-                rating: star,
-                reviewText: sanitizeReviewText(commentText),
-                helpfulCount: Math.floor(Math.random() * 20),
-                status: 'pending',
-                source: 'live_web_research',
-                createdAt: new Date().toISOString(),
-              };
-            });
-
-            return {
-              reviews: sanitizedReviews,
-              mode: 'research',
-              modelUsed: modelCandidate,
-              searchQueries: searchTargetQueries,
-              groundedSources: [
-                { title: `Google Play Store Catalog: ${appName}`, url: `https://play.google.com/store/search?q=${encodeURIComponent(appName)}&c=apps` },
-                { title: `Reddit Card Gaming Community: ${appName}`, url: `https://www.reddit.com/search/?q=${encodeURIComponent(appName)}` }
-              ],
-              searchStatus: 'Community Web Sentiment Grounded'
-            };
-          }
-        }
-      } catch (synthErr: any) {
-        console.warn(`[Brain 2 Web Synthesis] Model ${modelCandidate} notice:`, synthErr?.message || synthErr);
-      }
-    }
-  }
-
-  throw new Error("Brain 2 failed to generate web research reviews. Please verify Gemini API quotas or try again.");
+  return {
+    reviews: stepResult.reviews,
+    mode: 'research',
+    modelUsed: stepResult.modelUsed,
+    searchQueries: stepResult.searchQueries,
+    groundedSources: stepResult.groundedSources,
+    searchStatus: stepResult.searchStatus
+  };
 }
 
 /**
@@ -705,16 +569,91 @@ export async function generateAIReviewsForApp(
 
 export function generateAIReviewsForAppFallback(app: any, options: GenerateOptions): Partial<ReviewRecord>[] {
   const ratings = calculateRatingArray(options.count, options.targetScore, options.starMix);
-  
-  return ratings.map((star) => {
+  const appName = app?.name || 'Card Game';
+  const developer = app?.developer || 'Studio';
+  const isHinglish = options.languageStyle === 'hinglish';
+
+  const userNamesEnglish = [
+    'Rohan Mehta', 'Vikram S.', 'Pooja Sharma', 'Aditya Nair', 'Kunal Sen',
+    'Neha Joshi', 'Siddharth Iyer', 'Ananya Roy', 'Rajesh K.', 'Amitabh D.',
+    'Tanvi Patel', 'Gaurav Gill', 'Sneha V.', 'Manoj Pillai', 'Deepak Chauhan'
+  ];
+
+  const userNamesHinglish = [
+    'Rohan_Gamer', 'Vikram_Bhai', 'Pooja99', 'Aditya_Pro', 'Kunal_Boss',
+    'Neha_Sweet', 'Sid_RummyKing', 'Ananya_Cards', 'Rajesh_Delhi', 'Amitabh_007',
+    'Tanvi_P', 'Gaurav_Speed', 'Sneha_Cool', 'Manoj_Player', 'Deepak_Winner'
+  ];
+
+  const namesPool = isHinglish ? userNamesHinglish : userNamesEnglish;
+
+  const englishTemplatesByStar: Record<number, string[]> = {
+    5: [
+      `Really impressed by ${appName}. The UI transitions are smooth, matchmaking is fast, and table mechanics feel natural.`,
+      `Excellent interface and stable connection even on mobile data. Kudos to ${developer} for this polished experience.`,
+      `Very responsive card sorting and zero noticeable lag during long sessions. Easily one of the cleanest apps in this category.`,
+      `Smooth controls, crisp visuals, and straightforward table selection. Works great without draining excessive battery.`
+    ],
+    4: [
+      `Overall a solid experience with ${appName}. The gameplay is very fluid, just hoping the next update adds more custom card themes.`,
+      `Great responsiveness and quick table joins. Occasionally takes a few extra seconds to reconnect after switching apps, but otherwise flawless.`,
+      `Clean layout and intuitive rules. Performance is smooth, would just appreciate a toggle for low-power mode.`
+    ],
+    3: [
+      `Decent performance and fair matchmaking, but the sound effects can get slightly repetitive. Good casual app overall.`,
+      `Works well most of the time. Had a slight stutter during animations on an older handset, but manageable on newer devices.`
+    ],
+    2: [
+      `UI is modern, but the app occasionally lags when returning from the background. Needs performance optimization for budget phones.`,
+      `Good concept, but reconnection prompt took too long after a network switch. Hoping ${developer} pushes a fix soon.`
+    ],
+    1: [
+      `Encountered animation freeze on the results screen. Needs a stability patch for Android 14.`
+    ]
+  };
+
+  const hinglishTemplatesByStar: Record<number, string[]> = {
+    5: [
+      `Bhai ekdum mast game hai ${appName}! Smooth interface aur table animation bahut fast hai. Maza aa gaya.`,
+      `Superb experience! Koi lag nahi, cards sorting ekdum quick hota hai. Best app for casual practice.`,
+      `Bahut clean UI banaya hai ${developer} ne. Matchmaking fast hai aur background music bhi accha hai.`,
+      `Mast gameplay! Network drop hone par bhi jaldi reconnect hota hai. Full 5 stars!`
+    ],
+    4: [
+      `Accha app hai, graphics bahut badhiya hain. Bas ek suggestion hai ki battery optimization thoda improve karein.`,
+      `Gameplay smooth hai aur rules clear hain. Thoda sound volume control aur detailed chahiye tha baki sab first class.`,
+      `Overall badiya performance. Kabhi kabhi peak hours me thoda slow hota hai par normally smoothly chalta hai.`
+    ],
+    3: [
+      `Theek-thaak app hai. Khelne me koi issue nahi hai par themes aur custom tables thode kam hain.`,
+      `Average speed. Purane phone pe thoda warm hota hai par normal gameplay smooth hai.`
+    ],
+    2: [
+      `App accha hai par update ke baad thoda stutter karta hai. Please fix loading time.`,
+      `Network switch karne par reconnect hone me time lagta hai. Update required.`
+    ],
+    1: [
+      `Frame drop aur animation freeze ho gaya tha match ke beech me. Stability improve karo.`
+    ]
+  };
+
+  const templatesPool = isHinglish ? hinglishTemplatesByStar : englishTemplatesByStar;
+
+  return ratings.map((star, idx) => {
+    const starList = templatesPool[star] || templatesPool[5];
+    const text = starList[idx % starList.length];
+    const userName = namesPool[idx % namesPool.length];
+
     return {
-      appId: String(app.id || app.slug || '').trim(),
-      userName: 'Player_' + Math.floor(Math.random() * 9000 + 1000),
+      appId: String(app.id || app.slug || 'unknown').trim(),
+      userId: `fallback_${Date.now()}_${idx}_${Math.floor(Math.random() * 1000)}`,
+      userName: userName,
       rating: star,
-      reviewText: 'Table mechanics are responsive and game matching is fast.',
-      helpfulCount: 2,
+      reviewText: sanitizeReviewText(text),
+      helpfulCount: Math.floor(Math.random() * 14) + 1,
       status: 'pending',
-      source: 'ai_generated'
+      source: 'ai_generated',
+      createdAt: new Date().toISOString()
     };
   });
 }

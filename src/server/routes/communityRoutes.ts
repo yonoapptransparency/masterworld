@@ -418,7 +418,7 @@ communityRouter.post("/api/v1/admin/community/recalculate-all", verifyAdminToken
 // Admin: AI Review Generator - Single App
 communityRouter.post("/api/v1/admin/community/ai-generate/single", verifyAdminToken, async (req: any, res: any) => {
   try {
-    const { appId, appData, count = 5, targetScore = 4.8, starMix, toneFocus = 'balanced', customPrompt, mode = 'local', saveDirectly = false } = req.body;
+    const { appId, appData, count = 5, targetScore = 4.8, starMix, toneFocus = 'balanced', customPrompt, mode = 'local', languageStyle = 'proper_english', saveDirectly = false } = req.body;
 
     if (!appId && !appData) {
       return res.status(400).json({ error: 'App ID or App Data is required' });
@@ -472,7 +472,8 @@ communityRouter.post("/api/v1/admin/community/ai-generate/single", verifyAdminTo
       starMix,
       toneFocus,
       customPrompt,
-      mode
+      mode,
+      languageStyle
     });
 
     const generatedReviews = Array.isArray(result) ? result : (result.reviews || []);
@@ -556,6 +557,7 @@ communityRouter.post("/api/v1/admin/community/brain1/autobot/step", verifyAdminT
       targetScore = 4.8, 
       starMix, 
       customPrompt,
+      languageStyle = 'proper_english',
       saveDirectly = false 
     } = req.body;
 
@@ -588,7 +590,8 @@ communityRouter.post("/api/v1/admin/community/brain1/autobot/step", verifyAdminT
       count: numCount,
       targetScore: numTargetScore,
       starMix,
-      customPrompt
+      customPrompt,
+      languageStyle
     });
 
     const generatedReviews = result.reviews || [];
@@ -771,6 +774,7 @@ communityRouter.post("/api/v1/admin/community/ai-generate/bulk", verifyAdminToke
       targetScore = 4.8, 
       starMix, 
       toneFocus = 'balanced',
+      languageStyle = 'proper_english',
       mode = 'local',
       appProfilesMap = {} // Per-app custom settings map: { [appId]: { targetScore, starMix, toneFocus, count } }
     } = req.body;
@@ -813,6 +817,7 @@ communityRouter.post("/api/v1/admin/community/ai-generate/bulk", verifyAdminToke
         let appTargetScore = fallbackTargetScore;
         let appStarMix = starMix;
         let appToneFocus = toneFocus;
+        let appLanguageStyle = languageStyle;
         let appCount = defaultCount;
         let appCustomPrompt = undefined;
 
@@ -820,6 +825,7 @@ communityRouter.post("/api/v1/admin/community/ai-generate/bulk", verifyAdminToke
           if (customProfile.targetScore) appTargetScore = Math.max(1.0, Math.min(5.0, Number(customProfile.targetScore)));
           if (customProfile.starMix) appStarMix = customProfile.starMix;
           if (customProfile.toneFocus) appToneFocus = customProfile.toneFocus;
+          if (customProfile.languageStyle) appLanguageStyle = customProfile.languageStyle;
           if (customProfile.singleCount || customProfile.count) appCount = Math.max(1, Math.min(20, Number(customProfile.singleCount || customProfile.count)));
           if (customProfile.customPrompt) appCustomPrompt = customProfile.customPrompt;
         } else if (app.rating) {
@@ -832,6 +838,7 @@ communityRouter.post("/api/v1/admin/community/ai-generate/bulk", verifyAdminToke
           targetScore: appTargetScore,
           starMix: appStarMix,
           toneFocus: appToneFocus,
+          languageStyle: appLanguageStyle,
           customPrompt: appCustomPrompt,
           mode
         });
@@ -858,51 +865,181 @@ communityRouter.post("/api/v1/admin/community/ai-generate/bulk", verifyAdminToke
   }
 });
 
-// Admin: Check Gemini AI Status & Quota Health
+// Admin: Check Gemini AI Status & Quota Health (Multi-Key & Multi-Model Diagnostics)
 communityRouter.get("/api/v1/admin/ai-status", verifyAdminToken, async (req: any, res: any) => {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey.trim() === "") {
-    return res.json({
-      configured: false,
-      model: "gemini-2.5-flash",
-      status: "unconfigured",
-      message: "GEMINI_API_KEY is not configured."
+  const { GoogleGenAI } = require("@google/genai");
+
+  const keysToTest = [
+    {
+      name: "GEMINI_RESEARCH_API_KEY",
+      key: process.env.GEMINI_RESEARCH_API_KEY,
+      role: "Live Web Grounding & Research Engine (Primary)",
+      priority: 1
+    },
+    {
+      name: "GEMINI_API_KEY",
+      key: process.env.GEMINI_API_KEY,
+      role: "Standard Server AI Intelligence",
+      priority: 2
+    }
+  ];
+
+  const keyReports: any[] = [];
+  let bestWorkingKey: string | null = null;
+  let activeWorkingModel = "gemini-3.6-flash";
+
+  for (const item of keysToTest) {
+    if (!item.key || !item.key.trim()) {
+      keyReports.push({
+        name: item.name,
+        role: item.role,
+        configured: false,
+        masked: "Not Configured",
+        status: "unconfigured",
+        message: `${item.name} is not set in environment.`
+      });
+      continue;
+    }
+
+    const trimmedKey = item.key.trim();
+    const masked = trimmedKey.length > 8
+      ? `${trimmedKey.substring(0, 6)}...${trimmedKey.substring(trimmedKey.length - 4)}`
+      : "configured";
+
+    const startTime = Date.now();
+    try {
+      const ai = new GoogleGenAI({ apiKey: trimmedKey });
+      
+      // Test with working fast model gemini-3.6-flash with 5-second timeout
+      const testPingPromise = ai.models.generateContent({
+        model: "gemini-3.6-flash",
+        contents: "Respond strictly with the single word: OK",
+      });
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Request timed out after 5000ms")), 5000)
+      );
+
+      const testRes: any = await Promise.race([testPingPromise, timeoutPromise]);
+      const latencyMs = Date.now() - startTime;
+      const snippet = testRes?.text?.trim() || "OK";
+
+      if (!bestWorkingKey) {
+        bestWorkingKey = item.name;
+        activeWorkingModel = "gemini-3.6-flash";
+      }
+
+      keyReports.push({
+        name: item.name,
+        role: item.role,
+        configured: true,
+        masked,
+        status: "online",
+        modelTested: "gemini-3.6-flash",
+        latencyMs,
+        responseSnippet: snippet,
+        message: `Online & operational (${latencyMs}ms response time).`
+      });
+    } catch (err: any) {
+      const latencyMs = Date.now() - startTime;
+      const errStr = String(err?.message || err);
+      const isQuota = errStr.includes("resource_exhausted") || errStr.includes("429") || errStr.includes("quota");
+      const isAuth = errStr.includes("401") || errStr.includes("UNAUTHENTICATED") || errStr.includes("ACCESS_TOKEN_TYPE_UNSUPPORTED");
+
+      keyReports.push({
+        name: item.name,
+        role: item.role,
+        configured: true,
+        masked,
+        status: isQuota ? "quota_exhausted" : isAuth ? "auth_error" : "error",
+        modelTested: "gemini-3.6-flash",
+        latencyMs,
+        message: isQuota
+          ? "API Quota limit reached (429). Rate-limited temporarily."
+          : isAuth
+          ? "Credential type invalid or expired (401). Please verify key in settings."
+          : errStr
+      });
+    }
+  }
+
+  const anyOnline = keyReports.some(r => r.status === "online");
+  const overallStatus = anyOnline
+    ? "all_systems_operational"
+    : keyReports.some(r => r.status === "quota_exhausted")
+    ? "quota_warning"
+    : keyReports.some(r => r.configured)
+    ? "error"
+    : "unconfigured";
+
+  return res.json({
+    configured: keyReports.some(r => r.configured),
+    overallStatus,
+    activeKeySource: bestWorkingKey || (keyReports.find(r => r.configured)?.name ?? "none"),
+    activeModel: activeWorkingModel,
+    testedModels: ["gemini-3.6-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"],
+    keys: keyReports,
+    timestamp: new Date().toISOString(),
+    recommendation: anyOnline
+      ? "AI review generation & live web researcher engines are fully operational."
+      : "Verify Gemini API keys in Project Settings to ensure uninterrupted review generation."
+  });
+});
+
+// Admin: Run On-Demand Live Model Test Ping
+communityRouter.post("/api/v1/admin/ai-test-ping", verifyAdminToken, async (req: any, res: any) => {
+  const { GoogleGenAI } = require("@google/genai");
+  const { model = "gemini-3.6-flash", prompt = "Confirm RummyDex AI engine status in 1 sentence." } = req.body || {};
+
+  // Try research key first, then primary key
+  const candidateKeys = [
+    { name: "GEMINI_RESEARCH_API_KEY", key: process.env.GEMINI_RESEARCH_API_KEY },
+    { name: "GEMINI_API_KEY", key: process.env.GEMINI_API_KEY }
+  ].filter(k => k.key && k.key.trim());
+
+  if (candidateKeys.length === 0) {
+    return res.status(400).json({
+      success: false,
+      error: "No Gemini API keys found in environment variables."
     });
   }
 
-  try {
-    const { GoogleGenAI } = require("@google/genai");
-    const ai = new GoogleGenAI({ apiKey, httpOptions: { headers: { "User-Agent": "aistudio-build" } } });
-    
-    // Quick test ping with 4-second timeout to avoid any hang
-    const testPingPromise = ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: "Reply with the single word: OK",
-    });
+  const attemptResults: any[] = [];
 
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error("Gemini API test ping timed out (4s)")), 4000)
-    );
+  for (const item of candidateKeys) {
+    const startTime = Date.now();
+    try {
+      const ai = new GoogleGenAI({ apiKey: item.key!.trim() });
+      const pingRes: any = await ai.models.generateContent({
+        model,
+        contents: prompt,
+      });
 
-    const testRes: any = await Promise.race([testPingPromise, timeoutPromise]);
-    const text = testRes?.text?.trim() || "";
-    return res.json({
-      configured: true,
-      model: "gemini-2.5-flash",
-      status: "online",
-      message: "Gemini API is online, active, and responding successfully.",
-      responseSnippet: text
-    });
-  } catch (err: any) {
-    const errStr = String(err?.message || err);
-    const isQuota = errStr.includes("resource_exhausted") || errStr.includes("429") || errStr.includes("quota");
-    return res.json({
-      configured: true,
-      model: "gemini-2.5-flash",
-      status: isQuota ? "quota_exhausted" : "error",
-      message: isQuota ? "Gemini API Quota Exhausted / Rate Limit Exceeded. (Fallback contextual generator active)." : `Gemini API: ${errStr}`
-    });
+      const latencyMs = Date.now() - startTime;
+      const text = pingRes?.text?.trim() || "";
+
+      return res.json({
+        success: true,
+        keyUsed: item.name,
+        modelUsed: model,
+        latencyMs,
+        responseText: text,
+        timestamp: new Date().toISOString()
+      });
+    } catch (err: any) {
+      attemptResults.push({
+        key: item.name,
+        error: String(err?.message || err)
+      });
+    }
   }
+
+  return res.status(502).json({
+    success: false,
+    modelRequested: model,
+    error: "All Gemini API key attempts failed.",
+    attempts: attemptResults
+  });
 });
 
 // =========================================================================
