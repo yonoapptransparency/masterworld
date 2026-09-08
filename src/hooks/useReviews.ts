@@ -23,6 +23,7 @@ export function useReviews(
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const nextCursorRef = useRef<string | null>(null);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   const [sortBy, setSortBy] = useState<'recent' | 'helpful'>('recent');
@@ -91,7 +92,8 @@ export function useReviews(
       // -------------------------------------------------------------
       try {
         const queryParams = new URLSearchParams();
-        if (isLoadMore && nextCursor) queryParams.append('cursor', nextCursor);
+        const cursorToUse = isLoadMore ? (nextCursorRef.current || nextCursor) : null;
+        if (cursorToUse) queryParams.append('cursor', cursorToUse);
         if (cleanAppTitle) queryParams.append('appTitle', cleanAppTitle);
         if (cleanAppSlug) queryParams.append('slug', cleanAppSlug);
         if (cleanAppId) queryParams.append('appId', cleanAppId);
@@ -169,6 +171,7 @@ export function useReviews(
 
       setHasMore(serverHasMore);
       setNextCursor(serverNextCursor);
+      nextCursorRef.current = serverNextCursor;
 
     } catch (err) {
       console.error('Reviews load pipeline error:', err);
@@ -191,6 +194,7 @@ export function useReviews(
     if (prevAppRef.current !== null && prevAppRef.current !== targetKey) {
       setReviews([]);
       setNextCursor(null);
+      nextCursorRef.current = null;
       setHasMore(false);
     }
     prevAppRef.current = targetKey;
