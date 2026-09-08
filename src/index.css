@@ -2,9 +2,9 @@
 @plugin "@tailwindcss/typography";
 
 html {
-  scroll-behavior: smooth;
+  scroll-behavior: auto;
   -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
+  text-rendering: auto;
 }
 
 body {
@@ -15,7 +15,7 @@ body {
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
+  text-rendering: auto;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -52,9 +52,9 @@ a {
   }
 }
 
-.glass-panel:active, button:active, .will-scale:active, a:active .glass-panel {
-  transform: scale(0.98) !important;
-  transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1) !important;
+.glass-panel:active, button:active, .will-scale:active {
+  transform: scale(0.98);
+  transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .glass-nav {
@@ -735,10 +735,15 @@ button, a, .glass-panel, .sticky, .fixed, .premium-action-btn {
 /* ====== LOW-POWER / MOBILE SMARTPHONE ULTRA PERFORMANCE OPTIMIZATION ====== */
 @media (max-width: 768px) {
   html {
-    scroll-behavior: auto !important; /* Eliminates touch scroll input lag on entry-level Android devices */
+    scroll-behavior: auto !important;
   }
 
-  /* Disable heavy backdrop-filter blur on mobile to completely eliminate GPU scroll stuttering */
+  body {
+    text-rendering: auto !important;
+    -webkit-font-smoothing: antialiased !important;
+  }
+
+  /* Strip expensive backdrop-filter blur on low-end mobile GPUs */
   .glass-nav {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
@@ -746,10 +751,20 @@ button, a, .glass-panel, .sticky, .fixed, .premium-action-btn {
   }
 
   .glass-panel {
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04) !important;
-    transition: none !important; /* Skip heavy layout transitions on mobile touch */
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
+  }
+
+  /* Strip heavy blur drop-shadows on cheap phones */
+  .shadow-2xl, .shadow-xl {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04) !important;
+  }
+
+  /* Promote sticky header to its own GPU layer for frictionless 60fps scrolling */
+  header.sticky {
+    transform: translateZ(0);
+    will-change: transform;
   }
 
   /* Disable decorative ambient background animations on mobile to save GPU cycles & battery */
@@ -767,32 +782,22 @@ button, a, .glass-panel, .sticky, .fixed, .premium-action-btn {
     will-change: transform;
   }
 
-  /* Render images with content-visibility auto for instant GPU paint cycles */
-  img {
-    content-visibility: auto;
-  }
-
-  /* Instant list items rendering without staggered animation lag on low budget screens */
+  /* Instant list items rendering without staggered animation lag */
   .animate-list-item-fade {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
-    content-visibility: auto;
-    contain-intrinsic-size: 1px 80px;
   }
 
-  /* Off-screen rendering isolation for instant scrolling performance */
-  .cv-auto {
-    content-visibility: auto;
-    contain-intrinsic-size: 1px 90px;
+  /* Force manipulation to eliminate 300ms tap delay natively without blocking scroll gestures */
+  a, button, input, select, textarea {
+    touch-action: manipulation !important;
   }
 }
 
-/* Restore the fluid press physics */
-button:active, a:active, .glass-panel:active, .premium-action-btn:active {
-  transform: scale(0.98) !important;
-  opacity: 0.92 !important;
-  transition: transform 0.08s ease, opacity 0.08s ease !important;
+/* Light tap feedback for buttons only, never interfering with touch drags or link scrolls */
+button:active {
+  opacity: 0.85;
 }
 
 /* Enable smooth scrolling in all scrollable containers */
@@ -803,42 +808,4 @@ button:active, a:active, .glass-panel:active, .premium-action-btn:active {
 /* Ensure native scroll momentum on Android & iOS without resistance */
 body {
   overscroll-behavior-y: auto;
-}
-
-@media (max-width: 768px) {
-  /* Extreme Performance Overrides for $25 Smartphones */
-  * {
-    /* Aggressively strip backdrop-filters which kill GPU fill rate on cheap phones */
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-  }
-  
-  /* Disable custom heavy box shadows on everything but absolute necessities */
-  .shadow-2xl, .shadow-xl {
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
-  }
-
-  /* Force manipulation to eliminate 300ms tap delay natively */
-  a, button, input, select, textarea {
-    touch-action: manipulation !important;
-  }
-}
-
-@media (max-width: 768px) {
-  /* Extreme Typography & Render Speed Optimizations */
-  body {
-    text-rendering: optimizeSpeed !important;
-    -webkit-font-smoothing: antialiased !important;
-  }
-  
-  /* Hard-disable any lingering GPU-heavy transitions on non-essential elements */
-  .transition-all, .transition-colors, .transition-transform {
-    transition-duration: 0s !important;
-    transition-delay: 0s !important;
-  }
-  
-  /* Isolate repaints for scrollable areas */
-  .overflow-x-auto, .overflow-y-auto {
-    contain: paint layout;
-  }
 }

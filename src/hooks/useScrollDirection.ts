@@ -4,6 +4,8 @@ export function useScrollDirection() {
   const [scrollDirection, setScrollDirection] = useState<'up' | 'down' | 'top'>('top');
   const [scrolled, setScrolled] = useState(false);
   const lastScrollY = useRef(0);
+  const currentDirection = useRef<'up' | 'down' | 'top'>('top');
+  const currentScrolled = useRef(false);
 
   useEffect(() => {
     let ticking = false;
@@ -12,21 +14,31 @@ export function useScrollDirection() {
       const currentScrollY = window.scrollY;
 
       if (currentScrollY <= 20) {
-        setScrollDirection(prev => (prev === 'top' ? prev : 'top'));
-        setScrolled(prev => (prev === false ? prev : false));
+        if (currentDirection.current !== 'top') {
+          currentDirection.current = 'top';
+          setScrollDirection('top');
+        }
+        if (currentScrolled.current) {
+          currentScrolled.current = false;
+          setScrolled(false);
+        }
+        lastScrollY.current = currentScrollY;
       } else {
-        setScrolled(prev => (prev === true ? prev : true));
+        if (!currentScrolled.current) {
+          currentScrolled.current = true;
+          setScrolled(true);
+        }
         const diff = currentScrollY - lastScrollY.current;
-        if (Math.abs(diff) > 8) {
-          if (diff > 0) {
-            setScrollDirection(prev => (prev === 'down' ? prev : 'down'));
-          } else {
-            setScrollDirection(prev => (prev === 'up' ? prev : 'up'));
+        if (Math.abs(diff) > 25) {
+          const nextDir = diff > 0 ? 'down' : 'up';
+          if (currentDirection.current !== nextDir) {
+            currentDirection.current = nextDir;
+            setScrollDirection(nextDir);
           }
+          lastScrollY.current = currentScrollY;
         }
       }
 
-      lastScrollY.current = currentScrollY;
       ticking = false;
     };
 
