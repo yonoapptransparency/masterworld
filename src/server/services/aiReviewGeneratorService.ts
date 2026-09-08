@@ -406,57 +406,69 @@ Return ONLY a valid JSON array of exactly ${count} objects. No markdown formatti
   }
 ]`;
       } else {
-        prompt = `You are a highly advanced AI analyzing the store listing for the app "${appName}". Your task is to generate ${count} ultra-realistic user reviews. 
+        prompt = `You are a native Indian mobile gamer and natural language AI analyzing the store listing for "${appName}". 
+Your task is to generate ${count} ultra-realistic, authentic user reviews representing real everyday Indian players.
 
-### 🧠 CRITICAL DIRECTIVE: AVOID "AI LOOPING" & REPETITION
-Your previous outputs suffered from "AI looping"—using the same sentence structures, similar commentary, and identical examples across different reviews. You must BREAK this habit. 
-To prove you have a "bright brain", you must invent a COMPLETELY DIFFERENT real-world situation, personality, and focus for EVERY SINGLE REVIEW. No two reviews should sound like they were written by the same person.
+======================================================================
+🧠 CRITICAL CORE DIRECTIVE: ABSOLUTELY NO DUMMY OR TEMPLATE COMMENTS
+======================================================================
+Previous outputs were too repetitive, generic, or sounded like automated marketing praise ("Nice app, very smooth, best game"). Real humans do NOT write like that.
+Every single review you generate MUST feel spontaneous, distinct, and directly grounded in the ACTUAL details, gameplay rules, or technical facts of "${appName}".
 
-### STEP 1: DEEP DOSSIER COMPREHENSION
-Read everything provided in the dossier below. Do not skim.
-- Find obscure features, specific game modes, UI details, and performance claims to inject into the reviews.
+### 1. DEEP DOSSIER REASONING & EXTRACTION:
+Read the entire app description, feature breakdown, notices, warnings, and FAQs below.
+Extract and reference specific elements:
+- Exact game modes (Points, Pool 101/201, Deals, Practice tables, Tournaments).
+- Card mechanics (Joker cards, card grouping, auto-sort, drag-and-drop, discard tray, discard timer).
+- Visuals & Audio (Table themes, card back styles, discard sound effects, clean font).
+- Phone & Network performance (Runs smooth on 4G/3G, low battery heat, APK download size, fast reconnect).
+- Notices or restrictions from the warnings or FAQs (e.g. KYC verification, guest login, customer support response, OTP time).
 
-### STEP 2: HYPER-SPECIFIC SITUATIONAL ROLEPLAY
-For each of the ${count} reviews, adopt a completely unique scenario. Force extreme variety. Real humans write differently.
-- **Example angles (DO NOT reuse these exactly, invent your own)**: A user who plays on a train commute, a user comparing to an older version, a user strictly complaining about battery drain on a specific old phone, a user who loves a highly specific game mode.
-- **Vary Length Drastically**: Some reviews should be 2 words ("Op app", "mast app"). Some should be 3-4 meandering sentences.
-- **Vary Grammar/Spelling**: Real people make typos. Use lowercase sometimes. Use poor grammar on purpose for 30% of reviews (e.g., "plz update this", "wrost expirence").
-- **Language**: Mix pure English with Indian Hinglish (e.g., "bhai ek number app hai", "time pass ke liye best").
-- **Repetition Ban**: NEVER start multiple reviews with the same word. NEVER use the same phrase twice. NEVER use corporate marketing speak.
+### 2. DIVERSE HUMAN PERSPECTIVES (MIX NATURALLY):
+Vary the length, tone, and personality across every review:
+- SHORT & PUNCHY (2 to 5 words): "Ekdum fast table join.", "Smooth discard controls.", "Best for casual practice.", "No frame lag on redmi."
+- CASUAL HINGLISH STREET: Everyday Indian player vibe mixing natural Hindi words ("bhai", "mast", "sahi", "timepass", "ekdum", "bohot", "khelte waqt", "maza aaya"): e.g. "Doston ke sath pool 101 khelne me maza aaya, table animations super clean hai."
+- VETERAN / STRATEGY PLAYER (15 to 30 words): Analyzes card grouping, table timer pressure, or points score calculation.
+- CONSTRUCTIVE CRITIQUE / SUGGESTION (3 or 4 stars): Mentions 1 real detail to improve (e.g., "Would like option to mute table music separately", "Font size in rules menu is slightly small on compact screen").
+- TECHNICAL / HARDWARE (Low data usage, runs smoothly on 3GB RAM, quick reconnect on weak mobile signal).
 
-### STEP 3: CONTENT INJECTION (PROVE YOU READ THE DESCRIPTION)
-- Do not just say "the game is good". Explicitly mention the specific game modes, features, or UI elements you found in the description. 
+### 3. ANTI-REPETITION MANDATES:
+- NEVER start multiple reviews with the same word ("Very", "Nice", "Good", "Best", "I").
+- NEVER reuse the same sentence structure or cliché phrases.
+- Lowercase / casual punctuation is encouraged for some reviews to mimic real mobile typing.
 
-### STEP 4: RATING SENTIMENT ALIGNMENT (${JSON.stringify(ratings)})
-You must strictly assign the exact integer star ratings requested in order: ${JSON.stringify(ratings)}.
-- 5 stars: Absolute praise, specific feature shoutouts.
-- 4 stars: Great but with a minor issue or feature request.
-- 3 stars: Average, neutral, or experiencing a bug.
-- 2/1 stars: Frustrated with a specific bug, lag, or UI issue.
+### 4. STRICT RATING ALLOCATION (${JSON.stringify(ratings)}):
+Assign the exact integer star ratings requested in order: ${JSON.stringify(ratings)}.
+- 5 Stars: Genuinely satisfied player highlighting specific mechanics.
+- 4 Stars: Happy player with 1 small constructive observation.
+- 3 Stars: Balanced review noting a realistic minor hiccup or suggestion.
+- 1-2 Stars: Frustrated player complaining about a specific bug or connection timeout.
 
-### 📱 COMPLETE APP DOSSIER FOR "${appName}":
+### 🚫 STRICT INTEGRITY & SAFETY RULES (MANDATORY):
+1. ZERO REAL MONEY / FINANCIAL WORDS: NEVER use deposit, withdraw, cash, bonus, real money, jackpot, bet, wager, winnings, payout, earn money, earning, bank account, rupees, inr, paisa, or ₹.
+2. ZERO COMMERCIAL BETTING: Keep all commentary focused strictly on free-to-play card gameplay, entertainment, skill, practice, and social fun.
+3. ZERO CONTAMINATION: Do not mention unrelated third-party apps.
+
+======================================================================
+📱 FULL APP DOSSIER & METADATA FOR "${appName}":
+======================================================================
 ${appSpecs}
 
-#### RAW HTML CONTENT & FEATURES (READ THIS CAREFULLY):
-${rawHtmlSections || 'No raw HTML available.'}
+--- [RAW HTML DESCRIPTION & RULES] ---
+${rawHtmlSections || 'No raw HTML provided.'}
 
-#### PLAIN TEXT DOSSIER:
-${plainTextDossier || 'No plain text available.'}
+--- [PLAIN TEXT DOSSIER & SUMMARY] ---
+${plainTextDossier || 'No plain text provided.'}
 
-#### EXTRACTED KEY CLAIMS & MECHANICS:
-"${specificPhrases.join(' | ')}"
-
-### 🚫 HARD SAFETY RULES (MANDATORY):
-1. ZERO FINANCIAL WORDS: Never use deposit, withdraw, cash, bonus, real money, jackpot, bet, wager, winnings, payout, rupees, ₹. 
-2. Frame everything as free-to-play, casual entertainment, or skill gaming.
-3. ZERO CONTAMINATION: Do not mention other app names.
+--- [EXTRACTED GAMEPLAY CLAIMS & MECHANICS] ---
+"${specificPhrases.slice(0, 15).join(' | ')}"
 
 ### ✍️ TONE & CUSTOM INSTRUCTIONS:
-Tone Focus: ${toneFocus === 'performance' ? 'Focus heavily on FPS, smoothness, lag, and phone heating.' : toneFocus === 'gameplay' ? 'Focus heavily on game rules, card dealing, matchmaking, and features.' : toneFocus === 'ui_graphics' ? 'Focus heavily on visual themes, UI buttons, sound, and graphics.' : 'Maintain a chaotic, highly varied mix of perspectives (some short, some long).'}
-${customPrompt ? `\nUSER CUSTOM INSTRUCTIONS (FOLLOW STRICTLY):\n${customPrompt}\n` : ''}
+Tone Focus: ${toneFocus === 'performance' ? 'Emphasize frame rates, APK size, battery efficiency, and reconnection speed.' : toneFocus === 'gameplay' ? 'Emphasize card sorting, joker rules, table countdown timers, and game modes.' : toneFocus === 'ui_graphics' ? 'Emphasize table colors, card visibility, animations, and sound effects.' : 'Blend all archetypes naturally.'}
+${customPrompt ? `\nADMIN SPECIAL INSTRUCTION: "${customPrompt}"\n` : ''}
 
 ### OUTPUT FORMAT:
-Return ONLY a valid JSON array of exactly ${count} objects. No markdown formatting.
+Return ONLY a valid raw JSON array of exactly ${count} objects matching the schema:
 [
   {
     "userName": "string",

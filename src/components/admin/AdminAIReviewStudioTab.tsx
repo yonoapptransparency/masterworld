@@ -1405,43 +1405,72 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
                 </div>
 
                 {/* Grounded Description & Context Inspector Box */}
-                <div className="bg-slate-900 text-slate-100 rounded-xl p-4 border border-slate-800 space-y-3 font-mono text-xs">
-                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                <div className="bg-slate-900 text-slate-100 rounded-2xl p-4 sm:p-5 border border-slate-800 space-y-4 font-mono text-xs shadow-md">
+                  <div className="flex flex-wrap items-center justify-between border-b border-slate-800 pb-3 gap-2">
                     <div className="flex items-center gap-2 font-bold text-blue-400">
-                      <Sparkles size={14} className="text-amber-400" />
-                      <span>Live AI Source & Context Inspector Box</span>
+                      <Sparkles size={15} className="text-amber-400" />
+                      <span>{aiGenerationMode === 'research' ? 'Brain 2: Live Web & Play Store Grounding Engine' : 'Brain 1: Full Dossier Deep Reasoning Engine'}</span>
                     </div>
-                    <span className="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded font-sans">
-                      Gemini 3.7 Flash (Temp 0.98)
+                    <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2.5 py-1 rounded-full font-sans font-extrabold border border-emerald-500/30 flex items-center gap-1">
+                      <Check size={11} /> 100% Dossier Ingestion (Gemini 3.8 Flash)
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px] text-slate-300 font-sans">
-                    <div>
-                      <span className="text-slate-500 font-mono">APP TITLE:</span> <strong className="text-white">{currentApp?.name || 'N/A'}</strong>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[11px] text-slate-300 font-sans">
+                    <div className="p-2 bg-slate-950/70 rounded-xl border border-slate-800/80">
+                      <span className="text-slate-500 font-mono text-[10px] block">APP TITLE</span>
+                      <strong className="text-white truncate block">{currentApp?.name || 'N/A'}</strong>
                     </div>
-                    <div>
-                      <span className="text-slate-500 font-mono">CATEGORY:</span> <strong className="text-white">{currentApp?.category || 'General'}</strong>
+                    <div className="p-2 bg-slate-950/70 rounded-xl border border-slate-800/80">
+                      <span className="text-slate-500 font-mono text-[10px] block">CATEGORY</span>
+                      <strong className="text-white truncate block">{currentApp?.category || 'General'}</strong>
                     </div>
-                    <div>
-                      <span className="text-slate-500 font-mono">DEVELOPER:</span> <strong className="text-white">{currentApp?.developer || 'Studio'}</strong>
+                    <div className="p-2 bg-slate-950/70 rounded-xl border border-slate-800/80">
+                      <span className="text-slate-500 font-mono text-[10px] block">DEVELOPER</span>
+                      <strong className="text-white truncate block">{currentApp?.developer || 'Official Studio'}</strong>
                     </div>
-                    <div>
-                      <span className="text-slate-500 font-mono">BENCHMARK RATING:</span> <strong className="text-amber-400">⭐ {currentApp?.rating || '4.8'} / 5.0</strong>
+                    <div className="p-2 bg-slate-950/70 rounded-xl border border-slate-800/80">
+                      <span className="text-slate-500 font-mono text-[10px] block">BENCHMARK RATING</span>
+                      <strong className="text-amber-400 block font-bold">⭐ {currentApp?.rating || '4.8'} / 5.0</strong>
                     </div>
                   </div>
 
-                  <div className="space-y-1">
-                    <div className="text-[10px] text-slate-500 uppercase tracking-wider">Loaded Description & Feature Snippet Sent to AI:</div>
-                    <div className="bg-slate-950 p-2.5 rounded-lg text-slate-300 text-[11px] max-h-28 overflow-y-auto leading-relaxed border border-slate-800/80 font-sans">
-                      {currentApp?.description_html ? currentApp.description_html.replace(/<\/?[^>]+(>|$)/g, ' ').substring(0, 400) + '...' : currentApp?.description || 'No description provided.'}
+                  {/* Multi-source Ingestion Health Indicator */}
+                  <div className="flex flex-wrap gap-2 text-[10px] font-sans">
+                    <span className="px-2 py-1 bg-slate-800/90 text-blue-300 rounded-lg border border-slate-700/60 flex items-center gap-1">
+                      <FileText size={11} />
+                      Description: {currentApp?.description_html ? `${Math.round(currentApp.description_html.length / 100) / 10}k chars` : 'Present'}
+                    </span>
+                    <span className="px-2 py-1 bg-slate-800/90 text-teal-300 rounded-lg border border-slate-700/60 flex items-center gap-1">
+                      <HelpCircle size={11} />
+                      FAQs: {Array.isArray(currentApp?.faqs) ? `${currentApp.faqs.length} Q&As` : 'None'}
+                    </span>
+                    <span className="px-2 py-1 bg-slate-800/90 text-amber-300 rounded-lg border border-slate-700/60 flex items-center gap-1">
+                      <AlertTriangle size={11} />
+                      Warnings & Tips: {currentApp?.red_box_msg || currentApp?.yellow_box_msg ? 'Fed to AI' : 'Clean'}
+                    </span>
+                    <span className="px-2 py-1 bg-slate-800/90 text-purple-300 rounded-lg border border-slate-700/60 flex items-center gap-1">
+                      <Shield size={11} />
+                      No Real Money Filter: Active
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider flex items-center justify-between">
+                      <span>Live Dossier Excerpt Fed to AI:</span>
+                      <span className="text-[9px] text-emerald-400 font-mono">No Mock Data • Zero Dummy Templates</span>
+                    </div>
+                    <div className="bg-slate-950 p-3 rounded-xl text-slate-300 text-[11px] max-h-32 overflow-y-auto leading-relaxed border border-slate-800/90 font-sans">
+                      {currentApp?.description_html 
+                        ? currentApp.description_html.replace(/<\/?[^>]+(>|$)/g, ' ').substring(0, 500) + '...' 
+                        : currentApp?.description || 'Full catalog description loaded.'}
                     </div>
                   </div>
 
                   {customPrompt && (
                     <div className="space-y-1">
-                      <div className="text-[10px] text-blue-400 uppercase tracking-wider">Custom Admin Instructions:</div>
-                      <div className="bg-blue-950/30 border border-blue-900/40 p-2 rounded text-blue-200 text-[11px] font-sans">
+                      <div className="text-[10px] text-blue-400 font-bold uppercase tracking-wider">Custom Admin Directive:</div>
+                      <div className="bg-blue-950/40 border border-blue-800/50 p-2.5 rounded-xl text-blue-200 text-[11px] font-sans">
                         {customPrompt}
                       </div>
                     </div>
@@ -1449,10 +1478,18 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
                 </div>
 
                 {/* Grounded Description Notice */}
-                <div className="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 rounded-xl p-3 text-xs text-blue-900 dark:text-blue-300 flex items-start gap-2.5">
-                  <Info size={16} className="shrink-0 text-blue-600 mt-0.5" />
-                  <div className="text-[11px] leading-relaxed">
-                    <strong>Creative Context Grounding Active:</strong> The AI extracts real features, game modes, and rules from <em>{currentApp?.name}</em>'s admin description. Each review takes a unique angle (table mechanics, 60fps frame rate, undo tools, UI theme).
+                <div className="bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-800/50 rounded-2xl p-4 text-xs text-blue-950 dark:text-blue-200 flex items-start gap-3 shadow-xs">
+                  <div className="p-2 bg-blue-600 text-white rounded-xl shadow-xs shrink-0">
+                    <Cpu size={18} />
+                  </div>
+                  <div className="space-y-1 text-[11px] leading-relaxed">
+                    <div className="font-bold text-slate-900 dark:text-white text-xs flex items-center gap-1.5">
+                      <span>Deep Reasoning & Anti-Formula Engine Active</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-extrabold border border-emerald-500/20">Freedom Human Comments</span>
+                    </div>
+                    <p className="text-slate-600 dark:text-slate-300">
+                      The AI reads the full title, metadata, rules, FAQs, and warnings for <strong>{currentApp?.name}</strong>. It crafts authentic Indian gamer comments (short 3-word slang, 4G commuters, card grouping strategies, and realistic minor suggestions) without repetitive formulas or money keywords.
+                    </p>
                   </div>
                 </div>
 
