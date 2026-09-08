@@ -328,7 +328,8 @@ class AutoPilotQueueService {
         const existingCount = existingReviews?.reviews ? existingReviews.reviews.length : 0;
 
         // Extract facts for status reporting
-        const facts = extractAppDossierFacts(app);
+        const factsData = extractAppDossierFacts(app);
+        const facts = factsData.highlights || [];
 
         this.status.currentApp = {
           id: appId,

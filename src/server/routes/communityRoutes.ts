@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { verifyTurnstile, getIp, rateLimit } from '../security';
 import { verifyAdminToken } from '../middleware/adminAuth';
 import { communityStore } from '../services/communityStoreService';
-import { generateAIReviewsForApp } from '../services/aiReviewGeneratorService';
+import { generateAIReviewsForApp, compileFullAppDossier, generateBrain1DossierReviews } from '../services/aiReviewGeneratorService';
+import { getBrain2TargetInfo, executeBrain2WebResearchStep } from '../services/brain2WebResearcherAutobotService';
 import { autoPilotService } from '../services/autoPilotQueueService';
 import { getStaticData } from '../config';
 import { fetchStoreData } from '../../seoHelper';
@@ -482,7 +483,13 @@ communityRouter.post("/api/v1/admin/community/ai-generate/single", verifyAdminTo
         success: true,
         message: `Successfully generated and published ${saved.length} AI reviews for ${targetApp.name}.`,
         reviews: saved,
-        count: saved.length
+        count: saved.length,
+        mode: result.mode || mode,
+        modelUsed: result.modelUsed || 'gemini-3.8-flash',
+        searchQueries: result.searchQueries || [],
+        groundedSources: result.groundedSources || [],
+        searchStatus: result.searchStatus || 'Completed',
+        dossierHighlights: result.dossierHighlights || []
       });
     }
 
@@ -501,6 +508,257 @@ communityRouter.post("/api/v1/admin/community/ai-generate/single", verifyAdminTo
   } catch (err: any) {
     console.error("AI Single Review Gen Error:", err);
     return res.status(500).json({ error: 'Failed to generate reviews: ' + (err.message || String(err)) });
+  }
+});
+
+// Admin: Brain 1 Dossier Inspection (Fetches complete 360° app details and stats)
+communityRouter.get("/api/v1/admin/community/brain1/dossier/:appId", verifyAdminToken, async (req: any, res: any) => {
+  try {
+    const { appId } = req.params;
+    let targetApp: any = null;
+
+    try {
+      const storeData = await fetchStoreData();
+      targetApp = storeData?.apps?.find((a: any) => String(a.id) === String(appId) || String(a.slug) === String(appId));
+    } catch (e) {
+      console.warn("[Brain1 Dossier] fetchStoreData notice:", e);
+    }
+
+    if (!targetApp) {
+      const staticData = getStaticData();
+      targetApp = staticData.apps?.find((a: any) => String(a.id) === String(appId) || String(a.slug) === String(appId)) ||
+                  staticData.mockApps?.find((a: any) => String(a.id) === String(appId) || String(a.slug) === String(appId));
+    }
+
+    if (!targetApp) {
+      return res.status(404).json({ error: `App "${appId}" not found in catalog.` });
+    }
+
+    const compiled = compileFullAppDossier(targetApp);
+    return res.status(200).json({
+      success: true,
+      dossier: compiled
+    });
+  } catch (err: any) {
+    console.error("Brain 1 Dossier Fetch Error:", err);
+    return res.status(500).json({ error: 'Failed to fetch dossier: ' + (err.message || String(err)) });
+  }
+});
+
+// Admin: Brain 1 Autobot Single Step / Batch (Autonomous Unforced Human Creation)
+communityRouter.post("/api/v1/admin/community/brain1/autobot/step", verifyAdminToken, async (req: any, res: any) => {
+  const startTime = Date.now();
+  try {
+    const { 
+      appId, 
+      appData, 
+      count = 2, 
+      targetScore = 4.8, 
+      starMix, 
+      customPrompt,
+      saveDirectly = false 
+    } = req.body;
+
+    if (!appId && !appData) {
+      return res.status(400).json({ error: 'appId or appData is required for Brain 1 Autobot.' });
+    }
+
+    let targetApp = appData || {};
+    if (!targetApp.description_html && !targetApp.description) {
+      try {
+        const storeData = await fetchStoreData();
+        const fullApp = storeData?.apps?.find((a: any) => String(a.id) === String(appId) || String(a.slug) === String(appId));
+        if (fullApp) {
+          targetApp = { ...fullApp, ...targetApp };
+        } else {
+          const staticData = getStaticData();
+          const fallbackApp = staticData.apps?.find((a: any) => String(a.id) === String(appId) || String(a.slug) === String(appId)) ||
+                              staticData.mockApps?.find((a: any) => String(a.id) === String(appId) || String(a.slug) === String(appId));
+          if (fallbackApp) targetApp = { ...fallbackApp, ...targetApp };
+        }
+      } catch (e) {
+        console.warn("Brain 1 Autobot app resolution notice:", e);
+      }
+    }
+
+    const numCount = Math.max(1, Math.min(20, Number(count) || 2));
+    const numTargetScore = Math.max(1.0, Math.min(5.0, Number(targetScore) || 4.8));
+
+    const result = await generateBrain1DossierReviews(targetApp, {
+      count: numCount,
+      targetScore: numTargetScore,
+      starMix,
+      customPrompt
+    });
+
+    const generatedReviews = result.reviews || [];
+
+    if (saveDirectly && generatedReviews.length > 0) {
+      // Mark as published for live auto-commenter mode
+      const reviewsToPublish = generatedReviews.map(r => ({
+        ...r,
+        status: 'published' as const
+      }));
+      const saved = await communityStore.addMultipleReviews(reviewsToPublish);
+      return res.status(200).json({
+        success: true,
+        message: `Autobot published ${saved.length} reviews live for ${targetApp.name || 'App'}.`,
+        reviews: saved,
+        count: saved.length,
+        autoSaved: true,
+        modelUsed: result.modelUsed,
+        dossierHighlights: result.dossierHighlights || [],
+        dossierStats: result.dossierStats,
+        timeTakenMs: Date.now() - startTime,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Autobot synthesized ${generatedReviews.length} human reviews staged for inspection.`,
+      reviews: generatedReviews,
+      count: generatedReviews.length,
+      autoSaved: false,
+      modelUsed: result.modelUsed,
+      dossierHighlights: result.dossierHighlights || [],
+      dossierStats: result.dossierStats,
+      timeTakenMs: Date.now() - startTime,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err: any) {
+    console.error("Brain 1 Autobot Step Error:", err);
+    return res.status(500).json({ error: 'Autobot step failed: ' + (err.message || String(err)) });
+  }
+});
+
+// =========================================================================
+// BRAIN 2: LIVE INTERNET WEB RESEARCHER AUTOBOT APIS
+// =========================================================================
+
+// Admin: Brain 2 Target Info (Inspect exact App Name + Developer match and search query previews)
+communityRouter.get("/api/v1/admin/community/brain2/target-info/:appId", verifyAdminToken, async (req: any, res: any) => {
+  try {
+    const { appId } = req.params;
+    let targetApp: any = null;
+
+    try {
+      const storeData = await fetchStoreData();
+      targetApp = storeData?.apps?.find((a: any) => String(a.id) === String(appId) || String(a.slug) === String(appId));
+    } catch (e) {
+      console.warn("[Brain 2 Target] fetchStoreData notice:", e);
+    }
+
+    if (!targetApp) {
+      const staticData = getStaticData();
+      targetApp = staticData.apps?.find((a: any) => String(a.id) === String(appId) || String(a.slug) === String(appId)) ||
+                  staticData.mockApps?.find((a: any) => String(a.id) === String(appId) || String(a.slug) === String(appId));
+    }
+
+    if (!targetApp) {
+      return res.status(404).json({ error: `App "${appId}" not found in catalog.` });
+    }
+
+    const targetInfo = getBrain2TargetInfo(targetApp);
+    return res.status(200).json({
+      success: true,
+      targetInfo
+    });
+  } catch (err: any) {
+    console.error("Brain 2 Target Info Error:", err);
+    return res.status(500).json({ error: 'Failed to resolve Brain 2 target info: ' + (err.message || String(err)) });
+  }
+});
+
+// Admin: Brain 2 Autobot Single Step / Batch (Autonomous Live Web Researcher)
+communityRouter.post("/api/v1/admin/community/brain2/autobot/step", verifyAdminToken, async (req: any, res: any) => {
+  const startTime = Date.now();
+  try {
+    const { 
+      appId, 
+      appData, 
+      count = 2, 
+      targetScore = 4.2, 
+      starMix, 
+      customPrompt,
+      saveDirectly = false 
+    } = req.body;
+
+    if (!appId && !appData) {
+      return res.status(400).json({ error: 'appId or appData is required for Brain 2 Autobot.' });
+    }
+
+    let targetApp = appData || {};
+    if (!targetApp.name || !targetApp.developer) {
+      try {
+        const storeData = await fetchStoreData();
+        const fullApp = storeData?.apps?.find((a: any) => String(a.id) === String(appId) || String(a.slug) === String(appId));
+        if (fullApp) {
+          targetApp = { ...fullApp, ...targetApp };
+        } else {
+          const staticData = getStaticData();
+          const fallbackApp = staticData.apps?.find((a: any) => String(a.id) === String(appId) || String(a.slug) === String(appId)) ||
+                              staticData.mockApps?.find((a: any) => String(a.id) === String(appId) || String(a.slug) === String(appId));
+          if (fallbackApp) targetApp = { ...fallbackApp, ...targetApp };
+        }
+      } catch (e) {
+        console.warn("Brain 2 Autobot app resolution notice:", e);
+      }
+    }
+
+    const numCount = Math.max(1, Math.min(10, Number(count) || 2));
+    const numTargetScore = Math.max(1.0, Math.min(5.0, Number(targetScore) || Number(targetApp?.rating) || 4.2));
+
+    const result = await executeBrain2WebResearchStep(targetApp, {
+      count: numCount,
+      targetScore: numTargetScore,
+      starMix,
+      customPrompt
+    });
+
+    const generatedReviews = result.reviews || [];
+
+    if (saveDirectly && generatedReviews.length > 0) {
+      const reviewsToPublish = generatedReviews.map(r => ({
+        ...r,
+        status: 'published' as const
+      }));
+      const saved = await communityStore.addMultipleReviews(reviewsToPublish);
+      return res.status(200).json({
+        success: true,
+        message: `Brain 2 Autobot researched & published ${saved.length} real reviews live for "${result.appSignature.appName}" by ${result.appSignature.developer}.`,
+        reviews: saved,
+        count: saved.length,
+        autoSaved: true,
+        modelUsed: result.modelUsed,
+        searchQueries: result.searchQueries,
+        groundedSources: result.groundedSources,
+        searchStatus: result.searchStatus,
+        ratingAverage: result.ratingAverage,
+        appSignature: result.appSignature,
+        timeTakenMs: Date.now() - startTime,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Brain 2 Autobot researched & staged ${generatedReviews.length} real reviews for "${result.appSignature.appName}".`,
+      reviews: generatedReviews,
+      count: generatedReviews.length,
+      autoSaved: false,
+      modelUsed: result.modelUsed,
+      searchQueries: result.searchQueries,
+      groundedSources: result.groundedSources,
+      searchStatus: result.searchStatus,
+      ratingAverage: result.ratingAverage,
+      appSignature: result.appSignature,
+      timeTakenMs: Date.now() - startTime,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err: any) {
+    console.error("Brain 2 Autobot Step Error:", err);
+    return res.status(500).json({ error: 'Brain 2 Autobot step failed: ' + (err.message || String(err)) });
   }
 });
 
