@@ -768,7 +768,7 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
         settings: finalSettings,
         news: finalNews,
         videos: finalVideos,
-        reviews: baseReviews
+        reviews: [] // LIVE FIREBASE INTEGRATION: Reviews are no longer hardcoded into the static JSON payload.
       };
       fs.writeFileSync(publicBackupPath, JSON.stringify(backupPayload, null, 2), 'utf8');
 
@@ -778,8 +778,8 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
         mockSettings: finalSettings,
         mockNews: finalNews,
         mockVideos: finalVideos,
-        mockReviews: baseReviews,
-        reviews: baseReviews
+        mockReviews: [], // LIVE FIREBASE INTEGRATION
+        reviews: [] // LIVE FIREBASE INTEGRATION
       };
       fs.writeFileSync(staticJsonPath, JSON.stringify(staticJsonPayload, null, 2), 'utf8');
       
@@ -791,7 +791,7 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
       if (baseReviews && baseReviews.length > 0) {
         try {
           const communityReviewsTsPath = path.join(process.cwd(), 'src/lib/communityReviewsData.ts');
-          const revCode = generateCommunityReviewsFileCode(baseReviews);
+          const revCode = generateCommunityReviewsFileCode([]); // LIVE FIREBASE INTEGRATION: Reviews are now fetched dynamically.
           fs.writeFileSync(communityReviewsTsPath, revCode, 'utf8');
         } catch (revErr) {
           console.warn("[SERVER] Could not update communityReviewsData.ts:", revErr);

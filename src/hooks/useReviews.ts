@@ -98,6 +98,7 @@ export function useReviews(
         if (cleanAppSlug) queryParams.append('slug', cleanAppSlug);
         if (cleanAppId) queryParams.append('appId', cleanAppId);
         if (overallRating) queryParams.append('rating', String(overallRating));
+        queryParams.append('limit', '5');
 
         const targetKey = cleanAppId || cleanAppSlug;
         const queryString = queryParams.toString();

@@ -1,4 +1,7 @@
 import { Router } from 'express';
+import { getCommunityAdminDb } from '../firebase';
+import fs from 'fs';
+import path from 'path';
 import { verifyTurnstile, getIp, rateLimit } from '../security';
 import { verifyAdminToken } from '../middleware/adminAuth';
 import { communityStore } from '../services/communityStoreService';
@@ -145,21 +148,62 @@ communityRouter.get("/api/v1/public/community/reviews/:appId", async (req: any, 
   const targetSlug = slug || appSlug;
 
   try {
-    const result = communityStore.getReviewsForApp(
-      String(appId).trim(),
-      cursor ? String(cursor) : undefined,
-      Math.min(50, Number(limit) || 10),
-      appTitle ? String(appTitle) : undefined,
-      Number(rating) || 5.0,
-      targetSlug ? String(targetSlug) : undefined
-    );
+    const isPublicSite = !fs.existsSync(path.join(process.cwd(), 'src/pages/AdminDashboard.tsx'));
+    let result: any = { reviews: [], hasMore: false, nextCursor: null };
+    let stats = { average_rating: Number(rating) || 4.8, total_reviews: 0, rating_distribution: {1:0, 2:0, 3:0, 4:0, 5:0} };
 
-    const stats = communityStore.getAppStats(
-      String(appId).trim(), 
-      Number(rating) || 4.8, 
-      appTitle ? String(appTitle) : undefined, 
-      targetSlug ? String(targetSlug) : undefined
-    );
+    if (isPublicSite) {
+      // LIVE FIREBASE INTEGRATION: Fetch directly from Firestore on public site
+      const db = getCommunityAdminDb();
+      if (db) {
+        const fetchLimit = Math.min(50, Number(limit) || 5);
+        const cleanAppId = String(appId).trim();
+        
+        let query = db.collection('reviews')
+          .where('status', 'in', ['published', 'approved'])
+          .where('appId', '==', cleanAppId)
+          .orderBy('timestamp', 'desc')
+          .limit(fetchLimit + 1);
+          
+        if (cursor) {
+          query = query.startAfter(cursor);
+        }
+
+        const snap = await query.get();
+        const liveReviews = snap.docs.map((doc: any) => doc.data());
+        
+        result.hasMore = liveReviews.length > fetchLimit;
+        if (result.hasMore) liveReviews.pop();
+        
+        result.reviews = liveReviews;
+        result.nextCursor = liveReviews.length > 0 ? liveReviews[liveReviews.length - 1].timestamp : null;
+      }
+      
+      // Fallback stats
+      stats = communityStore.getAppStats(
+        String(appId).trim(), 
+        Number(rating) || 4.8, 
+        appTitle ? String(appTitle) : undefined, 
+        targetSlug ? String(targetSlug) : undefined
+      );
+    } else {
+      // Admin Site: Use memory cache
+      result = communityStore.getReviewsForApp(
+        String(appId).trim(),
+        cursor ? String(cursor) : undefined,
+        Math.min(50, Number(limit) || 10),
+        appTitle ? String(appTitle) : undefined,
+        Number(rating) || 5.0,
+        targetSlug ? String(targetSlug) : undefined
+      );
+
+      stats = communityStore.getAppStats(
+        String(appId).trim(), 
+        Number(rating) || 4.8, 
+        appTitle ? String(appTitle) : undefined, 
+        targetSlug ? String(targetSlug) : undefined
+      );
+    }
 
     return res.status(200).json({
       success: true,
