@@ -24,6 +24,8 @@ interface AutopilotStudioProps {
     overrideTargetScore: number | null;
     toneFocus: any;
   }>>;
+  activeModel: string;
+  onOpenAiSettings: () => void;
   onToggleAutoPilotApp: (appId: string) => void;
   onSelectAllAutoPilotApps: () => void;
   onDeselectAllAutoPilotApps: () => void;
@@ -45,6 +47,8 @@ export const AutopilotStudio: React.FC<AutopilotStudioProps> = ({
   setAutoPilotBrainChoice,
   autoPilotOptions,
   setAutoPilotOptions,
+  activeModel,
+  onOpenAiSettings,
   onToggleAutoPilotApp,
   onSelectAllAutoPilotApps,
   onDeselectAllAutoPilotApps,
@@ -112,7 +116,7 @@ export const AutopilotStudio: React.FC<AutopilotStudioProps> = ({
         </div>
 
         {/* Controls Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-200 dark:border-slate-700">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-200 dark:border-slate-700">
           <div>
             <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
               <Layers size={12} className="text-blue-500" />
@@ -123,9 +127,24 @@ export const AutopilotStudio: React.FC<AutopilotStudioProps> = ({
               onChange={(e) => setAutoPilotBrainChoice(e.target.value as any)}
               className="w-full text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200 mt-1 cursor-pointer"
             >
-              <option value="local">🧠 Brain 1: Deep Dossier & HTML Rules Analyzer</option>
-              <option value="research">🌐 Brain 2: Live Internet Web Researcher</option>
+              <option value="local">🧠 Brain 1: Deep Dossier</option>
+              <option value="research">🌐 Brain 2: Live Web</option>
             </select>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+              <Terminal size={12} className="text-purple-500" />
+              <span>Active AI Model:</span>
+            </label>
+            <button
+              onClick={onOpenAiSettings}
+              className="w-full text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-purple-700 dark:text-purple-400 mt-1 cursor-pointer text-left truncate flex items-center justify-between"
+              title="Click to change the active AI model"
+            >
+              <span className="truncate">{activeModel}</span>
+              <span className="text-[10px] bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded ml-1">Change</span>
+            </button>
           </div>
 
           <div>

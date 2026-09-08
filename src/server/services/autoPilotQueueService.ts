@@ -148,6 +148,12 @@ class AutoPilotQueueService {
     this.saveCheckpoint();
   }
 
+  public clearLogs(): AutoPilotJobStatus {
+    this.status.logs = [];
+    this.saveCheckpoint();
+    return this.getStatus();
+  }
+
   public async startJob(options: Partial<AutoPilotOptions> = {}): Promise<AutoPilotJobStatus> {
     if (this.status.status === 'running' && this.isProcessing) {
       throw new Error("Auto-Pilot is already running!");

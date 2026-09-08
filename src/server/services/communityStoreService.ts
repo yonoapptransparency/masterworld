@@ -584,20 +584,22 @@ class CommunityStoreService {
       updated_at: new Date().toISOString()
     };
 
-    this.reviews.set(id, newRev);
-
-    // Save to Firestore Admin DB if available
+    // Force LIVE Firestore write before caching to memory
     const db = getCommunityAdminDb();
-    if (db) {
-      db.collection('reviews').doc(id).set(newRev).catch((e: any) => {
-        if (this.isQuotaError(e)) {
-          this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000;
-        }
-      });
-    } else {
-      writeFirestoreRestDoc(id, newRev, undefined, true, 'reviews').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
+    try {
+      if (db) {
+        await db.collection('reviews').doc(id).set(newRev);
+      } else {
+        const success = await writeFirestoreRestDoc(id, newRev, undefined, true, 'reviews');
+        if (!success) throw new Error("REST API Firestore write failed.");
+      }
+    } catch (e: any) {
+      if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000;
+      console.error("[CommunityStore] Live addReview failed:", e);
+      throw new Error("Failed to write to live database: " + (e.message || "Unknown error"));
     }
 
+    this.reviews.set(id, newRev);
     this.saveToDiskAndQueueCloudSync();
     return newRev;
   }
@@ -605,6 +607,7 @@ class CommunityStoreService {
   public async addMultipleReviews(reviewsList: Partial<ReviewRecord>[]): Promise<ReviewRecord[]> {
     const db = getCommunityAdminDb();
     const added: ReviewRecord[] = [];
+    const promises: Promise<any>[] = [];
 
     for (const payload of reviewsList) {
       const rawAppId = String(payload.appId || '').trim();
@@ -635,18 +638,30 @@ class CommunityStoreService {
         updated_at: new Date().toISOString()
       };
 
-      this.reviews.set(id, newRev);
       added.push(newRev);
 
       if (db) {
-        db.collection('reviews').doc(id).set(newRev).catch((e: any) => {
-          if (this.isQuotaError(e)) {
-            this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000;
-          }
-        });
+        promises.push(db.collection('reviews').doc(id).set(newRev));
       } else {
-        writeFirestoreRestDoc(id, newRev, undefined, true, 'reviews').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
+        promises.push(
+          writeFirestoreRestDoc(id, newRev, undefined, true, 'reviews').then(success => {
+            if (!success) throw new Error("REST API Firestore write failed.");
+          })
+        );
       }
+    }
+
+    try {
+      await Promise.all(promises);
+    } catch (e: any) {
+      if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000;
+      console.error("[CommunityStore] Live addMultipleReviews failed:", e);
+      throw new Error("Failed to write to live database: " + (e.message || "Unknown error"));
+    }
+
+    // Only add to local cache if Firestore succeeds
+    for (const rev of added) {
+      this.reviews.set(rev.id, rev);
     }
 
     this.saveToDiskAndQueueCloudSync();
@@ -743,15 +758,21 @@ class CommunityStoreService {
       updated_at: new Date().toISOString()
     };
 
-    this.reviews.set(id, updated);
-
     const db = getCommunityAdminDb();
-    if (db) {
-      db.collection('reviews').doc(id).set(updated, { merge: true }).catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
-    } else {
-      writeFirestoreRestDoc(id, updated, undefined, true, 'reviews').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
+    try {
+      if (db) {
+        await db.collection('reviews').doc(id).set(updated, { merge: true });
+      } else {
+        const success = await writeFirestoreRestDoc(id, updated, undefined, true, 'reviews');
+        if (!success) throw new Error("REST API Firestore write failed.");
+      }
+    } catch (e: any) {
+      if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000;
+      console.error("[CommunityStore] Live updateReview failed:", e);
+      throw new Error("Failed to update live database: " + (e.message || "Unknown error"));
     }
 
+    this.reviews.set(id, updated);
     this.saveToDiskAndQueueCloudSync();
     return updated;
   }
@@ -759,16 +780,24 @@ class CommunityStoreService {
   public async deleteReview(id: string): Promise<boolean> {
     const cleanId = String(id || '').trim();
     if (!cleanId) return false;
+    
+    // Explicitly await removal from Firestore
+    const db = getCommunityAdminDb();
+    try {
+      if (db) {
+        await db.collection('reviews').doc(cleanId).delete();
+      } else {
+        const success = await deleteFirestoreRestDoc(cleanId, undefined, 'reviews');
+        if (!success) throw new Error("REST API Firestore delete failed.");
+      }
+    } catch (e: any) {
+      if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000;
+      console.error("[CommunityStore] Live deleteReview failed:", e);
+      throw new Error("Failed to delete from live database: " + (e.message || "Unknown error"));
+    }
+
     this.deletedReviewIds.add(cleanId);
     this.reviews.delete(cleanId);
-    
-    // Also remove from Firestore
-    const db = getCommunityAdminDb();
-    if (db) {
-      db.collection('reviews').doc(cleanId).delete().catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
-    } else {
-      deleteFirestoreRestDoc(cleanId, undefined, 'reviews').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
-    }
     this.saveToDiskAndQueueCloudSync();
     return true;
   }

@@ -465,11 +465,14 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
     toneFocus: 'balanced' as any
   });
 
+  const autoPilotInitializedRef = useRef(false);
+
   useEffect(() => {
-    if (appsList && appsList.length > 0 && selectedAutoPilotAppIds.length === 0) {
+    if (appsList && appsList.length > 0 && !autoPilotInitializedRef.current) {
       setSelectedAutoPilotAppIds(appsList.map(a => String(a.id || a.slug || '')));
+      autoPilotInitializedRef.current = true;
     }
-  }, [appsList, selectedAutoPilotAppIds.length]);
+  }, [appsList]);
 
   const toggleAutoPilotApp = (appIdentifier: string) => {
     setSelectedAutoPilotAppIds(prev => 
@@ -1140,26 +1143,39 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
 
     try {
       setBulkProgress({ current: 0, total: targetApps.length, active: true });
-      const res = await adminFetch('/api/v1/admin/community/ai-generate/bulk', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          appIds: targetApps.map(a => a.id),
-          countPerApp: bulkCountPerApp,
-          targetScore: 4.8,
-          mode: bulkBrainChoice,
-          languageStyle: bulkLanguageStyle
-        })
-      });
+      let totalGenerated = 0;
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed bulk generation');
+      // Execute sequentially on the frontend to prevent server timeout
+      for (let i = 0; i < targetApps.length; i++) {
+        setBulkProgress({ current: i, total: targetApps.length, active: true });
+        try {
+          const res = await adminFetch('/api/v1/admin/community/ai-generate/bulk', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              appIds: [targetApps[i].id],
+              countPerApp: bulkCountPerApp,
+              targetScore: 4.8,
+              mode: bulkBrainChoice,
+              languageStyle: bulkLanguageStyle
+            })
+          });
 
+          const data = await res.json();
+          if (res.ok) {
+            totalGenerated += (data.totalGenerated || bulkCountPerApp);
+          }
+        } catch (stepErr) {
+          console.warn(`Bulk generation failed for app ${targetApps[i].id}`, stepErr);
+        }
+      }
+
+      setBulkProgress({ current: targetApps.length, total: targetApps.length, active: true });
       setBulkResult({
-        totalGenerated: data.totalGenerated || (targetApps.length * bulkCountPerApp),
+        totalGenerated: totalGenerated,
         totalApps: targetApps.length
       });
-      toast(`🎉 Bulk Batch Complete! Generated ${data.totalGenerated || (targetApps.length * bulkCountPerApp)} reviews.`, "success");
+      toast(`🎉 Bulk Batch Complete! Generated ${totalGenerated} reviews.`, "success");
       if (onReviewsGenerated) onReviewsGenerated();
     } catch (err: any) {
       toast(err.message || "Bulk generation failed", "error");
@@ -1490,6 +1506,8 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           setAutoPilotBrainChoice={setAutoPilotBrainChoice}
           autoPilotOptions={autoPilotOptions}
           setAutoPilotOptions={setAutoPilotOptions}
+          activeModel={aiStatusData?.activeModel || 'gemini-3.8-flash'}
+          onOpenAiSettings={() => setShowAiDiagnosticsModal(true)}
           onToggleAutoPilotApp={toggleAutoPilotApp}
           onSelectAllAutoPilotApps={handleSelectAllAutoPilotApps}
           onDeselectAllAutoPilotApps={handleDeselectAllAutoPilotApps}
@@ -1517,6 +1535,8 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           bulkLanguageStyle={bulkLanguageStyle}
           setBulkLanguageStyle={setBulkLanguageStyle}
           bulkProgress={bulkProgress}
+          activeModel={aiStatusData?.activeModel || 'gemini-3.8-flash'}
+          onOpenAiSettings={() => setShowAiDiagnosticsModal(true)}
           onRunBulkBatch={handleRunBulkBatch}
         />
       )}
