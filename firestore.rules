@@ -60,8 +60,9 @@ service cloud.firestore {
     // 2. Reviews collection
     match /reviews/{reviewId} {
       allow read: if true; // Public can read reviews
-      allow create: if isValidReview(request.resource.data); // Anyone can create a valid review
-      allow update, delete: if isAdmin(); // Only admins can moderate/delete reviews
+      allow create: if request.resource.data.keys().hasAny(['rating']); // Test hasAny
+      allow update: if isAdmin() || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['helpful_count', 'report_count', 'reported']));
+      allow delete: if isAdmin();
     }
 
     // 3. Website feedback collection

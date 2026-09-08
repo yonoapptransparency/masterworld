@@ -371,6 +371,19 @@ export function convertToFirestoreFields(obj: Record<string, any>): Record<strin
 }
 
 export async function writeFirestoreRestDoc(docId: string, data: any, authToken?: string, merge: boolean = true, collectionPath: string = 'store_data'): Promise<boolean> {
+  // Always try Admin SDK first if available to bypass REST rules/quota limits
+  const db = (collectionPath === 'reviews' || collectionPath === 'reports' || collectionPath === 'community_store' || collectionPath.startsWith('community_')) ? getCommunityAdminDb() : getFirebaseAdminDb();
+  if (db) {
+    try {
+      await adminDbSetWithTimeout(db.collection(collectionPath).doc(docId), data, merge ? { merge: true } : undefined, 5000);
+      console.log(`[SERVER] Admin SDK successfully wrote ${collectionPath}/${docId}`);
+      return true;
+    } catch (e) {
+      console.error(`[SERVER] Admin SDK failed for ${collectionPath}/${docId}:`, e);
+      // Fall through to REST
+    }
+  }
+
   try {
     const config = getRawFirebaseConfig();
     if (!config || !config.projectId) {
@@ -381,17 +394,7 @@ export async function writeFirestoreRestDoc(docId: string, data: any, authToken?
     let targetProjectId = config.projectId;
     let targetApiKey = config.apiKey;
     let dbId = (config.firestoreDatabaseId || config.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a');
-    const isCommunity = collectionPath === 'reviews' || 
-      collectionPath === 'reports' || 
-      collectionPath === 'community_store' || 
-      collectionPath.startsWith('community_') || 
-      docId.startsWith('community_') || 
-      docId.startsWith('rev_');
-    if (isCommunity) {
-      targetProjectId = 'rummydexcommunity';
-      targetApiKey = process.env.COMMUNITY_FIREBASE_API_KEY || 'AIzaSyBey9sUbeWrcXS2kl4ewOzkTy4arg03Ok';
-      dbId = '(default)';
-    }
+    // Removed isCommunity override to use primary database for reviews
     const queryParams: string[] = [];
     if (targetApiKey) queryParams.push(`key=${encodeURIComponent(targetApiKey)}`);
     if (merge && data && typeof data === 'object') {
@@ -433,6 +436,17 @@ export async function writeFirestoreRestDoc(docId: string, data: any, authToken?
 }
 
 export async function deleteFirestoreRestDoc(docId: string, authToken?: string, collectionPath: string = 'store_data'): Promise<boolean> {
+  const db = (collectionPath === 'reviews' || collectionPath === 'reports' || collectionPath === 'community_store' || collectionPath.startsWith('community_')) ? getCommunityAdminDb() : getFirebaseAdminDb();
+  if (db) {
+    try {
+      await db.collection(collectionPath).doc(docId).delete();
+      return true;
+    } catch (e) {
+      console.error(`[SERVER] Admin SDK failed to delete ${collectionPath}/${docId}:`, e);
+      // Fall through
+    }
+  }
+
   try {
     const config = getRawFirebaseConfig();
     if (!config || !config.projectId) return false;

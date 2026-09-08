@@ -119,6 +119,67 @@ export function findAppInCatalog(appIdentifier: string): any {
 }
 
 // In-memory persistent cache for zero-latency lookups & background Firestore sync
+
+
+
+async function safeReadDb(docId: string, _unusedAuthToken?: string, collectionPath: string = 'reviews') {
+  const db = getCommunityAdminDb();
+  if (db) {
+    try {
+      const doc = await db.collection(collectionPath).doc(docId).get();
+      return doc.exists ? doc.data() : null;
+    } catch (e) {
+      console.error(`[safeReadDb] Admin SDK failed for ${collectionPath}/${docId}:`, e);
+    }
+  }
+  return await readFirestoreRestDoc(docId, undefined, collectionPath);
+}
+
+async function safeReadCollection(collectionPath: string) {
+  const db = getCommunityAdminDb();
+  if (db) {
+    try {
+      const snapshot = await db.collection(collectionPath).get();
+      return snapshot.docs.map(doc => {
+        return { id: doc.id, ...doc.data() };
+      });
+    } catch (e) {
+      console.error(`[safeReadCollection] Admin SDK failed for ${collectionPath}:`, e);
+    }
+  }
+  return await readFirestoreRestCollection(collectionPath);
+}
+
+// Helper to try Admin SDK first, fallback to REST
+async function safeDeleteDb(docId: string, _unusedAuthToken?: string, collectionPath: string = 'reviews') {
+  const db = getCommunityAdminDb();
+  if (db) {
+    try {
+      await db.collection(collectionPath).doc(docId).delete();
+      return true;
+    } catch (e) {
+      console.error(`[safeDeleteDb] Admin SDK failed for ${collectionPath}/${docId}:`, e);
+      // Fallback to REST
+    }
+  }
+  return await deleteFirestoreRestDoc(docId, undefined, collectionPath);
+}
+
+// Helper to try Admin SDK first, fallback to REST
+async function safeWriteDb(docId: string, data: any, _unusedAuthToken?: string, merge: boolean = true, collectionPath: string = 'reviews') {
+  const db = getCommunityAdminDb();
+  if (db) {
+    try {
+      await db.collection(collectionPath).doc(docId).set(data, { merge });
+      return true;
+    } catch (e) {
+      console.error(`[safeWriteDb] Admin SDK failed for ${collectionPath}/${docId}:`, e);
+      // Fallback to REST
+    }
+  }
+  return await writeFirestoreRestDoc(docId, data, undefined, merge, collectionPath);
+}
+
 class CommunityStoreService {
   private reviews: Map<string, ReviewRecord> = new Map();
   private reports: Map<string, ReportRecord> = new Map();
@@ -387,7 +448,7 @@ class CommunityStoreService {
       } else {
         // Fallback to REST API if Admin SDK is not initialized
         try {
-          const restReviews = await readFirestoreRestCollection('reviews');
+          const restReviews = await safeReadCollection('reviews');
           restReviews.forEach((d: any) => {
             if (d && d.id) {
               if (this.deletedReviewIds.has(d.id)) {
@@ -423,7 +484,7 @@ class CommunityStoreService {
             }
           });
 
-          const restReports = await readFirestoreRestCollection('reports');
+          const restReports = await safeReadCollection('reports');
           restReports.forEach((d: any) => {
             if (d && d.id) {
               const existing = this.reports.get(d.id);
@@ -467,7 +528,7 @@ class CommunityStoreService {
       
       // Restore chunked Firestore documents to ensure 1,000+ reviews load completely
       try {
-        const metaDoc = await readFirestoreRestDoc('community_store_meta', undefined, 'community_store');
+        const metaDoc = await safeReadDb('community_store_meta', undefined, 'community_store');
         if (metaDoc?.deleted_review_ids && Array.isArray(metaDoc.deleted_review_ids)) {
           metaDoc.deleted_review_ids.forEach((id: string) => {
             if (id) this.deletedReviewIds.add(String(id));
@@ -476,7 +537,7 @@ class CommunityStoreService {
         if (metaDoc && metaDoc.chunks_count) {
           const numChunks = Math.min(40, Number(metaDoc.chunks_count) || 1);
           for (let i = 0; i < numChunks; i++) {
-            const chunkDoc = await readFirestoreRestDoc(`community_reviews_chunk_${i}`, undefined, 'community_store');
+            const chunkDoc = await safeReadDb(`community_reviews_chunk_${i}`, undefined, 'community_store');
             if (chunkDoc?.reviews && Array.isArray(chunkDoc.reviews)) {
               chunkDoc.reviews.forEach((r: ReviewRecord) => {
                 if (r?.id && !this.deletedReviewIds.has(r.id)) {
@@ -496,7 +557,7 @@ class CommunityStoreService {
 
       // Fallback REST doc check for legacy community_store
       try {
-        const legacyDoc = await readFirestoreRestDoc('community_store', undefined, 'community_store');
+        const legacyDoc = await safeReadDb('community_store', undefined, 'community_store');
         if (legacyDoc?.reviews && Array.isArray(legacyDoc.reviews)) {
           legacyDoc.reviews.forEach((r: ReviewRecord) => {
             if (r?.id && !this.deletedReviewIds.has(r.id) && !this.reviews.has(r.id)) {
@@ -543,12 +604,12 @@ class CommunityStoreService {
         deleted_review_ids: Array.from(this.deletedReviewIds).slice(-2000),
         updated_at: new Date().toISOString()
       };
-      await writeFirestoreRestDoc('community_store_meta', metaData, undefined, true, 'community_store');
+      await safeWriteDb('community_store_meta', metaData, undefined, true, 'community_store');
 
       // 2. Write individual review chunks
       for (let i = 0; i < numChunks; i++) {
         const chunk = allReviews.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-        await writeFirestoreRestDoc(`community_reviews_chunk_${i}`, {
+        await safeWriteDb(`community_reviews_chunk_${i}`, {
           chunk_index: i,
           reviews: chunk,
           count: chunk.length,
@@ -558,7 +619,7 @@ class CommunityStoreService {
 
       // Also maintain legacy community_store with recent reviews for backward compatibility
       if (allReviews.length <= 400) {
-        await writeFirestoreRestDoc('community_store', {
+        await safeWriteDb('community_store', {
           reviews: allReviews,
           reports: allReports,
           count_reviews: allReviews.length,
@@ -610,7 +671,7 @@ class CommunityStoreService {
       if (db) {
         await db.collection('reviews').doc(id).set(newRev);
       } else {
-        const success = await writeFirestoreRestDoc(id, newRev, undefined, true, 'reviews');
+        const success = await safeWriteDb(id, newRev, undefined, true, 'reviews');
         if (!success) throw new Error("REST API Firestore write failed.");
       }
     } catch (e: any) {
@@ -664,7 +725,7 @@ class CommunityStoreService {
         promises.push(db.collection('reviews').doc(id).set(newRev));
       } else {
         promises.push(
-          writeFirestoreRestDoc(id, newRev, undefined, true, 'reviews').then(success => {
+          safeWriteDb(id, newRev, undefined, true, 'reviews').then(success => {
             if (!success) throw new Error("REST API Firestore write failed.");
           })
         );
@@ -715,7 +776,7 @@ class CommunityStoreService {
     if (db) {
       db.collection('reviews').doc(reviewId).set({ helpful_count: rev.helpful_count }, { merge: true }).catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
     } else {
-      writeFirestoreRestDoc(reviewId, { helpful_count: rev.helpful_count }, undefined, true, 'reviews').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
+      safeWriteDb(reviewId, { helpful_count: rev.helpful_count }, undefined, true, 'reviews').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
     }
 
     this.saveToDiskAndQueueCloudSync();
@@ -756,9 +817,9 @@ class CommunityStoreService {
       db.collection('reports').doc(reportId).set(newReport).catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
     } else {
       if (rev) {
-        writeFirestoreRestDoc(reviewId, { reported: true, report_count: rev.report_count }, undefined, true, 'reviews').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
+        safeWriteDb(reviewId, { reported: true, report_count: rev.report_count }, undefined, true, 'reviews').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
       }
-      writeFirestoreRestDoc(reportId, newReport, undefined, true, 'reports').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
+      safeWriteDb(reportId, newReport, undefined, true, 'reports').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
     }
 
     this.saveToDiskAndQueueCloudSync();
@@ -783,7 +844,7 @@ class CommunityStoreService {
       if (db) {
         await db.collection('reviews').doc(id).set(updated, { merge: true });
       } else {
-        const success = await writeFirestoreRestDoc(id, updated, undefined, true, 'reviews');
+        const success = await safeWriteDb(id, updated, undefined, true, 'reviews');
         if (!success) throw new Error("REST API Firestore write failed.");
       }
     } catch (e: any) {
@@ -807,7 +868,7 @@ class CommunityStoreService {
       if (db) {
         await db.collection('reviews').doc(cleanId).delete();
       } else {
-        const success = await deleteFirestoreRestDoc(cleanId, undefined, 'reviews');
+        const success = await safeDeleteDb(cleanId, undefined, 'reviews');
         if (!success) throw new Error("REST API Firestore delete failed.");
       }
     } catch (e: any) {
@@ -840,7 +901,7 @@ class CommunityStoreService {
         if (db) {
           db.collection('reviews').doc(id).delete().catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
         } else {
-          deleteFirestoreRestDoc(id, undefined, 'reviews').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
+          safeDeleteDb(id, undefined, 'reviews').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
         }
       }
     }
@@ -1040,7 +1101,7 @@ class CommunityStoreService {
     if (db) {
       db.collection('reports').doc(id).set(newReport).catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
     } else {
-      writeFirestoreRestDoc(id, newReport, undefined, true, 'reports').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
+      safeWriteDb(id, newReport, undefined, true, 'reports').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
     }
 
     this.saveToDiskAndQueueCloudSync();
@@ -1122,7 +1183,7 @@ class CommunityStoreService {
     if (db) {
       db.collection('reports').doc(id).set(updated, { merge: true }).catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
     } else {
-      writeFirestoreRestDoc(id, updated, undefined, true, 'reports').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
+      safeWriteDb(id, updated, undefined, true, 'reports').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
     }
 
     this.saveToDiskAndQueueCloudSync();
@@ -1135,7 +1196,7 @@ class CommunityStoreService {
     if (db) {
       db.collection('reports').doc(id).delete().catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
     } else {
-      deleteFirestoreRestDoc(id, undefined, 'reports').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
+      safeDeleteDb(id, undefined, 'reports').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
     }
     this.saveToDiskAndQueueCloudSync();
     return existed;
