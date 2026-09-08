@@ -12,6 +12,7 @@
 
 import { GoogleGenAI } from "@google/genai";
 import { ReviewRecord } from "./communityStoreService";
+import { getActiveAiModel, getCandidateModels } from "./aiModelManager";
 
 export interface Brain2TargetInfo {
   appId: string;
@@ -302,13 +303,12 @@ export async function executeBrain2WebResearchStep(
 
   const apiKeys = getGeminiApiKeys();
   let finalReviews: Partial<ReviewRecord>[] = [];
-  let modelUsed = "gemini-3.6-flash + Live Web Crawler";
+  let modelUsed = `${getActiveAiModel()} + Live Web Crawler`;
   let searchQueries: string[] = targetInfo.targetQueries;
   let searchStatus = `Web Crawled: "${appName}" on Google Play Store`;
 
-  // 2. Synthesize with Gemini using high-performance, active models
-  // Priority to verified working models: gemini-3.6-flash, gemini-3.1-flash-lite, gemini-flash-latest
-  const models = ["gemini-3.6-flash", "gemini-3.1-flash-lite", "gemini-flash-latest", "gemini-3.8-flash", "gemini-3.1-pro-preview"];
+  // 2. Synthesize with Gemini using active & candidate models
+  const models = getCandidateModels(getActiveAiModel());
 
   const prompt = `You are Brain 2 — The Live Internet Web Researcher Autobot for RummyDex.
 

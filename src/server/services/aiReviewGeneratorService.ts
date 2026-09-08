@@ -1,6 +1,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { ReviewRecord, sanitizeReviewText } from "./communityStoreService";
 import { executeBrain2WebResearchStep } from "./brain2WebResearcherAutobotService";
+import { getActiveAiModel, getCandidateModels } from "./aiModelManager";
 
 export interface StarDistribution {
   star5?: number;
@@ -423,7 +424,7 @@ Output ONLY a valid JSON array of objects. Each object must have:
 
 Do not wrap in markdown or backticks. Return raw JSON array only.`;
 
-  const candidateModels = ["gemini-3.6-flash", "gemini-3.1-flash-lite", "gemini-flash-latest", "gemini-3.8-flash", "gemini-3.1-pro-preview"];
+  const candidateModels = getCandidateModels(getActiveAiModel());
 
   for (const key of apiKeys) {
     const ai = new GoogleGenAI({ apiKey: key });

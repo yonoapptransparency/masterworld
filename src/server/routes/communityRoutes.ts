@@ -7,6 +7,12 @@ import { getBrain2TargetInfo, executeBrain2WebResearchStep } from '../services/b
 import { autoPilotService } from '../services/autoPilotQueueService';
 import { getStaticData } from '../config';
 import { fetchStoreData } from '../../seoHelper';
+import {
+  AVAILABLE_GEMINI_MODELS,
+  getActiveAiModel,
+  setActiveAiModel,
+  getCandidateModels
+} from '../services/aiModelManager';
 
 export const communityRouter = Router();
 
@@ -865,6 +871,30 @@ communityRouter.post("/api/v1/admin/community/ai-generate/bulk", verifyAdminToke
   }
 });
 
+// Admin: Get Available AI Models and Current Active Selection
+communityRouter.get("/api/v1/admin/ai/models", verifyAdminToken, async (req: any, res: any) => {
+  return res.json({
+    success: true,
+    activeModel: getActiveAiModel(),
+    models: AVAILABLE_GEMINI_MODELS
+  });
+});
+
+// Admin: Set Global Active AI Model
+communityRouter.post("/api/v1/admin/ai/set-model", verifyAdminToken, async (req: any, res: any) => {
+  const { modelId } = req.body || {};
+  if (!modelId) {
+    return res.status(400).json({ success: false, error: "Missing modelId in request body." });
+  }
+  const result = setActiveAiModel(modelId);
+  return res.json({
+    success: result.success,
+    activeModel: result.activeModel,
+    modelSpec: result.modelSpec,
+    message: `Active model switched to ${result.activeModel}`
+  });
+});
+
 // Admin: Check Gemini AI Status & Quota Health (Multi-Key & Multi-Model Diagnostics)
 communityRouter.get("/api/v1/admin/ai-status", verifyAdminToken, async (req: any, res: any) => {
   const { GoogleGenAI } = require("@google/genai");
@@ -886,7 +916,8 @@ communityRouter.get("/api/v1/admin/ai-status", verifyAdminToken, async (req: any
 
   const keyReports: any[] = [];
   let bestWorkingKey: string | null = null;
-  let activeWorkingModel = "gemini-3.6-flash";
+  const preferredModel = getActiveAiModel();
+  let activeWorkingModel = preferredModel;
 
   for (const item of keysToTest) {
     if (!item.key || !item.key.trim()) {
@@ -907,44 +938,60 @@ communityRouter.get("/api/v1/admin/ai-status", verifyAdminToken, async (req: any
       : "configured";
 
     const startTime = Date.now();
-    try {
-      const ai = new GoogleGenAI({ apiKey: trimmedKey });
-      
-      // Test with working fast model gemini-3.6-flash with 5-second timeout
-      const testPingPromise = ai.models.generateContent({
-        model: "gemini-3.6-flash",
-        contents: "Respond strictly with the single word: OK",
-      });
+    let pingSuccess = false;
+    let errorSummary = "";
+    let testedModelName = preferredModel;
 
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Request timed out after 5000ms")), 5000)
-      );
+    // Test candidate models starting with preferred model
+    const candidateModels = getCandidateModels(preferredModel);
 
-      const testRes: any = await Promise.race([testPingPromise, timeoutPromise]);
-      const latencyMs = Date.now() - startTime;
-      const snippet = testRes?.text?.trim() || "OK";
+    for (const testModel of candidateModels) {
+      try {
+        const ai = new GoogleGenAI({ apiKey: trimmedKey });
+        
+        const testPingPromise = ai.models.generateContent({
+          model: testModel,
+          contents: "Respond strictly with the single word: OK",
+        });
 
-      if (!bestWorkingKey) {
-        bestWorkingKey = item.name;
-        activeWorkingModel = "gemini-3.6-flash";
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Request timed out after 6000ms")), 6000)
+        );
+
+        const testRes: any = await Promise.race([testPingPromise, timeoutPromise]);
+        const latencyMs = Date.now() - startTime;
+        const snippet = testRes?.text?.trim() || "OK";
+
+        testedModelName = testModel;
+        pingSuccess = true;
+
+        if (!bestWorkingKey) {
+          bestWorkingKey = item.name;
+          activeWorkingModel = testModel;
+        }
+
+        keyReports.push({
+          name: item.name,
+          role: item.role,
+          configured: true,
+          masked,
+          status: "online",
+          modelTested: testModel,
+          latencyMs,
+          responseSnippet: snippet,
+          message: `Online & operational (${latencyMs}ms response time on ${testModel}).`
+        });
+        break; // Successfully tested
+      } catch (err: any) {
+        errorSummary = String(err?.message || err);
+        // Continue to try next candidate model
       }
+    }
 
-      keyReports.push({
-        name: item.name,
-        role: item.role,
-        configured: true,
-        masked,
-        status: "online",
-        modelTested: "gemini-3.6-flash",
-        latencyMs,
-        responseSnippet: snippet,
-        message: `Online & operational (${latencyMs}ms response time).`
-      });
-    } catch (err: any) {
+    if (!pingSuccess) {
       const latencyMs = Date.now() - startTime;
-      const errStr = String(err?.message || err);
-      const isQuota = errStr.includes("resource_exhausted") || errStr.includes("429") || errStr.includes("quota");
-      const isAuth = errStr.includes("401") || errStr.includes("UNAUTHENTICATED") || errStr.includes("ACCESS_TOKEN_TYPE_UNSUPPORTED");
+      const isQuota = errorSummary.includes("resource_exhausted") || errorSummary.includes("429") || errorSummary.includes("quota");
+      const isAuth = errorSummary.includes("401") || errorSummary.includes("UNAUTHENTICATED") || errorSummary.includes("ACCESS_TOKEN_TYPE_UNSUPPORTED");
 
       keyReports.push({
         name: item.name,
@@ -952,13 +999,13 @@ communityRouter.get("/api/v1/admin/ai-status", verifyAdminToken, async (req: any
         configured: true,
         masked,
         status: isQuota ? "quota_exhausted" : isAuth ? "auth_error" : "error",
-        modelTested: "gemini-3.6-flash",
+        modelTested: testedModelName,
         latencyMs,
         message: isQuota
           ? "API Quota limit reached (429). Rate-limited temporarily."
           : isAuth
           ? "Credential type invalid or expired (401). Please verify key in settings."
-          : errStr
+          : errorSummary
       });
     }
   }
@@ -977,11 +1024,12 @@ communityRouter.get("/api/v1/admin/ai-status", verifyAdminToken, async (req: any
     overallStatus,
     activeKeySource: bestWorkingKey || (keyReports.find(r => r.configured)?.name ?? "none"),
     activeModel: activeWorkingModel,
-    testedModels: ["gemini-3.6-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"],
+    availableModels: AVAILABLE_GEMINI_MODELS,
+    testedModels: getCandidateModels(preferredModel),
     keys: keyReports,
     timestamp: new Date().toISOString(),
     recommendation: anyOnline
-      ? "AI review generation & live web researcher engines are fully operational."
+      ? `AI review generation & research engines are fully operational using ${activeWorkingModel}.`
       : "Verify Gemini API keys in Project Settings to ensure uninterrupted review generation."
   });
 });
@@ -989,7 +1037,8 @@ communityRouter.get("/api/v1/admin/ai-status", verifyAdminToken, async (req: any
 // Admin: Run On-Demand Live Model Test Ping
 communityRouter.post("/api/v1/admin/ai-test-ping", verifyAdminToken, async (req: any, res: any) => {
   const { GoogleGenAI } = require("@google/genai");
-  const { model = "gemini-3.6-flash", prompt = "Confirm RummyDex AI engine status in 1 sentence." } = req.body || {};
+  const { model, prompt = "Confirm RummyDex AI engine status in 1 sentence." } = req.body || {};
+  const targetModel = model || getActiveAiModel();
 
   // Try research key first, then primary key
   const candidateKeys = [
@@ -1005,39 +1054,44 @@ communityRouter.post("/api/v1/admin/ai-test-ping", verifyAdminToken, async (req:
   }
 
   const attemptResults: any[] = [];
+  const candidateModelList = getCandidateModels(targetModel);
 
   for (const item of candidateKeys) {
-    const startTime = Date.now();
-    try {
-      const ai = new GoogleGenAI({ apiKey: item.key!.trim() });
-      const pingRes: any = await ai.models.generateContent({
-        model,
-        contents: prompt,
-      });
+    const ai = new GoogleGenAI({ apiKey: item.key!.trim() });
+    
+    for (const modelToTry of candidateModelList) {
+      const startTime = Date.now();
+      try {
+        const pingRes: any = await ai.models.generateContent({
+          model: modelToTry,
+          contents: prompt,
+        });
 
-      const latencyMs = Date.now() - startTime;
-      const text = pingRes?.text?.trim() || "";
+        const latencyMs = Date.now() - startTime;
+        const text = pingRes?.text?.trim() || "";
 
-      return res.json({
-        success: true,
-        keyUsed: item.name,
-        modelUsed: model,
-        latencyMs,
-        responseText: text,
-        timestamp: new Date().toISOString()
-      });
-    } catch (err: any) {
-      attemptResults.push({
-        key: item.name,
-        error: String(err?.message || err)
-      });
+        return res.json({
+          success: true,
+          keyUsed: item.name,
+          modelUsed: modelToTry,
+          latencyMs,
+          responseText: text,
+          timestamp: new Date().toISOString()
+        });
+      } catch (err: any) {
+        attemptResults.push({
+          key: item.name,
+          model: modelToTry,
+          error: String(err?.message || err)
+        });
+      }
     }
   }
 
   return res.status(502).json({
     success: false,
-    modelRequested: model,
-    error: "All Gemini API key attempts failed.",
+    modelRequested: targetModel,
+    error: "All Gemini API key and model attempts failed.",
     attempts: attemptResults
   });
 });

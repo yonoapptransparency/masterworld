@@ -248,8 +248,9 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
   const [showAiDiagnosticsModal, setShowAiDiagnosticsModal] = useState<boolean>(false);
   const [aiStatusData, setAiStatusData] = useState<any>(null);
   const [loadingAiStatus, setLoadingAiStatus] = useState<boolean>(false);
+  const [switchingModel, setSwitchingModel] = useState<boolean>(false);
   const [pingTesting, setPingTesting] = useState<boolean>(false);
-  const [pingModel, setPingModel] = useState<string>('gemini-3.6-flash');
+  const [pingModel, setPingModel] = useState<string>('gemini-3.8-flash');
   const [pingPrompt, setPingPrompt] = useState<string>('Confirm RummyDex AI engine status and connectivity.');
   const [pingResult, setPingResult] = useState<any>(null);
 
@@ -260,6 +261,9 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
       if (res.ok) {
         const data = await res.json();
         setAiStatusData(data);
+        if (data.activeModel) {
+          setPingModel(data.activeModel);
+        }
       }
     } catch (err) {
       console.warn("Could not fetch AI status:", err);
@@ -268,11 +272,34 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
     }
   }, []);
 
+  const handleSwitchActiveModel = async (modelId: string) => {
+    setSwitchingModel(true);
+    try {
+      const res = await adminFetch('/api/v1/admin/ai/set-model', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ modelId })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast(`Active Gemini model switched to ${data.activeModel}`, 'success');
+        setPingModel(data.activeModel);
+        await fetchAiStatus();
+      } else {
+        toast(data.error || 'Failed to switch model', 'error');
+      }
+    } catch (e: any) {
+      toast(e.message || 'Error switching model', 'error');
+    } finally {
+      setSwitchingModel(false);
+    }
+  };
+
   const runPingTest = async (modelToTest?: string) => {
     setPingTesting(true);
     setPingResult(null);
     try {
-      const targetModel = modelToTest || pingModel;
+      const targetModel = modelToTest || pingModel || aiStatusData?.activeModel || 'gemini-2.5-flash';
       const res = await adminFetch('/api/v1/admin/ai-test-ping', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1165,8 +1192,29 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
             </div>
           </div>
 
-          {/* Real-time System Status Pills with Interactive Diagnostic Button */}
+          {/* Real-time System Status Pills with Interactive Diagnostic Button & Model Switcher */}
           <div className="flex flex-wrap items-center gap-2.5 text-xs font-semibold">
+            {/* Live Model Switcher Dropdown */}
+            <div className="flex items-center gap-1.5 bg-slate-800/90 border border-slate-700/80 rounded-xl px-2.5 py-1.5 shadow-xs">
+              <Sparkles size={13} className="text-cyan-400" />
+              <span className="text-slate-400 text-[11px] font-medium">Model:</span>
+              <select
+                value={aiStatusData?.activeModel || 'gemini-3.8-flash'}
+                onChange={(e) => handleSwitchActiveModel(e.target.value)}
+                disabled={switchingModel}
+                className="bg-transparent text-cyan-300 font-bold text-xs focus:outline-hidden cursor-pointer disabled:opacity-50"
+                title="Switch active Gemini AI Model"
+              >
+                <option value="gemini-3.8-flash" className="bg-slate-900 text-white">Gemini 3.8 Flash (Flagship Default)</option>
+                <option value="gemini-3.1-pro-preview" className="bg-slate-900 text-white">Gemini 3.1 Pro (Deep Thinking)</option>
+                <option value="gemini-flash-latest" className="bg-slate-900 text-white">Gemini Flash (Auto Latest)</option>
+                <option value="gemini-3.1-flash-lite" className="bg-slate-900 text-white">Gemini 3.1 Flash Lite (Ultra Fast)</option>
+                <option value="gemini-2.5-pro" className="bg-slate-900 text-white">Gemini 2.5 Pro (Deep Dossier)</option>
+                <option value="gemini-2.5-flash" className="bg-slate-900 text-white">Gemini 2.5 Flash (High Performance)</option>
+              </select>
+              {switchingModel && <RefreshCw size={11} className="text-cyan-400 animate-spin" />}
+            </div>
+
             {/* Live Gemini Engine Status Badge */}
             <div 
               onClick={() => { fetchAiStatus(); setShowAiDiagnosticsModal(true); }}
@@ -1184,12 +1232,12 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
                   ? 'bg-emerald-400 animate-pulse'
                   : 'bg-amber-400'
               }`} />
-              <span className="text-slate-300">Gemini:</span>
+              <span className="text-slate-300">Engine:</span>
               <span className="font-bold">
                 {loadingAiStatus 
                   ? 'Checking...' 
                   : aiStatusData?.overallStatus === 'all_systems_operational'
-                  ? `${aiStatusData?.activeModel || '3.6-flash'} (Online)`
+                  ? 'Online'
                   : aiStatusData?.configured
                   ? 'Key Active'
                   : 'Needs Review'}
@@ -1203,7 +1251,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
               title="Open full AI API Diagnostics & Model Testing Sandbox"
             >
               <Activity size={14} className="text-cyan-400 animate-pulse" />
-              <span>Test API Keys</span>
+              <span>Diagnostics</span>
             </button>
 
             <div className="flex items-center gap-2 bg-slate-800/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-700/60 shadow-xs">
@@ -1608,6 +1656,101 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
               </div>
             </div>
 
+            {/* Active Gemini Model Switching Cards */}
+            <div className="mt-5 space-y-3">
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Sparkles size={14} className="text-cyan-400" />
+                  <span>Switch Active Gemini Model</span>
+                </div>
+                <span className="text-[11px] text-slate-400">
+                  Current: <strong className="text-emerald-400 font-mono">{aiStatusData?.activeModel || 'gemini-3.8-flash'}</strong>
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                {[
+                  {
+                    id: 'gemini-3.8-flash',
+                    name: 'Gemini 3.8 Flash',
+                    badge: 'Flagship Default',
+                    badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+                    desc: 'Top-tier high reasoning model. Peak speed and roleplay intelligence.',
+                    ctx: '1,000,000+ tokens'
+                  },
+                  {
+                    id: 'gemini-3.1-pro-preview',
+                    name: 'Gemini 3.1 Pro Preview',
+                    badge: 'Maximum Reasoning',
+                    badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
+                    desc: 'Flagship deep reasoning pro model for exhaustive HTML rule & table analysis.',
+                    ctx: '2,000,000+ tokens'
+                  },
+                  {
+                    id: 'gemini-flash-latest',
+                    name: 'Gemini Flash Latest',
+                    badge: 'Auto Updated',
+                    badgeColor: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
+                    desc: 'Always targets the newest Google Flash release with latest features.',
+                    ctx: '1,000,000+ tokens'
+                  },
+                  {
+                    id: 'gemini-3.1-flash-lite',
+                    name: 'Gemini 3.1 Flash Lite',
+                    badge: 'Ultra Fast',
+                    badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+                    desc: 'Ultra high-speed generation for massive catalog rollouts.',
+                    ctx: '1,000,000+ tokens'
+                  },
+                  {
+                    id: 'gemini-2.5-pro',
+                    name: 'Gemini 2.5 Pro',
+                    badge: 'Deep Dossier',
+                    badgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+                    desc: 'Deep multi-stage synthesis with expanded reasoning capacity.',
+                    ctx: '2,000,000+ tokens'
+                  },
+                  {
+                    id: 'gemini-2.5-flash',
+                    name: 'Gemini 2.5 Flash',
+                    badge: 'High Performance',
+                    badgeColor: 'bg-slate-500/20 text-slate-300 border-slate-500/30',
+                    desc: 'High performance multimodal model with grounded search.',
+                    ctx: '1,000,000+ tokens'
+                  }
+                ].map((m) => {
+                  const isActive = (aiStatusData?.activeModel || 'gemini-3.8-flash') === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => handleSwitchActiveModel(m.id)}
+                      disabled={switchingModel}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                        isActive
+                          ? 'bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/30 text-white'
+                          : 'bg-slate-800/40 border-slate-700/60 text-slate-300 hover:bg-slate-800 hover:border-slate-600'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-1.5 mb-1">
+                        <span className="font-bold text-xs font-mono text-white truncate">{m.name}</span>
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${m.badgeColor}`}>
+                          {isActive ? 'ACTIVE' : m.badge}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 leading-snug line-clamp-2">{m.desc}</p>
+                      <div className="mt-2 pt-2 border-t border-slate-700/50 flex items-center justify-between text-[10px] text-slate-500">
+                        <span>Context: {m.ctx}</span>
+                        <span className={isActive ? 'text-emerald-400 font-bold' : 'text-slate-400'}>
+                          {isActive ? '✓ In Use' : 'Click to Activate'}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Interactive Model Test Sandbox */}
             <div className="mt-6 p-4 rounded-xl border border-slate-700 bg-slate-950/60 space-y-3">
               <div className="flex items-center justify-between">
@@ -1626,11 +1769,12 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
                     onChange={(e) => setPingModel(e.target.value)}
                     className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-2.5 py-1.5 text-xs font-mono focus:outline-hidden focus:border-cyan-400"
                   >
-                    <option value="gemini-3.6-flash">gemini-3.6-flash (Fast & Recommended)</option>
-                    <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (Ultra-Fast)</option>
+                    <option value="gemini-3.8-flash">gemini-3.8-flash (Flagship Default)</option>
+                    <option value="gemini-3.1-pro-preview">gemini-3.1-pro-preview (Deep Thinking Pro)</option>
                     <option value="gemini-flash-latest">gemini-flash-latest (Auto Latest)</option>
-                    <option value="gemini-3.8-flash">gemini-3.8-flash (High Reasoning)</option>
-                    <option value="gemini-3.1-pro-preview">gemini-3.1-pro-preview (Deep Thinking)</option>
+                    <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (Ultra Fast)</option>
+                    <option value="gemini-2.5-pro">gemini-2.5-pro (Deep Dossier Pro)</option>
+                    <option value="gemini-2.5-flash">gemini-2.5-flash (High Performance)</option>
                   </select>
                 </div>
                 <div className="sm:col-span-2">

@@ -1,5 +1,5 @@
-import React from 'react';
-import { Play, Pause, Square, Terminal, Check } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Play, Pause, Square, Terminal, Check, Filter, Layers, CheckSquare, Square as UncheckedSquare } from 'lucide-react';
 
 interface AutopilotStudioProps {
   appsList: any[];
@@ -54,6 +54,28 @@ export const AutopilotStudio: React.FC<AutopilotStudioProps> = ({
   onStopAutoPilot,
   onClearAutoPilotLogs
 }) => {
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+
+  // Extract unique categories
+  const categories = useMemo(() => {
+    const cats = new Set<string>();
+    appsList.forEach(a => {
+      if (a.category) cats.add(a.category);
+    });
+    return Array.from(cats);
+  }, [appsList]);
+
+  // Filtered app list
+  const filteredApps = useMemo(() => {
+    return appsList.filter(app => {
+      const matchesSearch = !autoPilotAppSearch.trim() || 
+        (app.name && app.name.toLowerCase().includes(autoPilotAppSearch.toLowerCase())) ||
+        (app.slug && app.slug.toLowerCase().includes(autoPilotAppSearch.toLowerCase()));
+      const matchesCat = selectedCategory === 'all' || app.category === selectedCategory;
+      return matchesSearch && matchesCat;
+    });
+  }, [appsList, autoPilotAppSearch, selectedCategory]);
+
   return (
     <div className="space-y-6">
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-5">
@@ -66,10 +88,10 @@ export const AutopilotStudio: React.FC<AutopilotStudioProps> = ({
               <span>Autonomous Catalog Queue Runner</span>
             </div>
             <h2 className="text-lg font-black text-slate-900 dark:text-white mt-1">
-              Catalog Auto-Pilot Engine
+              Part 3: Autonomous Catalog Queue Runner
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Select apps, choose Brain 1 or Brain 2, and launch hands-free background generation.
+              Select apps, choose between Brain 1 (Dossier & Full HTML Rules) or Brain 2 (Web Researcher), and launch hands-free background generation.
             </p>
           </div>
 
@@ -92,13 +114,16 @@ export const AutopilotStudio: React.FC<AutopilotStudioProps> = ({
         {/* Controls Grid */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-200 dark:border-slate-700">
           <div>
-            <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Generation Brain:</label>
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+              <Layers size={12} className="text-blue-500" />
+              <span>Generation Brain:</span>
+            </label>
             <select
               value={autoPilotBrainChoice}
               onChange={(e) => setAutoPilotBrainChoice(e.target.value as any)}
               className="w-full text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-200 mt-1 cursor-pointer"
             >
-              <option value="local">🧠 Brain 1: Deep Dossier Comprehension</option>
+              <option value="local">🧠 Brain 1: Deep Dossier & HTML Rules Analyzer</option>
               <option value="research">🌐 Brain 2: Live Internet Web Researcher</option>
             </select>
           </div>
@@ -166,64 +191,91 @@ export const AutopilotStudio: React.FC<AutopilotStudioProps> = ({
                 disabled={autoPilotLoading || selectedAutoPilotAppIds.length === 0}
                 className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-black shadow-md shadow-blue-600/20 transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
-                <Play size={14} /> Launch Auto-Pilot ({selectedAutoPilotAppIds.length} Apps)
+                <Play size={14} /> Launch Queue ({selectedAutoPilotAppIds.length} Apps)
               </button>
             )}
           </div>
         </div>
 
-        {/* App Selection Grid */}
+        {/* App Selection Grid & Filters */}
         <div className="space-y-3 pt-2">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
                 Queue Apps Selection ({selectedAutoPilotAppIds.length} of {appsList.length} Selected)
               </span>
-              <button onClick={onSelectAllAutoPilotApps} className="text-[11px] text-blue-600 dark:text-blue-400 font-semibold hover:underline cursor-pointer">
-                Select All
+              <button 
+                onClick={onSelectAllAutoPilotApps} 
+                className="flex items-center gap-1 text-[11px] text-blue-600 dark:text-blue-400 font-bold hover:underline cursor-pointer bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800"
+              >
+                <CheckSquare size={12} />
+                <span>Select All ({appsList.length})</span>
               </button>
-              <span>•</span>
-              <button onClick={onDeselectAllAutoPilotApps} className="text-[11px] text-slate-500 hover:underline cursor-pointer">
-                Deselect All
+              <button 
+                onClick={onDeselectAllAutoPilotApps} 
+                className="flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-400 font-bold hover:underline cursor-pointer bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700"
+              >
+                <UncheckedSquare size={12} />
+                <span>Deselect All</span>
               </button>
             </div>
-            <input
-              type="text"
-              placeholder="Filter apps..."
-              value={autoPilotAppSearch}
-              onChange={(e) => setAutoPilotAppSearch(e.target.value)}
-              className="text-xs px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 w-full sm:w-48"
-            />
+
+            <div className="flex items-center gap-2">
+              {/* Category Filter */}
+              <div className="flex items-center gap-1">
+                <Filter size={12} className="text-slate-400" />
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="text-xs px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 cursor-pointer"
+                >
+                  <option value="all">All Categories</option>
+                  {categories.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Search Filter */}
+              <input
+                type="text"
+                placeholder="Search apps..."
+                value={autoPilotAppSearch}
+                onChange={(e) => setAutoPilotAppSearch(e.target.value)}
+                className="text-xs px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 w-full sm:w-44"
+              />
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 max-h-52 overflow-y-auto pr-1 scrollbar-thin">
-            {appsList
-              .filter(a => !autoPilotAppSearch.trim() || a.name?.toLowerCase().includes(autoPilotAppSearch.toLowerCase()))
-              .map(app => {
-                const appId = String(app.id || app.slug || '');
-                const isSelected = selectedAutoPilotAppIds.includes(appId);
-                return (
-                  <button
-                    key={appId}
-                    onClick={() => onToggleAutoPilotApp(appId)}
-                    className={`flex items-center gap-2 p-2 rounded-xl border text-left transition-all cursor-pointer ${
-                      isSelected 
-                        ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-400 text-blue-900 dark:text-blue-100'
-                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
-                    }`}
-                  >
-                    {app.icon_url ? (
-                      <img src={app.icon_url} alt="" className="w-6 h-6 rounded-md object-contain shrink-0" />
-                    ) : (
-                      <div className="w-6 h-6 rounded-md bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px] font-bold">
-                        {app.name?.charAt(0)}
-                      </div>
-                    )}
-                    <span className="text-[11px] font-bold truncate flex-1">{app.name}</span>
-                    {isSelected && <Check size={12} className="text-blue-600 shrink-0" />}
-                  </button>
-                );
-              })}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 max-h-56 overflow-y-auto pr-1 scrollbar-thin">
+            {filteredApps.map(app => {
+              const appId = String(app.id || app.slug || '');
+              const isSelected = selectedAutoPilotAppIds.includes(appId) || selectedAutoPilotAppIds.includes(String(app.id)) || selectedAutoPilotAppIds.includes(String(app.slug));
+              return (
+                <button
+                  key={appId}
+                  onClick={() => onToggleAutoPilotApp(appId)}
+                  className={`flex items-center gap-2 p-2 rounded-xl border text-left transition-all cursor-pointer ${
+                    isSelected 
+                      ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-400 text-blue-900 dark:text-blue-100 shadow-xs'
+                      : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300'
+                  }`}
+                >
+                  {app.icon_url ? (
+                    <img src={app.icon_url} alt="" className="w-6 h-6 rounded-md object-contain shrink-0" />
+                  ) : (
+                    <div className="w-6 h-6 rounded-md bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px] font-bold">
+                      {app.name?.charAt(0)}
+                    </div>
+                  )}
+                  <div className="truncate flex-1 min-w-0">
+                    <span className="text-[11px] font-bold truncate block">{app.name}</span>
+                    {app.category && <span className="text-[9px] text-slate-400 truncate block">{app.category}</span>}
+                  </div>
+                  {isSelected && <Check size={12} className="text-blue-600 shrink-0 font-bold" />}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -268,3 +320,4 @@ export const AutopilotStudio: React.FC<AutopilotStudioProps> = ({
     </div>
   );
 };
+

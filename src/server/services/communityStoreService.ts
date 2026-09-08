@@ -122,6 +122,7 @@ export function findAppInCatalog(appIdentifier: string): any {
 class CommunityStoreService {
   private reviews: Map<string, ReviewRecord> = new Map();
   private reports: Map<string, ReportRecord> = new Map();
+  private deletedReviewIds: Set<string> = new Set();
   private initialized = false;
   private isSyncing = false;
   private quotaExhaustedUntil = 0;
@@ -152,10 +153,34 @@ class CommunityStoreService {
   // Load from local JSON disk backup on startup
   private loadFromLocalBackup() {
     try {
-      // First seed memory cache with all verified static reviews
+      if (fs.existsSync(this.localBackupPath)) {
+        const raw = fs.readFileSync(this.localBackupPath, 'utf8');
+        const data = JSON.parse(raw);
+        if (data.deleted_review_ids && Array.isArray(data.deleted_review_ids)) {
+          data.deleted_review_ids.forEach((id: string) => {
+            if (id) this.deletedReviewIds.add(String(id));
+          });
+        }
+        if (data.reviews && Array.isArray(data.reviews)) {
+          data.reviews.forEach((r: ReviewRecord) => {
+            if (r && r.id && !this.deletedReviewIds.has(r.id)) {
+              // Automatically sanitize any loaded reviews from past sessions
+              r.reviewText = sanitizeReviewText(r.reviewText);
+              this.reviews.set(r.id, r);
+            }
+          });
+        }
+        if (data.reports && Array.isArray(data.reports)) {
+          data.reports.forEach((rep: ReportRecord) => {
+            if (rep && rep.id) this.reports.set(rep.id, rep);
+          });
+        }
+      }
+
+      // Seed verified static reviews if not deleted
       if (Array.isArray(STATIC_COMMUNITY_REVIEWS)) {
         STATIC_COMMUNITY_REVIEWS.forEach((r: any) => {
-          if (r && r.id) {
+          if (r && r.id && !this.deletedReviewIds.has(r.id) && !this.reviews.has(r.id)) {
             this.reviews.set(r.id, {
               id: r.id,
               appId: r.appId || r.app_id || '',
@@ -178,25 +203,7 @@ class CommunityStoreService {
         });
       }
 
-      if (fs.existsSync(this.localBackupPath)) {
-        const raw = fs.readFileSync(this.localBackupPath, 'utf8');
-        const data = JSON.parse(raw);
-        if (data.reviews && Array.isArray(data.reviews)) {
-          data.reviews.forEach((r: ReviewRecord) => {
-            if (r && r.id) {
-              // Automatically sanitize any loaded reviews from past sessions
-              r.reviewText = sanitizeReviewText(r.reviewText);
-              this.reviews.set(r.id, r);
-            }
-          });
-        }
-        if (data.reports && Array.isArray(data.reports)) {
-          data.reports.forEach((rep: ReportRecord) => {
-            if (rep && rep.id) this.reports.set(rep.id, rep);
-          });
-        }
-        console.log(`[CommunityStore] Loaded ${this.reviews.size} reviews and ${this.reports.size} reports from local backup.`);
-      }
+      console.log(`[CommunityStore] Loaded ${this.reviews.size} reviews, ${this.reports.size} reports, ${this.deletedReviewIds.size} tombstone deletions from local backup.`);
     } catch (e) {
       console.warn('[CommunityStore] Local backup read error:', e);
     }
@@ -218,6 +225,7 @@ class CommunityStoreService {
         ...existingData,
         reviews: Array.from(this.reviews.values()),
         reports: Array.from(this.reports.values()),
+        deleted_review_ids: Array.from(this.deletedReviewIds),
         updated_at: new Date().toISOString()
       };
       
@@ -225,7 +233,7 @@ class CommunityStoreService {
       fs.writeFileSync(tempPath, JSON.stringify(data, null, 2), 'utf8');
       fs.renameSync(tempPath, this.localBackupPath);
 
-      // Synchronize with static TypeScript file so git sync and public website receive all reviews
+      // Synchronize with static TypeScript file so git sync and public website receive all active reviews
       try {
         const staticTsPath = path.join(process.cwd(), 'src/lib/communityReviewsData.ts');
         const allReviewsList = Array.from(this.reviews.values());
@@ -273,6 +281,10 @@ class CommunityStoreService {
           const fetchLimit = forceSync ? 5000 : 10000;
           const snap = await db.collection('reviews').orderBy('timestamp', 'desc').limit(fetchLimit).get();
           snap.docs.forEach((doc: any) => {
+            if (this.deletedReviewIds.has(doc.id)) {
+              this.reviews.delete(doc.id);
+              return;
+            }
             const d = doc.data();
             const existing = this.reviews.get(doc.id);
             if (existing && existing.updated_at) {
@@ -358,14 +370,18 @@ class CommunityStoreService {
           const restReviews = await readFirestoreRestCollection('reviews');
           restReviews.forEach((d: any) => {
             if (d && d.id) {
-              const existing = this.reviews.get(d.id);
-              if (existing && existing.updated_at) {
-              const remoteTime = d.updated_at ? new Date(d.updated_at).getTime() : 0;
-              const localTime = new Date(existing.updated_at).getTime();
-              if (localTime >= remoteTime) {
+              if (this.deletedReviewIds.has(d.id)) {
+                this.reviews.delete(d.id);
                 return;
               }
-            }
+              const existing = this.reviews.get(d.id);
+              if (existing && existing.updated_at) {
+                const remoteTime = d.updated_at ? new Date(d.updated_at).getTime() : 0;
+                const localTime = new Date(existing.updated_at).getTime();
+                if (localTime >= remoteTime) {
+                  return;
+                }
+              }
               this.reviews.set(d.id, {
                 id: d.id,
                 appId: d.appId || d.app_id || '',
@@ -392,12 +408,12 @@ class CommunityStoreService {
             if (d && d.id) {
               const existing = this.reports.get(d.id);
               if (existing && existing.updated_at) {
-              const remoteTime = d.updated_at ? new Date(d.updated_at).getTime() : 0;
-              const localTime = new Date(existing.updated_at).getTime();
-              if (localTime >= remoteTime) {
-                return;
+                const remoteTime = d.updated_at ? new Date(d.updated_at).getTime() : 0;
+                const localTime = new Date(existing.updated_at).getTime();
+                if (localTime >= remoteTime) {
+                  return;
+                }
               }
-            }
               this.reports.set(d.id, {
                 id: d.id,
                 type: d.type || 'app_flag',
@@ -432,13 +448,18 @@ class CommunityStoreService {
       // Restore chunked Firestore documents to ensure 1,000+ reviews load completely
       try {
         const metaDoc = await readFirestoreRestDoc('community_store_meta', undefined, 'community_store');
+        if (metaDoc?.deleted_review_ids && Array.isArray(metaDoc.deleted_review_ids)) {
+          metaDoc.deleted_review_ids.forEach((id: string) => {
+            if (id) this.deletedReviewIds.add(String(id));
+          });
+        }
         if (metaDoc && metaDoc.chunks_count) {
           const numChunks = Math.min(40, Number(metaDoc.chunks_count) || 1);
           for (let i = 0; i < numChunks; i++) {
             const chunkDoc = await readFirestoreRestDoc(`community_reviews_chunk_${i}`, undefined, 'community_store');
             if (chunkDoc?.reviews && Array.isArray(chunkDoc.reviews)) {
               chunkDoc.reviews.forEach((r: ReviewRecord) => {
-                if (r?.id) {
+                if (r?.id && !this.deletedReviewIds.has(r.id)) {
                   const existing = this.reviews.get(r.id);
                   if (!existing || (r.updated_at && (!existing.updated_at || new Date(r.updated_at).getTime() > new Date(existing.updated_at).getTime()))) {
                     r.reviewText = sanitizeReviewText(r.reviewText, r.appName);
@@ -458,7 +479,7 @@ class CommunityStoreService {
         const legacyDoc = await readFirestoreRestDoc('community_store', undefined, 'community_store');
         if (legacyDoc?.reviews && Array.isArray(legacyDoc.reviews)) {
           legacyDoc.reviews.forEach((r: ReviewRecord) => {
-            if (r?.id && !this.reviews.has(r.id)) {
+            if (r?.id && !this.deletedReviewIds.has(r.id) && !this.reviews.has(r.id)) {
               r.reviewText = sanitizeReviewText(r.reviewText, r.appName);
               this.reviews.set(r.id, r);
             }
@@ -499,6 +520,7 @@ class CommunityStoreService {
         chunks_count: numChunks,
         chunk_size: CHUNK_SIZE,
         reports: allReports,
+        deleted_review_ids: Array.from(this.deletedReviewIds).slice(-2000),
         updated_at: new Date().toISOString()
       };
       await writeFirestoreRestDoc('community_store_meta', metaData, undefined, true, 'community_store');
@@ -542,6 +564,7 @@ class CommunityStoreService {
     const targetAppName = matchedApp?.name || payload.appName || '';
 
     const id = payload.id || `rev_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    this.deletedReviewIds.delete(id);
     const newRev: ReviewRecord = {
       id,
       appId: targetAppId,
@@ -592,6 +615,7 @@ class CommunityStoreService {
       const targetAppName = matchedApp?.name || payload.appName || '';
 
       const id = payload.id || `rev_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      this.deletedReviewIds.delete(id);
       const newRev: ReviewRecord = {
         id,
         appId: targetAppId,
@@ -710,6 +734,8 @@ class CommunityStoreService {
     const existing = this.reviews.get(id);
     if (!existing) return null;
 
+    this.deletedReviewIds.delete(id);
+
     const updated: ReviewRecord = {
       ...existing,
       ...updates,
@@ -731,6 +757,7 @@ class CommunityStoreService {
   }
 
   public async deleteReview(id: string): Promise<boolean> {
+    this.deletedReviewIds.add(id);
     const existed = this.reviews.delete(id);
     const db = getCommunityAdminDb();
     if (db) {
@@ -753,6 +780,7 @@ class CommunityStoreService {
       const revName = String(rev.appName || '').toLowerCase().trim();
 
       if (aliasKeys.has(revAppId) || aliasKeys.has(revSlug) || aliasKeys.has(revName)) {
+        this.deletedReviewIds.add(id);
         this.reviews.delete(id);
         count++;
         if (db) {
