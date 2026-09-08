@@ -1206,11 +1206,14 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
                 title="Switch active Gemini AI Model"
               >
                 <option value="gemini-3.8-flash" className="bg-slate-900 text-white">Gemini 3.8 Flash (Flagship Default)</option>
+                <option value="gemini-3.7-pro" className="bg-slate-900 text-white">Gemini 3.7 Pro (Advanced Reasoning)</option>
+                <option value="gemini-3.7-flash" className="bg-slate-900 text-white">Gemini 3.7 Flash (High Performance)</option>
+                <option value="gemini-3.5-pro" className="bg-slate-900 text-white">Gemini 3.5 Pro (Deep Logic)</option>
+                <option value="gemini-3.5-flash" className="bg-slate-900 text-white">Gemini 3.5 Flash (Fast Balanced)</option>
                 <option value="gemini-3.1-pro-preview" className="bg-slate-900 text-white">Gemini 3.1 Pro (Deep Thinking)</option>
                 <option value="gemini-flash-latest" className="bg-slate-900 text-white">Gemini Flash (Auto Latest)</option>
-                <option value="gemini-3.1-flash-lite" className="bg-slate-900 text-white">Gemini 3.1 Flash Lite (Ultra Fast)</option>
                 <option value="gemini-2.5-pro" className="bg-slate-900 text-white">Gemini 2.5 Pro (Deep Dossier)</option>
-                <option value="gemini-2.5-flash" className="bg-slate-900 text-white">Gemini 2.5 Flash (High Performance)</option>
+                <option value="gemini-2.5-flash" className="bg-slate-900 text-white">Gemini 2.5 Flash (High Speed)</option>
               </select>
               {switchingModel && <RefreshCw size={11} className="text-cyan-400 animate-spin" />}
             </div>
@@ -1770,11 +1773,14 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
                     className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-2.5 py-1.5 text-xs font-mono focus:outline-hidden focus:border-cyan-400"
                   >
                     <option value="gemini-3.8-flash">gemini-3.8-flash (Flagship Default)</option>
+                    <option value="gemini-3.7-pro">gemini-3.7-pro (Advanced Reasoning Pro)</option>
+                    <option value="gemini-3.7-flash">gemini-3.7-flash (High Performance)</option>
+                    <option value="gemini-3.5-pro">gemini-3.5-pro (Deep Logic Pro)</option>
+                    <option value="gemini-3.5-flash">gemini-3.5-flash (Fast Balanced)</option>
                     <option value="gemini-3.1-pro-preview">gemini-3.1-pro-preview (Deep Thinking Pro)</option>
                     <option value="gemini-flash-latest">gemini-flash-latest (Auto Latest)</option>
-                    <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (Ultra Fast)</option>
                     <option value="gemini-2.5-pro">gemini-2.5-pro (Deep Dossier Pro)</option>
-                    <option value="gemini-2.5-flash">gemini-2.5-flash (High Performance)</option>
+                    <option value="gemini-2.5-flash">gemini-2.5-flash (High Speed)</option>
                   </select>
                 </div>
                 <div className="sm:col-span-2">

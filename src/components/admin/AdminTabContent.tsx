@@ -106,6 +106,7 @@ interface AdminTabContentProps {
   handleAddBanner: () => void;
   handleBannerChange: (id: string, field: string, value: any) => void;
   handleDeleteBanner: (id: string) => void;
+  handleClearAllBanners?: () => void;
   handleAddNews: () => string;
   handleNewsChange: (id: string, field: string, value: any) => void;
   handleDeleteNews: (id: string) => void;
@@ -162,6 +163,7 @@ export const AdminTabContent = ({
   handleAddBanner,
   handleBannerChange,
   handleDeleteBanner,
+  handleClearAllBanners,
   handleAddNews,
   handleNewsChange,
   handleDeleteNews,
@@ -206,6 +208,7 @@ export const AdminTabContent = ({
             handleAddBanner={handleAddBanner}
             handleBannerChange={handleBannerChange}
             handleDeleteBanner={handleDeleteBanner}
+            handleClearAllBanners={handleClearAllBanners}
           />
         );
       case 'categories':

@@ -25,6 +25,42 @@ export const AVAILABLE_GEMINI_MODELS: AiModelSpec[] = [
     recommendedFor: "Flagship Reviews, Live Grounding, High-Speed Autopilot"
   },
   {
+    id: "gemini-3.7-pro",
+    name: "Gemini 3.7 Pro",
+    tier: "pro",
+    description: "Top-tier flagship Pro model with exceptional multi-step reasoning, analytical depth, and complex logic.",
+    badge: "Top-Tier Pro Reasoning",
+    contextWindow: "2,000,000+ tokens",
+    recommendedFor: "Deep Dossier Analysis, Complex HTML Analysis & Unforced Creative Synthesis"
+  },
+  {
+    id: "gemini-3.7-flash",
+    name: "Gemini 3.7 Flash",
+    tier: "fast",
+    description: "High-reasoning fast model with breakthrough speed and comprehension.",
+    badge: "High-Reasoning Flash",
+    contextWindow: "1,000,000+ tokens",
+    recommendedFor: "Live Web Grounding & Fast Autonomous Batching"
+  },
+  {
+    id: "gemini-3.5-pro",
+    name: "Gemini 3.5 Pro",
+    tier: "pro",
+    description: "Flagship Pro reasoning engine for exhaustive app mechanics extraction.",
+    badge: "Pro Reasoning Engine",
+    contextWindow: "2,000,000+ tokens",
+    recommendedFor: "Brain 1 Dossier Extraction & Deep Review Synthesis"
+  },
+  {
+    id: "gemini-3.5-flash",
+    name: "Gemini 3.5 Flash",
+    tier: "fast",
+    description: "High-intelligence fast engine with strong multi-turn context retention.",
+    badge: "Smart Flash Engine",
+    contextWindow: "1,000,000+ tokens",
+    recommendedFor: "Continuous Autopilot & Bulk Queue Processing"
+  },
+  {
     id: "gemini-3.1-pro-preview",
     name: "Gemini 3.1 Pro Preview",
     tier: "pro",
@@ -96,6 +132,10 @@ export function getCandidateModels(preferredModel?: string): string[] {
   const list = [
     chosen,
     "gemini-3.8-flash",
+    "gemini-3.7-pro",
+    "gemini-3.7-flash",
+    "gemini-3.5-pro",
+    "gemini-3.5-flash",
     "gemini-3.1-pro-preview",
     "gemini-flash-latest",
     "gemini-3.1-flash-lite",

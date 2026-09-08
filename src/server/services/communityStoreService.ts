@@ -757,29 +757,34 @@ class CommunityStoreService {
   }
 
   public async deleteReview(id: string): Promise<boolean> {
-    this.deletedReviewIds.add(id);
-    const existed = this.reviews.delete(id);
+    const cleanId = String(id || '').trim();
+    if (!cleanId) return false;
+    this.deletedReviewIds.add(cleanId);
+    this.reviews.delete(cleanId);
+    
+    // Also remove from Firestore
     const db = getCommunityAdminDb();
     if (db) {
-      db.collection('reviews').doc(id).delete().catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
+      db.collection('reviews').doc(cleanId).delete().catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
     } else {
-      deleteFirestoreRestDoc(id, undefined, 'reviews').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
+      deleteFirestoreRestDoc(cleanId, undefined, 'reviews').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
     }
     this.saveToDiskAndQueueCloudSync();
-    return existed;
+    return true;
   }
 
   public async deleteReviewsForApp(appIdentifier: string): Promise<number> {
     const aliasKeys = this.getAliasKeysForApp(appIdentifier);
     let count = 0;
     const db = getCommunityAdminDb();
+    const cleanTarget = String(appIdentifier || '').toLowerCase().trim();
 
     for (const [id, rev] of Array.from(this.reviews.entries())) {
       const revAppId = String(rev.appId || '').toLowerCase().trim();
       const revSlug = String(rev.appSlug || '').toLowerCase().trim();
       const revName = String(rev.appName || '').toLowerCase().trim();
 
-      if (aliasKeys.has(revAppId) || aliasKeys.has(revSlug) || aliasKeys.has(revName)) {
+      if (aliasKeys.has(revAppId) || aliasKeys.has(revSlug) || aliasKeys.has(revName) || revAppId === cleanTarget || revSlug === cleanTarget) {
         this.deletedReviewIds.add(id);
         this.reviews.delete(id);
         count++;
@@ -791,9 +796,7 @@ class CommunityStoreService {
       }
     }
 
-    if (count > 0) {
-      this.saveToDiskAndQueueCloudSync();
-    }
+    this.saveToDiskAndQueueCloudSync();
     return count;
   }
 

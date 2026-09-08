@@ -123,6 +123,9 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
       const data = await res.json();
       if (res.ok) {
         toast(data.message || 'App reviews cleared successfully', 'success');
+        try {
+          window.dispatchEvent(new CustomEvent('community-reviews-cleared', { detail: { appId: appIdToClear } }));
+        } catch (e) {}
         await fetchReviews(true);
       } else {
         toast(data.error || 'Failed to clear app reviews', 'error');
@@ -248,6 +251,9 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
         toast('Review deleted permanently', 'success');
         setReviews(prev => prev.filter(r => r.id !== id));
         setSelectedReviewIds(prev => prev.filter(selId => selId !== id));
+        try {
+          window.dispatchEvent(new CustomEvent('community-review-deleted', { detail: { id } }));
+        } catch (e) {}
       } else {
         toast('Failed to delete review', 'error');
       }
@@ -275,6 +281,9 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
       if (res.ok) {
         toast(`Bulk ${action} executed successfully!`, 'success');
         setSelectedReviewIds([]);
+        try {
+          window.dispatchEvent(new CustomEvent('community-reviews-updated'));
+        } catch (e) {}
         await fetchReviews(true);
       } else {
         toast('Bulk action failed', 'error');
@@ -305,6 +314,9 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
         if (res.ok) {
           toast('New verified review created!', 'success');
           setEditModalReview(null);
+          try {
+            window.dispatchEvent(new CustomEvent('community-reviews-updated'));
+          } catch (e) {}
           await fetchReviews(true);
         } else {
           toast('Failed to create review', 'error');
@@ -320,6 +332,9 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
           toast('Review updated successfully!', 'success');
           setReviews(prev => prev.map(r => r.id === editModalReview.id ? data.review : r));
           setEditModalReview(null);
+          try {
+            window.dispatchEvent(new CustomEvent('community-reviews-updated'));
+          } catch (e) {}
         } else {
           toast('Failed to update review', 'error');
         }

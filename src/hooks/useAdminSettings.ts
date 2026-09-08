@@ -73,6 +73,15 @@ export const useAdminSettings = (settings: any, news: any[], videos: any[]) => {
     setBanners(prev => prev.filter(b => b.id !== id));
   };
 
+  const handleClearAllBanners = () => {
+    setBanners(prev => {
+      prev.forEach(b => {
+        if (b.id) deletedBannerIdsRef.current.add(b.id);
+      });
+      return [];
+    });
+  };
+
   // News
   const handleAddNews = () => {
     const newId = Math.random().toString(36).substr(2, 9);
@@ -226,7 +235,7 @@ export const useAdminSettings = (settings: any, news: any[], videos: any[]) => {
     websiteFaqsList, setWebsiteFaqsList,
     developersList, setDevelopersList,
     newCatInput, setNewCatInput,
-    handleAddBanner, handleBannerChange, handleDeleteBanner,
+    handleAddBanner, handleBannerChange, handleDeleteBanner, handleClearAllBanners,
     handleAddNews, handleNewsChange, handleDeleteNews,
     handleAddCategory, handleRemoveCategory,
     handleAddVideo, handleDeleteVideo, handleVideosChange,

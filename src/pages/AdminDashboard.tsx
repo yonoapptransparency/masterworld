@@ -114,7 +114,7 @@ export default function AdminDashboard() {
     websiteFaqsList, setWebsiteFaqsList,
     developersList, setDevelopersList,
     newCatInput, setNewCatInput,
-    handleAddBanner, handleBannerChange, handleDeleteBanner,
+    handleAddBanner, handleBannerChange, handleDeleteBanner, handleClearAllBanners,
     handleAddNews, handleNewsChange, handleDeleteNews,
     handleAddCategory, handleRemoveCategory,
     handleAddVideo, handleDeleteVideo, handleVideosChange,
@@ -428,6 +428,7 @@ export default function AdminDashboard() {
             handleAddBanner={handleAddBanner}
             handleBannerChange={handleBannerChange}
             handleDeleteBanner={handleDeleteBanner}
+            handleClearAllBanners={handleClearAllBanners}
             handleAddNews={handleAddNews}
             handleNewsChange={handleNewsChange}
             handleDeleteNews={handleDeleteNews}

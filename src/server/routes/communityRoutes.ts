@@ -408,6 +408,47 @@ communityRouter.post("/api/v1/admin/community/reviews/bulk", verifyAdminToken, a
   }
 });
 
+// Admin: Bulk Save Array of Reviews (from AI Review Studio or Batch Import)
+communityRouter.post("/api/v1/admin/community/reviews/bulk-save", verifyAdminToken, async (req: any, res: any) => {
+  try {
+    const list = Array.isArray(req.body.reviews) ? req.body.reviews : (Array.isArray(req.body) ? req.body : []);
+    if (list.length === 0) {
+      return res.status(400).json({ error: 'No reviews array provided in request body.' });
+    }
+
+    const added = await communityStore.addMultipleReviews(list);
+    return res.status(200).json({
+      success: true,
+      message: `Successfully saved ${added.length} reviews to database.`,
+      count: added.length,
+      reviews: added
+    });
+  } catch (err: any) {
+    console.error("Bulk save reviews error:", err);
+    return res.status(500).json({ error: err.message || 'Failed to bulk save reviews' });
+  }
+});
+
+// Admin: Clear All Reviews for a Specific App
+communityRouter.post("/api/v1/admin/community/reviews/clear-app", verifyAdminToken, async (req: any, res: any) => {
+  const appId = req.body.appId || req.body.slug || req.body.id;
+  if (!appId) {
+    return res.status(400).json({ error: 'App ID or Slug is required to clear reviews.' });
+  }
+
+  try {
+    const deletedCount = await communityStore.deleteReviewsForApp(String(appId).trim());
+    return res.status(200).json({
+      success: true,
+      message: `Successfully removed ${deletedCount} reviews for app ${appId}.`,
+      count: deletedCount
+    });
+  } catch (err: any) {
+    console.error("Clear app reviews error:", err);
+    return res.status(500).json({ error: err.message || 'Failed to clear reviews for app' });
+  }
+});
+
 // Admin: Trigger Global Recalculation of Rating Stats
 communityRouter.post("/api/v1/admin/community/recalculate-all", verifyAdminToken, async (req: any, res: any) => {
   try {

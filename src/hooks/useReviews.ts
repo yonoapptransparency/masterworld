@@ -111,11 +111,11 @@ export function useReviews(
           if (contentType.includes('application/json')) {
             const data = await res.json();
             
-            if (data && Array.isArray(data.reviews) && data.reviews.length > 0) {
+            if (data && Array.isArray(data.reviews)) {
               fetchedReviews = data.reviews.map((r: any) => ({
                 id: r.id || `rev_${Math.random()}`,
                 app_id: r.app_id || r.appId || cleanAppId,
-                username: r.username || r.userName || 'Verified Player',
+                username: r.username || r.userName || 'Player',
                 rating: Number(r.rating) || 5,
                 comment: r.comment || r.reviewText || '',
                 created_at: r.created_at || r.timestamp || new Date().toISOString(),
@@ -132,40 +132,17 @@ export function useReviews(
           }
         }
       } catch (tier1Err) {
-        // Tier 1 fallback silently
+        // Network or offline fallback
       }
 
-      // -------------------------------------------------------------
-      // TIER 3: Local Storage Merge & Optimistic Reviews
-      // -------------------------------------------------------------
-      let localReviews: Review[] = [];
-      try {
-        const localKey1 = `local_user_reviews_${cleanAppId}`;
-        const localKey2 = cleanAppSlug ? `local_user_reviews_${cleanAppSlug}` : null;
-        
-        const stored1 = localStorage.getItem(localKey1);
-        const stored2 = localKey2 ? localStorage.getItem(localKey2) : null;
-        
-        if (stored1) localReviews = [...localReviews, ...JSON.parse(stored1)];
-        if (stored2) localReviews = [...localReviews, ...JSON.parse(stored2)];
-      } catch (e) {}
-
-      // -------------------------------------------------------------
-      // TIER 4: Guaranteed Never-Empty Verified Reviews Fallback
-      // -------------------------------------------------------------
-      const staticReviews = getStaticFallbackReviews();
-      const combinedFetched = fetchedReviews.length > 0 ? fetchedReviews : staticReviews;
-
-      // Merge remote, local, and default items smoothly
+      // Merge remote reviews smoothly without resurrecting deleted items
       setReviews(prev => {
         if (isLoadMore) {
           const existingIds = new Set(prev.map(p => p.id));
-          const newUnique = combinedFetched.filter(r => !existingIds.has(r.id));
+          const newUnique = fetchedReviews.filter(r => !existingIds.has(r.id));
           return [...prev, ...newUnique];
         } else {
-          const dbIds = new Set(combinedFetched.map(r => r.id));
-          const filteredLocal = localReviews.filter(r => !dbIds.has(r.id));
-          return [...filteredLocal, ...combinedFetched];
+          return fetchedReviews;
         }
       });
 
@@ -175,16 +152,15 @@ export function useReviews(
 
     } catch (err) {
       console.error('Reviews load pipeline error:', err);
-      // Fallback on catastrophic failure
       if (!isLoadMore) {
-        setReviews(getStaticFallbackReviews());
+        setReviews([]);
       }
     } finally {
       if (isLoadMore) setLoadingMore(false);
       else setLoading(false);
       setInitialLoadDone(true);
     }
-  }, [cleanAppId, cleanAppSlug, cleanAppTitle, category, overallRating, nextCursor, getStaticFallbackReviews]);
+  }, [cleanAppId, cleanAppSlug, cleanAppTitle, category, overallRating, nextCursor]);
 
   const prevAppRef = useRef<string | null>(null);
 
@@ -204,7 +180,7 @@ export function useReviews(
     fetchReviews(false);
   }, [cleanAppId, cleanAppSlug]);
 
-  // Listen to community-review-added event across tabs/components
+  // Listen to community review events across tabs/components
   useEffect(() => {
     const handleNewReview = (e: any) => {
       const newRev = e?.detail?.newReview;
@@ -220,9 +196,36 @@ export function useReviews(
       }
     };
 
+    const handleDeletedReview = (e: any) => {
+      const deletedId = e?.detail?.reviewId || e?.detail?.id;
+      if (deletedId) {
+        setReviews(prev => prev.filter(r => r.id !== deletedId));
+      }
+    };
+
+    const handleClearedReviews = (e: any) => {
+      const clearedAppId = e?.detail?.appId || e?.detail?.slug;
+      if (!clearedAppId || clearedAppId === cleanAppId || clearedAppId === cleanAppSlug) {
+        setReviews([]);
+      }
+    };
+
+    const handleReviewsUpdated = () => {
+      fetchReviews(false);
+    };
+
     window.addEventListener('community-review-added', handleNewReview);
-    return () => window.removeEventListener('community-review-added', handleNewReview);
-  }, [cleanAppId, cleanAppSlug]);
+    window.addEventListener('community-review-deleted', handleDeletedReview);
+    window.addEventListener('community-reviews-cleared', handleClearedReviews);
+    window.addEventListener('community-reviews-updated', handleReviewsUpdated);
+
+    return () => {
+      window.removeEventListener('community-review-added', handleNewReview);
+      window.removeEventListener('community-review-deleted', handleDeletedReview);
+      window.removeEventListener('community-reviews-cleared', handleClearedReviews);
+      window.removeEventListener('community-reviews-updated', handleReviewsUpdated);
+    };
+  }, [cleanAppId, cleanAppSlug, fetchReviews]);
 
   const loadMore = useCallback(() => {
     if (!loadingMore && hasMore) {
