@@ -285,41 +285,83 @@ export function getCommunityAdminDb(): any {
     const existingApp = admin.apps.find((app: any) => app.name === 'communityApp');
     if (existingApp) {
       cachedCommunityDb = existingApp.firestore();
+      try {
+        cachedCommunityDb.settings({ preferRest: true });
+      } catch (e) {}
       return cachedCommunityDb;
     }
 
     // Initialize community app
     const serviceAccountPath = path.join(process.cwd(), 'community-service-account.json');
-    if (process.env.COMMUNITY_FIREBASE_SERVICE_ACCOUNT) {
-      try {
-        const serviceAccount = JSON.parse(process.env.COMMUNITY_FIREBASE_SERVICE_ACCOUNT);
-        const communityApp = admin.initializeApp({
-          credential: admin.credential.cert(serviceAccount),
-          projectId: serviceAccount.project_id
-        }, 'communityApp');
-        cachedCommunityDb = communityApp.firestore();
-        console.log('[Community Admin SDK] Firestore initialized successfully from COMMUNITY_FIREBASE_SERVICE_ACCOUNT.');
-        return cachedCommunityDb;
-      } catch (err) {
-        console.error('[Community Admin SDK] Failed to parse COMMUNITY_FIREBASE_SERVICE_ACCOUNT:', err);
+    
+    const possibleCommunityVars = [
+      'COMMUNITY_FIREBASE_SERVICE_ACCOUNT',
+      'COMMUNITY_FIREBASE_ACCOUNT',
+      'COMMUNITY_SERVICE_ACCOUNT',
+      'COMMUNITY_SERVICE_ACCOUNT_JSON',
+      'COMMUNITY_FIREBASE_SECRET',
+      'COMMUNITY_FIREBASE_KEY'
+    ];
+
+    let communityServiceAccountRaw = '';
+    let detectedVar = '';
+    for (const vName of possibleCommunityVars) {
+      if (process.env[vName] && String(process.env[vName]).trim() !== '') {
+        communityServiceAccountRaw = String(process.env[vName]);
+        detectedVar = vName;
+        break;
       }
     }
+
+    if (communityServiceAccountRaw) {
+      try {
+        const serviceAccount = parseServiceAccount(communityServiceAccountRaw);
+        if (serviceAccount) {
+          const communityApp = admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount),
+            projectId: serviceAccount.project_id
+          }, 'communityApp');
+          cachedCommunityDb = communityApp.firestore();
+          try {
+            cachedCommunityDb.settings({ preferRest: true });
+          } catch (e) {}
+          console.log(`[Community Admin SDK] Firestore initialized successfully from ${detectedVar}.`);
+          return cachedCommunityDb;
+        }
+      } catch (err) {
+        console.error(`[Community Admin SDK] Failed to parse ${detectedVar}:`, err);
+      }
+    }
+
     if (fs.existsSync(serviceAccountPath)) {
-      const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf-8'));
-      const communityApp = admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
-        projectId: serviceAccount.project_id
-      }, 'communityApp');
-      
-      cachedCommunityDb = communityApp.firestore();
-      console.log('[Community Admin SDK] Firestore initialized successfully.');
-      return cachedCommunityDb;
+      try {
+        const raw = fs.readFileSync(serviceAccountPath, 'utf-8');
+        const serviceAccount = parseServiceAccount(raw);
+        if (serviceAccount) {
+          const communityApp = admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount),
+            projectId: serviceAccount.project_id
+          }, 'communityApp');
+          
+          cachedCommunityDb = communityApp.firestore();
+          try {
+            cachedCommunityDb.settings({ preferRest: true });
+          } catch (e) {}
+          console.log('[Community Admin SDK] Firestore initialized successfully from community-service-account.json.');
+          return cachedCommunityDb;
+        }
+      } catch (err) {
+        console.error('[Community Admin SDK] Failed to parse community-service-account.json:', err);
+      }
     }
     
     // Fallback to primary Firebase Admin SDK instance
     const primaryDb = getFirebaseAdminDb();
     if (primaryDb) {
       cachedCommunityDb = primaryDb;
+      try {
+        cachedCommunityDb.settings({ preferRest: true });
+      } catch (e) {}
       console.log('[Community Admin SDK] Using primary Firebase Admin SDK instance.');
       return cachedCommunityDb;
     }

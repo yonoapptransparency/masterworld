@@ -89,6 +89,7 @@ export function useReviews(
       let fetchedReviews: Review[] = [];
       let serverHasMore = false;
       let serverNextCursor: string | null = null;
+      let isServerResponseOk = false;
 
       // -------------------------------------------------------------
       // TIER 1: Try Local API Route (/api/v1/public/community/reviews)
@@ -116,20 +117,36 @@ export function useReviews(
             const data = await res.json();
             
             if (data && Array.isArray(data.reviews)) {
-              fetchedReviews = data.reviews.map((r: any) => ({
-                id: r.id || `rev_${Math.random()}`,
-                app_id: r.app_id || r.appId || cleanAppId,
-                username: r.username || r.userName || 'Player',
-                rating: Number(r.rating) || 5,
-                comment: r.comment || r.reviewText || '',
-                created_at: r.created_at || r.timestamp || new Date().toISOString(),
-                helpful_count: Number(r.helpful_count) || 0,
-                reported: Boolean(r.reported),
-                report_count: Number(r.report_count) || 0,
-                source: r.source || 'community',
-                isPinned: Boolean(r.isPinned),
-                adminReply: r.adminReply || null
-              }));
+              isServerResponseOk = true;
+              const targetId = cleanAppId.toLowerCase();
+              const targetSlug = cleanAppSlug.toLowerCase();
+              const targetTitle = cleanAppTitle.toLowerCase();
+
+              fetchedReviews = data.reviews
+                .filter((r: any) => {
+                  const rId = String(r.app_id || r.appId || '').toLowerCase().trim();
+                  const rSlug = String(r.appSlug || '').toLowerCase().trim();
+                  const rName = String(r.appName || '').toLowerCase().trim();
+
+                  if (targetId && rId && rId === targetId) return true;
+                  if (targetSlug && rSlug && rSlug === targetSlug) return true;
+                  if (targetTitle && rName && rName === targetTitle) return true;
+                  return Boolean((targetId && rId === targetId) || (targetSlug && rSlug === targetSlug));
+                })
+                .map((r: any) => ({
+                  id: r.id || `rev_${Math.random()}`,
+                  app_id: r.app_id || r.appId || cleanAppId,
+                  username: r.username || r.userName || 'Player',
+                  rating: Number(r.rating) || 5,
+                  comment: r.comment || r.reviewText || '',
+                  created_at: r.created_at || r.timestamp || new Date().toISOString(),
+                  helpful_count: Number(r.helpful_count) || 0,
+                  reported: Boolean(r.reported),
+                  report_count: Number(r.report_count) || 0,
+                  source: r.source || 'community',
+                  isPinned: Boolean(r.isPinned),
+                  adminReply: r.adminReply || null
+                }));
               serverHasMore = Boolean(data.hasMore);
               serverNextCursor = data.nextCursor || null;
             }
@@ -146,8 +163,9 @@ export function useReviews(
           const newUnique = fetchedReviews.filter(r => !existingIds.has(r.id));
           return [...prev, ...newUnique];
         } else {
-          // Strictly return fetched reviews for this app (or static fallback for this exact app if server empty)
-          if (fetchedReviews.length > 0) {
+          // If server successfully replied, use its authoritative list!
+          // If server returned [] (0 reviews or all deleted by admin), keep []!
+          if (isServerResponseOk) {
             return fetchedReviews;
           }
           return getStaticFallbackReviews();

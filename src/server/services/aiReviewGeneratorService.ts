@@ -19,6 +19,11 @@ export interface GenerateOptions {
   customPrompt?: string;
   mode?: 'local' | 'research';
   languageStyle?: 'proper_english' | 'hinglish' | 'natural_mix';
+  preferredModel?: string;
+  temperature?: number;
+  reviewLength?: 'mixed' | 'short' | 'realistic' | 'detailed';
+  personaProfile?: 'diverse_all' | 'casual_gamers' | 'pro_players' | 'family_social' | 'performance_focused' | 'community_mix' | 'tech_performance' | 'daily_gamers' | 'casual_explorers' | 'constructive_critics';
+  focusAspects?: string[];
 }
 
 export interface AIReviewResultObject {
@@ -29,6 +34,7 @@ export interface AIReviewResultObject {
   groundedSources?: Array<{ title: string; url: string; snippet?: string }>;
   searchStatus?: string;
   dossierHighlights?: string[];
+  apiKeyInfo?: any;
 }
 
 export const BANNED_SAFETY_WORDS = [
@@ -336,7 +342,18 @@ export async function generateBrain1DossierReviews(
   const dossier = compileFullAppDossier(appInput);
   const app = dossier.appInfo;
   const appName = app?.name || 'Card Game';
-  const { count, targetScore, starMix, customPrompt, languageStyle = 'proper_english' } = options;
+  const { 
+    count, 
+    targetScore, 
+    starMix, 
+    customPrompt, 
+    languageStyle = 'proper_english',
+    preferredModel,
+    temperature = 0.85,
+    reviewLength = 'mixed',
+    personaProfile = 'diverse_all',
+    focusAspects = []
+  } = options;
   const ratings = calculateRatingArray(count, targetScore, starMix);
   const { highlights, fullSummary, dossierStats } = dossier;
 
@@ -376,6 +393,71 @@ Real app store comment sections are naturally heterogeneous: roughly 60% of play
 - User Names: Diverse mix of modern screen names and player handles across Indian states.`;
   }
 
+  let lengthPromptSection = '';
+  if (reviewLength === 'short') {
+    lengthPromptSection = `=========================================
+REVIEW LENGTH MANDATE: SHORT & PUNCHY (1-LINERS)
+=========================================
+Every review MUST be a short, spontaneous reaction (between 4 and 15 words). Real mobile players often leave quick one-liners while on the go.
+Examples: "Table joins fast, no delay.", "Clean UI and smooth auto-sort.", "Really good practice game.", "Runs great on 4G connection."`;
+  } else if (reviewLength === 'realistic') {
+    lengthPromptSection = `=========================================
+REVIEW LENGTH MANDATE: REALISTIC FEEDBACK (2 TO 3 SENTENCES)
+=========================================
+Reviews should average 2 to 3 natural sentences. Provide balanced observations about table dynamics, game variants, visual animations, and overall smoothness.`;
+  } else if (reviewLength === 'detailed') {
+    lengthPromptSection = `=========================================
+REVIEW LENGTH MANDATE: DETAILED GAMEPLAY ANALYSIS (3 TO 5 SENTENCES)
+=========================================
+Reviews should be thorough and insightful (3 to 5 sentences). Mention specific game mechanics, rules, table timers, graphics quality, battery efficiency, and device performance.`;
+  } else {
+    lengthPromptSection = `=========================================
+REVIEW LENGTH MANDATE: ORGANIC REAL-WORLD MIX
+=========================================
+Naturally vary the length across reviews:
+- ~35% crisp 1-sentence quick reactions (e.g. 5-10 words).
+- ~50% realistic 2-3 sentence grounded gameplay observations.
+- ~15% detailed feedback covering specific rules or features.`;
+  }
+
+  let personaPromptSection = '';
+  if (personaProfile === 'casual_gamers') {
+    personaPromptSection = `=========================================
+PLAYER PERSONA PROFILE: CASUAL SOCIAL GAMERS
+=========================================
+Roleplay everyday casual players who play to unwind in the evening, with friends, or during short breaks. Focus on easy navigation, friendly table vibes, smooth card dealing, and relaxing play.`;
+  } else if (personaProfile === 'pro_players') {
+    personaPromptSection = `=========================================
+PLAYER PERSONA PROFILE: COMPETITIVE TOURNAMENT PLAYERS
+=========================================
+Roleplay serious, competitive card game enthusiasts. Focus on table timers, quick auto-sorting, card drag-and-drop precision, discard piles, points calculation, low-latency matchmaking, and fair play mechanics.`;
+  } else if (personaProfile === 'family_social') {
+    personaPromptSection = `=========================================
+PLAYER PERSONA PROFILE: FRIENDS & FAMILY CIRCLES
+=========================================
+Roleplay users who enjoy private tables, playing with cousins/colleagues, simple sharing, and clean family-safe presentation without intrusive popups.`;
+  } else if (personaProfile === 'performance_focused') {
+    personaPromptSection = `=========================================
+PLAYER PERSONA PROFILE: MOBILE HARDWARE & PERFORMANCE FOCUS
+=========================================
+Roleplay tech-savvy mobile gamers who test how the app behaves on Android devices (Redmi, Realme, Samsung Galaxy, OnePlus, Vivo). Comment on frame rates (60fps), absence of lag, minimal battery drain, low storage footprint, and quick app resume.`;
+  } else {
+    personaPromptSection = `=========================================
+PLAYER PERSONA PROFILE: DIVERSE ALL-INDIA PLAYER BASE
+=========================================
+Roleplay a rich, realistic cross-section of Indian mobile gamers from different cities, age groups, and skill levels. Every review must sound like a totally distinct individual with unique phrasing.`;
+  }
+
+  let focusPromptSection = '';
+  if (Array.isArray(focusAspects) && focusAspects.length > 0) {
+    focusPromptSection = `=========================================
+ADMIN PRIORITY FOCUS MECHANICS (HIGHLIGHT THESE FROM THE DOSSIER):
+=========================================
+The admin has prioritized the following mechanics for this generation:
+${focusAspects.map(f => `- ${f}`).join('\n')}
+Naturally integrate observations regarding these specific features wherever appropriate.`;
+  }
+
   const prompt = `You are Brain 1 — The Autonomous Dossier Intelligence & Auto-Commenter Bot for RummyDex.
 You have been provided with the complete, exhaustive 360° app information and database dossier for "${appName}".
 
@@ -411,6 +493,12 @@ Draw naturally from ANY part of the broad app information above. Never repeat se
 
 ${languagePromptSection}
 
+${lengthPromptSection}
+
+${personaPromptSection}
+
+${focusPromptSection}
+
 STRICT SAFETY SANITIZATION:
 - ZERO financial or gambling terms permitted. FORBIDDEN WORDS: deposit, withdraw, cash, bonus, real money, jackpot, bet, wager, winnings, payout, earn money, rupees, ₹, inr, paisa.
 - If referring to game stakes or rewards, use only: chips, practice coins, points, or tournament scores.
@@ -424,7 +512,8 @@ Output ONLY a valid JSON array of objects. Each object must have:
 
 Do not wrap in markdown or backticks. Return raw JSON array only.`;
 
-  const candidateModels = getCandidateModels(getActiveAiModel());
+  const candidateModels = getCandidateModels(preferredModel || getActiveAiModel());
+  const effectiveTemperature = Math.min(1.0, Math.max(0.2, Number(temperature) || 0.85));
 
   for (const key of apiKeys) {
     const ai = new GoogleGenAI({ apiKey: key });
@@ -435,7 +524,7 @@ Do not wrap in markdown or backticks. Return raw JSON array only.`;
           model: modelCandidate,
           contents: prompt,
           config: {
-            temperature: 0.9,
+            temperature: effectiveTemperature,
             topP: 0.95
           }
         });
@@ -463,6 +552,10 @@ Do not wrap in markdown or backticks. Return raw JSON array only.`;
 
               return {
                 appId: String(app.id || app.slug || 'unknown').trim(),
+                appName: app.name || 'Card Game',
+                appSlug: app.slug || '',
+                appIcon: app.icon_url || '',
+                appCategory: app.category || '',
                 userId: 'brain1_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
                 userName: item.userName || `Player_${Math.floor(Math.random() * 9000) + 1000}`,
                 rating: star,
@@ -513,7 +606,32 @@ export async function generateBrain2WebResearchReviews(
   options: GenerateOptions
 ): Promise<AIReviewResultObject> {
   const app = hydrateAppDossier(appInput);
-  const { count, targetScore, starMix, customPrompt } = options;
+  const { 
+    count, 
+    targetScore, 
+    starMix, 
+    customPrompt,
+    preferredModel,
+    temperature,
+    reviewLength,
+    personaProfile,
+    languageStyle,
+    focusAspects
+  } = options;
+
+  const personaMap: Record<string, 'community_mix' | 'tech_performance' | 'daily_gamers' | 'casual_explorers' | 'constructive_critics'> = {
+    diverse_all: 'community_mix',
+    casual_gamers: 'casual_explorers',
+    pro_players: 'daily_gamers',
+    family_social: 'community_mix',
+    performance_focused: 'tech_performance',
+    community_mix: 'community_mix',
+    tech_performance: 'tech_performance',
+    daily_gamers: 'daily_gamers',
+    casual_explorers: 'casual_explorers',
+    constructive_critics: 'constructive_critics'
+  };
+  const resolvedPersona = personaProfile ? (personaMap[personaProfile] || 'community_mix') : undefined;
 
   const stepResult = await executeBrain2WebResearchStep(app, {
     count,
@@ -525,7 +643,13 @@ export async function generateBrain2WebResearchReviews(
       twoStar: starMix.star2 || 0,
       oneStar: starMix.star1 || 0,
     } : undefined,
-    customPrompt
+    customPrompt,
+    preferredModel,
+    temperature,
+    reviewLength,
+    personaProfile: resolvedPersona,
+    languageStyle,
+    focusVectors: focusAspects
   });
 
   return {
@@ -534,7 +658,8 @@ export async function generateBrain2WebResearchReviews(
     modelUsed: stepResult.modelUsed,
     searchQueries: stepResult.searchQueries,
     groundedSources: stepResult.groundedSources,
-    searchStatus: stepResult.searchStatus
+    searchStatus: stepResult.searchStatus,
+    apiKeyInfo: stepResult.apiKeyInfo
   };
 }
 
@@ -647,6 +772,10 @@ export function generateAIReviewsForAppFallback(app: any, options: GenerateOptio
 
     return {
       appId: String(app.id || app.slug || 'unknown').trim(),
+      appName: app.name || 'Card Game',
+      appSlug: app.slug || '',
+      appIcon: app.icon_url || '',
+      appCategory: app.category || '',
       userId: `fallback_${Date.now()}_${idx}_${Math.floor(Math.random() * 1000)}`,
       userName: userName,
       rating: star,

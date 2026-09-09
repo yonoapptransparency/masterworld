@@ -9,6 +9,8 @@ export interface ReviewRecord {
   appId: string;
   appSlug?: string;
   appName?: string;
+  appIcon?: string;
+  appCategory?: string;
   userName: string;
   rating: number;
   reviewText: string;

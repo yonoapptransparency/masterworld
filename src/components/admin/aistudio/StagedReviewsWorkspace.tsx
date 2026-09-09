@@ -7,7 +7,8 @@ import {
   Star, 
   ExternalLink, 
   Globe, 
-  Cpu 
+  Cpu,
+  Upload
 } from 'lucide-react';
 import { GenerationTelemetry } from './types';
 
@@ -122,15 +123,16 @@ export const StagedReviewsWorkspace: React.FC<StagedReviewsWorkspaceProps> = ({
                 <span>Staged Reviews for Approval ({stagedReviews.length} Ready)</span>
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Edit ratings, reviewer names, or text before publishing to the live website community.
+                Saved in staging workspace. Review ratings, reviewer names, or text before uploading to Firestore database.
               </p>
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={onDiscardAll}
-                className="px-3.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 rounded-xl hover:bg-rose-100 transition-colors cursor-pointer"
+                className="px-3.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 rounded-xl hover:bg-rose-100 transition-colors cursor-pointer flex items-center gap-1"
               >
-                Discard All
+                <Trash2 size={13} />
+                <span>Discard All</span>
               </button>
               <button
                 onClick={onSaveAllStaged}
@@ -140,12 +142,12 @@ export const StagedReviewsWorkspace: React.FC<StagedReviewsWorkspaceProps> = ({
                 {savingStaged ? (
                   <>
                     <RefreshCw size={13} className="animate-spin" />
-                    <span>Publishing to Database...</span>
+                    <span>Uploading to Firestore...</span>
                   </>
                 ) : (
                   <>
-                    <Check size={14} />
-                    <span>Publish All Staged ({stagedReviews.length})</span>
+                    <Upload size={14} />
+                    <span>Upload All to Firestore ({stagedReviews.length})</span>
                   </>
                 )}
               </button>
@@ -157,23 +159,69 @@ export const StagedReviewsWorkspace: React.FC<StagedReviewsWorkspaceProps> = ({
             {stagedReviews.map((rev, idx) => (
               <div 
                 key={idx} 
-                className="bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 space-y-3"
+                className="bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 space-y-3 shadow-xs"
               >
-                <div className="flex items-center justify-between gap-2">
-                  <input
-                    type="text"
-                    value={rev.userName || ''}
-                    onChange={(e) => onUpdateReviewName(idx, e.target.value)}
-                    className="text-xs font-black bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 text-slate-900 dark:text-white"
-                  />
+                {/* App Logo and App Name Banner */}
+                <div className="flex items-center justify-between gap-3 pb-2.5 border-b border-slate-200 dark:border-slate-700/60">
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    {rev.appIcon ? (
+                      <img
+                        src={rev.appIcon}
+                        alt={rev.appName || 'App'}
+                        className="w-9 h-9 rounded-xl object-contain bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0 shadow-xs"
+                      />
+                    ) : (
+                      <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 font-black text-sm flex items-center justify-center shrink-0">
+                        {(rev.appName || 'A').charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-black text-slate-900 dark:text-white truncate">
+                          {rev.appName || 'Card Game'}
+                        </span>
+                        {rev.appCategory && (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 shrink-0">
+                            {rev.appCategory}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-slate-400 dark:text-slate-500 font-mono truncate">
+                        App ID: {rev.appId || rev.appSlug || 'default'}
+                      </div>
+                    </div>
+                  </div>
 
-                  <div className="flex items-center gap-1">
+                  <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] shrink-0 ${
+                    rev._brainMode === 'brain2' 
+                      ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300' 
+                      : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                  }`}>
+                    {rev._brainMode === 'brain2' ? '🌐 Brain 2 Web' : '🧠 Brain 1 Dossier'}
+                  </span>
+                </div>
+
+                {/* Reviewer Name and Interactive Star Rating */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                    <span className="text-[11px] text-slate-400 font-medium shrink-0">Player:</span>
+                    <input
+                      type="text"
+                      value={rev.userName || ''}
+                      onChange={(e) => onUpdateReviewName(idx, e.target.value)}
+                      placeholder="Player Name"
+                      className="text-xs font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1 text-slate-900 dark:text-white w-full focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0 bg-white dark:bg-slate-800 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
                     {[1, 2, 3, 4, 5].map(starVal => (
                       <button
                         key={starVal}
                         type="button"
                         onClick={() => onUpdateReviewRating(idx, starVal)}
-                        className="cursor-pointer"
+                        className="cursor-pointer hover:scale-115 transition-transform"
+                        title={`Set rating to ${starVal} stars`}
                       >
                         <Star 
                           size={15} 
@@ -184,40 +232,46 @@ export const StagedReviewsWorkspace: React.FC<StagedReviewsWorkspaceProps> = ({
                   </div>
                 </div>
 
+                {/* Review Text Editable */}
                 <textarea
                   value={rev.reviewText || ''}
                   onChange={(e) => onUpdateReviewText(idx, e.target.value)}
                   rows={3}
-                  className="w-full text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 leading-relaxed resize-none"
+                  className="w-full text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 leading-relaxed resize-none"
+                  placeholder="Review content..."
                 />
 
+                {/* Actions & Meta */}
                 <div className="flex items-center justify-between pt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                  <div className="flex items-center gap-2">
-                    <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] ${
-                      rev._brainMode === 'brain2' 
-                        ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300' 
-                        : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-                    }`}>
-                      {rev._brainMode === 'brain2' ? '🌐 Brain 2 Web' : '🧠 Brain 1 Dossier'}
-                    </span>
-                    <span>{rev.reviewText?.length || 0} chars</span>
-                  </div>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {rev.reviewText?.length || 0} chars
+                  </span>
 
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-2">
                     <button
                       onClick={() => onDiscardReview(idx)}
-                      className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors cursor-pointer"
+                      className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors cursor-pointer rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40"
                       title="Discard review"
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={15} />
                     </button>
                     <button
                       onClick={() => onSaveReviewToLive(idx)}
                       disabled={savingReviewIndex === idx}
-                      className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-[11px] transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                      className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-[11px] transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
+                      title="Upload this review to Firestore database"
                     >
-                      {savingReviewIndex === idx ? <RefreshCw size={11} className="animate-spin" /> : <Check size={11} />}
-                      <span>Publish</span>
+                      {savingReviewIndex === idx ? (
+                        <>
+                          <RefreshCw size={11} className="animate-spin" />
+                          <span>Uploading...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload size={12} />
+                          <span>Upload to Firestore</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>

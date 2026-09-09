@@ -6,7 +6,11 @@ import { verifyTurnstile, getIp, rateLimit } from '../security';
 import { verifyAdminToken } from '../middleware/adminAuth';
 import { communityStore } from '../services/communityStoreService';
 import { generateAIReviewsForApp, compileFullAppDossier, generateBrain1DossierReviews } from '../services/aiReviewGeneratorService';
-import { getBrain2TargetInfo, executeBrain2WebResearchStep } from '../services/brain2WebResearcherAutobotService';
+import { 
+  getBrain2TargetInfo, 
+  executeBrain2WebResearchStep,
+  getBrain2ApiKeyInfo 
+} from '../services/brain2WebResearcherAutobotService';
 import { autoPilotService } from '../services/autoPilotQueueService';
 import { getStaticData } from '../config';
 import { fetchStoreData } from '../../seoHelper';
@@ -31,6 +35,8 @@ communityRouter.post(["/api/v1/public/community/reviews", "/api/v1/public/rating
   }
 
   const appId = req.body.appId || req.body.app_id || req.body.slug;
+  const appSlug = req.body.appSlug || req.body.slug;
+  const appName = req.body.appName || req.body.appTitle || req.body.name;
   const rating = req.body.rating;
   const reviewText = req.body.reviewText || req.body.comment;
   const userName = req.body.userName || req.body.username;
@@ -55,6 +61,8 @@ communityRouter.post(["/api/v1/public/community/reviews", "/api/v1/public/rating
 
     const savedReview = await communityStore.addReview({
       appId: String(appId).trim(),
+      appSlug: appSlug ? String(appSlug).trim() : undefined,
+      appName: appName ? String(appName).trim() : undefined,
       rating: numRating,
       reviewText: cleanReviewText,
       userName: cleanUserName,
@@ -166,7 +174,10 @@ communityRouter.get("/api/v1/public/community/reviews/:appId", async (req: any, 
       success: true,
       reviews: result.reviews.map((r: any) => ({
         id: r.id,
+        appId: r.appId,
         app_id: r.appId,
+        appSlug: r.appSlug,
+        appName: r.appName,
         username: r.userName,
         rating: r.rating,
         comment: r.reviewText,
@@ -670,7 +681,12 @@ communityRouter.post("/api/v1/admin/community/brain1/autobot/step", verifyAdminT
       starMix, 
       customPrompt,
       languageStyle = 'proper_english',
-      saveDirectly = false 
+      saveDirectly = false,
+      preferredModel,
+      temperature,
+      reviewLength,
+      personaProfile,
+      focusAspects
     } = req.body;
 
     if (!appId && !appData) {
@@ -703,10 +719,25 @@ communityRouter.post("/api/v1/admin/community/brain1/autobot/step", verifyAdminT
       targetScore: numTargetScore,
       starMix,
       customPrompt,
-      languageStyle
+      languageStyle,
+      preferredModel,
+      temperature,
+      reviewLength,
+      personaProfile,
+      focusAspects
     });
 
-    const generatedReviews = result.reviews || [];
+    const rawGeneratedReviews = result.reviews || [];
+    const generatedReviews = rawGeneratedReviews.map(r => ({
+      ...r,
+      appId: r.appId || String(targetApp.id || targetApp.slug || appId),
+      appName: r.appName || targetApp.name || 'Card Game',
+      appSlug: r.appSlug || targetApp.slug || '',
+      appIcon: r.appIcon || targetApp.icon_url || '',
+      appCategory: r.appCategory || targetApp.category || '',
+      _brainMode: 'brain1',
+      _model: result.modelUsed
+    }));
 
     if (saveDirectly && generatedReviews.length > 0) {
       // Mark as published for live auto-commenter mode
@@ -785,6 +816,23 @@ communityRouter.get("/api/v1/admin/community/brain2/target-info/:appId", verifyA
   }
 });
 
+// Admin: Brain 2 Status & API Key Diagnostics
+communityRouter.get("/api/v1/admin/community/brain2/status", verifyAdminToken, async (req: any, res: any) => {
+  try {
+    const apiKeyInfo = getBrain2ApiKeyInfo();
+    const activeModel = getActiveAiModel();
+    return res.status(200).json({
+      success: true,
+      apiKeyInfo,
+      activeModel,
+      availableModels: AVAILABLE_GEMINI_MODELS
+    });
+  } catch (err: any) {
+    console.error("Brain 2 Status Error:", err);
+    return res.status(500).json({ error: 'Failed to fetch Brain 2 status: ' + (err.message || String(err)) });
+  }
+});
+
 // Admin: Brain 2 Autobot Single Step / Batch (Autonomous Live Web Researcher)
 communityRouter.post("/api/v1/admin/community/brain2/autobot/step", verifyAdminToken, async (req: any, res: any) => {
   const startTime = Date.now();
@@ -796,6 +844,12 @@ communityRouter.post("/api/v1/admin/community/brain2/autobot/step", verifyAdminT
       targetScore = 4.2, 
       starMix, 
       customPrompt,
+      preferredModel,
+      temperature,
+      reviewLength,
+      personaProfile,
+      languageStyle,
+      focusVectors,
       saveDirectly = false 
     } = req.body;
 
@@ -828,7 +882,13 @@ communityRouter.post("/api/v1/admin/community/brain2/autobot/step", verifyAdminT
       count: numCount,
       targetScore: numTargetScore,
       starMix,
-      customPrompt
+      customPrompt,
+      preferredModel,
+      temperature,
+      reviewLength,
+      personaProfile,
+      languageStyle,
+      focusVectors
     });
 
     const generatedReviews = result.reviews || [];
@@ -851,6 +911,7 @@ communityRouter.post("/api/v1/admin/community/brain2/autobot/step", verifyAdminT
         searchStatus: result.searchStatus,
         ratingAverage: result.ratingAverage,
         appSignature: result.appSignature,
+        apiKeyInfo: result.apiKeyInfo,
         timeTakenMs: Date.now() - startTime,
         timestamp: new Date().toISOString()
       });
@@ -868,6 +929,7 @@ communityRouter.post("/api/v1/admin/community/brain2/autobot/step", verifyAdminT
       searchStatus: result.searchStatus,
       ratingAverage: result.ratingAverage,
       appSignature: result.appSignature,
+      apiKeyInfo: result.apiKeyInfo,
       timeTakenMs: Date.now() - startTime,
       timestamp: new Date().toISOString()
     });

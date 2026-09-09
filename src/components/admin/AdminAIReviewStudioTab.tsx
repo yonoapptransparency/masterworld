@@ -66,8 +66,6 @@ import {
 import { Brain1Studio } from './aistudio/Brain1Studio';
 import { Brain2Studio } from './aistudio/Brain2Studio';
 import { StagedReviewsWorkspace } from './aistudio/StagedReviewsWorkspace';
-import { AutopilotStudio } from './aistudio/AutopilotStudio';
-import { BulkStudio } from './aistudio/BulkStudio';
 
 export { type AppReviewProfile };
 
@@ -80,8 +78,8 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
   appsList = [],
   onReviewsGenerated 
 }) => {
-  // Primary Navigation Workspace: 'brain1' | 'brain2' | 'autopilot' | 'bulk'
-  const [mode, setMode] = useState<'brain1' | 'brain2' | 'autopilot' | 'bulk'>('brain1');
+  // Primary Navigation Workspace: 'brain1' | 'brain2'
+  const [mode, setMode] = useState<'brain1' | 'brain2'>('brain1');
 
   // Selected Target App for Single Generation (Brain 1 & Brain 2)
   const [selectedAppId, setSelectedAppId] = useState<string>(appsList?.[0]?.id || '');
@@ -121,6 +119,13 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
   const [singleCount, setSingleCount] = useState<number>(5);
   const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
   const [showDossierDrawer, setShowDossierDrawer] = useState<boolean>(false);
+
+  // Brain 1 Admin Customization Controls
+  const [brain1Model, setBrain1Model] = useState<string>('gemini-2.5-pro');
+  const [brain1Temperature, setBrain1Temperature] = useState<number>(0.85);
+  const [brain1ReviewLength, setBrain1ReviewLength] = useState<'mixed' | 'short' | 'realistic' | 'detailed'>('mixed');
+  const [brain1PersonaProfile, setBrain1PersonaProfile] = useState<'diverse_all' | 'casual_gamers' | 'pro_players' | 'family_social' | 'performance_focused'>('diverse_all');
+  const [brain1FocusAspects, setBrain1FocusAspects] = useState<string[]>([]);
 
   // Brain 1 Complete 360° Ingested Dossier from Backend
   const [brain1Dossier, setBrain1Dossier] = useState<any>(null);
@@ -173,6 +178,15 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
   const [brain2CycleDelay, setBrain2CycleDelay] = useState<number>(3);
   const [brain2CurrentStage, setBrain2CurrentStage] = useState<'idle' | 'resolving_target' | 'web_searching' | 'extracting_reviews' | 'rating_aligning' | 'sanitizing' | 'staged' | 'published'>('idle');
   const [brain2Logs, setBrain2Logs] = useState<Array<{ id: string; time: string; text: string; type: 'info' | 'success' | 'reasoning' | 'safety' | 'warn' }>>([]);
+  const [brain2Model, setBrain2Model] = useState<string>('gemini-2.5-flash');
+  const [brain2Temperature, setBrain2Temperature] = useState<number>(0.75);
+  const [brain2PersonaProfile, setBrain2PersonaProfile] = useState<'community_mix' | 'tech_performance' | 'daily_gamers' | 'casual_explorers' | 'constructive_critics'>('community_mix');
+  const [brain2ReviewLength, setBrain2ReviewLength] = useState<'mixed' | 'short' | 'realistic' | 'detailed'>('mixed');
+  const [brain2LanguageStyle, setBrain2LanguageStyle] = useState<'proper_english' | 'hinglish' | 'natural_mix'>('proper_english');
+  const [brain2FocusVectors, setBrain2FocusVectors] = useState<string[]>([
+    'Latest Update & Patch Feedback',
+    'UI Layout & Card Sorting Responsiveness'
+  ]);
   const [brain2SessionStats, setBrain2SessionStats] = useState({
     totalGenerated: 0,
     autoPublished: 0,
@@ -448,25 +462,25 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
   } | null>(null);
 
   // ==========================================
-  // AUTO-PILOT Engine State
+  // BRAIN 1 MULTI-APP AUTOPILOT QUEUE STATE
   // ==========================================
-  const [autoPilotStatus, setAutoPilotStatus] = useState<any>(null);
-  const [autoPilotLoading, setAutoPilotLoading] = useState(false);
   const [selectedAutoPilotAppIds, setSelectedAutoPilotAppIds] = useState<string[]>([]);
-  const [autoPilotAppSearch, setAutoPilotAppSearch] = useState('');
-  const [autoPilotCustomPrompt, setAutoPilotCustomPrompt] = useState('');
-  const [autoPilotBrainChoice, setAutoPilotBrainChoice] = useState<'local' | 'research'>('local');
+  const [autoPilotAppSearch, setAutoPilotAppSearch] = useState<string>('');
+  const [autoPilotCountPerApp, setAutoPilotCountPerApp] = useState<number>(5);
+  const [autoPilotSkipReviews, setAutoPilotSkipReviews] = useState<boolean>(false);
+  const [autoPilotSkipThreshold, setAutoPilotSkipThreshold] = useState<number>(10);
+  const [autoPilotSaveDirectly, setAutoPilotSaveDirectly] = useState<boolean>(false); // Downside Staging Deck by default!
+  const [autoPilotCycleDelay, setAutoPilotCycleDelay] = useState<number>(2);
+  const [autoPilotRunning, setAutoPilotRunning] = useState<boolean>(false);
+  const [autoPilotPaused, setAutoPilotPaused] = useState<boolean>(false);
+  const [autoPilotCurrentApp, setAutoPilotCurrentApp] = useState<any>(null);
+  const [autoPilotProgress, setAutoPilotProgress] = useState<{ current: number; total: number; percent: number }>({ current: 0, total: 0, percent: 0 });
 
-  const [autoPilotOptions, setAutoPilotOptions] = useState({
-    countPerApp: 5,
-    skipAppsWithReviews: false,
-    skipThreshold: 10,
-    overrideTargetScore: null as number | null,
-    toneFocus: 'balanced' as any
-  });
+  const autoPilotQueueRunningRef = useRef<boolean>(false);
+  const autoPilotQueuePausedRef = useRef<boolean>(false);
 
+  // Initialize selectedAutoPilotAppIds with all apps on first load
   const autoPilotInitializedRef = useRef(false);
-
   useEffect(() => {
     if (appsList && appsList.length > 0 && !autoPilotInitializedRef.current) {
       setSelectedAutoPilotAppIds(appsList.map(a => String(a.id || a.slug || '')));
@@ -488,111 +502,167 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
     setSelectedAutoPilotAppIds([]);
   };
 
-  const fetchAutoPilotStatus = useCallback(async () => {
-    try {
-      const res = await adminFetch('/api/v1/admin/autopilot/status');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.status) {
-          setAutoPilotStatus(data.status);
-        }
-      }
-    } catch (e) {
-      console.warn("Failed to fetch autopilot status", e);
-    }
-  }, []);
+  const startBrain1AutoPilotQueue = async () => {
+    if (autoPilotRunning) return;
+    const targetApps = appsList.filter(a => 
+      selectedAutoPilotAppIds.includes(String(a.id)) || 
+      selectedAutoPilotAppIds.includes(String(a.slug)) ||
+      selectedAutoPilotAppIds.includes(String(a.id || a.slug || ''))
+    );
 
-  useEffect(() => {
-    fetchAutoPilotStatus();
-    const interval = setInterval(fetchAutoPilotStatus, 2000);
-    return () => clearInterval(interval);
-  }, [fetchAutoPilotStatus]);
-
-  const handleStartAutoPilot = async () => {
-    if (selectedAutoPilotAppIds.length === 0) {
-      toast("Please select at least 1 app to process with Auto-Pilot", "error");
+    if (targetApps.length === 0) {
+      toast("Please select at least 1 app for the queue", "error");
       return;
     }
-    try {
-      setAutoPilotLoading(true);
-      const payload = {
-        ...autoPilotOptions,
-        appsList: appsList,
-        selectedAppIds: selectedAutoPilotAppIds,
-        customPrompt: autoPilotCustomPrompt.trim() || undefined,
-        mode: autoPilotBrainChoice
-      };
-      const res = await adminFetch('/api/v1/admin/autopilot/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to start Auto-Pilot');
-      toast(`🚀 Auto-Pilot Queue Engine Launched for ${data.status?.totalApps || selectedAutoPilotAppIds.length} Apps!`, "success");
-      setAutoPilotStatus(data.status);
-    } catch (err: any) {
-      toast(err.message || "Failed to start Auto-Pilot", "error");
-    } finally {
-      setAutoPilotLoading(false);
-    }
-  };
 
-  const handlePauseAutoPilot = async () => {
-    try {
-      const res = await adminFetch('/api/v1/admin/autopilot/pause', { method: 'POST' });
-      const data = await res.json();
-      if (res.ok) setAutoPilotStatus(data.status);
-      toast("⏸️ Auto-Pilot Paused", "info");
-    } catch (err: any) {
-      toast(err.message, "error");
-    }
-  };
+    setAutoPilotRunning(true);
+    setAutoPilotPaused(false);
+    autoPilotQueueRunningRef.current = true;
+    autoPilotQueuePausedRef.current = false;
 
-  const handleResumeAutoPilot = async () => {
-    try {
-      const res = await adminFetch('/api/v1/admin/autopilot/resume', { method: 'POST' });
-      const data = await res.json();
-      if (res.ok) setAutoPilotStatus(data.status);
-      toast("▶️ Auto-Pilot Resumed", "success");
-    } catch (err: any) {
-      toast(err.message, "error");
-    }
-  };
+    addAutobotLog(`🚀 Brain 1 Autopilot Queue launched for ${targetApps.length} apps. Destination: ${autoPilotSaveDirectly ? 'Direct Upload to Firestore' : 'Downside Review Deck'}.`, 'success');
 
-  const handleStopAutoPilot = async () => {
-    try {
-      const res = await adminFetch('/api/v1/admin/autopilot/stop', { method: 'POST' });
-      const data = await res.json();
-      if (res.ok) setAutoPilotStatus(data.status);
-      toast("🛑 Auto-Pilot Stopped", "info");
-    } catch (err: any) {
-      toast(err.message, "error");
-    }
-  };
+    let processedCount = 0;
+    let totalGeneratedInQueue = 0;
 
-  const handleClearAutoPilotLogs = async () => {
-    try {
-      const res = await adminFetch('/api/v1/admin/autopilot/logs', { method: 'DELETE' });
-      const data = await res.json();
-      if (res.ok) {
-        setAutoPilotStatus(data.status);
-        toast("Logs cleared", "info");
+    for (let i = 0; i < targetApps.length; i++) {
+      if (!autoPilotQueueRunningRef.current) break;
+
+      // Handle pause loop
+      while (autoPilotQueuePausedRef.current && autoPilotQueueRunningRef.current) {
+        await new Promise(r => setTimeout(r, 600));
       }
-    } catch (e: any) {
-      toast(e.message, "error");
+
+      if (!autoPilotQueueRunningRef.current) break;
+
+      const app = targetApps[i];
+      setAutoPilotCurrentApp(app);
+      setAutoPilotProgress({
+        current: i,
+        total: targetApps.length,
+        percent: Math.round((i / targetApps.length) * 100)
+      });
+
+      try {
+        setAutobotCurrentStage('ingesting');
+        addAutobotLog(`[Queue App ${i + 1}/${targetApps.length}] Ingesting dossier for "${app.name}" (${app.category || 'Card'})...`, 'info');
+
+        setAutobotCurrentStage('reasoning');
+        setAutobotCurrentStage('synthesizing');
+
+        const res = await adminFetch('/api/v1/admin/community/brain1/autobot/step', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            appId: app.id,
+            appData: app,
+            count: autoPilotCountPerApp,
+            targetScore: app.rating ? Math.min(5.0, Math.max(3.0, Number(app.rating))) : 4.8,
+            customPrompt: customPrompt.trim() || undefined,
+            languageStyle: brain1LanguageStyle,
+            saveDirectly: autoPilotSaveDirectly,
+            preferredModel: brain1Model,
+            temperature: brain1Temperature,
+            reviewLength: brain1ReviewLength,
+            personaProfile: brain1PersonaProfile,
+            focusAspects: brain1FocusAspects
+          })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Queue step failed');
+
+        const generated = data.reviews || [];
+        const countGen = generated.length;
+        totalGeneratedInQueue += countGen;
+
+        setAutobotCurrentStage('sanitizing');
+
+        if (autoPilotSaveDirectly) {
+          setAutobotCurrentStage('published');
+          addAutobotLog(`[Queue Firestore Upload] Directly uploaded ${countGen} reviews for "${app.name}" to Firestore!`, 'success');
+          setAutobotSessionStats(prev => ({
+            ...prev,
+            totalGenerated: prev.totalGenerated + countGen,
+            autoPublished: prev.autoPublished + countGen,
+            cyclesCompleted: prev.cyclesCompleted + 1,
+            lastModel: data.modelUsed || 'gemini-3.8-flash',
+            lastLatencyMs: data.timeTakenMs || 0
+          }));
+          if (onReviewsGenerated) onReviewsGenerated();
+        } else {
+          setAutobotCurrentStage('staged');
+          const enriched = generated.map((r: any) => ({
+            ...r,
+            appId: r.appId || app.id,
+            appName: r.appName || app.name,
+            appSlug: r.appSlug || app.slug,
+            appIcon: r.appIcon || app.icon_url,
+            appCategory: r.appCategory || app.category,
+            _brainMode: 'brain1',
+            _model: data.modelUsed
+          }));
+          setStagedReviews(prev => [...enriched, ...prev]);
+          addAutobotLog(`[Queue Staged] Staged ${countGen} reviews for "${app.name}" in downside deck!`, 'success');
+          setAutobotSessionStats(prev => ({
+            ...prev,
+            totalGenerated: prev.totalGenerated + countGen,
+            staged: prev.staged + countGen,
+            cyclesCompleted: prev.cyclesCompleted + 1,
+            lastModel: data.modelUsed || 'gemini-3.8-flash',
+            lastLatencyMs: data.timeTakenMs || 0
+          }));
+        }
+
+        processedCount++;
+
+        // Pacing buffer before moving to next app
+        if (i < targetApps.length - 1 && autoPilotQueueRunningRef.current) {
+          addAutobotLog(`⏳ Pacing buffer (${autoPilotCycleDelay}s) before next app...`, 'info');
+          await new Promise(r => setTimeout(r, autoPilotCycleDelay * 1000));
+        }
+      } catch (err: any) {
+        addAutobotLog(`⚠️ App "${app.name}" encountered error: ${err.message || 'Unknown error'}. Continuing queue...`, 'warn');
+      }
     }
+
+    setAutoPilotProgress({
+      current: targetApps.length,
+      total: targetApps.length,
+      percent: 100
+    });
+    setAutoPilotRunning(false);
+    setAutoPilotPaused(false);
+    autoPilotQueueRunningRef.current = false;
+    autoPilotQueuePausedRef.current = false;
+    setAutoPilotCurrentApp(null);
+    setAutobotCurrentStage('idle');
+
+    addAutobotLog(`🏁 Brain 1 Autopilot Queue completed! Generated ${totalGeneratedInQueue} reviews across ${processedCount} apps.`, 'success');
+    toast(`🏁 Autopilot Queue completed: ${totalGeneratedInQueue} reviews generated!`, "success");
   };
 
-  // ==========================================
-  // BULK BATCH GENERATION State & Handlers
-  // ==========================================
-  const [bulkCountPerApp, setBulkCountPerApp] = useState<number>(3);
-  const [bulkCategory, setBulkCategory] = useState<string>('all');
-  const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number; active: boolean } | null>(null);
-  const [bulkResult, setBulkResult] = useState<{ totalGenerated: number; totalApps: number } | null>(null);
-  const [bulkBrainChoice, setBulkBrainChoice] = useState<'local' | 'research'>('local');
-  const [bulkLanguageStyle, setBulkLanguageStyle] = useState<'proper_english' | 'hinglish' | 'natural_mix'>('proper_english');
+  const pauseBrain1AutoPilotQueue = () => {
+    setAutoPilotPaused(true);
+    autoPilotQueuePausedRef.current = true;
+    addAutobotLog(`⏸️ Autopilot queue paused by admin.`, 'warn');
+  };
+
+  const resumeBrain1AutoPilotQueue = () => {
+    setAutoPilotPaused(false);
+    autoPilotQueuePausedRef.current = false;
+    addAutobotLog(`▶️ Resuming Autopilot queue...`, 'info');
+  };
+
+  const stopBrain1AutoPilotQueue = () => {
+    setAutoPilotRunning(false);
+    setAutoPilotPaused(false);
+    autoPilotQueueRunningRef.current = false;
+    autoPilotQueuePausedRef.current = false;
+    setAutoPilotCurrentApp(null);
+    setAutobotCurrentStage('idle');
+    addAutobotLog(`⏹️ Autopilot queue stopped and returned to standby.`, 'info');
+  };
 
   const categories = useMemo(() => {
     const cats = new Set<string>();
@@ -639,7 +709,12 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           targetScore,
           customPrompt: customPrompt.trim() || undefined,
           languageStyle: brain1LanguageStyle,
-          saveDirectly: directSave
+          saveDirectly: directSave,
+          preferredModel: brain1Model,
+          temperature: brain1Temperature,
+          reviewLength: brain1ReviewLength,
+          personaProfile: brain1PersonaProfile,
+          focusAspects: brain1FocusAspects
         })
       });
 
@@ -813,39 +888,36 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
     }
   };
 
-  const executeBrain2Step = async (instant: boolean = false, directSaveOverride?: boolean) => {
-    if (!currentApp) return 0;
-    const appId = String(currentApp.id || currentApp.slug || '');
+  const executeBrain2Step = async (instant: boolean = false, directSaveOverride?: boolean, overrideApp?: any) => {
+    const targetApp = overrideApp || currentApp;
+    if (!targetApp) return 0;
+    const appId = String(targetApp.id || targetApp.slug || '');
     const countToGen = instant ? brain2Count : brain2BatchSize;
-    const targetRating = brain2TargetScore || Number(currentApp.rating) || 4.2;
+    const targetRating = brain2TargetScore || Number(targetApp.rating) || 4.2;
     const shouldSaveDirect = directSaveOverride !== undefined ? directSaveOverride : brain2SaveDirectly;
 
     try {
       setBrain2CurrentStage('resolving_target');
-      addBrain2Log(`[Stage 1/5] Target resolved: "${currentApp.name}" by "${currentApp.developer || 'Studio'}" (Category-agnostic exact match).`, 'reasoning');
+      addBrain2Log(`[Stage 1/5] Target resolved: "${targetApp.name}" by "${targetApp.developer || 'Studio'}" (Category-agnostic exact match).`, 'reasoning');
 
       setBrain2CurrentStage('web_searching');
-      addBrain2Log(`[Stage 2/5] Live Search Grounding: researching Play Store reviews & player discussions for "${currentApp.name}"...`, 'reasoning');
-
-      let effectivePrompt = '';
-      if (brain2Focus === 'bugs') {
-        effectivePrompt = 'Focus on bug reports, stutter, device compatibility, and server reconnect feedback.';
-      } else if (brain2Focus === 'controls') {
-        effectivePrompt = 'Focus on UI smoothness, responsive touch controls, and overall gameplay experience.';
-      }
-      if (brain2CustomQuery.trim()) {
-        effectivePrompt = effectivePrompt ? `${effectivePrompt} ${brain2CustomQuery.trim()}` : brain2CustomQuery.trim();
-      }
+      addBrain2Log(`[Stage 2/5] Live Search Grounding: researching Play Store reviews for "${targetApp.name}" with model "${brain2Model}" (Temp: ${brain2Temperature.toFixed(2)}, Persona: ${brain2PersonaProfile})...`, 'reasoning');
 
       const res = await adminFetch('/api/v1/admin/community/brain2/autobot/step', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           appId,
-          appData: currentApp,
+          appData: targetApp,
           count: countToGen,
           targetScore: targetRating,
-          customPrompt: effectivePrompt || undefined,
+          customPrompt: brain2CustomQuery.trim() || undefined,
+          preferredModel: brain2Model,
+          temperature: brain2Temperature,
+          reviewLength: brain2ReviewLength,
+          personaProfile: brain2PersonaProfile,
+          languageStyle: brain2LanguageStyle,
+          focusVectors: brain2FocusVectors,
           saveDirectly: shouldSaveDirect
         })
       });
@@ -1129,61 +1201,6 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
     }
   };
 
-  // Run Bulk Batch
-  const handleRunBulkBatch = async () => {
-    let targetApps = appsList;
-    if (bulkCategory !== 'all') {
-      targetApps = appsList.filter(a => a.category && a.category.toLowerCase().includes(bulkCategory.toLowerCase()));
-    }
-
-    if (targetApps.length === 0) {
-      toast("No apps found in this category", "error");
-      return;
-    }
-
-    try {
-      setBulkProgress({ current: 0, total: targetApps.length, active: true });
-      let totalGenerated = 0;
-
-      // Execute sequentially on the frontend to prevent server timeout
-      for (let i = 0; i < targetApps.length; i++) {
-        setBulkProgress({ current: i, total: targetApps.length, active: true });
-        try {
-          const res = await adminFetch('/api/v1/admin/community/ai-generate/bulk', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              appIds: [targetApps[i].id],
-              countPerApp: bulkCountPerApp,
-              targetScore: 4.8,
-              mode: bulkBrainChoice,
-              languageStyle: bulkLanguageStyle
-            })
-          });
-
-          const data = await res.json();
-          if (res.ok) {
-            totalGenerated += (data.totalGenerated || bulkCountPerApp);
-          }
-        } catch (stepErr) {
-          console.warn(`Bulk generation failed for app ${targetApps[i].id}`, stepErr);
-        }
-      }
-
-      setBulkProgress({ current: targetApps.length, total: targetApps.length, active: true });
-      setBulkResult({
-        totalGenerated: totalGenerated,
-        totalApps: targetApps.length
-      });
-      toast(`🎉 Bulk Batch Complete! Generated ${totalGenerated} reviews.`, "success");
-      if (onReviewsGenerated) onReviewsGenerated();
-    } catch (err: any) {
-      toast(err.message || "Bulk generation failed", "error");
-    } finally {
-      setBulkProgress(null);
-    }
-  };
-
   return (
     <div className="space-y-6">
       
@@ -1287,102 +1304,62 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           </div>
         </div>
 
-        {/* 4 PRIMARY SEPARATE WORKSPACE TABS */}
-        <div className="mt-6 pt-5 border-t border-slate-800/80 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* 2 PRIMARY WORKSPACE TABS */}
+        <div className="mt-6 pt-5 border-t border-slate-800/80 grid grid-cols-1 sm:grid-cols-2 gap-4">
           
-          {/* TAB 1: BRAIN 1 (Deep Dossier Studio) */}
+          {/* TAB 1: BRAIN 1 (Deep Dossier & Full HTML Engine with Autopilot Queue) */}
           <button
             onClick={() => setMode('brain1')}
-            className={`flex items-start gap-3 p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+            className={`flex items-start gap-3.5 p-4 rounded-2xl border text-left transition-all cursor-pointer ${
               mode === 'brain1'
                 ? 'bg-gradient-to-r from-emerald-950/80 to-teal-950/60 border-emerald-500/80 text-white shadow-lg shadow-emerald-950/40 ring-2 ring-emerald-500/30'
                 : 'bg-slate-800/40 border-slate-800/80 text-slate-400 hover:text-slate-200 hover:bg-slate-800/70'
             }`}
           >
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
               mode === 'brain1' ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30' : 'bg-slate-800 text-slate-400'
             }`}>
-              <Cpu size={18} />
+              <Cpu size={20} />
             </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-black tracking-wide text-white">Part 1: Brain 1</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-emerald-500/20 text-emerald-300 font-bold">Dossier</span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-black tracking-wide text-white">Part 1: Brain 1 (Dossier & Autopilot)</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
+                  Full HTML
+                </span>
               </div>
-              <p className="text-[11px] text-slate-300 font-medium truncate mt-0.5">Deep Database Comprehension</p>
-              <p className="text-[10px] text-slate-400 leading-tight mt-1 line-clamp-1">Analyzes full HTML rules, tables & alerts</p>
+              <p className="text-xs text-slate-300 font-medium truncate mt-1">Deep Database Comprehension & Multi-App Queue</p>
+              <p className="text-[11px] text-slate-400 leading-snug mt-1">
+                Analyzes full HTML rules, tables & alerts for single apps or multi-app catalog queue. Generated reviews stage at downside with app logo & direct upload options.
+              </p>
             </div>
           </button>
 
-          {/* TAB 2: BRAIN 2 (Live Web Researcher) */}
+          {/* TAB 2: BRAIN 2 (Live Internet Web Researcher) */}
           <button
             onClick={() => setMode('brain2')}
-            className={`flex items-start gap-3 p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+            className={`flex items-start gap-3.5 p-4 rounded-2xl border text-left transition-all cursor-pointer ${
               mode === 'brain2'
                 ? 'bg-gradient-to-r from-indigo-950/80 to-purple-950/60 border-indigo-500/80 text-white shadow-lg shadow-indigo-950/40 ring-2 ring-indigo-500/30'
                 : 'bg-slate-800/40 border-slate-800/80 text-slate-400 hover:text-slate-200 hover:bg-slate-800/70'
             }`}
           >
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
               mode === 'brain2' ? 'bg-indigo-500 text-white shadow-md shadow-indigo-500/30' : 'bg-slate-800 text-slate-400'
             }`}>
-              <Globe size={18} />
+              <Globe size={20} />
             </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-black tracking-wide text-white">Part 2: Brain 2</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-indigo-500/20 text-indigo-300 font-bold">Web Live</span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-black tracking-wide text-white">Part 2: Brain 2 (Web Researcher)</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 font-bold border border-indigo-500/30">
+                  Web Live
+                </span>
               </div>
-              <p className="text-[11px] text-slate-300 font-medium truncate mt-0.5">Live Internet Researcher</p>
-              <p className="text-[10px] text-slate-400 leading-tight mt-1 line-clamp-1">Searches Reddit & Play Store sentiments</p>
-            </div>
-          </button>
-
-          {/* TAB 3: AUTO-PILOT QUEUE ENGINE */}
-          <button
-            onClick={() => setMode('autopilot')}
-            className={`flex items-start gap-3 p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
-              mode === 'autopilot'
-                ? 'bg-gradient-to-r from-blue-950/80 to-slate-900 border-blue-500/80 text-white shadow-lg shadow-blue-950/40 ring-2 ring-blue-500/30'
-                : 'bg-slate-800/40 border-slate-800/80 text-slate-400 hover:text-slate-200 hover:bg-slate-800/70'
-            }`}
-          >
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
-              mode === 'autopilot' ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30' : 'bg-slate-800 text-slate-400'
-            }`}>
-              <Play size={18} />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-black tracking-wide text-white">Part 3: Auto-Pilot</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-blue-500/20 text-blue-300 font-bold">Queue</span>
-              </div>
-              <p className="text-[11px] text-slate-300 font-medium truncate mt-0.5">Catalog Background Runner</p>
-              <p className="text-[10px] text-slate-400 leading-tight mt-1 line-clamp-1">Automated multi-app review execution</p>
-            </div>
-          </button>
-
-          {/* TAB 4: 1-CLICK BULK BATCH */}
-          <button
-            onClick={() => setMode('bulk')}
-            className={`flex items-start gap-3 p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
-              mode === 'bulk'
-                ? 'bg-gradient-to-r from-cyan-950/80 to-slate-900 border-cyan-500/80 text-white shadow-lg shadow-cyan-950/40 ring-2 ring-cyan-500/30'
-                : 'bg-slate-800/40 border-slate-800/80 text-slate-400 hover:text-slate-200 hover:bg-slate-800/70'
-            }`}
-          >
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
-              mode === 'bulk' ? 'bg-cyan-600 text-white shadow-md shadow-cyan-500/30' : 'bg-slate-800 text-slate-400'
-            }`}>
-              <Zap size={18} />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-black tracking-wide text-white">Part 4: Bulk Batch</span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-cyan-500/20 text-cyan-300 font-bold">1-Click</span>
-              </div>
-              <p className="text-[11px] text-slate-300 font-medium truncate mt-0.5">Category-Wide Batch Rollout</p>
-              <p className="text-[10px] text-slate-400 leading-tight mt-1 line-clamp-1">Simultaneous multi-app generation</p>
+              <p className="text-xs text-slate-300 font-medium truncate mt-1">Live Internet Researcher & Search Grounding</p>
+              <p className="text-[11px] text-slate-400 leading-snug mt-1">
+                Searches Google, Reddit, Play Store sentiments & real community reviews with Live Web grounding.
+              </p>
             </div>
           </button>
 
@@ -1390,10 +1367,11 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* 2. PART 1: BRAIN 1 — DEEP DOSSIER AUTOBOT ENGINE */}
+      {/* 2. PART 1: BRAIN 1 — DEEP DOSSIER & AUTOPILOT ENGINE */}
       {/* ========================================================================= */}
       {mode === 'brain1' && (
         <Brain1Studio
+          appsList={appsList}
           currentApp={currentApp}
           filteredApps={filteredApps}
           selectedAppId={selectedAppId}
@@ -1405,6 +1383,18 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           setCustomPrompt={setCustomPrompt}
           brain1LanguageStyle={brain1LanguageStyle}
           setBrain1LanguageStyle={handleSetBrain1LanguageStyle}
+          brain1Model={brain1Model}
+          setBrain1Model={setBrain1Model}
+          brain1Temperature={brain1Temperature}
+          setBrain1Temperature={setBrain1Temperature}
+          brain1ReviewLength={brain1ReviewLength}
+          setBrain1ReviewLength={setBrain1ReviewLength}
+          brain1PersonaProfile={brain1PersonaProfile}
+          setBrain1PersonaProfile={setBrain1PersonaProfile}
+          brain1FocusAspects={brain1FocusAspects}
+          setBrain1FocusAspects={setBrain1FocusAspects}
+          availableModels={aiStatusData?.availableModels || []}
+          activeAiModel={aiStatusData?.activeModel || 'gemini-2.5-pro'}
           autobotActive={autobotActive}
           autobotPaused={autobotPaused}
           autobotExecutionMode={autobotExecutionMode}
@@ -1428,6 +1418,45 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           onStopAutobot={stopAutobotRunner}
           onExecuteStep={executeAutobotStep}
           onResetSession={resetAutobotSession}
+
+          // Multi-App Autopilot Queue Props
+          selectedAutoPilotAppIds={selectedAutoPilotAppIds}
+          onToggleAutoPilotApp={toggleAutoPilotApp}
+          onSelectAllAutoPilotApps={handleSelectAllAutoPilotApps}
+          onDeselectAllAutoPilotApps={handleDeselectAllAutoPilotApps}
+          autoPilotAppSearch={autoPilotAppSearch}
+          setAutoPilotAppSearch={setAutoPilotAppSearch}
+          autoPilotCountPerApp={autoPilotCountPerApp}
+          setAutoPilotCountPerApp={setAutoPilotCountPerApp}
+          autoPilotSkipReviews={autoPilotSkipReviews}
+          setAutoPilotSkipReviews={setAutoPilotSkipReviews}
+          autoPilotSkipThreshold={autoPilotSkipThreshold}
+          setAutoPilotSkipThreshold={setAutoPilotSkipThreshold}
+          autoPilotSaveDirectly={autoPilotSaveDirectly}
+          setAutoPilotSaveDirectly={setAutoPilotSaveDirectly}
+          autoPilotCycleDelay={autoPilotCycleDelay}
+          setAutoPilotCycleDelay={setAutoPilotCycleDelay}
+          autoPilotRunning={autoPilotRunning}
+          autoPilotPaused={autoPilotPaused}
+          autoPilotCurrentApp={autoPilotCurrentApp}
+          autoPilotProgress={autoPilotProgress}
+          onStartAutoPilotQueue={startBrain1AutoPilotQueue}
+          onPauseAutoPilotQueue={pauseBrain1AutoPilotQueue}
+          onResumeAutoPilotQueue={resumeBrain1AutoPilotQueue}
+          onStopAutoPilotQueue={stopBrain1AutoPilotQueue}
+
+          // Staged Reviews Downside Deck Props
+          stagedReviews={stagedReviews}
+          generationTelemetry={generationTelemetry}
+          savingStaged={savingStaged}
+          savingReviewIndex={savingReviewIndex}
+          onUpdateReviewName={handleUpdateReviewName}
+          onUpdateReviewRating={handleUpdateReviewRating}
+          onUpdateReviewText={handleUpdateReviewText}
+          onDiscardReview={handleDiscardReview}
+          onDiscardAll={handleDiscardAll}
+          onSaveReviewToLive={handleSaveReviewToLive}
+          onSaveAllStaged={handleSaveAllStaged}
         />
       )}
 
@@ -1438,6 +1467,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
         <Brain2Studio
           currentApp={currentApp}
           filteredApps={filteredApps}
+          appsList={appsList}
           selectedAppId={selectedAppId}
           setSelectedAppId={setSelectedAppId}
           appSearch={appSearch}
@@ -1471,73 +1501,30 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           onStopBrain2Autobot={stopBrain2AutobotRunner}
           onExecuteBrain2Step={executeBrain2Step}
           onResetBrain2Session={resetBrain2Session}
-        />
-      )}
-
-      {/* ========================================================================= */}
-      {/* 4 & 5. STAGED REVIEWS & TELEMETRY */}
-      {/* ========================================================================= */}
-      <StagedReviewsWorkspace
-        stagedReviews={stagedReviews}
-        generationTelemetry={generationTelemetry}
-        savingStaged={savingStaged}
-        savingReviewIndex={savingReviewIndex}
-        onUpdateReviewName={handleUpdateReviewName}
-        onUpdateReviewRating={handleUpdateReviewRating}
-        onUpdateReviewText={handleUpdateReviewText}
-        onDiscardReview={handleDiscardReview}
-        onDiscardAll={handleDiscardAll}
-        onSaveReviewToLive={handleSaveReviewToLive}
-        onSaveAllStaged={handleSaveAllStaged}
-      />
-
-      {/* ========================================================================= */}
-      {/* 6. PART 3: CATALOG AUTO-PILOT ENGINE */}
-      {/* ========================================================================= */}
-      {mode === 'autopilot' && (
-        <AutopilotStudio
-          appsList={appsList}
-          autoPilotStatus={autoPilotStatus}
-          autoPilotLoading={autoPilotLoading}
-          selectedAutoPilotAppIds={selectedAutoPilotAppIds}
-          autoPilotAppSearch={autoPilotAppSearch}
-          setAutoPilotAppSearch={setAutoPilotAppSearch}
-          autoPilotBrainChoice={autoPilotBrainChoice}
-          setAutoPilotBrainChoice={setAutoPilotBrainChoice}
-          autoPilotOptions={autoPilotOptions}
-          setAutoPilotOptions={setAutoPilotOptions}
-          activeModel={aiStatusData?.activeModel || 'gemini-3.8-flash'}
-          onOpenAiSettings={() => setShowAiDiagnosticsModal(true)}
-          onToggleAutoPilotApp={toggleAutoPilotApp}
-          onSelectAllAutoPilotApps={handleSelectAllAutoPilotApps}
-          onDeselectAllAutoPilotApps={handleDeselectAllAutoPilotApps}
-          onStartAutoPilot={handleStartAutoPilot}
-          onPauseAutoPilot={handlePauseAutoPilot}
-          onResumeAutoPilot={handleResumeAutoPilot}
-          onStopAutoPilot={handleStopAutoPilot}
-          onClearAutoPilotLogs={handleClearAutoPilotLogs}
-        />
-      )}
-
-      {/* ========================================================================= */}
-      {/* 7. PART 4: 1-CLICK BULK BATCH STUDIO */}
-      {/* ========================================================================= */}
-      {mode === 'bulk' && (
-        <BulkStudio
-          appsList={appsList}
-          categories={categories}
-          bulkCategory={bulkCategory}
-          setBulkCategory={setBulkCategory}
-          bulkCountPerApp={bulkCountPerApp}
-          setBulkCountPerApp={setBulkCountPerApp}
-          bulkBrainChoice={bulkBrainChoice}
-          setBulkBrainChoice={setBulkBrainChoice}
-          bulkLanguageStyle={bulkLanguageStyle}
-          setBulkLanguageStyle={setBulkLanguageStyle}
-          bulkProgress={bulkProgress}
-          activeModel={aiStatusData?.activeModel || 'gemini-3.8-flash'}
-          onOpenAiSettings={() => setShowAiDiagnosticsModal(true)}
-          onRunBulkBatch={handleRunBulkBatch}
+          brain2Model={brain2Model}
+          setBrain2Model={setBrain2Model}
+          brain2Temperature={brain2Temperature}
+          setBrain2Temperature={setBrain2Temperature}
+          brain2PersonaProfile={brain2PersonaProfile}
+          setBrain2PersonaProfile={setBrain2PersonaProfile}
+          brain2ReviewLength={brain2ReviewLength}
+          setBrain2ReviewLength={setBrain2ReviewLength}
+          brain2LanguageStyle={brain2LanguageStyle}
+          setBrain2LanguageStyle={setBrain2LanguageStyle}
+          brain2FocusVectors={brain2FocusVectors}
+          setBrain2FocusVectors={setBrain2FocusVectors}
+          adminFetch={adminFetch}
+          stagedReviews={stagedReviews}
+          generationTelemetry={generationTelemetry}
+          savingStaged={savingStaged}
+          savingReviewIndex={savingReviewIndex}
+          onUpdateReviewName={handleUpdateReviewName}
+          onUpdateReviewRating={handleUpdateReviewRating}
+          onUpdateReviewText={handleUpdateReviewText}
+          onDiscardReview={handleDiscardReview}
+          onDiscardAll={handleDiscardAll}
+          onSaveReviewToLive={handleSaveReviewToLive}
+          onSaveAllStaged={handleSaveAllStaged}
         />
       )}
 
