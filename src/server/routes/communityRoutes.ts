@@ -19,11 +19,6 @@ import {
 
 export const communityRouter = Router();
 
-// In-memory cache to prevent Firebase quota exhaustion on public site
-const publicReviewsCache = new Map<string, { data: any, timestamp: number }>();
-const CACHE_TTL_MS = 60000; // 60 seconds cache for live reviews
-
-
 // =========================================================================
 // PUBLIC APIS
 // =========================================================================
@@ -146,149 +141,26 @@ communityRouter.get("/api/v1/public/community/stats/:appId", async (req: any, re
 
 // Public Cursor-based Reviews fetch for App Page
 communityRouter.get("/api/v1/public/community/reviews/:appId", async (req: any, res: any) => {
-  console.log("[GET REVIEWS API] Requested appId:", req.params.appId, "query:", req.query);
   const { appId } = req.params;
   const { cursor, limit = 10, appTitle, rating, slug, appSlug } = req.query;
   const targetSlug = slug || appSlug;
 
   try {
-    const fs = require('fs');
-    const path = require('path');
-    const isPublicSite = !fs.existsSync(path.join(process.cwd(), 'src/pages/AdminDashboard.tsx'));
-    let result: any = { reviews: [], hasMore: false, nextCursor: null };
-    let stats: any = { average_rating: Number(rating) || 4.8, total_reviews: 0, rating_distribution: {1:0, 2:0, 3:0, 4:0, 5:0} };
+    const result = communityStore.getReviewsForApp(
+      String(appId).trim(),
+      cursor ? String(cursor) : undefined,
+      Math.min(50, Number(limit) || 10),
+      appTitle ? String(appTitle) : undefined,
+      Number(rating) || 5.0,
+      targetSlug ? String(targetSlug) : undefined
+    );
 
-    // Check cache first if it's the first page
-    const cacheKey = `${appId}_${limit}`;
-    if (isPublicSite && !cursor) {
-      const cached = publicReviewsCache.get(cacheKey);
-      if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-        result = cached.data;
-        // Fallback stats
-        stats = communityStore.getAppStats(
-          String(appId).trim(), 
-          Number(rating) || 4.8, 
-          appTitle ? String(appTitle) : undefined, 
-          targetSlug ? String(targetSlug) : undefined
-        );
-        return res.status(200).json({ success: true, reviews: result.reviews, stats, hasMore: result.hasMore, nextCursor: result.nextCursor });
-      }
-    }
-
-    if (isPublicSite) {
-      // LIVE FIREBASE INTEGRATION: Fetch directly from Firestore on public site
-      const { getCommunityAdminDb } = require('../firebase');
-      const db = getCommunityAdminDb();
-      const fetchLimit = Math.min(50, Number(limit) || 5);
-      const cleanAppId = String(appId).trim();
-
-      if (db) {
-        let query = db.collection('reviews')
-          .where('status', 'in', ['published', 'approved'])
-          .where('appId', '==', cleanAppId)
-          .orderBy('timestamp', 'desc')
-          .limit(fetchLimit + 1);
-        
-        if (cursor) {
-          query = query.startAfter(cursor);
-        }
-        const snap = await query.get();
-        const liveReviews = snap.docs.map((doc: any) => doc.data());
-        
-        result.hasMore = liveReviews.length > fetchLimit;
-        if (result.hasMore) liveReviews.pop();
-        
-        result.reviews = liveReviews;
-        result.nextCursor = liveReviews.length > 0 ? liveReviews[liveReviews.length - 1].timestamp : null;
-        if (!cursor) publicReviewsCache.set(cacheKey, { data: result, timestamp: Date.now() });
-      } else {
-        const { getRawFirebaseConfig } = require('../firebase');
-        const config = getRawFirebaseConfig();
-        const targetProjectId = config.projectId;
-        const targetApiKey = config.apiKey;
-        const dbId = config.firestoreDatabaseId || config.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
-        const url = `https://firestore.googleapis.com/v1/projects/${targetProjectId}/databases/${dbId}/documents:runQuery?key=${targetApiKey}`;
-        
-        const body: any = {
-          structuredQuery: {
-            from: [{ collectionId: 'reviews' }],
-            where: {
-              compositeFilter: {
-                op: 'AND',
-                filters: [
-                  { fieldFilter: { field: { fieldPath: 'appId' }, op: 'EQUAL', value: { stringValue: cleanAppId } } },
-                  { fieldFilter: { field: { fieldPath: 'status' }, op: 'IN', value: { arrayValue: { values: [{ stringValue: 'published' }, { stringValue: 'approved' }] } } } }
-                ]
-              }
-            },
-            orderBy: [{ field: { fieldPath: 'timestamp' }, direction: 'DESCENDING' }],
-            limit: fetchLimit + 1
-          }
-        };
-
-        if (cursor) {
-          body.structuredQuery.startAt = { values: [{ stringValue: cursor }], before: false };
-        }
-
-        try {
-          const fetchRes = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-          });
-
-          if (fetchRes.ok) {
-            const data = await fetchRes.json();
-            const { parseFirestoreFields } = require('../firebase');
-            const liveReviews: any[] = [];
-            for (const item of data) {
-              if (item.document) {
-                liveReviews.push({
-                  id: item.document.name.split('/').pop(),
-                  ...parseFirestoreFields(item.document.fields)
-                });
-              }
-            }
-            
-            result.hasMore = liveReviews.length > fetchLimit;
-            if (result.hasMore) liveReviews.pop();
-            
-            result.reviews = liveReviews;
-            result.nextCursor = liveReviews.length > 0 ? liveReviews[liveReviews.length - 1].timestamp : null;
-            if (!cursor) publicReviewsCache.set(cacheKey, { data: result, timestamp: Date.now() });
-          } else {
-            console.warn('[Community API] REST Query failed:', await fetchRes.text());
-          }
-        } catch (err) {
-          console.error('[Community API] REST Query exception:', err);
-        }
-      }
-      
-      // Fallback stats
-      stats = communityStore.getAppStats(
-        String(appId).trim(), 
-        Number(rating) || 4.8, 
-        appTitle ? String(appTitle) : undefined, 
-        targetSlug ? String(targetSlug) : undefined
-      );
-
-    } else {
-      // Admin Site: Use memory cache
-      result = communityStore.getReviewsForApp(
-        String(appId).trim(),
-        cursor ? String(cursor) : undefined,
-        Math.min(50, Number(limit) || 10),
-        appTitle ? String(appTitle) : undefined,
-        Number(rating) || 5.0,
-        targetSlug ? String(targetSlug) : undefined
-      );
-      stats = communityStore.getAppStats(
-        String(appId).trim(), 
-        Number(rating) || 4.8, 
-        appTitle ? String(appTitle) : undefined, 
-        targetSlug ? String(targetSlug) : undefined
-      );
-    }
+    const stats = communityStore.getAppStats(
+      String(appId).trim(), 
+      Number(rating) || 4.8, 
+      appTitle ? String(appTitle) : undefined, 
+      targetSlug ? String(targetSlug) : undefined
+    );
 
     return res.status(200).json({
       success: true,

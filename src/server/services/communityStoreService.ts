@@ -238,46 +238,106 @@ class CommunityStoreService {
         }
       }
 
-      // Seed verified static reviews if not deleted
-      if (Array.isArray(STATIC_COMMUNITY_REVIEWS)) {
-        STATIC_COMMUNITY_REVIEWS.forEach((r: any) => {
-          if (r && r.id && !this.deletedReviewIds.has(r.id) && !this.reviews.has(r.id)) {
-            this.reviews.set(r.id, {
-              id: r.id,
-              appId: r.appId || r.app_id || '',
-              appSlug: r.appSlug || '',
-              appName: r.appName || '',
-              userName: r.userName || r.username || 'Player',
-              rating: Number(r.rating) || 5,
-              reviewText: sanitizeReviewText(r.reviewText || r.comment || ''),
-              timestamp: r.timestamp || r.created_at || new Date().toISOString(),
-              status: r.status || 'published',
-              helpful_count: Number(r.helpful_count) || 0,
-              isPinned: Boolean(r.isPinned),
-              reported: Boolean(r.reported),
-              report_count: Number(r.report_count) || 0,
-              source: r.source || 'admin_created',
-              adminReply: r.adminReply || null,
-              updated_at: r.updated_at
-            });
-          }
-        });
-      }
-
       console.log(`[CommunityStore] Loaded ${this.reviews.size} reviews, ${this.reports.size} reports, ${this.deletedReviewIds.size} tombstone deletions from local backup.`);
     } catch (e) {
       console.warn('[CommunityStore] Local backup read error:', e);
+    }
+
+    // Pre-load from bundled static reviews if local memory cache is empty
+    if (this.reviews.size === 0) {
+      try {
+        const { STATIC_COMMUNITY_REVIEWS } = require('../../../src/lib/communityReviewsData');
+        if (Array.isArray(STATIC_COMMUNITY_REVIEWS) && STATIC_COMMUNITY_REVIEWS.length > 0) {
+          STATIC_COMMUNITY_REVIEWS.forEach((r: any) => {
+            if (r && r.id && !this.deletedReviewIds.has(r.id)) {
+              this.reviews.set(r.id, {
+                id: r.id,
+                appId: r.appId || '',
+                appSlug: r.appSlug || '',
+                appName: r.appName || '',
+                userName: r.userName || 'Player',
+                rating: Number(r.rating) || 5,
+                reviewText: sanitizeReviewText(r.reviewText || ''),
+                timestamp: r.timestamp || new Date().toISOString(),
+                status: r.status || 'published',
+                helpful_count: Number(r.helpful_count) || 0,
+                isPinned: Boolean(r.isPinned),
+                reported: Boolean(r.reported),
+                report_count: Number(r.report_count) || 0,
+                source: r.source || 'community',
+                adminReply: r.adminReply || null,
+                updated_at: r.updated_at
+              });
+            }
+          });
+          console.log(`[CommunityStore] Preloaded ${this.reviews.size} reviews from STATIC_COMMUNITY_REVIEWS fallback.`);
+        }
+      } catch (e) {}
+    }
+  }
+
+  // Export active in-memory reviews to bundled TypeScript file for instant 0ms client performance and GitHub sync
+  public exportToStaticTypeScript() {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const staticFilePath = path.join(process.cwd(), 'src/lib/communityReviewsData.ts');
+      const activeReviews = Array.from(this.reviews.values())
+        .filter(r => r && r.id && !this.deletedReviewIds.has(r.id))
+        .map(r => ({
+          id: r.id,
+          appId: r.appId || '',
+          appSlug: r.appSlug || '',
+          appName: r.appName || '',
+          userName: r.userName || 'Player',
+          rating: Number(r.rating) || 5,
+          reviewText: r.reviewText || '',
+          timestamp: r.timestamp || new Date().toISOString(),
+          status: r.status || 'published',
+          helpful_count: Number(r.helpful_count) || 0,
+          isPinned: Boolean(r.isPinned),
+          reported: Boolean(r.reported),
+          report_count: Number(r.report_count) || 0,
+          source: r.source || 'community',
+          adminReply: r.adminReply || null,
+          updated_at: r.updated_at || new Date().toISOString()
+        }));
+
+      const tsContent = '// Verified community reviews dataset\n' +
+        'export interface StaticReviewRecord {\n' +
+        '  id: string;\n' +
+        '  appId: string;\n' +
+        '  appSlug?: string;\n' +
+        '  appName?: string;\n' +
+        '  userName: string;\n' +
+        '  rating: number;\n' +
+        '  reviewText: string;\n' +
+        '  timestamp: string;\n' +
+        '  status: \'published\' | \'pending\' | \'rejected\' | string;\n' +
+        '  helpful_count: number;\n' +
+        '  isPinned?: boolean;\n' +
+        '  reported?: boolean;\n' +
+        '  report_count?: number;\n' +
+        '  source?: string;\n' +
+        '  adminReply?: {\n' +
+        '    text: string;\n' +
+        '    author: string;\n' +
+        '    timestamp: string;\n' +
+        '  } | null;\n' +
+        '  updated_at?: string;\n' +
+        '}\n\n' +
+        'export const STATIC_COMMUNITY_REVIEWS: StaticReviewRecord[] = ' + JSON.stringify(activeReviews, null, 2) + ';\n';
+
+      const tempPath = staticFilePath + '.tmp';
+      fs.writeFileSync(tempPath, tsContent, 'utf8');
+      fs.renameSync(tempPath, staticFilePath);
+    } catch (e) {
+      console.warn('[CommunityStore] Error writing static reviews TS file:', e);
     }
   }
 
   // Save in-memory cache to disk and queue Firestore cloud write
   private saveToDiskAndQueueCloudSync() {
-    // PUBLIC SITE SAFEGUARD: Never run bulk syncs or local overwrites from public
-    const fs = require('fs');
-    const path = require('path');
-    const isPublicSite = !fs.existsSync(path.join(process.cwd(), 'src/pages/AdminDashboard.tsx'));
-    if (isPublicSite) return;
-
     try {
       let existingData: any = {};
       if (fs.existsSync(this.localBackupPath)) {
@@ -299,19 +359,12 @@ class CommunityStoreService {
       const tempPath = this.localBackupPath + '.tmp';
       fs.writeFileSync(tempPath, JSON.stringify(data, null, 2), 'utf8');
       fs.renameSync(tempPath, this.localBackupPath);
-
-      // Synchronize with static TypeScript file so git sync and public website receive all active reviews
-      try {
-        const staticTsPath = path.join(process.cwd(), 'src/lib/communityReviewsData.ts');
-        const allReviewsList = Array.from(this.reviews.values());
-        const tsContent = `// Auto-generated verified community reviews dataset\nexport interface StaticReviewRecord {\n  id: string;\n  appId: string;\n  appSlug?: string;\n  appName?: string;\n  userName: string;\n  rating: number;\n  reviewText: string;\n  timestamp: string;\n  status: 'published' | 'pending' | 'rejected' | string;\n  helpful_count: number;\n  isPinned?: boolean;\n  reported?: boolean;\n  report_count?: number;\n  source?: string;\n  adminReply?: {\n    text: string;\n    author: string;\n    timestamp: string;\n  } | null;\n  updated_at?: string;\n}\n\nexport const STATIC_COMMUNITY_REVIEWS: StaticReviewRecord[] = ${JSON.stringify(allReviewsList, null, 2)};\n`;
-        fs.writeFileSync(staticTsPath, tsContent, 'utf8');
-      } catch (tsErr) {
-        console.warn('[CommunityStore] Failed to update communityReviewsData.ts:', tsErr);
-      }
     } catch (e) {
       console.warn('[CommunityStore] Local backup write error:', e);
     }
+
+    // Always keep static bundle synchronized
+    this.exportToStaticTypeScript();
 
     // Skip cloud sync if quota is exhausted
     if (Date.now() < this.quotaExhaustedUntil) {
@@ -331,19 +384,6 @@ class CommunityStoreService {
   // Initialize and pull latest from Firestore
   public async initFromFirestore(forceSync = false) {
     if ((this.initialized && !forceSync) || this.isSyncing) return;
-    
-    // Check if we are running on the public website
-    const fs = require('fs');
-    const path = require('path');
-    const isPublicSite = !fs.existsSync(path.join(process.cwd(), 'src/pages/AdminDashboard.tsx'));
-    
-    if (isPublicSite) {
-      if (!this.initialized) {
-        this.initialized = true;
-        console.log(`[CommunityStore] Running on PUBLIC site. Bypassing bulk Firestore sync to save quota. Live queries will be used.`);
-      }
-      return;
-    }
 
     if (Date.now() < this.quotaExhaustedUntil) {
       if (!this.initialized) {
@@ -358,9 +398,8 @@ class CommunityStoreService {
       if (db) {
         // Load reviews
         try {
-          // Fetch reviews up to 10,000 to ensure full historical catalog is loaded without 500 limit
           const fetchLimit = forceSync ? 5000 : 10000;
-          const snap = await db.collection('reviews').orderBy('timestamp', 'desc').limit(fetchLimit).get();
+          const snap = await db.collection('reviews').limit(fetchLimit).get();
           snap.docs.forEach((doc: any) => {
             if (this.deletedReviewIds.has(doc.id)) {
               this.reviews.delete(doc.id);
@@ -394,6 +433,7 @@ class CommunityStoreService {
               updated_at: d.updated_at
             });
           });
+          this.exportToStaticTypeScript();
         } catch (e: any) {
           if (this.isQuotaError(e)) {
             this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000;
@@ -525,53 +565,6 @@ class CommunityStoreService {
           }
         }
       }
-      
-      // Restore chunked Firestore documents to ensure 1,000+ reviews load completely
-      try {
-        const metaDoc = await safeReadDb('community_store_meta', undefined, 'community_store');
-        if (metaDoc?.deleted_review_ids && Array.isArray(metaDoc.deleted_review_ids)) {
-          metaDoc.deleted_review_ids.forEach((id: string) => {
-            if (id) this.deletedReviewIds.add(String(id));
-          });
-        }
-        if (metaDoc && metaDoc.chunks_count) {
-          const numChunks = Math.min(40, Number(metaDoc.chunks_count) || 1);
-          for (let i = 0; i < numChunks; i++) {
-            const chunkDoc = await safeReadDb(`community_reviews_chunk_${i}`, undefined, 'community_store');
-            if (chunkDoc?.reviews && Array.isArray(chunkDoc.reviews)) {
-              chunkDoc.reviews.forEach((r: ReviewRecord) => {
-                if (r?.id && !this.deletedReviewIds.has(r.id)) {
-                  const existing = this.reviews.get(r.id);
-                  if (!existing || (r.updated_at && (!existing.updated_at || new Date(r.updated_at).getTime() > new Date(existing.updated_at).getTime()))) {
-                    r.reviewText = sanitizeReviewText(r.reviewText, r.appName);
-                    this.reviews.set(r.id, r);
-                  }
-                }
-              });
-            }
-          }
-        }
-      } catch (chunkErr) {
-        console.warn('[CommunityStore] Chunked restore notice:', chunkErr);
-      }
-
-      // Fallback REST doc check for legacy community_store
-      try {
-        const legacyDoc = await safeReadDb('community_store', undefined, 'community_store');
-        if (legacyDoc?.reviews && Array.isArray(legacyDoc.reviews)) {
-          legacyDoc.reviews.forEach((r: ReviewRecord) => {
-            if (r?.id && !this.deletedReviewIds.has(r.id) && !this.reviews.has(r.id)) {
-              r.reviewText = sanitizeReviewText(r.reviewText, r.appName);
-              this.reviews.set(r.id, r);
-            }
-          });
-        }
-        if (legacyDoc?.reports && Array.isArray(legacyDoc.reports)) {
-          legacyDoc.reports.forEach((rep: ReportRecord) => {
-            if (rep?.id && !this.reports.has(rep.id)) this.reports.set(rep.id, rep);
-          });
-        }
-      } catch (e) {}
 
       if (!this.initialized && !forceSync) {
         console.log(`[CommunityStore] Firestore sync complete: ${this.reviews.size} reviews, ${this.reports.size} reports.`);
@@ -1098,10 +1091,16 @@ class CommunityStoreService {
     this.reports.set(id, newReport);
 
     const db = getCommunityAdminDb();
-    if (db) {
-      db.collection('reports').doc(id).set(newReport).catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
-    } else {
-      safeWriteDb(id, newReport, undefined, true, 'reports').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
+    try {
+      if (db) {
+        await db.collection('reports').doc(id).set(newReport);
+      } else {
+        const ok = await safeWriteDb(id, newReport, undefined, true, 'reports');
+        if (!ok) console.warn("[CommunityStore] REST API Firestore write for report failed.");
+      }
+    } catch (e: any) {
+      if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000;
+      console.warn("[CommunityStore] Community Firebase addReport write notice:", e);
     }
 
     this.saveToDiskAndQueueCloudSync();

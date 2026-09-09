@@ -459,10 +459,10 @@ export async function deleteFirestoreRestDoc(docId: string, authToken?: string, 
       collectionPath.startsWith('community_') || 
       docId.startsWith('community_') || 
       docId.startsWith('rev_');
-    if (isCommunity) {
-      targetProjectId = 'rummydexcommunity';
-      targetApiKey = process.env.COMMUNITY_FIREBASE_API_KEY || 'AIzaSyBey9sUbeWrcXS2kl4ewOzkTy4arg03Ok';
-      dbId = '(default)';
+    if (isCommunity && process.env.COMMUNITY_FIREBASE_PROJECT_ID) {
+      targetProjectId = process.env.COMMUNITY_FIREBASE_PROJECT_ID;
+      targetApiKey = process.env.COMMUNITY_FIREBASE_API_KEY || config.apiKey;
+      dbId = process.env.COMMUNITY_FIREBASE_DATABASE_ID || '(default)';
     }
     const finalApiKeyParam = targetApiKey ? `?key=${targetApiKey}` : '';
     const url = `https://firestore.googleapis.com/v1/projects/${targetProjectId}/databases/${dbId}/documents/${collectionPath}/${docId}${finalApiKeyParam}`;
@@ -497,10 +497,10 @@ export async function readFirestoreRestDoc(docId: string, authToken?: string, co
       collectionPath.startsWith('community_') || 
       docId.startsWith('community_') || 
       docId.startsWith('rev_');
-    if (isCommunity) {
-      targetProjectId = 'rummydexcommunity';
-      targetApiKey = process.env.COMMUNITY_FIREBASE_API_KEY || 'AIzaSyBey9sUbeWrcXS2kl4ewOzkTy4arg03Ok';
-      dbId = '(default)';
+    if (isCommunity && process.env.COMMUNITY_FIREBASE_PROJECT_ID) {
+      targetProjectId = process.env.COMMUNITY_FIREBASE_PROJECT_ID;
+      targetApiKey = process.env.COMMUNITY_FIREBASE_API_KEY || config.apiKey;
+      dbId = process.env.COMMUNITY_FIREBASE_DATABASE_ID || '(default)';
     }
     const finalApiKeyParam = targetApiKey ? `?key=${targetApiKey}` : '';
     const url = `https://firestore.googleapis.com/v1/projects/${targetProjectId}/databases/${dbId}/documents/${collectionPath}/${docId}${finalApiKeyParam}`;
@@ -531,10 +531,10 @@ export async function readFirestoreRestCollection(collectionPath: string, authTo
       collectionPath === 'reports' || 
       collectionPath === 'community_store' || 
       collectionPath.startsWith('community_');
-    if (isCommunity) {
-      targetProjectId = 'rummydexcommunity';
-      targetApiKey = process.env.COMMUNITY_FIREBASE_API_KEY || 'AIzaSyBey9sUbeWrcXS2kl4ewOzkTy4arg03Ok';
-      dbId = '(default)';
+    if (isCommunity && process.env.COMMUNITY_FIREBASE_PROJECT_ID) {
+      targetProjectId = process.env.COMMUNITY_FIREBASE_PROJECT_ID;
+      targetApiKey = process.env.COMMUNITY_FIREBASE_API_KEY || config.apiKey;
+      dbId = process.env.COMMUNITY_FIREBASE_DATABASE_ID || '(default)';
     }
 
     const headers: Record<string, string> = {};

@@ -1,4 +1,4 @@
-// Auto-generated verified community reviews dataset
+// Verified community reviews dataset
 export interface StaticReviewRecord {
   id: string;
   appId: string;
@@ -23,6 +23,24 @@ export interface StaticReviewRecord {
 }
 
 export const STATIC_COMMUNITY_REVIEWS: StaticReviewRecord[] = [
+  {
+    "id": "rev_1788887222827_9t43j",
+    "appId": "test_app_123",
+    "appSlug": "",
+    "appName": "",
+    "userName": "Public User",
+    "rating": 5,
+    "reviewText": "This is submitted through Express route!",
+    "timestamp": "2026-09-08T17:07:02.827Z",
+    "status": "published",
+    "helpful_count": 0,
+    "isPinned": false,
+    "reported": false,
+    "report_count": 0,
+    "source": "community",
+    "adminReply": null,
+    "updated_at": "2026-09-08T17:07:02.827Z"
+  },
   {
     "id": "rev_1788886688897_l8eif",
     "appId": "2ovzpzjxy",
@@ -1126,24 +1144,6 @@ export const STATIC_COMMUNITY_REVIEWS: StaticReviewRecord[] = [
     "updated_at": "2026-08-22T02:47:03.987Z"
   },
   {
-    "id": "user_1787322844207_ba7zm",
-    "appId": "",
-    "appSlug": "",
-    "appName": "",
-    "userName": "Player",
-    "rating": 5,
-    "reviewText": "",
-    "timestamp": "2026-08-22T01:51:05.154Z",
-    "status": "rejected",
-    "helpful_count": 1,
-    "isPinned": false,
-    "reported": false,
-    "report_count": 0,
-    "source": "community",
-    "adminReply": null,
-    "updated_at": "2026-08-22T03:20:47.975Z"
-  },
-  {
     "id": "rev_1787363376274_cp8ae",
     "appId": "7rk45110u",
     "appSlug": "",
@@ -1734,7 +1734,8 @@ export const STATIC_COMMUNITY_REVIEWS: StaticReviewRecord[] = [
     "reported": false,
     "report_count": 0,
     "source": "community",
-    "adminReply": null
+    "adminReply": null,
+    "updated_at": "2026-09-09T03:43:41.908Z"
   },
   {
     "id": "eeLUSuUxmfF0ShcUGNBB",
@@ -6525,21 +6526,39 @@ export const STATIC_COMMUNITY_REVIEWS: StaticReviewRecord[] = [
     "updated_at": "2026-08-23T08:39:13.124Z"
   },
   {
-    "id": "rev_1788887222827_9t43j",
+    "id": "rev_test_admin",
     "appId": "test_app_123",
     "appSlug": "",
     "appName": "",
-    "userName": "Public User",
+    "userName": "Tester",
     "rating": 5,
-    "reviewText": "This is submitted through Express route!",
-    "timestamp": "2026-09-08T17:07:02.827Z",
-    "status": "published",
+    "reviewText": "This is a test review via Admin SDK!",
+    "timestamp": "2026-09-09T03:43:41.906Z",
+    "status": "pending",
     "helpful_count": 0,
     "isPinned": false,
     "reported": false,
     "report_count": 0,
     "source": "community",
     "adminReply": null,
-    "updated_at": "2026-09-08T17:07:02.827Z"
+    "updated_at": "2026-09-09T03:43:41.908Z"
+  },
+  {
+    "id": "user_1787322844207_ba7zm",
+    "appId": "",
+    "appSlug": "",
+    "appName": "",
+    "userName": "Player",
+    "rating": 5,
+    "reviewText": "",
+    "timestamp": "2026-08-22T01:51:05.154Z",
+    "status": "rejected",
+    "helpful_count": 1,
+    "isPinned": false,
+    "reported": false,
+    "report_count": 0,
+    "source": "community",
+    "adminReply": null,
+    "updated_at": "2026-08-22T03:20:47.975Z"
   }
 ];
