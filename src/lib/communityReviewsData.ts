@@ -6560,5 +6560,23 @@ export const STATIC_COMMUNITY_REVIEWS: StaticReviewRecord[] = [
     "source": "community",
     "adminReply": null,
     "updated_at": "2026-08-22T03:20:47.975Z"
+  },
+  {
+    "id": "rev_1788982135202_9mtol",
+    "appId": "l7e8oyo9m",
+    "appSlug": "yono-arcade",
+    "appName": "YONO ARCADE",
+    "userName": "Rohit_Verma",
+    "rating": 5,
+    "reviewText": "Testing live public review submission on Yono Arcade! Super fast!",
+    "timestamp": "2026-09-09T19:28:55.202Z",
+    "status": "published",
+    "helpful_count": 0,
+    "isPinned": false,
+    "reported": false,
+    "report_count": 0,
+    "source": "community",
+    "adminReply": null,
+    "updated_at": "2026-09-09T19:28:55.202Z"
   }
 ];

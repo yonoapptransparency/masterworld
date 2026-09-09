@@ -190,7 +190,7 @@ class CommunityStoreService {
   private isSyncing = false;
   private quotaExhaustedUntil = 0;
   private syncTimer: NodeJS.Timeout | null = null;
-  private localBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
+  private localBackupPath = path.join(process.cwd(), 'community_local_backup.json');
 
   constructor() {
     this.loadFromLocalBackup();
@@ -278,64 +278,10 @@ class CommunityStoreService {
     }
   }
 
-  // Export active in-memory reviews to bundled TypeScript file for instant 0ms client performance and GitHub sync
+  // Reviews are now served live from Firebase on demand; static file export is disabled to prevent pushing reviews to public repo
   public exportToStaticTypeScript() {
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      const staticFilePath = path.join(process.cwd(), 'src/lib/communityReviewsData.ts');
-      const activeReviews = Array.from(this.reviews.values())
-        .filter(r => r && r.id && !this.deletedReviewIds.has(r.id))
-        .map(r => ({
-          id: r.id,
-          appId: r.appId || '',
-          appSlug: r.appSlug || '',
-          appName: r.appName || '',
-          userName: r.userName || 'Player',
-          rating: Number(r.rating) || 5,
-          reviewText: r.reviewText || '',
-          timestamp: r.timestamp || new Date().toISOString(),
-          status: r.status || 'published',
-          helpful_count: Number(r.helpful_count) || 0,
-          isPinned: Boolean(r.isPinned),
-          reported: Boolean(r.reported),
-          report_count: Number(r.report_count) || 0,
-          source: r.source || 'community',
-          adminReply: r.adminReply || null,
-          updated_at: r.updated_at || new Date().toISOString()
-        }));
-
-      const tsContent = '// Verified community reviews dataset\n' +
-        'export interface StaticReviewRecord {\n' +
-        '  id: string;\n' +
-        '  appId: string;\n' +
-        '  appSlug?: string;\n' +
-        '  appName?: string;\n' +
-        '  userName: string;\n' +
-        '  rating: number;\n' +
-        '  reviewText: string;\n' +
-        '  timestamp: string;\n' +
-        '  status: \'published\' | \'pending\' | \'rejected\' | string;\n' +
-        '  helpful_count: number;\n' +
-        '  isPinned?: boolean;\n' +
-        '  reported?: boolean;\n' +
-        '  report_count?: number;\n' +
-        '  source?: string;\n' +
-        '  adminReply?: {\n' +
-        '    text: string;\n' +
-        '    author: string;\n' +
-        '    timestamp: string;\n' +
-        '  } | null;\n' +
-        '  updated_at?: string;\n' +
-        '}\n\n' +
-        'export const STATIC_COMMUNITY_REVIEWS: StaticReviewRecord[] = ' + JSON.stringify(activeReviews, null, 2) + ';\n';
-
-      const tempPath = staticFilePath + '.tmp';
-      fs.writeFileSync(tempPath, tsContent, 'utf8');
-      fs.renameSync(tempPath, staticFilePath);
-    } catch (e) {
-      console.warn('[CommunityStore] Error writing static reviews TS file:', e);
-    }
+    // Disabled by architectural requirement: reviews are stored and loaded live from Firebase, never pushed to static git code.
+    return;
   }
 
   // Save in-memory cache to disk and queue Firestore cloud write

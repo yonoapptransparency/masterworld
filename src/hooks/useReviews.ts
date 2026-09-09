@@ -1,14 +1,12 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Review } from '../components/public/ReviewItem';
-import { STATIC_COMMUNITY_REVIEWS } from '../lib/communityReviewsData';
-
-interface AppReviewSeedConfig {
-  appId: string;
-  appTitle?: string;
-  appSlug?: string;
-  category?: string;
-  overallRating?: number;
-}
+import { 
+  fetchLiveReviews, 
+  voteLiveReviewHelpful, 
+  reportLiveReview, 
+  PublicReview, 
+  clearCommunityReviewCache 
+} from '../lib/communityFirebase';
 
 export function useReviews(
   appId: string, 
@@ -22,39 +20,7 @@ export function useReviews(
   const cleanAppSlug = String(appSlug || '').trim();
   const cleanAppTitle = String(appTitle || '').trim();
 
-  const getStaticFallbackReviews = useCallback((): Review[] => {
-    const targetId = (cleanAppId || '').toLowerCase().trim();
-    const targetSlug = (cleanAppSlug || '').toLowerCase().trim();
-    const targetTitle = (cleanAppTitle || '').toLowerCase().trim();
-
-    return STATIC_COMMUNITY_REVIEWS.filter(r => {
-      if (r.status && r.status !== 'published' && r.status !== 'approved') return false;
-      const rAppId = String(r.appId || '').toLowerCase().trim();
-      const rAppSlug = String(r.appSlug || '').toLowerCase().trim();
-      const rAppName = String(r.appName || '').toLowerCase().trim();
-
-      const matchesId = Boolean(targetId && rAppId && rAppId === targetId);
-      const matchesSlug = Boolean(targetSlug && rAppSlug && rAppSlug === targetSlug);
-      const matchesTitle = Boolean(targetTitle && rAppName && rAppName === targetTitle);
-
-      return matchesId || matchesSlug || matchesTitle;
-    }).map((r: any) => ({
-      id: r.id || `rev_${Math.random()}`,
-      app_id: r.appId || cleanAppId,
-      username: r.userName || 'Verified Player',
-      rating: Number(r.rating) || 5,
-      comment: r.reviewText || '',
-      created_at: r.timestamp || new Date().toISOString(),
-      helpful_count: Number(r.helpful_count) || 0,
-      reported: Boolean(r.reported),
-      report_count: Number(r.report_count) || 0,
-      source: r.source || 'community',
-      isPinned: Boolean(r.isPinned),
-      adminReply: r.adminReply || null
-    }));
-  }, [cleanAppId, cleanAppSlug, cleanAppTitle]);
-
-  const [reviews, setReviews] = useState<Review[]>(() => getStaticFallbackReviews());
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
@@ -69,14 +35,17 @@ export function useReviews(
   const [reportedReviews, setReportedReviews] = useState<Record<string, boolean>>({});
   const [expandedReviews, setExpandedReviews] = useState<Record<string, boolean>>({});
 
-  // Multi-tier resilient review fetcher
+  // App key tracker to prevent duplicate initial fetches while guaranteeing trigger on targetKey ready
+  const fetchedTargetKeyRef = useRef<string | null>(null);
+
+  // Dynamic Live Review Fetcher - Protected with session cache & on-demand trigger
   const fetchReviews = useCallback(async (isLoadMore = false) => {
-    if (!cleanAppId && !cleanAppSlug) return;
+    const targetKey = cleanAppId || cleanAppSlug;
+    if (!targetKey) return;
     
     // Bots and crawlers skip loading dynamic reviews to keep DOM light for SEO
     const isCrawler = typeof navigator !== 'undefined' && /googlebot|google-inspectiontool|bingbot|slurp|duckduckbot|baiduspider|yandexbot|crawler|spider/i.test(navigator.userAgent || '');
     if (isCrawler) {
-       setReviews(getStaticFallbackReviews());
        setLoading(false);
        setHasMore(false);
        return;
@@ -86,128 +55,74 @@ export function useReviews(
       if (isLoadMore) setLoadingMore(true);
       else setLoading(true);
 
-      let fetchedReviews: Review[] = [];
-      let serverHasMore = false;
-      let serverNextCursor: string | null = null;
-      let isServerResponseOk = false;
+      const cursorToUse = isLoadMore ? (nextCursorRef.current || nextCursor) : null;
+      
+      const result = await fetchLiveReviews({
+        appId: cleanAppId,
+        appSlug: cleanAppSlug,
+        appTitle: cleanAppTitle,
+        cursor: cursorToUse,
+        limit: 5,
+        rating: overallRating
+      });
 
-      // -------------------------------------------------------------
-      // TIER 1: Try Local API Route (/api/v1/public/community/reviews)
-      // -------------------------------------------------------------
-      try {
-        const queryParams = new URLSearchParams();
-        const cursorToUse = isLoadMore ? (nextCursorRef.current || nextCursor) : null;
-        if (cursorToUse) queryParams.append('cursor', cursorToUse);
-        if (cleanAppTitle) queryParams.append('appTitle', cleanAppTitle);
-        if (cleanAppSlug) queryParams.append('slug', cleanAppSlug);
-        if (cleanAppId) queryParams.append('appId', cleanAppId);
-        if (overallRating) queryParams.append('rating', String(overallRating));
-        queryParams.append('limit', '5');
+      const mappedReviews: Review[] = result.reviews.map((r: PublicReview) => ({
+        id: r.id,
+        app_id: r.app_id || r.appId || cleanAppId,
+        username: r.username || 'Player',
+        rating: Number(r.rating) || 5,
+        comment: r.comment || '',
+        created_at: r.created_at || new Date().toISOString(),
+        helpful_count: Number(r.helpful_count) || 0,
+        reported: Boolean(r.reported),
+        report_count: Number(r.report_count) || 0,
+        source: r.source || 'community',
+        isPinned: Boolean(r.isPinned),
+        adminReply: r.adminReply || null
+      }));
 
-        const targetKey = cleanAppId || cleanAppSlug;
-        const queryString = queryParams.toString();
-        const endpoint = `/api/v1/public/community/reviews/${encodeURIComponent(targetKey)}${queryString ? `?${queryString}` : ''}`;
-
-        
-        const res = await fetch(endpoint);
-        
-        if (res.ok) {
-          const contentType = res.headers.get('content-type') || '';
-          if (contentType.includes('application/json')) {
-            const data = await res.json();
-            
-            if (data && Array.isArray(data.reviews)) {
-              isServerResponseOk = true;
-              const targetId = cleanAppId.toLowerCase();
-              const targetSlug = cleanAppSlug.toLowerCase();
-              const targetTitle = cleanAppTitle.toLowerCase();
-
-              fetchedReviews = data.reviews
-                .filter((r: any) => {
-                  const rId = String(r.app_id || r.appId || '').toLowerCase().trim();
-                  const rSlug = String(r.appSlug || '').toLowerCase().trim();
-                  const rName = String(r.appName || '').toLowerCase().trim();
-
-                  if (targetId && rId && rId === targetId) return true;
-                  if (targetSlug && rSlug && rSlug === targetSlug) return true;
-                  if (targetTitle && rName && rName === targetTitle) return true;
-                  return Boolean((targetId && rId === targetId) || (targetSlug && rSlug === targetSlug));
-                })
-                .map((r: any) => ({
-                  id: r.id || `rev_${Math.random()}`,
-                  app_id: r.app_id || r.appId || cleanAppId,
-                  username: r.username || r.userName || 'Player',
-                  rating: Number(r.rating) || 5,
-                  comment: r.comment || r.reviewText || '',
-                  created_at: r.created_at || r.timestamp || new Date().toISOString(),
-                  helpful_count: Number(r.helpful_count) || 0,
-                  reported: Boolean(r.reported),
-                  report_count: Number(r.report_count) || 0,
-                  source: r.source || 'community',
-                  isPinned: Boolean(r.isPinned),
-                  adminReply: r.adminReply || null
-                }));
-              serverHasMore = Boolean(data.hasMore);
-              serverNextCursor = data.nextCursor || null;
-            }
-          }
-        }
-      } catch (tier1Err) {
-        // Network or offline fallback
-      }
-
-      // Update reviews state strictly for the current app context
       setReviews(prev => {
         if (isLoadMore) {
           const existingIds = new Set(prev.map(p => p.id));
-          const newUnique = fetchedReviews.filter(r => !existingIds.has(r.id));
+          const newUnique = mappedReviews.filter(r => !existingIds.has(r.id));
           return [...prev, ...newUnique];
         } else {
-          // If server successfully replied, use its authoritative list!
-          // If server returned [] (0 reviews or all deleted by admin), keep []!
-          if (isServerResponseOk) {
-            return fetchedReviews;
-          }
-          return getStaticFallbackReviews();
+          return mappedReviews;
         }
       });
 
-      setHasMore(serverHasMore);
-      setNextCursor(serverNextCursor);
-      nextCursorRef.current = serverNextCursor;
+      setHasMore(result.hasMore);
+      setNextCursor(result.nextCursor);
+      nextCursorRef.current = result.nextCursor;
 
     } catch (err) {
-      console.error('Reviews load pipeline error:', err);
-      if (!isLoadMore) {
-        setReviews(getStaticFallbackReviews());
-      }
+      console.error('[useReviews] Reviews fetch pipeline error:', err);
     } finally {
       if (isLoadMore) setLoadingMore(false);
       else setLoading(false);
       setInitialLoadDone(true);
     }
-  }, [cleanAppId, cleanAppSlug, cleanAppTitle, category, overallRating, nextCursor, getStaticFallbackReviews]);
+  }, [cleanAppId, cleanAppSlug, cleanAppTitle, overallRating]);
 
-  const prevAppRef = useRef<string | null>(null);
-
-  // Initial load trigger on mount or appId change
+  // Trigger review fetch whenever targetKey is valid and has not been fetched yet
   useEffect(() => {
-    const targetKey = cleanAppId || cleanAppSlug || cleanAppTitle;
-    if (prevAppRef.current !== null && prevAppRef.current !== targetKey) {
-      setReviews(getStaticFallbackReviews());
+    const targetKey = cleanAppId || cleanAppSlug;
+    if (!targetKey) return;
+    if (!inView) return;
+
+    if (fetchedTargetKeyRef.current !== targetKey) {
+      setReviews([]);
       setNextCursor(null);
       nextCursorRef.current = null;
       setHasMore(false);
       setVotedReviews({});
       setReportedReviews({});
       setExpandedReviews({});
+      setInitialLoadDone(false);
+      fetchedTargetKeyRef.current = targetKey;
+      fetchReviews(false);
     }
-    prevAppRef.current = targetKey;
-
-    setInitialLoadDone(false);
-    
-    fetchReviews(false);
-  }, [cleanAppId, cleanAppSlug, cleanAppTitle, getStaticFallbackReviews]);
+  }, [cleanAppId, cleanAppSlug, inView, fetchReviews]);
 
   // Listen to community review events across tabs/components
   useEffect(() => {
@@ -221,6 +136,7 @@ export function useReviews(
             if (prev.some(r => r.id === newRev.id)) return prev;
             return [newRev, ...prev];
           });
+          clearCommunityReviewCache(cleanAppId || cleanAppSlug);
         }
       }
     };
@@ -229,6 +145,7 @@ export function useReviews(
       const deletedId = e?.detail?.reviewId || e?.detail?.id;
       if (deletedId) {
         setReviews(prev => prev.filter(r => r.id !== deletedId));
+        clearCommunityReviewCache(cleanAppId || cleanAppSlug);
       }
     };
 
@@ -236,10 +153,12 @@ export function useReviews(
       const clearedAppId = e?.detail?.appId || e?.detail?.slug;
       if (!clearedAppId || clearedAppId === cleanAppId || clearedAppId === cleanAppSlug) {
         setReviews([]);
+        clearCommunityReviewCache(cleanAppId || cleanAppSlug);
       }
     };
 
     const handleReviewsUpdated = () => {
+      clearCommunityReviewCache(cleanAppId || cleanAppSlug);
       fetchReviews(false);
     };
 
@@ -266,7 +185,7 @@ export function useReviews(
     setExpandedReviews(prev => ({ ...prev, [id]: !prev[id] }));
   }, []);
 
-  const handleHelpfulVote = useCallback((id: string) => {
+  const handleHelpfulVote = useCallback(async (id: string) => {
     if (votedReviews[id]) return;
     setReviews(prev =>
       prev.map(r => {
@@ -277,14 +196,10 @@ export function useReviews(
       })
     );
     setVotedReviews(prev => ({ ...prev, [id]: true }));
-    fetch('/api/v1/public/community/reviews/helpful', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reviewId: id })
-    }).catch(() => {});
+    await voteLiveReviewHelpful(id);
   }, [votedReviews]);
 
-  const handleReportReview = useCallback((id: string) => {
+  const handleReportReview = useCallback(async (id: string) => {
     if (reportedReviews[id]) return;
     setReportedReviews(prev => ({ ...prev, [id]: true }));
     const targetRev = reviews.find(r => r.id === id);
@@ -296,16 +211,12 @@ export function useReviews(
         return r;
       })
     );
-    fetch('/api/v1/public/community/reviews/report', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        reviewId: id,
-        appId: cleanAppId || cleanAppSlug,
-        reason: 'User Flagged Review',
-        details: targetRev?.comment || ''
-      })
-    }).catch(() => {});
+    await reportLiveReview({
+      reviewId: id,
+      appId: cleanAppId || cleanAppSlug,
+      reason: 'User Flagged Review',
+      details: targetRev?.comment || ''
+    });
   }, [reportedReviews, reviews, cleanAppId, cleanAppSlug]);
 
   const sortedReviews = useMemo(() => {

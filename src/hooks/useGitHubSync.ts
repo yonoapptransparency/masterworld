@@ -265,7 +265,6 @@ export function useGitHubSync(
 
     const finalSettings = ensureDefaultSettings(targetSettings);
     const updatedCode = generateStaticDataFileCode(publicApps, finalSettings, publicNews, targetVideos);
-    const communityReviewsCode = generateCommunityReviewsFileCode(targetReviews);
 
     const safeBackupApps = JSON.parse(JSON.stringify(publicApps)).map((app: any) => {
       const rawTarget = app.more_information_url || app.download_url || app.encrypted_link || app.encrypted_download_url || '';
@@ -290,21 +289,19 @@ export function useGitHubSync(
       return app;
     });
 
+    // Reviews are NOT pushed to static git code; they are loaded dynamically live from Firebase
     const backupJsonCode = JSON.stringify({
       apps: safeBackupApps,
       settings: finalSettings,
       news: publicNews,
-      videos: targetVideos,
-      reviews: targetReviews
+      videos: targetVideos
     }, null, 2);
 
     const staticJsonCode = JSON.stringify({
       mockApps: safeBackupApps,
       mockSettings: finalSettings,
       mockNews: publicNews,
-      mockVideos: targetVideos,
-      mockReviews: targetReviews,
-      reviews: targetReviews
+      mockVideos: targetVideos
     }, null, 2);
 
     let targetRepo = configToUse.repo || 'dex';
@@ -324,16 +321,6 @@ export function useGitHubSync(
         content: updatedCode,
         message: `Admin Release: Manual content synchronization to ${targetRepo}`
       }).then(() => log(`GitHub Sync: ✅ staticData.ts successfully synced to ${targetRepo}.`)));
-
-      primaryCommits.push(commitFileToGitHub({
-        owner: configToUse.owner,
-        repo: targetRepo,
-        token: configToUse.token,
-        branch: configToUse.branch || 'main',
-        path: 'src/lib/communityReviewsData.ts',
-        content: communityReviewsCode,
-        message: `Admin Release: Manual community reviews synchronization to ${targetRepo}`
-      }).then(() => log(`GitHub Sync: ✅ communityReviewsData.ts successfully synced to ${targetRepo}.`)));
 
       primaryCommits.push(commitFileToGitHub({
         owner: configToUse.owner,
@@ -416,16 +403,6 @@ export function useGitHubSync(
             content: updatedCode,
             message: `Admin Release: Manual content synchronization to masterworld`
           }).then(() => log(`GitHub Sync: ✅ staticData.ts secondary sync to masterworld complete.`)));
-
-          secondaryCommits.push(commitFileToGitHub({
-            owner: configToUse.owner,
-            repo: 'masterworld',
-            token: configToUse.token,
-            branch: configToUse.branch || 'main',
-            path: 'src/lib/communityReviewsData.ts',
-            content: communityReviewsCode,
-            message: `Admin Release: Manual community reviews synchronization to masterworld`
-          }).then(() => log(`GitHub Sync: ✅ communityReviewsData.ts secondary sync to masterworld complete.`)));
 
           secondaryCommits.push(commitFileToGitHub({
             owner: configToUse.owner,

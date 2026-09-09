@@ -65,6 +65,17 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // 2b. Community Store chunks & Stats
+    match /community_store/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /app_rating_stats/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // 3. Website feedback collection
     match /website_feedback/{feedbackId} {
       allow read: if isAdmin(); // Only admins can view feedback list

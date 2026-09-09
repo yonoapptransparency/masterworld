@@ -121,9 +121,14 @@ publicApiRouter.get(["/api/v1/public/app/:slug", "/api/public/app/:slug"], async
     if (fs.existsSync(publicBackupPath)) {
       try {
         const backup = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
-        const app = resolveAppSlug(rawSlug, backup.apps || []);
-        if (app) {
-          return res.json({ status: "OK", app });
+        if (backup && Array.isArray(backup.apps) && backup.apps.length > 0) {
+          const app = resolveAppSlug(rawSlug, backup.apps);
+          if (app) {
+            const cleanApp = { ...app };
+            delete cleanApp.download_url;
+            delete cleanApp.encrypted_download_url;
+            return res.json({ status: "OK", app: cleanApp });
+          }
         }
       } catch (e) {}
     }
@@ -198,16 +203,17 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
     if (fs.existsSync(publicBackupPath)) {
       try {
         const backup = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
-        const data = {
-          apps: sanitizeAppsForPublic(backup.apps || []),
-          settings: backup.settings || {},
-          news: backup.news || [],
-          videos: backup.videos || [],
-          reviews: backup.reviews || []
-        };
-        backupDataCache = data;
-        backupDataCacheTime = now;
-        return res.json(data);
+        if (backup && Array.isArray(backup.apps) && backup.apps.length > 0) {
+          const data = {
+            apps: sanitizeAppsForPublic(backup.apps),
+            settings: backup.settings || {},
+            news: backup.news || [],
+            videos: backup.videos || []
+          };
+          backupDataCache = data;
+          backupDataCacheTime = now;
+          return res.json(data);
+        }
       } catch (e) {}
     }
 
