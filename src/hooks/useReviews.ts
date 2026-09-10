@@ -5,7 +5,6 @@ import {
   voteLiveReviewHelpful, 
   reportLiveReview, 
   PublicReview, 
-  clearCommunityReviewCache 
 } from '../lib/communityFirebase';
 
 export function useReviews(
@@ -136,7 +135,6 @@ export function useReviews(
             if (prev.some(r => r.id === newRev.id)) return prev;
             return [newRev, ...prev];
           });
-          clearCommunityReviewCache(cleanAppId || cleanAppSlug);
         }
       }
     };
@@ -145,7 +143,6 @@ export function useReviews(
       const deletedId = e?.detail?.reviewId || e?.detail?.id;
       if (deletedId) {
         setReviews(prev => prev.filter(r => r.id !== deletedId));
-        clearCommunityReviewCache(cleanAppId || cleanAppSlug);
       }
     };
 
@@ -153,12 +150,10 @@ export function useReviews(
       const clearedAppId = e?.detail?.appId || e?.detail?.slug;
       if (!clearedAppId || clearedAppId === cleanAppId || clearedAppId === cleanAppSlug) {
         setReviews([]);
-        clearCommunityReviewCache(cleanAppId || cleanAppSlug);
       }
     };
 
     const handleReviewsUpdated = () => {
-      clearCommunityReviewCache(cleanAppId || cleanAppSlug);
       fetchReviews(false);
     };
 

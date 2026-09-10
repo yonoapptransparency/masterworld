@@ -218,13 +218,16 @@ communityRouter.get("/api/v1/admin/community/reviews", verifyAdminToken, async (
     } = req.query;
 
     // 1. Force explicitly LIVE fetch from Firestore to guarantee the most up-to-date data for admin editing.
-    // If the Firestore fetch fails, it elegantly falls back to the in-memory cache managed by communityStore.
     let liveReviews: any[] = [];
     try {
-      const { readFirestoreRestCollection } = require('../firebase');
-      const docs = await readFirestoreRestCollection('reviews');
-      if (docs && docs.length > 0) {
-        liveReviews = docs;
+      const { getCommunityAdminDb } = require('../firebase');
+      const db = getCommunityAdminDb();
+      if (db) {
+        const snapshot = await db.collection('reviews').orderBy('timestamp', 'desc').limit(500).get();
+        snapshot.forEach((doc: any) => {
+          liveReviews.push({ id: doc.id, ...doc.data() });
+        });
+        console.log(`[Admin API] Fetched ${liveReviews.length} live reviews from Firestore`);
       }
     } catch (firebaseErr) {
       console.warn("Failed to fetch live admin reviews from Firestore, falling back to cache.", firebaseErr);
