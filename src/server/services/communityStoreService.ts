@@ -839,6 +839,36 @@ class CommunityStoreService {
         );
       });
 
+    // If cache has 0 reviews for this app, query live Firestore directly on demand
+    if (all.length === 0) {
+      const db = getCommunityAdminDb();
+      if (db) {
+        try {
+          const targets = Array.from(aliasKeys);
+          const snap = await db.collection('reviews').where('appId', 'in', targets.slice(0, 10)).limit(100).get();
+          if (!snap.empty) {
+            snap.docs.forEach((docSnap: any) => {
+              const d = docSnap.data();
+              this.reviews.set(docSnap.id, { id: docSnap.id, ...d });
+            });
+            all = Array.from(this.reviews.values()).filter(r => {
+              if (r.status && r.status !== 'published' && r.status !== 'approved') return false;
+              const rAppId = String(r.appId || '').toLowerCase().trim();
+              const rAppSlug = String(r.appSlug || '').toLowerCase().trim();
+              const rAppName = String(r.appName || '').toLowerCase().trim();
+              return (
+                (rAppId && aliasKeys.has(rAppId)) ||
+                (rAppSlug && aliasKeys.has(rAppSlug)) ||
+                (rAppName && aliasKeys.has(rAppName))
+              );
+            });
+          }
+        } catch (fsErr) {
+          console.warn('[CommunityStore] On-demand Firestore fetch note:', fsErr);
+        }
+      }
+    }
+
     all.sort((a, b) => {
       if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
       return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();

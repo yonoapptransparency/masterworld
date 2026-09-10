@@ -17,18 +17,45 @@ import {
   onSnapshot,
   Firestore
 } from 'firebase/firestore';
-import firebaseConfig from '../../firebase-applet-config.json';
+// @ts-ignore
+import appletConfig from '../../firebase-applet-config.json';
 
-// Initialize Client App safely
-const isConfigured = Boolean(firebaseConfig?.projectId && firebaseConfig?.apiKey);
+// Multi-tier environment and config resolver
+const getEnvVal = (key: string): string | undefined => {
+  if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env[key]) {
+    return import.meta.env[key];
+  }
+  if (typeof process !== 'undefined' && process.env && process.env[key]) {
+    return process.env[key];
+  }
+  return undefined;
+};
+
+const getResolvedCommunityFirebaseConfig = () => {
+  const cfg = (appletConfig as any) || {};
+  return {
+    projectId: getEnvVal('VITE_FIREBASE_PROJECT_ID') || cfg.projectId || "gen-lang-client-0825832493",
+    appId: getEnvVal('VITE_FIREBASE_APP_ID') || cfg.appId || "1:103973989874:web:733a6afd8e837224900f6b",
+    apiKey: getEnvVal('VITE_FIREBASE_API_KEY') || cfg.apiKey || "AIzaSyBey9sUbeWrcXS2kl4ewOzkTy4arg03Ok",
+    authDomain: getEnvVal('VITE_FIREBASE_AUTH_DOMAIN') || cfg.authDomain || "gen-lang-client-0825832493.firebaseapp.com",
+    firestoreDatabaseId: getEnvVal('VITE_FIREBASE_DATABASE_ID') || cfg.firestoreDatabaseId || cfg.databaseId || "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a",
+    storageBucket: getEnvVal('VITE_FIREBASE_STORAGE_BUCKET') || cfg.storageBucket || "gen-lang-client-0825832493.firebasestorage.app",
+    messagingSenderId: getEnvVal('VITE_FIREBASE_MESSAGING_ID') || cfg.messagingSenderId || "103973989874",
+  };
+};
+
+const resolvedConfig = getResolvedCommunityFirebaseConfig();
+
+// Initialize Client Firestore safely
 let clientDb: Firestore | null = null;
-if (isConfigured && typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && resolvedConfig.apiKey) {
   try {
-    const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-    const dbId = firebaseConfig.firestoreDatabaseId || '(default)';
+    const app = getApps().length === 0 ? initializeApp(resolvedConfig) : getApp();
+    const dbId = resolvedConfig.firestoreDatabaseId || '(default)';
     clientDb = dbId === '(default)' ? getFirestore(app) : getFirestore(app, dbId);
+    console.log('[Community] Client Firebase connected to database:', dbId);
   } catch (e) {
-    console.warn("[Community] Client Firebase init failed:", e);
+    console.warn("[Community] Client Firebase init notice:", e);
   }
 }
 
@@ -120,6 +147,27 @@ export async function fetchLiveReviews(options: {
     console.warn("[Community] Server review API notice:", apiErr);
   }
 
+  // 1.2 Direct Live Firestore query via Client SDK
+  if (clientDb) {
+    try {
+      const targets = Array.from(new Set([targetId, targetSlug].filter(Boolean)));
+      if (targets.length > 0) {
+        const qDirect = query(
+          collection(clientDb, 'reviews'),
+          where('appId', 'in', targets),
+          limit(100)
+        );
+        const directSnap = await getDocs(qDirect);
+        directSnap.forEach((docSnap) => {
+          const d = docSnap.data();
+          addReview({ id: docSnap.id, ...d });
+        });
+      }
+    } catch (fsErr) {
+      console.warn("[Community] Direct Firestore query notice:", fsErr);
+    }
+  }
+
   // 1.5 Setup LIVE Firestore Snapshot Listener for real-time updates (only on first load or target change)
   if (!cursor && clientDb) {
     const newTargetKey = `${targetId}_${targetSlug}`;
@@ -128,15 +176,20 @@ export async function fetchLiveReviews(options: {
       activeTargetId = newTargetKey;
       
       try {
+        const targets = Array.from(new Set([targetId, targetSlug].filter(Boolean)));
         const q = query(
           collection(clientDb, 'reviews'), 
-          where('appId', 'in', [targetId, targetSlug].filter(Boolean)),
-          limit(50)
+          where('appId', 'in', targets),
+          limit(100)
         );
         let isFirstSnapshot = true;
         activeUnsubscribe = onSnapshot(q, (snapshot) => {
           if (isFirstSnapshot) {
             isFirstSnapshot = false;
+            snapshot.docs.forEach((docSnap) => {
+              const d = docSnap.data();
+              addReview({ id: docSnap.id, ...d });
+            });
             return;
           }
           snapshot.docChanges().forEach((change) => {
@@ -307,6 +360,18 @@ export async function submitLiveReview(data: {
       console.warn("[Community] Server API write note:", apiErr);
     }
 
+    // 1b. Direct Firestore write via Client SDK
+    if (clientDb) {
+      try {
+        await setDoc(doc(clientDb, 'reviews', formattedReview.id), {
+          ...reviewPayload,
+          id: formattedReview.id
+        });
+      } catch (fsErr) {
+        console.warn("[Community] Direct Firestore review write notice:", fsErr);
+      }
+    }
+
     // 2. Save to localStorage for instant client-side persistence
     try {
       const localKey = `local_user_reviews_${data.appId}`;
@@ -344,7 +409,7 @@ export async function submitLiveReport(data: any): Promise<boolean> {
       created_at: now
     };
 
-    // Server API write
+    // 1. Server API write
     try {
       await fetch('/api/v1/public/reports', {
         method: 'POST',
@@ -352,6 +417,13 @@ export async function submitLiveReport(data: any): Promise<boolean> {
         body: JSON.stringify(payload)
       });
     } catch (e) {}
+
+    // 2. Direct Firestore report write
+    if (clientDb) {
+      try {
+        await setDoc(doc(clientDb, 'reports', newId), payload);
+      } catch (e) {}
+    }
 
     return true;
   } catch {
@@ -361,12 +433,22 @@ export async function submitLiveReport(data: any): Promise<boolean> {
 
 export async function voteLiveReviewHelpful(reviewId: string): Promise<boolean> {
   try {
-    // Server API helpful vote
+    // 1. Server API helpful vote
     await fetch('/api/v1/public/community/reviews/helpful', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reviewId })
     });
+
+    // 2. Direct Firestore helpful increment
+    if (clientDb) {
+      try {
+        await updateDoc(doc(clientDb, 'reviews', reviewId), {
+          helpful_count: increment(1)
+        });
+      } catch (e) {}
+    }
+
     return true;
   } catch {
     return false;
