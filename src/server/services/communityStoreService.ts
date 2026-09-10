@@ -353,6 +353,47 @@ class CommunityStoreService {
               updated_at: d.updated_at
             });
           });
+          // Also check community_store collection for any chunked or historical review docs
+          try {
+            const chunkSnap = await db.collection('community_store').get();
+            chunkSnap.docs.forEach((doc: any) => {
+              const d = doc.data();
+              if (Array.isArray(d.reviews)) {
+                d.reviews.forEach((r: any) => {
+                  if (r && r.id && !this.deletedReviewIds.has(r.id) && !this.reviews.has(r.id)) {
+                    this.reviews.set(r.id, {
+                      id: r.id,
+                      appId: r.appId || r.app_id || '',
+                      appSlug: r.appSlug || '',
+                      appName: r.appName || '',
+                      userName: r.userName || r.username || 'Player',
+                      rating: Number(r.rating) || 5,
+                      reviewText: sanitizeReviewText(r.reviewText || r.comment || ''),
+                      timestamp: r.timestamp || r.created_at || new Date().toISOString(),
+                      status: r.status || (r.is_approved ? 'published' : 'pending') || 'published',
+                      helpful_count: Number(r.helpful_count) || 0,
+                      isPinned: Boolean(r.isPinned),
+                      reported: Boolean(r.reported),
+                      report_count: Number(r.report_count) || 0,
+                      source: r.source || 'community',
+                      adminReply: r.adminReply || null,
+                      updated_at: r.updated_at
+                    });
+                  }
+                });
+              }
+              if (Array.isArray(d.reports)) {
+                d.reports.forEach((rep: any) => {
+                  if (rep && rep.id && !this.reports.has(rep.id)) {
+                    this.reports.set(rep.id, rep);
+                  }
+                });
+              }
+            });
+          } catch (chunkErr) {
+            // Non-blocking
+          }
+
           this.exportToStaticTypeScript();
         } catch (e: any) {
           if (this.isQuotaError(e)) {
@@ -490,6 +531,21 @@ class CommunityStoreService {
         console.log(`[CommunityStore] Firestore sync complete: ${this.reviews.size} reviews, ${this.reports.size} reports.`);
       }
       this.initialized = true;
+
+      // Save complete synced cache to local disk backup for zero-latency local fallback
+      try {
+        const backupData = {
+          reviews: Array.from(this.reviews.values()),
+          reports: Array.from(this.reports.values()),
+          deleted_review_ids: Array.from(this.deletedReviewIds),
+          updated_at: new Date().toISOString()
+        };
+        const tempPath = this.localBackupPath + '.tmp';
+        fs.writeFileSync(tempPath, JSON.stringify(backupData, null, 2), 'utf8');
+        fs.renameSync(tempPath, this.localBackupPath);
+      } catch (saveErr) {
+        // Non-blocking
+      }
     } catch (err) {
       if (!this.initialized) {
         console.warn('[CommunityStore] Init failed gracefully:', err);
@@ -992,6 +1048,14 @@ class CommunityStoreService {
 
   public getAllPublishedReviews(): ReviewRecord[] {
     return Array.from(this.reviews.values()).filter(r => r.status !== 'rejected' && r.status !== 'pending');
+  }
+
+  public getAllReports(): ReportRecord[] {
+    return Array.from(this.reports.values());
+  }
+
+  public getAllPendingReports(): ReportRecord[] {
+    return Array.from(this.reports.values()).filter(r => r.status === 'pending');
   }
 
   // ==========================================

@@ -213,37 +213,63 @@ communityRouter.get("/api/v1/admin/community/health/ping", verifyAdminToken, asy
       firestoreWrite: false,
       details: { readMode: '', writeMode: '', readError: '', writeError: '' }
     };
-    
-    // Test Read
-    try {
-      const { readFirestoreRestCollection } = require('../firebase');
-      const all = await readFirestoreRestCollection('reviews', req.headers.authorization, 1);
-      if (all && Array.isArray(all)) {
+
+    const { getCommunityAdminDb, readFirestoreRestCollection, writeFirestoreRestDoc, deleteFirestoreRestDoc } = require('../firebase');
+    const adminDb = getCommunityAdminDb();
+
+    // 1. Test Read (Admin SDK first, then REST)
+    if (adminDb) {
+      try {
+        const snap = await adminDb.collection('reviews').limit(1).get();
         results.firestoreRead = true;
-        results.details.readMode = 'In-Memory/REST Polling Active';
+        results.details.readMode = 'Admin SDK (Direct Firestore Connected)';
+      } catch (adminReadErr: any) {
+        results.details.readError = `Admin SDK Read Error: ${adminReadErr.message}`;
       }
-    } catch(e: any) {
-      results.details.readError = e.message;
     }
-    
-    // Test Write
-    try {
-      const pingDocId = `_status_check_${Date.now()}`;
-      const { writeFirestoreRestDoc, deleteFirestoreRestDoc } = require('../firebase');
-      const writeOk = await writeFirestoreRestDoc(pingDocId, { ts: Date.now(), source: 'admin_rest_healthcheck' }, req.headers.authorization, true, 'reviews');
-      if (writeOk) {
+
+    if (!results.firestoreRead) {
+      try {
+        const all = await readFirestoreRestCollection('reviews', req.headers.authorization, 1);
+        if (all && Array.isArray(all)) {
+          results.firestoreRead = true;
+          results.details.readMode = 'REST Firestore Read Active';
+        }
+      } catch (e: any) {
+        results.details.readError = (results.details.readError ? results.details.readError + ' | ' : '') + `REST Read Error: ${e.message}`;
+      }
+    }
+
+    // 2. Test Write (Admin SDK first, then REST)
+    const pingDocId = `_status_check_${Date.now()}`;
+    if (adminDb) {
+      try {
+        await adminDb.collection('reviews').doc(pingDocId).set({ ts: Date.now(), source: 'admin_sdk_healthcheck' });
         results.firestoreWrite = true;
-        results.details.writeMode = 'REST Update Permitted';
-        deleteFirestoreRestDoc(pingDocId, req.headers.authorization, 'reviews').catch(() => {});
-      } else {
-        results.details.writeError = 'REST Update Denied';
+        results.details.writeMode = 'Admin SDK (Direct Firestore Write OK)';
+        adminDb.collection('reviews').doc(pingDocId).delete().catch(() => {});
+      } catch (adminWriteErr: any) {
+        results.details.writeError = `Admin SDK Write Error: ${adminWriteErr.message}`;
       }
-    } catch(e: any) {
-      results.details.writeError = e.message;
     }
-    
+
+    if (!results.firestoreWrite) {
+      try {
+        const writeOk = await writeFirestoreRestDoc(pingDocId, { ts: Date.now(), source: 'admin_rest_healthcheck' }, req.headers.authorization, true, 'reviews');
+        if (writeOk) {
+          results.firestoreWrite = true;
+          results.details.writeMode = 'REST Firestore Write Permitted';
+          deleteFirestoreRestDoc(pingDocId, req.headers.authorization, 'reviews').catch(() => {});
+        } else {
+          results.details.writeError = (results.details.writeError ? results.details.writeError + ' | ' : '') + 'REST Write Denied';
+        }
+      } catch (e: any) {
+        results.details.writeError = (results.details.writeError ? results.details.writeError + ' | ' : '') + `REST Write Error: ${e.message}`;
+      }
+    }
+
     return res.status(200).json({ success: true, ...results });
-  } catch(error) {
+  } catch (error) {
     return res.status(500).json({ success: false, error: String(error) });
   }
 });

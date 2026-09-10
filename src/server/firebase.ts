@@ -592,9 +592,42 @@ export async function readFirestoreRestCollection(collectionPath: string, authTo
       dbId = process.env.COMMUNITY_FIREBASE_DATABASE_ID || '(default)';
     }
 
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (authToken && authToken.trim() !== '') {
       headers['Authorization'] = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`;
+    }
+
+    // First attempt: runQuery which conforms directly to Firestore security rules (allow read: if true)
+    try {
+      const runQueryUrl = `https://firestore.googleapis.com/v1/projects/${targetProjectId}/databases/${dbId}/documents:runQuery?key=${encodeURIComponent(targetApiKey)}`;
+      const queryBody = {
+        structuredQuery: {
+          from: [{ collectionId: collectionPath }],
+          limit: 1000
+        }
+      };
+      const queryRes = await fetch(runQueryUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(queryBody)
+      });
+      if (queryRes.ok) {
+        const queryData = await queryRes.json();
+        if (Array.isArray(queryData)) {
+          const runQueryDocs: any[] = [];
+          for (const item of queryData) {
+            if (item && item.document && item.document.fields) {
+              const id = item.document.name.split('/').pop();
+              runQueryDocs.push({ id, ...parseFirestoreFields(item.document.fields) });
+            }
+          }
+          if (runQueryDocs.length > 0) {
+            return runQueryDocs;
+          }
+        }
+      }
+    } catch (qErr) {
+      console.warn(`[SERVER] runQuery fallback in readFirestoreRestCollection notice:`, qErr);
     }
 
     const allDocuments: any[] = [];

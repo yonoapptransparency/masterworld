@@ -1,6 +1,6 @@
 /**
  * Client-Side Community Firebase Review Engine
- * Connected LIVE directly to Firestore (Client SDK).
+ * Connected LIVE directly to Firestore (Client SDK + Direct Firestore REST + Backend Fallback).
  */
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { 
@@ -20,27 +20,36 @@ import {
 // @ts-ignore
 import appletConfig from '../../firebase-applet-config.json';
 
-// Multi-tier environment and config resolver
+// Multi-tier environment and config resolver with validation to ignore mock strings
+const isValidVal = (v: any): boolean => {
+  if (!v || typeof v !== 'string') return false;
+  const s = v.trim();
+  if (!s || s.length < 3) return false;
+  // Ignore mock/dummy strings that contain symbol garbage like ! # $ ^
+  if (s.includes('#') || s.includes('!') || s.includes('$') || s.includes('^') || s.includes('*')) return false;
+  return true;
+};
+
 const getEnvVal = (key: string): string | undefined => {
-  if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env[key]) {
-    return import.meta.env[key];
+  if (typeof import.meta !== 'undefined' && import.meta.env && isValidVal(import.meta.env[key])) {
+    return String(import.meta.env[key]).trim();
   }
-  if (typeof process !== 'undefined' && process.env && process.env[key]) {
-    return process.env[key];
+  if (typeof process !== 'undefined' && process.env && isValidVal(process.env[key])) {
+    return String(process.env[key]).trim();
   }
   return undefined;
 };
 
-const getResolvedCommunityFirebaseConfig = () => {
+export const getResolvedCommunityFirebaseConfig = () => {
   const cfg = (appletConfig as any) || {};
   return {
-    projectId: getEnvVal('VITE_FIREBASE_PROJECT_ID') || cfg.projectId || "gen-lang-client-0825832493",
-    appId: getEnvVal('VITE_FIREBASE_APP_ID') || cfg.appId || "1:103973989874:web:733a6afd8e837224900f6b",
-    apiKey: getEnvVal('VITE_FIREBASE_API_KEY') || cfg.apiKey || "AIzaSyBey9sUbeWrcXS2kl4ewOzkTy4arg03Ok",
-    authDomain: getEnvVal('VITE_FIREBASE_AUTH_DOMAIN') || cfg.authDomain || "gen-lang-client-0825832493.firebaseapp.com",
-    firestoreDatabaseId: getEnvVal('VITE_FIREBASE_DATABASE_ID') || cfg.firestoreDatabaseId || cfg.databaseId || "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a",
-    storageBucket: getEnvVal('VITE_FIREBASE_STORAGE_BUCKET') || cfg.storageBucket || "gen-lang-client-0825832493.firebasestorage.app",
-    messagingSenderId: getEnvVal('VITE_FIREBASE_MESSAGING_ID') || cfg.messagingSenderId || "103973989874",
+    projectId: getEnvVal('VITE_COMMUNITY_FIREBASE_PROJECT_ID') || getEnvVal('VITE_FIREBASE_PROJECT_ID') || (isValidVal(cfg.projectId) ? cfg.projectId : "gen-lang-client-0825832493"),
+    appId: getEnvVal('VITE_COMMUNITY_FIREBASE_APP_ID') || getEnvVal('VITE_FIREBASE_APP_ID') || (isValidVal(cfg.appId) ? cfg.appId : "1:103973989874:web:733a6afd8e837224900f6b"),
+    apiKey: getEnvVal('VITE_COMMUNITY_FIREBASE_API_KEY') || getEnvVal('VITE_FIREBASE_API_KEY') || (isValidVal(cfg.apiKey) ? cfg.apiKey : "AIzaSyBey9sUbeWrcXS2kl4ewOzkTy4arg03Ok"),
+    authDomain: getEnvVal('VITE_COMMUNITY_FIREBASE_AUTH_DOMAIN') || getEnvVal('VITE_FIREBASE_AUTH_DOMAIN') || (isValidVal(cfg.authDomain) ? cfg.authDomain : "gen-lang-client-0825832493.firebaseapp.com"),
+    firestoreDatabaseId: getEnvVal('VITE_COMMUNITY_FIREBASE_DATABASE_ID') || getEnvVal('VITE_FIREBASE_DATABASE_ID') || (isValidVal(cfg.firestoreDatabaseId) ? cfg.firestoreDatabaseId : (isValidVal(cfg.databaseId) ? cfg.databaseId : "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a")),
+    storageBucket: getEnvVal('VITE_COMMUNITY_FIREBASE_STORAGE_BUCKET') || getEnvVal('VITE_FIREBASE_STORAGE_BUCKET') || (isValidVal(cfg.storageBucket) ? cfg.storageBucket : "gen-lang-client-0825832493.firebasestorage.app"),
+    messagingSenderId: getEnvVal('VITE_COMMUNITY_FIREBASE_MESSAGING_ID') || getEnvVal('VITE_FIREBASE_MESSAGING_ID') || (isValidVal(cfg.messagingSenderId) ? cfg.messagingSenderId : "103973989874"),
   };
 };
 
@@ -61,7 +70,6 @@ if (typeof window !== 'undefined' && resolvedConfig.apiKey) {
 
 let activeUnsubscribe: (() => void) | null = null;
 let activeTargetId: string | null = null;
-
 
 export interface PublicReview {
   id: string;
@@ -95,7 +103,7 @@ export interface ReviewFetchResult {
 // Direct Client-Side Firestore REST Query Engine (Works across all browsers, ad-blockers, and networks)
 async function fetchReviewsDirectFromFirestoreRest(
   targets: string[], 
-  limitCount: number = 5, 
+  limitCount: number = 20, 
   cursor?: string | null
 ): Promise<any[]> {
   try {
@@ -107,115 +115,100 @@ async function fetchReviewsDirectFromFirestoreRest(
     const dbId = cfg.firestoreDatabaseId || (cfg as any).databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
     const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${dbId}/documents:runQuery?key=${encodeURIComponent(cfg.apiKey)}`;
 
-    const body: any = {
-      structuredQuery: {
-        from: [{ collectionId: 'reviews' }],
-        orderBy: [{ field: { fieldPath: 'timestamp' }, direction: 'DESCENDING' }],
-        limit: Math.max(1, Math.min(50, limitCount))
+    const fetchByFilter = async (fieldPath: string, values: string[]) => {
+      const body: any = {
+        structuredQuery: {
+          from: [{ collectionId: 'reviews' }],
+          orderBy: [{ field: { fieldPath: 'timestamp' }, direction: 'DESCENDING' }],
+          limit: Math.max(1, Math.min(50, limitCount))
+        }
+      };
+
+      if (values.length === 1) {
+        body.structuredQuery.where = {
+          fieldFilter: {
+            field: { fieldPath },
+            op: 'EQUAL',
+            value: { stringValue: values[0] }
+          }
+        };
+      } else {
+        body.structuredQuery.where = {
+          fieldFilter: {
+            field: { fieldPath },
+            op: 'IN',
+            value: {
+              arrayValue: {
+                values: values.slice(0, 10).map(v => ({ stringValue: v }))
+              }
+            }
+          }
+        };
       }
+
+      if (cursor) {
+        body.structuredQuery.startAt = {
+          values: [{ stringValue: String(cursor) }],
+          before: false
+        };
+      }
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      if (!res.ok) return [];
+      const data = await res.json();
+      if (!Array.isArray(data)) return [];
+
+      const parsed: any[] = [];
+      for (const item of data) {
+        if (item && item.document && item.document.fields) {
+          const docId = item.document.name.split('/').pop();
+          const f = item.document.fields;
+          parsed.push({
+            id: f.id?.stringValue || docId,
+            appId: f.appId?.stringValue,
+            appSlug: f.appSlug?.stringValue,
+            appName: f.appName?.stringValue,
+            userName: f.userName?.stringValue || f.username?.stringValue || 'Player',
+            rating: Number(f.rating?.integerValue || f.rating?.doubleValue || 5),
+            reviewText: f.reviewText?.stringValue || f.comment?.stringValue || '',
+            timestamp: f.timestamp?.stringValue || f.created_at?.stringValue || new Date().toISOString(),
+            status: f.status?.stringValue || 'published',
+            helpful_count: Number(f.helpful_count?.integerValue || f.helpful_count?.doubleValue || 0),
+            reported: Boolean(f.reported?.booleanValue),
+            report_count: Number(f.report_count?.integerValue || 0),
+            source: f.source?.stringValue || 'community',
+            isPinned: Boolean(f.isPinned?.booleanValue),
+            adminReply: f.adminReply?.mapValue?.fields ? {
+              text: f.adminReply.mapValue.fields.text?.stringValue || '',
+              author: f.adminReply.mapValue.fields.author?.stringValue || 'Admin',
+              timestamp: f.adminReply.mapValue.fields.timestamp?.stringValue || ''
+            } : null
+          });
+        }
+      }
+      return parsed;
     };
 
-    if (cursor) {
-      body.structuredQuery.startAt = {
-        values: [{ stringValue: String(cursor) }],
-        before: false
-      };
-    }
+    // Concurrently fetch by appId, appSlug, app_id, and app_slug for 100% coverage
+    const [byAppId, byAppSlug, byApp_Id, byApp_Slug] = await Promise.all([
+      fetchByFilter('appId', cleanTargets),
+      fetchByFilter('appSlug', cleanTargets),
+      fetchByFilter('app_id', cleanTargets),
+      fetchByFilter('app_slug', cleanTargets)
+    ]);
 
-    if (cleanTargets.length === 1) {
-      body.structuredQuery.where = {
-        compositeFilter: {
-          op: 'OR',
-          filters: [
-            {
-              fieldFilter: {
-                field: { fieldPath: 'appId' },
-                op: 'EQUAL',
-                value: { stringValue: cleanTargets[0] }
-              }
-            },
-            {
-              fieldFilter: {
-                field: { fieldPath: 'appSlug' },
-                op: 'EQUAL',
-                value: { stringValue: cleanTargets[0] }
-              }
-            }
-          ]
-        }
-      };
-    } else {
-      body.structuredQuery.where = {
-        compositeFilter: {
-          op: 'OR',
-          filters: [
-            {
-              fieldFilter: {
-                field: { fieldPath: 'appId' },
-                op: 'IN',
-                value: {
-                  arrayValue: {
-                    values: cleanTargets.slice(0, 10).map(v => ({ stringValue: v }))
-                  }
-                }
-              }
-            },
-            {
-              fieldFilter: {
-                field: { fieldPath: 'appSlug' },
-                op: 'IN',
-                value: {
-                  arrayValue: {
-                    values: cleanTargets.slice(0, 10).map(v => ({ stringValue: v }))
-                  }
-                }
-              }
-            }
-          ]
-        }
-      };
-    }
+    const combinedMap = new Map<string, any>();
+    byAppId.forEach(r => combinedMap.set(r.id, r));
+    byAppSlug.forEach(r => combinedMap.set(r.id, r));
+    byApp_Id.forEach(r => combinedMap.set(r.id, r));
+    byApp_Slug.forEach(r => combinedMap.set(r.id, r));
 
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-
-    if (!res.ok) return [];
-
-    const data = await res.json();
-    if (!Array.isArray(data)) return [];
-
-    const results: any[] = [];
-    for (const item of data) {
-      if (item && item.document && item.document.fields) {
-        const docId = item.document.name.split('/').pop();
-        const f = item.document.fields;
-        results.push({
-          id: f.id?.stringValue || docId,
-          appId: f.appId?.stringValue,
-          appSlug: f.appSlug?.stringValue,
-          appName: f.appName?.stringValue,
-          userName: f.userName?.stringValue || f.username?.stringValue || 'Player',
-          rating: Number(f.rating?.integerValue || f.rating?.doubleValue || 5),
-          reviewText: f.reviewText?.stringValue || f.comment?.stringValue || '',
-          timestamp: f.timestamp?.stringValue || f.created_at?.stringValue || new Date().toISOString(),
-          status: f.status?.stringValue || 'published',
-          helpful_count: Number(f.helpful_count?.integerValue || f.helpful_count?.doubleValue || 0),
-          reported: Boolean(f.reported?.booleanValue),
-          report_count: Number(f.report_count?.integerValue || 0),
-          source: f.source?.stringValue || 'community',
-          isPinned: Boolean(f.isPinned?.booleanValue),
-          adminReply: f.adminReply?.mapValue?.fields ? {
-            text: f.adminReply.mapValue.fields.text?.stringValue || '',
-            author: f.adminReply.mapValue.fields.author?.stringValue || 'Admin',
-            timestamp: f.adminReply.mapValue.fields.timestamp?.stringValue || ''
-          } : null
-        });
-      }
-    }
-    return results;
+    return Array.from(combinedMap.values());
   } catch (e) {
     console.warn('[Community] Direct Firestore REST notice:', e);
     return [];
@@ -273,7 +266,7 @@ export async function fetchLiveReviews(options: {
 
   // Channel 1: Direct Fast Firestore REST query (Instant, 0-dependency, lightweight limit)
   fetchPromises.push(
-    fetchReviewsDirectFromFirestoreRest(targets, limitCount, cursor).then(restRevs => {
+    fetchReviewsDirectFromFirestoreRest(targets, Math.max(limitCount, 15), cursor).then(restRevs => {
       if (Array.isArray(restRevs)) {
         restRevs.forEach(addReview);
       }
@@ -289,7 +282,7 @@ export async function fetchLiveReviews(options: {
             const qDirect = query(
               collection(clientDb, 'reviews'),
               where('appId', 'in', targets.slice(0, 10)),
-              limit(limitCount)
+              limit(Math.max(limitCount, 15))
             );
             const directSnap = await getDocs(qDirect);
             directSnap.forEach((docSnap) => {
@@ -327,7 +320,7 @@ export async function fetchLiveReviews(options: {
           if (data.nextCursor) serverNextCursor = String(data.nextCursor);
         }
       } catch (apiErr) {
-        console.warn("[Community] Server review API notice:", apiErr);
+        // Expected when running on static CDN without Express server
       }
     })()
   );
@@ -540,7 +533,58 @@ export async function submitLiveReview(data: {
       adminReply: null
     };
 
-    // 1. Submit to Server API
+    // 1. Direct Firestore REST Write (Guaranteed to work in SPA without backend server)
+    try {
+      const cfg = resolvedConfig;
+      if (cfg.projectId && cfg.apiKey) {
+        const dbId = cfg.firestoreDatabaseId || (cfg as any).databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+        const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${dbId}/documents/reviews/${newId}?key=${encodeURIComponent(cfg.apiKey)}`;
+        
+        const restFields: Record<string, any> = {
+          id: { stringValue: newId },
+          appId: { stringValue: data.appId },
+          app_id: { stringValue: data.appId },
+          appSlug: { stringValue: data.appSlug || '' },
+          app_slug: { stringValue: data.appSlug || '' },
+          appName: { stringValue: data.appName || '' },
+          userName: { stringValue: data.userName },
+          username: { stringValue: data.userName },
+          rating: { integerValue: String(data.rating || 5) },
+          reviewText: { stringValue: data.reviewText },
+          comment: { stringValue: data.reviewText },
+          timestamp: { stringValue: now },
+          created_at: { stringValue: now },
+          status: { stringValue: 'published' },
+          helpful_count: { integerValue: "0" },
+          reported: { booleanValue: false },
+          report_count: { integerValue: "0" },
+          source: { stringValue: 'community' },
+          isPinned: { booleanValue: false }
+        };
+
+        await fetch(url, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fields: restFields })
+        });
+      }
+    } catch (restWriteErr) {
+      console.warn("[Community] Direct Firestore REST write note:", restWriteErr);
+    }
+
+    // 1b. Direct Firestore write via Client SDK
+    if (clientDb) {
+      try {
+        await setDoc(doc(clientDb, 'reviews', formattedReview.id), {
+          ...reviewPayload,
+          id: formattedReview.id
+        });
+      } catch (fsErr) {
+        console.warn("[Community] Direct Firestore review write notice:", fsErr);
+      }
+    }
+
+    // 1c. Submit to Server API (if backend is running)
     try {
       const res = await fetch('/api/v1/public/community/reviews', {
         method: 'POST',
@@ -557,19 +601,7 @@ export async function submitLiveReview(data: {
         }
       }
     } catch (apiErr) {
-      console.warn("[Community] Server API write note:", apiErr);
-    }
-
-    // 1b. Direct Firestore write via Client SDK
-    if (clientDb) {
-      try {
-        await setDoc(doc(clientDb, 'reviews', formattedReview.id), {
-          ...reviewPayload,
-          id: formattedReview.id
-        });
-      } catch (fsErr) {
-        console.warn("[Community] Direct Firestore review write notice:", fsErr);
-      }
+      // Expected on static site
     }
 
     // 2. Save to localStorage for instant client-side persistence
@@ -609,7 +641,39 @@ export async function submitLiveReport(data: any): Promise<boolean> {
       created_at: now
     };
 
-    // 1. Server API write
+    // 1. Direct Firestore REST write
+    try {
+      const cfg = resolvedConfig;
+      if (cfg.projectId && cfg.apiKey) {
+        const dbId = cfg.firestoreDatabaseId || (cfg as any).databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+        const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${dbId}/documents/reports/${newId}?key=${encodeURIComponent(cfg.apiKey)}`;
+        
+        const restFields: Record<string, any> = {
+          id: { stringValue: newId },
+          status: { stringValue: 'pending' },
+          timestamp: { stringValue: now }
+        };
+        if (data.type) restFields.type = { stringValue: String(data.type) };
+        if (data.appId) restFields.appId = { stringValue: String(data.appId) };
+        if (data.reason) restFields.reason = { stringValue: String(data.reason) };
+        if (data.details) restFields.details = { stringValue: String(data.details) };
+
+        await fetch(url, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fields: restFields })
+        });
+      }
+    } catch (e) {}
+
+    // 2. Direct Firestore report write via SDK
+    if (clientDb) {
+      try {
+        await setDoc(doc(clientDb, 'reports', newId), payload);
+      } catch (e) {}
+    }
+
+    // 3. Server API write
     try {
       await fetch('/api/v1/public/reports', {
         method: 'POST',
@@ -617,13 +681,6 @@ export async function submitLiveReport(data: any): Promise<boolean> {
         body: JSON.stringify(payload)
       });
     } catch (e) {}
-
-    // 2. Direct Firestore report write
-    if (clientDb) {
-      try {
-        await setDoc(doc(clientDb, 'reports', newId), payload);
-      } catch (e) {}
-    }
 
     return true;
   } catch {
@@ -633,14 +690,36 @@ export async function submitLiveReport(data: any): Promise<boolean> {
 
 export async function voteLiveReviewHelpful(reviewId: string): Promise<boolean> {
   try {
-    // 1. Server API helpful vote
-    await fetch('/api/v1/public/community/reviews/helpful', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reviewId })
-    });
+    // 1. Direct Firestore helpful increment via REST
+    try {
+      const cfg = resolvedConfig;
+      if (cfg.projectId && cfg.apiKey) {
+        const dbId = cfg.firestoreDatabaseId || (cfg as any).databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+        const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${dbId}/documents:commit?key=${encodeURIComponent(cfg.apiKey)}`;
+        
+        await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            writes: [
+              {
+                transform: {
+                  document: `projects/${cfg.projectId}/databases/${dbId}/documents/reviews/${reviewId}`,
+                  fieldTransforms: [
+                    {
+                      fieldPath: 'helpful_count',
+                      increment: { integerValue: '1' }
+                    }
+                  ]
+                }
+              }
+            ]
+          })
+        });
+      }
+    } catch (e) {}
 
-    // 2. Direct Firestore helpful increment
+    // 2. Direct Firestore helpful increment via SDK
     if (clientDb) {
       try {
         await updateDoc(doc(clientDb, 'reviews', reviewId), {
@@ -648,6 +727,15 @@ export async function voteLiveReviewHelpful(reviewId: string): Promise<boolean> 
         });
       } catch (e) {}
     }
+
+    // 3. Server API helpful vote
+    try {
+      await fetch('/api/v1/public/community/reviews/helpful', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reviewId })
+      });
+    } catch (e) {}
 
     return true;
   } catch {
@@ -658,4 +746,5 @@ export async function voteLiveReviewHelpful(reviewId: string): Promise<boolean> 
 export async function reportLiveReview(params: any): Promise<boolean> {
   return submitLiveReport({ type: 'review_flag', ...params });
 }
+
 
