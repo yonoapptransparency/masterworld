@@ -150,14 +150,14 @@ communityRouter.get("/api/v1/public/community/stats/:appId", async (req: any, re
 // Public Cursor-based Reviews fetch for App Page
 communityRouter.get("/api/v1/public/community/reviews/:appId", async (req: any, res: any) => {
   const { appId } = req.params;
-  const { cursor, limit = 10, appTitle, rating, slug, appSlug } = req.query;
+  const { cursor, limit = 5, appTitle, rating, slug, appSlug } = req.query;
   const targetSlug = slug || appSlug;
 
   try {
     const result = await communityStore.getReviewsForApp(
       String(appId).trim(),
       cursor ? String(cursor) : undefined,
-      Math.min(50, Number(limit) || 10),
+      Math.min(50, Number(limit) || 5),
       appTitle ? String(appTitle) : undefined,
       Number(rating) || 5.0,
       targetSlug ? String(targetSlug) : undefined

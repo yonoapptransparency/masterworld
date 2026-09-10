@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { getCommunityAdminDb, writeFirestoreRestDoc, readFirestoreRestDoc, deleteFirestoreRestDoc, readFirestoreRestCollection, parseFirestoreFields, getRawFirebaseConfig } from '../firebase';
+import { getCommunityAdminDb, writeFirestoreRestDoc, readFirestoreRestDoc, deleteFirestoreRestDoc, readFirestoreRestCollection, parseFirestoreFields, getRawFirebaseConfig, queryFirestoreRest } from '../firebase';
 import { getStaticData } from '../config';
 
 export interface ReviewRecord {
@@ -821,7 +821,7 @@ class CommunityStoreService {
    * Universal App Review Resolver:
    * Accurately finds all reviews for any app by ID, Slug, Name, or Package without any cross-app mixups.
    */
-  public async getReviewsForApp(appIdentifier: string, cursor?: string, limitCount = 10, appTitle?: string, overallRating = 5.0, appSlug?: string) {
+  public async getReviewsForApp(appIdentifier: string, cursor?: string, limitCount = 5, appTitle?: string, overallRating = 5.0, appSlug?: string) {
     const aliasKeys = this.getAliasKeysForApp(appIdentifier, appTitle, appSlug);
 
     // Filter published or approved reviews matching ANY of this app's alias keys
@@ -865,6 +865,32 @@ class CommunityStoreService {
           }
         } catch (fsErr) {
           console.warn('[CommunityStore] On-demand Firestore fetch note:', fsErr);
+        }
+      }
+
+      // If still 0 reviews (e.g. Admin SDK null on serverless/public deploy or empty snap), query via Firestore REST runQuery
+      if (all.length === 0) {
+        try {
+          const targets = Array.from(aliasKeys).slice(0, 10);
+          const restReviews = await queryFirestoreRest('reviews', 'appId', targets, 100);
+          if (restReviews.length > 0) {
+            restReviews.forEach((r: any) => {
+              this.reviews.set(r.id, r);
+            });
+            all = Array.from(this.reviews.values()).filter(r => {
+              if (r.status && r.status !== 'published' && r.status !== 'approved') return false;
+              const rAppId = String(r.appId || '').toLowerCase().trim();
+              const rAppSlug = String(r.appSlug || '').toLowerCase().trim();
+              const rAppName = String(r.appName || '').toLowerCase().trim();
+              return (
+                (rAppId && aliasKeys.has(rAppId)) ||
+                (rAppSlug && aliasKeys.has(rAppSlug)) ||
+                (rAppName && aliasKeys.has(rAppName))
+              );
+            });
+          }
+        } catch (restErr) {
+          console.warn('[CommunityStore] On-demand REST fetch note:', restErr);
         }
       }
     }

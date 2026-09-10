@@ -701,3 +701,81 @@ export function parseFirestoreFields(fields: any): any {
   }
   return res;
 }
+
+export async function queryFirestoreRest(
+  collectionPath: string, 
+  field: string, 
+  values: string[], 
+  limitCount: number = 100
+): Promise<any[]> {
+  try {
+    const config = getRawFirebaseConfig();
+    if (!config || !config.projectId) return [];
+    
+    let targetProjectId = config.projectId;
+    let targetApiKey = config.apiKey;
+    let dbId = (config.firestoreDatabaseId || config.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a');
+
+    const cleanValues = values.filter(Boolean).map(v => String(v).trim()).filter(Boolean);
+    if (cleanValues.length === 0) return [];
+
+    const url = `https://firestore.googleapis.com/v1/projects/${targetProjectId}/databases/${dbId}/documents:runQuery?key=${encodeURIComponent(targetApiKey)}`;
+
+    const body: any = {
+      structuredQuery: {
+        from: [{ collectionId: collectionPath }],
+        limit: limitCount
+      }
+    };
+
+    if (cleanValues.length === 1) {
+      body.structuredQuery.where = {
+        fieldFilter: {
+          field: { fieldPath: field },
+          op: 'EQUAL',
+          value: { stringValue: cleanValues[0] }
+        }
+      };
+    } else {
+      body.structuredQuery.where = {
+        fieldFilter: {
+          field: { fieldPath: field },
+          op: 'IN',
+          value: {
+            arrayValue: {
+              values: cleanValues.slice(0, 10).map(v => ({ stringValue: v }))
+            }
+          }
+        }
+      };
+    }
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      console.warn(`[SERVER] queryFirestoreRest failed for ${collectionPath} (HTTP ${res.status})`);
+      return [];
+    }
+
+    const data = await res.json();
+    if (!Array.isArray(data)) return [];
+
+    const results: any[] = [];
+    for (const item of data) {
+      if (item && item.document && item.document.fields) {
+        const id = item.document.name.split('/').pop();
+        results.push({ id, ...parseFirestoreFields(item.document.fields) });
+      }
+    }
+
+    return results;
+  } catch (err: any) {
+    console.error(`[SERVER] queryFirestoreRest exception for ${collectionPath}:`, err?.message || err);
+    return [];
+  }
+}
+
