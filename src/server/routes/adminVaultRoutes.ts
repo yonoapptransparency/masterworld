@@ -755,12 +755,7 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
         } catch (e) {}
       }
       if (!baseReviews || baseReviews.length === 0) {
-        try {
-          const { STATIC_COMMUNITY_REVIEWS } = require('../../lib/communityReviewsData');
-          if (Array.isArray(STATIC_COMMUNITY_REVIEWS) && STATIC_COMMUNITY_REVIEWS.length > 0) {
-            baseReviews = STATIC_COMMUNITY_REVIEWS;
-          }
-        } catch (e) {}
+        // Disabled static fallback
       }
 
       const backupPayload = {
@@ -788,15 +783,8 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
       const tsCode = generateStaticDataFileCode(finalApps, finalSettings, finalNews, finalVideos);
       fs.writeFileSync(staticDataPath, tsCode, 'utf8');
 
-      if (baseReviews && baseReviews.length > 0) {
-        try {
-          const communityReviewsTsPath = path.join(process.cwd(), 'src/lib/communityReviewsData.ts');
-          const revCode = generateCommunityReviewsFileCode([]); // LIVE FIREBASE INTEGRATION: Reviews are now fetched dynamically.
-          fs.writeFileSync(communityReviewsTsPath, revCode, 'utf8');
-        } catch (revErr) {
-          console.warn("[SERVER] Could not update communityReviewsData.ts:", revErr);
-        }
-      }
+      // Static reviews file update disabled as per architecture change
+
 
       // Update in-memory vaultNode for instant link resolution
       finalApps.forEach((app: any) => {

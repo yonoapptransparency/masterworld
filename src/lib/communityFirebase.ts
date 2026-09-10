@@ -15,7 +15,6 @@ import {
   updateDoc,
   increment
 } from 'firebase/firestore';
-import { STATIC_COMMUNITY_REVIEWS } from './communityReviewsData';
 
 export interface PublicReview {
   id: string;
@@ -158,13 +157,7 @@ export async function fetchLiveReviews(options: {
 
   // 4. Merge verified static baseline reviews for this app
   try {
-    if (Array.isArray(STATIC_COMMUNITY_REVIEWS)) {
-      const staticMatches = STATIC_COMMUNITY_REVIEWS.filter(r => 
-        (targetId && (r.appId === targetId || (r as any).app_id === targetId)) ||
-        (targetSlug && r.appSlug === targetSlug)
-      );
-      staticMatches.forEach(addReview);
-    }
+    // Disabled loading static reviews fallback
   } catch (statErr) {}
 
   // Sort: Pinned reviews first, then newest created_at / timestamp descending

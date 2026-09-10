@@ -330,7 +330,7 @@ class AutoPilotQueueService {
         }
 
         // Check existing reviews count
-        const existingReviews = communityStore.getReviewsForApp(appId, undefined, 1000, appName);
+        const existingReviews = await communityStore.getReviewsForApp(appId, undefined, 1000, appName);
         const existingCount = existingReviews?.reviews ? existingReviews.reviews.length : 0;
 
         // Extract facts for status reporting

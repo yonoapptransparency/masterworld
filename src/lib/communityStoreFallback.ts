@@ -1,4 +1,4 @@
-import { STATIC_COMMUNITY_REVIEWS, StaticReviewRecord } from './communityReviewsData';
+const STATIC_COMMUNITY_REVIEWS: any[] = [];
 
 export interface ReviewRecord {
   id: string;

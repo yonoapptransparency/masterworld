@@ -2,7 +2,6 @@ import fs from 'fs';
 import path from 'path';
 import { getCommunityAdminDb, writeFirestoreRestDoc, readFirestoreRestDoc, deleteFirestoreRestDoc, readFirestoreRestCollection, parseFirestoreFields, getRawFirebaseConfig } from '../firebase';
 import { getStaticData } from '../config';
-import { STATIC_COMMUNITY_REVIEWS } from '../../lib/communityReviewsData';
 
 export interface ReviewRecord {
   id: string;
@@ -196,10 +195,10 @@ class CommunityStoreService {
     this.loadFromLocalBackup();
     this.initFromFirestore().catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
 
-    // Periodically poll Firestore in the background (60s) to keep multi-instance environments synchronized
+    // Periodically poll Firestore in the background to keep multi-instance environments synchronized
     const intervalId = setInterval(() => {
       this.initFromFirestore(true).catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
-    }, 3600000); // 1 hour polling instead of 1 minute to save quotas
+    }, 15000); // Poll every 15 seconds
     if (typeof intervalId.unref === 'function') {
       intervalId.unref();
     }
@@ -247,34 +246,7 @@ class CommunityStoreService {
 
     // Pre-load from bundled static reviews if local memory cache is empty
     if (this.reviews.size === 0) {
-      try {
-        const { STATIC_COMMUNITY_REVIEWS } = require('../../../src/lib/communityReviewsData');
-        if (Array.isArray(STATIC_COMMUNITY_REVIEWS) && STATIC_COMMUNITY_REVIEWS.length > 0) {
-          STATIC_COMMUNITY_REVIEWS.forEach((r: any) => {
-            if (r && r.id && !this.deletedReviewIds.has(r.id)) {
-              this.reviews.set(r.id, {
-                id: r.id,
-                appId: r.appId || '',
-                appSlug: r.appSlug || '',
-                appName: r.appName || '',
-                userName: r.userName || 'Player',
-                rating: Number(r.rating) || 5,
-                reviewText: sanitizeReviewText(r.reviewText || ''),
-                timestamp: r.timestamp || new Date().toISOString(),
-                status: r.status || 'published',
-                helpful_count: Number(r.helpful_count) || 0,
-                isPinned: Boolean(r.isPinned),
-                reported: Boolean(r.reported),
-                report_count: Number(r.report_count) || 0,
-                source: r.source || 'community',
-                adminReply: r.adminReply || null,
-                updated_at: r.updated_at
-              });
-            }
-          });
-          console.log(`[CommunityStore] Preloaded ${this.reviews.size} reviews from STATIC_COMMUNITY_REVIEWS fallback.`);
-        }
-      } catch (e) {}
+      // Disabled loading static reviews fallback
     }
   }
 
@@ -849,7 +821,7 @@ class CommunityStoreService {
    * Universal App Review Resolver:
    * Accurately finds all reviews for any app by ID, Slug, Name, or Package without any cross-app mixups.
    */
-  public getReviewsForApp(appIdentifier: string, cursor?: string, limitCount = 10, appTitle?: string, overallRating = 5.0, appSlug?: string) {
+  public async getReviewsForApp(appIdentifier: string, cursor?: string, limitCount = 10, appTitle?: string, overallRating = 5.0, appSlug?: string) {
     const aliasKeys = this.getAliasKeysForApp(appIdentifier, appTitle, appSlug);
 
     // Filter published or approved reviews matching ANY of this app's alias keys

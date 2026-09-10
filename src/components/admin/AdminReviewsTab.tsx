@@ -64,6 +64,8 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [actioningId, setActioningId] = useState<string | null>(null);
+  const [firebaseStatus, setFirebaseStatus] = useState<'checking' | 'live' | 'error'>('checking');
+  const [firebaseStatusMsg, setFirebaseStatusMsg] = useState('');
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState('');
@@ -109,6 +111,33 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
     if (selectedAppId === 'all') return null;
     return appMap.get(selectedAppId) || { id: selectedAppId, name: selectedAppId, slug: selectedAppId };
   }, [selectedAppId, appMap]);
+
+  const fetchFirebaseStatus = async () => {
+    try {
+      setFirebaseStatus('checking');
+      const res = await adminFetch('/api/v1/admin/community/health/ping');
+      const data = await res.json();
+      if (res.ok && data.success) {
+        if (data.firestoreRead && data.firestoreWrite) {
+          setFirebaseStatus('live');
+          setFirebaseStatusMsg('Firebase 100% Live (Read/Write OK)');
+        } else {
+          setFirebaseStatus('error');
+          setFirebaseStatusMsg(`Issues detected. Read: ${data.firestoreRead ? 'OK' : 'Fail'}, Write: ${data.firestoreWrite ? 'OK' : 'Fail'}`);
+        }
+      } else {
+        setFirebaseStatus('error');
+        setFirebaseStatusMsg('Error communicating with backend ping');
+      }
+    } catch(e) {
+      setFirebaseStatus('error');
+      setFirebaseStatusMsg('Network error reaching backend');
+    }
+  };
+
+  useEffect(() => {
+    fetchFirebaseStatus();
+  }, []);
 
   // Handle clearing reviews for active app
   const handleClearAppReviews = async (appIdToClear: string) => {
@@ -475,8 +504,25 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
               <MessageSquare className="w-6 h-6" />
             </span>
             <div>
-              <h1 className="text-2xl md:text-3xl font-black tracking-tight">App Reviews & Ratings Control</h1>
-              <p className="text-xs md:text-sm text-blue-200/80 font-medium">
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl md:text-3xl font-black tracking-tight">App Reviews & Ratings Control</h1>
+                {firebaseStatus === 'checking' && (
+                  <span className="px-2.5 py-1 bg-amber-500/20 text-amber-300 rounded-lg text-[10px] font-bold border border-amber-400/30 flex items-center gap-1.5 uppercase tracking-wider">
+                    <RefreshCw className="w-3 h-3 animate-spin" /> Checking Firebase...
+                  </span>
+                )}
+                {firebaseStatus === 'live' && (
+                  <span className="px-2.5 py-1 bg-emerald-500/20 text-emerald-300 rounded-lg text-[10px] font-bold border border-emerald-400/30 flex items-center gap-1.5 uppercase tracking-wider" title={firebaseStatusMsg}>
+                    <CheckCircle2 className="w-3 h-3" /> Firebase 100% Live
+                  </span>
+                )}
+                {firebaseStatus === 'error' && (
+                  <span className="px-2.5 py-1 bg-rose-500/20 text-rose-300 rounded-lg text-[10px] font-bold border border-rose-400/30 flex items-center gap-1.5 uppercase tracking-wider" title={firebaseStatusMsg}>
+                    <AlertTriangle className="w-3 h-3" /> Firebase Sync Issue
+                  </span>
+                )}
+              </div>
+              <p className="text-xs md:text-sm text-blue-200/80 font-medium mt-1">
                 Full lifecycle management: verify, edit, pin, reply, audit, and recalculate ratings directly in Firestore.
               </p>
             </div>

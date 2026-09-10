@@ -154,7 +154,7 @@ communityRouter.get("/api/v1/public/community/reviews/:appId", async (req: any, 
   const targetSlug = slug || appSlug;
 
   try {
-    const result = communityStore.getReviewsForApp(
+    const result = await communityStore.getReviewsForApp(
       String(appId).trim(),
       cursor ? String(cursor) : undefined,
       Math.min(50, Number(limit) || 10),
@@ -205,6 +205,49 @@ communityRouter.get("/api/v1/public/community/reviews/:appId", async (req: any, 
 // =========================================================================
 
 // Admin: Query Reviews with Filters, Sorting, Search
+// Add health ping for community database
+communityRouter.get("/api/v1/admin/community/health/ping", verifyAdminToken, async (req: any, res: any) => {
+  try {
+    const results = {
+      firestoreRead: false,
+      firestoreWrite: false,
+      details: { readMode: '', writeMode: '', readError: '', writeError: '' }
+    };
+    
+    // Test Read
+    try {
+      const { readFirestoreRestCollection } = require('../firebase');
+      const all = await readFirestoreRestCollection('reviews', req.headers.authorization, 1);
+      if (all && Array.isArray(all)) {
+        results.firestoreRead = true;
+        results.details.readMode = 'In-Memory/REST Polling Active';
+      }
+    } catch(e: any) {
+      results.details.readError = e.message;
+    }
+    
+    // Test Write
+    try {
+      const pingDocId = `_status_check_${Date.now()}`;
+      const { writeFirestoreRestDoc, deleteFirestoreRestDoc } = require('../firebase');
+      const writeOk = await writeFirestoreRestDoc(pingDocId, { ts: Date.now(), source: 'admin_rest_healthcheck' }, req.headers.authorization, true, 'reviews');
+      if (writeOk) {
+        results.firestoreWrite = true;
+        results.details.writeMode = 'REST Update Permitted';
+        deleteFirestoreRestDoc(pingDocId, req.headers.authorization, 'reviews').catch(() => {});
+      } else {
+        results.details.writeError = 'REST Update Denied';
+      }
+    } catch(e: any) {
+      results.details.writeError = e.message;
+    }
+    
+    return res.status(200).json({ success: true, ...results });
+  } catch(error) {
+    return res.status(500).json({ success: false, error: String(error) });
+  }
+});
+
 communityRouter.get("/api/v1/admin/community/reviews", verifyAdminToken, async (req: any, res: any) => {
   try {
     const { 

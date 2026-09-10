@@ -4,7 +4,6 @@ import { auth, db, isFirebaseReal, handleFirestoreError, OperationType } from '.
 import { adminFetch, getValidAdminToken, loadSession } from '../services/adminAuthService';
 import { GitConfig, generateStaticDataFileCode, generateCommunityReviewsFileCode, commitFileToGitHub, encryptUrlIfNeeded } from '../lib/githubSync';
 import { generateAllSitemaps } from '../lib/sitemapGenerator';
-import { STATIC_COMMUNITY_REVIEWS } from '../lib/communityReviewsData';
 import { ensureDefaultSettings } from '../lib/defaultLegalContent';
 import { AppConfig, GlobalSettings, NewsItem, VideoItem } from '../types';
 
@@ -222,9 +221,6 @@ export function useGitHubSync(
           } else if (Array.isArray(liveBackup?.reviews) && liveBackup.reviews.length > 0) {
             targetReviews = liveBackup.reviews;
             log(`GitHub Sync: Using ${targetReviews.length} cached community reviews from live backup.`);
-          } else if (Array.isArray(STATIC_COMMUNITY_REVIEWS) && STATIC_COMMUNITY_REVIEWS.length > 0) {
-            targetReviews = STATIC_COMMUNITY_REVIEWS;
-            log(`GitHub Sync: Using ${targetReviews.length} pre-bundled static community reviews.`);
           }
 
           // Inject true star ratings and total counts into apps from reviews
@@ -255,8 +251,6 @@ export function useGitHubSync(
     if (targetReviews.length === 0) {
       if (Array.isArray(liveBackup?.reviews) && liveBackup.reviews.length > 0) {
         targetReviews = liveBackup.reviews;
-      } else if (Array.isArray(STATIC_COMMUNITY_REVIEWS) && STATIC_COMMUNITY_REVIEWS.length > 0) {
-        targetReviews = STATIC_COMMUNITY_REVIEWS;
       }
     }
 
