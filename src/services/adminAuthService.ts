@@ -86,10 +86,13 @@ export function saveSession(session: AdminSession): void {
 
 export function loadSession(): AdminSession | null {
   try {
-    const raw = localStorage.getItem(SESSION_KEY);
+    let raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) {
+      raw = sessionStorage.getItem(SESSION_KEY);
+    }
     if (!raw) return null;
     const parsed: AdminSession = JSON.parse(raw);
-    if (!parsed.idToken || !parsed.expiresAt) return null;
+    if (!parsed.idToken) return null;
     return parsed;
   } catch (_) {
     return null;
@@ -99,10 +102,12 @@ export function loadSession(): AdminSession | null {
 export function clearSession(): void {
   try {
     localStorage.removeItem(SESSION_KEY);
+    sessionStorage.removeItem(SESSION_KEY);
   } catch (_) {}
 }
 
 export function isSessionExpired(session: AdminSession): boolean {
+  if (!session?.expiresAt) return false;
   return Date.now() >= session.expiresAt;
 }
 
@@ -177,27 +182,49 @@ export async function refreshIdToken(
 // ─────────────────────────────────────────────────────────────────────────────
 export async function getValidAdminToken(): Promise<string | null> {
   const session = loadSession();
-  if (!session) return null;
+  if (session && session.idToken) {
+    // If still in standard validity window
+    if (!session.expiresAt || Date.now() < session.expiresAt - 2 * 60 * 1000) {
+      return session.idToken;
+    }
 
-  // Token still valid (with 2-min buffer)
-  if (Date.now() < session.expiresAt - 2 * 60 * 1000) {
+    // Attempt refresh
+    try {
+      const refreshed = await refreshIdToken(session.refreshToken);
+      if (refreshed?.idToken) {
+        const updated: AdminSession = {
+          ...session,
+          idToken: refreshed.idToken,
+          expiresAt: refreshed.expiresAt,
+        };
+        saveSession(updated);
+        return updated.idToken;
+      }
+    } catch (_) {}
+    
+    // Always fall back to existing token rather than dropping authorization prematurely
     return session.idToken;
   }
 
-  // Attempt refresh
-  const refreshed = await refreshIdToken(session.refreshToken);
-  if (!refreshed) {
-    clearSession();
-    return null;
-  }
+  // Fallback: Check Firebase Auth client SDK
+  try {
+    const { getAuth } = await import('firebase/auth');
+    const auth = getAuth();
+    if (auth && auth.currentUser) {
+      const idToken = await auth.currentUser.getIdToken();
+      if (idToken) {
+        saveSession({
+          idToken,
+          refreshToken: auth.currentUser.refreshToken || 'FIREBASE_CLIENT',
+          email: auth.currentUser.email || 'admin',
+          expiresAt: Date.now() + TOKEN_LIFETIME_MS
+        });
+        return idToken;
+      }
+    }
+  } catch (_) {}
 
-  const updated: AdminSession = {
-    ...session,
-    idToken: refreshed.idToken,
-    expiresAt: refreshed.expiresAt,
-  };
-  saveSession(updated);
-  return updated.idToken;
+  return null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

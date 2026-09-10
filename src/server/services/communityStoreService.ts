@@ -193,15 +193,15 @@ class CommunityStoreService {
 
   constructor() {
     this.loadFromLocalBackup();
-    this.initFromFirestore().catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
-
-    // Periodically poll Firestore in the background to keep multi-instance environments synchronized
-    const intervalId = setInterval(() => {
-      this.initFromFirestore(true).catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
-    }, 15000); // Poll every 15 seconds
-    if (typeof intervalId.unref === 'function') {
-      intervalId.unref();
-    }
+    // Non-blocking initial sync attempt with quick quota detection
+    setTimeout(() => {
+      this.initFromFirestore().catch((e: any) => { 
+        if (this.isQuotaError(e)) {
+          this.quotaExhaustedUntil = Date.now() + 60 * 60 * 1000;
+          console.log(`[CommunityStore] Firestore quota limit recognized. Running in high-availability Local Storage mode with ${this.reviews.size} reviews and ${this.reports.size} reports.`);
+        }
+      });
+    }, 1000);
   }
 
   // Check if error is a Firestore quota / rate exhaustion

@@ -260,87 +260,21 @@ communityRouter.get("/api/v1/admin/community/reviews", verifyAdminToken, async (
       limit = 100 
     } = req.query;
 
-    // 1. Force explicitly LIVE fetch from Firestore to guarantee the most up-to-date data for admin editing.
-    let liveReviews: any[] = [];
-    try {
-      const { getCommunityAdminDb } = require('../firebase');
-      const db = getCommunityAdminDb();
-      if (db) {
-        const snapshot = await db.collection('reviews').orderBy('timestamp', 'desc').limit(500).get();
-        snapshot.forEach((doc: any) => {
-          liveReviews.push({ id: doc.id, ...doc.data() });
-        });
-        console.log(`[Admin API] Fetched ${liveReviews.length} live reviews from Firestore`);
-      }
-    } catch (firebaseErr) {
-      console.warn("Failed to fetch live admin reviews from Firestore, falling back to cache.", firebaseErr);
-    }
-
-    let list = liveReviews.length > 0 ? liveReviews : Array.from((communityStore as any).reviews.values());
-
-    if (appId && appId !== 'all') {
-      const aliasKeys = (communityStore as any).getAliasKeysForApp(appId);
-      list = list.filter(r => {
-        const rAppId = String(r.appId || '').toLowerCase().trim();
-        const rAppSlug = String(r.appSlug || '').toLowerCase().trim();
-        const rAppName = String(r.appName || '').toLowerCase().trim();
-        return aliasKeys.has(rAppId) || (rAppSlug && aliasKeys.has(rAppSlug)) || (rAppName && aliasKeys.has(rAppName));
-      });
-    }
-
-    if (status && status !== 'all') {
-      list = list.filter(r => r.status === status);
-    }
-
-    if (rating && rating !== 'all') {
-      list = list.filter(r => r.rating === Number(rating));
-    }
-
-    if (isPinned === 'true') {
-      list = list.filter(r => !!r.isPinned);
-    }
-
-    if (search && String(search).trim()) {
-      const s = String(search).toLowerCase().trim();
-      list = list.filter(r => 
-        (r.userName && r.userName.toLowerCase().includes(s)) ||
-        (r.reviewText && r.reviewText.toLowerCase().includes(s)) ||
-        (r.appId && String(r.appId).toLowerCase().includes(s)) ||
-        (r.appName && String(r.appName).toLowerCase().includes(s)) ||
-        (r.appSlug && String(r.appSlug).toLowerCase().includes(s))
-      );
-    }
-
-    // Sort
-    list.sort((a, b) => {
-      if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
-      if (sortBy === 'oldest') return new Date(a.timestamp || 0).getTime() - new Date(b.timestamp || 0).getTime();
-      if (sortBy === 'rating_desc') return (b.rating || 0) - (a.rating || 0);
-      if (sortBy === 'rating_asc') return (a.rating || 0) - (b.rating || 0);
-      if (sortBy === 'helpful') return (b.helpful_count || 0) - (a.helpful_count || 0);
-      if (sortBy === 'reports') return (b.report_count || 0) - (a.report_count || 0);
-      return new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime();
+    const result = communityStore.queryAdminReviews({
+      appId: appId ? String(appId) : undefined,
+      status: status ? String(status) : undefined,
+      rating: rating ? String(rating) : undefined,
+      search: search ? String(search) : undefined,
+      isPinned: isPinned ? String(isPinned) : undefined,
+      sortBy: String(sortBy),
+      limit: req.query.limit !== undefined ? Number(req.query.limit) : 100
     });
-
-    const max = req.query.limit !== undefined ? Number(req.query.limit) : 50000;
-    const sliced = list.slice(0, max);
-
-    const stats = {
-      total: list.length,
-      published: list.filter(r => r.status === 'published').length,
-      pending: list.filter(r => r.status === 'pending').length,
-      rejected: list.filter(r => r.status === 'rejected').length,
-      flagged: list.filter(r => !!r.reported || (r.report_count || 0) > 0).length,
-      averageRating: list.length > 0
-        ? parseFloat((list.reduce((acc, cur) => acc + (cur.rating || 5), 0) / list.length).toFixed(1))
-        : 5.0
-    };
 
     return res.status(200).json({ 
       success: true, 
-      reviews: sliced, 
-      stats,
-      totalCount: list.length 
+      reviews: result.reviews, 
+      stats: result.stats,
+      totalCount: result.totalCount 
     });
   } catch (err: any) {
     console.error("Error in admin reviews fetch:", err);

@@ -45,16 +45,7 @@ export interface ReviewFetchResult {
   stats?: any;
 }
 
-// LIVE Community Database Configuration
-const communityConfig = {
-  projectId: "gen-lang-client-0825832493",
-  apiKey: "AIzaSyBey9sUbeWrcXS2kl4ewOzkTy4arg03Ok"
-};
-const FIRESTORE_DB_ID = "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a";
-
-const app = getApps().find(a => a.name === 'communityLive') || initializeApp(communityConfig, 'communityLive');
-export const communityDb = getFirestore(app, FIRESTORE_DB_ID);
-
+// LIVE Community Review Engine
 export async function fetchLiveReviews(options: {
   appId: string;
   appSlug?: string;
@@ -95,55 +86,33 @@ export async function fetchLiveReviews(options: {
     reviewMap.set(rev.id, rev);
   };
 
-  // 1. Try Live Firestore Direct Client SDK Query (NO composite index needed)
-  try {
-    const reviewsRef = collection(communityDb, 'reviews');
-    
-    // Query by appId
-    if (targetId) {
-      const q1 = query(reviewsRef, where('appId', '==', targetId), limit(50));
-      const snap1 = await getDocs(q1);
-      snap1.docs.forEach(d => addReview({ id: d.id, ...d.data() }));
-
-      // Also check app_id field
-      const q2 = query(reviewsRef, where('app_id', '==', targetId), limit(50));
-      const snap2 = await getDocs(q2);
-      snap2.docs.forEach(d => addReview({ id: d.id, ...d.data() }));
-    }
-
-    // Query by appSlug
-    if (targetSlug) {
-      const q3 = query(reviewsRef, where('appSlug', '==', targetSlug), limit(50));
-      const snap3 = await getDocs(q3);
-      snap3.docs.forEach(d => addReview({ id: d.id, ...d.data() }));
-    }
-  } catch (fsErr) {
-    console.warn("[Community] Live Firestore query notice:", fsErr);
-  }
-
-  // 2. Fetch from Backend REST API for server-synced reviews
+  // 1. Fetch from High-Availability Backend REST API
   try {
     const apiTarget = targetId || targetSlug;
-    const res = await fetch(`/api/v1/public/community/reviews/${encodeURIComponent(apiTarget)}?limit=50`);
+    const res = await fetch(`/api/v1/public/community/reviews/${encodeURIComponent(apiTarget)}?limit=100`);
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data.reviews)) {
         data.reviews.forEach(addReview);
       }
     }
-  } catch (apiErr) {}
+  } catch (apiErr) {
+    console.warn("[Community] Server review API notice:", apiErr);
+  }
 
-  // 3. Merge locally saved user reviews from localStorage
+  // 2. Merge locally saved user reviews from localStorage
   try {
-    const localKey = `local_user_reviews_${targetId}`;
-    const localSaved = localStorage.getItem(localKey);
-    if (localSaved) {
-      const parsed = JSON.parse(localSaved);
-      if (Array.isArray(parsed)) {
-        parsed.forEach(addReview);
+    if (targetId) {
+      const localKey = `local_user_reviews_${targetId}`;
+      const localSaved = localStorage.getItem(localKey);
+      if (localSaved) {
+        const parsed = JSON.parse(localSaved);
+        if (Array.isArray(parsed)) {
+          parsed.forEach(addReview);
+        }
       }
     }
-    if (targetSlug) {
+    if (targetSlug && targetSlug !== targetId) {
       const localSlugKey = `local_user_reviews_${targetSlug}`;
       const localSlugSaved = localStorage.getItem(localSlugKey);
       if (localSlugSaved) {
@@ -154,11 +123,6 @@ export async function fetchLiveReviews(options: {
       }
     }
   } catch (lsErr) {}
-
-  // 4. Merge verified static baseline reviews for this app
-  try {
-    // Disabled loading static reviews fallback
-  } catch (statErr) {}
 
   // Sort: Pinned reviews first, then newest created_at / timestamp descending
   const allSorted = Array.from(reviewMap.values()).sort((a, b) => {
@@ -241,17 +205,9 @@ export async function submitLiveReview(data: {
       adminReply: null
     };
 
-    // 1. Direct write to Firestore Client SDK
+    // 1. Submit to Server API
     try {
-      const docRef = doc(communityDb, 'reviews', newId);
-      await setDoc(docRef, reviewPayload);
-    } catch (fsErr) {
-      console.warn("[Community] Direct Firestore write note:", fsErr);
-    }
-
-    // 2. Dual-write to Server API (persists via Admin SDK)
-    try {
-      await fetch('/api/v1/public/community/reviews', {
+      const res = await fetch('/api/v1/public/community/reviews', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -259,11 +215,17 @@ export async function submitLiveReview(data: {
           turnstileToken: data.turnstileToken
         })
       });
+      if (res.ok) {
+        const resData = await res.json();
+        if (resData.review) {
+          formattedReview.id = resData.review.id || formattedReview.id;
+        }
+      }
     } catch (apiErr) {
-      console.warn("[Community] Server API dual-write note:", apiErr);
+      console.warn("[Community] Server API write note:", apiErr);
     }
 
-    // 3. Save to localStorage for instant client-side persistence
+    // 2. Save to localStorage for instant client-side persistence
     try {
       const localKey = `local_user_reviews_${data.appId}`;
       const existing = JSON.parse(localStorage.getItem(localKey) || '[]');
@@ -271,7 +233,7 @@ export async function submitLiveReview(data: {
       localStorage.setItem(localKey, JSON.stringify(existing.slice(0, 50)));
     } catch (lsErr) {}
 
-    // 4. Dispatch global window event so all UI components update live
+    // 3. Dispatch global window event so all UI components update live
     try {
       window.dispatchEvent(new CustomEvent('community-review-added', {
         detail: { newReview: formattedReview }
@@ -283,7 +245,7 @@ export async function submitLiveReview(data: {
       review: formattedReview 
     };
   } catch (err: any) {
-    console.error("Live Firebase submit error:", err);
+    console.error("Community submit error:", err);
     return { success: false, error: err.message || 'Failed to submit review' };
   }
 }
@@ -300,12 +262,7 @@ export async function submitLiveReport(data: any): Promise<boolean> {
       created_at: now
     };
 
-    // 1. Direct Firestore write
-    try {
-      await setDoc(doc(communityDb, 'reports', newId), payload);
-    } catch (e) {}
-
-    // 2. Server API write
+    // Server API write
     try {
       await fetch('/api/v1/public/reports', {
         method: 'POST',
@@ -322,23 +279,12 @@ export async function submitLiveReport(data: any): Promise<boolean> {
 
 export async function voteLiveReviewHelpful(reviewId: string): Promise<boolean> {
   try {
-    // 1. Direct Firestore update
-    try {
-      const ref = doc(communityDb, 'reviews', reviewId);
-      await updateDoc(ref, {
-        helpful_count: increment(1)
-      });
-    } catch (e) {}
-
-    // 2. Server API helpful vote
-    try {
-      await fetch('/api/v1/public/community/reviews/helpful', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reviewId })
-      });
-    } catch (e) {}
-
+    // Server API helpful vote
+    await fetch('/api/v1/public/community/reviews/helpful', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reviewId })
+    });
     return true;
   } catch {
     return false;

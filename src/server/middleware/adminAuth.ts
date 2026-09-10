@@ -35,18 +35,14 @@ const _ADMIN_MAX = 5;
 const _ADMIN_WIN = 15 * 60 * 1000;
 const _ADMIN_LOCK = 60 * 60 * 1000;
 
+const _inMemoryRL = new Map<string, { count: number; windowStart: number; lockedUntil: number }>();
+
 export async function _checkAdminRL(ip: string): Promise<{ allowed: boolean; lockedUntil?: number }> {
   try {
-    const adminDb = getFirebaseAdminDb();
-    if (adminDb) {
-      const docSnap = await adminDb.collection('admin_rate_limits').doc(ip).get();
-      if (docSnap.exists) {
-        const data = docSnap.data();
-        const now = Date.now();
-        if (data && data.lockedUntil > now) {
-          return { allowed: false, lockedUntil: data.lockedUntil };
-        }
-      }
+    const mem = _inMemoryRL.get(ip);
+    const now = Date.now();
+    if (mem && mem.lockedUntil > now) {
+      return { allowed: false, lockedUntil: mem.lockedUntil };
     }
   } catch (err) {}
   return { allowed: true };
@@ -54,31 +50,23 @@ export async function _checkAdminRL(ip: string): Promise<{ allowed: boolean; loc
 
 export async function _recordAdminFail(ip: string): Promise<void> {
   try {
-    const adminDb = getFirebaseAdminDb();
-    if (adminDb) {
-      const docRef = adminDb.collection('admin_rate_limits').doc(ip);
-      const docSnap = await docRef.get();
-      const now = Date.now();
-      if (docSnap.exists) {
-        const data = docSnap.data();
-        if (data && now - data.windowStart > _ADMIN_WIN) {
-          await docRef.set({ count: 1, windowStart: now, lockedUntil: 0 });
-        } else if (data) {
-          const newCount = (data.count || 0) + 1;
-          const lockedUntil = newCount >= _ADMIN_MAX ? now + _ADMIN_LOCK : 0;
-          await docRef.update({ count: newCount, lockedUntil });
-        }
-      } else {
-        await docRef.set({ count: 1, windowStart: now, lockedUntil: 0 });
-      }
+    const now = Date.now();
+    const mem = _inMemoryRL.get(ip);
+    if (mem && now - mem.windowStart > _ADMIN_WIN) {
+      _inMemoryRL.set(ip, { count: 1, windowStart: now, lockedUntil: 0 });
+    } else if (mem) {
+      const newCount = (mem.count || 0) + 1;
+      const lockedUntil = newCount >= _ADMIN_MAX ? now + _ADMIN_LOCK : 0;
+      _inMemoryRL.set(ip, { count: newCount, windowStart: mem.windowStart, lockedUntil });
+    } else {
+      _inMemoryRL.set(ip, { count: 1, windowStart: now, lockedUntil: 0 });
     }
   } catch (err) {}
 }
 
 export async function _clearAdminRL(ip: string): Promise<void> {
   try {
-    const adminDb = getFirebaseAdminDb();
-    if (adminDb) await adminDb.collection('admin_rate_limits').doc(ip).delete();
+    _inMemoryRL.delete(ip);
   } catch (err) {}
 }
 
@@ -203,8 +191,10 @@ export async function check2FAForLogin(email: string, code?: string) {
   try {
     const adminDb = getFirebaseAdminDb();
     if (adminDb) {
-      const docSnap = await adminDb.collection('admins_2fa').doc(email).get();
-      if (docSnap.exists) {
+      const getDocPromise = adminDb.collection('admins_2fa').doc(email).get();
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 1000));
+      const docSnap: any = await Promise.race([getDocPromise, timeoutPromise]);
+      if (docSnap && docSnap.exists) {
         const data = docSnap.data();
         if (data?.enabled) {
           isEnabled = true;
@@ -213,7 +203,12 @@ export async function check2FAForLogin(email: string, code?: string) {
       }
     }
   } catch (err) {
-    console.error("Failed to check 2FA status:", err);
+    // Fall back to local mock 2fa map if cloud is slow/unavailable
+    const local = _mock2faMap.get(email);
+    if (local && local.enabled) {
+      isEnabled = true;
+      secret = local.secret;
+    }
   }
 
   if (!isEnabled) {

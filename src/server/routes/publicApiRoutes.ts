@@ -296,7 +296,7 @@ publicApiRouter.get(["/api/v1/public/firebase-status", "/api/public/firebase-sta
         results.adminSdk = true;
       }
       
-      const testUrl = `https://firestore.googleapis.com/v1/projects/${targetProjectId}/databases/${dbId}/documents/store_data/apps_chunk_0${(!token && apiKey) ? `?key=${apiKey}` : ''}`;
+      const testUrl = `https://firestore.googleapis.com/v1/projects/${targetProjectId}/databases/${dbId}/documents/store_data/public_settings${(!token && apiKey) ? `?key=${apiKey}` : ''}`;
       const restRes = await fetch(testUrl, { headers });
       const latency = Date.now() - adminStart;
       results.readLatencyMs = latency;
