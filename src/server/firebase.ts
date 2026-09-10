@@ -436,7 +436,17 @@ export async function writeFirestoreRestDoc(docId: string, data: any, authToken?
     let targetProjectId = config.projectId;
     let targetApiKey = config.apiKey;
     let dbId = (config.firestoreDatabaseId || config.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a');
-    // Removed isCommunity override to use primary database for reviews
+    
+    const isCommunity = collectionPath === 'reviews' || 
+      collectionPath === 'reports' || 
+      collectionPath === 'community_store' || 
+      collectionPath.startsWith('community_');
+    if (isCommunity && process.env.COMMUNITY_FIREBASE_PROJECT_ID) {
+      targetProjectId = process.env.COMMUNITY_FIREBASE_PROJECT_ID;
+      targetApiKey = process.env.COMMUNITY_FIREBASE_API_KEY || config.apiKey;
+      dbId = process.env.COMMUNITY_FIREBASE_DATABASE_ID || '(default)';
+    }
+
     const queryParams: string[] = [];
     if (targetApiKey) queryParams.push(`key=${encodeURIComponent(targetApiKey)}`);
     if (merge && data && typeof data === 'object') {

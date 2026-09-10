@@ -118,65 +118,41 @@ async function fetchDirectFromFirestore(options: {
   const cleanTitle = String(appTitle || '').toLowerCase().trim();
 
   try {
-    // 1. Try querying chunk 0 and chunk 1 from community_store collection
-    const chunkUrls = [
-      `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/${FIRESTORE_DB_ID}/documents/community_store/community_reviews_chunk_0?key=${FIREBASE_API_KEY}`,
-      `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/${FIRESTORE_DB_ID}/documents/community_store/community_reviews_chunk_1?key=${FIREBASE_API_KEY}`
-    ];
-
     let allLoadedReviews: PublicReview[] = [];
 
-    const responses = await Promise.allSettled(chunkUrls.map(url => fetch(url).then(r => r.json())));
-    for (const res of responses) {
-      if (res.status === 'fulfilled' && res.value && res.value.fields?.reviews) {
-        const parsedChunk = parseFirestoreValue(res.value.fields.reviews);
-        if (Array.isArray(parsedChunk)) {
-          for (const item of parsedChunk) {
-            allLoadedReviews.push({
-              id: String(item.id || `rev_${Math.random()}`),
-              app_id: String(item.appId || item.app_id || ''),
-              appId: String(item.appId || item.app_id || ''),
-              appSlug: String(item.appSlug || ''),
-              appName: String(item.appName || ''),
-              username: String(item.userName || item.username || 'Player'),
-              rating: Number(item.rating) || 5,
-              comment: String(item.reviewText || item.comment || ''),
-              created_at: String(item.timestamp || item.created_at || new Date().toISOString()),
-              helpful_count: Number(item.helpful_count) || 0,
-              reported: Boolean(item.reported),
-              report_count: Number(item.report_count) || 0,
-              source: String(item.source || 'community'),
-              isPinned: Boolean(item.isPinned),
-              adminReply: item.adminReply || null
-            });
-          }
-        }
+    // Directly query the 'reviews' collection instead of legacy chunks
+    const queryBody: any = {
+      structuredQuery: {
+        from: [{ collectionId: 'reviews' }],
+        limit: 300
       }
-    }
-
-    // If chunk reading returned 0 reviews, try runQuery on 'reviews' collection directly
-    if (allLoadedReviews.length === 0) {
-      const queryBody = {
-        structuredQuery: {
-          from: [{ collectionId: 'reviews' }],
-          limit: 300
+    };
+    
+    // Add appId filter if present
+    if (cleanId) {
+      queryBody.structuredQuery.where = {
+        fieldFilter: {
+          field: { fieldPath: 'appId' },
+          op: 'EQUAL',
+          value: { stringValue: cleanId }
         }
       };
-      const queryRes = await fetch(
-        `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/${FIRESTORE_DB_ID}/documents:runQuery?key=${FIREBASE_API_KEY}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(queryBody)
-        }
-      );
-      if (queryRes.ok) {
-        const queryJson = await queryRes.json();
-        if (Array.isArray(queryJson)) {
-          for (const row of queryJson) {
-            if (row.document) {
-              allLoadedReviews.push(convertFirestoreDocToReview(row.document));
-            }
+    }
+
+    const queryRes = await fetch(
+      `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/${FIRESTORE_DB_ID}/documents:runQuery?key=${FIREBASE_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(queryBody)
+      }
+    );
+    if (queryRes.ok) {
+      const queryJson = await queryRes.json();
+      if (Array.isArray(queryJson)) {
+        for (const row of queryJson) {
+          if (row.document) {
+            allLoadedReviews.push(convertFirestoreDocToReview(row.document));
           }
         }
       }

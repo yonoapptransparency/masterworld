@@ -315,24 +315,47 @@ communityRouter.post("/api/v1/admin/community/reviews", verifyAdminToken, async 
       });
     }
 
-    const { appId, appSlug, appName, userName, rating, reviewText, status = 'published', isPinned = false, helpful_count = 0, adminReply } = req.body;
+    const { 
+      appId, 
+      app_id,
+      slug,
+      appSlug, 
+      appName, 
+      userName, 
+      username,
+      author,
+      rating, 
+      reviewText, 
+      comment,
+      text,
+      status = 'published', 
+      isPinned = false, 
+      helpful_count = 0, 
+      helpfulCount,
+      source,
+      adminReply 
+    } = req.body;
 
-    if (!appId || !userName || !rating || !reviewText) {
-      return res.status(400).json({ error: 'Missing required review fields' });
+    const targetAppId = appId || app_id || slug || appSlug;
+    const targetUserName = userName || username || author;
+    const targetReviewText = reviewText || comment || text;
+
+    if (!targetAppId || !targetUserName || !rating || !targetReviewText) {
+      return res.status(400).json({ error: 'Missing required review fields: targetAppId, targetUserName, rating, or reviewText' });
     }
 
-    const cleanAppId = String(appId).trim();
+    const cleanAppId = String(targetAppId).trim();
     const newReview = await communityStore.addReview({
       appId: cleanAppId,
-      appSlug: appSlug ? String(appSlug).trim() : undefined,
+      appSlug: (appSlug || slug) ? String(appSlug || slug).trim() : undefined,
       appName: appName ? String(appName).trim() : undefined,
-      userName: String(userName).trim().substring(0, 50),
+      userName: String(targetUserName).trim().substring(0, 50),
       rating: Math.max(1, Math.min(5, Math.round(Number(rating)))),
-      reviewText: String(reviewText).trim(),
+      reviewText: String(targetReviewText).trim(),
       status: status || 'published',
       isPinned: Boolean(isPinned),
-      helpful_count: Number(helpful_count) || 0,
-      source: 'admin_created',
+      helpful_count: Number(helpful_count || helpfulCount) || 0,
+      source: source || 'admin_created',
       adminReply: adminReply ? {
         text: String(adminReply.text || '').trim(),
         author: String(adminReply.author || 'RummyDex Support').trim(),
