@@ -32,70 +32,77 @@ export function useGitHubSync(
     return loadSession()?.idToken || '';
   };
 
+  // Load Git Sync Configuration on mount
   useEffect(() => {
-    if (!auth) return;
-    const unsubAuth = auth.onAuthStateChanged(async (currentUser) => {
-      if (currentUser) {
-        let isAuthorized = false;
-
-        try {
-          const idToken = await currentUser.getIdToken();
-          const verifyRes = await adminFetch('/api/v1/admin/verify', {
-            headers: {
-              'Authorization': `Bearer ${idToken}`
-            }
-          });
-          if (verifyRes.ok) {
-            const verifyData = await verifyRes.json();
-            if (verifyData.authorized) {
-              isAuthorized = true;
-            }
+    let isMounted = true;
+    const loadConfig = async () => {
+      setGitConfigLoading(true);
+      try {
+        // 1. Fetch from server API endpoint (uses Admin SDK)
+        const res = await adminFetch('/api/github-sync/config');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.config && isMounted) {
+            setGitConfig(data.config);
+            try {
+              localStorage.setItem('cached_git_config', JSON.stringify(data.config));
+            } catch (e) {}
+            return;
           }
-        } catch (e) {
-          console.warn("Server admin verification for GitHub context failed:", e);
         }
-
-        if (isAuthorized) {
-          setGitConfigLoading(true);
-          try {
-            if (isFirebaseReal && db) {
-              const configDoc = doc(db, 'sec_git', 'cfg');
-              const snap = await getDoc(configDoc);
-              if (snap.exists()) {
-                setGitConfig(snap.data() as GitConfig);
-              } else {
-                setGitConfig({ owner: "yonoapptransparency", repo: "Dex", branch: "main", token: "", autoSync: false });
-              }
-            } else {
-              setGitConfig({ owner: "yonoapptransparency", repo: "Dex", branch: "main", token: "", autoSync: false });
-            }
-          } catch (err) {
-            console.warn("Secure GitHub configuration read bypassed or not initialized:", err);
-          } finally {
-            setGitConfigLoading(false);
-          }
-        } else {
-          setGitConfig(null);
-        }
-      } else {
-        setGitConfig(null);
+      } catch (e) {
+        console.warn("[GitHub Sync] Failed to fetch config from server:", e);
       }
-    });
 
-    return () => unsubAuth();
+      // 2. Fallback to localStorage
+      try {
+        const cached = localStorage.getItem('cached_git_config');
+        if (cached && isMounted) {
+          setGitConfig(JSON.parse(cached));
+          return;
+        }
+      } catch (e) {}
+
+      // 3. Fallback default
+      if (isMounted) {
+        setGitConfig({
+          owner: "yonoapptransparency",
+          repo: "Dex",
+          branch: "main",
+          token: "",
+          autoSync: false
+        });
+      }
+      setGitConfigLoading(false);
+    };
+
+    loadConfig();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const saveGitConfig = useCallback(async (newConfig: GitConfig) => {
     try {
-      if (isFirebaseReal && db) {
-        const docRef = doc(db, 'sec_git', 'cfg');
-        const sanitized = JSON.parse(JSON.stringify(newConfig));
-        await setDoc(docRef, sanitized);
-      }
       setGitConfig(newConfig);
-    } catch (err) {
+      try {
+        localStorage.setItem('cached_git_config', JSON.stringify(newConfig));
+      } catch (e) {}
+
+      // Save to server endpoint (Admin SDK)
+      const res = await adminFetch('/api/github-sync/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newConfig)
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.message || `Server returned error ${res.status}`);
+      }
+    } catch (err: any) {
       console.error("Save Git Config Error:", err);
-      handleFirestoreError(err, OperationType.WRITE, 'sec_git/cfg');
+      throw err;
     }
   }, []);
 

@@ -1,7 +1,101 @@
 import express from 'express';
 import { verifyAdminToken } from '../middleware/adminAuth';
+import { getFirebaseAdminDb } from '../firebase';
+import fs from 'fs';
+import path from 'path';
 
 export const githubSyncRouter = express.Router();
+
+const LOCAL_GIT_CONFIG_PATH = path.join(process.cwd(), 'src/server/git_config.json');
+
+// GET Git Sync Configuration (Admin Only)
+githubSyncRouter.get("/api/github-sync/config", verifyAdminToken, async (req, res) => {
+  try {
+    let config: any = null;
+
+    // 1. Try reading from Firestore Admin SDK
+    try {
+      const db = getFirebaseAdminDb();
+      if (db) {
+        const docSnap = await db.collection('sec_git').doc('cfg').get();
+        if (docSnap.exists) {
+          config = docSnap.data();
+        }
+      }
+    } catch (dbErr) {
+      console.warn("[GitHub Sync] Firestore config read warning:", dbErr);
+    }
+
+    // 2. Fallback to local server json
+    if (!config && fs.existsSync(LOCAL_GIT_CONFIG_PATH)) {
+      try {
+        config = JSON.parse(fs.readFileSync(LOCAL_GIT_CONFIG_PATH, 'utf8'));
+      } catch (e) {}
+    }
+
+    // 3. Fallback defaults
+    if (!config) {
+      config = {
+        owner: "yonoapptransparency",
+        repo: "Dex",
+        branch: "main",
+        token: process.env.PAT || "",
+        autoSync: false
+      };
+    }
+
+    // If token is in process.env.PAT and config token is empty
+    if (!config.token && process.env.PAT) {
+      config.token = process.env.PAT;
+    }
+
+    return res.json({ success: true, config });
+  } catch (err: any) {
+    console.error("[GitHub Sync] Get config error:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST Git Sync Configuration (Admin Only)
+githubSyncRouter.post("/api/github-sync/config", verifyAdminToken, async (req, res) => {
+  try {
+    const { owner, repo, branch = 'main', token, autoSync = false } = req.body || {};
+    if (!owner || !repo) {
+      return res.status(400).json({ success: false, message: "Owner and Repo are required." });
+    }
+
+    const newConfig = {
+      owner: String(owner).trim(),
+      repo: String(repo).trim(),
+      branch: String(branch).trim() || 'main',
+      token: token ? String(token).trim() : '',
+      autoSync: Boolean(autoSync),
+      updatedAt: new Date().toISOString()
+    };
+
+    // 1. Persist to Firestore via Admin SDK
+    try {
+      const db = getFirebaseAdminDb();
+      if (db) {
+        await db.collection('sec_git').doc('cfg').set(newConfig, { merge: true });
+      }
+    } catch (dbErr) {
+      console.warn("[GitHub Sync] Failed to write config to Firestore:", dbErr);
+    }
+
+    // 2. Persist locally to server file
+    try {
+      fs.writeFileSync(LOCAL_GIT_CONFIG_PATH, JSON.stringify(newConfig, null, 2), 'utf8');
+    } catch (fsErr) {
+      console.warn("[GitHub Sync] Local config file write warning:", fsErr);
+    }
+
+    return res.json({ success: true, message: "GitHub configuration saved successfully.", config: newConfig });
+  } catch (err: any) {
+    console.error("[GitHub Sync] Save config error:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 githubSyncRouter.post("/api/github-sync/test", verifyAdminToken, async (req, res) => {
   try {

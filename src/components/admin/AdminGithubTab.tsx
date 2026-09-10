@@ -68,11 +68,18 @@ export const AdminGithubTab = React.memo(({
     setLogs([{
       id: `${Date.now()}_start`,
       time: new Date().toLocaleTimeString(),
-      text: "Starting Manual GitHub Sync..."
+      text: `Starting Manual GitHub Sync to "${localConfig.repo || gitConfig?.repo || 'Dex'}"...`
     }]);
     try {
+      // Auto-save local config if changed
+      try {
+        if (localConfig.token && (!gitConfig?.token || localConfig.token !== gitConfig.token || localConfig.repo !== gitConfig.repo)) {
+          await saveGitConfig(localConfig);
+        }
+      } catch (saveErr) {}
+
       const result = await pushAllToGitHub(
-        undefined, 
+        localConfig, 
         (msg: string) => {
           appendLog(msg);
         }, 
@@ -83,8 +90,10 @@ export const AdminGithubTab = React.memo(({
       );
       const targetMsg = (result as any)?.targetRepo ? ` to ${(result as any).targetRepo}` : "";
       appendLog(`Sync completed successfully${targetMsg}!`);
+      toast(`Sync completed successfully${targetMsg}!`, 'success');
     } catch (err: any) {
       appendLog(`ERROR: ${err.message || 'Push failed'}`);
+      toast(`Sync failed: ${err.message || 'Push failed'}`, 'error');
     } finally {
       setSyncing(false);
     }
@@ -232,16 +241,18 @@ export const AdminGithubTab = React.memo(({
 
         <div className="flex gap-4">
           <button 
+            type="button"
             onClick={handleManualSync} 
-            disabled={syncing || !gitConfig?.token} 
-            className="flex-1 min-h-[48px] bg-blue-600 disabled:bg-blue-600/50 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm transition-all flex items-center justify-center gap-2 shadow-sm"
+            disabled={syncing || (!gitConfig?.token && !localConfig.token)} 
+            className="flex-1 min-h-[48px] bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 text-white font-semibold rounded-xl text-sm transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer active:scale-[0.99]"
           >
             {syncing ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
-            {syncing ? 'Synchronizing Repository...' : 'Trigger Full Static Build Sync (to Dex)'}
+            {syncing ? 'Synchronizing Repository...' : `Trigger Full Static Build Sync (to ${localConfig.repo || gitConfig?.repo || 'Dex'})`}
           </button>
           <button 
+            type="button"
             onClick={handleTogglePreview} 
-            className="flex-none px-6 min-h-[48px] bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold rounded-xl text-sm transition-all flex items-center justify-center gap-2"
+            className="flex-none px-6 min-h-[48px] bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold rounded-xl text-sm transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
           >
             <FileText className="w-5 h-5" />
             {showPreview ? 'Hide Payload' : 'Preview Payload'}
