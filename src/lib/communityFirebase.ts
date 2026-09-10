@@ -2,7 +2,7 @@
  * Client-Side Community Firebase Review Engine
  * Connected LIVE directly to Firestore (Client SDK).
  */
-import { initializeApp, getApps } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { 
   getFirestore, 
   collection, 
@@ -13,8 +13,28 @@ import {
   doc, 
   setDoc, 
   updateDoc,
-  increment
+  increment,
+  onSnapshot,
+  Firestore
 } from 'firebase/firestore';
+import firebaseConfig from '../../firebase-applet-config.json';
+
+// Initialize Client App safely
+const isConfigured = Boolean(firebaseConfig?.projectId && firebaseConfig?.apiKey);
+let clientDb: Firestore | null = null;
+if (isConfigured && typeof window !== 'undefined') {
+  try {
+    const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+    const dbId = firebaseConfig.firestoreDatabaseId || '(default)';
+    clientDb = dbId === '(default)' ? getFirestore(app) : getFirestore(app, dbId);
+  } catch (e) {
+    console.warn("[Community] Client Firebase init failed:", e);
+  }
+}
+
+let activeUnsubscribe: (() => void) | null = null;
+let activeTargetId: string | null = null;
+
 
 export interface PublicReview {
   id: string;
@@ -98,6 +118,68 @@ export async function fetchLiveReviews(options: {
     }
   } catch (apiErr) {
     console.warn("[Community] Server review API notice:", apiErr);
+  }
+
+  // 1.5 Setup LIVE Firestore Snapshot Listener for real-time updates (only on first load or target change)
+  if (!cursor && clientDb) {
+    const newTargetKey = `${targetId}_${targetSlug}`;
+    if (activeTargetId !== newTargetKey) {
+      if (activeUnsubscribe) activeUnsubscribe();
+      activeTargetId = newTargetKey;
+      
+      try {
+        const q = query(
+          collection(clientDb, 'reviews'), 
+          where('appId', 'in', [targetId, targetSlug].filter(Boolean)),
+          limit(50)
+        );
+        let isFirstSnapshot = true;
+        activeUnsubscribe = onSnapshot(q, (snapshot) => {
+          if (isFirstSnapshot) {
+            isFirstSnapshot = false;
+            return;
+          }
+          snapshot.docChanges().forEach((change) => {
+            if (change.type === 'added' || change.type === 'modified') {
+              const data = change.doc.data();
+              data.id = change.doc.id;
+              
+              if (data.status === 'published' || !data.status) {
+                const formattedRev: PublicReview = {
+                  id: data.id,
+                  app_id: data.appId,
+                  appId: data.appId,
+                  appSlug: data.appSlug || '',
+                  appName: data.appName || '',
+                  username: data.userName || data.username || 'Player',
+                  rating: Number(data.rating) || 5,
+                  comment: data.reviewText || data.comment || '',
+                  created_at: data.timestamp || data.created_at || new Date().toISOString(),
+                  helpful_count: Number(data.helpful_count) || 0,
+                  reported: Boolean(data.reported),
+                  report_count: Number(data.report_count) || 0,
+                  source: data.source || 'community',
+                  isPinned: Boolean(data.isPinned),
+                  adminReply: data.adminReply || null
+                };
+                
+                reviewMap.set(formattedRev.id, formattedRev);
+                
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('community-review-added', {
+                    detail: { newReview: formattedRev }
+                  }));
+                }
+              }
+            }
+          });
+        }, (err) => {
+          console.warn("[Community] Live snapshot notice:", err.message);
+        });
+      } catch (e) {
+        console.warn("[Community] Live snapshot setup failed:", e);
+      }
+    }
   }
 
   // 2. Merge locally saved user reviews from localStorage
