@@ -285,7 +285,9 @@ export function getCommunityAdminDb(): any {
     // Check if community app is already initialized
     const existingApp = admin.apps.find((app: any) => app.name === 'communityApp');
     if (existingApp) {
-      const dbId = process.env.COMMUNITY_FIREBASE_DATABASE_ID || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+      const dbId = (process.env.COMMUNITY_FIREBASE_DATABASE_ID && process.env.COMMUNITY_FIREBASE_DATABASE_ID !== '(default)') 
+    ? process.env.COMMUNITY_FIREBASE_DATABASE_ID 
+    : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
       if (dbId && dbId !== '(default)') {
         cachedCommunityDb = getFirestore(existingApp, dbId);
       } else {
@@ -328,7 +330,9 @@ export function getCommunityAdminDb(): any {
             projectId: serviceAccount.project_id
           }, 'communityApp');
           
-          const dbId = process.env.COMMUNITY_FIREBASE_DATABASE_ID || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+          const dbId = (process.env.COMMUNITY_FIREBASE_DATABASE_ID && process.env.COMMUNITY_FIREBASE_DATABASE_ID !== '(default)') 
+    ? process.env.COMMUNITY_FIREBASE_DATABASE_ID 
+    : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
           if (dbId && dbId !== '(default)') {
             cachedCommunityDb = getFirestore(communityApp, dbId);
           } else {
@@ -356,7 +360,9 @@ export function getCommunityAdminDb(): any {
             projectId: serviceAccount.project_id
           }, 'communityApp');
           
-          const dbId = process.env.COMMUNITY_FIREBASE_DATABASE_ID || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+          const dbId = (process.env.COMMUNITY_FIREBASE_DATABASE_ID && process.env.COMMUNITY_FIREBASE_DATABASE_ID !== '(default)') 
+    ? process.env.COMMUNITY_FIREBASE_DATABASE_ID 
+    : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
           if (dbId && dbId !== '(default)') {
             cachedCommunityDb = getFirestore(communityApp, dbId);
           } else {
@@ -378,7 +384,9 @@ export function getCommunityAdminDb(): any {
     console.warn('[Community Admin SDK] No separate community Firestore DB available. Falling back to primary Admin DB.');
     const primaryApp = admin.apps.length > 0 ? admin.apps[0] : null;
     if (primaryApp) {
-      const dbId = process.env.COMMUNITY_FIREBASE_DATABASE_ID || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+      const dbId = (process.env.COMMUNITY_FIREBASE_DATABASE_ID && process.env.COMMUNITY_FIREBASE_DATABASE_ID !== '(default)') 
+    ? process.env.COMMUNITY_FIREBASE_DATABASE_ID 
+    : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
       if (dbId && dbId !== '(default)') {
         const { getFirestore } = require('firebase-admin/firestore');
         cachedCommunityDb = getFirestore(primaryApp, dbId);

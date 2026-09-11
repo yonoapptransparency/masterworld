@@ -1,5 +1,5 @@
+import { getCommunityAdminDb, readFirestoreRestCollection, writeFirestoreRestDoc, deleteFirestoreRestDoc } from '../firebase';
 import { Router } from 'express';
-import { getCommunityAdminDb } from '../firebase';
 import fs from 'fs';
 import path from 'path';
 import { verifyTurnstile, getIp, rateLimit } from '../security';
@@ -214,7 +214,7 @@ communityRouter.get("/api/v1/admin/community/health/ping", verifyAdminToken, asy
       details: { readMode: '', writeMode: '', readError: '', writeError: '' }
     };
 
-    const { getCommunityAdminDb, readFirestoreRestCollection, writeFirestoreRestDoc, deleteFirestoreRestDoc } = require('../firebase');
+    
     const adminDb = getCommunityAdminDb();
 
     // 1. Test Read (Admin SDK first, then REST)
@@ -230,7 +230,7 @@ communityRouter.get("/api/v1/admin/community/health/ping", verifyAdminToken, asy
 
     if (!results.firestoreRead) {
       try {
-        const all = await readFirestoreRestCollection('reviews', req.headers.authorization, 1);
+        const all = await readFirestoreRestCollection('reviews', req.headers.authorization);
         if (all && Array.isArray(all)) {
           results.firestoreRead = true;
           results.details.readMode = 'REST Firestore Read Active';

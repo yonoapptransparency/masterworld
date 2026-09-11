@@ -1,3 +1,4 @@
+import { communityStore as fallbackStore } from '../../lib/communityStoreFallback';
 import fs from 'fs';
 import path from 'path';
 import { getCommunityAdminDb, writeFirestoreRestDoc, readFirestoreRestDoc, deleteFirestoreRestDoc, readFirestoreRestCollection, parseFirestoreFields, getRawFirebaseConfig, queryFirestoreRest } from '../firebase';
@@ -980,16 +981,23 @@ class CommunityStoreService {
   }) {
     if (this.reviews.size === 0) {
       try {
+        let sdkSuccess = false;
         const db = getCommunityAdminDb();
         if (db) {
-          const snap = await db.collection('reviews').limit(5000).get();
-          snap.docs.forEach((docSnap: any) => {
-            const d = docSnap.data();
-            this.reviews.set(docSnap.id, { id: docSnap.id, ...d });
-          });
-        } else {
-          // REST Fallback for Admin SDK failure
-          const { readFirestoreRestCollection } = require('../firebase');
+          try {
+            const snap = await db.collection('reviews').limit(5000).get();
+            snap.docs.forEach((docSnap: any) => {
+              const d = docSnap.data();
+              this.reviews.set(docSnap.id, { id: docSnap.id, ...d });
+            });
+            sdkSuccess = true;
+          } catch (sdkErr) {
+            console.warn("[CommunityStore] Admin SDK fetch failed, falling back to REST:", sdkErr);
+          }
+        }
+        
+        if (!sdkSuccess) {
+          // REST Fallback for Admin SDK failure or if no Admin DB
           const restReviews = await readFirestoreRestCollection('reviews');
           if (restReviews && restReviews.length > 0) {
             restReviews.forEach((r: any) => {
@@ -1269,8 +1277,8 @@ class CommunityStoreService {
 
 export const communityStore = new CommunityStoreService();
 try {
-  const { communityStore: fallbackStore } = require('../../lib/communityStoreFallback');
+  
   if (fallbackStore && typeof fallbackStore.setDynamicProvider === 'function') {
-    fallbackStore.setDynamicProvider(communityStore);
+    fallbackStore.setDynamicProvider(communityStore as any);
   }
 } catch (e) {}
