@@ -901,7 +901,7 @@ class CommunityStoreService {
       if (db) {
         try {
           const targets = Array.from(aliasKeys);
-          const snap = await db.collection('reviews').where('appId', 'in', targets.slice(0, 10)).limit(100).get();
+          const snap = await db.collection('reviews').where('appId', 'in', targets.slice(0, 10)).limit(1000).get();
           if (!snap.empty) {
             snap.docs.forEach((docSnap: any) => {
               const d = docSnap.data();
@@ -928,7 +928,7 @@ class CommunityStoreService {
       if (all.length === 0) {
         try {
           const targets = Array.from(aliasKeys).slice(0, 10);
-          const restReviews = await queryFirestoreRest('reviews', 'appId', targets, 100);
+          const restReviews = await queryFirestoreRest('reviews', 'appId', targets, 1000);
           if (restReviews.length > 0) {
             restReviews.forEach((r: any) => {
               this.reviews.set(r.id, r);
@@ -969,7 +969,7 @@ class CommunityStoreService {
     return { reviews: sliced, hasMore, nextCursor, total: all.length };
   }
 
-  public queryAdminReviews(query: {
+  public async queryAdminReviews(query: {
     appId?: string;
     status?: string;
     rating?: string | number;
@@ -978,6 +978,30 @@ class CommunityStoreService {
     sortBy?: string;
     limit?: number;
   }) {
+    if (this.reviews.size === 0) {
+      try {
+        const db = getCommunityAdminDb();
+        if (db) {
+          const snap = await db.collection('reviews').limit(5000).get();
+          snap.docs.forEach((docSnap: any) => {
+            const d = docSnap.data();
+            this.reviews.set(docSnap.id, { id: docSnap.id, ...d });
+          });
+        } else {
+          // REST Fallback for Admin SDK failure
+          const { readFirestoreRestCollection } = require('../firebase');
+          const restReviews = await readFirestoreRestCollection('reviews');
+          if (restReviews && restReviews.length > 0) {
+            restReviews.forEach((r: any) => {
+              this.reviews.set(r.id, { id: r.id, ...r });
+            });
+          }
+        }
+      } catch (e) {
+        console.warn("[CommunityStore] queryAdminReviews fetch fallback warning:", e);
+      }
+    }
+
     let list = Array.from(this.reviews.values());
 
     if (query.appId && query.appId !== 'all') {

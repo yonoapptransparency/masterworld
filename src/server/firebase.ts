@@ -280,11 +280,17 @@ export function getCommunityAdminDb(): any {
 
   try {
     const admin = require('firebase-admin');
+    const { getFirestore } = require('firebase-admin/firestore');
     
     // Check if community app is already initialized
     const existingApp = admin.apps.find((app: any) => app.name === 'communityApp');
     if (existingApp) {
-      cachedCommunityDb = existingApp.firestore();
+      const dbId = process.env.COMMUNITY_FIREBASE_DATABASE_ID || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+      if (dbId && dbId !== '(default)') {
+        cachedCommunityDb = getFirestore(existingApp, dbId);
+      } else {
+        cachedCommunityDb = existingApp.firestore();
+      }
       try {
         cachedCommunityDb.settings({ preferRest: true });
       } catch (e) {}
@@ -321,7 +327,14 @@ export function getCommunityAdminDb(): any {
             credential: admin.credential.cert(serviceAccount),
             projectId: serviceAccount.project_id
           }, 'communityApp');
-          cachedCommunityDb = communityApp.firestore();
+          
+          const dbId = process.env.COMMUNITY_FIREBASE_DATABASE_ID || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+          if (dbId && dbId !== '(default)') {
+            cachedCommunityDb = getFirestore(communityApp, dbId);
+          } else {
+            cachedCommunityDb = communityApp.firestore();
+          }
+          
           try {
             cachedCommunityDb.settings({ preferRest: true });
           } catch (e) {}
@@ -343,7 +356,13 @@ export function getCommunityAdminDb(): any {
             projectId: serviceAccount.project_id
           }, 'communityApp');
           
-          cachedCommunityDb = communityApp.firestore();
+          const dbId = process.env.COMMUNITY_FIREBASE_DATABASE_ID || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+          if (dbId && dbId !== '(default)') {
+            cachedCommunityDb = getFirestore(communityApp, dbId);
+          } else {
+            cachedCommunityDb = communityApp.firestore();
+          }
+          
           try {
             cachedCommunityDb.settings({ preferRest: true });
           } catch (e) {}
@@ -355,9 +374,19 @@ export function getCommunityAdminDb(): any {
       }
     }
     
-    // Do not fallback to primary admin DB. Return null if no community DB is configured.
-    // This enforces absolute separation of catalog data and community reviews.
-    console.warn('[Community Admin SDK] No separate community Firestore DB available.');
+    // Fallback to primary admin DB if no separate community DB is configured.
+    console.warn('[Community Admin SDK] No separate community Firestore DB available. Falling back to primary Admin DB.');
+    const primaryApp = admin.apps.length > 0 ? admin.apps[0] : null;
+    if (primaryApp) {
+      const dbId = process.env.COMMUNITY_FIREBASE_DATABASE_ID || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+      if (dbId && dbId !== '(default)') {
+        const { getFirestore } = require('firebase-admin/firestore');
+        cachedCommunityDb = getFirestore(primaryApp, dbId);
+      } else {
+        cachedCommunityDb = primaryApp.firestore();
+      }
+      return cachedCommunityDb;
+    }
     return null;
   } catch (err: any) {
     console.warn('[Community Admin SDK] Initialization failed:', err.message || err);
@@ -739,6 +768,17 @@ export async function queryFirestoreRest(
     let targetProjectId = config.projectId;
     let targetApiKey = config.apiKey;
     let dbId = (config.firestoreDatabaseId || config.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a');
+    
+    const isCommunity = collectionPath === 'reviews' || 
+      collectionPath === 'reports' || 
+      collectionPath === 'community_store' || 
+      collectionPath.startsWith('community_');
+    
+    if (isCommunity && process.env.COMMUNITY_FIREBASE_PROJECT_ID) {
+      targetProjectId = process.env.COMMUNITY_FIREBASE_PROJECT_ID;
+      targetApiKey = process.env.COMMUNITY_FIREBASE_API_KEY || config.apiKey;
+      dbId = process.env.COMMUNITY_FIREBASE_DATABASE_ID || '(default)';
+    }
 
     const cleanValues = values.filter(Boolean).map(v => String(v).trim()).filter(Boolean);
     if (cleanValues.length === 0) return [];

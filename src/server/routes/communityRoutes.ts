@@ -286,7 +286,7 @@ communityRouter.get("/api/v1/admin/community/reviews", verifyAdminToken, async (
       limit = 100 
     } = req.query;
 
-    const result = communityStore.queryAdminReviews({
+    const result = await communityStore.queryAdminReviews({
       appId: appId ? String(appId) : undefined,
       status: status ? String(status) : undefined,
       rating: rating ? String(rating) : undefined,

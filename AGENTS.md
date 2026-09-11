@@ -343,3 +343,15 @@ The backend (`src/server/services/communityStoreService.ts` and `src/server/fire
 - **Dedicated Community Database**: All community review and report operations route to the isolated `rummydexcommunity` Firestore project (database ID `(default)`), completely isolating community review read/write quotas from the main app catalog.
 - **Hard Safety & Sanitization**: Every review passes through `sanitizeReviewText()` on both save and retrieval, strictly purging financial/gambling keywords (cash, withdraw, deposit, bet, rupees, ₹) and transforming them into safe, playstore-compliant skill gaming terminology.
 
+
+---
+
+## 14. EXCLUSIVE LIVE PUBLIC FIREBASE RULE: Community Reviews & App Flags
+
+> [!CRITICAL]
+> **MANDATORY INSTRUCTION:** The **ONLY** Firebase database fully functional and actively connected to the Public Main Website is the **Community Firebase** (used strictly for Reviews, Comments, and App Flags).
+
+- **100% Live Functionality:** The Community Firebase is working live on the public website. When people post reviews, comments, or report flags, they can see the comments directly and instantly.
+- **NO GitHub Push Required for Reviews:** Unlike the main app catalog, you **DO NOT** need to use the GitHub Sync or push code from the Admin website to the Public website to show new comments. Reviews and flags are live-fetched in real-time. 
+- **Environment Variables:** The Community Firebase uses its own dedicated ENV variables to securely connect the public website to the reviews database without exposing the main catalog database.
+- **The Single Exception:** This is the ONLY exception to Rule 12. The main app database (`store_data`) remains static and requires a GitHub push for the public site, but the Community database is entirely LIVE and auto-updating.

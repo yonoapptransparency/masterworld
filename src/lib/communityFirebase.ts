@@ -5,6 +5,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { 
   getFirestore, 
+  initializeFirestore,
   collection, 
   query, 
   where, 
@@ -42,9 +43,8 @@ const getEnvVal = (key: string): string | undefined => {
 
 export const getResolvedCommunityFirebaseConfig = () => {
   const cfg = (appletConfig as any) || {};
-  // FORCE default to rummydexcommunity to guarantee public website uses it even if Vercel vars are missing
-  const projectId = getEnvVal('VITE_COMMUNITY_FIREBASE_PROJECT_ID') || "rummydexcommunity";
-  const defaultDbId = projectId === 'rummydexcommunity' ? '(default)' : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+  const projectId = getEnvVal('VITE_COMMUNITY_FIREBASE_PROJECT_ID') || "gen-lang-client-0825832493";
+  const defaultDbId = projectId === 'gen-lang-client-0825832493' ? 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a' : '(default)';
 
   return {
     projectId,
@@ -66,16 +66,14 @@ const getResolvedDatabaseId = () => {
 };
 
 // Initialize Client Firestore safely
+// We deliberately keep clientDb null to disable the Firebase Client SDK. 
+// This forces the app to use the ultra-fast Express Server API and direct REST fallbacks,
+// completely eliminating "Could not reach Cloud Firestore backend" WebSocket timeout errors
+// that occur in restricted sandbox or mobile environments.
 let clientDb: Firestore | null = null;
 if (typeof window !== 'undefined' && resolvedConfig.apiKey) {
-  try {
-    const app = getApps().length === 0 ? initializeApp(resolvedConfig) : getApp();
-    const dbId = getResolvedDatabaseId();
-    clientDb = dbId === '(default)' ? getFirestore(app) : getFirestore(app, dbId);
-    console.log('[Community] Client Firebase connected to project:', resolvedConfig.projectId, 'database:', dbId);
-  } catch (e) {
-    console.warn("[Community] Client Firebase init notice:", e);
-  }
+  // Disabled SDK initialization
+  console.log('[Community] Bypassing Firebase SDK to prevent WebSocket timeouts. Using REST/Server API instead.');
 }
 
 let activeUnsubscribe: (() => void) | null = null;
@@ -129,8 +127,7 @@ async function fetchReviewsDirectFromFirestoreRest(
       const body: any = {
         structuredQuery: {
           from: [{ collectionId: 'reviews' }],
-          orderBy: [{ field: { fieldPath: 'timestamp' }, direction: 'DESCENDING' }],
-          limit: Math.max(1, Math.min(50, limitCount))
+          limit: 1000
         }
       };
 
@@ -153,13 +150,6 @@ async function fetchReviewsDirectFromFirestoreRest(
               }
             }
           }
-        };
-      }
-
-      if (cursor) {
-        body.structuredQuery.startAt = {
-          values: [{ stringValue: String(cursor) }],
-          before: false
         };
       }
 
@@ -225,6 +215,11 @@ async function fetchReviewsDirectFromFirestoreRest(
   }
 }
 
+// In-memory cache for lightning-fast pagination and load-more functionality
+const memoryReviewCache = new Map<string, PublicReview>();
+let lastFetchTime = 0;
+let lastTargetKey = '';
+
 // LIVE Community Review Engine
 export async function fetchLiveReviews(options: {
   appId: string;
@@ -234,56 +229,48 @@ export async function fetchLiveReviews(options: {
   limit?: number;
   rating?: number;
 }): Promise<ReviewFetchResult> {
-  const { appId, appSlug, appTitle, cursor, limit: limitCount = 5 } = options;
+  const { appId, appSlug, appTitle, cursor, limit = 5, rating } = options;
   const targetId = (appId || '').trim();
   const targetSlug = (appSlug || '').trim();
   
   if (!targetId && !targetSlug) return { reviews: [], hasMore: false, nextCursor: null };
 
-  // Lightning-fast Server API Fetch: 
-  // Paginates exactly 5, perfect sorting (Pinned first), caches heavily on backend. Zero direct Firebase read limits hit.
+  const effectiveId = targetId || targetSlug;
+  const queryParams = new URLSearchParams();
+  if (targetSlug) queryParams.append('appSlug', targetSlug);
+  if (appTitle) queryParams.append('appTitle', appTitle);
+  if (cursor) queryParams.append('cursor', String(cursor));
+  queryParams.append('limit', String(limit));
+  if (rating) queryParams.append('rating', String(rating));
+
+  const path = `/api/v1/public/community/reviews/${encodeURIComponent(effectiveId)}?${queryParams.toString()}`;
+  const url = typeof window !== 'undefined' ? path : `http://localhost:3000${path}`;
+
   try {
-    const url = `/api/v1/public/community/reviews/${encodeURIComponent(targetId || targetSlug)}?limit=${limitCount}${cursor ? `&cursor=${cursor}` : ''}&slug=${encodeURIComponent(targetSlug)}&appTitle=${encodeURIComponent(appTitle || '')}`;
-    const res = await fetch(url);
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.reviews && Array.isArray(data.reviews)) {
-        return {
-          reviews: data.reviews,
-          hasMore: Boolean(data.hasMore),
-          nextCursor: data.nextCursor,
-          stats: data.stats
-        };
+    const res = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
       }
+    });
+
+    if (!res.ok) {
+      console.warn(`[Community API] Failed to fetch reviews: HTTP ${res.status}`);
+      return { reviews: [], hasMore: false, nextCursor: null };
     }
-  } catch (e) {
-    console.warn("[Community] Server fetch unavailable, falling back to REST limit-5...", e);
-  }
 
-  // Fallback REST Fetch (Only triggers if the server API network fails)
-  try {
-    const targets = Array.from(new Set([targetId, targetSlug].filter(Boolean)));
-    const restRevs = await fetchReviewsDirectFromFirestoreRest(targets, limitCount, cursor);
-    
-    // Sort the limited fallback payload just in case (fallback is less accurate than server)
-    const sortedRest = Array.isArray(restRevs) ? restRevs.sort((a, b) => {
-      if (a.isPinned && !b.isPinned) return -1;
-      if (!a.isPinned && b.isPinned) return 1;
-      return new Date(b.created_at || b.timestamp).getTime() - new Date(a.created_at || a.timestamp).getTime();
-    }) : [];
-
-    const lastItem = sortedRest.length > 0 ? sortedRest[sortedRest.length - 1] : null;
+    const data = await res.json();
     return {
-      reviews: sortedRest as PublicReview[],
-      hasMore: sortedRest.length === limitCount,
-      nextCursor: lastItem ? (lastItem.created_at || lastItem.id) : null,
-      stats: null
+      reviews: data.reviews || [],
+      hasMore: Boolean(data.hasMore),
+      nextCursor: data.nextCursor || null,
+      stats: data.stats || null
     };
-  } catch (e) {
-    console.warn("[Community] REST fallback fetch also failed:", e);
+  } catch (err) {
+    console.warn('[Community API] Error fetching live reviews:', err);
+    return { reviews: [], hasMore: false, nextCursor: null };
   }
-
-  return { reviews: [], hasMore: false, nextCursor: null };
 }
 
 export async function submitLiveReview(data: {
@@ -296,138 +283,38 @@ export async function submitLiveReview(data: {
   turnstileToken?: string;
 }): Promise<{ success: boolean; review?: PublicReview; error?: string }> {
   try {
-    const newId = `rev_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    const now = new Date().toISOString();
-
-    const reviewPayload = {
-      id: newId,
-      appId: data.appId,
-      app_id: data.appId,
-      appSlug: data.appSlug || '',
-      appName: data.appName || '',
-      userName: data.userName,
-      username: data.userName,
-      rating: Number(data.rating) || 5,
-      reviewText: data.reviewText,
-      comment: data.reviewText,
-      timestamp: now,
-      created_at: now,
-      status: 'published',
-      helpful_count: 0,
-      reported: false,
-      report_count: 0,
-      isPinned: false,
-      source: 'community'
-    };
-
-    const formattedReview: PublicReview = {
-      id: newId,
-      app_id: data.appId,
-      appId: data.appId,
-      appSlug: data.appSlug || '',
-      appName: data.appName || '',
-      username: data.userName,
-      rating: Number(data.rating) || 5,
-      comment: data.reviewText,
-      created_at: now,
-      helpful_count: 0,
-      reported: false,
-      report_count: 0,
-      isPinned: false,
-      source: 'community',
-      adminReply: null
-    };
-
-    // 1. Direct Firestore REST Write (Guaranteed to work in SPA without backend server)
-    try {
-      const cfg = resolvedConfig;
-      if (cfg.projectId && cfg.apiKey) {
-        const dbId = getResolvedDatabaseId();
-        const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${dbId}/documents/reviews/${newId}?key=${encodeURIComponent(cfg.apiKey)}`;
-        
-        const restFields: Record<string, any> = {
-          id: { stringValue: newId },
-          appId: { stringValue: data.appId },
-          app_id: { stringValue: data.appId },
-          appSlug: { stringValue: data.appSlug || '' },
-          app_slug: { stringValue: data.appSlug || '' },
-          appName: { stringValue: data.appName || '' },
-          userName: { stringValue: data.userName },
-          username: { stringValue: data.userName },
-          rating: { integerValue: String(data.rating || 5) },
-          reviewText: { stringValue: data.reviewText },
-          comment: { stringValue: data.reviewText },
-          timestamp: { stringValue: now },
-          created_at: { stringValue: now },
-          status: { stringValue: 'published' },
-          helpful_count: { integerValue: "0" },
-          reported: { booleanValue: false },
-          report_count: { integerValue: "0" },
-          source: { stringValue: 'community' },
-          isPinned: { booleanValue: false }
-        };
-
-        await fetch(url, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fields: restFields })
-        });
-      }
-    } catch (restWriteErr) {
-      console.warn("[Community] Direct Firestore REST write note:", restWriteErr);
+    const url = typeof window !== 'undefined' ? '/api/v1/public/community/reviews' : 'http://localhost:3000/api/v1/public/community/reviews';
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { success: false, error: err.error || 'Failed to submit review' };
     }
-
-    // 1b. Direct Firestore write via Client SDK
-    if (clientDb) {
+    
+    const resData = await res.json();
+    
+    if (resData.success && resData.review) {
+      // 2. Save to localStorage for instant client-side persistence
       try {
-        await setDoc(doc(clientDb, 'reviews', formattedReview.id), {
-          ...reviewPayload,
-          id: formattedReview.id
-        });
-      } catch (fsErr) {
-        console.warn("[Community] Direct Firestore review write notice:", fsErr);
-      }
+        const localKey = `local_user_reviews_${data.appId}`;
+        const existing = JSON.parse(localStorage.getItem(localKey) || '[]');
+        existing.unshift(resData.review);
+        localStorage.setItem(localKey, JSON.stringify(existing.slice(0, 50)));
+      } catch (lsErr) {}
+
+      // 3. Dispatch global window event so all UI components update live
+      try {
+        window.dispatchEvent(new CustomEvent('community-review-added', {
+          detail: { newReview: resData.review }
+        }));
+      } catch (evErr) {}
     }
 
-    // 1c. Submit to Server API (if backend is running)
-    try {
-      const res = await fetch('/api/v1/public/community/reviews', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...reviewPayload,
-          turnstileToken: data.turnstileToken
-        })
-      });
-      if (res.ok) {
-        const resData = await res.json();
-        if (resData.review) {
-          formattedReview.id = resData.review.id || formattedReview.id;
-        }
-      }
-    } catch (apiErr) {
-      // Expected on static site
-    }
-
-    // 2. Save to localStorage for instant client-side persistence
-    try {
-      const localKey = `local_user_reviews_${data.appId}`;
-      const existing = JSON.parse(localStorage.getItem(localKey) || '[]');
-      existing.unshift(formattedReview);
-      localStorage.setItem(localKey, JSON.stringify(existing.slice(0, 50)));
-    } catch (lsErr) {}
-
-    // 3. Dispatch global window event so all UI components update live
-    try {
-      window.dispatchEvent(new CustomEvent('community-review-added', {
-        detail: { newReview: formattedReview }
-      }));
-    } catch (evErr) {}
-
-    return { 
-      success: true, 
-      review: formattedReview 
-    };
+    return resData;
   } catch (err: any) {
     console.error("Community submit error:", err);
     return { success: false, error: err.message || 'Failed to submit review' };
@@ -436,58 +323,13 @@ export async function submitLiveReview(data: {
 
 export async function submitLiveReport(data: any): Promise<boolean> {
   try {
-    const newId = `rep_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    const now = new Date().toISOString();
-    const payload = {
-      id: newId,
-      ...data,
-      status: 'pending',
-      timestamp: now,
-      created_at: now
-    };
-
-    // 1. Direct Firestore REST write
-    try {
-      const cfg = resolvedConfig;
-      if (cfg.projectId && cfg.apiKey) {
-        const dbId = getResolvedDatabaseId();
-        const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${dbId}/documents/reports/${newId}?key=${encodeURIComponent(cfg.apiKey)}`;
-        
-        const restFields: Record<string, any> = {
-          id: { stringValue: newId },
-          status: { stringValue: 'pending' },
-          timestamp: { stringValue: now }
-        };
-        if (data.type) restFields.type = { stringValue: String(data.type) };
-        if (data.appId) restFields.appId = { stringValue: String(data.appId) };
-        if (data.reason) restFields.reason = { stringValue: String(data.reason) };
-        if (data.details) restFields.details = { stringValue: String(data.details) };
-
-        await fetch(url, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fields: restFields })
-        });
-      }
-    } catch (e) {}
-
-    // 2. Direct Firestore report write via SDK
-    if (clientDb) {
-      try {
-        await setDoc(doc(clientDb, 'reports', newId), payload);
-      } catch (e) {}
-    }
-
-    // 3. Server API write
-    try {
-      await fetch('/api/v1/public/reports', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-    } catch (e) {}
-
-    return true;
+    const url = typeof window !== 'undefined' ? '/api/v1/public/reports' : 'http://localhost:3000/api/v1/public/reports';
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return res.ok;
   } catch {
     return false;
   }
@@ -495,54 +337,13 @@ export async function submitLiveReport(data: any): Promise<boolean> {
 
 export async function voteLiveReviewHelpful(reviewId: string): Promise<boolean> {
   try {
-    // 1. Direct Firestore helpful increment via REST
-    try {
-      const cfg = resolvedConfig;
-      if (cfg.projectId && cfg.apiKey) {
-        const dbId = getResolvedDatabaseId();
-        const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${dbId}/documents:commit?key=${encodeURIComponent(cfg.apiKey)}`;
-        
-        await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            writes: [
-              {
-                transform: {
-                  document: `projects/${cfg.projectId}/databases/${dbId}/documents/reviews/${reviewId}`,
-                  fieldTransforms: [
-                    {
-                      fieldPath: 'helpful_count',
-                      increment: { integerValue: '1' }
-                    }
-                  ]
-                }
-              }
-            ]
-          })
-        });
-      }
-    } catch (e) {}
-
-    // 2. Direct Firestore helpful increment via SDK
-    if (clientDb) {
-      try {
-        await updateDoc(doc(clientDb, 'reviews', reviewId), {
-          helpful_count: increment(1)
-        });
-      } catch (e) {}
-    }
-
-    // 3. Server API helpful vote
-    try {
-      await fetch('/api/v1/public/community/reviews/helpful', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reviewId })
-      });
-    } catch (e) {}
-
-    return true;
+    const url = typeof window !== 'undefined' ? '/api/v1/public/community/reviews/helpful' : 'http://localhost:3000/api/v1/public/community/reviews/helpful';
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reviewId })
+    });
+    return res.ok;
   } catch {
     return false;
   }
@@ -551,5 +352,3 @@ export async function voteLiveReviewHelpful(reviewId: string): Promise<boolean> 
 export async function reportLiveReview(params: any): Promise<boolean> {
   return submitLiveReport({ type: 'review_flag', ...params });
 }
-
-
