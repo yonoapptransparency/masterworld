@@ -42,27 +42,36 @@ const getEnvVal = (key: string): string | undefined => {
 
 export const getResolvedCommunityFirebaseConfig = () => {
   const cfg = (appletConfig as any) || {};
+  const projectId = getEnvVal('VITE_COMMUNITY_FIREBASE_PROJECT_ID') || getEnvVal('VITE_FIREBASE_PROJECT_ID') || (isValidVal(cfg.projectId) ? cfg.projectId : "gen-lang-client-0825832493");
+  const defaultDbId = projectId === 'rummydexcommunity' ? '(default)' : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+
   return {
-    projectId: getEnvVal('VITE_COMMUNITY_FIREBASE_PROJECT_ID') || getEnvVal('VITE_FIREBASE_PROJECT_ID') || (isValidVal(cfg.projectId) ? cfg.projectId : "gen-lang-client-0825832493"),
+    projectId,
     appId: getEnvVal('VITE_COMMUNITY_FIREBASE_APP_ID') || getEnvVal('VITE_FIREBASE_APP_ID') || (isValidVal(cfg.appId) ? cfg.appId : "1:103973989874:web:733a6afd8e837224900f6b"),
     apiKey: getEnvVal('VITE_COMMUNITY_FIREBASE_API_KEY') || getEnvVal('VITE_FIREBASE_API_KEY') || (isValidVal(cfg.apiKey) ? cfg.apiKey : "AIzaSyBey9sUbeWrcXS2kl4ewOzkTy4arg03Ok"),
-    authDomain: getEnvVal('VITE_COMMUNITY_FIREBASE_AUTH_DOMAIN') || getEnvVal('VITE_FIREBASE_AUTH_DOMAIN') || (isValidVal(cfg.authDomain) ? cfg.authDomain : "gen-lang-client-0825832493.firebaseapp.com"),
-    firestoreDatabaseId: getEnvVal('VITE_COMMUNITY_FIREBASE_DATABASE_ID') || getEnvVal('VITE_FIREBASE_DATABASE_ID') || (isValidVal(cfg.firestoreDatabaseId) ? cfg.firestoreDatabaseId : (isValidVal(cfg.databaseId) ? cfg.databaseId : "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a")),
-    storageBucket: getEnvVal('VITE_COMMUNITY_FIREBASE_STORAGE_BUCKET') || getEnvVal('VITE_FIREBASE_STORAGE_BUCKET') || (isValidVal(cfg.storageBucket) ? cfg.storageBucket : "gen-lang-client-0825832493.firebasestorage.app"),
+    authDomain: getEnvVal('VITE_COMMUNITY_FIREBASE_AUTH_DOMAIN') || getEnvVal('VITE_FIREBASE_AUTH_DOMAIN') || (isValidVal(cfg.authDomain) ? cfg.authDomain : `${projectId}.firebaseapp.com`),
+    firestoreDatabaseId: getEnvVal('VITE_COMMUNITY_FIREBASE_DATABASE_ID') || getEnvVal('VITE_FIREBASE_DATABASE_ID') || (isValidVal(cfg.firestoreDatabaseId) ? cfg.firestoreDatabaseId : (isValidVal(cfg.databaseId) ? cfg.databaseId : defaultDbId)),
+    storageBucket: getEnvVal('VITE_COMMUNITY_FIREBASE_STORAGE_BUCKET') || getEnvVal('VITE_FIREBASE_STORAGE_BUCKET') || (isValidVal(cfg.storageBucket) ? cfg.storageBucket : `${projectId}.firebasestorage.app`),
     messagingSenderId: getEnvVal('VITE_COMMUNITY_FIREBASE_MESSAGING_ID') || getEnvVal('VITE_FIREBASE_MESSAGING_ID') || (isValidVal(cfg.messagingSenderId) ? cfg.messagingSenderId : "103973989874"),
   };
 };
 
 const resolvedConfig = getResolvedCommunityFirebaseConfig();
 
+// Helper to resolve the correct Firestore Database ID dynamically
+const getResolvedDatabaseId = () => {
+  const cfg = resolvedConfig;
+  return cfg.firestoreDatabaseId || (cfg as any).databaseId || (cfg.projectId === 'rummydexcommunity' ? '(default)' : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a');
+};
+
 // Initialize Client Firestore safely
 let clientDb: Firestore | null = null;
 if (typeof window !== 'undefined' && resolvedConfig.apiKey) {
   try {
     const app = getApps().length === 0 ? initializeApp(resolvedConfig) : getApp();
-    const dbId = resolvedConfig.firestoreDatabaseId || '(default)';
+    const dbId = getResolvedDatabaseId();
     clientDb = dbId === '(default)' ? getFirestore(app) : getFirestore(app, dbId);
-    console.log('[Community] Client Firebase connected to database:', dbId);
+    console.log('[Community] Client Firebase connected to project:', resolvedConfig.projectId, 'database:', dbId);
   } catch (e) {
     console.warn("[Community] Client Firebase init notice:", e);
   }
@@ -112,7 +121,7 @@ async function fetchReviewsDirectFromFirestoreRest(
     const cleanTargets = targets.filter(Boolean).map(t => String(t).trim()).filter(Boolean);
     if (cleanTargets.length === 0) return [];
 
-    const dbId = cfg.firestoreDatabaseId || (cfg as any).databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+    const dbId = getResolvedDatabaseId();
     const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${dbId}/documents:runQuery?key=${encodeURIComponent(cfg.apiKey)}`;
 
     const fetchByFilter = async (fieldPath: string, values: string[]) => {
@@ -537,7 +546,7 @@ export async function submitLiveReview(data: {
     try {
       const cfg = resolvedConfig;
       if (cfg.projectId && cfg.apiKey) {
-        const dbId = cfg.firestoreDatabaseId || (cfg as any).databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+        const dbId = getResolvedDatabaseId();
         const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${dbId}/documents/reviews/${newId}?key=${encodeURIComponent(cfg.apiKey)}`;
         
         const restFields: Record<string, any> = {
@@ -645,7 +654,7 @@ export async function submitLiveReport(data: any): Promise<boolean> {
     try {
       const cfg = resolvedConfig;
       if (cfg.projectId && cfg.apiKey) {
-        const dbId = cfg.firestoreDatabaseId || (cfg as any).databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+        const dbId = getResolvedDatabaseId();
         const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${dbId}/documents/reports/${newId}?key=${encodeURIComponent(cfg.apiKey)}`;
         
         const restFields: Record<string, any> = {
@@ -694,7 +703,7 @@ export async function voteLiveReviewHelpful(reviewId: string): Promise<boolean> 
     try {
       const cfg = resolvedConfig;
       if (cfg.projectId && cfg.apiKey) {
-        const dbId = cfg.firestoreDatabaseId || (cfg as any).databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+        const dbId = getResolvedDatabaseId();
         const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${dbId}/documents:commit?key=${encodeURIComponent(cfg.apiKey)}`;
         
         await fetch(url, {
