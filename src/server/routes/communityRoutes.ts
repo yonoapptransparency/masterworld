@@ -1,5 +1,5 @@
-import { getCommunityAdminDb, readFirestoreRestCollection, writeFirestoreRestDoc, deleteFirestoreRestDoc } from '../firebase';
 import { Router } from 'express';
+import { getCommunityAdminDb } from '../firebase';
 import fs from 'fs';
 import path from 'path';
 import { verifyTurnstile, getIp, rateLimit } from '../security';
@@ -214,7 +214,7 @@ communityRouter.get("/api/v1/admin/community/health/ping", verifyAdminToken, asy
       details: { readMode: '', writeMode: '', readError: '', writeError: '' }
     };
 
-    
+    const { getCommunityAdminDb, readFirestoreRestCollection, writeFirestoreRestDoc, deleteFirestoreRestDoc } = require('../firebase');
     const adminDb = getCommunityAdminDb();
 
     // 1. Test Read (Admin SDK first, then REST)
@@ -230,7 +230,7 @@ communityRouter.get("/api/v1/admin/community/health/ping", verifyAdminToken, asy
 
     if (!results.firestoreRead) {
       try {
-        const all = await readFirestoreRestCollection('reviews', req.headers.authorization);
+        const all = await readFirestoreRestCollection('reviews', req.headers.authorization, 1);
         if (all && Array.isArray(all)) {
           results.firestoreRead = true;
           results.details.readMode = 'REST Firestore Read Active';
@@ -293,7 +293,8 @@ communityRouter.get("/api/v1/admin/community/reviews", verifyAdminToken, async (
       search: search ? String(search) : undefined,
       isPinned: isPinned ? String(isPinned) : undefined,
       sortBy: String(sortBy),
-      limit: req.query.limit !== undefined ? Number(req.query.limit) : 100
+      limit: req.query.limit !== undefined ? Number(req.query.limit) : 100,
+      refresh: req.query.refresh === 'true' || req.query.forceSync === 'true'
     });
 
     return res.status(200).json({ 

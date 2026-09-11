@@ -11,11 +11,6 @@ import { clearSeoCache } from '../../seoHelper';
 import { vaultNode } from '../../lib/vaultNode';
 import { generateAllSitemaps } from '../../lib/sitemapGenerator';
 
-import * as staticDataObj from '../../lib/staticData';
-import * as lightFallbackObj from '../../lib/lightFallback';
-import { communityStore } from '../services/communityStoreService';
-import { generateStaticDataFileCode, generateCommunityReviewsFileCode } from '../../lib/githubSync';
-
 export const adminVaultRouter = express.Router();
 
 adminVaultRouter.post("/api/v1/admin/encrypt", verifyAdminToken, async (req, res) => {
@@ -715,8 +710,8 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
         } catch (e) {}
       }
 
-      
-      
+      const staticDataObj = require('../../lib/staticData');
+      const lightFallbackObj = require('../../lib/lightFallback');
 
       const mockApps = (staticDataObj.mockApps && staticDataObj.mockApps.length > 0) ? staticDataObj.mockApps : lightFallbackObj.mockApps;
       const mockSettings = (staticDataObj.mockSettings && Object.keys(staticDataObj.mockSettings).length > 0) ? staticDataObj.mockSettings : lightFallbackObj.mockSettings;
@@ -753,7 +748,7 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
         baseReviews = existingBackup.reviews;
       } else {
         try {
-          
+          const { communityStore } = require('../services/communityStoreService');
           if (communityStore) {
             baseReviews = communityStore.getAllReviews();
           }
@@ -783,7 +778,7 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
       };
       fs.writeFileSync(staticJsonPath, JSON.stringify(staticJsonPayload, null, 2), 'utf8');
       
-      
+      const { generateStaticDataFileCode, generateCommunityReviewsFileCode } = require('../../lib/githubSync');
       const staticDataPath = path.join(process.cwd(), 'src/lib/staticData.ts');
       const tsCode = generateStaticDataFileCode(finalApps, finalSettings, finalNews, finalVideos);
       fs.writeFileSync(staticDataPath, tsCode, 'utf8');
@@ -898,7 +893,7 @@ function updateLocalBackupSection(section: 'apps' | 'settings' | 'news' | 'video
 
     // Dynamically regenerate all XML sitemaps whenever data updates
     try {
-      
+      const { generateAllSitemaps } = require('../../lib/sitemapGenerator');
       const sitemaps = generateAllSitemaps(current);
       const publicDir = path.join(process.cwd(), 'public');
       const distDir = path.join(process.cwd(), 'dist');
@@ -976,8 +971,8 @@ async function getMasterApps(authToken?: string): Promise<any[]> {
 
     if (apps.length === 0) {
       try {
-        
-        
+        const staticDataObj = require('../../lib/staticData');
+        const lightFallbackObj = require('../../lib/lightFallback');
         apps = staticDataObj.mockApps || lightFallbackObj.mockApps || [];
       } catch (_) {}
     }
@@ -1037,8 +1032,8 @@ async function getMasterSettings(authToken?: string): Promise<any> {
 
     if (Object.keys(settings).length === 0) {
       try {
-        
-        
+        const staticDataObj = require('../../lib/staticData');
+        const lightFallbackObj = require('../../lib/lightFallback');
         settings = staticDataObj.mockSettings || lightFallbackObj.mockSettings || {};
       } catch (_) {}
     }
