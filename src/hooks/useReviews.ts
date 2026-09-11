@@ -102,7 +102,7 @@ export function useReviews(
         appSlug: cleanAppSlug,
         appTitle: cleanAppTitle,
         cursor: cursorToUse,
-        limit: 5,
+        limit: isLoadMore ? 100 : 200,
         rating: overallRating
       });
 

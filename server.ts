@@ -410,14 +410,12 @@ async function startServer() {
           cacheControl = 'public, max-age=300, stale-while-revalidate=3600';
         } else if (reqUrlLower.startsWith('/app/') || reqUrlLower.startsWith('/category/') || reqUrlLower.startsWith('/categories')) {
           cacheControl = 'public, max-age=300, stale-while-revalidate=3600';
-        } else if (req.originalUrl === '/news' || req.originalUrl === '/videos') {
+        } else if (reqUrlLower.startsWith('/news') || reqUrlLower.startsWith('/videos')) {
           cacheControl = 'public, max-age=600, stale-while-revalidate=7200';
-        } else if (['/about', '/contact', '/privacy', '/terms', '/ethics', '/disclaimer', '/notice', '/responsibility', '/developers', '/report-removal'].includes(req.originalUrl)) {
+        } else if (['/about', '/contact', '/privacy', '/terms', '/ethics', '/disclaimer', '/notice', '/responsibility', '/developers', '/report-removal'].includes(reqUrlLower)) {
           cacheControl = 'public, max-age=3600, stale-while-revalidate=86400';
         }
       }
-      const isHomePage = reqUrlLower === '/' || reqUrlLower === '/new-apps';
-      const isAppDetailPage = reqUrlLower.startsWith('/app/');
       const isDisallowedRoute = isNotFound ||
         reqUrlLower.startsWith('/s/') ||
         reqUrlLower.startsWith('/dl/') ||
@@ -429,13 +427,9 @@ async function startServer() {
         reqUrlLower.startsWith('/moredetail/') ||
         reqUrlLower.startsWith('/admin') ||
         reqUrlLower.startsWith('/login') ||
-        reqUrlLower.startsWith('/masterworld') ||
-        reqUrlLower.startsWith('/news') ||
-        reqUrlLower.startsWith('/videos') ||
-        ['/about', '/contact', '/privacy', '/report-removal', '/terms', '/notice', '/ethics', '/disclaimer', '/responsibility', '/developers'].includes(reqUrlLower);
+        reqUrlLower.startsWith('/masterworld');
 
-      // Only homepage and app detail pages are indexable
-      const isIndexable = !isDisallowedRoute && (isHomePage || isAppDetailPage);
+      const isIndexable = !isDisallowedRoute;
 
       const robotsHeader = isIndexable
         ? 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'

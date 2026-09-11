@@ -60,12 +60,14 @@ export interface CommunityStoreInterface {
   addReview(data: Partial<ReviewRecord>): ReviewRecord;
 }
 
-export const STATIC_COMMUNITY_REVIEWS: ReviewRecord[] = [];
+import staticReviewsData from './staticCommunityReviews.json';
+
+export const STATIC_COMMUNITY_REVIEWS: ReviewRecord[] = (staticReviewsData as ReviewRecord[]) || [];
 
 class FallbackCommunityStore implements CommunityStoreInterface {
   private reviews: ReviewRecord[] = [];
 
-  constructor(initialReviews: ReviewRecord[] = []) {
+  constructor(initialReviews: ReviewRecord[] = STATIC_COMMUNITY_REVIEWS) {
     this.reviews = initialReviews;
   }
 

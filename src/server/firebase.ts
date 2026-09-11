@@ -278,7 +278,7 @@ let cachedCommunityDb: any = null;
 export function getCommunityFirebaseConfig(): any {
   const envProjectId = process.env.COMMUNITY_FIREBASE_PROJECT_ID || process.env.VITE_COMMUNITY_FIREBASE_PROJECT_ID || 'rummydexcommunity';
   const envDbId = process.env.COMMUNITY_FIREBASE_DATABASE_ID || process.env.VITE_COMMUNITY_FIREBASE_DATABASE_ID || '(default)';
-  const envApiKey = process.env.COMMUNITY_FIREBASE_API_KEY || process.env.VITE_COMMUNITY_FIREBASE_API_KEY || process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY || "AIzaSyCzhWEDLQsZ-HL8iVMcINq78lB-RzYPxi0";
+  const envApiKey = process.env.COMMUNITY_FIREBASE_API_KEY || process.env.VITE_COMMUNITY_FIREBASE_API_KEY || "AIzaSyCzhWEDLQsZ-HL8iVMcINq78lB-RzYPxi0";
   const envAppId = process.env.COMMUNITY_FIREBASE_APP_ID || process.env.VITE_COMMUNITY_FIREBASE_APP_ID || "1:236598070230:web:df8b1b549dea13938d3277";
 
   return {
@@ -292,6 +292,34 @@ export function getCommunityFirebaseConfig(): any {
     authDomain: `${envProjectId}.firebaseapp.com`,
     storageBucket: `${envProjectId}.firebasestorage.app`
   };
+}
+
+let cachedCommunityAccessToken: { token: string; expiresAt: number } | null = null;
+export async function getCommunityAdminAccessToken(): Promise<string | null> {
+  if (cachedCommunityAccessToken && Date.now() < cachedCommunityAccessToken.expiresAt - 60000) {
+    return cachedCommunityAccessToken.token;
+  }
+  try {
+    const admin = require('firebase-admin');
+    let app = admin.apps.find((a: any) => a.name === 'communityApp');
+    if (!app) {
+      getCommunityAdminDb();
+      app = admin.apps.find((a: any) => a.name === 'communityApp');
+    }
+    if (app && app.options && app.options.credential && typeof app.options.credential.getAccessToken === 'function') {
+      const res = await app.options.credential.getAccessToken();
+      if (res && res.access_token) {
+        cachedCommunityAccessToken = {
+          token: res.access_token,
+          expiresAt: Date.now() + ((res.expires_in || 3600) * 1000)
+        };
+        return res.access_token;
+      }
+    }
+  } catch (e) {
+    // Non-blocking
+  }
+  return null;
 }
 
 export function getCommunityAdminDb(): any {
@@ -496,6 +524,12 @@ export async function writeFirestoreRestDoc(docId: string, data: any, authToken?
 
     const fields = convertToFirestoreFields(data);
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authToken && authToken.startsWith('Bearer ya29.')) {
+      headers['Authorization'] = authToken;
+    } else if (isCommunity) {
+      const commToken = await getCommunityAdminAccessToken();
+      if (commToken) headers['Authorization'] = `Bearer ${commToken}`;
+    }
 
     const res = await fetch(url, {
       method: 'PATCH',
@@ -562,6 +596,9 @@ export async function deleteFirestoreRestDoc(docId: string, authToken?: string, 
     const headers: Record<string, string> = {};
     if (authToken && authToken.startsWith('Bearer ya29.')) {
       headers['Authorization'] = authToken;
+    } else if (isCommunity) {
+      const commToken = await getCommunityAdminAccessToken();
+      if (commToken) headers['Authorization'] = `Bearer ${commToken}`;
     }
 
     const res = await fetch(url, {
@@ -606,6 +643,9 @@ export async function readFirestoreRestDoc(docId: string, authToken?: string, co
     const headers: Record<string, string> = {};
     if (authToken && authToken.startsWith('Bearer ya29.')) {
       headers['Authorization'] = authToken;
+    } else if (isCommunity) {
+      const commToken = await getCommunityAdminAccessToken();
+      if (commToken) headers['Authorization'] = `Bearer ${commToken}`;
     }
     const res = await fetch(url, { headers });
     if (!res.ok) {
@@ -647,6 +687,9 @@ export async function readFirestoreRestCollection(collectionPath: string, authTo
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (authToken && authToken.startsWith('Bearer ya29.')) {
       headers['Authorization'] = authToken;
+    } else if (isCommunity) {
+      const commToken = await getCommunityAdminAccessToken();
+      if (commToken) headers['Authorization'] = `Bearer ${commToken}`;
     }
 
     // First attempt: runQuery which conforms directly to Firestore security rules (allow read: if true)

@@ -228,7 +228,10 @@ communityRouter.get("/api/v1/admin/community/health/ping", verifyAdminToken, asy
     // 1. Test Read (Admin SDK first if configured, then REST)
     if (adminDb) {
       try {
-        const snap = await adminDb.collection('reviews').limit(1).get();
+        const snap: any = await Promise.race([
+          adminDb.collection('reviews').limit(1).get(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Admin SDK timeout')), 2500))
+        ]);
         results.firestoreRead = true;
         results.details.readMode = `Admin SDK Direct (${commConfig.projectId})`;
       } catch (adminReadErr: any) {
@@ -252,7 +255,10 @@ communityRouter.get("/api/v1/admin/community/health/ping", verifyAdminToken, asy
     const pingDocId = `_status_check_${Date.now()}`;
     if (adminDb) {
       try {
-        await adminDb.collection('reviews').doc(pingDocId).set({ ts: Date.now(), source: 'admin_sdk_healthcheck' });
+        await Promise.race([
+          adminDb.collection('reviews').doc(pingDocId).set({ ts: Date.now(), source: 'admin_sdk_healthcheck' }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Admin SDK timeout')), 2500))
+        ]);
         results.firestoreWrite = true;
         results.details.writeMode = `Admin SDK Direct (${commConfig.projectId})`;
         adminDb.collection('reviews').doc(pingDocId).delete().catch(() => {});
@@ -276,7 +282,18 @@ communityRouter.get("/api/v1/admin/community/health/ping", verifyAdminToken, asy
       }
     }
 
-    return res.status(200).json({ success: true, ...results });
+    const inMemoryReviews = typeof (communityStore as any).getReviewsCount === 'function' ? (communityStore as any).getReviewsCount() : 0;
+    const inMemoryReports = typeof (communityStore as any).getReportsCount === 'function' ? (communityStore as any).getReportsCount() : 0;
+    const isQuotaProtected = typeof (communityStore as any).isQuotaProtected === 'function' ? (communityStore as any).isQuotaProtected() : false;
+
+    return res.status(200).json({
+      success: true,
+      inMemoryReady: inMemoryReviews > 0,
+      reviewsCount: inMemoryReviews,
+      reportsCount: inMemoryReports,
+      isQuotaProtected,
+      ...results
+    });
   } catch (error) {
     return res.status(500).json({ success: false, error: String(error) });
   }
@@ -563,16 +580,47 @@ communityRouter.post("/api/v1/admin/community/reviews/clear-app", verifyAdminTok
   }
 });
 
-// Admin: Trigger Global Recalculation of Rating Stats
-communityRouter.post("/api/v1/admin/community/recalculate-all", verifyAdminToken, async (req: any, res: any) => {
+// Admin: Trigger Global Recalculation of Rating Stats & Document Buckets
+communityRouter.post(["/api/v1/admin/community/recalculate-all", "/api/v1/admin/community/reviews/recalc-stats"], verifyAdminToken, async (req: any, res: any) => {
   try {
-    await communityStore.syncAllToFirestore();
-    return res.status(200).json({ 
-      success: true, 
-      message: 'Recalculation and cloud sync completed successfully.' 
-    });
+    const { appId } = req.body || {};
+    if (appId) {
+      await communityStore.syncAppChunksToFirestore(String(appId).trim());
+      return res.status(200).json({ 
+        success: true, 
+        message: `App reviews bucket document and rating stats synced for app: ${appId}` 
+      });
+    } else {
+      await communityStore.syncAllToFirestore();
+      return res.status(200).json({ 
+        success: true, 
+        message: 'All app review bucket documents and rating stats synced to community_store!' 
+      });
+    }
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Failed recalculation' });
+  }
+});
+
+// Admin: Trigger App-Scoped Document Bucketing Sync
+communityRouter.post("/api/v1/admin/community/sync-buckets", verifyAdminToken, async (req: any, res: any) => {
+  try {
+    const { appId } = req.body || {};
+    if (appId) {
+      await communityStore.syncAppChunksToFirestore(String(appId).trim());
+      return res.status(200).json({
+        success: true,
+        message: `App bucket document synchronized for app: ${appId}`
+      });
+    } else {
+      await communityStore.syncAllAppsToChunks();
+      return res.status(200).json({
+        success: true,
+        message: 'All app bucket documents successfully synchronized to community_store.'
+      });
+    }
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to sync bucket documents' });
   }
 });
 

@@ -28,6 +28,33 @@ export interface ReviewRecord {
   updated_at?: string;
 }
 
+export interface AppReviewChunkDocument {
+  appId: string;
+  appSlug?: string;
+  appName?: string;
+  chunkIndex: number;
+  totalChunks: number;
+  totalReviewsInChunk: number;
+  totalAppReviews: number;
+  stats: {
+    averageRating: number;
+    totalReviews: number;
+    starCounts: Record<string, number>;
+    distribution: Record<number, number>;
+  };
+  reviews: ReviewRecord[];
+  updated_at: string;
+}
+
+export function getAppChunkDocId(appIdentifier: string, chunkIndex = 0): string {
+  const clean = String(appIdentifier || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9_-]/g, '_')
+    .slice(0, 80);
+  return `app_reviews_${clean}_${chunkIndex}`;
+}
+
 export interface ReportRecord {
   id: string;
   type: 'app_flag' | 'review_flag' | string;
@@ -123,12 +150,27 @@ export function findAppInCatalog(appIdentifier: string): any {
 
 
 
+async function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  let timer: any;
+  const timeoutPromise = new Promise<T>((resolve) => {
+    timer = setTimeout(() => resolve(fallback), ms);
+  });
+  try {
+    const result = await Promise.race([promise, timeoutPromise]);
+    clearTimeout(timer);
+    return result;
+  } catch (e) {
+    clearTimeout(timer);
+    throw e;
+  }
+}
+
 async function safeReadDb(docId: string, _unusedAuthToken?: string, collectionPath: string = 'reviews') {
   const db = getCommunityAdminDb();
   if (db) {
     try {
-      const doc = await db.collection(collectionPath).doc(docId).get();
-      return doc.exists ? doc.data() : null;
+      const doc = await withTimeout(db.collection(collectionPath).doc(docId).get(), 3000, null);
+      if (doc && doc.exists) return doc.data();
     } catch (e) {
       console.error(`[safeReadDb] Admin SDK failed for ${collectionPath}/${docId}:`, e);
     }
@@ -140,10 +182,10 @@ async function safeReadCollection(collectionPath: string) {
   const db = getCommunityAdminDb();
   if (db) {
     try {
-      const snapshot = await db.collection(collectionPath).get();
-      return snapshot.docs.map(doc => {
-        return { id: doc.id, ...doc.data() };
-      });
+      const snapshot = await withTimeout(db.collection(collectionPath).get(), 3000, null);
+      if (snapshot && snapshot.docs) {
+        return snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }));
+      }
     } catch (e) {
       console.error(`[safeReadCollection] Admin SDK failed for ${collectionPath}:`, e);
     }
@@ -156,8 +198,8 @@ async function safeDeleteDb(docId: string, _unusedAuthToken?: string, collection
   const db = getCommunityAdminDb();
   if (db) {
     try {
-      await db.collection(collectionPath).doc(docId).delete();
-      return true;
+      const res = await withTimeout(db.collection(collectionPath).doc(docId).delete(), 3000, null);
+      if (res !== null) return true;
     } catch (e) {
       console.error(`[safeDeleteDb] Admin SDK failed for ${collectionPath}/${docId}:`, e);
       // Fallback to REST
@@ -171,8 +213,8 @@ async function safeWriteDb(docId: string, data: any, _unusedAuthToken?: string, 
   const db = getCommunityAdminDb();
   if (db) {
     try {
-      await db.collection(collectionPath).doc(docId).set(data, { merge });
-      return true;
+      const res = await withTimeout(db.collection(collectionPath).doc(docId).set(data, { merge }), 3000, null);
+      if (res !== null) return true;
     } catch (e) {
       console.error(`[safeWriteDb] Admin SDK failed for ${collectionPath}/${docId}:`, e);
       // Fallback to REST
@@ -185,8 +227,12 @@ class CommunityStoreService {
   private reviews: Map<string, ReviewRecord> = new Map();
   private reports: Map<string, ReportRecord> = new Map();
   private deletedReviewIds: Set<string> = new Set();
+  private appChunkCache: Map<string, AppReviewChunkDocument> = new Map();
+  private pendingChunkSyncAppIds: Set<string> = new Set();
+  private chunkDebounceTimer: NodeJS.Timeout | null = null;
   private initialized = false;
   private isSyncing = false;
+  private isChunkSyncing = false;
   private quotaExhaustedUntil = 0;
   private syncTimer: NodeJS.Timeout | null = null;
   private localBackupPath = path.join(process.cwd(), 'community_local_backup.json');
@@ -502,6 +548,18 @@ export const communityStoreFallback = new FallbackCommunityStore();
     }
   }
 
+  public getReviewsCount(): number {
+    return this.reviews.size;
+  }
+
+  public getReportsCount(): number {
+    return this.reports.size;
+  }
+
+  public isQuotaProtected(): boolean {
+    return Date.now() < this.quotaExhaustedUntil;
+  }
+
   // Initialize and pull latest from Firestore
   public async initFromFirestore(forceSync = false) {
     if ((this.initialized && !forceSync) || this.isSyncing) return;
@@ -512,77 +570,81 @@ export const communityStoreFallback = new FallbackCommunityStore();
         // Load reviews
         try {
           const fetchLimit = forceSync ? 5000 : 10000;
-          const snap = await db.collection('reviews').limit(fetchLimit).get();
-          snap.docs.forEach((doc: any) => {
-            if (this.deletedReviewIds.has(doc.id)) {
-              this.reviews.delete(doc.id);
-              return;
-            }
-            const d = doc.data();
-            const existing = this.reviews.get(doc.id);
-            if (existing && existing.updated_at) {
-              const remoteTime = d.updated_at ? new Date(d.updated_at).getTime() : 0;
-              const localTime = new Date(existing.updated_at).getTime();
-              if (localTime >= remoteTime) {
+          const snap = await withTimeout(db.collection('reviews').limit(fetchLimit).get(), 3500, null);
+          if (snap && snap.docs) {
+            snap.docs.forEach((doc: any) => {
+              if (this.deletedReviewIds.has(doc.id)) {
+                this.reviews.delete(doc.id);
                 return;
               }
-            }
-            this.reviews.set(doc.id, {
-              id: doc.id,
-              appId: d.appId || d.app_id || '',
-              appSlug: d.appSlug || '',
-              appName: d.appName || '',
-              userName: d.userName || d.username || 'Player',
-              rating: Number(d.rating) || 5,
-              reviewText: sanitizeReviewText(d.reviewText || d.comment || ''),
-              timestamp: d.timestamp || d.created_at || new Date().toISOString(),
-              status: d.status || (d.is_approved ? 'published' : 'pending') || 'published',
-              helpful_count: Number(d.helpful_count) || 0,
-              isPinned: Boolean(d.isPinned),
-              reported: Boolean(d.reported),
-              report_count: Number(d.report_count) || 0,
-              source: d.source || 'community',
-              adminReply: d.adminReply || null,
-              updated_at: d.updated_at
+              const d = doc.data();
+              const existing = this.reviews.get(doc.id);
+              if (existing && existing.updated_at) {
+                const remoteTime = d.updated_at ? new Date(d.updated_at).getTime() : 0;
+                const localTime = new Date(existing.updated_at).getTime();
+                if (localTime >= remoteTime) {
+                  return;
+                }
+              }
+              this.reviews.set(doc.id, {
+                id: doc.id,
+                appId: d.appId || d.app_id || '',
+                appSlug: d.appSlug || '',
+                appName: d.appName || '',
+                userName: d.userName || d.username || 'Player',
+                rating: Number(d.rating) || 5,
+                reviewText: sanitizeReviewText(d.reviewText || d.comment || ''),
+                timestamp: d.timestamp || d.created_at || new Date().toISOString(),
+                status: d.status || (d.is_approved ? 'published' : 'pending') || 'published',
+                helpful_count: Number(d.helpful_count) || 0,
+                isPinned: Boolean(d.isPinned),
+                reported: Boolean(d.reported),
+                report_count: Number(d.report_count) || 0,
+                source: d.source || 'community',
+                adminReply: d.adminReply || null,
+                updated_at: d.updated_at
+              });
             });
-          });
+          }
           // Also check community_store collection for any chunked or historical review docs
           try {
-            const chunkSnap = await db.collection('community_store').get();
-            chunkSnap.docs.forEach((doc: any) => {
-              const d = doc.data();
-              if (Array.isArray(d.reviews)) {
-                d.reviews.forEach((r: any) => {
-                  if (r && r.id && !this.deletedReviewIds.has(r.id) && !this.reviews.has(r.id)) {
-                    this.reviews.set(r.id, {
-                      id: r.id,
-                      appId: r.appId || r.app_id || '',
-                      appSlug: r.appSlug || '',
-                      appName: r.appName || '',
-                      userName: r.userName || r.username || 'Player',
-                      rating: Number(r.rating) || 5,
-                      reviewText: sanitizeReviewText(r.reviewText || r.comment || ''),
-                      timestamp: r.timestamp || r.created_at || new Date().toISOString(),
-                      status: r.status || (r.is_approved ? 'published' : 'pending') || 'published',
-                      helpful_count: Number(r.helpful_count) || 0,
-                      isPinned: Boolean(r.isPinned),
-                      reported: Boolean(r.reported),
-                      report_count: Number(r.report_count) || 0,
-                      source: r.source || 'community',
-                      adminReply: r.adminReply || null,
-                      updated_at: r.updated_at
-                    });
-                  }
-                });
-              }
-              if (Array.isArray(d.reports)) {
-                d.reports.forEach((rep: any) => {
-                  if (rep && rep.id && !this.reports.has(rep.id)) {
-                    this.reports.set(rep.id, rep);
-                  }
-                });
-              }
-            });
+            const chunkSnap = await withTimeout(db.collection('community_store').get(), 3500, null);
+            if (chunkSnap && chunkSnap.docs) {
+              chunkSnap.docs.forEach((doc: any) => {
+                const d = doc.data();
+                if (Array.isArray(d.reviews)) {
+                  d.reviews.forEach((r: any) => {
+                    if (r && r.id && !this.deletedReviewIds.has(r.id) && !this.reviews.has(r.id)) {
+                      this.reviews.set(r.id, {
+                        id: r.id,
+                        appId: r.appId || r.app_id || '',
+                        appSlug: r.appSlug || '',
+                        appName: r.appName || '',
+                        userName: r.userName || r.username || 'Player',
+                        rating: Number(r.rating) || 5,
+                        reviewText: sanitizeReviewText(r.reviewText || r.comment || ''),
+                        timestamp: r.timestamp || r.created_at || new Date().toISOString(),
+                        status: r.status || (r.is_approved ? 'published' : 'pending') || 'published',
+                        helpful_count: Number(r.helpful_count) || 0,
+                        isPinned: Boolean(r.isPinned),
+                        reported: Boolean(r.reported),
+                        report_count: Number(r.report_count) || 0,
+                        source: r.source || 'community',
+                        adminReply: r.adminReply || null,
+                        updated_at: r.updated_at
+                      });
+                    }
+                  });
+                }
+                if (Array.isArray(d.reports)) {
+                  d.reports.forEach((rep: any) => {
+                    if (rep && rep.id && !this.reports.has(rep.id)) {
+                      this.reports.set(rep.id, rep);
+                    }
+                  });
+                }
+              });
+            }
           } catch (chunkErr) {
             // Non-blocking
           }
@@ -600,37 +662,39 @@ export const communityStoreFallback = new FallbackCommunityStore();
         // Load reports
         if (Date.now() >= this.quotaExhaustedUntil) {
           try {
-            const rSnap = await db.collection('reports').limit(5000).get();
-            rSnap.docs.forEach((doc: any) => {
-              const d = doc.data();
-              const existing = this.reports.get(doc.id);
-              if (existing && existing.updated_at) {
-              const remoteTime = d.updated_at ? new Date(d.updated_at).getTime() : 0;
-              const localTime = new Date(existing.updated_at).getTime();
-              if (localTime >= remoteTime) {
-                return;
-              }
-            }
-              this.reports.set(doc.id, {
-                id: doc.id,
-                type: d.type || 'app_flag',
-                appId: d.appId || d.app_id || '',
-                appName: d.appName || '',
-                reviewId: d.reviewId || '',
-                reviewAuthor: d.reviewAuthor || '',
-                reviewComment: d.reviewComment || '',
-                reason: d.reason || 'Flag',
-                description: d.description || '',
-                reporterEmail: d.reporterEmail || '',
-                reporterName: d.reporterName || '',
-                status: d.status || 'pending',
-                created_at: d.created_at || new Date().toISOString(),
-                ip: d.ip || '',
-                userAgent: d.userAgent || '',
-                adminNotes: d.adminNotes || '',
-                updated_at: d.updated_at
+            const rSnap = await withTimeout(db.collection('reports').limit(5000).get(), 3500, null);
+            if (rSnap && rSnap.docs) {
+              rSnap.docs.forEach((doc: any) => {
+                const d = doc.data();
+                const existing = this.reports.get(doc.id);
+                if (existing && existing.updated_at) {
+                  const remoteTime = d.updated_at ? new Date(d.updated_at).getTime() : 0;
+                  const localTime = new Date(existing.updated_at).getTime();
+                  if (localTime >= remoteTime) {
+                    return;
+                  }
+                }
+                this.reports.set(doc.id, {
+                  id: doc.id,
+                  type: d.type || 'app_flag',
+                  appId: d.appId || d.app_id || '',
+                  appName: d.appName || '',
+                  reviewId: d.reviewId || '',
+                  reviewAuthor: d.reviewAuthor || '',
+                  reviewComment: d.reviewComment || '',
+                  reason: d.reason || 'Flag',
+                  description: d.description || '',
+                  reporterEmail: d.reporterEmail || '',
+                  reporterName: d.reporterName || '',
+                  status: d.status || 'pending',
+                  created_at: d.created_at || new Date().toISOString(),
+                  ip: d.ip || '',
+                  userAgent: d.userAgent || '',
+                  adminNotes: d.adminNotes || '',
+                  updated_at: d.updated_at
+                });
               });
-            });
+            }
           } catch (e: any) {
             console.warn('[CommunityStore] Firestore reports init notice:', e?.message || e);
           }
@@ -724,6 +788,11 @@ export const communityStoreFallback = new FallbackCommunityStore();
       }
       this.initialized = true;
 
+      // Automatically build/update app bucket documents in background
+      setTimeout(() => {
+        this.syncAllAppsToChunks().catch((e) => console.warn('[CommunityStore] Background app bucket sync notice:', e?.message || e));
+      }, 2000);
+
       // Save complete synced cache to local disk backup for zero-latency local fallback
       try {
         const backupData = {
@@ -747,16 +816,175 @@ export const communityStoreFallback = new FallbackCommunityStore();
     }
   }
 
+  // ==========================================
+  // APP-SCOPED DOCUMENT BUCKETING (1-Doc-Per-App)
+  // ==========================================
+
+  /**
+   * Sync all reviews for a single app into its dedicated bucket document (`community_store/app_reviews_${cleanId}_0`).
+   * This guarantees:
+   * 1. Exactly 1 document read per app request.
+   * 2. Lightning-fast retrieval and zero quota exhaustion.
+   * 3. Splitting into chunk 0, 1, etc. if exceeding 200 reviews (safely below Firestore's 1MB limit).
+   */
+  public async syncAppChunksToFirestore(appIdentifier: string): Promise<boolean> {
+    if (!appIdentifier) return false;
+    const cleanId = String(appIdentifier || '').toLowerCase().trim();
+    const aliasKeys = this.getAliasKeysForApp(cleanId);
+    
+    // Matched app info from catalog
+    const matchedApp = findAppInCatalog(cleanId);
+    const officialId = matchedApp ? String(matchedApp.id) : cleanId;
+    const officialSlug = matchedApp?.slug ? String(matchedApp.slug).toLowerCase().trim() : '';
+    const officialName = matchedApp?.name || '';
+
+    // Collect all published/approved reviews for this app
+    const appReviews = Array.from(this.reviews.values()).filter(r => {
+      if (r.status && r.status !== 'published' && r.status !== 'approved') return false;
+      const rAppId = String(r.appId || '').toLowerCase().trim();
+      const rAppSlug = String(r.appSlug || '').toLowerCase().trim();
+      const rAppName = String(r.appName || '').toLowerCase().trim();
+      return (
+        aliasKeys.has(rAppId) ||
+        (rAppSlug && aliasKeys.has(rAppSlug)) ||
+        (rAppName && aliasKeys.has(rAppName))
+      );
+    });
+
+    // Sort: Pinned first, then newest timestamp
+    appReviews.sort((a, b) => {
+      if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+      return new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime();
+    });
+
+    // Compute live stats
+    const starCounts: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
+    let sum = 0;
+    appReviews.forEach(r => {
+      const star = String(Math.max(1, Math.min(5, Math.round(r.rating || 5))));
+      starCounts[star] = (starCounts[star] || 0) + 1;
+      sum += (r.rating || 5);
+    });
+
+    const totalCount = appReviews.length;
+    const avg = totalCount > 0 ? parseFloat((sum / totalCount).toFixed(1)) : 4.8;
+    const distribution: Record<number, number> = {
+      5: totalCount > 0 ? Math.round((starCounts['5'] / totalCount) * 100) : 75,
+      4: totalCount > 0 ? Math.round((starCounts['4'] / totalCount) * 100) : 15,
+      3: totalCount > 0 ? Math.round((starCounts['3'] / totalCount) * 100) : 6,
+      2: totalCount > 0 ? Math.round((starCounts['2'] / totalCount) * 100) : 2,
+      1: totalCount > 0 ? Math.round((starCounts['1'] / totalCount) * 100) : 2,
+    };
+
+    const CHUNK_SIZE = 200;
+    const totalChunks = Math.max(1, Math.ceil(appReviews.length / CHUNK_SIZE));
+
+    for (let chunkIdx = 0; chunkIdx < totalChunks; chunkIdx++) {
+      const chunkSlice = appReviews.slice(chunkIdx * CHUNK_SIZE, (chunkIdx + 1) * CHUNK_SIZE);
+      const chunkDoc: AppReviewChunkDocument = {
+        appId: officialId,
+        appSlug: officialSlug || undefined,
+        appName: officialName || undefined,
+        chunkIndex: chunkIdx,
+        totalChunks,
+        totalReviewsInChunk: chunkSlice.length,
+        totalAppReviews: appReviews.length,
+        stats: {
+          averageRating: avg,
+          totalReviews: totalCount,
+          starCounts,
+          distribution
+        },
+        reviews: chunkSlice,
+        updated_at: new Date().toISOString()
+      };
+
+      const primaryDocId = getAppChunkDocId(officialId, chunkIdx);
+      this.appChunkCache.set(primaryDocId, chunkDoc);
+      await this.safeWriteChunkDoc(primaryDocId, chunkDoc);
+
+      if (officialSlug && officialSlug !== officialId) {
+        const slugDocId = getAppChunkDocId(officialSlug, chunkIdx);
+        this.appChunkCache.set(slugDocId, chunkDoc);
+        await this.safeWriteChunkDoc(slugDocId, chunkDoc);
+      }
+    }
+
+    return true;
+  }
+
+  public async syncAllAppsToChunks(): Promise<{ totalApps: number; totalChunks: number }> {
+    if (this.isChunkSyncing) return { totalApps: 0, totalChunks: 0 };
+    this.isChunkSyncing = true;
+    console.log('[CommunityStore] Starting App-Scoped Document Bucketing synchronization...');
+    const appIds = new Set<string>();
+    for (const r of this.reviews.values()) {
+      if (r.appId) appIds.add(String(r.appId).trim());
+      if (r.appSlug) appIds.add(String(r.appSlug).trim());
+    }
+
+    try {
+      const staticData = getStaticData();
+      const apps = staticData.apps || staticData.mockApps || [];
+      apps.forEach((a: any) => {
+        if (a && a.id) appIds.add(String(a.id).trim());
+        if (a && a.slug) appIds.add(String(a.slug).trim());
+      });
+    } catch (e) {}
+
+    let totalApps = 0;
+    let totalChunks = 0;
+
+    for (const id of Array.from(appIds)) {
+      try {
+        await this.syncAppChunksToFirestore(id);
+        totalApps++;
+        totalChunks++;
+      } catch (err: any) {
+        console.warn(`[CommunityStore] Error syncing chunk for ${id}:`, err?.message || err);
+      }
+    }
+
+    this.isChunkSyncing = false;
+    console.log(`[CommunityStore] App-Scoped Bucketing complete: ${totalApps} apps synchronized.`);
+    return { totalApps, totalChunks };
+  }
+
+  public queueAppChunkSync(appIdentifier: string) {
+    if (!appIdentifier) return;
+    this.pendingChunkSyncAppIds.add(String(appIdentifier).trim());
+
+    if (this.chunkDebounceTimer) clearTimeout(this.chunkDebounceTimer);
+    this.chunkDebounceTimer = setTimeout(async () => {
+      const pending = Array.from(this.pendingChunkSyncAppIds);
+      this.pendingChunkSyncAppIds.clear();
+      for (const id of pending) {
+        await this.syncAppChunksToFirestore(id).catch((e: any) => console.warn(`Error in debounced chunk sync for ${id}:`, e));
+      }
+    }, 300);
+    if (typeof (this.chunkDebounceTimer as any).unref === 'function') {
+      (this.chunkDebounceTimer as any).unref();
+    }
+  }
+
+  private async safeWriteChunkDoc(docId: string, data: any): Promise<boolean> {
+    const db = getCommunityAdminDb();
+    try {
+      if (db) {
+        await db.collection('community_store').doc(docId).set(data, { merge: false });
+        return true;
+      }
+      return await safeWriteDb(docId, data, undefined, false, 'community_store');
+    } catch (e: any) {
+      if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000;
+      console.warn(`[CommunityStore] Chunk doc write notice for ${docId}:`, e?.message || e);
+      return false;
+    }
+  }
+
   // Backup write to Firestore with automatic chunking to safely support 10,000+ reviews without hitting 1MB document limit
   public async syncAllToFirestore() {
-    // The previous architecture chunked all reviews into single 1MB documents (community_reviews_chunk_X)
-    // and fired massive background cloud syncs, causing rate limits, OOM, and "ghost" review overwrites.
-    // We have migrated to a 1:1 granular document architecture for `reviews` and `reports` collections.
-    // Individual documents are now synced synchronously and atomically during `addReview`, `updateReview`, 
-    // and `deleteReview` mutations.
-    // 
-    // This legacy chunked background sync is now disabled to prevent quota exhaustion and race conditions.
-    console.log('[CommunityStore] Legacy chunked background sync disabled. System now uses atomic document syncing.');
+    return await this.syncAllAppsToChunks();
   }
 
   // ==========================================
@@ -795,6 +1023,7 @@ export const communityStoreFallback = new FallbackCommunityStore();
     // Save to active in-memory store and local disk immediately
     this.reviews.set(id, newRev);
     this.saveToDiskAndQueueCloudSync();
+    this.queueAppChunkSync(targetAppId);
 
     // Concurrently write to live Firestore
     const db = getCommunityAdminDb();
@@ -858,6 +1087,14 @@ export const communityStoreFallback = new FallbackCommunityStore();
 
     this.saveToDiskAndQueueCloudSync();
 
+    // Synchronize bucket documents for all affected apps
+    const affectedApps = new Set<string>();
+    added.forEach(r => {
+      if (r.appId) affectedApps.add(r.appId);
+      if (r.appSlug) affectedApps.add(r.appSlug);
+    });
+    affectedApps.forEach(appId => this.queueAppChunkSync(appId));
+
     try {
       await Promise.all(promises);
     } catch (e: any) {
@@ -899,6 +1136,7 @@ export const communityStoreFallback = new FallbackCommunityStore();
     }
 
     this.saveToDiskAndQueueCloudSync();
+    if (rev.appId) this.queueAppChunkSync(rev.appId);
     return rev.helpful_count;
   }
 
@@ -942,6 +1180,7 @@ export const communityStoreFallback = new FallbackCommunityStore();
     }
 
     this.saveToDiskAndQueueCloudSync();
+    if (rev?.appId || appId) this.queueAppChunkSync(rev?.appId || appId!);
     return true;
   }
 
@@ -961,6 +1200,7 @@ export const communityStoreFallback = new FallbackCommunityStore();
     // Save to in-memory store and local disk immediately
     this.reviews.set(id, updated);
     this.saveToDiskAndQueueCloudSync();
+    if (updated.appId) this.queueAppChunkSync(updated.appId);
 
     const db = getCommunityAdminDb();
     try {
@@ -981,9 +1221,13 @@ export const communityStoreFallback = new FallbackCommunityStore();
     const cleanId = String(id || '').trim();
     if (!cleanId) return false;
     
+    const existing = this.reviews.get(cleanId);
+    const targetAppId = existing?.appId;
+
     this.deletedReviewIds.add(cleanId);
     this.reviews.delete(cleanId);
     this.saveToDiskAndQueueCloudSync();
+    if (targetAppId) this.queueAppChunkSync(targetAppId);
 
     const db = getCommunityAdminDb();
     try {
@@ -1024,6 +1268,7 @@ export const communityStoreFallback = new FallbackCommunityStore();
     }
 
     this.saveToDiskAndQueueCloudSync();
+    this.syncAppChunksToFirestore(appIdentifier).catch(() => {});
     return count;
   }
 
@@ -1068,6 +1313,7 @@ export const communityStoreFallback = new FallbackCommunityStore();
   /**
    * Universal App Review Resolver:
    * Accurately finds all reviews for any app by ID, Slug, Name, or Package without any cross-app mixups.
+   * Priority: 1. In-memory cache -> 2. Bucket document (1 single read!) -> 3. Legacy query fallback.
    */
   public async getReviewsForApp(appIdentifier: string, cursor?: string, limitCount = 5, appTitle?: string, overallRating = 5.0, appSlug?: string) {
     const aliasKeys = this.getAliasKeysForApp(appIdentifier, appTitle, appSlug);
@@ -1087,14 +1333,72 @@ export const communityStoreFallback = new FallbackCommunityStore();
         );
       });
 
-    // If cache has 0 reviews for this app, query live Firestore directly on demand
+    // If cache has 0 reviews for this app, try loading from its App-Scoped Bucket document (1 single document read!)
     if (all.length === 0) {
+      const cleanId = String(appIdentifier || '').toLowerCase().trim();
+      const cleanSlug = String(appSlug || '').toLowerCase().trim();
+      const chunkDocCandidates = [
+        getAppChunkDocId(cleanId, 0),
+        cleanSlug ? getAppChunkDocId(cleanSlug, 0) : null
+      ].filter(Boolean) as string[];
+
+      let loadedFromBucket = false;
+      for (const docId of chunkDocCandidates) {
+        if (loadedFromBucket) break;
+
+        // 1. Try local chunk cache
+        const cachedChunk = this.appChunkCache.get(docId);
+        if (cachedChunk && Array.isArray(cachedChunk.reviews) && cachedChunk.reviews.length > 0) {
+          cachedChunk.reviews.forEach((r: any) => {
+            if (r && r.id && !this.deletedReviewIds.has(r.id)) {
+              this.reviews.set(r.id, r);
+            }
+          });
+          loadedFromBucket = true;
+          break;
+        }
+
+        // 2. Read bucket document from community_store collection (1 single document read!)
+        try {
+          const chunkData = await safeReadDb(docId, undefined, 'community_store');
+          if (chunkData && Array.isArray(chunkData.reviews) && chunkData.reviews.length > 0) {
+            chunkData.reviews.forEach((r: any) => {
+              if (r && r.id && !this.deletedReviewIds.has(r.id)) {
+                this.reviews.set(r.id, r);
+              }
+            });
+            this.appChunkCache.set(docId, chunkData as any);
+            loadedFromBucket = true;
+            break;
+          }
+        } catch (bucketErr) {
+          // Fall through
+        }
+      }
+
+      if (loadedFromBucket) {
+        all = Array.from(this.reviews.values()).filter(r => {
+          if (r.status && r.status !== 'published' && r.status !== 'approved') return false;
+          const rAppId = String(r.appId || '').toLowerCase().trim();
+          const rAppSlug = String(r.appSlug || '').toLowerCase().trim();
+          const rAppName = String(r.appName || '').toLowerCase().trim();
+          return (
+            (rAppId && aliasKeys.has(rAppId)) ||
+            (rAppSlug && aliasKeys.has(rAppSlug)) ||
+            (rAppName && aliasKeys.has(rAppName))
+          );
+        });
+      }
+    }
+
+    // If still 0 reviews, query live Firestore directly on demand as secondary fallback
+    if (all.length === 0 && Date.now() >= this.quotaExhaustedUntil) {
       const db = getCommunityAdminDb();
       if (db) {
         try {
           const targets = Array.from(aliasKeys);
-          const snap = await db.collection('reviews').where('appId', 'in', targets.slice(0, 10)).limit(1000).get();
-          if (!snap.empty) {
+          const snap = await withTimeout(db.collection('reviews').where('appId', 'in', targets.slice(0, 10)).limit(1000).get(), 3000, null);
+          if (snap && snap.docs && !snap.empty) {
             snap.docs.forEach((docSnap: any) => {
               const d = docSnap.data();
               this.reviews.set(docSnap.id, { id: docSnap.id, ...d });
@@ -1116,7 +1420,7 @@ export const communityStoreFallback = new FallbackCommunityStore();
         }
       }
 
-      // If still 0 reviews (e.g. Admin SDK null on serverless/public deploy or empty snap), query via Firestore REST runQuery
+      // If still 0 reviews, query via Firestore REST runQuery
       if (all.length === 0) {
         try {
           const targets = Array.from(aliasKeys).slice(0, 10);
@@ -1171,13 +1475,13 @@ export const communityStoreFallback = new FallbackCommunityStore();
     limit?: number;
     refresh?: boolean;
   }) {
-    if (query.refresh || this.reviews.size === 0) {
+    if ((query.refresh || this.reviews.size === 0) && Date.now() >= this.quotaExhaustedUntil) {
       try {
         let adminSuccess = false;
         const db = getCommunityAdminDb();
         if (db) {
           try {
-            const snap = await db.collection('reviews').limit(5000).get();
+            const snap = await withTimeout(db.collection('reviews').limit(5000).get(), 3500, null);
             if (snap && snap.docs && snap.docs.length > 0) {
               snap.docs.forEach((docSnap: any) => {
                 const d = docSnap.data();

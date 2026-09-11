@@ -9,6 +9,7 @@ export interface Banner {
 export interface GlobalSettings {
   site_title: string;
   seo_title?: string;
+  seo_description?: string;
   meta_description: string;
   logo_url: string;
   favicon_url: string;

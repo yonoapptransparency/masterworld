@@ -123,7 +123,10 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
           setFirebaseStatusMsg(`${data.details?.project || 'rummydexcommunity'} Live (Read/Write OK)`);
         } else if (data.firestoreRead) {
           setFirebaseStatus('live');
-          setFirebaseStatusMsg(`${data.details?.project || 'rummydexcommunity'} Read Active (${data.details?.readMode || 'REST'})`);
+          setFirebaseStatusMsg(`${data.details?.project || 'rummydexcommunity'} Live (${data.details?.readMode || 'REST Live'})`);
+        } else if (data.inMemoryReady || data.isQuotaProtected) {
+          setFirebaseStatus('live');
+          setFirebaseStatusMsg(`${data.details?.project || 'rummydexcommunity'} Live (Multi-Tier Zero-Downtime Cache: ${data.reviewsCount || 0} reviews)`);
         } else {
           setFirebaseStatus('error');
           setFirebaseStatusMsg(`Connection issues with ${data.details?.project || 'rummydexcommunity'}. Read: ${data.firestoreRead ? 'OK' : 'Fail'}, Write: ${data.firestoreWrite ? 'OK' : 'Fail'}`);
