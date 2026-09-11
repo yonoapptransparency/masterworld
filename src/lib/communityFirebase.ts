@@ -42,17 +42,18 @@ const getEnvVal = (key: string): string | undefined => {
 
 export const getResolvedCommunityFirebaseConfig = () => {
   const cfg = (appletConfig as any) || {};
-  const projectId = getEnvVal('VITE_COMMUNITY_FIREBASE_PROJECT_ID') || getEnvVal('VITE_FIREBASE_PROJECT_ID') || (isValidVal(cfg.projectId) ? cfg.projectId : "gen-lang-client-0825832493");
+  // FORCE default to rummydexcommunity to guarantee public website uses it even if Vercel vars are missing
+  const projectId = getEnvVal('VITE_COMMUNITY_FIREBASE_PROJECT_ID') || "rummydexcommunity";
   const defaultDbId = projectId === 'rummydexcommunity' ? '(default)' : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
 
   return {
     projectId,
-    appId: getEnvVal('VITE_COMMUNITY_FIREBASE_APP_ID') || getEnvVal('VITE_FIREBASE_APP_ID') || (isValidVal(cfg.appId) ? cfg.appId : "1:103973989874:web:733a6afd8e837224900f6b"),
+    appId: getEnvVal('VITE_COMMUNITY_FIREBASE_APP_ID') || "1:103973989874:web:733a6afd8e837224900f6b",
     apiKey: getEnvVal('VITE_COMMUNITY_FIREBASE_API_KEY') || getEnvVal('VITE_FIREBASE_API_KEY') || (isValidVal(cfg.apiKey) ? cfg.apiKey : "AIzaSyBey9sUbeWrcXS2kl4ewOzkTy4arg03Ok"),
-    authDomain: getEnvVal('VITE_COMMUNITY_FIREBASE_AUTH_DOMAIN') || getEnvVal('VITE_FIREBASE_AUTH_DOMAIN') || (isValidVal(cfg.authDomain) ? cfg.authDomain : `${projectId}.firebaseapp.com`),
-    firestoreDatabaseId: getEnvVal('VITE_COMMUNITY_FIREBASE_DATABASE_ID') || getEnvVal('VITE_FIREBASE_DATABASE_ID') || (isValidVal(cfg.firestoreDatabaseId) ? cfg.firestoreDatabaseId : (isValidVal(cfg.databaseId) ? cfg.databaseId : defaultDbId)),
-    storageBucket: getEnvVal('VITE_COMMUNITY_FIREBASE_STORAGE_BUCKET') || getEnvVal('VITE_FIREBASE_STORAGE_BUCKET') || (isValidVal(cfg.storageBucket) ? cfg.storageBucket : `${projectId}.firebasestorage.app`),
-    messagingSenderId: getEnvVal('VITE_COMMUNITY_FIREBASE_MESSAGING_ID') || getEnvVal('VITE_FIREBASE_MESSAGING_ID') || (isValidVal(cfg.messagingSenderId) ? cfg.messagingSenderId : "103973989874"),
+    authDomain: getEnvVal('VITE_COMMUNITY_FIREBASE_AUTH_DOMAIN') || `${projectId}.firebaseapp.com`,
+    firestoreDatabaseId: getEnvVal('VITE_COMMUNITY_FIREBASE_DATABASE_ID') || defaultDbId,
+    storageBucket: getEnvVal('VITE_COMMUNITY_FIREBASE_STORAGE_BUCKET') || `${projectId}.firebasestorage.app`,
+    messagingSenderId: getEnvVal('VITE_COMMUNITY_FIREBASE_MESSAGING_ID') || "103973989874",
   };
 };
 
@@ -239,255 +240,50 @@ export async function fetchLiveReviews(options: {
   
   if (!targetId && !targetSlug) return { reviews: [], hasMore: false, nextCursor: null };
 
-  const reviewMap = new Map<string, PublicReview>();
-  let serverHasMore = false;
-  let serverNextCursor: string | null = null;
-
-  // Helper to add review safely
-  const addReview = (r: any) => {
-    if (!r || !r.id) return;
-    if (r.status && r.status !== 'published') return;
-    const rev: PublicReview = {
-      id: String(r.id),
-      app_id: r.appId || r.app_id || targetId,
-      appId: r.appId || targetId,
-      appSlug: r.appSlug || targetSlug,
-      appName: r.appName || appTitle || '',
-      username: r.userName || r.username || 'Player',
-      rating: Number(r.rating) || 5,
-      comment: r.reviewText || r.comment || '',
-      created_at: r.timestamp || r.created_at || new Date().toISOString(),
-      helpful_count: Number(r.helpful_count) || 0,
-      reported: Boolean(r.reported),
-      report_count: Number(r.report_count) || 0,
-      source: r.source || 'community',
-      isPinned: Boolean(r.isPinned),
-      adminReply: r.adminReply || null
-    };
-    reviewMap.set(rev.id, rev);
-  };
-
-  // Strictly target the specific app ID and slug only (no cross-app contamination)
-  const targets = Array.from(new Set([targetId, targetSlug].filter(Boolean)));
-
-  // Multi-Channel Parallel Live Fetch: Direct Firestore REST + Client SDK + Backend API
-  const fetchPromises: Promise<any>[] = [];
-
-  // Channel 1: Direct Fast Firestore REST query (Instant, 0-dependency, lightweight limit)
-  fetchPromises.push(
-    fetchReviewsDirectFromFirestoreRest(targets, Math.max(limitCount, 15), cursor).then(restRevs => {
-      if (Array.isArray(restRevs)) {
-        restRevs.forEach(addReview);
-      }
-    }).catch(e => console.warn("[Community] REST fetch note:", e))
-  );
-
-  // Channel 2: Direct Live Firestore Client SDK
-  if (clientDb) {
-    fetchPromises.push(
-      (async () => {
-        try {
-          if (targets.length > 0) {
-            const qDirect = query(
-              collection(clientDb, 'reviews'),
-              where('appId', 'in', targets.slice(0, 10)),
-              limit(Math.max(limitCount, 15))
-            );
-            const directSnap = await getDocs(qDirect);
-            directSnap.forEach((docSnap) => {
-              const d = docSnap.data();
-              addReview({ id: docSnap.id, ...d });
-            });
-          }
-        } catch (fsErr) {
-          console.warn("[Community] Direct Firestore query notice:", fsErr);
-        }
-      })()
-    );
-  }
-
-  // Channel 3: High-Availability Server REST API (Requesting only the lightweight page limit)
-  fetchPromises.push(
-    (async () => {
-      try {
-        const apiTarget = targetId || targetSlug;
-        const queryParams = new URLSearchParams({
-          limit: String(limitCount)
-        });
-        if (cursor) queryParams.set('cursor', String(cursor));
-        if (targetId) queryParams.set('appId', targetId);
-        if (targetSlug) queryParams.set('slug', targetSlug);
-        if (appTitle) queryParams.set('appTitle', appTitle);
-
-        const res = await fetch(`/api/v1/public/community/reviews/${encodeURIComponent(apiTarget)}?${queryParams.toString()}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data.reviews)) {
-            data.reviews.forEach(addReview);
-          }
-          if (data.hasMore !== undefined) serverHasMore = Boolean(data.hasMore);
-          if (data.nextCursor) serverNextCursor = String(data.nextCursor);
-        }
-      } catch (apiErr) {
-        // Expected when running on static CDN without Express server
-      }
-    })()
-  );
-
-  // Await all fetch channels concurrently
-  await Promise.allSettled(fetchPromises);
-
-  // 1.5 Setup LIVE Firestore Snapshot Listener for real-time updates (strictly limited to latest 5 items)
-  if (!cursor && clientDb) {
-    const newTargetKey = `${targetId}_${targetSlug}`;
-    if (activeTargetId !== newTargetKey) {
-      if (activeUnsubscribe) activeUnsubscribe();
-      activeTargetId = newTargetKey;
-      
-      try {
-        const q = query(
-          collection(clientDb, 'reviews'), 
-          where('appId', 'in', targets.slice(0, 10)),
-          limit(5)
-        );
-        let isFirstSnapshot = true;
-        activeUnsubscribe = onSnapshot(q, (snapshot) => {
-          if (isFirstSnapshot) {
-            isFirstSnapshot = false;
-            snapshot.docs.forEach((docSnap) => {
-              const d = docSnap.data();
-              addReview({ id: docSnap.id, ...d });
-            });
-            return;
-          }
-          snapshot.docChanges().forEach((change) => {
-            if (change.type === 'added' || change.type === 'modified') {
-              const data = change.doc.data();
-              data.id = change.doc.id;
-              
-              if (data.status === 'published' || !data.status) {
-                const formattedRev: PublicReview = {
-                  id: data.id,
-                  app_id: data.appId,
-                  appId: data.appId,
-                  appSlug: data.appSlug || '',
-                  appName: data.appName || '',
-                  username: data.userName || data.username || 'Player',
-                  rating: Number(data.rating) || 5,
-                  comment: data.reviewText || data.comment || '',
-                  created_at: data.timestamp || data.created_at || new Date().toISOString(),
-                  helpful_count: Number(data.helpful_count) || 0,
-                  reported: Boolean(data.reported),
-                  report_count: Number(data.report_count) || 0,
-                  source: data.source || 'community',
-                  isPinned: Boolean(data.isPinned),
-                  adminReply: data.adminReply || null
-                };
-                
-                reviewMap.set(formattedRev.id, formattedRev);
-                
-                if (typeof window !== 'undefined') {
-                  window.dispatchEvent(new CustomEvent('community-review-added', {
-                    detail: { newReview: formattedRev }
-                  }));
-                }
-              }
-            }
-          });
-        }, (err) => {
-          console.warn("[Community] Live snapshot notice:", err.message);
-        });
-      } catch (e) {
-        console.warn("[Community] Live snapshot setup failed:", e);
-      }
-    }
-  }
-
-  // 2. Merge locally saved user reviews from localStorage
+  // Lightning-fast Server API Fetch: 
+  // Paginates exactly 5, perfect sorting (Pinned first), caches heavily on backend. Zero direct Firebase read limits hit.
   try {
-    if (targetId) {
-      const localKey = `local_user_reviews_${targetId}`;
-      const localSaved = localStorage.getItem(localKey);
-      if (localSaved) {
-        const parsed = JSON.parse(localSaved);
-        if (Array.isArray(parsed)) {
-          parsed.forEach(addReview);
-        }
+    const url = `/api/v1/public/community/reviews/${encodeURIComponent(targetId || targetSlug)}?limit=${limitCount}${cursor ? `&cursor=${cursor}` : ''}&slug=${encodeURIComponent(targetSlug)}&appTitle=${encodeURIComponent(appTitle || '')}`;
+    const res = await fetch(url);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.reviews && Array.isArray(data.reviews)) {
+        return {
+          reviews: data.reviews,
+          hasMore: Boolean(data.hasMore),
+          nextCursor: data.nextCursor,
+          stats: data.stats
+        };
       }
     }
-    if (targetSlug && targetSlug !== targetId) {
-      const localSlugKey = `local_user_reviews_${targetSlug}`;
-      const localSlugSaved = localStorage.getItem(localSlugKey);
-      if (localSlugSaved) {
-        const parsed = JSON.parse(localSlugSaved);
-        if (Array.isArray(parsed)) {
-          parsed.forEach(addReview);
-        }
-      }
-    }
-  } catch (lsErr) {}
-
-  // Sort: Pinned reviews first, then newest created_at / timestamp descending
-  const allSorted = Array.from(reviewMap.values()).sort((a, b) => {
-    if (a.isPinned && !b.isPinned) return -1;
-    if (!a.isPinned && b.isPinned) return 1;
-    const timeA = new Date(a.created_at || 0).getTime();
-    const timeB = new Date(b.created_at || 0).getTime();
-    return timeB - timeA;
-  });
-
-  // Calculate pagination: request only the exact page size
-  let startIndex = 0;
-  if (cursor) {
-    const foundIndex = allSorted.findIndex(r => r.id === cursor || r.created_at === cursor);
-    if (foundIndex !== -1) {
-      startIndex = foundIndex + 1;
-    }
+  } catch (e) {
+    console.warn("[Community] Server fetch unavailable, falling back to REST limit-5...", e);
   }
 
-  const paginated = allSorted.slice(startIndex, startIndex + limitCount);
-  const hasMore = serverHasMore || (allSorted.length > startIndex + limitCount) || (paginated.length === limitCount);
-  const lastItem = paginated.length > 0 ? paginated[paginated.length - 1] : null;
-  const nextCursor = serverNextCursor || (lastItem ? (lastItem.created_at || lastItem.id) : null);
+  // Fallback REST Fetch (Only triggers if the server API network fails)
+  try {
+    const targets = Array.from(new Set([targetId, targetSlug].filter(Boolean)));
+    const restRevs = await fetchReviewsDirectFromFirestoreRest(targets, limitCount, cursor);
+    
+    // Sort the limited fallback payload just in case (fallback is less accurate than server)
+    const sortedRest = Array.isArray(restRevs) ? restRevs.sort((a, b) => {
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      return new Date(b.created_at || b.timestamp).getTime() - new Date(a.created_at || a.timestamp).getTime();
+    }) : [];
 
-  // Accurately compute star percentages and rating statistics directly from live reviews
-  const calculateStats = (revs: PublicReview[]) => {
-    const count = revs.length;
-    if (count === 0) {
-      return {
-        totalReviews: 0,
-        averageRating: Number(options.rating) || 4.8,
-        stars: { 5: 75, 4: 15, 3: 6, 2: 2, 1: 2 }
-      };
-    }
-    const sum = revs.reduce((acc, r) => acc + (Number(r.rating) || 5), 0);
-    const avg = Number((sum / count).toFixed(1));
-    const starCounts: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-    revs.forEach(r => {
-      const star = Math.max(1, Math.min(5, Math.round(Number(r.rating) || 5)));
-      starCounts[star] = (starCounts[star] || 0) + 1;
-    });
-    const starsPercentage = {
-      5: Math.round(((starCounts[5] || 0) / count) * 100),
-      4: Math.round(((starCounts[4] || 0) / count) * 100),
-      3: Math.round(((starCounts[3] || 0) / count) * 100),
-      2: Math.round(((starCounts[2] || 0) / count) * 100),
-      1: Math.round(((starCounts[1] || 0) / count) * 100),
-    };
+    const lastItem = sortedRest.length > 0 ? sortedRest[sortedRest.length - 1] : null;
     return {
-      totalReviews: count,
-      averageRating: avg,
-      stars: starsPercentage,
-      starCounts
+      reviews: sortedRest as PublicReview[],
+      hasMore: sortedRest.length === limitCount,
+      nextCursor: lastItem ? (lastItem.created_at || lastItem.id) : null,
+      stats: null
     };
-  };
+  } catch (e) {
+    console.warn("[Community] REST fallback fetch also failed:", e);
+  }
 
-  return {
-    reviews: paginated,
-    hasMore: Boolean(nextCursor),
-    nextCursor,
-    stats: calculateStats(allSorted)
-  };
+  return { reviews: [], hasMore: false, nextCursor: null };
 }
 
 export async function submitLiveReview(data: {

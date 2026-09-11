@@ -355,18 +355,9 @@ export function getCommunityAdminDb(): any {
       }
     }
     
-    // Fallback to primary Firebase Admin SDK instance
-    const primaryDb = getFirebaseAdminDb();
-    if (primaryDb) {
-      cachedCommunityDb = primaryDb;
-      try {
-        cachedCommunityDb.settings({ preferRest: true });
-      } catch (e) {}
-      console.log('[Community Admin SDK] Using primary Firebase Admin SDK instance.');
-      return cachedCommunityDb;
-    }
-
-    console.warn('[Community Admin SDK] No Firestore DB available.');
+    // Do not fallback to primary admin DB. Return null if no community DB is configured.
+    // This enforces absolute separation of catalog data and community reviews.
+    console.warn('[Community Admin SDK] No separate community Firestore DB available.');
     return null;
   } catch (err: any) {
     console.warn('[Community Admin SDK] Initialization failed:', err.message || err);
