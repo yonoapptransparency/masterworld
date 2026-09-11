@@ -18,19 +18,17 @@ const getEnvVal = (key: string): string | undefined => {
 };
 
 export const getResolvedCommunityFirebaseConfig = () => {
-  const projectId = getEnvVal('VITE_COMMUNITY_FIREBASE_PROJECT_ID') || "gen-lang-client-0825832493";
-  const defaultDbId = projectId === 'gen-lang-client-0825832493' 
-    ? 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a' 
-    : '(default)';
+  const projectId = getEnvVal('VITE_COMMUNITY_FIREBASE_PROJECT_ID') || "rummydexcommunity";
+  const defaultDbId = '(default)';
 
   return {
     projectId,
-    appId: getEnvVal('VITE_COMMUNITY_FIREBASE_APP_ID') || "1:103973989874:web:733a6afd8e837224900f6b",
+    appId: getEnvVal('VITE_COMMUNITY_FIREBASE_APP_ID') || "1:104684954157:web:communityapp",
     apiKey: getEnvVal('VITE_COMMUNITY_FIREBASE_API_KEY') || getEnvVal('VITE_FIREBASE_API_KEY') || "AIzaSyBey9sUbeWrcXS2kl4ewOzkTy4arg03Ok",
     authDomain: getEnvVal('VITE_COMMUNITY_FIREBASE_AUTH_DOMAIN') || `${projectId}.firebaseapp.com`,
     firestoreDatabaseId: getEnvVal('VITE_COMMUNITY_FIREBASE_DATABASE_ID') || defaultDbId,
     storageBucket: getEnvVal('VITE_COMMUNITY_FIREBASE_STORAGE_BUCKET') || `${projectId}.firebasestorage.app`,
-    messagingSenderId: getEnvVal('VITE_COMMUNITY_FIREBASE_MESSAGING_ID') || "103973989874",
+    messagingSenderId: getEnvVal('VITE_COMMUNITY_FIREBASE_MESSAGING_ID') || "104684954157",
   };
 };
 
@@ -131,7 +129,7 @@ export async function fetchReviewsDirectFromFirestoreRest(
     const cleanTargets = targets.filter(Boolean).map(t => String(t).trim()).filter(Boolean);
     if (cleanTargets.length === 0) return { reviews: [], hasMore: false, nextCursor: null };
 
-    const dbId = cfg.firestoreDatabaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+    const dbId = cfg.firestoreDatabaseId || '(default)';
     const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${dbId}/documents:runQuery?key=${encodeURIComponent(cfg.apiKey)}`;
 
     // Build optimized OR filter across all target identifiers
@@ -317,54 +315,79 @@ export async function fetchLiveReviews(options: {
 
   const targets = [targetId, targetSlug, targetTitle].filter(Boolean);
 
-  // If local or dev server environment with active Express backend, attempt backend proxy
-  const isDevOrLocal = typeof window !== 'undefined' && 
-    (window.location.hostname === 'localhost' || window.location.hostname.includes('run.app'));
+  // 1. Attempt backend API endpoint first (with fast 2s timeout) if available
+  try {
+    const effectiveId = targetId || targetSlug || targetTitle;
+    const queryParams = new URLSearchParams();
+    if (targetSlug) queryParams.append('appSlug', targetSlug);
+    if (appTitle) queryParams.append('appTitle', appTitle);
+    if (cursor) queryParams.append('cursor', String(cursor));
+    queryParams.append('limit', String(limit));
+    if (rating) queryParams.append('rating', String(rating));
 
-  if (isDevOrLocal) {
-    try {
-      const effectiveId = targetId || targetSlug || targetTitle;
-      const queryParams = new URLSearchParams();
-      if (targetSlug) queryParams.append('appSlug', targetSlug);
-      if (appTitle) queryParams.append('appTitle', appTitle);
-      if (cursor) queryParams.append('cursor', String(cursor));
-      queryParams.append('limit', String(limit));
-      if (rating) queryParams.append('rating', String(rating));
+    const path = `/api/v1/public/community/reviews/${encodeURIComponent(effectiveId)}?${queryParams.toString()}`;
+    
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timeoutId = controller ? setTimeout(() => controller.abort(), 2500) : null;
 
-      const path = `/api/v1/public/community/reviews/${encodeURIComponent(effectiveId)}?${queryParams.toString()}`;
-      
-      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-      const timeoutId = controller ? setTimeout(() => controller.abort(), 2000) : null;
+    const res = await fetch(path, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      signal: controller?.signal
+    });
 
-      const res = await fetch(path, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' },
-        signal: controller?.signal
-      });
+    if (timeoutId) clearTimeout(timeoutId);
 
-      if (timeoutId) clearTimeout(timeoutId);
-
-      const contentType = res.headers.get('content-type') || '';
-      if (res.ok && contentType.includes('application/json')) {
-        const data = await res.json();
-        if (data && Array.isArray(data.reviews) && data.reviews.length > 0) {
-          const result: ReviewFetchResult = {
-            reviews: data.reviews,
-            hasMore: Boolean(data.hasMore),
-            nextCursor: data.nextCursor || null,
-            stats: data.stats || null
-          };
-          targets.forEach(t => setCachedLiveReviews(t, result));
-          return result;
-        }
+    const contentType = res.headers.get('content-type') || '';
+    if (res.ok && contentType.includes('application/json')) {
+      const data = await res.json();
+      if (data && Array.isArray(data.reviews) && data.reviews.length > 0) {
+        const result: ReviewFetchResult = {
+          reviews: data.reviews,
+          hasMore: Boolean(data.hasMore),
+          nextCursor: data.nextCursor || null,
+          stats: data.stats || null
+        };
+        targets.forEach(t => setCachedLiveReviews(t, result));
+        return result;
       }
-    } catch (err) {
-      // Fall through to Direct Firestore REST
     }
+  } catch (err) {
+    // Fall through to Direct Firestore REST edge query
   }
 
-  // Direct Firestore REST worldwide edge query (Works 100% on Dex, Vercel, GitHub Pages, Netlify)
+  // 2. Direct Firestore REST worldwide edge query (Works 100% on Dex, Vercel, GitHub Pages, Netlify)
   const firestoreRes = await fetchReviewsDirectFromFirestoreRest(targets, limit, cursor, rating);
+  if (firestoreRes && firestoreRes.reviews.length > 0) {
+    return firestoreRes;
+  }
+
+  // 3. Check for any locally saved user reviews in browser storage
+  if (typeof window !== 'undefined') {
+    try {
+      const localReviews: PublicReview[] = [];
+      targets.forEach(t => {
+        const stored = localStorage.getItem(`local_user_reviews_${t}`);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            localReviews.push(...parsed);
+          }
+        }
+      });
+      if (localReviews.length > 0) {
+        const uniqueLocal = Array.from(new Map(localReviews.map(r => [r.id, r])).values());
+        const localResult: ReviewFetchResult = {
+          reviews: uniqueLocal,
+          hasMore: false,
+          nextCursor: null
+        };
+        targets.forEach(t => setCachedLiveReviews(t, localResult));
+        return localResult;
+      }
+    } catch (e) {}
+  }
+
   return firestoreRes;
 }
 
@@ -404,7 +427,7 @@ export async function submitLiveReview(data: {
   // Direct Firestore REST write
   try {
     const cfg = resolvedConfig;
-    const dbId = cfg.firestoreDatabaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+    const dbId = cfg.firestoreDatabaseId || '(default)';
     const writeUrl = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${dbId}/documents/reviews?documentId=${generatedId}&key=${encodeURIComponent(cfg.apiKey)}`;
 
     const fields = {
@@ -475,7 +498,7 @@ export async function voteLiveReviewHelpful(reviewId: string): Promise<boolean> 
   // 2. Direct Firestore REST field transform / update
   try {
     const cfg = resolvedConfig;
-    const dbId = cfg.firestoreDatabaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+    const dbId = cfg.firestoreDatabaseId || '(default)';
     const patchUrl = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${dbId}/documents/reviews/${reviewId}?updateMask.fieldPaths=helpful_count&key=${encodeURIComponent(cfg.apiKey)}`;
 
     // Read current helpful count and increment
@@ -526,7 +549,7 @@ export async function reportLiveReview(data: {
 
   try {
     const cfg = resolvedConfig;
-    const dbId = cfg.firestoreDatabaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+    const dbId = cfg.firestoreDatabaseId || '(default)';
     const reportId = `rep_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const writeUrl = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${dbId}/documents/reports?documentId=${reportId}&key=${encodeURIComponent(cfg.apiKey)}`;
 
@@ -567,7 +590,7 @@ export async function submitLiveReport(data: {
 }): Promise<boolean> {
   try {
     const cfg = resolvedConfig;
-    const dbId = cfg.firestoreDatabaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+    const dbId = cfg.firestoreDatabaseId || '(default)';
     const reportId = `rep_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const writeUrl = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${dbId}/documents/reports?documentId=${reportId}&key=${encodeURIComponent(cfg.apiKey)}`;
 

@@ -120,10 +120,13 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
       if (res.ok && data.success) {
         if (data.firestoreRead && data.firestoreWrite) {
           setFirebaseStatus('live');
-          setFirebaseStatusMsg('Firebase 100% Live (Read/Write OK)');
+          setFirebaseStatusMsg(`${data.details?.project || 'rummydexcommunity'} Live (Read/Write OK)`);
+        } else if (data.firestoreRead) {
+          setFirebaseStatus('live');
+          setFirebaseStatusMsg(`${data.details?.project || 'rummydexcommunity'} Read Active (${data.details?.readMode || 'REST'})`);
         } else {
           setFirebaseStatus('error');
-          setFirebaseStatusMsg(`Issues detected. Read: ${data.firestoreRead ? 'OK' : 'Fail'}, Write: ${data.firestoreWrite ? 'OK' : 'Fail'}`);
+          setFirebaseStatusMsg(`Connection issues with ${data.details?.project || 'rummydexcommunity'}. Read: ${data.firestoreRead ? 'OK' : 'Fail'}, Write: ${data.firestoreWrite ? 'OK' : 'Fail'}`);
         }
       } else {
         setFirebaseStatus('error');

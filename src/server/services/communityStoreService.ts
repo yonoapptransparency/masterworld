@@ -193,15 +193,12 @@ class CommunityStoreService {
 
   constructor() {
     this.loadFromLocalBackup();
-    // Non-blocking initial sync attempt with quick quota detection
+    // Non-blocking initial sync attempt directly to Firestore
     setTimeout(() => {
       this.initFromFirestore().catch((e: any) => { 
-        if (this.isQuotaError(e)) {
-          this.quotaExhaustedUntil = Date.now() + 60 * 60 * 1000;
-          console.log(`[CommunityStore] Firestore quota limit recognized. Running in high-availability Local Storage mode with ${this.reviews.size} reviews and ${this.reports.size} reports.`);
-        }
+        console.warn(`[CommunityStore] Initial Firestore connection note:`, e?.message || e);
       });
-    }, 1000);
+    }, 500);
   }
 
   // Check if error is a Firestore quota / rate exhaustion
@@ -454,7 +451,7 @@ class FallbackCommunityStore implements CommunityStoreInterface {
 
 export const communityStoreFallback = new FallbackCommunityStore();
 `;
-      fs.writeFileSync(fallbackFilePath, fileHeader, 'utf8');
+      // fs.writeFileSync(fallbackFilePath, fileHeader, 'utf8');
     } catch (e) {
       console.warn('[CommunityStore] exportToStaticTypeScript error:', e);
     }
@@ -508,14 +505,6 @@ export const communityStoreFallback = new FallbackCommunityStore();
   // Initialize and pull latest from Firestore
   public async initFromFirestore(forceSync = false) {
     if ((this.initialized && !forceSync) || this.isSyncing) return;
-
-    if (Date.now() < this.quotaExhaustedUntil) {
-      if (!this.initialized) {
-        this.initialized = true;
-        console.log(`[CommunityStore] Active cache ready (${this.reviews.size} reviews, ${this.reports.size} reports from local storage).`);
-      }
-      return;
-    }
     this.isSyncing = true;
     try {
       const db = getCommunityAdminDb();
@@ -643,15 +632,14 @@ export const communityStoreFallback = new FallbackCommunityStore();
               });
             });
           } catch (e: any) {
-            if (this.isQuotaError(e)) {
-              this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000;
-            } else if (!forceSync) {
-              console.warn('[CommunityStore] Firestore init notice:', e?.message || e);
-            }
+            console.warn('[CommunityStore] Firestore reports init notice:', e?.message || e);
           }
         }
-      } else {
-        // Fallback to REST API if Admin SDK is not initialized
+      }
+
+      // If Admin SDK did not populate reviews or reports, execute REST sync
+      if (this.reviews.size === 0 || this.reports.size === 0 || forceSync) {
+        // Fallback to REST API
         try {
           const restReviews = await safeReadCollection('reviews');
           restReviews.forEach((d: any) => {
@@ -1185,14 +1173,24 @@ export const communityStoreFallback = new FallbackCommunityStore();
   }) {
     if (query.refresh || this.reviews.size === 0) {
       try {
+        let adminSuccess = false;
         const db = getCommunityAdminDb();
         if (db) {
-          const snap = await db.collection('reviews').limit(5000).get();
-          snap.docs.forEach((docSnap: any) => {
-            const d = docSnap.data();
-            this.reviews.set(docSnap.id, { id: docSnap.id, ...d });
-          });
-        } else {
+          try {
+            const snap = await db.collection('reviews').limit(5000).get();
+            if (snap && snap.docs && snap.docs.length > 0) {
+              snap.docs.forEach((docSnap: any) => {
+                const d = docSnap.data();
+                this.reviews.set(docSnap.id, { id: docSnap.id, ...d });
+              });
+              adminSuccess = true;
+            }
+          } catch (adminErr) {
+            console.warn('[CommunityStore] queryAdminReviews Admin SDK note:', adminErr);
+          }
+        }
+        
+        if (!adminSuccess) {
           // REST Fallback for Admin SDK failure
           const { readFirestoreRestCollection } = require('../firebase');
           const restReviews = await readFirestoreRestCollection('reviews');

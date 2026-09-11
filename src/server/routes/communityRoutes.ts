@@ -208,21 +208,29 @@ communityRouter.get("/api/v1/public/community/reviews/:appId", async (req: any, 
 // Add health ping for community database
 communityRouter.get("/api/v1/admin/community/health/ping", verifyAdminToken, async (req: any, res: any) => {
   try {
+    const { getCommunityAdminDb, readFirestoreRestCollection, writeFirestoreRestDoc, deleteFirestoreRestDoc, getCommunityFirebaseConfig } = require('../firebase');
+    const adminDb = getCommunityAdminDb();
+    const commConfig = getCommunityFirebaseConfig();
+
     const results = {
       firestoreRead: false,
       firestoreWrite: false,
-      details: { readMode: '', writeMode: '', readError: '', writeError: '' }
+      details: { 
+        project: commConfig.projectId,
+        databaseId: commConfig.firestoreDatabaseId || '(default)',
+        readMode: '', 
+        writeMode: '', 
+        readError: '', 
+        writeError: '' 
+      }
     };
 
-    const { getCommunityAdminDb, readFirestoreRestCollection, writeFirestoreRestDoc, deleteFirestoreRestDoc } = require('../firebase');
-    const adminDb = getCommunityAdminDb();
-
-    // 1. Test Read (Admin SDK first, then REST)
+    // 1. Test Read (Admin SDK first if configured, then REST)
     if (adminDb) {
       try {
         const snap = await adminDb.collection('reviews').limit(1).get();
         results.firestoreRead = true;
-        results.details.readMode = 'Admin SDK (Direct Firestore Connected)';
+        results.details.readMode = `Admin SDK Direct (${commConfig.projectId})`;
       } catch (adminReadErr: any) {
         results.details.readError = `Admin SDK Read Error: ${adminReadErr.message}`;
       }
@@ -230,23 +238,23 @@ communityRouter.get("/api/v1/admin/community/health/ping", verifyAdminToken, asy
 
     if (!results.firestoreRead) {
       try {
-        const all = await readFirestoreRestCollection('reviews', req.headers.authorization, 1);
+        const all = await readFirestoreRestCollection('reviews');
         if (all && Array.isArray(all)) {
           results.firestoreRead = true;
-          results.details.readMode = 'REST Firestore Read Active';
+          results.details.readMode = `REST Firestore Live (${commConfig.projectId})`;
         }
       } catch (e: any) {
         results.details.readError = (results.details.readError ? results.details.readError + ' | ' : '') + `REST Read Error: ${e.message}`;
       }
     }
 
-    // 2. Test Write (Admin SDK first, then REST)
+    // 2. Test Write (Admin SDK first if configured, then REST)
     const pingDocId = `_status_check_${Date.now()}`;
     if (adminDb) {
       try {
         await adminDb.collection('reviews').doc(pingDocId).set({ ts: Date.now(), source: 'admin_sdk_healthcheck' });
         results.firestoreWrite = true;
-        results.details.writeMode = 'Admin SDK (Direct Firestore Write OK)';
+        results.details.writeMode = `Admin SDK Direct (${commConfig.projectId})`;
         adminDb.collection('reviews').doc(pingDocId).delete().catch(() => {});
       } catch (adminWriteErr: any) {
         results.details.writeError = `Admin SDK Write Error: ${adminWriteErr.message}`;
@@ -255,13 +263,13 @@ communityRouter.get("/api/v1/admin/community/health/ping", verifyAdminToken, asy
 
     if (!results.firestoreWrite) {
       try {
-        const writeOk = await writeFirestoreRestDoc(pingDocId, { ts: Date.now(), source: 'admin_rest_healthcheck' }, req.headers.authorization, true, 'reviews');
+        const writeOk = await writeFirestoreRestDoc(pingDocId, { ts: Date.now(), source: 'admin_rest_healthcheck' }, undefined, true, 'reviews');
         if (writeOk) {
           results.firestoreWrite = true;
-          results.details.writeMode = 'REST Firestore Write Permitted';
-          deleteFirestoreRestDoc(pingDocId, req.headers.authorization, 'reviews').catch(() => {});
+          results.details.writeMode = `REST Firestore Live (${commConfig.projectId})`;
+          deleteFirestoreRestDoc(pingDocId, undefined, 'reviews').catch(() => {});
         } else {
-          results.details.writeError = (results.details.writeError ? results.details.writeError + ' | ' : '') + 'REST Write Denied';
+          results.details.writeError = (results.details.writeError ? results.details.writeError + ' | ' : '') + `REST Write to ${commConfig.projectId} restricted by rules`;
         }
       } catch (e: any) {
         results.details.writeError = (results.details.writeError ? results.details.writeError + ' | ' : '') + `REST Write Error: ${e.message}`;

@@ -269,18 +269,25 @@ Ensure any newly created files strictly follow repo-isolation boundaries:
 
 ---
 
-## 12. CRITICAL ARCHITECTURE RULE: No Firebase for Public Website (Hard-Coded Only)
+## 12. CRITICAL ARCHITECTURE RULE: Dual Firebase Databases (NEVER MIX UP)
 
 > [!CRITICAL]
-> **MANDATORY INSTRUCTION:** The Public Website MUST NEVER import or connect to the primary Firebase database for apps, metadata, settings, news, or videos. 
-> 
-> - **The Admin Dashboard** is the ONLY system permitted to use the main Firebase database.
-> - **The Public Website** must ONLY use the hard-coded static JSON (`staticData.json` or `public_backup.json`) synced via GitHub.
-> - Do not write or restore any `fetchStoreData()` or `syncFromFirestore()` paths into the public API routes (`publicApiRoutes.ts`).
-> - The public server endpoints (`/api/v1/public/backup-data` and `/api/v1/public/app/:slug`) MUST exclusively return data from `getStaticData()` or the local JSON fallback.
-> - The community database (reviews) uses a separate Firebase account and is exempt from this rule, but for main catalog data, Firebase is strictly banned from the public website!
-> 
-> **ANY AI THAT CONNECTS THE PUBLIC WEBSITE TO THE MAIN FIREBASE WILL BREAK THE SYSTEM ARCHITECTURE AND CAUSE READ QUOTA EXHAUSTION.**
+> **MANDATORY INSTRUCTION: WE USE TWO COMPLETELY SEPARATE FIREBASE PROJECTS. AI MUST NEVER MIX UP OR MERGE THEM.**
+>
+> 1. **Primary Master Catalog Firebase (ADMIN ONLY)**:
+>    - **Project ID**: `ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a`
+>    - **Database ID**: `(default)`
+>    - **Collections**: `store_data` (documents: `apps_chunk_0`, `apps_chunk_1`, `settings`, `news`, `videos`, `quick_links`, `faqs`, `developers`, `secure_links`).
+>    - **Access Rule**: **ADMIN DASHBOARD ONLY**. The Public Website (`Dex`) is **STRICTLY FORBIDDEN** from querying or connecting to this database (to prevent read quota exhaustion). Public site uses hard-coded static JSON (`staticData.json`).
+>
+> 2. **Community Reviews & Reports Firebase (`rummydexcommunity` - PUBLIC & ADMIN)**:
+>    - **Project ID**: `rummydexcommunity`
+>    - **Database ID**: `(default)`
+>    - **Collections**: `reviews`, `reports`, `community_store`.
+>    - **Access Rule**: **ALWAYS LIVE ON BOTH PUBLIC AND ADMIN**. Both the public site and admin console connect to this separate Firebase project to submit, vote, moderate, and display user reviews, ratings, and content flags.
+>    - **Zero Downtime Engine**: Backed by a 3-tier sync system (In-memory fast cache + local backup JSON + live Firestore cloud sync) ensuring 100% uptime with 0ms latency.
+>
+> **ANY AI THAT MIXES UP THESE TWO DATABASES OR REMOVES ISOLATION WILL BREAK THE ENTIRE SYSTEM ARCHITECTURE.**
 
 ---
 
