@@ -4,6 +4,7 @@ import {
   fetchLiveReviews, 
   voteLiveReviewHelpful, 
   reportLiveReview, 
+  getCachedLiveReviews,
   PublicReview, 
 } from '../lib/communityFirebase';
 
@@ -19,19 +20,59 @@ export function useReviews(
   const cleanAppSlug = String(appSlug || '').trim();
   const cleanAppTitle = String(appTitle || '').trim();
 
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [loading, setLoading] = useState(false);
+  // Instant SWR Cache Initialization (0ms latency render)
+  const initialCached = useMemo(() => {
+    return getCachedLiveReviews(cleanAppId, cleanAppSlug);
+  }, [cleanAppId, cleanAppSlug]);
+
+  const [reviews, setReviews] = useState<Review[]>(() => {
+    if (initialCached && initialCached.reviews.length > 0) {
+      return initialCached.reviews.map((r: PublicReview) => ({
+        id: r.id,
+        app_id: r.app_id || r.appId || cleanAppId,
+        username: r.username || 'Player',
+        rating: Number(r.rating) || 5,
+        comment: r.comment || '',
+        created_at: r.created_at || new Date().toISOString(),
+        helpful_count: Number(r.helpful_count) || 0,
+        reported: Boolean(r.reported),
+        report_count: Number(r.report_count) || 0,
+        source: r.source || 'community',
+        isPinned: Boolean(r.isPinned),
+        adminReply: r.adminReply || null
+      }));
+    }
+    return [];
+  });
+
+  const [loading, setLoading] = useState<boolean>(() => !initialCached || initialCached.reviews.length === 0);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const nextCursorRef = useRef<string | null>(null);
-  const [initialLoadDone, setInitialLoadDone] = useState(false);
+  const [hasMore, setHasMore] = useState<boolean>(() => Boolean(initialCached?.hasMore));
+  const [nextCursor, setNextCursor] = useState<string | null>(() => initialCached?.nextCursor || null);
+  const nextCursorRef = useRef<string | null>(initialCached?.nextCursor || null);
+  const [initialLoadDone, setInitialLoadDone] = useState<boolean>(() => Boolean(initialCached && initialCached.reviews.length > 0));
 
   const [sortBy, setSortBy] = useState<'recent' | 'helpful'>('recent');
   const [activeFilter, setActiveFilter] = useState<'all' | 'positive' | 'critical'>('all');
   
-  const [votedReviews, setVotedReviews] = useState<Record<string, boolean>>({});
-  const [reportedReviews, setReportedReviews] = useState<Record<string, boolean>>({});
+  const [votedReviews, setVotedReviews] = useState<Record<string, boolean>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        return JSON.parse(localStorage.getItem('voted_reviews_map') || '{}');
+      } catch (e) {}
+    }
+    return {};
+  });
+
+  const [reportedReviews, setReportedReviews] = useState<Record<string, boolean>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        return JSON.parse(localStorage.getItem('reported_reviews_map') || '{}');
+      } catch (e) {}
+    }
+    return {};
+  });
+
   const [expandedReviews, setExpandedReviews] = useState<Record<string, boolean>>({});
 
   // App key tracker to prevent duplicate initial fetches while guaranteeing trigger on targetKey ready
@@ -52,7 +93,7 @@ export function useReviews(
 
     try {
       if (isLoadMore) setLoadingMore(true);
-      else setLoading(true);
+      else if (reviews.length === 0) setLoading(true);
 
       const cursorToUse = isLoadMore ? (nextCursorRef.current || nextCursor) : null;
       
@@ -101,7 +142,7 @@ export function useReviews(
       else setLoading(false);
       setInitialLoadDone(true);
     }
-  }, [cleanAppId, cleanAppSlug, cleanAppTitle, overallRating]);
+  }, [cleanAppId, cleanAppSlug, cleanAppTitle, overallRating, reviews.length]);
 
   // Trigger review fetch whenever targetKey is valid and has not been fetched yet
   useEffect(() => {
@@ -110,14 +151,36 @@ export function useReviews(
     if (!inView) return;
 
     if (fetchedTargetKeyRef.current !== targetKey) {
-      setReviews([]);
-      setNextCursor(null);
-      nextCursorRef.current = null;
-      setHasMore(false);
-      setVotedReviews({});
-      setReportedReviews({});
+      const cached = getCachedLiveReviews(cleanAppId, cleanAppSlug);
+      if (cached && cached.reviews.length > 0) {
+        setReviews(cached.reviews.map((r: PublicReview) => ({
+          id: r.id,
+          app_id: r.app_id || r.appId || cleanAppId,
+          username: r.username || 'Player',
+          rating: Number(r.rating) || 5,
+          comment: r.comment || '',
+          created_at: r.created_at || new Date().toISOString(),
+          helpful_count: Number(r.helpful_count) || 0,
+          reported: Boolean(r.reported),
+          report_count: Number(r.report_count) || 0,
+          source: r.source || 'community',
+          isPinned: Boolean(r.isPinned),
+          adminReply: r.adminReply || null
+        })));
+        setHasMore(Boolean(cached.hasMore));
+        setNextCursor(cached.nextCursor || null);
+        nextCursorRef.current = cached.nextCursor || null;
+        setInitialLoadDone(true);
+        setLoading(false);
+      } else {
+        setReviews([]);
+        setNextCursor(null);
+        nextCursorRef.current = null;
+        setHasMore(false);
+        setInitialLoadDone(false);
+      }
+
       setExpandedReviews({});
-      setInitialLoadDone(false);
       fetchedTargetKeyRef.current = targetKey;
       fetchReviews(false);
     }

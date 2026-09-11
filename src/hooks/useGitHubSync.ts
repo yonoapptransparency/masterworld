@@ -290,19 +290,22 @@ export function useGitHubSync(
       return app;
     });
 
-    // Reviews are NOT pushed to static git code; they are loaded dynamically live from Firebase
+    const fallbackReviewsCode = generateCommunityReviewsFileCode(targetReviews);
+
     const backupJsonCode = JSON.stringify({
       apps: safeBackupApps,
       settings: finalSettings,
       news: publicNews,
-      videos: targetVideos
+      videos: targetVideos,
+      reviews: targetReviews
     }, null, 2);
 
     const staticJsonCode = JSON.stringify({
       mockApps: safeBackupApps,
       mockSettings: finalSettings,
       mockNews: publicNews,
-      mockVideos: targetVideos
+      mockVideos: targetVideos,
+      mockReviews: targetReviews
     }, null, 2);
 
     let targetRepo = configToUse.repo || 'dex';
@@ -342,6 +345,18 @@ export function useGitHubSync(
         content: staticJsonCode,
         message: `Admin Release: Manual staticData.json synchronization to ${targetRepo}`
       }).then(() => log(`GitHub Sync: ✅ staticData.json successfully synced to ${targetRepo}.`)));
+
+      primaryCommits.push(commitFileToGitHub({
+        owner: configToUse.owner,
+        repo: targetRepo,
+        token: configToUse.token,
+        branch: configToUse.branch || 'main',
+        path: 'src/lib/communityStoreFallback.ts',
+        content: fallbackReviewsCode,
+        message: `Admin Release: Sync ${targetReviews.length} community reviews fallback to ${targetRepo}`
+      }).then(() => log(`GitHub Sync: ✅ communityStoreFallback.ts (${targetReviews.length} reviews) synced to ${targetRepo}.`)).catch((rErr: any) => {
+        log(`GitHub Sync Notice: communityStoreFallback.ts note: ${rErr?.message || 'skipped'}`);
+      }));
 
       primaryCommits.push(commitFileToGitHub({
         owner: configToUse.owner,
@@ -424,6 +439,16 @@ export function useGitHubSync(
             content: staticJsonCode,
             message: `Admin Release: Manual staticData.json synchronization to masterworld`
           }).then(() => log(`GitHub Sync: ✅ staticData.json secondary sync to masterworld complete.`)));
+
+          secondaryCommits.push(commitFileToGitHub({
+            owner: configToUse.owner,
+            repo: 'masterworld',
+            token: configToUse.token,
+            branch: configToUse.branch || 'main',
+            path: 'src/lib/communityStoreFallback.ts',
+            content: fallbackReviewsCode,
+            message: `Admin Release: Sync ${targetReviews.length} community reviews fallback to masterworld`
+          }).then(() => log(`GitHub Sync: ✅ communityStoreFallback.ts secondary sync to masterworld complete.`)).catch(() => {}));
 
           await Promise.all(secondaryCommits);
         } catch (mwErr: any) {
