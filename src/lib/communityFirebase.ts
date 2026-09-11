@@ -23,12 +23,12 @@ export const getResolvedCommunityFirebaseConfig = () => {
 
   return {
     projectId,
-    appId: getEnvVal('VITE_COMMUNITY_FIREBASE_APP_ID') || "1:104684954157:web:communityapp",
-    apiKey: getEnvVal('VITE_COMMUNITY_FIREBASE_API_KEY') || getEnvVal('VITE_FIREBASE_API_KEY') || "AIzaSyBey9sUbeWrcXS2kl4ewOzkTy4arg03Ok",
+    appId: getEnvVal('VITE_COMMUNITY_FIREBASE_APP_ID') || "1:236598070230:web:df8b1b549dea13938d3277",
+    apiKey: getEnvVal('VITE_COMMUNITY_FIREBASE_API_KEY') || getEnvVal('VITE_FIREBASE_API_KEY') || "AIzaSyCzhWEDLQsZ-HL8iVMcINq78lB-RzYPxi0",
     authDomain: getEnvVal('VITE_COMMUNITY_FIREBASE_AUTH_DOMAIN') || `${projectId}.firebaseapp.com`,
     firestoreDatabaseId: getEnvVal('VITE_COMMUNITY_FIREBASE_DATABASE_ID') || defaultDbId,
     storageBucket: getEnvVal('VITE_COMMUNITY_FIREBASE_STORAGE_BUCKET') || `${projectId}.firebasestorage.app`,
-    messagingSenderId: getEnvVal('VITE_COMMUNITY_FIREBASE_MESSAGING_ID') || "104684954157",
+    messagingSenderId: getEnvVal('VITE_COMMUNITY_FIREBASE_MESSAGING_ID') || "236598070230",
   };
 };
 

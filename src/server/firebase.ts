@@ -278,8 +278,8 @@ let cachedCommunityDb: any = null;
 export function getCommunityFirebaseConfig(): any {
   const envProjectId = process.env.COMMUNITY_FIREBASE_PROJECT_ID || process.env.VITE_COMMUNITY_FIREBASE_PROJECT_ID || 'rummydexcommunity';
   const envDbId = process.env.COMMUNITY_FIREBASE_DATABASE_ID || process.env.VITE_COMMUNITY_FIREBASE_DATABASE_ID || '(default)';
-  const envApiKey = process.env.COMMUNITY_FIREBASE_API_KEY || process.env.VITE_COMMUNITY_FIREBASE_API_KEY || process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY || "AIzaSyBey9sUbeWrcXS2kl4ewOzkTy4arg03Ok";
-  const envAppId = process.env.COMMUNITY_FIREBASE_APP_ID || process.env.VITE_COMMUNITY_FIREBASE_APP_ID || "1:104684954157:web:communityapp";
+  const envApiKey = process.env.COMMUNITY_FIREBASE_API_KEY || process.env.VITE_COMMUNITY_FIREBASE_API_KEY || process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY || "AIzaSyCzhWEDLQsZ-HL8iVMcINq78lB-RzYPxi0";
+  const envAppId = process.env.COMMUNITY_FIREBASE_APP_ID || process.env.VITE_COMMUNITY_FIREBASE_APP_ID || "1:236598070230:web:df8b1b549dea13938d3277";
 
   return {
     projectId: envProjectId,
@@ -287,6 +287,8 @@ export function getCommunityFirebaseConfig(): any {
     firestoreDatabaseId: envDbId,
     apiKey: envApiKey,
     appId: envAppId,
+    messagingSenderId: "236598070230",
+    measurementId: "G-2JKRRM48PD",
     authDomain: `${envProjectId}.firebaseapp.com`,
     storageBucket: `${envProjectId}.firebasestorage.app`
   };

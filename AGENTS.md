@@ -283,8 +283,14 @@ Ensure any newly created files strictly follow repo-isolation boundaries:
 > 2. **Community Reviews & Reports Firebase (`rummydexcommunity` - PUBLIC & ADMIN)**:
 >    - **Project ID**: `rummydexcommunity`
 >    - **Database ID**: `(default)`
+>    - **Web API Key**: `AIzaSyCzhWEDLQsZ-HL8iVMcINq78lB-RzYPxi0`
+>    - **Web App ID**: `1:236598070230:web:df8b1b549dea13938d3277`
+>    - **Auth Domain**: `rummydexcommunity.firebaseapp.com`
+>    - **Storage Bucket**: `rummydexcommunity.firebasestorage.app`
+>    - **Messaging Sender ID**: `236598070230`
+>    - **Measurement ID**: `G-2JKRRM48PD`
 >    - **Collections**: `reviews`, `reports`, `community_store`.
->    - **Access Rule**: **ALWAYS LIVE ON BOTH PUBLIC AND ADMIN**. Both the public site and admin console connect to this separate Firebase project to submit, vote, moderate, and display user reviews, ratings, and content flags.
+>    - **Access Rule**: **ALWAYS LIVE ON BOTH PUBLIC AND ADMIN**. Both the public site and admin console connect to this separate Firebase project to submit, vote, moderate, and display user reviews, ratings, and content flags in real-time.
 >    - **Zero Downtime Engine**: Backed by a 3-tier sync system (In-memory fast cache + local backup JSON + live Firestore cloud sync) ensuring 100% uptime with 0ms latency.
 >
 > **ANY AI THAT MIXES UP THESE TWO DATABASES OR REMOVES ISOLATION WILL BREAK THE ENTIRE SYSTEM ARCHITECTURE.**
