@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db, isFirebaseReal, handleFirestoreError, OperationType } from '../lib/firebase';
 import { adminFetch, getValidAdminToken, loadSession } from '../services/adminAuthService';
-import { GitConfig, generateStaticDataFileCode, generateCommunityReviewsFileCode, commitFileToGitHub, encryptUrlIfNeeded } from '../lib/githubSync';
+import { GitConfig, generateStaticDataFileCode, commitFileToGitHub, encryptUrlIfNeeded } from '../lib/githubSync';
 import { generateAllSitemaps } from '../lib/sitemapGenerator';
 import { ensureDefaultSettings } from '../lib/defaultLegalContent';
 import { AppConfig, GlobalSettings, NewsItem, VideoItem } from '../types';
@@ -198,59 +198,9 @@ export function useGitHubSync(
               log("GitHub Sync: Secure link verification and merging completed.");
             }
           }
-          
-          let fetchedReviews: any[] = [];
-          try {
-            const revRes = await adminFetch('/api/v1/admin/community/reviews?limit=50000', {
-              headers: { 'Authorization': `Bearer ${idToken}` }
-            });
-            if (revRes.ok) {
-              const revData = await revRes.json();
-              if (revData && Array.isArray(revData.reviews)) {
-                fetchedReviews = revData.reviews;
-              }
-            }
-          } catch (rErr: any) {
-            log(`GitHub Sync: Reviews fetch note: ${rErr.message}`);
-          }
-
-          if (fetchedReviews.length > 0) {
-            const published = fetchedReviews.filter((r: any) => r.status === 'published' || r.status === 'approved' || (!r.status) || r.status === 'active');
-            targetReviews = published.length > 0 ? published : fetchedReviews;
-            log(`GitHub Sync: Loaded ${targetReviews.length} community reviews for static backup.`);
-          } else if (Array.isArray(liveBackup?.reviews) && liveBackup.reviews.length > 0) {
-            targetReviews = liveBackup.reviews;
-            log(`GitHub Sync: Using ${targetReviews.length} cached community reviews from live backup.`);
-          }
-
-          // Inject true star ratings and total counts into apps from reviews
-          if (targetReviews.length > 0) {
-            finalApps = finalApps.map((app: any) => {
-              const appReviews = targetReviews.filter((r: any) => 
-                (r.appId && (r.appId === app.id || r.appId === app.slug)) ||
-                (r.app_id && (r.app_id === app.id || r.app_id === app.slug)) ||
-                (r.appSlug && (r.appSlug === app.id || r.appSlug === app.slug))
-              );
-              if (appReviews.length > 0) {
-                const total = appReviews.length;
-                const sum = appReviews.reduce((acc: number, cur: any) => acc + (Number(cur.rating) || 5), 0);
-                const newAvg = (sum / total).toFixed(1);
-                app.rating = Number(newAvg);
-                app.review_count = total;
-              }
-              return app;
-            });
-            log(`GitHub Sync: Recalculated and injected star ratings and review counts across catalog.`);
-          }
         }
       } catch (bkErr: any) {
         log(`GitHub Sync Warning: Secure link merge bypass: ${bkErr.message}`);
-      }
-    }
-
-    if (targetReviews.length === 0) {
-      if (Array.isArray(liveBackup?.reviews) && liveBackup.reviews.length > 0) {
-        targetReviews = liveBackup.reviews;
       }
     }
 
@@ -290,22 +240,18 @@ export function useGitHubSync(
       return app;
     });
 
-    const fallbackReviewsCode = generateCommunityReviewsFileCode(targetReviews);
-
     const backupJsonCode = JSON.stringify({
       apps: safeBackupApps,
       settings: finalSettings,
       news: publicNews,
-      videos: targetVideos,
-      reviews: targetReviews
+      videos: targetVideos
     }, null, 2);
 
     const staticJsonCode = JSON.stringify({
       mockApps: safeBackupApps,
       mockSettings: finalSettings,
       mockNews: publicNews,
-      mockVideos: targetVideos,
-      mockReviews: targetReviews
+      mockVideos: targetVideos
     }, null, 2);
 
     let targetRepo = configToUse.repo || 'dex';
@@ -345,18 +291,6 @@ export function useGitHubSync(
         content: staticJsonCode,
         message: `Admin Release: Manual staticData.json synchronization to ${targetRepo}`
       }).then(() => log(`GitHub Sync: ✅ staticData.json successfully synced to ${targetRepo}.`)));
-
-      primaryCommits.push(commitFileToGitHub({
-        owner: configToUse.owner,
-        repo: targetRepo,
-        token: configToUse.token,
-        branch: configToUse.branch || 'main',
-        path: 'src/lib/communityStoreFallback.ts',
-        content: fallbackReviewsCode,
-        message: `Admin Release: Sync ${targetReviews.length} community reviews fallback to ${targetRepo}`
-      }).then(() => log(`GitHub Sync: ✅ communityStoreFallback.ts (${targetReviews.length} reviews) synced to ${targetRepo}.`)).catch((rErr: any) => {
-        log(`GitHub Sync Notice: communityStoreFallback.ts note: ${rErr?.message || 'skipped'}`);
-      }));
 
       primaryCommits.push(commitFileToGitHub({
         owner: configToUse.owner,
@@ -439,16 +373,6 @@ export function useGitHubSync(
             content: staticJsonCode,
             message: `Admin Release: Manual staticData.json synchronization to masterworld`
           }).then(() => log(`GitHub Sync: ✅ staticData.json secondary sync to masterworld complete.`)));
-
-          secondaryCommits.push(commitFileToGitHub({
-            owner: configToUse.owner,
-            repo: 'masterworld',
-            token: configToUse.token,
-            branch: configToUse.branch || 'main',
-            path: 'src/lib/communityStoreFallback.ts',
-            content: fallbackReviewsCode,
-            message: `Admin Release: Sync ${targetReviews.length} community reviews fallback to masterworld`
-          }).then(() => log(`GitHub Sync: ✅ communityStoreFallback.ts secondary sync to masterworld complete.`)).catch(() => {}));
 
           await Promise.all(secondaryCommits);
         } catch (mwErr: any) {

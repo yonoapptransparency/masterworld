@@ -141,6 +141,8 @@ export async function fetchReviewsDirectFromFirestoreRest(
       filters.push({ fieldFilter: { field: { fieldPath: 'app_id' }, op: 'EQUAL', value: { stringValue: t } } });
       filters.push({ fieldFilter: { field: { fieldPath: 'appSlug' }, op: 'EQUAL', value: { stringValue: t } } });
       filters.push({ fieldFilter: { field: { fieldPath: 'app_slug' }, op: 'EQUAL', value: { stringValue: t } } });
+      filters.push({ fieldFilter: { field: { fieldPath: 'appName' }, op: 'EQUAL', value: { stringValue: t } } });
+      filters.push({ fieldFilter: { field: { fieldPath: 'app_name' }, op: 'EQUAL', value: { stringValue: t } } });
     });
 
     const body: any = {
@@ -150,19 +152,22 @@ export async function fetchReviewsDirectFromFirestoreRest(
       }
     };
 
-    if (filters.length === 1) {
-      body.structuredQuery.where = filters[0];
-    } else if (filters.length > 1) {
+    // Firestore allows up to 30 filters in composite OR filter
+    const safeFilters = filters.slice(0, 30);
+
+    if (safeFilters.length === 1) {
+      body.structuredQuery.where = safeFilters[0];
+    } else if (safeFilters.length > 1) {
       body.structuredQuery.where = {
         compositeFilter: {
           op: 'OR',
-          filters: filters
+          filters: safeFilters
         }
       };
     }
 
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    const timeoutId = controller ? setTimeout(() => controller.abort(), 4000) : null;
+    const timeoutId = controller ? setTimeout(() => controller.abort(), 6000) : null;
 
     const res = await fetch(url, {
       method: 'POST',
@@ -286,57 +291,14 @@ export async function fetchReviewsDirectFromFirestoreRest(
 
     return finalResult;
   } catch (e) {
-    // Graceful fallback to static verified dataset
-    try {
-      const { communityStoreFallback } = await import('./communityStoreFallback');
-      const fallbackResult = communityStoreFallback.getReviewsForApp(targets[0], cursor ? String(cursor) : undefined, limitCount, undefined, benchmarkRating, targets[1]);
-      if (fallbackResult && fallbackResult.reviews.length > 0) {
-        const result: ReviewFetchResult = {
-          reviews: fallbackResult.reviews.map(r => ({
-            id: r.id,
-            app_id: r.appId,
-            appId: r.appId,
-            appSlug: r.appSlug,
-            appName: r.appName,
-            username: r.userName,
-            rating: r.rating,
-            comment: r.reviewText,
-            created_at: r.timestamp,
-            helpful_count: r.helpful_count,
-            reported: r.reported,
-            report_count: r.report_count,
-            source: r.source,
-            isPinned: r.isPinned,
-            adminReply: r.adminReply
-          })),
-          hasMore: Boolean(fallbackResult.nextCursor),
-          nextCursor: fallbackResult.nextCursor || null,
-          stats: {
-            averageRating: fallbackResult.stats.averageRating,
-            totalReviews: fallbackResult.stats.totalReviews,
-            distribution: {
-              5: Math.round((fallbackResult.stats.starCounts[5] / (fallbackResult.stats.totalReviews || 1)) * 100),
-              4: Math.round((fallbackResult.stats.starCounts[4] / (fallbackResult.stats.totalReviews || 1)) * 100),
-              3: Math.round((fallbackResult.stats.starCounts[3] / (fallbackResult.stats.totalReviews || 1)) * 100),
-              2: Math.round((fallbackResult.stats.starCounts[2] / (fallbackResult.stats.totalReviews || 1)) * 100),
-              1: Math.round((fallbackResult.stats.starCounts[1] / (fallbackResult.stats.totalReviews || 1)) * 100)
-            },
-            starCounts: Object.fromEntries(Object.entries(fallbackResult.stats.starCounts).map(([k, v]) => [String(k), v])),
-            counts: fallbackResult.stats.starCounts
-          }
-        };
-        targets.forEach(t => setCachedLiveReviews(t, result));
-        return result;
-      }
-    } catch (fallbackErr) {}
     return { reviews: [], hasMore: false, nextCursor: null };
   }
 }
 
 /**
- * LIVE Community Review Engine with SWR & Direct REST
+ * LIVE Community Review Engine with Direct Firestore REST
  * 1. Checks memory/local cache first for 0ms immediate render.
- * 2. Fetches fresh live data directly from Firestore REST in background.
+ * 2. Fetches fresh live data directly from Firestore REST.
  */
 export async function fetchLiveReviews(options: {
   appId: string;
@@ -349,18 +311,19 @@ export async function fetchLiveReviews(options: {
   const { appId, appSlug, appTitle, cursor, limit = 5, rating = 4.8 } = options;
   const targetId = (appId || '').trim();
   const targetSlug = (appSlug || '').trim();
+  const targetTitle = (appTitle || '').trim();
   
-  if (!targetId && !targetSlug) return { reviews: [], hasMore: false, nextCursor: null };
+  if (!targetId && !targetSlug && !targetTitle) return { reviews: [], hasMore: false, nextCursor: null };
 
-  const targets = [targetId, targetSlug].filter(Boolean);
+  const targets = [targetId, targetSlug, targetTitle].filter(Boolean);
 
-  // If local or dev server environment with active Express backend, attempt fast backend proxy with JSON check
+  // If local or dev server environment with active Express backend, attempt backend proxy
   const isDevOrLocal = typeof window !== 'undefined' && 
     (window.location.hostname === 'localhost' || window.location.hostname.includes('run.app'));
 
   if (isDevOrLocal) {
     try {
-      const effectiveId = targetId || targetSlug;
+      const effectiveId = targetId || targetSlug || targetTitle;
       const queryParams = new URLSearchParams();
       if (targetSlug) queryParams.append('appSlug', targetSlug);
       if (appTitle) queryParams.append('appTitle', appTitle);
@@ -384,7 +347,7 @@ export async function fetchLiveReviews(options: {
       const contentType = res.headers.get('content-type') || '';
       if (res.ok && contentType.includes('application/json')) {
         const data = await res.json();
-        if (data && Array.isArray(data.reviews)) {
+        if (data && Array.isArray(data.reviews) && data.reviews.length > 0) {
           const result: ReviewFetchResult = {
             reviews: data.reviews,
             hasMore: Boolean(data.hasMore),
@@ -402,54 +365,6 @@ export async function fetchLiveReviews(options: {
 
   // Direct Firestore REST worldwide edge query (Works 100% on Dex, Vercel, GitHub Pages, Netlify)
   const firestoreRes = await fetchReviewsDirectFromFirestoreRest(targets, limit, cursor, rating);
-  if (firestoreRes && firestoreRes.reviews.length > 0) {
-    return firestoreRes;
-  }
-
-  // If Firestore is empty/rate-limited, fallback to offline verified dataset
-  try {
-    const { communityStoreFallback } = await import('./communityStoreFallback');
-    const fallbackResult = communityStoreFallback.getReviewsForApp(targets[0], cursor ? String(cursor) : undefined, limit, appTitle, rating, targets[1]);
-    if (fallbackResult && fallbackResult.reviews.length > 0) {
-      const result: ReviewFetchResult = {
-        reviews: fallbackResult.reviews.map(r => ({
-          id: r.id,
-          app_id: r.appId,
-          appId: r.appId,
-          appSlug: r.appSlug,
-          appName: r.appName,
-          username: r.userName,
-          rating: r.rating,
-          comment: r.reviewText,
-          created_at: r.timestamp,
-          helpful_count: r.helpful_count,
-          reported: r.reported,
-          report_count: r.report_count,
-          source: r.source,
-          isPinned: r.isPinned,
-          adminReply: r.adminReply
-        })),
-        hasMore: Boolean(fallbackResult.nextCursor),
-        nextCursor: fallbackResult.nextCursor || null,
-        stats: {
-          averageRating: fallbackResult.stats.averageRating,
-          totalReviews: fallbackResult.stats.totalReviews,
-          distribution: {
-            5: Math.round((fallbackResult.stats.starCounts[5] / (fallbackResult.stats.totalReviews || 1)) * 100),
-            4: Math.round((fallbackResult.stats.starCounts[4] / (fallbackResult.stats.totalReviews || 1)) * 100),
-            3: Math.round((fallbackResult.stats.starCounts[3] / (fallbackResult.stats.totalReviews || 1)) * 100),
-            2: Math.round((fallbackResult.stats.starCounts[2] / (fallbackResult.stats.totalReviews || 1)) * 100),
-            1: Math.round((fallbackResult.stats.starCounts[1] / (fallbackResult.stats.totalReviews || 1)) * 100)
-          },
-          starCounts: Object.fromEntries(Object.entries(fallbackResult.stats.starCounts).map(([k, v]) => [String(k), v])),
-          counts: fallbackResult.stats.starCounts
-        }
-      };
-      targets.forEach(t => setCachedLiveReviews(t, result));
-      return result;
-    }
-  } catch (err) {}
-
   return firestoreRes;
 }
 
