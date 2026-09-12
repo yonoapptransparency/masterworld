@@ -446,6 +446,7 @@ export default function AdminDashboard() {
             handleAddDeveloper={handleAddDeveloper}
             handleRemoveDeveloper={handleRemoveDeveloper}
             handleDeveloperChange={handleDeveloperChange}
+            onTabChange={handleTabChange}
           />
         </div>
       </main>

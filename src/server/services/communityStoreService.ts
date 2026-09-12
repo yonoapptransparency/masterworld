@@ -927,7 +927,26 @@ class CommunityStoreService {
   }
 
   public async updateReview(id: string, updates: Partial<ReviewRecord>): Promise<ReviewRecord | null> {
-    const existing = this.reviews.get(id);
+    let existing = this.reviews.get(id);
+    if (!existing) {
+      // Try to fetch it directly from Firestore first
+      try {
+        const db = getCommunityAdminDb();
+        if (db) {
+          const docSnap = await db.collection('reviews').doc(id).get();
+          if (docSnap.exists) {
+            existing = { id, ...docSnap.data() } as ReviewRecord;
+            this.reviews.set(id, existing);
+          }
+        } else {
+          const remoteDoc: any = await safeReadDb(id, undefined, 'reviews');
+          if (remoteDoc) {
+            existing = { id, ...remoteDoc } as ReviewRecord;
+            this.reviews.set(id, existing);
+          }
+        }
+      } catch (_) {}
+    }
     if (!existing) return null;
 
     this.deletedReviewIds.delete(id);
@@ -963,8 +982,20 @@ class CommunityStoreService {
     const cleanId = String(id || '').trim();
     if (!cleanId) return false;
     
-    const existing = this.reviews.get(cleanId);
-    const targetAppId = existing?.appId;
+    let existing = this.reviews.get(cleanId);
+    let targetAppId = existing?.appId;
+
+    if (!existing) {
+      try {
+        const db = getCommunityAdminDb();
+        if (db) {
+          const docSnap = await db.collection('reviews').doc(cleanId).get();
+          if (docSnap.exists) {
+            targetAppId = docSnap.data()?.appId;
+          }
+        }
+      } catch (_) {}
+    }
 
     this.deletedReviewIds.add(cleanId);
     this.reviews.delete(cleanId);
@@ -1253,6 +1284,127 @@ class CommunityStoreService {
     return { reviews: sliced, hasMore, nextCursor, total: all.length, stats };
   }
 
+  public getCommunityOverviewMetrics() {
+    const list = Array.from(this.reviews.values());
+    const totalReviews = list.length;
+    let publishedCount = 0;
+    let pendingCount = 0;
+    let rejectedCount = 0;
+    let flaggedCount = 0;
+    let ratingSum = 0;
+    let ratedCount = 0;
+    const coveredAppIds = new Set<string>();
+
+    list.forEach(r => {
+      const status = r.status || 'published';
+      if (status === 'published') publishedCount++;
+      else if (status === 'pending') pendingCount++;
+      else if (status === 'rejected') rejectedCount++;
+
+      if (r.reported || (r.report_count || 0) > 0) flaggedCount++;
+
+      if (r.rating) {
+        ratingSum += Number(r.rating) || 5;
+        ratedCount++;
+      }
+
+      if (r.appId) coveredAppIds.add(r.appId.toLowerCase().trim());
+      else if (r.appSlug) coveredAppIds.add(r.appSlug.toLowerCase().trim());
+    });
+
+    const reportList = Array.from(this.reports.values());
+    const totalReports = reportList.length;
+    const pendingReportsCount = reportList.filter(rep => !rep.status || rep.status === 'pending' || rep.status === 'in_review').length;
+
+    const averageRating = ratedCount > 0 ? parseFloat((ratingSum / ratedCount).toFixed(1)) : 4.8;
+
+    return {
+      totalReviews,
+      publishedCount,
+      pendingCount,
+      rejectedCount,
+      flaggedCount,
+      totalReports,
+      pendingReportsCount,
+      averageRating,
+      appCoverageCount: coveredAppIds.size
+    };
+  }
+
+  /**
+   * Dedicated Admin Live App Review Loader:
+   * Directly queries the live rummydexcommunity Firestore for the specific app
+   * without relying on stale cache or static fallbacks.
+   */
+  public async loadAppReviewsForAdmin(appIdentifier: string, forceLive: boolean = false): Promise<number> {
+    const cleanId = String(appIdentifier || '').toLowerCase().trim();
+    if (!cleanId) return 0;
+
+    let loadedCount = 0;
+    const db = getCommunityAdminDb();
+
+    // 1. Live Query from reviews collection using Admin SDK
+    if (db && Date.now() >= this.quotaExhaustedUntil) {
+      try {
+        const queryPromises = [
+          db.collection('reviews').where('appId', '==', cleanId).limit(250).get(),
+          db.collection('reviews').where('appSlug', '==', cleanId).limit(250).get(),
+        ];
+        
+        const snaps = await Promise.all(queryPromises);
+        snaps.forEach((snap: any) => {
+          if (snap && snap.docs && snap.docs.length > 0) {
+            snap.docs.forEach((docSnap: any) => {
+              const d = docSnap.data();
+              const id = docSnap.id;
+              if (id && !this.deletedReviewIds.has(id)) {
+                this.reviews.set(id, { id, ...d });
+                loadedCount++;
+              }
+            });
+          }
+        });
+      } catch (err: any) {
+        if (this.isQuotaError(err)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000;
+        console.warn(`[CommunityStore] Admin live query notice for ${cleanId}:`, err?.message || err);
+      }
+    }
+
+    // 2. Also check bucket document community_store/app_reviews_${cleanId}_0
+    try {
+      const chunkDoc = await readCommunityRestDoc(`app_reviews_${cleanId}_0`, 'community_store');
+      if (chunkDoc && Array.isArray(chunkDoc.reviews) && chunkDoc.reviews.length > 0) {
+        chunkDoc.reviews.forEach((r: any) => {
+          if (r && r.id && !this.deletedReviewIds.has(r.id)) {
+            if (!this.reviews.has(r.id) || forceLive) {
+              this.reviews.set(r.id, {
+                id: r.id,
+                appId: r.appId || cleanId,
+                appSlug: r.appSlug || '',
+                appName: r.appName || '',
+                userName: r.userName || r.username || 'Player',
+                rating: Number(r.rating) || 5,
+                reviewText: sanitizeReviewText(r.reviewText || r.comment || ''),
+                timestamp: r.timestamp || r.created_at || new Date().toISOString(),
+                status: r.status || 'published',
+                helpful_count: Number(r.helpful_count) || 0,
+                isPinned: Boolean(r.isPinned),
+                reported: Boolean(r.reported),
+                report_count: Number(r.report_count) || 0,
+                source: r.source || 'community',
+                adminReply: r.adminReply || null,
+                updated_at: r.updated_at
+              });
+              loadedCount++;
+            }
+          }
+        });
+      }
+    } catch (e: any) {}
+
+    return loadedCount;
+  }
+
   public async queryAdminReviews(query: {
     appId?: string;
     status?: string;
@@ -1268,15 +1420,27 @@ class CommunityStoreService {
         const db = getCommunityAdminDb();
         if (db) {
           try {
-            const snap = await withTimeout(db.collection('reviews').limit(50).get(), 3000, null);
+            const snap = await withTimeout(db.collection('reviews').orderBy('timestamp', 'desc').limit(200).get(), 4000, null);
             if (snap && snap.docs && snap.docs.length > 0) {
               snap.docs.forEach((docSnap: any) => {
                 const d = docSnap.data();
-                this.reviews.set(docSnap.id, { id: docSnap.id, ...d });
+                if (!this.deletedReviewIds.has(docSnap.id)) {
+                  this.reviews.set(docSnap.id, { id: docSnap.id, ...d });
+                }
               });
             }
           } catch (adminErr: any) {
-            if (this.isQuotaError(adminErr)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000;
+            try {
+              const fallbackSnap = await withTimeout(db.collection('reviews').limit(200).get(), 4000, null);
+              if (fallbackSnap && fallbackSnap.docs && fallbackSnap.docs.length > 0) {
+                fallbackSnap.docs.forEach((docSnap: any) => {
+                  const d = docSnap.data();
+                  if (!this.deletedReviewIds.has(docSnap.id)) {
+                    this.reviews.set(docSnap.id, { id: docSnap.id, ...d });
+                  }
+                });
+              }
+            } catch (_) {}
           }
         }
       } catch (e) {}
@@ -1285,18 +1449,9 @@ class CommunityStoreService {
     let list = Array.from(this.reviews.values());
 
     if (query.appId && query.appId !== 'all') {
+      await this.loadAppReviewsForAdmin(query.appId, Boolean(query.refresh));
+      list = Array.from(this.reviews.values());
       const aliasKeys = this.getAliasKeysForApp(query.appId);
-      const hasReviewsInMemory = Array.from(this.reviews.values()).some(r => {
-        const rAppId = String(r.appId || '').toLowerCase().trim();
-        const rAppSlug = String(r.appSlug || '').toLowerCase().trim();
-        const rAppName = String(r.appName || '').toLowerCase().trim();
-        return aliasKeys.has(rAppId) || (rAppSlug && aliasKeys.has(rAppSlug)) || (rAppName && aliasKeys.has(rAppName));
-      });
-
-      if (!hasReviewsInMemory && Date.now() >= this.quotaExhaustedUntil) {
-        await this.loadSingleAppChunkFromFirestore(query.appId);
-        list = Array.from(this.reviews.values());
-      }
 
       list = list.filter(r => {
         const rAppId = String(r.appId || '').toLowerCase().trim();

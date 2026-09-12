@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, 
   Smartphone, 
@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { AdminSidebarItem as SidebarItem } from './AdminSidebarItem';
 import { useData } from '../../contexts/DataContext';
+import { fetchAdminCommunityOverviewStats, AdminCommunityStats } from '../../lib/adminCommunityFirebase';
 
 interface AdminSidebarProps {
   activeTab: string;
@@ -46,6 +47,25 @@ export const AdminSidebar = ({
   isRefreshing
 }: AdminSidebarProps) => {
   const { settings } = useData();
+  const [commStats, setCommStats] = useState<AdminCommunityStats | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchStats = () => {
+      fetchAdminCommunityOverviewStats()
+        .then(data => {
+          if (isMounted) setCommStats(data);
+        })
+        .catch(() => {});
+    };
+
+    fetchStats();
+    const interval = setInterval(fetchStats, 60000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -118,9 +138,31 @@ export const AdminSidebar = ({
             <SidebarItem id="quick-links" icon={LinkIcon} label="Quick Links" active={activeTab === 'quick-links'} onClick={onTabChange} />
 
             <div className="pt-4 pb-2 px-3 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">Moderation & Community</div>
-            <SidebarItem id="reviews" icon={MessageSquare} label="App Reviews" active={activeTab === 'reviews'} onClick={onTabChange} />
+            <SidebarItem 
+              id="reviews" 
+              icon={MessageSquare} 
+              label="App Reviews" 
+              active={activeTab === 'reviews'} 
+              onClick={onTabChange} 
+              badge={commStats && commStats.pendingReviews > 0 ? (
+                <span className="px-1.5 py-0.5 text-[10px] font-black rounded-full bg-amber-500 text-white leading-none shadow-sm shadow-amber-500/30">
+                  {commStats.pendingReviews}
+                </span>
+              ) : null}
+            />
             <SidebarItem id="ai-reviews" icon={Sparkles} label="AI Review Studio" active={activeTab === 'ai-reviews'} onClick={onTabChange} />
-            <SidebarItem id="reports" icon={ShieldAlert} label="User Reports" active={activeTab === 'reports'} onClick={onTabChange} />
+            <SidebarItem 
+              id="reports" 
+              icon={ShieldAlert} 
+              label="User Reports" 
+              active={activeTab === 'reports'} 
+              onClick={onTabChange} 
+              badge={commStats && commStats.pendingReports > 0 ? (
+                <span className="px-1.5 py-0.5 text-[10px] font-black rounded-full bg-rose-500 text-white leading-none shadow-sm shadow-rose-500/30">
+                  {commStats.pendingReports}
+                </span>
+              ) : null}
+            />
 
             <div className="pt-4 pb-2 px-3 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">System & Sync</div>
             <SidebarItem id="github" icon={Github} label="GitHub Sync" active={activeTab === 'github'} onClick={onTabChange} />

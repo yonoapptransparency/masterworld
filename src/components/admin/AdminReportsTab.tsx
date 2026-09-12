@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { toast } from '../Toast';
 import { adminFetch } from '../../services/adminAuthService';
+import { fetchAdminReportsList } from '../../lib/adminCommunityFirebase';
 
 interface AdminReportsTabProps {
   appsList?: any[];
@@ -92,20 +93,14 @@ export const AdminReportsTab: React.FC<AdminReportsTabProps> = ({ appsList = [] 
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
 
-      const params = new URLSearchParams();
-      if (selectedType !== 'all') params.set('type', selectedType);
-      if (selectedStatus !== 'all') params.set('status', selectedStatus);
-      if (selectedAppId !== 'all') params.set('appId', selectedAppId);
-      if (searchQuery.trim()) params.set('search', searchQuery.trim());
-      params.set('limit', '200');
-
-      const res = await adminFetch(`/api/v1/admin/reports?${params.toString()}`);
-      if (res.ok) {
-        const data = await res.json();
-        setReports(data.reports || []);
-      } else {
-        toast('Failed to load user reports', 'error');
-      }
+      const data = await fetchAdminReportsList({
+        type: selectedType !== 'all' ? selectedType : undefined,
+        status: selectedStatus !== 'all' ? selectedStatus : undefined,
+        appId: selectedAppId !== 'all' ? selectedAppId : undefined,
+        search: searchQuery.trim() || undefined,
+        limit: 200
+      });
+      setReports((data.reports as ReportItem[]) || []);
     } catch (err: any) {
       console.error('Error fetching admin reports:', err);
       toast('Network error loading reports', 'error');

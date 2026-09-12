@@ -269,20 +269,45 @@ communityRouter.get("/api/v1/admin/community/health/ping", verifyAdminToken, asy
       results.details.writeMode = adminDb ? `Admin SDK Ready (${commConfig.projectId})` : `Configured (${commConfig.projectId})`;
     }
 
-    const inMemoryReviews = typeof (communityStore as any).getReviewsCount === 'function' ? (communityStore as any).getReviewsCount() : 0;
-    const inMemoryReports = typeof (communityStore as any).getReportsCount === 'function' ? (communityStore as any).getReportsCount() : 0;
+    const metrics = typeof (communityStore as any).getCommunityOverviewMetrics === 'function' 
+      ? (communityStore as any).getCommunityOverviewMetrics() 
+      : { totalReviews: 0, pendingCount: 0, publishedCount: 0, rejectedCount: 0, flaggedCount: 0, totalReports: 0, pendingReportsCount: 0, averageRating: 4.8, appCoverageCount: 0 };
     const isQuotaProtected = typeof (communityStore as any).isQuotaProtected === 'function' ? (communityStore as any).isQuotaProtected() : false;
 
     return res.status(200).json({
       success: true,
-      inMemoryReady: inMemoryReviews > 0,
-      reviewsCount: inMemoryReviews,
-      reportsCount: inMemoryReports,
+      inMemoryReady: metrics.totalReviews > 0,
+      reviewsCount: metrics.totalReviews,
+      reportsCount: metrics.totalReports,
+      pendingCount: metrics.pendingCount,
+      publishedCount: metrics.publishedCount,
+      rejectedCount: metrics.rejectedCount,
+      flaggedCount: metrics.flaggedCount,
+      pendingReportsCount: metrics.pendingReportsCount,
+      averageRating: metrics.averageRating,
+      appCoverageCount: metrics.appCoverageCount,
       isQuotaProtected,
       ...results
     });
   } catch (error) {
     return res.status(500).json({ success: false, error: String(error) });
+  }
+});
+
+communityRouter.get("/api/v1/admin/community/overview", verifyAdminToken, async (req: any, res: any) => {
+  try {
+    const metrics = typeof (communityStore as any).getCommunityOverviewMetrics === 'function' 
+      ? (communityStore as any).getCommunityOverviewMetrics() 
+      : { totalReviews: 0, pendingCount: 0, publishedCount: 0, rejectedCount: 0, flaggedCount: 0, totalReports: 0, pendingReportsCount: 0, averageRating: 4.8, appCoverageCount: 0 };
+    
+    return res.status(200).json({
+      success: true,
+      projectId: 'rummydexcommunity',
+      databaseId: '(default)',
+      metrics
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || String(err) });
   }
 });
 

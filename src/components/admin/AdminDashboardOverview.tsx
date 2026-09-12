@@ -1,40 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Newspaper, ShieldAlert, Compass, TrendingUp } from 'lucide-react';
+import { FileText, Newspaper, ShieldAlert, MessageSquare, TrendingUp, Sparkles, ExternalLink } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
-import { db, isFirebaseReal } from '../../lib/firebase';
 import FirebaseStatusPanel from '../FirebaseStatusPanel';
+import { AdminCommunityOverviewCard } from './AdminCommunityOverviewCard';
+import { fetchAdminCommunityOverviewStats, AdminCommunityStats } from '../../lib/adminCommunityFirebase';
 
 interface DashboardOverviewProps {
   apps: any[];
   news: any[];
   updates?: any[];
+  onTabChange?: (tab: string) => void;
 }
 
-export const AdminDashboardOverview = React.memo(({ apps, news }: DashboardOverviewProps) => {
-  const [pendingReviews, setPendingReviews] = useState<number | null>(null);
+export const AdminDashboardOverview = React.memo(({ apps, news, onTabChange }: DashboardOverviewProps) => {
+  const [commStats, setCommStats] = useState<AdminCommunityStats | null>(null);
+  const [loadingStats, setLoadingStats] = useState(true);
 
   useEffect(() => {
-    if (!isFirebaseReal || !db) return;
-    let unsub = () => {};
     let isMounted = true;
-    try {
-      import('firebase/firestore').then(({ collection, query, where, onSnapshot }) => {
-        if (!isMounted) return;
-        const q = query(collection(db, 'reviews'), where('is_approved', '==', false));
-        unsub = onSnapshot(q, (snap: any) => {
-          setPendingReviews(snap.size);
-        }, () => {
-          setPendingReviews(0);
-        });
-      }).catch(() => {
-        if (isMounted) setPendingReviews(0);
+    fetchAdminCommunityOverviewStats()
+      .then(stats => {
+        if (isMounted) {
+          setCommStats(stats);
+          setLoadingStats(false);
+        }
+      })
+      .catch(() => {
+        if (isMounted) setLoadingStats(false);
       });
-    } catch(e) {
-      setPendingReviews(0);
-    }
+
     return () => {
       isMounted = false;
-      unsub();
     };
   }, []);
 
@@ -52,11 +48,14 @@ export const AdminDashboardOverview = React.memo(({ apps, news }: DashboardOverv
     <div className="animate-fade-in space-y-6 md:space-y-8">
       <div className="border-b border-slate-200/50 dark:border-slate-800/50 pb-5">
         <h2 className="text-3xl font-black bg-gradient-to-br from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 bg-clip-text text-transparent tracking-tight">Platform Overview</h2>
-        <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-2">Real-time stats and platform health metrics.</p>
+        <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-2">Live administrative telemetry, community reviews, and database status.</p>
       </div>
       
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-        <div className="bg-white/80 dark:bg-slate-900/80  border border-slate-200/60 dark:border-slate-700/50 p-6 rounded-[2rem] shadow-xl shadow-blue-500/5 flex items-center justify-between relative overflow-hidden group hover:scale-[1.02] transition-transform duration-300">
+        <div 
+          onClick={() => onTabChange && onTabChange('apps')}
+          className="bg-white/80 dark:bg-slate-900/80 border border-slate-200/60 dark:border-slate-700/50 p-6 rounded-[2rem] shadow-xl shadow-blue-500/5 flex items-center justify-between relative overflow-hidden group hover:scale-[1.02] transition-all cursor-pointer"
+        >
           <div className="absolute -right-8 -top-8 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-all"></div>
           <div className="relative z-10">
             <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1.5">Total Apps</div>
@@ -67,7 +66,10 @@ export const AdminDashboardOverview = React.memo(({ apps, news }: DashboardOverv
           </div>
         </div>
         
-        <div className="bg-white/80 dark:bg-slate-900/80  border border-slate-200/60 dark:border-slate-700/50 p-6 rounded-[2rem] shadow-xl shadow-indigo-500/5 flex items-center justify-between relative overflow-hidden group hover:scale-[1.02] transition-transform duration-300">
+        <div 
+          onClick={() => onTabChange && onTabChange('news')}
+          className="bg-white/80 dark:bg-slate-900/80 border border-slate-200/60 dark:border-slate-700/50 p-6 rounded-[2rem] shadow-xl shadow-indigo-500/5 flex items-center justify-between relative overflow-hidden group hover:scale-[1.02] transition-all cursor-pointer"
+        >
           <div className="absolute -right-8 -top-8 w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl group-hover:bg-indigo-500/20 transition-all"></div>
           <div className="relative z-10">
             <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1.5">News Articles</div>
@@ -78,33 +80,51 @@ export const AdminDashboardOverview = React.memo(({ apps, news }: DashboardOverv
           </div>
         </div>
 
-        <div className="bg-white/80 dark:bg-slate-900/80  border border-slate-200/60 dark:border-slate-700/50 p-6 rounded-[2rem] shadow-xl shadow-amber-500/5 flex items-center justify-between relative overflow-hidden group hover:scale-[1.02] transition-transform duration-300">
+        <div 
+          onClick={() => onTabChange && onTabChange('reviews')}
+          className="bg-white/80 dark:bg-slate-900/80 border border-slate-200/60 dark:border-slate-700/50 p-6 rounded-[2rem] shadow-xl shadow-amber-500/5 flex items-center justify-between relative overflow-hidden group hover:scale-[1.02] transition-all cursor-pointer"
+        >
           <div className="absolute -right-8 -top-8 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl group-hover:bg-amber-500/20 transition-all"></div>
           <div className="relative z-10">
-            <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1.5">Pending Reviews</div>
-            <div className="text-4xl font-black text-slate-900 dark:text-white">{pendingReviews === null ? '...' : pendingReviews}</div>
+            <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+              <span>Pending Reviews</span>
+              {commStats && commStats.pendingReviews > 0 && (
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              )}
+            </div>
+            <div className="text-4xl font-black text-slate-900 dark:text-white">
+              {loadingStats ? '...' : (commStats?.pendingReviews ?? 0)}
+            </div>
           </div>
           <div className="relative z-10 w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-400 flex items-center justify-center text-white shadow-lg shadow-amber-500/30">
             <ShieldAlert className="w-6 h-6" />
           </div>
         </div>
 
-        <div className="bg-white/80 dark:bg-slate-900/80  border border-slate-200/60 dark:border-slate-700/50 p-6 rounded-[2rem] shadow-xl shadow-emerald-500/5 flex items-center justify-between relative overflow-hidden group hover:scale-[1.02] transition-transform duration-300">
+        <div 
+          onClick={() => onTabChange && onTabChange('reviews')}
+          className="bg-white/80 dark:bg-slate-900/80 border border-slate-200/60 dark:border-slate-700/50 p-6 rounded-[2rem] shadow-xl shadow-emerald-500/5 flex items-center justify-between relative overflow-hidden group hover:scale-[1.02] transition-all cursor-pointer"
+        >
           <div className="absolute -right-8 -top-8 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl group-hover:bg-emerald-500/20 transition-all"></div>
           <div className="relative z-10">
-            <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1.5">Gateway Health</div>
-            <div className="text-4xl font-black text-slate-900 dark:text-white">100%</div>
+            <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1.5">Total Reviews</div>
+            <div className="text-4xl font-black text-slate-900 dark:text-white">
+              {loadingStats ? '...' : (commStats?.totalReviews?.toLocaleString() ?? '0')}
+            </div>
           </div>
           <div className="relative z-10 w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-white shadow-lg shadow-emerald-500/30">
-            <Compass className="w-6 h-6" />
+            <MessageSquare className="w-6 h-6" />
           </div>
         </div>
       </div>
+
+      {/* Community Firebase Engine & Live Moderation Card */}
+      <AdminCommunityOverviewCard onTabChange={onTabChange} />
       
       <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white/80 dark:bg-slate-900/80  border border-slate-200/60 dark:border-slate-700/50 p-6 rounded-[2rem] shadow-xl shadow-blue-500/5">
+        <div className="lg:col-span-2 bg-white/80 dark:bg-slate-900/80 border border-slate-200/60 dark:border-slate-700/50 p-6 rounded-[2rem] shadow-xl shadow-blue-500/5">
           <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-6 uppercase tracking-widest flex items-center gap-2">
-             <TrendingUp className="w-4 h-4 text-blue-500" /> Platform Traffic
+             <TrendingUp className="w-4 h-4 text-blue-500" /> Platform Traffic & Activity
           </h3>
           <div className="h-[250px] w-full">
             <ResponsiveContainer width="100%" height="100%">

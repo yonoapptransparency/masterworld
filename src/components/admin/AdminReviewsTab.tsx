@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { toast } from '../Toast';
 import { adminFetch } from '../../services/adminAuthService';
+import { fetchAdminReviewsList, AdminReviewItem } from '../../lib/adminCommunityFirebase';
 import AdminAIReviewStudioTab from './AdminAIReviewStudioTab';
 import { EditReviewModal } from './reviews/EditReviewModal';
 import { ReplyReviewModal } from './reviews/ReplyReviewModal';
@@ -178,21 +179,16 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
 
-      const params = new URLSearchParams();
-      if (selectedAppId !== 'all') params.set('appId', selectedAppId);
-      if (selectedStatus !== 'all') params.set('status', selectedStatus);
-      if (selectedRating !== 'all') params.set('rating', selectedRating);
-      if (searchQuery.trim()) params.set('search', searchQuery.trim());
-      params.set('sortBy', sortBy);
-      params.set('limit', selectedAppId !== 'all' ? '250' : '500');
-
-      const res = await adminFetch(`/api/v1/admin/community/reviews?${params.toString()}`);
-      if (res.ok) {
-        const data = await res.json();
-        setReviews(data.reviews || []);
-      } else {
-        toast('Failed to load reviews list', 'error');
-      }
+      const result = await fetchAdminReviewsList({
+        appId: selectedAppId !== 'all' ? selectedAppId : undefined,
+        status: selectedStatus !== 'all' ? selectedStatus : undefined,
+        rating: selectedRating !== 'all' ? selectedRating : undefined,
+        search: searchQuery.trim() || undefined,
+        sortBy,
+        limit: selectedAppId !== 'all' ? 250 : 500,
+        refresh: isRefresh
+      });
+      setReviews((result.reviews as ReviewData[]) || []);
     } catch (err: any) {
       console.error('Error fetching admin reviews:', err);
       toast('Network error loading reviews', 'error');

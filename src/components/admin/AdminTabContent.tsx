@@ -124,6 +124,7 @@ interface AdminTabContentProps {
   handleAddDeveloper: () => void;
   handleRemoveDeveloper: (index: number) => void;
   handleDeveloperChange: (index: number, field: string, value: any) => void;
+  onTabChange?: (tab: string) => void;
 }
 
 export const AdminTabContent = ({
@@ -180,12 +181,13 @@ export const AdminTabContent = ({
   handleQuickLinkChange,
   handleAddDeveloper,
   handleRemoveDeveloper,
-  handleDeveloperChange
+  handleDeveloperChange,
+  onTabChange
 }: AdminTabContentProps) => {
   const renderTab = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <DashboardTab apps={appsList} news={newsList} />;
+        return <DashboardTab apps={appsList} news={newsList} onTabChange={onTabChange} />;
       case 'apps':
         return (
           <AppsTab 
