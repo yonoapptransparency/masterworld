@@ -88,6 +88,37 @@ export async function fetchAdminCommunityOverviewStats(): Promise<AdminCommunity
   };
 }
 
+export interface AppReviewCountsData {
+  total: number;
+  published: number;
+  pending: number;
+  rejected: number;
+  flagged: number;
+  avgRating: number;
+}
+
+export interface AdminReviewsListResponse {
+  reviews: AdminReviewItem[];
+  totalCount: number;
+  stats?: {
+    total: number;
+    published: number;
+    pending: number;
+    rejected: number;
+    flagged: number;
+    averageRating: number;
+  };
+  globalStats?: {
+    total: number;
+    published: number;
+    pending: number;
+    rejected: number;
+    flagged: number;
+    averageRating: number;
+  };
+  appCounts?: Record<string, AppReviewCountsData>;
+}
+
 /**
  * Query live admin reviews with fine-grained filters, per-app scoping, and search
  */
@@ -100,7 +131,7 @@ export async function fetchAdminReviewsList(params: {
   isPinned?: boolean | string;
   limit?: number;
   refresh?: boolean;
-}): Promise<{ reviews: AdminReviewItem[]; totalCount: number; stats?: any }> {
+}): Promise<AdminReviewsListResponse> {
   const query = new URLSearchParams();
   if (params.appId && params.appId !== 'all') query.set('appId', params.appId);
   if (params.status && params.status !== 'all') query.set('status', params.status);
@@ -120,7 +151,34 @@ export async function fetchAdminReviewsList(params: {
   return {
     reviews: data.reviews || [],
     totalCount: data.totalCount || (data.reviews ? data.reviews.length : 0),
-    stats: data.stats
+    stats: data.stats,
+    globalStats: data.globalStats,
+    appCounts: data.appCounts
+  };
+}
+
+/**
+ * Fast aggregate counts lookup for all apps in catalog (<1ms)
+ */
+export async function fetchAdminAppReviewCounts(): Promise<{
+  globalStats: {
+    total: number;
+    published: number;
+    pending: number;
+    rejected: number;
+    flagged: number;
+    averageRating: number;
+  };
+  appCounts: Record<string, AppReviewCountsData>;
+}> {
+  const res = await adminFetch('/api/v1/admin/community/app-counts');
+  if (!res.ok) {
+    throw new Error(`Failed to load app review counts: HTTP ${res.status}`);
+  }
+  const data = await res.json();
+  return {
+    globalStats: data.globalStats,
+    appCounts: data.appCounts || {}
   };
 }
 

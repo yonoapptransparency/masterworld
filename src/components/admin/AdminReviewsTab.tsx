@@ -31,7 +31,12 @@ import {
 } from 'lucide-react';
 import { toast } from '../Toast';
 import { adminFetch } from '../../services/adminAuthService';
-import { fetchAdminReviewsList, AdminReviewItem } from '../../lib/adminCommunityFirebase';
+import { 
+  fetchAdminReviewsList, 
+  fetchAdminAppReviewCounts, 
+  AdminReviewItem,
+  AppReviewCountsData 
+} from '../../lib/adminCommunityFirebase';
 import AdminAIReviewStudioTab from './AdminAIReviewStudioTab';
 import { EditReviewModal } from './reviews/EditReviewModal';
 import { ReplyReviewModal } from './reviews/ReplyReviewModal';
@@ -78,6 +83,21 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
+  // Per-app and database-wide review counts
+  const [globalDbStats, setGlobalDbStats] = useState<{
+    total: number;
+    published: number;
+    pending: number;
+    rejected: number;
+    flagged: number;
+    averageRating: number;
+  } | null>(null);
+  const [appCountsMap, setAppCountsMap] = useState<Record<string, AppReviewCountsData>>({});
+
+  // App selector carousel filtering & sorting
+  const [appFilterQuery, setAppFilterQuery] = useState('');
+  const [appSortBy, setAppSortBy] = useState<'reviews' | 'name' | 'pending'>('reviews');
+
   // Modals
   const [editModalReview, setEditModalReview] = useState<Partial<ReviewData> | null>(null);
   const [isAddMode, setIsAddMode] = useState(false);
@@ -97,15 +117,52 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
     return map;
   }, [appsList]);
 
-  // Calculate reviews count per app for the app browser bar
-  const appReviewCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    reviews.forEach(r => {
-      const key = String(r.appId || '').toLowerCase();
-      counts.set(key, (counts.get(key) || 0) + 1);
+  // Fast helper to get review counts for an app
+  const getAppStats = useCallback((app: any): AppReviewCountsData => {
+    const slugKey = (app.slug || '').toLowerCase();
+    const idKey = (app.id || '').toLowerCase();
+    return appCountsMap[slugKey] || appCountsMap[idKey] || {
+      total: 0,
+      published: 0,
+      pending: 0,
+      rejected: 0,
+      flagged: 0,
+      avgRating: 5.0
+    };
+  }, [appCountsMap]);
+
+  // Filtered & Sorted Apps for the App Selector Carousel
+  const filteredAppsList = useMemo(() => {
+    let list = [...appsList];
+    if (appFilterQuery.trim()) {
+      const q = appFilterQuery.toLowerCase().trim();
+      list = list.filter(a => 
+        (a.name && a.name.toLowerCase().includes(q)) ||
+        (a.slug && a.slug.toLowerCase().includes(q)) ||
+        (a.id && a.id.toLowerCase().includes(q)) ||
+        (a.category && a.category.toLowerCase().includes(q))
+      );
+    }
+
+    list.sort((a, b) => {
+      const statsA = getAppStats(a);
+      const statsB = getAppStats(b);
+
+      if (appSortBy === 'reviews') {
+        if (statsB.total !== statsA.total) return statsB.total - statsA.total;
+        return (a.name || '').localeCompare(b.name || '');
+      }
+      if (appSortBy === 'pending') {
+        if (statsB.pending !== statsA.pending) return statsB.pending - statsA.pending;
+        if (statsB.total !== statsA.total) return statsB.total - statsA.total;
+        return (a.name || '').localeCompare(b.name || '');
+      }
+      // 'name'
+      return (a.name || '').localeCompare(b.name || '');
     });
-    return counts;
-  }, [reviews]);
+
+    return list;
+  }, [appsList, appFilterQuery, appSortBy, getAppStats]);
 
   // Currently selected app details
   const activeApp = useMemo(() => {
@@ -142,8 +199,13 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
     }
   };
 
+  // Initial load: fetch quick app review counts & firebase health ping
   useEffect(() => {
     fetchFirebaseStatus();
+    fetchAdminAppReviewCounts().then(res => {
+      if (res?.globalStats) setGlobalDbStats(res.globalStats);
+      if (res?.appCounts) setAppCountsMap(res.appCounts);
+    }).catch(() => {});
   }, []);
 
   // Handle clearing reviews for active app
@@ -162,6 +224,11 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
         try {
           window.dispatchEvent(new CustomEvent('community-reviews-cleared', { detail: { appId: appIdToClear } }));
         } catch (e) {}
+        // Refresh counts and reviews
+        fetchAdminAppReviewCounts().then(res => {
+          if (res?.globalStats) setGlobalDbStats(res.globalStats);
+          if (res?.appCounts) setAppCountsMap(res.appCounts);
+        }).catch(() => {});
         await fetchReviews(true);
       } else {
         toast(data.error || 'Failed to clear app reviews', 'error');
@@ -185,10 +252,23 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
         rating: selectedRating !== 'all' ? selectedRating : undefined,
         search: searchQuery.trim() || undefined,
         sortBy,
-        limit: selectedAppId !== 'all' ? 250 : 500,
+        limit: selectedAppId !== 'all' ? 500 : 100,
         refresh: isRefresh
       });
-      setReviews((result.reviews as ReviewData[]) || []);
+      const rawReviews = (result.reviews as ReviewData[]) || [];
+      const deduplicatedMap = new Map<string, ReviewData>();
+      rawReviews.forEach(r => {
+        if (r && r.id && !deduplicatedMap.has(r.id)) {
+          deduplicatedMap.set(r.id, r);
+        }
+      });
+      setReviews(Array.from(deduplicatedMap.values()));
+      if (result.globalStats) {
+        setGlobalDbStats(result.globalStats);
+      }
+      if (result.appCounts) {
+        setAppCountsMap(result.appCounts);
+      }
     } catch (err: any) {
       console.error('Error fetching admin reviews:', err);
       toast('Network error loading reviews', 'error');
@@ -207,8 +287,37 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
     setCurrentPage(1);
   }, [selectedAppId, selectedStatus, selectedRating, searchQuery, sortBy]);
 
-  // Calculate quick metrics
+  // Calculate quick metrics with true database totals
   const stats = useMemo(() => {
+    // When viewing all applications without active text/rating filters, use exact database totals
+    if (selectedAppId === 'all' && selectedStatus === 'all' && selectedRating === 'all' && !searchQuery.trim() && globalDbStats) {
+      return {
+        total: globalDbStats.total,
+        published: globalDbStats.published,
+        pending: globalDbStats.pending,
+        rejected: globalDbStats.rejected,
+        flagged: globalDbStats.flagged,
+        avg: globalDbStats.averageRating.toFixed(1)
+      };
+    }
+
+    // When viewing a specific app without active text/rating filters, use exact app counts
+    if (selectedAppId !== 'all' && selectedStatus === 'all' && selectedRating === 'all' && !searchQuery.trim()) {
+      const appKey = selectedAppId.toLowerCase();
+      const countObj = appCountsMap[appKey];
+      if (countObj) {
+        return {
+          total: countObj.total,
+          published: countObj.published,
+          pending: countObj.pending,
+          rejected: countObj.rejected,
+          flagged: countObj.flagged,
+          avg: (countObj.avgRating || 5.0).toFixed(1)
+        };
+      }
+    }
+
+    // Otherwise calculate dynamically from the currently fetched reviews
     const total = reviews.length;
     const published = reviews.filter(r => r.status === 'published').length;
     const pending = reviews.filter(r => r.status === 'pending').length;
@@ -219,13 +328,20 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
       : '5.0';
 
     return { total, published, pending, rejected, flagged, avg };
-  }, [reviews]);
+  }, [reviews, selectedAppId, selectedStatus, selectedRating, searchQuery, globalDbStats, appCountsMap]);
 
   // Paginated reviews slice
   const totalPages = Math.ceil(reviews.length / pageSize) || 1;
   const paginatedReviews = useMemo(() => {
     const startIndex = (currentPage - 1) * pageSize;
-    return reviews.slice(startIndex, startIndex + pageSize);
+    const slice = reviews.slice(startIndex, startIndex + pageSize);
+    const map = new Map<string, ReviewData>();
+    for (const r of slice) {
+      if (r && r.id && !map.has(r.id)) {
+        map.set(r.id, r);
+      }
+    }
+    return Array.from(map.values());
   }, [reviews, currentPage, pageSize]);
 
   // Individual Actions
@@ -583,17 +699,75 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
       </div>
 
       {/* Visual Interactive App Catalog Selector Carousel */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-3xl shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-3xl shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Layers className="w-4 h-4 text-blue-600 dark:text-blue-400" />
             <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
-              Select Application to Manage Reviews ({appsList.length} Apps)
+              Select Application to Manage Reviews
             </h3>
+            <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-black px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-700">
+              {filteredAppsList.length} of {appsList.length} Apps
+            </span>
           </div>
-          <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">
-            Click any app card to filter reviews
-          </span>
+
+          {/* Mini Search & Sort Bar for App Carousel */}
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="relative flex-1 sm:w-48">
+              <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={appFilterQuery}
+                onChange={(e) => setAppFilterQuery(e.target.value)}
+                placeholder="Filter apps..."
+                className="w-full pl-8 pr-6 py-1.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+              {appFilterQuery && (
+                <button 
+                  onClick={() => setAppFilterQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl shrink-0">
+              <button
+                onClick={() => setAppSortBy('reviews')}
+                className={`px-2 py-1 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
+                  appSortBy === 'reviews' 
+                    ? 'bg-blue-600 text-white shadow-sm' 
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+                title="Sort by most reviews"
+              >
+                Most Revs
+              </button>
+              <button
+                onClick={() => setAppSortBy('pending')}
+                className={`px-2 py-1 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
+                  appSortBy === 'pending' 
+                    ? 'bg-amber-500 text-white shadow-sm' 
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+                title="Sort by apps with pending reviews needing moderation"
+              >
+                Pending
+              </button>
+              <button
+                onClick={() => setAppSortBy('name')}
+                className={`px-2 py-1 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
+                  appSortBy === 'name' 
+                    ? 'bg-blue-600 text-white shadow-sm' 
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+                title="Sort alphabetically"
+              >
+                A-Z
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Scrollable Horizontal App Strip */}
@@ -616,22 +790,21 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
             <div>
               <div className="text-xs font-black leading-tight">All Applications</div>
               <div className={`text-[10px] font-medium mt-0.5 ${selectedAppId === 'all' ? 'text-blue-100' : 'text-slate-400'}`}>
-                {reviews.length} total reviews
+                {globalDbStats ? globalDbStats.total.toLocaleString() : reviews.length} total reviews
               </div>
             </div>
           </button>
 
           {/* Individual App Cards */}
-          {appsList.map((app) => {
-            const appKey = (app.slug || app.id || '').toLowerCase();
-            const revCount = appReviewCounts.get(appKey) || appReviewCounts.get((app.id || '').toLowerCase()) || 0;
+          {filteredAppsList.map((app) => {
+            const appStats = getAppStats(app);
             const isSelected = selectedAppId === (app.slug || app.id);
 
             return (
               <button
                 key={app.id || app.slug}
                 onClick={() => setSelectedAppId(app.slug || app.id)}
-                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-2xl border transition-all shrink-0 cursor-pointer text-left max-w-[210px] ${
+                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-2xl border transition-all shrink-0 cursor-pointer text-left max-w-[220px] ${
                   isSelected
                     ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-500/25 ring-2 ring-blue-500/30'
                     : 'bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500'
@@ -650,11 +823,18 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
                   <div className={`text-[10px] font-medium mt-0.5 flex items-center gap-1.5 ${
                     isSelected ? 'text-blue-100' : 'text-slate-400'
                   }`}>
-                    <span className="truncate">{app.category || 'Card Game'}</span>
+                    <span className="truncate max-w-[70px]">{app.category || 'Card Game'}</span>
                     <span>•</span>
                     <span className={`font-bold ${isSelected ? 'text-amber-200' : 'text-amber-500'}`}>
-                      {revCount} revs
+                      {appStats.total} revs
                     </span>
+                    {appStats.pending > 0 && (
+                      <span className={`text-[9px] font-black px-1.5 py-0.2 rounded-full ${
+                        isSelected ? 'bg-amber-400 text-slate-900' : 'bg-amber-500/20 text-amber-600 dark:text-amber-400'
+                      }`}>
+                        {appStats.pending} new
+                      </span>
+                    )}
                   </div>
                 </div>
               </button>
@@ -712,38 +892,73 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
         </div>
       )}
 
-      {/* Metrics Bar */}
+      {/* Interactive Quick Metrics Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-sm">
-          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Total Reviews</span>
-          <div className="text-2xl font-black text-slate-800 dark:text-white mt-1">{stats.total}</div>
-        </div>
+        <button
+          onClick={() => { setSelectedStatus('all'); setSelectedRating('all'); }}
+          className={`p-4 rounded-2xl shadow-sm text-left transition-all cursor-pointer border ${
+            selectedStatus === 'all' && selectedRating === 'all'
+              ? 'bg-blue-50/50 dark:bg-blue-950/20 border-blue-500/50 ring-2 ring-blue-500/20'
+              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300'
+          }`}
+        >
+          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Total Reviews</span>
+          <div className="text-2xl font-black text-slate-800 dark:text-white mt-1">{stats.total.toLocaleString()}</div>
+        </button>
 
-        <div className="bg-white dark:bg-slate-900 border border-emerald-500/20 dark:border-emerald-500/20 p-4 rounded-2xl shadow-sm">
+        <button
+          onClick={() => setSelectedStatus(selectedStatus === 'published' ? 'all' : 'published')}
+          className={`p-4 rounded-2xl shadow-sm text-left transition-all cursor-pointer border ${
+            selectedStatus === 'published'
+              ? 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-500/60 ring-2 ring-emerald-500/30'
+              : 'bg-white dark:bg-slate-900 border-emerald-500/20 hover:border-emerald-500/40'
+          }`}
+        >
           <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
             <CheckCircle2 className="w-3 h-3" /> Published
           </span>
-          <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{stats.published}</div>
-        </div>
+          <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{stats.published.toLocaleString()}</div>
+        </button>
 
-        <div className="bg-white dark:bg-slate-900 border border-amber-500/20 dark:border-amber-500/20 p-4 rounded-2xl shadow-sm">
+        <button
+          onClick={() => setSelectedStatus(selectedStatus === 'pending' ? 'all' : 'pending')}
+          className={`p-4 rounded-2xl shadow-sm text-left transition-all cursor-pointer border ${
+            selectedStatus === 'pending'
+              ? 'bg-amber-50/60 dark:bg-amber-950/20 border-amber-500/60 ring-2 ring-amber-500/30'
+              : 'bg-white dark:bg-slate-900 border-amber-500/20 hover:border-amber-500/40'
+          }`}
+        >
           <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1">
             <Clock className="w-3 h-3" /> Pending
           </span>
-          <div className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">{stats.pending}</div>
-        </div>
+          <div className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">{stats.pending.toLocaleString()}</div>
+        </button>
 
-        <div className="bg-white dark:bg-slate-900 border border-rose-500/20 dark:border-rose-500/20 p-4 rounded-2xl shadow-sm">
+        <button
+          onClick={() => setSortBy(sortBy === 'reports' ? 'newest' : 'reports')}
+          className={`p-4 rounded-2xl shadow-sm text-left transition-all cursor-pointer border ${
+            sortBy === 'reports'
+              ? 'bg-rose-50/60 dark:bg-rose-950/20 border-rose-500/60 ring-2 ring-rose-500/30'
+              : 'bg-white dark:bg-slate-900 border-rose-500/20 hover:border-rose-500/40'
+          }`}
+        >
           <span className="text-[10px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center gap-1">
             <AlertTriangle className="w-3 h-3" /> Flagged
           </span>
-          <div className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">{stats.flagged}</div>
-        </div>
+          <div className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">{stats.flagged.toLocaleString()}</div>
+        </button>
 
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-sm">
-          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Rejected</span>
-          <div className="text-2xl font-black text-slate-500 mt-1">{stats.rejected}</div>
-        </div>
+        <button
+          onClick={() => setSelectedStatus(selectedStatus === 'rejected' ? 'all' : 'rejected')}
+          className={`p-4 rounded-2xl shadow-sm text-left transition-all cursor-pointer border ${
+            selectedStatus === 'rejected'
+              ? 'bg-slate-100 dark:bg-slate-800 border-slate-400 ring-2 ring-slate-400/30'
+              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300'
+          }`}
+        >
+          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Rejected</span>
+          <div className="text-2xl font-black text-slate-500 mt-1">{stats.rejected.toLocaleString()}</div>
+        </button>
 
         <div className="bg-white dark:bg-slate-900 border border-amber-500/30 p-4 rounded-2xl shadow-sm bg-gradient-to-br from-amber-500/5 to-transparent">
           <span className="text-[10px] font-black uppercase tracking-wider text-amber-500 flex items-center gap-1">
@@ -777,19 +992,24 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
             )}
           </div>
 
-          {/* App Selector */}
-          <div className="w-full lg:w-64">
+          {/* App Selector Dropdown with Live Review Counts */}
+          <div className="w-full lg:w-72">
             <select
               value={selectedAppId}
               onChange={(e) => setSelectedAppId(e.target.value)}
               className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
             >
-              <option value="all">📱 All Applications ({appsList.length})</option>
-              {appsList.map((app) => (
-                <option key={app.id || app.slug} value={app.slug || app.id}>
-                  {app.name} ({app.slug || app.id})
-                </option>
-              ))}
+              <option value="all">
+                📱 All Applications ({appsList.length} apps • {globalDbStats ? globalDbStats.total.toLocaleString() : reviews.length} revs)
+              </option>
+              {appsList.map((app) => {
+                const count = getAppStats(app).total;
+                return (
+                  <option key={app.id || app.slug} value={app.slug || app.id}>
+                    {app.name} ({count} {count === 1 ? 'rev' : 'revs'})
+                  </option>
+                );
+              })}
             </select>
           </div>
 
@@ -1221,13 +1441,46 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
           </div>
 
           {/* Bottom Pagination Bar */}
-          {totalPages > 1 && (
-            <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-800/30">
+          <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-800/30">
+            <div className="flex items-center gap-3">
               <span className="text-xs font-bold text-slate-500">
-                Page {currentPage} of {totalPages} ({reviews.length} total reviews)
+                Showing {reviews.length === 0 ? 0 : (currentPage - 1) * pageSize + 1} - {Math.min(reviews.length, currentPage * pageSize)} of {reviews.length} reviews
               </span>
+              
+              <div className="flex items-center gap-1.5 ml-2">
+                <span className="text-[11px] font-bold text-slate-400">Per page:</span>
+                {[25, 50, 100, 200].map((size) => (
+                  <button
+                    key={size}
+                    onClick={() => {
+                      setPageSize(size);
+                      setCurrentPage(1);
+                    }}
+                    className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      pageSize === size
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-              <div className="flex items-center gap-1">
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1.5">
+                <button
+                  disabled={currentPage <= 1}
+                  onClick={() => {
+                    setCurrentPage(1);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 transition-all cursor-pointer"
+                  title="First Page"
+                >
+                  « First
+                </button>
                 <button
                   disabled={currentPage <= 1}
                   onClick={() => {
@@ -1236,10 +1489,10 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
                   }}
                   className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 transition-all cursor-pointer"
                 >
-                  <ChevronLeft className="w-4 h-4" /> Previous
+                  <ChevronLeft className="w-4 h-4" /> Prev
                 </button>
                 <div className="px-3 text-xs font-bold text-slate-700 dark:text-slate-300">
-                  {currentPage} / {totalPages}
+                  Page {currentPage} of {totalPages}
                 </div>
                 <button
                   disabled={currentPage >= totalPages}
@@ -1251,9 +1504,20 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
                 >
                   Next <ChevronRight className="w-4 h-4" />
                 </button>
+                <button
+                  disabled={currentPage >= totalPages}
+                  onClick={() => {
+                    setCurrentPage(totalPages);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 transition-all cursor-pointer"
+                  title="Last Page"
+                >
+                  Last »
+                </button>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </>
         )}
       </div>

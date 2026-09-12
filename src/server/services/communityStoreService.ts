@@ -1332,6 +1332,99 @@ class CommunityStoreService {
   }
 
   /**
+   * Fast In-Memory Per-App Aggregate Review Statistics:
+   * Generates exact breakdown (total, published, pending, rejected, flagged, avgRating)
+   * for every app across all identifiers, slugs, and aliases in <1ms without Firestore quota cost.
+   */
+  public getAppReviewCounts() {
+    const list = Array.from(this.reviews.values());
+    const totalReviews = list.length;
+    let publishedCount = 0;
+    let pendingCount = 0;
+    let rejectedCount = 0;
+    let flaggedCount = 0;
+    let ratingSum = 0;
+    let ratedCount = 0;
+
+    const rawAppMap: Record<string, { total: number; published: number; pending: number; rejected: number; flagged: number; ratingSum: number; ratingCount: number }> = {};
+
+    const recordForAppKey = (key: string, r: ReviewRecord) => {
+      const clean = String(key || '').toLowerCase().trim();
+      if (!clean) return;
+      if (!rawAppMap[clean]) {
+        rawAppMap[clean] = { total: 0, published: 0, pending: 0, rejected: 0, flagged: 0, ratingSum: 0, ratingCount: 0 };
+      }
+      const entry = rawAppMap[clean];
+      entry.total++;
+      const status = r.status || 'published';
+      if (status === 'published') entry.published++;
+      else if (status === 'pending') entry.pending++;
+      else if (status === 'rejected') entry.rejected++;
+
+      if (r.reported || (r.report_count || 0) > 0) entry.flagged++;
+      if (r.rating) {
+        entry.ratingSum += Number(r.rating) || 5;
+        entry.ratingCount++;
+      }
+    };
+
+    list.forEach(r => {
+      const status = r.status || 'published';
+      if (status === 'published') publishedCount++;
+      else if (status === 'pending') pendingCount++;
+      else if (status === 'rejected') rejectedCount++;
+
+      if (r.reported || (r.report_count || 0) > 0) flaggedCount++;
+
+      if (r.rating) {
+        ratingSum += Number(r.rating) || 5;
+        ratedCount++;
+      }
+
+      const keys = new Set<string>();
+      if (r.appId) keys.add(String(r.appId).toLowerCase().trim());
+      if (r.appSlug) keys.add(String(r.appSlug).toLowerCase().trim());
+
+      if (r.appId) {
+        const aliases = this.getAliasKeysForApp(r.appId);
+        aliases.forEach(k => keys.add(k));
+      }
+      if (r.appSlug) {
+        const aliases = this.getAliasKeysForApp(r.appSlug);
+        aliases.forEach(k => keys.add(k));
+      }
+
+      keys.forEach(k => recordForAppKey(k, r));
+    });
+
+    const appCounts: Record<string, { total: number; published: number; pending: number; rejected: number; flagged: number; avgRating: number }> = {};
+    for (const [key, item] of Object.entries(rawAppMap)) {
+      appCounts[key] = {
+        total: item.total,
+        published: item.published,
+        pending: item.pending,
+        rejected: item.rejected,
+        flagged: item.flagged,
+        avgRating: item.ratingCount > 0 ? parseFloat((item.ratingSum / item.ratingCount).toFixed(1)) : 5.0
+      };
+    }
+
+    const averageRating = ratedCount > 0 ? parseFloat((ratingSum / ratedCount).toFixed(1)) : 4.8;
+
+    return {
+      globalStats: {
+        total: totalReviews,
+        published: publishedCount,
+        pending: pendingCount,
+        rejected: rejectedCount,
+        flagged: flaggedCount,
+        averageRating
+      },
+      appCounts
+    };
+  }
+
+  /**
    * Dedicated Admin Live App Review Loader:
    * Directly queries the live rummydexcommunity Firestore for the specific app
    * without relying on stale cache or static fallbacks.
@@ -1509,7 +1602,15 @@ class CommunityStoreService {
         : 5.0
     };
 
-    return { reviews: sliced, stats, totalCount: list.length };
+    const overview = this.getAppReviewCounts();
+
+    return { 
+      reviews: sliced, 
+      stats, 
+      globalStats: overview.globalStats,
+      appCounts: overview.appCounts,
+      totalCount: list.length 
+    };
   }
 
   public getAllReviews(): ReviewRecord[] {

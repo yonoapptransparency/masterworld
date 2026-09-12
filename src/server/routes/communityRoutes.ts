@@ -300,11 +300,34 @@ communityRouter.get("/api/v1/admin/community/overview", verifyAdminToken, async 
       ? (communityStore as any).getCommunityOverviewMetrics() 
       : { totalReviews: 0, pendingCount: 0, publishedCount: 0, rejectedCount: 0, flaggedCount: 0, totalReports: 0, pendingReportsCount: 0, averageRating: 4.8, appCoverageCount: 0 };
     
+    const appData = typeof (communityStore as any).getAppReviewCounts === 'function'
+      ? (communityStore as any).getAppReviewCounts()
+      : { globalStats: null, appCounts: {} };
+
     return res.status(200).json({
       success: true,
       projectId: 'rummydexcommunity',
       databaseId: '(default)',
-      metrics
+      metrics,
+      globalStats: appData.globalStats || metrics,
+      appCounts: appData.appCounts || {}
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || String(err) });
+  }
+});
+
+// Admin: Dedicated fast endpoint for all app review counts & global stats (<1ms)
+communityRouter.get("/api/v1/admin/community/app-counts", verifyAdminToken, async (req: any, res: any) => {
+  try {
+    const appData = typeof (communityStore as any).getAppReviewCounts === 'function'
+      ? (communityStore as any).getAppReviewCounts()
+      : { globalStats: { total: 0, published: 0, pending: 0, rejected: 0, flagged: 0, averageRating: 5.0 }, appCounts: {} };
+
+    return res.status(200).json({
+      success: true,
+      globalStats: appData.globalStats,
+      appCounts: appData.appCounts
     });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err?.message || String(err) });
@@ -319,9 +342,13 @@ communityRouter.get("/api/v1/admin/community/reviews", verifyAdminToken, async (
       search, 
       appId, 
       isPinned, 
-      sortBy = 'newest', 
-      limit = 100 
+      sortBy = 'newest'
     } = req.query;
+
+    // Generous default limit when selecting a specific app so all reviews load without truncation
+    const parsedLimit = req.query.limit !== undefined 
+      ? Number(req.query.limit) 
+      : (appId && appId !== 'all' ? 500 : 100);
 
     const result = await communityStore.queryAdminReviews({
       appId: appId ? String(appId) : undefined,
@@ -330,7 +357,7 @@ communityRouter.get("/api/v1/admin/community/reviews", verifyAdminToken, async (
       search: search ? String(search) : undefined,
       isPinned: isPinned ? String(isPinned) : undefined,
       sortBy: String(sortBy),
-      limit: req.query.limit !== undefined ? Number(req.query.limit) : 100,
+      limit: parsedLimit,
       refresh: req.query.refresh === 'true' || req.query.forceSync === 'true'
     });
 
@@ -338,6 +365,8 @@ communityRouter.get("/api/v1/admin/community/reviews", verifyAdminToken, async (
       success: true, 
       reviews: result.reviews, 
       stats: result.stats,
+      globalStats: (result as any).globalStats,
+      appCounts: (result as any).appCounts,
       totalCount: result.totalCount 
     });
   } catch (err: any) {

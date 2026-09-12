@@ -10,6 +10,17 @@ import {
 
 const PAGE_SIZE = 5;
 
+// Pure deduplication helper guaranteeing unique items by ID
+function deduplicateReviewsList(list: Review[]): Review[] {
+  const map = new Map<string, Review>();
+  for (const item of list) {
+    if (item && item.id && !map.has(item.id)) {
+      map.set(item.id, item);
+    }
+  }
+  return Array.from(map.values());
+}
+
 export function useReviews(
   appId: string, 
   appTitle?: string, 
@@ -32,7 +43,7 @@ export function useReviews(
 
   const [reviews, setReviews] = useState<Review[]>(() => {
     if (initialCached && initialCached.reviews.length > 0) {
-      return initialCached.reviews.slice(0, PAGE_SIZE).map((r: PublicReview) => ({
+      const mapped = initialCached.reviews.slice(0, PAGE_SIZE).map((r: PublicReview) => ({
         id: r.id,
         app_id: r.app_id || r.appId || cleanAppId,
         username: r.username || 'Player',
@@ -46,6 +57,7 @@ export function useReviews(
         isPinned: Boolean(r.isPinned),
         adminReply: r.adminReply || null
       }));
+      return deduplicateReviewsList(mapped);
     }
     return [];
   });
@@ -130,11 +142,9 @@ export function useReviews(
 
       setReviews(prev => {
         if (isLoadMore) {
-          const existingIds = new Set(prev.map(p => p.id));
-          const newUnique = mappedReviews.filter(r => !existingIds.has(r.id));
-          return [...prev, ...newUnique];
+          return deduplicateReviewsList([...prev, ...mappedReviews]);
         } else {
-          return mappedReviews;
+          return deduplicateReviewsList(mappedReviews);
         }
       });
 
