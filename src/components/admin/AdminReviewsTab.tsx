@@ -184,7 +184,7 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
       if (selectedRating !== 'all') params.set('rating', selectedRating);
       if (searchQuery.trim()) params.set('search', searchQuery.trim());
       params.set('sortBy', sortBy);
-      params.set('limit', '5000');
+      params.set('limit', selectedAppId !== 'all' ? '250' : '500');
 
       const res = await adminFetch(`/api/v1/admin/community/reviews?${params.toString()}`);
       if (res.ok) {

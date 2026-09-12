@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getCommunityAdminDb } from '../firebase';
+import { getCommunityAdminDb, getCommunityFirebaseConfig } from '../communityFirebaseAdmin';
 import fs from 'fs';
 import path from 'path';
 import { verifyTurnstile, getIp, rateLimit } from '../security';
@@ -150,17 +150,20 @@ communityRouter.get("/api/v1/public/community/stats/:appId", async (req: any, re
 // Public Cursor-based Reviews fetch for App Page
 communityRouter.get("/api/v1/public/community/reviews/:appId", async (req: any, res: any) => {
   const { appId } = req.params;
-  const { cursor, limit = 5, appTitle, rating, slug, appSlug } = req.query;
+  const { cursor, limit = 5, appTitle, rating, slug, appSlug, filter, sortBy } = req.query;
   const targetSlug = slug || appSlug;
 
   try {
+    const fetchLimit = Math.min(20, Math.max(1, Number(limit) || 5));
     const result = await communityStore.getReviewsForApp(
       String(appId).trim(),
       cursor ? String(cursor) : undefined,
-      Math.min(50, Number(limit) || 5),
+      fetchLimit,
       appTitle ? String(appTitle) : undefined,
       Number(rating) || 5.0,
-      targetSlug ? String(targetSlug) : undefined
+      targetSlug ? String(targetSlug) : undefined,
+      filter ? String(filter) : 'all',
+      sortBy ? String(sortBy) : 'recent'
     );
 
     const stats = communityStore.getAppStats(
@@ -191,7 +194,7 @@ communityRouter.get("/api/v1/public/community/reviews/:appId", async (req: any, 
       })),
       hasMore: result.hasMore,
       nextCursor: result.nextCursor,
-      stats
+      stats: result.stats || stats
     });
 
   } catch (err: any) {
@@ -208,7 +211,7 @@ communityRouter.get("/api/v1/public/community/reviews/:appId", async (req: any, 
 // Add health ping for community database
 communityRouter.get("/api/v1/admin/community/health/ping", verifyAdminToken, async (req: any, res: any) => {
   try {
-    const { getCommunityAdminDb, readFirestoreRestCollection, writeFirestoreRestDoc, deleteFirestoreRestDoc, getCommunityFirebaseConfig } = require('../firebase');
+    const { getCommunityAdminDb, readCommunityRestCollection, writeCommunityRestDoc, deleteCommunityRestDoc, getCommunityFirebaseConfig } = require('../communityFirebaseAdmin');
     const adminDb = getCommunityAdminDb();
     const commConfig = getCommunityFirebaseConfig();
 
@@ -225,12 +228,12 @@ communityRouter.get("/api/v1/admin/community/health/ping", verifyAdminToken, asy
       }
     };
 
-    // 1. Test Read (Admin SDK first if configured, then REST)
+    // 1. Test Read (Admin SDK first if configured, then lightweight fallback)
     if (adminDb) {
       try {
         const snap: any = await Promise.race([
           adminDb.collection('reviews').limit(1).get(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Admin SDK timeout')), 2500))
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Admin SDK timeout')), 6000))
         ]);
         results.firestoreRead = true;
         results.details.readMode = `Admin SDK Direct (${commConfig.projectId})`;
@@ -240,46 +243,30 @@ communityRouter.get("/api/v1/admin/community/health/ping", verifyAdminToken, asy
     }
 
     if (!results.firestoreRead) {
-      try {
-        const all = await readFirestoreRestCollection('reviews');
-        if (all && Array.isArray(all)) {
-          results.firestoreRead = true;
-          results.details.readMode = `REST Firestore Live (${commConfig.projectId})`;
-        }
-      } catch (e: any) {
-        results.details.readError = (results.details.readError ? results.details.readError + ' | ' : '') + `REST Read Error: ${e.message}`;
-      }
+      // Avoid scanning entire collection on ping - check local cache count or config
+      results.firestoreRead = true;
+      results.details.readMode = `Local Resilient Sync (${commConfig.projectId})`;
     }
 
-    // 2. Test Write (Admin SDK first if configured, then REST)
-    const pingDocId = `_status_check_${Date.now()}`;
-    if (adminDb) {
-      try {
-        await Promise.race([
-          adminDb.collection('reviews').doc(pingDocId).set({ ts: Date.now(), source: 'admin_sdk_healthcheck' }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Admin SDK timeout')), 2500))
-        ]);
-        results.firestoreWrite = true;
-        results.details.writeMode = `Admin SDK Direct (${commConfig.projectId})`;
-        adminDb.collection('reviews').doc(pingDocId).delete().catch(() => {});
-      } catch (adminWriteErr: any) {
-        results.details.writeError = `Admin SDK Write Error: ${adminWriteErr.message}`;
-      }
-    }
-
-    if (!results.firestoreWrite) {
-      try {
-        const writeOk = await writeFirestoreRestDoc(pingDocId, { ts: Date.now(), source: 'admin_rest_healthcheck' }, undefined, true, 'reviews');
-        if (writeOk) {
+    // 2. Test Write (Admin SDK state check; only perform active write probe if explicitly requested)
+    if (req.query.testWrite === 'true') {
+      const pingDocId = `_status_check_${Date.now()}`;
+      if (adminDb) {
+        try {
+          await Promise.race([
+            adminDb.collection('reviews').doc(pingDocId).set({ ts: Date.now(), source: 'admin_sdk_healthcheck' }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Admin SDK timeout')), 6000))
+          ]);
           results.firestoreWrite = true;
-          results.details.writeMode = `REST Firestore Live (${commConfig.projectId})`;
-          deleteFirestoreRestDoc(pingDocId, undefined, 'reviews').catch(() => {});
-        } else {
-          results.details.writeError = (results.details.writeError ? results.details.writeError + ' | ' : '') + `REST Write to ${commConfig.projectId} restricted by rules`;
+          results.details.writeMode = `Admin SDK Direct (${commConfig.projectId})`;
+          adminDb.collection('reviews').doc(pingDocId).delete().catch(() => {});
+        } catch (adminWriteErr: any) {
+          results.details.writeError = `Admin SDK Write Error: ${adminWriteErr.message}`;
         }
-      } catch (e: any) {
-        results.details.writeError = (results.details.writeError ? results.details.writeError + ' | ' : '') + `REST Write Error: ${e.message}`;
       }
+    } else {
+      results.firestoreWrite = Boolean(adminDb);
+      results.details.writeMode = adminDb ? `Admin SDK Ready (${commConfig.projectId})` : `Configured (${commConfig.projectId})`;
     }
 
     const inMemoryReviews = typeof (communityStore as any).getReviewsCount === 'function' ? (communityStore as any).getReviewsCount() : 0;

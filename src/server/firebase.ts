@@ -174,9 +174,12 @@ export function getFirebaseAdminDb(): any {
 
   try {
     const admin = require('firebase-admin');
+    const { getFirestore } = require('firebase-admin/firestore');
     const config = getRawFirebaseConfig();
 
-    if (admin.apps.length === 0) {
+    let defaultApp = admin.apps.find((app: any) => app.name === '[DEFAULT]');
+
+    if (!defaultApp) {
       let serviceAccountRaw: any = null;
       let detectedVarName = "";
 
@@ -221,7 +224,7 @@ export function getFirebaseAdminDb(): any {
           // CRITICAL: Always use the projectId from the service account if it exists
           const targetProjectId = serviceAccount.project_id || config?.projectId;
           
-          admin.initializeApp({
+          defaultApp = admin.initializeApp({
             credential: admin.credential.cert(serviceAccount),
             projectId: targetProjectId
           });
@@ -236,7 +239,7 @@ export function getFirebaseAdminDb(): any {
       } else {
         // Fallback to Application Default Credentials (ADC) for Cloud Run
         try {
-          admin.initializeApp({ projectId: config?.projectId });
+          defaultApp = admin.initializeApp({ projectId: config?.projectId });
           lastAdminSdkStatusMsg = "Initialized using Application Default Credentials (Cloud Run)";
           console.log('[Admin SDK] Initialized with ADC.');
         } catch (e) {
@@ -247,22 +250,25 @@ export function getFirebaseAdminDb(): any {
       }
     }
 
+    if (!defaultApp) {
+      defaultApp = admin.apps.find((app: any) => app.name === '[DEFAULT]') || admin.app();
+    }
+
     // Determine the correct Database ID
     const rawDb = config?.firestoreDatabaseId || config?.databaseId || process.env.VITE_FIREBASE_DATABASE_ID || process.env.FIREBASE_DATABASE_ID;
     let dbId = (rawDb && isRealValue(rawDb) && rawDb.trim() !== '') ? rawDb.trim() : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
 
     if (dbId && dbId !== '(default)') {
-      const { getFirestore } = require('firebase-admin/firestore');
-      cachedAdminDb = getFirestore(admin.apps[0], dbId);
+      cachedAdminDb = getFirestore(defaultApp, dbId);
     } else {
-      cachedAdminDb = admin.firestore();
+      cachedAdminDb = defaultApp.firestore();
     }
     // Force REST mode to avoid silent gRPC hangs in sandboxed environments
     try {
       cachedAdminDb.settings({ preferRest: true });
     } catch(e) {}
 
-    const activeProjectId = admin.apps[0]?.options?.projectId || config?.projectId || 'gen-lang-client-0825832493';
+    const activeProjectId = defaultApp?.options?.projectId || config?.projectId || 'gen-lang-client-0825832493';
     console.log(`[Admin SDK] Firestore initialized for project: ${activeProjectId}, database: ${dbId}`);
     return cachedAdminDb;
   } catch (err: any) {
@@ -273,161 +279,28 @@ export function getFirebaseAdminDb(): any {
 }
 
 
-let cachedCommunityDb: any = null;
+// Export Community Firebase from isolated module for backward compatibility
+import {
+  getCommunityFirebaseConfig,
+  getCommunityAdminAccessToken,
+  getCommunityAdminDb,
+  writeCommunityRestDoc,
+  deleteCommunityRestDoc,
+  readCommunityRestDoc,
+  readCommunityRestCollection
+} from './communityFirebaseAdmin';
 
-export function getCommunityFirebaseConfig(): any {
-  const envProjectId = process.env.COMMUNITY_FIREBASE_PROJECT_ID || process.env.VITE_COMMUNITY_FIREBASE_PROJECT_ID || 'rummydexcommunity';
-  const envDbId = process.env.COMMUNITY_FIREBASE_DATABASE_ID || process.env.VITE_COMMUNITY_FIREBASE_DATABASE_ID || '(default)';
-  const envApiKey = process.env.COMMUNITY_FIREBASE_API_KEY || process.env.VITE_COMMUNITY_FIREBASE_API_KEY || "AIzaSyCzhWEDLQsZ-HL8iVMcINq78lB-RzYPxi0";
-  const envAppId = process.env.COMMUNITY_FIREBASE_APP_ID || process.env.VITE_COMMUNITY_FIREBASE_APP_ID || "1:236598070230:web:df8b1b549dea13938d3277";
+export {
+  getCommunityFirebaseConfig,
+  getCommunityAdminAccessToken,
+  getCommunityAdminDb,
+  writeCommunityRestDoc,
+  deleteCommunityRestDoc,
+  readCommunityRestDoc,
+  readCommunityRestCollection
+};
 
-  return {
-    projectId: envProjectId,
-    databaseId: envDbId,
-    firestoreDatabaseId: envDbId,
-    apiKey: envApiKey,
-    appId: envAppId,
-    messagingSenderId: "236598070230",
-    measurementId: "G-2JKRRM48PD",
-    authDomain: `${envProjectId}.firebaseapp.com`,
-    storageBucket: `${envProjectId}.firebasestorage.app`
-  };
-}
 
-let cachedCommunityAccessToken: { token: string; expiresAt: number } | null = null;
-export async function getCommunityAdminAccessToken(): Promise<string | null> {
-  if (cachedCommunityAccessToken && Date.now() < cachedCommunityAccessToken.expiresAt - 60000) {
-    return cachedCommunityAccessToken.token;
-  }
-  try {
-    const admin = require('firebase-admin');
-    let app = admin.apps.find((a: any) => a.name === 'communityApp');
-    if (!app) {
-      getCommunityAdminDb();
-      app = admin.apps.find((a: any) => a.name === 'communityApp');
-    }
-    if (app && app.options && app.options.credential && typeof app.options.credential.getAccessToken === 'function') {
-      const res = await app.options.credential.getAccessToken();
-      if (res && res.access_token) {
-        cachedCommunityAccessToken = {
-          token: res.access_token,
-          expiresAt: Date.now() + ((res.expires_in || 3600) * 1000)
-        };
-        return res.access_token;
-      }
-    }
-  } catch (e) {
-    // Non-blocking
-  }
-  return null;
-}
-
-export function getCommunityAdminDb(): any {
-  if (cachedCommunityDb) return cachedCommunityDb;
-
-  try {
-    const admin = require('firebase-admin');
-    const { getFirestore } = require('firebase-admin/firestore');
-    
-    // Check if community app is already initialized
-    const existingApp = admin.apps.find((app: any) => app.name === 'communityApp');
-    if (existingApp) {
-      const dbId = process.env.COMMUNITY_FIREBASE_DATABASE_ID || process.env.VITE_COMMUNITY_FIREBASE_DATABASE_ID || '(default)';
-      if (dbId && dbId !== '(default)') {
-        cachedCommunityDb = getFirestore(existingApp, dbId);
-      } else {
-        cachedCommunityDb = existingApp.firestore();
-      }
-      try {
-        cachedCommunityDb.settings({ preferRest: true });
-      } catch (e) {}
-      return cachedCommunityDb;
-    }
-
-    // Initialize community app
-    const serviceAccountPath = path.join(process.cwd(), 'community-service-account.json');
-    
-    const possibleCommunityVars = [
-      'COMMUNITY_FIREBASE_SERVICE_ACCOUNT',
-      'COMMUNITY_FIREBASE_ACCOUNT',
-      'COMMUNITY_SERVICE_ACCOUNT',
-      'COMMUNITY_SERVICE_ACCOUNT_JSON',
-      'COMMUNITY_FIREBASE_SECRET',
-      'COMMUNITY_FIREBASE_KEY'
-    ];
-
-    let communityServiceAccountRaw = '';
-    let detectedVar = '';
-    for (const vName of possibleCommunityVars) {
-      if (process.env[vName] && String(process.env[vName]).trim() !== '') {
-        communityServiceAccountRaw = String(process.env[vName]);
-        detectedVar = vName;
-        break;
-      }
-    }
-
-    if (communityServiceAccountRaw) {
-      try {
-        const serviceAccount = parseServiceAccount(communityServiceAccountRaw);
-        if (serviceAccount) {
-          const communityApp = admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount),
-            projectId: serviceAccount.project_id
-          }, 'communityApp');
-          
-          const dbId = process.env.COMMUNITY_FIREBASE_DATABASE_ID || process.env.VITE_COMMUNITY_FIREBASE_DATABASE_ID || '(default)';
-          if (dbId && dbId !== '(default)') {
-            cachedCommunityDb = getFirestore(communityApp, dbId);
-          } else {
-            cachedCommunityDb = communityApp.firestore();
-          }
-          
-          try {
-            cachedCommunityDb.settings({ preferRest: true });
-          } catch (e) {}
-          console.log(`[Community Admin SDK] Firestore initialized successfully from ${detectedVar}.`);
-          return cachedCommunityDb;
-        }
-      } catch (err) {
-        console.error(`[Community Admin SDK] Failed to parse ${detectedVar}:`, err);
-      }
-    }
-
-    if (fs.existsSync(serviceAccountPath)) {
-      try {
-        const raw = fs.readFileSync(serviceAccountPath, 'utf-8');
-        const serviceAccount = parseServiceAccount(raw);
-        if (serviceAccount) {
-          const communityApp = admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount),
-            projectId: serviceAccount.project_id
-          }, 'communityApp');
-          
-          const dbId = process.env.COMMUNITY_FIREBASE_DATABASE_ID || process.env.VITE_COMMUNITY_FIREBASE_DATABASE_ID || '(default)';
-          if (dbId && dbId !== '(default)') {
-            cachedCommunityDb = getFirestore(communityApp, dbId);
-          } else {
-            cachedCommunityDb = communityApp.firestore();
-          }
-          
-          try {
-            cachedCommunityDb.settings({ preferRest: true });
-          } catch (e) {}
-          console.log('[Community Admin SDK] Firestore initialized successfully from community-service-account.json.');
-          return cachedCommunityDb;
-        }
-      } catch (err) {
-        console.error('[Community Admin SDK] Failed to parse community-service-account.json:', err);
-      }
-    }
-    
-    // CRITICAL: NEVER fallback to primaryDb! That would corrupt the master catalog database and mix up the two distinct Firebase projects.
-    return null;
-  } catch (err: any) {
-    console.warn('[Community Admin SDK] Initialization check notice:', err.message || err);
-    return null;
-  }
-}
 
 export function convertToFirestoreValue(val: any): any {
   if (val === null || val === undefined) return { nullValue: null };
@@ -474,8 +347,12 @@ export async function writeFirestoreRestDoc(docId: string, data: any, authToken?
     collectionPath.startsWith('community_') ||
     docId.startsWith('rev_');
 
+  if (isCommunity) {
+    return writeCommunityRestDoc(docId, data, merge, collectionPath);
+  }
+
   // Always try Admin SDK first if available to bypass REST rules/quota limits
-  const db = isCommunity ? getCommunityAdminDb() : getFirebaseAdminDb();
+  const db = getFirebaseAdminDb();
   if (db) {
     try {
       await adminDbSetWithTimeout(db.collection(collectionPath).doc(docId), data, merge ? { merge: true } : undefined, 5000);
@@ -488,25 +365,14 @@ export async function writeFirestoreRestDoc(docId: string, data: any, authToken?
   }
 
   try {
-    let targetProjectId: string;
-    let targetApiKey: string;
-    let dbId: string;
-
-    if (isCommunity) {
-      const commCfg = getCommunityFirebaseConfig();
-      targetProjectId = commCfg.projectId;
-      targetApiKey = commCfg.apiKey;
-      dbId = commCfg.firestoreDatabaseId || '(default)';
-    } else {
-      const config = getRawFirebaseConfig();
-      if (!config || !config.projectId) {
-        console.warn(`[SERVER] Cannot write REST doc ${docId}: Missing project ID`);
-        return false;
-      }
-      targetProjectId = config.projectId;
-      targetApiKey = config.apiKey;
-      dbId = (config.firestoreDatabaseId || config.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a');
+    const config = getRawFirebaseConfig();
+    if (!config || !config.projectId) {
+      console.warn(`[SERVER] Cannot write REST doc ${docId}: Missing project ID`);
+      return false;
     }
+    const targetProjectId = config.projectId;
+    const targetApiKey = config.apiKey;
+    const dbId = (config.firestoreDatabaseId || config.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a');
 
     const queryParams: string[] = [];
     if (targetApiKey) queryParams.push(`key=${encodeURIComponent(targetApiKey)}`);
@@ -526,9 +392,6 @@ export async function writeFirestoreRestDoc(docId: string, data: any, authToken?
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (authToken && authToken.startsWith('Bearer ya29.')) {
       headers['Authorization'] = authToken;
-    } else if (isCommunity) {
-      const commToken = await getCommunityAdminAccessToken();
-      if (commToken) headers['Authorization'] = `Bearer ${commToken}`;
     }
 
     const res = await fetch(url, {
@@ -538,7 +401,6 @@ export async function writeFirestoreRestDoc(docId: string, data: any, authToken?
     });
     if (!res.ok) {
       if (res.status === 429) {
-        // Quota / Rate limit reached on Firestore REST
         return false;
       }
       const errText = await res.text();
@@ -561,7 +423,11 @@ export async function deleteFirestoreRestDoc(docId: string, authToken?: string, 
     docId.startsWith('community_') || 
     docId.startsWith('rev_');
 
-  const db = isCommunity ? getCommunityAdminDb() : getFirebaseAdminDb();
+  if (isCommunity) {
+    return deleteCommunityRestDoc(docId, collectionPath);
+  }
+
+  const db = getFirebaseAdminDb();
   if (db) {
     try {
       await db.collection(collectionPath).doc(docId).delete();
@@ -573,22 +439,11 @@ export async function deleteFirestoreRestDoc(docId: string, authToken?: string, 
   }
 
   try {
-    let targetProjectId: string;
-    let targetApiKey: string;
-    let dbId: string;
-
-    if (isCommunity) {
-      const commCfg = getCommunityFirebaseConfig();
-      targetProjectId = commCfg.projectId;
-      targetApiKey = commCfg.apiKey;
-      dbId = commCfg.firestoreDatabaseId || '(default)';
-    } else {
-      const config = getRawFirebaseConfig();
-      if (!config || !config.projectId) return false;
-      targetProjectId = config.projectId;
-      targetApiKey = config.apiKey;
-      dbId = (config.firestoreDatabaseId || config.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a');
-    }
+    const config = getRawFirebaseConfig();
+    if (!config || !config.projectId) return false;
+    const targetProjectId = config.projectId;
+    const targetApiKey = config.apiKey;
+    const dbId = (config.firestoreDatabaseId || config.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a');
 
     const finalApiKeyParam = targetApiKey ? `?key=${targetApiKey}` : '';
     const url = `https://firestore.googleapis.com/v1/projects/${targetProjectId}/databases/${dbId}/documents/${collectionPath}/${docId}${finalApiKeyParam}`;
@@ -596,9 +451,6 @@ export async function deleteFirestoreRestDoc(docId: string, authToken?: string, 
     const headers: Record<string, string> = {};
     if (authToken && authToken.startsWith('Bearer ya29.')) {
       headers['Authorization'] = authToken;
-    } else if (isCommunity) {
-      const commToken = await getCommunityAdminAccessToken();
-      if (commToken) headers['Authorization'] = `Bearer ${commToken}`;
     }
 
     const res = await fetch(url, {
@@ -612,30 +464,23 @@ export async function deleteFirestoreRestDoc(docId: string, authToken?: string, 
 }
 
 export async function readFirestoreRestDoc(docId: string, authToken?: string, collectionPath: string = 'store_data'): Promise<any | null> {
+  const isCommunity = collectionPath === 'reviews' || 
+    collectionPath === 'reports' || 
+    collectionPath === 'community_store' || 
+    collectionPath.startsWith('community_') || 
+    docId.startsWith('community_') || 
+    docId.startsWith('rev_');
+
+  if (isCommunity) {
+    return readCommunityRestDoc(docId, collectionPath);
+  }
+
   try {
-    const isCommunity = collectionPath === 'reviews' || 
-      collectionPath === 'reports' || 
-      collectionPath === 'community_store' || 
-      collectionPath.startsWith('community_') || 
-      docId.startsWith('community_') || 
-      docId.startsWith('rev_');
-
-    let targetProjectId: string;
-    let targetApiKey: string;
-    let dbId: string;
-
-    if (isCommunity) {
-      const commCfg = getCommunityFirebaseConfig();
-      targetProjectId = commCfg.projectId;
-      targetApiKey = commCfg.apiKey;
-      dbId = commCfg.firestoreDatabaseId || '(default)';
-    } else {
-      const config = getRawFirebaseConfig();
-      if (!config || !config.projectId) return null;
-      targetProjectId = config.projectId;
-      targetApiKey = config.apiKey;
-      dbId = (config.firestoreDatabaseId || config.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a');
-    }
+    const config = getRawFirebaseConfig();
+    if (!config || !config.projectId) return null;
+    const targetProjectId = config.projectId;
+    const targetApiKey = config.apiKey;
+    const dbId = (config.firestoreDatabaseId || config.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a');
 
     const finalApiKeyParam = targetApiKey ? `?key=${targetApiKey}` : '';
     const url = `https://firestore.googleapis.com/v1/projects/${targetProjectId}/databases/${dbId}/documents/${collectionPath}/${docId}${finalApiKeyParam}`;
@@ -643,9 +488,6 @@ export async function readFirestoreRestDoc(docId: string, authToken?: string, co
     const headers: Record<string, string> = {};
     if (authToken && authToken.startsWith('Bearer ya29.')) {
       headers['Authorization'] = authToken;
-    } else if (isCommunity) {
-      const commToken = await getCommunityAdminAccessToken();
-      if (commToken) headers['Authorization'] = `Bearer ${commToken}`;
     }
     const res = await fetch(url, { headers });
     if (!res.ok) {
@@ -661,35 +503,25 @@ export async function readFirestoreRestDoc(docId: string, authToken?: string, co
 }
 
 export async function readFirestoreRestCollection(collectionPath: string, authToken?: string): Promise<any[]> {
+  const isCommunity = collectionPath === 'reviews' || 
+    collectionPath === 'reports' || 
+    collectionPath === 'community_store' || 
+    collectionPath.startsWith('community_');
+
+  if (isCommunity) {
+    return readCommunityRestCollection(collectionPath);
+  }
+
   try {
-    const isCommunity = collectionPath === 'reviews' || 
-      collectionPath === 'reports' || 
-      collectionPath === 'community_store' || 
-      collectionPath.startsWith('community_');
-
-    let targetProjectId: string;
-    let targetApiKey: string;
-    let dbId: string;
-
-    if (isCommunity) {
-      const commCfg = getCommunityFirebaseConfig();
-      targetProjectId = commCfg.projectId;
-      targetApiKey = commCfg.apiKey;
-      dbId = commCfg.firestoreDatabaseId || '(default)';
-    } else {
-      const config = getRawFirebaseConfig();
-      if (!config || !config.projectId) return [];
-      targetProjectId = config.projectId;
-      targetApiKey = config.apiKey;
-      dbId = (config.firestoreDatabaseId || config.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a');
-    }
+    const config = getRawFirebaseConfig();
+    if (!config || !config.projectId) return [];
+    const targetProjectId = config.projectId;
+    const targetApiKey = config.apiKey;
+    const dbId = (config.firestoreDatabaseId || config.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a');
 
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (authToken && authToken.startsWith('Bearer ya29.')) {
       headers['Authorization'] = authToken;
-    } else if (isCommunity) {
-      const commToken = await getCommunityAdminAccessToken();
-      if (commToken) headers['Authorization'] = `Bearer ${commToken}`;
     }
 
     // First attempt: runQuery which conforms directly to Firestore security rules (allow read: if true)

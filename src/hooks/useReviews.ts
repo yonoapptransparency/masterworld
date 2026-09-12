@@ -8,6 +8,8 @@ import {
   PublicReview, 
 } from '../lib/communityFirebase';
 
+const PAGE_SIZE = 5;
+
 export function useReviews(
   appId: string, 
   appTitle?: string, 
@@ -20,14 +22,17 @@ export function useReviews(
   const cleanAppSlug = String(appSlug || '').trim();
   const cleanAppTitle = String(appTitle || '').trim();
 
-  // Instant SWR Cache Initialization (0ms latency render)
+  const [sortBy, setSortBy] = useState<'recent' | 'helpful'>('recent');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'positive' | 'critical'>('all');
+
+  // Instant SWR Cache Initialization (0ms latency render for first 5 items)
   const initialCached = useMemo(() => {
     return getCachedLiveReviews(cleanAppId, cleanAppSlug);
   }, [cleanAppId, cleanAppSlug]);
 
   const [reviews, setReviews] = useState<Review[]>(() => {
     if (initialCached && initialCached.reviews.length > 0) {
-      return initialCached.reviews.map((r: PublicReview) => ({
+      return initialCached.reviews.slice(0, PAGE_SIZE).map((r: PublicReview) => ({
         id: r.id,
         app_id: r.app_id || r.appId || cleanAppId,
         username: r.username || 'Player',
@@ -45,16 +50,13 @@ export function useReviews(
     return [];
   });
 
+  const [stats, setStats] = useState<any>(() => initialCached?.stats || null);
   const [loading, setLoading] = useState<boolean>(() => !initialCached || initialCached.reviews.length === 0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState<boolean>(() => Boolean(initialCached?.hasMore));
   const [nextCursor, setNextCursor] = useState<string | null>(() => initialCached?.nextCursor || null);
   const nextCursorRef = useRef<string | null>(initialCached?.nextCursor || null);
-  const [initialLoadDone, setInitialLoadDone] = useState<boolean>(() => Boolean(initialCached && initialCached.reviews.length > 0));
 
-  const [sortBy, setSortBy] = useState<'recent' | 'helpful'>('recent');
-  const [activeFilter, setActiveFilter] = useState<'all' | 'positive' | 'critical'>('all');
-  
   const [votedReviews, setVotedReviews] = useState<Record<string, boolean>>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -75,11 +77,8 @@ export function useReviews(
 
   const [expandedReviews, setExpandedReviews] = useState<Record<string, boolean>>({});
 
-  // App key tracker to prevent duplicate initial fetches while guaranteeing trigger on targetKey ready
-  const fetchedTargetKeyRef = useRef<string | null>(null);
-
-  // Dynamic Live Review Fetcher - Protected with session cache & on-demand trigger
-  const fetchReviews = useCallback(async (isLoadMore = false) => {
+  // Dynamic Live Review Fetcher - Loads exactly 5 comments per batch
+  const fetchReviews = useCallback(async (isLoadMore = false, overrideFilter?: string, overrideSort?: string) => {
     const targetKey = cleanAppId || cleanAppSlug;
     if (!targetKey) return;
     
@@ -93,17 +92,21 @@ export function useReviews(
 
     try {
       if (isLoadMore) setLoadingMore(true);
-      else if (reviews.length === 0) setLoading(true);
+      else setLoading(true);
 
-      const cursorToUse = isLoadMore ? (nextCursorRef.current || nextCursor) : null;
+      const cursorToUse = isLoadMore ? nextCursorRef.current : null;
+      const currentFilter = overrideFilter !== undefined ? overrideFilter : activeFilter;
+      const currentSort = overrideSort !== undefined ? overrideSort : sortBy;
       
       const result = await fetchLiveReviews({
         appId: cleanAppId,
         appSlug: cleanAppSlug,
         appTitle: cleanAppTitle,
         cursor: cursorToUse,
-        limit: isLoadMore ? 100 : 200,
-        rating: overallRating
+        limit: PAGE_SIZE,
+        rating: overallRating,
+        filter: currentFilter,
+        sortBy: currentSort
       });
 
       const mappedReviews: Review[] = result.reviews.map((r: PublicReview) => ({
@@ -120,6 +123,10 @@ export function useReviews(
         isPinned: Boolean(r.isPinned),
         adminReply: r.adminReply || null
       }));
+
+      if (result.stats) {
+        setStats(result.stats);
+      }
 
       setReviews(prev => {
         if (isLoadMore) {
@@ -140,51 +147,36 @@ export function useReviews(
     } finally {
       if (isLoadMore) setLoadingMore(false);
       else setLoading(false);
-      setInitialLoadDone(true);
     }
-  }, [cleanAppId, cleanAppSlug, cleanAppTitle, overallRating, reviews.length]);
+  }, [cleanAppId, cleanAppSlug, cleanAppTitle, overallRating, activeFilter, sortBy]);
 
-  // Trigger review fetch whenever targetKey is valid and has not been fetched yet
+  // Initial fetch when container enters view or target app changes
+  const prevTargetKeyRef = useRef<string>('');
   useEffect(() => {
     const targetKey = cleanAppId || cleanAppSlug;
-    if (!targetKey) return;
-    if (!inView) return;
+    if (!targetKey || !inView) return;
 
-    if (fetchedTargetKeyRef.current !== targetKey) {
-      const cached = getCachedLiveReviews(cleanAppId, cleanAppSlug);
-      if (cached && cached.reviews.length > 0) {
-        setReviews(cached.reviews.map((r: PublicReview) => ({
-          id: r.id,
-          app_id: r.app_id || r.appId || cleanAppId,
-          username: r.username || 'Player',
-          rating: Number(r.rating) || 5,
-          comment: r.comment || '',
-          created_at: r.created_at || new Date().toISOString(),
-          helpful_count: Number(r.helpful_count) || 0,
-          reported: Boolean(r.reported),
-          report_count: Number(r.report_count) || 0,
-          source: r.source || 'community',
-          isPinned: Boolean(r.isPinned),
-          adminReply: r.adminReply || null
-        })));
-        setHasMore(Boolean(cached.hasMore));
-        setNextCursor(cached.nextCursor || null);
-        nextCursorRef.current = cached.nextCursor || null;
-        setInitialLoadDone(true);
-        setLoading(false);
-      } else {
-        setReviews([]);
-        setNextCursor(null);
-        nextCursorRef.current = null;
-        setHasMore(false);
-        setInitialLoadDone(false);
-      }
-
+    if (prevTargetKeyRef.current !== targetKey) {
+      prevTargetKeyRef.current = targetKey;
+      setNextCursor(null);
+      nextCursorRef.current = null;
       setExpandedReviews({});
-      fetchedTargetKeyRef.current = targetKey;
       fetchReviews(false);
     }
   }, [cleanAppId, cleanAppSlug, inView, fetchReviews]);
+
+  // Refetch 5 items when filter or sorting changes
+  const isFirstFilterMount = useRef(true);
+  useEffect(() => {
+    if (isFirstFilterMount.current) {
+      isFirstFilterMount.current = false;
+      return;
+    }
+    if (!inView) return;
+    setNextCursor(null);
+    nextCursorRef.current = null;
+    fetchReviews(false, activeFilter, sortBy);
+  }, [activeFilter, sortBy, inView, fetchReviews]);
 
   // Listen to community review events across tabs/components
   useEffect(() => {
@@ -277,32 +269,6 @@ export function useReviews(
     });
   }, [reportedReviews, reviews, cleanAppId, cleanAppSlug]);
 
-  const sortedReviews = useMemo(() => {
-    const list = [...reviews];
-    if (sortBy === 'helpful') {
-      return list.sort((a, b) => {
-        if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
-        if (b.helpful_count !== a.helpful_count) {
-          return b.helpful_count - a.helpful_count;
-        }
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      });
-    } else {
-      return list.sort((a, b) => {
-        if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      });
-    }
-  }, [reviews, sortBy]);
-
-  const filteredReviews = useMemo(() => {
-    return sortedReviews.filter(rev => {
-      if (activeFilter === 'positive') return rev.rating >= 4;
-      if (activeFilter === 'critical') return rev.rating <= 3;
-      return true;
-    });
-  }, [sortedReviews, activeFilter]);
-
   return {
     reviews,
     setReviews,
@@ -320,6 +286,7 @@ export function useReviews(
     toggleExpandReview,
     handleHelpfulVote,
     handleReportReview,
-    filteredReviews
+    filteredReviews: reviews, // Backend handles the filtering directly!
+    stats
   };
 }
