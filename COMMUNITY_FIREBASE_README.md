@@ -1,5 +1,7 @@
 # RUMMYDEX COMMUNITY FIREBASE: LIVE ARCHITECTURE & NO-STATIC-DATA POLICY
 
+> **Master Architecture Reference**: For the complete full-scale structural guide on quota prevention, 3-tier caching, laser loading, and dual-brain AI review generation, see [`/FIREBASE_QUOTA_AND_COMMUNITY_ARCHITECTURE.md`](./FIREBASE_QUOTA_AND_COMMUNITY_ARCHITECTURE.md).
+
 This document serves as the permanent specification and architectural reference for the **Rummydex Community Firebase** system.
 
 ---

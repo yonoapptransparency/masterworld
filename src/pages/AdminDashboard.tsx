@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { RefreshCw, Sparkles } from 'lucide-react';
 import { toast } from "../components/Toast";
@@ -337,6 +337,15 @@ export default function AdminDashboard() {
     });
   };
 
+  const mergedSettings = useMemo(() => ({
+    ...settings,
+    banners,
+    categories: categoriesList,
+    quick_links: quickLinksList,
+    website_faqs: websiteFaqsList,
+    developers: developersList
+  }), [settings, banners, categoriesList, quickLinksList, websiteFaqsList, developersList]);
+
   const currentBase = window.location.pathname.toLowerCase().startsWith('/masterworld') ? 'masterworld' : adminPath;
   if (checkingAuth) return <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center"><RefreshCw className="animate-spin text-blue-600" /></div>;
   if (!user || isAdminUser === false) return <Navigate to={`/${currentBase}/login`} replace />;
@@ -384,12 +393,11 @@ export default function AdminDashboard() {
           </div>
         </header>
 
-
         <div className="p-4 max-w-7xl mx-auto">
           <AdminTabContent 
             activeTab={activeTab} appsList={appsList} newsList={newsList} banners={banners} videosList={videosList}
             categoriesList={categoriesList} quickLinksList={quickLinksList} websiteFaqsList={websiteFaqsList} developersList={developersList}
-            settings={settings} gitConfig={gitConfig} db={db} saving={saving} setSaving={setSaving} editingAppId={editingAppId}
+            settings={mergedSettings} gitConfig={gitConfig} db={db} saving={saving} setSaving={setSaving} editingAppId={editingAppId}
             setEditingAppId={setEditingAppId}
             handleDeleteApp={handleDeleteApp} handleSaveApp={handleSaveApp} handleTogglePublicSync={handleTogglePublicSync} handleSaveSettings={handleSaveSettingsBase} 
             handleSaveNews={async (list?: any) => {

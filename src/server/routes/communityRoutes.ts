@@ -70,12 +70,33 @@ communityRouter.post(["/api/v1/public/community/reviews", "/api/v1/public/rating
       source: 'community'
     });
 
+    const mappedResponseReview = {
+      id: savedReview.id,
+      appId: savedReview.appId,
+      app_id: savedReview.appId,
+      appSlug: savedReview.appSlug,
+      appName: savedReview.appName,
+      userName: savedReview.userName,
+      username: savedReview.userName,
+      rating: savedReview.rating,
+      reviewText: savedReview.reviewText,
+      comment: savedReview.reviewText,
+      timestamp: savedReview.timestamp,
+      created_at: savedReview.timestamp,
+      helpful_count: savedReview.helpful_count || 0,
+      source: savedReview.source || 'community',
+      reported: false,
+      report_count: 0,
+      isPinned: false,
+      adminReply: null
+    };
+
     console.log(`[Reviews] New review recorded ${savedReview.id} for app ${appId}`);
     return res.status(200).json({ 
       success: true, 
       message: 'Review saved successfully to Firestore.', 
       id: savedReview.id,
-      review: savedReview
+      review: mappedResponseReview
     });
   } catch (err: any) {
     console.error("Error submitting review to Firestore:", err);
@@ -302,6 +323,11 @@ communityRouter.get("/api/v1/admin/community/health/ping", verifyAdminToken, asy
 
 communityRouter.get("/api/v1/admin/community/overview", verifyAdminToken, async (req: any, res: any) => {
   try {
+    // Optionally trigger fast remote aggregation refresh if requested or stale
+    if (typeof (communityStore as any).refreshAggregationCounts === 'function') {
+      await (communityStore as any).refreshAggregationCounts(req.query?.force === 'true').catch(() => {});
+    }
+
     const metrics = typeof (communityStore as any).getCommunityOverviewMetrics === 'function' 
       ? (communityStore as any).getCommunityOverviewMetrics() 
       : { totalReviews: 0, pendingCount: 0, publishedCount: 0, rejectedCount: 0, flaggedCount: 0, totalReports: 0, pendingReportsCount: 0, averageRating: 4.8, appCoverageCount: 0 };
@@ -310,13 +336,48 @@ communityRouter.get("/api/v1/admin/community/overview", verifyAdminToken, async 
       ? (communityStore as any).getAppReviewCounts()
       : { globalStats: null, appCounts: {} };
 
+    const topApps = typeof (communityStore as any).getTopReviewedApps === 'function'
+      ? (communityStore as any).getTopReviewedApps(8)
+      : [];
+
+    const recentReviews = typeof (communityStore as any).getRecentReviews === 'function'
+      ? (communityStore as any).getRecentReviews(6)
+      : [];
+
     return res.status(200).json({
       success: true,
       projectId: 'rummydexcommunity',
       databaseId: '(default)',
       metrics,
       globalStats: appData.globalStats || metrics,
-      appCounts: appData.appCounts || {}
+      appCounts: appData.appCounts || {},
+      topApps,
+      recentReviews
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || String(err) });
+  }
+});
+
+// Admin: Hot reload from local backup JSON file & refresh aggregation
+communityRouter.post("/api/v1/admin/community/reload-backup", verifyAdminToken, async (req: any, res: any) => {
+  try {
+    let reloadResult = { reviewsCount: 0, reportsCount: 0 };
+    if (typeof (communityStore as any).reloadLocalBackup === 'function') {
+      reloadResult = (communityStore as any).reloadLocalBackup();
+    }
+    if (typeof (communityStore as any).refreshAggregationCounts === 'function') {
+      await (communityStore as any).refreshAggregationCounts(true).catch(() => {});
+    }
+
+    const metrics = typeof (communityStore as any).getCommunityOverviewMetrics === 'function'
+      ? (communityStore as any).getCommunityOverviewMetrics()
+      : null;
+
+    return res.status(200).json({
+      success: true,
+      message: `Reloaded ${reloadResult.reviewsCount} reviews and ${reloadResult.reportsCount} reports from local disk backup.`,
+      metrics
     });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err?.message || String(err) });
@@ -638,10 +699,13 @@ communityRouter.post(["/api/v1/admin/community/recalculate-all", "/api/v1/admin/
         message: `App reviews bucket document and rating stats synced for app: ${appId}` 
       });
     } else {
+      if (typeof (communityStore as any).refreshAggregationCounts === 'function') {
+        await (communityStore as any).refreshAggregationCounts(true).catch(() => {});
+      }
       await communityStore.syncAllToFirestore();
       return res.status(200).json({ 
         success: true, 
-        message: 'All app review bucket documents and rating stats synced to community_store!' 
+        message: 'All app review bucket documents, rating stats, and aggregation counts synced to community_store!' 
       });
     }
   } catch (err: any) {

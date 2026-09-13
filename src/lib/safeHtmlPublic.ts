@@ -10,7 +10,11 @@ export function structureHtmlFragment(rawHtml: string): string {
            .replace(/<title>[^<]*<\/title>/gi, '')
            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+           .replace(/<div\b[^>]*class=["\'][^"\']*rd-news-meta[^"\']*["\'][^>]*>[\s\S]*?<\/div>/gi, '')
            .trim();
+
+  // Remove leading h1/h2 title if present in the raw HTML fragment
+  str = str.replace(/^\s*<h[12][^>]*>[\s\S]*?<\/h[12]>\s*/i, '');
 
   // 2. Convert <h1> tags to <h2>
   str = str.replace(/<h1([^>]*)>/gi, '<h2$1>').replace(/<\/h1>/gi, '</h2>');

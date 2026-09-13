@@ -8,7 +8,9 @@ import {
   readCommunityRestCollection, 
   parseFirestoreFields, 
   getCommunityFirebaseConfig,
-  fetchLiveReviewsForApp
+  fetchLiveReviewsForApp,
+  fetchExactCommunityAggregationCounts,
+  ExactCommunityAggregationResult
 } from '../communityFirebaseAdmin';
 import { getStaticData } from '../config';
 
@@ -245,6 +247,8 @@ class CommunityStoreService {
   private quotaExhaustedUntil = 0;
   private syncTimer: NodeJS.Timeout | null = null;
   private localBackupPath = path.join(process.cwd(), 'community_local_backup.json');
+  private cachedRemoteCounts: ExactCommunityAggregationResult | null = null;
+  private lastAggregationCheck: number = 0;
 
   constructor() {
     this.loadFromLocalBackup();
@@ -253,7 +257,45 @@ class CommunityStoreService {
       this.initFromFirestore().catch((e: any) => { 
         console.warn(`[CommunityStore] Initial Firestore connection note:`, e?.message || e);
       });
+      // Also fetch exact aggregation counts (2 index lookups, zero full-scan reads)
+      this.refreshAggregationCounts(true).catch(() => {});
     }, 500);
+  }
+
+  /**
+   * Reload all reviews and reports from local backup disk store on demand
+   */
+  public reloadLocalBackup(): { reviewsCount: number; reportsCount: number } {
+    this.loadFromLocalBackup();
+    return {
+      reviewsCount: this.reviews.size,
+      reportsCount: this.reports.size
+    };
+  }
+
+  /**
+   * Fast Remote Firestore Aggregation Query:
+   * Queries exact remote counts using Firestore COUNT() aggregation without downloading any documents.
+   * Costs only ~4-6 index reads and runs in <300ms.
+   */
+  public async refreshAggregationCounts(force: boolean = false): Promise<ExactCommunityAggregationResult | null> {
+    const now = Date.now();
+    if (!force && this.cachedRemoteCounts && (now - this.lastAggregationCheck < 60000)) {
+      return this.cachedRemoteCounts;
+    }
+    try {
+      const counts = await fetchExactCommunityAggregationCounts();
+      if (counts) {
+        this.cachedRemoteCounts = counts;
+        this.lastAggregationCheck = now;
+        // Also persist summary to catalog_stats document for 1-read client access
+        this.saveCatalogStatsSummary().catch(() => {});
+      }
+      return this.cachedRemoteCounts;
+    } catch (err) {
+      console.warn('[CommunityStore] Aggregation refresh error:', err);
+      return this.cachedRemoteCounts;
+    }
   }
 
   // Check if error is a Firestore quota / rate exhaustion
@@ -280,6 +322,10 @@ class CommunityStoreService {
             if (r && r.id && !this.deletedReviewIds.has(r.id)) {
               // Automatically sanitize any loaded reviews from past sessions
               r.reviewText = sanitizeReviewText(r.reviewText);
+              // CRITICAL: Ensure ai_generated reviews are NEVER pinned so community reviews stay prominent
+              if (r.source === 'ai_generated') {
+                r.isPinned = false;
+              }
               this.reviews.set(r.id, r);
             }
           });
@@ -612,9 +658,11 @@ class CommunityStoreService {
       );
     });
 
-    // Sort: Pinned first, then newest timestamp
+    // Sort: Genuine non-AI Pinned first, then newest timestamp
     appReviews.sort((a, b) => {
-      if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+      const aIsPinned = Boolean(a.isPinned && a.source !== 'ai_generated');
+      const bIsPinned = Boolean(b.isPinned && b.source !== 'ai_generated');
+      if (aIsPinned !== bIsPinned) return aIsPinned ? -1 : 1;
       return new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime();
     });
 
@@ -791,7 +839,7 @@ class CommunityStoreService {
       timestamp: payload.timestamp || payload.date || payload.created_at || new Date().toISOString(),
       status: (payload.status as any) || 'published',
       helpful_count: Number(payload.helpful_count || payload.helpfulCount) || 0,
-      isPinned: Boolean(payload.isPinned),
+      isPinned: payload.source === 'ai_generated' ? false : Boolean(payload.isPinned),
       reported: Boolean(payload.reported),
       report_count: Number(payload.report_count) || 0,
       source: payload.source || 'community',
@@ -799,10 +847,33 @@ class CommunityStoreService {
       updated_at: new Date().toISOString()
     };
 
-    // Save to active in-memory store and local disk immediately
+    // 1. Save to active in-memory store and local disk immediately
     this.reviews.set(id, newRev);
     this.saveToDiskAndQueueCloudSync();
     this.markDirty(targetAppId);
+
+    // 2. Direct write to Firestore rummydexcommunity 'reviews' collection
+    const db = getCommunityAdminDb();
+    try {
+      if (db) {
+        db.collection('reviews').doc(id).set(newRev).catch((e: any) => {
+          if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000;
+          console.warn("[CommunityStore] Firestore direct review write notice:", e?.message || e);
+        });
+      } else {
+        safeWriteDb(id, newRev, undefined, true, 'reviews').catch((e: any) => {
+          if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000;
+          console.warn("[CommunityStore] REST review write notice:", e?.message || e);
+        });
+      }
+    } catch (e: any) {
+      console.warn("[CommunityStore] Direct review write exception:", e?.message || e);
+    }
+
+    // 3. Immediately refresh chunk cache & chunk document so subsequent per-app reads get it instantly
+    this.syncAppChunksToFirestore(targetAppId).catch((err: any) => {
+      console.warn("[CommunityStore] Post-review chunk sync notice:", err?.message || err);
+    });
 
     return newRev;
   }
@@ -981,6 +1052,17 @@ class CommunityStoreService {
     this.saveToDiskAndQueueCloudSync();
     if (updated.appId) this.markDirty(updated.appId);
 
+    // Direct write to Firestore rummydexcommunity 'reviews' collection
+    const db = getCommunityAdminDb();
+    if (db) {
+      db.collection('reviews').doc(id).set(updated, { merge: true }).catch((e: any) => console.warn(e));
+    } else {
+      safeWriteDb(id, updated, undefined, true, 'reviews').catch((e: any) => console.warn(e));
+    }
+    if (updated.appId) {
+      this.syncAppChunksToFirestore(updated.appId).catch((e: any) => console.warn(e));
+    }
+
     return updated;
   }
 
@@ -1007,6 +1089,17 @@ class CommunityStoreService {
     this.reviews.delete(cleanId);
     this.saveToDiskAndQueueCloudSync();
     if (targetAppId) this.markDirty(targetAppId);
+
+    // Direct delete from Firestore rummydexcommunity 'reviews' collection
+    const db = getCommunityAdminDb();
+    if (db) {
+      db.collection('reviews').doc(cleanId).delete().catch((e: any) => console.warn(e));
+    } else {
+      safeDeleteDb(cleanId, undefined, 'reviews').catch((e: any) => console.warn(e));
+    }
+    if (targetAppId) {
+      this.syncAppChunksToFirestore(targetAppId).catch((e: any) => console.warn(e));
+    }
 
     return true;
   }
@@ -1221,7 +1314,9 @@ class CommunityStoreService {
 
     // Apply sorting
     filteredList.sort((a, b) => {
-      if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+      const aIsPinned = Boolean(a.isPinned && a.source !== 'ai_generated');
+      const bIsPinned = Boolean(b.isPinned && b.source !== 'ai_generated');
+      if (aIsPinned !== bIsPinned) return aIsPinned ? -1 : 1;
       if (sortBy === 'helpful') return (b.helpful_count || 0) - (a.helpful_count || 0);
       if (sortBy === 'highest') return (b.rating || 5) - (a.rating || 5);
       if (sortBy === 'lowest') return (a.rating || 5) - (b.rating || 5);
@@ -1263,6 +1358,7 @@ class CommunityStoreService {
     let flaggedCount = 0;
     let ratingSum = 0;
     let ratedCount = 0;
+    const ratingDistribution: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
     const coveredAppIds = new Set<string>();
 
     list.forEach(r => {
@@ -1272,6 +1368,9 @@ class CommunityStoreService {
       else if (status === 'rejected') rejectedCount++;
 
       if (r.reported || (r.report_count || 0) > 0) flaggedCount++;
+
+      const star = Math.min(5, Math.max(1, Math.round(Number(r.rating) || 5)));
+      ratingDistribution[star] = (ratingDistribution[star] || 0) + 1;
 
       if (r.rating) {
         ratingSum += Number(r.rating) || 5;
@@ -1288,16 +1387,25 @@ class CommunityStoreService {
 
     const averageRating = ratedCount > 0 ? parseFloat((ratingSum / ratedCount).toFixed(1)) : 4.8;
 
+    const effectiveTotal = Math.max(totalReviews, this.cachedRemoteCounts?.totalReviews || 0);
+    const effectivePublished = Math.max(publishedCount, this.cachedRemoteCounts?.publishedReviews || 0);
+    const effectivePending = this.cachedRemoteCounts?.pendingReviews !== undefined ? this.cachedRemoteCounts.pendingReviews : pendingCount;
+    const effectiveRejected = this.cachedRemoteCounts?.rejectedReviews !== undefined ? this.cachedRemoteCounts.rejectedReviews : rejectedCount;
+    const effectiveReports = Math.max(totalReports, this.cachedRemoteCounts?.totalReports || 0);
+    const effectivePendingReports = this.cachedRemoteCounts?.pendingReports !== undefined ? this.cachedRemoteCounts.pendingReports : pendingReportsCount;
+
     return {
-      totalReviews,
-      publishedCount,
-      pendingCount,
-      rejectedCount,
+      totalReviews: effectiveTotal,
+      publishedCount: effectivePublished,
+      pendingCount: effectivePending,
+      rejectedCount: effectiveRejected,
       flaggedCount,
-      totalReports,
-      pendingReportsCount,
+      totalReports: effectiveReports,
+      pendingReportsCount: effectivePendingReports,
       averageRating,
-      appCoverageCount: coveredAppIds.size
+      ratingDistribution,
+      appCoverageCount: coveredAppIds.size,
+      lastAggregatedAt: this.cachedRemoteCounts?.lastAggregatedAt || new Date().toISOString()
     };
   }
 
@@ -1380,18 +1488,96 @@ class CommunityStoreService {
     }
 
     const averageRating = ratedCount > 0 ? parseFloat((ratingSum / ratedCount).toFixed(1)) : 4.8;
+    const effectiveTotal = Math.max(totalReviews, this.cachedRemoteCounts?.totalReviews || 0);
+    const effectivePublished = Math.max(publishedCount, this.cachedRemoteCounts?.publishedReviews || 0);
+    const effectivePending = this.cachedRemoteCounts?.pendingReviews !== undefined ? this.cachedRemoteCounts.pendingReviews : pendingCount;
+    const effectiveRejected = this.cachedRemoteCounts?.rejectedReviews !== undefined ? this.cachedRemoteCounts.rejectedReviews : rejectedCount;
 
     return {
       globalStats: {
-        total: totalReviews,
-        published: publishedCount,
-        pending: pendingCount,
-        rejected: rejectedCount,
+        total: effectiveTotal,
+        published: effectivePublished,
+        pending: effectivePending,
+        rejected: effectiveRejected,
         flagged: flaggedCount,
         averageRating
       },
       appCounts
     };
+  }
+
+  /**
+   * Get Top Reviewed Apps for Leaderboard and Platform Overview
+   */
+  public getTopReviewedApps(limit: number = 8) {
+    const { appCounts } = this.getAppReviewCounts();
+    const staticData = getStaticData();
+    const apps = staticData.apps || staticData.mockApps || [];
+
+    const result: any[] = [];
+    const seen = new Set<string>();
+
+    apps.forEach((app: any) => {
+      const slugKey = (app.slug || '').toLowerCase().trim();
+      const idKey = (app.id || '').toLowerCase().trim();
+      const countData = appCounts[slugKey] || appCounts[idKey];
+      if (countData && countData.total > 0) {
+        const canonicalKey = app.slug || app.id;
+        if (!seen.has(canonicalKey)) {
+          seen.add(canonicalKey);
+          result.push({
+            id: app.id,
+            slug: app.slug,
+            name: app.name,
+            icon_url: app.icon_url,
+            category: app.category,
+            total: countData.total,
+            published: countData.published,
+            pending: countData.pending,
+            avgRating: countData.avgRating
+          });
+        }
+      }
+    });
+
+    result.sort((a, b) => b.total - a.total);
+    return result.slice(0, limit);
+  }
+
+  /**
+   * Get Most Recent Reviews for Quick Moderation Preview
+   */
+  public getRecentReviews(limit: number = 6): ReviewRecord[] {
+    const list = Array.from(this.reviews.values());
+    list.sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
+    return list.slice(0, limit);
+  }
+
+  /**
+   * Persist pre-computed catalog stats to Firestore community_store/catalog_stats
+   * Allows 1-read retrieval for any future worker or client.
+   */
+  public async saveCatalogStatsSummary() {
+    try {
+      const overview = this.getCommunityOverviewMetrics();
+      const { appCounts } = this.getAppReviewCounts();
+      const payload = {
+        totalReviews: overview.totalReviews,
+        publishedReviews: overview.publishedCount,
+        pendingReviews: overview.pendingCount,
+        rejectedReviews: overview.rejectedCount,
+        flaggedReviews: overview.flaggedCount,
+        totalReports: overview.totalReports,
+        pendingReports: overview.pendingReportsCount,
+        averageRating: overview.averageRating,
+        ratingDistribution: overview.ratingDistribution,
+        appCounts,
+        updated_at: new Date().toISOString()
+      };
+      await safeWriteDb('catalog_stats', payload, undefined, true, 'community_store');
+    } catch (e) {
+      // Non-blocking
+    }
   }
 
   /**

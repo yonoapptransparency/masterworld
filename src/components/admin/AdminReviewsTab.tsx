@@ -27,7 +27,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Layers,
-  Calculator
+  Calculator,
+  ArrowLeft,
+  Smartphone
 } from 'lucide-react';
 import { toast } from '../Toast';
 import { adminFetch } from '../../services/adminAuthService';
@@ -99,6 +101,9 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
   // App selector carousel filtering & sorting
   const [appFilterQuery, setAppFilterQuery] = useState('');
   const [appSortBy, setAppSortBy] = useState<'reviews' | 'name' | 'pending'>('reviews');
+
+  // Mobile Master-Detail navigation state (false = App Selector, true = Review Feed)
+  const [mobileDetailView, setMobileDetailView] = useState(false);
 
   // Modals
   const [editModalReview, setEditModalReview] = useState<Partial<ReviewData> | null>(null);
@@ -208,6 +213,17 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
       if (res?.globalStats) setGlobalDbStats(res.globalStats);
       if (res?.appCounts) setAppCountsMap(res.appCounts);
     }).catch(() => {});
+
+    // Listen for navigation events from overview dashboard
+    const handleSelectAppEvent = (e: any) => {
+      const targetId = e?.detail?.appId;
+      if (targetId) {
+        setSelectedAppId(targetId);
+        setMobileDetailView(true);
+      }
+    };
+    window.addEventListener('admin-select-app-reviews', handleSelectAppEvent);
+    return () => window.removeEventListener('admin-select-app-reviews', handleSelectAppEvent);
   }, []);
 
   // Handle clearing reviews for active app
@@ -536,6 +552,11 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
       if (res.ok) {
         const data = await res.json();
         toast(data.message || 'Rating stats updated!', 'success');
+        fetchAdminAppReviewCounts().then(res => {
+          if (res?.globalStats) setGlobalDbStats(res.globalStats);
+          if (res?.appCounts) setAppCountsMap(res.appCounts);
+        }).catch(() => {});
+        await fetchReviews(true);
       } else {
         toast('Failed to recalculate stats', 'error');
       }
@@ -699,17 +720,29 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
       </div>
 
       
-      <div className="flex flex-col lg:flex-row gap-6 items-start h-[calc(100vh-140px)] min-h-[800px]">
+      <div className="flex flex-col lg:flex-row gap-6 items-start w-full min-h-[600px]">
         {/* Left Sidebar: App Selector */}
-        <div className="w-full lg:w-[320px] shrink-0 flex flex-col gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm h-full overflow-hidden">
+        <div className={`w-full lg:w-[320px] shrink-0 flex flex-col gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm overflow-hidden max-h-[700px] ${
+          mobileDetailView ? 'hidden lg:flex' : 'flex'
+        }`}>
           <div className="p-5 border-b border-slate-100 dark:border-slate-800 shrink-0">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-2">
                 <Layers className="w-4 h-4 text-blue-600" /> Applications
               </h3>
-              <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-black px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-700">
-                {filteredAppsList.length}
-              </span>
+              <div className="flex items-center gap-2">
+                {/* Mobile direct button to open review feed */}
+                <button
+                  onClick={() => setMobileDetailView(true)}
+                  className="lg:hidden px-2.5 py-1 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800/60 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
+                  title="Open Reviews Feed"
+                >
+                  <MessageSquare className="w-3 h-3" /> View Reviews
+                </button>
+                <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-black px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-700">
+                  {filteredAppsList.length + 1}
+                </span>
+              </div>
             </div>
             
             <div className="space-y-3">
@@ -768,6 +801,41 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
           </div>
 
           <div className="flex-1 overflow-y-auto p-3 space-y-1.5 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
+            {/* All Applications Row */}
+            <button
+              onClick={() => {
+                setSelectedAppId('all');
+                setMobileDetailView(true);
+              }}
+              className={`w-full flex items-center gap-3 p-2.5 rounded-2xl border transition-all cursor-pointer text-left mb-1.5 ${
+                selectedAppId === 'all'
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-500/25 ring-2 ring-blue-500/30'
+                  : 'bg-transparent text-slate-700 dark:text-slate-300 border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:border-slate-200 dark:hover:border-slate-700'
+              }`}
+            >
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shrink-0 shadow-sm font-black text-xs">
+                ALL
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-black truncate leading-tight">All Applications</div>
+                <div className={`text-[10px] font-medium mt-1 flex items-center gap-1.5 ${
+                  selectedAppId === 'all' ? 'text-blue-100' : 'text-slate-500 dark:text-slate-400'
+                }`}>
+                  <span className={`font-bold ${selectedAppId === 'all' ? 'text-amber-200' : 'text-slate-600 dark:text-slate-300'}`}>
+                    {globalDbStats ? globalDbStats.total.toLocaleString() : reviews.length} revs
+                  </span>
+                  {globalDbStats && globalDbStats.pending > 0 && (
+                    <>
+                      <span className="opacity-50">•</span>
+                      <span className={`font-black ${selectedAppId === 'all' ? 'text-amber-200' : 'text-amber-600 dark:text-amber-400'}`}>
+                        {globalDbStats.pending} new
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+            </button>
+
             {filteredAppsList.map((app) => {
               const appStats = getAppStats(app);
               const isSelected = selectedAppId === (app.slug || app.id);
@@ -775,7 +843,10 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
               return (
                 <button
                   key={app.id || app.slug}
-                  onClick={() => setSelectedAppId(app.slug || app.id)}
+                  onClick={() => {
+                    setSelectedAppId(app.slug || app.id);
+                    setMobileDetailView(true);
+                  }}
                   className={`w-full flex items-center gap-3 p-2.5 rounded-2xl border transition-all cursor-pointer text-left ${
                     isSelected
                       ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-500/25 ring-2 ring-blue-500/30'
@@ -815,67 +886,107 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
         </div>
 
         {/* Right Content: Dedicated App Panel */}
-        <div className="flex-1 min-w-0 flex flex-col gap-6 overflow-y-auto h-full pr-2 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
-          {!selectedAppId || selectedAppId === 'all' ? (
-            <div className="flex flex-col items-center justify-center p-12 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm h-full min-h-[400px]">
-              <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mb-6 shadow-inner">
-                <Layers className="w-10 h-10 text-slate-300 dark:text-slate-600" />
-              </div>
-              <h2 className="text-2xl font-black text-slate-800 dark:text-slate-200 mb-2">Select an Application</h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400 text-center max-w-sm leading-relaxed">
-                Choose an application from the sidebar to view, moderate, and manage its community reviews and ratings.
-              </p>
-            </div>
-          ) : (
-            <>
-{/* Selected App Context Banner (App Spotlight) */}
-      {activeApp && selectedAppId !== 'all' && (
-        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/30 p-5 md:p-6 rounded-3xl text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-in fade-in duration-200">
-          <div className="flex items-center gap-4">
-            <img
-              src={activeApp.icon_url || 'https://via.placeholder.com/64'}
-              alt={activeApp.name}
-              className="w-14 h-14 md:w-16 md:h-16 rounded-2xl object-cover border-2 border-white/20 shadow-lg shrink-0 bg-slate-800"
-            />
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg md:text-xl font-black">{activeApp.name}</h2>
-                <span className="bg-indigo-500/20 text-indigo-300 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-indigo-400/30 uppercase tracking-wider">
-                  {activeApp.category || 'Card Game'}
-                </span>
-              </div>
-              <p className="text-xs text-indigo-200/80 font-medium mt-0.5">
-                Slug: <code className="bg-white/10 px-1.5 py-0.5 rounded text-amber-300">{selectedAppId}</code> •
-                Package: <code className="text-slate-300">{activeApp.package_name || 'N/A'}</code>
-              </p>
-              <div className="flex items-center gap-3 mt-1.5 text-xs text-indigo-200">
-                <span className="font-bold flex items-center gap-1 text-amber-400">
-                  <Star className="w-3.5 h-3.5 fill-current" /> {activeApp.rating || '4.8'} Avg
-                </span>
-                <span>•</span>
-                <span className="font-bold text-white">
-                  {reviews.length} Filtered Reviews
-                </span>
-              </div>
-            </div>
+        <div className={`flex-1 min-w-0 flex-col gap-6 w-full ${
+          mobileDetailView ? 'flex' : 'hidden lg:flex'
+        }`}>
+          {/* Mobile Back Button Bar */}
+          <div className="lg:hidden flex items-center justify-between p-3 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700">
+            <button
+              onClick={() => setMobileDetailView(false)}
+              className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-black text-slate-800 dark:text-white shadow-sm hover:bg-slate-50 active:scale-95 transition-all cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4 text-blue-600" />
+              Back to Apps List
+            </button>
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 truncate max-w-[150px]">
+              {selectedAppId === 'all' ? 'All Applications' : (activeApp?.name || selectedAppId)}
+            </span>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={() => setShowAIModal(true)}
-              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-md transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-300" /> Generate Reviews for App
-            </button>
-            <button
-              onClick={() => handleClearAppReviews(selectedAppId)}
-              className="px-3.5 py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-400/30 rounded-xl font-bold text-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
-            >
-              <Trash2 className="w-3.5 h-3.5" /> Clear App Reviews
-            </button>
-          </div>
-        </div>
-      )}
+          {/* Spotlight Banner */}
+          {selectedAppId === 'all' ? (
+            <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/30 p-5 md:p-6 rounded-3xl text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-in fade-in duration-200">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-indigo-600/30 border border-indigo-400/30 text-amber-300 flex items-center justify-center shrink-0 shadow-lg">
+                  <Layers className="w-8 h-8" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg md:text-xl font-black">All Applications Catalog View</h2>
+                    <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-emerald-400/30 uppercase tracking-wider">
+                      {appsList.length} Apps Tracked
+                    </span>
+                  </div>
+                  <p className="text-xs text-indigo-200/80 font-medium mt-0.5">
+                    Viewing global review database across all active card, rummy, and casino titles.
+                  </p>
+                  <div className="flex items-center gap-3 mt-1.5 text-xs text-indigo-200">
+                    <span className="font-bold flex items-center gap-1 text-amber-400">
+                      <Star className="w-3.5 h-3.5 fill-current" /> {globalDbStats ? globalDbStats.averageRating.toFixed(1) : stats.avg} Avg Rating
+                    </span>
+                    <span>•</span>
+                    <span className="font-bold text-white">
+                      {(globalDbStats ? globalDbStats.total : reviews.length).toLocaleString()} Total Community Reviews
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => setShowAIModal(true)}
+                  className="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xs shadow-md transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300" /> Launch AI Review Studio
+                </button>
+              </div>
+            </div>
+          ) : activeApp && (
+            <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/30 p-5 md:p-6 rounded-3xl text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-in fade-in duration-200">
+              <div className="flex items-center gap-4">
+                <img
+                  src={activeApp.icon_url || 'https://via.placeholder.com/64'}
+                  alt={activeApp.name}
+                  className="w-14 h-14 md:w-16 md:h-16 rounded-2xl object-cover border-2 border-white/20 shadow-lg shrink-0 bg-slate-800"
+                />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg md:text-xl font-black">{activeApp.name}</h2>
+                    <span className="bg-indigo-500/20 text-indigo-300 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-indigo-400/30 uppercase tracking-wider">
+                      {activeApp.category || 'Card Game'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-indigo-200/80 font-medium mt-0.5">
+                    Slug: <code className="bg-white/10 px-1.5 py-0.5 rounded text-amber-300">{selectedAppId}</code> •
+                    Package: <code className="text-slate-300">{activeApp.package_name || 'N/A'}</code>
+                  </p>
+                  <div className="flex items-center gap-3 mt-1.5 text-xs text-indigo-200">
+                    <span className="font-bold flex items-center gap-1 text-amber-400">
+                      <Star className="w-3.5 h-3.5 fill-current" /> {activeApp.rating || '4.8'} Avg
+                    </span>
+                    <span>•</span>
+                    <span className="font-bold text-white">
+                      {reviews.length} Filtered Reviews
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => setShowAIModal(true)}
+                  className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-md transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300" /> Generate Reviews for App
+                </button>
+                <button
+                  onClick={() => handleClearAppReviews(selectedAppId)}
+                  className="px-3.5 py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-400/30 rounded-xl font-bold text-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Clear App Reviews
+                </button>
+              </div>
+            </div>
+          )}
 
       {/* Interactive Quick Metrics Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -1574,11 +1685,9 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
       )}
 
     
-            </>
-          )}
         </div>
       </div>
-</div>
+    </div>
   );
 };
 

@@ -139,31 +139,40 @@ export function useGitHubSync(
       log("GitHub Sync Notice: Could not fetch live backup endpoint, using current memory.");
     }
 
-    const stateApps = overrideApps || apps;
+    const stateApps = (overrideApps && Array.isArray(overrideApps) && overrideApps.length > 0) ? overrideApps : apps;
     const stateSettings = overrideSettings || settings;
-    const stateNews = overrideNews || news;
-    const stateVideos = overrideVideos || videos;
+    const stateNews = (overrideNews && Array.isArray(overrideNews) && overrideNews.length > 0) ? overrideNews : news;
+    const stateVideos = (overrideVideos && Array.isArray(overrideVideos) && overrideVideos.length > 0) ? overrideVideos : videos;
 
-    // Comprehensive union of stateApps and liveBackup.apps to ensure all newly added apps are included
-    const appMap = new Map();
-    if (Array.isArray(stateApps)) {
-      stateApps.forEach((a: any) => { if (a && (a.id || a.slug)) appMap.set(a.id || a.slug, a); });
-    }
-    if (Array.isArray(liveBackup?.apps)) {
-      liveBackup.apps.forEach((a: any) => {
-        const key = a.id || a.slug;
-        if (key && !appMap.has(key)) {
-          appMap.set(key, a);
-        } else if (key && appMap.has(key)) {
-          appMap.set(key, { ...appMap.get(key), ...a });
+    // Admin state is the primary single source of truth
+    let targetApps: any[] = [];
+    if (Array.isArray(stateApps) && stateApps.length > 0) {
+      const backupMap = new Map();
+      if (Array.isArray(liveBackup?.apps)) {
+        liveBackup.apps.forEach((ba: any) => {
+          const key = ba.id || ba.slug;
+          if (key) backupMap.set(key, ba);
+        });
+      }
+      targetApps = stateApps.map((adminApp: any) => {
+        const key = adminApp.id || adminApp.slug;
+        const backupApp = backupMap.get(key);
+        if (backupApp) {
+          // Backup provides fallback for any missing metadata, but adminApp always has 100% precedence
+          return { ...backupApp, ...adminApp };
         }
+        return adminApp;
       });
+    } else if (Array.isArray(liveBackup?.apps) && liveBackup.apps.length > 0) {
+      targetApps = liveBackup.apps;
     }
-    const targetApps = appMap.size > 0 ? Array.from(appMap.values()) : (stateApps || liveBackup?.apps || []);
-    const targetSettings = (stateSettings && Object.keys(stateSettings).length > 0) ? stateSettings : (liveBackup?.settings || {});
-    const targetNews = stateNews || liveBackup?.news || [];
-    const targetVideos = stateVideos || liveBackup?.videos || [];
-      let targetReviews: any[] = [];
+    const targetSettings = {
+      ...(liveBackup?.settings || {}),
+      ...(stateSettings || {})
+    };
+    const targetNews = (Array.isArray(stateNews) && stateNews.length > 0) ? stateNews : (liveBackup?.news || []);
+    const targetVideos = (Array.isArray(stateVideos) && stateVideos.length > 0) ? stateVideos : (liveBackup?.videos || []);
+    let targetReviews: any[] = [];
 
     let finalApps = targetApps;
     if (targetApps.length > 0) {
@@ -240,19 +249,39 @@ export function useGitHubSync(
       return app;
     });
 
-    const backupJsonCode = JSON.stringify({
+    const consolidatedStaticPayload = {
       apps: safeBackupApps,
-      settings: finalSettings,
-      news: publicNews,
-      videos: targetVideos
-    }, null, 2);
-
-    const staticJsonCode = JSON.stringify({
       mockApps: safeBackupApps,
+      settings: finalSettings,
       mockSettings: finalSettings,
+      news: publicNews,
       mockNews: publicNews,
-      mockVideos: targetVideos
-    }, null, 2);
+      videos: targetVideos,
+      mockVideos: targetVideos,
+      reviews: []
+    };
+
+    const backupJsonCode = JSON.stringify(consolidatedStaticPayload, null, 2);
+    const staticJsonCode = JSON.stringify(consolidatedStaticPayload, null, 2);
+
+    try {
+      const idToken = await getAdminToken();
+      if (idToken) {
+        log("GitHub Sync: Synchronizing local static files and sitemaps...");
+        await adminFetch('/api/v1/admin/sync-local', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+          body: JSON.stringify({
+            apps: safeBackupApps,
+            settings: finalSettings,
+            news: publicNews,
+            videos: targetVideos
+          })
+        });
+      }
+    } catch (localSyncErr: any) {
+      log(`GitHub Sync Notice: Local files backup note: ${localSyncErr?.message || 'skipped'}`);
+    }
 
     let targetRepo = configToUse.repo || 'dex';
 

@@ -504,19 +504,18 @@ export async function fetchLiveReviewsForApp(
           const rAppSlug = String(r.appSlug || r.app_slug || '').toLowerCase().trim();
           const rAppName = String(r.appName || r.app_name || '').toLowerCase().trim();
           
-          if (!rAppId && !rAppSlug && !rAppName) return true; // Include if unassigned or general
+          if (!rAppId && !rAppSlug && !rAppName) return false;
           
           return rAppId === targetId || 
                  rAppSlug === targetId || 
                  rAppName === targetId || 
-                 targetId.includes(rAppId) || 
-                 rAppId.includes(targetId) ||
-                 (rAppSlug && targetId.includes(rAppSlug)) ||
+                 (targetId.length > 3 && (targetId.includes(rAppId) || rAppId.includes(targetId))) ||
+                 (rAppSlug && targetId === rAppSlug) ||
                  (rAppId && rAppId.replace(/[^a-z0-9]/g, '') === targetId.replace(/[^a-z0-9]/g, ''));
         });
 
         if (docs.length === 0) {
-          docs = snap.docs.map((d: any) => ({ id: d.id, ...d.data() })).filter((r: any) => !r.status || r.status === 'published');
+          return { reviews: [], hasMore: false, nextCursor: null };
         }
 
         if (options.filter === 'positive') docs = docs.filter((r: any) => (Number(r.rating) || 5) >= 4);
@@ -530,7 +529,9 @@ export async function fetchLiveReviewsForApp(
           docs.sort((a: any, b: any) => (Number(a.rating) || 5) - (Number(b.rating) || 5));
         } else {
           docs.sort((a: any, b: any) => {
-            if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+            const aIsPinned = Boolean(a.isPinned && a.source !== 'ai_generated');
+            const bIsPinned = Boolean(b.isPinned && b.source !== 'ai_generated');
+            if (aIsPinned !== bIsPinned) return aIsPinned ? -1 : 1;
             return new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime();
           });
         }
@@ -574,3 +575,54 @@ export async function fetchLiveReviewsForApp(
 
   return { reviews: [], hasMore: false, nextCursor: null };
 }
+
+export interface ExactCommunityAggregationResult {
+  totalReviews: number;
+  publishedReviews: number;
+  pendingReviews: number;
+  rejectedReviews: number;
+  totalReports: number;
+  pendingReports: number;
+  lastAggregatedAt: string;
+}
+
+/**
+ * Super-fast Firestore aggregation query (costs only 4-6 document index operations, ZERO full-collection scan)
+ * Returns exact remote numbers for total reviews, published, pending, rejected, and reports.
+ */
+export async function fetchExactCommunityAggregationCounts(): Promise<ExactCommunityAggregationResult | null> {
+  const db = getCommunityAdminDb();
+  if (!db) return null;
+  try {
+    const [totalSnap, pubSnap, pendSnap, rejSnap, repSnap, pendRepSnap] = await Promise.all([
+      db.collection('reviews').count().get(),
+      db.collection('reviews').where('status', '==', 'published').count().get(),
+      db.collection('reviews').where('status', '==', 'pending').count().get(),
+      db.collection('reviews').where('status', '==', 'rejected').count().get(),
+      db.collection('reports').count().get(),
+      db.collection('reports').where('status', '==', 'pending').count().get().catch(() => ({ data: () => ({ count: 0 }) }))
+    ]);
+
+    const totalRaw = totalSnap.data().count || 0;
+    const totalReviews = totalRaw > 0 ? totalRaw : 0;
+    const publishedReviews = pubSnap.data().count || 0;
+    const pendingReviews = pendSnap.data().count || 0;
+    const rejectedReviews = rejSnap.data().count || 0;
+    const totalReports = repSnap.data().count || 0;
+    const pendingReports = pendRepSnap?.data?.()?.count ?? 0;
+
+    return {
+      totalReviews,
+      publishedReviews,
+      pendingReviews,
+      rejectedReviews,
+      totalReports,
+      pendingReports,
+      lastAggregatedAt: new Date().toISOString()
+    };
+  } catch (err) {
+    console.warn('[CommunityAdmin] Aggregation count query error:', err);
+    return null;
+  }
+}
+

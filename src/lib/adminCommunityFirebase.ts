@@ -33,6 +33,18 @@ export interface AdminReviewItem {
   updated_at?: string;
 }
 
+export interface AdminCommunityTopApp {
+  id: string;
+  slug: string;
+  name: string;
+  icon_url?: string;
+  category?: string;
+  total: number;
+  published: number;
+  pending: number;
+  avgRating: number;
+}
+
 export interface AdminCommunityStats {
   totalReviews: number;
   publishedReviews: number;
@@ -42,19 +54,56 @@ export interface AdminCommunityStats {
   totalReports: number;
   pendingReports: number;
   averageRating: number;
+  ratingDistribution?: Record<number, number>;
+  appCoverageCount?: number;
   liveStatus: 'live' | 'checking' | 'error';
   statusMessage: string;
   projectId: string;
+  topApps?: AdminCommunityTopApp[];
+  recentReviews?: any[];
+  appCounts?: Record<string, { total: number; published: number; pending: number; rejected: number; flagged: number; avgRating: number }>;
 }
 
 /**
  * Fetch high-level community platform metrics for the Admin Overview Dashboard
+ * Calls /api/v1/admin/community/overview which combines fast in-memory data with exact remote Firestore COUNT() aggregation.
  */
-export async function fetchAdminCommunityOverviewStats(): Promise<AdminCommunityStats> {
+export async function fetchAdminCommunityOverviewStats(force: boolean = false): Promise<AdminCommunityStats> {
   try {
-    const res = await adminFetch('/api/v1/admin/community/health/ping');
+    const res = await adminFetch(`/api/v1/admin/community/overview${force ? '?force=true' : ''}`);
     if (res.ok) {
       const data = await res.json();
+      if (data.success && data.metrics) {
+        const m = data.metrics;
+        return {
+          totalReviews: m.totalReviews || 0,
+          publishedReviews: m.publishedCount || 0,
+          pendingReviews: m.pendingCount || 0,
+          rejectedReviews: m.rejectedCount || 0,
+          flaggedReviews: m.flaggedCount || 0,
+          totalReports: m.totalReports || 0,
+          pendingReports: m.pendingReportsCount || 0,
+          averageRating: m.averageRating || 4.8,
+          ratingDistribution: m.ratingDistribution,
+          appCoverageCount: m.appCoverageCount,
+          liveStatus: 'live',
+          statusMessage: `${data.projectId || 'rummydexcommunity'} Connected`,
+          projectId: data.projectId || 'rummydexcommunity',
+          topApps: data.topApps || [],
+          recentReviews: data.recentReviews || [],
+          appCounts: data.appCounts || {}
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('[AdminCommunity] Failed to fetch community overview, falling back to ping:', err);
+  }
+
+  // Fallback to ping endpoint if overview is temporarily unavailable
+  try {
+    const pingRes = await adminFetch('/api/v1/admin/community/health/ping');
+    if (pingRes.ok) {
+      const data = await pingRes.json();
       return {
         totalReviews: data.reviewsCount || 0,
         publishedReviews: data.publishedCount || Math.max(0, (data.reviewsCount || 0) - (data.pendingCount || 0)),
@@ -86,6 +135,22 @@ export async function fetchAdminCommunityOverviewStats(): Promise<AdminCommunity
     statusMessage: 'Unable to reach community backend service',
     projectId: 'rummydexcommunity'
   };
+}
+
+/**
+ * Trigger a server-side reload from disk backup and remote aggregation recount
+ */
+export async function reloadAdminCommunityBackup(): Promise<{ success: boolean; message: string }> {
+  try {
+    const res = await adminFetch('/api/v1/admin/community/reload-backup', { method: 'POST' });
+    if (res.ok) {
+      const data = await res.json();
+      return { success: true, message: data.message || 'Reloaded successfully' };
+    }
+    return { success: false, message: 'Server returned an error status' };
+  } catch (e: any) {
+    return { success: false, message: e.message || 'Network error' };
+  }
 }
 
 export interface AppReviewCountsData {

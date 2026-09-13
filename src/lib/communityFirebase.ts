@@ -162,7 +162,12 @@ export async function fetchLiveReviews(options: {
           if (Array.isArray(parsed)) {
             parsed.forEach(r => {
               if (r && r.id && !localReviewsMap.has(r.id)) {
-                localReviewsMap.set(r.id, r);
+                localReviewsMap.set(r.id, {
+                  ...r,
+                  username: r.username || r.userName || 'Player',
+                  comment: r.comment || r.reviewText || '',
+                  created_at: r.created_at || r.timestamp || new Date().toISOString()
+                });
               }
             });
           }
@@ -206,7 +211,7 @@ export async function fetchLiveReviews(options: {
     const path = `/api/v1/public/community/reviews/${encodeURIComponent(effectiveId)}?${queryParams.toString()}`;
     
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    const timeoutId = controller ? setTimeout(() => controller.abort(), 2500) : null;
+    const timeoutId = controller ? setTimeout(() => controller.abort(), 8000) : null;
 
     const res = await fetch(path, {
       method: 'GET',
@@ -222,8 +227,8 @@ export async function fetchLiveReviews(options: {
       if (data && Array.isArray(data.reviews)) {
         const enrichedReviews = attachLocalUserReviews(data.reviews);
         const result: ReviewFetchResult = {
-          reviews: enrichedReviews.slice(0, limit),
-          hasMore: Boolean(data.hasMore) || enrichedReviews.length > limit,
+          reviews: enrichedReviews,
+          hasMore: Boolean(data.hasMore),
           nextCursor: data.nextCursor || null,
           stats: data.stats || null
         };
@@ -307,7 +312,24 @@ export async function submitLiveReview(data: {
     if (res.ok) {
       const result = await res.json();
       if (result.success && result.review) {
-        newReview = result.review;
+        const raw = result.review;
+        newReview = {
+          id: raw.id,
+          app_id: raw.appId || raw.app_id || cleanAppId,
+          appId: raw.appId || raw.app_id || cleanAppId,
+          appSlug: raw.appSlug || cleanAppSlug,
+          appName: raw.appName || cleanAppName,
+          username: raw.userName || raw.username || cleanUserName,
+          rating: Number(raw.rating) || cleanRating,
+          comment: raw.reviewText || raw.comment || cleanComment,
+          created_at: raw.timestamp || raw.created_at || new Date().toISOString(),
+          helpful_count: Number(raw.helpful_count) || 0,
+          reported: false,
+          report_count: 0,
+          source: raw.source || 'community',
+          isPinned: false,
+          adminReply: raw.adminReply || null
+        };
       }
     } else {
       console.warn('[submitLiveReview] Backend API returned status:', res.status);

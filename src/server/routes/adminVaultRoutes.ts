@@ -758,27 +758,31 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
         // Disabled static fallback
       }
 
-      const backupPayload = {
+      const consolidatedPayload = {
         apps: safeBackupApps,
+        mockApps: safeBackupApps,
         settings: finalSettings,
+        mockSettings: finalSettings,
         news: finalNews,
+        mockNews: finalNews,
         videos: finalVideos,
-        reviews: [] // LIVE FIREBASE INTEGRATION: Reviews are no longer hardcoded into the static JSON payload.
+        mockVideos: finalVideos,
+        reviews: []
       };
-      fs.writeFileSync(publicBackupPath, JSON.stringify(backupPayload, null, 2), 'utf8');
+      fs.writeFileSync(publicBackupPath, JSON.stringify(consolidatedPayload, null, 2), 'utf8');
 
       const staticJsonPath = path.join(process.cwd(), 'src/lib/staticData.json');
-      const staticJsonPayload = {
-        mockApps: safeBackupApps,
-        mockSettings: finalSettings,
-        mockNews: finalNews,
-        mockVideos: finalVideos,
-        mockReviews: [], // LIVE FIREBASE INTEGRATION
-        reviews: [] // LIVE FIREBASE INTEGRATION
-      };
-      fs.writeFileSync(staticJsonPath, JSON.stringify(staticJsonPayload, null, 2), 'utf8');
+      fs.writeFileSync(staticJsonPath, JSON.stringify(consolidatedPayload, null, 2), 'utf8');
+
+      const publicApiJsonPath = path.join(process.cwd(), 'public-api/staticData.json');
+      try {
+        if (!fs.existsSync(path.dirname(publicApiJsonPath))) {
+          fs.mkdirSync(path.dirname(publicApiJsonPath), { recursive: true });
+        }
+        fs.writeFileSync(publicApiJsonPath, JSON.stringify(consolidatedPayload, null, 2), 'utf8');
+      } catch (apiErr) {}
       
-      const { generateStaticDataFileCode, generateCommunityReviewsFileCode } = require('../../lib/githubSync');
+      const { generateStaticDataFileCode } = require('../../lib/githubSync');
       const staticDataPath = path.join(process.cwd(), 'src/lib/staticData.ts');
       const tsCode = generateStaticDataFileCode(finalApps, finalSettings, finalNews, finalVideos);
       fs.writeFileSync(staticDataPath, tsCode, 'utf8');
@@ -795,7 +799,7 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
 
       // Regenerate all sitemaps in public and dist so search crawlers always see new apps
       try {
-        const sitemaps = generateAllSitemaps(backupPayload);
+        const sitemaps = generateAllSitemaps(consolidatedPayload);
         for (const [filename, content] of Object.entries(sitemaps)) {
           const publicSmPath = path.join(process.cwd(), 'public', filename);
           fs.writeFileSync(publicSmPath, content as string, 'utf8');

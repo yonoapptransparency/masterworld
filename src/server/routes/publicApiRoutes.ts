@@ -198,6 +198,22 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
       return res.json(backupDataCache);
     }
 
+    // 0. Try live fetchStoreData (Firestore live store)
+    try {
+      const storeData = await fetchStoreData();
+      if (storeData && storeData.apps && Array.isArray(storeData.apps) && storeData.apps.length > 0) {
+        const data = {
+          apps: sanitizeAppsForPublic(storeData.apps),
+          settings: storeData.settings || {},
+          news: storeData.news || [],
+          videos: storeData.videos || []
+        };
+        backupDataCache = data;
+        backupDataCacheTime = now;
+        return res.json(data);
+      }
+    } catch (fsErr) {}
+
     // 1. Fallback to public_backup.json if available
     const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
     if (fs.existsSync(publicBackupPath)) {
