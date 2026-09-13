@@ -118,5 +118,10 @@
         }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "api/**/*": {
+      "includeFiles": "src/lib/*.json"
+    }
+  }
 }
