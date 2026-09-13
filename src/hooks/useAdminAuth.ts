@@ -22,6 +22,7 @@ export const useAdminAuth = () => {
   useEffect(() => {
     const session = loadSession();
     if (!auth && !session) {
+      setIsAdminUser(false);
       setCheckingAuth(false);
       return;
     }
@@ -68,7 +69,7 @@ export const useAdminAuth = () => {
         setIsAdminUser(adminVerified);
         setCheckingAuth(false);
       } else {
-        setIsAdminUser(null);
+        setIsAdminUser(false);
         setCheckingAuth(false);
       }
     });

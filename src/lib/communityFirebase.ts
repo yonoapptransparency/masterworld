@@ -63,10 +63,103 @@ export interface ReviewFetchResult {
   stats?: {
     averageRating: number;
     totalReviews: number;
-    distribution: Record<number, number>;
-    starCounts: Record<string, number>;
-    counts: Record<number, number>;
+    distribution?: Record<number, number>;
+    starCounts?: Record<string, number>;
+    counts?: Record<number, number>;
   } | null;
+}
+
+// -------------------------------------------------------------
+// FIRESTORE REST DATA PARSERS & SERIALIZERS
+// -------------------------------------------------------------
+
+export function parseFirestoreFields(fields: Record<string, any>): Record<string, any> {
+  const result: Record<string, any> = {};
+  if (!fields || typeof fields !== 'object') return result;
+
+  for (const [key, valueObj] of Object.entries(fields)) {
+    if (!valueObj || typeof valueObj !== 'object') continue;
+
+    if ('stringValue' in valueObj) {
+      result[key] = valueObj.stringValue;
+    } else if ('integerValue' in valueObj) {
+      result[key] = parseInt(valueObj.integerValue, 10);
+    } else if ('doubleValue' in valueObj) {
+      result[key] = parseFloat(valueObj.doubleValue);
+    } else if ('booleanValue' in valueObj) {
+      result[key] = valueObj.booleanValue;
+    } else if ('nullValue' in valueObj) {
+      result[key] = null;
+    } else if ('timestampValue' in valueObj) {
+      result[key] = valueObj.timestampValue;
+    } else if ('arrayValue' in valueObj) {
+      const arr = valueObj.arrayValue?.values || [];
+      result[key] = arr.map((item: any) => {
+        if (!item || typeof item !== 'object') return item;
+        if ('stringValue' in item) return item.stringValue;
+        if ('integerValue' in item) return parseInt(item.integerValue, 10);
+        if ('doubleValue' in item) return parseFloat(item.doubleValue);
+        if ('booleanValue' in item) return item.booleanValue;
+        if ('mapValue' in item) return parseFirestoreFields(item.mapValue?.fields || {});
+        const parsed = parseFirestoreFields({ temp: item });
+        return parsed.temp;
+      });
+    } else if ('mapValue' in valueObj) {
+      result[key] = parseFirestoreFields(valueObj.mapValue?.fields || {});
+    }
+  }
+  return result;
+}
+
+export function convertToFirestoreFields(data: Record<string, any>): Record<string, any> {
+  const fields: Record<string, any> = {};
+  if (!data || typeof data !== 'object') return fields;
+
+  for (const [key, val] of Object.entries(data)) {
+    if (val === undefined) continue;
+    if (val === null) {
+      fields[key] = { nullValue: null };
+    } else if (typeof val === 'string') {
+      fields[key] = { stringValue: val };
+    } else if (typeof val === 'number') {
+      if (Number.isInteger(val)) {
+        fields[key] = { integerValue: val.toString() };
+      } else {
+        fields[key] = { doubleValue: val };
+      }
+    } else if (typeof val === 'boolean') {
+      fields[key] = { booleanValue: val };
+    } else if (Array.isArray(val)) {
+      fields[key] = {
+        arrayValue: {
+          values: val.map(item => {
+            if (item === null || item === undefined) return { nullValue: null };
+            if (typeof item === 'string') return { stringValue: item };
+            if (typeof item === 'number') return Number.isInteger(item) ? { integerValue: item.toString() } : { doubleValue: item };
+            if (typeof item === 'boolean') return { booleanValue: item };
+            if (typeof item === 'object') return { mapValue: { fields: convertToFirestoreFields(item) } };
+            return { stringValue: String(item) };
+          })
+        }
+      };
+    } else if (typeof val === 'object') {
+      fields[key] = {
+        mapValue: {
+          fields: convertToFirestoreFields(val)
+        }
+      };
+    }
+  }
+  return fields;
+}
+
+function getAppChunkDocId(appIdentifier: string, chunkIndex = 0): string {
+  const clean = String(appIdentifier || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9_-]/g, '_')
+    .slice(0, 80);
+  return `app_reviews_${clean}_${chunkIndex}`;
 }
 
 // Global In-Memory & LocalStorage SWR Cache for Instant 0ms Load
@@ -129,7 +222,8 @@ function setCachedLiveReviews(targetKey: string, result: ReviewFetchResult) {
 /**
  * LIVE Community Review Engine with Direct Firestore REST
  * 1. Checks memory/local cache first for 0ms immediate render.
- * 2. Fetches fresh live data directly from Firestore REST.
+ * 2. Attempts backend Express API if running.
+ * 3. Falls back seamlessly to Direct Firestore REST for 100% reliability on static hosts/Vercel.
  */
 export async function fetchLiveReviews(options: {
   appId: string;
@@ -211,7 +305,7 @@ export async function fetchLiveReviews(options: {
     const path = `/api/v1/public/community/reviews/${encodeURIComponent(effectiveId)}?${queryParams.toString()}`;
     
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    const timeoutId = controller ? setTimeout(() => controller.abort(), 8000) : null;
+    const timeoutId = controller ? setTimeout(() => controller.abort(), 6000) : null;
 
     const res = await fetch(path, {
       method: 'GET',
@@ -240,10 +334,199 @@ export async function fetchLiveReviews(options: {
       }
     }
   } catch (err) {
-    // Network or static environment: seamlessly proceed to direct Firestore REST
+    // Network or static environment: seamlessly proceed to Direct Firestore REST
   }
 
-  // 4. Fallback: Check for any locally saved user reviews in browser storage
+  // 2. Direct Firestore REST Fallback (Direct connection to rummydexcommunity project)
+  try {
+    const cfg = getResolvedCommunityFirebaseConfig();
+    const cleanId = (targetId || targetSlug).toLowerCase();
+    const candidateDocIds = [
+      getAppChunkDocId(cleanId, 0),
+      ...(targetSlug ? [getAppChunkDocId(targetSlug.toLowerCase(), 0)] : []),
+      ...(targetId ? [getAppChunkDocId(targetId.toLowerCase(), 0)] : [])
+    ];
+    const uniqueCandidateDocIds = Array.from(new Set(candidateDocIds));
+
+    let allLoadedReviews: PublicReview[] = [];
+    let loadedStats: any = null;
+
+    // 2A. Try reading the aggregated bucket document (community_store/app_reviews_${cleanId}_0)
+    for (const docId of uniqueCandidateDocIds) {
+      try {
+        const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${cfg.firestoreDatabaseId}/documents/community_store/${encodeURIComponent(docId)}?key=${encodeURIComponent(cfg.apiKey)}`;
+        const docRes = await fetch(url);
+        if (docRes.ok) {
+          const rawDoc = await docRes.json();
+          if (rawDoc && rawDoc.fields) {
+            const parsed = parseFirestoreFields(rawDoc.fields);
+            if (parsed && Array.isArray(parsed.reviews) && parsed.reviews.length > 0) {
+              allLoadedReviews = parsed.reviews.map((r: any) => ({
+                id: r.id || `rev_${Math.random().toString(36).slice(2)}`,
+                app_id: r.appId || r.app_id || cleanId,
+                appId: r.appId || cleanId,
+                appSlug: r.appSlug || targetSlug,
+                appName: r.appName || targetTitle,
+                username: r.userName || r.username || 'Player',
+                rating: Number(r.rating) || 5,
+                comment: r.reviewText || r.comment || '',
+                created_at: r.timestamp || r.created_at || new Date().toISOString(),
+                helpful_count: Number(r.helpful_count) || 0,
+                reported: Boolean(r.reported),
+                report_count: Number(r.report_count) || 0,
+                source: r.source || 'community',
+                isPinned: Boolean(r.isPinned),
+                adminReply: r.adminReply || null
+              }));
+              loadedStats = parsed.stats || null;
+              break;
+            }
+          }
+        }
+      } catch (docErr) {
+        // Try next candidate
+      }
+    }
+
+    // 2B. If no aggregated document, execute a structured query on the 'reviews' collection
+    if (allLoadedReviews.length === 0) {
+      try {
+        const queryUrl = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${cfg.firestoreDatabaseId}/documents:runQuery?key=${encodeURIComponent(cfg.apiKey)}`;
+        const queryBody = {
+          structuredQuery: {
+            from: [{ collectionId: "reviews" }],
+            where: {
+              compositeFilter: {
+                op: "AND",
+                filters: [
+                  {
+                    fieldFilter: {
+                      field: { fieldPath: "appId" },
+                      op: "EQUAL",
+                      value: { stringValue: targetId || targetSlug }
+                    }
+                  }
+                ]
+              }
+            },
+            limit: 50
+          }
+        };
+
+        const queryRes = await fetch(queryUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(queryBody)
+        });
+
+        if (queryRes.ok) {
+          const results = await queryRes.json();
+          if (Array.isArray(results)) {
+            results.forEach((item: any) => {
+              if (item && item.document && item.document.fields) {
+                const docFields = parseFirestoreFields(item.document.fields);
+                const docPathParts = (item.document.name || '').split('/');
+                const docId = docPathParts[docPathParts.length - 1] || docFields.id;
+                
+                if (docFields.status && docFields.status !== 'published' && docFields.status !== 'approved') return;
+
+                allLoadedReviews.push({
+                  id: docId || `rev_${Math.random().toString(36).slice(2)}`,
+                  app_id: docFields.appId || docFields.app_id || cleanId,
+                  appId: docFields.appId || cleanId,
+                  appSlug: docFields.appSlug || targetSlug,
+                  appName: docFields.appName || targetTitle,
+                  username: docFields.userName || docFields.username || 'Player',
+                  rating: Number(docFields.rating) || 5,
+                  comment: docFields.reviewText || docFields.comment || '',
+                  created_at: docFields.timestamp || docFields.created_at || new Date().toISOString(),
+                  helpful_count: Number(docFields.helpful_count) || 0,
+                  reported: Boolean(docFields.reported),
+                  report_count: Number(docFields.report_count) || 0,
+                  source: docFields.source || 'community',
+                  isPinned: Boolean(docFields.isPinned),
+                  adminReply: docFields.adminReply || null
+                });
+              }
+            });
+          }
+        }
+      } catch (queryErr) {
+        // Proceed with available reviews
+      }
+    }
+
+    if (allLoadedReviews.length > 0) {
+      // Calculate live stats if not pre-populated
+      if (!loadedStats) {
+        const starCounts: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
+        let sum = 0;
+        allLoadedReviews.forEach(r => {
+          const star = String(Math.max(1, Math.min(5, Math.round(r.rating || 5))));
+          starCounts[star] = (starCounts[star] || 0) + 1;
+          sum += (r.rating || 5);
+        });
+        const total = allLoadedReviews.length;
+        loadedStats = {
+          averageRating: total > 0 ? parseFloat((sum / total).toFixed(1)) : rating,
+          totalReviews: total,
+          starCounts,
+          distribution: {
+            5: total > 0 ? Math.round((starCounts['5'] / total) * 100) : 75,
+            4: total > 0 ? Math.round((starCounts['4'] / total) * 100) : 15,
+            3: total > 0 ? Math.round((starCounts['3'] / total) * 100) : 6,
+            2: total > 0 ? Math.round((starCounts['2'] / total) * 100) : 2,
+            1: total > 0 ? Math.round((starCounts['1'] / total) * 100) : 2,
+          }
+        };
+      }
+
+      // Apply filtering
+      let filtered = allLoadedReviews;
+      if (filter === 'positive') filtered = allLoadedReviews.filter(r => (r.rating || 5) >= 4);
+      if (filter === 'critical') filtered = allLoadedReviews.filter(r => (r.rating || 5) <= 3);
+
+      // Apply sorting
+      filtered.sort((a, b) => {
+        const aIsPinned = Boolean(a.isPinned && a.source !== 'ai_generated');
+        const bIsPinned = Boolean(b.isPinned && b.source !== 'ai_generated');
+        if (aIsPinned !== bIsPinned) return aIsPinned ? -1 : 1;
+        if (sortBy === 'helpful') return (b.helpful_count || 0) - (a.helpful_count || 0);
+        if (sortBy === 'highest') return (b.rating || 5) - (a.rating || 5);
+        if (sortBy === 'lowest') return (a.rating || 5) - (b.rating || 5);
+        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+      });
+
+      // Handle pagination
+      let startIndex = 0;
+      if (cursor) {
+        const idx = filtered.findIndex(r => r.id === cursor);
+        if (idx >= 0) startIndex = idx + 1;
+      }
+
+      const paged = filtered.slice(startIndex, startIndex + limit);
+      const hasMore = startIndex + limit < filtered.length;
+      const nextCursor = hasMore && paged.length > 0 ? paged[paged.length - 1].id : null;
+
+      const enrichedReviews = attachLocalUserReviews(paged);
+      const finalResult: ReviewFetchResult = {
+        reviews: enrichedReviews,
+        hasMore,
+        nextCursor,
+        stats: loadedStats
+      };
+
+      if (!cursor && filter === 'all' && sortBy === 'recent') {
+        targets.forEach(t => setCachedLiveReviews(t, finalResult));
+      }
+
+      return finalResult;
+    }
+  } catch (directFirestoreErr) {
+    console.warn('[Community Direct REST] Query notice:', directFirestoreErr);
+  }
+
+  // 3. Fallback: Check for any locally saved user reviews in browser storage
   if (typeof window !== 'undefined') {
     try {
       const localReviews: PublicReview[] = [];
@@ -291,9 +574,30 @@ export async function submitLiveReview(data: {
   const cleanRating = Math.max(1, Math.min(5, Math.round(Number(data.rating) || 5)));
   const cleanComment = String(data.reviewText || '').trim();
 
-  let newReview: PublicReview | undefined;
+  const generatedId = `rev_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const nowIso = new Date().toISOString();
 
-  // 1. Notify Backend Express API (syncs server memory cache & handles coalesced Firestore writing)
+  let newReview: PublicReview = {
+    id: generatedId,
+    app_id: cleanAppId,
+    appId: cleanAppId,
+    appSlug: cleanAppSlug,
+    appName: cleanAppName,
+    username: cleanUserName,
+    rating: cleanRating,
+    comment: cleanComment,
+    created_at: nowIso,
+    helpful_count: 0,
+    reported: false,
+    report_count: 0,
+    source: 'community',
+    isPinned: false,
+    adminReply: null
+  };
+
+  let backendSuccess = false;
+
+  // 1. Try Backend Express API if running
   try {
     const res = await fetch('/api/v1/public/community/reviews', {
       method: 'POST',
@@ -314,7 +618,7 @@ export async function submitLiveReview(data: {
       if (result.success && result.review) {
         const raw = result.review;
         newReview = {
-          id: raw.id,
+          id: raw.id || generatedId,
           app_id: raw.appId || raw.app_id || cleanAppId,
           appId: raw.appId || raw.app_id || cleanAppId,
           appSlug: raw.appSlug || cleanAppSlug,
@@ -322,7 +626,7 @@ export async function submitLiveReview(data: {
           username: raw.userName || raw.username || cleanUserName,
           rating: Number(raw.rating) || cleanRating,
           comment: raw.reviewText || raw.comment || cleanComment,
-          created_at: raw.timestamp || raw.created_at || new Date().toISOString(),
+          created_at: raw.timestamp || raw.created_at || nowIso,
           helpful_count: Number(raw.helpful_count) || 0,
           reported: false,
           report_count: 0,
@@ -330,21 +634,55 @@ export async function submitLiveReview(data: {
           isPinned: false,
           adminReply: raw.adminReply || null
         };
+        backendSuccess = true;
       }
-    } else {
-      console.warn('[submitLiveReview] Backend API returned status:', res.status);
-      return { success: false, error: 'Failed to submit review' };
     }
   } catch (err: any) {
-    console.error('[submitLiveReview] Backend API network error:', err);
-    return { success: false, error: err.message || 'Network error' };
+    // Proceed to Direct Firestore REST write
   }
 
-  if (!newReview) {
-    return { success: false, error: 'Failed to parse backend response' };
+  // 2. Direct Firestore REST Fallback: Write directly to rummydexcommunity 'reviews' collection
+  if (!backendSuccess) {
+    try {
+      const cfg = getResolvedCommunityFirebaseConfig();
+      const firestoreDocData = {
+        id: newReview.id,
+        appId: cleanAppId,
+        appSlug: cleanAppSlug,
+        appName: cleanAppName,
+        userName: cleanUserName,
+        rating: cleanRating,
+        reviewText: cleanComment,
+        timestamp: nowIso,
+        created_at: nowIso,
+        status: 'published',
+        helpful_count: 0,
+        isPinned: false,
+        reported: false,
+        report_count: 0,
+        source: 'community',
+        adminReply: null,
+        updated_at: nowIso
+      };
+
+      const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${cfg.firestoreDatabaseId}/documents/reviews/${encodeURIComponent(newReview.id)}?key=${encodeURIComponent(cfg.apiKey)}`;
+      const fields = convertToFirestoreFields(firestoreDocData);
+      
+      const firestoreRes = await fetch(url, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fields })
+      });
+
+      if (firestoreRes.ok) {
+        backendSuccess = true;
+      }
+    } catch (directWriteErr) {
+      console.warn('[Community Direct REST] Direct review write notice:', directWriteErr);
+    }
   }
 
-  // 2. Clear cache and save locally for instant 0ms persistence & UI reactivity
+  // 3. Clear cache and save locally for instant 0ms persistence & UI reactivity
   if (typeof window !== 'undefined') {
     try {
       invalidateReviewCache(cleanAppId, cleanAppSlug);
@@ -385,15 +723,46 @@ export async function voteLiveReviewHelpful(reviewId: string): Promise<boolean> 
     } catch (e) {}
   }
 
-  // 2. Notify Backend Express API for coalesced increment
+  let backendSuccess = false;
+
+  // 2. Notify Backend Express API if running
   try {
-    await fetch('/api/v1/public/community/reviews/helpful', {
+    const res = await fetch('/api/v1/public/community/reviews/helpful', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reviewId })
     });
+    if (res.ok) backendSuccess = true;
   } catch (e) {
-    console.warn('[voteLiveReviewHelpful] Backend API notice:', e);
+    // Proceed to Direct Firestore REST
+  }
+
+  // 3. Direct Firestore REST Fallback: increment helpful_count directly in rummydexcommunity
+  if (!backendSuccess) {
+    try {
+      const cfg = getResolvedCommunityFirebaseConfig();
+      const getUrl = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${cfg.firestoreDatabaseId}/documents/reviews/${encodeURIComponent(reviewId)}?key=${encodeURIComponent(cfg.apiKey)}`;
+      const getRes = await fetch(getUrl);
+      if (getRes.ok) {
+        const doc = await getRes.json();
+        const parsed = parseFirestoreFields(doc.fields || {});
+        const currentCount = Number(parsed.helpful_count) || 0;
+        const newCount = currentCount + 1;
+
+        const patchUrl = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${cfg.firestoreDatabaseId}/documents/reviews/${encodeURIComponent(reviewId)}?updateMask.fieldPaths=helpful_count&key=${encodeURIComponent(cfg.apiKey)}`;
+        await fetch(patchUrl, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fields: {
+              helpful_count: { integerValue: String(newCount) }
+            }
+          })
+        });
+      }
+    } catch (directHelpfulErr) {
+      console.warn('[Community Direct REST] Direct helpful vote notice:', directHelpfulErr);
+    }
   }
 
   return true;
@@ -418,9 +787,11 @@ export async function reportLiveReview(data: {
     } catch (e) {}
   }
 
-  // 1. Notify backend endpoints
+  let backendSuccess = false;
+
+  // 1. Notify backend endpoints if running
   try {
-    await fetch('/api/v1/public/community/reviews/report', {
+    const res = await fetch('/api/v1/public/community/reviews/report', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -430,8 +801,37 @@ export async function reportLiveReview(data: {
         details: data.details || ''
       })
     });
+    if (res.ok) backendSuccess = true;
   } catch (e) {
-    console.warn('[reportLiveReview] Backend API notice:', e);
+    // Proceed to Direct Firestore REST
+  }
+
+  // 2. Direct Firestore REST Fallback: Write directly to rummydexcommunity 'reports' collection
+  if (!backendSuccess) {
+    try {
+      const cfg = getResolvedCommunityFirebaseConfig();
+      const reportId = `rep_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const reportDocData = {
+        id: reportId,
+        type: 'review_flag',
+        reviewId: data.reviewId,
+        appId: data.appId || '',
+        reason: data.reason || 'User Flagged Review',
+        description: data.details || '',
+        status: 'pending',
+        created_at: new Date().toISOString()
+      };
+
+      const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${cfg.firestoreDatabaseId}/documents/reports/${encodeURIComponent(reportId)}?key=${encodeURIComponent(cfg.apiKey)}`;
+      const fields = convertToFirestoreFields(reportDocData);
+      await fetch(url, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fields })
+      });
+    } catch (directReportErr) {
+      console.warn('[Community Direct REST] Direct report notice:', directReportErr);
+    }
   }
 
   return true;
@@ -449,9 +849,11 @@ export async function submitLiveReport(data: {
   reporterEmail?: string;
   reporterName?: string;
 }): Promise<boolean> {
+  let backendSuccess = false;
+
   // 1. Notify backend admin reports pipeline
   try {
-    await fetch('/api/v1/public/reports', {
+    const res = await fetch('/api/v1/public/reports', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -465,8 +867,39 @@ export async function submitLiveReport(data: {
         turnstileToken: 'frontend_token_placeholder'
       })
     });
+    if (res.ok) backendSuccess = true;
   } catch (e) {
-    console.warn('[submitLiveReport] Backend API notice:', e);
+    // Proceed to Direct Firestore REST
+  }
+
+  // 2. Direct Firestore REST Fallback
+  if (!backendSuccess) {
+    try {
+      const cfg = getResolvedCommunityFirebaseConfig();
+      const reportId = `rep_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const reportDocData = {
+        id: reportId,
+        type: data.type || 'app_flag',
+        appId: data.appId,
+        appName: data.appName || '',
+        reason: data.reason,
+        description: data.description,
+        reporterEmail: data.reporterEmail || '',
+        reporterName: data.reporterName || '',
+        status: 'pending',
+        created_at: new Date().toISOString()
+      };
+
+      const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${cfg.firestoreDatabaseId}/documents/reports/${encodeURIComponent(reportId)}?key=${encodeURIComponent(cfg.apiKey)}`;
+      const fields = convertToFirestoreFields(reportDocData);
+      await fetch(url, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fields })
+      });
+    } catch (directReportErr) {
+      console.warn('[Community Direct REST] Direct app report notice:', directReportErr);
+    }
   }
 
   return true;

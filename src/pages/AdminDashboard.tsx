@@ -347,8 +347,15 @@ export default function AdminDashboard() {
   }), [settings, banners, categoriesList, quickLinksList, websiteFaqsList, developersList]);
 
   const currentBase = window.location.pathname.toLowerCase().startsWith('/masterworld') ? 'masterworld' : adminPath;
-  if (checkingAuth) return <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center"><RefreshCw className="animate-spin text-blue-600" /></div>;
-  if (!user || isAdminUser === false) return <Navigate to={`/${currentBase}/login`} replace />;
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-300">
+        <RefreshCw className="w-8 h-8 animate-spin text-blue-500 mb-3" />
+        <p className="text-xs font-semibold tracking-wider uppercase text-slate-400">Authenticating Access...</p>
+      </div>
+    );
+  }
+  if (!user || !isAdminUser) return <Navigate to={`/${currentBase}/login`} replace />;
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-blue-100 dark:selection:bg-blue-900/30">

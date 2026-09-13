@@ -94,6 +94,10 @@ export function loadSession(): AdminSession | null {
     if (!raw) return null;
     const parsed: AdminSession = JSON.parse(raw);
     if (!parsed.idToken) return null;
+    if (parsed.expiresAt && Date.now() >= parsed.expiresAt) {
+      clearSession();
+      return null;
+    }
     return parsed;
   } catch (_) {
     return null;
