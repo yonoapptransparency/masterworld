@@ -259,48 +259,34 @@ export function useGitHubSync(
     if (!configToUse.owner) throw new Error("Missing GitHub repository owner configuration.");
 
     try {
-      log(`GitHub Sync: Pushing all files to primary repo ${targetRepo}...`);
+      log(`GitHub Sync: Preparing release files for primary repository "${targetRepo}"...`);
       
-      const primaryCommits = [];
-      primaryCommits.push(commitFileToGitHub({
-        owner: configToUse.owner,
-        repo: targetRepo,
-        token: configToUse.token,
-        branch: configToUse.branch || 'main',
-        path: 'src/lib/staticData.ts',
-        content: updatedCode,
-        message: `Admin Release: Manual content synchronization to ${targetRepo}`
-      }).then(() => log(`GitHub Sync: ✅ staticData.ts successfully synced to ${targetRepo}.`)));
-
-      primaryCommits.push(commitFileToGitHub({
-        owner: configToUse.owner,
-        repo: targetRepo,
-        token: configToUse.token,
-        branch: configToUse.branch || 'main',
-        path: 'src/lib/public_backup.json',
-        content: backupJsonCode,
-        message: `Admin Release: Manual public_backup.json synchronization to ${targetRepo}`
-      }).then(() => log(`GitHub Sync: ✅ public_backup.json successfully synced to ${targetRepo}.`)));
-
-      primaryCommits.push(commitFileToGitHub({
-        owner: configToUse.owner,
-        repo: targetRepo,
-        token: configToUse.token,
-        branch: configToUse.branch || 'main',
-        path: 'src/lib/staticData.json',
-        content: staticJsonCode,
-        message: `Admin Release: Manual staticData.json synchronization to ${targetRepo}`
-      }).then(() => log(`GitHub Sync: ✅ staticData.json successfully synced to ${targetRepo}.`)));
-
-      primaryCommits.push(commitFileToGitHub({
-        owner: configToUse.owner,
-        repo: targetRepo,
-        token: configToUse.token,
-        branch: configToUse.branch || 'main',
-        path: 'public-api/staticData.json',
-        content: staticJsonCode,
-        message: `Admin Release: Manual public-api/staticData.json synchronization to ${targetRepo}`
-      }).then(() => log(`GitHub Sync: ✅ public-api/staticData.json successfully synced to ${targetRepo}.`)).catch(() => {}));
+      const primaryFiles: { path: string; content: string; message: string; name: string }[] = [
+        {
+          path: 'src/lib/staticData.ts',
+          content: updatedCode,
+          message: `Admin Release: Manual content synchronization to ${targetRepo}`,
+          name: 'staticData.ts'
+        },
+        {
+          path: 'src/lib/public_backup.json',
+          content: backupJsonCode,
+          message: `Admin Release: Manual public_backup.json synchronization to ${targetRepo}`,
+          name: 'public_backup.json'
+        },
+        {
+          path: 'src/lib/staticData.json',
+          content: staticJsonCode,
+          message: `Admin Release: Manual staticData.json synchronization to ${targetRepo}`,
+          name: 'staticData.json'
+        },
+        {
+          path: 'public-api/staticData.json',
+          content: staticJsonCode,
+          message: `Admin Release: Manual public-api/staticData.json synchronization to ${targetRepo}`,
+          name: 'public-api/staticData.json'
+        }
+      ];
 
       // Generate XML sitemaps for instant static hosting and search engine discoverability
       try {
@@ -311,70 +297,75 @@ export function useGitHubSync(
           videos: targetVideos
         });
         for (const [filename, xmlContent] of Object.entries(sitemaps)) {
-          primaryCommits.push(commitFileToGitHub({
-            owner: configToUse.owner,
-            repo: targetRepo,
-            token: configToUse.token,
-            branch: configToUse.branch || 'main',
+          primaryFiles.push({
             path: `public/${filename}`,
             content: xmlContent,
-            message: `Admin Release: Auto-generate ${filename} for ${publicApps.length} apps`
-          }).then(() => log(`GitHub Sync: ✅ public/${filename} updated with ${publicApps.length} live apps.`)).catch((err: any) => {
-            log(`GitHub Sync Notice: public/${filename} note: ${err?.message || 'skipped'}`);
-          }));
+            message: `Admin Release: Auto-generate ${filename} for ${publicApps.length} apps`,
+            name: `public/${filename}`
+          });
         }
 
         const robotsContent = `User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /admin/\nDisallow: /login/\nDisallow: /masterworld/\nSitemap: https://www.rummydex.com/sitemap.xml\n`;
-        primaryCommits.push(commitFileToGitHub({
-          owner: configToUse.owner,
-          repo: targetRepo,
-          token: configToUse.token,
-          branch: configToUse.branch || 'main',
+        primaryFiles.push({
           path: 'public/robots.txt',
           content: robotsContent,
-          message: 'Admin Release: Sync robots.txt with sitemap reference'
-        }).then(() => log('GitHub Sync: ✅ public/robots.txt synced.')).catch(() => {}));
+          message: 'Admin Release: Sync robots.txt with sitemap reference',
+          name: 'public/robots.txt'
+        });
       } catch (sitemapErr) {
         log(`GitHub Sync Warning: Could not auto-generate public XML sitemaps: ${(sitemapErr as any)?.message}`);
       }
 
-      await Promise.all(primaryCommits);
+      // Execute sequential commits to prevent GitHub branch HEAD ref race-condition conflicts
+      const totalFiles = primaryFiles.length;
+      for (let i = 0; i < totalFiles; i++) {
+        const file = primaryFiles[i];
+        log(`GitHub Sync (${i + 1}/${totalFiles}): Syncing ${file.name}...`);
+        try {
+          await commitFileToGitHub({
+            owner: configToUse.owner,
+            repo: targetRepo,
+            token: configToUse.token,
+            branch: configToUse.branch || 'main',
+            path: file.path,
+            content: file.content,
+            message: file.message
+          });
+          log(`GitHub Sync: ✅ ${file.name} successfully synced (${i + 1}/${totalFiles}).`);
+        } catch (fileErr: any) {
+          if (file.path.startsWith('public-api/') || file.path.startsWith('public/sitemap') || file.path.endsWith('.txt')) {
+            log(`GitHub Sync Notice: ${file.name} note: ${fileErr?.message || 'skipped'}`);
+          } else {
+            throw fileErr;
+          }
+        }
+      }
 
       if (targetRepo.toLowerCase() !== 'masterworld') {
         try {
-          const secondaryCommits = [];
-          
-          secondaryCommits.push(commitFileToGitHub({
-            owner: configToUse.owner,
-            repo: 'masterworld',
-            token: configToUse.token,
-            branch: configToUse.branch || 'main',
-            path: 'src/lib/staticData.ts',
-            content: updatedCode,
-            message: `Admin Release: Manual content synchronization to masterworld`
-          }).then(() => log(`GitHub Sync: ✅ staticData.ts secondary sync to masterworld complete.`)));
+          log("GitHub Sync: Performing secondary mirror synchronization to masterworld...");
+          const secondaryFiles = [
+            { path: 'src/lib/staticData.ts', content: updatedCode, name: 'staticData.ts' },
+            { path: 'src/lib/public_backup.json', content: backupJsonCode, name: 'public_backup.json' },
+            { path: 'src/lib/staticData.json', content: staticJsonCode, name: 'staticData.json' }
+          ];
 
-          secondaryCommits.push(commitFileToGitHub({
-            owner: configToUse.owner,
-            repo: 'masterworld',
-            token: configToUse.token,
-            branch: configToUse.branch || 'main',
-            path: 'src/lib/public_backup.json',
-            content: backupJsonCode,
-            message: `Admin Release: Manual public_backup.json synchronization to masterworld`
-          }).then(() => log(`GitHub Sync: ✅ public_backup.json secondary sync to masterworld complete.`)));
-
-          secondaryCommits.push(commitFileToGitHub({
-            owner: configToUse.owner,
-            repo: 'masterworld',
-            token: configToUse.token,
-            branch: configToUse.branch || 'main',
-            path: 'src/lib/staticData.json',
-            content: staticJsonCode,
-            message: `Admin Release: Manual staticData.json synchronization to masterworld`
-          }).then(() => log(`GitHub Sync: ✅ staticData.json secondary sync to masterworld complete.`)));
-
-          await Promise.all(secondaryCommits);
+          for (const sFile of secondaryFiles) {
+            try {
+              await commitFileToGitHub({
+                owner: configToUse.owner,
+                repo: 'masterworld',
+                token: configToUse.token,
+                branch: configToUse.branch || 'main',
+                path: sFile.path,
+                content: sFile.content,
+                message: `Admin Release: Manual ${sFile.name} synchronization to masterworld`
+              });
+              log(`GitHub Sync: ✅ ${sFile.name} secondary sync to masterworld complete.`);
+            } catch (secErr: any) {
+              log(`GitHub Sync Info: Secondary sync of ${sFile.name} to masterworld skipped.`);
+            }
+          }
         } catch (mwErr: any) {
           log(`GitHub Sync Info: Secondary sync to masterworld skipped (Token scoped specifically for '${targetRepo}'). Primary target '${targetRepo}' is fully synced and updated.`);
         }

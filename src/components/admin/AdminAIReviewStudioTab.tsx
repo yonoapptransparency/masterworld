@@ -1182,13 +1182,8 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
       });
 
       if (!res.ok) {
-        for (const rev of payload) {
-          await adminFetch('/api/v1/admin/community/reviews', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(rev)
-          });
-        }
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to bulk save reviews.');
       }
 
       toast(`✅ Successfully published all ${stagedReviews.length} reviews to the live community database!`, "success");

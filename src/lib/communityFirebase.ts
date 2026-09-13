@@ -127,333 +127,6 @@ function setCachedLiveReviews(targetKey: string, result: ReviewFetchResult) {
 }
 
 /**
- * Direct Client-Side Single-Query Firestore REST Engine
- * Connects directly to Google Cloud Firestore worldwide CDN edges.
- * Uses a single composite OR query to resolve all fields in one single network hop (< 250ms).
- */
-export async function fetchReviewsDirectFromFirestoreRest(
-  targets: string[], 
-  limitCount: number = 20, 
-  cursor?: string | null,
-  benchmarkRating: number = 4.8
-): Promise<ReviewFetchResult> {
-  try {
-    const cfg = resolvedConfig;
-    if (!cfg.projectId || !cfg.apiKey) return { reviews: [], hasMore: false, nextCursor: null };
-    
-    const cleanTargets = targets.filter(Boolean).map(t => String(t).trim()).filter(Boolean);
-    if (cleanTargets.length === 0) return { reviews: [], hasMore: false, nextCursor: null };
-
-    const dbId = cfg.firestoreDatabaseId || '(default)';
-    const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${dbId}/documents:runQuery?key=${encodeURIComponent(cfg.apiKey)}`;
-
-    // Build optimized OR filter across all target identifiers
-    const filters: any[] = [];
-    cleanTargets.forEach(t => {
-      filters.push({ fieldFilter: { field: { fieldPath: 'appId' }, op: 'EQUAL', value: { stringValue: t } } });
-      filters.push({ fieldFilter: { field: { fieldPath: 'app_id' }, op: 'EQUAL', value: { stringValue: t } } });
-      filters.push({ fieldFilter: { field: { fieldPath: 'appSlug' }, op: 'EQUAL', value: { stringValue: t } } });
-      filters.push({ fieldFilter: { field: { fieldPath: 'app_slug' }, op: 'EQUAL', value: { stringValue: t } } });
-      filters.push({ fieldFilter: { field: { fieldPath: 'appName' }, op: 'EQUAL', value: { stringValue: t } } });
-      filters.push({ fieldFilter: { field: { fieldPath: 'app_name' }, op: 'EQUAL', value: { stringValue: t } } });
-    });
-
-    const body: any = {
-      structuredQuery: {
-        from: [{ collectionId: 'reviews' }],
-        limit: Math.max(1, Math.min(limitCount || 500, 500))
-      }
-    };
-
-    // Firestore allows up to 30 filters in composite OR filter
-    const safeFilters = filters.slice(0, 30);
-
-    if (safeFilters.length === 1) {
-      body.structuredQuery.where = safeFilters[0];
-    } else if (safeFilters.length > 1) {
-      body.structuredQuery.where = {
-        compositeFilter: {
-          op: 'OR',
-          filters: safeFilters
-        }
-      };
-    }
-
-    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    const timeoutId = controller ? setTimeout(() => controller.abort(), 6000) : null;
-
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: controller?.signal
-    });
-
-    if (timeoutId) clearTimeout(timeoutId);
-
-    if (!res.ok) {
-      return { reviews: [], hasMore: false, nextCursor: null };
-    }
-
-    const data = await res.json();
-    if (!Array.isArray(data)) {
-      return { reviews: [], hasMore: false, nextCursor: null };
-    }
-
-    const combinedMap = new Map<string, PublicReview>();
-
-    for (const item of data) {
-      if (item && item.document && item.document.fields) {
-        const docId = item.document.name.split('/').pop() || '';
-        const f = item.document.fields;
-        const status = f.status?.stringValue || 'published';
-        if (status === 'rejected' || status === 'deleted') continue;
-
-        const revId = f.id?.stringValue || docId;
-        if (!combinedMap.has(revId)) {
-          combinedMap.set(revId, {
-            id: revId,
-            app_id: f.appId?.stringValue || f.app_id?.stringValue || cleanTargets[0],
-            appId: f.appId?.stringValue || f.app_id?.stringValue || cleanTargets[0],
-            appSlug: f.appSlug?.stringValue || f.app_slug?.stringValue,
-            appName: f.appName?.stringValue || f.app_name?.stringValue,
-            username: f.userName?.stringValue || f.username?.stringValue || 'Player',
-            rating: Number(f.rating?.integerValue || f.rating?.doubleValue || 5),
-            comment: f.reviewText?.stringValue || f.comment?.stringValue || '',
-            created_at: f.timestamp?.stringValue || f.created_at?.stringValue || new Date().toISOString(),
-            helpful_count: Number(f.helpful_count?.integerValue || f.helpful_count?.doubleValue || 0),
-            reported: Boolean(f.reported?.booleanValue),
-            report_count: Number(f.report_count?.integerValue || 0),
-            source: f.source?.stringValue || 'community',
-            isPinned: Boolean(f.isPinned?.booleanValue),
-            adminReply: f.adminReply?.mapValue?.fields ? {
-              text: f.adminReply.mapValue.fields.text?.stringValue || '',
-              author: f.adminReply.mapValue.fields.author?.stringValue || 'Admin',
-              timestamp: f.adminReply.mapValue.fields.timestamp?.stringValue || ''
-            } : null
-          });
-        }
-      }
-    }
-
-    const allReviews = Array.from(combinedMap.values());
-
-    // Sort: Pinned first, then newest created_at / timestamp
-    allReviews.sort((a, b) => {
-      if (a.isPinned && !b.isPinned) return -1;
-      if (!a.isPinned && b.isPinned) return 1;
-      const timeA = new Date(a.created_at || 0).getTime();
-      const timeB = new Date(b.created_at || 0).getTime();
-      return timeB - timeA;
-    });
-
-    // Compute live aggregate stats
-    const totalCount = allReviews.length;
-    let sumRating = 0;
-    const distribution: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-    const starCounts: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
-
-    allReviews.forEach(r => {
-      const star = Math.max(1, Math.min(5, Math.round(r.rating || 5)));
-      distribution[star] = (distribution[star] || 0) + 1;
-      starCounts[String(star)] = (starCounts[String(star)] || 0) + 1;
-      sumRating += (r.rating || 5);
-    });
-
-    const calculatedAvg = totalCount > 0 ? (sumRating / totalCount) : benchmarkRating;
-    const finalRating = Number(calculatedAvg.toFixed(1));
-
-    const stats = {
-      averageRating: finalRating,
-      totalReviews: totalCount,
-      distribution: {
-        5: totalCount > 0 ? Math.round((distribution[5] / totalCount) * 100) : 75,
-        4: totalCount > 0 ? Math.round((distribution[4] / totalCount) * 100) : 15,
-        3: totalCount > 0 ? Math.round((distribution[3] / totalCount) * 100) : 6,
-        2: totalCount > 0 ? Math.round((distribution[2] / totalCount) * 100) : 2,
-        1: totalCount > 0 ? Math.round((distribution[1] / totalCount) * 100) : 2,
-      },
-      starCounts,
-      counts: distribution
-    };
-
-    // Handle cursor pagination
-    let startIndex = 0;
-    if (cursor) {
-      const foundIdx = allReviews.findIndex(r => r.id === String(cursor));
-      if (foundIdx !== -1) {
-        startIndex = foundIdx + 1;
-      }
-    }
-
-    const paginatedReviews = allReviews.slice(startIndex, startIndex + limitCount);
-    const hasMore = startIndex + limitCount < allReviews.length;
-    const nextCursor = hasMore && paginatedReviews.length > 0 
-      ? paginatedReviews[paginatedReviews.length - 1].id 
-      : null;
-
-    const finalResult: ReviewFetchResult = {
-      reviews: paginatedReviews,
-      hasMore,
-      nextCursor,
-      stats
-    };
-
-    // Cache full result for each target identifier
-    targets.forEach(t => setCachedLiveReviews(t, finalResult));
-
-    return finalResult;
-  } catch (e) {
-    return { reviews: [], hasMore: false, nextCursor: null };
-  }
-}
-
-function decodeFirestoreValue(val: any): any {
-  if (!val || typeof val !== 'object') return val;
-  if ('stringValue' in val) return val.stringValue;
-  if ('integerValue' in val) return Number(val.integerValue);
-  if ('doubleValue' in val) return Number(val.doubleValue);
-  if ('booleanValue' in val) return Boolean(val.booleanValue);
-  if ('nullValue' in val) return null;
-  if ('timestampValue' in val) return val.timestampValue;
-  if ('arrayValue' in val) {
-    const arr = val.arrayValue?.values || [];
-    return arr.map(decodeFirestoreValue);
-  }
-  if ('mapValue' in val) {
-    const fields = val.mapValue?.fields || {};
-    const res: Record<string, any> = {};
-    for (const k of Object.keys(fields)) {
-      res[k] = decodeFirestoreValue(fields[k]);
-    }
-    return res;
-  }
-  return val;
-}
-
-function decodeFirestoreDoc(fields: Record<string, any>): Record<string, any> {
-  const result: Record<string, any> = {};
-  for (const k of Object.keys(fields || {})) {
-    result[k] = decodeFirestoreValue(fields[k]);
-  }
-  return result;
-}
-
-export function getAppChunkDocId(appIdentifier: string, chunkIndex = 0): string {
-  const clean = String(appIdentifier || '')
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9_-]/g, '_')
-    .slice(0, 80);
-  return `app_reviews_${clean}_${chunkIndex}`;
-}
-
-/**
- * Direct Client-Side App-Scoped Bucket Document Fetcher (EXACTLY 1 DOCUMENT READ!)
- * Queries community_store/app_reviews_${cleanAppId}_0 directly via Firestore REST.
- */
-export async function fetchReviewsFromAppBucketRest(
-  targets: string[],
-  limitCount: number = 20,
-  cursor?: string | null,
-  benchmarkRating: number = 4.8
-): Promise<ReviewFetchResult | null> {
-  try {
-    const cfg = resolvedConfig;
-    if (!cfg.projectId || !cfg.apiKey) return null;
-
-    const cleanTargets = targets.filter(Boolean).map(t => String(t).trim()).filter(Boolean);
-    if (cleanTargets.length === 0) return null;
-
-    const dbId = cfg.firestoreDatabaseId || '(default)';
-
-    const docCandidates: string[] = [];
-    cleanTargets.forEach(t => {
-      const docId = getAppChunkDocId(t, 0);
-      if (!docCandidates.includes(docId)) docCandidates.push(docId);
-    });
-
-    for (const docId of docCandidates) {
-      const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${dbId}/documents/community_store/${encodeURIComponent(docId)}?key=${encodeURIComponent(cfg.apiKey)}`;
-      
-      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-      const timeoutId = controller ? setTimeout(() => controller.abort(), 2500) : null;
-
-      try {
-        const res = await fetch(url, { signal: controller?.signal });
-        if (timeoutId) clearTimeout(timeoutId);
-        if (!res.ok) continue;
-
-        const doc = await res.json();
-        if (doc && doc.fields) {
-          const decoded = decodeFirestoreDoc(doc.fields);
-          const rawReviews: any[] = Array.isArray(decoded.reviews) ? decoded.reviews : [];
-
-          if (rawReviews.length > 0) {
-            const reviews: PublicReview[] = rawReviews.map(r => ({
-              id: String(r.id || `rev_${Math.random()}`),
-              app_id: r.appId || r.app_id || cleanTargets[0],
-              appId: r.appId || r.app_id || cleanTargets[0],
-              appSlug: r.appSlug || r.app_slug,
-              appName: r.appName || r.app_name,
-              username: r.userName || r.username || 'Player',
-              rating: Number(r.rating) || 5,
-              comment: r.reviewText || r.comment || '',
-              created_at: r.timestamp || r.created_at || new Date().toISOString(),
-              helpful_count: Number(r.helpful_count) || 0,
-              reported: Boolean(r.reported),
-              report_count: Number(r.report_count) || 0,
-              source: r.source || 'community',
-              isPinned: Boolean(r.isPinned),
-              adminReply: r.adminReply || null
-            }));
-
-            // Cursor pagination
-            let startIndex = 0;
-            if (cursor) {
-              const foundIdx = reviews.findIndex(r => r.id === String(cursor));
-              if (foundIdx !== -1) {
-                startIndex = foundIdx + 1;
-              }
-            }
-
-            const paginatedReviews = reviews.slice(startIndex, startIndex + limitCount);
-            const hasMore = startIndex + limitCount < reviews.length;
-            const nextCursor = hasMore && paginatedReviews.length > 0
-              ? paginatedReviews[paginatedReviews.length - 1].id
-              : null;
-
-            const stats = decoded.stats || {
-              averageRating: benchmarkRating,
-              totalReviews: reviews.length,
-              distribution: { 5: 75, 4: 15, 3: 6, 2: 2, 1: 2 },
-              starCounts: { '5': 0, '4': 0, '3': 0, '2': 0, '1': 0 },
-              counts: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 }
-            };
-
-            const result: ReviewFetchResult = {
-              reviews: paginatedReviews,
-              hasMore,
-              nextCursor,
-              stats
-            };
-
-            cleanTargets.forEach(t => setCachedLiveReviews(t, result));
-            return result;
-          }
-        }
-      } catch (err) {
-        if (timeoutId) clearTimeout(timeoutId);
-      }
-    }
-
-    return null;
-  } catch (e) {
-    return null;
-  }
-}
-
-/**
  * LIVE Community Review Engine with Direct Firestore REST
  * 1. Checks memory/local cache first for 0ms immediate render.
  * 2. Fetches fresh live data directly from Firestore REST.
@@ -546,7 +219,7 @@ export async function fetchLiveReviews(options: {
     const contentType = res.headers.get('content-type') || '';
     if (res.ok && contentType.includes('application/json')) {
       const data = await res.json();
-      if (data && Array.isArray(data.reviews) && data.reviews.length > 0) {
+      if (data && Array.isArray(data.reviews)) {
         const enrichedReviews = attachLocalUserReviews(data.reviews);
         const result: ReviewFetchResult = {
           reviews: enrichedReviews.slice(0, limit),
@@ -564,40 +237,6 @@ export async function fetchLiveReviews(options: {
   } catch (err) {
     // Network or static environment: seamlessly proceed to direct Firestore REST
   }
-
-  // 2. Fallback: Direct Firestore REST query to the app's single bucket doc in community_store
-  try {
-    const bucketResult = await fetchReviewsFromAppBucketRest(targets, limit, cursor, rating);
-    if (bucketResult && bucketResult.reviews.length > 0) {
-      const enrichedReviews = attachLocalUserReviews(bucketResult.reviews);
-      const result: ReviewFetchResult = {
-        ...bucketResult,
-        reviews: enrichedReviews.slice(0, limit),
-        hasMore: bucketResult.hasMore || enrichedReviews.length > limit
-      };
-      if (!cursor && filter === 'all' && sortBy === 'recent') {
-        targets.forEach(t => setCachedLiveReviews(t, result));
-      }
-      return result;
-    }
-  } catch (bucketErr) {}
-
-  // 3. Fallback: Direct query to Firestore 'reviews' collection via REST
-  try {
-    const directResult = await fetchReviewsDirectFromFirestoreRest(targets, limit, cursor, rating);
-    if (directResult && directResult.reviews.length > 0) {
-      const enrichedReviews = attachLocalUserReviews(directResult.reviews);
-      const result: ReviewFetchResult = {
-        ...directResult,
-        reviews: enrichedReviews.slice(0, limit),
-        hasMore: directResult.hasMore || enrichedReviews.length > limit
-      };
-      if (!cursor && filter === 'all' && sortBy === 'recent') {
-        targets.forEach(t => setCachedLiveReviews(t, result));
-      }
-      return result;
-    }
-  } catch (directErr) {}
 
   // 4. Fallback: Check for any locally saved user reviews in browser storage
   if (typeof window !== 'undefined') {
@@ -640,9 +279,6 @@ export async function submitLiveReview(data: {
   reviewText: string;
   turnstileToken?: string;
 }): Promise<{ success: boolean; review?: PublicReview; error?: string }> {
-  const generatedId = `rev_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-  const nowIso = new Date().toISOString();
-
   const cleanAppId = String(data.appId || '').trim();
   const cleanAppSlug = String(data.appSlug || '').trim();
   const cleanAppName = String(data.appName || '').trim();
@@ -650,70 +286,11 @@ export async function submitLiveReview(data: {
   const cleanRating = Math.max(1, Math.min(5, Math.round(Number(data.rating) || 5)));
   const cleanComment = String(data.reviewText || '').trim();
 
-  let newReview: PublicReview = {
-    id: generatedId,
-    app_id: cleanAppId,
-    appId: cleanAppId,
-    appSlug: cleanAppSlug,
-    appName: cleanAppName,
-    username: cleanUserName,
-    rating: cleanRating,
-    comment: cleanComment,
-    created_at: nowIso,
-    helpful_count: 0,
-    reported: false,
-    report_count: 0,
-    source: 'community',
-    isPinned: false,
-    adminReply: null
-  };
+  let newReview: PublicReview | undefined;
 
-  // 1. Direct write to live Firestore REST (Project: rummydexcommunity)
+  // 1. Notify Backend Express API (syncs server memory cache & handles coalesced Firestore writing)
   try {
-    const cfg = resolvedConfig;
-    if (cfg.projectId && cfg.apiKey) {
-      const dbId = cfg.firestoreDatabaseId || '(default)';
-      const firestoreUrl = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${dbId}/documents/reviews?documentId=${encodeURIComponent(generatedId)}&key=${encodeURIComponent(cfg.apiKey)}`;
-      
-      const firestoreDoc = {
-        fields: {
-          id: { stringValue: generatedId },
-          appId: { stringValue: cleanAppId },
-          app_id: { stringValue: cleanAppId },
-          appSlug: { stringValue: cleanAppSlug },
-          app_slug: { stringValue: cleanAppSlug },
-          appName: { stringValue: cleanAppName },
-          userName: { stringValue: cleanUserName },
-          rating: { integerValue: String(cleanRating) },
-          reviewText: { stringValue: cleanComment },
-          timestamp: { stringValue: nowIso },
-          helpful_count: { integerValue: "0" },
-          status: { stringValue: 'published' },
-          source: { stringValue: 'community' },
-          isPinned: { booleanValue: false },
-          reported: { booleanValue: false },
-          report_count: { integerValue: "0" }
-        }
-      };
-
-      const res = await fetch(firestoreUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(firestoreDoc)
-      });
-      if (res.ok) {
-        console.log('[submitLiveReview] Review persisted directly to Firestore REST:', generatedId);
-      } else {
-        console.warn('[submitLiveReview] Firestore REST notice status:', res.status);
-      }
-    }
-  } catch (err) {
-    console.warn('[submitLiveReview] Direct Firestore write network notice:', err);
-  }
-
-  // 2. Also notify Backend Express API if available (syncs server memory cache & admin dashboard)
-  try {
-    fetch('/api/v1/public/community/reviews', {
+    const res = await fetch('/api/v1/public/community/reviews', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -725,10 +302,27 @@ export async function submitLiveReview(data: {
         reviewText: cleanComment,
         turnstileToken: data.turnstileToken || 'frontend_token_placeholder'
       })
-    }).catch(() => {});
-  } catch (e) {}
+    });
+    
+    if (res.ok) {
+      const result = await res.json();
+      if (result.success && result.review) {
+        newReview = result.review;
+      }
+    } else {
+      console.warn('[submitLiveReview] Backend API returned status:', res.status);
+      return { success: false, error: 'Failed to submit review' };
+    }
+  } catch (err: any) {
+    console.error('[submitLiveReview] Backend API network error:', err);
+    return { success: false, error: err.message || 'Network error' };
+  }
 
-  // 3. Clear cache and save locally for instant 0ms persistence & UI reactivity
+  if (!newReview) {
+    return { success: false, error: 'Failed to parse backend response' };
+  }
+
+  // 2. Clear cache and save locally for instant 0ms persistence & UI reactivity
   if (typeof window !== 'undefined') {
     try {
       invalidateReviewCache(cleanAppId, cleanAppSlug);
@@ -741,7 +335,7 @@ export async function submitLiveReview(data: {
       storeKeys.forEach(key => {
         try {
           const existing = JSON.parse(localStorage.getItem(key) || '[]');
-          localStorage.setItem(key, JSON.stringify([newReview, ...existing.filter((r: any) => r.id !== newReview.id)]));
+          localStorage.setItem(key, JSON.stringify([newReview, ...existing.filter((r: any) => r.id !== newReview?.id)]));
         } catch (e) {}
       });
 
@@ -769,43 +363,16 @@ export async function voteLiveReviewHelpful(reviewId: string): Promise<boolean> 
     } catch (e) {}
   }
 
-  // 2. Direct atomic increment in live Firestore REST (Project: rummydexcommunity)
+  // 2. Notify Backend Express API for coalesced increment
   try {
-    const cfg = resolvedConfig;
-    if (cfg.projectId && cfg.apiKey) {
-      const dbId = cfg.firestoreDatabaseId || '(default)';
-      const commitUrl = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${dbId}/documents:commit?key=${encodeURIComponent(cfg.apiKey)}`;
-
-      fetch(commitUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          writes: [
-            {
-              transform: {
-                document: `projects/${cfg.projectId}/databases/${dbId}/documents/reviews/${reviewId}`,
-                fieldTransforms: [
-                  {
-                    fieldPath: 'helpful_count',
-                    increment: { integerValue: '1' }
-                  }
-                ]
-              }
-            }
-          ]
-        })
-      }).catch(err => console.warn('[voteLiveReviewHelpful] Firestore increment notice:', err));
-    }
-  } catch (e) {}
-
-  // 3. Also notify Backend Express API if present
-  try {
-    fetch('/api/v1/public/community/reviews/helpful', {
+    await fetch('/api/v1/public/community/reviews/helpful', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reviewId })
-    }).catch(() => {});
-  } catch (e) {}
+    });
+  } catch (e) {
+    console.warn('[voteLiveReviewHelpful] Backend API notice:', e);
+  }
 
   return true;
 }
@@ -829,36 +396,9 @@ export async function reportLiveReview(data: {
     } catch (e) {}
   }
 
-  // 1. Direct write to live Firestore reports collection
+  // 1. Notify backend endpoints
   try {
-    const cfg = resolvedConfig;
-    if (cfg.projectId && cfg.apiKey) {
-      const reportId = `rep_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-      const dbId = cfg.firestoreDatabaseId || '(default)';
-      const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${dbId}/documents/reports?documentId=${encodeURIComponent(reportId)}&key=${encodeURIComponent(cfg.apiKey)}`;
-      
-      fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fields: {
-            id: { stringValue: reportId },
-            type: { stringValue: 'review_flag' },
-            reviewId: { stringValue: data.reviewId },
-            appId: { stringValue: String(data.appId || '').trim() },
-            reason: { stringValue: data.reason || 'User Flagged Review' },
-            description: { stringValue: data.details || '' },
-            status: { stringValue: 'pending' },
-            created_at: { stringValue: new Date().toISOString() }
-          }
-        })
-      }).catch(() => {});
-    }
-  } catch (e) {}
-
-  // 2. Also notify backend endpoints if available
-  try {
-    fetch('/api/v1/public/community/reviews/report', {
+    await fetch('/api/v1/public/community/reviews/report', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -867,8 +407,10 @@ export async function reportLiveReview(data: {
         reason: data.reason || 'User Flagged Review',
         details: data.details || ''
       })
-    }).catch(() => {});
-  } catch (e) {}
+    });
+  } catch (e) {
+    console.warn('[reportLiveReview] Backend API notice:', e);
+  }
 
   return true;
 }
@@ -885,38 +427,9 @@ export async function submitLiveReport(data: {
   reporterEmail?: string;
   reporterName?: string;
 }): Promise<boolean> {
-  // 1. Direct write to live Firestore reports collection
+  // 1. Notify backend admin reports pipeline
   try {
-    const cfg = resolvedConfig;
-    if (cfg.projectId && cfg.apiKey) {
-      const reportId = `rep_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-      const dbId = cfg.firestoreDatabaseId || '(default)';
-      const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${dbId}/documents/reports?documentId=${encodeURIComponent(reportId)}&key=${encodeURIComponent(cfg.apiKey)}`;
-      
-      fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fields: {
-            id: { stringValue: reportId },
-            type: { stringValue: data.type || 'app_flag' },
-            appId: { stringValue: String(data.appId || '').trim() },
-            appName: { stringValue: String(data.appName || '').trim() },
-            reason: { stringValue: data.reason },
-            description: { stringValue: data.description },
-            reporterEmail: { stringValue: data.reporterEmail || '' },
-            reporterName: { stringValue: data.reporterName || '' },
-            status: { stringValue: 'pending' },
-            created_at: { stringValue: new Date().toISOString() }
-          }
-        })
-      }).catch(() => {});
-    }
-  } catch (e) {}
-
-  // 2. Also notify backend admin reports pipeline if available
-  try {
-    fetch('/api/v1/public/reports', {
+    await fetch('/api/v1/public/reports', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -929,8 +442,10 @@ export async function submitLiveReport(data: {
         reporterName: data.reporterName || '',
         turnstileToken: 'frontend_token_placeholder'
       })
-    }).catch(() => {});
-  } catch (e) {}
+    });
+  } catch (e) {
+    console.warn('[submitLiveReport] Backend API notice:', e);
+  }
 
   return true;
 }

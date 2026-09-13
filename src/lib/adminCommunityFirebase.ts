@@ -130,8 +130,9 @@ export async function fetchAdminReviewsList(params: {
   sortBy?: string;
   isPinned?: boolean | string;
   limit?: number;
+  page?: number;
   refresh?: boolean;
-}): Promise<AdminReviewsListResponse> {
+}): Promise<AdminReviewsListResponse & { page?: number; totalPages?: number; total?: number }> {
   const query = new URLSearchParams();
   if (params.appId && params.appId !== 'all') query.set('appId', params.appId);
   if (params.status && params.status !== 'all') query.set('status', params.status);
@@ -140,6 +141,7 @@ export async function fetchAdminReviewsList(params: {
   if (params.sortBy) query.set('sortBy', params.sortBy);
   if (params.isPinned !== undefined) query.set('isPinned', String(params.isPinned));
   if (params.limit) query.set('limit', String(params.limit));
+  if (params.page) query.set('page', String(params.page));
   if (params.refresh) query.set('refresh', 'true');
 
   const res = await adminFetch(`/api/v1/admin/community/reviews?${query.toString()}`);
@@ -150,7 +152,10 @@ export async function fetchAdminReviewsList(params: {
   const data = await res.json();
   return {
     reviews: data.reviews || [],
-    totalCount: data.totalCount || (data.reviews ? data.reviews.length : 0),
+    totalCount: data.total || data.totalCount || (data.reviews ? data.reviews.length : 0),
+    total: data.total || data.totalCount || 0,
+    page: data.page || 1,
+    totalPages: data.totalPages || 1,
     stats: data.stats,
     globalStats: data.globalStats,
     appCounts: data.appCounts

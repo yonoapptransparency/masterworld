@@ -302,8 +302,19 @@ class CommunityStoreService {
     // No-op: AI Studio does not push static reviews
   }
 
-  // Save in-memory cache to disk and queue Firestore cloud write
+  private diskSyncTimer: NodeJS.Timeout | null = null;
+
+  // Save in-memory cache to disk (Coalesced and Async)
   private saveToDiskAndQueueCloudSync() {
+    if (!this.diskSyncTimer) {
+      this.diskSyncTimer = setTimeout(() => {
+        this.diskSyncTimer = null;
+        this.executeDiskSync();
+      }, 2000); // 2-second debounce
+    }
+  }
+
+  private executeDiskSync() {
     try {
       let existingData: any = {};
       if (fs.existsSync(this.localBackupPath)) {
@@ -323,10 +334,18 @@ class CommunityStoreService {
       };
       
       const tempPath = this.localBackupPath + '.tmp';
-      fs.writeFileSync(tempPath, JSON.stringify(data, null, 2), 'utf8');
-      fs.renameSync(tempPath, this.localBackupPath);
+      // Async write to prevent freezing the Express event loop
+      fs.writeFile(tempPath, JSON.stringify(data, null, 2), 'utf8', (err) => {
+        if (err) {
+          console.warn('[CommunityStore] Async local backup write error:', err);
+          return;
+        }
+        fs.rename(tempPath, this.localBackupPath, (renameErr) => {
+          if (renameErr) console.warn('[CommunityStore] Async local backup rename error:', renameErr);
+        });
+      });
     } catch (e) {
-      console.warn('[CommunityStore] Local backup write error:', e);
+      console.warn('[CommunityStore] Local backup execution error:', e);
     }
   }
 
@@ -692,9 +711,39 @@ class CommunityStoreService {
     return { totalApps, totalChunks };
   }
 
+  private dirtyAppIds = new Set<string>();
+
   public queueAppChunkSync(appIdentifier: string) {
-    // Disabled to prevent memory-cache partial overwrites.
-    // We now rely on live Firestore queries for public review loading.
+    this.markDirty(appIdentifier);
+  }
+
+  public markDirty(appId: string) {
+    const cleanId = String(appId).trim();
+    if (!cleanId) return;
+    this.dirtyAppIds.add(cleanId);
+    
+    if (!this.syncTimer) {
+      this.syncTimer = setTimeout(() => this.flushDirtyApps(), 30000); // 30 seconds
+    }
+  }
+
+  private async flushDirtyApps() {
+    if (this.dirtyAppIds.size === 0) return;
+    const appsToSync = Array.from(this.dirtyAppIds);
+    this.dirtyAppIds.clear();
+    this.syncTimer = null;
+    
+    console.log(`[CommunityStore] Coalesced background sync starting for ${appsToSync.length} apps...`);
+    let count = 0;
+    for (const appId of appsToSync) {
+      try {
+        await this.syncAppChunksToFirestore(appId);
+        count++;
+      } catch (err: any) {
+        console.warn(`[CommunityStore] Background sync failed for ${appId}:`, err?.message || err);
+      }
+    }
+    console.log(`[CommunityStore] Coalesced background sync finished. (${count} apps synced)`);
   }
 
   private async safeWriteChunkDoc(docId: string, data: any): Promise<boolean> {
@@ -753,28 +802,14 @@ class CommunityStoreService {
     // Save to active in-memory store and local disk immediately
     this.reviews.set(id, newRev);
     this.saveToDiskAndQueueCloudSync();
-    this.queueAppChunkSync(targetAppId);
-
-    // Concurrently write to live Firestore
-    const db = getCommunityAdminDb();
-    try {
-      if (db) {
-        await db.collection('reviews').doc(id).set(newRev);
-      } else {
-        await safeWriteDb(id, newRev, undefined, true, 'reviews');
-      }
-    } catch (e: any) {
-      if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000;
-      console.warn("[CommunityStore] Live addReview cloud sync notice:", e?.message || e);
-    }
+    this.markDirty(targetAppId);
 
     return newRev;
   }
 
   public async addMultipleReviews(reviewsList: (Partial<ReviewRecord> & Record<string, any>)[]): Promise<ReviewRecord[]> {
-    const db = getCommunityAdminDb();
     const added: ReviewRecord[] = [];
-    const promises: Promise<any>[] = [];
+    const affectedApps = new Set<string>();
 
     for (const payload of reviewsList) {
       const rawAppId = String(payload.appId || payload.app_id || '').trim();
@@ -807,30 +842,19 @@ class CommunityStoreService {
 
       added.push(newRev);
       this.reviews.set(newRev.id, newRev);
-
-      if (db) {
-        promises.push(db.collection('reviews').doc(id).set(newRev).catch((e: any) => console.warn('Cloud review doc write warning:', e?.message || e)));
-      } else {
-        promises.push(safeWriteDb(id, newRev, undefined, true, 'reviews').catch((e: any) => console.warn('REST review doc write warning:', e?.message || e)));
+      
+      if (targetAppId) {
+        affectedApps.add(targetAppId);
       }
     }
 
+    // 1. Immediately persist to local disk snapshot
     this.saveToDiskAndQueueCloudSync();
 
-    // Synchronize bucket documents for all affected apps
-    const affectedApps = new Set<string>();
-    added.forEach(r => {
-      if (r.appId) affectedApps.add(r.appId);
-      if (r.appSlug) affectedApps.add(r.appSlug);
+    // 2. Mark apps as dirty to trigger coalesced head-bucket sync in background (Zero-Quota strategy)
+    affectedApps.forEach(appId => {
+      this.markDirty(appId);
     });
-    affectedApps.forEach(appId => this.queueAppChunkSync(appId));
-
-    try {
-      await Promise.all(promises);
-    } catch (e: any) {
-      if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000;
-      console.warn("[CommunityStore] Live addMultipleReviews background sync notice:", e?.message || e);
-    }
 
     return added;
   }
@@ -858,15 +882,8 @@ class CommunityStoreService {
       rev.updated_at = new Date().toISOString();
     }
 
-    const db = getCommunityAdminDb();
-    if (db) {
-      db.collection('reviews').doc(reviewId).set({ helpful_count: rev.helpful_count }, { merge: true }).catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
-    } else {
-      safeWriteDb(reviewId, { helpful_count: rev.helpful_count }, undefined, true, 'reviews').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
-    }
-
     this.saveToDiskAndQueueCloudSync();
-    if (rev.appId) this.queueAppChunkSync(rev.appId);
+    if (rev.appId) this.markDirty(rev.appId);
     return rev.helpful_count;
   }
 
@@ -898,19 +915,13 @@ class CommunityStoreService {
 
     const db = getCommunityAdminDb();
     if (db) {
-      if (rev) {
-        db.collection('reviews').doc(reviewId).set({ reported: true, report_count: rev.report_count }, { merge: true }).catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
-      }
       db.collection('reports').doc(reportId).set(newReport).catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
     } else {
-      if (rev) {
-        safeWriteDb(reviewId, { reported: true, report_count: rev.report_count }, undefined, true, 'reviews').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
-      }
       safeWriteDb(reportId, newReport, undefined, true, 'reports').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
     }
 
     this.saveToDiskAndQueueCloudSync();
-    if (rev?.appId || appId) this.queueAppChunkSync(rev?.appId || appId!);
+    if (rev?.appId || appId) this.markDirty(rev?.appId || appId!);
     return true;
   }
 
@@ -968,19 +979,7 @@ class CommunityStoreService {
     // Save to in-memory store and local disk immediately
     this.reviews.set(id, updated);
     this.saveToDiskAndQueueCloudSync();
-    if (updated.appId) this.queueAppChunkSync(updated.appId);
-
-    const db = getCommunityAdminDb();
-    try {
-      if (db) {
-        await db.collection('reviews').doc(id).set(updated, { merge: true });
-      } else {
-        await safeWriteDb(id, updated, undefined, true, 'reviews');
-      }
-    } catch (e: any) {
-      if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000;
-      console.warn("[CommunityStore] Live updateReview cloud sync notice:", e?.message || e);
-    }
+    if (updated.appId) this.markDirty(updated.appId);
 
     return updated;
   }
@@ -1007,19 +1006,7 @@ class CommunityStoreService {
     this.deletedReviewIds.add(cleanId);
     this.reviews.delete(cleanId);
     this.saveToDiskAndQueueCloudSync();
-    if (targetAppId) this.queueAppChunkSync(targetAppId);
-
-    const db = getCommunityAdminDb();
-    try {
-      if (db) {
-        await db.collection('reviews').doc(cleanId).delete();
-      } else {
-        await safeDeleteDb(cleanId, undefined, 'reviews');
-      }
-    } catch (e: any) {
-      if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000;
-      console.warn("[CommunityStore] Live deleteReview cloud sync notice:", e?.message || e);
-    }
+    if (targetAppId) this.markDirty(targetAppId);
 
     return true;
   }
@@ -1027,7 +1014,6 @@ class CommunityStoreService {
   public async deleteReviewsForApp(appIdentifier: string): Promise<number> {
     const aliasKeys = this.getAliasKeysForApp(appIdentifier);
     let count = 0;
-    const db = getCommunityAdminDb();
     const cleanTarget = String(appIdentifier || '').toLowerCase().trim();
 
     for (const [id, rev] of Array.from(this.reviews.entries())) {
@@ -1039,16 +1025,11 @@ class CommunityStoreService {
         this.deletedReviewIds.add(id);
         this.reviews.delete(id);
         count++;
-        if (db) {
-          db.collection('reviews').doc(id).delete().catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
-        } else {
-          safeDeleteDb(id, undefined, 'reviews').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
-        }
       }
     }
 
     this.saveToDiskAndQueueCloudSync();
-    this.syncAppChunksToFirestore(appIdentifier).catch(() => {});
+    this.markDirty(cleanTarget);
     return count;
   }
 
@@ -1208,100 +1189,67 @@ class CommunityStoreService {
     const rawId = String(appIdentifier || '').toLowerCase().trim();
     const matchedApp = findAppInCatalog(rawId) || (appSlug ? findAppInCatalog(appSlug) : null);
     const cleanId = matchedApp ? String(matchedApp.id).toLowerCase().trim() : rawId;
-    
-    // 1. Fetch exactly `limitCount` reviews using the optimized live query function
-    let result: any = null;
-    if (Date.now() >= this.quotaExhaustedUntil) {
-      result = await fetchLiveReviewsForApp(cleanId, {
-        limit: limitCount,
-        cursor: cursor,
-        filter: filter,
-        sortBy: sortBy
-      });
-    }
+    const aliasKeys = this.getAliasKeysForApp(cleanId, appTitle, appSlug || matchedApp?.slug);
 
-    // FALLBACK TO MEMORY CACHE IF FIRESTORE IS EMPTY OR QUOTA EXCEEDED
-    if (!result || !result.reviews || result.reviews.length === 0) {
-      console.warn(`[CommunityStore] Live query returned empty for ${cleanId}, falling back to in-memory cache.`);
-      const aliasKeys = this.getAliasKeysForApp(cleanId, appTitle, appSlug);
+    // Pre-load from Firestore into memory if not already present
+    await this.loadSingleAppChunkFromFirestore(cleanId, appTitle, appSlug);
 
-      let memList = Array.from(this.reviews.values()).filter(r => {
-        if (r.status && r.status !== 'published') return false;
-        const rAppId = String(r.appId || '').toLowerCase().trim();
-        const rAppSlug = String(r.appSlug || '').toLowerCase().trim();
-        const rAppName = String(r.appName || '').toLowerCase().trim();
-        return aliasKeys.has(rAppId) || (rAppSlug && aliasKeys.has(rAppSlug)) || (rAppName && aliasKeys.has(rAppName));
-      });
-      
-      if (filter === 'positive') memList = memList.filter(r => (r.rating || 5) >= 4);
-      if (filter === 'critical') memList = memList.filter(r => (r.rating || 5) <= 3);
-      
-      memList.sort((a, b) => {
-        if (sortBy === 'helpful') return (b.helpful_count || 0) - (a.helpful_count || 0);
-        if (sortBy === 'highest') return (b.rating || 5) - (a.rating || 5);
-        if (sortBy === 'lowest') return (a.rating || 5) - (b.rating || 5);
-        return new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime();
-      });
-      
-      result = {
-        reviews: memList.slice(0, limitCount),
-        hasMore: memList.length > limitCount,
-        nextCursor: null
-      };
-    }
+    // Tier 1: Instant In-Memory Filter & Resolver (0ms latency, zero quota consumption)
+    let memList = Array.from(this.reviews.values()).filter(r => {
+      if (r.status && r.status !== 'published') return false;
+      const rAppId = String(r.appId || '').toLowerCase().trim();
+      const rAppSlug = String(r.appSlug || '').toLowerCase().trim();
+      const rAppName = String(r.appName || '').toLowerCase().trim();
+      return aliasKeys.has(rAppId) || (rAppSlug && aliasKeys.has(rAppSlug)) || (rAppName && aliasKeys.has(rAppName));
+    });
 
-    // 2. Fetch or compute real live stats using a single count() read when possible
-    let totalReviews = result.reviews.length;
-    let avgRating = overallRating;
+    // Compute live stats from all published reviews of this app
+    const totalAppReviews = memList.length;
+    let appRatingSum = 0;
     const starCounts: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
+    memList.forEach(r => {
+      const star = Math.min(5, Math.max(1, Math.round(Number(r.rating) || 5)));
+      starCounts[String(star)] = (starCounts[String(star)] || 0) + 1;
+      appRatingSum += Number(r.rating) || 5;
+    });
+    const avgRating = totalAppReviews > 0 ? parseFloat((appRatingSum / totalAppReviews).toFixed(1)) : overallRating;
 
-    try {
-      const db = getCommunityAdminDb();
-      if (db && Date.now() >= this.quotaExhaustedUntil) {
-        // Attempt to get the fast aggregation count without scanning documents
-        try {
-          const countQuery = db.collection('reviews')
-            .where('appId', '==', cleanId)
-            .where('status', '==', 'published')
-            .count().get();
-          const countSnap = await withTimeout(countQuery, 15000, null);
-          if (countSnap) totalReviews = countSnap.data().count;
-        } catch (e: any) {
-          if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000;
-          throw e;
-        }
+    // Apply positive / critical filter
+    let filteredList = memList;
+    if (filter === 'positive') filteredList = memList.filter(r => (r.rating || 5) >= 4);
+    if (filter === 'critical') filteredList = memList.filter(r => (r.rating || 5) <= 3);
 
-        // Note: For extreme efficiency, we only fetch real average if total <= 100 to avoid read limits,
-        // otherwise we rely on the bucket fallback for stats. But since we need lightning fast loads,
-        // we'll use a local fallback if total > 50, or use the chunk cache if available.
-      }
-      
-      // Attempt to load stats from the background chunk sync as a highly efficient cache
-      const chunkDoc = await readCommunityRestDoc(`app_reviews_${cleanId}_0`, 'community_store');
-      if (chunkDoc && chunkDoc.stats) {
-         // Always trust the chunk's total if it's higher than the count (e.g. cache lag) or if count failed
-         if (chunkDoc.stats.totalReviews && chunkDoc.stats.totalReviews > totalReviews) {
-            totalReviews = chunkDoc.stats.totalReviews;
-         }
-         avgRating = chunkDoc.stats.averageRating || avgRating;
-         Object.assign(starCounts, chunkDoc.stats.starCounts || {});
-      }
-    } catch (e) {
-       console.warn(`[Community Store] Stats fetch warning for ${cleanId}:`, e);
+    // Apply sorting
+    filteredList.sort((a, b) => {
+      if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+      if (sortBy === 'helpful') return (b.helpful_count || 0) - (a.helpful_count || 0);
+      if (sortBy === 'highest') return (b.rating || 5) - (a.rating || 5);
+      if (sortBy === 'lowest') return (a.rating || 5) - (b.rating || 5);
+      return new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime();
+    });
+
+    // Handle cursor pagination
+    let startIndex = 0;
+    if (cursor) {
+      const idx = filteredList.findIndex(r => r.id === cursor);
+      if (idx >= 0) startIndex = idx + 1;
     }
 
-    // Overwrite the stats locally to ensure UI receives clean data
+    const pageReviews = filteredList.slice(startIndex, startIndex + limitCount);
+    const hasMore = startIndex + limitCount < filteredList.length;
+    const nextCursor = hasMore && pageReviews.length > 0 ? pageReviews[pageReviews.length - 1].id : null;
+
     const stats = {
       averageRating: avgRating,
-      totalReviews: totalReviews,
+      totalReviews: totalAppReviews,
       starCounts: starCounts
     };
 
     return { 
-      reviews: result.reviews, 
-      hasMore: result.hasMore, 
-      nextCursor: result.nextCursor, 
-      total: totalReviews, 
+      reviews: pageReviews, 
+      hasMore, 
+      nextCursor, 
+      total: totalAppReviews, 
       stats 
     };
   }
@@ -1791,9 +1739,13 @@ return {
     return existed;
   }
 
-  public getAppStats(appIdentifier: string, fallbackRating = 4.8, appTitle?: string, appSlug?: string) {
+  public async getAppStats(appIdentifier: string, fallbackRating = 4.8, appTitle?: string, appSlug?: string) {
     const aliasKeys = this.getAliasKeysForApp(appIdentifier, appTitle, appSlug);
     const matchedApp = findAppInCatalog(appIdentifier) || (appSlug ? findAppInCatalog(appSlug) : null) || (appTitle ? findAppInCatalog(appTitle) : null);
+    
+    // Ensure data is loaded into memory
+    const cleanId = matchedApp ? String(matchedApp.id).toLowerCase().trim() : String(appIdentifier || '').toLowerCase().trim();
+    await this.loadSingleAppChunkFromFirestore(cleanId, appTitle, appSlug);
 
     const appReviews = Array.from(this.reviews.values())
       .filter(r => {

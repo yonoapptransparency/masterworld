@@ -81,6 +81,8 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
   const [sortBy, setSortBy] = useState('newest');
   const [selectedReviewIds, setSelectedReviewIds] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [serverTotalPages, setServerTotalPages] = useState(1);
+  const [serverTotalCount, setServerTotalCount] = useState(0);
   const [pageSize, setPageSize] = useState(25);
 
   // Per-app and database-wide review counts
@@ -241,23 +243,21 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
   };
 
   // Fetch reviews from backend
-  const fetchReviews = useCallback(async (isRefresh = false) => {
-    if (!selectedAppId || selectedAppId === 'all') {
-      setReviews([]);
-      setLoading(false);
-      return;
-    }
+  const fetchReviews = useCallback(async (isRefresh = false, pageOverride?: number) => {
     try {
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
 
+      const targetPage = pageOverride || currentPage;
+      
       const result = await fetchAdminReviewsList({
-        appId: selectedAppId,
+        appId: selectedAppId && selectedAppId !== 'all' ? selectedAppId : undefined,
         status: selectedStatus !== 'all' ? selectedStatus : undefined,
         rating: selectedRating !== 'all' ? selectedRating : undefined,
         search: searchQuery.trim() || undefined,
         sortBy,
-        limit: 500,
+        page: targetPage,
+        limit: pageSize,
         refresh: isRefresh
       });
       const rawReviews = (result.reviews as ReviewData[]) || [];
@@ -268,6 +268,11 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
         }
       });
       setReviews(Array.from(deduplicatedMap.values()));
+      
+      if (result.page) setCurrentPage(result.page);
+      if (result.totalPages) setServerTotalPages(result.totalPages);
+      if (result.total) setServerTotalCount(result.total);
+      
       if (result.globalStats) {
         setGlobalDbStats(result.globalStats);
       }
@@ -281,7 +286,7 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
       setLoading(false);
       setRefreshing(false);
     }
-  }, [selectedAppId, selectedStatus, selectedRating, searchQuery, sortBy]);
+  }, [selectedAppId, selectedStatus, selectedRating, searchQuery, sortBy, currentPage, pageSize]);
 
   useEffect(() => {
     fetchReviews();
@@ -335,19 +340,9 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
     return { total, published, pending, rejected, flagged, avg };
   }, [reviews, selectedAppId, selectedStatus, selectedRating, searchQuery, globalDbStats, appCountsMap]);
 
-  // Paginated reviews slice
-  const totalPages = Math.ceil(reviews.length / pageSize) || 1;
-  const paginatedReviews = useMemo(() => {
-    const startIndex = (currentPage - 1) * pageSize;
-    const slice = reviews.slice(startIndex, startIndex + pageSize);
-    const map = new Map<string, ReviewData>();
-    for (const r of slice) {
-      if (r && r.id && !map.has(r.id)) {
-        map.set(r.id, r);
-      }
-    }
-    return Array.from(map.values());
-  }, [reviews, currentPage, pageSize]);
+  // Paginated reviews slice (Now Server-Side)
+  const totalPages = serverTotalPages;
+  const paginatedReviews = reviews;
 
   // Individual Actions
   const handleUpdateStatus = async (review: ReviewData, newStatus: 'published' | 'pending' | 'rejected') => {

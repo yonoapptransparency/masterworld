@@ -135,7 +135,7 @@ communityRouter.get("/api/v1/public/community/stats/:appId", async (req: any, re
   const numRating = Number(rating) || 4.8;
   const targetSlug = slug || appSlug;
   try {
-    const stats = communityStore.getAppStats(
+    const stats = await communityStore.getAppStats(
       String(appId).trim(), 
       numRating, 
       appTitle ? String(appTitle) : undefined, 
@@ -168,7 +168,7 @@ communityRouter.get("/api/v1/public/community/reviews/:appId", async (req: any, 
       sortBy ? String(sortBy) : 'recent'
     );
 
-    const stats = communityStore.getAppStats(
+    const stats = await communityStore.getAppStats(
       String(appId).trim(), 
       Number(rating) || 4.8, 
       appTitle ? String(appTitle) : undefined, 
@@ -183,9 +183,12 @@ communityRouter.get("/api/v1/public/community/reviews/:appId", async (req: any, 
         app_id: r.appId,
         appSlug: r.appSlug,
         appName: r.appName,
+        userName: r.userName,
         username: r.userName,
         rating: r.rating,
+        reviewText: r.reviewText,
         comment: r.reviewText,
+        timestamp: r.timestamp,
         created_at: r.timestamp,
         helpful_count: r.helpful_count || 0,
         source: r.source || 'community',
@@ -196,6 +199,7 @@ communityRouter.get("/api/v1/public/community/reviews/:appId", async (req: any, 
       })),
       hasMore: result.hasMore,
       nextCursor: result.nextCursor,
+      total: result.total || (result.stats?.totalReviews || 0),
       stats: result.stats || stats
     });
 

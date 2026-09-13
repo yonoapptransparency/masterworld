@@ -2,7 +2,7 @@ const fs = require('fs');
 const { execSync } = require('child_process');
 
 // ONLY run this on Vercel or production CI to avoid bloating the local AI Studio workspace
-if (!process.env.VERCEL && !process.env.GITHUB_ACTIONS) {
+if (!process.env.VERCEL && !process.env.GITHUB_ACTIONS && !process.env.FORCE_API_BUILD) {
     console.log("Not running in Vercel or CI environment. Skipping api/index.js generation to prevent local bloat.");
     process.exit(0);
 }

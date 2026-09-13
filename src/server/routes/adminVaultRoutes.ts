@@ -1979,7 +1979,7 @@ adminVaultRouter.post("/api/v1/admin/build-public-api", verifyAdminToken, async 
     if (ciphertext) {
       fs.writeFileSync(path.join(process.cwd(), 'src/lib/secureVault.ts'), `export const ENCRYPTED_LINKS = "${ciphertext}";\n`);
     }
-    require('child_process').execSync('node scripts/build-api.js', { stdio: 'inherit', cwd: process.cwd() });
+    require('child_process').execSync('node scripts/build-api.js', { stdio: 'inherit', cwd: process.cwd(), env: { ...process.env, FORCE_API_BUILD: '1' } });
     const apiPath = path.join(process.cwd(), 'api', 'index.js');
     if (!fs.existsSync(apiPath)) {
       return res.status(500).json({ error: "API build failed" });
