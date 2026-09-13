@@ -195,7 +195,7 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
     if (app) {
       const appIdentifier = getField(app, 'slug') || getField(app, 'id');
       const rawRatingVal = parseFloat(getField(app, 'rating')) || 4.5;
-      const appSampleReviews = communityStore.getReviewsForApp(appIdentifier, undefined, 6, getField(app, 'name'), rawRatingVal, getField(app, 'slug'))?.reviews || [];
+      const appSampleReviews = (await communityStore.getReviewsForApp(appIdentifier, undefined, 6, getField(app, 'name'), rawRatingVal, getField(app, 'slug')))?.reviews || [];
       bodyContent = renderers.renderAppDetails(getField(app, 'slug') || possibleSlug, apps, settings, appSampleReviews);
     } else {
       bodyContent = renderers.render404(urlPath, settings);
@@ -209,7 +209,7 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
     if (app) {
       const appIdentifier = getField(app, 'slug') || getField(app, 'id');
       const rawRatingVal = parseFloat(getField(app, 'rating')) || 4.5;
-      const appSampleReviews = communityStore.getReviewsForApp(appIdentifier, undefined, 6, getField(app, 'name'), rawRatingVal, getField(app, 'slug'))?.reviews || [];
+      const appSampleReviews = (await communityStore.getReviewsForApp(appIdentifier, undefined, 6, getField(app, 'name'), rawRatingVal, getField(app, 'slug')))?.reviews || [];
       bodyContent = renderers.renderAppDetails(getField(app, 'slug') || possibleSlug, apps, settings, appSampleReviews);
     } else if (newsItem) {
       bodyContent = renderers.renderNewsDetail(possibleSlug, news, settings);
@@ -234,7 +234,7 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
   `;
 }
 
-function buildJsonLdSchema(params: {
+async function buildJsonLdSchema(params: {
   pageType: 'home' | 'app' | 'news' | 'video' | 'static' | 'gateway' | '404';
   title: string;
   description: string;
@@ -245,7 +245,7 @@ function buildJsonLdSchema(params: {
   newsItem?: any;
   videoItem?: any;
   settings?: any;
-}): string {
+}): Promise<string> {
   const schemas: any[] = [];
 
   let hostOrigin = 'https://www.rummydex.com';
@@ -326,7 +326,7 @@ function buildJsonLdSchema(params: {
 
     // Include sample reviews if available to boost Google Rich Snippet compliance (without nested itemReviewed)
     try {
-      const feed = communityStore.getReviewsForApp(appIdentifier, undefined, 5, name, clampedRating, getField(app, 'slug'));
+      const feed = await communityStore.getReviewsForApp(appIdentifier, undefined, 5, name, clampedRating, getField(app, 'slug'));
       if (feed && Array.isArray(feed.reviews) && feed.reviews.length > 0) {
         const validReviews = feed.reviews
           .filter((rev: any) => rev && stripHtml(rev.reviewText || '').trim().length >= 3)
@@ -836,7 +836,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   const preRenderedBody = await getPagePreRender(urlPath, data);
 
   // Generate Schema.org JSON-LD structured data
-  const jsonLdSchema = buildJsonLdSchema({
+  const jsonLdSchema = await buildJsonLdSchema({
     pageType,
     title,
     description,

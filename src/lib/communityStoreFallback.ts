@@ -55,7 +55,7 @@ export interface CommunityStoreInterface {
     appName?: string,
     rating?: number,
     appSlug?: string
-  ): ReviewsResponse;
+  ): Promise<ReviewsResponse>;
   getAppStats(appId: string, fallbackRating?: number, appSlug?: string): AppReviewStats;
   addReview(data: Partial<ReviewRecord>): ReviewRecord;
 }
@@ -77,14 +77,14 @@ class FallbackCommunityStore implements CommunityStoreInterface {
     return this.reviews;
   }
 
-  public getReviewsForApp(
+  public async getReviewsForApp(
     appId: string,
     cursor?: string,
     limit: number = 20,
     _appName?: string,
     rating: number = 4.8,
     appSlug?: string
-  ): ReviewsResponse {
+  ): Promise<ReviewsResponse> {
     const cleanId = (appId || '').trim();
     const cleanSlug = (appSlug || '').trim();
 

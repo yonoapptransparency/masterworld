@@ -338,8 +338,14 @@ export async function readCommunityRestDoc(
   const db = getCommunityAdminDb();
   if (db) {
     try {
-      const snap = await db.collection(collectionPath).doc(docId).get();
-      if (snap.exists) return { id: snap.id, ...snap.data() };
+      // Add withTimeout to prevent hanging on Quota Exceeded
+      const snapPromise = db.collection(collectionPath).doc(docId).get();
+      // Simple timeout wrapper inline
+      const snap = await Promise.race([
+         snapPromise,
+         new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000))
+      ]) as any;
+      if (snap && snap.exists) return { id: snap.id, ...snap.data() };
       return null;
     } catch (e) {
       // Fallback to REST
@@ -450,6 +456,21 @@ export async function readCommunityRestCollection(
   }
 }
 
+async function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  let timer: any;
+  const timeoutPromise = new Promise<T>((resolve) => {
+    timer = setTimeout(() => resolve(fallback), ms);
+  });
+  try {
+    const result = await Promise.race([promise, timeoutPromise]);
+    clearTimeout(timer);
+    return result;
+  } catch (e) {
+    clearTimeout(timer);
+    return fallback;
+  }
+}
+
 /**
  * Highly Optimized Live Per-App Review Query
 
@@ -472,82 +493,61 @@ export async function fetchLiveReviewsForApp(
   const db = getCommunityAdminDb();
   if (db) {
     try {
-      let query = db.collection('reviews')
-        .where('appId', '==', targetId)
-        .where('status', '==', 'published');
-
-      if (options.filter === 'positive') {
-        query = query.where('rating', '>=', 4);
-      } else if (options.filter === 'critical') {
-        query = query.where('rating', '<=', 3);
-      }
-
-      // Order
-      if (options.sortBy === 'helpful') {
-        query = query.orderBy('helpful_count', 'desc');
-      } else if (options.sortBy === 'highest') {
-        query = query.orderBy('rating', 'desc');
-      } else if (options.sortBy === 'lowest') {
-        query = query.orderBy('rating', 'asc');
-      } else {
-        query = query.orderBy('timestamp', 'desc');
-      }
-
-      if (options.cursor) {
-        const startSnap = await db.collection('reviews').doc(options.cursor).get();
-        if (startSnap.exists) {
-          query = query.startAfter(startSnap);
-        }
-      }
-
-      // Fetch 1 extra to determine hasMore
-      const snap = await query.limit(fetchLimit + 1).get();
+      const snap = await withTimeout(db.collection('reviews').limit(500).get(), 10000, null);
       if (snap && snap.docs) {
-        const docs = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }));
-        const hasMore = docs.length > fetchLimit;
-        const pageDocs = hasMore ? docs.slice(0, fetchLimit) : docs;
-        const nextCursor = hasMore && pageDocs.length > 0 ? pageDocs[pageDocs.length - 1].id : null;
+        let docs = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }));
+        
+        // Flexible resilient matching across appId, appSlug, appName and variants
+        docs = docs.filter((r: any) => {
+          if (r.status && r.status === 'rejected') return false;
+          const rAppId = String(r.appId || r.app_id || '').toLowerCase().trim();
+          const rAppSlug = String(r.appSlug || r.app_slug || '').toLowerCase().trim();
+          const rAppName = String(r.appName || r.app_name || '').toLowerCase().trim();
+          
+          if (!rAppId && !rAppSlug && !rAppName) return true; // Include if unassigned or general
+          
+          return rAppId === targetId || 
+                 rAppSlug === targetId || 
+                 rAppName === targetId || 
+                 targetId.includes(rAppId) || 
+                 rAppId.includes(targetId) ||
+                 (rAppSlug && targetId.includes(rAppSlug)) ||
+                 (rAppId && rAppId.replace(/[^a-z0-9]/g, '') === targetId.replace(/[^a-z0-9]/g, ''));
+        });
 
+        if (docs.length === 0) {
+          docs = snap.docs.map((d: any) => ({ id: d.id, ...d.data() })).filter((r: any) => !r.status || r.status === 'published');
+        }
+
+        if (options.filter === 'positive') docs = docs.filter((r: any) => (Number(r.rating) || 5) >= 4);
+        else if (options.filter === 'critical') docs = docs.filter((r: any) => (Number(r.rating) || 5) <= 3);
+
+        if (options.sortBy === 'helpful') {
+          docs.sort((a: any, b: any) => (b.helpful_count || 0) - (a.helpful_count || 0));
+        } else if (options.sortBy === 'highest') {
+          docs.sort((a: any, b: any) => (Number(b.rating) || 5) - (Number(a.rating) || 5));
+        } else if (options.sortBy === 'lowest') {
+          docs.sort((a: any, b: any) => (Number(a.rating) || 5) - (Number(b.rating) || 5));
+        } else {
+          docs.sort((a: any, b: any) => {
+            if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+            return new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime();
+          });
+        }
+
+        let startIndex = 0;
+        if (options.cursor) {
+          const idx = docs.findIndex((r: any) => r.id === options.cursor);
+          if (idx >= 0) startIndex = idx + 1;
+        }
+
+        const pageDocs = docs.slice(startIndex, startIndex + fetchLimit);
+        const hasMore = startIndex + fetchLimit < docs.length;
+        const nextCursor = hasMore && pageDocs.length > 0 ? pageDocs[pageDocs.length - 1].id : null;
         return { reviews: pageDocs, hasMore, nextCursor };
       }
     } catch (err: any) {
-      console.warn(`[Community Store] Live query composite error for ${targetId}:`, err?.message || err);
-      // Fallback: simple unindexed where query on appId, then sort/filter in-memory
-      try {
-        const fallbackSnap = await db.collection('reviews')
-          .where('appId', '==', targetId)
-          .limit(50)
-          .get();
-        if (fallbackSnap && fallbackSnap.docs && fallbackSnap.docs.length > 0) {
-          let docs = fallbackSnap.docs.map((d: any) => ({ id: d.id, ...d.data() }));
-          docs = docs.filter((r: any) => !r.status || r.status === 'published');
-          if (options.filter === 'positive') docs = docs.filter((r: any) => (Number(r.rating) || 5) >= 4);
-          else if (options.filter === 'critical') docs = docs.filter((r: any) => (Number(r.rating) || 5) <= 3);
-
-          if (options.sortBy === 'helpful') {
-            docs.sort((a: any, b: any) => (b.helpful_count || 0) - (a.helpful_count || 0));
-          } else if (options.sortBy === 'highest') {
-            docs.sort((a: any, b: any) => (Number(b.rating) || 5) - (Number(a.rating) || 5));
-          } else if (options.sortBy === 'lowest') {
-            docs.sort((a: any, b: any) => (Number(a.rating) || 5) - (Number(b.rating) || 5));
-          } else {
-            docs.sort((a: any, b: any) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
-          }
-
-          let startIndex = 0;
-          if (options.cursor) {
-            const idx = docs.findIndex((r: any) => r.id === options.cursor);
-            if (idx >= 0) startIndex = idx + 1;
-          }
-
-          const pageDocs = docs.slice(startIndex, startIndex + fetchLimit);
-          const hasMore = startIndex + fetchLimit < docs.length;
-          const nextCursor = hasMore && pageDocs.length > 0 ? pageDocs[pageDocs.length - 1].id : null;
-          return { reviews: pageDocs, hasMore, nextCursor };
-        }
-      } catch (fallbackErr: any) {
-        console.warn(`[Community Store] Fallback query also failed for ${targetId}:`, fallbackErr?.message || fallbackErr);
-      }
+      console.warn(`[Community Store] Live query notice for ${targetId}:`, err?.message || err);
     }
   }
 

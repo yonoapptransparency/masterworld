@@ -75,7 +75,7 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedAppId, setSelectedAppId] = useState('all');
+  const [selectedAppId, setSelectedAppId] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedRating, setSelectedRating] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
@@ -242,17 +242,22 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
 
   // Fetch reviews from backend
   const fetchReviews = useCallback(async (isRefresh = false) => {
+    if (!selectedAppId || selectedAppId === 'all') {
+      setReviews([]);
+      setLoading(false);
+      return;
+    }
     try {
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
 
       const result = await fetchAdminReviewsList({
-        appId: selectedAppId !== 'all' ? selectedAppId : undefined,
+        appId: selectedAppId,
         status: selectedStatus !== 'all' ? selectedStatus : undefined,
         rating: selectedRating !== 'all' ? selectedRating : undefined,
         search: searchQuery.trim() || undefined,
         sortBy,
-        limit: selectedAppId !== 'all' ? 500 : 100,
+        limit: 500,
         refresh: isRefresh
       });
       const rawReviews = (result.reviews as ReviewData[]) || [];
@@ -698,152 +703,137 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
         </div>
       </div>
 
-      {/* Visual Interactive App Catalog Selector Carousel */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-3xl shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Layers className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
-              Select Application to Manage Reviews
-            </h3>
-            <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-black px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-700">
-              {filteredAppsList.length} of {appsList.length} Apps
-            </span>
-          </div>
-
-          {/* Mini Search & Sort Bar for App Carousel */}
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <div className="relative flex-1 sm:w-48">
-              <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={appFilterQuery}
-                onChange={(e) => setAppFilterQuery(e.target.value)}
-                placeholder="Filter apps..."
-                className="w-full pl-8 pr-6 py-1.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-              {appFilterQuery && (
-                <button 
-                  onClick={() => setAppFilterQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+      
+      <div className="flex flex-col lg:flex-row gap-6 items-start h-[calc(100vh-140px)] min-h-[800px]">
+        {/* Left Sidebar: App Selector */}
+        <div className="w-full lg:w-[320px] shrink-0 flex flex-col gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm h-full overflow-hidden">
+          <div className="p-5 border-b border-slate-100 dark:border-slate-800 shrink-0">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                <Layers className="w-4 h-4 text-blue-600" /> Applications
+              </h3>
+              <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-black px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-700">
+                {filteredAppsList.length}
+              </span>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={appFilterQuery}
+                  onChange={(e) => setAppFilterQuery(e.target.value)}
+                  placeholder="Filter apps..."
+                  className="w-full pl-9 pr-8 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                />
+                {appFilterQuery && (
+                  <button 
+                    onClick={() => setAppFilterQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+              
+              <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-xl">
+                <button
+                  onClick={() => setAppSortBy('reviews')}
+                  className={`flex-1 py-1.5 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
+                    appSortBy === 'reviews' 
+                      ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' 
+                      : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                  }`}
                 >
-                  <X className="w-3 h-3" />
+                  Most Revs
                 </button>
-              )}
-            </div>
-
-            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl shrink-0">
-              <button
-                onClick={() => setAppSortBy('reviews')}
-                className={`px-2 py-1 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
-                  appSortBy === 'reviews' 
-                    ? 'bg-blue-600 text-white shadow-sm' 
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
-                title="Sort by most reviews"
-              >
-                Most Revs
-              </button>
-              <button
-                onClick={() => setAppSortBy('pending')}
-                className={`px-2 py-1 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
-                  appSortBy === 'pending' 
-                    ? 'bg-amber-500 text-white shadow-sm' 
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
-                title="Sort by apps with pending reviews needing moderation"
-              >
-                Pending
-              </button>
-              <button
-                onClick={() => setAppSortBy('name')}
-                className={`px-2 py-1 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
-                  appSortBy === 'name' 
-                    ? 'bg-blue-600 text-white shadow-sm' 
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
-                title="Sort alphabetically"
-              >
-                A-Z
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Scrollable Horizontal App Strip */}
-        <div className="flex items-center gap-3 overflow-x-auto pb-2 pt-1 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
-          
-          {/* "All Applications" Card */}
-          <button
-            onClick={() => setSelectedAppId('all')}
-            className={`flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all shrink-0 cursor-pointer text-left ${
-              selectedAppId === 'all'
-                ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-500/25 ring-2 ring-blue-500/30'
-                : 'bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-400'
-            }`}
-          >
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm shrink-0 ${
-              selectedAppId === 'all' ? 'bg-white/20 text-white' : 'bg-blue-500/10 text-blue-600'
-            }`}>
-              📱
-            </div>
-            <div>
-              <div className="text-xs font-black leading-tight">All Applications</div>
-              <div className={`text-[10px] font-medium mt-0.5 ${selectedAppId === 'all' ? 'text-blue-100' : 'text-slate-400'}`}>
-                {globalDbStats ? globalDbStats.total.toLocaleString() : reviews.length} total reviews
+                <button
+                  onClick={() => setAppSortBy('pending')}
+                  className={`flex-1 py-1.5 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
+                    appSortBy === 'pending' 
+                      ? 'bg-white dark:bg-slate-700 text-amber-600 dark:text-amber-400 shadow-sm' 
+                      : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                  }`}
+                >
+                  Pending
+                </button>
+                <button
+                  onClick={() => setAppSortBy('name')}
+                  className={`flex-1 py-1.5 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
+                    appSortBy === 'name' 
+                      ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 shadow-sm' 
+                      : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                  }`}
+                >
+                  A-Z
+                </button>
               </div>
             </div>
-          </button>
+          </div>
 
-          {/* Individual App Cards */}
-          {filteredAppsList.map((app) => {
-            const appStats = getAppStats(app);
-            const isSelected = selectedAppId === (app.slug || app.id);
-
-            return (
-              <button
-                key={app.id || app.slug}
-                onClick={() => setSelectedAppId(app.slug || app.id)}
-                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-2xl border transition-all shrink-0 cursor-pointer text-left max-w-[220px] ${
-                  isSelected
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-500/25 ring-2 ring-blue-500/30'
-                    : 'bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500'
-                }`}
-              >
-                <img
-                  src={app.icon_url || 'https://via.placeholder.com/48'}
-                  alt={app.name}
-                  className="w-10 h-10 rounded-xl object-cover border border-black/10 shrink-0 bg-slate-200 dark:bg-slate-700"
-                  onError={(e) => {
-                    (e.target as HTMLElement).style.display = 'none';
-                  }}
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs font-black truncate leading-tight">{app.name}</div>
-                  <div className={`text-[10px] font-medium mt-0.5 flex items-center gap-1.5 ${
-                    isSelected ? 'text-blue-100' : 'text-slate-400'
-                  }`}>
-                    <span className="truncate max-w-[70px]">{app.category || 'Card Game'}</span>
-                    <span>•</span>
-                    <span className={`font-bold ${isSelected ? 'text-amber-200' : 'text-amber-500'}`}>
-                      {appStats.total} revs
-                    </span>
-                    {appStats.pending > 0 && (
-                      <span className={`text-[9px] font-black px-1.5 py-0.2 rounded-full ${
-                        isSelected ? 'bg-amber-400 text-slate-900' : 'bg-amber-500/20 text-amber-600 dark:text-amber-400'
-                      }`}>
-                        {appStats.pending} new
+          <div className="flex-1 overflow-y-auto p-3 space-y-1.5 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
+            {filteredAppsList.map((app) => {
+              const appStats = getAppStats(app);
+              const isSelected = selectedAppId === (app.slug || app.id);
+              
+              return (
+                <button
+                  key={app.id || app.slug}
+                  onClick={() => setSelectedAppId(app.slug || app.id)}
+                  className={`w-full flex items-center gap-3 p-2.5 rounded-2xl border transition-all cursor-pointer text-left ${
+                    isSelected
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-500/25 ring-2 ring-blue-500/30'
+                      : 'bg-transparent text-slate-700 dark:text-slate-300 border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:border-slate-200 dark:hover:border-slate-700'
+                  }`}
+                >
+                  <img
+                    src={app.icon_url || 'https://via.placeholder.com/48'}
+                    alt={app.name}
+                    className="w-10 h-10 rounded-xl object-cover shrink-0 bg-slate-200 dark:bg-slate-700 shadow-sm"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-black truncate leading-tight">{app.name}</div>
+                    <div className={`text-[10px] font-medium mt-1 flex items-center gap-1.5 ${
+                      isSelected ? 'text-blue-100' : 'text-slate-500 dark:text-slate-400'
+                    }`}>
+                      <span className={`font-bold ${isSelected ? 'text-amber-200' : 'text-slate-600 dark:text-slate-300'}`}>
+                        {appStats.total} <span className="opacity-70 font-normal">revs</span>
                       </span>
-                    )}
+                      {appStats.pending > 0 && (
+                        <>
+                          <span className="opacity-50">•</span>
+                          <span className={`font-black ${isSelected ? 'text-amber-200' : 'text-amber-600 dark:text-amber-400'}`}>
+                            {appStats.pending} new
+                          </span>
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </button>
-            );
-          })}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
 
-      {/* Selected App Context Banner (App Spotlight) */}
+        {/* Right Content: Dedicated App Panel */}
+        <div className="flex-1 min-w-0 flex flex-col gap-6 overflow-y-auto h-full pr-2 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
+          {!selectedAppId || selectedAppId === 'all' ? (
+            <div className="flex flex-col items-center justify-center p-12 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm h-full min-h-[400px]">
+              <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                <Layers className="w-10 h-10 text-slate-300 dark:text-slate-600" />
+              </div>
+              <h2 className="text-2xl font-black text-slate-800 dark:text-slate-200 mb-2">Select an Application</h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400 text-center max-w-sm leading-relaxed">
+                Choose an application from the sidebar to view, moderate, and manage its community reviews and ratings.
+              </p>
+            </div>
+          ) : (
+            <>
+{/* Selected App Context Banner (App Spotlight) */}
       {activeApp && selectedAppId !== 'all' && (
         <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/30 p-5 md:p-6 rounded-3xl text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-in fade-in duration-200">
           <div className="flex items-center gap-4">
@@ -1588,7 +1578,12 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
         </div>
       )}
 
-    </div>
+    
+            </>
+          )}
+        </div>
+      </div>
+</div>
   );
 };
 
