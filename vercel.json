@@ -4,6 +4,14 @@
   "buildCommand": "npm run build",
   "rewrites": [
     {
+      "source": "/public/backup-data",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
