@@ -130,6 +130,7 @@ function AppContent() {
       <div className="flex-1 w-full flex flex-col">
         <Suspense fallback={<LoadingScreen />}>
           <Routes location={location}>
+            <Route path="/login" element={<ErrorBoundary><AdminLoginPageLazy /></ErrorBoundary>} />
             <Route path="/" element={<Navigate to={`/${adminPath}/login`} replace />} />
             {Array.from(new Set([adminPath, 'admin', 'masterworld'])).map(base => (
               <React.Fragment key={base}>

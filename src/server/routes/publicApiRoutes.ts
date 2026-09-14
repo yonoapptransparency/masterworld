@@ -168,6 +168,44 @@ function sanitizeAppsForPublic(appsList: any[]) {
   });
 }
 
+function sanitizeNewsForPublic(newsList: any[]) {
+  if (!Array.isArray(newsList)) return [];
+  return newsList
+    .filter((item: any) => item && item.sync_to_public !== false)
+    .map((item: any) => ({
+      id: item.id,
+      slug: item.slug,
+      title: item.title,
+      logo_url: item.logo_url || item.image_url || '',
+      image_url: item.image_url || item.logo_url || '',
+      description: item.description || '',
+      content: item.content || item.description_html || '',
+      description_html: item.description_html || item.content || '',
+      ceo_name: item.ceo_name || item.author || 'Admin Team',
+      ceo_description: item.ceo_description || 'Transparency & Security Analyst',
+      author: item.author || item.ceo_name || 'Admin Team',
+      category: item.category || 'General',
+      published_at: item.published_at || item.created_at || item.date || '',
+      date: item.date || item.published_at || item.created_at || '',
+      read_time: item.read_time || '3 min read',
+      is_breaking: Boolean(item.is_breaking),
+      is_new: Boolean(item.is_new),
+      is_pinned: Boolean(item.is_pinned),
+      seo_title: item.seo_title || '',
+      seo_description: item.seo_description || '',
+      seo_keywords: item.seo_keywords || '',
+      og_image_url: item.og_image_url || '',
+      canonical_url: item.canonical_url || '',
+      target_region: item.target_region || 'India',
+      link: item.link || '',
+      tags: Array.isArray(item.tags) ? item.tags : [],
+      related_app_id: item.related_app_id || '',
+      created_at: item.created_at || item.date || '',
+      updated_at: item.updated_at || item.date || '',
+      sync_to_public: true
+    }));
+}
+
 
 publicApiRouter.get(["/api/v1/public/backup-data-full", "/api/v1/backup-data-full"], async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -205,7 +243,7 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
         const data = {
           apps: sanitizeAppsForPublic(storeData.apps),
           settings: storeData.settings || {},
-          news: storeData.news || [],
+          news: sanitizeNewsForPublic(storeData.news || []),
           videos: storeData.videos || []
         };
         backupDataCache = data;
@@ -223,7 +261,7 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
           const data = {
             apps: sanitizeAppsForPublic(backup.apps),
             settings: backup.settings || {},
-            news: backup.news || [],
+            news: sanitizeNewsForPublic(backup.news || []),
             videos: backup.videos || []
           };
           backupDataCache = data;
@@ -238,7 +276,7 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
     const validatedData = {
       apps: sanitizeAppsForPublic(dataObj.apps || dataObj.mockApps || []),
       settings: dataObj.settings || dataObj.mockSettings || {},
-      news: dataObj.news || dataObj.mockNews || [],
+      news: sanitizeNewsForPublic(dataObj.news || dataObj.mockNews || []),
       videos: dataObj.videos || dataObj.mockVideos || []
     };
     backupDataCache = validatedData;
@@ -249,7 +287,7 @@ publicApiRouter.get(["/api/v1/public/backup-data", "/api/v1/backup-data", "/api/
     return res.status(200).json({
       apps: sanitizeAppsForPublic(dataObj.apps || dataObj.mockApps || []),
       settings: dataObj.settings || dataObj.mockSettings || {},
-      news: dataObj.news || dataObj.mockNews || [],
+      news: sanitizeNewsForPublic(dataObj.news || dataObj.mockNews || []),
       videos: dataObj.videos || dataObj.mockVideos || []
     });
   }

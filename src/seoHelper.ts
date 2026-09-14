@@ -587,7 +587,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
 
   const apps = data.apps || [];
   const settings = data.settings || {};
-  const news = data.news || [];
+  const news = (data.news || []).filter((n: any) => n && n.sync_to_public !== false);
   const videos = data.videos || [];
   const developers = data.developers || [];
   const siteTitle = getField(settings, 'site_title') || 'RummyDex';
@@ -974,28 +974,40 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       };
     }) : [];
 
-    const targetNewsSlug = targetNews ? getField(targetNews, 'slug')?.toLowerCase() : null;
-    const optimizedNews = Array.isArray(data.news) ? data.news.map((item: any) => {
-      const isTarget = targetNewsSlug && getField(item, 'slug')?.toLowerCase() === targetNewsSlug;
-      if (isTarget) return item;
-      return {
+    const optimizedNews = (Array.isArray(data.news) ? data.news : [])
+      .filter((item: any) => item && item.sync_to_public !== false)
+      .map((item: any) => ({
         id: item.id,
         slug: item.slug,
         title: item.title,
-        seo_title: item.seo_title,
-        seo_description: item.seo_description,
-        meta_description: item.meta_description,
-        og_image_url: item.og_image_url,
-        logo_url: item.logo_url,
-        category: item.category,
-        published_at: item.published_at,
-        date: item.date,
-        read_time: item.read_time,
-        is_breaking: item.is_breaking,
-        is_new: item.is_new,
-        is_pinned: item.is_pinned
-      };
-    }) : [];
+        logo_url: item.logo_url || item.image_url || '',
+        image_url: item.image_url || item.logo_url || '',
+        description: item.description || '',
+        content: item.content || item.description_html || '',
+        description_html: item.description_html || item.content || '',
+        ceo_name: item.ceo_name || item.author || 'Admin Team',
+        ceo_description: item.ceo_description || 'Transparency & Security Analyst',
+        author: item.author || item.ceo_name || 'Admin Team',
+        category: item.category || 'General',
+        published_at: item.published_at || item.created_at || item.date || '',
+        date: item.date || item.published_at || item.created_at || '',
+        read_time: item.read_time || '3 min read',
+        is_breaking: Boolean(item.is_breaking),
+        is_new: Boolean(item.is_new),
+        is_pinned: Boolean(item.is_pinned),
+        seo_title: item.seo_title || '',
+        seo_description: item.seo_description || '',
+        seo_keywords: item.seo_keywords || '',
+        og_image_url: item.og_image_url || '',
+        canonical_url: item.canonical_url || '',
+        target_region: item.target_region || 'India',
+        link: item.link || '',
+        tags: Array.isArray(item.tags) ? item.tags : [],
+        related_app_id: item.related_app_id || '',
+        created_at: item.created_at || item.date || '',
+        updated_at: item.updated_at || item.date || '',
+        sync_to_public: true
+      }));
 
     const optimizedVideos = Array.isArray(data.videos) ? data.videos.map((item: any) => {
       const isTarget = targetVideo && (getField(item, 'slug') || getField(item, 'id'))?.toLowerCase() === (getField(targetVideo, 'slug') || getField(targetVideo, 'id'))?.toLowerCase();

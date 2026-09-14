@@ -290,7 +290,7 @@ seoRouter.get(['/rss.xml', '/rss', '/feed', '/feed.xml'], async (req, res) => {
     for (const newsItem of (news || []).filter((n: any) => n.sync_to_public !== false).slice(0, 15)) {
       const title = getField(newsItem, 'title');
       const slug = getField(newsItem, 'slug');
-      const desc = getField(newsItem, 'excerpt') || getField(newsItem, 'summary') || getField(newsItem, 'content') || title;
+      const desc = getField(newsItem, 'description') || getField(newsItem, 'excerpt') || getField(newsItem, 'summary') || getField(newsItem, 'content') || title;
       const dateStr = getField(newsItem, 'created_at') || getField(newsItem, 'published_at') || new Date().toISOString();
       const pubDate = new Date(dateStr).toUTCString();
 

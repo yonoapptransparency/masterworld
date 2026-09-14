@@ -343,6 +343,12 @@ export async function signInAdmin(
 // ─────────────────────────────────────────────────────────────────────────────
 export function signOutAdmin(): void {
   clearSession();
+  try {
+    import('firebase/auth').then(({ getAuth, signOut }) => {
+      const a = getAuth();
+      if (a) signOut(a).catch(() => {});
+    }).catch(() => {});
+  } catch (_) {}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

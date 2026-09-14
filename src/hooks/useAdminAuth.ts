@@ -3,6 +3,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { adminFetch, loadSession, clearSession } from '../services/adminAuthService';
+import { getAdminPath } from '../lib/utils';
 
 export const useAdminAuth = () => {
   const [user, setUser] = useState<any>(null);
@@ -13,10 +14,19 @@ export const useAdminAuth = () => {
   const handleLogout = async () => {
     try {
       await adminFetch('/api/v1/admin/logout', { method: 'POST' });
-      if (auth) await auth.signOut();
+    } catch (e) {}
+    try {
+      const { getAuth, signOut } = await import('firebase/auth');
+      const authInstance = getAuth();
+      if (authInstance) {
+        await signOut(authInstance);
+      }
     } catch (e) {}
     clearSession();
-    window.location.href = '/';
+    const currentBase = window.location.pathname.toLowerCase().startsWith('/masterworld') 
+      ? 'masterworld' 
+      : getAdminPath();
+    window.location.href = `/${currentBase}/login?logout=1`;
   };
 
   useEffect(() => {
@@ -41,11 +51,11 @@ export const useAdminAuth = () => {
           if (verifyRes.ok) {
             const verifyData = await verifyRes.json();
             if (verifyData.authorized) adminVerified = true;
-          } else if (session) {
-             adminVerified = true;
+          } else {
+            adminVerified = false;
           }
         } catch (e) {
-          if (session) adminVerified = true;
+          adminVerified = false;
         }
 
         if (!adminVerified) {
@@ -67,6 +77,9 @@ export const useAdminAuth = () => {
         }
           
         setIsAdminUser(adminVerified);
+        if (!adminVerified) {
+          clearSession();
+        }
         setCheckingAuth(false);
       } else {
         setIsAdminUser(false);
