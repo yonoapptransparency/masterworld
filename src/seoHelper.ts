@@ -311,7 +311,7 @@ async function buildJsonLdSchema(params: {
     const category = normalizeSchemaCategory(getField(app, 'category'));
     const rawRating = getField(app, 'rating');
     const configuredRating = parseFloat(rawRating);
-    const rawCount = getField(app, 'review_count') || getField(app, 'reviews') || '';
+    const rawCount = getField(app, 'review_count') || getField(app, 'reviews') || getField(app, 'reviews_count') || '';
     const configuredCount = parseInt(rawCount, 10);
     
     // Admin configured rating is the primary authority for the catalog

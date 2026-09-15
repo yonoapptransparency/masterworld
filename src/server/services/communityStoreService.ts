@@ -1962,7 +1962,13 @@ return {
     }
 
     // Real authentic stats
-    const baseTotal = matchedApp?.review_count ? Number(matchedApp.review_count) : (matchedApp?.existingReviewsCount ? Number(matchedApp.existingReviewsCount) : 0);
+    const baseTotal = matchedApp?.review_count 
+      ? Number(matchedApp.review_count) 
+      : (matchedApp?.reviews 
+          ? Number(matchedApp.reviews) 
+          : (matchedApp?.reviews_count 
+              ? Number(matchedApp.reviews_count) 
+              : (matchedApp?.existingReviewsCount ? Number(matchedApp.existingReviewsCount) : 0)));
     const baseRating = matchedApp?.rating ? Number(matchedApp.rating) : fallbackRating;
     const starCounts = { '5': Math.floor(baseTotal * 0.7), '4': Math.floor(baseTotal * 0.2), '3': Math.floor(baseTotal * 0.05), '2': Math.floor(baseTotal * 0.03), '1': Math.floor(baseTotal * 0.02) };
 
