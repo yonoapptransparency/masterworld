@@ -11,7 +11,7 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
   const [showMfa, setShowMfa] = useState(false);
   const [mfaCode, setMfaCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [email, setEmail] = useState('defentechscholar@gmail.com');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mode, setMode] = useState<'google' | 'password'>('password');
 

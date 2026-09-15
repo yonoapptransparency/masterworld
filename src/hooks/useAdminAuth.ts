@@ -31,17 +31,19 @@ export const useAdminAuth = () => {
 
   useEffect(() => {
     const session = loadSession();
-    if (!auth && !session) {
+    if (!auth && (!session || !session.idToken)) {
       setIsAdminUser(false);
+      setUser(null);
       setCheckingAuth(false);
       return;
     }
 
     const unsubscribe = onAuthStateChanged(auth!, async (currentUser) => {
-      const effectiveUser = currentUser || (session ? { email: session.email, uid: 'local', getIdToken: async () => session.idToken } : null);
+      const currentSession = loadSession();
+      const token = currentSession?.idToken;
+      const effectiveUser = currentUser || (token ? { email: currentSession.email, uid: 'local', getIdToken: async () => token } : null);
         
-      setUser(effectiveUser);
-      if (effectiveUser) {
+      if (effectiveUser && token) {
         let adminVerified = false;
         try {
           const idToken = await effectiveUser.getIdToken();
@@ -51,37 +53,23 @@ export const useAdminAuth = () => {
           if (verifyRes.ok) {
             const verifyData = await verifyRes.json();
             if (verifyData.authorized) adminVerified = true;
-          } else {
-            adminVerified = false;
           }
         } catch (e) {
           adminVerified = false;
         }
-
-        if (!adminVerified) {
-           const email = effectiveUser.email?.toLowerCase();
-           const fallbackAdmin = (import.meta.env.VITE_ADMIN_EMAIL || '').toLowerCase();
-           if (fallbackAdmin && email === fallbackAdmin) {
-               adminVerified = true;
-           } else {
-               try {
-                   const uidDoc = await getDoc(doc(db, 'admins', effectiveUser.uid));
-                   if (uidDoc.exists()) {
-                       adminVerified = true;
-                   } else if (effectiveUser.email) {
-                       const emailDoc = await getDoc(doc(db, 'admins', effectiveUser.email));
-                       if (emailDoc.exists()) adminVerified = true;
-                   }
-               } catch (err: any) {}
-           }
-        }
           
-        setIsAdminUser(adminVerified);
-        if (!adminVerified) {
+        if (adminVerified) {
+          setUser(effectiveUser);
+          setIsAdminUser(true);
+        } else {
           clearSession();
+          setUser(null);
+          setIsAdminUser(false);
         }
         setCheckingAuth(false);
       } else {
+        clearSession();
+        setUser(null);
         setIsAdminUser(false);
         setCheckingAuth(false);
       }
