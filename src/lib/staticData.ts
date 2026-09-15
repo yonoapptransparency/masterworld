@@ -57,7 +57,6 @@ export interface NewsItem {
   slug: string;
   title: string;
   logo_url: string;
-  image_url?: string;
   description: string;
   ceo_name: string;
   ceo_description: string;
@@ -77,11 +76,6 @@ export interface NewsItem {
   date?: string;
   tags?: string[];
   related_app_id?: string;
-  created_at?: string;
-  updated_at?: string;
-  is_breaking?: boolean;
-  is_new?: boolean;
-  is_pinned?: boolean;
   sync_to_public?: boolean;
 }
 

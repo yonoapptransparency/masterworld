@@ -81,7 +81,6 @@ export interface NewsItem {
   slug: string;
   title: string;
   logo_url: string;
-  image_url?: string;
   description: string;
   ceo_name: string;
   ceo_description: string;

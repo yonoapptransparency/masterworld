@@ -190,7 +190,7 @@ export function generateNewsSitemapXml(
     seenUrls.add(loc);
 
     const itemDate = formatSitemapDate(item.published_at || item.updated_at || item.created_at || item.date, now);
-    const itemImage = item.logo_url || item.image_url || item.thumbnail_url || item.og_image_url || '';
+    const itemImage = item.image_url || item.thumbnail_url || item.og_image_url || '';
     const itemTitle = item.title || 'News Article';
 
     xml += `  <url>\n`;

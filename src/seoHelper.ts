@@ -147,50 +147,8 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
 
   let bodyContent = '';
 
-  if (cleanPathLower === '/' || cleanPathLower === '') {
+  if (cleanPathLower === '/' || cleanPathLower === '' || cleanPathLower === '/new-apps' || cleanPathLower.startsWith('/category/') || cleanPathLower.startsWith('/categories/') || cleanPathLower === '/categories') {
     bodyContent = renderers.renderHome(apps, settings, news, videos);
-  } else if (cleanPathLower === '/new-apps') {
-    const newAppsList = apps.filter((a: any) => {
-      const isNew = a.is_new === true || (a.is_new && typeof a.is_new === 'object' && a.is_new.booleanValue === true);
-      const isHot = a.is_hot === true || (a.is_hot && typeof a.is_hot === 'object' && a.is_hot.booleanValue === true);
-      return isNew || isHot;
-    });
-    const displayNew = newAppsList.length > 0 ? newAppsList : [...apps].slice(0, 24);
-    bodyContent = renderers.renderNewApps(displayNew, settings);
-  } else if (cleanPathLower === '/categories') {
-    const catMap = new Map<string, { name: string; slug: string; count: number }>();
-    apps.forEach((a: any) => {
-      const rawCat = getField(a, 'category', '');
-      if (rawCat) {
-        rawCat.split(',').forEach((c: string) => {
-          const trimmed = c.trim();
-          if (trimmed && trimmed.toLowerCase() !== 'all apps' && trimmed.toLowerCase() !== 'all' && trimmed.toLowerCase() !== 'apps' && trimmed.toLowerCase() !== 'general') {
-            const s = trimmed.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-            if (s) {
-              if (!catMap.has(s)) {
-                catMap.set(s, { name: trimmed, slug: s, count: 1 });
-              } else {
-                catMap.get(s)!.count++;
-              }
-            }
-          }
-        });
-      }
-    });
-    bodyContent = renderers.renderCategoriesList(Array.from(catMap.values()), settings);
-  } else if (cleanPathLower.startsWith('/category/') || cleanPathLower.startsWith('/categories/')) {
-    const rawCatSlug = cleanPathLower.replace(/^\/(category|categories)\/?/, '').replace(/^\/|\/$/g, '');
-    const catName = rawCatSlug
-      ? rawCatSlug.split(/[-_]+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
-      : 'All Categories';
-    const categoryApps = apps.filter((a: any) => {
-      const cat = getField(a, 'category', '');
-      if (!cat) return false;
-      const cats = cat.split(',').map((c: string) => c.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''));
-      return cats.some((c: string) => c === rawCatSlug || c.includes(rawCatSlug) || rawCatSlug.includes(c));
-    });
-    const finalCatApps = categoryApps.length > 0 ? categoryApps : apps;
-    bodyContent = renderers.renderCategory(catName, rawCatSlug, finalCatApps, settings);
   } else if (cleanPathLower.startsWith('/s/')) {
     const slug = cleanPath.split('/s/')[1];
     const app = apps.find((a: any) => getField(a, 'slug').toLowerCase() === slug.toLowerCase());
@@ -277,7 +235,7 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
 }
 
 async function buildJsonLdSchema(params: {
-  pageType: 'home' | 'app' | 'news' | 'video' | 'static' | 'collection' | 'gateway' | '404';
+  pageType: 'home' | 'app' | 'news' | 'video' | 'static' | 'gateway' | '404';
   title: string;
   description: string;
   url: string;
@@ -287,8 +245,6 @@ async function buildJsonLdSchema(params: {
   newsItem?: any;
   videoItem?: any;
   settings?: any;
-  collectionItems?: Array<{ name: string; url: string; image?: string; description?: string }>;
-  breadcrumbItems?: Array<{ name: string; url: string }>;
 }): Promise<string> {
   const schemas: any[] = [];
 
@@ -311,7 +267,7 @@ async function buildJsonLdSchema(params: {
     const category = normalizeSchemaCategory(getField(app, 'category'));
     const rawRating = getField(app, 'rating');
     const configuredRating = parseFloat(rawRating);
-    const rawCount = getField(app, 'review_count') || getField(app, 'reviews') || getField(app, 'reviews_count') || '';
+    const rawCount = getField(app, 'review_count') || getField(app, 'reviews') || '';
     const configuredCount = parseInt(rawCount, 10);
     
     // Admin configured rating is the primary authority for the catalog
@@ -559,43 +515,6 @@ async function buildJsonLdSchema(params: {
         }
       ]
     });
-  } else if (params.pageType === 'collection') {
-    // COLLECTION PAGES: Category, New Apps, Categories list, Developers list
-    const collectionSchema: any = {
-      "@context": "https://schema.org",
-      "@type": "CollectionPage",
-      "name": params.title,
-      "description": params.description,
-      "url": params.url
-    };
-
-    if (params.collectionItems && params.collectionItems.length > 0) {
-      collectionSchema.mainEntity = {
-        "@type": "ItemList",
-        "itemListElement": params.collectionItems.map((item, idx) => ({
-          "@type": "ListItem",
-          "position": idx + 1,
-          "name": item.name,
-          "url": item.url,
-          ...(item.image ? { "image": item.image } : {}),
-          ...(item.description ? { "description": item.description } : {})
-        }))
-      };
-    }
-    schemas.push(collectionSchema);
-
-    if (params.breadcrumbItems && params.breadcrumbItems.length > 0) {
-      schemas.push({
-        "@context": "https://schema.org",
-        "@type": "BreadcrumbList",
-        "itemListElement": params.breadcrumbItems.map((b, idx) => ({
-          "@type": "ListItem",
-          "position": idx + 1,
-          "name": b.name,
-          "item": b.url
-        }))
-      });
-    }
   } else {
     // HOME & GENERAL PAGES: WebSite schema is only on root/general pages
     schemas.push({
@@ -668,7 +587,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
 
   const apps = data.apps || [];
   const settings = data.settings || {};
-  const news = (data.news || []).filter((n: any) => n && n.sync_to_public !== false);
+  const news = data.news || [];
   const videos = data.videos || [];
   const developers = data.developers || [];
   const siteTitle = getField(settings, 'site_title') || 'RummyDex';
@@ -703,68 +622,24 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
 
   let isNotFound = false;
   let customCanonicalUrl: string | undefined = undefined;
-  let pageType: 'home' | 'app' | 'news' | 'video' | 'static' | 'collection' | 'gateway' | '404' = 'static';
+  let pageType: 'home' | 'app' | 'news' | 'video' | 'static' | 'gateway' | '404' = 'static';
   let targetApp: any = null;
   let targetNews: any = null;
   let targetVideo: any = null;
-  let collectionItems: Array<{ name: string; url: string; image?: string; description?: string }> | undefined = undefined;
-  let breadcrumbItems: Array<{ name: string; url: string }> | undefined = undefined;
 
-  if (cleanPathLower === '/' || cleanPathLower === '') {
+  if (cleanPathLower === '/' || cleanPathLower === '' || cleanPathLower === '/new-apps') {
     pageType = 'home';
     title = getField(settings, 'seo_title') || getField(settings, 'meta_title') || siteTitle;
     description = getField(settings, 'seo_description') || getField(settings, 'meta_description', '');
-  } else if (cleanPathLower === '/new-apps') {
-    pageType = 'collection';
-    title = `New Apps & Latest Releases | ${siteTitle}`;
-    description = `Explore the newest released Rummy, Teen Patti, and card game apps with verified ratings on ${siteTitle}.`;
-    customCanonicalUrl = `https://www.rummydex.com/new-apps`;
-    const newAppsList = apps.filter((a: any) => a.is_new === true || (a.is_new && a.is_new.booleanValue === true) || a.is_hot === true).slice(0, 20);
-    collectionItems = (newAppsList.length > 0 ? newAppsList : apps.slice(0, 20)).map((a: any) => ({
-      name: getField(a, 'name'),
-      url: `https://www.rummydex.com/app/${getField(a, 'slug')}`,
-      image: getField(a, 'icon_url'),
-      description: cleanSeoDescription(getField(a, 'seo_description') || getField(a, 'meta_description') || stripHtml(getField(a, 'description_html')).substring(0, 120))
-    }));
-    breadcrumbItems = [
-      { name: 'Home', url: 'https://www.rummydex.com' },
-      { name: 'New Apps', url: 'https://www.rummydex.com/new-apps' }
-    ];
-  } else if (cleanPathLower === '/categories') {
-    pageType = 'collection';
-    title = `App Categories & Genres | ${siteTitle}`;
-    description = `Browse all gaming and entertainment application categories on ${siteTitle}.`;
-    customCanonicalUrl = `https://www.rummydex.com/categories`;
-    breadcrumbItems = [
-      { name: 'Home', url: 'https://www.rummydex.com' },
-      { name: 'Categories', url: 'https://www.rummydex.com/categories' }
-    ];
-  } else if (cleanPathLower.startsWith('/category/') || cleanPathLower.startsWith('/categories/')) {
+  } else if (cleanPathLower.startsWith('/category/') || cleanPathLower.startsWith('/categories/') || cleanPathLower === '/categories') {
     const rawCatSlug = cleanPathLower.replace(/^\/(category|categories)\/?/, '').replace(/^\/|\/$/g, '');
     const catName = rawCatSlug
       ? rawCatSlug.split(/[-_]+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
       : 'All Categories';
-    pageType = 'collection';
+    pageType = 'home';
     title = `${catName} - Download & Reviews | ${siteTitle}`;
     description = `Explore top ${catName}, verified reviews, download ratings, and bonus updates on ${siteTitle}.`;
     customCanonicalUrl = `https://www.rummydex.com/category/${rawCatSlug || 'all'}`;
-    const categoryApps = apps.filter((a: any) => {
-      const cat = getField(a, 'category', '');
-      if (!cat) return false;
-      const cats = cat.split(',').map((c: string) => c.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''));
-      return cats.some((c: string) => c === rawCatSlug || c.includes(rawCatSlug) || rawCatSlug.includes(c));
-    }).slice(0, 20);
-    collectionItems = (categoryApps.length > 0 ? categoryApps : apps.slice(0, 20)).map((a: any) => ({
-      name: getField(a, 'name'),
-      url: `https://www.rummydex.com/app/${getField(a, 'slug')}`,
-      image: getField(a, 'icon_url'),
-      description: cleanSeoDescription(getField(a, 'seo_description') || getField(a, 'meta_description') || stripHtml(getField(a, 'description_html')).substring(0, 120))
-    }));
-    breadcrumbItems = [
-      { name: 'Home', url: 'https://www.rummydex.com' },
-      { name: 'Categories', url: 'https://www.rummydex.com/categories' },
-      { name: catName, url: `https://www.rummydex.com/category/${rawCatSlug || 'all'}` }
-    ];
   } else if (cleanPathLower.startsWith('/admin') || cleanPathLower.startsWith('/masterworld')) {
     title = `Admin Panel | ${siteTitle}`;
     description = `Admin Control Dashboard`;
@@ -971,9 +846,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     app: targetApp,
     newsItem: targetNews,
     videoItem: targetVideo,
-    settings,
-    collectionItems,
-    breadcrumbItems
+    settings
   });
 
   // Ensure meta description is clean and formatted
@@ -1101,40 +974,28 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       };
     }) : [];
 
-    const optimizedNews = (Array.isArray(data.news) ? data.news : [])
-      .filter((item: any) => item && item.sync_to_public !== false)
-      .map((item: any) => ({
+    const targetNewsSlug = targetNews ? getField(targetNews, 'slug')?.toLowerCase() : null;
+    const optimizedNews = Array.isArray(data.news) ? data.news.map((item: any) => {
+      const isTarget = targetNewsSlug && getField(item, 'slug')?.toLowerCase() === targetNewsSlug;
+      if (isTarget) return item;
+      return {
         id: item.id,
         slug: item.slug,
         title: item.title,
-        logo_url: item.logo_url || item.image_url || '',
-        image_url: item.image_url || item.logo_url || '',
-        description: item.description || '',
-        content: item.content || item.description_html || '',
-        description_html: item.description_html || item.content || '',
-        ceo_name: item.ceo_name || item.author || 'Admin Team',
-        ceo_description: item.ceo_description || 'Transparency & Security Analyst',
-        author: item.author || item.ceo_name || 'Admin Team',
-        category: item.category || 'General',
-        published_at: item.published_at || item.created_at || item.date || '',
-        date: item.date || item.published_at || item.created_at || '',
-        read_time: item.read_time || '3 min read',
-        is_breaking: Boolean(item.is_breaking),
-        is_new: Boolean(item.is_new),
-        is_pinned: Boolean(item.is_pinned),
-        seo_title: item.seo_title || '',
-        seo_description: item.seo_description || '',
-        seo_keywords: item.seo_keywords || '',
-        og_image_url: item.og_image_url || '',
-        canonical_url: item.canonical_url || '',
-        target_region: item.target_region || 'India',
-        link: item.link || '',
-        tags: Array.isArray(item.tags) ? item.tags : [],
-        related_app_id: item.related_app_id || '',
-        created_at: item.created_at || item.date || '',
-        updated_at: item.updated_at || item.date || '',
-        sync_to_public: true
-      }));
+        seo_title: item.seo_title,
+        seo_description: item.seo_description,
+        meta_description: item.meta_description,
+        og_image_url: item.og_image_url,
+        logo_url: item.logo_url,
+        category: item.category,
+        published_at: item.published_at,
+        date: item.date,
+        read_time: item.read_time,
+        is_breaking: item.is_breaking,
+        is_new: item.is_new,
+        is_pinned: item.is_pinned
+      };
+    }) : [];
 
     const optimizedVideos = Array.isArray(data.videos) ? data.videos.map((item: any) => {
       const isTarget = targetVideo && (getField(item, 'slug') || getField(item, 'id'))?.toLowerCase() === (getField(targetVideo, 'slug') || getField(targetVideo, 'id'))?.toLowerCase();

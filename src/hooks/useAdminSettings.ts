@@ -85,28 +85,22 @@ export const useAdminSettings = (settings: any, news: any[], videos: any[]) => {
   // News
   const handleAddNews = () => {
     const newId = Math.random().toString(36).substr(2, 9);
-    const nowIso = new Date().toISOString();
     const newItem = {
       id: newId,
       slug: `news-${newId}`,
       title: 'New News Item',
       logo_url: '',
-      image_url: '',
       description: 'News description...',
       description_html: '<p>Content...</p>',
       content: '<p>Content...</p>',
-      ceo_name: 'Admin Team',
-      ceo_description: 'Transparency & Security Analyst',
-      author: 'Admin Team',
-      created_at: nowIso,
-      date: nowIso,
-      published_at: nowIso,
-      read_time: '3 min read',
+      image_url: '',
+      created_at: new Date().toISOString(),
+      date: new Date().toISOString(),
+      published_at: new Date().toISOString(),
       is_breaking: false,
       is_new: true,
       category: 'General',
-      is_pinned: false,
-      sync_to_public: true
+      is_pinned: false
     };
     setNewsList(prev => [newItem, ...prev]);
     return newId;
@@ -123,21 +117,6 @@ export const useAdminSettings = (settings: any, news: any[], videos: any[]) => {
         updated.description_html = value;
       } else if (field === 'description_html') {
         updated.content = value;
-      }
-      if (field === 'logo_url') {
-        updated.image_url = value;
-      } else if (field === 'image_url') {
-        updated.logo_url = value;
-      }
-      if (field === 'ceo_name') {
-        updated.author = value;
-      } else if (field === 'author') {
-        updated.ceo_name = value;
-      }
-      if (field === 'date') {
-        updated.published_at = value;
-      } else if (field === 'published_at') {
-        updated.date = value;
       }
       return updated;
     }));

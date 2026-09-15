@@ -321,16 +321,19 @@ async function startServer() {
         const storeData = await fetchStoreData();
         const resolvedApp = resolveAppSlug(cleanSegment, storeData.apps || []);
         if (resolvedApp && (resolvedApp.slug || resolvedApp.id)) {
+          res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
           return res.redirect(301, `/app/${resolvedApp.slug || resolvedApp.id}`);
         }
 
         const newsItem = (storeData.news || []).find((n: any) => n.slug?.toLowerCase() === cleanSegment);
         if (newsItem && newsItem.slug) {
+          res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
           return res.redirect(301, `/news/${newsItem.slug}`);
         }
 
         const videoItem = (storeData.videos || []).find((v: any) => v.slug?.toLowerCase() === cleanSegment);
         if (videoItem && videoItem.slug) {
+          res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
           return res.redirect(301, `/videos/${videoItem.slug}`);
         }
       } catch (err) {

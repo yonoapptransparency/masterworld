@@ -10,16 +10,10 @@ interface MetaProps {
   image?: string;
   url?: string;
   type?: 'website' | 'article' | 'profile';
-  publishedTime?: string;
-  modifiedTime?: string;
-  author?: string;
-  section?: string;
-  tags?: string[];
   canonical?: string;
   schema?: any;
   faqSchema?: any;
   breadcrumbSchema?: any;
-  videoSchema?: any;
   noindex?: boolean;
 }
 
@@ -30,16 +24,10 @@ const Meta: React.FC<MetaProps> = ({
   image,
   url,
   type = 'website',
-  publishedTime,
-  modifiedTime,
-  author,
-  section,
-  tags,
   canonical,
   schema,
   faqSchema,
   breadcrumbSchema,
-  videoSchema,
   noindex = false
 }) => {
   const { settings } = useData();
@@ -110,19 +98,16 @@ const Meta: React.FC<MetaProps> = ({
     setMetaTag('name', 'description', metaDescription);
     if (metaKeywords) {
       setMetaTag('name', 'keywords', metaKeywords);
-    } else {
-      // Cleanly remove any keywords from previous pages if this page specifies none
-      document.head.querySelectorAll('meta[name="keywords" i], meta[property="keywords" i]').forEach(el => el.remove());
     }
     setMetaTag('name', 'robots', robotsDirective);
     setMetaTag('name', 'googlebot', robotsDirective);
     setMetaTag('name', 'bingbot', robotsDirective);
 
     // 3. Strict Single Canonical Tag Enforcement in <head>
-    const allCanonicals = document.head.querySelectorAll('link[rel="canonical" i]');
+    const allCanonicals = document.querySelectorAll('link[rel="canonical"]');
     let headCanonical: HTMLLinkElement | null = null;
-    allCanonicals.forEach((linkEl, index) => {
-      if (index === 0) {
+    allCanonicals.forEach((linkEl) => {
+      if (linkEl.parentElement === document.head && !headCanonical) {
         headCanonical = linkEl as HTMLLinkElement;
       } else {
         linkEl.remove();
@@ -139,10 +124,10 @@ const Meta: React.FC<MetaProps> = ({
     }
 
     // 4. Strict Single Image Source Link Tag Enforcement
-    const allImageLinks = document.head.querySelectorAll('link[rel="image_src" i]');
+    const allImageLinks = document.querySelectorAll('link[rel="image_src"]');
     let headImageLink: HTMLLinkElement | null = null;
-    allImageLinks.forEach((linkEl, index) => {
-      if (index === 0) {
+    allImageLinks.forEach((linkEl) => {
+      if (linkEl.parentElement === document.head && !headImageLink) {
         headImageLink = linkEl as HTMLLinkElement;
       } else {
         linkEl.remove();
@@ -176,31 +161,7 @@ const Meta: React.FC<MetaProps> = ({
     setMetaTag('property', 'og:site_name', siteTitle);
     setMetaTag('property', 'og:locale', 'en_IN');
 
-    // 6. Article Metadata vs General Website Isolation
-    if (type === 'article') {
-      if (publishedTime) setMetaTag('property', 'article:published_time', publishedTime);
-      if (modifiedTime) setMetaTag('property', 'article:modified_time', modifiedTime);
-      if (author) setMetaTag('property', 'article:author', author);
-      if (section) setMetaTag('property', 'article:section', section);
-      
-      // Purge old article:tag elements before re-injecting fresh ones
-      document.head.querySelectorAll('meta[property="article:tag" i]').forEach(el => el.remove());
-      if (tags && tags.length > 0) {
-        tags.forEach(t => {
-          if (t && t.trim()) {
-            const m = document.createElement('meta');
-            m.setAttribute('property', 'article:tag');
-            m.setAttribute('content', t.trim());
-            document.head.appendChild(m);
-          }
-        });
-      }
-    } else {
-      // Purge all article:* metadata so article tags never leak into app or store catalog pages
-      document.head.querySelectorAll('meta[property^="article:" i]').forEach(el => el.remove());
-    }
-
-    // 7. Twitter Card Tags
+    // 6. Twitter Card Tags
     setMetaTag('name', 'twitter:card', 'summary_large_image');
     setMetaTag('name', 'twitter:site', '@RummyDex');
     setMetaTag('name', 'twitter:creator', '@RummyDex');
@@ -209,12 +170,11 @@ const Meta: React.FC<MetaProps> = ({
     setMetaTag('name', 'twitter:description', metaDescription);
     setMetaTag('name', 'twitter:image', metaImage);
 
-    // 8. Schema.org JSON-LD Structured Data in <head>
+    // 7. Schema.org JSON-LD Structured Data in <head>
     const schemasToInject: any[] = [];
     if (schema) schemasToInject.push(schema);
     if (faqSchema) schemasToInject.push(faqSchema);
     if (breadcrumbSchema) schemasToInject.push(breadcrumbSchema);
-    if (videoSchema) schemasToInject.push(videoSchema);
 
     if (currentPath === '/' && !schema) {
       schemasToInject.push({
@@ -231,11 +191,11 @@ const Meta: React.FC<MetaProps> = ({
       });
     }
 
-    // Always clear previous schemas so stale schemas never persist across SPA route changes
-    const allSchemaScripts = document.head.querySelectorAll('script[type="application/ld+json"]');
-    allSchemaScripts.forEach((s) => s.remove());
-
     if (schemasToInject.length > 0) {
+      // Remove previous dynamic or SSR schemas now that we have fresh schemas to inject
+      const allSchemaScripts = document.head.querySelectorAll('script[type="application/ld+json"]');
+      allSchemaScripts.forEach((s) => s.remove());
+
       schemasToInject.forEach((s) => {
         const script = document.createElement('script');
         script.type = 'application/ld+json';
@@ -244,28 +204,7 @@ const Meta: React.FC<MetaProps> = ({
         document.head.appendChild(script);
       });
     }
-  }, [
-    fullTitle, 
-    metaDescription, 
-    metaKeywords, 
-    robotsDirective, 
-    canonicalUrl, 
-    metaUrl, 
-    type, 
-    publishedTime, 
-    modifiedTime, 
-    author, 
-    section, 
-    tags, 
-    metaImage, 
-    siteTitle, 
-    schema, 
-    faqSchema, 
-    breadcrumbSchema, 
-    videoSchema, 
-    currentPath, 
-    origin
-  ]);
+  }, [fullTitle, metaDescription, metaKeywords, robotsDirective, canonicalUrl, metaUrl, type, metaImage, siteTitle, schema, faqSchema, breadcrumbSchema, currentPath, origin]);
 
   return null;
 };
