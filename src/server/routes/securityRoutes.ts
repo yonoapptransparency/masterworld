@@ -33,12 +33,10 @@ const BOT_PATTERNS = [
 ];
 
 function isKnownBotOrCrawler(ua: string): boolean {
-  if (!ua || ua.length < 15) return true;
+  if (!ua || ua.length < 10) return true;
   const lower = ua.toLowerCase();
   // Reject known bot patterns
   if (BOT_PATTERNS.some(bot => lower.includes(bot))) return true;
-  // Legitimate modern browsers almost always identify with Mozilla/5.0
-  if (!lower.includes('mozilla/5.0')) return true;
   return false;
 }
 

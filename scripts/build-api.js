@@ -36,13 +36,9 @@ if (startIdx !== -1) {
 }
 
 // 3. Replace app.listen with module.exports for Vercel
-const listenStartToken = 'app.listen(PORT';
-const listenIdx = content.indexOf(listenStartToken);
-if (listenIdx !== -1) {
-    const listenEndIdx = content.lastIndexOf('});');
-    if (listenEndIdx !== -1 && listenEndIdx > listenIdx) {
-        content = content.substring(0, listenIdx) + 'module.exports = app;' + content.substring(listenEndIdx + 3);
-    }
+const listenStartIdx = content.indexOf('const server = app.listen');
+if (listenStartIdx !== -1) {
+    content = content.substring(0, listenStartIdx) + '\nmodule.exports = app;\n';
 }
 
 // 4. Strip Vite/Static block (not needed in Serverless Function)
