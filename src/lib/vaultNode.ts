@@ -240,11 +240,12 @@ class VaultNodeManager {
     }
 
     if (trimmed.toLowerCase().includes('mediafire.com')) return null;
+    if (trimmed.toLowerCase().includes('rummydex.com/download/') || trimmed.toLowerCase().includes('rummydex.com/moreinfo/')) return null;
     return trimmed;
   }
 
   /**
-   * Synchronously retrieves a resource URL from memory.
+   * Synchronously retrieves a resource URL from memory, decrypting if stored as ciphertext.
    */
   public getPayload(key: string | undefined | null): string {
     if (!key || typeof key !== 'string') return '';
@@ -261,6 +262,17 @@ class VaultNodeManager {
         if (val && val.trim().length > 0) {
           const trimmed = val.trim();
           if (trimmed.toLowerCase().includes('mediafire.com')) return '';
+          if (trimmed.startsWith('U2FsdGVkX1')) {
+            try {
+              const secret = getAesSecret();
+              const dec = safeDecrypt(trimmed, secret);
+              if (dec && dec.trim().length > 0) {
+                const decTrimmed = dec.trim();
+                if (decTrimmed.toLowerCase().includes('mediafire.com')) return '';
+                return decTrimmed;
+              }
+            } catch (_) {}
+          }
           return trimmed;
         }
       }

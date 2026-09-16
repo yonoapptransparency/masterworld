@@ -87,9 +87,9 @@ securityRouter.all([
     try {
       const decoded = JSON.parse(Buffer.from(token, 'base64').toString('utf8'));
       const timeDiff = Math.abs(Date.now() - (decoded.t || 0));
-      // Nonce must be generated within the last 120 seconds
-      if (timeDiff > 120000) {
-        return res.status(403).json({ success: false, error: 'Session expired' });
+      // Nonce must be generated within the last 300 seconds (5 minutes tolerance)
+      if (timeDiff > 300000) {
+        return res.status(403).json({ success: false, error: 'Session expired. Please retry.' });
       }
     } catch (_) {
       return res.status(403).json({ success: false, error: 'Verification failed' });

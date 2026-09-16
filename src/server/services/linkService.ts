@@ -21,45 +21,83 @@ function isValidTargetUrl(url: string | null | undefined): boolean {
   if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) return false;
   if (trimmed.includes('127.0.0.1') || trimmed.includes('localhost') || trimmed.includes('0.0.0.0')) return false;
   if (trimmed.toLowerCase().includes('mediafire.com')) return false;
+  // Critical: prevent loop links pointing back to internal gateway/download routes on rummydex.com
+  const lower = trimmed.toLowerCase();
+  if (lower.includes('rummydex.com/download/') || lower.includes('rummydex.com/moreinfo/') || lower.includes('rummydex.com/info/')) {
+    return false;
+  }
   return true;
 }
 
-function searchVaultObject(obj: Record<string, any>, searchKeys: string[], secret: string): string {
-  if (!obj || typeof obj !== 'object') return '';
+function searchVaultObject(obj: any, searchKeys: string[], secret: string): string {
+  if (!obj) return '';
 
-  for (const key of searchKeys) {
-    const rawVal = obj[key];
-    if (rawVal) {
-      let candidate = '';
-      if (typeof rawVal === 'string') {
-        candidate = rawVal;
-      } else if (typeof rawVal === 'object') {
-        candidate = rawVal.more_information_url || rawVal.encrypted_link || rawVal.download_url || rawVal.url || '';
-      }
+  // 1. If payload is an Array of app/link items (like secure_vault.json)
+  if (Array.isArray(obj)) {
+    for (const item of obj) {
+      if (!item || typeof item !== 'object') continue;
+      const itemId = (item.id || '').toLowerCase().trim();
+      const itemSlug = (item.slug || '').toLowerCase().trim();
+      const itemNormId = itemId.replace(/[-_ ]/g, '');
+      const itemNormSlug = itemSlug.replace(/[-_ ]/g, '');
 
-      if (candidate) {
-        const decrypted = candidate.startsWith('U2FsdGVkX1') ? safeDecrypt(candidate, secret) : candidate;
-        if (isValidTargetUrl(decrypted)) {
-          return decrypted.trim();
+      const isMatch = searchKeys.some(k => {
+        const normK = k.toLowerCase().trim().replace(/[-_ ]/g, '');
+        return k.toLowerCase().trim() === itemId || 
+               k.toLowerCase().trim() === itemSlug || 
+               normK === itemNormId || 
+               normK === itemNormSlug;
+      });
+
+      if (isMatch) {
+        const candidate = item.more_information_url || item.encrypted_link || item.download_url || item.url || item.payload || '';
+        if (candidate && typeof candidate === 'string') {
+          const decrypted = candidate.startsWith('U2FsdGVkX1') ? safeDecrypt(candidate, secret) : candidate;
+          if (isValidTargetUrl(decrypted)) {
+            return decrypted.trim();
+          }
         }
       }
     }
+    return '';
   }
 
-  // Also search through entries if keys are case-insensitive
-  const entries = Object.entries(obj);
-  for (const [k, v] of entries) {
-    const normK = k.toLowerCase().replace(/[-_ ]/g, '');
-    for (const s of searchKeys) {
-      if (normK === s.toLowerCase().replace(/[-_ ]/g, '')) {
+  // 2. If payload is a key-value dictionary (e.g. { [appId]: url } or { [appId]: { url: ... } })
+  if (typeof obj === 'object') {
+    for (const key of searchKeys) {
+      const rawVal = obj[key];
+      if (rawVal) {
         let candidate = '';
-        if (typeof v === 'string') candidate = v;
-        else if (v && typeof v === 'object') candidate = v.more_information_url || v.encrypted_link || v.download_url || v.url || '';
-        
+        if (typeof rawVal === 'string') {
+          candidate = rawVal;
+        } else if (typeof rawVal === 'object') {
+          candidate = rawVal.more_information_url || rawVal.encrypted_link || rawVal.download_url || rawVal.url || rawVal.payload || '';
+        }
+
         if (candidate) {
           const decrypted = candidate.startsWith('U2FsdGVkX1') ? safeDecrypt(candidate, secret) : candidate;
           if (isValidTargetUrl(decrypted)) {
             return decrypted.trim();
+          }
+        }
+      }
+    }
+
+    // Also search through entries if keys are formatted with dashes/underscores
+    const entries = Object.entries(obj);
+    for (const [k, v] of entries) {
+      const normK = k.toLowerCase().replace(/[-_ ]/g, '');
+      for (const s of searchKeys) {
+        if (normK === s.toLowerCase().replace(/[-_ ]/g, '')) {
+          let candidate = '';
+          if (typeof v === 'string') candidate = v;
+          else if (v && typeof v === 'object') candidate = (v as any).more_information_url || (v as any).encrypted_link || (v as any).download_url || (v as any).url || (v as any).payload || '';
+          
+          if (candidate) {
+            const decrypted = candidate.startsWith('U2FsdGVkX1') ? safeDecrypt(candidate, secret) : candidate;
+            if (isValidTargetUrl(decrypted)) {
+              return decrypted.trim();
+            }
           }
         }
       }

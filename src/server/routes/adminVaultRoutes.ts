@@ -1015,7 +1015,13 @@ async function getMasterApps(authToken?: string): Promise<any[]> {
   }
 
   return apps.map((app: any) => {
-    const vaultUrl = (app.id ? vaultNode.getPayload(app.id) : '') || (app.slug ? vaultNode.getPayload(app.slug) : '') || app.more_information_url || '';
+    let vaultUrl = (app.id ? vaultNode.getPayload(app.id) : '') || (app.slug ? vaultNode.getPayload(app.slug) : '') || app.more_information_url || app.encrypted_link || '';
+    if (vaultUrl && typeof vaultUrl === 'string' && vaultUrl.startsWith('U2FsdGVkX1')) {
+      try {
+        const dec = safeDecrypt(vaultUrl, getAesSecret());
+        if (dec) vaultUrl = dec;
+      } catch (_) {}
+    }
     return {
       ...app,
       more_information_url: vaultUrl
@@ -1091,6 +1097,14 @@ export async function saveMasterAppsList(apps: any[], authToken?: string): Promi
       for (let i = 0; i < numChunks; i++) {
         const chunk = JSON.parse(JSON.stringify(apps.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE)));
         chunk.forEach((app: any) => {
+          if (app.more_information_url && !app.encrypted_link) {
+            const raw = String(app.more_information_url).trim();
+            if (raw.startsWith('U2FsdGVkX1')) {
+              app.encrypted_link = raw;
+            } else if (raw.length > 0) {
+              app.encrypted_link = safeEncrypt(raw, getAesSecret());
+            }
+          }
           delete app.more_information_url;
           delete app.encrypted_download_url;
           delete app.download_url;
@@ -1113,6 +1127,14 @@ export async function saveMasterAppsList(apps: any[], authToken?: string): Promi
       for (let i = 0; i < numChunks; i++) {
         const chunk = JSON.parse(JSON.stringify(apps.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE)));
         chunk.forEach((app: any) => {
+          if (app.more_information_url && !app.encrypted_link) {
+            const raw = String(app.more_information_url).trim();
+            if (raw.startsWith('U2FsdGVkX1')) {
+              app.encrypted_link = raw;
+            } else if (raw.length > 0) {
+              app.encrypted_link = safeEncrypt(raw, getAesSecret());
+            }
+          }
           delete app.more_information_url;
           delete app.encrypted_download_url;
           delete app.download_url;
@@ -1136,8 +1158,15 @@ export async function saveMasterAppsList(apps: any[], authToken?: string): Promi
   updateLocalBackupSection('apps', apps);
 
   // Update vault node and files
+  const secret = getAesSecret();
   apps.forEach((app: any) => {
-    const target = app.more_information_url || app.encrypted_link || '';
+    let target = app.more_information_url || app.encrypted_link || '';
+    if (target && typeof target === 'string' && target.startsWith('U2FsdGVkX1')) {
+      try {
+        const dec = safeDecrypt(target, secret);
+        if (dec) target = dec;
+      } catch (_) {}
+    }
     if (target && app.id) vaultNode.setPayload(app.id, target);
     if (target && app.slug) vaultNode.setPayload(app.slug, target);
   });
@@ -1327,10 +1356,20 @@ adminVaultRouter.get("/api/v1/admin/data", verifyAdminToken, async (req: any, re
   }
 
   // Attach vault links to apps
-  const mappedApps = apps.map((a: any) => ({
-    ...a,
-    more_information_url: (a.id ? vaultNode.getPayload(a.id) : '') || (a.slug ? vaultNode.getPayload(a.slug) : '') || a.more_information_url || ''
-  }));
+  const dataSecret = getAesSecret();
+  const mappedApps = apps.map((a: any) => {
+    let link = (a.id ? vaultNode.getPayload(a.id) : '') || (a.slug ? vaultNode.getPayload(a.slug) : '') || a.more_information_url || a.encrypted_link || '';
+    if (link && typeof link === 'string' && link.startsWith('U2FsdGVkX1')) {
+      try {
+        const dec = safeDecrypt(link, dataSecret);
+        if (dec) link = dec;
+      } catch (_) {}
+    }
+    return {
+      ...a,
+      more_information_url: link
+    };
+  });
 
   return res.json({
     success: true,
@@ -1360,10 +1399,20 @@ adminVaultRouter.get("/api/v1/admin/apps", verifyAdminToken, async (req: any, re
       }
       if (apps.length > 0) {
         // Attach vault links
-        const mapped = apps.map((a: any) => ({
-          ...a,
-          more_information_url: (a.id ? vaultNode.getPayload(a.id) : '') || (a.slug ? vaultNode.getPayload(a.slug) : '') || a.more_information_url || ''
-        }));
+        const secret = getAesSecret();
+        const mapped = apps.map((a: any) => {
+          let link = (a.id ? vaultNode.getPayload(a.id) : '') || (a.slug ? vaultNode.getPayload(a.slug) : '') || a.more_information_url || a.encrypted_link || '';
+          if (link && typeof link === 'string' && link.startsWith('U2FsdGVkX1')) {
+            try {
+              const dec = safeDecrypt(link, secret);
+              if (dec) link = dec;
+            } catch (_) {}
+          }
+          return {
+            ...a,
+            more_information_url: link
+          };
+        });
         return res.json({ success: true, apps: mapped, source: 'firestore' });
       }
     }
@@ -1380,10 +1429,20 @@ adminVaultRouter.get("/api/v1/admin/apps", verifyAdminToken, async (req: any, re
       }
     }
     if (restApps.length > 0) {
-      const mapped = restApps.map((a: any) => ({
-        ...a,
-        more_information_url: (a.id ? vaultNode.getPayload(a.id) : '') || (a.slug ? vaultNode.getPayload(a.slug) : '') || a.more_information_url || ''
-      }));
+      const secret = getAesSecret();
+      const mapped = restApps.map((a: any) => {
+        let link = (a.id ? vaultNode.getPayload(a.id) : '') || (a.slug ? vaultNode.getPayload(a.slug) : '') || a.more_information_url || a.encrypted_link || '';
+        if (link && typeof link === 'string' && link.startsWith('U2FsdGVkX1')) {
+          try {
+            const dec = safeDecrypt(link, secret);
+            if (dec) link = dec;
+          } catch (_) {}
+        }
+        return {
+          ...a,
+          more_information_url: link
+        };
+      });
       return res.json({ success: true, apps: mapped, source: 'firestore' });
     }
 
@@ -1474,10 +1533,14 @@ adminVaultRouter.post("/api/v1/admin/app/save", verifyAdminToken, async (req: an
 
     if (inputUrl && typeof inputUrl === 'string' && !inputUrl.toLowerCase().includes('mediafire.com')) {
       const trimmedUrl = inputUrl.trim();
-      const encrypted = safeEncrypt(trimmedUrl, secret);
+      const plaintext = trimmedUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(trimmedUrl, secret) : trimmedUrl;
+      const encrypted = trimmedUrl.startsWith('U2FsdGVkX1') ? trimmedUrl : safeEncrypt(plaintext, secret);
 
-      vaultNode.setPayload(actualId, trimmedUrl);
-      if (actualSlug) vaultNode.setPayload(actualSlug, trimmedUrl);
+      mergedApp.more_information_url = plaintext;
+      mergedApp.encrypted_link = encrypted;
+
+      vaultNode.setPayload(actualId, plaintext);
+      if (actualSlug) vaultNode.setPayload(actualSlug, plaintext);
 
       // Save encrypted link to persistent vault in Firestore
       try {

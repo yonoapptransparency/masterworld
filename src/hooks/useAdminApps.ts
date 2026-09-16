@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { adminFetch } from '../services/adminAuthService';
 import { sessionStore } from '../lib/sessionStore';
 import { mockApps } from '../lib/staticData';
+import { safeDecrypt } from '../lib/cryptoUtils';
 
 export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean | null) => {
   const [appsList, setAppsList] = useState<any[]>(() => (Array.isArray(apps) && apps.length > 0 ? apps : (mockApps || [])));
@@ -94,7 +95,9 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
           // Map incoming apps with decrypted links
           const sourceApps = (Array.isArray(apps) && apps.length > 0) ? apps : (appsList.length > 0 ? appsList : (mockApps || []));
           const mergedApps = sourceApps.map(a => {
-            const existingUrl = a.more_information_url || secureMap.get(a.id) || secureMap.get(a.slug) || '';
+            const rawUrl = a.more_information_url || '';
+            const decryptedFromUrl = (rawUrl && typeof rawUrl === 'string' && rawUrl.startsWith('U2FsdGVkX1')) ? safeDecrypt(rawUrl) : rawUrl;
+            const existingUrl = decryptedFromUrl || secureMap.get(a.id) || secureMap.get(a.slug) || '';
             if (existingUrl && !secureMap.has(a.id)) {
               secureMap.set(a.id, existingUrl);
             }
@@ -122,7 +125,9 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
       const mapped = apps
         .filter(a => !deletedAppIdsRef.current.has(a.id) && !deletedAppIdsRef.current.has(a.slug))
         .map(a => {
-          const link = a.more_information_url || secureMap.get(a.id) || secureMap.get(a.slug) || '';
+          const rawLink = a.more_information_url || '';
+          const decryptedFromLink = (rawLink && typeof rawLink === 'string' && rawLink.startsWith('U2FsdGVkX1')) ? safeDecrypt(rawLink) : rawLink;
+          const link = decryptedFromLink || secureMap.get(a.id) || secureMap.get(a.slug) || '';
           if (link && !secureMap.has(a.id)) {
             secureMap.set(a.id, link);
           }
