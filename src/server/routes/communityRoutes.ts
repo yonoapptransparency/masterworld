@@ -40,6 +40,7 @@ communityRouter.post(["/api/v1/public/community/reviews", "/api/v1/public/rating
   const rating = req.body.rating;
   const reviewText = req.body.reviewText || req.body.comment;
   const userName = req.body.userName || req.body.username;
+  const deviceId = req.body.deviceId;
   const turnstileToken = req.body.turnstileToken;
 
   if (!appId || !rating || !reviewText || !userName) {
@@ -59,7 +60,9 @@ communityRouter.post(["/api/v1/public/community/reviews", "/api/v1/public/rating
     const cleanUserName = String(userName).trim().substring(0, 50);
     const cleanReviewText = String(reviewText).trim().substring(0, 1000);
 
+    const generatedId = deviceId ? `rev_${appId}_${deviceId}` : undefined;
     const savedReview = await communityStore.addReview({
+      id: generatedId,
       appId: String(appId).trim(),
       appSlug: appSlug ? String(appSlug).trim() : undefined,
       appName: appName ? String(appName).trim() : undefined,

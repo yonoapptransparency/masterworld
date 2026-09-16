@@ -10,7 +10,9 @@ import {
   getCommunityFirebaseConfig,
   fetchLiveReviewsForApp,
   fetchExactCommunityAggregationCounts,
-  ExactCommunityAggregationResult
+  ExactCommunityAggregationResult,
+  atomicUpdateAppStats,
+  readAppStats
 } from '../communityFirebaseAdmin';
 import { getStaticData } from '../config';
 
@@ -237,6 +239,7 @@ async function safeWriteDb(docId: string, data: any, _unusedAuthToken?: string, 
 class CommunityStoreService {
   private reviews: Map<string, ReviewRecord> = new Map();
   private reports: Map<string, ReportRecord> = new Map();
+  private appStatsCache: Map<string, any> = new Map();
   private deletedReviewIds: Set<string> = new Set();
   private appChunkCache: Map<string, AppReviewChunkDocument> = new Map();
   private pendingChunkSyncAppIds: Set<string> = new Set();
@@ -818,6 +821,22 @@ class CommunityStoreService {
   // REVIEWS
   // ==========================================
 
+  
+  private applyStatsToCache(appId: string, incs: any) {
+    let stats = this.appStatsCache.get(appId);
+    if (!stats) {
+      stats = { publishedReviewCount: 0, publishedRatingSum: 0, starDistribution: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 } };
+    }
+    if (incs.publishedReviewCount) stats.publishedReviewCount += incs.publishedReviewCount;
+    if (incs.publishedRatingSum) stats.publishedRatingSum += incs.publishedRatingSum;
+    if (incs.star1) stats.starDistribution['1'] += incs.star1;
+    if (incs.star2) stats.starDistribution['2'] += incs.star2;
+    if (incs.star3) stats.starDistribution['3'] += incs.star3;
+    if (incs.star4) stats.starDistribution['4'] += incs.star4;
+    if (incs.star5) stats.starDistribution['5'] += incs.star5;
+    this.appStatsCache.set(appId, stats);
+  }
+
   public async addReview(payload: Partial<ReviewRecord> & Record<string, any>): Promise<ReviewRecord> {
     const rawAppId = String(payload.appId || payload.app_id || '').trim();
     const matchedApp = findAppInCatalog(rawAppId) || (payload.appSlug ? findAppInCatalog(payload.appSlug) : null);
@@ -826,7 +845,16 @@ class CommunityStoreService {
     const targetAppSlug = matchedApp?.slug || payload.appSlug || '';
     const targetAppName = matchedApp?.name || payload.appName || '';
 
-    const id = payload.id || `rev_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const isAi = payload.source === 'ai_generated';
+    const simulatedDeviceId = payload.userId ? String(payload.userId).replace('fallback_', 'device_') : `device_${Date.now()}_${Math.random().toString(16).substring(2, 10)}`;
+    const deviceId = isAi ? simulatedDeviceId : (payload.deviceId || `anon_${Math.random().toString(16).substring(2, 10)}`);
+    const id = payload.id || `rev_${targetAppId}_${deviceId}`;
+    
+    // Anti-Spam: Treat duplicate as Edit
+    const existing = this.reviews.get(id);
+    if (existing) {
+       return (await this.updateReview(id, payload)) as ReviewRecord;
+    }
     this.deletedReviewIds.delete(id);
     const newRev: ReviewRecord = {
       id,
@@ -851,6 +879,14 @@ class CommunityStoreService {
     this.reviews.set(id, newRev);
     this.saveToDiskAndQueueCloudSync();
     this.markDirty(targetAppId);
+
+    // Atomic stats update
+    if (newRev.status === 'published' || newRev.status === 'approved') {
+      const incs: any = { publishedReviewCount: 1, publishedRatingSum: newRev.rating };
+      incs[`star${newRev.rating}`] = 1;
+      this.applyStatsToCache(targetAppId, incs);
+      atomicUpdateAppStats(targetAppId, incs).catch(e => console.warn(e));
+    }
 
     // 2. Direct write to Firestore rummydexcommunity 'reviews' collection
     const db = getCommunityAdminDb();
@@ -878,9 +914,13 @@ class CommunityStoreService {
     return newRev;
   }
 
+  
   public async addMultipleReviews(reviewsList: (Partial<ReviewRecord> & Record<string, any>)[]): Promise<ReviewRecord[]> {
     const added: ReviewRecord[] = [];
     const affectedApps = new Set<string>();
+    
+    // We group atomic increments by App ID so we don't spam the network
+    const appIncrements = new Map<string, any>();
 
     for (const payload of reviewsList) {
       const rawAppId = String(payload.appId || payload.app_id || '').trim();
@@ -889,9 +929,22 @@ class CommunityStoreService {
       const targetAppId = matchedApp ? String(matchedApp.id) : rawAppId;
       const targetAppSlug = matchedApp?.slug || payload.appSlug || '';
       const targetAppName = matchedApp?.name || payload.appName || '';
+      
+      const isAi = payload.source === 'ai_generated';
+      const simulatedDeviceId = payload.userId ? String(payload.userId).replace('fallback_', 'device_') : `device_${Date.now()}_${Math.random().toString(16).substring(2, 10)}`;
+      const deviceId = isAi ? simulatedDeviceId : (payload.deviceId || `anon_${Math.random().toString(16).substring(2, 10)}`);
+      const id = payload.id || `rev_${targetAppId}_${deviceId}`;
 
-      const id = payload.id || `rev_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      // Anti-Spam: Treat duplicate as Edit
+      const existing = this.reviews.get(id);
+      if (existing) {
+         const updated = await this.updateReview(id, payload);
+         if (updated) added.push(updated);
+         continue;
+      }
+      
       this.deletedReviewIds.delete(id);
+
       const newRev: ReviewRecord = {
         id,
         appId: targetAppId,
@@ -914,15 +967,31 @@ class CommunityStoreService {
       added.push(newRev);
       this.reviews.set(newRev.id, newRev);
       
+      if (newRev.status === 'published' || newRev.status === 'approved') {
+        if (!appIncrements.has(targetAppId)) {
+          appIncrements.set(targetAppId, { publishedReviewCount: 0, publishedRatingSum: 0, star1: 0, star2: 0, star3: 0, star4: 0, star5: 0 });
+        }
+        const incs = appIncrements.get(targetAppId);
+        incs.publishedReviewCount += 1;
+        incs.publishedRatingSum += newRev.rating;
+        incs[`star${newRev.rating}`] += 1;
+      }
+      
       if (targetAppId) {
         affectedApps.add(targetAppId);
       }
     }
 
+    // Apply batch atomic increments
+    for (const [appId, incs] of Array.from(appIncrements.entries())) {
+      this.applyStatsToCache(appId, incs);
+      atomicUpdateAppStats(appId, incs).catch(e => console.warn(e));
+    }
+
     // 1. Immediately persist to local disk snapshot
     this.saveToDiskAndQueueCloudSync();
 
-    // 2. Mark apps as dirty to trigger coalesced head-bucket sync in background (Zero-Quota strategy)
+    // 2. Mark apps as dirty to trigger coalesced head-bucket sync in background
     affectedApps.forEach(appId => {
       this.markDirty(appId);
     });
@@ -930,7 +999,7 @@ class CommunityStoreService {
     return added;
   }
 
-  public async voteHelpful(reviewId: string): Promise<number> {
+public async voteHelpful(reviewId: string): Promise<number> {
     let rev = this.reviews.get(reviewId);
     if (!rev) {
       rev = {
@@ -1048,6 +1117,29 @@ class CommunityStoreService {
     };
 
     // Save to in-memory store and local disk immediately
+    const wasPublished = existing.status === 'published' || existing.status === 'approved';
+    const isPublished = updated.status === 'published' || updated.status === 'approved';
+    const incs: any = {};
+    
+    if (wasPublished && !isPublished) {
+      incs.publishedReviewCount = -1;
+      incs.publishedRatingSum = -existing.rating;
+      incs[`star${existing.rating}`] = -1;
+    } else if (!wasPublished && isPublished) {
+      incs.publishedReviewCount = 1;
+      incs.publishedRatingSum = updated.rating;
+      incs[`star${updated.rating}`] = 1;
+    } else if (wasPublished && isPublished && existing.rating !== updated.rating) {
+      incs.publishedRatingSum = updated.rating - existing.rating;
+      incs[`star${existing.rating}`] = -1;
+      incs[`star${updated.rating}`] = 1;
+    }
+    
+    if (Object.keys(incs).length > 0) {
+      this.applyStatsToCache(updated.appId, incs);
+      atomicUpdateAppStats(updated.appId, incs).catch(e => console.warn(e));
+    }
+    
     this.reviews.set(id, updated);
     this.saveToDiskAndQueueCloudSync();
     if (updated.appId) this.markDirty(updated.appId);
@@ -1115,8 +1207,15 @@ class CommunityStoreService {
       const revName = String(rev.appName || '').toLowerCase().trim();
 
       if (aliasKeys.has(revAppId) || aliasKeys.has(revSlug) || aliasKeys.has(revName) || revAppId === cleanTarget || revSlug === cleanTarget) {
-        this.deletedReviewIds.add(id);
-        this.reviews.delete(id);
+        const existing = this.reviews.get(id);
+    if (existing && (existing.status === 'published' || existing.status === 'approved')) {
+      const incs: any = { publishedReviewCount: -1, publishedRatingSum: -existing.rating };
+      incs[`star${existing.rating}`] = -1;
+      this.applyStatsToCache(existing.appId, incs);
+      atomicUpdateAppStats(existing.appId, incs).catch(e => console.warn(e));
+    }
+    this.deletedReviewIds.add(id);
+    this.reviews.delete(id);
         count++;
       }
     }
@@ -1925,56 +2024,97 @@ return {
     return existed;
   }
 
+  
   public async getAppStats(appIdentifier: string, fallbackRating = 4.8, appTitle?: string, appSlug?: string) {
-    const aliasKeys = this.getAliasKeysForApp(appIdentifier, appTitle, appSlug);
     const matchedApp = findAppInCatalog(appIdentifier) || (appSlug ? findAppInCatalog(appSlug) : null) || (appTitle ? findAppInCatalog(appTitle) : null);
-    
-    // Ensure data is loaded into memory
     const cleanId = matchedApp ? String(matchedApp.id).toLowerCase().trim() : String(appIdentifier || '').toLowerCase().trim();
-    await this.loadSingleAppChunkFromFirestore(cleanId, appTitle, appSlug);
-
-    const appReviews = Array.from(this.reviews.values())
-      .filter(r => {
-        if (r.status && r.status !== 'published' && r.status !== 'approved') return false;
-        const rAppId = String(r.appId || '').toLowerCase().trim();
-        const rAppSlug = String(r.appSlug || '').toLowerCase().trim();
-        const rAppName = String(r.appName || '').toLowerCase().trim();
-        return aliasKeys.has(rAppId) || (rAppSlug && aliasKeys.has(rAppSlug)) || (rAppName && aliasKeys.has(rAppName));
-      });
-
-    if (appReviews.length > 0) {
-      const starCounts: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
-      let total = 0;
-      appReviews.forEach(r => {
-        const star = String(Math.max(1, Math.min(5, Math.round(r.rating))));
-        starCounts[star] = (starCounts[star] || 0) + 1;
-        total += r.rating;
-      });
-
-      const averageRating = total / appReviews.length;
-
-      return {
-        appId: matchedApp?.id ? String(matchedApp.id) : appIdentifier,
-        averageRating: parseFloat(averageRating.toFixed(1)),
-        totalReviews: appReviews.length,
-        starCounts
-      };
-    }
-
-    // Real authentic stats
+    
+    // 1. Get Base App Stats
     const baseTotal = matchedApp?.review_count ? Number(matchedApp.review_count) : (matchedApp?.existingReviewsCount ? Number(matchedApp.existingReviewsCount) : 0);
     const baseRating = matchedApp?.rating ? Number(matchedApp.rating) : fallbackRating;
-    const starCounts = { '5': Math.floor(baseTotal * 0.7), '4': Math.floor(baseTotal * 0.2), '3': Math.floor(baseTotal * 0.05), '2': Math.floor(baseTotal * 0.03), '1': Math.floor(baseTotal * 0.02) };
+    const baseStarCounts = { 
+      '5': Math.floor(baseTotal * 0.75), 
+      '4': Math.floor(baseTotal * 0.15), 
+      '3': Math.floor(baseTotal * 0.05), 
+      '2': Math.floor(baseTotal * 0.03), 
+      '1': Math.floor(baseTotal * 0.02) 
+    };
+    
+    let communityTotal = 0;
+    let communityRatingSum = 0;
+    let communityStarCounts = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
+
+    // 2. Fetch atomic stats (from memory cache or remote Firestore)
+    let stats = this.appStatsCache.get(cleanId);
+    if (!stats) {
+      try {
+        stats = await readAppStats(cleanId);
+        if (stats) {
+          this.appStatsCache.set(cleanId, stats);
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+    
+    if (stats) {
+      communityTotal = stats.publishedReviewCount || 0;
+      communityRatingSum = stats.publishedRatingSum || 0;
+      communityStarCounts = stats.starDistribution || communityStarCounts;
+    } else {
+      // 3. Fallback: compute from memory reviews if no atomic stats document exists
+      const aliasKeys = this.getAliasKeysForApp(appIdentifier, appTitle, appSlug);
+      const appReviews = Array.from(this.reviews.values())
+        .filter(r => {
+          if (r.status && r.status !== 'published' && r.status !== 'approved') return false;
+          const rAppId = String(r.appId || '').toLowerCase().trim();
+          const rAppSlug = String(r.appSlug || '').toLowerCase().trim();
+          const rAppName = String(r.appName || '').toLowerCase().trim();
+          return aliasKeys.has(rAppId) || (rAppSlug && aliasKeys.has(rAppSlug)) || (rAppName && aliasKeys.has(rAppName));
+        });
+
+      if (appReviews.length > 0) {
+        appReviews.forEach(r => {
+          const star = String(Math.max(1, Math.min(5, Math.round(r.rating))));
+          communityStarCounts[star as keyof typeof communityStarCounts] = (communityStarCounts[star as keyof typeof communityStarCounts] || 0) + 1;
+          communityRatingSum += r.rating;
+          communityTotal++;
+        });
+        
+        // Cache these computed stats!
+        this.appStatsCache.set(cleanId, {
+           publishedReviewCount: communityTotal,
+           publishedRatingSum: communityRatingSum,
+           starDistribution: communityStarCounts
+        });
+      }
+    }
+
+    // 4. Combine Base + Community
+    const totalReviews = baseTotal + communityTotal;
+    let averageRating = baseRating;
+    
+    if (totalReviews > 0) {
+       const totalSum = (baseRating * baseTotal) + communityRatingSum;
+       averageRating = parseFloat((totalSum / totalReviews).toFixed(1));
+    } else {
+       averageRating = fallbackRating;
+    }
 
     return {
       appId: matchedApp?.id ? String(matchedApp.id) : appIdentifier,
-      averageRating: baseRating,
-      totalReviews: baseTotal,
-      starCounts
+      averageRating: Math.max(1, Math.min(5, averageRating)),
+      totalReviews,
+      starCounts: {
+        '5': baseStarCounts['5'] + (communityStarCounts['5'] || 0),
+        '4': baseStarCounts['4'] + (communityStarCounts['4'] || 0),
+        '3': baseStarCounts['3'] + (communityStarCounts['3'] || 0),
+        '2': baseStarCounts['2'] + (communityStarCounts['2'] || 0),
+        '1': baseStarCounts['1'] + (communityStarCounts['1'] || 0)
+      }
     };
   }
 }
-
 export const communityStore = new CommunityStoreService();
 try {
   const { communityStore: fallbackStore } = require('../../lib/communityStoreFallback');

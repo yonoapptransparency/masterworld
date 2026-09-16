@@ -1,0 +1,1 @@
+src/server/services/communityStoreService.ts(929,8): error TS2740: Type 'ReviewRecord' is missing the following properties from type 'ReviewRecord[]': length, pop, push, concat, and 29 more.

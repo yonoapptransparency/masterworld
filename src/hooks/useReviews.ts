@@ -300,3 +300,52 @@ export function useReviews(
     stats
   };
 }
+
+export function useLiveAppStats(appId: string, appSlug?: string, fallbackRating: number = 4.8, fallbackTotal: number = 0) {
+  const [stats, setStats] = useState<any>(() => {
+    const cached = getCachedLiveReviews(String(appId), String(appSlug));
+    return cached?.stats || null;
+  });
+
+  useEffect(() => {
+    const handleUpdate = (e: any) => {
+      const addedReview = e?.detail?.newReview;
+      if (addedReview) {
+        setStats((prev: any) => {
+          if (!prev) return prev;
+          const currentTotal = prev.totalReviews || 0;
+          const currentSum = (prev.averageRating || fallbackRating) * currentTotal;
+          const newTotal = currentTotal + 1;
+          const newAverage = (currentSum + addedReview.rating) / newTotal;
+          const newCounts = { ...prev.starCounts };
+          newCounts[String(addedReview.rating)] = (newCounts[String(addedReview.rating)] || 0) + 1;
+          return {
+            ...prev,
+            averageRating: newAverage,
+            totalReviews: newTotal,
+            starCounts: newCounts
+          };
+        });
+      }
+    };
+    
+    const targetKey = String(appId || appSlug || '').trim();
+    const handlePoll = () => {
+      const cached = getCachedLiveReviews(String(appId), String(appSlug));
+      if (cached?.stats) {
+        setStats(cached.stats);
+      }
+    };
+    
+    // Poll cache every 2 seconds to see if UserReviews component fetched new stats
+    const interval = setInterval(handlePoll, 2000);
+
+    window.addEventListener('community-review-added', handleUpdate);
+    return () => {
+      window.removeEventListener('community-review-added', handleUpdate);
+      clearInterval(interval);
+    };
+  }, [appId, appSlug]);
+
+  return stats;
+}
