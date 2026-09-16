@@ -316,7 +316,7 @@ publicApiRouter.get(["/api/v1/public/firebase-status", "/api/public/firebase-sta
     const dbId = (rawDbId && rawDbId.trim() !== '') ? rawDbId : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
 
     results.config = !!projectId;
-    const aesSecret = process.env.AES_SECRET || (global as any).AES_SECRET_GLOBAL;
+    const aesSecret = process.env.AES_SECRET || (globalThis as any).AES_SECRET_GLOBAL;
     results.aesConfigured = !!(aesSecret && aesSecret.trim() !== '');
 
     results.details.projectId = projectId;

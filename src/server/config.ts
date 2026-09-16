@@ -13,29 +13,35 @@ const runtimeAesSecret = 'fallback_aes_secret_for_local_dev_only';
 const runtimeTokenSecret = 'fallback_token_secret_for_local_dev_only';
 const runtimeSessionSecret = 'fallback_session_secret_for_local_dev_only';
 
-if (!process.env.AES_SECRET) {
+const env = typeof process !== "undefined" ? process.env : {} as Record<string, string>;
+
+if (!env.AES_SECRET) {
   console.warn("[SECURITY] AES_SECRET not configured in environment. Using static fallback secret. Links will be secure but please configure a real secret for production.");
 }
 
-if (!process.env.ADMIN_EMAIL) {
+if (!env.ADMIN_EMAIL) {
   console.warn("[SECURITY] ADMIN_EMAIL not configured.");
-  process.env.ADMIN_EMAIL = "defentechscholar@gmail.com";
+  if (typeof process !== "undefined") {
+    process.env.ADMIN_EMAIL = "defentechscholar@gmail.com";
+  }
 }
 
-global.AES_SECRET_GLOBAL = process.env.AES_SECRET || runtimeAesSecret;
-export const getFallbackAes = () => global.AES_SECRET_GLOBAL;
+globalThis.AES_SECRET_GLOBAL = env.AES_SECRET || runtimeAesSecret;
+export const getFallbackAes = () => globalThis.AES_SECRET_GLOBAL;
 
-export const TOKEN_SECRET = process.env.TOKEN_SECRET || runtimeTokenSecret;
-export const SESSION_SECRET = process.env.SESSION_SECRET || runtimeSessionSecret;
+export const TOKEN_SECRET = env.TOKEN_SECRET || runtimeTokenSecret;
+export const SESSION_SECRET = env.SESSION_SECRET || runtimeSessionSecret;
 
-if (!process.env.TOKEN_SECRET) {
+if (!env.TOKEN_SECRET) {
   console.warn("WARNING: TOKEN_SECRET is not set. Using local development fallback.");
 }
-if (!process.env.SESSION_SECRET) {
+
+if (!env.SESSION_SECRET) {
   console.warn("WARNING: SESSION_SECRET is not set. Using local development fallback.");
 }
 
-const rawTurnstileSecret = process.env.CF_TURNSTILE_SECRET || '';
+const rawTurnstileSecret = env.CF_TURNSTILE_SECRET || '';
+
 export const isRealValueForSecret = (val: string): boolean => {
   if (!val) return false;
   const clean = val.trim();
@@ -44,6 +50,7 @@ export const isRealValueForSecret = (val: string): boolean => {
   if (clean.length > 100) return false;
   return true;
 };
+
 export const CF_TURNSTILE_SECRET = isRealValueForSecret(rawTurnstileSecret) ? rawTurnstileSecret : '';
 
 export const BAD_UA = [
@@ -57,9 +64,11 @@ export const BAD_UA = [
 
 export const WINDOW = 60 * 1000;
 export const MAX_HITS = 30;
-export const MOCK_2FA_FILE = path.join(process.cwd(), "src/lib/mock_2fa_store.json");
+export const MOCK_2FA_FILE = typeof process !== "undefined" ? path.join(process.cwd(), "src/lib/mock_2fa_store.json") : "";
 
 export const getStaticData = () => {
+  if (typeof process === "undefined") return { apps: [], mockApps: [], mockSettings: {}, mockNews: [], mockVideos: [] };
+  
   try {
     const publicBackupPath = path.join(process.cwd(), "src/lib/public_backup.json");
     if (fs.existsSync(publicBackupPath)) {

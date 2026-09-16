@@ -15,7 +15,7 @@ export function getFallbackAes(): string {
 }
 
 export function getAesSecret(): string {
-  return process.env.AES_SECRET || (global as any).AES_SECRET_GLOBAL || getFallbackAes();
+  return (typeof process !== "undefined" ? process.env.AES_SECRET : undefined) || (globalThis as any).AES_SECRET_GLOBAL || getFallbackAes();
 }
 
 export function safeDecrypt(ciphertext: string, secret?: string): string {
@@ -29,10 +29,10 @@ export function safeDecrypt(ciphertext: string, secret?: string): string {
   }
 
   const fallback = getFallbackAes();
-  const globalSecret = (global as any).AES_SECRET_GLOBAL;
+  const globalSecret = (globalThis as any).AES_SECRET_GLOBAL;
   const keys = [
     secret, 
-    process.env.AES_SECRET, 
+    (typeof process !== "undefined" ? process.env.AES_SECRET : undefined), 
     globalSecret, 
     ...KNOWN_VAULT_KEYS,
     fallback

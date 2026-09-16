@@ -2357,7 +2357,7 @@ adminVaultRouter.get("/api/v1/admin/firebase-status", verifyAdminToken, async (r
     results.config = !!projectId;
     
     // Check if AES is configured
-    const aesSecret = process.env.AES_SECRET || (global as any).AES_SECRET_GLOBAL;
+    const aesSecret = process.env.AES_SECRET || (globalThis as any).AES_SECRET_GLOBAL;
     results.aesConfigured = !!(aesSecret && aesSecret.trim() !== '');
     
     results.details.projectId = projectId;
