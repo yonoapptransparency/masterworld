@@ -3,6 +3,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { adminFetch, loadSession, clearSession } from '../services/adminAuthService';
+import { getAdminPath } from '../lib/utils';
 
 export const useAdminAuth = () => {
   const [user, setUser] = useState<any>(null);
@@ -13,25 +14,36 @@ export const useAdminAuth = () => {
   const handleLogout = async () => {
     try {
       await adminFetch('/api/v1/admin/logout', { method: 'POST' });
-      if (auth) await auth.signOut();
+    } catch (e) {}
+    try {
+      const { getAuth, signOut } = await import('firebase/auth');
+      const authInstance = getAuth();
+      if (authInstance) {
+        await signOut(authInstance);
+      }
     } catch (e) {}
     clearSession();
-    window.location.href = '/';
+    const currentBase = window.location.pathname.toLowerCase().startsWith('/masterworld') 
+      ? 'masterworld' 
+      : getAdminPath();
+    window.location.href = `/${currentBase}/login?logout=1`;
   };
 
   useEffect(() => {
     const session = loadSession();
-    if (!auth && !session) {
+    if (!auth && (!session || !session.idToken)) {
       setIsAdminUser(false);
+      setUser(null);
       setCheckingAuth(false);
       return;
     }
 
     const unsubscribe = onAuthStateChanged(auth!, async (currentUser) => {
-      const effectiveUser = currentUser || (session ? { email: session.email, uid: 'local', getIdToken: async () => session.idToken } : null);
+      const currentSession = loadSession();
+      const token = currentSession?.idToken;
+      const effectiveUser = currentUser || (token ? { email: currentSession.email, uid: 'local', getIdToken: async () => token } : null);
         
-      setUser(effectiveUser);
-      if (effectiveUser) {
+      if (effectiveUser && token) {
         let adminVerified = false;
         try {
           const idToken = await effectiveUser.getIdToken();
@@ -41,34 +53,23 @@ export const useAdminAuth = () => {
           if (verifyRes.ok) {
             const verifyData = await verifyRes.json();
             if (verifyData.authorized) adminVerified = true;
-          } else if (session) {
-             adminVerified = true;
           }
         } catch (e) {
-          if (session) adminVerified = true;
-        }
-
-        if (!adminVerified) {
-           const email = effectiveUser.email?.toLowerCase();
-           const fallbackAdmin = (import.meta.env.VITE_ADMIN_EMAIL || '').toLowerCase();
-           if (fallbackAdmin && email === fallbackAdmin) {
-               adminVerified = true;
-           } else {
-               try {
-                   const uidDoc = await getDoc(doc(db, 'admins', effectiveUser.uid));
-                   if (uidDoc.exists()) {
-                       adminVerified = true;
-                   } else if (effectiveUser.email) {
-                       const emailDoc = await getDoc(doc(db, 'admins', effectiveUser.email));
-                       if (emailDoc.exists()) adminVerified = true;
-                   }
-               } catch (err: any) {}
-           }
+          adminVerified = false;
         }
           
-        setIsAdminUser(adminVerified);
+        if (adminVerified) {
+          setUser(effectiveUser);
+          setIsAdminUser(true);
+        } else {
+          clearSession();
+          setUser(null);
+          setIsAdminUser(false);
+        }
         setCheckingAuth(false);
       } else {
+        clearSession();
+        setUser(null);
         setIsAdminUser(false);
         setCheckingAuth(false);
       }

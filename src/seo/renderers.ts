@@ -167,6 +167,142 @@ export function renderHome(apps: any[], settings: any, news: any[], videos: any[
   `;
 }
 
+export function renderCategory(categoryName: string, categorySlug: string, categoryApps: any[], settings: any) {
+  const siteTitle = getField(settings, 'site_title') || 'RummyDex';
+  const desc = getField(settings, 'meta_description') || '';
+  
+  let appsHtml = '';
+  const sorted = [...categoryApps].sort((a,b) => parseInt(getField(a, 'serial_number','999'), 10) - parseInt(getField(b, 'serial_number','999'), 10));
+  
+  sorted.forEach((app, i) => {
+    const name = getField(app, 'name');
+    const slug = getField(app, 'slug');
+    const category = getField(app, 'category');
+    const rating = getField(app, 'rating', '5.0');
+    const rawIcon = getField(app, 'icon_url') || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&fit=crop';
+    const icon = optimizeImageUrl(rawIcon, 128);
+    const isNew = app.is_new === true || (app.is_new && app.is_new.booleanValue === true);
+    const isTopItem = i < 4;
+    
+    appsHtml += `
+      <a href="/app/${encodeURIComponent(slug)}" class="flex items-center gap-4 p-4 hover:bg-black/5 dark:hover:bg-white/5 rounded-2xl transition border-b border-black/5 dark:border-white/5 text-left" title="${escapeHtml(name)} review and details">
+        <span class="text-sm font-bold text-zinc-400 shrink-0 w-8 text-center">${i + 1}</span>
+        <img src="${escapeHtml(icon)}" ${isTopItem ? 'loading="eager" fetchpriority="high"' : 'loading="lazy"'} decoding="async" width="64" height="64" class="w-16 h-16 rounded-[18px] object-cover bg-white shadow-sm shrink-0" alt="${escapeHtml(name)} app icon"/>
+        <div class="flex-1 min-w-0">
+          <h3 class="font-bold text-base text-zinc-900 dark:text-zinc-100 truncate">${escapeHtml(name)}</h3>
+          <p class="text-xs text-zinc-500 truncate">${escapeHtml(category)}</p>
+          <div class="flex items-center gap-1.5 text-xs text-zinc-500 mt-1">
+            <span>${escapeHtml(rating)}</span><span class="text-amber-500 font-bold">★</span>
+            ${isNew ? `<span class="bg-blue-500/10 text-blue-600 text-[10px] font-bold px-1.5 py-0.5 rounded">NEW</span>` : ''}
+          </div>
+        </div>
+        <span class="bg-black/5 dark:bg-white/10 text-zinc-900 dark:text-zinc-100 px-4 py-1 text-xs font-bold rounded-full select-none">DETAILS</span>
+      </a>
+    `;
+  });
+
+  return `
+    <div class="max-w-4xl mx-auto py-6 px-2 sm:px-4">
+      <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 mb-6">
+        <a href="/" class="hover:text-blue-600">Home</a>
+        <span>/</span>
+        <a href="/categories" class="hover:text-blue-600">Categories</a>
+        <span>/</span>
+        <span class="font-bold text-zinc-800 dark:text-zinc-200">${escapeHtml(categoryName)}</span>
+      </nav>
+      <div class="text-center py-8 mb-6 bg-white dark:bg-zinc-900 rounded-[28px] border border-black/5 p-6 shadow-sm">
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-zinc-900 dark:text-white mb-2">${escapeHtml(categoryName)} Apps & Reviews</h1>
+        <p class="text-sm text-zinc-500 dark:text-zinc-400 max-w-2xl mx-auto">Explore all ${categoryApps.length} verified ${escapeHtml(categoryName)} applications, ratings, download specifications, and reviews on ${escapeHtml(siteTitle)}.</p>
+      </div>
+      <div class="bg-white dark:bg-zinc-900 p-6 rounded-[28px] border border-black/5 shadow-sm">
+        <div class="flex flex-col">${appsHtml || '<p class="text-center text-zinc-400 py-10">No applications listed under this category.</p>'}</div>
+      </div>
+    </div>
+  `;
+}
+
+export function renderNewApps(newApps: any[], settings: any) {
+  const siteTitle = getField(settings, 'site_title') || 'RummyDex';
+  
+  let appsHtml = '';
+  newApps.forEach((app, i) => {
+    const name = getField(app, 'name');
+    const slug = getField(app, 'slug');
+    const category = getField(app, 'category');
+    const rating = getField(app, 'rating', '5.0');
+    const rawIcon = getField(app, 'icon_url') || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&fit=crop';
+    const icon = optimizeImageUrl(rawIcon, 128);
+    const isTopItem = i < 4;
+    
+    appsHtml += `
+      <a href="/app/${encodeURIComponent(slug)}" class="flex items-center gap-4 p-4 hover:bg-black/5 dark:hover:bg-white/5 rounded-2xl transition border-b border-black/5 dark:border-white/5 text-left" title="${escapeHtml(name)} review and details">
+        <span class="text-sm font-bold text-zinc-400 shrink-0 w-8 text-center">${i + 1}</span>
+        <img src="${escapeHtml(icon)}" ${isTopItem ? 'loading="eager" fetchpriority="high"' : 'loading="lazy"'} decoding="async" width="64" height="64" class="w-16 h-16 rounded-[18px] object-cover bg-white shadow-sm shrink-0" alt="${escapeHtml(name)} app icon"/>
+        <div class="flex-1 min-w-0">
+          <h3 class="font-bold text-base text-zinc-900 dark:text-zinc-100 truncate">${escapeHtml(name)}</h3>
+          <p class="text-xs text-zinc-500 truncate">${escapeHtml(category)}</p>
+          <div class="flex items-center gap-1.5 text-xs text-zinc-500 mt-1">
+            <span>${escapeHtml(rating)}</span><span class="text-amber-500 font-bold">★</span>
+            <span class="bg-blue-500/10 text-blue-600 text-[10px] font-bold px-1.5 py-0.5 rounded">NEW</span>
+          </div>
+        </div>
+        <span class="bg-black/5 dark:bg-white/10 text-zinc-900 dark:text-zinc-100 px-4 py-1 text-xs font-bold rounded-full select-none">DETAILS</span>
+      </a>
+    `;
+  });
+
+  return `
+    <div class="max-w-4xl mx-auto py-6 px-2 sm:px-4">
+      <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 mb-6">
+        <a href="/" class="hover:text-blue-600">Home</a>
+        <span>/</span>
+        <span class="font-bold text-zinc-800 dark:text-zinc-200">New Apps</span>
+      </nav>
+      <div class="text-center py-8 mb-6 bg-white dark:bg-zinc-900 rounded-[28px] border border-black/5 p-6 shadow-sm">
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-zinc-900 dark:text-white mb-2">Newly Added & Updated Applications</h1>
+        <p class="text-sm text-zinc-500 dark:text-zinc-400 max-w-2xl mx-auto">Discover the latest verified card, arcade, and gaming applications added to ${escapeHtml(siteTitle)}.</p>
+      </div>
+      <div class="bg-white dark:bg-zinc-900 p-6 rounded-[28px] border border-black/5 shadow-sm">
+        <div class="flex flex-col">${appsHtml || '<p class="text-center text-zinc-400 py-10">No new applications available.</p>'}</div>
+      </div>
+    </div>
+  `;
+}
+
+export function renderCategoriesList(categoriesList: Array<{ name: string; slug: string; count: number }>, settings: any) {
+  const siteTitle = getField(settings, 'site_title') || 'RummyDex';
+  
+  let catsHtml = '';
+  categoriesList.forEach(cat => {
+    catsHtml += `
+      <a href="/category/${encodeURIComponent(cat.slug)}" class="p-6 bg-white dark:bg-zinc-900 border border-black/5 hover:border-blue-500/30 rounded-3xl transition flex flex-col justify-between text-left shadow-2xs">
+        <div>
+          <h2 class="text-xl font-bold text-zinc-900 dark:text-white mb-1.5">${escapeHtml(cat.name)}</h2>
+          <p class="text-xs text-zinc-500 dark:text-zinc-400">${cat.count} verified ${cat.count === 1 ? 'application' : 'applications'}</p>
+        </div>
+        <span class="text-xs font-bold text-blue-600 dark:text-blue-400 mt-4">Browse Category →</span>
+      </a>
+    `;
+  });
+
+  return `
+    <div class="max-w-4xl mx-auto py-6 px-2 sm:px-4">
+      <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 mb-6">
+        <a href="/" class="hover:text-blue-600">Home</a>
+        <span>/</span>
+        <span class="font-bold text-zinc-800 dark:text-zinc-200">Categories</span>
+      </nav>
+      <div class="text-center py-8 mb-6 bg-white dark:bg-zinc-900 rounded-[28px] border border-black/5 p-6 shadow-sm">
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-zinc-900 dark:text-white mb-2">Application Categories</h1>
+        <p class="text-sm text-zinc-500 dark:text-zinc-400 max-w-2xl mx-auto">Browse apps by game genre and category on ${escapeHtml(siteTitle)}.</p>
+      </div>
+      <div class="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
+        ${catsHtml || '<p class="text-center text-zinc-400 py-10 col-span-full">No categories available.</p>'}
+      </div>
+    </div>
+  `;
+}
+
 export function renderAppDetails(slug: string, apps: any[], settings: any, sampleReviews: any[] = []) {
   const cleanSlug = decodeURIComponent(slug).toLowerCase();
   const app = resolveAppSlug(cleanSlug, apps) || apps.find(a => getField(a, 'slug').toLowerCase() === cleanSlug);
@@ -186,6 +322,79 @@ export function renderAppDetails(slug: string, apps: any[], settings: any, sampl
   const features = app.features_html ? sanitizeHtml(app.features_html) : '';
   const featureSectionContext = features ? `<div class="mt-8 pt-6 border-t border-zinc-200/80 dark:border-zinc-800/80"><h2 class="text-lg font-bold mb-4 text-zinc-900 dark:text-zinc-100">Key Features & Highlights</h2><div class="prose dark:prose-invert text-zinc-700 dark:text-zinc-300 leading-relaxed">${features}</div></div>` : '';
   const pkg = getField(app, 'package_name', 'Verified Listing');
+
+  // Breadcrumbs
+  const mainCat = cat.split(',')[0].trim();
+  const catSlug = encodeURIComponent(mainCat.toLowerCase().replace(/\s+/g, '-'));
+
+  // Safety & Notice Callouts
+  let alertsHtml = '';
+  if (app.red_box_msg) {
+    alertsHtml += `
+      <div class="mb-4 p-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-2xl text-left text-xs sm:text-sm text-red-800 dark:text-red-300">
+        <strong class="font-bold block mb-1">Safety Advisory:</strong>
+        <p>${escapeHtml(app.red_box_msg)}</p>
+      </div>
+    `;
+  }
+  if (app.yellow_box_msg) {
+    alertsHtml += `
+      <div class="mb-4 p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-2xl text-left text-xs sm:text-sm text-amber-800 dark:text-amber-300">
+        <strong class="font-bold block mb-1">Important Notice:</strong>
+        <p>${escapeHtml(app.yellow_box_msg)}</p>
+      </div>
+    `;
+  }
+  if (app.idea_box_msg) {
+    alertsHtml += `
+      <div class="mb-4 p-4 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 rounded-2xl text-left text-xs sm:text-sm text-blue-800 dark:text-blue-300">
+        <strong class="font-bold block mb-1">Tips & Strategy:</strong>
+        <p>${escapeHtml(app.idea_box_msg)}</p>
+      </div>
+    `;
+  }
+  if (app.custom_admin_box_html) {
+    alertsHtml += `
+      <div class="mb-4 p-4 bg-zinc-50 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-left text-xs sm:text-sm text-zinc-800 dark:text-zinc-200">
+        ${app.custom_admin_box_heading ? `<strong class="font-bold block mb-1 text-zinc-900 dark:text-zinc-100">${escapeHtml(app.custom_admin_box_heading)}</strong>` : ''}
+        <div>${sanitizeHtml(app.custom_admin_box_html)}</div>
+      </div>
+    `;
+  }
+
+  // Release Notes / What's New
+  let releaseNotesHtml = '';
+  if (app.release_notes) {
+    releaseNotesHtml = `
+      <div class="mt-8 pt-6 border-t border-zinc-200/80 dark:border-zinc-800/80 text-left">
+        <h2 class="text-lg font-bold mb-3 text-zinc-900 dark:text-zinc-100">What's New in Version ${escapeHtml(version)}</h2>
+        <div class="p-4 bg-zinc-50 dark:bg-zinc-850 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-line leading-relaxed">
+          ${escapeHtml(app.release_notes)}
+        </div>
+      </div>
+    `;
+  }
+
+  // FAQs
+  let faqsHtml = '';
+  if (Array.isArray(app.faqs) && app.faqs.length > 0) {
+    const validFaqs = app.faqs.filter((f: any) => f && f.question && f.answer);
+    if (validFaqs.length > 0) {
+      faqsHtml = `
+        <div class="mt-8 pt-6 border-t border-zinc-200/80 dark:border-zinc-800/80 text-left">
+          <h2 class="text-lg font-bold mb-4 text-zinc-900 dark:text-zinc-100">Frequently Asked Questions</h2>
+          <div class="space-y-3">
+            ${validFaqs.map((f: any) => `
+              <div class="p-4 bg-zinc-50 dark:bg-zinc-850 rounded-2xl border border-zinc-200/80 dark:border-zinc-800">
+                <h3 class="font-bold text-sm text-zinc-900 dark:text-zinc-100 mb-1.5">${escapeHtml(f.question)}</h3>
+                <p class="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">${escapeHtml(f.answer)}</p>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+  }
 
   let reviewsCards = '';
   if (Array.isArray(sampleReviews) && sampleReviews.length > 0) {
@@ -300,6 +509,14 @@ export function renderAppDetails(slug: string, apps: any[], settings: any, sampl
 
   return `
     <div class="w-full max-w-5xl mx-auto py-4 sm:py-6 px-1 sm:px-4">
+      <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 mb-6 text-left">
+        <a href="/" class="hover:text-blue-600">Home</a>
+        <span>/</span>
+        <a href="/category/${catSlug}" class="hover:text-blue-600">${escapeHtml(mainCat)}</a>
+        <span>/</span>
+        <span class="font-bold text-zinc-800 dark:text-zinc-200">${escapeHtml(name)}</span>
+      </nav>
+
       <div class="flex flex-col items-center text-center pb-8 border-b border-zinc-200/80 dark:border-zinc-800/80 mb-8">
         <img src="${escapeHtml(icon)}" loading="eager" decoding="async" width="128" height="128" class="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl object-cover mb-4 shadow-md border border-zinc-200/60 dark:border-zinc-700/60" alt="${escapeHtml(name)} icon"/>
         <h1 class="text-2xl sm:text-4xl font-extrabold text-zinc-900 dark:text-zinc-100 leading-tight mb-2.5">${escapeHtml(name)}</h1>
@@ -330,11 +547,15 @@ export function renderAppDetails(slug: string, apps: any[], settings: any, sampl
         <button type="button" class="w-full sm:w-auto min-w-[200px] justify-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-8 rounded-xl shadow-md transition inline-flex items-center gap-2 text-sm tracking-wide cursor-pointer">Download &rarr;</button>
       </div>
 
+      ${alertsHtml}
+
       <div class="grid md:grid-cols-[2fr,1fr] gap-6 sm:gap-8">
         <div class="bg-white dark:bg-zinc-900 p-5 sm:p-7 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 shadow-2xs text-left">
           <h2 class="text-lg sm:text-xl font-bold mb-4 text-zinc-900 dark:text-zinc-100">About this application</h2>
           <div class="prose dark:prose-invert text-zinc-700 dark:text-zinc-300 leading-relaxed text-sm sm:text-base space-y-3">${desc}</div>
           ${featureSectionContext}
+          ${releaseNotesHtml}
+          ${faqsHtml}
           ${screenshotsHtml}
         </div>
         <div class="bg-white dark:bg-zinc-900 p-5 sm:p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 shadow-2xs h-fit text-left">
