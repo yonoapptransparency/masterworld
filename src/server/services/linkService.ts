@@ -118,6 +118,14 @@ export function clearResolvedLinkCache(appId?: string): void {
   }
 }
 
+async function withTimeout<T>(promise: Promise<T>, ms: number = 1500): Promise<T | null> {
+  let timer: any;
+  const timeoutPromise = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), ms);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer));
+}
+
 /**
  * Resolves the destination link for a given application ID or slug.
  * Operates entirely in memory without ever writing to client DOM or logs.
@@ -134,12 +142,37 @@ export async function resolveDestinationForApp(appId: string): Promise<string> {
   }
 
   const secret = getAesSecret();
-  const searchKeys = Array.from(new Set([
+  const rawSearchKeys = [
     cleanId,
     lowerId,
     lowerId.replace(/[-_ ]+$/, ''),
     lowerId.replace(/[-_ ]/g, '')
-  ])).filter(Boolean);
+  ];
+
+  // Upfront alias expansion: find matching app from staticData to include both id & slug
+  try {
+    const staticDataPath = path.join(process.cwd(), 'src/lib/staticData.json');
+    if (fs.existsSync(staticDataPath)) {
+      const raw = fs.readFileSync(staticDataPath, 'utf8');
+      const parsed = JSON.parse(raw);
+      const apps = parsed?.mockApps || parsed?.apps || [];
+      const foundApp = apps.find((a: any) => {
+        const aId = (a.id || '').toLowerCase().trim();
+        const aSlug = (a.slug || '').toLowerCase().trim();
+        return rawSearchKeys.includes(aId) || rawSearchKeys.includes(aSlug);
+      });
+      if (foundApp) {
+        if (foundApp.id) {
+          rawSearchKeys.push(foundApp.id, foundApp.id.toLowerCase());
+        }
+        if (foundApp.slug) {
+          rawSearchKeys.push(foundApp.slug, foundApp.slug.toLowerCase(), foundApp.slug.toLowerCase().replace(/[-_ ]/g, ''));
+        }
+      }
+    }
+  } catch (_) {}
+
+  const searchKeys = Array.from(new Set(rawSearchKeys)).filter(Boolean);
 
   // 2. Check in-memory VaultNode (Zero Latency)
   try {
@@ -168,15 +201,56 @@ export async function resolveDestinationForApp(appId: string): Promise<string> {
     }
   } catch (_) {}
 
-  // 4. Check Firestore private collection and live vault documents
+  // 4. Check ENCRYPTED_LINKS static vault dictionary (Zero Latency RAM)
+  if (ENCRYPTED_LINKS) {
+    try {
+      const decryptedVault = safeDecrypt(ENCRYPTED_LINKS, secret);
+      if (decryptedVault) {
+        const parsed = JSON.parse(decryptedVault);
+        const found = searchVaultObject(parsed, searchKeys, secret);
+        if (found) {
+          resolvedLinkCache.set(lowerId, { url: found, timestamp: Date.now() });
+          return found;
+        }
+      }
+    } catch (_) {}
+  }
+
+  // 5. Check high-availability staticData.json fallback (Zero Latency Local)
+  try {
+    const staticDataPath = path.join(process.cwd(), 'src/lib/staticData.json');
+    if (fs.existsSync(staticDataPath)) {
+      const raw = fs.readFileSync(staticDataPath, 'utf8');
+      const parsed = JSON.parse(raw);
+      const apps = parsed?.mockApps || parsed?.apps || [];
+      const matched = apps.find((a: any) => {
+        const sId = (a.id || '').toLowerCase().trim();
+        const sSlug = (a.slug || '').toLowerCase().trim();
+        return searchKeys.includes(sId) || searchKeys.includes(sSlug);
+      });
+
+      if (matched) {
+        const rawUrl = matched.more_information_url || matched.encrypted_link || matched.download_url || matched.url;
+        if (rawUrl) {
+          const dec = rawUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(rawUrl, secret) : rawUrl;
+          if (isValidTargetUrl(dec)) {
+            resolvedLinkCache.set(lowerId, { url: dec.trim(), timestamp: Date.now() });
+            return dec.trim();
+          }
+        }
+      }
+    }
+  } catch (_) {}
+
+  // 6. Check Firestore private collection and live vault documents with timeout
   try {
     const db = getFirebaseAdminDb();
     if (db) {
-      // 4a. Check direct sec_vault documents (per-app private storage written on save)
+      // 6a. Check direct sec_vault documents (per-app private storage written on save)
       for (const k of searchKeys) {
         try {
-          const directDoc = await db.collection('sec_vault').doc(k).get();
-          if (directDoc.exists) {
+          const directDoc = await withTimeout<any>(db.collection('sec_vault').doc(k).get(), 1000);
+          if (directDoc && directDoc.exists) {
             const docData = directDoc.data();
             const cipher = docData?.payload || docData?.encrypted_link;
             if (cipher) {
@@ -190,12 +264,12 @@ export async function resolveDestinationForApp(appId: string): Promise<string> {
         } catch (_) {}
       }
 
-      // 4b. Check consolidated vault documents in store_data
+      // 6b. Check consolidated vault documents in store_data
       const vaultDocs = ['secure_links', 'sec_vault', 'sec_public_links'];
       for (const docName of vaultDocs) {
         try {
-          const docSnap = await db.collection('store_data').doc(docName).get();
-          if (docSnap.exists) {
+          const docSnap = await withTimeout<any>(db.collection('store_data').doc(docName).get(), 1000);
+          if (docSnap && docSnap.exists) {
             const data = docSnap.data();
             const cipher = data?.encryptedData || data?.encrypted_links;
             if (cipher) {
@@ -215,24 +289,9 @@ export async function resolveDestinationForApp(appId: string): Promise<string> {
     }
   } catch (_) {}
 
-  // 4. Check ENCRYPTED_LINKS static vault dictionary
-  if (ENCRYPTED_LINKS) {
-    try {
-      const decryptedVault = safeDecrypt(ENCRYPTED_LINKS, secret);
-      if (decryptedVault) {
-        const parsed = JSON.parse(decryptedVault);
-        const found = searchVaultObject(parsed, searchKeys, secret);
-        if (found) {
-          resolvedLinkCache.set(lowerId, { url: found, timestamp: Date.now() });
-          return found;
-        }
-      }
-    } catch (_) {}
-  }
-
-  // 5. Check catalog database (Firestore store_data apps)
+  // 7. Check catalog database (Firestore store_data apps)
   try {
-    const storeData = await fetchStoreData();
+    const storeData = await withTimeout(fetchStoreData(), 1000);
     const apps = storeData?.apps || [];
     const matched = apps.find((a: any) => {
       const sId = (a.id || '').toLowerCase().trim();

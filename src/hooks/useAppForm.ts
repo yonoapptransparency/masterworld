@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { safeDecrypt } from '../lib/cryptoUtils';
 
 export const useAppForm = (editApp: any, editingAppId: string | null, appsList: any[], categories: string[]) => {
   const prevEditingIdRef = useRef<string | null>(null);
@@ -70,7 +71,13 @@ export const useAppForm = (editApp: any, editingAppId: string | null, appsList: 
           sync_to_public: editApp ? (editApp.sync_to_public !== false) : true,
           publish_date: editApp?.publish_date ? new Date(new Date(editApp.publish_date).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '',
           release_notes: editApp?.release_notes || '',
-          more_information_url: editApp?.more_information_url || '',
+          more_information_url: (() => {
+            const raw = editApp?.more_information_url || editApp?.encrypted_link || '';
+            if (raw && typeof raw === 'string' && raw.startsWith('U2FsdGVkX1')) {
+              return safeDecrypt(raw) || raw;
+            }
+            return raw;
+          })(),
           video_url: editApp?.video_url || '',
           red_box_msg: editApp?.red_box_msg || '',
           yellow_box_msg: editApp?.yellow_box_msg || '',

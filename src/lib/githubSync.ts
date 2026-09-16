@@ -6,25 +6,24 @@
 import CryptoJS from 'crypto-js';
 import { ensureDefaultSettings } from './defaultLegalContent';
 import { adminFetch } from '../services/adminAuthService';
+import { safeEncrypt, safeDecrypt } from './cryptoUtils';
 
 export function encryptUrlIfNeeded(url: string): string {
   if (!url || typeof url !== 'string') return '';
-  const trimmed = url.trim();
+  let trimmed = url.trim();
   if (trimmed === '' || trimmed.includes('com.rummydex') || trimmed.includes('com.example') || trimmed.toLowerCase().includes('mediafire.com')) return '';
-  const secret = process.env.AES_SECRET || 'YonoVaultSecret2026MasterKey!';
+  
   if (trimmed.startsWith('U2FsdGVkX1')) {
-    try {
-      const bytes = CryptoJS.AES.decrypt(trimmed, secret);
-      const dec = bytes.toString(CryptoJS.enc.Utf8);
-      if (dec && dec.toLowerCase().includes('mediafire.com')) return '';
-    } catch (_) {}
+    const dec = safeDecrypt(trimmed);
+    if (dec && dec.toLowerCase().includes('mediafire.com')) return '';
     return trimmed;
   }
-  try {
-    return CryptoJS.AES.encrypt(trimmed, secret).toString();
-  } catch (e) {
-    return '';
+
+  if (!trimmed.toLowerCase().startsWith('http://') && !trimmed.toLowerCase().startsWith('https://')) {
+    trimmed = 'https://' + trimmed;
   }
+
+  return safeEncrypt(trimmed);
 }
 
 export interface GitConfig {

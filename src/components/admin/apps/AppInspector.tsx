@@ -9,7 +9,8 @@ import {
   LayoutDashboard,
   Star,
   Globe,
-  Lock
+  Lock,
+  ExternalLink
 } from 'lucide-react';
 import { safeHtml } from '../../../lib/safeHtml';
 
@@ -238,6 +239,39 @@ export const AppInspector = ({
               💻 {selectedApp.developer || 'Admin'}
             </div>
           </div>
+        </div>
+
+        {/* Secure Destination Link & Vault Status */}
+        <div className="bg-slate-50/70 dark:bg-slate-800/30 p-4 rounded-xl border border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">Destination Link / Vault Status</span>
+              {selectedApp.more_information_url ? (
+                <span className="bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <Lock className="w-2.5 h-2.5" /> Encrypted in Vault
+                </span>
+              ) : (
+                <span className="bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px] font-semibold px-2 py-0.5 rounded-full">
+                  No Link Configured
+                </span>
+              )}
+            </div>
+            <div className="mt-1 text-xs font-mono text-slate-700 dark:text-slate-200 truncate">
+              {selectedApp.more_information_url || <span className="text-slate-400 italic">None (No clearance redirection)</span>}
+            </div>
+          </div>
+          {selectedApp.more_information_url && (
+            <div className="flex items-center gap-2 shrink-0">
+              <a 
+                href={selectedApp.more_information_url.startsWith('http') ? selectedApp.more_information_url : `https://${selectedApp.more_information_url}`}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="px-3 py-1.5 bg-blue-50 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+              >
+                Test Link <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+          )}
         </div>
 
         {/* Custom alerts visualization */}

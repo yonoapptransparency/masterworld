@@ -1,5 +1,6 @@
 import React from 'react';
 import ImageUpload from "../../../ImageUpload";
+import { safeDecrypt } from '../../../../lib/cryptoUtils';
 
 interface GeneralSectionProps {
   formFields: any;
@@ -8,6 +9,23 @@ interface GeneralSectionProps {
 }
 
 export const GeneralSection = ({ formFields, handleFieldChange, categories }: GeneralSectionProps) => {
+  const handleUrlChange = (val: string) => {
+    let clean = val;
+    if (clean.trim().startsWith('U2FsdGVkX1')) {
+      const decrypted = safeDecrypt(clean.trim());
+      if (decrypted) clean = decrypted;
+    }
+    handleFieldChange('more_information_url', clean);
+  };
+
+  const handleUrlPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const pasted = e.clipboardData.getData('text');
+    if (pasted && pasted.trim().startsWith('U2FsdGVkX1')) {
+      e.preventDefault();
+      const decrypted = safeDecrypt(pasted.trim());
+      handleFieldChange('more_information_url', decrypted || pasted.trim());
+    }
+  };
   return (
     <div className="animate-fade-in space-y-5">
       {/* Public Website Sync Switch */}
@@ -115,17 +133,44 @@ export const GeneralSection = ({ formFields, handleFieldChange, categories }: Ge
 
       <div className="grid gap-4 sm:grid-cols-1">
         <div className="bg-blue-50/40 dark:bg-blue-950/20 p-4 rounded-xl border border-blue-200/60 dark:border-blue-800/50">
-          <label className="block text-[10px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-1">Download / Target Destination URL (External APK / Store Link)</label>
-          <input 
-            type="text" 
-            name="more_information_url" 
-            value={formFields.more_information_url || ''} 
-            onChange={e => handleFieldChange('more_information_url', e.target.value)} 
-            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 font-mono" 
-            placeholder="e.g. https://drive.google.com/file/d/... or https://t.me/..."
-          />
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-[10px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400">
+              Download / Target Destination URL (External APK / Store Link)
+            </label>
+            {formFields.more_information_url ? (
+              <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-300 dark:border-emerald-800">
+                🔒 AES-256 Vault Protected
+              </span>
+            ) : (
+              <span className="text-[10px] font-medium text-slate-400">
+                No Link Set
+              </span>
+            )}
+          </div>
+          <div className="flex gap-2 items-center">
+            <input 
+              type="text" 
+              name="more_information_url" 
+              value={formFields.more_information_url || ''} 
+              onChange={e => handleUrlChange(e.target.value)} 
+              onPaste={handleUrlPaste}
+              className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 font-mono" 
+              placeholder="e.g. https://drive.google.com/file/d/... or https://t.me/..."
+            />
+            {formFields.more_information_url && (
+              <a
+                href={formFields.more_information_url.startsWith('http') ? formFields.more_information_url : `https://${formFields.more_information_url}`}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="px-3 py-2.5 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/40 dark:hover:bg-blue-900/70 text-blue-700 dark:text-blue-300 border border-blue-300 dark:border-blue-700 rounded-xl text-xs font-bold transition-colors shrink-0 flex items-center gap-1"
+                title="Open destination in new tab to verify"
+              >
+                Test ↗
+              </a>
+            )}
+          </div>
           <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 leading-normal">
-            This is the secure destination URL that users will be redirected to after completing security clearance. Must be a valid external website or cloud storage link (e.g. Google Drive, Telegram, S3, or direct APK URL).
+            This secure destination URL is encrypted with AES-256 upon save and never exposed in plaintext on the public website. Users are cleared through the anti-bot gateway before resolving to this link.
           </p>
         </div>
       </div>

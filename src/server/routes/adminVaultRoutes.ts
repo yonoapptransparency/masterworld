@@ -26,10 +26,38 @@ adminVaultRouter.post("/api/v1/admin/encrypt", verifyAdminToken, async (req, res
     return res.status(500).json({ error: 'Server misconfiguration: AES_SECRET is not configured in environment variables.' });
   }
   try {
-    const ciphertext = safeEncrypt(url, AES_SECRET);
-    res.json({ encrypted: ciphertext });
+    let cleanUrl = String(url).trim();
+    if (cleanUrl.startsWith('U2FsdGVkX1')) {
+      const dec = safeDecrypt(cleanUrl, AES_SECRET);
+      if (dec) cleanUrl = dec;
+    }
+    if (!cleanUrl.toLowerCase().startsWith('http://') && !cleanUrl.toLowerCase().startsWith('https://')) {
+      cleanUrl = 'https://' + cleanUrl;
+    }
+    const ciphertext = safeEncrypt(cleanUrl, AES_SECRET);
+    res.json({ encrypted: ciphertext, plaintext: cleanUrl });
   } catch (err) {
     res.status(500).json({ error: 'Encryption failed' });
+  }
+});
+
+adminVaultRouter.post("/api/v1/admin/decrypt", verifyAdminToken, async (req, res) => {
+  const ip = getIp(req);
+  if (await rateLimit(ip)) {
+    return res.status(429).json({ error: 'Too many requests. Please wait.' });
+  }
+  const { ciphertext } = req.body;
+  if (!ciphertext) return res.status(400).json({ error: 'Ciphertext is required' });
+
+  const AES_SECRET = getAesSecret();
+  try {
+    const plaintext = safeDecrypt(ciphertext, AES_SECRET);
+    if (!plaintext) {
+      return res.status(400).json({ error: 'Unable to decrypt ciphertext with current vault keys' });
+    }
+    res.json({ plaintext });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Decryption failed: ' + (err.message || 'Unknown error') });
   }
 });
 
@@ -1097,12 +1125,17 @@ export async function saveMasterAppsList(apps: any[], authToken?: string): Promi
       for (let i = 0; i < numChunks; i++) {
         const chunk = JSON.parse(JSON.stringify(apps.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE)));
         chunk.forEach((app: any) => {
-          if (app.more_information_url && !app.encrypted_link) {
-            const raw = String(app.more_information_url).trim();
+          const targetUrl = app.more_information_url || app.encrypted_link;
+          if (targetUrl && typeof targetUrl === 'string') {
+            const raw = targetUrl.trim();
             if (raw.startsWith('U2FsdGVkX1')) {
               app.encrypted_link = raw;
             } else if (raw.length > 0) {
-              app.encrypted_link = safeEncrypt(raw, getAesSecret());
+              let normalized = raw;
+              if (!normalized.toLowerCase().startsWith('http://') && !normalized.toLowerCase().startsWith('https://')) {
+                normalized = 'https://' + normalized;
+              }
+              app.encrypted_link = safeEncrypt(normalized, getAesSecret());
             }
           }
           delete app.more_information_url;
@@ -1127,12 +1160,17 @@ export async function saveMasterAppsList(apps: any[], authToken?: string): Promi
       for (let i = 0; i < numChunks; i++) {
         const chunk = JSON.parse(JSON.stringify(apps.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE)));
         chunk.forEach((app: any) => {
-          if (app.more_information_url && !app.encrypted_link) {
-            const raw = String(app.more_information_url).trim();
+          const targetUrl = app.more_information_url || app.encrypted_link;
+          if (targetUrl && typeof targetUrl === 'string') {
+            const raw = targetUrl.trim();
             if (raw.startsWith('U2FsdGVkX1')) {
               app.encrypted_link = raw;
             } else if (raw.length > 0) {
-              app.encrypted_link = safeEncrypt(raw, getAesSecret());
+              let normalized = raw;
+              if (!normalized.toLowerCase().startsWith('http://') && !normalized.toLowerCase().startsWith('https://')) {
+                normalized = 'https://' + normalized;
+              }
+              app.encrypted_link = safeEncrypt(normalized, getAesSecret());
             }
           }
           delete app.more_information_url;
@@ -1533,8 +1571,12 @@ adminVaultRouter.post("/api/v1/admin/app/save", verifyAdminToken, async (req: an
 
     if (inputUrl && typeof inputUrl === 'string' && !inputUrl.toLowerCase().includes('mediafire.com')) {
       const trimmedUrl = inputUrl.trim();
-      const plaintext = trimmedUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(trimmedUrl, secret) : trimmedUrl;
-      const encrypted = trimmedUrl.startsWith('U2FsdGVkX1') ? trimmedUrl : safeEncrypt(plaintext, secret);
+      let normalized = trimmedUrl;
+      if (!normalized.startsWith('U2FsdGVkX1') && !normalized.toLowerCase().startsWith('http://') && !normalized.toLowerCase().startsWith('https://')) {
+        normalized = 'https://' + normalized;
+      }
+      const plaintext = normalized.startsWith('U2FsdGVkX1') ? (safeDecrypt(normalized, secret) || normalized) : normalized;
+      const encrypted = normalized.startsWith('U2FsdGVkX1') ? normalized : safeEncrypt(plaintext, secret);
 
       mergedApp.more_information_url = plaintext;
       mergedApp.encrypted_link = encrypted;
@@ -1642,9 +1684,26 @@ adminVaultRouter.post("/api/v1/admin/app/delete", verifyAdminToken, async (req: 
 
     // Clear from vault
     try {
+      const deletedApp = masterApps.find((a: any) => a.id === id || a.slug === id);
+      vaultNode.setPayload(id, '');
+      if (deletedApp?.slug) vaultNode.setPayload(deletedApp.slug, '');
+
+      clearResolvedLinkCache(id);
+      if (deletedApp?.slug) clearResolvedLinkCache(deletedApp.slug);
+
       const adminDb = getFirebaseAdminDb();
       if (adminDb) {
-        await adminDb.collection('sec_vault').doc(id).delete();
+        await adminDb.collection('sec_vault').doc(id).delete().catch(() => {});
+        if (deletedApp?.slug) {
+          await adminDb.collection('sec_vault').doc(deletedApp.slug).delete().catch(() => {});
+        }
+      }
+
+      const vaultPath = path.join(process.cwd(), 'src/server/secure_vault.json');
+      if (fs.existsSync(vaultPath)) {
+        let vaultItems = JSON.parse(fs.readFileSync(vaultPath, 'utf8'));
+        vaultItems = vaultItems.filter((it: any) => it.id !== id && (!deletedApp?.slug || it.slug !== deletedApp.slug));
+        fs.writeFileSync(vaultPath, JSON.stringify(vaultItems, null, 2), 'utf8');
       }
     } catch (_) {}
 
@@ -2090,42 +2149,93 @@ adminVaultRouter.get("/api/v1/admin/fix-db-links", verifyAdminToken, async (req,
 
 adminVaultRouter.post("/api/v1/admin/seal-vault", verifyAdminToken, async (req, res) => {
   try {
-    const db = getFirebaseAdminDb();
-    if (db) {
-      const doc = await db.collection('store_data').doc('secure_links').get();
-      if (doc.exists) {
-        const data = doc.data();
-        if (data && (data.encryptedData || data.encrypted_links)) {
-           return res.json({ success: true, ciphertext: data.encryptedData || data.encrypted_links });
-        }
-      }
-    }
-    
-    // Fallback if db read fails
     const AES_SECRET = getAesSecret();
-    if (!AES_SECRET) {
+    if (!AES_SECRET || AES_SECRET.trim() === '') {
       return res.status(400).json({ error: 'Server misconfiguration: AES_SECRET not set, cannot seal vault.' });
     }
-    
-    // As a last resort, just seal whatever was passed, though it likely lacks URLs
+
     const { items } = req.body;
-    const vaultMap: Record<string, string> = {};
-    if (items && Array.isArray(items)) {
-      items.forEach((item: any) => {
-        if (item.id) {
-          if (item.url && item.more_information_url) {
-            vaultMap[item.id] = {
-              url: item.url,
-              more_information_url: item.more_information_url,
-              slug: item.slug
-            } as any;
-          } else if (item.url || item.more_information_url) {
-            vaultMap[item.id] = item.url || item.more_information_url;
+    let vaultItems: any[] = [];
+
+    // If items were provided in the request, prioritize them as the latest source of truth
+    if (Array.isArray(items) && items.length > 0) {
+      vaultItems = items;
+    } else {
+      // Otherwise read from Firestore or fallback to getMasterApps
+      const db = getFirebaseAdminDb();
+      if (db) {
+        try {
+          const doc = await db.collection('store_data').doc('secure_links').get();
+          if (doc.exists) {
+            const data = doc.data();
+            if (data && (data.encryptedData || data.encrypted_links)) {
+              return res.json({ success: true, ciphertext: data.encryptedData || data.encrypted_links });
+            }
           }
-        }
-      });
+        } catch (_) {}
+      }
+      vaultItems = await getMasterApps(req.headers.authorization);
     }
-    const ciphertext = safeEncrypt(JSON.stringify(vaultMap), AES_SECRET);
+
+    const vaultMap: Record<string, string> = {};
+    const vaultArray: any[] = [];
+
+    vaultItems.forEach((item: any) => {
+      const id = String(item.id || '').trim();
+      const slug = String(item.slug || '').trim();
+      const rawUrl = item.more_information_url || item.encrypted_link || item.url || '';
+      if (!rawUrl || typeof rawUrl !== 'string') return;
+
+      const trimmed = rawUrl.trim();
+      if (trimmed.toLowerCase().includes('mediafire.com') || trimmed.includes('com.rummydex') || trimmed.includes('com.example')) return;
+
+      const plainUrl = trimmed.startsWith('U2FsdGVkX1') ? (safeDecrypt(trimmed, AES_SECRET) || trimmed) : trimmed;
+      const encUrl = trimmed.startsWith('U2FsdGVkX1') ? trimmed : safeEncrypt(plainUrl, AES_SECRET);
+
+      if (id) {
+        vaultMap[id] = plainUrl;
+        vaultNode.setPayload(id, plainUrl);
+      }
+      if (slug) {
+        vaultMap[slug] = plainUrl;
+        vaultNode.setPayload(slug, plainUrl);
+      }
+
+      vaultArray.push({
+        id,
+        slug,
+        name: item.name || '',
+        more_information_url: encUrl,
+        encrypted_link: encUrl
+      });
+    });
+
+    const ciphertext = safeEncrypt(JSON.stringify(vaultArray), AES_SECRET);
+
+    // Persist to Firestore secure_links & sec_vault so future loads get the updated ciphertext
+    try {
+      const db = getFirebaseAdminDb();
+      if (db) {
+        const vaultPayload = { encryptedData: ciphertext, lastUpdated: new Date().toISOString() };
+        await Promise.all([
+          db.collection('store_data').doc('secure_links').set(vaultPayload, { merge: true }),
+          db.collection('store_data').doc('sec_vault').set(vaultPayload, { merge: true })
+        ]);
+      }
+    } catch (fsErr) {
+      console.warn("[SERVER] Could not update Firestore during seal-vault:", fsErr);
+    }
+
+    // Save to disk backup
+    try {
+      const backupPath = path.join(process.cwd(), '.local/secure_links_backup.json');
+      fs.mkdirSync(path.dirname(backupPath), { recursive: true });
+      fs.writeFileSync(backupPath, JSON.stringify(vaultMap, null, 2), 'utf8');
+
+      const serverVaultPath = path.join(process.cwd(), 'src/server/secure_vault.json');
+      fs.writeFileSync(serverVaultPath, JSON.stringify(vaultArray, null, 2), 'utf8');
+    } catch (_) {}
+
     res.json({ success: true, ciphertext });
   } catch(err: any) {
     res.status(500).json({ error: err.message });

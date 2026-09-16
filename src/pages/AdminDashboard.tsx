@@ -13,6 +13,7 @@ import { AdminTabContent } from '../components/admin/AdminTabContent';
 import { FirebaseStatusIndicator } from '../components/FirebaseStatusIndicator';
 import { AdminWelcomeOverlay } from '../components/admin/AdminWelcomeOverlay';
 import { getAdminPath } from '../lib/utils';
+import { safeEncrypt, safeDecrypt } from '../lib/cryptoUtils';
 
 export default function AdminDashboard() {
   const { 
@@ -183,23 +184,39 @@ export default function AdminDashboard() {
       const rawSlug = formFieldsOverride?.slug || (formData ? (formData.get('slug') as string || formData.get('hidden_slug') as string) : '');
       const slug = rawSlug?.trim().toLowerCase().replace(/[^a-z0-9-_]+/g, '-') || name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
       const rawUrl = formFieldsOverride?.more_information_url ?? (formData ? ((formData.get('more_information_url') as string) ?? (formData.get('hidden_more_information_url') as string)) : '');
-      const inputUrl = (rawUrl || '').trim();
-      
-      let encryptedUrlVal = '';
-      let plaintextUrl = inputUrl || '';
+      let inputUrl = (rawUrl || '').trim();
 
+      // Auto-decrypt if input is an encrypted ciphertext
+      if (inputUrl.startsWith('U2FsdGVkX1')) {
+        const dec = safeDecrypt(inputUrl);
+        if (dec) inputUrl = dec;
+      }
+
+      let plaintextUrl = inputUrl;
       if (plaintextUrl && !plaintextUrl.startsWith('U2FsdGVkX1') && !plaintextUrl.toLowerCase().startsWith('http://') && !plaintextUrl.toLowerCase().startsWith('https://')) {
         plaintextUrl = 'https://' + plaintextUrl;
       }
 
-      if (plaintextUrl && !plaintextUrl.startsWith('U2FsdGVkX1')) {
-         const idToken = (await user?.getIdToken()) || undefined;
-         const res = await adminFetch('/api/v1/admin/encrypt', {
+      let encryptedUrlVal = '';
+      if (plaintextUrl) {
+        // Fast local encryption baseline
+        encryptedUrlVal = safeEncrypt(plaintextUrl);
+
+        // Server-side authoritative encryption verification
+        try {
+          const idToken = (await user?.getIdToken()) || undefined;
+          const res = await adminFetch('/api/v1/admin/encrypt', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {}) },
             body: JSON.stringify({ url: plaintextUrl })
-         });
-         if (res.ok) encryptedUrlVal = (await res.json()).encrypted;
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.encrypted) encryptedUrlVal = data.encrypted;
+          }
+        } catch (encErr) {
+          console.warn("[ADMIN] Server encryption fallback to safeEncrypt:", encErr);
+        }
       }
 
       let category = 'General';
@@ -282,8 +299,13 @@ export default function AdminDashboard() {
         updated_at: new Date().toISOString()
       };
 
-      if (plaintextUrl) cachedSecureMapRef.current.set(actualAppId, plaintextUrl);
-      else cachedSecureMapRef.current.delete(actualAppId);
+      if (plaintextUrl) {
+        cachedSecureMapRef.current.set(actualAppId, plaintextUrl);
+        if (slug) cachedSecureMapRef.current.set(slug, plaintextUrl);
+      } else {
+        cachedSecureMapRef.current.delete(actualAppId);
+        if (slug) cachedSecureMapRef.current.delete(slug);
+      }
 
       const savedResult = await saveAppSingle(appData);
       const finalSavedApp = savedResult || appData;

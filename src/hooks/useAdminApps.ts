@@ -95,11 +95,12 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
           // Map incoming apps with decrypted links
           const sourceApps = (Array.isArray(apps) && apps.length > 0) ? apps : (appsList.length > 0 ? appsList : (mockApps || []));
           const mergedApps = sourceApps.map(a => {
-            const rawUrl = a.more_information_url || '';
+            const rawUrl = a.more_information_url || a.encrypted_link || '';
             const decryptedFromUrl = (rawUrl && typeof rawUrl === 'string' && rawUrl.startsWith('U2FsdGVkX1')) ? safeDecrypt(rawUrl) : rawUrl;
-            const existingUrl = decryptedFromUrl || secureMap.get(a.id) || secureMap.get(a.slug) || '';
-            if (existingUrl && !secureMap.has(a.id)) {
-              secureMap.set(a.id, existingUrl);
+            const existingUrl = decryptedFromUrl || secureMap.get(a.id) || (a.slug && secureMap.get(a.slug)) || '';
+            if (existingUrl) {
+              if (a.id && !secureMap.has(a.id)) secureMap.set(a.id, existingUrl);
+              if (a.slug && !secureMap.has(a.slug)) secureMap.set(a.slug, existingUrl);
             }
             return {
               ...a, 
@@ -125,11 +126,12 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
       const mapped = apps
         .filter(a => !deletedAppIdsRef.current.has(a.id) && !deletedAppIdsRef.current.has(a.slug))
         .map(a => {
-          const rawLink = a.more_information_url || '';
+          const rawLink = a.more_information_url || a.encrypted_link || '';
           const decryptedFromLink = (rawLink && typeof rawLink === 'string' && rawLink.startsWith('U2FsdGVkX1')) ? safeDecrypt(rawLink) : rawLink;
-          const link = decryptedFromLink || secureMap.get(a.id) || secureMap.get(a.slug) || '';
-          if (link && !secureMap.has(a.id)) {
-            secureMap.set(a.id, link);
+          const link = decryptedFromLink || secureMap.get(a.id) || (a.slug && secureMap.get(a.slug)) || '';
+          if (link) {
+            if (a.id && !secureMap.has(a.id)) secureMap.set(a.id, link);
+            if (a.slug && !secureMap.has(a.slug)) secureMap.set(a.slug, link);
           }
           return {
             ...a,

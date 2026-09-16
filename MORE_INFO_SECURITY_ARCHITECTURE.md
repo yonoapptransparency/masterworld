@@ -59,21 +59,24 @@ When the admin clicks **Save App**:
 
 ### Step 5: Backend Link Resolution Handshake
 1. Client sends AJAX `POST /api/v1/app/resolve-link` (with compatibility aliases `/api/v1/public/secure-link`, `/api/v1/get-link`) with payload `{ id: appId }`.
-2. Server validates format (`^[a-zA-Z0-9\-_]{1,64}$`), rejects empty User-Agents, and applies in-memory sliding rate limiting.
+2. Server validates format (`^[a-zA-Z0-9\-_]{1,64}$`), rejects known scrapers/crawlers and empty User-Agents, and applies in-memory sliding rate limiting.
 3. Server invokes `resolveDestinationForApp(appId)` from modular `src/server/services/linkService.ts`.
-4. Returns JSON `{ success: true, url: targetUrl }` with `Referrer-Policy: no-referrer` and `Cache-Control: no-store` headers.
+4. **Availability Decision**:
+   - **Link Present**: Returns JSON `{ success: true, status: 'available', url: targetUrl }` with `Referrer-Policy: no-referrer` and `Cache-Control: no-store` headers.
+   - **Link Not Configured Yet**: Returns JSON `{ success: true, status: 'unavailable', message: 'The package link is currently not available. It will be updated soon by the admin.' }`. The client displays a reassuring, friendly notice rather than an alarming connection error.
 
-### Step 6: Native Client Airgap Dispatch & Zero-Referrer Fallback
+### Step 6: Native Client Airgap Dispatch & Graceful State Handling
 1. **Human Event Verification**: `ClearanceButton.tsx` verifies `e.isTrusted === true`, preventing automated headless script triggers.
-2. **Zero-Referrer Airgap Dispatch**: Creates a detached native `<a>` element with `rel="noreferrer noopener"` and `referrerPolicy="no-referrer"`, dispatches `.click()`, and immediately destroys it.
-3. **No Timers / Burn-on-Read**: No countdowns or 30-minute clocks. The button state resets immediately. If the user clicks again, they can proceed again.
-4. **Visual Fallback Trigger**: If mobile pop-up blockers suppress programmatic opening, the button cleanly offers **"Click Here to Proceed"** with `rel="noreferrer noopener"` and wipes the URL from memory on tap.
+2. **Zero-Referrer Airgap Dispatch**: For available links, creates a detached native `<a>` element with `rel="noreferrer noopener"` and `referrerPolicy="no-referrer"`, dispatches `.click()`, and immediately destroys it.
+3. **Graceful Unavailable State**: If the admin hasn't configured a destination link yet, renders a calm notification informing the user that the package link is undergoing administrative review, along with a "Check Again" button and "Back to Details" link.
+4. **No Timers / Burn-on-Read**: No countdowns or 30-minute clocks. State resets cleanly.
+5. **Visual Fallback Trigger**: If mobile pop-up blockers suppress programmatic opening, the button cleanly offers **"Click Here to Proceed"** with `rel="noreferrer noopener"` and wipes the URL from memory on tap.
 
 ---
 
-## 3. The 6-Tier Backend Link Resolution Hierarchy (`src/server/services/linkService.ts`)
+## 3. The 7-Tier Backend Link Resolution Hierarchy (`src/server/services/linkService.ts`)
 
-The resolution function (`src/server/services/linkService.ts`) executes a strict priority-based search to guarantee zero downtime:
+The resolution function (`src/server/services/linkService.ts`) executes a strict priority-based search, running instant in-memory and local disk tiers first to guarantee sub-millisecond responses and zero downtime:
 
 ```
 [ Incoming Request: appId (slug or ID) ]
@@ -82,19 +85,22 @@ The resolution function (`src/server/services/linkService.ts`) executes a strict
  [ Tier 0: In-Memory Fast Cache ] -----------> Found? Return immediately (<1ms)
                |
                v
- [ Tier 1: Local Server Vault ] -------------> Found in secure_vault.json? Decrypt & Return
+ [ Tier 1: In-Memory VaultNode ] ------------> Check key mappings in RAM (<1ms)
                |
                v
- [ Tier 2: Live Firestore Vault Docs ] ------> Checks secure_links, sec_vault, sec_public_links
+ [ Tier 2: Local Server Vault ] -------------> Found in secure_vault.json? Decrypt & Return (<2ms)
                |
                v
- [ Tier 3: Static Constant ENCRYPTED_LINKS ] -> Decrypts secureVault.ts AES ciphertext
+ [ Tier 3: Static ENCRYPTED_LINKS Vault ] ---> Decrypts secureVault.ts AES ciphertext in RAM (<3ms)
                |
                v
- [ Tier 4: Firestore store_data Apps ] ------> Searches apps_chunk_0 / apps_chunk_1 documents
+ [ Tier 4: Local staticData.json Fallback ] -> Searches static dataset locally (<3ms)
                |
                v
- [ Tier 5: High-Availability Failover ] -----> Searches staticData.json mockApps
+ [ Tier 5: Live Firestore sec_vault Docs ] --> Per-app private docs with 1s timeout guard
+               |
+               v
+ [ Tier 6: Firestore store_data Documents ] -> Consolidated secure_links / catalog apps with 1s timeout
 ```
 
 ### Flexible Key Matching Logic:
@@ -339,11 +345,15 @@ To permanently defeat aggressive AI crawlers, automated link indexing scrapers, 
 ### 1. Instant 404 Bot Rejection
 All automated bot and crawler User-Agents (including Googlebot, Bingbot, Ahrefs, Petalbot, Puppeteer, Playwright, HeadlessChrome, and generic scrapers) attempting to reach `/api/v1/app/resolve-link`, `/api/v1/public/secure-link`, or `/api/v1/get-link` receive an instant `HTTP 404 Not Found`. Bots conclude the endpoint does not exist and abandon traversal.
 
-### 2. Trusted Client Clearance Nonce
-When a human clicks "Proceed" on `ClearanceButton.tsx`:
-- Native `e.isTrusted` and `window.navigator.webdriver` flags are verified.
-- A dynamic, base64-encoded interaction challenge token is generated with a millisecond timestamp and click coordinates.
-- Tokens expire within 120 seconds, preventing replay attacks.
+### 2. Zero-Timer & Single-Use Instant Pass-Through (Burn-on-Read Nonce)
+- **Zero Timers**: No 30-second, 2-second, or 1-second countdowns. The link is NEVER held open openly.
+- **One-Time Immediate Verification**: The user clicks "Proceed" and passes a single one-time verification. Upon success, they are transported immediately through a zero-referrer airgap dispatch.
+- **Atomic Nonce Burn**: Every clearance token contains a unique entropy nonce and timestamp (strictly fresh < 15 seconds). Upon server receipt, the nonce is checked against an atomic in-memory burn set (`burnedNonces`). If present, replay is rejected with 403. If fresh, it is burned immediately.
+- **No Lingering Link in DOM / State**: The destination URL is NEVER stored in React component state or left in the DOM. The button immediately resets to the initial "Proceed" state. If the user returns or navigates back, they MUST click and verify again from scratch.
+- **Comprehensive Bot Matrix Defense**:
+  - **Headless Automation**: Detects `navigator.webdriver`, `window.document.documentElement.getAttribute('webdriver')`, `cdc_adoQpoasnfa76pfcZLmcfl_Array`, `__selenium_evaluate`, `domAutomation`, and `!e.isTrusted`.
+  - **CLI Scrapers & Script Engines**: User-agent blacklist + browser format checks.
+  - **Multi-Time Hammering & Abuse**: In-memory sliding rate limit (max 5 requests/min) with a 5-minute quarantine jail for hammering attempts.
 
 ### 3. RAM-Only Resolution & Zero Leaks
 - All destination URLs remain encrypted in storage (`U2FsdGVkX1...`).
@@ -351,10 +361,12 @@ When a human clicks "Proceed" on `ClearanceButton.tsx`:
 - Unauthorized or legacy placeholder domains are strictly rejected by `isValidTargetUrl`.
 - Response headers strictly enforce:
   ```http
-  Cache-Control: no-store, no-cache, must-revalidate, private
+  Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0
   Pragma: no-cache
   Expires: 0
   Referrer-Policy: no-referrer
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
   ```
 
 
