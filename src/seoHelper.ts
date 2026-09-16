@@ -1,0 +1,1253 @@
+import fs from 'fs';
+import path from 'path';
+import { getSafeFirebaseConfig } from './seo/firebaseConfig';
+import { syncFromFirestore } from './seo/sync';
+import { getField, stripHtml, getYoutubeThumbnail, ensureAbsoluteUrl, getOgImageUrl, isBotUserAgent, escapeHtml, optimizeImageUrl, normalizeSchemaCategory } from './seo/utils';
+import * as renderers from './seo/renderers';
+import { getCleanCanonicalUrl, formatPageTitle } from './lib/seoUtils';
+import { communityStore } from './lib/communityStoreFallback';
+
+// Dynamically resolve staticData directly from filesystem to bypass caching
+const getStaticData = () => {
+  try {
+    const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
+    if (fs.existsSync(publicBackupPath)) {
+      const data = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
+      if (data && (Array.isArray(data.apps) && data.apps.length > 0)) {
+        return {
+          apps: data.apps,
+          mockApps: data.apps,
+          settings: data.settings || {},
+          mockSettings: data.settings || {},
+          news: data.news || [],
+          mockNews: data.news || [],
+          videos: data.videos || [],
+          mockVideos: data.videos || []
+        };
+      }
+    }
+  } catch (_) {}
+
+  try {
+    const staticJsonPath = path.join(process.cwd(), 'src/lib/staticData.json');
+    if (fs.existsSync(staticJsonPath)) {
+      const data = JSON.parse(fs.readFileSync(staticJsonPath, 'utf8'));
+      if (data) {
+        return {
+          apps: data.mockApps || data.apps || [],
+          mockApps: data.mockApps || data.apps || [],
+          settings: data.mockSettings || data.settings || {},
+          mockSettings: data.mockSettings || data.settings || {},
+          news: data.mockNews || data.news || [],
+          mockNews: data.mockNews || data.news || [],
+          videos: data.mockVideos || data.videos || [],
+          mockVideos: data.mockVideos || data.videos || []
+        };
+      }
+    }
+  } catch (_) {}
+
+  try {
+    const staticDataModulePath = path.join(process.cwd(), 'src/lib/staticData');
+    try {
+      delete require.cache[require.resolve(staticDataModulePath)];
+    } catch (_) {}
+    return require(staticDataModulePath);
+  } catch (e) {
+    return { mockApps: [], mockSettings: {}, mockNews: [], mockVideos: [] };
+  }
+};
+
+const staticData = getStaticData();
+const mockApps = staticData.apps || staticData.mockApps || [];
+const mockSettings = staticData.settings || staticData.mockSettings || {};
+const mockNews = staticData.news || staticData.mockNews || [];
+const mockVideos = staticData.videos || staticData.mockVideos || [];
+
+let cachedData: any = null;
+let lastFetchTime = 0;
+const CACHE_TTL = 300000; // 5 minutes (prevent quota exhaustion)
+let isFetchingStoreData = false;
+
+import { resolveAppSlug, SLUG_ALIAS_MAP } from './lib/slugResolver';
+
+export { resolveAppSlug, SLUG_ALIAS_MAP };
+
+export { getField, getSafeFirebaseConfig, syncFromFirestore, getOgImageUrl, getYoutubeThumbnail };
+
+export function clearSeoCache() {
+  cachedData = null;
+  lastFetchTime = 0;
+}
+
+async function doFetchStoreData() {
+  const now = Date.now();
+  const freshStatic = getStaticData();
+  const data = {
+    apps: freshStatic.apps || freshStatic.mockApps || [],
+    settings: freshStatic.settings || freshStatic.mockSettings || {},
+    news: freshStatic.news || freshStatic.mockNews || [],
+    videos: freshStatic.videos || freshStatic.mockVideos || []
+  };
+  
+  cachedData = data;
+  lastFetchTime = now;
+  return data;
+}
+
+export async function fetchStoreData() {
+  const now = Date.now();
+  const isStale = (now - lastFetchTime) > CACHE_TTL;
+  const isSuperStale = (now - lastFetchTime) > (CACHE_TTL * 15);
+
+  if (cachedData && !isSuperStale) {
+    if (isStale && !isFetchingStoreData) {
+      isFetchingStoreData = true;
+      doFetchStoreData()
+        .then(() => { isFetchingStoreData = false; })
+        .catch(e => {
+          isFetchingStoreData = false;
+          console.warn("Background store fetch failed safely:", e);
+        });
+    }
+    return cachedData;
+  }
+
+  return await doFetchStoreData();
+}
+
+function cleanSeoDescription(desc: string): string {
+  if (!desc) return '';
+  const trimmed = desc.trim();
+  if (trimmed.startsWith('<') || trimmed.includes('<meta ')) {
+    const metaMatch = trimmed.match(/<meta\s+name=["']description["']\s+content=["'](.*?)["']/i);
+    if (metaMatch && metaMatch[1]) return metaMatch[1].trim();
+    const ogMatch = trimmed.match(/<meta\s+property=["']og:description["']\s+content=["'](.*?)["']/i);
+    if (ogMatch && ogMatch[1]) return ogMatch[1].trim();
+    return stripHtml(trimmed);
+  }
+  return trimmed;
+}
+
+async function getPagePreRender(urlPath: string, data: any): Promise<string> {
+  const { apps = [], settings = {}, news = [], videos = [], developers = [] } = data || {};
+  const cleanPath = urlPath.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
+  const cleanPathLower = cleanPath.toLowerCase();
+
+  if (cleanPathLower.startsWith('/admin') || cleanPathLower.startsWith('/masterworld')) {
+    return `
+      <div class="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white font-sans">
+        <div class="flex flex-col items-center gap-3">
+          <div class="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <span class="text-xs font-mono text-slate-400">Loading Masterworld Admin...</span>
+        </div>
+      </div>
+    `;
+  }
+
+  let bodyContent = '';
+
+  if (cleanPathLower === '/' || cleanPathLower === '') {
+    bodyContent = renderers.renderHome(apps, settings, news, videos);
+  } else if (cleanPathLower === '/new-apps') {
+    const newAppsList = apps.filter((a: any) => {
+      const isNew = a.is_new === true || (a.is_new && typeof a.is_new === 'object' && a.is_new.booleanValue === true);
+      const isHot = a.is_hot === true || (a.is_hot && typeof a.is_hot === 'object' && a.is_hot.booleanValue === true);
+      return isNew || isHot;
+    });
+    const displayNew = newAppsList.length > 0 ? newAppsList : [...apps].slice(0, 24);
+    bodyContent = renderers.renderNewApps(displayNew, settings);
+  } else if (cleanPathLower === '/categories') {
+    const catMap = new Map<string, { name: string; slug: string; count: number }>();
+    apps.forEach((a: any) => {
+      const rawCat = getField(a, 'category', '');
+      if (rawCat) {
+        rawCat.split(',').forEach((c: string) => {
+          const trimmed = c.trim();
+          if (trimmed && trimmed.toLowerCase() !== 'all apps' && trimmed.toLowerCase() !== 'all' && trimmed.toLowerCase() !== 'apps' && trimmed.toLowerCase() !== 'general') {
+            const s = trimmed.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+            if (s) {
+              if (!catMap.has(s)) {
+                catMap.set(s, { name: trimmed, slug: s, count: 1 });
+              } else {
+                catMap.get(s)!.count++;
+              }
+            }
+          }
+        });
+      }
+    });
+    bodyContent = renderers.renderCategoriesList(Array.from(catMap.values()), settings);
+  } else if (cleanPathLower.startsWith('/category/') || cleanPathLower.startsWith('/categories/')) {
+    const rawCatSlug = cleanPathLower.replace(/^\/(category|categories)\/?/, '').replace(/^\/|\/$/g, '');
+    const catName = rawCatSlug
+      ? rawCatSlug.split(/[-_]+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+      : 'All Categories';
+    const categoryApps = apps.filter((a: any) => {
+      const cat = getField(a, 'category', '');
+      if (!cat) return false;
+      const cats = cat.split(',').map((c: string) => c.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''));
+      return cats.some((c: string) => c === rawCatSlug || c.includes(rawCatSlug) || rawCatSlug.includes(c));
+    });
+    const finalCatApps = categoryApps.length > 0 ? categoryApps : apps;
+    bodyContent = renderers.renderCategory(catName, rawCatSlug, finalCatApps, settings);
+  } else if (cleanPathLower.startsWith('/s/')) {
+    const slug = cleanPath.split('/s/')[1];
+    const app = apps.find((a: any) => getField(a, 'slug').toLowerCase() === slug.toLowerCase());
+    bodyContent = app ? renderers.renderGateway(slug, apps, settings) : renderers.render404(urlPath, settings);
+  } else if (cleanPathLower === '/news') {
+    bodyContent = renderers.renderNewsList(news, settings);
+  } else if (cleanPathLower.startsWith('/news/')) {
+    const slug = cleanPath.split('/news/')[1];
+    const item = news.find((n: any) => getField(n, 'slug').toLowerCase() === slug.toLowerCase());
+    bodyContent = item ? renderers.renderNewsDetail(slug, news, settings) : renderers.render404(urlPath, settings);
+  } else if (cleanPathLower === '/videos') {
+    bodyContent = renderers.renderVideosList(videos, settings);
+  } else if (cleanPathLower.startsWith('/videos/')) {
+    const slug = cleanPath.split('/videos/')[1];
+    const item = videos.find((v: any) => getField(v, 'slug').toLowerCase() === slug.toLowerCase());
+    bodyContent = item ? renderers.renderVideoDetail(slug, videos, settings) : renderers.render404(urlPath, settings);
+  } else if (cleanPathLower === '/developers') {
+    bodyContent = renderers.renderDevelopersList(developers, settings);
+  } else if (cleanPathLower === '/about') {
+    bodyContent = renderers.renderAbout(settings);
+  } else if (cleanPathLower === '/contact') {
+    bodyContent = renderers.renderContact(settings);
+  } else if (cleanPathLower === '/privacy') {
+    bodyContent = renderers.renderPrivacy(settings);
+  } else if (cleanPathLower === '/report-removal') {
+    bodyContent = renderers.renderReportRemoval(settings);
+  } else if (cleanPathLower === '/terms') {
+    bodyContent = renderers.renderTerms(settings);
+  } else if (cleanPathLower === '/notice') {
+    bodyContent = renderers.renderNotice(settings);
+  } else if (cleanPathLower === '/ethics') {
+    bodyContent = renderers.renderEthics(settings);
+  } else if (cleanPathLower === '/disclaimer') {
+    bodyContent = renderers.renderDisclaimer(settings);
+  } else if (cleanPathLower === '/responsibility') {
+    bodyContent = renderers.renderResponsibility(settings);
+  } else if (cleanPathLower.startsWith('/info/') || cleanPathLower.startsWith('/moreinfo/') || cleanPathLower.startsWith('/moredetail/') || cleanPathLower.startsWith('/gateway/') || cleanPathLower.startsWith('/download/')) {
+    const parts = cleanPathLower.split('/');
+    const slug = parts[parts.length - 1];
+    bodyContent = renderers.renderGateway(slug, settings);
+  } else if (cleanPathLower.startsWith('/app/')) {
+    const possibleSlug = cleanPathLower.replace(/^\/app\//, '/').replace(/^\/|\/$/g, '');
+    const app = resolveAppSlug(possibleSlug, apps) || apps.find((a: any) => getField(a, 'slug')?.toLowerCase() === possibleSlug);
+    if (app) {
+      const appIdentifier = getField(app, 'slug') || getField(app, 'id');
+      const rawRatingVal = parseFloat(getField(app, 'rating')) || 4.5;
+      const appSampleReviews = (await communityStore.getReviewsForApp(appIdentifier, undefined, 6, getField(app, 'name'), rawRatingVal, getField(app, 'slug')))?.reviews || [];
+      bodyContent = renderers.renderAppDetails(getField(app, 'slug') || possibleSlug, apps, settings, appSampleReviews);
+    } else {
+      bodyContent = renderers.render404(urlPath, settings);
+    }
+  } else {
+    const possibleSlug = cleanPathLower.replace(/^\/|\/$/g, '');
+    const app = resolveAppSlug(possibleSlug, apps) || apps.find((a: any) => getField(a, 'slug')?.toLowerCase() === possibleSlug);
+    const newsItem = news.find((n: any) => getField(n, 'slug')?.toLowerCase() === possibleSlug);
+    const videoItem = videos.find((v: any) => getField(v, 'slug')?.toLowerCase() === possibleSlug);
+
+    if (app) {
+      const appIdentifier = getField(app, 'slug') || getField(app, 'id');
+      const rawRatingVal = parseFloat(getField(app, 'rating')) || 4.5;
+      const appSampleReviews = (await communityStore.getReviewsForApp(appIdentifier, undefined, 6, getField(app, 'name'), rawRatingVal, getField(app, 'slug')))?.reviews || [];
+      bodyContent = renderers.renderAppDetails(getField(app, 'slug') || possibleSlug, apps, settings, appSampleReviews);
+    } else if (newsItem) {
+      bodyContent = renderers.renderNewsDetail(possibleSlug, news, settings);
+    } else if (videoItem) {
+      bodyContent = renderers.renderVideoDetail(possibleSlug, videos, settings);
+    } else {
+      bodyContent = renderers.render404(urlPath, settings);
+    }
+  }
+
+  const header = renderers.renderHeader(settings);
+  const footer = renderers.renderFooter(settings);
+
+  return `
+    <div class="flex flex-col min-h-screen">
+      ${header}
+      <main class="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-1.5 sm:py-3 pb-16 sm:pb-24 overflow-x-hidden relative">
+        ${bodyContent}
+      </main>
+      ${footer}
+    </div>
+  `;
+}
+
+async function buildJsonLdSchema(params: {
+  pageType: 'home' | 'app' | 'news' | 'video' | 'static' | 'collection' | 'gateway' | '404';
+  title: string;
+  description: string;
+  url: string;
+  logoUrl: string;
+  siteTitle: string;
+  app?: any;
+  newsItem?: any;
+  videoItem?: any;
+  settings?: any;
+  collectionItems?: Array<{ name: string; url: string; image?: string; description?: string }>;
+  breadcrumbItems?: Array<{ name: string; url: string }>;
+}): Promise<string> {
+  const schemas: any[] = [];
+
+  let hostOrigin = 'https://www.rummydex.com';
+  try {
+    const fullUrl = params.url.startsWith('http') ? params.url : `https://${params.url}`;
+    hostOrigin = new URL(fullUrl).origin;
+  } catch (e) {
+    hostOrigin = params.url.startsWith('http') ? params.url : `https://${params.url}`;
+  }
+
+  if (params.pageType === 'gateway' || params.pageType === '404') {
+    return '';
+  }
+
+  // 1. APP DETAILS PAGE: SoftwareApplication is the single primary entity
+  if (params.pageType === 'app' && params.app) {
+    const app = params.app;
+    const name = getField(app, 'name');
+    const category = normalizeSchemaCategory(getField(app, 'category'));
+    const rawRating = getField(app, 'rating');
+    const configuredRating = parseFloat(rawRating);
+    const rawCount = getField(app, 'review_count') || getField(app, 'reviews') || '';
+    const configuredCount = parseInt(rawCount, 10);
+    
+    // Admin configured rating is the primary authority for the catalog
+    const appIdentifier = getField(app, 'slug') || getField(app, 'id');
+    const liveStats = communityStore.getAppStats(appIdentifier, !isNaN(configuredRating) && configuredRating > 0 ? configuredRating : 4.5);
+    
+    const finalRating = !isNaN(configuredRating) && configuredRating > 0 
+      ? configuredRating 
+      : (liveStats.totalReviews > 0 ? liveStats.averageRating : 4.5);
+    const clampedRating = Math.max(1.0, Math.min(5.0, finalRating));
+
+    const finalCount = !isNaN(configuredCount) && configuredCount > 0
+      ? configuredCount
+      : (liveStats.totalReviews > 0 ? liveStats.totalReviews : Math.floor(clampedRating * 35 + 20));
+
+    const appRawIcon = getField(app, 'icon_url') || getField(app, 'og_image_url') || params.logoUrl;
+    const appSquareIcon = optimizeImageUrl(appRawIcon, 512) || appRawIcon;
+    const desc = cleanSeoDescription(getField(app, 'seo_description') || getField(app, 'meta_description') || stripHtml(getField(app, 'description_html')).substring(0, 160) || params.description);
+
+    const rawCat = getField(app, 'category');
+    const specificCat = rawCat ? rawCat.split(',').map((c: string) => c.trim()).filter((c: string) => c && c.toLowerCase() !== 'all apps' && c.toLowerCase() !== 'all' && c.toLowerCase() !== 'apps' && c.toLowerCase() !== 'general')[0] : '';
+    const developer = getField(app, 'developer') || params.siteTitle || 'RummyDex';
+    const fileSize = getField(app, 'file_size') || '45 MB';
+    const version = getField(app, 'version') || '2.0.6';
+
+    const softwareAppSchema: any = {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": name,
+      "url": `${hostOrigin}/app/${getField(app, 'slug')}`,
+      "operatingSystem": "Android",
+      "applicationCategory": category,
+      "image": appSquareIcon,
+      "description": desc,
+      "fileSize": fileSize,
+      "softwareVersion": version,
+      "author": {
+        "@type": "Organization",
+        "name": developer
+      },
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "INR",
+        "availability": "https://schema.org/InStock"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": parseFloat(clampedRating.toFixed(1)),
+        "ratingCount": Math.round(finalCount),
+        "reviewCount": Math.round(finalCount),
+        "bestRating": 5,
+        "worstRating": 1
+      }
+    };
+
+    // Include sample reviews if available to boost Google Rich Snippet compliance (without nested itemReviewed)
+    try {
+      const feed = await communityStore.getReviewsForApp(appIdentifier, undefined, 5, name, clampedRating, getField(app, 'slug'));
+      if (feed && Array.isArray(feed.reviews) && feed.reviews.length > 0) {
+        const validReviews = feed.reviews
+          .filter((rev: any) => rev && stripHtml(rev.reviewText || '').trim().length >= 3)
+          .slice(0, 5)
+          .map((rev: any) => ({
+            "@type": "Review",
+            "author": {
+              "@type": "Person",
+              "name": rev.userName ? String(rev.userName).trim() : 'Verified Player'
+            },
+            "datePublished": (rev.timestamp ? new Date(rev.timestamp).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
+            "reviewBody": stripHtml(rev.reviewText || '').trim(),
+            "reviewRating": {
+              "@type": "Rating",
+              "ratingValue": Math.max(1, Math.min(5, Number(rev.rating) || 5)),
+              "bestRating": 5,
+              "worstRating": 1
+            }
+          }));
+
+        if (validReviews.length > 0) {
+          softwareAppSchema["review"] = validReviews;
+        }
+      }
+    } catch (revErr) {}
+
+    const appScreenshots = getField(app, 'screenshots');
+    if (Array.isArray(appScreenshots) && appScreenshots.length > 0) {
+      softwareAppSchema["screenshot"] = appScreenshots.map((s: string) => optimizeImageUrl(s, 1024) || s);
+    }
+
+    // Push the primary entity FIRST
+    schemas.push(softwareAppSchema);
+
+    // BreadcrumbList navigation schema
+    const breadcrumbs: any[] = [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": hostOrigin
+      }
+    ];
+
+    if (specificCat) {
+      breadcrumbs.push({
+        "@type": "ListItem",
+        "position": 2,
+        "name": specificCat,
+        "item": `${hostOrigin}/category/${encodeURIComponent(specificCat.toLowerCase().replace(/\s+/g, '-'))}`
+      });
+      breadcrumbs.push({
+        "@type": "ListItem",
+        "position": 3,
+        "name": name,
+        "item": `${hostOrigin}/app/${getField(app, 'slug')}`
+      });
+    } else {
+      breadcrumbs.push({
+        "@type": "ListItem",
+        "position": 2,
+        "name": name,
+        "item": `${hostOrigin}/app/${getField(app, 'slug')}`
+      });
+    }
+
+    schemas.push({
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": breadcrumbs
+    });
+
+    // App-specific FAQs (if present)
+    if (app.faqs && Array.isArray(app.faqs) && app.faqs.length > 0) {
+      const seenAppFaqs = new Set<string>();
+      const faqList = app.faqs
+        .filter((faq: any) => {
+          const q = stripHtml(getField(faq, 'question')).trim();
+          const a = stripHtml(getField(faq, 'answer')).trim();
+          if (!q || !a || q.length < 5 || seenAppFaqs.has(q.toLowerCase())) return false;
+          seenAppFaqs.add(q.toLowerCase());
+          return true;
+        })
+        .map((faq: any) => ({
+          "@type": "Question",
+          "name": stripHtml(getField(faq, 'question')).trim(),
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": stripHtml(getField(faq, 'answer')).trim()
+          }
+        }));
+      if (faqList.length > 0) {
+        schemas.push({
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "mainEntity": faqList
+        });
+      }
+    }
+  } else if (params.pageType === 'news' && params.newsItem) {
+    const item = params.newsItem;
+    const title = getField(item, 'title');
+    const desc = getField(item, 'description') || params.description;
+    const datePublished = getField(item, 'created_at') || new Date().toISOString();
+    const authorName = getField(item, 'ceo_name', params.siteTitle);
+
+    schemas.push({
+      "@context": "https://schema.org",
+      "@type": "NewsArticle",
+      "headline": title,
+      "description": desc,
+      "image": [params.logoUrl],
+      "datePublished": datePublished,
+      "dateModified": datePublished,
+      "author": {
+        "@type": "Organization",
+        "name": authorName
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": params.siteTitle,
+        "logo": {
+          "@type": "ImageObject",
+          "url": params.logoUrl
+        }
+      }
+    });
+
+    schemas.push({
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": hostOrigin
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "News",
+          "item": `${hostOrigin}/news`
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": title,
+          "item": `${hostOrigin}/news/${getField(item, 'slug')}`
+        }
+      ]
+    });
+  } else if (params.pageType === 'video' && params.videoItem) {
+    const v = params.videoItem;
+    const youtubeUrl = getField(v, 'youtube_url') || getField(v, 'video_url') || getField(v, 'url');
+    schemas.push({
+      "@context": "https://schema.org",
+      "@type": "VideoObject",
+      "name": getField(v, 'title'),
+      "description": getField(v, 'description') || getField(v, 'title'),
+      "thumbnailUrl": getYoutubeThumbnail(youtubeUrl) || params.logoUrl,
+      "uploadDate": getField(v, 'created_at') || new Date().toISOString(),
+      "contentUrl": youtubeUrl
+    });
+    schemas.push({
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": hostOrigin
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Videos",
+          "item": `${hostOrigin}/videos`
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": getField(v, 'title'),
+          "item": `${hostOrigin}/videos/${getField(v, 'slug')}`
+        }
+      ]
+    });
+  } else if (params.pageType === 'collection') {
+    // COLLECTION PAGES: Category, New Apps, Categories list, Developers list
+    const collectionSchema: any = {
+      "@context": "https://schema.org",
+      "@type": "CollectionPage",
+      "name": params.title,
+      "description": params.description,
+      "url": params.url
+    };
+
+    if (params.collectionItems && params.collectionItems.length > 0) {
+      collectionSchema.mainEntity = {
+        "@type": "ItemList",
+        "itemListElement": params.collectionItems.map((item, idx) => ({
+          "@type": "ListItem",
+          "position": idx + 1,
+          "name": item.name,
+          "url": item.url,
+          ...(item.image ? { "image": item.image } : {}),
+          ...(item.description ? { "description": item.description } : {})
+        }))
+      };
+    }
+    schemas.push(collectionSchema);
+
+    if (params.breadcrumbItems && params.breadcrumbItems.length > 0) {
+      schemas.push({
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": params.breadcrumbItems.map((b, idx) => ({
+          "@type": "ListItem",
+          "position": idx + 1,
+          "name": b.name,
+          "item": b.url
+        }))
+      });
+    }
+  } else {
+    // HOME & GENERAL PAGES: WebSite schema is only on root/general pages
+    schemas.push({
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "@id": `${hostOrigin}/#website`,
+      "url": hostOrigin,
+      "name": params.siteTitle,
+      "description": params.description,
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": `${hostOrigin}/?q={search_term_string}`,
+        "query-input": "required name=search_term_string"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "@id": `${hostOrigin}/#organization`,
+        "name": params.siteTitle,
+        "url": hostOrigin,
+        "logo": {
+          "@type": "ImageObject",
+          "url": params.logoUrl
+        }
+      }
+    });
+
+    if (params.settings?.website_faqs && Array.isArray(params.settings.website_faqs) && params.settings.website_faqs.length > 0) {
+      const seenQuestions = new Set<string>();
+      const faqList = params.settings.website_faqs
+        .filter((faq: any) => {
+          const q = stripHtml(getField(faq, 'question')).trim();
+          const a = stripHtml(getField(faq, 'answer')).trim();
+          if (!q || !a || q.length < 5 || seenQuestions.has(q.toLowerCase())) return false;
+          seenQuestions.add(q.toLowerCase());
+          return true;
+        })
+        .map((faq: any) => ({
+          "@type": "Question",
+          "name": stripHtml(getField(faq, 'question')).trim(),
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": stripHtml(getField(faq, 'answer')).trim()
+          }
+        }));
+      if (faqList.length > 0) {
+        schemas.push({
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "mainEntity": faqList
+        });
+      }
+    }
+  }
+
+  return schemas.map(s => `<script type="application/ld+json" data-rh="true">${JSON.stringify(s).replace(/</g, '\\u003c')}</script>`).join('\n');
+}
+
+export interface SeoInjectionResult {
+  html: string;
+  isNotFound: boolean;
+  canonicalUrl?: string;
+  pageType?: string;
+  title?: string;
+  description?: string;
+}
+
+export async function injectSeoTags(template: string, urlPath: string, hostUrl?: string, userAgent: string = ''): Promise<SeoInjectionResult> {
+  let data = await fetchStoreData();
+  if (!data || !data.settings) return { html: template, isNotFound: false };
+
+  const apps = data.apps || [];
+  const settings = data.settings || {};
+  const news = (data.news || []).filter((n: any) => n && n.sync_to_public !== false);
+  const videos = data.videos || [];
+  const developers = data.developers || [];
+  const siteTitle = getField(settings, 'site_title') || 'RummyDex';
+  let title = getField(settings, 'seo_title') || getField(settings, 'meta_title') || siteTitle;
+  let description = getField(settings, 'seo_description') || getField(settings, 'meta_description', '');
+  
+  let keywords = getField(settings, 'seo_keywords', '');
+
+  const CLOUDINARY_ICON = 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
+  let rawLogoUrl = getField(settings, 'logo_url') || CLOUDINARY_ICON;
+  const rawFaviconSetting = getField(settings, 'favicon_url');
+  
+  const getFaviconWithSize = (url: string, size: number) => {
+    if (!url) return '';
+    if (url.includes('res.cloudinary.com') && url.includes('/upload/')) {
+      return url.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, `/upload/f_png,q_auto,w_${size},h_${size},c_fill/$1`);
+    }
+    return url;
+  };
+
+  const isCustomFavicon = rawFaviconSetting && !rawFaviconSetting.includes('1000134293_sbicyb.png');
+  const faviconIco = isCustomFavicon ? getFaviconWithSize(rawFaviconSetting, 32) : '/favicon.ico';
+  const favicon32 = isCustomFavicon ? getFaviconWithSize(rawFaviconSetting, 32) : '/favicon-32x32.png';
+  const favicon16 = isCustomFavicon ? getFaviconWithSize(rawFaviconSetting, 16) : '/favicon-16x16.png';
+  const favicon180 = isCustomFavicon ? getFaviconWithSize(rawFaviconSetting, 180) : '/apple-touch-icon.png';
+  
+  // Use a properly sized square logo for JSON-LD schemas to prevent raw image pre-fetches
+  let logoUrl = getFaviconWithSize(rawLogoUrl, 512);
+
+  const cleanPath = urlPath.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
+  const cleanPathLower = cleanPath.toLowerCase();
+
+  let isNotFound = false;
+  let customCanonicalUrl: string | undefined = undefined;
+  let pageType: 'home' | 'app' | 'news' | 'video' | 'static' | 'collection' | 'gateway' | '404' = 'static';
+  let targetApp: any = null;
+  let targetNews: any = null;
+  let targetVideo: any = null;
+  let collectionItems: Array<{ name: string; url: string; image?: string; description?: string }> | undefined = undefined;
+  let breadcrumbItems: Array<{ name: string; url: string }> | undefined = undefined;
+
+  if (cleanPathLower === '/' || cleanPathLower === '') {
+    pageType = 'home';
+    title = getField(settings, 'seo_title') || getField(settings, 'meta_title') || siteTitle;
+    description = getField(settings, 'seo_description') || getField(settings, 'meta_description', '');
+  } else if (cleanPathLower === '/new-apps') {
+    pageType = 'collection';
+    title = `New Apps & Latest Releases | ${siteTitle}`;
+    description = `Explore the newest released Rummy, Teen Patti, and card game apps with verified ratings on ${siteTitle}.`;
+    customCanonicalUrl = `https://www.rummydex.com/new-apps`;
+    const newAppsList = apps.filter((a: any) => a.is_new === true || (a.is_new && a.is_new.booleanValue === true) || a.is_hot === true).slice(0, 20);
+    collectionItems = (newAppsList.length > 0 ? newAppsList : apps.slice(0, 20)).map((a: any) => ({
+      name: getField(a, 'name'),
+      url: `https://www.rummydex.com/app/${getField(a, 'slug')}`,
+      image: getField(a, 'icon_url'),
+      description: cleanSeoDescription(getField(a, 'seo_description') || getField(a, 'meta_description') || stripHtml(getField(a, 'description_html')).substring(0, 120))
+    }));
+    breadcrumbItems = [
+      { name: 'Home', url: 'https://www.rummydex.com' },
+      { name: 'New Apps', url: 'https://www.rummydex.com/new-apps' }
+    ];
+  } else if (cleanPathLower === '/categories') {
+    pageType = 'collection';
+    title = `App Categories & Genres | ${siteTitle}`;
+    description = `Browse all gaming and entertainment application categories on ${siteTitle}.`;
+    customCanonicalUrl = `https://www.rummydex.com/categories`;
+    breadcrumbItems = [
+      { name: 'Home', url: 'https://www.rummydex.com' },
+      { name: 'Categories', url: 'https://www.rummydex.com/categories' }
+    ];
+  } else if (cleanPathLower.startsWith('/category/') || cleanPathLower.startsWith('/categories/')) {
+    const rawCatSlug = cleanPathLower.replace(/^\/(category|categories)\/?/, '').replace(/^\/|\/$/g, '');
+    const catName = rawCatSlug
+      ? rawCatSlug.split(/[-_]+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+      : 'All Categories';
+    pageType = 'collection';
+    title = `${catName} - Download & Reviews | ${siteTitle}`;
+    description = `Explore top ${catName}, verified reviews, download ratings, and bonus updates on ${siteTitle}.`;
+    customCanonicalUrl = `https://www.rummydex.com/category/${rawCatSlug || 'all'}`;
+    const categoryApps = apps.filter((a: any) => {
+      const cat = getField(a, 'category', '');
+      if (!cat) return false;
+      const cats = cat.split(',').map((c: string) => c.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''));
+      return cats.some((c: string) => c === rawCatSlug || c.includes(rawCatSlug) || rawCatSlug.includes(c));
+    }).slice(0, 20);
+    collectionItems = (categoryApps.length > 0 ? categoryApps : apps.slice(0, 20)).map((a: any) => ({
+      name: getField(a, 'name'),
+      url: `https://www.rummydex.com/app/${getField(a, 'slug')}`,
+      image: getField(a, 'icon_url'),
+      description: cleanSeoDescription(getField(a, 'seo_description') || getField(a, 'meta_description') || stripHtml(getField(a, 'description_html')).substring(0, 120))
+    }));
+    breadcrumbItems = [
+      { name: 'Home', url: 'https://www.rummydex.com' },
+      { name: 'Categories', url: 'https://www.rummydex.com/categories' },
+      { name: catName, url: `https://www.rummydex.com/category/${rawCatSlug || 'all'}` }
+    ];
+  } else if (cleanPathLower.startsWith('/admin') || cleanPathLower.startsWith('/masterworld')) {
+    title = `Admin Panel | ${siteTitle}`;
+    description = `Admin Control Dashboard`;
+    pageType = 'static';
+  } else if (cleanPathLower.startsWith('/s/')) {
+    const slug = cleanPath.split('/s/')[1];
+    const app = apps.find((a: any) => getField(a, 'slug').toLowerCase() === slug);
+    if (app) {
+      title = `Download ${getField(app, 'name')} | ${siteTitle}`;
+      description = `Secure download link for ${getField(app, 'name')}.`;
+      customCanonicalUrl = getField(app, 'canonical_url');
+      pageType = 'app';
+      targetApp = app;
+    } else {
+      isNotFound = true;
+      pageType = '404';
+    }
+  } else if (cleanPathLower === '/news') {
+    title = getField(settings, 'news_meta_title') || `News & Updates | ${siteTitle}`;
+    description = getField(settings, 'news_meta_description') || `The latest gaming news, reports, and transparency updates.`;
+    pageType = 'static';
+  } else if (cleanPathLower === '/videos') {
+    title = getField(settings, 'videos_meta_title') || `Video Reviews | ${siteTitle}`;
+    description = getField(settings, 'videos_meta_description') || `Watch deep-dive reviews and gameplay analysis.`;
+    pageType = 'static';
+  } else if (cleanPathLower.startsWith('/news/')) {
+    const slug = cleanPath.split('/news/')[1];
+    const newsItem = news.find((n: any) => getField(n, 'slug').toLowerCase() === slug);
+    if (newsItem) {
+      title = getField(newsItem, 'seo_title') || `${getField(newsItem, 'title')} | ${siteTitle}`;
+      description = getField(newsItem, 'seo_description') || getField(newsItem, 'meta_description') || getField(newsItem, 'description', '').substring(0, 160);
+      customCanonicalUrl = getField(newsItem, 'canonical_url');
+      pageType = 'news';
+      targetNews = newsItem;
+    } else {
+      isNotFound = true;
+      pageType = '404';
+    }
+  } else if (cleanPathLower.startsWith('/videos/')) {
+    const slug = cleanPath.split('/videos/')[1];
+    const videoItem = videos.find((v: any) => getField(v, 'slug').toLowerCase() === slug);
+    if (videoItem) {
+      title = getField(videoItem, 'seo_title') || `${getField(videoItem, 'title')} | ${siteTitle}`;
+      description = getField(videoItem, 'seo_description') || getField(videoItem, 'meta_description') || getField(videoItem, 'description', '').substring(0, 160);
+      pageType = 'video';
+      targetVideo = videoItem;
+    } else {
+      isNotFound = true;
+      pageType = '404';
+    }
+  } else if (['/about', '/contact', '/privacy', '/report-removal', '/terms', '/notice', '/ethics', '/disclaimer', '/responsibility', '/developers'].includes(cleanPathLower)) {
+    pageType = 'static';
+    if (cleanPathLower === '/about') {
+      title = getField(settings, 'about_meta_title') || `About Us | ${siteTitle}`;
+      description = getField(settings, 'about_meta_description') || `Learn more about ${siteTitle}, our mission, and our dedicated team.`;
+    } else if (cleanPathLower === '/contact') {
+      title = getField(settings, 'contact_meta_title') || `Contact Support | ${siteTitle}`;
+      description = getField(settings, 'contact_meta_description') || `Get in touch with ${siteTitle} support for any queries or assistance.`;
+    } else if (cleanPathLower === '/privacy') {
+      title = getField(settings, 'privacy_meta_title') || `Privacy Policy | ${siteTitle}`;
+      description = getField(settings, 'privacy_meta_description') || `Read the Privacy Policy of ${siteTitle} to understand how we protect your data.`;
+    } else if (cleanPathLower === '/report-removal') {
+      title = getField(settings, 'report_removal_meta_title') || `Report & Removal | ${siteTitle}`;
+      description = getField(settings, 'report_removal_meta_description') || `Report content or request removal of specific applications on ${siteTitle}.`;
+    } else if (cleanPathLower === '/terms') {
+      title = getField(settings, 'terms_meta_title') || `Terms of Service | ${siteTitle}`;
+      description = getField(settings, 'terms_meta_description') || `Review the Terms of Service and usage guidelines for ${siteTitle}.`;
+    } else if (cleanPathLower === '/notice') {
+      title = getField(settings, 'notice_meta_title') || getField(settings, 'important_notice_heading') || `Legal Notice | ${siteTitle}`;
+      description = getField(settings, 'notice_meta_description') || `Important legal notices and compliance information for ${siteTitle}.`;
+    } else if (cleanPathLower === '/ethics') {
+      title = getField(settings, 'ethics_meta_title') || getField(settings, 'ethics_heading') || `Ethics & Safety | ${siteTitle}`;
+      description = getField(settings, 'ethics_meta_description') || `Our commitment to ethics, safety, and transparent reviews at ${siteTitle}.`;
+    } else if (cleanPathLower === '/disclaimer') {
+      title = getField(settings, 'disclaimer_meta_title') || getField(settings, 'disclaimer_heading') || `Disclaimer | ${siteTitle}`;
+      description = getField(settings, 'disclaimer_meta_description') || `Read the official disclaimer regarding the content and apps on ${siteTitle}.`;
+    } else if (cleanPathLower === '/responsibility') {
+      title = getField(settings, 'responsibility_meta_title') || `Responsible Gaming | ${siteTitle}`;
+      description = getField(settings, 'responsibility_meta_description') || `Information and resources for responsible gaming and app usage on ${siteTitle}.`;
+    } else if (cleanPathLower === '/developers') {
+      title = getField(settings, 'developers_meta_title') || `Developer Profiles | ${siteTitle}`;
+      description = getField(settings, 'developers_meta_description') || `Browse profiles of top app developers featured on ${siteTitle}.`;
+    }
+  } else if (cleanPathLower.startsWith('/info/') || cleanPathLower.startsWith('/moreinfo/') || cleanPathLower.startsWith('/moredetail/') || cleanPathLower.startsWith('/gateway/') || cleanPathLower.startsWith('/download/')) {
+    const parts = cleanPathLower.split('/');
+    const slug = parts[parts.length - 1];
+    const app = resolveAppSlug(slug, apps);
+    if (app) {
+      title = `Verification Portal: ${getField(app, 'name')} | ${siteTitle}`;
+      description = `Secure application verification portal.`;
+      customCanonicalUrl = `https://www.rummydex.com/app/${getField(app, 'slug')}`;
+      pageType = 'gateway';
+      targetApp = app;
+    } else {
+      isNotFound = true;
+      pageType = '404';
+    }
+  } else if (cleanPathLower.startsWith('/app/')) {
+    const appSlug = cleanPathLower.replace(/^\/app\//, '/').replace(/^\/|\/$/g, '');
+    const app = resolveAppSlug(appSlug, apps);
+    if (app) {
+      title = getField(app, 'seo_title') || getField(app, 'meta_title') || `${getField(app, 'name')} | ${siteTitle}`;
+      description = cleanSeoDescription(getField(app, 'seo_description') || getField(app, 'meta_description') || stripHtml(getField(app, 'description_html')).substring(0, 160));
+      customCanonicalUrl = `https://www.rummydex.com/app/${getField(app, 'slug')}`;
+      pageType = 'app';
+      targetApp = app;
+    } else {
+      isNotFound = true;
+      pageType = '404';
+      title = `404 - Page Not Found | ${siteTitle}`;
+      description = `The requested page could not be found on ${siteTitle}.`;
+    }
+  } else {
+    const appSlug = cleanPathLower.replace(/^\/|\/$/g, '');
+    const app = resolveAppSlug(appSlug, apps) || apps.find((a: any) => getField(a, 'slug')?.toLowerCase() === appSlug || getField(a, 'slug')?.toLowerCase() === appSlug.replace(/[-_]+$/g, ''));
+    const newsItem = news.find((n: any) => getField(n, 'slug')?.toLowerCase() === appSlug || getField(n, 'slug')?.toLowerCase() === appSlug.replace(/[-_]+$/g, ''));
+    const videoItem = videos.find((v: any) => getField(v, 'slug')?.toLowerCase() === appSlug || getField(v, 'slug')?.toLowerCase() === appSlug.replace(/[-_]+$/g, ''));
+
+    if (app) {
+      title = getField(app, 'seo_title') || getField(app, 'meta_title') || `${getField(app, 'name')} | ${siteTitle}`;
+      description = cleanSeoDescription(getField(app, 'seo_description') || getField(app, 'meta_description') || stripHtml(getField(app, 'description_html')).substring(0, 160));
+      customCanonicalUrl = `https://www.rummydex.com/app/${getField(app, 'slug')}`;
+      pageType = 'app';
+      targetApp = app;
+    } else if (newsItem) {
+      title = getField(newsItem, 'seo_title') || `${getField(newsItem, 'title')} | ${siteTitle}`;
+      description = getField(newsItem, 'seo_description') || getField(newsItem, 'meta_description') || getField(newsItem, 'description', '').substring(0, 160);
+      pageType = 'news';
+      targetNews = newsItem;
+    } else if (videoItem) {
+      title = getField(videoItem, 'seo_title') || `${getField(videoItem, 'title')} | ${siteTitle}`;
+      description = getField(videoItem, 'seo_description') || getField(videoItem, 'meta_description') || getField(videoItem, 'description', '').substring(0, 160);
+      pageType = 'video';
+      targetVideo = videoItem;
+    } else {
+      isNotFound = true;
+      pageType = '404';
+      title = `404 - Page Not Found | ${siteTitle}`;
+      description = `The requested page could not be found on ${siteTitle}.`;
+    }
+  }
+
+  if (isNotFound) {
+    title = `404 - Page Not Found | ${siteTitle}`;
+    description = `The requested page ${cleanPath} could not be found on ${siteTitle}.`;
+  }
+
+  title = formatPageTitle(title, siteTitle);
+
+  let canonicalPath = urlPath;
+  if (pageType === 'app' && targetApp) {
+    const appSlug = getField(targetApp, 'slug');
+    if (appSlug) {
+      canonicalPath = `/app/${appSlug.replace(/^\/+|\/+$/g, '')}`;
+    }
+  } else if (pageType === 'news' && targetNews) {
+    const nSlug = getField(targetNews, 'slug') || getField(targetNews, 'id');
+    if (nSlug) {
+      canonicalPath = `/news/${nSlug.replace(/^\/+|\/+$/g, '')}`;
+    }
+  } else if (pageType === 'video' && targetVideo) {
+    const vSlug = getField(targetVideo, 'slug') || getField(targetVideo, 'id');
+    if (vSlug) {
+      canonicalPath = `/videos/${vSlug.replace(/^\/+|\/+$/g, '')}`;
+    }
+  }
+
+  const canonicalUrl = (pageType === 'app' && targetApp && getField(targetApp, 'slug'))
+    ? (getField(targetApp, 'canonical_url') ? getCleanCanonicalUrl(getField(targetApp, 'canonical_url'), canonicalPath) : `https://www.rummydex.com/app/${getField(targetApp, 'slug')}`)
+    : getCleanCanonicalUrl(customCanonicalUrl, canonicalPath);
+
+  let pageOgImage = logoUrl;
+  if (targetApp) {
+    pageOgImage = getField(targetApp, 'og_image_url') || getField(targetApp, 'icon_url') || logoUrl;
+  } else if (targetNews) {
+    pageOgImage = getField(targetNews, 'og_image_url') || getField(targetNews, 'logo_url') || getField(targetNews, 'image_url') || logoUrl;
+  } else if (targetVideo) {
+    const ytThumb = getYoutubeThumbnail(getField(targetVideo, 'youtube_url'));
+    if (ytThumb) pageOgImage = ytThumb;
+  }
+
+  let domain = 'https://www.rummydex.com';
+  try {
+    domain = canonicalUrl ? new URL(canonicalUrl).origin : 'https://www.rummydex.com';
+  } catch (e) {}
+  
+  if (!pageOgImage) {
+    pageOgImage = logoUrl || `${domain}/logo.png`;
+  }
+  
+  pageOgImage = getOgImageUrl(pageOgImage, domain);
+
+  // Generate full pre-rendered HTML for search engine crawlers (H1, H2, body content)
+  const preRenderedBody = await getPagePreRender(urlPath, data);
+
+  // Generate Schema.org JSON-LD structured data
+  const jsonLdSchema = await buildJsonLdSchema({
+    pageType,
+    title,
+    description,
+    url: canonicalUrl,
+    logoUrl,
+    siteTitle,
+    app: targetApp,
+    newsItem: targetNews,
+    videoItem: targetVideo,
+    settings,
+    collectionItems,
+    breadcrumbItems
+  });
+
+  // Ensure meta description is clean and formatted
+  if (description) {
+    description = stripHtml(description).replace(/\s+/g, ' ').trim();
+  }
+
+  const isNoIndexPage = isNotFound ||
+    cleanPathLower.startsWith('/s/') ||
+    cleanPathLower.startsWith('/dl/') ||
+    cleanPathLower.startsWith('/out/') ||
+    cleanPathLower.startsWith('/gateway/') ||
+    cleanPathLower.startsWith('/info/') ||
+    cleanPathLower.startsWith('/moreinfo/') ||
+    cleanPathLower.startsWith('/moredetail/') ||
+    cleanPathLower.startsWith('/download/') ||
+    cleanPathLower.startsWith('/admin') ||
+    cleanPathLower.startsWith('/login') ||
+    cleanPathLower.startsWith('/masterworld');
+
+  const robotsTag = isNoIndexPage 
+    ? '<meta data-rh="true" name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate">\n    <meta data-rh="true" name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate">\n    <meta data-rh="true" name="bingbot" content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate">\n    <meta data-rh="true" name="slurp" content="noindex, nofollow, noarchive, nosnippet">\n    <meta data-rh="true" name="baiduspider" content="noindex, nofollow, noarchive, nosnippet">\n    <meta data-rh="true" name="yandex" content="noindex, nofollow, noarchive, nosnippet">\n    <meta data-rh="true" name="duckduckbot" content="noindex, nofollow, noarchive, nosnippet">' 
+    : '<meta data-rh="true" name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">';
+
+  const escapedTitle = escapeHtml(title);
+  const escapedDesc = escapeHtml(description);
+  if (targetApp && getField(targetApp, 'seo_keywords')) {
+    keywords = getField(targetApp, 'seo_keywords');
+  } else if (targetNews && getField(targetNews, 'seo_keywords')) {
+    keywords = getField(targetNews, 'seo_keywords');
+  } else if (targetVideo && getField(targetVideo, 'seo_keywords')) {
+    keywords = getField(targetVideo, 'seo_keywords');
+  }
+  
+  if (keywords) {
+    const keywordArray = keywords.split(',').map((k: string) => k.trim()).filter(Boolean);
+    if (keywordArray.length > 15) keywords = keywordArray.slice(0, 15).join(', ');
+  }
+
+  const escapedSiteTitle = escapeHtml(siteTitle);
+  const escapedKeywords = escapeHtml(keywords);
+
+  const ogImageWidth = pageOgImage.includes('w_600') ? '600' : '1200';
+  const ogImageHeight = pageOgImage.includes('w_600') ? '600' : '630';
+
+  const seoTags = `
+    <title>${escapedTitle}</title>
+    <meta name="description" content="${escapedDesc}">
+    <meta data-rh="true" name="keywords" content="${escapedKeywords}">
+    <meta data-rh="true" name="application-name" content="${escapedSiteTitle}">
+    <meta data-rh="true" name="color-scheme" content="light dark">
+    ${robotsTag}
+    <meta data-rh="true" property="og:site_name" content="${escapedSiteTitle}">
+    <meta data-rh="true" property="og:locale" content="en_IN">
+    <meta data-rh="true" property="og:title" content="${escapedTitle}">
+    <meta data-rh="true" property="og:description" content="${escapedDesc}">
+    <meta data-rh="true" property="og:type" content="${pageType === 'news' ? 'article' : 'website'}">
+    <meta data-rh="true" property="og:url" content="${canonicalUrl}">
+    <meta data-rh="true" property="og:image" content="${pageOgImage}">
+    <meta data-rh="true" property="og:image:secure_url" content="${pageOgImage}">
+    <meta data-rh="true" property="og:image:type" content="${pageOgImage.includes('.jpg') || pageOgImage.includes('f_jpg') ? 'image/jpeg' : 'image/png'}">
+    <meta data-rh="true" property="og:image:width" content="${ogImageWidth}">
+    <meta data-rh="true" property="og:image:height" content="${ogImageHeight}">
+    <meta data-rh="true" name="twitter:card" content="summary_large_image">
+    <meta data-rh="true" name="twitter:site" content="@RummyDex">
+    <meta data-rh="true" name="twitter:creator" content="@RummyDex">
+    <meta data-rh="true" name="twitter:title" content="${escapedTitle}">
+    <meta data-rh="true" name="twitter:description" content="${escapedDesc}">
+    <meta data-rh="true" name="twitter:image" content="${pageOgImage}">
+    <link data-rh="true" rel="alternate" type="application/rss+xml" title="RummyDex News" href="/rss.xml">
+    <link data-rh="true" rel="image_src" href="${pageOgImage}">
+    <link data-rh="true" rel="canonical" href="${canonicalUrl}">
+    <link data-rh="true" rel="icon" type="image/x-icon" href="${faviconIco}">
+    <link data-rh="true" rel="icon" type="image/png" sizes="32x32" href="${favicon32}">
+    <link data-rh="true" rel="icon" type="image/png" sizes="16x16" href="${favicon16}">
+    <link data-rh="true" rel="apple-touch-icon" sizes="180x180" href="${favicon180}">
+    <link data-rh="true" rel="manifest" href="/site.webmanifest">
+    ${jsonLdSchema}
+  `;
+
+  // Optimize initial data payload size by stripping heavy HTML descriptions and inner app data from non-target apps for ultra-fast page loads
+  let initialDataPayload = data;
+  const isAdminRoute = cleanPathLower.startsWith('/admin');
+
+  if (data && !isAdminRoute) {
+    const targetAppSlug = targetApp ? getField(targetApp, 'slug')?.toLowerCase() : null;
+    const optimizedApps = Array.isArray(data.apps) ? data.apps.map((app: any) => {
+      const sanitizedApp = { ...app };
+      delete sanitizedApp.more_information_url;
+      delete sanitizedApp.download_url;
+      delete sanitizedApp.encrypted_link;
+      delete sanitizedApp.url;
+
+      const isTarget = targetAppSlug && getField(app, 'slug')?.toLowerCase() === targetAppSlug;
+      if (isTarget) return sanitizedApp;
+      return {
+        id: sanitizedApp.id,
+        name: sanitizedApp.name,
+        slug: sanitizedApp.slug,
+        icon_url: sanitizedApp.icon_url,
+        category: sanitizedApp.category,
+        rating: sanitizedApp.rating,
+        review_count: sanitizedApp.review_count,
+        reviews: sanitizedApp.reviews,
+        developer: sanitizedApp.developer,
+        version: sanitizedApp.version,
+        file_size: sanitizedApp.file_size,
+        short_description: sanitizedApp.short_description,
+        is_featured: sanitizedApp.is_featured,
+        is_new: sanitizedApp.is_new,
+        is_hot: sanitizedApp.is_hot,
+        is_top_chart: sanitizedApp.is_top_chart,
+        top_chart_category: sanitizedApp.top_chart_category,
+        safety_status: sanitizedApp.safety_status,
+        is_coming_soon: sanitizedApp.is_coming_soon,
+        publish_date: sanitizedApp.publish_date,
+        updated_at: sanitizedApp.updated_at,
+        serial_number: sanitizedApp.serial_number,
+        seo_title: sanitizedApp.seo_title,
+        seo_description: sanitizedApp.seo_description,
+        seo_keywords: sanitizedApp.seo_keywords,
+        meta_description: sanitizedApp.meta_description,
+        og_image_url: sanitizedApp.og_image_url,
+        canonical_url: sanitizedApp.canonical_url
+      };
+    }) : [];
+
+    const optimizedNews = (Array.isArray(data.news) ? data.news : [])
+      .filter((item: any) => item && item.sync_to_public !== false)
+      .map((item: any) => ({
+        id: item.id,
+        slug: item.slug,
+        title: item.title,
+        logo_url: item.logo_url || item.image_url || '',
+        image_url: item.image_url || item.logo_url || '',
+        description: item.description || '',
+        content: item.content || item.description_html || '',
+        description_html: item.description_html || item.content || '',
+        ceo_name: item.ceo_name || item.author || 'Admin Team',
+        ceo_description: item.ceo_description || 'Transparency & Security Analyst',
+        author: item.author || item.ceo_name || 'Admin Team',
+        category: item.category || 'General',
+        published_at: item.published_at || item.created_at || item.date || '',
+        date: item.date || item.published_at || item.created_at || '',
+        read_time: item.read_time || '3 min read',
+        is_breaking: Boolean(item.is_breaking),
+        is_new: Boolean(item.is_new),
+        is_pinned: Boolean(item.is_pinned),
+        seo_title: item.seo_title || '',
+        seo_description: item.seo_description || '',
+        seo_keywords: item.seo_keywords || '',
+        og_image_url: item.og_image_url || '',
+        canonical_url: item.canonical_url || '',
+        target_region: item.target_region || 'India',
+        link: item.link || '',
+        tags: Array.isArray(item.tags) ? item.tags : [],
+        related_app_id: item.related_app_id || '',
+        created_at: item.created_at || item.date || '',
+        updated_at: item.updated_at || item.date || '',
+        sync_to_public: true
+      }));
+
+    const optimizedVideos = Array.isArray(data.videos) ? data.videos.map((item: any) => {
+      const isTarget = targetVideo && (getField(item, 'slug') || getField(item, 'id'))?.toLowerCase() === (getField(targetVideo, 'slug') || getField(targetVideo, 'id'))?.toLowerCase();
+      if (isTarget) return item;
+      return {
+        id: item.id,
+        slug: item.slug,
+        title: item.title,
+        seo_title: item.seo_title,
+        seo_description: item.seo_description,
+        meta_description: item.meta_description,
+        og_image_url: item.og_image_url,
+        thumbnail_url: item.thumbnail_url,
+        video_url: item.video_url,
+        duration: item.duration,
+        category: item.category
+      };
+    }) : [];
+
+    const optimizedSettings = data.settings ? { ...data.settings } : {};
+    
+    // Prune heavy subpage bodies from initial data unless user is actively on that specific page
+    if (cleanPathLower !== '/about') {
+      delete optimizedSettings.about_us;
+      delete optimizedSettings.about_content;
+    }
+    if (cleanPathLower !== '/contact') {
+      delete optimizedSettings.contact_content;
+    }
+    if (cleanPathLower !== '/privacy') {
+      delete optimizedSettings.privacy_content;
+    }
+    if (cleanPathLower !== '/terms') {
+      delete optimizedSettings.terms_content;
+    }
+    if (cleanPathLower !== '/responsibility') {
+      delete optimizedSettings.responsibility_content;
+    }
+    if (cleanPathLower !== '/report-removal') {
+      delete optimizedSettings.report_removal_content;
+    }
+    if (cleanPathLower !== '/notice') {
+      delete optimizedSettings.important_notice;
+    }
+    if (cleanPathLower !== '/ethics') {
+      delete optimizedSettings.ethics_discrimination_text;
+    }
+    if (cleanPathLower !== '/disclaimer') {
+      delete optimizedSettings.disclaimer_text;
+    }
+    if (cleanPathLower !== '/developers') {
+      delete optimizedSettings.developers;
+    }
+    if (cleanPathLower !== '/faq' && cleanPathLower !== '/') {
+      delete optimizedSettings.website_faqs;
+    }
+
+    initialDataPayload = { 
+      ...data, 
+      apps: optimizedApps,
+      news: optimizedNews,
+      videos: optimizedVideos,
+      settings: optimizedSettings
+    };
+  }
+
+  let initialDataJson = JSON.stringify(initialDataPayload || {}).replace(/</g, '\\u003c');
+  
+  // Aggressively rewrite raw Cloudinary URLs in the initial data payload to tiny WebP placeholders.
+  // This prevents headless bot scanners (like Pingdom) from discovering and pre-fetching unoptimized 16.7KB raw images.
+  initialDataJson = initialDataJson.replace(
+    /https:\/\/res\.cloudinary\.com\/diewalae4\/image\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/[a-zA-Z0-9_-]+\.[a-zA-Z]+)/g,
+    'https://res.cloudinary.com/diewalae4/image/upload/f_webp,q_auto,w_256,h_256,c_fill/$1'
+  );
+
+  const initialDataScript = `<script>window.__INITIAL_DATA__ = ${initialDataJson};</script>`;
+
+  // Clean up default static title & meta tags from template without destroying scripts or stylesheets
+  let finalHtml = template
+    .replace(/<title>[\s\S]*?<\/title>/gi, '')
+    .replace(/<meta\s+[^>]*name=["']description["'][^>]*\/?>/gi, '')
+    .replace(/<meta\s+[^>]*name=["']robots["'][^>]*\/?>/gi, '')
+    .replace(/<meta\s+[^>]*name=["']keywords["'][^>]*\/?>/gi, '')
+    .replace(/<meta\s+[^>]*name=["']application-name["'][^>]*\/?>/gi, '')
+    .replace(/<meta\s+[^>]*property=["']og:[^"']+["'][^>]*\/?>/gi, '')
+    .replace(/<meta\s+[^>]*name=["']twitter:[^"']+["'][^>]*\/?>/gi, '')
+    .replace(/<link\s+[^>]*rel=["']canonical["'][^>]*\/?>/gi, '')
+    .replace(/<link\s+[^>]*rel=["']image_src["'][^>]*\/?>/gi, '')
+    .replace(/<link\s+[^>]*rel=["'](?:shortcut\s+)?icon["'][^>]*\/?>/gi, '')
+    .replace(/<link\s+[^>]*rel=["']apple-touch-icon[^"']*["'][^>]*\/?>/gi, '')
+    .replace(/<script\s+type=["']application\/ld\+json["'][^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<script>window\.__INITIAL_DATA__[\s\S]*?<\/script>/gi, '');
+
+  // Inject dynamic SEO tags, styles & initial data script cleanly into <head>
+  if (finalHtml.includes('</head>')) {
+    finalHtml = finalHtml.replace('</head>', `${seoTags}\n${initialDataScript}\n</head>`);
+  } else {
+    finalHtml = `${seoTags}\n${initialDataScript}\n${finalHtml}`;
+  }
+
+  const isBot = isBotUserAgent(userAgent);
+
+  // If a search engine crawler visits the page, serve semantic SSR markup directly inside #root for 100% SEO indexing.
+  // For human browser users, keep #root clean with a <noscript> fallback so React mounts the real website immediately without any flash of different interim markup.
+  const rootContent = isBot 
+    ? preRenderedBody 
+    : `<noscript>${preRenderedBody}</noscript>`;
+
+  if (finalHtml.includes('<div id="root"></div>')) {
+    finalHtml = finalHtml.replace('<div id="root"></div>', `<div id="root">${rootContent}</div>`);
+  } else {
+    finalHtml = finalHtml.replace(/<div\s+id="root"[^>]*>[\s\S]*?<\/div>/i, `<div id="root">${rootContent}</div>`);
+  }
+
+  return { html: finalHtml, isNotFound, canonicalUrl, pageType, title, description };
+}
