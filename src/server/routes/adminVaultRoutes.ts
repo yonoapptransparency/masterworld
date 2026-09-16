@@ -840,12 +840,44 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
 // Helper to update backup JSON for specific sections
 function updateLocalBackupSection(section: 'apps' | 'settings' | 'news' | 'videos', data: any) {
   try {
+    let sanitizedData = data;
+    if (section === 'apps' && Array.isArray(data)) {
+      const secret = getAesSecret();
+      sanitizedData = data.map((app: any) => {
+        const appCopy = { ...app };
+        const rawLink = appCopy.more_information_url || appCopy.encrypted_link || '';
+        if (rawLink && typeof rawLink === 'string') {
+          const trimmed = rawLink.trim();
+          if (trimmed.toLowerCase().includes('mediafire.com')) {
+            delete appCopy.more_information_url;
+            delete appCopy.encrypted_link;
+          } else if (trimmed.startsWith('U2FsdGVkX1')) {
+            appCopy.more_information_url = trimmed;
+            appCopy.encrypted_link = trimmed;
+          } else if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+            const enc = safeEncrypt(trimmed, secret);
+            appCopy.more_information_url = enc;
+            appCopy.encrypted_link = enc;
+          } else {
+            delete appCopy.more_information_url;
+            delete appCopy.encrypted_link;
+          }
+        } else {
+          delete appCopy.more_information_url;
+          delete appCopy.encrypted_link;
+        }
+        delete appCopy.download_url;
+        delete appCopy.encrypted_download_url;
+        return appCopy;
+      });
+    }
+
     const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
     let current: any = { apps: [], settings: {}, news: [], videos: [] };
     if (fs.existsSync(publicBackupPath)) {
       try { current = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8')); } catch (_) {}
     }
-    current[section] = data;
+    current[section] = sanitizedData;
     fs.writeFileSync(publicBackupPath, JSON.stringify(current, null, 2), 'utf8');
 
     // Also sync to staticData.json for fallback consistency
@@ -855,20 +887,20 @@ function updateLocalBackupSection(section: 'apps' | 'settings' | 'news' | 'video
       try { staticCur = JSON.parse(fs.readFileSync(staticJsonPath, 'utf8')); } catch (_) {}
     }
     if (section === 'apps') {
-      staticCur.mockApps = data;
-      staticCur.apps = data;
+      staticCur.mockApps = sanitizedData;
+      staticCur.apps = sanitizedData;
     }
     if (section === 'settings') {
-      staticCur.mockSettings = data;
-      staticCur.settings = data;
+      staticCur.mockSettings = sanitizedData;
+      staticCur.settings = sanitizedData;
     }
     if (section === 'news') {
-      staticCur.mockNews = data;
-      staticCur.news = data;
+      staticCur.mockNews = sanitizedData;
+      staticCur.news = sanitizedData;
     }
     if (section === 'videos') {
-      staticCur.mockVideos = data;
-      staticCur.videos = data;
+      staticCur.mockVideos = sanitizedData;
+      staticCur.videos = sanitizedData;
     }
     fs.writeFileSync(staticJsonPath, JSON.stringify(staticCur, null, 2), 'utf8');
 
@@ -1436,23 +1468,83 @@ adminVaultRouter.post("/api/v1/admin/app/save", verifyAdminToken, async (req: an
     }
 
     // Update link vault specifically for this app
-    if (inputUrl) {
-      const actualId = mergedApp.id;
-      vaultNode.setPayload(actualId, inputUrl);
-      if (mergedApp.slug) vaultNode.setPayload(mergedApp.slug, inputUrl);
+    const actualId = mergedApp.id;
+    const actualSlug = mergedApp.slug;
+    const secret = getAesSecret();
 
-      // Save encrypted link to persistent vault
+    if (inputUrl && typeof inputUrl === 'string' && !inputUrl.toLowerCase().includes('mediafire.com')) {
+      const trimmedUrl = inputUrl.trim();
+      const encrypted = safeEncrypt(trimmedUrl, secret);
+
+      vaultNode.setPayload(actualId, trimmedUrl);
+      if (actualSlug) vaultNode.setPayload(actualSlug, trimmedUrl);
+
+      // Save encrypted link to persistent vault in Firestore
       try {
-        const secret = getAesSecret();
-        const encrypted = safeEncrypt(inputUrl, secret);
         const adminDb = getFirebaseAdminDb();
         if (adminDb) {
-          await adminDb.collection('sec_vault').doc(actualId).set({ payload: encrypted, last_updated: now });
+          const writePromises = [
+            adminDb.collection('sec_vault').doc(actualId).set({ payload: encrypted, last_updated: now })
+          ];
+          if (actualSlug) {
+            writePromises.push(adminDb.collection('sec_vault').doc(actualSlug).set({ payload: encrypted, last_updated: now }));
+          }
+          await Promise.all(writePromises);
         }
       } catch (vaultErr) {
         console.warn("[SERVER] Could not write single link to Firestore sec_vault:", vaultErr);
       }
+
+      // Update local secure_vault.json
+      try {
+        const vaultPath = path.join(process.cwd(), 'src/server/secure_vault.json');
+        let vaultItems: any[] = [];
+        if (fs.existsSync(vaultPath)) {
+          try { vaultItems = JSON.parse(fs.readFileSync(vaultPath, 'utf8')); } catch (_) {}
+        }
+        const existingIdx = vaultItems.findIndex((it: any) => it.id === actualId || (actualSlug && it.slug === actualSlug));
+        const vaultEntry = {
+          id: actualId,
+          slug: actualSlug || '',
+          name: mergedApp.name,
+          more_information_url: encrypted,
+          encrypted_link: encrypted
+        };
+        if (existingIdx >= 0) {
+          vaultItems[existingIdx] = vaultEntry;
+        } else {
+          vaultItems.push(vaultEntry);
+        }
+        fs.writeFileSync(vaultPath, JSON.stringify(vaultItems, null, 2), 'utf8');
+      } catch (jsonErr) {
+        console.warn("[SERVER] Could not update local secure_vault.json:", jsonErr);
+      }
+    } else if (!inputUrl) {
+      // Admin deliberately cleared the link
+      vaultNode.setPayload(actualId, '');
+      if (actualSlug) vaultNode.setPayload(actualSlug, '');
+
+      try {
+        const adminDb = getFirebaseAdminDb();
+        if (adminDb) {
+          await adminDb.collection('sec_vault').doc(actualId).delete().catch(() => {});
+          if (actualSlug) await adminDb.collection('sec_vault').doc(actualSlug).delete().catch(() => {});
+        }
+      } catch (_) {}
+
+      try {
+        const vaultPath = path.join(process.cwd(), 'src/server/secure_vault.json');
+        if (fs.existsSync(vaultPath)) {
+          let vaultItems = JSON.parse(fs.readFileSync(vaultPath, 'utf8'));
+          vaultItems = vaultItems.filter((it: any) => it.id !== actualId && it.slug !== actualSlug);
+          fs.writeFileSync(vaultPath, JSON.stringify(vaultItems, null, 2), 'utf8');
+        }
+      } catch (_) {}
     }
+
+    // Purge cache for instant live update
+    clearResolvedLinkCache(actualId);
+    if (actualSlug) clearResolvedLinkCache(actualSlug);
 
     // Save master apps list atomically
     const { firestoreUpdated, firestoreError } = await saveMasterAppsList(masterApps, req.headers.authorization);

@@ -31,6 +31,7 @@ class VaultNodeManager {
         if (!key || !val || typeof key !== 'string' || typeof val !== 'string') return;
         const cleanVal = val.trim();
         if (!cleanVal) return;
+        if (cleanVal.toLowerCase().includes('mediafire.com')) return;
 
         const kExact = key.trim();
         const kLower = kExact.toLowerCase();
@@ -220,6 +221,7 @@ class VaultNodeManager {
 
     const trimmed = cachedPayload.trim();
     if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      if (trimmed.toLowerCase().includes('mediafire.com')) return null;
       return trimmed;
     }
 
@@ -228,13 +230,16 @@ class VaultNodeManager {
         const secret = getAesSecret();
         const decrypted = safeDecrypt(trimmed, secret);
         if (decrypted && decrypted.trim().length > 0) {
-          return decrypted.trim();
+          const decTrimmed = decrypted.trim();
+          if (decTrimmed.toLowerCase().includes('mediafire.com')) return null;
+          return decTrimmed;
         }
       } catch (error) {
         return null;
       }
     }
 
+    if (trimmed.toLowerCase().includes('mediafire.com')) return null;
     return trimmed;
   }
 
@@ -253,7 +258,11 @@ class VaultNodeManager {
     for (const cand of candidates) {
       if (this.cache.has(cand)) {
         const val = this.cache.get(cand);
-        if (val && val.trim().length > 0) return val.trim();
+        if (val && val.trim().length > 0) {
+          const trimmed = val.trim();
+          if (trimmed.toLowerCase().includes('mediafire.com')) return '';
+          return trimmed;
+        }
       }
     }
     return '';

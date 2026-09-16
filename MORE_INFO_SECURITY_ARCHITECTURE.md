@@ -58,20 +58,22 @@ When the admin clicks **Save App**:
 4. User clicks **"Proceed"**.
 
 ### Step 5: Backend Link Resolution Handshake
-1. Client sends AJAX `POST /api/v1/public/secure-link` with payload `{ appId }`.
-2. Server runs anti-bot checks (Bad-UA regex, suspicious client check, rate limit).
-3. Server invokes `resolveDestinationForApp(appId)` across the 6-tier vault hierarchy.
-4. Returns JSON `{ success: true, url: targetUrl }` in under 5ms.
+1. Client sends AJAX `POST /api/v1/app/resolve-link` (with compatibility aliases `/api/v1/public/secure-link`, `/api/v1/get-link`) with payload `{ id: appId }`.
+2. Server validates format (`^[a-zA-Z0-9\-_]{1,64}$`), rejects empty User-Agents, and applies in-memory sliding rate limiting.
+3. Server invokes `resolveDestinationForApp(appId)` from modular `src/server/services/linkService.ts`.
+4. Returns JSON `{ success: true, url: targetUrl }` with `Referrer-Policy: no-referrer` and `Cache-Control: no-store` headers.
 
-### Step 6: Native Client Dispatch & Fail-Safe Fallback
-1. **Automated Trigger**: Creates an invisible native `<a>` element (`target="_blank"`, `rel="noopener noreferrer nofollow"`), dispatches `.click()`, and cleans it up.
-2. **Visual Fallback Trigger**: If mobile pop-up blockers suppress programmatic opening, the button morphs into a permanent high-contrast green button: **"Click Here to Proceed"** pointing directly to `targetUrl`.
+### Step 6: Native Client Airgap Dispatch & Zero-Referrer Fallback
+1. **Human Event Verification**: `ClearanceButton.tsx` verifies `e.isTrusted === true`, preventing automated headless script triggers.
+2. **Zero-Referrer Airgap Dispatch**: Creates a detached native `<a>` element with `rel="noreferrer noopener"` and `referrerPolicy="no-referrer"`, dispatches `.click()`, and immediately destroys it.
+3. **No Timers / Burn-on-Read**: No countdowns or 30-minute clocks. The button state resets immediately. If the user clicks again, they can proceed again.
+4. **Visual Fallback Trigger**: If mobile pop-up blockers suppress programmatic opening, the button cleanly offers **"Click Here to Proceed"** with `rel="noreferrer noopener"` and wipes the URL from memory on tap.
 
 ---
 
-## 3. The 6-Tier Backend Link Resolution Hierarchy (`resolveDestinationForApp`)
+## 3. The 6-Tier Backend Link Resolution Hierarchy (`src/server/services/linkService.ts`)
 
-The resolution function (`src/server/routes/securityRoutes.ts`) executes a strict priority-based search to guarantee zero downtime:
+The resolution function (`src/server/services/linkService.ts`) executes a strict priority-based search to guarantee zero downtime:
 
 ```
 [ Incoming Request: appId (slug or ID) ]
@@ -83,19 +85,16 @@ The resolution function (`src/server/routes/securityRoutes.ts`) executes a stric
  [ Tier 1: Local Server Vault ] -------------> Found in secure_vault.json? Decrypt & Return
                |
                v
- [ Tier 2: Live Firestore Vault Docs ] ------> Checks sec_public_links, sec_links_vault_3, sec_vault
-               |                               (via Firebase Admin SDK or REST fallback)
-               v
- [ Tier 3: In-Memory vaultNode Sync ] -------> Checks vaultNode.getSyncPayload(appId)
+ [ Tier 2: Live Firestore Vault Docs ] ------> Checks secure_links, sec_vault, sec_public_links
                |
                v
- [ Tier 4: Static Constant ENCRYPTED_LINKS ] -> Decrypts secureVault.ts AES ciphertext
+ [ Tier 3: Static Constant ENCRYPTED_LINKS ] -> Decrypts secureVault.ts AES ciphertext
                |
                v
- [ Tier 5: Firestore store_data Apps ] ------> Searches apps_chunk_0 / apps_chunk_1 documents
+ [ Tier 4: Firestore store_data Apps ] ------> Searches apps_chunk_0 / apps_chunk_1 documents
                |
                v
- [ Tier 6: High-Availability Failover ] -----> Searches staticData.json mockApps
+ [ Tier 5: High-Availability Failover ] -----> Searches staticData.json mockApps
 ```
 
 ### Flexible Key Matching Logic:
@@ -330,4 +329,32 @@ Logs security incidents in structured JSON format for instant observability with
   "reason": "Known scraper signature detected"
 }
 ```
+
+---
+
+## 11. Interactive Human Clearance Challenge & Crawler Shield (Sept 2026 Update)
+
+To permanently defeat aggressive AI crawlers, automated link indexing scrapers, and headless browser tools:
+
+### 1. Instant 404 Bot Rejection
+All automated bot and crawler User-Agents (including Googlebot, Bingbot, Ahrefs, Petalbot, Puppeteer, Playwright, HeadlessChrome, and generic scrapers) attempting to reach `/api/v1/app/resolve-link`, `/api/v1/public/secure-link`, or `/api/v1/get-link` receive an instant `HTTP 404 Not Found`. Bots conclude the endpoint does not exist and abandon traversal.
+
+### 2. Trusted Client Clearance Nonce
+When a human clicks "Proceed" on `ClearanceButton.tsx`:
+- Native `e.isTrusted` and `window.navigator.webdriver` flags are verified.
+- A dynamic, base64-encoded interaction challenge token is generated with a millisecond timestamp and click coordinates.
+- Tokens expire within 120 seconds, preventing replay attacks.
+
+### 3. RAM-Only Resolution & Zero Leaks
+- All destination URLs remain encrypted in storage (`U2FsdGVkX1...`).
+- Decryption happens exclusively in server memory upon valid human clearance.
+- Unauthorized or legacy placeholder domains are strictly rejected by `isValidTargetUrl`.
+- Response headers strictly enforce:
+  ```http
+  Cache-Control: no-store, no-cache, must-revalidate, private
+  Pragma: no-cache
+  Expires: 0
+  Referrer-Policy: no-referrer
+  ```
+
 
