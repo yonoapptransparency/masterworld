@@ -37,10 +37,6 @@ export interface Brain2StudioProps {
   setSelectedAppId: (id: string) => void;
   appSearch: string;
   setAppSearch: (q: string) => void;
-  appCountsMap?: Record<string, any>;
-  globalDbStats?: any;
-  getAppReviewCount?: (app: any) => number;
-  currentAppReviewCount?: number;
   brain2TargetScore: number;
   setBrain2TargetScore: (score: number) => void;
   brain2CustomQuery: string;
@@ -108,10 +104,6 @@ export const Brain2Studio: React.FC<Brain2StudioProps> = ({
   setSelectedAppId,
   appSearch,
   setAppSearch,
-  appCountsMap = {},
-  globalDbStats,
-  getAppReviewCount,
-  currentAppReviewCount = 0,
   brain2TargetScore,
   setBrain2TargetScore,
   brain2CustomQuery,
@@ -381,14 +373,11 @@ export const Brain2Studio: React.FC<Brain2StudioProps> = ({
                     onChange={(e) => setSelectedAppId(e.target.value)}
                     className="w-full text-base font-black bg-transparent text-slate-900 dark:text-white border-0 cursor-pointer focus:outline-none truncate"
                   >
-                    {filteredApps.map(app => {
-                      const count = getAppReviewCount ? getAppReviewCount(app) : 0;
-                      return (
-                        <option key={app.id} value={app.id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
-                          {app.name} — {app.developer || 'Studio'} • {count} Reviews
-                        </option>
-                      );
-                    })}
+                    {filteredApps.map(app => (
+                      <option key={app.id} value={app.id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+                        {app.name} — {app.developer || 'Studio'}
+                      </option>
+                    ))}
                   </select>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
@@ -397,7 +386,7 @@ export const Brain2Studio: React.FC<Brain2StudioProps> = ({
                     <span className="text-slate-300 dark:text-slate-600">•</span>
                     <span className="text-[11px] font-bold text-amber-500 flex items-center gap-0.5">
                       <Star size={11} className="fill-amber-400" />
-                      {currentAppReviewCount} Live Reviews
+                      {currentApp?.rating || 4.2}★ Base
                     </span>
                   </div>
                 </div>
@@ -836,10 +825,8 @@ export const Brain2Studio: React.FC<Brain2StudioProps> = ({
                       <div className="text-xs font-black text-slate-800 dark:text-slate-200 truncate">
                         {app.name}
                       </div>
-                      <div className="text-[10px] text-slate-400 truncate flex items-center gap-1">
-                        <span>{app.developer || 'Studio'}</span>
-                        <span>•</span>
-                        <span className="text-amber-500 font-bold">{getAppReviewCount ? getAppReviewCount(app) : 0} reviews</span>
+                      <div className="text-[10px] text-slate-400 truncate">
+                        {app.developer || 'Studio'} • {app.category || 'General'}
                       </div>
                     </div>
                   </div>
