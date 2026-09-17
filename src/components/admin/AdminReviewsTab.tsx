@@ -658,1046 +658,379 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
   };
 
   return (
-    <div className="flex flex-col gap-6 w-full max-w-7xl mx-auto pb-24 animate-fade-in">
+    <div className="flex flex-col lg:flex-row gap-4 w-full max-w-[1600px] mx-auto h-[calc(100vh-100px)] animate-fade-in bg-slate-50/50 dark:bg-slate-950/50 p-2 lg:p-4 rounded-3xl">
       
-      {/* Header Banner */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 p-6 md:p-8 rounded-3xl text-white shadow-xl relative overflow-hidden">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-2">
-            <span className="p-2.5 bg-blue-500/20 text-blue-300 rounded-2xl border border-blue-400/20">
-              <MessageSquare className="w-6 h-6" />
-            </span>
-            <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl md:text-3xl font-black tracking-tight">App Reviews & Ratings Control</h1>
-                {firebaseStatus === 'checking' && (
-                  <span className="px-2.5 py-1 bg-amber-500/20 text-amber-300 rounded-lg text-[10px] font-bold border border-amber-400/30 flex items-center gap-1.5 uppercase tracking-wider">
-                    <RefreshCw className="w-3 h-3 animate-spin" /> Checking Firebase...
-                  </span>
-                )}
-                {firebaseStatus === 'live' && (
-                  <span className="px-2.5 py-1 bg-emerald-500/20 text-emerald-300 rounded-lg text-[10px] font-bold border border-emerald-400/30 flex items-center gap-1.5 uppercase tracking-wider" title={firebaseStatusMsg}>
-                    <CheckCircle2 className="w-3 h-3" /> Firebase 100% Live
-                  </span>
-                )}
-                {firebaseStatus === 'error' && (
-                  <span className="px-2.5 py-1 bg-rose-500/20 text-rose-300 rounded-lg text-[10px] font-bold border border-rose-400/30 flex items-center gap-1.5 uppercase tracking-wider" title={firebaseStatusMsg}>
-                    <AlertTriangle className="w-3 h-3" /> Firebase Sync Issue
-                  </span>
-                )}
-              </div>
-              <p className="text-xs md:text-sm text-blue-200/80 font-medium mt-1">
-                Full lifecycle management: verify, edit, pin, reply, audit, and recalculate ratings directly in Firestore.
-              </p>
+      {/* --- MASTER VIEW: APP DIRECTORY SIDEBAR --- */}
+      <div className={`w-full lg:w-[340px] xl:w-[380px] flex-col bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 rounded-3xl shadow-sm overflow-hidden shrink-0 ${mobileDetailView ? 'hidden lg:flex' : 'flex'}`}>
+        
+        {/* Sidebar Header & Search */}
+        <div className="p-4 lg:p-5 border-b border-slate-100 dark:border-slate-800/60 bg-white dark:bg-slate-900 z-10">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Layers className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+              <h2 className="text-[13px] font-black uppercase tracking-widest text-slate-900 dark:text-white">
+                Directory
+              </h2>
             </div>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2.5 relative z-10">
-          <button
-            onClick={() => setShowAIModal(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-bold text-xs shadow-lg shadow-indigo-500/25 transition-all active:scale-95 cursor-pointer uppercase tracking-wider"
-            title="Open Gemini AI Review Generator Studio"
-          >
-            <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
-            AI Review Studio
-          </button>
-
-          <button
-            onClick={() => {
-              setIsAddMode(true);
-              setEditModalReview({
-                appId: appsList[0]?.slug || appsList[0]?.id || 'spin-crush',
-                userName: '',
-                rating: 5,
-                reviewText: '',
-                status: 'published',
-                isPinned: false,
-                helpful_count: 0
-              });
-            }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold text-xs shadow-lg shadow-blue-500/25 transition-all active:scale-95 cursor-pointer uppercase tracking-wider"
-          >
-            <Plus className="w-4 h-4" />
-            Create Review
-          </button>
-          
-          <button
-            onClick={handleRecalculateStats}
-            disabled={recalculating}
-            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 rounded-xl font-bold text-xs transition-all active:scale-95 cursor-pointer"
-            title="Recalculate average ratings and star counts for all apps"
-          >
-            <Calculator className={`w-4 h-4 ${recalculating ? 'animate-spin' : ''}`} />
-            {recalculating ? 'Calculating...' : 'Recalc Ratings'}
-          </button>
-
-          <button
-            onClick={() => fetchReviews(true)}
-            disabled={refreshing}
-            className="p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-all active:scale-95 cursor-pointer"
-            title="Refresh list"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
-      </div>
-
-      
-      <div className="flex flex-col lg:flex-row gap-6 items-start w-full min-h-[600px]">
-        {/* Left Sidebar: App Selector */}
-        <div className={`w-full lg:w-[320px] shrink-0 flex flex-col gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm overflow-hidden max-h-[700px] ${
-          mobileDetailView ? 'hidden lg:flex' : 'flex'
-        }`}>
-          <div className="p-5 border-b border-slate-100 dark:border-slate-800 shrink-0">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                <Layers className="w-4 h-4 text-blue-600" /> Applications
-              </h3>
-              <div className="flex items-center gap-2">
-                {/* Mobile direct button to open review feed */}
-                <button
-                  onClick={() => setMobileDetailView(true)}
-                  className="lg:hidden px-2.5 py-1 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800/60 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
-                  title="Open Reviews Feed"
-                >
-                  <MessageSquare className="w-3 h-3" /> View Reviews
-                </button>
-                <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-black px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-700">
-                  {filteredAppsList.length + 1}
-                </span>
-              </div>
-            </div>
-            
-            <div className="space-y-3">
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  value={appFilterQuery}
-                  onChange={(e) => setAppFilterQuery(e.target.value)}
-                  placeholder="Filter apps..."
-                  className="w-full pl-9 pr-8 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                />
-                {appFilterQuery && (
-                  <button 
-                    onClick={() => setAppFilterQuery('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-              
-              <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/50 rounded-xl">
-                <button
-                  onClick={() => setAppSortBy('reviews')}
-                  className={`flex-1 py-1.5 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
-                    appSortBy === 'reviews' 
-                      ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' 
-                      : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                  }`}
-                >
-                  Most Revs
-                </button>
-                <button
-                  onClick={() => setAppSortBy('pending')}
-                  className={`flex-1 py-1.5 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
-                    appSortBy === 'pending' 
-                      ? 'bg-white dark:bg-slate-700 text-amber-600 dark:text-amber-400 shadow-sm' 
-                      : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                  }`}
-                >
-                  Pending
-                </button>
-                <button
-                  onClick={() => setAppSortBy('name')}
-                  className={`flex-1 py-1.5 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
-                    appSortBy === 'name' 
-                      ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 shadow-sm' 
-                      : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                  }`}
-                >
-                  A-Z
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-3 space-y-1.5 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
-            {/* All Applications Row */}
-            <button
-              onClick={() => {
-                setSelectedAppId('all');
-                setMobileDetailView(true);
-              }}
-              className={`w-full flex items-center gap-3 p-2.5 rounded-2xl border transition-all cursor-pointer text-left mb-1.5 ${
-                selectedAppId === 'all'
-                  ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-500/25 ring-2 ring-blue-500/30'
-                  : 'bg-transparent text-slate-700 dark:text-slate-300 border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:border-slate-200 dark:hover:border-slate-700'
-              }`}
-            >
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shrink-0 shadow-sm font-black text-xs">
-                ALL
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-xs font-black truncate leading-tight">All Applications</div>
-                <div className={`text-[10px] font-medium mt-1 flex items-center gap-1.5 ${
-                  selectedAppId === 'all' ? 'text-blue-100' : 'text-slate-500 dark:text-slate-400'
-                }`}>
-                  <span className={`font-bold ${selectedAppId === 'all' ? 'text-amber-200' : 'text-slate-600 dark:text-slate-300'}`}>
-                    {globalDbStats ? globalDbStats.total.toLocaleString() : reviews.length} revs
-                  </span>
-                  {globalDbStats && globalDbStats.pending > 0 && (
-                    <>
-                      <span className="opacity-50">•</span>
-                      <span className={`font-black ${selectedAppId === 'all' ? 'text-amber-200' : 'text-amber-600 dark:text-amber-400'}`}>
-                        {globalDbStats.pending} new
-                      </span>
-                    </>
-                  )}
-                </div>
-              </div>
-            </button>
-
-            {filteredAppsList.map((app) => {
-              const appStats = getAppStats(app);
-              const isSelected = selectedAppId === (app.slug || app.id);
-              
-              return (
-                <button
-                  key={app.id || app.slug}
-                  onClick={() => {
-                    setSelectedAppId(app.slug || app.id);
-                    setMobileDetailView(true);
-                  }}
-                  className={`w-full flex items-center gap-3 p-2.5 rounded-2xl border transition-all cursor-pointer text-left ${
-                    isSelected
-                      ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-500/25 ring-2 ring-blue-500/30'
-                      : 'bg-transparent text-slate-700 dark:text-slate-300 border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:border-slate-200 dark:hover:border-slate-700'
-                  }`}
-                >
-                  <img
-                    src={app.icon_url || 'https://via.placeholder.com/48'}
-                    alt={app.name}
-                    className="w-10 h-10 rounded-xl object-cover shrink-0 bg-slate-200 dark:bg-slate-700 shadow-sm"
-                    onError={(e) => {
-                      (e.target as HTMLElement).style.display = 'none';
-                    }}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs font-black truncate leading-tight">{app.name}</div>
-                    <div className={`text-[10px] font-medium mt-1 flex items-center gap-1.5 ${
-                      isSelected ? 'text-blue-100' : 'text-slate-500 dark:text-slate-400'
-                    }`}>
-                      <span className={`font-bold ${isSelected ? 'text-amber-200' : 'text-slate-600 dark:text-slate-300'}`}>
-                        {appStats.total} <span className="opacity-70 font-normal">revs</span>
-                      </span>
-                      {appStats.pending > 0 && (
-                        <>
-                          <span className="opacity-50">•</span>
-                          <span className={`font-black ${isSelected ? 'text-amber-200' : 'text-amber-600 dark:text-amber-400'}`}>
-                            {appStats.pending} new
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Right Content: Dedicated App Panel */}
-        <div className={`flex-1 min-w-0 flex-col gap-6 w-full ${
-          mobileDetailView ? 'flex' : 'hidden lg:flex'
-        }`}>
-          {/* Mobile Back Button Bar */}
-          <div className="lg:hidden flex items-center justify-between p-3 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700">
-            <button
-              onClick={() => setMobileDetailView(false)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-black text-slate-800 dark:text-white shadow-sm hover:bg-slate-50 active:scale-95 transition-all cursor-pointer"
-            >
-              <ArrowLeft className="w-4 h-4 text-blue-600" />
-              Back to Apps List
-            </button>
-            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 truncate max-w-[150px]">
-              {selectedAppId === 'all' ? 'All Applications' : (activeApp?.name || selectedAppId)}
+            <span className="px-2.5 py-1 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 text-[10px] font-black tracking-wider rounded-full border border-indigo-100 dark:border-indigo-500/20">
+              {filteredAppsList.length} APPS
             </span>
           </div>
 
-          {/* Spotlight Banner */}
-          {selectedAppId === 'all' ? (
-            <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/30 p-5 md:p-6 rounded-3xl text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-in fade-in duration-200">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-indigo-600/30 border border-indigo-400/30 text-amber-300 flex items-center justify-center shrink-0 shadow-lg">
-                  <Layers className="w-8 h-8" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-lg md:text-xl font-black">All Applications Catalog View</h2>
-                    <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-emerald-400/30 uppercase tracking-wider">
-                      {appsList.length} Apps Tracked
-                    </span>
-                  </div>
-                  <p className="text-xs text-indigo-200/80 font-medium mt-0.5">
-                    Viewing global review database across all active card, rummy, and casino titles.
-                  </p>
-                  <div className="flex items-center gap-3 mt-1.5 text-xs text-indigo-200">
-                    <span className="font-bold flex items-center gap-1 text-amber-400">
-                      <Star className="w-3.5 h-3.5 fill-current" /> {globalDbStats ? globalDbStats.averageRating.toFixed(1) : stats.avg} Avg Rating
-                    </span>
-                    <span>•</span>
-                    <span className="font-bold text-white">
-                      {(globalDbStats ? globalDbStats.total : reviews.length).toLocaleString()} Total Community Reviews
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  onClick={() => setShowAIModal(true)}
-                  className="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xs shadow-md transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-300" /> Launch AI Review Studio
-                </button>
-              </div>
-            </div>
-          ) : activeApp && (
-            <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/30 p-5 md:p-6 rounded-3xl text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-in fade-in duration-200">
-              <div className="flex items-center gap-4">
-                <img
-                  src={activeApp.icon_url || 'https://via.placeholder.com/64'}
-                  alt={activeApp.name}
-                  className="w-14 h-14 md:w-16 md:h-16 rounded-2xl object-cover border-2 border-white/20 shadow-lg shrink-0 bg-slate-800"
-                />
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-lg md:text-xl font-black">{activeApp.name}</h2>
-                    <span className="bg-indigo-500/20 text-indigo-300 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-indigo-400/30 uppercase tracking-wider">
-                      {activeApp.category || 'Card Game'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-indigo-200/80 font-medium mt-0.5">
-                    Slug: <code className="bg-white/10 px-1.5 py-0.5 rounded text-amber-300">{selectedAppId}</code> •
-                    Package: <code className="text-slate-300">{activeApp.package_name || 'N/A'}</code>
-                  </p>
-                  <div className="flex items-center gap-3 mt-1.5 text-xs text-indigo-200">
-                    <span className="font-bold flex items-center gap-1 text-amber-400">
-                      <Star className="w-3.5 h-3.5 fill-current" /> {activeApp.rating || '4.8'} Avg
-                    </span>
-                    <span>•</span>
-                    <span className="font-bold text-white">
-                      {reviews.length} Filtered Reviews
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  onClick={() => setShowAIModal(true)}
-                  className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-md transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-300" /> Generate Reviews for App
-                </button>
-                <button
-                  onClick={() => handleClearAppReviews(selectedAppId)}
-                  className="px-3.5 py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-400/30 rounded-xl font-bold text-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
-                >
-                  <Trash2 className="w-3.5 h-3.5" /> Clear App Reviews
-                </button>
-              </div>
-            </div>
-          )}
-
-      {/* Interactive Quick Metrics Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <button
-          onClick={() => { setSelectedStatus('all'); setSelectedRating('all'); }}
-          className={`p-4 rounded-2xl shadow-sm text-left transition-all cursor-pointer border ${
-            selectedStatus === 'all' && selectedRating === 'all'
-              ? 'bg-blue-50/50 dark:bg-blue-950/20 border-blue-500/50 ring-2 ring-blue-500/20'
-              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300'
-          }`}
-        >
-          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Total Reviews</span>
-          <div className="text-2xl font-black text-slate-800 dark:text-white mt-1">{stats.total.toLocaleString()}</div>
-        </button>
-
-        <button
-          onClick={() => setSelectedStatus(selectedStatus === 'published' ? 'all' : 'published')}
-          className={`p-4 rounded-2xl shadow-sm text-left transition-all cursor-pointer border ${
-            selectedStatus === 'published'
-              ? 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-500/60 ring-2 ring-emerald-500/30'
-              : 'bg-white dark:bg-slate-900 border-emerald-500/20 hover:border-emerald-500/40'
-          }`}
-        >
-          <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-            <CheckCircle2 className="w-3 h-3" /> Published
-          </span>
-          <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{stats.published.toLocaleString()}</div>
-        </button>
-
-        <button
-          onClick={() => setSelectedStatus(selectedStatus === 'pending' ? 'all' : 'pending')}
-          className={`p-4 rounded-2xl shadow-sm text-left transition-all cursor-pointer border ${
-            selectedStatus === 'pending'
-              ? 'bg-amber-50/60 dark:bg-amber-950/20 border-amber-500/60 ring-2 ring-amber-500/30'
-              : 'bg-white dark:bg-slate-900 border-amber-500/20 hover:border-amber-500/40'
-          }`}
-        >
-          <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1">
-            <Clock className="w-3 h-3" /> Pending
-          </span>
-          <div className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">{stats.pending.toLocaleString()}</div>
-        </button>
-
-        <button
-          onClick={() => setSortBy(sortBy === 'reports' ? 'newest' : 'reports')}
-          className={`p-4 rounded-2xl shadow-sm text-left transition-all cursor-pointer border ${
-            sortBy === 'reports'
-              ? 'bg-rose-50/60 dark:bg-rose-950/20 border-rose-500/60 ring-2 ring-rose-500/30'
-              : 'bg-white dark:bg-slate-900 border-rose-500/20 hover:border-rose-500/40'
-          }`}
-        >
-          <span className="text-[10px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center gap-1">
-            <AlertTriangle className="w-3 h-3" /> Flagged
-          </span>
-          <div className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">{stats.flagged.toLocaleString()}</div>
-        </button>
-
-        <button
-          onClick={() => setSelectedStatus(selectedStatus === 'rejected' ? 'all' : 'rejected')}
-          className={`p-4 rounded-2xl shadow-sm text-left transition-all cursor-pointer border ${
-            selectedStatus === 'rejected'
-              ? 'bg-slate-100 dark:bg-slate-800 border-slate-400 ring-2 ring-slate-400/30'
-              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300'
-          }`}
-        >
-          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">Rejected</span>
-          <div className="text-2xl font-black text-slate-500 mt-1">{stats.rejected.toLocaleString()}</div>
-        </button>
-
-        <div className="bg-white dark:bg-slate-900 border border-amber-500/30 p-4 rounded-2xl shadow-sm bg-gradient-to-br from-amber-500/5 to-transparent">
-          <span className="text-[10px] font-black uppercase tracking-wider text-amber-500 flex items-center gap-1">
-            <Star className="w-3 h-3 fill-amber-500" /> Avg Rating
-          </span>
-          <div className="text-2xl font-black text-amber-500 mt-1">{stats.avg} ★</div>
-        </div>
-      </div>
-
-      {/* Filter & Search Toolbar */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-3xl shadow-sm space-y-4">
-        <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
-          
-          {/* Search Box */}
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <div className="relative mb-4 group">
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
             <input
               type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by author, review text, or app ID..."
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-semibold text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={appFilterQuery}
+              onChange={(e) => setAppFilterQuery(e.target.value)}
+              placeholder="Search directory..."
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all placeholder:text-slate-400 placeholder:font-medium"
             />
-            {searchQuery && (
-              <button 
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+          </div>
+
+          <div className="flex p-1 bg-slate-100 dark:bg-slate-950 rounded-xl gap-1 border border-slate-200/50 dark:border-slate-800/50">
+            {['reviews', 'pending', 'name'].map(sortType => (
+              <button
+                key={sortType}
+                onClick={() => setAppSortBy(sortType as any)}
+                className={`flex-1 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all ${appSortBy === sortType ? 'bg-white dark:bg-slate-800 shadow-sm text-indigo-600 dark:text-indigo-400' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
               >
-                <X className="w-4 h-4" />
+                {sortType}
               </button>
-            )}
-          </div>
-
-          {/* App Selector Dropdown with Live Review Counts */}
-          <div className="w-full lg:w-72">
-            <select
-              value={selectedAppId}
-              onChange={(e) => setSelectedAppId(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-            >
-              <option value="all">
-                📱 All Applications ({appsList.length} apps • {globalDbStats ? globalDbStats.total.toLocaleString() : reviews.length} revs)
-              </option>
-              {appsList.map((app) => {
-                const count = getAppStats(app).total;
-                return (
-                  <option key={app.id || app.slug} value={app.slug || app.id}>
-                    {app.name} ({count} {count === 1 ? 'rev' : 'revs'})
-                  </option>
-                );
-              })}
-            </select>
-          </div>
-
-          {/* Sort By */}
-          <div className="w-full lg:w-48">
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-            >
-              <option value="newest">⚡ Newest First</option>
-              <option value="oldest">🕰️ Oldest First</option>
-              <option value="rating_desc">⭐ Highest Rating</option>
-              <option value="rating_asc">★ Lowest Rating</option>
-              <option value="helpful">👍 Most Helpful</option>
-              <option value="reports">🚩 Most Flagged</option>
-            </select>
-          </div>
-
-          {/* Export Menu */}
-          <div className="flex gap-2 shrink-0">
-            <button
-              onClick={() => handleExport('csv')}
-              className="flex items-center gap-1.5 px-3 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-all cursor-pointer"
-              title="Export CSV"
-            >
-              <Download className="w-3.5 h-3.5" /> CSV
-            </button>
-            <button
-              onClick={() => handleExport('json')}
-              className="flex items-center gap-1.5 px-3 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-all cursor-pointer"
-              title="Export JSON"
-            >
-              <Download className="w-3.5 h-3.5" /> JSON
-            </button>
+            ))}
           </div>
         </div>
 
-        {/* Filter Pills */}
-        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 mr-2">Status:</span>
-          {[
-            { id: 'all', label: 'All' },
-            { id: 'published', label: 'Published' },
-            { id: 'pending', label: 'Pending Moderation' },
-            { id: 'rejected', label: 'Hidden / Rejected' }
-          ].map((st) => (
-            <button
-              key={st.id}
-              onClick={() => setSelectedStatus(st.id)}
-              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                selectedStatus === st.id
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-              }`}
-            >
-              {st.label}
-            </button>
-          ))}
-
-          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 ml-4 mr-2">Stars:</span>
-          {[
-            { id: 'all', label: 'All' },
-            { id: '5', label: '★ 5' },
-            { id: '4', label: '★ 4' },
-            { id: '3', label: '★ 3' },
-            { id: '2', label: '★ 2' },
-            { id: '1', label: '★ 1' }
-          ].map((rt) => (
-            <button
-              key={rt.id}
-              onClick={() => setSelectedRating(rt.id)}
-              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                selectedRating === rt.id
-                  ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-              }`}
-            >
-              {rt.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Bulk Action Header */}
-      {selectedReviewIds.length > 0 && (
-        <div className="bg-blue-600 text-white p-4 rounded-2xl shadow-xl flex flex-wrap items-center justify-between gap-3 animate-in slide-in-from-top-2 duration-150">
-          <div className="flex items-center gap-3">
-            <span className="bg-white/20 px-3 py-1 rounded-lg text-xs font-black">
-              {selectedReviewIds.length} Selected
-            </span>
-            <span className="text-xs font-medium opacity-90">Choose action for selected items:</span>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => handleBulkAction('publish')}
-              className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" /> Bulk Publish
-            </button>
-            <button
-              onClick={() => handleBulkAction('pending')}
-              className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
-            >
-              <Clock className="w-3.5 h-3.5" /> Bulk Pending
-            </button>
-            <button
-              onClick={() => handleBulkAction('reject')}
-              className="px-3 py-1.5 bg-slate-700 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
-            >
-              <EyeOff className="w-3.5 h-3.5" /> Bulk Hide
-            </button>
-            <button
-              onClick={() => handleBulkAction('pin')}
-              className="px-3 py-1.5 bg-blue-700 hover:bg-blue-800 text-white rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
-            >
-              <Pin className="w-3.5 h-3.5" /> Bulk Pin
-            </button>
-            <button
-              onClick={() => handleBulkAction('delete')}
-              className="px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
-            >
-              <Trash2 className="w-3.5 h-3.5" /> Bulk Delete
-            </button>
-            <button
-              onClick={() => setSelectedReviewIds([])}
-              className="px-2 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Reviews List */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm overflow-hidden">
-        
-        {/* List Header */}
-        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-800/30">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={toggleSelectAll}
-              className="text-slate-400 hover:text-blue-600 transition-colors cursor-pointer"
-              title="Select all on this page"
-            >
-              {paginatedReviews.length > 0 && paginatedReviews.every(r => selectedReviewIds.includes(r.id)) ? (
-                <CheckSquare className="w-5 h-5 text-blue-600" />
-              ) : (
-                <Square className="w-5 h-5" />
-              )}
-            </button>
-            <span className="text-xs font-black uppercase tracking-wider text-slate-500">
-              Showing {serverTotalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, serverTotalCount)} of {serverTotalCount} Reviews
-            </span>
-          </div>
-
-          {/* Page Size & Pagination Controls */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 text-xs text-slate-500 font-bold">
-              <span>Per page:</span>
-              <select
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-                className="px-2 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-800 dark:text-white cursor-pointer focus:outline-none"
-              >
-                <option value={15}>15</option>
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-              </select>
+        {/* Sidebar App List */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-1.5 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800">
+          <button
+            onClick={() => { setSelectedAppId('all'); setMobileDetailView(true); }}
+            className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-all text-left border ${selectedAppId === 'all' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-600/20' : 'bg-transparent border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-300'}`}
+          >
+            <div className={`w-11 h-11 rounded-xl flex items-center justify-center shadow-sm ${selectedAppId === 'all' ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
+              <Layers className="w-5 h-5" />
             </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[13px] font-black truncate">Global Stream</div>
+              <div className={`text-[11px] font-medium mt-0.5 ${selectedAppId === 'all' ? 'text-indigo-100' : 'text-slate-500'}`}>All Applications</div>
+            </div>
+          </button>
 
-            {totalPages > 1 && (
-              <div className="flex items-center gap-1">
-                <button
-                  disabled={currentPage <= 1}
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
-                  title="Previous Page"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <span className="text-xs font-bold px-2 text-slate-700 dark:text-slate-300">
-                  {currentPage} / {totalPages}
-                </span>
-                <button
-                  disabled={currentPage >= totalPages}
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
-                  title="Next Page"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-24 gap-3">
-            <div className="animate-spin rounded-full h-10 w-10 border-3 border-blue-600 border-t-transparent" />
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Loading Community Reviews...</p>
-          </div>
-        ) : reviews.length === 0 ? (
-          <div className="text-center py-24 px-4">
-            <MessageSquare className="w-12 h-12 text-slate-300 dark:text-slate-700 mx-auto mb-3" />
-            <h3 className="text-base font-bold text-slate-700 dark:text-slate-300">No reviews found</h3>
-            <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-              No community reviews match the selected filters or search terms.
-            </p>
-          </div>
-        ) : (
-          <>
-            <div className="divide-y divide-slate-100 dark:divide-slate-800/60">
-              {paginatedReviews.map((rev) => {
-              const matchedApp = appMap.get(rev.appId);
-              const isSelected = selectedReviewIds.includes(rev.id);
-
-              return (
-                <div 
-                  key={rev.id} 
-                  className={`p-6 transition-all hover:bg-slate-50/70 dark:hover:bg-slate-800/40 flex flex-col gap-4 ${
-                    isSelected ? 'bg-blue-50/50 dark:bg-blue-950/20' : ''
-                  } ${rev.isPinned ? 'border-l-4 border-l-blue-500' : ''}`}
-                >
-                  <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
-                    
-                    {/* Left: User & Meta info */}
-                    <div className="flex items-start gap-4 flex-1">
-                      <button
-                        onClick={() => toggleSelectOne(rev.id)}
-                        className="mt-1 text-slate-400 hover:text-blue-600 transition-colors cursor-pointer shrink-0"
-                      >
-                        {isSelected ? (
-                          <CheckSquare className="w-5 h-5 text-blue-600" />
-                        ) : (
-                          <Square className="w-5 h-5" />
-                        )}
-                      </button>
-
-                      <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-black text-sm flex items-center justify-center shrink-0 shadow-md uppercase">
-                        {rev.userName ? rev.userName.charAt(0) : 'U'}
-                      </div>
-
-                      <div className="space-y-1.5 flex-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-bold text-sm text-slate-900 dark:text-white">
-                            {rev.userName}
-                          </span>
-
-                          {/* App Badge with link */}
-                          <a
-                            href={`/app/${rev.appId}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-slate-700 dark:text-slate-300 hover:text-blue-600 text-[10px] font-black px-2.5 py-0.5 rounded-lg border border-slate-200 dark:border-slate-700 transition-colors uppercase tracking-wider"
-                          >
-                            <span>{matchedApp?.name || rev.appId}</span>
-                            <ExternalLink className="w-2.5 h-2.5" />
-                          </a>
-
-                          {/* Status Badge */}
-                          {rev.status === 'published' && (
-                            <span className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-emerald-500/20 uppercase tracking-wider">
-                              Published
-                            </span>
-                          )}
-                          {rev.status === 'pending' && (
-                            <span className="bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-amber-500/20 uppercase tracking-wider animate-pulse">
-                              Pending
-                            </span>
-                          )}
-                          {rev.status === 'rejected' && (
-                            <span className="bg-rose-500/10 text-rose-600 dark:text-rose-400 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-rose-500/20 uppercase tracking-wider">
-                              Hidden
-                            </span>
-                          )}
-
-                          {rev.isPinned && (
-                            <span className="bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-blue-500/20 uppercase tracking-wider flex items-center gap-1">
-                              <Pin className="w-2.5 h-2.5 fill-current" /> Pinned
-                            </span>
-                          )}
-
-                          {(rev.reported || (rev.report_count || 0) > 0) && (
-                            <span className="bg-rose-500/15 text-rose-600 dark:text-rose-400 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-rose-500/30 uppercase tracking-wider flex items-center gap-1">
-                              <AlertTriangle className="w-3 h-3" /> Flagged ({rev.report_count || 1})
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Stars and Date */}
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-0.5">
-                            {[1, 2, 3, 4, 5].map((s) => (
-                              <Star
-                                key={s}
-                                className={`w-3.5 h-3.5 ${
-                                  s <= rev.rating
-                                    ? 'text-amber-400 fill-amber-400'
-                                    : 'text-slate-200 dark:text-slate-700'
-                                }`}
-                              />
-                            ))}
-                          </div>
-                          <span className="text-xs text-slate-400 font-medium">
-                            {new Date(rev.timestamp).toLocaleString(undefined, {
-                              dateStyle: 'medium',
-                              timeStyle: 'short'
-                            })}
-                          </span>
-                          <span className="text-xs text-slate-400 font-medium flex items-center gap-1">
-                            <ThumbsUp className="w-3 h-3 text-slate-400" /> {rev.helpful_count || 0} Helpful
-                          </span>
-                        </div>
-
-                        {/* Comment Text */}
-                        <div className="bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800/80 mt-2">
-                          <p className="text-xs md:text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap font-medium">
-                            {rev.reviewText}
-                          </p>
-                        </div>
-
-                        {/* Official Admin Reply View */}
-                        {rev.adminReply && (
-                          <div className="mt-2.5 pl-4 border-l-2 border-l-blue-500 space-y-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider flex items-center gap-1">
-                                <CornerDownRight className="w-3 h-3" /> {rev.adminReply.author || 'Official Response'}
-                              </span>
-                              <span className="text-[10px] text-slate-400">
-                                {new Date(rev.adminReply.timestamp).toLocaleDateString()}
-                              </span>
-                            </div>
-                            <p className="text-xs text-slate-600 dark:text-slate-400 italic">
-                              "{rev.adminReply.text}"
-                            </p>
-                          </div>
-                        )}
-                      </div>
+          {filteredAppsList.map(app => {
+            const isSelected = selectedAppId === (app.slug || app.id);
+            const stats = getAppStats(app);
+            return (
+              <button
+                key={app.id || app.slug}
+                onClick={() => { setSelectedAppId(app.slug || app.id); setMobileDetailView(true); }}
+                className={`w-full flex items-center gap-3 p-2.5 rounded-2xl transition-all text-left border group ${isSelected ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-600/20' : 'bg-transparent border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-300'}`}
+              >
+                <div className="relative shrink-0">
+                  <img src={app.icon_url} alt="" className="w-11 h-11 rounded-xl object-cover bg-slate-100 dark:bg-slate-800 shadow-sm" onError={e => (e.target as any).style.display='none'} />
+                  {stats.pending > 0 && (
+                    <div className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center border-2 border-white dark:border-slate-900 shadow-sm animate-pulse">
+                      {stats.pending > 99 ? '99+' : stats.pending}
                     </div>
-
-                    {/* Right: Quick Action Controls */}
-                    <div className="flex flex-wrap lg:flex-col items-center lg:items-end gap-2 shrink-0 pt-2 lg:pt-0">
-                      <div className="flex items-center gap-1.5">
-                        {/* Quick Status Toggles */}
-                        {rev.status !== 'published' && (
-                          <button
-                            disabled={actioningId === rev.id}
-                            onClick={() => handleUpdateStatus(rev, 'published')}
-                            className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
-                            title="Publish Review"
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5" /> Publish
-                          </button>
-                        )}
-                        {rev.status !== 'rejected' && (
-                          <button
-                            disabled={actioningId === rev.id}
-                            onClick={() => handleUpdateStatus(rev, 'rejected')}
-                            className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
-                            title="Hide Review"
-                          >
-                            <EyeOff className="w-3.5 h-3.5" /> Hide
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-1.5">
-                        {/* Pin Button */}
-                        <button
-                          disabled={actioningId === rev.id}
-                          onClick={() => handleTogglePin(rev)}
-                          className={`p-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                            rev.isPinned
-                              ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300'
-                              : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                          }`}
-                          title={rev.isPinned ? 'Unpin review' : 'Pin review to top'}
-                        >
-                          <Pin className="w-3.5 h-3.5" />
-                        </button>
-
-                        {/* Reply Button */}
-                        <button
-                          onClick={() => {
-                            setReplyModalReview(rev);
-                            setReplyText(rev.adminReply?.text || '');
-                            setReplyAuthor(rev.adminReply?.author || 'RummyDex Support');
-                          }}
-                          className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
-                          title="Official Reply"
-                        >
-                          <CornerDownRight className="w-3.5 h-3.5" /> {rev.adminReply ? 'Edit Reply' : 'Reply'}
-                        </button>
-
-                        {/* Full Edit Button */}
-                        <button
-                          onClick={() => {
-                            setIsAddMode(false);
-                            setEditModalReview({ ...rev });
-                          }}
-                          className="p-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl transition-all cursor-pointer"
-                          title="Edit Full Review"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </button>
-
-                        {/* Delete Button */}
-                        <button
-                          disabled={actioningId === rev.id}
-                          onClick={() => handleDeleteReview(rev.id)}
-                          className="p-2 bg-rose-50 hover:bg-rose-500 hover:text-white text-rose-600 dark:bg-rose-950/30 dark:hover:bg-rose-600 dark:hover:text-white rounded-xl transition-all cursor-pointer"
-                          title="Delete Review Permanently"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] font-bold truncate tracking-tight">{app.name}</div>
+                  <div className={`flex items-center gap-1.5 mt-0.5 text-[11px] font-medium ${isSelected ? 'text-indigo-100' : 'text-slate-500'}`}>
+                    <Star className={`w-3 h-3 ${isSelected ? 'text-amber-300' : 'text-amber-500'}`} />
+                    <span>{stats.avgRating?.toFixed(1) || '0.0'}</span>
+                    <span className="opacity-40">•</span>
+                    <span>{stats.total.toLocaleString()} total</span>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-
-          {/* Bottom Pagination Bar */}
-          <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-800/30">
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-bold text-slate-500">
-                Showing {serverTotalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1} - {Math.min(serverTotalCount, currentPage * pageSize)} of {serverTotalCount} reviews
-              </span>
-              
-              <div className="flex items-center gap-1.5 ml-2">
-                <span className="text-[11px] font-bold text-slate-400">Per page:</span>
-                {[25, 50, 100, 200].map((size) => (
-                  <button
-                    key={size}
-                    onClick={() => {
-                      setPageSize(size);
-                      setCurrentPage(1);
-                    }}
-                    className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      pageSize === size
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-                    }`}
-                  >
-                    {size}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {totalPages > 1 && (
-              <div className="flex items-center gap-1.5">
-                <button
-                  disabled={currentPage <= 1}
-                  onClick={() => {
-                    setCurrentPage(1);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  className="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 transition-all cursor-pointer"
-                  title="First Page"
-                >
-                  « First
-                </button>
-                <button
-                  disabled={currentPage <= 1}
-                  onClick={() => {
-                    setCurrentPage(prev => Math.max(1, prev - 1));
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 transition-all cursor-pointer"
-                >
-                  <ChevronLeft className="w-4 h-4" /> Prev
-                </button>
-                <div className="px-3 text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Page {currentPage} of {totalPages}
-                </div>
-                <button
-                  disabled={currentPage >= totalPages}
-                  onClick={() => {
-                    setCurrentPage(prev => Math.min(totalPages, prev + 1));
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 transition-all cursor-pointer"
-                >
-                  Next <ChevronRight className="w-4 h-4" />
-                </button>
-                <button
-                  disabled={currentPage >= totalPages}
-                  onClick={() => {
-                    setCurrentPage(totalPages);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  className="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 transition-all cursor-pointer"
-                  title="Last Page"
-                >
-                  Last »
-                </button>
-              </div>
-            )}
-          </div>
-        </>
-        )}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
-      {/* Create / Edit Review Modal */}
-      <EditReviewModal
-        editModalReview={editModalReview}
-        setEditModalReview={setEditModalReview}
-        isAddMode={isAddMode}
-        appsList={appsList}
-        actioningId={actioningId}
-        onSave={handleSaveModal}
-      />
+      {/* --- DETAIL VIEW: COMMAND CENTER --- */}
+      <div className={`flex-1 flex-col min-w-0 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 rounded-3xl shadow-sm overflow-hidden relative ${mobileDetailView ? 'flex' : 'hidden lg:flex'}`}>
+        
+        {/* Mobile Header Back Button */}
+        <div className="lg:hidden p-3 border-b border-slate-100 dark:border-slate-800/60 bg-slate-50/80 dark:bg-slate-950/80 backdrop-blur-md flex items-center sticky top-0 z-20">
+          <button onClick={() => setMobileDetailView(false)} className="flex items-center gap-1.5 text-xs font-black text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+            <ArrowLeft className="w-3.5 h-3.5" /> Directory
+          </button>
+        </div>
 
-      {/* Official Reply Modal */}
-      <ReplyReviewModal
-        replyModalReview={replyModalReview}
-        setReplyModalReview={setReplyModalReview}
-        replyAuthor={replyAuthor}
-        setReplyAuthor={setReplyAuthor}
-        replyText={replyText}
-        setReplyText={setReplyText}
-        onSaveReply={handleSaveReply}
-      />
-
-      {/* AI Review Studio Modal */}
-      {showAIModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-6xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
-            {/* Header */}
-            <div className="p-5 sm:p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-blue-600/10 text-blue-600 rounded-xl">
-                  <Sparkles size={22} className="text-blue-600" />
+        {/* Bento Dashboard Header */}
+        <div className="p-4 lg:p-6 border-b border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-950/50 shrink-0">
+          <div className="flex flex-col xl:flex-row gap-4">
+            
+            {/* Context Module */}
+            <div className="flex-1 flex items-center gap-4 lg:gap-5 p-4 lg:p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm relative overflow-hidden group">
+              <div className="absolute right-0 top-0 w-64 h-64 bg-indigo-500/5 dark:bg-indigo-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4 pointer-events-none" />
+              
+              <div className="relative shrink-0">
+                {selectedAppId === 'all' ? (
+                  <div className="w-16 h-16 lg:w-20 lg:h-20 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-md">
+                    <Layers className="w-8 h-8 lg:w-10 lg:h-10" />
+                  </div>
+                ) : (
+                  <img src={activeApp?.icon_url} className="w-16 h-16 lg:w-20 lg:h-20 rounded-2xl object-cover shadow-md bg-slate-100 dark:bg-slate-800" />
+                )}
+              </div>
+              
+              <div className="flex-1 min-w-0 relative z-10">
+                <div className="flex items-center gap-2 mb-1">
+                  <h1 className="text-xl lg:text-2xl font-black text-slate-900 dark:text-white leading-tight truncate tracking-tight">
+                    {selectedAppId === 'all' ? 'Global Command Center' : activeApp?.name}
+                  </h1>
+                  {activeApp && <ExternalLink className="w-4 h-4 text-slate-400 hover:text-indigo-500 cursor-pointer hidden md:block" />}
                 </div>
-                <div>
-                  <h2 className="text-lg font-black text-slate-900 dark:text-white">
-                    Gemini AI Review Studio
-                  </h2>
-                  <p className="text-xs text-slate-500">
-                    Generate authentic, human-like reviews with full control over ratings and bulk deployment.
-                  </p>
+                
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2">
+                  <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
+                    <MessageSquare className="w-4 h-4 text-indigo-500" />
+                    <span className="text-sm font-bold">{globalDbStats?.total?.toLocaleString() || stats?.total?.toLocaleString() || 0}</span>
+                    <span className="text-xs font-medium uppercase tracking-wider opacity-80">Total</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
+                    <AlertTriangle className="w-4 h-4 text-amber-500" />
+                    <span className="text-sm font-bold">{globalDbStats?.pending?.toLocaleString() || stats?.pending?.toLocaleString() || 0}</span>
+                    <span className="text-xs font-medium uppercase tracking-wider opacity-80">Pending</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                    <span className="text-sm font-bold">{globalDbStats?.published?.toLocaleString() || stats?.published?.toLocaleString() || 0}</span>
+                    <span className="text-xs font-medium uppercase tracking-wider opacity-80">Live</span>
+                  </div>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAIModal(false);
-                  fetchReviews(true);
-                }}
-                className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all cursor-pointer"
-              >
-                <X size={20} />
-              </button>
             </div>
 
-            {/* Content Body */}
-            <div className="p-5 sm:p-6 overflow-y-auto flex-1">
+            {/* AI Studio Module - The Crown Jewel */}
+            <button
+              onClick={() => setShowAIModal(true)}
+              className="xl:w-72 flex flex-col justify-center p-5 rounded-2xl bg-slate-900 dark:bg-black border border-slate-800 dark:border-slate-800 shadow-xl text-left group transition-all hover:scale-[1.02] hover:shadow-indigo-500/20 active:scale-[0.98] relative overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/20 to-purple-600/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-40 transition-opacity">
+                <Sparkles className="w-16 h-16 text-indigo-400" />
+              </div>
+              
+              <div className="relative z-10">
+                <div className="flex items-center gap-2 text-indigo-400 font-black text-[10px] uppercase tracking-widest mb-2">
+                  <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+                  Review Studio
+                </div>
+                <h3 className="text-white text-lg font-black leading-tight mb-1">Generate Realistic Reviews</h3>
+                <p className="text-slate-400 text-xs font-medium line-clamp-2">Use Brain 1 and Brain 2 to instantly generate, stage, and publish high-quality reviews.</p>
+              </div>
+            </button>
+            
+          </div>
+        </div>
+
+        {/* Toolbar & Filters (Sticky) */}
+        <div className="px-4 lg:px-6 py-3 border-b border-slate-100 dark:border-slate-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-10 shrink-0 shadow-sm">
+          <div className="flex gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-hide">
+            {['all', 'published', 'pending', 'rejected'].map(status => (
+              <button
+                key={status}
+                onClick={() => setSelectedStatus(status)}
+                className={`px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider transition-all whitespace-nowrap ${selectedStatus === status ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
+          
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="relative">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="appearance-none pl-3 pr-8 py-1.5 bg-slate-100 dark:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 rounded-lg text-xs font-bold focus:ring-2 focus:ring-indigo-500 cursor-pointer transition-all text-slate-700 dark:text-slate-300"
+              >
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="rating_desc">Highest Rating</option>
+                <option value="rating_asc">Lowest Rating</option>
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            </div>
+            
+            <button 
+              onClick={() => fetchReviews(true)} 
+              className="p-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
+              title="Refresh Reviews"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-indigo-500' : ''}`} />
+            </button>
+          </div>
+        </div>
+
+        {/* Reviews Feed */}
+        <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4 bg-slate-50/30 dark:bg-slate-950/30 relative scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800">
+          {loading && reviews.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-4">
+              <div className="w-10 h-10 rounded-full border-4 border-indigo-100 dark:border-indigo-900 border-t-indigo-500 animate-spin" />
+              <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Syncing Master Database...</span>
+            </div>
+          ) : reviews.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-4">
+              <div className="w-16 h-16 rounded-3xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                <MessageSquare className="w-8 h-8 text-slate-300 dark:text-slate-600" />
+              </div>
+              <span className="text-sm font-bold text-slate-500">No reviews found for this filter.</span>
+            </div>
+          ) : (
+            reviews.map(review => {
+              const isChecked = selectedReviewIds.includes(review.id);
+              const isPending = review.status === 'pending';
+              const isPublished = review.status === 'published' || review.status === 'approved';
+              
+              return (
+                <div 
+                  key={review.id} 
+                  className={`group relative p-4 lg:p-5 bg-white dark:bg-slate-900 rounded-2xl border transition-all duration-200 ${isChecked ? 'border-indigo-500 shadow-md ring-1 ring-indigo-500/20' : 'border-slate-200/80 dark:border-slate-800 shadow-sm hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md'}`}
+                >
+                  
+                  {/* Card Header */}
+                  <div className="flex items-start justify-between mb-3 gap-4">
+                    <div className="flex items-center gap-3 lg:gap-4">
+                      <div className="flex items-center h-full pt-1">
+                        <input 
+                          type="checkbox" 
+                          checked={isChecked} 
+                          onChange={() => toggleSelectOne(review.id)}
+                          className="w-4.5 h-4.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                        />
+                      </div>
+                      
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-[13px] lg:text-sm font-black text-slate-900 dark:text-white tracking-tight">{review.userName}</span>
+                          {review.isPinned && (
+                            <Pin className="w-3 h-3 text-indigo-500 fill-indigo-500" />
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center text-amber-400">
+                            {Array.from({length: 5}).map((_, i) => (
+                              <Star key={i} className={`w-3 h-3 lg:w-3.5 lg:h-3.5 ${i < review.rating ? 'fill-amber-400 text-amber-400' : 'fill-slate-100 dark:fill-slate-800 text-slate-200 dark:text-slate-700'}`} />
+                            ))}
+                          </div>
+                          <span className="text-[10px] lg:text-[11px] font-semibold text-slate-400">
+                            {new Date(review.timestamp || '').toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2.5 py-1 rounded-md text-[9px] lg:text-[10px] font-black uppercase tracking-widest ${isPublished ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-500/20' : isPending ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-500/20' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-700'}`}>
+                        {review.status}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Card Body */}
+                  <div className="pl-8 lg:pl-9 pr-2">
+                    <p className="text-[13px] lg:text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
+                      {review.reviewText}
+                    </p>
+                    
+                    {/* Admin Reply Indicator */}
+                    {review.adminReply && (
+                      <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center gap-1.5 mb-1 text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
+                          <CornerDownRight className="w-3 h-3" />
+                          {review.adminReply.author}
+                        </div>
+                        <p className="text-[12px] text-slate-600 dark:text-slate-400 italic">
+                          "{review.adminReply.text}"
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Inline Action Bar (Desktop Hover / Mobile Always Visible) */}
+                  <div className="pl-8 lg:pl-9 mt-4 flex flex-wrap items-center gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity duration-200">
+                    
+                    {isPending && (
+                      <button onClick={() => { setSelectedReviewIds([review.id]); setTimeout(() => handleBulkAction('publish'), 50); }} className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-colors">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Approve
+                      </button>
+                    )}
+                    
+                    <button onClick={() => { setEditModalReview(review); setIsAddMode(false); }} className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-colors">
+                      <Edit3 className="w-3.5 h-3.5" /> Edit
+                    </button>
+                    
+                    <button onClick={() => { setReplyModalReview(review); setReplyText(review.adminReply?.text || ''); }} className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-colors">
+                      <MessageSquare className="w-3.5 h-3.5" /> {review.adminReply ? 'Edit Reply' : 'Reply'}
+                    </button>
+                    
+                    <button onClick={() => handleDeleteReview(review.id)} className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-colors ml-auto">
+                      <Trash2 className="w-3.5 h-3.5" /> Delete
+                    </button>
+                  </div>
+
+                </div>
+              )
+            })
+          )}
+          
+          {/* Pagination */}
+          {serverTotalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 py-6">
+               <button disabled={currentPage <= 1} onClick={() => fetchReviews(false, currentPage - 1)} className="p-2 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                 <ChevronLeft className="w-5 h-5" />
+               </button>
+               <div className="px-4 py-2 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300">
+                 {currentPage} / {serverTotalPages}
+               </div>
+               <button disabled={currentPage >= serverTotalPages} onClick={() => fetchReviews(false, currentPage + 1)} className="p-2 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                 <ChevronRight className="w-5 h-5" />
+               </button>
+            </div>
+          )}
+        </div>
+
+        {/* Bulk Actions Floating Bar */}
+        {selectedReviewIds.length > 0 && (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 px-5 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl shadow-2xl animate-in slide-in-from-bottom-10 border border-slate-800 dark:border-slate-200 z-30">
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 rounded-md bg-indigo-500 text-white flex items-center justify-center text-[10px] font-black">
+                {selectedReviewIds.length}
+              </div>
+              <span className="text-xs font-black uppercase tracking-wider hidden sm:inline-block">Selected</span>
+            </div>
+            
+            <div className="w-px h-5 bg-slate-700 dark:bg-slate-300 mx-1" />
+            
+            <button onClick={() => handleBulkAction('publish')} className="text-xs font-bold hover:text-emerald-400 dark:hover:text-emerald-600 transition-colors flex items-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4" /> <span className="hidden sm:inline-block">Approve</span>
+            </button>
+            <button onClick={() => handleBulkAction('delete')} className="text-xs font-bold hover:text-rose-400 dark:hover:text-rose-600 transition-colors flex items-center gap-1.5">
+              <Trash2 className="w-4 h-4" /> <span className="hidden sm:inline-block">Delete</span>
+            </button>
+            
+            <button onClick={() => setSelectedReviewIds([])} className="p-1.5 ml-2 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors">
+              <X className="w-4 h-4 opacity-70" />
+            </button>
+          </div>
+        )}
+
+      </div>
+
+      {/* --- MODALS --- */}
+      
+      {/* AI Studio Modal */}
+      {showAIModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-2 sm:p-4 animate-in fade-in">
+          <div className="w-full max-w-[1400px] h-[95vh] flex flex-col overflow-hidden rounded-3xl bg-white dark:bg-slate-950 shadow-2xl relative border border-slate-200 dark:border-slate-800">
+            <button onClick={() => setShowAIModal(false)} className="absolute top-4 right-4 z-50 p-2.5 bg-slate-100 dark:bg-slate-900 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors shadow-sm">
+              <X className="w-5 h-5 text-slate-500" />
+            </button>
+            <div className="flex-1 overflow-y-auto">
               <AdminAIReviewStudioTab
                 appsList={appsList}
                 onReviewsGenerated={() => {
@@ -1709,12 +1042,33 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
           </div>
         </div>
       )}
+      
+      {/* Edit Modal (using existing component or inline replacement if missing) */}
+      {(editModalReview || isAddMode) && (
+        <EditReviewModal
+           editModalReview={editModalReview as any}
+           setEditModalReview={(rev) => { setEditModalReview(rev); if(!rev) setIsAddMode(false); }}
+           isAddMode={isAddMode}
+           onSave={handleSaveModal}
+           appsList={appsList}
+           actioningId={actioningId}
+        />
+      )}
 
-    
-        </div>
-      </div>
+      {/* Reply Modal */}
+      {replyModalReview && (
+        <ReplyReviewModal
+           replyModalReview={replyModalReview as any}
+           setReplyModalReview={setReplyModalReview}
+           replyAuthor={replyAuthor}
+           setReplyAuthor={setReplyAuthor}
+           replyText={replyText}
+           setReplyText={setReplyText}
+           onSaveReply={handleSaveReply}
+        />
+      )}
+
     </div>
   );
 };
-
 export default AdminReviewsTab;
