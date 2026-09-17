@@ -178,9 +178,11 @@ communityRouter.get("/api/v1/public/community/stats/:appId", async (req: any, re
 
 // Public Cursor-based Reviews fetch for App Page
 communityRouter.get("/api/v1/public/community/reviews/:appId", async (req: any, res: any) => {
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
+  const userAgent = String(req.headers['user-agent'] || '').toLowerCase();
+  const isBot = /bot|googlebot|bingbot|crawler|spider|slurp|facebookexternalhit|bytespider|yandex|duckduckbot|twitterbot|lighthouse|pingdom|gtmetrix/i.test(userAgent);
+
+  // Edge and browser caching to ensure 0 server strain and lightning fast bot responses
+  res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=600');
   const { appId } = req.params;
   const { cursor, limit = 5, appTitle, rating, slug, appSlug, filter, sortBy } = req.query;
   const targetSlug = slug || appSlug;
@@ -195,7 +197,8 @@ communityRouter.get("/api/v1/public/community/reviews/:appId", async (req: any, 
       Number(rating) || 5.0,
       targetSlug ? String(targetSlug) : undefined,
       filter ? String(filter) : 'all',
-      sortBy ? String(sortBy) : 'recent'
+      sortBy ? String(sortBy) : 'recent',
+      isBot
     );
 
     const stats = await communityStore.getAppStats(

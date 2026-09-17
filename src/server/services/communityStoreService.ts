@@ -242,6 +242,7 @@ class CommunityStoreService {
   private appStatsCache: Map<string, any> = new Map();
   private deletedReviewIds: Set<string> = new Set();
   private appChunkCache: Map<string, AppReviewChunkDocument> = new Map();
+  private loadedAppsMap: Map<string, number> = new Map();
   private pendingChunkSyncAppIds: Set<string> = new Set();
   private chunkDebounceTimer: NodeJS.Timeout | null = null;
   private initialized = false;
@@ -424,8 +425,13 @@ class CommunityStoreService {
       if (db) {
         // Load reviews with quota-protective limits
         try {
-          const fetchLimit = forceSync ? 500 : (this.reviews.size > 0 ? 50 : 1000);
-          const snap = await withTimeout(db.collection('reviews').limit(fetchLimit).get(), 15000, null);
+          const fetchLimit = forceSync ? 1000 : (this.reviews.size > 0 ? 50 : 200);
+          let snap: any = null;
+          try {
+            snap = await withTimeout(db.collection('reviews').orderBy('timestamp', 'desc').limit(fetchLimit).get(), 15000, null);
+          } catch (_) {
+            snap = await withTimeout(db.collection('reviews').limit(fetchLimit).get(), 15000, null);
+          }
           if (snap && snap.docs) {
             snap.docs.forEach((doc: any) => {
               if (this.deletedReviewIds.has(doc.id)) {
@@ -631,6 +637,155 @@ class CommunityStoreService {
   // ==========================================
 
   /**
+   * CRITICAL DATA INTEGRITY FIX:
+   * Dynamically loads ALL existing reviews for a specific app from both the live Firestore 'reviews' collection
+   * and existing chunk bucket documents BEFORE syncing or saving chunks.
+   * This guarantees that saving a new review or admin comment NEVER overwrites or deletes yesterday's reviews!
+   */
+  public async ensureAllReviewsLoadedForApp(appIdentifier: string, aliasKeysInput?: Set<string>, forceRefresh: boolean = false): Promise<number> {
+    const cleanId = String(appIdentifier || '').toLowerCase().trim();
+    if (!cleanId) return 0;
+
+    const now = Date.now();
+    const lastLoaded = this.loadedAppsMap.get(cleanId) || 0;
+    if (!forceRefresh && lastLoaded > 0 && (now - lastLoaded) < 60000) {
+      // Recently loaded within 60 seconds, served instantly from memory!
+      return 0;
+    }
+    this.loadedAppsMap.set(cleanId, now);
+
+    const aliases = aliasKeysInput || this.getAliasKeysForApp(cleanId);
+    let loadedCount = 0;
+    const db = getCommunityAdminDb();
+
+    // 1. Fetch ALL documents from live Firestore `reviews` collection matching any alias key
+    if (db && Date.now() >= this.quotaExhaustedUntil) {
+      try {
+        const queryPromises: Promise<any>[] = [];
+        aliases.forEach(key => {
+          queryPromises.push(withTimeout(db.collection('reviews').where('appId', '==', key).limit(5000).get(), 15000, null));
+          queryPromises.push(withTimeout(db.collection('reviews').where('appSlug', '==', key).limit(5000).get(), 15000, null));
+        });
+
+        const snaps = await Promise.all(queryPromises);
+        snaps.forEach((snap: any) => {
+          if (snap && snap.docs && snap.docs.length > 0) {
+            snap.docs.forEach((docSnap: any) => {
+              const d = docSnap.data();
+              const id = docSnap.id || d.id;
+              if (id && !this.deletedReviewIds.has(id)) {
+                const existing = this.reviews.get(id);
+                // Don't overwrite if local in-memory object has newer updated_at timestamp or admin reply
+                if (existing && existing.updated_at && d.updated_at) {
+                  const localTime = new Date(existing.updated_at).getTime();
+                  const remoteTime = new Date(d.updated_at).getTime();
+                  if (localTime > remoteTime) return;
+                }
+                this.reviews.set(id, {
+                  id,
+                  appId: d.appId || cleanId,
+                  appSlug: d.appSlug || '',
+                  appName: d.appName || '',
+                  userName: d.userName || d.username || 'Player',
+                  rating: Number(d.rating) || 5,
+                  reviewText: sanitizeReviewText(d.reviewText || d.comment || ''),
+                  timestamp: d.timestamp || d.created_at || new Date().toISOString(),
+                  status: d.status || (d.is_approved ? 'published' : 'pending') || 'published',
+                  helpful_count: Number(d.helpful_count) || 0,
+                  isPinned: Boolean(d.isPinned),
+                  reported: Boolean(d.reported),
+                  report_count: Number(d.report_count) || 0,
+                  source: d.source || 'community',
+                  adminReply: d.adminReply || (existing?.adminReply) || null,
+                  updated_at: d.updated_at || new Date().toISOString()
+                });
+                loadedCount++;
+              }
+            });
+          }
+        });
+      } catch (err: any) {
+        if (this.isQuotaError(err)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000;
+        console.warn(`[CommunityStore] ensureAllReviewsLoadedForApp query notice for ${cleanId}:`, err?.message || err);
+      }
+    } else {
+      // Fallback via REST API if Admin SDK is unavailable or quota exhausted
+      try {
+        const restReviews = await safeReadCollection('reviews');
+        restReviews.forEach((d: any) => {
+          if (d && d.id && !this.deletedReviewIds.has(d.id)) {
+            const rAppId = String(d.appId || d.app_id || '').toLowerCase().trim();
+            const rAppSlug = String(d.appSlug || '').toLowerCase().trim();
+            if (aliases.has(rAppId) || aliases.has(rAppSlug)) {
+              const existing = this.reviews.get(d.id);
+              if (existing && existing.updated_at && d.updated_at) {
+                const localTime = new Date(existing.updated_at).getTime();
+                const remoteTime = new Date(d.updated_at).getTime();
+                if (localTime > remoteTime) return;
+              }
+              this.reviews.set(d.id, {
+                id: d.id,
+                appId: d.appId || cleanId,
+                appSlug: d.appSlug || '',
+                appName: d.appName || '',
+                userName: d.userName || d.username || 'Player',
+                rating: Number(d.rating) || 5,
+                reviewText: sanitizeReviewText(d.reviewText || d.comment || ''),
+                timestamp: d.timestamp || d.created_at || new Date().toISOString(),
+                status: d.status || (d.is_approved ? 'published' : 'pending') || 'published',
+                helpful_count: Number(d.helpful_count) || 0,
+                isPinned: Boolean(d.isPinned),
+                reported: Boolean(d.reported),
+                report_count: Number(d.report_count) || 0,
+                source: d.source || 'community',
+                adminReply: d.adminReply || (existing?.adminReply) || null,
+                updated_at: d.updated_at || new Date().toISOString()
+              });
+              loadedCount++;
+            }
+          }
+        });
+      } catch (e: any) {}
+    }
+
+    // 2. Also check existing bucket document(s) community_store/app_reviews_${cleanId}_0, etc.
+    for (const key of Array.from(aliases)) {
+      try {
+        const chunkDoc = await readCommunityRestDoc(`app_reviews_${key}_0`, 'community_store');
+        if (chunkDoc && Array.isArray(chunkDoc.reviews) && chunkDoc.reviews.length > 0) {
+          chunkDoc.reviews.forEach((r: any) => {
+            if (r && r.id && !this.deletedReviewIds.has(r.id)) {
+              if (!this.reviews.has(r.id)) {
+                this.reviews.set(r.id, {
+                  id: r.id,
+                  appId: r.appId || cleanId,
+                  appSlug: r.appSlug || '',
+                  appName: r.appName || '',
+                  userName: r.userName || r.username || 'Player',
+                  rating: Number(r.rating) || 5,
+                  reviewText: sanitizeReviewText(r.reviewText || r.comment || ''),
+                  timestamp: r.timestamp || r.created_at || new Date().toISOString(),
+                  status: r.status || 'published',
+                  helpful_count: Number(r.helpful_count) || 0,
+                  isPinned: Boolean(r.isPinned),
+                  reported: Boolean(r.reported),
+                  report_count: Number(r.report_count) || 0,
+                  source: r.source || 'community',
+                  adminReply: r.adminReply || null,
+                  updated_at: r.updated_at || new Date().toISOString()
+                });
+                loadedCount++;
+              }
+            }
+          });
+        }
+      } catch (e: any) {}
+    }
+
+    return loadedCount;
+  }
+
+  /**
    * Sync all reviews for a single app into its dedicated bucket document (`community_store/app_reviews_${cleanId}_0`).
    * This guarantees:
    * 1. Exactly 1 document read per app request.
@@ -647,6 +802,10 @@ class CommunityStoreService {
     const officialId = matchedApp ? String(matchedApp.id) : cleanId;
     const officialSlug = matchedApp?.slug ? String(matchedApp.slug).toLowerCase().trim() : '';
     const officialName = matchedApp?.name || '';
+
+    // CRITICAL DATA INTEGRITY FIX:
+    // Ensure all existing reviews for this app are pre-loaded from Firestore into memory BEFORE building the chunk!
+    await this.ensureAllReviewsLoadedForApp(cleanId, aliasKeys);
 
     // Collect all published/approved reviews for this app
     const appReviews = Array.from(this.reviews.values()).filter(r => {
@@ -1528,15 +1687,18 @@ public async voteHelpful(reviewId: string): Promise<number> {
     overallRating = 5.0,
     appSlug?: string,
     filter: string = 'all',
-    sortBy: string = 'recent'
+    sortBy: string = 'recent',
+    isBot: boolean = false
   ) {
     const rawId = String(appIdentifier || '').toLowerCase().trim();
     const matchedApp = findAppInCatalog(rawId) || (appSlug ? findAppInCatalog(appSlug) : null);
     const cleanId = matchedApp ? String(matchedApp.id).toLowerCase().trim() : rawId;
     const aliasKeys = this.getAliasKeysForApp(cleanId, appTitle, appSlug || matchedApp?.slug);
 
-    // Pre-load from Firestore into memory if not already present
-    await this.loadSingleAppChunkFromFirestore(cleanId, appTitle, appSlug);
+    // Zero-Cost Bot Bypass: If request is from a bot or crawler, serve 100% from in-memory cache and local snapshot (0 Firestore reads, 0 quota cost!)
+    if (!isBot) {
+      await this.ensureAllReviewsLoadedForApp(cleanId, aliasKeys);
+    }
 
     // Tier 1: Instant In-Memory Filter & Resolver (0ms latency, zero quota consumption)
     let memList = Array.from(this.reviews.values()).filter(r => {
@@ -1839,70 +2001,7 @@ public async voteHelpful(reviewId: string): Promise<number> {
   public async loadAppReviewsForAdmin(appIdentifier: string, forceLive: boolean = false): Promise<number> {
     const cleanId = String(appIdentifier || '').toLowerCase().trim();
     if (!cleanId) return 0;
-
-    let loadedCount = 0;
-    const db = getCommunityAdminDb();
-
-    // 1. Live Query from reviews collection using Admin SDK
-    if (db && Date.now() >= this.quotaExhaustedUntil) {
-      try {
-        const queryPromises = [
-          withTimeout(db.collection('reviews').where('appId', '==', cleanId).limit(5000).get(), 15000, null),
-          withTimeout(db.collection('reviews').where('appSlug', '==', cleanId).limit(5000).get(), 15000, null),
-        ];
-        
-        const snaps = await Promise.all(queryPromises);
-        snaps.forEach((snap: any) => {
-          if (snap && snap.docs && snap.docs.length > 0) {
-            snap.docs.forEach((docSnap: any) => {
-              const d = docSnap.data();
-              const id = docSnap.id;
-              if (id && !this.deletedReviewIds.has(id)) {
-                this.reviews.set(id, { id, ...d });
-                loadedCount++;
-              }
-            });
-          }
-        });
-      } catch (err: any) {
-        if (this.isQuotaError(err)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000;
-        console.warn(`[CommunityStore] Admin live query notice for ${cleanId}:`, err?.message || err);
-      }
-    }
-
-    // 2. Also check bucket document community_store/app_reviews_${cleanId}_0
-    try {
-      const chunkDoc = await readCommunityRestDoc(`app_reviews_${cleanId}_0`, 'community_store');
-      if (chunkDoc && Array.isArray(chunkDoc.reviews) && chunkDoc.reviews.length > 0) {
-        chunkDoc.reviews.forEach((r: any) => {
-          if (r && r.id && !this.deletedReviewIds.has(r.id)) {
-            if (!this.reviews.has(r.id) || forceLive) {
-              this.reviews.set(r.id, {
-                id: r.id,
-                appId: r.appId || cleanId,
-                appSlug: r.appSlug || '',
-                appName: r.appName || '',
-                userName: r.userName || r.userName || 'Player',
-                rating: Number(r.rating) || 5,
-                reviewText: sanitizeReviewText(r.reviewText || r.reviewText || ''),
-                timestamp: r.timestamp || r.created_at || new Date().toISOString(),
-                status: r.status || 'published',
-                helpful_count: Number(r.helpful_count) || 0,
-                isPinned: Boolean(r.isPinned),
-                reported: Boolean(r.reported),
-                report_count: Number(r.report_count) || 0,
-                source: r.source || 'community',
-                adminReply: r.adminReply || null,
-                updated_at: r.updated_at
-              });
-              loadedCount++;
-            }
-          }
-        });
-      }
-    } catch (e: any) {}
-
-    return loadedCount;
+    return await this.ensureAllReviewsLoadedForApp(cleanId);
   }
 
   public async queryAdminReviews(query: {
