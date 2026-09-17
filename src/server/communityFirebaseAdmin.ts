@@ -639,6 +639,41 @@ export async function atomicUpdateAppStats(appId: string, increments: {
   star4?: number;
   star5?: number;
 }): Promise<boolean> {
+  const cleanAppId = String(appId || '').trim();
+  if (!cleanAppId) return false;
+
+  // 1. Try Admin SDK if available
+  const db = getCommunityAdminDb();
+  if (db) {
+    try {
+      const admin = require('firebase-admin');
+      const FieldValue = admin.firestore.FieldValue;
+      const updates: any = {
+        updated_at: new Date().toISOString()
+      };
+
+      if (increments.publishedReviewCount) {
+        updates.publishedReviewCount = FieldValue.increment(increments.publishedReviewCount);
+      }
+      if (increments.publishedRatingSum) {
+        updates.publishedRatingSum = FieldValue.increment(increments.publishedRatingSum);
+      }
+      if (increments.star1) updates['starDistribution.1'] = FieldValue.increment(increments.star1);
+      if (increments.star2) updates['starDistribution.2'] = FieldValue.increment(increments.star2);
+      if (increments.star3) updates['starDistribution.3'] = FieldValue.increment(increments.star3);
+      if (increments.star4) updates['starDistribution.4'] = FieldValue.increment(increments.star4);
+      if (increments.star5) updates['starDistribution.5'] = FieldValue.increment(increments.star5);
+
+      if (Object.keys(updates).length > 1) {
+        await db.collection('app_stats').doc(cleanAppId).set(updates, { merge: true });
+        return true;
+      }
+    } catch (adminErr) {
+      console.warn('[CommunityStore] Admin SDK atomic increment fallback to REST:', adminErr);
+    }
+  }
+
+  // 2. Fallback to Firestore REST API transform
   try {
     const config = getCommunityFirebaseConfig();
     const dbId = config.firestoreDatabaseId || '(default)';
@@ -674,7 +709,7 @@ export async function atomicUpdateAppStats(appId: string, increments: {
       writes: [
         {
           transform: {
-            document: `projects/${config.projectId}/databases/${dbId}/documents/app_stats/${appId}`,
+            document: `projects/${config.projectId}/databases/${dbId}/documents/app_stats/${cleanAppId}`,
             fieldTransforms
           }
         }

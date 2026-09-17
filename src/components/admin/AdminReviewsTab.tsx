@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { toast } from '../Toast';
 import { adminFetch } from '../../services/adminAuthService';
+import { invalidateReviewCache } from '../../lib/communityFirebase';
 import { 
   fetchAdminReviewsList, 
   fetchAdminAppReviewCounts, 
@@ -97,6 +98,7 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
     averageRating: number;
   } | null>(null);
   const [appCountsMap, setAppCountsMap] = useState<Record<string, AppReviewCountsData>>({});
+  const [serverStats, setServerStats] = useState<any>(null);
 
   // App selector carousel filtering & sorting
   const [appFilterQuery, setAppFilterQuery] = useState('');
@@ -287,7 +289,8 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
       
       if (result.page) setCurrentPage(result.page);
       if (result.totalPages) setServerTotalPages(result.totalPages);
-      if (result.total) setServerTotalCount(result.total);
+      if (result.total !== undefined) setServerTotalCount(result.total);
+      if (result.stats) setServerStats(result.stats);
       
       if (result.globalStats) {
         setGlobalDbStats(result.globalStats);
@@ -343,18 +346,30 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
       }
     }
 
+    // Use server-side calculated stats across all matching reviews
+    if (serverStats) {
+      return {
+        total: serverStats.total || serverTotalCount,
+        published: serverStats.published || 0,
+        pending: serverStats.pending || 0,
+        rejected: serverStats.rejected || 0,
+        flagged: serverStats.flagged || 0,
+        avg: (serverStats.averageRating || 5.0).toFixed(1)
+      };
+    }
+
     // Otherwise calculate dynamically from the currently fetched reviews
-    const total = reviews.length;
-    const published = reviews.filter(r => r.status === 'published').length;
+    const total = serverTotalCount || reviews.length;
+    const published = reviews.filter(r => r.status === 'published' || r.status === 'approved').length;
     const pending = reviews.filter(r => r.status === 'pending').length;
     const rejected = reviews.filter(r => r.status === 'rejected').length;
     const flagged = reviews.filter(r => r.reported || (r.report_count || 0) > 0).length;
-    const avg = total > 0 
-      ? (reviews.reduce((acc, cur) => acc + (Number(cur.rating) || 5), 0) / total).toFixed(1)
+    const avg = reviews.length > 0 
+      ? (reviews.reduce((acc, cur) => acc + (Number(cur.rating) || 5), 0) / reviews.length).toFixed(1)
       : '5.0';
 
     return { total, published, pending, rejected, flagged, avg };
-  }, [reviews, selectedAppId, selectedStatus, selectedRating, searchQuery, globalDbStats, appCountsMap]);
+  }, [reviews, selectedAppId, selectedStatus, selectedRating, searchQuery, globalDbStats, appCountsMap, serverStats, serverTotalCount]);
 
   // Paginated reviews slice (Now Server-Side)
   const totalPages = serverTotalPages;
@@ -372,6 +387,10 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
       if (res.ok) {
         toast(`Review status set to ${newStatus}`, 'success');
         setReviews(prev => prev.map(r => r.id === review.id ? { ...r, status: newStatus } : r));
+        invalidateReviewCache();
+        try {
+          window.dispatchEvent(new CustomEvent('community-reviews-updated'));
+        } catch (e) {}
       } else {
         toast('Failed to update review status', 'error');
       }
@@ -394,6 +413,10 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
       if (res.ok) {
         toast(newPinned ? 'Review pinned to top' : 'Review unpinned', 'success');
         setReviews(prev => prev.map(r => r.id === review.id ? { ...r, isPinned: newPinned } : r));
+        invalidateReviewCache();
+        try {
+          window.dispatchEvent(new CustomEvent('community-reviews-updated'));
+        } catch (e) {}
       }
     } catch (err) {
       toast('Error toggling pin', 'error');
@@ -414,6 +437,7 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
         toast('Review deleted permanently', 'success');
         setReviews(prev => prev.filter(r => r.id !== id));
         setSelectedReviewIds(prev => prev.filter(selId => selId !== id));
+        invalidateReviewCache();
         try {
           window.dispatchEvent(new CustomEvent('community-review-deleted', { detail: { id } }));
         } catch (e) {}
@@ -444,6 +468,7 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
       if (res.ok) {
         toast(`Bulk ${action} executed successfully!`, 'success');
         setSelectedReviewIds([]);
+        invalidateReviewCache();
         try {
           window.dispatchEvent(new CustomEvent('community-reviews-updated'));
         } catch (e) {}
@@ -495,6 +520,7 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
           toast('Review updated successfully!', 'success');
           setReviews(prev => prev.map(r => r.id === editModalReview.id ? data.review : r));
           setEditModalReview(null);
+          invalidateReviewCache();
           try {
             window.dispatchEvent(new CustomEvent('community-reviews-updated'));
           } catch (e) {}
@@ -1259,7 +1285,7 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
               )}
             </button>
             <span className="text-xs font-black uppercase tracking-wider text-slate-500">
-              Showing {reviews.length === 0 ? 0 : (currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, reviews.length)} of {reviews.length} Reviews
+              Showing {serverTotalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, serverTotalCount)} of {serverTotalCount} Reviews
             </span>
           </div>
 
@@ -1540,7 +1566,7 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
           <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-800/30">
             <div className="flex items-center gap-3">
               <span className="text-xs font-bold text-slate-500">
-                Showing {reviews.length === 0 ? 0 : (currentPage - 1) * pageSize + 1} - {Math.min(reviews.length, currentPage * pageSize)} of {reviews.length} reviews
+                Showing {serverTotalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1} - {Math.min(serverTotalCount, currentPage * pageSize)} of {serverTotalCount} reviews
               </span>
               
               <div className="flex items-center gap-1.5 ml-2">

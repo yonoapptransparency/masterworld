@@ -154,6 +154,9 @@ communityRouter.post("/api/v1/public/community/reviews/report", async (req: any,
 
 // Get App Rating Stats
 communityRouter.get("/api/v1/public/community/stats/:appId", async (req: any, res: any) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   const { appId } = req.params;
   const { rating, appTitle, slug, appSlug } = req.query;
   const numRating = Number(rating) || 4.8;
@@ -175,6 +178,9 @@ communityRouter.get("/api/v1/public/community/stats/:appId", async (req: any, re
 
 // Public Cursor-based Reviews fetch for App Page
 communityRouter.get("/api/v1/public/community/reviews/:appId", async (req: any, res: any) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   const { appId } = req.params;
   const { cursor, limit = 5, appTitle, rating, slug, appSlug, filter, sortBy } = req.query;
   const targetSlug = slug || appSlug;
@@ -415,10 +421,12 @@ communityRouter.get("/api/v1/admin/community/reviews", verifyAdminToken, async (
       sortBy = 'newest'
     } = req.query;
 
-    // Generous default limit when selecting a specific app so all reviews load without truncation
     const parsedLimit = req.query.limit !== undefined 
       ? Number(req.query.limit) 
-      : (appId && appId !== 'all' ? 500 : 100);
+      : 25;
+    const parsedPage = req.query.page !== undefined
+      ? Number(req.query.page)
+      : 1;
 
     const result = await communityStore.queryAdminReviews({
       appId: appId ? String(appId) : undefined,
@@ -428,6 +436,7 @@ communityRouter.get("/api/v1/admin/community/reviews", verifyAdminToken, async (
       isPinned: isPinned ? String(isPinned) : undefined,
       sortBy: String(sortBy),
       limit: parsedLimit,
+      page: parsedPage,
       refresh: req.query.refresh === 'true' || req.query.forceSync === 'true'
     });
 
@@ -437,7 +446,10 @@ communityRouter.get("/api/v1/admin/community/reviews", verifyAdminToken, async (
       stats: result.stats,
       globalStats: (result as any).globalStats,
       appCounts: (result as any).appCounts,
-      totalCount: result.totalCount 
+      totalCount: result.totalCount,
+      total: (result as any).total || result.totalCount,
+      page: (result as any).page || parsedPage,
+      totalPages: (result as any).totalPages || 1
     });
   } catch (err: any) {
     console.error("Error in admin reviews fetch:", err);
@@ -624,21 +636,7 @@ communityRouter.post("/api/v1/admin/community/reviews/bulk", verifyAdminToken, a
   }
 
   try {
-    let count = 0;
-    for (const id of reviewIds) {
-      if (action === 'delete') {
-        await communityStore.deleteReview(id);
-      } else if (action === 'publish') {
-        await communityStore.updateReview(id, { status: 'published' });
-      } else if (action === 'pending') {
-        await communityStore.updateReview(id, { status: 'pending' });
-      } else if (action === 'reject') {
-        await communityStore.updateReview(id, { status: 'rejected' });
-      } else if (action === 'pin') {
-        await communityStore.updateReview(id, { isPinned: true });
-      }
-      count++;
-    }
+    const count = await communityStore.bulkActionReviews(reviewIds, action);
 
     return res.status(200).json({ 
       success: true, 

@@ -167,6 +167,10 @@ const MEMORY_CACHE = new Map<string, { result: ReviewFetchResult; timestamp: num
 const CACHE_TTL_MS = 45 * 1000; // 45 seconds fresh cache for snappy tab switching without stale locks
 
 export function invalidateReviewCache(appId?: string, appSlug?: string) {
+  if (!appId && !appSlug) {
+    MEMORY_CACHE.clear();
+    return;
+  }
   const keys = [appId, appSlug].filter(Boolean).map(k => String(k).trim());
   keys.forEach(k => {
     MEMORY_CACHE.delete(k);
@@ -305,7 +309,7 @@ export async function fetchLiveReviews(options: {
     const path = `/api/v1/public/community/reviews/${encodeURIComponent(effectiveId)}?${queryParams.toString()}`;
     
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    const timeoutId = controller ? setTimeout(() => controller.abort(), 6000) : null;
+    const timeoutId = controller ? setTimeout(() => controller.abort(), 15000) : null;
 
     const res = await fetch(path, {
       method: 'GET',
