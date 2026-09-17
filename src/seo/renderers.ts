@@ -157,6 +157,13 @@ export function renderHome(apps: any[], settings: any, news: any[], videos: any[
         </div>
         <div class="space-y-6">
           <div class="bg-white dark:bg-zinc-900 p-6 rounded-[28px] border border-black/5 shadow-sm">
+            <h3 class="font-bold text-md mb-4 text-left">Top Categories</h3>
+            <div class="flex flex-wrap gap-2 text-left mb-4">
+              ${(settings?.categories || ['All', 'Rummy', 'Teen Patti', 'Casino', 'Arcade']).map((c: string) => 
+                `<a href="/category/${escapeHtml(c.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-'))}" class="px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg text-xs font-semibold hover:bg-blue-500 hover:text-white transition-colors">${escapeHtml(c)}</a>`
+              ).join('')}
+              <a href="/categories" class="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-xs font-bold hover:underline">View All</a>
+            </div>
             <h3 class="font-bold text-md mb-4 text-left">Latest News</h3>
             <div class="flex flex-col gap-3">${newsHtml}</div>
             <a href="/news" class="block text-xs font-bold text-blue-500 hover:underline mt-4 text-left">View All Updates →</a>

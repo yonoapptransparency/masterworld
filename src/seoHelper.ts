@@ -101,14 +101,20 @@ export function clearSeoCache() {
 
 async function doFetchStoreData() {
   const now = Date.now();
-  const freshStatic = getStaticData();
-  const data = {
-    apps: freshStatic.apps || freshStatic.mockApps || [],
-    settings: freshStatic.settings || freshStatic.mockSettings || {},
-    news: freshStatic.news || freshStatic.mockNews || [],
-    videos: freshStatic.videos || freshStatic.mockVideos || []
-  };
   
+  let data;
+  try {
+    data = await syncFromFirestore();
+  } catch (e) {
+    const freshStatic = getStaticData();
+    data = {
+      apps: freshStatic.apps || freshStatic.mockApps || [],
+      settings: freshStatic.settings || freshStatic.mockSettings || {},
+      news: freshStatic.news || freshStatic.mockNews || [],
+      videos: freshStatic.videos || freshStatic.mockVideos || []
+    };
+  }
+
   cachedData = data;
   lastFetchTime = now;
   return data;

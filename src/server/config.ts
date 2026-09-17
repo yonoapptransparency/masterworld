@@ -8,15 +8,20 @@ declare global {
   var SESSION_SECRET_GLOBAL: string;
 }
 
-// Use a static fallback for development so encrypted data isn't lost on server restart
-const runtimeAesSecret = 'fallback_aes_secret_for_local_dev_only';
-const runtimeTokenSecret = 'fallback_token_secret_for_local_dev_only';
-const runtimeSessionSecret = 'fallback_session_secret_for_local_dev_only';
+// No static fallbacks for cryptographic secrets in production.
+const runtimeAesSecret = process.env.NODE_ENV === 'production' ? '' : 'fallback_aes_secret_for_local_dev_only';
+const runtimeTokenSecret = process.env.NODE_ENV === 'production' ? '' : 'fallback_token_secret_for_local_dev_only';
+const runtimeSessionSecret = process.env.NODE_ENV === 'production' ? '' : 'fallback_session_secret_for_local_dev_only';
 
 const env = typeof process !== "undefined" ? process.env : {} as Record<string, string>;
 
 if (!env.AES_SECRET) {
-  console.warn("[SECURITY] AES_SECRET not configured in environment. Using static fallback secret. Links will be secure but please configure a real secret for production.");
+  if (process.env.NODE_ENV === 'production') {
+    console.error("[SECURITY FATAL] AES_SECRET is missing. Cannot start server in production without secure keys.");
+    // In production, we do NOT set a global fallback to avoid leaking plaintext keys.
+  } else {
+    console.warn("[SECURITY] AES_SECRET not configured in environment. Using static fallback secret for local dev.");
+  }
 }
 
 if (!env.ADMIN_EMAIL) {

@@ -85,49 +85,6 @@ export function generateStaticDataFileCode(
   news: any[] = [],
   videos: any[] = []
 ): string {
-  // Clean up apps: encrypt and preserve real target URLs, remove dummy com.rummydex URLs
-  const cleanApps = JSON.parse(JSON.stringify(apps || [])).map((app: any) => {
-    const rawTarget = app.more_information_url || app.download_url || app.encrypted_link || app.encrypted_download_url || '';
-    const encryptedTarget = encryptUrlIfNeeded(rawTarget);
-    
-    // Clean out dummy com.rummydex / com.example URLs from url field
-    if (app.url && (app.url.includes('com.rummydex') || app.url.includes('com.example'))) {
-      app.url = '';
-    }
-
-    if (encryptedTarget) {
-      app.more_information_url = encryptedTarget;
-      app.encrypted_link = encryptedTarget;
-    } else {
-      delete app.more_information_url;
-      delete app.encrypted_link;
-    }
-    delete app.encrypted_download_url;
-    delete app.download_url;
-    return app;
-  });
-  const defaultSettings = {
-    site_title: "",
-    meta_description: "",
-    logo_url: "",
-    favicon_url: "",
-    helpline_whatsapp: "",
-    helpline_telegram: "",
-    support_email: "",
-    disclaimer_text: "",
-    ethics_discrimination_text: "",
-    ticker_text: "",
-    animations_enabled: true,
-    categories: [],
-    banners: [],
-    quick_links: [],
-    website_faqs: [],
-    developers: []
-  };
-  const cleanSettings = ensureDefaultSettings({ ...defaultSettings, ...JSON.parse(JSON.stringify(settings || {})) });
-  const cleanNews = JSON.parse(JSON.stringify(news || []));
-  const cleanVideos = JSON.parse(JSON.stringify(videos || []));
-
   return `// No secureStorage import to avoid Vercel build errors when secureStorage is stripped
 
 export interface Banner {

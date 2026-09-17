@@ -26,20 +26,13 @@ githubSyncRouter.get("/api/github-sync/config", verifyAdminToken, async (req, re
       console.warn("[GitHub Sync] Firestore config read warning:", dbErr);
     }
 
-    // 2. Fallback to local server json
-    if (!config && fs.existsSync(LOCAL_GIT_CONFIG_PATH)) {
-      try {
-        config = JSON.parse(fs.readFileSync(LOCAL_GIT_CONFIG_PATH, 'utf8'));
-      } catch (e) {}
-    }
-
-    // 3. Fallback defaults
+    // 2. Fallback defaults
     if (!config) {
       config = {
-        owner: "yonoapptransparency",
-        repo: "Dex",
+        owner: process.env.GITHUB_OWNER || "yonoapptransparency",
+        repo: process.env.GITHUB_REPO || "Dex",
         branch: "main",
-        token: process.env.PAT || "",
+        token: process.env.GITHUB_PAT || process.env.PAT || "",
         autoSync: false
       };
     }
@@ -73,7 +66,7 @@ githubSyncRouter.post("/api/github-sync/config", verifyAdminToken, async (req, r
       updatedAt: new Date().toISOString()
     };
 
-    // 1. Persist to Firestore via Admin SDK
+    // Persist to Firestore via Admin SDK
     try {
       const db = getFirebaseAdminDb();
       if (db) {
@@ -81,13 +74,6 @@ githubSyncRouter.post("/api/github-sync/config", verifyAdminToken, async (req, r
       }
     } catch (dbErr) {
       console.warn("[GitHub Sync] Failed to write config to Firestore:", dbErr);
-    }
-
-    // 2. Persist locally to server file
-    try {
-      fs.writeFileSync(LOCAL_GIT_CONFIG_PATH, JSON.stringify(newConfig, null, 2), 'utf8');
-    } catch (fsErr) {
-      console.warn("[GitHub Sync] Local config file write warning:", fsErr);
     }
 
     return res.json({ success: true, message: "GitHub configuration saved successfully.", config: newConfig });
@@ -326,5 +312,83 @@ githubSyncRouter.post("/api/github-sync/commit", verifyAdminToken, async (req, r
   } catch (err: any) {
     console.error("Server GitHub commit handler error:", err);
     return res.status(500).json({ message: `Internal server error during GitHub sync: ${err.message || err}` });
+  }
+});
+
+githubSyncRouter.post("/api/github-sync/commit-atomic", verifyAdminToken, async (req, res) => {
+  try {
+    const { owner, repo, branch = 'main', token, files, message } = req.body;
+    
+    if (!owner || !repo || !token || !files || !Array.isArray(files) || files.length === 0) {
+      return res.status(400).json({ success: false, message: "Owner, repo, token, and files are required." });
+    }
+
+    const authHeader = {
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+      'User-Agent': 'Admin-Sync-Agent'
+    };
+
+    // 1. Get latest commit SHA of branch
+    const refRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/ref/heads/${branch}`, { headers: authHeader });
+    if (!refRes.ok) {
+      const err = await refRes.text();
+      return res.status(refRes.status).json({ success: false, message: `Failed to fetch branch ref: ${err}` });
+    }
+    const refData = await refRes.json();
+    const latestCommitSha = refData.object.sha;
+
+    // 2. Create tree with ALL files at once
+    const treeItems = files.map((f: any) => ({
+      path: f.path,
+      mode: '100644',
+      type: 'blob',
+      content: f.content
+    }));
+
+    const treeRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/trees`, {
+      method: 'POST',
+      headers: authHeader,
+      body: JSON.stringify({ base_tree: latestCommitSha, tree: treeItems })
+    });
+    if (!treeRes.ok) {
+      const err = await treeRes.text();
+      return res.status(treeRes.status).json({ success: false, message: `Failed to create git tree: ${err}` });
+    }
+    const treeData = await treeRes.json();
+
+    // 3. Create single commit
+    const commitRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/commits`, {
+      method: 'POST',
+      headers: authHeader,
+      body: JSON.stringify({
+        message: message || 'Admin Release: Atomic static update',
+        tree: treeData.sha,
+        parents: [latestCommitSha]
+      })
+    });
+    if (!commitRes.ok) {
+      const err = await commitRes.text();
+      return res.status(commitRes.status).json({ success: false, message: `Failed to create git commit: ${err}` });
+    }
+    const commitData = await commitRes.json();
+
+    // 4. Update branch ref once
+    const updateRefRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${branch}`, {
+      method: 'PATCH',
+      headers: authHeader,
+      body: JSON.stringify({ sha: commitData.sha })
+    });
+    
+    if (!updateRefRes.ok) {
+      const err = await updateRefRes.text();
+      return res.status(updateRefRes.status).json({ success: false, message: `Failed to update branch ref: ${err}` });
+    }
+
+    return res.json({ success: true, commitSha: commitData.sha });
+  } catch (err: any) {
+    console.error("Server GitHub atomic commit handler error:", err);
+    return res.status(500).json({ success: false, message: `Internal server error during GitHub atomic sync: ${err.message || err}` });
   }
 });
