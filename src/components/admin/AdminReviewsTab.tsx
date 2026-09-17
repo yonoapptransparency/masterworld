@@ -379,20 +379,61 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
   const handleUpdateStatus = async (review: ReviewData, newStatus: 'published' | 'pending' | 'rejected') => {
     try {
       setActioningId(review.id);
+      const oldStatus = review.status;
+
+      // Optimistic plus-minus for instant UI responsiveness
+      if (oldStatus !== newStatus) {
+        setGlobalDbStats(prev => {
+          if (!prev) return prev;
+          const updated = { ...prev };
+          if (oldStatus === 'pending') updated.pending = Math.max(0, updated.pending - 1);
+          if (oldStatus === 'published') updated.published = Math.max(0, updated.published - 1);
+          if (oldStatus === 'rejected') updated.rejected = Math.max(0, updated.rejected - 1);
+
+          if (newStatus === 'pending') updated.pending++;
+          if (newStatus === 'published') updated.published++;
+          if (newStatus === 'rejected') updated.rejected++;
+          return updated;
+        });
+
+        const appKey = (review.appId || '').toLowerCase();
+        setAppCountsMap(prev => {
+          const cur = prev[appKey];
+          if (!cur) return prev;
+          const updated = { ...cur };
+          if (oldStatus === 'pending') updated.pending = Math.max(0, updated.pending - 1);
+          if (oldStatus === 'published') updated.published = Math.max(0, updated.published - 1);
+          if (oldStatus === 'rejected') updated.rejected = Math.max(0, updated.rejected - 1);
+
+          if (newStatus === 'pending') updated.pending++;
+          if (newStatus === 'published') updated.published++;
+          if (newStatus === 'rejected') updated.rejected++;
+          return { ...prev, [appKey]: updated };
+        });
+      }
+
       const res = await adminFetch(`/api/v1/admin/community/reviews/${review.id}`, {
         method: 'PUT',
         body: JSON.stringify({ status: newStatus })
       });
 
       if (res.ok) {
+        const data = await res.json().catch(() => ({}));
         toast(`Review status set to ${newStatus}`, 'success');
         setReviews(prev => prev.map(r => r.id === review.id ? { ...r, status: newStatus } : r));
+        if (data.globalStats) setGlobalDbStats(data.globalStats);
+        if (data.appCounts) setAppCountsMap(data.appCounts);
         invalidateReviewCache();
         try {
           window.dispatchEvent(new CustomEvent('community-reviews-updated'));
         } catch (e) {}
       } else {
         toast('Failed to update review status', 'error');
+        // Re-sync on failure
+        fetchAdminAppReviewCounts().then(c => {
+          if (c?.globalStats) setGlobalDbStats(c.globalStats);
+          if (c?.appCounts) setAppCountsMap(c.appCounts);
+        }).catch(() => {});
       }
     } catch (err) {
       toast('Error processing request', 'error');
@@ -429,20 +470,54 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
     if (!window.confirm('Are you sure you want to permanently delete this review?')) return;
     try {
       setActioningId(id);
+      const reviewToDelete = reviews.find(r => r.id === id);
+
+      // Optimistic atomic minus
+      if (reviewToDelete) {
+        const status = reviewToDelete.status;
+        setGlobalDbStats(prev => {
+          if (!prev) return prev;
+          const updated = { ...prev, total: Math.max(0, prev.total - 1) };
+          if (status === 'pending') updated.pending = Math.max(0, updated.pending - 1);
+          if (status === 'published') updated.published = Math.max(0, updated.published - 1);
+          if (status === 'rejected') updated.rejected = Math.max(0, updated.rejected - 1);
+          return updated;
+        });
+
+        const appKey = (reviewToDelete.appId || '').toLowerCase();
+        setAppCountsMap(prev => {
+          const cur = prev[appKey];
+          if (!cur) return prev;
+          const updated = { ...cur, total: Math.max(0, cur.total - 1) };
+          if (status === 'pending') updated.pending = Math.max(0, updated.pending - 1);
+          if (status === 'published') updated.published = Math.max(0, updated.published - 1);
+          if (status === 'rejected') updated.rejected = Math.max(0, updated.rejected - 1);
+          return { ...prev, [appKey]: updated };
+        });
+      }
+
       const res = await adminFetch(`/api/v1/admin/community/reviews/${id}`, {
         method: 'DELETE'
       });
 
       if (res.ok) {
+        const data = await res.json().catch(() => ({}));
         toast('Review deleted permanently', 'success');
         setReviews(prev => prev.filter(r => r.id !== id));
         setSelectedReviewIds(prev => prev.filter(selId => selId !== id));
+        if (data.globalStats) setGlobalDbStats(data.globalStats);
+        if (data.appCounts) setAppCountsMap(data.appCounts);
         invalidateReviewCache();
         try {
           window.dispatchEvent(new CustomEvent('community-review-deleted', { detail: { id } }));
+          window.dispatchEvent(new CustomEvent('community-reviews-updated'));
         } catch (e) {}
       } else {
         toast('Failed to delete review', 'error');
+        fetchAdminAppReviewCounts().then(c => {
+          if (c?.globalStats) setGlobalDbStats(c.globalStats);
+          if (c?.appCounts) setAppCountsMap(c.appCounts);
+        }).catch(() => {});
       }
     } catch (err) {
       toast('Error deleting review', 'error');
@@ -466,8 +541,11 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
       });
 
       if (res.ok) {
+        const data = await res.json().catch(() => ({}));
         toast(`Bulk ${action} executed successfully!`, 'success');
         setSelectedReviewIds([]);
+        if (data.globalStats) setGlobalDbStats(data.globalStats);
+        if (data.appCounts) setAppCountsMap(data.appCounts);
         invalidateReviewCache();
         try {
           window.dispatchEvent(new CustomEvent('community-reviews-updated'));
@@ -500,8 +578,12 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
         });
 
         if (res.ok) {
+          const data = await res.json().catch(() => ({}));
           toast('New verified review created!', 'success');
           setEditModalReview(null);
+          if (data.globalStats) setGlobalDbStats(data.globalStats);
+          if (data.appCounts) setAppCountsMap(data.appCounts);
+          invalidateReviewCache();
           try {
             window.dispatchEvent(new CustomEvent('community-reviews-updated'));
           } catch (e) {}
@@ -516,10 +598,12 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
         });
 
         if (res.ok) {
-          const data = await res.json();
+          const data = await res.json().catch(() => ({}));
           toast('Review updated successfully!', 'success');
-          setReviews(prev => prev.map(r => r.id === editModalReview.id ? data.review : r));
+          setReviews(prev => prev.map(r => r.id === editModalReview.id ? (data.review || r) : r));
           setEditModalReview(null);
+          if (data.globalStats) setGlobalDbStats(data.globalStats);
+          if (data.appCounts) setAppCountsMap(data.appCounts);
           invalidateReviewCache();
           try {
             window.dispatchEvent(new CustomEvent('community-reviews-updated'));
@@ -1033,6 +1117,8 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
             <div className="flex-1 overflow-y-auto">
               <AdminAIReviewStudioTab
                 appsList={appsList}
+                appCountsMap={appCountsMap}
+                globalDbStats={globalDbStats}
                 onReviewsGenerated={() => {
                   setShowAIModal(false);
                   fetchReviews(true);

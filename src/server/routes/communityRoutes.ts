@@ -521,11 +521,14 @@ communityRouter.post("/api/v1/admin/community/reviews", verifyAdminToken, async 
       } : null
     });
 
+    const counts = communityStore.getAppReviewCounts();
     return res.status(200).json({ 
       success: true, 
       message: 'Review created successfully.', 
       id: newReview.id,
-      review: newReview
+      review: newReview,
+      globalStats: counts.globalStats,
+      appCounts: counts.appCounts
     });
   } catch (err: any) {
     console.error("Error creating admin review:", err);
@@ -566,10 +569,13 @@ communityRouter.put("/api/v1/admin/community/reviews/:id", verifyAdminToken, asy
       return res.status(404).json({ error: 'Review not found' });
     }
 
+    const counts = communityStore.getAppReviewCounts();
     return res.status(200).json({ 
       success: true, 
       message: 'Review updated successfully.',
-      review: updated
+      review: updated,
+      globalStats: counts.globalStats,
+      appCounts: counts.appCounts
     });
   } catch (err: any) {
     console.error("Error updating review:", err);
@@ -592,7 +598,13 @@ communityRouter.patch("/api/v1/admin/community/reviews/:id/status", verifyAdminT
       return res.status(404).json({ error: 'Review not found' });
     }
 
-    return res.status(200).json({ success: true, message: `Review status changed to ${status}.` });
+    const counts = communityStore.getAppReviewCounts();
+    return res.status(200).json({ 
+      success: true, 
+      message: `Review status changed to ${status}.`,
+      globalStats: counts.globalStats,
+      appCounts: counts.appCounts
+    });
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
@@ -609,7 +621,13 @@ communityRouter.patch("/api/v1/admin/community/reviews/:id/pin", verifyAdminToke
       return res.status(404).json({ error: 'Review not found' });
     }
 
-    return res.status(200).json({ success: true, message: `Review ${isPinned ? 'pinned' : 'unpinned'} successfully.` });
+    const counts = communityStore.getAppReviewCounts();
+    return res.status(200).json({ 
+      success: true, 
+      message: `Review ${isPinned ? 'pinned' : 'unpinned'} successfully.`,
+      globalStats: counts.globalStats,
+      appCounts: counts.appCounts
+    });
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
@@ -624,7 +642,13 @@ communityRouter.delete("/api/v1/admin/community/reviews/:id", verifyAdminToken, 
       return res.status(404).json({ error: 'Review not found' });
     }
 
-    return res.status(200).json({ success: true, message: 'Review deleted successfully.' });
+    const counts = communityStore.getAppReviewCounts();
+    return res.status(200).json({ 
+      success: true, 
+      message: 'Review deleted successfully.',
+      globalStats: counts.globalStats,
+      appCounts: counts.appCounts
+    });
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
@@ -640,10 +664,13 @@ communityRouter.post("/api/v1/admin/community/reviews/bulk", verifyAdminToken, a
 
   try {
     const count = await communityStore.bulkActionReviews(reviewIds, action);
+    const counts = communityStore.getAppReviewCounts();
 
     return res.status(200).json({ 
       success: true, 
-      message: `Bulk action '${action}' applied to ${count} reviews.` 
+      message: `Bulk action '${action}' applied to ${count} reviews.`,
+      globalStats: counts.globalStats,
+      appCounts: counts.appCounts
     });
   } catch (err: any) {
     console.error("Bulk review action error:", err);
@@ -660,11 +687,14 @@ communityRouter.post("/api/v1/admin/community/reviews/bulk-save", verifyAdminTok
     }
 
     const added = await communityStore.addMultipleReviews(list);
+    const counts = communityStore.getAppReviewCounts();
     return res.status(200).json({
       success: true,
       message: `Successfully saved ${added.length} reviews to database.`,
       count: added.length,
-      reviews: added
+      reviews: added,
+      globalStats: counts.globalStats,
+      appCounts: counts.appCounts
     });
   } catch (err: any) {
     console.error("Bulk save reviews error:", err);
@@ -681,10 +711,13 @@ communityRouter.post("/api/v1/admin/community/reviews/clear-app", verifyAdminTok
 
   try {
     const deletedCount = await communityStore.deleteReviewsForApp(String(appId).trim());
+    const counts = communityStore.getAppReviewCounts();
     return res.status(200).json({
       success: true,
       message: `Successfully removed ${deletedCount} reviews for app ${appId}.`,
-      count: deletedCount
+      count: deletedCount,
+      globalStats: counts.globalStats,
+      appCounts: counts.appCounts
     });
   } catch (err: any) {
     console.error("Clear app reviews error:", err);
@@ -947,6 +980,7 @@ communityRouter.post("/api/v1/admin/community/brain1/autobot/step", verifyAdminT
         status: 'published' as const
       }));
       const saved = await communityStore.addMultipleReviews(reviewsToPublish);
+      const counts = communityStore.getAppReviewCounts();
       return res.status(200).json({
         success: true,
         message: `Autobot published ${saved.length} reviews live for ${targetApp.name || 'App'}.`,
@@ -957,7 +991,9 @@ communityRouter.post("/api/v1/admin/community/brain1/autobot/step", verifyAdminT
         dossierHighlights: result.dossierHighlights || [],
         dossierStats: result.dossierStats,
         timeTakenMs: Date.now() - startTime,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        globalStats: counts.globalStats,
+        appCounts: counts.appCounts
       });
     }
 

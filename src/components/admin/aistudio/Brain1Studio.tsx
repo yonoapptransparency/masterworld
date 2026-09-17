@@ -52,6 +52,10 @@ interface Brain1StudioProps {
   setSelectedAppId: (id: string) => void;
   appSearch: string;
   setAppSearch: (q: string) => void;
+  appCountsMap?: Record<string, any>;
+  globalDbStats?: any;
+  getAppReviewCount?: (app: any) => number;
+  currentAppReviewCount?: number;
   targetScore: number;
   customPrompt: string;
   setCustomPrompt: (prompt: string) => void;
@@ -630,6 +634,10 @@ export const Brain1Studio: React.FC<Brain1StudioProps> = ({
   setSelectedAppId,
   appSearch,
   setAppSearch,
+  appCountsMap = {},
+  globalDbStats,
+  getAppReviewCount,
+  currentAppReviewCount = 0,
   targetScore,
   customPrompt,
   setCustomPrompt,
@@ -834,11 +842,14 @@ export const Brain1Studio: React.FC<Brain1StudioProps> = ({
                     onChange={(e) => setSelectedAppId(e.target.value)}
                     className="w-full text-sm font-black bg-transparent text-slate-900 dark:text-white border-0 cursor-pointer focus:outline-none truncate"
                   >
-                    {filteredApps.map(app => (
-                      <option key={app.id} value={app.id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
-                        {app.name} ({app.category || 'General'}) • Store: {app.rating || '4.8'}★
-                      </option>
-                    ))}
+                    {filteredApps.map(app => {
+                      const count = getAppReviewCount ? getAppReviewCount(app) : 0;
+                      return (
+                        <option key={app.id} value={app.id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+                          {app.name} ({app.category || 'General'}) • {count} Reviews • Store: {app.rating || '4.8'}★
+                        </option>
+                      );
+                    })}
                   </select>
                   <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                     <span>Developer: <strong className="text-slate-800 dark:text-slate-200">{currentApp?.developer || 'Studio'}</strong></span>
@@ -851,6 +862,10 @@ export const Brain1Studio: React.FC<Brain1StudioProps> = ({
               </div>
 
               <div className="lg:col-span-6 flex flex-wrap items-center justify-end gap-2 text-[11px] font-semibold">
+                <div className="bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 px-3 py-1.5 rounded-xl border border-amber-200 dark:border-amber-800/70 flex items-center gap-1.5">
+                  <Star size={13} className="text-amber-500 fill-amber-500" />
+                  <span>Existing Reviews: <strong>{currentAppReviewCount}</strong></span>
+                </div>
                 <div className="bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 px-3 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800/70 flex items-center gap-1.5">
                   <FileText size={13} className="text-emerald-500" />
                   <span>HTML Chars: <strong>{brain1Dossier?.dossierStats?.totalChars || dossierHealth.descChars}</strong></span>
@@ -1256,6 +1271,8 @@ export const Brain1Studio: React.FC<Brain1StudioProps> = ({
                         </div>
                         <div className="text-[10px] text-slate-400 flex items-center gap-1.5">
                           <span>{app.category || 'Card'}</span>
+                          <span>•</span>
+                          <span className="text-amber-500 font-bold">{getAppReviewCount ? getAppReviewCount(app) : 0} reviews</span>
                           <span>•</span>
                           <span>{app.rating || '4.8'}★</span>
                         </div>

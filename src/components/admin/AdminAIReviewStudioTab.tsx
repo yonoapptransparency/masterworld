@@ -48,6 +48,7 @@ import {
 } from 'lucide-react';
 import { toast } from '../Toast';
 import { adminFetch } from '../../services/adminAuthService';
+import { fetchAdminAppReviewCounts, AppReviewCountsData } from '../../lib/adminCommunityFirebase';
 import { 
   AppReviewProfile, 
   loadAllAppProfiles, 
@@ -72,12 +73,42 @@ export { type AppReviewProfile };
 interface AdminAIReviewStudioTabProps {
   appsList: any[];
   onReviewsGenerated?: () => void;
+  appCountsMap?: Record<string, AppReviewCountsData>;
+  globalDbStats?: any;
 }
 
 export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({ 
   appsList = [],
-  onReviewsGenerated 
+  onReviewsGenerated,
+  appCountsMap: initialAppCountsMap,
+  globalDbStats: initialGlobalDbStats
 }) => {
+  // Real-time Database Counts (Atomic Plus-Minus System)
+  const [appCountsMap, setAppCountsMap] = useState<Record<string, AppReviewCountsData>>(initialAppCountsMap || {});
+  const [globalDbStats, setGlobalDbStats] = useState<{
+    total: number;
+    published: number;
+    pending: number;
+    rejected: number;
+    flagged: number;
+    averageRating: number;
+  } | null>(initialGlobalDbStats || null);
+
+  const refreshCounts = useCallback(async () => {
+    try {
+      const res = await fetchAdminAppReviewCounts();
+      if (res?.appCounts) setAppCountsMap(res.appCounts);
+      if (res?.globalStats) setGlobalDbStats(res.globalStats);
+    } catch (e) {}
+  }, []);
+
+  useEffect(() => {
+    refreshCounts();
+    const handleUpdated = () => refreshCounts();
+    window.addEventListener('community-reviews-updated', handleUpdated);
+    return () => window.removeEventListener('community-reviews-updated', handleUpdated);
+  }, [refreshCounts]);
+
   // Primary Navigation Workspace: 'brain1' | 'brain2'
   const [mode, setMode] = useState<'brain1' | 'brain2'>('brain1');
 
@@ -95,6 +126,17 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
     if (!appsList || appsList.length === 0) return null;
     return appsList.find(a => (a?.id && a.id === selectedAppId) || (a?.slug && a.slug === selectedAppId)) || appsList[0] || null;
   }, [appsList, selectedAppId]);
+
+  const getAppReviewCount = useCallback((app: any): number => {
+    if (!app) return 0;
+    const slugKey = (app.slug || '').toLowerCase();
+    const idKey = (app.id || '').toLowerCase();
+    return appCountsMap[slugKey]?.total ?? appCountsMap[idKey]?.total ?? 0;
+  }, [appCountsMap]);
+
+  const currentAppReviewCount = useMemo(() => {
+    return currentApp ? getAppReviewCount(currentApp) : 0;
+  }, [currentApp, getAppReviewCount]);
 
   const filteredApps = useMemo(() => {
     if (!appSearch.trim()) return appsList;
@@ -543,6 +585,16 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
         percent: Math.round((i / targetApps.length) * 100)
       });
 
+      // Skip threshold check based on real-time atomic database counts
+      if (autoPilotSkipReviews) {
+        const existingCount = getAppReviewCount(app);
+        if (existingCount >= autoPilotSkipThreshold) {
+          addAutobotLog(`[Queue Skip] "${app.name}" already has ${existingCount} reviews (>= threshold ${autoPilotSkipThreshold}). Skipping.`, 'info');
+          processedCount++;
+          continue;
+        }
+      }
+
       try {
         setAutobotCurrentStage('ingesting');
         addAutobotLog(`[Queue App ${i + 1}/${targetApps.length}] Ingesting dossier for "${app.name}" (${app.category || 'Card'})...`, 'info');
@@ -589,6 +641,23 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
             lastModel: data.modelUsed || 'gemini-3.8-flash',
             lastLatencyMs: data.timeTakenMs || 0
           }));
+
+          // Atomic plus-minus updates
+          setGlobalDbStats(prev => prev ? ({ ...prev, total: prev.total + countGen, published: prev.published + countGen }) : prev);
+          const appKey = (app.id || app.slug || '').toLowerCase();
+          setAppCountsMap(prev => {
+            const cur = prev[appKey] || { total: 0, published: 0, pending: 0, rejected: 0, averageRating: 4.8, ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } };
+            return {
+              ...prev,
+              [appKey]: { ...cur, total: cur.total + countGen, published: cur.published + countGen }
+            };
+          });
+          if (data.globalStats) setGlobalDbStats(data.globalStats);
+          if (data.appCounts) setAppCountsMap(data.appCounts);
+          try {
+            window.dispatchEvent(new CustomEvent('community-reviews-updated'));
+          } catch (e) {}
+
           if (onReviewsGenerated) onReviewsGenerated();
         } else {
           setAutobotCurrentStage('staged');
@@ -745,6 +814,23 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           lastModel: data.modelUsed || 'gemini-3.8-flash',
           lastLatencyMs: data.timeTakenMs || 0
         }));
+
+        // Atomic plus-minus updates
+        setGlobalDbStats(prev => prev ? ({ ...prev, total: prev.total + countGen, published: prev.published + countGen }) : prev);
+        const appKey = (currentApp.id || currentApp.slug || '').toLowerCase();
+        setAppCountsMap(prev => {
+          const cur = prev[appKey] || { total: 0, published: 0, pending: 0, rejected: 0, averageRating: 4.8, ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } };
+          return {
+            ...prev,
+            [appKey]: { ...cur, total: cur.total + countGen, published: cur.published + countGen }
+          };
+        });
+        if (data.globalStats) setGlobalDbStats(data.globalStats);
+        if (data.appCounts) setAppCountsMap(data.appCounts);
+        try {
+          window.dispatchEvent(new CustomEvent('community-reviews-updated'));
+        } catch (e) {}
+
         if (onReviewsGenerated) onReviewsGenerated();
       } else {
         setAutobotCurrentStage('staged');
@@ -960,6 +1046,23 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           lastModel: data.modelUsed,
           lastLatencyMs: data.timeTakenMs || 0
         }));
+
+        // Atomic plus-minus updates
+        setGlobalDbStats(prev => prev ? ({ ...prev, total: prev.total + countGen, published: prev.published + countGen }) : prev);
+        const appKey = (targetApp.id || targetApp.slug || '').toLowerCase();
+        setAppCountsMap(prev => {
+          const cur = prev[appKey] || { total: 0, published: 0, pending: 0, rejected: 0, averageRating: 4.8, ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } };
+          return {
+            ...prev,
+            [appKey]: { ...cur, total: cur.total + countGen, published: cur.published + countGen }
+          };
+        });
+        if (data.globalStats) setGlobalDbStats(data.globalStats);
+        if (data.appCounts) setAppCountsMap(data.appCounts);
+        try {
+          window.dispatchEvent(new CustomEvent('community-reviews-updated'));
+        } catch (e) {}
+
         if (onReviewsGenerated) onReviewsGenerated();
       } else {
         setBrain2CurrentStage('staged');
@@ -1155,8 +1258,17 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
       });
 
       if (!res.ok) throw new Error("Failed to save review");
+      const data = await res.json().catch(() => ({}));
       toast(`Published review by ${review.userName}!`, "success");
       setStagedReviews(prev => prev.filter((_, i) => i !== idx));
+
+      // Real-time plus-minus count update
+      if (data.globalStats) setGlobalDbStats(data.globalStats);
+      if (data.appCounts) setAppCountsMap(data.appCounts);
+      try {
+        window.dispatchEvent(new CustomEvent('community-reviews-updated'));
+      } catch (e) {}
+
       if (onReviewsGenerated) onReviewsGenerated();
     } catch (err: any) {
       toast(err.message || "Failed to publish review", "error");
@@ -1186,8 +1298,17 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
         throw new Error(errorData.error || 'Failed to bulk save reviews.');
       }
 
+      const data = await res.json().catch(() => ({}));
       toast(`✅ Successfully published all ${stagedReviews.length} reviews to the live community database!`, "success");
       setStagedReviews([]);
+
+      // Real-time plus-minus count update
+      if (data.globalStats) setGlobalDbStats(data.globalStats);
+      if (data.appCounts) setAppCountsMap(data.appCounts);
+      try {
+        window.dispatchEvent(new CustomEvent('community-reviews-updated'));
+      } catch (e) {}
+
       if (onReviewsGenerated) onReviewsGenerated();
     } catch (err: any) {
       toast(err.message || "Failed to publish staged reviews", "error");
@@ -1296,6 +1417,14 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
               <span className="text-slate-300">Database:</span>
               <span className="text-emerald-400 font-bold">Firestore</span>
             </div>
+
+            {/* Live Database Reviews Count Pill */}
+            <div className="flex items-center gap-2 bg-amber-950/60 border border-amber-500/50 px-3 py-1.5 rounded-xl shadow-xs text-amber-300">
+              <Star size={13} className="text-amber-400 fill-amber-400" />
+              <span className="text-slate-300">Live DB:</span>
+              <span className="font-black text-amber-200">{globalDbStats?.total ?? '...'}</span>
+              <span className="text-[10px] text-amber-400/80 font-normal">({globalDbStats?.published ?? 0} pub)</span>
+            </div>
           </div>
         </div>
 
@@ -1373,6 +1502,10 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           setSelectedAppId={setSelectedAppId}
           appSearch={appSearch}
           setAppSearch={setAppSearch}
+          appCountsMap={appCountsMap}
+          globalDbStats={globalDbStats}
+          getAppReviewCount={getAppReviewCount}
+          currentAppReviewCount={currentAppReviewCount}
           targetScore={targetScore}
           customPrompt={customPrompt}
           setCustomPrompt={setCustomPrompt}
@@ -1467,6 +1600,10 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           setSelectedAppId={setSelectedAppId}
           appSearch={appSearch}
           setAppSearch={setAppSearch}
+          appCountsMap={appCountsMap}
+          globalDbStats={globalDbStats}
+          getAppReviewCount={getAppReviewCount}
+          currentAppReviewCount={currentAppReviewCount}
           brain2TargetScore={brain2TargetScore}
           setBrain2TargetScore={setBrain2TargetScore}
           brain2CustomQuery={brain2CustomQuery}
