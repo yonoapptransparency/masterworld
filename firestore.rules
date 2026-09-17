@@ -21,10 +21,7 @@ service cloud.firestore {
     }
 
     function isRestAdmin() {
-      return request.resource != null && 
-             request.resource.data != null &&
-             request.resource.data.keys().hasAny(['_rest_admin_bypass']) &&
-             request.resource.data._rest_admin_bypass == 'aistudio_preview_bypass_key';
+      return false;
     }
 
     // Comprehensive payload validation for reviews

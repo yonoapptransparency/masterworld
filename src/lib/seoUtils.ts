@@ -6,9 +6,18 @@ export function formatPageTitle(rawTitle?: string, siteTitle: string = 'RummyDex
   if (!rawTitle || !rawTitle.trim()) return siteTitle;
   // If title contains multiple lines or linebreaks, take only the primary first line
   const firstLine = rawTitle.split(/\r?\n/)[0] || rawTitle;
-  const clean = firstLine.trim().replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+  let clean = firstLine.trim().replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
   
-  return clean || siteTitle;
+  if (!clean) return siteTitle;
+  
+  // Do not append siteTitle if it's already there
+  if (clean.includes(siteTitle)) return clean;
+  
+  const suffix = ` — ${siteTitle}`;
+  const MAX_LENGTH = 60;
+  const available = MAX_LENGTH - suffix.length; // ~50 chars for title
+  const truncated = clean.length > available ? clean.substring(0, available - 1).trim() + '…' : clean;
+  return `${truncated}${suffix}`;
 }
 
 export function getCleanCanonicalUrl(rawUrl?: string, fallbackPath: string = '/'): string {

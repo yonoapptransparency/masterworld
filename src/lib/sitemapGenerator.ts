@@ -139,17 +139,32 @@ export function generateAppsSitemapXml(
       appImage = appImage.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_webp,q_auto,w_800/$1');
     }
     const appName = app.name || 'Application';
+    const isHotOrNew = app.is_hot || app.is_new;
 
     xml += `  <url>\n`;
     xml += `    <loc>${loc}</loc>\n`;
     xml += `    <lastmod>${appDate}</lastmod>\n`;
-    xml += `    <changefreq>daily</changefreq>\n`;
-    xml += `    <priority>0.9</priority>\n`;
+    xml += `    <changefreq>weekly</changefreq>\n`;
+    xml += `    <priority>${isHotOrNew ? '0.9' : '0.8'}</priority>\n`;
     if (appImage) {
       xml += `    <image:image>\n`;
       xml += `      <image:loc>${escapeXml(appImage)}</image:loc>\n`;
       xml += `      <image:title>${escapeXml(appName)}</image:title>\n`;
       xml += `    </image:image>\n`;
+    }
+    if (Array.isArray(app.screenshots)) {
+      app.screenshots.forEach((screenshotUrl: string, idx: number) => {
+        if (!screenshotUrl) return;
+        let sUrl = screenshotUrl;
+        if (sUrl.includes('res.cloudinary.com')) {
+          sUrl = sUrl.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_webp,q_auto,w_800/$1');
+        }
+        xml += `    <image:image>\n`;
+        xml += `      <image:loc>${escapeXml(sUrl)}</image:loc>\n`;
+        xml += `      <image:title>${escapeXml(appName)} Screenshot ${idx + 1}</image:title>\n`;
+        xml += `      <image:caption>Screenshot ${idx + 1} of ${escapeXml(appName)} showing gameplay</image:caption>\n`;
+        xml += `    </image:image>\n`;
+      });
     }
     xml += `  </url>\n`;
   }

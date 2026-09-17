@@ -47,12 +47,18 @@ communityRouter.post(["/api/v1/public/community/reviews", "/api/v1/public/rating
     return res.status(400).json({ error: 'Missing required review fields' });
   }
 
-  // Verify Turnstile Token if non-placeholder
-  if (turnstileToken && turnstileToken !== 'frontend_token_placeholder') {
+  let turnstilePassed = false;
+  if (process.env.NODE_ENV === 'production') {
+    if (!turnstileToken || turnstileToken === 'frontend_token_placeholder') {
+      return res.status(400).json({ error: 'Security verification token required.' });
+    }
     const isHuman = await verifyTurnstile(turnstileToken, ip);
-    if (!isHuman && process.env.NODE_ENV === 'production') {
+    if (!isHuman) {
       return res.status(403).json({ error: 'Security verification failed.' });
     }
+    turnstilePassed = true;
+  } else {
+    turnstilePassed = true; // Auto-pass in dev
   }
 
   try {
@@ -69,7 +75,7 @@ communityRouter.post(["/api/v1/public/community/reviews", "/api/v1/public/rating
       rating: numRating,
       reviewText: cleanReviewText,
       userName: cleanUserName,
-      status: 'published',
+      status: turnstilePassed ? 'published' : 'pending',
       source: 'community'
     });
 
@@ -182,7 +188,7 @@ communityRouter.get("/api/v1/public/community/reviews/:appId", async (req: any, 
   const isBot = /bot|googlebot|bingbot|crawler|spider|slurp|facebookexternalhit|bytespider|yandex|duckduckbot|twitterbot|lighthouse|pingdom|gtmetrix/i.test(userAgent);
 
   // Edge and browser caching to ensure 0 server strain and lightning fast bot responses
-  res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=600');
+  res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=60');
   const { appId } = req.params;
   const { cursor, limit = 5, appTitle, rating, slug, appSlug, filter, sortBy } = req.query;
   const targetSlug = slug || appSlug;
@@ -282,9 +288,9 @@ communityRouter.get("/api/v1/admin/community/health/ping", verifyAdminToken, asy
     }
 
     if (!results.firestoreRead) {
-      // Avoid scanning entire collection on ping - check local cache count or config
-      results.firestoreRead = true;
-      results.details.readMode = `Local Resilient Sync (${commConfig.projectId})`;
+      // If we failed to read via Admin SDK, don't auto-pass. Report the actual failure.
+      results.firestoreRead = false;
+      results.details.readMode = `Degraded Local Resilient Sync (${commConfig.projectId})`;
     }
 
     // 2. Test Write (Admin SDK state check; only perform active write probe if explicitly requested)
