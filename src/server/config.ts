@@ -9,7 +9,7 @@ declare global {
 }
 
 // Use a static fallback for development so encrypted data isn't lost on server restart
-const runtimeAesSecret = 'fallback_aes_secret_for_local_dev_only';
+const runtimeAesSecret = process.env.NODE_ENV === 'production' ? '' : 'fallback_aes_secret_for_local_dev_only';
 const runtimeTokenSecret = 'fallback_token_secret_for_local_dev_only';
 const runtimeSessionSecret = 'fallback_session_secret_for_local_dev_only';
 
