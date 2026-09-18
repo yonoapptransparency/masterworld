@@ -147,16 +147,114 @@ export function sanitizeReviewText(text: string, appName?: string): string {
  */
 export function findAppInCatalog(appIdentifier: string): any {
   if (!appIdentifier) return null;
-  const target = String(appIdentifier).toLowerCase().trim();
+  const rawTarget = String(appIdentifier).toLowerCase().trim();
+  if (!rawTarget) return null;
+
+  const slugifiedTarget = rawTarget.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const spaceTarget = rawTarget.replace(/[-_]+/g, ' ').trim();
+
   const staticData = getStaticData();
   const apps = staticData.apps || staticData.mockApps || [];
 
-  return apps.find((a: any) => 
-    (a.id && String(a.id).toLowerCase().trim() === target) ||
-    (a.slug && String(a.slug).toLowerCase().trim() === target) ||
-    (a.name && String(a.name).toLowerCase().trim() === target) ||
-    (a.package_name && String(a.package_name).toLowerCase().trim() === target)
-  ) || null;
+  return apps.find((a: any) => {
+    if (!a) return false;
+    const aId = a.id !== undefined && a.id !== null ? String(a.id).toLowerCase().trim() : '';
+    const aSlug = a.slug ? String(a.slug).toLowerCase().trim() : '';
+    const aName = a.name ? String(a.name).toLowerCase().trim() : '';
+    const aPkg = a.package_name ? String(a.package_name).toLowerCase().trim() : '';
+
+    if (aId === rawTarget || aSlug === rawTarget || aName === rawTarget || aPkg === rawTarget) return true;
+    if (slugifiedTarget && (aSlug === slugifiedTarget || aId === slugifiedTarget)) return true;
+    if (spaceTarget && aName === spaceTarget) return true;
+    return false;
+  }) || null;
+}
+
+export interface CanonicalAppResolution {
+  canonicalId: string;
+  canonicalSlug: string;
+  canonicalName: string;
+  packageName: string;
+  matchedApp: any | null;
+  aliasKeys: Set<string>;
+}
+
+/**
+ * Universal Canonical App Resolver:
+ * Maps any ID, slug, title, or package variant to a single deterministic canonical identity.
+ * Produces the complete alias key set for 100% collision-free cross-matching.
+ */
+export function resolveCanonicalApp(
+  appIdentifier?: string,
+  appSlug?: string,
+  appName?: string
+): CanonicalAppResolution {
+  const aliasKeys = new Set<string>();
+
+  const cleanId = String(appIdentifier || '').trim();
+  const cleanSlug = String(appSlug || '').trim();
+  const cleanName = String(appName || '').trim();
+
+  const addKey = (k?: string) => {
+    if (!k) return;
+    const lower = String(k).toLowerCase().trim();
+    if (!lower) return;
+    aliasKeys.add(lower);
+
+    // Slug variation
+    const slugified = lower.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    if (slugified) aliasKeys.add(slugified);
+
+    // Space variation
+    const spaceified = lower.replace(/[-_]+/g, ' ').trim();
+    if (spaceified) aliasKeys.add(spaceified);
+  };
+
+  addKey(cleanId);
+  addKey(cleanSlug);
+  addKey(cleanName);
+
+  // Search catalog using all inputs
+  const matchedApp = findAppInCatalog(cleanId) ||
+    (cleanSlug ? findAppInCatalog(cleanSlug) : null) ||
+    (cleanName ? findAppInCatalog(cleanName) : null) ||
+    (cleanId ? findAppInCatalog(cleanId.replace(/[-_]+/g, ' ')) : null);
+
+  if (matchedApp) {
+    if (matchedApp.id !== undefined && matchedApp.id !== null) addKey(String(matchedApp.id));
+    if (matchedApp.slug) addKey(String(matchedApp.slug));
+    if (matchedApp.name) addKey(String(matchedApp.name));
+    if (matchedApp.package_name) addKey(String(matchedApp.package_name));
+    if (matchedApp.developer) addKey(String(matchedApp.developer));
+
+    const canonicalId = String(matchedApp.id).trim();
+    const canonicalSlug = String(matchedApp.slug || matchedApp.id).trim();
+    const canonicalName = String(matchedApp.name || matchedApp.title || canonicalSlug).trim();
+    const packageName = String(matchedApp.package_name || '').trim();
+
+    return {
+      canonicalId,
+      canonicalSlug,
+      canonicalName,
+      packageName,
+      matchedApp,
+      aliasKeys
+    };
+  }
+
+  // Fallback for custom or unindexed apps
+  const fallbackId = cleanId || cleanSlug || cleanName || 'unknown_app';
+  const fallbackSlug = cleanSlug || cleanId.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'unknown-app';
+  const fallbackName = cleanName || cleanSlug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || cleanId || 'Unknown App';
+
+  return {
+    canonicalId: fallbackId,
+    canonicalSlug: fallbackSlug,
+    canonicalName: fallbackName,
+    packageName: '',
+    matchedApp: null,
+    aliasKeys
+  };
 }
 
 // In-memory persistent cache for zero-latency lookups & background Firestore sync
@@ -808,18 +906,15 @@ class CommunityStoreService {
    */
   public async syncAppChunksToFirestore(appIdentifier: string): Promise<boolean> {
     if (!appIdentifier) return false;
-    const cleanId = String(appIdentifier || '').toLowerCase().trim();
-    const aliasKeys = this.getAliasKeysForApp(cleanId);
-    
-    // Matched app info from catalog
-    const matchedApp = findAppInCatalog(cleanId);
-    const officialId = matchedApp ? String(matchedApp.id) : cleanId;
-    const officialSlug = matchedApp?.slug ? String(matchedApp.slug).toLowerCase().trim() : '';
-    const officialName = matchedApp?.name || '';
+    const resolved = resolveCanonicalApp(appIdentifier);
+    const officialId = resolved.canonicalId;
+    const officialSlug = resolved.canonicalSlug;
+    const officialName = resolved.canonicalName;
+    const aliasKeys = resolved.aliasKeys;
 
     // CRITICAL DATA INTEGRITY FIX:
     // Ensure all existing reviews for this app are pre-loaded from Firestore into memory BEFORE building the chunk!
-    await this.ensureAllReviewsLoadedForApp(cleanId, aliasKeys);
+    await this.ensureAllReviewsLoadedForApp(officialId, aliasKeys);
 
     // Collect all published/approved reviews for this app
     const appReviews = Array.from(this.reviews.values()).filter(r => {
@@ -996,7 +1091,10 @@ class CommunityStoreService {
 
   
   private applyStatsToCache(appId: string, incs: any) {
-    let stats = this.appStatsCache.get(appId);
+    const resolved = resolveCanonicalApp(appId);
+    const targetKey = resolved.canonicalId;
+
+    let stats = this.appStatsCache.get(targetKey);
     if (!stats) {
       stats = { publishedReviewCount: 0, publishedRatingSum: 0, starDistribution: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 } };
     }
@@ -1007,16 +1105,19 @@ class CommunityStoreService {
     if (incs.star3) stats.starDistribution['3'] += incs.star3;
     if (incs.star4) stats.starDistribution['4'] += incs.star4;
     if (incs.star5) stats.starDistribution['5'] += incs.star5;
-    this.appStatsCache.set(appId, stats);
+    this.appStatsCache.set(targetKey, stats);
+    if (resolved.canonicalSlug && resolved.canonicalSlug !== targetKey) {
+      this.appStatsCache.set(resolved.canonicalSlug, stats);
+    }
   }
 
   public async addReview(payload: Partial<ReviewRecord> & Record<string, any>): Promise<ReviewRecord> {
     const rawAppId = String(payload.appId || payload.app_id || '').trim();
-    const matchedApp = findAppInCatalog(rawAppId) || (payload.appSlug ? findAppInCatalog(payload.appSlug) : null);
+    const resolved = resolveCanonicalApp(rawAppId, payload.appSlug, payload.appName);
     
-    const targetAppId = matchedApp ? String(matchedApp.id) : rawAppId;
-    const targetAppSlug = matchedApp?.slug || payload.appSlug || '';
-    const targetAppName = matchedApp?.name || payload.appName || '';
+    const targetAppId = resolved.canonicalId;
+    const targetAppSlug = resolved.canonicalSlug;
+    const targetAppName = resolved.canonicalName;
 
     const isAi = payload.source === 'ai_generated';
     const simulatedDeviceId = payload.userId ? String(payload.userId).replace('fallback_', 'device_') : `device_${Date.now()}_${Math.random().toString(16).substring(2, 10)}`;
@@ -1111,7 +1212,8 @@ class CommunityStoreService {
          continue; 
       }
       
-      const targetAppId = existing.appId;
+      const resolved = resolveCanonicalApp(existing.appId, existing.appSlug, existing.appName);
+      const targetAppId = resolved.canonicalId;
       affectedApps.add(targetAppId);
       
       const wasPublished = existing.status === 'published' || existing.status === 'approved';
@@ -1128,7 +1230,13 @@ class CommunityStoreService {
          this.reviews.delete(cleanId);
          count++;
       } else {
-         const updated = { ...existing, updated_at: new Date().toISOString() };
+         const updated = { 
+           ...existing, 
+           appId: targetAppId,
+           appSlug: resolved.canonicalSlug,
+           appName: resolved.canonicalName,
+           updated_at: new Date().toISOString() 
+         };
          if (action === 'publish') updated.status = 'published';
          if (action === 'pending') updated.status = 'pending';
          if (action === 'reject') updated.status = 'rejected';
@@ -1177,7 +1285,7 @@ class CommunityStoreService {
              } else {
                 const rev = this.reviews.get(id);
                 if (rev) batch.set(db.collection('reviews').doc(id), rev, { merge: true });
-             }
+          }
           });
           batch.commit().catch(e => console.warn('[CommunityStore] Bulk batch commit error:', e));
        }
@@ -1212,11 +1320,11 @@ class CommunityStoreService {
 
     for (const payload of reviewsList) {
       const rawAppId = String(payload.appId || payload.app_id || '').trim();
-      const matchedApp = findAppInCatalog(rawAppId) || (payload.appSlug ? findAppInCatalog(payload.appSlug) : null);
+      const resolved = resolveCanonicalApp(rawAppId, payload.appSlug, payload.appName);
       
-      const targetAppId = matchedApp ? String(matchedApp.id) : rawAppId;
-      const targetAppSlug = matchedApp?.slug || payload.appSlug || '';
-      const targetAppName = matchedApp?.name || payload.appName || '';
+      const targetAppId = resolved.canonicalId;
+      const targetAppSlug = resolved.canonicalSlug;
+      const targetAppName = resolved.canonicalName;
       
       const isAi = payload.source === 'ai_generated';
       const simulatedDeviceId = payload.userId ? String(payload.userId).replace('fallback_', 'device_') : `device_${Date.now()}_${Math.random().toString(16).substring(2, 10)}`;
@@ -1405,11 +1513,12 @@ public async voteHelpful(reviewId: string): Promise<number> {
     }
     
     if (!existing) {
+      const resolved = resolveCanonicalApp(updates.appId || 'unknown', updates.appSlug, updates.appName);
       existing = {
         id,
-        appId: updates.appId || 'unknown',
-        appSlug: updates.appSlug || '',
-        appName: updates.appName || '',
+        appId: resolved.canonicalId,
+        appSlug: resolved.canonicalSlug,
+        appName: resolved.canonicalName,
         userName: updates.userName || 'Admin',
         rating: updates.rating || 5,
         reviewText: updates.reviewText || '',
@@ -1426,9 +1535,14 @@ public async voteHelpful(reviewId: string): Promise<number> {
 
     this.deletedReviewIds.delete(id);
 
+    const resolvedApp = resolveCanonicalApp(updates.appId || existing.appId, updates.appSlug || existing.appSlug, updates.appName || existing.appName);
+
     const updated: ReviewRecord = {
       ...existing,
       ...updates,
+      appId: resolvedApp.canonicalId,
+      appSlug: resolvedApp.canonicalSlug,
+      appName: resolvedApp.canonicalName,
       reviewText: updates.reviewText ? sanitizeReviewText(updates.reviewText, updates.appName || existing.appName) : existing.reviewText,
       updated_at: new Date().toISOString()
     };
@@ -1494,6 +1608,11 @@ public async voteHelpful(reviewId: string): Promise<number> {
       } catch (_) {}
     }
 
+    if (targetAppId) {
+      const resolved = resolveCanonicalApp(targetAppId);
+      targetAppId = resolved.canonicalId;
+    }
+
     const wasPublished = existing && (existing.status === 'published' || existing.status === 'approved');
     if (wasPublished && targetAppId) {
       const incs: any = { publishedReviewCount: -1, publishedRatingSum: -existing.rating };
@@ -1522,31 +1641,33 @@ public async voteHelpful(reviewId: string): Promise<number> {
   }
 
   public async deleteReviewsForApp(appIdentifier: string): Promise<number> {
-    const aliasKeys = this.getAliasKeysForApp(appIdentifier);
+    const resolved = resolveCanonicalApp(appIdentifier);
+    const aliasKeys = resolved.aliasKeys;
     let count = 0;
-    const cleanTarget = String(appIdentifier || '').toLowerCase().trim();
+    const canonicalTargetId = resolved.canonicalId;
 
     for (const [id, rev] of Array.from(this.reviews.entries())) {
       const revAppId = String(rev.appId || '').toLowerCase().trim();
       const revSlug = String(rev.appSlug || '').toLowerCase().trim();
       const revName = String(rev.appName || '').toLowerCase().trim();
 
-      if (aliasKeys.has(revAppId) || aliasKeys.has(revSlug) || aliasKeys.has(revName) || revAppId === cleanTarget || revSlug === cleanTarget) {
+      if (aliasKeys.has(revAppId) || aliasKeys.has(revSlug) || aliasKeys.has(revName) || revAppId === canonicalTargetId.toLowerCase() || revSlug === resolved.canonicalSlug.toLowerCase()) {
         const existing = this.reviews.get(id);
-    if (existing && (existing.status === 'published' || existing.status === 'approved')) {
-      const incs: any = { publishedReviewCount: -1, publishedRatingSum: -existing.rating };
-      incs[`star${existing.rating}`] = -1;
-      this.applyStatsToCache(existing.appId, incs);
-      atomicUpdateAppStats(existing.appId, incs).catch(e => console.warn(e));
-    }
-    this.deletedReviewIds.add(id);
-    this.reviews.delete(id);
+        if (existing && (existing.status === 'published' || existing.status === 'approved')) {
+          const incs: any = { publishedReviewCount: -1, publishedRatingSum: -existing.rating };
+          incs[`star${existing.rating}`] = -1;
+          this.applyStatsToCache(canonicalTargetId, incs);
+          atomicUpdateAppStats(canonicalTargetId, incs).catch(e => console.warn(e));
+        }
+        this.deletedReviewIds.add(id);
+        this.reviews.delete(id);
         count++;
       }
     }
 
     this.saveToDiskAndQueueCloudSync();
-    this.markDirty(cleanTarget);
+    this.markDirty(canonicalTargetId);
+    this.syncAppChunksToFirestore(canonicalTargetId).catch(e => console.warn(e));
     return count;
   }
 
@@ -1555,37 +1676,8 @@ public async voteHelpful(reviewId: string): Promise<number> {
    * Dynamically resolves all alias keys (ID, slug, name, package) for an app without cross-app contamination.
    */
   private getAliasKeysForApp(target: string, appTitle?: string, appSlug?: string): Set<string> {
-    const aliasKeys = new Set<string>();
-    const cleanTarget = String(target || '').toLowerCase().trim();
-    const cleanTitle = String(appTitle || '').toLowerCase().trim();
-    const cleanSlug = String(appSlug || '').toLowerCase().trim();
-
-    if (cleanTarget) aliasKeys.add(cleanTarget);
-    if (cleanTitle) aliasKeys.add(cleanTitle);
-    if (cleanSlug) aliasKeys.add(cleanSlug);
-
-    // Add normalized slug / title variants
-    if (cleanTitle) {
-      const slugified = cleanTitle.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-      if (slugified) aliasKeys.add(slugified);
-    }
-    if (cleanSlug) {
-      const titleified = cleanSlug.replace(/-/g, ' ').trim();
-      if (titleified) aliasKeys.add(titleified);
-    }
-
-    const matchedApp = findAppInCatalog(cleanTarget) || 
-                       (cleanSlug ? findAppInCatalog(cleanSlug) : null) || 
-                       (cleanTitle ? findAppInCatalog(cleanTitle) : null);
-
-    if (matchedApp) {
-      if (matchedApp.id) aliasKeys.add(String(matchedApp.id).toLowerCase().trim());
-      if (matchedApp.slug) aliasKeys.add(String(matchedApp.slug).toLowerCase().trim());
-      if (matchedApp.name) aliasKeys.add(String(matchedApp.name).toLowerCase().trim());
-      if (matchedApp.package_name) aliasKeys.add(String(matchedApp.package_name).toLowerCase().trim());
-    }
-
-    return aliasKeys;
+    const resolved = resolveCanonicalApp(target, appSlug, appTitle);
+    return resolved.aliasKeys;
   }
 
   /**
@@ -1593,10 +1685,10 @@ public async voteHelpful(reviewId: string): Promise<number> {
    * Guarantees zero cross-app pollution, no full-collection scans, and maximum speed.
    */
   public async loadSingleAppChunkFromFirestore(appIdentifier: string, appTitle?: string, appSlug?: string): Promise<boolean> {
-    const cleanId = String(appIdentifier || '').toLowerCase().trim();
-    if (!cleanId) return false;
+    const resolved = resolveCanonicalApp(appIdentifier, appSlug, appTitle);
+    const cleanId = resolved.canonicalId;
+    const aliasKeys = resolved.aliasKeys;
 
-    const aliasKeys = this.getAliasKeysForApp(cleanId, appTitle, appSlug);
     const candidateDocIds: string[] = [];
     aliasKeys.forEach(k => {
       const docId = getAppChunkDocId(k, 0);
@@ -1628,11 +1720,11 @@ public async voteHelpful(reviewId: string): Promise<number> {
               this.reviews.set(r.id, {
                 id: r.id,
                 appId: r.appId || cleanId,
-                appSlug: r.appSlug || appSlug || '',
-                appName: r.appName || appTitle || '',
-                userName: r.userName || r.userName || 'Player',
+                appSlug: r.appSlug || resolved.canonicalSlug || '',
+                appName: r.appName || resolved.canonicalName || '',
+                userName: r.userName || 'Player',
                 rating: Number(r.rating) || 5,
-                reviewText: sanitizeReviewText(r.reviewText || r.reviewText || ''),
+                reviewText: sanitizeReviewText(r.reviewText || ''),
                 timestamp: r.timestamp || r.created_at || new Date().toISOString(),
                 status: r.status || 'published',
                 helpful_count: Number(r.helpful_count) || 0,
@@ -1662,11 +1754,11 @@ public async voteHelpful(reviewId: string): Promise<number> {
             this.reviews.set(r.id, {
               id: r.id,
               appId: r.appId || cleanId,
-              appSlug: r.appSlug || appSlug || '',
-              appName: r.appName || appTitle || '',
-              userName: r.userName || r.userName || 'Player',
+              appSlug: r.appSlug || resolved.canonicalSlug || '',
+              appName: r.appName || resolved.canonicalName || '',
+              userName: r.userName || 'Player',
               rating: Number(r.rating) || 5,
-              reviewText: sanitizeReviewText(r.reviewText || r.reviewText || ''),
+              reviewText: sanitizeReviewText(r.reviewText || ''),
               timestamp: r.timestamp || r.created_at || new Date().toISOString(),
               status: r.status || 'published',
               helpful_count: Number(r.helpful_count) || 0,
@@ -1704,10 +1796,9 @@ public async voteHelpful(reviewId: string): Promise<number> {
     sortBy: string = 'recent',
     isBot: boolean = false
   ) {
-    const rawId = String(appIdentifier || '').toLowerCase().trim();
-    const matchedApp = findAppInCatalog(rawId) || (appSlug ? findAppInCatalog(appSlug) : null);
-    const cleanId = matchedApp ? String(matchedApp.id).toLowerCase().trim() : rawId;
-    const aliasKeys = this.getAliasKeysForApp(cleanId, appTitle, appSlug || matchedApp?.slug);
+    const resolved = resolveCanonicalApp(appIdentifier, appSlug, appTitle);
+    const cleanId = resolved.canonicalId;
+    const aliasKeys = resolved.aliasKeys;
 
     // Zero-Cost Bot Bypass: If request is from a bot or crawler, serve 100% from in-memory cache and local snapshot (0 Firestore reads, 0 quota cost!)
     if (!isBot) {
@@ -1761,18 +1852,14 @@ public async voteHelpful(reviewId: string): Promise<number> {
     const hasMore = startIndex + limitCount < filteredList.length;
     const nextCursor = hasMore && pageReviews.length > 0 ? pageReviews[pageReviews.length - 1].id : null;
 
-    const stats = {
-      averageRating: avgRating,
-      totalReviews: totalAppReviews,
-      starCounts: starCounts
-    };
+    const fullStats = await this.getAppStats(cleanId, overallRating, appTitle, appSlug);
 
     return { 
       reviews: pageReviews, 
       hasMore, 
       nextCursor, 
-      total: totalAppReviews, 
-      stats 
+      total: fullStats.totalReviews, 
+      stats: fullStats 
     };
   }
 
@@ -2294,8 +2381,9 @@ public async voteHelpful(reviewId: string): Promise<number> {
 
   
   public async getAppStats(appIdentifier: string, fallbackRating = 4.8, appTitle?: string, appSlug?: string) {
-    const matchedApp = findAppInCatalog(appIdentifier) || (appSlug ? findAppInCatalog(appSlug) : null) || (appTitle ? findAppInCatalog(appTitle) : null);
-    const cleanId = matchedApp ? String(matchedApp.id).toLowerCase().trim() : String(appIdentifier || '').toLowerCase().trim();
+    const resolved = resolveCanonicalApp(appIdentifier, appSlug, appTitle);
+    const cleanId = resolved.canonicalId;
+    const matchedApp = resolved.matchedApp;
     
     // 1. Get Base App Stats
     const baseTotal = matchedApp?.review_count ? Number(matchedApp.review_count) : (matchedApp?.existingReviewsCount ? Number(matchedApp.existingReviewsCount) : 0);
@@ -2314,11 +2402,15 @@ public async voteHelpful(reviewId: string): Promise<number> {
 
     // 2. Fetch atomic stats (from memory cache or remote Firestore)
     let stats = this.appStatsCache.get(cleanId);
+    if (!stats && resolved.canonicalSlug) {
+      stats = this.appStatsCache.get(resolved.canonicalSlug);
+    }
     if (!stats) {
       try {
         stats = await readAppStats(cleanId);
         if (stats) {
           this.appStatsCache.set(cleanId, stats);
+          if (resolved.canonicalSlug) this.appStatsCache.set(resolved.canonicalSlug, stats);
         }
       } catch (e) {
         // ignore
@@ -2331,7 +2423,7 @@ public async voteHelpful(reviewId: string): Promise<number> {
       communityStarCounts = stats.starDistribution || communityStarCounts;
     } else {
       // 3. Fallback: compute from memory reviews if no atomic stats document exists
-      const aliasKeys = this.getAliasKeysForApp(appIdentifier, appTitle, appSlug);
+      const aliasKeys = resolved.aliasKeys;
       const appReviews = Array.from(this.reviews.values())
         .filter(r => {
           if (r.status && r.status !== 'published' && r.status !== 'approved') return false;
@@ -2350,11 +2442,15 @@ public async voteHelpful(reviewId: string): Promise<number> {
         });
         
         // Cache these computed stats!
-        this.appStatsCache.set(cleanId, {
-           publishedReviewCount: communityTotal,
-           publishedRatingSum: communityRatingSum,
-           starDistribution: communityStarCounts
-        });
+        const computedStats = {
+          publishedReviewCount: communityTotal,
+          publishedRatingSum: communityRatingSum,
+          starDistribution: communityStarCounts
+        };
+        this.appStatsCache.set(cleanId, computedStats);
+        if (resolved.canonicalSlug) {
+          this.appStatsCache.set(resolved.canonicalSlug, computedStats);
+        }
       }
     }
 
@@ -2369,17 +2465,29 @@ public async voteHelpful(reviewId: string): Promise<number> {
        averageRating = fallbackRating;
     }
 
+    const aggregatedStarCounts = {
+      '5': baseStarCounts['5'] + (communityStarCounts['5'] || 0),
+      '4': baseStarCounts['4'] + (communityStarCounts['4'] || 0),
+      '3': baseStarCounts['3'] + (communityStarCounts['3'] || 0),
+      '2': baseStarCounts['2'] + (communityStarCounts['2'] || 0),
+      '1': baseStarCounts['1'] + (communityStarCounts['1'] || 0)
+    };
+
+    const effectiveTotal = Math.max(1, totalReviews);
+    const distribution: Record<number, number> = {
+      5: Math.round((aggregatedStarCounts['5'] / effectiveTotal) * 100),
+      4: Math.round((aggregatedStarCounts['4'] / effectiveTotal) * 100),
+      3: Math.round((aggregatedStarCounts['3'] / effectiveTotal) * 100),
+      2: Math.round((aggregatedStarCounts['2'] / effectiveTotal) * 100),
+      1: Math.round((aggregatedStarCounts['1'] / effectiveTotal) * 100),
+    };
+
     return {
-      appId: matchedApp?.id ? String(matchedApp.id) : appIdentifier,
+      appId: resolved.canonicalId,
       averageRating: Math.max(1, Math.min(5, averageRating)),
       totalReviews,
-      starCounts: {
-        '5': baseStarCounts['5'] + (communityStarCounts['5'] || 0),
-        '4': baseStarCounts['4'] + (communityStarCounts['4'] || 0),
-        '3': baseStarCounts['3'] + (communityStarCounts['3'] || 0),
-        '2': baseStarCounts['2'] + (communityStarCounts['2'] || 0),
-        '1': baseStarCounts['1'] + (communityStarCounts['1'] || 0)
-      }
+      starCounts: aggregatedStarCounts,
+      distribution
     };
   }
 }

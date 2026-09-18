@@ -161,7 +161,7 @@ export function useReviews(
   }, [cleanAppId, cleanAppSlug, cleanAppTitle, overallRating, activeFilter, sortBy]);
 
   // Initial fetch when container enters view or target app changes
-  const prevTargetKeyRef = useRef<string>('');
+  const prevTargetKeyRef = useRef<string>(cleanAppId || cleanAppSlug);
   useEffect(() => {
     const targetKey = cleanAppId || cleanAppSlug;
     if (!targetKey || !inView) return;
@@ -171,6 +171,35 @@ export function useReviews(
       setNextCursor(null);
       nextCursorRef.current = null;
       setExpandedReviews({});
+      
+      // Update reviews with any cached entries for the new app immediately
+      const freshCache = getCachedLiveReviews(cleanAppId, cleanAppSlug);
+      if (freshCache && freshCache.reviews.length > 0) {
+        const mapped = freshCache.reviews.slice(0, PAGE_SIZE).map((r: PublicReview) => ({
+          id: r.id,
+          app_id: r.app_id || r.appId || cleanAppId,
+          username: r.username || 'Player',
+          rating: Number(r.rating) || 5,
+          comment: r.comment || '',
+          created_at: r.created_at || new Date().toISOString(),
+          helpful_count: Number(r.helpful_count) || 0,
+          reported: Boolean(r.reported),
+          report_count: Number(r.report_count) || 0,
+          source: r.source || 'community',
+          isPinned: Boolean(r.isPinned),
+          adminReply: r.adminReply || null
+        }));
+        setReviews(deduplicateReviewsList(mapped));
+        setStats(freshCache.stats || null);
+        setHasMore(Boolean(freshCache.hasMore));
+        setNextCursor(freshCache.nextCursor || null);
+        nextCursorRef.current = freshCache.nextCursor || null;
+      } else {
+        setReviews([]);
+        setStats(null);
+        setHasMore(false);
+      }
+      
       fetchReviews(false);
     }
   }, [cleanAppId, cleanAppSlug, inView, fetchReviews]);
