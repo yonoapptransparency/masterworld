@@ -50,6 +50,31 @@ export interface GlobalSettings {
   social_links?: { facebook?: string; instagram?: string; twitter?: string; linkedin?: string; youtube?: string; };
   website_faqs?: Array<{ question: string; answer: string }>;
   developers?: Array<{ name: string; role: string; bio?: string; image_url?: string; github?: string; twitter?: string; avatar_url?: string; social?: any }>;
+  // Static Pages Custom SEO
+  disclaimer_meta_title?: string;
+  disclaimer_meta_description?: string;
+  ethics_meta_title?: string;
+  ethics_meta_description?: string;
+  about_meta_title?: string;
+  about_meta_description?: string;
+  contact_meta_title?: string;
+  contact_meta_description?: string;
+  privacy_meta_title?: string;
+  privacy_meta_description?: string;
+  terms_meta_title?: string;
+  terms_meta_description?: string;
+  responsibility_meta_title?: string;
+  responsibility_meta_description?: string;
+  report_removal_meta_title?: string;
+  report_removal_meta_description?: string;
+  notice_meta_title?: string;
+  notice_meta_description?: string;
+  developers_meta_title?: string;
+  developers_meta_description?: string;
+  news_meta_title?: string;
+  news_meta_description?: string;
+  videos_meta_title?: string;
+  videos_meta_description?: string;
 }
 
 export interface NewsItem {
@@ -57,7 +82,6 @@ export interface NewsItem {
   slug: string;
   title: string;
   logo_url: string;
-  image_url?: string;
   description: string;
   ceo_name: string;
   ceo_description: string;
@@ -77,12 +101,6 @@ export interface NewsItem {
   date?: string;
   tags?: string[];
   related_app_id?: string;
-  created_at?: string;
-  updated_at?: string;
-  is_breaking?: boolean;
-  is_new?: boolean;
-  is_pinned?: boolean;
-  sync_to_public?: boolean;
 }
 
 export interface AppConfig {
@@ -125,7 +143,6 @@ export interface AppConfig {
   is_top_chart?: boolean;
   top_chart_category?: string;
   more_information_url?: string;
-  sync_to_public?: boolean;
 }
 
 export interface Review {
@@ -147,8 +164,6 @@ export interface VideoItem {
   seo_description: string;
   meta_description?: string;
   seo_keywords?: string;
-  canonical_url?: string;
-  og_image_url?: string;
   created_at: string;
 }
 
