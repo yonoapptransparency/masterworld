@@ -2,8 +2,6 @@
   "version": 2,
   "outputDirectory": "dist",
   "buildCommand": "npm run build",
-  "cleanUrls": true,
-  "trailingSlash": false,
   "rewrites": [
     {
       "source": "/public/backup-data",

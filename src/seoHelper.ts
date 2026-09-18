@@ -342,7 +342,7 @@ async function buildJsonLdSchema(params: {
 
     const finalCount = !isNaN(configuredCount) && configuredCount > 0
       ? configuredCount
-      : (liveStats.totalReviews > 0 ? liveStats.totalReviews : Math.floor(clampedRating * 35 + 20));
+      : (liveStats && liveStats.totalReviews > 0 ? liveStats.totalReviews : Math.floor(clampedRating * 35 + 20));
 
     const appRawIcon = getField(app, 'icon_url') || getField(app, 'og_image_url') || params.logoUrl;
     const appSquareIcon = optimizeImageUrl(appRawIcon, 512) || appRawIcon;
