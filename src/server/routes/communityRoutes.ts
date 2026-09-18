@@ -48,10 +48,18 @@ communityRouter.post(["/api/v1/public/community/reviews", "/api/v1/public/rating
   }
 
   // Verify Turnstile Token if non-placeholder
-  if (turnstileToken && turnstileToken !== 'frontend_token_placeholder') {
+  if (process.env.NODE_ENV === 'production') {
+    if (!turnstileToken || turnstileToken === 'frontend_token_placeholder') {
+      return res.status(400).json({ error: 'Security verification token required.' });
+    }
     const isHuman = await verifyTurnstile(turnstileToken, ip);
-    if (!isHuman && process.env.NODE_ENV === 'production') {
+    if (!isHuman) {
       return res.status(403).json({ error: 'Security verification failed.' });
+    }
+  } else if (turnstileToken && turnstileToken !== 'frontend_token_placeholder') {
+    const isHuman = await verifyTurnstile(turnstileToken, ip);
+    if (!isHuman) {
+      console.warn('[Security] Turnstile verification failed in development mode');
     }
   }
 

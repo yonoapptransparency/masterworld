@@ -5,7 +5,24 @@ import { syncFromFirestore } from './seo/sync';
 import { getField, stripHtml, getYoutubeThumbnail, ensureAbsoluteUrl, getOgImageUrl, isBotUserAgent, escapeHtml, optimizeImageUrl, normalizeSchemaCategory } from './seo/utils';
 import * as renderers from './seo/renderers';
 import { getCleanCanonicalUrl, formatPageTitle } from './lib/seoUtils';
-import { communityStore } from './lib/communityStoreFallback';
+
+async function fetchSEOReviewsForApp(appId: string, appSlug: string, rating: number, appName: string) {
+  try {
+    const base = `http://127.0.0.1:${process.env.PORT || 3000}`;
+    const url = `${base}/api/v1/public/community/reviews/${encodeURIComponent(appId)}?limit=5&rating=${rating}&slug=${encodeURIComponent(appSlug)}&appTitle=${encodeURIComponent(appName)}`;
+    const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = ctrl ? setTimeout(() => ctrl.abort(), 3000) : null;
+    const res = await fetch(url, { signal: ctrl?.signal });
+    if (timer) clearTimeout(timer);
+    if (res.ok) {
+      const data = await res.json();
+      return { reviews: data.reviews || [], stats: data.stats || null };
+    }
+  } catch (e) {
+    console.warn('[SEO] Skipping community reviews for SSR:', e);
+  }
+  return { reviews: [], stats: null };
+}
 
 // Dynamically resolve staticData directly from filesystem to bypass caching
 const getStaticData = () => {
@@ -237,7 +254,7 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
     if (app) {
       const appIdentifier = getField(app, 'slug') || getField(app, 'id');
       const rawRatingVal = parseFloat(getField(app, 'rating')) || 4.5;
-      const appSampleReviews = (await communityStore.getReviewsForApp(appIdentifier, undefined, 6, getField(app, 'name'), rawRatingVal, getField(app, 'slug')))?.reviews || [];
+      const appSampleReviews = (await fetchSEOReviewsForApp(appIdentifier, getField(app, 'slug'), rawRatingVal, getField(app, 'name')))?.reviews || [];
       bodyContent = renderers.renderAppDetails(getField(app, 'slug') || possibleSlug, apps, settings, appSampleReviews);
     } else {
       bodyContent = renderers.render404(urlPath, settings);
@@ -251,7 +268,7 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
     if (app) {
       const appIdentifier = getField(app, 'slug') || getField(app, 'id');
       const rawRatingVal = parseFloat(getField(app, 'rating')) || 4.5;
-      const appSampleReviews = (await communityStore.getReviewsForApp(appIdentifier, undefined, 6, getField(app, 'name'), rawRatingVal, getField(app, 'slug')))?.reviews || [];
+      const appSampleReviews = (await fetchSEOReviewsForApp(appIdentifier, getField(app, 'slug'), rawRatingVal, getField(app, 'name')))?.reviews || [];
       bodyContent = renderers.renderAppDetails(getField(app, 'slug') || possibleSlug, apps, settings, appSampleReviews);
     } else if (newsItem) {
       bodyContent = renderers.renderNewsDetail(possibleSlug, news, settings);
@@ -316,11 +333,11 @@ async function buildJsonLdSchema(params: {
     
     // Admin configured rating is the primary authority for the catalog
     const appIdentifier = getField(app, 'slug') || getField(app, 'id');
-    const liveStats = communityStore.getAppStats(appIdentifier, !isNaN(configuredRating) && configuredRating > 0 ? configuredRating : 4.5);
+    const { stats: liveStats } = await fetchSEOReviewsForApp(appIdentifier, getField(app, 'slug'), !isNaN(configuredRating) && configuredRating > 0 ? configuredRating : 4.5, name);
     
     const finalRating = !isNaN(configuredRating) && configuredRating > 0 
       ? configuredRating 
-      : (liveStats.totalReviews > 0 ? liveStats.averageRating : 4.5);
+      : (liveStats && liveStats.totalReviews > 0 ? liveStats.averageRating : 4.5);
     const clampedRating = Math.max(1.0, Math.min(5.0, finalRating));
 
     const finalCount = !isNaN(configuredCount) && configuredCount > 0
@@ -370,7 +387,7 @@ async function buildJsonLdSchema(params: {
 
     // Include sample reviews if available to boost Google Rich Snippet compliance (without nested itemReviewed)
     try {
-      const feed = await communityStore.getReviewsForApp(appIdentifier, undefined, 5, name, clampedRating, getField(app, 'slug'));
+      const feed = await fetchSEOReviewsForApp(appIdentifier, getField(app, 'slug'), clampedRating, name);
       if (feed && Array.isArray(feed.reviews) && feed.reviews.length > 0) {
         const validReviews = feed.reviews
           .filter((rev: any) => rev && stripHtml(rev.reviewText || '').trim().length >= 3)

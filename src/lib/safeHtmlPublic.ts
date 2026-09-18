@@ -25,15 +25,15 @@ export function structureHtmlFragment(rawHtml: string): string {
            .replace(/(?:^|\n)\s*##\s+(.*?)(?=\n|<|$)/gi, '\n<h2>$1</h2>')
            .replace(/(?:^|\n)\s*#\s+(.*?)(?=\n|<|$)/gi, '\n<h2>$1</h2>');
 
-  // If input ALREADY has structured HTML block tags (p, h2, h3, ul, ol, li, div, section, article)
-  const hasStructuredTags = /<(p|h[23456]|ul|ol|li|div|section|article)\b/i.test(str);
+  // If input ALREADY has structured HTML block tags (p, h2, h3, ul, ol, li, div, section, article, table, figure, blockquote)
+  const hasStructuredTags = /<(p|h[23456]|ul|ol|li|div|section|article|table|figure|blockquote)\b/i.test(str);
 
   if (hasStructuredTags) {
     let clean = str;
 
-    // Remove any <p> that wraps block elements like <ul>, <ol>, <h2>, <h3>, <li>, <div>, <section>
-    clean = clean.replace(/<p\b[^>]*>\s*(<(?:ul|ol|h[23456]|li|div|section|article)[^>]*>)/gi, '$1')
-                 .replace(/(<\/(?:ul|ol|h[23456]|li|div|section|article)>)\s*<\/p>/gi, '$1');
+    // Remove any <p> that wraps block elements like <ul>, <ol>, <h2>, <h3>, <li>, <div>, <section>, <table>, <figure>, <blockquote>
+    clean = clean.replace(/<p\b[^>]*>\s*(<(?:ul|ol|h[23456]|li|div|section|article|table|figure|blockquote)[^>]*>)/gi, '$1')
+                 .replace(/(<\/(?:ul|ol|h[23456]|li|div|section|article|table|figure|blockquote)>)\s*<\/p>/gi, '$1');
 
     // Auto-bold Topic: inside <p> or <li> if not already bolded
     clean = clean.replace(/<(p|li)([^>]*)>\s*([A-Z0-9][A-Za-z0-9\s&—–-]{2,50}):\s+/g, (match, tag, attrs, title) => {

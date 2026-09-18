@@ -51,7 +51,9 @@ async function startServer() {
   }));
   app.use(cookieParser());
   app.use(cors({
-    origin: true,
+    origin: process.env.NODE_ENV === 'production' 
+      ? ['https://www.rummydex.com', 'https://rummydex.com', 'https://admin.rummydex.com'] 
+      : true,
     credentials: true,
   }));
 

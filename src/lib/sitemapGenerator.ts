@@ -113,7 +113,7 @@ export function generateAppsSitemapXml(
   const now = new Date().toISOString().replace(/\.\d{3}Z$/, '+00:00');
 
   // Filter public-ready apps
-  const publicApps = apps.filter((a: any) => a && a.slug && a.sync_to_public !== false);
+  const publicApps = apps.filter((a: any) => a && a.slug && a.sync_to_public !== false && !a.slug.toLowerCase().includes('test-'));
   
   // Sort latest updated first
   publicApps.sort((a, b) => {
@@ -140,16 +140,32 @@ export function generateAppsSitemapXml(
     }
     const appName = app.name || 'Application';
 
+    const isFeatured = app.is_featured === true || app.is_hot === true;
+    const priority = isFeatured ? '0.9' : '0.8';
+    const changefreq = isFeatured ? 'daily' : 'weekly';
+
     xml += `  <url>\n`;
     xml += `    <loc>${loc}</loc>\n`;
     xml += `    <lastmod>${appDate}</lastmod>\n`;
-    xml += `    <changefreq>daily</changefreq>\n`;
-    xml += `    <priority>0.9</priority>\n`;
+    xml += `    <changefreq>${changefreq}</changefreq>\n`;
+    xml += `    <priority>${priority}</priority>\n`;
     if (appImage) {
       xml += `    <image:image>\n`;
       xml += `      <image:loc>${escapeXml(appImage)}</image:loc>\n`;
       xml += `      <image:title>${escapeXml(appName)}</image:title>\n`;
       xml += `    </image:image>\n`;
+    }
+    if (Array.isArray(app.screenshots)) {
+      app.screenshots.forEach((s: string, idx: number) => {
+        let shotImage = s;
+        if (shotImage && typeof shotImage === 'string' && shotImage.includes('res.cloudinary.com')) {
+          shotImage = shotImage.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_webp,q_auto,w_800/$1');
+        }
+        xml += `    <image:image>\n`;
+        xml += `      <image:loc>${escapeXml(shotImage)}</image:loc>\n`;
+        xml += `      <image:caption>Screenshot ${idx + 1} of ${escapeXml(appName)} showing gameplay</image:caption>\n`;
+        xml += `    </image:image>\n`;
+      });
     }
     xml += `  </url>\n`;
   }

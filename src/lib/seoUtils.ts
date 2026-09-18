@@ -8,7 +8,13 @@ export function formatPageTitle(rawTitle?: string, siteTitle: string = 'RummyDex
   const firstLine = rawTitle.split(/\r?\n/)[0] || rawTitle;
   const clean = firstLine.trim().replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
   
-  return clean || siteTitle;
+  if (!clean) return siteTitle;
+  
+  const suffix = ` — ${siteTitle}`;
+  const MAX_LENGTH = 60;
+  const available = MAX_LENGTH - suffix.length;
+  const truncated = clean.length > available ? clean.substring(0, available - 1).trim() + '…' : clean;
+  return `${truncated}${suffix}`;
 }
 
 export function getCleanCanonicalUrl(rawUrl?: string, fallbackPath: string = '/'): string {
