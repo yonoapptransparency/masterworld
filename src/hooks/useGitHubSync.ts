@@ -263,6 +263,7 @@ export function useGitHubSync(
 
     
     const staticJsonCode = JSON.stringify(consolidatedStaticPayload, null, 2);
+    const backupJsonCode = staticJsonCode;
 
     try {
       const idToken = await getAdminToken();

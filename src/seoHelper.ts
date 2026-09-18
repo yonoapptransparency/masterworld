@@ -6,17 +6,55 @@ import { getField, stripHtml, getYoutubeThumbnail, ensureAbsoluteUrl, getOgImage
 import * as renderers from './seo/renderers';
 import { getCleanCanonicalUrl, formatPageTitle } from './lib/seoUtils';
 
+let localReviewsBackupCache: any[] | null = null;
+
+function getLocalSEOReviewsList(): any[] {
+  if (localReviewsBackupCache) return localReviewsBackupCache;
+  try {
+    const backupPath = path.join(process.cwd(), 'community_local_backup.json');
+    if (fs.existsSync(backupPath)) {
+      const raw = fs.readFileSync(backupPath, 'utf8');
+      const data = JSON.parse(raw);
+      if (data && Array.isArray(data.reviews)) {
+        localReviewsBackupCache = data.reviews;
+        return localReviewsBackupCache;
+      }
+    }
+  } catch (_) {}
+  return [];
+}
+
 async function fetchSEOReviewsForApp(appId: string, appSlug: string, rating: number, appName: string) {
   try {
-    const base = `http://127.0.0.1:${process.env.PORT || 3000}`;
-    const url = `${base}/api/v1/public/community/reviews/${encodeURIComponent(appId)}?limit=5&rating=${rating}&slug=${encodeURIComponent(appSlug)}&appTitle=${encodeURIComponent(appName)}`;
-    const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    const timer = ctrl ? setTimeout(() => ctrl.abort(), 3000) : null;
-    const res = await fetch(url, { signal: ctrl?.signal });
-    if (timer) clearTimeout(timer);
-    if (res.ok) {
-      const data = await res.json();
-      return { reviews: data.reviews || [], stats: data.stats || null };
+    const allReviews = getLocalSEOReviewsList();
+    const cleanId = String(appId || '').toLowerCase().trim();
+    const cleanSlug = String(appSlug || '').toLowerCase().trim();
+    const cleanName = String(appName || '').toLowerCase().trim();
+
+    const matched = allReviews.filter((r: any) => {
+      if (!r || r.status === 'rejected' || r.status === 'deleted') return false;
+      const rAppId = String(r.appId || r.app_id || '').toLowerCase().trim();
+      const rSlug = String(r.appSlug || r.slug || '').toLowerCase().trim();
+      const rName = String(r.appName || r.name || '').toLowerCase().trim();
+      return (
+        (cleanId && rAppId === cleanId) ||
+        (cleanSlug && (rSlug === cleanSlug || rAppId === cleanSlug)) ||
+        (cleanName && rName === cleanName)
+      );
+    });
+
+    if (matched.length > 0) {
+      const published = matched.slice(0, 5);
+      const totalReviews = matched.length;
+      const avg = matched.reduce((acc: number, cur: any) => acc + (Number(cur.rating) || 5), 0) / (totalReviews || 1);
+      return {
+        reviews: published,
+        stats: {
+          averageRating: parseFloat(avg.toFixed(1)),
+          totalReviews: totalReviews,
+          starCounts: {}
+        }
+      };
     }
   } catch (e) {
     console.warn('[SEO] Skipping community reviews for SSR:', e);
