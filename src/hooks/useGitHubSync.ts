@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db, isFirebaseReal, handleFirestoreError, OperationType } from '../lib/firebase';
 import { adminFetch, getValidAdminToken, loadSession } from '../services/adminAuthService';
-import { GitConfig, generateStaticDataFileCode, commitFileToGitHub, encryptUrlIfNeeded } from '../lib/githubSync';
+import { GitConfig, generateStaticDataFileCode, generateCommunityReviewsFileCode, commitFileToGitHub, encryptUrlIfNeeded } from '../lib/githubSync';
 import { generateAllSitemaps } from '../lib/sitemapGenerator';
 import { ensureDefaultSettings } from '../lib/defaultLegalContent';
 import { AppConfig, GlobalSettings, NewsItem, VideoItem } from '../types';
@@ -249,6 +249,33 @@ export function useGitHubSync(
       return app;
     });
 
+    // Fetch verified community reviews for static bundle generation
+    let publishedReviews: any[] = [];
+    try {
+      log("GitHub Sync: Fetching verified community reviews for static export...");
+      const revRes = await adminFetch('/api/v1/admin/community/export-published');
+      if (revRes.ok) {
+        const revData = await revRes.json();
+        if (Array.isArray(revData.reviews) && revData.reviews.length > 0) {
+          publishedReviews = revData.reviews;
+          log(`GitHub Sync: Loaded ${publishedReviews.length} verified review(s) for public distribution.`);
+        }
+      }
+    } catch (e: any) {
+      log(`GitHub Sync Notice: Review export notice: ${e?.message || 'skipped'}`);
+    }
+
+    // Fallback to locally bundled reviews if network export was empty
+    if (publishedReviews.length === 0) {
+      try {
+        const localMod = await import('../lib/communityReviewsData');
+        if (localMod && Array.isArray(localMod.STATIC_COMMUNITY_REVIEWS) && localMod.STATIC_COMMUNITY_REVIEWS.length > 0) {
+          publishedReviews = localMod.STATIC_COMMUNITY_REVIEWS;
+          log(`GitHub Sync: Using ${publishedReviews.length} cached review(s) from communityReviewsData.`);
+        }
+      } catch (localRevErr) {}
+    }
+
     const consolidatedStaticPayload = {
       apps: safeBackupApps,
       mockApps: safeBackupApps,
@@ -258,11 +285,12 @@ export function useGitHubSync(
       mockNews: publicNews,
       videos: targetVideos,
       mockVideos: targetVideos,
-      reviews: []
+      reviews: publishedReviews
     };
 
     const backupJsonCode = JSON.stringify(consolidatedStaticPayload, null, 2);
     const staticJsonCode = JSON.stringify(consolidatedStaticPayload, null, 2);
+    const communityReviewsCode = generateCommunityReviewsFileCode(publishedReviews);
 
     try {
       const idToken = await getAdminToken();
@@ -296,6 +324,12 @@ export function useGitHubSync(
           content: updatedCode,
           message: `Admin Release: Manual content synchronization to ${targetRepo}`,
           name: 'staticData.ts'
+        },
+        {
+          path: 'src/lib/communityReviewsData.ts',
+          content: communityReviewsCode,
+          message: `Admin Release: Community reviews dataset synchronization to ${targetRepo}`,
+          name: 'communityReviewsData.ts'
         },
         {
           path: 'src/lib/public_backup.json',
@@ -375,6 +409,7 @@ export function useGitHubSync(
           log("GitHub Sync: Performing secondary mirror synchronization to masterworld...");
           const secondaryFiles = [
             { path: 'src/lib/staticData.ts', content: updatedCode, name: 'staticData.ts' },
+            { path: 'src/lib/communityReviewsData.ts', content: communityReviewsCode, name: 'communityReviewsData.ts' },
             { path: 'src/lib/public_backup.json', content: backupJsonCode, name: 'public_backup.json' },
             { path: 'src/lib/staticData.json', content: staticJsonCode, name: 'staticData.json' }
           ];
@@ -409,7 +444,7 @@ export function useGitHubSync(
       const vaultRes = await adminFetch('/api/v1/admin/seal-vault', {
          method: 'POST',
          headers: { 'Content-Type': 'application/json', ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {}) },
-         body: JSON.stringify({ items: finalApps })
+         body: JSON.stringify({ items: publicApps })
       });
 
       if (vaultRes.ok) {

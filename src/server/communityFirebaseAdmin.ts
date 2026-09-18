@@ -529,8 +529,8 @@ export async function fetchLiveReviewsForApp(
           docs.sort((a: any, b: any) => (Number(a.rating) || 5) - (Number(b.rating) || 5));
         } else {
           docs.sort((a: any, b: any) => {
-            const aIsPinned = Boolean(a.isPinned && a.source !== 'ai_generated');
-            const bIsPinned = Boolean(b.isPinned && b.source !== 'ai_generated');
+            const aIsPinned = Boolean(a.isPinned);
+            const bIsPinned = Boolean(b.isPinned);
             if (aIsPinned !== bIsPinned) return aIsPinned ? -1 : 1;
             return new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime();
           });

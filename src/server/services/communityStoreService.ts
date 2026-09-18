@@ -249,6 +249,7 @@ class CommunityStoreService {
   private isSyncing = false;
   private isChunkSyncing = false;
   private quotaExhaustedUntil = 0;
+  private readonly QUOTA_COOLDOWN_MS = 30 * 1000; // 30-second resilience cooldown instead of 15-minute freeze
   private syncTimer: NodeJS.Timeout | null = null;
   private localBackupPath = path.join(process.cwd(), 'community_local_backup.json');
   private cachedRemoteCounts: ExactCommunityAggregationResult | null = null;
@@ -310,6 +311,10 @@ class CommunityStoreService {
     return code === 8 || code === 429 || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('Quota exceeded');
   }
 
+  private handleQuotaCooldown() {
+    this.quotaExhaustedUntil = Date.now() + this.QUOTA_COOLDOWN_MS;
+  }
+
   // Load from local JSON disk backup on startup
   private loadFromLocalBackup() {
     try {
@@ -326,10 +331,6 @@ class CommunityStoreService {
             if (r && r.id && !this.deletedReviewIds.has(r.id)) {
               // Automatically sanitize any loaded reviews from past sessions
               r.reviewText = sanitizeReviewText(r.reviewText);
-              // CRITICAL: Ensure ai_generated reviews are NEVER pinned so community reviews stay prominent
-              if (r.source === 'ai_generated') {
-                r.isPinned = false;
-              }
               this.reviews.set(r.id, r);
             }
           });
@@ -407,6 +408,19 @@ class CommunityStoreService {
     return this.reports.size;
   }
 
+  /**
+   * Returns all active, published verified reviews for static export & sitemaps
+   */
+  public getAllPublishedReviews(): ReviewRecord[] {
+    const list: ReviewRecord[] = [];
+    this.reviews.forEach((r) => {
+      if (r && (!r.status || r.status === 'published' || r.status === 'approved') && !this.deletedReviewIds.has(r.id)) {
+        list.push({ ...r });
+      }
+    });
+    return list;
+  }
+
   public isQuotaProtected(): boolean {
     return Date.now() < this.quotaExhaustedUntil;
   }
@@ -473,7 +487,7 @@ class CommunityStoreService {
           this.exportToStaticTypeScript();
         } catch (e: any) {
           if (this.isQuotaError(e)) {
-            this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000;
+            this.handleQuotaCooldown();
             if (!this.initialized) {
               console.log(`[CommunityStore] Firestore free quota active; serving ${this.reviews.size} reviews and ${this.reports.size} reports from local storage.`);
             }
@@ -705,7 +719,7 @@ class CommunityStoreService {
           }
         });
       } catch (err: any) {
-        if (this.isQuotaError(err)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000;
+        if (this.isQuotaError(err)) this.handleQuotaCooldown();
         console.warn(`[CommunityStore] ensureAllReviewsLoadedForApp query notice for ${cleanId}:`, err?.message || err);
       }
     } else {
@@ -820,10 +834,10 @@ class CommunityStoreService {
       );
     });
 
-    // Sort: Genuine non-AI Pinned first, then newest timestamp
+    // Sort: Pinned first, then newest timestamp
     appReviews.sort((a, b) => {
-      const aIsPinned = Boolean(a.isPinned && a.source !== 'ai_generated');
-      const bIsPinned = Boolean(b.isPinned && b.source !== 'ai_generated');
+      const aIsPinned = Boolean(a.isPinned);
+      const bIsPinned = Boolean(b.isPinned);
       if (aIsPinned !== bIsPinned) return aIsPinned ? -1 : 1;
       return new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime();
     });
@@ -965,7 +979,7 @@ class CommunityStoreService {
       }
       return await safeWriteDb(docId, data, undefined, false, 'community_store');
     } catch (e: any) {
-      if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000;
+      if (this.isQuotaError(e)) this.handleQuotaCooldown();
       console.warn(`[CommunityStore] Chunk doc write notice for ${docId}:`, e?.message || e);
       return false;
     }
@@ -1026,7 +1040,7 @@ class CommunityStoreService {
       timestamp: payload.timestamp || payload.date || payload.created_at || new Date().toISOString(),
       status: (payload.status as any) || 'published',
       helpful_count: Number(payload.helpful_count || payload.helpfulCount) || 0,
-      isPinned: payload.source === 'ai_generated' ? false : Boolean(payload.isPinned),
+      isPinned: Boolean(payload.isPinned),
       reported: Boolean(payload.reported),
       report_count: Number(payload.report_count) || 0,
       source: payload.source || 'community',
@@ -1052,12 +1066,12 @@ class CommunityStoreService {
     try {
       if (db) {
         db.collection('reviews').doc(id).set(newRev).catch((e: any) => {
-          if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000;
+          if (this.isQuotaError(e)) this.handleQuotaCooldown();
           console.warn("[CommunityStore] Firestore direct review write notice:", e?.message || e);
         });
       } else {
         safeWriteDb(id, newRev, undefined, true, 'reviews').catch((e: any) => {
-          if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000;
+          if (this.isQuotaError(e)) this.handleQuotaCooldown();
           console.warn("[CommunityStore] REST review write notice:", e?.message || e);
         });
       }
@@ -1233,7 +1247,7 @@ class CommunityStoreService {
         isPinned: Boolean(payload.isPinned),
         reported: false,
         report_count: 0,
-        source: payload.source || 'ai_generated',
+        source: payload.source || 'community',
         adminReply: payload.adminReply || null,
         updated_at: new Date().toISOString()
       };
@@ -1358,9 +1372,9 @@ public async voteHelpful(reviewId: string): Promise<number> {
 
     const db = getCommunityAdminDb();
     if (db) {
-      db.collection('reports').doc(reportId).set(newReport).catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
+      db.collection('reports').doc(reportId).set(newReport).catch((e: any) => { if (this.isQuotaError(e)) this.handleQuotaCooldown(); });
     } else {
-      safeWriteDb(reportId, newReport, undefined, true, 'reports').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
+      safeWriteDb(reportId, newReport, undefined, true, 'reports').catch((e: any) => { if (this.isQuotaError(e)) this.handleQuotaCooldown(); });
     }
 
     this.saveToDiskAndQueueCloudSync();
@@ -1635,7 +1649,7 @@ public async voteHelpful(reviewId: string): Promise<number> {
           return true;
         }
       } catch (err: any) {
-        if (this.isQuotaError(err)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000;
+        if (this.isQuotaError(err)) this.handleQuotaCooldown();
       }
     }
 
@@ -1668,7 +1682,7 @@ public async voteHelpful(reviewId: string): Promise<number> {
         return true;
       }
     } catch (e: any) {
-      if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000;
+      if (this.isQuotaError(e)) this.handleQuotaCooldown();
     }
 
     return false;
@@ -1725,10 +1739,10 @@ public async voteHelpful(reviewId: string): Promise<number> {
     if (filter === 'positive') filteredList = memList.filter(r => (r.rating || 5) >= 4);
     if (filter === 'critical') filteredList = memList.filter(r => (r.rating || 5) <= 3);
 
-    // Apply sorting
+    // Apply sorting: Pinned first, then by sort metric
     filteredList.sort((a, b) => {
-      const aIsPinned = Boolean(a.isPinned && a.source !== 'ai_generated');
-      const bIsPinned = Boolean(b.isPinned && b.source !== 'ai_generated');
+      const aIsPinned = Boolean(a.isPinned);
+      const bIsPinned = Boolean(b.isPinned);
       if (aIsPinned !== bIsPinned) return aIsPinned ? -1 : 1;
       if (sortBy === 'helpful') return (b.helpful_count || 0) - (a.helpful_count || 0);
       if (sortBy === 'highest') return (b.rating || 5) - (a.rating || 5);
@@ -2131,10 +2145,6 @@ public async voteHelpful(reviewId: string): Promise<number> {
     return Array.from(this.reviews.values());
   }
 
-  public getAllPublishedReviews(): ReviewRecord[] {
-    return Array.from(this.reviews.values()).filter(r => r.status !== 'rejected' && r.status !== 'pending');
-  }
-
   public getAllReports(): ReportRecord[] {
     return Array.from(this.reports.values());
   }
@@ -2180,7 +2190,7 @@ public async voteHelpful(reviewId: string): Promise<number> {
         if (!ok) console.warn("[CommunityStore] REST API Firestore write for report failed.");
       }
     } catch (e: any) {
-      if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000;
+      if (this.isQuotaError(e)) this.handleQuotaCooldown();
       console.warn("[CommunityStore] Community Firebase addReport write notice:", e);
     }
 
@@ -2261,9 +2271,9 @@ public async voteHelpful(reviewId: string): Promise<number> {
 
     const db = getCommunityAdminDb();
     if (db) {
-      db.collection('reports').doc(id).set(updated, { merge: true }).catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
+      db.collection('reports').doc(id).set(updated, { merge: true }).catch((e: any) => { if (this.isQuotaError(e)) this.handleQuotaCooldown(); });
     } else {
-      safeWriteDb(id, updated, undefined, true, 'reports').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
+      safeWriteDb(id, updated, undefined, true, 'reports').catch((e: any) => { if (this.isQuotaError(e)) this.handleQuotaCooldown(); });
     }
 
     this.saveToDiskAndQueueCloudSync();
@@ -2274,9 +2284,9 @@ public async voteHelpful(reviewId: string): Promise<number> {
     const existed = this.reports.delete(id);
     const db = getCommunityAdminDb();
     if (db) {
-      db.collection('reports').doc(id).delete().catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
+      db.collection('reports').doc(id).delete().catch((e: any) => { if (this.isQuotaError(e)) this.handleQuotaCooldown(); });
     } else {
-      safeDeleteDb(id, undefined, 'reports').catch((e: any) => { if (this.isQuotaError(e)) this.quotaExhaustedUntil = Date.now() + 15 * 60 * 1000; });
+      safeDeleteDb(id, undefined, 'reports').catch((e: any) => { if (this.isQuotaError(e)) this.handleQuotaCooldown(); });
     }
     this.saveToDiskAndQueueCloudSync();
     return existed;

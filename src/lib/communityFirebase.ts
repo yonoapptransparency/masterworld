@@ -4,6 +4,8 @@
  * Optimized for instant 0ms cached renders and ultra-fast single-roundtrip Firestore REST queries.
  */
 
+import { STATIC_COMMUNITY_REVIEWS } from './communityReviewsData';
+
 // Resilient Production Configuration (Self-contained, no external JSON imports that fail on static hosts)
 const getEnvVal = (key: string): string | undefined => {
   if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env[key]) {
@@ -396,23 +398,32 @@ export async function fetchLiveReviews(options: {
     if (allLoadedReviews.length === 0) {
       try {
         const queryUrl = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${cfg.firestoreDatabaseId}/documents:runQuery?key=${encodeURIComponent(cfg.apiKey)}`;
+        
+        const orFilters: any[] = [];
+        const seenValues = new Set<string>();
+        const pushVal = (val?: string) => {
+          if (!val) return;
+          const clean = val.trim();
+          if (!clean || seenValues.has(clean.toLowerCase())) return;
+          seenValues.add(clean.toLowerCase());
+          orFilters.push({
+            fieldFilter: { field: { fieldPath: "appId" }, op: "EQUAL", value: { stringValue: clean } }
+          });
+          orFilters.push({
+            fieldFilter: { field: { fieldPath: "appSlug" }, op: "EQUAL", value: { stringValue: clean } }
+          });
+        };
+        pushVal(targetId);
+        pushVal(targetSlug);
+
+        const whereClause = orFilters.length === 1 
+          ? orFilters[0] 
+          : { compositeFilter: { op: "OR", filters: orFilters } };
+
         const queryBody = {
           structuredQuery: {
             from: [{ collectionId: "reviews" }],
-            where: {
-              compositeFilter: {
-                op: "AND",
-                filters: [
-                  {
-                    fieldFilter: {
-                      field: { fieldPath: "appId" },
-                      op: "EQUAL",
-                      value: { stringValue: targetId || targetSlug }
-                    }
-                  }
-                ]
-              }
-            },
+            where: whereClause,
             limit: 50
           }
         };
@@ -460,6 +471,37 @@ export async function fetchLiveReviews(options: {
       }
     }
 
+    // 2C. High-availability fallback to bundled STATIC_COMMUNITY_REVIEWS if direct Firestore returned 0 items
+    if (allLoadedReviews.length === 0 && Array.isArray(STATIC_COMMUNITY_REVIEWS) && STATIC_COMMUNITY_REVIEWS.length > 0) {
+      const cleanTargetId = (targetId || '').toLowerCase().trim();
+      const cleanTargetSlug = (targetSlug || '').toLowerCase().trim();
+      const matched = STATIC_COMMUNITY_REVIEWS.filter(r => {
+        const rId = (r.appId || '').toLowerCase().trim();
+        const rSlug = (r.appSlug || '').toLowerCase().trim();
+        return (cleanTargetId && (rId === cleanTargetId || rSlug === cleanTargetId)) ||
+               (cleanTargetSlug && (rSlug === cleanTargetSlug || rId === cleanTargetSlug));
+      });
+      if (matched.length > 0) {
+        allLoadedReviews = matched.map(r => ({
+          id: r.id,
+          app_id: r.appId,
+          appId: r.appId,
+          appSlug: r.appSlug || targetSlug,
+          appName: r.appName || targetTitle,
+          username: r.userName || 'Player',
+          rating: Number(r.rating) || 5,
+          comment: r.reviewText || '',
+          created_at: r.timestamp || new Date().toISOString(),
+          helpful_count: Number(r.helpful_count) || 0,
+          reported: Boolean(r.reported),
+          report_count: Number(r.report_count) || 0,
+          source: r.source || 'community',
+          isPinned: Boolean(r.isPinned),
+          adminReply: r.adminReply || null
+        }));
+      }
+    }
+
     if (allLoadedReviews.length > 0) {
       // Calculate live stats if not pre-populated
       if (!loadedStats) {
@@ -490,10 +532,10 @@ export async function fetchLiveReviews(options: {
       if (filter === 'positive') filtered = allLoadedReviews.filter(r => (r.rating || 5) >= 4);
       if (filter === 'critical') filtered = allLoadedReviews.filter(r => (r.rating || 5) <= 3);
 
-      // Apply sorting
+      // Apply sorting (Uniform treatment of all reviews)
       filtered.sort((a, b) => {
-        const aIsPinned = Boolean(a.isPinned && a.source !== 'ai_generated');
-        const bIsPinned = Boolean(b.isPinned && b.source !== 'ai_generated');
+        const aIsPinned = Boolean(a.isPinned);
+        const bIsPinned = Boolean(b.isPinned);
         if (aIsPinned !== bIsPinned) return aIsPinned ? -1 : 1;
         if (sortBy === 'helpful') return (b.helpful_count || 0) - (a.helpful_count || 0);
         if (sortBy === 'highest') return (b.rating || 5) - (a.rating || 5);

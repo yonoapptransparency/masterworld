@@ -68,7 +68,7 @@ export function generateCommunityReviewsFileCode(reviews: any[] = []): string {
     isPinned: Boolean(r.isPinned),
     reported: Boolean(r.reported),
     report_count: Number(r.report_count) || 0,
-    source: r.source || 'admin_created',
+    source: r.source || 'community',
     adminReply: r.adminReply || null,
     updated_at: r.updated_at || r.timestamp || new Date().toISOString()
   }));

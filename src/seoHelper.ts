@@ -1,26 +1,169 @@
 import fs from 'fs';
 import path from 'path';
-import { getSafeFirebaseConfig } from './seo/firebaseConfig';
+import { getSafeFirebaseConfig, getSafeCommunityFirebaseConfig } from './seo/firebaseConfig';
 import { syncFromFirestore } from './seo/sync';
 import { getField, stripHtml, getYoutubeThumbnail, ensureAbsoluteUrl, getOgImageUrl, isBotUserAgent, escapeHtml, optimizeImageUrl, normalizeSchemaCategory } from './seo/utils';
 import * as renderers from './seo/renderers';
 import { getCleanCanonicalUrl, formatPageTitle } from './lib/seoUtils';
 
+function getLocalFallbackReviewsForApp(appId: string, appSlug: string) {
+  try {
+    const cleanId = (appId || '').toLowerCase().trim();
+    const cleanSlug = (appSlug || '').toLowerCase().trim();
+    let allReviews: any[] = [];
+
+    // 1. Try community_local_backup.json
+    const backupPath = path.join(process.cwd(), 'community_local_backup.json');
+    if (fs.existsSync(backupPath)) {
+      try {
+        const parsed = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
+        if (parsed && Array.isArray(parsed.reviews)) {
+          allReviews = parsed.reviews;
+        }
+      } catch (e) {}
+    }
+
+    // 2. Try staticData.json or public_backup.json
+    if (allReviews.length === 0) {
+      const pPath = path.join(process.cwd(), 'src/lib/public_backup.json');
+      if (fs.existsSync(pPath)) {
+        try {
+          const pParsed = JSON.parse(fs.readFileSync(pPath, 'utf8'));
+          if (pParsed && Array.isArray(pParsed.reviews)) {
+            allReviews = pParsed.reviews;
+          }
+        } catch (e) {}
+      }
+    }
+
+    // 3. Try src/lib/staticData.json
+    if (allReviews.length === 0) {
+      const sPath = path.join(process.cwd(), 'src/lib/staticData.json');
+      if (fs.existsSync(sPath)) {
+        try {
+          const sParsed = JSON.parse(fs.readFileSync(sPath, 'utf8'));
+          if (sParsed && Array.isArray(sParsed.reviews)) {
+            allReviews = sParsed.reviews;
+          }
+        } catch (e) {}
+      }
+    }
+
+    if (allReviews.length > 0) {
+      const matched = allReviews.filter((r: any) => {
+        const rId = String(r.appId || r.app_id || '').toLowerCase().trim();
+        const rSlug = String(r.appSlug || '').toLowerCase().trim();
+        return (cleanId && rId === cleanId) || 
+               (cleanSlug && rSlug === cleanSlug) || 
+               (cleanSlug && rId === cleanSlug) || 
+               (cleanId && rSlug === cleanId);
+      });
+
+      if (matched.length > 0) {
+        const avg = matched.reduce((acc: number, cur: any) => acc + (Number(cur.rating) || 5), 0) / matched.length;
+        return {
+          reviews: matched.slice(0, 5).map((r: any) => ({
+            id: r.id,
+            userName: r.userName || r.username || 'Player',
+            rating: Number(r.rating) || 5,
+            reviewText: r.reviewText || r.comment || '',
+            timestamp: r.timestamp || r.created_at || new Date().toISOString(),
+            isPinned: Boolean(r.isPinned),
+            adminReply: r.adminReply || null
+          })),
+          stats: {
+            averageRating: parseFloat(avg.toFixed(1)),
+            totalReviews: matched.length
+          }
+        };
+      }
+    }
+  } catch (err) {}
+  return null;
+}
+
 async function fetchSEOReviewsForApp(appId: string, appSlug: string, rating: number, appName: string) {
+  // 1. Try local server endpoint if active
   try {
     const base = `http://127.0.0.1:${process.env.PORT || 3000}`;
     const url = `${base}/api/v1/public/community/reviews/${encodeURIComponent(appId)}?limit=5&rating=${rating}&slug=${encodeURIComponent(appSlug)}&appTitle=${encodeURIComponent(appName)}`;
     const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    const timer = ctrl ? setTimeout(() => ctrl.abort(), 3000) : null;
+    const timer = ctrl ? setTimeout(() => ctrl.abort(), 2000) : null;
     const res = await fetch(url, { signal: ctrl?.signal });
     if (timer) clearTimeout(timer);
     if (res.ok) {
       const data = await res.json();
-      return { reviews: data.reviews || [], stats: data.stats || null };
+      if (data && Array.isArray(data.reviews) && data.reviews.length > 0) {
+        return { reviews: data.reviews, stats: data.stats || null };
+      }
     }
   } catch (e) {
-    console.warn('[SEO] Skipping community reviews for SSR:', e);
+    // Offline during build-time pre-render
   }
+
+  // 2. High-availability local filesystem cache
+  const localData = getLocalFallbackReviewsForApp(appId, appSlug);
+  if (localData) {
+    return localData;
+  }
+
+  // 3. Fallback direct Firestore REST query to rummydexcommunity
+  try {
+    const cfg = getSafeCommunityFirebaseConfig();
+    const queryUrl = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents:runQuery?key=${encodeURIComponent(cfg.apiKey)}`;
+    const filters: any[] = [];
+    if (appId) {
+      filters.push({ fieldFilter: { field: { fieldPath: "appId" }, op: "EQUAL", value: { stringValue: appId } } });
+    }
+    if (appSlug && appSlug !== appId) {
+      filters.push({ fieldFilter: { field: { fieldPath: "appSlug" }, op: "EQUAL", value: { stringValue: appSlug } } });
+    }
+    if (filters.length > 0) {
+      const queryBody = {
+        structuredQuery: {
+          from: [{ collectionId: "reviews" }],
+          where: filters.length === 1 ? filters[0] : { compositeFilter: { op: "OR", filters } },
+          limit: 5
+        }
+      };
+      const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const timer = ctrl ? setTimeout(() => ctrl.abort(), 3000) : null;
+      const res = await fetch(queryUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(queryBody),
+        signal: ctrl?.signal
+      });
+      if (timer) clearTimeout(timer);
+      if (res.ok) {
+        const docs = await res.json();
+        if (Array.isArray(docs)) {
+          const loaded: any[] = [];
+          docs.forEach((item: any) => {
+            if (item?.document?.fields) {
+              const f = item.document.fields;
+              const rRating = f.rating ? (f.rating.integerValue || f.rating.doubleValue || 5) : 5;
+              const rText = f.reviewText ? (f.reviewText.stringValue || '') : (f.comment ? f.comment.stringValue : '');
+              const rUser = f.userName ? (f.userName.stringValue || '') : (f.username ? f.username.stringValue : 'Player');
+              const rTime = f.timestamp ? (f.timestamp.stringValue || '') : (f.created_at ? f.created_at.stringValue : new Date().toISOString());
+              if (rText) {
+                loaded.push({
+                  userName: rUser,
+                  rating: Number(rRating) || 5,
+                  reviewText: rText,
+                  timestamp: rTime
+                });
+              }
+            }
+          });
+          if (loaded.length > 0) {
+            return { reviews: loaded, stats: null };
+          }
+        }
+      }
+    }
+  } catch (cloudErr) {}
+
   return { reviews: [], stats: null };
 }
 

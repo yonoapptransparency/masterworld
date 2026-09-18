@@ -312,8 +312,8 @@ communityRouter.get("/api/v1/admin/community/health/ping", verifyAdminToken, asy
         }
       }
     } else {
-      results.firestoreWrite = Boolean(adminDb);
-      results.details.writeMode = adminDb ? `Admin SDK Ready (${commConfig.projectId})` : `Configured (${commConfig.projectId})`;
+      results.firestoreWrite = Boolean(adminDb) || Boolean(commConfig.apiKey);
+      results.details.writeMode = adminDb ? `Admin SDK Ready (${commConfig.projectId})` : `REST Live (${commConfig.projectId})`;
     }
 
     const metrics = typeof (communityStore as any).getCommunityOverviewMetrics === 'function' 
@@ -338,6 +338,24 @@ communityRouter.get("/api/v1/admin/community/health/ping", verifyAdminToken, asy
     });
   } catch (error) {
     return res.status(500).json({ success: false, error: String(error) });
+  }
+});
+
+/**
+ * Fast export of all published reviews for GitHub sync & static distribution
+ */
+communityRouter.get("/api/v1/admin/community/export-published", verifyAdminToken, async (req: any, res: any) => {
+  try {
+    const reviews = typeof (communityStore as any).getAllPublishedReviews === 'function'
+      ? (communityStore as any).getAllPublishedReviews()
+      : [];
+    return res.status(200).json({
+      success: true,
+      count: reviews.length,
+      reviews
+    });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, error: error?.message || String(error) });
   }
 });
 

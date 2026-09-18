@@ -111,3 +111,15 @@ export function getSafeFirebaseConfig(): any {
     return null;
   }
 }
+
+export function getSafeCommunityFirebaseConfig(): any {
+  return {
+    apiKey: process.env.VITE_COMMUNITY_FIREBASE_API_KEY || "AIzaSyCzhWEDLQsZ-HL8iVMcINq78lB-RzYPxi0",
+    authDomain: "rummydexcommunity.firebaseapp.com",
+    projectId: process.env.VITE_COMMUNITY_FIREBASE_PROJECT_ID || "rummydexcommunity",
+    storageBucket: "rummydexcommunity.firebasestorage.app",
+    messagingSenderId: "236598070230",
+    appId: "1:236598070230:web:df8b1b549dea13938d3277",
+    measurementId: "G-2JKRRM48PD"
+  };
+}
