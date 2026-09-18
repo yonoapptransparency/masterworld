@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db, isFirebaseReal, handleFirestoreError, OperationType } from '../lib/firebase';
 import { adminFetch, getValidAdminToken, loadSession } from '../services/adminAuthService';
-import { GitConfig, generateStaticDataFileCode, commitFileToGitHub, commitAtomicToGitHub, generateCommunityReviewsFileCode, encryptUrlIfNeeded } from '../lib/githubSync';
+import { GitConfig, generateStaticDataFileCode, commitFileToGitHub, encryptUrlIfNeeded } from '../lib/githubSync';
 import { generateAllSitemaps } from '../lib/sitemapGenerator';
 import { ensureDefaultSettings } from '../lib/defaultLegalContent';
 import { AppConfig, GlobalSettings, NewsItem, VideoItem } from '../types';
@@ -258,12 +258,11 @@ export function useGitHubSync(
       mockNews: publicNews,
       videos: targetVideos,
       mockVideos: targetVideos,
-      reviews: [] // Reviews handled via communityReviewsData.ts
+      reviews: []
     };
 
-    
+    const backupJsonCode = JSON.stringify(consolidatedStaticPayload, null, 2);
     const staticJsonCode = JSON.stringify(consolidatedStaticPayload, null, 2);
-    const backupJsonCode = staticJsonCode;
 
     try {
       const idToken = await getAdminToken();
@@ -335,7 +334,7 @@ export function useGitHubSync(
           });
         }
 
-        const robotsContent = `User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /admin/\nDisallow: /login/\nDisallow: /masterworld/\nDisallow: /s/\nDisallow: /s/*\nDisallow: /dl/\nDisallow: /dl/*\nDisallow: /out/\nDisallow: /out/*\nDisallow: /download/\nDisallow: /download/*\nDisallow: /gateway/\nDisallow: /gateway/*\nDisallow: /info/\nDisallow: /info/*\nDisallow: /moreinfo/\nDisallow: /moreinfo/*\nDisallow: /moredetail/\nDisallow: /moredetail/*\nSitemap: https://www.rummydex.com/sitemap.xml\n`;
+        const robotsContent = `User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /admin/\nDisallow: /login/\nDisallow: /masterworld/\nSitemap: https://www.rummydex.com/sitemap.xml\n`;
         primaryFiles.push({
           path: 'public/robots.txt',
           content: robotsContent,
@@ -347,67 +346,28 @@ export function useGitHubSync(
       }
 
       // Execute sequential commits to prevent GitHub branch HEAD ref race-condition conflicts
-      
-      // Fetch Community Reviews
-      try {
-        const idToken = await getAdminToken();
-        const reviewsRes = await adminFetch('/api/v1/admin/community/reviews?limit=10000', {
-          headers: idToken ? { 'Authorization': `Bearer ${idToken}` } : {}
-        });
-        if (reviewsRes.ok) {
-          const reviewsData = await reviewsRes.json();
-          const reviewsCode = generateCommunityReviewsFileCode(reviewsData.reviews || []);
-          primaryFiles.push({
-            path: 'src/lib/communityReviewsData.ts',
-            content: reviewsCode,
-            message: `Admin Release: Sync verified community reviews`,
-            name: 'communityReviewsData.ts'
+      const totalFiles = primaryFiles.length;
+      for (let i = 0; i < totalFiles; i++) {
+        const file = primaryFiles[i];
+        log(`GitHub Sync (${i + 1}/${totalFiles}): Syncing ${file.name}...`);
+        try {
+          await commitFileToGitHub({
+            owner: configToUse.owner,
+            repo: targetRepo,
+            token: configToUse.token,
+            branch: configToUse.branch || 'main',
+            path: file.path,
+            content: file.content,
+            message: file.message
           });
+          log(`GitHub Sync: ✅ ${file.name} successfully synced (${i + 1}/${totalFiles}).`);
+        } catch (fileErr: any) {
+          if (file.path.startsWith('public-api/') || file.path.startsWith('public/sitemap') || file.path.endsWith('.txt')) {
+            log(`GitHub Sync Notice: ${file.name} note: ${fileErr?.message || 'skipped'}`);
+          } else {
+            throw fileErr;
+          }
         }
-      } catch (revErr) {
-        log(`GitHub Sync Warning: Could not fetch reviews: ${(revErr as any)?.message}`);
-      }
-
-      // Add Secure Vault with ONLY publicApps!
-      try {
-        log(`GitHub Sync: Building AES Encrypted Vault for ${targetRepo}...`);
-        const idToken = await getAdminToken();
-        const vaultRes = await adminFetch('/api/v1/admin/seal-vault', {
-           method: 'POST',
-           headers: { 'Content-Type': 'application/json', ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {}) },
-           body: JSON.stringify({ items: publicApps }) // FIX: publicApps instead of finalApps
-        });
-        if (vaultRes.ok) {
-           const vaultData = await vaultRes.json();
-           if (vaultData.ciphertext) {
-              primaryFiles.push({
-                path: 'src/lib/secureVault.ts',
-                content: `export const ENCRYPTED_LINKS = "${vaultData.ciphertext}";\n`,
-                message: `Admin Release: Secure vault synchronization`,
-                name: 'secureVault.ts'
-              });
-              
-              // We will NOT push api/index.js as a giant bundle anymore, skipping build-public-api!
-           }
-        }
-      } catch (vaultErr) {
-         log(`GitHub Sync Error (Vault): ${(vaultErr as any)?.message}`);
-      }
-
-      // Execute ATOMIC commit
-      try {
-        log(`GitHub Sync: Initiating ATOMIC commit for ${primaryFiles.length} files to ${targetRepo}...`);
-        await commitAtomicToGitHub({
-          owner: configToUse.owner,
-          repo: targetRepo,
-          token: configToUse.token,
-          branch: configToUse.branch || 'main',
-          files: primaryFiles.map((f: any) => ({ path: f.path, content: f.content })),
-          message: `Admin Release: Atomic static update (${primaryFiles.length} files)`
-        });
-        log(`GitHub Sync: ✅ Atomic commit successfully pushed to ${targetRepo}.`);
-      } catch (atomicErr: any) {
-        throw new Error(`Atomic commit failed: ${atomicErr.message}`);
       }
 
       if (targetRepo.toLowerCase() !== 'masterworld') {
@@ -415,6 +375,7 @@ export function useGitHubSync(
           log("GitHub Sync: Performing secondary mirror synchronization to masterworld...");
           const secondaryFiles = [
             { path: 'src/lib/staticData.ts', content: updatedCode, name: 'staticData.ts' },
+            { path: 'src/lib/public_backup.json', content: backupJsonCode, name: 'public_backup.json' },
             { path: 'src/lib/staticData.json', content: staticJsonCode, name: 'staticData.json' }
           ];
 
@@ -442,7 +403,78 @@ export function useGitHubSync(
       throw new Error(`Failed to sync static data to primary target (${targetRepo}): ${err.message}`);
     }
 
-        try {
+    try {
+      log(`GitHub Sync: Building AES Encrypted Vault for ${targetRepo}...`);
+      const idToken = await getAdminToken();
+      const vaultRes = await adminFetch('/api/v1/admin/seal-vault', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json', ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {}) },
+         body: JSON.stringify({ items: finalApps })
+      });
+
+      if (vaultRes.ok) {
+         const vaultData = await vaultRes.json();
+         if (vaultData.ciphertext) {
+            log(`GitHub Sync: Pushing secureVault.ts to ${targetRepo}...`);
+            await commitFileToGitHub({
+              owner: configToUse.owner,
+              repo: targetRepo,
+              token: configToUse.token,
+              branch: configToUse.branch || 'main',
+              path: 'src/lib/secureVault.ts',
+              content: `export const ENCRYPTED_LINKS = "${vaultData.ciphertext}";\n`,
+              message: `Admin Release: Secure vault synchronization for ${targetRepo}`
+            });
+            log(`GitHub Sync: ✅ secureVault.ts successfully synced to ${targetRepo}.`);
+            
+            if (targetRepo.toLowerCase() !== 'masterworld') {
+              try {
+                await commitFileToGitHub({
+                  owner: configToUse.owner,
+                  repo: 'masterworld',
+                  token: configToUse.token,
+                  branch: configToUse.branch || 'main',
+                  path: 'src/lib/secureVault.ts',
+                  content: `export const ENCRYPTED_LINKS = "${vaultData.ciphertext}";\n`,
+                  message: `Admin Release: Secure vault synchronization for masterworld`
+                });
+                log(`GitHub Sync: ✅ secureVault.ts secondary sync to masterworld complete.`);
+              } catch (mwVaultErr: any) {
+                // Secondary vault sync silently skipped if token is scoped to targetRepo only
+              }
+            }
+            
+            log(`GitHub Sync: Building fresh public API bundle for Vercel...`);
+            const apiRes = await adminFetch('/api/v1/admin/build-public-api', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {}) },
+              body: JSON.stringify({ ciphertext: vaultData.ciphertext })
+            });
+            if (apiRes.ok) {
+              const apiData = await apiRes.json();
+              if (apiData.content) {
+                log(`GitHub Sync: Pushing updated api/index.js to ${targetRepo}...`);
+                await commitFileToGitHub({
+                  owner: configToUse.owner,
+                  repo: targetRepo,
+                  token: configToUse.token,
+                  branch: configToUse.branch || 'main',
+                  path: 'api/index.js',
+                  content: apiData.content,
+                  message: `Admin Release: Public API bundle synchronization for ${targetRepo}`
+                });
+                log(`GitHub Sync: ✅ api/index.js successfully synced to ${targetRepo}.`);
+              }
+            } else {
+              log(`GitHub Sync Error: Failed to build API bundle (${apiRes.status})`);
+            }
+         }
+      }
+    } catch(err: any) {
+        log(`GitHub Sync Error (Vault): ${err.message}`);
+    }
+
+    try {
       await updateLocalContainerBackup(finalApps, targetSettings, targetNews, targetVideos);
     } catch (err: any) {}
 
