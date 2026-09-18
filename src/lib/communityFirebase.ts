@@ -23,8 +23,8 @@ export const getResolvedCommunityFirebaseConfig = () => {
 
   return {
     projectId,
-    appId: getEnvVal('VITE_COMMUNITY_FIREBASE_APP_ID') || "",
-    apiKey: getEnvVal('VITE_COMMUNITY_FIREBASE_API_KEY') || "",
+    appId: getEnvVal('VITE_COMMUNITY_FIREBASE_APP_ID') || "1:236598070230:web:df8b1b549dea13938d3277",
+    apiKey: getEnvVal('VITE_COMMUNITY_FIREBASE_API_KEY') || "AIzaSyCzhWEDLQsZ-HL8iVMcINq78lB-RzYPxi0",
     authDomain: getEnvVal('VITE_COMMUNITY_FIREBASE_AUTH_DOMAIN') || `${projectId}.firebaseapp.com`,
     firestoreDatabaseId: getEnvVal('VITE_COMMUNITY_FIREBASE_DATABASE_ID') || defaultDbId,
     storageBucket: getEnvVal('VITE_COMMUNITY_FIREBASE_STORAGE_BUCKET') || `${projectId}.firebasestorage.app`,

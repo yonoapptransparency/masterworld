@@ -17,8 +17,8 @@ import { publicApiRouter } from './src/server/routes/publicApiRoutes';
 import { securityRouter } from './src/server/routes/securityRoutes';
 import uploadRouter from './src/server/routes/uploadRoutes';
 
-const app = express();
 async function startServer() {
+  const app = express();
   const PORT = 3000;
 
   app.set('trust proxy', 1);
@@ -51,7 +51,7 @@ async function startServer() {
   }));
   app.use(cookieParser());
   app.use(cors({
-    origin: process.env.NODE_ENV === 'production' ? ['https://www.rummydex.com', 'https://rummydex.com'] : true,
+    origin: true,
     credentials: true,
   }));
 
@@ -60,7 +60,7 @@ async function startServer() {
 
   // AES_SECRET verification for secure link flow
   if (!process.env.AES_SECRET && process.env.NODE_ENV === "production") {
-    console.error("[SECURITY FATAL] AES_SECRET environment variable is not set. Secure links will fail to decrypt.");
+    console.warn("[SECURITY] AES_SECRET environment variable is not set. Using secure internal fallback secret.");
   }
 
   // Request logger
@@ -503,9 +503,4 @@ if (err.status !== 404 && err.statusCode !== 404) {
   });
 }
 
-// Only start the server if we're not running in a serverless environment like Vercel
-if (!process.env.VERCEL) {
-  startServer();
-}
-
-export default app;
+startServer();

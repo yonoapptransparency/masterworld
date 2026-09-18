@@ -152,12 +152,13 @@ export interface VideoItem {
   created_at: string;
 }
 
-// We no longer bundle staticData.json to save 1.2MB in the JS payload.
-// Data is injected via window.__INITIAL_DATA__ or fetched from /api/v1/public/backup-data.
+import staticDataJson from './staticData.json';
 
-const rawStaticData: any = {};
+const rawStaticData = staticDataJson as any;
 
-export const mockApps: AppConfig[] = [];
+export const mockApps: AppConfig[] = (Array.isArray(rawStaticData.mockApps) && rawStaticData.mockApps.length > 0)
+  ? rawStaticData.mockApps
+  : ((Array.isArray(rawStaticData.apps) && rawStaticData.apps.length > 0) ? rawStaticData.apps : []);
 
 export const saveMockApps = (apps: AppConfig[]) => {
   try {

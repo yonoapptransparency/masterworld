@@ -1,8 +1,6 @@
 {
   "version": 2,
   "outputDirectory": "dist",
-  "cleanUrls": true,
-  "trailingSlash": false,
   "buildCommand": "npm run build",
   "rewrites": [
     {
@@ -11,22 +9,6 @@
     },
     {
       "source": "/api/(.*)",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/app/(.*)",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/category/(.*)",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/news/(.*)",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/videos/(.*)",
       "destination": "/api/index"
     },
     {

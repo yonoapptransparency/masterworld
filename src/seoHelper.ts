@@ -7,25 +7,6 @@ import * as renderers from './seo/renderers';
 import { getCleanCanonicalUrl, formatPageTitle } from './lib/seoUtils';
 import { communityStore } from './lib/communityStoreFallback';
 
-// Helper function for SEO fetching to bypass fallback store limits
-async function fetchSEOReviewsForApp(appId: string, appSlug: string, rating: number, appName: string) {
-  try {
-    const base = `http://127.0.0.1:${process.env.PORT || 3000}`;
-    const url = `${base}/api/v1/public/community/reviews/${encodeURIComponent(appId)}?limit=5&rating=${rating}&slug=${encodeURIComponent(appSlug)}&appTitle=${encodeURIComponent(appName)}`;
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 3000);
-    const res = await fetch(url, { signal: ctrl.signal });
-    clearTimeout(timer);
-    if (res.ok) {
-      const data = await res.json();
-      return { reviews: data.reviews || [], stats: data.stats || null };
-    }
-  } catch (e) {
-    console.warn('[SEO] Skipping community reviews for SSR:', e);
-  }
-  return { reviews: [], stats: null };
-}
-
 // Dynamically resolve staticData directly from filesystem to bypass caching
 const getStaticData = () => {
   try {
@@ -101,20 +82,14 @@ export function clearSeoCache() {
 
 async function doFetchStoreData() {
   const now = Date.now();
+  const freshStatic = getStaticData();
+  const data = {
+    apps: freshStatic.apps || freshStatic.mockApps || [],
+    settings: freshStatic.settings || freshStatic.mockSettings || {},
+    news: freshStatic.news || freshStatic.mockNews || [],
+    videos: freshStatic.videos || freshStatic.mockVideos || []
+  };
   
-  let data;
-  try {
-    data = await syncFromFirestore();
-  } catch (e) {
-    const freshStatic = getStaticData();
-    data = {
-      apps: freshStatic.apps || freshStatic.mockApps || [],
-      settings: freshStatic.settings || freshStatic.mockSettings || {},
-      news: freshStatic.news || freshStatic.mockNews || [],
-      videos: freshStatic.videos || freshStatic.mockVideos || []
-    };
-  }
-
   cachedData = data;
   lastFetchTime = now;
   return data;
@@ -262,11 +237,8 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
     if (app) {
       const appIdentifier = getField(app, 'slug') || getField(app, 'id');
       const rawRatingVal = parseFloat(getField(app, 'rating')) || 4.5;
-      const { reviews: appSampleReviews, stats: appStats } = await fetchSEOReviewsForApp(appIdentifier, getField(app, 'slug'), rawRatingVal, getField(app, 'name'));
-      const syncedRating = (appStats && appStats.totalReviews > 0) ? appStats.averageRating : rawRatingVal;
-      
-      const appForRender = { ...app, rating: syncedRating };
-      bodyContent = renderers.renderAppDetails(getField(app, 'slug') || possibleSlug, [appForRender, ...apps.filter((a: any) => a.id !== app.id)], settings, appSampleReviews);
+      const appSampleReviews = (await communityStore.getReviewsForApp(appIdentifier, undefined, 6, getField(app, 'name'), rawRatingVal, getField(app, 'slug')))?.reviews || [];
+      bodyContent = renderers.renderAppDetails(getField(app, 'slug') || possibleSlug, apps, settings, appSampleReviews);
     } else {
       bodyContent = renderers.render404(urlPath, settings);
     }
@@ -279,11 +251,8 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
     if (app) {
       const appIdentifier = getField(app, 'slug') || getField(app, 'id');
       const rawRatingVal = parseFloat(getField(app, 'rating')) || 4.5;
-      const { reviews: appSampleReviews, stats: appStats } = await fetchSEOReviewsForApp(appIdentifier, getField(app, 'slug'), rawRatingVal, getField(app, 'name'));
-      const syncedRating = (appStats && appStats.totalReviews > 0) ? appStats.averageRating : rawRatingVal;
-      
-      const appForRender = { ...app, rating: syncedRating };
-      bodyContent = renderers.renderAppDetails(getField(app, 'slug') || possibleSlug, [appForRender, ...apps.filter((a: any) => a.id !== app.id)], settings, appSampleReviews);
+      const appSampleReviews = (await communityStore.getReviewsForApp(appIdentifier, undefined, 6, getField(app, 'name'), rawRatingVal, getField(app, 'slug')))?.reviews || [];
+      bodyContent = renderers.renderAppDetails(getField(app, 'slug') || possibleSlug, apps, settings, appSampleReviews);
     } else if (newsItem) {
       bodyContent = renderers.renderNewsDetail(possibleSlug, news, settings);
     } else if (videoItem) {
@@ -347,17 +316,16 @@ async function buildJsonLdSchema(params: {
     
     // Admin configured rating is the primary authority for the catalog
     const appIdentifier = getField(app, 'slug') || getField(app, 'id');
-    const { stats: liveStats, reviews: sampleReviewsList } = await fetchSEOReviewsForApp(appIdentifier, getField(app, 'slug'), !isNaN(configuredRating) && configuredRating > 0 ? configuredRating : 4.5, name);
+    const liveStats = communityStore.getAppStats(appIdentifier, !isNaN(configuredRating) && configuredRating > 0 ? configuredRating : 4.5);
     
-    // Use real community average if there are live reviews, otherwise fallback to configured rating
-    const finalRating = (liveStats && liveStats.totalReviews > 0) 
-      ? liveStats.averageRating 
-      : (!isNaN(configuredRating) && configuredRating > 0 ? configuredRating : 4.5);
+    const finalRating = !isNaN(configuredRating) && configuredRating > 0 
+      ? configuredRating 
+      : (liveStats.totalReviews > 0 ? liveStats.averageRating : 4.5);
     const clampedRating = Math.max(1.0, Math.min(5.0, finalRating));
 
     const finalCount = !isNaN(configuredCount) && configuredCount > 0
       ? configuredCount
-      : ((liveStats && liveStats.totalReviews > 0) ? liveStats.totalReviews : Math.floor(clampedRating * 35 + 20));
+      : (liveStats.totalReviews > 0 ? liveStats.totalReviews : Math.floor(clampedRating * 35 + 20));
 
     const appRawIcon = getField(app, 'icon_url') || getField(app, 'og_image_url') || params.logoUrl;
     const appSquareIcon = optimizeImageUrl(appRawIcon, 512) || appRawIcon;
@@ -402,18 +370,19 @@ async function buildJsonLdSchema(params: {
 
     // Include sample reviews if available to boost Google Rich Snippet compliance (without nested itemReviewed)
     try {
-      if (sampleReviewsList && Array.isArray(sampleReviewsList) && sampleReviewsList.length > 0) {
-        const validReviews = sampleReviewsList
-          .filter((rev: any) => rev && stripHtml(rev.reviewText || rev.comment || '').trim().length >= 3)
+      const feed = await communityStore.getReviewsForApp(appIdentifier, undefined, 5, name, clampedRating, getField(app, 'slug'));
+      if (feed && Array.isArray(feed.reviews) && feed.reviews.length > 0) {
+        const validReviews = feed.reviews
+          .filter((rev: any) => rev && stripHtml(rev.reviewText || '').trim().length >= 3)
           .slice(0, 5)
           .map((rev: any) => ({
             "@type": "Review",
             "author": {
               "@type": "Person",
-              "name": (rev.userName || rev.username) ? String(rev.userName || rev.username).trim() : 'Verified Player'
+              "name": rev.userName ? String(rev.userName).trim() : 'Verified Player'
             },
-            "datePublished": (rev.timestamp || rev.created_at ? new Date(rev.timestamp || rev.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
-            "reviewBody": stripHtml(rev.reviewText || rev.comment || '').trim(),
+            "datePublished": (rev.timestamp ? new Date(rev.timestamp).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
+            "reviewBody": stripHtml(rev.reviewText || '').trim(),
             "reviewRating": {
               "@type": "Rating",
               "ratingValue": Math.max(1, Math.min(5, Number(rev.rating) || 5)),

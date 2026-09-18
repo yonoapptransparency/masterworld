@@ -182,11 +182,7 @@ export default function AdminDashboard() {
       const formData = e?.currentTarget ? new FormData(e.currentTarget) : null;
       const name = formFieldsOverride?.name?.trim() || (formData ? (formData.get('name') as string || formData.get('hidden_name') as string) : '') || 'New App';
       const rawSlug = formFieldsOverride?.slug || (formData ? (formData.get('slug') as string || formData.get('hidden_slug') as string) : '');
-      const slug = (rawSlug?.trim() || name)
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '')
-        .substring(0, 60);
+      const slug = rawSlug?.trim().toLowerCase().replace(/[^a-z0-9-_]+/g, '-') || name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
       const rawUrl = formFieldsOverride?.more_information_url ?? (formData ? ((formData.get('more_information_url') as string) ?? (formData.get('hidden_more_information_url') as string)) : '');
       let inputUrl = (rawUrl || '').trim();
 

@@ -16,8 +16,7 @@ export function structureHtmlFragment(rawHtml: string): string {
   // Remove leading h1/h2 title if present in the raw HTML fragment
   str = str.replace(/^\s*<h[12][^>]*>[\s\S]*?<\/h[12]>\s*/i, '');
 
-  // 2. Convert <h1> tags to <h2> and <h2> to <h3> to maintain hierarchy under AppHeader
-  str = str.replace(/<h2([^>]*)>/gi, '<h3$1>').replace(/<\/h2>/gi, '</h3>');
+  // 2. Convert <h1> tags to <h2>
   str = str.replace(/<h1([^>]*)>/gi, '<h2$1>').replace(/<\/h1>/gi, '</h2>');
 
   // 3. Convert markdown headers if present

@@ -402,7 +402,24 @@ adminVaultRouter.post("/api/v1/admin/encrypt-links", verifyAdminToken, async (re
     }
 
     // Save to disk backup files for zero-loss offline resiliency
-    // DEPRECATED: Rely strictly on Firestore & Git for backups, removing ephemeral disk writes in serverless environment.
+    try {
+      const diskBackups = [
+        path.join(process.cwd(), '.local/secure_links_backup.json'),
+        path.join(process.cwd(), 'src/lib/secure_links_backup.json'),
+        path.join(process.cwd(), 'src/server/secure_vault.json')
+      ];
+      const mapPayload: Record<string, string> = {};
+      mergedItems.forEach((it: any) => {
+        if (it && it.id) mapPayload[it.id] = it.url || '';
+      });
+      for (const p of diskBackups) {
+        const dir = path.dirname(p);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(p, JSON.stringify(mapPayload, null, 2), 'utf8');
+      }
+    } catch (diskErr) {
+      console.warn("[SERVER] Disk backup of secure links failed:", diskErr);
+    }
 
     clearResolvedLinkCache();
     try {
@@ -473,6 +490,32 @@ adminVaultRouter.get("/api/v1/admin/debug-links", verifyAdminToken, async (req, 
           }
         }
       } catch (e) {}
+    }
+
+    // 4. Overlap with disk backups
+    const diskBackups = [
+      path.join(process.cwd(), '.local/secure_links_backup.json'),
+      path.join(process.cwd(), 'src/lib/secure_links_backup.json'),
+      path.join(process.cwd(), 'src/server/secure_vault.json')
+    ];
+    for (const p of diskBackups) {
+      if (fs.existsSync(p)) {
+        try {
+          const content = JSON.parse(fs.readFileSync(p, 'utf8'));
+          if (Array.isArray(content)) {
+            content.forEach((it: any) => {
+              if (it && it.id) {
+                const u = it.url || it.more_information_url || '';
+                if (u) idToUrlMap.set(it.id, u);
+              }
+            });
+          } else if (content && typeof content === 'object') {
+            Object.entries(content).forEach(([k, v]) => {
+              if (v && typeof v === 'string') idToUrlMap.set(k, v);
+            });
+          }
+        } catch (e) {}
+      }
     }
 
     // Process all merged items
@@ -2029,6 +2072,17 @@ adminVaultRouter.get("/api/v1/admin/backup-links-get", verifyAdminToken, (req, r
       }
     }
 
+    const backupPath = path.join(process.cwd(), '.local/secure_links_backup.json');
+    if (fs.existsSync(backupPath)) {
+      try {
+        const backupData = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
+        Object.assign(mergedBackup, backupData);
+        console.log("backup-links-get: Overlaid secure links with local backup JSON");
+      } catch (backupErr: any) {
+        console.warn("backup-links-get: Failed to parse backup JSON:", backupErr.message);
+      }
+    }
+
     const decryptedItems: { id: string, url: string }[] = [];
     for (const [appId, encUrl] of Object.entries(mergedBackup)) {
       let decryptedUrl = '';
@@ -2173,7 +2227,14 @@ adminVaultRouter.post("/api/v1/admin/seal-vault", verifyAdminToken, async (req, 
     }
 
     // Save to disk backup
-    // DEPRECATED: Ephemeral disk writes removed.
+    try {
+      const backupPath = path.join(process.cwd(), '.local/secure_links_backup.json');
+      fs.mkdirSync(path.dirname(backupPath), { recursive: true });
+      fs.writeFileSync(backupPath, JSON.stringify(vaultMap, null, 2), 'utf8');
+
+      const serverVaultPath = path.join(process.cwd(), 'src/server/secure_vault.json');
+      fs.writeFileSync(serverVaultPath, JSON.stringify(vaultArray, null, 2), 'utf8');
+    } catch (_) {}
 
     res.json({ success: true, ciphertext });
   } catch(err: any) {
@@ -2225,7 +2286,14 @@ adminVaultRouter.post("/api/v1/admin/save-links-direct", verifyAdminToken, (req,
       }
     });
 
+    const backupPath = path.join(process.cwd(), '.local/secure_links_backup.json');
     let mergedBackup = backupLinks;
+    if (fs.existsSync(backupPath)) {
+      try {
+        const existingBackup = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
+        mergedBackup = { ...existingBackup, ...backupLinks };
+      } catch(e) {}
+    }
     for (const [key, val] of Object.entries(mergedBackup)) {
       if (val && !val.startsWith('U2FsdGVkX1')) {
         try {
@@ -2235,6 +2303,9 @@ adminVaultRouter.post("/api/v1/admin/save-links-direct", verifyAdminToken, (req,
         }
       }
     }
+
+    fs.mkdirSync(path.dirname(backupPath), { recursive: true });
+    fs.writeFileSync(backupPath, JSON.stringify(mergedBackup, null, 2));
 
     clearResolvedLinkCache();
     try {
