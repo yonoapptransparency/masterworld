@@ -10,11 +10,15 @@ export function formatPageTitle(rawTitle?: string, siteTitle: string = 'RummyDex
   
   if (!clean) return siteTitle;
   
-  const suffix = ` — ${siteTitle}`;
-  const MAX_LENGTH = 60;
-  const available = MAX_LENGTH - suffix.length;
-  const truncated = clean.length > available ? clean.substring(0, available - 1).trim() + '…' : clean;
-  return `${truncated}${suffix}`;
+  // If clean title already includes siteTitle (case-insensitive), return as-is
+  if (siteTitle && clean.toLowerCase().includes(siteTitle.toLowerCase())) {
+    return clean;
+  }
+  
+  // If siteTitle is missing, return clean title
+  if (!siteTitle) return clean;
+
+  return `${clean} | ${siteTitle}`;
 }
 
 export function getCleanCanonicalUrl(rawUrl?: string, fallbackPath: string = '/'): string {

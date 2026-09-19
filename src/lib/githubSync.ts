@@ -141,6 +141,7 @@ export interface Banner {
 export interface GlobalSettings {
   site_title: string;
   seo_title?: string;
+  seo_description?: string;
   meta_description: string;
   logo_url: string;
   favicon_url: string;
@@ -179,7 +180,7 @@ export interface GlobalSettings {
   quick_links?: Array<{ title: string; subtitle?: string; icon?: string; color?: string; url: string }>;
   social_links?: { facebook?: string; instagram?: string; twitter?: string; linkedin?: string; youtube?: string; };
   website_faqs?: Array<{ question: string; answer: string }>;
-  developers?: Array<{ name: string; role: string; bio?: string; image_url?: string; github?: string; twitter?: string; avatar_url?: string; social?: any }>;
+  developers?: Array<{ id?: string; name: string; role: string; bio?: string; image_url?: string; github?: string; twitter?: string; avatar_url?: string; social?: any }>;
   // Static Pages Custom SEO
   disclaimer_meta_title?: string;
   disclaimer_meta_description?: string;
@@ -212,6 +213,7 @@ export interface NewsItem {
   slug: string;
   title: string;
   logo_url: string;
+  image_url?: string;
   description: string;
   ceo_name: string;
   ceo_description: string;
@@ -231,6 +233,12 @@ export interface NewsItem {
   date?: string;
   tags?: string[];
   related_app_id?: string;
+  created_at?: string;
+  updated_at?: string;
+  is_breaking?: boolean;
+  is_new?: boolean;
+  is_pinned?: boolean;
+  sync_to_public?: boolean;
 }
 
 export interface AppConfig {
@@ -256,13 +264,13 @@ export interface AppConfig {
   yellow_box_msg: string;
   idea_box_msg: string;
   safety_status: 'Verified' | 'Caution' | 'Unsafe';
-  serial_number: number;
-  is_featured: boolean;
-  is_new: boolean;
+  serial_number?: number;
+  is_featured?: boolean;
+  is_new?: boolean;
   is_hot?: boolean;
-  release_notes: string;
-  rating: number;
-  created_at: string;
+  release_notes?: string;
+  rating?: number;
+  created_at?: string;
   custom_admin_box_html?: string;
   custom_admin_box_heading?: string;
   features_html?: string;
@@ -273,6 +281,7 @@ export interface AppConfig {
   is_top_chart?: boolean;
   top_chart_category?: string;
   more_information_url?: string;
+  sync_to_public?: boolean;
 }
 
 export interface Review {
@@ -294,6 +303,8 @@ export interface VideoItem {
   seo_description: string;
   meta_description?: string;
   seo_keywords?: string;
+  canonical_url?: string;
+  og_image_url?: string;
   created_at: string;
 }
 
