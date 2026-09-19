@@ -242,32 +242,31 @@ export const GeneralSection = ({ formFields, handleFieldChange, categories }: Ge
           />
         </div>
 
-        <div>
-          <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Rating (Out of 5) *</label>
-          <input 
-            type="number" 
-            step="0.1" 
-            min="1.0" 
-            max="5.0" 
-            name="rating" 
-            required
-            value={formFields.rating} 
-            onChange={e => handleFieldChange('rating', parseFloat(e.target.value) || 4.8)} 
-            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500" 
-          />
-        </div>
-
-        <div>
-          <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Total Ratings / Review Count</label>
-          <input 
-            type="number" 
-            min="1"
-            name="review_count" 
-            placeholder="e.g. 381, 1420"
-            value={formFields.review_count || ''} 
-            onChange={e => handleFieldChange('review_count', e.target.value ? parseInt(e.target.value, 10) : '')} 
-            className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500" 
-          />
+        <div className="sm:col-span-2">
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+              AI Training Benchmark Rating (Out of 5.0) *
+            </label>
+            <span className="text-[10px] font-semibold text-slate-400">
+              Target for AI Review Studio
+            </span>
+          </div>
+          <div className="relative">
+            <input 
+              type="number" 
+              step="0.1" 
+              min="1.0" 
+              max="5.0" 
+              name="rating" 
+              required
+              value={formFields.rating} 
+              onChange={e => handleFieldChange('rating', parseFloat(e.target.value) || 4.8)} 
+              className="w-full bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-900/50 rounded-xl p-2.5 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500" 
+            />
+          </div>
+          <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
+            This rating serves as the benchmark target for AI models when synthesizing authentic reviews. Public review count and rating are calculated directly from live community reviews in Firebase.
+          </p>
         </div>
       </div>
 

@@ -481,12 +481,11 @@ async function buildJsonLdSchema(params: {
     const hasLiveReviews = Boolean(liveStats && Number(liveStats.totalReviews) > 0);
     const finalRating = hasLiveReviews
       ? Math.max(1.0, Math.min(5.0, Number(liveStats.averageRating)))
-      : (!isNaN(configuredRating) && configuredRating > 0 ? configuredRating : 4.5);
+      : (!isNaN(configuredRating) && configuredRating > 0 ? configuredRating : 0);
     const clampedRating = Math.max(1.0, Math.min(5.0, finalRating));
 
-    const finalCount = hasLiveReviews
-      ? Number(liveStats.totalReviews)
-      : (!isNaN(configuredCount) && configuredCount > 0 ? configuredCount : Math.floor(clampedRating * 35 + 20));
+    // Strictly real count of reviews present in Firebase
+    const finalCount = hasLiveReviews ? Number(liveStats.totalReviews) : 0;
 
     const appRawIcon = getField(app, 'icon_url') || getField(app, 'og_image_url') || params.logoUrl;
     const appSquareIcon = optimizeImageUrl(appRawIcon, 512) || appRawIcon;
@@ -518,16 +517,19 @@ async function buildJsonLdSchema(params: {
         "price": "0",
         "priceCurrency": "INR",
         "availability": "https://schema.org/InStock"
-      },
-      "aggregateRating": {
+      }
+    };
+
+    if (hasLiveReviews && finalCount > 0) {
+      softwareAppSchema["aggregateRating"] = {
         "@type": "AggregateRating",
         "ratingValue": parseFloat(clampedRating.toFixed(1)),
         "ratingCount": Math.round(finalCount),
         "reviewCount": Math.round(finalCount),
         "bestRating": 5,
         "worstRating": 1
-      }
-    };
+      };
+    }
 
     // Include sample reviews if available to boost Google Rich Snippet compliance (without nested itemReviewed)
     try {

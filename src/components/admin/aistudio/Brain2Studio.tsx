@@ -23,9 +23,10 @@ import {
   Filter,
   ArrowRight,
   Database,
-  Info
+  Info,
+  MessageSquare
 } from 'lucide-react';
-import { Brain2AutobotLog, Brain2AutobotSessionStats, Brain2AutobotStage, GenerationTelemetry } from './types';
+import { Brain2AutobotLog, Brain2AutobotSessionStats, Brain2AutobotStage, GenerationTelemetry, AppReviewCountData } from './types';
 import { Brain2CustomizerPanel } from './Brain2CustomizerPanel';
 import { StagedReviewsWorkspace } from './StagedReviewsWorkspace';
 
@@ -94,6 +95,9 @@ export interface Brain2StudioProps {
   onDiscardAll?: () => void;
   onSaveReviewToLive?: (index: number) => void;
   onSaveAllStaged?: () => void;
+  appCountsMap?: Record<string, AppReviewCountData>;
+  getAppStats?: (app: any) => AppReviewCountData;
+  onInspectLiveReviews?: (app: any) => void;
 }
 
 export const Brain2Studio: React.FC<Brain2StudioProps> = ({
@@ -160,15 +164,20 @@ export const Brain2Studio: React.FC<Brain2StudioProps> = ({
   onDiscardReview,
   onDiscardAll,
   onSaveReviewToLive,
-  onSaveAllStaged
+  onSaveAllStaged,
+  appCountsMap = {},
+  getAppStats,
+  onInspectLiveReviews
 }) => {
   // Navigation between Single App Researcher and Multi-App Catalog Queue
   const [subTab, setSubTab] = useState<'single' | 'queue'>('single');
   const [showCustomizer, setShowCustomizer] = useState<boolean>(true);
+  const [singleAppReviewFilter, setSingleAppReviewFilter] = useState<'all' | 'needs_reviews' | 'has_reviews'>('all');
 
   // Multi-App Queue Autopilot State
   const [queueSearch, setQueueSearch] = useState<string>('');
   const [queueCategory, setQueueCategory] = useState<string>('all');
+  const [queueReviewFilter, setQueueReviewFilter] = useState<'all' | 'needs_reviews' | 'has_reviews'>('all');
   const [selectedQueueAppIds, setSelectedQueueAppIds] = useState<string[]>([]);
   const [queueReviewsPerApp, setQueueReviewsPerApp] = useState<number>(2);
   const [queueTargetScore, setQueueTargetScore] = useState<number>(4.2);
@@ -186,15 +195,34 @@ export const Brain2Studio: React.FC<Brain2StudioProps> = ({
     return Array.from(set).sort();
   }, [allApps]);
 
+  // Single app list filtered by review presence
+  const singleModeFilteredApps = useMemo(() => {
+    return filteredApps.filter(app => {
+      if (singleAppReviewFilter === 'all') return true;
+      const stats = getAppStats ? getAppStats(app) : { total: 0 };
+      if (singleAppReviewFilter === 'needs_reviews') return stats.total === 0;
+      if (singleAppReviewFilter === 'has_reviews') return stats.total > 0;
+      return true;
+    });
+  }, [filteredApps, singleAppReviewFilter, getAppStats]);
+
   const filteredQueueApps = useMemo(() => {
     return allApps.filter(app => {
       const matchesCat = queueCategory === 'all' || app.category === queueCategory;
       const matchesSearch = !queueSearch.trim() || 
         app.name?.toLowerCase().includes(queueSearch.toLowerCase()) ||
         app.developer?.toLowerCase().includes(queueSearch.toLowerCase());
-      return matchesCat && matchesSearch;
+      
+      let matchesReview = true;
+      if (queueReviewFilter !== 'all') {
+        const stats = getAppStats ? getAppStats(app) : { total: 0 };
+        if (queueReviewFilter === 'needs_reviews') matchesReview = stats.total === 0;
+        if (queueReviewFilter === 'has_reviews') matchesReview = stats.total > 0;
+      }
+
+      return matchesCat && matchesSearch && matchesReview;
     });
-  }, [allApps, queueCategory, queueSearch]);
+  }, [allApps, queueCategory, queueSearch, queueReviewFilter, getAppStats]);
 
   const handleSelectAllQueue = () => {
     setSelectedQueueAppIds(filteredQueueApps.map(a => String(a.id || a.slug)));
@@ -368,26 +396,92 @@ export const Brain2Studio: React.FC<Brain2StudioProps> = ({
                   </div>
                 )}
                 <div className="min-w-0 flex-1">
+                  {/* Quick Review Filter Pills */}
+                  <div className="flex items-center gap-1 text-[10px] font-bold mb-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setSingleAppReviewFilter('all')}
+                      className={`px-2 py-0.5 rounded-md transition-colors ${
+                        singleAppReviewFilter === 'all'
+                          ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
+                          : 'bg-slate-200/80 text-slate-700 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-300'
+                      }`}
+                    >
+                      All ({filteredApps.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSingleAppReviewFilter('needs_reviews')}
+                      className={`px-2 py-0.5 rounded-md transition-colors ${
+                        singleAppReviewFilter === 'needs_reviews'
+                          ? 'bg-amber-600 text-white'
+                          : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 hover:bg-amber-200'
+                      }`}
+                    >
+                      0 Reviews ({filteredApps.filter(a => (getAppStats ? getAppStats(a).total : 0) === 0).length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSingleAppReviewFilter('has_reviews')}
+                      className={`px-2 py-0.5 rounded-md transition-colors ${
+                        singleAppReviewFilter === 'has_reviews'
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 hover:bg-emerald-200'
+                      }`}
+                    >
+                      Has Reviews ({filteredApps.filter(a => (getAppStats ? getAppStats(a).total : 0) > 0).length})
+                    </button>
+                  </div>
+
                   <select
                     value={selectedAppId}
                     onChange={(e) => setSelectedAppId(e.target.value)}
                     className="w-full text-base font-black bg-transparent text-slate-900 dark:text-white border-0 cursor-pointer focus:outline-none truncate"
                   >
-                    {filteredApps.map(app => (
-                      <option key={app.id} value={app.id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
-                        {app.name} — {app.developer || 'Studio'}
-                      </option>
-                    ))}
+                    {singleModeFilteredApps.map(app => {
+                      const stats = getAppStats ? getAppStats(app) : { total: 0, published: 0, avgRating: 5.0 };
+                      return (
+                        <option key={app.id} value={app.id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+                          {app.name} — {app.developer || 'Studio'} • {stats.total > 0 ? `${stats.total} Reviews (${stats.published} pub • ${stats.avgRating}★)` : '0 Reviews (Needs Reviews)'}
+                        </option>
+                      );
+                    })}
                   </select>
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex flex-wrap items-center gap-2 mt-1.5">
                     <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
                       Developer: <strong className="text-slate-800 dark:text-slate-200">{currentApp?.developer || 'Studio'}</strong>
                     </span>
                     <span className="text-slate-300 dark:text-slate-600">•</span>
-                    <span className="text-[11px] font-bold text-amber-500 flex items-center gap-0.5">
-                      <Star size={11} className="fill-amber-400" />
-                      {currentApp?.rating || 4.2}★ Base
-                    </span>
+                    {/* Live Review Count Chip with Modal Inspector Trigger */}
+                    {(() => {
+                      const currentStats = getAppStats ? getAppStats(currentApp) : { total: 0, published: 0, avgRating: 5.0 };
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => onInspectLiveReviews && onInspectLiveReviews(currentApp)}
+                          className={`text-[11px] font-bold px-2 py-0.5 rounded-lg border flex items-center gap-1 cursor-pointer transition-all ${
+                            currentStats.total > 0
+                              ? 'bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800/80 hover:bg-emerald-100'
+                              : 'bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800/80 hover:bg-amber-100'
+                          }`}
+                          title="Click to view live reviews in Firebase for this app"
+                        >
+                          <MessageSquare size={11} className={currentStats.total > 0 ? "text-emerald-500" : "text-amber-500"} />
+                          <span>
+                            Live Reviews: <strong>{currentStats.total}</strong>
+                            {currentStats.total > 0 && (
+                              <span className="opacity-80 text-[10px] ml-1">
+                                ({currentStats.published} pub • {currentStats.avgRating}★)
+                              </span>
+                            )}
+                            {currentStats.total === 0 && (
+                              <span className="opacity-80 text-[10px] ml-1">(Needs Reviews)</span>
+                            )}
+                          </span>
+                          <ExternalLink size={10} className="opacity-70" />
+                        </button>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -745,9 +839,9 @@ export const Brain2Studio: React.FC<Brain2StudioProps> = ({
           </div>
 
           {/* Queue Filter Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2 flex-1 max-w-md">
-              <div className="relative flex-1">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2 flex-1">
+              <div className="relative flex-1 min-w-[180px] max-w-sm">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
@@ -768,9 +862,46 @@ export const Brain2Studio: React.FC<Brain2StudioProps> = ({
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
+
+              {/* Review Count Status Filter Pills */}
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setQueueReviewFilter('all')}
+                  className={`px-2 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
+                    queueReviewFilter === 'all'
+                      ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
+                      : 'bg-slate-200/80 text-slate-700 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-300'
+                  }`}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQueueReviewFilter('needs_reviews')}
+                  className={`px-2 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
+                    queueReviewFilter === 'needs_reviews'
+                      ? 'bg-amber-600 text-white'
+                      : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 hover:bg-amber-200'
+                  }`}
+                >
+                  0 Reviews ({allApps.filter(a => (getAppStats ? getAppStats(a).total : 0) === 0).length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQueueReviewFilter('has_reviews')}
+                  className={`px-2 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
+                    queueReviewFilter === 'has_reviews'
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 hover:bg-emerald-200'
+                  }`}
+                >
+                  Has Reviews ({allApps.filter(a => (getAppStats ? getAppStats(a).total : 0) > 0).length})
+                </button>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={handleSelectAllQueue}
@@ -782,10 +913,24 @@ export const Brain2Studio: React.FC<Brain2StudioProps> = ({
               <span className="text-slate-300 dark:text-slate-700">•</span>
               <button
                 type="button"
+                onClick={() => {
+                  const unreviewed = allApps.filter(a => (getAppStats ? getAppStats(a).total : 0) === 0);
+                  const unreviewedIds = unreviewed.map(a => String(a.id || a.slug));
+                  setSelectedQueueAppIds(prev => Array.from(new Set([...prev, ...unreviewedIds])));
+                }}
+                className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
+                title="Select all apps in catalog with 0 live reviews"
+              >
+                <Star size={13} className="text-amber-500" />
+                <span>Select Unreviewed ({allApps.filter(a => (getAppStats ? getAppStats(a).total : 0) === 0).length})</span>
+              </button>
+              <span className="text-slate-300 dark:text-slate-700">•</span>
+              <button
+                type="button"
                 onClick={handleClearQueueSelection}
                 className="text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 cursor-pointer"
               >
-                Clear Selection
+                Clear
               </button>
             </div>
           </div>
@@ -825,8 +970,22 @@ export const Brain2Studio: React.FC<Brain2StudioProps> = ({
                       <div className="text-xs font-black text-slate-800 dark:text-slate-200 truncate">
                         {app.name}
                       </div>
-                      <div className="text-[10px] text-slate-400 truncate">
-                        {app.developer || 'Studio'} • {app.category || 'General'}
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {(() => {
+                          const stats = getAppStats ? getAppStats(app) : { total: 0, published: 0, avgRating: 5.0 };
+                          return (
+                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${
+                              stats.total > 0
+                                ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300'
+                                : 'bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300'
+                            }`}>
+                              {stats.total > 0 ? `${stats.total} Reviews` : '0 Reviews (Needs)'}
+                            </span>
+                          );
+                        })()}
+                        <span className="text-[10px] text-slate-400 truncate">
+                          {app.developer || 'Studio'} • {app.category || 'General'}
+                        </span>
                       </div>
                     </div>
                   </div>

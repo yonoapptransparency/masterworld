@@ -288,14 +288,16 @@ export async function writeCommunityRestDoc(
   const db = getCommunityAdminDb();
   if (db) {
     try {
-      if (merge) {
-        await db.collection(collectionPath).doc(docId).set(data, { merge: true });
-      } else {
-        await db.collection(collectionPath).doc(docId).set(data);
-      }
+      const p = merge
+        ? db.collection(collectionPath).doc(docId).set(data, { merge: true })
+        : db.collection(collectionPath).doc(docId).set(data);
+      await Promise.race([
+        p,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000))
+      ]);
       return true;
     } catch (e) {
-      console.warn(`[Community Admin SDK] Failed to write ${collectionPath}/${docId}, falling back to REST:`, e);
+      // Fallback to REST
     }
   }
 
@@ -379,7 +381,10 @@ export async function deleteCommunityRestDoc(
   const db = getCommunityAdminDb();
   if (db) {
     try {
-      await db.collection(collectionPath).doc(docId).delete();
+      await Promise.race([
+        db.collection(collectionPath).doc(docId).delete(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000))
+      ]);
       return true;
     } catch (e) {
       // Fallback to REST
@@ -409,7 +414,11 @@ export async function readCommunityRestCollection(
   const db = getCommunityAdminDb();
   if (db) {
     try {
-      const snap = await db.collection(collectionPath).limit(limitCount).get();
+      const snapPromise = db.collection(collectionPath).limit(limitCount).get();
+      const snap = await Promise.race([
+        snapPromise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
+      ]) as any;
       if (snap && snap.docs) {
         return snap.docs.map((d: any) => ({ id: d.id, ...d.data() }));
       }
@@ -493,7 +502,23 @@ export async function fetchLiveReviewsForApp(
   const db = getCommunityAdminDb();
   if (db) {
     try {
-      const snap = await withTimeout(db.collection('reviews').limit(500).get(), 10000, null);
+      let snap: any = null;
+      try {
+        snap = await withTimeout(db.collection('reviews').where('appId', '==', targetId).limit(fetchLimit + 10).get(), 3000, null);
+      } catch (_) {}
+
+      if (!snap || !snap.docs || snap.docs.length === 0) {
+        try {
+          snap = await withTimeout(db.collection('reviews').where('appSlug', '==', targetId).limit(fetchLimit + 10).get(), 3000, null);
+        } catch (_) {}
+      }
+
+      if (!snap || !snap.docs || snap.docs.length === 0) {
+        try {
+          snap = await withTimeout(db.collection('reviews').limit(50).get(), 3000, null);
+        } catch (_) {}
+      }
+
       if (snap && snap.docs) {
         let docs = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }));
         
@@ -592,38 +617,97 @@ export interface ExactCommunityAggregationResult {
  */
 export async function fetchExactCommunityAggregationCounts(): Promise<ExactCommunityAggregationResult | null> {
   const db = getCommunityAdminDb();
-  if (!db) return null;
-  try {
-    const [totalSnap, pubSnap, pendSnap, rejSnap, repSnap, pendRepSnap] = await Promise.all([
-      db.collection('reviews').count().get(),
-      db.collection('reviews').where('status', '==', 'published').count().get(),
-      db.collection('reviews').where('status', '==', 'pending').count().get(),
-      db.collection('reviews').where('status', '==', 'rejected').count().get(),
-      db.collection('reports').count().get(),
-      db.collection('reports').where('status', '==', 'pending').count().get().catch(() => ({ data: () => ({ count: 0 }) }))
-    ]);
+  if (db) {
+    try {
+      const [totalSnap, pubSnap, pendSnap, rejSnap, repSnap, pendRepSnap] = await Promise.all([
+        db.collection('reviews').count().get(),
+        db.collection('reviews').where('status', '==', 'published').count().get(),
+        db.collection('reviews').where('status', '==', 'pending').count().get(),
+        db.collection('reviews').where('status', '==', 'rejected').count().get(),
+        db.collection('reports').count().get(),
+        db.collection('reports').where('status', '==', 'pending').count().get().catch(() => ({ data: () => ({ count: 0 }) }))
+      ]);
 
-    const totalRaw = totalSnap.data().count || 0;
-    const totalReviews = totalRaw > 0 ? totalRaw : 0;
-    const publishedReviews = pubSnap.data().count || 0;
-    const pendingReviews = pendSnap.data().count || 0;
-    const rejectedReviews = rejSnap.data().count || 0;
-    const totalReports = repSnap.data().count || 0;
-    const pendingReports = pendRepSnap?.data?.()?.count ?? 0;
+      const totalRaw = totalSnap.data().count || 0;
+      const totalReviews = totalRaw > 0 ? totalRaw : 0;
+      const publishedReviews = pubSnap.data().count || 0;
+      const pendingReviews = pendSnap.data().count || 0;
+      const rejectedReviews = rejSnap.data().count || 0;
+      const totalReports = repSnap.data().count || 0;
+      const pendingReports = pendRepSnap?.data?.()?.count ?? 0;
 
-    return {
-      totalReviews,
-      publishedReviews,
-      pendingReviews,
-      rejectedReviews,
-      totalReports,
-      pendingReports,
-      lastAggregatedAt: new Date().toISOString()
-    };
-  } catch (err) {
-    console.warn('[CommunityAdmin] Aggregation count query error:', err);
-    return null;
+      return {
+        totalReviews,
+        publishedReviews,
+        pendingReviews,
+        rejectedReviews,
+        totalReports,
+        pendingReports,
+        lastAggregatedAt: new Date().toISOString()
+      };
+    } catch (err) {
+      console.warn('[CommunityAdmin] Admin SDK aggregation query error, attempting REST/summary fallback:', err);
+    }
   }
+
+  // Fallback 1: Read pre-aggregated catalog_stats from community_store collection via REST
+  try {
+    const statsDoc = await readCommunityRestDoc('catalog_stats', 'community_store');
+    if (statsDoc && (statsDoc.totalReviews !== undefined || statsDoc.publishedCount !== undefined)) {
+      return {
+        totalReviews: statsDoc.totalReviews || statsDoc.publishedCount || 0,
+        publishedReviews: statsDoc.publishedCount || statsDoc.totalReviews || 0,
+        pendingReviews: statsDoc.pendingCount || 0,
+        rejectedReviews: statsDoc.rejectedCount || 0,
+        totalReports: statsDoc.totalReports || 0,
+        pendingReports: statsDoc.pendingReportsCount || 0,
+        lastAggregatedAt: statsDoc.updated_at || new Date().toISOString()
+      };
+    }
+  } catch (statsErr) {
+    // Non-blocking
+  }
+
+  // Fallback 2: Read from local backup json store
+  try {
+    const backupPath = path.join(process.cwd(), 'community_local_backup.json');
+    if (fs.existsSync(backupPath)) {
+      const raw = fs.readFileSync(backupPath, 'utf8');
+      const data = JSON.parse(raw);
+      const reviews = Array.isArray(data.reviews) ? data.reviews : [];
+      const reports = Array.isArray(data.reports) ? data.reports : [];
+
+      let pub = 0;
+      let pend = 0;
+      let rej = 0;
+      reviews.forEach((r: any) => {
+        const s = r.status || 'published';
+        if (s === 'published') pub++;
+        else if (s === 'pending') pend++;
+        else if (s === 'rejected') rej++;
+      });
+
+      let pendReports = 0;
+      reports.forEach((rep: any) => {
+        const s = rep.status || 'pending';
+        if (s === 'pending' || s === 'in_review') pendReports++;
+      });
+
+      return {
+        totalReviews: reviews.length,
+        publishedReviews: pub,
+        pendingReviews: pend,
+        rejectedReviews: rej,
+        totalReports: reports.length,
+        pendingReports: pendReports,
+        lastAggregatedAt: data.updated_at || new Date().toISOString()
+      };
+    }
+  } catch (backupErr) {
+    console.warn('[CommunityAdmin] Backup aggregation fallback notice:', backupErr);
+  }
+
+  return null;
 }
 
 

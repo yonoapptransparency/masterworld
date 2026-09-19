@@ -1,3 +1,14 @@
+export interface AppReviewCountData {
+  appId?: string;
+  appName?: string;
+  total: number;
+  published: number;
+  pending: number;
+  rejected?: number;
+  flagged?: number;
+  avgRating: number;
+}
+
 export interface AppReviewProfile {
   targetScore: number;
   customDistribution: boolean;

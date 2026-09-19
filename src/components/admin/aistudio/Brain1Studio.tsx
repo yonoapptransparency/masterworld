@@ -38,9 +38,11 @@ import {
   Gauge,
   Flame,
   ShieldCheck,
-  Bot
+  Bot,
+  MessageSquare,
+  ExternalLink
 } from 'lucide-react';
-import { AutobotLog, AutobotSessionStats, AutobotStage, stripHtmlTags, GenerationTelemetry } from './types';
+import { AutobotLog, AutobotSessionStats, AutobotStage, stripHtmlTags, GenerationTelemetry, AppReviewCountData } from './types';
 import { StagedReviewsWorkspace } from './StagedReviewsWorkspace';
 
 interface Brain1StudioProps {
@@ -57,6 +59,11 @@ interface Brain1StudioProps {
   setCustomPrompt: (prompt: string) => void;
   brain1LanguageStyle: 'proper_english' | 'hinglish' | 'natural_mix';
   setBrain1LanguageStyle: (style: 'proper_english' | 'hinglish' | 'natural_mix') => void;
+
+  // Real-time Database Counts Telemetry & Inspection
+  appCountsMap?: Record<string, AppReviewCountData>;
+  getAppStats?: (app: any) => AppReviewCountData;
+  onInspectLiveReviews?: (app: any) => void;
 
   // Brain 1 Customization Controls
   brain1Model: string;
@@ -708,13 +715,18 @@ export const Brain1Studio: React.FC<Brain1StudioProps> = ({
   onDiscardReview,
   onDiscardAll,
   onSaveReviewToLive,
-  onSaveAllStaged
+  onSaveAllStaged,
+  appCountsMap = {},
+  getAppStats,
+  onInspectLiveReviews
 }) => {
   // Operational Sub-mode inside Brain 1
   const [brain1SubMode, setBrain1SubMode] = useState<'single' | 'autopilot'>('single');
   const [showDossierDrawer, setShowDossierDrawer] = useState(false);
   const [dossierActiveTab, setDossierActiveTab] = useState<'overview' | 'description' | 'features' | 'safety' | 'faqs' | 'raw'>('overview');
   const [autoPilotCategoryFilter, setAutoPilotCategoryFilter] = useState<string>('all');
+  const [autoPilotReviewFilter, setAutoPilotReviewFilter] = useState<'all' | 'needs_reviews' | 'has_reviews'>('all');
+  const [singleAppReviewFilter, setSingleAppReviewFilter] = useState<'all' | 'needs_reviews' | 'has_reviews'>('all');
 
   // Categories extracted from appsList
   const categories = useMemo(() => {
@@ -725,6 +737,17 @@ export const Brain1Studio: React.FC<Brain1StudioProps> = ({
     return Array.from(cats);
   }, [appsList]);
 
+  // Single app list filtered by review presence
+  const singleModeFilteredApps = useMemo(() => {
+    return filteredApps.filter(app => {
+      if (singleAppReviewFilter === 'all') return true;
+      const stats = getAppStats ? getAppStats(app) : { total: 0 };
+      if (singleAppReviewFilter === 'needs_reviews') return stats.total === 0;
+      if (singleAppReviewFilter === 'has_reviews') return stats.total > 0;
+      return true;
+    });
+  }, [filteredApps, singleAppReviewFilter, getAppStats]);
+
   // Filtered apps for autopilot multi-app selection grid
   const autopilotFilteredApps = useMemo(() => {
     return appsList.filter(app => {
@@ -734,9 +757,17 @@ export const Brain1Studio: React.FC<Brain1StudioProps> = ({
         (app.name && app.name.toLowerCase().includes(q)) ||
         (app.slug && app.slug.toLowerCase().includes(q)) ||
         (app.id && String(app.id).toLowerCase().includes(q));
-      return matchCat && matchSearch;
+      
+      let matchReview = true;
+      if (autoPilotReviewFilter !== 'all') {
+        const stats = getAppStats ? getAppStats(app) : { total: 0 };
+        if (autoPilotReviewFilter === 'needs_reviews') matchReview = stats.total === 0;
+        if (autoPilotReviewFilter === 'has_reviews') matchReview = stats.total > 0;
+      }
+
+      return matchCat && matchSearch && matchReview;
     });
-  }, [appsList, autoPilotCategoryFilter, autoPilotAppSearch]);
+  }, [appsList, autoPilotCategoryFilter, autoPilotAppSearch, autoPilotReviewFilter, getAppStats]);
 
   return (
     <div className="space-y-6">
@@ -819,26 +850,69 @@ export const Brain1Studio: React.FC<Brain1StudioProps> = ({
                   </div>
                 )}
                 <div className="min-w-0 flex-1">
-                  <div className="relative mb-1">
-                    <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Type to filter app list..."
-                      value={appSearch}
-                      onChange={(e) => setAppSearch(e.target.value)}
-                      className="w-full text-xs pl-7 pr-2.5 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    />
+                  {/* Quick Review Filter Pills & Search */}
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 mb-1.5">
+                    <div className="flex items-center gap-1 text-[10px] font-bold">
+                      <button
+                        type="button"
+                        onClick={() => setSingleAppReviewFilter('all')}
+                        className={`px-2 py-0.5 rounded-md transition-colors ${
+                          singleAppReviewFilter === 'all'
+                            ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
+                            : 'bg-slate-200/80 text-slate-700 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-300'
+                        }`}
+                      >
+                        All ({filteredApps.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSingleAppReviewFilter('needs_reviews')}
+                        className={`px-2 py-0.5 rounded-md transition-colors ${
+                          singleAppReviewFilter === 'needs_reviews'
+                            ? 'bg-amber-600 text-white'
+                            : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 hover:bg-amber-200'
+                        }`}
+                      >
+                        0 Reviews ({filteredApps.filter(a => (getAppStats ? getAppStats(a).total : 0) === 0).length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSingleAppReviewFilter('has_reviews')}
+                        className={`px-2 py-0.5 rounded-md transition-colors ${
+                          singleAppReviewFilter === 'has_reviews'
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 hover:bg-emerald-200'
+                        }`}
+                      >
+                        Has Reviews ({filteredApps.filter(a => (getAppStats ? getAppStats(a).total : 0) > 0).length})
+                      </button>
+                    </div>
+
+                    <div className="relative flex-1">
+                      <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Filter app..."
+                        value={appSearch}
+                        onChange={(e) => setAppSearch(e.target.value)}
+                        className="w-full text-xs pl-7 pr-2.5 py-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      />
+                    </div>
                   </div>
+
                   <select
                     value={selectedAppId}
                     onChange={(e) => setSelectedAppId(e.target.value)}
                     className="w-full text-sm font-black bg-transparent text-slate-900 dark:text-white border-0 cursor-pointer focus:outline-none truncate"
                   >
-                    {filteredApps.map(app => (
-                      <option key={app.id} value={app.id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
-                        {app.name} ({app.category || 'General'}) • Store: {app.rating || '4.8'}★
-                      </option>
-                    ))}
+                    {singleModeFilteredApps.map(app => {
+                      const stats = getAppStats ? getAppStats(app) : { total: 0, published: 0, avgRating: 5.0 };
+                      return (
+                        <option key={app.id} value={app.id} className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+                          {app.name} ({app.category || 'General'}) • {stats.total > 0 ? `${stats.total} Reviews (${stats.published} pub • ${stats.avgRating}★)` : '0 Reviews (Needs Reviews)'}
+                        </option>
+                      );
+                    })}
                   </select>
                   <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                     <span>Developer: <strong className="text-slate-800 dark:text-slate-200">{currentApp?.developer || 'Studio'}</strong></span>
@@ -851,6 +925,37 @@ export const Brain1Studio: React.FC<Brain1StudioProps> = ({
               </div>
 
               <div className="lg:col-span-6 flex flex-wrap items-center justify-end gap-2 text-[11px] font-semibold">
+                {/* Live Real-time Database Review Count Chip with Modal Inspector Trigger */}
+                {(() => {
+                  const currentStats = getAppStats ? getAppStats(currentApp) : { total: 0, published: 0, pending: 0, avgRating: 5.0 };
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => onInspectLiveReviews && onInspectLiveReviews(currentApp)}
+                      className={`px-3 py-1.5 rounded-xl border flex items-center gap-1.5 transition-all cursor-pointer font-bold ${
+                        currentStats.total > 0
+                          ? 'bg-emerald-100/90 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700/80 hover:bg-emerald-200 shadow-xs'
+                          : 'bg-amber-100/90 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700/80 hover:bg-amber-200 shadow-xs'
+                      }`}
+                      title="Click to view live reviews in Firebase for this app"
+                    >
+                      <MessageSquare size={13} className={currentStats.total > 0 ? "text-emerald-600" : "text-amber-600"} />
+                      <span>
+                        Live Reviews: <strong>{currentStats.total}</strong>
+                        {currentStats.total > 0 && (
+                          <span className="opacity-80 text-[10px] ml-1">
+                            ({currentStats.published} pub • {currentStats.avgRating}★)
+                          </span>
+                        )}
+                        {currentStats.total === 0 && (
+                          <span className="opacity-80 text-[10px] ml-1">(Needs Reviews)</span>
+                        )}
+                      </span>
+                      <ExternalLink size={11} className="opacity-70" />
+                    </button>
+                  );
+                })()}
+
                 <div className="bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 px-3 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800/70 flex items-center gap-1.5">
                   <FileText size={13} className="text-emerald-500" />
                   <span>HTML Chars: <strong>{brain1Dossier?.dossierStats?.totalChars || dossierHealth.descChars}</strong></span>
@@ -1182,6 +1287,24 @@ export const Brain1Studio: React.FC<Brain1StudioProps> = ({
                     <span>Select All ({appsList.length})</span>
                   </button>
                   <button
+                    onClick={() => {
+                      const unreviewed = appsList.filter(a => (getAppStats ? getAppStats(a).total : 0) === 0);
+                      unreviewed.forEach(a => {
+                        const idStr = String(a.id || a.slug || '');
+                        if (!selectedAutoPilotAppIds.includes(idStr)) {
+                          onToggleAutoPilotApp(idStr);
+                        }
+                      });
+                    }}
+                    className="px-3 py-1.5 text-xs font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 rounded-xl border border-amber-300 dark:border-amber-800/80 hover:bg-amber-100 transition-colors cursor-pointer flex items-center gap-1"
+                    title="Select all apps that currently have 0 live reviews in database"
+                  >
+                    <Star size={13} className="text-amber-500" />
+                    <span>
+                      Select Unreviewed ({appsList.filter(a => (getAppStats ? getAppStats(a).total : 0) === 0).length})
+                    </span>
+                  </button>
+                  <button
                     onClick={onDeselectAllAutoPilotApps}
                     className="px-3 py-1.5 text-xs font-bold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors cursor-pointer flex items-center gap-1"
                   >
@@ -1191,9 +1314,9 @@ export const Brain1Studio: React.FC<Brain1StudioProps> = ({
                 </div>
               </div>
 
-              {/* Filters: Category & Live Search */}
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                <div className="sm:col-span-4">
+              {/* Filters: Category, Review Status & Live Search */}
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+                <div className="sm:col-span-3">
                   <select
                     value={autoPilotCategoryFilter}
                     onChange={(e) => setAutoPilotCategoryFilter(e.target.value)}
@@ -1205,11 +1328,49 @@ export const Brain1Studio: React.FC<Brain1StudioProps> = ({
                     ))}
                   </select>
                 </div>
-                <div className="sm:col-span-8 relative">
+
+                {/* Review Count Status Filter Pills */}
+                <div className="sm:col-span-4 flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setAutoPilotReviewFilter('all')}
+                    className={`px-2.5 py-1.5 text-[11px] font-bold rounded-xl transition-all cursor-pointer ${
+                      autoPilotReviewFilter === 'all'
+                        ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
+                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAutoPilotReviewFilter('needs_reviews')}
+                    className={`px-2.5 py-1.5 text-[11px] font-bold rounded-xl transition-all cursor-pointer ${
+                      autoPilotReviewFilter === 'needs_reviews'
+                        ? 'bg-amber-600 text-white shadow-xs'
+                        : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 hover:bg-amber-100'
+                    }`}
+                  >
+                    0 Reviews ({appsList.filter(a => (getAppStats ? getAppStats(a).total : 0) === 0).length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAutoPilotReviewFilter('has_reviews')}
+                    className={`px-2.5 py-1.5 text-[11px] font-bold rounded-xl transition-all cursor-pointer ${
+                      autoPilotReviewFilter === 'has_reviews'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 hover:bg-emerald-100'
+                    }`}
+                  >
+                    Has Reviews ({appsList.filter(a => (getAppStats ? getAppStats(a).total : 0) > 0).length})
+                  </button>
+                </div>
+
+                <div className="sm:col-span-5 relative">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
-                    placeholder="Search apps by name, category, or slug..."
+                    placeholder="Search apps by name or category..."
                     value={autoPilotAppSearch}
                     onChange={(e) => setAutoPilotAppSearch(e.target.value)}
                     className="w-full text-xs pl-8.5 pr-3 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -1218,10 +1379,11 @@ export const Brain1Studio: React.FC<Brain1StudioProps> = ({
               </div>
 
               {/* Responsive App Selection Grid */}
-              <div className="max-h-60 overflow-y-auto pr-1 scrollbar-thin grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+              <div className="max-h-64 overflow-y-auto pr-1 scrollbar-thin grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
                 {autopilotFilteredApps.map(app => {
                   const idStr = String(app.id || app.slug || '');
                   const isSelected = selectedAutoPilotAppIds.includes(idStr) || selectedAutoPilotAppIds.includes(String(app.id)) || selectedAutoPilotAppIds.includes(String(app.slug));
+                  const stats = getAppStats ? getAppStats(app) : { total: 0, published: 0, avgRating: 5.0 };
                   return (
                     <div
                       key={app.id || app.slug}
@@ -1254,10 +1416,15 @@ export const Brain1Studio: React.FC<Brain1StudioProps> = ({
                         <div className="text-xs font-bold truncate text-slate-900 dark:text-white">
                           {app.name}
                         </div>
-                        <div className="text-[10px] text-slate-400 flex items-center gap-1.5">
-                          <span>{app.category || 'Card'}</span>
-                          <span>•</span>
-                          <span>{app.rating || '4.8'}★</span>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${
+                            stats.total > 0
+                              ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300'
+                              : 'bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300'
+                          }`}>
+                            {stats.total > 0 ? `${stats.total} Reviews` : '0 Reviews (Needs)'}
+                          </span>
+                          <span className="text-[10px] text-slate-400 truncate">• {app.category || 'Card'}</span>
                         </div>
                       </div>
                     </div>

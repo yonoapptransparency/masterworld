@@ -66,6 +66,7 @@ import {
 import { Brain1Studio } from './aistudio/Brain1Studio';
 import { Brain2Studio } from './aistudio/Brain2Studio';
 import { StagedReviewsWorkspace } from './aistudio/StagedReviewsWorkspace';
+import { AppLiveReviewsModal, AppReviewCountData } from './aistudio/AppLiveReviewsModal';
 
 export { type AppReviewProfile };
 
@@ -84,6 +85,86 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
   // Selected Target App for Single Generation (Brain 1 & Brain 2)
   const [selectedAppId, setSelectedAppId] = useState<string>(appsList?.[0]?.id || '');
   const [appSearch, setAppSearch] = useState('');
+
+  // Real-time Database Telemetry & Live Modal Inspection
+  const [appCountsMap, setAppCountsMap] = useState<Record<string, AppReviewCountData>>({});
+  const [loadingReviewCounts, setLoadingReviewCounts] = useState<boolean>(false);
+  const [inspectingApp, setInspectingApp] = useState<any | null>(null);
+
+  const fetchLiveReviewStats = useCallback(async () => {
+    try {
+      setLoadingReviewCounts(true);
+      const res = await adminFetch('/api/v1/admin/community/stats-summary');
+      if (res.ok) {
+        const json = await res.json();
+        const appStats = json?.appStats || {};
+        const map: Record<string, AppReviewCountData> = {};
+
+        // Populate the appCountsMap from atomic stats summary
+        Object.keys(appStats).forEach(key => {
+          const s = appStats[key];
+          map[key] = {
+            appId: s.appId,
+            appName: s.appName,
+            total: s.total || 0,
+            published: s.published || 0,
+            pending: s.pending || 0,
+            avgRating: s.avgRating || 5.0
+          };
+        });
+
+        // Ensure every app in appsList has a baseline entry
+        appsList.forEach(app => {
+          const idKey = String(app.id || '').toLowerCase().trim();
+          const slugKey = String(app.slug || '').toLowerCase().trim();
+          const nameKey = String(app.name || '').toLowerCase().trim();
+
+          const existing = map[idKey] || map[slugKey] || map[nameKey];
+          const statsObj: AppReviewCountData = existing || {
+            appId: app.id || app.slug,
+            appName: app.name || '',
+            total: 0,
+            published: 0,
+            pending: 0,
+            avgRating: Number(app.rating) || 5.0
+          };
+
+          if (idKey && !map[idKey]) map[idKey] = statsObj;
+          if (slugKey && !map[slugKey]) map[slugKey] = statsObj;
+          if (nameKey && !map[nameKey]) map[nameKey] = statsObj;
+        });
+
+        setAppCountsMap(map);
+      }
+    } catch (err) {
+      console.error('Failed to fetch real-time live review stats:', err);
+    } finally {
+      setLoadingReviewCounts(false);
+    }
+  }, [appsList]);
+
+  useEffect(() => {
+    fetchLiveReviewStats();
+  }, [fetchLiveReviewStats]);
+
+  const getAppStats = useCallback((app: any): AppReviewCountData => {
+    if (!app) return { appId: '', appName: '', total: 0, published: 0, pending: 0, avgRating: 5.0 };
+    const idKey = String(app.id || '').toLowerCase().trim();
+    const slugKey = String(app.slug || '').toLowerCase().trim();
+    const nameKey = String(app.name || '').toLowerCase().trim();
+
+    const found = appCountsMap[idKey] || appCountsMap[slugKey] || appCountsMap[nameKey];
+    if (found) return found;
+
+    return {
+      appId: idKey || slugKey,
+      appName: app.name || '',
+      total: 0,
+      published: 0,
+      pending: 0,
+      avgRating: Number(app.rating) || 5.0
+    };
+  }, [appCountsMap]);
 
   useEffect(() => {
     if (!selectedAppId && appsList && appsList.length > 0) {
@@ -1158,6 +1239,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
       toast(`Published review by ${review.userName}!`, "success");
       setStagedReviews(prev => prev.filter((_, i) => i !== idx));
       if (onReviewsGenerated) onReviewsGenerated();
+      fetchLiveReviewStats();
     } catch (err: any) {
       toast(err.message || "Failed to publish review", "error");
     } finally {
@@ -1189,6 +1271,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
       toast(`✅ Successfully published all ${stagedReviews.length} reviews to the live community database!`, "success");
       setStagedReviews([]);
       if (onReviewsGenerated) onReviewsGenerated();
+      fetchLiveReviewStats();
     } catch (err: any) {
       toast(err.message || "Failed to publish staged reviews", "error");
     } finally {
@@ -1284,6 +1367,24 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
               <Activity size={14} className="text-cyan-400 animate-pulse" />
               <span>Diagnostics</span>
             </button>
+
+            {/* Live Database Reviews Count Badge */}
+            <div className="flex items-center gap-2 bg-slate-800/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-700/60 shadow-xs">
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              <span className="text-slate-300">Live Reviews:</span>
+              <span className="text-emerald-400 font-bold">
+                {Object.values(appCountsMap).reduce((acc, cur) => acc + (cur.published || 0), 0)} Pub
+              </span>
+              <button
+                type="button"
+                onClick={fetchLiveReviewStats}
+                disabled={loadingReviewCounts}
+                title="Refresh Live Review counts from Firebase"
+                className="text-slate-400 hover:text-white transition-colors cursor-pointer ml-1"
+              >
+                <RefreshCw size={11} className={loadingReviewCounts ? "animate-spin text-emerald-400" : ""} />
+              </button>
+            </div>
 
             <div className="flex items-center gap-2 bg-slate-800/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-700/60 shadow-xs">
               <span className="w-2 h-2 rounded-full bg-indigo-400" />
@@ -1452,6 +1553,11 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           onDiscardAll={handleDiscardAll}
           onSaveReviewToLive={handleSaveReviewToLive}
           onSaveAllStaged={handleSaveAllStaged}
+
+          // Real-time Database Telemetry & Live Modal Inspection Props
+          appCountsMap={appCountsMap}
+          getAppStats={getAppStats}
+          onInspectLiveReviews={(app) => setInspectingApp(app)}
         />
       )}
 
@@ -1520,6 +1626,11 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           onDiscardAll={handleDiscardAll}
           onSaveReviewToLive={handleSaveReviewToLive}
           onSaveAllStaged={handleSaveAllStaged}
+
+          // Real-time Database Telemetry & Live Modal Inspection Props
+          appCountsMap={appCountsMap}
+          getAppStats={getAppStats}
+          onInspectLiveReviews={(app) => setInspectingApp(app)}
         />
       )}
 
@@ -1885,6 +1996,16 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
 
           </div>
         </div>
+      )}
+
+      {/* Live Reviews Inspection & Moderation Modal */}
+      {inspectingApp && (
+        <AppLiveReviewsModal
+          app={inspectingApp}
+          isOpen={!!inspectingApp}
+          onClose={() => setInspectingApp(null)}
+          onReviewsUpdated={fetchLiveReviewStats}
+        />
       )}
 
     </div>

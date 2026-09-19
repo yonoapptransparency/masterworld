@@ -182,6 +182,17 @@ communityRouter.get("/api/v1/public/community/stats/:appId", async (req: any, re
   }
 });
 
+// Fast Atomic Stats Summary across All Catalog Apps (Instant, 0 Firestore reads)
+communityRouter.get(["/api/v1/public/community/stats-summary", "/api/v1/admin/community/stats-summary"], async (req: any, res: any) => {
+  res.setHeader('Cache-Control', 'public, max-age=15, s-maxage=30');
+  try {
+    const summary = communityStore.getGlobalStatsSummary();
+    return res.status(200).json({ success: true, ...summary });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 
 
 // Public Cursor-based Reviews fetch for App Page
@@ -361,7 +372,12 @@ communityRouter.get("/api/v1/admin/community/export-published", verifyAdminToken
 
 communityRouter.get("/api/v1/admin/community/overview", verifyAdminToken, async (req: any, res: any) => {
   try {
-    // Optionally trigger fast remote aggregation refresh if requested or stale
+    // 1. Ensure store is initialized from local backup/remote so metrics never return 0 on cold boots
+    if (typeof (communityStore as any).ensureInitialized === 'function') {
+      await (communityStore as any).ensureInitialized(3000).catch(() => {});
+    }
+
+    // 2. Optionally trigger fast remote aggregation refresh if requested or stale
     if (typeof (communityStore as any).refreshAggregationCounts === 'function') {
       await (communityStore as any).refreshAggregationCounts(req.query?.force === 'true').catch(() => {});
     }

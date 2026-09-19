@@ -263,8 +263,8 @@ export function resolveCanonicalApp(
 
 async function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
   let timer: any;
-  const timeoutPromise = new Promise<T>((resolve, reject) => {
-    timer = setTimeout(() => reject(new Error('RESOURCE_EXHAUSTED: Timeout')), ms);
+  const timeoutPromise = new Promise<T>((resolve) => {
+    timer = setTimeout(() => resolve(fallback), ms);
   });
   try {
     const result = await Promise.race([promise, timeoutPromise]);
@@ -272,48 +272,63 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Pro
     return result;
   } catch (e) {
     clearTimeout(timer);
-    throw e;
+    return fallback;
   }
 }
 
 async function safeReadDb(docId: string, _unusedAuthToken?: string, collectionPath: string = 'reviews') {
+  if (communityStore && communityStore.isQuotaProtected()) {
+    return await readCommunityRestDoc(docId, collectionPath);
+  }
   const db = getCommunityAdminDb();
   if (db) {
     try {
-      const doc = await withTimeout(db.collection(collectionPath).doc(docId).get(), 15000, null);
+      const doc = await withTimeout(db.collection(collectionPath).doc(docId).get(), 10000, null);
       if (doc && doc.exists) return doc.data();
-    } catch (e) {
-      console.error(`[safeReadDb] Admin SDK failed for ${collectionPath}/${docId}:`, e);
+    } catch (e: any) {
+      if (communityStore && communityStore.isQuotaError(e)) {
+        communityStore.handleQuotaCooldown();
+      } else {
+        console.warn(`[safeReadDb] Admin SDK note for ${collectionPath}/${docId}:`, e?.message || e);
+      }
     }
   }
   return await readCommunityRestDoc(docId, collectionPath);
 }
 
-async function safeReadCollection(collectionPath: string) {
+async function safeReadCollection(collectionPath: string, limitCount = 50) {
+  if (communityStore && communityStore.isQuotaProtected()) {
+    return await readCommunityRestCollection(collectionPath, limitCount);
+  }
   const db = getCommunityAdminDb();
   if (db) {
     try {
-      const snapshot = await withTimeout(db.collection(collectionPath).get(), 15000, null);
+      const snapshot = await withTimeout(db.collection(collectionPath).limit(limitCount).get(), 5000, null);
       if (snapshot && snapshot.docs) {
         return snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }));
       }
-    } catch (e) {
-      console.error(`[safeReadCollection] Admin SDK failed for ${collectionPath}:`, e);
+    } catch (e: any) {
+      if (communityStore && communityStore.isQuotaError(e)) {
+        communityStore.handleQuotaCooldown();
+      }
     }
   }
-  return await readCommunityRestCollection(collectionPath);
+  return await readCommunityRestCollection(collectionPath, limitCount);
 }
 
 // Helper to try Admin SDK first, fallback to REST
 async function safeDeleteDb(docId: string, _unusedAuthToken?: string, collectionPath: string = 'reviews') {
   const db = getCommunityAdminDb();
-  if (db) {
+  if (db && (!communityStore || !communityStore.isQuotaProtected())) {
     try {
-      const res = await withTimeout(db.collection(collectionPath).doc(docId).delete(), 15000, null);
+      const res = await withTimeout(db.collection(collectionPath).doc(docId).delete(), 10000, null);
       if (res !== null) return true;
-    } catch (e) {
-      console.error(`[safeDeleteDb] Admin SDK failed for ${collectionPath}/${docId}:`, e);
-      // Fallback to REST
+    } catch (e: any) {
+      if (communityStore && communityStore.isQuotaError(e)) {
+        communityStore.handleQuotaCooldown();
+      } else {
+        console.warn(`[safeDeleteDb] Admin SDK note for ${collectionPath}/${docId}:`, e?.message || e);
+      }
     }
   }
   return await deleteCommunityRestDoc(docId, collectionPath);
@@ -322,13 +337,16 @@ async function safeDeleteDb(docId: string, _unusedAuthToken?: string, collection
 // Helper to try Admin SDK first, fallback to REST
 async function safeWriteDb(docId: string, data: any, _unusedAuthToken?: string, merge: boolean = true, collectionPath: string = 'reviews') {
   const db = getCommunityAdminDb();
-  if (db) {
+  if (db && (!communityStore || !communityStore.isQuotaProtected())) {
     try {
-      const res = await withTimeout(db.collection(collectionPath).doc(docId).set(data, { merge }), 15000, null);
+      const res = await withTimeout(db.collection(collectionPath).doc(docId).set(data, { merge }), 10000, null);
       if (res !== null) return true;
-    } catch (e) {
-      console.error(`[safeWriteDb] Admin SDK failed for ${collectionPath}/${docId}:`, e);
-      // Fallback to REST
+    } catch (e: any) {
+      if (communityStore && communityStore.isQuotaError(e)) {
+        communityStore.handleQuotaCooldown();
+      } else {
+        console.warn(`[safeWriteDb] Admin SDK note for ${collectionPath}/${docId}:`, e?.message || e);
+      }
     }
   }
   return await writeCommunityRestDoc(docId, data, merge, collectionPath);
@@ -377,14 +395,31 @@ class CommunityStoreService {
   }
 
   /**
+   * Guarantees the in-memory store has completed local/remote initialization before returning telemetry.
+   */
+  public async ensureInitialized(timeoutMs = 3000): Promise<void> {
+    if (this.initialized && this.reviews.size > 0) return;
+    if (!this.initialized && !this.isSyncing) {
+      this.initFromFirestore(false).catch(() => {});
+    }
+    const start = Date.now();
+    while (this.isSyncing && (Date.now() - start) < timeoutMs) {
+      await new Promise(r => setTimeout(r, 100));
+    }
+  }
+
+  /**
    * Fast Remote Firestore Aggregation Query:
-   * Queries exact remote counts using Firestore COUNT() aggregation without downloading any documents.
+   * Queries exact remote numbers using Firestore COUNT() aggregation without downloading any documents.
    * Costs only ~4-6 index reads and runs in <300ms.
    */
   public async refreshAggregationCounts(force: boolean = false): Promise<ExactCommunityAggregationResult | null> {
     const now = Date.now();
     if (!force && this.cachedRemoteCounts && (now - this.lastAggregationCheck < 60000)) {
       return this.cachedRemoteCounts;
+    }
+    if (this.reviews.size === 0 && !this.initialized) {
+      await this.ensureInitialized(2000).catch(() => {});
     }
     try {
       const counts = await fetchExactCommunityAggregationCounts();
@@ -402,14 +437,14 @@ class CommunityStoreService {
   }
 
   // Check if error is a Firestore quota / rate exhaustion
-  private isQuotaError(err: any): boolean {
+  public isQuotaError(err: any): boolean {
     if (!err) return false;
     const msg = String(err.message || err.details || err || '');
     const code = err.code || err.status;
-    return code === 8 || code === 429 || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('Quota exceeded');
+    return code === 8 || code === 429 || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('Quota exceeded') || msg.includes('quota');
   }
 
-  private handleQuotaCooldown() {
+  public handleQuotaCooldown() {
     this.quotaExhaustedUntil = Date.now() + this.QUOTA_COOLDOWN_MS;
   }
 
@@ -535,14 +570,14 @@ class CommunityStoreService {
     try {
       const db = getCommunityAdminDb();
       if (db) {
-        // Load ALL reviews from Firestore without artificial truncation
+        // Pull only recent reviews if local backup is already populated to protect Firestore quota
         try {
-          const fetchLimit = 10000;
+          const fetchLimit = this.reviews.size > 0 ? 50 : 200;
           let snap: any = null;
           try {
-            snap = await withTimeout(db.collection('reviews').orderBy('timestamp', 'desc').limit(fetchLimit).get(), 30000, null);
+            snap = await withTimeout(db.collection('reviews').orderBy('timestamp', 'desc').limit(fetchLimit).get(), 8000, null);
           } catch (_) {
-            snap = await withTimeout(db.collection('reviews').limit(fetchLimit).get(), 30000, null);
+            snap = await withTimeout(db.collection('reviews').limit(fetchLimit).get(), 8000, null);
           }
           if (snap && snap.docs) {
             snap.docs.forEach((doc: any) => {
@@ -578,13 +613,9 @@ class CommunityStoreService {
                 updated_at: d.updated_at
               });
             });
-            console.log(`[CommunityStore] Successfully initialized ${this.reviews.size} verified reviews from Firestore.`);
+            console.log(`[CommunityStore] Initialized community store with ${this.reviews.size} verified reviews.`);
             // Save complete dataset to local backup disk store
             this.saveToDiskAndQueueCloudSync();
-            // Sync all app-scoped chunk documents in background
-            setTimeout(() => {
-              this.syncAllAppsToChunks().catch((err: any) => console.warn('[CommunityStore] Chunk sync note:', err?.message || err));
-            }, 3000);
           }
 
           this.exportToStaticTypeScript();
@@ -639,11 +670,11 @@ class CommunityStoreService {
         }
       }
 
-      // If Admin SDK did not populate reviews or reports, execute REST sync
-      if (this.reviews.size === 0 || this.reports.size === 0 || forceSync) {
-        // Fallback to REST API
+      // If Admin SDK did not populate reviews or reports, execute lightweight REST sync if empty
+      if ((this.reviews.size === 0 || this.reports.size === 0 || forceSync) && !this.isQuotaProtected()) {
+        // Fallback to REST API - only fetch recent records with strict limit
         try {
-          const restReviews = await safeReadCollection('reviews');
+          const restReviews = await safeReadCollection('reviews', 50);
           restReviews.forEach((d: any) => {
             if (d && d.id) {
               if (this.deletedReviewIds.has(d.id)) {
@@ -679,7 +710,7 @@ class CommunityStoreService {
             }
           });
 
-          const restReports = await safeReadCollection('reports');
+          const restReports = await safeReadCollection('reports', 50);
           restReports.forEach((d: any) => {
             if (d && d.id) {
               const existing = this.reports.get(d.id);
@@ -775,13 +806,13 @@ class CommunityStoreService {
     let loadedCount = 0;
     const db = getCommunityAdminDb();
 
-    // 1. Fetch ALL documents from live Firestore `reviews` collection matching any alias key
+    // 1. Fetch documents from live Firestore `reviews` collection matching alias key with strict limit
     if (db && Date.now() >= this.quotaExhaustedUntil) {
       try {
         const queryPromises: Promise<any>[] = [];
         aliases.forEach(key => {
-          queryPromises.push(withTimeout(db.collection('reviews').where('appId', '==', key).limit(5000).get(), 15000, null));
-          queryPromises.push(withTimeout(db.collection('reviews').where('appSlug', '==', key).limit(5000).get(), 15000, null));
+          queryPromises.push(withTimeout(db.collection('reviews').where('appId', '==', key).limit(100).get(), 5000, null));
+          queryPromises.push(withTimeout(db.collection('reviews').where('appSlug', '==', key).limit(100).get(), 5000, null));
         });
 
         const snaps = await Promise.all(queryPromises);
@@ -825,44 +856,6 @@ class CommunityStoreService {
         if (this.isQuotaError(err)) this.handleQuotaCooldown();
         console.warn(`[CommunityStore] ensureAllReviewsLoadedForApp query notice for ${cleanId}:`, err?.message || err);
       }
-    } else {
-      // Fallback via REST API if Admin SDK is unavailable or quota exhausted
-      try {
-        const restReviews = await safeReadCollection('reviews');
-        restReviews.forEach((d: any) => {
-          if (d && d.id && !this.deletedReviewIds.has(d.id)) {
-            const rAppId = String(d.appId || d.app_id || '').toLowerCase().trim();
-            const rAppSlug = String(d.appSlug || '').toLowerCase().trim();
-            if (aliases.has(rAppId) || aliases.has(rAppSlug)) {
-              const existing = this.reviews.get(d.id);
-              if (existing && existing.updated_at && d.updated_at) {
-                const localTime = new Date(existing.updated_at).getTime();
-                const remoteTime = new Date(d.updated_at).getTime();
-                if (localTime > remoteTime) return;
-              }
-              this.reviews.set(d.id, {
-                id: d.id,
-                appId: d.appId || cleanId,
-                appSlug: d.appSlug || '',
-                appName: d.appName || '',
-                userName: d.userName || d.username || 'Player',
-                rating: Number(d.rating) || 5,
-                reviewText: sanitizeReviewText(d.reviewText || d.comment || ''),
-                timestamp: d.timestamp || d.created_at || new Date().toISOString(),
-                status: d.status || (d.is_approved ? 'published' : 'pending') || 'published',
-                helpful_count: Number(d.helpful_count) || 0,
-                isPinned: Boolean(d.isPinned),
-                reported: Boolean(d.reported),
-                report_count: Number(d.report_count) || 0,
-                source: d.source || 'community',
-                adminReply: d.adminReply || (existing?.adminReply) || null,
-                updated_at: d.updated_at || new Date().toISOString()
-              });
-              loadedCount++;
-            }
-          }
-        });
-      } catch (e: any) {}
     }
 
     // 2. Also check existing bucket document(s) community_store/app_reviews_${cleanId}_0, etc.
@@ -2126,7 +2119,7 @@ public async voteHelpful(reviewId: string): Promise<number> {
         const db = getCommunityAdminDb();
         if (db) {
           try {
-            const snap = await withTimeout(db.collection('reviews').orderBy('timestamp', 'desc').limit(10000).get(), 30000, null);
+            const snap = await withTimeout(db.collection('reviews').orderBy('timestamp', 'desc').limit(50).get(), 5000, null);
             if (snap && snap.docs && snap.docs.length > 0) {
               snap.docs.forEach((docSnap: any) => {
                 const d = docSnap.data();
@@ -2136,20 +2129,7 @@ public async voteHelpful(reviewId: string): Promise<number> {
               });
               this.saveToDiskAndQueueCloudSync();
             }
-          } catch (adminErr: any) {
-            try {
-              const fallbackSnap = await withTimeout(db.collection('reviews').limit(10000).get(), 30000, null);
-              if (fallbackSnap && fallbackSnap.docs && fallbackSnap.docs.length > 0) {
-                fallbackSnap.docs.forEach((docSnap: any) => {
-                  const d = docSnap.data();
-                  if (!this.deletedReviewIds.has(docSnap.id)) {
-                    this.reviews.set(docSnap.id, { id: docSnap.id, ...d });
-                  }
-                });
-                this.saveToDiskAndQueueCloudSync();
-              }
-            } catch (_) {}
-          }
+          } catch (adminErr: any) {}
         }
       } catch (e) {}
     }
@@ -2392,22 +2372,14 @@ public async voteHelpful(reviewId: string): Promise<number> {
     const cleanId = resolved.canonicalId;
     const matchedApp = resolved.matchedApp;
     
-    // 1. Get Base App Stats
-    const baseTotal = matchedApp?.review_count ? Number(matchedApp.review_count) : (matchedApp?.existingReviewsCount ? Number(matchedApp.existingReviewsCount) : 0);
-    const baseRating = matchedApp?.rating ? Number(matchedApp.rating) : fallbackRating;
-    const baseStarCounts = { 
-      '5': Math.floor(baseTotal * 0.75), 
-      '4': Math.floor(baseTotal * 0.15), 
-      '3': Math.floor(baseTotal * 0.05), 
-      '2': Math.floor(baseTotal * 0.03), 
-      '1': Math.floor(baseTotal * 0.02) 
-    };
+    // Benchmark rating defined by admin (used as target by AI generation)
+    const benchmarkRating = matchedApp?.rating ? Number(matchedApp.rating) : fallbackRating;
     
     let communityTotal = 0;
     let communityRatingSum = 0;
-    let communityStarCounts = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
+    let communityStarCounts: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
 
-    // 2. Fetch atomic stats (from memory cache or remote Firestore)
+    // 1. Fetch atomic stats (from memory cache or remote Firestore)
     let stats = this.appStatsCache.get(cleanId);
     if (!stats && resolved.canonicalSlug) {
       stats = this.appStatsCache.get(resolved.canonicalSlug);
@@ -2429,7 +2401,7 @@ public async voteHelpful(reviewId: string): Promise<number> {
       communityRatingSum = stats.publishedRatingSum || 0;
       communityStarCounts = stats.starDistribution || communityStarCounts;
     } else {
-      // 3. Fallback: compute from memory reviews if no atomic stats document exists
+      // 2. Fallback: compute strictly from memory reviews if no atomic stats document exists
       const aliasKeys = resolved.aliasKeys;
       const appReviews = Array.from(this.reviews.values())
         .filter(r => {
@@ -2443,12 +2415,12 @@ public async voteHelpful(reviewId: string): Promise<number> {
       if (appReviews.length > 0) {
         appReviews.forEach(r => {
           const star = String(Math.max(1, Math.min(5, Math.round(r.rating))));
-          communityStarCounts[star as keyof typeof communityStarCounts] = (communityStarCounts[star as keyof typeof communityStarCounts] || 0) + 1;
-          communityRatingSum += r.rating;
+          communityStarCounts[star] = (communityStarCounts[star] || 0) + 1;
+          communityRatingSum += Number(r.rating) || 5;
           communityTotal++;
         });
         
-        // Cache these computed stats!
+        // Cache these computed stats
         const computedStats = {
           publishedReviewCount: communityTotal,
           publishedRatingSum: communityRatingSum,
@@ -2461,40 +2433,168 @@ public async voteHelpful(reviewId: string): Promise<number> {
       }
     }
 
-    // 4. Combine Base + Community
-    const totalReviews = baseTotal + communityTotal;
-    let averageRating = baseRating;
+    // 3. True Real-Review Metrics Only
+    const totalReviews = communityTotal;
+    let averageRating = benchmarkRating;
     
     if (totalReviews > 0) {
-       const totalSum = (baseRating * baseTotal) + communityRatingSum;
-       averageRating = parseFloat((totalSum / totalReviews).toFixed(1));
-    } else {
-       averageRating = fallbackRating;
+       averageRating = parseFloat((communityRatingSum / totalReviews).toFixed(1));
     }
-
-    const aggregatedStarCounts = {
-      '5': baseStarCounts['5'] + (communityStarCounts['5'] || 0),
-      '4': baseStarCounts['4'] + (communityStarCounts['4'] || 0),
-      '3': baseStarCounts['3'] + (communityStarCounts['3'] || 0),
-      '2': baseStarCounts['2'] + (communityStarCounts['2'] || 0),
-      '1': baseStarCounts['1'] + (communityStarCounts['1'] || 0)
-    };
 
     const effectiveTotal = Math.max(1, totalReviews);
     const distribution: Record<number, number> = {
-      5: Math.round((aggregatedStarCounts['5'] / effectiveTotal) * 100),
-      4: Math.round((aggregatedStarCounts['4'] / effectiveTotal) * 100),
-      3: Math.round((aggregatedStarCounts['3'] / effectiveTotal) * 100),
-      2: Math.round((aggregatedStarCounts['2'] / effectiveTotal) * 100),
-      1: Math.round((aggregatedStarCounts['1'] / effectiveTotal) * 100),
+      5: totalReviews > 0 ? Math.round(((communityStarCounts['5'] || 0) / effectiveTotal) * 100) : 0,
+      4: totalReviews > 0 ? Math.round(((communityStarCounts['4'] || 0) / effectiveTotal) * 100) : 0,
+      3: totalReviews > 0 ? Math.round(((communityStarCounts['3'] || 0) / effectiveTotal) * 100) : 0,
+      2: totalReviews > 0 ? Math.round(((communityStarCounts['2'] || 0) / effectiveTotal) * 100) : 0,
+      1: totalReviews > 0 ? Math.round(((communityStarCounts['1'] || 0) / effectiveTotal) * 100) : 0,
     };
 
     return {
       appId: resolved.canonicalId,
       averageRating: Math.max(1, Math.min(5, averageRating)),
       totalReviews,
-      starCounts: aggregatedStarCounts,
-      distribution
+      starCounts: communityStarCounts,
+      distribution,
+      hasRealReviews: totalReviews > 0,
+      aiBenchmarkRating: benchmarkRating
+    };
+  }
+
+  /**
+   * Fast Aggregate Stats Summary across ALL catalog apps.
+   * Computes instant metrics from active memory/disk cache without full collection scans.
+   */
+  public getGlobalStatsSummary(): {
+    global: {
+      totalReviews: number;
+      publishedReviews: number;
+      pendingReviews: number;
+      rejectedReviews: number;
+      totalReports: number;
+      pendingReports: number;
+      averageRating: number;
+    };
+    appStats: Record<string, {
+      appId: string;
+      appName: string;
+      total: number;
+      published: number;
+      pending: number;
+      rejected: number;
+      avgRating: number;
+      starCounts: Record<string, number>;
+      distribution: Record<number, number>;
+    }>;
+  } {
+    const staticData = getStaticData();
+    const apps = staticData.apps || staticData.mockApps || [];
+
+    const appStatsMap: Record<string, any> = {};
+    let globalTotal = 0;
+    let globalPublished = 0;
+    let globalPending = 0;
+    let globalRejected = 0;
+    let globalRatingSum = 0;
+
+    // 1. Group in-memory reviews by canonical app identifier
+    const reviewsByCanonicalApp = new Map<string, ReviewRecord[]>();
+    for (const rev of this.reviews.values()) {
+      if (this.deletedReviewIds.has(rev.id)) continue;
+      const status = rev.status || 'published';
+      globalTotal++;
+      if (status === 'published' || status === 'approved') {
+        globalPublished++;
+        globalRatingSum += Number(rev.rating) || 5;
+      } else if (status === 'pending') {
+        globalPending++;
+      } else if (status === 'rejected') {
+        globalRejected++;
+      }
+
+      const resolved = resolveCanonicalApp(rev.appId, rev.appSlug, rev.appName);
+      const cId = resolved.canonicalId;
+      if (!reviewsByCanonicalApp.has(cId)) {
+        reviewsByCanonicalApp.set(cId, []);
+      }
+      reviewsByCanonicalApp.get(cId)!.push(rev);
+    }
+
+    // 2. Build stats record for every known app in the catalog
+    apps.forEach((app: any) => {
+      const cId = String(app.id !== undefined && app.id !== null ? app.id : '').trim();
+      const slug = String(app.slug || '').trim();
+      const name = String(app.name || '').trim();
+      const resolved = resolveCanonicalApp(cId, slug, name);
+      const targetId = resolved.canonicalId;
+
+      const appRevs = reviewsByCanonicalApp.get(targetId) || [];
+      const total = appRevs.length;
+      const publishedRevs = appRevs.filter(r => (!r.status || r.status === 'published' || r.status === 'approved'));
+      const published = publishedRevs.length;
+      const pending = appRevs.filter(r => r.status === 'pending').length;
+      const rejected = appRevs.filter(r => r.status === 'rejected').length;
+
+      const starCounts: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
+      let ratingSum = 0;
+      publishedRevs.forEach(r => {
+        const star = String(Math.max(1, Math.min(5, Math.round(r.rating))));
+        starCounts[star] = (starCounts[star] || 0) + 1;
+        ratingSum += Number(r.rating) || 5;
+      });
+
+      const benchmarkRating = Number(app.rating) || 4.8;
+      const avgRating = published > 0
+        ? parseFloat((ratingSum / published).toFixed(1))
+        : benchmarkRating;
+
+      const effectivePub = Math.max(1, published);
+      const distribution: Record<number, number> = {
+        5: published > 0 ? Math.round(((starCounts['5'] || 0) / effectivePub) * 100) : 0,
+        4: published > 0 ? Math.round(((starCounts['4'] || 0) / effectivePub) * 100) : 0,
+        3: published > 0 ? Math.round(((starCounts['3'] || 0) / effectivePub) * 100) : 0,
+        2: published > 0 ? Math.round(((starCounts['2'] || 0) / effectivePub) * 100) : 0,
+        1: published > 0 ? Math.round(((starCounts['1'] || 0) / effectivePub) * 100) : 0,
+      };
+
+      const statObj = {
+        appId: targetId,
+        appName: name,
+        total,
+        published,
+        pending,
+        rejected,
+        avgRating,
+        starCounts,
+        distribution
+      };
+
+      if (cId) appStatsMap[cId.toLowerCase()] = statObj;
+      if (slug) appStatsMap[slug.toLowerCase()] = statObj;
+      if (name) appStatsMap[name.toLowerCase()] = statObj;
+      appStatsMap[targetId] = statObj;
+    });
+
+    let pendingReports = 0;
+    for (const rep of this.reports.values()) {
+      if (rep.status === 'pending' || rep.status === 'in_review') pendingReports++;
+    }
+
+    const overallAverageRating = globalPublished > 0
+      ? parseFloat((globalRatingSum / globalPublished).toFixed(1))
+      : 4.8;
+
+    return {
+      global: {
+        totalReviews: globalTotal,
+        publishedReviews: globalPublished,
+        pendingReviews: globalPending,
+        rejectedReviews: globalRejected,
+        totalReports: this.reports.size,
+        pendingReports,
+        averageRating: overallAverageRating
+      },
+      appStats: appStatsMap
     };
   }
 }
