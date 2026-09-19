@@ -2242,6 +2242,67 @@ adminVaultRouter.post("/api/v1/admin/seal-vault", verifyAdminToken, async (req, 
   }
 });
 
+adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: any, res: any) => {
+  try {
+    const { apps, settings, news, videos } = req.body;
+    const backupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
+    const staticJsonPath = path.join(process.cwd(), 'src/lib/staticData.json');
+
+    let current: any = {};
+    if (fs.existsSync(backupPath)) {
+      try {
+        current = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
+      } catch (_) {}
+    } else if (fs.existsSync(staticJsonPath)) {
+      try {
+        current = JSON.parse(fs.readFileSync(staticJsonPath, 'utf8'));
+      } catch (_) {}
+    }
+
+    if (Array.isArray(apps)) current.apps = apps;
+    if (settings && typeof settings === 'object') current.settings = settings;
+    if (Array.isArray(news)) current.news = news;
+    if (Array.isArray(videos)) current.videos = videos;
+    current.last_updated = new Date().toISOString();
+
+    fs.mkdirSync(path.dirname(backupPath), { recursive: true });
+    fs.writeFileSync(backupPath, JSON.stringify(current, null, 2), 'utf8');
+    fs.writeFileSync(staticJsonPath, JSON.stringify(current, null, 2), 'utf8');
+
+    // Update in-memory public caches
+    clearPublicBackupCache();
+    clearSeoCache();
+
+    // Regenerate sitemaps
+    try {
+      const { generateAllSitemaps } = require('../../lib/sitemapGenerator');
+      const sitemaps = generateAllSitemaps(current);
+      const publicDir = path.join(process.cwd(), 'public');
+      const distDir = path.join(process.cwd(), 'dist');
+      for (const [filename, xmlContent] of Object.entries(sitemaps)) {
+        if (fs.existsSync(publicDir)) {
+          fs.writeFileSync(path.join(publicDir, filename), xmlContent as string, 'utf8');
+        }
+        if (fs.existsSync(distDir)) {
+          fs.writeFileSync(path.join(distDir, filename), xmlContent as string, 'utf8');
+        }
+      }
+    } catch (smErr) {
+      console.warn('[SERVER] Could not regenerate sitemaps during sync-local:', smErr);
+    }
+
+    res.json({
+      success: true,
+      message: "Local static files, sitemaps, and public caches synchronized successfully.",
+      totalApps: current.apps?.length || 0,
+      timestamp: current.last_updated
+    });
+  } catch (err: any) {
+    console.error("[SERVER] sync-local error:", err);
+    res.status(500).json({ error: "Failed to sync local data: " + err.message });
+  }
+});
+
 adminVaultRouter.post("/api/v1/admin/build-public-api", verifyAdminToken, async (req, res) => {
   try {
     const { ciphertext } = req.body;

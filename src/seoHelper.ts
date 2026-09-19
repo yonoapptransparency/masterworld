@@ -49,6 +49,16 @@ function getLocalFallbackReviewsForApp(appId: string, appSlug: string) {
       }
     }
 
+    // 4. Try src/lib/communityReviewsData.ts
+    if (allReviews.length === 0) {
+      try {
+        const commModule = require(path.join(process.cwd(), 'src/lib/communityReviewsData'));
+        if (commModule && Array.isArray(commModule.STATIC_COMMUNITY_REVIEWS)) {
+          allReviews = commModule.STATIC_COMMUNITY_REVIEWS;
+        }
+      } catch (e) {}
+    }
+
     if (allReviews.length > 0) {
       const matched = allReviews.filter((r: any) => {
         const rId = String(r.appId || r.app_id || '').toLowerCase().trim();
@@ -484,8 +494,8 @@ async function buildJsonLdSchema(params: {
       : (!isNaN(configuredRating) && configuredRating > 0 ? configuredRating : 0);
     const clampedRating = Math.max(1.0, Math.min(5.0, finalRating));
 
-    // Strictly real count of reviews present in Firebase
-    const finalCount = hasLiveReviews ? Number(liveStats.totalReviews) : 0;
+    // Strictly real count of reviews present in Firebase / catalog
+    const finalCount = hasLiveReviews ? Number(liveStats.totalReviews) : (!isNaN(configuredCount) && configuredCount > 0 ? configuredCount : 0);
 
     const appRawIcon = getField(app, 'icon_url') || getField(app, 'og_image_url') || params.logoUrl;
     const appSquareIcon = optimizeImageUrl(appRawIcon, 512) || appRawIcon;
@@ -520,7 +530,7 @@ async function buildJsonLdSchema(params: {
       }
     };
 
-    if (hasLiveReviews && finalCount > 0) {
+    if (clampedRating > 0 && finalCount > 0) {
       softwareAppSchema["aggregateRating"] = {
         "@type": "AggregateRating",
         "ratingValue": parseFloat(clampedRating.toFixed(1)),

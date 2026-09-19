@@ -115,7 +115,7 @@ export function getRawFirebaseConfig(): any {
   const DEFAULT_FALLBACK_API_KEY = "AIzaSyBey9sUbeWrcXS2kl4ewOzkTy4arg03Ok";
   const finalApiKey = envApiKey || fileConfig.apiKey || DEFAULT_FALLBACK_API_KEY;
 
-  const DEFAULT_DB_ID = "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a";
+  const DEFAULT_DB_ID = "(default)";
   const resolveDbId = (rawDbId?: string, _pId?: string) => {
     if (rawDbId && isRealValue(rawDbId)) {
       return rawDbId;
