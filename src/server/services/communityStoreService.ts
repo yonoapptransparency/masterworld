@@ -535,14 +535,14 @@ class CommunityStoreService {
     try {
       const db = getCommunityAdminDb();
       if (db) {
-        // Load reviews with quota-protective limits
+        // Load ALL reviews from Firestore without artificial truncation
         try {
-          const fetchLimit = forceSync ? 1000 : (this.reviews.size > 0 ? 50 : 200);
+          const fetchLimit = 10000;
           let snap: any = null;
           try {
-            snap = await withTimeout(db.collection('reviews').orderBy('timestamp', 'desc').limit(fetchLimit).get(), 15000, null);
+            snap = await withTimeout(db.collection('reviews').orderBy('timestamp', 'desc').limit(fetchLimit).get(), 30000, null);
           } catch (_) {
-            snap = await withTimeout(db.collection('reviews').limit(fetchLimit).get(), 15000, null);
+            snap = await withTimeout(db.collection('reviews').limit(fetchLimit).get(), 30000, null);
           }
           if (snap && snap.docs) {
             snap.docs.forEach((doc: any) => {
@@ -578,9 +578,14 @@ class CommunityStoreService {
                 updated_at: d.updated_at
               });
             });
+            console.log(`[CommunityStore] Successfully initialized ${this.reviews.size} verified reviews from Firestore.`);
+            // Save complete dataset to local backup disk store
+            this.saveToDiskAndQueueCloudSync();
+            // Sync all app-scoped chunk documents in background
+            setTimeout(() => {
+              this.syncAllAppsToChunks().catch((err: any) => console.warn('[CommunityStore] Chunk sync note:', err?.message || err));
+            }, 3000);
           }
-          // App-specific documents in community_store are loaded dynamically on demand per app,
-          // rather than loading the entire collection upfront, preventing quota exhaustion.
 
           this.exportToStaticTypeScript();
         } catch (e: any) {
@@ -2121,7 +2126,7 @@ public async voteHelpful(reviewId: string): Promise<number> {
         const db = getCommunityAdminDb();
         if (db) {
           try {
-            const snap = await withTimeout(db.collection('reviews').orderBy('timestamp', 'desc').limit(200).get(), 15000, null);
+            const snap = await withTimeout(db.collection('reviews').orderBy('timestamp', 'desc').limit(10000).get(), 30000, null);
             if (snap && snap.docs && snap.docs.length > 0) {
               snap.docs.forEach((docSnap: any) => {
                 const d = docSnap.data();
@@ -2129,10 +2134,11 @@ public async voteHelpful(reviewId: string): Promise<number> {
                   this.reviews.set(docSnap.id, { id: docSnap.id, ...d });
                 }
               });
+              this.saveToDiskAndQueueCloudSync();
             }
           } catch (adminErr: any) {
             try {
-              const fallbackSnap = await withTimeout(db.collection('reviews').limit(200).get(), 15000, null);
+              const fallbackSnap = await withTimeout(db.collection('reviews').limit(10000).get(), 30000, null);
               if (fallbackSnap && fallbackSnap.docs && fallbackSnap.docs.length > 0) {
                 fallbackSnap.docs.forEach((docSnap: any) => {
                   const d = docSnap.data();
@@ -2140,6 +2146,7 @@ public async voteHelpful(reviewId: string): Promise<number> {
                     this.reviews.set(docSnap.id, { id: docSnap.id, ...d });
                   }
                 });
+                this.saveToDiskAndQueueCloudSync();
               }
             } catch (_) {}
           }

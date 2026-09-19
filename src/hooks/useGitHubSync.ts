@@ -213,6 +213,32 @@ export function useGitHubSync(
       }
     }
 
+    // Merge live community review stats into apps so static data, cards, and SEO have 100% consistent ratings
+    try {
+      log("GitHub Sync: Harmonizing live aggregated review ratings across all apps...");
+      const statsRes = await adminFetch('/api/v1/admin/community/app-counts');
+      if (statsRes.ok) {
+        const statsData = await statsRes.json();
+        const appCounts = statsData?.appCounts || {};
+        finalApps = finalApps.map((a: any) => {
+          const keyId = String(a.id || '').toLowerCase().trim();
+          const keySlug = String(a.slug || '').toLowerCase().trim();
+          const countInfo = appCounts[keyId] || appCounts[keySlug];
+          if (countInfo && countInfo.published > 0 && countInfo.avgRating) {
+            return {
+              ...a,
+              rating: Number(countInfo.avgRating),
+              review_count: `${countInfo.published}+`
+            };
+          }
+          return a;
+        });
+        log("GitHub Sync: Harmonized live review ratings and counts across catalog.");
+      }
+    } catch (e: any) {
+      log(`GitHub Sync Notice: Rating harmonization note: ${e?.message || 'bypassed'}`);
+    }
+
     // Filter apps and news based on sync_to_public status (default is true for live public)
     const publicApps = finalApps.filter((app: any) => app.sync_to_public !== false);
     const publicNews = targetNews.filter((item: any) => item.sync_to_public !== false);

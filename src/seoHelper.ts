@@ -474,18 +474,19 @@ async function buildJsonLdSchema(params: {
     const rawCount = getField(app, 'review_count') || getField(app, 'reviews') || '';
     const configuredCount = parseInt(rawCount, 10);
     
-    // Admin configured rating is the primary authority for the catalog
+    // Align live rating and count with community reviews and AppDetails
     const appIdentifier = getField(app, 'slug') || getField(app, 'id');
     const { stats: liveStats } = await fetchSEOReviewsForApp(appIdentifier, getField(app, 'slug'), !isNaN(configuredRating) && configuredRating > 0 ? configuredRating : 4.5, name);
     
-    const finalRating = !isNaN(configuredRating) && configuredRating > 0 
-      ? configuredRating 
-      : (liveStats && liveStats.totalReviews > 0 ? liveStats.averageRating : 4.5);
+    const hasLiveReviews = Boolean(liveStats && Number(liveStats.totalReviews) > 0);
+    const finalRating = hasLiveReviews
+      ? Math.max(1.0, Math.min(5.0, Number(liveStats.averageRating)))
+      : (!isNaN(configuredRating) && configuredRating > 0 ? configuredRating : 4.5);
     const clampedRating = Math.max(1.0, Math.min(5.0, finalRating));
 
-    const finalCount = !isNaN(configuredCount) && configuredCount > 0
-      ? configuredCount
-      : (liveStats && liveStats.totalReviews > 0 ? liveStats.totalReviews : Math.floor(clampedRating * 35 + 20));
+    const finalCount = hasLiveReviews
+      ? Number(liveStats.totalReviews)
+      : (!isNaN(configuredCount) && configuredCount > 0 ? configuredCount : Math.floor(clampedRating * 35 + 20));
 
     const appRawIcon = getField(app, 'icon_url') || getField(app, 'og_image_url') || params.logoUrl;
     const appSquareIcon = optimizeImageUrl(appRawIcon, 512) || appRawIcon;

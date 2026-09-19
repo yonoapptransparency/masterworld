@@ -161,7 +161,7 @@ export function useReviews(
   }, [cleanAppId, cleanAppSlug, cleanAppTitle, overallRating, activeFilter, sortBy]);
 
   // Initial fetch when container enters view or target app changes
-  const prevTargetKeyRef = useRef<string>(cleanAppId || cleanAppSlug);
+  const prevTargetKeyRef = useRef<string>('');
   useEffect(() => {
     const targetKey = cleanAppId || cleanAppSlug;
     if (!targetKey || !inView) return;
@@ -337,6 +337,28 @@ export function useLiveAppStats(appId: string, appSlug?: string, fallbackRating:
   });
 
   useEffect(() => {
+    const targetKey = String(appId || appSlug || '').trim();
+    if (!targetKey) return;
+
+    // Immediately check cache or fetch stats in background so header metrics are live
+    const cached = getCachedLiveReviews(String(appId), String(appSlug));
+    if (cached?.stats) {
+      setStats(cached.stats);
+    } else {
+      fetchLiveReviews({
+        appId: String(appId),
+        appSlug: String(appSlug),
+        rating: fallbackRating,
+        limit: 1
+      })
+        .then(res => {
+          if (res?.stats) {
+            setStats(res.stats);
+          }
+        })
+        .catch(() => {});
+    }
+
     const handleUpdate = (e: any) => {
       const addedReview = e?.detail?.newReview;
       if (addedReview) {
@@ -358,11 +380,10 @@ export function useLiveAppStats(appId: string, appSlug?: string, fallbackRating:
       }
     };
     
-    const targetKey = String(appId || appSlug || '').trim();
     const handlePoll = () => {
-      const cached = getCachedLiveReviews(String(appId), String(appSlug));
-      if (cached?.stats) {
-        setStats(cached.stats);
+      const fresh = getCachedLiveReviews(String(appId), String(appSlug));
+      if (fresh?.stats) {
+        setStats(fresh.stats);
       }
     };
     
@@ -370,11 +391,13 @@ export function useLiveAppStats(appId: string, appSlug?: string, fallbackRating:
     const interval = setInterval(handlePoll, 2000);
 
     window.addEventListener('community-review-added', handleUpdate);
+    window.addEventListener('community-reviews-updated', handlePoll);
     return () => {
       window.removeEventListener('community-review-added', handleUpdate);
+      window.removeEventListener('community-reviews-updated', handlePoll);
       clearInterval(interval);
     };
-  }, [appId, appSlug]);
+  }, [appId, appSlug, fallbackRating]);
 
   return stats;
 }
