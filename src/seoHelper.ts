@@ -495,7 +495,9 @@ async function buildJsonLdSchema(params: {
     const clampedRating = Math.max(1.0, Math.min(5.0, finalRating));
 
     // Strictly real count of reviews present in Firebase / catalog
-    const finalCount = hasLiveReviews ? Number(liveStats.totalReviews) : (!isNaN(configuredCount) && configuredCount > 0 ? configuredCount : 0);
+    const finalCount = hasLiveReviews
+      ? Number(liveStats.totalReviews)
+      : (!isNaN(configuredCount) && configuredCount > 0 ? configuredCount : (!isNaN(configuredRating) && configuredRating > 0 ? 1 : 0));
 
     const appRawIcon = getField(app, 'icon_url') || getField(app, 'og_image_url') || params.logoUrl;
     const appSquareIcon = optimizeImageUrl(appRawIcon, 512) || appRawIcon;

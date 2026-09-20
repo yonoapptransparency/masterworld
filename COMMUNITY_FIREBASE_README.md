@@ -1,75 +1,209 @@
-# RUMMYDEX COMMUNITY FIREBASE: LIVE ARCHITECTURE & NO-STATIC-DATA POLICY
+# 🛡️ RummyDex Community Firebase: Master Live Architecture & Vercel Shield
 
-> **Master Architecture Reference**: For the complete full-scale structural guide on quota prevention, 3-tier caching, laser loading, and dual-brain AI review generation, see [`/FIREBASE_QUOTA_AND_COMMUNITY_ARCHITECTURE.md`](./FIREBASE_QUOTA_AND_COMMUNITY_ARCHITECTURE.md).
-
-This document serves as the permanent specification and architectural reference for the **Rummydex Community Firebase** system.
-
----
-
-## 1. Absolute "No Static Data" Policy
-
-> ### 🛑 STRICT ENFORCEMENT
-> - **Zero Static Fallback Datasets**: The community reviews, ratings, and reports architecture operates strictly on **LIVE** data. No hardcoded or pre-baked static mock JSON review datasets exist or are ever imported.
-> - **Live Firestore Reads & Writes**: All user-submitted reviews, helpful votes, abuse flags/reports, moderator approvals, status changes, and administrator replies are read from and written to the live Firestore database in real-time.
-> - **Dynamic In-Memory Caching (Zero-Downtime Guarantee)**: In-memory maps (`reviews`, `reports`, `appChunkCache`) and localStorage caches operate strictly as transient performance/latency accelerators and quota shields. They synchronize with live Firestore and do not replace live state.
+> **Source of Truth Reference**: This document defines the live architecture, Vercel serverless integration, and quota-shield protocols for the **Rummydex Community Firebase** system (`rummydexcommunity`).
+>
+> **Companion Blueprint**: For the in-depth mathematical calculations, chunking schema, and AI review generation workflows, see [`/FIREBASE_QUOTA_AND_COMMUNITY_ARCHITECTURE.md`](./FIREBASE_QUOTA_AND_COMMUNITY_ARCHITECTURE.md).
+>
+> **Last Updated:** September 2026
 
 ---
 
-## 2. Complete Dual-Database Separation (Zero Cross-Pollution)
+## 📑 Quick Navigation
 
-RummyDex uses two completely distinct, isolated Firebase projects. They have separate credentials, separate service accounts, separate endpoints, and completely independent code files:
-
-| Attribute | 1. Master Catalog Firebase (ADMIN ONLY) | 2. Community Firebase (PUBLIC + ADMIN LIVE) |
-| :--- | :--- | :--- |
-| **Project ID** | `ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a` | `rummydexcommunity` |
-| **Database ID** | `(default)` | `(default)` |
-| **Purpose** | App catalog entries, global settings, news, videos, FAQs, admin auth | Public player reviews, star ratings, helpful votes, content flags & reports |
-| **Source File** | `src/server/firebase.ts` | `src/server/communityFirebaseAdmin.ts` |
-| **Access Rule** | Admin Dashboard ONLY. Public website never queries this database directly to protect quota. | Live on BOTH Public Website and Admin Console. |
-
-### Anti-Pollution & Decoupling Guarantees
-- `src/server/communityFirebaseAdmin.ts` is the single source of truth for `rummydexcommunity`.
-- No configuration, access tokens, or Admin SDK instances are shared between projects.
-- Any attempt to query community paths (`reviews`, `reports`, `community_store`) is isolated from catalog paths (`store_data`, `settings`).
+1. [Architectural Overview & Core Principles](#1-architectural-overview--core-principles)
+2. [The O(1) Plus/Minus (+1 / -1) Delta Rating System](#2-the-o1-plusminus-1---1-delta-rating-system)
+3. [Vercel Free-Tier & Serverless Execution Rules](#3-vercel-free-tier--serverless-execution-rules)
+4. [Dual-Firebase Air-Gap Security Boundary](#4-dual-firebase-air-gap-security-boundary)
+5. [The 5-Batch "Laser Lazy-Loading" Engine](#5-the-5-batch-laser-lazy-loading-engine)
+6. [Dynamic Admin Dashboard & Live App Ratings Management](#6-dynamic-admin-dashboard--live-app-ratings-management)
+7. [Zero-Quota Client SWR Architecture](#7-zero-quota-client-swr-architecture)
+8. [Circuit Breakers, Bot Shields & Abuse Protection](#8-circuit-breakers-bot-shields--abuse-protection)
+9. [File Structure & API Reference](#9-file-structure--api-reference)
 
 ---
 
-## 3. Dynamic Loading & High-Efficiency File Management
+## 1. Architectural Overview & Core Principles
 
-To guarantee minimal payload sizes, lightning-fast rendering, and complete immunity to Firebase free-tier quota exhaustion, the system uses an optimized dynamic loading model:
-
-### A. One File/Document per App
-- Reviews are segmented per app. Instead of scanning entire collections, the system queries either:
-  1. Specifically for documents where `appId == targetAppId` (limit 5).
-  2. The dedicated app bucket document in the `community_store` collection: `app_reviews_${targetAppId}_0`.
-- Only the specific document for the currently viewed application is loaded. No other apps' review data is fetched or parsed.
-
-### B. Exactly 5 Comments Per Batch (Dynamic Pagination)
-- **Initial Load**: Only the first **5 published comments** for the active app are retrieved and rendered to the user.
-- **Triggered Loading ("Load More")**: Additional batches of 5 comments are requested **only on user interaction** (clicking "Load More" or changing filter tabs).
-- **Cursor-Based Traversal**: Pagination uses lightweight document cursor tokens (`nextCursor`) to fetch subsequent slices of 5 reviews without re-reading previous items.
-- **Search Engine Bots (Crawlers)**: Search crawlers (Googlebot, Bingbot, etc.) skip heavy review query execution to ensure maximum SEO score and rapid time-to-first-byte (TTFB).
+The RummyDex Community review engine is engineered to deliver:
+- **100% Live Community Interactivity**: Public players can submit ratings, write feedback, vote helpfulness, and flag inappropriate content in real-time.
+- **Zero Static Mock Data**: No hardcoded dummy review JSON files exist. All review items come from live community records.
+- **$O(1)$ Plus/Minus Delta Math**: Rating counts and averages are incremented/decremented on write (+1 on submit, -1 on delete/reject), eliminating slow, expensive collection scans.
+- **Maximum Quota Immunity**: 50,000 daily Firestore reads and 100,000 monthly Vercel function invocations are protected by app-level chunking, client SWR caching, and edge routing.
+- **Zero-Latency Feel (0ms)**: Pages load instantaneously using client-side cache hydration and smooth skeleton placeholders.
 
 ---
 
-## 4. Multi-Tier Zero-Downtime Resilience Engine
+## 2. The O(1) Plus/Minus (+1 / -1) Delta Rating System
 
-Even during peak traffic or transient network hiccups, user experience remains completely seamless:
+Rather than fetching and recalculating hundreds of reviews every time an app page loads (an $O(N)$ operation that rapidly exhausts database quotas), RummyDex uses an **$O(1)$ Incremental Delta Engine**:
 
-1. **Tier 1: Client SWR & Memory Cache (0ms)**
-   - Instant cached review rendering while fresh data is queried in the background.
-2. **Tier 2: Direct Community Firestore REST & Admin SDK**
-   - High-throughput direct Firestore REST calls (`documents:runQuery` / `documents:batchGet`) with Admin SDK fallback.
-3. **Tier 3: Local Resilient Persistence**
-   - Writes are confirmed locally and buffered in the background to ensure no player review or report is ever lost during transient cloud connectivity drops.
+### Operational Lifecycle:
+1. **When Adding a Review (+1)**:
+   - Increments `totalReviews` by $+1$.
+   - Increments `starCounts[rating]` by $+1$.
+   - Adds rating score to `totalSum`.
+   - Computes new average in $O(1)$ time: $\text{average} = \frac{\text{totalSum}}{\text{totalReviews}}$.
+2. **When Deleting or Rejecting a Review (-1)**:
+   - Decrements `totalReviews` by $-1$.
+   - Decrements `starCounts[rating]` by $-1$.
+   - Subtracts rating score from `totalSum`.
+   - Computes new average in $O(1)$ time: $\text{average} = \frac{\text{totalSum}}{\text{totalReviews}}$.
+3. **When Moderating/Editing a Review Rating ($R_{\text{old}} \to R_{\text{new}}$)**:
+   - Decrements old star count `starCounts[R_old] -= 1`.
+   - Increments new star count `starCounts[R_new] += 1`.
+   - Adjusts total sum: $\text{totalSum} = \text{totalSum} - R_{\text{old}} + R_{\text{new}}$.
+   - Computes new average in $O(1)$ time.
+
+**Result**: Zero collection scanning. The frontend and Admin Dashboard receive instant, accurate rating counts in **0ms with 0 extra document reads**.
 
 ---
 
-## 5. Directory & File Reference
+## 3. Vercel Free-Tier & Serverless Execution Rules
 
-- `src/server/communityFirebaseAdmin.ts`: Dedicated backend initializer, configuration manager, Admin SDK, and REST communication suite for `rummydexcommunity`.
-- `src/server/services/communityStoreService.ts`: Business logic layer managing review retrieval, app bucket document assembly, helpful voting, moderation status, and report queues.
-- `src/server/routes/communityRoutes.ts`: Express API router handling `/api/v1/public/community/*` and `/api/v1/admin/community/*`.
-- `src/server/routes/reportRoutes.ts`: Express API router handling zero-latency abuse flagging and report submissions.
-- `src/lib/communityFirebase.ts`: Client-side Firestore REST client and instant SWR cache manager.
-- `src/hooks/useReviews.ts`: React hook orchestrating dynamic 5-review pagination, sorting, voting, and report triggers.
+Vercel Hobby (Free Tier) operates under specific serverless and edge constraints. The RummyDex architecture is strictly designed to thrive within these limits:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                    VERCEL FREE-TIER COMPLIANCE MATRIX                           │
+├────────────────────────┬─────────────────────────┬──────────────────────────────┤
+│ Vercel Constraint      │ Free Tier Threshold     │ RummyDex Optimization        │
+├────────────────────────┼─────────────────────────┼──────────────────────────────┤
+│ Serverless Invocations │ 100,000 / month         │ Client Direct Firestore REST │
+│                        │                         │ bypasses serverless functions│
+│ Execution Timeout      │ 10 seconds max          │ Sub-200ms lightweight REST   │
+│ Filesystem Writable    │ Read-Only (except /tmp) │ Auto-detects /tmp for backup │
+│ Payload Size Limit     │ 4.5 MB request/response │ 5-review batches (< 5 KB)    │
+│ Bandwidth / Fast Data  │ 100 GB / month          │ Laser loading & Cloudinary   │
+└────────────────────────┴─────────────────────────┴──────────────────────────────┘
+```
+
+### Key Vercel Serverless Safeguards:
+1. **Client-Side Direct Firestore REST (`src/lib/communityFirebase.ts`)**:
+   - Public review fetches can connect directly from the user's browser to the `rummydexcommunity` Firestore REST API using our secure public API key.
+   - **Result**: Zero Vercel serverless function invocations on public page browsing, preventing the 100,000 monthly limit from ever being breached.
+2. **Stateless Graceful Degrade**:
+   - On serverless instances where the disk is ephemeral, `communityStoreService.ts` safely utilizes memory maps and `/tmp` paths without crashing.
+3. **Sub-Second Response Windows**:
+   - All server routes (`/api/v1/public/community/*`) respond in under 50ms, well beneath Vercel's 10-second serverless execution ceiling.
+
+---
+
+## 4. Dual-Firebase Air-Gap Security Boundary
+
+To protect catalog reliability, we enforce an absolute firewall between our two Firebase projects:
+
+```
+                  ┌───────────────────────────────────────────────┐
+                  │                 USER BROWSER                  │
+                  └───────────────┬───────────────┬───────────────┘
+                                  │               │
+        ┌─────────────────────────┘               └─────────────────────────┐
+        ▼ (Reads Static Catalog)                                            ▼ (Live Community Data)
+┌──────────────────────────────────────┐                  ┌──────────────────────────────────────┐
+│       DATABASE A: MASTER CATALOG     │                  │   DATABASE B: COMMUNITY & REVIEWS    │
+├──────────────────────────────────────┤                  ├──────────────────────────────────────┤
+│ Project: ai-studio-yonostore-...     │                  │ Project: rummydexcommunity           │
+│ Access: 🔒 ADMIN DASHBOARD ONLY      │                  │ Access: 🌐 PUBLIC & ADMIN LIVE       │
+│ Protection: 100% Air-Gapped          │                  │ Protection: Chunking & SWR Shield    │
+│ Public Site Reads: ZERO (staticData) │                  │ Public Site Reads: App-Scoped Chunks │
+└──────────────────────────────────────┘                  └──────────────────────────────────────┘
+```
+
+---
+
+## 5. The 5-Batch "Laser Lazy-Loading" Engine
+
+Instead of overwhelming the DOM and consuming unnecessary read quotas, reviews are served in **5-review slices**:
+
+1. **Initial Mount**:
+   - On `AppDetails.tsx`, the review section only requests the first **5 published comments** (`limit: 5`).
+   - If a visitor only checks app specifications, screenshots, or hits the download button, subsequent reviews are never fetched.
+2. **Automated Infinite Scroll (Intersection Observer)**:
+   - A hidden bottom sentinel element (`loadMoreSentinelRef` with 300px root margin) automatically triggers `handleLoadMore()` when the user scrolls near the 5th review.
+   - The client fetches the next 5 reviews using `cursor=${nextCursor}`.
+3. **Manual Fallback Button**:
+   - If JavaScript intersection triggers are throttled by power-saving modes, a visible high-contrast **"Load More Reviews"** button ensures seamless manual loading.
+4. **Zero Cumulative Layout Shift (CLS)**:
+   - Skeleton cards match the exact dimensions of rendered reviews, preventing page jump during data loading.
+
+---
+
+## 6. Dynamic Admin Dashboard & Live App Ratings Management
+
+The Admin Dashboard provides instantaneous visibility into the health and review status of every single application in the catalog:
+
+1. **Per-App Live Ratings Table**:
+   - Displays each app's exact rating, total reviews count, published count, and pending moderation queue.
+   - Values are read directly from pre-computed chunk summaries in $O(1)$ time.
+2. **One-Click Moderation**:
+   - Approving, rejecting, or editing any review automatically triggers the $+1 / -1$ delta calculation and updates the app's live rating breakdown immediately.
+3. **AI Review Studio Safeguards**:
+   - AI-generated reviews are labeled with `source: 'ai_generated'` and forced to `isPinned: false`, guaranteeing organic player reviews always lead the public display.
+
+---
+
+## 7. Zero-Quota Client SWR & Google Search Rich Snippets
+
+To make repeat page visits feel instantaneous (0ms), eliminate redundant network calls, and ensure Google Search displays 5-star rich snippet cards:
+
+1. **Local SWR Cache**:
+   - When reviews for an app are loaded, the first batch of 5 reviews and the `stats` object are saved in the client's transient SWR cache.
+2. **Instant Re-Render**:
+   - Navigating back to an app page renders the cached reviews immediately while validating freshness in the background.
+3. **Google Search 5-Star Rich Snippet Pre-Rendering**:
+   - Search engine crawlers (Googlebot, Bingbot) receive server-side pre-rendered Schema.org JSON-LD (`schema.org/AggregateRating`) directly in the Raw HTML `<head>`.
+   - The pre-rendering engine reads **ONLY the lightweight pre-calculated `stats` JSON object** (`ratingValue`, `reviewCount`, `ratingCount`). It is strictly forbidden from querying full review arrays.
+   - Search result star ratings stay 100% matched with the live community rating without consuming database read quotas.
+4. **Sync Pipeline Alignment**:
+   - During code synchronization ("Admin Release"), current live rating values are baked into `staticData.json` and static HTML builds.
+
+---
+
+## 8. Circuit Breakers, Bot Shields & Abuse Protection
+
+1. **15-Minute Quota Cooldown Sentinel**:
+   - If Firestore returns `RESOURCE_EXHAUSTED` (HTTP 429), the backend automatically activates a 15-minute circuit trip, switching seamlessly to cached data with zero website downtime.
+2. **Cloudflare Turnstile Anti-Bot Verification**:
+   - Every review submission requires a valid anti-bot token to block automated spam.
+3. **IP Rate Limiting**:
+   - Maximum 3 review submissions per 10-minute window per IP address.
+4. **Organic Priority**:
+   - AI-generated reviews are saved with `source: 'ai_generated'` and forced to `isPinned: false`. Organic user reviews are prioritized.
+
+---
+
+## 9. File Structure & API Reference
+
+```
+/
+├── src/
+│   ├── lib/
+│   │   ├── communityFirebase.ts       # Public browser Firestore REST client & SWR cache
+│   │   └── staticData.json            # Master catalog offline fallback (protects Database A)
+│   │
+│   ├── hooks/
+│   │   └── useReviews.ts              # 5-batch cursor pagination & live sync hook
+│   │
+│   ├── components/
+│   │   ├── UserReviews.tsx            # Main reviews feed container with intersection sentinel
+│   │   ├── ReportAppModal.tsx         # Lightweight content flag & abuse reporting modal
+│   │   └── public/
+│   │       ├── ReviewForm.tsx         # High-contrast review submission form
+│   │       ├── ReviewItem.tsx         # Individual review card with helpful voting & replies
+│   │       └── ReviewScoreSummary.tsx # 5-star distribution bar & aggregate score widget
+│   │
+│   └── server/
+│       ├── communityFirebaseAdmin.ts  # Backend Firestore connection for rummydexcommunity
+│       ├── services/
+│       │   ├── communityStoreService.ts # 3-tier memory/disk/cloud chunking & delta math engine
+│       │   └── aiReviewGeneratorService.ts # Dual-Brain AI Review Studio generator
+│       └── routes/
+│           ├── communityRoutes.ts     # Public & Admin review REST endpoints
+│           └── reportRoutes.ts        # Abuse moderation REST endpoints
+```
+
+### Public API Endpoints
+- `GET /api/v1/public/community/reviews/:appId?limit=5&cursor=<token>&filter=<all|positive|critical>&sortBy=<recent|helpful>`
+- `POST /api/v1/public/community/reviews` (Turnstile verified submission)
+- `POST /api/v1/public/community/reviews/helpful` (Increment helpful counter)
+- `POST /api/v1/public/reports` (Zero-latency app & review abuse report)

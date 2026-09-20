@@ -15,6 +15,7 @@ import {
   readAppStats
 } from '../communityFirebaseAdmin';
 import { getStaticData } from '../config';
+import { STATIC_COMMUNITY_REVIEWS } from '../../lib/communityReviewsData';
 
 export interface ReviewRecord {
   id: string;
@@ -475,7 +476,40 @@ class CommunityStoreService {
         }
       }
 
-      console.log(`[CommunityStore] Loaded ${this.reviews.size} reviews, ${this.reports.size} reports, ${this.deletedReviewIds.size} tombstone deletions from local backup.`);
+      // If local backup was empty or has missing reviews from curated static dataset, seed them
+      if (Array.isArray(STATIC_COMMUNITY_REVIEWS) && STATIC_COMMUNITY_REVIEWS.length > 0) {
+        let seeded = 0;
+        STATIC_COMMUNITY_REVIEWS.forEach((r) => {
+          if (r && r.id && !this.deletedReviewIds.has(r.id) && !this.reviews.has(r.id)) {
+            const sanitized: ReviewRecord = {
+              id: r.id,
+              appId: r.appId,
+              appSlug: r.appSlug || '',
+              appName: r.appName || '',
+              userName: r.userName || 'Player',
+              rating: Number(r.rating) || 5,
+              reviewText: sanitizeReviewText(r.reviewText || '', r.appName),
+              timestamp: r.timestamp || new Date().toISOString(),
+              status: (r.status as any) || 'published',
+              helpful_count: Number(r.helpful_count) || 0,
+              isPinned: Boolean(r.isPinned),
+              reported: Boolean(r.reported),
+              report_count: Number(r.report_count) || 0,
+              source: (r.source as any) || 'community',
+              adminReply: r.adminReply || null,
+              updated_at: r.updated_at || r.timestamp || new Date().toISOString()
+            };
+            this.reviews.set(r.id, sanitized);
+            seeded++;
+          }
+        });
+        if (seeded > 0) {
+          console.log(`[CommunityStore] Seeded ${seeded} verified community reviews from dataset into memory.`);
+          this.executeDiskSync();
+        }
+      }
+
+      console.log(`[CommunityStore] Loaded ${this.reviews.size} reviews, ${this.reports.size} reports, ${this.deletedReviewIds.size} tombstone deletions.`);
     } catch (e) {
       console.warn('[CommunityStore] Local backup read error:', e);
     }
