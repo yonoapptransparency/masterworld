@@ -2134,15 +2134,17 @@ public async voteHelpful(reviewId: string): Promise<number> {
       });
     }
 
-    const appCounts: Record<string, { total: number; published: number; pending: number; rejected: number; flagged: number; avgRating: number }> = {};
+    const appCounts: Record<string, { total: number; published: number; pending: number; rejected: number; flagged: number; avgRating: number; starCounts?: Record<string, number> }> = {};
     for (const [key, item] of Object.entries(rawAppMap)) {
+      const cachedStat = this.appStatsCache.get(key);
       appCounts[key] = {
         total: item.total,
         published: item.published,
         pending: item.pending,
         rejected: item.rejected,
         flagged: item.flagged,
-        avgRating: item.ratingCount > 0 ? parseFloat((item.ratingSum / item.ratingCount).toFixed(1)) : 5.0
+        avgRating: item.ratingCount > 0 ? parseFloat((item.ratingSum / item.ratingCount).toFixed(1)) : 5.0,
+        starCounts: cachedStat?.starDistribution
       };
     }
 

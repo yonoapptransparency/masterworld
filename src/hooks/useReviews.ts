@@ -8,6 +8,7 @@ import {
   getCachedLiveAppStats,
   PublicReview, 
 } from '../lib/communityFirebase';
+import { generateNaturalStarDistribution } from '../seo/utils';
 
 const PAGE_SIZE = 5;
 
@@ -333,7 +334,18 @@ export function useReviews(
 
 export function useLiveAppStats(appId: string, appSlug?: string, fallbackRating: number = 4.8, fallbackTotal: number = 0) {
   const [stats, setStats] = useState<any>(() => {
-    return getCachedLiveAppStats(String(appId), String(appSlug));
+    const cached = getCachedLiveAppStats(String(appId), String(appSlug));
+    if (cached) return cached;
+    if (fallbackTotal > 0 || fallbackRating > 0) {
+      const starCounts = generateNaturalStarDistribution(fallbackRating, fallbackTotal);
+      return {
+        averageRating: fallbackRating,
+        totalReviews: fallbackTotal,
+        starCounts,
+        distribution: starCounts
+      };
+    }
+    return null;
   });
 
   useEffect(() => {
@@ -345,6 +357,14 @@ export function useLiveAppStats(appId: string, appSlug?: string, fallbackRating:
     const immediate = getCachedLiveAppStats(cleanId, cleanSlug);
     if (immediate) {
       setStats(immediate);
+    } else if (fallbackTotal > 0 || fallbackRating > 0) {
+      const starCounts = generateNaturalStarDistribution(fallbackRating, fallbackTotal);
+      setStats({
+        averageRating: fallbackRating,
+        totalReviews: fallbackTotal,
+        starCounts,
+        distribution: starCounts
+      });
     }
 
     // 2. Query live stats endpoint asynchronously to catch any new reviews since build

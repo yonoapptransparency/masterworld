@@ -177,4 +177,74 @@ export function getOptimizedImageUrl(url?: string, width = 160): string {
   return url;
 }
 
+/**
+ * Synthesizes a natural, mathematically balanced 5-star distribution
+ * matching the target average rating and total ratings count.
+ * Sum of distribution always equals total.
+ */
+export function generateNaturalStarDistribution(
+  rating: number,
+  total: number
+): Record<string, number> {
+  const t = Math.max(0, Math.round(Number(total) || 0));
+  if (t <= 0) return { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
+  const r = Math.max(1.0, Math.min(5.0, Number(rating) || 5.0));
+  if (t === 1) {
+    const s = String(Math.round(r));
+    return {
+      '5': s === '5' ? 1 : 0,
+      '4': s === '4' ? 1 : 0,
+      '3': s === '3' ? 1 : 0,
+      '2': s === '2' ? 1 : 0,
+      '1': s === '1' ? 1 : 0
+    };
+  }
+
+  // Weight according to exponential distance from target rating
+  const weights = [1, 2, 3, 4, 5].map(star => {
+    const dist = Math.abs(star - r);
+    return Math.exp(-dist * 1.6);
+  });
+  const sumW = weights.reduce((a, b) => a + b, 0);
+  const counts = weights.map(w => Math.round((w / sumW) * t));
+
+  // Adjust sum to match exactly total
+  let currentSum = counts.reduce((a, b) => a + b, 0);
+  let iterations = 0;
+  while (currentSum !== t && iterations < 50) {
+    iterations++;
+    if (currentSum < t) {
+      const idx = Math.round(r) - 1;
+      counts[Math.max(0, Math.min(4, idx))]++;
+      currentSum++;
+    } else {
+      let maxDist = -1;
+      let targetIdx = -1;
+      counts.forEach((c, idx) => {
+        if (c > 0) {
+          const dist = Math.abs((idx + 1) - r);
+          if (dist > maxDist) {
+            maxDist = dist;
+            targetIdx = idx;
+          }
+        }
+      });
+      if (targetIdx >= 0) {
+        counts[targetIdx]--;
+        currentSum--;
+      } else {
+        break;
+      }
+    }
+  }
+
+  return {
+    '5': counts[4],
+    '4': counts[3],
+    '3': counts[2],
+    '2': counts[1],
+    '1': counts[0]
+  };
+}
+
 

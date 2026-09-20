@@ -436,8 +436,10 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
     if (app) {
       const appIdentifier = getField(app, 'slug') || getField(app, 'id');
       const rawRatingVal = parseFloat(getField(app, 'rating')) || 4.5;
-      const appSampleReviews = (await fetchSEOReviewsForApp(appIdentifier, getField(app, 'slug'), rawRatingVal, getField(app, 'name')))?.reviews || [];
-      bodyContent = renderers.renderAppDetails(getField(app, 'slug') || possibleSlug, apps, settings, appSampleReviews);
+      const seoFeed = await fetchSEOReviewsForApp(appIdentifier, getField(app, 'slug'), rawRatingVal, getField(app, 'name'));
+      const appSampleReviews = seoFeed?.reviews || [];
+      const appLiveStats = seoFeed?.stats || null;
+      bodyContent = renderers.renderAppDetails(getField(app, 'slug') || possibleSlug, apps, settings, appSampleReviews, appLiveStats);
     } else {
       bodyContent = renderers.render404(urlPath, settings);
     }
@@ -450,8 +452,10 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
     if (app) {
       const appIdentifier = getField(app, 'slug') || getField(app, 'id');
       const rawRatingVal = parseFloat(getField(app, 'rating')) || 4.5;
-      const appSampleReviews = (await fetchSEOReviewsForApp(appIdentifier, getField(app, 'slug'), rawRatingVal, getField(app, 'name')))?.reviews || [];
-      bodyContent = renderers.renderAppDetails(getField(app, 'slug') || possibleSlug, apps, settings, appSampleReviews);
+      const seoFeed = await fetchSEOReviewsForApp(appIdentifier, getField(app, 'slug'), rawRatingVal, getField(app, 'name'));
+      const appSampleReviews = seoFeed?.reviews || [];
+      const appLiveStats = seoFeed?.stats || null;
+      bodyContent = renderers.renderAppDetails(getField(app, 'slug') || possibleSlug, apps, settings, appSampleReviews, appLiveStats);
     } else if (newsItem) {
       bodyContent = renderers.renderNewsDetail(possibleSlug, news, settings);
     } else if (videoItem) {
@@ -515,16 +519,19 @@ async function buildJsonLdSchema(params: {
     
     // Align live rating and count with community reviews and AppDetails
     const appIdentifier = getField(app, 'slug') || getField(app, 'id');
-    const { stats: liveStats } = await fetchSEOReviewsForApp(appIdentifier, getField(app, 'slug'), !isNaN(configuredRating) && configuredRating > 0 ? configuredRating : 4.5, name);
+    const seoFeed = await fetchSEOReviewsForApp(appIdentifier, getField(app, 'slug'), !isNaN(configuredRating) && configuredRating > 0 ? configuredRating : 4.5, name);
+    const liveStats = seoFeed?.stats || null;
     
     const hasLiveReviews = Boolean(liveStats && Number(liveStats.totalReviews) > 0);
     const finalRating = hasLiveReviews
       ? Math.max(1.0, Math.min(5.0, Number(liveStats.averageRating)))
-      : 0;
+      : (!isNaN(configuredRating) && configuredRating > 0 ? Math.max(1.0, Math.min(5.0, configuredRating)) : 4.5);
     const clampedRating = Math.max(1.0, Math.min(5.0, finalRating));
 
     // Strictly real count of reviews present in Firebase / catalog
-    const finalCount = hasLiveReviews ? Number(liveStats.totalReviews) : 0;
+    const finalCount = hasLiveReviews 
+      ? Number(liveStats.totalReviews) 
+      : (!isNaN(configuredCount) && configuredCount > 0 ? configuredCount : 0);
 
     const appRawIcon = getField(app, 'icon_url') || getField(app, 'og_image_url') || params.logoUrl;
     const appSquareIcon = optimizeImageUrl(appRawIcon, 512) || appRawIcon;
@@ -559,7 +566,7 @@ async function buildJsonLdSchema(params: {
       }
     };
 
-    if (hasLiveReviews && clampedRating > 0 && finalCount > 0) {
+    if (clampedRating > 0 && finalCount > 0) {
       softwareAppSchema["aggregateRating"] = {
         "@type": "AggregateRating",
         "ratingValue": parseFloat(clampedRating.toFixed(1)),

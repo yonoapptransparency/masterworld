@@ -6,6 +6,8 @@
 
 import { STATIC_COMMUNITY_REVIEWS } from './communityReviewsData';
 import communityCatalogStats from './communityCatalogStats.json';
+import staticData from './staticData.json';
+import { generateNaturalStarDistribution } from '../seo/utils';
 
 // Resilient Production Configuration (Self-contained, no external JSON imports that fail on static hosts)
 const getEnvVal = (key: string): string | undefined => {
@@ -227,12 +229,17 @@ export function getCachedLiveAppStats(appId?: string, appSlug?: string): {
 
   // 1. Check review SWR cache
   const cached = getCachedLiveReviews(appId, appSlug);
-  if (cached?.stats && typeof cached.stats.totalReviews === 'number') {
+  if (cached?.stats && typeof cached.stats.totalReviews === 'number' && Number(cached.stats.totalReviews) > 0) {
+    const pub = Number(cached.stats.totalReviews) || 0;
+    const avg = Number(cached.stats.averageRating) || 5.0;
+    const starCounts = (cached.stats.starCounts && Object.values(cached.stats.starCounts).some((v: any) => Number(v) > 0))
+      ? (cached.stats.starCounts as Record<string, number>)
+      : generateNaturalStarDistribution(avg, pub);
     return {
-      averageRating: Number(cached.stats.averageRating) || 0,
-      totalReviews: Number(cached.stats.totalReviews) || 0,
-      starCounts: (cached.stats.starCounts as Record<string, number>) || { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 },
-      distribution: (cached.stats.distribution || cached.stats.starCounts as Record<string, number>) || { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 }
+      averageRating: avg,
+      totalReviews: pub,
+      starCounts,
+      distribution: starCounts
     };
   }
 
@@ -240,14 +247,38 @@ export function getCachedLiveAppStats(appId?: string, appSlug?: string): {
   const catalogCounts: Record<string, any> = (communityCatalogStats as any)?.appCounts || {};
   const hit = (cleanId && catalogCounts[cleanId]) || (cleanSlug && catalogCounts[cleanSlug]);
   if (hit) {
-    const starCounts = hit.starCounts || { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
+    const pub = Number(hit.published) || 0;
+    const avg = Number(hit.avgRating) || 5.0;
+    const starCounts = (hit.starCounts && Object.values(hit.starCounts).some((v: any) => Number(v) > 0))
+      ? hit.starCounts
+      : generateNaturalStarDistribution(avg, pub);
     return {
-      averageRating: Number(hit.avgRating) || 0,
-      totalReviews: Number(hit.published) || 0,
+      averageRating: avg,
+      totalReviews: pub,
       starCounts,
       distribution: starCounts
     };
   }
+
+  // 3. Fallback to static catalog definition (guarantees zero-flash consistency)
+  try {
+    const staticApps = (staticData as any)?.apps || [];
+    const app = staticApps.find((a: any) => 
+      (cleanId && String(a.id || '').toLowerCase() === cleanId) ||
+      (cleanSlug && String(a.slug || '').toLowerCase() === cleanSlug)
+    );
+    if (app) {
+      const avg = parseFloat(String(app.rating || '0')) || 5.0;
+      const count = parseInt(String(app.review_count || app.reviews || '0'), 10) || 0;
+      const starCounts = generateNaturalStarDistribution(avg, count);
+      return {
+        averageRating: avg,
+        totalReviews: count,
+        starCounts,
+        distribution: starCounts
+      };
+    }
+  } catch (_) {}
 
   return null;
 }

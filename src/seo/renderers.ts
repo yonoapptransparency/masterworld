@@ -1,5 +1,6 @@
 import { getField, optimizeImageUrl, stripHtml } from './utils';
 import { resolveAppSlug } from '../lib/slugResolver';
+import communityCatalogStats from '../lib/communityCatalogStats.json';
 import {
   DEFAULT_DISCLAIMER_HTML,
   DEFAULT_ETHICS_HTML,
@@ -303,7 +304,7 @@ export function renderCategoriesList(categoriesList: Array<{ name: string; slug:
   `;
 }
 
-export function renderAppDetails(slug: string, apps: any[], settings: any, sampleReviews: any[] = []) {
+export function renderAppDetails(slug: string, apps: any[], settings: any, sampleReviews: any[] = [], liveStats: any = null) {
   const cleanSlug = decodeURIComponent(slug).toLowerCase();
   const app = resolveAppSlug(cleanSlug, apps) || apps.find(a => getField(a, 'slug').toLowerCase() === cleanSlug);
   if (!app) return `<div class="py-12 text-center"><h1 class="text-2xl font-bold mb-4 text-zinc-900 dark:text-zinc-100">App Not Found</h1><a href="/" class="text-blue-600 dark:text-blue-400 font-semibold hover:underline">Go Home</a></div>`;
@@ -312,10 +313,30 @@ export function renderAppDetails(slug: string, apps: any[], settings: any, sampl
   const cat = getField(app, 'category', 'Card Game');
   const version = getField(app, 'version', 'Latest');
   const size = getField(app, 'file_size', 'Variable');
+  const cleanId = String(getField(app, 'id')).toLowerCase().trim();
+
+  // Unified single source of truth for SEO ratings & counts
+  const catStats = (communityCatalogStats as any)?.appCounts || {};
+  const hit = (cleanId && catStats[cleanId]) || (cleanSlug && catStats[cleanSlug]);
+
   const rawRating = parseFloat(getField(app, 'rating')) || 4.5;
   const rawCount = parseInt(getField(app, 'review_count') || getField(app, 'reviews') || '0', 10);
-  const ratingCountVal = rawCount > 0 ? rawCount : (sampleReviews.length > 0 ? sampleReviews.length : Math.floor(rawRating * 35 + 20));
-  const rating = rawRating.toFixed(1);
+
+  let finalRating = rawRating;
+  let finalCount = rawCount;
+
+  if (liveStats && Number(liveStats.totalReviews) > 0) {
+    finalRating = Number(liveStats.averageRating) || rawRating;
+    finalCount = Number(liveStats.totalReviews) || rawCount;
+  } else if (hit && Number(hit.published) > 0) {
+    finalRating = Number(hit.avgRating) || rawRating;
+    finalCount = Number(hit.published) || rawCount;
+  } else if (sampleReviews.length > 0 && finalCount === 0) {
+    finalCount = sampleReviews.length;
+  }
+
+  const ratingCountVal = finalCount;
+  const rating = finalRating.toFixed(1);
   const rawIcon = getField(app, 'icon_url') || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&fit=crop';
   const icon = optimizeImageUrl(rawIcon, 256);
   const desc = app.description_html ? sanitizeHtml(app.description_html) : `<p>No comprehensive details are configured yet for ${escapeHtml(name)}.</p>`;
