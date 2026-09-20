@@ -340,23 +340,10 @@ export function useLiveAppStats(appId: string, appSlug?: string, fallbackRating:
     const targetKey = String(appId || appSlug || '').trim();
     if (!targetKey) return;
 
-    // Immediately check cache or fetch stats in background so header metrics are live
+    // Synchronously check local cache if stats are already present
     const cached = getCachedLiveReviews(String(appId), String(appSlug));
     if (cached?.stats) {
       setStats(cached.stats);
-    } else {
-      fetchLiveReviews({
-        appId: String(appId),
-        appSlug: String(appSlug),
-        rating: fallbackRating,
-        limit: 1
-      })
-        .then(res => {
-          if (res?.stats) {
-            setStats(res.stats);
-          }
-        })
-        .catch(() => {});
     }
 
     const handleUpdate = (e: any) => {
@@ -380,22 +367,18 @@ export function useLiveAppStats(appId: string, appSlug?: string, fallbackRating:
       }
     };
     
-    const handlePoll = () => {
+    const handleReviewsUpdated = () => {
       const fresh = getCachedLiveReviews(String(appId), String(appSlug));
       if (fresh?.stats) {
         setStats(fresh.stats);
       }
     };
-    
-    // Poll cache every 2 seconds to see if UserReviews component fetched new stats
-    const interval = setInterval(handlePoll, 2000);
 
     window.addEventListener('community-review-added', handleUpdate);
-    window.addEventListener('community-reviews-updated', handlePoll);
+    window.addEventListener('community-reviews-updated', handleReviewsUpdated);
     return () => {
       window.removeEventListener('community-review-added', handleUpdate);
-      window.removeEventListener('community-reviews-updated', handlePoll);
-      clearInterval(interval);
+      window.removeEventListener('community-reviews-updated', handleReviewsUpdated);
     };
   }, [appId, appSlug, fallbackRating]);
 

@@ -10,30 +10,52 @@ function getLocalFallbackReviewsForApp(appId: string, appSlug: string) {
   try {
     const cleanId = (appId || '').toLowerCase().trim();
     const cleanSlug = (appSlug || '').toLowerCase().trim();
+
+    // 0. Pre-computed single counts file communityCatalogStats.json (instant 0ms read across all apps)
+    let catalogAppStats: any = null;
+    const catStatsPath = path.join(process.cwd(), 'src/lib/communityCatalogStats.json');
+    if (fs.existsSync(catStatsPath)) {
+      try {
+        const cParsed = JSON.parse(fs.readFileSync(catStatsPath, 'utf8'));
+        const appCounts = cParsed?.appCounts || {};
+        const countInfo = appCounts[cleanSlug] || appCounts[cleanId];
+        if (countInfo && countInfo.published > 0) {
+          catalogAppStats = {
+            totalReviews: Number(countInfo.published),
+            averageRating: Number(countInfo.avgRating || 4.5)
+          };
+        }
+      } catch (e) {}
+    }
+
     let allReviews: any[] = [];
 
-    // 1. Try community_local_backup.json
+    // 1. Try public_backup.json
+    const pPath = path.join(process.cwd(), 'src/lib/public_backup.json');
+    if (fs.existsSync(pPath)) {
+      try {
+        const pParsed = JSON.parse(fs.readFileSync(pPath, 'utf8'));
+        if (pParsed && Array.isArray(pParsed.reviews)) {
+          allReviews = pParsed.reviews;
+        }
+      } catch (e) {}
+    }
+
+    // 2. Try community_local_backup.json
     const backupPath = path.join(process.cwd(), 'community_local_backup.json');
     if (fs.existsSync(backupPath)) {
       try {
         const parsed = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
         if (parsed && Array.isArray(parsed.reviews)) {
-          allReviews = parsed.reviews;
+          const existingIds = new Set(allReviews.map((r: any) => r.id));
+          parsed.reviews.forEach((r: any) => {
+            if (r && r.id && !existingIds.has(r.id)) {
+              allReviews.push(r);
+              existingIds.add(r.id);
+            }
+          });
         }
       } catch (e) {}
-    }
-
-    // 2. Try staticData.json or public_backup.json
-    if (allReviews.length === 0) {
-      const pPath = path.join(process.cwd(), 'src/lib/public_backup.json');
-      if (fs.existsSync(pPath)) {
-        try {
-          const pParsed = JSON.parse(fs.readFileSync(pPath, 'utf8'));
-          if (pParsed && Array.isArray(pParsed.reviews)) {
-            allReviews = pParsed.reviews;
-          }
-        } catch (e) {}
-      }
     }
 
     // 3. Try src/lib/staticData.json
@@ -81,12 +103,19 @@ function getLocalFallbackReviewsForApp(appId: string, appSlug: string) {
             isPinned: Boolean(r.isPinned),
             adminReply: r.adminReply || null
           })),
-          stats: {
+          stats: catalogAppStats || {
             averageRating: parseFloat(avg.toFixed(1)),
             totalReviews: matched.length
           }
         };
       }
+    }
+
+    if (catalogAppStats) {
+      return {
+        reviews: [],
+        stats: catalogAppStats
+      };
     }
   } catch (err) {}
   return null;

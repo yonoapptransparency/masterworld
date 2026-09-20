@@ -2269,6 +2269,13 @@ adminVaultRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req: 
     fs.writeFileSync(backupPath, JSON.stringify(current, null, 2), 'utf8');
     fs.writeFileSync(staticJsonPath, JSON.stringify(current, null, 2), 'utf8');
 
+    if (req.body.catalogStats && typeof req.body.catalogStats === 'object') {
+      try {
+        const catStatsPath = path.join(process.cwd(), 'src/lib/communityCatalogStats.json');
+        fs.writeFileSync(catStatsPath, JSON.stringify(req.body.catalogStats, null, 2), 'utf8');
+      } catch (_) {}
+    }
+
     // Update in-memory public caches
     clearPublicBackupCache();
     clearSeoCache();

@@ -214,21 +214,26 @@ export function useGitHubSync(
     }
 
     // Merge live community review stats into apps so static data, cards, and SEO have 100% consistent ratings
+    let communityStatsPayload: any = null;
     try {
       log("GitHub Sync: Harmonizing live aggregated review ratings across all apps...");
       const statsRes = await adminFetch('/api/v1/admin/community/app-counts');
       if (statsRes.ok) {
         const statsData = await statsRes.json();
+        communityStatsPayload = statsData;
         const appCounts = statsData?.appCounts || {};
         finalApps = finalApps.map((a: any) => {
           const keyId = String(a.id || '').toLowerCase().trim();
           const keySlug = String(a.slug || '').toLowerCase().trim();
           const countInfo = appCounts[keyId] || appCounts[keySlug];
-          if (countInfo && countInfo.published > 0 && countInfo.avgRating) {
+          if (countInfo && countInfo.published > 0) {
+            const realPublished = Number(countInfo.published);
+            const realRating = Number(countInfo.avgRating || 4.5);
             return {
               ...a,
-              rating: Number(countInfo.avgRating),
-              review_count: `${countInfo.published}+`
+              rating: realRating,
+              review_count: realPublished,
+              reviews: realPublished
             };
           }
           return a;
@@ -329,7 +334,8 @@ export function useGitHubSync(
             apps: safeBackupApps,
             settings: finalSettings,
             news: publicNews,
-            videos: targetVideos
+            videos: targetVideos,
+            catalogStats: communityStatsPayload || null
           })
         });
       }
@@ -344,6 +350,8 @@ export function useGitHubSync(
     try {
       log(`GitHub Sync: Preparing release files for primary repository "${targetRepo}"...`);
       
+      const catalogStatsCode = communityStatsPayload ? JSON.stringify(communityStatsPayload, null, 2) : '';
+
       const primaryFiles: { path: string; content: string; message: string; name: string }[] = [
         {
           path: 'src/lib/staticData.ts',
@@ -376,6 +384,15 @@ export function useGitHubSync(
           name: 'public-api/staticData.json'
         }
       ];
+
+      if (catalogStatsCode) {
+        primaryFiles.push({
+          path: 'src/lib/communityCatalogStats.json',
+          content: catalogStatsCode,
+          message: `Admin Release: Manual communityCatalogStats.json synchronization to ${targetRepo}`,
+          name: 'communityCatalogStats.json'
+        });
+      }
 
       // Generate XML sitemaps for instant static hosting and search engine discoverability
       try {
@@ -439,6 +456,14 @@ export function useGitHubSync(
             { path: 'src/lib/public_backup.json', content: backupJsonCode, name: 'public_backup.json' },
             { path: 'src/lib/staticData.json', content: staticJsonCode, name: 'staticData.json' }
           ];
+
+          if (catalogStatsCode) {
+            secondaryFiles.push({
+              path: 'src/lib/communityCatalogStats.json',
+              content: catalogStatsCode,
+              name: 'communityCatalogStats.json'
+            });
+          }
 
           for (const sFile of secondaryFiles) {
             try {

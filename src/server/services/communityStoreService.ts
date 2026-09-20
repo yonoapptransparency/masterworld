@@ -374,14 +374,9 @@ class CommunityStoreService {
 
   constructor() {
     this.loadFromLocalBackup();
-    // Non-blocking initial sync attempt directly to Firestore
-    setTimeout(() => {
-      this.initFromFirestore().catch((e: any) => { 
-        console.warn(`[CommunityStore] Initial Firestore connection note:`, e?.message || e);
-      });
-      // Also fetch exact aggregation counts (2 index lookups, zero full-scan reads)
-      this.refreshAggregationCounts(true).catch(() => {});
-    }, 500);
+    // Zero-Cost Offline Startup: Serve 100% from local backup and static seeds.
+    // Untriggered automatic background scans to Firestore are strictly avoided to preserve quota.
+    this.initialized = true;
   }
 
   /**
@@ -474,7 +469,21 @@ class CommunityStoreService {
             if (rep && rep.id) this.reports.set(rep.id, rep);
           });
         }
+        if (data.app_stats && typeof data.app_stats === 'object') {
+          Object.entries(data.app_stats).forEach(([k, v]: [string, any]) => {
+            if (k && v) {
+              this.appStatsCache.set(String(k).toLowerCase().trim(), {
+                publishedReviewCount: Number(v.publishedReviewCount) || 0,
+                publishedRatingSum: Number(v.publishedRatingSum) || 0,
+                starDistribution: v.starDistribution || { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 }
+              });
+            }
+          });
+        }
       }
+
+      // Reconcile atomic plus/minus counters with all loaded reviews in memory
+      this.reconcileStatsCacheWithLoadedReviews();
 
       // If local backup was empty or has missing reviews from curated static dataset, seed them
       if (Array.isArray(STATIC_COMMUNITY_REVIEWS) && STATIC_COMMUNITY_REVIEWS.length > 0) {
@@ -508,6 +517,53 @@ class CommunityStoreService {
           this.executeDiskSync();
         }
       }
+
+      // Also ingest verified reviews from src/lib/public_backup.json if present
+      try {
+        const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
+        if (fs.existsSync(publicBackupPath)) {
+          const pRaw = fs.readFileSync(publicBackupPath, 'utf8');
+          const pData = JSON.parse(pRaw);
+          if (pData && Array.isArray(pData.reviews) && pData.reviews.length > 0) {
+            let pSeeded = 0;
+            pData.reviews.forEach((r: any) => {
+              if (r && r.id && !this.deletedReviewIds.has(r.id) && !this.reviews.has(r.id)) {
+                const sanitized: ReviewRecord = {
+                  id: r.id,
+                  appId: r.appId,
+                  appSlug: r.appSlug || '',
+                  appName: r.appName || '',
+                  userName: r.userName || 'Player',
+                  rating: Number(r.rating) || 5,
+                  reviewText: sanitizeReviewText(r.reviewText || '', r.appName),
+                  timestamp: r.timestamp || new Date().toISOString(),
+                  status: (r.status as any) || 'published',
+                  helpful_count: Number(r.helpful_count) || 0,
+                  isPinned: Boolean(r.isPinned),
+                  reported: Boolean(r.reported),
+                  report_count: Number(r.report_count) || 0,
+                  source: (r.source as any) || 'community',
+                  adminReply: r.adminReply || null,
+                  updated_at: r.updated_at || r.timestamp || new Date().toISOString()
+                };
+                this.reviews.set(r.id, sanitized);
+                pSeeded++;
+              }
+            });
+            if (pSeeded > 0) {
+              console.log(`[CommunityStore] Ingested ${pSeeded} additional reviews from public_backup.json into memory.`);
+              this.reconcileStatsCacheWithLoadedReviews();
+              this.executeDiskSync();
+            }
+          }
+        }
+      } catch (pbErr) {
+        // Non-blocking
+      }
+
+      // Reconcile and save catalog stats summary
+      this.reconcileStatsCacheWithLoadedReviews();
+      this.saveCatalogStatsSummary().catch(() => {});
 
       console.log(`[CommunityStore] Loaded ${this.reviews.size} reviews, ${this.reports.size} reports, ${this.deletedReviewIds.size} tombstone deletions.`);
     } catch (e) {
@@ -548,6 +604,7 @@ class CommunityStoreService {
         reviews: Array.from(this.reviews.values()),
         reports: Array.from(this.reports.values()),
         deleted_review_ids: Array.from(this.deletedReviewIds),
+        app_stats: Object.fromEntries(this.appStatsCache.entries()),
         updated_at: new Date().toISOString()
       };
       
@@ -564,6 +621,39 @@ class CommunityStoreService {
       });
     } catch (e) {
       console.warn('[CommunityStore] Local backup execution error:', e);
+    }
+  }
+
+  /**
+   * Reconciles the atomic plus/minus app stats cache with all in-memory reviews.
+   * Ensures that count and star distribution are accurate across all loaded apps.
+   */
+  private reconcileStatsCacheWithLoadedReviews() {
+    const appMap: Record<string, { count: number; sum: number; stars: Record<string, number> }> = {};
+
+    this.reviews.forEach(r => {
+      if (r.status && r.status !== 'published' && r.status !== 'approved') return;
+      const appId = String(r.appId || '').toLowerCase().trim();
+      if (!appId) return;
+      if (!appMap[appId]) {
+        appMap[appId] = { count: 0, sum: 0, stars: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 } };
+      }
+      const entry = appMap[appId];
+      entry.count++;
+      const star = Math.max(1, Math.min(5, Math.round(Number(r.rating) || 5)));
+      entry.sum += star;
+      entry.stars[String(star)] = (entry.stars[String(star)] || 0) + 1;
+    });
+
+    for (const [appId, data] of Object.entries(appMap)) {
+      const existing = this.appStatsCache.get(appId);
+      if (!existing || data.count > (existing.publishedReviewCount || 0)) {
+        this.appStatsCache.set(appId, {
+          publishedReviewCount: data.count,
+          publishedRatingSum: data.sum,
+          starDistribution: data.stars
+        });
+      }
     }
   }
 
@@ -662,10 +752,10 @@ class CommunityStoreService {
           }
         }
 
-        // Load reports
+        // Load reports (ultra-lean limit to avoid burning quota)
         if (Date.now() >= this.quotaExhaustedUntil) {
           try {
-            const rSnap = await withTimeout(db.collection('reports').limit(5000).get(), 15000, null);
+            const rSnap = await withTimeout(db.collection('reports').limit(50).get(), 8000, null);
             if (rSnap && rSnap.docs) {
               rSnap.docs.forEach((doc: any) => {
                 const d = doc.data();
@@ -819,10 +909,66 @@ class CommunityStoreService {
   // ==========================================
 
   /**
-   * CRITICAL DATA INTEGRITY FIX:
-   * Dynamically loads ALL existing reviews for a specific app from both the live Firestore 'reviews' collection
-   * and existing chunk bucket documents BEFORE syncing or saving chunks.
-   * This guarantees that saving a new review or admin comment NEVER overwrites or deletes yesterday's reviews!
+   * Dedicated single chunk loader: Reads ONLY `community_store/app_reviews_${cleanId}_0`.
+   * Guarantees EXACTLY 1 document read per app! Zero quota exhaustion!
+   */
+  public async loadSingleAppReviewsChunk(appIdentifier: string): Promise<number> {
+    const cleanId = String(appIdentifier || '').toLowerCase().trim();
+    if (!cleanId) return 0;
+    if (this.loadedAppsMap.has(cleanId)) return 0;
+    this.loadedAppsMap.set(cleanId, Date.now());
+
+    if (Date.now() < this.quotaExhaustedUntil) return 0;
+
+    try {
+      const chunkDoc = await readCommunityRestDoc(`app_reviews_${cleanId}_0`, 'community_store');
+      let loaded = 0;
+      if (chunkDoc && Array.isArray(chunkDoc.reviews) && chunkDoc.reviews.length > 0) {
+        chunkDoc.reviews.forEach((r: any) => {
+          if (r && r.id && !this.deletedReviewIds.has(r.id)) {
+            if (!this.reviews.has(r.id)) {
+              this.reviews.set(r.id, {
+                id: r.id,
+                appId: r.appId || cleanId,
+                appSlug: r.appSlug || '',
+                appName: r.appName || '',
+                userName: r.userName || r.username || 'Player',
+                rating: Number(r.rating) || 5,
+                reviewText: sanitizeReviewText(r.reviewText || r.comment || ''),
+                timestamp: r.timestamp || r.created_at || new Date().toISOString(),
+                status: r.status || 'published',
+                helpful_count: Number(r.helpful_count) || 0,
+                isPinned: Boolean(r.isPinned),
+                reported: Boolean(r.reported),
+                report_count: Number(r.report_count) || 0,
+                source: r.source || 'community',
+                adminReply: r.adminReply || null,
+                updated_at: r.updated_at || new Date().toISOString()
+              });
+              loaded++;
+            }
+          }
+        });
+
+        if (chunkDoc.stats) {
+          this.appStatsCache.set(cleanId, {
+            publishedReviewCount: Number(chunkDoc.stats.totalReviews) || loaded,
+            publishedRatingSum: (Number(chunkDoc.stats.averageRating) || 5) * (Number(chunkDoc.stats.totalReviews) || loaded),
+            starDistribution: chunkDoc.stats.starCounts || { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 }
+          });
+        }
+      }
+      return loaded;
+    } catch (e: any) {
+      if (this.isQuotaError(e)) this.handleQuotaCooldown();
+      return 0;
+    }
+  }
+
+  /**
+   * Ultra-Lean App Review Loader:
+   * Loads the 1-document chunk by default (1 read).
+   * Only queries Firestore live collection with limit 50 if explicit forceRefresh is requested by Admin.
    */
   public async ensureAllReviewsLoadedForApp(appIdentifier: string, aliasKeysInput?: Set<string>, forceRefresh: boolean = false): Promise<number> {
     const cleanId = String(appIdentifier || '').toLowerCase().trim();
@@ -830,39 +976,29 @@ class CommunityStoreService {
 
     const now = Date.now();
     const lastLoaded = this.loadedAppsMap.get(cleanId) || 0;
-    if (!forceRefresh && lastLoaded > 0 && (now - lastLoaded) < 60000) {
-      // Recently loaded within 60 seconds, served instantly from memory!
+    if (!forceRefresh && lastLoaded > 0) {
       return 0;
     }
-    this.loadedAppsMap.set(cleanId, now);
 
-    const aliases = aliasKeysInput || this.getAliasKeysForApp(cleanId);
-    let loadedCount = 0;
-    const db = getCommunityAdminDb();
+    // 1. Read single bucket document (1 read only)
+    let loadedCount = await this.loadSingleAppReviewsChunk(cleanId);
 
-    // 1. Fetch documents from live Firestore `reviews` collection matching alias key with strict limit
-    if (db && Date.now() >= this.quotaExhaustedUntil) {
-      try {
-        const queryPromises: Promise<any>[] = [];
-        aliases.forEach(key => {
-          queryPromises.push(withTimeout(db.collection('reviews').where('appId', '==', key).limit(100).get(), 5000, null));
-          queryPromises.push(withTimeout(db.collection('reviews').where('appSlug', '==', key).limit(100).get(), 5000, null));
-        });
-
-        const snaps = await Promise.all(queryPromises);
-        snaps.forEach((snap: any) => {
+    // 2. Only if explicit admin forceRefresh, fetch up to 50 latest from live reviews collection
+    if (forceRefresh && Date.now() >= this.quotaExhaustedUntil) {
+      this.loadedAppsMap.set(cleanId, now);
+      const db = getCommunityAdminDb();
+      if (db) {
+        try {
+          const snap = await withTimeout(
+            db.collection('reviews').where('appId', '==', cleanId).limit(50).get(),
+            5000,
+            null
+          );
           if (snap && snap.docs && snap.docs.length > 0) {
             snap.docs.forEach((docSnap: any) => {
               const d = docSnap.data();
               const id = docSnap.id || d.id;
               if (id && !this.deletedReviewIds.has(id)) {
-                const existing = this.reviews.get(id);
-                // Don't overwrite if local in-memory object has newer updated_at timestamp or admin reply
-                if (existing && existing.updated_at && d.updated_at) {
-                  const localTime = new Date(existing.updated_at).getTime();
-                  const remoteTime = new Date(d.updated_at).getTime();
-                  if (localTime > remoteTime) return;
-                }
                 this.reviews.set(id, {
                   id,
                   appId: d.appId || cleanId,
@@ -878,52 +1014,17 @@ class CommunityStoreService {
                   reported: Boolean(d.reported),
                   report_count: Number(d.report_count) || 0,
                   source: d.source || 'community',
-                  adminReply: d.adminReply || (existing?.adminReply) || null,
+                  adminReply: d.adminReply || null,
                   updated_at: d.updated_at || new Date().toISOString()
                 });
                 loadedCount++;
               }
             });
           }
-        });
-      } catch (err: any) {
-        if (this.isQuotaError(err)) this.handleQuotaCooldown();
-        console.warn(`[CommunityStore] ensureAllReviewsLoadedForApp query notice for ${cleanId}:`, err?.message || err);
-      }
-    }
-
-    // 2. Also check existing bucket document(s) community_store/app_reviews_${cleanId}_0, etc.
-    for (const key of Array.from(aliases)) {
-      try {
-        const chunkDoc = await readCommunityRestDoc(`app_reviews_${key}_0`, 'community_store');
-        if (chunkDoc && Array.isArray(chunkDoc.reviews) && chunkDoc.reviews.length > 0) {
-          chunkDoc.reviews.forEach((r: any) => {
-            if (r && r.id && !this.deletedReviewIds.has(r.id)) {
-              if (!this.reviews.has(r.id)) {
-                this.reviews.set(r.id, {
-                  id: r.id,
-                  appId: r.appId || cleanId,
-                  appSlug: r.appSlug || '',
-                  appName: r.appName || '',
-                  userName: r.userName || r.username || 'Player',
-                  rating: Number(r.rating) || 5,
-                  reviewText: sanitizeReviewText(r.reviewText || r.comment || ''),
-                  timestamp: r.timestamp || r.created_at || new Date().toISOString(),
-                  status: r.status || 'published',
-                  helpful_count: Number(r.helpful_count) || 0,
-                  isPinned: Boolean(r.isPinned),
-                  reported: Boolean(r.reported),
-                  report_count: Number(r.report_count) || 0,
-                  source: r.source || 'community',
-                  adminReply: r.adminReply || null,
-                  updated_at: r.updated_at || new Date().toISOString()
-                });
-                loadedCount++;
-              }
-            }
-          });
+        } catch (err: any) {
+          if (this.isQuotaError(err)) this.handleQuotaCooldown();
         }
-      } catch (e: any) {}
+      }
     }
 
     return loadedCount;
@@ -1832,19 +1933,24 @@ public async voteHelpful(reviewId: string): Promise<number> {
     const cleanId = resolved.canonicalId;
     const aliasKeys = resolved.aliasKeys;
 
-    // Zero-Cost Bot Bypass: If request is from a bot or crawler, serve 100% from in-memory cache and local snapshot (0 Firestore reads, 0 quota cost!)
-    if (!isBot) {
-      await this.ensureAllReviewsLoadedForApp(cleanId, aliasKeys);
-    }
+    // Helper to get matching reviews for this app from memory
+    const getMatchingReviews = () => {
+      return Array.from(this.reviews.values()).filter(r => {
+        if (r.status && r.status !== 'published' && r.status !== 'approved') return false;
+        const rAppId = String(r.appId || '').toLowerCase().trim();
+        const rAppSlug = String(r.appSlug || '').toLowerCase().trim();
+        const rAppName = String(r.appName || '').toLowerCase().trim();
+        return aliasKeys.has(rAppId) || (rAppSlug && aliasKeys.has(rAppSlug)) || (rAppName && aliasKeys.has(rAppName));
+      });
+    };
 
-    // Tier 1: Instant In-Memory Filter & Resolver (0ms latency, zero quota consumption)
-    let memList = Array.from(this.reviews.values()).filter(r => {
-      if (r.status && r.status !== 'published') return false;
-      const rAppId = String(r.appId || '').toLowerCase().trim();
-      const rAppSlug = String(r.appSlug || '').toLowerCase().trim();
-      const rAppName = String(r.appName || '').toLowerCase().trim();
-      return aliasKeys.has(rAppId) || (rAppSlug && aliasKeys.has(rAppSlug)) || (rAppName && aliasKeys.has(rAppName));
-    });
+    let memList = getMatchingReviews();
+
+    // If no reviews in memory and app not yet loaded, read ONLY the single chunk document (1 single read!)
+    if (memList.length === 0 && !isBot && !this.loadedAppsMap.has(cleanId)) {
+      await this.loadSingleAppReviewsChunk(cleanId);
+      memList = getMatchingReviews();
+    }
 
     // Compute live stats from all published reviews of this app
     const totalAppReviews = memList.length;
@@ -1962,7 +2068,6 @@ public async voteHelpful(reviewId: string): Promise<number> {
    */
   public getAppReviewCounts() {
     const list = Array.from(this.reviews.values());
-    const totalReviews = list.length;
     let publishedCount = 0;
     let pendingCount = 0;
     let rejectedCount = 0;
@@ -1972,54 +2077,62 @@ public async voteHelpful(reviewId: string): Promise<number> {
 
     const rawAppMap: Record<string, { total: number; published: number; pending: number; rejected: number; flagged: number; ratingSum: number; ratingCount: number }> = {};
 
-    const recordForAppKey = (key: string, r: ReviewRecord) => {
-      const clean = String(key || '').toLowerCase().trim();
+    // 1. Initialize app counts directly from atomic plus/minus delta stats cache (0 reads, <1ms)
+    this.appStatsCache.forEach((stats, appId) => {
+      const clean = String(appId || '').toLowerCase().trim();
       if (!clean) return;
-      if (!rawAppMap[clean]) {
-        rawAppMap[clean] = { total: 0, published: 0, pending: 0, rejected: 0, flagged: 0, ratingSum: 0, ratingCount: 0 };
-      }
-      const entry = rawAppMap[clean];
-      entry.total++;
-      const status = r.status || 'published';
-      if (status === 'published') entry.published++;
-      else if (status === 'pending') entry.pending++;
-      else if (status === 'rejected') entry.rejected++;
+      const pubCount = Number(stats.publishedReviewCount) || 0;
+      const sum = Number(stats.publishedRatingSum) || (pubCount * 5);
+      rawAppMap[clean] = {
+        total: pubCount,
+        published: pubCount,
+        pending: 0,
+        rejected: 0,
+        flagged: 0,
+        ratingSum: sum,
+        ratingCount: pubCount
+      };
+      publishedCount += pubCount;
+      ratingSum += sum;
+      ratedCount += pubCount;
+    });
 
-      if (r.reported || (r.report_count || 0) > 0) entry.flagged++;
-      if (r.rating) {
-        entry.ratingSum += Number(r.rating) || 5;
-        entry.ratingCount++;
-      }
-    };
-
+    // 2. Track pending, rejected, and flagged moderation states from in-memory review records
     list.forEach(r => {
       const status = r.status || 'published';
-      if (status === 'published') publishedCount++;
-      else if (status === 'pending') pendingCount++;
+      if (status === 'pending') pendingCount++;
       else if (status === 'rejected') rejectedCount++;
-
       if (r.reported || (r.report_count || 0) > 0) flaggedCount++;
-
-      if (r.rating) {
-        ratingSum += Number(r.rating) || 5;
-        ratedCount++;
-      }
 
       const keys = new Set<string>();
       if (r.appId) keys.add(String(r.appId).toLowerCase().trim());
       if (r.appSlug) keys.add(String(r.appSlug).toLowerCase().trim());
 
-      if (r.appId) {
-        const aliases = this.getAliasKeysForApp(r.appId);
-        aliases.forEach(k => keys.add(k));
-      }
-      if (r.appSlug) {
-        const aliases = this.getAliasKeysForApp(r.appSlug);
-        aliases.forEach(k => keys.add(k));
-      }
-
-      keys.forEach(k => recordForAppKey(k, r));
+      keys.forEach(k => {
+        if (!rawAppMap[k]) {
+          rawAppMap[k] = { total: 0, published: 0, pending: 0, rejected: 0, flagged: 0, ratingSum: 0, ratingCount: 0 };
+        }
+        const entry = rawAppMap[k];
+        if (status === 'pending') {
+          entry.pending++;
+          entry.total++;
+        } else if (status === 'rejected') {
+          entry.rejected++;
+          entry.total++;
+        }
+        if (r.reported || (r.report_count || 0) > 0) entry.flagged++;
+      });
     });
+
+    // 3. Populate aliases so both ID and Slug resolve correctly
+    for (const [key, item] of Object.entries(rawAppMap)) {
+      const aliases = this.getAliasKeysForApp(key);
+      aliases.forEach(alias => {
+        if (!rawAppMap[alias] || rawAppMap[alias].published < item.published) {
+          rawAppMap[alias] = { ...item };
+        }
+      });
+    }
 
     const appCounts: Record<string, { total: number; published: number; pending: number; rejected: number; flagged: number; avgRating: number }> = {};
     for (const [key, item] of Object.entries(rawAppMap)) {
@@ -2034,7 +2147,7 @@ public async voteHelpful(reviewId: string): Promise<number> {
     }
 
     const averageRating = ratedCount > 0 ? parseFloat((ratingSum / ratedCount).toFixed(1)) : 4.8;
-    const effectiveTotal = Math.max(totalReviews, this.cachedRemoteCounts?.totalReviews || 0);
+    const effectiveTotal = Math.max(publishedCount + pendingCount + rejectedCount, this.cachedRemoteCounts?.totalReviews || 0);
     const effectivePublished = Math.max(publishedCount, this.cachedRemoteCounts?.publishedReviews || 0);
     const effectivePending = this.cachedRemoteCounts?.pendingReviews !== undefined ? this.cachedRemoteCounts.pendingReviews : pendingCount;
     const effectiveRejected = this.cachedRemoteCounts?.rejectedReviews !== undefined ? this.cachedRemoteCounts.rejectedReviews : rejectedCount;
@@ -2120,6 +2233,13 @@ public async voteHelpful(reviewId: string): Promise<number> {
         appCounts,
         updated_at: new Date().toISOString()
       };
+      
+      // Save locally to src/lib/communityCatalogStats.json for instant offline zero-read retrieval
+      try {
+        const catalogStatsPath = path.join(process.cwd(), 'src/lib/communityCatalogStats.json');
+        fs.writeFileSync(catalogStatsPath, JSON.stringify(payload, null, 2), 'utf8');
+      } catch (fErr) {}
+
       await safeWriteDb('catalog_stats', payload, undefined, true, 'community_store');
     } catch (e) {
       // Non-blocking
