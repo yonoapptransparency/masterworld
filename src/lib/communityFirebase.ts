@@ -5,6 +5,7 @@
  */
 
 import { STATIC_COMMUNITY_REVIEWS } from './communityReviewsData';
+import communityCatalogStats from './communityCatalogStats.json';
 
 // Resilient Production Configuration (Self-contained, no external JSON imports that fail on static hosts)
 const getEnvVal = (key: string): string | undefined => {
@@ -209,6 +210,43 @@ export function getCachedLiveReviews(appId?: string, appSlug?: string): ReviewFe
         }
       }
     } catch (e) {}
+  }
+
+  return null;
+}
+
+export function getCachedLiveAppStats(appId?: string, appSlug?: string): {
+  averageRating: number;
+  totalReviews: number;
+  starCounts: Record<string, number>;
+  distribution: Record<string, number>;
+} | null {
+  const cleanId = String(appId || '').trim().toLowerCase();
+  const cleanSlug = String(appSlug || '').trim().toLowerCase();
+  if (!cleanId && !cleanSlug) return null;
+
+  // 1. Check review SWR cache
+  const cached = getCachedLiveReviews(appId, appSlug);
+  if (cached?.stats && typeof cached.stats.totalReviews === 'number') {
+    return {
+      averageRating: Number(cached.stats.averageRating) || 0,
+      totalReviews: Number(cached.stats.totalReviews) || 0,
+      starCounts: (cached.stats.starCounts as Record<string, number>) || { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 },
+      distribution: (cached.stats.distribution || cached.stats.starCounts as Record<string, number>) || { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 }
+    };
+  }
+
+  // 2. Check local catalog stats (from verified Firestore backfill)
+  const catalogCounts: Record<string, any> = (communityCatalogStats as any)?.appCounts || {};
+  const hit = (cleanId && catalogCounts[cleanId]) || (cleanSlug && catalogCounts[cleanSlug]);
+  if (hit) {
+    const starCounts = hit.starCounts || { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
+    return {
+      averageRating: Number(hit.avgRating) || 0,
+      totalReviews: Number(hit.published) || 0,
+      starCounts,
+      distribution: starCounts
+    };
   }
 
   return null;

@@ -5,6 +5,7 @@ import {
   voteLiveReviewHelpful, 
   reportLiveReview, 
   getCachedLiveReviews,
+  getCachedLiveAppStats,
   PublicReview, 
 } from '../lib/communityFirebase';
 
@@ -332,25 +333,49 @@ export function useReviews(
 
 export function useLiveAppStats(appId: string, appSlug?: string, fallbackRating: number = 4.8, fallbackTotal: number = 0) {
   const [stats, setStats] = useState<any>(() => {
-    const cached = getCachedLiveReviews(String(appId), String(appSlug));
-    return cached?.stats || null;
+    return getCachedLiveAppStats(String(appId), String(appSlug));
   });
 
   useEffect(() => {
-    const targetKey = String(appId || appSlug || '').trim();
-    if (!targetKey) return;
+    const cleanId = String(appId || '').trim();
+    const cleanSlug = String(appSlug || '').trim();
+    if (!cleanId && !cleanSlug) return;
 
-    // Synchronously check local cache if stats are already present
-    const cached = getCachedLiveReviews(String(appId), String(appSlug));
-    if (cached?.stats) {
-      setStats(cached.stats);
+    // 1. Synchronously update if stats are already available in cache or catalog
+    const immediate = getCachedLiveAppStats(cleanId, cleanSlug);
+    if (immediate) {
+      setStats(immediate);
     }
 
+    // 2. Query live stats endpoint asynchronously to catch any new reviews since build
+    let isMounted = true;
+    const fetchFresh = async () => {
+      try {
+        const queryTarget = cleanId || cleanSlug;
+        const res = await fetch(`/api/v1/public/community/stats/${encodeURIComponent(queryTarget)}?appSlug=${encodeURIComponent(cleanSlug)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted && data?.stats) {
+            setStats(data.stats);
+          }
+        }
+      } catch (_) {}
+    };
+    fetchFresh();
+
+    // 3. Listen for immediate local updates
     const handleUpdate = (e: any) => {
       const addedReview = e?.detail?.newReview;
       if (addedReview) {
         setStats((prev: any) => {
-          if (!prev) return prev;
+          if (!prev) {
+            return {
+              totalReviews: 1,
+              averageRating: addedReview.rating,
+              starCounts: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0, [String(addedReview.rating)]: 1 },
+              distribution: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0, [String(addedReview.rating)]: 1 }
+            };
+          }
           const currentTotal = prev.totalReviews || 0;
           const currentSum = (prev.averageRating || fallbackRating) * currentTotal;
           const newTotal = currentTotal + 1;
@@ -361,22 +386,21 @@ export function useLiveAppStats(appId: string, appSlug?: string, fallbackRating:
             ...prev,
             averageRating: newAverage,
             totalReviews: newTotal,
-            starCounts: newCounts
+            starCounts: newCounts,
+            distribution: newCounts
           };
         });
       }
     };
     
     const handleReviewsUpdated = () => {
-      const fresh = getCachedLiveReviews(String(appId), String(appSlug));
-      if (fresh?.stats) {
-        setStats(fresh.stats);
-      }
+      fetchFresh();
     };
 
     window.addEventListener('community-review-added', handleUpdate);
     window.addEventListener('community-reviews-updated', handleReviewsUpdated);
     return () => {
+      isMounted = false;
       window.removeEventListener('community-review-added', handleUpdate);
       window.removeEventListener('community-reviews-updated', handleReviewsUpdated);
     };
