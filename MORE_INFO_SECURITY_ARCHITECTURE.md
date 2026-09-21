@@ -165,12 +165,13 @@ TOTAL INCOMING TRAFFIC (100%)
 
 ### 🧱 Wall 3: Backend Cryptographic Verification & Nonce Burn
 * **Where It Runs**: Express backend (`src/server/routes/securityRoutes.ts`) and Vercel serverless (`public-api/index.js`).
-* **Coverage**: Eliminates ~0.49% of remaining replay, tampering, and brute-force attacks.
+* **Coverage**: Eliminates remaining autonomous AI bots, rapid bursts, replay attempts, and brute-force scanners.
 * **How It Works**:
-  1. **Direct Cloudflare Validation**: The server sends a server-to-server POST request to `https://challenges.cloudflare.com/turnstile/v0/siteverify` containing the client token, secret key, and remote IP.
-  2. **Sliding-Window IP Rate Limiting**: Max 5 requests per 60 seconds per IP. Exceeding 8 requests in 60 seconds triggers a 5-minute IP quarantine jail.
-  3. **Burn-on-Read Atomic Nonce Store**: Every token includes a cryptographically random entropy nonce and timestamp. The server verifies that the timestamp is within a 15-second window, checks if the nonce exists in `burnedNonces`, and burns it immediately. Any replay attempt receives `403 Forbidden`.
-  4. **Target App Integrity**: Verifies that the app identifier signed in the token matches the requested `appId`.
+  1. **Direct Cloudflare Validation**: The server sends a server-to-server POST request to `https://challenges.cloudflare.com/turnstile/v0/siteverify` containing the client token and secret key.
+  2. **Non-Human Rapid Burst Detection**: Real humans take multiple seconds to solve and click. If an IP sends 4+ requests within 10 seconds or fires concurrently, it is flagged as an autonomous bot burst, locked in the 30-minute IP Quarantine Jail, and ghosted with `404 Not Found`.
+  3. **Instant 404 Ghosting on Bot Symptoms**: Any bot symptoms (`wb === 1`, synthetic `.click()`, machine dwell `< 600ms`, zero-pixel clicks, burned nonce replay, bad token) immediately return `404 Not Found` (rather than `403`), leading bots to believe the endpoint does not exist.
+  4. **Burn-on-Read Atomic Nonce Store**: Every token includes a cryptographically random entropy nonce and timestamp. The server checks freshness (< 30 seconds), burns the nonce atomically in Redis/memory, and instantly rejects replays.
+  5. **Instant Passage for Genuine Users**: Genuine human clicks pass seamlessly with 0ms artificial delay and instant ~50-100ms link emission.
 
 ---
 
@@ -178,295 +179,59 @@ TOTAL INCOMING TRAFFIC (100%)
 
 Because RummyDex operates in both **Local / Container Express** mode and **Vercel Serverless** mode (for the public site `www.rummydex.com`), both runtime entrypoints are fully specified below.
 
-### 5.1 Client Component: `src/components/ClearanceButton.tsx`
+### 5.1 Modular Client Architecture: 3 Lightweight Subsystems
 
+The clearance mechanism is architected as 3 clean, maintainable, single-responsibility modules:
+
+1. **`src/hooks/useTurnstileVerification.ts`**: Handles Cloudflare Turnstile script injection, lifecycle render, test/prod site key fallback, token state, and error handling.
+2. **`src/hooks/useClearanceDispatch.ts`**: Handles client/bot threat detection (WebDriver, Playwright, Puppeteer), pointer/touch telemetry tracking, dwell time checks, cryptographically signed clearance token generation, multi-candidate route dispatch, and zero-referrer link wiping.
+3. **`src/components/ClearanceButton.tsx`**: Lightweight, pure presentation component orchestrating the Turnstile container, animated progress labels, the neutral "PROCEED" action button, and unavailable status notices.
+
+#### Part 1: `src/hooks/useTurnstileVerification.ts`
 ```typescript
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 
-// Cloudflare Turnstile Site Key (Vite environment variable with production fallback)
-const TURNSTILE_SITE_KEY = (import.meta.env?.VITE_TURNSTILE_SITE_KEY as string) || '0x4AAAAAAE99nFmDXDivmDJV';
+const PROD_TURNSTILE_SITE_KEY = '0x4AAAAAAE99nFmDXDivmDJV';
+const TEST_TURNSTILE_SITE_KEY = '1x00000000000000000000AA';
 
-declare global {
-  interface Window {
-    turnstile?: {
-      render: (container: string | HTMLElement, options: Record<string, any>) => string;
-      reset: (widgetId: string) => void;
-      remove: (widgetId: string) => void;
-    };
-    onTurnstileLoad?: () => void;
-  }
-}
-
-interface ClearanceButtonProps {
-  appId: string;
-  onSuccess?: () => void;
-  onError?: () => void;
-}
-
-export function ClearanceButton({ appId, onSuccess, onError }: ClearanceButtonProps) {
+export function useTurnstileVerification(options?: { onError?: () => void }) {
   const [cfToken, setCfToken] = useState<string | null>(null);
-  const [isReady, setIsReady] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [status, setStatus] = useState<'idle' | 'connecting' | 'ready' | 'error' | 'unavailable'>('idle');
-  const [fallbackUrl, setFallbackUrl] = useState<string | null>(null);
-  
+  const [isReady, setIsReady] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const widgetRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
-  const mountTimeRef = useRef<number>(Date.now());
+  const cfTokenRef = useRef<string | null>(null);
 
-  const initTurnstile = useCallback(() => {
-    if (!widgetRef.current || !window.turnstile || widgetIdRef.current) return;
+  // Turnstile lifecycle, script loading, execute trigger, reset & render logic
+  return { widgetRef, widgetIdRef, cfToken, cfTokenRef, isReady, errorMessage, setErrorMessage, resetTurnstile, executeTurnstile };
+}
+```
 
-    try {
-      widgetIdRef.current = window.turnstile.render(widgetRef.current, {
-        sitekey: TURNSTILE_SITE_KEY,
-        theme: 'auto',
-        size: 'invisible',
-        callback: (token: string) => {
-          setCfToken(token);
-          setIsReady(true);
-          setStatus('ready');
-        },
-        'error-callback': () => {
-          setCfToken(null);
-          setIsReady(false);
-          setStatus('error');
-          if (onError) onError();
-        },
-        'expired-callback': () => {
-          setCfToken(null);
-          setIsReady(false);
-          setStatus('idle');
-          if (widgetIdRef.current && window.turnstile) {
-            window.turnstile.reset(widgetIdRef.current);
-          }
-        },
-        'timeout-callback': () => {
-          setStatus('error');
-        }
-      });
-    } catch (err) {
-      // ✅ SECURITY FIX: Hard fail — never silently pass bots through
-      // Old code had setIsReady(true) here which let bots bypass Turnstile
-      console.warn('[Clearance] Turnstile could not initialize. Blocking proceed.', err);
-      setStatus('error');
-      return; // Do NOT allow proceed without valid Turnstile token
-    }
-  }, [onError]);
+#### Part 2: `src/hooks/useClearanceDispatch.ts`
+```typescript
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 
-  useEffect(() => {
-    mountTimeRef.current = Date.now();
+export function useClearanceDispatch({ appId, appSlug, cfToken, cfTokenRef, widgetIdRef, isReady, resetTurnstile, executeTurnstile, onSuccess, onError, setErrorMessage }) {
+  // Advanced bot checks, kinetic pointer tracking, promise-based token resolution, single-use token encoding, multi-route fetch, airgap dispatch, and memory wiping
+  return { isLoading, destinationUrl, isUnavailable, setIsUnavailable, handleProceed, trackPointer, closeAndWipeLink };
+}
+```
 
-    if (window.turnstile) {
-      initTurnstile();
-      return;
-    }
+#### Part 3: `src/components/ClearanceButton.tsx`
+```typescript
+import React from 'react';
+import { Loader2, ArrowRight, AlertCircle } from 'lucide-react';
+import { useTurnstileVerification } from '../hooks/useTurnstileVerification';
+import { useClearanceDispatch } from '../hooks/useClearanceDispatch';
 
-    if (!document.querySelector('script[data-turnstile]')) {
-      const script = document.createElement('script');
-      script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit';
-      script.async = true;
-      script.defer = true;
-      script.setAttribute('data-turnstile', 'true');
-      // ✅ SECURITY FIX: Script load failure = hard fail, not silent bypass
-      script.onerror = () => { setStatus('error'); };
-      window.onTurnstileLoad = () => initTurnstile();
-      document.head.appendChild(script);
-    }
+export default function ClearanceButton({ appId, appSlug, onSuccess, onError }: ClearanceButtonProps) {
+  const { widgetRef, widgetIdRef, cfToken, cfTokenRef, isReady, errorMessage, setErrorMessage, resetTurnstile, executeTurnstile } = useTurnstileVerification({ onError });
+  const { isLoading, destinationUrl, isUnavailable, setIsUnavailable, handleProceed, trackPointer, closeAndWipeLink } = useClearanceDispatch({
+    appId, appSlug, cfToken, cfTokenRef, widgetIdRef, isReady, resetTurnstile, executeTurnstile, onSuccess, onError, setErrorMessage
+  });
 
-    return () => {
-      if (widgetIdRef.current && window.turnstile) {
-        try {
-          window.turnstile.remove(widgetIdRef.current);
-        } catch (_) {}
-      }
-    };
-  }, [initTurnstile]);
-
-  const handleProceed = async () => {
-    if (isLoading) return;
-    // ✅ SECURITY FIX: Must have valid Cloudflare token — no silent bypass allowed
-    if (!cfToken || !isReady) {
-      setStatus('error');
-      return;
-    }
-
-    setIsLoading(true);
-    setStatus('connecting');
-
-    try {
-      // 1. Generate single-use entropy nonce
-      const entropy = Array.from(crypto.getRandomValues(new Uint8Array(16)))
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('');
-
-      const elapsed = Date.now() - mountTimeRef.current;
-
-      // 2. Encode clearance payload with Turnstile token
-      const clearanceToken = btoa(JSON.stringify({
-        t: Date.now(),
-        n: entropy,
-        id: appId,
-        el: elapsed,
-        cf: cfToken || ''
-      }));
-
-      // 3. Request link resolution
-      const response = await fetch('/api/v1/app/resolve-link', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'x-clearance-token': clearanceToken,
-          ...(cfToken ? { 'x-cf-token': cfToken } : {})
-        },
-        body: JSON.stringify({ appId }),
-        credentials: 'same-origin'
-      });
-
-      if (!response.ok) {
-        throw new Error(`Verification error (HTTP ${response.status})`);
-      }
-
-      const data = await response.json();
-
-      if (data.status === 'unavailable') {
-        setStatus('unavailable');
-        setIsLoading(false);
-        return;
-      }
-
-      if (data.url) {
-        // Zero-referrer airgap dispatch via detached native anchor
-        const anchor = document.createElement('a');
-        anchor.href = data.url;
-        anchor.rel = 'noreferrer noopener';
-        anchor.target = '_blank';
-        anchor.style.display = 'none';
-        document.body.appendChild(anchor);
-        anchor.click();
-        document.body.removeChild(anchor);
-
-        // Offer visual fallback in case browser popup blocker prevented open
-        setFallbackUrl(data.url);
-        setStatus('idle');
-        if (onSuccess) onSuccess();
-      } else {
-        setStatus('error');
-      }
-    } catch (err) {
-      console.error('[Clearance] Handshake error:', err);
-      setStatus('error');
-      if (onError) onError();
-    } finally {
-      setIsLoading(false);
-      // Reset Turnstile for subsequent access cycles
-      if (widgetIdRef.current && window.turnstile) {
-        try {
-          window.turnstile.reset(widgetIdRef.current);
-          setCfToken(null);
-          setIsReady(false);
-        } catch (_) {}
-      }
-    }
-  };
-
-  if (status === 'unavailable') {
-    return (
-      <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center">
-        <p className="text-sm font-semibold text-amber-600 dark:text-amber-400">
-          The package link is currently undergoing administrative verification.
-        </p>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-          Please check back shortly or explore other verified listings.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col items-center gap-3 w-full">
-      {/* Invisible Turnstile widget anchor */}
-      <div ref={widgetRef} id={`clearance-btn-${appId}`} className="hidden" />
-
-      {/* Primary Proceed CTA Button */}
-      <button
-        id={`gateway-cta-${appId}`}
-        onClick={handleProceed}
-        disabled={isLoading}
-        className="w-full py-3.5 px-6 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition-all shadow-md flex items-center justify-center gap-2"
-        aria-label="Proceed to verification"
-      >
-        {isLoading ? (
-          <>
-            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            <span>Connecting...</span>
-          </>
-        ) : (
-          <span>Proceed</span>
-        )}
-      </button>
-
-      {/* Interactive Real-Time Verification Progress Card (Ultra-lightweight, high user retention) */}
-      {isVerifyingActive && (
-        <div 
-          id={`verification-progress-${appId}`}
-          className="w-full bg-zinc-900/90 dark:bg-zinc-900/95 border border-zinc-800/90 rounded-2xl p-4 shadow-xl backdrop-blur-xs text-left animate-fade-in select-none"
-        >
-          {/* Header: Pulsating radar / checkmark + Dynamic Title + Percentage */}
-          <div className="flex items-center justify-between gap-2 mb-2.5">
-            <div className="flex items-center gap-2 min-w-0">
-              {isVerifyingDone ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              ) : (
-                <span className="relative flex h-2.5 w-2.5 shrink-0">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500"></span>
-                </span>
-              )}
-              <span className="text-xs font-bold text-zinc-100 truncate">
-                {VERIFY_STEPS[progressStep]?.title || 'Verifying...'}
-              </span>
-            </div>
-            <span className="font-mono text-[11px] font-bold text-blue-400 bg-blue-500/15 border border-blue-500/25 px-2 py-0.5 rounded-full shrink-0">
-              {progressPercent}%
-            </span>
-          </div>
-
-          {/* Glowing progress bar */}
-          <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden mb-2.5">
-            <div 
-              className="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-400 transition-all duration-300 ease-out rounded-full shadow-[0_0_8px_rgba(59,130,246,0.5)]"
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
-
-          {/* Micro-telemetry details and security tag */}
-          <div className="flex items-center justify-between text-[11px] text-zinc-400 font-medium">
-            <span className="truncate text-zinc-400">
-              {VERIFY_STEPS[progressStep]?.detail || 'Processing...'}
-            </span>
-            <span className={`text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border shrink-0 ml-2 ${
-              isVerifyingDone 
-                ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' 
-                : 'text-blue-400 bg-blue-500/10 border-blue-500/20'
-            }`}>
-              {isVerifyingDone ? 'CONFIRMED' : 'LIVE'}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* STRICT ZERO-LINK RULE: No fallback links or secondary proceed buttons are ever injected into the DOM. */}
-      {/* Every session MUST be initiated exclusively through the single primary PROCEED button. */}
-
-      {status === 'error' && (
-        <p className="text-xs text-red-500 mt-1">
-          Verification was interrupted. Please tap Proceed to try again.
-        </p>
-      )}
-    </div>
-  );
+  // Pure UI Presentation: Render widget, Active PROCEED button, Lightweight Rotating Verification Stages (PROCESSING, VERIFYING, CONNECTING, ALMOST READY, ALMOST DONE, FINALIZING), Error notice
+  return ( ... );
 }
 ```
 
@@ -997,6 +762,35 @@ const { chromium } = require('playwright');
   await browser.close();
 })();
 ```
+
+### 10.6 The 3-Click / 10-Second Anti-Spam & Simultaneous Machine Burst Protocol
+
+To defend against automated bot tools, parallel scraper threads, and aggressive clicking attacks, a strict multi-layer burst enforcement protocol operates on both the client and server:
+
+1. **Natural Human Frequency Threshold**:
+   - A legitimate human user clicking "PROCEED" takes several seconds to interact and typically clicks once (or at most twice if network latency fluctuates).
+   - **Threshold Rule**: Maximum **3 clicks allowed within a rolling 10-second window**.
+   - **Simultaneous Burst Rule**: Any **3 clicks fired simultaneously within $\le 2500\text{ms}$** indicates an automated machine script or multi-threaded bot.
+
+2. **Sequential Multi-Wall Pipeline (Wall 1 to Wall 7)**:
+   Every incoming clearance request must pass all security walls in strict sequential order:
+   - **Wall 1: Edge User-Agent & Known Bot Filter**: Blocks known crawlers, headless frameworks, and CLI scrapers.
+   - **Wall 2: Rapid Burst & Quarantine Check**: Evaluates IP against the 30-minute quarantine jail, 3-clicks/10s limit, and simultaneous micro-bursts ($\le 2500\text{ms}$).
+   - **Wall 3: Token Extraction & Payload Integrity**: Validates presence and base64 JSON structure of clearance tokens.
+   - **Wall 4: Cloudflare Turnstile Attestation**: Cryptographic edge token verification directly with Cloudflare's siteverify API.
+   - **Wall 5: Behavioral & Kinetic Traps**:
+     - Webdriver / CDP property override inspection (`wb === 1`).
+     - Headless GPU / Software Rasterizer inspection (`hl === 1`).
+     - Client-side rapid burst / frequency violation (`cb === 1`).
+     - Synthetic programmatic event inspection (`tr === 0`).
+     - Sub-second machine dwell time ($< 600\text{ms}$).
+     - Synthetic zero-coordinate click flags (`(0,0)` offsets).
+   - **Wall 6: Burn-On-Read Atomic Nonce Store**: Replay attack prevention using distributed Upstash Redis / in-memory nonces with strict 30-second expiry and App ID affinity.
+   - **Wall 7: Ephemeral Zero-Referrer Dispatch**: Airgapped target URL emission with `no-referrer`, `no-store`, and immediate memory wipe.
+
+3. **Strict Zero-Tolerance Penalty: Deep 30-Minute IP Quarantine + Instant 404**:
+   - **If ANY portion or wall in the sequential pipeline fails**, the system does NOT return a 429 or generic error.
+   - The offending IP is **instantly jailed in the 30-Minute Quarantine Jail** and returned an **instant `404 Not Found`**, effectively blackholing automated AI crawlers and scrapers while legitimate users enjoy an ultra-fast ($<100\text{ms}$) resolution.
 
 ---
 

@@ -63,11 +63,16 @@ When creating new components or pages, maintain repo isolation:
 │   │   ├── firebase.ts                   # Server-side Firebase Admin REST SDK initializer
 │   │   ├── security.ts                   # Cloudflare Turnstile anti-bot verification & link nonces
 │   │   ├── middleware/adminAuth.ts       # Admin JWT & Audit Logging middleware
+│   │   ├── vault/                        # Vault & Storage Backend Subsystems
+│   │   │   ├── vaultCrypto.ts            # AES encryption, decryption & secret key resolution
+│   │   │   └── vaultStorage.ts           # Firestore REST/Admin SDK chunked storage & backup helpers
 │   │   ├── services/
 │   │   │   └── communityStoreService.ts  # Multi-tier Firestore reviews & reports storage service
 │   │   └── routes/
 │   │       ├── adminAuthRoutes.ts        # Admin login, 2FA/TOTP verification, logout, session management
-│   │       ├── adminVaultRoutes.ts       # Secure link vault encryption, decryption, DB repair, backups
+│   │       ├── adminVaultRoutes.ts       # Master admin router (Vault sealing, direct links, status diagnostics)
+│   │       ├── adminCatalogRoutes.ts     # Admin catalog & settings CRUD API (Apps, settings, news, videos)
+│   │       ├── adminDbRepairRoutes.ts    # Firestore maintenance, chunk repair, sanitization & DB recovery
 │   │       ├── communityRoutes.ts        # Community reviews API (CRUD, helpful voting, moderation, replies)
 │   │       ├── reportRoutes.ts           # Ultra-lightweight flag/report submission & admin pipeline
 │   │       ├── githubSyncRoutes.ts       # Split-sync webhooks and manual triggers
