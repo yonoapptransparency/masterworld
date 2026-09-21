@@ -21,9 +21,9 @@ function isValidTargetUrl(url: string | null | undefined): boolean {
   if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) return false;
   if (trimmed.includes('127.0.0.1') || trimmed.includes('localhost') || trimmed.includes('0.0.0.0')) return false;
   if (trimmed.toLowerCase().includes('mediafire.com')) return false;
-  // Critical: prevent loop links pointing back to internal gateway/download routes on rummydex.com
+  // Critical: prevent circular loops pointing back to the verification gateway itself
   const lower = trimmed.toLowerCase();
-  if (lower.includes('rummydex.com/download/') || lower.includes('rummydex.com/moreinfo/') || lower.includes('rummydex.com/info/')) {
+  if (lower.includes('rummydex.com/moreinfo/') || lower.includes('rummydex.com/info/') || lower.includes('rummydex.com/gateway/')) {
     return false;
   }
   return true;

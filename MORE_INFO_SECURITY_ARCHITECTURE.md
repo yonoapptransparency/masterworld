@@ -997,3 +997,34 @@ const { chromium } = require('playwright');
   await browser.close();
 })();
 ```
+
+---
+
+## 11. Production Verification & Rendering Hardening Protocol
+
+To ensure seamless operation on both public production (`www.rummydex.com`) and staging environments, the clearance button and backend decryption pipeline adhere to the following operational standards:
+
+1. **Pre-Loaded Head Turnstile Script (`index.html`)**:
+   - `<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>` is declared in `<head>`.
+   - Eliminates race conditions between dynamic DOM mounting and third-party script acquisition.
+
+2. **DOM Target Hygiene & Re-Render Safety (`ClearanceButton.tsx`)**:
+   - `widgetRef.current.innerHTML = ''` is executed prior to invoking `window.turnstile.render()`.
+   - Prevents Cloudflare Turnstile's fatal `"Target container is not empty"` unhandled exception during route re-entry or fast component mounting.
+   - An 80ms initialization polling loop verifies both the DOM node reference and `window.turnstile` availability before triggering rendering.
+
+3. **Strict Server-Only AES Decryption (`linkService.ts`)**:
+   - Raw ciphertexts (`more_information_url`, `download_url`) are decrypted strictly inside server RAM using `AES_SECRET`.
+   - No secret keys, decryption libraries, or plaintext URLs are ever bundled or exposed in client JavaScript.
+   - Decryption is invoked only after the client successfully passes Edge User-Agent filtration, rate-limiting jails, Cloudflare Turnstile validation, burn-on-read nonce authentication, and human pointer telemetry inspection.
+   - Gateway circular loops are blocked while legitimate download destinations are resolved seamlessly.
+
+4. **Zero-Popup Mobile Direct Navigation**:
+   - Upon successful attestation and server decryption, navigation executes via `window.location.assign(targetUrl)` with an injected `no-referrer` meta header.
+   - Completely circumvents mobile browser popup blockers (Chrome Android, iOS Safari) that typically suppress synthetic anchor clicks after asynchronous `await fetch()` operations.
+   - Tokens, state, and Turnstile widgets are wiped and reset immediately, enforcing the Zero-Loitering protocol.
+
+5. **Unified Blue Action Control with Progressive Verification Feedback**:
+   - The inactive black button is removed in favor of a persistent vibrant blue button (`#1a68ff`).
+   - During active verification, the blue button displays a smooth spinning indicator cycling through lightweight status cues (`PROCESSING...` → `VERIFYING...` → `ALMOST DONE...`).
+   - Immediately upon receiving the verification token, the button seamlessly transitions into the active `PROCEED ➔` state for immediate user progression.
