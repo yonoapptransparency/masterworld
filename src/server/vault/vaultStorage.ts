@@ -342,7 +342,11 @@ export async function getMasterApps(authToken?: string): Promise<any[]> {
   }
 
   return apps.map((app: any) => {
-    let vaultUrl = (app.id ? vaultNode.getPayload(app.id) : '') || (app.slug ? vaultNode.getPayload(app.slug) : '') || app.more_information_url || app.encrypted_link || '';
+    let vaultUrl = (app.id ? vaultNode.getPayload(app.id) : '') || 
+                   (app.slug ? vaultNode.getPayload(app.slug) : '') || 
+                   (app.serial_number !== undefined && app.serial_number !== null ? vaultNode.getPayload(String(app.serial_number)) : '') || 
+                   app.more_information_url || 
+                   app.encrypted_link || '';
     if (vaultUrl && typeof vaultUrl === 'string' && vaultUrl.startsWith('U2FsdGVkX1')) {
       try {
         const dec = safeDecrypt(vaultUrl, getAesSecret());
@@ -504,6 +508,10 @@ export async function saveMasterAppsList(apps: any[], authToken?: string): Promi
     }
     if (target && app.id) vaultNode.setPayload(app.id, target);
     if (target && app.slug) vaultNode.setPayload(app.slug, target);
+    if (target && app.serial_number !== undefined && app.serial_number !== null) vaultNode.setPayload(String(app.serial_number), target);
+    if (app.id) clearResolvedLinkCache(app.id);
+    if (app.slug) clearResolvedLinkCache(app.slug);
+    if (app.serial_number !== undefined && app.serial_number !== null) clearResolvedLinkCache(String(app.serial_number));
   });
 
   return { firestoreUpdated, firestoreError };

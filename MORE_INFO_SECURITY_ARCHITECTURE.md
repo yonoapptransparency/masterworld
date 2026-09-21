@@ -825,3 +825,20 @@ To ensure seamless operation on both public production (`www.rummydex.com`) and 
 
 5. **Bulletproof Mobile & Adblocker Fallback**:
    - If Cloudflare Turnstile takes $> 600\text{ms}$ or is blocked by an aggressive mobile adblocker, VPN, or private DNS, the client's high-entropy kinetic attestation allows legitimate humans to pass with 100% zero-friction and 0ms error delay, while automated bots are still caught and blackholed by behavioral and hardware integrity walls.
+
+---
+
+## 12. Complete Robot, Crawler & Search Engine Total Exclusion Protocol (`/moreinfo/*`)
+
+The More Information verification gateway (`/moreinfo/:slug`, `/moreinfo/:id`, `/info/*`, `/gateway/*`, `/download/*`, `/moredetail/*`) is an **isolated security verification layer** and **MUST NEVER** be indexed, crawled, cached, or archived by any search engines, web crawlers, AI scraping bots, or archiving systems.
+
+### The 5-Layer Robot Exclusion Defense Matrix:
+
+| Layer | Implementation Component | Defense Mechanism & Enforced Directives |
+| :--- | :--- | :--- |
+| **Layer 1: robots.txt Directives** | `public/robots.txt` & `src/server/routes/seoRoutes.ts` | Explicit `Disallow: /moreinfo/`, `Disallow: /moreinfo/*`, `Disallow: /gateway/*`, `Disallow: /download/*`, `Disallow: /info/*` for `User-agent: *`, `Googlebot`, `Bingbot`, `Applebot`, `DuckDuckBot`, `Baiduspider`, `YandexBot`, `SemrushBot`, `AhrefsBot`, `GPTBot`, `ClaudeBot`, `PerplexityBot`. |
+| **Layer 2: Server-Side Meta Directives** | `src/seoHelper.ts` (`getPagePreRender`, `injectSeoTags`) | Pre-renders `<meta data-rh="true" name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate">` and matching tags for `googlebot`, `bingbot`, `slurp`, `baiduspider`, `yandex`, `duckduckbot`. Schema.org JSON-LD generation is strictly disabled (`''`). |
+| **Layer 3: HTTP Response Headers** | `server.ts` | Emits HTTP Header `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet`, `Cache-Control: no-cache, no-store, must-revalidate`, and `Referrer-Policy: strict-origin-when-cross-origin` on all gateway and clearance route responses. |
+| **Layer 4: Sitemap Index Isolation** | `src/server/routes/seoRoutes.ts` | `/moreinfo/*` is **100% excluded** from all XML sitemaps (`/sitemap.xml`, `/sitemap-apps.xml`, `/sitemap-static.xml`, etc.). Only public canonical index pages (`/app/:slug`) are submitted for crawling. |
+| **Layer 5: Automated Bot Ghosting** | `src/server/routes/securityRoutes.ts` | Scraper bots and automated crawlers hitting clearance API endpoints are intercepted by Wall 1 (bad User-Agent, headless signatures, rapid burst monitors) and immediately returned `404 Not Found` so bots interpret the route as non-existent. |
+

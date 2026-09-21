@@ -282,191 +282,203 @@ securityRouter.all([
   '/api/v1/public/secure-link',
   '/api/v1/get-link'
 ], async (req: Request, res: Response) => {
-  // Strict Zero-Referrer, No-Follow, and Anti-Cache Headers on ALL responses
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private, max-age=0');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
-  res.setHeader('Referrer-Policy', 'no-referrer');
-  res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-
-  const ip = getClientIp(req);
-
-  // ─── WALL 1: EDGE UA & BOT FILTER (INSTANT 404 + QUARANTINE) ───
-  const ua = (req.headers['user-agent'] || '').trim();
-  if (isKnownBotOrCrawler(ua, req)) {
-    quarantineIp(ip, 30 * 60 * 1000);
-    return res.status(404).json({ success: false, error: 'Not found' });
-  }
-
-  // ─── WALL 2: NON-HUMAN BURST & QUARANTINE CHECK ───
-  const { isBotBurst, isRateLimited } = evaluateBurstAndRateLimit(ip);
-  if (isBotBurst || isRateLimited) {
-    // Confirmed automated multi-burst / rapid spam: instant deep blackhole
-    quarantineIp(ip, 30 * 60 * 1000);
-    return res.status(404).json({ success: false, error: 'Not found' });
-  }
-
-  // Strict input validation
-  const rawId = (req.body?.id || req.body?.appId || req.query?.id || req.query?.appId || '') as string;
-  const appId = typeof rawId === 'string' ? rawId.trim() : '';
-  if (!appId || !/^[a-zA-Z0-9\-_]{1,64}$/.test(appId)) {
-    quarantineIp(ip, 30 * 60 * 1000);
-    return res.status(404).json({ success: false, error: 'Not found' });
-  }
-
-  // ─── WALL 3: TOKEN EXTRACTION & INTEGRITY ───
-  const cfToken = (req.headers['x-cf-token'] || req.body?.cfToken || '') as string;
-  const clearanceToken = (req.headers['x-clearance-token'] || req.body?.token || req.query?.token || '') as string;
-
-  if (!clearanceToken) {
-    quarantineIp(ip, 30 * 60 * 1000);
-    return res.status(404).json({ success: false, error: 'Not found' });
-  }
-
-  let decoded: any;
   try {
-    decoded = JSON.parse(Buffer.from(clearanceToken, 'base64').toString('utf8'));
-  } catch (_) {
-    quarantineIp(ip, 30 * 60 * 1000);
-    return res.status(404).json({ success: false, error: 'Not found' });
-  }
+    // Strict Zero-Referrer, No-Follow, and Anti-Cache Headers on ALL responses
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
 
-  // ─── WALL 4: DUAL-ENGINE VERIFICATION (TURNSTILE + HARDWARE/KINETIC ATTESTATION) ───
-  const reqHost = (req.hostname || (req.headers.host || '').split(':')[0] || '').toLowerCase();
-  const effectiveCfToken = cfToken || decoded.cf || '';
+    const ip = getClientIp(req);
 
-  let isVerifiedHuman = false;
-
-  // Track A: If an active Cloudflare Turnstile token is supplied, verify with Cloudflare
-  if (effectiveCfToken && !effectiveCfToken.startsWith('attest_') && effectiveCfToken.length > 20) {
-    const cfPassed = await verifyCloudflareTurnstile(effectiveCfToken, reqHost);
-    if (cfPassed) {
-      isVerifiedHuman = true;
+    // ─── WALL 1: EDGE UA & BOT FILTER (INSTANT 404 + QUARANTINE) ───
+    const ua = (req.headers['user-agent'] || '').trim();
+    if (isKnownBotOrCrawler(ua, req)) {
+      quarantineIp(ip, 30 * 60 * 1000);
+      return res.status(404).json({ success: false, error: 'Not found' });
     }
-  }
 
-  // Track B: High-Entropy Kinetic & Hardware Attestation (For mobile networks, private DNS, and adblockers)
-  if (!isVerifiedHuman) {
-    const hasTrustedEvent = decoded.tr === 1;
-    const hasNoWebdriver = decoded.wb === 0;
-    const hasNoHeadless = decoded.hl === 0;
-    const hasNoBurst = decoded.cb === 0;
-    const hasValidCoordinates = (Number(decoded.cx) > 0 || Number(decoded.cy) > 0);
-    const hasValidDwell = decoded.el === undefined || typeof decoded.el !== 'number' || decoded.el >= 250;
-
-    if (hasTrustedEvent && hasNoWebdriver && hasNoHeadless && hasNoBurst && hasValidCoordinates && hasValidDwell) {
-      isVerifiedHuman = true;
+    // ─── WALL 2: NON-HUMAN BURST & QUARANTINE CHECK ───
+    const { isBotBurst, isRateLimited } = evaluateBurstAndRateLimit(ip);
+    if (isBotBurst || isRateLimited) {
+      // Confirmed automated multi-burst / rapid spam: instant deep blackhole
+      quarantineIp(ip, 30 * 60 * 1000);
+      return res.status(404).json({ success: false, error: 'Not found' });
     }
-  }
 
-  // If neither Cloudflare Turnstile nor Kinetic Attestation validated the request: Blackhole
-  if (!isVerifiedHuman) {
-    quarantineIp(ip, 30 * 60 * 1000);
-    return res.status(404).json({ success: false, error: 'Not found' });
-  }
+    // Strict input validation
+    const rawId = (req.body?.id || req.body?.appId || req.query?.id || req.query?.appId || '') as string;
+    const appId = typeof rawId === 'string' ? rawId.trim() : (rawId ? String(rawId).trim() : '');
+    if (!appId || !/^[a-zA-Z0-9\-_]{1,64}$/.test(appId)) {
+      quarantineIp(ip, 30 * 60 * 1000);
+      return res.status(404).json({ success: false, error: 'Not found' });
+    }
 
-  // ─── WALL 5: BOT SYMPTOM & BEHAVIORAL TRAPS (INSTANT 404 + QUARANTINE) ───
-  // 1. Webdriver / Automation flag check (Playwright, Puppeteer, Selenium, CDP)
-  if (decoded.wb === 1) {
-    quarantineIp(ip, 30 * 60 * 1000);
-    return res.status(404).json({ success: false, error: 'Not found' });
-  }
+    // ─── WALL 3: TOKEN EXTRACTION & INTEGRITY ───
+    const cfToken = (req.headers['x-cf-token'] || req.body?.cfToken || '') as string;
+    const clearanceToken = (req.headers['x-clearance-token'] || req.body?.token || req.query?.token || '') as string;
 
-  // 2. Headless GPU / Software Rasterizer / Missing Environment check
-  if (decoded.hl === 1) {
-    quarantineIp(ip, 30 * 60 * 1000);
-    return res.status(404).json({ success: false, error: 'Not found' });
-  }
+    if (!clearanceToken) {
+      quarantineIp(ip, 30 * 60 * 1000);
+      return res.status(404).json({ success: false, error: 'Not found' });
+    }
 
-  // 3. Client-side rapid burst / spam check (cb === 1)
-  if (decoded.cb === 1) {
-    quarantineIp(ip, 30 * 60 * 1000);
-    return res.status(404).json({ success: false, error: 'Not found' });
-  }
+    let decoded: any;
+    try {
+      decoded = JSON.parse(Buffer.from(clearanceToken, 'base64').toString('utf8'));
+    } catch (_) {
+      quarantineIp(ip, 30 * 60 * 1000);
+      return res.status(404).json({ success: false, error: 'Not found' });
+    }
 
-  // 4. Synthetic programmatic event check (document.querySelector('button').click())
-  if (decoded.tr === 0) {
-    quarantineIp(ip, 30 * 60 * 1000);
-    return res.status(404).json({ success: false, error: 'Not found' });
-  }
+    // ─── WALL 4: DUAL-ENGINE VERIFICATION (TURNSTILE + HARDWARE/KINETIC ATTESTATION) ───
+    const reqHost = (req.hostname || (req.headers.host || '').split(':')[0] || '').toLowerCase();
+    const effectiveCfToken = cfToken || decoded.cf || '';
 
-  // 5. Machine speed / sub-human dwell check (< 250ms)
-  if (decoded.el !== undefined && typeof decoded.el === 'number' && decoded.el < 250) {
-    quarantineIp(ip, 30 * 60 * 1000);
-    return res.status(404).json({ success: false, error: 'Not found' });
-  }
+    let isVerifiedHuman = false;
 
-  // 6. Synthetic zero-coordinate click check (scripts firing .click() without physical pointer)
-  if (
-    decoded.cx !== undefined &&
-    decoded.cy !== undefined &&
-    decoded.sx !== undefined &&
-    decoded.sy !== undefined &&
-    decoded.cx === 0 &&
-    decoded.cy === 0 &&
-    decoded.sx === 0 &&
-    decoded.sy === 0
-  ) {
-    quarantineIp(ip, 30 * 60 * 1000);
-    return res.status(404).json({ success: false, error: 'Not found' });
-  }
+    // Track A: If an active Cloudflare Turnstile token is supplied, verify with Cloudflare
+    if (effectiveCfToken && !effectiveCfToken.startsWith('attest_') && effectiveCfToken.length > 20) {
+      const cfPassed = await verifyCloudflareTurnstile(effectiveCfToken, reqHost);
+      if (cfPassed) {
+        isVerifiedHuman = true;
+      }
+    }
 
-  // ─── WALL 6: BURN-ON-READ ATOMIC NONCE STORE ───
-  const now = Date.now();
-  const tokenTime = Number(decoded.t) || 0;
+    // Track B: High-Entropy Kinetic & Hardware Attestation (For mobile networks, private DNS, and adblockers)
+    if (!isVerifiedHuman) {
+      const hasTrustedEvent = decoded.tr === 1;
+      const hasNoWebdriver = decoded.wb === 0;
+      const hasNoHeadless = decoded.hl === 0;
+      const hasNoBurst = decoded.cb === 0;
+      const hasValidCoordinates = (Number(decoded.cx) > 0 || Number(decoded.cy) > 0);
+      const hasValidDwell = decoded.el === undefined || typeof decoded.el !== 'number' || decoded.el >= 250;
 
-  // Freshness check: human click must be within 30s window
-  if (tokenTime > now + 15000 || now - tokenTime > 30000) {
-    quarantineIp(ip, 30 * 60 * 1000);
-    return res.status(404).json({ success: false, error: 'Not found' });
-  }
+      if (hasTrustedEvent && hasNoWebdriver && hasNoHeadless && hasNoBurst && hasValidCoordinates && hasValidDwell) {
+        isVerifiedHuman = true;
+      }
+    }
 
-  // App ID match check
-  const tokenAppId = (decoded.id || '').toLowerCase().trim();
-  if (tokenAppId && tokenAppId !== appId.toLowerCase()) {
-    quarantineIp(ip, 30 * 60 * 1000);
-    return res.status(404).json({ success: false, error: 'Not found' });
-  }
+    // If neither Cloudflare Turnstile nor Kinetic Attestation validated the request: Blackhole
+    if (!isVerifiedHuman) {
+      quarantineIp(ip, 30 * 60 * 1000);
+      return res.status(404).json({ success: false, error: 'Not found' });
+    }
 
-  // Atomic Nonce Burn
-  const nonce = decoded.n || decoded.nonce;
-  if (!nonce || typeof nonce !== 'string' || nonce.length < 8) {
-    quarantineIp(ip, 30 * 60 * 1000);
-    return res.status(404).json({ success: false, error: 'Not found' });
-  }
+    // ─── WALL 5: BOT SYMPTOM & BEHAVIORAL TRAPS (INSTANT 404 + QUARANTINE) ───
+    // 1. Webdriver / Automation flag check (Playwright, Puppeteer, Selenium, CDP)
+    if (decoded.wb === 1) {
+      quarantineIp(ip, 30 * 60 * 1000);
+      return res.status(404).json({ success: false, error: 'Not found' });
+    }
 
-  const nonceIsFresh = await burnNonce(nonce);
-  if (!nonceIsFresh) {
-    // Replay attack attempt: immediately quarantine
-    quarantineIp(ip, 30 * 60 * 1000);
-    return res.status(404).json({ success: false, error: 'Not found' });
-  }
+    // 2. Headless GPU / Software Rasterizer / Missing Environment check
+    if (decoded.hl === 1) {
+      quarantineIp(ip, 30 * 60 * 1000);
+      return res.status(404).json({ success: false, error: 'Not found' });
+    }
 
-  // ─── LEGITIMATE HUMAN VERIFIED: INSTANT LINK EMISSION (AT THE VERY END) ───
-  const targetUrl = await resolveDestinationForApp(appId);
-  if (!targetUrl) {
+    // 3. Client-side rapid burst / spam check (cb === 1)
+    if (decoded.cb === 1) {
+      quarantineIp(ip, 30 * 60 * 1000);
+      return res.status(404).json({ success: false, error: 'Not found' });
+    }
+
+    // 4. Synthetic programmatic event check (document.querySelector('button').click())
+    if (decoded.tr === 0) {
+      quarantineIp(ip, 30 * 60 * 1000);
+      return res.status(404).json({ success: false, error: 'Not found' });
+    }
+
+    // 5. Machine speed / sub-human dwell check (< 250ms)
+    if (decoded.el !== undefined && typeof decoded.el === 'number' && decoded.el < 250) {
+      quarantineIp(ip, 30 * 60 * 1000);
+      return res.status(404).json({ success: false, error: 'Not found' });
+    }
+
+    // 6. Synthetic zero-coordinate click check (scripts firing .click() without physical pointer)
+    if (
+      decoded.cx !== undefined &&
+      decoded.cy !== undefined &&
+      decoded.sx !== undefined &&
+      decoded.sy !== undefined &&
+      decoded.cx === 0 &&
+      decoded.cy === 0 &&
+      decoded.sx === 0 &&
+      decoded.sy === 0
+    ) {
+      quarantineIp(ip, 30 * 60 * 1000);
+      return res.status(404).json({ success: false, error: 'Not found' });
+    }
+
+    // ─── WALL 6: BURN-ON-READ ATOMIC NONCE STORE ───
+    const now = Date.now();
+    const tokenTime = Number(decoded.t) || 0;
+
+    // Freshness check: human click must be within 30s window
+    if (tokenTime > now + 15000 || now - tokenTime > 30000) {
+      quarantineIp(ip, 30 * 60 * 1000);
+      return res.status(404).json({ success: false, error: 'Not found' });
+    }
+
+    // App ID match check
+    const tokenAppId = (decoded.id || '').toLowerCase().trim();
+    if (tokenAppId && tokenAppId !== appId.toLowerCase()) {
+      quarantineIp(ip, 30 * 60 * 1000);
+      return res.status(404).json({ success: false, error: 'Not found' });
+    }
+
+    // Atomic Nonce Burn
+    const nonce = decoded.n || decoded.nonce;
+    if (!nonce || typeof nonce !== 'string' || nonce.length < 8) {
+      quarantineIp(ip, 30 * 60 * 1000);
+      return res.status(404).json({ success: false, error: 'Not found' });
+    }
+
+    const nonceIsFresh = await burnNonce(nonce);
+    if (!nonceIsFresh) {
+      // Replay attack attempt: immediately quarantine
+      quarantineIp(ip, 30 * 60 * 1000);
+      return res.status(404).json({ success: false, error: 'Not found' });
+    }
+
+    // ─── LEGITIMATE HUMAN VERIFIED: INSTANT LINK EMISSION (AT THE VERY END) ───
+    const targetUrl = await resolveDestinationForApp(appId);
+    if (!targetUrl) {
+      if (req.method === 'POST' || req.headers['accept']?.includes('application/json')) {
+        return res.status(200).json({
+          success: true,
+          status: 'unavailable',
+          message: 'The package link is currently not available. It will be updated soon by the admin.'
+        });
+      }
+      return res.redirect(303, `/moreinfo/${encodeURIComponent(appId)}?notice=unavailable`);
+    }
+
+    // JSON dispatch for native client button (instant passage)
+    if (req.method === 'POST' || req.headers['accept']?.includes('application/json')) {
+      return res.json({
+        success: true,
+        status: 'available',
+        destination: targetUrl,
+        url: targetUrl
+      });
+    }
+
+    // Clean zero-referrer redirect fallback
+    return res.redirect(303, targetUrl);
+  } catch (err: any) {
+    console.error('[Security Route Error]:', err);
     if (req.method === 'POST' || req.headers['accept']?.includes('application/json')) {
       return res.status(200).json({
         success: true,
         status: 'unavailable',
-        message: 'The package link is currently not available. It will be updated soon by the admin.'
+        message: 'The package link is currently being updated. Please check back shortly.'
       });
     }
-    return res.redirect(303, `/moreinfo/${encodeURIComponent(appId)}?notice=unavailable`);
+    return res.status(404).json({ success: false, error: 'Not found' });
   }
-
-  // JSON dispatch for native client button (instant passage)
-  if (req.method === 'POST' || req.headers['accept']?.includes('application/json')) {
-    return res.json({
-      success: true,
-      status: 'available',
-      destination: targetUrl,
-      url: targetUrl
-    });
-  }
-
-  // Clean zero-referrer redirect fallback
-  return res.redirect(303, targetUrl);
 });

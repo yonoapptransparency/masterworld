@@ -36,8 +36,9 @@ function searchVaultObject(obj: any, searchKeys: string[], secret: string): stri
   if (Array.isArray(obj)) {
     for (const item of obj) {
       if (!item || typeof item !== 'object') continue;
-      const itemId = (item.id || '').toLowerCase().trim();
-      const itemSlug = (item.slug || '').toLowerCase().trim();
+      const itemId = String(item.id || '').toLowerCase().trim();
+      const itemSlug = String(item.slug || '').toLowerCase().trim();
+      const itemSerial = item.serial_number !== undefined && item.serial_number !== null ? String(item.serial_number).trim() : '';
       const itemNormId = itemId.replace(/[-_ ]/g, '');
       const itemNormSlug = itemSlug.replace(/[-_ ]/g, '');
 
@@ -45,6 +46,7 @@ function searchVaultObject(obj: any, searchKeys: string[], secret: string): stri
         const normK = k.toLowerCase().trim().replace(/[-_ ]/g, '');
         return k.toLowerCase().trim() === itemId || 
                k.toLowerCase().trim() === itemSlug || 
+               (itemSerial && k.trim() === itemSerial) ||
                normK === itemNormId || 
                normK === itemNormSlug;
       });
@@ -157,16 +159,23 @@ export async function resolveDestinationForApp(appId: string): Promise<string> {
       const parsed = JSON.parse(raw);
       const apps = parsed?.mockApps || parsed?.apps || [];
       const foundApp = apps.find((a: any) => {
-        const aId = (a.id || '').toLowerCase().trim();
-        const aSlug = (a.slug || '').toLowerCase().trim();
-        return rawSearchKeys.includes(aId) || rawSearchKeys.includes(aSlug);
+        const aId = String(a.id || '').toLowerCase().trim();
+        const aSlug = String(a.slug || '').toLowerCase().trim();
+        const aSerial = a.serial_number !== undefined && a.serial_number !== null ? String(a.serial_number).trim() : '';
+        return rawSearchKeys.includes(aId) || rawSearchKeys.includes(aSlug) || (aSerial && rawSearchKeys.includes(aSerial));
       });
       if (foundApp) {
-        if (foundApp.id) {
-          rawSearchKeys.push(foundApp.id, foundApp.id.toLowerCase());
+        if (foundApp.id !== undefined && foundApp.id !== null) {
+          const strId = String(foundApp.id).trim();
+          rawSearchKeys.push(strId, strId.toLowerCase());
         }
         if (foundApp.slug) {
-          rawSearchKeys.push(foundApp.slug, foundApp.slug.toLowerCase(), foundApp.slug.toLowerCase().replace(/[-_ ]/g, ''));
+          const strSlug = String(foundApp.slug).trim();
+          rawSearchKeys.push(strSlug, strSlug.toLowerCase(), strSlug.toLowerCase().replace(/[-_ ]/g, ''));
+        }
+        if (foundApp.serial_number !== undefined && foundApp.serial_number !== null) {
+          const strSerial = String(foundApp.serial_number).trim();
+          if (strSerial) rawSearchKeys.push(strSerial);
         }
       }
     }
@@ -224,9 +233,10 @@ export async function resolveDestinationForApp(appId: string): Promise<string> {
       const parsed = JSON.parse(raw);
       const apps = parsed?.mockApps || parsed?.apps || [];
       const matched = apps.find((a: any) => {
-        const sId = (a.id || '').toLowerCase().trim();
-        const sSlug = (a.slug || '').toLowerCase().trim();
-        return searchKeys.includes(sId) || searchKeys.includes(sSlug);
+        const sId = String(a.id || '').toLowerCase().trim();
+        const sSlug = String(a.slug || '').toLowerCase().trim();
+        const sSerial = a.serial_number !== undefined && a.serial_number !== null ? String(a.serial_number).trim() : '';
+        return searchKeys.includes(sId) || searchKeys.includes(sSlug) || (sSerial && searchKeys.includes(sSerial));
       });
 
       if (matched) {
@@ -250,9 +260,10 @@ export async function resolveDestinationForApp(appId: string): Promise<string> {
       const parsed = JSON.parse(raw);
       const apps = parsed?.apps || [];
       const matched = apps.find((a: any) => {
-        const sId = (a.id || '').toLowerCase().trim();
-        const sSlug = (a.slug || '').toLowerCase().trim();
-        return searchKeys.includes(sId) || searchKeys.includes(sSlug);
+        const sId = String(a.id || '').toLowerCase().trim();
+        const sSlug = String(a.slug || '').toLowerCase().trim();
+        const sSerial = a.serial_number !== undefined && a.serial_number !== null ? String(a.serial_number).trim() : '';
+        return searchKeys.includes(sId) || searchKeys.includes(sSlug) || (sSerial && searchKeys.includes(sSerial));
       });
 
       if (matched) {
@@ -320,9 +331,10 @@ export async function resolveDestinationForApp(appId: string): Promise<string> {
     const storeData = await withTimeout(fetchStoreData(), 1000);
     const apps = storeData?.apps || [];
     const matched = apps.find((a: any) => {
-      const sId = (a.id || '').toLowerCase().trim();
-      const sSlug = (a.slug || '').toLowerCase().trim();
-      return searchKeys.includes(sId) || searchKeys.includes(sSlug);
+      const sId = String(a.id || '').toLowerCase().trim();
+      const sSlug = String(a.slug || '').toLowerCase().trim();
+      const sSerial = a.serial_number !== undefined && a.serial_number !== null ? String(a.serial_number).trim() : '';
+      return searchKeys.includes(sId) || searchKeys.includes(sSlug) || (sSerial && searchKeys.includes(sSerial));
     });
 
     if (matched) {

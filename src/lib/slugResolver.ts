@@ -34,6 +34,13 @@ export function resolveAppSlug(rawSlug: string, appsList: any[]): any | null {
   matched = appsList.find((a: any) => getFieldSafe(a, 'id')?.toLowerCase() === clean);
   if (matched) return matched;
 
+  // 2b. Direct serial number match (e.g. numeric ID "45" or 45)
+  matched = appsList.find((a: any) => {
+    const sn = getFieldSafe(a, 'serial_number');
+    return sn !== undefined && sn !== null && String(sn).trim() === clean;
+  });
+  if (matched) return matched;
+
   // 3. Exact alias match
   const aliasTarget = SLUG_ALIAS_MAP[clean];
   if (aliasTarget) {

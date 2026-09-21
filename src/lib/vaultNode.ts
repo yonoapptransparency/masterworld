@@ -27,21 +27,22 @@ class VaultNodeManager {
     try {
       const newCache = new Map<string, string>();
 
-      const setInCache = (key: string | undefined | null, val: string | undefined | null) => {
-        if (!key || !val || typeof key !== 'string' || typeof val !== 'string') return;
-        const cleanVal = val.trim();
-        if (!cleanVal) return;
-        if (cleanVal.toLowerCase().includes('mediafire.com')) return;
+      const setInCache = (key: any, val: any) => {
+        if (key === undefined || key === null || val === undefined || val === null) return;
+        const strKey = String(key).trim();
+        const strVal = String(val).trim();
+        if (!strKey || !strVal) return;
+        if (strVal.toLowerCase().includes('mediafire.com')) return;
 
-        const kExact = key.trim();
+        const kExact = strKey;
         const kLower = kExact.toLowerCase();
         const kClean = kLower.replace(/[-_ ]+$/, '');
         const kNoSep = kLower.replace(/[-_ ]/g, '');
 
-        if (kExact) newCache.set(kExact, cleanVal);
-        if (kLower) newCache.set(kLower, cleanVal);
-        if (kClean) newCache.set(kClean, cleanVal);
-        if (kNoSep) newCache.set(kNoSep, cleanVal);
+        if (kExact) newCache.set(kExact, strVal);
+        if (kLower) newCache.set(kLower, strVal);
+        if (kClean) newCache.set(kClean, strVal);
+        if (kNoSep) newCache.set(kNoSep, strVal);
       };
 
       // 1. Try memory from imported static vault (ENCRYPTED_LINKS)
@@ -57,6 +58,9 @@ class VaultNodeManager {
                 const target = node.more_information_url || node.encrypted_link || node.download_url || node.payload || node.url;
                 setInCache(node.id, target);
                 setInCache(node.slug, target);
+                if (node.serial_number !== undefined && node.serial_number !== null) {
+                  setInCache(node.serial_number, target);
+                }
               });
             } else if (typeof data === 'object') {
               Object.entries(data).forEach(([key, node]: [string, any]) => {
@@ -65,6 +69,9 @@ class VaultNodeManager {
                 if (node && typeof node === 'object') {
                   setInCache(node.id, target);
                   setInCache(node.slug, target);
+                  if (node.serial_number !== undefined && node.serial_number !== null) {
+                    setInCache(node.serial_number, target);
+                  }
                 }
               });
             }
@@ -84,6 +91,9 @@ class VaultNodeManager {
             const target = app.more_information_url || app.encrypted_link || app.download_url || app.url;
             setInCache(app.id, target);
             setInCache(app.slug, target);
+            if (app.serial_number !== undefined && app.serial_number !== null) {
+              setInCache(app.serial_number, target);
+            }
           });
         }
       } catch (e) {}
@@ -106,6 +116,9 @@ class VaultNodeManager {
                 const target = node.more_information_url || node.encrypted_link || node.download_url || node.payload || node.url;
                 setInCache(node.id, target);
                 setInCache(node.slug, target);
+                if (node.serial_number !== undefined && node.serial_number !== null) {
+                  setInCache(node.serial_number, target);
+                }
               });
             } else if (data && typeof data === 'object') {
               Object.entries(data).forEach(([key, node]: [string, any]) => {
@@ -114,6 +127,9 @@ class VaultNodeManager {
                 if (node && typeof node === 'object') {
                   setInCache(node.id, target);
                   setInCache(node.slug, target);
+                  if (node.serial_number !== undefined && node.serial_number !== null) {
+                    setInCache(node.serial_number, target);
+                  }
                 }
               });
             }
@@ -131,12 +147,13 @@ class VaultNodeManager {
   /**
    * Directly injects or updates a key-value mapping in memory for instant resolution.
    */
-  public setPayload(key: string | undefined | null, url: string | undefined | null) {
-    if (!key || !url || typeof key !== 'string' || typeof url !== 'string') return;
-    const cleanUrl = url.trim();
-    if (!cleanUrl) return;
+  public setPayload(key: any, url: any) {
+    if (key === undefined || key === null || url === undefined || url === null) return;
+    const strKey = String(key).trim();
+    const cleanUrl = String(url).trim();
+    if (!strKey || !cleanUrl) return;
 
-    const kExact = key.trim();
+    const kExact = strKey;
     const kLower = kExact.toLowerCase();
     const kClean = kLower.replace(/[-_ ]+$/, '');
     const kNoSep = kLower.replace(/[-_ ]/g, '');
@@ -199,14 +216,15 @@ class VaultNodeManager {
   /**
    * Retrieves and decrypts a resource node instantly from memory.
    */
-  public async getSyncPayload(slug: string): Promise<string | null> {
-    if (!slug || typeof slug !== 'string') return null;
+  public async getSyncPayload(slug: any): Promise<string | null> {
+    if (slug === undefined || slug === null) return null;
+    const strSlug = String(slug).trim();
+    if (!strSlug) return null;
     const candidates = Array.from(new Set([
-      slug,
-      slug.trim(),
-      slug.toLowerCase().trim(),
-      slug.toLowerCase().trim().replace(/[-_ ]+$/, ''),
-      slug.toLowerCase().trim().replace(/[-_ ]/g, '')
+      strSlug,
+      strSlug.toLowerCase(),
+      strSlug.toLowerCase().replace(/[-_ ]+$/, ''),
+      strSlug.toLowerCase().replace(/[-_ ]/g, '')
     ])).filter(Boolean);
 
     let cachedPayload: string | undefined;
