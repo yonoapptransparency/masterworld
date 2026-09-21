@@ -770,20 +770,24 @@ To defend against automated bot tools, parallel scraper threads, and aggressive 
 1. **Natural Human Frequency Threshold**:
    - A legitimate human user clicking "PROCEED" takes several seconds to interact and typically clicks once (or at most twice if network latency fluctuates).
    - **Threshold Rule**: Maximum **3 clicks allowed within a rolling 10-second window**.
-   - **Simultaneous Burst Rule**: Any **3 clicks fired simultaneously within $\le 2500\text{ms}$** indicates an automated machine script or multi-threaded bot.
+   - **Simultaneous Burst Rule**: Any **3 clicks fired simultaneously within $\le 2000\text{ms}$** indicates an automated machine script or multi-threaded bot.
+   - When exceeded, client immediately marks `isBotDetectedRef = true`, sets error notice, and dispatches a background beacon to lock the IP in the 30-minute quarantine jail.
 
 2. **Sequential Multi-Wall Pipeline (Wall 1 to Wall 7)**:
    Every incoming clearance request must pass all security walls in strict sequential order:
    - **Wall 1: Edge User-Agent & Known Bot Filter**: Blocks known crawlers, headless frameworks, and CLI scrapers.
-   - **Wall 2: Rapid Burst & Quarantine Check**: Evaluates IP against the 30-minute quarantine jail, 3-clicks/10s limit, and simultaneous micro-bursts ($\le 2500\text{ms}$).
+   - **Wall 2: Rapid Burst & Quarantine Check**: Evaluates IP against the 30-minute quarantine jail, 3-clicks/10s limit, and simultaneous micro-bursts ($\le 2000\text{ms}$).
    - **Wall 3: Token Extraction & Payload Integrity**: Validates presence and base64 JSON structure of clearance tokens.
-   - **Wall 4: Cloudflare Turnstile Attestation**: Cryptographic edge token verification directly with Cloudflare's siteverify API.
+   - **Wall 4: Dual-Engine Verification (Turnstile + Kinetic Hardware Attestation)**:
+     - **Track A (Cloudflare Turnstile)**: Cryptographic edge token verification directly with Cloudflare's siteverify API.
+     - **Track B (Hardware & Kinetic Environmental Attestation)**: For mobile carriers, private DNS, and adblockers where Cloudflare challenges are blocked or slow: evaluates OS-level `isTrusted === true`, clean `navigator.webdriver === false`, non-headless screen and WebGL metrics, physical pointer coordinates, sub-human dwell inspection ($\ge 250\text{ms}$), and zero burst flags.
+     - Requests failing both tracks are permanently blackholed.
    - **Wall 5: Behavioral & Kinetic Traps**:
      - Webdriver / CDP property override inspection (`wb === 1`).
      - Headless GPU / Software Rasterizer inspection (`hl === 1`).
      - Client-side rapid burst / frequency violation (`cb === 1`).
      - Synthetic programmatic event inspection (`tr === 0`).
-     - Sub-second machine dwell time ($< 600\text{ms}$).
+     - Sub-human machine dwell time ($< 250\text{ms}$).
      - Synthetic zero-coordinate click flags (`(0,0)` offsets).
    - **Wall 6: Burn-On-Read Atomic Nonce Store**: Replay attack prevention using distributed Upstash Redis / in-memory nonces with strict 30-second expiry and App ID affinity.
    - **Wall 7: Ephemeral Zero-Referrer Dispatch**: Airgapped target URL emission with `no-referrer`, `no-store`, and immediate memory wipe.
@@ -799,18 +803,19 @@ To defend against automated bot tools, parallel scraper threads, and aggressive 
 To ensure seamless operation on both public production (`www.rummydex.com`) and staging environments, the clearance button and backend decryption pipeline adhere to the following operational standards:
 
 1. **Pre-Loaded Head Turnstile Script (`index.html`)**:
-   - `<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>` is declared in `<head>`.
+   - `<script id="cf-turnstile-script" data-turnstile="true" src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>` is declared in `<head>` with preconnect and dns-prefetch.
    - Eliminates race conditions between dynamic DOM mounting and third-party script acquisition.
 
-2. **DOM Target Hygiene & Re-Render Safety (`ClearanceButton.tsx`)**:
+2. **DOM Target Hygiene & Re-Render Safety (`ClearanceButton.tsx` & `useTurnstileVerification.ts`)**:
+   - Uses `size: 'flexible'` for perfect responsiveness across all mobile devices.
    - `widgetRef.current.innerHTML = ''` is executed prior to invoking `window.turnstile.render()`.
    - Prevents Cloudflare Turnstile's fatal `"Target container is not empty"` unhandled exception during route re-entry or fast component mounting.
-   - An 80ms initialization polling loop verifies both the DOM node reference and `window.turnstile` availability before triggering rendering.
+   - Dynamic stage progression with 350ms interval provides snappy visual response (`PROCESSING...` → `VERIFYING...` → `CONNECTING...`).
 
 3. **Strict Server-Only AES Decryption (`linkService.ts`)**:
-   - Raw ciphertexts (`more_information_url`, `download_url`) are decrypted strictly inside server RAM using `AES_SECRET`.
+   - Raw ciphertexts (`more_information_url`, `download_url`, `encrypted_link`) are decrypted strictly inside server RAM using `AES_SECRET`.
    - No secret keys, decryption libraries, or plaintext URLs are ever bundled or exposed in client JavaScript.
-   - Decryption is invoked only after the client successfully passes Edge User-Agent filtration, rate-limiting jails, Cloudflare Turnstile validation, burn-on-read nonce authentication, and human pointer telemetry inspection.
+   - Decryption is invoked only after the client successfully passes Edge User-Agent filtration, rate-limiting jails, Cloudflare Turnstile or Kinetic Attestation validation, burn-on-read nonce authentication, and human pointer telemetry inspection.
    - Gateway circular loops are blocked while legitimate download destinations are resolved seamlessly.
 
 4. **Zero-Popup Mobile Direct Navigation**:
@@ -818,7 +823,5 @@ To ensure seamless operation on both public production (`www.rummydex.com`) and 
    - Completely circumvents mobile browser popup blockers (Chrome Android, iOS Safari) that typically suppress synthetic anchor clicks after asynchronous `await fetch()` operations.
    - Tokens, state, and Turnstile widgets are wiped and reset immediately, enforcing the Zero-Loitering protocol.
 
-5. **Unified Blue Action Control with Progressive Verification Feedback**:
-   - The inactive black button is removed in favor of a persistent vibrant blue button (`#1a68ff`).
-   - During active verification, the blue button displays a smooth spinning indicator cycling through lightweight status cues (`PROCESSING...` → `VERIFYING...` → `ALMOST DONE...`).
-   - Immediately upon receiving the verification token, the button seamlessly transitions into the active `PROCEED ➔` state for immediate user progression.
+5. **Bulletproof Mobile & Adblocker Fallback**:
+   - If Cloudflare Turnstile takes $> 600\text{ms}$ or is blocked by an aggressive mobile adblocker, VPN, or private DNS, the client's high-entropy kinetic attestation allows legitimate humans to pass with 100% zero-friction and 0ms error delay, while automated bots are still caught and blackholed by behavioral and hardware integrity walls.

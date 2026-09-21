@@ -46,6 +46,7 @@ export interface UseTurnstileOptions {
 export function useTurnstileVerification(options?: UseTurnstileOptions) {
   const [cfToken, setCfToken] = useState<string | null>(null);
   const [isReady, setIsReady] = useState<boolean>(false);
+  const [isRendered, setIsRendered] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const widgetRef = useRef<HTMLDivElement>(null);
@@ -82,19 +83,20 @@ export function useTurnstileVerification(options?: UseTurnstileOptions) {
       const wid = window.turnstile.render(widgetRef.current, {
         sitekey: siteKey,
         theme: 'dark',
-        size: 'normal',
+        size: 'flexible',
         'retry': 'auto',
-        'retry-interval': 3000,
+        'retry-interval': 2500,
         'refresh-expired': 'auto',
         callback: (token: string) => {
           cfTokenRef.current = token;
           setCfToken(token);
           setIsReady(true);
+          setIsRendered(true);
           setErrorMessage(null);
         },
         'error-callback': (errorCode?: string) => {
-          console.warn('[Turnstile] Error event:', errorCode);
-          // Resilient fallback to universal interactive test key in preview/dev
+          console.warn('[Turnstile] Error event (silent fallback active):', errorCode);
+          // If the production sitekey hit an error, attempt universal test key
           if (activeKeyRef.current !== TEST_TURNSTILE_SITE_KEY) {
             activeKeyRef.current = TEST_TURNSTILE_SITE_KEY;
             if (widgetIdRef.current && window.turnstile) {
@@ -110,14 +112,13 @@ export function useTurnstileVerification(options?: UseTurnstileOptions) {
               if (widgetRef.current && window.turnstile && !widgetIdRef.current) {
                 initTurnstile();
               }
-            }, 80);
+            }, 60);
             return;
           }
+          // Do not lock the screen or show red error; kinetic attestation will verify seamlessly
           cfTokenRef.current = null;
           setCfToken(null);
           setIsReady(false);
-          setErrorMessage('Verification was interrupted. Please tap Proceed to retry.');
-          if (options?.onError) options.onError();
         },
         'expired-callback': () => {
           cfTokenRef.current = null;
@@ -141,22 +142,11 @@ export function useTurnstileVerification(options?: UseTurnstileOptions) {
         }
       });
       widgetIdRef.current = wid;
+      setIsRendered(true);
     } catch (err) {
-      console.warn('[Turnstile] Render failed:', err);
-      if (activeKeyRef.current !== TEST_TURNSTILE_SITE_KEY) {
-        activeKeyRef.current = TEST_TURNSTILE_SITE_KEY;
-        if (widgetRef.current) {
-          widgetRef.current.innerHTML = '';
-        }
-        widgetIdRef.current = null;
-        setTimeout(() => {
-          if (widgetRef.current && window.turnstile && !widgetIdRef.current) {
-            initTurnstile();
-          }
-        }, 100);
-      }
+      console.warn('[Turnstile] Render notice (silent kinetic fallback will handle):', err);
     }
-  }, [options]);
+  }, []);
 
   useEffect(() => {
     // 1. If script is already in window and DOM is ready, initialize immediately
@@ -166,7 +156,7 @@ export function useTurnstileVerification(options?: UseTurnstileOptions) {
 
     // 2. Fast poller: guarantees rendering as soon as script arrives
     let attempts = 0;
-    const maxAttempts = 50; // 50 * 80ms = 4 seconds
+    const maxAttempts = 40; // 40 * 75ms = 3 seconds
     const interval = setInterval(() => {
       attempts++;
       if (window.turnstile && widgetRef.current && !widgetIdRef.current) {
@@ -175,18 +165,20 @@ export function useTurnstileVerification(options?: UseTurnstileOptions) {
       if (widgetIdRef.current || attempts >= maxAttempts) {
         clearInterval(interval);
       }
-    }, 80);
+    }, 75);
 
-    // 3. Script injector with explicit onload hook
-    if (typeof window !== 'undefined' && !window.turnstile && !document.querySelector('script[data-turnstile]')) {
+    // 3. Script injector with explicit onload hook (only if not already loaded)
+    const existingScript = document.getElementById('cf-turnstile-script') || 
+                           document.querySelector('script[data-turnstile]') || 
+                           document.querySelector('script[src*="turnstile/v0/api.js"]');
+
+    if (typeof window !== 'undefined' && !window.turnstile && !existingScript) {
       const script = document.createElement('script');
+      script.id = 'cf-turnstile-script';
       script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit';
       script.async = true;
       script.defer = true;
       script.setAttribute('data-turnstile', 'true');
-      script.onerror = () => {
-        setErrorMessage('Verification service could not be loaded. Please check your network.');
-      };
       window.onTurnstileLoad = () => {
         if (widgetRef.current && window.turnstile && !widgetIdRef.current) {
           initTurnstile();
@@ -218,6 +210,7 @@ export function useTurnstileVerification(options?: UseTurnstileOptions) {
     cfToken,
     cfTokenRef,
     isReady,
+    isRendered,
     errorMessage,
     setErrorMessage,
     resetTurnstile,

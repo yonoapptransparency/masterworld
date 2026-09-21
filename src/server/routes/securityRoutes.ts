@@ -124,16 +124,16 @@ function evaluateBurstAndRateLimit(ip: string): { isBotBurst: boolean; isRateLim
     return { isBotBurst: true, isRateLimited: true };
   }
 
-  // Condition B: If 3 requests are fired very simultaneously within <= 2500ms -> Confirmed Machine Burst
+  // Condition B: If 3 requests are fired very simultaneously within <= 2000ms -> Confirmed Machine Burst
   if (timestamps.length >= 3) {
     const oldestInBurst = timestamps[timestamps.length - 3];
-    if (now - oldestInBurst <= 2500) {
+    if (now - oldestInBurst <= 2000) {
       quarantineIp(ip, 30 * 60 * 1000); // 30-minute instant deep ban
       return { isBotBurst: true, isRateLimited: true };
     }
   }
 
-  // 3. Sliding window check: max 4 requests per 60 seconds
+  // 3. Sliding window check: max 12 requests per 60 seconds (allows healthy browsing of multiple apps)
   const entry = ipRateMap.get(ip) || { count: 0, resetAt: now + 60000 };
   if (now > entry.resetAt) {
     entry.count = 1;
@@ -143,7 +143,7 @@ function evaluateBurstAndRateLimit(ip: string): { isBotBurst: boolean; isRateLim
   }
   ipRateMap.set(ip, entry);
 
-  if (entry.count > 4) {
+  if (entry.count > 12) {
     quarantineIp(ip, 30 * 60 * 1000);
     return { isBotBurst: true, isRateLimited: true };
   }
@@ -333,11 +333,36 @@ securityRouter.all([
     return res.status(404).json({ success: false, error: 'Not found' });
   }
 
-  // ─── WALL 4: CLOUDFLARE TURNSTILE VERIFICATION ───
+  // ─── WALL 4: DUAL-ENGINE VERIFICATION (TURNSTILE + HARDWARE/KINETIC ATTESTATION) ───
   const reqHost = (req.hostname || (req.headers.host || '').split(':')[0] || '').toLowerCase();
   const effectiveCfToken = cfToken || decoded.cf || '';
-  const turnstilePassed = await verifyCloudflareTurnstile(effectiveCfToken, reqHost);
-  if (!turnstilePassed) {
+
+  let isVerifiedHuman = false;
+
+  // Track A: If an active Cloudflare Turnstile token is supplied, verify with Cloudflare
+  if (effectiveCfToken && !effectiveCfToken.startsWith('attest_') && effectiveCfToken.length > 20) {
+    const cfPassed = await verifyCloudflareTurnstile(effectiveCfToken, reqHost);
+    if (cfPassed) {
+      isVerifiedHuman = true;
+    }
+  }
+
+  // Track B: High-Entropy Kinetic & Hardware Attestation (For mobile networks, private DNS, and adblockers)
+  if (!isVerifiedHuman) {
+    const hasTrustedEvent = decoded.tr === 1;
+    const hasNoWebdriver = decoded.wb === 0;
+    const hasNoHeadless = decoded.hl === 0;
+    const hasNoBurst = decoded.cb === 0;
+    const hasValidCoordinates = (Number(decoded.cx) > 0 || Number(decoded.cy) > 0);
+    const hasValidDwell = decoded.el === undefined || typeof decoded.el !== 'number' || decoded.el >= 250;
+
+    if (hasTrustedEvent && hasNoWebdriver && hasNoHeadless && hasNoBurst && hasValidCoordinates && hasValidDwell) {
+      isVerifiedHuman = true;
+    }
+  }
+
+  // If neither Cloudflare Turnstile nor Kinetic Attestation validated the request: Blackhole
+  if (!isVerifiedHuman) {
     quarantineIp(ip, 30 * 60 * 1000);
     return res.status(404).json({ success: false, error: 'Not found' });
   }
@@ -367,8 +392,8 @@ securityRouter.all([
     return res.status(404).json({ success: false, error: 'Not found' });
   }
 
-  // 5. Machine speed / sub-second dwell check (< 600ms)
-  if (decoded.el !== undefined && typeof decoded.el === 'number' && decoded.el < 600) {
+  // 5. Machine speed / sub-human dwell check (< 250ms)
+  if (decoded.el !== undefined && typeof decoded.el === 'number' && decoded.el < 250) {
     quarantineIp(ip, 30 * 60 * 1000);
     return res.status(404).json({ success: false, error: 'Not found' });
   }
