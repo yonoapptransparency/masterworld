@@ -242,6 +242,32 @@ export async function resolveDestinationForApp(appId: string): Promise<string> {
     }
   } catch (_) {}
 
+  // 5b. Check public_backup.json fallback
+  try {
+    const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
+    if (fs.existsSync(publicBackupPath)) {
+      const raw = fs.readFileSync(publicBackupPath, 'utf8');
+      const parsed = JSON.parse(raw);
+      const apps = parsed?.apps || [];
+      const matched = apps.find((a: any) => {
+        const sId = (a.id || '').toLowerCase().trim();
+        const sSlug = (a.slug || '').toLowerCase().trim();
+        return searchKeys.includes(sId) || searchKeys.includes(sSlug);
+      });
+
+      if (matched) {
+        const rawUrl = matched.more_information_url || matched.encrypted_link || matched.download_url || matched.url;
+        if (rawUrl) {
+          const dec = rawUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(rawUrl, secret) : rawUrl;
+          if (isValidTargetUrl(dec)) {
+            resolvedLinkCache.set(lowerId, { url: dec.trim(), timestamp: Date.now() });
+            return dec.trim();
+          }
+        }
+      }
+    }
+  } catch (_) {}
+
   // 6. Check Firestore private collection and live vault documents with timeout
   try {
     const db = getFirebaseAdminDb();

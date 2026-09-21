@@ -82,11 +82,14 @@ function isKnownBotOrCrawler(ua: string, req?: Request): boolean {
 }
 
 function getClientIp(req: Request): string {
-  const forwarded = req.headers['x-forwarded-for'];
+  const forwarded = req.headers ? req.headers['x-forwarded-for'] : undefined;
   if (typeof forwarded === 'string') {
     return forwarded.split(',')[0].trim();
   }
-  return req.ip || req.socket.remoteAddress || 'unknown';
+  if (Array.isArray(forwarded) && forwarded.length > 0) {
+    return forwarded[0].trim();
+  }
+  return req.ip || (req.socket && req.socket.remoteAddress) || (req as any).connection?.remoteAddress || 'unknown';
 }
 
 function checkRateLimitAndQuarantine(ip: string): { limited: boolean; reason?: string } {
