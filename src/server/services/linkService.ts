@@ -311,31 +311,5 @@ export async function resolveDestinationForApp(appId: string): Promise<string> {
     }
   } catch (_) {}
 
-  // 6. Check high-availability staticData.json fallback
-  try {
-    const staticDataPath = path.join(process.cwd(), 'src/lib/staticData.json');
-    if (fs.existsSync(staticDataPath)) {
-      const raw = fs.readFileSync(staticDataPath, 'utf8');
-      const parsed = JSON.parse(raw);
-      const apps = parsed?.mockApps || parsed?.apps || [];
-      const matched = apps.find((a: any) => {
-        const sId = (a.id || '').toLowerCase().trim();
-        const sSlug = (a.slug || '').toLowerCase().trim();
-        return searchKeys.includes(sId) || searchKeys.includes(sSlug);
-      });
-
-      if (matched) {
-        const rawUrl = matched.more_information_url || matched.encrypted_link || matched.download_url || matched.url;
-        if (rawUrl) {
-          const dec = rawUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(rawUrl, secret) : rawUrl;
-          if (isValidTargetUrl(dec)) {
-            resolvedLinkCache.set(lowerId, { url: dec.trim(), timestamp: Date.now() });
-            return dec.trim();
-          }
-        }
-      }
-    }
-  } catch (_) {}
-
   return '';
 }

@@ -1,14 +1,39 @@
 import { Router, Request, Response } from 'express';
+import { Redis } from '@upstash/redis';
 import { resolveDestinationForApp, clearResolvedLinkCache } from '../services/linkService';
 
 export { clearResolvedLinkCache };
 export const securityRouter = Router();
 
+// Upstash Redis client for distributed, cross-instance atomic nonce burning
+let redisClient: Redis | null = null;
+function getRedis(): Redis | null {
+  if (!redisClient) {
+    const url = 
+      process.env.UPSTASH_REDIS_REST_URL || 
+      process.env.REDIS_REST_URL || 
+      'https://simple-dodo-288067.upstash.io';
+    const token = 
+      process.env.UPSTASH_REDIS_REST_TOKEN || 
+      process.env.REDIS_REST_TOKEN || 
+      'gQAAAAAABGVDAAIgcDI0OGVlNmNiZTc1ZGY0OGNiOTc0OGE4OTc0NGUzYjUxYg';
+
+    if (url && token) {
+      try {
+        redisClient = new Redis({ url, token });
+      } catch (e) {
+        console.warn('[Security] Failed to initialize Upstash Redis:', e);
+      }
+    }
+  }
+  return redisClient;
+}
+
 // In-memory sliding rate limiter (5 requests/minute per IP for the sensitive resolve endpoint)
 const ipRateMap = new Map<string, { count: number; resetAt: number }>();
 // In-memory IP quarantine jail for rapid abuse / malicious bots (bans IP for 5-15 mins)
 const ipQuarantineMap = new Map<string, number>();
-// In-memory atomic nonce burn store (Burn-on-Read: guarantees every clearance token is strictly single-use)
+// In-memory atomic nonce burn fallback store
 const burnedNonces = new Map<string, number>();
 
 const BOT_PATTERNS = [
@@ -81,6 +106,74 @@ function checkRateLimitAndQuarantine(ip: string): { limited: boolean; reason?: s
   return { limited: false };
 }
 
+/**
+ * Verifies Turnstile token directly with Cloudflare API
+ */
+async function verifyCloudflareTurnstile(token: string, remoteIp: string): Promise<boolean> {
+  const secret = 
+    process.env.TURNSTILE_SECRET_KEY || 
+    process.env.CF_TURNSTILE_SECRET || 
+    '0x4AAAAAAE99nDTTfRs6xvjZDh5Yd-Mg6lE';
+
+  if (!secret || secret.trim() === '') {
+    console.error('[SECURITY] CRITICAL: TURNSTILE_SECRET_KEY missing. Blocking unverified request.');
+    return false;
+  }
+
+  if (!token || token.trim() === '') {
+    return false;
+  }
+
+  try {
+    const formData = new URLSearchParams();
+    formData.append('secret', secret);
+    formData.append('response', token);
+    if (remoteIp && remoteIp !== 'unknown') {
+      formData.append('remoteip', remoteIp);
+    }
+
+    const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: formData.toString(),
+      signal: AbortSignal.timeout(4000)
+    });
+
+    if (!response.ok) return false;
+    const result = (await response.json()) as any;
+    return result.success === true;
+  } catch (err) {
+    console.warn('[Security] Cloudflare Turnstile verify error:', err);
+    return false;
+  }
+}
+
+/**
+ * Distributed Nonce Burn via Upstash Redis (Cross-Instance Replay Attack Prevention)
+ * Falls back to local in-memory store if Redis is unavailable.
+ */
+async function burnNonce(nonce: string): Promise<boolean> {
+  const redis = getRedis();
+  if (redis) {
+    try {
+      // SET nonce with NX (only if not exists) and 90 second expiry
+      // Returns 'OK' = fresh nonce | null = already burned = replay attack
+      const result = await redis.set(`nonce:${nonce}`, '1', { ex: 90, nx: true });
+      return result === 'OK';
+    } catch (err) {
+      console.warn('[Security] Redis nonce error, using fallback:', err);
+    }
+  }
+
+  // In-memory fallback
+  const now = Date.now();
+  if (burnedNonces.has(nonce)) {
+    return false;
+  }
+  burnedNonces.set(nonce, now + 90000);
+  return true;
+}
+
 // Clean periodic memory cleanup every 60 seconds
 setInterval(() => {
   const now = Date.now();
@@ -108,7 +201,7 @@ securityRouter.all([
   '/api/v1/public/secure-link',
   '/api/v1/get-link'
 ], async (req: Request, res: Response) => {
-  // 1. Instant Bot & Crawler Rejection (Return 404 so crawler treats endpoint as non-existent)
+  // ─── WALL 1: EDGE UA & BOT FILTER ───
   const ua = (req.headers['user-agent'] || '').trim();
   if (isKnownBotOrCrawler(ua)) {
     return res.status(404).json({ success: false, error: 'Not found' });
@@ -116,7 +209,7 @@ securityRouter.all([
 
   const ip = getClientIp(req);
 
-  // 2. IP Rate Limiting & Anti-Hammering Quarantine
+  // ─── WALL 3A: SLIDING RATE LIMITER & QUARANTINE ───
   const rateStatus = checkRateLimitAndQuarantine(ip);
   if (rateStatus.limited) {
     return res.status(429).json({ 
@@ -125,65 +218,72 @@ securityRouter.all([
     });
   }
 
-  // 3. Strict input validation
+  // Strict input validation
   const rawId = (req.body?.id || req.body?.appId || req.query?.id || req.query?.appId || '') as string;
   const appId = typeof rawId === 'string' ? rawId.trim() : '';
   if (!appId || !/^[a-zA-Z0-9\-_]{1,64}$/.test(appId)) {
     return res.status(400).json({ success: false, error: 'Invalid identifier' });
   }
 
-  // 4. Mandatory One-Time Human Clearance Verification (Burn-On-Read Nonce)
-  const token = (req.headers['x-clearance-token'] || req.body?.token || req.query?.token || '') as string;
-  if (!token) {
-    // Record suspicious failure
+  // ─── WALL 3B: CLOUDFLARE TURNSTILE TOKEN VERIFICATION ───
+  const cfToken = (req.headers['x-cf-token'] || req.body?.cfToken || '') as string;
+  const clearanceToken = (req.headers['x-clearance-token'] || req.body?.token || req.query?.token || '') as string;
+
+  if (!clearanceToken) {
     const entry = ipRateMap.get(ip);
     if (entry) entry.count += 2;
     return res.status(403).json({ success: false, error: 'Human clearance verification required.' });
   }
 
+  let decoded: any;
   try {
-    const decoded = JSON.parse(Buffer.from(token, 'base64').toString('utf8'));
-    const now = Date.now();
-    const tokenTime = Number(decoded.t) || 0;
-    const timeDiff = Math.abs(now - tokenTime);
-
-    // Tight 15-second freshness window: human click must be recent, not an old reused token
-    if (timeDiff > 15000) {
-      return res.status(403).json({ 
-        success: false, 
-        error: 'Clearance session expired. Please verify again.' 
-      });
-    }
-
-    // App ID match check: token cannot be reused across different apps
-    const tokenAppId = (decoded.id || '').toLowerCase().trim();
-    if (tokenAppId && tokenAppId !== appId.toLowerCase()) {
-      return res.status(403).json({ success: false, error: 'Clearance mismatch.' });
-    }
-
-    // Atomic Nonce Check & Immediate Burn
-    const nonce = decoded.n || decoded.nonce;
-    if (!nonce || typeof nonce !== 'string' || nonce.length < 8) {
-      return res.status(403).json({ success: false, error: 'Invalid clearance token.' });
-    }
-
-    if (burnedNonces.has(nonce)) {
-      // Replay attempt detected!
-      return res.status(403).json({ 
-        success: false, 
-        error: 'Clearance token already used. Each access requires a fresh one-time verification.' 
-      });
-    }
-
-    // Burn the nonce immediately (held for 90s to prevent replay while keeping RAM minimal)
-    burnedNonces.set(nonce, now + 90000);
-
-    // Human interaction delta: rejects instant automated headless bot triggers (< 150ms)
-    if (decoded.el !== undefined && typeof decoded.el === 'number' && decoded.el < 150) {
-      return res.status(403).json({ success: false, error: 'Automation detected.' });
-    }
+    decoded = JSON.parse(Buffer.from(clearanceToken, 'base64').toString('utf8'));
   } catch (_) {
-    return res.status(403).json({ success: false, error: 'Verification failed.' });
+    return res.status(403).json({ success: false, error: 'Malformed clearance token.' });
+  }
+
+  const effectiveCfToken = cfToken || decoded.cf || '';
+  const turnstilePassed = await verifyCloudflareTurnstile(effectiveCfToken, ip);
+  if (!turnstilePassed) {
+    return res.status(403).json({ success: false, error: 'Human clearance validation failed.' });
+  }
+
+  // ─── WALL 3C: BURN-ON-READ ATOMIC NONCE STORE ───
+  const now = Date.now();
+  const tokenTime = Number(decoded.t) || 0;
+  const timeDiff = Math.abs(now - tokenTime);
+
+  // Tight 15-second freshness window: human click must be recent
+  if (timeDiff > 15000) {
+    return res.status(403).json({ 
+      success: false, 
+      error: 'Clearance session expired. Please verify again.' 
+    });
+  }
+
+  // App ID match check: token cannot be reused across different apps
+  const tokenAppId = (decoded.id || '').toLowerCase().trim();
+  if (tokenAppId && tokenAppId !== appId.toLowerCase()) {
+    return res.status(403).json({ success: false, error: 'Clearance mismatch.' });
+  }
+
+  // Atomic Nonce Check & Immediate Burn
+  const nonce = decoded.n || decoded.nonce;
+  if (!nonce || typeof nonce !== 'string' || nonce.length < 8) {
+    return res.status(403).json({ success: false, error: 'Invalid clearance token.' });
+  }
+
+  const nonceIsFresh = await burnNonce(nonce);
+  if (!nonceIsFresh) {
+    return res.status(403).json({ 
+      success: false, 
+      error: 'Clearance token already used. Each access requires a fresh one-time verification.' 
+    });
+  }
+
+  // Human interaction delta: rejects instant automated headless bot triggers (< 150ms)
+  if (decoded.el !== undefined && typeof decoded.el === 'number' && decoded.el < 150) {
+    return res.status(403).json({ success: false, error: 'Automation detected.' });
   }
 
   // 5. Resolve destination link in RAM
