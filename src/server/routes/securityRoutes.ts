@@ -42,11 +42,18 @@ const BOT_PATTERNS = [
   'ahrefsbot', 'semrushbot', 'dotbot', 'mj12bot', 'petalbot',
   'bytespider', 'applebot', 'twitterbot', 'linkedinbot', 'slackbot',
   'telegrambot', 'discordbot',
+  // Modern AI Agents, LLM crawlers, and automated scrapers
+  'gptbot', 'chatgpt-user', 'oai-searchbot', 'claudebot', 'claude-web',
+  'anthropic-ai', 'perplexitybot', 'perplexity', 'cohere-ai', 'omgili',
+  'diffbot', 'youbot', 'duckassistbot', 'applebot-extended', 'meta-externalagent',
+  'facebookbot', 'google-extended', 'amazonbot', 'deepseek', 'deepseek-bot',
+  'mistralbot', 'timpibot', 'webzio', 'crawl4ai', 'ai-agent',
   // HTTP libraries, CLI tools, & automated scripting engines
   'curl', 'wget', 'python', 'urllib', 'requests', 'httpx', 'aiohttp',
   'scrapy', 'axios', 'httpclient', 'go-http-client', 'okhttp', 'guzzle',
   'apache-httpclient', 'node-fetch', 'httpie', 'mechanize', 'postman',
-  'insomnia',
+  'insomnia', 'fastapi', 'urllib3', 'got/', 'superagent', 'rest-client',
+  'colly', 'cloudscraper', 'tls-client', 'curl-impersonate', 'cf-scrape',
   // Headless browser automation frameworks
   'headlesschrome', 'puppeteer', 'playwright', 'selenium', 'phantomjs',
   'nightmare', 'casper', 'zombie', 'webdriver', 'cypress', 'electron',
@@ -56,11 +63,21 @@ const BOT_PATTERNS = [
   'scraper', 'bot/', 'bot;', 'bot-'
 ];
 
-function isKnownBotOrCrawler(ua: string): boolean {
-  if (!ua || ua.length < 10) return true;
+function isKnownBotOrCrawler(ua: string, req?: Request): boolean {
+  if (!ua || ua.trim().length < 10) return true;
   const lower = ua.toLowerCase();
   // Reject known bot patterns
   if (BOT_PATTERNS.some(bot => lower.includes(bot))) return true;
+
+  // Header inspection for automation signals
+  if (req) {
+    const secChUa = (req.headers['sec-ch-ua'] as string || '').toLowerCase();
+    if (secChUa.includes('headless')) return true;
+
+    // Check for automation headers
+    if (req.headers['x-requested-by'] === 'scraper' || req.headers['x-bot']) return true;
+  }
+
   return false;
 }
 
@@ -107,8 +124,10 @@ function checkRateLimitAndQuarantine(ip: string): { limited: boolean; reason?: s
 
 /**
  * Verifies Turnstile token directly with Cloudflare API
+ * - Omits remoteip by default to prevent cellular CGNAT/dual-stack false rejections on mobile users
+ * - Restricts universal test secret exclusively to development/preview environments
  */
-async function verifyCloudflareTurnstile(token: string, remoteIp: string): Promise<boolean> {
+async function verifyCloudflareTurnstile(token: string, reqHost?: string): Promise<boolean> {
   if (!token || token.trim() === '') {
     return false;
   }
@@ -122,10 +141,7 @@ async function verifyCloudflareTurnstile(token: string, remoteIp: string): Promi
   try {
     const formData = new URLSearchParams();
     formData.append('secret', primarySecret);
-    formData.append('response', token);
-    if (remoteIp && remoteIp !== 'unknown') {
-      formData.append('remoteip', remoteIp);
-    }
+    formData.append('response', token.trim());
 
     const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
       method: 'POST',
@@ -144,31 +160,35 @@ async function verifyCloudflareTurnstile(token: string, remoteIp: string): Promi
     console.warn('[Security] Primary Cloudflare Turnstile verify error:', err);
   }
 
-  // 2. Try universal test secret key for test / preview environments
-  const TEST_SECRET = '1x0000000000000000000000000000000AA';
-  try {
-    const formData = new URLSearchParams();
-    formData.append('secret', TEST_SECRET);
-    formData.append('response', token);
-    if (remoteIp && remoteIp !== 'unknown') {
-      formData.append('remoteip', remoteIp);
-    }
+  // 2. Universal test secret key is strictly restricted to development & staging preview environments
+  const isProduction = 
+    process.env.NODE_ENV === 'production' && 
+    reqHost && 
+    (reqHost.includes('rummydex.com') || reqHost === 'www.rummydex.com');
 
-    const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: formData.toString(),
-      signal: AbortSignal.timeout(4000)
-    });
+  if (!isProduction) {
+    const TEST_SECRET = '1x0000000000000000000000000000000AA';
+    try {
+      const formData = new URLSearchParams();
+      formData.append('secret', TEST_SECRET);
+      formData.append('response', token.trim());
 
-    if (response.ok) {
-      const result = (await response.json()) as any;
-      if (result.success === true) {
-        return true;
+      const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formData.toString(),
+        signal: AbortSignal.timeout(4000)
+      });
+
+      if (response.ok) {
+        const result = (await response.json()) as any;
+        if (result.success === true) {
+          return true;
+        }
       }
+    } catch (err) {
+      console.warn('[Security] Test Cloudflare Turnstile verify error:', err);
     }
-  } catch (err) {
-    console.warn('[Security] Test Cloudflare Turnstile verify error:', err);
   }
 
   return false;
@@ -223,13 +243,15 @@ setInterval(() => {
  * - Emits strict zero-referrer and anti-cache headers
  */
 securityRouter.all([
+  '/api/v1/app/session-clearance',
+  '/api/v1/app/verify-session',
   '/api/v1/app/resolve-link',
   '/api/v1/public/secure-link',
   '/api/v1/get-link'
 ], async (req: Request, res: Response) => {
   // ─── WALL 1: EDGE UA & BOT FILTER ───
   const ua = (req.headers['user-agent'] || '').trim();
-  if (isKnownBotOrCrawler(ua)) {
+  if (isKnownBotOrCrawler(ua, req)) {
     return res.status(404).json({ success: false, error: 'Not found' });
   }
 
@@ -268,8 +290,9 @@ securityRouter.all([
     return res.status(403).json({ success: false, error: 'Malformed clearance token.' });
   }
 
+  const reqHost = (req.hostname || (req.headers.host || '').split(':')[0] || '').toLowerCase();
   const effectiveCfToken = cfToken || decoded.cf || '';
-  const turnstilePassed = await verifyCloudflareTurnstile(effectiveCfToken, ip);
+  const turnstilePassed = await verifyCloudflareTurnstile(effectiveCfToken, reqHost);
   if (!turnstilePassed) {
     return res.status(403).json({ success: false, error: 'Human clearance validation failed.' });
   }
@@ -277,10 +300,12 @@ securityRouter.all([
   // ─── WALL 3C: BURN-ON-READ ATOMIC NONCE STORE ───
   const now = Date.now();
   const tokenTime = Number(decoded.t) || 0;
-  const timeDiff = Math.abs(now - tokenTime);
 
-  // Tight 15-second freshness window: human click must be recent
-  if (timeDiff > 15000) {
+  // Freshness verification: human click must be recent (< 30s) and within normal clock skew limits
+  if (tokenTime > now + 15000) {
+    return res.status(403).json({ success: false, error: 'Clock desynchronization detected. Please check your device time.' });
+  }
+  if (now - tokenTime > 30000) {
     return res.status(403).json({ 
       success: false, 
       error: 'Clearance session expired. Please verify again.' 
@@ -338,6 +363,7 @@ securityRouter.all([
     return res.json({
       success: true,
       status: 'available',
+      destination: targetUrl,
       url: targetUrl
     });
   }

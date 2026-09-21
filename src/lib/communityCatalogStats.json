@@ -1,12 +1,18 @@
 {
-  "success": true,
-  "globalStats": {
-    "total": 199,
-    "published": 199,
-    "pending": 0,
-    "rejected": 0,
-    "flagged": 0,
-    "averageRating": 4.4
+  "totalReviews": 200,
+  "publishedReviews": 200,
+  "pendingReviews": 0,
+  "rejectedReviews": 0,
+  "flaggedReviews": 0,
+  "totalReports": 0,
+  "pendingReports": 0,
+  "averageRating": 4.4,
+  "ratingDistribution": {
+    "1": 0,
+    "2": 0,
+    "3": 26,
+    "4": 75,
+    "5": 99
   },
   "appCounts": {
     "1": {
@@ -1409,5 +1415,6 @@
       "flagged": 0,
       "avgRating": 4.4
     }
-  }
+  },
+  "updated_at": "2026-09-21T05:53:05.535Z"
 }

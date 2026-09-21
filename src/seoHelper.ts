@@ -429,7 +429,7 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
   } else if (cleanPathLower.startsWith('/info/') || cleanPathLower.startsWith('/moreinfo/') || cleanPathLower.startsWith('/moredetail/') || cleanPathLower.startsWith('/gateway/') || cleanPathLower.startsWith('/download/')) {
     const parts = cleanPathLower.split('/');
     const slug = parts[parts.length - 1];
-    bodyContent = renderers.renderGateway(slug, settings);
+    bodyContent = renderers.renderGateway(slug, settings, apps);
   } else if (cleanPathLower.startsWith('/app/')) {
     const possibleSlug = cleanPathLower.replace(/^\/app\//, '/').replace(/^\/|\/$/g, '');
     const app = resolveAppSlug(possibleSlug, apps) || apps.find((a: any) => getField(a, 'slug')?.toLowerCase() === possibleSlug);

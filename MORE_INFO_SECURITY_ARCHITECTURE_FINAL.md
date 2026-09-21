@@ -407,18 +407,58 @@ export function ClearanceButton({ appId, onSuccess, onError }: ClearanceButtonPr
         )}
       </button>
 
-      {/* Permanent Fallback Button (Appears if popup blocker intervened) */}
-      {fallbackUrl && (
-        <a
-          href={fallbackUrl}
-          target="_blank"
-          rel="noreferrer noopener"
-          onClick={() => setFallbackUrl(null)}
-          className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium"
+      {/* Interactive Real-Time Verification Progress Card (Ultra-lightweight, high user retention) */}
+      {isVerifyingActive && (
+        <div 
+          id={`verification-progress-${appId}`}
+          className="w-full bg-zinc-900/90 dark:bg-zinc-900/95 border border-zinc-800/90 rounded-2xl p-4 shadow-xl backdrop-blur-xs text-left animate-fade-in select-none"
         >
-          Click Here to Proceed (Direct Link)
-        </a>
+          {/* Header: Pulsating radar / checkmark + Dynamic Title + Percentage */}
+          <div className="flex items-center justify-between gap-2 mb-2.5">
+            <div className="flex items-center gap-2 min-w-0">
+              {isVerifyingDone ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              ) : (
+                <span className="relative flex h-2.5 w-2.5 shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500"></span>
+                </span>
+              )}
+              <span className="text-xs font-bold text-zinc-100 truncate">
+                {VERIFY_STEPS[progressStep]?.title || 'Verifying...'}
+              </span>
+            </div>
+            <span className="font-mono text-[11px] font-bold text-blue-400 bg-blue-500/15 border border-blue-500/25 px-2 py-0.5 rounded-full shrink-0">
+              {progressPercent}%
+            </span>
+          </div>
+
+          {/* Glowing progress bar */}
+          <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden mb-2.5">
+            <div 
+              className="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-400 transition-all duration-300 ease-out rounded-full shadow-[0_0_8px_rgba(59,130,246,0.5)]"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+
+          {/* Micro-telemetry details and security tag */}
+          <div className="flex items-center justify-between text-[11px] text-zinc-400 font-medium">
+            <span className="truncate text-zinc-400">
+              {VERIFY_STEPS[progressStep]?.detail || 'Processing...'}
+            </span>
+            <span className={`text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border shrink-0 ml-2 ${
+              isVerifyingDone 
+                ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' 
+                : 'text-blue-400 bg-blue-500/10 border-blue-500/20'
+            }`}>
+              {isVerifyingDone ? 'CONFIRMED' : 'LIVE'}
+            </span>
+          </div>
+        </div>
       )}
+
+      {/* STRICT ZERO-LINK RULE: No fallback links or secondary proceed buttons are ever injected into the DOM. */}
+      {/* Every session MUST be initiated exclusively through the single primary PROCEED button. */}
 
       {status === 'error' && (
         <p className="text-xs text-red-500 mt-1">
@@ -701,7 +741,8 @@ To permanently defeat ad-network crawlers, domain scrapers, and malicious indexi
 | :--- | :--- | :--- |
 | **Catalog App Action Button** | "Download APK", "Get APK", "Free Mod", "Install App" | **"Download"** |
 | **More Info Main Button** | "Download APK", "Start Download", "Get File" | **"Proceed"** |
-| **More Info Fallback Button** | "Click to Download APK", "Direct APK Link" | **"Click Here to Proceed"** |
+| **More Info Navigation Rule** | Secondary fallback buttons, "Click Here to Proceed", direct hrefs | **Strict Zero-DOM-Link Rule**: Proceed button is the ONLY gateway. Navigation is 100% in-memory upon clearance. |
+| **Primary Clearance Endpoint** | `/api/v1/get-link`, `/api/v1/app/resolve-link`, `/api/v1/public/secure-link` | **`/api/v1/app/session-clearance`** (neutral session clearance) |
 | **More Info Page Title (`<title>`)** | "APK Download Mirror", "Download Portal" | **"Verification Portal"**, **"Information & Verification"** |
 | **More Info `<meta>` Description** | "Download the latest APK file for Android..." | **"Technical specifications and verified mirror gateway for..."** |
 | **More Info Status Text** | "Downloading APK...", "Decrypting File..." | **"Connecting..."**, **"Ready"** |
