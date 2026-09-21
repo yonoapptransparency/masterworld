@@ -201,6 +201,7 @@ To maintain maximum Google Search Console indexing, 100% PageSpeed Scores, and i
   - App page main action button must strictly say **"Download"** (NEVER "Download APK").
   - More Info page must strictly use neutral terms: **"Proceed"**, **"Click Here to Proceed"**, **"Verification Portal"**, **"Connecting..."**. No sensitive trigger words.
 - **Update Requirement**: Any future change to more info routes or security logic MUST immediately be documented in `/MORE_INFO_SECURITY_ARCHITECTURE.md`.
+- **AI Crawler & Headless Agent Threat Model**: See Section 10 of `/MORE_INFO_SECURITY_ARCHITECTURE.md` for the 5-layer defense matrix against automated AI browser agents (Playwright, Puppeteer, Claude/OpenAI browser tools).
 
 ---
 

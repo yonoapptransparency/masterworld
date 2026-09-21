@@ -252,6 +252,15 @@ securityRouter.all([
   '/api/v1/public/secure-link',
   '/api/v1/get-link'
 ], async (req: Request, res: Response) => {
+  // Strict Zero-Referrer, No-Follow, and Anti-Cache Headers on ALL responses
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private, max-age=0');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+
   // ─── WALL 1: EDGE UA & BOT FILTER ───
   const ua = (req.headers['user-agent'] || '').trim();
   if (isKnownBotOrCrawler(ua, req)) {
@@ -335,9 +344,34 @@ securityRouter.all([
     });
   }
 
-  // Human interaction delta: rejects instant automated headless bot triggers (< 150ms)
-  if (decoded.el !== undefined && typeof decoded.el === 'number' && decoded.el < 150) {
-    return res.status(403).json({ success: false, error: 'Automation detected.' });
+  // ─── WALL 3D: ADVANCED AUTOMATED BOT & HEADLESS RUNTIME TRAP ───
+  // 1. Webdriver flag check (W3C standard for Playwright/Puppeteer/Selenium)
+  if (decoded.wb === 1) {
+    return res.status(403).json({ success: false, error: 'Automated browser environment detected.' });
+  }
+
+  // 2. Synthetic programmatic event check (document.querySelector('button').click())
+  if (decoded.tr === 0) {
+    return res.status(403).json({ success: false, error: 'Synthetic event detected. Human interaction required.' });
+  }
+
+  // 3. Instant execution / timing delta check (requires minimum human dwell time >= 1000ms)
+  if (decoded.el !== undefined && typeof decoded.el === 'number' && decoded.el < 1000) {
+    return res.status(403).json({ success: false, error: 'Rapid execution detected. Please verify as a human.' });
+  }
+
+  // 4. Synthetic zero-coordinate click check (scripts firing .click() without physical pointer)
+  if (
+    decoded.cx !== undefined &&
+    decoded.cy !== undefined &&
+    decoded.sx !== undefined &&
+    decoded.sy !== undefined &&
+    decoded.cx === 0 &&
+    decoded.cy === 0 &&
+    decoded.sx === 0 &&
+    decoded.sy === 0
+  ) {
+    return res.status(403).json({ success: false, error: 'Synthetic click coordinates detected.' });
   }
 
   // 5. Resolve destination link in RAM
@@ -353,11 +387,12 @@ securityRouter.all([
     return res.redirect(303, `/moreinfo/${encodeURIComponent(appId)}?notice=unavailable`);
   }
 
-  // 6. Strict Zero-Referrer and Anti-Cache Headers
+  // 6. Strict Zero-Referrer, No-Follow, and Anti-Cache Headers
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private, max-age=0');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
   res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
 
