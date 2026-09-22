@@ -1,4 +1,16 @@
-import DOMPurify from 'isomorphic-dompurify';
+import DOMPurify from 'dompurify';
+
+function serverSanitize(html: string): string {
+  if (!html || typeof html !== 'string') return '';
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
+    .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '')
+    .replace(/<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>/gi, '')
+    .replace(/on\w+\s*=\s*(["'][^"']*["']|[^\s>]+)/gi, '')
+    .replace(/javascript:/gi, '');
+}
 
 export function structureHtmlFragment(rawHtml: string): string {
   if (!rawHtml || typeof rawHtml !== 'string') return '';
@@ -169,11 +181,12 @@ export function safeHtml(val: any, fallback: string = ''): string {
   const enhancedStr = enhanceAndCleanHtml(rawStr);
 
   try {
-    // DOMPurify is fully compatible with both browser and node contexts
-    return DOMPurify.sanitize(enhancedStr, { ADD_ATTR: ["target", "rel", "data-discover"] });
+    if (typeof window !== 'undefined' && DOMPurify && typeof DOMPurify.sanitize === 'function') {
+      return DOMPurify.sanitize(enhancedStr, { ADD_ATTR: ["target", "rel", "data-discover"] });
+    }
+    return serverSanitize(enhancedStr);
   } catch (err) {
-    console.warn("DOMPurify sanitization fallback:", err);
-    return enhancedStr;
+    return serverSanitize(enhancedStr);
   }
 }
 
