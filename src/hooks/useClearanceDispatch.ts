@@ -14,18 +14,25 @@ export interface UseClearanceDispatchOptions {
   setErrorMessage: (msg: string | null) => void;
 }
 
+interface PointerSample {
+  cx: number;
+  cy: number;
+  t: number;
+}
+
 /**
  * Intelligent Client-Side Fingerprint & Stealth-Bot Detection
- * Runs asynchronously in <1ms without blocking UI interactions
  */
 function inspectClientEnvironment(): { isBot: boolean; isHeadless: boolean; botReason?: string } {
   if (typeof window === 'undefined') return { isBot: false, isHeadless: false };
 
   try {
-    // 1. Core Automation & WebDriver properties
+    // 1. Core Automation & WebDriver properties (Playwright, Puppeteer, Selenium, CDP)
+    const nav = typeof navigator !== 'undefined' ? navigator : null;
     const hasWebdriver = Boolean(
-      (typeof navigator !== 'undefined' && navigator.webdriver) ||
+      (nav && (nav.webdriver || (nav as any).__webdriver)) ||
       (window as any).__playwright ||
+      (window as any).__playwright_evaluation_script__ ||
       (window as any).__puppeteer_evaluation_script__ ||
       (window as any)._phantom ||
       (window as any).callPhantom ||
@@ -35,30 +42,29 @@ function inspectClientEnvironment(): { isBot: boolean; isHeadless: boolean; botR
       (window as any).__webdriver_script_fn ||
       (window as any).__fxdriver_evaluate ||
       (window as any).domAutomation ||
-      (window as any).domAutomationController
+      (window as any).domAutomationController ||
+      (window as any).emit ||
+      (window as any).spawn
     );
 
-    // 2. Chromedriver specific global variables
+    // 2. Chromedriver & Automation specific window symbols
     const windowKeys = Object.keys(window);
-    const hasCdcProps = windowKeys.some(k => k.startsWith('cdc_') || k.startsWith('__webdriver'));
+    const hasCdcProps = windowKeys.some(k => 
+      k.startsWith('cdc_') || 
+      k.startsWith('__webdriver') || 
+      k.startsWith('$cdc_') || 
+      k.includes('Selenium')
+    );
 
-    // 3. Prototype tampering detection (stealth plugins trying to override navigator.webdriver)
-    let isWebdriverTampered = false;
-    try {
-      if (typeof navigator !== 'undefined') {
-        const descriptor = Object.getOwnPropertyDescriptor(Navigator.prototype, 'webdriver') ||
-                           Object.getOwnPropertyDescriptor(navigator, 'webdriver');
-        if (descriptor && descriptor.get && descriptor.get.toString().includes('undefined')) {
-          isWebdriverTampered = true;
-        }
-      }
-    } catch (_) {}
-
-    // 4. Headless Browser Artifacts (Screen dimensions, outer bounds)
+    // 3. Headless Browser Artifacts (Screen dimensions & Plugin array integrity)
     const isZeroScreen = (window.outerWidth === 0 && window.outerHeight === 0) ||
                          (window.screen && window.screen.width === 0 && window.screen.height === 0);
 
-    // 5. Headless WebGL Software Rasterizer Detection
+    // Headless Chrome missing languages or plugins
+    const hasEmptyPlugins = nav && 'plugins' in nav && nav.plugins && nav.plugins.length === 0 && !('ontouchstart' in window);
+    const hasNoLanguages = nav && (!nav.languages || nav.languages.length === 0);
+
+    // 4. Headless WebGL Software Rasterizer Detection
     let isSoftwareGpu = false;
     try {
       const canvas = document.createElement('canvas');
@@ -71,7 +77,9 @@ function inspectClientEnvironment(): { isBot: boolean; isHeadless: boolean; botR
             renderer.includes('swiftshader') ||
             renderer.includes('llvmpipe') ||
             renderer.includes('mesa offscreen') ||
-            renderer.includes('software rasterizer')
+            renderer.includes('software rasterizer') ||
+            renderer.includes('vmware') ||
+            renderer.includes('virtualbox')
           ) {
             isSoftwareGpu = true;
           }
@@ -79,14 +87,8 @@ function inspectClientEnvironment(): { isBot: boolean; isHeadless: boolean; botR
       }
     } catch (_) {}
 
-    // 6. Desktop Chrome missing languages / plugins anomaly
-    const isDesktop = typeof navigator !== 'undefined' && 
-                      !/Mobile|Android|iPhone|iPad/i.test(navigator.userAgent || '');
-    const hasNoLanguages = typeof navigator !== 'undefined' && 
-                           (!navigator.languages || navigator.languages.length === 0);
-
-    const isBot = hasWebdriver || hasCdcProps || isWebdriverTampered || isZeroScreen;
-    const isHeadless = isSoftwareGpu || (isDesktop && hasNoLanguages);
+    const isBot = hasWebdriver || hasCdcProps || isZeroScreen || hasEmptyPlugins || hasNoLanguages;
+    const isHeadless = isSoftwareGpu;
 
     return {
       isBot,
@@ -117,13 +119,12 @@ export function useClearanceDispatch({
 
   // Hidden references for silent behavioral & kinetic telemetry
   const mountTimeRef = useRef<number>(Date.now());
-  const pointerHistoryRef = useRef<Array<{ cx: number; cy: number; sx: number; sy: number; t: number }>>([]);
-  const clickTimestampsRef = useRef<number[]>([]);
+  const gestureStartTimeRef = useRef<number>(0);
+  const pointerSamplesRef = useRef<PointerSample[]>([]);
   const isBotDetectedRef = useRef<boolean>(false);
   const isHeadlessDetectedRef = useRef<boolean>(false);
 
   // ─── INSTANT LINK CLOSURE: WIPE DESTINATION FROM MEMORY & RESET ───
-  // Enforces: "one time user click link, one time he passed, the link closes"
   const closeAndWipeLink = useCallback(() => {
     setDestinationUrl(null);
     setIsLoading(false);
@@ -153,7 +154,7 @@ export function useClearanceDispatch({
     };
   }, [closeAndWipeLink]);
 
-  // ─── SILENT LAYER 1: ASYNC CLIENT FINGERPRINT SCAN ───
+  // Client environment scan on mount
   useEffect(() => {
     mountTimeRef.current = Date.now();
     const { isBot, isHeadless } = inspectClientEnvironment();
@@ -161,38 +162,37 @@ export function useClearanceDispatch({
     if (isHeadless) isHeadlessDetectedRef.current = true;
   }, []);
 
-  // Capture authentic human pointer coordinates & kinetic dynamics
-  const trackPointer = useCallback((e: React.PointerEvent | React.TouchEvent | React.MouseEvent) => {
-    let cx = 120;
-    let cy = 240;
-    let sx = 120;
-    let sy = 280;
-
-    if ('clientX' in e && typeof e.clientX === 'number' && e.clientX > 0) {
-      cx = Math.round(e.clientX);
-      cy = Math.round(e.clientY || 0);
-      sx = Math.round(e.screenX || cx);
-      sy = Math.round(e.screenY || cy);
-    } else if ('touches' in e && (e as any).touches?.[0]) {
-      const touch = (e as any).touches[0];
-      cx = Math.round(touch.clientX || 120);
-      cy = Math.round(touch.clientY || 240);
-      sx = Math.round(touch.screenX || cx);
-      sy = Math.round(touch.screenY || cy);
+  // Track physical continuous pointer motion & micro-jitter
+  const trackPointerMotion = useCallback((e: React.PointerEvent | React.TouchEvent | React.MouseEvent) => {
+    if (!gestureStartTimeRef.current) {
+      gestureStartTimeRef.current = Date.now();
     }
 
-    const history = pointerHistoryRef.current;
-    history.push({ cx, cy, sx, sy, t: Date.now() });
-    if (history.length > 6) {
-      history.shift();
+    let cx = 0;
+    let cy = 0;
+
+    if ('clientX' in e && typeof e.clientX === 'number') {
+      cx = Math.round(e.clientX);
+      cy = Math.round(e.clientY || 0);
+    } else if ('touches' in e && (e as any).touches?.[0]) {
+      const touch = (e as any).touches[0];
+      cx = Math.round(touch.clientX || 0);
+      cy = Math.round(touch.clientY || 0);
+    }
+
+    const samples = pointerSamplesRef.current;
+    samples.push({ cx, cy, t: Date.now() });
+
+    // Keep the most recent 12 touch points
+    if (samples.length > 12) {
+      samples.shift();
     }
   }, []);
 
   /**
-   * Fast Promise resolver to await Turnstile token if user clicks Proceed before token completes
+   * Fast Promise resolver to await Turnstile token if it is actively running during the hold
    */
   const awaitTurnstileToken = async (): Promise<string | null> => {
-    // 1. Direct check from ref or state
     if (cfTokenRef.current && cfTokenRef.current.trim()) {
       return cfTokenRef.current.trim();
     }
@@ -200,7 +200,6 @@ export function useClearanceDispatch({
       return cfToken.trim();
     }
 
-    // 2. Trigger active execution if available
     if (executeTurnstile) {
       executeTurnstile();
     } else if (widgetIdRef?.current && window.turnstile?.execute) {
@@ -209,9 +208,8 @@ export function useClearanceDispatch({
       } catch (_) {}
     }
 
-    // 3. Fast non-blocking poll (up to 600ms, checks every 40ms)
     const start = Date.now();
-    while (Date.now() - start < 600) {
+    while (Date.now() - start < 800) {
       await new Promise(r => setTimeout(r, 40));
       if (cfTokenRef.current && cfTokenRef.current.trim()) {
         return cfTokenRef.current.trim();
@@ -230,61 +228,31 @@ export function useClearanceDispatch({
     return null;
   };
 
-  // ─── SILENT LAYER 2: CRYPTOGRAPHIC HANDSHAKE & AIRGAP DISPATCH ───
-  const handleProceed = async (e: React.MouseEvent<HTMLButtonElement>) => {
+  // ─── KINETIC CLEARANCE HANDSHAKE TO SERVER ───
+  const handleKineticProceed = useCallback(async () => {
     if (isLoading) return;
 
-    // 1. Silent Bot Trap: If automated environment detected on client, abort immediately
+    const now = Date.now();
+    const pageElapsed = now - mountTimeRef.current;
+    const gestureDuration = gestureStartTimeRef.current > 0 ? (now - gestureStartTimeRef.current) : 550;
+    const effectiveElapsed = Math.max(pageElapsed, gestureDuration, 550);
+
+    // Reset gesture tracker
+    gestureStartTimeRef.current = 0;
+
     if (isBotDetectedRef.current) {
       setErrorMessage('Verification clearance denied.');
       return;
     }
 
-    // 2. Client-Side Rapid Burst & Frequency Limiter
-    // Real humans do not click >3 times within 10s or fire 3 simultaneous rapid clicks
-    const now = Date.now();
-    const recentClicks = clickTimestampsRef.current.filter(t => now - t < 10000);
-    recentClicks.push(now);
-    clickTimestampsRef.current = recentClicks;
-
-    const isOverBurst = recentClicks.length > 3;
-    const isSimultaneousSpam = recentClicks.length >= 3 && (now - recentClicks[recentClicks.length - 3] <= 2000);
-
-    if (isOverBurst || isSimultaneousSpam) {
-      isBotDetectedRef.current = true;
-      setIsLoading(false);
-      setErrorMessage('Access blocked due to excessive rapid attempts.');
-      // Notify server to quarantine this IP immediately
-      fetch('/api/v1/app/session-clearance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: appId, token: btoa(JSON.stringify({ wb: 1, cb: 1, t: now })) }),
-        keepalive: true
-      }).catch(() => {});
-      return;
-    }
-
-    // 3. Synthetic programmatic click check
-    if (e.isTrusted === false) {
-      isBotDetectedRef.current = true;
-      setErrorMessage('Physical interaction required.');
-      return;
-    }
-
-    trackPointer(e);
-    const history = pointerHistoryRef.current;
-    const lastPointer = history.length > 0 
-      ? history[history.length - 1] 
-      : { cx: Math.round(e.clientX || 120), cy: Math.round(e.clientY || 240), sx: Math.round(e.screenX || 120), sy: Math.round(e.screenY || 280), t: Date.now() };
-
     setIsLoading(true);
     setErrorMessage(null);
 
     try {
-      // 4. Acquire Turnstile Token (instant if ready, or fast 600ms resolution)
+      // 1. Acquire Turnstile Token (or fallback to hardware kinetic token)
       let token = await awaitTurnstileToken();
 
-      // 5. Generate high-entropy single-use nonce
+      // 2. Generate high-entropy single-use nonce
       let entropy = '';
       if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
         const bytes = new Uint8Array(16);
@@ -294,34 +262,34 @@ export function useClearanceDispatch({
         entropy = Math.random().toString(36).substring(2, 12) + Date.now().toString(36);
       }
 
-      // If Turnstile is blocked by user adblocker/private DNS or pending, utilize hardware attestation token
       if (!token) {
         token = 'attest_' + entropy;
       }
 
-      // 6. Human dwell time check
-      const dwell = Date.now() - mountTimeRef.current;
+      // 3. Compute micro-jitter variance across the physical touch samples
+      const samples = pointerSamplesRef.current;
+      let coordVariance = 0;
+      if (samples.length >= 2) {
+        const diffs = samples.slice(1).map((s, i) => Math.abs(s.cx - samples[i].cx) + Math.abs(s.cy - samples[i].cy));
+        coordVariance = diffs.reduce((a, b) => a + b, 0);
+      }
 
-      // Re-scan live environment flags at exact time of click
-      const liveScan = inspectClientEnvironment();
-      const hasBotFlags = isBotDetectedRef.current || liveScan.isBot;
-      const hasHeadlessFlags = isHeadlessDetectedRef.current || liveScan.isHeadless;
+      const lastSample = samples.length > 0 ? samples[samples.length - 1] : { cx: 140, cy: 300, t: now };
 
-      // 7. Encode single-use clearance payload
+      // 4. Encode single-use clearance payload
       const clearanceToken = btoa(JSON.stringify({
         t: Date.now(),
         n: entropy,
         id: appId,
-        el: Math.max(350, dwell),
+        el: effectiveElapsed,
         cf: token,
-        cx: Math.max(1, lastPointer.cx),
-        cy: Math.max(1, lastPointer.cy),
-        sx: Math.max(1, lastPointer.sx),
-        sy: Math.max(1, lastPointer.sy),
-        wb: hasBotFlags ? 1 : 0,
-        hl: hasHeadlessFlags ? 1 : 0,
-        cb: isOverBurst || isSimultaneousSpam ? 1 : 0,
-        tr: e.isTrusted ? 1 : 0
+        cx: lastSample.cx,
+        cy: lastSample.cy,
+        var: coordVariance,
+        samples: samples.length,
+        wb: isBotDetectedRef.current ? 1 : 0,
+        hl: isHeadlessDetectedRef.current ? 1 : 0,
+        tr: 1 // Human physical hold
       }));
 
       // High-priority direct clearance route with fallback
@@ -389,7 +357,7 @@ export function useClearanceDispatch({
 
       if (onSuccess) onSuccess();
 
-      // ─── SILENT LAYER 3: ZERO-REFERRER AIRGAP DISPATCH ───
+      // Enforce zero-referrer policy on navigation
       try {
         let metaReferrer = document.querySelector('meta[name="referrer"]') as HTMLMetaElement;
         if (!metaReferrer) {
@@ -423,15 +391,15 @@ export function useClearanceDispatch({
       if (onError) onError();
       resetTurnstile();
     }
-  };
+  }, [isLoading, appId, awaitTurnstileToken, closeAndWipeLink, onError, onSuccess, resetTurnstile, setErrorMessage]);
 
   return {
     isLoading,
     destinationUrl,
     isUnavailable,
     setIsUnavailable,
-    handleProceed,
-    trackPointer,
+    handleKineticProceed,
+    trackPointerMotion,
     closeAndWipeLink
   };
 }

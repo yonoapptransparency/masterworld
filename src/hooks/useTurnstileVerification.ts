@@ -82,10 +82,10 @@ export function useTurnstileVerification(options?: UseTurnstileOptions) {
 
       const wid = window.turnstile.render(widgetRef.current, {
         sitekey: siteKey,
-        theme: 'dark',
-        size: 'flexible',
+        theme: 'auto',
+        size: 'normal',
         'retry': 'auto',
-        'retry-interval': 2500,
+        'retry-interval': 1500,
         'refresh-expired': 'auto',
         callback: (token: string) => {
           cfTokenRef.current = token;

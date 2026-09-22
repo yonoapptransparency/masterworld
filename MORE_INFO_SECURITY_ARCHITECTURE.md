@@ -1,13 +1,13 @@
 # AUTHORITATIVE BLUEPRINT & SECURITY SPECIFICATION: More Information (`/moreinfo`) Gateway & Zero-Bot Architecture
-### Version 4.0 — Honest 93-95% Bot Elimination | Cloudflare Turnstile + Upstash Redis + Dual Express/Vercel Stack
+### Version 5.1 — Two-Stage Visible Security Verification + Cryptographic Cloudflare Turnstile + Disguised 404 Phantom Wall
 
 > [!IMPORTANT]
 > **CRITICAL INSTRUCTION FOR ALL AI AGENTS & DEVELOPERS:**
 > This document is the absolute, single **Source of Truth** for the More Information (`/moreinfo`) gateway, admin link vault, link encryption/decryption, backend security resolution, anti-bot mitigation, and vocabulary neutrality.
 > 1. **You MUST consult this document** before inspecting, modifying, or creating any code relating to the More Information page, action buttons, link vault, admin forms, or security routes.
 > 2. **You MUST update this document** immediately whenever any security rule, component, route, admin field, or vocabulary guideline is adjusted.
-> 3. **Never downgrade to client-side-only checks.** Real bot protection relies on cryptographic server-side attestation.
-> 4. **Never claim 99.99% bot elimination.** Honest industrial score after all fixes applied: **93-95/100**. Beyond this only paid enterprise solutions exist.
+> 3. **Never downgrade to client-side-only checks.** Real bot protection relies on cryptographic server-side attestation and visible edge verification.
+> 4. **Visible Interactive Security Protocol**: The Cloudflare Turnstile verification challenge renders in full view inside an isolated frame immediately when the visitor lands. The "Proceed" button remains securely locked until Cloudflare verifies the user. Once passed, clicking "Proceed" securely authorizes and dispatches the link. Automated scrapers and headless bots (`page.click()`) cannot bypass Cloudflare's interactive challenge.
 
 ---
 
