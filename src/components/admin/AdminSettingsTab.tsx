@@ -2,6 +2,7 @@ import React from 'react';
 import { Save, ShieldCheck, KeyRound } from 'lucide-react';
 import ImageUpload from '../ImageUpload';
 import { ensureDefaultSettings } from '../../lib/defaultLegalContent';
+import { SeoFieldWithLimit } from './SeoFieldWithLimit';
 
 interface AdminSettingsTabProps {
   settings: any;
@@ -28,14 +29,24 @@ export const AdminSettingsTab = React.memo(({ settings: rawSettings, handleSaveS
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Site Title</label>
             <input type="text" name="site_title" defaultValue={settings.site_title} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" required />
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Global SEO Title (Overrides Site Title in SERP)</label>
-            <input type="text" name="seo_title" defaultValue={settings.seo_title} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Global SEO Description</label>
-            <input type="text" name="meta_description" defaultValue={settings.meta_description} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
-          </div>
+          <SeoFieldWithLimit
+            label="Global SEO Title (Overrides Site Title in SERP)"
+            name="seo_title"
+            defaultValue={settings.seo_title || ''}
+            maxChars={58}
+            placeholder="e.g. RummyDex - Verified Card & Casual Gaming Portal"
+            helperText="Recommended: 50–58 characters for full visibility in Google SERP."
+          />
+          <SeoFieldWithLimit
+            label="Global SEO Description"
+            type="textarea"
+            name="meta_description"
+            defaultValue={settings.meta_description || ''}
+            maxChars={155}
+            rows={3}
+            placeholder="e.g. Safe verification portal and transparent app directory for card and casual games..."
+            helperText="Recommended: 130–155 characters for complete display in Google search."
+          />
           <div className="sm:col-span-2">
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Global SEO Keywords (Comma Separated)</label>
             <input type="text" name="seo_keywords" defaultValue={settings.seo_keywords} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />

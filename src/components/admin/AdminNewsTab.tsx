@@ -24,6 +24,7 @@ import {
 import { toast } from '../Toast';
 import ImageUpload from '../ImageUpload';
 import { safeHtml } from '../../lib/safeHtmlPublic';
+import { SeoFieldWithLimit } from './SeoFieldWithLimit';
 
 interface AdminNewsTabProps {
   newsList: any[];
@@ -567,26 +568,26 @@ export const AdminNewsTab = React.memo(({
                         SEO Meta &amp; Social Graph
                       </h4>
                       <div className="grid gap-4">
-                        <div>
-                          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">SEO Meta Title</label>
-                          <input
-                            type="text"
-                            value={item.seo_title || ''}
-                            onChange={e => handleNewsChange(item.id, 'seo_title', e.target.value)}
-                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"
-                            placeholder="Custom Google title tag (falls back to Title)..."
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">SEO Meta Description</label>
-                          <textarea
-                            value={item.seo_description || ''}
-                            onChange={e => handleNewsChange(item.id, 'seo_description', e.target.value)}
-                            rows={2}
-                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"
-                            placeholder="Custom Google snippet description (falls back to Summary)..."
-                          />
-                        </div>
+                        <SeoFieldWithLimit
+                          label="SEO Meta Title"
+                          name={`news_seo_title_${item.id}`}
+                          value={item.seo_title || ''}
+                          onChange={val => handleNewsChange(item.id, 'seo_title', val)}
+                          maxChars={58}
+                          placeholder="Custom Google title tag (falls back to Title)..."
+                          helperText="Recommended: 50–58 characters to avoid Google search truncation."
+                        />
+                        <SeoFieldWithLimit
+                          label="SEO Meta Description"
+                          type="textarea"
+                          name={`news_seo_desc_${item.id}`}
+                          value={item.seo_description || ''}
+                          onChange={val => handleNewsChange(item.id, 'seo_description', val)}
+                          maxChars={155}
+                          rows={2}
+                          placeholder="Custom Google snippet description (falls back to Summary)..."
+                          helperText="Recommended: 130–155 characters to display fully in search snippets."
+                        />
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Social OG Image</label>

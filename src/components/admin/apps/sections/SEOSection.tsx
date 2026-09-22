@@ -1,5 +1,6 @@
 import React from 'react';
 import ImageUpload from "../../../ImageUpload";
+import { SeoFieldWithLimit } from "../../SeoFieldWithLimit";
 
 interface SEOSectionProps {
   formFields: any;
@@ -7,17 +8,29 @@ interface SEOSectionProps {
 }
 
 export const SEOSection = ({ formFields, handleFieldChange }: SEOSectionProps) => {
+  const titleText = formFields.seo_title || formFields.name || 'Set SEO title below...';
+  const descText = formFields.seo_description || 'Write an eye-catching SEO description to maximize organic click-through rate on Google...';
+  const isTitleOver = (formFields.seo_title || '').length > 58;
+  const isDescOver = (formFields.seo_description || '').length > 155;
+
   return (
     <div className="animate-fade-in space-y-5">
       <div>
         <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">Live Google SERP Simulator Preview</label>
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs max-w-full font-sans">
           <div className="text-[12px] text-slate-500 dark:text-slate-400 font-normal truncate flex items-center gap-1">
-            <span>https://verification-gatekeeper.com</span>
-            <span className="text-slate-400">› {formFields.slug || 'url-slug'}</span>
+            <span>https://www.rummydex.com</span>
+            <span className="text-slate-400">› app › {formFields.slug || 'url-slug'}</span>
           </div>
           <div className="text-[18px] text-blue-600 dark:text-blue-400 font-medium hover:underline cursor-pointer leading-tight truncate mt-0.5">
-            {formFields.seo_title || formFields.name || 'Set SEO title below...'}
+            {isTitleOver ? (
+              <span>
+                {titleText.substring(0, 58)}
+                <span className="text-red-500 font-bold bg-red-100 dark:bg-red-950/60 px-0.5 rounded">... (truncated by Google)</span>
+              </span>
+            ) : (
+              titleText
+            )}
           </div>
           <div className="flex items-center gap-1 text-[12px] text-slate-500 dark:text-slate-400 mt-1">
             <span className="text-amber-500 font-bold flex items-center">
@@ -27,34 +40,39 @@ export const SEOSection = ({ formFields, handleFieldChange }: SEOSectionProps) =
             <span>· Free · Android · Game</span>
           </div>
           <p className="text-[13px] text-slate-600 dark:text-slate-400 font-normal leading-normal mt-1 line-clamp-2">
-            {formFields.seo_description || 'Write an eye-catching SEO description to maximize organic click-through rate on Google...'}
+            {isDescOver ? (
+              <span>
+                {descText.substring(0, 155)}
+                <span className="text-red-500 font-bold bg-red-100 dark:bg-red-950/60 px-0.5 rounded">... (truncated by Google)</span>
+              </span>
+            ) : (
+              descText
+            )}
           </p>
         </div>
       </div>
 
-      <div>
-        <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">SEO Meta Title Tag</label>
-        <input 
-          type="text" 
-          name="seo_title" 
-          value={formFields.seo_title} 
-          onChange={e => handleFieldChange('seo_title', e.target.value)} 
-          className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500" 
-          placeholder="e.g. Free VPN Download - Safe Verification Portal"
-        />
-      </div>
+      <SeoFieldWithLimit
+        label="SEO Meta Title Tag (Max 58 chars for Google SERP)"
+        name="seo_title"
+        value={formFields.seo_title || ''}
+        onChange={(val) => handleFieldChange('seo_title', val)}
+        maxChars={58}
+        placeholder="e.g. Free VPN Download - Safe Verification Portal"
+        helperText="Recommended: 50–58 characters. Exceeding 58 chars triggers a red cut-off warning."
+      />
 
-      <div>
-        <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">SEO Description Tag</label>
-        <textarea 
-          name="seo_description" 
-          value={formFields.seo_description} 
-          onChange={e => handleFieldChange('seo_description', e.target.value)} 
-          rows={3} 
-          className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500" 
-          placeholder="Securely download VPN tool. Rated 4.8/5 on catalog."
-        ></textarea>
-      </div>
+      <SeoFieldWithLimit
+        label="SEO Description Tag (Max 155 chars for Google SERP)"
+        type="textarea"
+        name="seo_description"
+        value={formFields.seo_description || ''}
+        onChange={(val) => handleFieldChange('seo_description', val)}
+        maxChars={155}
+        rows={3}
+        placeholder="Securely download VPN tool. Rated 4.8/5 on catalog."
+        helperText="Recommended: 130–155 characters. Exceeding 155 chars triggers a red cut-off warning."
+      />
 
       <div>
         <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">SEO Meta Keywords</label>
