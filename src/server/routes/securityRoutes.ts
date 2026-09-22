@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { Redis } from '@upstash/redis';
 import { resolveDestinationForApp, clearResolvedLinkCache } from '../services/linkService';
+import { getMasterSettings } from '../vault/vaultStorage';
 
 export { clearResolvedLinkCache };
 export const securityRouter = Router();
@@ -162,7 +163,18 @@ async function verifyCloudflareTurnstile(token: string, reqHost?: string): Promi
   }
 
   const trimmedToken = token.trim();
+  
+  // Try master settings secret key first if configured, then environment variables, then fallback
+  let configuredSecret: string | null = null;
+  try {
+    const settings = await getMasterSettings();
+    if (settings?.turnstile_secret_key && typeof settings.turnstile_secret_key === 'string' && settings.turnstile_secret_key.trim().length > 10) {
+      configuredSecret = settings.turnstile_secret_key.trim();
+    }
+  } catch (_) {}
+
   const primarySecret = 
+    configuredSecret ||
     process.env.TURNSTILE_SECRET_KEY || 
     process.env.CF_TURNSTILE_SECRET || 
     '0x4AAAAAAE99nDTTfRs6xvjZDh5Yd-Mg6lE';

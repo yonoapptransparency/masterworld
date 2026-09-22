@@ -1,5 +1,5 @@
 import React from 'react';
-import { Save } from 'lucide-react';
+import { Save, ShieldCheck, KeyRound } from 'lucide-react';
 import ImageUpload from '../ImageUpload';
 import { ensureDefaultSettings } from '../../lib/defaultLegalContent';
 
@@ -393,6 +393,46 @@ export const AdminSettingsTab = React.memo(({ settings: rawSettings, handleSaveS
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">WhatsApp Link</label>
             <input type="text" name="helpline_whatsapp" defaultValue={settings.helpline_whatsapp} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-6">
+        <div className="flex items-center gap-2 border-b border-black/5 dark:border-white/5 pb-2">
+          <ShieldCheck className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+          <h3 className="font-bold text-sm text-slate-900 dark:text-white">Cloudflare Turnstile Anti-Bot Security Keys</h3>
+        </div>
+        <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+          Configure custom Cloudflare Turnstile credentials. The <strong>Site Key</strong> is public and loaded by the browser widget. The <strong>Secret Key</strong> is strictly kept on the server for back-channel validation. If left blank, the system automatically uses environment variables or high-availability defaults.
+        </p>
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 flex items-center gap-1.5">
+              <KeyRound className="w-3.5 h-3.5 text-blue-500" />
+              Turnstile Site Key (Public)
+            </label>
+            <input 
+              type="text" 
+              name="turnstile_site_key" 
+              defaultValue={settings.turnstile_site_key || ''} 
+              placeholder="0x4AAAAAAAx..." 
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm font-mono dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" 
+            />
+            <span className="text-[11px] text-slate-400 mt-1 block">Used by the client-side Cloudflare Turnstile widget.</span>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1 flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+              Turnstile Secret Key (Private / Server-Only)
+            </label>
+            <input 
+              type="password" 
+              name="turnstile_secret_key" 
+              defaultValue={settings.turnstile_secret_key || ''} 
+              placeholder="0x4AAAAAAAx... (Kept on server)" 
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm font-mono dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" 
+            />
+            <span className="text-[11px] text-slate-400 mt-1 block">Validated by the backend server to block fake or spoofed tokens.</span>
           </div>
         </div>
       </div>

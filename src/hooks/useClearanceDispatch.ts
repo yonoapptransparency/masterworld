@@ -242,6 +242,7 @@ export function useClearanceDispatch({
 
     if (isBotDetectedRef.current) {
       setErrorMessage('Verification clearance denied.');
+      if (onError) onError();
       return;
     }
 

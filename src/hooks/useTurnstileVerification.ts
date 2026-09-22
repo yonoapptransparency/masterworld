@@ -9,7 +9,9 @@ export function isValidTurnstileKey(key: string | undefined | null): boolean {
   return /^(0x4|1x|2x|3x)[a-zA-Z0-9_-]{10,60}$/.test(trimmed);
 }
 
-export function getTurnstileSiteKey(): string {
+export function getTurnstileSiteKey(configuredKey?: string | null): string {
+  if (isValidTurnstileKey(configuredKey)) return configuredKey!.trim();
+
   if (typeof window !== 'undefined') {
     const customKey = 
       (import.meta.env?.VITE_TURNSTILE_SITE_KEY as string) || 
@@ -41,6 +43,7 @@ declare global {
 
 export interface UseTurnstileOptions {
   onError?: () => void;
+  siteKey?: string | null;
 }
 
 export function useTurnstileVerification(options?: UseTurnstileOptions) {
@@ -52,7 +55,13 @@ export function useTurnstileVerification(options?: UseTurnstileOptions) {
   const widgetRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
   const cfTokenRef = useRef<string | null>(null);
-  const activeKeyRef = useRef<string>(getTurnstileSiteKey());
+  const siteKey = getTurnstileSiteKey(options?.siteKey);
+  const activeKeyRef = useRef<string>(siteKey);
+
+  // Update activeKeyRef if siteKey changes
+  useEffect(() => {
+    activeKeyRef.current = siteKey;
+  }, [siteKey]);
 
   const resetTurnstile = useCallback(() => {
     setCfToken(null);

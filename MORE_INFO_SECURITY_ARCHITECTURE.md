@@ -842,3 +842,41 @@ The More Information verification gateway (`/moreinfo/:slug`, `/moreinfo/:id`, `
 | **Layer 4: Sitemap Index Isolation** | `src/server/routes/seoRoutes.ts` | `/moreinfo/*` is **100% excluded** from all XML sitemaps (`/sitemap.xml`, `/sitemap-apps.xml`, `/sitemap-static.xml`, etc.). Only public canonical index pages (`/app/:slug`) are submitted for crawling. |
 | **Layer 5: Automated Bot Ghosting** | `src/server/routes/securityRoutes.ts` | Scraper bots and automated crawlers hitting clearance API endpoints are intercepted by Wall 1 (bad User-Agent, headless signatures, rapid burst monitors) and immediately returned `404 Not Found` so bots interpret the route as non-existent. |
 
+---
+
+## 13. Dynamic Cloudflare Turnstile Key Configuration & Client Disguised 404 Bot Wall
+
+### 13.1 Dynamic Key Resolution Protocol
+To prevent hardcoded credentials while maintaining absolute security:
+- **Public Site Key (`turnstile_site_key`)**:
+  - Configured by the Administrator inside the Admin Dashboard Settings (`AdminSettingsTab.tsx`).
+  - Stored inside Firestore `store_data/public_settings` and synchronized with client-side `settings`.
+  - Injected directly into `useTurnstileVerification` via `ClearanceButton.tsx`.
+  - Fallback logic cascades gracefully: `Admin Settings Key` → `VITE_TURNSTILE_SITE_KEY` → `Production Key (rummydex.com)` → `Interactive Test Key (Development/Staging)`.
+- **Private Secret Key (`turnstile_secret_key`)**:
+  - Stored server-side inside `public_settings` (and/or `TURNSTILE_SECRET_KEY` environment variable).
+  - Server-side verification in `securityRoutes.ts` queries `getMasterSettings()` to load the custom administrator-defined secret key.
+  - Secret keys are **NEVER** exposed to client bundles or browser dev tools.
+
+### 13.2 Automated Bot 404 Denial Architecture
+When an automated bot or headless crawler attempts to manipulate the gateway:
+- **Client-Side Behavioral Interception (`useClearanceDispatch.ts`)**:
+  - Kinetic checks detect zero-movement clicks, synthetic script events, or missing telemetry.
+  - `isBotDetectedRef.current` triggers immediately, preventing dispatch.
+  - Calls `onError()` callback on `ClearanceButton.tsx`.
+- **Phantom 404 State Switch (`GatewayPage.tsx`)**:
+  - `isBotBlocked` state activates instantly.
+  - Renders a genuine, styled **404 - Page Not Found** interface ("The requested page could not be found or has been moved").
+  - The bot is effectively blackholed, encountering a dead-end 404 page rather than an error or retry prompt.
+- **Server-Side 404 Alignment (`securityRoutes.ts`)**:
+  - Any clearance request identified with bot characteristics, banned UAs, or invalid tokens receives an HTTP `404 Not Found` response with disguise payload: `{ error: "Not Found", status: 404 }`.
+
+### 13.3 Clean Borderless Turnstile Presentation & Neutral Proceed Button States
+- **Natural Borderless Challenge**: The Cloudflare Turnstile widget is embedded cleanly and natively without artificial square borders or outer container frames. Cloudflare renders with its authentic branding and responsive layout directly on the gateway card.
+- **No Lock Metaphors**: Lock icons and "Verification Required" lock badges are completely removed.
+- **Neutral Button Progression**:
+  - **State 1 (Pending Verification)**: Displays a subtle spinner with neutral text: `VERIFYING...`.
+  - **State 2 (Verified)**: Activates smoothly to the high-contrast `PROCEED` button.
+  - **State 3 (Dispensing)**: Steps through discreet connection phases (`CONNECTING...`, `INITIALIZING...`) with neutral phrasing.
+- **Admin-to-Public Split Sync Pipeline**: When saving settings in the Admin Dashboard, `turnstile_site_key` is synchronized to `staticData.json` so the public Dex site automatically picks it up even before runtime API calls, while `turnstile_secret_key` is strictly stripped from public static bundles and kept on the secure backend.
+

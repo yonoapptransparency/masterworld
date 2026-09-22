@@ -188,6 +188,12 @@ export async function deleteFirestoreRestDoc(docName: string, authToken?: string
 export function updateLocalBackupSection(section: 'apps' | 'settings' | 'news' | 'videos', data: any) {
   try {
     let sanitizedData = data;
+    if (section === 'settings' && data && typeof data === 'object') {
+      const settingsCopy = { ...data };
+      // Never leak the server-side turnstile secret key to the public static bundle
+      delete settingsCopy.turnstile_secret_key;
+      sanitizedData = settingsCopy;
+    }
     if (section === 'apps' && Array.isArray(data)) {
       const secret = getAesSecret();
       sanitizedData = data.map((app: any) => {

@@ -45,6 +45,8 @@ export interface GlobalSettings {
   hero_title_subtitle?: string;
   hero_title_visible?: boolean;
   ga_tracking_id?: string;
+  turnstile_site_key?: string;
+  turnstile_secret_key?: string;
   quick_links?: Array<{ title: string; subtitle?: string; icon?: string; color?: string; url: string }>;
   social_links?: { facebook?: string; instagram?: string; twitter?: string; linkedin?: string; youtube?: string; };
   website_faqs?: Array<{ question: string; answer: string }>;
