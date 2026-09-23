@@ -39,21 +39,25 @@ function sanitizeHtml(html: string): string {
 export function renderHeader(settings: any) {
   const siteTitle = getField(settings, 'site_title') || 'RummyDex';
   const logoUrl = getField(settings, 'logo_url');
-  const optimizedLogo = logoUrl ? optimizeImageUrl(logoUrl, 100) : '';
+  const optimizedLogo = logoUrl ? optimizeImageUrl(logoUrl, 120) : '';
   return `
-    <header class="py-3 border-b border-black/5 dark:border-white/5 bg-white/80 dark:bg-zinc-950/80">
-      <div class="max-w-7xl mx-auto px-4 sm:px-8 flex justify-between items-center">
-        <a href="/" class="flex items-center gap-3 font-bold text-lg text-zinc-900 dark:text-white" aria-label="${escapeHtml(siteTitle)} Home">
-          ${logoUrl ? `<img src="${escapeHtml(optimizedLogo)}" loading="eager" fetchpriority="high" decoding="async" width="40" height="40" class="w-10 h-10 object-contain" alt="${escapeHtml(siteTitle)} Official Logo"/>` : ''}
-          <span>${escapeHtml(siteTitle)}</span>
+    <header class="sticky top-0 z-50 bg-white dark:bg-black sm:bg-white/80 sm:dark:bg-black/80 border-b border-white/20 dark:border-white/10 py-2.5 sm:py-3">
+      <div class="w-full max-w-7xl px-4 sm:px-6 lg:px-8 mx-auto relative flex justify-between items-center">
+        <a href="/" class="flex items-center gap-2.5 sm:gap-3 group" aria-label="${escapeHtml(siteTitle)} Home">
+          <div class="p-0 shrink-0">
+            ${logoUrl ? `<img src="${escapeHtml(optimizedLogo)}" loading="eager" fetchpriority="high" decoding="async" width="56" height="56" class="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 object-contain drop-shadow-sm" alt="${escapeHtml(siteTitle)} Official Logo"/>` : `<div class="w-10 h-10 sm:w-12 sm:h-12 bg-blue-500 rounded-xl flex items-center justify-center text-white font-semibold text-lg">${escapeHtml(siteTitle.substring(0, 1))}</div>`}
+          </div>
+          <div class="flex flex-col leading-none">
+            <span class="text-lg sm:text-xl md:text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">${escapeHtml(siteTitle)}</span>
+          </div>
         </a>
-        <nav class="hidden md:flex gap-6 text-sm font-medium text-zinc-600 dark:text-zinc-300" aria-label="Main Navigation">
-          <a href="/">Home</a>
-          <a href="/news">News</a>
-          <a href="/videos">Videos</a>
-          <a href="/developers">Developers</a>
-          <a href="/about">About</a>
-          <a href="/contact">Contact</a>
+        <nav class="hidden md:flex items-center gap-4 lg:gap-8 text-sm font-medium" aria-label="Main Navigation">
+          <a href="/" class="text-blue-600 font-medium">Home</a>
+          <a href="/news" class="text-zinc-600 dark:text-zinc-300 hover:text-blue-500">News</a>
+          <a href="/videos" class="text-zinc-600 dark:text-zinc-300 hover:text-blue-500">Videos</a>
+          <a href="/developers" class="text-zinc-600 dark:text-zinc-300 hover:text-blue-500">Developers</a>
+          <a href="/about" class="text-zinc-600 dark:text-zinc-300 hover:text-blue-500">About</a>
+          <a href="/contact" class="text-zinc-600 dark:text-zinc-300 hover:text-blue-500">Contact</a>
         </nav>
       </div>
     </header>
@@ -64,7 +68,7 @@ export function renderFooter(settings: any) {
   const siteTitle = getField(settings, 'site_title') || 'RummyDex';
   const logoUrl = getField(settings, 'logo_url');
   const metaDescription = getField(settings, 'meta_description') || 'A transparency platform and directory for verified applications.';
-  const optimizedLogo = logoUrl ? optimizeImageUrl(logoUrl, 80) : '';
+  const optimizedLogo = logoUrl ? optimizeImageUrl(logoUrl, 100) : '';
 
   return `
     <footer class="pt-12 pb-8 border-t border-black/5 dark:border-white/5 bg-zinc-50 dark:bg-zinc-950 mt-12 text-center text-zinc-500 dark:text-zinc-400">
@@ -95,42 +99,54 @@ export function renderFooter(settings: any) {
   `;
 }
 
-export function renderHome(apps: any[], settings: any, news: any[], videos: any[]) {
-  const siteTitle = getField(settings, 'site_title');
-  const desc = getField(settings, 'meta_description');
-  
-  let appsHtml = '';
-  const sorted = [...apps].sort((a,b) => parseInt(getField(a, 'serial_number','999'), 10) - parseInt(getField(b, 'serial_number','999'), 10));
-  
-  sorted.forEach((app, i) => {
-    const name = getField(app, 'name');
-    const slug = getField(app, 'slug');
-    const category = getField(app, 'category');
-    const rating = getField(app, 'rating', '5.0');
-    const rawIcon = getField(app, 'icon_url') || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&fit=crop';
-    const icon = optimizeImageUrl(rawIcon, 128);
-    const isNew = app.is_new === true || (app.is_new && app.is_new.booleanValue === true);
-    const isTopItem = i < 4;
-    
-    appsHtml += `
-      <a href="/app/${encodeURIComponent(slug)}" class="flex items-center gap-4 p-4 hover:bg-black/5 dark:hover:bg-white/5 rounded-2xl transition border-b border-black/5 dark:border-white/5" title="${escapeHtml(name)} review and details">
-        <span class="text-sm font-bold text-zinc-400 shrink-0 w-8 text-center">${i + 1}</span>
-        <img src="${escapeHtml(icon)}" ${isTopItem ? 'loading="eager" fetchpriority="high"' : 'loading="lazy"'} decoding="async" width="64" height="64" class="w-16 h-16 rounded-[18px] object-cover bg-white shadow-sm shrink-0" alt="${escapeHtml(name)} app icon"/>
-        <div class="flex-1 min-w-0 text-left">
-          <h3 class="font-bold text-base text-zinc-900 dark:text-zinc-100 truncate">${escapeHtml(name)}</h3>
-          <p class="text-xs text-zinc-500 truncate">${escapeHtml(category)}</p>
-          <div class="flex items-center gap-1.5 text-xs text-zinc-500 mt-1">
-            <span>${rating}</span><span class="text-zinc-400">★</span>
-            ${isNew ? `<span class="bg-blue-500/10 text-blue-600 text-[10px] font-bold px-1.5 py-0.5 rounded">NEW</span>` : ''}
+export function renderAppItemHtml(app: any, index: number): string {
+  const name = getField(app, 'name');
+  const slug = getField(app, 'slug');
+  const category = getField(app, 'category');
+  const rating = getField(app, 'rating', '5.0');
+  const rawIcon = getField(app, 'icon_url') || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&fit=crop';
+  const icon = optimizeImageUrl(rawIcon, 160);
+  const isNew = app.is_new === true || (app.is_new && app.is_new.booleanValue === true);
+  const isHot = app.is_hot === true || (app.is_hot && app.is_hot.booleanValue === true);
+  const isTopItem = index < 6;
+
+  return `
+    <div class="relative group [content-visibility:auto] [contain-intrinsic-size:auto_84px]">
+      <a href="/app/${encodeURIComponent(slug)}" class="flex items-center gap-2.5 sm:gap-4 py-2.5 pl-2 pr-12 sm:pl-4 sm:pr-14 sm:py-3.5 mb-0 sm:mb-2 hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-200 rounded-xl sm:rounded-2xl relative active:bg-black/5 dark:active:bg-white/5 w-full text-left" title="${escapeHtml(name)} review and details">
+        <div class="w-5 sm:w-7 text-[15px] sm:text-[17px] font-black text-zinc-400 dark:text-zinc-500 text-center shrink-0">
+          ${index + 1}
+        </div>
+        <div class="relative w-[72px] h-[72px] sm:w-[84px] sm:h-[84px] shrink-0">
+          <div class="w-full h-full rounded-[18px] overflow-hidden bg-white shadow-sm border border-black/5 dark:border-white/10 relative z-10 transition-transform group-hover:-translate-y-0.5 duration-300">
+            <img src="${escapeHtml(icon)}" alt="${escapeHtml(name)} app icon" width="84" height="84" ${isTopItem ? 'loading="eager" fetchpriority="high"' : 'loading="lazy"'} decoding="async" class="w-full h-full object-cover" />
+          </div>
+          ${isHot ? `<div class="absolute -top-1.5 -right-2.5 z-20 pointer-events-none"><span class="bg-[#d32f2f] text-white text-[9px] sm:text-[10px] font-black px-2.5 py-0.5 rounded-[10px] shadow-sm uppercase tracking-wider block">HOT</span></div>` : ''}
+          ${!isHot && isNew ? `<div class="absolute -top-1.5 -right-2.5 z-20 pointer-events-none"><span class="bg-[#008738] text-white text-[9px] sm:text-[10px] font-black px-2.5 py-0.5 rounded-[10px] shadow-sm uppercase tracking-wider block">NEW</span></div>` : ''}
+        </div>
+        <div class="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
+          <h3 class="font-semibold text-base sm:text-[17px] tracking-tight text-zinc-900 dark:text-zinc-100 truncate w-full">${escapeHtml(name)}</h3>
+          <div class="text-xs sm:text-[13px] font-normal text-zinc-500 dark:text-zinc-400 truncate">${escapeHtml(category)}</div>
+          <div class="flex items-center gap-1 text-[11px] sm:text-xs font-semibold text-zinc-500 dark:text-zinc-400 mt-0.5">
+            <span>${escapeHtml(rating)}</span>
+            <span class="text-zinc-400">★</span>
+            <span class="text-blue-500 text-[11px] font-medium ml-1">Verified</span>
           </div>
         </div>
-        <span class="bg-black/5 dark:bg-white/10 text-zinc-900 dark:text-zinc-100 px-4 py-1 text-xs font-bold rounded-full select-none">DETAILS</span>
+        <div class="absolute bottom-0 right-4 left-[110px] sm:left-[138px] border-b border-black/5 dark:border-white/5 opacity-50"></div>
       </a>
-    `;
-  });
+    </div>
+  `;
+}
+
+export function renderHome(apps: any[], settings: any, news: any[], videos: any[]) {
+  const heroTitle = settings.hero_title_text || settings.site_title || 'RummyDex';
+  const heroSubtitle = settings.hero_title_subtitle || settings.meta_description || '';
+  
+  const sorted = [...apps].sort((a,b) => parseInt(getField(a, 'serial_number','999'), 10) - parseInt(getField(b, 'serial_number','999'), 10));
+  const appsHtml = sorted.slice(0, 30).map((app, i) => renderAppItemHtml(app, i)).join('');
 
   let newsHtml = '';
-  news.slice(0, 3).forEach(n => {
+  (news || []).slice(0, 3).forEach(n => {
     const title = getField(n, 'title');
     const logo = getField(n, 'logo_url');
     const optimizedLogo = logo ? optimizeImageUrl(logo, 160) : '';
@@ -146,77 +162,53 @@ export function renderHome(apps: any[], settings: any, news: any[], videos: any[
   });
 
   return `
-    <div>
-      <div class="text-center py-12 max-w-2xl mx-auto px-4">
-        <h1 class="text-4xl font-extrabold text-zinc-900 dark:text-white mb-4">${escapeHtml(siteTitle)}</h1>
-        <p class="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">${escapeHtml(desc)}</p>
-      </div>
-      <div class="grid lg:grid-cols-[2fr,1fr] gap-8">
-        <div class="bg-white dark:bg-zinc-900 p-6 rounded-[28px] border border-black/5 shadow-sm">
-          <h2 class="text-xl font-bold mb-4 px-2 text-left">Popular Applications</h2>
-          <div class="flex flex-col">${appsHtml}</div>
-        </div>
-        <div class="space-y-6">
-          <div class="bg-white dark:bg-zinc-900 p-6 rounded-[28px] border border-black/5 shadow-sm">
-            <h3 class="font-bold text-md mb-4 text-left">Latest News</h3>
-            <div class="flex flex-col gap-3">${newsHtml}</div>
-            <a href="/news" class="block text-xs font-bold text-blue-500 hover:underline mt-4 text-left">View All Updates →</a>
-          </div>
+    <div class="w-full select-none">
+      <div class="relative w-full overflow-hidden pt-4 pb-3 sm:pt-6 sm:pb-4 px-4">
+        <div class="max-w-4xl mx-auto flex flex-col items-center justify-center gap-1">
+          <h1 class="font-sans font-black tracking-tight text-center leading-none text-xl sm:text-2xl md:text-3.5xl bg-gradient-to-r from-zinc-950 via-zinc-800 to-zinc-900 bg-clip-text text-transparent dark:from-white dark:via-zinc-200 dark:to-zinc-300 block max-w-3xl">
+            ${escapeHtml(heroTitle)}
+          </h1>
+          ${heroSubtitle ? `<p class="text-[9px] sm:text-[10px] font-bold tracking-[0.18em] text-zinc-900/60 dark:text-zinc-100/60 uppercase max-w-2xl pt-0.5 leading-tight">${escapeHtml(heroSubtitle)}</p>` : ''}
+          <div class="h-[2px] w-12 rounded-full mt-1 bg-zinc-200 dark:bg-zinc-800"></div>
         </div>
       </div>
+
+      <div class="w-full max-w-7xl mx-auto px-2 sm:px-4 md:px-6 mt-2">
+        <div class="flex flex-col space-y-1 sm:space-y-2">
+          ${appsHtml}
+        </div>
+      </div>
+
+      ${newsHtml ? `
+        <div class="w-full max-w-7xl mx-auto px-2 sm:px-4 md:px-6 mt-10">
+          <h2 class="text-lg sm:text-xl font-bold mb-4 text-left text-zinc-900 dark:text-zinc-100">Latest Updates & News</h2>
+          <div class="grid sm:grid-cols-2 md:grid-cols-3 gap-3.5">${newsHtml}</div>
+        </div>
+      ` : ''}
     </div>
   `;
 }
 
 export function renderCategory(categoryName: string, categorySlug: string, categoryApps: any[], settings: any) {
   const siteTitle = getField(settings, 'site_title') || 'RummyDex';
-  const desc = getField(settings, 'meta_description') || '';
-  
-  let appsHtml = '';
   const sorted = [...categoryApps].sort((a,b) => parseInt(getField(a, 'serial_number','999'), 10) - parseInt(getField(b, 'serial_number','999'), 10));
-  
-  sorted.forEach((app, i) => {
-    const name = getField(app, 'name');
-    const slug = getField(app, 'slug');
-    const category = getField(app, 'category');
-    const rating = getField(app, 'rating', '5.0');
-    const rawIcon = getField(app, 'icon_url') || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&fit=crop';
-    const icon = optimizeImageUrl(rawIcon, 128);
-    const isNew = app.is_new === true || (app.is_new && app.is_new.booleanValue === true);
-    const isTopItem = i < 4;
-    
-    appsHtml += `
-      <a href="/app/${encodeURIComponent(slug)}" class="flex items-center gap-4 p-4 hover:bg-black/5 dark:hover:bg-white/5 rounded-2xl transition border-b border-black/5 dark:border-white/5 text-left" title="${escapeHtml(name)} review and details">
-        <span class="text-sm font-bold text-zinc-400 shrink-0 w-8 text-center">${i + 1}</span>
-        <img src="${escapeHtml(icon)}" ${isTopItem ? 'loading="eager" fetchpriority="high"' : 'loading="lazy"'} decoding="async" width="64" height="64" class="w-16 h-16 rounded-[18px] object-cover bg-white shadow-sm shrink-0" alt="${escapeHtml(name)} app icon"/>
-        <div class="flex-1 min-w-0">
-          <h3 class="font-bold text-base text-zinc-900 dark:text-zinc-100 truncate">${escapeHtml(name)}</h3>
-          <p class="text-xs text-zinc-500 truncate">${escapeHtml(category)}</p>
-          <div class="flex items-center gap-1.5 text-xs text-zinc-500 mt-1">
-            <span>${escapeHtml(rating)}</span><span class="text-amber-500 font-bold">★</span>
-            ${isNew ? `<span class="bg-blue-500/10 text-blue-600 text-[10px] font-bold px-1.5 py-0.5 rounded">NEW</span>` : ''}
-          </div>
-        </div>
-        <span class="bg-black/5 dark:bg-white/10 text-zinc-900 dark:text-zinc-100 px-4 py-1 text-xs font-bold rounded-full select-none">DETAILS</span>
-      </a>
-    `;
-  });
+  const appsHtml = sorted.map((app, i) => renderAppItemHtml(app, i)).join('');
 
   return `
-    <div class="max-w-4xl mx-auto py-6 px-2 sm:px-4">
-      <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 mb-6">
+    <div class="w-full max-w-7xl mx-auto py-6 px-2 sm:px-4 md:px-6">
+      <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 mb-6 text-left">
         <a href="/" class="hover:text-blue-600">Home</a>
         <span>/</span>
         <a href="/categories" class="hover:text-blue-600">Categories</a>
         <span>/</span>
         <span class="font-bold text-zinc-800 dark:text-zinc-200">${escapeHtml(categoryName)}</span>
       </nav>
-      <div class="text-center py-8 mb-6 bg-white dark:bg-zinc-900 rounded-[28px] border border-black/5 p-6 shadow-sm">
-        <h1 class="text-3xl sm:text-4xl font-extrabold text-zinc-900 dark:text-white mb-2">${escapeHtml(categoryName)} Apps & Reviews</h1>
-        <p class="text-sm text-zinc-500 dark:text-zinc-400 max-w-2xl mx-auto">Explore all ${categoryApps.length} verified ${escapeHtml(categoryName)} applications, ratings, download specifications, and reviews on ${escapeHtml(siteTitle)}.</p>
+      <div class="text-center py-6 mb-6">
+        <h1 class="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-white mb-2">${escapeHtml(categoryName)} Apps & Reviews</h1>
+        <p class="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 max-w-2xl mx-auto">Explore all ${categoryApps.length} verified ${escapeHtml(categoryName)} applications, ratings, download specifications, and reviews on ${escapeHtml(siteTitle)}.</p>
       </div>
-      <div class="bg-white dark:bg-zinc-900 p-6 rounded-[28px] border border-black/5 shadow-sm">
-        <div class="flex flex-col">${appsHtml || '<p class="text-center text-zinc-400 py-10">No applications listed under this category.</p>'}</div>
+      <div class="flex flex-col space-y-1 sm:space-y-2">
+        ${appsHtml || '<p class="text-center text-zinc-400 py-10">No applications listed under this category.</p>'}
       </div>
     </div>
   `;
@@ -224,47 +216,21 @@ export function renderCategory(categoryName: string, categorySlug: string, categ
 
 export function renderNewApps(newApps: any[], settings: any) {
   const siteTitle = getField(settings, 'site_title') || 'RummyDex';
-  
-  let appsHtml = '';
-  newApps.forEach((app, i) => {
-    const name = getField(app, 'name');
-    const slug = getField(app, 'slug');
-    const category = getField(app, 'category');
-    const rating = getField(app, 'rating', '5.0');
-    const rawIcon = getField(app, 'icon_url') || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&fit=crop';
-    const icon = optimizeImageUrl(rawIcon, 128);
-    const isTopItem = i < 4;
-    
-    appsHtml += `
-      <a href="/app/${encodeURIComponent(slug)}" class="flex items-center gap-4 p-4 hover:bg-black/5 dark:hover:bg-white/5 rounded-2xl transition border-b border-black/5 dark:border-white/5 text-left" title="${escapeHtml(name)} review and details">
-        <span class="text-sm font-bold text-zinc-400 shrink-0 w-8 text-center">${i + 1}</span>
-        <img src="${escapeHtml(icon)}" ${isTopItem ? 'loading="eager" fetchpriority="high"' : 'loading="lazy"'} decoding="async" width="64" height="64" class="w-16 h-16 rounded-[18px] object-cover bg-white shadow-sm shrink-0" alt="${escapeHtml(name)} app icon"/>
-        <div class="flex-1 min-w-0">
-          <h3 class="font-bold text-base text-zinc-900 dark:text-zinc-100 truncate">${escapeHtml(name)}</h3>
-          <p class="text-xs text-zinc-500 truncate">${escapeHtml(category)}</p>
-          <div class="flex items-center gap-1.5 text-xs text-zinc-500 mt-1">
-            <span>${escapeHtml(rating)}</span><span class="text-amber-500 font-bold">★</span>
-            <span class="bg-blue-500/10 text-blue-600 text-[10px] font-bold px-1.5 py-0.5 rounded">NEW</span>
-          </div>
-        </div>
-        <span class="bg-black/5 dark:bg-white/10 text-zinc-900 dark:text-zinc-100 px-4 py-1 text-xs font-bold rounded-full select-none">DETAILS</span>
-      </a>
-    `;
-  });
+  const appsHtml = newApps.map((app, i) => renderAppItemHtml(app, i)).join('');
 
   return `
-    <div class="max-w-4xl mx-auto py-6 px-2 sm:px-4">
-      <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 mb-6">
+    <div class="w-full max-w-7xl mx-auto py-6 px-2 sm:px-4 md:px-6">
+      <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 mb-6 text-left">
         <a href="/" class="hover:text-blue-600">Home</a>
         <span>/</span>
         <span class="font-bold text-zinc-800 dark:text-zinc-200">New Apps</span>
       </nav>
-      <div class="text-center py-8 mb-6 bg-white dark:bg-zinc-900 rounded-[28px] border border-black/5 p-6 shadow-sm">
-        <h1 class="text-3xl sm:text-4xl font-extrabold text-zinc-900 dark:text-white mb-2">Newly Added & Updated Applications</h1>
-        <p class="text-sm text-zinc-500 dark:text-zinc-400 max-w-2xl mx-auto">Discover the latest verified card, arcade, and gaming applications added to ${escapeHtml(siteTitle)}.</p>
+      <div class="text-center py-6 mb-6">
+        <h1 class="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-white mb-2">Newly Added Applications</h1>
+        <p class="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 max-w-2xl mx-auto">Discover the latest game releases, new apps, and updates on ${escapeHtml(siteTitle)}.</p>
       </div>
-      <div class="bg-white dark:bg-zinc-900 p-6 rounded-[28px] border border-black/5 shadow-sm">
-        <div class="flex flex-col">${appsHtml || '<p class="text-center text-zinc-400 py-10">No new applications available.</p>'}</div>
+      <div class="flex flex-col space-y-1 sm:space-y-2">
+        ${appsHtml || '<p class="text-center text-zinc-400 py-10">No newly added applications found.</p>'}
       </div>
     </div>
   `;
@@ -314,6 +280,8 @@ export function renderAppDetails(slug: string, apps: any[], settings: any, sampl
   const version = getField(app, 'version', 'Latest');
   const size = getField(app, 'file_size', 'Variable');
   const cleanId = String(getField(app, 'id')).toLowerCase().trim();
+  const developerName = getField(app, 'developer', 'Developer');
+  const isNew = app.is_new === true || (app.is_new && app.is_new.booleanValue === true);
 
   // Unified single source of truth for SEO ratings & counts
   const catStats = (communityCatalogStats as any)?.appCounts || {};
@@ -339,58 +307,126 @@ export function renderAppDetails(slug: string, apps: any[], settings: any, sampl
   const rating = finalRating.toFixed(1);
   const rawIcon = getField(app, 'icon_url') || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&fit=crop';
   const icon = optimizeImageUrl(rawIcon, 256);
-  const desc = app.description_html ? sanitizeHtml(app.description_html) : `<p>No comprehensive details are configured yet for ${escapeHtml(name)}.</p>`;
+  const desc = app.description_html ? sanitizeHtml(app.description_html) : `<p>Comprehensive application profile and details for <strong>${escapeHtml(name)}</strong>.</p>`;
   const features = app.features_html ? sanitizeHtml(app.features_html) : '';
-  const featureSectionContext = features ? `<div class="mt-8 pt-6 border-t border-zinc-200/80 dark:border-zinc-800/80"><h2 class="text-lg font-bold mb-4 text-zinc-900 dark:text-zinc-100">Key Features & Highlights</h2><div class="prose dark:prose-invert text-zinc-700 dark:text-zinc-300 leading-relaxed">${features}</div></div>` : '';
   const pkg = getField(app, 'package_name', 'Verified Listing');
 
   // Breadcrumbs
   const mainCat = cat.split(',')[0].trim();
   const catSlug = encodeURIComponent(mainCat.toLowerCase().replace(/\s+/g, '-'));
 
-  // Safety & Notice Callouts
+  // Safety & Notice Callouts (1:1 with AppSafetyBoxes.tsx)
   let alertsHtml = '';
-  if (app.red_box_msg) {
-    alertsHtml += `
-      <div class="mb-4 p-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-2xl text-left text-xs sm:text-sm text-red-800 dark:text-red-300">
-        <strong class="font-bold block mb-1">Safety Advisory:</strong>
-        <p>${escapeHtml(app.red_box_msg)}</p>
-      </div>
-    `;
-  }
-  if (app.yellow_box_msg) {
-    alertsHtml += `
-      <div class="mb-4 p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-2xl text-left text-xs sm:text-sm text-amber-800 dark:text-amber-300">
-        <strong class="font-bold block mb-1">Important Notice:</strong>
-        <p>${escapeHtml(app.yellow_box_msg)}</p>
-      </div>
-    `;
-  }
-  if (app.idea_box_msg) {
-    alertsHtml += `
-      <div class="mb-4 p-4 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 rounded-2xl text-left text-xs sm:text-sm text-blue-800 dark:text-blue-300">
-        <strong class="font-bold block mb-1">Tips & Strategy:</strong>
-        <p>${escapeHtml(app.idea_box_msg)}</p>
-      </div>
-    `;
-  }
-  if (app.custom_admin_box_html) {
-    alertsHtml += `
-      <div class="mb-4 p-4 bg-zinc-50 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-left text-xs sm:text-sm text-zinc-800 dark:text-zinc-200">
-        ${app.custom_admin_box_heading ? `<strong class="font-bold block mb-1 text-zinc-900 dark:text-zinc-100">${escapeHtml(app.custom_admin_box_heading)}</strong>` : ''}
-        <div>${sanitizeHtml(app.custom_admin_box_html)}</div>
+  const hasRed = app.red_box_msg && app.red_box_msg.trim() !== '.' && app.red_box_msg.trim() !== '';
+  const hasYellow = app.yellow_box_msg && app.yellow_box_msg.trim() !== '.' && app.yellow_box_msg.trim() !== '';
+  const hasIdea = app.idea_box_msg && app.idea_box_msg.trim() !== '.' && app.idea_box_msg.trim() !== '';
+
+  if (hasRed || hasYellow || hasIdea) {
+    alertsHtml = `
+      <div class="px-1 sm:px-4 md:px-6 space-y-3 mb-8 w-full">
+        ${hasRed ? `
+          <div class="bg-rose-50/50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 p-4 rounded-2xl flex items-start gap-4 shadow-sm group text-left">
+            <div class="p-2 bg-rose-100 dark:bg-rose-500/20 rounded-xl text-rose-600 shrink-0">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </div>
+            <div class="text-sm font-medium text-rose-800 dark:text-rose-200 leading-relaxed pt-0.5">
+              ${escapeHtml(app.red_box_msg)}
+            </div>
+          </div>
+        ` : ''}
+        ${hasYellow ? `
+          <div class="bg-orange-50/50 dark:bg-orange-500/10 border border-orange-100 dark:border-orange-500/20 p-4 rounded-2xl flex items-start gap-4 shadow-sm group text-left">
+            <div class="p-2 bg-orange-100 dark:bg-orange-500/20 rounded-xl text-orange-600 shrink-0">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            </div>
+            <div class="text-sm font-medium text-orange-800 dark:text-orange-200 leading-relaxed pt-0.5">
+              ${escapeHtml(app.yellow_box_msg)}
+            </div>
+          </div>
+        ` : ''}
+        ${hasIdea ? `
+          <div class="bg-blue-50/50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 p-4 rounded-2xl flex items-start gap-4 shadow-sm group text-left">
+            <div class="p-2 bg-blue-100 dark:bg-blue-500/20 rounded-xl text-blue-600 shrink-0">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+            </div>
+            <div class="text-sm font-medium text-blue-800 dark:text-blue-200 leading-relaxed pt-0.5">
+              ${escapeHtml(app.idea_box_msg)}
+            </div>
+          </div>
+        ` : ''}
       </div>
     `;
   }
 
-  // Release Notes / What's New
-  let releaseNotesHtml = '';
-  if (app.release_notes) {
-    releaseNotesHtml = `
-      <div class="mt-8 pt-6 border-t border-zinc-200/80 dark:border-zinc-800/80 text-left">
-        <h2 class="text-lg font-bold mb-3 text-zinc-900 dark:text-zinc-100">What's New in Version ${escapeHtml(version)}</h2>
-        <div class="p-4 bg-zinc-50 dark:bg-zinc-850 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-line leading-relaxed">
-          ${escapeHtml(app.release_notes)}
+  // Similar / Recommended Applications (1:1 with lines 480-527 of AppDetails.tsx)
+  let recommendedAppsHtml = '';
+  const appCategory = getField(app, 'category', '');
+  const specificCats = appCategory
+    ? appCategory.toLowerCase().split(',').map((c: string) => c.trim()).filter((c: string) => c && c !== 'all apps' && c !== 'all' && c !== 'apps' && c !== 'general')
+    : [];
+
+  let similarApps = apps.filter((a: any) => {
+    if (getField(a, 'slug').toLowerCase() === cleanSlug) return false;
+    const simCat = getField(a, 'category', '').toLowerCase();
+    const simSpecificCats = simCat.split(',').map((c: string) => c.trim()).filter((c: string) => c && c !== 'all apps' && c !== 'all' && c !== 'apps' && c !== 'general');
+    return specificCats.some((sc: string) => simSpecificCats.includes(sc) || simSpecificCats.some((asc: string) => asc.includes(sc) || sc.includes(asc)));
+  });
+
+  if (similarApps.length < 3) {
+    const matchedSlugs = new Set(similarApps.map((a: any) => getField(a, 'slug').toLowerCase()));
+    const remaining = apps.filter((a: any) => getField(a, 'slug').toLowerCase() !== cleanSlug && !matchedSlugs.has(getField(a, 'slug').toLowerCase()));
+    similarApps = [...similarApps, ...remaining];
+  }
+  similarApps = similarApps.slice(0, 10);
+
+  if (similarApps.length > 0) {
+    recommendedAppsHtml = `
+      <section aria-labelledby="related-apps-heading" class="my-6 px-0">
+        <div class="flex items-center justify-between mb-3 px-1 sm:px-4 md:px-6">
+          <h2 id="related-apps-heading" class="text-lg sm:text-xl font-bold flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
+            <span>Similar Applications</span>
+            ${mainCat && mainCat !== 'All Apps' ? `
+              <span class="text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2.5 py-0.5 rounded-full border border-blue-200/50 dark:border-blue-800/50">
+                ${escapeHtml(mainCat)}
+              </span>
+            ` : ''}
+          </h2>
+          <a href="/?tab=${encodeURIComponent(mainCat)}" class="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1 transition-colors group" title="Explore all ${escapeHtml(mainCat)} apps">
+            <span>View all (${similarApps.length})</span>
+            <span class="inline-block transition-transform group-hover:translate-x-0.5">&rarr;</span>
+          </a>
+        </div>
+        <div class="grid grid-rows-2 grid-flow-col gap-x-6 gap-y-6 overflow-x-auto pb-4 snap-x snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden -mx-4 px-4 sm:mx-0 sm:px-0">
+          ${similarApps.map((sim, index) => {
+            const simName = getField(sim, 'name');
+            const simSlug = getField(sim, 'slug');
+            const simIcon = optimizeImageUrl(getField(sim, 'icon_url') || '', 200);
+            return `
+              <a href="/app/${encodeURIComponent(simSlug)}" class="flex flex-col items-center justify-start gap-2 w-[92px] sm:w-[110px] snap-start group text-left">
+                <img src="${escapeHtml(simIcon)}" alt="${escapeHtml(simName)}" width="100" height="100" decoding="async" class="w-[88px] h-[88px] sm:w-[100px] sm:h-[100px] rounded-[24%] shadow-[0_2px_8px_rgba(0,0,0,0.08)] object-cover" loading="${index < 4 ? 'eager' : 'lazy'}" />
+                <span class="text-[11px] sm:text-[13px] font-semibold text-center text-zinc-800 dark:text-zinc-200 line-clamp-2 w-full px-0.5 leading-tight">${escapeHtml(simName)}</span>
+              </a>
+            `;
+          }).join('')}
+        </div>
+      </section>
+    `;
+  }
+
+  // Screenshots Gallery (1:1 with AppScreenshots.tsx portrait 9/16)
+  let screenshotsHtml = '';
+  if (app.screenshots && Array.isArray(app.screenshots) && app.screenshots.length > 0) {
+    screenshotsHtml = `
+      <div class="w-full mb-6">
+        <div class="flex overflow-x-auto hide-scrollbar gap-3 px-4 sm:px-0 pb-3 snap-x items-center -mx-4 sm:-mx-0">
+          ${app.screenshots.map((s: string, idx: number) => {
+            const shotUrl = optimizeImageUrl(s, 400);
+            return `
+              <div class="flex-none w-[150px] sm:w-[220px] aspect-[9/16] rounded-xl overflow-hidden snap-center bg-zinc-100 dark:bg-zinc-800 shadow-sm border border-black/5 dark:border-white/10">
+                <img src="${escapeHtml(shotUrl)}" loading="${idx === 0 ? 'eager' : 'lazy'}" decoding="async" class="w-full h-full object-cover select-none pointer-events-none" alt="${escapeHtml(name)} screenshot ${idx + 1} - gameplay preview"/>
+              </div>
+            `;
+          }).join('')}
         </div>
       </div>
     `;
@@ -402,21 +438,24 @@ export function renderAppDetails(slug: string, apps: any[], settings: any, sampl
     const validFaqs = app.faqs.filter((f: any) => f && f.question && f.answer);
     if (validFaqs.length > 0) {
       faqsHtml = `
-        <div class="mt-8 pt-6 border-t border-zinc-200/80 dark:border-zinc-800/80 text-left">
-          <h2 class="text-lg font-bold mb-4 text-zinc-900 dark:text-zinc-100">Frequently Asked Questions</h2>
-          <div class="space-y-3">
-            ${validFaqs.map((f: any) => `
-              <div class="p-4 bg-zinc-50 dark:bg-zinc-850 rounded-2xl border border-zinc-200/80 dark:border-zinc-800">
-                <h3 class="font-bold text-sm text-zinc-900 dark:text-zinc-100 mb-1.5">${escapeHtml(f.question)}</h3>
-                <p class="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">${escapeHtml(f.answer)}</p>
-              </div>
-            `).join('')}
+        <div class="w-full my-4 px-0 sm:px-2 text-left">
+          <div class="bg-slate-50/90 dark:bg-zinc-900/80 border border-black/5 dark:border-white/5 rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-xs">
+            <h2 class="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-4">Frequently Asked Questions</h2>
+            <div class="space-y-3">
+              ${validFaqs.map((f: any) => `
+                <div class="p-3.5 bg-white/70 dark:bg-zinc-950/60 rounded-xl border border-black/5 dark:border-white/5">
+                  <h3 class="font-bold text-sm text-zinc-900 dark:text-zinc-100 mb-1">${escapeHtml(f.question)}</h3>
+                  <p class="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">${escapeHtml(f.answer)}</p>
+                </div>
+              `).join('')}
+            </div>
           </div>
         </div>
       `;
     }
   }
 
+  // Reviews Cards
   let reviewsCards = '';
   if (Array.isArray(sampleReviews) && sampleReviews.length > 0) {
     reviewsCards = sampleReviews
@@ -428,7 +467,7 @@ export function renderAppDetails(slug: string, apps: any[], settings: any, sampl
         const text = escapeHtml(r.reviewText || '');
         const dateStr = r.timestamp ? new Date(r.timestamp).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Verified User';
         return `
-          <div class="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-850 border border-zinc-200/80 dark:border-zinc-800 space-y-2 text-left">
+          <div class="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900/50 border border-black/5 dark:border-white/10 space-y-2 text-left">
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2">
                 <div class="w-8 h-8 rounded-full bg-blue-600/10 dark:bg-blue-400/10 text-blue-600 dark:text-blue-400 font-bold flex items-center justify-center text-xs">
@@ -448,7 +487,7 @@ export function renderAppDetails(slug: string, apps: any[], settings: any, sampl
   }
 
   const reviewsSectionHtml = `
-    <div class="mt-8 border-t border-zinc-200/80 dark:border-zinc-800/80 pt-6 text-left">
+    <div class="border-t border-black/5 dark:border-white/5 pt-6 text-left">
       <div class="flex items-center justify-between mb-4">
         <div>
           <h2 class="text-lg sm:text-xl font-bold text-zinc-900 dark:text-zinc-100">Ratings & Reviews</h2>
@@ -463,137 +502,164 @@ export function renderAppDetails(slug: string, apps: any[], settings: any, sampl
     </div>
   `;
 
-  let screenshotsHtml = '';
-  if (app.screenshots && Array.isArray(app.screenshots) && app.screenshots.length > 0) {
-    screenshotsHtml = `
-      <div class="mt-8 border-t border-zinc-200/80 dark:border-zinc-800/80 pt-6">
-        <h2 class="text-lg font-bold mb-4 text-zinc-900 dark:text-zinc-100">Application Screenshots</h2>
-        <div class="flex gap-4 overflow-x-auto pb-4 scrollbar-thin">
-          ${app.screenshots.map((s: string, idx: number) => {
-            const shotUrl = optimizeImageUrl(s, 600);
-            return `<img src="${escapeHtml(shotUrl)}" loading="lazy" decoding="async" width="280" height="160" class="w-64 h-36 rounded-2xl object-cover border border-zinc-200 dark:border-zinc-800 shrink-0 shadow-xs" alt="${escapeHtml(name)} screenshot ${idx + 1}"/>`;
-          }).join('')}
-        </div>
-      </div>
-    `;
-  }
-
-  let recommendedAppsHtml = '';
-  const appCategory = getField(app, 'category', '');
-  const specificCats = appCategory
-    ? appCategory.toLowerCase().split(',').map((c: string) => c.trim()).filter((c: string) => c && c !== 'all apps' && c !== 'all' && c !== 'apps' && c !== 'general')
-    : [];
-
-  let similarApps = apps.filter((a: any) => {
-    if (getField(a, 'slug').toLowerCase() === cleanSlug) return false;
-    const simCat = getField(a, 'category', '').toLowerCase();
-    const simSpecificCats = simCat.split(',').map((c: string) => c.trim()).filter((c: string) => c && c !== 'all apps' && c !== 'all' && c !== 'apps' && c !== 'general');
-    return specificCats.some((sc: string) => simSpecificCats.includes(sc) || simSpecificCats.some((asc: string) => asc.includes(sc) || sc.includes(asc)));
-  });
-
-  if (similarApps.length < 3) {
-    const matchedSlugs = new Set(similarApps.map((a: any) => getField(a, 'slug').toLowerCase()));
-    const remaining = apps.filter((a: any) => getField(a, 'slug').toLowerCase() !== cleanSlug && !matchedSlugs.has(getField(a, 'slug').toLowerCase()));
-    similarApps = [...similarApps, ...remaining];
-  }
-  similarApps = similarApps.slice(0, 6);
-
-  if (similarApps.length > 0) {
-    recommendedAppsHtml = `
-      <div class="mt-10 border-t border-zinc-200/80 dark:border-zinc-800/80 pt-8 text-left">
-        <h2 class="text-xl font-bold mb-4 text-zinc-900 dark:text-zinc-100">Similar & Recommended Applications</h2>
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
-          ${similarApps.map(sim => {
-            const simName = getField(sim, 'name');
-            const simSlug = getField(sim, 'slug');
-            const simIcon = optimizeImageUrl(getField(sim, 'icon_url') || '', 128);
-            const simRating = getField(sim, 'rating', '4.8');
-            const simCat = getField(sim, 'category', 'Card Game');
-            return `
-              <a href="/app/${encodeURIComponent(simSlug)}" class="flex items-center gap-3 p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 hover:border-blue-500/50 transition shadow-2xs">
-                <img src="${escapeHtml(simIcon)}" loading="lazy" decoding="async" width="48" height="48" class="w-12 h-12 rounded-xl object-cover border border-zinc-100 dark:border-zinc-800 shrink-0" alt="${escapeHtml(simName)} app icon"/>
-                <div class="flex-1 min-w-0">
-                  <h3 class="font-bold text-sm text-zinc-900 dark:text-zinc-100 truncate">${escapeHtml(simName)}</h3>
-                  <div class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                    <span class="font-bold text-amber-500">★ ${escapeHtml(simRating)}</span>
-                    <span>•</span>
-                    <span class="truncate">${escapeHtml(simCat)}</span>
-                  </div>
-                </div>
-              </a>
-            `;
-          }).join('')}
-        </div>
-      </div>
-    `;
-  }
-
   return `
-    <div class="w-full max-w-5xl mx-auto py-4 sm:py-6 px-1 sm:px-4">
-      <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 mb-6 text-left">
-        <a href="/" class="hover:text-blue-600">Home</a>
-        <span>/</span>
-        <a href="/category/${catSlug}" class="hover:text-blue-600">${escapeHtml(mainCat)}</a>
-        <span>/</span>
-        <span class="font-bold text-zinc-800 dark:text-zinc-200">${escapeHtml(name)}</span>
-      </nav>
-
-      <div class="flex flex-col items-center text-center pb-8 border-b border-zinc-200/80 dark:border-zinc-800/80 mb-8">
-        <img src="${escapeHtml(icon)}" loading="eager" decoding="async" width="128" height="128" class="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl object-cover mb-4 shadow-md border border-zinc-200/60 dark:border-zinc-700/60" alt="${escapeHtml(name)} icon"/>
-        <h1 class="text-2xl sm:text-4xl font-extrabold text-zinc-900 dark:text-zinc-100 leading-tight mb-2.5">${escapeHtml(name)}</h1>
-        <div class="flex flex-wrap justify-center gap-2 text-xs font-semibold mb-6">
-          <span class="bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/50 px-3 py-1 rounded-full">${escapeHtml(cat)}</span>
-          <span class="bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/50 px-3 py-1 rounded-full">Verified Safety</span>
-        </div>
-        
-        <div class="grid grid-cols-4 gap-2.5 w-full max-w-md mb-6 text-center text-xs">
-          <div class="p-2.5 border border-zinc-200/80 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-850 rounded-xl shadow-2xs">
-            <span class="text-zinc-500 dark:text-zinc-400 block pb-0.5 font-medium text-[11px]">Version</span>
-            <strong class="text-zinc-900 dark:text-zinc-100 font-bold">${escapeHtml(version)}</strong>
+    <div class="w-full max-w-7xl mx-auto px-2 sm:px-4 md:px-6 py-4">
+      <!-- Breadcrumb & Top Bar -->
+      <div class="flex items-center justify-between gap-3 px-1 sm:px-4 md:px-6 mb-4">
+        <a href="/" class="inline-flex items-center gap-2 text-sm font-medium text-blue-500 hover:text-blue-600 transition-colors group shrink-0">
+          <div class="p-1.5 rounded-full bg-blue-50 dark:bg-blue-900/20 group-hover:-translate-x-1 transition-transform">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
           </div>
-          <div class="p-2.5 border border-zinc-200/80 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-850 rounded-xl shadow-2xs">
-            <span class="text-zinc-500 dark:text-zinc-400 block pb-0.5 font-medium text-[11px]">Size</span>
-            <strong class="text-zinc-900 dark:text-zinc-100 font-bold">${escapeHtml(size)}</strong>
-          </div>
-          <div class="p-2.5 border border-zinc-200/80 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-850 rounded-xl shadow-2xs">
-            <span class="text-zinc-500 dark:text-zinc-400 block pb-0.5 font-medium text-[11px]">Type</span>
-            <strong class="text-zinc-900 dark:text-zinc-100 font-bold truncate block">${escapeHtml(cat.split(',')[0])}</strong>
-          </div>
-          <div class="p-2.5 border border-zinc-200/80 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-850 rounded-xl shadow-2xs">
-            <span class="text-zinc-500 dark:text-zinc-400 block pb-0.5 font-medium text-[11px]">Rating</span>
-            <strong class="text-amber-600 dark:text-amber-400 font-bold">${escapeHtml(rating)} ★</strong>
-          </div>
-        </div>
-
-        <button type="button" class="w-full sm:w-auto min-w-[200px] justify-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-8 rounded-xl shadow-md transition inline-flex items-center gap-2 text-sm tracking-wide cursor-pointer">Download &rarr;</button>
+          <span>Back to storefront</span>
+        </a>
+        <a href="/news?q=${encodeURIComponent(name)}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-zinc-700 dark:text-zinc-200 bg-zinc-100 hover:bg-zinc-200/90 dark:bg-zinc-800/80 border border-black/5 dark:border-white/10 transition-all shadow-xs shrink-0" title="Read latest news and updates for ${escapeHtml(name)}">
+          <span>News</span>
+        </a>
       </div>
 
+      <!-- App Hero Header (1:1 with AppHeader.tsx) -->
+      <div class="flex w-full items-center gap-3.5 sm:gap-6 mb-5 px-1 sm:px-4 md:px-6 mt-2 text-left">
+        <div class="relative w-[72px] h-[72px] sm:w-[96px] sm:h-[96px] shrink-0">
+          <div class="w-full h-full rounded-[20px] overflow-hidden shadow-sm bg-white border border-black/5 dark:border-white/10 relative z-10">
+            <img src="${escapeHtml(icon)}" alt="${escapeHtml(name)} app icon" loading="eager" fetchpriority="high" decoding="async" width="128" height="128" class="w-full h-full object-cover" />
+          </div>
+        </div>
+        <div class="flex flex-col justify-center flex-1 min-w-0">
+          <h1 class="text-2xl sm:text-3xl md:text-4xl font-black sm:font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100 leading-snug sm:leading-tight mb-1 break-words">
+            ${escapeHtml(name)}
+          </h1>
+          <div class="text-sm font-medium text-blue-600 dark:text-blue-400 mb-1">
+            ${escapeHtml(developerName)}
+          </div>
+          <div class="text-[10px] sm:text-[11px] text-zinc-500 dark:text-zinc-400 flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
+            ${isNew ? `<span class="bg-blue-500/10 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded-sm uppercase font-bold tracking-wider">New</span>` : ''}
+            <span class="text-emerald-600 font-medium">Verified</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Specs Metric Bar (1:1 with AppSpecsBar.tsx) -->
+      <div class="w-full grid grid-cols-4 py-4 mb-6 border-y border-zinc-100 dark:border-zinc-800/50 bg-zinc-50/10 dark:bg-zinc-900/10">
+        <div class="flex flex-col items-center justify-center px-2 text-center">
+          <div class="flex items-center gap-0.5 font-extrabold text-sm sm:text-base text-zinc-900 dark:text-zinc-100">
+            <span>${escapeHtml(rating)}</span>
+            <span class="text-orange-500">★</span>
+          </div>
+          <div class="text-[10px] sm:text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mt-1">Rating</div>
+        </div>
+        <div class="flex flex-col items-center justify-center px-2 text-center border-l border-zinc-200 dark:border-zinc-800/80">
+          <div class="font-extrabold text-sm sm:text-base text-zinc-900 dark:text-zinc-100">${escapeHtml(size)}</div>
+          <div class="text-[10px] sm:text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mt-1">Size</div>
+        </div>
+        <div class="flex flex-col items-center justify-center px-2 text-center border-l border-zinc-200 dark:border-zinc-800/80">
+          <a href="/?tab=${encodeURIComponent(mainCat)}" class="font-extrabold text-xs sm:text-sm text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2.5 py-0.5 rounded-full leading-none truncate max-w-full">${escapeHtml(mainCat)}</a>
+          <div class="text-[10px] sm:text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mt-1.5">Type</div>
+        </div>
+        <div class="flex flex-col items-center justify-center px-2 text-center border-l border-zinc-200 dark:border-zinc-800/80">
+          <div class="font-extrabold text-sm sm:text-base text-zinc-900 dark:text-zinc-100">${escapeHtml(version)}</div>
+          <div class="text-[10px] sm:text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mt-1">Version</div>
+        </div>
+      </div>
+
+      <!-- Action Buttons (1:1 with AppActionButtons.tsx) -->
+      <div class="flex flex-col sm:flex-row w-full justify-center items-center gap-3 select-none mb-5 px-1 sm:px-4 md:px-6">
+        <div class="w-full sm:flex-1">
+          <a href="/moreinfo/${encodeURIComponent(cleanSlug)}" class="w-full premium-action-btn cursor-pointer text-white !text-white font-bold py-2.5 px-5 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all text-sm shadow-md h-[44px]">
+            <span class="flex items-center gap-1.5 font-bold text-white !text-white">
+              <span>Download</span>
+              <span>&rarr;</span>
+            </span>
+          </a>
+        </div>
+        <div class="flex w-full gap-3 sm:w-auto shrink-0">
+          <div class="flex-1 sm:w-auto sm:min-w-[130px] sm:max-w-[150px]">
+            <button type="button" class="w-full bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-semibold py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 text-sm border border-black/5 dark:border-white/5 shadow-sm h-[44px]">Share app</button>
+          </div>
+          <div class="flex-1 sm:w-auto sm:min-w-[130px] sm:max-w-[150px]">
+            <button type="button" class="w-full bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 font-semibold py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 text-sm border border-rose-200/40 dark:border-rose-900/40 shadow-xs h-[44px]">Flag app</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Similar Applications (Placed directly below action buttons, 1:1 with AppDetails.tsx) -->
+      ${recommendedAppsHtml}
+
+      <!-- Screenshots Gallery (1:1 with AppScreenshots.tsx) -->
+      ${screenshotsHtml}
+
+      <!-- App Overview & About Section (1:1 with AppAboutSection.tsx) -->
+      <section aria-labelledby="app-overview-heading" class="w-full my-3 px-0 sm:px-2 text-left">
+        <div class="bg-slate-50/90 dark:bg-zinc-900/80 border border-black/5 dark:border-white/5 rounded-xl sm:rounded-2xl overflow-hidden shadow-xs">
+          <!-- Header Bar -->
+          <div class="w-full p-3.5 sm:p-5 flex items-center justify-between text-left select-none border-b border-black/5 dark:border-white/5">
+            <div class="flex items-center gap-2.5 sm:gap-3 flex-1 pr-2 sm:pr-3">
+              <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                <svg class="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+              </div>
+              <div>
+                <h2 id="app-overview-heading" class="text-xs sm:text-base font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
+                  About this app
+                </h2>
+                <p class="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                  Overview & features
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Content Body -->
+          <div class="p-3.5 sm:p-6 space-y-6 sm:space-y-8 bg-white/50 dark:bg-zinc-950/40">
+            ${app.custom_admin_box_html ? `
+              <div class="bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-800/40 rounded-xl p-3.5 sm:p-5 shadow-xs">
+                ${app.custom_admin_box_heading ? `<h3 class="text-sm sm:text-base font-bold mb-2 text-amber-900 dark:text-amber-200">${escapeHtml(app.custom_admin_box_heading)}</h3>` : ''}
+                <div class="w-full text-sm sm:text-base text-zinc-700 dark:text-zinc-300 leading-relaxed">${sanitizeHtml(app.custom_admin_box_html)}</div>
+              </div>
+            ` : ''}
+
+            <!-- Main Description -->
+            <div>
+              <div class="w-full text-sm sm:text-base text-zinc-700 dark:text-zinc-300 leading-relaxed space-y-3">
+                ${desc}
+              </div>
+            </div>
+
+            <!-- Key Features -->
+            ${features ? `
+              <div class="pt-5 sm:pt-6 border-t border-black/5 dark:border-white/5">
+                <h3 class="text-xs sm:text-sm font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-2 sm:mb-3">
+                  Key App Features
+                </h3>
+                <div class="w-full text-sm sm:text-base text-zinc-700 dark:text-zinc-300 leading-relaxed space-y-2">
+                  ${features}
+                </div>
+              </div>
+            ` : ''}
+
+            <!-- Release Notes -->
+            ${app.release_notes ? `
+              <div class="pt-5 sm:pt-6 border-t border-black/5 dark:border-white/5">
+                <h3 class="text-xs sm:text-sm font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-2 sm:mb-3">
+                  What's New in Version ${escapeHtml(version)}
+                </h3>
+                <div class="bg-slate-50 dark:bg-zinc-900 rounded-xl p-3.5 sm:p-4 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap border border-black/5 dark:border-white/5">
+                  ${escapeHtml(app.release_notes)}
+                </div>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+      </section>
+
+      <!-- App Safety & Security Highlight Notices (1:1 with AppSafetyBoxes.tsx) -->
       ${alertsHtml}
 
-      <div class="grid md:grid-cols-[2fr,1fr] gap-6 sm:gap-8">
-        <div class="bg-white dark:bg-zinc-900 p-5 sm:p-7 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 shadow-2xs text-left">
-          <h2 class="text-lg sm:text-xl font-bold mb-4 text-zinc-900 dark:text-zinc-100">About this application</h2>
-          <div class="prose dark:prose-invert text-zinc-700 dark:text-zinc-300 leading-relaxed text-sm sm:text-base space-y-3">${desc}</div>
-          ${featureSectionContext}
-          ${releaseNotesHtml}
-          ${faqsHtml}
-          ${screenshotsHtml}
-        </div>
-        <div class="bg-white dark:bg-zinc-900 p-5 sm:p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 shadow-2xs h-fit text-left">
-          <h3 class="text-xs font-bold mb-4 uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Technical Specifications</h3>
-          <table class="w-full text-xs text-left">
-            <tr class="border-b border-zinc-100 dark:border-zinc-800/80"><td class="py-2.5 text-zinc-500 dark:text-zinc-400 font-medium">Developer</td><td class="py-2.5 font-bold text-right text-zinc-900 dark:text-zinc-100">Store Verified</td></tr>
-            <tr class="border-b border-zinc-100 dark:border-zinc-800/80"><td class="py-2.5 text-zinc-500 dark:text-zinc-400 font-medium">Rating</td><td class="py-2.5 font-bold text-right text-amber-600 dark:text-amber-400">${escapeHtml(rating)} ★ (${escapeHtml(String(ratingCountVal))} reviews)</td></tr>
-            <tr class="border-b border-zinc-100 dark:border-zinc-800/80"><td class="py-2.5 text-zinc-500 dark:text-zinc-400 font-medium">Package Name</td><td class="py-2.5 font-bold text-right text-zinc-900 dark:text-zinc-100 truncate max-w-[140px]">${escapeHtml(pkg)}</td></tr>
-            <tr class="border-b border-zinc-100 dark:border-zinc-800/80"><td class="py-2.5 text-zinc-500 dark:text-zinc-400 font-medium">Safety Status</td><td class="py-2.5 font-bold text-right text-emerald-600 dark:text-emerald-400">Safe & Certified</td></tr>
-            <tr><td class="py-2.5 text-zinc-500 dark:text-zinc-400 font-medium">Compatibility</td><td class="py-2.5 font-bold text-right text-zinc-900 dark:text-zinc-100">Android 6.0+ / iOS</td></tr>
-          </table>
-        </div>
+      <!-- FAQs -->
+      ${faqsHtml}
+
+      <!-- Verified Peer Ratings & Reviews Section (1:1 with ReviewScoreSummary & ReviewItem) -->
+      <div class="px-1 sm:px-4 md:px-6 mb-8">
+        ${reviewsSectionHtml}
       </div>
-
-      ${reviewsSectionHtml}
-
-      ${recommendedAppsHtml}
     </div>
   `;
 }
