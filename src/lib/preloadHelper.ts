@@ -1,18 +1,11 @@
-import { lazyWithRetry } from './lazyWithRetry';
+import AppDetails from '../pages/AppDetails';
 
-export const AppDetails = lazyWithRetry(() => import('../pages/AppDetails'));
+export { AppDetails };
 
 const prefetchedSlugs = new Set<string>();
-let isComponentPrefetched = false;
 
 export const preloadAppDetails = (slug?: string | any) => {
-  // 1. Only prefetch component chunk on explicit user interaction (hover/focus/touch)
-  if (!isComponentPrefetched && typeof window !== 'undefined') {
-    isComponentPrefetched = true;
-    import('../pages/AppDetails').catch(() => {});
-  }
-
-  // 2. Prefetch the specific app rich data payload only if a valid slug is provided
+  // Prefetch the specific app rich data payload only if a valid slug is provided
   if (slug && typeof slug === 'string' && !prefetchedSlugs.has(slug)) {
     prefetchedSlugs.add(slug);
     const url = `/api/v1/public/app/${encodeURIComponent(slug)}`;

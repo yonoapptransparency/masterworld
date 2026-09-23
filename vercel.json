@@ -1,5 +1,7 @@
 {
   "version": 2,
+  "cleanUrls": true,
+  "trailingSlash": false,
   "outputDirectory": "dist",
   "buildCommand": "npm run build",
   "rewrites": [
@@ -17,6 +19,15 @@
     }
   ],
   "headers": [
+    {
+      "source": "/(app|news|category|categories|videos|about|contact|privacy|terms|responsibility|notice|ethics|disclaimer|report-removal|new-apps|developers)(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=300, s-maxage=86400, stale-while-revalidate=604800"
+        }
+      ]
+    },
     {
       "source": "/(.*)",
       "headers": [

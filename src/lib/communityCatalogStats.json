@@ -1,12 +1,18 @@
 {
-  "success": true,
-  "globalStats": {
-    "total": 411,
-    "published": 411,
-    "pending": 0,
-    "rejected": 0,
-    "flagged": 0,
-    "averageRating": 4.3
+  "totalReviews": 200,
+  "publishedReviews": 200,
+  "pendingReviews": 0,
+  "rejectedReviews": 0,
+  "flaggedReviews": 0,
+  "totalReports": 0,
+  "pendingReports": 0,
+  "averageRating": 4.4,
+  "ratingDistribution": {
+    "1": 0,
+    "2": 0,
+    "3": 26,
+    "4": 75,
+    "5": 99
   },
   "appCounts": {
     "1": {
@@ -145,12 +151,12 @@
       }
     },
     "yh9toduxk": {
-      "total": 147,
-      "published": 147,
+      "total": 17,
+      "published": 17,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
-      "avgRating": 4.3,
+      "avgRating": 4.8,
       "starCounts": {
         "1": 0,
         "2": 0,
@@ -460,18 +466,18 @@
       }
     },
     "e1qcs5ik7": {
-      "total": 51,
-      "published": 51,
+      "total": 20,
+      "published": 20,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
       "avgRating": 4.3,
       "starCounts": {
         "1": 0,
-        "2": 1,
-        "3": 9,
-        "4": 15,
-        "5": 26
+        "2": 0,
+        "3": 5,
+        "4": 5,
+        "5": 10
       }
     },
     "s4oc5m16b": {
@@ -487,36 +493,6 @@
         "3": 0,
         "4": 7,
         "5": 5
-      }
-    },
-    "spin-crush": {
-      "total": 147,
-      "published": 147,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
-      "avgRating": 4.3,
-      "starCounts": {
-        "1": 0,
-        "2": 5,
-        "3": 16,
-        "4": 54,
-        "5": 72
-      }
-    },
-    "gold-rummy": {
-      "total": 34,
-      "published": 34,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
-      "avgRating": 4.1,
-      "starCounts": {
-        "1": 0,
-        "2": 1,
-        "3": 7,
-        "4": 15,
-        "5": 11
       }
     },
     "love-rummy": {
@@ -582,6 +558,14 @@
       "rejected": 0,
       "flagged": 0,
       "avgRating": 4.3
+    },
+    "spin-crush": {
+      "total": 17,
+      "published": 17,
+      "pending": 0,
+      "rejected": 0,
+      "flagged": 0,
+      "avgRating": 4.8
     },
     "bingo-101": {
       "total": 1,
@@ -736,8 +720,8 @@
       "avgRating": 4.6
     },
     "joy-rummy": {
-      "total": 51,
-      "published": 51,
+      "total": 20,
+      "published": 20,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
@@ -750,14 +734,6 @@
       "rejected": 0,
       "flagged": 0,
       "avgRating": 4.4
-    },
-    "0w7b3vc4p": {
-      "total": 34,
-      "published": 34,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
-      "avgRating": 4.1
     },
     "love rummy": {
       "total": 6,
@@ -960,20 +936,20 @@
       "avgRating": 4.3
     },
     "spin crush": {
-      "total": 147,
-      "published": 147,
+      "total": 17,
+      "published": 17,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
-      "avgRating": 4.3
+      "avgRating": 4.8
     },
     "bingo": {
-      "total": 147,
-      "published": 147,
+      "total": 17,
+      "published": 17,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
-      "avgRating": 4.3
+      "avgRating": 4.8
     },
     "bingo 101": {
       "total": 1,
@@ -1392,24 +1368,24 @@
       "avgRating": 4.6
     },
     "joy rummy": {
-      "total": 51,
-      "published": 51,
+      "total": 20,
+      "published": 20,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
       "avgRating": 4.3
     },
     "pixel card studios": {
-      "total": 51,
-      "published": 51,
+      "total": 20,
+      "published": 20,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
       "avgRating": 4.3
     },
     "pixel-card-studios": {
-      "total": 51,
-      "published": 51,
+      "total": 20,
+      "published": 20,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
@@ -1438,30 +1414,7 @@
       "rejected": 0,
       "flagged": 0,
       "avgRating": 4.4
-    },
-    "gold rummy": {
-      "total": 34,
-      "published": 34,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
-      "avgRating": 4.1
-    },
-    "moonfrog labs": {
-      "total": 34,
-      "published": 34,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
-      "avgRating": 4.1
-    },
-    "moonfrog-labs": {
-      "total": 34,
-      "published": 34,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
-      "avgRating": 4.1
     }
-  }
+  },
+  "updated_at": "2026-09-21T18:53:50.881Z"
 }
