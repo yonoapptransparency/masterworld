@@ -140,7 +140,7 @@ export default defineConfig(({mode}) => {
       minify: 'esbuild',
       sourcemap: false,
       cssCodeSplit: true,
-      modulePreload: false,
+      modulePreload: true,
       rollupOptions: {
         output: {
           manualChunks(id) {
@@ -154,12 +154,12 @@ export default defineConfig(({mode}) => {
               }
               // Group core app runtime together so browser executes in 1 parallel network request
               if (
-                /\bnode_modules\/(react|react-dom|scheduler|react-router|@remix-run|lucide-react|i18next|react-i18next)\//.test(id)
+                /\bnode_modules\/(react|react-dom|scheduler|react-router|@remix-run)\//.test(id)
               ) {
                 return 'vendor-core';
               }
             }
-            }
+          }
         }
       }
     },

@@ -372,6 +372,8 @@ export function useLiveAppStats(appId: string, appSlug?: string, fallbackRating:
     if (isCrawler) return;
 
     let isMounted = true;
+    let idleTimer: any = null;
+
     const fetchFresh = async () => {
       try {
         const queryTarget = cleanId || cleanSlug;
@@ -384,7 +386,13 @@ export function useLiveAppStats(appId: string, appSlug?: string, fallbackRating:
         }
       } catch (_) {}
     };
-    fetchFresh();
+
+    // Defer stats background query so initial page paint, images, and user clicks have 0ms competition
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      idleTimer = (window as any).requestIdleCallback(() => fetchFresh(), { timeout: 4000 });
+    } else {
+      idleTimer = setTimeout(fetchFresh, 2000);
+    }
 
     // 3. Listen for immediate local updates
     const handleUpdate = (e: any) => {
@@ -424,6 +432,13 @@ export function useLiveAppStats(appId: string, appSlug?: string, fallbackRating:
     window.addEventListener('community-reviews-updated', handleReviewsUpdated);
     return () => {
       isMounted = false;
+      if (idleTimer) {
+        if (typeof window !== 'undefined' && 'cancelIdleCallback' in window) {
+          (window as any).cancelIdleCallback(idleTimer);
+        } else {
+          clearTimeout(idleTimer);
+        }
+      }
       window.removeEventListener('community-review-added', handleUpdate);
       window.removeEventListener('community-reviews-updated', handleReviewsUpdated);
     };

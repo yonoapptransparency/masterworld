@@ -96,6 +96,19 @@ async function startServer() {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
 
+  // Agentic Browsing & ARD (Agent Resource Discovery) endpoints
+  const serveAiCatalog = (req: express.Request, res: express.Response) => {
+    const catalogPath = path.join(process.cwd(), 'public', 'ai-catalog.json');
+    if (fs.existsSync(catalogPath)) {
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return res.sendFile(catalogPath);
+    }
+    res.status(404).json({ error: 'ai-catalog not found' });
+  };
+  app.get('/ai-catalog.json', serveAiCatalog);
+  app.get('/.well-known/ai-catalog.json', serveAiCatalog);
+
   // Mount API & SEO Routes
   app.use(seoRouter);
   app.use(adminAuthRouter);
