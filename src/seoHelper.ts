@@ -1260,6 +1260,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     <link data-rh="true" rel="icon" type="image/png" sizes="16x16" href="${favicon16}">
     <link data-rh="true" rel="apple-touch-icon" sizes="180x180" href="${favicon180}">
     <link data-rh="true" rel="manifest" href="/site.webmanifest">
+    ${targetApp && getField(targetApp, 'icon_url') ? `<link rel="preload" as="image" href="${escapeHtml(optimizeImageUrl(getField(targetApp, 'icon_url'), 200))}" fetchpriority="high">` : ''}
     ${jsonLdSchema}
   `;
 
@@ -1268,7 +1269,11 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   const isAdminRoute = cleanPathLower.startsWith('/admin');
 
   if (data && !isAdminRoute) {
+    const isAppDetailPage = cleanPathLower.startsWith('/app/');
     const targetAppSlug = targetApp ? getField(targetApp, 'slug')?.toLowerCase() : null;
+    const targetAppId = targetApp ? String(getField(targetApp, 'id') || '').trim() : '';
+    const targetAppName = targetApp ? String(getField(targetApp, 'name') || '').toLowerCase().trim() : '';
+
     const optimizedApps = Array.isArray(data.apps) ? data.apps.map((app: any) => {
       const sanitizedApp = { ...app };
       delete sanitizedApp.more_information_url;
@@ -1278,6 +1283,21 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
 
       const isTarget = targetAppSlug && getField(app, 'slug')?.toLowerCase() === targetAppSlug;
       if (isTarget) return sanitizedApp;
+
+      // On app detail page, prune non-target apps to lightweight stubs for high-speed crawler and user rendering
+      if (isAppDetailPage) {
+        return {
+          id: sanitizedApp.id,
+          name: sanitizedApp.name,
+          slug: sanitizedApp.slug,
+          icon_url: sanitizedApp.icon_url,
+          category: sanitizedApp.category,
+          rating: sanitizedApp.rating,
+          file_size: sanitizedApp.file_size,
+          version: sanitizedApp.version
+        };
+      }
+
       return {
         id: sanitizedApp.id,
         name: sanitizedApp.name,
@@ -1311,7 +1331,16 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     }) : [];
 
     const optimizedNews = (Array.isArray(data.news) ? data.news : [])
-      .filter((item: any) => item && item.sync_to_public !== false)
+      .filter((item: any) => {
+        if (!item || item.sync_to_public === false) return false;
+        if (isAppDetailPage && targetApp) {
+          const relId = String(item.related_app_id || '').trim();
+          const matchesRel = targetAppId && relId === targetAppId;
+          const matchesName = targetAppName && (item.title || '').toLowerCase().includes(targetAppName);
+          return matchesRel || matchesName;
+        }
+        return true;
+      })
       .map((item: any) => ({
         id: item.id,
         slug: item.slug,
@@ -1319,8 +1348,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
         logo_url: item.logo_url || item.image_url || '',
         image_url: item.image_url || item.logo_url || '',
         description: item.description || '',
-        content: item.content || item.description_html || '',
-        description_html: item.description_html || item.content || '',
+        content: isAppDetailPage ? '' : (item.content || item.description_html || ''),
+        description_html: isAppDetailPage ? '' : (item.description_html || item.content || ''),
         ceo_name: item.ceo_name || item.author || 'Admin Team',
         ceo_description: item.ceo_description || 'Transparency & Security Analyst',
         author: item.author || item.ceo_name || 'Admin Team',
@@ -1345,7 +1374,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
         sync_to_public: true
       }));
 
-    const optimizedVideos = Array.isArray(data.videos) ? data.videos.map((item: any) => {
+    const optimizedVideos = isAppDetailPage ? [] : (Array.isArray(data.videos) ? data.videos.map((item: any) => {
       const isTarget = targetVideo && (getField(item, 'slug') || getField(item, 'id'))?.toLowerCase() === (getField(targetVideo, 'slug') || getField(targetVideo, 'id'))?.toLowerCase();
       if (isTarget) return item;
       return {
@@ -1361,7 +1390,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
         duration: item.duration,
         category: item.category
       };
-    }) : [];
+    }) : []);
 
     const optimizedSettings = data.settings ? { ...data.settings } : {};
     

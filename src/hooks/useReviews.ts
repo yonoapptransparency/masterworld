@@ -367,7 +367,10 @@ export function useLiveAppStats(appId: string, appSlug?: string, fallbackRating:
       });
     }
 
-    // 2. Query live stats endpoint asynchronously to catch any new reviews since build
+    // 2. Query live stats endpoint asynchronously to catch any new reviews since build (crawlers skip to keep request pipeline clear)
+    const isCrawler = typeof navigator !== 'undefined' && /googlebot|google-inspectiontool|bingbot|slurp|duckduckbot|baiduspider|yandexbot|crawler|spider/i.test(navigator.userAgent || '');
+    if (isCrawler) return;
+
     let isMounted = true;
     const fetchFresh = async () => {
       try {
