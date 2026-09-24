@@ -1,8 +1,8 @@
 {
   "success": true,
   "globalStats": {
-    "total": 485,
-    "published": 485,
+    "total": 316,
+    "published": 316,
     "pending": 0,
     "rejected": 0,
     "flagged": 0,
@@ -139,18 +139,18 @@
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 1,
-        "4": 1,
-        "5": 2
+        "3": 4,
+        "4": 13,
+        "5": 15
       }
     },
     "yh9toduxk": {
-      "total": 147,
-      "published": 147,
+      "total": 50,
+      "published": 50,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
-      "avgRating": 4.3,
+      "avgRating": 4.4,
       "starCounts": {
         "1": 0,
         "2": 1,
@@ -504,51 +504,6 @@
         "5": 0
       }
     },
-    "yn-777": {
-      "total": 18,
-      "published": 18,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
-      "avgRating": 4.3,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 2,
-        "4": 8,
-        "5": 8
-      }
-    },
-    "yono-arcade": {
-      "total": 32,
-      "published": 32,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
-      "avgRating": 4.3,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 4,
-        "4": 13,
-        "5": 15
-      }
-    },
-    "spin-crush": {
-      "total": 147,
-      "published": 147,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
-      "avgRating": 4.3,
-      "starCounts": {
-        "1": 0,
-        "2": 5,
-        "3": 16,
-        "4": 54,
-        "5": 72
-      }
-    },
     "love-rummy": {
       "total": 6,
       "published": 6,
@@ -605,6 +560,22 @@
       "flagged": 0,
       "avgRating": 4
     },
+    "yono-arcade": {
+      "total": 32,
+      "published": 32,
+      "pending": 0,
+      "rejected": 0,
+      "flagged": 0,
+      "avgRating": 4.3
+    },
+    "spin-crush": {
+      "total": 50,
+      "published": 50,
+      "pending": 0,
+      "rejected": 0,
+      "flagged": 0,
+      "avgRating": 4.4
+    },
     "bingo-101": {
       "total": 1,
       "published": 1,
@@ -636,6 +607,14 @@
       "rejected": 0,
       "flagged": 0,
       "avgRating": 4
+    },
+    "yn-777": {
+      "total": 18,
+      "published": 18,
+      "pending": 0,
+      "rejected": 0,
+      "flagged": 0,
+      "avgRating": 4.3
     },
     "sun-nxt": {
       "total": 2,
@@ -958,20 +937,20 @@
       "avgRating": 4.3
     },
     "spin crush": {
-      "total": 147,
-      "published": 147,
+      "total": 50,
+      "published": 50,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
-      "avgRating": 4.3
+      "avgRating": 4.4
     },
     "bingo": {
-      "total": 147,
-      "published": 147,
+      "total": 50,
+      "published": 50,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
-      "avgRating": 4.3
+      "avgRating": 4.4
     },
     "bingo 101": {
       "total": 1,
