@@ -377,7 +377,7 @@ export function renderAppDetails(slug: string, apps: any[], settings: any, sampl
     const remaining = apps.filter((a: any) => getField(a, 'slug').toLowerCase() !== cleanSlug && !matchedSlugs.has(getField(a, 'slug').toLowerCase()));
     similarApps = [...similarApps, ...remaining];
   }
-  similarApps = similarApps.slice(0, 10);
+  similarApps = similarApps.slice(0, 12);
 
   if (similarApps.length > 0) {
     recommendedAppsHtml = `
@@ -573,10 +573,10 @@ export function renderAppDetails(slug: string, apps: any[], settings: any, sampl
         </div>
         <div class="flex w-full gap-3 sm:w-auto shrink-0">
           <div class="flex-1 sm:w-auto sm:min-w-[130px] sm:max-w-[150px]">
-            <button type="button" class="w-full bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-semibold py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 text-sm border border-black/5 dark:border-white/5 shadow-sm h-[44px]">Share app</button>
+            <button type="button" data-action="share" class="w-full bg-zinc-100 hover:bg-zinc-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-700/80 text-zinc-900 dark:text-zinc-100 font-semibold py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 text-sm border border-black/5 dark:border-white/5 shadow-sm h-[44px] cursor-pointer transition-colors">Share app</button>
           </div>
           <div class="flex-1 sm:w-auto sm:min-w-[130px] sm:max-w-[150px]">
-            <button type="button" class="w-full bg-rose-50 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 font-semibold py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 text-sm border border-rose-200/40 dark:border-rose-900/40 shadow-xs h-[44px]">Flag app</button>
+            <button type="button" data-action="flag" class="w-full bg-rose-50 hover:bg-rose-100/80 dark:bg-rose-950/20 dark:hover:bg-rose-900/30 text-rose-600 dark:text-rose-400 font-semibold py-2.5 px-3 rounded-xl flex items-center justify-center gap-1.5 text-sm border border-rose-200/40 dark:border-rose-900/40 shadow-xs h-[44px] cursor-pointer transition-colors">Flag app</button>
           </div>
         </div>
       </div>

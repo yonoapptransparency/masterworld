@@ -1268,6 +1268,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   const isAdminRoute = cleanPathLower.startsWith('/admin');
 
   if (data && !isAdminRoute) {
+    const isHomePage = cleanPathLower === '/';
     const targetAppSlug = targetApp ? getField(targetApp, 'slug')?.toLowerCase() : null;
     const optimizedApps = Array.isArray(data.apps) ? data.apps.map((app: any) => {
       const sanitizedApp = { ...app };
@@ -1278,6 +1279,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
 
       const isTarget = targetAppSlug && getField(app, 'slug')?.toLowerCase() === targetAppSlug;
       if (isTarget) return sanitizedApp;
+
+      // On home page and listing views, strip unused metadata from non-target apps to keep HTML payload ultra-lightweight
       return {
         id: sanitizedApp.id,
         name: sanitizedApp.name,
@@ -1286,11 +1289,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
         category: sanitizedApp.category,
         rating: sanitizedApp.rating,
         review_count: sanitizedApp.review_count,
-        reviews: sanitizedApp.reviews,
         developer: sanitizedApp.developer,
-        version: sanitizedApp.version,
         file_size: sanitizedApp.file_size,
-        short_description: sanitizedApp.short_description,
         is_featured: sanitizedApp.is_featured,
         is_new: sanitizedApp.is_new,
         is_hot: sanitizedApp.is_hot,
@@ -1299,14 +1299,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
         safety_status: sanitizedApp.safety_status,
         is_coming_soon: sanitizedApp.is_coming_soon,
         publish_date: sanitizedApp.publish_date,
-        updated_at: sanitizedApp.updated_at,
         serial_number: sanitizedApp.serial_number,
-        seo_title: sanitizedApp.seo_title,
-        seo_description: sanitizedApp.seo_description,
-        seo_keywords: sanitizedApp.seo_keywords,
-        meta_description: sanitizedApp.meta_description,
-        og_image_url: sanitizedApp.og_image_url,
-        canonical_url: sanitizedApp.canonical_url
+        seo_keywords: sanitizedApp.seo_keywords || ''
       };
     }) : [];
 
@@ -1437,23 +1431,106 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     .replace(/<script\s+type=["']application\/ld\+json["'][^>]*>[\s\S]*?<\/script>/gi, '')
     .replace(/<script>window\.__INITIAL_DATA__[\s\S]*?<\/script>/gi, '');
 
-  // Inject dynamic SEO tags, styles & initial data script cleanly into <head>
-  if (finalHtml.includes('</head>')) {
-    finalHtml = finalHtml.replace('</head>', `${seoTags}\n${initialDataScript}\n</head>`);
-  } else {
-    finalHtml = `${seoTags}\n${initialDataScript}\n${finalHtml}`;
-  }
+  const isAppPage = pageType === 'app';
 
-  // Serve rich semantic SSR markup directly inside #root for ALL visitors.
-  // Search engine crawlers (Googlebot, Bing, Ahrefs) parse 100% of the content immediately.
-  // Human browser users get instant First Contentful Paint (<50ms) with zero white screen.
-  // When client JavaScript executes, React mounts smoothly with zero delay.
-  const rootContent = preRenderedBody;
+  if (isAppPage) {
+    // Pure Zero-Heavy-JS App Detail Page:
+    // Strip heavy JavaScript bundles and modulepreloads completely so browser loads pure static HTML in <20ms
+    finalHtml = finalHtml
+      .replace(/<script\s+type=["']module["'][^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<link\s+[^>]*rel=["']modulepreload["'][^>]*\/?>/gi, '');
 
-  if (finalHtml.includes('<div id="root"></div>')) {
-    finalHtml = finalHtml.replace('<div id="root"></div>', `<div id="root">${rootContent}</div>`);
+    const targetAppIcon = targetApp ? optimizeImageUrl(getField(targetApp, 'icon_url') || '', 256) : '';
+    const preloadTag = targetAppIcon ? `<link rel="preload" as="image" href="${escapeHtml(targetAppIcon)}" fetchpriority="high">\n` : '';
+
+    // Inject dynamic SEO tags (title, meta, OpenGraph, Schema.org JSON-LD, icon preload) into <head> without heavy __INITIAL_DATA__
+    if (finalHtml.includes('</head>')) {
+      finalHtml = finalHtml.replace('</head>', `${preloadTag}${seoTags}\n</head>`);
+    } else {
+      finalHtml = `${preloadTag}${seoTags}\n${finalHtml}`;
+    }
+
+    // Both humans and crawlers see 100% IDENTICAL pre-rendered content directly inside #root
+    if (finalHtml.includes('<div id="root"></div>')) {
+      finalHtml = finalHtml.replace('<div id="root"></div>', `<div id="root">${preRenderedBody}</div>`);
+    } else {
+      finalHtml = finalHtml.replace(/<div\s+id="root"[^>]*>[\s\S]*?<\/div>/i, `<div id="root">${preRenderedBody}</div>`);
+    }
+
+    // Super lightweight inline micro-script (<1KB) for dark mode theme sync and instant action buttons (share, flag)
+    const appMicroScript = `
+    <script>
+      (function() {
+        try {
+          var theme = localStorage.getItem('theme');
+          if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+        } catch(e){}
+      })();
+
+      document.addEventListener('click', function(e) {
+        var shareBtn = e.target.closest('[data-action="share"]');
+        if (shareBtn) {
+          e.preventDefault();
+          if (navigator.share) {
+            navigator.share({ title: document.title, url: window.location.href }).catch(function(){});
+          } else if (navigator.clipboard) {
+            navigator.clipboard.writeText(window.location.href).then(function() {
+              var prevText = shareBtn.textContent;
+              shareBtn.textContent = 'Link Copied!';
+              setTimeout(function() { shareBtn.textContent = prevText; }, 2000);
+            });
+          }
+          return;
+        }
+
+        var flagBtn = e.target.closest('[data-action="flag"]');
+        if (flagBtn) {
+          e.preventDefault();
+          var h1 = document.querySelector('h1');
+          var appName = h1 ? h1.textContent.trim() : '';
+          window.location.href = '/report-removal?app=' + encodeURIComponent(appName);
+          return;
+        }
+      });
+    </script>
+    `;
+
+    if (finalHtml.includes('</body>')) {
+      finalHtml = finalHtml.replace('</body>', `${appMicroScript}\n</body>`);
+    } else {
+      finalHtml = `${finalHtml}\n${appMicroScript}`;
+    }
   } else {
-    finalHtml = finalHtml.replace(/<div\s+id="root"[^>]*>[\s\S]*?<\/div>/i, `<div id="root">${rootContent}</div>`);
+    // Non-app pages (Home, News, Categories, etc.) keep their dynamic scripts & initial data
+    if (finalHtml.includes('</head>')) {
+      finalHtml = finalHtml.replace('</head>', `${seoTags}\n${initialDataScript}\n</head>`);
+    } else {
+      finalHtml = `${seoTags}\n${initialDataScript}\n${finalHtml}`;
+    }
+
+    const isBotCrawler = Boolean(
+      userAgent &&
+      /googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|sogou|exabot|facebot|facebookexternalhit|ia_archiver|semrushbot|ahrefsbot|mj12bot|dotbot|bytespider|applebot|gptbot|chatgpt-user|claudebot|perplexitybot|ccbot|petalbot|criteobot|bot|crawler|spider|scraper|headlesschrome/i.test(userAgent)
+    );
+
+    if (isBotCrawler) {
+      if (finalHtml.includes('<div id="root"></div>')) {
+        finalHtml = finalHtml.replace('<div id="root"></div>', `<div id="root">${preRenderedBody}</div>`);
+      } else {
+        finalHtml = finalHtml.replace(/<div\s+id="root"[^>]*>[\s\S]*?<\/div>/i, `<div id="root">${preRenderedBody}</div>`);
+      }
+    } else {
+      const noscriptContent = `<noscript id="crawler-content">${preRenderedBody}</noscript>`;
+      if (finalHtml.includes('<div id="root"></div>')) {
+        finalHtml = finalHtml.replace('<div id="root"></div>', `<div id="root"></div>\n${noscriptContent}`);
+      } else {
+        finalHtml = finalHtml.replace(/<div\s+id="root"[^>]*>[\s\S]*?<\/div>/i, `<div id="root"></div>\n${noscriptContent}`);
+      }
+    }
   }
 
   return { html: finalHtml, isNotFound, canonicalUrl, pageType, title, description };

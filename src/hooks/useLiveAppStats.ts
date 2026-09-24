@@ -8,8 +8,11 @@ export function useLiveAppStats(
   fallbackRating: number = 4.8, 
   fallbackTotal: number = 0
 ) {
+  const cleanId = String(appId || '').trim();
+  const cleanSlug = String(appSlug || '').trim();
+
   const [stats, setStats] = useState<any>(() => {
-    const cached = getCachedLiveAppStats(String(appId), String(appSlug));
+    const cached = getCachedLiveAppStats(cleanId, cleanSlug);
     if (cached) return cached;
     if (fallbackTotal > 0 || fallbackRating > 0) {
       const starCounts = generateNaturalStarDistribution(fallbackRating, fallbackTotal);
@@ -24,21 +27,16 @@ export function useLiveAppStats(
   });
 
   useEffect(() => {
-    const cleanId = String(appId || '').trim();
-    const cleanSlug = String(appSlug || '').trim();
     if (!cleanId && !cleanSlug) return;
 
-    // 1. Synchronously update if stats are already available in cache or catalog
+    // 1. Conditionally sync with cache if stats differ
     const immediate = getCachedLiveAppStats(cleanId, cleanSlug);
     if (immediate) {
-      setStats(immediate);
-    } else if (fallbackTotal > 0 || fallbackRating > 0) {
-      const starCounts = generateNaturalStarDistribution(fallbackRating, fallbackTotal);
-      setStats({
-        averageRating: fallbackRating,
-        totalReviews: fallbackTotal,
-        starCounts,
-        distribution: starCounts
+      setStats((prev: any) => {
+        if (prev && prev.totalReviews === immediate.totalReviews && prev.averageRating === immediate.averageRating) {
+          return prev;
+        }
+        return immediate;
       });
     }
 
@@ -51,7 +49,12 @@ export function useLiveAppStats(
         if (res.ok) {
           const data = await res.json();
           if (isMounted && data?.stats) {
-            setStats(data.stats);
+            setStats((prev: any) => {
+              if (prev && prev.totalReviews === data.stats.totalReviews && prev.averageRating === data.stats.averageRating) {
+                return prev;
+              }
+              return data.stats;
+            });
           }
         }
       } catch (_) {}
@@ -99,7 +102,7 @@ export function useLiveAppStats(
       window.removeEventListener('community-review-added', handleUpdate);
       window.removeEventListener('community-reviews-updated', handleReviewsUpdated);
     };
-  }, [appId, appSlug, fallbackRating]);
+  }, [cleanId, cleanSlug, fallbackRating, fallbackTotal]);
 
   return stats;
 }
