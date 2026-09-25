@@ -4,6 +4,7 @@
   "trailingSlash": false,
   "outputDirectory": "dist",
   "buildCommand": "npm run build",
+  "regions": ["bom1"],
   "rewrites": [
     {
       "source": "/public/backup-data",
@@ -23,6 +24,19 @@
     }
   ],
   "headers": [
+    {
+      "source": "/api/ping",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, no-cache, must-revalidate, max-age=0"
+        },
+        {
+          "key": "Pragma",
+          "value": "no-cache"
+        }
+      ]
+    },
     {
       "source": "/moreinfo/(.*)",
       "headers": [
@@ -173,8 +187,15 @@
     }
   ],
   "functions": {
+    "api/index.js": {
+      "includeFiles": "src/lib/*.json",
+      "regions": ["bom1"],
+      "maxDuration": 15
+    },
     "api/**/*": {
-      "includeFiles": "src/lib/*.json"
+      "includeFiles": "src/lib/*.json",
+      "regions": ["bom1"],
+      "maxDuration": 15
     }
   }
 }

@@ -96,6 +96,14 @@ async function startServer() {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
 
+  // Ultra-lightweight keep-warm ping endpoint (0 database hits, keeps serverless microVM hot 24/7)
+  app.get("/api/ping", (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.json({ status: "pong", region: "bom1", timestamp: new Date().toISOString() });
+  });
+
   // Agentic Browsing & ARD (Agent Resource Discovery) endpoints
   const serveAiCatalog = (req: express.Request, res: express.Response) => {
     const catalogPath = path.join(process.cwd(), 'public', 'ai-catalog.json');
