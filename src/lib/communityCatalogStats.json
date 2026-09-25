@@ -1,18 +1,12 @@
 {
-  "totalReviews": 200,
-  "publishedReviews": 200,
-  "pendingReviews": 0,
-  "rejectedReviews": 0,
-  "flaggedReviews": 0,
-  "totalReports": 0,
-  "pendingReports": 0,
-  "averageRating": 4.4,
-  "ratingDistribution": {
-    "1": 0,
-    "2": 0,
-    "3": 26,
-    "4": 75,
-    "5": 99
+  "success": true,
+  "globalStats": {
+    "total": 316,
+    "published": 316,
+    "pending": 0,
+    "rejected": 0,
+    "flagged": 0,
+    "averageRating": 4.3
   },
   "appCounts": {
     "1": {
@@ -76,18 +70,18 @@
       }
     },
     "h68oygebw": {
-      "total": 5,
-      "published": 5,
+      "total": 25,
+      "published": 25,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
-        "2": 0,
-        "3": 1,
-        "4": 3,
-        "5": 1
+        "2": 1,
+        "3": 7,
+        "4": 9,
+        "5": 8
       }
     },
     "fuma9mbmc": {
@@ -136,8 +130,8 @@
       }
     },
     "l7e8oyo9m": {
-      "total": 4,
-      "published": 4,
+      "total": 32,
+      "published": 32,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
@@ -145,24 +139,24 @@
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 1,
-        "4": 1,
-        "5": 2
+        "3": 4,
+        "4": 13,
+        "5": 15
       }
     },
     "yh9toduxk": {
-      "total": 17,
-      "published": 17,
+      "total": 50,
+      "published": 50,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
-      "avgRating": 4.8,
+      "avgRating": 4.4,
       "starCounts": {
         "1": 0,
-        "2": 0,
-        "3": 1,
-        "4": 1,
-        "5": 15
+        "2": 1,
+        "3": 5,
+        "4": 17,
+        "5": 27
       }
     },
     "jr5xf2b1s": {
@@ -256,8 +250,8 @@
       }
     },
     "kd22lrkf7": {
-      "total": 15,
-      "published": 15,
+      "total": 18,
+      "published": 18,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
@@ -266,8 +260,8 @@
         "1": 0,
         "2": 0,
         "3": 2,
-        "4": 6,
-        "5": 7
+        "4": 8,
+        "5": 8
       }
     },
     "ucqwvnxf9": {
@@ -436,8 +430,8 @@
       }
     },
     "f0sqh5al8": {
-      "total": 10,
-      "published": 10,
+      "total": 12,
+      "published": 12,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
@@ -446,7 +440,7 @@
         "1": 0,
         "2": 0,
         "3": 2,
-        "4": 3,
+        "4": 5,
         "5": 5
       }
     },
@@ -466,18 +460,18 @@
       }
     },
     "e1qcs5ik7": {
-      "total": 20,
-      "published": 20,
+      "total": 50,
+      "published": 50,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
       "avgRating": 4.3,
       "starCounts": {
         "1": 0,
-        "2": 0,
-        "3": 5,
-        "4": 5,
-        "5": 10
+        "2": 1,
+        "3": 8,
+        "4": 15,
+        "5": 26
       }
     },
     "s4oc5m16b": {
@@ -493,6 +487,21 @@
         "3": 0,
         "4": 7,
         "5": 5
+      }
+    },
+    "jaiho-arcade": {
+      "total": 6,
+      "published": 6,
+      "pending": 0,
+      "rejected": 0,
+      "flagged": 0,
+      "avgRating": 4,
+      "starCounts": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 1,
+        "5": 0
       }
     },
     "love-rummy": {
@@ -520,8 +529,8 @@
       "avgRating": 4.5
     },
     "win-rummy": {
-      "total": 5,
-      "published": 5,
+      "total": 25,
+      "published": 25,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
@@ -552,20 +561,20 @@
       "avgRating": 4
     },
     "yono-arcade": {
-      "total": 4,
-      "published": 4,
+      "total": 32,
+      "published": 32,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
       "avgRating": 4.3
     },
     "spin-crush": {
-      "total": 17,
-      "published": 17,
+      "total": 50,
+      "published": 50,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
-      "avgRating": 4.8
+      "avgRating": 4.4
     },
     "bingo-101": {
       "total": 1,
@@ -582,14 +591,6 @@
       "rejected": 0,
       "flagged": 0,
       "avgRating": 4.3
-    },
-    "jaiho-arcade": {
-      "total": 6,
-      "published": 6,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
-      "avgRating": 4
     },
     "hoichoi": {
       "total": 6,
@@ -608,8 +609,8 @@
       "avgRating": 4
     },
     "yn-777": {
-      "total": 15,
-      "published": 15,
+      "total": 18,
+      "published": 18,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
@@ -704,8 +705,8 @@
       "avgRating": 4
     },
     "spin-101": {
-      "total": 10,
-      "published": 10,
+      "total": 12,
+      "published": 12,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
@@ -720,8 +721,8 @@
       "avgRating": 4.6
     },
     "joy-rummy": {
-      "total": 20,
-      "published": 20,
+      "total": 50,
+      "published": 50,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
@@ -824,24 +825,24 @@
       "avgRating": 4.5
     },
     "win rummy": {
-      "total": 5,
-      "published": 5,
+      "total": 25,
+      "published": 25,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
       "avgRating": 4
     },
     "aura gaming studio": {
-      "total": 5,
-      "published": 5,
+      "total": 25,
+      "published": 25,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
       "avgRating": 4
     },
     "aura-gaming-studio": {
-      "total": 5,
-      "published": 5,
+      "total": 25,
+      "published": 25,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
@@ -912,44 +913,44 @@
       "avgRating": 4
     },
     "yono arcade": {
-      "total": 4,
-      "published": 4,
+      "total": 32,
+      "published": 32,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
       "avgRating": 4.3
     },
     "dev akwdkowkd": {
-      "total": 4,
-      "published": 4,
+      "total": 32,
+      "published": 32,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
       "avgRating": 4.3
     },
     "dev-akwdkowkd": {
-      "total": 4,
-      "published": 4,
+      "total": 32,
+      "published": 32,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
       "avgRating": 4.3
     },
     "spin crush": {
-      "total": 17,
-      "published": 17,
+      "total": 50,
+      "published": 50,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
-      "avgRating": 4.8
+      "avgRating": 4.4
     },
     "bingo": {
-      "total": 17,
-      "published": 17,
+      "total": 50,
+      "published": 50,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
-      "avgRating": 4.8
+      "avgRating": 4.4
     },
     "bingo 101": {
       "total": 1,
@@ -1048,24 +1049,24 @@
       "avgRating": 5
     },
     "yn 777": {
-      "total": 15,
-      "published": 15,
+      "total": 18,
+      "published": 18,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
       "avgRating": 4.3
     },
     "logicsphere interactive": {
-      "total": 15,
-      "published": 15,
+      "total": 18,
+      "published": 18,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
       "avgRating": 4.3
     },
     "logicsphere-interactive": {
-      "total": 15,
-      "published": 15,
+      "total": 18,
+      "published": 18,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
@@ -1328,24 +1329,24 @@
       "avgRating": 4
     },
     "spin 101": {
-      "total": 10,
-      "published": 10,
+      "total": 12,
+      "published": 12,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
       "avgRating": 4.3
     },
     "kinetics logic studios": {
-      "total": 10,
-      "published": 10,
+      "total": 12,
+      "published": 12,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
       "avgRating": 4.3
     },
     "kinetics-logic-studios": {
-      "total": 10,
-      "published": 10,
+      "total": 12,
+      "published": 12,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
@@ -1368,24 +1369,24 @@
       "avgRating": 4.6
     },
     "joy rummy": {
-      "total": 20,
-      "published": 20,
+      "total": 50,
+      "published": 50,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
       "avgRating": 4.3
     },
     "pixel card studios": {
-      "total": 20,
-      "published": 20,
+      "total": 50,
+      "published": 50,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
       "avgRating": 4.3
     },
     "pixel-card-studios": {
-      "total": 20,
-      "published": 20,
+      "total": 50,
+      "published": 50,
       "pending": 0,
       "rejected": 0,
       "flagged": 0,
@@ -1415,6 +1416,5 @@
       "flagged": 0,
       "avgRating": 4.4
     }
-  },
-  "updated_at": "2026-09-21T18:53:50.881Z"
+  }
 }
