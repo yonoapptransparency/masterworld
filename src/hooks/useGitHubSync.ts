@@ -460,14 +460,14 @@ export function useGitHubSync(
       }
 
       // 3. Push ALL primary files together in 1 SINGLE ATOMIC COMMIT
-      log(`GitHub Sync: 🚀 Pushing all ${primaryBatchFiles.length} files together in 1 single atomic commit to "${targetRepo}"...`);
       await commitMultiFilesToGitHub({
         owner: configToUse.owner,
         repo: targetRepo,
         token: configToUse.token,
         branch: configToUse.branch || 'main',
         files: primaryBatchFiles,
-        message: `Admin Release: Complete Catalog, Community Data & Secure Vault Synchronization`
+        message: `Admin Release: Complete Catalog, Community Data & Secure Vault Synchronization`,
+        onProgress: (m) => log(m)
       });
       log(`GitHub Sync: ✅ Success! All ${primaryBatchFiles.length} files committed together to "${targetRepo}" in 1 commit (Triggers exactly 1 Vercel deployment)!`);
 
@@ -495,14 +495,14 @@ export function useGitHubSync(
             });
           }
 
-          log(`GitHub Sync: Mirroring ${secondaryBatchFiles.length} files together in 1 atomic commit to masterworld...`);
           await commitMultiFilesToGitHub({
             owner: configToUse.owner,
             repo: 'masterworld',
             token: configToUse.token,
             branch: configToUse.branch || 'main',
             files: secondaryBatchFiles,
-            message: `Admin Release: Complete Catalog & Vault Synchronization for masterworld`
+            message: `Admin Release: Complete Catalog & Vault Synchronization for masterworld`,
+            onProgress: (m) => log(m)
           });
           log(`GitHub Sync: ✅ Masterworld mirror sync complete (1 atomic commit).`);
         } catch (secErr: any) {

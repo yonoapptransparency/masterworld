@@ -329,12 +329,286 @@ githubSyncRouter.post("/api/github-sync/commit", verifyAdminToken, async (req, r
   }
 });
 
-// POST /api/github-sync/commit-multi (Atomic Multi-File Commit Engine)
+async function getActiveGitToken(providedToken?: string): Promise<string> {
+  if (providedToken && typeof providedToken === 'string' && providedToken.trim()) {
+    return providedToken.trim();
+  }
+  if (process.env.PAT && process.env.PAT.trim()) {
+    return process.env.PAT.trim();
+  }
+  try {
+    const db = getFirebaseAdminDb();
+    if (db) {
+      const docSnap = await db.collection('sec_git').doc('cfg').get();
+      if (docSnap.exists) {
+        const data = docSnap.data();
+        if (data?.token && typeof data.token === 'string') {
+          return data.token.trim();
+        }
+      }
+    }
+  } catch (e) {}
+  try {
+    if (fs.existsSync(LOCAL_GIT_CONFIG_PATH)) {
+      const cfg = JSON.parse(fs.readFileSync(LOCAL_GIT_CONFIG_PATH, 'utf8'));
+      if (cfg?.token && typeof cfg.token === 'string') return cfg.token.trim();
+    }
+  } catch (e) {}
+  return "";
+}
+
+// POST /api/github-sync/create-blob (Chunk-safe individual blob creation for GitHub Git Database)
+githubSyncRouter.post("/api/github-sync/create-blob", verifyAdminToken, async (req, res) => {
+  try {
+    const { owner, repo, token, path: filePath, content } = req.body || {};
+
+    const activeToken = await getActiveGitToken(token);
+    if (!owner || !repo || !activeToken || !filePath) {
+      return res.status(400).json({ message: "Missing required parameters (owner, repo, token, path)" });
+    }
+
+    const cleanOwner = String(owner).trim();
+    const cleanRepo = String(repo).trim();
+    const cleanPath = String(filePath).replace(/^\/+/g, '');
+    const authHeader = activeToken.toLowerCase().startsWith('ghp_')
+       ? `token ${activeToken}`
+       : `Bearer ${activeToken}`;
+
+    const base64Content = Buffer.from(content || '', 'utf8').toString('base64');
+
+    const blobRes = await fetch(
+      `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/git/blobs`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': authHeader,
+          'Content-Type': 'application/json',
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'node-fetch'
+        },
+        body: JSON.stringify({
+          content: base64Content,
+          encoding: 'base64'
+        })
+      }
+    );
+
+    if (!blobRes.ok) {
+      const blobErr = await blobRes.text();
+      return res.status(blobRes.status || 400).json({ 
+        message: `Failed to upload blob for ${cleanPath} to GitHub: ${blobErr}` 
+      });
+    }
+
+    const blobData = await blobRes.json() as any;
+    return res.json({
+      success: true,
+      path: cleanPath,
+      sha: blobData.sha
+    });
+  } catch (err: any) {
+    console.error("Server GitHub create-blob error:", err);
+    return res.status(500).json({ message: `GitHub blob upload error: ${err.message || err}` });
+  }
+});
+
+// POST /api/github-sync/commit-tree (Seals previously created blobs into 1 single atomic commit)
+githubSyncRouter.post("/api/github-sync/commit-tree", verifyAdminToken, async (req, res) => {
+  try {
+    const { owner, repo, token, branch = 'main', tree, message } = req.body || {};
+
+    const activeToken = await getActiveGitToken(token);
+    if (!owner || !repo || !activeToken || !Array.isArray(tree) || tree.length === 0) {
+      return res.status(400).json({ message: "Missing required parameters (owner, repo, token, tree array with at least 1 entry)" });
+    }
+
+    const cleanBranch = String(branch).trim() || 'main';
+    const cleanOwner = String(owner).trim();
+    const cleanRepo = String(repo).trim();
+    const authHeader = activeToken.toLowerCase().startsWith('ghp_')
+       ? `token ${activeToken}`
+       : `Bearer ${activeToken}`;
+
+    console.log(`GitHub Sync Server: Sealing atomic commit with ${tree.length} files to ${cleanOwner}/${cleanRepo} (${cleanBranch})...`);
+
+    // 1. Get latest commit SHA for target branch
+    let parentCommitSha = "";
+    let baseTreeSha = "";
+
+    try {
+      const refRes = await fetch(
+        `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/git/ref/heads/${encodeURIComponent(cleanBranch)}?_t=${Date.now()}`,
+        {
+          headers: {
+            'Authorization': authHeader,
+            'Accept': 'application/vnd.github.v3+json',
+            'Cache-Control': 'no-cache',
+            'User-Agent': 'node-fetch'
+          }
+        }
+      );
+
+      if (refRes.ok) {
+        const refData = await refRes.json() as any;
+        parentCommitSha = refData.object?.sha || "";
+      } else {
+        const branchRes = await fetch(
+          `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/branches/${encodeURIComponent(cleanBranch)}?_t=${Date.now()}`,
+          {
+            headers: {
+              'Authorization': authHeader,
+              'Accept': 'application/vnd.github.v3+json',
+              'Cache-Control': 'no-cache',
+              'User-Agent': 'node-fetch'
+            }
+          }
+        );
+        if (branchRes.ok) {
+          const branchData = await branchRes.json() as any;
+          parentCommitSha = branchData.commit?.sha || "";
+        }
+      }
+
+      if (!parentCommitSha) {
+        throw new Error(`Could not find latest commit SHA for branch "${cleanBranch}" on ${cleanOwner}/${cleanRepo}.`);
+      }
+
+      // 2. Get base tree SHA from parent commit
+      const parentCommitRes = await fetch(
+        `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/git/commits/${parentCommitSha}`,
+        {
+          headers: {
+            'Authorization': authHeader,
+            'Accept': 'application/vnd.github.v3+json',
+            'User-Agent': 'node-fetch'
+          }
+        }
+      );
+      if (!parentCommitRes.ok) {
+        throw new Error(`Failed to read parent commit ${parentCommitSha}`);
+      }
+      const parentCommitData = await parentCommitRes.json() as any;
+      baseTreeSha = parentCommitData.tree?.sha;
+      if (!baseTreeSha) {
+        throw new Error(`Parent commit did not return a valid tree SHA.`);
+      }
+    } catch (headErr: any) {
+      console.error("GitHub Sync Server: Error fetching branch HEAD:", headErr);
+      return res.status(400).json({
+        message: `Failed to resolve repository branch HEAD: ${headErr.message}`
+      });
+    }
+
+    // 3. Format tree entries
+    const treeEntries = tree.map((entry: any) => ({
+      path: String(entry.path).replace(/^\/+/g, ''),
+      mode: entry.mode || '100644',
+      type: 'blob',
+      sha: entry.sha
+    }));
+
+    // 4. Create new tree on top of base_tree
+    console.log(`GitHub Sync Server: Creating git tree with ${treeEntries.length} entries...`);
+    const treeRes = await fetch(
+      `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/git/trees`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': authHeader,
+          'Content-Type': 'application/json',
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'node-fetch'
+        },
+        body: JSON.stringify({
+          base_tree: baseTreeSha,
+          tree: treeEntries
+        })
+      }
+    );
+
+    if (!treeRes.ok) {
+      const treeErr = await treeRes.text();
+      throw new Error(`Failed to create git tree: ${treeErr}`);
+    }
+
+    const treeData = await treeRes.json() as any;
+    const newTreeSha = treeData.sha;
+
+    // 5. Create 1 single atomic commit
+    const commitMessage = message || `Admin Release: Atomic sync of ${treeEntries.length} catalog & vault files`;
+    console.log(`GitHub Sync Server: Creating single commit with tree ${newTreeSha}...`);
+    const commitRes = await fetch(
+      `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/git/commits`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': authHeader,
+          'Content-Type': 'application/json',
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'node-fetch'
+        },
+        body: JSON.stringify({
+          message: commitMessage,
+          tree: newTreeSha,
+          parents: [parentCommitSha]
+        })
+      }
+    );
+
+    if (!commitRes.ok) {
+      const commitErr = await commitRes.text();
+      throw new Error(`Failed to create git commit: ${commitErr}`);
+    }
+
+    const commitData = await commitRes.json() as any;
+    const newCommitSha = commitData.sha;
+
+    // 6. Update branch ref to point to new commit
+    console.log(`GitHub Sync Server: Updating branch ref ${cleanBranch} -> ${newCommitSha}...`);
+    const updateRefRes = await fetch(
+      `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/git/refs/heads/${encodeURIComponent(cleanBranch)}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Authorization': authHeader,
+          'Content-Type': 'application/json',
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'node-fetch'
+        },
+        body: JSON.stringify({
+          sha: newCommitSha,
+          force: false
+        })
+      }
+    );
+
+    if (!updateRefRes.ok) {
+      const refErr = await updateRefRes.text();
+      throw new Error(`Failed to update branch reference: ${refErr}`);
+    }
+
+    console.log(`GitHub Sync Server: ✅ Atomic commit SUCCESS! SHA: ${newCommitSha} (${treeEntries.length} files in 1 commit).`);
+
+    return res.json({
+      success: true,
+      commitSha: newCommitSha,
+      filesCount: treeEntries.length,
+      targetRepo: cleanRepo,
+      branch: cleanBranch,
+      message: `Successfully published all ${treeEntries.length} files in 1 single atomic commit to ${cleanRepo}`
+    });
+  } catch (err: any) {
+    console.error("Server GitHub commit-tree handler error:", err);
+    return res.status(500).json({ message: `GitHub tree commit error: ${err.message || err}` });
+  }
+});
+
+// POST /api/github-sync/commit-multi (Atomic Multi-File Commit Engine with chunk protection)
 githubSyncRouter.post("/api/github-sync/commit-multi", verifyAdminToken, async (req, res) => {
   try {
     const { owner, repo, token, branch = 'main', files, message } = req.body || {};
 
-    let activeToken = token || process.env.PAT;
+    const activeToken = await getActiveGitToken(token);
     if (!owner || !repo || !activeToken || !Array.isArray(files) || files.length === 0) {
       return res.status(400).json({ message: "Missing required parameters (owner, repo, token, files array with at least 1 file)" });
     }
@@ -342,11 +616,9 @@ githubSyncRouter.post("/api/github-sync/commit-multi", verifyAdminToken, async (
     const cleanBranch = branch.trim() || 'main';
     const cleanOwner = owner.trim();
     const cleanRepo = repo.trim();
-    const cleanToken = activeToken.trim();
-
-    const authHeader = cleanToken.toLowerCase().startsWith('ghp_')
-       ? `token ${cleanToken}`
-       : `Bearer ${cleanToken}`;
+    const authHeader = activeToken.toLowerCase().startsWith('ghp_')
+       ? `token ${activeToken}`
+       : `Bearer ${activeToken}`;
 
     console.log(`GitHub Sync Server: Starting atomic multi-file commit for ${files.length} files to ${cleanOwner}/${cleanRepo} (${cleanBranch})...`);
 
@@ -371,7 +643,6 @@ githubSyncRouter.post("/api/github-sync/commit-multi", verifyAdminToken, async (
         const refData = await refRes.json() as any;
         parentCommitSha = refData.object?.sha || "";
       } else {
-        // Fallback to branches endpoint
         const branchRes = await fetch(
           `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/branches/${encodeURIComponent(cleanBranch)}?_t=${Date.now()}`,
           {
