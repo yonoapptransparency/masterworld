@@ -188,14 +188,7 @@
   ],
   "functions": {
     "api/index.js": {
-      "includeFiles": "src/lib/*.json",
-      "regions": ["bom1"],
-      "maxDuration": 15
-    },
-    "api/**/*": {
-      "includeFiles": "src/lib/*.json",
-      "regions": ["bom1"],
-      "maxDuration": 15
+      "includeFiles": "src/lib/*.json"
     }
   }
 }
