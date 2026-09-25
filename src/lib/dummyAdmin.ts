@@ -15,14 +15,18 @@ export interface GitConfig {
   owner: string;
   repo: string;
   branch: string;
-  path: string;
+  path?: string;
   token?: string;
   isPublic?: boolean;
 }
 export const generateStaticDataFileCode = () => '';
-export const commitFileToGitHub = async () => {};
+export const commitFileToGitHub = async () => ({});
+export const commitMultiFilesToGitHub = async () => ({});
 export const fetchFileFromGitHub = async () => null;
 export const getGitHubFileSha = async () => null;
+export const encryptUrlIfNeeded = (url: string) => url;
+export const b64EncodeUnicode = (str: string) => str;
+export const generateCommunityReviewsFileCode = () => '';
 
 // src/lib/sessionStore
 export const sessionStore = {
@@ -45,6 +49,7 @@ export const generateSecret = () => '';
 export const generateQRCodeUri = () => '';
 
 // src/lib/secureVault
+export const ENCRYPTED_LINKS = "";
 export const secureVault = {
   encryptPayload: (p: any) => p,
   decryptPayload: (p: any) => p

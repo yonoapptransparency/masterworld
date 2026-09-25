@@ -41,7 +41,7 @@ export default defineConfig(({mode}) => {
         { find: '@', replacement: path.resolve(__dirname, '.') },
         { find: 'react-helmet-async', replacement: path.resolve(__dirname, 'src/lib/react-helmet-async-shim.tsx') },
 
-        // Fallback aliases for Dex repository where these admin files are removed
+        // Fallback aliases for Dex or Masterworld repositories where certain files are removed
         { 
           find: /.*\/pages\/AdminDashboard$/, 
           replacement: fs.existsSync(path.resolve(__dirname, 'src/pages/AdminDashboard.tsx')) 
@@ -52,6 +52,30 @@ export default defineConfig(({mode}) => {
           find: /.*\/pages\/AdminLogin$/, 
           replacement: fs.existsSync(path.resolve(__dirname, 'src/pages/AdminLogin.tsx')) 
             ? path.resolve(__dirname, 'src/pages/AdminLogin.tsx') 
+            : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
+        },
+        { 
+          find: /.*\/AppAdmin$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/AppAdmin.tsx')) 
+            ? path.resolve(__dirname, 'src/AppAdmin.tsx') 
+            : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
+        },
+        { 
+          find: /.*\/AppPublic$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/AppPublic.tsx')) 
+            ? path.resolve(__dirname, 'src/AppPublic.tsx') 
+            : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
+        },
+        { 
+          find: /.*\/pages\/AppDetails$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/pages/AppDetails.tsx')) 
+            ? path.resolve(__dirname, 'src/pages/AppDetails.tsx') 
+            : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
+        },
+        { 
+          find: /.*\/pages\/GatewayPage$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/pages/GatewayPage.tsx')) 
+            ? path.resolve(__dirname, 'src/pages/GatewayPage.tsx') 
             : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
         },
         { 
@@ -82,6 +106,18 @@ export default defineConfig(({mode}) => {
           find: /.*\/components\/AppsTab$/, 
           replacement: fs.existsSync(path.resolve(__dirname, 'src/components/AppsTab.tsx')) 
             ? path.resolve(__dirname, 'src/components/AppsTab.tsx') 
+            : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
+        },
+        { 
+          find: /.*\/components\/UserReviews$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/components/UserReviews.tsx')) 
+            ? path.resolve(__dirname, 'src/components/UserReviews.tsx') 
+            : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
+        },
+        { 
+          find: /.*\/components\/ReportAppModal$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/components/ReportAppModal.tsx')) 
+            ? path.resolve(__dirname, 'src/components/ReportAppModal.tsx') 
             : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
         },
         { 

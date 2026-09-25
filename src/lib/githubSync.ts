@@ -432,3 +432,55 @@ export async function commitFileToGitHub({
 
   return response.json();
 }
+
+/**
+ * Commits multiple files atomically in a single Git commit via Git Trees API
+ */
+export async function commitMultiFilesToGitHub({
+  owner,
+  repo,
+  token,
+  branch,
+  files,
+  message
+}: {
+  owner: string;
+  repo: string;
+  token?: string;
+  branch: string;
+  files: Array<{ path: string; content: string }>;
+  message: string;
+}) {
+  const response = await adminFetch('/api/github-sync/commit-multi', {
+    method: 'POST',
+    body: JSON.stringify({
+      owner,
+      repo,
+      token,
+      branch,
+      files,
+      message
+    })
+  });
+
+  if (!response.ok) {
+    const contentType = response.headers.get('content-type');
+    const errText = await response.text();
+    let errMsg = errText || `Server returned ${response.status} ${response.statusText}`;
+
+    if (contentType && contentType.includes('text/html')) {
+      throw new Error(`Server returned HTML instead of JSON (${response.status}). Check backend logs.`);
+    }
+
+    try {
+      const errJSON = JSON.parse(errText);
+      errMsg = errJSON.message || errJSON.error || errMsg;
+    } catch (e) {
+      if (!errMsg || errMsg.trim() === '') errMsg = `HTTP Error ${response.status}`;
+    }
+    throw new Error(errMsg);
+  }
+
+  return response.json();
+}
+

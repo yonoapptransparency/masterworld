@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db, isFirebaseReal, handleFirestoreError, OperationType } from '../lib/firebase';
 import { adminFetch, getValidAdminToken, loadSession } from '../services/adminAuthService';
-import { GitConfig, generateStaticDataFileCode, generateCommunityReviewsFileCode, commitFileToGitHub, encryptUrlIfNeeded } from '../lib/githubSync';
+import { GitConfig, generateStaticDataFileCode, generateCommunityReviewsFileCode, commitFileToGitHub, commitMultiFilesToGitHub, encryptUrlIfNeeded } from '../lib/githubSync';
 import { generateAllSitemaps } from '../lib/sitemapGenerator';
 import { ensureDefaultSettings } from '../lib/defaultLegalContent';
 import { AppConfig, GlobalSettings, NewsItem, VideoItem } from '../types';
@@ -348,49 +348,90 @@ export function useGitHubSync(
     if (!configToUse.owner) throw new Error("Missing GitHub repository owner configuration.");
 
     try {
-      log(`GitHub Sync: Preparing release files for primary repository "${targetRepo}"...`);
+      log(`GitHub Sync: Preparing complete release bundle for "${targetRepo}"...`);
       
       const catalogStatsCode = communityStatsPayload ? JSON.stringify(communityStatsPayload, null, 2) : '';
 
-      const primaryFiles: { path: string; content: string; message: string; name: string }[] = [
+      // 1. Pre-build AES Encrypted Vault & Public API bundle so all files can be committed together
+      let vaultCode = "";
+      let apiBundleContent = "";
+
+      try {
+        log(`GitHub Sync: Building AES Encrypted Vault...`);
+        const idToken = await getAdminToken();
+        const vaultRes = await adminFetch('/api/v1/admin/seal-vault', {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json', ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {}) },
+           body: JSON.stringify({ items: publicApps })
+        });
+
+        if (vaultRes.ok) {
+          const vaultData = await vaultRes.json();
+          if (vaultData.ciphertext) {
+            vaultCode = `export const ENCRYPTED_LINKS = "${vaultData.ciphertext}";\n`;
+            log(`GitHub Sync: ✅ AES Encrypted Vault sealed.`);
+
+            log(`GitHub Sync: Building fresh public API bundle for Vercel...`);
+            const apiRes = await adminFetch('/api/v1/admin/build-public-api', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {}) },
+              body: JSON.stringify({ ciphertext: vaultData.ciphertext })
+            });
+            if (apiRes.ok) {
+              const apiData = await apiRes.json();
+              if (apiData.content) {
+                apiBundleContent = apiData.content;
+                log(`GitHub Sync: ✅ Fresh public API bundle prepared.`);
+              }
+            }
+          }
+        }
+      } catch (vaultErr: any) {
+        log(`GitHub Sync Warning (Vault build): ${vaultErr?.message || 'skipped'}`);
+      }
+
+      // 2. Assemble ALL primary files together for 1 single atomic commit
+      const primaryBatchFiles: { path: string; content: string }[] = [
         {
           path: 'src/lib/staticData.ts',
-          content: updatedCode,
-          message: `Admin Release: Manual content synchronization to ${targetRepo}`,
-          name: 'staticData.ts'
+          content: updatedCode
         },
         {
           path: 'src/lib/communityReviewsData.ts',
-          content: communityReviewsCode,
-          message: `Admin Release: Community reviews dataset synchronization to ${targetRepo}`,
-          name: 'communityReviewsData.ts'
+          content: communityReviewsCode
         },
         {
           path: 'src/lib/public_backup.json',
-          content: backupJsonCode,
-          message: `Admin Release: Manual public_backup.json synchronization to ${targetRepo}`,
-          name: 'public_backup.json'
+          content: backupJsonCode
         },
         {
           path: 'src/lib/staticData.json',
-          content: staticJsonCode,
-          message: `Admin Release: Manual staticData.json synchronization to ${targetRepo}`,
-          name: 'staticData.json'
+          content: staticJsonCode
         },
         {
           path: 'public-api/staticData.json',
-          content: staticJsonCode,
-          message: `Admin Release: Manual public-api/staticData.json synchronization to ${targetRepo}`,
-          name: 'public-api/staticData.json'
+          content: staticJsonCode
         }
       ];
 
       if (catalogStatsCode) {
-        primaryFiles.push({
+        primaryBatchFiles.push({
           path: 'src/lib/communityCatalogStats.json',
-          content: catalogStatsCode,
-          message: `Admin Release: Manual communityCatalogStats.json synchronization to ${targetRepo}`,
-          name: 'communityCatalogStats.json'
+          content: catalogStatsCode
+        });
+      }
+
+      if (vaultCode) {
+        primaryBatchFiles.push({
+          path: 'src/lib/secureVault.ts',
+          content: vaultCode
+        });
+      }
+
+      if (apiBundleContent) {
+        primaryBatchFiles.push({
+          path: 'api/index.js',
+          content: apiBundleContent
         });
       }
 
@@ -403,161 +444,73 @@ export function useGitHubSync(
           videos: targetVideos
         });
         for (const [filename, xmlContent] of Object.entries(sitemaps)) {
-          primaryFiles.push({
+          primaryBatchFiles.push({
             path: `public/${filename}`,
-            content: xmlContent,
-            message: `Admin Release: Auto-generate ${filename} for ${publicApps.length} apps`,
-            name: `public/${filename}`
+            content: xmlContent
           });
         }
 
         const robotsContent = `User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /admin/\nDisallow: /login/\nDisallow: /masterworld/\nSitemap: https://www.rummydex.com/sitemap.xml\n`;
-        primaryFiles.push({
+        primaryBatchFiles.push({
           path: 'public/robots.txt',
-          content: robotsContent,
-          message: 'Admin Release: Sync robots.txt with sitemap reference',
-          name: 'public/robots.txt'
+          content: robotsContent
         });
       } catch (sitemapErr) {
         log(`GitHub Sync Warning: Could not auto-generate public XML sitemaps: ${(sitemapErr as any)?.message}`);
       }
 
-      // Execute sequential commits to prevent GitHub branch HEAD ref race-condition conflicts
-      const totalFiles = primaryFiles.length;
-      for (let i = 0; i < totalFiles; i++) {
-        const file = primaryFiles[i];
-        log(`GitHub Sync (${i + 1}/${totalFiles}): Syncing ${file.name}...`);
-        try {
-          await commitFileToGitHub({
-            owner: configToUse.owner,
-            repo: targetRepo,
-            token: configToUse.token,
-            branch: configToUse.branch || 'main',
-            path: file.path,
-            content: file.content,
-            message: file.message
-          });
-          log(`GitHub Sync: ✅ ${file.name} successfully synced (${i + 1}/${totalFiles}).`);
-        } catch (fileErr: any) {
-          if (file.path.startsWith('public-api/') || file.path.startsWith('public/sitemap') || file.path.endsWith('.txt')) {
-            log(`GitHub Sync Notice: ${file.name} note: ${fileErr?.message || 'skipped'}`);
-          } else {
-            throw fileErr;
-          }
-        }
-      }
+      // 3. Push ALL primary files together in 1 SINGLE ATOMIC COMMIT
+      log(`GitHub Sync: 🚀 Pushing all ${primaryBatchFiles.length} files together in 1 single atomic commit to "${targetRepo}"...`);
+      await commitMultiFilesToGitHub({
+        owner: configToUse.owner,
+        repo: targetRepo,
+        token: configToUse.token,
+        branch: configToUse.branch || 'main',
+        files: primaryBatchFiles,
+        message: `Admin Release: Complete Catalog, Community Data & Secure Vault Synchronization`
+      });
+      log(`GitHub Sync: ✅ Success! All ${primaryBatchFiles.length} files committed together to "${targetRepo}" in 1 commit (Triggers exactly 1 Vercel deployment)!`);
 
+      // 4. Secondary mirror synchronization to masterworld (also 1 single atomic commit)
       if (targetRepo.toLowerCase() !== 'masterworld') {
         try {
-          log("GitHub Sync: Performing secondary mirror synchronization to masterworld...");
-          const secondaryFiles = [
-            { path: 'src/lib/staticData.ts', content: updatedCode, name: 'staticData.ts' },
-            { path: 'src/lib/communityReviewsData.ts', content: communityReviewsCode, name: 'communityReviewsData.ts' },
-            { path: 'src/lib/public_backup.json', content: backupJsonCode, name: 'public_backup.json' },
-            { path: 'src/lib/staticData.json', content: staticJsonCode, name: 'staticData.json' }
+          const secondaryBatchFiles: { path: string; content: string }[] = [
+            { path: 'src/lib/staticData.ts', content: updatedCode },
+            { path: 'src/lib/communityReviewsData.ts', content: communityReviewsCode },
+            { path: 'src/lib/public_backup.json', content: backupJsonCode },
+            { path: 'src/lib/staticData.json', content: staticJsonCode }
           ];
 
           if (catalogStatsCode) {
-            secondaryFiles.push({
+            secondaryBatchFiles.push({
               path: 'src/lib/communityCatalogStats.json',
-              content: catalogStatsCode,
-              name: 'communityCatalogStats.json'
+              content: catalogStatsCode
             });
           }
 
-          for (const sFile of secondaryFiles) {
-            try {
-              await commitFileToGitHub({
-                owner: configToUse.owner,
-                repo: 'masterworld',
-                token: configToUse.token,
-                branch: configToUse.branch || 'main',
-                path: sFile.path,
-                content: sFile.content,
-                message: `Admin Release: Manual ${sFile.name} synchronization to masterworld`
-              });
-              log(`GitHub Sync: ✅ ${sFile.name} secondary sync to masterworld complete.`);
-            } catch (secErr: any) {
-              log(`GitHub Sync Info: Secondary sync of ${sFile.name} to masterworld skipped.`);
-            }
+          if (vaultCode) {
+            secondaryBatchFiles.push({
+              path: 'src/lib/secureVault.ts',
+              content: vaultCode
+            });
           }
-        } catch (mwErr: any) {
-          log(`GitHub Sync Info: Secondary sync to masterworld skipped (Token scoped specifically for '${targetRepo}'). Primary target '${targetRepo}' is fully synced and updated.`);
+
+          log(`GitHub Sync: Mirroring ${secondaryBatchFiles.length} files together in 1 atomic commit to masterworld...`);
+          await commitMultiFilesToGitHub({
+            owner: configToUse.owner,
+            repo: 'masterworld',
+            token: configToUse.token,
+            branch: configToUse.branch || 'main',
+            files: secondaryBatchFiles,
+            message: `Admin Release: Complete Catalog & Vault Synchronization for masterworld`
+          });
+          log(`GitHub Sync: ✅ Masterworld mirror sync complete (1 atomic commit).`);
+        } catch (secErr: any) {
+          log(`GitHub Sync Info: Secondary mirror to masterworld note: ${secErr?.message || 'skipped'}`);
         }
       }
     } catch (err: any) {
-      throw new Error(`Failed to sync static data to primary target (${targetRepo}): ${err.message}`);
-    }
-
-    try {
-      log(`GitHub Sync: Building AES Encrypted Vault for ${targetRepo}...`);
-      const idToken = await getAdminToken();
-      const vaultRes = await adminFetch('/api/v1/admin/seal-vault', {
-         method: 'POST',
-         headers: { 'Content-Type': 'application/json', ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {}) },
-         body: JSON.stringify({ items: publicApps })
-      });
-
-      if (vaultRes.ok) {
-         const vaultData = await vaultRes.json();
-         if (vaultData.ciphertext) {
-            log(`GitHub Sync: Pushing secureVault.ts to ${targetRepo}...`);
-            await commitFileToGitHub({
-              owner: configToUse.owner,
-              repo: targetRepo,
-              token: configToUse.token,
-              branch: configToUse.branch || 'main',
-              path: 'src/lib/secureVault.ts',
-              content: `export const ENCRYPTED_LINKS = "${vaultData.ciphertext}";\n`,
-              message: `Admin Release: Secure vault synchronization for ${targetRepo}`
-            });
-            log(`GitHub Sync: ✅ secureVault.ts successfully synced to ${targetRepo}.`);
-            
-            if (targetRepo.toLowerCase() !== 'masterworld') {
-              try {
-                await commitFileToGitHub({
-                  owner: configToUse.owner,
-                  repo: 'masterworld',
-                  token: configToUse.token,
-                  branch: configToUse.branch || 'main',
-                  path: 'src/lib/secureVault.ts',
-                  content: `export const ENCRYPTED_LINKS = "${vaultData.ciphertext}";\n`,
-                  message: `Admin Release: Secure vault synchronization for masterworld`
-                });
-                log(`GitHub Sync: ✅ secureVault.ts secondary sync to masterworld complete.`);
-              } catch (mwVaultErr: any) {
-                // Secondary vault sync silently skipped if token is scoped to targetRepo only
-              }
-            }
-            
-            log(`GitHub Sync: Building fresh public API bundle for Vercel...`);
-            const apiRes = await adminFetch('/api/v1/admin/build-public-api', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {}) },
-              body: JSON.stringify({ ciphertext: vaultData.ciphertext })
-            });
-            if (apiRes.ok) {
-              const apiData = await apiRes.json();
-              if (apiData.content) {
-                log(`GitHub Sync: Pushing updated api/index.js to ${targetRepo}...`);
-                await commitFileToGitHub({
-                  owner: configToUse.owner,
-                  repo: targetRepo,
-                  token: configToUse.token,
-                  branch: configToUse.branch || 'main',
-                  path: 'api/index.js',
-                  content: apiData.content,
-                  message: `Admin Release: Public API bundle synchronization for ${targetRepo}`
-                });
-                log(`GitHub Sync: ✅ api/index.js successfully synced to ${targetRepo}.`);
-              }
-            } else {
-              log(`GitHub Sync Error: Failed to build API bundle (${apiRes.status})`);
-            }
-         }
-      }
-    } catch(err: any) {
-        log(`GitHub Sync Error (Vault): ${err.message}`);
+      throw new Error(`Failed to sync data to target (${targetRepo}): ${err.message}`);
     }
 
     try {
