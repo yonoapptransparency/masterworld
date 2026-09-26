@@ -78,9 +78,14 @@ service cloud.firestore {
       allow write: if isAdmin() || isRestAdmin();
     }
 
+    match /app_stats/{docId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
     match /app_rating_stats/{docId} {
       allow read: if true;
-      allow write: if isAdmin() || isRestAdmin();
+      allow write: if true;
     }
 
     // 3. Website feedback collection

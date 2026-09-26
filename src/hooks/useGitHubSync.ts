@@ -280,31 +280,21 @@ export function useGitHubSync(
       return app;
     });
 
-    // Fetch verified community reviews for static bundle generation
-    let publishedReviews: any[] = [];
+    // Fetch live atomic catalog stats for SEO Schema
+    communityStatsPayload = null;
     try {
-      log("GitHub Sync: Fetching verified community reviews for static export...");
-      const revRes = await adminFetch('/api/v1/admin/community/export-published');
-      if (revRes.ok) {
-        const revData = await revRes.json();
-        if (Array.isArray(revData.reviews) && revData.reviews.length > 0) {
-          publishedReviews = revData.reviews;
-          log(`GitHub Sync: Loaded ${publishedReviews.length} verified review(s) for public distribution.`);
+      log("GitHub Sync: Fetching live atomic ratings for Googlebot Schema...");
+      const statsRes = await adminFetch('/api/v1/admin/community/export-stats');
+      if (statsRes.ok) {
+        const statsData = await statsRes.json();
+        if (statsData.success && statsData.stats) {
+          communityStatsPayload = statsData.stats;
+          const appCount = Object.keys(communityStatsPayload.appCounts || {}).length;
+          log(`GitHub Sync: Loaded live atomic ratings summary for ${appCount} app(s).`);
         }
       }
     } catch (e: any) {
-      log(`GitHub Sync Notice: Review export notice: ${e?.message || 'skipped'}`);
-    }
-
-    // Fallback to locally bundled reviews if network export was empty
-    if (publishedReviews.length === 0) {
-      try {
-        const localMod = await import('../lib/communityReviewsData');
-        if (localMod && Array.isArray(localMod.STATIC_COMMUNITY_REVIEWS) && localMod.STATIC_COMMUNITY_REVIEWS.length > 0) {
-          publishedReviews = localMod.STATIC_COMMUNITY_REVIEWS;
-          log(`GitHub Sync: Using ${publishedReviews.length} cached review(s) from communityReviewsData.`);
-        }
-      } catch (localRevErr) {}
+      log(`GitHub Sync Notice: Stats export notice: ${e?.message || 'proceeding with base'}`);
     }
 
     const consolidatedStaticPayload = {
@@ -316,12 +306,11 @@ export function useGitHubSync(
       mockNews: publicNews,
       videos: targetVideos,
       mockVideos: targetVideos,
-      reviews: publishedReviews
+      reviews: []
     };
 
     const backupJsonCode = JSON.stringify(consolidatedStaticPayload, null, 2);
     const staticJsonCode = JSON.stringify(consolidatedStaticPayload, null, 2);
-    const communityReviewsCode = generateCommunityReviewsFileCode(publishedReviews);
 
     try {
       const idToken = await getAdminToken();
@@ -397,8 +386,8 @@ export function useGitHubSync(
           content: updatedCode
         },
         {
-          path: 'src/lib/communityReviewsData.ts',
-          content: communityReviewsCode
+          path: 'src/lib/communityCatalogStats.json',
+          content: catalogStatsCode
         },
         {
           path: 'src/lib/public_backup.json',
@@ -413,13 +402,6 @@ export function useGitHubSync(
           content: staticJsonCode
         }
       ];
-
-      if (catalogStatsCode) {
-        primaryBatchFiles.push({
-          path: 'src/lib/communityCatalogStats.json',
-          content: catalogStatsCode
-        });
-      }
 
       if (vaultCode) {
         primaryBatchFiles.push({
@@ -476,17 +458,10 @@ export function useGitHubSync(
         try {
           const secondaryBatchFiles: { path: string; content: string }[] = [
             { path: 'src/lib/staticData.ts', content: updatedCode },
-            { path: 'src/lib/communityReviewsData.ts', content: communityReviewsCode },
+            { path: 'src/lib/communityCatalogStats.json', content: catalogStatsCode },
             { path: 'src/lib/public_backup.json', content: backupJsonCode },
             { path: 'src/lib/staticData.json', content: staticJsonCode }
           ];
-
-          if (catalogStatsCode) {
-            secondaryBatchFiles.push({
-              path: 'src/lib/communityCatalogStats.json',
-              content: catalogStatsCode
-            });
-          }
 
           if (vaultCode) {
             secondaryBatchFiles.push({

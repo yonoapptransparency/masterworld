@@ -11,114 +11,31 @@ function getLocalFallbackReviewsForApp(appId: string, appSlug: string) {
     const cleanId = (appId || '').toLowerCase().trim();
     const cleanSlug = (appSlug || '').toLowerCase().trim();
 
-    // 0. Pre-computed single counts file communityCatalogStats.json (instant 0ms read across all apps)
+    // Pre-computed single atomic counts file communityCatalogStats.json (instant 0ms read for SEO aggregateRating)
     let catalogAppStats: any = null;
     const catStatsPath = path.join(process.cwd(), 'src/lib/communityCatalogStats.json');
     if (fs.existsSync(catStatsPath)) {
       try {
         const cParsed = JSON.parse(fs.readFileSync(catStatsPath, 'utf8'));
         const appCounts = cParsed?.appCounts || {};
-        const countInfo = appCounts[cleanSlug] || appCounts[cleanId];
+        const countInfo = appCounts[cleanId] || (cleanSlug ? appCounts[cleanSlug] : null);
         if (countInfo && countInfo.published > 0) {
           catalogAppStats = {
             totalReviews: Number(countInfo.published),
-            averageRating: Number(countInfo.avgRating || 4.5)
+            averageRating: Number(countInfo.avgRating || 4.5),
+            starCounts: countInfo.starCounts || null
           };
         }
       } catch (e) {}
     }
 
-    let allReviews: any[] = [];
-
-    // 1. Try public_backup.json
-    const pPath = path.join(process.cwd(), 'src/lib/public_backup.json');
-    if (fs.existsSync(pPath)) {
-      try {
-        const pParsed = JSON.parse(fs.readFileSync(pPath, 'utf8'));
-        if (pParsed && Array.isArray(pParsed.reviews)) {
-          allReviews = pParsed.reviews;
-        }
-      } catch (e) {}
-    }
-
-    // 2. Try community_local_backup.json
-    const backupPath = path.join(process.cwd(), 'community_local_backup.json');
-    if (fs.existsSync(backupPath)) {
-      try {
-        const parsed = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
-        if (parsed && Array.isArray(parsed.reviews)) {
-          const existingIds = new Set(allReviews.map((r: any) => r.id));
-          parsed.reviews.forEach((r: any) => {
-            if (r && r.id && !existingIds.has(r.id)) {
-              allReviews.push(r);
-              existingIds.add(r.id);
-            }
-          });
-        }
-      } catch (e) {}
-    }
-
-    // 3. Try src/lib/staticData.json
-    if (allReviews.length === 0) {
-      const sPath = path.join(process.cwd(), 'src/lib/staticData.json');
-      if (fs.existsSync(sPath)) {
-        try {
-          const sParsed = JSON.parse(fs.readFileSync(sPath, 'utf8'));
-          if (sParsed && Array.isArray(sParsed.reviews)) {
-            allReviews = sParsed.reviews;
-          }
-        } catch (e) {}
-      }
-    }
-
-    // 4. Try src/lib/communityReviewsData.ts
-    if (allReviews.length === 0) {
-      try {
-        const commModule = require(path.join(process.cwd(), 'src/lib/communityReviewsData'));
-        if (commModule && Array.isArray(commModule.STATIC_COMMUNITY_REVIEWS)) {
-          allReviews = commModule.STATIC_COMMUNITY_REVIEWS;
-        }
-      } catch (e) {}
-    }
-
-    if (allReviews.length > 0) {
-      const matched = allReviews.filter((r: any) => {
-        const rId = String(r.appId || r.app_id || '').toLowerCase().trim();
-        const rSlug = String(r.appSlug || '').toLowerCase().trim();
-        return (cleanId && rId === cleanId) || 
-               (cleanSlug && rSlug === cleanSlug) || 
-               (cleanSlug && rId === cleanSlug) || 
-               (cleanId && rSlug === cleanId);
-      });
-
-      if (matched.length > 0) {
-        const avg = matched.reduce((acc: number, cur: any) => acc + (Number(cur.rating) || 5), 0) / matched.length;
-        return {
-          reviews: matched.slice(0, 5).map((r: any) => ({
-            id: r.id,
-            userName: r.userName || r.username || 'Player',
-            rating: Number(r.rating) || 5,
-            reviewText: r.reviewText || r.comment || '',
-            timestamp: r.timestamp || r.created_at || new Date().toISOString(),
-            isPinned: Boolean(r.isPinned),
-            adminReply: r.adminReply || null
-          })),
-          stats: catalogAppStats || {
-            averageRating: parseFloat(avg.toFixed(1)),
-            totalReviews: matched.length
-          }
-        };
-      }
-    }
-
-    if (catalogAppStats) {
-      return {
-        reviews: [],
-        stats: catalogAppStats
-      };
-    }
-  } catch (err) {}
-  return null;
+    return {
+      reviews: [],
+      stats: catalogAppStats
+    };
+  } catch (err) {
+    return { reviews: [], stats: null };
+  }
 }
 
 async function fetchSEOReviewsForApp(appId: string, appSlug: string, rating: number, appName: string) {

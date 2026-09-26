@@ -4,10 +4,26 @@
  * Optimized for instant 0ms cached renders and ultra-fast single-roundtrip Firestore REST queries.
  */
 
-import { STATIC_COMMUNITY_REVIEWS } from './communityReviewsData';
 import communityCatalogStats from './communityCatalogStats.json';
 import staticData from './staticData.json';
 import { generateNaturalStarDistribution } from '../seo/utils';
+
+export function formatReviewDate(dateInput?: string | Date | number): string {
+  if (!dateInput) {
+    const now = new Date();
+    return `${now.getDate()} ${now.toLocaleString('en-US', { month: 'short' })} ${now.getFullYear()}`;
+  }
+  if (typeof dateInput === 'string' && /^\d{1,2}\s+[A-Za-z]{3}\s+\d{4}$/.test(dateInput.trim())) {
+    return dateInput.trim();
+  }
+  try {
+    const d = new Date(dateInput);
+    if (!isNaN(d.getTime())) {
+      return `${d.getDate()} ${d.toLocaleString('en-US', { month: 'short' })} ${d.getFullYear()}`;
+    }
+  } catch (e) {}
+  return String(dateInput);
+}
 
 // Resilient Production Configuration (Self-contained, no external JSON imports that fail on static hosts)
 const getEnvVal = (key: string): string | undefined => {
@@ -312,12 +328,9 @@ export async function fetchLiveReviews(options: {
 }): Promise<ReviewFetchResult> {
   const { appId, appSlug, appTitle, cursor, limit = 5, rating = 4.8, filter = 'all', sortBy = 'recent' } = options;
   const targetId = (appId || '').trim();
-  const targetSlug = (appSlug || '').trim();
-  const targetTitle = (appTitle || '').trim();
-  
-  if (!targetId && !targetSlug && !targetTitle) return { reviews: [], hasMore: false, nextCursor: null };
+  if (!targetId) return { reviews: [], hasMore: false, nextCursor: null };
 
-  const targets = [targetId, targetSlug, targetTitle].filter(Boolean);
+  const targets = [targetId];
 
   // Helper to attach any locally authored user reviews at the top so they never disappear
   const attachLocalUserReviews = (baseReviews: PublicReview[]): PublicReview[] => {
@@ -335,7 +348,7 @@ export async function fetchLiveReviews(options: {
                   ...r,
                   username: r.username || r.userName || 'Player',
                   comment: r.comment || r.reviewText || '',
-                  created_at: r.created_at || r.timestamp || new Date().toISOString()
+                  created_at: formatReviewDate(r.created_at || r.timestamp)
                 });
               }
             });
@@ -367,10 +380,8 @@ export async function fetchLiveReviews(options: {
 
   // 1. Primary path: Query backend Express API if reachable
   try {
-    const effectiveId = targetId || targetSlug || targetTitle;
+    const effectiveId = targetId;
     const queryParams = new URLSearchParams();
-    if (targetSlug) queryParams.append('appSlug', targetSlug);
-    if (appTitle) queryParams.append('appTitle', appTitle);
     if (cursor) queryParams.append('cursor', String(cursor));
     queryParams.append('limit', String(limit));
     if (rating) queryParams.append('rating', String(rating));
@@ -415,11 +426,9 @@ export async function fetchLiveReviews(options: {
   // 2. Direct Firestore REST Fallback (Direct connection to rummydexcommunity project)
   try {
     const cfg = getResolvedCommunityFirebaseConfig();
-    const cleanId = (targetId || targetSlug).toLowerCase();
+    const cleanId = targetId.toLowerCase();
     const candidateDocIds = [
-      getAppChunkDocId(cleanId, 0),
-      ...(targetSlug ? [getAppChunkDocId(targetSlug.toLowerCase(), 0)] : []),
-      ...(targetId ? [getAppChunkDocId(targetId.toLowerCase(), 0)] : [])
+      getAppChunkDocId(cleanId, 0)
     ];
     const uniqueCandidateDocIds = Array.from(new Set(candidateDocIds));
 
@@ -440,12 +449,12 @@ export async function fetchLiveReviews(options: {
                 id: r.id || `rev_${Math.random().toString(36).slice(2)}`,
                 app_id: r.appId || r.app_id || cleanId,
                 appId: r.appId || cleanId,
-                appSlug: r.appSlug || targetSlug,
-                appName: r.appName || targetTitle,
+                appSlug: r.appSlug || '',
+                appName: r.appName || '',
                 username: r.userName || r.username || 'Player',
                 rating: Number(r.rating) || 5,
                 comment: r.reviewText || r.comment || '',
-                created_at: r.timestamp || r.created_at || new Date().toISOString(),
+                created_at: formatReviewDate(r.timestamp || r.created_at),
                 helpful_count: Number(r.helpful_count) || 0,
                 reported: Boolean(r.reported),
                 report_count: Number(r.report_count) || 0,
@@ -463,36 +472,18 @@ export async function fetchLiveReviews(options: {
       }
     }
 
-    // 2B. If no aggregated document, execute a structured query on the 'reviews' collection
+    // 2B. If no aggregated document, execute a structured query on the 'reviews' collection strictly by target appId
     if (allLoadedReviews.length === 0) {
       try {
         const queryUrl = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${cfg.firestoreDatabaseId}/documents:runQuery?key=${encodeURIComponent(cfg.apiKey)}`;
-        
-        const orFilters: any[] = [];
-        const seenValues = new Set<string>();
-        const pushVal = (val?: string) => {
-          if (!val) return;
-          const clean = val.trim();
-          if (!clean || seenValues.has(clean.toLowerCase())) return;
-          seenValues.add(clean.toLowerCase());
-          orFilters.push({
-            fieldFilter: { field: { fieldPath: "appId" }, op: "EQUAL", value: { stringValue: clean } }
-          });
-          orFilters.push({
-            fieldFilter: { field: { fieldPath: "appSlug" }, op: "EQUAL", value: { stringValue: clean } }
-          });
-        };
-        pushVal(targetId);
-        pushVal(targetSlug);
-
-        const whereClause = orFilters.length === 1 
-          ? orFilters[0] 
-          : { compositeFilter: { op: "OR", filters: orFilters } };
+        const cleanTargetId = targetId;
 
         const queryBody = {
           structuredQuery: {
             from: [{ collectionId: "reviews" }],
-            where: whereClause,
+            where: {
+              fieldFilter: { field: { fieldPath: "appId" }, op: "EQUAL", value: { stringValue: cleanTargetId } }
+            },
             limit: 50
           }
         };
@@ -516,14 +507,14 @@ export async function fetchLiveReviews(options: {
 
                 allLoadedReviews.push({
                   id: docId || `rev_${Math.random().toString(36).slice(2)}`,
-                  app_id: docFields.appId || docFields.app_id || cleanId,
-                  appId: docFields.appId || cleanId,
-                  appSlug: docFields.appSlug || targetSlug,
-                  appName: docFields.appName || targetTitle,
+                  app_id: docFields.appId || cleanTargetId,
+                  appId: docFields.appId || cleanTargetId,
+                  appSlug: docFields.appSlug || '',
+                  appName: docFields.appName || '',
                   username: docFields.userName || docFields.username || 'Player',
                   rating: Number(docFields.rating) || 5,
                   comment: docFields.reviewText || docFields.comment || '',
-                  created_at: docFields.timestamp || docFields.created_at || new Date().toISOString(),
+                  created_at: formatReviewDate(docFields.timestamp || docFields.created_at),
                   helpful_count: Number(docFields.helpful_count) || 0,
                   reported: Boolean(docFields.reported),
                   report_count: Number(docFields.report_count) || 0,
@@ -540,36 +531,26 @@ export async function fetchLiveReviews(options: {
       }
     }
 
-    // 2C. High-availability fallback to bundled STATIC_COMMUNITY_REVIEWS if direct Firestore returned 0 items
-    if (allLoadedReviews.length === 0 && Array.isArray(STATIC_COMMUNITY_REVIEWS) && STATIC_COMMUNITY_REVIEWS.length > 0) {
-      const cleanTargetId = (targetId || '').toLowerCase().trim();
-      const cleanTargetSlug = (targetSlug || '').toLowerCase().trim();
-      const matched = STATIC_COMMUNITY_REVIEWS.filter(r => {
-        const rId = (r.appId || '').toLowerCase().trim();
-        const rSlug = (r.appSlug || '').toLowerCase().trim();
-        return (cleanTargetId && (rId === cleanTargetId || rSlug === cleanTargetId)) ||
-               (cleanTargetSlug && (rSlug === cleanTargetSlug || rId === cleanTargetSlug));
-      });
-      if (matched.length > 0) {
-        allLoadedReviews = matched.map(r => ({
-          id: r.id,
-          app_id: r.appId,
-          appId: r.appId,
-          appSlug: r.appSlug || targetSlug,
-          appName: r.appName || targetTitle,
-          username: r.userName || 'Player',
-          rating: Number(r.rating) || 5,
-          comment: r.reviewText || '',
-          created_at: r.timestamp || new Date().toISOString(),
-          helpful_count: Number(r.helpful_count) || 0,
-          reported: Boolean(r.reported),
-          report_count: Number(r.report_count) || 0,
-          source: r.source || 'community',
-          isPinned: Boolean(r.isPinned),
-          adminReply: r.adminReply || null
-        }));
+    // 2C. Also fetch atomic stats from app_stats/{cleanId} directly from Firestore
+    try {
+      const cleanTargetId = targetId;
+      const statsUrl = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${cfg.firestoreDatabaseId}/documents/app_stats/${encodeURIComponent(cleanTargetId)}?key=${encodeURIComponent(cfg.apiKey)}`;
+      const statsRes = await fetch(statsUrl);
+      if (statsRes.ok) {
+        const rawStats = await statsRes.json();
+        if (rawStats && rawStats.fields) {
+          const parsed = parseFirestoreFields(rawStats.fields);
+          if (parsed) {
+            loadedStats = {
+              appId: cleanTargetId,
+              totalReviews: Number(parsed.totalReviews || parsed.publishedReviewCount) || 0,
+              averageRating: Number(parsed.averageRating) || 0,
+              starDistribution: parsed.starDistribution || { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 }
+            };
+          }
+        }
       }
-    }
+    } catch (_) {}
 
     if (allLoadedReviews.length > 0) {
       // Calculate live stats if not pre-populated
@@ -690,7 +671,7 @@ export async function submitLiveReview(data: {
   const cleanComment = String(data.reviewText || '').trim();
 
   const generatedId = `rev_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-  const nowIso = new Date().toISOString();
+  const cleanDate = formatReviewDate();
 
   let newReview: PublicReview = {
     id: generatedId,
@@ -701,7 +682,7 @@ export async function submitLiveReview(data: {
     username: cleanUserName,
     rating: cleanRating,
     comment: cleanComment,
-    created_at: nowIso,
+    created_at: cleanDate,
     helpful_count: 0,
     reported: false,
     report_count: 0,
@@ -741,7 +722,7 @@ export async function submitLiveReview(data: {
           username: raw.userName || raw.username || cleanUserName,
           rating: Number(raw.rating) || cleanRating,
           comment: raw.reviewText || raw.comment || cleanComment,
-          created_at: raw.timestamp || raw.created_at || nowIso,
+          created_at: formatReviewDate(raw.timestamp || raw.created_at || cleanDate),
           helpful_count: Number(raw.helpful_count) || 0,
           reported: false,
           report_count: 0,
@@ -768,8 +749,8 @@ export async function submitLiveReview(data: {
         userName: cleanUserName,
         rating: cleanRating,
         reviewText: cleanComment,
-        timestamp: nowIso,
-        created_at: nowIso,
+        timestamp: cleanDate,
+        created_at: cleanDate,
         status: 'published',
         helpful_count: 0,
         isPinned: false,
@@ -777,7 +758,7 @@ export async function submitLiveReview(data: {
         report_count: 0,
         source: 'community',
         adminReply: null,
-        updated_at: nowIso
+        updated_at: cleanDate
       };
 
       const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${cfg.firestoreDatabaseId}/documents/reviews/${encodeURIComponent(newReview.id)}?key=${encodeURIComponent(cfg.apiKey)}`;
@@ -791,6 +772,30 @@ export async function submitLiveReview(data: {
 
       if (firestoreRes.ok) {
         backendSuccess = true;
+
+        // Atomically update app_stats in Firestore
+        try {
+          const statsCommitUrl = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${cfg.firestoreDatabaseId}/documents:commit?key=${encodeURIComponent(cfg.apiKey)}`;
+          await fetch(statsCommitUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              writes: [
+                {
+                  transform: {
+                    document: `projects/${cfg.projectId}/databases/${cfg.firestoreDatabaseId}/documents/app_stats/${cleanAppId}`,
+                    fieldTransforms: [
+                      { fieldPath: "totalReviews", increment: { integerValue: "1" } },
+                      { fieldPath: "publishedReviewCount", increment: { integerValue: "1" } },
+                      { fieldPath: "publishedRatingSum", increment: { integerValue: String(cleanRating) } },
+                      { fieldPath: `starDistribution.${cleanRating}`, increment: { integerValue: "1" } }
+                    ]
+                  }
+                }
+              ]
+            })
+          });
+        } catch (_) {}
       }
     } catch (directWriteErr) {
       console.warn('[Community Direct REST] Direct review write notice:', directWriteErr);

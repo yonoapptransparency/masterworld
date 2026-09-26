@@ -144,31 +144,33 @@ export function sanitizeReviewText(text: string, appName?: string): string {
 }
 
 /**
- * Helper to match any app from the static catalog by ID, Slug, Name, or Package
+ * Helper to match any app from the static catalog strictly by ID or Slug.
+ * Never matches by appName to prevent identifier mismatch or cross-app leakage.
  */
 export function findAppInCatalog(appIdentifier: string): any {
   if (!appIdentifier) return null;
   const rawTarget = String(appIdentifier).toLowerCase().trim();
   if (!rawTarget) return null;
 
-  const slugifiedTarget = rawTarget.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-  const spaceTarget = rawTarget.replace(/[-_]+/g, ' ').trim();
-
   const staticData = getStaticData();
   const apps = staticData.apps || staticData.mockApps || [];
 
-  return apps.find((a: any) => {
-    if (!a) return false;
-    const aId = a.id !== undefined && a.id !== null ? String(a.id).toLowerCase().trim() : '';
-    const aSlug = a.slug ? String(a.slug).toLowerCase().trim() : '';
-    const aName = a.name ? String(a.name).toLowerCase().trim() : '';
-    const aPkg = a.package_name ? String(a.package_name).toLowerCase().trim() : '';
+  // 1. Exact match on app.id
+  const byId = apps.find((a: any) => a && a.id !== undefined && a.id !== null && String(a.id).toLowerCase().trim() === rawTarget);
+  if (byId) return byId;
 
-    if (aId === rawTarget || aSlug === rawTarget || aName === rawTarget || aPkg === rawTarget) return true;
-    if (slugifiedTarget && (aSlug === slugifiedTarget || aId === slugifiedTarget)) return true;
-    if (spaceTarget && aName === spaceTarget) return true;
-    return false;
-  }) || null;
+  // 2. Exact match on app.slug
+  const bySlug = apps.find((a: any) => a && a.slug && String(a.slug).toLowerCase().trim() === rawTarget);
+  if (bySlug) return bySlug;
+
+  // 3. Normalized slug match
+  const slugified = rawTarget.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  if (slugified) {
+    const byNormalizedSlug = apps.find((a: any) => a && a.slug && String(a.slug).toLowerCase().trim() === slugified);
+    if (byNormalizedSlug) return byNormalizedSlug;
+  }
+
+  return null;
 }
 
 export interface CanonicalAppResolution {
@@ -182,8 +184,7 @@ export interface CanonicalAppResolution {
 
 /**
  * Universal Canonical App Resolver:
- * Maps any ID, slug, title, or package variant to a single deterministic canonical identity.
- * Produces the complete alias key set for 100% collision-free cross-matching.
+ * Resolves strictly by app ID and app Slug to guarantee zero cross-app leakage.
  */
 export function resolveCanonicalApp(
   appIdentifier?: string,
@@ -194,44 +195,19 @@ export function resolveCanonicalApp(
 
   const cleanId = String(appIdentifier || '').trim();
   const cleanSlug = String(appSlug || '').trim();
-  const cleanName = String(appName || '').trim();
 
-  const addKey = (k?: string) => {
-    if (!k) return;
-    const lower = String(k).toLowerCase().trim();
-    if (!lower) return;
-    aliasKeys.add(lower);
-
-    // Slug variation
-    const slugified = lower.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-    if (slugified) aliasKeys.add(slugified);
-
-    // Space variation
-    const spaceified = lower.replace(/[-_]+/g, ' ').trim();
-    if (spaceified) aliasKeys.add(spaceified);
-  };
-
-  addKey(cleanId);
-  addKey(cleanSlug);
-  addKey(cleanName);
-
-  // Search catalog using all inputs
-  const matchedApp = findAppInCatalog(cleanId) ||
-    (cleanSlug ? findAppInCatalog(cleanSlug) : null) ||
-    (cleanName ? findAppInCatalog(cleanName) : null) ||
-    (cleanId ? findAppInCatalog(cleanId.replace(/[-_]+/g, ' ')) : null);
+  // Search catalog strictly by ID, then Slug
+  const matchedApp = (cleanId ? findAppInCatalog(cleanId) : null) ||
+    (cleanSlug ? findAppInCatalog(cleanSlug) : null);
 
   if (matchedApp) {
-    if (matchedApp.id !== undefined && matchedApp.id !== null) addKey(String(matchedApp.id));
-    if (matchedApp.slug) addKey(String(matchedApp.slug));
-    if (matchedApp.name) addKey(String(matchedApp.name));
-    if (matchedApp.package_name) addKey(String(matchedApp.package_name));
-    if (matchedApp.developer) addKey(String(matchedApp.developer));
-
     const canonicalId = String(matchedApp.id).trim();
     const canonicalSlug = String(matchedApp.slug || matchedApp.id).trim();
     const canonicalName = String(matchedApp.name || matchedApp.title || canonicalSlug).trim();
     const packageName = String(matchedApp.package_name || '').trim();
+
+    aliasKeys.add(canonicalId.toLowerCase());
+    if (canonicalSlug) aliasKeys.add(canonicalSlug.toLowerCase());
 
     return {
       canonicalId,
@@ -244,9 +220,12 @@ export function resolveCanonicalApp(
   }
 
   // Fallback for custom or unindexed apps
-  const fallbackId = cleanId || cleanSlug || cleanName || 'unknown_app';
-  const fallbackSlug = cleanSlug || cleanId.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'unknown-app';
-  const fallbackName = cleanName || cleanSlug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || cleanId || 'Unknown App';
+  const fallbackId = cleanId || cleanSlug || 'unknown_app';
+  const fallbackSlug = cleanSlug || fallbackId.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'unknown-app';
+  const fallbackName = cleanSlug || fallbackId;
+
+  aliasKeys.add(fallbackId.toLowerCase());
+  if (fallbackSlug) aliasKeys.add(fallbackSlug.toLowerCase());
 
   return {
     canonicalId: fallbackId,
@@ -351,6 +330,23 @@ async function safeWriteDb(docId: string, data: any, _unusedAuthToken?: string, 
     }
   }
   return await writeCommunityRestDoc(docId, data, merge, collectionPath);
+}
+
+export function formatReviewDate(dateInput?: string | Date | number): string {
+  if (!dateInput) {
+    const now = new Date();
+    return `${now.getDate()} ${now.toLocaleString('en-US', { month: 'short' })} ${now.getFullYear()}`;
+  }
+  if (typeof dateInput === 'string' && /^\d{1,2}\s+[A-Za-z]{3}\s+\d{4}$/.test(dateInput.trim())) {
+    return dateInput.trim();
+  }
+  try {
+    const d = new Date(dateInput);
+    if (!isNaN(d.getTime())) {
+      return `${d.getDate()} ${d.toLocaleString('en-US', { month: 'short' })} ${d.getFullYear()}`;
+    }
+  } catch (e) {}
+  return String(dateInput);
 }
 
 class CommunityStoreService {
@@ -485,81 +481,8 @@ class CommunityStoreService {
       // Reconcile atomic plus/minus counters with all loaded reviews in memory
       this.reconcileStatsCacheWithLoadedReviews();
 
-      // If local backup was empty or has missing reviews from curated static dataset, seed them
-      if (Array.isArray(STATIC_COMMUNITY_REVIEWS) && STATIC_COMMUNITY_REVIEWS.length > 0) {
-        let seeded = 0;
-        STATIC_COMMUNITY_REVIEWS.forEach((r) => {
-          if (r && r.id && !this.deletedReviewIds.has(r.id) && !this.reviews.has(r.id)) {
-            const sanitized: ReviewRecord = {
-              id: r.id,
-              appId: r.appId,
-              appSlug: r.appSlug || '',
-              appName: r.appName || '',
-              userName: r.userName || 'Player',
-              rating: Number(r.rating) || 5,
-              reviewText: sanitizeReviewText(r.reviewText || '', r.appName),
-              timestamp: r.timestamp || new Date().toISOString(),
-              status: (r.status as any) || 'published',
-              helpful_count: Number(r.helpful_count) || 0,
-              isPinned: Boolean(r.isPinned),
-              reported: Boolean(r.reported),
-              report_count: Number(r.report_count) || 0,
-              source: (r.source as any) || 'community',
-              adminReply: r.adminReply || null,
-              updated_at: r.updated_at || r.timestamp || new Date().toISOString()
-            };
-            this.reviews.set(r.id, sanitized);
-            seeded++;
-          }
-        });
-        if (seeded > 0) {
-          console.log(`[CommunityStore] Seeded ${seeded} verified community reviews from dataset into memory.`);
-          this.executeDiskSync();
-        }
-      }
-
-      // Also ingest verified reviews from src/lib/public_backup.json if present
-      try {
-        const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
-        if (fs.existsSync(publicBackupPath)) {
-          const pRaw = fs.readFileSync(publicBackupPath, 'utf8');
-          const pData = JSON.parse(pRaw);
-          if (pData && Array.isArray(pData.reviews) && pData.reviews.length > 0) {
-            let pSeeded = 0;
-            pData.reviews.forEach((r: any) => {
-              if (r && r.id && !this.deletedReviewIds.has(r.id) && !this.reviews.has(r.id)) {
-                const sanitized: ReviewRecord = {
-                  id: r.id,
-                  appId: r.appId,
-                  appSlug: r.appSlug || '',
-                  appName: r.appName || '',
-                  userName: r.userName || 'Player',
-                  rating: Number(r.rating) || 5,
-                  reviewText: sanitizeReviewText(r.reviewText || '', r.appName),
-                  timestamp: r.timestamp || new Date().toISOString(),
-                  status: (r.status as any) || 'published',
-                  helpful_count: Number(r.helpful_count) || 0,
-                  isPinned: Boolean(r.isPinned),
-                  reported: Boolean(r.reported),
-                  report_count: Number(r.report_count) || 0,
-                  source: (r.source as any) || 'community',
-                  adminReply: r.adminReply || null,
-                  updated_at: r.updated_at || r.timestamp || new Date().toISOString()
-                };
-                this.reviews.set(r.id, sanitized);
-                pSeeded++;
-              }
-            });
-            if (pSeeded > 0) {
-              console.log(`[CommunityStore] Ingested ${pSeeded} additional reviews from public_backup.json into memory.`);
-              this.reconcileStatsCacheWithLoadedReviews();
-              this.executeDiskSync();
-            }
-          }
-        }
-      } catch (pbErr) {
-        // Non-blocking
-      }
+      // Zero-Resurrection Guarantee: NEVER auto-seed deleted reviews
+      // If reviews were deleted from Firestore/disk, they strictly remain 0.
 
       // Reconcile and save catalog stats summary
       this.reconcileStatsCacheWithLoadedReviews();
@@ -1053,13 +976,7 @@ class CommunityStoreService {
     const appReviews = Array.from(this.reviews.values()).filter(r => {
       if (r.status && r.status !== 'published' && r.status !== 'approved') return false;
       const rAppId = String(r.appId || '').toLowerCase().trim();
-      const rAppSlug = String(r.appSlug || '').toLowerCase().trim();
-      const rAppName = String(r.appName || '').toLowerCase().trim();
-      return (
-        aliasKeys.has(rAppId) ||
-        (rAppSlug && aliasKeys.has(rAppSlug)) ||
-        (rAppName && aliasKeys.has(rAppName))
-      );
+      return rAppId === officialId.toLowerCase().trim();
     });
 
     // Sort: Pinned first, then newest timestamp
@@ -1271,7 +1188,7 @@ class CommunityStoreService {
       userName: String(payload.userName || payload.username || payload.author || 'Player').trim().substring(0, 50),
       rating: Math.max(1, Math.min(5, Math.round(Number(payload.rating) || 5))),
       reviewText: sanitizeReviewText(String(payload.reviewText || payload.comment || payload.text || ''), targetAppName),
-      timestamp: payload.timestamp || payload.date || payload.created_at || new Date().toISOString(),
+      timestamp: formatReviewDate(payload.timestamp || payload.date || payload.created_at),
       status: (payload.status as any) || 'published',
       helpful_count: Number(payload.helpful_count || payload.helpfulCount) || 0,
       isPinned: Boolean(payload.isPinned),
@@ -1279,7 +1196,7 @@ class CommunityStoreService {
       report_count: Number(payload.report_count) || 0,
       source: payload.source || 'community',
       adminReply: payload.adminReply || null,
-      updated_at: new Date().toISOString()
+      updated_at: formatReviewDate()
     };
 
     // 1. Save to active in-memory store and local disk immediately
@@ -1781,10 +1698,8 @@ public async voteHelpful(reviewId: string): Promise<number> {
 
     for (const [id, rev] of Array.from(this.reviews.entries())) {
       const revAppId = String(rev.appId || '').toLowerCase().trim();
-      const revSlug = String(rev.appSlug || '').toLowerCase().trim();
-      const revName = String(rev.appName || '').toLowerCase().trim();
 
-      if (aliasKeys.has(revAppId) || aliasKeys.has(revSlug) || aliasKeys.has(revName) || revAppId === canonicalTargetId.toLowerCase() || revSlug === resolved.canonicalSlug.toLowerCase()) {
+      if (revAppId === canonicalTargetId.toLowerCase()) {
         const existing = this.reviews.get(id);
         if (existing && (existing.status === 'published' || existing.status === 'approved')) {
           const incs: any = { publishedReviewCount: -1, publishedRatingSum: -existing.rating };
@@ -1929,27 +1844,53 @@ public async voteHelpful(reviewId: string): Promise<number> {
     sortBy: string = 'recent',
     isBot: boolean = false
   ) {
-    const resolved = resolveCanonicalApp(appIdentifier, appSlug, appTitle);
-    const cleanId = resolved.canonicalId;
-    const aliasKeys = resolved.aliasKeys;
+    const catalogApp = findAppInCatalog(appIdentifier) || (appSlug ? findAppInCatalog(appSlug) : null);
+    const cleanId = catalogApp && catalogApp.id ? String(catalogApp.id).toLowerCase().trim() : String(appIdentifier || '').toLowerCase().trim();
 
-    // Helper to get matching reviews for this app from memory
+    // Helper to get matching reviews for this app strictly by appId
     const getMatchingReviews = () => {
       return Array.from(this.reviews.values()).filter(r => {
         if (r.status && r.status !== 'published' && r.status !== 'approved') return false;
         const rAppId = String(r.appId || '').toLowerCase().trim();
-        const rAppSlug = String(r.appSlug || '').toLowerCase().trim();
-        const rAppName = String(r.appName || '').toLowerCase().trim();
-        return aliasKeys.has(rAppId) || (rAppSlug && aliasKeys.has(rAppSlug)) || (rAppName && aliasKeys.has(rAppName));
+        return rAppId === cleanId;
       });
     };
 
     let memList = getMatchingReviews();
 
-    // If no reviews in memory and app not yet loaded, read ONLY the single chunk document (1 single read!)
+    // If no reviews in memory and app not yet loaded, load directly from Firestore reviews collection strictly by appId
     if (memList.length === 0 && !isBot && !this.loadedAppsMap.has(cleanId)) {
-      await this.loadSingleAppReviewsChunk(cleanId);
-      memList = getMatchingReviews();
+      this.loadedAppsMap.set(cleanId, Date.now());
+      const db = getCommunityAdminDb();
+      if (db) {
+        try {
+          const snap = await withTimeout(db.collection('reviews').where('appId', '==', cleanId).get(), 5000, null);
+          if (snap && snap.docs) {
+            snap.docs.forEach((doc: any) => {
+              const d = doc.data();
+              this.reviews.set(doc.id, {
+                id: doc.id,
+                appId: cleanId,
+                userName: d.userName || d.username || 'Player',
+                rating: Number(d.rating) || 5,
+                reviewText: sanitizeReviewText(d.reviewText || d.comment || ''),
+                timestamp: formatReviewDate(d.timestamp || d.created_at),
+                status: d.status || 'published',
+                helpful_count: Number(d.helpful_count) || 0,
+                isPinned: Boolean(d.isPinned),
+                reported: Boolean(d.reported),
+                report_count: Number(d.report_count) || 0,
+                source: d.source || 'community',
+                adminReply: d.adminReply || null,
+                updated_at: d.updated_at
+              });
+            });
+            memList = getMatchingReviews();
+          }
+        } catch (e) {
+          console.warn('[CommunityStore] Error querying reviews for', cleanId, e);
+        }
+      }
     }
 
     // Compute live stats from all published reviews of this app
@@ -2215,6 +2156,101 @@ public async voteHelpful(reviewId: string): Promise<number> {
   }
 
   /**
+   * Reads fresh atomic app_stats directly from live Firestore (rummydexcommunity)
+   * Guaranteed zero-stale export for Googlebot Schema and search engines.
+   */
+  public async getExportableCatalogStats(): Promise<any> {
+    const db = getCommunityAdminDb();
+    const appCounts: Record<string, any> = {};
+    let totalReviews = 0;
+    let publishedReviews = 0;
+    let ratingSum = 0;
+    const ratingDistribution: Record<string, number> = { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 };
+
+    if (db) {
+      try {
+        const statsSnap = await db.collection('app_stats').get();
+        if (!statsSnap.empty) {
+          statsSnap.docs.forEach((doc: any) => {
+            const data = doc.data();
+            const appId = doc.id;
+            const pubCount = Number(data.publishedReviewCount || data.totalReviews) || 0;
+            const rSum = Number(data.publishedRatingSum) || 0;
+            const avg = pubCount > 0 ? parseFloat((rSum / pubCount).toFixed(1)) : (Number(data.averageRating) || 0);
+            
+            const starCounts: Record<string, number> = {
+              "1": Number(data['starDistribution.1'] ?? data.starDistribution?.['1'] ?? data.starDistribution?.[1]) || 0,
+              "2": Number(data['starDistribution.2'] ?? data.starDistribution?.['2'] ?? data.starDistribution?.[2]) || 0,
+              "3": Number(data['starDistribution.3'] ?? data.starDistribution?.['3'] ?? data.starDistribution?.[3]) || 0,
+              "4": Number(data['starDistribution.4'] ?? data.starDistribution?.['4'] ?? data.starDistribution?.[4]) || 0,
+              "5": Number(data['starDistribution.5'] ?? data.starDistribution?.['5'] ?? data.starDistribution?.[5]) || 0
+            };
+
+            if (pubCount > 0) {
+              appCounts[appId] = {
+                total: pubCount,
+                published: pubCount,
+                avgRating: avg,
+                starCounts
+              };
+              totalReviews += pubCount;
+              publishedReviews += pubCount;
+              ratingSum += (avg * pubCount);
+              for (let s = 1; s <= 5; s++) {
+                ratingDistribution[String(s)] += starCounts[String(s)];
+              }
+            }
+          });
+        }
+      } catch (e) {
+        console.warn('[CommunityStore] Error fetching app_stats from Firestore:', e);
+      }
+    }
+
+    // Fallback to in-memory stats cache if Firestore read failed or in local mode
+    if (Object.keys(appCounts).length === 0 && this.reviews.size > 0) {
+      const fallbackOverview = this.getCommunityOverviewMetrics();
+      const fallbackAppCounts = this.getAppReviewCounts();
+      return {
+        totalReviews: fallbackOverview.totalReviews,
+        publishedReviews: fallbackOverview.publishedCount,
+        pendingReviews: 0,
+        rejectedReviews: 0,
+        flaggedReviews: 0,
+        totalReports: 0,
+        pendingReports: 0,
+        averageRating: fallbackOverview.averageRating,
+        ratingDistribution: fallbackOverview.ratingDistribution,
+        appCounts: fallbackAppCounts.appCounts || {},
+        updated_at: new Date().toISOString()
+      };
+    }
+
+    const averageRating = publishedReviews > 0 ? parseFloat((ratingSum / publishedReviews).toFixed(1)) : 0;
+
+    const finalResult = {
+      totalReviews,
+      publishedReviews,
+      pendingReviews: 0,
+      rejectedReviews: 0,
+      flaggedReviews: 0,
+      totalReports: 0,
+      pendingReports: 0,
+      averageRating,
+      ratingDistribution,
+      appCounts,
+      updated_at: new Date().toISOString()
+    };
+
+    try {
+      const statsPath = path.join(process.cwd(), 'src/lib/communityCatalogStats.json');
+      fs.writeFileSync(statsPath, JSON.stringify(finalResult, null, 2), 'utf8');
+    } catch (_) {}
+
+    return finalResult;
+  }
+
+  /**
    * Persist pre-computed catalog stats to Firestore community_store/catalog_stats
    * Allows 1-read retrieval for any future worker or client.
    */
@@ -2293,15 +2329,14 @@ public async voteHelpful(reviewId: string): Promise<number> {
     let list = Array.from(this.reviews.values());
 
     if (query.appId && query.appId !== 'all') {
-      await this.loadAppReviewsForAdmin(query.appId, Boolean(query.refresh));
+      const catalogApp = findAppInCatalog(query.appId);
+      const targetAppId = catalogApp && catalogApp.id ? String(catalogApp.id).toLowerCase().trim() : String(query.appId).toLowerCase().trim();
+      await this.loadAppReviewsForAdmin(targetAppId, Boolean(query.refresh));
       list = Array.from(this.reviews.values());
-      const aliasKeys = this.getAliasKeysForApp(query.appId);
 
       list = list.filter(r => {
         const rAppId = String(r.appId || '').toLowerCase().trim();
-        const rAppSlug = String(r.appSlug || '').toLowerCase().trim();
-        const rAppName = String(r.appName || '').toLowerCase().trim();
-        return aliasKeys.has(rAppId) || (rAppSlug && aliasKeys.has(rAppSlug)) || (rAppName && aliasKeys.has(rAppName));
+        return rAppId === targetAppId;
       });
     }
 
@@ -2558,14 +2593,11 @@ public async voteHelpful(reviewId: string): Promise<number> {
       communityStarCounts = stats.starDistribution || communityStarCounts;
     } else {
       // 2. Fallback: compute strictly from memory reviews if no atomic stats document exists
-      const aliasKeys = resolved.aliasKeys;
       const appReviews = Array.from(this.reviews.values())
         .filter(r => {
           if (r.status && r.status !== 'published' && r.status !== 'approved') return false;
           const rAppId = String(r.appId || '').toLowerCase().trim();
-          const rAppSlug = String(r.appSlug || '').toLowerCase().trim();
-          const rAppName = String(r.appName || '').toLowerCase().trim();
-          return aliasKeys.has(rAppId) || (rAppSlug && aliasKeys.has(rAppSlug)) || (rAppName && aliasKeys.has(rAppName));
+          return rAppId === cleanId.toLowerCase().trim();
         });
 
       if (appReviews.length > 0) {

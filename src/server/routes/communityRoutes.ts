@@ -370,6 +370,30 @@ communityRouter.get("/api/v1/admin/community/export-published", verifyAdminToken
   }
 });
 
+/**
+ * Live export of atomic app stats for GitHub sync & Googlebot SEO Schema
+ */
+communityRouter.get("/api/v1/admin/community/export-stats", verifyAdminToken, async (req: any, res: any) => {
+  try {
+    const stats = typeof (communityStore as any).getExportableCatalogStats === 'function'
+      ? await (communityStore as any).getExportableCatalogStats()
+      : {
+          totalReviews: 0,
+          publishedReviews: 0,
+          averageRating: 0,
+          ratingDistribution: { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 },
+          appCounts: {},
+          updated_at: new Date().toISOString()
+        };
+    return res.status(200).json({
+      success: true,
+      stats
+    });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, error: error?.message || String(error) });
+  }
+});
+
 communityRouter.get("/api/v1/admin/community/overview", verifyAdminToken, async (req: any, res: any) => {
   try {
     // 1. Ensure store is initialized from local backup/remote so metrics never return 0 on cold boots

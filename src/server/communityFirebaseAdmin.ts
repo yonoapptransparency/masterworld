@@ -502,41 +502,20 @@ export async function fetchLiveReviewsForApp(
   const db = getCommunityAdminDb();
   if (db) {
     try {
+      // Query STRICTLY by appId
       let snap: any = null;
       try {
-        snap = await withTimeout(db.collection('reviews').where('appId', '==', targetId).limit(fetchLimit + 10).get(), 3000, null);
+        snap = await withTimeout(db.collection('reviews').where('appId', '==', targetId).get(), 5000, null);
       } catch (_) {}
 
-      if (!snap || !snap.docs || snap.docs.length === 0) {
-        try {
-          snap = await withTimeout(db.collection('reviews').where('appSlug', '==', targetId).limit(fetchLimit + 10).get(), 3000, null);
-        } catch (_) {}
-      }
-
-      if (!snap || !snap.docs || snap.docs.length === 0) {
-        try {
-          snap = await withTimeout(db.collection('reviews').limit(50).get(), 3000, null);
-        } catch (_) {}
-      }
-
-      if (snap && snap.docs) {
+      if (snap && snap.docs && snap.docs.length > 0) {
         let docs = snap.docs.map((d: any) => ({ id: d.id, ...d.data() }));
         
-        // Flexible resilient matching across appId, appSlug, appName and variants
+        // Strict filtering: ONLY reviews where appId strictly matches targetId
         docs = docs.filter((r: any) => {
-          if (r.status && r.status === 'rejected') return false;
+          if (r.status && r.status !== 'published' && r.status !== 'approved') return false;
           const rAppId = String(r.appId || r.app_id || '').toLowerCase().trim();
-          const rAppSlug = String(r.appSlug || r.app_slug || '').toLowerCase().trim();
-          const rAppName = String(r.appName || r.app_name || '').toLowerCase().trim();
-          
-          if (!rAppId && !rAppSlug && !rAppName) return false;
-          
-          return rAppId === targetId || 
-                 rAppSlug === targetId || 
-                 rAppName === targetId || 
-                 (targetId.length > 3 && (targetId.includes(rAppId) || rAppId.includes(targetId))) ||
-                 (rAppSlug && targetId === rAppSlug) ||
-                 (rAppId && rAppId.replace(/[^a-z0-9]/g, '') === targetId.replace(/[^a-z0-9]/g, ''));
+          return rAppId === targetId || (targetId && rAppId === targetId);
         });
 
         if (docs.length === 0) {
@@ -557,7 +536,7 @@ export async function fetchLiveReviewsForApp(
             const aIsPinned = Boolean(a.isPinned);
             const bIsPinned = Boolean(b.isPinned);
             if (aIsPinned !== bIsPinned) return aIsPinned ? -1 : 1;
-            return new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime();
+            return new Date(b.timestamp || b.created_at || 0).getTime() - new Date(a.timestamp || a.created_at || 0).getTime();
           });
         }
 
@@ -576,27 +555,6 @@ export async function fetchLiveReviewsForApp(
       console.warn(`[Community Store] Live query notice for ${targetId}:`, err?.message || err);
     }
   }
-
-  // Check bucket doc fallback in community_store
-  try {
-    const chunkDoc = await readCommunityRestDoc(`app_reviews_${targetId}_0`, 'community_store');
-    if (chunkDoc && Array.isArray(chunkDoc.reviews)) {
-      let list = chunkDoc.reviews;
-      if (options.filter === 'positive') list = list.filter((r: any) => (r.rating || 5) >= 4);
-      else if (options.filter === 'critical') list = list.filter((r: any) => (r.rating || 5) <= 3);
-
-      let startIndex = 0;
-      if (options.cursor) {
-        const idx = list.findIndex((r: any) => r.id === options.cursor);
-        if (idx >= 0) startIndex = idx + 1;
-      }
-      const pageDocs = list.slice(startIndex, startIndex + fetchLimit);
-      const hasMore = startIndex + fetchLimit < list.length;
-      const nextCursor = hasMore && pageDocs.length > 0 ? pageDocs[pageDocs.length - 1].id : null;
-
-      return { reviews: pageDocs, hasMore, nextCursor };
-    }
-  } catch (e) {}
 
   return { reviews: [], hasMore: false, nextCursor: null };
 }
@@ -726,18 +684,20 @@ export async function atomicUpdateAppStats(appId: string, increments: {
   const cleanAppId = String(appId || '').trim();
   if (!cleanAppId) return false;
 
-  // 1. Try Admin SDK if available
+  // 1. Try Admin SDK if available (direct Firestore write with atomic FieldValue.increment)
   const db = getCommunityAdminDb();
   if (db) {
     try {
       const admin = require('firebase-admin');
       const FieldValue = admin.firestore.FieldValue;
       const updates: any = {
+        appId: cleanAppId,
         updated_at: new Date().toISOString()
       };
 
       if (increments.publishedReviewCount) {
         updates.publishedReviewCount = FieldValue.increment(increments.publishedReviewCount);
+        updates.totalReviews = FieldValue.increment(increments.publishedReviewCount);
       }
       if (increments.publishedRatingSum) {
         updates.publishedRatingSum = FieldValue.increment(increments.publishedRatingSum);
@@ -767,6 +727,7 @@ export async function atomicUpdateAppStats(appId: string, increments: {
     
     if (increments.publishedReviewCount) {
       fieldTransforms.push({ fieldPath: "publishedReviewCount", increment: { integerValue: String(increments.publishedReviewCount) } });
+      fieldTransforms.push({ fieldPath: "totalReviews", increment: { integerValue: String(increments.publishedReviewCount) } });
     }
     if (increments.publishedRatingSum) {
       fieldTransforms.push({ fieldPath: "publishedRatingSum", increment: { integerValue: String(increments.publishedRatingSum) } });
@@ -819,28 +780,153 @@ export async function atomicUpdateAppStats(appId: string, increments: {
 }
 
 export async function readAppStats(appId: string): Promise<any | null> {
+  const cleanAppId = String(appId || '').trim();
+  if (!cleanAppId) return null;
+
+  // 1. Try Admin SDK first (Direct Firestore read, zero permission restriction)
+  const db = getCommunityAdminDb();
+  if (db) {
+    try {
+      const snap = await db.collection('app_stats').doc(cleanAppId).get();
+      if (snap && snap.exists) {
+        const d = snap.data();
+        const pub = Math.max(0, Number(d.publishedReviewCount || d.totalReviews) || 0);
+        const sum = Math.max(0, Number(d.publishedRatingSum) || 0);
+        const avg = pub > 0 ? parseFloat((sum / pub).toFixed(1)) : 0;
+        return {
+          appId: cleanAppId,
+          totalReviews: pub,
+          publishedReviewCount: pub,
+          publishedRatingSum: sum,
+          averageRating: avg,
+          starDistribution: {
+            '1': Math.max(0, Number(d['starDistribution.1'] ?? d.starDistribution?.['1']) || 0),
+            '2': Math.max(0, Number(d['starDistribution.2'] ?? d.starDistribution?.['2']) || 0),
+            '3': Math.max(0, Number(d['starDistribution.3'] ?? d.starDistribution?.['3']) || 0),
+            '4': Math.max(0, Number(d['starDistribution.4'] ?? d.starDistribution?.['4']) || 0),
+            '5': Math.max(0, Number(d['starDistribution.5'] ?? d.starDistribution?.['5']) || 0),
+          }
+        };
+      }
+    } catch (e) {
+      console.warn('[readAppStats] Admin SDK error:', e);
+    }
+  }
+
+  // 2. REST Fallback
   try {
     const config = getCommunityFirebaseConfig();
     const dbId = config.firestoreDatabaseId || '(default)';
-    const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${dbId}/documents/app_stats/${appId}?key=${encodeURIComponent(config.apiKey)}`;
+    const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${dbId}/documents/app_stats/${encodeURIComponent(cleanAppId)}?key=${encodeURIComponent(config.apiKey)}`;
     
     const res = await fetch(url);
     if (!res.ok) return null;
     const data = await res.json();
     if (!data || !data.fields) return null;
     
+    const pub = Math.max(0, Number(data.fields.publishedReviewCount?.integerValue || data.fields.totalReviews?.integerValue || 0));
+    const sum = Math.max(0, Number(data.fields.publishedRatingSum?.integerValue || 0));
+    const avg = pub > 0 ? parseFloat((sum / pub).toFixed(1)) : 0;
+
     return {
-      publishedReviewCount: Number(data.fields.publishedReviewCount?.integerValue || 0),
-      publishedRatingSum: Number(data.fields.publishedRatingSum?.integerValue || 0),
+      appId: cleanAppId,
+      totalReviews: pub,
+      publishedReviewCount: pub,
+      publishedRatingSum: sum,
+      averageRating: avg,
       starDistribution: {
-        '1': Number(data.fields.starDistribution?.mapValue?.fields?.['1']?.integerValue || 0),
-        '2': Number(data.fields.starDistribution?.mapValue?.fields?.['2']?.integerValue || 0),
-        '3': Number(data.fields.starDistribution?.mapValue?.fields?.['3']?.integerValue || 0),
-        '4': Number(data.fields.starDistribution?.mapValue?.fields?.['4']?.integerValue || 0),
-        '5': Number(data.fields.starDistribution?.mapValue?.fields?.['5']?.integerValue || 0),
+        '1': Math.max(0, Number(data.fields.starDistribution?.mapValue?.fields?.['1']?.integerValue || 0)),
+        '2': Math.max(0, Number(data.fields.starDistribution?.mapValue?.fields?.['2']?.integerValue || 0)),
+        '3': Math.max(0, Number(data.fields.starDistribution?.mapValue?.fields?.['3']?.integerValue || 0)),
+        '4': Math.max(0, Number(data.fields.starDistribution?.mapValue?.fields?.['4']?.integerValue || 0)),
+        '5': Math.max(0, Number(data.fields.starDistribution?.mapValue?.fields?.['5']?.integerValue || 0)),
       }
     };
   } catch (err) {
     return null;
   }
+}
+
+/**
+ * Reads ALL app stats documents directly from Firestore in 1 single batch operation.
+ * Used for live instant admin display and for generating communityCatalogStats.json during split-sync.
+ */
+export async function readAllAppStats(): Promise<Record<string, {
+  appId: string;
+  total: number;
+  published: number;
+  avgRating: number;
+  publishedRatingSum: number;
+  starCounts: Record<string, number>;
+}>> {
+  const result: Record<string, any> = {};
+  const db = getCommunityAdminDb();
+  if (db) {
+    try {
+      const snap = await db.collection('app_stats').get();
+      snap.docs.forEach((doc: any) => {
+        const d = doc.data();
+        const id = String(doc.id).trim();
+        const pub = Math.max(0, Number(d.publishedReviewCount || d.totalReviews) || 0);
+        const sum = Math.max(0, Number(d.publishedRatingSum) || 0);
+        const avg = pub > 0 ? parseFloat((sum / pub).toFixed(1)) : 0;
+        result[id] = {
+          appId: id,
+          total: pub,
+          published: pub,
+          avgRating: avg,
+          publishedRatingSum: sum,
+          starCounts: {
+            '1': Math.max(0, Number(d['starDistribution.1'] ?? d.starDistribution?.['1']) || 0),
+            '2': Math.max(0, Number(d['starDistribution.2'] ?? d.starDistribution?.['2']) || 0),
+            '3': Math.max(0, Number(d['starDistribution.3'] ?? d.starDistribution?.['3']) || 0),
+            '4': Math.max(0, Number(d['starDistribution.4'] ?? d.starDistribution?.['4']) || 0),
+            '5': Math.max(0, Number(d['starDistribution.5'] ?? d.starDistribution?.['5']) || 0),
+          }
+        };
+      });
+      return result;
+    } catch (e) {
+      console.warn('[readAllAppStats] Admin SDK error:', e);
+    }
+  }
+
+  // 2. REST Fallback
+  try {
+    const config = getCommunityFirebaseConfig();
+    const dbId = config.firestoreDatabaseId || '(default)';
+    const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${dbId}/documents/app_stats?pageSize=300&key=${encodeURIComponent(config.apiKey)}`;
+    const res = await fetch(url);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && Array.isArray(data.documents)) {
+        data.documents.forEach((doc: any) => {
+          const docName = String(doc.name || '');
+          const id = docName.split('/').pop() || '';
+          if (!id) return;
+          const pub = Math.max(0, Number(doc.fields?.publishedReviewCount?.integerValue || doc.fields?.totalReviews?.integerValue || 0));
+          const sum = Math.max(0, Number(doc.fields?.publishedRatingSum?.integerValue || 0));
+          const avg = pub > 0 ? parseFloat((sum / pub).toFixed(1)) : 0;
+          result[id] = {
+            appId: id,
+            total: pub,
+            published: pub,
+            avgRating: avg,
+            publishedRatingSum: sum,
+            starCounts: {
+              '1': Math.max(0, Number(doc.fields?.starDistribution?.mapValue?.fields?.['1']?.integerValue || 0)),
+              '2': Math.max(0, Number(doc.fields?.starDistribution?.mapValue?.fields?.['2']?.integerValue || 0)),
+              '3': Math.max(0, Number(doc.fields?.starDistribution?.mapValue?.fields?.['3']?.integerValue || 0)),
+              '4': Math.max(0, Number(doc.fields?.starDistribution?.mapValue?.fields?.['4']?.integerValue || 0)),
+              '5': Math.max(0, Number(doc.fields?.starDistribution?.mapValue?.fields?.['5']?.integerValue || 0)),
+            }
+          };
+        });
+      }
+    }
+  } catch (err) {
+    console.warn('[readAllAppStats] REST error:', err);
+  }
+
+  return result;
 }
