@@ -40,8 +40,8 @@ export function useReviews(
 
   // Instant SWR Cache Initialization (0ms latency render for first 5 items)
   const initialCached = useMemo(() => {
-    return getCachedLiveReviews(cleanAppId);
-  }, [cleanAppId]);
+    return getCachedLiveReviews(cleanAppId, cleanAppSlug);
+  }, [cleanAppId, cleanAppSlug]);
 
   const [reviews, setReviews] = useState<Review[]>(() => {
     if (initialCached && initialCached.reviews.length > 0) {
@@ -114,6 +114,8 @@ export function useReviews(
       
       const result = await fetchLiveReviews({
         appId: cleanAppId,
+        appSlug: cleanAppSlug,
+        appTitle: cleanAppTitle,
         cursor: cursorToUse,
         limit: PAGE_SIZE,
         rating: overallRating,
@@ -354,6 +356,18 @@ export function useLiveAppStats(appId: string, appSlug?: string, fallbackRating:
     const immediate = getCachedLiveAppStats(cleanId, cleanSlug);
     if (immediate) {
       setStats(immediate);
+    }
+
+    const handleUpdate = () => {
+      const fresh = getCachedLiveAppStats(cleanId, cleanSlug);
+      if (fresh) {
+        setStats(fresh);
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('community-review-added', handleUpdate);
+      return () => window.removeEventListener('community-review-added', handleUpdate);
     }
   }, [cleanId, cleanSlug]);
 

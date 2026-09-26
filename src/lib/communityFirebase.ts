@@ -29,25 +29,40 @@ export function formatReviewDate(dateInput?: string | Date | number): string {
 const getEnvVal = (key: string): string | undefined => {
   if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env[key]) {
     const v = String(import.meta.env[key]).trim();
-    if (v && v.length > 2 && !v.includes('!') && !v.includes('#')) return v;
+    if (v && v.length > 0 && !v.includes('!') && !v.includes('#')) return v;
   }
   if (typeof process !== 'undefined' && process.env && process.env[key]) {
     const v = String(process.env[key]).trim();
-    if (v && v.length > 2 && !v.includes('!') && !v.includes('#')) return v;
+    if (v && v.length > 0 && !v.includes('!') && !v.includes('#')) return v;
   }
   return undefined;
 };
 
 export const getResolvedCommunityFirebaseConfig = () => {
-  const projectId = getEnvVal('VITE_COMMUNITY_FIREBASE_PROJECT_ID') || "rummydexcommunity";
-  const defaultDbId = '(default)';
+  const rawProjectId = getEnvVal('VITE_COMMUNITY_FIREBASE_PROJECT_ID') || "rummydexcommunity";
+  const projectId = (rawProjectId && !rawProjectId.includes('{') && rawProjectId.length < 50) ? rawProjectId : "rummydexcommunity";
+  
+  const rawDbId = getEnvVal('VITE_COMMUNITY_FIREBASE_DATABASE_ID') || getEnvVal('COMMUNITY_FIREBASE_DATABASE_ID');
+  const firestoreDatabaseId = (rawDbId && !rawDbId.includes('{') && !rawDbId.includes('service_account') && rawDbId.length < 40)
+    ? rawDbId 
+    : '(default)';
+
+  const rawApiKey = getEnvVal('VITE_COMMUNITY_FIREBASE_API_KEY');
+  const apiKey = (rawApiKey && rawApiKey.startsWith('AIza') && rawApiKey.length > 20) 
+    ? rawApiKey 
+    : "AIzaSyCzhWEDLQsZ-HL8iVMcINq78lB-RzYPxi0";
+
+  const rawAppId = getEnvVal('VITE_COMMUNITY_FIREBASE_APP_ID');
+  const appId = (rawAppId && rawAppId.startsWith('1:') && rawAppId.length > 20)
+    ? rawAppId
+    : "1:236598070230:web:df8b1b549dea13938d3277";
 
   return {
     projectId,
-    appId: getEnvVal('VITE_COMMUNITY_FIREBASE_APP_ID') || "1:236598070230:web:df8b1b549dea13938d3277",
-    apiKey: getEnvVal('VITE_COMMUNITY_FIREBASE_API_KEY') || "AIzaSyCzhWEDLQsZ-HL8iVMcINq78lB-RzYPxi0",
+    appId,
+    apiKey,
     authDomain: getEnvVal('VITE_COMMUNITY_FIREBASE_AUTH_DOMAIN') || `${projectId}.firebaseapp.com`,
-    firestoreDatabaseId: getEnvVal('VITE_COMMUNITY_FIREBASE_DATABASE_ID') || defaultDbId,
+    firestoreDatabaseId,
     storageBucket: getEnvVal('VITE_COMMUNITY_FIREBASE_STORAGE_BUCKET') || `${projectId}.firebasestorage.app`,
     messagingSenderId: getEnvVal('VITE_COMMUNITY_FIREBASE_MESSAGING_ID') || "236598070230",
   };
@@ -204,30 +219,31 @@ export function invalidateReviewCache(appId?: string, appSlug?: string) {
 }
 
 export function getCachedLiveReviews(appId?: string, appSlug?: string): ReviewFetchResult | null {
-  const targetKey = (appId || appSlug || '').trim();
-  if (!targetKey) return null;
+  const keys = [appId, appSlug].filter(Boolean).map(k => String(k).trim()).filter(Boolean);
+  if (keys.length === 0) return null;
 
-  // 1. Check memory cache
-  const mem = MEMORY_CACHE.get(targetKey);
-  if (mem && (Date.now() - mem.timestamp < CACHE_TTL_MS)) {
-    return mem.result;
-  }
+  for (const targetKey of keys) {
+    // 1. Check memory cache
+    const mem = MEMORY_CACHE.get(targetKey);
+    if (mem && (Date.now() - mem.timestamp < CACHE_TTL_MS)) {
+      return mem.result;
+    }
 
-  // 2. Check localStorage cache with expiration check
-  if (typeof window !== 'undefined') {
-    try {
-      const stored = localStorage.getItem(`cache_rev_${targetKey}`);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed && parsed.timestamp && (Date.now() - parsed.timestamp < CACHE_TTL_MS) && parsed.result && Array.isArray(parsed.result.reviews)) {
-          MEMORY_CACHE.set(targetKey, { result: parsed.result, timestamp: parsed.timestamp });
-          return parsed.result;
-        } else if (parsed && Array.isArray(parsed.reviews) && !parsed.timestamp) {
-          // Legacy cache entry without timestamp: evict it
-          localStorage.removeItem(`cache_rev_${targetKey}`);
+    // 2. Check localStorage cache with expiration check
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem(`cache_rev_${targetKey}`);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && parsed.timestamp && (Date.now() - parsed.timestamp < CACHE_TTL_MS) && parsed.result && Array.isArray(parsed.result.reviews)) {
+            MEMORY_CACHE.set(targetKey, { result: parsed.result, timestamp: parsed.timestamp });
+            return parsed.result;
+          } else if (parsed && Array.isArray(parsed.reviews) && !parsed.timestamp) {
+            localStorage.removeItem(`cache_rev_${targetKey}`);
+          }
         }
-      }
-    } catch (e) {}
+      } catch (e) {}
+    }
   }
 
   return null;
@@ -307,10 +323,26 @@ export async function fetchLiveReviews(options: {
   sortBy?: string;
 }): Promise<ReviewFetchResult> {
   const { appId, appSlug, appTitle, cursor, limit = 5, rating = 4.8, filter = 'all', sortBy = 'recent' } = options;
-  const targetId = (appId || '').trim();
-  if (!targetId) return { reviews: [], hasMore: false, nextCursor: null };
+  const rawId = (appId || '').trim();
+  const rawSlug = (appSlug || '').trim();
+  if (!rawId && !rawSlug) return { reviews: [], hasMore: false, nextCursor: null };
 
-  const targets = [targetId];
+  // Resolve canonical app metadata from static catalog
+  const matchedApp = (staticData.apps || []).find((a: any) => 
+    (rawId && (a.id === rawId || a.slug === rawId)) ||
+    (rawSlug && (a.id === rawSlug || a.slug === rawSlug))
+  );
+
+  const canonicalId = matchedApp?.id || rawId;
+  const canonicalSlug = matchedApp?.slug || rawSlug;
+  const canonicalName = matchedApp?.name || appTitle || '';
+
+  const targets = Array.from(new Set([
+    canonicalId, 
+    canonicalSlug, 
+    rawId, 
+    rawSlug
+  ].filter(Boolean) as string[]));
 
   // Helper to attach any locally authored user reviews at the top so they never disappear
   const attachLocalUserReviews = (baseReviews: PublicReview[]): PublicReview[] => {
@@ -360,18 +392,20 @@ export async function fetchLiveReviews(options: {
 
   // 1. Primary path: Query backend Express API if reachable
   try {
-    const effectiveId = targetId;
+    const effectiveId = canonicalSlug || canonicalId || rawId;
     const queryParams = new URLSearchParams();
     if (cursor) queryParams.append('cursor', String(cursor));
     queryParams.append('limit', String(limit));
     if (rating) queryParams.append('rating', String(rating));
     if (filter && filter !== 'all') queryParams.append('filter', filter);
     if (sortBy && sortBy !== 'recent') queryParams.append('sortBy', sortBy);
+    if (canonicalSlug) queryParams.append('slug', canonicalSlug);
+    if (canonicalName) queryParams.append('appTitle', canonicalName);
 
     const path = `/api/v1/public/community/reviews/${encodeURIComponent(effectiveId)}?${queryParams.toString()}`;
     
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    const timeoutId = controller ? setTimeout(() => controller.abort(), 15000) : null;
+    const timeoutId = controller ? setTimeout(() => controller.abort(), 2500) : null;
 
     const res = await fetch(path, {
       method: 'GET',
@@ -392,7 +426,7 @@ export async function fetchLiveReviews(options: {
           nextCursor: data.nextCursor || null,
           stats: data.stats || null
         };
-        // Only cache initial default page
+        // Cache initial default page for all aliases
         if (!cursor && filter === 'all' && sortBy === 'recent') {
           targets.forEach(t => setCachedLiveReviews(t, result));
         }
@@ -406,11 +440,9 @@ export async function fetchLiveReviews(options: {
   // 2. Direct Firestore REST Fallback (Direct connection to rummydexcommunity project)
   try {
     const cfg = getResolvedCommunityFirebaseConfig();
-    const cleanId = targetId.toLowerCase();
-    const cleanSlug = (appSlug || '').toLowerCase().trim();
     const candidateDocIds = [
-      getAppChunkDocId(cleanId, 0),
-      cleanSlug ? getAppChunkDocId(cleanSlug, 0) : null
+      getAppChunkDocId(canonicalId, 0),
+      canonicalSlug ? getAppChunkDocId(canonicalSlug, 0) : null
     ].filter(Boolean) as string[];
     const uniqueCandidateDocIds = Array.from(new Set(candidateDocIds));
 
@@ -427,12 +459,12 @@ export async function fetchLiveReviews(options: {
           if (rawDoc && rawDoc.fields) {
             const parsed = parseFirestoreFields(rawDoc.fields);
             if (parsed && Array.isArray(parsed.reviews) && parsed.reviews.length > 0) {
-              allLoadedReviews = parsed.reviews.slice(0, 5).map((r: any) => ({
+              allLoadedReviews = parsed.reviews.map((r: any) => ({
                 id: r.id || `rev_${Math.random().toString(36).slice(2)}`,
-                app_id: r.appId || r.app_id || cleanId,
-                appId: r.appId || cleanId,
-                appSlug: r.appSlug || '',
-                appName: r.appName || '',
+                app_id: r.appId || r.app_id || canonicalId,
+                appId: r.appId || canonicalId,
+                appSlug: r.appSlug || canonicalSlug,
+                appName: r.appName || canonicalName,
                 username: r.userName || r.username || 'Player',
                 rating: Number(r.rating) || 5,
                 comment: r.reviewText || r.comment || '',
@@ -454,19 +486,29 @@ export async function fetchLiveReviews(options: {
       }
     }
 
-    // 2B. If no aggregated document, execute a structured query on the 'reviews' collection strictly limited to 5
+    // 2B. Structured multi-identifier query on the 'reviews' collection
     if (allLoadedReviews.length === 0) {
       try {
         const queryUrl = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${cfg.firestoreDatabaseId}/documents:runQuery?key=${encodeURIComponent(cfg.apiKey)}`;
-        const cleanTargetId = targetId;
+
+        const idFilters = targets.map(t => ({
+          fieldFilter: { field: { fieldPath: "appId" }, op: "EQUAL", value: { stringValue: t } }
+        }));
+        const slugFilters = targets.map(t => ({
+          fieldFilter: { field: { fieldPath: "appSlug" }, op: "EQUAL", value: { stringValue: t } }
+        }));
+        const allFilters = [...idFilters, ...slugFilters];
 
         const queryBody = {
           structuredQuery: {
             from: [{ collectionId: "reviews" }],
             where: {
-              fieldFilter: { field: { fieldPath: "appId" }, op: "EQUAL", value: { stringValue: cleanTargetId } }
+              compositeFilter: {
+                op: "OR",
+                filters: allFilters
+              }
             },
-            limit: 5
+            limit: 20
           }
         };
 
@@ -489,10 +531,10 @@ export async function fetchLiveReviews(options: {
 
                 allLoadedReviews.push({
                   id: docId || `rev_${Math.random().toString(36).slice(2)}`,
-                  app_id: docFields.appId || cleanTargetId,
-                  appId: docFields.appId || cleanTargetId,
-                  appSlug: docFields.appSlug || '',
-                  appName: docFields.appName || '',
+                  app_id: docFields.appId || canonicalId,
+                  appId: docFields.appId || canonicalId,
+                  appSlug: docFields.appSlug || canonicalSlug,
+                  appName: docFields.appName || canonicalName,
                   username: docFields.userName || docFields.username || 'Player',
                   rating: Number(docFields.rating) || 5,
                   comment: docFields.reviewText || docFields.comment || '',
@@ -509,14 +551,13 @@ export async function fetchLiveReviews(options: {
           }
         }
       } catch (queryErr) {
-        // Proceed with available reviews
+        console.warn('[Community Direct REST] Query error notice:', queryErr);
       }
     }
 
-    // 2C. Also fetch atomic stats from app_stats/{cleanId} directly from Firestore
+    // 2C. Also fetch atomic stats from app_stats/{canonicalId} directly from Firestore
     try {
-      const cleanTargetId = targetId;
-      const statsUrl = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${cfg.firestoreDatabaseId}/documents/app_stats/${encodeURIComponent(cleanTargetId)}?key=${encodeURIComponent(cfg.apiKey)}`;
+      const statsUrl = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${cfg.firestoreDatabaseId}/documents/app_stats/${encodeURIComponent(canonicalId)}?key=${encodeURIComponent(cfg.apiKey)}`;
       const statsRes = await fetch(statsUrl);
       if (statsRes.ok) {
         const rawStats = await statsRes.json();
