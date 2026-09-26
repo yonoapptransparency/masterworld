@@ -243,7 +243,24 @@ export function getCachedLiveAppStats(appId?: string, appSlug?: string): {
   const cleanSlug = String(appSlug || '').trim().toLowerCase();
   if (!cleanId && !cleanSlug) return null;
 
-  // 1. Check review SWR cache
+  // 1. Primary Source of Truth: Static catalog stats pushed from Admin (communityCatalogStats.json)
+  const catalogCounts: Record<string, any> = (communityCatalogStats as any)?.appCounts || {};
+  const hit = (cleanId && catalogCounts[cleanId]) || (cleanSlug && catalogCounts[cleanSlug]);
+  if (hit) {
+    const pub = Number(hit.published) || 0;
+    const avg = Number(hit.avgRating) || 0;
+    const starCounts = (hit.starCounts && Object.values(hit.starCounts).some((v: any) => Number(v) > 0))
+      ? hit.starCounts
+      : { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
+    return {
+      averageRating: avg,
+      totalReviews: pub,
+      starCounts,
+      distribution: starCounts
+    };
+  }
+
+  // 2. Secondary fallback if SWR cache has exact stats
   const cached = getCachedLiveReviews(appId, appSlug);
   if (cached?.stats && typeof cached.stats.totalReviews === 'number' && Number(cached.stats.totalReviews) > 0) {
     const pub = Number(cached.stats.totalReviews) || 0;
@@ -258,43 +275,6 @@ export function getCachedLiveAppStats(appId?: string, appSlug?: string): {
       distribution: starCounts
     };
   }
-
-  // 2. Check local catalog stats (from verified Firestore backfill)
-  const catalogCounts: Record<string, any> = (communityCatalogStats as any)?.appCounts || {};
-  const hit = (cleanId && catalogCounts[cleanId]) || (cleanSlug && catalogCounts[cleanSlug]);
-  if (hit) {
-    const pub = Number(hit.published) || 0;
-    const avg = Number(hit.avgRating) || 5.0;
-    const starCounts = (hit.starCounts && Object.values(hit.starCounts).some((v: any) => Number(v) > 0))
-      ? hit.starCounts
-      : generateNaturalStarDistribution(avg, pub);
-    return {
-      averageRating: avg,
-      totalReviews: pub,
-      starCounts,
-      distribution: starCounts
-    };
-  }
-
-  // 3. Fallback to static catalog definition (guarantees zero-flash consistency)
-  try {
-    const staticApps = (staticData as any)?.apps || [];
-    const app = staticApps.find((a: any) => 
-      (cleanId && String(a.id || '').toLowerCase() === cleanId) ||
-      (cleanSlug && String(a.slug || '').toLowerCase() === cleanSlug)
-    );
-    if (app) {
-      const avg = parseFloat(String(app.rating || '0')) || 5.0;
-      const count = parseInt(String(app.review_count || app.reviews || '0'), 10) || 0;
-      const starCounts = generateNaturalStarDistribution(avg, count);
-      return {
-        averageRating: avg,
-        totalReviews: count,
-        starCounts,
-        distribution: starCounts
-      };
-    }
-  } catch (_) {}
 
   return null;
 }
@@ -404,7 +384,7 @@ export async function fetchLiveReviews(options: {
     const contentType = res.headers.get('content-type') || '';
     if (res.ok && contentType.includes('application/json')) {
       const data = await res.json();
-      if (data && Array.isArray(data.reviews) && data.reviews.length > 0) {
+      if (data && Array.isArray(data.reviews)) {
         const enrichedReviews = attachLocalUserReviews(data.reviews);
         const result: ReviewFetchResult = {
           reviews: enrichedReviews,
@@ -427,9 +407,11 @@ export async function fetchLiveReviews(options: {
   try {
     const cfg = getResolvedCommunityFirebaseConfig();
     const cleanId = targetId.toLowerCase();
+    const cleanSlug = (appSlug || '').toLowerCase().trim();
     const candidateDocIds = [
-      getAppChunkDocId(cleanId, 0)
-    ];
+      getAppChunkDocId(cleanId, 0),
+      cleanSlug ? getAppChunkDocId(cleanSlug, 0) : null
+    ].filter(Boolean) as string[];
     const uniqueCandidateDocIds = Array.from(new Set(candidateDocIds));
 
     let allLoadedReviews: PublicReview[] = [];
@@ -445,7 +427,7 @@ export async function fetchLiveReviews(options: {
           if (rawDoc && rawDoc.fields) {
             const parsed = parseFirestoreFields(rawDoc.fields);
             if (parsed && Array.isArray(parsed.reviews) && parsed.reviews.length > 0) {
-              allLoadedReviews = parsed.reviews.map((r: any) => ({
+              allLoadedReviews = parsed.reviews.slice(0, 5).map((r: any) => ({
                 id: r.id || `rev_${Math.random().toString(36).slice(2)}`,
                 app_id: r.appId || r.app_id || cleanId,
                 appId: r.appId || cleanId,
@@ -472,7 +454,7 @@ export async function fetchLiveReviews(options: {
       }
     }
 
-    // 2B. If no aggregated document, execute a structured query on the 'reviews' collection strictly by target appId
+    // 2B. If no aggregated document, execute a structured query on the 'reviews' collection strictly limited to 5
     if (allLoadedReviews.length === 0) {
       try {
         const queryUrl = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${cfg.firestoreDatabaseId}/documents:runQuery?key=${encodeURIComponent(cfg.apiKey)}`;
@@ -484,7 +466,7 @@ export async function fetchLiveReviews(options: {
             where: {
               fieldFilter: { field: { fieldPath: "appId" }, op: "EQUAL", value: { stringValue: cleanTargetId } }
             },
-            limit: 50
+            limit: 5
           }
         };
 

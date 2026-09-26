@@ -134,3 +134,19 @@ To ensure the system works flawlessly, prevents spam, and provides a powerful ad
 2. **The Live Site**: Because the `app_rating_stats` document was updated, the very next user who visits that app's page will instantly see the new 5-star average, without the server having to recalculate anything. The approved text review now appears in the infinite scroll feed at the bottom.
 
 This workflow guarantees speed, prevents spam, gives the Admin total control, and absolutely never touches the core App Database.
+
+---
+
+## 8. Atomic Reviews Architecture & GitHub Split-Sync Export (2026 Engine)
+
+1. **Pre-Warming on Admin Entry**:
+   - As soon as the Admin enters `AdminDashboard.tsx`, `fetchAdminAppReviewCounts()` immediately pre-warms the atomic review counts from `rummydexcommunity`.
+   - Before clicking any specific app in `AdminReviewsTab.tsx`, the top **Atomic Reviews Catalog Distribution Board** is active, showing the live review count and rating for each application across the entire catalog.
+
+2. **Zero-Quota Public Execution**:
+   - The public website strictly requests only 5 reviews at a time (`limit=5`).
+   - The public aggregate rating and star distribution do not query Firestore directly, avoiding quota consumption. They read from `communityCatalogStats.json` generated during the Admin release pipeline.
+
+3. **Split-Sync Automated Delivery**:
+   - When the Admin clicks GitHub Sync, `getExportableCatalogStats()` automatically generates and seals `src/lib/communityCatalogStats.json` with exact counts, average ratings, and 1-5 star distributions for all applications into the atomic release commit for `dex`.
+

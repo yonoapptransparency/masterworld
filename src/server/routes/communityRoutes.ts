@@ -207,7 +207,8 @@ communityRouter.get("/api/v1/public/community/reviews/:appId", async (req: any, 
   const targetSlug = slug || appSlug;
 
   try {
-    const fetchLimit = Math.min(20, Math.max(1, Number(limit) || 5));
+    // Strictly limit public reviews to 5 items to protect quota
+    const fetchLimit = Math.min(5, Math.max(1, Number(limit) || 5));
     const result = await communityStore.getReviewsForApp(
       String(appId).trim(),
       cursor ? String(cursor) : undefined,
@@ -462,9 +463,12 @@ communityRouter.post("/api/v1/admin/community/reload-backup", verifyAdminToken, 
   }
 });
 
-// Admin: Dedicated fast endpoint for all app review counts & global stats (<1ms)
+// Admin: Dedicated live endpoint for all app review counts & global stats directly synced with Firestore app_stats
 communityRouter.get("/api/v1/admin/community/app-counts", verifyAdminToken, async (req: any, res: any) => {
   try {
+    if (typeof (communityStore as any).syncAppStatsFromFirestore === 'function') {
+      await (communityStore as any).syncAppStatsFromFirestore();
+    }
     const appData = typeof (communityStore as any).getAppReviewCounts === 'function'
       ? (communityStore as any).getAppReviewCounts()
       : { globalStats: { total: 0, published: 0, pending: 0, rejected: 0, flagged: 0, averageRating: 5.0 }, appCounts: {} };

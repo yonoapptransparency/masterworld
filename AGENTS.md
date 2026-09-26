@@ -232,6 +232,14 @@ To maintain maximum Google Search Console indexing, 100% PageSpeed Scores, and i
     - `PATCH /api/v1/admin/community/reviews/:id/status` & `.../pin`: Quick status toggle & pinning.
     - `DELETE /api/v1/admin/community/reviews/:id`: Admin review deletion.
     - `POST /api/v1/admin/community/reviews/bulk`: Bulk publish, pending, reject, pin, or delete operations.
+    - `GET /api/v1/admin/community/app-counts`: Live instant per-app review counts & global stats.
+    - `GET /api/v1/admin/community/export-stats`: Live export of atomic ratings & star distributions for GitHub split-sync.
+
+  - **Atomic Reviews Engine & Zero-Quota Workflow**:
+    - **Admin Dashboard Pre-Warming**: `AdminDashboard.tsx` immediately calls `fetchAdminAppReviewCounts()` on initial admin entry, warming Firestore `rummydexcommunity` in-memory caches before the Reviews tab is opened.
+    - **Upside Atomic Distribution Board**: Before any app is clicked in `AdminReviewsTab.tsx` (`selectedAppId === 'all'`), the upside displays the **Atomic Reviews Catalog Distribution Board**, giving the Admin an instant overview of review counts, star ratings, and pending items for every catalog application.
+    - **Strict 5-Review Public Slice**: The public app details view strictly fetches at most 5 reviews (`limit=5`), preventing Firebase read quota burn.
+    - **Automated Split-Sync Aggregator Export**: During GitHub Split-Sync, `useGitHubSync.ts` queries `/api/v1/admin/community/export-stats`, generating an up-to-date `src/lib/communityCatalogStats.json` containing exact counts, averages, and 5-star distributions for all apps. This file is committed atomically into GitHub and powers Googlebot SEO Schema and public UI with 0ms response time and 0 Firestore reads.
 
 ---
 

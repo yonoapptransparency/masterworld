@@ -431,3 +431,33 @@ If Google Cloud ever encounters network partitions or triggers a rate limit:
 >
 > **RULE 5: MAINTAIN 5-REVIEW BATCHING**
 > Always respect `limit=5` with cursor-based pagination. Never request the entire review collection at once.
+
+---
+
+## 14. Atomic Reviews & Instant Aggregation Architecture (2026 Engine)
+
+To guarantee instantaneous loading times, protect Firebase quotas, and ensure complete data consistency between Admin and Public platforms, RummyDex implements an **Atomic Review Aggregation Pipeline**:
+
+### 1. Pre-Warming on Initial Admin Dashboard Entry
+- **Automatic Trigger**: When the administrator enters the Control Panel (`AdminDashboard.tsx`), an immediate background call to `fetchAdminAppReviewCounts()` is initiated.
+- **Instant Readiness**: By the time the administrator navigates to the Community Reviews section, all atomic counts and global moderation states are already warmed in memory with zero wait time.
+
+### 2. The Atomic Catalog Distribution Matrix (Upside Admin Overview)
+- **Top Command Overview**: Before selecting any specific app (`selectedAppId === 'all'`), the top area of `AdminReviewsTab.tsx` renders the **Atomic Reviews Catalog Distribution Board**.
+- **Per-App Density**: Displays a high-contrast matrix of all catalog applications showing:
+  - Exact atomic count of reviews present in Firestore (`rummydexcommunity`).
+  - Average star rating per application.
+  - Active pending flags if moderation is required.
+  - Quick-filtering pills: `All Apps`, `With Reviews`, `Pending Moderation`, and `0 Reviews`.
+- **One-Click Drilldown**: Clicking any app card instantly transitions the Command Center into that application's dedicated review feed.
+- **Fast Return**: An `All Apps Matrix` button in the app header allows one-click return to the complete catalog distribution board.
+
+### 3. Strict 5-Review Public Slice (Zero Quota Burn)
+- The public app details view (`/app/:slug`) enforces a strict `limit=5` slice on review queries.
+- Public aggregate star ratings and distributions do **not** trigger full-collection scans in Firestore. Instead, they read from the static atomic manifest `src/lib/communityCatalogStats.json` with **0ms latency and 0 Firestore document reads**.
+
+### 4. Automated Split-Sync Export Pipeline
+- Whenever the administrator pushes an update to GitHub (`useGitHubSync.ts`), the backend invokes `communityStore.getExportableCatalogStats()`.
+- The server computes the exact atomic counts, average ratings, and 1-5 star distributions for all applications and saves them to `src/lib/communityCatalogStats.json`.
+- This file is committed atomically into GitHub and deployed to the public production website (`dex`), ensuring the public aggregator ratings are always 100% in sync with the Admin's database.
+

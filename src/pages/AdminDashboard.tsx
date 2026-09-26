@@ -14,6 +14,7 @@ import { FirebaseStatusIndicator } from '../components/FirebaseStatusIndicator';
 import { AdminWelcomeOverlay } from '../components/admin/AdminWelcomeOverlay';
 import { getAdminPath } from '../lib/utils';
 import { safeEncrypt, safeDecrypt } from '../lib/cryptoUtils';
+import { fetchAdminAppReviewCounts } from '../lib/adminCommunityFirebase';
 
 export default function AdminDashboard() {
   const { 
@@ -95,10 +96,11 @@ export default function AdminDashboard() {
 
   const { user, checkingAuth, isAdminUser, sessionTimeLeft, handleLogout } = useAdminAuth();
   
-  // When admin logs in or dashboard mounts with active admin user, automatically pull latest live data from Firestore
+  // When admin logs in or dashboard mounts with active admin user, automatically pull latest live data and pre-warm atomic reviews
   useEffect(() => {
     if (isAdminUser === true) {
       reloadServerData(true);
+      fetchAdminAppReviewCounts().catch(() => {});
     }
   }, [isAdminUser, reloadServerData]);
 

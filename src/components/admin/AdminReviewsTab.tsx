@@ -104,6 +104,11 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
   const [appFilterQuery, setAppFilterQuery] = useState('');
   const [appSortBy, setAppSortBy] = useState<'reviews' | 'name' | 'pending'>('reviews');
 
+  // Atomic catalog density overview state (for top overview before clicking an app)
+  const [atomicSearch, setAtomicSearch] = useState('');
+  const [atomicFilter, setAtomicFilter] = useState<'all' | 'has-reviews' | 'needs-reviews' | 'pending'>('all');
+  const [isAtomicExpanded, setIsAtomicExpanded] = useState(true);
+
   // Mobile Master-Detail navigation state (false = App Selector, true = Review Feed)
   const [mobileDetailView, setMobileDetailView] = useState(false);
 
@@ -172,6 +177,46 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
 
     return list;
   }, [appsList, appFilterQuery, appSortBy, getAppStats]);
+
+  // Counts of apps with reviews vs pending for the top Atomic Matrix
+  const appsWithReviewsCount = useMemo(() => {
+    return appsList.filter(a => getAppStats(a).total > 0).length;
+  }, [appsList, getAppStats]);
+
+  const appsWithPendingCount = useMemo(() => {
+    return appsList.filter(a => getAppStats(a).pending > 0).length;
+  }, [appsList, getAppStats]);
+
+  // Filtered list of apps specifically for the top Atomic Review Density Grid
+  const atomicGridApps = useMemo(() => {
+    let list = [...appsList];
+    if (atomicSearch.trim()) {
+      const q = atomicSearch.toLowerCase().trim();
+      list = list.filter(a =>
+        (a.name && a.name.toLowerCase().includes(q)) ||
+        (a.slug && a.slug.toLowerCase().includes(q)) ||
+        (a.id && a.id.toLowerCase().includes(q)) ||
+        (a.category && a.category.toLowerCase().includes(q))
+      );
+    }
+    if (atomicFilter === 'has-reviews') {
+      list = list.filter(a => getAppStats(a).total > 0);
+    } else if (atomicFilter === 'needs-reviews') {
+      list = list.filter(a => getAppStats(a).total === 0);
+    } else if (atomicFilter === 'pending') {
+      list = list.filter(a => getAppStats(a).pending > 0);
+    }
+
+    list.sort((a, b) => {
+      const statsA = getAppStats(a);
+      const statsB = getAppStats(b);
+      if (statsB.total !== statsA.total) return statsB.total - statsA.total;
+      if (statsB.avgRating !== statsA.avgRating) return statsB.avgRating - statsA.avgRating;
+      return (a.name || '').localeCompare(b.name || '');
+    });
+
+    return list;
+  }, [appsList, atomicSearch, atomicFilter, getAppStats]);
 
   // Currently selected app details
   const activeApp = useMemo(() => {
@@ -742,6 +787,17 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
                     <span>{stats.total.toLocaleString()} total</span>
                   </div>
                 </div>
+                <div className="shrink-0 flex items-center">
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                    isSelected 
+                      ? 'bg-white/20 text-white' 
+                      : stats.total > 0 
+                        ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/40' 
+                        : 'bg-slate-100 dark:bg-slate-800/60 text-slate-400'
+                  }`}>
+                    {stats.total > 0 ? `${stats.total} rev` : '0'}
+                  </span>
+                </div>
               </button>
             )
           })}
@@ -782,6 +838,15 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
                     <h1 className="text-xl lg:text-2xl font-black text-slate-900 dark:text-white leading-tight truncate tracking-tight">
                       {selectedAppId === 'all' ? 'Global Command Center' : (activeApp?.name || selectedAppId)}
                     </h1>
+                    {selectedAppId !== 'all' && (
+                      <button 
+                        onClick={() => { setSelectedAppId('all'); setMobileDetailView(false); }}
+                        className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-xl text-xs font-black transition-all border border-indigo-200/50 dark:border-indigo-800/50 cursor-pointer shadow-xs active:scale-95 ml-1"
+                        title="Back to All Apps Atomic Overview"
+                      >
+                        <ArrowLeft className="w-3.5 h-3.5" /> All Apps Matrix
+                      </button>
+                    )}
                     {activeApp && activeApp.slug && (
                       <a 
                         href={`/app/${activeApp.slug}`} 
@@ -859,6 +924,163 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
             
           </div>
         </div>
+
+        {/* ATOMIC REVIEWS CATALOG DISTRIBUTION BOARD (Upside Overview before selecting any specific app) */}
+        {selectedAppId === 'all' && (
+          <div className="p-4 lg:p-6 border-b border-slate-200/80 dark:border-slate-800/80 bg-gradient-to-br from-indigo-50/50 via-white to-slate-50/30 dark:from-slate-900/90 dark:via-slate-900 dark:to-indigo-950/20 shrink-0">
+            <div className="flex flex-col gap-3.5">
+              {/* Header Row */}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h2 className="text-sm lg:text-base font-black text-slate-900 dark:text-white tracking-tight">
+                        Atomic Reviews Catalog Distribution
+                      </h2>
+                      <span className="px-2.5 py-0.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 rounded-full text-[10px] font-black uppercase border border-emerald-200/60 dark:border-emerald-500/20">
+                        Live Atomic Count
+                      </span>
+                    </div>
+                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+                      Fast, lightweight review density across all {appsList.length} apps. Click any application card to immediately open and moderate its reviews.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsAtomicExpanded(!isAtomicExpanded)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-750 transition-all shadow-xs cursor-pointer"
+                >
+                  <span>{isAtomicExpanded ? 'Collapse Matrix' : `Expand Matrix (${appsList.length} Apps)`}</span>
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isAtomicExpanded ? 'rotate-180' : ''}`} />
+                </button>
+              </div>
+
+              {isAtomicExpanded && (
+                <div className="space-y-3 pt-1">
+                  {/* Filters & Search Sub-Bar */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setAtomicFilter('all')}
+                        className={`px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                          atomicFilter === 'all'
+                            ? 'bg-indigo-600 text-white shadow-sm'
+                            : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
+                        }`}
+                      >
+                        All Apps ({appsList.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAtomicFilter('has-reviews')}
+                        className={`px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                          atomicFilter === 'has-reviews'
+                            ? 'bg-emerald-600 text-white shadow-sm'
+                            : 'bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 border border-slate-200 dark:border-slate-700'
+                        }`}
+                      >
+                        With Reviews ({appsWithReviewsCount})
+                      </button>
+                      {appsWithPendingCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setAtomicFilter('pending')}
+                          className={`px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                            atomicFilter === 'pending'
+                              ? 'bg-amber-600 text-white shadow-sm'
+                              : 'bg-white dark:bg-slate-800 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 border border-slate-200 dark:border-slate-700'
+                          }`}
+                        >
+                          Pending ({appsWithPendingCount})
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setAtomicFilter('needs-reviews')}
+                        className={`px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                          atomicFilter === 'needs-reviews'
+                            ? 'bg-slate-700 text-white shadow-sm'
+                            : 'bg-white dark:bg-slate-800 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
+                        }`}
+                      >
+                        0 Reviews ({Math.max(0, appsList.length - appsWithReviewsCount)})
+                      </button>
+                    </div>
+
+                    <div className="relative min-w-[200px] max-w-xs">
+                      <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        value={atomicSearch}
+                        onChange={e => setAtomicSearch(e.target.value)}
+                        placeholder="Search apps for reviews..."
+                        className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-slate-400 text-slate-800 dark:text-slate-100"
+                      />
+                    </div>
+                  </div>
+
+                  {/* App Density Grid (Scrollable) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2.5 max-h-[320px] overflow-y-auto p-1 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800">
+                    {atomicGridApps.length === 0 ? (
+                      <div className="col-span-full py-8 text-center text-xs font-bold text-slate-400">
+                        No apps match your filter or search query.
+                      </div>
+                    ) : (
+                      atomicGridApps.map(app => {
+                        const appStats = getAppStats(app);
+                        const hasReviews = appStats.total > 0;
+                        return (
+                          <button
+                            key={app.id || app.slug}
+                            type="button"
+                            onClick={() => {
+                              setSelectedAppId(app.slug || app.id);
+                              setMobileDetailView(true);
+                            }}
+                            className="flex items-center gap-3 p-2.5 bg-white dark:bg-slate-800/90 hover:bg-indigo-50/60 dark:hover:bg-indigo-950/40 rounded-2xl border border-slate-200/80 dark:border-slate-800 hover:border-indigo-400 dark:hover:border-indigo-600 shadow-xs hover:shadow-md transition-all text-left group cursor-pointer active:scale-[0.98]"
+                          >
+                            <img
+                              src={app.icon_url}
+                              alt=""
+                              className="w-10 h-10 rounded-xl object-cover bg-slate-100 dark:bg-slate-800 shadow-xs shrink-0"
+                              onError={e => ((e.target as any).style.display = 'none')}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs font-black text-slate-900 dark:text-white truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                                {app.name}
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-0.5 text-[10px]">
+                                <span className="flex items-center gap-0.5 font-bold text-amber-500">
+                                  <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                                  {appStats.avgRating ? appStats.avgRating.toFixed(1) : '5.0'}
+                                </span>
+                                <span className="text-slate-300 dark:text-slate-600">•</span>
+                                <span className={`font-black ${hasReviews ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
+                                  {hasReviews ? `${appStats.total} reviews` : '0 reviews'}
+                                </span>
+                              </div>
+                            </div>
+                            {appStats.pending > 0 && (
+                              <span className="px-1.5 py-0.5 bg-rose-500 text-white rounded text-[9px] font-black shrink-0 animate-pulse">
+                                {appStats.pending}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Toolbar & Filters (Sticky) */}
         <div className="px-4 lg:px-6 py-3 border-b border-slate-100 dark:border-slate-800/60 flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md sticky top-0 z-10 shrink-0 shadow-sm">
@@ -1043,7 +1265,13 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
                             ))}
                           </div>
                           <span className="text-[10px] lg:text-[11px] font-semibold text-slate-400">
-                            {new Date(review.timestamp || '').toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                            {(() => {
+                              const ts = review.timestamp;
+                              if (!ts) return '';
+                              if (/^\d{1,2}\s+[A-Za-z]{3}\s+\d{4}$/.test(String(ts).trim())) return String(ts).trim();
+                              const d = new Date(ts);
+                              return isNaN(d.getTime()) ? String(ts) : `${d.getDate()} ${d.toLocaleString('en-US', { month: 'short' })} ${d.getFullYear()}`;
+                            })()}
                           </span>
                         </div>
                       </div>

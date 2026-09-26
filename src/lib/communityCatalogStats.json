@@ -1,7 +1,7 @@
 {
-  "totalReviews": 88,
-  "publishedReviews": 88,
-  "pendingReviews": 0,
+  "totalReviews": 113,
+  "publishedReviews": 113,
+  "pendingReviews": 2,
   "rejectedReviews": 0,
   "flaggedReviews": 0,
   "totalReports": 0,
@@ -9,33 +9,15 @@
   "averageRating": 4.3,
   "ratingDistribution": {
     "1": 0,
-    "2": 0,
-    "3": 15,
-    "4": 33,
-    "5": 40
+    "2": 2,
+    "3": 19,
+    "4": 41,
+    "5": 51
   },
   "appCounts": {
-    "yh9toduxk": {
-      "total": 3,
-      "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
-      "avgRating": 4.7,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 1,
-        "5": 2
-      }
-    },
     "spin-crush": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.7,
       "starCounts": {
         "1": 0,
@@ -45,27 +27,21 @@
         "5": 2
       }
     },
-    "i5uw2apum": {
+    "yh9toduxk": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
-      "avgRating": 4,
+      "avgRating": 4.7,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 1,
+        "3": 0,
         "4": 1,
-        "5": 1
+        "5": 2
       }
     },
     "rummy-77": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -75,27 +51,21 @@
         "5": 1
       }
     },
-    "s4oc5m16b": {
+    "i5uw2apum": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
-      "avgRating": 4.3,
+      "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 1,
-        "4": 0,
-        "5": 2
+        "4": 1,
+        "5": 1
       }
     },
     "rummy-91": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.3,
       "starCounts": {
         "1": 0,
@@ -105,27 +75,21 @@
         "5": 2
       }
     },
-    "ha76icslh": {
+    "s4oc5m16b": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
-      "avgRating": 4,
+      "avgRating": 4.3,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 1,
-        "4": 1,
-        "5": 1
+        "4": 0,
+        "5": 2
       }
     },
     "callbreak": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -135,27 +99,21 @@
         "5": 1
       }
     },
-    "colrcaih7": {
+    "ha76icslh": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 0,
-        "4": 3,
-        "5": 0
+        "3": 1,
+        "4": 1,
+        "5": 1
       }
     },
     "card-game-29": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -165,27 +123,21 @@
         "5": 0
       }
     },
-    "e1qcs5ik7": {
+    "colrcaih7": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 1,
-        "4": 1,
-        "5": 1
+        "3": 0,
+        "4": 3,
+        "5": 0
       }
     },
     "joy-rummy": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -195,27 +147,21 @@
         "5": 1
       }
     },
-    "to56xasfo": {
+    "e1qcs5ik7": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
-      "avgRating": 4.7,
+      "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 0,
+        "3": 1,
         "4": 1,
-        "5": 2
+        "5": 1
       }
     },
     "jaiho-91": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.7,
       "starCounts": {
         "1": 0,
@@ -225,27 +171,21 @@
         "5": 2
       }
     },
-    "x1mivt2cj": {
+    "to56xasfo": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
-      "avgRating": 4.3,
+      "avgRating": 4.7,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 1,
-        "4": 0,
+        "3": 0,
+        "4": 1,
         "5": 2
       }
     },
     "ok-rummy": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.3,
       "starCounts": {
         "1": 0,
@@ -255,27 +195,21 @@
         "5": 2
       }
     },
-    "ozhj4pz5s": {
+    "x1mivt2cj": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
-      "avgRating": 4.7,
+      "avgRating": 4.3,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 0,
-        "4": 1,
+        "3": 1,
+        "4": 0,
         "5": 2
       }
     },
     "jaiho-slots": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.7,
       "starCounts": {
         "1": 0,
@@ -285,27 +219,21 @@
         "5": 2
       }
     },
-    "l7e8oyo9m": {
+    "ozhj4pz5s": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
-      "avgRating": 4.3,
+      "avgRating": 4.7,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 1,
-        "4": 0,
+        "3": 0,
+        "4": 1,
         "5": 2
       }
     },
     "yono-arcade": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.3,
       "starCounts": {
         "1": 0,
@@ -315,27 +243,21 @@
         "5": 2
       }
     },
-    "jr5xf2b1s": {
+    "l7e8oyo9m": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
-      "avgRating": 5,
+      "avgRating": 4.3,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 0,
+        "3": 1,
         "4": 0,
-        "5": 3
+        "5": 2
       }
     },
     "bingo-101": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 5,
       "starCounts": {
         "1": 0,
@@ -345,27 +267,21 @@
         "5": 3
       }
     },
-    "08exxq5q9": {
+    "jr5xf2b1s": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
-      "avgRating": 4,
+      "avgRating": 5,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 3,
-        "5": 0
+        "4": 0,
+        "5": 3
       }
     },
     "abc-rummy": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -375,12 +291,9 @@
         "5": 0
       }
     },
-    "kc3u0sl2h": {
+    "08exxq5q9": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -393,9 +306,6 @@
     "ever-777": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -405,57 +315,45 @@
         "5": 0
       }
     },
-    "v9ky6l07h": {
+    "kc3u0sl2h": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
-      "avgRating": 4.3,
+      "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 0,
-        "5": 1
+        "4": 3,
+        "5": 0
       }
     },
     "love-rummy": {
-      "total": 3,
-      "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
-      "avgRating": 4.3,
+      "total": 6,
+      "published": 6,
+      "avgRating": 4.7,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
         "4": 2,
-        "5": 1
+        "5": 4
       }
     },
-    "0jfvh7lrx": {
-      "total": 3,
-      "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
+    "v9ky6l07h": {
+      "total": 6,
+      "published": 6,
       "avgRating": 4.7,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 1,
-        "5": 2
+        "4": 2,
+        "5": 4
       }
     },
     "share-slots": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.7,
       "starCounts": {
         "1": 0,
@@ -465,27 +363,21 @@
         "5": 2
       }
     },
-    "89d79z398": {
+    "0jfvh7lrx": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
-      "avgRating": 4,
+      "avgRating": 4.7,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 1,
+        "3": 0,
         "4": 1,
-        "5": 1
+        "5": 2
       }
     },
     "yono-vip": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -495,12 +387,9 @@
         "5": 1
       }
     },
-    "m6bwb6cnb": {
+    "89d79z398": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -513,9 +402,6 @@
     "maha-games": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -525,27 +411,21 @@
         "5": 1
       }
     },
-    "y7lefyq14": {
+    "m6bwb6cnb": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
-      "avgRating": 3.7,
+      "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 1,
-        "4": 2,
-        "5": 0
+        "4": 1,
+        "5": 1
       }
     },
     "rummy-ludo": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 3.7,
       "starCounts": {
         "1": 0,
@@ -555,27 +435,21 @@
         "5": 0
       }
     },
-    "lzcn7ehst": {
+    "y7lefyq14": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
-      "avgRating": 5,
+      "avgRating": 3.7,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 0,
-        "4": 0,
-        "5": 3
+        "3": 1,
+        "4": 2,
+        "5": 0
       }
     },
     "789-jackports": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 5,
       "starCounts": {
         "1": 0,
@@ -585,27 +459,21 @@
         "5": 3
       }
     },
-    "jl9bx9llw": {
+    "lzcn7ehst": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
-      "avgRating": 4.7,
+      "avgRating": 5,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 1,
-        "5": 2
+        "4": 0,
+        "5": 3
       }
     },
     "777-game": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.7,
       "starCounts": {
         "1": 0,
@@ -615,27 +483,21 @@
         "5": 2
       }
     },
-    "dttfvdp67": {
+    "jl9bx9llw": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
-      "avgRating": 4.3,
+      "avgRating": 4.7,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 2,
-        "5": 1
+        "4": 1,
+        "5": 2
       }
     },
     "baccarist": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.3,
       "starCounts": {
         "1": 0,
@@ -645,27 +507,21 @@
         "5": 1
       }
     },
-    "3h5w608rt": {
+    "dttfvdp67": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
-      "avgRating": 4.7,
+      "avgRating": 4.3,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 1,
-        "5": 2
+        "4": 2,
+        "5": 1
       }
     },
     "solitaire": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.7,
       "starCounts": {
         "1": 0,
@@ -675,12 +531,9 @@
         "5": 2
       }
     },
-    "ne1n96k01": {
+    "3h5w608rt": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.7,
       "starCounts": {
         "1": 0,
@@ -693,9 +546,6 @@
     "vita-mahjong": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.7,
       "starCounts": {
         "1": 0,
@@ -705,27 +555,21 @@
         "5": 2
       }
     },
-    "0w7b3vc4p": {
-      "total": 9,
-      "published": 9,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
-      "avgRating": 4,
+    "ne1n96k01": {
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.7,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 3,
-        "4": 3,
-        "5": 3
+        "3": 0,
+        "4": 1,
+        "5": 2
       }
     },
     "gold-rummy": {
       "total": 9,
       "published": 9,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -735,12 +579,9 @@
         "5": 3
       }
     },
-    "vm84dmv3k": {
+    "0w7b3vc4p": {
       "total": 9,
       "published": 9,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -751,20 +592,269 @@
       }
     },
     "dhan-game": {
-      "total": 9,
-      "published": 9,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
+      "total": 1,
+      "published": 1,
+      "avgRating": 5,
+      "starCounts": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 1
+      }
+    },
+    "vm84dmv3k": {
+      "total": 1,
+      "published": 1,
+      "avgRating": 5,
+      "starCounts": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 1
+      }
+    },
+    "yono-games": {
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.7,
+      "starCounts": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 1,
+        "5": 2
+      }
+    },
+    "83kr7f5cx": {
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.7,
+      "starCounts": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 1,
+        "5": 2
+      }
+    },
+    "yono-rummy": {
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.7,
+      "starCounts": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 1,
+        "5": 2
+      }
+    },
+    "syq9cwkda": {
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.7,
+      "starCounts": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 1,
+        "5": 2
+      }
+    },
+    "boss-rummy": {
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.3,
+      "starCounts": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 2,
+        "5": 1
+      }
+    },
+    "pdwnq0nu8": {
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.3,
+      "starCounts": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 2,
+        "5": 1
+      }
+    },
+    "gogo-rummy": {
+      "total": 3,
+      "published": 3,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 3,
-        "4": 3,
-        "5": 3
+        "3": 1,
+        "4": 1,
+        "5": 1
+      }
+    },
+    "3m2tlug3g": {
+      "total": 3,
+      "published": 3,
+      "avgRating": 4,
+      "starCounts": {
+        "1": 0,
+        "2": 0,
+        "3": 1,
+        "4": 1,
+        "5": 1
+      }
+    },
+    "rummy-888": {
+      "total": 3,
+      "published": 3,
+      "avgRating": 4,
+      "starCounts": {
+        "1": 0,
+        "2": 0,
+        "3": 1,
+        "4": 1,
+        "5": 1
+      }
+    },
+    "fuma9mbmc": {
+      "total": 3,
+      "published": 3,
+      "avgRating": 4,
+      "starCounts": {
+        "1": 0,
+        "2": 0,
+        "3": 1,
+        "4": 1,
+        "5": 1
+      }
+    },
+    "win-rummy": {
+      "total": 3,
+      "published": 3,
+      "avgRating": 4,
+      "starCounts": {
+        "1": 0,
+        "2": 0,
+        "3": 1,
+        "4": 1,
+        "5": 1
+      }
+    },
+    "h68oygebw": {
+      "total": 3,
+      "published": 3,
+      "avgRating": 4,
+      "starCounts": {
+        "1": 0,
+        "2": 0,
+        "3": 1,
+        "4": 1,
+        "5": 1
+      }
+    },
+    "a23-rummy": {
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.3,
+      "starCounts": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 2,
+        "5": 1
+      }
+    },
+    "fil7vo6d8": {
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.3,
+      "starCounts": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 2,
+        "5": 1
+      }
+    },
+    "roz-rummy": {
+      "total": 6,
+      "published": 6,
+      "avgRating": 3,
+      "starCounts": {
+        "1": 0,
+        "2": 1,
+        "3": 4,
+        "4": 1,
+        "5": 0
+      }
+    },
+    "2fpshclmr": {
+      "total": 6,
+      "published": 6,
+      "avgRating": 3,
+      "starCounts": {
+        "1": 0,
+        "2": 1,
+        "3": 4,
+        "4": 1,
+        "5": 0
+      }
+    },
+    "rum-rummy": {
+      "total": 3,
+      "published": 3,
+      "avgRating": 3.7,
+      "starCounts": {
+        "1": 0,
+        "2": 1,
+        "3": 0,
+        "4": 1,
+        "5": 1
+      }
+    },
+    "2ovzpzjxy": {
+      "total": 3,
+      "published": 3,
+      "avgRating": 3.7,
+      "starCounts": {
+        "1": 0,
+        "2": 1,
+        "3": 0,
+        "4": 1,
+        "5": 1
+      }
+    },
+    "kuku-tv": {
+      "total": 1,
+      "published": 1,
+      "avgRating": 5,
+      "starCounts": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 1
+      }
+    },
+    "ealj6s0fm": {
+      "total": 1,
+      "published": 1,
+      "avgRating": 5,
+      "starCounts": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 1
       }
     }
   },
-  "updated_at": "2026-09-26T08:49:50.493Z"
+  "updated_at": "2026-09-26T10:47:44.066Z"
 }
