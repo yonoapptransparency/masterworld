@@ -10,9 +10,12 @@ import {
   Star,
   Globe,
   Lock,
-  ExternalLink
+  ExternalLink,
+  FileDown,
+  Loader2
 } from 'lucide-react';
 import { safeHtml } from '../../../lib/safeHtml';
+import { exportAppToPdf } from '../../../lib/appPdfExport';
 
 interface AppInspectorProps {
   selectedApp: any;
@@ -33,6 +36,19 @@ export const AppInspector = ({
 }: AppInspectorProps) => {
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
   const [liveStats, setLiveStats] = useState<{ averageRating: number; totalReviews: number } | null>(null);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+
+  const handleExportPdf = async () => {
+    if (!selectedApp || isExportingPdf) return;
+    try {
+      setIsExportingPdf(true);
+      await exportAppToPdf(selectedApp);
+    } catch (err) {
+      console.error('[AppInspector] PDF export error:', err);
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
 
   useEffect(() => {
     if (selectedApp?.id) {
@@ -128,6 +144,20 @@ export const AppInspector = ({
                 className="flex items-center gap-1.5 px-3 py-1 bg-rose-50 dark:bg-rose-950/20 hover:bg-rose-100 dark:hover:bg-rose-900/40 border border-rose-200/40 dark:border-rose-900/30 text-rose-600 dark:text-rose-400 rounded-lg text-xs font-semibold cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" /> Delete
+              </button>
+              <button 
+                type="button"
+                onClick={handleExportPdf}
+                disabled={isExportingPdf}
+                className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold cursor-pointer transition-all shadow-xs disabled:opacity-50"
+                title="Download complete app spec sheet and metadata as a PDF"
+              >
+                {isExportingPdf ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-500" />
+                ) : (
+                  <FileDown className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" />
+                )}
+                <span>{isExportingPdf ? 'Generating PDF...' : 'Download PDF'}</span>
               </button>
             </div>
           </div>
