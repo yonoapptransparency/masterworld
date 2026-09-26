@@ -420,7 +420,7 @@ export async function fetchLiveReviews(options: {
     const contentType = res.headers.get('content-type') || '';
     if (res.ok && contentType.includes('application/json')) {
       const data = await res.json();
-      if (data && Array.isArray(data.reviews)) {
+      if (data && Array.isArray(data.reviews) && data.reviews.length > 0) {
         const enrichedReviews = attachLocalUserReviews(data.reviews);
         const result: ReviewFetchResult = {
           reviews: enrichedReviews,

@@ -1,4 +1,4 @@
-import { getCommunityAdminDb, readCommunityRestDoc } from '../../communityFirebaseAdmin';
+import { getCommunityAdminDb, readCommunityRestDoc, getCommunityFirebaseConfig, parseFirestoreFields } from '../../communityFirebaseAdmin';
 import { getStaticData } from '../../config';
 import { ReviewRecord, AppReviewChunkDocument, AppStatsCacheItem } from './communityTypes';
 import { getAppChunkDocId, resolveCanonicalApp, doesReviewMatchApp, sanitizeReviewText, withTimeout, formatReviewDate } from './communityUtils';
@@ -87,20 +87,20 @@ export class CommunityChunksManager {
 
     let loadedCount = await this.loadSingleAppReviewsChunk(cleanId, reviewsMap, deletedReviewIds, appStatsCache);
 
-    if (forceRefresh && !communityDbHelper.isQuotaProtected()) {
+    if ((loadedCount === 0 || forceRefresh) && !communityDbHelper.isQuotaProtected()) {
       this.loadedAppsMap.set(cleanId, now);
+      const resolved = resolveCanonicalApp(cleanId);
+      const targets = Array.from(new Set([
+        cleanId,
+        resolved.canonicalId,
+        resolved.canonicalId.toLowerCase(),
+        resolved.canonicalSlug,
+        resolved.canonicalSlug.toLowerCase()
+      ].filter(Boolean)));
+
       const db = getCommunityAdminDb();
       if (db) {
         try {
-          const resolved = resolveCanonicalApp(cleanId);
-          const targets = Array.from(new Set([
-            cleanId,
-            resolved.canonicalId,
-            resolved.canonicalId.toLowerCase(),
-            resolved.canonicalSlug,
-            resolved.canonicalSlug.toLowerCase()
-          ].filter(Boolean)));
-
           const snaps = await withTimeout(
             Promise.all([
               db.collection('reviews').where('appId', 'in', targets).limit(50).get(),
@@ -141,6 +141,76 @@ export class CommunityChunksManager {
           });
         } catch (err: any) {
           if (communityDbHelper.isQuotaError(err)) communityDbHelper.handleQuotaCooldown();
+        }
+      }
+
+      // REST query fallback if Admin SDK returned 0 reviews
+      if (loadedCount === 0) {
+        try {
+          const cfg = getCommunityFirebaseConfig();
+          const queryUrl = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${cfg.firestoreDatabaseId}/documents:runQuery?key=${encodeURIComponent(cfg.apiKey)}`;
+          const idFilters = targets.map(t => ({
+            fieldFilter: { field: { fieldPath: "appId" }, op: "EQUAL", value: { stringValue: t } }
+          }));
+          const slugFilters = targets.map(t => ({
+            fieldFilter: { field: { fieldPath: "appSlug" }, op: "EQUAL", value: { stringValue: t } }
+          }));
+          const allFilters = [...idFilters, ...slugFilters];
+
+          const queryBody = {
+            structuredQuery: {
+              from: [{ collectionId: "reviews" }],
+              where: {
+                compositeFilter: {
+                  op: "OR",
+                  filters: allFilters
+                }
+              },
+              limit: 50
+            }
+          };
+
+          const queryRes = await fetch(queryUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(queryBody)
+          });
+
+          if (queryRes.ok) {
+            const results = await queryRes.json();
+            if (Array.isArray(results)) {
+              results.forEach((item: any) => {
+                if (item && item.document && item.document.fields) {
+                  const docFields = parseFirestoreFields(item.document.fields);
+                  const docPathParts = (item.document.name || '').split('/');
+                  const docId = docPathParts[docPathParts.length - 1] || docFields.id;
+                  if (docId && !deletedReviewIds.has(docId)) {
+                    reviewsMap.set(docId, {
+                      id: docId,
+                      appId: docFields.appId || resolved.canonicalId || cleanId,
+                      appSlug: docFields.appSlug || resolved.canonicalSlug || '',
+                      appName: docFields.appName || resolved.canonicalName || '',
+                      userName: docFields.userName || docFields.username || 'Player',
+                      rating: Number(docFields.rating) || 5,
+                      reviewText: sanitizeReviewText(docFields.reviewText || docFields.comment || ''),
+                      timestamp: formatReviewDate(docFields.timestamp || docFields.created_at),
+                      status: docFields.status || (docFields.is_approved ? 'published' : 'pending') || 'published',
+                      helpful_count: Number(docFields.helpful_count) || 0,
+                      isPinned: Boolean(docFields.isPinned),
+                      reported: Boolean(docFields.reported),
+                      report_count: Number(docFields.report_count) || 0,
+                      source: docFields.source || 'community',
+                      adminReply: docFields.adminReply || null,
+                      updated_at: formatReviewDate(docFields.updated_at)
+                    });
+                    loadedCount++;
+                  }
+                }
+              });
+            }
+          }
+        } catch (restErr: any) {
+          console.warn('[CommunityChunks] REST fallback query notice:', restErr?.message || restErr);
         }
       }
     }
