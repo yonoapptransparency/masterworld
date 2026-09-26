@@ -80,7 +80,7 @@ reportRouter.get("/api/v1/admin/reports", verifyAdminToken, async (req: any, res
   try {
     const { status, type, search, appId, limit = 100 } = req.query;
 
-    const result = communityStore.queryAdminReports({
+    const result = await communityStore.queryAdminReports({
       status: status ? String(status) : undefined,
       type: type ? String(type) : undefined,
       appId: appId ? String(appId) : undefined,

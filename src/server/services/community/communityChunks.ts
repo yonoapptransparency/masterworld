@@ -1,7 +1,7 @@
 import { getCommunityAdminDb, readCommunityRestDoc } from '../../communityFirebaseAdmin';
 import { getStaticData } from '../../config';
 import { ReviewRecord, AppReviewChunkDocument, AppStatsCacheItem } from './communityTypes';
-import { getAppChunkDocId, resolveCanonicalApp, doesReviewMatchApp, sanitizeReviewText, withTimeout } from './communityUtils';
+import { getAppChunkDocId, resolveCanonicalApp, doesReviewMatchApp, sanitizeReviewText, withTimeout, formatReviewDate } from './communityUtils';
 import { communityDbHelper } from './communityDbHelper';
 
 export class CommunityChunksManager {
@@ -39,7 +39,7 @@ export class CommunityChunksManager {
                 userName: r.userName || r.username || 'Player',
                 rating: Number(r.rating) || 5,
                 reviewText: sanitizeReviewText(r.reviewText || r.comment || ''),
-                timestamp: r.timestamp || r.created_at || new Date().toISOString(),
+                timestamp: formatReviewDate(r.timestamp || r.created_at),
                 status: r.status || 'published',
                 helpful_count: Number(r.helpful_count) || 0,
                 isPinned: Boolean(r.isPinned),
@@ -47,7 +47,7 @@ export class CommunityChunksManager {
                 report_count: Number(r.report_count) || 0,
                 source: r.source || 'community',
                 adminReply: r.adminReply || null,
-                updated_at: r.updated_at || new Date().toISOString()
+                updated_at: formatReviewDate(r.updated_at)
               });
               loaded++;
             }
@@ -92,38 +92,53 @@ export class CommunityChunksManager {
       const db = getCommunityAdminDb();
       if (db) {
         try {
-          const snap = await withTimeout(
-            db.collection('reviews').where('appId', '==', cleanId).limit(50).get(),
+          const resolved = resolveCanonicalApp(cleanId);
+          const targets = Array.from(new Set([
+            cleanId,
+            resolved.canonicalId,
+            resolved.canonicalId.toLowerCase(),
+            resolved.canonicalSlug,
+            resolved.canonicalSlug.toLowerCase()
+          ].filter(Boolean)));
+
+          const snaps = await withTimeout(
+            Promise.all([
+              db.collection('reviews').where('appId', 'in', targets).limit(50).get(),
+              db.collection('reviews').where('appSlug', 'in', targets).limit(50).get()
+            ]),
             5000,
-            null
+            [] as any
           );
-          if (snap && snap.docs && snap.docs.length > 0) {
-            snap.docs.forEach((docSnap: any) => {
-              const d = docSnap.data();
-              const id = docSnap.id || d.id;
-              if (id && !deletedReviewIds.has(id)) {
-                reviewsMap.set(id, {
-                  id,
-                  appId: d.appId || cleanId,
-                  appSlug: d.appSlug || '',
-                  appName: d.appName || '',
-                  userName: d.userName || d.username || 'Player',
-                  rating: Number(d.rating) || 5,
-                  reviewText: sanitizeReviewText(d.reviewText || d.comment || ''),
-                  timestamp: d.timestamp || d.created_at || new Date().toISOString(),
-                  status: d.status || (d.is_approved ? 'published' : 'pending') || 'published',
-                  helpful_count: Number(d.helpful_count) || 0,
-                  isPinned: Boolean(d.isPinned),
-                  reported: Boolean(d.reported),
-                  report_count: Number(d.report_count) || 0,
-                  source: d.source || 'community',
-                  adminReply: d.adminReply || null,
-                  updated_at: d.updated_at || new Date().toISOString()
-                });
-                loadedCount++;
-              }
-            });
-          }
+
+          snaps.forEach((snap: any) => {
+            if (snap && snap.docs && snap.docs.length > 0) {
+              snap.docs.forEach((docSnap: any) => {
+                const d = docSnap.data();
+                const id = docSnap.id || d.id;
+                if (id && !deletedReviewIds.has(id)) {
+                  reviewsMap.set(id, {
+                    id,
+                    appId: d.appId || resolved.canonicalId || cleanId,
+                    appSlug: d.appSlug || resolved.canonicalSlug || '',
+                    appName: d.appName || resolved.canonicalName || '',
+                    userName: d.userName || d.username || 'Player',
+                    rating: Number(d.rating) || 5,
+                    reviewText: sanitizeReviewText(d.reviewText || d.comment || ''),
+                    timestamp: formatReviewDate(d.timestamp || d.created_at),
+                    status: d.status || (d.is_approved ? 'published' : 'pending') || 'published',
+                    helpful_count: Number(d.helpful_count) || 0,
+                    isPinned: Boolean(d.isPinned),
+                    reported: Boolean(d.reported),
+                    report_count: Number(d.report_count) || 0,
+                    source: d.source || 'community',
+                    adminReply: d.adminReply || null,
+                    updated_at: formatReviewDate(d.updated_at)
+                  });
+                  loadedCount++;
+                }
+              });
+            }
+          });
         } catch (err: any) {
           if (communityDbHelper.isQuotaError(err)) communityDbHelper.handleQuotaCooldown();
         }

@@ -267,7 +267,7 @@ export class CommunityReviewsManager {
         userName: String(payload.userName || payload.username || payload.author || 'Player').trim().substring(0, 50),
         rating: Math.max(1, Math.min(5, Math.round(Number(payload.rating) || 5))),
         reviewText: sanitizeReviewText(String(payload.reviewText || payload.comment || payload.text || ''), targetAppName),
-        timestamp: payload.timestamp || payload.date || payload.created_at || new Date().toISOString(),
+        timestamp: formatReviewDate(payload.timestamp || payload.date || payload.created_at),
         status: (payload.status as any) || 'published',
         helpful_count: Number(payload.helpful_count || payload.helpfulCount) || Math.floor(Math.random() * 8),
         isPinned: Boolean(payload.isPinned),
@@ -275,7 +275,7 @@ export class CommunityReviewsManager {
         report_count: 0,
         source: payload.source || 'community',
         adminReply: payload.adminReply || null,
-        updated_at: new Date().toISOString()
+        updated_at: formatReviewDate(payload.updated_at)
       };
 
       added.push(newRev);
@@ -359,7 +359,7 @@ export class CommunityReviewsManager {
         userName: updates.userName || 'Admin',
         rating: updates.rating || 5,
         reviewText: updates.reviewText || '',
-        timestamp: new Date().toISOString(),
+        timestamp: formatReviewDate(updates.timestamp),
         status: updates.status || 'published',
         helpful_count: updates.helpful_count || 0,
         isPinned: Boolean(updates.isPinned),
@@ -381,7 +381,7 @@ export class CommunityReviewsManager {
       appSlug: resolvedApp.canonicalSlug,
       appName: resolvedApp.canonicalName,
       reviewText: updates.reviewText ? sanitizeReviewText(updates.reviewText, updates.appName || existing.appName) : existing.reviewText,
-      updated_at: new Date().toISOString()
+      updated_at: formatReviewDate()
     };
 
     const wasPublished = existing.status === 'published' || existing.status === 'approved';

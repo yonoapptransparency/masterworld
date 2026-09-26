@@ -273,14 +273,14 @@ export class CommunityStoreService {
     return await communityReportsManager.addReport(payload, this.reports, () => this.saveToDisk());
   }
 
-  public queryAdminReports(query: {
+  public async queryAdminReports(query: {
     status?: string;
     type?: string;
     appId?: string;
     search?: string;
     limit?: number;
   }) {
-    return communityReportsManager.queryAdminReports(this.reports, query);
+    return await communityReportsManager.queryAdminReports(this.reports, query, () => this.saveToDisk());
   }
 
   public async updateReport(id: string, updates: Partial<ReportRecord>): Promise<ReportRecord | null> {

@@ -7,6 +7,7 @@ import {
   getCachedLiveReviews,
   getCachedLiveAppStats,
   PublicReview, 
+  formatReviewDate,
 } from '../lib/communityFirebase';
 import { generateNaturalStarDistribution } from '../seo/utils';
 
@@ -51,7 +52,7 @@ export function useReviews(
         username: r.username || 'Player',
         rating: Number(r.rating) || 5,
         comment: r.comment || '',
-        created_at: r.created_at || new Date().toISOString(),
+        created_at: formatReviewDate(r.created_at || (r as any).timestamp),
         helpful_count: Number(r.helpful_count) || 0,
         reported: Boolean(r.reported),
         report_count: Number(r.report_count) || 0,
@@ -129,7 +130,7 @@ export function useReviews(
         username: r.username || 'Player',
         rating: Number(r.rating) || 5,
         comment: r.comment || '',
-        created_at: r.created_at || new Date().toISOString(),
+        created_at: formatReviewDate(r.created_at || (r as any).timestamp),
         helpful_count: Number(r.helpful_count) || 0,
         reported: Boolean(r.reported),
         report_count: Number(r.report_count) || 0,
@@ -183,7 +184,7 @@ export function useReviews(
           username: r.username || 'Player',
           rating: Number(r.rating) || 5,
           comment: r.comment || '',
-          created_at: r.created_at || new Date().toISOString(),
+          created_at: formatReviewDate(r.created_at || (r as any).timestamp),
           helpful_count: Number(r.helpful_count) || 0,
           reported: Boolean(r.reported),
           report_count: Number(r.report_count) || 0,
@@ -222,14 +223,30 @@ export function useReviews(
   // Listen to community review events across tabs/components
   useEffect(() => {
     const handleNewReview = (e: any) => {
-      const newRev = e?.detail?.newReview;
-      if (newRev) {
-        const matchesId = newRev.app_id === cleanAppId || newRev.appId === cleanAppId;
-        const matchesSlug = cleanAppSlug && (newRev.app_id === cleanAppSlug || newRev.appSlug === cleanAppSlug);
+      const rawRev = e?.detail?.newReview || e?.detail?.review;
+      if (rawRev) {
+        const revAppId = rawRev.app_id || rawRev.appId || '';
+        const revAppSlug = rawRev.appSlug || '';
+        const matchesId = revAppId === cleanAppId || revAppId === cleanAppSlug;
+        const matchesSlug = cleanAppSlug && (revAppSlug === cleanAppSlug || revAppSlug === cleanAppId);
         if (matchesId || matchesSlug) {
+          const formatted: Review = {
+            id: rawRev.id,
+            app_id: revAppId || cleanAppId,
+            username: rawRev.username || rawRev.userName || 'Player',
+            rating: Number(rawRev.rating) || 5,
+            comment: rawRev.comment || rawRev.reviewText || '',
+            created_at: formatReviewDate(rawRev.created_at || rawRev.timestamp),
+            helpful_count: Number(rawRev.helpful_count) || 0,
+            reported: Boolean(rawRev.reported),
+            report_count: Number(rawRev.report_count) || 0,
+            source: rawRev.source || 'community',
+            isPinned: Boolean(rawRev.isPinned),
+            adminReply: rawRev.adminReply || null
+          };
           setReviews(prev => {
-            if (prev.some(r => r.id === newRev.id)) return prev;
-            return [newRev, ...prev];
+            if (prev.some(r => r.id === formatted.id)) return prev;
+            return [formatted, ...prev];
           });
         }
       }

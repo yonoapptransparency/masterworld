@@ -5,6 +5,7 @@ import path from 'path';
 import { verifyTurnstile, getIp, rateLimit } from '../security';
 import { verifyAdminToken } from '../middleware/adminAuth';
 import { communityStore } from '../services/communityStoreService';
+import { formatReviewDate } from '../services/community/communityUtils';
 import { generateAIReviewsForApp, compileFullAppDossier, generateBrain1DossierReviews } from '../services/aiReviewGeneratorService';
 import { 
   getBrain2TargetInfo, 
@@ -92,8 +93,8 @@ communityRouter.post(["/api/v1/public/community/reviews", "/api/v1/public/rating
       rating: savedReview.rating,
       reviewText: savedReview.reviewText,
       comment: savedReview.reviewText,
-      timestamp: savedReview.timestamp,
-      created_at: savedReview.timestamp,
+      timestamp: formatReviewDate(savedReview.timestamp),
+      created_at: formatReviewDate(savedReview.timestamp),
       helpful_count: savedReview.helpful_count || 0,
       source: savedReview.source || 'community',
       reported: false,
@@ -587,7 +588,7 @@ communityRouter.post("/api/v1/admin/community/reviews", verifyAdminToken, async 
       adminReply: adminReply ? {
         text: String(adminReply.text || '').trim(),
         author: String(adminReply.author || 'RummyDex Support').trim(),
-        timestamp: new Date().toISOString()
+        timestamp: formatReviewDate(adminReply.timestamp)
       } : null
     });
 
@@ -626,7 +627,7 @@ communityRouter.put("/api/v1/admin/community/reviews/:id", verifyAdminToken, asy
         updatePayload.adminReply = {
           text: String(req.body.adminReply.text || req.body.adminReply).trim(),
           author: String(req.body.adminReply.author || 'Official RummyDex Response').trim(),
-          timestamp: req.body.adminReply.timestamp || new Date().toISOString()
+          timestamp: formatReviewDate(req.body.adminReply.timestamp)
         };
       }
     }

@@ -153,9 +153,10 @@ export function resolveCanonicalApp(
  * Format date to clean standard: Day Month Year (e.g. "26 Sep 2026")
  */
 export function formatReviewDate(dateInput?: string | Date | number): string {
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   if (!dateInput) {
     const now = new Date();
-    return `${now.getDate()} ${now.toLocaleString('en-US', { month: 'short' })} ${now.getFullYear()}`;
+    return `${now.getDate()} ${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
   }
   if (typeof dateInput === 'string' && /^\d{1,2}\s+[A-Za-z]{3}\s+\d{4}$/.test(dateInput.trim())) {
     return dateInput.trim();
@@ -163,10 +164,11 @@ export function formatReviewDate(dateInput?: string | Date | number): string {
   try {
     const d = new Date(dateInput);
     if (!isNaN(d.getTime())) {
-      return `${d.getDate()} ${d.toLocaleString('en-US', { month: 'short' })} ${d.getFullYear()}`;
+      return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
     }
   } catch (e) {}
-  return String(dateInput);
+  const now = new Date();
+  return `${now.getDate()} ${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
 }
 
 export function doesReviewMatchApp(

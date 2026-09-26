@@ -9,9 +9,10 @@ import staticData from './staticData.json';
 import { generateNaturalStarDistribution } from '../seo/utils';
 
 export function formatReviewDate(dateInput?: string | Date | number): string {
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   if (!dateInput) {
     const now = new Date();
-    return `${now.getDate()} ${now.toLocaleString('en-US', { month: 'short' })} ${now.getFullYear()}`;
+    return `${now.getDate()} ${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
   }
   if (typeof dateInput === 'string' && /^\d{1,2}\s+[A-Za-z]{3}\s+\d{4}$/.test(dateInput.trim())) {
     return dateInput.trim();
@@ -19,10 +20,11 @@ export function formatReviewDate(dateInput?: string | Date | number): string {
   try {
     const d = new Date(dateInput);
     if (!isNaN(d.getTime())) {
-      return `${d.getDate()} ${d.toLocaleString('en-US', { month: 'short' })} ${d.getFullYear()}`;
+      return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
     }
   } catch (e) {}
-  return String(dateInput);
+  const now = new Date();
+  return `${now.getDate()} ${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
 }
 
 // Resilient Production Configuration (Self-contained, no external JSON imports that fail on static hosts)
@@ -565,7 +567,7 @@ export async function fetchLiveReviews(options: {
           const parsed = parseFirestoreFields(rawStats.fields);
           if (parsed) {
             loadedStats = {
-              appId: cleanTargetId,
+              appId: canonicalId,
               totalReviews: Number(parsed.totalReviews || parsed.publishedReviewCount) || 0,
               averageRating: Number(parsed.averageRating) || 0,
               starDistribution: parsed.starDistribution || { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 }

@@ -1,7 +1,7 @@
 {
-  "totalReviews": 116,
-  "publishedReviews": 116,
-  "pendingReviews": 0,
+  "totalReviews": 113,
+  "publishedReviews": 113,
+  "pendingReviews": 2,
   "rejectedReviews": 0,
   "flaggedReviews": 0,
   "totalReports": 0,
@@ -12,31 +12,31 @@
     "2": 2,
     "3": 19,
     "4": 41,
-    "5": 54
+    "5": 51
   },
   "appCounts": {
     "spin-crush": {
-      "total": 4,
-      "published": 4,
-      "avgRating": 4.8,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.7,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
         "4": 1,
-        "5": 3
+        "5": 2
       }
     },
     "yh9toduxk": {
-      "total": 4,
-      "published": 4,
-      "avgRating": 4.8,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.7,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
         "4": 1,
-        "5": 3
+        "5": 2
       }
     },
     "rummy-77": {
@@ -854,19 +854,7 @@
         "4": 0,
         "5": 1
       }
-    },
-    "test_app": {
-      "total": 2,
-      "published": 2,
-      "avgRating": 5,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 0,
-        "5": 2
-      }
     }
   },
-  "updated_at": "2026-09-26T13:21:30.233Z"
+  "updated_at": "2026-09-26T10:47:44.066Z"
 }

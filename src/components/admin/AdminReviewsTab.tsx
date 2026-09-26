@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 import { toast } from '../Toast';
 import { adminFetch } from '../../services/adminAuthService';
-import { invalidateReviewCache } from '../../lib/communityFirebase';
+import { invalidateReviewCache, formatReviewDate } from '../../lib/communityFirebase';
 import { 
   fetchAdminReviewsList, 
   fetchAdminAppReviewCounts, 
@@ -78,7 +78,7 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedAppId, setSelectedAppId] = useState('');
+  const [selectedAppId, setSelectedAppId] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedRating, setSelectedRating] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
@@ -588,7 +588,7 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
       const adminReplyPayload = replyText.trim() ? {
         text: replyText.trim(),
         author: replyAuthor.trim() || 'RummyDex Support',
-        timestamp: new Date().toISOString()
+        timestamp: formatReviewDate()
       } : null;
 
       const res = await adminFetch(`/api/v1/admin/community/reviews/${replyModalReview.id}`, {
@@ -664,7 +664,7 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
         r.status,
         r.helpful_count || 0,
         r.isPinned ? 'YES' : 'NO',
-        `"${new Date(r.timestamp).toISOString()}"`,
+        `"${formatReviewDate(r.timestamp)}"`,
         `"${(r.reviewText || '').replace(/"/g, '""')}"`,
         `"${((r.adminReply?.text) || '').replace(/"/g, '""')}"`
       ]);
@@ -1265,13 +1265,7 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
                             ))}
                           </div>
                           <span className="text-[10px] lg:text-[11px] font-semibold text-slate-400">
-                            {(() => {
-                              const ts = review.timestamp;
-                              if (!ts) return '';
-                              if (/^\d{1,2}\s+[A-Za-z]{3}\s+\d{4}$/.test(String(ts).trim())) return String(ts).trim();
-                              const d = new Date(ts);
-                              return isNaN(d.getTime()) ? String(ts) : `${d.getDate()} ${d.toLocaleString('en-US', { month: 'short' })} ${d.getFullYear()}`;
-                            })()}
+                            {formatReviewDate(review.timestamp)}
                           </span>
                         </div>
                       </div>

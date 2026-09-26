@@ -56,7 +56,7 @@ export class CommunityReportsManager {
     return newReport;
   }
 
-  public queryAdminReports(
+  public async queryAdminReports(
     reportsMap: Map<string, ReportRecord>,
     query: {
       status?: string;
@@ -64,8 +64,30 @@ export class CommunityReportsManager {
       appId?: string;
       search?: string;
       limit?: number;
-    }
+    },
+    onSaveCallback?: () => void
   ) {
+    if (!communityDbHelper.isQuotaProtected()) {
+      try {
+        const db = getCommunityAdminDb();
+        if (db) {
+          const snap = await db.collection('reports').limit(100).get();
+          if (snap && snap.docs && snap.docs.length > 0) {
+            snap.docs.forEach((docSnap: any) => {
+              const d = docSnap.data();
+              const id = docSnap.id || d.id;
+              if (id) {
+                reportsMap.set(id, { id, ...d });
+              }
+            });
+            if (onSaveCallback) onSaveCallback();
+          }
+        }
+      } catch (err: any) {
+        // Fallback to in-memory map
+      }
+    }
+
     let list = Array.from(reportsMap.values());
 
     if (query.status && query.status !== 'all') {
