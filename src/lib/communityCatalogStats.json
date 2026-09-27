@@ -879,18 +879,6 @@
         "5": 1
       }
     },
-    "test_app": {
-      "total": 2,
-      "published": 2,
-      "avgRating": 5,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 0,
-        "5": 2
-      }
-    },
     "jeet-spin": {
       "total": 1,
       "published": 1,
@@ -902,7 +890,31 @@
         "4": 1,
         "5": 0
       }
+    },
+    "sd02xz1a1": {
+      "total": 1,
+      "published": 1,
+      "avgRating": 4,
+      "starCounts": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 1,
+        "5": 0
+      }
+    },
+    "test_app": {
+      "total": 2,
+      "published": 2,
+      "avgRating": 5,
+      "starCounts": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 2
+      }
     }
   },
-  "updated_at": "2026-09-27T18:35:48.482Z"
+  "updated_at": "2026-09-27T18:40:28.658Z"
 }
