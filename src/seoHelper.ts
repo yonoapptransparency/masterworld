@@ -600,24 +600,35 @@ async function buildJsonLdSchema(params: {
     const item = params.newsItem;
     const title = getField(item, 'title');
     const desc = getField(item, 'description') || params.description;
-    const datePublished = getField(item, 'created_at') || new Date().toISOString();
-    const authorName = getField(item, 'ceo_name', params.siteTitle);
+    const datePublished = getField(item, 'created_at') || getField(item, 'date') || new Date().toISOString();
+    const dateModified = getField(item, 'updated_at') || datePublished;
+    const authorName = getField(item, 'author') || getField(item, 'ceo_name') || params.siteTitle;
+
+    const rawNewsImg = getField(item, 'og_image_url') || getField(item, 'image_url') || getField(item, 'logo_url') || params.logoUrl;
+    const newsImg = optimizeImageUrl(rawNewsImg, 1200) || rawNewsImg;
 
     schemas.push({
       "@context": "https://schema.org",
       "@type": "NewsArticle",
+      "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": `${hostOrigin}/news/${getField(item, 'slug')}`
+      },
       "headline": title,
       "description": desc,
-      "image": [params.logoUrl],
+      "image": [newsImg],
       "datePublished": datePublished,
-      "dateModified": datePublished,
+      "dateModified": dateModified,
+      "articleSection": getField(item, 'category') || 'General',
+      "inLanguage": "en",
       "author": {
-        "@type": "Organization",
+        "@type": "Person",
         "name": authorName
       },
       "publisher": {
         "@type": "Organization",
         "name": params.siteTitle,
+        "url": hostOrigin,
         "logo": {
           "@type": "ImageObject",
           "url": params.logoUrl
@@ -1169,6 +1180,9 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     <meta data-rh="true" name="twitter:title" content="${escapedTitle}">
     <meta data-rh="true" name="twitter:description" content="${escapedDesc}">
     <meta data-rh="true" name="twitter:image" content="${pageOgImage}">
+    <meta data-rh="true" name="thumbnail" content="${pageOgImage}">
+    <meta data-rh="true" itemprop="image" content="${pageOgImage}">
+    <meta data-rh="true" itemprop="thumbnailUrl" content="${pageOgImage}">
     <link data-rh="true" rel="alternate" type="application/rss+xml" title="RummyDex News" href="/rss.xml">
     <link data-rh="true" rel="image_src" href="${pageOgImage}">
     <link data-rh="true" rel="canonical" href="${canonicalUrl}">
@@ -1187,9 +1201,11 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
 
   if (data && !isAdminRoute) {
     const isAppDetailPage = cleanPathLower.startsWith('/app/');
+    const isNewsDetailPage = cleanPathLower.startsWith('/news/');
     const targetAppSlug = targetApp ? getField(targetApp, 'slug')?.toLowerCase() : null;
     const targetAppId = targetApp ? String(getField(targetApp, 'id') || '').trim() : '';
     const targetAppName = targetApp ? String(getField(targetApp, 'name') || '').toLowerCase().trim() : '';
+    const targetNewsSlug = targetNews ? (getField(targetNews, 'slug') || getField(targetNews, 'id'))?.toLowerCase() : null;
 
     const optimizedApps = Array.isArray(data.apps) ? data.apps.map((app: any) => {
       const sanitizedApp = { ...app };
@@ -1201,8 +1217,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       const isTarget = targetAppSlug && getField(app, 'slug')?.toLowerCase() === targetAppSlug;
       if (isTarget) return sanitizedApp;
 
-      // On app detail page, prune non-target apps to lightweight stubs for high-speed crawler and user rendering
-      if (isAppDetailPage) {
+      // On app detail page or news detail page, prune non-target apps to lightweight stubs for high-speed crawler and user rendering
+      if (isAppDetailPage || isNewsDetailPage) {
         return {
           id: sanitizedApp.id,
           name: sanitizedApp.name,
@@ -1258,38 +1274,44 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
         }
         return true;
       })
-      .map((item: any) => ({
-        id: item.id,
-        slug: item.slug,
-        title: item.title,
-        logo_url: item.logo_url || item.image_url || '',
-        image_url: item.image_url || item.logo_url || '',
-        description: item.description || '',
-        content: isAppDetailPage ? '' : (item.content || item.description_html || ''),
-        description_html: isAppDetailPage ? '' : (item.description_html || item.content || ''),
-        ceo_name: item.ceo_name || item.author || 'Admin Team',
-        ceo_description: item.ceo_description || 'Transparency & Security Analyst',
-        author: item.author || item.ceo_name || 'Admin Team',
-        category: item.category || 'General',
-        published_at: item.published_at || item.created_at || item.date || '',
-        date: item.date || item.published_at || item.created_at || '',
-        read_time: item.read_time || '3 min read',
-        is_breaking: Boolean(item.is_breaking),
-        is_new: Boolean(item.is_new),
-        is_pinned: Boolean(item.is_pinned),
-        seo_title: item.seo_title || '',
-        seo_description: item.seo_description || '',
-        seo_keywords: item.seo_keywords || '',
-        og_image_url: item.og_image_url || '',
-        canonical_url: item.canonical_url || '',
-        target_region: item.target_region || 'India',
-        link: item.link || '',
-        tags: Array.isArray(item.tags) ? item.tags : [],
-        related_app_id: item.related_app_id || '',
-        created_at: item.created_at || item.date || '',
-        updated_at: item.updated_at || item.date || '',
-        sync_to_public: true
-      }));
+      .map((item: any) => {
+        const itemSlug = (item.slug || item.id || '').toLowerCase();
+        const isTargetNewsArticle = isNewsDetailPage && targetNewsSlug && itemSlug === targetNewsSlug;
+
+        return {
+          id: item.id,
+          slug: item.slug,
+          title: item.title,
+          logo_url: item.logo_url || item.image_url || '',
+          image_url: item.image_url || item.logo_url || '',
+          description: item.description || '',
+          // Only include heavy HTML content for the active news article being viewed
+          content: isTargetNewsArticle ? (item.content || item.description_html || '') : '',
+          description_html: isTargetNewsArticle ? (item.description_html || item.content || '') : '',
+          ceo_name: item.ceo_name || item.author || 'Admin Team',
+          ceo_description: item.ceo_description || 'Transparency & Security Analyst',
+          author: item.author || item.ceo_name || 'Admin Team',
+          category: item.category || 'General',
+          published_at: item.published_at || item.created_at || item.date || '',
+          date: item.date || item.published_at || item.created_at || '',
+          read_time: item.read_time || '3 min read',
+          is_breaking: Boolean(item.is_breaking),
+          is_new: Boolean(item.is_new),
+          is_pinned: Boolean(item.is_pinned),
+          seo_title: item.seo_title || '',
+          seo_description: item.seo_description || '',
+          seo_keywords: item.seo_keywords || '',
+          og_image_url: item.og_image_url || '',
+          canonical_url: item.canonical_url || '',
+          target_region: item.target_region || 'India',
+          link: item.link || '',
+          tags: Array.isArray(item.tags) ? item.tags : [],
+          related_app_id: item.related_app_id || '',
+          created_at: item.created_at || item.date || '',
+          updated_at: item.updated_at || item.date || '',
+          sync_to_public: true
+        };
+      });
 
     const optimizedVideos = isAppDetailPage ? [] : (Array.isArray(data.videos) ? data.videos.map((item: any) => {
       const isTarget = targetVideo && (getField(item, 'slug') || getField(item, 'id'))?.toLowerCase() === (getField(targetVideo, 'slug') || getField(targetVideo, 'id'))?.toLowerCase();

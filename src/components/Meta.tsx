@@ -200,7 +200,7 @@ const Meta: React.FC<MetaProps> = ({
       document.head.querySelectorAll('meta[property^="article:" i]').forEach(el => el.remove());
     }
 
-    // 7. Twitter Card Tags
+    // 7. Twitter Card & Search Thumbnail Tags
     setMetaTag('name', 'twitter:card', 'summary_large_image');
     setMetaTag('name', 'twitter:site', '@RummyDex');
     setMetaTag('name', 'twitter:creator', '@RummyDex');
@@ -208,6 +208,9 @@ const Meta: React.FC<MetaProps> = ({
     setMetaTag('name', 'twitter:title', fullTitle);
     setMetaTag('name', 'twitter:description', metaDescription);
     setMetaTag('name', 'twitter:image', metaImage);
+    setMetaTag('name', 'thumbnail', metaImage);
+    setMetaTag('itemprop' as any, 'image', metaImage);
+    setMetaTag('itemprop' as any, 'thumbnailUrl', metaImage);
 
     // 8. Schema.org JSON-LD Structured Data in <head>
     const schemasToInject: any[] = [];
