@@ -592,6 +592,8 @@ async function buildJsonLdSchema(params: {
         schemas.push({
           "@context": "https://schema.org",
           "@type": "FAQPage",
+          "@id": `${hostOrigin}/app/${getField(app, 'slug')}#faq`,
+          "url": `${hostOrigin}/app/${getField(app, 'slug')}`,
           "mainEntity": faqList
         });
       }

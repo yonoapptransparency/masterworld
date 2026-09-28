@@ -1,162 +1,162 @@
 {
-  "totalReviews": 145,
-  "publishedReviews": 145,
-  "pendingReviews": 0,
+  "totalReviews": 113,
+  "publishedReviews": 113,
+  "pendingReviews": 2,
   "rejectedReviews": 0,
   "flaggedReviews": 0,
   "totalReports": 0,
   "pendingReports": 0,
-  "averageRating": 4.2,
+  "averageRating": 4.3,
   "ratingDistribution": {
-    "1": 1,
+    "1": 0,
     "2": 2,
-    "3": 23,
-    "4": 57,
-    "5": 62
+    "3": 19,
+    "4": 41,
+    "5": 51
   },
   "appCounts": {
     "spin-crush": {
-      "total": 10,
-      "published": 10,
-      "avgRating": 4.3,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.7,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 2,
-        "4": 3,
-        "5": 5
+        "3": 0,
+        "4": 1,
+        "5": 2
       }
     },
     "yh9toduxk": {
-      "total": 10,
-      "published": 10,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.7,
+      "starCounts": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 1,
+        "5": 2
+      }
+    },
+    "rummy-77": {
+      "total": 3,
+      "published": 3,
+      "avgRating": 4,
+      "starCounts": {
+        "1": 0,
+        "2": 0,
+        "3": 1,
+        "4": 1,
+        "5": 1
+      }
+    },
+    "i5uw2apum": {
+      "total": 3,
+      "published": 3,
+      "avgRating": 4,
+      "starCounts": {
+        "1": 0,
+        "2": 0,
+        "3": 1,
+        "4": 1,
+        "5": 1
+      }
+    },
+    "rummy-91": {
+      "total": 3,
+      "published": 3,
       "avgRating": 4.3,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 2,
-        "4": 3,
-        "5": 5
-      }
-    },
-    "rummy-77": {
-      "total": 10,
-      "published": 10,
-      "avgRating": 4,
-      "starCounts": {
-        "1": 1,
-        "2": 0,
         "3": 1,
-        "4": 4,
-        "5": 4
-      }
-    },
-    "i5uw2apum": {
-      "total": 10,
-      "published": 10,
-      "avgRating": 4,
-      "starCounts": {
-        "1": 1,
-        "2": 0,
-        "3": 1,
-        "4": 4,
-        "5": 4
-      }
-    },
-    "rummy-91": {
-      "total": 6,
-      "published": 6,
-      "avgRating": 4.2,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 1,
-        "4": 3,
+        "4": 0,
         "5": 2
       }
     },
     "s4oc5m16b": {
-      "total": 6,
-      "published": 6,
-      "avgRating": 4.2,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.3,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 1,
-        "4": 3,
+        "4": 0,
         "5": 2
       }
     },
     "callbreak": {
-      "total": 6,
-      "published": 6,
+      "total": 3,
+      "published": 3,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 2,
-        "4": 2,
-        "5": 2
+        "3": 1,
+        "4": 1,
+        "5": 1
       }
     },
     "ha76icslh": {
-      "total": 6,
-      "published": 6,
+      "total": 3,
+      "published": 3,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 2,
-        "4": 2,
-        "5": 2
+        "3": 1,
+        "4": 1,
+        "5": 1
       }
     },
     "card-game-29": {
-      "total": 6,
-      "published": 6,
+      "total": 3,
+      "published": 3,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 6,
+        "4": 3,
         "5": 0
       }
     },
     "colrcaih7": {
-      "total": 6,
-      "published": 6,
+      "total": 3,
+      "published": 3,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 6,
+        "4": 3,
         "5": 0
       }
     },
     "joy-rummy": {
-      "total": 6,
-      "published": 6,
-      "avgRating": 4.2,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 1,
-        "4": 3,
-        "5": 2
+        "4": 1,
+        "5": 1
       }
     },
     "e1qcs5ik7": {
-      "total": 6,
-      "published": 6,
-      "avgRating": 4.2,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 1,
-        "4": 3,
-        "5": 2
+        "4": 1,
+        "5": 1
       }
     },
     "jaiho-91": {
@@ -304,25 +304,25 @@
       }
     },
     "ever-777": {
-      "total": 4,
-      "published": 4,
-      "avgRating": 3.8,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 1,
+        "3": 0,
         "4": 3,
         "5": 0
       }
     },
     "kc3u0sl2h": {
-      "total": 4,
-      "published": 4,
-      "avgRating": 3.8,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 1,
+        "3": 0,
         "4": 3,
         "5": 0
       }
@@ -854,67 +854,7 @@
         "4": 0,
         "5": 1
       }
-    },
-    "rummy-zip": {
-      "total": 2,
-      "published": 2,
-      "avgRating": 4.5,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 1,
-        "5": 1
-      }
-    },
-    "cj5x1fa62": {
-      "total": 2,
-      "published": 2,
-      "avgRating": 4.5,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 1,
-        "5": 1
-      }
-    },
-    "jeet-spin": {
-      "total": 1,
-      "published": 1,
-      "avgRating": 4,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 1,
-        "5": 0
-      }
-    },
-    "sd02xz1a1": {
-      "total": 1,
-      "published": 1,
-      "avgRating": 4,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 1,
-        "5": 0
-      }
-    },
-    "test_app": {
-      "total": 2,
-      "published": 2,
-      "avgRating": 5,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 0,
-        "5": 2
-      }
     }
   },
-  "updated_at": "2026-09-27T19:18:46.437Z"
+  "updated_at": "2026-09-26T10:47:44.066Z"
 }
