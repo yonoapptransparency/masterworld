@@ -44,7 +44,7 @@ export class CommunityPersistence {
           data.reviews.forEach((r: ReviewRecord) => {
             if (r && r.id && !deletedReviewIds.has(r.id)) {
               r.reviewText = sanitizeReviewText(r.reviewText, r.appName);
-              r.timestamp = formatReviewDate(r.timestamp);
+              r.timestamp = r.timestamp || new Date().toISOString();
               reviewsMap.set(r.id, r);
             }
           });
@@ -121,7 +121,7 @@ export class CommunityPersistence {
                 userName: String(d.userName || d.username || 'Player').trim(),
                 rating: Number(d.rating) || 5,
                 reviewText: sanitizeReviewText(String(d.reviewText || d.comment || ''), d.appName),
-                timestamp: formatReviewDate(d.timestamp || d.created_at),
+                timestamp: d.timestamp || d.created_at || new Date().toISOString(),
                 status: d.status || (d.is_approved ? 'published' : 'pending') || 'published',
                 helpful_count: Number(d.helpful_count) || 0,
                 isPinned: Boolean(d.isPinned),
@@ -164,7 +164,7 @@ export class CommunityPersistence {
                   userName: getString(fields.userName) || getString(fields.username) || 'Player',
                   rating: getNum(fields.rating) || 5,
                   reviewText: sanitizeReviewText(getString(fields.reviewText) || getString(fields.comment), appName),
-                  timestamp: formatReviewDate(getString(fields.timestamp) || getString(fields.created_at)),
+                  timestamp: getString(fields.timestamp) || getString(fields.created_at) || new Date().toISOString(),
                   status: (getString(fields.status) as any) || 'published',
                   helpful_count: getNum(fields.helpful_count),
                   isPinned: getBool(fields.isPinned),

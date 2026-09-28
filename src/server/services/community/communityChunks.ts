@@ -15,11 +15,12 @@ export class CommunityChunksManager {
     appIdentifier: string,
     reviewsMap: Map<string, ReviewRecord>,
     deletedReviewIds: Set<string>,
-    appStatsCache: Map<string, AppStatsCacheItem>
+    appStatsCache: Map<string, AppStatsCacheItem>,
+    forceRefresh: boolean = false
   ): Promise<number> {
     const cleanId = String(appIdentifier || '').toLowerCase().trim();
     if (!cleanId) return 0;
-    if (this.loadedAppsMap.has(cleanId)) return 0;
+    if (!forceRefresh && this.loadedAppsMap.has(cleanId)) return 0;
     this.loadedAppsMap.set(cleanId, Date.now());
 
     if (communityDbHelper.isQuotaProtected()) return 0;
@@ -39,7 +40,7 @@ export class CommunityChunksManager {
                 userName: r.userName || r.username || 'Player',
                 rating: Number(r.rating) || 5,
                 reviewText: sanitizeReviewText(r.reviewText || r.comment || ''),
-                timestamp: formatReviewDate(r.timestamp || r.created_at),
+                timestamp: r.timestamp || r.created_at || new Date().toISOString(),
                 status: r.status || 'published',
                 helpful_count: Number(r.helpful_count) || 0,
                 isPinned: Boolean(r.isPinned),
@@ -47,19 +48,57 @@ export class CommunityChunksManager {
                 report_count: Number(r.report_count) || 0,
                 source: r.source || 'community',
                 adminReply: r.adminReply || null,
-                updated_at: formatReviewDate(r.updated_at)
+                updated_at: r.updated_at || new Date().toISOString()
               });
               loaded++;
             }
           }
         });
 
+        // Load all remaining chunks if app has multiple chunks
+        if (chunkDoc.totalChunks && chunkDoc.totalChunks > 1) {
+          for (let i = 1; i < chunkDoc.totalChunks; i++) {
+            try {
+              const nextChunkDoc = await readCommunityRestDoc(`app_reviews_${cleanId}_${i}`, 'community_store');
+              if (nextChunkDoc && Array.isArray(nextChunkDoc.reviews)) {
+                nextChunkDoc.reviews.forEach((r: any) => {
+                  if (r && r.id && !deletedReviewIds.has(r.id) && !reviewsMap.has(r.id)) {
+                    reviewsMap.set(r.id, {
+                      id: r.id,
+                      appId: r.appId || cleanId,
+                      appSlug: r.appSlug || '',
+                      appName: r.appName || '',
+                      userName: r.userName || r.username || 'Player',
+                      rating: Number(r.rating) || 5,
+                      reviewText: sanitizeReviewText(r.reviewText || r.comment || ''),
+                      timestamp: r.timestamp || r.created_at || new Date().toISOString(),
+                      status: r.status || 'published',
+                      helpful_count: Number(r.helpful_count) || 0,
+                      isPinned: Boolean(r.isPinned),
+                      reported: Boolean(r.reported),
+                      report_count: Number(r.report_count) || 0,
+                      source: r.source || 'community',
+                      adminReply: r.adminReply || null,
+                      updated_at: r.updated_at || new Date().toISOString()
+                    });
+                    loaded++;
+                  }
+                });
+              }
+            } catch (_) {}
+          }
+        }
+
         if (chunkDoc.stats) {
-          appStatsCache.set(cleanId, {
+          const statsObj = {
             publishedReviewCount: Number(chunkDoc.stats.totalReviews) || loaded,
             publishedRatingSum: (Number(chunkDoc.stats.averageRating) || 5) * (Number(chunkDoc.stats.totalReviews) || loaded),
             starDistribution: chunkDoc.stats.starCounts || { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 }
-          });
+          };
+          appStatsCache.set(cleanId, statsObj);
+          const resolved = resolveCanonicalApp(cleanId);
+          if (resolved.canonicalSlug) appStatsCache.set(resolved.canonicalSlug.toLowerCase().trim(), statsObj);
+          if (resolved.canonicalId) appStatsCache.set(resolved.canonicalId.toLowerCase().trim(), statsObj);
         }
       }
       return loaded;
@@ -85,7 +124,7 @@ export class CommunityChunksManager {
       return 0;
     }
 
-    let loadedCount = await this.loadSingleAppReviewsChunk(cleanId, reviewsMap, deletedReviewIds, appStatsCache);
+    let loadedCount = await this.loadSingleAppReviewsChunk(cleanId, reviewsMap, deletedReviewIds, appStatsCache, forceRefresh);
 
     if ((loadedCount === 0 || forceRefresh) && !communityDbHelper.isQuotaProtected()) {
       this.loadedAppsMap.set(cleanId, now);
@@ -124,7 +163,7 @@ export class CommunityChunksManager {
                     userName: d.userName || d.username || 'Player',
                     rating: Number(d.rating) || 5,
                     reviewText: sanitizeReviewText(d.reviewText || d.comment || ''),
-                    timestamp: formatReviewDate(d.timestamp || d.created_at),
+                    timestamp: d.timestamp || d.created_at || new Date().toISOString(),
                     status: d.status || (d.is_approved ? 'published' : 'pending') || 'published',
                     helpful_count: Number(d.helpful_count) || 0,
                     isPinned: Boolean(d.isPinned),
@@ -132,7 +171,7 @@ export class CommunityChunksManager {
                     report_count: Number(d.report_count) || 0,
                     source: d.source || 'community',
                     adminReply: d.adminReply || null,
-                    updated_at: formatReviewDate(d.updated_at)
+                    updated_at: d.updated_at || new Date().toISOString()
                   });
                   loadedCount++;
                 }
@@ -193,7 +232,7 @@ export class CommunityChunksManager {
                       userName: docFields.userName || docFields.username || 'Player',
                       rating: Number(docFields.rating) || 5,
                       reviewText: sanitizeReviewText(docFields.reviewText || docFields.comment || ''),
-                      timestamp: formatReviewDate(docFields.timestamp || docFields.created_at),
+                      timestamp: docFields.timestamp || docFields.created_at || new Date().toISOString(),
                       status: docFields.status || (docFields.is_approved ? 'published' : 'pending') || 'published',
                       helpful_count: Number(docFields.helpful_count) || 0,
                       isPinned: Boolean(docFields.isPinned),
@@ -201,7 +240,7 @@ export class CommunityChunksManager {
                       report_count: Number(docFields.report_count) || 0,
                       source: docFields.source || 'community',
                       adminReply: docFields.adminReply || null,
-                      updated_at: formatReviewDate(docFields.updated_at)
+                      updated_at: docFields.updated_at || new Date().toISOString()
                     });
                     loadedCount++;
                   }
@@ -230,7 +269,78 @@ export class CommunityChunksManager {
     const officialSlug = resolved.canonicalSlug;
     const officialName = resolved.canonicalName;
 
-    await this.ensureAllReviewsLoadedForApp(officialId, reviewsMap, deletedReviewIds, appStatsCache);
+    // 1. Force refresh to pull all reviews from Firestore
+    await this.ensureAllReviewsLoadedForApp(officialId, reviewsMap, deletedReviewIds, appStatsCache, true);
+
+    // 2. Also explicitly read any existing chunk doc from Firestore to guarantee old reviews are never lost
+    const chunkDocIdsToCheck = Array.from(new Set([
+      getAppChunkDocId(officialId, 0),
+      officialSlug ? getAppChunkDocId(officialSlug, 0) : null
+    ].filter(Boolean) as string[]));
+
+    for (const docId of chunkDocIdsToCheck) {
+      try {
+        const existingChunkDoc = await readCommunityRestDoc(docId, 'community_store');
+        if (existingChunkDoc && Array.isArray(existingChunkDoc.reviews)) {
+          existingChunkDoc.reviews.forEach((r: any) => {
+            if (r && r.id && !deletedReviewIds.has(r.id) && !reviewsMap.has(r.id)) {
+              reviewsMap.set(r.id, {
+                id: r.id,
+                appId: r.appId || officialId,
+                appSlug: r.appSlug || officialSlug || '',
+                appName: r.appName || officialName || '',
+                userName: r.userName || r.username || 'Player',
+                rating: Number(r.rating) || 5,
+                reviewText: sanitizeReviewText(r.reviewText || r.comment || ''),
+                timestamp: r.timestamp || r.created_at || new Date().toISOString(),
+                status: r.status || 'published',
+                helpful_count: Number(r.helpful_count) || 0,
+                isPinned: Boolean(r.isPinned),
+                reported: Boolean(r.reported),
+                report_count: Number(r.report_count) || 0,
+                source: r.source || 'community',
+                adminReply: r.adminReply || null,
+                updated_at: r.updated_at || new Date().toISOString()
+              });
+            }
+          });
+
+          // Also check subsequent chunks if doc has multiple chunks
+          if (existingChunkDoc.totalChunks && existingChunkDoc.totalChunks > 1) {
+            for (let cIdx = 1; cIdx < existingChunkDoc.totalChunks; cIdx++) {
+              try {
+                const baseKey = docId.replace(/_\d+$/, '');
+                const nextDoc = await readCommunityRestDoc(`${baseKey}_${cIdx}`, 'community_store');
+                if (nextDoc && Array.isArray(nextDoc.reviews)) {
+                  nextDoc.reviews.forEach((r: any) => {
+                    if (r && r.id && !deletedReviewIds.has(r.id) && !reviewsMap.has(r.id)) {
+                      reviewsMap.set(r.id, {
+                        id: r.id,
+                        appId: r.appId || officialId,
+                        appSlug: r.appSlug || officialSlug || '',
+                        appName: r.appName || officialName || '',
+                        userName: r.userName || r.username || 'Player',
+                        rating: Number(r.rating) || 5,
+                        reviewText: sanitizeReviewText(r.reviewText || r.comment || ''),
+                        timestamp: r.timestamp || r.created_at || new Date().toISOString(),
+                        status: r.status || 'published',
+                        helpful_count: Number(r.helpful_count) || 0,
+                        isPinned: Boolean(r.isPinned),
+                        reported: Boolean(r.reported),
+                        report_count: Number(r.report_count) || 0,
+                        source: r.source || 'community',
+                        adminReply: r.adminReply || null,
+                        updated_at: r.updated_at || new Date().toISOString()
+                      });
+                    }
+                  });
+                }
+              } catch (_) {}
+            }
+          }
+        }
+      } catch (_) {}
+    }
 
     const appReviews = Array.from(reviewsMap.values()).filter(r => {
       if (r.status && r.status !== 'published' && r.status !== 'approved') return false;
@@ -267,7 +377,7 @@ export class CommunityChunksManager {
       1: totalCount > 0 ? Math.round((starCounts['1'] / totalCount) * 100) : 2,
     };
 
-    const CHUNK_SIZE = 5; // Strictly 5 reviews for ultra-lightweight quota efficiency
+    const CHUNK_SIZE = 100; // Stores up to 100 reviews per app document (~30KB, well within 1MB Firestore limit)
     const totalChunks = Math.max(1, Math.ceil(appReviews.length / CHUNK_SIZE));
 
     for (let chunkIdx = 0; chunkIdx < totalChunks; chunkIdx++) {

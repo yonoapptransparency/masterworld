@@ -164,6 +164,27 @@ export function renderHome(apps: any[], settings: any, news: any[], videos: any[
           </div>
         </div>
       </div>
+      ${Array.isArray(settings?.website_faqs) && settings.website_faqs.filter((f: any) => f && f.question && f.answer).length > 0 ? `
+        <section aria-labelledby="home-faq-heading" class="mt-12 text-left bg-white dark:bg-zinc-900 p-6 sm:p-8 rounded-[28px] border border-black/5 shadow-sm">
+          <h2 id="home-faq-heading" class="text-2xl font-bold mb-6 text-zinc-900 dark:text-zinc-100">Frequently Asked Questions</h2>
+          <div class="space-y-4">
+            ${settings.website_faqs.filter((f: any) => f && f.question && f.answer).map((faq: any, idx: number) => `
+              <details class="group rounded-2xl border border-black/5 dark:border-white/5 bg-zinc-50/80 dark:bg-zinc-800/50 p-4 sm:p-5" ${idx === 0 ? 'open' : ''}>
+                <summary class="font-bold text-base text-zinc-900 dark:text-zinc-100 cursor-pointer list-none flex justify-between items-center gap-3">
+                  <span class="flex items-start gap-2">
+                    <span class="text-blue-500 font-extrabold select-none">Q.</span>
+                    <span>${escapeHtml(faq.question)}</span>
+                  </span>
+                  <span class="text-blue-500 font-bold text-lg select-none">+</span>
+                </summary>
+                <div class="mt-3 text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed border-t border-black/5 dark:border-white/5 pt-3 pl-5">
+                  ${escapeHtml(faq.answer)}
+                </div>
+              </details>
+            `).join('')}
+          </div>
+        </section>
+      ` : ''}
     </div>
   `;
 }
@@ -398,23 +419,49 @@ export function renderAppDetails(slug: string, apps: any[], settings: any, sampl
 
   // FAQs
   let faqsHtml = '';
-  if (Array.isArray(app.faqs) && app.faqs.length > 0) {
-    const validFaqs = app.faqs.filter((f: any) => f && f.question && f.answer);
-    if (validFaqs.length > 0) {
-      faqsHtml = `
-        <div class="mt-8 pt-6 border-t border-zinc-200/80 dark:border-zinc-800/80 text-left">
-          <h2 class="text-lg font-bold mb-4 text-zinc-900 dark:text-zinc-100">Frequently Asked Questions</h2>
-          <div class="space-y-3">
-            ${validFaqs.map((f: any) => `
-              <div class="p-4 bg-zinc-50 dark:bg-zinc-850 rounded-2xl border border-zinc-200/80 dark:border-zinc-800">
-                <h3 class="font-bold text-sm text-zinc-900 dark:text-zinc-100 mb-1.5">${escapeHtml(f.question)}</h3>
-                <p class="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">${escapeHtml(f.answer)}</p>
+  const validFaqs = (Array.isArray(app.faqs) && app.faqs.length > 0)
+    ? app.faqs.filter((f: any) => f && f.question && f.answer)
+    : [
+        {
+          question: `How do I download and install ${escapeHtml(appName)} on my Android device?`,
+          answer: `To install ${escapeHtml(appName)}, tap the Download button on this page to obtain the verified installation package directly. Once downloaded, tap the notification or file in your device Downloads folder and follow the standard prompts to complete setup.`
+        },
+        {
+          question: `Is ${escapeHtml(appName)} safe to use?`,
+          answer: `Yes. ${escapeHtml(appName)} listed on RummyDex has been verified to ensure smooth performance, thermal stability, and authentic card gaming mechanics.`
+        },
+        {
+          question: `What are the storage requirements for ${escapeHtml(appName)}?`,
+          answer: `${escapeHtml(appName)} has an installation footprint of approximately ${escapeHtml(fileSize)} and is optimized for Android devices with minimal battery drain.`
+        },
+        {
+          question: `Can I play card games with friends and family in ${escapeHtml(appName)}?`,
+          answer: `Yes, ${escapeHtml(appName)} provides multiplayer tables and responsive matchmaking across mobile networks for card gaming anytime.`
+        }
+      ];
+
+  if (validFaqs.length > 0) {
+    faqsHtml = `
+      <section aria-labelledby="app-faq-heading" class="mt-8 pt-6 border-t border-zinc-200/80 dark:border-zinc-800/80 text-left">
+        <h2 id="app-faq-heading" class="text-lg sm:text-xl font-bold mb-4 text-zinc-900 dark:text-zinc-100">Frequently Asked Questions</h2>
+        <div class="space-y-3">
+          ${validFaqs.map((f: any, idx: number) => `
+            <details class="group rounded-2xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-850 p-4" ${idx === 0 ? 'open' : ''}>
+              <summary class="font-bold text-sm text-zinc-900 dark:text-zinc-100 cursor-pointer list-none flex justify-between items-center gap-3">
+                <span class="flex items-start gap-2">
+                  <span class="text-blue-500 font-extrabold select-none">Q.</span>
+                  <span>${escapeHtml(f.question)}</span>
+                </span>
+                <span class="text-blue-500 font-bold select-none">+</span>
+              </summary>
+              <div class="mt-2.5 pt-2.5 border-t border-zinc-200/60 dark:border-zinc-800/60 text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed pl-5">
+                ${escapeHtml(f.answer)}
               </div>
-            `).join('')}
-          </div>
+            </details>
+          `).join('')}
         </div>
-      `;
-    }
+      </section>
+    `;
   }
 
   let reviewsCards = '';
@@ -831,3 +878,38 @@ export function render404(urlPath: string, settings: any) {
     </div>
   `;
 }
+
+export function renderFaqPage(settings: any) {
+  const siteTitle = getField(settings, 'site_title') || 'RummyDex';
+  const siteFaqs = Array.isArray(settings?.website_faqs) ? settings.website_faqs.filter((f: any) => f && f.question && f.answer) : [];
+  return `
+    <div class="max-w-[1000px] mx-auto px-4 sm:px-6 md:px-8 py-12 text-left">
+      <div class="mb-6">
+        <a href="/" class="text-sm font-semibold text-zinc-500 hover:text-blue-600 transition-colors">← Home</a>
+      </div>
+      <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-100 mb-2">
+        Frequently Asked Questions
+      </h1>
+      <p class="text-sm text-zinc-500 dark:text-zinc-400 mb-8">
+        Everything you need to know about ${escapeHtml(siteTitle)}, app downloads, verification, and safety.
+      </p>
+      <div class="space-y-4 border-t border-zinc-200 dark:border-zinc-800 pt-6">
+        ${siteFaqs.map((faq: any, idx: number) => `
+          <details class="group rounded-2xl border border-black/5 dark:border-white/5 bg-zinc-50/80 dark:bg-zinc-800/50 p-5" ${idx === 0 ? 'open' : ''}>
+            <summary class="font-bold text-base text-zinc-900 dark:text-zinc-100 cursor-pointer list-none flex justify-between items-center gap-3">
+              <span class="flex items-start gap-2">
+                <span class="text-blue-500 font-extrabold select-none">Q.</span>
+                <span>${escapeHtml(faq.question)}</span>
+              </span>
+              <span class="text-blue-500 font-bold select-none">+</span>
+            </summary>
+            <div class="mt-3 pt-3 border-t border-black/5 dark:border-white/5 text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed pl-5">
+              ${escapeHtml(faq.answer)}
+            </div>
+          </details>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+

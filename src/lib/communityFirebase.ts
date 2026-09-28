@@ -8,23 +8,88 @@ import communityCatalogStats from './communityCatalogStats.json';
 import staticData from './staticData.json';
 import { generateNaturalStarDistribution } from '../seo/utils';
 
-export function formatReviewDate(dateInput?: string | Date | number): string {
+export function parseRelativeOrIsoDate(dateInput?: string | Date | number): Date {
+  if (!dateInput) return new Date();
+  if (dateInput instanceof Date) return isNaN(dateInput.getTime()) ? new Date() : dateInput;
+  if (typeof dateInput === 'number') {
+    const d = new Date(dateInput);
+    return isNaN(d.getTime()) ? new Date() : d;
+  }
+  const str = String(dateInput).trim().toLowerCase();
+  if (!str) return new Date();
+
+  const now = Date.now();
+
+  if (str === 'today' || str === 'just now') {
+    return new Date();
+  }
+  if (str === 'yesterday') {
+    const d = new Date(now - 24 * 60 * 60 * 1000);
+    d.setHours(11 + Math.floor(Math.random() * 8), Math.floor(Math.random() * 60));
+    return d;
+  }
+  const daysMatch = str.match(/^(\d+)\s+days?\s+ago$/);
+  if (daysMatch) {
+    const days = parseInt(daysMatch[1], 10);
+    const d = new Date(now - days * 24 * 60 * 60 * 1000);
+    d.setHours(10 + Math.floor(Math.random() * 10), Math.floor(Math.random() * 60));
+    return d;
+  }
+  const hoursMatch = str.match(/^(\d+)\s+hours?\s+ago$/);
+  if (hoursMatch) {
+    const hours = parseInt(hoursMatch[1], 10);
+    return new Date(now - hours * 60 * 60 * 1000);
+  }
+  const weeksMatch = str.match(/^(\d+)\s+weeks?\s+ago$/);
+  if (weeksMatch) {
+    const weeks = parseInt(weeksMatch[1], 10);
+    const d = new Date(now - weeks * 7 * 24 * 60 * 60 * 1000);
+    d.setHours(10 + Math.floor(Math.random() * 10), Math.floor(Math.random() * 60));
+    return d;
+  }
+  const monthsMatch = str.match(/^(\d+)\s+months?\s+ago$/);
+  if (monthsMatch) {
+    const months = parseInt(monthsMatch[1], 10);
+    const d = new Date(now - months * 30 * 24 * 60 * 60 * 1000);
+    d.setHours(10 + Math.floor(Math.random() * 10), Math.floor(Math.random() * 60));
+    return d;
+  }
+
+  try {
+    const parsed = new Date(dateInput);
+    if (!isNaN(parsed.getTime())) return parsed;
+  } catch (_) {}
+
+  return new Date();
+}
+
+export function formatReviewDate(dateInput?: string | Date | number, includeTime: boolean = true): string {
   const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   if (!dateInput) {
     const now = new Date();
-    return `${now.getDate()} ${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
+    return formatFull(now, includeTime, MONTHS);
   }
-  if (typeof dateInput === 'string' && /^\d{1,2}\s+[A-Za-z]{3}\s+\d{4}$/.test(dateInput.trim())) {
+  // If already formatted with date and time (e.g. "28 Sep 2026, 04:15 PM")
+  if (typeof dateInput === 'string' && /^\d{1,2}\s+[A-Za-z]{3}\s+\d{4},\s+\d{1,2}:\d{2}\s+(AM|PM)$/i.test(dateInput.trim())) {
     return dateInput.trim();
   }
-  try {
-    const d = new Date(dateInput);
-    if (!isNaN(d.getTime())) {
-      return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
-    }
-  } catch (e) {}
-  const now = new Date();
-  return `${now.getDate()} ${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
+  const d = parseRelativeOrIsoDate(dateInput);
+  return formatFull(d, includeTime, MONTHS);
+}
+
+function formatFull(d: Date, includeTime: boolean, MONTHS: string[]): string {
+  const day = d.getDate();
+  const month = MONTHS[d.getMonth()];
+  const year = d.getFullYear();
+  if (!includeTime) {
+    return `${day} ${month} ${year}`;
+  }
+  let hours = d.getHours();
+  const minutes = d.getMinutes().toString().padStart(2, '0');
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12; // 0 hour is 12 AM
+  return `${day} ${month} ${year}, ${hours}:${minutes} ${ampm}`;
 }
 
 // Resilient Production Configuration (Self-contained, no external JSON imports that fail on static hosts)
@@ -261,15 +326,14 @@ export function getCachedLiveAppStats(appId?: string, appSlug?: string): {
   const cleanSlug = String(appSlug || '').trim().toLowerCase();
   if (!cleanId && !cleanSlug) return null;
 
-  // 1. Primary Source of Truth: Static catalog stats pushed from Admin (communityCatalogStats.json)
-  const catalogCounts: Record<string, any> = (communityCatalogStats as any)?.appCounts || {};
-  const hit = (cleanId && catalogCounts[cleanId]) || (cleanSlug && catalogCounts[cleanSlug]);
-  if (hit) {
-    const pub = Number(hit.published) || 0;
-    const avg = Number(hit.avgRating) || 0;
-    const starCounts = (hit.starCounts && Object.values(hit.starCounts).some((v: any) => Number(v) > 0))
-      ? hit.starCounts
-      : { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
+  // 1. Check live SWR cache FIRST: If dynamic reviews have been fetched or saved, prefer live stats!
+  const cached = getCachedLiveReviews(appId, appSlug);
+  if (cached?.stats && typeof cached.stats.totalReviews === 'number' && Number(cached.stats.totalReviews) > 0) {
+    const pub = Number(cached.stats.totalReviews) || 0;
+    const avg = Number(cached.stats.averageRating) || 5.0;
+    const starCounts = (cached.stats.starCounts && Object.values(cached.stats.starCounts).some((v: any) => Number(v) > 0))
+      ? (cached.stats.starCounts as Record<string, number>)
+      : generateNaturalStarDistribution(avg, pub);
     return {
       averageRating: avg,
       totalReviews: pub,
@@ -278,14 +342,15 @@ export function getCachedLiveAppStats(appId?: string, appSlug?: string): {
     };
   }
 
-  // 2. Secondary fallback if SWR cache has exact stats
-  const cached = getCachedLiveReviews(appId, appSlug);
-  if (cached?.stats && typeof cached.stats.totalReviews === 'number' && Number(cached.stats.totalReviews) > 0) {
-    const pub = Number(cached.stats.totalReviews) || 0;
-    const avg = Number(cached.stats.averageRating) || 5.0;
-    const starCounts = (cached.stats.starCounts && Object.values(cached.stats.starCounts).some((v: any) => Number(v) > 0))
-      ? (cached.stats.starCounts as Record<string, number>)
-      : generateNaturalStarDistribution(avg, pub);
+  // 2. Static catalog stats baseline from split-sync (communityCatalogStats.json)
+  const catalogCounts: Record<string, any> = (communityCatalogStats as any)?.appCounts || {};
+  const hit = (cleanId && catalogCounts[cleanId]) || (cleanSlug && catalogCounts[cleanSlug]);
+  if (hit) {
+    const pub = Number(hit.published) || 0;
+    const avg = Number(hit.avgRating) || 0;
+    const starCounts = (hit.starCounts && Object.values(hit.starCounts).some((v: any) => Number(v) > 0))
+      ? hit.starCounts
+      : { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
     return {
       averageRating: avg,
       totalReviews: pub,

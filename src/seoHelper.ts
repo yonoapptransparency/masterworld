@@ -569,34 +569,57 @@ async function buildJsonLdSchema(params: {
       "itemListElement": breadcrumbs
     });
 
-    // App-specific FAQs (if present)
-    if (app.faqs && Array.isArray(app.faqs) && app.faqs.length > 0) {
-      const seenAppFaqs = new Set<string>();
-      const faqList = app.faqs
-        .filter((faq: any) => {
-          const q = stripHtml(getField(faq, 'question')).trim();
-          const a = stripHtml(getField(faq, 'answer')).trim();
-          if (!q || !a || q.length < 5 || seenAppFaqs.has(q.toLowerCase())) return false;
-          seenAppFaqs.add(q.toLowerCase());
-          return true;
-        })
-        .map((faq: any) => ({
-          "@type": "Question",
-          "name": stripHtml(getField(faq, 'question')).trim(),
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": stripHtml(getField(faq, 'answer')).trim()
+    // App-specific FAQs: Use custom app faqs if available, or generate natural app-specific FAQs
+    const appNameForFaq = getField(app, 'name') || 'Application';
+    const appSlugForFaq = getField(app, 'slug') || '';
+    const appSizeForFaq = getField(app, 'file_size') || 'standard size';
+    const rawFaqs = (app.faqs && Array.isArray(app.faqs) && app.faqs.length > 0)
+      ? app.faqs
+      : [
+          {
+            question: `How do I download and install ${appNameForFaq} on my Android device?`,
+            answer: `To install ${appNameForFaq}, tap the Download button on this page to obtain the verified installation package directly. Once downloaded, open the notification or file in your device Downloads folder and follow the standard prompts to complete setup.`
+          },
+          {
+            question: `Is ${appNameForFaq} safe to use?`,
+            answer: `Yes. ${appNameForFaq} listed on RummyDex has been verified to ensure smooth performance, thermal stability, and authentic card gaming mechanics.`
+          },
+          {
+            question: `What are the storage requirements for ${appNameForFaq}?`,
+            answer: `${appNameForFaq} has an installation footprint of approximately ${appSizeForFaq} and is optimized for Android devices with minimal battery drain.`
+          },
+          {
+            question: `Can I play card games with friends and family in ${appNameForFaq}?`,
+            answer: `Yes, ${appNameForFaq} provides multiplayer tables and responsive matchmaking across mobile networks for card gaming anytime.`
           }
-        }));
-      if (faqList.length > 0) {
-        schemas.push({
-          "@context": "https://schema.org",
-          "@type": "FAQPage",
-          "@id": `${hostOrigin}/app/${getField(app, 'slug')}#faq`,
-          "url": `${hostOrigin}/app/${getField(app, 'slug')}`,
-          "mainEntity": faqList
-        });
-      }
+        ];
+
+    const seenAppFaqs = new Set<string>();
+    const faqList = rawFaqs
+      .filter((faq: any) => {
+        const q = stripHtml(getField(faq, 'question')).trim();
+        const a = stripHtml(getField(faq, 'answer')).trim();
+        if (!q || !a || q.length < 5 || seenAppFaqs.has(q.toLowerCase())) return false;
+        seenAppFaqs.add(q.toLowerCase());
+        return true;
+      })
+      .map((faq: any) => ({
+        "@type": "Question",
+        "name": stripHtml(getField(faq, 'question')).trim(),
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": stripHtml(getField(faq, 'answer')).trim()
+        }
+      }));
+
+    if (faqList.length > 0) {
+      schemas.push({
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "@id": `${hostOrigin}/app/${appSlugForFaq}#faq`,
+        "url": `${hostOrigin}/app/${appSlugForFaq}`,
+        "mainEntity": faqList
+      });
     }
   } else if (params.pageType === 'news' && params.newsItem) {
     const item = params.newsItem;

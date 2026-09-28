@@ -185,8 +185,16 @@ communityRouter.get("/api/v1/public/community/stats/:appId", async (req: any, re
 
 // Fast Atomic Stats Summary across All Catalog Apps (Instant, 0 Firestore reads)
 communityRouter.get(["/api/v1/public/community/stats-summary", "/api/v1/admin/community/stats-summary"], async (req: any, res: any) => {
-  res.setHeader('Cache-Control', 'public, max-age=15, s-maxage=30');
+  const isAdmin = req.path.includes('/admin/');
+  if (isAdmin) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  } else {
+    res.setHeader('Cache-Control', 'public, max-age=15, s-maxage=30');
+  }
   try {
+    if (isAdmin && typeof (communityStore as any).syncAppStatsFromFirestore === 'function') {
+      await (communityStore as any).syncAppStatsFromFirestore().catch(() => {});
+    }
     const summary = communityStore.getGlobalStatsSummary();
     return res.status(200).json({ success: true, ...summary });
   } catch (err: any) {
@@ -201,15 +209,15 @@ communityRouter.get("/api/v1/public/community/reviews/:appId", async (req: any, 
   const userAgent = String(req.headers['user-agent'] || '').toLowerCase();
   const isBot = /bot|googlebot|bingbot|crawler|spider|slurp|facebookexternalhit|bytespider|yandex|duckduckbot|twitterbot|lighthouse|pingdom|gtmetrix/i.test(userAgent);
 
-  // Edge and browser caching to ensure 0 server strain and lightning fast bot responses
-  res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=600');
+  // Fast response caching with quick revalidation so newly published reviews appear promptly
+  res.setHeader('Cache-Control', 'public, max-age=10, s-maxage=30, stale-while-revalidate=60');
   const { appId } = req.params;
   const { cursor, limit = 5, appTitle, rating, slug, appSlug, filter, sortBy } = req.query;
   const targetSlug = slug || appSlug;
 
   try {
-    // Strictly limit public reviews to 5 items to protect quota
-    const fetchLimit = Math.min(5, Math.max(1, Number(limit) || 5));
+    // Default 5 reviews, allow up to 50 for pagination / load more requests
+    const fetchLimit = Math.min(50, Math.max(1, Number(limit) || 5));
     const result = await communityStore.getReviewsForApp(
       String(appId).trim(),
       cursor ? String(cursor) : undefined,
@@ -575,12 +583,15 @@ communityRouter.post("/api/v1/admin/community/reviews", verifyAdminToken, async 
 
     const cleanAppId = String(targetAppId).trim();
     const newReview = await communityStore.addReview({
+      id: req.body.id,
+      userId: req.body.userId,
       appId: cleanAppId,
       appSlug: (appSlug || slug) ? String(appSlug || slug).trim() : undefined,
       appName: appName ? String(appName).trim() : undefined,
       userName: String(targetUserName).trim().substring(0, 50),
       rating: Math.max(1, Math.min(5, Math.round(Number(rating)))),
       reviewText: String(targetReviewText).trim(),
+      timestamp: req.body.timestamp || req.body.created_at || req.body.createdAt || req.body.date,
       status: status || 'published',
       isPinned: Boolean(isPinned),
       helpful_count: Number(helpful_count || helpfulCount) || 0,
@@ -895,7 +906,7 @@ communityRouter.post("/api/v1/admin/community/ai-generate/single", verifyAdminTo
       reviews: generatedReviews,
       count: generatedReviews.length,
       mode: result.mode || mode,
-      modelUsed: result.modelUsed || (mode === 'research' ? 'gemini-2.5-flash' : 'gemini-2.5-pro'),
+      modelUsed: result.modelUsed || (mode === 'research' ? 'gemini-3.8-flash' : 'gemini-3.7-pro'),
       searchQueries: result.searchQueries || [],
       groundedSources: result.groundedSources || [],
       searchStatus: result.searchStatus || (mode === 'research' ? 'Live Web Search Active' : 'Dossier Analyzed'),

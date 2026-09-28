@@ -43,6 +43,27 @@ export const BANNED_SAFETY_WORDS = [
   'rupees', 'inr', 'paisa', 'invest', 'financial'
 ];
 
+/**
+ * Generates a realistic, natural human review timestamp.
+ * Staggers timestamps across realistic hours, minutes, and days so reviews
+ * do not look machine-generated at the exact same second.
+ */
+export function generateRealisticReviewTimestamp(indexInBatch: number, totalInBatch: number): string {
+  const now = Date.now();
+  // Review 0 is today or yesterday; subsequent reviews spread organically over past days/weeks
+  const daysBack = indexInBatch === 0 
+    ? (Math.random() * 0.4) // today within past ~10 hours
+    : Math.max(0.5, (indexInBatch * 3.2) + (Math.random() * 2.5));
+  
+  const targetDate = new Date(now - (daysBack * 24 * 60 * 60 * 1000));
+  // Randomize human active gaming hours (between 09:30 AM and 11:45 PM)
+  const randomHour = 9 + Math.floor(Math.random() * 15);
+  const randomMinute = Math.floor(Math.random() * 60);
+  const randomSecond = Math.floor(Math.random() * 60);
+  targetDate.setHours(randomHour, randomMinute, randomSecond);
+  return targetDate.toISOString();
+}
+
 export function stripHtml(html: string): string {
   if (!html) return '';
   return html
@@ -488,8 +509,12 @@ As real humans, players have spontaneous, independent reactions:
 - Another player might write an ultra-short, natural 3-to-5 word reaction.
 - Another player giving 3 or 4 stars might appreciate the gameplay while offering a thoughtful, balanced observation or suggestion.
 
-YOU HAVE COMPLETE CREATIVE FREEDOM:
-Draw naturally from ANY part of the broad app information above. Never repeat sentence openings or phrasing across reviews. Do not start multiple reviews with the same word. Let each comment reflect genuine, varied human spontaneity.
+YOU HAVE COMPLETE CREATIVE FREEDOM & REAL HUMAN VARIETY:
+- REAL HUMAN EMOTIONS & STYLES: Draw naturally from ANY part of the broad app information above. Real players do NOT speak like marketing copywriters.
+- PUNCHY & VARIED LENGTHS: Include short 4-to-8 word organic reactions ("Mast table speed hai", "Zero lag on 4G, auto-sort works great", "Clean UI without annoying popups"), 2-sentence feedback, and insightful gameplay tips.
+- NEVER REPEAT SENTENCE OPENINGS: Never start multiple reviews with the app name or "This is...". Let each comment have its own spontaneous human opening.
+- USER NAMES: Must be realistic Indian mobile player names and handles (e.g. "Rohit Sharma", "Vikramaditya_R", "Pooja Verma", "Deepak_99", "Aman Joshi", "Siddharth K.", "Harpreet Singh", "Kavita Patel", "Sneha Roy", "Arjun Nair", "Gaurav Gill", "Tanvi_P").
+- STRICT ZERO EMAIL CONSTRAINT: ABSOLUTELY NEVER generate email addresses, '@' symbols, or email domain names in userNames.
 
 ${languagePromptSection}
 
@@ -505,9 +530,9 @@ STRICT SAFETY SANITIZATION:
 
 RETURN FORMAT:
 Output ONLY a valid JSON array of objects. Each object must have:
-- "userName": string
+- "userName": string (realistic human player name or gaming handle, NEVER an email)
 - "rating": number (matching the exact rating in order)
-- "reviewText": string
+- "reviewText": string (spontaneous, varied, authentically human review comment)
 - "date": string (e.g. "Yesterday", "2 days ago", "1 week ago", "Just now")
 
 Do not wrap in markdown or backticks. Return raw JSON array only.`;
@@ -550,20 +575,40 @@ Do not wrap in markdown or backticks. Return raw JSON array only.`;
                 }
               });
 
+              const realisticTimestamp = generateRealisticReviewTimestamp(idx, parsed.length);
+              const cleanAppId = String(app.id || app.slug || 'unknown').trim();
+              const uniqueRevId = `rev_${cleanAppId.toLowerCase().replace(/[^a-z0-9_-]/g, '_')}_ai_${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 7)}`;
+
+              let cleanUserName = String(item.userName || '').trim();
+              if (cleanUserName.includes('@')) {
+                cleanUserName = cleanUserName.split('@')[0];
+              }
+              cleanUserName = cleanUserName.replace(/[^a-zA-Z0-9_\s.-]/g, '').trim();
+              if (!cleanUserName || cleanUserName.length < 2) {
+                const indianNames = [
+                  'Rohit Sharma', 'Aman Joshi', 'Pooja Verma', 'Deepak Yadav', 'Siddharth Nair',
+                  'Kavita Patel', 'Harpreet Singh', 'Sneha Roy', 'Arjun Kumar', 'Vikramaditya S.',
+                  'Naveen Meena', 'Ananya Gupta', 'Gaurav Gill', 'Rohan Mehta', 'Kunal Sen'
+                ];
+                cleanUserName = indianNames[idx % indianNames.length];
+              }
+
               return {
-                appId: String(app.id || app.slug || 'unknown').trim(),
+                id: uniqueRevId,
+                appId: cleanAppId,
                 appName: app.name || 'Card Game',
                 appSlug: app.slug || '',
                 appIcon: app.icon_url || '',
                 appCategory: app.category || '',
                 userId: 'brain1_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
-                userName: item.userName || `Player_${Math.floor(Math.random() * 9000) + 1000}`,
+                userName: cleanUserName,
                 rating: star,
                 reviewText: sanitizeReviewText(commentText),
                 helpfulCount: Math.floor(Math.random() * 18),
                 status: 'pending',
                 source: 'ai_generated',
-                createdAt: new Date().toISOString(),
+                createdAt: realisticTimestamp,
+                timestamp: realisticTimestamp,
               };
             });
 
@@ -769,9 +814,13 @@ export function generateAIReviewsForAppFallback(app: any, options: GenerateOptio
     const starList = templatesPool[star] || templatesPool[5];
     const text = starList[idx % starList.length];
     const userName = namesPool[idx % namesPool.length];
+    const cleanAppId = String(app.id || app.slug || 'unknown').trim();
+    const realisticTimestamp = generateRealisticReviewTimestamp(idx, ratings.length);
+    const uniqueRevId = `rev_${cleanAppId.toLowerCase().replace(/[^a-z0-9_-]/g, '_')}_ai_${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 7)}`;
 
     return {
-      appId: String(app.id || app.slug || 'unknown').trim(),
+      id: uniqueRevId,
+      appId: cleanAppId,
       appName: app.name || 'Card Game',
       appSlug: app.slug || '',
       appIcon: app.icon_url || '',
@@ -783,7 +832,8 @@ export function generateAIReviewsForAppFallback(app: any, options: GenerateOptio
       helpfulCount: Math.floor(Math.random() * 14) + 1,
       status: 'pending',
       source: 'ai_generated',
-      createdAt: new Date().toISOString()
+      createdAt: realisticTimestamp,
+      timestamp: realisticTimestamp
     };
   });
 }

@@ -67,6 +67,7 @@ import { Brain1Studio } from './aistudio/Brain1Studio';
 import { Brain2Studio } from './aistudio/Brain2Studio';
 import { StagedReviewsWorkspace } from './aistudio/StagedReviewsWorkspace';
 import { AppLiveReviewsModal, AppReviewCountData } from './aistudio/AppLiveReviewsModal';
+import { invalidateReviewCache } from '../../lib/communityFirebase';
 
 export { type AppReviewProfile };
 
@@ -94,48 +95,61 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
   const fetchLiveReviewStats = useCallback(async () => {
     try {
       setLoadingReviewCounts(true);
-      const res = await adminFetch('/api/v1/admin/community/stats-summary');
-      if (res.ok) {
-        const json = await res.json();
-        const appStats = json?.appStats || {};
-        const map: Record<string, AppReviewCountData> = {};
-
-        // Populate the appCountsMap from atomic stats summary
-        Object.keys(appStats).forEach(key => {
-          const s = appStats[key];
-          map[key] = {
-            appId: s.appId,
-            appName: s.appName,
-            total: s.total || 0,
-            published: s.published || 0,
-            pending: s.pending || 0,
-            avgRating: s.avgRating || 5.0
-          };
-        });
-
-        // Ensure every app in appsList has a baseline entry
-        appsList.forEach(app => {
-          const idKey = String(app.id || '').toLowerCase().trim();
-          const slugKey = String(app.slug || '').toLowerCase().trim();
-          const nameKey = String(app.name || '').toLowerCase().trim();
-
-          const existing = map[idKey] || map[slugKey] || map[nameKey];
-          const statsObj: AppReviewCountData = existing || {
-            appId: app.id || app.slug,
-            appName: app.name || '',
-            total: 0,
-            published: 0,
-            pending: 0,
-            avgRating: Number(app.rating) || 5.0
-          };
-
-          if (idKey && !map[idKey]) map[idKey] = statsObj;
-          if (slugKey && !map[slugKey]) map[slugKey] = statsObj;
-          if (nameKey && !map[nameKey]) map[nameKey] = statsObj;
-        });
-
-        setAppCountsMap(map);
+      // Query dedicated atomic app-counts first for live Firestore stats
+      let appStats: Record<string, any> = {};
+      const countsRes = await adminFetch('/api/v1/admin/community/app-counts');
+      if (countsRes.ok) {
+        const countsJson = await countsRes.json();
+        appStats = countsJson?.appCounts || {};
+      } else {
+        const res = await adminFetch('/api/v1/admin/community/stats-summary');
+        if (res.ok) {
+          const json = await res.json();
+          appStats = json?.appStats || {};
+        }
       }
+
+      const map: Record<string, AppReviewCountData> = {};
+
+      // Populate appCountsMap by all variations (id, slug, and name)
+      Object.keys(appStats).forEach(key => {
+        const s = appStats[key];
+        const countObj: AppReviewCountData = {
+          appId: s.appId || key,
+          appName: s.appName || '',
+          total: Number(s.total ?? s.published ?? 0),
+          published: Number(s.published ?? 0),
+          pending: Number(s.pending ?? 0),
+          avgRating: Number(s.avgRating ?? 5.0)
+        };
+        const cleanK = key.toLowerCase().trim();
+        map[cleanK] = countObj;
+        if (s.appId) map[String(s.appId).toLowerCase().trim()] = countObj;
+        if (s.appName) map[String(s.appName).toLowerCase().trim()] = countObj;
+      });
+
+      // Ensure every app in appsList has an active matching entry
+      appsList.forEach(app => {
+        const idKey = String(app.id || '').toLowerCase().trim();
+        const slugKey = String(app.slug || '').toLowerCase().trim();
+        const nameKey = String(app.name || '').toLowerCase().trim();
+
+        const existing = map[idKey] || map[slugKey] || map[nameKey];
+        const statsObj: AppReviewCountData = existing || {
+          appId: app.id || app.slug,
+          appName: app.name || '',
+          total: 0,
+          published: 0,
+          pending: 0,
+          avgRating: Number(app.rating) || 5.0
+        };
+
+        if (idKey) map[idKey] = statsObj;
+        if (slugKey) map[slugKey] = statsObj;
+        if (nameKey) map[nameKey] = statsObj;
+      });
+
+      setAppCountsMap(map);
     } catch (err) {
       console.error('Failed to fetch real-time live review stats:', err);
     } finally {
@@ -202,7 +216,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
   const [showDossierDrawer, setShowDossierDrawer] = useState<boolean>(false);
 
   // Brain 1 Admin Customization Controls
-  const [brain1Model, setBrain1Model] = useState<string>('gemini-2.5-pro');
+  const [brain1Model, setBrain1Model] = useState<string>('gemini-3.8-flash');
   const [brain1Temperature, setBrain1Temperature] = useState<number>(0.85);
   const [brain1ReviewLength, setBrain1ReviewLength] = useState<'mixed' | 'short' | 'realistic' | 'detailed'>('mixed');
   const [brain1PersonaProfile, setBrain1PersonaProfile] = useState<'diverse_all' | 'casual_gamers' | 'pro_players' | 'family_social' | 'performance_focused'>('diverse_all');
@@ -259,7 +273,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
   const [brain2CycleDelay, setBrain2CycleDelay] = useState<number>(3);
   const [brain2CurrentStage, setBrain2CurrentStage] = useState<'idle' | 'resolving_target' | 'web_searching' | 'extracting_reviews' | 'rating_aligning' | 'sanitizing' | 'staged' | 'published'>('idle');
   const [brain2Logs, setBrain2Logs] = useState<Array<{ id: string; time: string; text: string; type: 'info' | 'success' | 'reasoning' | 'safety' | 'warn' }>>([]);
-  const [brain2Model, setBrain2Model] = useState<string>('gemini-2.5-flash');
+  const [brain2Model, setBrain2Model] = useState<string>('gemini-3.8-flash');
   const [brain2Temperature, setBrain2Temperature] = useState<number>(0.75);
   const [brain2PersonaProfile, setBrain2PersonaProfile] = useState<'community_mix' | 'tech_performance' | 'daily_gamers' | 'casual_explorers' | 'constructive_critics'>('community_mix');
   const [brain2ReviewLength, setBrain2ReviewLength] = useState<'mixed' | 'short' | 'realistic' | 'detailed'>('mixed');
@@ -826,7 +840,11 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           lastModel: data.modelUsed || 'gemini-3.8-flash',
           lastLatencyMs: data.timeTakenMs || 0
         }));
+        if (currentApp) {
+          invalidateReviewCache(String(currentApp.id), currentApp.slug);
+        }
         if (onReviewsGenerated) onReviewsGenerated();
+        fetchLiveReviewStats();
       } else {
         setAutobotCurrentStage('staged');
         const enriched = generated.map((r: any) => ({
@@ -1041,7 +1059,11 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           lastModel: data.modelUsed,
           lastLatencyMs: data.timeTakenMs || 0
         }));
+        if (currentApp) {
+          invalidateReviewCache(String(currentApp.id), currentApp.slug);
+        }
         if (onReviewsGenerated) onReviewsGenerated();
+        fetchLiveReviewStats();
       } else {
         setBrain2CurrentStage('staged');
         const enriched = generated.map((r: any) => ({
@@ -1222,14 +1244,24 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
 
     try {
       setSavingReviewIndex(idx);
+      const targetAppId = String(review.appId || currentApp?.id || '').trim();
+      const targetAppSlug = String(review.appSlug || currentApp?.slug || '').trim();
+      const targetAppName = String(review.appName || currentApp?.name || '').trim();
+      const targetTimestamp = review.timestamp || review.createdAt || new Date().toISOString();
+
       const res = await adminFetch('/api/v1/admin/community/reviews', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          appId: review.appId || currentApp?.id,
+          id: review.id,
+          appId: targetAppId,
+          appSlug: targetAppSlug,
+          appName: targetAppName,
           userName: review.userName,
           rating: review.rating,
           reviewText: review.reviewText,
+          timestamp: targetTimestamp,
+          helpful_count: review.helpfulCount || review.helpful_count || 0,
           status: 'published',
           source: review.source || 'ai_generated'
         })
@@ -1237,6 +1269,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
 
       if (!res.ok) throw new Error("Failed to save review");
       toast(`Published review by ${review.userName}!`, "success");
+      invalidateReviewCache(targetAppId, targetAppSlug);
       setStagedReviews(prev => prev.filter((_, i) => i !== idx));
       if (onReviewsGenerated) onReviewsGenerated();
       fetchLiveReviewStats();
@@ -1247,14 +1280,26 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
     }
   };
 
-  const handleSaveAllStaged = async () => {
-    if (stagedReviews.length === 0) return;
+  const handleSaveAllStaged = async (appIdFilter?: string) => {
+    const reviewsToSave = appIdFilter 
+      ? stagedReviews.filter(r => String(r.appId || r.appSlug || '') === appIdFilter)
+      : stagedReviews;
+
+    if (reviewsToSave.length === 0) return;
     try {
       setSavingStaged(true);
-      const payload = stagedReviews.map(r => ({
-        ...r,
-        appId: r.appId || currentApp?.id,
-        status: 'published'
+      const payload = reviewsToSave.map(r => ({
+        id: r.id,
+        appId: String(r.appId || currentApp?.id || '').trim(),
+        appSlug: String(r.appSlug || currentApp?.slug || '').trim(),
+        appName: String(r.appName || currentApp?.name || '').trim(),
+        userName: r.userName,
+        rating: r.rating,
+        reviewText: r.reviewText,
+        timestamp: r.timestamp || r.createdAt || new Date().toISOString(),
+        helpful_count: r.helpfulCount || r.helpful_count || 0,
+        status: 'published',
+        source: r.source || 'ai_generated'
       }));
 
       const res = await adminFetch('/api/v1/admin/community/reviews/bulk-save', {
@@ -1268,8 +1313,19 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
         throw new Error(errorData.error || 'Failed to bulk save reviews.');
       }
 
-      toast(`✅ Successfully published all ${stagedReviews.length} reviews to the live community database!`, "success");
-      setStagedReviews([]);
+      toast(`✅ Successfully published ${reviewsToSave.length} reviews to the live community database!`, "success");
+      
+      const affectedAppIds = new Set<string>();
+      reviewsToSave.forEach(r => {
+        if (r.appId) affectedAppIds.add(String(r.appId));
+        if (r.appSlug) affectedAppIds.add(String(r.appSlug));
+      });
+      if (currentApp?.id) affectedAppIds.add(String(currentApp.id));
+      if (currentApp?.slug) affectedAppIds.add(String(currentApp.slug));
+      affectedAppIds.forEach(id => invalidateReviewCache(id));
+
+      const savedIds = new Set(reviewsToSave.map(r => r.id));
+      setStagedReviews(prev => prev.filter(r => !savedIds.has(r.id)));
       if (onReviewsGenerated) onReviewsGenerated();
       fetchLiveReviewStats();
     } catch (err: any) {
@@ -1490,7 +1546,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           brain1FocusAspects={brain1FocusAspects}
           setBrain1FocusAspects={setBrain1FocusAspects}
           availableModels={aiStatusData?.availableModels || []}
-          activeAiModel={aiStatusData?.activeModel || 'gemini-2.5-pro'}
+          activeAiModel={aiStatusData?.activeModel || 'gemini-3.8-flash'}
           autobotActive={autobotActive}
           autobotPaused={autobotPaused}
           autobotExecutionMode={autobotExecutionMode}

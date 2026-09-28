@@ -145,16 +145,16 @@ interface Brain1StudioProps {
 }
 
 export const ALL_GEMINI_MODELS = [
-  { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', desc: 'Flagship Deep Dossier Reasoning (2M+ Tokens)', badge: 'Recommended for Brain 1' },
-  { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash', desc: 'Next-Gen Ultra-Fast Flash (1M+ Tokens)', badge: 'High Speed' },
-  { id: 'gemini-3.7-pro', name: 'Gemini 3.7 Pro', desc: 'Deep Analytical Engine (2M+ Tokens)', badge: 'Deep Logic' },
+  { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash', desc: 'Flagship High-Reasoning AI (1M+ Tokens)', badge: 'Recommended Default' },
+  { id: 'gemini-3.7-pro', name: 'Gemini 3.7 Pro', desc: 'Deep Dossier Pro Reasoning (2M+ Tokens)', badge: 'Top Pro Reasoning' },
   { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash', desc: 'High-Performance Hybrid (1M+ Tokens)', badge: 'Fast Reasoning' },
   { id: 'gemini-3.5-pro', name: 'Gemini 3.5 Pro', desc: 'Pro Reasoning Engine (2M+ Tokens)', badge: 'Pro' },
   { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash', desc: 'Balanced Flash Engine (1M+ Tokens)', badge: 'Balanced' },
-  { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro Preview', desc: 'Deep Thinking Preview (2M+ Tokens)', badge: 'Thinking' },
   { id: 'gemini-flash-latest', name: 'Gemini Flash Latest', desc: 'Auto-Updated Latest Model (1M+ Tokens)', badge: 'Latest' },
+  { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro Preview', desc: 'Deep Thinking Preview (2M+ Tokens)', badge: 'Thinking' },
   { id: 'gemini-3.1-flash-lite', name: 'Gemini 3.1 Flash Lite', desc: 'Ultra Fast & Lightweight (1M+ Tokens)', badge: 'Lite' },
-  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', desc: 'Adaptive Multimodal (1M+ Tokens)', badge: 'Adaptive' }
+  { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', desc: 'Legacy Pro Reasoning (2M+ Tokens)', badge: 'Legacy Pro' },
+  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', desc: 'Legacy Multimodal (1M+ Tokens)', badge: 'Legacy' }
 ];
 
 export const AVAILABLE_FOCUS_ASPECTS = [
@@ -273,7 +273,7 @@ export const Brain1CustomizerPanel: React.FC<Brain1CustomizerPanelProps> = ({
                 <Bot size={14} className="text-emerald-500" />
                 <span>AI Reasoning Model</span>
                 <span className="text-[10px] text-slate-400 font-normal">
-                  (Gemini 2.5 Pro recommended for deep dossier HTML comprehension)
+                  (Gemini 3.8 Flash recommended for high-speed authentic reviews)
                 </span>
               </label>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800/80">
@@ -787,7 +787,7 @@ export const Brain1Studio: React.FC<Brain1StudioProps> = ({
                   Brain 1: Deep Admin Dossier Comprehension Engine
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800/80">
-                  gemini-2.5-pro
+                  {brain1Model || 'gemini-3.8-flash'}
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">

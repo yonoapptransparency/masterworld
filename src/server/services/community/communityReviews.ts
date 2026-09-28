@@ -8,9 +8,10 @@ import { communityChunksManager } from './communityChunks';
 export class CommunityReviewsManager {
   public applyStatsToCache(appId: string, incs: any, appStatsCache: Map<string, AppStatsCacheItem>) {
     const resolved = resolveCanonicalApp(appId);
-    const targetKey = resolved.canonicalId;
+    const targetKey = resolved.canonicalId.toLowerCase().trim();
+    const slugKey = resolved.canonicalSlug ? resolved.canonicalSlug.toLowerCase().trim() : '';
 
-    let stats = appStatsCache.get(targetKey);
+    let stats = appStatsCache.get(targetKey) || (slugKey ? appStatsCache.get(slugKey) : null);
     if (!stats) {
       stats = { publishedReviewCount: 0, publishedRatingSum: 0, starDistribution: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 } };
     }
@@ -22,8 +23,8 @@ export class CommunityReviewsManager {
     if (incs.star4) stats.starDistribution['4'] += incs.star4;
     if (incs.star5) stats.starDistribution['5'] += incs.star5;
     appStatsCache.set(targetKey, stats);
-    if (resolved.canonicalSlug && resolved.canonicalSlug !== targetKey) {
-      appStatsCache.set(resolved.canonicalSlug, stats);
+    if (slugKey) {
+      appStatsCache.set(slugKey, stats);
     }
   }
 
@@ -52,6 +53,21 @@ export class CommunityReviewsManager {
        return (await this.updateReview(id, payload, reviewsMap, deletedReviewIds, appStatsCache, onSaveCallback)) as ReviewRecord;
     }
     deletedReviewIds.delete(id);
+    let reviewTimestamp = new Date().toISOString();
+    const rawDateInput = payload.timestamp || payload.date || payload.created_at || payload.createdAt;
+    if (rawDateInput) {
+      try {
+        const parsedD = new Date(rawDateInput);
+        if (!isNaN(parsedD.getTime())) {
+          reviewTimestamp = parsedD.toISOString();
+        } else if (typeof rawDateInput === 'string' && rawDateInput.trim()) {
+          reviewTimestamp = rawDateInput.trim();
+        }
+      } catch (_) {
+        reviewTimestamp = String(rawDateInput).trim();
+      }
+    }
+
     const newRev: ReviewRecord = {
       id,
       appId: targetAppId,
@@ -60,7 +76,7 @@ export class CommunityReviewsManager {
       userName: String(payload.userName || payload.username || payload.author || 'Player').trim().substring(0, 50),
       rating: Math.max(1, Math.min(5, Math.round(Number(payload.rating) || 5))),
       reviewText: sanitizeReviewText(String(payload.reviewText || payload.comment || payload.text || ''), targetAppName),
-      timestamp: formatReviewDate(payload.timestamp || payload.date || payload.created_at),
+      timestamp: reviewTimestamp,
       status: (payload.status as any) || 'published',
       helpful_count: Number(payload.helpful_count || payload.helpfulCount) || 0,
       isPinned: Boolean(payload.isPinned),
@@ -68,7 +84,7 @@ export class CommunityReviewsManager {
       report_count: Number(payload.report_count) || 0,
       source: payload.source || 'community',
       adminReply: payload.adminReply || null,
-      updated_at: formatReviewDate()
+      updated_at: new Date().toISOString()
     };
 
     reviewsMap.set(id, newRev);
@@ -259,6 +275,21 @@ export class CommunityReviewsManager {
       
       deletedReviewIds.delete(id);
 
+      let reviewTimestamp = new Date().toISOString();
+      const rawDateInput = payload.timestamp || payload.date || payload.created_at || payload.createdAt;
+      if (rawDateInput) {
+        try {
+          const parsedD = new Date(rawDateInput);
+          if (!isNaN(parsedD.getTime())) {
+            reviewTimestamp = parsedD.toISOString();
+          } else if (typeof rawDateInput === 'string' && rawDateInput.trim()) {
+            reviewTimestamp = rawDateInput.trim();
+          }
+        } catch (_) {
+          reviewTimestamp = String(rawDateInput).trim();
+        }
+      }
+
       const newRev: ReviewRecord = {
         id,
         appId: targetAppId,
@@ -267,7 +298,7 @@ export class CommunityReviewsManager {
         userName: String(payload.userName || payload.username || payload.author || 'Player').trim().substring(0, 50),
         rating: Math.max(1, Math.min(5, Math.round(Number(payload.rating) || 5))),
         reviewText: sanitizeReviewText(String(payload.reviewText || payload.comment || payload.text || ''), targetAppName),
-        timestamp: formatReviewDate(payload.timestamp || payload.date || payload.created_at),
+        timestamp: reviewTimestamp,
         status: (payload.status as any) || 'published',
         helpful_count: Number(payload.helpful_count || payload.helpfulCount) || Math.floor(Math.random() * 8),
         isPinned: Boolean(payload.isPinned),
@@ -275,7 +306,7 @@ export class CommunityReviewsManager {
         report_count: 0,
         source: payload.source || 'community',
         adminReply: payload.adminReply || null,
-        updated_at: formatReviewDate(payload.updated_at)
+        updated_at: new Date().toISOString()
       };
 
       added.push(newRev);
@@ -314,8 +345,19 @@ export class CommunityReviewsManager {
         batchSlice.forEach(r => {
           batch.set(db.collection('reviews').doc(r.id), r, { merge: true });
         });
-        batch.commit().catch(e => console.warn('[CommunityReviewsManager] Batch commit error:', e));
+        batch.commit().catch(e => {
+          console.warn('[CommunityReviewsManager] Batch commit notice, falling back to safeWriteDb:', e?.message || e);
+          batchSlice.forEach(r => {
+            communityDbHelper.safeWriteDb(r.id, r, true, 'reviews').catch(() => {});
+          });
+        });
       }
+    } else if (added.length > 0) {
+      added.forEach(r => {
+        communityDbHelper.safeWriteDb(r.id, r, true, 'reviews').catch(e => {
+          console.warn('[CommunityReviewsManager] safeWriteDb review notice:', e?.message || e);
+        });
+      });
     }
 
     return added;
@@ -603,12 +645,11 @@ export class CommunityReviewsManager {
       });
     };
 
-    let memList = getMatchingReviews();
-
-    if (memList.length === 0 && !isBot) {
+    // Always ensure all app reviews are loaded from storage/chunks so old reviews are never omitted
+    if (!isBot) {
       await communityChunksManager.ensureAllReviewsLoadedForApp(cleanId, reviewsMap, deletedReviewIds, appStatsCache, false);
-      memList = getMatchingReviews();
     }
+    let memList = getMatchingReviews();
 
     let filteredList = memList;
     if (filter === 'positive') filteredList = memList.filter(r => (r.rating || 5) >= 4);
@@ -630,8 +671,8 @@ export class CommunityReviewsManager {
       if (idx >= 0) startIndex = idx + 1;
     }
 
-    // Strictly limit public reviews to 5 per batch for quota efficiency
-    const effectiveLimit = Math.min(5, Math.max(1, limitCount));
+    // Default to 5, allow up to 50 when requested by client pagination or load more
+    const effectiveLimit = Math.min(50, Math.max(1, limitCount));
     const pageReviews = filteredList.slice(startIndex, startIndex + effectiveLimit);
     const hasMore = startIndex + effectiveLimit < filteredList.length;
     const nextCursor = hasMore && pageReviews.length > 0 ? pageReviews[pageReviews.length - 1].id : null;

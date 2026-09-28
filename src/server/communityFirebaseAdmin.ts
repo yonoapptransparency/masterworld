@@ -766,17 +766,43 @@ export async function atomicUpdateAppStats(appId: string, increments: {
       ]
     };
 
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const commToken = await getCommunityAdminAccessToken();
+    if (commToken) headers['Authorization'] = `Bearer ${commToken}`;
+
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(payload)
     });
 
-    if (!res.ok) {
-      const err = await res.text();
-      console.error('[CommunityStore] Atomic Update Failed:', err);
-      return false;
+    if (res.ok) {
+      return true;
     }
+
+    // Fallback: Read existing stats doc, apply increments directly, and write via writeCommunityRestDoc
+    const existingStats = await readAppStats(cleanAppId);
+    const pubCount = Math.max(0, (existingStats?.publishedReviewCount || 0) + (increments.publishedReviewCount || 0));
+    const ratingSum = Math.max(0, (existingStats?.publishedRatingSum || 0) + (increments.publishedRatingSum || 0));
+    const starCounts = {
+      '1': Math.max(0, (existingStats?.starDistribution?.['1'] || 0) + (increments.star1 || 0)),
+      '2': Math.max(0, (existingStats?.starDistribution?.['2'] || 0) + (increments.star2 || 0)),
+      '3': Math.max(0, (existingStats?.starDistribution?.['3'] || 0) + (increments.star3 || 0)),
+      '4': Math.max(0, (existingStats?.starDistribution?.['4'] || 0) + (increments.star4 || 0)),
+      '5': Math.max(0, (existingStats?.starDistribution?.['5'] || 0) + (increments.star5 || 0)),
+    };
+    const avg = pubCount > 0 ? parseFloat((ratingSum / pubCount).toFixed(1)) : 5.0;
+
+    await writeCommunityRestDoc(cleanAppId, {
+      appId: cleanAppId,
+      publishedReviewCount: pubCount,
+      totalReviews: pubCount,
+      publishedRatingSum: ratingSum,
+      averageRating: avg,
+      starDistribution: starCounts,
+      updated_at: new Date().toISOString()
+    }, true, 'app_stats');
+
     return true;
   } catch (error) {
     console.error('[CommunityStore] Atomic Update Exception:', error);
@@ -833,6 +859,7 @@ export async function readAppStats(appId: string): Promise<any | null> {
     const sum = Math.max(0, Number(data.fields.publishedRatingSum?.integerValue || 0));
     const avg = pub > 0 ? parseFloat((sum / pub).toFixed(1)) : 0;
 
+    const getNumVal = (f: any) => Number(f?.integerValue ?? f?.doubleValue ?? f?.stringValue ?? 0);
     return {
       appId: cleanAppId,
       totalReviews: pub,
@@ -840,11 +867,11 @@ export async function readAppStats(appId: string): Promise<any | null> {
       publishedRatingSum: sum,
       averageRating: avg,
       starDistribution: {
-        '1': Math.max(0, Number(data.fields.starDistribution?.mapValue?.fields?.['1']?.integerValue || 0)),
-        '2': Math.max(0, Number(data.fields.starDistribution?.mapValue?.fields?.['2']?.integerValue || 0)),
-        '3': Math.max(0, Number(data.fields.starDistribution?.mapValue?.fields?.['3']?.integerValue || 0)),
-        '4': Math.max(0, Number(data.fields.starDistribution?.mapValue?.fields?.['4']?.integerValue || 0)),
-        '5': Math.max(0, Number(data.fields.starDistribution?.mapValue?.fields?.['5']?.integerValue || 0)),
+        '1': Math.max(0, getNumVal(data.fields.starDistribution?.mapValue?.fields?.['1']) || getNumVal(data.fields?.['starDistribution.1'])),
+        '2': Math.max(0, getNumVal(data.fields.starDistribution?.mapValue?.fields?.['2']) || getNumVal(data.fields?.['starDistribution.2'])),
+        '3': Math.max(0, getNumVal(data.fields.starDistribution?.mapValue?.fields?.['3']) || getNumVal(data.fields?.['starDistribution.3'])),
+        '4': Math.max(0, getNumVal(data.fields.starDistribution?.mapValue?.fields?.['4']) || getNumVal(data.fields?.['starDistribution.4'])),
+        '5': Math.max(0, getNumVal(data.fields.starDistribution?.mapValue?.fields?.['5']) || getNumVal(data.fields?.['starDistribution.5'])),
       }
     };
   } catch (err) {
@@ -909,8 +936,9 @@ export async function readAllAppStats(): Promise<Record<string, {
           const docName = String(doc.name || '');
           const id = docName.split('/').pop() || '';
           if (!id) return;
-          const pub = Math.max(0, Number(doc.fields?.publishedReviewCount?.integerValue || doc.fields?.totalReviews?.integerValue || 0));
-          const sum = Math.max(0, Number(doc.fields?.publishedRatingSum?.integerValue || 0));
+          const getNumField = (f: any) => Number(f?.integerValue ?? f?.doubleValue ?? f?.stringValue ?? 0);
+          const pub = Math.max(0, getNumField(doc.fields?.publishedReviewCount) || getNumField(doc.fields?.totalReviews));
+          const sum = Math.max(0, getNumField(doc.fields?.publishedRatingSum));
           const avg = pub > 0 ? parseFloat((sum / pub).toFixed(1)) : 0;
           result[id] = {
             appId: id,
@@ -919,11 +947,11 @@ export async function readAllAppStats(): Promise<Record<string, {
             avgRating: avg,
             publishedRatingSum: sum,
             starCounts: {
-              '1': Math.max(0, Number(doc.fields?.starDistribution?.mapValue?.fields?.['1']?.integerValue || 0)),
-              '2': Math.max(0, Number(doc.fields?.starDistribution?.mapValue?.fields?.['2']?.integerValue || 0)),
-              '3': Math.max(0, Number(doc.fields?.starDistribution?.mapValue?.fields?.['3']?.integerValue || 0)),
-              '4': Math.max(0, Number(doc.fields?.starDistribution?.mapValue?.fields?.['4']?.integerValue || 0)),
-              '5': Math.max(0, Number(doc.fields?.starDistribution?.mapValue?.fields?.['5']?.integerValue || 0)),
+              '1': Math.max(0, getNumField(doc.fields?.starDistribution?.mapValue?.fields?.['1']) || getNumField(doc.fields?.['starDistribution.1'])),
+              '2': Math.max(0, getNumField(doc.fields?.starDistribution?.mapValue?.fields?.['2']) || getNumField(doc.fields?.['starDistribution.2'])),
+              '3': Math.max(0, getNumField(doc.fields?.starDistribution?.mapValue?.fields?.['3']) || getNumField(doc.fields?.['starDistribution.3'])),
+              '4': Math.max(0, getNumField(doc.fields?.starDistribution?.mapValue?.fields?.['4']) || getNumField(doc.fields?.['starDistribution.4'])),
+              '5': Math.max(0, getNumField(doc.fields?.starDistribution?.mapValue?.fields?.['5']) || getNumField(doc.fields?.['starDistribution.5'])),
             }
           };
         });

@@ -91,19 +91,19 @@ export const AVAILABLE_GEMINI_MODELS: AiModelSpec[] = [
     id: "gemini-2.5-pro",
     name: "Gemini 2.5 Pro",
     tier: "pro",
-    description: "Advanced pro reasoning model with deep nuance and structured synthesis.",
-    badge: "Deep Dossier Pro",
+    description: "Legacy pro reasoning model.",
+    badge: "Legacy Pro",
     contextWindow: "2,000,000+ tokens",
-    recommendedFor: "Detailed Sentiment & Technical Breakdown"
+    recommendedFor: "Legacy Fallback"
   },
   {
     id: "gemini-2.5-flash",
     name: "Gemini 2.5 Flash",
     tier: "fast",
-    description: "High-performance model with adaptive multimodal reasoning.",
-    badge: "High Performance",
+    description: "Legacy fast model.",
+    badge: "Legacy Fast",
     contextWindow: "1,000,000+ tokens",
-    recommendedFor: "General Reviews & Grounded Search"
+    recommendedFor: "Legacy Fallback"
   }
 ];
 

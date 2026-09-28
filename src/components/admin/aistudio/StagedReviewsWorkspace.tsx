@@ -15,9 +15,11 @@ import {
   CheckCircle2,
   Sparkles,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Clock
 } from 'lucide-react';
 import { GenerationTelemetry } from './types';
+import { formatReviewDate } from '../../../lib/communityFirebase';
 
 interface StagedReviewsWorkspaceProps {
   stagedReviews: any[];
@@ -123,7 +125,7 @@ export const StagedReviewsWorkspace: React.FC<StagedReviewsWorkspaceProps> = ({
             </div>
             <div className="flex items-center gap-2 text-[11px]">
               <span className="font-mono bg-slate-800/80 px-2 py-0.5 rounded border border-slate-700">
-                Model: {generationTelemetry.modelUsed || 'gemini-2.5-pro'}
+                Model: {generationTelemetry.modelUsed || 'gemini-3.8-flash'}
               </span>
               <span className="font-semibold text-emerald-400">
                 Status: {generationTelemetry.searchStatus || 'Completed'}
@@ -540,12 +542,18 @@ const StagedReviewCard: React.FC<StagedReviewCardProps> = ({
       />
 
       {/* Actions & Meta */}
-      <div className="flex items-center justify-between pt-1 text-[11px] text-slate-500 dark:text-slate-400">
-        <span className="text-[10px] text-slate-400 font-mono">
-          {rev.reviewText?.length || 0} chars • {(rev.reviewText || '').split(/\s+/).filter(Boolean).length} words
-        </span>
-
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 text-[11px] text-slate-500 dark:text-slate-400 border-t border-slate-200/60 dark:border-slate-700/60">
         <div className="flex items-center gap-2">
+          <div className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 dark:text-slate-300 bg-slate-200/60 dark:bg-slate-700/60 px-2 py-0.5 rounded-md">
+            <Clock size={12} className="text-emerald-500" />
+            <span>{formatReviewDate(rev.timestamp || rev.createdAt, true)}</span>
+          </div>
+          <span className="text-[10px] text-slate-400 font-mono">
+            {(rev.reviewText || '').split(/\s+/).filter(Boolean).length} words
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 self-end sm:self-auto">
           <button
             onClick={() => onDiscardReview(idx)}
             className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors cursor-pointer rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40"

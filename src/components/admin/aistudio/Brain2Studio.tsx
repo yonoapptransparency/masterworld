@@ -139,7 +139,7 @@ export const Brain2Studio: React.FC<Brain2StudioProps> = ({
   onResetBrain2Session,
 
   // Customizer props
-  brain2Model = 'gemini-2.5-flash',
+  brain2Model = 'gemini-3.8-flash',
   setBrain2Model,
   brain2Temperature = 0.75,
   setBrain2Temperature,

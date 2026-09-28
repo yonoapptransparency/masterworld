@@ -13,6 +13,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { ReviewRecord } from "./communityStoreService";
 import { getActiveAiModel, getCandidateModels } from "./aiModelManager";
+import { generateRealisticReviewTimestamp } from "./aiReviewGeneratorService";
 
 export interface Brain2TargetInfo {
   appId: string;
@@ -495,20 +496,38 @@ Do NOT use markdown backticks. Return raw JSON array only.`;
               const rawText = String(item.reviewText || '').trim();
               const cleanedText = sanitizeReviewText(rawText);
 
+              const cleanAppId = String(app?.id || app?.slug || 'unknown').trim();
+              const realisticTimestamp = generateRealisticReviewTimestamp(idx, parsed.length);
+              const uniqueId = `rev_${cleanAppId.toLowerCase().replace(/[^a-z0-9_-]/g, '_')}_b2_${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 7)}`;
+              let cleanUserName = String(item.userName || '').trim();
+              if (cleanUserName.includes('@')) {
+                cleanUserName = cleanUserName.split('@')[0];
+              }
+              cleanUserName = cleanUserName.replace(/[^a-zA-Z0-9_\s.-]/g, '').trim();
+              if (!cleanUserName || cleanUserName.length < 2) {
+                const indianNames = [
+                  'Vikramaditya R.', 'Aman Joshi', 'Pooja Verma', 'Deepak Yadav', 'Siddharth Nair',
+                  'Kavita Patel', 'Harpreet Singh', 'Sneha Roy', 'Arjun Kumar', 'Rohan Mehta'
+                ];
+                cleanUserName = indianNames[idx % indianNames.length];
+              }
+
               return {
-                appId: String(app?.id || app?.slug || 'unknown').trim(),
+                id: uniqueId,
+                appId: cleanAppId,
                 appName: appName,
                 appSlug: app?.slug || '',
                 appIcon: app?.icon_url || '',
                 appCategory: app?.category || '',
                 userId: `brain2_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
-                userName: String(item.userName || `User_${Math.floor(Math.random() * 8999) + 1000}`).trim(),
+                userName: cleanUserName,
                 rating: assignedRating,
                 reviewText: cleanedText,
                 helpfulCount: Math.floor(Math.random() * 18),
                 status: 'pending' as const,
                 source: 'live_web_research' as const,
-                createdAt: new Date().toISOString(),
+                createdAt: realisticTimestamp,
+                timestamp: realisticTimestamp,
                 _brainMode: 'brain2' as const,
                 _model: modelCandidate
               };
