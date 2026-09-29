@@ -6,22 +6,19 @@ export function formatPageTitle(rawTitle?: string, siteTitle: string = 'RummyDex
   if (!rawTitle || !rawTitle.trim()) return siteTitle;
   // If title contains multiple lines or linebreaks, take only the primary first line
   const firstLine = rawTitle.split(/\r?\n/)[0] || rawTitle;
-  let clean = firstLine.trim().replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+  const clean = firstLine.trim().replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
   
   if (!clean) return siteTitle;
-
-  // If the title itself is just the site title, return it as is
-  if (clean.toLowerCase() === siteTitle.toLowerCase() || clean.toLowerCase() === 'rummydex') {
+  
+  // If clean title already includes siteTitle (case-insensitive), return as-is
+  if (siteTitle && clean.toLowerCase().includes(siteTitle.toLowerCase())) {
     return clean;
   }
   
-  // Strip any trailing brand suffix (e.g. " - RummyDex", " | RummyDex", " - rummydex", " | siteTitle")
-  // to prevent search engines from cluttering titles and maximize available SERP title width
-  const escapedSiteTitle = siteTitle.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-  const brandSuffixRegex = new RegExp(`\\s*[-|–—:]\\s*(?:${escapedSiteTitle}|RummyDex|rummydex|Rummy\\s*Dex)\\s*$`, 'i');
-  clean = clean.replace(brandSuffixRegex, '').trim();
+  // If siteTitle is missing, return clean title
+  if (!siteTitle) return clean;
 
-  return clean || siteTitle;
+  return `${clean} | ${siteTitle}`;
 }
 
 export function getCleanCanonicalUrl(rawUrl?: string, fallbackPath: string = '/'): string {
