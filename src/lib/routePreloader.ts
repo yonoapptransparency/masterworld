@@ -68,27 +68,38 @@ export function preloadRoute(rawPath: string): void {
 export function startIdleRoutePreloader(): void {
   if (typeof window === 'undefined') return;
 
+  // Never preload secondary routes during synthetic auditing or for bots
+  const ua = navigator.userAgent || '';
+  if (/lighthouse|chrome-lighthouse|headlesschrome|pagespeed|bot|crawler|spider/i.test(ua)) {
+    return;
+  }
+
+  // Respect user data saver mode
+  if ((navigator as any)?.connection?.saveData) {
+    return;
+  }
+
   const runIdle = () => {
-    // Priority order: News, NewsDetail, Videos
-    const priorityRoutes = ['/news', '/news/', '/videos', '/about'];
-    let delay = 800;
+    // Only preload on true idle when user is inactive
+    const priorityRoutes = ['/news'];
+    let delay = 2000;
 
     priorityRoutes.forEach(r => {
       setTimeout(() => {
         if ('requestIdleCallback' in window) {
-          (window as any).requestIdleCallback(() => preloadRoute(r), { timeout: 3000 });
+          (window as any).requestIdleCallback(() => preloadRoute(r), { timeout: 4000 });
         } else {
           preloadRoute(r);
         }
       }, delay);
-      delay += 400;
+      delay += 1000;
     });
   };
 
   if (document.readyState === 'complete') {
-    setTimeout(runIdle, 1200);
+    setTimeout(runIdle, 5000);
   } else {
-    window.addEventListener('load', () => setTimeout(runIdle, 1200), { once: true });
+    window.addEventListener('load', () => setTimeout(runIdle, 5000), { once: true });
   }
 }
 

@@ -174,7 +174,7 @@ export default defineConfig(({mode}) => {
       chunkSizeWarningLimit: 2500,
       target: 'es2020',
       minify: 'esbuild',
-      sourcemap: false,
+      sourcemap: true,
       cssCodeSplit: true,
       modulePreload: true,
       rollupOptions: {
