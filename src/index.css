@@ -801,13 +801,8 @@ button, a, .glass-panel, .sticky, .fixed, .premium-action-btn {
 }
 
 /* Light tap feedback for buttons only, never interfering with touch drags or link scrolls */
-a, button, input, select, textarea {
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-}
-
 button:active {
-  opacity: 0.88;
+  opacity: 0.85;
 }
 
 /* Enable smooth scrolling in all scrollable containers */

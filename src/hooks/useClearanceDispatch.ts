@@ -246,12 +246,6 @@ export function useClearanceDispatch({
       return;
     }
 
-    // Strict guard: Turnstile or environment verification must be completed first
-    if (!isReady) {
-      setErrorMessage('Please wait for verification to complete.');
-      return;
-    }
-
     setIsLoading(true);
     setErrorMessage(null);
 
@@ -283,7 +277,7 @@ export function useClearanceDispatch({
 
       const lastSample = samples.length > 0 ? samples[samples.length - 1] : { cx: 140, cy: 300, t: now };
 
-      // 4. Encode single-use clearance payload (strictly includes cb: 0 and human physical touch flag)
+      // 4. Encode single-use clearance payload
       const clearanceToken = btoa(JSON.stringify({
         t: Date.now(),
         n: entropy,
@@ -296,7 +290,6 @@ export function useClearanceDispatch({
         samples: samples.length,
         wb: isBotDetectedRef.current ? 1 : 0,
         hl: isHeadlessDetectedRef.current ? 1 : 0,
-        cb: 0,
         tr: 1 // Human physical hold
       }));
 
@@ -396,6 +389,7 @@ export function useClearanceDispatch({
     } catch (err: any) {
       setIsLoading(false);
       setErrorMessage(err?.message || 'Verification failed. Please try again.');
+      if (onError) onError();
       resetTurnstile();
     }
   }, [isLoading, appId, awaitTurnstileToken, closeAndWipeLink, onError, onSuccess, resetTurnstile, setErrorMessage]);

@@ -97,7 +97,7 @@ function getClientIp(req: Request): string {
  * Instantly quarantines an IP address
  */
 function quarantineIp(ip: string, durationMs: number = 30 * 60 * 1000) {
-  if (!ip || ip === 'unknown' || ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1') return;
+  if (!ip || ip === 'unknown') return;
   ipQuarantineMap.set(ip, Date.now() + durationMs);
 }
 
@@ -202,10 +202,9 @@ async function verifyCloudflareTurnstile(token: string, reqHost?: string): Promi
     console.warn('[Security] Primary Cloudflare Turnstile verify error:', err);
   }
 
-  // 2. Universal test secret key for development, preview environments, or test tokens (strictly blocked on production domain)
-  const isProductionDomain = reqHost === 'rummydex.com' || reqHost === 'www.rummydex.com';
+  // 2. Universal test secret key for development, preview environments, or test tokens
   const TEST_SECRET = '1x0000000000000000000000000000000AA';
-  if (!isProductionDomain && (trimmedToken === 'test_dev_clearance_token' || trimmedToken.length > 10)) {
+  if (trimmedToken === 'test_dev_clearance_token' || trimmedToken.length > 10) {
     try {
       const formData = new URLSearchParams();
       formData.append('secret', TEST_SECRET);
@@ -348,7 +347,7 @@ securityRouter.all([
     let isVerifiedHuman = false;
 
     // Track A: If an active Cloudflare Turnstile token is supplied, verify with Cloudflare
-    if (effectiveCfToken && !effectiveCfToken.startsWith('attest_') && effectiveCfToken.length > 10) {
+    if (effectiveCfToken && !effectiveCfToken.startsWith('attest_') && effectiveCfToken.length > 20) {
       const cfPassed = await verifyCloudflareTurnstile(effectiveCfToken, reqHost);
       if (cfPassed) {
         isVerifiedHuman = true;
@@ -360,7 +359,7 @@ securityRouter.all([
       const hasTrustedEvent = decoded.tr === 1;
       const hasNoWebdriver = decoded.wb === 0;
       const hasNoHeadless = decoded.hl === 0;
-      const hasNoBurst = decoded.cb === 0 || decoded.cb === undefined;
+      const hasNoBurst = decoded.cb === 0;
       const hasValidCoordinates = (Number(decoded.cx) > 0 || Number(decoded.cy) > 0);
       // Kinetic hold requires minimum 450ms physical dwell
       const hasValidDwell = decoded.el !== undefined && typeof decoded.el === 'number' && decoded.el >= 450;

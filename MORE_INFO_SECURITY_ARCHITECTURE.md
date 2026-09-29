@@ -1,5 +1,5 @@
 # AUTHORITATIVE BLUEPRINT & SECURITY SPECIFICATION: More Information (`/moreinfo`) Gateway & Zero-Bot Architecture
-### Version 5.2 — Instant 0ms Gateway Preloading + Non-Blocking Real-Time Clearance + Dual-Engine Attestation (Turnstile & Hardware Kinetic)
+### Version 5.1 — Two-Stage Visible Security Verification + Cryptographic Cloudflare Turnstile + Disguised 404 Phantom Wall
 
 > [!IMPORTANT]
 > **CRITICAL INSTRUCTION FOR ALL AI AGENTS & DEVELOPERS:**
@@ -7,11 +7,7 @@
 > 1. **You MUST consult this document** before inspecting, modifying, or creating any code relating to the More Information page, action buttons, link vault, admin forms, or security routes.
 > 2. **You MUST update this document** immediately whenever any security rule, component, route, admin field, or vocabulary guideline is adjusted.
 > 3. **Never downgrade to client-side-only checks.** Real bot protection relies on cryptographic server-side attestation and visible edge verification.
-> 4. **Instant Non-Blocking Clearance Protocol (v5.2)**: 
->    - **0ms Route Preloading**: When a user views an app page (`/app/:slug`), the Gateway page chunk is preloaded during browser idle (`requestIdleCallback`) and upon pointer/touch enter on the Download button. Navigation to `/moreinfo/:slug` executes with 0ms blank lag.
->    - **Active Real-Time Clearance Button**: The "Proceed" button is vibrant and responsive from the initial millisecond of page load (< 10ms touch response with haptic feedback).
->    - **Dual-Engine Attestation**: When tapped, the client executes real-time resolution: if Cloudflare Turnstile token is ready, it is dispatched; if resolving, it awaits up to 800ms; if blocked by adblocker/private DNS, high-entropy kinetic and hardware attestation (Track B) safely validates the request on the server with strict human dwell time, pointer variance, and zero-webdriver verification.
->    - Automated scrapers, headless bots, and programmatic triggers are strictly quarantined and blackholed with 404 responses.
+> 4. **Visible Interactive Security Protocol**: The Cloudflare Turnstile verification challenge renders in full view inside an isolated frame immediately when the visitor lands. The "Proceed" button remains securely locked until Cloudflare verifies the user. Once passed, clicking "Proceed" securely authorizes and dispatches the link. Automated scrapers and headless bots (`page.click()`) cannot bypass Cloudflare's interactive challenge.
 
 ---
 

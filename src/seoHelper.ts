@@ -1485,9 +1485,11 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
 
   const isBot = isBotUserAgent(userAgent);
 
-  // Serve full semantic SSR markup directly inside #root for instantaneous First Contentful Paint (<200ms) and 100% crawlability.
-  // When React loads, createRoot smoothly mounts the interactive SPA without any layout shift.
-  const rootContent = preRenderedBody;
+  // If a search engine crawler visits the page, serve semantic SSR markup directly inside #root for 100% SEO indexing.
+  // For human browser users, keep #root clean with a <noscript> fallback so React mounts the real website immediately without any flash of different interim markup.
+  const rootContent = isBot 
+    ? preRenderedBody 
+    : `<noscript>${preRenderedBody}</noscript>`;
 
   if (finalHtml.includes('<div id="root"></div>')) {
     finalHtml = finalHtml.replace('<div id="root"></div>', `<div id="root">${rootContent}</div>`);
