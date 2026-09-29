@@ -1,6 +1,6 @@
 {
-  "totalReviews": 485,
-  "publishedReviews": 485,
+  "totalReviews": 479,
+  "publishedReviews": 479,
   "pendingReviews": 0,
   "rejectedReviews": 0,
   "flaggedReviews": 0,
@@ -10,9 +10,9 @@
   "ratingDistribution": {
     "1": 6,
     "2": 15,
-    "3": 72,
+    "3": 69,
     "4": 209,
-    "5": 183
+    "5": 180
   },
   "appCounts": {
     "spin-crush": {
@@ -88,75 +88,75 @@
       }
     },
     "callbreak": {
-      "total": 8,
-      "published": 8,
+      "total": 6,
+      "published": 6,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 2,
-        "4": 4,
+        "4": 2,
         "5": 2
       }
     },
     "ha76icslh": {
-      "total": 8,
-      "published": 8,
+      "total": 6,
+      "published": 6,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 2,
-        "4": 4,
+        "4": 2,
         "5": 2
       }
     },
     "card-game-29": {
-      "total": 8,
-      "published": 8,
+      "total": 6,
+      "published": 6,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 2,
-        "4": 4,
-        "5": 2
+        "3": 0,
+        "4": 6,
+        "5": 0
       }
     },
     "colrcaih7": {
-      "total": 8,
-      "published": 8,
+      "total": 6,
+      "published": 6,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 2,
-        "4": 4,
-        "5": 2
+        "3": 0,
+        "4": 6,
+        "5": 0
       }
     },
     "joy-rummy": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.1,
+      "total": 6,
+      "published": 6,
+      "avgRating": 4.2,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 2,
+        "3": 1,
         "4": 3,
-        "5": 3
+        "5": 2
       }
     },
     "e1qcs5ik7": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.1,
+      "total": 6,
+      "published": 6,
+      "avgRating": 4.2,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 2,
+        "3": 1,
         "4": 3,
-        "5": 3
+        "5": 2
       }
     },
     "jaiho-91": {
@@ -1672,5 +1672,5 @@
       }
     }
   },
-  "updated_at": "2026-09-29T03:27:22.190Z"
+  "updated_at": "2026-09-29T03:31:46.514Z"
 }
