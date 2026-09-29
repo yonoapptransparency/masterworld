@@ -423,20 +423,20 @@ export function renderAppDetails(slug: string, apps: any[], settings: any, sampl
     ? app.faqs.filter((f: any) => f && f.question && f.answer)
     : [
         {
-          question: `How do I download and install ${escapeHtml(appName)} on my Android device?`,
-          answer: `To install ${escapeHtml(appName)}, tap the Download button on this page to obtain the verified installation package directly. Once downloaded, tap the notification or file in your device Downloads folder and follow the standard prompts to complete setup.`
+          question: `How do I download and install ${escapeHtml(name)} on my Android device?`,
+          answer: `To install ${escapeHtml(name)}, tap the Download button on this page to obtain the verified installation package directly. Once downloaded, tap the notification or file in your device Downloads folder and follow the standard prompts to complete setup.`
         },
         {
-          question: `Is ${escapeHtml(appName)} safe to use?`,
-          answer: `Yes. ${escapeHtml(appName)} listed on RummyDex has been verified to ensure smooth performance, thermal stability, and authentic card gaming mechanics.`
+          question: `Is ${escapeHtml(name)} safe to use?`,
+          answer: `Yes. ${escapeHtml(name)} listed on RummyDex has been verified to ensure smooth performance, thermal stability, and authentic card gaming mechanics.`
         },
         {
-          question: `What are the storage requirements for ${escapeHtml(appName)}?`,
-          answer: `${escapeHtml(appName)} has an installation footprint of approximately ${escapeHtml(fileSize)} and is optimized for Android devices with minimal battery drain.`
+          question: `What are the storage requirements for ${escapeHtml(name)}?`,
+          answer: `${escapeHtml(name)} has an installation footprint of approximately ${escapeHtml(size)} and is optimized for Android devices with minimal battery drain.`
         },
         {
-          question: `Can I play card games with friends and family in ${escapeHtml(appName)}?`,
-          answer: `Yes, ${escapeHtml(appName)} provides multiplayer tables and responsive matchmaking across mobile networks for card gaming anytime.`
+          question: `Can I play card games with friends and family in ${escapeHtml(name)}?`,
+          answer: `Yes, ${escapeHtml(name)} provides multiplayer tables and responsive matchmaking across mobile networks for card gaming anytime.`
         }
       ];
 
@@ -703,28 +703,40 @@ export function renderNewsList(news: any[], settings: any) {
 }
 
 export function renderNewsDetail(slug: string, news: any[], settings: any) {
-  const cleanSlug = decodeURIComponent(slug).toLowerCase();
-  const item = news.find(n => getField(n, 'slug').toLowerCase() === cleanSlug);
+  const cleanSlug = decodeURIComponent(slug || '').toLowerCase().trim().replace(/\/+$/, '');
+  const item = Array.isArray(news) ? news.find(n => {
+    const s = String(getField(n, 'slug') || '').toLowerCase().trim();
+    const id = String(getField(n, 'id') || '').toLowerCase().trim();
+    return (s && s === cleanSlug) || (id && id === cleanSlug);
+  }) : null;
+
   if (!item) return `<div class="py-12 text-center"><h1 class="text-2xl font-bold">Failed to load article.</h1><a href="/news" class="text-blue-500 hover:underline">Go Back</a></div>`;
   
   const title = getField(item, 'title');
-  const dateStr = getField(item, 'created_at') || 'May 2026';
-  const author = getField(item, 'ceo_name', 'System Author');
+  const dateStr = getField(item, 'created_at') || getField(item, 'date') || getField(item, 'published_at') || 'Recent';
+  const author = getField(item, 'ceo_name', '') || getField(item, 'author', 'Admin Team');
   const cat = getField(item, 'category', 'Report');
-  const content = getField(item, 'content') || getField(item, 'description', '');
-  const sanitizedContent = sanitizeHtml(content);
-  const logo = getField(item, 'logo_url');
+  const introDesc = getField(item, 'description', '').trim();
+  const rawBody = getField(item, 'description_html') || getField(item, 'content') || introDesc;
+  const sanitizedContent = sanitizeHtml(rawBody);
+  const logo = getField(item, 'logo_url') || getField(item, 'image_url');
   const optimizedLogo = logo ? optimizeImageUrl(logo, 800) : '';
 
+  const hasHtmlBlocks = /<(?:p|h[1-6]|ul|ol|li|div|article|section|table)\b/i.test(sanitizedContent);
+  const formattedContent = hasHtmlBlocks
+    ? sanitizedContent
+    : sanitizedContent.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>');
+
   return `
-    <article class="max-w-3xl mx-auto py-12 px-4 text-left">
+    <article class="max-w-3xl mx-auto py-8 sm:py-12 px-4 text-left">
       <header class="mb-6">
         <span class="text-xs text-blue-500 uppercase font-bold mr-2">${escapeHtml(cat)}</span>
-        <span class="text-xs text-zinc-400 uppercase font-bold">${dateStr} | By ${escapeHtml(author)}</span>
+        <span class="text-xs text-zinc-400 uppercase font-bold">${escapeHtml(dateStr)} | By ${escapeHtml(author)}</span>
         <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight mt-2 leading-tight">${escapeHtml(title)}</h1>
       </header>
       ${logo ? `<div class="mb-8 flex justify-center items-center rounded-2xl overflow-hidden border border-black/5 bg-zinc-50 dark:bg-zinc-900/50 p-2 sm:p-0"><img src="${escapeHtml(optimizedLogo)}" loading="eager" decoding="async" class="max-w-full h-auto max-h-[600px] object-contain block rounded-xl sm:rounded-none" alt="${escapeHtml(title)} main cover article image"/></div>` : ''}
-      <section class="prose dark:prose-invert text-zinc-700 leading-relaxed font-semibold">${sanitizedContent.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>')}</section>
+      ${introDesc && rawBody !== introDesc && !sanitizedContent.includes(introDesc.substring(0, 40)) ? `<p class="text-base sm:text-lg font-medium mb-6 text-zinc-800 dark:text-zinc-200 leading-relaxed">${escapeHtml(introDesc)}</p>` : ''}
+      <section class="prose dark:prose-invert text-zinc-700 dark:text-zinc-300 leading-relaxed font-normal">${formattedContent}</section>
     </article>
   `;
 }

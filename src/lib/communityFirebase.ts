@@ -485,7 +485,7 @@ export async function fetchLiveReviews(options: {
     const contentType = res.headers.get('content-type') || '';
     if (res.ok && contentType.includes('application/json')) {
       const data = await res.json();
-      if (data && Array.isArray(data.reviews) && data.reviews.length > 0) {
+      if (data && Array.isArray(data.reviews)) {
         const enrichedReviews = attachLocalUserReviews(data.reviews);
         const result: ReviewFetchResult = {
           reviews: enrichedReviews,
@@ -622,23 +622,16 @@ export async function fetchLiveReviews(options: {
       }
     }
 
-    // 2C. Also fetch atomic stats from app_stats/{canonicalId} directly from Firestore
+    // 2C. Populate atomic stats from pre-computed catalog cache (0ms latency, 0 Firestore reads)
     try {
-      const statsUrl = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${cfg.firestoreDatabaseId}/documents/app_stats/${encodeURIComponent(canonicalId)}?key=${encodeURIComponent(cfg.apiKey)}`;
-      const statsRes = await fetch(statsUrl);
-      if (statsRes.ok) {
-        const rawStats = await statsRes.json();
-        if (rawStats && rawStats.fields) {
-          const parsed = parseFirestoreFields(rawStats.fields);
-          if (parsed) {
-            loadedStats = {
-              appId: canonicalId,
-              totalReviews: Number(parsed.totalReviews || parsed.publishedReviewCount) || 0,
-              averageRating: Number(parsed.averageRating) || 0,
-              starDistribution: parsed.starDistribution || { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 }
-            };
-          }
-        }
+      const cachedBaselineStats = getCachedLiveAppStats(canonicalId, canonicalSlug);
+      if (cachedBaselineStats) {
+        loadedStats = {
+          appId: canonicalId,
+          totalReviews: Number(cachedBaselineStats.totalReviews) || 0,
+          averageRating: Number(cachedBaselineStats.averageRating) || 0,
+          starDistribution: cachedBaselineStats.distribution || { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 }
+        };
       }
     } catch (_) {}
 

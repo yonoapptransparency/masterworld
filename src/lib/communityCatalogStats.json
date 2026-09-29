@@ -1,330 +1,330 @@
 {
-  "totalReviews": 479,
-  "publishedReviews": 479,
-  "pendingReviews": 0,
+  "totalReviews": 113,
+  "publishedReviews": 113,
+  "pendingReviews": 2,
   "rejectedReviews": 0,
   "flaggedReviews": 0,
   "totalReports": 0,
   "pendingReports": 0,
-  "averageRating": 4.1,
+  "averageRating": 4.3,
   "ratingDistribution": {
-    "1": 6,
-    "2": 15,
-    "3": 69,
-    "4": 209,
-    "5": 180
+    "1": 0,
+    "2": 2,
+    "3": 19,
+    "4": 41,
+    "5": 51
   },
   "appCounts": {
     "spin-crush": {
-      "total": 10,
-      "published": 10,
-      "avgRating": 4.3,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.7,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 2,
-        "4": 3,
-        "5": 5
+        "3": 0,
+        "4": 1,
+        "5": 2
       }
     },
     "yh9toduxk": {
-      "total": 10,
-      "published": 10,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.7,
+      "starCounts": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 1,
+        "5": 2
+      }
+    },
+    "rummy-77": {
+      "total": 3,
+      "published": 3,
+      "avgRating": 4,
+      "starCounts": {
+        "1": 0,
+        "2": 0,
+        "3": 1,
+        "4": 1,
+        "5": 1
+      }
+    },
+    "i5uw2apum": {
+      "total": 3,
+      "published": 3,
+      "avgRating": 4,
+      "starCounts": {
+        "1": 0,
+        "2": 0,
+        "3": 1,
+        "4": 1,
+        "5": 1
+      }
+    },
+    "rummy-91": {
+      "total": 3,
+      "published": 3,
       "avgRating": 4.3,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 2,
-        "4": 3,
-        "5": 5
-      }
-    },
-    "rummy-77": {
-      "total": 10,
-      "published": 10,
-      "avgRating": 4,
-      "starCounts": {
-        "1": 1,
-        "2": 0,
         "3": 1,
-        "4": 4,
-        "5": 4
-      }
-    },
-    "i5uw2apum": {
-      "total": 10,
-      "published": 10,
-      "avgRating": 4,
-      "starCounts": {
-        "1": 1,
-        "2": 0,
-        "3": 1,
-        "4": 4,
-        "5": 4
-      }
-    },
-    "rummy-91": {
-      "total": 6,
-      "published": 6,
-      "avgRating": 4.2,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 1,
-        "4": 3,
+        "4": 0,
         "5": 2
       }
     },
     "s4oc5m16b": {
-      "total": 6,
-      "published": 6,
-      "avgRating": 4.2,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.3,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 1,
-        "4": 3,
+        "4": 0,
         "5": 2
       }
     },
     "callbreak": {
-      "total": 6,
-      "published": 6,
+      "total": 3,
+      "published": 3,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 2,
-        "4": 2,
-        "5": 2
+        "3": 1,
+        "4": 1,
+        "5": 1
       }
     },
     "ha76icslh": {
-      "total": 6,
-      "published": 6,
+      "total": 3,
+      "published": 3,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 2,
-        "4": 2,
-        "5": 2
+        "3": 1,
+        "4": 1,
+        "5": 1
       }
     },
     "card-game-29": {
-      "total": 6,
-      "published": 6,
+      "total": 3,
+      "published": 3,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 6,
+        "4": 3,
         "5": 0
       }
     },
     "colrcaih7": {
-      "total": 6,
-      "published": 6,
+      "total": 3,
+      "published": 3,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 6,
+        "4": 3,
         "5": 0
       }
     },
     "joy-rummy": {
-      "total": 6,
-      "published": 6,
-      "avgRating": 4.2,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 1,
-        "4": 3,
-        "5": 2
+        "4": 1,
+        "5": 1
       }
     },
     "e1qcs5ik7": {
-      "total": 6,
-      "published": 6,
-      "avgRating": 4.2,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 1,
-        "4": 3,
-        "5": 2
+        "4": 1,
+        "5": 1
       }
     },
     "jaiho-91": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.3,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.7,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 1,
-        "4": 4,
-        "5": 3
+        "3": 0,
+        "4": 1,
+        "5": 2
       }
     },
     "to56xasfo": {
-      "total": 8,
-      "published": 8,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.7,
+      "starCounts": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 1,
+        "5": 2
+      }
+    },
+    "ok-rummy": {
+      "total": 3,
+      "published": 3,
       "avgRating": 4.3,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 1,
-        "4": 4,
-        "5": 3
-      }
-    },
-    "ok-rummy": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.1,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 2,
-        "4": 3,
-        "5": 3
+        "4": 0,
+        "5": 2
       }
     },
     "x1mivt2cj": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.1,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.3,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 2,
-        "4": 3,
-        "5": 3
+        "3": 1,
+        "4": 0,
+        "5": 2
       }
     },
     "jaiho-slots": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.8,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.7,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 2,
-        "5": 6
+        "4": 1,
+        "5": 2
       }
     },
     "ozhj4pz5s": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.8,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.7,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 2,
-        "5": 6
+        "4": 1,
+        "5": 2
       }
     },
     "yono-arcade": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.4,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.3,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 2,
-        "4": 1,
-        "5": 5
+        "3": 1,
+        "4": 0,
+        "5": 2
       }
     },
     "l7e8oyo9m": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.4,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.3,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 2,
-        "4": 1,
-        "5": 5
+        "3": 1,
+        "4": 0,
+        "5": 2
       }
     },
     "bingo-101": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.8,
+      "total": 3,
+      "published": 3,
+      "avgRating": 5,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 2,
-        "5": 6
+        "4": 0,
+        "5": 3
       }
     },
     "jr5xf2b1s": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.8,
+      "total": 3,
+      "published": 3,
+      "avgRating": 5,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 2,
-        "5": 6
+        "4": 0,
+        "5": 3
       }
     },
     "abc-rummy": {
-      "total": 8,
-      "published": 8,
+      "total": 3,
+      "published": 3,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 1,
-        "4": 6,
-        "5": 1
+        "3": 0,
+        "4": 3,
+        "5": 0
       }
     },
     "08exxq5q9": {
-      "total": 8,
-      "published": 8,
+      "total": 3,
+      "published": 3,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 1,
-        "4": 6,
-        "5": 1
+        "3": 0,
+        "4": 3,
+        "5": 0
       }
     },
     "ever-777": {
-      "total": 9,
-      "published": 9,
+      "total": 3,
+      "published": 3,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 2,
-        "4": 5,
-        "5": 2
+        "3": 0,
+        "4": 3,
+        "5": 0
       }
     },
     "kc3u0sl2h": {
-      "total": 9,
-      "published": 9,
+      "total": 3,
+      "published": 3,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 2,
-        "4": 5,
-        "5": 2
+        "3": 0,
+        "4": 3,
+        "5": 0
       }
     },
     "love-rummy": {
@@ -352,1325 +352,509 @@
       }
     },
     "share-slots": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.5,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.7,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 4,
-        "5": 4
+        "4": 1,
+        "5": 2
       }
     },
     "0jfvh7lrx": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.5,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.7,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 4,
-        "5": 4
+        "4": 1,
+        "5": 2
       }
     },
     "yono-vip": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.1,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 2,
-        "4": 3,
-        "5": 3
+        "3": 1,
+        "4": 1,
+        "5": 1
       }
     },
     "89d79z398": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.1,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 2,
-        "4": 3,
-        "5": 3
+        "3": 1,
+        "4": 1,
+        "5": 1
       }
     },
     "maha-games": {
-      "total": 8,
-      "published": 8,
+      "total": 3,
+      "published": 3,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 2,
-        "4": 4,
-        "5": 2
+        "3": 1,
+        "4": 1,
+        "5": 1
       }
     },
     "m6bwb6cnb": {
-      "total": 8,
-      "published": 8,
+      "total": 3,
+      "published": 3,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 2,
-        "4": 4,
-        "5": 2
+        "3": 1,
+        "4": 1,
+        "5": 1
       }
     },
     "rummy-ludo": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 3.8,
+      "total": 3,
+      "published": 3,
+      "avgRating": 3.7,
       "starCounts": {
         "1": 0,
-        "2": 1,
+        "2": 0,
         "3": 1,
-        "4": 5,
-        "5": 1
+        "4": 2,
+        "5": 0
       }
     },
     "y7lefyq14": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 3.8,
+      "total": 3,
+      "published": 3,
+      "avgRating": 3.7,
       "starCounts": {
         "1": 0,
-        "2": 1,
+        "2": 0,
         "3": 1,
-        "4": 5,
-        "5": 1
+        "4": 2,
+        "5": 0
       }
     },
     "789-jackports": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.8,
+      "total": 3,
+      "published": 3,
+      "avgRating": 5,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 2,
-        "5": 6
+        "4": 0,
+        "5": 3
       }
     },
     "lzcn7ehst": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.8,
+      "total": 3,
+      "published": 3,
+      "avgRating": 5,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 2,
-        "5": 6
+        "4": 0,
+        "5": 3
       }
     },
     "777-game": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.6,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.7,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 3,
-        "5": 5
+        "4": 1,
+        "5": 2
       }
     },
     "jl9bx9llw": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.6,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.7,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 3,
-        "5": 5
+        "4": 1,
+        "5": 2
       }
     },
     "baccarist": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.4,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.3,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 5,
-        "5": 3
+        "4": 2,
+        "5": 1
       }
     },
     "dttfvdp67": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.4,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.3,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 5,
-        "5": 3
+        "4": 2,
+        "5": 1
       }
     },
     "solitaire": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.6,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.7,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 3,
-        "5": 5
+        "4": 1,
+        "5": 2
       }
     },
     "3h5w608rt": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.6,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.7,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 3,
-        "5": 5
+        "4": 1,
+        "5": 2
       }
     },
     "vita-mahjong": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.5,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.7,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 4,
-        "5": 4
+        "4": 1,
+        "5": 2
       }
     },
     "ne1n96k01": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.5,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.7,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 4,
-        "5": 4
+        "4": 1,
+        "5": 2
       }
     },
     "gold-rummy": {
-      "total": 14,
-      "published": 14,
-      "avgRating": 4.1,
+      "total": 9,
+      "published": 9,
+      "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 4,
-        "4": 5,
-        "5": 5
+        "3": 3,
+        "4": 3,
+        "5": 3
       }
     },
     "0w7b3vc4p": {
-      "total": 14,
-      "published": 14,
-      "avgRating": 4.1,
+      "total": 9,
+      "published": 9,
+      "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 4,
-        "4": 5,
-        "5": 5
+        "3": 3,
+        "4": 3,
+        "5": 3
       }
     },
     "dhan-game": {
-      "total": 6,
-      "published": 6,
-      "avgRating": 4.2,
+      "total": 1,
+      "published": 1,
+      "avgRating": 5,
       "starCounts": {
         "1": 0,
-        "2": 1,
+        "2": 0,
         "3": 0,
-        "4": 2,
-        "5": 3
+        "4": 0,
+        "5": 1
       }
     },
     "vm84dmv3k": {
-      "total": 6,
-      "published": 6,
-      "avgRating": 4.2,
+      "total": 1,
+      "published": 1,
+      "avgRating": 5,
       "starCounts": {
         "1": 0,
-        "2": 1,
+        "2": 0,
         "3": 0,
-        "4": 2,
-        "5": 3
+        "4": 0,
+        "5": 1
       }
     },
     "yono-games": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.6,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.7,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 3,
-        "5": 5
+        "4": 1,
+        "5": 2
       }
     },
     "83kr7f5cx": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.6,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.7,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 3,
-        "5": 5
+        "4": 1,
+        "5": 2
       }
     },
     "yono-rummy": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.5,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.7,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 4,
-        "5": 4
+        "4": 1,
+        "5": 2
       }
     },
     "syq9cwkda": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.5,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.7,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 4,
-        "5": 4
-      }
-    },
-    "spin-777": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 4.4,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 1,
         "4": 1,
-        "5": 3
-      }
-    },
-    "x4zbfgc7f": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 4.4,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 1,
-        "4": 1,
-        "5": 3
+        "5": 2
       }
     },
     "boss-rummy": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.5,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.3,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 4,
-        "5": 4
+        "4": 2,
+        "5": 1
       }
     },
     "pdwnq0nu8": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.5,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.3,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 4,
-        "5": 4
+        "4": 2,
+        "5": 1
       }
     },
     "gogo-rummy": {
-      "total": 8,
-      "published": 8,
+      "total": 3,
+      "published": 3,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
-        "2": 1,
+        "2": 0,
         "3": 1,
-        "4": 3,
-        "5": 3
+        "4": 1,
+        "5": 1
       }
     },
     "3m2tlug3g": {
-      "total": 8,
-      "published": 8,
+      "total": 3,
+      "published": 3,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
-        "2": 1,
+        "2": 0,
         "3": 1,
-        "4": 3,
-        "5": 3
+        "4": 1,
+        "5": 1
       }
     },
     "rummy-888": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.1,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 2,
-        "4": 3,
-        "5": 3
-      }
-    },
-    "fuma9mbmc": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.1,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 2,
-        "4": 3,
-        "5": 3
-      }
-    },
-    "win-rummy": {
-      "total": 8,
-      "published": 8,
+      "total": 3,
+      "published": 3,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 1,
-        "4": 6,
+        "4": 1,
+        "5": 1
+      }
+    },
+    "fuma9mbmc": {
+      "total": 3,
+      "published": 3,
+      "avgRating": 4,
+      "starCounts": {
+        "1": 0,
+        "2": 0,
+        "3": 1,
+        "4": 1,
+        "5": 1
+      }
+    },
+    "win-rummy": {
+      "total": 3,
+      "published": 3,
+      "avgRating": 4,
+      "starCounts": {
+        "1": 0,
+        "2": 0,
+        "3": 1,
+        "4": 1,
         "5": 1
       }
     },
     "h68oygebw": {
-      "total": 8,
-      "published": 8,
+      "total": 3,
+      "published": 3,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 1,
-        "4": 6,
+        "4": 1,
         "5": 1
       }
     },
     "a23-rummy": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.6,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.3,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 3,
-        "5": 5
+        "4": 2,
+        "5": 1
       }
     },
     "fil7vo6d8": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.6,
+      "total": 3,
+      "published": 3,
+      "avgRating": 4.3,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
-        "4": 3,
-        "5": 5
+        "4": 2,
+        "5": 1
       }
     },
     "roz-rummy": {
-      "total": 11,
-      "published": 11,
+      "total": 6,
+      "published": 6,
       "avgRating": 3,
       "starCounts": {
         "1": 0,
-        "2": 3,
-        "3": 5,
-        "4": 3,
+        "2": 1,
+        "3": 4,
+        "4": 1,
         "5": 0
       }
     },
     "2fpshclmr": {
-      "total": 11,
-      "published": 11,
+      "total": 6,
+      "published": 6,
       "avgRating": 3,
       "starCounts": {
         "1": 0,
-        "2": 3,
-        "3": 5,
-        "4": 3,
+        "2": 1,
+        "3": 4,
+        "4": 1,
         "5": 0
       }
     },
     "rum-rummy": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 3.8,
-      "starCounts": {
-        "1": 0,
-        "2": 1,
-        "3": 2,
-        "4": 3,
-        "5": 2
-      }
-    },
-    "2ovzpzjxy": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 3.8,
-      "starCounts": {
-        "1": 0,
-        "2": 1,
-        "3": 2,
-        "4": 3,
-        "5": 2
-      }
-    },
-    "indian-rummy-fun": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 3.8,
+      "total": 3,
+      "published": 3,
+      "avgRating": 3.7,
       "starCounts": {
         "1": 0,
         "2": 1,
         "3": 0,
-        "4": 3,
+        "4": 1,
         "5": 1
       }
     },
-    "7rk45110u": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 3.8,
+    "2ovzpzjxy": {
+      "total": 3,
+      "published": 3,
+      "avgRating": 3.7,
       "starCounts": {
         "1": 0,
         "2": 1,
         "3": 0,
-        "4": 3,
+        "4": 1,
         "5": 1
       }
     },
     "kuku-tv": {
-      "total": 6,
-      "published": 6,
-      "avgRating": 4.2,
+      "total": 1,
+      "published": 1,
+      "avgRating": 5,
       "starCounts": {
         "1": 0,
         "2": 0,
-        "3": 1,
-        "4": 3,
-        "5": 2
+        "3": 0,
+        "4": 0,
+        "5": 1
       }
     },
     "ealj6s0fm": {
-      "total": 6,
-      "published": 6,
-      "avgRating": 4.2,
+      "total": 1,
+      "published": 1,
+      "avgRating": 5,
       "starCounts": {
         "1": 0,
-        "2": 0,
-        "3": 1,
-        "4": 3,
-        "5": 2
-      }
-    },
-    "amazon-mx-player": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 4.2,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 1,
-        "4": 2,
-        "5": 2
-      }
-    },
-    "zadbjikq9": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 4.2,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 1,
-        "4": 2,
-        "5": 2
-      }
-    },
-    "jiocinema": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 4.2,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 1,
-        "4": 2,
-        "5": 2
-      }
-    },
-    "nlg9zi69u": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 4.2,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 1,
-        "4": 2,
-        "5": 2
-      }
-    },
-    "jiohotstar": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 4,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 1,
-        "4": 3,
-        "5": 1
-      }
-    },
-    "i6wdxhzyj": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 4,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 1,
-        "4": 3,
-        "5": 1
-      }
-    },
-    "zee5": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 3.8,
-      "starCounts": {
-        "1": 1,
         "2": 0,
         "3": 0,
-        "4": 2,
-        "5": 2
-      }
-    },
-    "hmxpnxb1p": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 3.8,
-      "starCounts": {
-        "1": 1,
-        "2": 0,
-        "3": 0,
-        "4": 2,
-        "5": 2
-      }
-    },
-    "sonyliv": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 3.2,
-      "starCounts": {
-        "1": 0,
-        "2": 1,
-        "3": 3,
         "4": 0,
         "5": 1
-      }
-    },
-    "t9hpec9dr": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 3.2,
-      "starCounts": {
-        "1": 0,
-        "2": 1,
-        "3": 3,
-        "4": 0,
-        "5": 1
-      }
-    },
-    "reelshort": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 3.2,
-      "starCounts": {
-        "1": 1,
-        "2": 0,
-        "3": 2,
-        "4": 1,
-        "5": 1
-      }
-    },
-    "1ewtz4qzq": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 3.2,
-      "starCounts": {
-        "1": 1,
-        "2": 0,
-        "3": 2,
-        "4": 1,
-        "5": 1
-      }
-    },
-    "dramabox": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 3.6,
-      "starCounts": {
-        "1": 1,
-        "2": 0,
-        "3": 0,
-        "4": 3,
-        "5": 1
-      }
-    },
-    "o66fm4o31": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 3.6,
-      "starCounts": {
-        "1": 1,
-        "2": 0,
-        "3": 0,
-        "4": 3,
-        "5": 1
-      }
-    },
-    "shortmax": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 2.8,
-      "starCounts": {
-        "1": 1,
-        "2": 1,
-        "3": 1,
-        "4": 2,
-        "5": 0
-      }
-    },
-    "v6pbym9lq": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 2.8,
-      "starCounts": {
-        "1": 1,
-        "2": 1,
-        "3": 1,
-        "4": 2,
-        "5": 0
-      }
-    },
-    "pocket-tv": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 4,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 5,
-        "5": 0
-      }
-    },
-    "eeep4g0ok": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 4,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 5,
-        "5": 0
-      }
-    },
-    "goodshort": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 4.4,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 3,
-        "5": 2
-      }
-    },
-    "68eyzcidq": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 4.4,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 3,
-        "5": 2
-      }
-    },
-    "tubi-tv": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 2.4,
-      "starCounts": {
-        "1": 1,
-        "2": 2,
-        "3": 1,
-        "4": 1,
-        "5": 0
-      }
-    },
-    "kawv98sia": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 2.4,
-      "starCounts": {
-        "1": 1,
-        "2": 2,
-        "3": 1,
-        "4": 1,
-        "5": 0
-      }
-    },
-    "pluto-tv": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 4.2,
-      "starCounts": {
-        "1": 0,
-        "2": 1,
-        "3": 0,
-        "4": 1,
-        "5": 3
-      }
-    },
-    "ia8dnjrtm": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 4.2,
-      "starCounts": {
-        "1": 0,
-        "2": 1,
-        "3": 0,
-        "4": 1,
-        "5": 3
-      }
-    },
-    "netflix": {
-      "total": 4,
-      "published": 4,
-      "avgRating": 4,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 1,
-        "4": 2,
-        "5": 1
-      }
-    },
-    "21d7p841w": {
-      "total": 4,
-      "published": 4,
-      "avgRating": 4,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 1,
-        "4": 2,
-        "5": 1
-      }
-    },
-    "kanopy": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 4.8,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 1,
-        "5": 4
-      }
-    },
-    "5tqvyd8xr": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 4.8,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 1,
-        "5": 4
-      }
-    },
-    "aha": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 4.6,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 2,
-        "5": 3
-      }
-    },
-    "dn5t1cy93": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 4.6,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 2,
-        "5": 3
-      }
-    },
-    "hoichoi": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 4.8,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 1,
-        "5": 4
-      }
-    },
-    "f93x2e2oh": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 4.8,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 1,
-        "5": 4
-      }
-    },
-    "sun-nxt": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 3.6,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 3,
-        "4": 1,
-        "5": 1
-      }
-    },
-    "ucqwvnxf9": {
-      "total": 5,
-      "published": 5,
-      "avgRating": 3.6,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 3,
-        "4": 1,
-        "5": 1
-      }
-    },
-    "jaiho-arcade": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 3.8,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 3,
-        "4": 4,
-        "5": 1
-      }
-    },
-    "0hj4fm6zm": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 3.8,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 3,
-        "4": 4,
-        "5": 1
-      }
-    },
-    "rumble-rummy": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.1,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 1,
-        "4": 5,
-        "5": 2
-      }
-    },
-    "rer0jsbkw": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.1,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 1,
-        "4": 5,
-        "5": 2
-      }
-    },
-    "spin-winner": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.3,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 1,
-        "4": 4,
-        "5": 3
-      }
-    },
-    "us9ki7awa": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 4.3,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 1,
-        "4": 4,
-        "5": 3
-      }
-    },
-    "max-rummy": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 3.8,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 2,
-        "4": 6,
-        "5": 0
-      }
-    },
-    "quyol591v": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 3.8,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 2,
-        "4": 6,
-        "5": 0
-      }
-    },
-    "slots-winner": {
-      "total": 18,
-      "published": 18,
-      "avgRating": 4.7,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 6,
-        "5": 12
-      }
-    },
-    "iruebyum9": {
-      "total": 18,
-      "published": 18,
-      "avgRating": 4.7,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 6,
-        "5": 12
-      }
-    },
-    "top-rummy": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 3.8,
-      "starCounts": {
-        "1": 0,
-        "2": 1,
-        "3": 1,
-        "4": 5,
-        "5": 1
-      }
-    },
-    "3h6d8psbv": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 3.8,
-      "starCounts": {
-        "1": 0,
-        "2": 1,
-        "3": 1,
-        "4": 5,
-        "5": 1
-      }
-    },
-    "yn-777": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 3.6,
-      "starCounts": {
-        "1": 0,
-        "2": 1,
-        "3": 2,
-        "4": 4,
-        "5": 1
-      }
-    },
-    "kd22lrkf7": {
-      "total": 8,
-      "published": 8,
-      "avgRating": 3.6,
-      "starCounts": {
-        "1": 0,
-        "2": 1,
-        "3": 2,
-        "4": 4,
-        "5": 1
-      }
-    },
-    "slots-spin": {
-      "total": 3,
-      "published": 3,
-      "avgRating": 4.3,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 2,
-        "5": 1
-      }
-    },
-    "8l6bntkan": {
-      "total": 3,
-      "published": 3,
-      "avgRating": 4.3,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 2,
-        "5": 1
-      }
-    },
-    "hindi-777": {
-      "total": 3,
-      "published": 3,
-      "avgRating": 4.3,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 2,
-        "5": 1
-      }
-    },
-    "slwaub6xq": {
-      "total": 3,
-      "published": 3,
-      "avgRating": 4.3,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 2,
-        "5": 1
-      }
-    },
-    "mbm-bet": {
-      "total": 3,
-      "published": 3,
-      "avgRating": 4.3,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 1,
-        "4": 0,
-        "5": 2
-      }
-    },
-    "yvbexd7hf": {
-      "total": 3,
-      "published": 3,
-      "avgRating": 4.3,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 1,
-        "4": 0,
-        "5": 2
-      }
-    },
-    "yono-slots": {
-      "total": 3,
-      "published": 3,
-      "avgRating": 4,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 3,
-        "5": 0
-      }
-    },
-    "u7oaxe0s6": {
-      "total": 3,
-      "published": 3,
-      "avgRating": 4,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 3,
-        "5": 0
-      }
-    },
-    "spin-101": {
-      "total": 9,
-      "published": 9,
-      "avgRating": 4,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 3,
-        "4": 3,
-        "5": 3
-      }
-    },
-    "f0sqh5al8": {
-      "total": 9,
-      "published": 9,
-      "avgRating": 4,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 3,
-        "4": 3,
-        "5": 3
-      }
-    },
-    "jaiho-spin": {
-      "total": 3,
-      "published": 3,
-      "avgRating": 4.3,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 1,
-        "4": 0,
-        "5": 2
-      }
-    },
-    "xolpd8mad": {
-      "total": 3,
-      "published": 3,
-      "avgRating": 4.3,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 1,
-        "4": 0,
-        "5": 2
-      }
-    },
-    "rummy-zip": {
-      "total": 11,
-      "published": 11,
-      "avgRating": 4.1,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 3,
-        "4": 4,
-        "5": 4
-      }
-    },
-    "cj5x1fa62": {
-      "total": 11,
-      "published": 11,
-      "avgRating": 4.1,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 3,
-        "4": 4,
-        "5": 4
-      }
-    },
-    "jeet-spin": {
-      "total": 4,
-      "published": 4,
-      "avgRating": 4,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 4,
-        "5": 0
-      }
-    },
-    "sd02xz1a1": {
-      "total": 4,
-      "published": 4,
-      "avgRating": 4,
-      "starCounts": {
-        "1": 0,
-        "2": 0,
-        "3": 0,
-        "4": 4,
-        "5": 0
       }
     }
   },
-  "updated_at": "2026-09-29T03:31:46.514Z"
+  "updated_at": "2026-09-26T10:47:44.066Z"
 }
