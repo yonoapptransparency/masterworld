@@ -176,13 +176,6 @@ export function useTurnstileVerification(options?: UseTurnstileOptions) {
       }
     }, 75);
 
-    // 4. Safe adblocker/network timeout: if Cloudflare script is blocked, allow Track B kinetic attestation
-    const fallbackTimer = setTimeout(() => {
-      if (!isReady && !cfTokenRef.current && !widgetIdRef.current) {
-        setIsReady(true);
-      }
-    }, 3200);
-
     // 3. Script injector with explicit onload hook (only if not already loaded)
     const existingScript = document.getElementById('cf-turnstile-script') || 
                            document.querySelector('script[data-turnstile]') || 
@@ -211,7 +204,6 @@ export function useTurnstileVerification(options?: UseTurnstileOptions) {
 
     return () => {
       clearInterval(interval);
-      clearTimeout(fallbackTimer);
       if (widgetIdRef.current && window.turnstile) {
         try {
           window.turnstile.remove(widgetIdRef.current);

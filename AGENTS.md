@@ -108,7 +108,9 @@ When creating new components or pages, maintain repo isolation:
 │   │   │   ├── ReviewItem.tsx            # Individual review card with voting & reporting
 │   │   │   ├── ReviewForm.tsx            # User star rating & review submission form
 │   │   │   ├── YouTubePlayer.tsx         # Embedded YouTube video player component
-│   │   │   └── NewAdditions.tsx          # Newly added apps ticker component
+│   │   │   ├── NewAdditions.tsx          # Newly added apps ticker component
+│   │   │   ├── PublicChatbot.tsx         # Interactive AI assistant widget
+│   │   │   └── StarRatingFeedback.tsx    # Site rating floating widget
 │   │   │
 │   │   ├── playstore/                    # Google Play Store Design System Components
 │   │   │   ├── AppListItems.tsx          # Responsive app list cards with Cloudinary auto-optimization

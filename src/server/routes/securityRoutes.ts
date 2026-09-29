@@ -356,15 +356,15 @@ securityRouter.all([
 
     // Track B: High-Entropy Kinetic & Hardware Attestation (For mobile networks, private DNS, and adblockers)
     if (!isVerifiedHuman) {
-      const hasTrustedEvent = decoded.tr !== 0;
-      const hasNoWebdriver = decoded.wb !== 1;
-      const hasNoHeadless = decoded.hl !== 1;
-      const hasNoBurst = decoded.cb !== 1;
-      const hasValidCoordinates = (Number(decoded.cx) > 0 || Number(decoded.cy) > 0) || (decoded.samples !== undefined && Number(decoded.samples) >= 0);
-      // Kinetic hold requires physical dwell (>= 350ms or valid dwell)
-      const hasValidDwell = decoded.el === undefined || (typeof decoded.el === 'number' && decoded.el >= 350);
+      const hasTrustedEvent = decoded.tr === 1;
+      const hasNoWebdriver = decoded.wb === 0;
+      const hasNoHeadless = decoded.hl === 0;
+      const hasNoBurst = decoded.cb === 0;
+      const hasValidCoordinates = (Number(decoded.cx) > 0 || Number(decoded.cy) > 0);
+      // Kinetic hold requires minimum 450ms physical dwell
+      const hasValidDwell = decoded.el !== undefined && typeof decoded.el === 'number' && decoded.el >= 450;
 
-      if (hasTrustedEvent && hasNoWebdriver && hasNoHeadless && hasNoBurst && (hasValidCoordinates || hasValidDwell)) {
+      if (hasTrustedEvent && hasNoWebdriver && hasNoHeadless && hasNoBurst && hasValidCoordinates && hasValidDwell) {
         isVerifiedHuman = true;
       }
     }
@@ -400,8 +400,8 @@ securityRouter.all([
       return res.status(404).json({ success: false, error: 'Not found' });
     }
 
-    // 5. Machine speed / sub-human dwell check (< 300ms)
-    if (decoded.el !== undefined && typeof decoded.el === 'number' && decoded.el < 300) {
+    // 5. Machine speed / sub-human dwell check (< 450ms)
+    if (decoded.el !== undefined && typeof decoded.el === 'number' && decoded.el < 450) {
       quarantineIp(ip, 30 * 60 * 1000);
       return res.status(404).json({ success: false, error: 'Not found' });
     }

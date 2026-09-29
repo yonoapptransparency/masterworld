@@ -290,7 +290,6 @@ export function useClearanceDispatch({
         samples: samples.length,
         wb: isBotDetectedRef.current ? 1 : 0,
         hl: isHeadlessDetectedRef.current ? 1 : 0,
-        cb: 0,
         tr: 1 // Human physical hold
       }));
 
