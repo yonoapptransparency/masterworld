@@ -151,6 +151,58 @@ publicApiRouter.get(["/api/v1/public/app/:slug", "/api/public/app/:slug"], async
   }
 });
 
+// Dedicated single-news detail endpoint (Returns rich breakdown for requested news article)
+publicApiRouter.get(["/api/v1/public/news/:slug", "/api/public/news/:slug"], async (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.set("Cache-Control", "public, max-age=60, stale-while-revalidate=120");
+
+  const rawSlug = req.params.slug;
+  if (!rawSlug) {
+    return res.status(400).json({ status: "ERR", msg: "Missing news identifier" });
+  }
+
+  const cleanSlug = decodeURIComponent(rawSlug).toLowerCase().trim().replace(/\/+$/, '');
+
+  try {
+    // 1. Fallback to public_backup.json if available
+    const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
+    if (fs.existsSync(publicBackupPath)) {
+      try {
+        const backup = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
+        if (backup && Array.isArray(backup.news) && backup.news.length > 0) {
+          const item = backup.news.find((n: any) => 
+            (n.slug && n.slug.toLowerCase().trim() === cleanSlug) || 
+            (n.id && String(n.id).toLowerCase().trim() === cleanSlug)
+          );
+          if (item && item.sync_to_public !== false) {
+            return res.json({ status: "OK", news: item });
+          }
+        }
+      } catch (e) {}
+    }
+
+    // 2. Fallback to static data
+    const dataObj = getStaticData();
+    const newsList = dataObj.news || dataObj.mockNews || [];
+    const item = newsList.find((n: any) => 
+      (n.slug && n.slug.toLowerCase().trim() === cleanSlug) || 
+      (n.id && String(n.id).toLowerCase().trim() === cleanSlug)
+    );
+
+    if (!item) {
+      return res.status(404).json({ status: "ERR", msg: "News article not found" });
+    }
+
+    return res.json({
+      status: "OK",
+      news: item
+    });
+  } catch (err: any) {
+    console.error("[SingleNewsApi] Error fetching news article for slug:", rawSlug, err);
+    return res.status(500).json({ status: "ERR", msg: "Internal server error" });
+  }
+});
+
 publicApiRouter.get(["/api/v1/public/reviews", "/api/public/reviews"], async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=120");

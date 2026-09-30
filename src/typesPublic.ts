@@ -89,6 +89,7 @@ export interface NewsItem {
   ceo_description: string;
   seo_title: string;
   seo_description: string;
+  meta_description?: string;
   seo_keywords?: string;
   category?: string;
   og_image_url?: string;

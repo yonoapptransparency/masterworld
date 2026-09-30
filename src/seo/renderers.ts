@@ -423,20 +423,20 @@ export function renderAppDetails(slug: string, apps: any[], settings: any, sampl
     ? app.faqs.filter((f: any) => f && f.question && f.answer)
     : [
         {
-          question: `How do I download and install ${escapeHtml(appName)} on my Android device?`,
-          answer: `To install ${escapeHtml(appName)}, tap the Download button on this page to obtain the verified installation package directly. Once downloaded, tap the notification or file in your device Downloads folder and follow the standard prompts to complete setup.`
+          question: `How do I download and install ${escapeHtml(name)} on my Android device?`,
+          answer: `To install ${escapeHtml(name)}, tap the Download button on this page to obtain the verified installation package directly. Once downloaded, tap the notification or file in your device Downloads folder and follow the standard prompts to complete setup.`
         },
         {
-          question: `Is ${escapeHtml(appName)} safe to use?`,
-          answer: `Yes. ${escapeHtml(appName)} listed on RummyDex has been verified to ensure smooth performance, thermal stability, and authentic card gaming mechanics.`
+          question: `Is ${escapeHtml(name)} safe to use?`,
+          answer: `Yes. ${escapeHtml(name)} listed on RummyDex has been verified to ensure smooth performance, thermal stability, and authentic card gaming mechanics.`
         },
         {
-          question: `What are the storage requirements for ${escapeHtml(appName)}?`,
-          answer: `${escapeHtml(appName)} has an installation footprint of approximately ${escapeHtml(fileSize)} and is optimized for Android devices with minimal battery drain.`
+          question: `What are the storage requirements for ${escapeHtml(name)}?`,
+          answer: `${escapeHtml(name)} has an installation footprint of approximately ${escapeHtml(size)} and is optimized for Android devices with minimal battery drain.`
         },
         {
-          question: `Can I play card games with friends and family in ${escapeHtml(appName)}?`,
-          answer: `Yes, ${escapeHtml(appName)} provides multiplayer tables and responsive matchmaking across mobile networks for card gaming anytime.`
+          question: `Can I play card games with friends and family in ${escapeHtml(name)}?`,
+          answer: `Yes, ${escapeHtml(name)} provides multiplayer tables and responsive matchmaking across mobile networks for card gaming anytime.`
         }
       ];
 
@@ -702,30 +702,147 @@ export function renderNewsList(news: any[], settings: any) {
   return `<div class="py-6 text-center container max-w-3xl mx-auto"><h1 class="text-3xl font-extrabold mb-8 text-zinc-900 dark:text-white">Gaming News & Updates</h1><div class="flex flex-col gap-4">${cards || '<p class="text-zinc-400 py-10">No publications.</p>'}</div></div>`;
 }
 
-export function renderNewsDetail(slug: string, news: any[], settings: any) {
-  const cleanSlug = decodeURIComponent(slug).toLowerCase();
-  const item = news.find(n => getField(n, 'slug').toLowerCase() === cleanSlug);
-  if (!item) return `<div class="py-12 text-center"><h1 class="text-2xl font-bold">Failed to load article.</h1><a href="/news" class="text-blue-500 hover:underline">Go Back</a></div>`;
+export function renderNewsDetail(slug: string, news: any[], settings: any, apps: any[] = []) {
+  const cleanSlug = decodeURIComponent(slug).toLowerCase().trim().replace(/\/+$/, '');
+  const item = news.find(n => (getField(n, 'slug') || '').toLowerCase().trim() === cleanSlug || (getField(n, 'id') || '').toLowerCase().trim() === cleanSlug);
+  if (!item) return `<div class="py-12 text-center"><h1 class="text-2xl font-bold mb-4 text-zinc-900 dark:text-zinc-100">News Article Not Found</h1><p class="text-sm text-zinc-500 mb-6">The requested news publication could not be located.</p><a href="/news" class="px-5 py-2.5 bg-blue-600 text-white rounded-xl font-semibold text-sm hover:underline">View All News</a></div>`;
   
   const title = getField(item, 'title');
-  const dateStr = getField(item, 'created_at') || 'May 2026';
-  const author = getField(item, 'ceo_name', 'System Author');
-  const cat = getField(item, 'category', 'Report');
-  const content = getField(item, 'content') || getField(item, 'description', '');
-  const sanitizedContent = sanitizeHtml(content);
-  const logo = getField(item, 'logo_url');
-  const optimizedLogo = logo ? optimizeImageUrl(logo, 800) : '';
+  const dateStr = getField(item, 'published_at') || getField(item, 'created_at') || getField(item, 'date') || 'Recent';
+  let formattedDate = 'Recent';
+  try {
+    const parsed = new Date(dateStr);
+    if (!isNaN(parsed.getTime())) {
+      formattedDate = parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+  } catch (_) {}
+
+  const author = getField(item, 'author') || getField(item, 'ceo_name', 'Editorial Team');
+  const authorRole = getField(item, 'ceo_description', 'Platform & Security Analyst');
+  const cat = getField(item, 'category', 'Official Report');
+  const description = getField(item, 'description', '');
+  const siteTitle = getField(settings, 'site_title') || 'RummyDex';
+
+  // Find related app if linked
+  let relatedApp: any = null;
+  const relId = getField(item, 'related_app_id');
+  if (relId && Array.isArray(apps)) {
+    relatedApp = apps.find(a => (getField(a, 'id') || '').toLowerCase() === relId.toLowerCase() || (getField(a, 'slug') || '').toLowerCase() === relId.toLowerCase());
+  }
+  if (!relatedApp && getField(item, 'link') && Array.isArray(apps)) {
+    const linkSlug = getField(item, 'link').replace(/^.*\/app\//, '').replace(/\/$/, '').split(/[?#]/)[0].toLowerCase();
+    if (linkSlug) {
+      relatedApp = apps.find(a => (getField(a, 'slug') || '').toLowerCase() === linkSlug || (getField(a, 'id') || '').toLowerCase() === linkSlug);
+    }
+  }
+  if (!relatedApp && Array.isArray(apps)) {
+    const tLower = title.toLowerCase();
+    for (const a of apps) {
+      const aName = (getField(a, 'name') || '').toLowerCase().trim();
+      if (aName && aName.length >= 3 && tLower.includes(aName)) {
+        relatedApp = a;
+        break;
+      }
+    }
+  }
+
+  // Determine body content
+  let rawContent = getField(item, 'content') || getField(item, 'description_html');
+  if ((!rawContent || rawContent.trim().length < 20) && relatedApp) {
+    rawContent = getField(relatedApp, 'description_html') || getField(relatedApp, 'features_html') || description;
+  }
+  if (!rawContent || rawContent.trim().length === 0) {
+    rawContent = `<p>${escapeHtml(description)}</p>`;
+  }
+
+  const sanitizedContent = sanitizeHtml(rawContent);
+  const logo = getField(item, 'logo_url') || getField(item, 'image_url');
+  const optimizedLogo = logo ? optimizeImageUrl(logo, 1200) : '';
+
+  // Download / Action link if related app or external link
+  let downloadUrl = '';
+  let downloadText = 'Download & Info';
+  if (relatedApp) {
+    downloadUrl = `/app/${encodeURIComponent(getField(relatedApp, 'slug') || getField(relatedApp, 'id'))}`;
+  } else if (getField(item, 'link')) {
+    downloadUrl = getField(item, 'link');
+  }
+
+  const downloadBtnHtml = downloadUrl ? `
+    <div class="my-6 flex justify-start">
+      <a href="${escapeHtml(downloadUrl)}" class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md transition-all text-center">
+        <span>↓</span>
+        <span>${escapeHtml(downloadText)}</span>
+      </a>
+    </div>
+  ` : '';
 
   return `
-    <article class="max-w-3xl mx-auto py-12 px-4 text-left">
-      <header class="mb-6">
-        <span class="text-xs text-blue-500 uppercase font-bold mr-2">${escapeHtml(cat)}</span>
-        <span class="text-xs text-zinc-400 uppercase font-bold">${dateStr} | By ${escapeHtml(author)}</span>
-        <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight mt-2 leading-tight">${escapeHtml(title)}</h1>
-      </header>
-      ${logo ? `<div class="mb-8 flex justify-center items-center rounded-2xl overflow-hidden border border-black/5 bg-zinc-50 dark:bg-zinc-900/50 p-2 sm:p-0"><img src="${escapeHtml(optimizedLogo)}" loading="eager" decoding="async" class="max-w-full h-auto max-h-[600px] object-contain block rounded-xl sm:rounded-none" alt="${escapeHtml(title)} main cover article image"/></div>` : ''}
-      <section class="prose dark:prose-invert text-zinc-700 leading-relaxed font-semibold">${sanitizedContent.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>')}</section>
-    </article>
+    <div class="max-w-4xl mx-auto py-4 sm:py-6 px-2 sm:px-4 text-left">
+      <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 mb-4">
+        <a href="/" class="hover:text-blue-600">Home</a>
+        <span>/</span>
+        <a href="/news" class="hover:text-blue-600">News</a>
+        <span>/</span>
+        <span class="font-bold text-zinc-800 dark:text-zinc-200 truncate max-w-[200px] sm:max-w-md">${escapeHtml(title)}</span>
+      </nav>
+
+      <article class="animate-fade-in">
+        <header class="mb-4">
+          <div class="flex flex-wrap items-center gap-2 mb-2.5 text-xs">
+            <span class="bg-blue-50 dark:bg-blue-950/70 text-blue-600 dark:text-blue-400 font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider text-[11px] border border-blue-200/50 dark:border-blue-800/50">
+              ${escapeHtml(cat)}
+            </span>
+            <span class="text-zinc-500 dark:text-zinc-400 font-medium">
+              ${escapeHtml(formattedDate)}
+            </span>
+            <span class="text-zinc-300 dark:text-zinc-700">•</span>
+            <span class="text-zinc-500 dark:text-zinc-400 font-medium">
+              By <strong class="text-zinc-700 dark:text-zinc-300">${escapeHtml(author)}</strong>
+            </span>
+          </div>
+          <h1 class="text-2xl sm:text-3xl md:text-4xl font-extrabold text-zinc-900 dark:text-white tracking-tight leading-tight mb-3">
+            ${escapeHtml(title)}
+          </h1>
+        </header>
+
+        ${logo ? `
+          <div class="w-full overflow-hidden mb-5 rounded-2xl border border-black/5 dark:border-white/10 bg-zinc-100 dark:bg-zinc-900/50 shadow-sm">
+            <img src="${escapeHtml(optimizedLogo)}" loading="eager" fetchpriority="high" decoding="async" class="w-full h-auto block max-h-[500px] object-cover" alt="${escapeHtml(title)} main cover article image"/>
+          </div>
+        ` : ''}
+
+        ${downloadBtnHtml}
+
+        ${description ? `
+          <div class="mb-6 p-4 rounded-xl bg-blue-50/60 dark:bg-blue-950/20 border-l-4 border-blue-600 text-sm sm:text-base font-medium text-zinc-800 dark:text-zinc-200 leading-relaxed">
+            ${escapeHtml(description)}
+          </div>
+        ` : ''}
+
+        <div class="prose dark:prose-invert text-zinc-700 dark:text-zinc-300 leading-relaxed font-normal text-base max-w-none mb-10">
+          ${sanitizedContent}
+        </div>
+
+        ${downloadBtnHtml}
+
+        <div class="my-8 p-5 rounded-2xl bg-zinc-50 dark:bg-zinc-900/60 border border-black/5 dark:border-white/10 flex items-start gap-4 text-left">
+          <div class="w-12 h-12 rounded-xl bg-blue-600/10 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-lg shrink-0">
+            ${escapeHtml(author.charAt(0).toUpperCase())}
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between">
+              <h4 class="font-bold text-sm text-zinc-900 dark:text-zinc-100">${escapeHtml(author)}</h4>
+              <span class="text-[11px] text-zinc-400">${escapeHtml(formattedDate)}</span>
+            </div>
+            <p class="text-xs text-blue-600 dark:text-blue-400 font-medium mb-1.5">${escapeHtml(authorRole)}</p>
+            <p class="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+              This publication represents verified reporting and independent testing by the ${escapeHtml(siteTitle)} editorial team.
+            </p>
+          </div>
+        </div>
+      </article>
+    </div>
   `;
 }
 

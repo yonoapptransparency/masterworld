@@ -234,11 +234,12 @@ const Meta: React.FC<MetaProps> = ({
       });
     }
 
-    // Always clear previous schemas so stale schemas never persist across SPA route changes
-    const allSchemaScripts = document.head.querySelectorAll('script[type="application/ld+json"]');
-    allSchemaScripts.forEach((s) => s.remove());
-
+    // Only update schema scripts when new schemas are explicitly provided
     if (schemasToInject.length > 0) {
+      // Clear previous schemas so stale schemas never persist across SPA route changes
+      const allSchemaScripts = document.head.querySelectorAll('script[type="application/ld+json"]');
+      allSchemaScripts.forEach((s) => s.remove());
+
       schemasToInject.forEach((s) => {
         const script = document.createElement('script');
         script.type = 'application/ld+json';

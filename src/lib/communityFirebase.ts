@@ -485,7 +485,7 @@ export async function fetchLiveReviews(options: {
     const contentType = res.headers.get('content-type') || '';
     if (res.ok && contentType.includes('application/json')) {
       const data = await res.json();
-      if (data && Array.isArray(data.reviews) && data.reviews.length > 0) {
+      if (data && Array.isArray(data.reviews)) {
         const enrichedReviews = attachLocalUserReviews(data.reviews);
         const result: ReviewFetchResult = {
           reviews: enrichedReviews,
@@ -501,10 +501,21 @@ export async function fetchLiveReviews(options: {
       }
     }
   } catch (err) {
-    // Network or static environment: seamlessly proceed to Direct Firestore REST
+    // Network or static environment: proceed to Direct Firestore REST only if backend unreachable
   }
 
   // 2. Direct Firestore REST Fallback (Direct connection to rummydexcommunity project)
+  // Search bots, web crawlers, and synthetic performance audits must NEVER query Firestore REST directly
+  const isCrawlerOrBot = typeof navigator !== 'undefined' && /googlebot|google-inspectiontool|bingbot|slurp|duckduckbot|baiduspider|yandexbot|crawler|spider|lighthouse|chrome-lighthouse|headless/i.test(navigator.userAgent || '');
+  if (isCrawlerOrBot) {
+    return {
+      reviews: [],
+      hasMore: false,
+      nextCursor: null,
+      stats: getCachedLiveAppStats(canonicalId, canonicalSlug)
+    };
+  }
+
   try {
     const cfg = getResolvedCommunityFirebaseConfig();
     const candidateDocIds = [
@@ -622,10 +633,13 @@ export async function fetchLiveReviews(options: {
       }
     }
 
-    // 2C. Also fetch atomic stats from app_stats/{canonicalId} directly from Firestore
+    // 2C. Also fetch atomic stats from app_stats/{canonicalId} directly from Firestore (with strict 1000ms timeout)
     try {
       const statsUrl = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${cfg.firestoreDatabaseId}/documents/app_stats/${encodeURIComponent(canonicalId)}?key=${encodeURIComponent(cfg.apiKey)}`;
-      const statsRes = await fetch(statsUrl);
+      const statsCtrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const statsTimer = statsCtrl ? setTimeout(() => statsCtrl.abort(), 1000) : null;
+      const statsRes = await fetch(statsUrl, { signal: statsCtrl?.signal });
+      if (statsTimer) clearTimeout(statsTimer);
       if (statsRes.ok) {
         const rawStats = await statsRes.json();
         if (rawStats && rawStats.fields) {

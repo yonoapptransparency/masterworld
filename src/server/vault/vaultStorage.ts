@@ -44,7 +44,7 @@ export async function adminDbSetWithTimeout(docRef: any, data: any, options?: an
 export async function readFirestoreRestDoc(docName: string, authToken?: string): Promise<any> {
   const config = getRawFirebaseConfig();
   if (!config || !config.projectId) return null;
-  const dbId = (config.firestoreDatabaseId && config.firestoreDatabaseId.trim() !== '') ? config.firestoreDatabaseId : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+  const dbId = (config.firestoreDatabaseId && config.firestoreDatabaseId.trim() !== '') ? config.firestoreDatabaseId : '(default)';
   const apiKey = config.apiKey || '';
   const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${dbId}/documents/store_data/${docName}${apiKey ? `?key=${apiKey}` : ''}`;
   
@@ -96,7 +96,7 @@ export async function readFirestoreRestDoc(docName: string, authToken?: string):
 export async function writeFirestoreRestDoc(docName: string, data: any, authToken?: string, merge = false): Promise<boolean> {
   const config = getRawFirebaseConfig();
   if (!config || !config.projectId) return false;
-  const dbId = (config.firestoreDatabaseId && config.firestoreDatabaseId.trim() !== '') ? config.firestoreDatabaseId : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+  const dbId = (config.firestoreDatabaseId && config.firestoreDatabaseId.trim() !== '') ? config.firestoreDatabaseId : '(default)';
   const apiKey = config.apiKey || '';
 
   const encodeValue = (val: any): any => {

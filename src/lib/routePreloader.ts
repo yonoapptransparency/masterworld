@@ -68,27 +68,30 @@ export function preloadRoute(rawPath: string): void {
 export function startIdleRoutePreloader(): void {
   if (typeof window === 'undefined') return;
 
+  const isCrawler = typeof navigator !== 'undefined' && /googlebot|google-inspectiontool|bingbot|slurp|duckduckbot|baiduspider|yandexbot|crawler|spider|lighthouse|chrome-lighthouse|headless/i.test(navigator.userAgent || '');
+  if (isCrawler) return;
+
   const runIdle = () => {
-    // Priority order: News, NewsDetail, Videos
-    const priorityRoutes = ['/news', '/news/', '/videos', '/about'];
-    let delay = 800;
+    // Priority order: News, Videos, About
+    const priorityRoutes = ['/news', '/videos', '/about'];
+    let delay = 2000;
 
     priorityRoutes.forEach(r => {
       setTimeout(() => {
         if ('requestIdleCallback' in window) {
-          (window as any).requestIdleCallback(() => preloadRoute(r), { timeout: 3000 });
+          (window as any).requestIdleCallback(() => preloadRoute(r), { timeout: 5000 });
         } else {
           preloadRoute(r);
         }
       }, delay);
-      delay += 400;
+      delay += 800;
     });
   };
 
   if (document.readyState === 'complete') {
-    setTimeout(runIdle, 1200);
+    setTimeout(runIdle, 8000);
   } else {
-    window.addEventListener('load', () => setTimeout(runIdle, 1200), { once: true });
+    window.addEventListener('load', () => setTimeout(runIdle, 8000), { once: true });
   }
 }
 

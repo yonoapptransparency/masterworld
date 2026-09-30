@@ -39,86 +39,11 @@ function getLocalFallbackReviewsForApp(appId: string, appSlug: string) {
 }
 
 async function fetchSEOReviewsForApp(appId: string, appSlug: string, rating: number, appName: string) {
-  // 1. Try local server endpoint if active
-  try {
-    const base = `http://127.0.0.1:${process.env.PORT || 3000}`;
-    const url = `${base}/api/v1/public/community/reviews/${encodeURIComponent(appId)}?limit=5&rating=${rating}&slug=${encodeURIComponent(appSlug)}&appTitle=${encodeURIComponent(appName)}`;
-    const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    const timer = ctrl ? setTimeout(() => ctrl.abort(), 2000) : null;
-    const res = await fetch(url, { signal: ctrl?.signal });
-    if (timer) clearTimeout(timer);
-    if (res.ok) {
-      const data = await res.json();
-      if (data && Array.isArray(data.reviews) && data.reviews.length > 0) {
-        return { reviews: data.reviews, stats: data.stats || null };
-      }
-    }
-  } catch (e) {
-    // Offline during build-time pre-render
-  }
-
-  // 2. High-availability local filesystem cache
+  // 1. High-availability local filesystem cache (instant 0ms, zero network lag, zero Firestore quota)
   const localData = getLocalFallbackReviewsForApp(appId, appSlug);
   if (localData) {
     return localData;
   }
-
-  // 3. Fallback direct Firestore REST query to rummydexcommunity
-  try {
-    const cfg = getSafeCommunityFirebaseConfig();
-    const queryUrl = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents:runQuery?key=${encodeURIComponent(cfg.apiKey)}`;
-    const filters: any[] = [];
-    if (appId) {
-      filters.push({ fieldFilter: { field: { fieldPath: "appId" }, op: "EQUAL", value: { stringValue: appId } } });
-    }
-    if (appSlug && appSlug !== appId) {
-      filters.push({ fieldFilter: { field: { fieldPath: "appSlug" }, op: "EQUAL", value: { stringValue: appSlug } } });
-    }
-    if (filters.length > 0) {
-      const queryBody = {
-        structuredQuery: {
-          from: [{ collectionId: "reviews" }],
-          where: filters.length === 1 ? filters[0] : { compositeFilter: { op: "OR", filters } },
-          limit: 5
-        }
-      };
-      const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-      const timer = ctrl ? setTimeout(() => ctrl.abort(), 3000) : null;
-      const res = await fetch(queryUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(queryBody),
-        signal: ctrl?.signal
-      });
-      if (timer) clearTimeout(timer);
-      if (res.ok) {
-        const docs = await res.json();
-        if (Array.isArray(docs)) {
-          const loaded: any[] = [];
-          docs.forEach((item: any) => {
-            if (item?.document?.fields) {
-              const f = item.document.fields;
-              const rRating = f.rating ? (f.rating.integerValue || f.rating.doubleValue || 5) : 5;
-              const rText = f.reviewText ? (f.reviewText.stringValue || '') : (f.comment ? f.comment.stringValue : '');
-              const rUser = f.userName ? (f.userName.stringValue || '') : (f.username ? f.username.stringValue : 'Player');
-              const rTime = f.timestamp ? (f.timestamp.stringValue || '') : (f.created_at ? f.created_at.stringValue : new Date().toISOString());
-              if (rText) {
-                loaded.push({
-                  userName: rUser,
-                  rating: Number(rRating) || 5,
-                  reviewText: rText,
-                  timestamp: rTime
-                });
-              }
-            }
-          });
-          if (loaded.length > 0) {
-            return { reviews: loaded, stats: null };
-          }
-        }
-      }
-    }
-  } catch (cloudErr) {}
 
   return { reviews: [], stats: null };
 }
@@ -314,9 +239,14 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
   } else if (cleanPathLower === '/news') {
     bodyContent = renderers.renderNewsList(news, settings);
   } else if (cleanPathLower.startsWith('/news/')) {
-    const slug = cleanPath.split('/news/')[1];
-    const item = news.find((n: any) => getField(n, 'slug').toLowerCase() === slug.toLowerCase());
-    bodyContent = item ? renderers.renderNewsDetail(slug, news, settings) : renderers.render404(urlPath, settings);
+    const rawNewsSlug = cleanPath.split('/news/')[1] || '';
+    const cleanNewsSlug = decodeURIComponent(rawNewsSlug).toLowerCase().trim().replace(/\/+$/, '').split(/[?#]/)[0];
+    const item = news.find((n: any) => {
+      const nSlug = (getField(n, 'slug') || '').toLowerCase().trim();
+      const nId = (getField(n, 'id') || '').toLowerCase().trim();
+      return (nSlug && nSlug === cleanNewsSlug) || (nId && nId === cleanNewsSlug);
+    });
+    bodyContent = item ? renderers.renderNewsDetail(cleanNewsSlug, news, settings, apps) : renderers.render404(urlPath, settings);
   } else if (cleanPathLower === '/videos') {
     bodyContent = renderers.renderVideosList(videos, settings);
   } else if (cleanPathLower.startsWith('/videos/')) {
@@ -374,7 +304,7 @@ async function getPagePreRender(urlPath: string, data: any): Promise<string> {
       const appLiveStats = seoFeed?.stats || null;
       bodyContent = renderers.renderAppDetails(getField(app, 'slug') || possibleSlug, apps, settings, appSampleReviews, appLiveStats);
     } else if (newsItem) {
-      bodyContent = renderers.renderNewsDetail(possibleSlug, news, settings);
+      bodyContent = renderers.renderNewsDetail(possibleSlug, news, settings, apps);
     } else if (videoItem) {
       bodyContent = renderers.renderVideoDetail(possibleSlug, videos, settings);
     } else {
@@ -624,28 +554,39 @@ async function buildJsonLdSchema(params: {
   } else if (params.pageType === 'news' && params.newsItem) {
     const item = params.newsItem;
     const title = getField(item, 'title');
-    const desc = getField(item, 'description') || params.description;
-    const datePublished = getField(item, 'created_at') || getField(item, 'date') || new Date().toISOString();
+    const desc = cleanSeoDescription(
+      getField(item, 'seo_description') || 
+      getField(item, 'meta_description') || 
+      getField(item, 'description') || 
+      params.description
+    );
+    const datePublished = getField(item, 'published_at') || getField(item, 'created_at') || getField(item, 'date') || new Date().toISOString();
     const dateModified = getField(item, 'updated_at') || datePublished;
     const authorName = getField(item, 'author') || getField(item, 'ceo_name') || params.siteTitle;
 
     const rawNewsImg = getField(item, 'og_image_url') || getField(item, 'image_url') || getField(item, 'logo_url') || params.logoUrl;
     const newsImg = optimizeImageUrl(rawNewsImg, 1200) || rawNewsImg;
 
+    const newsSlugStr = getField(item, 'slug') || getField(item, 'id');
+    const canonicalPageUrl = params.url || `${hostOrigin}/news/${newsSlugStr}`;
+    const rawArticleBody = stripHtml(getField(item, 'content') || getField(item, 'description_html') || desc);
+
     schemas.push({
       "@context": "https://schema.org",
       "@type": "NewsArticle",
       "mainEntityOfPage": {
         "@type": "WebPage",
-        "@id": `${hostOrigin}/news/${getField(item, 'slug')}`
+        "@id": canonicalPageUrl
       },
       "headline": title,
       "description": desc,
+      "articleBody": rawArticleBody,
       "image": [newsImg],
       "datePublished": datePublished,
       "dateModified": dateModified,
       "articleSection": getField(item, 'category') || 'General',
       "inLanguage": "en",
+      "isAccessibleForFree": true,
       "author": {
         "@type": "Person",
         "name": authorName
@@ -681,7 +622,7 @@ async function buildJsonLdSchema(params: {
           "@type": "ListItem",
           "position": 3,
           "name": title,
-          "item": `${hostOrigin}/news/${getField(item, 'slug')}`
+          "item": canonicalPageUrl
         }
       ]
     });
@@ -953,17 +894,43 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     description = getField(settings, 'videos_meta_description') || `Watch deep-dive reviews and gameplay analysis.`;
     pageType = 'static';
   } else if (cleanPathLower.startsWith('/news/')) {
-    const slug = cleanPath.split('/news/')[1];
-    const newsItem = news.find((n: any) => getField(n, 'slug').toLowerCase() === slug);
+    const rawNewsSlug = cleanPath.split('/news/')[1] || '';
+    const cleanNewsSlug = decodeURIComponent(rawNewsSlug).toLowerCase().trim().replace(/\/+$/, '').split(/[?#]/)[0];
+
+    const newsItem = news.find((n: any) => {
+      const nSlug = (getField(n, 'slug') || '').toLowerCase().trim();
+      const nId = (getField(n, 'id') || '').toLowerCase().trim();
+      return (nSlug && nSlug === cleanNewsSlug) || (nId && nId === cleanNewsSlug);
+    });
+
     if (newsItem) {
       title = getField(newsItem, 'seo_title') || `${getField(newsItem, 'title')} | ${siteTitle}`;
-      description = getField(newsItem, 'seo_description') || getField(newsItem, 'meta_description') || getField(newsItem, 'description', '').substring(0, 160);
+      description = cleanSeoDescription(
+        getField(newsItem, 'seo_description') || 
+        getField(newsItem, 'meta_description') || 
+        getField(newsItem, 'description') || 
+        stripHtml(getField(newsItem, 'content') || getField(newsItem, 'description_html')).substring(0, 160)
+      );
       customCanonicalUrl = getField(newsItem, 'canonical_url');
       pageType = 'news';
       targetNews = newsItem;
     } else {
-      isNotFound = true;
-      pageType = '404';
+      // Check if this slug matches an app in the catalog
+      const matchedApp = apps.find((a: any) => {
+        const aSlug = (getField(a, 'slug') || '').toLowerCase().trim();
+        const aId = (getField(a, 'id') || '').toLowerCase().trim();
+        return (aSlug && aSlug === cleanNewsSlug) || (aId && aId === cleanNewsSlug);
+      });
+      if (matchedApp) {
+        targetApp = matchedApp;
+        pageType = 'app';
+        title = getField(matchedApp, 'seo_title') || `${getField(matchedApp, 'name')} - Download & Reviews | ${siteTitle}`;
+        description = cleanSeoDescription(getField(matchedApp, 'seo_description') || getField(matchedApp, 'meta_description') || stripHtml(getField(matchedApp, 'description_html')).substring(0, 160));
+        customCanonicalUrl = `https://www.rummydex.com/app/${getField(matchedApp, 'slug') || getField(matchedApp, 'id')}`;
+      } else {
+        isNotFound = true;
+        pageType = '404';
+      }
     }
   } else if (cleanPathLower.startsWith('/videos/')) {
     const slug = cleanPath.split('/videos/')[1];
@@ -1230,7 +1197,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     const targetAppSlug = targetApp ? getField(targetApp, 'slug')?.toLowerCase() : null;
     const targetAppId = targetApp ? String(getField(targetApp, 'id') || '').trim() : '';
     const targetAppName = targetApp ? String(getField(targetApp, 'name') || '').toLowerCase().trim() : '';
-    const targetNewsSlug = targetNews ? (getField(targetNews, 'slug') || getField(targetNews, 'id'))?.toLowerCase() : null;
+    const targetNewsSlug = targetNews ? (getField(targetNews, 'slug') || getField(targetNews, 'id'))?.toLowerCase().trim() : null;
 
     const optimizedApps = Array.isArray(data.apps) ? data.apps.map((app: any) => {
       const sanitizedApp = { ...app };
@@ -1300,8 +1267,13 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
         return true;
       })
       .map((item: any) => {
-        const itemSlug = (item.slug || item.id || '').toLowerCase();
-        const isTargetNewsArticle = isNewsDetailPage && targetNewsSlug && itemSlug === targetNewsSlug;
+        const itemSlug = (item.slug || item.id || '').toLowerCase().trim();
+        const itemId = String(item.id || '').toLowerCase().trim();
+        const isTargetNewsArticle = isNewsDetailPage && targetNewsSlug && (
+          itemSlug === targetNewsSlug ||
+          itemId === targetNewsSlug ||
+          (item.slug && item.slug.toLowerCase().trim() === targetNewsSlug)
+        );
 
         return {
           id: item.id,
@@ -1310,9 +1282,9 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
           logo_url: item.logo_url || item.image_url || '',
           image_url: item.image_url || item.logo_url || '',
           description: item.description || '',
-          // Only include heavy HTML content for the active news article being viewed
-          content: isTargetNewsArticle ? (item.content || item.description_html || '') : '',
-          description_html: isTargetNewsArticle ? (item.description_html || item.content || '') : '',
+          // Always retain full content and description_html for all news articles (24KB total across all 6 news)
+          content: item.content || item.description_html || item.description || '',
+          description_html: item.description_html || item.content || item.description || '',
           ceo_name: item.ceo_name || item.author || 'Admin Team',
           ceo_description: item.ceo_description || 'Transparency & Security Analyst',
           author: item.author || item.ceo_name || 'Admin Team',
