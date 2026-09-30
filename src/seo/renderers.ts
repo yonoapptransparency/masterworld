@@ -30,9 +30,13 @@ function sanitizeHtml(html: string): string {
   clean = clean.replace(/<(iframe|object|embed|form|meta|link|style)\b[^>]*>([\s\S]*?)<\/\1>/gi, '');
   clean = clean.replace(/<(iframe|object|embed|form|meta|link|style)\b[^>]*>/gi, '');
   clean = clean.replace(/<!DOCTYPE\s+html[^>]*>/gi, '');
+  clean = clean.replace(/<title>[^<]*<\/title>/gi, '');
+  clean = clean.replace(/<head\b[^>]*>[\s\S]*?<\/head>/gi, '');
   clean = clean.replace(/<\/?(html|head|body)\b[^>]*>/gi, '');
   clean = clean.replace(/<svg[^>]*class=["'][^"']*art[^"']*["'][^>]*>[\s\S]*?<\/svg>/gi, '');
   clean = clean.replace(/<svg[^>]*>[\s\S]*?<\/svg>/gi, '');
+  // Convert any <h1> inside user content to <h2> for strict single-H1 SEO compliance
+  clean = clean.replace(/<h1([^>]*)>/gi, '<h2$1>').replace(/<\/h1>/gi, '</h2>');
   return clean.trim();
 }
 
@@ -62,34 +66,34 @@ export function renderHeader(settings: any) {
 
 export function renderFooter(settings: any) {
   const siteTitle = getField(settings, 'site_title') || 'RummyDex';
-  const logoUrl = getField(settings, 'logo_url');
-  const metaDescription = getField(settings, 'meta_description') || 'A transparency platform and directory for verified applications.';
-  const optimizedLogo = logoUrl ? optimizeImageUrl(logoUrl, 80) : '';
 
   return `
-    <footer class="pt-12 pb-8 border-t border-black/5 dark:border-white/5 bg-zinc-50 dark:bg-zinc-950 mt-12 text-center text-zinc-500 dark:text-zinc-400">
-      <div class="max-w-7xl mx-auto px-6">
-        <h3 class="text-xl font-bold flex items-center justify-center gap-2 text-zinc-900 dark:text-white mb-2">
-          ${logoUrl ? `<img src="${escapeHtml(optimizedLogo)}" loading="lazy" decoding="async" width="32" height="32" class="w-8 h-8 object-contain" alt="${escapeHtml(siteTitle)} Brand Logo" />` : ''}
-          <span>${escapeHtml(siteTitle)}</span>
-        </h3>
-        <p class="text-sm max-w-xl mx-auto mb-6 leading-relaxed">${escapeHtml(metaDescription)}</p>
-        <div class="flex flex-wrap justify-center gap-6 text-xs font-semibold mb-8 text-zinc-600 dark:text-zinc-400">
-          <a href="/">Home</a>
-          <a href="/news">News</a>
-          <a href="/videos">Videos</a>
-          <a href="/developers">Developers</a>
-          <a href="/about">About</a>
-          <a href="/contact">Contact</a>
-          <a href="/privacy">Privacy</a>
-          <a href="/report-removal">Report & Removal</a>
-          <a href="/terms">Terms</a>
-          <a href="/notice">Notice</a>
-          <a href="/ethics">Ethics</a>
-          <a href="/disclaimer">Disclaimer</a>
-          <a href="/responsibility">Responsible Gaming</a>
+    <footer class="pt-8 sm:pt-10 pb-8 border-t border-black/10 dark:border-white/10 bg-slate-900 dark:bg-zinc-950 mt-10 text-left text-slate-400">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6">
+        <div class="flex flex-col sm:flex-row justify-between items-start gap-6 pb-6 border-b border-slate-800">
+          <div>
+            <span class="text-xl font-black text-white">${escapeHtml(siteTitle)}</span>
+            <p class="text-xs text-slate-400 mt-1">Independent digital directory and verified application reviews.</p>
+          </div>
+          <div class="flex flex-wrap gap-x-6 gap-y-2 text-xs font-medium text-slate-300">
+            <a href="/" class="hover:text-blue-400">All Apps</a>
+            <a href="/new-apps" class="hover:text-blue-400">New Apps</a>
+            <a href="/categories" class="hover:text-blue-400">Categories</a>
+            <a href="/news" class="hover:text-blue-400">News</a>
+            <a href="/videos" class="hover:text-blue-400">Videos</a>
+            <a href="/developers" class="hover:text-blue-400">Developers</a>
+            <a href="/about" class="hover:text-blue-400">About</a>
+            <a href="/contact" class="hover:text-blue-400">Contact</a>
+            <a href="/privacy" class="hover:text-blue-400">Privacy</a>
+            <a href="/terms" class="hover:text-blue-400">Terms</a>
+            <a href="/ethics" class="hover:text-blue-400">Ethics</a>
+            <a href="/notice" class="hover:text-blue-400">Notice</a>
+            <a href="/disclaimer" class="hover:text-blue-400">Disclaimer</a>
+            <a href="/responsibility" class="hover:text-blue-400">Safety</a>
+            <a href="/report-removal" class="hover:text-blue-400">Report & Removal</a>
+          </div>
         </div>
-        <div class="text-xs text-zinc-400 mt-8">&copy; ${new Date().getFullYear()} ${escapeHtml(siteTitle)}. All rights reserved.</div>
+        <div class="text-[11px] text-slate-500 pt-4">&copy; ${new Date().getFullYear()} ${escapeHtml(siteTitle)}. All rights reserved.</div>
       </div>
     </footer>
   `;

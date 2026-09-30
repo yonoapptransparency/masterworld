@@ -1183,7 +1183,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     <link data-rh="true" rel="icon" type="image/png" sizes="16x16" href="${favicon16}">
     <link data-rh="true" rel="apple-touch-icon" sizes="180x180" href="${favicon180}">
     <link data-rh="true" rel="manifest" href="/site.webmanifest">
-    ${targetApp && getField(targetApp, 'icon_url') ? `<link rel="preload" as="image" href="${escapeHtml(optimizeImageUrl(getField(targetApp, 'icon_url'), 200))}" fetchpriority="high">` : ''}
+    ${targetApp && getField(targetApp, 'icon_url') ? `<link rel="preload" as="image" href="${escapeHtml(optimizeImageUrl(getField(targetApp, 'icon_url'), 256))}" fetchpriority="high">` : ''}
+    ${getField(settings, 'logo_url') ? `<link rel="preload" as="image" href="${escapeHtml(optimizeImageUrl(getField(settings, 'logo_url'), 120))}" fetchpriority="high">` : ''}
     ${jsonLdSchema}
   `;
 
@@ -1194,8 +1195,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   if (data && !isAdminRoute) {
     const isAppDetailPage = cleanPathLower.startsWith('/app/');
     const isNewsDetailPage = cleanPathLower.startsWith('/news/');
-    const targetAppSlug = targetApp ? getField(targetApp, 'slug')?.toLowerCase() : null;
-    const targetAppId = targetApp ? String(getField(targetApp, 'id') || '').trim() : '';
+    const targetAppSlug = targetApp ? getField(targetApp, 'slug')?.toLowerCase().trim() : null;
+    const targetAppId = targetApp ? String(getField(targetApp, 'id') || '').toLowerCase().trim() : '';
     const targetAppName = targetApp ? String(getField(targetApp, 'name') || '').toLowerCase().trim() : '';
     const targetNewsSlug = targetNews ? (getField(targetNews, 'slug') || getField(targetNews, 'id'))?.toLowerCase().trim() : null;
 
@@ -1206,7 +1207,12 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       delete sanitizedApp.encrypted_link;
       delete sanitizedApp.url;
 
-      const isTarget = targetAppSlug && getField(app, 'slug')?.toLowerCase() === targetAppSlug;
+      const appSlugLower = (getField(app, 'slug') || '').toLowerCase().trim();
+      const appIdLower = String(getField(app, 'id') || '').toLowerCase().trim();
+      const isTarget = Boolean(
+        (targetAppSlug && (appSlugLower === targetAppSlug || appIdLower === targetAppSlug)) ||
+        (targetAppId && (appIdLower === targetAppId || appSlugLower === targetAppId))
+      );
       if (isTarget) return sanitizedApp;
 
       // On app detail page or news detail page, prune non-target apps to lightweight stubs for high-speed crawler and user rendering
