@@ -25,6 +25,42 @@ export class CommunityChunksManager {
 
     if (communityDbHelper.isQuotaProtected()) return 0;
 
+    // 0. Static baseline fast-path: Check static reviews file before making external requests
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const staticReviewsPath = path.join(process.cwd(), 'src/lib/communityStaticReviews.json');
+      if (fs.existsSync(staticReviewsPath)) {
+        const staticMap = JSON.parse(fs.readFileSync(staticReviewsPath, 'utf8'));
+        const resolved = resolveCanonicalApp(cleanId);
+        const list = staticMap[cleanId] || (resolved.canonicalSlug ? staticMap[resolved.canonicalSlug.toLowerCase()] : null) || (resolved.canonicalId ? staticMap[resolved.canonicalId.toLowerCase()] : null);
+        if (Array.isArray(list) && list.length > 0) {
+          list.forEach((r: any) => {
+            if (r && r.id && !deletedReviewIds.has(r.id) && !reviewsMap.has(r.id)) {
+              reviewsMap.set(r.id, {
+                id: r.id,
+                appId: r.appId || resolved.canonicalId || cleanId,
+                appSlug: r.appSlug || resolved.canonicalSlug || '',
+                appName: r.appName || resolved.canonicalName || '',
+                userName: r.userName || r.username || 'Player',
+                rating: Number(r.rating) || 5,
+                reviewText: sanitizeReviewText(r.reviewText || r.comment || ''),
+                timestamp: r.timestamp || r.created_at || new Date().toISOString(),
+                status: r.status || 'published',
+                helpful_count: Number(r.helpful_count) || 0,
+                isPinned: Boolean(r.isPinned),
+                reported: Boolean(r.reported),
+                report_count: Number(r.report_count) || 0,
+                source: r.source || 'community',
+                adminReply: r.adminReply || null,
+                updated_at: r.updated_at || new Date().toISOString()
+              });
+            }
+          });
+        }
+      }
+    } catch (_) {}
+
     try {
       const chunkDoc = await readCommunityRestDoc(`app_reviews_${cleanId}_0`, 'community_store');
       let loaded = 0;

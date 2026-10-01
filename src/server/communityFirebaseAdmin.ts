@@ -368,12 +368,21 @@ export async function readCommunityRestDoc(
     const commToken = await getCommunityAdminAccessToken();
     if (commToken) headers['Authorization'] = `Bearer ${commToken}`;
 
-    const res = await fetch(url, { headers });
-    if (!res.ok) return null;
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timeoutId = controller ? setTimeout(() => controller.abort(), 2500) : null;
 
-    const doc = await res.json();
-    if (!doc || !doc.fields) return null;
-    return { id: docId, ...parseCommunityFirestoreFields(doc.fields) };
+    try {
+      const res = await fetch(url, { headers, signal: controller?.signal });
+      if (timeoutId) clearTimeout(timeoutId);
+      if (!res.ok) return null;
+
+      const doc = await res.json();
+      if (!doc || !doc.fields) return null;
+      return { id: docId, ...parseCommunityFirestoreFields(doc.fields) };
+    } catch (fetchErr) {
+      if (timeoutId) clearTimeout(timeoutId);
+      return null;
+    }
   } catch (err) {
     return null;
   }

@@ -314,6 +314,48 @@ export function getCachedLiveReviews(appId?: string, appSlug?: string): ReviewFe
     }
   }
 
+  // 3. Bundled static reviews baseline for 0ms initial render
+  const staticReviewsMap: Record<string, any> = (communityStaticReviews as any) || {};
+  for (const targetKey of keys) {
+    const list = staticReviewsMap[targetKey.toLowerCase()];
+    if (Array.isArray(list) && list.length > 0) {
+      const normalized: PublicReview[] = list.map((r: any) => {
+        const uName = (r.userName && r.userName.trim() && r.userName.toLowerCase() !== 'player')
+          ? r.userName.trim()
+          : (r.username && r.username.trim() ? r.username.trim() : (r.userName || 'Player'));
+        const text = r.reviewText || r.comment || '';
+        const date = r.created_at || r.timestamp || new Date().toISOString();
+        return {
+          id: r.id || `rev_${Math.random().toString(36).slice(2)}`,
+          app_id: r.appId || r.app_id || targetKey,
+          appId: r.appId || targetKey,
+          appSlug: r.appSlug || targetKey,
+          appName: r.appName || '',
+          username: uName,
+          userName: uName,
+          rating: Number(r.rating) || 5,
+          comment: text,
+          reviewText: text,
+          created_at: formatReviewDate(date),
+          timestamp: date,
+          helpful_count: Number(r.helpful_count) || 0,
+          reported: Boolean(r.reported),
+          report_count: Number(r.report_count) || 0,
+          source: r.source || 'community',
+          isPinned: Boolean(r.isPinned),
+          adminReply: r.adminReply || null
+        };
+      });
+
+      return {
+        reviews: normalized.slice(0, 5),
+        hasMore: normalized.length > 5,
+        nextCursor: normalized.length > 5 ? normalized[4].id : null,
+        stats: getCachedLiveAppStats(appId, appSlug)
+      };
+    }
+  }
+
   return null;
 }
 
@@ -327,31 +369,15 @@ export function getCachedLiveAppStats(appId?: string, appSlug?: string): {
   const cleanSlug = String(appSlug || '').trim().toLowerCase();
   if (!cleanId && !cleanSlug) return null;
 
-  // 1. Check live SWR cache FIRST: If dynamic reviews have been fetched or saved, prefer live stats!
-  const cached = getCachedLiveReviews(appId, appSlug);
-  if (cached?.stats && typeof cached.stats.totalReviews === 'number' && Number(cached.stats.totalReviews) > 0) {
-    const pub = Number(cached.stats.totalReviews) || 0;
-    const avg = Number(cached.stats.averageRating) || 5.0;
-    const starCounts = (cached.stats.starCounts && Object.values(cached.stats.starCounts).some((v: any) => Number(v) > 0))
-      ? (cached.stats.starCounts as Record<string, number>)
-      : generateNaturalStarDistribution(avg, pub);
-    return {
-      averageRating: avg,
-      totalReviews: pub,
-      starCounts,
-      distribution: starCounts
-    };
-  }
-
-  // 2. Static catalog stats baseline from split-sync (communityCatalogStats.json)
+  // 1. Static catalog stats baseline from split-sync (communityCatalogStats.json)
   const catalogCounts: Record<string, any> = (communityCatalogStats as any)?.appCounts || {};
   const hit = (cleanId && catalogCounts[cleanId]) || (cleanSlug && catalogCounts[cleanSlug]);
   if (hit) {
     const pub = Number(hit.published) || 0;
     const avg = Number(hit.avgRating) || 0;
     const starCounts = (hit.starCounts && Object.values(hit.starCounts).some((v: any) => Number(v) > 0))
-      ? hit.starCounts
-      : { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
+      ? (hit.starCounts as Record<string, number>)
+      : generateNaturalStarDistribution(avg, pub);
     return {
       averageRating: avg,
       totalReviews: pub,
@@ -510,14 +536,80 @@ export async function fetchLiveReviews(options: {
   const staticList = (canonicalId && staticReviewsMap[canonicalId.toLowerCase().trim()]) || 
                      (canonicalSlug && staticReviewsMap[canonicalSlug.toLowerCase().trim()]);
   if (Array.isArray(staticList) && staticList.length > 0) {
-    const enriched = attachLocalUserReviews(staticList.slice(0, limit));
+    const normalized: PublicReview[] = staticList.map((r: any) => {
+      const uName = (r.userName && r.userName.trim() && r.userName.toLowerCase() !== 'player')
+        ? r.userName.trim()
+        : (r.username && r.username.trim() ? r.username.trim() : (r.userName || 'Player'));
+      const text = r.reviewText || r.comment || '';
+      const date = r.created_at || r.timestamp || new Date().toISOString();
+      return {
+        id: r.id || `rev_${Math.random().toString(36).slice(2)}`,
+        app_id: r.appId || r.app_id || canonicalId,
+        appId: r.appId || canonicalId,
+        appSlug: r.appSlug || canonicalSlug,
+        appName: r.appName || canonicalName,
+        username: uName,
+        userName: uName,
+        rating: Number(r.rating) || 5,
+        comment: text,
+        reviewText: text,
+        created_at: formatReviewDate(date),
+        timestamp: date,
+        helpful_count: Number(r.helpful_count) || 0,
+        reported: Boolean(r.reported),
+        report_count: Number(r.report_count) || 0,
+        source: r.source || 'community',
+        isPinned: Boolean(r.isPinned),
+        adminReply: r.adminReply || null
+      };
+    });
+
+    const enriched = attachLocalUserReviews(normalized);
+
+    // Filter by rating/sentiment
+    let filtered = enriched;
+    if (filter === 'positive') filtered = enriched.filter(r => (r.rating || 5) >= 4);
+    if (filter === 'critical') filtered = enriched.filter(r => (r.rating || 5) <= 3);
+
+    // Sort
+    filtered.sort((a, b) => {
+      const aIsPinned = Boolean(a.isPinned);
+      const bIsPinned = Boolean(b.isPinned);
+      if (aIsPinned !== bIsPinned) return aIsPinned ? -1 : 1;
+      if (sortBy === 'helpful') return (b.helpful_count || 0) - (a.helpful_count || 0);
+      if (sortBy === 'highest') return (b.rating || 5) - (a.rating || 5);
+      if (sortBy === 'lowest') return (a.rating || 5) - (b.rating || 5);
+      const dateA = new Date(a.timestamp || a.created_at || 0).getTime();
+      const dateB = new Date(b.timestamp || b.created_at || 0).getTime();
+      return dateB - dateA;
+    });
+
+    // Cursor Pagination for Load More
+    let startIndex = 0;
+    if (cursor) {
+      const idx = filtered.findIndex(r => r.id === cursor);
+      if (idx >= 0) {
+        startIndex = idx + 1;
+      } else {
+        const numCursor = parseInt(String(cursor), 10);
+        if (!isNaN(numCursor) && numCursor >= 0) startIndex = numCursor;
+      }
+    }
+
+    const paged = filtered.slice(startIndex, startIndex + limit);
+    const hasMore = startIndex + limit < filtered.length;
+    const nextCursor = hasMore && paged.length > 0 ? paged[paged.length - 1].id : null;
+
     const result: ReviewFetchResult = {
-      reviews: enriched,
-      hasMore: staticList.length > limit,
-      nextCursor: staticList.length > limit ? String(limit) : null,
+      reviews: paged,
+      hasMore,
+      nextCursor,
       stats: getCachedLiveAppStats(canonicalId, canonicalSlug)
     };
-    targets.forEach(t => setCachedLiveReviews(t, result));
+
+    if (!cursor && filter === 'all' && sortBy === 'recent') {
+      targets.forEach(t => setCachedLiveReviews(t, result));
+    }
     return result;
   }
 

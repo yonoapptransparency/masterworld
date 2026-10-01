@@ -24,6 +24,38 @@ function deduplicateReviewsList(list: Review[]): Review[] {
   return Array.from(map.values());
 }
 
+function normalizeReviewItem(r: any, fallbackAppId: string): Review {
+  const uName = (r.username && r.username.trim() && r.username.toLowerCase() !== 'player')
+    ? r.username.trim()
+    : ((r.userName && r.userName.trim() && r.userName.toLowerCase() !== 'player')
+      ? r.userName.trim()
+      : (r.username || r.userName || 'Player'));
+
+  const text = (r.comment && r.comment.trim())
+    ? r.comment.trim()
+    : (r.reviewText && r.reviewText.trim() ? r.reviewText.trim() : '');
+
+  const date = r.created_at || r.timestamp || new Date().toISOString();
+
+  return {
+    id: r.id || `rev_${Math.random().toString(36).slice(2)}`,
+    app_id: r.app_id || r.appId || fallbackAppId,
+    username: uName,
+    userName: uName,
+    rating: Number(r.rating) || 5,
+    comment: text,
+    reviewText: text,
+    created_at: formatReviewDate(date),
+    timestamp: date,
+    helpful_count: Number(r.helpful_count) || 0,
+    reported: Boolean(r.reported),
+    report_count: Number(r.report_count) || 0,
+    source: r.source || 'community',
+    isPinned: Boolean(r.isPinned),
+    adminReply: r.adminReply || null
+  };
+}
+
 export function useReviews(
   appId: string, 
   appTitle?: string, 
@@ -46,20 +78,7 @@ export function useReviews(
 
   const [reviews, setReviews] = useState<Review[]>(() => {
     if (initialCached && initialCached.reviews.length > 0) {
-      const mapped = initialCached.reviews.slice(0, PAGE_SIZE).map((r: PublicReview) => ({
-        id: r.id,
-        app_id: r.app_id || r.appId || cleanAppId,
-        username: r.username || 'Player',
-        rating: Number(r.rating) || 5,
-        comment: r.comment || '',
-        created_at: formatReviewDate(r.created_at || (r as any).timestamp),
-        helpful_count: Number(r.helpful_count) || 0,
-        reported: Boolean(r.reported),
-        report_count: Number(r.report_count) || 0,
-        source: r.source || 'community',
-        isPinned: Boolean(r.isPinned),
-        adminReply: r.adminReply || null
-      }));
+      const mapped = initialCached.reviews.slice(0, PAGE_SIZE).map((r: any) => normalizeReviewItem(r, cleanAppId));
       return deduplicateReviewsList(mapped);
     }
     return [];
@@ -124,20 +143,7 @@ export function useReviews(
         sortBy: currentSort
       });
 
-      const mappedReviews: Review[] = result.reviews.map((r: PublicReview) => ({
-        id: r.id,
-        app_id: r.app_id || r.appId || cleanAppId,
-        username: r.username || 'Player',
-        rating: Number(r.rating) || 5,
-        comment: r.comment || '',
-        created_at: formatReviewDate(r.created_at || (r as any).timestamp),
-        helpful_count: Number(r.helpful_count) || 0,
-        reported: Boolean(r.reported),
-        report_count: Number(r.report_count) || 0,
-        source: r.source || 'community',
-        isPinned: Boolean(r.isPinned),
-        adminReply: r.adminReply || null
-      }));
+      const mappedReviews: Review[] = result.reviews.map((r: any) => normalizeReviewItem(r, cleanAppId));
 
       if (result.stats) {
         setStats(result.stats);
@@ -178,20 +184,7 @@ export function useReviews(
       // Update reviews with any cached entries for the new app immediately
       const freshCache = getCachedLiveReviews(cleanAppId, cleanAppSlug);
       if (freshCache && freshCache.reviews.length > 0) {
-        const mapped = freshCache.reviews.slice(0, PAGE_SIZE).map((r: PublicReview) => ({
-          id: r.id,
-          app_id: r.app_id || r.appId || cleanAppId,
-          username: r.username || 'Player',
-          rating: Number(r.rating) || 5,
-          comment: r.comment || '',
-          created_at: formatReviewDate(r.created_at || (r as any).timestamp),
-          helpful_count: Number(r.helpful_count) || 0,
-          reported: Boolean(r.reported),
-          report_count: Number(r.report_count) || 0,
-          source: r.source || 'community',
-          isPinned: Boolean(r.isPinned),
-          adminReply: r.adminReply || null
-        }));
+        const mapped = freshCache.reviews.slice(0, PAGE_SIZE).map((r: any) => normalizeReviewItem(r, cleanAppId));
         setReviews(deduplicateReviewsList(mapped));
         setStats(freshCache.stats || null);
         setHasMore(Boolean(freshCache.hasMore));
