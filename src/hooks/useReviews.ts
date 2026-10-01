@@ -65,7 +65,7 @@ export function useReviews(
     return [];
   });
 
-  const [stats, setStats] = useState<any>(() => initialCached?.stats || null);
+  const [stats, setStats] = useState<any>(() => initialCached?.stats || getCachedLiveAppStats(cleanAppId, cleanAppSlug));
   const [loading, setLoading] = useState<boolean>(() => !initialCached || initialCached.reviews.length === 0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState<boolean>(() => Boolean(initialCached?.hasMore));

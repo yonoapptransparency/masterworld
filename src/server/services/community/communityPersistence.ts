@@ -74,11 +74,65 @@ export class CommunityPersistence {
       this.reconcileStatsCache(reviewsMap, appStatsCache);
       console.log(`[CommunityPersistence] Loaded ${reviewsMap.size} reviews, ${reportsMap.size} reports from disk.`);
 
-      // If disk was empty or had 0 reviews, bootstrap from Firestore rummydexcommunity
+      // Zero-Quota Shield: If disk was empty (e.g. serverless or fresh cloud container),
+      // load from committed static reviews and catalog stats to avoid burning Firestore reads.
       if (reviewsMap.size === 0) {
-        this.bootstrapFromFirestore(reviewsMap, reportsMap, deletedReviewIds, appStatsCache).catch(err => {
-          console.warn('[CommunityPersistence] Bootstrap notice:', err?.message || err);
-        });
+        try {
+          const staticReviewsPath = path.join(process.cwd(), 'src/lib/communityStaticReviews.json');
+          if (fs.existsSync(staticReviewsPath)) {
+            const staticReviewsMap = JSON.parse(fs.readFileSync(staticReviewsPath, 'utf8'));
+            if (staticReviewsMap && typeof staticReviewsMap === 'object') {
+              Object.values(staticReviewsMap).forEach((revList: any) => {
+                if (Array.isArray(revList)) {
+                  revList.forEach((r: any) => {
+                    if (r && r.id && !deletedReviewIds.has(r.id) && !reviewsMap.has(r.id)) {
+                      reviewsMap.set(r.id, {
+                        id: r.id,
+                        appId: String(r.appId || '').trim(),
+                        appSlug: String(r.appSlug || '').trim(),
+                        appName: String(r.appName || '').trim(),
+                        userName: String(r.userName || r.username || 'Player').trim(),
+                        rating: Number(r.rating) || 5,
+                        reviewText: sanitizeReviewText(String(r.reviewText || r.comment || ''), r.appName),
+                        timestamp: r.timestamp || r.created_at || new Date().toISOString(),
+                        status: r.status || 'published',
+                        helpful_count: Number(r.helpful_count) || 0,
+                        isPinned: Boolean(r.isPinned),
+                        reported: false,
+                        report_count: 0,
+                        source: 'community',
+                        adminReply: r.adminReply || null,
+                        updated_at: r.updated_at || new Date().toISOString()
+                      });
+                    }
+                  });
+                }
+              });
+              console.log(`[CommunityPersistence] Zero-Quota Shield: Loaded ${reviewsMap.size} reviews from committed static reviews file.`);
+            }
+          }
+
+          const catStatsPath = path.join(process.cwd(), 'src/lib/communityCatalogStats.json');
+          if (fs.existsSync(catStatsPath)) {
+            const catStats = JSON.parse(fs.readFileSync(catStatsPath, 'utf8'));
+            if (catStats?.appCounts && typeof catStats.appCounts === 'object') {
+              Object.entries(catStats.appCounts).forEach(([k, v]: [string, any]) => {
+                if (k && v) {
+                  const cleanKey = String(k).toLowerCase().trim();
+                  if (!appStatsCache.has(cleanKey)) {
+                    appStatsCache.set(cleanKey, {
+                      publishedReviewCount: Number(v.published ?? v.total ?? 0),
+                      publishedRatingSum: (Number(v.published ?? v.total ?? 0)) * (Number(v.avgRating ?? 4.8)),
+                      starDistribution: v.starCounts || { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 }
+                    });
+                  }
+                }
+              });
+            }
+          }
+        } catch (staticErr) {
+          console.warn('[CommunityPersistence] Static shield fallback error:', staticErr);
+        }
       }
 
       return { reviewsCount: reviewsMap.size, reportsCount: reportsMap.size };

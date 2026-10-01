@@ -32,6 +32,8 @@ function getLocalFallbackReviewsForApp(appId: string, appSlug: string) {
     // High-availability sample reviews from static disk storage for Schema.org rich snippets
     let sampleReviews: any[] = [];
     const localBackupPath = path.join(process.cwd(), 'community_local_backup.json');
+    const staticReviewsPath = path.join(process.cwd(), 'src/lib/communityStaticReviews.json');
+
     if (fs.existsSync(localBackupPath)) {
       try {
         const raw = fs.readFileSync(localBackupPath, 'utf8');
@@ -51,6 +53,20 @@ function getLocalFallbackReviewsForApp(appId: string, appSlug: string) {
               reviewText: r.reviewText || r.comment || '',
               timestamp: r.timestamp || r.created_at || new Date().toISOString()
             }));
+        }
+      } catch (_) {}
+    } else if (fs.existsSync(staticReviewsPath)) {
+      try {
+        const raw = fs.readFileSync(staticReviewsPath, 'utf8');
+        const staticMap = JSON.parse(raw);
+        const list = staticMap[cleanId] || (cleanSlug ? staticMap[cleanSlug] : null);
+        if (Array.isArray(list) && list.length > 0) {
+          sampleReviews = list.slice(0, 5).map((r: any) => ({
+            userName: r.userName || r.username || 'Player',
+            rating: Number(r.rating) || 5,
+            reviewText: r.reviewText || r.comment || '',
+            timestamp: r.timestamp || r.created_at || new Date().toISOString()
+          }));
         }
       } catch (_) {}
     }

@@ -283,7 +283,8 @@ export class CommunityChunksManager {
     appIdentifier: string,
     reviewsMap: Map<string, ReviewRecord>,
     deletedReviewIds: Set<string>,
-    appStatsCache: Map<string, AppStatsCacheItem>
+    appStatsCache: Map<string, AppStatsCacheItem>,
+    forceRemotePull: boolean = false
   ): Promise<boolean> {
     if (!appIdentifier) return false;
     const resolved = resolveCanonicalApp(appIdentifier);
@@ -291,77 +292,9 @@ export class CommunityChunksManager {
     const officialSlug = resolved.canonicalSlug;
     const officialName = resolved.canonicalName;
 
-    // 1. Force refresh to pull all reviews from Firestore
-    await this.ensureAllReviewsLoadedForApp(officialId, reviewsMap, deletedReviewIds, appStatsCache, true);
-
-    // 2. Also explicitly read any existing chunk doc from Firestore to guarantee old reviews are never lost
-    const chunkDocIdsToCheck = Array.from(new Set([
-      getAppChunkDocId(officialId, 0),
-      officialSlug ? getAppChunkDocId(officialSlug, 0) : null
-    ].filter(Boolean) as string[]));
-
-    for (const docId of chunkDocIdsToCheck) {
-      try {
-        const existingChunkDoc = await readCommunityRestDoc(docId, 'community_store');
-        if (existingChunkDoc && Array.isArray(existingChunkDoc.reviews)) {
-          existingChunkDoc.reviews.forEach((r: any) => {
-            if (r && r.id && !deletedReviewIds.has(r.id) && !reviewsMap.has(r.id)) {
-              reviewsMap.set(r.id, {
-                id: r.id,
-                appId: r.appId || officialId,
-                appSlug: r.appSlug || officialSlug || '',
-                appName: r.appName || officialName || '',
-                userName: r.userName || r.username || 'Player',
-                rating: Number(r.rating) || 5,
-                reviewText: sanitizeReviewText(r.reviewText || r.comment || ''),
-                timestamp: r.timestamp || r.created_at || new Date().toISOString(),
-                status: r.status || 'published',
-                helpful_count: Number(r.helpful_count) || 0,
-                isPinned: Boolean(r.isPinned),
-                reported: Boolean(r.reported),
-                report_count: Number(r.report_count) || 0,
-                source: r.source || 'community',
-                adminReply: r.adminReply || null,
-                updated_at: r.updated_at || new Date().toISOString()
-              });
-            }
-          });
-
-          // Also check subsequent chunks if doc has multiple chunks
-          if (existingChunkDoc.totalChunks && existingChunkDoc.totalChunks > 1) {
-            for (let cIdx = 1; cIdx < existingChunkDoc.totalChunks; cIdx++) {
-              try {
-                const baseKey = docId.replace(/_\d+$/, '');
-                const nextDoc = await readCommunityRestDoc(`${baseKey}_${cIdx}`, 'community_store');
-                if (nextDoc && Array.isArray(nextDoc.reviews)) {
-                  nextDoc.reviews.forEach((r: any) => {
-                    if (r && r.id && !deletedReviewIds.has(r.id) && !reviewsMap.has(r.id)) {
-                      reviewsMap.set(r.id, {
-                        id: r.id,
-                        appId: r.appId || officialId,
-                        appSlug: r.appSlug || officialSlug || '',
-                        appName: r.appName || officialName || '',
-                        userName: r.userName || r.username || 'Player',
-                        rating: Number(r.rating) || 5,
-                        reviewText: sanitizeReviewText(r.reviewText || r.comment || ''),
-                        timestamp: r.timestamp || r.created_at || new Date().toISOString(),
-                        status: r.status || 'published',
-                        helpful_count: Number(r.helpful_count) || 0,
-                        isPinned: Boolean(r.isPinned),
-                        reported: Boolean(r.reported),
-                        report_count: Number(r.report_count) || 0,
-                        source: r.source || 'community',
-                        adminReply: r.adminReply || null,
-                        updated_at: r.updated_at || new Date().toISOString()
-                      });
-                    }
-                  });
-                }
-              } catch (_) {}
-            }
-          }
-        }
-      } catch (_) {}
+    // Zero-Quota: Only pull from remote Firestore if explicitly requested by Admin (never in background loops)
+    if (forceRemotePull && !communityDbHelper.isQuotaProtected()) {
+      await this.ensureAllReviewsLoadedForApp(officialId, reviewsMap, deletedReviewIds, appStatsCache, true);
     }
 
     const appReviews = Array.from(reviewsMap.values()).filter(r => {
@@ -449,15 +382,6 @@ export class CommunityChunksManager {
       if (r.appId) appIds.add(String(r.appId).trim());
       if (r.appSlug) appIds.add(String(r.appSlug).trim());
     }
-
-    try {
-      const staticData = getStaticData();
-      const apps = staticData.apps || staticData.mockApps || [];
-      apps.forEach((a: any) => {
-        if (a && a.id) appIds.add(String(a.id).trim());
-        if (a && a.slug) appIds.add(String(a.slug).trim());
-      });
-    } catch (e) {}
 
     let totalApps = 0;
     let totalChunks = 0;

@@ -121,9 +121,6 @@ export const AdminCommunityOverviewCard: React.FC<AdminCommunityOverviewCardProp
 
   useEffect(() => {
     loadStats(false);
-    // Auto background poll every 60 seconds (zero quota cost from memory cache)
-    const interval = setInterval(() => loadStats(false), 60000);
-    return () => clearInterval(interval);
   }, [loadStats]);
 
   const publishedPercent = stats && stats.totalReviews > 0 

@@ -5,6 +5,7 @@
  */
 
 import communityCatalogStats from './communityCatalogStats.json';
+import communityStaticReviews from './communityStaticReviews.json';
 import staticData from './staticData.json';
 import { generateNaturalStarDistribution } from '../seo/utils';
 
@@ -501,7 +502,23 @@ export async function fetchLiveReviews(options: {
       }
     }
   } catch (err) {
-    // Network or static environment: proceed to Direct Firestore REST only if backend unreachable
+    // Network or static environment: proceed to Zero-Quota static reviews before Direct Firestore REST
+  }
+
+  // 1.5 Zero-Quota Static Shield: Check bundled static reviews before hitting Firestore REST
+  const staticReviewsMap: Record<string, any> = (communityStaticReviews as any) || {};
+  const staticList = (canonicalId && staticReviewsMap[canonicalId.toLowerCase().trim()]) || 
+                     (canonicalSlug && staticReviewsMap[canonicalSlug.toLowerCase().trim()]);
+  if (Array.isArray(staticList) && staticList.length > 0) {
+    const enriched = attachLocalUserReviews(staticList.slice(0, limit));
+    const result: ReviewFetchResult = {
+      reviews: enriched,
+      hasMore: staticList.length > limit,
+      nextCursor: staticList.length > limit ? String(limit) : null,
+      stats: getCachedLiveAppStats(canonicalId, canonicalSlug)
+    };
+    targets.forEach(t => setCachedLiveReviews(t, result));
+    return result;
   }
 
   // 2. Direct Firestore REST Fallback (Direct connection to rummydexcommunity project)
