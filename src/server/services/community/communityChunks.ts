@@ -124,9 +124,31 @@ export class CommunityChunksManager {
       return 0;
     }
 
+    // Zero-Quota In-Memory Check: If reviewsMap is already populated, count matching reviews in memory first
+    if (!forceRefresh && reviewsMap.size > 0) {
+      const resolved = resolveCanonicalApp(cleanId);
+      const targets = new Set([
+        cleanId,
+        resolved.canonicalId?.toLowerCase(),
+        resolved.canonicalSlug?.toLowerCase()
+      ].filter(Boolean) as string[]);
+
+      let matchingInMemory = 0;
+      reviewsMap.forEach(r => {
+        const rAppId = (r.appId || '').toLowerCase().trim();
+        const rAppSlug = (r.appSlug || '').toLowerCase().trim();
+        if (targets.has(rAppId) || targets.has(rAppSlug)) {
+          matchingInMemory++;
+        }
+      });
+
+      this.loadedAppsMap.set(cleanId, now);
+      return matchingInMemory;
+    }
+
     let loadedCount = await this.loadSingleAppReviewsChunk(cleanId, reviewsMap, deletedReviewIds, appStatsCache, forceRefresh);
 
-    if ((loadedCount === 0 || forceRefresh) && !communityDbHelper.isQuotaProtected()) {
+    if (forceRefresh && !communityDbHelper.isQuotaProtected()) {
       this.loadedAppsMap.set(cleanId, now);
       const resolved = resolveCanonicalApp(cleanId);
       const targets = Array.from(new Set([

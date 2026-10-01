@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { getSafeFirebaseConfig, getSafeCommunityFirebaseConfig } from './seo/firebaseConfig';
 import { syncFromFirestore } from './seo/sync';
-import { getField, stripHtml, getYoutubeThumbnail, ensureAbsoluteUrl, getOgImageUrl, isBotUserAgent, escapeHtml, optimizeImageUrl, normalizeSchemaCategory } from './seo/utils';
+import { getField, stripHtml, getYoutubeThumbnail, ensureAbsoluteUrl, getOgImageUrl, isBotUserAgent, escapeHtml, optimizeImageUrl, getOptimizedImageUrl, normalizeSchemaCategory } from './seo/utils';
 import * as renderers from './seo/renderers';
 import { getCleanCanonicalUrl, formatPageTitle } from './lib/seoUtils';
 
@@ -904,7 +904,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     });
 
     if (newsItem) {
-      title = getField(newsItem, 'seo_title') || `${getField(newsItem, 'title')} | ${siteTitle}`;
+      title = getField(newsItem, 'seo_title') || getField(newsItem, 'meta_title') || getField(newsItem, 'title');
       description = cleanSeoDescription(
         getField(newsItem, 'seo_description') || 
         getField(newsItem, 'meta_description') || 
@@ -924,7 +924,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       if (matchedApp) {
         targetApp = matchedApp;
         pageType = 'app';
-        title = getField(matchedApp, 'seo_title') || `${getField(matchedApp, 'name')} - Download & Reviews | ${siteTitle}`;
+        title = getField(matchedApp, 'seo_title') || getField(matchedApp, 'meta_title') || getField(matchedApp, 'name');
         description = cleanSeoDescription(getField(matchedApp, 'seo_description') || getField(matchedApp, 'meta_description') || stripHtml(getField(matchedApp, 'description_html')).substring(0, 160));
         customCanonicalUrl = `https://www.rummydex.com/app/${getField(matchedApp, 'slug') || getField(matchedApp, 'id')}`;
       } else {
@@ -936,7 +936,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     const slug = cleanPath.split('/videos/')[1];
     const videoItem = videos.find((v: any) => getField(v, 'slug').toLowerCase() === slug);
     if (videoItem) {
-      title = getField(videoItem, 'seo_title') || `${getField(videoItem, 'title')} | ${siteTitle}`;
+      title = getField(videoItem, 'seo_title') || getField(videoItem, 'meta_title') || getField(videoItem, 'title');
       description = getField(videoItem, 'seo_description') || getField(videoItem, 'meta_description') || getField(videoItem, 'description', '').substring(0, 160);
       pageType = 'video';
       targetVideo = videoItem;
@@ -982,7 +982,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     const slug = parts[parts.length - 1];
     const app = resolveAppSlug(slug, apps);
     if (app) {
-      title = `Verification Portal: ${getField(app, 'name')} | ${siteTitle}`;
+      title = `Verification Portal: ${getField(app, 'name')}`;
       description = `Secure application verification portal.`;
       customCanonicalUrl = `https://www.rummydex.com/app/${getField(app, 'slug')}`;
       pageType = 'gateway';
@@ -995,7 +995,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     const appSlug = cleanPathLower.replace(/^\/app\//, '/').replace(/^\/|\/$/g, '');
     const app = resolveAppSlug(appSlug, apps);
     if (app) {
-      title = getField(app, 'seo_title') || getField(app, 'meta_title') || `${getField(app, 'name')} | ${siteTitle}`;
+      title = getField(app, 'seo_title') || getField(app, 'meta_title') || getField(app, 'name');
       description = cleanSeoDescription(getField(app, 'seo_description') || getField(app, 'meta_description') || stripHtml(getField(app, 'description_html')).substring(0, 160));
       customCanonicalUrl = `https://www.rummydex.com/app/${getField(app, 'slug')}`;
       pageType = 'app';
@@ -1013,18 +1013,18 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     const videoItem = videos.find((v: any) => getField(v, 'slug')?.toLowerCase() === appSlug || getField(v, 'slug')?.toLowerCase() === appSlug.replace(/[-_]+$/g, ''));
 
     if (app) {
-      title = getField(app, 'seo_title') || getField(app, 'meta_title') || `${getField(app, 'name')} | ${siteTitle}`;
+      title = getField(app, 'seo_title') || getField(app, 'meta_title') || getField(app, 'name');
       description = cleanSeoDescription(getField(app, 'seo_description') || getField(app, 'meta_description') || stripHtml(getField(app, 'description_html')).substring(0, 160));
       customCanonicalUrl = `https://www.rummydex.com/app/${getField(app, 'slug')}`;
       pageType = 'app';
       targetApp = app;
     } else if (newsItem) {
-      title = getField(newsItem, 'seo_title') || `${getField(newsItem, 'title')} | ${siteTitle}`;
+      title = getField(newsItem, 'seo_title') || getField(newsItem, 'meta_title') || getField(newsItem, 'title');
       description = getField(newsItem, 'seo_description') || getField(newsItem, 'meta_description') || getField(newsItem, 'description', '').substring(0, 160);
       pageType = 'news';
       targetNews = newsItem;
     } else if (videoItem) {
-      title = getField(videoItem, 'seo_title') || `${getField(videoItem, 'title')} | ${siteTitle}`;
+      title = getField(videoItem, 'seo_title') || getField(videoItem, 'meta_title') || getField(videoItem, 'title');
       description = getField(videoItem, 'seo_description') || getField(videoItem, 'meta_description') || getField(videoItem, 'description', '').substring(0, 160);
       pageType = 'video';
       targetVideo = videoItem;
@@ -1148,7 +1148,12 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   const ogImageWidth = pageOgImage.includes('w_600') ? '600' : '1200';
   const ogImageHeight = pageOgImage.includes('w_600') ? '600' : '630';
 
-  const seoTags = `
+    const cssMatch = template.match(/<link\s+[^>]*href=["']([^"']+\.css)["'][^>]*>/i);
+    const cssPreloadTag = (cssMatch && cssMatch[1] && !template.includes(`as="style"`))
+      ? `<link rel="preload" as="style" href="${cssMatch[1]}" crossorigin>\n`
+      : '';
+
+    const seoTags = `
     <title>${escapedTitle}</title>
     <meta name="description" content="${escapedDesc}">
     <meta data-rh="true" name="keywords" content="${escapedKeywords}">
@@ -1183,8 +1188,9 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     <link data-rh="true" rel="icon" type="image/png" sizes="16x16" href="${favicon16}">
     <link data-rh="true" rel="apple-touch-icon" sizes="180x180" href="${favicon180}">
     <link data-rh="true" rel="manifest" href="/site.webmanifest">
-    ${targetApp && getField(targetApp, 'icon_url') ? `<link rel="preload" as="image" href="${escapeHtml(optimizeImageUrl(getField(targetApp, 'icon_url'), 256))}" fetchpriority="high">` : ''}
-    ${getField(settings, 'logo_url') ? `<link rel="preload" as="image" href="${escapeHtml(optimizeImageUrl(getField(settings, 'logo_url'), 120))}" fetchpriority="high">` : ''}
+    ${cssPreloadTag}
+    ${targetApp && getField(targetApp, 'icon_url') ? `<link rel="preload" as="image" href="${escapeHtml(getOptimizedImageUrl(getField(targetApp, 'icon_url'), 240))}" fetchpriority="high">` : ''}
+    ${getField(settings, 'logo_url') ? `<link rel="preload" as="image" href="${escapeHtml(getOptimizedImageUrl(getField(settings, 'logo_url'), 120))}" fetchpriority="high">` : ''}
     ${jsonLdSchema}
   `;
 

@@ -586,7 +586,7 @@ export async function fetchLiveReviews(options: {
                 filters: allFilters
               }
             },
-            limit: 20
+            limit: 5
           }
         };
 

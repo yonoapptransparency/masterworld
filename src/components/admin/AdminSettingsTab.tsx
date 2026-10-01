@@ -113,7 +113,7 @@ export const AdminSettingsTab = React.memo(({ settings: rawSettings, handleSaveS
             <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Disclaimer Page (/disclaimer)</h4>
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">SEO Title</label>
-              <input type="text" name="disclaimer_meta_title" defaultValue={settings.disclaimer_meta_title ?? ''} placeholder="Disclaimer | RummyDex" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+              <input type="text" name="disclaimer_meta_title" defaultValue={settings.disclaimer_meta_title ?? ''} placeholder="Disclaimer" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Meta Description</label>
@@ -126,7 +126,7 @@ export const AdminSettingsTab = React.memo(({ settings: rawSettings, handleSaveS
             <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Ethics & Safety Page (/ethics)</h4>
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">SEO Title</label>
-              <input type="text" name="ethics_meta_title" defaultValue={settings.ethics_meta_title ?? ''} placeholder="Ethics & Safety | RummyDex" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+              <input type="text" name="ethics_meta_title" defaultValue={settings.ethics_meta_title ?? ''} placeholder="Ethics & Safety" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Meta Description</label>
@@ -139,7 +139,7 @@ export const AdminSettingsTab = React.memo(({ settings: rawSettings, handleSaveS
             <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">About Us Page (/about)</h4>
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">SEO Title</label>
-              <input type="text" name="about_meta_title" defaultValue={settings.about_meta_title ?? ''} placeholder="About Us | RummyDex" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+              <input type="text" name="about_meta_title" defaultValue={settings.about_meta_title ?? ''} placeholder="About Us" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Meta Description</label>
@@ -152,7 +152,7 @@ export const AdminSettingsTab = React.memo(({ settings: rawSettings, handleSaveS
             <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Contact Page (/contact)</h4>
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">SEO Title</label>
-              <input type="text" name="contact_meta_title" defaultValue={settings.contact_meta_title ?? ''} placeholder="Contact Us | RummyDex" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+              <input type="text" name="contact_meta_title" defaultValue={settings.contact_meta_title ?? ''} placeholder="Contact Us" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Meta Description</label>
@@ -165,7 +165,7 @@ export const AdminSettingsTab = React.memo(({ settings: rawSettings, handleSaveS
             <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Privacy Policy Page (/privacy)</h4>
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">SEO Title</label>
-              <input type="text" name="privacy_meta_title" defaultValue={settings.privacy_meta_title ?? ''} placeholder="Privacy Policy | RummyDex" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+              <input type="text" name="privacy_meta_title" defaultValue={settings.privacy_meta_title ?? ''} placeholder="Privacy Policy" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Meta Description</label>
@@ -178,7 +178,7 @@ export const AdminSettingsTab = React.memo(({ settings: rawSettings, handleSaveS
             <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Terms of Service Page (/terms)</h4>
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">SEO Title</label>
-              <input type="text" name="terms_meta_title" defaultValue={settings.terms_meta_title ?? ''} placeholder="Terms & Conditions | RummyDex" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+              <input type="text" name="terms_meta_title" defaultValue={settings.terms_meta_title ?? ''} placeholder="Terms & Conditions" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Meta Description</label>
@@ -191,7 +191,7 @@ export const AdminSettingsTab = React.memo(({ settings: rawSettings, handleSaveS
             <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Responsibility & Safety (/responsibility)</h4>
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">SEO Title</label>
-              <input type="text" name="responsibility_meta_title" defaultValue={settings.responsibility_meta_title ?? ''} placeholder="Responsible Gaming | RummyDex" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+              <input type="text" name="responsibility_meta_title" defaultValue={settings.responsibility_meta_title ?? ''} placeholder="Responsible Gaming" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Meta Description</label>
@@ -204,7 +204,7 @@ export const AdminSettingsTab = React.memo(({ settings: rawSettings, handleSaveS
             <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Report & Removal Policy (/report-removal)</h4>
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">SEO Title</label>
-              <input type="text" name="report_removal_meta_title" defaultValue={settings.report_removal_meta_title ?? ''} placeholder="Report & Removal Policy | RummyDex" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+              <input type="text" name="report_removal_meta_title" defaultValue={settings.report_removal_meta_title ?? ''} placeholder="Report & Removal Policy" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Meta Description</label>
@@ -217,7 +217,7 @@ export const AdminSettingsTab = React.memo(({ settings: rawSettings, handleSaveS
             <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Legal Notice Page (/notice)</h4>
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">SEO Title</label>
-              <input type="text" name="notice_meta_title" defaultValue={settings.notice_meta_title ?? ''} placeholder="Legal Notice | RummyDex" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+              <input type="text" name="notice_meta_title" defaultValue={settings.notice_meta_title ?? ''} placeholder="Legal Notice" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Meta Description</label>
@@ -230,7 +230,7 @@ export const AdminSettingsTab = React.memo(({ settings: rawSettings, handleSaveS
             <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Developers Directory (/developers)</h4>
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">SEO Title</label>
-              <input type="text" name="developers_meta_title" defaultValue={settings.developers_meta_title ?? ''} placeholder="Developer Profiles | RummyDex" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+              <input type="text" name="developers_meta_title" defaultValue={settings.developers_meta_title ?? ''} placeholder="Developer Profiles" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Meta Description</label>
@@ -243,7 +243,7 @@ export const AdminSettingsTab = React.memo(({ settings: rawSettings, handleSaveS
             <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">News Index (/news)</h4>
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">SEO Title</label>
-              <input type="text" name="news_meta_title" defaultValue={settings.news_meta_title ?? ''} placeholder="News & Updates | RummyDex" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+              <input type="text" name="news_meta_title" defaultValue={settings.news_meta_title ?? ''} placeholder="News & Updates" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Meta Description</label>
@@ -256,7 +256,7 @@ export const AdminSettingsTab = React.memo(({ settings: rawSettings, handleSaveS
             <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Videos Index (/videos)</h4>
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">SEO Title</label>
-              <input type="text" name="videos_meta_title" defaultValue={settings.videos_meta_title ?? ''} placeholder="Video Reviews | RummyDex" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+              <input type="text" name="videos_meta_title" defaultValue={settings.videos_meta_title ?? ''} placeholder="Video Reviews" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Meta Description</label>

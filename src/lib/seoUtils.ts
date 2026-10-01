@@ -15,11 +15,15 @@ export function formatPageTitle(rawTitle?: string, siteTitle: string = 'RummyDex
     return clean;
   }
   
-  // Strip any trailing brand suffix (e.g. " - RummyDex", " | RummyDex", " - rummydex", " | siteTitle")
-  // to prevent search engines from cluttering titles and maximize available SERP title width
-  const escapedSiteTitle = siteTitle.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-  const brandSuffixRegex = new RegExp(`\\s*[-|–—:]\\s*(?:${escapedSiteTitle}|RummyDex|rummydex|Rummy\\s*Dex)\\s*$`, 'i');
-  clean = clean.replace(brandSuffixRegex, '').trim();
+  // Strip any trailing brand suffix (e.g. " - RummyDex", " | RummyDex", " - rummydex", " | siteTitle", " — RummyDex", " : RummyDex")
+  const escapedSiteTitle = siteTitle ? siteTitle.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&') : 'RummyDex';
+  const brandSuffixRegex = new RegExp(`\\s*[-|–—:•]\\s*(?:${escapedSiteTitle}|RummyDex|rummydex|Rummy\\s*Dex)\\s*$`, 'i');
+  
+  let prev = '';
+  while (prev !== clean) {
+    prev = clean;
+    clean = clean.replace(brandSuffixRegex, '').trim();
+  }
 
   return clean || siteTitle;
 }

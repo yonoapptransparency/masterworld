@@ -251,6 +251,63 @@ export class CommunityPersistence {
       try {
         fs.writeFileSync(this.fallbackBackupPath, jsonStr, 'utf8');
       } catch (_) {}
+
+      // Atomically sync communityCatalogStats.json for instant 0ms SEO and client stat reads
+      try {
+        const catStatsPath = path.join(process.cwd(), 'src/lib/communityCatalogStats.json');
+        let pubCount = 0;
+        let pendCount = 0;
+        let rejCount = 0;
+        let ratingSum = 0;
+        const globalDist: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
+        const appCountsOutput: Record<string, any> = {};
+
+        reviewsMap.forEach(r => {
+          const s = r.status || 'published';
+          if (s === 'published' || s === 'approved') {
+            pubCount++;
+            const star = Math.max(1, Math.min(5, Math.round(Number(r.rating) || 5)));
+            ratingSum += star;
+            globalDist[String(star)] = (globalDist[String(star)] || 0) + 1;
+          } else if (s === 'pending') {
+            pendCount++;
+          } else if (s === 'rejected') {
+            rejCount++;
+          }
+        });
+
+        appStatsCache.forEach((stats, appId) => {
+          const count = stats.publishedReviewCount || 0;
+          const sum = stats.publishedRatingSum || 0;
+          const avg = count > 0 ? parseFloat((sum / count).toFixed(1)) : 5.0;
+          appCountsOutput[appId] = {
+            total: count,
+            published: count,
+            avgRating: avg,
+            starCounts: stats.starDistribution || { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 }
+          };
+        });
+
+        const catalogStatsData = {
+          totalReviews: pubCount + pendCount + rejCount,
+          publishedReviews: pubCount,
+          pendingReviews: pendCount,
+          rejectedReviews: rejCount,
+          flaggedReviews: 0,
+          totalReports: reportsMap.size,
+          pendingReports: Array.from(reportsMap.values()).filter(r => r.status === 'pending' || r.status === 'in_review').length,
+          averageRating: pubCount > 0 ? parseFloat((ratingSum / pubCount).toFixed(1)) : 4.8,
+          ratingDistribution: globalDist,
+          appCounts: appCountsOutput,
+          updated_at: new Date().toISOString()
+        };
+
+        const catTmpPath = catStatsPath + '.tmp';
+        fs.writeFileSync(catTmpPath, JSON.stringify(catalogStatsData, null, 2), 'utf8');
+        fs.renameSync(catTmpPath, catStatsPath);
+      } catch (catErr) {
+        console.warn('[CommunityPersistence] Catalog stats write notice:', catErr);
+      }
     } catch (e) {
       console.warn('[CommunityPersistence] Local backup write error:', e);
     }

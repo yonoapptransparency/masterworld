@@ -51,19 +51,14 @@ export const AdminSidebar = ({
 
   useEffect(() => {
     let isMounted = true;
-    const fetchStats = () => {
-      fetchAdminCommunityOverviewStats()
-        .then(data => {
-          if (isMounted) setCommStats(data);
-        })
-        .catch(() => {});
-    };
+    fetchAdminCommunityOverviewStats()
+      .then(data => {
+        if (isMounted) setCommStats(data);
+      })
+      .catch(() => {});
 
-    fetchStats();
-    const interval = setInterval(fetchStats, 60000);
     return () => {
       isMounted = false;
-      clearInterval(interval);
     };
   }, []);
 

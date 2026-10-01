@@ -465,8 +465,16 @@ async function startServer() {
         'Vary': 'Accept-Encoding, User-Agent',
       };
 
+      const links: string[] = [];
       if (canonicalUrl) {
-        responseHeaders['Link'] = `<${canonicalUrl}>; rel="canonical"`;
+        links.push(`<${canonicalUrl}>; rel="canonical"`);
+      }
+      const cssMatch = template.match(/<link\s+[^>]*href=["']([^"']+\.css)["'][^>]*>/i);
+      if (cssMatch && cssMatch[1]) {
+        links.push(`<${cssMatch[1]}>; rel="preload"; as="style"; crossorigin`);
+      }
+      if (links.length > 0) {
+        responseHeaders['Link'] = links.join(', ');
       }
       if (isNotFound) {
         responseHeaders['Pragma'] = 'no-cache';
