@@ -3,7 +3,8 @@ import path from 'path';
 import { getCommunityAdminDb, readAllAppStats, readAppStats, writeCommunityRestDoc, ExactCommunityAggregationResult } from '../../communityFirebaseAdmin';
 import { getStaticData } from '../../config';
 import { ReviewRecord, ReportRecord, AppStatsCacheItem } from './communityTypes';
-import { resolveCanonicalApp } from './communityUtils';
+import { resolveCanonicalApp, doesReviewMatchApp } from './communityUtils';
+import { communityPersistence } from './communityPersistence';
 
 export class CommunityStatsManager {
   public getCommunityOverviewMetrics(
@@ -322,6 +323,9 @@ export class CommunityStatsManager {
     appStatsCache: Map<string, AppStatsCacheItem>,
     cachedRemoteCounts: ExactCommunityAggregationResult | null
   ): Promise<any> {
+    // 0. Flush any debounced saves to disk and single Firebase document
+    communityPersistence.flushSaveToDisk(reviewsMap, reportsMap, new Set(), appStatsCache);
+
     // 1. Sync any existing Firestore app_stats into appStatsCache
     await this.syncAppStatsFromFirestore(appStatsCache).catch(() => {});
 
@@ -436,8 +440,10 @@ export class CommunityStatsManager {
       const db = getCommunityAdminDb();
       if (db) {
         db.collection('community_store').doc('catalog_stats').set(payload, { merge: true }).catch(() => {});
+        db.collection('community_store').doc('atomic_counts').set(payload, { merge: true }).catch(() => {});
       } else {
         writeCommunityRestDoc('catalog_stats', payload, true, 'community_store').catch(() => {});
+        writeCommunityRestDoc('atomic_counts', payload, true, 'community_store').catch(() => {});
       }
     } catch (e) {
       console.warn('[CommunityStatsManager] Failed to persist catalog_stats:', e);
@@ -453,7 +459,8 @@ export class CommunityStatsManager {
     appSlug?: string
   ) {
     const resolved = resolveCanonicalApp(appIdentifier, appSlug, appTitle);
-    const cleanId = resolved.canonicalId;
+    const cleanId = resolved.canonicalId.toLowerCase().trim();
+    const cleanSlug = resolved.canonicalSlug ? resolved.canonicalSlug.toLowerCase().trim() : '';
     const matchedApp = resolved.matchedApp;
     
     const benchmarkRating = matchedApp?.rating ? Number(matchedApp.rating) : fallbackRating;
@@ -462,49 +469,55 @@ export class CommunityStatsManager {
     let communityRatingSum = 0;
     let communityStarCounts: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
 
-    let stats = appStatsCache.get(cleanId);
-    if (!stats && resolved.canonicalSlug) {
-      stats = appStatsCache.get(resolved.canonicalSlug);
-    }
-    if (!stats) {
-      try {
-        stats = await readAppStats(cleanId);
-        if (stats) {
-          appStatsCache.set(cleanId, stats);
-          if (resolved.canonicalSlug) appStatsCache.set(resolved.canonicalSlug, stats);
-        }
-      } catch (e) {}
-    }
-    
-    if (stats) {
-      communityTotal = stats.publishedReviewCount || 0;
-      communityRatingSum = stats.publishedRatingSum || 0;
-      communityStarCounts = stats.starDistribution || communityStarCounts;
-    } else {
-      const appReviews = Array.from(reviewsMap.values())
-        .filter(r => {
-          if (r.status && r.status !== 'published' && r.status !== 'approved') return false;
-          const rAppId = String(r.appId || '').toLowerCase().trim();
-          return rAppId === cleanId.toLowerCase().trim();
-        });
+    // 1. FIRST check real in-memory reviews for this app!
+    const matchingReviews = Array.from(reviewsMap.values()).filter(r => {
+      if (r.status && r.status !== 'published' && r.status !== 'approved') return false;
+      return doesReviewMatchApp(r, cleanId, cleanSlug);
+    });
 
-      if (appReviews.length > 0) {
-        appReviews.forEach(r => {
-          const star = String(Math.max(1, Math.min(5, Math.round(r.rating))));
-          communityStarCounts[star] = (communityStarCounts[star] || 0) + 1;
-          communityRatingSum += Number(r.rating) || 5;
-          communityTotal++;
-        });
-        
-        const computedStats = {
-          publishedReviewCount: communityTotal,
-          publishedRatingSum: communityRatingSum,
-          starDistribution: communityStarCounts
-        };
-        appStatsCache.set(cleanId, computedStats);
-        if (resolved.canonicalSlug) {
-          appStatsCache.set(resolved.canonicalSlug, computedStats);
-        }
+    if (matchingReviews.length > 0) {
+      matchingReviews.forEach(r => {
+        const star = String(Math.max(1, Math.min(5, Math.round(Number(r.rating) || 5))));
+        communityStarCounts[star] = (communityStarCounts[star] || 0) + 1;
+        communityRatingSum += Number(r.rating) || 5;
+        communityTotal++;
+      });
+      
+      const computedStats: AppStatsCacheItem = {
+        publishedReviewCount: communityTotal,
+        publishedRatingSum: communityRatingSum,
+        starDistribution: communityStarCounts
+      };
+      appStatsCache.set(cleanId, computedStats);
+      if (cleanSlug) appStatsCache.set(cleanSlug, computedStats);
+    } else {
+      let stats = appStatsCache.get(cleanId) || (cleanSlug ? appStatsCache.get(cleanSlug) : null);
+      if (!stats) {
+        try {
+          const catStatsPath = path.join(process.cwd(), 'src/lib/communityCatalogStats.json');
+          if (fs.existsSync(catStatsPath)) {
+            const raw = fs.readFileSync(catStatsPath, 'utf8');
+            const data = JSON.parse(raw);
+            const found = data?.appCounts?.[cleanId] || (cleanSlug && data?.appCounts?.[cleanSlug]);
+            if (found) {
+              const pub = Number(found.published || found.total) || 0;
+              const avg = Number(found.avgRating) || 5.0;
+              stats = {
+                publishedReviewCount: pub,
+                publishedRatingSum: pub * avg,
+                starDistribution: found.starCounts || { '1': 0, '2': 0, '3': 0, '4': 0, '5': pub }
+              };
+              appStatsCache.set(cleanId, stats);
+              if (cleanSlug) appStatsCache.set(cleanSlug, stats);
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (stats) {
+        communityTotal = stats.publishedReviewCount || 0;
+        communityRatingSum = stats.publishedRatingSum || 0;
+        communityStarCounts = stats.starDistribution || communityStarCounts;
       }
     }
 

@@ -15,13 +15,18 @@ export class CommunityReviewsManager {
     if (!stats) {
       stats = { publishedReviewCount: 0, publishedRatingSum: 0, starDistribution: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 } };
     }
-    if (incs.publishedReviewCount) stats.publishedReviewCount += incs.publishedReviewCount;
-    if (incs.publishedRatingSum) stats.publishedRatingSum += incs.publishedRatingSum;
-    if (incs.star1) stats.starDistribution['1'] += incs.star1;
-    if (incs.star2) stats.starDistribution['2'] += incs.star2;
-    if (incs.star3) stats.starDistribution['3'] += incs.star3;
-    if (incs.star4) stats.starDistribution['4'] += incs.star4;
-    if (incs.star5) stats.starDistribution['5'] += incs.star5;
+    if (incs.publishedReviewCount) {
+      stats.publishedReviewCount = Math.max(0, stats.publishedReviewCount + incs.publishedReviewCount);
+    }
+    if (incs.publishedRatingSum) {
+      stats.publishedRatingSum = Math.max(0, stats.publishedRatingSum + incs.publishedRatingSum);
+    }
+    for (let s = 1; s <= 5; s++) {
+      const sKey = String(s);
+      if (incs[`star${s}`]) {
+        stats.starDistribution[sKey] = Math.max(0, (stats.starDistribution[sKey] || 0) + incs[`star${s}`]);
+      }
+    }
     appStatsCache.set(targetKey, stats);
     if (slugKey) {
       appStatsCache.set(slugKey, stats);

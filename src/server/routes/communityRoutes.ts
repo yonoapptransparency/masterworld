@@ -14,7 +14,18 @@ import {
 } from '../services/brain2WebResearcherAutobotService';
 import { autoPilotService } from '../services/autoPilotQueueService';
 import { getStaticData } from '../config';
-import { fetchStoreData } from '../../seoHelper';
+
+// Ultra-fast zero-quota catalog app resolver from memory/static data
+function getAppFromCatalog(appId: string): any {
+  if (!appId) return null;
+  const staticData = getStaticData();
+  const clean = String(appId).toLowerCase().trim();
+  const apps = staticData.apps || staticData.mockApps || [];
+  return apps.find((a: any) => 
+    (a && a.id !== undefined && a.id !== null && String(a.id).toLowerCase().trim() === clean) ||
+    (a && a.slug && String(a.slug).toLowerCase().trim() === clean)
+  ) || null;
+}
 import {
   AVAILABLE_GEMINI_MODELS,
   getActiveAiModel,
@@ -647,6 +658,7 @@ communityRouter.put("/api/v1/admin/community/reviews/:id", verifyAdminToken, asy
     if (!updated) {
       return res.status(404).json({ error: 'Review not found' });
     }
+    await communityStore.saveCatalogStatsSummary();
 
     return res.status(200).json({ 
       success: true, 
@@ -673,6 +685,7 @@ communityRouter.patch("/api/v1/admin/community/reviews/:id/status", verifyAdminT
     if (!updated) {
       return res.status(404).json({ error: 'Review not found' });
     }
+    await communityStore.saveCatalogStatsSummary();
 
     return res.status(200).json({ success: true, message: `Review status changed to ${status}.` });
   } catch (err: any) {
@@ -690,6 +703,7 @@ communityRouter.patch("/api/v1/admin/community/reviews/:id/pin", verifyAdminToke
     if (!updated) {
       return res.status(404).json({ error: 'Review not found' });
     }
+    await communityStore.saveCatalogStatsSummary();
 
     return res.status(200).json({ success: true, message: `Review ${isPinned ? 'pinned' : 'unpinned'} successfully.` });
   } catch (err: any) {
@@ -705,6 +719,7 @@ communityRouter.delete("/api/v1/admin/community/reviews/:id", verifyAdminToken, 
     if (!deleted) {
       return res.status(404).json({ error: 'Review not found' });
     }
+    await communityStore.saveCatalogStatsSummary();
 
     return res.status(200).json({ success: true, message: 'Review deleted successfully.' });
   } catch (err: any) {
@@ -722,6 +737,7 @@ communityRouter.post("/api/v1/admin/community/reviews/bulk", verifyAdminToken, a
 
   try {
     const count = await communityStore.bulkActionReviews(reviewIds, action);
+    await communityStore.saveCatalogStatsSummary();
 
     return res.status(200).json({ 
       success: true, 
@@ -742,6 +758,7 @@ communityRouter.post("/api/v1/admin/community/reviews/bulk-save", verifyAdminTok
     }
 
     const added = await communityStore.addMultipleReviews(list);
+    await communityStore.saveCatalogStatsSummary();
     return res.status(200).json({
       success: true,
       message: `Successfully saved ${added.length} reviews to database.`,
@@ -832,8 +849,7 @@ communityRouter.post("/api/v1/admin/community/ai-generate/single", verifyAdminTo
 
     let targetApp = appData || {};
     try {
-      const storeData = await fetchStoreData();
-      const fullApp = storeData?.apps?.find((a: any) => a.id === appId || a.slug === appId);
+      const fullApp = getAppFromCatalog(appId);
       if (fullApp) {
         targetApp = {
           ...fullApp,
@@ -845,21 +861,6 @@ communityRouter.post("/api/v1/admin/community/ai-generate/single", verifyAdminTo
           features_html: (targetApp.features_html && targetApp.features_html.length > (fullApp.features_html || '').length) 
             ? targetApp.features_html : (fullApp.features_html || targetApp.features_html || '')
         };
-      } else {
-        const staticData = getStaticData();
-        const fallbackApp = staticData.apps?.find((a: any) => a.id === appId || a.slug === appId) || staticData.mockApps?.find((a: any) => a.id === appId || a.slug === appId);
-        if (fallbackApp) {
-          targetApp = {
-            ...fallbackApp,
-            ...targetApp,
-            description_html: (targetApp.description_html && targetApp.description_html.length > (fallbackApp.description_html || '').length) 
-              ? targetApp.description_html : (fallbackApp.description_html || targetApp.description_html || ''),
-            description: (targetApp.description && targetApp.description.length > (fallbackApp.description || '').length) 
-              ? targetApp.description : (fallbackApp.description || targetApp.description || ''),
-            features_html: (targetApp.features_html && targetApp.features_html.length > (fallbackApp.features_html || '').length) 
-              ? targetApp.features_html : (fallbackApp.features_html || targetApp.features_html || '')
-          };
-        }
       }
     } catch(e) {
       console.warn("Failed to fetch full app data for AI generation", e);
@@ -886,6 +887,7 @@ communityRouter.post("/api/v1/admin/community/ai-generate/single", verifyAdminTo
 
     if (saveDirectly) {
       const saved = await communityStore.addMultipleReviews(generatedReviews);
+      await communityStore.saveCatalogStatsSummary();
       return res.status(200).json({
         success: true,
         message: `Successfully generated and published ${saved.length} AI reviews for ${targetApp.name}.`,
@@ -922,20 +924,7 @@ communityRouter.post("/api/v1/admin/community/ai-generate/single", verifyAdminTo
 communityRouter.get("/api/v1/admin/community/brain1/dossier/:appId", verifyAdminToken, async (req: any, res: any) => {
   try {
     const { appId } = req.params;
-    let targetApp: any = null;
-
-    try {
-      const storeData = await fetchStoreData();
-      targetApp = storeData?.apps?.find((a: any) => String(a.id) === String(appId) || String(a.slug) === String(appId));
-    } catch (e) {
-      console.warn("[Brain1 Dossier] fetchStoreData notice:", e);
-    }
-
-    if (!targetApp) {
-      const staticData = getStaticData();
-      targetApp = staticData.apps?.find((a: any) => String(a.id) === String(appId) || String(a.slug) === String(appId)) ||
-                  staticData.mockApps?.find((a: any) => String(a.id) === String(appId) || String(a.slug) === String(appId));
-    }
+    let targetApp: any = getAppFromCatalog(appId);
 
     if (!targetApp) {
       return res.status(404).json({ error: `App "${appId}" not found in catalog.` });
@@ -978,19 +967,9 @@ communityRouter.post("/api/v1/admin/community/brain1/autobot/step", verifyAdminT
 
     let targetApp = appData || {};
     if (!targetApp.description_html && !targetApp.description) {
-      try {
-        const storeData = await fetchStoreData();
-        const fullApp = storeData?.apps?.find((a: any) => String(a.id) === String(appId) || String(a.slug) === String(appId));
-        if (fullApp) {
-          targetApp = { ...fullApp, ...targetApp };
-        } else {
-          const staticData = getStaticData();
-          const fallbackApp = staticData.apps?.find((a: any) => String(a.id) === String(appId) || String(a.slug) === String(appId)) ||
-                              staticData.mockApps?.find((a: any) => String(a.id) === String(appId) || String(a.slug) === String(appId));
-          if (fallbackApp) targetApp = { ...fallbackApp, ...targetApp };
-        }
-      } catch (e) {
-        console.warn("Brain 1 Autobot app resolution notice:", e);
+      const fullApp = getAppFromCatalog(appId);
+      if (fullApp) {
+        targetApp = { ...fullApp, ...targetApp };
       }
     }
 
@@ -1029,6 +1008,7 @@ communityRouter.post("/api/v1/admin/community/brain1/autobot/step", verifyAdminT
         status: 'published' as const
       }));
       const saved = await communityStore.addMultipleReviews(reviewsToPublish);
+      await communityStore.saveCatalogStatsSummary();
       return res.status(200).json({
         success: true,
         message: `Autobot published ${saved.length} reviews live for ${targetApp.name || 'App'}.`,
@@ -1069,20 +1049,7 @@ communityRouter.post("/api/v1/admin/community/brain1/autobot/step", verifyAdminT
 communityRouter.get("/api/v1/admin/community/brain2/target-info/:appId", verifyAdminToken, async (req: any, res: any) => {
   try {
     const { appId } = req.params;
-    let targetApp: any = null;
-
-    try {
-      const storeData = await fetchStoreData();
-      targetApp = storeData?.apps?.find((a: any) => String(a.id) === String(appId) || String(a.slug) === String(appId));
-    } catch (e) {
-      console.warn("[Brain 2 Target] fetchStoreData notice:", e);
-    }
-
-    if (!targetApp) {
-      const staticData = getStaticData();
-      targetApp = staticData.apps?.find((a: any) => String(a.id) === String(appId) || String(a.slug) === String(appId)) ||
-                  staticData.mockApps?.find((a: any) => String(a.id) === String(appId) || String(a.slug) === String(appId));
-    }
+    let targetApp: any = getAppFromCatalog(appId);
 
     if (!targetApp) {
       return res.status(404).json({ error: `App "${appId}" not found in catalog.` });
@@ -1142,19 +1109,9 @@ communityRouter.post("/api/v1/admin/community/brain2/autobot/step", verifyAdminT
 
     let targetApp = appData || {};
     if (!targetApp.name || !targetApp.developer) {
-      try {
-        const storeData = await fetchStoreData();
-        const fullApp = storeData?.apps?.find((a: any) => String(a.id) === String(appId) || String(a.slug) === String(appId));
-        if (fullApp) {
-          targetApp = { ...fullApp, ...targetApp };
-        } else {
-          const staticData = getStaticData();
-          const fallbackApp = staticData.apps?.find((a: any) => String(a.id) === String(appId) || String(a.slug) === String(appId)) ||
-                              staticData.mockApps?.find((a: any) => String(a.id) === String(appId) || String(a.slug) === String(appId));
-          if (fallbackApp) targetApp = { ...fallbackApp, ...targetApp };
-        }
-      } catch (e) {
-        console.warn("Brain 2 Autobot app resolution notice:", e);
+      const fullApp = getAppFromCatalog(appId);
+      if (fullApp) {
+        targetApp = { ...fullApp, ...targetApp };
       }
     }
 
@@ -1182,6 +1139,7 @@ communityRouter.post("/api/v1/admin/community/brain2/autobot/step", verifyAdminT
         status: 'published' as const
       }));
       const saved = await communityStore.addMultipleReviews(reviewsToPublish);
+      await communityStore.saveCatalogStatsSummary();
       return res.status(200).json({
         success: true,
         message: `Brain 2 Autobot researched & published ${saved.length} real reviews live for "${result.appSignature.appName}" by ${result.appSignature.developer}.`,
@@ -1236,19 +1194,8 @@ communityRouter.post("/api/v1/admin/community/ai-generate/bulk", verifyAdminToke
       appProfilesMap = {} // Per-app custom settings map: { [appId]: { targetScore, starMix, toneFocus, count } }
     } = req.body;
 
-    let allApps: any[] = [];
-    try {
-      const storeData = await fetchStoreData();
-      if (storeData && storeData.apps) {
-        allApps = storeData.apps;
-      }
-    } catch(e) {
-      console.warn("Bulk AI: fetchStoreData failed, using static data", e);
-    }
-    if (allApps.length === 0) {
-      const staticData = getStaticData();
-      allApps = staticData.apps || staticData.mockApps || [];
-    }
+    const staticData = getStaticData();
+    let allApps = staticData.apps || staticData.mockApps || [];
 
     if (Array.isArray(appIds) && appIds.length > 0) {
       const idSet = new Set(appIds.map((id: any) => String(id).trim()));

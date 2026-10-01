@@ -216,18 +216,19 @@ export function useGitHubSync(
     // Merge live community review stats into apps so static data, cards, and SEO have 100% consistent ratings
     let communityStatsPayload: any = null;
     try {
-      log("GitHub Sync: Harmonizing live aggregated review ratings across all apps...");
-      const statsRes = await adminFetch('/api/v1/admin/community/app-counts');
+      log("GitHub Sync: Harmonizing live atomic review ratings and exporting catalog stats file...");
+      const statsRes = await adminFetch('/api/v1/admin/community/export-stats');
       if (statsRes.ok) {
         const statsData = await statsRes.json();
-        communityStatsPayload = statsData;
-        const appCounts = statsData?.appCounts || {};
+        const exportObj = statsData?.stats || statsData;
+        communityStatsPayload = exportObj;
+        const appCounts = exportObj?.appCounts || {};
         finalApps = finalApps.map((a: any) => {
           const keyId = String(a.id || '').toLowerCase().trim();
           const keySlug = String(a.slug || '').toLowerCase().trim();
           const countInfo = appCounts[keyId] || appCounts[keySlug];
-          if (countInfo && countInfo.published > 0) {
-            const realPublished = Number(countInfo.published);
+          if (countInfo && (countInfo.published > 0 || countInfo.total > 0)) {
+            const realPublished = Number(countInfo.published ?? countInfo.total ?? 0);
             const realRating = Number(countInfo.avgRating || 4.5);
             return {
               ...a,
@@ -238,7 +239,7 @@ export function useGitHubSync(
           }
           return a;
         });
-        log("GitHub Sync: Harmonized live review ratings and counts across catalog.");
+        log("GitHub Sync: Harmonized live review ratings and atomic counts across catalog.");
       }
     } catch (e: any) {
       log(`GitHub Sync Notice: Rating harmonization note: ${e?.message || 'bypassed'}`);

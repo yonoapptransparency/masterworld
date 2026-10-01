@@ -1,8 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 import { ReviewRecord, ReportRecord, AppStatsCacheItem } from './communityTypes';
-import { sanitizeReviewText, formatReviewDate } from './communityUtils';
-import { getCommunityFirebaseConfig, getCommunityAdminDb } from '../../communityFirebaseAdmin';
+import { sanitizeReviewText, formatReviewDate, resolveCanonicalApp } from './communityUtils';
+import { getCommunityFirebaseConfig, getCommunityAdminDb, writeCommunityRestDoc } from '../../communityFirebaseAdmin';
+import { getStaticData } from '../../config';
 
 export class CommunityPersistence {
   private localBackupPath = path.join(process.cwd(), 'community_local_backup.json');
@@ -208,6 +209,19 @@ export class CommunityPersistence {
     }
   }
 
+  public flushSaveToDisk(
+    reviewsMap: Map<string, ReviewRecord>,
+    reportsMap: Map<string, ReportRecord>,
+    deletedReviewIds: Set<string>,
+    appStatsCache: Map<string, AppStatsCacheItem>
+  ) {
+    if (this.diskSyncTimer) {
+      clearTimeout(this.diskSyncTimer);
+      this.diskSyncTimer = null;
+    }
+    this.executeDiskSync(reviewsMap, reportsMap, deletedReviewIds, appStatsCache);
+  }
+
   public executeDiskSync(
     reviewsMap: Map<string, ReviewRecord>,
     reportsMap: Map<string, ReportRecord>,
@@ -262,6 +276,9 @@ export class CommunityPersistence {
         const globalDist: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
         const appCountsOutput: Record<string, any> = {};
 
+        const staticData = getStaticData();
+        const catalogApps = staticData.apps || staticData.mockApps || [];
+
         reviewsMap.forEach(r => {
           const s = r.status || 'published';
           if (s === 'published' || s === 'approved') {
@@ -276,16 +293,34 @@ export class CommunityPersistence {
           }
         });
 
-        appStatsCache.forEach((stats, appId) => {
-          const count = stats.publishedReviewCount || 0;
-          const sum = stats.publishedRatingSum || 0;
+        // 1. Populate appCountsOutput from appStatsCache
+        appStatsCache.forEach((stats, key) => {
+          const count = Number(stats.publishedReviewCount) || 0;
+          if (count <= 0) return;
+          const sum = Number(stats.publishedRatingSum) || (count * 5);
           const avg = count > 0 ? parseFloat((sum / count).toFixed(1)) : 5.0;
-          appCountsOutput[appId] = {
+          appCountsOutput[key] = {
             total: count,
             published: count,
             avgRating: avg,
-            starCounts: stats.starDistribution || { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 }
+            starCounts: stats.starDistribution || { '1': 0, '2': 0, '3': 0, '4': 0, '5': count }
           };
+        });
+
+        // 2. Ensure both ID and Slug exist for every catalog app that has reviews
+        catalogApps.forEach((a: any) => {
+          if (!a) return;
+          const idKey = a.id !== undefined && a.id !== null ? String(a.id).toLowerCase().trim() : '';
+          const slugKey = a.slug ? String(a.slug).toLowerCase().trim() : '';
+          if (idKey && appCountsOutput[idKey]) {
+            if (slugKey && !appCountsOutput[slugKey]) {
+              appCountsOutput[slugKey] = { ...appCountsOutput[idKey] };
+            }
+          } else if (slugKey && appCountsOutput[slugKey]) {
+            if (idKey && !appCountsOutput[idKey]) {
+              appCountsOutput[idKey] = { ...appCountsOutput[slugKey] };
+            }
+          }
         });
 
         const catalogStatsData = {
@@ -305,6 +340,17 @@ export class CommunityPersistence {
         const catTmpPath = catStatsPath + '.tmp';
         fs.writeFileSync(catTmpPath, JSON.stringify(catalogStatsData, null, 2), 'utf8');
         fs.renameSync(catTmpPath, catStatsPath);
+
+        // Sync to single document in Firestore (catalog_stats & atomic_counts)
+        // This is 1 SINGLE document write to the community Firebase, consuming minimal quota!
+        const db = getCommunityAdminDb();
+        if (db) {
+          db.collection('community_store').doc('catalog_stats').set(catalogStatsData, { merge: true }).catch(() => {});
+          db.collection('community_store').doc('atomic_counts').set(catalogStatsData, { merge: true }).catch(() => {});
+        } else {
+          writeCommunityRestDoc('catalog_stats', catalogStatsData, true, 'community_store').catch(() => {});
+          writeCommunityRestDoc('atomic_counts', catalogStatsData, true, 'community_store').catch(() => {});
+        }
       } catch (catErr) {
         console.warn('[CommunityPersistence] Catalog stats write notice:', catErr);
       }
@@ -317,30 +363,55 @@ export class CommunityPersistence {
     reviewsMap: Map<string, ReviewRecord>,
     appStatsCache: Map<string, AppStatsCacheItem>
   ) {
-    const appMap: Record<string, { count: number; sum: number; stars: Record<string, number> }> = {};
+    const appMap: Record<string, { count: number; sum: number; stars: Record<string, number>; canonicalId: string; canonicalSlug: string }> = {};
 
     reviewsMap.forEach(r => {
       if (r.status && r.status !== 'published' && r.status !== 'approved') return;
-      const appId = String(r.appId || '').toLowerCase().trim();
-      if (!appId) return;
-      if (!appMap[appId]) {
-        appMap[appId] = { count: 0, sum: 0, stars: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 } };
+      const rawId = String(r.appId || r.appSlug || '').trim();
+      if (!rawId) return;
+      const resolved = resolveCanonicalApp(rawId, r.appSlug, r.appName);
+      const canonicalKey = resolved.canonicalId.toLowerCase().trim();
+
+      if (!appMap[canonicalKey]) {
+        appMap[canonicalKey] = {
+          count: 0,
+          sum: 0,
+          stars: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 },
+          canonicalId: resolved.canonicalId,
+          canonicalSlug: resolved.canonicalSlug
+        };
       }
-      const entry = appMap[appId];
+      const entry = appMap[canonicalKey];
       entry.count++;
       const star = Math.max(1, Math.min(5, Math.round(Number(r.rating) || 5)));
       entry.sum += star;
       entry.stars[String(star)] = (entry.stars[String(star)] || 0) + 1;
     });
 
-    for (const [appId, data] of Object.entries(appMap)) {
-      const existing = appStatsCache.get(appId);
-      if (!existing || data.count >= (existing.publishedReviewCount || 0)) {
-        appStatsCache.set(appId, {
-          publishedReviewCount: data.count,
-          publishedRatingSum: data.sum,
-          starDistribution: data.stars
-        });
+    for (const [canonicalKey, data] of Object.entries(appMap)) {
+      const existing = appStatsCache.get(canonicalKey);
+      let count = data.count;
+      let sum = data.sum;
+      let stars = { ...data.stars };
+
+      // Retain historical volume baseline if older reviews were archived or chunked across sessions
+      if (existing && existing.publishedReviewCount > data.count) {
+        count = existing.publishedReviewCount;
+        sum = Math.max(existing.publishedRatingSum, data.sum);
+        for (let s = 1; s <= 5; s++) {
+          const sKey = String(s);
+          stars[sKey] = Math.max(existing.starDistribution?.[sKey] || 0, data.stars[sKey] || 0);
+        }
+      }
+
+      const statsItem: AppStatsCacheItem = {
+        publishedReviewCount: count,
+        publishedRatingSum: sum,
+        starDistribution: stars
+      };
+      appStatsCache.set(canonicalKey, statsItem);
+      if (data.canonicalSlug) {
+        appStatsCache.set(data.canonicalSlug.toLowerCase().trim(), statsItem);
       }
     }
   }

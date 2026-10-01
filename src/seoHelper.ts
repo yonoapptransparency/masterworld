@@ -29,8 +29,34 @@ function getLocalFallbackReviewsForApp(appId: string, appSlug: string) {
       } catch (e) {}
     }
 
+    // High-availability sample reviews from static disk storage for Schema.org rich snippets
+    let sampleReviews: any[] = [];
+    const localBackupPath = path.join(process.cwd(), 'community_local_backup.json');
+    if (fs.existsSync(localBackupPath)) {
+      try {
+        const raw = fs.readFileSync(localBackupPath, 'utf8');
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed.reviews)) {
+          sampleReviews = parsed.reviews
+            .filter((r: any) => {
+              if (r.status && r.status !== 'published' && r.status !== 'approved') return false;
+              const rAppId = String(r.appId || r.app_id || '').toLowerCase().trim();
+              const rSlug = String(r.appSlug || '').toLowerCase().trim();
+              return rAppId === cleanId || rAppId === cleanSlug || (cleanSlug && rSlug === cleanSlug);
+            })
+            .slice(0, 5)
+            .map((r: any) => ({
+              userName: r.userName || r.username || 'Player',
+              rating: Number(r.rating) || 5,
+              reviewText: r.reviewText || r.comment || '',
+              timestamp: r.timestamp || r.created_at || new Date().toISOString()
+            }));
+        }
+      } catch (_) {}
+    }
+
     return {
-      reviews: [],
+      reviews: sampleReviews,
       stats: catalogAppStats
     };
   } catch (err) {

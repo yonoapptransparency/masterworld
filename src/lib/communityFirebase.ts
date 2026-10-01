@@ -633,32 +633,14 @@ export async function fetchLiveReviews(options: {
       }
     }
 
-    // 2C. Also fetch atomic stats from app_stats/{canonicalId} directly from Firestore (with strict 1000ms timeout)
-    try {
-      const statsUrl = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${cfg.firestoreDatabaseId}/documents/app_stats/${encodeURIComponent(canonicalId)}?key=${encodeURIComponent(cfg.apiKey)}`;
-      const statsCtrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-      const statsTimer = statsCtrl ? setTimeout(() => statsCtrl.abort(), 1000) : null;
-      const statsRes = await fetch(statsUrl, { signal: statsCtrl?.signal });
-      if (statsTimer) clearTimeout(statsTimer);
-      if (statsRes.ok) {
-        const rawStats = await statsRes.json();
-        if (rawStats && rawStats.fields) {
-          const parsed = parseFirestoreFields(rawStats.fields);
-          if (parsed) {
-            loadedStats = {
-              appId: canonicalId,
-              totalReviews: Number(parsed.totalReviews || parsed.publishedReviewCount) || 0,
-              averageRating: Number(parsed.averageRating) || 0,
-              starDistribution: parsed.starDistribution || { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 }
-            };
-          }
-        }
-      }
-    } catch (_) {}
+    // 2C. Retrieve atomic stats from local/single document baseline
+    if (!loadedStats) {
+      loadedStats = getCachedLiveAppStats(canonicalId, canonicalSlug);
+    }
 
     if (allLoadedReviews.length > 0) {
-      // Calculate live stats if not pre-populated
-      if (!loadedStats) {
+      // Reconcile stats: never allow totalReviews to be less than the actual loaded reviews count
+      if (!loadedStats || (allLoadedReviews.length > Number(loadedStats.totalReviews || 0))) {
         const starCounts: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
         let sum = 0;
         allLoadedReviews.forEach(r => {
@@ -666,17 +648,17 @@ export async function fetchLiveReviews(options: {
           starCounts[star] = (starCounts[star] || 0) + 1;
           sum += (r.rating || 5);
         });
-        const total = allLoadedReviews.length;
+        const total = Math.max(allLoadedReviews.length, Number(loadedStats?.totalReviews || 0));
         loadedStats = {
-          averageRating: total > 0 ? parseFloat((sum / total).toFixed(1)) : rating,
+          averageRating: total > 0 ? parseFloat((sum / allLoadedReviews.length).toFixed(1)) : rating,
           totalReviews: total,
-          starCounts,
-          distribution: {
-            5: total > 0 ? Math.round((starCounts['5'] / total) * 100) : 75,
-            4: total > 0 ? Math.round((starCounts['4'] / total) * 100) : 15,
-            3: total > 0 ? Math.round((starCounts['3'] / total) * 100) : 6,
-            2: total > 0 ? Math.round((starCounts['2'] / total) * 100) : 2,
-            1: total > 0 ? Math.round((starCounts['1'] / total) * 100) : 2,
+          starCounts: loadedStats?.starCounts || starCounts,
+          distribution: loadedStats?.distribution || {
+            5: total > 0 ? Math.round(((loadedStats?.starCounts?.['5'] || starCounts['5']) / total) * 100) : 75,
+            4: total > 0 ? Math.round(((loadedStats?.starCounts?.['4'] || starCounts['4']) / total) * 100) : 15,
+            3: total > 0 ? Math.round(((loadedStats?.starCounts?.['3'] || starCounts['3']) / total) * 100) : 6,
+            2: total > 0 ? Math.round(((loadedStats?.starCounts?.['2'] || starCounts['2']) / total) * 100) : 2,
+            1: total > 0 ? Math.round(((loadedStats?.starCounts?.['1'] || starCounts['1']) / total) * 100) : 2,
           }
         };
       }
