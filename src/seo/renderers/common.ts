@@ -33,19 +33,19 @@ export function renderHeader(settings: any): string {
   const logoUrl = getField(settings, 'logo_url');
   const optimizedLogo = logoUrl ? optimizeImageUrl(logoUrl, 100) : '';
   return `
-    <header class="py-3 border-b border-black/5 dark:border-white/5 bg-white/80 dark:bg-zinc-950/80">
-      <div class="max-w-7xl mx-auto px-4 sm:px-8 flex justify-between items-center">
-        <a href="/" class="flex items-center gap-3 font-bold text-lg text-zinc-900 dark:text-white" aria-label="${escapeHtml(siteTitle)} Home">
-          ${logoUrl ? `<img src="${escapeHtml(optimizedLogo)}" loading="eager" fetchpriority="high" decoding="async" width="40" height="40" class="w-10 h-10 object-contain" alt="${escapeHtml(siteTitle)} Official Logo"/>` : ''}
+    <header class="py-3 border-b border-black/10 dark:border-white/10 bg-white/95 dark:bg-zinc-950/95 sticky top-0 z-40 backdrop-blur-md">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+        <a href="/" class="flex items-center gap-2.5 font-black text-lg sm:text-xl text-zinc-900 dark:text-white" aria-label="${escapeHtml(siteTitle)} Home">
+          ${logoUrl ? `<img src="${escapeHtml(optimizedLogo)}" loading="eager" fetchpriority="high" decoding="async" width="36" height="36" class="w-9 h-9 object-contain rounded-xl" alt="${escapeHtml(siteTitle)} Official Logo"/>` : `<span class="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm">${escapeHtml(siteTitle.charAt(0))}</span>`}
           <span>${escapeHtml(siteTitle)}</span>
         </a>
-        <nav class="hidden md:flex gap-6 text-sm font-medium text-zinc-600 dark:text-zinc-300" aria-label="Main Navigation">
-          <a href="/">Home</a>
-          <a href="/news">News</a>
-          <a href="/videos">Videos</a>
-          <a href="/developers">Developers</a>
-          <a href="/about">About</a>
-          <a href="/contact">Contact</a>
+        <nav class="flex items-center gap-4 sm:gap-6 text-xs sm:text-sm font-semibold text-zinc-600 dark:text-zinc-300" aria-label="Main Navigation">
+          <a href="/" class="hover:text-blue-600 dark:hover:text-blue-400">Home</a>
+          <a href="/new-apps" class="hover:text-blue-600 dark:hover:text-blue-400">New Apps</a>
+          <a href="/categories" class="hover:text-blue-600 dark:hover:text-blue-400">Categories</a>
+          <a href="/news" class="hover:text-blue-600 dark:hover:text-blue-400">News</a>
+          <a href="/videos" class="hover:text-blue-600 dark:hover:text-blue-400">Videos</a>
+          <a href="/about" class="hidden sm:inline-block hover:text-blue-600 dark:hover:text-blue-400">About</a>
         </nav>
       </div>
     </header>
@@ -56,32 +56,66 @@ export function renderFooter(settings: any): string {
   const siteTitle = getField(settings, 'site_title') || 'RummyDex';
 
   return `
-    <footer class="pt-8 sm:pt-10 pb-8 border-t border-black/10 dark:border-white/10 bg-slate-900 dark:bg-zinc-950 mt-10 text-left text-slate-400">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6">
-        <div class="flex flex-col sm:flex-row justify-between items-start gap-6 pb-6 border-b border-slate-800">
-          <div>
-            <span class="text-xl font-black text-white">${escapeHtml(siteTitle)}</span>
-            <p class="text-xs text-slate-400 mt-1">Independent digital directory and verified application reviews.</p>
+    <footer class="w-full mt-12 bg-slate-900 dark:bg-zinc-950 text-slate-300 border-t border-black/10 dark:border-white/10" aria-label="Site Footer">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
+        <div class="flex flex-col lg:flex-row justify-between items-start gap-8 lg:gap-12">
+          
+          <div class="flex flex-col items-start max-w-sm">
+            <a href="/" class="text-xl sm:text-2xl font-black text-white hover:text-blue-400 transition-colors inline-flex items-center gap-2 mb-2" aria-label="${escapeHtml(siteTitle)} Homepage">
+              <span>${escapeHtml(siteTitle)}</span>
+              <span class="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                Verified
+              </span>
+            </a>
+            <p class="text-xs text-slate-400 leading-relaxed font-normal">
+              Independent digital directory, application benchmarking, and transparent reviews.
+            </p>
           </div>
-          <div class="flex flex-wrap gap-x-6 gap-y-2 text-xs font-medium text-slate-300">
-            <a href="/" class="hover:text-blue-400">All Apps</a>
-            <a href="/new-apps" class="hover:text-blue-400">New Apps</a>
-            <a href="/categories" class="hover:text-blue-400">Categories</a>
-            <a href="/news" class="hover:text-blue-400">News</a>
-            <a href="/videos" class="hover:text-blue-400">Videos</a>
-            <a href="/developers" class="hover:text-blue-400">Developers</a>
-            <a href="/about" class="hover:text-blue-400">About</a>
-            <a href="/contact" class="hover:text-blue-400">Contact</a>
-            <a href="/privacy" class="hover:text-blue-400">Privacy</a>
-            <a href="/terms" class="hover:text-blue-400">Terms</a>
-            <a href="/ethics" class="hover:text-blue-400">Ethics</a>
-            <a href="/notice" class="hover:text-blue-400">Notice</a>
-            <a href="/disclaimer" class="hover:text-blue-400">Disclaimer</a>
-            <a href="/responsibility" class="hover:text-blue-400">Safety</a>
-            <a href="/report-removal" class="hover:text-blue-400">Report & Removal</a>
+
+          <div class="w-full lg:w-auto grid grid-cols-2 sm:grid-cols-3 gap-6 sm:gap-10 text-left text-xs sm:text-sm">
+            
+            <div class="flex flex-col gap-2">
+              <span class="text-white font-bold text-[11px] uppercase tracking-wider mb-1 text-slate-100">
+                Directory
+              </span>
+              <a href="/" class="text-slate-400 hover:text-blue-400 transition-colors py-0.5">All Apps</a>
+              <a href="/new-apps" class="text-slate-400 hover:text-blue-400 transition-colors py-0.5">New Apps</a>
+              <a href="/categories" class="text-slate-400 hover:text-blue-400 transition-colors py-0.5">Categories</a>
+              <a href="/news" class="text-slate-400 hover:text-blue-400 transition-colors py-0.5">Industry News</a>
+              <a href="/videos" class="text-slate-400 hover:text-blue-400 transition-colors py-0.5">Video Reviews</a>
+            </div>
+
+            <div class="flex flex-col gap-2">
+              <span class="text-white font-bold text-[11px] uppercase tracking-wider mb-1 text-slate-100">
+                Company
+              </span>
+              <a href="/about" class="text-slate-400 hover:text-blue-400 transition-colors py-0.5">About Us</a>
+              <a href="/developers" class="text-slate-400 hover:text-blue-400 transition-colors py-0.5">Developer Team</a>
+              <a href="/contact" class="text-slate-400 hover:text-blue-400 transition-colors py-0.5">Contact Support</a>
+              <a href="/responsibility" class="text-slate-400 hover:text-blue-400 transition-colors py-0.5">Responsible Gaming</a>
+              <a href="/report-removal" class="text-slate-400 hover:text-blue-400 transition-colors py-0.5">Report / DMCA</a>
+            </div>
+
+            <div class="flex flex-col gap-2 col-span-2 sm:col-span-1">
+              <span class="text-white font-bold text-[11px] uppercase tracking-wider mb-1 text-slate-100">
+                Compliance
+              </span>
+              <a href="/privacy" class="text-slate-400 hover:text-blue-400 transition-colors py-0.5">Privacy Policy</a>
+              <a href="/terms" class="text-slate-400 hover:text-blue-400 transition-colors py-0.5">Terms of Service</a>
+              <a href="/ethics" class="text-slate-400 hover:text-blue-400 transition-colors py-0.5">Ethics Policy</a>
+              <a href="/notice" class="text-slate-400 hover:text-blue-400 transition-colors py-0.5">Legal Notice</a>
+              <a href="/disclaimer" class="text-slate-400 hover:text-blue-400 transition-colors py-0.5">Disclaimer</a>
+            </div>
+
           </div>
         </div>
-        <div class="text-[11px] text-slate-500 pt-4">&copy; ${new Date().getFullYear()} ${escapeHtml(siteTitle)}. All rights reserved.</div>
+
+        <div class="mt-10 pt-6 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p class="text-[11px] text-slate-500 text-center sm:text-left">
+            &copy; ${new Date().getFullYear()} ${escapeHtml(siteTitle)}. All rights reserved.
+          </p>
+        </div>
+
       </div>
     </footer>
   `;

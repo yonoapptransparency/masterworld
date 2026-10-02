@@ -9,6 +9,7 @@ import { buildJsonLdSchema } from './seo/schemaBuilder';
 import { buildMetaTags } from './seo/metaBuilder';
 import { optimizeInitialDataForRoute } from './seo/initialDataOptimizer';
 import { getPagePreRender } from './seo/preRenderEngine';
+import { getCriticalCss } from './seo/criticalCss';
 
 export { resolveAppSlug, SLUG_ALIAS_MAP };
 export { getField, getSafeFirebaseConfig, syncFromFirestore, getOgImageUrl, getYoutubeThumbnail };
@@ -517,10 +518,13 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     .replace(/<script\s+type=["']application\/ld\+json["'][^>]*>[\s\S]*?<\/script>/gi, '')
     .replace(/<script>window\.__INITIAL_DATA__[\s\S]*?<\/script>/gi, '');
 
+  const criticalCss = getCriticalCss();
+  const headAdditions = `${seoTags}\n${criticalCss ? criticalCss + '\n' : ''}${initialDataScript}`;
+
   if (finalHtml.includes('</head>')) {
-    finalHtml = finalHtml.replace('</head>', `${seoTags}\n${initialDataScript}\n</head>`);
+    finalHtml = finalHtml.replace('</head>', `${headAdditions}\n</head>`);
   } else {
-    finalHtml = `${seoTags}\n${initialDataScript}\n${finalHtml}`;
+    finalHtml = `${headAdditions}\n${finalHtml}`;
   }
 
   // High-performance server-side semantic HTML injection:

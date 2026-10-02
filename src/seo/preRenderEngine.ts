@@ -2,6 +2,20 @@ import { getField } from './utils';
 import { resolveAppSlug } from '../lib/slugResolver';
 import * as renderers from './renderers/index';
 
+function wrapWithLayout(bodyContent: string, settings: any): string {
+  const headerHtml = renderers.renderHeader(settings);
+  const footerHtml = renderers.renderFooter(settings);
+  return `
+    <div class="min-h-screen flex flex-col bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-100 font-sans antialiased selection:bg-blue-500 selection:text-white">
+      ${headerHtml}
+      <main class="flex-1 w-full max-w-7xl mx-auto px-2 sm:px-4 md:px-6 py-4">
+        ${bodyContent}
+      </main>
+      ${footerHtml}
+    </div>
+  `;
+}
+
 export async function getPagePreRender(urlPath: string, data: any): Promise<string> {
   const { apps = [], settings = {}, news = [], videos = [], developers = [] } = data || {};
   const cleanPath = urlPath.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
@@ -18,8 +32,10 @@ export async function getPagePreRender(urlPath: string, data: any): Promise<stri
     `;
   }
 
+  let bodyHtml = '';
+
   if (cleanPathLower === '/' || cleanPathLower === '') {
-    return renderers.renderHome(apps, settings, news, videos);
+    bodyHtml = renderers.renderHome(apps, settings, news, videos);
   } else if (cleanPathLower === '/new-apps') {
     const newAppsList = apps.filter((a: any) => {
       const isNew = a.is_new === true || (a.is_new && typeof a.is_new === 'object' && a.is_new.booleanValue === true);
@@ -27,7 +43,7 @@ export async function getPagePreRender(urlPath: string, data: any): Promise<stri
       return isNew || isHot;
     });
     const displayNew = newAppsList.length > 0 ? newAppsList : [...apps].slice(0, 24);
-    return renderers.renderNewApps(displayNew, settings);
+    bodyHtml = renderers.renderNewApps(displayNew, settings);
   } else if (cleanPathLower === '/categories') {
     const catMap = new Map<string, { name: string; slug: string; count: number }>();
     apps.forEach((a: any) => {
@@ -47,7 +63,7 @@ export async function getPagePreRender(urlPath: string, data: any): Promise<stri
       }
     });
     const categoriesList = Array.from(catMap.values()).sort((a, b) => b.count - a.count);
-    return renderers.renderCategoriesList(categoriesList, settings);
+    bodyHtml = renderers.renderCategoriesList(categoriesList, settings);
   } else if (cleanPathLower.startsWith('/category/') || cleanPathLower.startsWith('/categories/')) {
     const rawCatSlug = cleanPathLower.replace(/^\/(category|categories)\/?/, '').replace(/^\/|\/$/g, '');
     const catName = rawCatSlug
@@ -59,9 +75,9 @@ export async function getPagePreRender(urlPath: string, data: any): Promise<stri
       const cats = cat.split(',').map((c: string) => c.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''));
       return cats.some((c: string) => c === rawCatSlug || c.includes(rawCatSlug) || rawCatSlug.includes(c));
     });
-    return renderers.renderCategory(catName, rawCatSlug, categoryApps, settings);
+    bodyHtml = renderers.renderCategory(catName, rawCatSlug, categoryApps, settings);
   } else if (cleanPathLower === '/news') {
-    return renderers.renderNewsList(news, settings);
+    bodyHtml = renderers.renderNewsList(news, settings);
   } else if (cleanPathLower.startsWith('/news/')) {
     const rawNewsSlug = cleanPath.split('/news/')[1] || '';
     const cleanNewsSlug = decodeURIComponent(rawNewsSlug).toLowerCase().trim().replace(/\/+$/, '').split(/[?#]/)[0];
@@ -71,54 +87,56 @@ export async function getPagePreRender(urlPath: string, data: any): Promise<stri
       return (nSlug && nSlug === cleanNewsSlug) || (nId && nId === cleanNewsSlug);
     });
     if (newsItem) {
-      return renderers.renderNewsDetail(cleanNewsSlug, news, settings, apps);
+      bodyHtml = renderers.renderNewsDetail(cleanNewsSlug, news, settings, apps);
+    } else {
+      const matchedApp = apps.find((a: any) => {
+        const aSlug = (getField(a, 'slug') || '').toLowerCase().trim();
+        const aId = (getField(a, 'id') || '').toLowerCase().trim();
+        return (aSlug && aSlug === cleanNewsSlug) || (aId && aId === cleanNewsSlug);
+      });
+      if (matchedApp) {
+        bodyHtml = renderers.renderAppDetails(cleanNewsSlug, apps, settings);
+      } else {
+        bodyHtml = renderers.render404(urlPath, settings);
+      }
     }
-    const matchedApp = apps.find((a: any) => {
-      const aSlug = (getField(a, 'slug') || '').toLowerCase().trim();
-      const aId = (getField(a, 'id') || '').toLowerCase().trim();
-      return (aSlug && aSlug === cleanNewsSlug) || (aId && aId === cleanNewsSlug);
-    });
-    if (matchedApp) {
-      return renderers.renderAppDetails(cleanNewsSlug, apps, settings);
-    }
-    return renderers.render404(urlPath, settings);
   } else if (cleanPathLower === '/videos') {
-    return renderers.renderVideosList(videos, settings);
+    bodyHtml = renderers.renderVideosList(videos, settings);
   } else if (cleanPathLower.startsWith('/videos/')) {
     const slug = cleanPath.split('/videos/')[1];
-    return renderers.renderVideoDetail(slug, videos, settings);
+    bodyHtml = renderers.renderVideoDetail(slug, videos, settings);
   } else if (cleanPathLower === '/about') {
-    return renderers.renderAbout(settings);
+    bodyHtml = renderers.renderAbout(settings);
   } else if (cleanPathLower === '/contact') {
-    return renderers.renderContact(settings);
+    bodyHtml = renderers.renderContact(settings);
   } else if (cleanPathLower === '/privacy') {
-    return renderers.renderPrivacy(settings);
+    bodyHtml = renderers.renderPrivacy(settings);
   } else if (cleanPathLower === '/terms') {
-    return renderers.renderTerms(settings);
+    bodyHtml = renderers.renderTerms(settings);
   } else if (cleanPathLower === '/responsibility') {
-    return renderers.renderResponsibility(settings);
+    bodyHtml = renderers.renderResponsibility(settings);
   } else if (cleanPathLower === '/report-removal') {
-    return renderers.renderReportRemoval(settings);
+    bodyHtml = renderers.renderReportRemoval(settings);
   } else if (cleanPathLower === '/notice') {
-    return renderers.renderNotice(settings);
+    bodyHtml = renderers.renderNotice(settings);
   } else if (cleanPathLower === '/ethics') {
-    return renderers.renderEthics(settings);
+    bodyHtml = renderers.renderEthics(settings);
   } else if (cleanPathLower === '/disclaimer') {
-    return renderers.renderDisclaimer(settings);
+    bodyHtml = renderers.renderDisclaimer(settings);
   } else if (cleanPathLower === '/developers') {
-    return renderers.renderDevelopersList(developers, settings);
+    bodyHtml = renderers.renderDevelopersList(developers, settings);
   } else if (cleanPathLower === '/faq') {
-    return renderers.renderFaqPage(settings);
+    bodyHtml = renderers.renderFaqPage(settings);
   } else if (cleanPathLower.startsWith('/info/') || cleanPathLower.startsWith('/moreinfo/') || cleanPathLower.startsWith('/moredetail/') || cleanPathLower.startsWith('/gateway/') || cleanPathLower.startsWith('/download/')) {
     const parts = cleanPathLower.split('/');
     const slug = parts[parts.length - 1];
-    return renderers.renderGateway(slug, settings, apps);
+    bodyHtml = renderers.renderGateway(slug, settings, apps);
   } else if (cleanPathLower.startsWith('/app/')) {
     const slug = cleanPathLower.replace(/^\/app\//, '/').replace(/^\/|\/$/g, '');
-    return renderers.renderAppDetails(slug, apps, settings);
+    bodyHtml = renderers.renderAppDetails(slug, apps, settings);
   } else if (cleanPathLower.startsWith('/s/')) {
     const slug = cleanPath.split('/s/')[1];
-    return renderers.renderAppDetails(slug, apps, settings);
+    bodyHtml = renderers.renderAppDetails(slug, apps, settings);
   } else {
     const slug = cleanPathLower.replace(/^\/|\/$/g, '');
     const app = resolveAppSlug(slug, apps) || apps.find((a: any) => getField(a, 'slug')?.toLowerCase() === slug);
@@ -126,13 +144,15 @@ export async function getPagePreRender(urlPath: string, data: any): Promise<stri
     const videoItem = videos.find((v: any) => getField(v, 'slug')?.toLowerCase() === slug);
 
     if (app) {
-      return renderers.renderAppDetails(slug, apps, settings);
+      bodyHtml = renderers.renderAppDetails(slug, apps, settings);
     } else if (newsItem) {
-      return renderers.renderNewsDetail(slug, news, settings, apps);
+      bodyHtml = renderers.renderNewsDetail(slug, news, settings, apps);
     } else if (videoItem) {
-      return renderers.renderVideoDetail(slug, videos, settings);
+      bodyHtml = renderers.renderVideoDetail(slug, videos, settings);
     } else {
-      return renderers.render404(urlPath, settings);
+      bodyHtml = renderers.render404(urlPath, settings);
     }
   }
+
+  return wrapWithLayout(bodyHtml, settings);
 }
