@@ -35,7 +35,8 @@ async function startServer() {
         frameSrc: ["'self'", "https://challenges.cloudflare.com", "https://www.youtube-nocookie.com", "https://www.youtube.com"],
         connectSrc: ["'self'", "https://res.cloudinary.com", "https://api.cloudinary.com", "https://challenges.cloudflare.com", "https://firestore.googleapis.com", "https://*.firebaseio.com", "https://identitytoolkit.googleapis.com"],
         objectSrc: ["'none'"],
-        baseUri: ["'self'"]
+        baseUri: ["'self'"],
+        frameAncestors: ["'self'", "https://aistudio.google.com", "https://*.google.com", "https://*.run.app"]
       }
     },
     crossOriginEmbedderPolicy: false,

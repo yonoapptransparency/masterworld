@@ -1,96 +1,19 @@
 import fs from 'fs';
 import path from 'path';
-import { getSafeFirebaseConfig, getSafeCommunityFirebaseConfig } from './seo/firebaseConfig';
+import { getSafeFirebaseConfig } from './seo/firebaseConfig';
 import { syncFromFirestore } from './seo/sync';
-import { getField, stripHtml, getYoutubeThumbnail, ensureAbsoluteUrl, getOgImageUrl, isBotUserAgent, escapeHtml, optimizeImageUrl, getOptimizedImageUrl, normalizeSchemaCategory, cleanFaqQuestion } from './seo/utils';
-import * as renderers from './seo/renderers';
+import { getField, stripHtml, getYoutubeThumbnail, getOgImageUrl, isBotUserAgent } from './seo/utils';
 import { getCleanCanonicalUrl, formatPageTitle } from './lib/seoUtils';
+import { resolveAppSlug, SLUG_ALIAS_MAP } from './lib/slugResolver';
+import { buildJsonLdSchema } from './seo/schemaBuilder';
+import { buildMetaTags } from './seo/metaBuilder';
+import { optimizeInitialDataForRoute } from './seo/initialDataOptimizer';
+import { getPagePreRender } from './seo/preRenderEngine';
 
-function getLocalFallbackReviewsForApp(appId: string, appSlug: string) {
-  try {
-    const cleanId = (appId || '').toLowerCase().trim();
-    const cleanSlug = (appSlug || '').toLowerCase().trim();
+export { resolveAppSlug, SLUG_ALIAS_MAP };
+export { getField, getSafeFirebaseConfig, syncFromFirestore, getOgImageUrl, getYoutubeThumbnail };
 
-    // Pre-computed single atomic counts file communityCatalogStats.json (instant 0ms read for SEO aggregateRating)
-    let catalogAppStats: any = null;
-    const catStatsPath = path.join(process.cwd(), 'src/lib/communityCatalogStats.json');
-    if (fs.existsSync(catStatsPath)) {
-      try {
-        const cParsed = JSON.parse(fs.readFileSync(catStatsPath, 'utf8'));
-        const appCounts = cParsed?.appCounts || {};
-        const countInfo = appCounts[cleanId] || (cleanSlug ? appCounts[cleanSlug] : null);
-        if (countInfo && countInfo.published > 0) {
-          catalogAppStats = {
-            totalReviews: Number(countInfo.published),
-            averageRating: Number(countInfo.avgRating || 4.5),
-            starCounts: countInfo.starCounts || null
-          };
-        }
-      } catch (e) {}
-    }
-
-    // High-availability sample reviews from static disk storage for Schema.org rich snippets
-    let sampleReviews: any[] = [];
-    const localBackupPath = path.join(process.cwd(), 'community_local_backup.json');
-    const staticReviewsPath = path.join(process.cwd(), 'src/lib/communityStaticReviews.json');
-
-    if (fs.existsSync(localBackupPath)) {
-      try {
-        const raw = fs.readFileSync(localBackupPath, 'utf8');
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed.reviews)) {
-          sampleReviews = parsed.reviews
-            .filter((r: any) => {
-              if (r.status && r.status !== 'published' && r.status !== 'approved') return false;
-              const rAppId = String(r.appId || r.app_id || '').toLowerCase().trim();
-              const rSlug = String(r.appSlug || '').toLowerCase().trim();
-              return rAppId === cleanId || rAppId === cleanSlug || (cleanSlug && rSlug === cleanSlug);
-            })
-            .slice(0, 5)
-            .map((r: any) => ({
-              userName: r.userName || r.username || 'Player',
-              rating: Number(r.rating) || 5,
-              reviewText: r.reviewText || r.comment || '',
-              timestamp: r.timestamp || r.created_at || new Date().toISOString()
-            }));
-        }
-      } catch (_) {}
-    } else if (fs.existsSync(staticReviewsPath)) {
-      try {
-        const raw = fs.readFileSync(staticReviewsPath, 'utf8');
-        const staticMap = JSON.parse(raw);
-        const list = staticMap[cleanId] || (cleanSlug ? staticMap[cleanSlug] : null);
-        if (Array.isArray(list) && list.length > 0) {
-          sampleReviews = list.slice(0, 5).map((r: any) => ({
-            userName: r.userName || r.username || 'Player',
-            rating: Number(r.rating) || 5,
-            reviewText: r.reviewText || r.comment || '',
-            timestamp: r.timestamp || r.created_at || new Date().toISOString()
-          }));
-        }
-      } catch (_) {}
-    }
-
-    return {
-      reviews: sampleReviews,
-      stats: catalogAppStats
-    };
-  } catch (err) {
-    return { reviews: [], stats: null };
-  }
-}
-
-async function fetchSEOReviewsForApp(appId: string, appSlug: string, rating: number, appName: string) {
-  // 1. High-availability local filesystem cache (instant 0ms, zero network lag, zero Firestore quota)
-  const localData = getLocalFallbackReviewsForApp(appId, appSlug);
-  if (localData) {
-    return localData;
-  }
-
-  return { reviews: [], stats: null };
-}
-
-// Dynamically resolve staticData directly from filesystem to bypass caching
+// Dynamically resolve staticData directly from filesystem with caching
 const getStaticData = () => {
   try {
     const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
@@ -141,22 +64,10 @@ const getStaticData = () => {
   }
 };
 
-const staticData = getStaticData();
-const mockApps = staticData.apps || staticData.mockApps || [];
-const mockSettings = staticData.settings || staticData.mockSettings || {};
-const mockNews = staticData.news || staticData.mockNews || [];
-const mockVideos = staticData.videos || staticData.mockVideos || [];
-
 let cachedData: any = null;
 let lastFetchTime = 0;
 const CACHE_TTL = 300000; // 5 minutes (prevent quota exhaustion)
 let isFetchingStoreData = false;
-
-import { resolveAppSlug, SLUG_ALIAS_MAP } from './lib/slugResolver';
-
-export { resolveAppSlug, SLUG_ALIAS_MAP };
-
-export { getField, getSafeFirebaseConfig, syncFromFirestore, getOgImageUrl, getYoutubeThumbnail };
 
 export function clearSeoCache() {
   cachedData = null;
@@ -212,592 +123,6 @@ function cleanSeoDescription(desc: string): string {
   return trimmed;
 }
 
-async function getPagePreRender(urlPath: string, data: any): Promise<string> {
-  const { apps = [], settings = {}, news = [], videos = [], developers = [] } = data || {};
-  const cleanPath = urlPath.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
-  const cleanPathLower = cleanPath.toLowerCase();
-
-  if (cleanPathLower.startsWith('/admin') || cleanPathLower.startsWith('/masterworld')) {
-    return `
-      <div class="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white font-sans">
-        <div class="flex flex-col items-center gap-3">
-          <div class="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-          <span class="text-xs font-mono text-slate-400">Loading Masterworld Admin...</span>
-        </div>
-      </div>
-    `;
-  }
-
-  let bodyContent = '';
-
-  if (cleanPathLower === '/' || cleanPathLower === '') {
-    bodyContent = renderers.renderHome(apps, settings, news, videos);
-  } else if (cleanPathLower === '/new-apps') {
-    const newAppsList = apps.filter((a: any) => {
-      const isNew = a.is_new === true || (a.is_new && typeof a.is_new === 'object' && a.is_new.booleanValue === true);
-      const isHot = a.is_hot === true || (a.is_hot && typeof a.is_hot === 'object' && a.is_hot.booleanValue === true);
-      return isNew || isHot;
-    });
-    const displayNew = newAppsList.length > 0 ? newAppsList : [...apps].slice(0, 24);
-    bodyContent = renderers.renderNewApps(displayNew, settings);
-  } else if (cleanPathLower === '/categories') {
-    const catMap = new Map<string, { name: string; slug: string; count: number }>();
-    apps.forEach((a: any) => {
-      const rawCat = getField(a, 'category', '');
-      if (rawCat) {
-        rawCat.split(',').forEach((c: string) => {
-          const trimmed = c.trim();
-          if (trimmed && trimmed.toLowerCase() !== 'all apps' && trimmed.toLowerCase() !== 'all' && trimmed.toLowerCase() !== 'apps' && trimmed.toLowerCase() !== 'general') {
-            const s = trimmed.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-            if (s) {
-              if (!catMap.has(s)) {
-                catMap.set(s, { name: trimmed, slug: s, count: 1 });
-              } else {
-                catMap.get(s)!.count++;
-              }
-            }
-          }
-        });
-      }
-    });
-    bodyContent = renderers.renderCategoriesList(Array.from(catMap.values()), settings);
-  } else if (cleanPathLower.startsWith('/category/') || cleanPathLower.startsWith('/categories/')) {
-    const rawCatSlug = cleanPathLower.replace(/^\/(category|categories)\/?/, '').replace(/^\/|\/$/g, '');
-    const catName = rawCatSlug
-      ? rawCatSlug.split(/[-_]+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
-      : 'All Categories';
-    const categoryApps = apps.filter((a: any) => {
-      const cat = getField(a, 'category', '');
-      if (!cat) return false;
-      const cats = cat.split(',').map((c: string) => c.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''));
-      return cats.some((c: string) => c === rawCatSlug || c.includes(rawCatSlug) || rawCatSlug.includes(c));
-    });
-    const finalCatApps = categoryApps.length > 0 ? categoryApps : apps;
-    bodyContent = renderers.renderCategory(catName, rawCatSlug, finalCatApps, settings);
-  } else if (cleanPathLower.startsWith('/s/')) {
-    const slug = cleanPath.split('/s/')[1];
-    const app = apps.find((a: any) => getField(a, 'slug').toLowerCase() === slug.toLowerCase());
-    bodyContent = app ? renderers.renderGateway(slug, apps, settings) : renderers.render404(urlPath, settings);
-  } else if (cleanPathLower === '/news') {
-    bodyContent = renderers.renderNewsList(news, settings);
-  } else if (cleanPathLower.startsWith('/news/')) {
-    const rawNewsSlug = cleanPath.split('/news/')[1] || '';
-    const cleanNewsSlug = decodeURIComponent(rawNewsSlug).toLowerCase().trim().replace(/\/+$/, '').split(/[?#]/)[0];
-    const item = news.find((n: any) => {
-      const nSlug = (getField(n, 'slug') || '').toLowerCase().trim();
-      const nId = (getField(n, 'id') || '').toLowerCase().trim();
-      return (nSlug && nSlug === cleanNewsSlug) || (nId && nId === cleanNewsSlug);
-    });
-    bodyContent = item ? renderers.renderNewsDetail(cleanNewsSlug, news, settings, apps) : renderers.render404(urlPath, settings);
-  } else if (cleanPathLower === '/videos') {
-    bodyContent = renderers.renderVideosList(videos, settings);
-  } else if (cleanPathLower.startsWith('/videos/')) {
-    const slug = cleanPath.split('/videos/')[1];
-    const item = videos.find((v: any) => getField(v, 'slug').toLowerCase() === slug.toLowerCase());
-    bodyContent = item ? renderers.renderVideoDetail(slug, videos, settings) : renderers.render404(urlPath, settings);
-  } else if (cleanPathLower === '/developers') {
-    bodyContent = renderers.renderDevelopersList(developers, settings);
-  } else if (cleanPathLower === '/about') {
-    bodyContent = renderers.renderAbout(settings);
-  } else if (cleanPathLower === '/contact') {
-    bodyContent = renderers.renderContact(settings);
-  } else if (cleanPathLower === '/privacy') {
-    bodyContent = renderers.renderPrivacy(settings);
-  } else if (cleanPathLower === '/report-removal') {
-    bodyContent = renderers.renderReportRemoval(settings);
-  } else if (cleanPathLower === '/terms') {
-    bodyContent = renderers.renderTerms(settings);
-  } else if (cleanPathLower === '/notice') {
-    bodyContent = renderers.renderNotice(settings);
-  } else if (cleanPathLower === '/ethics') {
-    bodyContent = renderers.renderEthics(settings);
-  } else if (cleanPathLower === '/disclaimer') {
-    bodyContent = renderers.renderDisclaimer(settings);
-  } else if (cleanPathLower === '/responsibility') {
-    bodyContent = renderers.renderResponsibility(settings);
-  } else if (cleanPathLower.startsWith('/info/') || cleanPathLower.startsWith('/moreinfo/') || cleanPathLower.startsWith('/moredetail/') || cleanPathLower.startsWith('/gateway/') || cleanPathLower.startsWith('/download/')) {
-    const parts = cleanPathLower.split('/');
-    const slug = parts[parts.length - 1];
-    bodyContent = renderers.renderGateway(slug, settings, apps);
-  } else if (cleanPathLower.startsWith('/app/')) {
-    const possibleSlug = cleanPathLower.replace(/^\/app\//, '/').replace(/^\/|\/$/g, '');
-    const app = resolveAppSlug(possibleSlug, apps) || apps.find((a: any) => getField(a, 'slug')?.toLowerCase() === possibleSlug);
-    if (app) {
-      const appIdentifier = getField(app, 'slug') || getField(app, 'id');
-      const rawRatingVal = parseFloat(getField(app, 'rating')) || 4.5;
-      const seoFeed = await fetchSEOReviewsForApp(appIdentifier, getField(app, 'slug'), rawRatingVal, getField(app, 'name'));
-      const appSampleReviews = seoFeed?.reviews || [];
-      const appLiveStats = seoFeed?.stats || null;
-      bodyContent = renderers.renderAppDetails(getField(app, 'slug') || possibleSlug, apps, settings, appSampleReviews, appLiveStats);
-    } else {
-      bodyContent = renderers.render404(urlPath, settings);
-    }
-  } else {
-    const possibleSlug = cleanPathLower.replace(/^\/|\/$/g, '');
-    const app = resolveAppSlug(possibleSlug, apps) || apps.find((a: any) => getField(a, 'slug')?.toLowerCase() === possibleSlug);
-    const newsItem = news.find((n: any) => getField(n, 'slug')?.toLowerCase() === possibleSlug);
-    const videoItem = videos.find((v: any) => getField(v, 'slug')?.toLowerCase() === possibleSlug);
-
-    if (app) {
-      const appIdentifier = getField(app, 'slug') || getField(app, 'id');
-      const rawRatingVal = parseFloat(getField(app, 'rating')) || 4.5;
-      const seoFeed = await fetchSEOReviewsForApp(appIdentifier, getField(app, 'slug'), rawRatingVal, getField(app, 'name'));
-      const appSampleReviews = seoFeed?.reviews || [];
-      const appLiveStats = seoFeed?.stats || null;
-      bodyContent = renderers.renderAppDetails(getField(app, 'slug') || possibleSlug, apps, settings, appSampleReviews, appLiveStats);
-    } else if (newsItem) {
-      bodyContent = renderers.renderNewsDetail(possibleSlug, news, settings, apps);
-    } else if (videoItem) {
-      bodyContent = renderers.renderVideoDetail(possibleSlug, videos, settings);
-    } else {
-      bodyContent = renderers.render404(urlPath, settings);
-    }
-  }
-
-  const header = renderers.renderHeader(settings);
-  const footer = renderers.renderFooter(settings);
-
-  return `
-    <div class="flex flex-col min-h-screen">
-      ${header}
-      <main class="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-1.5 sm:py-3 pb-16 sm:pb-24 overflow-x-hidden relative">
-        ${bodyContent}
-      </main>
-      ${footer}
-    </div>
-  `;
-}
-
-async function buildJsonLdSchema(params: {
-  pageType: 'home' | 'app' | 'news' | 'video' | 'static' | 'collection' | 'gateway' | '404';
-  title: string;
-  description: string;
-  url: string;
-  logoUrl: string;
-  siteTitle: string;
-  app?: any;
-  newsItem?: any;
-  videoItem?: any;
-  settings?: any;
-  collectionItems?: Array<{ name: string; url: string; image?: string; description?: string }>;
-  breadcrumbItems?: Array<{ name: string; url: string }>;
-}): Promise<string> {
-  const schemas: any[] = [];
-
-  let hostOrigin = 'https://www.rummydex.com';
-  try {
-    const fullUrl = params.url.startsWith('http') ? params.url : `https://${params.url}`;
-    hostOrigin = new URL(fullUrl).origin;
-  } catch (e) {
-    hostOrigin = params.url.startsWith('http') ? params.url : `https://${params.url}`;
-  }
-
-  if (params.pageType === 'gateway' || params.pageType === '404') {
-    return '';
-  }
-
-  // 1. APP DETAILS PAGE: SoftwareApplication is the single primary entity
-  if (params.pageType === 'app' && params.app) {
-    const app = params.app;
-    const name = getField(app, 'name');
-    const category = normalizeSchemaCategory(getField(app, 'category'));
-    const rawRating = getField(app, 'rating');
-    const configuredRating = parseFloat(rawRating);
-    const rawCount = getField(app, 'review_count') || getField(app, 'reviews') || '';
-    const configuredCount = parseInt(rawCount, 10);
-    
-    // Align live rating and count with community reviews and AppDetails
-    const appIdentifier = getField(app, 'slug') || getField(app, 'id');
-    const seoFeed = await fetchSEOReviewsForApp(appIdentifier, getField(app, 'slug'), !isNaN(configuredRating) && configuredRating > 0 ? configuredRating : 4.5, name);
-    const liveStats = seoFeed?.stats || null;
-    
-    const hasLiveReviews = Boolean(liveStats && Number(liveStats.totalReviews) > 0);
-    const finalRating = hasLiveReviews
-      ? Math.max(1.0, Math.min(5.0, Number(liveStats.averageRating)))
-      : (!isNaN(configuredRating) && configuredRating > 0 ? Math.max(1.0, Math.min(5.0, configuredRating)) : 4.5);
-    const clampedRating = Math.max(1.0, Math.min(5.0, finalRating));
-
-    // Strictly real count of reviews present in Firebase / catalog
-    const finalCount = hasLiveReviews 
-      ? Number(liveStats.totalReviews) 
-      : (!isNaN(configuredCount) && configuredCount > 0 ? configuredCount : 0);
-
-    const appRawIcon = getField(app, 'icon_url') || getField(app, 'og_image_url') || params.logoUrl;
-    const appSquareIcon = optimizeImageUrl(appRawIcon, 512) || appRawIcon;
-    const desc = cleanSeoDescription(getField(app, 'seo_description') || getField(app, 'meta_description') || stripHtml(getField(app, 'description_html')).substring(0, 160) || params.description);
-
-    const rawCat = getField(app, 'category');
-    const specificCat = rawCat ? rawCat.split(',').map((c: string) => c.trim()).filter((c: string) => c && c.toLowerCase() !== 'all apps' && c.toLowerCase() !== 'all' && c.toLowerCase() !== 'apps' && c.toLowerCase() !== 'general')[0] : '';
-    const developer = getField(app, 'developer') || params.siteTitle || 'RummyDex';
-    const fileSize = getField(app, 'file_size') || '45 MB';
-    const version = getField(app, 'version') || '2.0.6';
-
-    const softwareAppSchema: any = {
-      "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
-      "name": name,
-      "url": `${hostOrigin}/app/${getField(app, 'slug')}`,
-      "operatingSystem": "Android",
-      "applicationCategory": category,
-      "image": appSquareIcon,
-      "description": desc,
-      "fileSize": fileSize,
-      "softwareVersion": version,
-      "author": {
-        "@type": "Organization",
-        "name": developer
-      },
-      "offers": {
-        "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "INR",
-        "availability": "https://schema.org/InStock"
-      }
-    };
-
-    if (clampedRating > 0 && finalCount > 0) {
-      softwareAppSchema["aggregateRating"] = {
-        "@type": "AggregateRating",
-        "ratingValue": parseFloat(clampedRating.toFixed(1)),
-        "ratingCount": Math.round(finalCount),
-        "reviewCount": Math.round(finalCount),
-        "bestRating": 5,
-        "worstRating": 1
-      };
-    }
-
-    // Include sample reviews if available to boost Google Rich Snippet compliance (without nested itemReviewed)
-    try {
-      const feed = await fetchSEOReviewsForApp(appIdentifier, getField(app, 'slug'), clampedRating, name);
-      if (feed && Array.isArray(feed.reviews) && feed.reviews.length > 0) {
-        const validReviews = feed.reviews
-          .filter((rev: any) => rev && stripHtml(rev.reviewText || '').trim().length >= 3)
-          .slice(0, 5)
-          .map((rev: any) => ({
-            "@type": "Review",
-            "author": {
-              "@type": "Person",
-              "name": rev.userName ? String(rev.userName).trim() : 'Verified Player'
-            },
-            "datePublished": (rev.timestamp ? new Date(rev.timestamp).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
-            "reviewBody": stripHtml(rev.reviewText || '').trim(),
-            "reviewRating": {
-              "@type": "Rating",
-              "ratingValue": Math.max(1, Math.min(5, Number(rev.rating) || 5)),
-              "bestRating": 5,
-              "worstRating": 1
-            }
-          }));
-
-        if (validReviews.length > 0) {
-          softwareAppSchema["review"] = validReviews;
-        }
-      }
-    } catch (revErr) {}
-
-    const appScreenshots = getField(app, 'screenshots');
-    if (Array.isArray(appScreenshots) && appScreenshots.length > 0) {
-      softwareAppSchema["screenshot"] = appScreenshots.map((s: string) => optimizeImageUrl(s, 1024) || s);
-    }
-
-    // Push the primary entity FIRST
-    schemas.push(softwareAppSchema);
-
-    // BreadcrumbList navigation schema
-    const breadcrumbs: any[] = [
-      {
-        "@type": "ListItem",
-        "position": 1,
-        "name": "Home",
-        "item": hostOrigin
-      }
-    ];
-
-    if (specificCat) {
-      breadcrumbs.push({
-        "@type": "ListItem",
-        "position": 2,
-        "name": specificCat,
-        "item": `${hostOrigin}/category/${encodeURIComponent(specificCat.toLowerCase().replace(/\s+/g, '-'))}`
-      });
-      breadcrumbs.push({
-        "@type": "ListItem",
-        "position": 3,
-        "name": name,
-        "item": `${hostOrigin}/app/${getField(app, 'slug')}`
-      });
-    } else {
-      breadcrumbs.push({
-        "@type": "ListItem",
-        "position": 2,
-        "name": name,
-        "item": `${hostOrigin}/app/${getField(app, 'slug')}`
-      });
-    }
-
-    schemas.push({
-      "@context": "https://schema.org",
-      "@type": "BreadcrumbList",
-      "itemListElement": breadcrumbs
-    });
-
-    // App-specific FAQs: Use custom app faqs if available, or generate natural app-specific FAQs
-    const appNameForFaq = getField(app, 'name') || 'Application';
-    const appSlugForFaq = getField(app, 'slug') || '';
-    const appSizeForFaq = getField(app, 'file_size') || 'standard size';
-    const rawFaqs = (app.faqs && Array.isArray(app.faqs) && app.faqs.length > 0)
-      ? app.faqs
-      : [
-          {
-            question: `How do I download and install ${appNameForFaq} on my Android device?`,
-            answer: `To install ${appNameForFaq}, tap the Download button on this page to obtain the verified installation package directly. Once downloaded, open the notification or file in your device Downloads folder and follow the standard prompts to complete setup.`
-          },
-          {
-            question: `Is ${appNameForFaq} safe to use?`,
-            answer: `Yes. ${appNameForFaq} listed on RummyDex has been verified to ensure smooth performance, thermal stability, and authentic card gaming mechanics.`
-          },
-          {
-            question: `What are the storage requirements for ${appNameForFaq}?`,
-            answer: `${appNameForFaq} has an installation footprint of approximately ${appSizeForFaq} and is optimized for Android devices with minimal battery drain.`
-          },
-          {
-            question: `Can I play card games with friends and family in ${appNameForFaq}?`,
-            answer: `Yes, ${appNameForFaq} provides multiplayer tables and responsive matchmaking across mobile networks for card gaming anytime.`
-          }
-        ];
-
-    const seenAppFaqs = new Set<string>();
-    const faqList = rawFaqs
-      .filter((faq: any) => {
-        const q = cleanFaqQuestion(stripHtml(getField(faq, 'question')).trim());
-        const a = stripHtml(getField(faq, 'answer')).trim();
-        if (!q || !a || q.length < 5 || seenAppFaqs.has(q.toLowerCase())) return false;
-        seenAppFaqs.add(q.toLowerCase());
-        return true;
-      })
-      .map((faq: any) => ({
-        "@type": "Question",
-        "name": cleanFaqQuestion(stripHtml(getField(faq, 'question')).trim()),
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": stripHtml(getField(faq, 'answer')).trim()
-        }
-      }));
-
-    if (faqList.length > 0) {
-      schemas.push({
-        "@context": "https://schema.org",
-        "@type": "FAQPage",
-        "@id": `${hostOrigin}/app/${appSlugForFaq}#faq`,
-        "url": `${hostOrigin}/app/${appSlugForFaq}`,
-        "mainEntity": faqList
-      });
-    }
-  } else if (params.pageType === 'news' && params.newsItem) {
-    const item = params.newsItem;
-    const title = getField(item, 'title');
-    const desc = cleanSeoDescription(
-      getField(item, 'seo_description') || 
-      getField(item, 'meta_description') || 
-      getField(item, 'description') || 
-      params.description
-    );
-    const datePublished = getField(item, 'published_at') || getField(item, 'created_at') || getField(item, 'date') || new Date().toISOString();
-    const dateModified = getField(item, 'updated_at') || datePublished;
-    const authorName = getField(item, 'author') || getField(item, 'ceo_name') || params.siteTitle;
-
-    const rawNewsImg = getField(item, 'og_image_url') || getField(item, 'image_url') || getField(item, 'logo_url') || params.logoUrl;
-    const newsImg = optimizeImageUrl(rawNewsImg, 1200) || rawNewsImg;
-
-    const newsSlugStr = getField(item, 'slug') || getField(item, 'id');
-    const canonicalPageUrl = params.url || `${hostOrigin}/news/${newsSlugStr}`;
-    const rawArticleBody = stripHtml(getField(item, 'content') || getField(item, 'description_html') || desc);
-
-    schemas.push({
-      "@context": "https://schema.org",
-      "@type": "NewsArticle",
-      "mainEntityOfPage": {
-        "@type": "WebPage",
-        "@id": canonicalPageUrl
-      },
-      "headline": title,
-      "description": desc,
-      "articleBody": rawArticleBody,
-      "image": [newsImg],
-      "datePublished": datePublished,
-      "dateModified": dateModified,
-      "articleSection": getField(item, 'category') || 'General',
-      "inLanguage": "en",
-      "isAccessibleForFree": true,
-      "author": {
-        "@type": "Person",
-        "name": authorName
-      },
-      "publisher": {
-        "@type": "Organization",
-        "name": params.siteTitle,
-        "url": hostOrigin,
-        "logo": {
-          "@type": "ImageObject",
-          "url": params.logoUrl
-        }
-      }
-    });
-
-    schemas.push({
-      "@context": "https://schema.org",
-      "@type": "BreadcrumbList",
-      "itemListElement": [
-        {
-          "@type": "ListItem",
-          "position": 1,
-          "name": "Home",
-          "item": hostOrigin
-        },
-        {
-          "@type": "ListItem",
-          "position": 2,
-          "name": "News",
-          "item": `${hostOrigin}/news`
-        },
-        {
-          "@type": "ListItem",
-          "position": 3,
-          "name": title,
-          "item": canonicalPageUrl
-        }
-      ]
-    });
-  } else if (params.pageType === 'video' && params.videoItem) {
-    const v = params.videoItem;
-    const youtubeUrl = getField(v, 'youtube_url') || getField(v, 'video_url') || getField(v, 'url');
-    schemas.push({
-      "@context": "https://schema.org",
-      "@type": "VideoObject",
-      "name": getField(v, 'title'),
-      "description": getField(v, 'description') || getField(v, 'title'),
-      "thumbnailUrl": getYoutubeThumbnail(youtubeUrl) || params.logoUrl,
-      "uploadDate": getField(v, 'created_at') || new Date().toISOString(),
-      "contentUrl": youtubeUrl
-    });
-    schemas.push({
-      "@context": "https://schema.org",
-      "@type": "BreadcrumbList",
-      "itemListElement": [
-        {
-          "@type": "ListItem",
-          "position": 1,
-          "name": "Home",
-          "item": hostOrigin
-        },
-        {
-          "@type": "ListItem",
-          "position": 2,
-          "name": "Videos",
-          "item": `${hostOrigin}/videos`
-        },
-        {
-          "@type": "ListItem",
-          "position": 3,
-          "name": getField(v, 'title'),
-          "item": `${hostOrigin}/videos/${getField(v, 'slug')}`
-        }
-      ]
-    });
-  } else if (params.pageType === 'collection') {
-    // COLLECTION PAGES: Category, New Apps, Categories list, Developers list
-    const collectionSchema: any = {
-      "@context": "https://schema.org",
-      "@type": "CollectionPage",
-      "name": params.title,
-      "description": params.description,
-      "url": params.url
-    };
-
-    if (params.collectionItems && params.collectionItems.length > 0) {
-      collectionSchema.mainEntity = {
-        "@type": "ItemList",
-        "itemListElement": params.collectionItems.map((item, idx) => ({
-          "@type": "ListItem",
-          "position": idx + 1,
-          "name": item.name,
-          "url": item.url,
-          ...(item.image ? { "image": item.image } : {}),
-          ...(item.description ? { "description": item.description } : {})
-        }))
-      };
-    }
-    schemas.push(collectionSchema);
-
-    if (params.breadcrumbItems && params.breadcrumbItems.length > 0) {
-      schemas.push({
-        "@context": "https://schema.org",
-        "@type": "BreadcrumbList",
-        "itemListElement": params.breadcrumbItems.map((b, idx) => ({
-          "@type": "ListItem",
-          "position": idx + 1,
-          "name": b.name,
-          "item": b.url
-        }))
-      });
-    }
-  } else {
-    // HOME & GENERAL PAGES: WebSite schema is only on root/general pages
-    schemas.push({
-      "@context": "https://schema.org",
-      "@type": "WebSite",
-      "@id": `${hostOrigin}/#website`,
-      "url": hostOrigin,
-      "name": params.siteTitle,
-      "description": params.description,
-      "potentialAction": {
-        "@type": "SearchAction",
-        "target": `${hostOrigin}/?q={search_term_string}`,
-        "query-input": "required name=search_term_string"
-      },
-      "publisher": {
-        "@type": "Organization",
-        "@id": `${hostOrigin}/#organization`,
-        "name": params.siteTitle,
-        "url": hostOrigin,
-        "logo": {
-          "@type": "ImageObject",
-          "url": params.logoUrl
-        }
-      }
-    });
-
-    if (params.settings?.website_faqs && Array.isArray(params.settings.website_faqs) && params.settings.website_faqs.length > 0) {
-      const seenQuestions = new Set<string>();
-      const faqList = params.settings.website_faqs
-        .filter((faq: any) => {
-          const q = cleanFaqQuestion(stripHtml(getField(faq, 'question')).trim());
-          const a = stripHtml(getField(faq, 'answer')).trim();
-          if (!q || !a || q.length < 5 || seenQuestions.has(q.toLowerCase())) return false;
-          seenQuestions.add(q.toLowerCase());
-          return true;
-        })
-        .map((faq: any) => ({
-          "@type": "Question",
-          "name": cleanFaqQuestion(stripHtml(getField(faq, 'question')).trim()),
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": stripHtml(getField(faq, 'answer')).trim()
-          }
-        }));
-      if (faqList.length > 0) {
-        schemas.push({
-          "@context": "https://schema.org",
-          "@type": "FAQPage",
-          "mainEntity": faqList
-        });
-      }
-    }
-  }
-
-  return schemas.map(s => `<script type="application/ld+json" data-rh="true">${JSON.stringify(s).replace(/</g, '\\u003c')}</script>`).join('\n');
-}
-
 export interface SeoInjectionResult {
   html: string;
   isNotFound: boolean;
@@ -808,22 +133,20 @@ export interface SeoInjectionResult {
 }
 
 export async function injectSeoTags(template: string, urlPath: string, hostUrl?: string, userAgent: string = ''): Promise<SeoInjectionResult> {
-  let data = await fetchStoreData();
+  const data = await fetchStoreData();
   if (!data || !data.settings) return { html: template, isNotFound: false };
 
   const apps = data.apps || [];
   const settings = data.settings || {};
   const news = (data.news || []).filter((n: any) => n && n.sync_to_public !== false);
   const videos = data.videos || [];
-  const developers = data.developers || [];
   const siteTitle = getField(settings, 'site_title') || 'RummyDex';
   let title = getField(settings, 'seo_title') || getField(settings, 'meta_title') || siteTitle;
   let description = getField(settings, 'seo_description') || getField(settings, 'meta_description', '');
-  
-  let keywords = getField(settings, 'seo_keywords', '');
+  const keywords = getField(settings, 'seo_keywords', '');
 
   const CLOUDINARY_ICON = 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
-  let rawLogoUrl = getField(settings, 'logo_url') || CLOUDINARY_ICON;
+  const rawLogoUrl = getField(settings, 'logo_url') || CLOUDINARY_ICON;
   const rawFaviconSetting = getField(settings, 'favicon_url');
   
   const getFaviconWithSize = (url: string, size: number) => {
@@ -839,9 +162,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   const favicon32 = isCustomFavicon ? getFaviconWithSize(rawFaviconSetting, 32) : '/favicon-32x32.png';
   const favicon16 = isCustomFavicon ? getFaviconWithSize(rawFaviconSetting, 16) : '/favicon-16x16.png';
   const favicon180 = isCustomFavicon ? getFaviconWithSize(rawFaviconSetting, 180) : '/apple-touch-icon.png';
-  
-  // Use a properly sized square logo for JSON-LD schemas to prevent raw image pre-fetches
-  let logoUrl = getFaviconWithSize(rawLogoUrl, 512);
+  const logoUrl = getFaviconWithSize(rawLogoUrl, 512);
 
   const cleanPath = urlPath.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
   const cleanPathLower = cleanPath.toLowerCase();
@@ -957,7 +278,6 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       pageType = 'news';
       targetNews = newsItem;
     } else {
-      // Check if this slug matches an app in the catalog
       const matchedApp = apps.find((a: any) => {
         const aSlug = (getField(a, 'slug') || '').toLowerCase().trim();
         const aId = (getField(a, 'id') || '').toLowerCase().trim();
@@ -1050,9 +370,9 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     }
   } else {
     const appSlug = cleanPathLower.replace(/^\/|\/$/g, '');
-    const app = resolveAppSlug(appSlug, apps) || apps.find((a: any) => getField(a, 'slug')?.toLowerCase() === appSlug || getField(a, 'slug')?.toLowerCase() === appSlug.replace(/[-_]+$/g, ''));
-    const newsItem = news.find((n: any) => getField(n, 'slug')?.toLowerCase() === appSlug || getField(n, 'slug')?.toLowerCase() === appSlug.replace(/[-_]+$/g, ''));
-    const videoItem = videos.find((v: any) => getField(v, 'slug')?.toLowerCase() === appSlug || getField(v, 'slug')?.toLowerCase() === appSlug.replace(/[-_]+$/g, ''));
+    const app = resolveAppSlug(appSlug, apps) || apps.find((a: any) => getField(a, 'slug')?.toLowerCase() === appSlug);
+    const newsItem = news.find((n: any) => getField(n, 'slug')?.toLowerCase() === appSlug);
+    const videoItem = videos.find((v: any) => getField(v, 'slug')?.toLowerCase() === appSlug);
 
     if (app) {
       title = getField(app, 'seo_title') || getField(app, 'meta_title') || getField(app, 'name');
@@ -1147,305 +467,35 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     breadcrumbItems
   });
 
-  // Ensure meta description is clean and formatted
-  if (description) {
-    description = stripHtml(description).replace(/\s+/g, ' ').trim();
+  const cssPreloadMatch = template.match(/<link[^>]*rel=["']stylesheet["'][^>]*href=["']([^"']*\.css)["'][^>]*>/i);
+  let cssPreloadTag = '';
+  if (cssPreloadMatch && cssPreloadMatch[1]) {
+    const cssHref = cssPreloadMatch[1];
+    cssPreloadTag = `<link rel="preload" as="style" href="${cssHref}">`;
   }
 
-  const isNoIndexPage = isNotFound ||
-    cleanPathLower.startsWith('/s/') ||
-    cleanPathLower.startsWith('/dl/') ||
-    cleanPathLower.startsWith('/out/') ||
-    cleanPathLower.startsWith('/gateway/') ||
-    cleanPathLower.startsWith('/info/') ||
-    cleanPathLower.startsWith('/moreinfo/') ||
-    cleanPathLower.startsWith('/moredetail/') ||
-    cleanPathLower.startsWith('/download/') ||
-    cleanPathLower.startsWith('/admin') ||
-    cleanPathLower.startsWith('/login') ||
-    cleanPathLower.startsWith('/masterworld');
+  const seoTags = buildMetaTags({
+    title,
+    description,
+    keywords,
+    canonicalUrl,
+    pageOgImage,
+    siteTitle,
+    targetApp,
+    settings,
+    faviconIco,
+    favicon32,
+    favicon16,
+    favicon180,
+    cssPreloadTag,
+    jsonLdSchema,
+    isNotFound,
+    getField
+  });
 
-  const robotsTag = isNoIndexPage 
-    ? '<meta data-rh="true" name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate">\n    <meta data-rh="true" name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate">\n    <meta data-rh="true" name="bingbot" content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate">\n    <meta data-rh="true" name="slurp" content="noindex, nofollow, noarchive, nosnippet">\n    <meta data-rh="true" name="baiduspider" content="noindex, nofollow, noarchive, nosnippet">\n    <meta data-rh="true" name="yandex" content="noindex, nofollow, noarchive, nosnippet">\n    <meta data-rh="true" name="duckduckbot" content="noindex, nofollow, noarchive, nosnippet">' 
-    : '<meta data-rh="true" name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">';
-
-  const escapedTitle = escapeHtml(title);
-  const escapedDesc = escapeHtml(description);
-  if (targetApp && getField(targetApp, 'seo_keywords')) {
-    keywords = getField(targetApp, 'seo_keywords');
-  } else if (targetNews && getField(targetNews, 'seo_keywords')) {
-    keywords = getField(targetNews, 'seo_keywords');
-  } else if (targetVideo && getField(targetVideo, 'seo_keywords')) {
-    keywords = getField(targetVideo, 'seo_keywords');
-  }
-  
-  if (keywords) {
-    const keywordArray = keywords.split(',').map((k: string) => k.trim()).filter(Boolean);
-    if (keywordArray.length > 15) keywords = keywordArray.slice(0, 15).join(', ');
-  }
-
-  const escapedSiteTitle = escapeHtml(siteTitle);
-  const escapedKeywords = escapeHtml(keywords);
-
-  const ogImageWidth = pageOgImage.includes('w_600') ? '600' : '1200';
-  const ogImageHeight = pageOgImage.includes('w_600') ? '600' : '630';
-
-    const cssMatch = template.match(/<link\s+[^>]*href=["']([^"']+\.css)["'][^>]*>/i);
-    const cssPreloadTag = (cssMatch && cssMatch[1] && !template.includes(`as="style"`))
-      ? `<link rel="preload" as="style" href="${cssMatch[1]}" crossorigin>\n`
-      : '';
-
-    const seoTags = `
-    <title>${escapedTitle}</title>
-    <meta name="description" content="${escapedDesc}">
-    <meta data-rh="true" name="keywords" content="${escapedKeywords}">
-    <meta data-rh="true" name="application-name" content="${escapedSiteTitle}">
-    <meta data-rh="true" name="color-scheme" content="light dark">
-    ${robotsTag}
-    <meta data-rh="true" property="og:site_name" content="${escapedSiteTitle}">
-    <meta data-rh="true" property="og:locale" content="en_IN">
-    <meta data-rh="true" property="og:title" content="${escapedTitle}">
-    <meta data-rh="true" property="og:description" content="${escapedDesc}">
-    <meta data-rh="true" property="og:type" content="${pageType === 'news' ? 'article' : 'website'}">
-    <meta data-rh="true" property="og:url" content="${canonicalUrl}">
-    <meta data-rh="true" property="og:image" content="${pageOgImage}">
-    <meta data-rh="true" property="og:image:secure_url" content="${pageOgImage}">
-    <meta data-rh="true" property="og:image:type" content="${pageOgImage.includes('.jpg') || pageOgImage.includes('f_jpg') ? 'image/jpeg' : 'image/png'}">
-    <meta data-rh="true" property="og:image:width" content="${ogImageWidth}">
-    <meta data-rh="true" property="og:image:height" content="${ogImageHeight}">
-    <meta data-rh="true" name="twitter:card" content="summary_large_image">
-    <meta data-rh="true" name="twitter:site" content="@RummyDex">
-    <meta data-rh="true" name="twitter:creator" content="@RummyDex">
-    <meta data-rh="true" name="twitter:title" content="${escapedTitle}">
-    <meta data-rh="true" name="twitter:description" content="${escapedDesc}">
-    <meta data-rh="true" name="twitter:image" content="${pageOgImage}">
-    <meta data-rh="true" name="thumbnail" content="${pageOgImage}">
-    <meta data-rh="true" itemprop="image" content="${pageOgImage}">
-    <meta data-rh="true" itemprop="thumbnailUrl" content="${pageOgImage}">
-    <link data-rh="true" rel="alternate" type="application/rss+xml" title="RummyDex News" href="/rss.xml">
-    <link data-rh="true" rel="image_src" href="${pageOgImage}">
-    <link data-rh="true" rel="canonical" href="${canonicalUrl}">
-    <link data-rh="true" rel="icon" type="image/x-icon" href="${faviconIco}">
-    <link data-rh="true" rel="icon" type="image/png" sizes="32x32" href="${favicon32}">
-    <link data-rh="true" rel="icon" type="image/png" sizes="16x16" href="${favicon16}">
-    <link data-rh="true" rel="apple-touch-icon" sizes="180x180" href="${favicon180}">
-    <link data-rh="true" rel="manifest" href="/site.webmanifest">
-    ${cssPreloadTag}
-    ${targetApp && getField(targetApp, 'icon_url') ? `<link rel="preload" as="image" href="${escapeHtml(getOptimizedImageUrl(getField(targetApp, 'icon_url'), 240))}" fetchpriority="high">` : ''}
-    ${getField(settings, 'logo_url') ? `<link rel="preload" as="image" href="${escapeHtml(getOptimizedImageUrl(getField(settings, 'logo_url'), 120))}" fetchpriority="high">` : ''}
-    ${jsonLdSchema}
-  `;
-
-  // Optimize initial data payload size by stripping heavy HTML descriptions and inner app data from non-target apps for ultra-fast page loads
-  let initialDataPayload = data;
-  const isAdminRoute = cleanPathLower.startsWith('/admin');
-
-  if (data && !isAdminRoute) {
-    const isAppDetailPage = cleanPathLower.startsWith('/app/');
-    const isNewsPage = cleanPathLower === '/news' || cleanPathLower.startsWith('/news/');
-    const isNewsDetailPage = cleanPathLower.startsWith('/news/');
-    const targetAppSlug = targetApp ? getField(targetApp, 'slug')?.toLowerCase().trim() : null;
-    const targetAppId = targetApp ? String(getField(targetApp, 'id') || '').toLowerCase().trim() : '';
-    const targetAppName = targetApp ? String(getField(targetApp, 'name') || '').toLowerCase().trim() : '';
-    const targetNewsSlug = targetNews ? (getField(targetNews, 'slug') || getField(targetNews, 'id'))?.toLowerCase().trim() : null;
-
-    // On news pages (/news, /news/:slug), do not load apps catalog into initial HTML payload to keep news ultra-clean and fast
-    const optimizedApps = isNewsPage ? [] : (Array.isArray(data.apps) ? data.apps.map((app: any) => {
-      const appSlugLower = (getField(app, 'slug') || '').toLowerCase().trim();
-      const appIdLower = String(getField(app, 'id') || '').toLowerCase().trim();
-      const isTarget = Boolean(
-        (targetAppSlug && (appSlugLower === targetAppSlug || appIdLower === targetAppSlug)) ||
-        (targetAppId && (appIdLower === targetAppId || appSlugLower === targetAppId))
-      );
-
-      // Clean public app builder
-      const clean: any = {
-        id: app.id,
-        name: app.name,
-        slug: app.slug,
-        icon_url: app.icon_url,
-        category: app.category,
-        rating: Number(app.rating) || 4.5,
-        version: app.version || '1.0',
-        file_size: app.file_size || '45 MB',
-        safety_status: app.safety_status || 'Verified'
-      };
-
-      if (app.developer) clean.developer = app.developer;
-      if (app.review_count) clean.review_count = Number(app.review_count);
-      if (app.reviews && typeof app.reviews === 'number') clean.reviews = app.reviews;
-      if (app.short_description) clean.short_description = app.short_description;
-      if (app.seo_title) clean.seo_title = app.seo_title;
-      if (app.seo_description) clean.seo_description = app.seo_description;
-      if (app.seo_keywords) clean.seo_keywords = app.seo_keywords;
-      if (app.meta_description) clean.meta_description = app.meta_description;
-      if (app.og_image_url) clean.og_image_url = app.og_image_url;
-      if (app.canonical_url) clean.canonical_url = app.canonical_url;
-      if (app.is_featured) clean.is_featured = true;
-      if (app.is_new) clean.is_new = true;
-      if (app.is_hot) clean.is_hot = true;
-      if (app.is_top_chart) clean.is_top_chart = true;
-      if (app.top_chart_category) clean.top_chart_category = app.top_chart_category;
-      if (app.publish_date) clean.publish_date = app.publish_date;
-      if (app.updated_at) clean.updated_at = app.updated_at;
-
-      // On app detail page, prune non-target apps to lightweight stubs for high-speed crawler and user rendering
-      if (isAppDetailPage && !isTarget) {
-        return {
-          id: clean.id,
-          name: clean.name,
-          slug: clean.slug,
-          icon_url: clean.icon_url,
-          category: clean.category,
-          rating: clean.rating,
-          file_size: clean.file_size,
-          version: clean.version
-        };
-      }
-
-      // If target app on detail page, attach rich content fields
-      if (isTarget) {
-        if (app.description_html) clean.description_html = app.description_html;
-        if (app.features_html) clean.features_html = app.features_html;
-        if (Array.isArray(app.screenshots) && app.screenshots.length > 0) clean.screenshots = app.screenshots;
-        if (Array.isArray(app.faqs) && app.faqs.length > 0) clean.faqs = app.faqs;
-        if (app.custom_admin_box_html && typeof app.custom_admin_box_html === 'string' && app.custom_admin_box_html.trim()) {
-          clean.custom_admin_box_html = app.custom_admin_box_html.trim();
-          if (app.custom_admin_box_heading) clean.custom_admin_box_heading = app.custom_admin_box_heading;
-        }
-        if (app.yellow_box_msg && typeof app.yellow_box_msg === 'string' && app.yellow_box_msg.trim()) clean.yellow_box_msg = app.yellow_box_msg.trim();
-        if (app.red_box_msg && typeof app.red_box_msg === 'string' && app.red_box_msg.trim()) clean.red_box_msg = app.red_box_msg.trim();
-        if (app.idea_box_msg && typeof app.idea_box_msg === 'string' && app.idea_box_msg.trim()) clean.idea_box_msg = app.idea_box_msg.trim();
-        if (app.release_notes && typeof app.release_notes === 'string' && app.release_notes.trim()) clean.release_notes = app.release_notes.trim();
-        if (app.video_url && typeof app.video_url === 'string' && app.video_url.trim()) clean.video_url = app.video_url.trim();
-      }
-
-      return clean;
-    }) : []);
-
-    const optimizedNews = (Array.isArray(data.news) ? data.news : [])
-      .filter((item: any) => {
-        if (!item || item.sync_to_public === false) return false;
-        if (isAppDetailPage && targetApp) {
-          const relId = String(item.related_app_id || '').trim();
-          const matchesRel = targetAppId && relId === targetAppId;
-          const matchesName = targetAppName && (item.title || '').toLowerCase().includes(targetAppName);
-          return matchesRel || matchesName;
-        }
-        return true;
-      })
-      .map((item: any) => {
-        const itemSlug = (item.slug || item.id || '').toLowerCase().trim();
-        const itemId = String(item.id || '').toLowerCase().trim();
-        const isTargetNewsArticle = isNewsDetailPage && targetNewsSlug && (
-          itemSlug === targetNewsSlug ||
-          itemId === targetNewsSlug ||
-          (item.slug && item.slug.toLowerCase().trim() === targetNewsSlug)
-        );
-
-        return {
-          id: item.id,
-          slug: item.slug,
-          title: item.title,
-          logo_url: item.logo_url || item.image_url || '',
-          image_url: item.image_url || item.logo_url || '',
-          description: item.description || '',
-          // Always retain full content and description_html for news articles
-          content: item.content || item.description_html || item.description || '',
-          description_html: item.description_html || item.content || item.description || '',
-          ceo_name: item.ceo_name || item.author || 'Admin Team',
-          ceo_description: item.ceo_description || 'Transparency & Security Analyst',
-          author: item.author || item.ceo_name || 'Admin Team',
-          category: item.category || 'General',
-          published_at: item.published_at || item.created_at || item.date || '',
-          date: item.date || item.published_at || item.created_at || '',
-          read_time: item.read_time || '3 min read',
-          is_breaking: Boolean(item.is_breaking),
-          is_new: Boolean(item.is_new),
-          is_pinned: Boolean(item.is_pinned),
-          seo_title: item.seo_title || '',
-          seo_description: item.seo_description || '',
-          seo_keywords: item.seo_keywords || '',
-          og_image_url: item.og_image_url || '',
-          canonical_url: item.canonical_url || '',
-          target_region: item.target_region || 'India',
-          link: item.link || '',
-          tags: Array.isArray(item.tags) ? item.tags : [],
-          related_app_id: item.related_app_id || '',
-          created_at: item.created_at || item.date || '',
-          updated_at: item.updated_at || item.date || ''
-        };
-      });
-
-    const optimizedVideos = (isAppDetailPage || isNewsPage) ? [] : (Array.isArray(data.videos) ? data.videos.map((item: any) => {
-      const isTarget = targetVideo && (getField(item, 'slug') || getField(item, 'id'))?.toLowerCase() === (getField(targetVideo, 'slug') || getField(targetVideo, 'id'))?.toLowerCase();
-      if (isTarget) return item;
-      return {
-        id: item.id,
-        slug: item.slug,
-        title: item.title,
-        seo_title: item.seo_title,
-        seo_description: item.seo_description,
-        meta_description: item.meta_description,
-        og_image_url: item.og_image_url,
-        thumbnail_url: item.thumbnail_url,
-        video_url: item.video_url,
-        duration: item.duration,
-        category: item.category
-      };
-    }) : []);
-
-    // Strict public settings whitelist to prevent any backend test or secret leakage
-    const rawSettings = data.settings || {};
-    const optimizedSettings: any = {};
-    const publicAllowedKeys = [
-      'site_title', 'logo_url', 'favicon_url', 'seo_title', 'seo_description', 'seo_keywords',
-      'meta_title', 'meta_description', 'social_links', 'categories', 'hero_title_text',
-      'hero_title_subtitle', 'hero_title_color', 'hero_title_animation', 'hero_title_visible',
-      'hero_title_style', 'portal_heading', 'secure_index_title', 'secure_index_subtitle',
-      'trending_searches', 'ticker_text', 'support_email', 'last_updated', 'animations_enabled',
-      'banners', 'quick_links', 'turnstile_site_key',
-      'about_meta_title', 'about_meta_description', 'contact_meta_title', 'contact_meta_description',
-      'privacy_meta_title', 'privacy_meta_description', 'terms_meta_title', 'terms_meta_description',
-      'news_meta_title', 'news_meta_description', 'videos_meta_title', 'videos_meta_description',
-      'developers_meta_title', 'developers_meta_description', 'responsibility_meta_title', 'responsibility_meta_description',
-      'report_removal_meta_title', 'report_removal_meta_description', 'notice_meta_title', 'notice_meta_description',
-      'ethics_meta_title', 'ethics_meta_description', 'disclaimer_meta_title', 'disclaimer_meta_description',
-      'ethics_heading', 'disclaimer_heading', 'important_notice_heading'
-    ];
-
-    for (const k of publicAllowedKeys) {
-      if (rawSettings[k] !== undefined) {
-        optimizedSettings[k] = rawSettings[k];
-      }
-    }
-
-    // Include heavy subpage bodies strictly only when user is on that specific subpage
-    if (cleanPathLower === '/about' && rawSettings.about_us) optimizedSettings.about_us = rawSettings.about_us;
-    if (cleanPathLower === '/contact' && rawSettings.contact_content) optimizedSettings.contact_content = rawSettings.contact_content;
-    if (cleanPathLower === '/privacy' && rawSettings.privacy_content) optimizedSettings.privacy_content = rawSettings.privacy_content;
-    if (cleanPathLower === '/terms' && rawSettings.terms_content) optimizedSettings.terms_content = rawSettings.terms_content;
-    if (cleanPathLower === '/responsibility' && rawSettings.responsibility_content) optimizedSettings.responsibility_content = rawSettings.responsibility_content;
-    if (cleanPathLower === '/report-removal' && rawSettings.report_removal_content) optimizedSettings.report_removal_content = rawSettings.report_removal_content;
-    if (cleanPathLower === '/notice' && rawSettings.important_notice) optimizedSettings.important_notice = rawSettings.important_notice;
-    if (cleanPathLower === '/ethics' && rawSettings.ethics_discrimination_text) optimizedSettings.ethics_discrimination_text = rawSettings.ethics_discrimination_text;
-    if (cleanPathLower === '/disclaimer' && rawSettings.disclaimer_text) optimizedSettings.disclaimer_text = rawSettings.disclaimer_text;
-    if (cleanPathLower === '/developers' && rawSettings.developers) optimizedSettings.developers = rawSettings.developers;
-    if ((cleanPathLower === '/faq' || cleanPathLower === '/') && rawSettings.website_faqs) optimizedSettings.website_faqs = rawSettings.website_faqs;
-
-    initialDataPayload = { 
-      ...data, 
-      apps: optimizedApps,
-      news: optimizedNews,
-      videos: optimizedVideos,
-      settings: optimizedSettings
-    };
-  }
-
+  const initialDataPayload = optimizeInitialDataForRoute(data, cleanPathLower, targetApp, targetNews, targetVideo);
   let initialDataJson = JSON.stringify(initialDataPayload || {}).replace(/</g, '\\u003c');
   
-  // Aggressively rewrite raw Cloudinary URLs in the initial data payload to tiny WebP placeholders.
-  // This prevents headless bot scanners (like Pingdom) from discovering and pre-fetching unoptimized 16.7KB raw images.
   initialDataJson = initialDataJson.replace(
     /https:\/\/res\.cloudinary\.com\/diewalae4\/image\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/[a-zA-Z0-9_-]+\.[a-zA-Z]+)/g,
     'https://res.cloudinary.com/diewalae4/image/upload/f_webp,q_auto,w_256,h_256,c_fill/$1'
@@ -1453,23 +503,25 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
 
   const initialDataScript = `<script>window.__INITIAL_DATA__ = ${initialDataJson};</script>`;
 
-  // Clean up default static title & meta tags from template without destroying scripts or stylesheets
   let finalHtml = template
     .replace(/<title>[\s\S]*?<\/title>/gi, '')
     .replace(/<meta\s+[^>]*name=["']description["'][^>]*\/?>/gi, '')
     .replace(/<meta\s+[^>]*name=["']robots["'][^>]*\/?>/gi, '')
     .replace(/<meta\s+[^>]*name=["']keywords["'][^>]*\/?>/gi, '')
     .replace(/<meta\s+[^>]*name=["']application-name["'][^>]*\/?>/gi, '')
+    .replace(/<meta\s+[^>]*name=["']color-scheme["'][^>]*\/?>/gi, '')
+    .replace(/<meta\s+[^>]*name=["']theme-color["'][^>]*\/?>/gi, '')
     .replace(/<meta\s+[^>]*property=["']og:[^"']+["'][^>]*\/?>/gi, '')
     .replace(/<meta\s+[^>]*name=["']twitter:[^"']+["'][^>]*\/?>/gi, '')
     .replace(/<link\s+[^>]*rel=["']canonical["'][^>]*\/?>/gi, '')
+    .replace(/<link\s+[^>]*rel=["']manifest["'][^>]*\/?>/gi, '')
+    .replace(/<link\s+[^>]*rel=["']alternate["'][^>]*\/?>/gi, '')
     .replace(/<link\s+[^>]*rel=["']image_src["'][^>]*\/?>/gi, '')
     .replace(/<link\s+[^>]*rel=["'](?:shortcut\s+)?icon["'][^>]*\/?>/gi, '')
     .replace(/<link\s+[^>]*rel=["']apple-touch-icon[^"']*["'][^>]*\/?>/gi, '')
     .replace(/<script\s+type=["']application\/ld\+json["'][^>]*>[\s\S]*?<\/script>/gi, '')
     .replace(/<script>window\.__INITIAL_DATA__[\s\S]*?<\/script>/gi, '');
 
-  // Inject dynamic SEO tags, styles & initial data script cleanly into <head>
   if (finalHtml.includes('</head>')) {
     finalHtml = finalHtml.replace('</head>', `${seoTags}\n${initialDataScript}\n</head>`);
   } else {
@@ -1477,9 +529,6 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   }
 
   const isBot = isBotUserAgent(userAgent);
-
-  // If a search engine crawler visits the page, serve semantic SSR markup directly inside #root for 100% SEO indexing.
-  // For human browser users, keep #root clean with a <noscript> fallback so React mounts the real website immediately without any flash of different interim markup.
   const rootContent = isBot 
     ? preRenderedBody 
     : `<noscript>${preRenderedBody}</noscript>`;

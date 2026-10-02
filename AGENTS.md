@@ -57,7 +57,15 @@ When creating new components or pages, maintain repo isolation:
 │   ├── types.ts                          # Global TypeScript interfaces & types
 │
 │   ├── seo/                              # SEO Helper Utilities
-│   │   └── utils.ts                      # URL formatters, OpenGraph image resolvers, Cloudinary optimizer
+│   │   ├── utils.ts                      # URL formatters, OpenGraph image resolvers, Cloudinary optimizer
+│   │   └── renderers/                    # Modular server-side HTML renderers
+│   │       ├── common.ts                 # Shared escaping and HTML sanitizer
+│   │       ├── homeRenderer.ts           # SSR catalog homepage renderer
+│   │       ├── appDetailsRenderer.ts     # SSR app details renderer
+│   │       ├── newsRenderer.ts           # SSR news index & article renderer
+│   │       ├── videoRenderer.ts          # SSR video list renderer
+│   │       ├── staticPageRenderer.ts     # SSR legal & info page renderer
+│   │       └── gatewayRenderer.ts        # SSR clearance/gateway page renderer
 │
 │   ├── server/                           # Backend Server Modules & API Routers
 │   │   ├── firebase.ts                   # Server-side Firebase Admin REST SDK initializer
@@ -95,6 +103,10 @@ When creating new components or pages, maintain repo isolation:
 │   │
 │   ├── components/
 │   │   ├── public/                       # Modular Public UI Components
+│   │   │   ├── appDetails/               # AppDetails page subcomponents & schema builders
+│   │   │   ├── home/                     # Home page category grids & search results
+│   │   │   ├── news/                     # News listing cards & pagination
+│   │   │   ├── newsDetails/              # News article header, author box, comments & app link box
 │   │   │   ├── PublicHeader.tsx          # Main top navigation header with live search & categories
 │   │   │   ├── PublicFooter.tsx          # Site footer with dynamic SEO links & copyright
 │   │   │   ├── PublicBottomNav.tsx       # Floating mobile bottom navigation bar
