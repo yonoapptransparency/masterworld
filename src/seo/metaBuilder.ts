@@ -13,7 +13,7 @@ export interface MetaBuilderParams {
   favicon32: string;
   favicon16: string;
   favicon180: string;
-  cssPreloadTag: string;
+  cssPreloadTag?: string;
   jsonLdSchema: string;
   isNotFound: boolean;
   getField: (obj: any, key: string, fallback?: any) => any;
@@ -33,7 +33,6 @@ export function buildMetaTags(params: MetaBuilderParams): string {
     favicon32,
     favicon16,
     favicon180,
-    cssPreloadTag,
     jsonLdSchema,
     isNotFound,
     getField
@@ -84,7 +83,6 @@ export function buildMetaTags(params: MetaBuilderParams): string {
     <link data-rh="true" rel="icon" type="image/png" sizes="16x16" href="${favicon16}">
     <link data-rh="true" rel="apple-touch-icon" sizes="180x180" href="${favicon180}">
     <link data-rh="true" rel="manifest" href="/site.webmanifest">
-    ${cssPreloadTag}
     ${targetApp && getField(targetApp, 'icon_url')
       ? `<link rel="preload" as="image" href="${escapeHtml(getOptimizedImageUrl(getField(targetApp, 'icon_url'), 240))}" fetchpriority="high">`
       : (getField(settings, 'logo_url') ? `<link rel="preload" as="image" href="${escapeHtml(getOptimizedImageUrl(getField(settings, 'logo_url'), 120))}" fetchpriority="high">` : '')}

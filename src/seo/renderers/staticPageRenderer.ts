@@ -45,21 +45,26 @@ export function renderCategoriesList(categoriesList: Array<{ name: string; slug:
   `;
 }
 
-export function renderDevelopersList(developers: any[], _settings: any): string {
+export function renderDevelopersList(developers: any[], settings: any): string {
+  const devList = (Array.isArray(developers) && developers.length > 0)
+    ? developers
+    : (Array.isArray(settings?.developers) ? settings.developers : []);
+
   let cards = '';
-  (developers || []).forEach(d => {
-    const name = getField(d, 'name') || getField(d, 'title');
-    const logo = getField(d, 'logo_url') || getField(d, 'icon_url');
-    const optimizedLogo = logo ? optimizeImageUrl(logo, 120) : '';
-    const desc = getField(d, 'description') || 'Certified publisher and software developer.';
+  devList.forEach(d => {
+    const name = getField(d, 'name') || getField(d, 'title') || 'Developer';
+    const logo = getField(d, 'image_url') || getField(d, 'logo_url') || getField(d, 'icon_url');
+    const optimizedLogo = logo ? optimizeImageUrl(logo, 200) : `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`;
+    const desc = getField(d, 'bio') || getField(d, 'description') || getField(d, 'role') || 'Certified publisher and software developer.';
+    const role = getField(d, 'role') || 'Verified Developer';
 
     cards += `
-      <div class="p-6 bg-white dark:bg-zinc-900 border border-black/5 rounded-3xl text-left flex items-start gap-4">
-        ${logo ? `<img src="${escapeHtml(optimizedLogo)}" loading="lazy" decoding="async" width="64" height="64" class="w-16 h-16 rounded-2xl object-cover border border-black/5 shrink-0" alt="${escapeHtml(name)} developer brand logo"/>` : ''}
+      <div class="p-6 bg-white dark:bg-zinc-900 border border-black/5 dark:border-white/5 rounded-3xl text-left flex items-start gap-4">
+        <img src="${escapeHtml(optimizedLogo)}" loading="lazy" decoding="async" width="64" height="64" class="w-16 h-16 rounded-2xl object-cover border border-black/5 dark:border-zinc-800 shrink-0" alt="${escapeHtml(name)} developer brand logo"/>
         <div class="flex-1 min-w-0">
           <h3 class="font-bold text-lg text-zinc-900 dark:text-white leading-tight">${escapeHtml(name)}</h3>
-          <span class="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full inline-block mt-1 mb-2">Verified Developer</span>
-          <p class="text-xs text-zinc-500 line-clamp-2 leading-relaxed">${escapeHtml(desc)}</p>
+          <span class="text-[10px] font-bold text-green-600 bg-green-50 dark:bg-green-950/40 px-2 py-0.5 rounded-full inline-block mt-1 mb-2">${escapeHtml(role)}</span>
+          <p class="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2 leading-relaxed">${escapeHtml(desc)}</p>
         </div>
       </div>
     `;

@@ -225,31 +225,28 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
 
   if (similarApps.length > 0) {
     recommendedAppsHtml = `
-      <div class="mt-10 border-t border-zinc-200/80 dark:border-zinc-800/80 pt-8 text-left">
-        <h2 class="text-xl font-bold mb-4 text-zinc-900 dark:text-zinc-100">Similar & Recommended Applications</h2>
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
+      <section aria-labelledby="related-apps-heading" class="my-5 xs:my-6 text-left">
+        <div class="flex items-center justify-between mb-3 px-1">
+          <h2 id="related-apps-heading" class="text-base sm:text-xl font-bold flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
+            <span>Similar Applications</span>
+            ${mainCat && mainCat !== 'All Apps' ? `<span class="text-[10px] sm:text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2.5 py-0.5 rounded-full border border-blue-200/50 dark:border-blue-800/50">${escapeHtml(mainCat)}</span>` : ''}
+          </h2>
+          <a href="/?tab=${encodeURIComponent(mainCat)}" class="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline">View all (${similarApps.length}) &rarr;</a>
+        </div>
+        <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
           ${similarApps.map(sim => {
             const simName = getField(sim, 'name');
             const simSlug = getField(sim, 'slug');
-            const simIcon = optimizeImageUrl(getField(sim, 'icon_url') || '', 128);
-            const simRating = getField(sim, 'rating', '4.8');
-            const simCat = getField(sim, 'category', 'Card Game');
+            const simIcon = optimizeImageUrl(getField(sim, 'icon_url') || '', 200);
             return `
-              <a href="/app/${encodeURIComponent(simSlug)}" class="flex items-center gap-3 p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 hover:border-blue-500/50 transition shadow-2xs">
-                <img src="${escapeHtml(simIcon)}" loading="lazy" decoding="async" width="48" height="48" class="w-12 h-12 rounded-xl object-cover border border-zinc-100 dark:border-zinc-800 shrink-0" alt="${escapeHtml(simName)} app icon"/>
-                <div class="flex-1 min-w-0">
-                  <h3 class="font-bold text-sm text-zinc-900 dark:text-zinc-100 truncate">${escapeHtml(simName)}</h3>
-                  <div class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                    <span class="font-bold text-amber-500">★ ${escapeHtml(simRating)}</span>
-                    <span>•</span>
-                    <span class="truncate">${escapeHtml(simCat)}</span>
-                  </div>
-                </div>
+              <a href="/app/${encodeURIComponent(simSlug)}" class="flex flex-col items-center text-center gap-1.5 p-2 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 hover:border-blue-500/50 transition group no-underline">
+                <img src="${escapeHtml(simIcon)}" loading="lazy" decoding="async" width="84" height="84" class="w-16 h-16 sm:w-20 sm:h-20 rounded-[22%] object-cover shadow-xs group-hover:scale-105 transition-transform" alt="${escapeHtml(simName)} app icon"/>
+                <span class="text-xs font-semibold text-zinc-800 dark:text-zinc-200 line-clamp-2 leading-tight">${escapeHtml(simName)}</span>
               </a>
             `;
           }).join('')}
         </div>
-      </div>
+      </section>
     `;
   }
 
@@ -263,7 +260,7 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
         <span class="font-bold text-zinc-800 dark:text-zinc-200">${escapeHtml(name)}</span>
       </nav>
 
-      <div class="flex flex-col items-center text-center pb-8 border-b border-zinc-200/80 dark:border-zinc-800/80 mb-8">
+      <div class="flex flex-col items-center text-center pb-6 border-b border-zinc-200/80 dark:border-zinc-800/80 mb-6">
         <img src="${escapeHtml(icon)}" loading="eager" decoding="async" width="128" height="128" class="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl object-cover mb-4 shadow-md border border-zinc-200/60 dark:border-zinc-700/60" alt="${escapeHtml(name)} icon"/>
         <h1 class="text-2xl sm:text-4xl font-extrabold text-zinc-900 dark:text-zinc-100 leading-tight mb-2.5">${escapeHtml(name)}</h1>
         <div class="flex flex-wrap justify-center gap-2 text-xs font-semibold mb-6">
@@ -290,35 +287,33 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
           </div>
         </div>
 
-        <a href="/moreinfo/${encodeURIComponent(slug)}" class="w-full sm:w-auto min-w-[200px] justify-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-8 rounded-xl shadow-md transition inline-flex items-center gap-2 text-sm tracking-wide cursor-pointer text-center no-underline">Download &rarr;</a>
+        <div class="flex flex-col sm:flex-row w-full justify-center items-center gap-2 max-w-md mx-auto">
+          <a href="/moreinfo/${encodeURIComponent(slug)}" class="w-full sm:flex-1 justify-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-6 rounded-xl shadow-md transition inline-flex items-center gap-2 text-sm tracking-wide text-center no-underline">Download &rarr;</a>
+          <div class="flex gap-2 w-full sm:w-auto">
+            <button type="button" class="flex-1 sm:flex-none px-4 py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-semibold rounded-xl text-xs flex items-center justify-center gap-1.5 border border-zinc-200 dark:border-zinc-700">Share</button>
+            <a href="/report-removal" class="flex-1 sm:flex-none px-4 py-3 bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 font-semibold rounded-xl text-xs flex items-center justify-center gap-1.5 border border-rose-200 dark:border-rose-900 no-underline">Flag</a>
+          </div>
+        </div>
       </div>
 
-      ${alertsHtml}
+      ${recommendedAppsHtml}
 
-      <div class="grid md:grid-cols-[2fr,1fr] gap-6 sm:gap-8">
-        <div class="bg-white dark:bg-zinc-900 p-5 sm:p-7 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 shadow-2xs text-left">
-          <h2 class="text-lg sm:text-xl font-bold mb-4 text-zinc-900 dark:text-zinc-100">About this application</h2>
+      ${screenshotsHtml}
+
+      <section aria-labelledby="app-overview-heading" class="w-full my-6 text-left">
+        <div class="bg-white dark:bg-zinc-900 p-5 sm:p-7 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 shadow-2xs">
+          <h2 id="app-overview-heading" class="text-lg sm:text-xl font-bold mb-4 text-zinc-900 dark:text-zinc-100">About this app</h2>
           <div class="prose dark:prose-invert text-zinc-700 dark:text-zinc-300 leading-relaxed text-sm sm:text-base space-y-3">${desc}</div>
           ${featureSectionContext}
           ${releaseNotesHtml}
-          ${faqsHtml}
-          ${screenshotsHtml}
         </div>
-        <div class="bg-white dark:bg-zinc-900 p-5 sm:p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 shadow-2xs h-fit text-left">
-          <h3 class="text-xs font-bold mb-4 uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Technical Specifications</h3>
-          <table class="w-full text-xs text-left">
-            <tr class="border-b border-zinc-100 dark:border-zinc-800/80"><td class="py-2.5 text-zinc-500 dark:text-zinc-400 font-medium">Developer</td><td class="py-2.5 font-bold text-right text-zinc-900 dark:text-zinc-100">Store Verified</td></tr>
-            <tr class="border-b border-zinc-100 dark:border-zinc-800/80"><td class="py-2.5 text-zinc-500 dark:text-zinc-400 font-medium">Rating</td><td class="py-2.5 font-bold text-right text-amber-600 dark:text-amber-400">${escapeHtml(rating)} ★ (${escapeHtml(String(ratingCountVal))} reviews)</td></tr>
-            <tr class="border-b border-zinc-100 dark:border-zinc-800/80"><td class="py-2.5 text-zinc-500 dark:text-zinc-400 font-medium">Package Name</td><td class="py-2.5 font-bold text-right text-zinc-900 dark:text-zinc-100 truncate max-w-[140px]">${escapeHtml(pkg)}</td></tr>
-            <tr class="border-b border-zinc-100 dark:border-zinc-800/80"><td class="py-2.5 text-zinc-500 dark:text-zinc-400 font-medium">Safety Status</td><td class="py-2.5 font-bold text-right text-emerald-600 dark:text-emerald-400">Safe & Certified</td></tr>
-            <tr><td class="py-2.5 text-zinc-500 dark:text-zinc-400 font-medium">Compatibility</td><td class="py-2.5 font-bold text-right text-zinc-900 dark:text-zinc-100">Android 6.0+ / iOS</td></tr>
-          </table>
-        </div>
-      </div>
+      </section>
+
+      ${alertsHtml}
 
       ${reviewsSectionHtml}
 
-      ${recommendedAppsHtml}
+      ${faqsHtml}
     </div>
   `;
 }

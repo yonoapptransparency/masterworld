@@ -28,7 +28,8 @@ const getStaticData = () => {
           news: data.news || [],
           mockNews: data.news || [],
           videos: data.videos || [],
-          mockVideos: data.videos || []
+          mockVideos: data.videos || [],
+          developers: data.developers || data.settings?.developers || []
         };
       }
     }
@@ -47,7 +48,8 @@ const getStaticData = () => {
           news: data.mockNews || data.news || [],
           mockNews: data.mockNews || data.news || [],
           videos: data.mockVideos || data.videos || [],
-          mockVideos: data.mockVideos || data.videos || []
+          mockVideos: data.mockVideos || data.videos || [],
+          developers: data.developers || data.mockDevelopers || data.settings?.developers || data.mockSettings?.developers || []
         };
       }
     }
@@ -81,7 +83,8 @@ async function doFetchStoreData() {
     apps: freshStatic.apps || freshStatic.mockApps || [],
     settings: freshStatic.settings || freshStatic.mockSettings || {},
     news: freshStatic.news || freshStatic.mockNews || [],
-    videos: freshStatic.videos || freshStatic.mockVideos || []
+    videos: freshStatic.videos || freshStatic.mockVideos || [],
+    developers: freshStatic.developers || freshStatic.mockDevelopers || freshStatic.settings?.developers || freshStatic.mockSettings?.developers || []
   };
   
   cachedData = data;
@@ -449,7 +452,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   pageOgImage = getOgImageUrl(pageOgImage, domain);
 
   // Determine if requesting client is a search engine crawler / social bot
-  const isCrawler = !userAgent || isBotUserAgent(userAgent);
+  const isCrawler = Boolean(userAgent && isBotUserAgent(userAgent));
 
   // Generate full pre-rendered HTML strictly for search engine crawlers (H1, H2, body content)
   const preRenderedBody = isCrawler ? await getPagePreRender(urlPath, data) : '';
@@ -470,13 +473,6 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     breadcrumbItems
   });
 
-  const cssPreloadMatch = template.match(/<link[^>]*rel=["']stylesheet["'][^>]*href=["']([^"']*\.css)["'][^>]*>/i);
-  let cssPreloadTag = '';
-  if (cssPreloadMatch && cssPreloadMatch[1]) {
-    const cssHref = cssPreloadMatch[1];
-    cssPreloadTag = `<link rel="preload" as="style" href="${cssHref}">`;
-  }
-
   const seoTags = buildMetaTags({
     title,
     description,
@@ -490,7 +486,6 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     favicon32,
     favicon16,
     favicon180,
-    cssPreloadTag,
     jsonLdSchema,
     isNotFound,
     getField
