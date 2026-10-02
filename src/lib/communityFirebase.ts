@@ -579,8 +579,8 @@ export async function fetchLiveReviews(options: {
       if (sortBy === 'helpful') return (b.helpful_count || 0) - (a.helpful_count || 0);
       if (sortBy === 'highest') return (b.rating || 5) - (a.rating || 5);
       if (sortBy === 'lowest') return (a.rating || 5) - (b.rating || 5);
-      const dateA = new Date(a.timestamp || a.created_at || 0).getTime();
-      const dateB = new Date(b.timestamp || b.created_at || 0).getTime();
+      const dateA = new Date((a as any).timestamp || a.created_at || 0).getTime();
+      const dateB = new Date((b as any).timestamp || b.created_at || 0).getTime();
       return dateB - dateA;
     });
 

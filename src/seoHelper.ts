@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { getSafeFirebaseConfig, getSafeCommunityFirebaseConfig } from './seo/firebaseConfig';
 import { syncFromFirestore } from './seo/sync';
-import { getField, stripHtml, getYoutubeThumbnail, ensureAbsoluteUrl, getOgImageUrl, isBotUserAgent, escapeHtml, optimizeImageUrl, getOptimizedImageUrl, normalizeSchemaCategory } from './seo/utils';
+import { getField, stripHtml, getYoutubeThumbnail, ensureAbsoluteUrl, getOgImageUrl, isBotUserAgent, escapeHtml, optimizeImageUrl, getOptimizedImageUrl, normalizeSchemaCategory, cleanFaqQuestion } from './seo/utils';
 import * as renderers from './seo/renderers';
 import { getCleanCanonicalUrl, formatPageTitle } from './lib/seoUtils';
 
@@ -569,7 +569,7 @@ async function buildJsonLdSchema(params: {
     const seenAppFaqs = new Set<string>();
     const faqList = rawFaqs
       .filter((faq: any) => {
-        const q = stripHtml(getField(faq, 'question')).trim();
+        const q = cleanFaqQuestion(stripHtml(getField(faq, 'question')).trim());
         const a = stripHtml(getField(faq, 'answer')).trim();
         if (!q || !a || q.length < 5 || seenAppFaqs.has(q.toLowerCase())) return false;
         seenAppFaqs.add(q.toLowerCase());
@@ -577,7 +577,7 @@ async function buildJsonLdSchema(params: {
       })
       .map((faq: any) => ({
         "@type": "Question",
-        "name": stripHtml(getField(faq, 'question')).trim(),
+        "name": cleanFaqQuestion(stripHtml(getField(faq, 'question')).trim()),
         "acceptedAnswer": {
           "@type": "Answer",
           "text": stripHtml(getField(faq, 'answer')).trim()
@@ -771,7 +771,7 @@ async function buildJsonLdSchema(params: {
       const seenQuestions = new Set<string>();
       const faqList = params.settings.website_faqs
         .filter((faq: any) => {
-          const q = stripHtml(getField(faq, 'question')).trim();
+          const q = cleanFaqQuestion(stripHtml(getField(faq, 'question')).trim());
           const a = stripHtml(getField(faq, 'answer')).trim();
           if (!q || !a || q.length < 5 || seenQuestions.has(q.toLowerCase())) return false;
           seenQuestions.add(q.toLowerCase());
@@ -779,7 +779,7 @@ async function buildJsonLdSchema(params: {
         })
         .map((faq: any) => ({
           "@type": "Question",
-          "name": stripHtml(getField(faq, 'question')).trim(),
+          "name": cleanFaqQuestion(stripHtml(getField(faq, 'question')).trim()),
           "acceptedAnswer": {
             "@type": "Answer",
             "text": stripHtml(getField(faq, 'answer')).trim()
@@ -1242,72 +1242,86 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
 
   if (data && !isAdminRoute) {
     const isAppDetailPage = cleanPathLower.startsWith('/app/');
+    const isNewsPage = cleanPathLower === '/news' || cleanPathLower.startsWith('/news/');
     const isNewsDetailPage = cleanPathLower.startsWith('/news/');
     const targetAppSlug = targetApp ? getField(targetApp, 'slug')?.toLowerCase().trim() : null;
     const targetAppId = targetApp ? String(getField(targetApp, 'id') || '').toLowerCase().trim() : '';
     const targetAppName = targetApp ? String(getField(targetApp, 'name') || '').toLowerCase().trim() : '';
     const targetNewsSlug = targetNews ? (getField(targetNews, 'slug') || getField(targetNews, 'id'))?.toLowerCase().trim() : null;
 
-    const optimizedApps = Array.isArray(data.apps) ? data.apps.map((app: any) => {
-      const sanitizedApp = { ...app };
-      delete sanitizedApp.more_information_url;
-      delete sanitizedApp.download_url;
-      delete sanitizedApp.encrypted_link;
-      delete sanitizedApp.url;
-
+    // On news pages (/news, /news/:slug), do not load apps catalog into initial HTML payload to keep news ultra-clean and fast
+    const optimizedApps = isNewsPage ? [] : (Array.isArray(data.apps) ? data.apps.map((app: any) => {
       const appSlugLower = (getField(app, 'slug') || '').toLowerCase().trim();
       const appIdLower = String(getField(app, 'id') || '').toLowerCase().trim();
       const isTarget = Boolean(
         (targetAppSlug && (appSlugLower === targetAppSlug || appIdLower === targetAppSlug)) ||
         (targetAppId && (appIdLower === targetAppId || appSlugLower === targetAppId))
       );
-      if (isTarget) return sanitizedApp;
 
-      // On app detail page or news detail page, prune non-target apps to lightweight stubs for high-speed crawler and user rendering
-      if (isAppDetailPage || isNewsDetailPage) {
+      // Clean public app builder
+      const clean: any = {
+        id: app.id,
+        name: app.name,
+        slug: app.slug,
+        icon_url: app.icon_url,
+        category: app.category,
+        rating: Number(app.rating) || 4.5,
+        version: app.version || '1.0',
+        file_size: app.file_size || '45 MB',
+        safety_status: app.safety_status || 'Verified'
+      };
+
+      if (app.developer) clean.developer = app.developer;
+      if (app.review_count) clean.review_count = Number(app.review_count);
+      if (app.reviews && typeof app.reviews === 'number') clean.reviews = app.reviews;
+      if (app.short_description) clean.short_description = app.short_description;
+      if (app.seo_title) clean.seo_title = app.seo_title;
+      if (app.seo_description) clean.seo_description = app.seo_description;
+      if (app.seo_keywords) clean.seo_keywords = app.seo_keywords;
+      if (app.meta_description) clean.meta_description = app.meta_description;
+      if (app.og_image_url) clean.og_image_url = app.og_image_url;
+      if (app.canonical_url) clean.canonical_url = app.canonical_url;
+      if (app.is_featured) clean.is_featured = true;
+      if (app.is_new) clean.is_new = true;
+      if (app.is_hot) clean.is_hot = true;
+      if (app.is_top_chart) clean.is_top_chart = true;
+      if (app.top_chart_category) clean.top_chart_category = app.top_chart_category;
+      if (app.publish_date) clean.publish_date = app.publish_date;
+      if (app.updated_at) clean.updated_at = app.updated_at;
+
+      // On app detail page, prune non-target apps to lightweight stubs for high-speed crawler and user rendering
+      if (isAppDetailPage && !isTarget) {
         return {
-          id: sanitizedApp.id,
-          name: sanitizedApp.name,
-          slug: sanitizedApp.slug,
-          icon_url: sanitizedApp.icon_url,
-          category: sanitizedApp.category,
-          rating: sanitizedApp.rating,
-          file_size: sanitizedApp.file_size,
-          version: sanitizedApp.version
+          id: clean.id,
+          name: clean.name,
+          slug: clean.slug,
+          icon_url: clean.icon_url,
+          category: clean.category,
+          rating: clean.rating,
+          file_size: clean.file_size,
+          version: clean.version
         };
       }
 
-      return {
-        id: sanitizedApp.id,
-        name: sanitizedApp.name,
-        slug: sanitizedApp.slug,
-        icon_url: sanitizedApp.icon_url,
-        category: sanitizedApp.category,
-        rating: sanitizedApp.rating,
-        review_count: sanitizedApp.review_count,
-        reviews: sanitizedApp.reviews,
-        developer: sanitizedApp.developer,
-        version: sanitizedApp.version,
-        file_size: sanitizedApp.file_size,
-        short_description: sanitizedApp.short_description,
-        is_featured: sanitizedApp.is_featured,
-        is_new: sanitizedApp.is_new,
-        is_hot: sanitizedApp.is_hot,
-        is_top_chart: sanitizedApp.is_top_chart,
-        top_chart_category: sanitizedApp.top_chart_category,
-        safety_status: sanitizedApp.safety_status,
-        is_coming_soon: sanitizedApp.is_coming_soon,
-        publish_date: sanitizedApp.publish_date,
-        updated_at: sanitizedApp.updated_at,
-        serial_number: sanitizedApp.serial_number,
-        seo_title: sanitizedApp.seo_title,
-        seo_description: sanitizedApp.seo_description,
-        seo_keywords: sanitizedApp.seo_keywords,
-        meta_description: sanitizedApp.meta_description,
-        og_image_url: sanitizedApp.og_image_url,
-        canonical_url: sanitizedApp.canonical_url
-      };
-    }) : [];
+      // If target app on detail page, attach rich content fields
+      if (isTarget) {
+        if (app.description_html) clean.description_html = app.description_html;
+        if (app.features_html) clean.features_html = app.features_html;
+        if (Array.isArray(app.screenshots) && app.screenshots.length > 0) clean.screenshots = app.screenshots;
+        if (Array.isArray(app.faqs) && app.faqs.length > 0) clean.faqs = app.faqs;
+        if (app.custom_admin_box_html && typeof app.custom_admin_box_html === 'string' && app.custom_admin_box_html.trim()) {
+          clean.custom_admin_box_html = app.custom_admin_box_html.trim();
+          if (app.custom_admin_box_heading) clean.custom_admin_box_heading = app.custom_admin_box_heading;
+        }
+        if (app.yellow_box_msg && typeof app.yellow_box_msg === 'string' && app.yellow_box_msg.trim()) clean.yellow_box_msg = app.yellow_box_msg.trim();
+        if (app.red_box_msg && typeof app.red_box_msg === 'string' && app.red_box_msg.trim()) clean.red_box_msg = app.red_box_msg.trim();
+        if (app.idea_box_msg && typeof app.idea_box_msg === 'string' && app.idea_box_msg.trim()) clean.idea_box_msg = app.idea_box_msg.trim();
+        if (app.release_notes && typeof app.release_notes === 'string' && app.release_notes.trim()) clean.release_notes = app.release_notes.trim();
+        if (app.video_url && typeof app.video_url === 'string' && app.video_url.trim()) clean.video_url = app.video_url.trim();
+      }
+
+      return clean;
+    }) : []);
 
     const optimizedNews = (Array.isArray(data.news) ? data.news : [])
       .filter((item: any) => {
@@ -1336,7 +1350,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
           logo_url: item.logo_url || item.image_url || '',
           image_url: item.image_url || item.logo_url || '',
           description: item.description || '',
-          // Always retain full content and description_html for all news articles (24KB total across all 6 news)
+          // Always retain full content and description_html for news articles
           content: item.content || item.description_html || item.description || '',
           description_html: item.description_html || item.content || item.description || '',
           ceo_name: item.ceo_name || item.author || 'Admin Team',
@@ -1359,12 +1373,11 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
           tags: Array.isArray(item.tags) ? item.tags : [],
           related_app_id: item.related_app_id || '',
           created_at: item.created_at || item.date || '',
-          updated_at: item.updated_at || item.date || '',
-          sync_to_public: true
+          updated_at: item.updated_at || item.date || ''
         };
       });
 
-    const optimizedVideos = isAppDetailPage ? [] : (Array.isArray(data.videos) ? data.videos.map((item: any) => {
+    const optimizedVideos = (isAppDetailPage || isNewsPage) ? [] : (Array.isArray(data.videos) ? data.videos.map((item: any) => {
       const isTarget = targetVideo && (getField(item, 'slug') || getField(item, 'id'))?.toLowerCase() === (getField(targetVideo, 'slug') || getField(targetVideo, 'id'))?.toLowerCase();
       if (isTarget) return item;
       return {
@@ -1382,43 +1395,43 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       };
     }) : []);
 
-    const optimizedSettings = data.settings ? { ...data.settings } : {};
-    
-    // Prune heavy subpage bodies from initial data unless user is actively on that specific page
-    if (cleanPathLower !== '/about') {
-      delete optimizedSettings.about_us;
-      delete optimizedSettings.about_content;
+    // Strict public settings whitelist to prevent any backend test or secret leakage
+    const rawSettings = data.settings || {};
+    const optimizedSettings: any = {};
+    const publicAllowedKeys = [
+      'site_title', 'logo_url', 'favicon_url', 'seo_title', 'seo_description', 'seo_keywords',
+      'meta_title', 'meta_description', 'social_links', 'categories', 'hero_title_text',
+      'hero_title_subtitle', 'hero_title_color', 'hero_title_animation', 'hero_title_visible',
+      'hero_title_style', 'portal_heading', 'secure_index_title', 'secure_index_subtitle',
+      'trending_searches', 'ticker_text', 'support_email', 'last_updated', 'animations_enabled',
+      'banners', 'quick_links', 'turnstile_site_key',
+      'about_meta_title', 'about_meta_description', 'contact_meta_title', 'contact_meta_description',
+      'privacy_meta_title', 'privacy_meta_description', 'terms_meta_title', 'terms_meta_description',
+      'news_meta_title', 'news_meta_description', 'videos_meta_title', 'videos_meta_description',
+      'developers_meta_title', 'developers_meta_description', 'responsibility_meta_title', 'responsibility_meta_description',
+      'report_removal_meta_title', 'report_removal_meta_description', 'notice_meta_title', 'notice_meta_description',
+      'ethics_meta_title', 'ethics_meta_description', 'disclaimer_meta_title', 'disclaimer_meta_description',
+      'ethics_heading', 'disclaimer_heading', 'important_notice_heading'
+    ];
+
+    for (const k of publicAllowedKeys) {
+      if (rawSettings[k] !== undefined) {
+        optimizedSettings[k] = rawSettings[k];
+      }
     }
-    if (cleanPathLower !== '/contact') {
-      delete optimizedSettings.contact_content;
-    }
-    if (cleanPathLower !== '/privacy') {
-      delete optimizedSettings.privacy_content;
-    }
-    if (cleanPathLower !== '/terms') {
-      delete optimizedSettings.terms_content;
-    }
-    if (cleanPathLower !== '/responsibility') {
-      delete optimizedSettings.responsibility_content;
-    }
-    if (cleanPathLower !== '/report-removal') {
-      delete optimizedSettings.report_removal_content;
-    }
-    if (cleanPathLower !== '/notice') {
-      delete optimizedSettings.important_notice;
-    }
-    if (cleanPathLower !== '/ethics') {
-      delete optimizedSettings.ethics_discrimination_text;
-    }
-    if (cleanPathLower !== '/disclaimer') {
-      delete optimizedSettings.disclaimer_text;
-    }
-    if (cleanPathLower !== '/developers') {
-      delete optimizedSettings.developers;
-    }
-    if (cleanPathLower !== '/faq' && cleanPathLower !== '/') {
-      delete optimizedSettings.website_faqs;
-    }
+
+    // Include heavy subpage bodies strictly only when user is on that specific subpage
+    if (cleanPathLower === '/about' && rawSettings.about_us) optimizedSettings.about_us = rawSettings.about_us;
+    if (cleanPathLower === '/contact' && rawSettings.contact_content) optimizedSettings.contact_content = rawSettings.contact_content;
+    if (cleanPathLower === '/privacy' && rawSettings.privacy_content) optimizedSettings.privacy_content = rawSettings.privacy_content;
+    if (cleanPathLower === '/terms' && rawSettings.terms_content) optimizedSettings.terms_content = rawSettings.terms_content;
+    if (cleanPathLower === '/responsibility' && rawSettings.responsibility_content) optimizedSettings.responsibility_content = rawSettings.responsibility_content;
+    if (cleanPathLower === '/report-removal' && rawSettings.report_removal_content) optimizedSettings.report_removal_content = rawSettings.report_removal_content;
+    if (cleanPathLower === '/notice' && rawSettings.important_notice) optimizedSettings.important_notice = rawSettings.important_notice;
+    if (cleanPathLower === '/ethics' && rawSettings.ethics_discrimination_text) optimizedSettings.ethics_discrimination_text = rawSettings.ethics_discrimination_text;
+    if (cleanPathLower === '/disclaimer' && rawSettings.disclaimer_text) optimizedSettings.disclaimer_text = rawSettings.disclaimer_text;
+    if (cleanPathLower === '/developers' && rawSettings.developers) optimizedSettings.developers = rawSettings.developers;
+    if ((cleanPathLower === '/faq' || cleanPathLower === '/') && rawSettings.website_faqs) optimizedSettings.website_faqs = rawSettings.website_faqs;
 
     initialDataPayload = { 
       ...data, 

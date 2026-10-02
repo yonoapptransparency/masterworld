@@ -1,4 +1,4 @@
-import { getField, optimizeImageUrl, stripHtml } from './utils';
+import { getField, optimizeImageUrl, stripHtml, cleanFaqQuestion } from './utils';
 import { resolveAppSlug } from '../lib/slugResolver';
 import communityCatalogStats from '../lib/communityCatalogStats.json';
 import {
@@ -177,7 +177,7 @@ export function renderHome(apps: any[], settings: any, news: any[], videos: any[
                 <summary class="font-bold text-base text-zinc-900 dark:text-zinc-100 cursor-pointer list-none flex justify-between items-center gap-3">
                   <span class="flex items-start gap-2">
                     <span class="text-blue-500 font-extrabold select-none">Q.</span>
-                    <span>${escapeHtml(faq.question)}</span>
+                    <span>${escapeHtml(cleanFaqQuestion(faq.question))}</span>
                   </span>
                   <span class="text-blue-500 font-bold text-lg select-none">+</span>
                 </summary>
@@ -454,7 +454,7 @@ export function renderAppDetails(slug: string, apps: any[], settings: any, sampl
               <summary class="font-bold text-sm text-zinc-900 dark:text-zinc-100 cursor-pointer list-none flex justify-between items-center gap-3">
                 <span class="flex items-start gap-2">
                   <span class="text-blue-500 font-extrabold select-none">Q.</span>
-                  <span>${escapeHtml(f.question)}</span>
+                  <span>${escapeHtml(cleanFaqQuestion(f.question))}</span>
                 </span>
                 <span class="text-blue-500 font-bold select-none">+</span>
               </summary>

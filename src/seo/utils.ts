@@ -247,4 +247,12 @@ export function generateNaturalStarDistribution(
   };
 }
 
+export function cleanFaqQuestion(q?: string): string {
+  if (!q || typeof q !== 'string') return '';
+  return q
+    .trim()
+    .replace(/^(?:Q\s*[:.-]?\s*|\d+\s*[:.)-]\s*|Q\d+\s*[:.)-]?\s*)+/i, '')
+    .trim();
+}
+
 

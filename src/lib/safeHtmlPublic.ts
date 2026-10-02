@@ -8,8 +8,12 @@ function serverSanitize(html: string): string {
     .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
     .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '')
     .replace(/<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>/gi, '')
-    .replace(/on\w+\s*=\s*(["'][^"']*["']|[^\s>]+)/gi, '')
-    .replace(/javascript:/gi, '');
+    .replace(/<applet\b[^<]*(?:(?!<\/applet>)<[^<]*)*<\/applet>/gi, '')
+    .replace(/<form\b[^<]*(?:(?!<\/form>)<[^<]*)*<\/form>/gi, '')
+    .replace(/\son\w+\s*=\s*(["'][^"']*["']|[^\s>]+)/gi, '')
+    .replace(/javascript:/gi, 'blocked-scheme:')
+    .replace(/vbscript:/gi, 'blocked-scheme:')
+    .replace(/data:\s*text\/html/gi, 'blocked-data:');
 }
 
 export function structureHtmlFragment(rawHtml: string): string {
