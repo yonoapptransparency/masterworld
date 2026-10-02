@@ -24,8 +24,8 @@ export function optimizeInitialDataForRoute(
 
   let optimizedApps: any[] = [];
 
-  if (isNewsPage || isNewsDetailPage || isStaticTextPage) {
-    // Zero apps payload for news and informational subpages to maintain lightweight SSR
+  if (isStaticTextPage) {
+    // Zero apps payload for purely informational text pages to maintain lightweight SSR
     optimizedApps = [];
   } else if (isAppDetailPage && targetApp) {
     // On app detail page, strictly send ONLY the target app (full) + up to 12 similar apps in the same category
@@ -144,8 +144,8 @@ export function optimizeInitialDataForRoute(
         logo_url: item.logo_url || item.image_url || '',
         image_url: item.image_url || item.logo_url || '',
         description: item.description || '',
-        content: isTargetNewsArticle ? (item.content || item.description_html || item.description || '') : '',
-        description_html: isTargetNewsArticle ? (item.description_html || item.content || item.description || '') : '',
+        content: item.content || item.description_html || item.description || '',
+        description_html: item.description_html || item.content || item.description || '',
         ceo_name: item.ceo_name || item.author || 'Admin Team',
         ceo_description: item.ceo_description || 'Transparency & Security Analyst',
         author: item.author || item.ceo_name || 'Admin Team',

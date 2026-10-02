@@ -528,15 +528,15 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     finalHtml = `${seoTags}\n${initialDataScript}\n${finalHtml}`;
   }
 
-  const isBot = isBotUserAgent(userAgent);
-  const rootContent = isBot 
-    ? preRenderedBody 
-    : `<noscript>${preRenderedBody}</noscript>`;
+  // Provide instant First Contentful Paint (FCP) for both human visitors and search engine crawlers:
+  // Pre-rendered HTML inside #root is immediately rendered by browsers before React bundle finishes loading,
+  // eliminating blank white screens on mobile connections and during development module compilation.
+  const rootContent = preRenderedBody || '';
 
   if (finalHtml.includes('<div id="root"></div>')) {
-    finalHtml = finalHtml.replace('<div id="root"></div>', `<div id="root">${rootContent}</div>`);
+    finalHtml = finalHtml.replace('<div id="root"></div>', () => `<div id="root">${rootContent}</div>`);
   } else {
-    finalHtml = finalHtml.replace(/<div\s+id="root"[^>]*>[\s\S]*?<\/div>/i, `<div id="root">${rootContent}</div>`);
+    finalHtml = finalHtml.replace(/<div\s+id="root"[^>]*>[\s\S]*?<\/div>/i, () => `<div id="root">${rootContent}</div>`);
   }
 
   return { html: finalHtml, isNotFound, canonicalUrl, pageType, title, description };

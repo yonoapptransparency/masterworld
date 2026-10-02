@@ -66,8 +66,22 @@ export const WINDOW = 60 * 1000;
 export const MAX_HITS = 30;
 export const MOCK_2FA_FILE = typeof process !== "undefined" ? path.join(process.cwd(), "src/lib/mock_2fa_store.json") : "";
 
+let cachedStaticData: any = null;
+let lastStaticDataLoadTime = 0;
+const STATIC_DATA_CACHE_TTL = 30000; // 30 seconds cache
+
+export const clearStaticDataCache = () => {
+  cachedStaticData = null;
+  lastStaticDataLoadTime = 0;
+};
+
 export const getStaticData = () => {
   if (typeof process === "undefined") return { apps: [], mockApps: [], mockSettings: {}, mockNews: [], mockVideos: [] };
+
+  const now = Date.now();
+  if (cachedStaticData && (now - lastStaticDataLoadTime < STATIC_DATA_CACHE_TTL)) {
+    return cachedStaticData;
+  }
   
   try {
     const publicBackupPath = path.join(process.cwd(), "src/lib/public_backup.json");
@@ -75,7 +89,7 @@ export const getStaticData = () => {
       const data = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
       if (data && (Array.isArray(data.apps) && data.apps.length > 0)) {
         const catalogApps = data.apps;
-        return {
+        cachedStaticData = {
           apps: catalogApps,
           mockApps: catalogApps,
           settings: data.settings || {},
@@ -85,6 +99,8 @@ export const getStaticData = () => {
           videos: data.videos || [],
           mockVideos: data.videos || []
         };
+        lastStaticDataLoadTime = now;
+        return cachedStaticData;
       }
     }
   } catch (_) {}
@@ -97,7 +113,7 @@ export const getStaticData = () => {
         const catalogApps = (Array.isArray(data.apps) && data.apps.length > 0)
           ? data.apps
           : ((Array.isArray(data.mockApps) && data.mockApps.length > 0) ? data.mockApps : []);
-        return {
+        cachedStaticData = {
           apps: catalogApps,
           mockApps: catalogApps,
           settings: data.settings || data.mockSettings || {},
@@ -107,6 +123,8 @@ export const getStaticData = () => {
           videos: data.videos || data.mockVideos || [],
           mockVideos: data.videos || data.mockVideos || []
         };
+        lastStaticDataLoadTime = now;
+        return cachedStaticData;
       }
     }
   } catch (_) {}
@@ -118,7 +136,7 @@ export const getStaticData = () => {
       const catalogApps = (Array.isArray(data.apps) && data.apps.length > 0)
         ? data.apps
         : ((Array.isArray(data.mockApps) && data.mockApps.length > 0) ? data.mockApps : []);
-      return {
+      cachedStaticData = {
         apps: catalogApps,
         mockApps: catalogApps,
         settings: data.settings || data.mockSettings || {},
@@ -128,6 +146,8 @@ export const getStaticData = () => {
         videos: data.videos || data.mockVideos || [],
         mockVideos: data.videos || data.mockVideos || []
       };
+      lastStaticDataLoadTime = now;
+      return cachedStaticData;
     }
   } catch (_) {}
 

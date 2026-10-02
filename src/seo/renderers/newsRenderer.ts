@@ -78,24 +78,34 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
   }
 
   const sanitizedContent = sanitizeHtml(rawContent);
-  const logo = getField(item, 'logo_url') || getField(item, 'image_url');
+  const logo = getField(item, 'image') || getField(item, 'image_url') || getField(item, 'logo_url') || getField(item, 'og_image_url');
   const optimizedLogo = logo ? optimizeImageUrl(logo, 1200) : '';
 
   // Download / Action link if related app or external link
   let downloadUrl = '';
-  let downloadText = 'Download & Info';
+  let downloadText = relatedApp ? (getField(relatedApp, 'name') || 'Application') : 'Download';
+  const appSlug = relatedApp ? (getField(relatedApp, 'slug') || getField(relatedApp, 'id')) : '';
   if (relatedApp) {
-    downloadUrl = `/app/${encodeURIComponent(getField(relatedApp, 'slug') || getField(relatedApp, 'id'))}`;
+    downloadUrl = `/app/${encodeURIComponent(appSlug)}`;
   } else if (getField(item, 'link')) {
     downloadUrl = getField(item, 'link');
   }
 
-  const downloadBtnHtml = downloadUrl ? `
-    <div class="my-6 flex justify-start">
-      <a href="${escapeHtml(downloadUrl)}" class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md transition-all text-center">
-        <span>↓</span>
-        <span>${escapeHtml(downloadText)}</span>
-      </a>
+  const appDetailsUrl = appSlug ? `/app/${encodeURIComponent(appSlug)}` : (downloadUrl || '#');
+  const gatewayDownloadUrl = appSlug ? `/moreinfo/${encodeURIComponent(appSlug)}` : (downloadUrl || '#');
+
+  const downloadBtnHtml = (relatedApp || downloadUrl) ? `
+    <div class="my-5 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-blue-50/80 via-indigo-50/60 to-blue-50/80 dark:from-blue-950/40 dark:via-indigo-950/30 dark:to-blue-950/40 border border-blue-100 dark:border-blue-900/50 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-3.5">
+        ${relatedApp && getField(relatedApp, 'icon_url') ? `<img src="${escapeHtml(optimizeImageUrl(getField(relatedApp, 'icon_url'), 128))}" alt="${escapeHtml(downloadText)}" class="w-13 h-13 rounded-2xl object-cover shrink-0" />` : ''}
+        <div>
+          <h4 class="text-base sm:text-lg font-bold text-zinc-900 dark:text-white">${escapeHtml(downloadText)}</h4>
+        </div>
+      </div>
+      <div class="flex items-center gap-2.5 shrink-0">
+        ${appSlug ? `<a href="${escapeHtml(appDetailsUrl)}" class="px-4 py-2.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 text-xs font-semibold rounded-xl">App Details</a>` : ''}
+        <a href="${escapeHtml(gatewayDownloadUrl)}" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-md shadow-blue-500/20">Download</a>
+      </div>
     </div>
   ` : '';
 
@@ -120,7 +130,7 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
             </span>
             <span class="text-zinc-300 dark:text-zinc-700">•</span>
             <span class="text-zinc-500 dark:text-zinc-400 font-medium">
-              By <strong class="text-zinc-700 dark:text-zinc-300">${escapeHtml(author)}</strong>
+              Reported by <strong class="text-zinc-700 dark:text-zinc-300">${escapeHtml(author)}</strong>
             </span>
           </div>
           <h1 class="text-2xl sm:text-3xl md:text-4xl font-extrabold text-zinc-900 dark:text-white tracking-tight leading-tight mb-3">
@@ -129,8 +139,8 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
         </header>
 
         ${logo ? `
-          <div class="w-full overflow-hidden mb-5 rounded-2xl border border-black/5 dark:border-white/10 bg-zinc-100 dark:bg-zinc-900/50 shadow-sm">
-            <img src="${escapeHtml(optimizedLogo)}" loading="eager" fetchpriority="high" decoding="async" class="w-full h-auto block max-h-[500px] object-cover" alt="${escapeHtml(title)} main cover article image"/>
+          <div class="w-full overflow-hidden mb-5 rounded-2xl bg-transparent">
+            <img src="${escapeHtml(optimizedLogo)}" loading="eager" fetchpriority="high" decoding="async" class="w-full h-auto block rounded-2xl" alt="${escapeHtml(title)} main cover article image"/>
           </div>
         ` : ''}
 
@@ -147,22 +157,6 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
         </div>
 
         ${downloadBtnHtml}
-
-        <div class="my-8 p-5 rounded-2xl bg-zinc-50 dark:bg-zinc-900/60 border border-black/5 dark:border-white/10 flex items-start gap-4 text-left">
-          <div class="w-12 h-12 rounded-xl bg-blue-600/10 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-lg shrink-0">
-            ${escapeHtml(author.charAt(0).toUpperCase())}
-          </div>
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center justify-between">
-              <h4 class="font-bold text-sm text-zinc-900 dark:text-zinc-100">${escapeHtml(author)}</h4>
-              <span class="text-[11px] text-zinc-400">${escapeHtml(formattedDate)}</span>
-            </div>
-            <p class="text-xs text-blue-600 dark:text-blue-400 font-medium mb-1.5">${escapeHtml(authorRole)}</p>
-            <p class="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-              This publication represents verified reporting and independent testing by the ${escapeHtml(siteTitle)} editorial team.
-            </p>
-          </div>
-        </div>
       </article>
     </div>
   `;

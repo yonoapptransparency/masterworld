@@ -64,6 +64,38 @@ export function sanitizeReviewText(text: string, appName?: string): string {
   return clean.trim();
 }
 
+let appIndexCache: {
+  byId: Map<string, any>;
+  bySlug: Map<string, any>;
+  byNormSlug: Map<string, any>;
+  version: any;
+} | null = null;
+
+function getAppIndex() {
+  const staticData = getStaticData();
+  const apps = staticData.apps || staticData.mockApps || [];
+  if (appIndexCache && appIndexCache.version === staticData) {
+    return appIndexCache;
+  }
+  const byId = new Map<string, any>();
+  const bySlug = new Map<string, any>();
+  const byNormSlug = new Map<string, any>();
+  for (const app of apps) {
+    if (!app) continue;
+    if (app.id !== undefined && app.id !== null) {
+      byId.set(String(app.id).toLowerCase().trim(), app);
+    }
+    if (app.slug) {
+      const s = String(app.slug).toLowerCase().trim();
+      bySlug.set(s, app);
+      const norm = s.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      if (norm) byNormSlug.set(norm, app);
+    }
+  }
+  appIndexCache = { byId, bySlug, byNormSlug, version: staticData };
+  return appIndexCache;
+}
+
 /**
  * Helper to match any app from the static catalog strictly by ID or Slug.
  * Never matches by appName to prevent identifier mismatch or cross-app leakage.
@@ -73,22 +105,17 @@ export function findAppInCatalog(appIdentifier: string): any {
   const rawTarget = String(appIdentifier).toLowerCase().trim();
   if (!rawTarget) return null;
 
-  const staticData = getStaticData();
-  const apps = staticData.apps || staticData.mockApps || [];
-
-  // 1. Exact match on app.id
-  const byId = apps.find((a: any) => a && a.id !== undefined && a.id !== null && String(a.id).toLowerCase().trim() === rawTarget);
+  const idx = getAppIndex();
+  const byId = idx.byId.get(rawTarget);
   if (byId) return byId;
 
-  // 2. Exact match on app.slug
-  const bySlug = apps.find((a: any) => a && a.slug && String(a.slug).toLowerCase().trim() === rawTarget);
+  const bySlug = idx.bySlug.get(rawTarget);
   if (bySlug) return bySlug;
 
-  // 3. Normalized slug match
   const slugified = rawTarget.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
   if (slugified) {
-    const byNormalizedSlug = apps.find((a: any) => a && a.slug && String(a.slug).toLowerCase().trim() === slugified);
-    if (byNormalizedSlug) return byNormalizedSlug;
+    const byNorm = idx.byNormSlug.get(slugified);
+    if (byNorm) return byNorm;
   }
 
   return null;

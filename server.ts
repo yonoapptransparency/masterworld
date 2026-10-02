@@ -405,15 +405,25 @@ async function startServer() {
           template = await viteDevServer.transformIndexHtml(req.originalUrl, template);
           // Inject a bulletproof fallback for React Refresh to prevent blank screen crashes
           // if the /@react-refresh virtual module fails to load due to middleware ordering.
-          const fallbackScript = `<script>
-            window.$RefreshReg$ = window.$RefreshReg$ || function() {};
-            window.$RefreshSig$ = window.$RefreshSig$ || function() { return function(type) { return type; }; };
-            window.__vite_plugin_react_preamble_installed__ = true;
-          </script>`;
-          if (template.includes('<head>')) {
-            template = template.replace('<head>', '<head>' + fallbackScript);
-          } else {
-            template = fallbackScript + template;
+          if (!template.includes('__vite_plugin_react_preamble_installed__') && !template.includes('@react-refresh')) {
+            const fallbackScript = `<script type="module">
+              try {
+                const RefreshRuntime = (await import('/@react-refresh')).default;
+                RefreshRuntime.injectIntoGlobalHook(window);
+                window.$RefreshReg$ = () => {};
+                window.$RefreshSig$ = () => (type) => type;
+                window.__vite_plugin_react_preamble_installed__ = true;
+              } catch (e) {
+                window.$RefreshReg$ = window.$RefreshReg$ || function() {};
+                window.$RefreshSig$ = window.$RefreshSig$ || function() { return function(type) { return type; }; };
+                window.__vite_plugin_react_preamble_installed__ = true;
+              }
+            </script>`;
+            if (template.includes('<head>')) {
+              template = template.replace('<head>', '<head>' + fallbackScript);
+            } else {
+              template = fallbackScript + template;
+            }
           }
         } catch (e) {
           console.warn("Vite transformIndexHtml failed:", e);
