@@ -451,11 +451,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   
   pageOgImage = getOgImageUrl(pageOgImage, domain);
 
-  // Determine if requesting client is a search engine crawler / social bot
-  const isCrawler = Boolean(userAgent && isBotUserAgent(userAgent));
-
-  // Generate full pre-rendered HTML strictly for search engine crawlers (H1, H2, body content)
-  const preRenderedBody = isCrawler ? await getPagePreRender(urlPath, data) : '';
+  // Generate full pre-rendered semantic HTML directly from database for 100% crawler compatibility
+  const preRenderedBody = await getPagePreRender(urlPath, data);
 
   // Generate Schema.org JSON-LD structured data
   const jsonLdSchema = await buildJsonLdSchema({
@@ -526,10 +523,10 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     finalHtml = `${seoTags}\n${initialDataScript}\n${finalHtml}`;
   }
 
-  // High-performance dynamic rendering (Google & Vercel industry standard):
-  // 1. Search engine crawlers & social bots: inject full semantic HTML inside #root so they index 100% of body content without needing to execute JS.
-  // 2. Real human users: serve clean #root container so React mounts smoothly with ZERO layout shift, ZERO visual flicker, and ZERO DOM replacement jumps.
-  if (isCrawler && preRenderedBody) {
+  // High-performance server-side semantic HTML injection:
+  // Injects full semantic HTML (H1, categories, breadcrumbs, descriptions, internal links, reviews, FAQs)
+  // directly inside #root so Googlebot, Bingbot, Ahrefs, and all crawlers index 100% of the page immediately.
+  if (preRenderedBody) {
     if (finalHtml.includes('<div id="root"></div>')) {
       finalHtml = finalHtml.replace('<div id="root"></div>', () => `<div id="root">${preRenderedBody}</div>`);
     } else {

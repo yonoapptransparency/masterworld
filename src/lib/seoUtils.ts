@@ -6,25 +6,7 @@ export function formatPageTitle(rawTitle?: string, siteTitle: string = 'RummyDex
   if (!rawTitle || !rawTitle.trim()) return siteTitle;
   // If title contains multiple lines or linebreaks, take only the primary first line
   const firstLine = rawTitle.split(/\r?\n/)[0] || rawTitle;
-  let clean = firstLine.trim().replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
-  
-  if (!clean) return siteTitle;
-
-  // If the title itself is just the site title, return it as is
-  if (clean.toLowerCase() === siteTitle.toLowerCase() || clean.toLowerCase() === 'rummydex') {
-    return clean;
-  }
-  
-  // Strip any trailing brand suffix (e.g. " - RummyDex", " | RummyDex", " - rummydex", " | siteTitle", " — RummyDex", " : RummyDex")
-  const escapedSiteTitle = siteTitle ? siteTitle.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&') : 'RummyDex';
-  const brandSuffixRegex = new RegExp(`\\s*[-|–—:•]\\s*(?:${escapedSiteTitle}|RummyDex|rummydex|Rummy\\s*Dex)\\s*$`, 'i');
-  
-  let prev = '';
-  while (prev !== clean) {
-    prev = clean;
-    clean = clean.replace(brandSuffixRegex, '').trim();
-  }
-
+  const clean = firstLine.trim().replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
   return clean || siteTitle;
 }
 

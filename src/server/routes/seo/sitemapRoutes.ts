@@ -266,7 +266,7 @@ sitemapRouter.get('/sitemap-static.xml', async (req, res) => {
     xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n`;
 
     for (const page of staticPages) {
-      const loc = `${host}${page.path === '/' ? '/' : page.path}`;
+      const loc = page.path === '/' ? host : `${host}${page.path}`;
       xml += `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${page.lastmod}</lastmod>\n    <changefreq>${page.changefreq}</changefreq>\n    <priority>${page.priority}</priority>\n`;
       if (page.image) {
         xml += `    <image:image>\n      <image:loc>${escapeXml(page.image)}</image:loc>\n      <image:title>${escapeXml(page.title)}</image:title>\n    </image:image>\n`;
