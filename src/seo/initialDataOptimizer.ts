@@ -92,7 +92,7 @@ export function optimizeInitialDataForRoute(
 
     optimizedApps = [fullTargetApp, ...similarStubs];
   } else {
-    // Home & Category catalog pages: send lightweight stubs for all apps (never bulky description_html)
+    // Full verified app records for catalog, preventing secondary loading fluctuation
     optimizedApps = Array.isArray(data.apps) ? data.apps.map((app: any) => ({
       id: app.id,
       name: app.name,
@@ -112,7 +112,20 @@ export function optimizeInitialDataForRoute(
       is_top_chart: Boolean(app.is_top_chart),
       top_chart_category: app.top_chart_category || '',
       publish_date: app.publish_date || '',
-      updated_at: app.updated_at || ''
+      updated_at: app.updated_at || '',
+      description_html: app.description_html || '',
+      features_html: app.features_html || '',
+      screenshots: Array.isArray(app.screenshots) ? app.screenshots : [],
+      faqs: Array.isArray(app.faqs) ? app.faqs : [],
+      custom_admin_box_html: app.custom_admin_box_html || '',
+      custom_admin_box_heading: app.custom_admin_box_heading || '',
+      yellow_box_msg: app.yellow_box_msg || '',
+      red_box_msg: app.red_box_msg || '',
+      idea_box_msg: app.idea_box_msg || '',
+      release_notes: app.release_notes || '',
+      seo_title: app.seo_title || '',
+      seo_description: app.seo_description || '',
+      canonical_url: app.canonical_url || ''
     })) : [];
   }
 

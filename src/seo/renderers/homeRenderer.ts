@@ -51,27 +51,68 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
     `;
   });
 
+  const newApps = sorted.filter(a => a.is_new === true || (a.is_new && a.is_new.booleanValue === true));
+  let newAdditionsHtml = '';
+  if (newApps.length > 0) {
+    newAdditionsHtml = `
+      <section class="mt-6 mb-8 text-left">
+        <h2 class="text-xl font-bold mb-4 text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+          <span>New Additions</span>
+          <span class="text-xs bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full font-bold">VERIFIED</span>
+        </h2>
+        <div class="flex overflow-x-auto gap-4 pb-2">
+          ${newApps.slice(0, 10).map((app) => {
+            const nSlug = getField(app, 'slug');
+            const nName = getField(app, 'name');
+            const nIcon = optimizeImageUrl(getField(app, 'icon_url'), 160);
+            return `
+              <a href="/app/${encodeURIComponent(nSlug)}" class="flex flex-col items-center gap-1.5 w-20 shrink-0 text-center group" title="${escapeHtml(nName)}">
+                <img src="${escapeHtml(nIcon)}" loading="lazy" decoding="async" width="72" height="72" class="w-18 h-18 rounded-2xl object-cover bg-white shadow-sm border border-black/5" alt="${escapeHtml(nName)}"/>
+                <span class="text-xs font-semibold text-zinc-800 dark:text-zinc-200 truncate w-full">${escapeHtml(nName)}</span>
+              </a>
+            `;
+          }).join('')}
+        </div>
+      </section>
+    `;
+  }
+
+  const categories = Array.isArray(settings?.categories) && settings.categories.length > 0
+    ? settings.categories
+    : ['All Apps', 'Rummy Apps', 'Yono Apps', 'Teen Patti', 'Casino', 'Slot Games'];
+
+  const categoryTabsHtml = `
+    <nav aria-label="Game Categories" class="flex overflow-x-auto gap-2 py-3 mb-6 border-b border-black/5 dark:border-white/5 text-sm font-semibold">
+      ${categories.map((c: string) => {
+        const catSlug = c.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        return `<a href="/category/${encodeURIComponent(catSlug)}" class="px-4 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 whitespace-nowrap hover:bg-zinc-200">${escapeHtml(c)}</a>`;
+      }).join('')}
+    </nav>
+  `;
+
   return `
-    <div>
-      <div class="text-center py-12 max-w-2xl mx-auto px-4">
-        <h1 class="text-4xl font-extrabold text-zinc-900 dark:text-white mb-4">${escapeHtml(siteTitle)}</h1>
-        <p class="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">${escapeHtml(desc)}</p>
-      </div>
-      <div class="grid lg:grid-cols-[2fr,1fr] gap-8">
-        <div class="bg-white dark:bg-zinc-900 p-6 rounded-[28px] border border-black/5 shadow-sm">
-          <h2 class="text-xl font-bold mb-4 px-2 text-left">Popular Applications</h2>
-          <div class="flex flex-col">${appsHtml}</div>
+    <div class="max-w-4xl mx-auto px-4 py-6 text-left">
+      <header class="text-center py-6 sm:py-10 max-w-2xl mx-auto">
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-zinc-900 dark:text-white mb-3 tracking-tight">${escapeHtml(siteTitle)}</h1>
+        <p class="text-sm sm:text-base text-zinc-500 dark:text-zinc-400 leading-relaxed">${escapeHtml(desc)}</p>
+      </header>
+
+      ${newAdditionsHtml}
+
+      ${categoryTabsHtml}
+
+      <section class="space-y-4">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-bold text-zinc-900 dark:text-zinc-100">Top Verified Applications</h2>
+          <span class="text-xs text-zinc-400">${sorted.length} Apps Listed</span>
         </div>
-        <div class="space-y-6">
-          <div class="bg-white dark:bg-zinc-900 p-6 rounded-[28px] border border-black/5 shadow-sm">
-            <h3 class="font-bold text-md mb-4 text-left">Latest News</h3>
-            <div class="flex flex-col gap-3">${newsHtml}</div>
-            <a href="/news" class="block text-xs font-bold text-blue-500 hover:underline mt-4 text-left">View All Updates →</a>
-          </div>
+        <div class="flex flex-col bg-white dark:bg-zinc-900 rounded-3xl border border-black/5 dark:border-white/5 divide-y divide-black/5 dark:divide-white/5 overflow-hidden shadow-sm">
+          ${appsHtml}
         </div>
-      </div>
+      </section>
+
       ${Array.isArray(settings?.website_faqs) && settings.website_faqs.filter((f: any) => f && f.question && f.answer).length > 0 ? `
-        <section aria-labelledby="home-faq-heading" class="mt-12 text-left bg-white dark:bg-zinc-900 p-6 sm:p-8 rounded-[28px] border border-black/5 shadow-sm">
+        <section aria-labelledby="home-faq-heading" class="mt-12 text-left bg-white dark:bg-zinc-900 p-6 sm:p-8 rounded-3xl border border-black/5 dark:border-white/5 shadow-sm">
           <h2 id="home-faq-heading" class="text-2xl font-bold mb-6 text-zinc-900 dark:text-zinc-100">Frequently Asked Questions</h2>
           <div class="space-y-4">
             ${settings.website_faqs.filter((f: any) => f && f.question && f.answer).map((faq: any, idx: number) => `

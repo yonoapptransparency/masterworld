@@ -448,8 +448,11 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   
   pageOgImage = getOgImageUrl(pageOgImage, domain);
 
-  // Generate full pre-rendered HTML for search engine crawlers (H1, H2, body content)
-  const preRenderedBody = await getPagePreRender(urlPath, data);
+  // Determine if requesting client is a search engine crawler / social bot
+  const isCrawler = !userAgent || isBotUserAgent(userAgent);
+
+  // Generate full pre-rendered HTML strictly for search engine crawlers (H1, H2, body content)
+  const preRenderedBody = isCrawler ? await getPagePreRender(urlPath, data) : '';
 
   // Generate Schema.org JSON-LD structured data
   const jsonLdSchema = await buildJsonLdSchema({
@@ -528,15 +531,15 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     finalHtml = `${seoTags}\n${initialDataScript}\n${finalHtml}`;
   }
 
-  // Provide instant First Contentful Paint (FCP) for both human visitors and search engine crawlers:
-  // Pre-rendered HTML inside #root is immediately rendered by browsers before React bundle finishes loading,
-  // eliminating blank white screens on mobile connections and during development module compilation.
-  const rootContent = preRenderedBody || '';
-
-  if (finalHtml.includes('<div id="root"></div>')) {
-    finalHtml = finalHtml.replace('<div id="root"></div>', () => `<div id="root">${rootContent}</div>`);
-  } else {
-    finalHtml = finalHtml.replace(/<div\s+id="root"[^>]*>[\s\S]*?<\/div>/i, () => `<div id="root">${rootContent}</div>`);
+  // High-performance dynamic rendering (Google & Vercel industry standard):
+  // 1. Search engine crawlers & social bots: inject full semantic HTML inside #root so they index 100% of body content without needing to execute JS.
+  // 2. Real human users: serve clean #root container so React mounts smoothly with ZERO layout shift, ZERO visual flicker, and ZERO DOM replacement jumps.
+  if (isCrawler && preRenderedBody) {
+    if (finalHtml.includes('<div id="root"></div>')) {
+      finalHtml = finalHtml.replace('<div id="root"></div>', () => `<div id="root">${preRenderedBody}</div>`);
+    } else {
+      finalHtml = finalHtml.replace(/<div\s+id="root"[^>]*>[\s\S]*?<\/div>/i, () => `<div id="root">${preRenderedBody}</div>`);
+    }
   }
 
   return { html: finalHtml, isNotFound, canonicalUrl, pageType, title, description };
