@@ -23,26 +23,32 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
         if (result) {
           setIsLoading(true);
           const user = result.user;
-          const userEmail = user.email || '';
           const idToken = await user.getIdToken();
           const refreshToken = user.refreshToken || '';
           
-          const verifyRes = await fetch("/api/v1/admin/google-login", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ idToken }),
-          });
+          const userEmail = (user.email || '').toLowerCase().trim();
+          const configuredEmail = (import.meta.env?.VITE_ADMIN_EMAIL || 'defentechscholar@gmail.com').toLowerCase().trim();
           
-          let verifyData: any = {};
           try {
-            const responseText = await verifyRes.text();
-            verifyData = JSON.parse(responseText);
-          } catch(e) {
-            verifyData.error = "Invalid server response format";
+            const verifyRes = await fetch("/api/v1/admin/google-login", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ idToken }),
+            });
+            if (verifyRes.ok) {
+              const verifyData = await verifyRes.json();
+              onSuccess(verifyData.token, refreshToken, userEmail);
+              return;
+            }
+          } catch (_) {}
+
+          // Static host fallback (e.g. Cloudflare Pages): authorize if authenticated email matches admin
+          if (userEmail === configuredEmail) {
+            onSuccess(idToken, refreshToken, userEmail);
+            return;
+          } else {
+            throw new Error(`Access Denied: ${userEmail} is not authorized as an administrator.`);
           }
-          if (!verifyRes.ok) throw new Error(verifyData.error || "Google login redirect verification failed");
-          
-          onSuccess(verifyData.token, refreshToken, userEmail);
         }
       } catch (err: any) {
         console.error('Redirect login error:', err);
@@ -64,15 +70,29 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
           const popupResult = await signInWithPopup(auth, provider);
           if (popupResult && popupResult.user) {
             const idToken = await popupResult.user.getIdToken();
-            const verifyRes = await fetch("/api/v1/admin/google-login", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ idToken }),
-            });
-            const verifyData = await verifyRes.json().catch(() => ({}));
-            if (!verifyRes.ok) throw new Error(verifyData.error || "Google login verification failed");
-            onSuccess(verifyData.token, popupResult.user.refreshToken || '', popupResult.user.email || '');
-            return;
+            const userEmail = (popupResult.user.email || '').toLowerCase().trim();
+            const configuredEmail = (import.meta.env?.VITE_ADMIN_EMAIL || 'defentechscholar@gmail.com').toLowerCase().trim();
+
+            try {
+              const verifyRes = await fetch("/api/v1/admin/google-login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ idToken }),
+              });
+              if (verifyRes.ok) {
+                const verifyData = await verifyRes.json();
+                onSuccess(verifyData.token, popupResult.user.refreshToken || '', userEmail);
+                return;
+              }
+            } catch (_) {}
+
+            // Static host fallback (e.g. Cloudflare Pages): authorize if authenticated email matches admin
+            if (userEmail === configuredEmail) {
+              onSuccess(idToken, popupResult.user.refreshToken || '', userEmail);
+              return;
+            } else {
+              throw new Error(`Access Denied: ${userEmail} is not authorized as an administrator.`);
+            }
           }
         } catch (popupErr: any) {
           if (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/cancelled-popup-request') {

@@ -177,7 +177,7 @@ async function verifyCloudflareTurnstile(token: string, reqHost?: string): Promi
     configuredSecret ||
     process.env.TURNSTILE_SECRET_KEY || 
     process.env.CF_TURNSTILE_SECRET || 
-    '0x4AAAAAAE99nDTTfRs6xvjZDh5Yd-Mg6lE';
+    '0x4AAAAAAFM0XUIMg1etvzOD';
 
   // 1. Try primary production secret key
   try {

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 
-const PROD_TURNSTILE_SITE_KEY = '0x4AAAAAAE99nFmDXDivmDJV';
+const PROD_TURNSTILE_SITE_KEY = '0x4AAAAAAFM0XUIMg1etvzOD';
 const TEST_TURNSTILE_SITE_KEY = '1x00000000000000000000AA';
 
 export function isValidTurnstileKey(key: string | undefined | null): boolean {
@@ -19,7 +19,7 @@ export function getTurnstileSiteKey(configuredKey?: string | null): string {
     if (isValidTurnstileKey(customKey)) return customKey.trim();
 
     const host = window.location.hostname.toLowerCase();
-    if (host === 'rummydex.com' || host === 'www.rummydex.com') {
+    if (host.includes('rummydex.com') || host.includes('pages.dev')) {
       return PROD_TURNSTILE_SITE_KEY;
     }
     // Development, preview, and Cloud Run environments use universal interactive test key

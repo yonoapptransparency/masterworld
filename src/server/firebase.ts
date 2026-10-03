@@ -112,7 +112,7 @@ export function getRawFirebaseConfig(): any {
     // Proceed
   }
 
-  const DEFAULT_FALLBACK_API_KEY = "AIzaSyBey9sUbeWrcXS2kl4ewOzkTy4arg03Ok";
+  const DEFAULT_FALLBACK_API_KEY = "AIzaSyBey9sUbeWlrcXS2kl4ewOzkTy4arg03Ok";
   const finalApiKey = envApiKey || fileConfig.apiKey || DEFAULT_FALLBACK_API_KEY;
 
   const DEFAULT_DB_ID = "(default)";
