@@ -1,0 +1,40 @@
+{
+  "specVersion": "1.0",
+  "name": "RummyDex",
+  "description": "RummyDex transparency platform, app store catalog, news portal, and review hub.",
+  "version": "1.0.0",
+  "url": "https://www.rummydex.com",
+  "catalog_url": "https://www.rummydex.com/.well-known/ai-catalog.json",
+  "host": {
+    "displayName": "RummyDex",
+    "identifier": "did:web:rummydex.com",
+    "documentationUrl": "https://www.rummydex.com/about",
+    "logoUrl": "https://www.rummydex.com/logo.png"
+  },
+  "entries": [
+    {
+      "identifier": "urn:air:rummydex.com:api:catalog",
+      "displayName": "RummyDex Public Catalog API",
+      "type": "application/json",
+      "url": "https://www.rummydex.com/api/v1/public/apps",
+      "description": "Browse catalog of verified card game applications."
+    },
+    {
+      "identifier": "urn:air:rummydex.com:api:community-stats",
+      "displayName": "RummyDex Community Ratings & Reviews Stats",
+      "type": "application/json",
+      "url": "https://www.rummydex.com/api/v1/public/community/stats",
+      "description": "Retrieve rating and reviews aggregation statistics."
+    }
+  ],
+  "capabilities": {
+    "search": {
+      "endpoint": "https://www.rummydex.com/api/v1/public/apps",
+      "method": "GET"
+    },
+    "apps": {
+      "endpoint": "https://www.rummydex.com/api/v1/public/backup-data",
+      "method": "GET"
+    }
+  }
+}

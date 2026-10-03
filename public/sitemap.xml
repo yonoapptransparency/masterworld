@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap>
+    <loc>https://www.rummydex.com/sitemap-apps.xml</loc>
+    <lastmod>2026-09-27T18:40:13+00:00</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>https://www.rummydex.com/sitemap-static.xml</loc>
+    <lastmod>2026-09-27T18:40:13+00:00</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>https://www.rummydex.com/sitemap-news.xml</loc>
+    <lastmod>2026-10-02T04:38:45+00:00</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>https://www.rummydex.com/sitemap-videos.xml</loc>
+    <lastmod>2026-10-03T18:21:59+00:00</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>https://www.rummydex.com/sitemap-developers.xml</loc>
+    <lastmod>2026-09-27T18:40:13+00:00</lastmod>
+  </sitemap>
+</sitemapindex>
