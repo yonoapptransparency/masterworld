@@ -4,7 +4,7 @@
  */
 
 import {StrictMode} from 'react';
-import {createRoot} from 'react-dom/client';
+import {createRoot, hydrateRoot} from 'react-dom/client';
 import App from './App';
 import GlobalErrorBoundary from './components/GlobalErrorBoundary';
 import './index.css';
@@ -71,10 +71,26 @@ if (prerenderEl) {
   prerenderEl.style.display = 'none';
 }
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <GlobalErrorBoundary>
-      <App />
-    </GlobalErrorBoundary>
-  </StrictMode>,
-);
+const rootEl = document.getElementById('root');
+if (rootEl) {
+  const appTree = (
+    <StrictMode>
+      <GlobalErrorBoundary>
+        <App />
+      </GlobalErrorBoundary>
+    </StrictMode>
+  );
+
+  // Seamless hydration: If the server already pre-rendered HTML into #root,
+  // hydrate it directly without wiping or redrawing the DOM, eliminating any visual flash.
+  if (rootEl.hasChildNodes()) {
+    try {
+      hydrateRoot(rootEl, appTree);
+    } catch (err) {
+      console.warn('[Hydration] Falling back to createRoot:', err);
+      createRoot(rootEl).render(appTree);
+    }
+  } else {
+    createRoot(rootEl).render(appTree);
+  }
+}
