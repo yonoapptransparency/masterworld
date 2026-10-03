@@ -17,6 +17,7 @@ export interface MetaBuilderParams {
   jsonLdSchema: string;
   isNotFound: boolean;
   getField: (obj: any, key: string, fallback?: any) => any;
+  pageType?: string;
 }
 
 export function buildMetaTags(params: MetaBuilderParams): string {
@@ -35,15 +36,17 @@ export function buildMetaTags(params: MetaBuilderParams): string {
     favicon180,
     jsonLdSchema,
     isNotFound,
-    getField
+    getField,
+    pageType
   } = params;
 
   const escapedTitle = escapeHtml(title);
   const escapedDesc = escapeHtml(description);
   const escapedKeywords = escapeHtml(keywords);
 
-  const ogImageWidth = '600';
-  const ogImageHeight = '600';
+  const ogImageWidth = '1200';
+  const ogImageHeight = '630';
+  const ogType = pageType === 'news' ? 'article' : 'website';
 
   return `
     <title>${escapedTitle}</title>
@@ -59,7 +62,7 @@ export function buildMetaTags(params: MetaBuilderParams): string {
     <meta data-rh="true" property="og:locale" content="en_IN">
     <meta data-rh="true" property="og:title" content="${escapedTitle}">
     <meta data-rh="true" property="og:description" content="${escapedDesc}">
-    <meta data-rh="true" property="og:type" content="website">
+    <meta data-rh="true" property="og:type" content="${ogType}">
     <meta data-rh="true" property="og:url" content="${canonicalUrl}">
     <meta data-rh="true" property="og:image" content="${pageOgImage}">
     <meta data-rh="true" property="og:image:secure_url" content="${pageOgImage}">

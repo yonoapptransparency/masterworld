@@ -486,7 +486,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     favicon180,
     jsonLdSchema,
     isNotFound,
-    getField
+    getField,
+    pageType
   });
 
   const initialDataPayload = optimizeInitialDataForRoute(data, cleanPathLower, targetApp, targetNews, targetVideo);

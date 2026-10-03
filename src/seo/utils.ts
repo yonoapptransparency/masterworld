@@ -136,14 +136,14 @@ export function getOgImageUrl(url?: string, origin = 'https://www.rummydex.com')
   if (!url) return '';
   let absUrl = ensureAbsoluteUrl(url, origin);
   if (absUrl.includes('res.cloudinary.com') && absUrl.includes('/upload/')) {
-    if (absUrl.includes('w_1200') || absUrl.includes('w_600')) {
+    if (absUrl.includes('w_1200') && absUrl.includes('h_630')) {
       return absUrl;
     }
     return absUrl.replace(
       /\/upload\/(?:(?:[a-z]{1,3}_[a-zA-Z0-9_.:-]+,?)+\/)*(?:(v\d+)\/)?/,
       (_match, version) => {
         const v = version ? `${version}/` : '';
-        return `/upload/f_jpg,q_auto,w_600,h_600,c_pad,b_auto/${v}`;
+        return `/upload/f_jpg,q_auto,w_1200,h_630,c_fill,b_auto/${v}`;
       }
     );
   }

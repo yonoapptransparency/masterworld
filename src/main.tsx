@@ -34,9 +34,14 @@ if (typeof window !== 'undefined' && window.localStorage) {
 
 // Global chunk loading error handler to recover automatically when old assets are deleted after a new build/deployment
 if (typeof window !== 'undefined') {
-  // If the browser opens directly to an /app/:slug URL, start fetching the AppDetails chunk immediately in parallel
+  // If the browser opens directly to an /app/:slug URL, start fetching the AppDetails chunk in parallel safely
   if (window.location.pathname.startsWith('/app/')) {
-    import('./pages/AppDetails').catch(() => {});
+    try {
+      const pageComponent = 'AppDetails';
+      import(/* @vite-ignore */ `./pages/${pageComponent}`).catch(() => {});
+    } catch {
+      // Ignored in non-public environments where AppDetails is excluded
+    }
   }
 
   const handleChunkError = (event: ErrorEvent | PromiseRejectionEvent) => {

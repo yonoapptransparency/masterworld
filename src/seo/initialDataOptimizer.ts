@@ -92,13 +92,16 @@ export function optimizeInitialDataForRoute(
 
     optimizedApps = [fullTargetApp, ...similarStubs];
   } else {
-    // Full verified app records for catalog, preventing secondary loading fluctuation
-    optimizedApps = Array.isArray(data.apps) ? data.apps.map((app: any) => ({
+    // 18-item above-the-fold rule: Keep first 18 apps for instant paint and strip heavy fields
+    const LIST_VIEW_LIMIT = 18;
+    const baseApps = Array.isArray(data.apps) ? data.apps : [];
+
+    const aboveFoldApps = baseApps.slice(0, LIST_VIEW_LIMIT).map((app: any) => ({
       id: app.id,
       name: app.name,
       slug: app.slug,
-      icon_url: app.icon_url,
-      category: app.category,
+      icon_url: app.icon_url || '',
+      category: app.category || '',
       rating: Number(app.rating) || 4.5,
       version: app.version || '1.0',
       file_size: app.file_size || '45 MB',
@@ -113,20 +116,41 @@ export function optimizeInitialDataForRoute(
       top_chart_category: app.top_chart_category || '',
       publish_date: app.publish_date || '',
       updated_at: app.updated_at || '',
-      description_html: app.description_html || '',
-      features_html: app.features_html || '',
-      screenshots: Array.isArray(app.screenshots) ? app.screenshots : [],
-      faqs: Array.isArray(app.faqs) ? app.faqs : [],
-      custom_admin_box_html: app.custom_admin_box_html || '',
-      custom_admin_box_heading: app.custom_admin_box_heading || '',
-      yellow_box_msg: app.yellow_box_msg || '',
-      red_box_msg: app.red_box_msg || '',
-      idea_box_msg: app.idea_box_msg || '',
-      release_notes: app.release_notes || '',
+      short_description: typeof app.short_description === 'string' ? app.short_description.slice(0, 120) : '',
+      description_html: '',
+      features_html: '',
+      screenshots: [],
+      faqs: [],
+      custom_admin_box_html: '',
+      custom_admin_box_heading: '',
+      yellow_box_msg: '',
+      red_box_msg: '',
+      idea_box_msg: '',
+      release_notes: '',
       seo_title: app.seo_title || '',
       seo_description: app.seo_description || '',
       canonical_url: app.canonical_url || ''
-    })) : [];
+    }));
+
+    // For remaining apps, provide ultra-lightweight stubs so client search/filters function immediately without 1MB HTML bloat
+    const remainingStubs = baseApps.slice(LIST_VIEW_LIMIT).map((app: any) => ({
+      id: app.id,
+      name: app.name,
+      slug: app.slug,
+      icon_url: app.icon_url || '',
+      category: app.category || '',
+      rating: Number(app.rating) || 4.5,
+      version: app.version || '1.0',
+      file_size: app.file_size || '',
+      safety_status: app.safety_status || 'Verified',
+      developer: app.developer || '',
+      is_featured: Boolean(app.is_featured),
+      is_new: Boolean(app.is_new),
+      is_hot: Boolean(app.is_hot),
+      is_top_chart: Boolean(app.is_top_chart)
+    }));
+
+    optimizedApps = [...aboveFoldApps, ...remainingStubs];
   }
 
   const optimizedNews = (Array.isArray(data.news) ? data.news : [])

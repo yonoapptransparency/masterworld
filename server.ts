@@ -440,24 +440,60 @@ async function startServer() {
       const userAgent = req.headers['user-agent'] || '';
 
       const seoResult = await injectSeoTags(template, req.originalUrl, hostUrl, userAgent);
-      const html = typeof seoResult === 'string' ? seoResult : (seoResult.html || template);
-      
       const isNotFound = typeof seoResult === 'object' && seoResult ? seoResult.isNotFound : false;
       const canonicalUrl = typeof seoResult === 'object' && seoResult ? seoResult.canonicalUrl : undefined;
-      const statusCode = isNotFound ? 404 : 200;
 
-      let cacheControl = 'no-cache, no-store, must-revalidate';
+      // Real 404 response for missing slugs to eliminate Googlebot Soft 404 violations
+      if (isNotFound) {
+        const notFoundHtml = `<!doctype html>
+<html lang="en-IN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>404 - Page Not Found | RummyDex</title>
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+    <meta name="description" content="The requested page could not be found on RummyDex." />
+    <style>
+      body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#090d16;color:#f8fafc;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;box-sizing:border-box}
+      .card{max-width:480px;width:100%;text-align:center;padding:40px 24px;border-radius:24px;background:#111726;border:1px solid rgba(255,255,255,0.08);box-shadow:0 20px 40px rgba(0,0,0,0.4)}
+      h1{margin:0 0 12px;font-size:3.5rem;font-weight:900;background:linear-gradient(135deg,#38bdf8,#818cf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+      p{margin:0 0 24px;color:#94a3b8;font-size:1rem;line-height:1.6}
+      a{display:inline-block;padding:12px 24px;background:#2563eb;color:#fff;border-radius:12px;text-decoration:none;font-weight:700;font-size:0.95rem;transition:background 0.2s}
+      a:hover{background:#1d4ed8}
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>404</h1>
+      <p>The application or article you requested does not exist or may have been moved.</p>
+      <a href="/">Return to Home</a>
+    </div>
+  </body>
+</html>`;
+        return res.status(404).set({
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+          'X-Robots-Tag': 'noindex, nofollow, noarchive, nosnippet'
+        }).send(notFoundHtml);
+      }
+
+      const html = typeof seoResult === 'string' ? seoResult : (seoResult.html || template);
+      const statusCode = 200;
+
+      let cacheControl = 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400';
       const reqUrlLower = req.originalUrl.toLowerCase().split('?')[0].replace(/\/+$/, '') || '/';
 
       if (process.env.NODE_ENV === "production") {
-        if (req.originalUrl === '/' || req.originalUrl === '' || req.originalUrl === '/new-apps') {
-          cacheControl = 'public, max-age=300, stale-while-revalidate=3600';
-        } else if (reqUrlLower.startsWith('/app/') || reqUrlLower.startsWith('/category/') || reqUrlLower.startsWith('/categories')) {
-          cacheControl = 'public, max-age=300, stale-while-revalidate=3600';
+        if (reqUrlLower === '/' || reqUrlLower === '' || reqUrlLower === '/new-apps' || reqUrlLower.startsWith('/category/') || reqUrlLower.startsWith('/categories')) {
+          cacheControl = 'public, max-age=300, s-maxage=3600, stale-while-revalidate=86400';
+        } else if (reqUrlLower.startsWith('/app/')) {
+          cacheControl = 'public, max-age=300, s-maxage=3600, stale-while-revalidate=86400';
         } else if (reqUrlLower.startsWith('/news') || reqUrlLower.startsWith('/videos')) {
-          cacheControl = 'public, max-age=600, stale-while-revalidate=7200';
+          cacheControl = 'public, max-age=600, s-maxage=7200, stale-while-revalidate=86400';
         } else if (['/about', '/contact', '/privacy', '/terms', '/ethics', '/disclaimer', '/notice', '/responsibility', '/developers', '/report-removal'].includes(reqUrlLower)) {
-          cacheControl = 'public, max-age=3600, stale-while-revalidate=86400';
+          cacheControl = 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800';
         }
       }
       const isDisallowedRoute = isNotFound ||
