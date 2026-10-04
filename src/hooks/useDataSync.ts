@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { AppConfig, GlobalSettings, NewsItem, VideoItem } from '../types';
 import { mockApps, mockSettings, mockNews, mockVideos } from '../lib/staticData';
 import { adminFetch } from '../services/adminAuthService';
+import { db, isFirebaseReal } from '../lib/firebase';
 
 export function useDataSync() {
   const initialData = (typeof window !== 'undefined' && (window as any).__INITIAL_DATA__) || null;
@@ -88,32 +89,96 @@ export function useDataSync() {
           setVideos(data.videos);
         }
       } else {
-        // Fallback: try public backup-data endpoint
-        try {
-          const publicRes = await fetch('/api/v1/public/backup-data');
-          if (publicRes.ok) {
-            const publicData = await publicRes.json();
-            if (Array.isArray(publicData.apps) && publicData.apps.length > 0) {
-              setApps(publicData.apps);
-            }
-            if (publicData.settings && Object.keys(publicData.settings).length > 0) {
-              setSettings(publicData.settings);
-            }
-            if (Array.isArray(publicData.news) && publicData.news.length > 0) {
-              setNews(publicData.news);
-            }
-            if (Array.isArray(publicData.videos) && publicData.videos.length > 0) {
-              setVideos(publicData.videos);
-            }
-          }
-        } catch (_) {}
+        // Direct Firestore load for static hosts (Cloudflare Pages)
+        let loadedFromDirectFirestore = false;
+        if (isFirebaseReal && db) {
+          try {
+            const { doc, getDoc } = await import('firebase/firestore');
+            const [c0, c1, c2, settingsSnap, newsSnap, videosSnap] = await Promise.all([
+              getDoc(doc(db, 'store_data', 'apps_chunk_0')).catch(() => null),
+              getDoc(doc(db, 'store_data', 'apps_chunk_1')).catch(() => null),
+              getDoc(doc(db, 'store_data', 'apps_chunk_2')).catch(() => null),
+              getDoc(doc(db, 'store_data', 'public_settings')).catch(() => null),
+              getDoc(doc(db, 'store_data', 'news')).catch(() => null),
+              getDoc(doc(db, 'store_data', 'videos')).catch(() => null)
+            ]);
 
-        // Guarantee mockApps fallback if apps are still empty
-        setApps(prev => (prev && prev.length > 0 ? prev : (mockApps || [])));
-        setSettings(prev => (prev && Object.keys(prev).length > 0 ? prev : (mockSettings || {} as GlobalSettings)));
-        setNews(prev => (prev && prev.length > 0 ? prev : (mockNews || [])));
-        setVideos(prev => (prev && prev.length > 0 ? prev : (mockVideos || [])));
-        setDataSource('local_backup');
+            let loadedApps: AppConfig[] = [];
+            [c0, c1, c2].forEach(chunk => {
+              if (chunk && chunk.exists && chunk.exists()) {
+                const chunkData = chunk.data();
+                const items = chunkData.items || chunkData.apps || [];
+                if (Array.isArray(items)) {
+                  loadedApps = loadedApps.concat(items);
+                }
+              }
+            });
+
+            if (loadedApps.length > 0) {
+              setApps(loadedApps);
+              loadedFromDirectFirestore = true;
+            }
+
+            if (settingsSnap && settingsSnap.exists && settingsSnap.exists()) {
+              setSettings(settingsSnap.data() as GlobalSettings);
+              loadedFromDirectFirestore = true;
+            }
+
+            if (newsSnap && newsSnap.exists && newsSnap.exists()) {
+              const newsData = newsSnap.data();
+              const items = newsData.items || newsData.news || [];
+              if (Array.isArray(items) && items.length > 0) {
+                setNews(items);
+              }
+            }
+
+            if (videosSnap && videosSnap.exists && videosSnap.exists()) {
+              const vidData = videosSnap.data();
+              const items = vidData.items || vidData.videos || [];
+              if (Array.isArray(items) && items.length > 0) {
+                setVideos(items);
+              }
+            }
+
+            if (loadedFromDirectFirestore) {
+              setDataSource('firebase');
+              setIsConnected(true);
+              setIsLive(true);
+            }
+          } catch (directErr) {
+            console.warn("[useDataSync] Direct Firestore load notice:", directErr);
+          }
+        }
+
+        if (!loadedFromDirectFirestore) {
+          // Fallback: try public backup-data endpoint
+          try {
+            const publicRes = await fetch('/api/v1/public/backup-data');
+            const cType = publicRes.headers.get('content-type') || '';
+            if (publicRes.ok && cType.includes('application/json')) {
+              const publicData = await publicRes.json();
+              if (Array.isArray(publicData.apps) && publicData.apps.length > 0) {
+                setApps(publicData.apps);
+              }
+              if (publicData.settings && Object.keys(publicData.settings).length > 0) {
+                setSettings(publicData.settings);
+              }
+              if (Array.isArray(publicData.news) && publicData.news.length > 0) {
+                setNews(publicData.news);
+              }
+              if (Array.isArray(publicData.videos) && publicData.videos.length > 0) {
+                setVideos(publicData.videos);
+              }
+            }
+          } catch (_) {}
+
+          // Guarantee mockApps fallback if apps are still empty
+          setApps(prev => (prev && prev.length > 0 ? prev : (mockApps || [])));
+          setSettings(prev => (prev && Object.keys(prev).length > 0 ? prev : (mockSettings || {} as GlobalSettings)));
+          setNews(prev => (prev && prev.length > 0 ? prev : (mockNews || [])));
+          setVideos(prev => (prev && prev.length > 0 ? prev : (mockVideos || [])));
+          setDataSource('local_backup');
+        }
       }
 
       setFetchedStates({ apps: true, settings: true, news: true, videos: true });

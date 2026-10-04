@@ -40,8 +40,13 @@ export const useAdminAuth = () => {
 
     const unsubscribe = onAuthStateChanged(auth!, async (currentUser) => {
       const currentSession = loadSession();
-      const token = currentSession?.idToken;
-      const effectiveUser = currentUser || (token ? { email: currentSession.email, uid: 'local', getIdToken: async () => token } : null);
+      let token = currentSession?.idToken;
+      if (!token && currentUser) {
+        try {
+          token = await currentUser.getIdToken();
+        } catch (_) {}
+      }
+      const effectiveUser = currentUser || (token ? { email: currentSession?.email, uid: 'local', getIdToken: async () => token } : null);
         
       if (effectiveUser && token) {
         let adminVerified = false;

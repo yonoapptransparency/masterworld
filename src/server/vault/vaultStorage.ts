@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { getFirebaseAdminDb } from '../firebase';
+import { getFirebaseAdminDb, getRawFirebaseConfig as getFirebaseConfigFromModule } from '../firebase';
 import { vaultNode } from '../../lib/vaultNode';
 import { clearResolvedLinkCache } from '../services/linkService';
 import { clearPublicBackupCache } from '../routes/publicApiRoutes';
@@ -12,16 +12,26 @@ import { getAesSecret, safeEncrypt, safeDecrypt } from './vaultCrypto';
 let cachedFirebaseConfig: any = null;
 
 export function getRawFirebaseConfig() {
-  if (cachedFirebaseConfig) return cachedFirebaseConfig;
+  if (cachedFirebaseConfig && cachedFirebaseConfig.projectId) return cachedFirebaseConfig;
   try {
     const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
     if (fs.existsSync(configPath)) {
-      cachedFirebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-      return cachedFirebaseConfig;
+      const parsed = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      if (parsed && parsed.projectId) {
+        cachedFirebaseConfig = parsed;
+        return cachedFirebaseConfig;
+      }
     }
   } catch (e) {
     console.warn("Could not read firebase-applet-config.json:", e);
   }
+  try {
+    const fallback = getFirebaseConfigFromModule();
+    if (fallback && fallback.projectId) {
+      cachedFirebaseConfig = fallback;
+      return cachedFirebaseConfig;
+    }
+  } catch (_) {}
   return null;
 }
 

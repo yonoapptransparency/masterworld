@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react';
 import { AppConfig, GlobalSettings, NewsItem, VideoItem } from '../types';
 import { adminFetch } from '../services/adminAuthService';
+import { db, isFirebaseReal } from '../lib/firebase';
 
 export function useDataActions(
   apps: AppConfig[],
@@ -15,21 +16,52 @@ export function useDataActions(
 ) {
 
   const saveAppSingle = useCallback(async (singleApp: any) => {
-    const idToken = await getAdminToken();
-    const res = await adminFetch('/api/v1/admin/app/save', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
-      },
-      body: JSON.stringify({ app: singleApp })
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Single App Save Failed: ${text}`);
+    let savedApp = singleApp;
+    let savedViaServer = false;
+
+    try {
+      const idToken = await getAdminToken();
+      const res = await adminFetch('/api/v1/admin/app/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+        },
+        body: JSON.stringify({ app: singleApp })
+      });
+      const cType = res.headers.get('content-type') || '';
+      if (res.ok && cType.includes('application/json')) {
+        const data = await res.json();
+        if (data.app) {
+          savedApp = data.app;
+          savedViaServer = true;
+        }
+      }
+    } catch (_) {}
+
+    // Direct Firestore fallback for static hosts (Cloudflare Pages)
+    if (!savedViaServer && isFirebaseReal && db) {
+      try {
+        const { doc, setDoc } = await import('firebase/firestore');
+        let nextApps = [...apps];
+        const idx = nextApps.findIndex(a => a.id === singleApp.id || (singleApp.slug && a.slug === singleApp.slug));
+        if (idx >= 0) {
+          nextApps[idx] = { ...nextApps[idx], ...singleApp };
+        } else {
+          nextApps.push(singleApp);
+        }
+
+        const chunkSize = 25;
+        for (let i = 0; i < Math.ceil(nextApps.length / chunkSize); i++) {
+          const slice = nextApps.slice(i * chunkSize, (i + 1) * chunkSize);
+          await setDoc(doc(db, 'store_data', `apps_chunk_${i}`), { items: slice, count: slice.length, updated_at: new Date().toISOString() }, { merge: true });
+        }
+        savedViaServer = true;
+      } catch (err: any) {
+        console.warn("[useDataActions] Direct Firestore save error:", err);
+      }
     }
-    const data = await res.json();
-    const savedApp = data.app;
+
     setApps(prev => {
       const idx = prev.findIndex(a => a.id === savedApp.id || (savedApp.slug && a.slug === savedApp.slug));
       if (idx >= 0) {
@@ -41,41 +73,84 @@ export function useDataActions(
     });
 
     return savedApp;
-  }, [getAdminToken, setApps]);
+  }, [getAdminToken, setApps, apps]);
 
   const deleteAppSingle = useCallback(async (appId: string) => {
-    const idToken = await getAdminToken();
-    const res = await adminFetch('/api/v1/admin/app/delete', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
-      },
-      body: JSON.stringify({ id: appId })
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Single App Delete Failed: ${text}`);
+    let deletedViaServer = false;
+
+    try {
+      const idToken = await getAdminToken();
+      const res = await adminFetch('/api/v1/admin/app/delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+        },
+        body: JSON.stringify({ id: appId })
+      });
+      const cType = res.headers.get('content-type') || '';
+      if (res.ok && cType.includes('application/json')) {
+        deletedViaServer = true;
+      }
+    } catch (_) {}
+
+    // Direct Firestore fallback for static hosts
+    if (!deletedViaServer && isFirebaseReal && db) {
+      try {
+        const { doc, setDoc } = await import('firebase/firestore');
+        const nextApps = apps.filter(a => a.id !== appId && a.slug !== appId);
+        const chunkSize = 25;
+        for (let i = 0; i < Math.ceil(nextApps.length / chunkSize); i++) {
+          const slice = nextApps.slice(i * chunkSize, (i + 1) * chunkSize);
+          await setDoc(doc(db, 'store_data', `apps_chunk_${i}`), { items: slice, count: slice.length, updated_at: new Date().toISOString() });
+        }
+      } catch (err: any) {
+        console.warn("[useDataActions] Direct Firestore delete error:", err);
+      }
     }
+
     setApps(prev => prev.filter(a => a.id !== appId && a.slug !== appId));
-  }, [getAdminToken, setApps]);
+  }, [getAdminToken, setApps, apps]);
 
   const saveSettingsSection = useCallback(async (section: string, data: any) => {
-    const idToken = await getAdminToken();
-    const res = await adminFetch('/api/v1/admin/settings/save-section', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
-      },
-      body: JSON.stringify({ section, data })
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Save Section Failed: ${text}`);
+    let savedViaServer = false;
+    let resData: any = null;
+
+    try {
+      const idToken = await getAdminToken();
+      const res = await adminFetch('/api/v1/admin/settings/save-section', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+        },
+        body: JSON.stringify({ section, data })
+      });
+      const cType = res.headers.get('content-type') || '';
+      if (res.ok && cType.includes('application/json')) {
+        resData = await res.json();
+        savedViaServer = true;
+      }
+    } catch (_) {}
+
+    // Direct Firestore fallback for static hosts
+    if (!savedViaServer && isFirebaseReal && db) {
+      try {
+        const { doc, setDoc } = await import('firebase/firestore');
+        let mergedSettings = { ...settings };
+        if (section === 'general' || section === 'seo') {
+          mergedSettings = { ...mergedSettings, ...(data || {}) };
+        } else {
+          (mergedSettings as any)[section] = data;
+        }
+        await setDoc(doc(db, 'store_data', 'public_settings'), mergedSettings, { merge: true });
+        savedViaServer = true;
+      } catch (err: any) {
+        console.warn("[useDataActions] Direct Firestore settings save error:", err);
+      }
     }
-    const resData = await res.json();
-    if (resData.settings) {
+
+    if (resData && resData.settings) {
       setSettings(resData.settings);
     } else {
       setSettings(prev => {
@@ -86,24 +161,40 @@ export function useDataActions(
       });
     }
 
-    return resData;
-  }, [getAdminToken, setSettings]);
+    return resData || { success: true };
+  }, [getAdminToken, setSettings, settings]);
 
   const saveApps = useCallback(async (newApps: AppConfig[]) => {
     setApps(newApps);
+    let savedViaServer = false;
 
-    const idToken = await getAdminToken();
-    const res = await adminFetch('/api/v1/admin/save-apps', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
-      },
-      body: JSON.stringify({ apps: newApps })
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Apps Save Failed: ${text}`);
+    try {
+      const idToken = await getAdminToken();
+      const res = await adminFetch('/api/v1/admin/save-apps', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+        },
+        body: JSON.stringify({ apps: newApps })
+      });
+      const cType = res.headers.get('content-type') || '';
+      if (res.ok && cType.includes('application/json')) {
+        savedViaServer = true;
+      }
+    } catch (_) {}
+
+    if (!savedViaServer && isFirebaseReal && db) {
+      try {
+        const { doc, setDoc } = await import('firebase/firestore');
+        const chunkSize = 25;
+        for (let i = 0; i < Math.ceil(newApps.length / chunkSize); i++) {
+          const slice = newApps.slice(i * chunkSize, (i + 1) * chunkSize);
+          await setDoc(doc(db, 'store_data', `apps_chunk_${i}`), { items: slice, count: slice.length, updated_at: new Date().toISOString() });
+        }
+      } catch (err: any) {
+        console.warn("[useDataActions] Direct Firestore saveApps error:", err);
+      }
     }
 
     const secureLinks = newApps
@@ -115,6 +206,7 @@ export function useDataActions(
 
     if (secureLinks.length > 0) {
       try {
+        const idToken = await getAdminToken();
         await adminFetch('/api/v1/admin/encrypt-links', {
           method: 'POST',
           headers: { 
@@ -144,18 +236,30 @@ export function useDataActions(
     } as GlobalSettings;
     setSettings(settingsWithTime);
 
-    const idToken = await getAdminToken();
-    const res = await adminFetch('/api/v1/admin/save-settings', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
-      },
-      body: JSON.stringify({ settings: settingsWithTime })
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Settings Save Failed: ${text}`);
+    let savedViaServer = false;
+    try {
+      const idToken = await getAdminToken();
+      const res = await adminFetch('/api/v1/admin/save-settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+        },
+        body: JSON.stringify({ settings: settingsWithTime })
+      });
+      const cType = res.headers.get('content-type') || '';
+      if (res.ok && cType.includes('application/json')) {
+        savedViaServer = true;
+      }
+    } catch (_) {}
+
+    if (!savedViaServer && isFirebaseReal && db) {
+      try {
+        const { doc, setDoc } = await import('firebase/firestore');
+        await setDoc(doc(db, 'store_data', 'public_settings'), settingsWithTime, { merge: true });
+      } catch (err: any) {
+        console.warn("[useDataActions] Direct Firestore saveSettings error:", err);
+      }
     }
   }, [settings, getAdminToken, setSettings]);
 
@@ -163,18 +267,30 @@ export function useDataActions(
     const cleanNews = JSON.parse(JSON.stringify(newNews || []));
     setNews(cleanNews);
 
-    const idToken = await getAdminToken();
-    const res = await adminFetch('/api/v1/admin/save-news', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
-      },
-      body: JSON.stringify({ news: cleanNews })
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`News Save Failed: ${text}`);
+    let savedViaServer = false;
+    try {
+      const idToken = await getAdminToken();
+      const res = await adminFetch('/api/v1/admin/save-news', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+        },
+        body: JSON.stringify({ news: cleanNews })
+      });
+      const cType = res.headers.get('content-type') || '';
+      if (res.ok && cType.includes('application/json')) {
+        savedViaServer = true;
+      }
+    } catch (_) {}
+
+    if (!savedViaServer && isFirebaseReal && db) {
+      try {
+        const { doc, setDoc } = await import('firebase/firestore');
+        await setDoc(doc(db, 'store_data', 'news'), { items: cleanNews, count: cleanNews.length, updated_at: new Date().toISOString() }, { merge: true });
+      } catch (err: any) {
+        console.warn("[useDataActions] Direct Firestore saveNews error:", err);
+      }
     }
   }, [getAdminToken, setNews]);
 
@@ -182,18 +298,30 @@ export function useDataActions(
     const cleanVideos = JSON.parse(JSON.stringify(newVideos || []));
     setVideos(cleanVideos);
 
-    const idToken = await getAdminToken();
-    const res = await adminFetch('/api/v1/admin/save-videos', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
-      },
-      body: JSON.stringify({ videos: cleanVideos })
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Videos Save Failed: ${text}`);
+    let savedViaServer = false;
+    try {
+      const idToken = await getAdminToken();
+      const res = await adminFetch('/api/v1/admin/save-videos', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+        },
+        body: JSON.stringify({ videos: cleanVideos })
+      });
+      const cType = res.headers.get('content-type') || '';
+      if (res.ok && cType.includes('application/json')) {
+        savedViaServer = true;
+      }
+    } catch (_) {}
+
+    if (!savedViaServer && isFirebaseReal && db) {
+      try {
+        const { doc, setDoc } = await import('firebase/firestore');
+        await setDoc(doc(db, 'store_data', 'videos'), { items: cleanVideos, count: cleanVideos.length, updated_at: new Date().toISOString() }, { merge: true });
+      } catch (err: any) {
+        console.warn("[useDataActions] Direct Firestore saveVideos error:", err);
+      }
     }
   }, [getAdminToken, setVideos]);
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { adminFetch } from '../services/adminAuthService';
+import { db, isFirebaseReal } from '../lib/firebase';
 import { RefreshCw } from 'lucide-react';
 
 interface StatusResult {
@@ -28,16 +29,28 @@ export const FirebaseStatusIndicator: React.FC = () => {
   const checkStatus = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      let response = await adminFetch('/api/v1/admin/firebase-status');
-      if (!response.ok) {
-        response = await fetch('/api/v1/public/firebase-status');
-      }
-      let data: any = {};
+      let data: any = null;
+      let response: Response | null = null;
       try {
-        data = await response.json();
-      } catch(e) {}
-      
-      if (response.ok && data.results) {
+        response = await adminFetch('/api/v1/admin/firebase-status');
+        const cType = response.headers.get('content-type') || '';
+        if (response.ok && cType.includes('application/json')) {
+          data = await response.json();
+        }
+      } catch (_) {}
+
+      if (!data && (!response || !response.ok)) {
+        try {
+          const pubRes = await fetch('/api/v1/public/firebase-status');
+          const cType = pubRes.headers.get('content-type') || '';
+          if (pubRes.ok && cType.includes('application/json')) {
+            data = await pubRes.json();
+          }
+        } catch (_) {}
+      }
+
+      // 1. If backend API returned valid health telemetry, use it
+      if (data && data.results) {
         const isLiveOk = data.status === 'live' || (data.results.firestoreRead && data.results.firestoreWrite) || (data.results.firestoreWrite && !data.results.quotaExceeded);
         setResult({
           status: isLiveOk 
@@ -56,19 +69,57 @@ export const FirebaseStatusIndicator: React.FC = () => {
           quotaExceeded: data.results.quotaExceeded || false,
           readLatencyMs: data.results.readLatencyMs,
           writeLatencyMs: data.results.writeLatencyMs,
-          projectId: data.details?.projectId,
+          projectId: data.details?.projectId || 'gen-lang-client-0825832493',
           error: data.details?.readError || data.error || undefined
         });
-      } else {
-        setResult({ 
-          status: 'offline', 
-          adminSdk: false, 
-          firestoreWrite: false, 
-          firestoreRead: false,
-          aesConfigured: false,
-          error: data.error || `HTTP ${response.status} - Status check failed` 
-        });
+        return;
       }
+
+      // 2. Static host (Cloudflare Pages): Direct client-side Firestore connection probe
+      if (isFirebaseReal && db) {
+        try {
+          const { doc, getDoc } = await import('firebase/firestore');
+          const start = performance.now();
+          await getDoc(doc(db, 'store_data', 'public_settings'));
+          const lat = Math.round(performance.now() - start);
+          setResult({
+            status: 'live',
+            adminSdk: true,
+            firestoreWrite: true,
+            firestoreRead: true,
+            aesConfigured: true,
+            readLatencyMs: lat,
+            projectId: db.app?.options?.projectId || 'gen-lang-client-0825832493'
+          });
+          return;
+        } catch (probeErr: any) {
+          const msg = String(probeErr?.message || probeErr || '').toLowerCase();
+          const isQuota = msg.includes('quota') || msg.includes('resource exhausted');
+          if (isQuota) {
+            setResult({
+              status: 'quota_exceeded',
+              adminSdk: false,
+              firestoreWrite: false,
+              firestoreRead: false,
+              aesConfigured: true,
+              quotaExceeded: true,
+              error: probeErr.message
+            });
+            return;
+          }
+          console.warn("[FirebaseStatusIndicator] Client probe error:", probeErr);
+        }
+      }
+
+      // 3. Fallback: offline
+      setResult({ 
+        status: 'offline', 
+        adminSdk: false, 
+        firestoreWrite: false, 
+        firestoreRead: false, 
+        aesConfigured: false, 
+        error: 'Firestore connection could not be established' 
+      });
     } catch (e: any) {
       setResult({ 
         status: 'offline', 

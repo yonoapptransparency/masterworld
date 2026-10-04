@@ -1,6 +1,8 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { UploadCloud, Loader2 } from 'lucide-react';
 import { adminFetch } from '../services/adminAuthService';
+import { storage } from '../lib/firebase';
+import { toast } from './Toast';
 
 interface ImageUploadProps {
   format?: 'webp' | 'png';
@@ -35,45 +37,97 @@ export default function ImageUpload({ value, defaultValue, onChange, name, place
     if (!file) return;
 
     setUploading(true);
+    let uploadedUrl = '';
+
     try {
-      // 1. Get secure upload signature from our backend
-      const sigRes = await adminFetch('/api/v1/admin/upload/signature');
-      const sigData = await sigRes.json();
-      
-      if (!sigRes.ok || sigData.status !== 'OK') {
-        throw new Error(sigData.msg || 'Failed to get upload signature from server. Check Cloudinary API Keys.');
+      // 1. Try secure Cloudinary upload signature from backend if running
+      try {
+        const sigRes = await adminFetch('/api/v1/admin/upload/signature');
+        const cType = sigRes.headers.get('content-type') || '';
+        if (sigRes.ok && cType.includes('application/json')) {
+          const sigData = await sigRes.json();
+          if (sigData.status === 'OK' && sigData.api_key) {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('api_key', sigData.api_key);
+            formData.append('timestamp', sigData.timestamp.toString());
+            formData.append('signature', sigData.signature);
+            formData.append('folder', sigData.folder || 'rummydex');
+
+            const cloudinaryRes = await fetch(`https://api.cloudinary.com/v1_1/${sigData.cloud_name}/image/upload`, {
+              method: 'POST',
+              body: formData
+            });
+
+            if (cloudinaryRes.ok) {
+              const cData = await cloudinaryRes.json();
+              if (cData.secure_url) {
+                uploadedUrl = cData.secure_url;
+              }
+            }
+          }
+        }
+      } catch (_) {
+        // Backend not available (e.g. Cloudflare Pages static SPA), proceed to fallbacks
       }
 
-      // 2. Upload file directly from browser to Cloudinary API
-      // This bypasses Vercel 4.5MB payload limits completely.
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('api_key', sigData.api_key);
-      formData.append('timestamp', sigData.timestamp.toString());
-      formData.append('signature', sigData.signature);
-      formData.append('folder', sigData.folder);
-
-      const cloudinaryRes = await fetch(`https://api.cloudinary.com/v1_1/${sigData.cloud_name}/image/upload`, {
-        method: 'POST',
-        body: formData
-      });
-
-      const cloudinaryData = await cloudinaryRes.json();
-
-      if (!cloudinaryRes.ok) {
-        throw new Error(cloudinaryData.error?.message || 'Cloudinary upload failed.');
+      // 2. Try Firebase Storage directly via client SDK
+      if (!uploadedUrl && storage) {
+        try {
+          const { ref, uploadBytes, getDownloadURL } = await import('firebase/storage');
+          const cleanName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+          const storageRef = ref(storage, `uploads/${cleanName}`);
+          const snap = await uploadBytes(storageRef, file);
+          uploadedUrl = await getDownloadURL(snap.ref);
+        } catch (storageErr) {
+          console.warn("[ImageUpload] Firebase Storage fallback notice:", storageErr);
+        }
       }
 
-      // 3. Success! Set the returned secure URL
-      if (cloudinaryData.secure_url) {
-        handleChange(cloudinaryData.secure_url);
+      // 3. Fallback: Client-side compressed WebP data URL
+      if (!uploadedUrl) {
+        uploadedUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              let width = img.width;
+              let height = img.height;
+              const maxDim = 1200;
+              if (width > maxDim || height > maxDim) {
+                if (width > height) {
+                  height = Math.round((height * maxDim) / width);
+                  width = maxDim;
+                } else {
+                  width = Math.round((width * maxDim) / height);
+                  height = maxDim;
+                }
+              }
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              ctx?.drawImage(img, 0, 0, width, height);
+              resolve(canvas.toDataURL('image/webp', 0.85));
+            };
+            img.onerror = () => reject(new Error('Could not load image for optimization.'));
+            img.src = event.target?.result as string;
+          };
+          reader.onerror = () => reject(new Error('Could not read image file.'));
+          reader.readAsDataURL(file);
+        });
+      }
+
+      if (uploadedUrl) {
+        handleChange(uploadedUrl);
+        toast('Image uploaded and processed successfully.', 'success');
       } else {
-        throw new Error('Cloudinary did not return a secure URL.');
+        throw new Error('Image could not be processed.');
       }
 
     } catch (error: any) {
       console.error("Upload error:", error);
-      alert("Failed to process image. " + (error.message || ""));
+      toast(error.message || 'Image processing failed', 'error');
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
