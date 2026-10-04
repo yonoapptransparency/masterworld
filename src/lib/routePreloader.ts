@@ -7,13 +7,16 @@
 type RouteLoader = () => Promise<any>;
 
 const routeRegistry: Record<string, RouteLoader> = {
+  '/': () => import('../pages/Home'),
+  '/app/': () => import('../pages/AppDetails'),
+  '/category/': () => import('../pages/Home'),
   '/news': () => import('../pages/NewsPage'),
   '/news/': () => import('../pages/NewsDetailPage'),
   '/videos': () => import('../pages/VideosPage'),
   '/videos/': () => import('../pages/VideoDetailPage'),
+  '/developers': () => import('../pages/Developers'),
   '/about': () => import('../pages/About'),
   '/contact': () => import('../pages/Contact'),
-  '/developers': () => import('../pages/Developers'),
   '/privacy': () => import('../pages/Privacy'),
   '/terms': () => import('../pages/Terms'),
   '/responsibility': () => import('../pages/Responsibility'),
@@ -21,6 +24,9 @@ const routeRegistry: Record<string, RouteLoader> = {
   '/ethics': () => import('../pages/Ethics'),
   '/disclaimer': () => import('../pages/Disclaimer'),
   '/report-removal': () => import('../pages/ReportRemoval'),
+  '/safety-status': () => import('../pages/SafetyStatus'),
+  '/faq': () => import('../pages/FaqPage'),
+  '/faqs': () => import('../pages/FaqPage'),
   '/moreinfo/': () => import('../pages/GatewayPage'),
 };
 
@@ -46,9 +52,11 @@ export function preloadRoute(rawPath: string): void {
     // Check exact match first
     let loader = routeRegistry[path];
 
-    // If not exact, check prefix matches (e.g. /news/some-slug -> /news/)
+    // If not exact, check prefix matches (e.g. /app/rummy-77 -> /app/)
     if (!loader) {
-      if (path.startsWith('/news/')) loader = routeRegistry['/news/'];
+      if (path.startsWith('/app/')) loader = routeRegistry['/app/'];
+      else if (path.startsWith('/category/')) loader = routeRegistry['/category/'];
+      else if (path.startsWith('/news/')) loader = routeRegistry['/news/'];
       else if (path.startsWith('/videos/')) loader = routeRegistry['/videos/'];
       else if (path.startsWith('/moreinfo/')) loader = routeRegistry['/moreinfo/'];
     }
@@ -110,6 +118,16 @@ export function setupInteractionPreloader(): () => void {
     const href = target.getAttribute('href');
     if (href && (href.startsWith('/') || href.startsWith(window.location.origin))) {
       preloadRoute(href);
+
+      // Pre-warm the browser image cache for the hero image inside this link
+      try {
+        const img = target.querySelector('img');
+        if (img && img.src && !preloadedSet.has(img.src)) {
+          preloadedSet.add(img.src);
+          const warmImg = new Image();
+          warmImg.src = img.src;
+        }
+      } catch (_) {}
     }
   };
 

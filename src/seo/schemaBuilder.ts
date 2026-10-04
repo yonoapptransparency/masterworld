@@ -111,6 +111,12 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
           .slice(0, 5)
           .map((rev: any) => ({
             "@type": "Review",
+            "itemReviewed": {
+              "@type": "SoftwareApplication",
+              "name": name,
+              "operatingSystem": "Android",
+              "applicationCategory": specificCat || "GameApplication"
+            },
             "author": {
               "@type": "Person",
               "name": rev.userName ? String(rev.userName).trim() : 'Verified Player'

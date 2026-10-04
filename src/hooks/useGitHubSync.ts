@@ -3,6 +3,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db, isFirebaseReal, handleFirestoreError, OperationType } from '../lib/firebase';
 import { adminFetch, getValidAdminToken, loadSession } from '../services/adminAuthService';
 import { GitConfig, generateStaticDataFileCode, generateCommunityReviewsFileCode, commitFileToGitHub, commitMultiFilesToGitHub, encryptUrlIfNeeded } from '../lib/githubSync';
+import { getAesSecret, safeDecrypt, safeEncrypt } from '../lib/cryptoUtils';
 import { generateAllSitemaps } from '../lib/sitemapGenerator';
 import { ensureDefaultSettings } from '../lib/defaultLegalContent';
 import { AppConfig, GlobalSettings, NewsItem, VideoItem } from '../types';
@@ -88,16 +89,16 @@ export function useGitHubSync(
         localStorage.setItem('cached_git_config', JSON.stringify(newConfig));
       } catch (e) {}
 
-      // Save to server endpoint (Admin SDK)
-      const res = await adminFetch('/api/github-sync/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newConfig)
-      });
-
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.message || `Server returned error ${res.status}`);
+      // Try saving to server endpoint (Admin SDK) if running on full Express server
+      try {
+        await adminFetch('/api/github-sync/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newConfig)
+        });
+      } catch (serverErr) {
+        // Ignored on static hosts (Cloudflare Pages / Vercel Edge)
+        console.warn("[GitHub Sync] Server config sync skipped (static host or edge):", serverErr);
       }
     } catch (err: any) {
       console.error("Save Git Config Error:", err);
@@ -386,24 +387,59 @@ export function useGitHubSync(
 
       try {
         log(`GitHub Sync: Building AES Encrypted Vault...`);
-        const idToken = await getAdminToken();
-        const vaultRes = await adminFetch('/api/v1/admin/seal-vault', {
-           method: 'POST',
-           headers: { 'Content-Type': 'application/json', ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {}) },
-           body: JSON.stringify({ items: publicApps })
-        });
+        let vaultCiphertext = "";
 
-        if (vaultRes.ok) {
-          const vaultData = await vaultRes.json();
-          if (vaultData.ciphertext) {
-            vaultCode = `export const ENCRYPTED_LINKS = "${vaultData.ciphertext}";\n`;
-            log(`GitHub Sync: ✅ AES Encrypted Vault sealed.`);
+        try {
+          const idToken = await getAdminToken();
+          const vaultRes = await adminFetch('/api/v1/admin/seal-vault', {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json', ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {}) },
+             body: JSON.stringify({ items: publicApps })
+          });
 
+          if (vaultRes.ok) {
+            const vaultData = await vaultRes.json();
+            if (vaultData.ciphertext) {
+              vaultCiphertext = vaultData.ciphertext;
+            }
+          }
+        } catch (_) {}
+
+        // Fallback: If server returned 405 (static host / edge), seal vault directly on client
+        if (!vaultCiphertext) {
+          const AES_SECRET = getAesSecret();
+          const vaultArray: any[] = [];
+          publicApps.forEach((item: any) => {
+            const id = String(item.id || '').trim();
+            const slug = String(item.slug || '').trim();
+            const rawUrl = item.more_information_url || item.encrypted_link || item.url || '';
+            if (!rawUrl || typeof rawUrl !== 'string') return;
+            const trimmed = rawUrl.trim();
+            if (trimmed.toLowerCase().includes('mediafire.com') || trimmed.includes('com.rummydex') || trimmed.includes('com.example')) return;
+            const plainUrl = trimmed.startsWith('U2FsdGVkX1') ? (safeDecrypt(trimmed, AES_SECRET) || trimmed) : trimmed;
+            const encUrl = trimmed.startsWith('U2FsdGVkX1') ? trimmed : safeEncrypt(plainUrl, AES_SECRET);
+            vaultArray.push({
+              id,
+              slug,
+              name: item.name || '',
+              more_information_url: encUrl,
+              encrypted_link: encUrl
+            });
+          });
+          vaultCiphertext = safeEncrypt(JSON.stringify(vaultArray), AES_SECRET);
+        }
+
+        if (vaultCiphertext) {
+          vaultCode = `export const ENCRYPTED_LINKS = "${vaultCiphertext}";\n`;
+          log(`GitHub Sync: ✅ AES Encrypted Vault sealed.`);
+
+          try {
             log(`GitHub Sync: Building fresh public API bundle for Vercel...`);
+            const idToken = await getAdminToken();
             const apiRes = await adminFetch('/api/v1/admin/build-public-api', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {}) },
-              body: JSON.stringify({ ciphertext: vaultData.ciphertext })
+              body: JSON.stringify({ ciphertext: vaultCiphertext })
             });
             if (apiRes.ok) {
               const apiData = await apiRes.json();
@@ -412,7 +448,7 @@ export function useGitHubSync(
                 log(`GitHub Sync: ✅ Fresh public API bundle prepared.`);
               }
             }
-          }
+          } catch (_) {}
         }
       } catch (vaultErr: any) {
         log(`GitHub Sync Warning (Vault build): ${vaultErr?.message || 'skipped'}`);

@@ -925,5 +925,32 @@ To guarantee seamless clearance across mobile networks, private DNS (e.g. NextDN
    - `el` (physical dwell duration >= 350ms)
 2. **Backend Firewall (`securityRoutes.ts`)**: Evaluates Track B with fault-tolerant checks (`decoded.cb !== 1`, `decoded.tr !== 0`, `decoded.wb !== 1`, `decoded.hl !== 1`), ensuring valid human users are never falsely quarantined, while automated scrapers and bots are immediately isolated.
 
+---
+
+## 16. Cloudflare & Edge CDN Zero-Cache Isolation Specification
+
+### 16.1 The Caching vs Security Boundary
+While public catalog and news pages (`/app/*`, `/news/*`, `/videos/*`) leverage Cloudflare's 330+ global edge locations with 24-hour edge caching (`Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800`), the More Information gateway (`/moreinfo/*`) and its underlying cryptographic resolution endpoints (`/api/v1/public/secure-link`) are **strictly air-gapped from all edge caching**.
+
+### 16.2 Multi-Layered Zero-Cache Enforcements
+1. **Public Headers Configuration (`/public/_headers`)**:
+   ```
+   /moreinfo/*
+     Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0
+     CDN-Cache-Control: no-store, private
+     Cloudflare-CDN-Cache-Control: no-store, private
+     X-Robots-Tag: noindex, nofollow, noarchive
+     Referrer-Policy: no-referrer
+   ```
+2. **Server-Side Catch-All (`server.ts`)**:
+   Explicitly checks for `reqUrlLower.startsWith('/moreinfo')` or `reqUrlLower.startsWith('/gateway')` and sets `edgeCacheDirective = 'no-store, no-cache, private'`.
+3. **Vercel Edge Rules (`vercel.json`)**:
+   Emits `CDN-Cache-Control: no-store, private` and `Cloudflare-CDN-Cache-Control: no-store, private`.
+4. **Cloudflare Cache Rule (Priority 1)**:
+   A dedicated bypass rule:
+   `(http.request.uri.path starts_with "/moreinfo") or (http.request.uri.path starts_with "/api/") -> Bypass cache`
+   guarantees that Cloudflare's edge proxy passes every gateway request directly to origin for live cryptographic token validation and single-use nonce burning.
+
+
 
 

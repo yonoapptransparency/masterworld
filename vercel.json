@@ -45,6 +45,14 @@
           "value": "no-store, no-cache, must-revalidate, private, max-age=0"
         },
         {
+          "key": "CDN-Cache-Control",
+          "value": "no-store, private"
+        },
+        {
+          "key": "Cloudflare-CDN-Cache-Control",
+          "value": "no-store, private"
+        },
+        {
           "key": "X-Robots-Tag",
           "value": "noindex, nofollow, noarchive"
         },
@@ -60,6 +68,14 @@
         {
           "key": "Cache-Control",
           "value": "public, max-age=300, s-maxage=86400, stale-while-revalidate=604800"
+        },
+        {
+          "key": "CDN-Cache-Control",
+          "value": "public, max-age=86400, stale-while-revalidate=604800"
+        },
+        {
+          "key": "Cloudflare-CDN-Cache-Control",
+          "value": "public, max-age=86400, stale-while-revalidate=604800"
         }
       ]
     },

@@ -1,8 +1,9 @@
-import React from 'react';
-import { Save, ShieldCheck, KeyRound } from 'lucide-react';
+import React, { useState } from 'react';
+import { Save, ShieldCheck, KeyRound, Cloud, UploadCloud, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 import ImageUpload from '../ImageUpload';
 import { ensureDefaultSettings } from '../../lib/defaultLegalContent';
 import { SeoFieldWithLimit } from './SeoFieldWithLimit';
+import { toast } from '../Toast';
 
 interface AdminSettingsTabProps {
   settings: any;
@@ -12,6 +13,94 @@ interface AdminSettingsTabProps {
 
 export const AdminSettingsTab = React.memo(({ settings: rawSettings, handleSaveSettings, saving }: AdminSettingsTabProps) => {
   const settings = ensureDefaultSettings(rawSettings || {});
+  const [testingCloudinary, setTestingCloudinary] = useState(false);
+  const [cloudinaryTestResult, setCloudinaryTestResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  const handleTestCloudinary = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    const form = (e.target as HTMLElement).closest('form');
+    if (!form) return;
+
+    const cloudName = (form.querySelector('input[name="cloudinary_cloud_name"]') as HTMLInputElement)?.value?.trim();
+    const apiKey = (form.querySelector('input[name="cloudinary_api_key"]') as HTMLInputElement)?.value?.trim();
+    const apiSecret = (form.querySelector('input[name="cloudinary_api_secret"]') as HTMLInputElement)?.value?.trim();
+    const uploadPreset = (form.querySelector('input[name="cloudinary_upload_preset"]') as HTMLInputElement)?.value?.trim();
+
+    if (!cloudName) {
+      toast('Please enter your Cloudinary Cloud Name.', 'error');
+      return;
+    }
+
+    setTestingCloudinary(true);
+    setCloudinaryTestResult(null);
+
+    try {
+      if (apiKey && apiSecret) {
+        // Test with ping API
+        const basicAuth = btoa(`${apiKey}:${apiSecret}`);
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/ping`, {
+          headers: {
+            'Authorization': `Basic ${basicAuth}`
+          }
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.status === 'ok') {
+          setCloudinaryTestResult({ success: true, message: `Successfully connected to Cloudinary cloud "${cloudName}"! Signed uploads are active.` });
+          toast('Cloudinary connection successful!', 'success');
+          // Cache valid credentials in localStorage
+          try {
+            localStorage.setItem('cached_cloudinary_config', JSON.stringify({
+              cloud_name: cloudName,
+              api_key: apiKey,
+              api_secret: apiSecret,
+              upload_preset: uploadPreset
+            }));
+          } catch (_) {}
+          return;
+        } else {
+          throw new Error(data.error?.message || `Cloudinary returned HTTP ${res.status}`);
+        }
+      } else if (uploadPreset) {
+        // Test unsigned upload preset with a tiny 1x1 test blob
+        const canvas = document.createElement('canvas');
+        canvas.width = 1;
+        canvas.height = 1;
+        const blob = await new Promise<Blob | null>(res => canvas.toBlob(res, 'image/png'));
+        if (blob) {
+          const formData = new FormData();
+          formData.append('file', blob);
+          formData.append('upload_preset', uploadPreset);
+          const res = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/image/upload`, {
+            method: 'POST',
+            body: formData
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data.secure_url) {
+            setCloudinaryTestResult({ success: true, message: `Successfully verified upload preset "${uploadPreset}" on cloud "${cloudName}"!` });
+            toast('Cloudinary upload preset verified!', 'success');
+            try {
+              localStorage.setItem('cached_cloudinary_config', JSON.stringify({
+                cloud_name: cloudName,
+                api_key: apiKey,
+                api_secret: apiSecret,
+                upload_preset: uploadPreset
+              }));
+            } catch (_) {}
+            return;
+          } else {
+            throw new Error(data.error?.message || `Preset test returned HTTP ${res.status}`);
+          }
+        }
+      }
+
+      throw new Error('Please enter either API Key & API Secret, or an Unsigned Upload Preset to verify.');
+    } catch (err: any) {
+      setCloudinaryTestResult({ success: false, message: err?.message || 'Connection failed' });
+      toast(`Cloudinary test failed: ${err?.message || 'Unknown error'}`, 'error');
+    } finally {
+      setTestingCloudinary(false);
+    }
+  };
   return (
   <div className="animate-fade-in space-y-8">
     <div className="flex justify-between items-center bg-white dark:bg-slate-900 p-6 rounded-2xl border border-black/10 dark:border-white/10 shadow-sm">
@@ -444,6 +533,102 @@ export const AdminSettingsTab = React.memo(({ settings: rawSettings, handleSaveS
               className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm font-mono dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" 
             />
             <span className="text-[11px] text-slate-400 mt-1 block">Validated by the backend server to block fake or spoofed tokens.</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Cloudinary Media Storage & Image CDN */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-black/5 dark:border-white/5 pb-3">
+          <div>
+            <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+              <span className="p-1.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-lg">
+                <Cloud className="w-4 h-4" />
+              </span>
+              Cloudinary Media Storage & Image CDN
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Produces short, blazing-fast, auto-optimized WebP URLs (<code className="text-blue-600 dark:text-blue-400 font-mono text-[11px]">https://res.cloudinary.com/...</code>) for app icons, screenshots, and news. Prevents long base64 strings.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleTestCloudinary}
+            disabled={testingCloudinary}
+            className="px-4 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
+          >
+            {testingCloudinary ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <UploadCloud className="w-3.5 h-3.5" />}
+            {testingCloudinary ? 'Testing...' : 'Test Cloudinary Connection'}
+          </button>
+        </div>
+
+        {cloudinaryTestResult && (
+          <div className={`p-3.5 rounded-xl border text-xs flex items-start gap-2.5 ${
+            cloudinaryTestResult.success 
+              ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50 text-emerald-800 dark:text-emerald-300' 
+              : 'bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800/50 text-rose-800 dark:text-rose-300'
+          }`}>
+            {cloudinaryTestResult.success ? <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500 mt-0.5" /> : <AlertCircle className="w-4 h-4 shrink-0 text-rose-500 mt-0.5" />}
+            <span className="leading-relaxed">{cloudinaryTestResult.message}</span>
+          </div>
+        )}
+
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+              Cloudinary Cloud Name
+            </label>
+            <input 
+              type="text" 
+              name="cloudinary_cloud_name" 
+              defaultValue={settings.cloudinary_cloud_name || 'veqj16xh'} 
+              placeholder="e.g. veqj16xh or diewalae4" 
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm font-mono dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" 
+              required
+            />
+            <span className="text-[11px] text-slate-400 mt-1 block">Your Cloudinary account cloud name (found in your Cloudinary Dashboard).</span>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+              Cloudinary API Key
+            </label>
+            <input 
+              type="text" 
+              name="cloudinary_api_key" 
+              defaultValue={settings.cloudinary_api_key || ''} 
+              placeholder="e.g. 123456789012345" 
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm font-mono dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" 
+            />
+            <span className="text-[11px] text-slate-400 mt-1 block">Used for direct high-speed client and server uploads.</span>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+              Cloudinary API Secret
+            </label>
+            <input 
+              type="password" 
+              name="cloudinary_api_secret" 
+              defaultValue={settings.cloudinary_api_secret || ''} 
+              placeholder="Enter your Cloudinary API Secret" 
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm font-mono dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" 
+            />
+            <span className="text-[11px] text-slate-400 mt-1 block">Stored securely in your encrypted settings. Never exposed to public users.</span>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+              Upload Preset (Optional for Unsigned Uploads)
+            </label>
+            <input 
+              type="text" 
+              name="cloudinary_upload_preset" 
+              defaultValue={settings.cloudinary_upload_preset || ''} 
+              placeholder="e.g. rummydex_uploads or ml_default" 
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm font-mono dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" 
+            />
+            <span className="text-[11px] text-slate-400 mt-1 block">Optional unsigned preset configured in Cloudinary Settings -&gt; Upload.</span>
           </div>
         </div>
       </div>

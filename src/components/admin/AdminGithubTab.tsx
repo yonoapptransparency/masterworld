@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { toast } from '../Toast';
 import { adminFetch } from '../../services/adminAuthService';
+import { testGitHubConnection } from '../../lib/githubSync';
 
 interface AdminGithubTabProps {
   pushAllToGitHub: (e?: any, logCb?: (msg: string) => void, appsList?: any[], settings?: any, newsList?: any[], videosList?: any[]) => Promise<any>;
@@ -178,43 +179,25 @@ export const AdminGithubTab = React.memo(({
     setCurrentStepText('Testing GitHub API Connection');
     appendLog("🔍 Testing GitHub API Credentials and Repository Permissions...");
     try {
-      const res = await adminFetch('/api/github-sync/test', {
-        method: 'POST',
-        body: JSON.stringify(localConfig)
-      });
-      
-      const text = await res.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (e) {
-        throw new Error(`Server returned non-JSON response (${res.status}): ${text.substring(0, 100)}...`);
-      }
+      const data = await testGitHubConnection(localConfig);
 
-      if (res.ok) {
-        setSyncProgress(100);
-        setSyncStatus('success');
-        setCurrentStepText('Connection Verified');
-        appendLog(`✅ SUCCESS: ${data.message || 'Connection successful!'}`);
-        if (data.permissions) {
-          appendLog(`📋 Permissions: Push=${data.permissions.push ? '✅ Yes' : '❌ No'}, Pull=${data.permissions.pull ? '✅ Yes' : '❌ No'}, Admin=${data.permissions.admin ? '✅ Yes' : '❌ No'}`);
-          if (!data.permissions.push) {
-            appendLog("⚠️ WARNING: Token lacks PUSH permissions. Sync commits will be rejected by GitHub.");
-          }
+      setSyncProgress(100);
+      setSyncStatus('success');
+      setCurrentStepText('Connection Verified');
+      appendLog(`✅ SUCCESS: ${data.message || 'Connection successful!'}`);
+      if (data.permissions) {
+        appendLog(`📋 Permissions: Push=${data.permissions.push ? '✅ Yes' : '❌ No'}, Pull=${data.permissions.pull ? '✅ Yes' : '❌ No'}, Admin=${data.permissions.admin ? '✅ Yes' : '❌ No'}`);
+        if (!data.permissions.push) {
+          appendLog("⚠️ WARNING: Token lacks PUSH permissions. Sync commits will be rejected by GitHub.");
         }
-        toast("GitHub Connection Successful!", "success");
-      } else {
-        setSyncStatus('error');
-        setCurrentStepText('Connection Failed');
-        const errMsg = data.message || data.error || data.details || `HTTP ${res.status} Error`;
-        appendLog(`❌ CONNECTION FAILED: ${errMsg}`);
-        toast(`Connection Failed: ${errMsg}`, "error");
       }
+      toast("GitHub Connection Successful!", "success");
     } catch (err: any) {
       setSyncStatus('error');
-      setCurrentStepText('Connection Test Error');
-      appendLog(`❌ ERROR: ${err.message}`);
-      toast(`Error testing connection: ${err.message}`, "error");
+      setCurrentStepText('Connection Failed');
+      const cleanErr = err?.message || 'Connection failed';
+      appendLog(`❌ ERROR: ${cleanErr}`);
+      toast(`Connection Failed: ${cleanErr}`, "error");
     } finally {
       setSyncing(false);
     }

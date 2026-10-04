@@ -33,7 +33,7 @@ async function startServer() {
         imgSrc: ["'self'", "data:", "blob:", "https://res.cloudinary.com", "https://i.ytimg.com", "https://img.youtube.com", "https://*.googleusercontent.com", "https://challenges.cloudflare.com"],
         mediaSrc: ["'self'", "blob:", "https://res.cloudinary.com"],
         frameSrc: ["'self'", "https://challenges.cloudflare.com", "https://www.youtube-nocookie.com", "https://www.youtube.com"],
-        connectSrc: ["'self'", "https://res.cloudinary.com", "https://api.cloudinary.com", "https://challenges.cloudflare.com", "https://firestore.googleapis.com", "https://*.firebaseio.com", "https://identitytoolkit.googleapis.com"],
+        connectSrc: ["'self'", "https://api.github.com", "https://res.cloudinary.com", "https://api.cloudinary.com", "https://challenges.cloudflare.com", "https://firestore.googleapis.com", "https://*.firebaseio.com", "https://identitytoolkit.googleapis.com"],
         objectSrc: ["'none'"],
         baseUri: ["'self'"],
         frameAncestors: ["'self'", "https://aistudio.google.com", "https://*.google.com", "https://*.run.app"]
@@ -502,12 +502,18 @@ async function startServer() {
         reqUrlLower.startsWith('/out/') ||
         reqUrlLower.startsWith('/download/') ||
         reqUrlLower.startsWith('/gateway/') ||
+        reqUrlLower.startsWith('/gateway') ||
         reqUrlLower.startsWith('/info/') ||
         reqUrlLower.startsWith('/moreinfo/') ||
+        reqUrlLower.startsWith('/moreinfo') ||
         reqUrlLower.startsWith('/moredetail/') ||
         reqUrlLower.startsWith('/admin') ||
         reqUrlLower.startsWith('/login') ||
         reqUrlLower.startsWith('/masterworld');
+
+      if (isDisallowedRoute) {
+        cacheControl = 'no-store, no-cache, must-revalidate, private, max-age=0';
+      }
 
       const isIndexable = !isDisallowedRoute;
 
@@ -515,12 +521,18 @@ async function startServer() {
         ? 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'
         : 'noindex, nofollow, noarchive, nosnippet';
 
+      const edgeCacheDirective = isDisallowedRoute
+        ? 'no-store, no-cache, private'
+        : 'public, max-age=86400, stale-while-revalidate=604800';
+
       const responseHeaders: Record<string, string> = {
         'Content-Type': 'text/html; charset=utf-8',
         'Cache-Control': cacheControl,
+        'CDN-Cache-Control': edgeCacheDirective,
+        'Cloudflare-CDN-Cache-Control': edgeCacheDirective,
         'X-Robots-Tag': robotsHeader,
         'X-Content-Type-Options': 'nosniff',
-        'Referrer-Policy': 'strict-origin-when-cross-origin',
+        'Referrer-Policy': isDisallowedRoute ? 'no-referrer' : 'strict-origin-when-cross-origin',
         'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
         'Vary': 'Accept-Encoding, User-Agent',
       };

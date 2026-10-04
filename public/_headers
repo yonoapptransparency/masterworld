@@ -1,23 +1,88 @@
-# Cloudflare Pages Headers Configuration
+# Cloudflare Pages & CDN Headers Configuration
+# Optimized for maximum Edge Caching, Web Crawler Speed, and Instant Sub-Second Navigation
 
-# Assets Caching (JS, CSS, images, icons, fonts)
+# 1. Immutable Production JS & CSS Bundles (Hashed filenames)
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+  CDN-Cache-Control: public, max-age=31536000, immutable
+  Cloudflare-CDN-Cache-Control: public, max-age=31536000, immutable
+  Access-Control-Allow-Origin: *
+  Timing-Allow-Origin: *
 
+# 2. Static Images & Icons
 /*.png
-  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+  Cache-Control: public, max-age=2592000, stale-while-revalidate=604800
+  CDN-Cache-Control: public, max-age=2592000, stale-while-revalidate=604800
+  Cloudflare-CDN-Cache-Control: public, max-age=2592000, stale-while-revalidate=604800
 
 /*.webp
-  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+  Cache-Control: public, max-age=2592000, stale-while-revalidate=604800
+  CDN-Cache-Control: public, max-age=2592000, stale-while-revalidate=604800
+  Cloudflare-CDN-Cache-Control: public, max-age=2592000, stale-while-revalidate=604800
 
+/*.svg
+  Cache-Control: public, max-age=2592000, stale-while-revalidate=604800
+  CDN-Cache-Control: public, max-age=2592000, stale-while-revalidate=604800
+  Cloudflare-CDN-Cache-Control: public, max-age=2592000, stale-while-revalidate=604800
+
+/*.ico
+  Cache-Control: public, max-age=2592000, stale-while-revalidate=604800
+  CDN-Cache-Control: public, max-age=2592000, stale-while-revalidate=604800
+  Cloudflare-CDN-Cache-Control: public, max-age=2592000, stale-while-revalidate=604800
+
+# 3. Web Crawler Acceleration (Sitemaps, RSS & Robots.txt)
 /*.xml
-  Cache-Control: public, max-age=3600, stale-while-revalidate=600
+  Cache-Control: public, max-age=3600, s-maxage=7200, stale-while-revalidate=86400
+  CDN-Cache-Control: public, max-age=7200
+  Cloudflare-CDN-Cache-Control: public, max-age=7200
 
-# HTML entry point - always fresh
+/robots.txt
+  Cache-Control: public, max-age=3600, s-maxage=7200
+  CDN-Cache-Control: public, max-age=7200
+  Cloudflare-CDN-Cache-Control: public, max-age=7200
+
+/llms.txt
+  Cache-Control: public, max-age=3600, s-maxage=7200
+  CDN-Cache-Control: public, max-age=7200
+  Cloudflare-CDN-Cache-Control: public, max-age=7200
+
+# 4. Prerendered HTML Page Edge Caching for Googlebot and Users
+/app/*
+  Cache-Control: public, max-age=300, s-maxage=86400, stale-while-revalidate=604800
+  CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+
+/news/*
+  Cache-Control: public, max-age=300, s-maxage=86400, stale-while-revalidate=604800
+  CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+
+/videos/*
+  Cache-Control: public, max-age=300, s-maxage=86400, stale-while-revalidate=604800
+  CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+
+/category/*
+  Cache-Control: public, max-age=300, s-maxage=86400, stale-while-revalidate=604800
+  CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+
+/developers
+  Cache-Control: public, max-age=300, s-maxage=86400, stale-while-revalidate=604800
+  CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+
+# 5. Clearance Gateway Security (Strict no-store)
+/moreinfo/*
+  Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0
+  X-Robots-Tag: noindex, nofollow, noarchive
+  Referrer-Policy: no-referrer
+
+# 6. HTML entry point fallback
 /index.html
   Cache-Control: public, max-age=0, must-revalidate
 
-# Global Security Headers
+# 7. Global Security & Modern Browser Headers
 /*
   X-Content-Type-Options: nosniff
   X-Frame-Options: SAMEORIGIN

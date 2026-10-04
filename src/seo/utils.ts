@@ -79,12 +79,12 @@ export function normalizeSchemaCategory(rawCategory?: string): string {
 
 export function optimizeImageUrl(url: string, width = 128): string {
   if (!url) return '';
-  // Cloudinary image WebP and quality optimization
-  if (url.includes('res.cloudinary.com')) {
-    if (url.includes('/upload/') && !url.includes('f_webp') && !url.includes('f_auto')) {
-      return url.replace('/upload/', `/upload/f_webp,q_auto,w_${width}/`);
+  // Cloudinary image AVIF/WebP auto-format and quality optimization
+  if (url.includes('res.cloudinary.com') && url.includes('/upload/')) {
+    if (url.includes('f_auto') || url.includes('f_webp')) {
+      return url.replace(/w_\d+/, `w_${width}`);
     }
-    return url;
+    return url.replace('/upload/', `/upload/f_auto,q_auto,w_${width}/`);
   }
   // Unsplash image WebP optimization
   if (url.includes('images.unsplash.com')) {

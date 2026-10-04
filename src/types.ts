@@ -47,6 +47,10 @@ export interface GlobalSettings {
   ga_tracking_id?: string;
   turnstile_site_key?: string;
   turnstile_secret_key?: string;
+  cloudinary_cloud_name?: string;
+  cloudinary_api_key?: string;
+  cloudinary_api_secret?: string;
+  cloudinary_upload_preset?: string;
   quick_links?: Array<{ title: string; subtitle?: string; icon?: string; color?: string; url: string }>;
   social_links?: { facebook?: string; instagram?: string; twitter?: string; linkedin?: string; youtube?: string; };
   website_faqs?: Array<{ question: string; answer: string }>;

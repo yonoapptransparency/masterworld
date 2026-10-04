@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { UploadCloud, Loader2, Image as ImageIcon } from 'lucide-react';
+import { UploadCloud, Loader2, Image as ImageIcon, Settings, Check, AlertCircle, Cloud, X } from 'lucide-react';
 import { adminFetch } from '../services/adminAuthService';
 import { storage } from '../lib/firebase';
 import { toast } from './Toast';
@@ -14,6 +14,53 @@ interface ImageUploadProps {
   className?: string;
 }
 
+export interface CloudinaryConfig {
+  cloud_name: string;
+  api_key: string;
+  api_secret: string;
+  upload_preset: string;
+}
+
+export function getResolvedCloudinaryConfig(): CloudinaryConfig {
+  let cached: any = {};
+  try {
+    const raw = localStorage.getItem('cached_cloudinary_config');
+    if (raw) cached = JSON.parse(raw);
+  } catch (_) {}
+
+  const initialSettings = (globalThis as any)?.__INITIAL_DATA__?.settings || {};
+
+  const cloud_name = (
+    cached.cloud_name ||
+    initialSettings.cloudinary_cloud_name ||
+    (import.meta.env?.VITE_CLOUDINARY_CLOUD_NAME as string) ||
+    'veqj16xh'
+  ).trim();
+
+  const api_key = (
+    cached.api_key ||
+    initialSettings.cloudinary_api_key ||
+    (import.meta.env?.VITE_CLOUDINARY_API_KEY as string) ||
+    ''
+  ).trim();
+
+  const api_secret = (
+    cached.api_secret ||
+    initialSettings.cloudinary_api_secret ||
+    (import.meta.env?.VITE_CLOUDINARY_API_SECRET as string) ||
+    ''
+  ).trim();
+
+  const upload_preset = (
+    cached.upload_preset ||
+    initialSettings.cloudinary_upload_preset ||
+    (import.meta.env?.VITE_CLOUDINARY_UPLOAD_PRESET as string) ||
+    ''
+  ).trim();
+
+  return { cloud_name, api_key, api_secret, upload_preset };
+}
+
 async function generateSha1(str: string): Promise<string> {
   const enc = new TextEncoder();
   const hash = await crypto.subtle.digest('SHA-1', enc.encode(str));
@@ -23,6 +70,8 @@ async function generateSha1(str: string): Promise<string> {
 export default function ImageUpload({ value, defaultValue, onChange, name, placeholder, className }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [internalValue, setInternalValue] = useState<string>(value !== undefined ? value : (defaultValue || ''));
+  const [showConfigModal, setShowConfigModal] = useState(false);
+  const [localCloudinaryConfig, setLocalCloudinaryConfig] = useState<CloudinaryConfig>(getResolvedCloudinaryConfig());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -38,42 +87,50 @@ export default function ImageUpload({ value, defaultValue, onChange, name, place
     }
   };
 
+  const handleSaveQuickConfig = (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      localStorage.setItem('cached_cloudinary_config', JSON.stringify(localCloudinaryConfig));
+      setShowConfigModal(false);
+      toast('Cloudinary configuration updated! Direct uploads are now ready.', 'success');
+    } catch (_) {
+      toast('Failed to save configuration', 'error');
+    }
+  };
+
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploading(true);
     let uploadedUrl = '';
+    let lastError = '';
+
+    const cfg = getResolvedCloudinaryConfig();
 
     try {
-      // 1. Try Client-side Cloudinary Upload if VITE_CLOUDINARY_* environment variables exist
-      const envCloudName = (import.meta.env?.VITE_CLOUDINARY_CLOUD_NAME || (import.meta.env as any)?.CLOUDINARY_CLOUD_NAME || 'diewalae4').trim();
-      const envApiKey = (import.meta.env?.VITE_CLOUDINARY_API_KEY || (import.meta.env as any)?.CLOUDINARY_API_KEY || '').trim();
-      const envApiSecret = (import.meta.env?.VITE_CLOUDINARY_API_SECRET || (import.meta.env as any)?.CLOUDINARY_API_SECRET || '').trim();
-      const envPreset = (import.meta.env?.VITE_CLOUDINARY_UPLOAD_PRESET || (import.meta.env as any)?.CLOUDINARY_UPLOAD_PRESET || '').trim();
-
-      if (envCloudName && envApiKey && envApiSecret) {
+      // 1. Direct Cloudinary Signed Upload (using API Key & API Secret)
+      if (cfg.cloud_name && cfg.api_key && cfg.api_secret) {
         try {
           const timestamp = Math.round(Date.now() / 1000);
-          const strToSign = `folder=rummydex_uploads&timestamp=${timestamp}${envApiSecret}`;
+          const strToSign = `folder=rummydex_uploads&timestamp=${timestamp}${cfg.api_secret}`;
           const signature = await generateSha1(strToSign);
 
           const formData = new FormData();
           formData.append('file', file);
-          formData.append('api_key', envApiKey);
+          formData.append('api_key', cfg.api_key);
           formData.append('timestamp', String(timestamp));
           formData.append('signature', signature);
           formData.append('folder', 'rummydex_uploads');
 
           const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-          const timeoutId = controller ? setTimeout(() => controller.abort(), 8000) : null;
+          const timeoutId = controller ? setTimeout(() => controller.abort(), 12000) : null;
 
-          const cRes = await fetch(`https://api.cloudinary.com/v1_1/${envCloudName}/image/upload`, {
+          const cRes = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(cfg.cloud_name)}/image/upload`, {
             method: 'POST',
             body: formData,
             signal: controller?.signal
           });
-
           if (timeoutId) clearTimeout(timeoutId);
 
           if (cRes.ok) {
@@ -81,44 +138,53 @@ export default function ImageUpload({ value, defaultValue, onChange, name, place
             if (cData.secure_url) {
               uploadedUrl = cData.secure_url;
             }
+          } else {
+            const errData = await cRes.json().catch(() => ({}));
+            lastError = errData.error?.message || `Cloudinary HTTP ${cRes.status}`;
           }
-        } catch (cErr) {
-          console.warn("[ImageUpload] Direct Cloudinary signed upload notice:", cErr);
-        }
-      } else if (envCloudName && envPreset) {
-        try {
-          const formData = new FormData();
-          formData.append('file', file);
-          formData.append('upload_preset', envPreset);
-
-          const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-          const timeoutId = controller ? setTimeout(() => controller.abort(), 8000) : null;
-
-          const cRes = await fetch(`https://api.cloudinary.com/v1_1/${envCloudName}/image/upload`, {
-            method: 'POST',
-            body: formData,
-            signal: controller?.signal
-          });
-
-          if (timeoutId) clearTimeout(timeoutId);
-
-          if (cRes.ok) {
-            const cData = await cRes.json();
-            if (cData.secure_url) {
-              uploadedUrl = cData.secure_url;
-            }
-          }
-        } catch (presetErr) {
-          console.warn("[ImageUpload] Direct Cloudinary preset upload notice:", presetErr);
+        } catch (cErr: any) {
+          lastError = cErr?.message || 'Signed upload failed';
+          console.warn('[ImageUpload] Signed upload notice:', cErr);
         }
       }
 
-      // 2. Try server-side Cloudinary signature if a Node backend is active
+      // 2. Direct Cloudinary Unsigned Upload (using Upload Preset)
+      if (!uploadedUrl && cfg.cloud_name && cfg.upload_preset) {
+        try {
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('upload_preset', cfg.upload_preset);
+
+          const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+          const timeoutId = controller ? setTimeout(() => controller.abort(), 12000) : null;
+
+          const cRes = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(cfg.cloud_name)}/image/upload`, {
+            method: 'POST',
+            body: formData,
+            signal: controller?.signal
+          });
+          if (timeoutId) clearTimeout(timeoutId);
+
+          if (cRes.ok) {
+            const cData = await cRes.json();
+            if (cData.secure_url) {
+              uploadedUrl = cData.secure_url;
+            }
+          } else {
+            const errData = await cRes.json().catch(() => ({}));
+            lastError = errData.error?.message || `Cloudinary Preset HTTP ${cRes.status}`;
+          }
+        } catch (presetErr: any) {
+          lastError = presetErr?.message || 'Preset upload failed';
+          console.warn('[ImageUpload] Preset upload notice:', presetErr);
+        }
+      }
+
+      // 3. Try Server Backend Signature if active
       if (!uploadedUrl) {
         try {
           const sigRes = await adminFetch('/api/v1/admin/upload/signature');
-          const cType = sigRes.headers.get('content-type') || '';
-          if (sigRes.ok && cType.includes('application/json')) {
+          if (sigRes.ok) {
             const sigData = await sigRes.json();
             if (sigData.status === 'OK' && sigData.api_key) {
               const formData = new FormData();
@@ -128,17 +194,10 @@ export default function ImageUpload({ value, defaultValue, onChange, name, place
               formData.append('signature', sigData.signature);
               formData.append('folder', sigData.folder || 'rummydex_uploads');
 
-              const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-              const timeoutId = controller ? setTimeout(() => controller.abort(), 8000) : null;
-
               const cloudinaryRes = await fetch(`https://api.cloudinary.com/v1_1/${sigData.cloud_name}/image/upload`, {
                 method: 'POST',
-                body: formData,
-                signal: controller?.signal
+                body: formData
               });
-
-              if (timeoutId) clearTimeout(timeoutId);
-
               if (cloudinaryRes.ok) {
                 const cData = await cloudinaryRes.json();
                 if (cData.secure_url) {
@@ -150,7 +209,7 @@ export default function ImageUpload({ value, defaultValue, onChange, name, place
         } catch (_) {}
       }
 
-      // 3. Try Firebase Storage directly via client SDK with a strict 2.5s timeout
+      // 4. Try Firebase Storage with timeout
       if (!uploadedUrl && storage) {
         try {
           const storagePromise = (async () => {
@@ -164,51 +223,19 @@ export default function ImageUpload({ value, defaultValue, onChange, name, place
             setTimeout(() => reject(new Error('Firebase Storage timeout')), 2500)
           );
           uploadedUrl = await Promise.race([storagePromise, timeoutPromise]);
-        } catch (storageErr) {
-          console.warn("[ImageUpload] Firebase Storage fallback notice:", storageErr);
-        }
+        } catch (_) {}
       }
 
-      // 4. Fallback: Instant Client-side compressed WebP data URL (<50ms)
+      // CRITICAL: If all genuine CDN uploads failed, DO NOT silently dump a 50,000-char base64 string!
       if (!uploadedUrl) {
-        uploadedUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            const img = new Image();
-            img.onload = () => {
-              const canvas = document.createElement('canvas');
-              let width = img.width;
-              let height = img.height;
-              const maxDim = 1200;
-              if (width > maxDim || height > maxDim) {
-                if (width > height) {
-                  height = Math.round((height * maxDim) / width);
-                  width = maxDim;
-                } else {
-                  width = Math.round((width * maxDim) / height);
-                  height = maxDim;
-                }
-              }
-              canvas.width = width;
-              canvas.height = height;
-              const ctx = canvas.getContext('2d');
-              ctx?.drawImage(img, 0, 0, width, height);
-              resolve(canvas.toDataURL('image/webp', 0.85));
-            };
-            img.onerror = () => reject(new Error('Could not load image for optimization.'));
-            img.src = event.target?.result as string;
-          };
-          reader.onerror = () => reject(new Error('Could not read image file.'));
-          reader.readAsDataURL(file);
-        });
+        const errorDetail = lastError ? `: ${lastError}` : '';
+        toast(`Cloudinary upload failed${errorDetail}. Please check your Cloudinary API Key / Secret in Settings.`, 'error');
+        setShowConfigModal(true);
+        return;
       }
 
-      if (uploadedUrl) {
-        handleChange(uploadedUrl);
-        toast('Image uploaded and processed successfully!', 'success');
-      } else {
-        throw new Error('Image could not be processed.');
-      }
+      handleChange(uploadedUrl);
+      toast('Image uploaded to Cloudinary successfully!', 'success');
 
     } catch (error: any) {
       console.error("Upload error:", error);
@@ -222,61 +249,189 @@ export default function ImageUpload({ value, defaultValue, onChange, name, place
   };
 
   const hasImage = Boolean(internalValue && internalValue.trim().length > 0);
+  const isBase64 = Boolean(internalValue && internalValue.trim().startsWith('data:image/'));
+  const isCloudinary = Boolean(internalValue && internalValue.trim().includes('res.cloudinary.com'));
 
   return (
-    <div className={`relative flex items-center w-full gap-2 ${className || ''}`}>
-      {name && <input type="hidden" name={name} value={internalValue || ''} />}
-      
-      {/* Live Thumbnail Preview */}
-      {hasImage && (
-        <div className="shrink-0 w-8 h-8 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 flex items-center justify-center">
-          <img 
-            src={internalValue} 
-            alt="Preview" 
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              (e.currentTarget as HTMLImageElement).style.display = 'none';
-            }}
+    <div className="space-y-1.5 w-full">
+      <div className={`relative flex items-center w-full gap-2 ${className || ''}`}>
+        {name && <input type="hidden" name={name} value={internalValue || ''} />}
+        
+        {/* Live Thumbnail Preview */}
+        {hasImage && (
+          <div className="shrink-0 w-8 h-8 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 flex items-center justify-center">
+            <img 
+              src={internalValue} 
+              alt="Preview" 
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).style.display = 'none';
+              }}
+            />
+          </div>
+        )}
+
+        <input
+          type="text"
+          value={internalValue || ''}
+          onChange={(e) => handleChange(e.target.value)}
+          className="flex-1 bg-transparent border-none outline-none focus:ring-0 px-3 py-2 text-[inherit] w-full min-w-0"
+          placeholder={placeholder || "https://res.cloudinary.com/..."}
+        />
+
+        <div className="shrink-0 flex items-center gap-1.5 pr-2">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleUpload}
+            accept="image/*"
+            className="hidden"
           />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="flex items-center justify-center bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 px-3 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-70 disabled:cursor-not-allowed border border-blue-200 dark:border-blue-800 text-xs gap-1.5 cursor-pointer"
+            title="Upload image to Cloudinary"
+          >
+            {uploading ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Uploading...</span>
+              </>
+            ) : (
+              <>
+                <UploadCloud className="w-3.5 h-3.5" />
+                <span>Upload</span>
+              </>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setLocalCloudinaryConfig(getResolvedCloudinaryConfig());
+              setShowConfigModal(true);
+            }}
+            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+            title="Configure Cloudinary credentials"
+          >
+            <Cloud className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+
+      {/* URL Status Badges */}
+      {isBase64 && (
+        <div className="flex items-center justify-between gap-2 px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/50 text-[11px] text-amber-700 dark:text-amber-300">
+          <span className="flex items-center gap-1.5 font-medium">
+            <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+            <span><strong>Long Base64 string detected</strong> (Not a Cloudinary URL).</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="underline font-semibold hover:text-amber-900 dark:hover:text-amber-100 cursor-pointer"
+          >
+            Re-upload to Cloudinary
+          </button>
         </div>
       )}
 
-      <input
-        type="text"
-        value={internalValue || ''}
-        onChange={(e) => handleChange(e.target.value)}
-        className="flex-1 bg-transparent border-none outline-none focus:ring-0 px-3 py-2 text-[inherit] w-full min-w-0"
-        placeholder={placeholder || "https://..."}
-      />
+      {isCloudinary && (
+        <div className="flex items-center gap-1.5 px-2 text-[10.5px] text-emerald-600 dark:text-emerald-400 font-medium">
+          <Check className="w-3 h-3 text-emerald-500" />
+          <span>Cloudinary CDN URL (Short &amp; Optimized)</span>
+        </div>
+      )}
 
-      <div className="shrink-0 flex items-center pr-2">
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleUpload}
-          accept="image/*"
-          className="hidden"
-        />
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-          className="flex items-center justify-center bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 px-3 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-70 disabled:cursor-not-allowed border border-slate-200 dark:border-slate-700 text-xs gap-1.5"
-          title="Upload Image"
-        >
-          {uploading ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin text-orange-500" />
-              <span>Uploading...</span>
-            </>
-          ) : (
-            <>
-              <UploadCloud className="w-4 h-4 text-slate-500" />
-              <span>Upload</span>
-            </>
-          )}
-        </button>
-      </div>
+      {/* Quick Cloudinary Config Modal */}
+      {showConfigModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 max-w-md w-full shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                <Cloud className="w-4 h-4 text-blue-500" />
+                Cloudinary Upload Configuration
+              </h4>
+              <button
+                type="button"
+                onClick={() => setShowConfigModal(false)}
+                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              Enter your Cloudinary credentials so uploads generate short, CDN-optimized WebP URLs instead of large base64 strings.
+            </p>
+
+            <form onSubmit={handleSaveQuickConfig} className="space-y-3 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Cloud Name</label>
+                <input
+                  type="text"
+                  value={localCloudinaryConfig.cloud_name}
+                  onChange={(e) => setLocalCloudinaryConfig({ ...localCloudinaryConfig, cloud_name: e.target.value })}
+                  placeholder="e.g. veqj16xh or diewalae4"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 font-mono text-slate-900 dark:text-white"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">API Key</label>
+                <input
+                  type="text"
+                  value={localCloudinaryConfig.api_key}
+                  onChange={(e) => setLocalCloudinaryConfig({ ...localCloudinaryConfig, api_key: e.target.value })}
+                  placeholder="e.g. 123456789012345"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 font-mono text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">API Secret</label>
+                <input
+                  type="password"
+                  value={localCloudinaryConfig.api_secret}
+                  onChange={(e) => setLocalCloudinaryConfig({ ...localCloudinaryConfig, api_secret: e.target.value })}
+                  placeholder="Enter API Secret"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 font-mono text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Upload Preset (Optional)</label>
+                <input
+                  type="text"
+                  value={localCloudinaryConfig.upload_preset}
+                  onChange={(e) => setLocalCloudinaryConfig({ ...localCloudinaryConfig, upload_preset: e.target.value })}
+                  placeholder="e.g. rummydex_uploads"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 font-mono text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowConfigModal(false)}
+                  className="px-3 py-1.5 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold shadow-xs cursor-pointer"
+                >
+                  Save Credentials
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
