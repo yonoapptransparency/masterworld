@@ -146,28 +146,35 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
   if (Array.isArray(sampleReviews) && sampleReviews.length > 0) {
     reviewsCards = sampleReviews
       .filter((r: any) => r && stripHtml(r.reviewText || '').trim().length >= 3)
+      .slice(0, 5)
       .map((r: any) => {
         const author = escapeHtml(r.userName || 'Verified Player');
         const revRating = Math.max(1, Math.min(5, Math.round(Number(r.rating) || 5)));
         const starsStr = '★'.repeat(revRating) + '☆'.repeat(5 - revRating);
         const text = escapeHtml(r.reviewText || '');
         const dateStr = r.timestamp ? new Date(r.timestamp).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Verified User';
+        const dateIso = r.timestamp ? new Date(r.timestamp).toISOString() : new Date().toISOString();
         return `
-          <div class="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-850 border border-zinc-200/80 dark:border-zinc-800 space-y-2 text-left">
+          <article itemprop="review" itemscope itemtype="https://schema.org/Review" class="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-850 border border-zinc-200/80 dark:border-zinc-800 space-y-2 text-left">
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2">
                 <div class="w-8 h-8 rounded-full bg-blue-600/10 dark:bg-blue-400/10 text-blue-600 dark:text-blue-400 font-bold flex items-center justify-center text-xs">
                   ${author.charAt(0).toUpperCase()}
                 </div>
-                <div>
-                  <strong class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 block leading-tight">${author}</strong>
+                <div itemprop="author" itemscope itemtype="https://schema.org/Person">
+                  <strong itemprop="name" class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 block leading-tight">${author}</strong>
                   <span class="text-[11px] text-zinc-500 dark:text-zinc-400">${dateStr}</span>
                 </div>
               </div>
-              <span class="text-amber-500 font-bold text-xs tracking-wider">${starsStr}</span>
+              <div itemprop="reviewRating" itemscope itemtype="https://schema.org/Rating" class="flex items-center">
+                <meta itemprop="ratingValue" content="${revRating}" />
+                <meta itemprop="bestRating" content="5" />
+                <span class="text-amber-500 font-bold text-xs tracking-wider">${starsStr}</span>
+              </div>
             </div>
-            <p class="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">${text}</p>
-          </div>
+            <meta itemprop="datePublished" content="${dateIso}" />
+            <p itemprop="reviewBody" class="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">${text}</p>
+          </article>
         `;
       }).join('');
   }

@@ -55,6 +55,19 @@ export class CommunityStoreService {
   constructor() {
     this.loadFromLocalBackup();
     this.initialized = true;
+    // Auto-bootstrap live reviews from Firestore in the background to ensure Admin and Public match 100%
+    setTimeout(() => {
+      this.syncWithFirestore().catch(err => console.warn('[CommunityStore] Background Firestore sync notice:', err?.message || err));
+    }, 1000);
+  }
+
+  public async syncWithFirestore(force = false): Promise<number> {
+    return await communityPersistence.bootstrapFromFirestore(
+      this.reviews,
+      this.reports,
+      this.deletedReviewIds,
+      this.appStatsCache
+    );
   }
 
   private loadFromLocalBackup() {
@@ -312,6 +325,49 @@ export class CommunityStoreService {
     const list = Array.from(this.reviews.values());
     list.sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
     return list.slice(0, limit);
+  }
+
+  public getExportableStaticReviews(limitPerApp: number = 5): Record<string, any[]> {
+    const result: Record<string, any[]> = {};
+    const reviewsList = Array.from(this.reviews.values())
+      .filter(r => (r.status || 'published') === 'published' && !this.deletedReviewIds.has(r.id));
+
+    // Sort by isPinned desc, helpful_count desc, timestamp desc
+    reviewsList.sort((a, b) => {
+      const aPinned = Boolean(a.isPinned);
+      const bPinned = Boolean(b.isPinned);
+      if (aPinned !== bPinned) return aPinned ? -1 : 1;
+      if ((b.helpful_count || 0) !== (a.helpful_count || 0)) {
+        return (b.helpful_count || 0) - (a.helpful_count || 0);
+      }
+      return new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime();
+    });
+
+    reviewsList.forEach(r => {
+      const keys = [r.appId, r.appSlug].filter(Boolean) as string[];
+      keys.forEach(k => {
+        const lowerKey = k.toLowerCase().trim();
+        if (!result[lowerKey]) result[lowerKey] = [];
+        if (result[lowerKey].length < limitPerApp) {
+          const raw = r as any;
+          result[lowerKey].push({
+            id: r.id,
+            appId: r.appId,
+            appSlug: r.appSlug || '',
+            appName: r.appName || '',
+            userName: r.userName || raw.username || 'Player',
+            rating: Number(r.rating) || 5,
+            reviewText: r.reviewText || raw.comment || '',
+            timestamp: r.timestamp || raw.created_at || new Date().toISOString(),
+            helpful_count: Number(r.helpful_count) || 0,
+            isPinned: Boolean(r.isPinned),
+            adminReply: r.adminReply || null
+          });
+        }
+      });
+    });
+
+    return result;
   }
 
   public async getExportableCatalogStats(): Promise<any> {

@@ -861,11 +861,13 @@ export async function submitLiveReview(data: {
         userName: cleanUserName,
         rating: cleanRating,
         reviewText: cleanComment,
+        website_url_confirm: (data as any).website_url_confirm || '',
         turnstileToken: data.turnstileToken || 'frontend_token_placeholder'
       })
     });
     
-    if (res.ok) {
+    const cType = res.headers.get('content-type') || '';
+    if (res.ok && cType.includes('application/json')) {
       const result = await res.json();
       if (result.success && result.review) {
         const raw = result.review;

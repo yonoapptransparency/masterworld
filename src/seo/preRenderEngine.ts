@@ -1,6 +1,7 @@
 import { getField } from './utils';
 import { resolveAppSlug } from '../lib/slugResolver';
 import * as renderers from './renderers/index';
+import { getLocalFallbackReviewsForApp } from './reviewFallback';
 
 function wrapWithLayout(bodyContent: string, settings: any): string {
   const headerHtml = renderers.renderHeader(settings);
@@ -133,10 +134,14 @@ export async function getPagePreRender(urlPath: string, data: any): Promise<stri
     bodyHtml = renderers.renderGateway(slug, settings, apps);
   } else if (cleanPathLower.startsWith('/app/')) {
     const slug = cleanPathLower.replace(/^\/app\//, '/').replace(/^\/|\/$/g, '');
-    bodyHtml = renderers.renderAppDetails(slug, apps, settings);
+    const matchedApp = resolveAppSlug(slug, apps) || apps.find((a: any) => getField(a, 'slug')?.toLowerCase() === slug.toLowerCase());
+    const seoFeed = matchedApp ? getLocalFallbackReviewsForApp(getField(matchedApp, 'id'), getField(matchedApp, 'slug')) : { reviews: [], stats: null };
+    bodyHtml = renderers.renderAppDetails(slug, apps, settings, seoFeed.reviews, seoFeed.stats);
   } else if (cleanPathLower.startsWith('/s/')) {
     const slug = cleanPath.split('/s/')[1];
-    bodyHtml = renderers.renderAppDetails(slug, apps, settings);
+    const matchedApp = resolveAppSlug(slug, apps) || apps.find((a: any) => getField(a, 'slug')?.toLowerCase() === slug.toLowerCase());
+    const seoFeed = matchedApp ? getLocalFallbackReviewsForApp(getField(matchedApp, 'id'), getField(matchedApp, 'slug')) : { reviews: [], stats: null };
+    bodyHtml = renderers.renderAppDetails(slug, apps, settings, seoFeed.reviews, seoFeed.stats);
   } else {
     const slug = cleanPathLower.replace(/^\/|\/$/g, '');
     const app = resolveAppSlug(slug, apps) || apps.find((a: any) => getField(a, 'slug')?.toLowerCase() === slug);
@@ -144,7 +149,8 @@ export async function getPagePreRender(urlPath: string, data: any): Promise<stri
     const videoItem = videos.find((v: any) => getField(v, 'slug')?.toLowerCase() === slug);
 
     if (app) {
-      bodyHtml = renderers.renderAppDetails(slug, apps, settings);
+      const seoFeed = getLocalFallbackReviewsForApp(getField(app, 'id'), getField(app, 'slug'));
+      bodyHtml = renderers.renderAppDetails(slug, apps, settings, seoFeed.reviews, seoFeed.stats);
     } else if (newsItem) {
       bodyHtml = renderers.renderNewsDetail(slug, news, settings, apps);
     } else if (videoItem) {

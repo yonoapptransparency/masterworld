@@ -884,6 +884,13 @@ adminCatalogRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req
       } catch (_) {}
     }
 
+    if (req.body.staticReviews && typeof req.body.staticReviews === 'object') {
+      try {
+        const staticReviewsPath = path.join(process.cwd(), 'src/lib/communityStaticReviews.json');
+        fs.writeFileSync(staticReviewsPath, JSON.stringify(req.body.staticReviews, null, 2), 'utf8');
+      } catch (_) {}
+    }
+
     // Update in-memory public caches
     clearPublicBackupCache();
     clearSeoCache();

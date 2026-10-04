@@ -1,6 +1,6 @@
 {
-  "totalReviews": 500,
-  "publishedReviews": 500,
+  "totalReviews": 504,
+  "publishedReviews": 504,
   "pendingReviews": 0,
   "rejectedReviews": 0,
   "flaggedReviews": 0,
@@ -10,17 +10,14 @@
   "ratingDistribution": {
     "1": 7,
     "2": 14,
-    "3": 75,
-    "4": 220,
-    "5": 184
+    "3": 77,
+    "4": 221,
+    "5": 185
   },
   "appCounts": {
     "08exxq5q9": {
       "total": 13,
       "published": 13,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 3.8,
       "starCounts": {
         "1": 1,
@@ -33,9 +30,6 @@
     "0hj4fm6zm": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 3.8,
       "starCounts": {
         "1": 0,
@@ -48,9 +42,6 @@
     "0jfvh7lrx": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.5,
       "starCounts": {
         "1": 0,
@@ -63,9 +54,6 @@
     "0w7b3vc4p": {
       "total": 14,
       "published": 14,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.1,
       "starCounts": {
         "1": 0,
@@ -78,9 +66,6 @@
     "ealj6s0fm": {
       "total": 6,
       "published": 6,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.2,
       "starCounts": {
         "1": 0,
@@ -91,26 +76,20 @@
       }
     },
     "yh9toduxk": {
-      "total": 1,
-      "published": 1,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
+      "total": 2,
+      "published": 2,
       "avgRating": 5,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
         "4": 0,
-        "5": 1
+        "5": 2
       }
     },
     "i5uw2apum": {
       "total": 24,
       "published": 24,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.3,
       "starCounts": {
         "1": 0,
@@ -123,9 +102,6 @@
     "kc3u0sl2h": {
       "total": 14,
       "published": 14,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.1,
       "starCounts": {
         "1": 0,
@@ -138,9 +114,6 @@
     "cj5x1fa62": {
       "total": 11,
       "published": 11,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.1,
       "starCounts": {
         "1": 0,
@@ -153,9 +126,6 @@
     "1ewtz4qzq": {
       "total": 5,
       "published": 5,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 3.2,
       "starCounts": {
         "1": 1,
@@ -168,9 +138,6 @@
     "21d7p841w": {
       "total": 4,
       "published": 4,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -183,9 +150,6 @@
     "2fpshclmr": {
       "total": 11,
       "published": 11,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 3,
       "starCounts": {
         "1": 0,
@@ -198,9 +162,6 @@
     "2ovzpzjxy": {
       "total": 4,
       "published": 4,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -213,9 +174,6 @@
     "3h5w608rt": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.6,
       "starCounts": {
         "1": 0,
@@ -228,9 +186,6 @@
     "3h6d8psbv": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 3.8,
       "starCounts": {
         "1": 0,
@@ -243,9 +198,6 @@
     "3m2tlug3g": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -258,9 +210,6 @@
     "5tqvyd8xr": {
       "total": 5,
       "published": 5,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.8,
       "starCounts": {
         "1": 0,
@@ -273,9 +222,6 @@
     "68eyzcidq": {
       "total": 5,
       "published": 5,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.4,
       "starCounts": {
         "1": 0,
@@ -288,9 +234,6 @@
     "83kr7f5cx": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.6,
       "starCounts": {
         "1": 0,
@@ -303,9 +246,6 @@
     "89d79z398": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.1,
       "starCounts": {
         "1": 0,
@@ -318,9 +258,6 @@
     "8l6bntkan": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.3,
       "starCounts": {
         "1": 0,
@@ -333,9 +270,6 @@
     "colrcaih7": {
       "total": 13,
       "published": 13,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -348,9 +282,6 @@
     "dn5t1cy93": {
       "total": 5,
       "published": 5,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.6,
       "starCounts": {
         "1": 0,
@@ -363,9 +294,6 @@
     "dttfvdp67": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.4,
       "starCounts": {
         "1": 0,
@@ -378,9 +306,6 @@
     "e1qcs5ik7": {
       "total": 13,
       "published": 13,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.2,
       "starCounts": {
         "1": 0,
@@ -393,9 +318,6 @@
     "eeep4g0ok": {
       "total": 5,
       "published": 5,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -408,9 +330,6 @@
     "f0sqh5al8": {
       "total": 9,
       "published": 9,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -423,9 +342,6 @@
     "f93x2e2oh": {
       "total": 5,
       "published": 5,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.8,
       "starCounts": {
         "1": 0,
@@ -438,9 +354,6 @@
     "fil7vo6d8": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.6,
       "starCounts": {
         "1": 0,
@@ -453,9 +366,6 @@
     "fuma9mbmc": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.1,
       "starCounts": {
         "1": 0,
@@ -468,9 +378,6 @@
     "h68oygebw": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -483,9 +390,6 @@
     "ha76icslh": {
       "total": 13,
       "published": 13,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -498,9 +402,6 @@
     "hmxpnxb1p": {
       "total": 5,
       "published": 5,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 3.8,
       "starCounts": {
         "1": 1,
@@ -513,9 +414,6 @@
     "i6wdxhzyj": {
       "total": 5,
       "published": 5,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -528,9 +426,6 @@
     "ia8dnjrtm": {
       "total": 5,
       "published": 5,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.2,
       "starCounts": {
         "1": 0,
@@ -543,9 +438,6 @@
     "iruebyum9": {
       "total": 5,
       "published": 5,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.4,
       "starCounts": {
         "1": 0,
@@ -558,9 +450,6 @@
     "jeet-spin": {
       "total": 4,
       "published": 4,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -573,9 +462,6 @@
     "jl9bx9llw": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.6,
       "starCounts": {
         "1": 0,
@@ -588,9 +474,6 @@
     "jr5xf2b1s": {
       "total": 13,
       "published": 13,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.4,
       "starCounts": {
         "1": 0,
@@ -603,9 +486,6 @@
     "kawv98sia": {
       "total": 5,
       "published": 5,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 2.4,
       "starCounts": {
         "1": 1,
@@ -618,9 +498,6 @@
     "kd22lrkf7": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 3.6,
       "starCounts": {
         "1": 0,
@@ -633,9 +510,6 @@
     "l7e8oyo9m": {
       "total": 13,
       "published": 13,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.4,
       "starCounts": {
         "1": 0,
@@ -648,9 +522,6 @@
     "lzcn7ehst": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.8,
       "starCounts": {
         "1": 0,
@@ -663,9 +534,6 @@
     "m6bwb6cnb": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -678,9 +546,6 @@
     "ne1n96k01": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.5,
       "starCounts": {
         "1": 0,
@@ -693,9 +558,6 @@
     "nlg9zi69u": {
       "total": 5,
       "published": 5,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.2,
       "starCounts": {
         "1": 0,
@@ -708,9 +570,6 @@
     "o66fm4o31": {
       "total": 5,
       "published": 5,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 3.6,
       "starCounts": {
         "1": 1,
@@ -723,9 +582,6 @@
     "ozhj4pz5s": {
       "total": 18,
       "published": 18,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.6,
       "starCounts": {
         "1": 0,
@@ -738,9 +594,6 @@
     "pdwnq0nu8": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.5,
       "starCounts": {
         "1": 0,
@@ -753,9 +606,6 @@
     "quyol591v": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 3.8,
       "starCounts": {
         "1": 0,
@@ -768,9 +618,6 @@
     "rer0jsbkw": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.1,
       "starCounts": {
         "1": 0,
@@ -783,9 +630,6 @@
     "s4oc5m16b": {
       "total": 18,
       "published": 18,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.1,
       "starCounts": {
         "1": 1,
@@ -798,9 +642,6 @@
     "sd02xz1a1": {
       "total": 4,
       "published": 4,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -813,9 +654,6 @@
     "slwaub6xq": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.3,
       "starCounts": {
         "1": 0,
@@ -828,9 +666,6 @@
     "syq9cwkda": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.5,
       "starCounts": {
         "1": 0,
@@ -843,9 +678,6 @@
     "t9hpec9dr": {
       "total": 5,
       "published": 5,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 3.2,
       "starCounts": {
         "1": 0,
@@ -856,26 +688,20 @@
       }
     },
     "to56xasfo": {
-      "total": 18,
-      "published": 18,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
-      "avgRating": 4.1,
+      "total": 21,
+      "published": 21,
+      "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 1,
-        "3": 2,
-        "4": 10,
+        "3": 4,
+        "4": 11,
         "5": 5
       }
     },
     "u7oaxe0s6": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -888,9 +714,6 @@
     "ucqwvnxf9": {
       "total": 5,
       "published": 5,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 3.6,
       "starCounts": {
         "1": 0,
@@ -903,9 +726,6 @@
     "us9ki7awa": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.3,
       "starCounts": {
         "1": 0,
@@ -918,9 +738,6 @@
     "v6pbym9lq": {
       "total": 5,
       "published": 5,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 2.8,
       "starCounts": {
         "1": 1,
@@ -933,9 +750,6 @@
     "v9ky6l07h": {
       "total": 9,
       "published": 9,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.3,
       "starCounts": {
         "1": 0,
@@ -948,9 +762,6 @@
     "abc-rummy": {
       "total": 13,
       "published": 13,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 3.8,
       "starCounts": {
         "1": 1,
@@ -963,9 +774,6 @@
     "jaiho-arcade": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 3.8,
       "starCounts": {
         "1": 0,
@@ -978,9 +786,6 @@
     "share-slots": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.5,
       "starCounts": {
         "1": 0,
@@ -993,9 +798,6 @@
     "gold-rummy": {
       "total": 14,
       "published": 14,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.1,
       "starCounts": {
         "1": 0,
@@ -1008,9 +810,6 @@
     "kuku-tv": {
       "total": 6,
       "published": 6,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.2,
       "starCounts": {
         "1": 0,
@@ -1021,26 +820,20 @@
       }
     },
     "spin-crush": {
-      "total": 1,
-      "published": 1,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
+      "total": 2,
+      "published": 2,
       "avgRating": 5,
       "starCounts": {
         "1": 0,
         "2": 0,
         "3": 0,
         "4": 0,
-        "5": 1
+        "5": 2
       }
     },
     "rummy-77": {
       "total": 24,
       "published": 24,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.3,
       "starCounts": {
         "1": 0,
@@ -1053,9 +846,6 @@
     "ever-777": {
       "total": 14,
       "published": 14,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.1,
       "starCounts": {
         "1": 0,
@@ -1068,9 +858,6 @@
     "rummy-zip": {
       "total": 11,
       "published": 11,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.1,
       "starCounts": {
         "1": 0,
@@ -1083,9 +870,6 @@
     "reelshort": {
       "total": 5,
       "published": 5,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 3.2,
       "starCounts": {
         "1": 1,
@@ -1098,9 +882,6 @@
     "netflix": {
       "total": 4,
       "published": 4,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -1113,9 +894,6 @@
     "roz-rummy": {
       "total": 11,
       "published": 11,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 3,
       "starCounts": {
         "1": 0,
@@ -1128,9 +906,6 @@
     "rum-rummy": {
       "total": 4,
       "published": 4,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -1143,9 +918,6 @@
     "solitaire": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.6,
       "starCounts": {
         "1": 0,
@@ -1158,9 +930,6 @@
     "top-rummy": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 3.8,
       "starCounts": {
         "1": 0,
@@ -1173,9 +942,6 @@
     "gogo-rummy": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -1188,9 +954,6 @@
     "kanopy": {
       "total": 5,
       "published": 5,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.8,
       "starCounts": {
         "1": 0,
@@ -1203,9 +966,6 @@
     "goodshort": {
       "total": 5,
       "published": 5,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.4,
       "starCounts": {
         "1": 0,
@@ -1218,9 +978,6 @@
     "yono-games": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.6,
       "starCounts": {
         "1": 0,
@@ -1233,9 +990,6 @@
     "yono-vip": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.1,
       "starCounts": {
         "1": 0,
@@ -1248,9 +1002,6 @@
     "slots-spin": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.3,
       "starCounts": {
         "1": 0,
@@ -1263,9 +1014,6 @@
     "card-game-29": {
       "total": 13,
       "published": 13,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -1278,9 +1026,6 @@
     "aha": {
       "total": 5,
       "published": 5,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.6,
       "starCounts": {
         "1": 0,
@@ -1293,9 +1038,6 @@
     "baccarist": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.4,
       "starCounts": {
         "1": 0,
@@ -1308,9 +1050,6 @@
     "joy-rummy": {
       "total": 13,
       "published": 13,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.2,
       "starCounts": {
         "1": 0,
@@ -1323,9 +1062,6 @@
     "pocket-tv": {
       "total": 5,
       "published": 5,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -1338,9 +1074,6 @@
     "spin-101": {
       "total": 9,
       "published": 9,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -1353,9 +1086,6 @@
     "hoichoi": {
       "total": 5,
       "published": 5,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.8,
       "starCounts": {
         "1": 0,
@@ -1368,9 +1098,6 @@
     "a23-rummy": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.6,
       "starCounts": {
         "1": 0,
@@ -1383,9 +1110,6 @@
     "rummy-888": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.1,
       "starCounts": {
         "1": 0,
@@ -1398,9 +1122,6 @@
     "win-rummy": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -1413,9 +1134,6 @@
     "callbreak": {
       "total": 13,
       "published": 13,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -1428,9 +1146,6 @@
     "zee5": {
       "total": 5,
       "published": 5,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 3.8,
       "starCounts": {
         "1": 1,
@@ -1443,9 +1158,6 @@
     "jiohotstar": {
       "total": 5,
       "published": 5,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -1458,9 +1170,6 @@
     "pluto-tv": {
       "total": 5,
       "published": 5,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.2,
       "starCounts": {
         "1": 0,
@@ -1473,9 +1182,6 @@
     "slots-winner": {
       "total": 5,
       "published": 5,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.4,
       "starCounts": {
         "1": 0,
@@ -1488,9 +1194,6 @@
     "777-game": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.6,
       "starCounts": {
         "1": 0,
@@ -1503,9 +1206,6 @@
     "bingo-101": {
       "total": 13,
       "published": 13,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.4,
       "starCounts": {
         "1": 0,
@@ -1518,9 +1218,6 @@
     "tubi-tv": {
       "total": 5,
       "published": 5,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 2.4,
       "starCounts": {
         "1": 1,
@@ -1533,9 +1230,6 @@
     "yn-777": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 3.6,
       "starCounts": {
         "1": 0,
@@ -1548,9 +1242,6 @@
     "yono-arcade": {
       "total": 13,
       "published": 13,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.4,
       "starCounts": {
         "1": 0,
@@ -1563,9 +1254,6 @@
     "789-jackports": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.8,
       "starCounts": {
         "1": 0,
@@ -1578,9 +1266,6 @@
     "maha-games": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -1593,9 +1278,6 @@
     "vita-mahjong": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.5,
       "starCounts": {
         "1": 0,
@@ -1608,9 +1290,6 @@
     "jiocinema": {
       "total": 5,
       "published": 5,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.2,
       "starCounts": {
         "1": 0,
@@ -1623,9 +1302,6 @@
     "dramabox": {
       "total": 5,
       "published": 5,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 3.6,
       "starCounts": {
         "1": 1,
@@ -1638,9 +1314,6 @@
     "jaiho-slots": {
       "total": 18,
       "published": 18,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.6,
       "starCounts": {
         "1": 0,
@@ -1653,9 +1326,6 @@
     "boss-rummy": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.5,
       "starCounts": {
         "1": 0,
@@ -1668,9 +1338,6 @@
     "max-rummy": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 3.8,
       "starCounts": {
         "1": 0,
@@ -1683,9 +1350,6 @@
     "rumble-rummy": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.1,
       "starCounts": {
         "1": 0,
@@ -1698,9 +1362,6 @@
     "rummy-91": {
       "total": 18,
       "published": 18,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.1,
       "starCounts": {
         "1": 1,
@@ -1713,9 +1374,6 @@
     "hindi-777": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.3,
       "starCounts": {
         "1": 0,
@@ -1728,9 +1386,6 @@
     "yono-rummy": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.5,
       "starCounts": {
         "1": 0,
@@ -1743,9 +1398,6 @@
     "sonyliv": {
       "total": 5,
       "published": 5,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 3.2,
       "starCounts": {
         "1": 0,
@@ -1756,26 +1408,20 @@
       }
     },
     "jaiho-91": {
-      "total": 18,
-      "published": 18,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
-      "avgRating": 4.1,
+      "total": 21,
+      "published": 21,
+      "avgRating": 4,
       "starCounts": {
         "1": 0,
         "2": 1,
-        "3": 2,
-        "4": 10,
+        "3": 4,
+        "4": 11,
         "5": 5
       }
     },
     "yono-slots": {
       "total": 3,
       "published": 3,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4,
       "starCounts": {
         "1": 0,
@@ -1788,9 +1434,6 @@
     "sun-nxt": {
       "total": 5,
       "published": 5,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 3.6,
       "starCounts": {
         "1": 0,
@@ -1803,9 +1446,6 @@
     "spin-winner": {
       "total": 8,
       "published": 8,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.3,
       "starCounts": {
         "1": 0,
@@ -1818,9 +1458,6 @@
     "shortmax": {
       "total": 5,
       "published": 5,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 2.8,
       "starCounts": {
         "1": 1,
@@ -1833,9 +1470,6 @@
     "love-rummy": {
       "total": 9,
       "published": 9,
-      "pending": 0,
-      "rejected": 0,
-      "flagged": 0,
       "avgRating": 4.3,
       "starCounts": {
         "1": 0,
@@ -1846,5 +1480,5 @@
       }
     }
   },
-  "updated_at": "2026-10-01T12:39:33.406Z"
+  "updated_at": "2026-10-04T07:14:23.754Z"
 }

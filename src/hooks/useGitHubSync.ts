@@ -298,6 +298,38 @@ export function useGitHubSync(
       log(`GitHub Sync Notice: Stats export notice: ${e?.message || 'proceeding with base'}`);
     }
 
+    // Fetch live compact top 5 static reviews per app for ultra-fast CDN delivery
+    let communityReviewsPayload: Record<string, any> = {};
+    try {
+      log("GitHub Sync: Fetching top verified reviews slice for fast edge delivery...");
+      const revRes = await adminFetch('/api/v1/admin/community/export-static-reviews?limit=5');
+      if (revRes.ok) {
+        const revData = await revRes.json();
+        if (revData.success && revData.reviews) {
+          communityReviewsPayload = revData.reviews;
+          const appCount = Object.keys(communityReviewsPayload).length;
+          log(`GitHub Sync: Loaded compact top reviews for ${appCount} app(s).`);
+        }
+      }
+    } catch (e: any) {
+      log(`GitHub Sync Notice: Reviews export notice: ${e?.message || 'proceeding with base'}`);
+    }
+
+    // Fallback: If empty, load from existing communityStaticReviews and slice top 5 per app
+    if (Object.keys(communityReviewsPayload).length === 0) {
+      try {
+        const existingReviews = await import('../lib/communityStaticReviews.json');
+        const rawMap = (existingReviews.default || existingReviews) as Record<string, any[]>;
+        const slicedMap: Record<string, any[]> = {};
+        for (const [key, list] of Object.entries(rawMap)) {
+          if (Array.isArray(list)) {
+            slicedMap[key] = list.slice(0, 5);
+          }
+        }
+        communityReviewsPayload = slicedMap;
+      } catch (_) {}
+    }
+
     const consolidatedStaticPayload = {
       apps: safeBackupApps,
       mockApps: safeBackupApps,
@@ -310,8 +342,11 @@ export function useGitHubSync(
       reviews: []
     };
 
-    const backupJsonCode = JSON.stringify(consolidatedStaticPayload, null, 2);
-    const staticJsonCode = JSON.stringify(consolidatedStaticPayload, null, 2);
+    // Compact minified JSON encoding to reduce sync payload by 65%+
+    const backupJsonCode = JSON.stringify(consolidatedStaticPayload);
+    const staticJsonCode = JSON.stringify(consolidatedStaticPayload);
+    const catalogStatsCode = JSON.stringify(communityStatsPayload || { appCounts: {}, totalReviews: 0 });
+    const staticReviewsCode = JSON.stringify(communityReviewsPayload);
 
     try {
       const idToken = await getAdminToken();
@@ -325,7 +360,8 @@ export function useGitHubSync(
             settings: finalSettings,
             news: publicNews,
             videos: targetVideos,
-            catalogStats: communityStatsPayload || null
+            catalogStats: communityStatsPayload || null,
+            staticReviews: communityReviewsPayload || null
           })
         });
       }
@@ -333,14 +369,16 @@ export function useGitHubSync(
       log(`GitHub Sync Notice: Local files backup note: ${localSyncErr?.message || 'skipped'}`);
     }
 
-    let targetRepo = configToUse.repo || 'dex';
+    let targetRepo = configToUse.repo || 'Dex';
+    if (targetRepo.toLowerCase() === 'masterworld') {
+      targetRepo = 'Dex';
+      log('GitHub Sync Info: Admin site (masterworld) is 100% live on Firebase and excluded from static sync. Routing release to public repo "Dex".');
+    }
 
     if (!configToUse.owner) throw new Error("Missing GitHub repository owner configuration.");
 
     try {
-      log(`GitHub Sync: Preparing complete release bundle for "${targetRepo}"...`);
-      
-      const catalogStatsCode = communityStatsPayload ? JSON.stringify(communityStatsPayload, null, 2) : '';
+      log(`GitHub Sync: Preparing complete compressed release bundle for "${targetRepo}"...`);
 
       // 1. Pre-build AES Encrypted Vault & Public API bundle so all files can be committed together
       let vaultCode = "";
@@ -389,6 +427,10 @@ export function useGitHubSync(
         {
           path: 'src/lib/communityCatalogStats.json',
           content: catalogStatsCode
+        },
+        {
+          path: 'src/lib/communityStaticReviews.json',
+          content: staticReviewsCode
         },
         {
           path: 'src/lib/public_backup.json',
@@ -442,51 +484,19 @@ export function useGitHubSync(
         log(`GitHub Sync Warning: Could not auto-generate public XML sitemaps: ${(sitemapErr as any)?.message}`);
       }
 
-      // 3. Push ALL primary files together in 1 SINGLE ATOMIC COMMIT
+      // 3. Push ALL primary files together in 1 SINGLE ATOMIC COMMIT to Public Website Repo
       await commitMultiFilesToGitHub({
         owner: configToUse.owner,
         repo: targetRepo,
         token: configToUse.token,
         branch: configToUse.branch || 'main',
         files: primaryBatchFiles,
-        message: `Admin Release: Complete Catalog, Community Data & Secure Vault Synchronization`,
+        message: `Public Release: Complete Catalog, Community Data & Secure Vault Synchronization`,
         onProgress: (m) => log(m)
       });
-      log(`GitHub Sync: ✅ Success! All ${primaryBatchFiles.length} files committed together to "${targetRepo}" in 1 commit (Triggers exactly 1 Vercel deployment)!`);
-
-      // 4. Secondary mirror synchronization to masterworld (also 1 single atomic commit)
-      if (targetRepo.toLowerCase() !== 'masterworld') {
-        try {
-          const secondaryBatchFiles: { path: string; content: string }[] = [
-            { path: 'src/lib/staticData.ts', content: updatedCode },
-            { path: 'src/lib/communityCatalogStats.json', content: catalogStatsCode },
-            { path: 'src/lib/public_backup.json', content: backupJsonCode },
-            { path: 'src/lib/staticData.json', content: staticJsonCode }
-          ];
-
-          if (vaultCode) {
-            secondaryBatchFiles.push({
-              path: 'src/lib/secureVault.ts',
-              content: vaultCode
-            });
-          }
-
-          await commitMultiFilesToGitHub({
-            owner: configToUse.owner,
-            repo: 'masterworld',
-            token: configToUse.token,
-            branch: configToUse.branch || 'main',
-            files: secondaryBatchFiles,
-            message: `Admin Release: Complete Catalog & Vault Synchronization for masterworld`,
-            onProgress: (m) => log(m)
-          });
-          log(`GitHub Sync: ✅ Masterworld mirror sync complete (1 atomic commit).`);
-        } catch (secErr: any) {
-          log(`GitHub Sync Info: Secondary mirror to masterworld note: ${secErr?.message || 'skipped'}`);
-        }
-      }
+      log(`GitHub Sync: ✅ Success! All ${primaryBatchFiles.length} files committed together to public repo "${targetRepo}" in 1 commit (Exactly 1 deployment). Admin remains fully isolated on Firebase.`);
     } catch (err: any) {
-      throw new Error(`Failed to sync data to target (${targetRepo}): ${err.message}`);
+      throw new Error(`Failed to sync data to public repository (${targetRepo}): ${err.message}`);
     }
 
     try {

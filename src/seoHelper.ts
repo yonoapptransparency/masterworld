@@ -529,13 +529,27 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   }
 
   // High-performance server-side semantic HTML injection:
-  // Injects full semantic HTML (H1, categories, breadcrumbs, descriptions, internal links, reviews, FAQs)
-  // directly inside #root so Googlebot, Bingbot, Ahrefs, and all crawlers index 100% of the page immediately.
+  // For Search Engine Bots & Crawlers (Googlebot, Bingbot, Ahrefs, Semrush, Twitterbot, WhatsApp, etc.):
+  // Injects full semantic HTML directly inside #root so crawlers index 100% of reviews, ratings, and schema immediately.
+  // For Real Human Visitors:
+  // Keeps #root clean so React SPA mounts seamlessly with window.__INITIAL_DATA__ with ZERO layout shifts,
+  // ZERO flickering, and eliminates the jarring raw HTML buffering flash shown in mobile browsers.
+  // Non-JS clients still receive 100% content via <noscript>.
+  const isBot = isBotUserAgent(userAgent);
   if (preRenderedBody) {
-    if (finalHtml.includes('<div id="root"></div>')) {
-      finalHtml = finalHtml.replace('<div id="root"></div>', () => `<div id="root">${preRenderedBody}</div>`);
+    if (isBot) {
+      if (finalHtml.includes('<div id="root"></div>')) {
+        finalHtml = finalHtml.replace('<div id="root"></div>', () => `<div id="root">${preRenderedBody}</div>`);
+      } else {
+        finalHtml = finalHtml.replace(/<div\s+id="root"[^>]*>[\s\S]*?<\/div>/i, () => `<div id="root">${preRenderedBody}</div>`);
+      }
     } else {
-      finalHtml = finalHtml.replace(/<div\s+id="root"[^>]*>[\s\S]*?<\/div>/i, () => `<div id="root">${preRenderedBody}</div>`);
+      const noscriptFallback = `<noscript><div class="seo-crawler-content">${preRenderedBody}</div></noscript>`;
+      if (finalHtml.includes('</body>')) {
+        finalHtml = finalHtml.replace('</body>', `${noscriptFallback}\n</body>`);
+      } else {
+        finalHtml = `${finalHtml}\n${noscriptFallback}`;
+      }
     }
   }
 

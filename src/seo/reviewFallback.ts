@@ -60,18 +60,25 @@ export function getLocalFallbackReviewsForApp(appId: string, appSlug: string): S
             }));
         }
       } catch (_) {}
-    } else if (fs.existsSync(staticReviewsPath)) {
+    }
+
+    if (sampleReviews.length < 5 && fs.existsSync(staticReviewsPath)) {
       try {
         const raw = fs.readFileSync(staticReviewsPath, 'utf8');
         const staticMap = JSON.parse(raw);
         const list = staticMap[cleanId] || (cleanSlug ? staticMap[cleanSlug] : null);
         if (Array.isArray(list) && list.length > 0) {
-          sampleReviews = list.slice(0, 5).map((r: any) => ({
-            userName: r.userName || r.username || 'Player',
-            rating: Number(r.rating) || 5,
-            reviewText: r.reviewText || r.comment || '',
-            timestamp: r.timestamp || r.created_at || new Date().toISOString()
-          }));
+          const existingTexts = new Set(sampleReviews.map(r => r.reviewText));
+          const additions = list
+            .filter((r: any) => !existingTexts.has(r.reviewText || r.comment))
+            .slice(0, 5 - sampleReviews.length)
+            .map((r: any) => ({
+              userName: r.userName || r.username || 'Player',
+              rating: Number(r.rating) || 5,
+              reviewText: r.reviewText || r.comment || '',
+              timestamp: r.timestamp || r.created_at || new Date().toISOString()
+            }));
+          sampleReviews = [...sampleReviews, ...additions];
         }
       } catch (_) {}
     }

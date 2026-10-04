@@ -397,6 +397,65 @@ export async function fetchAdminAppReviewCounts(): Promise<{
 }
 
 /**
+ * Create a new verified review in Firestore
+ */
+export async function createAdminReviewItem(
+  reviewData: Partial<AdminReviewItem>
+): Promise<AdminReviewItem> {
+  try {
+    const res = await adminFetch('/api/v1/admin/community/reviews', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(reviewData)
+    });
+    const cType = res.headers.get('content-type') || '';
+    if (res.ok && cType.includes('application/json')) {
+      const data = await res.json();
+      if (data.review) return data.review;
+    }
+  } catch (_) {}
+
+  // Direct Firestore REST Fallback
+  const cfg = getResolvedCommunityFirebaseConfig();
+  const reviewId = reviewData.id || `rev_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const finalReview: AdminReviewItem = {
+    id: reviewId,
+    appId: reviewData.appId || '',
+    appSlug: reviewData.appSlug || '',
+    appName: reviewData.appName || '',
+    userName: reviewData.userName || 'Verified Player',
+    rating: Number(reviewData.rating) || 5,
+    reviewText: reviewData.reviewText || '',
+    timestamp: reviewData.timestamp || new Date().toISOString(),
+    status: reviewData.status || 'published',
+    helpful_count: reviewData.helpful_count || 0,
+    isPinned: Boolean(reviewData.isPinned),
+    reported: false,
+    report_count: 0,
+    source: 'admin'
+  };
+
+  const fields = convertToFirestoreFields({
+    ...finalReview,
+    created_at: finalReview.timestamp,
+    updated_at: new Date().toISOString()
+  });
+
+  const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/reviews?documentId=${encodeURIComponent(reviewId)}&key=${cfg.apiKey}`;
+  const restRes = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields })
+  });
+
+  if (!restRes.ok) {
+    throw new Error(`Failed to create review directly in Firestore: HTTP ${restRes.status}`);
+  }
+
+  return finalReview;
+}
+
+/**
  * Update an existing review in Firestore
  */
 export async function updateAdminReviewItem(

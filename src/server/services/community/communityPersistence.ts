@@ -192,11 +192,22 @@ export class CommunityPersistence {
           });
         }
       } else {
-        // Direct REST fetch to rummydexcommunity
+        // Direct REST fetch to rummydexcommunity with pagination support
         const cfg = getCommunityFirebaseConfig();
-        const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${cfg.firestoreDatabaseId}/documents/reviews?pageSize=300&key=${encodeURIComponent(cfg.apiKey)}`;
-        const res = await fetch(url);
-        if (res.ok) {
+        let pageToken = '';
+        let hasMorePages = true;
+        let pageCounter = 0;
+
+        while (hasMorePages && pageCounter < 5) {
+          pageCounter++;
+          let url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${cfg.firestoreDatabaseId}/documents/reviews?pageSize=300&key=${encodeURIComponent(cfg.apiKey)}`;
+          if (pageToken) {
+            url += `&pageToken=${encodeURIComponent(pageToken)}`;
+          }
+
+          const res = await fetch(url);
+          if (!res.ok) break;
+
           const json = await res.json();
           if (json && Array.isArray(json.documents)) {
             json.documents.forEach((docItem: any) => {
@@ -211,6 +222,16 @@ export class CommunityPersistence {
               const id = docId || getString(fields.id);
               if (id && !deletedReviewIds.has(id)) {
                 const appName = getString(fields.appName);
+                let parsedReply = null;
+                if (fields.adminReply?.mapValue?.fields) {
+                  const rFields = fields.adminReply.mapValue.fields;
+                  parsedReply = {
+                    text: getString(rFields.text),
+                    author: getString(rFields.author) || 'Official Moderator',
+                    timestamp: getString(rFields.timestamp) || new Date().toISOString()
+                  };
+                }
+
                 const rev: ReviewRecord = {
                   id,
                   appId: getString(fields.appId) || getString(fields.app_id),
@@ -226,13 +247,19 @@ export class CommunityPersistence {
                   reported: getBool(fields.reported),
                   report_count: getNum(fields.report_count),
                   source: getString(fields.source) || 'community',
-                  adminReply: null,
+                  adminReply: parsedReply,
                   updated_at: getString(fields.updated_at) || new Date().toISOString()
                 };
                 reviewsMap.set(id, rev);
                 loadedCount++;
               }
             });
+          }
+
+          if (json.nextPageToken) {
+            pageToken = json.nextPageToken;
+          } else {
+            hasMorePages = false;
           }
         }
       }

@@ -38,7 +38,14 @@ import {
   fetchAdminReviewsList, 
   fetchAdminAppReviewCounts, 
   AdminReviewItem,
-  AppReviewCountsData 
+  AppReviewCountsData,
+  createAdminReviewItem,
+  updateAdminReviewItem,
+  setAdminReviewStatus,
+  toggleAdminReviewPin,
+  deleteAdminReviewItem,
+  performBulkReviewsAction,
+  submitAdminReplyToReview
 } from '../../lib/adminCommunityFirebase';
 import AdminAIReviewStudioTab from './AdminAIReviewStudioTab';
 import { EditReviewModal } from './reviews/EditReviewModal';
@@ -424,12 +431,9 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
   const handleUpdateStatus = async (review: ReviewData, newStatus: 'published' | 'pending' | 'rejected') => {
     try {
       setActioningId(review.id);
-      const res = await adminFetch(`/api/v1/admin/community/reviews/${review.id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ status: newStatus })
-      });
+      const success = await setAdminReviewStatus(review.id, newStatus);
 
-      if (res.ok) {
+      if (success) {
         toast(`Review status set to ${newStatus}`, 'success');
         setReviews(prev => prev.map(r => r.id === review.id ? { ...r, status: newStatus } : r));
         invalidateReviewCache();
@@ -450,18 +454,17 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
     try {
       setActioningId(review.id);
       const newPinned = !review.isPinned;
-      const res = await adminFetch(`/api/v1/admin/community/reviews/${review.id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ isPinned: newPinned })
-      });
+      const success = await toggleAdminReviewPin(review.id, newPinned);
 
-      if (res.ok) {
+      if (success) {
         toast(newPinned ? 'Review pinned to top' : 'Review unpinned', 'success');
         setReviews(prev => prev.map(r => r.id === review.id ? { ...r, isPinned: newPinned } : r));
         invalidateReviewCache();
         try {
           window.dispatchEvent(new CustomEvent('community-reviews-updated'));
         } catch (e) {}
+      } else {
+        toast('Failed to update pin status', 'error');
       }
     } catch (err) {
       toast('Error toggling pin', 'error');
@@ -474,11 +477,9 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
     if (!window.confirm('Are you sure you want to permanently delete this review?')) return;
     try {
       setActioningId(id);
-      const res = await adminFetch(`/api/v1/admin/community/reviews/${id}`, {
-        method: 'DELETE'
-      });
+      const success = await deleteAdminReviewItem(id);
 
-      if (res.ok) {
+      if (success) {
         toast('Review deleted permanently', 'success');
         setReviews(prev => prev.filter(r => r.id !== id));
         setSelectedReviewIds(prev => prev.filter(selId => selId !== id));
@@ -505,12 +506,9 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
 
     try {
       setRefreshing(true);
-      const res = await adminFetch('/api/v1/admin/community/reviews/bulk', {
-        method: 'POST',
-        body: JSON.stringify({ reviewIds: selectedReviewIds, action })
-      });
+      const res = await performBulkReviewsAction(action, selectedReviewIds);
 
-      if (res.ok) {
+      if (res.success) {
         toast(`Bulk ${action} executed successfully!`, 'success');
         setSelectedReviewIds([]);
         invalidateReviewCache();
@@ -539,12 +537,9 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
     try {
       setActioningId('modal_save');
       if (isAddMode) {
-        const res = await adminFetch('/api/v1/admin/community/reviews', {
-          method: 'POST',
-          body: JSON.stringify(editModalReview)
-        });
+        const created = await createAdminReviewItem(editModalReview);
 
-        if (res.ok) {
+        if (created) {
           toast('New verified review created!', 'success');
           setEditModalReview(null);
           try {
@@ -555,15 +550,11 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
           toast('Failed to create review', 'error');
         }
       } else if (editModalReview.id) {
-        const res = await adminFetch(`/api/v1/admin/community/reviews/${editModalReview.id}`, {
-          method: 'PUT',
-          body: JSON.stringify(editModalReview)
-        });
+        const updated = await updateAdminReviewItem(editModalReview.id, editModalReview);
 
-        if (res.ok) {
-          const data = await res.json();
+        if (updated) {
           toast('Review updated successfully!', 'success');
-          setReviews(prev => prev.map(r => r.id === editModalReview.id ? data.review : r));
+          setReviews(prev => prev.map(r => r.id === editModalReview.id ? (updated as any) : r));
           setEditModalReview(null);
           invalidateReviewCache();
           try {
@@ -591,12 +582,9 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
         timestamp: formatReviewDate()
       } : null;
 
-      const res = await adminFetch(`/api/v1/admin/community/reviews/${replyModalReview.id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ adminReply: adminReplyPayload })
-      });
+      const success = await submitAdminReplyToReview(replyModalReview.id, replyText, replyAuthor);
 
-      if (res.ok) {
+      if (success) {
         toast(adminReplyPayload ? 'Official reply published!' : 'Official reply removed', 'success');
         setReviews(prev => prev.map(r => r.id === replyModalReview.id ? { ...r, adminReply: adminReplyPayload } : r));
         setReplyModalReview(null);
