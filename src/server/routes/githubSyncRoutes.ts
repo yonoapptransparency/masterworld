@@ -577,7 +577,7 @@ githubSyncRouter.post("/api/github-sync/commit-tree", verifyAdminToken, async (r
         },
         body: JSON.stringify({
           sha: newCommitSha,
-          force: false
+          force: true
         })
       }
     );
@@ -799,7 +799,7 @@ githubSyncRouter.post("/api/github-sync/commit-multi", verifyAdminToken, async (
         },
         body: JSON.stringify({
           sha: newCommitSha,
-          force: false
+          force: true
         })
       }
     );

@@ -688,8 +688,10 @@ export async function commitTreeToGitHub({
 }) {
   const cleanOwner = owner.trim();
   const cleanRepo = repo.trim();
-  const cleanBranch = branch.trim() || 'main';
+  const cleanBranch = branch.replace(/^refs\/heads\//, '').trim() || 'main';
   const cleanToken = (token || '').trim();
+
+  let directError: Error | null = null;
 
   // 1. Direct GitHub Git Data API (100% works on static hosts, Cloudflare Pages, Vercel Edge with zero 405 errors)
   if (cleanToken) {
@@ -702,21 +704,43 @@ export async function commitTreeToGitHub({
       let parentCommitSha = '';
       let baseTreeSha = '';
 
-      const refRes = await fetch(
-        `https://api.github.com/repos/${encodeURIComponent(cleanOwner)}/${encodeURIComponent(cleanRepo)}/git/ref/heads/${encodeURIComponent(cleanBranch)}?_t=${Date.now()}`,
-        {
-          headers: {
-            'Authorization': authHeader,
-            'Accept': 'application/vnd.github.v3+json',
-            'Cache-Control': 'no-cache'
+      try {
+        const refRes = await fetch(
+          `https://api.github.com/repos/${encodeURIComponent(cleanOwner)}/${encodeURIComponent(cleanRepo)}/git/ref/heads/${encodeURIComponent(cleanBranch)}?_t=${Date.now()}`,
+          {
+            headers: {
+              'Authorization': authHeader,
+              'Accept': 'application/vnd.github.v3+json',
+              'Cache-Control': 'no-cache'
+            }
           }
+        );
+        if (refRes.ok) {
+          const refData = await refRes.json() as any;
+          parentCommitSha = refData.object?.sha || '';
         }
-      );
+      } catch (_) {}
 
-      if (refRes.ok) {
-        const refData = await refRes.json() as any;
-        parentCommitSha = refData.object?.sha || '';
-      } else {
+      if (!parentCommitSha) {
+        try {
+          const refRes2 = await fetch(
+            `https://api.github.com/repos/${encodeURIComponent(cleanOwner)}/${encodeURIComponent(cleanRepo)}/git/refs/heads/${encodeURIComponent(cleanBranch)}?_t=${Date.now()}`,
+            {
+              headers: {
+                'Authorization': authHeader,
+                'Accept': 'application/vnd.github.v3+json',
+                'Cache-Control': 'no-cache'
+              }
+            }
+          );
+          if (refRes2.ok) {
+            const refData2 = await refRes2.json() as any;
+            parentCommitSha = refData2.object?.sha || '';
+          }
+        } catch (_) {}
+      }
+
+      if (!parentCommitSha) {
         const branchRes = await fetch(
           `https://api.github.com/repos/${encodeURIComponent(cleanOwner)}/${encodeURIComponent(cleanRepo)}/branches/${encodeURIComponent(cleanBranch)}?_t=${Date.now()}`,
           {
@@ -734,7 +758,7 @@ export async function commitTreeToGitHub({
       }
 
       if (!parentCommitSha) {
-        throw new Error(`Could not find latest commit SHA for branch "${cleanBranch}" on ${cleanOwner}/${cleanRepo}.`);
+        throw new Error(`Could not find latest commit SHA for branch "${cleanBranch}" on ${cleanOwner}/${cleanRepo}. Please check branch name and permissions.`);
       }
 
       // Step B: Get base tree SHA from parent commit
@@ -813,7 +837,7 @@ export async function commitTreeToGitHub({
       const newCommitData = await commitRes.json() as any;
       const newCommitSha = newCommitData.sha;
 
-      // Step F: Update branch reference
+      // Step F: Update branch reference (with force: true to avoid non-fast-forward conflicts)
       const updateRefRes = await fetch(
         `https://api.github.com/repos/${encodeURIComponent(cleanOwner)}/${encodeURIComponent(cleanRepo)}/git/refs/heads/${encodeURIComponent(cleanBranch)}`,
         {
@@ -825,14 +849,40 @@ export async function commitTreeToGitHub({
           },
           body: JSON.stringify({
             sha: newCommitSha,
-            force: false
+            force: true
           })
         }
       );
 
       if (!updateRefRes.ok) {
         const errData = await updateRefRes.json().catch(() => ({}));
-        throw new Error(`Failed to update branch ref: ${errData.message || updateRefRes.statusText}`);
+        // If ref update failed with 404, try creating the branch reference
+        if (updateRefRes.status === 404) {
+          const createRefRes = await fetch(
+            `https://api.github.com/repos/${encodeURIComponent(cleanOwner)}/${encodeURIComponent(cleanRepo)}/git/refs`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': authHeader,
+                'Content-Type': 'application/json',
+                'Accept': 'application/vnd.github.v3+json'
+              },
+              body: JSON.stringify({
+                ref: `refs/heads/${cleanBranch}`,
+                sha: newCommitSha
+              })
+            }
+          );
+          if (createRefRes.ok) {
+            return {
+              success: true,
+              commitSha: newCommitSha,
+              treeSha: newTreeSha,
+              message: `Successfully created atomic commit ${newCommitSha.substring(0, 7)}`
+            };
+          }
+        }
+        throw new Error(`Failed to update branch ref "${cleanBranch}": ${errData.message || updateRefRes.statusText}`);
       }
 
       return {
@@ -842,24 +892,37 @@ export async function commitTreeToGitHub({
         message: `Successfully created atomic commit ${newCommitSha.substring(0, 7)}`
       };
     } catch (directErr: any) {
-      console.warn('[GitHub Sync] Direct Git Data API notice, trying proxy fallback:', directErr?.message || directErr);
+      directError = directErr;
+      console.warn('[GitHub Sync] Direct Git Data API notice:', directErr?.message || directErr);
     }
   }
 
-  // 2. Server proxy fallback (/api/github-sync/commit-tree)
-  const response = await adminFetch('/api/github-sync/commit-tree', {
-    method: 'POST',
-    body: JSON.stringify({
-      owner,
-      repo,
-      token,
-      branch,
-      tree,
-      message
-    })
-  });
+  // 2. Server proxy fallback only if direct browser call failed
+  try {
+    const response = await adminFetch('/api/github-sync/commit-tree', {
+      method: 'POST',
+      body: JSON.stringify({
+        owner,
+        repo,
+        token,
+        branch,
+        tree,
+        message
+      })
+    });
 
-  if (!response.ok) {
+    if (response.ok) {
+      return await response.json();
+    }
+
+    if (response.status === 405) {
+      // 405 Method Not Allowed means static host (Cloudflare Pages) does not support server-side POST
+      if (directError) {
+        throw directError;
+      }
+      throw new Error(`Direct GitHub synchronization failed, and the static host (Cloudflare Pages) cannot handle serverless POST requests.`);
+    }
+
     const errText = await response.text();
     let errMsg = errText || `Server returned ${response.status}`;
     try {
@@ -867,9 +930,12 @@ export async function commitTreeToGitHub({
       errMsg = errJSON.message || errJSON.error || errMsg;
     } catch (e) {}
     throw new Error(errMsg);
+  } catch (proxyErr: any) {
+    if (directError) {
+      throw directError;
+    }
+    throw proxyErr;
   }
-
-  return response.json();
 }
 
 /**
