@@ -691,8 +691,6 @@ export async function commitTreeToGitHub({
   const cleanBranch = branch.replace(/^refs\/heads\//, '').trim() || 'main';
   const cleanToken = (token || '').trim();
 
-  let directError: Error | null = null;
-
   // 1. Direct GitHub Git Data API (100% works on static hosts, Cloudflare Pages, Vercel Edge with zero 405 errors)
   if (cleanToken) {
     try {
@@ -710,8 +708,7 @@ export async function commitTreeToGitHub({
           {
             headers: {
               'Authorization': authHeader,
-              'Accept': 'application/vnd.github.v3+json',
-              'Cache-Control': 'no-cache'
+              'Accept': 'application/vnd.github.v3+json'
             }
           }
         );
@@ -728,8 +725,7 @@ export async function commitTreeToGitHub({
             {
               headers: {
                 'Authorization': authHeader,
-                'Accept': 'application/vnd.github.v3+json',
-                'Cache-Control': 'no-cache'
+                'Accept': 'application/vnd.github.v3+json'
               }
             }
           );
@@ -746,8 +742,7 @@ export async function commitTreeToGitHub({
           {
             headers: {
               'Authorization': authHeader,
-              'Accept': 'application/vnd.github.v3+json',
-              'Cache-Control': 'no-cache'
+              'Accept': 'application/vnd.github.v3+json'
             }
           }
         );
@@ -892,50 +887,35 @@ export async function commitTreeToGitHub({
         message: `Successfully created atomic commit ${newCommitSha.substring(0, 7)}`
       };
     } catch (directErr: any) {
-      directError = directErr;
-      console.warn('[GitHub Sync] Direct Git Data API notice:', directErr?.message || directErr);
+      console.error('[GitHub Sync] Direct Git Data API error:', directErr);
+      throw directErr;
     }
   }
 
-  // 2. Server proxy fallback only if direct browser call failed
+  // 2. Server proxy fallback ONLY if no client token was provided (backend environment token)
+  const response = await adminFetch('/api/github-sync/commit-tree', {
+    method: 'POST',
+    body: JSON.stringify({
+      owner,
+      repo,
+      token,
+      branch,
+      tree,
+      message
+    })
+  });
+
+  if (response.ok) {
+    return await response.json();
+  }
+
+  const errText = await response.text();
+  let errMsg = errText || `Server returned ${response.status}`;
   try {
-    const response = await adminFetch('/api/github-sync/commit-tree', {
-      method: 'POST',
-      body: JSON.stringify({
-        owner,
-        repo,
-        token,
-        branch,
-        tree,
-        message
-      })
-    });
-
-    if (response.ok) {
-      return await response.json();
-    }
-
-    if (response.status === 405) {
-      // 405 Method Not Allowed means static host (Cloudflare Pages) does not support server-side POST
-      if (directError) {
-        throw directError;
-      }
-      throw new Error(`Direct GitHub synchronization failed, and the static host (Cloudflare Pages) cannot handle serverless POST requests.`);
-    }
-
-    const errText = await response.text();
-    let errMsg = errText || `Server returned ${response.status}`;
-    try {
-      const errJSON = JSON.parse(errText);
-      errMsg = errJSON.message || errJSON.error || errMsg;
-    } catch (e) {}
-    throw new Error(errMsg);
-  } catch (proxyErr: any) {
-    if (directError) {
-      throw directError;
-    }
-    throw proxyErr;
-  }
+    const errJSON = JSON.parse(errText);
+    errMsg = errJSON.message || errJSON.error || errMsg;
+  } catch (e) {}
+  throw new Error(errMsg);
 }
 
 /**
