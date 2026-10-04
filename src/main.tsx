@@ -68,24 +68,11 @@ if (prerenderEl) {
 
 const rootEl = document.getElementById('root');
 if (rootEl) {
-  const appTree = (
+  createRoot(rootEl).render(
     <StrictMode>
       <GlobalErrorBoundary>
         <App />
       </GlobalErrorBoundary>
     </StrictMode>
   );
-
-  // Seamless hydration: If the server already pre-rendered HTML into #root,
-  // hydrate it directly without wiping or redrawing the DOM, eliminating any visual flash.
-  if (rootEl.hasChildNodes()) {
-    try {
-      hydrateRoot(rootEl, appTree);
-    } catch (err) {
-      console.warn('[Hydration] Falling back to createRoot:', err);
-      createRoot(rootEl).render(appTree);
-    }
-  } else {
-    createRoot(rootEl).render(appTree);
-  }
 }

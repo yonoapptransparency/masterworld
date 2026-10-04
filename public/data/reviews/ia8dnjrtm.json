@@ -1,0 +1,67 @@
+[
+  {
+    "id": "rev_ia8dnjrtm_ai_1790620609753_0_h5j53",
+    "appId": "ia8dnjrtm",
+    "appSlug": "pluto-tv",
+    "appName": "Pluto TV",
+    "userName": "Vikramaditya_R",
+    "rating": 5,
+    "reviewText": "Finally, a free app that actually works like real TV. Love the channel surfing vibe!",
+    "timestamp": "2026-09-28T22:57:33.694Z",
+    "helpful_count": 17,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_ia8dnjrtm_ai_1790620609754_1_xwzef",
+    "appId": "ia8dnjrtm",
+    "appSlug": "pluto-tv",
+    "appName": "Pluto TV",
+    "userName": "Sneha Roy",
+    "rating": 5,
+    "reviewText": "Pluto TV is amazing! I use it every night for Star Trek marathons. The interface is super clean and smooth on my phone.",
+    "timestamp": "2026-09-24T22:04:34.767Z",
+    "helpful_count": 1,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_ia8dnjrtm_ai_1790620609754_2_6akm0",
+    "appId": "ia8dnjrtm",
+    "appSlug": "pluto-tv",
+    "appName": "Pluto TV",
+    "userName": "Arjun Nair",
+    "rating": 5,
+    "reviewText": "Best streaming app for free content. So many channels to choose from and no subscription needed, totally worth it.",
+    "timestamp": "2026-09-21T23:46:56.151Z",
+    "helpful_count": 13,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_ia8dnjrtm_ai_1790620609754_3_26fmf",
+    "appId": "ia8dnjrtm",
+    "appSlug": "pluto-tv",
+    "appName": "Pluto TV",
+    "userName": "Pooja Verma",
+    "rating": 4,
+    "reviewText": "Content quality is top notch, but sometimes the ad breaks are a bit too long for my liking. Still, a great way to pass time.",
+    "timestamp": "2026-09-17T09:25:34.294Z",
+    "helpful_count": 9,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_ia8dnjrtm_ai_1790620609754_4_1ru6d",
+    "appId": "ia8dnjrtm",
+    "appSlug": "pluto-tv",
+    "appName": "Pluto TV",
+    "userName": "Aman Joshi",
+    "rating": 2,
+    "reviewText": "Kaafi sahi app hai, live channels ka experience real TV jaisa hai. Bas kabhi kabhi ad load hone mein thoda hang hota hai.",
+    "timestamp": "2026-09-14T20:13:29.684Z",
+    "helpful_count": 6,
+    "isPinned": false,
+    "adminReply": null
+  }
+]

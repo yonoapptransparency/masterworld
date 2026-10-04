@@ -94,22 +94,43 @@ export function useDataSync() {
         if (isFirebaseReal && db) {
           try {
             const { doc, getDoc } = await import('firebase/firestore');
-            const [c0, c1, c2, settingsSnap, newsSnap, videosSnap] = await Promise.all([
-              getDoc(doc(db, 'store_data', 'apps_chunk_0')).catch(() => null),
-              getDoc(doc(db, 'store_data', 'apps_chunk_1')).catch(() => null),
-              getDoc(doc(db, 'store_data', 'apps_chunk_2')).catch(() => null),
+            const chunkPromises = Array.from({ length: 16 }, (_, i) => 
+              getDoc(doc(db, 'store_data', `apps_chunk_${i}`)).catch(() => null)
+            );
+            const [
+              chunks, 
+              settingsSnap, 
+              publicSettingsSnap, 
+              faqsSnap, 
+              devsSnap, 
+              linksSnap, 
+              newsSnap, 
+              videosSnap
+            ] = await Promise.all([
+              Promise.all(chunkPromises),
+              getDoc(doc(db, 'store_data', 'settings')).catch(() => null),
               getDoc(doc(db, 'store_data', 'public_settings')).catch(() => null),
+              getDoc(doc(db, 'store_data', 'faqs')).catch(() => null),
+              getDoc(doc(db, 'store_data', 'developers')).catch(() => null),
+              getDoc(doc(db, 'store_data', 'quick_links')).catch(() => null),
               getDoc(doc(db, 'store_data', 'news')).catch(() => null),
               getDoc(doc(db, 'store_data', 'videos')).catch(() => null)
             ]);
 
             let loadedApps: AppConfig[] = [];
-            [c0, c1, c2].forEach(chunk => {
+            const seenAppKeys = new Set<string>();
+            chunks.forEach(chunk => {
               if (chunk && chunk.exists && chunk.exists()) {
                 const chunkData = chunk.data();
                 const items = chunkData.items || chunkData.apps || [];
                 if (Array.isArray(items)) {
-                  loadedApps = loadedApps.concat(items);
+                  items.forEach((item: any) => {
+                    const key = item.id || item.slug;
+                    if (key && !seenAppKeys.has(key)) {
+                      seenAppKeys.add(key);
+                      loadedApps.push(item);
+                    }
+                  });
                 }
               }
             });
@@ -119,9 +140,30 @@ export function useDataSync() {
               loadedFromDirectFirestore = true;
             }
 
+            let loadedSettings: any = {};
             if (settingsSnap && settingsSnap.exists && settingsSnap.exists()) {
-              setSettings(settingsSnap.data() as GlobalSettings);
+              loadedSettings = { ...loadedSettings, ...settingsSnap.data() };
               loadedFromDirectFirestore = true;
+            }
+            if (publicSettingsSnap && publicSettingsSnap.exists && publicSettingsSnap.exists()) {
+              loadedSettings = { ...loadedSettings, ...publicSettingsSnap.data() };
+              loadedFromDirectFirestore = true;
+            }
+            if (faqsSnap && faqsSnap.exists && faqsSnap.exists()) {
+              const fData = faqsSnap.data();
+              if (Array.isArray(fData?.items)) loadedSettings.website_faqs = fData.items;
+            }
+            if (devsSnap && devsSnap.exists && devsSnap.exists()) {
+              const dData = devsSnap.data();
+              if (Array.isArray(dData?.items)) loadedSettings.developers = dData.items;
+            }
+            if (linksSnap && linksSnap.exists && linksSnap.exists()) {
+              const lData = linksSnap.data();
+              if (Array.isArray(lData?.items)) loadedSettings.quick_links = lData.items;
+            }
+
+            if (Object.keys(loadedSettings).length > 0) {
+              setSettings(prev => ({ ...prev, ...loadedSettings }));
             }
 
             if (newsSnap && newsSnap.exists && newsSnap.exists()) {

@@ -1,0 +1,67 @@
+[
+  {
+    "id": "rev_68eyzcidq_ai_1790620545191_0_829ut",
+    "appId": "68eyzcidq",
+    "appSlug": "goodshort",
+    "appName": "GoodShort",
+    "userName": "Vikramaditya_R",
+    "rating": 5,
+    "reviewText": "The production quality here is actually insane for a short drama app. Feels like I'm watching a movie on my phone!",
+    "timestamp": "2026-09-28T10:52:18.817Z",
+    "helpful_count": 4,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_68eyzcidq_ai_1790620545192_1_zpnig",
+    "appId": "68eyzcidq",
+    "appSlug": "goodshort",
+    "appName": "GoodShort",
+    "userName": "Sneha Roy",
+    "rating": 5,
+    "reviewText": "Loving the diverse library! Best companion for my daily commute to work, ekdum time pass ho jata hai.",
+    "timestamp": "2026-09-23T16:07:11.774Z",
+    "helpful_count": 11,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_68eyzcidq_ai_1790620545192_2_7wtrs",
+    "appId": "68eyzcidq",
+    "appSlug": "goodshort",
+    "appName": "GoodShort",
+    "userName": "Aman Joshi",
+    "rating": 4,
+    "reviewText": "Shows are great but the point system needs some fixing. Sometimes the ads don't load properly and I get stuck.",
+    "timestamp": "2026-09-21T20:12:17.307Z",
+    "helpful_count": 10,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_68eyzcidq_ai_1790620545192_3_5swiy",
+    "appId": "68eyzcidq",
+    "appSlug": "goodshort",
+    "appName": "GoodShort",
+    "userName": "Kavita Patel",
+    "rating": 4,
+    "reviewText": "Interface is very smooth and intuitive. Just wish watching full series didn't require so many points.",
+    "timestamp": "2026-09-17T15:41:28.710Z",
+    "helpful_count": 15,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_68eyzcidq_ai_1790620545192_4_bkxsf",
+    "appId": "68eyzcidq",
+    "appSlug": "goodshort",
+    "appName": "GoodShort",
+    "userName": "Arjun Nair",
+    "rating": 4,
+    "reviewText": "High quality content, zero lag on my phone. Subtitles are perfect, keep adding more thrillers please!",
+    "timestamp": "2026-09-15T16:12:31.819Z",
+    "helpful_count": 8,
+    "isPinned": false,
+    "adminReply": null
+  }
+]

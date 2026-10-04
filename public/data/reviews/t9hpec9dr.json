@@ -1,0 +1,67 @@
+[
+  {
+    "id": "rev_t9hpec9dr_ai_1790620483918_0_8kqpw",
+    "appId": "t9hpec9dr",
+    "appSlug": "sonyliv",
+    "appName": "SonyLIV",
+    "userName": "Vikramaditya_R",
+    "rating": 5,
+    "reviewText": "The original shows like Scam 1992 are pure gold! Streaming quality is top-notch on my device.",
+    "timestamp": "2026-09-28T22:47:02.983Z",
+    "helpful_count": 9,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_t9hpec9dr_ai_1790620483918_1_m0u22",
+    "appId": "t9hpec9dr",
+    "appSlug": "sonyliv",
+    "appName": "SonyLIV",
+    "userName": "Sneha Roy",
+    "rating": 3,
+    "reviewText": "Content library is excellent, but the interface feels a bit cluttered on my phone. Needs a cleaner layout.",
+    "timestamp": "2026-09-25T12:36:03.415Z",
+    "helpful_count": 8,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_t9hpec9dr_ai_1790620483918_2_ns3eh",
+    "appId": "t9hpec9dr",
+    "appSlug": "sonyliv",
+    "appName": "SonyLIV",
+    "userName": "Aman Joshi",
+    "rating": 3,
+    "reviewText": "Sports streaming is great for UEFA, but the app keeps lagging during peak live match hours. Bhai, please fix the stability.",
+    "timestamp": "2026-09-21T21:37:38.038Z",
+    "helpful_count": 6,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_t9hpec9dr_ai_1790620483918_3_64reg",
+    "appId": "t9hpec9dr",
+    "appSlug": "sonyliv",
+    "appName": "SonyLIV",
+    "userName": "Pooja Verma",
+    "rating": 3,
+    "reviewText": "I love the interactive play-along features for reality shows, though the constant ad interruptions are really frustrating even for subscribers.",
+    "timestamp": "2026-09-17T13:44:19.545Z",
+    "helpful_count": 2,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_t9hpec9dr_ai_1790620483918_4_thp11",
+    "appId": "t9hpec9dr",
+    "appSlug": "sonyliv",
+    "appName": "SonyLIV",
+    "userName": "Arjun Nair",
+    "rating": 2,
+    "reviewText": "Too many ads! Even after paying for premium, it feels like watching free TV. Not worth the subscription price anymore.",
+    "timestamp": "2026-09-15T10:06:28.678Z",
+    "helpful_count": 16,
+    "isPinned": false,
+    "adminReply": null
+  }
+]

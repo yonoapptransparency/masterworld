@@ -1,0 +1,80 @@
+[
+  {
+    "id": "rev_1790411343881_jm698",
+    "appId": "ealj6s0fm",
+    "appSlug": "kuku-tv",
+    "appName": "Kuku TV",
+    "userName": "Kabir",
+    "rating": 5,
+    "reviewText": "One of the best game that I have ever find",
+    "timestamp": "26 Sep 2026",
+    "helpful_count": 0,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_ealj6s0fm_ai_1790620400969_0_fhvdo",
+    "appId": "ealj6s0fm",
+    "appSlug": "kuku-tv",
+    "appName": "Kuku TV",
+    "userName": "Vikram_Delhi",
+    "rating": 5,
+    "reviewText": "Absolutely hooked on these bite-sized dramas! Perfect for my metro commute, and the vertical interface is super smooth.",
+    "timestamp": "2026-09-28T21:51:37.046Z",
+    "helpful_count": 6,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_ealj6s0fm_ai_1790620400969_1_7ftdd",
+    "appId": "ealj6s0fm",
+    "appSlug": "kuku-tv",
+    "appName": "Kuku TV",
+    "userName": "Sneha_Roy",
+    "rating": 4,
+    "reviewText": "Content quality is top notch. Really enjoying the thrillers, but wish they added more episodes to the ongoing series faster.",
+    "timestamp": "2026-09-24T16:14:27.258Z",
+    "helpful_count": 7,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_ealj6s0fm_ai_1790620400969_2_wbn0y",
+    "appId": "ealj6s0fm",
+    "appSlug": "kuku-tv",
+    "appName": "Kuku TV",
+    "userName": "Arjun_Nair",
+    "rating": 4,
+    "reviewText": "Bohot sahi app hai for quick entertainment. Loading speed is fast, even on my older Vivo phone. Thoda aur variety in comedy genres would be great.",
+    "timestamp": "2026-09-21T15:27:39.224Z",
+    "helpful_count": 10,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_ealj6s0fm_ai_1790620400969_3_acd58",
+    "appId": "ealj6s0fm",
+    "appSlug": "kuku-tv",
+    "appName": "Kuku TV",
+    "userName": "Pooja_Verma",
+    "rating": 4,
+    "reviewText": "The storytelling is quite addictive and the cliffhangers are insane! I watch a few episodes every night before bed.",
+    "timestamp": "2026-09-18T17:24:30.505Z",
+    "helpful_count": 13,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_ealj6s0fm_ai_1790620400969_4_zracq",
+    "appId": "ealj6s0fm",
+    "appSlug": "kuku-tv",
+    "appName": "Kuku TV",
+    "userName": "Gaurav_Gill",
+    "rating": 3,
+    "reviewText": "App works fine mostly, but sometimes it takes a while to load offline downloads. Good concept though, especially the regional language support.",
+    "timestamp": "2026-09-13T21:48:42.752Z",
+    "helpful_count": 9,
+    "isPinned": false,
+    "adminReply": null
+  }
+]

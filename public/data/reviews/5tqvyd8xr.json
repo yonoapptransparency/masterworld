@@ -1,0 +1,67 @@
+[
+  {
+    "id": "rev_5tqvyd8xr_ai_1790620645457_0_9woqa",
+    "appId": "5tqvyd8xr",
+    "appSlug": "kanopy",
+    "appName": "Kanopy",
+    "userName": "Rohan Mehta",
+    "rating": 5,
+    "reviewText": "Really impressed by Kanopy. The UI transitions are smooth, matchmaking is fast, and table mechanics feel natural.",
+    "timestamp": "2026-09-28T22:55:12.633Z",
+    "helpful_count": 10,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_5tqvyd8xr_ai_1790620645457_1_g8y3n",
+    "appId": "5tqvyd8xr",
+    "appSlug": "kanopy",
+    "appName": "Kanopy",
+    "userName": "Vikram S.",
+    "rating": 5,
+    "reviewText": "Excellent interface and stable connection even on mobile data. Kudos to Admin for this polished experience.",
+    "timestamp": "2026-09-23T19:22:07.861Z",
+    "helpful_count": 9,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_5tqvyd8xr_ai_1790620645457_2_8veub",
+    "appId": "5tqvyd8xr",
+    "appSlug": "kanopy",
+    "appName": "Kanopy",
+    "userName": "Pooja Sharma",
+    "rating": 5,
+    "reviewText": "Very responsive card sorting and zero noticeable lag during long sessions. Easily one of the cleanest apps in this category.",
+    "timestamp": "2026-09-21T19:02:10.542Z",
+    "helpful_count": 2,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_5tqvyd8xr_ai_1790620645457_3_965g6",
+    "appId": "5tqvyd8xr",
+    "appSlug": "kanopy",
+    "appName": "Kanopy",
+    "userName": "Aditya Nair",
+    "rating": 5,
+    "reviewText": "Smooth controls, crisp visuals, and straightforward table selection. Works great without draining excessive battery.",
+    "timestamp": "2026-09-17T21:15:00.317Z",
+    "helpful_count": 10,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_5tqvyd8xr_ai_1790620645457_4_ejfxx",
+    "appId": "5tqvyd8xr",
+    "appSlug": "kanopy",
+    "appName": "Kanopy",
+    "userName": "Kunal Sen",
+    "rating": 4,
+    "reviewText": "Great responsiveness and quick table joins. Occasionally takes a few extra seconds to reconnect after switching apps, but otherwise flawless.",
+    "timestamp": "2026-09-13T14:08:15.109Z",
+    "helpful_count": 4,
+    "isPinned": false,
+    "adminReply": null
+  }
+]

@@ -60,7 +60,7 @@ export default class GlobalErrorBoundary extends Component<Props, State> {
   }
 
   handleReset = (): void => {
-    // Clear standard errors & try to reload the current viewport context
+    // Clear standard errors & force cache reload of current page
     this.setState({
       hasError: false,
       error: null,
@@ -68,7 +68,13 @@ export default class GlobalErrorBoundary extends Component<Props, State> {
       expanded: false,
       copied: false
     });
-    window.location.reload();
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('_v', String(Date.now()));
+      window.location.href = url.toString();
+    } catch (_) {
+      window.location.reload();
+    }
   };
 
   handleGoHome = (): void => {
@@ -79,7 +85,11 @@ export default class GlobalErrorBoundary extends Component<Props, State> {
       expanded: false,
       copied: false
     });
-    window.location.href = '/';
+    try {
+      window.location.href = '/?_v=' + Date.now();
+    } catch (_) {
+      window.location.href = '/';
+    }
   };
 
   handleCopyText = (): void => {

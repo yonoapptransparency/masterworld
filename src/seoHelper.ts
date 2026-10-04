@@ -433,9 +433,9 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
 
   let pageOgImage = logoUrl;
   if (targetApp) {
-    pageOgImage = getField(targetApp, 'og_image_url') || getField(targetApp, 'icon_url') || logoUrl;
+    pageOgImage = getField(targetApp, 'og_image_url') || getField(targetApp, 'icon_url') || getField(targetApp, 'logo_url') || logoUrl;
   } else if (targetNews) {
-    pageOgImage = getField(targetNews, 'og_image_url') || getField(targetNews, 'logo_url') || getField(targetNews, 'image_url') || logoUrl;
+    pageOgImage = getField(targetNews, 'og_image_url') || getField(targetNews, 'image_url') || getField(targetNews, 'logo_url') || getField(targetNews, 'image') || logoUrl;
   } else if (targetVideo) {
     const ytThumb = getYoutubeThumbnail(getField(targetVideo, 'youtube_url'));
     if (ytThumb) pageOgImage = ytThumb;
@@ -529,19 +529,13 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   }
 
   // High-performance server-side semantic HTML injection:
-  // For Search Engine Bots & Crawlers (Googlebot, Bingbot, Ahrefs, Semrush, Twitterbot, WhatsApp, etc.):
-  // Injects full semantic HTML directly inside #root so crawlers index 100% of reviews, ratings, and schema immediately.
-  // For Real Human Visitors:
-  // Keeps #root clean so React SPA mounts seamlessly with window.__INITIAL_DATA__ with ZERO layout shifts,
-  // ZERO flickering, and eliminates the jarring raw HTML buffering flash shown in mobile browsers.
-  // Non-JS clients still receive 100% content via <noscript>.
-  const isBot = isBotUserAgent(userAgent);
+  // Non-JS crawlers receive 100% content via <noscript> crawler container and JSON-LD schema.
+  // JavaScript clients & Lighthouse mount instantaneously on clean #root with window.__INITIAL_DATA__.
   if (preRenderedBody) {
-    if (isBot) {
+    const isPureBotNoJs = userAgent && /facebookexternalhit|twitterbot|whatsapp|telegrambot|slackbot|vkShare|embedly|quora/i.test(userAgent);
+    if (isPureBotNoJs) {
       if (finalHtml.includes('<div id="root"></div>')) {
         finalHtml = finalHtml.replace('<div id="root"></div>', () => `<div id="root">${preRenderedBody}</div>`);
-      } else {
-        finalHtml = finalHtml.replace(/<div\s+id="root"[^>]*>[\s\S]*?<\/div>/i, () => `<div id="root">${preRenderedBody}</div>`);
       }
     } else {
       const noscriptFallback = `<noscript><div class="seo-crawler-content">${preRenderedBody}</div></noscript>`;

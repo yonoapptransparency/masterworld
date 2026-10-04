@@ -7,6 +7,7 @@ import { getAesSecret, safeDecrypt, safeEncrypt } from '../lib/cryptoUtils';
 import { generateAllSitemaps } from '../lib/sitemapGenerator';
 import { ensureDefaultSettings } from '../lib/defaultLegalContent';
 import { AppConfig, GlobalSettings, NewsItem, VideoItem } from '../types';
+import { getResolvedCommunityFirebaseConfig, parseFirestoreFields } from '../lib/communityFirebase';
 
 export function useGitHubSync(
   apps: AppConfig[],
@@ -129,7 +130,7 @@ export function useGitHubSync(
       const liveRes = await fetch('/api/v1/public/backup-data-full');
       if (liveRes.ok) {
         liveBackup = await liveRes.json();
-        log("GitHub Sync: Live complete catalog retrieved successfully.");
+        log("GitHub Sync: Live complete catalog retrieved from server backup.");
       } else {
         const fallbackRes = await fetch('/api/v1/public/backup-data');
         if (fallbackRes.ok) {
@@ -137,7 +138,130 @@ export function useGitHubSync(
         }
       }
     } catch (e) {
-      log("GitHub Sync Notice: Could not fetch live backup endpoint, using current memory.");
+      log("GitHub Sync Notice: Could not fetch server backup endpoint, querying Firestore directly.");
+    }
+
+    // Direct Firestore multi-chunk read to guarantee all 230+ apps, settings, faqs, news, videos are retrieved
+    if (isFirebaseReal && db) {
+      try {
+        log("GitHub Sync: Pulling live chunks directly from Firestore (chunks 0 to 15)...");
+        const { doc, getDoc } = await import('firebase/firestore');
+        const chunkPromises = Array.from({ length: 16 }, (_, i) => 
+          getDoc(doc(db, 'store_data', `apps_chunk_${i}`)).catch(() => null)
+        );
+        const [
+          chunks, 
+          settingsSnap, 
+          publicSettingsSnap, 
+          faqsSnap, 
+          devsSnap, 
+          linksSnap, 
+          newsSnap, 
+          videosSnap,
+          secureLinksSnap
+        ] = await Promise.all([
+          Promise.all(chunkPromises),
+          getDoc(doc(db, 'store_data', 'settings')).catch(() => null),
+          getDoc(doc(db, 'store_data', 'public_settings')).catch(() => null),
+          getDoc(doc(db, 'store_data', 'faqs')).catch(() => null),
+          getDoc(doc(db, 'store_data', 'developers')).catch(() => null),
+          getDoc(doc(db, 'store_data', 'quick_links')).catch(() => null),
+          getDoc(doc(db, 'store_data', 'news')).catch(() => null),
+          getDoc(doc(db, 'store_data', 'videos')).catch(() => null),
+          getDoc(doc(db, 'store_data', 'secure_links')).catch(() => null)
+        ]);
+
+        let firestoreApps: any[] = [];
+        const seenKeys = new Set<string>();
+        chunks.forEach((chunk) => {
+          if (chunk && chunk.exists && chunk.exists()) {
+            const cData = chunk.data();
+            const items = cData?.items || cData?.apps || [];
+            if (Array.isArray(items)) {
+              items.forEach((item: any) => {
+                const k = item.id || item.slug;
+                if (k && !seenKeys.has(k)) {
+                  seenKeys.add(k);
+                  firestoreApps.push(item);
+                }
+              });
+            }
+          }
+        });
+
+        let fsSettings: any = {};
+        if (settingsSnap && settingsSnap.exists && settingsSnap.exists()) {
+          fsSettings = { ...fsSettings, ...settingsSnap.data() };
+        }
+        if (publicSettingsSnap && publicSettingsSnap.exists && publicSettingsSnap.exists()) {
+          fsSettings = { ...fsSettings, ...publicSettingsSnap.data() };
+        }
+        if (faqsSnap && faqsSnap.exists && faqsSnap.exists()) {
+          const fData = faqsSnap.data();
+          if (Array.isArray(fData?.items)) fsSettings.website_faqs = fData.items;
+        }
+        if (devsSnap && devsSnap.exists && devsSnap.exists()) {
+          const dData = devsSnap.data();
+          if (Array.isArray(dData?.items)) fsSettings.developers = dData.items;
+        }
+        if (linksSnap && linksSnap.exists && linksSnap.exists()) {
+          const lData = linksSnap.data();
+          if (Array.isArray(lData?.items)) fsSettings.quick_links = lData.items;
+        }
+
+        let fsNews: any[] = [];
+        if (newsSnap && newsSnap.exists && newsSnap.exists()) {
+          const nData = newsSnap.data();
+          if (Array.isArray(nData?.items)) fsNews = nData.items;
+          else if (Array.isArray(nData?.news)) fsNews = nData.news;
+        }
+
+        let fsVideos: any[] = [];
+        if (videosSnap && videosSnap.exists && videosSnap.exists()) {
+          const vData = videosSnap.data();
+          if (Array.isArray(vData?.items)) fsVideos = vData.items;
+          else if (Array.isArray(vData?.videos)) fsVideos = vData.videos;
+        }
+
+        const secureMap = new Map();
+        if (secureLinksSnap && secureLinksSnap.exists && secureLinksSnap.exists()) {
+          const sData = secureLinksSnap.data();
+          if (Array.isArray(sData?.items)) {
+            sData.items.forEach((it: any) => {
+              if (it?.id && it?.url) secureMap.set(it.id, it.url);
+              if (it?.slug && it?.url) secureMap.set(it.slug, it.url);
+            });
+          }
+        }
+
+        if (firestoreApps.length > 0) {
+          log(`GitHub Sync: Pulled ${firestoreApps.length} live app(s) directly from Firestore across all chunks.`);
+          if (secureMap.size > 0) {
+            firestoreApps = firestoreApps.map((a: any) => ({
+              ...a,
+              more_information_url: a.more_information_url || secureMap.get(a.id) || secureMap.get(a.slug) || ''
+            }));
+          }
+        }
+
+        if (!liveBackup) {
+          liveBackup = {
+            apps: firestoreApps,
+            settings: fsSettings,
+            news: fsNews,
+            videos: fsVideos
+          };
+        } else {
+          if (firestoreApps.length > (liveBackup.apps?.length || 0)) {
+            liveBackup.apps = firestoreApps;
+          }
+          liveBackup.settings = { ...fsSettings, ...(liveBackup.settings || {}) };
+          if (fsNews.length > (liveBackup.news?.length || 0)) liveBackup.news = fsNews;
+          if (fsVideos.length > (liveBackup.videos?.length || 0)) liveBackup.videos = fsVideos;
+        }
+      } catch (directFsErr: any) {
+        log(`GitHub Sync Notice: Direct Firestore query note: ${directFsErr?.message || directFsErr}`);
+      }
     }
 
     const stateApps = (overrideApps && Array.isArray(overrideApps) && overrideApps.length > 0) ? overrideApps : apps;
@@ -145,35 +269,35 @@ export function useGitHubSync(
     const stateNews = (overrideNews && Array.isArray(overrideNews) && overrideNews.length > 0) ? overrideNews : news;
     const stateVideos = (overrideVideos && Array.isArray(overrideVideos) && overrideVideos.length > 0) ? overrideVideos : videos;
 
-    // Admin state is the primary single source of truth
+    // Direct Live Firestore is authoritative; merge with any explicit admin overrides
     let targetApps: any[] = [];
-    if (Array.isArray(stateApps) && stateApps.length > 0) {
-      const backupMap = new Map();
-      if (Array.isArray(liveBackup?.apps)) {
-        liveBackup.apps.forEach((ba: any) => {
-          const key = ba.id || ba.slug;
-          if (key) backupMap.set(key, ba);
-        });
-      }
-      targetApps = stateApps.map((adminApp: any) => {
-        const key = adminApp.id || adminApp.slug;
-        const backupApp = backupMap.get(key);
-        if (backupApp) {
-          // Backup provides fallback for any missing metadata, but adminApp always has 100% precedence
-          return { ...backupApp, ...adminApp };
-        }
-        return adminApp;
-      });
-    } else if (Array.isArray(liveBackup?.apps) && liveBackup.apps.length > 0) {
+    if (Array.isArray(liveBackup?.apps) && liveBackup.apps.length > 0) {
       targetApps = liveBackup.apps;
+      log(`GitHub Sync: Using ${targetApps.length} live application(s) directly from Firestore.`);
+    } else if (Array.isArray(stateApps) && stateApps.length > 0) {
+      targetApps = stateApps;
     }
+
     const targetSettings = {
-      ...(liveBackup?.settings || {}),
-      ...(stateSettings || {})
+      ...(stateSettings || {}),
+      ...(liveBackup?.settings || {})
     };
-    const targetNews = (Array.isArray(stateNews) && stateNews.length > 0) ? stateNews : (liveBackup?.news || []);
-    const targetVideos = (Array.isArray(stateVideos) && stateVideos.length > 0) ? stateVideos : (liveBackup?.videos || []);
-    let targetReviews: any[] = [];
+    if (liveBackup?.settings?.website_faqs && (!targetSettings.website_faqs || targetSettings.website_faqs.length === 0)) {
+      targetSettings.website_faqs = liveBackup.settings.website_faqs;
+    }
+    if (liveBackup?.settings?.developers && (!targetSettings.developers || targetSettings.developers.length === 0)) {
+      targetSettings.developers = liveBackup.settings.developers;
+    }
+    if (liveBackup?.settings?.quick_links && (!targetSettings.quick_links || targetSettings.quick_links.length === 0)) {
+      targetSettings.quick_links = liveBackup.settings.quick_links;
+    }
+
+    const targetNews = (Array.isArray(liveBackup?.news) && liveBackup.news.length > 0) 
+      ? liveBackup.news 
+      : ((Array.isArray(stateNews) && stateNews.length > 0) ? stateNews : []);
+    const targetVideos = (Array.isArray(liveBackup?.videos) && liveBackup.videos.length > 0) 
+      ? liveBackup.videos 
+      : ((Array.isArray(stateVideos) && stateVideos.length > 0) ? stateVideos : []);
 
     let finalApps = targetApps;
     if (targetApps.length > 0) {
@@ -214,34 +338,151 @@ export function useGitHubSync(
       }
     }
 
-    // Merge live community review stats into apps so static data, cards, and SEO have 100% consistent ratings
+    // Pull live community reviews, comments, and atomic rating distributions
     let communityStatsPayload: any = null;
+    let communityReviewsPayload: Record<string, any> = {};
+    const appReviewsMap: Record<string, any[]> = {};
+    const appCountsMap: Record<string, any> = {};
+
     try {
-      log("GitHub Sync: Harmonizing live atomic review ratings and exporting catalog stats file...");
-      const statsRes = await adminFetch('/api/v1/admin/community/export-stats');
-      if (statsRes.ok) {
-        const statsData = await statsRes.json();
-        const exportObj = statsData?.stats || statsData;
-        communityStatsPayload = exportObj;
-        const appCounts = exportObj?.appCounts || {};
-        finalApps = finalApps.map((a: any) => {
-          const keyId = String(a.id || '').toLowerCase().trim();
-          const keySlug = String(a.slug || '').toLowerCase().trim();
-          const countInfo = appCounts[keyId] || appCounts[keySlug];
-          if (countInfo && (countInfo.published > 0 || countInfo.total > 0)) {
-            const realPublished = Number(countInfo.published ?? countInfo.total ?? 0);
-            const realRating = Number(countInfo.avgRating || 4.5);
-            return {
-              ...a,
-              rating: realRating,
-              review_count: realPublished,
-              reviews: realPublished
-            };
+      log("GitHub Sync: Querying live community reviews, comments, and atomic ratings...");
+      try {
+        const statsRes = await adminFetch('/api/v1/admin/community/export-stats');
+        if (statsRes.ok) {
+          const statsData = await statsRes.json();
+          if (statsData?.stats) {
+            communityStatsPayload = statsData.stats;
+            if (statsData.stats.appCounts) {
+              Object.assign(appCountsMap, statsData.stats.appCounts);
+            }
           }
-          return a;
-        });
-        log("GitHub Sync: Harmonized live review ratings and atomic counts across catalog.");
+        }
+      } catch (_) {}
+
+      try {
+        const revRes = await adminFetch('/api/v1/admin/community/export-static-reviews');
+        if (revRes.ok) {
+          const revData = await revRes.json();
+          if (revData?.reviews) {
+            Object.assign(appReviewsMap, revData.reviews);
+          }
+        }
+      } catch (_) {}
+
+      // Direct Community Firestore REST query fallback (for static deployments like Cloudflare Pages)
+      if (!communityStatsPayload || Object.keys(appReviewsMap).length === 0) {
+        try {
+          const cfg = getResolvedCommunityFirebaseConfig();
+          const restUrl = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/reviews?pageSize=500&key=${cfg.apiKey}`;
+          const fireRes = await fetch(restUrl);
+          if (fireRes.ok) {
+            const fireData = await fireRes.json();
+            const docs = fireData?.documents || [];
+            log(`GitHub Sync: Pulled ${docs.length} raw community review document(s) directly from Firestore.`);
+
+            let totalReviews = 0;
+            let publishedReviews = 0;
+            let totalRating = 0;
+            const ratingDistribution: Record<string, number> = { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 };
+
+            docs.forEach((docItem: any) => {
+              const raw = parseFirestoreFields(docItem.fields || {});
+              const rawId = docItem.name ? docItem.name.split('/').pop() : '';
+              const rId = raw.id || rawId;
+              const appId = String(raw.appId || raw.app_id || 'general').trim().toLowerCase();
+              const rating = Math.max(1, Math.min(5, Math.round(Number(raw.rating) || 5)));
+              const status = raw.status || 'published';
+              const isPinned = !!raw.isPinned;
+              const text = raw.reviewText || raw.comment || raw.text || '';
+              const userName = raw.userName || raw.username || 'Verified Player';
+              const timestamp = raw.timestamp || raw.created_at || new Date().toISOString();
+
+              totalReviews++;
+              if (status === 'published') {
+                publishedReviews++;
+                totalRating += rating;
+                ratingDistribution[String(rating)] = (ratingDistribution[String(rating)] || 0) + 1;
+
+                if (!appCountsMap[appId]) {
+                  appCountsMap[appId] = {
+                    total: 0,
+                    published: 0,
+                    pending: 0,
+                    rejected: 0,
+                    flagged: 0,
+                    avgRating: 5.0,
+                    ratingDistribution: { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 },
+                    ratingSum: 0
+                  };
+                }
+                const ac = appCountsMap[appId];
+                ac.total++;
+                ac.published++;
+                ac.ratingSum += rating;
+                ac.avgRating = parseFloat((ac.ratingSum / ac.published).toFixed(1));
+                ac.ratingDistribution[String(rating)] = (ac.ratingDistribution[String(rating)] || 0) + 1;
+
+                if (!appReviewsMap[appId]) appReviewsMap[appId] = [];
+                appReviewsMap[appId].push({
+                  id: rId,
+                  appId,
+                  rating,
+                  userName,
+                  reviewText: text,
+                  timestamp,
+                  isPinned,
+                  helpful_count: Number(raw.helpful_count || 0),
+                  status: 'published',
+                  adminReply: raw.adminReply || null
+                });
+              }
+            });
+
+            const globalAvg = publishedReviews > 0 ? parseFloat((totalRating / publishedReviews).toFixed(1)) : 4.8;
+            communityStatsPayload = {
+              totalReviews,
+              publishedReviews,
+              averageRating: globalAvg,
+              ratingDistribution,
+              appCounts: appCountsMap,
+              updated_at: new Date().toISOString()
+            };
+            log(`GitHub Sync: Assembled live ratings & reviews for ${Object.keys(appCountsMap).length} app(s).`);
+          }
+        } catch (cFsErr: any) {
+          log(`GitHub Sync Notice: Direct review REST note: ${cFsErr?.message || cFsErr}`);
+        }
       }
+
+      // Sort and slice top 5 per app for central communityReviewsPayload (SSR prerender bundle)
+      for (const [k, revs] of Object.entries(appReviewsMap)) {
+        revs.sort((a, b) => {
+          if (a.isPinned && !b.isPinned) return -1;
+          if (!a.isPinned && b.isPinned) return 1;
+          return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+        });
+        communityReviewsPayload[k] = revs.slice(0, 5);
+      }
+
+      // Harmonize live community review stats into apps so static data, cards, and SEO have 100% consistent ratings
+      const appCounts = communityStatsPayload?.appCounts || {};
+      finalApps = finalApps.map((a: any) => {
+        const keyId = String(a.id || '').toLowerCase().trim();
+        const keySlug = String(a.slug || '').toLowerCase().trim();
+        const countInfo = appCounts[keyId] || appCounts[keySlug];
+        if (countInfo && (countInfo.published > 0 || countInfo.total > 0)) {
+          const realPublished = Number(countInfo.published ?? countInfo.total ?? 0);
+          const realRating = Number(countInfo.avgRating || 4.5);
+          return {
+            ...a,
+            rating: realRating,
+            review_count: realPublished,
+            reviews: realPublished
+          };
+        }
+        return a;
+      });
+      log(`GitHub Sync: Harmonized live review ratings across all ${finalApps.length} catalog apps.`);
     } catch (e: any) {
       log(`GitHub Sync Notice: Rating harmonization note: ${e?.message || 'bypassed'}`);
     }
@@ -282,42 +523,8 @@ export function useGitHubSync(
       return app;
     });
 
-    // Fetch live atomic catalog stats for SEO Schema
-    communityStatsPayload = null;
-    try {
-      log("GitHub Sync: Fetching live atomic ratings for Googlebot Schema...");
-      const statsRes = await adminFetch('/api/v1/admin/community/export-stats');
-      if (statsRes.ok) {
-        const statsData = await statsRes.json();
-        if (statsData.success && statsData.stats) {
-          communityStatsPayload = statsData.stats;
-          const appCount = Object.keys(communityStatsPayload.appCounts || {}).length;
-          log(`GitHub Sync: Loaded live atomic ratings summary for ${appCount} app(s).`);
-        }
-      }
-    } catch (e: any) {
-      log(`GitHub Sync Notice: Stats export notice: ${e?.message || 'proceeding with base'}`);
-    }
-
-    // Fetch live compact top 5 static reviews per app for ultra-fast CDN delivery
-    let communityReviewsPayload: Record<string, any> = {};
-    try {
-      log("GitHub Sync: Fetching top verified reviews slice for fast edge delivery...");
-      const revRes = await adminFetch('/api/v1/admin/community/export-static-reviews?limit=5');
-      if (revRes.ok) {
-        const revData = await revRes.json();
-        if (revData.success && revData.reviews) {
-          communityReviewsPayload = revData.reviews;
-          const appCount = Object.keys(communityReviewsPayload).length;
-          log(`GitHub Sync: Loaded compact top reviews for ${appCount} app(s).`);
-        }
-      }
-    } catch (e: any) {
-      log(`GitHub Sync Notice: Reviews export notice: ${e?.message || 'proceeding with base'}`);
-    }
-
-    // Fallback: If empty, load from existing communityStaticReviews and slice top 5 per app
-    if (Object.keys(communityReviewsPayload).length === 0) {
+    // Fallback: If reviews payload is empty, load from existing communityStaticReviews and slice top 5 per app
+    if (!communityReviewsPayload || Object.keys(communityReviewsPayload).length === 0) {
       try {
         const existingReviews = await import('../lib/communityStaticReviews.json');
         const rawMap = (existingReviews.default || existingReviews) as Record<string, any[]>;
@@ -481,6 +688,39 @@ export function useGitHubSync(
           content: staticJsonCode
         }
       ];
+
+      // Partitioned per-app review files and stats files for 0ms Edge CDN loading and 0 Firebase reads
+      const emittedKeys = new Set<string>();
+      for (const [appKey, revList] of Object.entries(appReviewsMap)) {
+        if (Array.isArray(revList) && revList.length > 0 && !emittedKeys.has(appKey)) {
+          emittedKeys.add(appKey);
+          primaryBatchFiles.push({
+            path: `public/data/reviews/${encodeURIComponent(appKey)}.json`,
+            content: JSON.stringify(revList)
+          });
+        }
+      }
+      // Also ensure slug keys exist for all public apps
+      for (const app of publicApps) {
+        const idKey = String(app.id || '').trim().toLowerCase();
+        const slugKey = String(app.slug || '').trim().toLowerCase();
+        const revs = appReviewsMap[idKey] || appReviewsMap[slugKey] || [];
+        if (slugKey && !emittedKeys.has(slugKey) && revs.length > 0) {
+          emittedKeys.add(slugKey);
+          primaryBatchFiles.push({
+            path: `public/data/reviews/${encodeURIComponent(slugKey)}.json`,
+            content: JSON.stringify(revs)
+          });
+        }
+      }
+      for (const [appKey, countStats] of Object.entries(appCountsMap)) {
+        if (countStats) {
+          primaryBatchFiles.push({
+            path: `public/data/stats/${encodeURIComponent(appKey)}.json`,
+            content: JSON.stringify(countStats)
+          });
+        }
+      }
 
       if (vaultCode) {
         primaryBatchFiles.push({

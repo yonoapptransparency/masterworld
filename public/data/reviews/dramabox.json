@@ -1,0 +1,67 @@
+[
+  {
+    "id": "rev_o66fm4o31_ai_1790620503046_0_hi8s2",
+    "appId": "o66fm4o31",
+    "appSlug": "dramabox",
+    "appName": "DramaBox",
+    "userName": "Rohan Mehta",
+    "rating": 5,
+    "reviewText": "Really impressed by DramaBox. The UI transitions are smooth, matchmaking is fast, and table mechanics feel natural.",
+    "timestamp": "2026-09-28T22:37:46.909Z",
+    "helpful_count": 13,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_o66fm4o31_ai_1790620503047_1_2nx65",
+    "appId": "o66fm4o31",
+    "appSlug": "dramabox",
+    "appName": "DramaBox",
+    "userName": "Vikram S.",
+    "rating": 1,
+    "reviewText": "Excellent interface and stable connection even on mobile data. Kudos to STORYMATRIX for this polished experience.",
+    "timestamp": "2026-09-24T10:13:35.866Z",
+    "helpful_count": 2,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_o66fm4o31_ai_1790620503047_2_aokq1",
+    "appId": "o66fm4o31",
+    "appSlug": "dramabox",
+    "appName": "DramaBox",
+    "userName": "Pooja Sharma",
+    "rating": 4,
+    "reviewText": "Clean layout and intuitive rules. Performance is smooth, would just appreciate a toggle for low-power mode.",
+    "timestamp": "2026-09-22T21:56:11.425Z",
+    "helpful_count": 1,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_o66fm4o31_ai_1790620503047_3_4yzfw",
+    "appId": "o66fm4o31",
+    "appSlug": "dramabox",
+    "appName": "DramaBox",
+    "userName": "Aditya Nair",
+    "rating": 4,
+    "reviewText": "Overall a solid experience with DramaBox. The gameplay is very fluid, just hoping the next update adds more custom card themes.",
+    "timestamp": "2026-09-18T21:17:11.354Z",
+    "helpful_count": 9,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_o66fm4o31_ai_1790620503047_4_xtipd",
+    "appId": "o66fm4o31",
+    "appSlug": "dramabox",
+    "appName": "DramaBox",
+    "userName": "Kunal Sen",
+    "rating": 4,
+    "reviewText": "Great responsiveness and quick table joins. Occasionally takes a few extra seconds to reconnect after switching apps, but otherwise flawless.",
+    "timestamp": "2026-09-15T21:50:21.410Z",
+    "helpful_count": 10,
+    "isPinned": false,
+    "adminReply": null
+  }
+]

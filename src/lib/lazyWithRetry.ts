@@ -4,6 +4,26 @@ export type PreloadableComponent<T extends ComponentType<any>> = LazyExoticCompo
   preload: () => Promise<{ default: T }>;
 };
 
+// Global Vite Dynamic Import Preload Error Listener
+// Catches hash mismatch when a new deployment is pushed while a user tab is already open
+if (typeof window !== 'undefined') {
+  window.addEventListener('vite:preloadError', (event) => {
+    console.warn('[Vite Preload] Chunk mismatch detected after deployment. Reloading window:', event);
+    const reloadKey = 'vite_preload_reload_' + (window.location.pathname || 'root');
+    const hasReloaded = window.sessionStorage.getItem(reloadKey);
+    if (!hasReloaded) {
+      try {
+        window.sessionStorage.setItem(reloadKey, 'true');
+        const url = new URL(window.location.href);
+        url.searchParams.set('_v', String(Date.now()));
+        window.location.href = url.toString();
+      } catch (e) {
+        window.location.reload();
+      }
+    }
+  });
+}
+
 /**
  * Robust lazy import with automatic retry and page reload fallback for chunk loading errors.
  * Supports .preload() method for instant prefetching during idle time or user hover/touch.
@@ -15,55 +35,68 @@ export const lazyWithRetry = <T extends ComponentType<any>>(
 
   const preload = () => {
     if (!preloadedPromise) {
-      preloadedPromise = componentImport().catch(err => {
+      preloadedPromise = componentImport().catch(() => {
         preloadedPromise = null;
-        throw err;
+        return null as any;
       });
     }
     return preloadedPromise;
   };
 
   const LazyComponent = lazy(async () => {
-    const key = 'chunk_reload_retry_' + window.location.pathname;
+    const key = 'chunk_reload_retry_' + (typeof window !== 'undefined' ? window.location.pathname : '');
     let pageHasAlreadyBeenForceRefreshed = false;
     try {
       pageHasAlreadyBeenForceRefreshed = JSON.parse(window.sessionStorage.getItem(key) || 'false');
     } catch (e) {}
 
-    try {
-      const component = preloadedPromise ? await preloadedPromise : await componentImport();
-      try { window.sessionStorage.setItem(key, 'false'); } catch (e) {}
-      return component;
-    } catch (error: any) {
-      preloadedPromise = null;
-      const errorMsg = String(error?.message || error || '');
-      const isChunkError =
-        error?.name === 'ChunkLoadError' ||
-        /Failed to fetch dynamically imported module/i.test(errorMsg) ||
-        /Loading chunk/i.test(errorMsg) ||
-        /Failed to load resource/i.test(errorMsg) ||
-        /Importing a module script failed/i.test(errorMsg);
-
-      if (!pageHasAlreadyBeenForceRefreshed && isChunkError) {
-        console.warn('[ChunkLoader] Chunk load failed. Force refreshing page once for latest bundle:', errorMsg);
-        try { window.sessionStorage.setItem(key, 'true'); } catch(e) {}
-        try {
-          const url = new URL(window.location.href);
-          url.searchParams.set('_v', String(Date.now()));
-          window.location.href = url.toString();
-        } catch (e) {
-          window.location.reload();
+    // Attempt import with up to 2 retries
+    let lastError: any = null;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const component = preloadedPromise ? await preloadedPromise : await componentImport();
+        if (component && component.default) {
+          try { window.sessionStorage.setItem(key, 'false'); } catch (e) {}
+          return component;
         }
-        // In iframe or sandboxed environments, window.location.reload() can be blocked or delayed.
-        // Reject after 3 seconds so the app doesn't hang on an infinite loading spinner.
-        return new Promise<{ default: T }>((_, reject) => {
-          setTimeout(() => {
-            reject(new Error(`Module load timed out: ${errorMsg}. Please refresh the page.`));
-          }, 3000);
-        });
+      } catch (err: any) {
+        lastError = err;
+        preloadedPromise = null;
+        if (attempt < 2) {
+          // Brief backoff before retry (e.g., transient network hiccup)
+          await new Promise(r => setTimeout(r, 250 * attempt));
+        }
       }
-      throw error;
     }
+
+    const error = lastError;
+    const errorMsg = String(error?.message || error || '');
+    const isChunkError =
+      error?.name === 'ChunkLoadError' ||
+      /Failed to fetch dynamically imported module/i.test(errorMsg) ||
+      /Loading chunk/i.test(errorMsg) ||
+      /Failed to load resource/i.test(errorMsg) ||
+      /Importing a module script failed/i.test(errorMsg);
+
+    if (typeof window !== 'undefined' && !pageHasAlreadyBeenForceRefreshed && isChunkError) {
+      console.warn('[ChunkLoader] Chunk load failed after deployment. Force refreshing page for latest bundle:', errorMsg);
+      try { window.sessionStorage.setItem(key, 'true'); } catch(e) {}
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('_v', String(Date.now()));
+        window.location.href = url.toString();
+      } catch (e) {
+        window.location.reload();
+      }
+
+      return new Promise<{ default: T }>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error(`Module load timed out: ${errorMsg}. Please refresh the page.`));
+        }, 3000);
+      });
+    }
+
+    throw error;
   });
 
   return Object.assign(LazyComponent, { preload });

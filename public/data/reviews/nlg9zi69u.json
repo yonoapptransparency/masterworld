@@ -1,0 +1,67 @@
+[
+  {
+    "id": "rev_nlg9zi69u_ai_1790620437356_0_3ucbj",
+    "appId": "nlg9zi69u",
+    "appSlug": "jiocinema",
+    "appName": "JioCinema",
+    "userName": "Rohan Mehta",
+    "rating": 5,
+    "reviewText": "Really impressed by JioCinema. The UI transitions are smooth, matchmaking is fast, and table mechanics feel natural.",
+    "timestamp": "2026-09-28T11:29:59.332Z",
+    "helpful_count": 12,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_nlg9zi69u_ai_1790620437356_1_kzjui",
+    "appId": "nlg9zi69u",
+    "appSlug": "jiocinema",
+    "appName": "JioCinema",
+    "userName": "Vikram S.",
+    "rating": 5,
+    "reviewText": "Excellent interface and stable connection even on mobile data. Kudos to Reliance Projects Property Mgmt Services Ltd. for this polished experience.",
+    "timestamp": "2026-09-23T21:29:25.700Z",
+    "helpful_count": 10,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_nlg9zi69u_ai_1790620437356_2_f2pxl",
+    "appId": "nlg9zi69u",
+    "appSlug": "jiocinema",
+    "appName": "JioCinema",
+    "userName": "Pooja Sharma",
+    "rating": 4,
+    "reviewText": "Clean layout and intuitive rules. Performance is smooth, would just appreciate a toggle for low-power mode.",
+    "timestamp": "2026-09-21T12:48:49.310Z",
+    "helpful_count": 5,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_nlg9zi69u_ai_1790620437356_3_a1834",
+    "appId": "nlg9zi69u",
+    "appSlug": "jiocinema",
+    "appName": "JioCinema",
+    "userName": "Aditya Nair",
+    "rating": 4,
+    "reviewText": "Overall a solid experience with JioCinema. The gameplay is very fluid, just hoping the next update adds more custom card themes.",
+    "timestamp": "2026-09-19T12:37:16.075Z",
+    "helpful_count": 13,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_nlg9zi69u_ai_1790620437356_4_a0ncb",
+    "appId": "nlg9zi69u",
+    "appSlug": "jiocinema",
+    "appName": "JioCinema",
+    "userName": "Kunal Sen",
+    "rating": 3,
+    "reviewText": "Decent performance and fair matchmaking, but the sound effects can get slightly repetitive. Good casual app overall.",
+    "timestamp": "2026-09-15T12:30:01.254Z",
+    "helpful_count": 12,
+    "isPinned": false,
+    "adminReply": null
+  }
+]

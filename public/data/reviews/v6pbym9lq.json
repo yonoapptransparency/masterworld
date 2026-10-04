@@ -1,0 +1,67 @@
+[
+  {
+    "id": "rev_v6pbym9lq_ai_1790620511435_0_1pljt",
+    "appId": "v6pbym9lq",
+    "appSlug": "shortmax",
+    "appName": "ShortMax",
+    "userName": "Rohan Mehta",
+    "rating": 2,
+    "reviewText": "Really impressed by ShortMax. The UI transitions are smooth, matchmaking is fast, and table mechanics feel natural.",
+    "timestamp": "2026-09-28T12:58:09.927Z",
+    "helpful_count": 9,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_v6pbym9lq_ai_1790620511435_1_zjv04",
+    "appId": "v6pbym9lq",
+    "appSlug": "shortmax",
+    "appName": "ShortMax",
+    "userName": "Vikram S.",
+    "rating": 3,
+    "reviewText": "Excellent interface and stable connection even on mobile data. Kudos to SHORTMAX LIMITED / SHORTTV LIMITED for this polished experience.",
+    "timestamp": "2026-09-24T13:03:23.612Z",
+    "helpful_count": 3,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_v6pbym9lq_ai_1790620511435_2_yrhkf",
+    "appId": "v6pbym9lq",
+    "appSlug": "shortmax",
+    "appName": "ShortMax",
+    "userName": "Pooja Sharma",
+    "rating": 4,
+    "reviewText": "Clean layout and intuitive rules. Performance is smooth, would just appreciate a toggle for low-power mode.",
+    "timestamp": "2026-09-21T15:17:46.427Z",
+    "helpful_count": 13,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_v6pbym9lq_ai_1790620511435_3_sojnl",
+    "appId": "v6pbym9lq",
+    "appSlug": "shortmax",
+    "appName": "ShortMax",
+    "userName": "Aditya Nair",
+    "rating": 4,
+    "reviewText": "Overall a solid experience with ShortMax. The gameplay is very fluid, just hoping the next update adds more custom card themes.",
+    "timestamp": "2026-09-18T22:32:45.041Z",
+    "helpful_count": 6,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_v6pbym9lq_ai_1790620511435_4_bdk95",
+    "appId": "v6pbym9lq",
+    "appSlug": "shortmax",
+    "appName": "ShortMax",
+    "userName": "Kunal Sen",
+    "rating": 1,
+    "reviewText": "Great responsiveness and quick table joins. Occasionally takes a few extra seconds to reconnect after switching apps, but otherwise flawless.",
+    "timestamp": "2026-09-15T10:46:55.039Z",
+    "helpful_count": 5,
+    "isPinned": false,
+    "adminReply": null
+  }
+]

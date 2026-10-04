@@ -1,0 +1,54 @@
+[
+  {
+    "id": "rev_21d7p841w_ai_1790620634123_1_npd3d",
+    "appId": "21d7p841w",
+    "appSlug": "netflix",
+    "appName": "Netflix",
+    "userName": "Vikram S.",
+    "rating": 5,
+    "reviewText": "Excellent interface and stable connection even on mobile data. Kudos to Netflix, Inc. for this polished experience.",
+    "timestamp": "2026-09-23T11:16:01.507Z",
+    "helpful_count": 14,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_21d7p841w_ai_1790620634123_2_35vz3",
+    "appId": "21d7p841w",
+    "appSlug": "netflix",
+    "appName": "Netflix",
+    "userName": "Pooja Sharma",
+    "rating": 4,
+    "reviewText": "Clean layout and intuitive rules. Performance is smooth, would just appreciate a toggle for low-power mode.",
+    "timestamp": "2026-09-22T10:01:13.077Z",
+    "helpful_count": 3,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_21d7p841w_ai_1790620634123_3_xsyhr",
+    "appId": "21d7p841w",
+    "appSlug": "netflix",
+    "appName": "Netflix",
+    "userName": "Aditya Nair",
+    "rating": 4,
+    "reviewText": "Overall a solid experience with Netflix. The gameplay is very fluid, just hoping the next update adds more custom card themes.",
+    "timestamp": "2026-09-16T11:34:55.794Z",
+    "helpful_count": 2,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_21d7p841w_ai_1790620634123_4_2cp7r",
+    "appId": "21d7p841w",
+    "appSlug": "netflix",
+    "appName": "Netflix",
+    "userName": "Kunal Sen",
+    "rating": 3,
+    "reviewText": "Decent performance and fair matchmaking, but the sound effects can get slightly repetitive. Good casual app overall.",
+    "timestamp": "2026-09-15T15:32:18.537Z",
+    "helpful_count": 3,
+    "isPinned": false,
+    "adminReply": null
+  }
+]

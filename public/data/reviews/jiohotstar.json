@@ -1,0 +1,67 @@
+[
+  {
+    "id": "rev_i6wdxhzyj_ai_1790620454907_0_oxo0x",
+    "appId": "i6wdxhzyj",
+    "appSlug": "jiohotstar",
+    "appName": "JioHotstar",
+    "userName": "Rohan Mehta",
+    "rating": 5,
+    "reviewText": "Really impressed by JioHotstar. The UI transitions are smooth, matchmaking is fast, and table mechanics feel natural.",
+    "timestamp": "2026-09-28T21:28:12.149Z",
+    "helpful_count": 7,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_i6wdxhzyj_ai_1790620454907_1_wfwt8",
+    "appId": "i6wdxhzyj",
+    "appSlug": "jiohotstar",
+    "appName": "JioHotstar",
+    "userName": "Vikram S.",
+    "rating": 4,
+    "reviewText": "Great responsiveness and quick table joins. Occasionally takes a few extra seconds to reconnect after switching apps, but otherwise flawless.",
+    "timestamp": "2026-09-23T11:17:54.162Z",
+    "helpful_count": 14,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_i6wdxhzyj_ai_1790620454907_2_hhvpq",
+    "appId": "i6wdxhzyj",
+    "appSlug": "jiohotstar",
+    "appName": "JioHotstar",
+    "userName": "Pooja Sharma",
+    "rating": 4,
+    "reviewText": "Clean layout and intuitive rules. Performance is smooth, would just appreciate a toggle for low-power mode.",
+    "timestamp": "2026-09-20T16:05:29.990Z",
+    "helpful_count": 1,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_i6wdxhzyj_ai_1790620454907_3_qtc8v",
+    "appId": "i6wdxhzyj",
+    "appSlug": "jiohotstar",
+    "appName": "JioHotstar",
+    "userName": "Aditya Nair",
+    "rating": 4,
+    "reviewText": "Overall a solid experience with JioHotstar. The gameplay is very fluid, just hoping the next update adds more custom card themes.",
+    "timestamp": "2026-09-18T16:35:50.729Z",
+    "helpful_count": 7,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_i6wdxhzyj_ai_1790620454907_4_jm08x",
+    "appId": "i6wdxhzyj",
+    "appSlug": "jiohotstar",
+    "appName": "JioHotstar",
+    "userName": "Kunal Sen",
+    "rating": 3,
+    "reviewText": "Decent performance and fair matchmaking, but the sound effects can get slightly repetitive. Good casual app overall.",
+    "timestamp": "2026-09-14T23:36:17.110Z",
+    "helpful_count": 11,
+    "isPinned": false,
+    "adminReply": null
+  }
+]

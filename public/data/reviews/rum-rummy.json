@@ -1,0 +1,54 @@
+[
+  {
+    "id": "rev_2ovzpzjxy_ai_1790620306005_0_fep46",
+    "appId": "2ovzpzjxy",
+    "appSlug": "rum-rummy",
+    "appName": "RUM RUMMY",
+    "userName": "Rohan Mehta",
+    "rating": 5,
+    "reviewText": "Really impressed by RUM RUMMY. The UI transitions are smooth, matchmaking is fast, and table mechanics feel natural.",
+    "timestamp": "2026-09-28T11:43:00.568Z",
+    "helpful_count": 8,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_2ovzpzjxy_brain1_1790412340613_249",
+    "appId": "2ovzpzjxy",
+    "appSlug": "rum-rummy",
+    "appName": "RUM RUMMY",
+    "userName": "Priya_Mumbai88",
+    "rating": 4,
+    "reviewText": "The interface is very clean and the sorting feature is quite helpful for beginners. Would love to see more table themes in the future updates though.",
+    "timestamp": "2026-09-26T08:45:40.623Z",
+    "helpful_count": 13,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_2ovzpzjxy_brain1_1790412340613_478",
+    "appId": "2ovzpzjxy",
+    "appSlug": "rum-rummy",
+    "appName": "RUM RUMMY",
+    "userName": "Vikram_K7",
+    "rating": 2,
+    "reviewText": "Game logic thoda slow lag raha hai, kabhi kabhi touch control mein issue hota hai. Need better optimization for older devices.",
+    "timestamp": "2026-09-26T08:45:40.627Z",
+    "helpful_count": 15,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_2ovzpzjxy_brain1_1790412340613_752",
+    "appId": "2ovzpzjxy",
+    "appSlug": "rum-rummy",
+    "appName": "RUM RUMMY",
+    "userName": "Rohan_Delhi",
+    "rating": 5,
+    "reviewText": "Super smooth gameplay! Love how fast the app connects to tables. Best way to pass time with friends.",
+    "timestamp": "2026-09-26T08:45:40.618Z",
+    "helpful_count": 3,
+    "isPinned": false,
+    "adminReply": null
+  }
+]

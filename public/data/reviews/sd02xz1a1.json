@@ -1,0 +1,41 @@
+[
+  {
+    "id": "rev_sd02xz1a1_ai_1790619528757_0_dbtgg",
+    "appId": "sd02xz1a1",
+    "appSlug": "jeet-spin",
+    "appName": "JEET SPIN",
+    "userName": "Vikram_Techie",
+    "rating": 4,
+    "reviewText": "The physics engine is honestly top-tier. Getting the trajectory right for the perfect ricochet is so satisfying. Runs smoothly on my phone without any heating issues.",
+    "timestamp": "2026-09-28T20:34:39.932Z",
+    "helpful_count": 8,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_sd02xz1a1_ai_1790619528757_1_9nnxy",
+    "appId": "sd02xz1a1",
+    "appSlug": "jeet-spin",
+    "appName": "JEET SPIN",
+    "userName": "Pooja_V",
+    "rating": 4,
+    "reviewText": "Acha game hai, physics puzzles are quite challenging. Thoda practice chahiye perfect stars ke liye.",
+    "timestamp": "2026-09-25T23:03:30.861Z",
+    "helpful_count": 2,
+    "isPinned": false,
+    "adminReply": null
+  },
+  {
+    "id": "rev_sd02xz1a1_ai_1790619528758_2_as80o",
+    "appId": "sd02xz1a1",
+    "appSlug": "jeet-spin",
+    "appName": "JEET SPIN",
+    "userName": "Arjun_Nair_99",
+    "rating": 4,
+    "reviewText": "Great graphics and very polished interface. Love that there are no annoying pop-ups blocking the screen.",
+    "timestamp": "2026-09-21T22:39:06.606Z",
+    "helpful_count": 16,
+    "isPinned": false,
+    "adminReply": null
+  }
+]
