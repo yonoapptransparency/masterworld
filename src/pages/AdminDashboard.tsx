@@ -424,7 +424,7 @@ export default function AdminDashboard() {
           </div>
         </header>
 
-        <div className="p-4 max-w-7xl mx-auto">
+        <div className={activeTab === 'reviews' ? 'p-0 sm:p-2 lg:p-4 w-full max-w-full' : 'p-4 max-w-7xl mx-auto'}>
           <AdminTabContent 
             activeTab={activeTab} appsList={appsList} newsList={newsList} banners={banners} videosList={videosList}
             categoriesList={categoriesList} quickLinksList={quickLinksList} websiteFaqsList={websiteFaqsList} developersList={developersList}
