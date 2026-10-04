@@ -512,7 +512,7 @@ export async function fetchLiveReviews(options: {
     const contentType = res.headers.get('content-type') || '';
     if (res.ok && contentType.includes('application/json')) {
       const data = await res.json();
-      if (data && Array.isArray(data.reviews)) {
+      if (data && Array.isArray(data.reviews) && data.reviews.length > 0) {
         const enrichedReviews = attachLocalUserReviews(data.reviews);
         const result: ReviewFetchResult = {
           reviews: enrichedReviews,
@@ -520,7 +520,6 @@ export async function fetchLiveReviews(options: {
           nextCursor: data.nextCursor || null,
           stats: data.stats || null
         };
-        // Cache initial default page for all aliases
         if (!cursor && filter === 'all' && sortBy === 'recent') {
           targets.forEach(t => setCachedLiveReviews(t, result));
         }
@@ -528,93 +527,10 @@ export async function fetchLiveReviews(options: {
       }
     }
   } catch (err) {
-    // Network or static environment: proceed to Zero-Quota static reviews before Direct Firestore REST
+    // Network or static environment: proceed to Direct Firestore REST
   }
 
-  // 1.5 Zero-Quota Static Shield: Check bundled static reviews before hitting Firestore REST
-  const staticReviewsMap: Record<string, any> = (communityStaticReviews as any) || {};
-  const staticList = (canonicalId && staticReviewsMap[canonicalId.toLowerCase().trim()]) || 
-                     (canonicalSlug && staticReviewsMap[canonicalSlug.toLowerCase().trim()]);
-  if (Array.isArray(staticList) && staticList.length > 0) {
-    const normalized: PublicReview[] = staticList.map((r: any) => {
-      const uName = (r.userName && r.userName.trim() && r.userName.toLowerCase() !== 'player')
-        ? r.userName.trim()
-        : (r.username && r.username.trim() ? r.username.trim() : (r.userName || 'Player'));
-      const text = r.reviewText || r.comment || '';
-      const date = r.created_at || r.timestamp || new Date().toISOString();
-      return {
-        id: r.id || `rev_${Math.random().toString(36).slice(2)}`,
-        app_id: r.appId || r.app_id || canonicalId,
-        appId: r.appId || canonicalId,
-        appSlug: r.appSlug || canonicalSlug,
-        appName: r.appName || canonicalName,
-        username: uName,
-        userName: uName,
-        rating: Number(r.rating) || 5,
-        comment: text,
-        reviewText: text,
-        created_at: formatReviewDate(date),
-        timestamp: date,
-        helpful_count: Number(r.helpful_count) || 0,
-        reported: Boolean(r.reported),
-        report_count: Number(r.report_count) || 0,
-        source: r.source || 'community',
-        isPinned: Boolean(r.isPinned),
-        adminReply: r.adminReply || null
-      };
-    });
-
-    const enriched = attachLocalUserReviews(normalized);
-
-    // Filter by rating/sentiment
-    let filtered = enriched;
-    if (filter === 'positive') filtered = enriched.filter(r => (r.rating || 5) >= 4);
-    if (filter === 'critical') filtered = enriched.filter(r => (r.rating || 5) <= 3);
-
-    // Sort
-    filtered.sort((a, b) => {
-      const aIsPinned = Boolean(a.isPinned);
-      const bIsPinned = Boolean(b.isPinned);
-      if (aIsPinned !== bIsPinned) return aIsPinned ? -1 : 1;
-      if (sortBy === 'helpful') return (b.helpful_count || 0) - (a.helpful_count || 0);
-      if (sortBy === 'highest') return (b.rating || 5) - (a.rating || 5);
-      if (sortBy === 'lowest') return (a.rating || 5) - (b.rating || 5);
-      const dateA = new Date((a as any).timestamp || a.created_at || 0).getTime();
-      const dateB = new Date((b as any).timestamp || b.created_at || 0).getTime();
-      return dateB - dateA;
-    });
-
-    // Cursor Pagination for Load More
-    let startIndex = 0;
-    if (cursor) {
-      const idx = filtered.findIndex(r => r.id === cursor);
-      if (idx >= 0) {
-        startIndex = idx + 1;
-      } else {
-        const numCursor = parseInt(String(cursor), 10);
-        if (!isNaN(numCursor) && numCursor >= 0) startIndex = numCursor;
-      }
-    }
-
-    const paged = filtered.slice(startIndex, startIndex + limit);
-    const hasMore = startIndex + limit < filtered.length;
-    const nextCursor = hasMore && paged.length > 0 ? paged[paged.length - 1].id : null;
-
-    const result: ReviewFetchResult = {
-      reviews: paged,
-      hasMore,
-      nextCursor,
-      stats: getCachedLiveAppStats(canonicalId, canonicalSlug)
-    };
-
-    if (!cursor && filter === 'all' && sortBy === 'recent') {
-      targets.forEach(t => setCachedLiveReviews(t, result));
-    }
-    return result;
-  }
-
-  // 2. Direct Firestore REST Fallback (Direct connection to rummydexcommunity project)
-  // Search bots, web crawlers, and synthetic performance audits must NEVER query Firestore REST directly
+  // 2. Direct Firestore REST (Direct connection to live rummydexcommunity project)
   const isCrawlerOrBot = typeof navigator !== 'undefined' && /googlebot|google-inspectiontool|bingbot|slurp|duckduckbot|baiduspider|yandexbot|crawler|spider|lighthouse|chrome-lighthouse|headless/i.test(navigator.userAgent || '');
   if (isCrawlerOrBot) {
     return {
@@ -639,7 +555,7 @@ export async function fetchLiveReviews(options: {
     // 2A. Try reading the aggregated bucket document (community_store/app_reviews_${cleanId}_0)
     for (const docId of uniqueCandidateDocIds) {
       try {
-        const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${cfg.firestoreDatabaseId}/documents/community_store/${encodeURIComponent(docId)}?key=${encodeURIComponent(cfg.apiKey)}`;
+        const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/community_store/${encodeURIComponent(docId)}?key=${encodeURIComponent(cfg.apiKey)}`;
         const docRes = await fetch(url);
         if (docRes.ok) {
           const rawDoc = await docRes.json();
@@ -668,15 +584,13 @@ export async function fetchLiveReviews(options: {
             }
           }
         }
-      } catch (docErr) {
-        // Try next candidate
-      }
+      } catch (docErr) {}
     }
 
-    // 2B. Structured multi-identifier query on the 'reviews' collection
+    // 2B. Direct query on the live 'reviews' collection
     if (allLoadedReviews.length === 0) {
       try {
-        const queryUrl = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${cfg.firestoreDatabaseId}/documents:runQuery?key=${encodeURIComponent(cfg.apiKey)}`;
+        const queryUrl = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents:runQuery?key=${encodeURIComponent(cfg.apiKey)}`;
 
         const idFilters = targets.map(t => ({
           fieldFilter: { field: { fieldPath: "appId" }, op: "EQUAL", value: { stringValue: t } }
@@ -689,13 +603,13 @@ export async function fetchLiveReviews(options: {
         const queryBody = {
           structuredQuery: {
             from: [{ collectionId: "reviews" }],
-            where: {
+            where: allFilters.length === 1 ? allFilters[0] : {
               compositeFilter: {
                 op: "OR",
                 filters: allFilters
               }
             },
-            limit: 5
+            limit: 15
           }
         };
 
@@ -738,46 +652,17 @@ export async function fetchLiveReviews(options: {
           }
         }
       } catch (queryErr) {
-        console.warn('[Community Direct REST] Query error notice:', queryErr);
+        console.warn('[Community Direct REST] Query notice:', queryErr);
       }
-    }
-
-    // 2C. Retrieve atomic stats from local/single document baseline
-    if (!loadedStats) {
-      loadedStats = getCachedLiveAppStats(canonicalId, canonicalSlug);
     }
 
     if (allLoadedReviews.length > 0) {
-      // Reconcile stats: never allow totalReviews to be less than the actual loaded reviews count
-      if (!loadedStats || (allLoadedReviews.length > Number(loadedStats.totalReviews || 0))) {
-        const starCounts: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
-        let sum = 0;
-        allLoadedReviews.forEach(r => {
-          const star = String(Math.max(1, Math.min(5, Math.round(r.rating || 5))));
-          starCounts[star] = (starCounts[star] || 0) + 1;
-          sum += (r.rating || 5);
-        });
-        const total = Math.max(allLoadedReviews.length, Number(loadedStats?.totalReviews || 0));
-        loadedStats = {
-          averageRating: total > 0 ? parseFloat((sum / allLoadedReviews.length).toFixed(1)) : rating,
-          totalReviews: total,
-          starCounts: loadedStats?.starCounts || starCounts,
-          distribution: loadedStats?.distribution || {
-            5: total > 0 ? Math.round(((loadedStats?.starCounts?.['5'] || starCounts['5']) / total) * 100) : 75,
-            4: total > 0 ? Math.round(((loadedStats?.starCounts?.['4'] || starCounts['4']) / total) * 100) : 15,
-            3: total > 0 ? Math.round(((loadedStats?.starCounts?.['3'] || starCounts['3']) / total) * 100) : 6,
-            2: total > 0 ? Math.round(((loadedStats?.starCounts?.['2'] || starCounts['2']) / total) * 100) : 2,
-            1: total > 0 ? Math.round(((loadedStats?.starCounts?.['1'] || starCounts['1']) / total) * 100) : 2,
-          }
-        };
-      }
+      const enriched = attachLocalUserReviews(allLoadedReviews);
 
-      // Apply filtering
-      let filtered = allLoadedReviews;
-      if (filter === 'positive') filtered = allLoadedReviews.filter(r => (r.rating || 5) >= 4);
-      if (filter === 'critical') filtered = allLoadedReviews.filter(r => (r.rating || 5) <= 3);
+      let filtered = enriched;
+      if (filter === 'positive') filtered = enriched.filter(r => (r.rating || 5) >= 4);
+      if (filter === 'critical') filtered = enriched.filter(r => (r.rating || 5) <= 3);
 
-      // Apply sorting (Uniform treatment of all reviews)
       filtered.sort((a, b) => {
         const aIsPinned = Boolean(a.isPinned);
         const bIsPinned = Boolean(b.isPinned);
@@ -785,10 +670,11 @@ export async function fetchLiveReviews(options: {
         if (sortBy === 'helpful') return (b.helpful_count || 0) - (a.helpful_count || 0);
         if (sortBy === 'highest') return (b.rating || 5) - (a.rating || 5);
         if (sortBy === 'lowest') return (a.rating || 5) - (b.rating || 5);
-        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+        const dateA = new Date((a as any).timestamp || a.created_at || 0).getTime();
+        const dateB = new Date((b as any).timestamp || b.created_at || 0).getTime();
+        return dateB - dateA;
       });
 
-      // Handle pagination
       let startIndex = 0;
       if (cursor) {
         const idx = filtered.findIndex(r => r.id === cursor);
@@ -799,25 +685,100 @@ export async function fetchLiveReviews(options: {
       const hasMore = startIndex + limit < filtered.length;
       const nextCursor = hasMore && paged.length > 0 ? paged[paged.length - 1].id : null;
 
-      const enrichedReviews = attachLocalUserReviews(paged);
-      const finalResult: ReviewFetchResult = {
-        reviews: enrichedReviews,
+      const result: ReviewFetchResult = {
+        reviews: paged,
         hasMore,
         nextCursor,
-        stats: loadedStats
+        stats: loadedStats || getCachedLiveAppStats(canonicalId, canonicalSlug)
       };
 
       if (!cursor && filter === 'all' && sortBy === 'recent') {
-        targets.forEach(t => setCachedLiveReviews(t, finalResult));
+        targets.forEach(t => setCachedLiveReviews(t, result));
       }
-
-      return finalResult;
+      return result;
     }
-  } catch (directFirestoreErr) {
-    console.warn('[Community Direct REST] Query notice:', directFirestoreErr);
+  } catch (_) {}
+
+  // 3. Zero-Quota Static Shield Fallback: Bundled reviews & stats if Firestore is offline
+  const staticReviewsMap: Record<string, any> = (communityStaticReviews as any) || {};
+  const staticList = (canonicalId && staticReviewsMap[canonicalId.toLowerCase().trim()]) || 
+                     (canonicalSlug && staticReviewsMap[canonicalSlug.toLowerCase().trim()]);
+  if (Array.isArray(staticList) && staticList.length > 0) {
+    const normalized: PublicReview[] = staticList.map((r: any) => {
+      const uName = (r.userName && r.userName.trim() && r.userName.toLowerCase() !== 'player')
+        ? r.userName.trim()
+        : (r.username && r.username.trim() ? r.username.trim() : (r.userName || 'Player'));
+      const text = r.reviewText || r.comment || '';
+      const date = r.created_at || r.timestamp || new Date().toISOString();
+      return {
+        id: r.id || `rev_${Math.random().toString(36).slice(2)}`,
+        app_id: r.appId || r.app_id || canonicalId,
+        appId: r.appId || canonicalId,
+        appSlug: r.appSlug || canonicalSlug,
+        appName: r.appName || canonicalName,
+        username: uName,
+        userName: uName,
+        rating: Number(r.rating) || 5,
+        comment: text,
+        reviewText: text,
+        created_at: formatReviewDate(date),
+        timestamp: date,
+        helpful_count: Number(r.helpful_count) || 0,
+        reported: Boolean(r.reported),
+        report_count: Number(r.report_count) || 0,
+        source: r.source || 'community',
+        isPinned: Boolean(r.isPinned),
+        adminReply: r.adminReply || null
+      };
+    });
+
+    const enriched = attachLocalUserReviews(normalized);
+
+    let filtered = enriched;
+    if (filter === 'positive') filtered = enriched.filter(r => (r.rating || 5) >= 4);
+    if (filter === 'critical') filtered = enriched.filter(r => (r.rating || 5) <= 3);
+
+    filtered.sort((a, b) => {
+      const aIsPinned = Boolean(a.isPinned);
+      const bIsPinned = Boolean(b.isPinned);
+      if (aIsPinned !== bIsPinned) return aIsPinned ? -1 : 1;
+      if (sortBy === 'helpful') return (b.helpful_count || 0) - (a.helpful_count || 0);
+      if (sortBy === 'highest') return (b.rating || 5) - (a.rating || 5);
+      if (sortBy === 'lowest') return (a.rating || 5) - (b.rating || 5);
+      const dateA = new Date((a as any).timestamp || a.created_at || 0).getTime();
+      const dateB = new Date((b as any).timestamp || b.created_at || 0).getTime();
+      return dateB - dateA;
+    });
+
+    let startIndex = 0;
+    if (cursor) {
+      const idx = filtered.findIndex(r => r.id === cursor);
+      if (idx >= 0) {
+        startIndex = idx + 1;
+      } else {
+        const numCursor = parseInt(String(cursor), 10);
+        if (!isNaN(numCursor) && numCursor >= 0) startIndex = numCursor;
+      }
+    }
+
+    const paged = filtered.slice(startIndex, startIndex + limit);
+    const hasMore = startIndex + limit < filtered.length;
+    const nextCursor = hasMore && paged.length > 0 ? paged[paged.length - 1].id : null;
+
+    const result: ReviewFetchResult = {
+      reviews: paged,
+      hasMore,
+      nextCursor,
+      stats: getCachedLiveAppStats(canonicalId, canonicalSlug)
+    };
+
+    if (!cursor && filter === 'all' && sortBy === 'recent') {
+      targets.forEach(t => setCachedLiveReviews(t, result));
+    }
+    return result;
   }
 
-  // 3. Fallback: Check for any locally saved user reviews in browser storage
+  // 4. Fallback: Check for any locally saved user reviews in browser storage
   if (typeof window !== 'undefined') {
     try {
       const localReviews: PublicReview[] = [];
@@ -1047,7 +1008,8 @@ export async function voteLiveReviewHelpful(reviewId: string): Promise<boolean> 
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reviewId })
     });
-    if (res.ok) backendSuccess = true;
+    const cType = res.headers.get('content-type') || '';
+    if (res.ok && cType.includes('application/json')) backendSuccess = true;
   } catch (e) {
     // Proceed to Direct Firestore REST
   }
@@ -1116,7 +1078,8 @@ export async function reportLiveReview(data: {
         details: data.details || ''
       })
     });
-    if (res.ok) backendSuccess = true;
+    const cType = res.headers.get('content-type') || '';
+    if (res.ok && cType.includes('application/json')) backendSuccess = true;
   } catch (e) {
     // Proceed to Direct Firestore REST
   }
@@ -1137,7 +1100,7 @@ export async function reportLiveReview(data: {
         created_at: new Date().toISOString()
       };
 
-      const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${cfg.firestoreDatabaseId}/documents/reports/${encodeURIComponent(reportId)}?key=${encodeURIComponent(cfg.apiKey)}`;
+      const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/reports/${encodeURIComponent(reportId)}?key=${encodeURIComponent(cfg.apiKey)}`;
       const fields = convertToFirestoreFields(reportDocData);
       await fetch(url, {
         method: 'PATCH',
@@ -1182,7 +1145,8 @@ export async function submitLiveReport(data: {
         turnstileToken: 'frontend_token_placeholder'
       })
     });
-    if (res.ok) backendSuccess = true;
+    const cType = res.headers.get('content-type') || '';
+    if (res.ok && cType.includes('application/json')) backendSuccess = true;
   } catch (e) {
     // Proceed to Direct Firestore REST
   }
@@ -1205,7 +1169,7 @@ export async function submitLiveReport(data: {
         created_at: new Date().toISOString()
       };
 
-      const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${cfg.firestoreDatabaseId}/documents/reports/${encodeURIComponent(reportId)}?key=${encodeURIComponent(cfg.apiKey)}`;
+      const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/reports/${encodeURIComponent(reportId)}?key=${encodeURIComponent(cfg.apiKey)}`;
       const fields = convertToFirestoreFields(reportDocData);
       await fetch(url, {
         method: 'PATCH',

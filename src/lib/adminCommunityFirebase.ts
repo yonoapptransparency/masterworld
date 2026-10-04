@@ -5,7 +5,7 @@
  */
 
 import { adminFetch } from '../services/adminAuthService';
-import { getResolvedCommunityFirebaseConfig, parseFirestoreFields } from './communityFirebase';
+import { getResolvedCommunityFirebaseConfig, parseFirestoreFields, convertToFirestoreFields } from './communityFirebase';
 
 export interface AdminReviewItem {
   id: string;
@@ -403,19 +403,36 @@ export async function updateAdminReviewItem(
   reviewId: string, 
   updates: Partial<AdminReviewItem>
 ): Promise<AdminReviewItem> {
-  const res = await adminFetch(`/api/v1/admin/community/reviews/${encodeURIComponent(reviewId)}`, {
-    method: 'PUT',
+  try {
+    const res = await adminFetch(`/api/v1/admin/community/reviews/${encodeURIComponent(reviewId)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
+    const cType = res.headers.get('content-type') || '';
+    if (res.ok && cType.includes('application/json')) {
+      const data = await res.json();
+      if (data.review) return data.review;
+    }
+  } catch (_) {}
+
+  // Direct Firestore REST Fallback
+  const cfg = getResolvedCommunityFirebaseConfig();
+  const fields = convertToFirestoreFields({ ...updates, updated_at: new Date().toISOString() });
+  const updateMask = Object.keys(updates).map(k => `updateMask.fieldPaths=${encodeURIComponent(k)}`).join('&');
+  const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/reviews/${encodeURIComponent(reviewId)}?${updateMask}&key=${cfg.apiKey}`;
+  
+  const restRes = await fetch(url, {
+    method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(updates)
+    body: JSON.stringify({ fields })
   });
 
-  if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    throw new Error(errData.error || `Failed to update review: HTTP ${res.status}`);
+  if (!restRes.ok) {
+    throw new Error(`Failed to update review directly in Firestore: HTTP ${restRes.status}`);
   }
 
-  const data = await res.json();
-  return data.review;
+  return { id: reviewId, ...updates } as AdminReviewItem;
 }
 
 /**
@@ -425,13 +442,30 @@ export async function setAdminReviewStatus(
   reviewId: string, 
   status: 'published' | 'pending' | 'rejected'
 ): Promise<boolean> {
-  const res = await adminFetch(`/api/v1/admin/community/reviews/${encodeURIComponent(reviewId)}/status`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status })
-  });
+  try {
+    const res = await adminFetch(`/api/v1/admin/community/reviews/${encodeURIComponent(reviewId)}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+    const cType = res.headers.get('content-type') || '';
+    if (res.ok && cType.includes('application/json')) return true;
+  } catch (_) {}
 
-  return res.ok;
+  // Direct Firestore REST Fallback
+  try {
+    const cfg = getResolvedCommunityFirebaseConfig();
+    const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/reviews/${encodeURIComponent(reviewId)}?updateMask.fieldPaths=status&updateMask.fieldPaths=updated_at&key=${cfg.apiKey}`;
+    const fields = convertToFirestoreFields({ status, updated_at: new Date().toISOString() });
+    const restRes = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields })
+    });
+    return restRes.ok;
+  } catch (_) {
+    return false;
+  }
 }
 
 /**
@@ -441,24 +475,53 @@ export async function toggleAdminReviewPin(
   reviewId: string, 
   isPinned: boolean
 ): Promise<boolean> {
-  const res = await adminFetch(`/api/v1/admin/community/reviews/${encodeURIComponent(reviewId)}/pin`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ isPinned })
-  });
+  try {
+    const res = await adminFetch(`/api/v1/admin/community/reviews/${encodeURIComponent(reviewId)}/pin`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isPinned })
+    });
+    const cType = res.headers.get('content-type') || '';
+    if (res.ok && cType.includes('application/json')) return true;
+  } catch (_) {}
 
-  return res.ok;
+  // Direct Firestore REST Fallback
+  try {
+    const cfg = getResolvedCommunityFirebaseConfig();
+    const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/reviews/${encodeURIComponent(reviewId)}?updateMask.fieldPaths=isPinned&updateMask.fieldPaths=updated_at&key=${cfg.apiKey}`;
+    const fields = convertToFirestoreFields({ isPinned, updated_at: new Date().toISOString() });
+    const restRes = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields })
+    });
+    return restRes.ok;
+  } catch (_) {
+    return false;
+  }
 }
 
 /**
  * Delete a review permanently from live Firestore and app bucket documents
  */
 export async function deleteAdminReviewItem(reviewId: string): Promise<boolean> {
-  const res = await adminFetch(`/api/v1/admin/community/reviews/${encodeURIComponent(reviewId)}`, {
-    method: 'DELETE'
-  });
+  try {
+    const res = await adminFetch(`/api/v1/admin/community/reviews/${encodeURIComponent(reviewId)}`, {
+      method: 'DELETE'
+    });
+    const cType = res.headers.get('content-type') || '';
+    if (res.ok && cType.includes('application/json')) return true;
+  } catch (_) {}
 
-  return res.ok;
+  // Direct Firestore REST Fallback
+  try {
+    const cfg = getResolvedCommunityFirebaseConfig();
+    const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/reviews/${encodeURIComponent(reviewId)}?key=${cfg.apiKey}`;
+    const restRes = await fetch(url, { method: 'DELETE' });
+    return restRes.ok;
+  } catch (_) {
+    return false;
+  }
 }
 
 /**
@@ -468,19 +531,36 @@ export async function performBulkReviewsAction(
   action: 'publish' | 'pending' | 'reject' | 'delete' | 'pin' | 'unpin', 
   reviewIds: string[]
 ): Promise<{ success: boolean; count: number }> {
-  const res = await adminFetch('/api/v1/admin/community/reviews/bulk', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action, reviewIds })
-  });
+  try {
+    const res = await adminFetch('/api/v1/admin/community/reviews/bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, reviewIds })
+    });
+    const cType = res.headers.get('content-type') || '';
+    if (res.ok && cType.includes('application/json')) {
+      const data = await res.json();
+      return { success: true, count: data.count || reviewIds.length };
+    }
+  } catch (_) {}
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || 'Bulk review action failed');
+  // Direct Firestore REST Fallback
+  let successCount = 0;
+  for (const id of reviewIds) {
+    if (action === 'delete') {
+      const ok = await deleteAdminReviewItem(id);
+      if (ok) successCount++;
+    } else if (action === 'pin' || action === 'unpin') {
+      const ok = await toggleAdminReviewPin(id, action === 'pin');
+      if (ok) successCount++;
+    } else if (['publish', 'pending', 'reject'].includes(action)) {
+      const st = action === 'publish' ? 'published' : (action === 'pending' ? 'pending' : 'rejected');
+      const ok = await setAdminReviewStatus(id, st as any);
+      if (ok) successCount++;
+    }
   }
 
-  const data = await res.json();
-  return { success: true, count: data.count || reviewIds.length };
+  return { success: true, count: successCount };
 }
 
 /**
@@ -491,19 +571,36 @@ export async function submitAdminReplyToReview(
   replyText: string, 
   author = 'RummyDex Official Support'
 ): Promise<boolean> {
-  const res = await adminFetch(`/api/v1/admin/community/reviews/${encodeURIComponent(reviewId)}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      adminReply: {
-        text: replyText.trim(),
-        author: author.trim(),
-        timestamp: new Date().toISOString()
-      }
-    })
-  });
+  const replyObj = {
+    text: replyText.trim(),
+    author: author.trim(),
+    timestamp: new Date().toISOString()
+  };
 
-  return res.ok;
+  try {
+    const res = await adminFetch(`/api/v1/admin/community/reviews/${encodeURIComponent(reviewId)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminReply: replyObj })
+    });
+    const cType = res.headers.get('content-type') || '';
+    if (res.ok && cType.includes('application/json')) return true;
+  } catch (_) {}
+
+  // Direct Firestore REST Fallback
+  try {
+    const cfg = getResolvedCommunityFirebaseConfig();
+    const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/reviews/${encodeURIComponent(reviewId)}?updateMask.fieldPaths=adminReply&updateMask.fieldPaths=updated_at&key=${cfg.apiKey}`;
+    const fields = convertToFirestoreFields({ adminReply: replyObj, updated_at: new Date().toISOString() });
+    const restRes = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields })
+    });
+    return restRes.ok;
+  } catch (_) {
+    return false;
+  }
 }
 
 /**
@@ -516,23 +613,71 @@ export async function fetchAdminReportsList(params: {
   search?: string;
   limit?: number;
 }): Promise<{ reports: any[]; totalCount: number }> {
-  const query = new URLSearchParams();
-  if (params.status && params.status !== 'all') query.set('status', params.status);
-  if (params.type && params.type !== 'all') query.set('type', params.type);
-  if (params.appId && params.appId !== 'all') query.set('appId', params.appId);
-  if (params.search && params.search.trim()) query.set('search', params.search.trim());
-  if (params.limit) query.set('limit', String(params.limit));
+  try {
+    const query = new URLSearchParams();
+    if (params.status && params.status !== 'all') query.set('status', params.status);
+    if (params.type && params.type !== 'all') query.set('type', params.type);
+    if (params.appId && params.appId !== 'all') query.set('appId', params.appId);
+    if (params.search && params.search.trim()) query.set('search', params.search.trim());
+    if (params.limit) query.set('limit', String(params.limit));
 
-  const res = await adminFetch(`/api/v1/admin/reports?${query.toString()}`);
-  if (!res.ok) {
-    throw new Error(`Failed to load admin reports: HTTP ${res.status}`);
+    const res = await adminFetch(`/api/v1/admin/reports?${query.toString()}`);
+    const cType = res.headers.get('content-type') || '';
+    if (res.ok && cType.includes('application/json')) {
+      const data = await res.json();
+      return {
+        reports: data.reports || [],
+        totalCount: data.totalCount || (data.reports ? data.reports.length : 0)
+      };
+    }
+  } catch (_) {}
+
+  // Direct Firestore REST query fallback for static / Cloudflare environments
+  try {
+    const cfg = getResolvedCommunityFirebaseConfig();
+    const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/reports?pageSize=100&key=${cfg.apiKey}`;
+    const restRes = await fetch(url);
+    if (restRes.ok) {
+      const restData = await restRes.json();
+      const docs = restData.documents || [];
+      let reports = docs.map((d: any) => {
+        const parsed = parseFirestoreFields(d.fields || {});
+        const docParts = (d.name || '').split('/');
+        const id = docParts[docParts.length - 1] || parsed.id;
+        return { id, ...parsed };
+      });
+
+      if (params.status && params.status !== 'all') {
+        reports = reports.filter((r: any) => r.status === params.status);
+      }
+      if (params.type && params.type !== 'all') {
+        reports = reports.filter((r: any) => r.type === params.type);
+      }
+      if (params.appId && params.appId !== 'all') {
+        reports = reports.filter((r: any) => r.appId === params.appId);
+      }
+      if (params.search && params.search.trim()) {
+        const q = params.search.toLowerCase().trim();
+        reports = reports.filter((r: any) => 
+          (r.appName || '').toLowerCase().includes(q) ||
+          (r.reason || '').toLowerCase().includes(q) ||
+          (r.description || '').toLowerCase().includes(q)
+        );
+      }
+
+      // Sort by created_at descending
+      reports.sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+
+      return {
+        reports,
+        totalCount: reports.length
+      };
+    }
+  } catch (err) {
+    console.warn('[AdminReports] Direct Firestore REST query notice:', err);
   }
 
-  const data = await res.json();
-  return {
-    reports: data.reports || [],
-    totalCount: data.totalCount || (data.reports ? data.reports.length : 0)
-  };
+  return { reports: [], totalCount: 0 };
 }
 
 /**
@@ -542,20 +687,52 @@ export async function updateAdminReportItem(
   reportId: string, 
   updates: { status?: string; adminNotes?: string }
 ): Promise<boolean> {
-  const res = await adminFetch(`/api/v1/admin/reports/${encodeURIComponent(reportId)}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(updates)
-  });
-  return res.ok;
+  try {
+    const res = await adminFetch(`/api/v1/admin/reports/${encodeURIComponent(reportId)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
+    const cType = res.headers.get('content-type') || '';
+    if (res.ok && cType.includes('application/json')) return true;
+  } catch (_) {}
+
+  // Direct Firestore REST Fallback
+  try {
+    const cfg = getResolvedCommunityFirebaseConfig();
+    const updateMask = Object.keys(updates).map(k => `updateMask.fieldPaths=${encodeURIComponent(k)}`).join('&');
+    const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/reports/${encodeURIComponent(reportId)}?${updateMask}&key=${cfg.apiKey}`;
+    const fields = convertToFirestoreFields({ ...updates, updated_at: new Date().toISOString() });
+    const restRes = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields })
+    });
+    return restRes.ok;
+  } catch (_) {
+    return false;
+  }
 }
 
 /**
  * Permanently delete a report
  */
 export async function deleteAdminReportItem(reportId: string): Promise<boolean> {
-  const res = await adminFetch(`/api/v1/admin/reports/${encodeURIComponent(reportId)}`, {
-    method: 'DELETE'
-  });
-  return res.ok;
+  try {
+    const res = await adminFetch(`/api/v1/admin/reports/${encodeURIComponent(reportId)}`, {
+      method: 'DELETE'
+    });
+    const cType = res.headers.get('content-type') || '';
+    if (res.ok && cType.includes('application/json')) return true;
+  } catch (_) {}
+
+  // Direct Firestore REST Fallback
+  try {
+    const cfg = getResolvedCommunityFirebaseConfig();
+    const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/reports/${encodeURIComponent(reportId)}?key=${cfg.apiKey}`;
+    const restRes = await fetch(url, { method: 'DELETE' });
+    return restRes.ok;
+  } catch (_) {
+    return false;
+  }
 }
