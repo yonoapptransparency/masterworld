@@ -10,7 +10,16 @@ import GlobalErrorBoundary from './components/GlobalErrorBoundary';
 import './index.css';
 import './i18n';
 
-
+// Clean query parameters like _v to guarantee 100% clean canonical SEO URLs
+if (typeof window !== 'undefined' && window.location.search && window.location.search.includes('_v=')) {
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('_v');
+    const newSearch = url.searchParams.toString();
+    const cleanUrl = url.pathname + (newSearch ? '?' + newSearch : '') + url.hash;
+    window.history.replaceState(null, '', cleanUrl);
+  } catch (_) {}
+}
 
 // Force wipe old mock/static data from local storage cache
 const CACHE_VERSION = '5.0';

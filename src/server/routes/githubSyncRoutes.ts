@@ -147,6 +147,78 @@ githubSyncRouter.post("/api/github-sync/test", verifyAdminToken, async (req, res
   }
 });
 
+// GET /api/github-sync/public-core-files - Returns latest source code for public Dex repository
+githubSyncRouter.get("/api/github-sync/public-core-files", verifyAdminToken, async (req, res) => {
+  try {
+    const files: Record<string, string> = {};
+    const basePath = process.cwd();
+
+    const readSafe = (relPath: string) => {
+      const fullPath = path.join(basePath, relPath);
+      if (fs.existsSync(fullPath)) {
+        return fs.readFileSync(fullPath, 'utf8');
+      }
+      return null;
+    };
+
+    // Public router for Dex
+    const appPublicContent = readSafe('src/AppPublic.tsx');
+    if (appPublicContent) {
+      files['src/App.tsx'] = appPublicContent;
+    }
+
+    const lazyRetryContent = readSafe('src/lib/lazyWithRetry.ts');
+    if (lazyRetryContent) {
+      files['src/lib/lazyWithRetry.ts'] = lazyRetryContent;
+    }
+
+    const errorBoundaryContent = readSafe('src/components/GlobalErrorBoundary.tsx');
+    if (errorBoundaryContent) {
+      files['src/components/GlobalErrorBoundary.tsx'] = errorBoundaryContent;
+    }
+
+    const publicFooterContent = readSafe('src/components/public/PublicFooter.tsx');
+    if (publicFooterContent) {
+      files['src/components/public/PublicFooter.tsx'] = publicFooterContent;
+    }
+
+    const publicHeaderContent = readSafe('src/components/public/PublicHeader.tsx');
+    if (publicHeaderContent) {
+      files['src/components/public/PublicHeader.tsx'] = publicHeaderContent;
+    }
+
+    const mobileMenuModalContent = readSafe('src/components/public/MobileMenuModal.tsx');
+    if (mobileMenuModalContent) {
+      files['src/components/public/MobileMenuModal.tsx'] = mobileMenuModalContent;
+    }
+
+    const lightSearchContent = readSafe('src/components/LightSearch.tsx');
+    if (lightSearchContent) {
+      files['src/components/LightSearch.tsx'] = lightSearchContent;
+    }
+
+    const reportModalContent = readSafe('src/components/ReportAppModal.tsx');
+    if (reportModalContent) {
+      files['src/components/ReportAppModal.tsx'] = reportModalContent;
+    }
+
+    const mainContent = readSafe('src/main.tsx');
+    if (mainContent) {
+      files['src/main.tsx'] = mainContent;
+    }
+
+    const vercelJsonContent = readSafe('vercel.json');
+    if (vercelJsonContent) {
+      files['vercel.json'] = vercelJsonContent;
+    }
+
+    return res.json({ success: true, files });
+  } catch (err: any) {
+    console.error("Failed to read public core files:", err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 githubSyncRouter.post("/api/github-sync/commit", verifyAdminToken, async (req, res) => {
   try {
     const { owner, repo, token, branch, path: filePath, content, message } = req.body || {};

@@ -4,6 +4,17 @@ export type PreloadableComponent<T extends ComponentType<any>> = LazyExoticCompo
   preload: () => Promise<{ default: T }>;
 };
 
+// Automatically clean up any leftover _v parameter from URL to maintain 100% pristine SEO URLs
+if (typeof window !== 'undefined' && window.location.search && window.location.search.includes('_v=')) {
+  try {
+    const cleanUrl = new URL(window.location.href);
+    cleanUrl.searchParams.delete('_v');
+    const newSearch = cleanUrl.searchParams.toString();
+    const finalPath = cleanUrl.pathname + (newSearch ? '?' + newSearch : '') + cleanUrl.hash;
+    window.history.replaceState(null, '', finalPath);
+  } catch (_) {}
+}
+
 // Global Vite Dynamic Import Preload Error Listener
 // Catches hash mismatch when a new deployment is pushed while a user tab is already open
 if (typeof window !== 'undefined') {
@@ -14,9 +25,7 @@ if (typeof window !== 'undefined') {
     if (!hasReloaded) {
       try {
         window.sessionStorage.setItem(reloadKey, 'true');
-        const url = new URL(window.location.href);
-        url.searchParams.set('_v', String(Date.now()));
-        window.location.href = url.toString();
+        window.location.reload();
       } catch (e) {
         window.location.reload();
       }
@@ -25,7 +34,7 @@ if (typeof window !== 'undefined') {
 }
 
 /**
- * Robust lazy import with automatic retry and page reload fallback for chunk loading errors.
+ * Robust lazy import with automatic retry and clean page reload fallback for chunk loading errors.
  * Supports .preload() method for instant prefetching during idle time or user hover/touch.
  */
 export const lazyWithRetry = <T extends ComponentType<any>>(
@@ -79,15 +88,9 @@ export const lazyWithRetry = <T extends ComponentType<any>>(
       /Importing a module script failed/i.test(errorMsg);
 
     if (typeof window !== 'undefined' && !pageHasAlreadyBeenForceRefreshed && isChunkError) {
-      console.warn('[ChunkLoader] Chunk load failed after deployment. Force refreshing page for latest bundle:', errorMsg);
+      console.warn('[ChunkLoader] Chunk load failed after deployment. Refreshing page for latest bundle:', errorMsg);
       try { window.sessionStorage.setItem(key, 'true'); } catch(e) {}
-      try {
-        const url = new URL(window.location.href);
-        url.searchParams.set('_v', String(Date.now()));
-        window.location.href = url.toString();
-      } catch (e) {
-        window.location.reload();
-      }
+      window.location.reload();
 
       return new Promise<{ default: T }>((_, reject) => {
         setTimeout(() => {

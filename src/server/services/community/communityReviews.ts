@@ -712,21 +712,9 @@ export class CommunityReviewsManager {
   ) {
     if (query.refresh && !communityDbHelper.isQuotaProtected()) {
       try {
-        const db = getCommunityAdminDb();
-        if (db) {
-          try {
-            const snap = await withTimeout(db.collection('reviews').orderBy('timestamp', 'desc').limit(50).get(), 5000, null);
-            if (snap && snap.docs && snap.docs.length > 0) {
-              snap.docs.forEach((docSnap: any) => {
-                const d = docSnap.data();
-                if (!deletedReviewIds.has(docSnap.id)) {
-                  reviewsMap.set(docSnap.id, { id: docSnap.id, ...d });
-                }
-              });
-              onSaveCallback();
-            }
-          } catch (adminErr: any) {}
-        }
+        const { communityPersistence } = await import('./communityPersistence');
+        await communityPersistence.bootstrapFromFirestore(reviewsMap, new Map(), deletedReviewIds, appStatsCache);
+        onSaveCallback();
       } catch (e) {}
     }
 

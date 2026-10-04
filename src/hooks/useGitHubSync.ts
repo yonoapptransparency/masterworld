@@ -689,6 +689,27 @@ export function useGitHubSync(
         }
       ];
 
+      // Pull latest public core source code (App.tsx, lazyWithRetry, GlobalErrorBoundary, PublicFooter) for Dex
+      try {
+        const idToken = await getAdminToken();
+        const coreRes = await adminFetch('/api/github-sync/public-core-files', {
+          headers: idToken ? { 'Authorization': `Bearer ${idToken}` } : {}
+        });
+        if (coreRes.ok) {
+          const coreData = await coreRes.json();
+          if (coreData?.files) {
+            for (const [fPath, fContent] of Object.entries(coreData.files)) {
+              if (fContent && typeof fContent === 'string') {
+                primaryBatchFiles.push({ path: fPath, content: fContent });
+              }
+            }
+            log(`GitHub Sync: Added ${Object.keys(coreData.files).length} public core source files to sync bundle.`);
+          }
+        }
+      } catch (coreErr: any) {
+        log(`GitHub Sync Note: Core files fetch note: ${coreErr?.message || 'skipped'}`);
+      }
+
       // Partitioned per-app review files and stats files for 0ms Edge CDN loading and 0 Firebase reads
       const emittedKeys = new Set<string>();
       for (const [appKey, revList] of Object.entries(appReviewsMap)) {

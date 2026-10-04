@@ -215,10 +215,10 @@ export function useDataSync() {
           } catch (_) {}
 
           // Guarantee mockApps fallback if apps are still empty
-          setApps(prev => (prev && prev.length > 0 ? prev : (mockApps || [])));
-          setSettings(prev => (prev && Object.keys(prev).length > 0 ? prev : (mockSettings || {} as GlobalSettings)));
-          setNews(prev => (prev && prev.length > 0 ? prev : (mockNews || [])));
-          setVideos(prev => (prev && prev.length > 0 ? prev : (mockVideos || [])));
+          setApps(prev => (prev && prev.length > 0 ? prev : (mockApps as any || [])));
+          setSettings(prev => (prev && Object.keys(prev).length > 0 ? prev : (mockSettings as any || {} as GlobalSettings)));
+          setNews(prev => (prev && prev.length > 0 ? prev : (mockNews as any || [])));
+          setVideos(prev => (prev && prev.length > 0 ? prev : (mockVideos as any || [])));
           setDataSource('local_backup');
         }
       }
@@ -230,10 +230,10 @@ export function useDataSync() {
       setIsLive(true);
     } catch (err: any) {
       console.error("useDataSync fetch error:", err);
-      setApps(prev => (prev && prev.length > 0 ? prev : (mockApps || [])));
-      setSettings(prev => (prev && Object.keys(prev).length > 0 ? prev : (mockSettings || {} as GlobalSettings)));
-      setNews(prev => (prev && prev.length > 0 ? prev : (mockNews || [])));
-      setVideos(prev => (prev && prev.length > 0 ? prev : (mockVideos || [])));
+      setApps(prev => (prev && prev.length > 0 ? prev : (mockApps as any || [])));
+      setSettings(prev => (prev && Object.keys(prev).length > 0 ? prev : (mockSettings as any || {} as GlobalSettings)));
+      setNews(prev => (prev && prev.length > 0 ? prev : (mockNews as any || [])));
+      setVideos(prev => (prev && prev.length > 0 ? prev : (mockVideos as any || [])));
       setDataSource('local_backup');
       if (checkIsQuotaError(err)) {
         setQuotaExceeded(true);

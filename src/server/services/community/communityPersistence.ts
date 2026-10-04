@@ -144,8 +144,8 @@ export class CommunityPersistence {
 
   /**
    * Resilient Bootstrap:
-   * When disk backup is empty (e.g. fresh container startup), pull all existing reviews from Firestore rummydexcommunity.
-   * Guarantees reviews are NEVER lost across restarts or container redeployments.
+   * Pull all existing reviews from Firestore rummydexcommunity into memory and sync to disk.
+   * Guarantees all reviews in Firestore are ALWAYS loaded and visible in Admin and Public.
    */
   public async bootstrapFromFirestore(
     reviewsMap: Map<string, ReviewRecord>,
@@ -157,56 +157,66 @@ export class CommunityPersistence {
     this.isBootstrapping = true;
 
     try {
-      console.log('[CommunityPersistence] Bootstrapping reviews directly from Firestore rummydexcommunity...');
+      console.log('[CommunityPersistence] Bootstrapping all live reviews directly from Firestore rummydexcommunity...');
       const adminDb = getCommunityAdminDb();
       let loadedCount = 0;
 
       if (adminDb) {
-        const snap = await adminDb.collection('reviews').limit(500).get();
-        if (snap && snap.docs && snap.docs.length > 0) {
-          snap.docs.forEach((doc: any) => {
-            const d = doc.data();
-            const id = doc.id || d.id;
-            if (id && !deletedReviewIds.has(id)) {
-              const rev: ReviewRecord = {
-                id,
-                appId: String(d.appId || d.app_id || '').trim(),
-                appSlug: String(d.appSlug || '').trim(),
-                appName: String(d.appName || '').trim(),
-                userName: String(d.userName || d.username || 'Player').trim(),
-                rating: Number(d.rating) || 5,
-                reviewText: sanitizeReviewText(String(d.reviewText || d.comment || ''), d.appName),
-                timestamp: d.timestamp || d.created_at || new Date().toISOString(),
-                status: d.status || (d.is_approved ? 'published' : 'pending') || 'published',
-                helpful_count: Number(d.helpful_count) || 0,
-                isPinned: Boolean(d.isPinned),
-                reported: Boolean(d.reported),
-                report_count: Number(d.report_count) || 0,
-                source: d.source || 'community',
-                adminReply: d.adminReply || null,
-                updated_at: d.updated_at || new Date().toISOString()
-              };
-              reviewsMap.set(id, rev);
-              loadedCount++;
-            }
-          });
+        try {
+          const snap = await adminDb.collection('reviews').get();
+          if (snap && snap.docs && snap.docs.length > 0) {
+            snap.docs.forEach((doc: any) => {
+              const d = doc.data();
+              const id = doc.id || d.id;
+              if (id && !deletedReviewIds.has(id)) {
+                const rev: ReviewRecord = {
+                  id,
+                  appId: String(d.appId || d.app_id || '').trim(),
+                  appSlug: String(d.appSlug || '').trim(),
+                  appName: String(d.appName || '').trim(),
+                  userName: String(d.userName || d.username || 'Player').trim(),
+                  rating: Number(d.rating) || 5,
+                  reviewText: sanitizeReviewText(String(d.reviewText || d.comment || ''), d.appName),
+                  timestamp: d.timestamp || d.created_at || new Date().toISOString(),
+                  status: d.status || (d.is_approved ? 'published' : 'pending') || 'published',
+                  helpful_count: Number(d.helpful_count) || 0,
+                  isPinned: Boolean(d.isPinned),
+                  reported: Boolean(d.reported),
+                  report_count: Number(d.report_count) || 0,
+                  source: d.source || 'community',
+                  adminReply: d.adminReply || null,
+                  updated_at: d.updated_at || new Date().toISOString()
+                };
+                reviewsMap.set(id, rev);
+                loadedCount++;
+              }
+            });
+            console.log(`[CommunityPersistence] Admin SDK loaded ${loadedCount} review documents from Firestore.`);
+          }
+        } catch (adminErr: any) {
+          console.warn('[CommunityPersistence] Admin SDK get error, falling back to REST:', adminErr?.message || adminErr);
         }
-      } else {
-        // Direct REST fetch to rummydexcommunity with pagination support
+      }
+
+      // REST fetch to rummydexcommunity with full pageToken pagination (runs if Admin SDK loaded 0 or failed)
+      if (loadedCount === 0) {
         const cfg = getCommunityFirebaseConfig();
         let pageToken = '';
         let hasMorePages = true;
         let pageCounter = 0;
 
-        while (hasMorePages && pageCounter < 5) {
+        while (hasMorePages && pageCounter < 50) {
           pageCounter++;
-          let url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${cfg.firestoreDatabaseId}/documents/reviews?pageSize=300&key=${encodeURIComponent(cfg.apiKey)}`;
+          let url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/reviews?pageSize=300&key=${encodeURIComponent(cfg.apiKey)}`;
           if (pageToken) {
             url += `&pageToken=${encodeURIComponent(pageToken)}`;
           }
 
           const res = await fetch(url);
-          if (!res.ok) break;
+          if (!res.ok) {
+            console.warn(`[CommunityPersistence] REST fetch page ${pageCounter} error:`, res.status);
+            break;
+          }
 
           const json = await res.json();
           if (json && Array.isArray(json.documents)) {
@@ -262,12 +272,13 @@ export class CommunityPersistence {
             hasMorePages = false;
           }
         }
+        console.log(`[CommunityPersistence] REST loop loaded ${loadedCount} review documents across ${pageCounter} page(s).`);
       }
 
       this.reconcileStatsCache(reviewsMap, appStatsCache);
-      console.log(`[CommunityPersistence] Successfully bootstrapped ${loadedCount} reviews from Firestore. Saving to local disk.`);
+      console.log(`[CommunityPersistence] Successfully bootstrapped ${reviewsMap.size} total reviews from Firestore. Saving atomically to local disk.`);
       this.executeDiskSync(reviewsMap, reportsMap, deletedReviewIds, appStatsCache);
-      return loadedCount;
+      return reviewsMap.size;
     } catch (e: any) {
       console.warn('[CommunityPersistence] Bootstrap error:', e?.message || e);
       return reviewsMap.size;
@@ -421,6 +432,52 @@ export class CommunityPersistence {
         const catTmpPath = catStatsPath + '.tmp';
         fs.writeFileSync(catTmpPath, JSON.stringify(catalogStatsData, null, 2), 'utf8');
         fs.renameSync(catTmpPath, catStatsPath);
+
+        // Also atomically sync communityStaticReviews.json with top reviews per app
+        try {
+          const staticReviewsPath = path.join(process.cwd(), 'src/lib/communityStaticReviews.json');
+          const staticReviewsMap: Record<string, any[]> = {};
+          const pubReviews = Array.from(reviewsMap.values()).filter(r => (r.status || 'published') === 'published' && !deletedReviewIds.has(r.id));
+          pubReviews.sort((a, b) => {
+            const aPinned = Boolean(a.isPinned);
+            const bPinned = Boolean(b.isPinned);
+            if (aPinned !== bPinned) return aPinned ? -1 : 1;
+            if ((b.helpful_count || 0) !== (a.helpful_count || 0)) {
+              return (b.helpful_count || 0) - (a.helpful_count || 0);
+            }
+            return new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime();
+          });
+
+          pubReviews.forEach(r => {
+            const keys = [r.appId, r.appSlug].filter(Boolean) as string[];
+            keys.forEach(k => {
+              const lowerKey = k.toLowerCase().trim();
+              if (!staticReviewsMap[lowerKey]) staticReviewsMap[lowerKey] = [];
+              if (staticReviewsMap[lowerKey].length < 10) {
+                const raw = r as any;
+                staticReviewsMap[lowerKey].push({
+                  id: r.id,
+                  appId: r.appId,
+                  appSlug: r.appSlug || '',
+                  appName: r.appName || '',
+                  userName: r.userName || raw.username || 'Player',
+                  rating: Number(r.rating) || 5,
+                  reviewText: r.reviewText || raw.comment || '',
+                  timestamp: r.timestamp || raw.created_at || new Date().toISOString(),
+                  helpful_count: Number(r.helpful_count) || 0,
+                  isPinned: Boolean(r.isPinned),
+                  adminReply: r.adminReply || null
+                });
+              }
+            });
+          });
+
+          const statTmpPath = staticReviewsPath + '.tmp';
+          fs.writeFileSync(statTmpPath, JSON.stringify(staticReviewsMap, null, 2), 'utf8');
+          fs.renameSync(statTmpPath, staticReviewsPath);
+        } catch (sRevErr) {
+          console.warn('[CommunityPersistence] static reviews write notice:', sRevErr);
+        }
 
         // Sync to single document in Firestore (catalog_stats & atomic_counts)
         // This is 1 SINGLE document write to the community Firebase, consuming minimal quota!

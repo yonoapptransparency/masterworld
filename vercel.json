@@ -67,15 +67,15 @@
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "public, max-age=300, s-maxage=86400, stale-while-revalidate=604800"
+          "value": "public, max-age=0, must-revalidate"
         },
         {
           "key": "CDN-Cache-Control",
-          "value": "public, max-age=86400, stale-while-revalidate=604800"
+          "value": "public, max-age=0, must-revalidate"
         },
         {
           "key": "Cloudflare-CDN-Cache-Control",
-          "value": "public, max-age=86400, stale-while-revalidate=604800"
+          "value": "public, max-age=0, must-revalidate"
         }
       ]
     },

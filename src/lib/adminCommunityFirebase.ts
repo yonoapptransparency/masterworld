@@ -7,6 +7,67 @@
 import { adminFetch } from '../services/adminAuthService';
 import { getResolvedCommunityFirebaseConfig, parseFirestoreFields, convertToFirestoreFields } from './communityFirebase';
 
+/**
+ * Fetch ALL reviews from Firestore REST using pageToken pagination (for static hosts/Vercel)
+ */
+async function fetchAllFirestoreRestReviews(): Promise<AdminReviewItem[]> {
+  const cfg = getResolvedCommunityFirebaseConfig();
+  const allReviews: AdminReviewItem[] = [];
+  let pageToken = '';
+  let hasMore = true;
+  let safetyCounter = 0;
+
+  while (hasMore && safetyCounter < 20) {
+    safetyCounter++;
+    let url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/reviews?pageSize=300&key=${encodeURIComponent(cfg.apiKey)}`;
+    if (pageToken) {
+      url += `&pageToken=${encodeURIComponent(pageToken)}`;
+    }
+
+    try {
+      const res = await fetch(url);
+      if (!res.ok) break;
+      const data = await res.json();
+      const docs = data.documents || [];
+
+      docs.forEach((d: any) => {
+        const raw = parseFirestoreFields(d.fields || {});
+        const docId = raw.id || d.name?.split('/').pop() || '';
+        if (docId) {
+          allReviews.push({
+            id: docId,
+            appId: raw.appId || raw.app_id || '',
+            appSlug: raw.appSlug || raw.app_slug || '',
+            appName: raw.appName || raw.app_name || '',
+            userName: raw.userName || raw.username || 'Anonymous',
+            rating: Number(raw.rating) || 5,
+            reviewText: raw.reviewText || raw.comment || '',
+            timestamp: raw.timestamp || raw.created_at || new Date().toISOString(),
+            status: raw.status || 'published',
+            helpful_count: Number(raw.helpful_count) || 0,
+            isPinned: Boolean(raw.isPinned),
+            reported: Boolean(raw.reported),
+            report_count: Number(raw.report_count) || 0,
+            source: raw.source || 'community',
+            adminReply: raw.adminReply || null
+          });
+        }
+      });
+
+      if (data.nextPageToken) {
+        pageToken = data.nextPageToken;
+      } else {
+        hasMore = false;
+      }
+    } catch (e) {
+      console.warn('[AdminCommunity] Page fetch error:', e);
+      break;
+    }
+  }
+
+  return allReviews;
+}
+
 export interface AdminReviewItem {
   id: string;
   appId: string;
@@ -104,12 +165,8 @@ export async function fetchAdminCommunityOverviewStats(force: boolean = false): 
   // Direct Firestore REST query for static hosts (Cloudflare Pages)
   try {
     const cfg = getResolvedCommunityFirebaseConfig();
-    const restRes = await fetch(`https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/reviews?pageSize=100&key=${cfg.apiKey}`);
-    if (restRes.ok) {
-      const restData = await restRes.json();
-      const docs = restData.documents || [];
-      const reviews = docs.map((d: any) => parseFirestoreFields(d.fields || {}));
-      
+    const reviews = await fetchAllFirestoreRestReviews();
+    if (reviews.length > 0) {
       const totalReviews = reviews.length;
       const publishedReviews = reviews.filter((r: any) => (r.status || 'published') === 'published').length;
       const pendingReviews = reviews.filter((r: any) => r.status === 'pending').length;
@@ -247,32 +304,8 @@ export async function fetchAdminReviewsList(params: {
 
   // Direct Firestore REST query for static hosting (Cloudflare Pages)
   try {
-    const cfg = getResolvedCommunityFirebaseConfig();
-    const restRes = await fetch(`https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/reviews?pageSize=100&key=${cfg.apiKey}`);
-    if (restRes.ok) {
-      const restData = await restRes.json();
-      const docs = restData.documents || [];
-      let reviews: AdminReviewItem[] = docs.map((d: any) => {
-        const raw = parseFirestoreFields(d.fields || {});
-        return {
-          id: raw.id || d.name?.split('/').pop() || '',
-          appId: raw.appId || raw.app_id || '',
-          appSlug: raw.appSlug || raw.app_slug || '',
-          appName: raw.appName || raw.app_name || '',
-          userName: raw.userName || raw.username || 'Anonymous',
-          rating: Number(raw.rating) || 5,
-          reviewText: raw.reviewText || raw.comment || '',
-          timestamp: raw.timestamp || raw.created_at || new Date().toISOString(),
-          status: raw.status || 'published',
-          helpful_count: Number(raw.helpful_count) || 0,
-          isPinned: Boolean(raw.isPinned),
-          reported: Boolean(raw.reported),
-          report_count: Number(raw.report_count) || 0,
-          source: raw.source || 'user',
-          adminReply: raw.adminReply || null
-        };
-      });
-
+    let reviews = await fetchAllFirestoreRestReviews();
+    if (reviews.length > 0) {
       // Filter by appId
       if (params.appId && params.appId !== 'all') {
         reviews = reviews.filter(r => r.appId === params.appId || r.appSlug === params.appId);
@@ -340,11 +373,8 @@ export async function fetchAdminAppReviewCounts(): Promise<{
 
   // Direct REST fallback for Cloudflare Pages
   try {
-    const cfg = getResolvedCommunityFirebaseConfig();
-    const restRes = await fetch(`https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/reviews?pageSize=100&key=${cfg.apiKey}`);
-    if (restRes.ok) {
-      const restData = await restRes.json();
-      const docs = restData.documents || [];
+    const reviews = await fetchAllFirestoreRestReviews();
+    if (reviews.length > 0) {
       const appCounts: Record<string, AppReviewCountsData> = {};
       let total = 0;
       let published = 0;
@@ -353,27 +383,30 @@ export async function fetchAdminAppReviewCounts(): Promise<{
       let flagged = 0;
       let totalRating = 0;
 
-      docs.forEach((d: any) => {
-        const raw = parseFirestoreFields(d.fields || {});
-        const appId = raw.appId || raw.app_id || 'general';
-        const status = raw.status || 'published';
-        const rating = Number(raw.rating) || 5;
+      reviews.forEach((r: any) => {
+        const appId = String(r.appId || r.app_id || 'general').trim().toLowerCase();
+        const appSlug = String(r.appSlug || '').trim().toLowerCase();
+        const status = r.status || 'published';
+        const rating = Number(r.rating) || 5;
 
         total++;
         if (status === 'published') published++;
         else if (status === 'pending') pending++;
         else if (status === 'rejected') rejected++;
-        if (raw.reported) flagged++;
+        if (r.reported) flagged++;
         totalRating += rating;
 
-        if (!appCounts[appId]) {
-          appCounts[appId] = { total: 0, published: 0, pending: 0, rejected: 0, flagged: 0, avgRating: 5.0 };
-        }
-        appCounts[appId].total++;
-        if (status === 'published') appCounts[appId].published++;
-        else if (status === 'pending') appCounts[appId].pending++;
-        else if (status === 'rejected') appCounts[appId].rejected++;
-        if (raw.reported) appCounts[appId].flagged++;
+        const targets = [appId, appSlug].filter(Boolean);
+        targets.forEach(key => {
+          if (!appCounts[key]) {
+            appCounts[key] = { total: 0, published: 0, pending: 0, rejected: 0, flagged: 0, avgRating: 5.0 };
+          }
+          appCounts[key].total++;
+          if (status === 'published') appCounts[key].published++;
+          else if (status === 'pending') appCounts[key].pending++;
+          else if (status === 'rejected') appCounts[key].rejected++;
+          if (r.reported) appCounts[key].flagged++;
+        });
       });
 
       return {
