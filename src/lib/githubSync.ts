@@ -798,13 +798,13 @@ export async function commitTreeToGitHub({
           const baseTreeDetails = await baseTreeDetailsRes.json() as any;
           if (Array.isArray(baseTreeDetails?.tree)) {
             const dataEntries = baseTreeDetails.tree.filter((t: any) => 
-              t.path && (t.path.startsWith('public/data/') || t.path === 'public/data')
+              t.path && t.type === 'blob' && (t.path.startsWith('public/data/') || t.path.startsWith('data/'))
             );
             dataEntries.forEach((t: any) => {
               treeEntries.push({
                 path: t.path,
-                mode: t.mode || (t.type === 'tree' ? '040000' : '100644'),
-                type: t.type || 'blob',
+                mode: '100644',
+                type: 'blob',
                 sha: null
               });
             });

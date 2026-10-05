@@ -54,6 +54,7 @@ import {
   submitAdminReplyToReview
 } from '../../lib/adminCommunityFirebase';
 import communityCatalogStats from '../../lib/communityCatalogStats.json';
+import communityStaticReviews from '../../lib/communityStaticReviews.json';
 import { EditReviewModal } from './reviews/EditReviewModal';
 import { ReplyReviewModal } from './reviews/ReplyReviewModal';
 
@@ -302,14 +303,29 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({
     return getAppStats(selectedAppObject);
   }, [selectedAppObject, getAppStats]);
 
-  // Fetch reviews for a specific selected app
+  // Fetch reviews for a specific selected app (Zero-Quota Triggered Loader)
   const fetchReviewsForSelectedApp = useCallback(async (appIdToFetch: string, isRefresh = false) => {
+    if (!appIdToFetch || appIdToFetch === 'all') {
+      setReviews([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
 
+      // Instant 0ms Atomic Fast-Path: Populate from local atomic reviews immediately
+      const cleanAppKey = appIdToFetch.toLowerCase().trim();
+      const staticReviewsMap = (communityStaticReviews as any) || {};
+      const localAppReviews = staticReviewsMap[cleanAppKey] || [];
+      if (localAppReviews.length > 0 && !isRefresh) {
+        setReviews(localAppReviews);
+        setLoading(false);
+      }
+
       const result = await fetchAdminReviewsList({
-        appId: appIdToFetch !== 'all' ? appIdToFetch : undefined,
+        appId: appIdToFetch,
         status: selectedStatus !== 'all' ? selectedStatus : undefined,
         rating: selectedStarFilter !== 'all' ? Number(selectedStarFilter) : undefined,
         search: searchQuery.trim() || undefined,
@@ -319,13 +335,15 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({
       });
 
       const rawReviews = (result.reviews as ReviewData[]) || [];
-      const deduplicatedMap = new Map<string, ReviewData>();
-      rawReviews.forEach(r => {
-        if (r && r.id && !deduplicatedMap.has(r.id)) {
-          deduplicatedMap.set(r.id, r);
-        }
-      });
-      setReviews(Array.from(deduplicatedMap.values()));
+      if (rawReviews.length > 0 || isRefresh) {
+        const deduplicatedMap = new Map<string, ReviewData>();
+        rawReviews.forEach(r => {
+          if (r && r.id && !deduplicatedMap.has(r.id)) {
+            deduplicatedMap.set(r.id, r);
+          }
+        });
+        setReviews(Array.from(deduplicatedMap.values()));
+      }
       
       if (result.page) setCurrentPage(result.page);
       if (result.totalPages) setServerTotalPages(result.totalPages);
@@ -333,16 +351,21 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({
       if (result.globalStats) setGlobalDbStats(result.globalStats);
       if (result.appCounts) setAppCountsMap(result.appCounts);
     } catch (err: any) {
-      toast('Loaded live app reviews partition', 'info');
+      // Local atomic reviews are already loaded
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, [selectedStatus, selectedStarFilter, searchQuery, currentPage, pageSize]);
 
-  // Effect to load reviews when selectedAppId or filters change
+  // Effect to load reviews ONLY when a specific app is triggered (Never loads reviews on 'all'/initial overview)
   useEffect(() => {
-    fetchReviewsForSelectedApp(selectedAppId);
+    if (selectedAppId !== 'all') {
+      fetchReviewsForSelectedApp(selectedAppId);
+    } else {
+      setReviews([]);
+      setLoading(false);
+    }
   }, [selectedAppId, fetchReviewsForSelectedApp]);
 
   // Fetch atomic review counts on mount

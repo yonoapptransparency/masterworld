@@ -85,8 +85,8 @@ export interface NewsItem {
   logo_url: string;
   image_url?: string;
   description: string;
-  ceo_name: string;
-  ceo_description: string;
+  ceo_name?: string;
+  ceo_description?: string;
   seo_title: string;
   seo_description: string;
   meta_description?: string;
@@ -97,7 +97,7 @@ export interface NewsItem {
   target_region?: string;
   content: string;
   published_at?: string;
-  link: string;
+  link?: string;
   read_time?: string;
   author?: string;
   description_html?: string;

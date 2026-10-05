@@ -55,10 +55,7 @@ export class CommunityStoreService {
   constructor() {
     this.loadFromLocalBackup();
     this.initialized = true;
-    // Auto-bootstrap live reviews from Firestore in the background to ensure Admin and Public match 100%
-    setTimeout(() => {
-      this.syncWithFirestore().catch(err => console.warn('[CommunityStore] Background Firestore sync notice:', err?.message || err));
-    }, 1000);
+    // Zero-Quota Default: Uses local backup and atomic static reviews without burning Firestore reads on startup
   }
 
   public async syncWithFirestore(force = false): Promise<number> {
