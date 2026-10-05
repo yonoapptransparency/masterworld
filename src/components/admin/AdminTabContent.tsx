@@ -296,7 +296,7 @@ export const AdminTabContent = ({
           />
         );
       case 'reviews':
-        return <AdminReviewsTab appsList={appsList} />;
+        return <AdminReviewsTab appsList={appsList} onNavigateToAIStudio={() => onTabChange?.('ai-reviews')} />;
       case 'ai-reviews':
         return <AdminAIReviewStudioTab appsList={appsList} />;
       case 'reports':

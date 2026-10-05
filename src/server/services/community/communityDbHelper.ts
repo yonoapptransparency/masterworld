@@ -9,7 +9,7 @@ import { withTimeout } from './communityUtils';
 
 export class CommunityDbHelper {
   private quotaExhaustedUntil = 0;
-  private readonly QUOTA_COOLDOWN_MS = 30 * 1000;
+  private readonly QUOTA_COOLDOWN_MS = 5 * 60 * 1000; // 5 minute quota shield
 
   public isQuotaProtected(): boolean {
     return Date.now() < this.quotaExhaustedUntil;
@@ -27,21 +27,22 @@ export class CommunityDbHelper {
 
   public handleQuotaCooldown() {
     this.quotaExhaustedUntil = Date.now() + this.QUOTA_COOLDOWN_MS;
-    console.warn(`[CommunityDbHelper] Firestore quota cooldown activated for ${this.QUOTA_COOLDOWN_MS / 1000}s`);
+    console.warn(`[CommunityDbHelper] Firestore quota cooldown activated for ${this.QUOTA_COOLDOWN_MS / 1000}s. Serving strictly from local memory and resilient disk.`);
   }
 
   public async safeReadDb(docId: string, collectionPath: string = 'reviews'): Promise<any> {
     if (this.isQuotaProtected()) {
-      return await readCommunityRestDoc(docId, collectionPath);
+      return null;
     }
     const db = getCommunityAdminDb();
     if (db) {
       try {
-        const doc = await withTimeout(db.collection(collectionPath).doc(docId).get(), 10000, null);
+        const doc = await withTimeout(db.collection(collectionPath).doc(docId).get(), 6000, null);
         if (doc && doc.exists) return doc.data();
       } catch (e: any) {
         if (this.isQuotaError(e)) {
           this.handleQuotaCooldown();
+          return null;
         } else {
           console.warn(`[safeReadDb] Admin SDK note for ${collectionPath}/${docId}:`, e?.message || e);
         }
@@ -52,7 +53,7 @@ export class CommunityDbHelper {
 
   public async safeReadCollection(collectionPath: string, limitCount = 50): Promise<any[]> {
     if (this.isQuotaProtected()) {
-      return await readCommunityRestCollection(collectionPath, limitCount);
+      return [];
     }
     const db = getCommunityAdminDb();
     if (db) {
@@ -64,6 +65,7 @@ export class CommunityDbHelper {
       } catch (e: any) {
         if (this.isQuotaError(e)) {
           this.handleQuotaCooldown();
+          return [];
         }
       }
     }

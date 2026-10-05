@@ -572,12 +572,47 @@ githubSyncRouter.post("/api/github-sync/commit-tree", verifyAdminToken, async (r
     }
 
     // 3. Format tree entries
-    const treeEntries = tree.map((entry: any) => ({
+    const treeEntries: any[] = tree.map((entry: any) => ({
       path: String(entry.path).replace(/^\/+/g, ''),
       mode: entry.mode || '100644',
       type: 'blob',
       sha: entry.sha
     }));
+
+    // Prune any legacy public/data/ files from the remote git tree
+    try {
+      const baseTreeDetailsRes = await fetch(
+        `https://api.github.com/repos/${cleanOwner}/${cleanRepo}/git/trees/${baseTreeSha}?recursive=1`,
+        {
+          headers: {
+            'Authorization': authHeader,
+            'Accept': 'application/vnd.github.v3+json',
+            'User-Agent': 'node-fetch'
+          }
+        }
+      );
+      if (baseTreeDetailsRes.ok) {
+        const baseTreeDetails = await baseTreeDetailsRes.json() as any;
+        if (Array.isArray(baseTreeDetails?.tree)) {
+          const dataEntries = baseTreeDetails.tree.filter((t: any) => 
+            t.path && (t.path.startsWith('public/data/') || t.path === 'public/data')
+          );
+          dataEntries.forEach((t: any) => {
+            treeEntries.push({
+              path: t.path,
+              mode: t.mode || (t.type === 'tree' ? '040000' : '100644'),
+              type: t.type || 'blob',
+              sha: null
+            });
+          });
+          if (dataEntries.length > 0) {
+            console.log(`[GitHub Sync Server] Pruned ${dataEntries.length} legacy public/data files from remote git tree.`);
+          }
+        }
+      }
+    } catch (pruneErr) {
+      // Non-blocking prune attempt
+    }
 
     // 4. Create new tree on top of base_tree
     console.log(`GitHub Sync Server: Creating git tree with ${treeEntries.length} entries...`);

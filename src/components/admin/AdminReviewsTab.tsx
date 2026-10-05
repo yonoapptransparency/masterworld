@@ -53,18 +53,20 @@ import {
   performBulkReviewsAction,
   submitAdminReplyToReview
 } from '../../lib/adminCommunityFirebase';
-import AdminAIReviewStudioTab from './AdminAIReviewStudioTab';
 import communityCatalogStats from '../../lib/communityCatalogStats.json';
 import { EditReviewModal } from './reviews/EditReviewModal';
 import { ReplyReviewModal } from './reviews/ReplyReviewModal';
 
 interface AdminReviewsTabProps {
   appsList?: any[];
+  onNavigateToAIStudio?: () => void;
 }
 
 export interface ReviewData {
   id: string;
   appId: string;
+  appSlug?: string;
+  appName?: string;
   userName: string;
   rating: number;
   reviewText: string;
@@ -82,12 +84,14 @@ export interface ReviewData {
   } | null;
 }
 
-export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] }) => {
+export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ 
+  appsList = [],
+  onNavigateToAIStudio
+}) => {
   const [reviews, setReviews] = useState<ReviewData[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [actioningId, setActioningId] = useState<string | null>(null);
-  const [firebaseStatus, setFirebaseStatus] = useState<'checking' | 'live' | 'error'>('live');
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState('');
@@ -114,16 +118,16 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
       const stats = communityCatalogStats as any;
       if (stats && (stats.totalReviews !== undefined || stats.publishedReviews !== undefined)) {
         return {
-          total: Number(stats.totalReviews) || 581,
-          published: Number(stats.publishedReviews) || 579,
+          total: Number(stats.totalReviews) || 632,
+          published: Number(stats.publishedReviews) || 630,
           pending: Number(stats.pendingReviews) || 2,
           rejected: Number(stats.rejectedReviews) || 0,
           flagged: Number(stats.flaggedReviews) || 0,
-          averageRating: Number(stats.averageRating) || 4.3
+          averageRating: Number(stats.averageRating) || 4.1
         };
       }
     } catch (_) {}
-    return { total: 581, published: 579, pending: 2, rejected: 0, flagged: 0, averageRating: 4.3 };
+    return { total: 632, published: 630, pending: 2, rejected: 0, flagged: 0, averageRating: 4.1 };
   });
 
   const [appCountsMap, setAppCountsMap] = useState<Record<string, AppReviewCountsData>>(() => {
@@ -143,7 +147,6 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
   const [editModalReview, setEditModalReview] = useState<Partial<ReviewData> | null>(null);
   const [isAddMode, setIsAddMode] = useState(false);
   const [replyModalReview, setReplyModalReview] = useState<ReviewData | null>(null);
-  const [showAIModal, setShowAIModal] = useState(false);
   const [replyText, setReplyText] = useState('');
   const [replyAuthor, setReplyAuthor] = useState('RummyDex Official Support');
   const [recalculating, setRecalculating] = useState(false);
@@ -337,13 +340,9 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
     }
   }, [selectedStatus, selectedStarFilter, searchQuery, currentPage, pageSize]);
 
-  // Effect to load reviews when a specific app is selected
+  // Effect to load reviews when selectedAppId or filters change
   useEffect(() => {
-    if (selectedAppId !== 'all') {
-      fetchReviewsForSelectedApp(selectedAppId);
-    } else {
-      setReviews([]);
-    }
+    fetchReviewsForSelectedApp(selectedAppId);
   }, [selectedAppId, fetchReviewsForSelectedApp]);
 
   // Fetch atomic review counts on mount
@@ -554,6 +553,16 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
     return list;
   }, [reviews, selectedStatus, selectedStarFilter, searchQuery]);
 
+  const handleOpenAIStudio = () => {
+    if (onNavigateToAIStudio) {
+      onNavigateToAIStudio();
+    } else {
+      const pathLower = window.location.pathname.toLowerCase();
+      const currentBase = pathLower.startsWith('/masterworld') ? '/masterworld' : '/admin';
+      window.location.href = `${currentBase}/ai-reviews`;
+    }
+  };
+
   return (
     <div className="w-full min-h-screen bg-slate-50 dark:bg-[#0b101d] text-slate-900 dark:text-slate-100 font-sans selection:bg-indigo-500/30 p-0 sm:p-3 lg:p-4 space-y-4 transition-colors">
       
@@ -562,7 +571,14 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
         <div className="flex items-center gap-2.5">
           {selectedAppId !== 'all' ? (
             <button
-              onClick={() => { setSelectedAppId('all'); setSelectedReviewIds([]); }}
+              onClick={() => {
+                setSelectedAppId('all');
+                setSelectedReviewIds([]);
+                setSearchQuery('');
+                setSelectedStarFilter('all');
+                setSelectedStatus('all');
+                setCurrentPage(1);
+              }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-black transition-all cursor-pointer shadow-xs active:scale-95"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -588,7 +604,7 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setShowAIModal(true)}
+            onClick={handleOpenAIStudio}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-xs font-black transition-all shadow-md shadow-indigo-600/20 active:scale-95 cursor-pointer"
           >
             <Sparkles className="w-3.5 h-3.5" />
@@ -836,7 +852,14 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
                   return (
                     <button
                       key={app.id || app.slug}
-                      onClick={() => setSelectedAppId(app.slug || app.id)}
+                      onClick={() => {
+                        setSelectedAppId(app.slug || app.id);
+                        setSelectedReviewIds([]);
+                        setSearchQuery('');
+                        setSelectedStarFilter('all');
+                        setSelectedStatus('all');
+                        setCurrentPage(1);
+                      }}
                       className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 hover:bg-indigo-50/80 dark:hover:bg-indigo-950/40 rounded-xl border border-slate-200 dark:border-slate-750 hover:border-indigo-400 dark:hover:border-indigo-600 transition-all text-left group cursor-pointer active:scale-[0.98] shadow-2xs"
                     >
                       <div className="relative shrink-0">
@@ -870,6 +893,103 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
                 })
               )}
             </div>
+          </div>
+
+          {/* LAYER D: LIVE RECENT REVIEWS FEED ACROSS CATALOG */}
+          <div className="p-3.5 sm:p-5 bg-white dark:bg-[#131b2e] border border-slate-200/80 dark:border-slate-800/90 rounded-2xl space-y-3 mx-2 sm:mx-0 shadow-xs">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-indigo-500" />
+                  <span>Catalog Reviews Feed</span>
+                </h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Select any app above to zoom into its review workspace, or inspect recent verified reviews below.
+                </p>
+              </div>
+              <button
+                onClick={() => fetchReviewsForSelectedApp('all', true)}
+                className="p-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl transition-all cursor-pointer"
+                title="Refresh reviews"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${refreshing || loading ? 'animate-spin text-indigo-500' : ''}`} />
+              </button>
+            </div>
+
+            {loading ? (
+              <div className="py-12 text-center text-xs font-bold text-slate-400 flex flex-col items-center justify-center gap-2">
+                <RefreshCw className="w-6 h-6 animate-spin text-indigo-500" />
+                <span>Loading live reviews from Firebase...</span>
+              </div>
+            ) : reviews.length === 0 ? (
+              <div className="py-8 text-center text-xs font-bold text-slate-400">
+                No reviews found.
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {reviews.slice(0, 15).map(review => {
+                  const targetApp = appsList.find(a => 
+                    String(a.id).toLowerCase() === String(review.appId).toLowerCase() || 
+                    String(a.slug).toLowerCase() === String(review.appId).toLowerCase() || 
+                    String(a.slug).toLowerCase() === String(review.appSlug).toLowerCase()
+                  );
+                  return (
+                    <div
+                      key={review.id}
+                      className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span className="text-xs font-black text-slate-900 dark:text-white">
+                            {review.userName}
+                          </span>
+                          <span className="flex items-center text-amber-500 text-xs font-bold">
+                            {'★'.repeat(review.rating)}
+                          </span>
+                          {targetApp && (
+                            <button
+                              onClick={() => {
+                                setSelectedAppId(targetApp.slug || targetApp.id);
+                                setSearchQuery('');
+                                setSelectedStarFilter('all');
+                                setSelectedStatus('all');
+                                setCurrentPage(1);
+                              }}
+                              className="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-md text-[10px] font-bold hover:underline cursor-pointer"
+                            >
+                              {targetApp.name} ›
+                            </button>
+                          )}
+                          <span className="text-[10px] text-slate-400">
+                            {formatReviewDate(review.timestamp)}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-700 dark:text-slate-300 line-clamp-2">
+                          {review.reviewText}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                        <button
+                          onClick={() => {
+                            const appKey = review.appSlug || review.appId;
+                            if (appKey) {
+                              setSelectedAppId(appKey);
+                              setSearchQuery('');
+                              setSelectedStarFilter('all');
+                              setSelectedStatus('all');
+                              setCurrentPage(1);
+                            }
+                          }}
+                          className="px-3 py-1.5 bg-slate-200 hover:bg-indigo-600 hover:text-white dark:bg-slate-700 dark:hover:bg-indigo-600 text-slate-800 dark:text-slate-200 rounded-lg text-[11px] font-bold transition-all cursor-pointer"
+                        >
+                          View Reviews
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </>
       ) : (
@@ -1165,31 +1285,6 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({ appsList = [] 
             handleSaveReplyModal(fakeEvent);
           }}
         />
-      )}
-
-      {showAIModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-2 sm:p-4 animate-in fade-in">
-          <div className="w-full max-w-[1400px] h-[95vh] flex flex-col overflow-hidden rounded-3xl bg-white dark:bg-[#0b101d] shadow-2xl relative border border-slate-200 dark:border-slate-800">
-            <button 
-              onClick={() => setShowAIModal(false)} 
-              className="absolute top-4 right-4 z-50 p-2.5 bg-slate-100 dark:bg-slate-900 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <div className="flex-1 overflow-y-auto">
-              <AdminAIReviewStudioTab
-                appsList={appsList}
-                onReviewsGenerated={() => {
-                  setShowAIModal(false);
-                  fetchAdminAppReviewCounts().then(res => {
-                    if (res?.globalStats) setGlobalDbStats(res.globalStats);
-                    if (res?.appCounts) setAppCountsMap(res.appCounts);
-                  });
-                }}
-              />
-            </div>
-          </div>
-        </div>
       )}
 
     </div>

@@ -186,7 +186,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     description = getField(settings, 'seo_description') || getField(settings, 'meta_description', '');
   } else if (cleanPathLower === '/new-apps') {
     pageType = 'collection';
-    title = `New Apps & Latest Releases | ${siteTitle}`;
+    title = `New Apps & Latest Releases`;
     description = `Explore the newest released Rummy, Teen Patti, and card game apps with verified ratings on ${siteTitle}.`;
     customCanonicalUrl = `https://www.rummydex.com/new-apps`;
     const newAppsList = apps.filter((a: any) => a.is_new === true || (a.is_new && a.is_new.booleanValue === true) || a.is_hot === true).slice(0, 20);
@@ -202,7 +202,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     ];
   } else if (cleanPathLower === '/categories') {
     pageType = 'collection';
-    title = `App Categories & Genres | ${siteTitle}`;
+    title = `App Categories & Genres`;
     description = `Browse all gaming and entertainment application categories on ${siteTitle}.`;
     customCanonicalUrl = `https://www.rummydex.com/categories`;
     breadcrumbItems = [
@@ -215,7 +215,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       ? rawCatSlug.split(/[-_]+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
       : 'All Categories';
     pageType = 'collection';
-    title = `${catName} - Download & Reviews | ${siteTitle}`;
+    title = `${catName} - Download & Reviews`;
     description = `Explore top ${catName}, verified reviews, download ratings, and bonus updates on ${siteTitle}.`;
     customCanonicalUrl = `https://www.rummydex.com/category/${rawCatSlug || 'all'}`;
     const categoryApps = apps.filter((a: any) => {
@@ -236,14 +236,14 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       { name: catName, url: `https://www.rummydex.com/category/${rawCatSlug || 'all'}` }
     ];
   } else if (cleanPathLower.startsWith('/admin') || cleanPathLower.startsWith('/masterworld')) {
-    title = `Admin Panel | ${siteTitle}`;
+    title = `Admin Panel`;
     description = `Admin Control Dashboard`;
     pageType = 'static';
   } else if (cleanPathLower.startsWith('/s/')) {
     const slug = cleanPath.split('/s/')[1];
     const app = apps.find((a: any) => getField(a, 'slug').toLowerCase() === slug);
     if (app) {
-      title = `Download ${getField(app, 'name')} | ${siteTitle}`;
+      title = `Download ${getField(app, 'name')}`;
       description = `Secure download link for ${getField(app, 'name')}.`;
       customCanonicalUrl = getField(app, 'canonical_url');
       pageType = 'app';
@@ -253,11 +253,11 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       pageType = '404';
     }
   } else if (cleanPathLower === '/news') {
-    title = getField(settings, 'news_meta_title') || `News & Updates | ${siteTitle}`;
+    title = getField(settings, 'news_meta_title') || `News & Updates`;
     description = getField(settings, 'news_meta_description') || `The latest gaming news, reports, and transparency updates.`;
     pageType = 'static';
   } else if (cleanPathLower === '/videos') {
-    title = getField(settings, 'videos_meta_title') || `Video Reviews | ${siteTitle}`;
+    title = getField(settings, 'videos_meta_title') || `Video Reviews`;
     description = getField(settings, 'videos_meta_description') || `Watch deep-dive reviews and gameplay analysis.`;
     pageType = 'static';
   } else if (cleanPathLower.startsWith('/news/')) {
@@ -313,34 +313,34 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   } else if (['/about', '/contact', '/privacy', '/report-removal', '/terms', '/notice', '/ethics', '/disclaimer', '/responsibility', '/developers'].includes(cleanPathLower)) {
     pageType = 'static';
     if (cleanPathLower === '/about') {
-      title = getField(settings, 'about_meta_title') || `About Us | ${siteTitle}`;
+      title = getField(settings, 'about_meta_title') || `About Us`;
       description = getField(settings, 'about_meta_description') || `Learn more about ${siteTitle}, our mission, and our dedicated team.`;
     } else if (cleanPathLower === '/contact') {
-      title = getField(settings, 'contact_meta_title') || `Contact Support | ${siteTitle}`;
+      title = getField(settings, 'contact_meta_title') || `Contact Support`;
       description = getField(settings, 'contact_meta_description') || `Get in touch with ${siteTitle} support for any queries or assistance.`;
     } else if (cleanPathLower === '/privacy') {
-      title = getField(settings, 'privacy_meta_title') || `Privacy Policy | ${siteTitle}`;
+      title = getField(settings, 'privacy_meta_title') || `Privacy Policy`;
       description = getField(settings, 'privacy_meta_description') || `Read the Privacy Policy of ${siteTitle} to understand how we protect your data.`;
     } else if (cleanPathLower === '/report-removal') {
-      title = getField(settings, 'report_removal_meta_title') || `Report & Removal | ${siteTitle}`;
+      title = getField(settings, 'report_removal_meta_title') || `Report & Removal`;
       description = getField(settings, 'report_removal_meta_description') || `Report content or request removal of specific applications on ${siteTitle}.`;
     } else if (cleanPathLower === '/terms') {
-      title = getField(settings, 'terms_meta_title') || `Terms of Service | ${siteTitle}`;
+      title = getField(settings, 'terms_meta_title') || `Terms of Service`;
       description = getField(settings, 'terms_meta_description') || `Review the Terms of Service and usage guidelines for ${siteTitle}.`;
     } else if (cleanPathLower === '/notice') {
-      title = getField(settings, 'notice_meta_title') || getField(settings, 'important_notice_heading') || `Legal Notice | ${siteTitle}`;
+      title = getField(settings, 'notice_meta_title') || getField(settings, 'important_notice_heading') || `Legal Notice`;
       description = getField(settings, 'notice_meta_description') || `Important legal notices and compliance information for ${siteTitle}.`;
     } else if (cleanPathLower === '/ethics') {
-      title = getField(settings, 'ethics_meta_title') || getField(settings, 'ethics_heading') || `Ethics & Safety | ${siteTitle}`;
+      title = getField(settings, 'ethics_meta_title') || getField(settings, 'ethics_heading') || `Ethics & Safety`;
       description = getField(settings, 'ethics_meta_description') || `Our commitment to ethics, safety, and transparent reviews at ${siteTitle}.`;
     } else if (cleanPathLower === '/disclaimer') {
-      title = getField(settings, 'disclaimer_meta_title') || getField(settings, 'disclaimer_heading') || `Disclaimer | ${siteTitle}`;
+      title = getField(settings, 'disclaimer_meta_title') || getField(settings, 'disclaimer_heading') || `Disclaimer`;
       description = getField(settings, 'disclaimer_meta_description') || `Read the official disclaimer regarding the content and apps on ${siteTitle}.`;
     } else if (cleanPathLower === '/responsibility') {
-      title = getField(settings, 'responsibility_meta_title') || `Responsible Gaming | ${siteTitle}`;
+      title = getField(settings, 'responsibility_meta_title') || `Responsible Gaming`;
       description = getField(settings, 'responsibility_meta_description') || `Information and resources for responsible gaming and app usage on ${siteTitle}.`;
     } else if (cleanPathLower === '/developers') {
-      title = getField(settings, 'developers_meta_title') || `Developer Profiles | ${siteTitle}`;
+      title = getField(settings, 'developers_meta_title') || `Developer Profiles`;
       description = getField(settings, 'developers_meta_description') || `Browse profiles of top app developers featured on ${siteTitle}.`;
     }
   } else if (cleanPathLower.startsWith('/info/') || cleanPathLower.startsWith('/moreinfo/') || cleanPathLower.startsWith('/moredetail/') || cleanPathLower.startsWith('/gateway/') || cleanPathLower.startsWith('/download/')) {
@@ -369,7 +369,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     } else {
       isNotFound = true;
       pageType = '404';
-      title = `404 - Page Not Found | ${siteTitle}`;
+      title = `404 - Page Not Found`;
       description = `The requested page could not be found on ${siteTitle}.`;
     }
   } else {
@@ -397,13 +397,13 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     } else {
       isNotFound = true;
       pageType = '404';
-      title = `404 - Page Not Found | ${siteTitle}`;
+      title = `404 - Page Not Found`;
       description = `The requested page could not be found on ${siteTitle}.`;
     }
   }
 
   if (isNotFound) {
-    title = `404 - Page Not Found | ${siteTitle}`;
+    title = `404 - Page Not Found`;
     description = `The requested page ${cleanPath} could not be found on ${siteTitle}.`;
   }
 

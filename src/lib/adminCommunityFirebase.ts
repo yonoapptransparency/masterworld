@@ -10,7 +10,7 @@ import { getResolvedCommunityFirebaseConfig, parseFirestoreFields, convertToFire
 /**
  * Fetch ALL reviews from Firestore REST using pageToken pagination (for static hosts/Vercel)
  */
-async function fetchAllFirestoreRestReviews(): Promise<AdminReviewItem[]> {
+export async function fetchAllFirestoreRestReviews(): Promise<AdminReviewItem[]> {
   const cfg = getResolvedCommunityFirebaseConfig();
   const allReviews: AdminReviewItem[] = [];
   let pageToken = '';
@@ -63,6 +63,46 @@ async function fetchAllFirestoreRestReviews(): Promise<AdminReviewItem[]> {
       console.warn('[AdminCommunity] Page fetch error:', e);
       break;
     }
+  }
+
+  // Also read chunked reviews from community_store collection
+  try {
+    const storeUrl = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/community_store?pageSize=200&key=${encodeURIComponent(cfg.apiKey)}`;
+    const storeRes = await fetch(storeUrl);
+    if (storeRes.ok) {
+      const storeData = await storeRes.json();
+      const docs = storeData.documents || [];
+      const existingIds = new Set(allReviews.map(r => r.id));
+      docs.forEach((d: any) => {
+        const raw = parseFirestoreFields(d.fields || {});
+        if (Array.isArray(raw.reviews)) {
+          raw.reviews.forEach((r: any) => {
+            if (r && r.id && !existingIds.has(r.id)) {
+              existingIds.add(r.id);
+              allReviews.push({
+                id: r.id,
+                appId: r.appId || raw.appId || '',
+                appSlug: r.appSlug || raw.appSlug || '',
+                appName: r.appName || raw.appName || '',
+                userName: r.userName || r.username || 'Anonymous',
+                rating: Number(r.rating) || 5,
+                reviewText: r.reviewText || r.comment || '',
+                timestamp: r.timestamp || r.created_at || new Date().toISOString(),
+                status: r.status || 'published',
+                helpful_count: Number(r.helpful_count) || 0,
+                isPinned: Boolean(r.isPinned),
+                reported: Boolean(r.reported),
+                report_count: Number(r.report_count) || 0,
+                source: r.source || 'community',
+                adminReply: r.adminReply || null
+              });
+            }
+          });
+        }
+      });
+    }
+  } catch (e) {
+    console.warn('[AdminCommunity] community_store fetch notice:', e);
   }
 
   return allReviews;
@@ -308,7 +348,12 @@ export async function fetchAdminReviewsList(params: {
     if (reviews.length > 0) {
       // Filter by appId
       if (params.appId && params.appId !== 'all') {
-        reviews = reviews.filter(r => r.appId === params.appId || r.appSlug === params.appId);
+        const clean = params.appId.toLowerCase().trim();
+        reviews = reviews.filter(r => {
+          const rId = (r.appId || '').toLowerCase().trim();
+          const rSlug = (r.appSlug || '').toLowerCase().trim();
+          return rId === clean || rSlug === clean;
+        });
       }
       // Filter by status
       if (params.status && params.status !== 'all') {

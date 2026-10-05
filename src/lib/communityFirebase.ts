@@ -484,71 +484,79 @@ export async function fetchLiveReviews(options: {
     }
   };
 
-  // 0. High-Speed Static Partitioned Per-App Review Loader (/data/reviews/[slug].json or /data/reviews/[id].json)
-  // Guarantees instant 0ms latency, zero Firebase read quota consumption, and full client-side pagination
+  // 0. High-Speed Atomic Static Per-App Review Loader from communityStaticReviews.json
+  // Reads directly from the single atomic reviews bundle. Guarantees instant 0ms latency,
+  // zero network requests, zero Firebase read quota consumption, and full client-side pagination.
   try {
+    const staticReviewsMap: Record<string, any> = (communityStaticReviews as any) || {};
     const keysToCheck = [canonicalSlug, canonicalId, rawId].filter(Boolean) as string[];
+    let rawReviews: any[] | null = null;
     for (const key of keysToCheck) {
-      const staticUrl = `/data/reviews/${encodeURIComponent(key)}.json`;
-      const staticRes = await fetch(staticUrl, { headers: { 'Accept': 'application/json' } });
-      if (staticRes.ok && (staticRes.headers.get('content-type') || '').includes('application/json')) {
-        const rawReviews = await staticRes.json();
-        if (Array.isArray(rawReviews) && rawReviews.length > 0) {
-          let list = [...rawReviews];
-          // Filter
-          if (filter === 'positive') {
-            list = list.filter(r => Number(r.rating) >= 4);
-          } else if (filter === 'critical') {
-            list = list.filter(r => Number(r.rating) <= 3);
-          }
-          // Sort
-          list.sort((a, b) => {
-            if (a.isPinned && !b.isPinned) return -1;
-            if (!a.isPinned && b.isPinned) return 1;
-            if (sortBy === 'helpful') {
-              return (Number(b.helpful_count) || 0) - (Number(a.helpful_count) || 0);
-            }
-            const dateB = new Date(b.timestamp || b.created_at || 0).getTime();
-            const dateA = new Date(a.timestamp || a.created_at || 0).getTime();
-            return dateB - dateA;
-          });
-
-          const offset = cursor ? parseInt(String(cursor), 10) || 0 : 0;
-          const pageItems = list.slice(offset, offset + limit);
-          const hasMore = offset + limit < list.length;
-          const nextCursor = hasMore ? String(offset + limit) : null;
-
-          const mappedPage: PublicReview[] = pageItems.map(r => ({
-            id: r.id || `rev_${Math.random().toString(36).slice(2)}`,
-            app_id: r.app_id || r.appId || canonicalId,
-            appId: r.appId || canonicalId,
-            appSlug: r.appSlug || canonicalSlug,
-            appName: r.appName || canonicalName,
-            username: r.userName || r.username || 'Player',
-            rating: Number(r.rating) || 5,
-            comment: r.reviewText || r.comment || '',
-            created_at: formatReviewDate(r.timestamp || r.created_at),
-            helpful_count: Number(r.helpful_count) || 0,
-            reported: Boolean(r.reported),
-            report_count: Number(r.report_count) || 0,
-            source: r.source || 'community',
-            isPinned: Boolean(r.isPinned),
-            adminReply: r.adminReply || null
-          }));
-
-          const enrichedReviews = attachLocalUserReviews(mappedPage);
-          const result: ReviewFetchResult = {
-            reviews: enrichedReviews,
-            hasMore,
-            nextCursor,
-            stats: getCachedLiveAppStats(canonicalId, canonicalSlug)
-          };
-          if (!cursor && filter === 'all' && sortBy === 'recent') {
-            targets.forEach(t => setCachedLiveReviews(t, result));
-          }
-          return result;
-        }
+      const cleanKey = String(key).toLowerCase().trim();
+      if (Array.isArray(staticReviewsMap[cleanKey]) && staticReviewsMap[cleanKey].length > 0) {
+        rawReviews = staticReviewsMap[cleanKey];
+        break;
       }
+      if (Array.isArray(staticReviewsMap[key]) && staticReviewsMap[key].length > 0) {
+        rawReviews = staticReviewsMap[key];
+        break;
+      }
+    }
+
+    if (rawReviews && Array.isArray(rawReviews) && rawReviews.length > 0) {
+      let list = [...rawReviews];
+      // Filter
+      if (filter === 'positive') {
+        list = list.filter(r => Number(r.rating) >= 4);
+      } else if (filter === 'critical') {
+        list = list.filter(r => Number(r.rating) <= 3);
+      }
+      // Sort
+      list.sort((a, b) => {
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
+        if (sortBy === 'helpful') {
+          return (Number(b.helpful_count) || 0) - (Number(a.helpful_count) || 0);
+        }
+        const dateB = new Date(b.timestamp || b.created_at || 0).getTime();
+        const dateA = new Date(a.timestamp || a.created_at || 0).getTime();
+        return dateB - dateA;
+      });
+
+      const offset = cursor ? parseInt(String(cursor), 10) || 0 : 0;
+      const pageItems = list.slice(offset, offset + limit);
+      const hasMore = offset + limit < list.length;
+      const nextCursor = hasMore ? String(offset + limit) : null;
+
+      const mappedPage: PublicReview[] = pageItems.map(r => ({
+        id: r.id || `rev_${Math.random().toString(36).slice(2)}`,
+        app_id: r.app_id || r.appId || canonicalId,
+        appId: r.appId || canonicalId,
+        appSlug: r.appSlug || canonicalSlug,
+        appName: r.appName || canonicalName,
+        username: r.userName || r.username || 'Player',
+        rating: Number(r.rating) || 5,
+        comment: r.reviewText || r.comment || '',
+        created_at: formatReviewDate(r.timestamp || r.created_at),
+        helpful_count: Number(r.helpful_count) || 0,
+        reported: Boolean(r.reported),
+        report_count: Number(r.report_count) || 0,
+        source: r.source || 'community',
+        isPinned: Boolean(r.isPinned),
+        adminReply: r.adminReply || null
+      }));
+
+      const enrichedReviews = attachLocalUserReviews(mappedPage);
+      const result: ReviewFetchResult = {
+        reviews: enrichedReviews,
+        hasMore,
+        nextCursor,
+        stats: getCachedLiveAppStats(canonicalId, canonicalSlug)
+      };
+      if (!cursor && filter === 'all' && sortBy === 'recent') {
+        targets.forEach(t => setCachedLiveReviews(t, result));
+      }
+      return result;
     }
   } catch (staticErr) {
     // Fall back to server API or direct Firestore REST

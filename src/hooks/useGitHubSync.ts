@@ -9,6 +9,9 @@ import { ensureDefaultSettings } from '../lib/defaultLegalContent';
 import { AppConfig, GlobalSettings, NewsItem, VideoItem } from '../types';
 import { getResolvedCommunityFirebaseConfig, parseFirestoreFields } from '../lib/communityFirebase';
 
+import communityCatalogStats from '../lib/communityCatalogStats.json';
+import communityStaticReviews from '../lib/communityStaticReviews.json';
+
 export function useGitHubSync(
   apps: AppConfig[],
   settings: GlobalSettings,
@@ -363,105 +366,75 @@ export function useGitHubSync(
         const revRes = await adminFetch('/api/v1/admin/community/export-static-reviews');
         if (revRes.ok) {
           const revData = await revRes.json();
-          if (revData?.reviews) {
+          if (revData?.reviews && Object.keys(revData.reviews).length > 0) {
             Object.assign(appReviewsMap, revData.reviews);
           }
         }
       } catch (_) {}
 
-      // Direct Community Firestore REST query fallback (for static deployments like Cloudflare Pages)
-      if (!communityStatsPayload || Object.keys(appReviewsMap).length === 0) {
+      // If server route returned empty reviews, query Community Firestore REST directly
+      if (Object.keys(appReviewsMap).length === 0) {
         try {
-          const cfg = getResolvedCommunityFirebaseConfig();
-          const restUrl = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/reviews?pageSize=500&key=${cfg.apiKey}`;
-          const fireRes = await fetch(restUrl);
-          if (fireRes.ok) {
-            const fireData = await fireRes.json();
-            const docs = fireData?.documents || [];
-            log(`GitHub Sync: Pulled ${docs.length} raw community review document(s) directly from Firestore.`);
-
-            let totalReviews = 0;
-            let publishedReviews = 0;
-            let totalRating = 0;
-            const ratingDistribution: Record<string, number> = { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 };
-
-            docs.forEach((docItem: any) => {
-              const raw = parseFirestoreFields(docItem.fields || {});
-              const rawId = docItem.name ? docItem.name.split('/').pop() : '';
-              const rId = raw.id || rawId;
-              const appId = String(raw.appId || raw.app_id || 'general').trim().toLowerCase();
-              const rating = Math.max(1, Math.min(5, Math.round(Number(raw.rating) || 5)));
-              const status = raw.status || 'published';
-              const isPinned = !!raw.isPinned;
-              const text = raw.reviewText || raw.comment || raw.text || '';
-              const userName = raw.userName || raw.username || 'Verified Player';
-              const timestamp = raw.timestamp || raw.created_at || new Date().toISOString();
-
-              totalReviews++;
-              if (status === 'published') {
-                publishedReviews++;
-                totalRating += rating;
-                ratingDistribution[String(rating)] = (ratingDistribution[String(rating)] || 0) + 1;
-
-                if (!appCountsMap[appId]) {
-                  appCountsMap[appId] = {
-                    total: 0,
-                    published: 0,
-                    pending: 0,
-                    rejected: 0,
-                    flagged: 0,
-                    avgRating: 5.0,
-                    ratingDistribution: { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 },
-                    ratingSum: 0
-                  };
+          const { fetchAllFirestoreRestReviews } = await import('../lib/adminCommunityFirebase');
+          const directRevs = await fetchAllFirestoreRestReviews();
+          if (Array.isArray(directRevs) && directRevs.length > 0) {
+            const pubOnly = directRevs.filter(r => (r.status || 'published') === 'published');
+            pubOnly.forEach(r => {
+              const keys = [r.appId, r.appSlug].filter(Boolean) as string[];
+              keys.forEach(k => {
+                const lower = k.toLowerCase().trim();
+                if (!appReviewsMap[lower]) appReviewsMap[lower] = [];
+                // Deduplicate by ID
+                if (!appReviewsMap[lower].some(existing => existing.id === r.id)) {
+                  appReviewsMap[lower].push({
+                    id: r.id,
+                    appId: r.appId,
+                    appSlug: r.appSlug || '',
+                    appName: r.appName || '',
+                    userName: r.userName || (r as any).username || 'Player',
+                    rating: Number(r.rating) || 5,
+                    reviewText: r.reviewText || (r as any).comment || '',
+                    timestamp: r.timestamp || (r as any).created_at || new Date().toISOString(),
+                    helpful_count: Number(r.helpful_count) || 0,
+                    isPinned: Boolean(r.isPinned),
+                    adminReply: r.adminReply || null
+                  });
                 }
-                const ac = appCountsMap[appId];
-                ac.total++;
-                ac.published++;
-                ac.ratingSum += rating;
-                ac.avgRating = parseFloat((ac.ratingSum / ac.published).toFixed(1));
-                ac.ratingDistribution[String(rating)] = (ac.ratingDistribution[String(rating)] || 0) + 1;
-
-                if (!appReviewsMap[appId]) appReviewsMap[appId] = [];
-                appReviewsMap[appId].push({
-                  id: rId,
-                  appId,
-                  rating,
-                  userName,
-                  reviewText: text,
-                  timestamp,
-                  isPinned,
-                  helpful_count: Number(raw.helpful_count || 0),
-                  status: 'published',
-                  adminReply: raw.adminReply || null
-                });
-              }
+              });
             });
-
-            const globalAvg = publishedReviews > 0 ? parseFloat((totalRating / publishedReviews).toFixed(1)) : 4.8;
-            communityStatsPayload = {
-              totalReviews,
-              publishedReviews,
-              averageRating: globalAvg,
-              ratingDistribution,
-              appCounts: appCountsMap,
-              updated_at: new Date().toISOString()
-            };
-            log(`GitHub Sync: Assembled live ratings & reviews for ${Object.keys(appCountsMap).length} app(s).`);
+            log(`GitHub Sync: Pulled ${pubOnly.length} published reviews directly from Community Firestore into atomic bundle.`);
           }
-        } catch (cFsErr: any) {
-          log(`GitHub Sync Notice: Direct review REST note: ${cFsErr?.message || cFsErr}`);
+        } catch (fErr) {
+          log(`GitHub Sync Notice: Direct community Firestore query note: ${(fErr as any)?.message || fErr}`);
         }
       }
 
+      // Zero-Quota Fallback: Use verified atomic catalog stats & static reviews to prevent burning Firestore quota
+      if (!communityStatsPayload || Object.keys(appReviewsMap).length === 0) {
+        log("GitHub Sync: Using verified atomic catalog stats & static reviews (Zero-Quota Read)...");
+        try {
+          if (communityCatalogStats && (communityCatalogStats as any).appCounts) {
+            communityStatsPayload = communityCatalogStats;
+            Object.assign(appCountsMap, (communityCatalogStats as any).appCounts);
+          }
+          if (communityStaticReviews && typeof communityStaticReviews === 'object') {
+            Object.assign(appReviewsMap, communityStaticReviews as any);
+          }
+        } catch (_) {}
+      }
+
       // Sort and slice top 5 per app for central communityReviewsPayload (SSR prerender bundle)
+      // Index by both exact key and lowercase key so every app gets its reviews seamlessly
       for (const [k, revs] of Object.entries(appReviewsMap)) {
+        if (!Array.isArray(revs)) continue;
         revs.sort((a, b) => {
           if (a.isPinned && !b.isPinned) return -1;
           if (!a.isPinned && b.isPinned) return 1;
           return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
         });
-        communityReviewsPayload[k] = revs.slice(0, 5);
+        const topSlice = revs.slice(0, 5);
+        communityReviewsPayload[k] = topSlice;
+        communityReviewsPayload[k.toLowerCase().trim()] = topSlice;
       }
 
       // Harmonize live community review stats into apps so static data, cards, and SEO have 100% consistent ratings
@@ -708,39 +681,6 @@ export function useGitHubSync(
         }
       } catch (coreErr: any) {
         log(`GitHub Sync Note: Core files fetch note: ${coreErr?.message || 'skipped'}`);
-      }
-
-      // Partitioned per-app review files and stats files for 0ms Edge CDN loading and 0 Firebase reads
-      const emittedKeys = new Set<string>();
-      for (const [appKey, revList] of Object.entries(appReviewsMap)) {
-        if (Array.isArray(revList) && revList.length > 0 && !emittedKeys.has(appKey)) {
-          emittedKeys.add(appKey);
-          primaryBatchFiles.push({
-            path: `public/data/reviews/${encodeURIComponent(appKey)}.json`,
-            content: JSON.stringify(revList)
-          });
-        }
-      }
-      // Also ensure slug keys exist for all public apps
-      for (const app of publicApps) {
-        const idKey = String(app.id || '').trim().toLowerCase();
-        const slugKey = String(app.slug || '').trim().toLowerCase();
-        const revs = appReviewsMap[idKey] || appReviewsMap[slugKey] || [];
-        if (slugKey && !emittedKeys.has(slugKey) && revs.length > 0) {
-          emittedKeys.add(slugKey);
-          primaryBatchFiles.push({
-            path: `public/data/reviews/${encodeURIComponent(slugKey)}.json`,
-            content: JSON.stringify(revs)
-          });
-        }
-      }
-      for (const [appKey, countStats] of Object.entries(appCountsMap)) {
-        if (countStats) {
-          primaryBatchFiles.push({
-            path: `public/data/stats/${encodeURIComponent(appKey)}.json`,
-            content: JSON.stringify(countStats)
-          });
-        }
       }
 
       if (vaultCode) {

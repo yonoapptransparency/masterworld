@@ -2,12 +2,23 @@ import { getOgImageUrl } from '../seo/utils';
 
 export { getOgImageUrl };
 
-export function formatPageTitle(rawTitle?: string, siteTitle: string = 'RummyDex'): string {
-  if (!rawTitle || !rawTitle.trim()) return siteTitle;
+export function formatPageTitle(rawTitle?: string, fallbackTitle: string = 'RummyDex'): string {
+  if (!rawTitle || !rawTitle.trim()) return fallbackTitle;
   // If title contains multiple lines or linebreaks, take only the primary first line
   const firstLine = rawTitle.split(/\r?\n/)[0] || rawTitle;
-  const clean = firstLine.trim().replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
-  return clean || siteTitle;
+  let clean = firstLine.trim().replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+  
+  // Actively strip any trailing brand suffixes (e.g. "- RummyDex", "| RummyDex", "- Rummy Dex", "| Rummy Dex", "- Remidex", etc.)
+  let prev = '';
+  while (prev !== clean) {
+    prev = clean;
+    clean = clean.replace(/\s*[-|–—•:]+\s*(?:RummyDex|Rummydex|Remidex|Rummy\s*Dex|MasterWorld)\s*$/i, '').trim();
+  }
+
+  // Also clean any leading or trailing stray punctuation
+  clean = clean.replace(/^[:\s\-|–—•]+/, '').replace(/[:\s\-|–—•]+$/, '').trim();
+
+  return clean || fallbackTitle;
 }
 
 export function getCleanCanonicalUrl(rawUrl?: string, fallbackPath: string = '/'): string {
