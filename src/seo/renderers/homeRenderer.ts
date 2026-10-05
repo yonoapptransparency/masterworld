@@ -6,7 +6,13 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
   const desc = getField(settings, 'meta_description');
   
   let appsHtml = '';
-  const sorted = [...apps].sort((a, b) => parseInt(getField(a, 'serial_number', '999'), 10) - parseInt(getField(b, 'serial_number', '999'), 10));
+  const sorted = [...apps].sort((a, b) => {
+    const rawA = parseInt(getField(a, 'serial_number', '999999'), 10);
+    const rawB = parseInt(getField(b, 'serial_number', '999999'), 10);
+    const sa = !isNaN(rawA) && rawA > 0 ? rawA : 999999;
+    const sb = !isNaN(rawB) && rawB > 0 ? rawB : 999999;
+    return sa - sb;
+  });
   
   // Render top 18 above-the-fold apps with 1:1 PlayStoreUI styling for zero-CLS paint and perfect SEO
   sorted.slice(0, 18).forEach((app, i) => {
@@ -132,23 +138,30 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
       </div>
 
       ${Array.isArray(settings?.website_faqs) && settings.website_faqs.filter((f: any) => f && f.question && f.answer).length > 0 ? `
-        <section aria-labelledby="home-faq-heading" class="mt-12 text-left bg-white dark:bg-zinc-900 p-6 sm:p-8 rounded-3xl border border-black/5 dark:border-white/5 shadow-sm">
-          <h2 id="home-faq-heading" class="text-2xl font-bold mb-6 text-zinc-900 dark:text-zinc-100">Frequently Asked Questions</h2>
-          <div class="space-y-4">
-            ${settings.website_faqs.filter((f: any) => f && f.question && f.answer).map((faq: any, idx: number) => `
-              <details class="group rounded-2xl border border-black/5 dark:border-white/5 bg-zinc-50/80 dark:bg-zinc-800/50 p-4 sm:p-5" ${idx === 0 ? 'open' : ''}>
-                <summary class="font-bold text-base text-zinc-900 dark:text-zinc-100 cursor-pointer list-none flex justify-between items-center gap-3">
-                  <span class="flex items-start gap-2">
-                    <span class="text-blue-500 font-extrabold select-none">Q.</span>
-                    <span>${escapeHtml(cleanFaqQuestion(faq.question))}</span>
-                  </span>
-                  <span class="text-blue-500 font-bold text-lg select-none">+</span>
-                </summary>
-                <div class="mt-3 text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed border-t border-black/5 dark:border-white/5 pt-3 pl-5">
-                  ${escapeHtml(faq.answer)}
-                </div>
-              </details>
-            `).join('')}
+        <section aria-labelledby="home-faq-heading" class="mt-10 sm:mt-14 mb-8 px-2 max-w-5xl mx-auto w-full">
+          <div class="bg-zinc-50/80 dark:bg-[#080c18]/80 border border-zinc-200/80 dark:border-white/[0.08] rounded-2xl sm:rounded-3xl p-4 sm:p-7 shadow-xs">
+            <div class="flex items-center justify-between mb-5 sm:mb-7 pb-3.5 border-b border-zinc-200/80 dark:border-white/[0.08]">
+              <h2 id="home-faq-heading" class="text-base sm:text-lg font-bold text-zinc-900 dark:text-white tracking-tight">Frequently Asked Questions</h2>
+              <span class="text-[11px] sm:text-xs font-semibold text-zinc-500 dark:text-zinc-400 bg-zinc-200/70 dark:bg-white/[0.06] px-2.5 py-1 rounded-full">${settings.website_faqs.filter((f: any) => f && f.question && f.answer).length} FAQs</span>
+            </div>
+            <div class="space-y-2.5 sm:space-y-3">
+              ${settings.website_faqs.filter((f: any) => f && f.question && f.answer).map((faq: any, idx: number) => `
+                <details class="group rounded-xl sm:rounded-2xl border border-zinc-200/90 dark:border-white/[0.07] bg-white dark:bg-[#0c101d] overflow-hidden shadow-xs" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">
+                  <summary class="list-none [&::-webkit-details-marker]:hidden flex items-center justify-between gap-3 p-3.5 sm:p-4 text-left cursor-pointer select-none">
+                    <span class="flex items-center gap-2.5 min-w-0 pr-1">
+                      <span class="w-5 h-5 rounded-full bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-cyan-400 text-[11px] font-black flex items-center justify-center shrink-0">Q</span>
+                      <span itemprop="name" class="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">${escapeHtml(cleanFaqQuestion(faq.question))}</span>
+                    </span>
+                    <span class="w-6 h-6 rounded-full bg-zinc-100 dark:bg-white/[0.06] text-zinc-500 flex items-center justify-center text-xs shrink-0">&rsaquo;</span>
+                  </summary>
+                  <div itemscope itemprop="acceptedAnswer" itemtype="https://schema.org/Answer" class="px-4 pb-4 pt-2 border-t border-zinc-100 dark:border-white/[0.05] text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed bg-zinc-50/30 dark:bg-black/10">
+                    <div itemprop="text" class="pl-7">
+                      ${escapeHtml(faq.answer)}
+                    </div>
+                  </div>
+                </details>
+              `).join('')}
+            </div>
           </div>
         </section>
       ` : ''}
@@ -160,7 +173,13 @@ export function renderCategory(categoryName: string, _categorySlug: string, cate
   const siteTitle = getField(settings, 'site_title') || 'RummyDex';
   
   let appsHtml = '';
-  const sorted = [...categoryApps].sort((a, b) => parseInt(getField(a, 'serial_number', '999'), 10) - parseInt(getField(b, 'serial_number', '999'), 10));
+  const sorted = [...categoryApps].sort((a, b) => {
+    const rawA = parseInt(getField(a, 'serial_number', '999999'), 10);
+    const rawB = parseInt(getField(b, 'serial_number', '999999'), 10);
+    const sa = !isNaN(rawA) && rawA > 0 ? rawA : 999999;
+    const sb = !isNaN(rawB) && rawB > 0 ? rawB : 999999;
+    return sa - sb;
+  });
   
   sorted.forEach((app, i) => {
     const name = getField(app, 'name');

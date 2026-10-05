@@ -211,20 +211,31 @@ publicApiRouter.get(["/api/v1/public/reviews", "/api/public/reviews"], async (re
 
 function sanitizeAppsForPublic(appsList: any[]) {
   if (!Array.isArray(appsList)) return [];
-  return appsList.map((app: any) => {
+  const map = new Map<string, any>();
+  for (const app of appsList) {
+    if (!app) continue;
+    const key = (app.slug || app.id || '').toLowerCase().trim();
+    if (!key) continue;
     const cleanApp = { ...app };
-    // Only strip raw direct unencrypted download URLs if they should be sealed
     delete cleanApp.download_url;
     delete cleanApp.encrypted_download_url;
-    return cleanApp;
-  });
+    if (map.has(key)) {
+      map.set(key, { ...map.get(key), ...cleanApp });
+    } else {
+      map.set(key, cleanApp);
+    }
+  }
+  return Array.from(map.values());
 }
 
 function sanitizeNewsForPublic(newsList: any[]) {
   if (!Array.isArray(newsList)) return [];
-  return newsList
-    .filter((item: any) => item && item.sync_to_public !== false)
-    .map((item: any) => ({
+  const map = new Map<string, any>();
+  for (const item of newsList) {
+    if (!item || item.sync_to_public === false) continue;
+    const key = (item.slug || item.id || '').toLowerCase().trim();
+    if (!key) continue;
+    const cleanNews = {
       id: item.id,
       slug: item.slug,
       title: item.title,
@@ -255,7 +266,14 @@ function sanitizeNewsForPublic(newsList: any[]) {
       created_at: item.created_at || item.date || '',
       updated_at: item.updated_at || item.date || '',
       sync_to_public: true
-    }));
+    };
+    if (map.has(key)) {
+      map.set(key, { ...map.get(key), ...cleanNews });
+    } else {
+      map.set(key, cleanNews);
+    }
+  }
+  return Array.from(map.values());
 }
 
 

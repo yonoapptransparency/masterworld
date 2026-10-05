@@ -1,9 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
-    <loc>https://www.rummydex.com/videos</loc>
-    <lastmod>2026-10-04T11:53:04+00:00</lastmod>
+    <loc>https://www.rummydex.com/videos/Jiocinema-revew</loc>
+    <lastmod>2026-10-05T13:43:16+00:00</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
+    <image:image>
+      <image:loc>https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png</image:loc>
+      <image:title>Jiocinema review and proper guide and facility video</image:title>
+    </image:image>
   </url>
 </urlset>

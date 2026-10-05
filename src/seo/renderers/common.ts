@@ -56,63 +56,65 @@ export function renderFooter(settings: any): string {
   const siteTitle = getField(settings, 'site_title') || 'RummyDex';
 
   return `
-    <footer class="w-full mt-12 bg-slate-900 dark:bg-zinc-950 text-slate-300 border-t border-black/10 dark:border-white/10" aria-label="Site Footer">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
-        <div class="flex flex-col lg:flex-row justify-between items-start gap-8 lg:gap-12">
-          
-          <div class="flex flex-col items-start max-w-sm">
-            <a href="/" class="text-xl sm:text-2xl font-black text-white hover:text-blue-400 transition-colors inline-flex items-center gap-2 mb-2" aria-label="${escapeHtml(siteTitle)} Homepage">
-              <span>${escapeHtml(siteTitle)}</span>
-              <span class="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">
-                Verified
-              </span>
+    <footer class="w-full mt-8 sm:mt-12 bg-zinc-100 dark:bg-[#060913] text-zinc-600 dark:text-zinc-400 border-t border-zinc-200 dark:border-white/[0.08] transition-colors select-none" aria-label="Site Footer">
+      <div class="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 pb-5 border-b border-zinc-200/80 dark:border-white/[0.08] mb-5 sm:mb-6">
+          <div class="flex items-center gap-2.5 flex-wrap">
+            <a href="/" class="text-lg sm:text-xl font-black tracking-tight text-zinc-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors inline-flex items-center gap-1" aria-label="${escapeHtml(siteTitle)} Homepage">
+              <span>${escapeHtml(siteTitle.replace(/dex$/i, ''))}</span>
+              <span class="text-blue-600 dark:text-blue-400">${siteTitle.match(/dex$/i) ? 'Dex' : ''}</span>
             </a>
-            <p class="text-xs text-slate-400 leading-relaxed font-normal">
-              Independent digital directory, application benchmarking, and transparent reviews.
-            </p>
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 text-blue-700 dark:text-blue-400 text-[10px] font-bold tracking-wider uppercase">
+              <span>Verified</span>
+            </span>
+          </div>
+          <p class="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 leading-snug">
+            Independent application transparency, safety benchmarking, and reviews.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-5 sm:gap-8 mb-6 sm:mb-8 text-left">
+          <div class="flex flex-col gap-1.5">
+            <h3 class="text-xs font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-cyan-500"></span>
+              <span>Directory</span>
+            </h3>
+            <a href="/" class="text-xs text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-white py-0.5 transition-colors">All Apps</a>
+            <a href="/?tab=All+Apps" class="text-xs text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-white py-0.5 transition-colors">New Apps</a>
+            <a href="/?tab=Categories" class="text-xs text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-white py-0.5 transition-colors">Categories</a>
+            <a href="/news" class="text-xs text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-white py-0.5 transition-colors">Industry News</a>
+            <a href="/videos" class="text-xs text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-white py-0.5 transition-colors">Video Reviews</a>
           </div>
 
-          <div class="w-full lg:w-auto grid grid-cols-2 sm:grid-cols-3 gap-6 sm:gap-10 text-left text-xs sm:text-sm">
-            
-            <div class="flex flex-col gap-2">
-              <span class="text-white font-bold text-[11px] uppercase tracking-wider mb-1 text-slate-100">
-                Directory
-              </span>
-              <a href="/" class="text-slate-400 hover:text-blue-400 transition-colors py-0.5">All Apps</a>
-              <a href="/new-apps" class="text-slate-400 hover:text-blue-400 transition-colors py-0.5">New Apps</a>
-              <a href="/categories" class="text-slate-400 hover:text-blue-400 transition-colors py-0.5">Categories</a>
-              <a href="/news" class="text-slate-400 hover:text-blue-400 transition-colors py-0.5">Industry News</a>
-              <a href="/videos" class="text-slate-400 hover:text-blue-400 transition-colors py-0.5">Video Reviews</a>
-            </div>
+          <div class="flex flex-col gap-1.5">
+            <h3 class="text-xs font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              <span>Compliance</span>
+            </h3>
+            <a href="/privacy" class="text-xs text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-white py-0.5 transition-colors">Privacy Policy</a>
+            <a href="/terms" class="text-xs text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-white py-0.5 transition-colors">Terms of Service</a>
+            <a href="/ethics" class="text-xs text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-white py-0.5 transition-colors">Ethics Policy</a>
+            <a href="/notice" class="text-xs text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-white py-0.5 transition-colors">Legal Notice</a>
+            <a href="/disclaimer" class="text-xs text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-white py-0.5 transition-colors">Disclaimer</a>
+          </div>
 
-            <div class="flex flex-col gap-2">
-              <span class="text-white font-bold text-[11px] uppercase tracking-wider mb-1 text-slate-100">
-                Company
-              </span>
-              <a href="/about" class="text-slate-400 hover:text-blue-400 transition-colors py-0.5">About Us</a>
-              <a href="/developers" class="text-slate-400 hover:text-blue-400 transition-colors py-0.5">Developer Team</a>
-              <a href="/contact" class="text-slate-400 hover:text-blue-400 transition-colors py-0.5">Contact Support</a>
-              <a href="/responsibility" class="text-slate-400 hover:text-blue-400 transition-colors py-0.5">Responsible Gaming</a>
-              <a href="/report-removal" class="text-slate-400 hover:text-blue-400 transition-colors py-0.5">Report / DMCA</a>
-            </div>
-
-            <div class="flex flex-col gap-2 col-span-2 sm:col-span-1">
-              <span class="text-white font-bold text-[11px] uppercase tracking-wider mb-1 text-slate-100">
-                Compliance
-              </span>
-              <a href="/privacy" class="text-slate-400 hover:text-blue-400 transition-colors py-0.5">Privacy Policy</a>
-              <a href="/terms" class="text-slate-400 hover:text-blue-400 transition-colors py-0.5">Terms of Service</a>
-              <a href="/ethics" class="text-slate-400 hover:text-blue-400 transition-colors py-0.5">Ethics Policy</a>
-              <a href="/notice" class="text-slate-400 hover:text-blue-400 transition-colors py-0.5">Legal Notice</a>
-              <a href="/disclaimer" class="text-slate-400 hover:text-blue-400 transition-colors py-0.5">Disclaimer</a>
-            </div>
-
+          <div class="flex flex-col gap-1.5 col-span-2 sm:col-span-1">
+            <h3 class="text-xs font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+              <span>Company</span>
+            </h3>
+            <a href="/about" class="text-xs text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-white py-0.5 transition-colors">About Us</a>
+            <a href="/developers" class="text-xs text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-white py-0.5 transition-colors">Developer Team</a>
+            <a href="/contact" class="text-xs text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-white py-0.5 transition-colors">Contact Support</a>
+            <a href="/responsibility" class="text-xs text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-white py-0.5 transition-colors">Responsible Gaming</a>
+            <a href="/report-removal" class="text-xs text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-white py-0.5 transition-colors">Report / DMCA</a>
           </div>
         </div>
 
-        <div class="mt-10 pt-6 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p class="text-[11px] text-slate-500 text-center sm:text-left">
-            &copy; ${new Date().getFullYear()} ${escapeHtml(siteTitle)}. All rights reserved.
+        <div class="pt-4 border-t border-zinc-200/80 dark:border-white/[0.08] flex flex-col sm:flex-row items-center justify-between gap-3">
+          <p class="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-500 text-center sm:text-left">
+            &copy; ${new Date().getFullYear()} <span class="font-semibold text-zinc-700 dark:text-zinc-300">${escapeHtml(siteTitle)}</span>. All rights reserved.
           </p>
         </div>
 
