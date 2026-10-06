@@ -1,6 +1,6 @@
 import express from 'express';
 import { verifyAdminToken } from '../middleware/adminAuth';
-import { getFirebaseAdminDb } from '../firebase';
+import { getFirebaseAdminDb, readFirestoreRestDoc, writeFirestoreRestDoc } from '../firebase';
 import fs from 'fs';
 import path from 'path';
 
@@ -24,6 +24,19 @@ githubSyncRouter.get("/api/github-sync/config", verifyAdminToken, async (req, re
       }
     } catch (dbErr) {
       console.warn("[GitHub Sync] Firestore config read warning:", dbErr);
+    }
+
+    // 1b. Try reading from Firestore REST API fallback
+    if (!config) {
+      try {
+        const authToken = req.headers.authorization;
+        const restDoc = await readFirestoreRestDoc('cfg', authToken, 'sec_git');
+        if (restDoc && Object.keys(restDoc).length > 0) {
+          config = restDoc;
+        }
+      } catch (restErr) {
+        console.warn("[GitHub Sync] REST config read warning:", restErr);
+      }
     }
 
     // 2. Fallback to local server json
@@ -73,24 +86,43 @@ githubSyncRouter.post("/api/github-sync/config", verifyAdminToken, async (req, r
       updatedAt: new Date().toISOString()
     };
 
+    let firestoreSaved = false;
+
     // 1. Persist to Firestore via Admin SDK
     try {
       const db = getFirebaseAdminDb();
       if (db) {
         await db.collection('sec_git').doc('cfg').set(newConfig, { merge: true });
+        firestoreSaved = true;
       }
     } catch (dbErr) {
       console.warn("[GitHub Sync] Failed to write config to Firestore:", dbErr);
     }
 
-    // 2. Persist locally to server file
+    // 2. Fallback to REST API write to Firestore (sec_git/cfg)
+    if (!firestoreSaved) {
+      try {
+        const authToken = req.headers.authorization;
+        const restOk = await writeFirestoreRestDoc('cfg', newConfig, authToken, true, 'sec_git');
+        if (restOk) firestoreSaved = true;
+      } catch (restErr) {
+        console.warn("[GitHub Sync] REST config write warning:", restErr);
+      }
+    }
+
+    // 3. Persist locally to server file
     try {
       fs.writeFileSync(LOCAL_GIT_CONFIG_PATH, JSON.stringify(newConfig, null, 2), 'utf8');
     } catch (fsErr) {
       console.warn("[GitHub Sync] Local config file write warning:", fsErr);
     }
 
-    return res.json({ success: true, message: "GitHub configuration saved successfully.", config: newConfig });
+    return res.json({
+      success: true,
+      message: firestoreSaved ? "GitHub configuration saved to Cloud Firestore." : "GitHub configuration saved locally.",
+      config: newConfig,
+      firestoreSaved
+    });
   } catch (err: any) {
     console.error("[GitHub Sync] Save config error:", err);
     return res.status(500).json({ success: false, error: err.message });

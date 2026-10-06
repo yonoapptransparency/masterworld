@@ -62,6 +62,12 @@ export function safeEncrypt(text: string, secret?: string): string {
   return CryptoJS.AES.encrypt(text, encKey).toString();
 }
 
+export async function generateSha1(str: string): Promise<string> {
+  const enc = new TextEncoder();
+  const hash = await crypto.subtle.digest('SHA-1', enc.encode(str));
+  return Array.from(new Uint8Array(hash)).map(v => v.toString(16).padStart(2, '0')).join('');
+}
+
 export const isRealValue = (id: string | undefined): boolean => {
   if (!id) return false;
   const clean = id.trim();

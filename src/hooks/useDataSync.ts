@@ -152,33 +152,39 @@ export function useDataSync() {
             if (faqsSnap && faqsSnap.exists && faqsSnap.exists()) {
               const fData = faqsSnap.data();
               if (Array.isArray(fData?.items)) loadedSettings.website_faqs = fData.items;
+              loadedFromDirectFirestore = true;
             }
             if (devsSnap && devsSnap.exists && devsSnap.exists()) {
               const dData = devsSnap.data();
               if (Array.isArray(dData?.items)) loadedSettings.developers = dData.items;
+              loadedFromDirectFirestore = true;
             }
             if (linksSnap && linksSnap.exists && linksSnap.exists()) {
               const lData = linksSnap.data();
               if (Array.isArray(lData?.items)) loadedSettings.quick_links = lData.items;
+              loadedFromDirectFirestore = true;
             }
 
             if (Object.keys(loadedSettings).length > 0) {
               setSettings(prev => ({ ...prev, ...loadedSettings }));
+              loadedFromDirectFirestore = true;
             }
 
             if (newsSnap && newsSnap.exists && newsSnap.exists()) {
               const newsData = newsSnap.data();
               const items = newsData.items || newsData.news || [];
-              if (Array.isArray(items) && items.length > 0) {
+              if (Array.isArray(items)) {
                 setNews(items);
+                loadedFromDirectFirestore = true;
               }
             }
 
             if (videosSnap && videosSnap.exists && videosSnap.exists()) {
               const vidData = videosSnap.data();
               const items = vidData.items || vidData.videos || [];
-              if (Array.isArray(items) && items.length > 0) {
+              if (Array.isArray(items)) {
                 setVideos(items);
+                loadedFromDirectFirestore = true;
               }
             }
 

@@ -130,7 +130,8 @@ export async function syncFromFirestore(): Promise<any> {
     const config = getRawFirebaseConfig();
     if (config && config.projectId) {
       const apiKeyParam = config.apiKey ? `?key=${encodeURIComponent(config.apiKey)}` : '';
-      const dbId = config.firestoreDatabaseId || config.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+      const rawDb = config.firestoreDatabaseId || config.databaseId;
+      const dbId = (rawDb && rawDb.trim() !== '' && rawDb.trim() !== 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a') ? rawDb.trim() : '(default)';
       const baseUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${dbId}/documents/store_data`;
 
       const metaRes = await fetch(`${baseUrl}/apps_meta${apiKeyParam}`);

@@ -1,6 +1,12 @@
 import fs from 'fs';
 import path from 'path';
-import { getFirebaseAdminDb, getRawFirebaseConfig as getFirebaseConfigFromModule } from '../firebase';
+import { 
+  getFirebaseAdminDb, 
+  getRawFirebaseConfig as getFirebaseConfigFromModule,
+  readFirestoreRestDoc as mainReadRestDoc,
+  writeFirestoreRestDoc as mainWriteRestDoc,
+  deleteFirestoreRestDoc as mainDeleteRestDoc
+} from '../firebase';
 import { vaultNode } from '../../lib/vaultNode';
 import { clearResolvedLinkCache } from '../services/linkService';
 import { clearPublicBackupCache } from '../routes/publicApiRoutes';
@@ -51,148 +57,16 @@ export async function adminDbSetWithTimeout(docRef: any, data: any, options?: an
   return Promise.race([setPromise, timeoutPromise]);
 }
 
-export async function readFirestoreRestDoc(docName: string, authToken?: string): Promise<any> {
-  const config = getRawFirebaseConfig();
-  if (!config || !config.projectId) return null;
-  const dbId = (config.firestoreDatabaseId && config.firestoreDatabaseId.trim() !== '') ? config.firestoreDatabaseId : '(default)';
-  const apiKey = config.apiKey || '';
-  const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${dbId}/documents/store_data/${docName}${apiKey ? `?key=${apiKey}` : ''}`;
-  
-  const headers: Record<string, string> = { 'Accept': 'application/json' };
-  if (authToken) {
-    headers['Authorization'] = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`;
-  }
-
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 3500);
-    const res = await fetch(url, { headers, signal: controller.signal });
-    clearTimeout(timeout);
-    if (!res.ok) return null;
-    const data = await res.json() as any;
-    if (!data.fields) return null;
-
-    const parseValue = (val: any): any => {
-      if (val.stringValue !== undefined) return val.stringValue;
-      if (val.integerValue !== undefined) return parseInt(val.integerValue, 10);
-      if (val.doubleValue !== undefined) return parseFloat(val.doubleValue);
-      if (val.booleanValue !== undefined) return val.booleanValue;
-      if (val.nullValue !== undefined) return null;
-      if (val.arrayValue) {
-        return (val.arrayValue.values || []).map(parseValue);
-      }
-      if (val.mapValue) {
-        const obj: any = {};
-        const mapFields = val.mapValue.fields || {};
-        for (const [k, v] of Object.entries(mapFields)) {
-          obj[k] = parseValue(v);
-        }
-        return obj;
-      }
-      return null;
-    };
-
-    const result: any = {};
-    for (const [key, val] of Object.entries(data.fields)) {
-      result[key] = parseValue(val);
-    }
-    return result;
-  } catch (err: any) {
-    console.warn(`[SERVER] REST fetch failed for ${docName}:`, err.message);
-    return null;
-  }
+export async function readFirestoreRestDoc(docName: string, authToken?: string, collectionPath: string = 'store_data'): Promise<any> {
+  return mainReadRestDoc(docName, authToken, collectionPath);
 }
 
-export async function writeFirestoreRestDoc(docName: string, data: any, authToken?: string, merge = false): Promise<boolean> {
-  const config = getRawFirebaseConfig();
-  if (!config || !config.projectId) return false;
-  const dbId = (config.firestoreDatabaseId && config.firestoreDatabaseId.trim() !== '') ? config.firestoreDatabaseId : '(default)';
-  const apiKey = config.apiKey || '';
-
-  const encodeValue = (val: any): any => {
-    if (val === null || val === undefined) return { nullValue: null };
-    if (typeof val === 'string') return { stringValue: val };
-    if (typeof val === 'number') {
-      return Number.isInteger(val) ? { integerValue: val.toString() } : { doubleValue: val };
-    }
-    if (typeof val === 'boolean') return { booleanValue: val };
-    if (Array.isArray(val)) {
-      return { arrayValue: { values: val.map(encodeValue) } };
-    }
-    if (typeof val === 'object') {
-      const fields: any = {};
-      for (const [k, v] of Object.entries(val)) {
-        fields[k] = encodeValue(v);
-      }
-      return { mapValue: { fields } };
-    }
-    return { stringValue: String(val) };
-  };
-
-  const fields: any = {};
-  for (const [k, v] of Object.entries(data)) {
-    fields[k] = encodeValue(v);
-  }
-
-  let url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${dbId}/documents/store_data/${docName}`;
-  const queryParams: string[] = [];
-  if (apiKey) queryParams.push(`key=${apiKey}`);
-  if (merge) {
-    for (const k of Object.keys(data)) {
-      queryParams.push(`updateMask.fieldPaths=${encodeURIComponent(k)}`);
-    }
-  }
-  if (queryParams.length > 0) {
-    url += `?${queryParams.join('&')}`;
-  }
-
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json'
-  };
-  if (authToken) {
-    headers['Authorization'] = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`;
-  }
-
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 6000);
-    const res = await fetch(url, {
-      method: 'PATCH',
-      headers,
-      body: JSON.stringify({ fields }),
-      signal: controller.signal
-    });
-    clearTimeout(timeout);
-    return res.ok;
-  } catch (err: any) {
-    console.warn(`[SERVER] REST write failed for ${docName}:`, err.message);
-    return false;
-  }
+export async function writeFirestoreRestDoc(docName: string, data: any, authToken?: string, merge = false, collectionPath: string = 'store_data'): Promise<boolean> {
+  return mainWriteRestDoc(docName, data, authToken, merge, collectionPath);
 }
 
-export async function deleteFirestoreRestDoc(docName: string, authToken?: string): Promise<boolean> {
-  const config = getRawFirebaseConfig();
-  if (!config || !config.projectId) return false;
-  const dbId = (config.firestoreDatabaseId && config.firestoreDatabaseId.trim() !== '') ? config.firestoreDatabaseId : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
-  const apiKey = config.apiKey || '';
-  const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${dbId}/documents/store_data/${docName}${apiKey ? `?key=${apiKey}` : ''}`;
-  
-  const headers: Record<string, string> = { 'Accept': 'application/json' };
-  if (authToken) {
-    headers['Authorization'] = authToken.startsWith('Bearer ') ? authToken : `Bearer ${authToken}`;
-  }
-
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 4000);
-    const res = await fetch(url, { method: 'DELETE', headers, signal: controller.signal });
-    clearTimeout(timeout);
-    return res.ok;
-  } catch (err: any) {
-    console.warn(`[SERVER] REST delete failed for ${docName}:`, err.message);
-    return false;
-  }
+export async function deleteFirestoreRestDoc(docName: string, authToken?: string, collectionPath: string = 'store_data'): Promise<boolean> {
+  return mainDeleteRestDoc(docName, authToken, collectionPath);
 }
 
 export function updateLocalBackupSection(section: 'apps' | 'settings' | 'news' | 'videos', data: any) {

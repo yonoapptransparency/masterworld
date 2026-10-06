@@ -77,8 +77,8 @@ export default function FirebaseStatusPanel() {
             adminSdk: true,
             aesConfigured: true,
             details: {
-              databaseId: 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a',
-              projectId: db.app?.options?.projectId || 'gen-lang-client-0825832493'
+              databaseId: '(default)',
+              projectId: db.app?.options?.projectId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a'
             }
           });
           setLastCheckTime(new Date().toLocaleTimeString());
@@ -193,7 +193,7 @@ export default function FirebaseStatusPanel() {
             {app?.options?.projectId || statusDetails.projectId || 'gen-lang-client-0825832493'}
           </div>
           <div className="text-[10px] text-slate-400 font-medium mt-1">
-            Database: {statusDetails.details?.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a'}
+            Database: {statusDetails.details?.databaseId || '(default)'}
           </div>
         </div>
 

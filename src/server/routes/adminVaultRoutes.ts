@@ -309,7 +309,7 @@ adminVaultRouter.get("/api/v1/admin/firebase-status", verifyAdminToken, async (r
     const apiKey = config?.apiKey || '';
     const projectId = config?.projectId || 'gen-lang-client-0825832493';
     const rawDbId = config?.firestoreDatabaseId || config?.databaseId;
-    const dbId = (rawDbId && rawDbId.trim() !== '') ? rawDbId : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+    const dbId = (rawDbId && rawDbId.trim() !== '' && rawDbId.trim() !== 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a') ? rawDbId.trim() : '(default)';
 
     results.config = !!projectId;
     
@@ -498,7 +498,8 @@ adminVaultRouter.get("/api/v1/admin/security/audit-logs", verifyAdminToken, asyn
   const isMock = false;
   if (!isMock && config && config.apiKey) {
     try {
-      const dbId = (config.firestoreDatabaseId && config.firestoreDatabaseId.trim() !== '') ? config.firestoreDatabaseId : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+      const rawDb = config.firestoreDatabaseId;
+      const dbId = (rawDb && rawDb.trim() !== '' && rawDb.trim() !== 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a') ? rawDb.trim() : '(default)';
       const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${dbId}/documents/admin_audit_log?pageSize=50${config.apiKey ? "&key=" + config.apiKey : ""}`;
       const logsRes = await fetch(url);
       if (logsRes.ok) {

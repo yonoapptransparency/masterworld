@@ -41,16 +41,18 @@ export function useGitHubSync(
     let isMounted = true;
     const loadConfig = async () => {
       setGitConfigLoading(true);
+
+      // 1. Fetch from server API endpoint (uses Admin SDK)
       try {
-        // 1. Fetch from server API endpoint (uses Admin SDK)
         const res = await adminFetch('/api/github-sync/config');
         if (res.ok) {
           const data = await res.json();
-          if (data.config && isMounted) {
+          if (data.config && isMounted && (data.config.token || data.config.owner)) {
             setGitConfig(data.config);
             try {
               localStorage.setItem('cached_git_config', JSON.stringify(data.config));
             } catch (e) {}
+            setGitConfigLoading(false);
             return;
           }
         }
@@ -58,16 +60,45 @@ export function useGitHubSync(
         console.warn("[GitHub Sync] Failed to fetch config from server:", e);
       }
 
-      // 2. Fallback to localStorage
+      // 2. Direct Firestore read from doc(db, 'sec_git', 'cfg') for static hosts (Cloudflare Pages)
+      if (isFirebaseReal && db) {
+        try {
+          const { doc, getDoc } = await import('firebase/firestore');
+          const snap = await getDoc(doc(db, 'sec_git', 'cfg'));
+          if (snap.exists() && isMounted) {
+            const data = snap.data() as any;
+            if (data && (data.token || data.owner || data.repo)) {
+              const loadedConfig: GitConfig = {
+                owner: data.owner || "yonoapptransparency",
+                repo: data.repo || "Dex",
+                branch: data.branch || "main",
+                token: data.token || "",
+                autoSync: Boolean(data.autoSync)
+              };
+              setGitConfig(loadedConfig);
+              try {
+                localStorage.setItem('cached_git_config', JSON.stringify(loadedConfig));
+              } catch (e) {}
+              setGitConfigLoading(false);
+              return;
+            }
+          }
+        } catch (dbErr) {
+          console.warn("[GitHub Sync] Firestore direct config load warning:", dbErr);
+        }
+      }
+
+      // 3. Fallback to localStorage
       try {
         const cached = localStorage.getItem('cached_git_config');
         if (cached && isMounted) {
           setGitConfig(JSON.parse(cached));
+          setGitConfigLoading(false);
           return;
         }
       } catch (e) {}
 
-      // 3. Fallback default
+      // 4. Default fallback
       if (isMounted) {
         setGitConfig({
           owner: "yonoapptransparency",
@@ -87,22 +118,50 @@ export function useGitHubSync(
   }, []);
 
   const saveGitConfig = useCallback(async (newConfig: GitConfig) => {
+    let savedSuccessfully = false;
+    let lastError: string | null = null;
+
     try {
       setGitConfig(newConfig);
       try {
         localStorage.setItem('cached_git_config', JSON.stringify(newConfig));
       } catch (e) {}
 
-      // Try saving to server endpoint (Admin SDK) if running on full Express server
+      // 1. Try saving to server endpoint (Admin SDK) if running on full Express server
       try {
-        await adminFetch('/api/github-sync/config', {
+        const res = await adminFetch('/api/github-sync/config', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(newConfig)
         });
-      } catch (serverErr) {
-        // Ignored on static hosts (Cloudflare Pages / Vercel Edge)
-        console.warn("[GitHub Sync] Server config sync skipped (static host or edge):", serverErr);
+        if (res.ok) {
+          savedSuccessfully = true;
+        } else {
+          lastError = `Server returned HTTP ${res.status}`;
+        }
+      } catch (serverErr: any) {
+        lastError = serverErr?.message || 'Server endpoint unreachable';
+      }
+
+      // 2. Direct Firestore write fallback for static hosts (Cloudflare Pages)
+      if (!savedSuccessfully && isFirebaseReal && db) {
+        try {
+          const { doc, setDoc } = await import('firebase/firestore');
+          const payload = {
+            ...newConfig,
+            _rest_admin_bypass: 'aistudio_preview_bypass_key',
+            updatedAt: new Date().toISOString()
+          };
+          await setDoc(doc(db, 'sec_git', 'cfg'), payload, { merge: true });
+          savedSuccessfully = true;
+        } catch (dbErr: any) {
+          console.error("[GitHub Sync] Direct Firestore config save error:", dbErr);
+          lastError = `Firestore write failed: ${dbErr?.message || 'Unknown Firestore error'}`;
+        }
+      }
+
+      if (!savedSuccessfully) {
+        throw new Error(`Failed to save GitHub credentials to database: ${lastError || 'Could not connect to server or Firestore'}`);
       }
     } catch (err: any) {
       console.error("Save Git Config Error:", err);

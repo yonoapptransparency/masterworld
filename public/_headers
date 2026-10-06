@@ -46,31 +46,41 @@
   CDN-Cache-Control: public, max-age=7200
   Cloudflare-CDN-Cache-Control: public, max-age=7200
 
-# 4. Prerendered HTML Page Edge Caching for Googlebot and Users
+# 4. Prerendered HTML Page Delivery (Instant updates on deployment)
 /app/*
-  Cache-Control: public, max-age=300, s-maxage=86400, stale-while-revalidate=604800
-  CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
-  Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  Cache-Control: public, max-age=0, must-revalidate
+  CDN-Cache-Control: public, max-age=0, must-revalidate
+  Cloudflare-CDN-Cache-Control: public, max-age=0, must-revalidate
 
 /news/*
-  Cache-Control: public, max-age=300, s-maxage=86400, stale-while-revalidate=604800
-  CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
-  Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  Cache-Control: public, max-age=0, must-revalidate
+  CDN-Cache-Control: public, max-age=0, must-revalidate
+  Cloudflare-CDN-Cache-Control: public, max-age=0, must-revalidate
 
 /videos/*
-  Cache-Control: public, max-age=300, s-maxage=86400, stale-while-revalidate=604800
-  CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
-  Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  Cache-Control: public, max-age=0, must-revalidate
+  CDN-Cache-Control: public, max-age=0, must-revalidate
+  Cloudflare-CDN-Cache-Control: public, max-age=0, must-revalidate
 
 /category/*
-  Cache-Control: public, max-age=300, s-maxage=86400, stale-while-revalidate=604800
-  CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
-  Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  Cache-Control: public, max-age=0, must-revalidate
+  CDN-Cache-Control: public, max-age=0, must-revalidate
+  Cloudflare-CDN-Cache-Control: public, max-age=0, must-revalidate
 
 /developers
-  Cache-Control: public, max-age=300, s-maxage=86400, stale-while-revalidate=604800
-  CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
-  Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  Cache-Control: public, max-age=0, must-revalidate
+  CDN-Cache-Control: public, max-age=0, must-revalidate
+  Cloudflare-CDN-Cache-Control: public, max-age=0, must-revalidate
+
+/about
+  Cache-Control: public, max-age=0, must-revalidate
+  CDN-Cache-Control: public, max-age=0, must-revalidate
+  Cloudflare-CDN-Cache-Control: public, max-age=0, must-revalidate
+
+/contact
+  Cache-Control: public, max-age=0, must-revalidate
+  CDN-Cache-Control: public, max-age=0, must-revalidate
+  Cloudflare-CDN-Cache-Control: public, max-age=0, must-revalidate
 
 # 5. Clearance Gateway Security (Strict no-store)
 /moreinfo/*
@@ -78,9 +88,16 @@
   X-Robots-Tag: noindex, nofollow, noarchive
   Referrer-Policy: no-referrer
 
-# 6. HTML entry point fallback
+# 6. HTML entry point fallback (Universal instant fresh delivery)
+/
+  Cache-Control: public, max-age=0, must-revalidate
+  CDN-Cache-Control: public, max-age=0, must-revalidate
+  Cloudflare-CDN-Cache-Control: public, max-age=0, must-revalidate
+
 /index.html
   Cache-Control: public, max-age=0, must-revalidate
+  CDN-Cache-Control: public, max-age=0, must-revalidate
+  Cloudflare-CDN-Cache-Control: public, max-age=0, must-revalidate
 
 # 7. Global Security & Modern Browser Headers
 /*
