@@ -15,7 +15,7 @@ import { CommunityFirebaseStatusIndicator } from '../components/admin/CommunityF
 import { AdminWelcomeOverlay } from '../components/admin/AdminWelcomeOverlay';
 import { getAdminPath } from '../lib/utils';
 import { safeEncrypt, safeDecrypt } from '../lib/cryptoUtils';
-import { fetchAdminAppReviewCounts } from '../lib/adminCommunityFirebase';
+import { fetchAdminAppReviewCounts } from '../lib/communityFirebase';
 
 export default function AdminDashboard() {
   const { 

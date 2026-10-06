@@ -23,7 +23,7 @@ export default defineConfig(({mode}) => {
   return {
     plugins: [react(), tailwindcss()],
     define: {
-      __ADMIN_ENABLED__: false,
+      __ADMIN_ENABLED__: true,
       'process.env.ADMIN_PATH': JSON.stringify(env.ADMIN_PATH || 'admin'),
       'process.env.VITE_ADMIN_PATH': JSON.stringify(env.ADMIN_PATH || 'admin'),
       'process.env.FIREBASE_PROJECT_ID': JSON.stringify(firebaseConfig.projectId || env.FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID),
@@ -163,22 +163,10 @@ export default defineConfig(({mode}) => {
             : path.resolve(__dirname, 'src/lib/staticData.ts') 
         },
         { 
-          find: /.*\/contexts\/DataContextPublic(\.tsx)?$/, 
-          replacement: fs.existsSync(path.resolve(__dirname, 'src/contexts/DataContextPublic.tsx')) 
-            ? path.resolve(__dirname, 'src/contexts/DataContextPublic.tsx') 
-            : path.resolve(__dirname, 'src/contexts/DataContext.tsx') 
-        },
-        { 
-          find: /.*\/lib\/communityStaticReviews\.json$/, 
-          replacement: fs.existsSync(path.resolve(__dirname, 'src/lib/communityStaticReviews.json')) 
-            ? path.resolve(__dirname, 'src/lib/communityStaticReviews.json') 
-            : path.resolve(__dirname, 'src/lib/staticData.json') 
-        },
-        { 
-          find: /.*\/lib\/communityCatalogStats\.json$/, 
-          replacement: fs.existsSync(path.resolve(__dirname, 'src/lib/communityCatalogStats.json')) 
-            ? path.resolve(__dirname, 'src/lib/communityCatalogStats.json') 
-            : path.resolve(__dirname, 'src/lib/staticData.json') 
+          find: /.*\/lib\/adminCommunityFirebase$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/lib/adminCommunityFirebase.ts')) 
+            ? path.resolve(__dirname, 'src/lib/adminCommunityFirebase.ts') 
+            : path.resolve(__dirname, 'src/lib/communityFirebase.ts') 
         }
       ],
     },
