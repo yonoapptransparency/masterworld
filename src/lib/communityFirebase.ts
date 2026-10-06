@@ -6,7 +6,8 @@
 
 import communityCatalogStats from './communityCatalogStats.json';
 import communityStaticReviews from './communityStaticReviews.json';
-import staticData from './staticData.json';
+import { mockApps, mockSettings } from './staticData';
+const staticData = { apps: mockApps, settings: mockSettings };
 import { generateNaturalStarDistribution } from '../seo/utils';
 
 export function parseRelativeOrIsoDate(dateInput?: string | Date | number): Date {

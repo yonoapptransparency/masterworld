@@ -308,9 +308,9 @@ export interface VideoItem {
   created_at: string;
 }
 
-import staticDataJson from './staticData.json';
+import { mockApps as staticMockApps, mockSettings as staticMockSettings } from './staticData';
 
-const rawStaticData = staticDataJson as any;
+const rawStaticData = { mockApps: staticMockApps, apps: staticMockApps, settings: staticMockSettings } as any;
 
 export const mockApps: AppConfig[] = (Array.isArray(rawStaticData.mockApps) && rawStaticData.mockApps.length > 0)
   ? rawStaticData.mockApps
