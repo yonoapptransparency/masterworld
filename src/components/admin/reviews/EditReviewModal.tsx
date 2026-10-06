@@ -58,11 +58,34 @@ export const EditReviewModal: React.FC<EditReviewModalProps> = ({
               Target Application *
             </label>
             <select
-              value={editModalReview.appId || ''}
-              onChange={(e) => setEditModalReview({ ...editModalReview, appId: e.target.value })}
-              className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={(() => {
+                const curId = (editModalReview.appId || '').toLowerCase().trim();
+                const curSlug = (editModalReview.appSlug || '').toLowerCase().trim();
+                const hit = appsList.find(a => 
+                  (a.id && String(a.id).toLowerCase() === curId) ||
+                  (a.slug && String(a.slug).toLowerCase() === curSlug) ||
+                  (a.slug && String(a.slug).toLowerCase() === curId) ||
+                  (a.id && String(a.id).toLowerCase() === curSlug)
+                );
+                return hit ? (hit.slug || hit.id) : (editModalReview.appSlug || editModalReview.appId || '');
+              })()}
+              onChange={(e) => {
+                const chosenKey = e.target.value;
+                const chosenApp = appsList.find(a => 
+                  String(a.slug || '').toLowerCase() === chosenKey.toLowerCase() || 
+                  String(a.id || '').toLowerCase() === chosenKey.toLowerCase()
+                );
+                setEditModalReview({ 
+                  ...editModalReview, 
+                  appId: chosenApp?.id || chosenKey,
+                  appSlug: chosenApp?.slug || chosenKey,
+                  appName: chosenApp?.name || editModalReview.appName || ''
+                });
+              }}
+              className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
               required
             >
+              <option value="" disabled>Select an Application</option>
               {appsList.map((app) => (
                 <option key={app.id || app.slug} value={app.slug || app.id}>
                   {app.name} ({app.slug || app.id})

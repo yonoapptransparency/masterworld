@@ -326,15 +326,13 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({
       });
 
       const rawReviews = (result.reviews as ReviewData[]) || [];
-      if (rawReviews.length > 0 || isRefresh) {
-        const deduplicatedMap = new Map<string, ReviewData>();
-        rawReviews.forEach(r => {
-          if (r && r.id && !deduplicatedMap.has(r.id)) {
-            deduplicatedMap.set(r.id, r);
-          }
-        });
-        setReviews(Array.from(deduplicatedMap.values()));
-      }
+      const deduplicatedMap = new Map<string, ReviewData>();
+      rawReviews.forEach(r => {
+        if (r && r.id && !deduplicatedMap.has(r.id)) {
+          deduplicatedMap.set(r.id, r);
+        }
+      });
+      setReviews(Array.from(deduplicatedMap.values()));
       
       if (result.page) setCurrentPage(result.page);
       if (result.totalPages) setServerTotalPages(result.totalPages);
@@ -476,7 +474,7 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({
         const updated = await updateAdminReviewItem(editModalReview.id, editModalReview);
         if (updated) {
           toast('Review updated successfully!', 'success');
-          setReviews(prev => prev.map(r => r.id === editModalReview.id ? (updated as any) : r));
+          setReviews(prev => prev.map(r => r.id === editModalReview.id ? ({ ...r, ...editModalReview, ...updated } as ReviewData) : r));
           setEditModalReview(null);
           invalidateReviewCache();
         }
