@@ -293,9 +293,24 @@ communityRouter.get("/api/v1/admin/community/health/ping", verifyAdminToken, asy
     const adminDb = getCommunityAdminDb();
     const commConfig = getCommunityFirebaseConfig();
 
-    const results = {
+    const results: {
+      firestoreRead: boolean;
+      firestoreWrite: boolean;
+      readLatencyMs?: number;
+      isQuotaProtected?: boolean;
+      details: {
+        project: string;
+        databaseId: string;
+        readMode: string;
+        writeMode: string;
+        readError: string;
+        writeError: string;
+      };
+    } = {
       firestoreRead: false,
       firestoreWrite: false,
+      readLatencyMs: 0,
+      isQuotaProtected: false,
       details: { 
         project: commConfig.projectId,
         databaseId: commConfig.firestoreDatabaseId || '(default)',
