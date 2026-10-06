@@ -11,7 +11,7 @@ import {
 } from '../lib/communityFirebase';
 import { generateNaturalStarDistribution } from '../seo/utils';
 
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 15;
 
 // Pure deduplication helper guaranteeing unique items by ID
 function deduplicateReviewsList(list: Review[]): Review[] {

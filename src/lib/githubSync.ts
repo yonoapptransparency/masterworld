@@ -308,13 +308,7 @@ export interface VideoItem {
   created_at: string;
 }
 
-import { mockApps as staticMockApps, mockSettings as staticMockSettings } from './staticData';
-
-const rawStaticData = { mockApps: staticMockApps, apps: staticMockApps, settings: staticMockSettings } as any;
-
-export const mockApps: AppConfig[] = (Array.isArray(rawStaticData.mockApps) && rawStaticData.mockApps.length > 0)
-  ? rawStaticData.mockApps
-  : ((Array.isArray(rawStaticData.apps) && rawStaticData.apps.length > 0) ? rawStaticData.apps : []);
+export const mockApps: AppConfig[] = ${JSON.stringify(cleanApps, null, 2)};
 
 export const saveMockApps = (apps: AppConfig[]) => {
   try {
@@ -325,22 +319,7 @@ export const saveMockApps = (apps: AppConfig[]) => {
   mockApps.splice(0, mockApps.length, ...apps);
 };
 
-export const mockSettings: GlobalSettings = {
-  site_title: "RummyDex",
-  meta_description: "Your trusted bridge to the best mobile card games. Explore RummyDex for hands-on reviews, real-time news, and complete app knowledge.",
-  logo_url: "/logo.png",
-  favicon_url: "/favicon.ico",
-  helpline_whatsapp: "",
-  helpline_telegram: "",
-  support_email: "support@rummydex.com",
-  disclaimer_text: "",
-  ethics_discrimination_text: "",
-  ticker_text: "",
-  animations_enabled: true,
-  categories: ["All", "Rummy", "Teen Patti", "Yono", "Casino", "Slot", "Arcade"],
-  banners: [],
-  ...(rawStaticData.mockSettings || rawStaticData.settings || {})
-};
+export const mockSettings: GlobalSettings = ${JSON.stringify(cleanSettings, null, 2)};
 
 export const saveMockSettings = (settings: GlobalSettings) => {
   try {
@@ -351,9 +330,7 @@ export const saveMockSettings = (settings: GlobalSettings) => {
   Object.assign(mockSettings, settings);
 };
 
-export const mockNews: NewsItem[] = (Array.isArray(rawStaticData.mockNews) && rawStaticData.mockNews.length > 0)
-  ? rawStaticData.mockNews
-  : ((Array.isArray(rawStaticData.news) && rawStaticData.news.length > 0) ? rawStaticData.news : []);
+export const mockNews: NewsItem[] = ${JSON.stringify(cleanNews, null, 2)};
 
 export const saveMockNews = (newsList: NewsItem[]) => {
   try {
@@ -364,9 +341,7 @@ export const saveMockNews = (newsList: NewsItem[]) => {
   mockNews.splice(0, mockNews.length, ...newsList);
 };
 
-export const mockVideos: VideoItem[] = (Array.isArray(rawStaticData.mockVideos) && rawStaticData.mockVideos.length > 0)
-  ? rawStaticData.mockVideos
-  : ((Array.isArray(rawStaticData.videos) && rawStaticData.videos.length > 0) ? rawStaticData.videos : []);
+export const mockVideos: VideoItem[] = ${JSON.stringify(cleanVideos, null, 2)};
 
 export const saveMockVideos = (videos: VideoItem[]) => {
   try {

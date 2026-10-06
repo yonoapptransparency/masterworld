@@ -319,9 +319,9 @@ export function getCachedLiveReviews(appId?: string, appSlug?: string): ReviewFe
       });
 
       return {
-        reviews: normalized.slice(0, 5),
-        hasMore: normalized.length > 5,
-        nextCursor: normalized.length > 5 ? '5' : null,
+        reviews: normalized.slice(0, 20),
+        hasMore: normalized.length > 20,
+        nextCursor: normalized.length > 20 ? '20' : null,
         stats: getCachedLiveAppStats(appId, appSlug)
       };
     }

@@ -306,22 +306,45 @@ communityRouter.get("/api/v1/admin/community/health/ping", verifyAdminToken, asy
       }
     };
 
-    // 1. Test Read (Admin SDK first if configured, then lightweight fallback)
+    // 1. Test Read (Admin SDK first if configured, then fast direct REST probe to rummydexcommunity)
+    const readStart = Date.now();
     if (adminDb) {
       try {
         const snap: any = await Promise.race([
           adminDb.collection('reviews').limit(1).get(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Admin SDK timeout')), 6000))
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Admin SDK timeout')), 5000))
         ]);
         results.firestoreRead = true;
         results.details.readMode = `Admin SDK Direct (${commConfig.projectId})`;
+        results.readLatencyMs = Date.now() - readStart;
       } catch (adminReadErr: any) {
         results.details.readError = `Admin SDK Read Error: ${adminReadErr.message}`;
       }
     }
 
-    if (!results.firestoreRead) {
-      // Avoid scanning entire collection on ping - check local cache count or config
+    if (!results.firestoreRead && commConfig.apiKey && commConfig.projectId) {
+      try {
+        const probeUrl = `https://firestore.googleapis.com/v1/projects/${commConfig.projectId}/databases/${commConfig.firestoreDatabaseId || '(default)'}/documents/reviews?pageSize=1&key=${encodeURIComponent(commConfig.apiKey)}`;
+        const restRes = await fetch(probeUrl);
+        results.readLatencyMs = Date.now() - readStart;
+        if (restRes.ok) {
+          results.firestoreRead = true;
+          results.details.readMode = `Live REST API (${commConfig.projectId})`;
+        } else if (restRes.status === 429) {
+          results.firestoreRead = false;
+          results.isQuotaProtected = true;
+          results.details.readError = "Community Firebase Read Quota Exceeded";
+        } else {
+          const errBody = await restRes.text().catch(() => '');
+          results.details.readError = `HTTP ${restRes.status}: ${errBody.slice(0, 100)}`;
+        }
+      } catch (restErr: any) {
+        results.readLatencyMs = Date.now() - readStart;
+        results.details.readError = restErr.message || String(restErr);
+      }
+    }
+
+    if (!results.firestoreRead && !results.details.readError) {
       results.firestoreRead = true;
       results.details.readMode = `Local Resilient Sync (${commConfig.projectId})`;
     }
@@ -427,7 +450,7 @@ communityRouter.get("/api/v1/admin/community/export-static-reviews", verifyAdmin
     } else if (typeof (communityStore as any).ensureInitialized === 'function') {
       await (communityStore as any).ensureInitialized(2000).catch(() => {});
     }
-    const limit = Math.max(1, Math.min(10, parseInt(req.query?.limit as string, 10) || 5));
+    const limit = Math.max(1, Math.min(100, parseInt(req.query?.limit as string, 10) || 100));
     const reviews = typeof (communityStore as any).getExportableStaticReviews === 'function'
       ? (communityStore as any).getExportableStaticReviews(limit)
       : {};

@@ -244,6 +244,46 @@ githubSyncRouter.get("/api/github-sync/public-core-files", verifyAdminToken, asy
       files['vercel.json'] = vercelJsonContent;
     }
 
+    const typesPublicContent = readSafe('src/typesPublic.ts');
+    if (typesPublicContent) {
+      files['src/typesPublic.ts'] = typesPublicContent;
+    }
+
+    const dataContextPublicContent = readSafe('src/contexts/DataContextPublic.tsx');
+    if (dataContextPublicContent) {
+      files['src/contexts/DataContextPublic.tsx'] = dataContextPublicContent;
+    }
+
+    const routePreloaderContent = readSafe('src/lib/routePreloader.ts');
+    if (routePreloaderContent) {
+      files['src/lib/routePreloader.ts'] = routePreloaderContent;
+    }
+
+    const topProgressBarContent = readSafe('src/components/public/TopProgressBar.tsx');
+    if (topProgressBarContent) {
+      files['src/components/public/TopProgressBar.tsx'] = topProgressBarContent;
+    }
+
+    const publicBackToTopContent = readSafe('src/components/public/PublicBackToTop.tsx');
+    if (publicBackToTopContent) {
+      files['src/components/public/PublicBackToTop.tsx'] = publicBackToTopContent;
+    }
+
+    const tickerContent = readSafe('src/components/Ticker.tsx');
+    if (tickerContent) {
+      files['src/components/Ticker.tsx'] = tickerContent;
+    }
+
+    const langSelectorContent = readSafe('src/components/LanguageSelector.tsx');
+    if (langSelectorContent) {
+      files['src/components/LanguageSelector.tsx'] = langSelectorContent;
+    }
+
+    const fallbackMatcherContent = readSafe('src/components/FallbackRouteMatcher.tsx');
+    if (fallbackMatcherContent) {
+      files['src/components/FallbackRouteMatcher.tsx'] = fallbackMatcherContent;
+    }
+
     return res.json({ success: true, files });
   } catch (err: any) {
     console.error("Failed to read public core files:", err);

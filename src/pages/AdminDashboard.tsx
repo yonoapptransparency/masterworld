@@ -11,6 +11,7 @@ import { useAdminSettings } from '../hooks/useAdminSettings';
 import { AdminSidebar } from '../components/admin/AdminSidebar';
 import { AdminTabContent } from '../components/admin/AdminTabContent';
 import { FirebaseStatusIndicator } from '../components/FirebaseStatusIndicator';
+import { CommunityFirebaseStatusIndicator } from '../components/admin/CommunityFirebaseStatusIndicator';
 import { AdminWelcomeOverlay } from '../components/admin/AdminWelcomeOverlay';
 import { getAdminPath } from '../lib/utils';
 import { safeEncrypt, safeDecrypt } from '../lib/cryptoUtils';
@@ -400,7 +401,10 @@ export default function AdminDashboard() {
             <h2 className="text-lg font-black tracking-tight capitalize">
               {activeTab === 'news' ? 'News Section' : activeTab.replace('-', ' ')}
             </h2>
-            <FirebaseStatusIndicator />
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <FirebaseStatusIndicator />
+              <CommunityFirebaseStatusIndicator />
+            </div>
           </div>
           <div className="flex items-center gap-2">
              <button 

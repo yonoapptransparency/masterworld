@@ -324,7 +324,7 @@ export class CommunityStoreService {
     return list.slice(0, limit);
   }
 
-  public getExportableStaticReviews(limitPerApp: number = 5): Record<string, any[]> {
+  public getExportableStaticReviews(limitPerApp: number = 100): Record<string, any[]> {
     const result: Record<string, any[]> = {};
     const reviewsList = Array.from(this.reviews.values())
       .filter(r => (r.status || 'published') === 'published' && !this.deletedReviewIds.has(r.id));

@@ -54,9 +54,9 @@ import {
   submitAdminReplyToReview
 } from '../../lib/adminCommunityFirebase';
 import communityCatalogStats from '../../lib/communityCatalogStats.json';
-import communityStaticReviews from '../../lib/communityStaticReviews.json';
 import { EditReviewModal } from './reviews/EditReviewModal';
 import { ReplyReviewModal } from './reviews/ReplyReviewModal';
+import { CommunityFirebaseStatusIndicator } from './CommunityFirebaseStatusIndicator';
 
 interface AdminReviewsTabProps {
   appsList?: any[];
@@ -314,15 +314,6 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({
     try {
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
-
-      // Instant 0ms Atomic Fast-Path: Populate from local atomic reviews immediately
-      const cleanAppKey = appIdToFetch.toLowerCase().trim();
-      const staticReviewsMap = (communityStaticReviews as any) || {};
-      const localAppReviews = staticReviewsMap[cleanAppKey] || [];
-      if (localAppReviews.length > 0 && !isRefresh) {
-        setReviews(localAppReviews);
-        setLoading(false);
-      }
 
       const result = await fetchAdminReviewsList({
         appId: appIdToFetch,
@@ -625,7 +616,8 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          <CommunityFirebaseStatusIndicator />
           <button
             onClick={handleOpenAIStudio}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-xs font-black transition-all shadow-md shadow-indigo-600/20 active:scale-95 cursor-pointer"

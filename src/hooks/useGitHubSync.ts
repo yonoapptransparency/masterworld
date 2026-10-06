@@ -422,7 +422,7 @@ export function useGitHubSync(
       } catch (_) {}
 
       try {
-        const revRes = await adminFetch('/api/v1/admin/community/export-static-reviews');
+        const revRes = await adminFetch('/api/v1/admin/community/export-static-reviews?limit=100');
         if (revRes.ok) {
           const revData = await revRes.json();
           if (revData?.reviews && Object.keys(revData.reviews).length > 0) {
@@ -482,8 +482,8 @@ export function useGitHubSync(
         } catch (_) {}
       }
 
-      // Sort and slice top 5 per app for central communityReviewsPayload (SSR prerender bundle)
-      // Index by both exact key and lowercase key so every app gets its reviews seamlessly
+      // Index all reviews per app for central communityReviewsPayload without artificial 5-item limits
+      // Index by both exact key and lowercase key so every app gets ALL its reviews seamlessly
       for (const [k, revs] of Object.entries(appReviewsMap)) {
         if (!Array.isArray(revs)) continue;
         revs.sort((a, b) => {
@@ -491,9 +491,8 @@ export function useGitHubSync(
           if (!a.isPinned && b.isPinned) return 1;
           return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
         });
-        const topSlice = revs.slice(0, 5);
-        communityReviewsPayload[k] = topSlice;
-        communityReviewsPayload[k.toLowerCase().trim()] = topSlice;
+        communityReviewsPayload[k] = revs;
+        communityReviewsPayload[k.toLowerCase().trim()] = revs;
       }
 
       // Harmonize live community review stats into apps so static data, cards, and SEO have 100% consistent ratings
@@ -555,7 +554,7 @@ export function useGitHubSync(
       return app;
     });
 
-    // Fallback: If reviews payload is empty, load from existing communityStaticReviews and slice top 5 per app
+    // Fallback: If reviews payload is empty, load from existing communityStaticReviews without artificial limits
     if (!communityReviewsPayload || Object.keys(communityReviewsPayload).length === 0) {
       try {
         const existingReviews = await import('../lib/communityStaticReviews.json');
@@ -563,7 +562,7 @@ export function useGitHubSync(
         const slicedMap: Record<string, any[]> = {};
         for (const [key, list] of Object.entries(rawMap)) {
           if (Array.isArray(list)) {
-            slicedMap[key] = list.slice(0, 5);
+            slicedMap[key] = list;
           }
         }
         communityReviewsPayload = slicedMap;

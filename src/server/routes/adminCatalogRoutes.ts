@@ -877,6 +877,16 @@ adminCatalogRouter.post("/api/v1/admin/sync-local", verifyAdminToken, async (req
     fs.writeFileSync(backupPath, JSON.stringify(current, null, 2), 'utf8');
     fs.writeFileSync(staticJsonPath, JSON.stringify(current, null, 2), 'utf8');
 
+    // Also regenerate src/lib/staticData.ts so any bundled TypeScript imports have fresh data
+    try {
+      const { generateStaticDataFileCode } = require('../../lib/githubSync');
+      const staticDataTsPath = path.join(process.cwd(), 'src/lib/staticData.ts');
+      const generatedTs = generateStaticDataFileCode(current.apps || [], current.settings || {}, current.news || [], current.videos || []);
+      fs.writeFileSync(staticDataTsPath, generatedTs, 'utf8');
+    } catch (tsGenErr) {
+      console.warn('[SERVER] Could not generate staticData.ts during sync-local:', tsGenErr);
+    }
+
     if (req.body.catalogStats && typeof req.body.catalogStats === 'object') {
       try {
         const catStatsPath = path.join(process.cwd(), 'src/lib/communityCatalogStats.json');

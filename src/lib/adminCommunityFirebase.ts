@@ -7,43 +7,57 @@
 import { adminFetch } from '../services/adminAuthService';
 import { getResolvedCommunityFirebaseConfig, parseFirestoreFields, convertToFirestoreFields } from './communityFirebase';
 import communityCatalogStats from './communityCatalogStats.json';
-import communityStaticReviews from './communityStaticReviews.json';
 
 /**
- * Zero-Quota Atomic Reviews Fallback
- * Reads directly from communityStaticReviews.json and communityCatalogStats.json.
- * NEVER burns Firestore read quota!
+ * Live Admin Reviews Fetcher
+ * Reads directly from Firestore rummydexcommunity database via REST.
+ * 100% Live data - zero static hardcoded reviews.
  */
 export async function fetchAllFirestoreRestReviews(): Promise<AdminReviewItem[]> {
   const allReviews: AdminReviewItem[] = [];
   try {
-    const staticMap = (communityStaticReviews as any) || {};
-    Object.values(staticMap).forEach((revList: any) => {
-      if (Array.isArray(revList)) {
-        revList.forEach((r: any) => {
-          if (r && r.id && !allReviews.some(item => item.id === r.id)) {
+    const cfg = getResolvedCommunityFirebaseConfig();
+    let nextPageToken = '';
+    const baseUrl = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/reviews?pageSize=100&key=${cfg.apiKey}`;
+
+    while (true) {
+      const pageUrl = baseUrl + (nextPageToken ? `&pageToken=${encodeURIComponent(nextPageToken)}` : '');
+      const res = await fetch(pageUrl);
+      if (!res.ok) break;
+
+      const data = await res.json();
+      if (data && Array.isArray(data.documents)) {
+        data.documents.forEach((doc: any) => {
+          if (doc && doc.fields) {
+            const parsed = parseFirestoreFields(doc.fields);
+            const docId = doc.name?.split('/').pop() || parsed.id;
             allReviews.push({
-              id: r.id,
-              appId: r.appId || '',
-              appSlug: r.appSlug || '',
-              appName: r.appName || '',
-              userName: r.userName || r.username || 'Anonymous',
-              rating: Number(r.rating) || 5,
-              reviewText: r.reviewText || r.comment || '',
-              timestamp: r.timestamp || r.created_at || new Date().toISOString(),
-              status: r.status || 'published',
-              helpful_count: Number(r.helpful_count) || 0,
-              isPinned: Boolean(r.isPinned),
-              reported: Boolean(r.reported),
-              report_count: Number(r.report_count) || 0,
-              source: r.source || 'community',
-              adminReply: r.adminReply || null
+              id: docId,
+              appId: parsed.appId || '',
+              appSlug: parsed.appSlug || '',
+              appName: parsed.appName || '',
+              userName: parsed.userName || parsed.username || 'Anonymous',
+              rating: Number(parsed.rating) || 5,
+              reviewText: parsed.reviewText || parsed.comment || '',
+              timestamp: parsed.timestamp || parsed.created_at || new Date().toISOString(),
+              status: parsed.status || 'published',
+              helpful_count: Number(parsed.helpful_count) || 0,
+              isPinned: Boolean(parsed.isPinned),
+              reported: Boolean(parsed.reported),
+              report_count: Number(parsed.report_count) || 0,
+              source: parsed.source || 'community',
+              adminReply: parsed.adminReply || null
             });
           }
         });
       }
-    });
-  } catch (_) {}
+
+      if (!data.nextPageToken) break;
+      nextPageToken = data.nextPageToken;
+    }
+  } catch (err) {
+    console.warn("[adminCommunityFirebase] fetchAllFirestoreRestReviews live query error:", err);
+  }
   return allReviews;
 }
 
@@ -274,27 +288,101 @@ export async function fetchAdminReviewsList(params: {
     // Proceed to direct REST fallback
   }
 
-  // Zero-Quota Fallback: If querying a specific app, lookup atomic reviews from communityStaticReviews.json
+  // Direct Live Firestore REST Query on rummydexcommunity (No static content fallback)
   try {
-    const staticMap = (communityStaticReviews as any) || {};
+    const cfg = getResolvedCommunityFirebaseConfig();
+    const structuredQuery: any = {
+      from: [{ collectionId: 'reviews' }],
+      limit: params.limit || 50
+    };
+
+    const filters: any[] = [];
     if (params.appId && params.appId !== 'all') {
-      const clean = params.appId.toLowerCase().trim();
-      let list = staticMap[clean] || [];
-      if (params.status && params.status !== 'all') {
-        list = list.filter((r: any) => r.status === params.status);
-      }
-      if (params.rating && params.rating !== 'all') {
-        list = list.filter((r: any) => Number(r.rating) === Number(params.rating));
-      }
-      return {
-        reviews: list,
-        totalCount: list.length,
-        total: list.length,
-        page: 1,
-        totalPages: 1
+      filters.push({
+        fieldFilter: {
+          field: { fieldPath: 'appId' },
+          op: 'EQUAL',
+          value: { stringValue: params.appId.trim() }
+        }
+      });
+    }
+    if (params.status && params.status !== 'all') {
+      filters.push({
+        fieldFilter: {
+          field: { fieldPath: 'status' },
+          op: 'EQUAL',
+          value: { stringValue: params.status.trim() }
+        }
+      });
+    }
+    if (params.rating && params.rating !== 'all') {
+      filters.push({
+        fieldFilter: {
+          field: { fieldPath: 'rating' },
+          op: 'EQUAL',
+          value: { integerValue: String(params.rating) }
+        }
+      });
+    }
+
+    if (filters.length === 1) {
+      structuredQuery.where = filters[0];
+    } else if (filters.length > 1) {
+      structuredQuery.where = {
+        compositeFilter: {
+          op: 'AND',
+          filters
+        }
       };
     }
-  } catch (_) {}
+
+    const runUrl = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents:runQuery?key=${encodeURIComponent(cfg.apiKey)}`;
+    const runRes = await fetch(runUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ structuredQuery })
+    });
+
+    if (runRes.ok) {
+      const runData = await runRes.json();
+      if (Array.isArray(runData)) {
+        const liveReviews: AdminReviewItem[] = [];
+        runData.forEach((row: any) => {
+          if (row.document && row.document.fields) {
+            const parsed = parseFirestoreFields(row.document.fields);
+            const docId = row.document.name?.split('/').pop() || parsed.id;
+            liveReviews.push({
+              id: docId,
+              appId: parsed.appId || '',
+              appSlug: parsed.appSlug || '',
+              appName: parsed.appName || '',
+              userName: parsed.userName || parsed.username || 'Anonymous',
+              rating: Number(parsed.rating) || 5,
+              reviewText: parsed.reviewText || parsed.comment || '',
+              timestamp: parsed.timestamp || parsed.created_at || new Date().toISOString(),
+              status: parsed.status || 'published',
+              helpful_count: Number(parsed.helpful_count) || 0,
+              isPinned: Boolean(parsed.isPinned),
+              reported: Boolean(parsed.reported),
+              report_count: Number(parsed.report_count) || 0,
+              source: parsed.source || 'community',
+              adminReply: parsed.adminReply || null
+            });
+          }
+        });
+
+        return {
+          reviews: liveReviews,
+          totalCount: liveReviews.length,
+          total: liveReviews.length,
+          page: 1,
+          totalPages: 1
+        };
+      }
+    }
+  } catch (liveErr) {
+    console.warn("[adminCommunityFirebase] Live Firestore query error:", liveErr);
+  }
 
   return {
     reviews: [],
