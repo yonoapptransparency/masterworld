@@ -161,6 +161,24 @@ export default defineConfig(({mode}) => {
           replacement: fs.existsSync(path.resolve(__dirname, 'src/pages/AdminDashboard.tsx')) 
             ? path.resolve(__dirname, 'src/lib/lightFallback.ts') 
             : path.resolve(__dirname, 'src/lib/staticData.ts') 
+        },
+        { 
+          find: /.*\/contexts\/DataContextPublic(\.tsx)?$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/contexts/DataContextPublic.tsx')) 
+            ? path.resolve(__dirname, 'src/contexts/DataContextPublic.tsx') 
+            : path.resolve(__dirname, 'src/contexts/DataContext.tsx') 
+        },
+        { 
+          find: /.*\/lib\/communityStaticReviews\.json$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/lib/communityStaticReviews.json')) 
+            ? path.resolve(__dirname, 'src/lib/communityStaticReviews.json') 
+            : path.resolve(__dirname, 'src/lib/staticData.json') 
+        },
+        { 
+          find: /.*\/lib\/communityCatalogStats\.json$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/lib/communityCatalogStats.json')) 
+            ? path.resolve(__dirname, 'src/lib/communityCatalogStats.json') 
+            : path.resolve(__dirname, 'src/lib/staticData.json') 
         }
       ],
     },
