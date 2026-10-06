@@ -115,7 +115,7 @@ export function getRawFirebaseConfig(): any {
   const DEFAULT_FALLBACK_API_KEY = "AIzaSyBey9sUbeWlrcXS2kl4ewOzkTy4arg03Ok";
   const finalApiKey = envApiKey || fileConfig.apiKey || DEFAULT_FALLBACK_API_KEY;
 
-  const DEFAULT_DB_ID = "(default)";
+  const DEFAULT_DB_ID = "ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a";
   const resolveDbId = (rawDbId?: string, _pId?: string) => {
     if (rawDbId && isRealValue(rawDbId)) {
       return rawDbId;
@@ -268,7 +268,7 @@ export function getFirebaseAdminDb(): any {
       cachedAdminDb.settings({ preferRest: true });
     } catch(e) {}
 
-    const activeProjectId = defaultApp?.options?.projectId || config?.projectId || 'gen-lang-client-0825832493';
+    const activeProjectId = defaultApp?.options?.projectId || config?.projectId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
     console.log(`[Admin SDK] Firestore initialized for project: ${activeProjectId}, database: ${dbId}`);
     return cachedAdminDb;
   } catch (err: any) {

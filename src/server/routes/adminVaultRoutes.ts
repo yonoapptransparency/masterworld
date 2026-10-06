@@ -309,7 +309,7 @@ adminVaultRouter.get("/api/v1/admin/firebase-status", verifyAdminToken, async (r
     const apiKey = config?.apiKey || '';
     const projectId = config?.projectId || 'gen-lang-client-0825832493';
     const rawDbId = config?.firestoreDatabaseId || config?.databaseId;
-    const dbId = (rawDbId && rawDbId.trim() !== '' && rawDbId.trim() !== 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a') ? rawDbId.trim() : '(default)';
+    const dbId = (rawDbId && rawDbId.trim() !== '') ? rawDbId.trim() : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
 
     results.config = !!projectId;
     
