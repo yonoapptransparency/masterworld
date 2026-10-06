@@ -435,7 +435,8 @@ export async function updateAdminReviewItem(
   // Direct Firestore REST Fallback
   const cfg = getResolvedCommunityFirebaseConfig();
   const fields = convertToFirestoreFields({ ...updates, updated_at: new Date().toISOString() });
-  const updateMask = Object.keys(updates).map(k => `updateMask.fieldPaths=${encodeURIComponent(k)}`).join('&');
+  const allKeys = Array.from(new Set([...Object.keys(updates), 'updated_at']));
+  const updateMask = allKeys.map(k => `updateMask.fieldPaths=${encodeURIComponent(k)}`).join('&');
   const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/reviews/${encodeURIComponent(reviewId)}?${updateMask}&key=${cfg.apiKey}`;
   
   const restRes = await fetch(url, {

@@ -256,7 +256,7 @@ export function getFirebaseAdminDb(): any {
 
     // Determine the correct Database ID
     const rawDb = config?.firestoreDatabaseId || config?.databaseId || process.env.VITE_FIREBASE_DATABASE_ID || process.env.FIREBASE_DATABASE_ID;
-    let dbId = (rawDb && isRealValue(rawDb) && rawDb.trim() !== '' && rawDb.trim() !== 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a') ? rawDb.trim() : '(default)';
+    let dbId = (rawDb && isRealValue(rawDb) && rawDb.trim() !== '') ? rawDb.trim() : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
 
     if (dbId && dbId !== '(default)') {
       cachedAdminDb = getFirestore(defaultApp, dbId);
@@ -373,7 +373,7 @@ export async function writeFirestoreRestDoc(docId: string, data: any, authToken?
     const targetProjectId = config.projectId;
     const targetApiKey = config.apiKey;
     const rawDb = config.firestoreDatabaseId || config.databaseId;
-    const dbId = (rawDb && rawDb.trim() !== '' && rawDb.trim() !== 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a') ? rawDb.trim() : '(default)';
+    const dbId = (rawDb && rawDb.trim() !== '') ? rawDb.trim() : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
 
     const queryParams: string[] = [];
     if (targetApiKey) queryParams.push(`key=${encodeURIComponent(targetApiKey)}`);
@@ -445,7 +445,7 @@ export async function deleteFirestoreRestDoc(docId: string, authToken?: string, 
     const targetProjectId = config.projectId;
     const targetApiKey = config.apiKey;
     const rawDb = config.firestoreDatabaseId || config.databaseId;
-    const dbId = (rawDb && rawDb.trim() !== '' && rawDb.trim() !== 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a') ? rawDb.trim() : '(default)';
+    const dbId = (rawDb && rawDb.trim() !== '') ? rawDb.trim() : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
 
     const finalApiKeyParam = targetApiKey ? `?key=${targetApiKey}` : '';
     const url = `https://firestore.googleapis.com/v1/projects/${targetProjectId}/databases/${dbId}/documents/${collectionPath}/${docId}${finalApiKeyParam}`;
@@ -483,7 +483,7 @@ export async function readFirestoreRestDoc(docId: string, authToken?: string, co
     const targetProjectId = config.projectId;
     const targetApiKey = config.apiKey;
     const rawDb = config.firestoreDatabaseId || config.databaseId;
-    const dbId = (rawDb && rawDb.trim() !== '' && rawDb.trim() !== 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a') ? rawDb.trim() : '(default)';
+    const dbId = (rawDb && rawDb.trim() !== '') ? rawDb.trim() : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
 
     const finalApiKeyParam = targetApiKey ? `?key=${targetApiKey}` : '';
     const url = `https://firestore.googleapis.com/v1/projects/${targetProjectId}/databases/${dbId}/documents/${collectionPath}/${docId}${finalApiKeyParam}`;
@@ -521,7 +521,7 @@ export async function readFirestoreRestCollection(collectionPath: string, authTo
     const targetProjectId = config.projectId;
     const targetApiKey = config.apiKey;
     const rawDb = config.firestoreDatabaseId || config.databaseId;
-    const dbId = (rawDb && rawDb.trim() !== '' && rawDb.trim() !== 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a') ? rawDb.trim() : '(default)';
+    const dbId = (rawDb && rawDb.trim() !== '') ? rawDb.trim() : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
 
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (authToken && authToken.startsWith('Bearer ya29.')) {
@@ -679,7 +679,7 @@ export async function queryFirestoreRest(
     let targetProjectId = config.projectId;
     let targetApiKey = config.apiKey;
     const rawDb = config.firestoreDatabaseId || config.databaseId;
-    let dbId = (rawDb && rawDb.trim() !== '' && rawDb.trim() !== 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a') ? rawDb.trim() : '(default)';
+    let dbId = (rawDb && rawDb.trim() !== '') ? rawDb.trim() : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
     
     const isCommunity = collectionPath === 'reviews' || 
       collectionPath === 'reports' || 

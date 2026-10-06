@@ -80,7 +80,10 @@ export const FirebaseStatusIndicator: React.FC = () => {
         try {
           const { doc, getDoc } = await import('firebase/firestore');
           const start = performance.now();
-          await getDoc(doc(db, 'store_data', 'settings'));
+          let snap = await getDoc(doc(db, 'store_data', 'public_settings'));
+          if (!snap.exists()) {
+            snap = await getDoc(doc(db, 'store_data', 'apps_meta'));
+          }
           const lat = Math.round(performance.now() - start);
           setResult({
             status: 'live',
