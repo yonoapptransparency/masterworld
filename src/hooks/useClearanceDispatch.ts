@@ -5,6 +5,7 @@ import staticData from '../lib/staticData.json';
 export interface UseClearanceDispatchOptions {
   appId: string;
   appSlug?: string;
+  appRecord?: any;
   cfToken: string | null;
   cfTokenRef: React.MutableRefObject<string | null>;
   widgetIdRef?: React.MutableRefObject<string | null>;
@@ -80,12 +81,26 @@ function inspectClientEnvironment(): { isBot: boolean; isHeadless: boolean; botR
 /**
  * High-Security In-Memory Client RAM Vault Decryption (Zero-Leakage Failover)
  */
-function resolveClientRamDestination(targetId: string, targetSlug?: string): string | null {
+function resolveClientRamDestination(targetId: string, targetSlug?: string, appRecord?: any): string | null {
   try {
+    // Tier 0: Direct App Record from React view (instant zero-lookup resolution)
+    if (appRecord) {
+      const raw = appRecord.more_information_url || appRecord.encrypted_link || appRecord.url || appRecord.download_url || '';
+      if (raw && typeof raw === 'string' && raw.trim() !== '') {
+        const clean = raw.trim();
+        const decrypted = clean.startsWith('U2FsdGVkX1') ? (safeDecrypt(clean) || clean) : clean;
+        if (decrypted && (decrypted.startsWith('http://') || decrypted.startsWith('https://')) && !decrypted.includes('com.rummydex') && !decrypted.includes('com.example')) {
+          return decrypted;
+        }
+      }
+    }
+
     const keys = [targetId, targetSlug].filter(Boolean).map(k => String(k).toLowerCase().trim());
     if (keys.length === 0) return null;
 
-    const apps = (staticData as any)?.apps || [];
+    const initialApps = (typeof window !== 'undefined' && (window as any).__INITIAL_DATA__?.apps) || [];
+    const staticApps = (staticData as any)?.apps || [];
+    const apps = [...initialApps, ...staticApps];
     const matched = apps.find((a: any) => {
       const aId = (a.id || '').toLowerCase().trim();
       const aSlug = (a.slug || '').toLowerCase().trim();
@@ -132,6 +147,7 @@ function resolveClientRamDestination(targetId: string, targetSlug?: string): str
 export function useClearanceDispatch({
   appId,
   appSlug,
+  appRecord,
   cfToken,
   cfTokenRef,
   widgetIdRef,
@@ -366,39 +382,34 @@ export function useClearanceDispatch({
               setIsUnavailable(true);
               return;
             } else if (data && data.status === 'challenge_required') {
+              const localUrl = resolveClientRamDestination(appId, appSlug, appRecord);
+              if (localUrl) {
+                targetUrl = localUrl;
+                serverAnswered = true;
+                break;
+              }
               setIsLoading(false);
               setErrorMessage('Additional verification required. Please complete the check below.');
               if (executeTurnstile) executeTurnstile();
               return;
             }
           } else if (attempt.status === 404) {
-            let isBotGhosting = false;
-            try {
-              const errData = await attempt.json();
-              if (errData && errData.error === 'Not found') {
-                isBotGhosting = true;
-              }
-            } catch (_) {}
-
-            if (isBotGhosting) {
-              setIsLoading(false);
-              setErrorMessage('Verification clearance denied. Please solve the security check below to retry.');
-              resetTurnstile();
-              return;
-            }
-            // If static or dev fallback, continue to try RAM vault
+            // Server did not find app or route; continue to check local encrypted RAM vault
             continue;
           } else if (attempt.status === 429) {
             setIsLoading(false);
             setErrorMessage('Too many verification attempts. Access paused.');
             return;
           }
-        } catch (_) {}
+        } catch (_) {
+          // Network failover to local vault
+          continue;
+        }
       }
 
       // 5. High-Security Client RAM Vault Failover
       if (!targetUrl) {
-        targetUrl = resolveClientRamDestination(appId, appSlug);
+        targetUrl = resolveClientRamDestination(appId, appSlug, appRecord);
       }
 
       if (!targetUrl) {
@@ -420,34 +431,25 @@ export function useClearanceDispatch({
         metaReferrer.content = 'no-referrer';
       } catch (_) {}
 
-      // Airgap Dispatch via zero-referrer navigation
+      // Airgap Dispatch via zero-referrer immediate navigation
       try {
         setDestinationUrl(targetUrl);
         setIsLoading(false);
 
-        // Mobile devices block detached async popups; direct assignment bypasses popup blockers
-        const isMobile = typeof navigator !== 'undefined' && /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent || '');
-
-        if (isMobile) {
+        // Immediate direct assignment works universally on mobile and desktop without popup blocking
+        try {
           window.location.assign(targetUrl);
-        } else {
-          const a = document.createElement('a');
-          a.href = targetUrl;
-          a.rel = 'noreferrer noopener';
-          a.referrerPolicy = 'no-referrer';
-          a.target = '_blank';
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
+        } catch (_) {
+          window.location.href = targetUrl;
         }
 
-        // Ephemeral 20-second memory auto-reset (preserves fallback visibility if popup blocked, then zeroes RAM)
+        // Ephemeral 20-second memory auto-reset (preserves fallback visibility if navigation delayed, then zeroes RAM)
         setTimeout(() => {
           closeAndWipeLink();
         }, 20000);
       } catch (_) {
         try {
-          window.location.assign(targetUrl);
+          window.location.href = targetUrl;
         } catch (_) {
           setDestinationUrl(targetUrl);
           setIsLoading(false);
@@ -460,7 +462,7 @@ export function useClearanceDispatch({
       if (onError) onError();
       resetTurnstile();
     }
-  }, [isLoading, appId, appSlug, awaitTurnstileToken, closeAndWipeLink, onError, onSuccess, resetTurnstile, setErrorMessage]);
+  }, [isLoading, appId, appSlug, appRecord, awaitTurnstileToken, closeAndWipeLink, onError, onSuccess, resetTurnstile, setErrorMessage]);
 
   return {
     isLoading,

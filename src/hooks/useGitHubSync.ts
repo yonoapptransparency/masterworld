@@ -4,6 +4,7 @@ import { auth, db, isFirebaseReal, handleFirestoreError, OperationType } from '.
 import { adminFetch, getValidAdminToken, loadSession } from '../services/adminAuthService';
 import { GitConfig, generateStaticDataFileCode, generateCommunityReviewsFileCode, commitFileToGitHub, commitMultiFilesToGitHub, encryptUrlIfNeeded } from '../lib/githubSync';
 import { getAesSecret, safeDecrypt, safeEncrypt } from '../lib/cryptoUtils';
+import { generateSecureVaultFile } from '../lib/secureVault';
 import { generateAllSitemaps } from '../lib/sitemapGenerator';
 import { ensureDefaultSettings } from '../lib/defaultLegalContent';
 import { AppConfig, GlobalSettings, NewsItem, VideoItem } from '../types';
@@ -314,12 +315,12 @@ export function useGitHubSync(
             videos: fsVideos
           };
         } else {
-          if (firestoreApps.length > (liveBackup.apps?.length || 0)) {
+          if (firestoreApps.length > 0) {
             liveBackup.apps = firestoreApps;
           }
           liveBackup.settings = { ...fsSettings, ...(liveBackup.settings || {}) };
-          if (fsNews.length > (liveBackup.news?.length || 0)) liveBackup.news = fsNews;
-          if (fsVideos.length > (liveBackup.videos?.length || 0)) liveBackup.videos = fsVideos;
+          if (fsNews.length > 0) liveBackup.news = fsNews;
+          if (fsVideos.length > 0) liveBackup.videos = fsVideos;
         }
       } catch (directFsErr: any) {
         log(`GitHub Sync Notice: Direct Firestore query note: ${directFsErr?.message || directFsErr}`);
@@ -338,6 +339,27 @@ export function useGitHubSync(
       log(`GitHub Sync: Using ${targetApps.length} live application(s) directly from Firestore.`);
     } else if (Array.isArray(stateApps) && stateApps.length > 0) {
       targetApps = stateApps;
+    }
+
+    // Merge stateApps (live dashboard memory) so newly edited apps in admin panel are guaranteed present
+    if (Array.isArray(stateApps) && stateApps.length > 0) {
+      const stateMap = new Map<string, any>();
+      stateApps.forEach((sa: any) => {
+        if (sa.id) stateMap.set(String(sa.id).toLowerCase().trim(), sa);
+        if (sa.slug) stateMap.set(String(sa.slug).toLowerCase().trim(), sa);
+      });
+      targetApps = targetApps.map((ta: any) => {
+        const sa = stateMap.get(String(ta.id).toLowerCase().trim()) || (ta.slug ? stateMap.get(String(ta.slug).toLowerCase().trim()) : null);
+        if (sa) {
+          return {
+            ...ta,
+            ...sa,
+            more_information_url: sa.more_information_url || ta.more_information_url || '',
+            encrypted_link: sa.encrypted_link || ta.encrypted_link || ''
+          };
+        }
+        return ta;
+      });
     }
 
     const targetSettings = {
@@ -707,8 +729,9 @@ export function useGitHubSync(
             if (!rawUrl || typeof rawUrl !== 'string') return;
             const trimmed = rawUrl.trim();
             if (trimmed.toLowerCase().includes('mediafire.com') || trimmed.includes('com.rummydex') || trimmed.includes('com.example')) return;
-            const plainUrl = trimmed.startsWith('U2FsdGVkX1') ? (safeDecrypt(trimmed, AES_SECRET) || trimmed) : trimmed;
-            const encUrl = trimmed.startsWith('U2FsdGVkX1') ? trimmed : safeEncrypt(plainUrl, AES_SECRET);
+            const plainUrl = trimmed.startsWith('U2FsdGVkX1') ? (safeDecrypt(trimmed, AES_SECRET) || safeDecrypt(trimmed) || trimmed) : trimmed;
+            if (!plainUrl || (!plainUrl.startsWith('http://') && !plainUrl.startsWith('https://'))) return;
+            const encUrl = safeEncrypt(plainUrl, AES_SECRET);
             vaultArray.push({
               id,
               slug,
@@ -721,7 +744,7 @@ export function useGitHubSync(
         }
 
         if (vaultCiphertext) {
-          vaultCode = `export const ENCRYPTED_LINKS = "${vaultCiphertext}";\n`;
+          vaultCode = generateSecureVaultFile(vaultCiphertext);
           log(`GitHub Sync: ✅ AES Encrypted Vault sealed.`);
 
           try {

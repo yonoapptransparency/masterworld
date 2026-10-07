@@ -16,6 +16,9 @@ export function encryptUrlIfNeeded(url: string): string {
   if (trimmed.startsWith('U2FsdGVkX1')) {
     const dec = safeDecrypt(trimmed);
     if (dec && dec.toLowerCase().includes('mediafire.com')) return '';
+    if (dec && (dec.startsWith('http://') || dec.startsWith('https://'))) {
+      return safeEncrypt(dec);
+    }
     return trimmed;
   }
 

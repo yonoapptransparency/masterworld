@@ -25,5 +25,5 @@
     "noEmit": true
   }
 ,
-  "exclude": ["dist", "node_modules", "public-api", "api"]
+  "exclude": ["dist", "node_modules", "public-api", "api", "api_temp.ts"]
 }

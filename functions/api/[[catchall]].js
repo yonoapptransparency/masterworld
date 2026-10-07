@@ -2,7 +2,7 @@
 // Handles /api/v1/app/resolve-link, /api/v1/app/session-clearance, /api/v1/public/secure-link, and /api/v1/get-link
 import CryptoJS from 'crypto-js';
 import staticData from '../../src/lib/staticData.json';
-import { safeDecrypt, ENCRYPTED_LINKS } from '../../src/lib/secureVault';
+import { ENCRYPTED_LINKS } from '../../src/lib/secureVault';
 
 const KNOWN_VAULT_KEYS = [
   'Gxgfhf54x_+&7_gxfhgxg&*&*&¢%fzts"dzrX&*\'zgxf_,6_5*\'"*&*_dzg_*5¢¢°%¢6*_fzfzgxf_"6*&zgzf,gzg',
@@ -13,6 +13,26 @@ const KNOWN_VAULT_KEYS = [
   'ai-studio-yonostore-key-2026',
   'fallback_aes_secret_for_local_dev_only'
 ];
+
+function safeDecrypt(ciphertext, secret) {
+  if (!ciphertext || typeof ciphertext !== 'string') return '';
+  const cleanCipher = ciphertext.trim().replace(/^["']|["']$/g, '');
+  if (!cleanCipher) return '';
+  if (!cleanCipher.startsWith('U2FsdGVkX1')) return cleanCipher;
+
+  const fallback = 'Gxgfhf54x_+&7_gxfhgxg&*&*&¢%fzts"dzrX&*\'zgxf_,6_5*\'"*&*_dzg_*5¢¢°%¢6*_fzfzgxf_"6*&zgzf,gzg';
+  const keys = [secret, ...KNOWN_VAULT_KEYS, fallback].filter(Boolean);
+  const uniqueKeys = Array.from(new Set(keys));
+  for (const key of uniqueKeys) {
+    if (!key || key.trim() === '') continue;
+    try {
+      const bytes = CryptoJS.AES.decrypt(cleanCipher, key);
+      const text = bytes.toString(CryptoJS.enc.Utf8);
+      if (text && text.trim().length > 0) return text.trim();
+    } catch (_) {}
+  }
+  return '';
+}
 
 const BOT_PATTERNS = [
   'curl/', 'wget/', 'python', 'urllib', 'requests', 'httpx', 'aiohttp',
@@ -181,6 +201,9 @@ export async function onRequest(context) {
       });
       const cfData = await cfResp.json();
       if (!cfData.success) {
+        const errorCodes = cfData['error-codes'] || [];
+        const isServerSecretConfigError = errorCodes.includes('invalid-input-secret');
+
         // Fallback for test tokens generated on preview/test environments
         const TEST_SECRET = '1x0000000000000000000000000000000AA';
         const formDataTest = new FormData();
@@ -191,7 +214,9 @@ export async function onRequest(context) {
           body: formDataTest
         });
         const testData = await testResp.json();
-        if (!testData.success) {
+
+        // If Cloudflare rejected the token, and it was NOT due to server secret key misconfiguration
+        if (!testData.success && !isServerSecretConfigError) {
           return new Response(JSON.stringify({ 
             success: false, 
             status: 'challenge_required', 

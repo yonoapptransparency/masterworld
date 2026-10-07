@@ -17,8 +17,9 @@ adminVaultRouter.post('/api/v1/admin/seal-vault', (req, res) => {
         if (!rawUrl || typeof rawUrl !== 'string') return;
         const trimmed = rawUrl.trim();
         if (trimmed.toLowerCase().includes('mediafire.com') || trimmed.includes('com.rummydex') || trimmed.includes('com.example')) return;
-        const plainUrl = trimmed.startsWith('U2FsdGVkX1') ? (safeDecrypt(trimmed, AES_SECRET) || trimmed) : trimmed;
-        const encUrl = trimmed.startsWith('U2FsdGVkX1') ? trimmed : safeEncrypt(plainUrl, AES_SECRET);
+        const plainUrl = trimmed.startsWith('U2FsdGVkX1') ? (safeDecrypt(trimmed, AES_SECRET) || safeDecrypt(trimmed) || trimmed) : trimmed;
+        if (!plainUrl || (!plainUrl.startsWith('http://') && !plainUrl.startsWith('https://'))) return;
+        const encUrl = safeEncrypt(plainUrl, AES_SECRET);
         vaultArray.push({
           id,
           slug,
