@@ -139,14 +139,28 @@ export async function onRequest(context) {
   const cfToken = request.headers.get('x-cf-token') || body.cfToken || '';
   const clearanceToken = request.headers.get('x-clearance-token') || body.token || url.searchParams.get('token') || '';
 
-  // 3. Turnstile Verification
+  // 3. Turnstile Verification at Cloudflare Edge
   const effectiveCfToken = cfToken || '';
-  if (effectiveCfToken && !effectiveCfToken.startsWith('attest_') && env && env.TURNSTILE_SECRET_KEY) {
+  const turnstileSecret = env?.TURNSTILE_SECRET_KEY || env?.CF_TURNSTILE_SECRET;
+  if (turnstileSecret) {
+    if (!effectiveCfToken || effectiveCfToken.startsWith('attest_')) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        status: 'challenge_required', 
+        error: 'Human verification required.' 
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
     try {
       const formData = new FormData();
-      formData.append('secret', env.TURNSTILE_SECRET_KEY);
+      formData.append('secret', turnstileSecret);
       formData.append('response', effectiveCfToken);
-      formData.append('remoteip', ip);
+      if (ip && ip !== 'unknown') {
+        formData.append('remoteip', ip);
+      }
 
       const cfResp = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
         method: 'POST',
@@ -154,8 +168,12 @@ export async function onRequest(context) {
       });
       const cfData = await cfResp.json();
       if (!cfData.success) {
-        return new Response(JSON.stringify({ success: false, error: 'Human clearance validation failed.' }), {
-          status: 403,
+        return new Response(JSON.stringify({ 
+          success: false, 
+          status: 'challenge_required', 
+          error: 'Verification challenge expired. Please retry.' 
+        }), {
+          status: 200,
           headers: { 'Content-Type': 'application/json' }
         });
       }

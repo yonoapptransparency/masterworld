@@ -145,6 +145,12 @@ export default defineConfig(({mode}) => {
             : path.resolve(__dirname, 'src/lib/dummyAdmin.ts') 
         },
         { 
+          find: /.*\/lib\/cryptoUtils(\.ts)?$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/lib/cryptoUtils.ts')) 
+            ? path.resolve(__dirname, 'src/lib/cryptoUtils.ts') 
+            : path.resolve(__dirname, 'src/lib/secureVault.ts') 
+        },
+        { 
           find: /.*\/lib\/secureVault$/, 
           replacement: fs.existsSync(path.resolve(__dirname, 'src/lib/secureVault.ts')) 
             ? path.resolve(__dirname, 'src/lib/secureVault.ts') 

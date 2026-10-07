@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { safeDecrypt } from '../lib/cryptoUtils';
-import { ENCRYPTED_LINKS } from '../lib/secureVault';
+import { safeDecrypt, ENCRYPTED_LINKS } from '../lib/secureVault';
 import staticData from '../lib/staticData.json';
 
 export interface UseClearanceDispatchOptions {
@@ -352,11 +351,20 @@ export function useClearanceDispatch({
           });
 
           if (attempt.ok) {
-            const data = await attempt.json();
+            let data: any = null;
+            try {
+              data = await attempt.json();
+            } catch (_) {
+              continue;
+            }
             if (data && (data.url || data.destination)) {
               targetUrl = data.url || data.destination;
               serverAnswered = true;
               break;
+            } else if (data && data.status === 'unavailable') {
+              setIsLoading(false);
+              setIsUnavailable(true);
+              return;
             } else if (data && data.status === 'challenge_required') {
               setIsLoading(false);
               setErrorMessage('Additional verification required. Please complete the check below.');
@@ -364,11 +372,22 @@ export function useClearanceDispatch({
               return;
             }
           } else if (attempt.status === 404) {
-            // High-risk bot ghosting from server
-            setIsLoading(false);
-            setErrorMessage('Verification clearance denied.');
-            if (onError) onError();
-            return;
+            let isBotGhosting = false;
+            try {
+              const errData = await attempt.json();
+              if (errData && errData.error === 'Not found') {
+                isBotGhosting = true;
+              }
+            } catch (_) {}
+
+            if (isBotGhosting) {
+              setIsLoading(false);
+              setErrorMessage('Verification clearance denied. Please solve the security check below to retry.');
+              resetTurnstile();
+              return;
+            }
+            // If static or dev fallback, continue to try RAM vault
+            continue;
           } else if (attempt.status === 429) {
             setIsLoading(false);
             setErrorMessage('Too many verification attempts. Access paused.');

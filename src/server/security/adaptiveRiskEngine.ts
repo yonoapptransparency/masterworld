@@ -13,10 +13,10 @@
  *  - Single-Use Burn-on-Read Atomic Nonce Freshness
  * 
  * Decision Matrix:
- *  - ALLOW (Risk 0-25 / Confidence >= 75%): Instant 0ms link resolution in RAM
- *  - CHALLENGE (Risk 26-50 / Confidence 50-74%): Requires managed interactive challenge
- *  - THROTTLE (Risk 51-70 / Confidence 30-49%): Progressive cost delay (1200ms) to exhaust scrapers
- *  - DENY (Risk 71-100 / Confidence < 30%): Disguised HTTP 404 Not Found ghosting + IP quarantine strike
+ *  - ALLOW (Risk 0-34 / Confidence >= 66%): Instant 0ms link resolution in RAM for humans
+ *  - CHALLENGE (Risk 35-64 / Confidence 36-65%): Requires managed interactive verification challenge
+ *  - THROTTLE (Risk 65-79 / Confidence 21-35%): Progressive cost delay (1200ms) to exhaust scrapers
+ *  - DENY (Risk >= 80 / Confidence < 21%): Disguised HTTP 404 Not Found ghosting + IP quarantine strike
  */
 
 export interface TelemetryPayload {
@@ -164,13 +164,15 @@ export function evaluateIpCadence(ip: string): {
 
 /**
  * Penalizes an abusive IP by placing it in Quarantine Jail
+ * Uses progressive exponential quarantine: 1m for first strike, scaling up for repeat bot abuse
  */
-export function penalizeIp(ip: string, durationMinutes: number = 30) {
+export function penalizeIp(ip: string, durationMinutes: number = 2) {
   const record = ipHistoryMap.get(ip);
   const now = Date.now();
   if (record) {
     record.strikeCount++;
-    record.quarantineUntil = now + (durationMinutes * 60 * 1000);
+    const effectiveMinutes = Math.min(60, durationMinutes * Math.pow(2, Math.max(0, record.strikeCount - 1)));
+    record.quarantineUntil = now + (effectiveMinutes * 60 * 1000);
   } else {
     ipHistoryMap.set(ip, {
       requestCount: 1,
@@ -361,8 +363,8 @@ export function evaluateRisk(req: RiskEvaluationRequest): RiskEvaluationResult {
   // ─────────────────────────────────────────────────────────────
   // 5. SYNTHESIS & NORMALIZATION
   // ─────────────────────────────────────────────────────────────
-  // Baseline neutral score starts at 30
-  let rawScore = 30 + networkScore + cryptoScore + behaviorScore + environmentScore;
+  // Baseline neutral human score starts at 15 (safe from false positives)
+  let rawScore = 15 + networkScore + cryptoScore + behaviorScore + environmentScore;
   
   // Hard bounds 0 to 100
   const normalizedRiskScore = Math.max(0, Math.min(100, Math.round(rawScore)));
@@ -374,16 +376,16 @@ export function evaluateRisk(req: RiskEvaluationRequest): RiskEvaluationResult {
   let action: RiskAction = 'ALLOW';
   let throttleMs = 0;
 
-  if (normalizedRiskScore >= 65) {
-    // Tier C: High Risk / Definite Bot
+  if (normalizedRiskScore >= 80) {
+    // Tier C: High Risk / Definite Bot -> Ghosting Denial (No link returned)
     action = 'DENY';
-    penalizeIp(req.ip, 30);
-  } else if (normalizedRiskScore >= 45) {
+    penalizeIp(req.ip, 5);
+  } else if (normalizedRiskScore >= 65) {
     // Tier B+: Elevated Suspicion -> Throttle
     action = 'THROTTLE';
     throttleMs = 1200; // Force scripter to wait 1.2s per link, burning their concurrency
-  } else if (normalizedRiskScore >= 25) {
-    // Tier B: Moderate Confidence -> Step-Up Challenge
+  } else if (normalizedRiskScore >= 35) {
+    // Tier B: Moderate Suspicion or Unverified Token -> Step-Up Interactive Challenge
     action = 'CHALLENGE';
   } else {
     // Tier A: High Human Confidence -> Immediate Passage

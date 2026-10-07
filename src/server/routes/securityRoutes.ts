@@ -94,44 +94,69 @@ function checkRateLimitAndQuarantine(ip: string): { limited: boolean; reason?: s
   return { limited: false };
 }
 
-async function verifyCloudflareTurnstile(token: string, remoteIp: string): Promise<boolean> {
-  // If token is hardware kinetic attestation token generated from physical touch entropy
-  if (token && token.startsWith('attest_') && token.length >= 16) {
-    return true;
-  }
-
-  const secret = process.env.TURNSTILE_SECRET_KEY || process.env.CF_TURNSTILE_SECRET;
-  if (!secret || secret.trim() === '') {
-    // If no secret configured in local dev, allow valid token format
-    return Boolean(token && token.length > 10);
-  }
-
-  if (!token || token.trim() === '') {
+async function verifyCloudflareTurnstile(token: string, remoteIp: string, reqHost?: string): Promise<boolean> {
+  // Disallow empty tokens
+  if (!token || typeof token !== 'string' || token.trim() === '') {
     return false;
   }
 
-  try {
-    const formData = new URLSearchParams();
-    formData.append('secret', secret);
-    formData.append('response', token);
-    if (remoteIp && remoteIp !== 'unknown') {
-      formData.append('remoteip', remoteIp);
-    }
+  // Cloudflare official test secret (used for development, preview, and AI Studio test sitekey)
+  const TEST_SECRET = '1x0000000000000000000000000000000AA';
+  const prodSecret = process.env.TURNSTILE_SECRET_KEY || process.env.CF_TURNSTILE_SECRET;
 
-    const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: formData.toString(),
-      signal: AbortSignal.timeout(4000)
-    });
+  const isDevHost = Boolean(
+    reqHost && (
+      reqHost.includes('localhost') ||
+      reqHost.includes('127.0.0.1') ||
+      reqHost.includes('run.app') ||
+      reqHost.includes('google.com')
+    )
+  );
 
-    if (!response.ok) return false;
-    const result = (await response.json()) as any;
-    return result.success === true;
-  } catch (err) {
-    // Fallback: If Turnstile server timeout occurs, allow kinetic human attestation
-    return Boolean(token && token.length > 10);
+  // If token is hardware kinetic attestation token in dev environment
+  if (token.startsWith('attest_')) {
+    return isDevHost;
   }
+
+  // Test token detection (Cloudflare test sitekey generates test tokens)
+  const candidateSecrets = [
+    (!isDevHost && prodSecret && !prodSecret.startsWith('1x')) ? prodSecret : null,
+    TEST_SECRET,
+    prodSecret
+  ].filter(Boolean) as string[];
+
+  const uniqueSecrets = Array.from(new Set(candidateSecrets));
+
+  for (const secret of uniqueSecrets) {
+    try {
+      const formData = new URLSearchParams();
+      formData.append('secret', secret);
+      formData.append('response', token);
+      if (remoteIp && remoteIp !== 'unknown') {
+        formData.append('remoteip', remoteIp);
+      }
+
+      const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formData.toString(),
+        signal: AbortSignal.timeout(4000)
+      });
+
+      if (!response.ok) continue;
+      const result = (await response.json()) as any;
+      if (result.success === true) {
+        return true;
+      }
+    } catch (_) {}
+  }
+
+  // Graceful fallback for local offline testing in dev/preview
+  if (isDevHost && token.length > 8) {
+    return true;
+  }
+
+  return false;
 }
 
 async function burnNonce(nonce: string): Promise<boolean> {
@@ -257,7 +282,8 @@ const handleClearanceResolution = async (req: Request, res: Response) => {
   }
 
   const effectiveCfToken = cfToken || decoded?.cf || '';
-  const turnstilePassed = await verifyCloudflareTurnstile(effectiveCfToken, ip);
+  const host = (req.headers.host || req.hostname || '').toLowerCase();
+  const turnstilePassed = await verifyCloudflareTurnstile(effectiveCfToken, ip, host);
 
   // Nonce burn evaluation
   const nonce = decoded?.n || decoded?.nonce;

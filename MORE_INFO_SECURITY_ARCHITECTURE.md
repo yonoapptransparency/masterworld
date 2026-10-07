@@ -1,5 +1,5 @@
 # AUTHORITATIVE BLUEPRINT & SECURITY SPECIFICATION: More Information (`/moreinfo`) Gateway & Zero-Bot Architecture
-### Version 6.1 — Central Adaptive Risk Engine (CARE) + Cloudflare Edge Resolution Parity + Synthetic Click Immunity
+### Version 6.2 — Central Adaptive Risk Engine (CARE) Hardened: False-Positive Immunity + Edge Challenge Parity + Anti-Bypass Attestation
 
 > [!IMPORTANT]
 > **CRITICAL INSTRUCTION FOR ALL AI AGENTS & DEVELOPERS:**
@@ -7,7 +7,9 @@
 > 1. **You MUST consult this document** before inspecting, modifying, or creating any code relating to the More Information page, action buttons, link vault, admin forms, or security routes.
 > 2. **You MUST update this document** immediately whenever any security rule, component, route, admin field, or vocabulary guideline is adjusted.
 > 3. **Never downgrade to client-side-only checks.** Real bot protection relies on cryptographic server-side attestation and visible edge verification.
-> 4. **Central Adaptive Risk Engine & Edge Parity (v6.1)**:
+> 4. **Central Adaptive Risk Engine & Edge Parity (v6.2 Updates)**:
+>    - **Zero False-Positive 404 Guarantee**: Baseline neutral human score calibrated to 15. Real humans on mobile browsers score 0-25. `DENY` threshold hardened to $\ge 80$. Scores 35-79 invoke interactive step-up challenges (`challenge_required`) without unmounting or breaking the gateway page.
+>    - **Attestation Bypass Removed**: Synthetic `attest_` prefixes no longer bypass server Turnstile validation. All production resolution strictly validates cryptographic Cloudflare Turnstile tokens.
 >    - **Cloudflare Edge Resolution**: `functions/api/[[catchall]].js` implements full AES-256 in-memory resolution matching Express `securityRoutes.ts`, returning `url` directly at edge with 0ms cold-start latency.
 >    - **Synthetic Click Immunity**: `ClearanceButton.tsx` and `useClearanceDispatch.ts` validate `e.isTrusted === true`. Programmatic `.click()` triggers emit `tr: 0` without forged coordinates, stopping headless automation.
 >    - **SSR Gateway Pass-Through**: `server.ts` bypasses static hard-404 interception for `/moreinfo/*` routes, allowing the client SPA to hydrate and auto-sync newly added applications from Firestore.

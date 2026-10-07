@@ -1,6 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
+    <loc>https://www.rummydex.com/app/jaiho-play</loc>
+    <lastmod>2026-10-06T13:05:41+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://res.cloudinary.com/veqj16xh/image/upload/f_webp,q_auto,w_800/v1791291523/f1swonguvqjkehpjoteu.webp</image:loc>
+      <image:title>JAIHO PLAY</image:title>
+    </image:image>
+  </url>
+  <url>
     <loc>https://www.rummydex.com/app/jeet-spin</loc>
     <lastmod>2026-10-01T11:05:39+00:00</lastmod>
     <changefreq>weekly</changefreq>

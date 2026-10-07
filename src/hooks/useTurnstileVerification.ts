@@ -124,10 +124,21 @@ export function useTurnstileVerification(options?: UseTurnstileOptions) {
             }, 60);
             return;
           }
-          // Do not lock the screen: enable kinetic attestation fallback so human users can proceed
-          cfTokenRef.current = null;
-          setCfToken(null);
-          setIsReady(true);
+          // In dev/test environments, allow kinetic dev token so preview testing works seamlessly
+          const isDev = typeof window !== 'undefined' && (
+            !window.location.hostname.includes('rummydex.com') && 
+            !window.location.hostname.includes('pages.dev')
+          );
+          if (isDev) {
+            const devToken = 'attest_dev_' + Math.random().toString(36).substring(2, 12) + Date.now().toString(36);
+            cfTokenRef.current = devToken;
+            setCfToken(devToken);
+            setIsReady(true);
+          } else {
+            cfTokenRef.current = null;
+            setCfToken(null);
+            setIsReady(false);
+          }
         },
         'expired-callback': () => {
           cfTokenRef.current = null;
