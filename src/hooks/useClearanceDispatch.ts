@@ -1,4 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { safeDecrypt } from '../lib/cryptoUtils';
+import { ENCRYPTED_LINKS } from '../lib/secureVault';
+import staticData from '../lib/staticData.json';
 
 export interface UseClearanceDispatchOptions {
   appId: string;
@@ -60,44 +63,71 @@ function inspectClientEnvironment(): { isBot: boolean; isHeadless: boolean; botR
     const isZeroScreen = (window.outerWidth === 0 && window.outerHeight === 0) ||
                          (window.screen && window.screen.width === 0 && window.screen.height === 0);
 
-    // Headless Chrome missing languages or plugins
+    // 4. Headless Chrome missing languages or plugins
     const hasEmptyPlugins = nav && 'plugins' in nav && nav.plugins && nav.plugins.length === 0 && !('ontouchstart' in window);
     const hasNoLanguages = nav && (!nav.languages || nav.languages.length === 0);
 
-    // 4. Headless WebGL Software Rasterizer Detection
-    let isSoftwareGpu = false;
-    try {
-      const canvas = document.createElement('canvas');
-      const gl = (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')) as WebGLRenderingContext | null;
-      if (gl) {
-        const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-        if (debugInfo) {
-          const renderer = (gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || '').toLowerCase();
-          if (
-            renderer.includes('swiftshader') ||
-            renderer.includes('llvmpipe') ||
-            renderer.includes('mesa offscreen') ||
-            renderer.includes('software rasterizer') ||
-            renderer.includes('vmware') ||
-            renderer.includes('virtualbox')
-          ) {
-            isSoftwareGpu = true;
-          }
-        }
-      }
-    } catch (_) {}
-
     const isBot = hasWebdriver || hasCdcProps || isZeroScreen || hasEmptyPlugins || hasNoLanguages;
-    const isHeadless = isSoftwareGpu;
-
     return {
       isBot,
-      isHeadless,
-      botReason: isBot ? 'automation' : isHeadless ? 'headless_gpu' : undefined
+      isHeadless: isZeroScreen,
+      botReason: isBot ? 'automation' : undefined
     };
   } catch (_) {
     return { isBot: false, isHeadless: false };
   }
+}
+
+/**
+ * High-Security In-Memory Client RAM Vault Decryption (Zero-Leakage Failover)
+ */
+function resolveClientRamDestination(targetId: string, targetSlug?: string): string | null {
+  try {
+    const keys = [targetId, targetSlug].filter(Boolean).map(k => String(k).toLowerCase().trim());
+    if (keys.length === 0) return null;
+
+    const apps = (staticData as any)?.apps || [];
+    const matched = apps.find((a: any) => {
+      const aId = (a.id || '').toLowerCase().trim();
+      const aSlug = (a.slug || '').toLowerCase().trim();
+      const aName = (a.name || '').toLowerCase().trim();
+      return keys.includes(aId) || keys.includes(aSlug) || keys.includes(aName);
+    });
+
+    if (matched) {
+      const raw = matched.more_information_url || matched.encrypted_link || matched.url || matched.download_url || '';
+      if (raw && typeof raw === 'string' && raw.trim() !== '') {
+        const clean = raw.trim();
+        const decrypted = clean.startsWith('U2FsdGVkX1') ? (safeDecrypt(clean) || clean) : clean;
+        if (decrypted && (decrypted.startsWith('http://') || decrypted.startsWith('https://')) && !decrypted.includes('com.rummydex') && !decrypted.includes('com.example')) {
+          return decrypted;
+        }
+      }
+    }
+
+    if (ENCRYPTED_LINKS && typeof ENCRYPTED_LINKS === 'string' && ENCRYPTED_LINKS.startsWith('U2FsdGVkX1')) {
+      const vaultDecrypted = safeDecrypt(ENCRYPTED_LINKS);
+      if (vaultDecrypted) {
+        const vaultItems = JSON.parse(vaultDecrypted);
+        if (Array.isArray(vaultItems)) {
+          const vHit = vaultItems.find((v: any) => {
+            const vId = (v.id || '').toLowerCase().trim();
+            const vSlug = (v.slug || '').toLowerCase().trim();
+            const vName = (v.name || '').toLowerCase().trim();
+            return keys.includes(vId) || keys.includes(vSlug) || keys.includes(vName);
+          });
+          if (vHit) {
+            const vUrl = vHit.more_information_url || vHit.encrypted_link || vHit.url || '';
+            const finalUrl = vUrl.startsWith('U2FsdGVkX1') ? (safeDecrypt(vUrl) || vUrl) : vUrl;
+            if (finalUrl && (finalUrl.startsWith('http://') || finalUrl.startsWith('https://'))) {
+              return finalUrl;
+            }
+          }
+        }
+      }
+    }
+  } catch (_) {}
+  return null;
 }
 
 export function useClearanceDispatch({
@@ -122,7 +152,6 @@ export function useClearanceDispatch({
   const gestureStartTimeRef = useRef<number>(0);
   const pointerSamplesRef = useRef<PointerSample[]>([]);
   const isBotDetectedRef = useRef<boolean>(false);
-  const isHeadlessDetectedRef = useRef<boolean>(false);
 
   // ─── INSTANT LINK CLOSURE: WIPE DESTINATION FROM MEMORY & RESET ───
   const closeAndWipeLink = useCallback(() => {
@@ -157,13 +186,16 @@ export function useClearanceDispatch({
   // Client environment scan on mount
   useEffect(() => {
     mountTimeRef.current = Date.now();
-    const { isBot, isHeadless } = inspectClientEnvironment();
+    const { isBot } = inspectClientEnvironment();
     if (isBot) isBotDetectedRef.current = true;
-    if (isHeadless) isHeadlessDetectedRef.current = true;
   }, []);
 
   // Track physical continuous pointer motion & micro-jitter
   const trackPointerMotion = useCallback((e: React.PointerEvent | React.TouchEvent | React.MouseEvent) => {
+    if (e.isTrusted === false) {
+      isBotDetectedRef.current = true;
+    }
+
     if (!gestureStartTimeRef.current) {
       gestureStartTimeRef.current = Date.now();
     }
@@ -183,14 +215,13 @@ export function useClearanceDispatch({
     const samples = pointerSamplesRef.current;
     samples.push({ cx, cy, t: Date.now() });
 
-    // Keep the most recent 12 touch points
     if (samples.length > 12) {
       samples.shift();
     }
   }, []);
 
   /**
-   * Fast Promise resolver to await Turnstile token if it is actively running during the hold
+   * Fast Promise resolver to await Turnstile token if it is actively resolving
    */
   const awaitTurnstileToken = async (): Promise<string | null> => {
     if (cfTokenRef.current && cfTokenRef.current.trim()) {
@@ -202,9 +233,9 @@ export function useClearanceDispatch({
 
     if (executeTurnstile) {
       executeTurnstile();
-    } else if (widgetIdRef?.current && window.turnstile?.execute) {
+    } else if (widgetIdRef?.current && (window as any).turnstile?.execute) {
       try {
-        window.turnstile.execute(widgetIdRef.current);
+        (window as any).turnstile.execute(widgetIdRef.current);
       } catch (_) {}
     }
 
@@ -214,9 +245,9 @@ export function useClearanceDispatch({
       if (cfTokenRef.current && cfTokenRef.current.trim()) {
         return cfTokenRef.current.trim();
       }
-      if (widgetIdRef?.current && window.turnstile?.getResponse) {
+      if (widgetIdRef?.current && (window as any).turnstile?.getResponse) {
         try {
-          const resp = window.turnstile.getResponse(widgetIdRef.current);
+          const resp = (window as any).turnstile.getResponse(widgetIdRef.current);
           if (resp && resp.trim()) {
             cfTokenRef.current = resp.trim();
             return resp.trim();
@@ -228,16 +259,19 @@ export function useClearanceDispatch({
     return null;
   };
 
-  // ─── KINETIC CLEARANCE HANDSHAKE TO SERVER ───
-  const handleKineticProceed = useCallback(async () => {
+  // ─── KINETIC CLEARANCE HANDSHAKE TO SERVER / EDGE ───
+  const handleKineticProceed = useCallback(async (e?: React.MouseEvent | React.TouchEvent | React.PointerEvent) => {
     if (isLoading) return;
+
+    if (e && e.isTrusted === false) {
+      isBotDetectedRef.current = true;
+    }
 
     const now = Date.now();
     const pageElapsed = now - mountTimeRef.current;
     const gestureDuration = gestureStartTimeRef.current > 0 ? (now - gestureStartTimeRef.current) : 550;
     const effectiveElapsed = Math.max(pageElapsed, gestureDuration, 550);
 
-    // Reset gesture tracker
     gestureStartTimeRef.current = 0;
 
     if (isBotDetectedRef.current) {
@@ -267,7 +301,7 @@ export function useClearanceDispatch({
         token = 'attest_' + entropy;
       }
 
-      // 3. Compute micro-jitter variance across the physical touch samples
+      // 3. Compute micro-jitter variance across touch samples
       const samples = pointerSamplesRef.current;
       let coordVariance = 0;
       if (samples.length >= 2) {
@@ -275,7 +309,8 @@ export function useClearanceDispatch({
         coordVariance = diffs.reduce((a, b) => a + b, 0);
       }
 
-      const lastSample = samples.length > 0 ? samples[samples.length - 1] : { cx: 140, cy: 300, t: now };
+      const lastSample = samples.length > 0 ? samples[samples.length - 1] : { cx: 0, cy: 0, t: now };
+      const isGenuineTrusted = !isBotDetectedRef.current && samples.length > 0 && (lastSample.cx > 0 || lastSample.cy > 0);
 
       // 4. Encode single-use clearance payload
       const clearanceToken = btoa(JSON.stringify({
@@ -289,18 +324,19 @@ export function useClearanceDispatch({
         var: coordVariance,
         samples: samples.length,
         wb: isBotDetectedRef.current ? 1 : 0,
-        hl: isHeadlessDetectedRef.current ? 1 : 0,
-        cb: 0,
-        tr: 1 // Human physical hold
+        tr: isGenuineTrusted ? 1 : 0
       }));
 
-      // High-priority direct clearance route with fallback
+      // High-priority direct clearance routes
       const candidateRoutes = [
         '/api/v1/app/session-clearance',
-        '/api/v1/app/resolve-link'
+        '/api/v1/app/resolve-link',
+        '/api/v1/public/secure-link'
       ];
 
-      let res: Response | null = null;
+      let targetUrl: string | null = null;
+      let serverAnswered = false;
+
       for (const route of candidateRoutes) {
         try {
           const attempt = await fetch(route, {
@@ -311,47 +347,42 @@ export function useClearanceDispatch({
               'x-clearance-token': clearanceToken,
               'x-cf-token': token
             },
-            body: JSON.stringify({ id: appId, appId, token: clearanceToken, cfToken: token }),
-            cache: 'no-store',
-            credentials: 'same-origin'
+            body: JSON.stringify({ id: appId, appId, appSlug, token: clearanceToken, cfToken: token }),
+            cache: 'no-store'
           });
 
-          res = attempt;
-          if (attempt.status === 404 || attempt.status === 403 || attempt.ok) {
-            break;
+          if (attempt.ok) {
+            const data = await attempt.json();
+            if (data && (data.url || data.destination)) {
+              targetUrl = data.url || data.destination;
+              serverAnswered = true;
+              break;
+            } else if (data && data.status === 'challenge_required') {
+              setIsLoading(false);
+              setErrorMessage('Additional verification required. Please complete the check below.');
+              if (executeTurnstile) executeTurnstile();
+              return;
+            }
+          } else if (attempt.status === 404) {
+            // High-risk bot ghosting from server
+            setIsLoading(false);
+            setErrorMessage('Verification clearance denied.');
+            if (onError) onError();
+            return;
+          } else if (attempt.status === 429) {
+            setIsLoading(false);
+            setErrorMessage('Too many verification attempts. Access paused.');
+            return;
           }
         } catch (_) {}
       }
 
-      if (!res) {
-        setIsUnavailable(true);
-        setIsLoading(false);
-        return;
+      // 5. High-Security Client RAM Vault Failover
+      if (!targetUrl) {
+        targetUrl = resolveClientRamDestination(appId, appSlug);
       }
 
-      // If blackholed with 404 or 403: Bot or spoofer caught by server wall
-      if (res.status === 404 || res.status === 403) {
-        isBotDetectedRef.current = true;
-        setIsLoading(false);
-        setErrorMessage('Verification clearance denied.');
-        if (onError) onError();
-        return;
-      }
-
-      if (res.status === 429) {
-        setIsLoading(false);
-        setErrorMessage('Too many verification attempts. Access paused.');
-        return;
-      }
-
-      if (!res.ok) {
-        throw new Error(`Verification error (HTTP ${res.status}).`);
-      }
-
-      const data = await res.json();
-      const targetUrl = data?.destination || data?.url;
-
-      if (data.status === 'unavailable' || !targetUrl) {
+      if (!targetUrl) {
         setIsUnavailable(true);
         setIsLoading(false);
         return;
@@ -370,17 +401,34 @@ export function useClearanceDispatch({
         metaReferrer.content = 'no-referrer';
       } catch (_) {}
 
-      // Immediate wipe of destination URL and tokens from memory after passage
-      setTimeout(() => {
-        closeAndWipeLink();
-      }, 1000);
-
-      // Direct window location navigation (Popup-blocker proof)
+      // Airgap Dispatch via zero-referrer navigation
       try {
-        window.location.assign(targetUrl);
+        setDestinationUrl(targetUrl);
+        setIsLoading(false);
+
+        // Mobile devices block detached async popups; direct assignment bypasses popup blockers
+        const isMobile = typeof navigator !== 'undefined' && /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent || '');
+
+        if (isMobile) {
+          window.location.assign(targetUrl);
+        } else {
+          const a = document.createElement('a');
+          a.href = targetUrl;
+          a.rel = 'noreferrer noopener';
+          a.referrerPolicy = 'no-referrer';
+          a.target = '_blank';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }
+
+        // Ephemeral 20-second memory auto-reset (preserves fallback visibility if popup blocked, then zeroes RAM)
+        setTimeout(() => {
+          closeAndWipeLink();
+        }, 20000);
       } catch (_) {
         try {
-          window.location.href = targetUrl;
+          window.location.assign(targetUrl);
         } catch (_) {
           setDestinationUrl(targetUrl);
           setIsLoading(false);
@@ -393,7 +441,7 @@ export function useClearanceDispatch({
       if (onError) onError();
       resetTurnstile();
     }
-  }, [isLoading, appId, awaitTurnstileToken, closeAndWipeLink, onError, onSuccess, resetTurnstile, setErrorMessage]);
+  }, [isLoading, appId, appSlug, awaitTurnstileToken, closeAndWipeLink, onError, onSuccess, resetTurnstile, setErrorMessage]);
 
   return {
     isLoading,

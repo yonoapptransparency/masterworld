@@ -13,7 +13,8 @@ githubSyncRouter.get('/api/github-sync/public-core-files', (req, res) => {
       'src/lib/lazyWithRetry.ts',
       'src/components/GlobalErrorBoundary.tsx',
       'src/components/public/PublicFooter.tsx',
-      'src/components/public/PublicHeader.tsx'
+      'src/components/public/PublicHeader.tsx',
+      'functions/api/[[catchall]].js'
     ];
 
     candidateFiles.forEach(f => {

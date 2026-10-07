@@ -444,7 +444,11 @@ async function startServer() {
       const canonicalUrl = typeof seoResult === 'object' && seoResult ? seoResult.canonicalUrl : undefined;
 
       // Real 404 response for missing slugs to eliminate Googlebot Soft 404 violations
-      if (isNotFound) {
+      // Exclude /moreinfo, /gateway routes so client SPA can hydrate and auto-sync newly added apps
+      const reqPath = (req.originalUrl || '').split('?')[0].split('#')[0];
+      const isGatewayRoute = reqPath.startsWith('/moreinfo') || reqPath.startsWith('/gateway') || reqPath.startsWith('/info/');
+
+      if (isNotFound && !isGatewayRoute) {
         const notFoundHtml = `<!doctype html>
 <html lang="en-IN">
   <head>

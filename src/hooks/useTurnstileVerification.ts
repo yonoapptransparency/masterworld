@@ -124,10 +124,10 @@ export function useTurnstileVerification(options?: UseTurnstileOptions) {
             }, 60);
             return;
           }
-          // Do not lock the screen or show red error; kinetic attestation will verify seamlessly
+          // Do not lock the screen: enable kinetic attestation fallback so human users can proceed
           cfTokenRef.current = null;
           setCfToken(null);
-          setIsReady(false);
+          setIsReady(true);
         },
         'expired-callback': () => {
           cfTokenRef.current = null;
@@ -176,12 +176,12 @@ export function useTurnstileVerification(options?: UseTurnstileOptions) {
       }
     }, 75);
 
-    // 4. Safe adblocker/network timeout: if Cloudflare script is blocked, allow Track B kinetic attestation
+    // 4. Safe adblocker/network timeout: if Cloudflare script is blocked or delayed, allow Track B kinetic attestation
     const fallbackTimer = setTimeout(() => {
       if (!isReady && !cfTokenRef.current && !widgetIdRef.current) {
         setIsReady(true);
       }
-    }, 3200);
+    }, 1000);
 
     // 3. Script injector with explicit onload hook (only if not already loaded)
     const existingScript = document.getElementById('cf-turnstile-script') || 
