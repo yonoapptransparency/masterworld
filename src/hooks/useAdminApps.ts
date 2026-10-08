@@ -36,10 +36,10 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
         body: JSON.stringify({ items })
       });
       if (!res.ok) {
-        console.warn("[DEBUG] syncSecureVault failed:", await res.text());
+        console.warn("[AdminApps] Secure vault sync response notice:", await res.text());
       }
     } catch (e: any) {
-      console.warn("Failed to sync secure vault:", e.message || e);
+      console.warn("[AdminApps] Secure vault sync network error:", e.message || e);
     }
   };
 

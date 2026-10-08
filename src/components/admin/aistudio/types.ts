@@ -43,10 +43,12 @@ export type RatingMixMode =
   | 'balanced_critical';  // 60% 5-star, 30% 4-star, 10% 3-star
 
 export type LanguageToneMode = 
-  | 'hinglish_natural'    // Authentic Indian gaming slang ("bohot smooth withdrawal", "mast app hai")
-  | 'natural_english'     // Casual, colloquial English ("withdrawal was fast", "good app")
-  | 'mixed_pro'           // Mix of detailed and short punchy reviews
-  | 'short_punchy';       // Ultra-short authentic feedback (1-2 sentences)
+  | 'all_rounder_standard' // Standard, normal everyday users across all categories
+  | 'happy_with_emojis'    // Happy enthusiastic customers with natural emojis (😊, 👍, ⭐)
+  | 'hinglish_natural'     // Casual, colloquial Indian mobile tone
+  | 'natural_english'      // Casual, everyday conversational English
+  | 'short_punchy'         // Ultra-short punchy feedback (1-2 sentences)
+  | 'detailed_feedback';   // Thoughtful 2-3 sentence user experience feedback
 
 export type PublishMode = 
   | 'wait_approve'  // Reviews staged for manual admin inspection, edit & 1-click publish

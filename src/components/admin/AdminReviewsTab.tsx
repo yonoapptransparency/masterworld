@@ -43,6 +43,7 @@ import { invalidateReviewCache, formatReviewDate } from '../../lib/communityFire
 import { 
   fetchAdminReviewsList, 
   fetchAdminAppReviewCounts, 
+  getLiveAtomicReviewStatsSync,
   AdminReviewItem,
   AppReviewCountsData,
   createAdminReviewItem,
@@ -357,19 +358,26 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({
     }
   }, [selectedAppId, fetchReviewsForSelectedApp]);
 
-  // Fetch atomic review counts on mount
+  // Fetch atomic review counts on mount & subscribe to live atomic delta events
   useEffect(() => {
     fetchAdminAppReviewCounts().then(res => {
       if (res?.globalStats) setGlobalDbStats(res.globalStats);
       if (res?.appCounts && Object.keys(res.appCounts).length > 0) setAppCountsMap(res.appCounts);
     }).catch(() => {});
+
+    const handleAtomicUpdate = (e: any) => {
+      if (e.detail?.appCounts) setAppCountsMap(e.detail.appCounts);
+      if (e.detail?.globalStats) setGlobalDbStats(e.detail.globalStats);
+    };
+    window.addEventListener('atomic_review_counts_updated', handleAtomicUpdate);
+    return () => window.removeEventListener('atomic_review_counts_updated', handleAtomicUpdate);
   }, []);
 
-  // Recalculate stats handler
+  // Recalculate stats handler - Authoritative single read from Firestore catalog_stats
   const handleRecalculateStats = async () => {
     setRecalculating(true);
     try {
-      const res = await fetchAdminAppReviewCounts();
+      const res = await fetchAdminAppReviewCounts(true);
       if (res?.globalStats) setGlobalDbStats(res.globalStats);
       if (res?.appCounts) setAppCountsMap(res.appCounts);
       toast('Atomic catalog review matrix recalculated!', 'success');
@@ -383,10 +391,14 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({
   const handleStatusChange = async (id: string, newStatus: 'published' | 'pending' | 'rejected') => {
     try {
       setActioningId(id);
-      const success = await setAdminReviewStatus(id, newStatus);
+      const targetReview = reviews.find(r => r.id === id);
+      const success = await setAdminReviewStatus(id, newStatus, targetReview);
       if (success) {
         toast(`Review status set to ${newStatus}`, 'success');
         setReviews(prev => prev.map(r => r.id === id ? { ...r, status: newStatus } : r));
+        const live = getLiveAtomicReviewStatsSync();
+        if (live?.appCounts) setAppCountsMap({ ...live.appCounts });
+        if (live?.globalStats) setGlobalDbStats({ ...live.globalStats });
         invalidateReviewCache();
       }
     } catch (err) {
@@ -417,11 +429,15 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({
     if (!window.confirm('Delete this review permanently?')) return;
     try {
       setActioningId(id);
-      const success = await deleteAdminReviewItem(id);
+      const targetReview = reviews.find(r => r.id === id);
+      const success = await deleteAdminReviewItem(id, targetReview);
       if (success) {
         toast('Review deleted permanently', 'success');
         setReviews(prev => prev.filter(r => r.id !== id));
         setSelectedReviewIds(prev => prev.filter(selId => selId !== id));
+        const live = getLiveAtomicReviewStatsSync();
+        if (live?.appCounts) setAppCountsMap({ ...live.appCounts });
+        if (live?.globalStats) setGlobalDbStats({ ...live.globalStats });
         invalidateReviewCache();
       }
     } catch (err) {
@@ -437,10 +453,14 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({
 
     try {
       setRefreshing(true);
-      const res = await performBulkReviewsAction(action, selectedReviewIds);
+      const affectedReviews = reviews.filter(r => selectedReviewIds.includes(r.id));
+      const res = await performBulkReviewsAction(action, selectedReviewIds, affectedReviews);
       if (res.success) {
         toast(`Bulk ${action} completed!`, 'success');
         setSelectedReviewIds([]);
+        const live = getLiveAtomicReviewStatsSync();
+        if (live?.appCounts) setAppCountsMap({ ...live.appCounts });
+        if (live?.globalStats) setGlobalDbStats({ ...live.globalStats });
         invalidateReviewCache();
         if (selectedAppId !== 'all') {
           fetchReviewsForSelectedApp(selectedAppId, true);
@@ -466,8 +486,13 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({
         if (created) {
           toast('New verified review created!', 'success');
           setEditModalReview(null);
+          const live = getLiveAtomicReviewStatsSync();
+          if (live?.appCounts) setAppCountsMap({ ...live.appCounts });
+          if (live?.globalStats) setGlobalDbStats({ ...live.globalStats });
           if (selectedAppId !== 'all') {
             fetchReviewsForSelectedApp(selectedAppId, true);
+          } else {
+            fetchReviewsForSelectedApp('all', true);
           }
         }
       } else if (editModalReview.id) {
@@ -476,6 +501,9 @@ export const AdminReviewsTab: React.FC<AdminReviewsTabProps> = ({
           toast('Review updated successfully!', 'success');
           setReviews(prev => prev.map(r => r.id === editModalReview.id ? ({ ...r, ...editModalReview, ...updated } as ReviewData) : r));
           setEditModalReview(null);
+          const live = getLiveAtomicReviewStatsSync();
+          if (live?.appCounts) setAppCountsMap({ ...live.appCounts });
+          if (live?.globalStats) setGlobalDbStats({ ...live.globalStats });
           invalidateReviewCache();
         }
       }

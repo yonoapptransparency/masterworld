@@ -1,14 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Bot, 
-  Zap, 
   Layers, 
   Key, 
   Sparkles, 
-  ShieldCheck, 
-  Activity, 
-  CheckCircle2,
-  ExternalLink
+  Square, 
+  HardDrive,
+  RotateCcw,
+  Sliders,
+  BrainCircuit,
+  ChevronUp,
+  ChevronDown
 } from 'lucide-react';
 import { toast } from '../Toast';
 import { 
@@ -35,7 +37,6 @@ import {
 } from './aistudio/geminiEngine';
 import { AppSelector } from './aistudio/AppSelector';
 import { ChatWorkspace } from './aistudio/ChatWorkspace';
-import { Brain2BatchGenerator } from './aistudio/Brain2BatchGenerator';
 import { StagedQueue } from './aistudio/StagedQueue';
 import { ApiKeyModal } from './aistudio/ApiKeyModal';
 import { createAdminReviewItem } from '../../lib/communityFirebase';
@@ -49,8 +50,8 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
   appsList = [],
   onReviewsGenerated
 }) => {
-  // Navigation: 'brain1' (Chat) | 'brain2' (AutoBot) | 'staged' (Queue)
-  const [activeTab, setActiveTab] = useState<'brain1' | 'brain2' | 'staged'>('brain1');
+  // Navigation: 'studio' (Main Chat) | 'staged' (Queue Deck)
+  const [activeTab, setActiveTab] = useState<'studio' | 'staged'>('studio');
 
   // Persistent State
   const [config, setConfig] = useState<StudioConfig>(loadStudioConfig);
@@ -63,16 +64,22 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
     return appsList.slice(0, 5).map(a => String(a.id || a.slug));
   });
 
-  // Filters & Modal
+  // Drawers & Modals
+  const [showControlsDrawer, setShowControlsDrawer] = useState(false);
+  const [showDirectives, setShowDirectives] = useState(false);
   const [appSearch, setAppSearch] = useState('');
   const [appCategory, setAppCategory] = useState('all');
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
+  const [isAppSelectorModalOpen, setIsAppSelectorModalOpen] = useState(false);
 
   // Async Execution States
   const [isSendingChat, setIsSendingChat] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
-  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0, percent: 0 });
+  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0, percent: 0, currentAppName: '' });
+
+  // Abort control ref for instantaneous Stop AI generation
+  const abortGenerationRef = useRef<boolean>(false);
 
   // Sync to local storage
   useEffect(() => { saveStudioConfig(config); }, [config]);
@@ -81,8 +88,37 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
   useEffect(() => { saveStagedReviews(stagedReviews); }, [stagedReviews]);
   useEffect(() => { saveSelectedAppIds(selectedAppIds); }, [selectedAppIds]);
 
+  // Handle immediate stop AI generation
+  const handleStopGeneration = () => {
+    if (!isGenerating) return;
+    abortGenerationRef.current = true;
+    setIsGenerating(false);
+    const stopMsg: ChatMessage = {
+      id: `msg_${Date.now()}`,
+      sender: 'assistant',
+      text: '⏹ AI generation was stopped by Admin. Any reviews produced up to this point have been safely preserved in your Staged Deck.',
+      timestamp: new Date().toISOString()
+    };
+    setChatHistory(prev => [...prev, stopMsg]);
+    toast('AI generation stopped. Progress saved.', 'info');
+  };
+
   // Handle Chat message send
   const handleSendChatMessage = async (text: string) => {
+    const lower = text.toLowerCase().trim();
+    if (
+      lower === 'stop' || 
+      lower === 'cancel' || 
+      lower.includes('stop generating') || 
+      lower.includes('stop the working') ||
+      lower.includes('stop ai')
+    ) {
+      if (isGenerating) {
+        handleStopGeneration();
+        return;
+      }
+    }
+
     const userMsg: ChatMessage = {
       id: `msg_${Date.now()}`,
       sender: 'user',
@@ -126,26 +162,49 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
     setDirectives(prev => prev.filter(d => d.id !== id));
   };
 
-  // Core generation logic (shared by Brain 1 and Brain 2)
+  // Core generation logic
   const handleExecuteGeneration = async (customInstruction?: string) => {
     const targets = appsList.filter(a => selectedAppIds.includes(String(a.id || a.slug)));
     if (targets.length === 0) {
-      toast('Please select at least 1 app from the left catalog panel', 'error');
+      toast('Please select at least 1 app from the catalog', 'error');
+      setIsAppSelectorModalOpen(true);
       return;
     }
 
+    let effectiveInstruction = customInstruction;
+    if (!effectiveInstruction || effectiveInstruction.toLowerCase().startsWith('start')) {
+      const recentUserThoughts = chatHistory
+        .filter(m => 
+          m.sender === 'user' && 
+          !m.text.toLowerCase().startsWith('start') && 
+          !m.text.toLowerCase().startsWith('generate now') &&
+          m.text.trim().length > 3
+        )
+        .slice(-3)
+        .map(m => m.text.trim());
+
+      effectiveInstruction = recentUserThoughts.length > 0 
+        ? recentUserThoughts.join(' | ') 
+        : config.customTopic || 'Natural everyday user reviews based strictly on the app content stored on the website.';
+    }
+
+    abortGenerationRef.current = false;
     setIsGenerating(true);
-    setBatchProgress({ current: 0, total: targets.length, percent: 0 });
+    setBatchProgress({ current: 0, total: targets.length, percent: 0, currentAppName: targets[0]?.name || '' });
 
     const newStagedList: StagedReview[] = [];
     let directPublishedCount = 0;
 
     for (let i = 0; i < targets.length; i++) {
+      if (abortGenerationRef.current) break;
+
       const app = targets[i];
+      const appTitle = app.name || app.title || `App ${i + 1}`;
       setBatchProgress({
         current: i + 1,
         total: targets.length,
-        percent: Math.round(((i + 1) / targets.length) * 100)
+        percent: Math.round(((i + 1) / targets.length) * 100),
+        currentAppName: appTitle
       });
 
       try {
@@ -154,12 +213,14 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           config.reviewsPerApp,
           directives,
           config,
-          customInstruction || config.customTopic
+          effectiveInstruction
         );
 
+        if (abortGenerationRef.current) break;
+
         if (config.publishMode === 'auto_direct') {
-          // DIRECT UPLOAD TO FIREBASE (Write-only to Community)
           for (const review of generated) {
+            if (abortGenerationRef.current) break;
             try {
               await createAdminReviewItem({
                 appId: review.appId,
@@ -175,19 +236,24 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
             } catch (_) {}
           }
         } else {
-          // STAGE FOR MANUAL APPROVAL
           newStagedList.push(...generated);
         }
       } catch (_) {}
     }
 
+    const wasStopped = abortGenerationRef.current;
     setIsGenerating(false);
 
-    if (config.publishMode === 'auto_direct') {
+    if (newStagedList.length > 0) {
+      setStagedReviews(prev => [...newStagedList, ...prev]);
+    }
+
+    if (wasStopped) {
+      toast(`Generation stopped! ${config.publishMode === 'auto_direct' ? directPublishedCount : newStagedList.length} reviews saved.`, 'info');
+    } else if (config.publishMode === 'auto_direct') {
       toast(`Directly posted ${directPublishedCount} reviews to Live Community!`, 'success');
       if (onReviewsGenerated) onReviewsGenerated();
     } else {
-      setStagedReviews(prev => [...newStagedList, ...prev]);
       setActiveTab('staged');
       toast(`Generated ${newStagedList.length} reviews! Staged in deck for your preview.`, 'success');
     }
@@ -224,141 +290,244 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
     }
   };
 
+  const totalReviewsToProduce = selectedAppIds.length * config.reviewsPerApp;
+
   return (
-    <div className="space-y-4">
-      {/* Top Header & Studio Navigation */}
-      <div className="bg-slate-900/95 border border-slate-800 rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-            <Bot className="w-6 h-6" />
+    <div className="flex flex-col h-full w-full overflow-hidden bg-slate-50 dark:bg-slate-950">
+      {/* Sleek Master Single Navigation Bar - No Layer Shift, No Dual Boxes */}
+      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3 sm:px-4 py-2 flex items-center justify-between gap-2 shadow-xs z-20 flex-shrink-0 flex-wrap">
+        {/* Left: Master AI Studio branding + Hard Disk indicator + Target Apps button */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold text-xs">
+            <Bot className="w-4 h-4" />
+            <span>Master AI Studio</span>
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-bold text-slate-100">AI Review Studio</h2>
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-medium">
-                Store Brain Memory Active
-              </span>
-            </div>
-            <p className="text-xs text-slate-400">
-              Generates 100% human-realistic player comments from local metadata with zero Firestore read burn.
-            </p>
+
+          <div 
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold"
+            title="Local Storage Hard Disk: 100% website admin content • Zero Firestore read quota burn"
+          >
+            <HardDrive className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" />
+            <span className="hidden sm:inline text-[11px]">Hard Disk</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setIsAppSelectorModalOpen(true)}
+            className="px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-700 dark:text-emerald-300 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer active:scale-95 shadow-xs"
+            title="Select target catalog apps"
+          >
+            <Layers className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span>Target Apps ({selectedAppIds.length})</span>
+          </button>
         </div>
 
-        {/* Tab Controls & Key Configuration */}
-        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full md:w-auto justify-between md:justify-end">
-          {/* Tab buttons */}
-          <div className="flex items-center bg-slate-950/80 p-1 rounded-xl border border-slate-800 text-xs overflow-x-auto max-w-full">
-            <button
-              onClick={() => setActiveTab('brain1')}
-              className={`px-2.5 sm:px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 whitespace-nowrap ${
-                activeTab === 'brain1' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Bot className="w-3.5 h-3.5" />
-              <span>Brain 1: Chat</span>
-            </button>
+        {/* Center: Rotating system / Generation Progress / Queued Summary */}
+        <div className="hidden md:flex items-center gap-2 text-xs">
+          {isGenerating ? (
+            <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700/50 text-emerald-700 dark:text-emerald-300 font-medium animate-pulse">
+              <span className="w-2.5 h-2.5 rounded-full border-2 border-emerald-600 border-t-transparent animate-spin flex-shrink-0" />
+              <span>Generating app {batchProgress.current} of {batchProgress.total}</span>
+              <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">({batchProgress.percent}%)</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span>{totalReviewsToProduce} comments queued</span>
+            </div>
+          )}
+        </div>
 
-            <button
-              onClick={() => setActiveTab('brain2')}
-              className={`px-2.5 sm:px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 whitespace-nowrap ${
-                activeTab === 'brain2' ? 'bg-amber-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Zap className="w-3.5 h-3.5" />
-              <span>Brain 2: AutoBot</span>
-            </button>
+        {/* Right: Staged Deck, Key, Settings, Memory, Generate/Stop, Reset */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Staged Deck Toggle */}
+          <button
+            onClick={() => setActiveTab(activeTab === 'studio' ? 'staged' : 'studio')}
+            className={`px-2.5 py-1 rounded-lg font-bold transition flex items-center gap-1.5 text-xs cursor-pointer ${
+              activeTab === 'staged' 
+                ? 'bg-indigo-600 text-white shadow-xs' 
+                : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>{activeTab === 'staged' ? 'Back to Chat' : 'Staged Deck'}</span>
+            {stagedReviews.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full bg-emerald-500 text-white text-[10px] font-black">
+                {stagedReviews.length}
+              </span>
+            )}
+          </button>
 
-            <button
-              onClick={() => setActiveTab('staged')}
-              className={`px-2.5 sm:px-3 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 relative whitespace-nowrap ${
-                activeTab === 'staged' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5" />
-              <span>Staging</span>
-              {stagedReviews.length > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full bg-emerald-500 text-slate-950 text-[10px] font-bold">
-                  {stagedReviews.length}
-                </span>
-              )}
-            </button>
-          </div>
-
-          {/* Gemini Model & API Key Settings Trigger */}
+          {/* API Key Modal Trigger */}
           <button
             onClick={() => setIsApiKeyModalOpen(true)}
-            className="px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-medium transition border border-slate-700 flex items-center gap-1.5 whitespace-nowrap"
+            className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium transition border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 cursor-pointer"
             title="Configure Gemini Model & API Key"
           >
-            <Key className="w-3.5 h-3.5 text-amber-400" />
-            <span className="font-mono text-[11px] text-amber-300/90">{config.model || 'gemini-flash-latest'}</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700 text-slate-400">
+            <Key className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
+            <span className="text-[10px] px-1 py-0.5 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400">
               {config.apiKey ? 'Key ✓' : 'Set Key'}
             </span>
+          </button>
+
+          {/* Settings Drawer Toggle */}
+          <button
+            type="button"
+            onClick={() => setShowControlsDrawer(!showControlsDrawer)}
+            className={`px-2.5 py-1 rounded-lg border transition flex items-center gap-1.5 font-bold cursor-pointer active:scale-95 text-xs ${
+              showControlsDrawer
+                ? 'bg-blue-600 text-white border-blue-500 shadow-xs'
+                : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+            }`}
+            title="Configure Reviews per App, Tone, Timeline, and Target"
+          >
+            <Sliders className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" />
+            <span className="hidden sm:inline">Settings</span>
+            {showControlsDrawer ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+          </button>
+
+          {/* Store Directives Memory Toggle */}
+          <button
+            type="button"
+            onClick={() => setShowDirectives(!showDirectives)}
+            className={`px-2.5 py-1 rounded-lg border transition flex items-center gap-1.5 font-bold cursor-pointer active:scale-95 text-xs ${
+              showDirectives
+                ? 'bg-emerald-600 text-white border-emerald-500 shadow-xs'
+                : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+            }`}
+            title="Persistent Directives"
+          >
+            <BrainCircuit className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
+            <span className="hidden md:inline">Memory</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 dark:bg-slate-950 text-emerald-700 dark:text-emerald-400 font-bold">
+              {directives.filter(d => d.active).length}
+            </span>
+          </button>
+
+          {/* Generate / Stop AI Execution Button */}
+          {isGenerating ? (
+            <button
+              type="button"
+              onClick={handleStopGeneration}
+              className="px-3 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-black transition flex items-center gap-1.5 shadow-md shadow-rose-950 animate-pulse cursor-pointer active:scale-95 text-xs"
+              title="Stop AI Generation"
+            >
+              <Square className="w-3 h-3 fill-current" />
+              <span>Stop AI</span>
+            </button>
+          ) : (
+            <button
+              disabled={selectedAppIds.length === 0}
+              onClick={() => handleExecuteGeneration()}
+              className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-black transition flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 text-xs"
+              title="Generate Reviews for Selected Apps"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Generate ({totalReviewsToProduce})</span>
+            </button>
+          )}
+
+          {/* Reset Chat History */}
+          <button
+            type="button"
+            onClick={() => setChatHistory([])}
+            className="p-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white border border-slate-200 dark:border-slate-700 transition cursor-pointer"
+            title="Reset Chat History"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
-      {/* Main Dual Workspace Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-        {/* Left App Picker Column (4 cols) */}
-        <div className="lg:col-span-4 h-[480px] lg:h-[640px]">
-          <AppSelector
-            appsList={appsList}
+      {/* Generation Progress Bar (when active) */}
+      {isGenerating && (
+        <div className="bg-emerald-50 dark:bg-emerald-950/90 border-b border-emerald-200 dark:border-emerald-500/40 px-3 sm:px-4 py-2 flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-200 flex-shrink-0">
+          <div className="flex items-center gap-2.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping flex-shrink-0" />
+            <div className="truncate">
+              <span className="font-bold text-emerald-900 dark:text-white">
+                Reading app {batchProgress.current} of {batchProgress.total}
+              </span>
+              {batchProgress.currentAppName && (
+                <span className="text-emerald-700 dark:text-emerald-300 font-semibold ml-1.5 truncate">
+                  • {batchProgress.currentAppName}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{batchProgress.percent}%</span>
+            <button
+              type="button"
+              onClick={handleStopGeneration}
+              className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-[11px] flex items-center gap-1 transition cursor-pointer active:scale-95 shadow-xs"
+            >
+              <Square className="w-3 h-3 fill-current" />
+              <span>Stop</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Full Body Workspace: Expands to 100% of the screen height & width on any device */}
+      <div className="flex-1 h-full min-h-0 flex flex-col w-full overflow-hidden">
+        {activeTab === 'studio' ? (
+          <ChatWorkspace
+            chatHistory={chatHistory}
+            directives={directives}
             selectedAppIds={selectedAppIds}
-            onChangeSelection={setSelectedAppIds}
-            searchQuery={appSearch}
-            setSearchQuery={setAppSearch}
-            selectedCategory={appCategory}
-            setSelectedCategory={setAppCategory}
+            appsCount={appsList.length}
+            config={config}
+            onChangeConfig={updates => setConfig(prev => ({ ...prev, ...updates }))}
+            onSendMessage={handleSendChatMessage}
+            onAddDirective={handleAddDirective}
+            onRemoveDirective={handleRemoveDirective}
+            onClearChat={() => setChatHistory([])}
+            onTriggerGeneration={handleExecuteGeneration}
+            onStopGeneration={handleStopGeneration}
+            onOpenAppSelector={() => setIsAppSelectorModalOpen(true)}
+            isGenerating={isGenerating}
+            isSendingChat={isSendingChat}
+            batchProgress={batchProgress}
+            showControlsDrawer={showControlsDrawer}
+            setShowControlsDrawer={setShowControlsDrawer}
+            showDirectives={showDirectives}
+            setShowDirectives={setShowDirectives}
           />
-        </div>
-
-        {/* Right Active Tab Column (8 cols) */}
-        <div className="lg:col-span-8 h-[540px] lg:h-[640px]">
-          {activeTab === 'brain1' && (
-            <ChatWorkspace
-              chatHistory={chatHistory}
-              directives={directives}
-              selectedAppIds={selectedAppIds}
-              appsCount={appsList.length}
-              config={config}
-              onSendMessage={handleSendChatMessage}
-              onAddDirective={handleAddDirective}
-              onRemoveDirective={handleRemoveDirective}
-              onClearChat={() => setChatHistory([])}
-              onTriggerGeneration={handleExecuteGeneration}
-              isGenerating={isGenerating}
-              isSendingChat={isSendingChat}
-            />
-          )}
-
-          {activeTab === 'brain2' && (
-            <Brain2BatchGenerator
-              config={config}
-              onChangeConfig={updates => setConfig(prev => ({ ...prev, ...updates }))}
-              selectedAppCount={selectedAppIds.length}
-              onLaunchBatch={() => handleExecuteGeneration()}
-              isGenerating={isGenerating}
-              progress={batchProgress}
-            />
-          )}
-
-          {activeTab === 'staged' && (
-            <StagedQueue
-              stagedReviews={stagedReviews}
-              onDeleteReview={id => setStagedReviews(prev => prev.filter(r => r.id !== id))}
-              onClearAll={() => setStagedReviews([])}
-              onUpdateReview={(id, updates) =>
-                setStagedReviews(prev => prev.map(r => (r.id === id ? { ...r, ...updates } : r)))
-              }
-              onPublishAllToFirestore={handlePublishAllToFirestore}
-              isPublishing={isPublishing}
-            />
-          )}
-        </div>
+        ) : (
+          <StagedQueue
+            stagedReviews={stagedReviews}
+            onDeleteReview={id => setStagedReviews(prev => prev.filter(r => r.id !== id))}
+            onClearAll={() => setStagedReviews([])}
+            onUpdateReview={(id, updates) =>
+              setStagedReviews(prev => prev.map(r => (r.id === id ? { ...r, ...updates } : r)))
+            }
+            onPublishAllToFirestore={handlePublishAllToFirestore}
+            isPublishing={isPublishing}
+          />
+        )}
       </div>
+
+      {/* Full Dedicated App Selector Modal */}
+      {isAppSelectorModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 md:p-6 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full h-full sm:h-[92vh] sm:max-h-[800px] max-w-4xl shadow-2xl rounded-none sm:rounded-2xl overflow-hidden border-0 sm:border border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-900 animate-in zoom-in-95 duration-150">
+            <AppSelector
+              appsList={appsList}
+              selectedAppIds={selectedAppIds}
+              onChangeSelection={setSelectedAppIds}
+              searchQuery={appSearch}
+              setSearchQuery={setAppSearch}
+              selectedCategory={appCategory}
+              setSelectedCategory={setAppCategory}
+              onClose={() => setIsAppSelectorModalOpen(false)}
+              isModal={true}
+            />
+          </div>
+        </div>
+      )}
 
       {/* API Key Modal */}
       <ApiKeyModal

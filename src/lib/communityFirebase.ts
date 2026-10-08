@@ -340,6 +340,23 @@ export function getCachedLiveAppStats(appId?: string, appSlug?: string): {
   const cleanSlug = String(appSlug || '').trim().toLowerCase();
   if (!cleanId && !cleanSlug) return null;
 
+  // Check live atomic stats first for real-time +1/-1 reflection
+  const liveStats = getLiveAtomicReviewStatsSync();
+  const liveHit = (cleanId && liveStats.appCounts[cleanId]) || (cleanSlug && liveStats.appCounts[cleanSlug]);
+  if (liveHit) {
+    const pub = Number(liveHit.published !== undefined ? liveHit.published : liveHit.total) || 0;
+    const avg = Number(liveHit.avgRating) || 4.5;
+    const starCounts = ((liveHit as any).starCounts && Object.values((liveHit as any).starCounts).some((v: any) => Number(v) > 0))
+      ? ((liveHit as any).starCounts as Record<string, number>)
+      : generateNaturalStarDistribution(avg, pub);
+    return {
+      averageRating: avg,
+      totalReviews: pub,
+      starCounts,
+      distribution: starCounts
+    };
+  }
+
   // Static catalog stats baseline from split-sync (communityCatalogStats.json)
   const catalogCounts: Record<string, any> = (communityCatalogStats as any)?.appCounts || {};
   const hit = (cleanId && catalogCounts[cleanId]) || (cleanSlug && catalogCounts[cleanSlug]);
@@ -1235,7 +1252,348 @@ export async function fetchAdminReviewsList(params: {
   };
 }
 
-export async function fetchAdminAppReviewCounts(): Promise<{
+// ============================================================================
+// LIVE ATOMIC REVIEWS & RATINGS ENGINE (O(1) Plus/Minus Zero-Quota Delta Shield)
+// ============================================================================
+
+const ADMIN_ATOMIC_STATS_KEY = 'admin_atomic_review_stats';
+
+let memoryAtomicStats: {
+  globalStats: {
+    total: number;
+    published: number;
+    pending: number;
+    rejected: number;
+    flagged: number;
+    averageRating: number;
+    ratingDistribution?: Record<string, number>;
+  };
+  appCounts: Record<string, AppReviewCountsData>;
+  lastSynced?: number;
+} | null = null;
+
+export function getLiveAtomicReviewStatsSync(): {
+  globalStats: {
+    total: number;
+    published: number;
+    pending: number;
+    rejected: number;
+    flagged: number;
+    averageRating: number;
+    ratingDistribution?: Record<string, number>;
+  };
+  appCounts: Record<string, AppReviewCountsData>;
+} {
+  if (memoryAtomicStats && memoryAtomicStats.appCounts && Object.keys(memoryAtomicStats.appCounts).length > 0) {
+    return memoryAtomicStats;
+  }
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem(ADMIN_ATOMIC_STATS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.appCounts && Object.keys(parsed.appCounts).length > 0) {
+          memoryAtomicStats = parsed;
+          return parsed;
+        }
+      }
+    } catch (_) {}
+  }
+  const catStats = (communityCatalogStats as any) || {};
+  const baseline = {
+    globalStats: {
+      total: Number(catStats.totalReviews) || 591,
+      published: Number(catStats.publishedReviews) || 589,
+      pending: Number(catStats.pendingReviews) || 2,
+      rejected: Number(catStats.rejectedReviews) || 0,
+      flagged: Number(catStats.flaggedReviews) || 0,
+      averageRating: Number(catStats.averageRating) || 4.1,
+      ratingDistribution: catStats.ratingDistribution || { "1": 8, "2": 19, "3": 90, "4": 276, "5": 239 }
+    },
+    appCounts: { ...((catStats.appCounts as Record<string, AppReviewCountsData>) || {}) }
+  };
+  memoryAtomicStats = baseline;
+  return baseline;
+}
+
+function saveLiveAtomicReviewStats(
+  stats: {
+    globalStats: {
+      total: number;
+      published: number;
+      pending: number;
+      rejected: number;
+      flagged: number;
+      averageRating: number;
+      ratingDistribution?: Record<string, number>;
+    };
+    appCounts: Record<string, AppReviewCountsData>;
+  },
+  notify = true
+) {
+  memoryAtomicStats = { ...stats, lastSynced: Date.now() };
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(ADMIN_ATOMIC_STATS_KEY, JSON.stringify(memoryAtomicStats));
+      if (notify) {
+        window.dispatchEvent(new CustomEvent('atomic_review_counts_updated', {
+          detail: { globalStats: stats.globalStats, appCounts: stats.appCounts }
+        }));
+      }
+    } catch (_) {}
+  }
+}
+
+// Background asynchronous synchronization of atomic stats to Firestore community_store/catalog_stats (1 write, 0 reads)
+async function syncAtomicStatsToFirestore(
+  updatedAppKeys: string[],
+  appCounts: Record<string, AppReviewCountsData>,
+  globalStats: any
+) {
+  try {
+    const cfg = getResolvedCommunityFirebaseConfig();
+    const fieldsToPatch: Record<string, any> = {
+      totalReviews: { integerValue: String(globalStats.total) },
+      publishedReviews: { integerValue: String(globalStats.published) },
+      pendingReviews: { integerValue: String(globalStats.pending) },
+      rejectedReviews: { integerValue: String(globalStats.rejected || 0) },
+      updated_at: { stringValue: new Date().toISOString() }
+    };
+
+    const updateMaskParams = [
+      'updateMask.fieldPaths=totalReviews',
+      'updateMask.fieldPaths=publishedReviews',
+      'updateMask.fieldPaths=pendingReviews',
+      'updateMask.fieldPaths=rejectedReviews',
+      'updateMask.fieldPaths=updated_at'
+    ];
+
+    const appCountsFields: Record<string, any> = {};
+    for (const key of updatedAppKeys) {
+      const data = appCounts[key];
+      if (!data) continue;
+      appCountsFields[key] = {
+        mapValue: {
+          fields: {
+            total: { integerValue: String(data.total || 0) },
+            published: { integerValue: String(data.published || 0) },
+            pending: { integerValue: String(data.pending || 0) },
+            rejected: { integerValue: String(data.rejected || 0) },
+            flagged: { integerValue: String(data.flagged || 0) },
+            avgRating: { doubleValue: Number((data.avgRating || 4.5).toFixed(1)) },
+            ratingSum: { integerValue: String((data as any).ratingSum || Math.round((data.avgRating || 4.5) * data.total)) },
+            starCounts: {
+              mapValue: {
+                fields: {
+                  "1": { integerValue: String((data as any).starCounts?.['1'] || 0) },
+                  "2": { integerValue: String((data as any).starCounts?.['2'] || 0) },
+                  "3": { integerValue: String((data as any).starCounts?.['3'] || 0) },
+                  "4": { integerValue: String((data as any).starCounts?.['4'] || 0) },
+                  "5": { integerValue: String((data as any).starCounts?.['5'] || 0) }
+                }
+              }
+            }
+          }
+        }
+      };
+      updateMaskParams.push(`updateMask.fieldPaths=${encodeURIComponent(`appCounts.\`${key}\``)}`);
+    }
+
+    if (Object.keys(appCountsFields).length > 0) {
+      fieldsToPatch.appCounts = {
+        mapValue: {
+          fields: appCountsFields
+        }
+      };
+    }
+
+    const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/community_store/catalog_stats?${updateMaskParams.join('&')}&key=${cfg.apiKey}`;
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields: fieldsToPatch })
+    });
+    if (!res.ok) {
+      console.warn('[communityFirebase] Firestore atomic sync error:', res.status, await res.text());
+    }
+  } catch (err) {
+    console.warn('[communityFirebase] Firestore atomic sync error:', err);
+  }
+}
+
+export function applyAtomicDeltaOnReviewAdded(review: {
+  appId: string;
+  appSlug?: string;
+  appName?: string;
+  rating: number;
+  status?: string;
+}) {
+  const current = getLiveAtomicReviewStatsSync();
+  const cleanId = String(review.appId || '').trim().toLowerCase();
+  const cleanSlug = String(review.appSlug || '').trim().toLowerCase();
+  const cleanRating = Math.max(1, Math.min(5, Math.round(Number(review.rating) || 5)));
+  const status = review.status || 'published';
+  const isPublished = status === 'published';
+  const isPending = status === 'pending';
+
+  const targetKeys = Array.from(new Set([cleanId, cleanSlug].filter(Boolean)));
+  if (targetKeys.length === 0) return;
+
+  const newAppCounts = { ...current.appCounts };
+
+  targetKeys.forEach(k => {
+    const existing = newAppCounts[k] ? { ...newAppCounts[k] } : {
+      total: 0,
+      published: 0,
+      pending: 0,
+      rejected: 0,
+      flagged: 0,
+      avgRating: 5.0,
+      starCounts: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+      ratingSum: 0
+    };
+
+    const prevTotal = Number(existing.total) || 0;
+    const newTotal = prevTotal + 1;
+    const newPublished = isPublished ? (Number(existing.published) || 0) + 1 : (Number(existing.published) || 0);
+    const newPending = isPending ? (Number(existing.pending) || 0) + 1 : (Number(existing.pending) || 0);
+
+    const prevStarCounts = (existing as any).starCounts ? { ...(existing as any).starCounts } : { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    prevStarCounts[String(cleanRating)] = (Number(prevStarCounts[String(cleanRating)]) || 0) + 1;
+
+    let ratingSum = 0;
+    for (let s = 1; s <= 5; s++) {
+      ratingSum += s * (Number(prevStarCounts[String(s)]) || 0);
+    }
+    const newAvg = newTotal > 0 ? Math.round((ratingSum / newTotal) * 10) / 10 : cleanRating;
+
+    newAppCounts[k] = {
+      ...existing,
+      total: newTotal,
+      published: newPublished,
+      pending: newPending,
+      avgRating: newAvg,
+      ratingSum,
+      starCounts: prevStarCounts
+    } as any;
+  });
+
+  const newGlobal = { ...current.globalStats };
+  newGlobal.total = (newGlobal.total || 0) + 1;
+  if (isPublished) newGlobal.published = (newGlobal.published || 0) + 1;
+  if (isPending) newGlobal.pending = (newGlobal.pending || 0) + 1;
+
+  if (!newGlobal.ratingDistribution) {
+    newGlobal.ratingDistribution = { "1": 8, "2": 19, "3": 90, "4": 276, "5": 239 };
+  }
+  newGlobal.ratingDistribution[String(cleanRating)] = (newGlobal.ratingDistribution[String(cleanRating)] || 0) + 1;
+
+  saveLiveAtomicReviewStats({ globalStats: newGlobal, appCounts: newAppCounts }, true);
+  syncAtomicStatsToFirestore(targetKeys, newAppCounts, newGlobal).catch(() => {});
+}
+
+export function applyAtomicDeltaOnReviewDeleted(review: {
+  appId?: string;
+  appSlug?: string;
+  rating?: number;
+  status?: string;
+}) {
+  const current = getLiveAtomicReviewStatsSync();
+  const cleanId = String(review.appId || '').trim().toLowerCase();
+  const cleanSlug = String(review.appSlug || '').trim().toLowerCase();
+  const cleanRating = Math.max(1, Math.min(5, Math.round(Number(review.rating) || 5)));
+  const status = review.status || 'published';
+  const isPublished = status === 'published';
+  const isPending = status === 'pending';
+
+  const targetKeys = Array.from(new Set([cleanId, cleanSlug].filter(Boolean)));
+  if (targetKeys.length === 0) return;
+
+  const newAppCounts = { ...current.appCounts };
+
+  targetKeys.forEach(k => {
+    if (!newAppCounts[k]) return;
+    const existing = { ...newAppCounts[k] };
+    const prevTotal = Number(existing.total) || 1;
+    const newTotal = Math.max(0, prevTotal - 1);
+    const newPublished = isPublished ? Math.max(0, (Number(existing.published) || 1) - 1) : (Number(existing.published) || 0);
+    const newPending = isPending ? Math.max(0, (Number(existing.pending) || 1) - 1) : (Number(existing.pending) || 0);
+
+    const prevStarCounts = (existing as any).starCounts ? { ...(existing as any).starCounts } : { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    prevStarCounts[String(cleanRating)] = Math.max(0, (Number(prevStarCounts[String(cleanRating)]) || 1) - 1);
+
+    let ratingSum = 0;
+    for (let s = 1; s <= 5; s++) {
+      ratingSum += s * (Number(prevStarCounts[String(s)]) || 0);
+    }
+    const newAvg = newTotal > 0 ? Math.round((ratingSum / newTotal) * 10) / 10 : 0;
+
+    newAppCounts[k] = {
+      ...existing,
+      total: newTotal,
+      published: newPublished,
+      pending: newPending,
+      avgRating: newAvg,
+      ratingSum,
+      starCounts: prevStarCounts
+    } as any;
+  });
+
+  const newGlobal = { ...current.globalStats };
+  newGlobal.total = Math.max(0, (newGlobal.total || 1) - 1);
+  if (isPublished) newGlobal.published = Math.max(0, (newGlobal.published || 1) - 1);
+  if (isPending) newGlobal.pending = Math.max(0, (newGlobal.pending || 1) - 1);
+
+  if (newGlobal.ratingDistribution && newGlobal.ratingDistribution[String(cleanRating)]) {
+    newGlobal.ratingDistribution[String(cleanRating)] = Math.max(0, newGlobal.ratingDistribution[String(cleanRating)] - 1);
+  }
+
+  saveLiveAtomicReviewStats({ globalStats: newGlobal, appCounts: newAppCounts }, true);
+  syncAtomicStatsToFirestore(targetKeys, newAppCounts, newGlobal).catch(() => {});
+}
+
+export function applyAtomicDeltaOnStatusChange(
+  review: { appId?: string; appSlug?: string },
+  oldStatus: string,
+  newStatus: string
+) {
+  if (oldStatus === newStatus) return;
+  const current = getLiveAtomicReviewStatsSync();
+  const cleanId = String(review.appId || '').trim().toLowerCase();
+  const cleanSlug = String(review.appSlug || '').trim().toLowerCase();
+  const targetKeys = Array.from(new Set([cleanId, cleanSlug].filter(Boolean)));
+  if (targetKeys.length === 0) return;
+
+  const newAppCounts = { ...current.appCounts };
+
+  targetKeys.forEach(k => {
+    if (!newAppCounts[k]) return;
+    const existing = { ...newAppCounts[k] };
+    if (oldStatus === 'published') existing.published = Math.max(0, (existing.published || 1) - 1);
+    if (oldStatus === 'pending') existing.pending = Math.max(0, (existing.pending || 1) - 1);
+    if (oldStatus === 'rejected') existing.rejected = Math.max(0, (existing.rejected || 1) - 1);
+
+    if (newStatus === 'published') existing.published = (existing.published || 0) + 1;
+    if (newStatus === 'pending') existing.pending = (existing.pending || 0) + 1;
+    if (newStatus === 'rejected') existing.rejected = (existing.rejected || 0) + 1;
+
+    newAppCounts[k] = existing;
+  });
+
+  const newGlobal = { ...current.globalStats };
+  if (oldStatus === 'published') newGlobal.published = Math.max(0, (newGlobal.published || 1) - 1);
+  if (oldStatus === 'pending') newGlobal.pending = Math.max(0, (newGlobal.pending || 1) - 1);
+  if (oldStatus === 'rejected') newGlobal.rejected = Math.max(0, (newGlobal.rejected || 1) - 1);
+
+  if (newStatus === 'published') newGlobal.published = (newGlobal.published || 0) + 1;
+  if (newStatus === 'pending') newGlobal.pending = (newGlobal.pending || 0) + 1;
+  if (newStatus === 'rejected') newGlobal.rejected = (newGlobal.rejected || 0) + 1;
+
+  saveLiveAtomicReviewStats({ globalStats: newGlobal, appCounts: newAppCounts }, true);
+  syncAtomicStatsToFirestore(targetKeys, newAppCounts, newGlobal).catch(() => {});
+}
+
+export async function fetchAdminAppReviewCounts(force = false): Promise<{
   globalStats: {
     total: number;
     published: number;
@@ -1246,30 +1604,61 @@ export async function fetchAdminAppReviewCounts(): Promise<{
   };
   appCounts: Record<string, AppReviewCountsData>;
 }> {
-  try {
-    const res = await safeAdminFetch('/api/v1/admin/community/app-counts');
-    const cType = res.headers.get('content-type') || '';
-    if (res.ok && cType.includes('application/json')) {
-      const data = await res.json();
-      return {
-        globalStats: data.globalStats,
-        appCounts: data.appCounts || {}
-      };
+  // If not forcing refresh, return in-memory/localStorage cache immediately for 0ms speed and 0 quota reads
+  if (!force) {
+    const live = getLiveAtomicReviewStatsSync();
+    if (live && live.appCounts && Object.keys(live.appCounts).length > 0) {
+      return live;
     }
-  } catch (_) {}
+  }
 
-  const catStats = (communityCatalogStats as any) || {};
-  return {
-    globalStats: {
-      total: Number(catStats.totalReviews) || 632,
-      published: Number(catStats.publishedReviews) || 630,
-      pending: Number(catStats.pendingReviews) || 2,
-      rejected: Number(catStats.rejectedReviews) || 0,
-      flagged: 0,
-      averageRating: Number(catStats.averageRating) || 4.5
-    },
-    appCounts: (catStats.appCounts as Record<string, AppReviewCountsData>) || {}
-  };
+  // Authoritative Single Read: Fetch catalog_stats from Firestore (1 read for the entire database)
+  try {
+    const cfg = getResolvedCommunityFirebaseConfig();
+    const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/community_store/catalog_stats?key=${cfg.apiKey}`;
+    const res = await fetch(url);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.fields) {
+        const parsed = parseFirestoreFields(data.fields);
+        const liveAppCounts: Record<string, AppReviewCountsData> = parsed.appCounts || {};
+        const liveGlobal = {
+          total: Number(parsed.totalReviews) || 591,
+          published: Number(parsed.publishedReviews) || 589,
+          pending: Number(parsed.pendingReviews) || 2,
+          rejected: Number(parsed.rejectedReviews) || 0,
+          flagged: Number(parsed.flaggedReviews) || 0,
+          averageRating: Number(parsed.averageRating) || 4.1,
+          ratingDistribution: parsed.ratingDistribution
+        };
+
+        // Overlay any locally created custom reviews
+        const customReviews = getAdminCustomReviews();
+        const deletedMap = getAdminDeletedMap();
+
+        customReviews.forEach(cr => {
+          if (!cr || deletedMap[cr.id]) return;
+          const kId = (cr.appId || '').toLowerCase().trim();
+          const kSlug = (cr.appSlug || '').toLowerCase().trim();
+          [kId, kSlug].filter(Boolean).forEach(k => {
+            if (liveAppCounts[k]) {
+              liveAppCounts[k].total = (liveAppCounts[k].total || 0) + 1;
+              if (cr.status === 'published') liveAppCounts[k].published = (liveAppCounts[k].published || 0) + 1;
+              if (cr.status === 'pending') liveAppCounts[k].pending = (liveAppCounts[k].pending || 0) + 1;
+            }
+          });
+        });
+
+        const synced = { globalStats: liveGlobal, appCounts: liveAppCounts };
+        saveLiveAtomicReviewStats(synced, true);
+        return synced;
+      }
+    }
+  } catch (err) {
+    console.warn('[communityFirebase] Error fetching Firestore catalog_stats:', err);
+  }
+
+  return getLiveAtomicReviewStatsSync();
 }
 
 export async function createAdminReviewItem(
@@ -1294,11 +1683,20 @@ export async function createAdminReviewItem(
     adminReply: reviewData.adminReply || null
   };
 
-  // Save to client storage immediately for zero-latency UI reactivity
+  // 1. Save to client storage immediately for zero-latency UI reactivity
   saveAdminCustomReview(finalReview);
   invalidateReviewCache();
 
-  // Try server API first
+  // 2. ATOMIC COUNT ENGINE: Immediately update +1 atomic counters locally and in Firestore
+  applyAtomicDeltaOnReviewAdded({
+    appId: finalReview.appId,
+    appSlug: finalReview.appSlug,
+    appName: finalReview.appName,
+    rating: finalReview.rating,
+    status: finalReview.status
+  });
+
+  // 3. Try server API
   try {
     const res = await safeAdminFetch('/api/v1/admin/community/reviews', {
       method: 'POST',
@@ -1312,7 +1710,7 @@ export async function createAdminReviewItem(
     }
   } catch (_) {}
 
-  // Direct Firestore REST Fallback in background
+  // 4. Direct Firestore REST Fallback in background
   try {
     const cfg = getResolvedCommunityFirebaseConfig();
     const fields = convertToFirestoreFields({
@@ -1373,10 +1771,31 @@ export async function updateAdminReviewItem(
 
 export async function setAdminReviewStatus(
   reviewId: string, 
-  status: 'published' | 'pending' | 'rejected'
+  status: 'published' | 'pending' | 'rejected',
+  reviewMeta?: { appId?: string; appSlug?: string; rating?: number; status?: string }
 ): Promise<boolean> {
+  // 1. Resolve review data to calculate delta
+  let oldStatus = 'published';
+  let targetMeta = reviewMeta;
+  if (!targetMeta?.appId) {
+    const customList = getAdminCustomReviews();
+    const found = customList.find(r => r.id === reviewId) || getConsolidatedReviewsForApp('all').find(r => r.id === reviewId);
+    if (found) {
+      oldStatus = found.status || 'published';
+      targetMeta = { appId: found.appId, appSlug: found.appSlug, rating: found.rating, status: oldStatus };
+    }
+  } else {
+    oldStatus = targetMeta.status || 'published';
+  }
+
+  // 2. Save override locally
   saveAdminOverride(reviewId, { status });
   invalidateReviewCache();
+
+  // 3. ATOMIC COUNT ENGINE: Apply status change delta
+  if (targetMeta?.appId) {
+    applyAtomicDeltaOnStatusChange(targetMeta, oldStatus, status);
+  }
 
   try {
     const res = await safeAdminFetch(`/api/v1/admin/community/reviews/${encodeURIComponent(reviewId)}/status`, {
@@ -1433,9 +1852,28 @@ export async function toggleAdminReviewPin(
   return true;
 }
 
-export async function deleteAdminReviewItem(reviewId: string): Promise<boolean> {
+export async function deleteAdminReviewItem(
+  reviewId: string,
+  reviewMeta?: { appId?: string; appSlug?: string; rating?: number; status?: string }
+): Promise<boolean> {
+  // 1. Resolve review metadata before deletion to calculate O(1) -1 delta
+  let targetMeta = reviewMeta;
+  if (!targetMeta?.appId) {
+    const customList = getAdminCustomReviews();
+    const found = customList.find(r => r.id === reviewId) || getConsolidatedReviewsForApp('all').find(r => r.id === reviewId);
+    if (found) {
+      targetMeta = { appId: found.appId, appSlug: found.appSlug, rating: found.rating, status: found.status };
+    }
+  }
+
+  // 2. Mark deleted in local storage
   markAdminDeleted(reviewId);
   invalidateReviewCache();
+
+  // 3. ATOMIC COUNT ENGINE: Immediately decrement -1 atomic counters locally and in Firestore
+  if (targetMeta?.appId) {
+    applyAtomicDeltaOnReviewDeleted(targetMeta);
+  }
 
   try {
     const res = await safeAdminFetch(`/api/v1/admin/community/reviews/${encodeURIComponent(reviewId)}`, {
@@ -1456,16 +1894,24 @@ export async function deleteAdminReviewItem(reviewId: string): Promise<boolean> 
 
 export async function performBulkReviewsAction(
   action: 'publish' | 'pending' | 'reject' | 'delete' | 'pin' | 'unpin', 
-  reviewIds: string[]
+  reviewIds: string[],
+  reviewsList?: any[]
 ): Promise<{ success: boolean; count: number }> {
   for (const id of reviewIds) {
+    const meta = (reviewsList || []).find(r => r && r.id === id);
     if (action === 'delete') {
       markAdminDeleted(id);
+      if (meta?.appId) {
+        applyAtomicDeltaOnReviewDeleted(meta);
+      }
     } else if (action === 'pin' || action === 'unpin') {
       saveAdminOverride(id, { isPinned: action === 'pin' });
     } else if (['publish', 'pending', 'reject'].includes(action)) {
       const st = action === 'publish' ? 'published' : (action === 'pending' ? 'pending' : 'rejected');
       saveAdminOverride(id, { status: st });
+      if (meta?.appId) {
+        applyAtomicDeltaOnStatusChange(meta, meta.status || 'pending', st);
+      }
     }
   }
   invalidateReviewCache();

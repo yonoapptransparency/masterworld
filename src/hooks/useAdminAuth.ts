@@ -70,7 +70,13 @@ export const useAdminAuth = () => {
           // Static host fallback (e.g. Cloudflare Pages / Vercel without active Node.js server):
           // Authorize if user's authenticated email matches configured admin email
           const userEmail = (effectiveUser.email || currentSession?.email || '').toLowerCase().trim();
-          const configuredEmail = (import.meta.env?.VITE_ADMIN_EMAIL || 'defentechscholar@gmail.com').toLowerCase().trim();
+          const configuredEmail = (
+            (typeof process !== 'undefined' && process.env?.ADMIN_EMAIL) ||
+            (typeof process !== 'undefined' && process.env?.VITE_ADMIN_EMAIL) ||
+            import.meta.env?.VITE_ADMIN_EMAIL ||
+            import.meta.env?.ADMIN_EMAIL ||
+            'defentechscholar@gmail.com'
+          ).toLowerCase().trim();
 
           if (userEmail && (userEmail === configuredEmail || userEmail === 'defentechscholar@gmail.com')) {
             setUser(effectiveUser);

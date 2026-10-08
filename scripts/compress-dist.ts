@@ -35,7 +35,7 @@ async function collectFiles(dir: string, fileList: string[] = []) {
       await collectFiles(fullPath, fileList);
     } else if (entry.isFile()) {
       const ext = path.extname(entry.name).toLowerCase();
-      if (['.html', '.js', '.css', '.json', '.xml', '.svg', '.txt', '.webmanifest'].includes(ext)) {
+      if (['.html', '.js', '.css', '.json', '.xml', '.svg', '.txt', '.webmanifest', '.ico'].includes(ext)) {
         if (!entry.name.endsWith('.gz') && !entry.name.endsWith('.br')) {
           fileList.push(fullPath);
         }

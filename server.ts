@@ -54,8 +54,9 @@ async function startServer() {
   });
 
   app.use(compression({
-    threshold: 256,
-    level: 6,
+    threshold: 0,
+    level: 9,
+    memLevel: 9,
     filter: (req, res) => {
       if (req.headers['x-no-compression']) {
         return false;

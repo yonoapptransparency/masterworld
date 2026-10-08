@@ -9,28 +9,28 @@ export const KEY_STAGED_REVIEWS = 'rummydex_ai_staged_reviews';
 export const DEFAULT_DIRECTIVES: BrainMemoryDirective[] = [
   {
     id: 'dir_1',
-    rule: 'Never sound robotic or like marketing copy. Write like real Indian card game players on 4G Android phones.',
+    rule: 'Never sound robotic or like marketing copy. Write like regular, authentic everyday people who downloaded the app.',
     category: 'persona',
     createdAt: new Date().toISOString(),
     active: true
   },
   {
     id: 'dir_2',
-    rule: 'Focus on authentic gamer topics: instant UPI withdrawal speed, smooth table gameplay, sign-up bonus claim, fair card dealing.',
+    rule: 'Deep app understanding: strictly ground every comment in the specific app’s real features, category, UI, and content stored on our website.',
     category: 'topic',
     createdAt: new Date().toISOString(),
     active: true
   },
   {
     id: 'dir_3',
-    rule: 'Vary review lengths: some short (1 sentence), some medium (2-3 sentences), never massive essay paragraphs.',
-    category: 'tone',
+    rule: 'All-rounder adaptability: adapt vocabulary naturally to the app genre (entertainment, card game, casual arcade, tools) without forcing money or gambling terms.',
+    category: 'general',
     createdAt: new Date().toISOString(),
     active: true
   },
   {
     id: 'dir_4',
-    rule: 'Always prioritize realistic dates: distribute reviews between Today and Yesterday with realistic minutes/hours.',
+    rule: 'Realistic dates: strictly past or current day timestamps (never future dates) with natural hour and minute distribution.',
     category: 'date',
     createdAt: new Date().toISOString(),
     active: true
@@ -43,8 +43,8 @@ export const DEFAULT_STUDIO_CONFIG: StudioConfig = {
   reviewsPerApp: 2,
   dateMode: 'today_and_yesterday',
   ratingMix: 'natural',
-  languageTone: 'hinglish_natural',
-  customTopic: 'Fast withdrawal, bonus claim, smooth graphics',
+  languageTone: 'all_rounder_standard',
+  customTopic: 'Core features, smooth performance, authentic user experience',
   publishMode: 'wait_approve'
 };
 

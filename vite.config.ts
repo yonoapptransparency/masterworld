@@ -10,6 +10,133 @@ if (!fs.existsSync(configPath)) {
   fs.writeFileSync(configPath, '{}', 'utf-8');
 }
 
+function adminAuthDevPlugin(env: Record<string, string>) {
+  return {
+    name: 'admin-auth-dev-api',
+    configureServer(server: any) {
+      server.middlewares.use((req: any, res: any, next: any) => {
+        if (req.method === 'POST' && req.url === '/api/v1/admin/login') {
+          let body = '';
+          req.on('data', (chunk: any) => { body += chunk; });
+          req.on('end', () => {
+            try {
+              const { email, password } = JSON.parse(body || '{}');
+              const cfgEmail = (env.ADMIN_EMAIL || env.VITE_ADMIN_EMAIL || process.env.ADMIN_EMAIL || process.env.VITE_ADMIN_EMAIL || 'defentechscholar@gmail.com').toLowerCase().trim();
+              const cfgPass = (env.ADMIN_PASSWORD || env.VITE_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || process.env.VITE_ADMIN_PASSWORD || '').trim();
+              const inputEmail = String(email || '').toLowerCase().trim();
+              const inputPass = String(password || '').trim();
+
+              if ((inputEmail === cfgEmail || inputEmail === 'defentechscholar@gmail.com') && cfgPass && inputPass === cfgPass) {
+                const token = 'adm_dev_' + Buffer.from(inputEmail + ':' + Date.now()).toString('base64');
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                  ok: true,
+                  success: true,
+                  token,
+                  session: {
+                    idToken: token,
+                    refreshToken: 'DEV_SESSION',
+                    email: inputEmail,
+                    expiresAt: Date.now() + 55 * 60 * 1000
+                  }
+                }));
+                return;
+              }
+              res.writeHead(401, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ ok: false, error: 'INVALID_CREDENTIALS' }));
+              return;
+            } catch (e) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ ok: false, error: 'BAD_REQUEST' }));
+              return;
+            }
+          });
+          return;
+        }
+
+        if (req.url === '/api/v1/admin/verify' || req.url === '/api/v1/admin/verify-session') {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ authorized: true, valid: true, authenticated: true, role: 'admin' }));
+          return;
+        }
+
+        if (req.url && req.url.startsWith('/api/v1/admin/community/app-counts')) {
+          const isForce = req.url.includes('force=true');
+          const fetchFirestore = async () => {
+            const apiKey = env.VITE_COMMUNITY_FIREBASE_API_KEY || 'AIzaSyCzhWEDLQsZ-HL8iVMcINq78lB-RzYPxi0';
+            const projectId = 'rummydexcommunity';
+            const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/community_store/catalog_stats?key=${apiKey}`;
+            const fRes = await fetch(url);
+            if (fRes.ok) {
+              const j: any = await fRes.json();
+              if (j && j.fields) {
+                const parseField = (f: any): any => {
+                  if (!f) return null;
+                  if ('stringValue' in f) return f.stringValue;
+                  if ('integerValue' in f) return parseInt(f.integerValue, 10);
+                  if ('doubleValue' in f) return parseFloat(f.doubleValue);
+                  if ('booleanValue' in f) return f.booleanValue;
+                  if ('mapValue' in f) {
+                    const resMap: any = {};
+                    for (const [k, v] of Object.entries(f.mapValue?.fields || {})) {
+                      resMap[k] = parseField(v);
+                    }
+                    return resMap;
+                  }
+                  return null;
+                };
+                const parsed: any = {};
+                for (const [k, v] of Object.entries(j.fields)) {
+                  parsed[k] = parseField(v);
+                }
+                return {
+                  globalStats: {
+                    total: parsed.totalReviews || 591,
+                    published: parsed.publishedReviews || 589,
+                    pending: parsed.pendingReviews || 2,
+                    rejected: parsed.rejectedReviews || 0,
+                    flagged: parsed.flaggedReviews || 0,
+                    averageRating: parsed.averageRating || 4.1
+                  },
+                  appCounts: parsed.appCounts || {}
+                };
+              }
+            }
+            throw new Error('Fallback');
+          };
+
+          if (isForce) {
+            fetchFirestore().then(data => {
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify(data));
+            }).catch(() => {
+              const statsPath = path.resolve(__dirname, 'src/lib/communityCatalogStats.json');
+              const data = fs.existsSync(statsPath) ? JSON.parse(fs.readFileSync(statsPath, 'utf8')) : {};
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ globalStats: data, appCounts: data.appCounts || {} }));
+            });
+            return;
+          }
+
+          try {
+            const statsPath = path.resolve(__dirname, 'src/lib/communityCatalogStats.json');
+            const data = fs.existsSync(statsPath) ? JSON.parse(fs.readFileSync(statsPath, 'utf8')) : {};
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ globalStats: data, appCounts: data.appCounts || {} }));
+            return;
+          } catch(e) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ globalStats: {}, appCounts: {} }));
+            return;
+          }
+        }
+
+        next();
+      });
+    }
+  };
+}
+
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
   
@@ -20,12 +147,20 @@ export default defineConfig(({mode}) => {
     } catch(e){}
   }
 
+  const adminPass = env.ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || env.VITE_ADMIN_PASSWORD || process.env.VITE_ADMIN_PASSWORD || '';
+  const adminEmail = env.ADMIN_EMAIL || process.env.ADMIN_EMAIL || env.VITE_ADMIN_EMAIL || process.env.VITE_ADMIN_EMAIL || 'defentechscholar@gmail.com';
+
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), adminAuthDevPlugin(env)],
+    envPrefix: ['VITE_', 'ADMIN_'],
     define: {
       __ADMIN_ENABLED__: true,
       'process.env.ADMIN_PATH': JSON.stringify(env.ADMIN_PATH || 'admin'),
       'process.env.VITE_ADMIN_PATH': JSON.stringify(env.ADMIN_PATH || 'admin'),
+      'process.env.ADMIN_PASSWORD': JSON.stringify(adminPass),
+      'process.env.VITE_ADMIN_PASSWORD': JSON.stringify(adminPass),
+      'process.env.ADMIN_EMAIL': JSON.stringify(adminEmail),
+      'process.env.VITE_ADMIN_EMAIL': JSON.stringify(adminEmail),
       'process.env.FIREBASE_PROJECT_ID': JSON.stringify(firebaseConfig.projectId || env.FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID),
       'process.env.FIREBASE_APP_ID': JSON.stringify(firebaseConfig.appId || env.FIREBASE_APP_ID || process.env.FIREBASE_APP_ID),
       'process.env.FIREBASE_API_KEY': JSON.stringify(firebaseConfig.apiKey || env.FIREBASE_API_KEY || process.env.FIREBASE_API_KEY),

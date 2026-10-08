@@ -183,7 +183,8 @@ communityRouter.post('/api/v1/admin/community/reviews/bulk', async (req, res) =>
 
 communityRouter.get('/api/v1/admin/community/app-counts', async (req, res) => {
   try {
-    const result = await fetchAdminAppReviewCounts();
+    const force = req.query.force === 'true';
+    const result = await fetchAdminAppReviewCounts(force);
     res.json(result);
   } catch (err: any) {
     res.json({ globalStats: communityCatalogStats, appCounts: (communityCatalogStats as any).appCounts || {} });
@@ -201,7 +202,8 @@ communityRouter.get('/api/v1/admin/community/overview', async (req, res) => {
 
 communityRouter.get('/api/v1/admin/community/export-stats', async (req, res) => {
   try {
-    res.json({ success: true, stats: communityCatalogStats });
+    const liveStats = await fetchAdminAppReviewCounts(true);
+    res.json({ success: true, stats: liveStats });
   } catch (err: any) {
     res.json({ success: true, stats: { appCounts: {}, totalReviews: 0 } });
   }

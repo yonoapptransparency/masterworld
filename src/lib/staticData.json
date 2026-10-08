@@ -3601,7 +3601,8 @@
     "hero_title_text": "RummyDex",
     "ethics_meta_title": "",
     "helpline_telegram": "",
-    "terms_meta_description": ""
+    "terms_meta_description": "",
+    "gemini_model": "gemini-3.8-flash"
   },
   "news": [
     {

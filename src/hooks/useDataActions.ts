@@ -470,10 +470,10 @@ export function useDataActions(
       });
       if (!res.ok) {
         const text = await res.text();
-        console.warn(`[WARN] updateLocalContainerBackup failed: ${text}`);
+        console.warn(`[useDataActions] Container backup sync notice: ${text}`);
       }
     } catch (err: any) {
-      console.warn(`[WARN] updateLocalContainerBackup network error: ${err.message}`);
+      console.warn(`[useDataActions] Container backup network error: ${err.message}`);
     }
   }, [getAdminToken, apps, settings, news, videos]);
 
