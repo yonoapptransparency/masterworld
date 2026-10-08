@@ -3,16 +3,8 @@
  * Safe for both client-side React bundle and server-side execution.
  */
 
-export const SLUG_ALIAS_MAP: Record<string, string> = {
-  '567-slots': 'share-slots',
-  '777-rummy': '777-game',
-  'ind-club': 'jaiho-91',
-  'gogo-rummy': 'love-rummy',
-  'uno': 'rummy-ludo',
-  'slots': 'jaiho-slots',
-  'arcade': 'yono-arcade',
-  'vip': 'yono-vip'
-};
+// Keep SLUG_ALIAS_MAP empty so apps are never cross-hijacked or mismatched
+export const SLUG_ALIAS_MAP: Record<string, string> = {};
 
 function getFieldSafe(obj: any, field: string): any {
   if (!obj || typeof obj !== 'object') return '';

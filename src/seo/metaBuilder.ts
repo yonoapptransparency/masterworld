@@ -48,17 +48,26 @@ export function buildMetaTags(params: MetaBuilderParams): string {
   const ogImageHeight = '630';
   const ogType = pageType === 'news' ? 'article' : 'website';
 
+  // For app pages: use app's own name as application-name to prevent Google from appending site brand
+  const appName = targetApp ? getField(targetApp, 'name') : '';
+  const applicationName = appName ? escapeHtml(appName) : escapeHtml(siteTitle);
+  const ogSiteName = appName ? escapeHtml(appName) : escapeHtml(siteTitle);
+
+  // Exact 1:1 square icon for search engine thumbnails to prevent logo mismatch in search results
+  const rawTargetIcon = targetApp ? (getField(targetApp, 'icon_url') || getField(targetApp, 'og_image_url')) : '';
+  const searchThumbnail = rawTargetIcon ? getOptimizedImageUrl(rawTargetIcon, 512) : pageOgImage;
+
   return `
     <title>${escapedTitle}</title>
     <meta name="description" content="${escapedDesc}">
     ${keywords ? `<meta name="keywords" content="${escapedKeywords}">` : ''}
-    <meta data-rh="true" name="application-name" content="${escapeHtml(siteTitle)}">
+    <meta data-rh="true" name="application-name" content="${applicationName}">
     <meta data-rh="true" name="color-scheme" content="light dark">
     ${isNotFound
       ? `<meta data-rh="true" name="robots" content="noindex, nofollow">`
       : `<meta data-rh="true" name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">`
     }
-    <meta data-rh="true" property="og:site_name" content="${escapeHtml(siteTitle)}">
+    <meta data-rh="true" property="og:site_name" content="${ogSiteName}">
     <meta data-rh="true" property="og:locale" content="en_IN">
     <meta data-rh="true" property="og:title" content="${escapedTitle}">
     <meta data-rh="true" property="og:description" content="${escapedDesc}">
@@ -70,16 +79,15 @@ export function buildMetaTags(params: MetaBuilderParams): string {
     <meta data-rh="true" property="og:image:width" content="${ogImageWidth}">
     <meta data-rh="true" property="og:image:height" content="${ogImageHeight}">
     <meta data-rh="true" name="twitter:card" content="summary_large_image">
-    <meta data-rh="true" name="twitter:site" content="@RummyDex">
-    <meta data-rh="true" name="twitter:creator" content="@RummyDex">
+    ${!targetApp ? `<meta data-rh="true" name="twitter:site" content="@RummyDex">
+    <meta data-rh="true" name="twitter:creator" content="@RummyDex">` : ''}
     <meta data-rh="true" name="twitter:title" content="${escapedTitle}">
     <meta data-rh="true" name="twitter:description" content="${escapedDesc}">
     <meta data-rh="true" name="twitter:image" content="${pageOgImage}">
-    <meta data-rh="true" name="thumbnail" content="${pageOgImage}">
-    <meta data-rh="true" itemprop="image" content="${pageOgImage}">
-    <meta data-rh="true" itemprop="thumbnailUrl" content="${pageOgImage}">
-    <link data-rh="true" rel="alternate" type="application/rss+xml" title="RummyDex News" href="/rss.xml">
-    <link data-rh="true" rel="image_src" href="${pageOgImage}">
+    <meta data-rh="true" name="thumbnail" content="${searchThumbnail}">
+    <meta data-rh="true" itemprop="image" content="${searchThumbnail}">
+    <meta data-rh="true" itemprop="thumbnailUrl" content="${searchThumbnail}">
+    <link data-rh="true" rel="image_src" href="${searchThumbnail}">
     <link data-rh="true" rel="canonical" href="${canonicalUrl}">
     <link data-rh="true" rel="icon" type="image/x-icon" href="${faviconIco}">
     <link data-rh="true" rel="icon" type="image/png" sizes="32x32" href="${favicon32}">

@@ -3767,7 +3767,7 @@ export const mockNews = [
   },
   {
     "id": "hoohcgoje",
-    "slug": "yono-arcade-app-download-review ",
+    "slug": "yono-arcade-app-download-review",
     "title": "Yono Arcade App Download, Review & Full Gameplay",
     "logo_url": "https://res.cloudinary.com/veqj16xh/image/upload/v1790793145/rummydex_uploads/re37felidgwmzbwjyo62.webp",
     "image_url": "https://res.cloudinary.com/veqj16xh/image/upload/v1790793145/rummydex_uploads/re37felidgwmzbwjyo62.webp",

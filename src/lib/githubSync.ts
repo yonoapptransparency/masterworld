@@ -39,17 +39,30 @@ export interface GitConfig {
 
 /**
  * Encodes string to UTF-8 base64 properly for GitHub API content submission
+ * Supports unicode, emojis and large multi-megabyte payloads without stack overflow
  */
 export function b64EncodeUnicode(str: string): string {
   try {
-    return btoa(
-      encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) => {
-        return String.fromCharCode(parseInt(p1, 16));
-      })
-    );
+    if (typeof Buffer !== 'undefined') {
+      return Buffer.from(str, 'utf8').toString('base64');
+    }
+    const encoder = new TextEncoder();
+    const bytes = encoder.encode(str);
+    let binary = '';
+    const len = bytes.byteLength;
+    const chunkSize = 8192;
+    for (let i = 0; i < len; i += chunkSize) {
+      const chunk = bytes.subarray(i, Math.min(i + chunkSize, len));
+      binary += String.fromCharCode.apply(null, chunk as any);
+    }
+    return btoa(binary);
   } catch (error) {
-    console.error("Base64 unicode encoding error:", error);
-    return btoa(str);
+    try {
+      return btoa(unescape(encodeURIComponent(str)));
+    } catch (e) {
+      console.error("Base64 unicode encoding error:", error);
+      return btoa(str);
+    }
   }
 }
 
@@ -442,6 +455,9 @@ export async function uploadBlobToGitHub({
             ? `token ${cleanToken}`
             : `Bearer ${cleanToken}`;
 
+          // Always prefer base64 encoding for blobs: avoids utf8 parsing failures and corrupted emojis
+          const b64 = b64EncodeUnicode(content || '');
+
           const directRes = await fetch(
             `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/blobs`,
             {
@@ -452,8 +468,8 @@ export async function uploadBlobToGitHub({
                 'Accept': 'application/vnd.github.v3+json'
               },
               body: JSON.stringify({
-                content,
-                encoding: 'utf-8'
+                content: b64,
+                encoding: 'base64'
               })
             }
           );
@@ -473,10 +489,9 @@ export async function uploadBlobToGitHub({
               throw new Error(`GitHub write permission error (403): ${githubMsg}. Ensure token has "Contents: Read and write" access on repository "${owner}/${repo}".`);
             } else if (directRes.status === 404) {
               throw new Error(`Repository "${owner}/${repo}" not found or token lacks access.`);
-            } else if (directRes.status === 422) {
-              // Try base64 fallback if GitHub rejects utf-8 directly
-              const b64 = b64EncodeUnicode(content || '');
-              const b64Res = await fetch(
+            } else {
+              // Try utf-8 fallback if base64 failed
+              const utf8Res = await fetch(
                 `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/blobs`,
                 {
                   method: 'POST',
@@ -486,19 +501,17 @@ export async function uploadBlobToGitHub({
                     'Accept': 'application/vnd.github.v3+json'
                   },
                   body: JSON.stringify({
-                    content: b64,
-                    encoding: 'base64'
+                    content,
+                    encoding: 'utf-8'
                   })
                 }
               );
-              if (b64Res.ok) {
-                const b64Data = await b64Res.json();
-                if (b64Data?.sha) {
-                  return { path: cleanPath, sha: b64Data.sha };
+              if (utf8Res.ok) {
+                const utf8Data = await utf8Res.json();
+                if (utf8Data?.sha) {
+                  return { path: cleanPath, sha: utf8Data.sha };
                 }
               }
-              throw new Error(`GitHub rejected blob ${cleanPath} (422): ${githubMsg}`);
-            } else {
               throw new Error(`GitHub API error (${directRes.status}): ${githubMsg}`);
             }
           }

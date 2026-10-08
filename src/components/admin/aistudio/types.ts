@@ -1,105 +1,64 @@
-export interface AppReviewCountData {
-  appId?: string;
-  appName?: string;
-  total: number;
-  published: number;
-  pending: number;
-  rejected?: number;
-  flagged?: number;
-  avgRating: number;
-}
-
-export interface AppReviewProfile {
-  targetScore: number;
-  customDistribution: boolean;
-  starMix: {
-    star5: number;
-    star4: number;
-    star3: number;
-    star2: number;
-    star1: number;
-  };
-  toneFocus: 'balanced' | 'performance' | 'gameplay' | 'ui_graphics' | 'casual';
-  languageStyle?: 'proper_english' | 'hinglish' | 'natural_mix';
-  singleCount: number;
-  customPrompt?: string;
-  updatedAt?: string;
-}
-
-export type AutobotStage = 'idle' | 'ingesting' | 'reasoning' | 'synthesizing' | 'sanitizing' | 'staged' | 'published';
-
-export interface AutobotLog {
+export interface ChatMessage {
   id: string;
-  time: string;
+  sender: 'user' | 'assistant' | 'system';
   text: string;
-  type: 'info' | 'success' | 'reasoning' | 'safety' | 'warn';
+  timestamp: string;
+  suggestedAction?: 'generate' | 'adjust_prompt' | 'save_memory';
 }
 
-export interface AutobotSessionStats {
-  totalGenerated: number;
-  autoPublished: number;
-  staged: number;
-  cyclesCompleted: number;
-  lastModel: string;
-  lastLatencyMs: number;
-}
-
-export type Brain2AutobotStage = 'idle' | 'resolving_target' | 'web_searching' | 'extracting_reviews' | 'rating_aligning' | 'sanitizing' | 'staged' | 'published';
-
-export interface Brain2AutobotLog {
+export interface BrainMemoryDirective {
   id: string;
-  time: string;
-  text: string;
-  type: 'info' | 'success' | 'reasoning' | 'safety' | 'warn';
+  rule: string;
+  category: 'tone' | 'topic' | 'date' | 'rating' | 'persona' | 'general';
+  createdAt: string;
+  active: boolean;
 }
 
-export interface Brain2AutobotSessionStats {
-  totalGenerated: number;
-  autoPublished: number;
-  staged: number;
-  cyclesCompleted: number;
-  queriesRun: number;
-  lastModel: string;
-  lastLatencyMs: number;
+export interface StagedReview {
+  id: string;
+  appId: string;
+  appName: string;
+  appSlug?: string;
+  appIcon?: string;
+  appCategory?: string;
+  userName: string;
+  rating: number;
+  reviewText: string;
+  dateTag: 'Today' | 'Yesterday' | '2 Days Ago' | '3 Days Ago' | 'Custom';
+  timestamp: string; // ISO date string
+  status: 'staged' | 'approved' | 'published';
 }
 
-export interface GenerationTelemetry {
-  mode: 'local' | 'research';
-  modelUsed?: string;
-  searchQueries?: string[];
-  groundedSources?: Array<{ title: string; url: string; snippet?: string }>;
-  searchStatus?: string;
-  dossierHighlights?: string[];
-}
+export type DateDistributionMode = 
+  | 'today_and_yesterday' // 50% Today, 50% Yesterday
+  | 'today_only'          // 100% Today
+  | 'yesterday_only'      // 100% Yesterday
+  | 'last_3_days'         // Spread evenly across today, yesterday, and 2 days ago
+  | 'last_7_days';        // Spread naturally across past week
 
-export const STORAGE_KEY_PROFILES = 'rummydex_admin_ai_app_profiles';
-export const STORAGE_KEY_DEFAULT_COUNT = 'rummydex_admin_ai_review_count';
+export type RatingMixMode = 
+  | 'natural'             // ~80% 5-star, 15% 4-star, 5% 3-star
+  | 'all_5_star'          // 100% 5-star
+  | 'high_praise'         // 90% 5-star, 10% 4-star
+  | 'balanced_critical';  // 60% 5-star, 30% 4-star, 10% 3-star
 
-export function loadAllAppProfiles(): Record<string, AppReviewProfile> {
-  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return {};
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY_PROFILES);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
+export type LanguageToneMode = 
+  | 'hinglish_natural'    // Authentic Indian gaming slang ("bohot smooth withdrawal", "mast app hai")
+  | 'natural_english'     // Casual, colloquial English ("withdrawal was fast", "good app")
+  | 'mixed_pro'           // Mix of detailed and short punchy reviews
+  | 'short_punchy';       // Ultra-short authentic feedback (1-2 sentences)
 
-export function saveAllAppProfiles(profiles: Record<string, AppReviewProfile>) {
-  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
-  try {
-    localStorage.setItem(STORAGE_KEY_PROFILES, JSON.stringify(profiles));
-  } catch (e) {
-    console.warn("Failed to persist AI review profiles to localStorage", e);
-  }
-}
+export type PublishMode = 
+  | 'wait_approve'  // Reviews staged for manual admin inspection, edit & 1-click publish
+  | 'auto_direct';  // Reviews automatically published directly to Live Community upon generation
 
-export function stripHtmlTags(html: string): string {
-  if (!html) return '';
-  return html
-    .replace(/<[^>]*>?/gm, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/\s+/g, ' ')
-    .trim();
+export interface StudioConfig {
+  apiKey: string;
+  model: string;
+  reviewsPerApp: number;
+  dateMode: DateDistributionMode;
+  ratingMix: RatingMixMode;
+  languageTone: LanguageToneMode;
+  customTopic: string;
+  publishMode: PublishMode;
 }

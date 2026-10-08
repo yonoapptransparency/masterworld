@@ -337,6 +337,17 @@ export const AdminTabContent = ({
           delete updatedSettings.social_youtube;
           updatedSettings.hero_title_visible = formData.get('hero_title_visible') === 'true';
 
+          if (updatedSettings.gemini_api_key !== undefined) {
+            try {
+              const currentConfig = JSON.parse(localStorage.getItem('rummydex_ai_studio_config') || '{}');
+              currentConfig.apiKey = (updatedSettings.gemini_api_key || '').trim();
+              if (updatedSettings.gemini_model) {
+                currentConfig.model = updatedSettings.gemini_model;
+              }
+              localStorage.setItem('rummydex_ai_studio_config', JSON.stringify(currentConfig));
+            } catch (_) {}
+          }
+
           handleSaveSettings(updatedSettings);
         }} />;
 

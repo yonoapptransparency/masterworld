@@ -454,9 +454,9 @@ async function startServer() {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>404 - Page Not Found | RummyDex</title>
+    <title>404 - Page Not Found</title>
     <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
-    <meta name="description" content="The requested page could not be found on RummyDex." />
+    <meta name="description" content="The requested page could not be found." />
     <style>
       body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#090d16;color:#f8fafc;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;box-sizing:border-box}
       .card{max-width:480px;width:100%;text-align:center;padding:40px 24px;border-radius:24px;background:#111726;border:1px solid rgba(255,255,255,0.08);box-shadow:0 20px 40px rgba(0,0,0,0.4)}

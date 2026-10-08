@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Save, ShieldCheck, KeyRound, Cloud, UploadCloud, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Save, ShieldCheck, KeyRound, Cloud, UploadCloud, CheckCircle2, AlertCircle, RefreshCw, Sparkles } from 'lucide-react';
 import ImageUpload from '../ImageUpload';
 import { ensureDefaultSettings } from '../../lib/defaultLegalContent';
 import { SeoFieldWithLimit } from './SeoFieldWithLimit';
@@ -710,6 +710,59 @@ export const AdminSettingsTab = React.memo(({ settings: rawSettings, handleSaveS
               className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm font-mono dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" 
             />
             <span className="text-[11px] text-slate-400 mt-1 block">Optional unsigned preset configured in Cloudinary Settings -&gt; Upload.</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Google AI Studio & Gemini Configuration */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-6">
+        <div className="flex items-center justify-between border-b border-black/5 dark:border-white/5 pb-2">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-amber-500" />
+            <h3 className="font-bold text-sm text-slate-900 dark:text-white">Google AI Studio & Gemini Key</h3>
+          </div>
+          <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium border border-amber-500/20">
+            Review Generation
+          </span>
+        </div>
+
+        <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/60 text-xs text-slate-600 dark:text-slate-400 space-y-1">
+          <p className="font-semibold text-slate-800 dark:text-slate-200">How to use your Gemini API Key:</p>
+          <p>1. Get your 100% free Gemini API key from <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-blue-600 dark:text-blue-400 underline font-medium">Google AI Studio</a>.</p>
+          <p>2. Enter it here or in the <strong>AI Reviews</strong> tab. It is saved in your encrypted admin settings and browser memory.</p>
+          <p>3. If no key is set, review staging runs smoothly in local template mode.</p>
+        </div>
+
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+              Google Gemini API Key
+            </label>
+            <input 
+              type="password" 
+              name="gemini_api_key" 
+              defaultValue={settings.gemini_api_key || ''} 
+              placeholder="Paste your Gemini API Key..." 
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm font-mono dark:text-white focus:ring-2 focus:ring-amber-500 transition-all" 
+            />
+            <span className="text-[11px] text-slate-400 mt-1 block">Private key stored securely in your admin settings. Never exposed in public git commits.</span>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">
+              Default Gemini Model
+            </label>
+            <select
+              name="gemini_model"
+              defaultValue={settings.gemini_model || 'gemini-flash-latest'}
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-amber-500 transition-all"
+            >
+              <option value="gemini-flash-latest">Gemini 3.8 Flash (gemini-flash-latest — Default)</option>
+              <option value="gemini-3.7-flash">Gemini 3.7 Flash (Free Tier / Alternate)</option>
+              <option value="gemini-3.6-flash">Gemini 3.6 Flash (Backup Tier)</option>
+              <option value="gemini-flash-lite-latest">Gemini Flash Lite (Ultra-Low Quota Usage)</option>
+            </select>
+            <span className="text-[11px] text-slate-400 mt-1 block">Model used by the AI Review Studio tab.</span>
           </div>
         </div>
       </div>

@@ -106,7 +106,7 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
         },
         {
           question: `Is ${escapeHtml(name)} safe to use?`,
-          answer: `Yes. ${escapeHtml(name)} listed on RummyDex has been verified to ensure smooth performance, thermal stability, and authentic card gaming mechanics.`
+          answer: `Yes. ${escapeHtml(name)} has been verified to ensure smooth performance, thermal stability, and authentic card gaming mechanics.`
         },
         {
           question: `What are the storage requirements for ${escapeHtml(name)}?`,
@@ -265,7 +265,7 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
       </nav>
 
       <div class="flex flex-col items-center text-center pb-6 border-b border-zinc-200/80 dark:border-zinc-800/80 mb-6">
-        <img src="${escapeHtml(icon)}" loading="eager" decoding="async" width="128" height="128" class="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl object-cover mb-4 shadow-md border border-zinc-200/60 dark:border-zinc-700/60" alt="${escapeHtml(name)} icon"/>
+        <img src="${escapeHtml(icon)}" itemprop="image" loading="eager" decoding="async" width="128" height="128" class="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl object-cover mb-4 shadow-md border border-zinc-200/60 dark:border-zinc-700/60" alt="${escapeHtml(name)} icon"/>
         <h1 class="text-2xl sm:text-4xl font-extrabold text-zinc-900 dark:text-zinc-100 leading-tight mb-2.5">${escapeHtml(name)}</h1>
         <div class="flex flex-wrap justify-center gap-2 text-xs font-semibold mb-6">
           <span class="bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/50 px-3 py-1 rounded-full">${escapeHtml(cat)}</span>

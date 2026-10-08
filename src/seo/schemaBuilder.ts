@@ -64,7 +64,7 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
 
     const rawCat = getField(app, 'category');
     const specificCat = rawCat ? rawCat.split(',').map((c: string) => c.trim()).filter((c: string) => c && c.toLowerCase() !== 'all apps' && c.toLowerCase() !== 'all' && c.toLowerCase() !== 'apps' && c.toLowerCase() !== 'general')[0] : '';
-    const developer = getField(app, 'developer') || params.siteTitle || 'RummyDex';
+    const developer = getField(app, 'developer') || name || 'Official';
     const fileSize = getField(app, 'file_size') || '45 MB';
     const version = getField(app, 'version') || '1.0';
 
@@ -111,12 +111,6 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
           .slice(0, 5)
           .map((rev: any) => ({
             "@type": "Review",
-            "itemReviewed": {
-              "@type": "SoftwareApplication",
-              "name": name,
-              "operatingSystem": "Android",
-              "applicationCategory": specificCat || "GameApplication"
-            },
             "author": {
               "@type": "Person",
               "name": rev.userName ? String(rev.userName).trim() : 'Verified Player'
@@ -195,7 +189,7 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
           },
           {
             question: `Is ${appNameForFaq} safe to use?`,
-            answer: `Yes. ${appNameForFaq} listed on RummyDex has been verified to ensure smooth performance, thermal stability, and authentic card gaming mechanics.`
+            answer: `Yes. ${appNameForFaq} has been verified to ensure smooth performance, thermal stability, and authentic card gaming mechanics.`
           },
           {
             question: `What are the storage requirements for ${appNameForFaq}?`,

@@ -44,7 +44,7 @@ const Meta: React.FC<MetaProps> = ({
 }) => {
   const { settings } = useData();
   const siteTitle = settings?.site_title || 'RummyDex';
-  const fullTitle = formatPageTitle(title, siteTitle);
+  const fullTitle = formatPageTitle(title, '');
   const metaDescription = description || settings?.meta_description || '';
   const metaKeywords = keywords || settings?.seo_keywords || '';
   
@@ -52,6 +52,7 @@ const Meta: React.FC<MetaProps> = ({
   const rawImage = image || settings?.logo_url || settings?.favicon_url || DEFAULT_ICON;
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.rummydex.com';
   const metaImage = getOgImageUrl(rawImage, origin);
+  const squareThumbnail = rawImage.startsWith('http') ? rawImage : `${origin}${rawImage.startsWith('/') ? '' : '/'}${rawImage}`;
   
   const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/';
   const canonicalUrl = getCleanCanonicalUrl(canonical || url, currentPath);
@@ -148,13 +149,16 @@ const Meta: React.FC<MetaProps> = ({
         linkEl.remove();
       }
     });
-    if (metaImage) {
+    const isAppPage = currentPath.startsWith('/app/');
+    const resolvedSiteName = isAppPage ? fullTitle : siteTitle;
+
+    if (squareThumbnail) {
       if (headImageLink) {
-        (headImageLink as HTMLLinkElement).setAttribute('href', metaImage);
+        (headImageLink as HTMLLinkElement).setAttribute('href', squareThumbnail);
       } else {
         const link = document.createElement('link');
         link.setAttribute('rel', 'image_src');
-        link.setAttribute('href', metaImage);
+        link.setAttribute('href', squareThumbnail);
         document.head.appendChild(link);
       }
     } else if (headImageLink) {
@@ -173,7 +177,8 @@ const Meta: React.FC<MetaProps> = ({
     const ogHeight = metaImage.includes('w_600') ? '600' : '630';
     setMetaTag('property', 'og:image:width', ogWidth);
     setMetaTag('property', 'og:image:height', ogHeight);
-    setMetaTag('property', 'og:site_name', siteTitle);
+    setMetaTag('property', 'og:site_name', resolvedSiteName);
+    setMetaTag('name', 'application-name', resolvedSiteName);
     setMetaTag('property', 'og:locale', 'en_IN');
 
     // 6. Article Metadata vs General Website Isolation
@@ -202,15 +207,19 @@ const Meta: React.FC<MetaProps> = ({
 
     // 7. Twitter Card & Search Thumbnail Tags
     setMetaTag('name', 'twitter:card', 'summary_large_image');
-    setMetaTag('name', 'twitter:site', '@RummyDex');
-    setMetaTag('name', 'twitter:creator', '@RummyDex');
+    if (!isAppPage) {
+      setMetaTag('name', 'twitter:site', '@RummyDex');
+      setMetaTag('name', 'twitter:creator', '@RummyDex');
+    } else {
+      document.head.querySelectorAll('meta[name="twitter:site" i], meta[name="twitter:creator" i]').forEach(el => el.remove());
+    }
     setMetaTag('name', 'twitter:url', metaUrl);
     setMetaTag('name', 'twitter:title', fullTitle);
     setMetaTag('name', 'twitter:description', metaDescription);
     setMetaTag('name', 'twitter:image', metaImage);
-    setMetaTag('name', 'thumbnail', metaImage);
-    setMetaTag('itemprop' as any, 'image', metaImage);
-    setMetaTag('itemprop' as any, 'thumbnailUrl', metaImage);
+    setMetaTag('name', 'thumbnail', squareThumbnail);
+    setMetaTag('itemprop' as any, 'image', squareThumbnail);
+    setMetaTag('itemprop' as any, 'thumbnailUrl', squareThumbnail);
 
     // 8. Schema.org JSON-LD Structured Data in <head>
     const schemasToInject: any[] = [];

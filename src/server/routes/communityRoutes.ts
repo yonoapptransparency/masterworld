@@ -112,6 +112,23 @@ communityRouter.post('/api/v1/admin/community/reviews', async (req, res) => {
   }
 });
 
+communityRouter.post('/api/v1/admin/community/reviews/batch-create', async (req, res) => {
+  try {
+    const { reviews } = req.body || {};
+    if (!Array.isArray(reviews) || reviews.length === 0) {
+      return res.status(400).json({ success: false, error: 'No reviews array provided' });
+    }
+    const created: any[] = [];
+    for (const item of reviews) {
+      const createdItem = await createAdminReviewItem(item);
+      created.push(createdItem);
+    }
+    res.json({ success: true, count: created.length, reviews: created });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message });
+  }
+});
+
 communityRouter.put('/api/v1/admin/community/reviews/:id', async (req, res) => {
   try {
     const id = req.params.id;

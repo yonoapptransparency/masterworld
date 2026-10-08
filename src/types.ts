@@ -51,6 +51,8 @@ export interface GlobalSettings {
   cloudinary_api_key?: string;
   cloudinary_api_secret?: string;
   cloudinary_upload_preset?: string;
+  gemini_api_key?: string;
+  gemini_model?: string;
   quick_links?: Array<{ title: string; subtitle?: string; icon?: string; color?: string; url: string }>;
   social_links?: { facebook?: string; instagram?: string; twitter?: string; linkedin?: string; youtube?: string; };
   website_faqs?: Array<{ question: string; answer: string }>;

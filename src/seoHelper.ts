@@ -404,10 +404,10 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
 
   if (isNotFound) {
     title = `404 - Page Not Found`;
-    description = `The requested page ${cleanPath} could not be found on ${siteTitle}.`;
+    description = `The requested page ${cleanPath} could not be found.`;
   }
 
-  title = formatPageTitle(title, siteTitle);
+  title = formatPageTitle(title, '');
 
   let canonicalPath = urlPath;
   if (pageType === 'app' && targetApp) {
