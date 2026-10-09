@@ -24,7 +24,7 @@ export interface StagedReview {
   userName: string;
   rating: number;
   reviewText: string;
-  dateTag: 'Today' | 'Yesterday' | '2 Days Ago' | '3 Days Ago' | 'Custom';
+  dateTag: string;
   timestamp: string; // ISO date string
   status: 'staged' | 'approved' | 'published';
 }
