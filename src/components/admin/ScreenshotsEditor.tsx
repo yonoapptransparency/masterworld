@@ -44,18 +44,14 @@ export function ScreenshotsEditor({ initialScreenshots, onChange }: ScreenshotsE
                placeholder="e.g. https://images.unsplash.com/photo-... or custom URL"
             />
             {url && (
-              <div className="relative group w-10 h-16 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden shrink-0">
+              <div className="relative group w-12 h-16 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden shrink-0 flex items-center justify-center p-0.5">
                 <img 
                   src={url} 
                   referrerPolicy="no-referrer"
+                  crossOrigin="anonymous"
                   loading="lazy"
-                  width={40}
-                  height={64}
-                  className="w-full h-full object-cover" 
-                  alt="preview"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&h=128&fit=crop';
-                  }}
+                  className="max-w-full max-h-full object-contain rounded" 
+                  alt="Screenshot preview"
                 />
               </div>
             )}

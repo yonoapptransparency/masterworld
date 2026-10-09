@@ -662,8 +662,8 @@ export const AdminSettingsTab = React.memo(({ settings: rawSettings, handleSaveS
             <input 
               type="text" 
               name="cloudinary_cloud_name" 
-              defaultValue={settings.cloudinary_cloud_name || 'diewalae4'} 
-              placeholder="e.g. diewalae4" 
+              defaultValue={settings.cloudinary_cloud_name || 'veqj16xh'} 
+              placeholder="e.g. veqj16xh" 
               className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm font-mono dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" 
               required
             />
@@ -677,8 +677,8 @@ export const AdminSettingsTab = React.memo(({ settings: rawSettings, handleSaveS
             <input 
               type="text" 
               name="cloudinary_api_key" 
-              defaultValue={settings.cloudinary_api_key || ''} 
-              placeholder="e.g. 123456789012345" 
+              defaultValue={settings.cloudinary_api_key || '883757976464181'} 
+              placeholder="e.g. 883757976464181" 
               className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm font-mono dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" 
             />
             <span className="text-[11px] text-slate-400 mt-1 block">Used for direct high-speed client and server uploads.</span>
@@ -691,7 +691,7 @@ export const AdminSettingsTab = React.memo(({ settings: rawSettings, handleSaveS
             <input 
               type="password" 
               name="cloudinary_api_secret" 
-              defaultValue={settings.cloudinary_api_secret || ''} 
+              defaultValue={settings.cloudinary_api_secret || 'wWlSk9OS905jDmR5YR6wlEK37sE'} 
               placeholder="Enter your Cloudinary API Secret" 
               className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm font-mono dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" 
             />
@@ -705,8 +705,8 @@ export const AdminSettingsTab = React.memo(({ settings: rawSettings, handleSaveS
             <input 
               type="text" 
               name="cloudinary_upload_preset" 
-              defaultValue={settings.cloudinary_upload_preset || ''} 
-              placeholder="e.g. rummydex_uploads or ml_default" 
+              defaultValue={settings.cloudinary_upload_preset || 'rummydex'} 
+              placeholder="e.g. rummydex or rummydex_uploads" 
               className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm font-mono dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" 
             />
             <span className="text-[11px] text-slate-400 mt-1 block">Optional unsigned preset configured in Cloudinary Settings -&gt; Upload.</span>

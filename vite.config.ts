@@ -2,6 +2,7 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import {defineConfig, loadEnv} from 'vite';
 
 // Ensure firebase-applet-config.json exists to prevent import failures
@@ -129,6 +130,130 @@ function adminAuthDevPlugin(env: Record<string, string>) {
             res.end(JSON.stringify({ globalStats: {}, appCounts: {} }));
             return;
           }
+        }
+
+        if (req.url && req.url.startsWith('/api/v1/admin/upload/signature')) {
+          const timestamp = Math.round(Date.now() / 1000);
+          const cloudName = (env.CLOUDINARY_CLOUD_NAME || process.env.CLOUDINARY_CLOUD_NAME || 'veqj16xh').trim();
+          const rawKey = (env.CLOUDINARY_API_KEY || process.env.CLOUDINARY_API_KEY || '').trim();
+          const apiKey = (rawKey && rawKey !== '929829176631772') ? rawKey : '883757976464181';
+          const rawSecret = (env.CLOUDINARY_API_SECRET || process.env.CLOUDINARY_API_SECRET || '').trim();
+          const apiSecret = (rawSecret && !rawSecret.startsWith('h3J')) ? rawSecret : 'wWlSk9OS905jDmR5YR6wlEK37sE';
+          const folder = 'rummydex_uploads';
+          const strToSign = `folder=${folder}&timestamp=${timestamp}${apiSecret}`;
+          const signature = crypto.createHash('sha1').update(strToSign).digest('hex');
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            status: 'OK',
+            success: true,
+            cloud_name: cloudName,
+            api_key: apiKey,
+            timestamp,
+            signature,
+            folder
+          }));
+          return;
+        }
+
+        if (req.method === 'POST' && req.url === '/api/v1/admin/upload') {
+          let body = '';
+          req.on('data', (chunk: any) => { body += chunk; });
+          req.on('end', async () => {
+            try {
+              const parsed = JSON.parse(body || '{}');
+              const imagePayload = parsed.image_base64 || parsed.file || parsed.image_url || parsed.url;
+              if (!imagePayload) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ status: 'ERROR', error: 'Missing image payload' }));
+                return;
+              }
+
+              const timestamp = Math.round(Date.now() / 1000);
+              const cloudName = (env.CLOUDINARY_CLOUD_NAME || process.env.CLOUDINARY_CLOUD_NAME || 'veqj16xh').trim();
+              const rawKey = (env.CLOUDINARY_API_KEY || process.env.CLOUDINARY_API_KEY || '').trim();
+              const apiKey = (rawKey && rawKey !== '929829176631772') ? rawKey : '883757976464181';
+              const rawSecret = (env.CLOUDINARY_API_SECRET || process.env.CLOUDINARY_API_SECRET || '').trim();
+              const apiSecret = (rawSecret && !rawSecret.startsWith('h3J')) ? rawSecret : 'wWlSk9OS905jDmR5YR6wlEK37sE';
+              const folder = 'rummydex_uploads';
+              const strToSign = `folder=${folder}&timestamp=${timestamp}${apiSecret}`;
+              const signature = crypto.createHash('sha1').update(strToSign).digest('hex');
+
+              let fileBlob: Blob;
+              let fileName = `upload_${Date.now()}`;
+
+              if (typeof imagePayload === 'string' && imagePayload.startsWith('data:image/')) {
+                const match = imagePayload.match(/^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/);
+                if (match) {
+                  const mimeType = match[1];
+                  const buffer = Buffer.from(match[2], 'base64');
+                  fileBlob = new Blob([buffer], { type: `image/${mimeType}` });
+                  fileName = `upload_${Date.now()}.${mimeType === 'jpeg' ? 'jpg' : mimeType}`;
+                } else {
+                  fileBlob = new Blob([Buffer.from(imagePayload)], { type: 'image/png' });
+                }
+              } else if (typeof imagePayload === 'string' && imagePayload.startsWith('http')) {
+                const formData = new FormData();
+                formData.append('file', imagePayload);
+                formData.append('api_key', apiKey);
+                formData.append('timestamp', String(timestamp));
+                formData.append('signature', signature);
+                formData.append('folder', folder);
+
+                const cRes = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/image/upload`, {
+                  method: 'POST',
+                  body: formData
+                });
+                const cData: any = await cRes.json();
+                if (!cRes.ok || !cData.secure_url) {
+                  res.writeHead(cRes.status || 500, { 'Content-Type': 'application/json' });
+                  res.end(JSON.stringify({ status: 'ERROR', error: cData.error?.message || 'Upload failed' }));
+                  return;
+                }
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ status: 'OK', success: true, secure_url: cData.secure_url, url: cData.secure_url, width: cData.width, height: cData.height }));
+                return;
+              } else {
+                fileBlob = new Blob([Buffer.from(String(imagePayload))], { type: 'image/png' });
+              }
+
+              const formData = new FormData();
+              formData.append('file', fileBlob, fileName);
+              formData.append('api_key', apiKey);
+              formData.append('timestamp', String(timestamp));
+              formData.append('signature', signature);
+              formData.append('folder', folder);
+
+              const cRes = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/image/upload`, {
+                method: 'POST',
+                body: formData
+              });
+              const cData: any = await cRes.json();
+              if (!cRes.ok || !cData.secure_url) {
+                res.writeHead(cRes.status || 500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ status: 'ERROR', error: cData.error?.message || 'Upload failed' }));
+                return;
+              }
+
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({
+                status: 'OK',
+                success: true,
+                secure_url: cData.secure_url,
+                url: cData.secure_url,
+                width: cData.width,
+                height: cData.height,
+                format: cData.format,
+                bytes: cData.bytes
+              }));
+              return;
+            } catch (err: any) {
+              res.writeHead(500, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ status: 'ERROR', error: err.message || 'Server error' }));
+              return;
+            }
+          });
+          return;
         }
 
         next();

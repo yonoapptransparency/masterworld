@@ -491,13 +491,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   });
 
   const initialDataPayload = optimizeInitialDataForRoute(data, cleanPathLower, targetApp, targetNews, targetVideo);
-  let initialDataJson = JSON.stringify(initialDataPayload || {}).replace(/</g, '\\u003c');
+  const initialDataJson = JSON.stringify(initialDataPayload || {}).replace(/</g, '\\u003c');
   
-  initialDataJson = initialDataJson.replace(
-    /https:\/\/res\.cloudinary\.com\/diewalae4\/image\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/[a-zA-Z0-9_-]+\.[a-zA-Z]+)/g,
-    'https://res.cloudinary.com/diewalae4/image/upload/f_webp,q_auto,w_256,h_256,c_fill/$1'
-  );
-
   const initialDataScript = `<script>window.__INITIAL_DATA__ = ${initialDataJson};</script>`;
 
   let finalHtml = template

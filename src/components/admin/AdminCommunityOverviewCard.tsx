@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { 
   fetchAdminCommunityOverviewStats, 
+  getLiveAtomicReviewStatsSync,
   reloadAdminCommunityBackup,
   AdminCommunityStats,
   AdminCommunityTopApp
@@ -34,8 +35,29 @@ interface AdminCommunityOverviewCardProps {
 }
 
 export const AdminCommunityOverviewCard: React.FC<AdminCommunityOverviewCardProps> = ({ onTabChange }) => {
-  const [stats, setStats] = useState<AdminCommunityStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<AdminCommunityStats | null>(() => {
+    const live = getLiveAtomicReviewStatsSync();
+    if (live && live.globalStats && live.globalStats.total > 0) {
+      return {
+        totalReviews: live.globalStats.total,
+        publishedReviews: live.globalStats.published,
+        pendingReviews: live.globalStats.pending,
+        rejectedReviews: live.globalStats.rejected || 0,
+        flaggedReviews: live.globalStats.flagged || 0,
+        totalReports: 0,
+        pendingReports: 0,
+        averageRating: live.globalStats.averageRating || 4.5,
+        liveStatus: 'live',
+        statusMessage: 'rummydexcommunity Live (Atomic Shield)',
+        projectId: 'rummydexcommunity',
+        topApps: [],
+        recentReviews: [],
+        appCounts: live.appCounts || {}
+      };
+    }
+    return null;
+  });
+  const [loading, setLoading] = useState(() => !stats);
   const [refreshing, setRefreshing] = useState(false);
   const [reloadingBackup, setReloadingBackup] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string>('');
@@ -43,7 +65,7 @@ export const AdminCommunityOverviewCard: React.FC<AdminCommunityOverviewCardProp
 
   const loadStats = useCallback(async (isForce = false) => {
     if (isForce) setRefreshing(true);
-    else setLoading(true);
+    else if (!stats) setLoading(true);
 
     try {
       const data = await fetchAdminCommunityOverviewStats(isForce);
@@ -59,7 +81,7 @@ export const AdminCommunityOverviewCard: React.FC<AdminCommunityOverviewCardProp
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [stats]);
 
   const handleReloadBackup = async () => {
     try {
@@ -121,6 +143,33 @@ export const AdminCommunityOverviewCard: React.FC<AdminCommunityOverviewCardProp
 
   useEffect(() => {
     loadStats(false);
+
+    const handleAtomicUpdate = (e: any) => {
+      if (e.detail?.globalStats) {
+        setStats(prev => ({
+          ...(prev || {
+            flaggedReviews: 0,
+            totalReports: 0,
+            pendingReports: 0,
+            liveStatus: 'live',
+            statusMessage: 'rummydexcommunity Live (Atomic Shield)',
+            projectId: 'rummydexcommunity',
+            topApps: [],
+            recentReviews: [],
+            appCounts: {}
+          }),
+          totalReviews: e.detail.globalStats.total,
+          publishedReviews: e.detail.globalStats.published,
+          pendingReviews: e.detail.globalStats.pending,
+          rejectedReviews: e.detail.globalStats.rejected || 0,
+          averageRating: e.detail.globalStats.averageRating || 4.5,
+          appCounts: e.detail.appCounts || prev?.appCounts || {}
+        }));
+      }
+    };
+
+    window.addEventListener('atomic_review_counts_updated', handleAtomicUpdate);
+    return () => window.removeEventListener('atomic_review_counts_updated', handleAtomicUpdate);
   }, [loadStats]);
 
   const publishedPercent = stats && stats.totalReviews > 0 

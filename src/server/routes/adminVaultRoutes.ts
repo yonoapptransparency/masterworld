@@ -1,7 +1,24 @@
 import { Router } from 'express';
 import { safeEncrypt, safeDecrypt, getAesSecret } from '../../lib/secureVault';
+import { fetchStoreData } from '../../seoHelper';
 
 export const adminVaultRouter = Router();
+
+adminVaultRouter.get('/api/v1/admin/data', async (req, res) => {
+  try {
+    const storeData = await fetchStoreData();
+    res.json({
+      success: true,
+      source: 'local_backup',
+      apps: storeData.apps || [],
+      settings: storeData.settings || {},
+      news: storeData.news || [],
+      videos: storeData.videos || []
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message });
+  }
+});
 
 adminVaultRouter.post('/api/v1/admin/seal-vault', (req, res) => {
   try {

@@ -40,13 +40,30 @@ export function generateRealisticTimestamp(
   let dateTag: 'Today' | 'Yesterday' | '2 Days Ago' | '3 Days Ago' | 'Custom' = 'Today';
 
   // Determine which day to target
+  let isMorningOnly = false;
+  let isEveningOnly = false;
+
   if (mode === 'today_only') {
     dateTag = 'Today';
+  } else if (mode === 'today_morning') {
+    dateTag = 'Today';
+    isMorningOnly = true;
+  } else if (mode === 'today_evening') {
+    dateTag = 'Today';
+    isEveningOnly = true;
   } else if (mode === 'yesterday_only') {
     targetDate.setDate(now.getDate() - 1);
     dateTag = 'Yesterday';
   } else if (mode === 'today_and_yesterday') {
     // Alternate or distribute 50% Today, 50% Yesterday
+    const isYesterday = indexInBatch % 2 === 1;
+    if (isYesterday) {
+      targetDate.setDate(now.getDate() - 1);
+      dateTag = 'Yesterday';
+    } else {
+      dateTag = 'Today';
+    }
+  } else if (mode === 'last_2_days') {
     const isYesterday = indexInBatch % 2 === 1;
     if (isYesterday) {
       targetDate.setDate(now.getDate() - 1);
@@ -60,20 +77,49 @@ export function generateRealisticTimestamp(
     if (dayOffset === 0) dateTag = 'Today';
     else if (dayOffset === 1) dateTag = 'Yesterday';
     else dateTag = '2 Days Ago';
-  } else if (mode === 'last_7_days') {
-    const dayOffset = Math.floor(Math.random() * 7);
+  } else if (mode === 'last_5_days') {
+    const dayOffset = indexInBatch % 5;
     targetDate.setDate(now.getDate() - dayOffset);
     if (dayOffset === 0) dateTag = 'Today';
     else if (dayOffset === 1) dateTag = 'Yesterday';
     else if (dayOffset === 2) dateTag = '2 Days Ago';
     else if (dayOffset === 3) dateTag = '3 Days Ago';
     else dateTag = 'Custom';
+  } else if (mode === 'last_7_days') {
+    const dayOffset = indexInBatch % 7;
+    targetDate.setDate(now.getDate() - dayOffset);
+    if (dayOffset === 0) dateTag = 'Today';
+    else if (dayOffset === 1) dateTag = 'Yesterday';
+    else if (dayOffset === 2) dateTag = '2 Days Ago';
+    else if (dayOffset === 3) dateTag = '3 Days Ago';
+    else dateTag = 'Custom';
+  } else if (mode === 'last_15_days') {
+    const dayOffset = Math.floor(Math.random() * 15);
+    targetDate.setDate(now.getDate() - dayOffset);
+    if (dayOffset === 0) dateTag = 'Today';
+    else if (dayOffset === 1) dateTag = 'Yesterday';
+    else dateTag = 'Custom';
+  } else if (mode === 'last_30_days') {
+    const dayOffset = Math.floor(Math.random() * 30);
+    targetDate.setDate(now.getDate() - dayOffset);
+    if (dayOffset === 0) dateTag = 'Today';
+    else if (dayOffset === 1) dateTag = 'Yesterday';
+    else dateTag = 'Custom';
   }
 
-  // Randomize time naturally (e.g. between 09:15 and 23:30)
+  // Randomize time naturally (e.g. between 08:00 and 23:30)
   // If target is today, ensure the hour isn't in the future
-  let maxHour = dateTag === 'Today' ? Math.max(9, now.getHours()) : 23;
   let minHour = 8;
+  let maxHour = dateTag === 'Today' ? Math.max(9, now.getHours()) : 23;
+
+  if (isMorningOnly) {
+    minHour = 8;
+    maxHour = dateTag === 'Today' ? Math.min(13, Math.max(9, now.getHours())) : 13;
+  } else if (isEveningOnly) {
+    minHour = dateTag === 'Today' && now.getHours() < 17 ? 8 : 17;
+    maxHour = dateTag === 'Today' ? Math.max(minHour, now.getHours()) : 23;
+  }
+
   if (maxHour < minHour) maxHour = minHour;
 
   const randomHour = minHour + Math.floor(Math.random() * (maxHour - minHour + 1));

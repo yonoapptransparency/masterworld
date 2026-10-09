@@ -825,6 +825,9 @@ export async function fetchAllFirestoreRestReviews(): Promise<AdminReviewItem[]>
 }
 
 export async function fetchAdminCommunityOverviewStats(force: boolean = false): Promise<AdminCommunityStats> {
+  // Check live atomic stats in memory / storage first
+  const liveAtomic = getLiveAtomicReviewStatsSync();
+
   try {
     const res = await safeAdminFetch(`/api/v1/admin/community/overview${force ? '?force=true' : ''}`);
     const cType = res.headers.get('content-type') || '';
@@ -832,27 +835,48 @@ export async function fetchAdminCommunityOverviewStats(force: boolean = false): 
       const data = await res.json();
       if (data.success && data.metrics) {
         const m = data.metrics;
+        const total = m.totalReviews || liveAtomic?.globalStats?.total || 0;
         return {
-          totalReviews: m.totalReviews || 0,
-          publishedReviews: m.publishedCount || 0,
-          pendingReviews: m.pendingCount || 0,
-          rejectedReviews: m.rejectedCount || 0,
-          flaggedReviews: m.flaggedCount || 0,
+          totalReviews: total,
+          publishedReviews: m.publishedCount || m.publishedReviews || liveAtomic?.globalStats?.published || 0,
+          pendingReviews: m.pendingCount !== undefined ? m.pendingCount : (liveAtomic?.globalStats?.pending || 0),
+          rejectedReviews: m.rejectedCount || liveAtomic?.globalStats?.rejected || 0,
+          flaggedReviews: m.flaggedCount || liveAtomic?.globalStats?.flagged || 0,
           totalReports: m.totalReports || 0,
           pendingReports: m.pendingReportsCount || 0,
-          averageRating: m.averageRating || 4.8,
-          ratingDistribution: m.ratingDistribution,
+          averageRating: m.averageRating || liveAtomic?.globalStats?.averageRating || 4.8,
+          ratingDistribution: m.ratingDistribution || liveAtomic?.globalStats?.ratingDistribution,
           appCoverageCount: m.appCoverageCount,
           liveStatus: 'live',
           statusMessage: `${data.projectId || 'rummydexcommunity'} Connected`,
           projectId: data.projectId || 'rummydexcommunity',
           topApps: data.topApps || [],
           recentReviews: data.recentReviews || [],
-          appCounts: data.appCounts || {}
+          appCounts: m.appCounts || liveAtomic?.appCounts || {}
         };
       }
     }
   } catch (_) {}
+
+  // Fallback to live atomic stats if available
+  if (liveAtomic && liveAtomic.globalStats && liveAtomic.globalStats.total > 0) {
+    return {
+      totalReviews: liveAtomic.globalStats.total,
+      publishedReviews: liveAtomic.globalStats.published,
+      pendingReviews: liveAtomic.globalStats.pending,
+      rejectedReviews: liveAtomic.globalStats.rejected || 0,
+      flaggedReviews: liveAtomic.globalStats.flagged || 0,
+      totalReports: 0,
+      pendingReports: 0,
+      averageRating: liveAtomic.globalStats.averageRating || 4.5,
+      liveStatus: 'live',
+      statusMessage: 'rummydexcommunity Live (Atomic Shield)',
+      projectId: 'rummydexcommunity',
+      topApps: [],
+      recentReviews: [],
+      appCounts: liveAtomic.appCounts || {}
+    };
+  }
 
   // Fallback to local catalog stats
   const catStats = (communityCatalogStats as any) || {};

@@ -193,8 +193,21 @@ communityRouter.get('/api/v1/admin/community/app-counts', async (req, res) => {
 
 communityRouter.get('/api/v1/admin/community/overview', async (req, res) => {
   try {
-    const result = await fetchAdminCommunityOverviewStats(req.query.force === 'true');
-    res.json({ success: true, metrics: result, projectId: 'rummydexcommunity' });
+    const force = req.query.force === 'true';
+    const atomicStats = await fetchAdminAppReviewCounts(force);
+    const metrics = {
+      totalReviews: atomicStats.globalStats?.total || 0,
+      publishedCount: atomicStats.globalStats?.published || 0,
+      pendingCount: atomicStats.globalStats?.pending || 0,
+      rejectedCount: atomicStats.globalStats?.rejected || 0,
+      flaggedCount: atomicStats.globalStats?.flagged || 0,
+      totalReports: 0,
+      pendingReportsCount: 0,
+      averageRating: atomicStats.globalStats?.averageRating || 4.5,
+      ratingDistribution: (atomicStats.globalStats as any)?.ratingDistribution,
+      appCounts: atomicStats.appCounts || {}
+    };
+    res.json({ success: true, metrics, projectId: 'rummydexcommunity' });
   } catch (err: any) {
     res.json({ success: true, metrics: communityCatalogStats, projectId: 'rummydexcommunity' });
   }

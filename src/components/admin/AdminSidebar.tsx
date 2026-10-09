@@ -23,7 +23,8 @@ import {
 } from 'lucide-react';
 import { AdminSidebarItem as SidebarItem } from './AdminSidebarItem';
 import { useData } from '../../contexts/DataContext';
-import { fetchAdminCommunityOverviewStats, AdminCommunityStats } from '../../lib/adminCommunityFirebase';
+import { fetchAdminCommunityOverviewStats, getLiveAtomicReviewStatsSync, AdminCommunityStats } from '../../lib/adminCommunityFirebase';
+import { getOptimizedImageUrl } from '../../seo/utils';
 
 interface AdminSidebarProps {
   activeTab: string;
@@ -47,7 +48,28 @@ export const AdminSidebar = ({
   isRefreshing
 }: AdminSidebarProps) => {
   const { settings } = useData();
-  const [commStats, setCommStats] = useState<AdminCommunityStats | null>(null);
+  const [commStats, setCommStats] = useState<AdminCommunityStats | null>(() => {
+    const live = getLiveAtomicReviewStatsSync();
+    if (live && live.globalStats && live.globalStats.total > 0) {
+      return {
+        totalReviews: live.globalStats.total,
+        publishedReviews: live.globalStats.published,
+        pendingReviews: live.globalStats.pending,
+        rejectedReviews: live.globalStats.rejected || 0,
+        flaggedReviews: live.globalStats.flagged || 0,
+        totalReports: 0,
+        pendingReports: 0,
+        averageRating: live.globalStats.averageRating || 4.5,
+        liveStatus: 'live',
+        statusMessage: 'rummydexcommunity Live (Atomic Shield)',
+        projectId: 'rummydexcommunity',
+        topApps: [],
+        recentReviews: [],
+        appCounts: live.appCounts || {}
+      };
+    }
+    return null;
+  });
 
   useEffect(() => {
     let isMounted = true;
@@ -57,8 +79,36 @@ export const AdminSidebar = ({
       })
       .catch(() => {});
 
+    const handleAtomicUpdate = (e: any) => {
+      if (!isMounted) return;
+      if (e.detail?.globalStats) {
+        setCommStats(prev => ({
+          ...(prev || {
+            flaggedReviews: 0,
+            totalReports: 0,
+            pendingReports: 0,
+            liveStatus: 'live',
+            statusMessage: 'rummydexcommunity Live (Atomic Shield)',
+            projectId: 'rummydexcommunity',
+            topApps: [],
+            recentReviews: [],
+            appCounts: {}
+          }),
+          totalReviews: e.detail.globalStats.total,
+          publishedReviews: e.detail.globalStats.published,
+          pendingReviews: e.detail.globalStats.pending,
+          rejectedReviews: e.detail.globalStats.rejected || 0,
+          averageRating: e.detail.globalStats.averageRating || 4.5,
+          appCounts: e.detail.appCounts || prev?.appCounts || {}
+        }));
+      }
+    };
+
+    window.addEventListener('atomic_review_counts_updated', handleAtomicUpdate);
+
     return () => {
       isMounted = false;
+      window.removeEventListener('atomic_review_counts_updated', handleAtomicUpdate);
     };
   }, []);
 
@@ -70,24 +120,144 @@ export const AdminSidebar = ({
 
   const getTransformedUrl = (url: string) => {
     if (url && url.includes('res.cloudinary.com')) {
-      return url.replace(/\/upload\/([^\/]+)\//, '/upload/w_120,h_120,c_scale,q_auto/');
+      return getOptimizedImageUrl(url, 120);
     }
     return url;
   };
 
   return (
     <>
-      {/* Mobile Toggle */}
-      <button 
-        type="button"
-        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
-        className="lg:hidden fixed top-4 right-4 z-50 p-2.5 bg-blue-600 text-white rounded-2xl shadow-lg border-0 cursor-pointer"
-      >
-        {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-      </button>
+      {/* Mobile Pop-up Modal View (like second image popup) & Desktop Persistent Sidebar */}
+      {/* 1. Mobile Backdrop Overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          onClick={() => setIsMobileMenuOpen(false)} 
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs lg:hidden animate-fade-in flex items-center justify-center p-3 sm:p-4"
+          aria-hidden="true"
+        >
+          {/* Mobile Pop-up Dialog Card */}
+          <div 
+            onClick={e => e.stopPropagation()}
+            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-sm max-h-[85vh] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
+          >
+            {/* Modal Header */}
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <img src={getTransformedUrl(settings?.logo_url || '')} 
+                  alt="Admin Logo" 
+                  className="w-9 h-9 object-contain drop-shadow-sm" 
+                  loading="lazy" 
+                  width={36} 
+                  height={36} 
+                />
+                <div>
+                  <h1 className="text-base font-black text-slate-900 dark:text-white tracking-tight">{settings?.site_title || 'MasterWorld'}</h1>
+                  <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest">Admin Portal</p>
+                </div>
+              </div>
 
-      {/* Sidebar Navigation */}
-      <aside className={`fixed inset-y-0 left-0 z-40 w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transition-transform duration-300 lg:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+              <button
+                type="button"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white flex items-center justify-center transition cursor-pointer shrink-0"
+                aria-label="Close menu"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Session Timer Bar */}
+            <div className="mx-3 mt-3 px-3 py-2 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700/50 shrink-0">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase">Session Time</span>
+                <span className={`text-[10px] font-mono font-bold ${sessionTimeLeft < 60 ? 'text-rose-500 animate-pulse' : 'text-slate-600 dark:text-slate-400'}`}>
+                  {formatTime(sessionTimeLeft)}
+                </span>
+              </div>
+              <div className="mt-1 h-1 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full transition-all duration-1000 ${sessionTimeLeft < 60 ? 'bg-rose-500' : 'bg-blue-600'}`}
+                  style={{ width: `${(sessionTimeLeft / (15 * 60)) * 100}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Scrollable Navigation Menu Links */}
+            <nav className="flex-1 overflow-y-auto p-3 space-y-1 custom-scrollbar">
+              <div className="pb-1.5 px-3 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">Main Management</div>
+              <SidebarItem id="dashboard" icon={LayoutDashboard} label="Dashboard" active={activeTab === 'dashboard'} onClick={(tab) => { onTabChange(tab); setIsMobileMenuOpen(false); }} />
+              <SidebarItem id="apps" icon={Smartphone} label="App Catalog" active={activeTab === 'apps'} onClick={(tab) => { onTabChange(tab); setIsMobileMenuOpen(false); }} />
+              <SidebarItem id="banners" icon={TrendingUp} label="Banners & Ads" active={activeTab === 'banners'} onClick={(tab) => { onTabChange(tab); setIsMobileMenuOpen(false); }} />
+              <SidebarItem id="categories" icon={Layers} label="Categories" active={activeTab === 'categories'} onClick={(tab) => { onTabChange(tab); setIsMobileMenuOpen(false); }} />
+              
+              <div className="pt-3 pb-1.5 px-3 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">Content Editor</div>
+              <SidebarItem id="news" icon={Newspaper} label="News Section" active={activeTab === 'news'} onClick={(tab) => { onTabChange(tab); setIsMobileMenuOpen(false); }} />
+              <SidebarItem id="videos" icon={VideoIcon} label="Video Guides" active={activeTab === 'videos'} onClick={(tab) => { onTabChange(tab); setIsMobileMenuOpen(false); }} />
+              <SidebarItem id="faqs" icon={HelpCircle} label="Website FAQs" active={activeTab === 'faqs'} onClick={(tab) => { onTabChange(tab); setIsMobileMenuOpen(false); }} />
+              <SidebarItem id="quick-links" icon={LinkIcon} label="Quick Links" active={activeTab === 'quick-links'} onClick={(tab) => { onTabChange(tab); setIsMobileMenuOpen(false); }} />
+
+              <div className="pt-3 pb-1.5 px-3 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">Moderation & Community</div>
+              <SidebarItem 
+                id="reviews" 
+                icon={MessageSquare} 
+                label="App Reviews" 
+                active={activeTab === 'reviews'} 
+                onClick={(tab) => { onTabChange(tab); setIsMobileMenuOpen(false); }} 
+                badge={commStats && commStats.pendingReviews > 0 ? (
+                  <span className="px-1.5 py-0.5 text-[10px] font-black rounded-full bg-amber-500 text-white leading-none shadow-sm shadow-amber-500/30">
+                    {commStats.pendingReviews}
+                  </span>
+                ) : null}
+              />
+              <SidebarItem id="ai-reviews" icon={Sparkles} label="AI Review Studio" active={activeTab === 'ai-reviews'} onClick={(tab) => { onTabChange(tab); setIsMobileMenuOpen(false); }} />
+              <SidebarItem 
+                id="reports" 
+                icon={ShieldAlert} 
+                label="User Reports" 
+                active={activeTab === 'reports'} 
+                onClick={(tab) => { onTabChange(tab); setIsMobileMenuOpen(false); }} 
+                badge={commStats && commStats.pendingReports > 0 ? (
+                  <span className="px-1.5 py-0.5 text-[10px] font-black rounded-full bg-rose-500 text-white leading-none shadow-sm shadow-rose-500/30">
+                    {commStats.pendingReports}
+                  </span>
+                ) : null}
+              />
+
+              <div className="pt-3 pb-1.5 px-3 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">System & Sync</div>
+              <SidebarItem id="github" icon={Github} label="GitHub Sync" active={activeTab === 'github'} onClick={(tab) => { onTabChange(tab); setIsMobileMenuOpen(false); }} />
+              <SidebarItem id="developers" icon={Users} label="Developer Team" active={activeTab === 'developers'} onClick={(tab) => { onTabChange(tab); setIsMobileMenuOpen(false); }} />
+              <SidebarItem id="security" icon={Shield} label="Security Panel" active={activeTab === 'security'} onClick={(tab) => { onTabChange(tab); setIsMobileMenuOpen(false); }} />
+              <SidebarItem id="settings" icon={Settings} label="Global Settings" active={activeTab === 'settings'} onClick={(tab) => { onTabChange(tab); setIsMobileMenuOpen(false); }} />
+            </nav>
+
+            {/* Bottom Actions inside Pop-up */}
+            <div className="p-3 border-t border-slate-100 dark:border-slate-800 space-y-1.5 shrink-0 bg-slate-50/50 dark:bg-slate-900/50">
+              {onRefresh && (
+                <button 
+                  type="button"
+                  onClick={() => { onRefresh(); setIsMobileMenuOpen(false); }}
+                  disabled={isRefreshing}
+                  className="flex items-center justify-center gap-2 w-full px-3 py-2 text-blue-600 dark:text-blue-400 font-bold text-xs hover:bg-blue-50 dark:hover:bg-blue-950/20 rounded-xl transition-all border-0 cursor-pointer disabled:opacity-50"
+                >
+                  <RefreshCw size={15} className={isRefreshing ? 'animate-spin' : ''} />
+                  <span>{isRefreshing ? 'Syncing...' : 'Sync Data Now'}</span>
+                </button>
+              )}
+              <button 
+                type="button"
+                onClick={handleLogout}
+                className="flex items-center justify-center gap-2 w-full px-3 py-2 text-rose-600 dark:text-rose-400 font-bold text-xs hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl transition-all border-0 cursor-pointer"
+              >
+                <LogOut size={15} />
+                <span>Terminate Session</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. Desktop Persistent Sidebar (Hidden on mobile) */}
+      <aside className="hidden lg:block fixed inset-y-0 left-0 z-40 w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800">
         <div className="flex flex-col h-full">
           <div className="p-4 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-3">
@@ -166,7 +336,6 @@ export const AdminSidebar = ({
             <SidebarItem id="settings" icon={Settings} label="Global Settings" active={activeTab === 'settings'} onClick={onTabChange} />
           </nav>
 
-
           <div className="p-4 border-t border-slate-100 dark:border-slate-800 space-y-2">
             {onRefresh && (
               <button 
@@ -190,14 +359,6 @@ export const AdminSidebar = ({
           </div>
         </div>
       </aside>
-
-      {/* Overlay */}
-      {isMobileMenuOpen && (
-        <div 
-          className="fixed inset-0 z-30 bg-slate-900/60  lg:hidden"
-          onClick={() => setIsMobileMenuOpen(false)}
-        />
-      )}
     </>
   );
 };

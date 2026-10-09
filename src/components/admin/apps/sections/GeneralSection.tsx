@@ -100,19 +100,20 @@ export const GeneralSection = ({ formFields, handleFieldChange, categories }: Ge
               value={formFields.icon_url} 
               onChange={(val) => handleFieldChange('icon_url', val)} 
               className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-100 focus-within:ring-2 focus-within:ring-blue-500 font-mono overflow-hidden" 
-              placeholder="https://..."
+              placeholder="https://res.cloudinary.com/veqj16xh/image/upload/..."
             />
-            <img 
-              src={formFields.icon_url || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&h=128&fit=crop'} 
-              loading="lazy"
-              width={40}
-              height={40}
-              className="w-10 h-10 object-cover rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 shadow-xs shrink-0" 
-              alt="preview" 
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&h=128&fit=crop';
-              }}
-            />
+            {formFields.icon_url && (
+              <img 
+                src={formFields.icon_url} 
+                referrerPolicy="no-referrer"
+                crossOrigin="anonymous"
+                loading="lazy"
+                width={40}
+                height={40}
+                className="w-10 h-10 object-contain p-0.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800 shadow-xs shrink-0" 
+                alt="App icon preview" 
+              />
+            )}
           </div>
         </div>
       </div>

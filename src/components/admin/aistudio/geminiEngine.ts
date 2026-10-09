@@ -7,6 +7,7 @@ import {
   LanguageToneMode 
 } from './types';
 import { generateRealisticUserName, generateRealisticTimestamp } from './dateEngine';
+import { mockApps } from '../../../lib/staticData';
 
 export function stripHtml(html?: string): string {
   if (!html) return '';
@@ -18,21 +19,43 @@ export function stripHtml(html?: string): string {
  * Operates 100% in local memory — ZERO Firestore read operations!
  */
 export function extractAdminAppProfile(app: any) {
-  const appName = String(app.name || app.title || 'App').trim();
-  const category = String(app.category || 'General').trim();
-  const developer = String(app.developer || app.developer_name || '').trim();
-  const seoTitle = String(app.seo_title || '').trim();
-  const seoDescription = String(app.seo_description || app.meta_description || '').trim();
-  const description = stripHtml(app.description_html || app.description || '').slice(0, 1400).trim();
-  const features = stripHtml(app.features_html || '').slice(0, 900).trim();
-  const customBox = stripHtml(app.custom_admin_box_html || app.custom_admin_box_heading || '').slice(0, 400).trim();
-  const releaseNotes = stripHtml(app.release_notes || '').slice(0, 300).trim();
-  const version = String(app.version || '').trim();
-  const fileSize = String(app.file_size || '').trim();
+  // 100% Local-First: If app has missing description or SEO info, check local mockApps memory
+  let baseApp = app;
+  if (!baseApp?.description_html || !baseApp?.seo_description || !baseApp?.features_html) {
+    const localMatch = (mockApps || []).find((a: any) => 
+      (a.id && a.id === app.id) || 
+      (a.slug && a.slug === app.slug) ||
+      (a.name && app.name && a.name.toLowerCase().trim() === app.name.toLowerCase().trim())
+    );
+    if (localMatch) {
+      baseApp = {
+        ...localMatch,
+        ...app,
+        description_html: app.description_html || localMatch.description_html || '',
+        seo_description: app.seo_description || localMatch.seo_description || localMatch.meta_description || '',
+        seo_title: app.seo_title || localMatch.seo_title || localMatch.meta_title || '',
+        features_html: app.features_html || localMatch.features_html || '',
+        custom_admin_box_html: app.custom_admin_box_html || localMatch.custom_admin_box_html || '',
+        release_notes: app.release_notes || localMatch.release_notes || ''
+      };
+    }
+  }
+
+  const appName = String(baseApp.name || baseApp.title || 'App').trim();
+  const category = String(baseApp.category || 'General').trim();
+  const developer = String(baseApp.developer || baseApp.developer_name || '').trim();
+  const seoTitle = String(baseApp.seo_title || baseApp.meta_title || '').trim();
+  const seoDescription = String(baseApp.seo_description || baseApp.meta_description || '').trim();
+  const description = stripHtml(baseApp.description_html || baseApp.description || '').slice(0, 1400).trim();
+  const features = stripHtml(baseApp.features_html || '').slice(0, 900).trim();
+  const customBox = stripHtml(baseApp.custom_admin_box_html || baseApp.custom_admin_box_heading || '').slice(0, 400).trim();
+  const releaseNotes = stripHtml(baseApp.release_notes || '').slice(0, 300).trim();
+  const version = String(baseApp.version || '').trim();
+  const fileSize = String(baseApp.file_size || '').trim();
 
   let faqsSummary = '';
-  if (Array.isArray(app.faqs) && app.faqs.length > 0) {
-    faqsSummary = app.faqs.slice(0, 3).map((f: any) => `Q: ${stripHtml(f.question)} A: ${stripHtml(f.answer)}`).join(' | ');
+  if (Array.isArray(baseApp.faqs) && baseApp.faqs.length > 0) {
+    faqsSummary = baseApp.faqs.slice(0, 3).map((f: any) => `Q: ${stripHtml(f.question)} A: ${stripHtml(f.answer)}`).join(' | ');
   }
 
   return {
@@ -86,7 +109,10 @@ function buildStrictSystemInstructions(directives: BrainMemoryDirective[], tone:
   let toneGuideline = '';
   switch (tone) {
     case 'happy_with_emojis':
-      toneGuideline = 'Write enthusiastic, genuinely happy reviews with natural emojis (e.g. 😊, 👍, ⭐, 🔥, ❤️, 🙌). Sounds like satisfied everyday mobile users sharing love for the app.';
+      toneGuideline = 'Write enthusiastic, genuinely happy reviews with natural emojis (e.g. 😊, 👍, ⭐, ❤️, 🙌). Sounds like satisfied everyday mobile users sharing love for the app.';
+      break;
+    case 'super_excited_emojis':
+      toneGuideline = 'Write highly energetic, passionate 5-star reviews with vivid emojis (🔥, 🚀, 💯, ⭐, 🤩, 👏). Expresses true excitement about speed, graphics, and performance.';
       break;
     case 'hinglish_natural':
       toneGuideline = 'Use casual, natural colloquial phrasing typical of everyday mobile users (e.g. "kaafi smooth chal raha hai", "UI clean aur easy hai", "daily use ke liye badhiya app hai").';
@@ -95,10 +121,22 @@ function buildStrictSystemInstructions(directives: BrainMemoryDirective[], tone:
       toneGuideline = 'Use casual, natural everyday English. Avoid stiff corporate vocabulary. Friendly and human.';
       break;
     case 'short_punchy':
-      toneGuideline = 'Keep each review strictly 1 to 2 short sentences. Punchy and genuine.';
+      toneGuideline = 'Keep each review strictly 1 to 2 short sentences. Punchy, authentic, and direct.';
       break;
     case 'detailed_feedback':
       toneGuideline = 'Write 2 to 3 sentences discussing specific interface features, ease of use, or content playback.';
+      break;
+    case 'honest_balanced':
+      toneGuideline = 'Write balanced, authentic user reviews praising the strengths of the app while noting nice touches in usability.';
+      break;
+    case 'feature_focused':
+      toneGuideline = 'Focus deeply on feature smoothness, clean navigation, responsive touch controls, and lightweight storage usage.';
+      break;
+    case 'beginner_friendly':
+      toneGuideline = 'Write from the perspective of someone who just installed the app and found it extremely easy and intuitive to get started.';
+      break;
+    case 'daily_regular_user':
+      toneGuideline = 'Write from the perspective of a loyal, regular user who uses this app frequently on their phone and appreciates its consistent stability.';
       break;
     case 'all_rounder_standard':
     default:

@@ -79,12 +79,25 @@ export function normalizeSchemaCategory(rawCategory?: string): string {
 
 export function optimizeImageUrl(url: string, width = 128): string {
   if (!url) return '';
-  // Cloudinary image AVIF/WebP auto-format and quality optimization
+  // Cloudinary image auto-format and quality optimization
   if (url.includes('res.cloudinary.com') && url.includes('/upload/')) {
-    if (url.includes('f_auto') || url.includes('f_webp')) {
-      return url.replace(/w_\d+/, `w_${width}`);
+    if (width > 0) {
+      if (url.includes(`w_${width}`)) return url;
+      return url.replace(
+        /\/upload\/(?:(?:[a-z]{1,3}_[a-zA-Z0-9_.:-]+,?)+\/)*(?:(v\d+)\/)?/,
+        (_match, version) => {
+          const v = version ? `${version}/` : '';
+          return `/upload/f_auto,q_auto,w_${width}/${v}`;
+        }
+      );
     }
-    return url.replace('/upload/', `/upload/f_auto,q_auto,w_${width}/`);
+    return url.replace(
+      /\/upload\/(?:(?:[a-z]{1,3}_[a-zA-Z0-9_.:-]+,?)+\/)*(?:(v\d+)\/)?/,
+      (_match, version) => {
+        const v = version ? `${version}/` : '';
+        return `/upload/f_auto,q_auto/${v}`;
+      }
+    );
   }
   // Unsplash image WebP optimization
   if (url.includes('images.unsplash.com')) {
@@ -157,14 +170,24 @@ export function getOptimizedImageUrl(url?: string, width = 160): string {
   if (!url) return '';
   // Cloudinary dynamic optimization
   if (url.includes('res.cloudinary.com') && url.includes('/upload/')) {
-    if (url.includes(`w_${width}`)) {
-      return url;
+    if (width > 0) {
+      if (url.includes(`w_${width}`)) {
+        return url;
+      }
+      return url.replace(
+        /\/upload\/(?:(?:[a-z]{1,3}_[a-zA-Z0-9_.:-]+,?)+\/)*(?:(v\d+)\/)?/,
+        (_match, version) => {
+          const v = version ? `${version}/` : '';
+          return `/upload/f_webp,q_auto,w_${width}/${v}`;
+        }
+      );
     }
+    // Full size without width cutoff
     return url.replace(
       /\/upload\/(?:(?:[a-z]{1,3}_[a-zA-Z0-9_.:-]+,?)+\/)*(?:(v\d+)\/)?/,
       (_match, version) => {
         const v = version ? `${version}/` : '';
-        return `/upload/f_webp,q_auto,w_${width}/${v}`;
+        return `/upload/f_webp,q_auto/${v}`;
       }
     );
   }

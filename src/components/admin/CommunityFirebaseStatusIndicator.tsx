@@ -145,26 +145,21 @@ export const CommunityFirebaseStatusIndicator: React.FC = () => {
 
   return (
     <>
-      <div className="inline-flex items-center gap-1.5">
+      <div className="inline-flex items-center gap-1">
         <button
-          onClick={checkStatus}
-          type="button"
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-wider cursor-pointer transition-all border shadow-xs hover:scale-105 active:scale-95 whitespace-nowrap ${bgClass}`}
-          title="Click to re-test Community Review Firebase live connection"
-        >
-          <MessageSquare className="w-3.5 h-3.5 opacity-80 shrink-0" />
-          <div className={`w-2 h-2 rounded-full shrink-0 ${dotClass}`} />
-          <span>{label}</span>
-          <RefreshCw className={`w-3 h-3 opacity-70 ml-0.5 shrink-0 ${isRefreshing ? 'animate-spin text-blue-500' : ''}`} />
-        </button>
-
-        <button
-          type="button"
           onClick={() => setShowDetailsModal(true)}
-          className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer text-xs"
-          title="View Community Firebase Diagnostics"
+          type="button"
+          className={`inline-flex items-center gap-1 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[9px] sm:text-[10px] font-bold uppercase tracking-wider cursor-pointer transition-all border shadow-xs hover:scale-105 active:scale-95 whitespace-nowrap ${bgClass}`}
+          title="Click to view Community Review Firebase diagnostics"
         >
-          <Activity className="w-3.5 h-3.5" />
+          <MessageSquare className="hidden sm:inline-block w-2.5 sm:w-3 h-2.5 sm:h-3 opacity-80 shrink-0" />
+          <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotClass}`} />
+          <span className="hidden sm:inline">{label}</span>
+          <span className="sm:hidden font-mono font-bold text-[10px]">R</span>
+          <RefreshCw 
+            onClick={(e) => { e.stopPropagation(); checkStatus(); }}
+            className={`hidden sm:inline-block w-2.5 h-2.5 opacity-70 ml-0.5 shrink-0 ${isRefreshing ? 'animate-spin text-blue-500' : ''}`} 
+          />
         </button>
       </div>
 

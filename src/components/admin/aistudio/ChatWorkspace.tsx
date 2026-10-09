@@ -212,23 +212,49 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
       {/* Expandable Automation Controls Drawer */}
       {showControlsDrawer && (
         <div className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 p-3 sm:p-4 text-xs grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 shadow-inner flex-shrink-0 animate-in fade-in duration-150">
-          {/* 1. Reviews per app */}
+          {/* 1. Reviews per app (Supports custom numeric input & quick presets) */}
           <div className="space-y-1.5">
-            <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
-              <Layers className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-              <span>Reviews Per App</span>
+            <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+              <span className="flex items-center gap-1">
+                <Layers className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                <span>Reviews Per App</span>
+              </span>
+              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                {config.reviewsPerApp} each
+              </span>
             </label>
-            <select
-              value={config.reviewsPerApp}
-              onChange={e => onChangeConfig({ reviewsPerApp: Number(e.target.value) })}
-              className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-blue-500 font-medium"
-            >
-              <option value={1}>1 Review per app</option>
-              <option value={2}>2 Reviews per app</option>
-              <option value={3}>3 Reviews per app</option>
-              <option value={5}>5 Reviews per app</option>
-              <option value={10}>10 Reviews per app</option>
-            </select>
+            <div className="flex items-center gap-1.5">
+              <input
+                type="number"
+                min={1}
+                max={500}
+                value={config.reviewsPerApp || 1}
+                onChange={e => {
+                  const val = Math.max(1, Math.min(500, parseInt(e.target.value, 10) || 1));
+                  onChangeConfig({ reviewsPerApp: val });
+                }}
+                className="w-20 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-blue-500 font-bold text-center"
+                title="Type any custom number of reviews per selected app"
+              />
+              <select
+                value={[1, 2, 3, 5, 10, 20, 50].includes(config.reviewsPerApp) ? config.reviewsPerApp : 'custom'}
+                onChange={e => {
+                  if (e.target.value !== 'custom') {
+                    onChangeConfig({ reviewsPerApp: Number(e.target.value) });
+                  }
+                }}
+                className="flex-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-blue-500 font-medium"
+              >
+                <option value={1}>1 Review</option>
+                <option value={2}>2 Reviews</option>
+                <option value={3}>3 Reviews</option>
+                <option value={5}>5 Reviews</option>
+                <option value={10}>10 Reviews</option>
+                <option value={20}>20 Reviews</option>
+                <option value={50}>50 Reviews</option>
+                <option value="custom">Custom Count...</option>
+              </select>
+            </div>
           </div>
 
           {/* 2. Tone & Persona */}
@@ -244,10 +270,15 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
             >
               <option value="all_rounder_standard">Standard Everyday Users</option>
               <option value="happy_with_emojis">Happy with Emojis (😊👍⭐)</option>
+              <option value="super_excited_emojis">Super Excited & Passionate (🔥🚀💯)</option>
               <option value="hinglish_natural">Casual Indian / Hinglish</option>
               <option value="natural_english">Everyday Casual English</option>
               <option value="short_punchy">Short & Punchy (1-2 lines)</option>
-              <option value="detailed_feedback">Detailed Experience</option>
+              <option value="detailed_feedback">Detailed Experience (2-3 lines)</option>
+              <option value="honest_balanced">Honest & Balanced Praise</option>
+              <option value="feature_focused">Feature & UI Smoothness</option>
+              <option value="beginner_friendly">Beginner / First-Time User</option>
+              <option value="daily_regular_user">Loyal Regular User</option>
             </select>
           </div>
 
@@ -255,7 +286,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
           <div className="space-y-1.5">
             <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
               <Calendar className="w-3 h-3 text-cyan-600 dark:text-cyan-400" />
-              <span>Date Timeline (No Future)</span>
+              <span>Date Timeline (Strictly No Future)</span>
             </label>
             <select
               value={config.dateMode}
@@ -263,10 +294,16 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
               className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-blue-500 font-medium"
             >
               <option value="today_and_yesterday">50% Today, 50% Yesterday</option>
-              <option value="today_only">100% Today (Up to current hour)</option>
+              <option value="today_only">100% Today (Up to Current Hour)</option>
+              <option value="today_morning">Today Morning / Daytime Only</option>
+              <option value="today_evening">Today Evening / Night Only</option>
               <option value="yesterday_only">100% Yesterday</option>
+              <option value="last_2_days">Past 48 Hours</option>
               <option value="last_3_days">Past 3 Days</option>
+              <option value="last_5_days">Past 5 Days</option>
               <option value="last_7_days">Past 7 Days</option>
+              <option value="last_15_days">Past 15 Days</option>
+              <option value="last_30_days">Past 30 Days</option>
             </select>
           </div>
 
@@ -291,7 +328,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
       {/* Main Conversation Stream - Fills 100% of the Available Viewport */}
       <div 
         ref={chatScrollRef}
-        className="flex-1 p-3.5 sm:p-5 overflow-y-auto space-y-4 bg-slate-50/70 dark:bg-slate-950/80"
+        className="flex-1 min-h-0 p-3 sm:p-4 md:p-5 overflow-y-auto space-y-3 sm:space-y-4 bg-slate-50/70 dark:bg-slate-950/80"
       >
         {chatHistory.length === 0 ? (
           <div className="h-full min-h-[300px] flex flex-col items-center justify-center text-center p-6 space-y-3.5">

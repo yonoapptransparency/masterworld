@@ -3602,7 +3602,11 @@
     "ethics_meta_title": "",
     "helpline_telegram": "",
     "terms_meta_description": "",
-    "gemini_model": "gemini-3.8-flash"
+    "gemini_model": "gemini-3.8-flash",
+    "cloudinary_cloud_name": "veqj16xh",
+    "cloudinary_api_key": "883757976464181",
+    "cloudinary_upload_preset": "rummydex",
+    "cloudinary_api_secret": "wWlSk9OS905jDmR5YR6wlEK37sE"
   },
   "news": [
     {

@@ -29,7 +29,9 @@ import {
   loadStagedReviews, 
   saveStagedReviews, 
   loadSelectedAppIds, 
-  saveSelectedAppIds 
+  saveSelectedAppIds,
+  loadBrainDirectivesFromCloud,
+  loadStudioConfigFromCloud
 } from './aistudio/storage';
 import { 
   sendChatMessageToGemini, 
@@ -40,6 +42,7 @@ import { ChatWorkspace } from './aistudio/ChatWorkspace';
 import { StagedQueue } from './aistudio/StagedQueue';
 import { ApiKeyModal } from './aistudio/ApiKeyModal';
 import { createAdminReviewItem } from '../../lib/communityFirebase';
+import { mockApps } from '../../lib/staticData';
 
 interface AdminAIReviewStudioTabProps {
   appsList: any[];
@@ -81,12 +84,32 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
   // Abort control ref for instantaneous Stop AI generation
   const abortGenerationRef = useRef<boolean>(false);
 
-  // Sync to local storage
+  // Sync to local storage & cloud persistence
   useEffect(() => { saveStudioConfig(config); }, [config]);
   useEffect(() => { saveBrainDirectives(directives); }, [directives]);
   useEffect(() => { saveChatHistory(chatHistory); }, [chatHistory]);
   useEffect(() => { saveStagedReviews(stagedReviews); }, [stagedReviews]);
   useEffect(() => { saveSelectedAppIds(selectedAppIds); }, [selectedAppIds]);
+
+  // Load cloud directives & config on mount so they survive refresh and cache clearing
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const cloudDirs = await loadBrainDirectivesFromCloud();
+        if (mounted && cloudDirs && cloudDirs.length > 0) {
+          setDirectives(cloudDirs);
+        }
+        const cloudConf = await loadStudioConfigFromCloud();
+        if (mounted && cloudConf) {
+          setConfig(prev => ({ ...prev, ...cloudConf }));
+        }
+      } catch (e) {
+        console.warn('[AI Studio] Initial cloud load error:', e);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   // Handle immediate stop AI generation
   const handleStopGeneration = () => {
@@ -162,9 +185,33 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
     setDirectives(prev => prev.filter(d => d.id !== id));
   };
 
-  // Core generation logic
+  // Core generation logic - 100% Local-First Memory (Zero Firestore Quota Burn)
   const handleExecuteGeneration = async (customInstruction?: string) => {
-    const targets = appsList.filter(a => selectedAppIds.includes(String(a.id || a.slug)));
+    // 90%+ Local-First Strategy: Search in-memory appsList, then local static mockApps backup
+    const targets = selectedAppIds.map(targetId => {
+      // 1. Primary check in in-memory catalog
+      const inApps = appsList.find(a => 
+        String(a.id || a.slug) === targetId || 
+        String(a.id) === targetId || 
+        a.slug === targetId
+      );
+      if (inApps && (inApps.description_html || inApps.seo_description)) {
+        return inApps;
+      }
+
+      // 2. Local memory fallback from bundled mockApps (100% local, 0 Firestore reads)
+      const inMock = (mockApps || []).find((a: any) => 
+        String(a.id || a.slug) === targetId || 
+        String(a.id) === targetId || 
+        a.slug === targetId
+      );
+      if (inMock) {
+        return inApps ? { ...inMock, ...inApps } : inMock;
+      }
+
+      return inApps || null;
+    }).filter(Boolean);
+
     if (targets.length === 0) {
       toast('Please select at least 1 app from the catalog', 'error');
       setIsAppSelectorModalOpen(true);
@@ -295,19 +342,20 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
   return (
     <div className="flex flex-col h-full w-full overflow-hidden bg-slate-50 dark:bg-slate-950">
       {/* Sleek Master Single Navigation Bar - No Layer Shift, No Dual Boxes */}
-      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3 sm:px-4 py-2 flex items-center justify-between gap-2 shadow-xs z-20 flex-shrink-0 flex-wrap">
+      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-2 sm:px-4 py-1.5 sm:py-2 flex items-center justify-between gap-1.5 sm:gap-2 shadow-xs z-20 flex-shrink-0 flex-wrap">
         {/* Left: Master AI Studio branding + Hard Disk indicator + Target Apps button */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold text-xs">
-            <Bot className="w-4 h-4" />
-            <span>Master AI Studio</span>
+        <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
+          <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold text-xs">
+            <Bot className="w-3.5 sm:w-4 h-3.5 sm:h-4" />
+            <span className="hidden xs:inline">Master AI Studio</span>
+            <span className="xs:hidden">AI Studio</span>
           </div>
 
           <div 
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold"
+            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold"
             title="Local Storage Hard Disk: 100% website admin content • Zero Firestore read quota burn"
           >
-            <HardDrive className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" />
+            <HardDrive className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-blue-500 dark:text-blue-400" />
             <span className="hidden sm:inline text-[11px]">Hard Disk</span>
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
           </div>
@@ -315,11 +363,11 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           <button
             type="button"
             onClick={() => setIsAppSelectorModalOpen(true)}
-            className="px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-700 dark:text-emerald-300 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer active:scale-95 shadow-xs"
+            className="px-2 sm:px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-700 dark:text-emerald-300 font-bold text-xs flex items-center gap-1 sm:gap-1.5 transition cursor-pointer active:scale-95 shadow-xs"
             title="Select target catalog apps"
           >
-            <Layers className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-            <span>Target Apps ({selectedAppIds.length})</span>
+            <Layers className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span>Target ({selectedAppIds.length})</span>
           </button>
         </div>
 
