@@ -35,7 +35,8 @@ import {
 } from './aistudio/storage';
 import { 
   sendChatMessageToGemini, 
-  generateReviewsForAppWithGemini 
+  generateReviewsForAppWithGemini,
+  detectConfigUpdatesFromChat
 } from './aistudio/geminiEngine';
 import { AppSelector } from './aistudio/AppSelector';
 import { ChatWorkspace } from './aistudio/ChatWorkspace';
@@ -84,9 +85,9 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
   // Abort control ref for instantaneous Stop AI generation
   const abortGenerationRef = useRef<boolean>(false);
 
-  // Sync to local storage & cloud persistence
-  useEffect(() => { saveStudioConfig(config); }, [config]);
-  useEffect(() => { saveBrainDirectives(directives); }, [directives]);
+  // Sync to local storage (instant local-first, zero reloads)
+  useEffect(() => { saveStudioConfig(config, false); }, [config]);
+  useEffect(() => { saveBrainDirectives(directives, false); }, [directives]);
   useEffect(() => { saveChatHistory(chatHistory); }, [chatHistory]);
   useEffect(() => { saveStagedReviews(stagedReviews); }, [stagedReviews]);
   useEffect(() => { saveSelectedAppIds(selectedAppIds); }, [selectedAppIds]);
@@ -142,6 +143,17 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
       }
     }
 
+    const chatConfigUpdates = detectConfigUpdatesFromChat(text);
+    if (!lower.startsWith('start') && !lower.startsWith('generate') && !lower.includes('stop')) {
+      setConfig(prev => ({
+        ...prev,
+        ...chatConfigUpdates,
+        activeSessionDirective: text.trim()
+      }));
+    } else if (Object.keys(chatConfigUpdates).length > 0) {
+      setConfig(prev => ({ ...prev, ...chatConfigUpdates }));
+    }
+
     const userMsg: ChatMessage = {
       id: `msg_${Date.now()}`,
       sender: 'user',
@@ -177,12 +189,16 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
       createdAt: new Date().toISOString(),
       active: true
     };
-    setDirectives(prev => [...prev, newDir]);
-    toast('New rule taught to Store Brain memory!', 'success');
+    const updated = [...directives, newDir];
+    setDirectives(updated);
+    saveBrainDirectives(updated, true);
+    toast('New rule taught to Store Brain memory & cloud!', 'success');
   };
 
   const handleRemoveDirective = (id: string) => {
-    setDirectives(prev => prev.filter(d => d.id !== id));
+    const updated = directives.filter(d => d.id !== id);
+    setDirectives(updated);
+    saveBrainDirectives(updated, true);
   };
 
   // Core generation logic - 100% Local-First Memory (Zero Firestore Quota Burn)
@@ -232,14 +248,14 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
 
       effectiveInstruction = recentUserThoughts.length > 0 
         ? recentUserThoughts.join(' | ') 
-        : config.customTopic || 'Natural everyday user reviews based strictly on the app content stored on the website.';
+        : (config.activeSessionDirective || config.customTopic || 'Natural everyday user reviews based strictly on the app content stored on the website.');
     }
 
     abortGenerationRef.current = false;
     setIsGenerating(true);
     setBatchProgress({ current: 0, total: targets.length, percent: 0, currentAppName: targets[0]?.name || '' });
 
-    const newStagedList: StagedReview[] = [];
+    let totalAutopilotGenerated = 0;
     let directPublishedCount = 0;
 
     for (let i = 0; i < targets.length; i++) {
@@ -247,6 +263,8 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
 
       const app = targets[i];
       const appTitle = app.name || app.title || `App ${i + 1}`;
+      const appRatingStr = app.rating ? `${Number(app.rating).toFixed(1)}★` : '4.5★';
+
       setBatchProgress({
         current: i + 1,
         total: targets.length,
@@ -283,27 +301,85 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
             } catch (_) {}
           }
         } else {
-          newStagedList.push(...generated);
+          // 🚀 REAL-TIME AUTOPILOT STREAM: Immediately stock this app's reviews in Staged Deck!
+          totalAutopilotGenerated += generated.length;
+          setStagedReviews(prev => [...generated, ...prev]);
         }
-      } catch (_) {}
+
+        // Live Chat Progress Event
+        const isLast = i === targets.length - 1;
+        const liveMsg: ChatMessage = {
+          id: `msg_auto_${Date.now()}_${i}`,
+          sender: 'assistant',
+          text: `✅ [${appTitle}] completed (${i + 1}/${targets.length})! Generated ${generated.length} reviews (Balanced to ${appRatingStr}) and stocked into Staged Deck. ${!isLast ? `Proceeding to next app: "${targets[i + 1]?.name || 'Next'}"...` : '🎉 Autopilot completed all selected apps!'}`,
+          timestamp: new Date().toISOString()
+        };
+        setChatHistory(prev => [...prev, liveMsg]);
+
+        // Pacing delay between apps to prevent API quota exhaustion and allow UI render updates
+        if (!isLast && !abortGenerationRef.current) {
+          await new Promise(resolve => setTimeout(resolve, 400));
+        }
+      } catch (err: any) {
+        console.warn(`[Autopilot] Error on ${appTitle}, continuing smoothly:`, err);
+        const errMsg: ChatMessage = {
+          id: `msg_auto_err_${Date.now()}_${i}`,
+          sender: 'assistant',
+          text: `⚠️ [${appTitle}] encountered a temporary issue (${err?.message || 'retry needed'}). Safely preserved all generated reviews and advancing to next app...`,
+          timestamp: new Date().toISOString()
+        };
+        setChatHistory(prev => [...prev, errMsg]);
+      }
     }
 
     const wasStopped = abortGenerationRef.current;
     setIsGenerating(false);
 
-    if (newStagedList.length > 0) {
-      setStagedReviews(prev => [...newStagedList, ...prev]);
-    }
-
     if (wasStopped) {
-      toast(`Generation stopped! ${config.publishMode === 'auto_direct' ? directPublishedCount : newStagedList.length} reviews saved.`, 'info');
+      toast(`Autopilot stopped! ${config.publishMode === 'auto_direct' ? directPublishedCount : totalAutopilotGenerated} reviews safely preserved.`, 'info');
     } else if (config.publishMode === 'auto_direct') {
       toast(`Directly posted ${directPublishedCount} reviews to Live Community!`, 'success');
       if (onReviewsGenerated) onReviewsGenerated();
     } else {
-      setActiveTab('staged');
-      toast(`Generated ${newStagedList.length} reviews! Staged in deck for your preview.`, 'success');
+      toast(`Autopilot complete! ${totalAutopilotGenerated} reviews stocked across all apps.`, 'success');
     }
+  };
+
+  // Publish staged reviews for a single targeted app to Firestore Community
+  const handlePublishAppToFirestore = async (appId: string) => {
+    const appReviews = stagedReviews.filter(r => String(r.appId || r.appSlug || '') === appId);
+    if (appReviews.length === 0) return;
+    setIsPublishing(true);
+
+    try {
+      let publishedCount = 0;
+      for (const review of appReviews) {
+        await createAdminReviewItem({
+          appId: review.appId,
+          appName: review.appName,
+          appSlug: review.appSlug,
+          userName: review.userName,
+          rating: review.rating,
+          reviewText: review.reviewText,
+          timestamp: review.timestamp,
+          status: 'published'
+        });
+        publishedCount++;
+      }
+
+      setStagedReviews(prev => prev.filter(r => String(r.appId || r.appSlug || '') !== appId));
+      toast(`Successfully published ${publishedCount} reviews for ${appReviews[0]?.appName || 'app'} to Live Community!`, 'success');
+      if (onReviewsGenerated) onReviewsGenerated();
+    } catch (err: any) {
+      toast(`Error publishing: ${err.message}`, 'error');
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  const handleClearAppReviews = (appId: string) => {
+    setStagedReviews(prev => prev.filter(r => String(r.appId || r.appSlug || '') !== appId));
+    toast('Cleared reviews for this app', 'info');
   };
 
   // Publish all staged reviews to Firestore Community (Write-Only)
@@ -488,17 +564,17 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
         </div>
       </div>
 
-      {/* Generation Progress Bar (when active) */}
+      {/* Autopilot Real-time Stream Banner (when active) */}
       {isGenerating && (
-        <div className="bg-emerald-50 dark:bg-emerald-950/90 border-b border-emerald-200 dark:border-emerald-500/40 px-3 sm:px-4 py-2 flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-200 flex-shrink-0">
-          <div className="flex items-center gap-2.5">
+        <div className="bg-emerald-50 dark:bg-emerald-950/90 border-b border-emerald-200 dark:border-emerald-500/40 px-3 sm:px-4 py-2 flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-200 flex-shrink-0 flex-wrap gap-2">
+          <div className="flex items-center gap-2.5 overflow-hidden">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping flex-shrink-0" />
             <div className="truncate">
               <span className="font-bold text-emerald-900 dark:text-white">
-                Reading app {batchProgress.current} of {batchProgress.total}
+                Autopilot running: App {batchProgress.current} of {batchProgress.total}
               </span>
               {batchProgress.currentAppName && (
-                <span className="text-emerald-700 dark:text-emerald-300 font-semibold ml-1.5 truncate">
+                <span className="text-emerald-700 dark:text-emerald-300 font-bold ml-1.5 truncate">
                   • {batchProgress.currentAppName}
                 </span>
               )}
@@ -506,11 +582,33 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
+            {activeTab === 'staged' ? (
+              <button
+                type="button"
+                onClick={() => setActiveTab('studio')}
+                className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-[11px] flex items-center gap-1 cursor-pointer transition shadow-xs active:scale-95"
+                title="Return to Chat while Autopilot continues in background"
+              >
+                <span>Back to Chat</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setActiveTab('staged')}
+                className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[11px] flex items-center gap-1 cursor-pointer transition shadow-xs active:scale-95"
+                title="Inspect real-time stocked reviews while Autopilot runs"
+              >
+                <Layers className="w-3 h-3" />
+                <span>View Staged Stock ({stagedReviews.length})</span>
+              </button>
+            )}
+
             <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{batchProgress.percent}%</span>
             <button
               type="button"
               onClick={handleStopGeneration}
               className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-[11px] flex items-center gap-1 transition cursor-pointer active:scale-95 shadow-xs"
+              title="Stop Autopilot immediately"
             >
               <Square className="w-3 h-3 fill-current" />
               <span>Stop</span>
@@ -528,7 +626,13 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
             selectedAppIds={selectedAppIds}
             appsCount={appsList.length}
             config={config}
-            onChangeConfig={updates => setConfig(prev => ({ ...prev, ...updates }))}
+            onChangeConfig={updates => {
+              setConfig(prev => {
+                const next = { ...prev, ...updates };
+                saveStudioConfig(next, true);
+                return next;
+              });
+            }}
             onSendMessage={handleSendChatMessage}
             onAddDirective={handleAddDirective}
             onRemoveDirective={handleRemoveDirective}
@@ -549,11 +653,14 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
             stagedReviews={stagedReviews}
             onDeleteReview={id => setStagedReviews(prev => prev.filter(r => r.id !== id))}
             onClearAll={() => setStagedReviews([])}
+            onClearAppReviews={handleClearAppReviews}
             onUpdateReview={(id, updates) =>
               setStagedReviews(prev => prev.map(r => (r.id === id ? { ...r, ...updates } : r)))
             }
             onPublishAllToFirestore={handlePublishAllToFirestore}
+            onPublishAppToFirestore={handlePublishAppToFirestore}
             isPublishing={isPublishing}
+            onBackToChat={() => setActiveTab('studio')}
           />
         )}
       </div>

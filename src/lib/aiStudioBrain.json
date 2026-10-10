@@ -1,0 +1,43 @@
+{
+  "directives": [
+    {
+      "id": "dir_1",
+      "rule": "Never sound robotic or like marketing copy. Write like regular, authentic everyday people who downloaded the app.",
+      "category": "persona",
+      "createdAt": "2026-10-09T19:25:00.959Z",
+      "active": true
+    },
+    {
+      "id": "dir_2",
+      "rule": "Deep app understanding: strictly ground every comment in the specific app’s real features, category, UI, and content stored on our website.",
+      "category": "topic",
+      "createdAt": "2026-10-09T19:25:00.959Z",
+      "active": true
+    },
+    {
+      "id": "dir_3",
+      "rule": "All-rounder adaptability: adapt vocabulary naturally to the app genre (entertainment, card game, casual arcade, tools) without forcing money or gambling terms.",
+      "category": "general",
+      "createdAt": "2026-10-09T19:25:00.959Z",
+      "active": true
+    },
+    {
+      "id": "dir_4",
+      "rule": "Realistic dates: strictly past or current day timestamps (never future dates) with natural hour and minute distribution.",
+      "category": "date",
+      "createdAt": "2026-10-09T19:25:00.959Z",
+      "active": true
+    }
+  ],
+  "config": {
+    "reviewsPerApp": 2,
+    "languageTone": "all_rounder_standard",
+    "dateMode": "today_and_yesterday",
+    "ratingMix": "natural",
+    "publishMode": "wait_approve",
+    "model": "gemini-flash-latest",
+    "activeSessionDirective": "",
+    "updatedAt": "2026-10-10T07:14:19.151Z"
+  },
+  "updatedAt": "2026-10-10T07:14:19.939Z"
+}

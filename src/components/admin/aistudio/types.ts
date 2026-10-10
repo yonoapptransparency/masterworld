@@ -43,10 +43,17 @@ export type DateDistributionMode =
   | 'last_30_days';       // Spread across last month (no future)
 
 export type RatingMixMode = 
-  | 'natural'             // ~80% 5-star, 15% 4-star, 5% 3-star
+  | 'auto_app_rating'     // Smart Auto: Automatically matches the app's real catalog rating score (e.g. 4.3★)
   | 'all_5_star'          // 100% 5-star
+  | 'all_4_star'          // 100% 4-star
+  | 'all_3_star'          // 100% 3-star (neutral/average feedback)
+  | 'all_2_star'          // 100% 2-star (issues/missing features)
+  | 'all_1_star'          // 100% 1-star (complaints/bugs/crashes)
+  | 'organic_full_mix'    // Full 1 to 5 star realistic mix (complaints, praise, suggestions)
+  | 'critical_bugs'       // 1-star & 2-star critical bug and improvement feedback
   | 'high_praise'         // 90% 5-star, 10% 4-star
-  | 'balanced_critical';  // 60% 5-star, 30% 4-star, 10% 3-star
+  | 'natural'             // Default: ~75% 5-star, 20% 4-star, 5% 3-star
+  | 'balanced_critical';  // 50% 5-star, 30% 4-star, 20% 1-3 star
 
 export type LanguageToneMode = 
   | 'all_rounder_standard'  // Standard, normal everyday users across all categories
@@ -74,4 +81,5 @@ export interface StudioConfig {
   languageTone: LanguageToneMode;
   customTopic: string;
   publishMode: PublishMode;
+  activeSessionDirective?: string; // Live directive agreed in chat or typed in custom box
 }

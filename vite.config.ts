@@ -132,6 +132,59 @@ function adminAuthDevPlugin(env: Record<string, string>) {
           }
         }
 
+        if (req.url && req.url.startsWith('/api/v1/admin/community/aistudio-settings')) {
+          const dataDir = path.resolve(__dirname, '.data');
+          const persistentBrainPath = path.join(dataDir, 'aiStudioBrain.json');
+          const seedBrainPath = path.resolve(__dirname, 'src/lib/aiStudioBrain.json');
+
+          if (req.method === 'POST') {
+            let body = '';
+            req.on('data', (chunk: any) => { body += chunk; });
+            req.on('end', () => {
+              try {
+                const payload = JSON.parse(body || '{}');
+                let existing = {};
+                if (fs.existsSync(persistentBrainPath)) {
+                  try { existing = JSON.parse(fs.readFileSync(persistentBrainPath, 'utf8')); } catch (_) {}
+                } else if (fs.existsSync(seedBrainPath)) {
+                  try { existing = JSON.parse(fs.readFileSync(seedBrainPath, 'utf8')); } catch (_) {}
+                }
+                const merged = { ...existing, ...payload, updatedAt: new Date().toISOString() };
+                if (!fs.existsSync(dataDir)) {
+                  fs.mkdirSync(dataDir, { recursive: true });
+                }
+                fs.writeFileSync(persistentBrainPath, JSON.stringify(merged, null, 2), 'utf8');
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: true, message: 'Settings saved permanently.' }));
+              } catch (e: any) {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, error: e?.message }));
+              }
+            });
+            return;
+          }
+
+          if (req.method === 'GET') {
+            try {
+              if (fs.existsSync(persistentBrainPath)) {
+                const data = JSON.parse(fs.readFileSync(persistentBrainPath, 'utf8'));
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: true, data }));
+                return;
+              }
+              if (fs.existsSync(seedBrainPath)) {
+                const data = JSON.parse(fs.readFileSync(seedBrainPath, 'utf8'));
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: true, data }));
+                return;
+              }
+            } catch (_) {}
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, data: null }));
+            return;
+          }
+        }
+
         if (req.url && req.url.startsWith('/api/v1/admin/upload/signature')) {
           const timestamp = Math.round(Date.now() / 1000);
           const cloudName = (env.CLOUDINARY_CLOUD_NAME || process.env.CLOUDINARY_CLOUD_NAME || 'veqj16xh').trim();
@@ -472,9 +525,14 @@ export default defineConfig(({mode}) => {
       }
     },
     server: {
-      
-      // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      // Do not modifyâ€”file watching is disabled to prevent flickering during agent edits.
+      watch: {
+        ignored: [
+          '**/.data/**',
+          '**/aiStudioBrain.json',
+          '**/*.log',
+          '**/server_requests.log'
+        ]
+      }
     },
   };
 });

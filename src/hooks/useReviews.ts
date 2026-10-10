@@ -374,7 +374,17 @@ export function useLiveAppStats(appId: string, appSlug?: string, fallbackRating:
 
     if (typeof window !== 'undefined') {
       window.addEventListener('community-review-added', handleUpdate);
-      return () => window.removeEventListener('community-review-added', handleUpdate);
+      window.addEventListener('community-review-deleted', handleUpdate);
+      window.addEventListener('community-reviews-updated', handleUpdate);
+      window.addEventListener('community-reviews-cleared', handleUpdate);
+      window.addEventListener('atomic_review_counts_updated', handleUpdate);
+      return () => {
+        window.removeEventListener('community-review-added', handleUpdate);
+        window.removeEventListener('community-review-deleted', handleUpdate);
+        window.removeEventListener('community-reviews-updated', handleUpdate);
+        window.removeEventListener('community-reviews-cleared', handleUpdate);
+        window.removeEventListener('atomic_review_counts_updated', handleUpdate);
+      };
     }
   }, [cleanId, cleanSlug]);
 

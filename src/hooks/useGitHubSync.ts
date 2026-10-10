@@ -543,8 +543,8 @@ export function useGitHubSync(
 
         const avg = count > 0 ? Math.round((appRatingSum / count) * 10) / 10 : (Number(a.rating) || 4.5);
         const appStatObj = {
-          total: count || Number(a.review_count || a.reviews || 0),
-          published: count || Number(a.review_count || a.reviews || 0),
+          total: count,
+          published: count,
           pending: 0,
           rejected: 0,
           flagged: 0,

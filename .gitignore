@@ -12,6 +12,7 @@ service-account.json
 src/lib/public_backup.json
 src/lib/secure_links_backup.json
 .local/
+.data/
 community-service-account.json
 src/lib/autopilot_checkpoint.json*
 mock-2fa-state.json

@@ -14,12 +14,64 @@ import {
   fetchLiveReviews,
   submitLiveReview,
   voteLiveReviewHelpful,
-  reportLiveReview
+  reportLiveReview,
+  persistAuthoritativeAtomicCatalogStats
 } from '../../lib/communityFirebase';
 import communityCatalogStats from '../../lib/communityCatalogStats.json';
 import communityStaticReviews from '../../lib/communityStaticReviews.json';
+import fs from 'fs';
+import path from 'path';
 
 export const communityRouter = Router();
+
+// AI Review Studio Brain & Directives Server Persistence (Zero-Quota, 100% Reliable)
+let inMemoryAiStudioBrain: any = null;
+const DATA_DIR = path.join(process.cwd(), '.data');
+const PERSISTENT_BRAIN_FILE = path.join(DATA_DIR, 'aiStudioBrain.json');
+const SEED_BRAIN_FILE = path.join(process.cwd(), 'src', 'lib', 'aiStudioBrain.json');
+
+communityRouter.get('/api/v1/admin/community/aistudio-settings', async (req, res) => {
+  try {
+    if (inMemoryAiStudioBrain) {
+      return res.json({ success: true, data: inMemoryAiStudioBrain });
+    }
+    // 1. Try persistent file in .data/ (outside src/ so Vite never reloads)
+    if (fs.existsSync(PERSISTENT_BRAIN_FILE)) {
+      const data = JSON.parse(fs.readFileSync(PERSISTENT_BRAIN_FILE, 'utf8'));
+      inMemoryAiStudioBrain = data;
+      return res.json({ success: true, data });
+    }
+    // 2. Fallback to seed in src/lib/ if persistent file does not exist yet
+    if (fs.existsSync(SEED_BRAIN_FILE)) {
+      const data = JSON.parse(fs.readFileSync(SEED_BRAIN_FILE, 'utf8'));
+      inMemoryAiStudioBrain = data;
+      return res.json({ success: true, data });
+    }
+    res.json({ success: true, data: null });
+  } catch (err: any) {
+    res.json({ success: true, data: inMemoryAiStudioBrain || null });
+  }
+});
+
+communityRouter.post('/api/v1/admin/community/aistudio-settings', async (req, res) => {
+  try {
+    const payload = req.body || {};
+    inMemoryAiStudioBrain = {
+      ...(inMemoryAiStudioBrain || {}),
+      ...payload,
+      updatedAt: new Date().toISOString()
+    };
+    try {
+      if (!fs.existsSync(DATA_DIR)) {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+      }
+      fs.writeFileSync(PERSISTENT_BRAIN_FILE, JSON.stringify(inMemoryAiStudioBrain, null, 2), 'utf8');
+    } catch (_) {}
+    res.json({ success: true, message: 'Settings saved permanently.' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message });
+  }
+});
 
 // Public reviews endpoints
 communityRouter.get('/api/v1/public/community/reviews', async (req, res) => {
@@ -142,8 +194,8 @@ communityRouter.put('/api/v1/admin/community/reviews/:id', async (req, res) => {
 communityRouter.patch('/api/v1/admin/community/reviews/:id/status', async (req, res) => {
   try {
     const id = req.params.id;
-    const { status } = req.body || {};
-    const success = await setAdminReviewStatus(id, status);
+    const { status, oldStatus, appId, appSlug, rating } = req.body || {};
+    const success = await setAdminReviewStatus(id, status, { appId, appSlug, rating, status: oldStatus });
     res.json({ success });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message });
@@ -164,8 +216,25 @@ communityRouter.patch('/api/v1/admin/community/reviews/:id/pin', async (req, res
 communityRouter.delete('/api/v1/admin/community/reviews/:id', async (req, res) => {
   try {
     const id = req.params.id;
-    const success = await deleteAdminReviewItem(id);
+    const appId = String(req.query.appId || req.body?.appId || '');
+    const appSlug = String(req.query.appSlug || req.body?.appSlug || '');
+    const rating = Number(req.query.rating || req.body?.rating) || 5;
+    const status = String(req.query.status || req.body?.status || 'published');
+    const success = await deleteAdminReviewItem(id, { appId, appSlug, rating, status });
     res.json({ success });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message });
+  }
+});
+
+communityRouter.post('/api/v1/admin/community/recalculate', async (req, res) => {
+  try {
+    const result = await persistAuthoritativeAtomicCatalogStats();
+    try {
+      const statsFile = path.join(process.cwd(), 'src', 'lib', 'communityCatalogStats.json');
+      fs.writeFileSync(statsFile, JSON.stringify(result, null, 2), 'utf8');
+    } catch (_) {}
+    res.json(result);
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message });
   }

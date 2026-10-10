@@ -160,6 +160,14 @@ async function startServer() {
         server: {
           middlewareMode: true,
           hmr: isHmrDisabled ? false : undefined,
+          watch: {
+            ignored: [
+              '**/.data/**',
+              '**/aiStudioBrain.json',
+              '**/*.log',
+              '**/server_requests.log'
+            ]
+          }
         },
         appType: "custom",
       });
