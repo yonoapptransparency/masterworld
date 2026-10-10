@@ -301,11 +301,17 @@ export async function signInAdmin(
         }
       } catch (_) {}
 
-      const configuredAdminEmail = (import.meta.env?.VITE_ADMIN_EMAIL || "defentechscholar@gmail.com").toLowerCase().trim();
+      const configuredAdminEmail = (
+        (typeof process !== 'undefined' && process.env?.VITE_ADMIN_EMAIL) ||
+        (typeof process !== 'undefined' && process.env?.ADMIN_EMAIL) ||
+        import.meta.env?.VITE_ADMIN_EMAIL ||
+        import.meta.env?.ADMIN_EMAIL ||
+        ""
+      ).toLowerCase().trim();
       const userEmail = email.toLowerCase().trim();
 
-      // On Cloudflare Pages / Static Hosting: authorize if server verified OR email matches admin
-      if (isVerifiedOnServer || userEmail === configuredAdminEmail || userEmail === "defentechscholar@gmail.com") {
+      // Authorize if server verified OR matches configured admin email from environment
+      if (isVerifiedOnServer || (configuredAdminEmail && userEmail === configuredAdminEmail)) {
         // Synchronize client-side Firebase Auth state if not already logged in
         try {
           const { getAuth, signInWithEmailAndPassword } = await import('firebase/auth');
@@ -328,7 +334,7 @@ export async function signInAdmin(
       return { ok: false, error: "ADMIN_ACCESS_DENIED" };
     }
 
-    // Step 3: Backend Direct Login Fallback (/api/v1/admin/login)
+    // Step 3: Backend Direct Login (/api/v1/admin/login)
     try {
       const directRes = await fetch("/api/v1/admin/login", {
         method: "POST",
@@ -336,36 +342,45 @@ export async function signInAdmin(
         body: JSON.stringify({ email, password, code }),
       });
 
-      const directData = await directRes.json().catch(() => ({}));
-      
-      if (directData?.mfaRequired) {
-        return { ok: true, mfaRequired: true };
-      }
+      const contentType = directRes.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
+        const directData = await directRes.json().catch(() => ({}));
+        
+        if (directData?.mfaRequired) {
+          return { ok: true, mfaRequired: true };
+        }
 
-      if (directRes.ok && directData.token) {
-        const session: AdminSession = {
-          idToken: directData.token,
-          refreshToken: "SERVER_SESSION",
-          email: email.toLowerCase().trim(),
-          expiresAt: Date.now() + TOKEN_LIFETIME_MS,
-        };
-        saveSession(session);
-        return { ok: true, session };
-      }
-    } catch (_) {}
+        if (directRes.ok && directData.token) {
+          const session: AdminSession = {
+            idToken: directData.token,
+            refreshToken: directData.session?.refreshToken || "SERVER_SESSION",
+            email: email.toLowerCase().trim(),
+            expiresAt: Date.now() + TOKEN_LIFETIME_MS,
+          };
+          saveSession(session);
+          return { ok: true, session };
+        }
 
-    // Step 4: Static Hosting Direct Verification Fallback (for Cloudflare Pages / Vercel without active Node backend)
+        if (directData?.error) {
+          return { ok: false, error: directData.error };
+        }
+      }
+    } catch (directErr) {
+      console.warn("Direct login request failed:", directErr);
+    }
+
+    // Step 4: Build-time / Static Hosting Direct Verification Fallback
     const configuredAdminEmail = (
-      (typeof process !== 'undefined' && process.env?.ADMIN_EMAIL) ||
       (typeof process !== 'undefined' && process.env?.VITE_ADMIN_EMAIL) ||
+      (typeof process !== 'undefined' && process.env?.ADMIN_EMAIL) ||
       import.meta.env?.VITE_ADMIN_EMAIL ||
       import.meta.env?.ADMIN_EMAIL ||
-      "defentechscholar@gmail.com"
+      ""
     ).toLowerCase().trim();
 
     const configuredAdminPass = (
-      (typeof process !== 'undefined' && process.env?.ADMIN_PASSWORD) ||
       (typeof process !== 'undefined' && process.env?.VITE_ADMIN_PASSWORD) ||
+      (typeof process !== 'undefined' && process.env?.ADMIN_PASSWORD) ||
       import.meta.env?.VITE_ADMIN_PASSWORD ||
       import.meta.env?.ADMIN_PASSWORD ||
       ""
@@ -374,12 +389,12 @@ export async function signInAdmin(
     const inputEmail = email.toLowerCase().trim();
     const inputPass = password.trim();
 
-    const isEmailValid = (inputEmail === configuredAdminEmail || inputEmail === "defentechscholar@gmail.com");
-    const isPassValid = (configuredAdminPass && inputPass === configuredAdminPass) || (inputPass === "PicPass2026!");
+    const isEmailValid = configuredAdminEmail && inputEmail === configuredAdminEmail;
+    const isPassValid = configuredAdminPass && inputPass === configuredAdminPass;
 
     if (isEmailValid && isPassValid) {
       try {
-        const payload = JSON.stringify({ admin: true, email: configuredAdminEmail, exp: Date.now() + 86400000 });
+        const payload = JSON.stringify({ admin: true, email: configuredAdminEmail, exp: Date.now() + TOKEN_LIFETIME_MS });
         const token = safeEncrypt(payload, getFallbackAes());
         const session: AdminSession = {
           idToken: token,
@@ -434,21 +449,6 @@ export async function adminFetch(
       } else {
         token = rawSession.idToken;
       }
-    }
-    if (!token && !existingAuth) {
-      try {
-        const payload = JSON.stringify({ admin: true, email: 'defentechscholar@gmail.com', exp: Date.now() + 30 * 24 * 60 * 60 * 1000 });
-        const autoToken = safeEncrypt(payload, getFallbackAes());
-        if (autoToken) {
-          token = autoToken;
-          saveSession({
-            idToken: autoToken,
-            refreshToken: 'AUTO_ADMIN_SESSION',
-            email: 'defentechscholar@gmail.com',
-            expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000
-          });
-        }
-      } catch (_) {}
     }
     if (!token && !existingAuth) {
       return new Response(JSON.stringify({ error: "Unauthorized: Session expired. Please log in again." }), {

@@ -11,16 +11,9 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
   const [showMfa, setShowMfa] = useState(false);
   const [mfaCode, setMfaCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [email, setEmail] = useState(() => (typeof process !== 'undefined' && process.env?.ADMIN_EMAIL) || import.meta.env?.VITE_ADMIN_EMAIL || 'defentechscholar@gmail.com');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [mode, setMode] = useState<'google' | 'password'>('password');
-
-  const isDevPreview = typeof window !== 'undefined' && (
-    window.location.hostname.includes('run.app') ||
-    window.location.hostname.includes('localhost') ||
-    window.location.hostname.includes('127.0.0.1') ||
-    window.location.hostname.includes('webcontainer')
-  ) && !window.location.hostname.includes('rummydex.com');
+  const [mode, setMode] = useState<'password' | 'google'>('password');
 
   useEffect(() => {
     if (!isFirebaseReal || !auth) return;
@@ -32,25 +25,33 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
           const user = result.user;
           const idToken = await user.getIdToken();
           const refreshToken = user.refreshToken || '';
-          
           const userEmail = (user.email || '').toLowerCase().trim();
-          const configuredEmail = (import.meta.env?.VITE_ADMIN_EMAIL || 'defentechscholar@gmail.com').toLowerCase().trim();
           
           try {
             const verifyRes = await fetch("/api/v1/admin/google-login", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ idToken }),
+              body: JSON.stringify({ idToken, email: userEmail }),
             });
             if (verifyRes.ok) {
               const verifyData = await verifyRes.json();
-              onSuccess(verifyData.token, refreshToken, userEmail);
-              return;
+              if (verifyData.token) {
+                onSuccess(verifyData.token, refreshToken, userEmail);
+                return;
+              }
             }
           } catch (_) {}
 
-          // Static host fallback (e.g. Cloudflare Pages): authorize if authenticated email matches admin
-          if (userEmail === configuredEmail || userEmail === 'defentechscholar@gmail.com') {
+          // Check against configured admin email from environment
+          const configuredEmail = (
+            (typeof process !== 'undefined' && process.env?.VITE_ADMIN_EMAIL) ||
+            (typeof process !== 'undefined' && process.env?.ADMIN_EMAIL) ||
+            import.meta.env?.VITE_ADMIN_EMAIL ||
+            import.meta.env?.ADMIN_EMAIL ||
+            ''
+          ).toLowerCase().trim();
+
+          if (configuredEmail && userEmail === configuredEmail) {
             onSuccess(idToken, refreshToken, userEmail);
             return;
           } else {
@@ -78,23 +79,31 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
           if (popupResult && popupResult.user) {
             const idToken = await popupResult.user.getIdToken();
             const userEmail = (popupResult.user.email || '').toLowerCase().trim();
-            const configuredEmail = (import.meta.env?.VITE_ADMIN_EMAIL || 'defentechscholar@gmail.com').toLowerCase().trim();
 
             try {
               const verifyRes = await fetch("/api/v1/admin/google-login", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ idToken }),
+                body: JSON.stringify({ idToken, email: userEmail }),
               });
               if (verifyRes.ok) {
                 const verifyData = await verifyRes.json();
-                onSuccess(verifyData.token, popupResult.user.refreshToken || '', userEmail);
-                return;
+                if (verifyData.token) {
+                  onSuccess(verifyData.token, popupResult.user.refreshToken || '', userEmail);
+                  return;
+                }
               }
             } catch (_) {}
 
-            // Static host fallback (e.g. Cloudflare Pages): authorize if authenticated email matches admin
-            if (userEmail === configuredEmail || userEmail === 'defentechscholar@gmail.com') {
+            const configuredEmail = (
+              (typeof process !== 'undefined' && process.env?.VITE_ADMIN_EMAIL) ||
+              (typeof process !== 'undefined' && process.env?.ADMIN_EMAIL) ||
+              import.meta.env?.VITE_ADMIN_EMAIL ||
+              import.meta.env?.ADMIN_EMAIL ||
+              ''
+            ).toLowerCase().trim();
+
+            if (configuredEmail && userEmail === configuredEmail) {
               onSuccess(idToken, popupResult.user.refreshToken || '', userEmail);
               return;
             } else {
@@ -122,7 +131,7 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
   const handlePasswordSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
-      setError('Please enter your admin email and password.');
+      setError('Please enter both your administrator email and password.');
       return;
     }
     setIsLoading(true);
@@ -134,12 +143,8 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
         setShowMfa(true);
       } else if (res.ok && res.session) {
         onSuccess(res.session.idToken, res.session.refreshToken, res.session.email);
-      } else if (isDevPreview && email.toLowerCase().trim() === 'defentechscholar@gmail.com') {
-        // Instant dev fallback in AI Studio preview so owner is never blocked by password mismatches
-        const devToken = 'adm_dev_' + btoa('defentechscholar@gmail.com:' + Date.now());
-        onSuccess(devToken, 'DEV_SESSION', 'defentechscholar@gmail.com');
       } else {
-        setError(res.error || 'Invalid administrator credentials.');
+        setError(res.error || 'Invalid administrator email or password.');
       }
     } catch (err: any) {
       setError(err.message || 'Server connection error during login.');
@@ -245,36 +250,15 @@ export default function AdminLogin({ onSuccess }: { onSuccess: (idToken: string,
               />
             </div>
           )}
-  <button
-type="submit"
-                disabled={isLoading}
-                className="w-full mt-2 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl py-3.5 text-sm transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoading ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <Key className="w-4 h-4" />}
-                <span>{isLoading ? 'Authenticating Session...' : 'Sign In to Admin Dashboard'}</span>
-              </button>
-
-              {isDevPreview && (
-                <div className="pt-2">
-                  <div className="relative flex py-2 items-center">
-                    <div className="flex-grow border-t border-zinc-800"></div>
-                    <span className="flex-shrink mx-2 text-[10px] text-zinc-500 font-bold uppercase tracking-wider">AI Studio Direct Access</span>
-                    <div className="flex-grow border-t border-zinc-800"></div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const devToken = 'adm_dev_' + btoa('defentechscholar@gmail.com:' + Date.now());
-                      onSuccess(devToken, 'DEV_SESSION', 'defentechscholar@gmail.com');
-                    }}
-                    className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl py-3 text-xs sm:text-sm transition-all shadow-[0_0_25px_rgba(16,185,129,0.3)] active:scale-[0.98] cursor-pointer"
-                  >
-                    <span className="text-base">⚡</span>
-                    <span>1-Tap Instant Login (No Password Needed)</span>
-                  </button>
-                </div>
-              )}
-            </form>
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full mt-2 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl py-3.5 text-sm transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          >
+            {isLoading ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <Key className="w-4 h-4" />}
+            <span>{isLoading ? 'Authenticating Session...' : 'Sign In to Admin Dashboard'}</span>
+          </button>
+        </form>
           ) : (
             <div className="space-y-4">
               <button

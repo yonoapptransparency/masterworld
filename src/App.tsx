@@ -42,17 +42,42 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 }
 
 // Polished, high-performance loading screen
-function LoadingScreen() {
+function LoadingScreen({ message = "Loading..." }: { message?: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 min-h-[40vh]">
       <div className="w-8 h-8 border-[3px] border-black/10 dark:border-white/10 border-t-blue-500 rounded-full animate-spin mb-4"></div>
-      <p className="text-sm font-medium tracking-wide text-zinc-500 animate-pulse">Loading...</p>
+      <p className="text-sm font-medium tracking-wide text-zinc-500 animate-pulse">{message}</p>
     </div>
   );
 }
 
 const AdminLoginPageLazy = lazyWithRetry(() => import('./pages/AdminLogin'));
 const AdminDashboard = lazyWithRetry(() => import('./pages/AdminDashboard'));
+
+import { useAdminAuth } from './hooks/useAdminAuth';
+
+// Route-level authentication guard: strictly prevents unauthenticated access to admin dashboard & modules
+function ProtectedAdminRoute({ children }: { children: React.ReactNode }) {
+  const { user, isAdminUser, checkingAuth } = useAdminAuth();
+  const adminPath = getAdminPath();
+  const location = useLocation();
+  const currentBase = location.pathname.toLowerCase().startsWith('/masterworld') ? 'masterworld' : adminPath;
+
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-300">
+        <div className="w-8 h-8 border-[3px] border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-3"></div>
+        <p className="text-xs font-semibold tracking-wider uppercase text-slate-400">Verifying Admin Access...</p>
+      </div>
+    );
+  }
+
+  if (!user || !isAdminUser) {
+    return <Navigate to={`/${currentBase}/login`} state={{ from: location.pathname }} replace />;
+  }
+
+  return <>{children}</>;
+}
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -134,9 +159,13 @@ function AppContent() {
             <Route path="/" element={<Navigate to={`/${adminPath}/login`} replace />} />
             {Array.from(new Set([adminPath, 'admin', 'masterworld'])).map(base => (
               <React.Fragment key={base}>
-                <Route path={`/${base}`} element={<ErrorBoundary><AdminLoginPageLazy /></ErrorBoundary>} />
+                <Route path={`/${base}`} element={<Navigate to={`/${base}/login`} replace />} />
                 <Route path={`/${base}/login`} element={<ErrorBoundary><AdminLoginPageLazy /></ErrorBoundary>} />
-                <Route path={`/${base}/*`} element={<ErrorBoundary><AdminDashboard /></ErrorBoundary>} />
+                <Route path={`/${base}/*`} element={
+                  <ProtectedAdminRoute>
+                    <ErrorBoundary><AdminDashboard /></ErrorBoundary>
+                  </ProtectedAdminRoute>
+                } />
               </React.Fragment>
             ))}
             <Route path="*" element={<Navigate to={`/${adminPath}/login`} replace />} />

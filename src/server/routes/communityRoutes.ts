@@ -15,7 +15,8 @@ import {
   submitLiveReview,
   voteLiveReviewHelpful,
   reportLiveReview,
-  persistAuthoritativeAtomicCatalogStats
+  persistAuthoritativeAtomicCatalogStats,
+  getLiveAtomicReviewStatsSync
 } from '../../lib/communityFirebase';
 import communityCatalogStats from '../../lib/communityCatalogStats.json';
 import communityStaticReviews from '../../lib/communityStaticReviews.json';
@@ -94,6 +95,56 @@ communityRouter.get('/api/v1/public/community/reviews', async (req, res) => {
     res.json(result);
   } catch (err: any) {
     res.status(500).json({ error: err?.message || 'Error fetching public reviews', reviews: [], hasMore: false });
+  }
+});
+
+// Public per-app aggregate rating stats endpoint
+communityRouter.get('/api/v1/public/community/stats/:appId', async (req, res) => {
+  try {
+    const rawId = String(req.params.appId || '').toLowerCase().trim();
+    const liveAtomic = getLiveAtomicReviewStatsSync();
+    const appCounts = liveAtomic?.appCounts || (communityCatalogStats as any)?.appCounts || {};
+
+    const stat = appCounts[rawId] || Object.entries(appCounts).find(([k]) => k.toLowerCase() === rawId)?.[1];
+
+    if (stat) {
+      return res.json({
+        success: true,
+        stats: {
+          totalReviews: Number(stat.total ?? stat.published ?? 0),
+          averageRating: Number(stat.avgRating ?? 4.5),
+          starCounts: stat.starCounts || { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+        }
+      });
+    }
+
+    // Fallback: check static dataset
+    const staticMap = (communityStaticReviews as any) || {};
+    const revs = staticMap[rawId] || [];
+    const count = Array.isArray(revs) ? revs.length : 0;
+    let sum = 0;
+    if (Array.isArray(revs)) {
+      revs.forEach((r: any) => { sum += Number(r.rating) || 5; });
+    }
+    const avg = count > 0 ? Math.round((sum / count) * 10) / 10 : 4.5;
+
+    res.json({
+      success: true,
+      stats: {
+        totalReviews: count,
+        averageRating: avg,
+        starCounts: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+      }
+    });
+  } catch (err: any) {
+    res.json({
+      success: true,
+      stats: {
+        totalReviews: 0,
+        averageRating: 4.5,
+        starCounts: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+      }
+    });
   }
 });
 

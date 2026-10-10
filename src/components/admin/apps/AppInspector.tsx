@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { safeHtml } from '../../../lib/safeHtml';
 import { exportAppToPdf } from '../../../lib/appPdfExport';
+import { getCachedLiveAppStats } from '../../../lib/communityFirebase';
 
 interface AppInspectorProps {
   selectedApp: any;
@@ -53,16 +54,31 @@ export const AppInspector = ({
   useEffect(() => {
     if (selectedApp?.id) {
       setLiveStats(null);
-      fetch(`/api/v1/public/community/stats/${selectedApp.id}`)
-        .then(res => res.json())
+      // Fast instantaneous read from local atomic cache
+      const cached = getCachedLiveAppStats(selectedApp.id, selectedApp.slug);
+      if (cached && Number(cached.totalReviews) > 0) {
+        setLiveStats({
+          averageRating: Number(cached.averageRating) || 4.5,
+          totalReviews: Number(cached.totalReviews) || 0
+        });
+      }
+
+      fetch(`/api/v1/public/community/stats/${encodeURIComponent(selectedApp.id)}`)
+        .then(async res => {
+          const cType = res.headers.get('content-type') || '';
+          if (res.ok && cType.includes('application/json')) {
+            return res.json();
+          }
+          return null;
+        })
         .then(data => {
-          if (data.success && data.stats) {
+          if (data && data.success && data.stats) {
             setLiveStats(data.stats);
           }
         })
         .catch(err => console.error("Error fetching live stats for inspector:", err));
     }
-  }, [selectedApp?.id]);
+  }, [selectedApp?.id, selectedApp?.slug]);
 
   if (!selectedApp) {
     return (

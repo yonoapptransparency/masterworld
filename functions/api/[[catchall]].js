@@ -126,6 +126,110 @@ export async function onRequest(context) {
   const url = new URL(request.url);
   const pathname = url.pathname;
 
+  // Handle Admin Authentication on Cloudflare Edge
+  if (pathname.startsWith('/api/v1/admin/')) {
+    const configuredEmail = (env.ADMIN_EMAIL || env.VITE_ADMIN_EMAIL || '').toLowerCase().trim();
+    const configuredPassword = (env.ADMIN_PASSWORD || env.VITE_ADMIN_PASSWORD || '').trim();
+    const sessionSecret = env.ADMIN_SESSION_SECRET || configuredPassword || 'cf_pages_admin_secret_2026';
+
+    const generateEdgeToken = (adminEmail) => {
+      const payload = { email: adminEmail, role: 'admin', exp: Date.now() + 55 * 60 * 1000 };
+      const payloadB64 = btoa(JSON.stringify(payload));
+      const sig = CryptoJS.HmacSHA256(payloadB64, sessionSecret).toString();
+      return `adm_cf_${payloadB64}.${sig}`;
+    };
+
+    const verifyEdgeToken = (token) => {
+      if (!token) return { valid: false };
+      const raw = token.replace(/^Bearer\s+/i, '').trim();
+      if (!raw.startsWith('adm_cf_')) return { valid: false };
+      try {
+        const [pB64, sig] = raw.slice(7).split('.');
+        const expSig = CryptoJS.HmacSHA256(pB64, sessionSecret).toString();
+        if (sig === expSig) {
+          const payload = JSON.parse(atob(pB64));
+          if (payload && payload.exp > Date.now() && (!configuredEmail || payload.email === configuredEmail)) {
+            return { valid: true, email: payload.email };
+          }
+        }
+      } catch (_) {}
+      return { valid: false };
+    };
+
+    if (pathname === '/api/v1/admin/login' || pathname === '/api/v1/admin/auth/login') {
+      let body = {};
+      try { body = await request.json(); } catch (_) {}
+      const inputEmail = String(body.email || '').toLowerCase().trim();
+      const inputPass = String(body.password || '').trim();
+
+      if (!configuredEmail || !configuredPassword) {
+        return new Response(JSON.stringify({
+          ok: false,
+          error: 'ADMIN_EMAIL or ADMIN_PASSWORD is not configured in Cloudflare environment variables.'
+        }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      if (inputEmail !== configuredEmail) {
+        return new Response(JSON.stringify({ ok: false, error: 'Invalid administrator email address.' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      const inputHash = CryptoJS.SHA256(inputPass).toString();
+      const isDirect = inputPass === configuredPassword;
+      const isHash = inputHash.toLowerCase() === configuredPassword.toLowerCase();
+
+      if (!isDirect && !isHash) {
+        return new Response(JSON.stringify({ ok: false, error: 'Incorrect administrator password.' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      const token = generateEdgeToken(inputEmail);
+      return new Response(JSON.stringify({
+        ok: true,
+        success: true,
+        token,
+        session: {
+          idToken: token,
+          refreshToken: 'EDGE_SESSION',
+          email: inputEmail,
+          expiresAt: Date.now() + 55 * 60 * 1000
+        }
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (pathname === '/api/v1/admin/verify' || pathname === '/api/v1/admin/verify-session' || pathname === '/api/v1/admin/auth/me') {
+      const authHeader = request.headers.get('authorization') || '';
+      const { valid, email: vEmail } = verifyEdgeToken(authHeader);
+      if (valid) {
+        return new Response(JSON.stringify({ authorized: true, valid: true, authenticated: true, role: 'admin', email: vEmail }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      return new Response(JSON.stringify({ authorized: false, valid: false, error: 'Unauthorized session.' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (pathname === '/api/v1/admin/logout' || pathname === '/api/v1/admin/auth/logout') {
+      return new Response(JSON.stringify({ ok: true, success: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+  }
+
   // Only handle clearance and resolution endpoints
   const isTargetRoute = 
     pathname.includes('/api/v1/app/resolve-link') ||

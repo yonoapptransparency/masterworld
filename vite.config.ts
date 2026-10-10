@@ -22,12 +22,12 @@ function adminAuthDevPlugin(env: Record<string, string>) {
           req.on('end', () => {
             try {
               const { email, password } = JSON.parse(body || '{}');
-              const cfgEmail = (env.ADMIN_EMAIL || env.VITE_ADMIN_EMAIL || process.env.ADMIN_EMAIL || process.env.VITE_ADMIN_EMAIL || 'defentechscholar@gmail.com').toLowerCase().trim();
+              const cfgEmail = (env.ADMIN_EMAIL || env.VITE_ADMIN_EMAIL || process.env.ADMIN_EMAIL || process.env.VITE_ADMIN_EMAIL || '').toLowerCase().trim();
               const cfgPass = (env.ADMIN_PASSWORD || env.VITE_ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || process.env.VITE_ADMIN_PASSWORD || '').trim();
               const inputEmail = String(email || '').toLowerCase().trim();
               const inputPass = String(password || '').trim();
 
-              if ((inputEmail === cfgEmail || inputEmail === 'defentechscholar@gmail.com') && cfgPass && inputPass === cfgPass) {
+              if (cfgEmail && inputEmail === cfgEmail && cfgPass && inputPass === cfgPass) {
                 const token = 'adm_dev_' + Buffer.from(inputEmail + ':' + Date.now()).toString('base64');
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({
@@ -128,6 +128,56 @@ function adminAuthDevPlugin(env: Record<string, string>) {
           } catch(e) {
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ globalStats: {}, appCounts: {} }));
+            return;
+          }
+        }
+
+        if (req.url && req.url.startsWith('/api/v1/public/community/stats')) {
+          try {
+            const parts = req.url.split('?')[0].split('/');
+            const appId = decodeURIComponent(parts[parts.length - 1] || '').toLowerCase().trim();
+            const statsPath = path.resolve(__dirname, 'src/lib/communityCatalogStats.json');
+            const data = fs.existsSync(statsPath) ? JSON.parse(fs.readFileSync(statsPath, 'utf8')) : {};
+            const appCounts = data.appCounts || {};
+            const stat = appCounts[appId] || Object.entries(appCounts).find(([k]) => k.toLowerCase() === appId)?.[1];
+
+            if (stat) {
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({
+                success: true,
+                stats: {
+                  totalReviews: Number((stat as any).total ?? (stat as any).published ?? 0),
+                  averageRating: Number((stat as any).avgRating ?? 4.5),
+                  starCounts: (stat as any).starCounts || { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+                }
+              }));
+              return;
+            }
+
+            // Fallback: check static reviews
+            const revsPath = path.resolve(__dirname, 'src/lib/communityStaticReviews.json');
+            const revsData = fs.existsSync(revsPath) ? JSON.parse(fs.readFileSync(revsPath, 'utf8')) : {};
+            const revs = revsData[appId] || [];
+            const count = Array.isArray(revs) ? revs.length : 0;
+            let sum = 0;
+            if (Array.isArray(revs)) {
+              revs.forEach((r: any) => { sum += Number(r.rating) || 5; });
+            }
+            const avg = count > 0 ? Math.round((sum / count) * 10) / 10 : 4.5;
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              success: true,
+              stats: {
+                totalReviews: count,
+                averageRating: avg,
+                starCounts: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+              }
+            }));
+            return;
+          } catch (_) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, stats: { totalReviews: 0, averageRating: 4.5 } }));
             return;
           }
         }
@@ -326,7 +376,7 @@ export default defineConfig(({mode}) => {
   }
 
   const adminPass = env.ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || env.VITE_ADMIN_PASSWORD || process.env.VITE_ADMIN_PASSWORD || '';
-  const adminEmail = env.ADMIN_EMAIL || process.env.ADMIN_EMAIL || env.VITE_ADMIN_EMAIL || process.env.VITE_ADMIN_EMAIL || 'defentechscholar@gmail.com';
+  const adminEmail = env.ADMIN_EMAIL || process.env.ADMIN_EMAIL || env.VITE_ADMIN_EMAIL || process.env.VITE_ADMIN_EMAIL || '';
 
   return {
     plugins: [react(), tailwindcss(), adminAuthDevPlugin(env)],

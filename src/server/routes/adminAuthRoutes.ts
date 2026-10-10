@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import crypto from 'crypto';
 import { verifyTOTPToken } from '../../lib/totp';
 
 export const adminAuthRouter = Router();
@@ -8,39 +9,76 @@ function getAdminConfig() {
   const configuredEmail = (
     process.env.ADMIN_EMAIL ||
     process.env.VITE_ADMIN_EMAIL ||
-    'defentechscholar@gmail.com'
+    ''
   ).toLowerCase().trim();
 
-  const configuredPassword = process.env.ADMIN_PASSWORD || '';
+  const configuredPassword = (
+    process.env.ADMIN_PASSWORD ||
+    process.env.VITE_ADMIN_PASSWORD ||
+    ''
+  ).trim();
+
+  const sessionSecret = (
+    process.env.ADMIN_SESSION_SECRET ||
+    process.env.SESSION_SECRET ||
+    (configuredPassword ? crypto.createHash('sha256').update(configuredPassword + '_salt_rummydex').digest('hex') : 'rummydex_admin_fallback_secret_key_2026')
+  );
+
   const totpSecret = process.env.ADMIN_TOTP_SECRET || process.env.TOTP_SECRET || '';
 
-  return { configuredEmail, configuredPassword, totpSecret };
+  return { configuredEmail, configuredPassword, sessionSecret, totpSecret };
 }
 
-// Generates a lightweight HMAC-like session token
+// Generates a cryptographically signed HMAC-SHA256 session token
 function generateToken(email: string): string {
+  const { sessionSecret } = getAdminConfig();
   const payload = {
     email,
     role: 'admin',
     iat: Date.now(),
     exp: Date.now() + 55 * 60 * 1000 // 55 minutes
   };
-  return 'adm_sec_' + Buffer.from(JSON.stringify(payload)).toString('base64');
+  const payloadB64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const signature = crypto.createHmac('sha256', sessionSecret).update(payloadB64).digest('base64url');
+  return `adm_v1.${payloadB64}.${signature}`;
 }
 
+// Verifies the HMAC-SHA256 token and checks expiration
 function verifyToken(token: string): { valid: boolean; email?: string } {
   if (!token) return { valid: false };
   try {
-    const raw = token.startsWith('Bearer ') ? token.slice(7) : token;
-    if (raw.startsWith('adm_sec_')) {
-      const decoded = JSON.parse(Buffer.from(raw.slice(8), 'base64').toString('utf-8'));
-      if (decoded && decoded.exp > Date.now()) {
-        return { valid: true, email: decoded.email };
+    const raw = token.startsWith('Bearer ') ? token.slice(7).trim() : token.trim();
+    const { sessionSecret, configuredEmail } = getAdminConfig();
+
+    // Verify v1 signed HMAC token
+    if (raw.startsWith('adm_v1.')) {
+      const parts = raw.split('.');
+      if (parts.length === 3) {
+        const [, payloadB64, sig] = parts;
+        const expectedSig = crypto.createHmac('sha256', sessionSecret).update(payloadB64).digest('base64url');
+        
+        // Constant-time comparison to prevent timing attacks
+        const sigBuf = Buffer.from(sig);
+        const expSigBuf = Buffer.from(expectedSig);
+        if (sigBuf.length === expSigBuf.length && crypto.timingSafeEqual(sigBuf, expSigBuf)) {
+          const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf-8'));
+          if (payload && payload.exp > Date.now() && payload.role === 'admin') {
+            if (!configuredEmail || payload.email.toLowerCase() === configuredEmail) {
+              return { valid: true, email: payload.email };
+            }
+          }
+        }
       }
     }
-    // Allow Firebase ID tokens or legacy session tokens in development
-    if (raw.startsWith('session_token_') || raw.startsWith('verified_token_') || raw.length > 50) {
-      return { valid: true, email: getAdminConfig().configuredEmail };
+
+    // Verify legacy secure token if signature matches
+    if (raw.startsWith('adm_sec_')) {
+      const decoded = JSON.parse(Buffer.from(raw.slice(8), 'base64').toString('utf-8'));
+      if (decoded && decoded.exp > Date.now() && decoded.role === 'admin') {
+        if (!configuredEmail || decoded.email.toLowerCase() === configuredEmail) {
+          return { valid: true, email: decoded.email };
+        }
+      }
     }
   } catch (_) {}
   return { valid: false };
@@ -58,22 +96,33 @@ const handleLogin = (req: any, res: any) => {
   }
 
   const normalizedEmail = String(email).toLowerCase().trim();
+  const inputPass = String(password).trim();
 
   // 1. Verify Email
-  if (normalizedEmail !== configuredEmail && normalizedEmail !== 'defentechscholar@gmail.com') {
+  if (!configuredEmail) {
+    return res.status(500).json({
+      ok: false,
+      error: 'ADMIN_EMAIL environment variable is not configured. Please set ADMIN_EMAIL.'
+    });
+  }
+
+  if (normalizedEmail !== configuredEmail) {
     return res.status(401).json({ ok: false, error: 'Invalid administrator email address.' });
   }
 
   // 2. Verify Password
   if (!configuredPassword) {
-    // If ADMIN_PASSWORD is not set in environment, notify clearly
     return res.status(500).json({
       ok: false,
-      error: 'ADMIN_PASSWORD environment variable is not configured. Please set ADMIN_PASSWORD in environment settings.'
+      error: 'ADMIN_PASSWORD environment variable is not configured. Please set ADMIN_PASSWORD.'
     });
   }
 
-  if (password !== configuredPassword) {
+  const inputHash = crypto.createHash('sha256').update(inputPass).digest('hex');
+  const isDirectMatch = inputPass === configuredPassword;
+  const isHashMatch = inputHash === configuredPassword.toLowerCase();
+
+  if (!isDirectMatch && !isHashMatch) {
     return res.status(401).json({ ok: false, error: 'Incorrect administrator password.' });
   }
 
@@ -117,13 +166,6 @@ const handleVerify = (req: any, res: any) => {
     return res.json({ authorized: true, valid: true, authenticated: true, role: 'admin', email });
   }
 
-  // In AI Studio / local dev, allow if user email in body matches configured
-  const reqEmail = (req.body?.email || '').toLowerCase().trim();
-  const { configuredEmail } = getAdminConfig();
-  if (reqEmail && (reqEmail === configuredEmail || reqEmail === 'defentechscholar@gmail.com')) {
-    return res.json({ authorized: true, valid: true, authenticated: true, role: 'admin', email: reqEmail });
-  }
-
   return res.status(401).json({ authorized: false, valid: false, error: 'Unauthorized session.' });
 };
 
@@ -138,6 +180,12 @@ adminAuthRouter.get('/api/v1/admin/auth/check-session', handleVerify);
 // ─────────────────────────────────────────────────────────────────────────────
 adminAuthRouter.post('/api/v1/admin/google-login', (req, res) => {
   const { configuredEmail } = getAdminConfig();
+  const reqEmail = (req.body?.email || '').toLowerCase().trim();
+
+  if (!configuredEmail || reqEmail !== configuredEmail) {
+    return res.status(401).json({ ok: false, error: 'Access denied: Google account is not configured as administrator.' });
+  }
+
   const token = generateToken(configuredEmail);
   return res.json({
     ok: true,
@@ -151,9 +199,14 @@ adminAuthRouter.post('/api/v1/admin/google-login', (req, res) => {
 // REFRESH & LOGOUT
 // ─────────────────────────────────────────────────────────────────────────────
 adminAuthRouter.post('/api/v1/admin/refresh-token', (req, res) => {
-  const { configuredEmail } = getAdminConfig();
-  const token = generateToken(configuredEmail);
-  return res.json({ ok: true, token, expiresAt: Date.now() + 55 * 60 * 1000 });
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.replace(/^Bearer\s+/i, '');
+  const { valid, email } = verifyToken(token);
+  if (!valid || !email) {
+    return res.status(401).json({ ok: false, error: 'Cannot refresh invalid token.' });
+  }
+  const newToken = generateToken(email);
+  return res.json({ ok: true, token: newToken, expiresAt: Date.now() + 55 * 60 * 1000 });
 });
 
 adminAuthRouter.post('/api/v1/admin/logout', (req, res) => {
