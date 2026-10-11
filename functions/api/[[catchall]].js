@@ -230,6 +230,34 @@ export async function onRequest(context) {
     }
   }
 
+  // Handle single app detail endpoint at Edge with zero origin latency
+  if (pathname.startsWith('/api/v1/public/app/')) {
+    const rawSlug = pathname.replace('/api/v1/public/app/', '');
+    const cleanKey = decodeURIComponent(rawSlug).toLowerCase().trim();
+    const apps = staticData?.apps || [];
+    const matched = apps.find(a => 
+      (a.slug && String(a.slug).toLowerCase().trim() === cleanKey) ||
+      (a.id && String(a.id).toLowerCase().trim() === cleanKey) ||
+      (a.name && String(a.name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') === cleanKey)
+    );
+
+    if (matched) {
+      return new Response(JSON.stringify({ status: 'OK', app: matched }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800',
+          'Access-Control-Allow-Origin': '*'
+        }
+      });
+    }
+
+    return new Response(JSON.stringify({ status: 'NOT_FOUND', error: 'App not found' }), {
+      status: 404,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
   // Only handle clearance and resolution endpoints
   const isTargetRoute = 
     pathname.includes('/api/v1/app/resolve-link') ||

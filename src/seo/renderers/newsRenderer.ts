@@ -24,6 +24,16 @@ export function renderNewsList(news: any[], _settings: any): string {
   return `<div class="py-6 text-center container max-w-3xl mx-auto"><h1 class="text-3xl font-extrabold mb-8 text-zinc-900 dark:text-white">Gaming News & Updates</h1><div class="flex flex-col gap-4">${cards || '<p class="text-zinc-400 py-10">No publications.</p>'}</div></div>`;
 }
 
+function checkAppIsNew(item: any): boolean {
+  if (!item) return false;
+  if (item.is_new === true || item.is_new === 'true' || item.is_new === 1) return true;
+  if (item.isNew === true || item.isNew === 'true' || item.isNew === 1) return true;
+  const isNewVal = String(getField(item, 'is_new', '')).trim().toLowerCase();
+  if (isNewVal === 'true' || isNewVal === '1') return true;
+  const badge = String(getField(item, 'badge', '')).trim().toLowerCase();
+  return badge === 'new' || badge === 'hot';
+}
+
 export function renderNewsDetail(slug: string, news: any[], settings: any, apps: any[] = []): string {
   const cleanSlug = decodeURIComponent(slug).toLowerCase().trim().replace(/\/+$/, '');
   const item = news.find(n => (getField(n, 'slug') || '').toLowerCase().trim() === cleanSlug || (getField(n, 'id') || '').toLowerCase().trim() === cleanSlug);
@@ -109,6 +119,104 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
     </div>
   ` : '';
 
+  // 16 Category Similar Apps (single-pass, matching Yono/Rummy category)
+  let recommendedAppsHtml = '';
+  if (Array.isArray(apps) && apps.length > 0) {
+    const mainCat = (relatedApp ? getField(relatedApp, 'category') : (getField(item, 'category') || 'Yono Apps')).trim();
+    const cleanCat = mainCat.toLowerCase();
+    const isAll = cleanCat === 'all' || cleanCat === 'all apps';
+    const relAppId = relatedApp ? (getField(relatedApp, 'id') || '').toLowerCase() : '';
+    const relAppSlug = relatedApp ? (getField(relatedApp, 'slug') || '').toLowerCase() : '';
+
+    const newApps: any[] = [];
+    const regularApps: any[] = [];
+    let totalCatCount = 0;
+
+    for (let i = 0; i < apps.length; i++) {
+      const a = apps[i];
+      if (!a) continue;
+
+      const aId = (getField(a, 'id') || '').toLowerCase();
+      const aSlug = (getField(a, 'slug') || '').toLowerCase();
+      const isBaseApp = Boolean(relatedApp && (aId === relAppId || aSlug === relAppSlug));
+
+      const aCat = (getField(a, 'category') || '').toLowerCase();
+      const matches = isAll || aCat.includes(cleanCat) || cleanCat.includes(aCat);
+
+      if (matches) {
+        totalCatCount++;
+        if (!isBaseApp) {
+          if (checkAppIsNew(a)) {
+            newApps.push(a);
+          } else {
+            regularApps.push(a);
+          }
+        }
+      }
+    }
+
+    newApps.sort((a, b) => (Number(getField(a, 'serial_number')) || 999999) - (Number(getField(b, 'serial_number')) || 999999));
+    regularApps.sort((a, b) => (Number(getField(a, 'serial_number')) || 999999) - (Number(getField(b, 'serial_number')) || 999999));
+
+    const maxCount = 16;
+    const pinnedNew = newApps.slice(0, Math.min(newApps.length, maxCount));
+    const remainingSlots = maxCount - pinnedNew.length;
+
+    const pickedRegular: any[] = [];
+    if (remainingSlots > 0 && regularApps.length > 0) {
+      let startIndex = 0;
+      const baseSerial = Number(relatedApp ? getField(relatedApp, 'serial_number') : null);
+      if (!isNaN(baseSerial) && baseSerial > 0) {
+        const nextIdx = regularApps.findIndex((a: any) => (Number(getField(a, 'serial_number')) || 0) > baseSerial);
+        startIndex = nextIdx !== -1 ? nextIdx : 0;
+      } else {
+        const str = String(cleanSlug || getField(item, 'id') || '');
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) hash = ((hash << 5) - hash) + str.charCodeAt(i);
+        startIndex = Math.abs(hash) % regularApps.length;
+      }
+
+      const countToPick = Math.min(remainingSlots, regularApps.length);
+      for (let step = 0; step < countToPick; step++) {
+        const idx = (startIndex + step) % regularApps.length;
+        pickedRegular.push(regularApps[idx]);
+      }
+    }
+
+    const displaySimilarApps = [...pinnedNew, ...pickedRegular];
+
+    if (displaySimilarApps.length > 0) {
+      recommendedAppsHtml = `
+        <section aria-labelledby="related-apps-heading" class="my-5 xs:my-6 text-left">
+          <div class="flex items-center justify-between mb-3 px-1">
+            <h2 id="related-apps-heading" class="text-base sm:text-xl font-bold flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
+              <span>Similar Applications</span>
+              ${mainCat && mainCat !== 'All Apps' ? `<span class="text-[10px] sm:text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2.5 py-0.5 rounded-full border border-blue-200/50 dark:border-blue-800/50">${escapeHtml(mainCat)}</span>` : ''}
+            </h2>
+            <a href="/?tab=${encodeURIComponent(mainCat)}" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-bold text-xs no-underline border border-blue-200/70 dark:border-blue-800/70">View all (${totalCatCount}) &rarr;</a>
+          </div>
+          <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-8 gap-3">
+            ${displaySimilarApps.map(sim => {
+              const simName = getField(sim, 'name');
+              const simSlug = getField(sim, 'slug');
+              const simIcon = optimizeImageUrl(getField(sim, 'icon_url') || '', 160);
+              const simIsNew = checkAppIsNew(sim);
+              return `
+                <a href="/app/${encodeURIComponent(simSlug)}" class="flex flex-col items-center text-center gap-1.5 p-2 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 hover:border-blue-500/50 transition group no-underline relative">
+                  <div class="relative inline-block">
+                    <img src="${escapeHtml(simIcon)}" loading="lazy" decoding="async" width="76" height="76" class="w-16 h-16 sm:w-18 sm:h-18 rounded-[22%] object-cover shadow-xs group-hover:scale-105 transition-transform" alt="${escapeHtml(simName)} app icon"/>
+                    ${simIsNew ? '<span class="absolute -top-1.5 -right-1.5 z-20 bg-[#008738] text-white font-black text-[7.5px] px-1.5 py-0.5 rounded-full uppercase leading-none shadow-xs border border-white">NEW</span>' : ''}
+                  </div>
+                  <span class="text-xs font-semibold text-zinc-800 dark:text-zinc-200 line-clamp-2 leading-tight">${escapeHtml(simName)}</span>
+                </a>
+              `;
+            }).join('')}
+          </div>
+        </section>
+      `;
+    }
+  }
+
   return `
     <div class="max-w-4xl mx-auto py-4 sm:py-6 px-2 sm:px-4 text-left">
       <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 mb-4">
@@ -145,6 +253,8 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
         ` : ''}
 
         ${downloadBtnHtml}
+
+        ${recommendedAppsHtml}
 
         ${description ? `
           <div class="mb-6 p-4 rounded-xl bg-blue-50/60 dark:bg-blue-950/20 border-l-4 border-blue-600 text-sm sm:text-base font-medium text-zinc-800 dark:text-zinc-200 leading-relaxed">

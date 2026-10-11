@@ -208,26 +208,89 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
   }
 
   let recommendedAppsHtml = '';
-  const appCategory = getField(app, 'category', '');
-  const specificCats = appCategory
-    ? appCategory.toLowerCase().split(',').map((c: string) => c.trim()).filter((c: string) => c && c !== 'all apps' && c !== 'all' && c !== 'apps' && c !== 'general')
-    : [];
+  const checkAppIsNew = (item: any): boolean => {
+    if (!item) return false;
+    if (item.is_new === true || item.is_new === 'true' || item.is_new === 1) return true;
+    if (item.isNew === true || item.isNew === 'true' || item.isNew === 1) return true;
+    const isNewVal = String(getField(item, 'is_new', '')).trim().toLowerCase();
+    if (isNewVal === 'true' || isNewVal === '1') return true;
+    const badge = String(getField(item, 'badge', '')).trim().toLowerCase();
+    return badge === 'new' || badge === 'hot';
+  };
 
-  let similarApps = apps.filter((a: any) => {
-    if (getField(a, 'slug').toLowerCase() === cleanSlug) return false;
-    const simCat = getField(a, 'category', '').toLowerCase();
-    const simSpecificCats = simCat.split(',').map((c: string) => c.trim()).filter((c: string) => c && c !== 'all apps' && c !== 'all' && c !== 'apps' && c !== 'general');
-    return specificCats.some((sc: string) => simSpecificCats.includes(sc) || simSpecificCats.some((asc: string) => asc.includes(sc) || sc.includes(asc)));
+  const mainCatClean = (mainCat || 'Yono Apps').toLowerCase();
+  const isAllCat = mainCatClean === 'all' || mainCatClean === 'all apps';
+
+  const newApps: any[] = [];
+  const regularApps: any[] = [];
+  let totalCatCount = 0;
+
+  for (let i = 0; i < apps.length; i++) {
+    const a = apps[i];
+    if (!a) continue;
+
+    const aSlug = getField(a, 'slug').toLowerCase();
+    const isCurrent = aSlug === cleanSlug;
+    const aCat = getField(a, 'category', '').toLowerCase();
+    const matches = isAllCat || aCat.includes(mainCatClean) || mainCatClean.includes(aCat);
+
+    if (matches) {
+      totalCatCount++;
+      if (!isCurrent) {
+        if (checkAppIsNew(a)) {
+          newApps.push(a);
+        } else {
+          regularApps.push(a);
+        }
+      }
+    }
+  }
+
+  // 1. Sort new apps strictly by serial_number ascending
+  newApps.sort((a: any, b: any) => {
+    const sa = Number(getField(a, 'serial_number')) || 999999;
+    const sb = Number(getField(b, 'serial_number')) || 999999;
+    return sa - sb;
   });
 
-  if (similarApps.length < 3) {
-    const matchedSlugs = new Set(similarApps.map((a: any) => getField(a, 'slug').toLowerCase()));
-    const remaining = apps.filter((a: any) => getField(a, 'slug').toLowerCase() !== cleanSlug && !matchedSlugs.has(getField(a, 'slug').toLowerCase()));
-    similarApps = [...similarApps, ...remaining];
-  }
-  similarApps = similarApps.slice(0, 6);
+  // 2. Sort regular apps strictly by serial_number ascending
+  regularApps.sort((a: any, b: any) => {
+    const sa = Number(getField(a, 'serial_number')) || 999999;
+    const sb = Number(getField(b, 'serial_number')) || 999999;
+    return sa - sb;
+  });
 
-  if (similarApps.length > 0) {
+  const maxCount = 16;
+  // Pinned new apps ALWAYS appear at the very beginning (slots 1, 2...)
+  const pinnedNew = newApps.slice(0, Math.min(newApps.length, maxCount));
+  const remainingSlots = maxCount - pinnedNew.length;
+
+  // Balanced Circular Internal Linking:
+  // Stagger regular apps circularly starting after targetApp's position in the series.
+  const pickedRegular: any[] = [];
+  if (remainingSlots > 0 && regularApps.length > 0) {
+    let startIndex = 0;
+    const currSerial = Number(getField(app, 'serial_number'));
+    if (!isNaN(currSerial) && currSerial > 0) {
+      const nextIdx = regularApps.findIndex((a: any) => (Number(getField(a, 'serial_number')) || 0) > currSerial);
+      startIndex = nextIdx !== -1 ? nextIdx : 0;
+    } else {
+      const str = String(cleanSlug || getField(app, 'id') || '');
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) hash = ((hash << 5) - hash) + str.charCodeAt(i);
+      startIndex = Math.abs(hash) % regularApps.length;
+    }
+
+    const countToPick = Math.min(remainingSlots, regularApps.length);
+    for (let step = 0; step < countToPick; step++) {
+      const idx = (startIndex + step) % regularApps.length;
+      pickedRegular.push(regularApps[idx]);
+    }
+  }
+
+  const displaySimilarApps = [...pinnedNew, ...pickedRegular];
+
+  if (displaySimilarApps.length > 0) {
     recommendedAppsHtml = `
       <section aria-labelledby="related-apps-heading" class="my-5 xs:my-6 text-left">
         <div class="flex items-center justify-between mb-3 px-1">
@@ -235,16 +298,20 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
             <span>Similar Applications</span>
             ${mainCat && mainCat !== 'All Apps' ? `<span class="text-[10px] sm:text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2.5 py-0.5 rounded-full border border-blue-200/50 dark:border-blue-800/50">${escapeHtml(mainCat)}</span>` : ''}
           </h2>
-          <a href="/?tab=${encodeURIComponent(mainCat)}" class="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline">View all (${similarApps.length}) &rarr;</a>
+          <a href="/?tab=${encodeURIComponent(mainCat)}" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-bold text-xs no-underline border border-blue-200/70 dark:border-blue-800/70">View all (${totalCatCount}) &rarr;</a>
         </div>
-        <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
-          ${similarApps.map(sim => {
+        <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-8 gap-3">
+          ${displaySimilarApps.map(sim => {
             const simName = getField(sim, 'name');
             const simSlug = getField(sim, 'slug');
-            const simIcon = optimizeImageUrl(getField(sim, 'icon_url') || '', 200);
+            const simIcon = optimizeImageUrl(getField(sim, 'icon_url') || '', 160);
+            const simIsNew = checkAppIsNew(sim);
             return `
-              <a href="/app/${encodeURIComponent(simSlug)}" class="flex flex-col items-center text-center gap-1.5 p-2 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 hover:border-blue-500/50 transition group no-underline">
-                <img src="${escapeHtml(simIcon)}" loading="lazy" decoding="async" width="84" height="84" class="w-16 h-16 sm:w-20 sm:h-20 rounded-[22%] object-cover shadow-xs group-hover:scale-105 transition-transform" alt="${escapeHtml(simName)} app icon"/>
+              <a href="/app/${encodeURIComponent(simSlug)}" class="flex flex-col items-center text-center gap-1.5 p-2 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 hover:border-blue-500/50 transition group no-underline relative">
+                <div class="relative inline-block">
+                  <img src="${escapeHtml(simIcon)}" loading="lazy" decoding="async" width="76" height="76" class="w-16 h-16 sm:w-18 sm:h-18 rounded-[22%] object-cover shadow-xs group-hover:scale-105 transition-transform" alt="${escapeHtml(simName)} app icon"/>
+                  ${simIsNew ? '<span class="absolute -top-1.5 -right-1.5 z-20 bg-[#008738] text-white font-black text-[7.5px] px-1.5 py-0.5 rounded-full uppercase leading-none shadow-xs border border-white">NEW</span>' : ''}
+                </div>
                 <span class="text-xs font-semibold text-zinc-800 dark:text-zinc-200 line-clamp-2 leading-tight">${escapeHtml(simName)}</span>
               </a>
             `;

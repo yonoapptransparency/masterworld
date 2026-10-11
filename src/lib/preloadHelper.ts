@@ -26,12 +26,24 @@ export const preloadAppDetails = (slugOrApp?: string | { slug?: string; id?: str
 
   let rawSlug = '';
   let iconUrl = '';
+  let passedObject: any = null;
 
   if (typeof slugOrApp === 'string') {
     rawSlug = slugOrApp;
-  } else if (typeof slugOrApp === 'object') {
+  } else if (typeof slugOrApp === 'object' && slugOrApp !== null) {
+    passedObject = slugOrApp;
     rawSlug = slugOrApp.slug || slugOrApp.id || '';
     iconUrl = slugOrApp.icon_url || '';
+
+    // Synchronously store passed app object in memory cache right away for 0ms transition
+    if (rawSlug) {
+      const k = String(rawSlug).toLowerCase().trim();
+      if (!appDetailMemoryCache.has(k) || (slugOrApp.description_html && !appDetailMemoryCache.get(k)?.description_html)) {
+        appDetailMemoryCache.set(k, slugOrApp);
+        if (slugOrApp.slug) appDetailMemoryCache.set(String(slugOrApp.slug).toLowerCase().trim(), slugOrApp);
+        if (slugOrApp.id) appDetailMemoryCache.set(String(slugOrApp.id).toLowerCase().trim(), slugOrApp);
+      }
+    }
   }
 
   const cleanKey = String(rawSlug).toLowerCase().trim();
@@ -50,12 +62,13 @@ export const preloadAppDetails = (slugOrApp?: string | { slug?: string; id?: str
     } catch (_) {}
   }
 
-  // 3. If already cached in memory, no network fetch needed
-  if (appDetailMemoryCache.has(cleanKey)) {
+  // 3. If already cached in memory with rich description_html, no network fetch needed
+  const existingCached = appDetailMemoryCache.get(cleanKey);
+  if (existingCached && existingCached.description_html) {
     return;
   }
 
-  // 4. If fetch is already in flight, reuse existing promise
+  // 4. If fetch is already in flight or prefetched, reuse existing promise
   if (inFlightFetches.has(cleanKey) || prefetchedKeys.has(cleanKey)) {
     return;
   }

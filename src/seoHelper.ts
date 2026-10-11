@@ -479,6 +479,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     pageOgImage,
     siteTitle,
     targetApp,
+    collectionItems,
     settings,
     faviconIco,
     favicon32,
@@ -523,22 +524,20 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     finalHtml = `${headAdditions}\n${finalHtml}`;
   }
 
-  // High-performance server-side semantic HTML injection:
-  // Non-JS crawlers receive 100% content via <noscript> crawler container and JSON-LD schema.
-  // JavaScript clients & Lighthouse mount instantaneously on clean #root with window.__INITIAL_DATA__.
+  // High-performance server-side visible HTML shell injection:
+  // Both human visitors and web crawlers receive the visible layout directly inside #root for instant 0ms first-paint.
+  // When JavaScript loads, React takes over seamlessly without layout shifts or blank screens.
   if (preRenderedBody) {
-    const isPureBotNoJs = userAgent && /facebookexternalhit|twitterbot|whatsapp|telegrambot|slackbot|vkShare|embedly|quora/i.test(userAgent);
-    if (isPureBotNoJs) {
-      if (finalHtml.includes('<div id="root"></div>')) {
-        finalHtml = finalHtml.replace('<div id="root"></div>', () => `<div id="root">${preRenderedBody}</div>`);
-      }
+    if (finalHtml.includes('<div id="root"></div>')) {
+      finalHtml = finalHtml.replace('<div id="root"></div>', () => `<div id="root">${preRenderedBody}</div>`);
+    } else if (finalHtml.includes('<div id="root">')) {
+      finalHtml = finalHtml.replace(/<div id="root">[\s\S]*?<\/div>/i, () => `<div id="root">${preRenderedBody}</div>`);
+    }
+    const noscriptFallback = `<noscript><div class="seo-crawler-content">${preRenderedBody}</div></noscript>`;
+    if (finalHtml.includes('</body>')) {
+      finalHtml = finalHtml.replace('</body>', `${noscriptFallback}\n</body>`);
     } else {
-      const noscriptFallback = `<noscript><div class="seo-crawler-content">${preRenderedBody}</div></noscript>`;
-      if (finalHtml.includes('</body>')) {
-        finalHtml = finalHtml.replace('</body>', `${noscriptFallback}\n</body>`);
-      } else {
-        finalHtml = `${finalHtml}\n${noscriptFallback}`;
-      }
+      finalHtml = `${finalHtml}\n${noscriptFallback}`;
     }
   }
 

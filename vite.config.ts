@@ -541,7 +541,7 @@ export default defineConfig(({mode}) => {
     },
 
     esbuild: {
-      drop: mode === 'production' ? ['debugger'] : [],
+      drop: mode === 'production' ? ['debugger', 'console'] : [],
       legalComments: 'none',
     },
 
@@ -549,9 +549,12 @@ export default defineConfig(({mode}) => {
       chunkSizeWarningLimit: 2500,
       target: 'es2020',
       minify: 'esbuild',
+      cssMinify: true,
       sourcemap: false,
       cssCodeSplit: true,
-      modulePreload: true,
+      modulePreload: {
+        polyfill: false
+      },
       rollupOptions: {
         output: {
           manualChunks(id) {

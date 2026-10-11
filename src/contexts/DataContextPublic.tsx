@@ -189,10 +189,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const isCrawler = typeof navigator !== 'undefined' && /googlebot|google-inspectiontool|bingbot|slurp|duckduckbot|baiduspider|yandexbot|crawler|spider|lighthouse|chrome-lighthouse|headless/i.test(navigator.userAgent || '');
     if (isCrawler) return;
 
-    // Fast background revalidation on initial load (0ms main-thread blockage)
+    // Zero-contention background revalidation:
+    // If apps are already populated from SSR / initialData, wait until the main thread is idle (4s)
+    // so 0ms of CPU or network bandwidth is stolen during First Contentful Paint and user interaction.
+    const delay = apps.length > 0 ? 4000 : 100;
     const initTimer = setTimeout(() => {
-      fetchBackupData(true);
-    }, 100);
+      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        (window as any).requestIdleCallback(() => {
+          fetchBackupData(true);
+        }, { timeout: 5000 });
+      } else {
+        fetchBackupData(true);
+      }
+    }, delay);
 
     // Periodic check every 10 minutes for live updates in background
     const interval = setInterval(() => {

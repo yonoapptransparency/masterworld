@@ -8,6 +8,7 @@ export interface MetaBuilderParams {
   pageOgImage: string;
   siteTitle: string;
   targetApp?: any;
+  collectionItems?: any[];
   settings?: any;
   faviconIco: string;
   favicon32: string;
@@ -29,6 +30,7 @@ export function buildMetaTags(params: MetaBuilderParams): string {
     pageOgImage,
     siteTitle,
     targetApp,
+    collectionItems,
     settings,
     faviconIco,
     favicon32,
@@ -94,9 +96,18 @@ export function buildMetaTags(params: MetaBuilderParams): string {
     <link data-rh="true" rel="icon" type="image/png" sizes="16x16" href="${favicon16}">
     <link data-rh="true" rel="apple-touch-icon" sizes="180x180" href="${favicon180}">
     <link data-rh="true" rel="manifest" href="/site.webmanifest">
-    ${targetApp && getField(targetApp, 'icon_url')
-      ? `<link rel="preload" as="image" href="${escapeHtml(getOptimizedImageUrl(getField(targetApp, 'icon_url'), 240))}" fetchpriority="high">`
-      : (getField(settings, 'logo_url') ? `<link rel="preload" as="image" href="${escapeHtml(getOptimizedImageUrl(getField(settings, 'logo_url'), 120))}" fetchpriority="high">` : '')}
+    ${(() => {
+      if (targetApp && getField(targetApp, 'icon_url')) {
+        return `<link rel="preload" as="image" href="${escapeHtml(getOptimizedImageUrl(getField(targetApp, 'icon_url'), 240))}" fetchpriority="high">`;
+      }
+      if (collectionItems && collectionItems.length > 0 && getField(collectionItems[0], 'icon_url')) {
+        return `<link rel="preload" as="image" href="${escapeHtml(getOptimizedImageUrl(getField(collectionItems[0], 'icon_url'), 180))}" fetchpriority="high">`;
+      }
+      if (getField(settings, 'logo_url')) {
+        return `<link rel="preload" as="image" href="${escapeHtml(getOptimizedImageUrl(getField(settings, 'logo_url'), 120))}" fetchpriority="high">`;
+      }
+      return '';
+    })()}
     ${jsonLdSchema}
   `;
 }
