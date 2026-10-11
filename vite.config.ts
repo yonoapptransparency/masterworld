@@ -394,6 +394,21 @@ function adminAuthDevPlugin(env: Record<string, string>) {
           }
         }
 
+        if (req.url && (req.url === '/api/v1/public/news' || req.url.startsWith('/api/v1/public/news?'))) {
+          const publicBackup = path.resolve(__dirname, 'src/lib/public_backup.json');
+          const staticDataPath = path.resolve(__dirname, 'src/lib/staticData.json');
+          const target = fs.existsSync(publicBackup) ? publicBackup : staticDataPath;
+          if (fs.existsSync(target)) {
+            try {
+              const parsed = JSON.parse(fs.readFileSync(target, 'utf8'));
+              const newsList = parsed.news || parsed.mockNews || [];
+              res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=600' });
+              res.end(JSON.stringify({ status: 'OK', news: newsList }));
+              return;
+            } catch (_) {}
+          }
+        }
+
         if (req.url && req.url.startsWith('/api/v1/public/news/')) {
           const slugPart = req.url.split('?')[0].replace('/api/v1/public/news/', '');
           const cleanSlug = decodeURIComponent(slugPart).toLowerCase().trim();
@@ -421,7 +436,7 @@ function adminAuthDevPlugin(env: Record<string, string>) {
       });
     },
 
-    transformIndexHtml(html: string) {
+    transformIndexHtml: async (html: string, ctx: any) => {
       try {
         const publicBackup = path.resolve(__dirname, 'src/lib/public_backup.json');
         const staticDataPath = path.resolve(__dirname, 'src/lib/staticData.json');
@@ -436,7 +451,13 @@ function adminAuthDevPlugin(env: Record<string, string>) {
           };
           const script = `<script>window.__INITIAL_DATA__ = ${JSON.stringify(payload).replace(/</g, '\\u003c')};</script>`;
           if (html.includes('</head>')) {
-            return html.replace('</head>', `${script}\n</head>`);
+            html = html.replace('</head>', `${script}\n</head>`);
+          }
+          const reqUrl = ctx?.req?.url || '/';
+          const { getPagePreRender } = await import('./src/seo/preRenderEngine');
+          const preRenderedBody = await getPagePreRender(reqUrl, data);
+          if (preRenderedBody && /<div id="root">\s*<\/div>/i.test(html)) {
+            html = html.replace(/<div id="root">\s*<\/div>/i, () => `<div id="root">${preRenderedBody}</div>`);
           }
         }
       } catch (_) {}

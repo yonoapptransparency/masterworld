@@ -2,9 +2,12 @@ import { getField, optimizeImageUrl, cleanFaqQuestion } from '../utils';
 import { escapeHtml } from './common';
 
 export function renderHome(apps: any[], settings: any, news: any[], _videos: any[]): string {
-  const siteTitle = getField(settings, 'site_title');
-  const desc = getField(settings, 'meta_description');
-  
+  const siteTitle = getField(settings, 'site_title') || 'RummyDex';
+  const desc = getField(settings, 'meta_description') || getField(settings, 'seo_description') || '';
+  const heroText = getField(settings, 'hero_title_text') || siteTitle;
+  const heroSubtitle = getField(settings, 'hero_title_subtitle') || desc;
+  const bannerItems = settings?.banners || [];
+
   let appsHtml = '';
   const sorted = [...apps].sort((a, b) => {
     const rawA = parseInt(getField(a, 'serial_number', '999999'), 10);
@@ -14,8 +17,8 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
     return sa - sb;
   });
   
-  // Render top 18 above-the-fold apps with 1:1 PlayStoreUI styling for zero-CLS paint and perfect SEO
-  sorted.slice(0, 18).forEach((app, i) => {
+  // Render top apps with 1:1 PlayStoreUI styling matching AppListItem
+  sorted.slice(0, 24).forEach((app, i) => {
     const name = getField(app, 'name');
     const slug = getField(app, 'slug');
     const category = getField(app, 'category', 'Game');
@@ -26,7 +29,7 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
     const icon = optimizeImageUrl(rawIcon, 180);
     const isNew = app.is_new === true || (app.is_new && app.is_new.booleanValue === true);
     const isHot = app.is_hot === true || (app.is_hot && app.is_hot.booleanValue === true);
-    const isTopItem = i < 6;
+    const isTopItem = i < 8;
     
     appsHtml += `
       <div class="relative group z-1 [content-visibility:auto] [contain-intrinsic-size:auto_84px]">
@@ -51,22 +54,6 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
           </div>
         </a>
       </div>
-    `;
-  });
-
-  let newsHtml = '';
-  news.slice(0, 3).forEach(n => {
-    const title = getField(n, 'title');
-    const logo = getField(n, 'logo_url');
-    const optimizedLogo = logo ? optimizeImageUrl(logo, 160) : '';
-    newsHtml += `
-      <a href="/news/${encodeURIComponent(getField(n, 'slug'))}" class="flex gap-3 p-4 bg-zinc-50 dark:bg-zinc-900 border border-black/5 rounded-xl text-left items-center">
-        ${logo ? `<img src="${escapeHtml(optimizedLogo)}" loading="lazy" decoding="async" width="60" height="60" class="w-15 h-15 rounded-lg object-cover shrink-0" alt="${escapeHtml(title)} article thumbnail"/>` : ''}
-        <div class="min-w-0 flex-1">
-          <h4 class="font-bold text-sm text-zinc-900 dark:text-white leading-tight mb-1 truncate">${escapeHtml(title)}</h4>
-          <p class="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2">${escapeHtml(getField(n, 'description'))}</p>
-        </div>
-      </a>
     `;
   });
 
@@ -104,37 +91,81 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
     `;
   }
 
-  const categories = Array.isArray(settings?.categories) && settings.categories.length > 0
+  let featuredBannerHtml = '';
+  if (Array.isArray(bannerItems) && bannerItems.length > 0) {
+    featuredBannerHtml = `
+      <div class="w-full relative px-0 sm:px-4 max-w-4xl mx-auto mb-5 group/carousel select-none">
+        <div class="w-full overflow-hidden rounded-2xl sm:rounded-[20px] shadow-sm sm:border border-zinc-100 dark:border-zinc-800/80 bg-zinc-50 dark:bg-zinc-950/40 relative h-[110px] xxs:h-[120px] xs:h-[135px] sm:h-[160px] md:h-[185px]">
+          <div class="flex h-full w-full">
+            <div class="w-full shrink-0 h-full relative">
+              <a href="${bannerItems[0]?.link || '#'}" class="block w-full h-full relative">
+                <img src="${escapeHtml(optimizeImageUrl(bannerItems[0]?.image_url || bannerItems[0]?.image, 800))}" alt="${escapeHtml(bannerItems[0]?.title || 'Featured')}" width="800" height="185" loading="eager" decoding="async" class="w-full h-full object-cover"/>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  const rawCategories = Array.isArray(settings?.categories) && settings.categories.length > 0
     ? settings.categories
-    : ['All Apps', 'Rummy Apps', 'Yono Apps', 'Teen Patti', 'Casino', 'Slot Games'];
+    : ['All Apps', 'Games', 'Apps', 'Entertainment'];
+
+  const categories = rawCategories.some((c: string) => c.toLowerCase() === 'all' || c.toLowerCase() === 'all apps')
+    ? rawCategories
+    : ['All Apps', ...rawCategories];
 
   const categoryTabsHtml = `
-    <nav aria-label="Game Categories" class="mb-2 sticky top-[42px] xxs:top-[46px] xs:top-[50px] sm:top-16 z-40 bg-[var(--bg-primary,#090d16)] py-1 xxs:py-1.5 xs:py-2 px-0">
+    <div class="mb-2 sticky top-[42px] xxs:top-[46px] xs:top-[50px] sm:top-16 z-40 bg-[var(--bg-primary,#090d16)] py-1 xxs:py-1.5 xs:py-2 px-0">
       <div class="flex overflow-x-auto no-scrollbar gap-1 xxs:gap-1.5 xs:gap-2">
-        <a href="/" class="whitespace-nowrap px-2.5 xxs:px-3 xs:px-4 py-1 xxs:py-1.5 xs:py-2 text-[11px] xxs:text-xs xs:text-sm font-medium transition-all rounded-full border bg-blue-500 text-white border-blue-500 shadow-sm">All Apps</a>
-        ${categories.filter((c: string) => c.toLowerCase() !== 'all' && c.toLowerCase() !== 'all apps').map((c: string) => {
+        ${categories.map((c: string, idx: number) => {
+          const isAll = c.toLowerCase() === 'all' || c.toLowerCase() === 'all apps' || idx === 0;
           const catSlug = c.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-          return `<a href="/category/${encodeURIComponent(catSlug)}" class="whitespace-nowrap px-2.5 xxs:px-3 xs:px-4 py-1 xxs:py-1.5 xs:py-2 text-[11px] xxs:text-xs xs:text-sm font-medium transition-all rounded-full border bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border-black/5 dark:border-white/5 hover:bg-zinc-50 dark:hover:bg-zinc-800">${escapeHtml(c)}</a>`;
+          const link = isAll ? '/' : `/category/${encodeURIComponent(catSlug)}`;
+          return `<a href="${link}" class="whitespace-nowrap px-2.5 xxs:px-3 xs:px-4 py-1 xxs:py-1.5 xs:py-2 text-[11px] xxs:text-xs xs:text-sm font-medium transition-all rounded-full border ${isAll ? 'bg-blue-500 text-white border-blue-500 shadow-sm' : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border-black/5 dark:border-white/5 hover:bg-zinc-50 dark:hover:bg-zinc-800'}">${escapeHtml(c)}</a>`;
         }).join('')}
       </div>
-    </nav>
+    </div>
+  `;
+
+  const heroHtml = `
+    <div class="w-full relative py-1 sm:py-1.5 px-4 overflow-hidden flex flex-col items-center justify-center text-center my-0">
+      <div class="max-w-4xl mx-auto flex flex-col items-center justify-center gap-1">
+        <h1 class="font-sans font-black tracking-tight text-center leading-none text-base xs:text-xl sm:text-2xl md:text-3.5xl bg-gradient-to-r from-zinc-950 via-zinc-800 to-zinc-900 bg-clip-text text-transparent dark:from-white dark:via-zinc-200 dark:to-zinc-300 select-text block max-w-3xl filter drop-shadow-sm">
+          ${escapeHtml(heroText)}
+        </h1>
+        ${heroSubtitle ? `<p class="text-[9px] sm:text-[10px] font-bold tracking-[0.18em] text-zinc-900/60 dark:text-zinc-100/60 uppercase max-w-2xl select-text pt-0.5 leading-tight">${escapeHtml(heroSubtitle)}</p>` : ''}
+        <div class="h-[2px] w-12 rounded-full mt-1 bg-zinc-200 dark:bg-zinc-800 transition-all duration-300"></div>
+      </div>
+    </div>
+  `;
+
+  const filterBarHtml = `
+    <div class="px-0 mb-3 xs:mb-4 mt-1 xs:mt-2 flex flex-wrap items-center justify-end gap-2 xs:gap-4">
+      <div class="flex items-center gap-2 xs:gap-3 flex-wrap">
+        <div class="relative">
+          <div class="flex items-center gap-1 xs:gap-1.5 bg-white dark:bg-zinc-900 border border-black/5 dark:border-white/10 rounded-xl px-2 xs:px-3 py-1 xs:py-1.5 shadow-sm text-[11px] xs:text-xs font-medium text-zinc-700 dark:text-zinc-300 select-none">
+            <span class="flex items-center gap-1">
+              <svg class="w-3 h-3 xs:w-3.5 xs:h-3.5 fill-amber-400 text-amber-400 shrink-0" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              <span>Rating: All</span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
   `;
 
   return `
-    <div class="select-none min-h-screen max-w-4xl mx-auto px-2 sm:px-4 py-4 text-left">
-      <header class="text-center py-4 sm:py-8 max-w-2xl mx-auto">
-        <h1 class="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-white mb-2 tracking-tight">${escapeHtml(siteTitle)}</h1>
-        <p class="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">${escapeHtml(desc)}</p>
-      </header>
-
+    <div class="select-none min-h-screen">
+      ${heroHtml}
+      ${featuredBannerHtml}
       ${newAdditionsHtml}
-
       ${categoryTabsHtml}
+      ${filterBarHtml}
 
-      <div class="px-0 sm:px-1">
-        <div class="space-y-2">
-          ${appsHtml}
-        </div>
+      <div class="space-y-1 px-0 sm:px-1">
+        ${appsHtml}
       </div>
 
       ${Array.isArray(settings?.website_faqs) && settings.website_faqs.filter((f: any) => f && f.question && f.answer).length > 0 ? `
@@ -145,7 +176,7 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
               <span class="text-[11px] sm:text-xs font-semibold text-zinc-500 dark:text-zinc-400 bg-zinc-200/70 dark:bg-white/[0.06] px-2.5 py-1 rounded-full">${settings.website_faqs.filter((f: any) => f && f.question && f.answer).length} FAQs</span>
             </div>
             <div class="space-y-2.5 sm:space-y-3">
-              ${settings.website_faqs.filter((f: any) => f && f.question && f.answer).map((faq: any, idx: number) => `
+              ${settings.website_faqs.filter((f: any) => f && f.question && f.answer).map((faq: any) => `
                 <details class="group rounded-xl sm:rounded-2xl border border-zinc-200/90 dark:border-white/[0.07] bg-white dark:bg-[#0c101d] overflow-hidden shadow-xs" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">
                   <summary class="list-none [&::-webkit-details-marker]:hidden flex items-center justify-between gap-3 p-3.5 sm:p-4 text-left cursor-pointer select-none">
                     <span class="flex items-center gap-2.5 min-w-0 pr-1">

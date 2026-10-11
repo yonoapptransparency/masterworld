@@ -528,8 +528,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   // Both human visitors and web crawlers receive the visible layout directly inside #root for instant 0ms first-paint.
   // When JavaScript loads, React takes over seamlessly without layout shifts or blank screens.
   if (preRenderedBody) {
-    if (finalHtml.includes('<div id="root"></div>')) {
-      finalHtml = finalHtml.replace('<div id="root"></div>', () => `<div id="root">${preRenderedBody}</div>`);
+    if (/<div id="root">\s*<\/div>/i.test(finalHtml)) {
+      finalHtml = finalHtml.replace(/<div id="root">\s*<\/div>/i, () => `<div id="root">${preRenderedBody}</div>`);
     } else if (finalHtml.includes('<div id="root">')) {
       finalHtml = finalHtml.replace(/<div id="root">[\s\S]*?<\/div>/i, () => `<div id="root">${preRenderedBody}</div>`);
     }

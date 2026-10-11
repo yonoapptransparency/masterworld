@@ -204,9 +204,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [apps.length]);
 
   useEffect(() => {
-    // If apps are empty, immediately fetch backup without any idle delay
-    if (apps.length === 0) {
-      fetchBackupData(false);
+    // If apps or news are empty, immediately fetch backup without any idle delay
+    if (apps.length === 0 || news.length === 0) {
+      fetchBackupData(true);
       return;
     }
 

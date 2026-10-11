@@ -54,16 +54,12 @@ async function startServer() {
   });
 
   app.use(compression({
-    threshold: 0,
+    threshold: 256,
     level: 9,
     memLevel: 9,
     filter: (req, res) => {
       if (req.headers['x-no-compression']) {
         return false;
-      }
-      const type = (res.getHeader('Content-Type') as string || '').toLowerCase();
-      if (/text|javascript|json|xml|svg|icon|manifest/i.test(type)) {
-        return true;
       }
       return compression.filter(req, res);
     }
