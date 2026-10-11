@@ -359,8 +359,88 @@ function adminAuthDevPlugin(env: Record<string, string>) {
           return;
         }
 
+        if (req.url && (req.url === '/api/v1/public/backup-data' || req.url.startsWith('/api/v1/public/backup-data'))) {
+          const publicBackup = path.resolve(__dirname, 'src/lib/public_backup.json');
+          const staticDataPath = path.resolve(__dirname, 'src/lib/staticData.json');
+          const target = fs.existsSync(publicBackup) ? publicBackup : staticDataPath;
+          if (fs.existsSync(target)) {
+            const raw = fs.readFileSync(target, 'utf8');
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(raw);
+            return;
+          }
+        }
+
+        if (req.url && req.url.startsWith('/api/v1/public/app/')) {
+          const slugPart = req.url.split('?')[0].replace('/api/v1/public/app/', '');
+          const cleanSlug = decodeURIComponent(slugPart).toLowerCase().trim();
+          const publicBackup = path.resolve(__dirname, 'src/lib/public_backup.json');
+          const staticDataPath = path.resolve(__dirname, 'src/lib/staticData.json');
+          const target = fs.existsSync(publicBackup) ? publicBackup : staticDataPath;
+          if (fs.existsSync(target)) {
+            try {
+              const parsed = JSON.parse(fs.readFileSync(target, 'utf8'));
+              const apps = parsed.apps || parsed.mockApps || [];
+              const matched = apps.find((a: any) => 
+                (a.slug && a.slug.toLowerCase().trim() === cleanSlug) ||
+                (a.id && String(a.id).toLowerCase().trim() === cleanSlug)
+              );
+              if (matched) {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ status: 'OK', app: matched }));
+                return;
+              }
+            } catch (_) {}
+          }
+        }
+
+        if (req.url && req.url.startsWith('/api/v1/public/news/')) {
+          const slugPart = req.url.split('?')[0].replace('/api/v1/public/news/', '');
+          const cleanSlug = decodeURIComponent(slugPart).toLowerCase().trim();
+          const publicBackup = path.resolve(__dirname, 'src/lib/public_backup.json');
+          const staticDataPath = path.resolve(__dirname, 'src/lib/staticData.json');
+          const target = fs.existsSync(publicBackup) ? publicBackup : staticDataPath;
+          if (fs.existsSync(target)) {
+            try {
+              const parsed = JSON.parse(fs.readFileSync(target, 'utf8'));
+              const newsList = parsed.news || parsed.mockNews || [];
+              const matched = newsList.find((n: any) => 
+                (n.slug && n.slug.toLowerCase().trim() === cleanSlug) ||
+                (n.id && String(n.id).toLowerCase().trim() === cleanSlug)
+              );
+              if (matched) {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ status: 'OK', news: matched }));
+                return;
+              }
+            } catch (_) {}
+          }
+        }
+
         next();
       });
+    },
+
+    transformIndexHtml(html: string) {
+      try {
+        const publicBackup = path.resolve(__dirname, 'src/lib/public_backup.json');
+        const staticDataPath = path.resolve(__dirname, 'src/lib/staticData.json');
+        const target = fs.existsSync(publicBackup) ? publicBackup : staticDataPath;
+        if (fs.existsSync(target)) {
+          const data = JSON.parse(fs.readFileSync(target, 'utf8'));
+          const payload = {
+            apps: data.apps || data.mockApps || [],
+            settings: data.settings || data.mockSettings || {},
+            news: data.news || data.mockNews || [],
+            videos: data.videos || data.mockVideos || []
+          };
+          const script = `<script>window.__INITIAL_DATA__ = ${JSON.stringify(payload).replace(/</g, '\\u003c')};</script>`;
+          if (html.includes('</head>')) {
+            return html.replace('</head>', `${script}\n</head>`);
+          }
+        }
+      } catch (_) {}
+      return html;
     }
   };
 }
@@ -558,6 +638,9 @@ export default defineConfig(({mode}) => {
       rollupOptions: {
         output: {
           manualChunks(id) {
+            if (id.includes('communityStaticReviews')) {
+              return 'vendor-reviews';
+            }
             if (id.includes('node_modules')) {
               // Group heavy animation and firebase into async standalone chunks
               if (id.includes('firebase')) {

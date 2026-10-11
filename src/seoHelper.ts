@@ -533,12 +533,6 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     } else if (finalHtml.includes('<div id="root">')) {
       finalHtml = finalHtml.replace(/<div id="root">[\s\S]*?<\/div>/i, () => `<div id="root">${preRenderedBody}</div>`);
     }
-    const noscriptFallback = `<noscript><div class="seo-crawler-content">${preRenderedBody}</div></noscript>`;
-    if (finalHtml.includes('</body>')) {
-      finalHtml = finalHtml.replace('</body>', `${noscriptFallback}\n</body>`);
-    } else {
-      finalHtml = `${finalHtml}\n${noscriptFallback}`;
-    }
   }
 
   return { html: finalHtml, isNotFound, canonicalUrl, pageType, title, description };

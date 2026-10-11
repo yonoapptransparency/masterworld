@@ -1,6 +1,22 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { AppConfig, GlobalSettings, NewsItem, VideoItem } from '../typesPublic';
-import { mockApps, mockApps as staticMockApps, mockSettings, mockNews, mockVideos } from '../lib/staticData';
+
+const defaultSettings: GlobalSettings = {
+  site_title: 'RummyDex',
+  meta_description: 'RummyDex Directory',
+  logo_url: '/logo.png',
+  favicon_url: '/favicon.ico',
+  helpline_whatsapp: '',
+  helpline_telegram: '',
+  support_email: '',
+  disclaimer_text: '',
+  ethics_discrimination_text: '',
+  ticker_text: '',
+  animations_enabled: true,
+  portal_heading: 'RummyDex',
+  categories: ['Yono Apps', 'All Apps', 'Rummy Apps'],
+  banners: []
+};
 
 interface DataContextType {
   apps: AppConfig[];
@@ -118,28 +134,26 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [apps, setApps] = useState<AppConfig[]>(() => {
     const initApps = (initialCache?.apps && Array.isArray(initialCache.apps)) ? initialCache.apps : [];
-    const staticApps = (staticMockApps && Array.isArray(staticMockApps) && staticMockApps.length > 0) ? staticMockApps : mockApps;
-    return mergeUniqueApps(staticApps, initApps);
+    return initApps;
   });
   
   const [settings, setSettings] = useState<GlobalSettings>(() => {
     if (initialCache?.settings && Object.keys(initialCache.settings).length > 0) {
-      return { ...mockSettings, ...initialCache.settings };
+      return { ...defaultSettings, ...initialCache.settings };
     }
-    return mockSettings;
+    return defaultSettings;
   });
   
   const [news, setNews] = useState<NewsItem[]>(() => {
     const initNews = (initialCache?.news && Array.isArray(initialCache.news)) ? initialCache.news : [];
-    const staticNews = (mockNews && Array.isArray(mockNews)) ? mockNews : [];
-    return mergeUniqueNews(staticNews, initNews);
+    return initNews;
   });
   
   const [videos, setVideos] = useState<VideoItem[]>(() => {
     if (initialCache?.videos && Array.isArray(initialCache.videos) && initialCache.videos.length > 0) {
       return initialCache.videos;
     }
-    return mockVideos;
+    return [];
   });
 
   const [loading, setLoading] = useState(false);
@@ -163,17 +177,21 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }));
           } catch (e) {}
 
-          if (backup.apps && Array.isArray(backup.apps) && backup.apps.length > 0) {
-            setApps(mergeUniqueApps(staticMockApps || mockApps, backup.apps));
+          const incomingApps = Array.isArray(backup.apps) && backup.apps.length > 0 ? backup.apps : (Array.isArray(backup.mockApps) ? backup.mockApps : []);
+          if (incomingApps.length > 0) {
+            setApps(prev => mergeUniqueApps(prev, incomingApps));
           }
-          if (backup.settings && Object.keys(backup.settings).length > 0) {
-            setSettings(prev => ({ ...prev, ...backup.settings }));
+          const incomingSettings = backup.settings || backup.mockSettings;
+          if (incomingSettings && Object.keys(incomingSettings).length > 0) {
+            setSettings(prev => ({ ...prev, ...incomingSettings }));
           }
-          if (backup.news && Array.isArray(backup.news) && backup.news.length > 0) {
-            setNews(mergeUniqueNews(mockNews, backup.news));
+          const incomingNews = Array.isArray(backup.news) && backup.news.length > 0 ? backup.news : (Array.isArray(backup.mockNews) ? backup.mockNews : []);
+          if (incomingNews.length > 0) {
+            setNews(prev => mergeUniqueNews(prev, incomingNews));
           }
-          if (backup.videos && Array.isArray(backup.videos) && backup.videos.length > 0) {
-            setVideos(backup.videos);
+          const incomingVideos = Array.isArray(backup.videos) && backup.videos.length > 0 ? backup.videos : (Array.isArray(backup.mockVideos) ? backup.mockVideos : []);
+          if (incomingVideos.length > 0) {
+            setVideos(incomingVideos);
           }
           setLoadedFromServer(true);
         }
@@ -186,13 +204,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [apps.length]);
 
   useEffect(() => {
+    // If apps are empty, immediately fetch backup without any idle delay
+    if (apps.length === 0) {
+      fetchBackupData(false);
+      return;
+    }
+
     const isCrawler = typeof navigator !== 'undefined' && /googlebot|google-inspectiontool|bingbot|slurp|duckduckbot|baiduspider|yandexbot|crawler|spider|lighthouse|chrome-lighthouse|headless/i.test(navigator.userAgent || '');
     if (isCrawler) return;
 
     // Zero-contention background revalidation:
     // If apps are already populated from SSR / initialData, wait until the main thread is idle (4s)
     // so 0ms of CPU or network bandwidth is stolen during First Contentful Paint and user interaction.
-    const delay = apps.length > 0 ? 4000 : 100;
+    const delay = 4000;
     const initTimer = setTimeout(() => {
       if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
         (window as any).requestIdleCallback(() => {
@@ -317,10 +341,10 @@ export const useData = (): DataContextType => {
   const context = useContext(DataContext);
   if (!context) {
     return {
-      apps: mockApps as any,
-      settings: mockSettings as any,
-      news: mockNews as any,
-      videos: mockVideos as any,
+      apps: [] as any,
+      settings: defaultSettings as any,
+      news: [] as any,
+      videos: [] as any,
       loading: false,
       loadedFromServer: true,
       appsSyncedWithServer: true,
