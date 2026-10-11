@@ -6,16 +6,8 @@
 
 import communityCatalogStats from './communityCatalogStats.json';
 import communityStaticReviews from './communityStaticReviews.json';
-const getInitialApps = (): any[] => {
-  if (typeof window !== 'undefined' && (window as any).__INITIAL_DATA__?.apps) {
-    return (window as any).__INITIAL_DATA__.apps;
-  }
-  return [];
-};
-const staticData = {
-  get apps() { return getInitialApps(); },
-  settings: {}
-};
+import { mockApps, mockSettings } from './staticData';
+const staticData = { apps: mockApps, settings: mockSettings };
 import { generateNaturalStarDistribution } from '../seo/utils';
 
 export function parseRelativeOrIsoDate(dateInput?: string | Date | number): Date {

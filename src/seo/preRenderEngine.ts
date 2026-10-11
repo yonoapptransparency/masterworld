@@ -9,10 +9,8 @@ function wrapWithLayout(bodyContent: string, settings: any): string {
   return `
     <div class="min-h-screen flex flex-col bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-100 font-sans antialiased selection:bg-blue-500 selection:text-white">
       ${headerHtml}
-      <main id="main-content" tabindex="-1" class="flex-1 w-full max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-0 sm:py-3 pb-16 sm:pb-24 overflow-x-hidden relative focus:outline-none">
-        <div class="w-full h-full">
-          ${bodyContent}
-        </div>
+      <main class="flex-1 w-full max-w-7xl mx-auto px-2 sm:px-4 md:px-6 py-4">
+        ${bodyContent}
       </main>
       ${footerHtml}
     </div>

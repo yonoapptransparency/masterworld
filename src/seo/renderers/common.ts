@@ -31,25 +31,21 @@ export function sanitizeHtml(html: string): string {
 export function renderHeader(settings: any): string {
   const siteTitle = getField(settings, 'site_title') || 'RummyDex';
   const logoUrl = getField(settings, 'logo_url');
-  const optimizedLogo = logoUrl ? optimizeImageUrl(logoUrl, 120) : '';
+  const optimizedLogo = logoUrl ? optimizeImageUrl(logoUrl, 100) : '';
   return `
-    <header class="sticky top-0 z-50 transition-transform duration-200 ease-out will-change-transform bg-white dark:bg-black sm:bg-white/80 sm:dark:bg-black/80 border-b border-white/20 dark:border-white/10 py-2.5 sm:py-3">
-      <div class="w-full max-w-7xl px-1.5 xxs:px-2.5 xs:px-4 sm:px-6 lg:px-8 mx-auto relative flex justify-between items-center">
-        <a href="/" class="flex items-center gap-1 xxs:gap-1.5 xs:gap-2.5 sm:gap-3 group min-w-0" aria-label="${escapeHtml(siteTitle)} Home">
-          <div class="p-0 transition-transform group-hover:scale-[1.03] duration-300 shrink-0">
-            ${logoUrl ? `<img src="${escapeHtml(optimizedLogo)}" width="40" height="40" loading="eager" fetchpriority="high" decoding="async" class="w-6 h-6 xxs:w-7 xxs:h-7 xs:w-8 xs:h-8 sm:w-11 sm:h-11 object-contain drop-shadow-sm" alt="${escapeHtml(siteTitle)} Official Logo"/>` : `<div class="w-6 h-6 xxs:w-7 xxs:h-7 xs:w-8 xs:h-8 sm:w-11 sm:h-11 bg-blue-500 rounded-xl flex items-center justify-center text-white font-semibold text-xs sm:text-base">${escapeHtml(siteTitle.charAt(0))}</div>`}
-          </div>
-          <div class="flex flex-col leading-none min-w-0">
-            <span class="text-xs xxs:text-sm xs:text-base sm:text-xl md:text-2xl font-bold tracking-tight text-zinc-900 dark:text-white truncate max-w-[90px] xxs:max-w-[120px] xs:max-w-[170px] sm:max-w-none">${escapeHtml(siteTitle)}</span>
-          </div>
+    <header class="py-3 border-b border-black/10 dark:border-white/10 bg-white/95 dark:bg-zinc-950/95 sticky top-0 z-40 backdrop-blur-md">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+        <a href="/" class="flex items-center gap-2.5 font-black text-lg sm:text-xl text-zinc-900 dark:text-white" aria-label="${escapeHtml(siteTitle)} Home">
+          ${logoUrl ? `<img src="${escapeHtml(optimizedLogo)}" loading="eager" fetchpriority="high" decoding="async" width="36" height="36" class="w-9 h-9 object-contain rounded-xl" alt="${escapeHtml(siteTitle)} Official Logo"/>` : `<span class="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm">${escapeHtml(siteTitle.charAt(0))}</span>`}
+          <span>${escapeHtml(siteTitle)}</span>
         </a>
-        <nav class="hidden md:flex items-center gap-4 lg:gap-8 text-sm font-medium" aria-label="Main Navigation">
-          <a href="/" class="transition-all p-2 tracking-wide relative text-blue-600">Home<div class="absolute -bottom-1 left-2 right-2 h-[2px] bg-blue-600 rounded-t-full transition-all duration-300"></div></a>
-          <a href="/news" class="transition-all p-2 tracking-wide relative text-zinc-600 hover:text-blue-500 dark:text-zinc-300">News</a>
-          <a href="/videos" class="transition-all p-2 tracking-wide relative text-zinc-600 hover:text-blue-500 dark:text-zinc-300">Videos</a>
-          <a href="/about" class="transition-all p-2 tracking-wide relative text-zinc-600 hover:text-blue-500 dark:text-zinc-300">About</a>
-          <a href="/developers" class="transition-all p-2 tracking-wide relative text-zinc-600 hover:text-blue-500 dark:text-zinc-300">Developers</a>
-          <a href="/contact" class="transition-all p-2 tracking-wide relative text-zinc-600 hover:text-blue-500 dark:text-zinc-300">Contact</a>
+        <nav class="flex items-center gap-4 sm:gap-6 text-xs sm:text-sm font-semibold text-zinc-600 dark:text-zinc-300" aria-label="Main Navigation">
+          <a href="/" class="hover:text-blue-600 dark:hover:text-blue-400">Home</a>
+          <a href="/new-apps" class="hover:text-blue-600 dark:hover:text-blue-400">New Apps</a>
+          <a href="/categories" class="hover:text-blue-600 dark:hover:text-blue-400">Categories</a>
+          <a href="/news" class="hover:text-blue-600 dark:hover:text-blue-400">News</a>
+          <a href="/videos" class="hover:text-blue-600 dark:hover:text-blue-400">Videos</a>
+          <a href="/about" class="hidden sm:inline-block hover:text-blue-600 dark:hover:text-blue-400">About</a>
         </nav>
       </div>
     </header>

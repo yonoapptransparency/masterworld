@@ -77,23 +77,11 @@ if (prerenderEl) {
 
 const rootEl = document.getElementById('root');
 if (rootEl) {
-  const hasPreRender = rootEl.hasChildNodes() && rootEl.innerHTML.trim().length > 0;
-  if (hasPreRender) {
-    hydrateRoot(
-      rootEl,
-      <StrictMode>
-        <GlobalErrorBoundary>
-          <App />
-        </GlobalErrorBoundary>
-      </StrictMode>
-    );
-  } else {
-    createRoot(rootEl).render(
-      <StrictMode>
-        <GlobalErrorBoundary>
-          <App />
-        </GlobalErrorBoundary>
-      </StrictMode>
-    );
-  }
+  createRoot(rootEl).render(
+    <StrictMode>
+      <GlobalErrorBoundary>
+        <App />
+      </GlobalErrorBoundary>
+    </StrictMode>
+  );
 }
