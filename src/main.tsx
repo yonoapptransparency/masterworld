@@ -4,7 +4,7 @@
  */
 
 import {StrictMode} from 'react';
-import {createRoot, hydrateRoot} from 'react-dom/client';
+import {createRoot} from 'react-dom/client';
 import App from './App';
 import GlobalErrorBoundary from './components/GlobalErrorBoundary';
 import './index.css';
@@ -70,39 +70,11 @@ if (typeof window !== 'undefined') {
 
 const rootEl = document.getElementById('root');
 if (rootEl) {
-  const isPreRendered = rootEl.hasChildNodes() && rootEl.innerHTML.trim().length > 0;
-  const isAdminPath = typeof window !== 'undefined' && (
-    window.location.pathname.startsWith('/admin') ||
-    window.location.pathname.startsWith('/masterworld')
+  createRoot(rootEl).render(
+    <StrictMode>
+      <GlobalErrorBoundary>
+        <App />
+      </GlobalErrorBoundary>
+    </StrictMode>
   );
-
-  if (isPreRendered && !isAdminPath) {
-    try {
-      hydrateRoot(
-        rootEl,
-        <StrictMode>
-          <GlobalErrorBoundary>
-            <App />
-          </GlobalErrorBoundary>
-        </StrictMode>
-      );
-    } catch (hydrateErr) {
-      console.warn('[Hydration Fallback] Seamless client render:', hydrateErr);
-      createRoot(rootEl).render(
-        <StrictMode>
-          <GlobalErrorBoundary>
-            <App />
-          </GlobalErrorBoundary>
-        </StrictMode>
-      );
-    }
-  } else {
-    createRoot(rootEl).render(
-      <StrictMode>
-        <GlobalErrorBoundary>
-          <App />
-        </GlobalErrorBoundary>
-      </StrictMode>
-    );
-  }
 }
