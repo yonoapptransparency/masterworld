@@ -68,20 +68,41 @@ if (typeof window !== 'undefined') {
   window.addEventListener('unhandledrejection', handleChunkError);
 }
 
-// Hide the SSR SEO pre-rendered content off-screen div once React takes over to avoid duplicate content penalty
-const prerenderEl = document.getElementById('seo-prerender');
-if (prerenderEl) {
-  prerenderEl.innerHTML = '';
-  prerenderEl.style.display = 'none';
-}
-
 const rootEl = document.getElementById('root');
 if (rootEl) {
-  createRoot(rootEl).render(
-    <StrictMode>
-      <GlobalErrorBoundary>
-        <App />
-      </GlobalErrorBoundary>
-    </StrictMode>
+  const isPreRendered = rootEl.hasChildNodes() && rootEl.innerHTML.trim().length > 0;
+  const isAdminPath = typeof window !== 'undefined' && (
+    window.location.pathname.startsWith('/admin') ||
+    window.location.pathname.startsWith('/masterworld')
   );
+
+  if (isPreRendered && !isAdminPath) {
+    try {
+      hydrateRoot(
+        rootEl,
+        <StrictMode>
+          <GlobalErrorBoundary>
+            <App />
+          </GlobalErrorBoundary>
+        </StrictMode>
+      );
+    } catch (hydrateErr) {
+      console.warn('[Hydration Fallback] Seamless client render:', hydrateErr);
+      createRoot(rootEl).render(
+        <StrictMode>
+          <GlobalErrorBoundary>
+            <App />
+          </GlobalErrorBoundary>
+        </StrictMode>
+      );
+    }
+  } else {
+    createRoot(rootEl).render(
+      <StrictMode>
+        <GlobalErrorBoundary>
+          <App />
+        </GlobalErrorBoundary>
+      </StrictMode>
+    );
+  }
 }

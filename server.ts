@@ -19,7 +19,7 @@ import uploadRouter from './src/server/routes/uploadRoutes';
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   app.set('trust proxy', 1);
 
@@ -54,7 +54,7 @@ async function startServer() {
   });
 
   app.use(compression({
-    threshold: 0,
+    threshold: 256,
     level: 9,
     memLevel: 9,
     filter: (req, res) => {
@@ -194,6 +194,48 @@ async function startServer() {
   const distPath = getDistPath();
 
   if (process.env.NODE_ENV === "production") {
+    // 1. Direct streaming of pre-compressed Brotli & Gzip assets for maximum Pingdom & Lighthouse scores
+    app.get(/^\/assets\/(.+)$/, (req, res, next) => {
+      const assetFile = req.params[0];
+      const filePath = path.join(distPath, 'assets', assetFile);
+      const acceptEncoding = (req.headers['accept-encoding'] as string || '').toLowerCase();
+      const farFuture = new Date(Date.now() + 31536000000).toUTCString();
+
+      const ext = path.extname(assetFile).toLowerCase();
+      let mimeType = 'application/octet-stream';
+      if (ext === '.js') mimeType = 'application/javascript; charset=utf-8';
+      else if (ext === '.css') mimeType = 'text/css; charset=utf-8';
+      else if (ext === '.json') mimeType = 'application/json; charset=utf-8';
+      else if (ext === '.svg') mimeType = 'image/svg+xml';
+      else if (ext === '.png') mimeType = 'image/png';
+      else if (ext === '.webp') mimeType = 'image/webp';
+      else if (ext === '.ico') mimeType = 'image/x-icon';
+
+      if (acceptEncoding.includes('br') && fs.existsSync(`${filePath}.br`)) {
+        res.set({
+          'Content-Type': mimeType,
+          'Content-Encoding': 'br',
+          'Vary': 'Accept-Encoding',
+          'Cache-Control': 'public, max-age=31536000, immutable',
+          'Expires': farFuture
+        });
+        return fs.createReadStream(`${filePath}.br`).pipe(res);
+      }
+
+      if (acceptEncoding.includes('gzip') && fs.existsSync(`${filePath}.gz`)) {
+        res.set({
+          'Content-Type': mimeType,
+          'Content-Encoding': 'gzip',
+          'Vary': 'Accept-Encoding',
+          'Cache-Control': 'public, max-age=31536000, immutable',
+          'Expires': farFuture
+        });
+        return fs.createReadStream(`${filePath}.gz`).pipe(res);
+      }
+
+      next();
+    });
+
     app.use('/assets', express.static(path.join(distPath, 'assets'), {
       maxAge: '1y',
       immutable: true,
@@ -202,22 +244,24 @@ async function startServer() {
         const farFuture = new Date(Date.now() + 31536000000).toUTCString();
         res.setHeader('Expires', farFuture);
         res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        res.setHeader('Vary', 'Accept-Encoding');
       }
     }));
 
     app.use(express.static(distPath, {
-      maxAge: '1d',
+      maxAge: '1y',
       etag: true,
       lastModified: true,
       index: false,
       redirect: false,
       setHeaders: (res, filePath) => {
+        const farFuture = new Date(Date.now() + 31536000000).toUTCString();
+        res.setHeader('Expires', farFuture);
+        res.setHeader('Vary', 'Accept-Encoding');
         if (filePath.endsWith('.html')) {
-          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=3600, stale-while-revalidate=86400');
         } else {
-          const farFuture = new Date(Date.now() + 86400000).toUTCString();
-          res.setHeader('Expires', farFuture);
-          res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=43200');
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
         }
       }
     }));
@@ -560,6 +604,8 @@ async function startServer() {
       if (isNotFound) {
         responseHeaders['Pragma'] = 'no-cache';
         responseHeaders['Expires'] = '0';
+      } else {
+        responseHeaders['Expires'] = new Date(Date.now() + 3600000).toUTCString();
       }
 
       res.status(statusCode).set(responseHeaders).send(html);

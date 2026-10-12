@@ -146,6 +146,55 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loadedFromServer, setLoadedFromServer] = useState(false);
   const [isLive, setIsLive] = useState(true);
 
+  // Dedicated lightweight fetchers for each section on-demand when URL/route changes
+  const fetchNews = useCallback(async () => {
+    try {
+      const res = await fetch('/api/v1/public/news', {
+        headers: { 'Accept': 'application/json' }
+      });
+      if (res.ok) {
+        const payload = await res.json();
+        if (payload?.news && Array.isArray(payload.news) && payload.news.length > 0) {
+          setNews(mergeUniqueNews(mockNews, payload.news));
+        }
+      }
+    } catch (e) {
+      console.warn("Public news fetch warning:", e);
+    }
+  }, []);
+
+  const fetchSettings = useCallback(async () => {
+    try {
+      const res = await fetch('/api/v1/public/settings', {
+        headers: { 'Accept': 'application/json' }
+      });
+      if (res.ok) {
+        const payload = await res.json();
+        if (payload?.settings && Object.keys(payload.settings).length > 0) {
+          setSettings(prev => ({ ...prev, ...payload.settings }));
+        }
+      }
+    } catch (e) {
+      console.warn("Public settings fetch warning:", e);
+    }
+  }, []);
+
+  const fetchVideos = useCallback(async () => {
+    try {
+      const res = await fetch('/api/v1/public/videos', {
+        headers: { 'Accept': 'application/json' }
+      });
+      if (res.ok) {
+        const payload = await res.json();
+        if (payload?.videos && Array.isArray(payload.videos) && payload.videos.length > 0) {
+          setVideos(payload.videos);
+        }
+      }
+    } catch (e) {
+      console.warn("Public videos fetch warning:", e);
+    }
+  }, []);
+
   // Fetch from server backup endpoint with fast memory caching and local storage persistence
   const fetchBackupData = useCallback(async (silent = false) => {
     try {
@@ -301,10 +350,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     deleteVideo: async () => {},
     syncDataToGithub: async () => ({ success: false, log: 'Not available in public repo' }),
     fetchApps: fetchBackupData,
-    fetchSettings: fetchBackupData,
-    fetchNews: fetchBackupData,
-    fetchVideos: fetchBackupData,
-  }), [apps, resolvedSettings, news, videos, loading, loadedFromServer, isLive, fetchBackupData, updateAppDetail, updateNewsDetail]);
+    fetchSettings,
+    fetchNews,
+    fetchVideos,
+  }), [apps, resolvedSettings, news, videos, loading, loadedFromServer, isLive, fetchBackupData, fetchSettings, fetchNews, fetchVideos, updateAppDetail, updateNewsDetail]);
 
   return (
     <DataContext.Provider value={value}>

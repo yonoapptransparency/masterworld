@@ -182,6 +182,73 @@ function adminAuthDevPlugin(env: Record<string, string>) {
           }
         }
 
+        if (req.url && req.url.startsWith('/api/v1/public/')) {
+          const staticPath = path.resolve(__dirname, 'src/lib/staticData.json');
+          const staticData = fs.existsSync(staticPath) ? JSON.parse(fs.readFileSync(staticPath, 'utf8')) : {};
+
+          if (req.url.startsWith('/api/v1/public/news/')) {
+            const slug = decodeURIComponent(req.url.replace('/api/v1/public/news/', '').split('?')[0] || '').toLowerCase().trim();
+            const newsList = staticData.news || [];
+            const found = newsList.find((n: any) => {
+              const s = String(n.slug || n.id || '').toLowerCase().trim();
+              return s === slug || String(n.id || '').toLowerCase().trim() === slug;
+            });
+            res.writeHead(found ? 200 : 404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(found ? { status: 'OK', news: found } : { status: 'NOT_FOUND', error: 'News not found' }));
+            return;
+          }
+
+          if (req.url === '/api/v1/public/news' || req.url.startsWith('/api/v1/public/news?')) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ status: 'OK', news: staticData.news || [] }));
+            return;
+          }
+
+          if (req.url.startsWith('/api/v1/public/app/')) {
+            const slug = decodeURIComponent(req.url.replace('/api/v1/public/app/', '').split('?')[0] || '').toLowerCase().trim();
+            const appsList = staticData.apps || [];
+            const found = appsList.find((a: any) => {
+              const s = String(a.slug || a.id || '').toLowerCase().trim();
+              return s === slug || String(a.id || '').toLowerCase().trim() === slug;
+            });
+            res.writeHead(found ? 200 : 404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(found ? { status: 'OK', app: found } : { status: 'NOT_FOUND', error: 'App not found' }));
+            return;
+          }
+
+          if (req.url === '/api/v1/public/settings' || req.url.startsWith('/api/v1/public/settings?')) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ status: 'OK', settings: staticData.settings || {} }));
+            return;
+          }
+
+          if (req.url === '/api/v1/public/videos' || req.url.startsWith('/api/v1/public/videos?')) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ status: 'OK', videos: staticData.videos || [] }));
+            return;
+          }
+
+          if (req.url === '/api/v1/public/developers' || req.url.startsWith('/api/v1/public/developers?')) {
+            const developers = staticData.settings?.developers || staticData.developers || [];
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ status: 'OK', developers }));
+            return;
+          }
+
+          if (req.url === '/api/v1/public/faqs' || req.url.startsWith('/api/v1/public/faqs?')) {
+            const faqs = staticData.settings?.website_faqs || [];
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ status: 'OK', faqs }));
+            return;
+          }
+
+          if (req.url.startsWith('/api/v1/public/backup-data')) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(staticData));
+            return;
+          }
+        }
+
         if (req.url && req.url.startsWith('/api/v1/admin/community/aistudio-settings')) {
           const dataDir = path.resolve(__dirname, '.data');
           const persistentBrainPath = path.join(dataDir, 'aiStudioBrain.json');

@@ -9,7 +9,7 @@ export function renderNewsList(news: any[], _settings: any): string {
     const optimizedLogo = logo ? optimizeImageUrl(logo, 300) : '';
 
     cards += `
-      <a href="/news/${encodeURIComponent(getField(n, 'slug'))}" class="flex flex-col sm:flex-row gap-4 p-6 bg-white dark:bg-zinc-900 border border-black/5 hover:border-blue-500/25 rounded-3xl transition text-left" aria-label="Read full news article: ${escapeHtml(title)}">
+      <a href="/news/${encodeURIComponent(getField(n, 'slug'))}" class="flex flex-col sm:flex-row gap-4 p-6 bg-white dark:bg-zinc-900 border border-black/5 hover:border-blue-500/25 rounded-3xl transition text-left no-underline" aria-label="Read full news article: ${escapeHtml(title)}">
         ${logo ? `<div class="w-full sm:w-48 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 flex items-center justify-center overflow-hidden shrink-0 border border-black/5 p-2"><img src="${escapeHtml(optimizedLogo)}" loading="lazy" decoding="async" class="max-w-full max-h-32 object-contain rounded-lg" alt="${escapeHtml(title)} news cover banner"/></div>` : ''}
         <div class="flex-1">
           <span class="text-[10px] font-bold text-blue-500 uppercase">${escapeHtml(getField(n, 'category') || 'Report')}</span>
@@ -49,11 +49,13 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
     }
   } catch (_) {}
 
-  const author = getField(item, 'author') || getField(item, 'ceo_name', 'Editorial Team');
-  const authorRole = getField(item, 'ceo_description', 'Platform & Security Analyst');
-  const cat = getField(item, 'category', 'Official Report');
+  const author = getField(item, 'ceo_name') || getField(item, 'author') || 'RummyDex Editorial Team';
+  const cat = getField(item, 'category', 'General');
   const description = getField(item, 'description', '');
-  const siteTitle = getField(settings, 'site_title') || 'RummyDex';
+
+  // Calculate estimated reading time
+  const rawWords = (getField(item, 'content') || description || '').split(/\s+/).length;
+  const readingTime = `${Math.max(1, Math.ceil(rawWords / 200))} min read`;
 
   // Find related app if linked
   let relatedApp: any = null;
@@ -91,40 +93,50 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
   const logo = getField(item, 'image') || getField(item, 'image_url') || getField(item, 'logo_url') || getField(item, 'og_image_url');
   const optimizedLogo = logo ? optimizeImageUrl(logo, 1200) : '';
 
-  // Download / Action link if related app or external link
-  let downloadUrl = '';
-  let downloadText = relatedApp ? (getField(relatedApp, 'name') || 'Application') : 'Download';
+  // Download / Action box (Matching NewsRelatedAppBox.tsx 1:1)
   const appSlug = relatedApp ? (getField(relatedApp, 'slug') || getField(relatedApp, 'id')) : '';
-  if (relatedApp) {
-    downloadUrl = `/app/${encodeURIComponent(appSlug)}`;
-  } else if (getField(item, 'link')) {
-    downloadUrl = getField(item, 'link');
-  }
+  const appName = relatedApp ? getField(relatedApp, 'name') : (title || 'Featured App');
+  const appIcon = relatedApp ? optimizeImageUrl(getField(relatedApp, 'icon_url') || getField(relatedApp, 'logo_url') || '', 128) : '';
+  const detailUrl = appSlug ? `/app/${encodeURIComponent(appSlug)}` : '#';
+  const gatewayUrl = appSlug ? `/moreinfo/${encodeURIComponent(appSlug)}` : '#';
 
-  const appDetailsUrl = appSlug ? `/app/${encodeURIComponent(appSlug)}` : (downloadUrl || '#');
-  const gatewayDownloadUrl = appSlug ? `/moreinfo/${encodeURIComponent(appSlug)}` : (downloadUrl || '#');
-
-  const downloadBtnHtml = (relatedApp || downloadUrl) ? `
-    <div class="my-5 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-blue-50/80 via-indigo-50/60 to-blue-50/80 dark:from-blue-950/40 dark:via-indigo-950/30 dark:to-blue-950/40 border border-blue-100 dark:border-blue-900/50 flex flex-col sm:flex-row items-center justify-between gap-4">
-      <div class="flex items-center gap-3.5">
-        ${relatedApp && getField(relatedApp, 'icon_url') ? `<img src="${escapeHtml(optimizeImageUrl(getField(relatedApp, 'icon_url'), 128))}" alt="${escapeHtml(downloadText)}" class="w-13 h-13 rounded-2xl object-cover shrink-0" />` : ''}
-        <div>
-          <h4 class="text-base sm:text-lg font-bold text-zinc-900 dark:text-white">${escapeHtml(downloadText)}</h4>
+  const renderActionBox = (marginClass: string) => (relatedApp || appSlug) ? `
+    <div class="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-blue-50/80 via-indigo-50/60 to-blue-50/80 dark:from-blue-950/40 dark:via-indigo-950/30 dark:to-blue-950/40 border border-blue-100 dark:border-blue-900/50 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm ${marginClass}">
+      <div class="flex items-center gap-3.5 w-full sm:w-auto">
+        ${appIcon ? `
+          <img src="${escapeHtml(appIcon)}" alt="${escapeHtml(appName)}" width="52" height="52" class="w-13 h-13 rounded-2xl object-cover shadow-sm shrink-0 border border-black/5 dark:border-white/10" loading="eager" decoding="async" />
+        ` : `
+          <div class="w-13 h-13 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-xl shrink-0 shadow-sm">
+            ${escapeHtml(appName?.[0] || 'R')}
+          </div>
+        `}
+        <div class="min-w-0">
+          <h4 class="text-base sm:text-lg font-bold text-zinc-900 dark:text-white truncate">
+            ${escapeHtml(appName)}
+          </h4>
         </div>
       </div>
-      <div class="flex items-center gap-2.5 shrink-0">
-        ${appSlug ? `<a href="${escapeHtml(appDetailsUrl)}" class="px-4 py-2.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 text-xs font-semibold rounded-xl">App Details</a>` : ''}
-        <a href="${escapeHtml(gatewayDownloadUrl)}" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-md shadow-blue-500/20">Download</a>
+      <div class="flex items-center gap-2.5 w-full sm:w-auto shrink-0">
+        ${appSlug ? `
+          <a href="${escapeHtml(detailUrl)}" class="flex-1 sm:flex-none px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-all no-underline" title="View App Details">
+            <svg class="w-3.5 h-3.5 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            <span>App Details</span>
+          </a>
+          <a href="${escapeHtml(gatewayUrl)}" class="flex-1 sm:flex-none px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-500/20 active:scale-95 no-underline" title="Download via Secure Gateway">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+            <span>Download</span>
+          </a>
+        ` : ''}
       </div>
     </div>
   ` : '';
 
-  // 16 Category Similar Apps (single-pass, matching Yono/Rummy category)
+  // 16 Category Similar Apps (2-row horizontal scroll carousel matching AppSimilarCarousel.tsx 1:1)
   let recommendedAppsHtml = '';
   if (Array.isArray(apps) && apps.length > 0) {
-    const mainCat = (relatedApp ? getField(relatedApp, 'category') : (getField(item, 'category') || 'Yono Apps')).trim();
-    const cleanCat = mainCat.toLowerCase();
-    const isAll = cleanCat === 'all' || cleanCat === 'all apps';
+    const targetCategory = (relatedApp ? getField(relatedApp, 'category') : (getField(item, 'category') || 'Yono Apps')).trim();
+    const cleanTargetCat = targetCategory.toLowerCase();
+    const isAll = cleanTargetCat === 'all' || cleanTargetCat === 'all apps';
     const relAppId = relatedApp ? (getField(relatedApp, 'id') || '').toLowerCase() : '';
     const relAppSlug = relatedApp ? (getField(relatedApp, 'slug') || '').toLowerCase() : '';
 
@@ -141,7 +153,7 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
       const isBaseApp = Boolean(relatedApp && (aId === relAppId || aSlug === relAppSlug));
 
       const aCat = (getField(a, 'category') || '').toLowerCase();
-      const matches = isAll || aCat.includes(cleanCat) || cleanCat.includes(aCat);
+      const matches = isAll || aCat.includes(cleanTargetCat) || cleanTargetCat.includes(aCat);
 
       if (matches) {
         totalCatCount++;
@@ -187,27 +199,32 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
 
     if (displaySimilarApps.length > 0) {
       recommendedAppsHtml = `
-        <section aria-labelledby="related-apps-heading" class="my-5 xs:my-6 text-left">
-          <div class="flex items-center justify-between mb-3 px-1">
-            <h2 id="related-apps-heading" class="text-base sm:text-xl font-bold flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
-              <span>Similar Applications</span>
-              ${mainCat && mainCat !== 'All Apps' ? `<span class="text-[10px] sm:text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2.5 py-0.5 rounded-full border border-blue-200/50 dark:border-blue-800/50">${escapeHtml(mainCat)}</span>` : ''}
-            </h2>
-            <a href="/?tab=${encodeURIComponent(mainCat)}" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-bold text-xs no-underline border border-blue-200/70 dark:border-blue-800/70">View all (${totalCatCount}) &rarr;</a>
+        <section aria-labelledby="related-apps-heading" class="my-5 xs:my-6 px-0 text-left">
+          <div class="flex items-center justify-between gap-2 mb-3 px-1 xs:px-2 sm:px-4 md:px-6">
+            <div class="flex items-center gap-2 min-w-0">
+              <h2 id="related-apps-heading" class="text-base xs:text-lg sm:text-xl font-bold flex items-center gap-1.5 xs:gap-2 text-zinc-900 dark:text-zinc-100 truncate">
+                <span>Similar Applications</span>
+                ${targetCategory && targetCategory !== 'All Apps' ? `<span class="text-[10px] xs:text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 xs:px-2.5 py-0.5 rounded-full border border-blue-200/50 dark:border-blue-800/50 truncate">${escapeHtml(targetCategory)}</span>` : ''}
+              </h2>
+            </div>
+            <a href="/?tab=${encodeURIComponent(targetCategory)}" class="inline-flex items-center gap-1.5 px-3 py-1 xs:px-3.5 xs:py-1.5 rounded-full bg-blue-50 hover:bg-blue-100 active:scale-95 dark:bg-blue-950/40 dark:hover:bg-blue-900/60 text-blue-600 dark:text-blue-400 font-bold text-xs xs:text-xs transition-all border border-blue-200/70 dark:border-blue-800/70 shadow-2xs group shrink-0 no-underline" title="Explore all ${totalCatCount} ${escapeHtml(targetCategory)} apps">
+              <span>View all (${totalCatCount})</span>
+              <svg class="w-3 h-3 xs:w-3.5 xs:h-3.5 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+            </a>
           </div>
-          <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-8 gap-3">
+          <div class="grid grid-rows-2 grid-flow-col gap-x-3 xxs:gap-x-4 xs:gap-x-5 gap-y-3 xxs:gap-y-3.5 xs:gap-y-4 overflow-x-auto pt-2.5 pb-2 snap-x snap-proximity [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden -mx-2 xs:-mx-4 px-2 xs:px-4 sm:mx-0 sm:px-0" style="-webkit-overflow-scrolling: touch;">
             ${displaySimilarApps.map(sim => {
               const simName = getField(sim, 'name');
               const simSlug = getField(sim, 'slug');
               const simIcon = optimizeImageUrl(getField(sim, 'icon_url') || '', 160);
               const simIsNew = checkAppIsNew(sim);
               return `
-                <a href="/app/${encodeURIComponent(simSlug)}" class="flex flex-col items-center text-center gap-1.5 p-2 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 hover:border-blue-500/50 transition group no-underline relative">
-                  <div class="relative inline-block">
-                    <img src="${escapeHtml(simIcon)}" loading="lazy" decoding="async" width="76" height="76" class="w-16 h-16 sm:w-18 sm:h-18 rounded-[22%] object-cover shadow-xs group-hover:scale-105 transition-transform" alt="${escapeHtml(simName)} app icon"/>
-                    ${simIsNew ? '<span class="absolute -top-1.5 -right-1.5 z-20 bg-[#008738] text-white font-black text-[7.5px] px-1.5 py-0.5 rounded-full uppercase leading-none shadow-xs border border-white">NEW</span>' : ''}
+                <a href="/app/${encodeURIComponent(simSlug)}" class="flex flex-col items-center justify-start gap-1 xxs:gap-1.5 xs:gap-2 w-[68px] xxs:w-[76px] xs:w-[86px] sm:w-[98px] snap-start group shrink-0 active:scale-95 transition-transform duration-150 ease-out no-underline">
+                  <div class="relative inline-block shrink-0">
+                    <img src="${escapeHtml(simIcon)}" alt="${escapeHtml(simName)}" width="86" height="86" decoding="async" class="w-[58px] h-[58px] xxs:w-[66px] xxs:h-[66px] xs:w-[76px] xs:h-[76px] sm:w-[86px] sm:h-[86px] rounded-[24%] shadow-[0_2px_8px_rgba(0,0,0,0.08)] object-cover group-hover:scale-105 transition-transform duration-200 block pointer-events-none select-none" loading="lazy" />
+                    ${simIsNew ? '<span class="absolute -top-1.5 -right-1.5 z-20 bg-[#008738] text-white font-black text-[7.5px] xxs:text-[8px] xs:text-[9px] px-1.5 py-0.5 rounded-full shadow-[0_2px_6px_rgba(0,0,0,0.25)] border border-white dark:border-zinc-900 uppercase tracking-wider leading-none select-none pointer-events-none flex items-center justify-center">NEW</span>' : ''}
                   </div>
-                  <span class="text-xs font-semibold text-zinc-800 dark:text-zinc-200 line-clamp-2 leading-tight">${escapeHtml(simName)}</span>
+                  <span class="text-[9.5px] xxs:text-[10.5px] xs:text-[11.5px] sm:text-[12px] font-semibold text-center text-zinc-800 dark:text-zinc-200 line-clamp-2 w-full px-0.5 leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors pointer-events-none select-none">${escapeHtml(simName)}</span>
                 </a>
               `;
             }).join('')}
@@ -217,57 +234,68 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
     }
   }
 
+  // 1:1 Layout Match with NewsDetailPage.tsx
   return `
-    <div class="max-w-4xl mx-auto py-4 sm:py-6 px-2 sm:px-4 text-left">
-      <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 mb-4">
-        <a href="/" class="hover:text-blue-600">Home</a>
-        <span>/</span>
-        <a href="/news" class="hover:text-blue-600">News</a>
-        <span>/</span>
-        <span class="font-bold text-zinc-800 dark:text-zinc-200 truncate max-w-[200px] sm:max-w-md">${escapeHtml(title)}</span>
-      </nav>
-
-      <article class="animate-fade-in">
-        <header class="mb-4">
-          <div class="flex flex-wrap items-center gap-2 mb-2.5 text-xs">
-            <span class="bg-blue-50 dark:bg-blue-950/70 text-blue-600 dark:text-blue-400 font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider text-[11px] border border-blue-200/50 dark:border-blue-800/50">
-              ${escapeHtml(cat)}
-            </span>
-            <span class="text-zinc-500 dark:text-zinc-400 font-medium">
-              ${escapeHtml(formattedDate)}
-            </span>
-            <span class="text-zinc-300 dark:text-zinc-700">•</span>
-            <span class="text-zinc-500 dark:text-zinc-400 font-medium">
-              Reported by <strong class="text-zinc-700 dark:text-zinc-300">${escapeHtml(author)}</strong>
-            </span>
+    <article class="max-w-3xl mx-auto px-3 sm:px-0 pb-20 text-left">
+      <!-- 1. NewsArticleHeader -->
+      <div class="flex items-center justify-between gap-3 px-1 sm:px-4 mb-4">
+        <a href="/news" class="inline-flex items-center gap-2 text-xs xs:text-sm font-medium text-blue-500 hover:text-blue-600 transition-colors group shrink-0 no-underline">
+          <div class="p-1.5 rounded-full bg-blue-50 dark:bg-blue-900/20 group-hover:-translate-x-1 transition-transform">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
           </div>
-          <h1 class="text-2xl sm:text-3xl md:text-4xl font-extrabold text-zinc-900 dark:text-white tracking-tight leading-tight mb-3">
-            ${escapeHtml(title)}
-          </h1>
-        </header>
+          <span>Back to News</span>
+        </a>
+        <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-zinc-700 dark:text-zinc-200 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 transition-all border border-black/5 dark:border-white/10 shrink-0 cursor-pointer" title="Share article">
+          <svg class="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+          <span>Share</span>
+        </button>
+      </div>
 
-        ${logo ? `
-          <div class="w-full overflow-hidden mb-5 rounded-2xl bg-transparent">
-            <img src="${escapeHtml(optimizedLogo)}" loading="eager" fetchpriority="high" decoding="async" class="w-full h-auto block rounded-2xl" alt="${escapeHtml(title)} main cover article image"/>
-          </div>
-        ` : ''}
-
-        ${downloadBtnHtml}
-
-        ${recommendedAppsHtml}
-
-        ${description ? `
-          <div class="mb-6 p-4 rounded-xl bg-blue-50/60 dark:bg-blue-950/20 border-l-4 border-blue-600 text-sm sm:text-base font-medium text-zinc-800 dark:text-zinc-200 leading-relaxed">
-            ${escapeHtml(description)}
-          </div>
-        ` : ''}
-
-        <div class="prose dark:prose-invert text-zinc-700 dark:text-zinc-300 leading-relaxed font-normal text-base max-w-none mb-10">
-          ${sanitizedContent}
+      <header class="mb-4 text-left px-1 sm:px-4">
+        <div class="flex flex-wrap items-center gap-2 mb-2 text-xs">
+          <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200/50 dark:border-blue-800/50">
+            ${escapeHtml(cat)}
+          </span>
+          <span class="text-zinc-400 dark:text-zinc-500 flex items-center gap-1 font-medium">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+            ${escapeHtml(formattedDate)}
+          </span>
+          <span class="text-zinc-300 dark:text-zinc-700">•</span>
+          <span class="text-zinc-400 dark:text-zinc-500 flex items-center gap-1 font-medium">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            ${escapeHtml(readingTime)}
+          </span>
         </div>
 
-        ${downloadBtnHtml}
-      </article>
-    </div>
+        <h1 class="text-2xl xs:text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-zinc-900 dark:text-zinc-100 leading-tight mb-3">
+          ${escapeHtml(title)}
+        </h1>
+
+        <div class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 font-medium">
+          <span>Reported by</span>
+          <span class="font-bold text-zinc-800 dark:text-zinc-200">${escapeHtml(author)}</span>
+        </div>
+      </header>
+
+      ${logo ? `
+        <div class="w-full aspect-video max-h-[420px] overflow-hidden mb-5 sm:mb-6 rounded-2xl bg-zinc-100 dark:bg-zinc-800/80 border border-black/5 dark:border-white/5 relative">
+          <img src="${escapeHtml(optimizedLogo)}" alt="${escapeHtml(title)}" loading="eager" fetchpriority="high" decoding="async" class="w-full h-full object-cover block rounded-2xl" />
+        </div>
+      ` : ''}
+
+      <!-- 2. Top NewsRelatedAppBox -->
+      ${renderActionBox('my-5 sm:my-6')}
+
+      <!-- 3. Similar Applications -->
+      ${recommendedAppsHtml}
+
+      <!-- 4. Article Content Body -->
+      <div class="prose dark:prose-invert max-w-none text-zinc-800 dark:text-zinc-200 leading-relaxed text-sm sm:text-base space-y-4 font-normal mt-6">
+        ${sanitizedContent}
+      </div>
+
+      <!-- 5. Bottom NewsRelatedAppBox -->
+      ${renderActionBox('my-8')}
+    </article>
   `;
 }

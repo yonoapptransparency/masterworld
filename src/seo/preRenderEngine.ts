@@ -7,10 +7,13 @@ function wrapWithLayout(bodyContent: string, settings: any): string {
   const headerHtml = renderers.renderHeader(settings);
   const footerHtml = renderers.renderFooter(settings);
   return `
-    <div class="min-h-screen flex flex-col bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-100 font-sans antialiased selection:bg-blue-500 selection:text-white">
+    <div class="flex flex-col min-h-screen">
+      <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[9999] focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white focus:font-semibold focus:rounded-lg focus:shadow-lg focus:outline-none">Skip to main content</a>
       ${headerHtml}
-      <main class="flex-1 w-full max-w-7xl mx-auto px-2 sm:px-4 md:px-6 py-4">
-        ${bodyContent}
+      <main id="main-content" tabindex="-1" class="flex-1 w-full max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-0 sm:py-3 pb-16 sm:pb-24 overflow-x-hidden relative focus:outline-none">
+        <div class="w-full h-full">
+          ${bodyContent}
+        </div>
       </main>
       ${footerHtml}
     </div>
