@@ -50,10 +50,9 @@ export function buildMetaTags(params: MetaBuilderParams): string {
   const ogImageHeight = '630';
   const ogType = pageType === 'news' ? 'article' : 'website';
 
-  // For app pages: use app's own name as application-name to prevent Google from appending site brand
-  const appName = targetApp ? getField(targetApp, 'name') : '';
-  const applicationName = appName ? escapeHtml(appName) : escapeHtml(siteTitle);
-  const ogSiteName = appName ? escapeHtml(appName) : escapeHtml(siteTitle);
+  // Strictly prevent Google from appending site brand (- RummyDex) by aligning application-name and og:site_name with the exact page title
+  const applicationName = escapedTitle;
+  const ogSiteName = escapedTitle;
 
   // Exact 1:1 square icon for search engine thumbnails to prevent logo mismatch in search results
   const rawTargetIcon = targetApp ? (getField(targetApp, 'icon_url') || getField(targetApp, 'og_image_url')) : '';
@@ -81,8 +80,6 @@ export function buildMetaTags(params: MetaBuilderParams): string {
     <meta data-rh="true" property="og:image:width" content="${ogImageWidth}">
     <meta data-rh="true" property="og:image:height" content="${ogImageHeight}">
     <meta data-rh="true" name="twitter:card" content="summary_large_image">
-    ${!targetApp ? `<meta data-rh="true" name="twitter:site" content="@RummyDex">
-    <meta data-rh="true" name="twitter:creator" content="@RummyDex">` : ''}
     <meta data-rh="true" name="twitter:title" content="${escapedTitle}">
     <meta data-rh="true" name="twitter:description" content="${escapedDesc}">
     <meta data-rh="true" name="twitter:image" content="${pageOgImage}">

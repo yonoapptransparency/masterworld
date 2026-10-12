@@ -79,13 +79,20 @@ export function clearSeoCache() {
 
 async function doFetchStoreData() {
   const now = Date.now();
+  let liveData: any = null;
+  try {
+    liveData = await syncFromFirestore();
+  } catch (err) {
+    console.warn("[seoHelper] syncFromFirestore fallback to static backup:", err);
+  }
+
   const freshStatic = getStaticData();
   const data = {
-    apps: freshStatic.apps || freshStatic.mockApps || [],
-    settings: freshStatic.settings || freshStatic.mockSettings || {},
-    news: freshStatic.news || freshStatic.mockNews || [],
-    videos: freshStatic.videos || freshStatic.mockVideos || [],
-    developers: freshStatic.developers || freshStatic.mockDevelopers || freshStatic.settings?.developers || freshStatic.mockSettings?.developers || []
+    apps: (liveData?.apps && Array.isArray(liveData.apps) && liveData.apps.length > 0) ? liveData.apps : (freshStatic.apps || freshStatic.mockApps || []),
+    settings: (liveData?.settings && Object.keys(liveData.settings).length > 0) ? liveData.settings : (freshStatic.settings || freshStatic.mockSettings || {}),
+    news: (liveData?.news && Array.isArray(liveData.news) && liveData.news.length > 0) ? liveData.news : (freshStatic.news || freshStatic.mockNews || []),
+    videos: (liveData?.videos && Array.isArray(liveData.videos) && liveData.videos.length > 0) ? liveData.videos : (freshStatic.videos || freshStatic.mockVideos || []),
+    developers: freshStatic.developers || freshStatic.mockDevelopers || freshStatic.settings?.developers || []
   };
   
   cachedData = data;
@@ -278,25 +285,14 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
         getField(newsItem, 'description') || 
         stripHtml(getField(newsItem, 'content') || getField(newsItem, 'description_html')).substring(0, 160)
       );
-      customCanonicalUrl = getField(newsItem, 'canonical_url');
+      customCanonicalUrl = `https://www.rummydex.com/news/${getField(newsItem, 'slug') || getField(newsItem, 'id')}`;
       pageType = 'news';
       targetNews = newsItem;
     } else {
-      const matchedApp = apps.find((a: any) => {
-        const aSlug = (getField(a, 'slug') || '').toLowerCase().trim();
-        const aId = (getField(a, 'id') || '').toLowerCase().trim();
-        return (aSlug && aSlug === cleanNewsSlug) || (aId && aId === cleanNewsSlug);
-      });
-      if (matchedApp) {
-        targetApp = matchedApp;
-        pageType = 'app';
-        title = getField(matchedApp, 'seo_title') || getField(matchedApp, 'meta_title') || getField(matchedApp, 'name');
-        description = cleanSeoDescription(getField(matchedApp, 'seo_description') || getField(matchedApp, 'meta_description') || stripHtml(getField(matchedApp, 'description_html')).substring(0, 160));
-        customCanonicalUrl = `https://www.rummydex.com/app/${getField(matchedApp, 'slug') || getField(matchedApp, 'id')}`;
-      } else {
-        isNotFound = true;
-        pageType = '404';
-      }
+      isNotFound = true;
+      pageType = '404';
+      title = `News Article Not Found`;
+      description = `The requested publication could not be located on ${siteTitle}.`;
     }
   } else if (cleanPathLower.startsWith('/videos/')) {
     const slug = cleanPath.split('/videos/')[1];
@@ -427,9 +423,21 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     }
   }
 
-  const canonicalUrl = (pageType === 'app' && targetApp && getField(targetApp, 'slug'))
-    ? (getField(targetApp, 'canonical_url') ? getCleanCanonicalUrl(getField(targetApp, 'canonical_url'), canonicalPath) : `https://www.rummydex.com/app/${getField(targetApp, 'slug')}`)
-    : getCleanCanonicalUrl(customCanonicalUrl, canonicalPath);
+  let canonicalUrl = '';
+  if (pageType === 'app' && targetApp && getField(targetApp, 'slug')) {
+    const rawAppCanonical = getField(targetApp, 'canonical_url');
+    const expectedAppSlug = String(getField(targetApp, 'slug')).trim().toLowerCase();
+    if (rawAppCanonical && typeof rawAppCanonical === 'string' && rawAppCanonical.toLowerCase().includes(`/app/${expectedAppSlug}`)) {
+      canonicalUrl = getCleanCanonicalUrl(rawAppCanonical, `/app/${expectedAppSlug}`);
+    } else {
+      canonicalUrl = `https://www.rummydex.com/app/${expectedAppSlug}`;
+    }
+  } else if (pageType === 'news' && targetNews) {
+    const nSlug = getField(targetNews, 'slug') || getField(targetNews, 'id');
+    canonicalUrl = `https://www.rummydex.com/news/${nSlug}`;
+  } else {
+    canonicalUrl = getCleanCanonicalUrl(customCanonicalUrl, canonicalPath);
+  }
 
   let pageOgImage = logoUrl;
   if (targetApp) {
@@ -525,8 +533,14 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   }
 
   // High-performance server-side visible HTML shell injection:
-  // Both human visitors and web crawlers receive the visible layout directly inside #root for instant 0ms first-paint.
-  // When JavaScript loads, React hydrates seamlessly without layout shifts, DOM resets, or duplicate backside pages.
+  // Pre-rendered semantic HTML is injected directly into #root for instant 0ms first-paint and flawless web crawler indexing.
+  // When JavaScript loads, React takes over seamlessly with createRoot without any DOM node removal or blank screen flash.
+  if (finalHtml.includes('<div id="ssr-root"></div>')) {
+    finalHtml = finalHtml.replace('<div id="ssr-root"></div>', '');
+  } else if (finalHtml.includes('<div id="ssr-root">')) {
+    finalHtml = finalHtml.replace(/<div id="ssr-root">[\s\S]*?<\/div>/i, '');
+  }
+
   if (preRenderedBody) {
     if (finalHtml.includes('<div id="root"></div>')) {
       finalHtml = finalHtml.replace('<div id="root"></div>', () => `<div id="root">${preRenderedBody}</div>`);

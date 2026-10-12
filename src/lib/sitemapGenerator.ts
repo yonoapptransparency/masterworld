@@ -21,8 +21,10 @@ export const cleanSlug = (slug: string): string => {
   return escapeXml(encodeURI(slug.trim().replace(/^\/+|\/+$/g, '')));
 };
 
+export const STABLE_BASELINE_DATE = '2026-09-01T00:00:00+00:00';
+
 export const formatSitemapDate = (dateVal: any, fallbackDate?: string): string => {
-  const fallback = fallbackDate || new Date().toISOString().replace(/\.\d{3}Z$/, '+00:00');
+  const fallback = fallbackDate || STABLE_BASELINE_DATE;
   if (!dateVal) return fallback;
 
   try {
@@ -52,11 +54,11 @@ export const formatSitemapDate = (dateVal: any, fallbackDate?: string): string =
   return fallback;
 };
 
-export const getLatestItemDate = (items: any[], fallbackDate: string): string => {
+export const getLatestItemDate = (items: any[], fallbackDate: string = STABLE_BASELINE_DATE): string => {
   if (!Array.isArray(items) || items.length === 0) return fallbackDate;
   let maxTs = 0;
   for (const item of items) {
-    const raw = item.updated_at || item.created_at || item.published_at || item.date;
+    const raw = item.updated_at || item.published_at || item.created_at || item.date;
     if (raw) {
       const d = new Date(formatSitemapDate(raw, fallbackDate)).getTime();
       if (!isNaN(d) && d > maxTs) maxTs = d;
@@ -73,10 +75,9 @@ export function generateMasterSitemapXml(
   host: string = 'https://www.rummydex.com'
 ): string {
   const cleanHost = host.replace(/\/$/, '');
-  const now = new Date().toISOString().replace(/\.\d{3}Z$/, '+00:00');
-  const latestAppDate = getLatestItemDate(apps, now);
-  const latestNewsDate = getLatestItemDate(news, now);
-  const latestVideoDate = getLatestItemDate(videos, now);
+  const latestAppDate = getLatestItemDate(apps, STABLE_BASELINE_DATE);
+  const latestNewsDate = getLatestItemDate(news, STABLE_BASELINE_DATE);
+  const latestVideoDate = getLatestItemDate(videos, latestAppDate);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -110,15 +111,14 @@ export function generateAppsSitemapXml(
   siteLogo: string = 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png'
 ): string {
   const cleanHost = host.replace(/\/$/, '');
-  const now = new Date().toISOString().replace(/\.\d{3}Z$/, '+00:00');
 
   // Filter public-ready apps
   const publicApps = apps.filter((a: any) => a && a.slug && a.sync_to_public !== false && !a.slug.toLowerCase().includes('test-'));
   
   // Sort latest updated first
   publicApps.sort((a, b) => {
-    const ta = new Date(formatSitemapDate(a.updated_at || a.created_at, now)).getTime();
-    const tb = new Date(formatSitemapDate(b.updated_at || b.created_at, now)).getTime();
+    const ta = new Date(formatSitemapDate(a.updated_at || a.created_at, STABLE_BASELINE_DATE)).getTime();
+    const tb = new Date(formatSitemapDate(b.updated_at || b.created_at, STABLE_BASELINE_DATE)).getTime();
     return tb - ta;
   });
 
@@ -133,10 +133,16 @@ export function generateAppsSitemapXml(
     if (seenUrls.has(loc)) continue;
     seenUrls.add(loc);
 
-    const appDate = formatSitemapDate(app.updated_at || app.created_at, now);
+    const appDate = formatSitemapDate(app.updated_at || app.created_at, STABLE_BASELINE_DATE);
     let appImage = app.og_image_url || app.icon_url || siteLogo;
-    if (appImage && typeof appImage === 'string' && appImage.includes('res.cloudinary.com')) {
-      appImage = appImage.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_webp,q_auto,w_800/$1');
+    if (appImage && typeof appImage === 'string') {
+      appImage = appImage.trim();
+      if (!appImage.startsWith('http')) {
+        appImage = `${cleanHost}${appImage.startsWith('/') ? '' : '/'}${appImage}`;
+      }
+      if (appImage.includes('res.cloudinary.com')) {
+        appImage = appImage.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_webp,q_auto,w_800/$1');
+      }
     }
     const appName = app.name || 'Application';
 
@@ -158,8 +164,14 @@ export function generateAppsSitemapXml(
     if (Array.isArray(app.screenshots)) {
       app.screenshots.forEach((s: string, idx: number) => {
         let shotImage = s;
-        if (shotImage && typeof shotImage === 'string' && shotImage.includes('res.cloudinary.com')) {
-          shotImage = shotImage.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_webp,q_auto,w_800/$1');
+        if (shotImage && typeof shotImage === 'string') {
+          shotImage = shotImage.trim();
+          if (!shotImage.startsWith('http')) {
+            shotImage = `${cleanHost}${shotImage.startsWith('/') ? '' : '/'}${shotImage}`;
+          }
+          if (shotImage.includes('res.cloudinary.com')) {
+            shotImage = shotImage.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_webp,q_auto,w_800/$1');
+          }
         }
         xml += `    <image:image>\n`;
         xml += `      <image:loc>${escapeXml(shotImage)}</image:loc>\n`;
@@ -172,7 +184,7 @@ export function generateAppsSitemapXml(
 
   // Safety: If no apps matched, add fallback so XML is never empty
   if (seenUrls.size === 0) {
-    xml += `  <url>\n    <loc>${cleanHost}/</loc>\n    <lastmod>${now}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>1.0</priority>\n  </url>\n`;
+    xml += `  <url>\n    <loc>${cleanHost}/</loc>\n    <lastmod>${STABLE_BASELINE_DATE}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>1.0</priority>\n  </url>\n`;
   }
 
   xml += `</urlset>\n`;
@@ -185,12 +197,11 @@ export function generateNewsSitemapXml(
   host: string = 'https://www.rummydex.com'
 ): string {
   const cleanHost = host.replace(/\/$/, '');
-  const now = new Date().toISOString().replace(/\.\d{3}Z$/, '+00:00');
   const publicNews = news.filter((n: any) => n && n.slug && n.sync_to_public !== false);
 
   publicNews.sort((a, b) => {
-    const ta = new Date(formatSitemapDate(a.published_at || a.updated_at || a.created_at || a.date, now)).getTime();
-    const tb = new Date(formatSitemapDate(b.published_at || b.updated_at || b.created_at || b.date, now)).getTime();
+    const ta = new Date(formatSitemapDate(a.updated_at || a.published_at || a.created_at || a.date, STABLE_BASELINE_DATE)).getTime();
+    const tb = new Date(formatSitemapDate(b.updated_at || b.published_at || b.created_at || b.date, STABLE_BASELINE_DATE)).getTime();
     return tb - ta;
   });
 
@@ -205,8 +216,17 @@ export function generateNewsSitemapXml(
     if (seenUrls.has(loc)) continue;
     seenUrls.add(loc);
 
-    const itemDate = formatSitemapDate(item.published_at || item.updated_at || item.created_at || item.date, now);
-    const itemImage = item.logo_url || item.image_url || item.thumbnail_url || item.og_image_url || '';
+    const itemDate = formatSitemapDate(item.updated_at || item.published_at || item.created_at || item.date, STABLE_BASELINE_DATE);
+    let itemImage = item.logo_url || item.image_url || item.thumbnail_url || item.og_image_url || '';
+    if (itemImage && typeof itemImage === 'string') {
+      itemImage = itemImage.trim();
+      if (!itemImage.startsWith('http')) {
+        itemImage = `${cleanHost}${itemImage.startsWith('/') ? '' : '/'}${itemImage}`;
+      }
+      if (itemImage.includes('res.cloudinary.com')) {
+        itemImage = itemImage.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_webp,q_auto,w_800/$1');
+      }
+    }
     const itemTitle = item.title || 'News Article';
 
     xml += `  <url>\n`;
@@ -224,7 +244,7 @@ export function generateNewsSitemapXml(
   }
 
   if (seenUrls.size === 0) {
-    xml += `  <url>\n    <loc>${cleanHost}/news</loc>\n    <lastmod>${now}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n  </url>\n`;
+    xml += `  <url>\n    <loc>${cleanHost}/news</loc>\n    <lastmod>${STABLE_BASELINE_DATE}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.8</priority>\n  </url>\n`;
   }
 
   xml += `</urlset>\n`;
@@ -238,7 +258,7 @@ export function generateVideosSitemapXml(
   siteLogo: string = 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png'
 ): string {
   const cleanHost = host.replace(/\/$/, '');
-  const now = new Date().toISOString().replace(/\.\d{3}Z$/, '+00:00');
+  const now = STABLE_BASELINE_DATE;
 
   let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n`;
 
@@ -252,7 +272,13 @@ export function generateVideosSitemapXml(
     seenUrls.add(loc);
 
     const itemDate = formatSitemapDate(item.updated_at || item.created_at || item.published_at || item.date, now);
-    const itemImage = item.thumbnail_url || item.image_url || siteLogo;
+    let itemImage = item.thumbnail_url || item.image_url || siteLogo;
+    if (itemImage && typeof itemImage === 'string') {
+      itemImage = itemImage.trim();
+      if (!itemImage.startsWith('http')) {
+        itemImage = `${cleanHost}${itemImage.startsWith('/') ? '' : '/'}${itemImage}`;
+      }
+    }
     const itemTitle = item.title || 'Video Walkthrough';
 
     xml += `  <url>\n`;
@@ -289,12 +315,11 @@ export function generateStaticSitemapXml(
   latestDate?: string
 ): string {
   const cleanHost = host.replace(/\/$/, '');
-  const now = latestDate || new Date().toISOString().replace(/\.\d{3}Z$/, '+00:00');
+  const now = latestDate || STABLE_BASELINE_DATE;
 
   const staticPages = [
     { path: '/', priority: '1.0', changefreq: 'daily' },
     { path: '/news', priority: '0.8', changefreq: 'daily' },
-    { path: '/developers', priority: '0.7', changefreq: 'weekly' },
     { path: '/videos', priority: '0.7', changefreq: 'weekly' },
     { path: '/about', priority: '0.5', changefreq: 'monthly' },
     { path: '/contact', priority: '0.5', changefreq: 'monthly' },
@@ -326,7 +351,7 @@ export function generateDevelopersSitemapXml(
   latestDate?: string
 ): string {
   const cleanHost = host.replace(/\/$/, '');
-  const now = latestDate || new Date().toISOString().replace(/\.\d{3}Z$/, '+00:00');
+  const now = latestDate || STABLE_BASELINE_DATE;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">

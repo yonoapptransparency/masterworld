@@ -249,6 +249,66 @@ function adminAuthDevPlugin(env: Record<string, string>) {
           }
         }
 
+        if (req.url && (req.url.startsWith('/sitemap') || req.url === '/robots.txt')) {
+          const staticPath = path.resolve(__dirname, 'src/lib/staticData.json');
+          const staticData = fs.existsSync(staticPath) ? JSON.parse(fs.readFileSync(staticPath, 'utf8')) : {};
+          const HOST = 'https://www.rummydex.com';
+
+          if (req.url === '/robots.txt') {
+            res.writeHead(200, { 'Content-Type': 'text/plain' });
+            res.end(`User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /masterworld\nDisallow: /moreinfo/\n\nSitemap: https://www.rummydex.com/sitemap.xml\nSitemap: https://www.rummydex.com/sitemap-news.xml\nSitemap: https://www.rummydex.com/sitemap-apps.xml\n`);
+            return;
+          }
+
+          if (req.url === '/sitemap.xml' || req.url === '/sitemap_index.xml') {
+            import('./src/lib/sitemapGenerator').then(({ generateMasterSitemapXml }) => {
+              res.writeHead(200, { 'Content-Type': 'application/xml' });
+              res.end(generateMasterSitemapXml(staticData.apps || [], staticData.news || [], staticData.videos || [], HOST));
+            });
+            return;
+          }
+
+          if (req.url === '/sitemap-news.xml' || req.url === '/sitemap_news.xml') {
+            import('./src/lib/sitemapGenerator').then(({ generateNewsSitemapXml }) => {
+              res.writeHead(200, { 'Content-Type': 'application/xml' });
+              res.end(generateNewsSitemapXml(staticData.news || [], HOST));
+            });
+            return;
+          }
+
+          if (req.url === '/sitemap-apps.xml' || req.url === '/sitemap_apps.xml') {
+            import('./src/lib/sitemapGenerator').then(({ generateAppsSitemapXml }) => {
+              res.writeHead(200, { 'Content-Type': 'application/xml' });
+              res.end(generateAppsSitemapXml(staticData.apps || [], HOST));
+            });
+            return;
+          }
+
+          if (req.url === '/sitemap-static.xml' || req.url === '/sitemap_static.xml') {
+            import('./src/lib/sitemapGenerator').then(({ generateStaticSitemapXml }) => {
+              res.writeHead(200, { 'Content-Type': 'application/xml' });
+              res.end(generateStaticSitemapXml(HOST));
+            });
+            return;
+          }
+
+          if (req.url === '/sitemap-videos.xml' || req.url === '/sitemap_videos.xml') {
+            import('./src/lib/sitemapGenerator').then(({ generateVideosSitemapXml }) => {
+              res.writeHead(200, { 'Content-Type': 'application/xml' });
+              res.end(generateVideosSitemapXml(staticData.videos || [], HOST));
+            });
+            return;
+          }
+
+          if (req.url === '/sitemap-developers.xml' || req.url === '/sitemap_developers.xml') {
+            import('./src/lib/sitemapGenerator').then(({ generateDevelopersSitemapXml }) => {
+              res.writeHead(200, { 'Content-Type': 'application/xml' });
+              res.end(generateDevelopersSitemapXml(HOST));
+            });
+            return;
+          }
+        }
+
         if (req.url && req.url.startsWith('/api/v1/admin/community/aistudio-settings')) {
           const dataDir = path.resolve(__dirname, '.data');
           const persistentBrainPath = path.join(dataDir, 'aiStudioBrain.json');

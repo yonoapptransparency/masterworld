@@ -22,3 +22,8 @@ Disallow: /moredetail/
 Disallow: /moredetail/*
 
 Sitemap: https://www.rummydex.com/sitemap.xml
+Sitemap: https://www.rummydex.com/sitemap-news.xml
+Sitemap: https://www.rummydex.com/sitemap-apps.xml
+Sitemap: https://www.rummydex.com/sitemap-static.xml
+Sitemap: https://www.rummydex.com/sitemap-videos.xml
+Sitemap: https://www.rummydex.com/sitemap-developers.xml

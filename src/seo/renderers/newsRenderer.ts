@@ -57,7 +57,7 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
   const rawWords = (getField(item, 'content') || description || '').split(/\s+/).length;
   const readingTime = `${Math.max(1, Math.ceil(rawWords / 200))} min read`;
 
-  // Find related app if linked
+  // Find related app only if explicitly linked by related_app_id or link
   let relatedApp: any = null;
   const relId = getField(item, 'related_app_id');
   if (relId && Array.isArray(apps)) {
@@ -69,22 +69,9 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
       relatedApp = apps.find(a => (getField(a, 'slug') || '').toLowerCase() === linkSlug || (getField(a, 'id') || '').toLowerCase() === linkSlug);
     }
   }
-  if (!relatedApp && Array.isArray(apps)) {
-    const tLower = title.toLowerCase();
-    for (const a of apps) {
-      const aName = (getField(a, 'name') || '').toLowerCase().trim();
-      if (aName && aName.length >= 3 && tLower.includes(aName)) {
-        relatedApp = a;
-        break;
-      }
-    }
-  }
 
-  // Determine body content
+  // Determine body content strictly from the news article itself
   let rawContent = getField(item, 'content') || getField(item, 'description_html');
-  if ((!rawContent || rawContent.trim().length < 20) && relatedApp) {
-    rawContent = getField(relatedApp, 'description_html') || getField(relatedApp, 'features_html') || description;
-  }
   if (!rawContent || rawContent.trim().length === 0) {
     rawContent = `<p>${escapeHtml(description)}</p>`;
   }

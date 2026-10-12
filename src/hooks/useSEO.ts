@@ -21,7 +21,7 @@ export function useSEO(
     // Kept only to sync iframe preview title in dev mode if needed
     try {
       if (window.parent && window.parent !== window && window.parent.document) {
-        window.parent.document.title = document.title || 'RummyDex';
+        window.parent.document.title = document.title || '';
       }
     } catch (e) {}
   }, [location.pathname]);

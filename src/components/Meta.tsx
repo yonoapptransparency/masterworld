@@ -150,7 +150,7 @@ const Meta: React.FC<MetaProps> = ({
       }
     });
     const isAppPage = currentPath.startsWith('/app/');
-    const resolvedSiteName = isAppPage ? fullTitle : siteTitle;
+    const resolvedSiteName = fullTitle;
 
     if (squareThumbnail) {
       if (headImageLink) {
@@ -207,12 +207,7 @@ const Meta: React.FC<MetaProps> = ({
 
     // 7. Twitter Card & Search Thumbnail Tags
     setMetaTag('name', 'twitter:card', 'summary_large_image');
-    if (!isAppPage) {
-      setMetaTag('name', 'twitter:site', '@RummyDex');
-      setMetaTag('name', 'twitter:creator', '@RummyDex');
-    } else {
-      document.head.querySelectorAll('meta[name="twitter:site" i], meta[name="twitter:creator" i]').forEach(el => el.remove());
-    }
+    document.head.querySelectorAll('meta[name="twitter:site" i], meta[name="twitter:creator" i]').forEach(el => el.remove());
     setMetaTag('name', 'twitter:url', metaUrl);
     setMetaTag('name', 'twitter:title', fullTitle);
     setMetaTag('name', 'twitter:description', metaDescription);
