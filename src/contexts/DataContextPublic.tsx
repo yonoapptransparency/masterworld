@@ -62,7 +62,32 @@ const mergeUniqueApps = (baseList: AppConfig[], incomingList: AppConfig[]): AppC
     const key = (app.slug || app.id || '').toLowerCase().trim();
     if (key) {
       const existing = map.get(key);
-      map.set(key, existing ? { ...existing, ...app } : { ...app });
+      if (existing) {
+        map.set(key, {
+          ...existing,
+          ...app,
+          description_html: (app.description_html && app.description_html.trim().length > 10)
+            ? app.description_html
+            : (existing.description_html || ''),
+          features_html: (app.features_html && app.features_html.trim().length > 5)
+            ? app.features_html
+            : (existing.features_html || ''),
+          screenshots: (Array.isArray(app.screenshots) && app.screenshots.length > 0)
+            ? app.screenshots
+            : (existing.screenshots || []),
+          faqs: (Array.isArray(app.faqs) && app.faqs.length > 0)
+            ? app.faqs
+            : (existing.faqs || []),
+          custom_admin_box_html: app.custom_admin_box_html || existing.custom_admin_box_html || '',
+          custom_admin_box_heading: app.custom_admin_box_heading || existing.custom_admin_box_heading || '',
+          release_notes: app.release_notes || existing.release_notes || '',
+          yellow_box_msg: app.yellow_box_msg || existing.yellow_box_msg || '',
+          red_box_msg: app.red_box_msg || existing.red_box_msg || '',
+          idea_box_msg: app.idea_box_msg || existing.idea_box_msg || '',
+        });
+      } else {
+        map.set(key, { ...app });
+      }
     }
   }
 
@@ -85,7 +110,29 @@ const mergeUniqueNews = (baseList: NewsItem[], incomingList: NewsItem[]): NewsIt
     const key = (item.slug || item.id || '').toLowerCase().trim();
     if (key) {
       const existing = map.get(key);
-      map.set(key, existing ? { ...existing, ...item } : { ...item });
+      if (existing) {
+        const incomingContent = item.content || item.description_html || '';
+        const existingContent = existing.content || existing.description_html || '';
+
+        const isIncomingFull = incomingContent.trim().length > 250 && incomingContent.trim() !== (item.description || '').trim();
+        const isExistingFull = existingContent.trim().length > 250 && existingContent.trim() !== (existing.description || '').trim();
+
+        let finalContent = existingContent;
+        if (isIncomingFull) {
+          finalContent = incomingContent;
+        } else if (!isExistingFull) {
+          finalContent = incomingContent || existingContent;
+        }
+
+        map.set(key, {
+          ...existing,
+          ...item,
+          content: finalContent,
+          description_html: finalContent,
+        });
+      } else {
+        map.set(key, { ...item });
+      }
     }
   }
 

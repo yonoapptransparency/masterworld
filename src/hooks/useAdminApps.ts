@@ -102,8 +102,18 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
               if (a.id && !secureMap.has(a.id)) secureMap.set(a.id, existingUrl);
               if (a.slug && !secureMap.has(a.slug)) secureMap.set(a.slug, existingUrl);
             }
+            let descHtml = a.description_html || '';
+            let featHtml = a.features_html || '';
+            if (!descHtml || descHtml.trim().length <= 10) {
+              const staticFallback = (mockApps || []).find((m: any) => (m.id && m.id === a.id) || (m.slug && a.slug && m.slug.toLowerCase() === a.slug.toLowerCase()));
+              if (staticFallback?.description_html) descHtml = staticFallback.description_html;
+              if (!featHtml && staticFallback?.features_html) featHtml = staticFallback.features_html;
+            }
+
             return {
               ...a, 
+              description_html: descHtml,
+              features_html: featHtml,
               more_information_url: existingUrl 
             };
           });
@@ -133,8 +143,32 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
             if (a.id && !secureMap.has(a.id)) secureMap.set(a.id, link);
             if (a.slug && !secureMap.has(a.slug)) secureMap.set(a.slug, link);
           }
+
+          let descHtml = a.description_html || '';
+          let featHtml = a.features_html || '';
+          if (!descHtml || descHtml.trim().length <= 10) {
+            const existingApp = (appsList || []).find((m: any) => (m.id && m.id === a.id) || (m.slug && a.slug && m.slug.toLowerCase() === a.slug.toLowerCase()));
+            if (existingApp?.description_html && existingApp.description_html.trim().length > 10) {
+              descHtml = existingApp.description_html;
+            } else {
+              const staticFallback = (mockApps || []).find((m: any) => (m.id && m.id === a.id) || (m.slug && a.slug && m.slug.toLowerCase() === a.slug.toLowerCase()));
+              if (staticFallback?.description_html) descHtml = staticFallback.description_html;
+            }
+          }
+          if (!featHtml || featHtml.trim().length <= 5) {
+            const existingApp = (appsList || []).find((m: any) => (m.id && m.id === a.id) || (m.slug && a.slug && m.slug.toLowerCase() === a.slug.toLowerCase()));
+            if (existingApp?.features_html && existingApp.features_html.trim().length > 5) {
+              featHtml = existingApp.features_html;
+            } else {
+              const staticFallback = (mockApps || []).find((m: any) => (m.id && m.id === a.id) || (m.slug && a.slug && m.slug.toLowerCase() === a.slug.toLowerCase()));
+              if (staticFallback?.features_html) featHtml = staticFallback.features_html;
+            }
+          }
+
           return {
             ...a,
+            description_html: descHtml,
+            features_html: featHtml,
             more_information_url: link
           };
         });

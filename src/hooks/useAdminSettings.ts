@@ -19,7 +19,23 @@ export const useAdminSettings = (settings: any, news: any[], videos: any[]) => {
   // Synchronize news directly when fresh server data arrives
   useEffect(() => {
     if (Array.isArray(news) && news.length > 0) {
-      setNewsList(news.filter(n => !deletedNewsIdsRef.current.has(n.id)));
+      const mapped = news
+        .filter(n => !deletedNewsIdsRef.current.has(n.id))
+        .map(n => {
+          let content = n.content || n.description_html || '';
+          if (!content || content.trim().length <= 250) {
+            const staticFallback = (mockNews || []).find((m: any) => (m.id && m.id === n.id) || (m.slug && n.slug && m.slug.toLowerCase() === n.slug.toLowerCase()));
+            if (staticFallback?.content || staticFallback?.description_html) {
+              content = staticFallback.content || staticFallback.description_html;
+            }
+          }
+          return {
+            ...n,
+            content,
+            description_html: content
+          };
+        });
+      setNewsList(mapped);
     }
   }, [news]);
 

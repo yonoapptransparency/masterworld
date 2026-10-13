@@ -6,7 +6,7 @@ import helmet from 'helmet';
 import path from 'path';
 import fs from 'fs';
 
-import { injectSeoTags, fetchStoreData, resolveAppSlug } from './src/seoHelper';
+import { injectSeoTags, fetchStoreData, resolveAppSlug, cleanRootContainer } from './src/seoHelper';
 import { adminAuthRouter } from './src/server/routes/adminAuthRoutes';
 import { communityRouter } from './src/server/routes/communityRoutes';
 import { reportRouter } from './src/server/routes/reportRoutes';
@@ -428,30 +428,69 @@ async function startServer() {
       }
     }
 
-    let templatePath: string;
-    if (process.env.NODE_ENV !== "production") {
-      templatePath = path.join(process.cwd(), 'index.html');
-    } else {
-      const possibleStaticFiles = [
-        path.join(distPath, `${reqPath}.html`),
-        path.join(distPath, reqPath, 'index.html'),
-        path.join(distPath, 'index.html')
-      ];
+    // 1. Dedicated handling for Admin SPA routes: deliver clean SPA HTML with zero public website SSR
+    const envAdminPath = (process.env.ADMIN_PATH || process.env.VITE_ADMIN_PATH || 'admin').toLowerCase().trim();
+    const isAdminRoute = pathLower.startsWith('/admin') ||
+      pathLower.startsWith('/masterworld') ||
+      pathLower.startsWith('/' + envAdminPath) ||
+      pathLower === '/login' ||
+      pathLower.startsWith('/login/');
 
-      for (const staticPath of possibleStaticFiles) {
-        if (fs.existsSync(staticPath) && fs.statSync(staticPath).isFile()) {
-          templatePath = staticPath;
-          break;
-        }
+    if (isAdminRoute) {
+      let adminTemplate = '';
+      const spaTemplatePath = path.join(distPath, 'template.html');
+      const indexSpaPath = path.join(distPath, 'index.spa.html');
+
+      if (process.env.NODE_ENV !== "production") {
+        adminTemplate = fs.readFileSync(path.join(process.cwd(), 'index.html'), 'utf-8');
+      } else if (fs.existsSync(spaTemplatePath)) {
+        adminTemplate = fs.readFileSync(spaTemplatePath, 'utf-8');
+      } else if (fs.existsSync(indexSpaPath)) {
+        adminTemplate = fs.readFileSync(indexSpaPath, 'utf-8');
+      } else if (fs.existsSync(path.join(distPath, 'index.html'))) {
+        adminTemplate = cleanRootContainer(fs.readFileSync(path.join(distPath, 'index.html'), 'utf-8'));
+      } else {
+        adminTemplate = fs.readFileSync(path.join(process.cwd(), 'index.html'), 'utf-8');
       }
-      
-      if (!templatePath) {
-        templatePath = path.join(process.cwd(), 'index.html');
+
+      if (viteDevServer) {
+        try {
+          adminTemplate = await viteDevServer.transformIndexHtml(req.originalUrl, adminTemplate);
+        } catch (_) {}
       }
+
+      adminTemplate = cleanRootContainer(adminTemplate);
+      adminTemplate = adminTemplate
+        .replace(/<title>[\s\S]*?<\/title>/gi, '<title>Admin Portal - RummyDex</title>')
+        .replace(/<meta\s+[^>]*name=["']robots["'][^>]*\/?>/gi, '')
+        .replace('</head>', '<meta name="robots" content="noindex, nofollow" />\n</head>');
+
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+      return res.send(adminTemplate);
     }
 
+    // 2. Resolve clean base template for dynamic SSR injection (never pass pre-rendered content as template)
+    let template = '';
+    const spaTemplatePath = path.join(distPath, 'template.html');
+    const indexSpaPath = path.join(distPath, 'index.spa.html');
+
+    if (process.env.NODE_ENV !== "production") {
+      template = fs.readFileSync(path.join(process.cwd(), 'index.html'), 'utf-8');
+    } else if (fs.existsSync(spaTemplatePath)) {
+      template = fs.readFileSync(spaTemplatePath, 'utf-8');
+    } else if (fs.existsSync(indexSpaPath)) {
+      template = fs.readFileSync(indexSpaPath, 'utf-8');
+    } else if (fs.existsSync(path.join(distPath, 'index.html'))) {
+      template = cleanRootContainer(fs.readFileSync(path.join(distPath, 'index.html'), 'utf-8'));
+    } else {
+      template = fs.readFileSync(path.join(process.cwd(), 'index.html'), 'utf-8');
+    }
+
+    // Guarantee <div id="root"></div> is 100% empty
+    template = cleanRootContainer(template);
+
     try {
-      let template = fs.readFileSync(templatePath, 'utf-8');
 
       if (viteDevServer) {
         try {
@@ -615,7 +654,7 @@ async function startServer() {
         'Content-Type': 'text/html; charset=utf-8',
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'X-Robots-Tag': 'index, follow'
-      }).sendFile(templatePath);
+      }).sendFile(path.join(process.cwd(), 'index.html'));
     }
   });
 

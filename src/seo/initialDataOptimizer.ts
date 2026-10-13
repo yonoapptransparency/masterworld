@@ -13,11 +13,22 @@ export function optimizeInitialDataForRoute(
   const isAppDetailPage = cleanPathLower.startsWith('/app/');
   const isNewsDetailPage = cleanPathLower.startsWith('/news/');
 
+  const isAdminPath = cleanPathLower.startsWith('/admin') || cleanPathLower.startsWith('/masterworld') || cleanPathLower === '/login' || cleanPathLower.startsWith('/login/');
+  const baseApps = Array.isArray(data.apps) ? data.apps : (Array.isArray(data.mockApps) ? data.mockApps : []);
+
+  if (isAdminPath) {
+    return {
+      apps: baseApps,
+      settings: data.settings || {},
+      news: data.news || [],
+      videos: data.videos || [],
+      developers: data.developers || data.settings?.developers || []
+    };
+  }
+
   const targetAppSlug = targetApp ? (getField(targetApp, 'slug') || getField(targetApp, 'id'))?.toLowerCase().trim() : null;
   const targetAppId = targetApp ? String(getField(targetApp, 'id') || '').toLowerCase().trim() : '';
   const targetNewsSlug = targetNews ? (getField(targetNews, 'slug') || getField(targetNews, 'id'))?.toLowerCase().trim() : null;
-
-  const baseApps = Array.isArray(data.apps) ? data.apps : (Array.isArray(data.mockApps) ? data.mockApps : []);
 
   // Optimized Apps Payload:
   // - If on an App Details page or targetApp is present: Target app has 100% full rich fields (HTML, screenshots, faqs, custom boxes).

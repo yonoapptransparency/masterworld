@@ -144,6 +144,32 @@ export interface SeoInjectionResult {
   description?: string;
 }
 
+export function cleanRootContainer(html: string): string {
+  if (!html || typeof html !== 'string') return '';
+  if (html.includes('<div id="root"></div>')) return html;
+
+  const rootOpenTag = '<div id="root">';
+  const rootIdx = html.indexOf(rootOpenTag);
+  if (rootIdx === -1) return html;
+
+  const afterRoot = html.substring(rootIdx + rootOpenTag.length);
+  const bodyCloseIdx = afterRoot.lastIndexOf('</body>');
+
+  if (bodyCloseIdx !== -1) {
+    const contentBeforeBody = afterRoot.substring(0, bodyCloseIdx);
+    const bodyCloseRest = afterRoot.substring(bodyCloseIdx);
+
+    const scriptIdx = contentBeforeBody.search(/<script\b/i);
+    if (scriptIdx !== -1) {
+      const scripts = contentBeforeBody.substring(scriptIdx);
+      return html.substring(0, rootIdx) + '<div id="root"></div>\n    ' + scripts + bodyCloseRest;
+    }
+    return html.substring(0, rootIdx) + '<div id="root"></div>\n  ' + bodyCloseRest;
+  }
+
+  return html.replace(/<div id="root">[\s\S]*?<\/div>(\s*(?:<script\b|<\/body>))/i, '<div id="root"></div>$1');
+}
+
 export async function injectSeoTags(template: string, urlPath: string, hostUrl?: string, userAgent: string = ''): Promise<SeoInjectionResult> {
   const data = await fetchStoreData();
   if (!data || !data.settings) return { html: template, isNotFound: false };
@@ -461,8 +487,9 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   
   pageOgImage = getOgImageUrl(pageOgImage, domain);
 
-  // Generate full pre-rendered semantic HTML directly from database for 100% crawler compatibility
-  const preRenderedBody = await getPagePreRender(urlPath, data);
+  // Generate full pre-rendered semantic HTML directly from database for all public catalog & detail pages
+  const isAdminPath = cleanPathLower.startsWith('/admin') || cleanPathLower.startsWith('/masterworld') || cleanPathLower === '/login' || cleanPathLower.startsWith('/login/');
+  const preRenderedBody = !isAdminPath ? await getPagePreRender(urlPath, data) : '';
 
   // Generate Schema.org JSON-LD structured data
   const jsonLdSchema = await buildJsonLdSchema({
@@ -534,9 +561,11 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     finalHtml = `${headAdditions}\n${finalHtml}`;
   }
 
+
   // High-performance server-side visible HTML shell injection:
-  // Pre-rendered semantic HTML is injected directly into #root for instant 0ms first-paint and flawless web crawler indexing.
-  // When JavaScript loads, React takes over seamlessly with createRoot without any DOM node removal or blank screen flash.
+  // First guarantee that any pre-existing SSR body in template is cleanly stripped back to <div id="root"></div>
+  finalHtml = cleanRootContainer(finalHtml);
+
   if (finalHtml.includes('<div id="ssr-root"></div>')) {
     finalHtml = finalHtml.replace('<div id="ssr-root"></div>', '');
   } else if (finalHtml.includes('<div id="ssr-root">')) {
@@ -546,7 +575,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   if (preRenderedBody) {
     if (finalHtml.includes('<div id="root"></div>')) {
       finalHtml = finalHtml.replace('<div id="root"></div>', () => `<div id="root">${preRenderedBody}</div>`);
-    } else if (finalHtml.includes('<div id="root">')) {
+    } else {
       finalHtml = finalHtml.replace(/<div id="root">[\s\S]*?<\/div>/i, () => `<div id="root">${preRenderedBody}</div>`);
     }
   }

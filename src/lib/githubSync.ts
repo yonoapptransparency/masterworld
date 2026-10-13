@@ -324,9 +324,9 @@ export interface VideoItem {
   created_at: string;
 }
 
-export const mockApps: AppConfig[] = ${JSON.stringify(cleanApps, null, 2)};
+export const mockApps: any[] = ${JSON.stringify(cleanApps, null, 2)};
 
-export const saveMockApps = (apps: AppConfig[]) => {
+export const saveMockApps = (apps: any[]) => {
   try {
     localStorage.setItem('rummystore_apps', JSON.stringify(apps));
   } catch (e) {
@@ -335,9 +335,9 @@ export const saveMockApps = (apps: AppConfig[]) => {
   mockApps.splice(0, mockApps.length, ...apps);
 };
 
-export const mockSettings: GlobalSettings = ${JSON.stringify(cleanSettings, null, 2)};
+export const mockSettings: any = ${JSON.stringify(cleanSettings, null, 2)};
 
-export const saveMockSettings = (settings: GlobalSettings) => {
+export const saveMockSettings = (settings: any) => {
   try {
     localStorage.setItem('rummystore_settings', JSON.stringify(settings));
   } catch (e) {
@@ -346,9 +346,9 @@ export const saveMockSettings = (settings: GlobalSettings) => {
   Object.assign(mockSettings, settings);
 };
 
-export const mockNews: NewsItem[] = ${JSON.stringify(cleanNews, null, 2)};
+export const mockNews: any[] = ${JSON.stringify(cleanNews, null, 2)};
 
-export const saveMockNews = (newsList: NewsItem[]) => {
+export const saveMockNews = (newsList: any[]) => {
   try {
     localStorage.setItem('rummystore_news', JSON.stringify(newsList));
   } catch (e) {
@@ -357,7 +357,7 @@ export const saveMockNews = (newsList: NewsItem[]) => {
   mockNews.splice(0, mockNews.length, ...newsList);
 };
 
-export const mockVideos: VideoItem[] = ${JSON.stringify(cleanVideos, null, 2)};
+export const mockVideos: any[] = ${JSON.stringify(cleanVideos, null, 2)};
 
 export const saveMockVideos = (videos: VideoItem[]) => {
   try {

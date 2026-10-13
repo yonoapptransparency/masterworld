@@ -125,6 +125,8 @@ export interface AppConfig {
   seo_title?: string;
   seo_description?: string;
   seo_keywords?: string;
+  meta_title?: string;
+  meta_description?: string;
   og_image_url?: string;
   canonical_url?: string;
   target_region?: string;
@@ -147,8 +149,10 @@ export interface AppConfig {
   is_hot?: boolean;
   release_notes?: string;
   rating?: number;
-  review_count?: number;
+  reviews?: any;
+  review_count?: any;
   created_at?: string;
+  updated_at?: string;
   custom_admin_box_html?: string;
   custom_admin_box_heading?: string;
   features_html?: string;
@@ -188,12 +192,17 @@ export interface VideoItem {
   slug: string;
   title: string;
   description: string;
-  youtube_url: string;
-  seo_title: string;
-  seo_description: string;
+  youtube_url?: string;
+  video_url?: string;
+  thumbnail?: string;
+  thumbnail_url?: string;
+  duration?: string;
+  category?: string;
+  seo_title?: string;
+  seo_description?: string;
   meta_description?: string;
   seo_keywords?: string;
   canonical_url?: string;
   og_image_url?: string;
-  created_at: string;
+  created_at?: string;
 }

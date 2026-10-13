@@ -70,6 +70,10 @@ if (typeof window !== 'undefined') {
 
 const rootEl = document.getElementById('root');
 if (rootEl) {
+  // Ensure pristine container to eliminate any residual markup or duplicate DOM
+  if (rootEl.hasChildNodes()) {
+    rootEl.textContent = '';
+  }
   createRoot(rootEl).render(
     <StrictMode>
       <GlobalErrorBoundary>
