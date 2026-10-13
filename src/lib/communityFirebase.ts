@@ -286,6 +286,53 @@ export function getCachedLiveReviews(appId?: string, appSlug?: string): ReviewFe
   const keys = [appId, appSlug].filter(Boolean).map(k => String(k).trim()).filter(Boolean);
   if (keys.length === 0) return null;
 
+  // 1. Direct synchronous hydration from window.__INITIAL_DATA__.appReviews (0ms SSR parity)
+  if (typeof window !== 'undefined' && (window as any).__INITIAL_DATA__?.appReviews) {
+    const initAppReviews = (window as any).__INITIAL_DATA__.appReviews;
+    const matchesTarget = keys.some(k => {
+      const lower = k.toLowerCase();
+      return (initAppReviews.appId && String(initAppReviews.appId).toLowerCase() === lower) ||
+             (initAppReviews.appSlug && String(initAppReviews.appSlug).toLowerCase() === lower);
+    });
+
+    if (matchesTarget && Array.isArray(initAppReviews.reviews) && initAppReviews.reviews.length > 0) {
+      const normalized: PublicReview[] = initAppReviews.reviews.map((r: any) => {
+        const uName = (r.userName && r.userName.trim() && r.userName.toLowerCase() !== 'player')
+          ? r.userName.trim()
+          : (r.username && r.username.trim() ? r.username.trim() : (r.userName || 'Player'));
+        const text = r.reviewText || r.comment || '';
+        const date = r.created_at || r.timestamp || new Date().toISOString();
+        return {
+          id: r.id || `rev_${Math.random().toString(36).slice(2)}`,
+          app_id: r.appId || r.app_id || keys[0],
+          appId: r.appId || keys[0],
+          appSlug: r.appSlug || (keys.length > 1 ? keys[1] : keys[0]),
+          appName: r.appName || '',
+          username: uName,
+          userName: uName,
+          rating: Number(r.rating) || 5,
+          comment: text,
+          reviewText: text,
+          created_at: formatReviewDate(date),
+          timestamp: date,
+          helpful_count: Number(r.helpful_count) || 0,
+          reported: Boolean(r.reported),
+          report_count: Number(r.report_count) || 0,
+          source: r.source || 'community',
+          isPinned: Boolean(r.isPinned),
+          adminReply: r.adminReply || null
+        };
+      });
+
+      return {
+        reviews: normalized.slice(0, 10),
+        hasMore: Boolean(initAppReviews.hasMore),
+        nextCursor: initAppReviews.hasMore ? '10' : null,
+        stats: initAppReviews.stats || getCachedLiveAppStats(appId, appSlug)
+      };
+    }
+  }
+
   for (const targetKey of keys) {
     const mem = MEMORY_CACHE.get(targetKey);
     if (mem && (Date.now() - mem.timestamp < CACHE_TTL_MS)) {

@@ -39,7 +39,14 @@ export async function getPagePreRender(urlPath: string, data: any): Promise<stri
   let bodyHtml = '';
 
   if (cleanPathLower === '/' || cleanPathLower === '') {
-    bodyHtml = renderers.renderHome(apps, settings, news, videos);
+    let pageNum = 1;
+    try {
+      const match = urlPath.match(/[?&]page=(\d+)/i);
+      if (match && match[1]) {
+        pageNum = Math.max(1, parseInt(match[1], 10) || 1);
+      }
+    } catch (_) {}
+    bodyHtml = renderers.renderHome(apps, settings, news, videos, pageNum);
   } else if (cleanPathLower === '/new-apps') {
     const newAppsList = apps.filter((a: any) => {
       const isNew = a.is_new === true || (a.is_new && typeof a.is_new === 'object' && a.is_new.booleanValue === true);

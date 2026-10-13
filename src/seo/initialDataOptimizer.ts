@@ -5,7 +5,8 @@ export function optimizeInitialDataForRoute(
   cleanPathLower: string,
   targetApp: any,
   targetNews: any,
-  targetVideo: any
+  targetVideo: any,
+  seoReviewsFeed?: any
 ): any {
   if (!data) return {};
 
@@ -210,11 +211,25 @@ export function optimizeInitialDataForRoute(
     optimizedSettings.developers = data.developers;
   }
 
+  let appReviewsData: any = null;
+  if (seoReviewsFeed && (targetAppSlug || targetAppId)) {
+    const revList = Array.isArray(seoReviewsFeed.reviews) ? seoReviewsFeed.reviews : [];
+    const totalCount = Number(seoReviewsFeed.stats?.totalReviews) || revList.length;
+    appReviewsData = {
+      appId: targetAppId,
+      appSlug: targetAppSlug,
+      reviews: revList,
+      stats: seoReviewsFeed.stats || null,
+      hasMore: totalCount > revList.length && revList.length >= 10
+    };
+  }
+
   return {
     ...data,
     apps: optimizedApps,
     news: optimizedNews,
     videos: optimizedVideos,
-    settings: optimizedSettings
+    settings: optimizedSettings,
+    ...(appReviewsData ? { appReviews: appReviewsData } : {})
   };
 }

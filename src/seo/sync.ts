@@ -178,6 +178,10 @@ export async function syncFromFirestore(): Promise<any> {
         try {
           fs.writeFileSync(publicBackupPath, JSON.stringify(result, null, 2), 'utf8');
         } catch (e) {}
+        try {
+          const staticJsonPath = path.join(process.cwd(), 'src/lib/staticData.json');
+          fs.writeFileSync(staticJsonPath, JSON.stringify(result, null, 2), 'utf8');
+        } catch (e) {}
         return result;
       }
     }

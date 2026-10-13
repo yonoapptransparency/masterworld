@@ -90,28 +90,11 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
     `;
   }
 
-  // FAQs Accordion
+  // FAQs Accordion (strictly rendered from Admin database)
   let faqsHtml = '';
   const validFaqs = (Array.isArray(app.faqs) && app.faqs.length > 0)
     ? app.faqs.filter((f: any) => f && f.question && f.answer)
-    : [
-        {
-          question: `How do I download and install ${escapeHtml(name)} on my Android device?`,
-          answer: `To install ${escapeHtml(name)}, tap the Download button on this page to obtain the verified installation package directly. Once downloaded, tap the notification or file in your device Downloads folder and follow the standard prompts to complete setup.`
-        },
-        {
-          question: `Is ${escapeHtml(name)} safe to use?`,
-          answer: `Yes. ${escapeHtml(name)} has been verified to ensure smooth performance, thermal stability, and authentic card gaming mechanics.`
-        },
-        {
-          question: `What are the storage requirements for ${escapeHtml(name)}?`,
-          answer: `${escapeHtml(name)} has an installation footprint of approximately ${escapeHtml(size)} and is optimized for Android devices with minimal battery drain.`
-        },
-        {
-          question: `Can I play card games with friends and family in ${escapeHtml(name)}?`,
-          answer: `Yes, ${escapeHtml(name)} provides multiplayer tables and responsive matchmaking across mobile networks for card gaming anytime.`
-        }
-      ];
+    : [];
 
   if (validFaqs.length > 0) {
     faqsHtml = `
@@ -162,7 +145,7 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
   if (Array.isArray(sampleReviews) && sampleReviews.length > 0) {
     reviewsCards = sampleReviews
       .filter((r: any) => r && stripHtml(r.reviewText || '').trim().length >= 3)
-      .slice(0, 5)
+      .slice(0, 10)
       .map((r: any) => {
         const author = escapeHtml(r.userName || 'Verified Player');
         const revRating = Math.max(1, Math.min(5, Math.round(Number(r.rating) || 5)));
@@ -191,8 +174,9 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
       }).join('');
   }
 
+  const canLoadMoreReviews = ratingCountVal > 10 || (Array.isArray(sampleReviews) && sampleReviews.length >= 10);
   const reviewsSectionHtml = `
-    <div class="px-1 xs:px-2 sm:px-4 md:px-6 mb-6 xs:mb-8 text-left">
+    <div id="ratings-and-reviews-section" class="px-1 xs:px-2 sm:px-4 md:px-6 mb-6 xs:mb-8 text-left">
       <div class="border-t border-black/5 dark:border-white/5 pt-6">
         <div class="flex items-center justify-between mb-4">
           <div>
@@ -205,6 +189,13 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
           </div>
         </div>
         ${reviewsCards ? `<div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 mt-4">${reviewsCards}</div>` : ''}
+        ${canLoadMoreReviews ? `
+          <div class="pt-5 flex flex-col items-center justify-center">
+            <button type="button" class="px-6 py-2.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 font-bold text-xs uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs">
+              Load More Reviews
+            </button>
+          </div>
+        ` : ''}
       </div>
     </div>
   `;

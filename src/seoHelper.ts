@@ -10,6 +10,7 @@ import { buildMetaTags } from './seo/metaBuilder';
 import { optimizeInitialDataForRoute } from './seo/initialDataOptimizer';
 import { getPagePreRender } from './seo/preRenderEngine';
 import { getCriticalCss } from './seo/criticalCss';
+import { getLocalFallbackReviewsForApp } from './seo/reviewFallback';
 
 export { resolveAppSlug, SLUG_ALIAS_MAP };
 export { getField, getSafeFirebaseConfig, syncFromFirestore, getOgImageUrl, getYoutubeThumbnail };
@@ -499,7 +500,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     pageType
   });
 
-  const initialDataPayload = optimizeInitialDataForRoute(data, cleanPathLower, targetApp, targetNews, targetVideo);
+  const seoReviewsFeed = targetApp ? getLocalFallbackReviewsForApp(getField(targetApp, 'id'), getField(targetApp, 'slug')) : null;
+  const initialDataPayload = optimizeInitialDataForRoute(data, cleanPathLower, targetApp, targetNews, targetVideo, seoReviewsFeed);
   const initialDataJson = JSON.stringify(initialDataPayload || {}).replace(/</g, '\\u003c');
   
   const initialDataScript = `<script>window.__INITIAL_DATA__ = ${initialDataJson};</script>`;

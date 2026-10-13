@@ -11,7 +11,7 @@ import {
 } from '../lib/communityFirebase';
 import { generateNaturalStarDistribution } from '../seo/utils';
 
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 10;
 
 // Pure deduplication helper guaranteeing unique items by ID
 function deduplicateReviewsList(list: Review[]): Review[] {
@@ -122,8 +122,11 @@ export function useReviews(
     }
 
     try {
-      if (isLoadMore) setLoadingMore(true);
-      else setLoading(true);
+      if (isLoadMore) {
+        setLoadingMore(true);
+      } else {
+        setLoading(prev => (reviews.length === 0 ? true : false));
+      }
 
       const cursorToUse = isLoadMore ? nextCursorRef.current : null;
       const currentFilter = overrideFilter !== undefined ? overrideFilter : activeFilter;
@@ -164,7 +167,7 @@ export function useReviews(
       if (isLoadMore) setLoadingMore(false);
       else setLoading(false);
     }
-  }, [cleanAppId, cleanAppSlug, cleanAppTitle, overallRating, activeFilter, sortBy]);
+  }, [cleanAppId, cleanAppSlug, cleanAppTitle, overallRating, activeFilter, sortBy, reviews.length]);
 
   // Initial fetch when container enters view or target app changes
   const prevTargetKeyRef = useRef<string>('');
@@ -178,7 +181,7 @@ export function useReviews(
       nextCursorRef.current = null;
       setExpandedReviews({});
       
-      // Update reviews with any cached entries for the new app immediately
+      // Update reviews with any cached/initial entries for the new app immediately
       const freshCache = getCachedLiveReviews(cleanAppId, cleanAppSlug);
       if (freshCache && freshCache.reviews.length > 0) {
         const mapped = freshCache.reviews.slice(0, PAGE_SIZE).map((r: any) => normalizeReviewItem(r, cleanAppId));
@@ -187,13 +190,13 @@ export function useReviews(
         setHasMore(Boolean(freshCache.hasMore));
         setNextCursor(freshCache.nextCursor || null);
         nextCursorRef.current = freshCache.nextCursor || null;
+        setLoading(false);
       } else {
         setReviews([]);
         setStats(null);
         setHasMore(false);
+        fetchReviews(false);
       }
-      
-      fetchReviews(false);
     }
   }, [cleanAppId, cleanAppSlug, inView, fetchReviews]);
 

@@ -82,12 +82,36 @@ publicApiRouter.get('/api/v1/public/faqs', async (req, res) => {
   res.json({ status: 'OK', faqs });
 });
 
-publicApiRouter.get('/api/v1/public/backup-data', (req, res) => {
-  res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=86400');
-  res.json(staticData);
+publicApiRouter.get('/api/v1/public/backup-data', async (req, res) => {
+  try {
+    const data = await fetchStoreData();
+    res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
+    return res.json({
+      apps: data?.apps || (staticData as any)?.apps || (staticData as any)?.mockApps || [],
+      settings: data?.settings || (staticData as any)?.settings || (staticData as any)?.mockSettings || {},
+      news: data?.news || (staticData as any)?.news || (staticData as any)?.mockNews || [],
+      videos: data?.videos || (staticData as any)?.videos || (staticData as any)?.mockVideos || [],
+      reviews: data?.reviews || []
+    });
+  } catch (err) {
+    res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300');
+    return res.json(staticData);
+  }
 });
 
-publicApiRouter.get('/api/v1/public/backup-data-full', (req, res) => {
-  res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=86400');
-  res.json(staticData);
+publicApiRouter.get('/api/v1/public/backup-data-full', async (req, res) => {
+  try {
+    const data = await fetchStoreData();
+    res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
+    return res.json({
+      apps: data?.apps || (staticData as any)?.apps || (staticData as any)?.mockApps || [],
+      settings: data?.settings || (staticData as any)?.settings || (staticData as any)?.mockSettings || {},
+      news: data?.news || (staticData as any)?.news || (staticData as any)?.mockNews || [],
+      videos: data?.videos || (staticData as any)?.videos || (staticData as any)?.mockVideos || [],
+      reviews: data?.reviews || []
+    });
+  } catch (err) {
+    res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300');
+    return res.json(staticData);
+  }
 });

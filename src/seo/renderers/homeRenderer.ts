@@ -1,7 +1,7 @@
 import { getField, optimizeImageUrl, cleanFaqQuestion } from '../utils';
 import { escapeHtml } from './common';
 
-export function renderHome(apps: any[], settings: any, news: any[], _videos: any[]): string {
+export function renderHome(apps: any[], settings: any, news: any[], _videos: any[], pageNum: number = 1): string {
   const siteTitle = getField(settings, 'site_title') || 'RummyDex';
   const desc = getField(settings, 'meta_description') || getField(settings, 'seo_description') || '';
   const heroText = getField(settings, 'hero_title_text') || siteTitle;
@@ -17,8 +17,15 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
     return sa - sb;
   });
   
-  // Render top apps with 1:1 PlayStoreUI styling matching AppListItem
-  sorted.slice(0, 24).forEach((app, i) => {
+  const pageSize = 24;
+  const totalPages = Math.ceil(sorted.length / pageSize) || 1;
+  const currentPage = Math.max(1, Math.min(pageNum, totalPages));
+  const startIndex = (currentPage - 1) * pageSize;
+  const pageApps = sorted.slice(startIndex, startIndex + pageSize);
+
+  // Render paginated apps with 1:1 PlayStoreUI styling matching AppListItem
+  pageApps.forEach((app, idx) => {
+    const i = startIndex + idx;
     const name = getField(app, 'name');
     const slug = getField(app, 'slug');
     const category = getField(app, 'category', 'Game');
@@ -167,6 +174,14 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
       <div class="space-y-1 px-0 sm:px-1">
         ${appsHtml}
       </div>
+
+      ${totalPages > 1 ? `
+        <nav aria-label="Catalog pagination" class="pt-6 pb-2 flex items-center justify-center gap-2">
+          ${currentPage > 1 ? `<a href="${currentPage === 2 ? '/' : `/?page=${currentPage - 1}`}" class="px-3.5 py-1.5 rounded-xl border border-black/10 dark:border-white/10 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition">Previous</a>` : ''}
+          <span class="text-xs text-zinc-500 font-medium px-2">Page ${currentPage} of ${totalPages}</span>
+          ${currentPage < totalPages ? `<a href="/?page=${currentPage + 1}" class="px-3.5 py-1.5 rounded-xl border border-black/10 dark:border-white/10 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition">Next</a>` : ''}
+        </nav>
+      ` : ''}
 
       ${Array.isArray(settings?.website_faqs) && settings.website_faqs.filter((f: any) => f && f.question && f.answer).length > 0 ? `
         <section aria-labelledby="home-faq-heading" class="mt-10 sm:mt-14 mb-8 px-2 max-w-5xl mx-auto w-full">

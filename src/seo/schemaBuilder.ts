@@ -108,7 +108,7 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
       if (feed && Array.isArray(feed.reviews) && feed.reviews.length > 0) {
         const validReviews = feed.reviews
           .filter((rev: any) => rev && stripHtml(rev.reviewText || '').trim().length >= 3)
-          .slice(0, 5)
+          .slice(0, 10)
           .map((rev: any) => ({
             "@type": "Review",
             "author": {
@@ -177,29 +177,8 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
     });
 
     // App-specific FAQs
-    const appNameForFaq = getField(app, 'name') || 'Application';
     const appSlugForFaq = getField(app, 'slug') || '';
-    const appSizeForFaq = getField(app, 'file_size') || 'standard size';
-    const rawFaqs = (app.faqs && Array.isArray(app.faqs) && app.faqs.length > 0)
-      ? app.faqs
-      : [
-          {
-            question: `How do I download and install ${appNameForFaq} on my Android device?`,
-            answer: `To install ${appNameForFaq}, tap the Download button on this page to obtain the verified installation package directly. Once downloaded, open the notification or file in your device Downloads folder and follow the standard prompts to complete setup.`
-          },
-          {
-            question: `Is ${appNameForFaq} safe to use?`,
-            answer: `Yes. ${appNameForFaq} has been verified to ensure smooth performance, thermal stability, and authentic card gaming mechanics.`
-          },
-          {
-            question: `What are the storage requirements for ${appNameForFaq}?`,
-            answer: `${appNameForFaq} has an installation footprint of approximately ${appSizeForFaq} and is optimized for Android devices with minimal battery drain.`
-          },
-          {
-            question: `Can I play card games with friends and family in ${appNameForFaq}?`,
-            answer: `Yes, ${appNameForFaq} provides multiplayer tables and responsive matchmaking across mobile networks for card gaming anytime.`
-          }
-        ];
+    const rawFaqs = (app.faqs && Array.isArray(app.faqs) && app.faqs.length > 0) ? app.faqs : [];
 
     const seenAppFaqs = new Set<string>();
     const faqList = rawFaqs

@@ -51,7 +51,7 @@ export function getLocalFallbackReviewsForApp(appId: string, appSlug: string): S
               const rSlug = String(r.appSlug || '').toLowerCase().trim();
               return rAppId === cleanId || rAppId === cleanSlug || (cleanSlug && rSlug === cleanSlug);
             })
-            .slice(0, 5)
+            .slice(0, 10)
             .map((r: any) => ({
               userName: r.userName || r.username || 'Player',
               rating: Number(r.rating) || 5,
@@ -62,7 +62,7 @@ export function getLocalFallbackReviewsForApp(appId: string, appSlug: string): S
       } catch (_) {}
     }
 
-    if (sampleReviews.length < 5 && fs.existsSync(staticReviewsPath)) {
+    if (sampleReviews.length < 10 && fs.existsSync(staticReviewsPath)) {
       try {
         const raw = fs.readFileSync(staticReviewsPath, 'utf8');
         const staticMap = JSON.parse(raw);
@@ -71,7 +71,7 @@ export function getLocalFallbackReviewsForApp(appId: string, appSlug: string): S
           const existingTexts = new Set(sampleReviews.map(r => r.reviewText));
           const additions = list
             .filter((r: any) => !existingTexts.has(r.reviewText || r.comment))
-            .slice(0, 5 - sampleReviews.length)
+            .slice(0, 10 - sampleReviews.length)
             .map((r: any) => ({
               userName: r.userName || r.username || 'Player',
               rating: Number(r.rating) || 5,

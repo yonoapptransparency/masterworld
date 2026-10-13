@@ -10,24 +10,41 @@ const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
 const staticJsonPath = path.join(process.cwd(), 'src/lib/staticData.json');
 
 function getMergedData() {
-  let base: any = {};
+  let staticBase: any = {};
+  if (fs.existsSync(staticJsonPath)) {
+    try {
+      staticBase = JSON.parse(fs.readFileSync(staticJsonPath, 'utf8'));
+    } catch (_) {}
+  }
+
+  let backupBase: any = {};
   if (fs.existsSync(publicBackupPath)) {
     try {
-      base = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
+      backupBase = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
     } catch (_) {}
   }
-  if (!base.apps || !Array.isArray(base.apps) || base.apps.length === 0) {
-    try {
-      base = JSON.parse(fs.readFileSync(staticJsonPath, 'utf8'));
-    } catch (_) {}
-  }
-  return {
-    apps: base.apps || [],
-    settings: base.settings || {},
-    news: base.news || [],
-    videos: base.videos || [],
-    reviews: base.reviews || []
-  };
+
+  const apps = (Array.isArray(backupBase.apps) && backupBase.apps.length > 0)
+    ? backupBase.apps
+    : (Array.isArray(staticBase.apps) ? staticBase.apps : (staticBase.mockApps || []));
+
+  const settings = (backupBase.settings && Object.keys(backupBase.settings).length > 0)
+    ? { ...(staticBase.settings || staticBase.mockSettings || {}), ...backupBase.settings }
+    : (staticBase.settings || staticBase.mockSettings || {});
+
+  const news = (Array.isArray(backupBase.news) && backupBase.news.length > 0)
+    ? backupBase.news
+    : (Array.isArray(staticBase.news) ? staticBase.news : (staticBase.mockNews || []));
+
+  const videos = (Array.isArray(backupBase.videos) && backupBase.videos.length > 0)
+    ? backupBase.videos
+    : (Array.isArray(staticBase.videos) ? staticBase.videos : (staticBase.mockVideos || []));
+
+  const reviews = Array.isArray(backupBase.reviews)
+    ? backupBase.reviews
+    : (Array.isArray(staticBase.reviews) ? staticBase.reviews : []);
+
+  return { apps, settings, news, videos, reviews };
 }
 
 function writeMergedData(data: any) {
@@ -35,6 +52,11 @@ function writeMergedData(data: any) {
     fs.writeFileSync(publicBackupPath, JSON.stringify(data, null, 2), 'utf8');
   } catch (e) {
     console.error('[adminVaultRoutes] Failed to write public_backup.json:', e);
+  }
+  try {
+    fs.writeFileSync(staticJsonPath, JSON.stringify(data, null, 2), 'utf8');
+  } catch (e) {
+    console.error('[adminVaultRoutes] Failed to write staticData.json:', e);
   }
   clearSeoCache();
 }

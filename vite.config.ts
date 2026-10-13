@@ -488,6 +488,20 @@ function adminAuthDevPlugin(env: Record<string, string>) {
 
         next();
       });
+    },
+    async transformIndexHtml(html: string, ctx: any) {
+      try {
+        const url = ctx?.originalUrl || ctx?.url || '/';
+        if (url.startsWith('/admin') || url.startsWith('/masterworld') || url.startsWith('/@') || url.startsWith('/node_modules')) {
+          return html;
+        }
+        const { injectSeoTags } = await import('./src/seoHelper');
+        const result = await injectSeoTags(html, url, 'https://www.rummydex.com');
+        return typeof result === 'string' ? result : (result?.html || html);
+      } catch (err) {
+        console.warn('Vite transformIndexHtml SSR error:', err);
+        return html;
+      }
     }
   };
 }

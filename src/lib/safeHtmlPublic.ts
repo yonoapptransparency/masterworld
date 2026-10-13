@@ -29,10 +29,7 @@ export function structureHtmlFragment(rawHtml: string): string {
            .replace(/<div\b[^>]*class=["\'][^"\']*rd-news-meta[^"\']*["\'][^>]*>[\s\S]*?<\/div>/gi, '')
            .trim();
 
-  // Remove leading h1/h2 title if present in the raw HTML fragment
-  str = str.replace(/^\s*<h[12][^>]*>[\s\S]*?<\/h[12]>\s*/i, '');
-
-  // 2. Convert <h1> tags to <h2>
+  // 2. Convert <h1> tags to <h2> for strict single-H1 SEO compliance while preserving heading text and formatting
   str = str.replace(/<h1([^>]*)>/gi, '<h2$1>').replace(/<\/h1>/gi, '</h2>');
 
   // 3. Convert markdown headers if present
