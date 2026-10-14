@@ -202,7 +202,18 @@ adminVaultRouter.post('/api/v1/admin/build-public-api', (req, res) => {
 });
 
 adminVaultRouter.post('/api/v1/admin/sync-local', (req, res) => {
-  res.json({ success: true, message: 'Local files synchronized' });
+  try {
+    const { apps, settings, news, videos } = req.body || {};
+    const current = getMergedData();
+    if (Array.isArray(apps) && apps.length > 0) current.apps = apps;
+    if (settings && Object.keys(settings).length > 0) current.settings = { ...(current.settings || {}), ...settings };
+    if (Array.isArray(news) && news.length > 0) current.news = news;
+    if (Array.isArray(videos) && videos.length > 0) current.videos = videos;
+    writeMergedData(current);
+    res.json({ success: true, message: 'Local files and SEO caches synchronized' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message });
+  }
 });
 
 adminVaultRouter.get('/api/v1/admin/backup-links-get', (req, res) => {

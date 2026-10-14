@@ -52,12 +52,13 @@ const AppsTab = React.memo(({ appsList, editingAppId, setEditingAppId, handleDel
   const cautionCount = appsList.filter((a: any) => a.safety_status === 'Caution').length;
   const unsafeCount = appsList.filter((a: any) => a.safety_status === 'Unsafe').length;
   const newCount = appsList.filter((a: any) => a.is_new).length;
+  const hotCount = appsList.filter((a: any) => a.is_hot).length;
   const soonCount = appsList.filter((a: any) => a.is_coming_soon).length;
 
   return (
     <div className="animate-fade-in space-y-6">
       {/* Metrics Row at the Top */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-2.5">
         {[
           { id: 'all', label: 'All Catalog', count: totalAppsCount, color: 'blue' },
           { id: 'synced', label: '🌐 Live Web', count: syncedCount, color: 'emerald' },
@@ -65,7 +66,8 @@ const AppsTab = React.memo(({ appsList, editingAppId, setEditingAppId, handleDel
           { id: 'Verified', label: '🟢 Verified', count: verifiedCount, color: 'emerald' },
           { id: 'Caution', label: '🟡 Caution', count: cautionCount, color: 'amber' },
           { id: 'Unsafe', label: '🔴 Unsafe', count: unsafeCount, color: 'rose' },
-          { id: 'is_new', label: '🔥 New Tag', count: newCount, color: 'blue' },
+          { id: 'is_new', label: '✨ New Tag', count: newCount, color: 'blue' },
+          { id: 'is_hot', label: '🔥 Hot Tag', count: hotCount, color: 'rose' },
           { id: 'is_coming_soon', label: '⏳ Soon', count: soonCount, color: 'indigo' },
         ].map((stat) => (
           <button 
@@ -243,7 +245,11 @@ const AppsTab = React.memo(({ appsList, editingAppId, setEditingAppId, handleDel
                             {app.safety_status === 'Verified' ? 'Verified' : app.safety_status === 'Caution' ? 'Caution' : 'Unsafe'}
                           </span>
 
-                          {app.is_new && (
+                          {app.is_hot && (
+                            <span className="bg-[#d32f2f] text-white px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider">HOT</span>
+                          )}
+
+                          {app.is_new && !app.is_hot && (
                             <span className="bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-400 border border-blue-200/50 dark:border-blue-900/30 px-1 py-0.5 rounded text-[8px] font-black uppercase tracking-wider">NEW</span>
                           )}
 

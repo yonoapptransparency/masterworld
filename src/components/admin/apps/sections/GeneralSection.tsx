@@ -311,7 +311,7 @@ export const GeneralSection = ({ formFields, handleFieldChange, categories }: Ge
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-3">
         <div className="flex flex-col gap-2 bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
           <div className="flex items-center justify-between">
             <div>
@@ -327,6 +327,28 @@ export const GeneralSection = ({ formFields, handleFieldChange, categories }: Ge
                 className="sr-only peer" 
               />
               <div className="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-800 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2 bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-semibold text-slate-900 dark:text-white text-xs flex items-center gap-1.5">
+                <span>Hot App Badge</span>
+                <span className="bg-[#d32f2f] text-white text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider">HOT</span>
+              </div>
+              <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Show vibrant red HOT tag on popular app.</div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer select-none">
+              <input 
+                type="checkbox" 
+                name="is_hot" 
+                checked={formFields.is_hot} 
+                onChange={e => handleFieldChange('is_hot', e.target.checked)} 
+                className="sr-only peer" 
+              />
+              <div className="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-800 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600"></div>
             </label>
           </div>
         </div>

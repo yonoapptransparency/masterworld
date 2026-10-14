@@ -376,9 +376,34 @@ export function useGitHubSync(
       targetSettings.quick_links = liveBackup.settings.quick_links;
     }
 
-    const targetNews = (Array.isArray(liveBackup?.news) && liveBackup.news.length > 0) 
-      ? liveBackup.news 
-      : ((Array.isArray(stateNews) && stateNews.length > 0) ? stateNews : []);
+    // Merge stateNews and liveBackup news, preserving the fullest content and description_html
+    const mergedNewsMap = new Map<string, any>();
+    for (const n of (stateNews || [])) {
+      if (!n) continue;
+      const key = (n.slug || n.id || '').toLowerCase().trim();
+      if (key) mergedNewsMap.set(key, { ...n });
+    }
+    for (const n of (liveBackup?.news || [])) {
+      if (!n) continue;
+      const key = (n.slug || n.id || '').toLowerCase().trim();
+      if (key) {
+        const existing = mergedNewsMap.get(key);
+        if (existing) {
+          const exContent = existing.content || existing.description_html || '';
+          const nContent = n.content || n.description_html || '';
+          const bestContent = exContent.length >= nContent.length ? exContent : nContent;
+          mergedNewsMap.set(key, {
+            ...n,
+            ...existing,
+            content: bestContent,
+            description_html: bestContent
+          });
+        } else {
+          mergedNewsMap.set(key, { ...n });
+        }
+      }
+    }
+    const targetNews = mergedNewsMap.size > 0 ? Array.from(mergedNewsMap.values()) : ((stateNews && stateNews.length > 0) ? stateNews : []);
     const targetVideos = (Array.isArray(liveBackup?.videos) && liveBackup.videos.length > 0) 
       ? liveBackup.videos 
       : ((Array.isArray(stateVideos) && stateVideos.length > 0) ? stateVideos : []);

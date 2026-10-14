@@ -288,6 +288,7 @@ export default function AdminDashboard() {
         yellow_box_msg: formFieldsOverride?.yellow_box_msg ?? (formData ? (formData.get('yellow_box_msg') as string ?? formData.get('hidden_yellow_box_msg') as string) : '') ?? '',
         idea_box_msg: formFieldsOverride?.idea_box_msg ?? (formData ? (formData.get('idea_box_msg') as string ?? formData.get('hidden_idea_box_msg') as string) : '') ?? '',
         is_new: formFieldsOverride ? !!formFieldsOverride.is_new : (formData?.get('is_new') === 'on'),
+        is_hot: formFieldsOverride ? !!formFieldsOverride.is_hot : (formData?.get('is_hot') === 'on'),
         is_coming_soon: formFieldsOverride ? !!formFieldsOverride.is_coming_soon : (formData?.get('is_coming_soon') === 'on'),
         sync_to_public: formFieldsOverride?.sync_to_public !== undefined
           ? Boolean(formFieldsOverride.sync_to_public)
