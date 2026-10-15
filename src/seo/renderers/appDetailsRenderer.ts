@@ -38,7 +38,7 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
   const ratingCountVal = finalCount;
   const rating = finalRating.toFixed(1);
   const rawIcon = getField(app, 'icon_url') || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&fit=crop';
-  const icon = optimizeImageUrl(rawIcon, 256);
+  const icon = optimizeImageUrl(rawIcon, 240);
 
   const rawDesc = app.description_html ? sanitizeHtml(app.description_html) : `<p>Comprehensive application profile and details for <strong>${escapeHtml(name)}</strong>.</p>`;
   const desc = rawDesc;
@@ -206,7 +206,7 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
     screenshotsHtml = `
       <div class="w-full mb-6">
         <div class="flex overflow-x-auto hide-scrollbar gap-3 px-4 sm:px-0 pb-3 snap-x items-center -mx-4 sm:-mx-0">
-          ${app.screenshots.map((imgUrl: string, i: number) => {
+          ${app.screenshots.slice(0, 3).map((imgUrl: string, i: number) => {
             const shotUrl = optimizeImageUrl(imgUrl, 400);
             return `
               <div class="flex-none w-[150px] sm:w-[220px] aspect-[9/16] rounded-xl overflow-hidden snap-center bg-zinc-100 dark:bg-zinc-800 shadow-sm border border-black/5 dark:border-white/10">
@@ -305,16 +305,23 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
           </a>
         </div>
         <div class="grid grid-rows-2 grid-flow-col gap-x-3 xxs:gap-x-4 xs:gap-x-5 gap-y-3 xxs:gap-y-3.5 xs:gap-y-4 overflow-x-auto pt-2.5 pb-2 snap-x snap-proximity [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden -mx-2 xs:-mx-4 px-2 xs:px-4 sm:mx-0 sm:px-0" style="-webkit-overflow-scrolling: touch;">
-          ${displaySimilarApps.map(sim => {
+          ${displaySimilarApps.map((sim, simIdx) => {
             const simName = getField(sim, 'name');
             const simSlug = getField(sim, 'slug');
             const simIcon = optimizeImageUrl(getField(sim, 'icon_url') || '', 160);
             const simIsHot = sim.is_hot === true || (sim.is_hot && sim.is_hot.booleanValue === true);
             const simIsNew = checkAppIsNew(sim);
+            // Eagerly render full image URL for the first 4 visible cards (top row 2 + bottom row 2).
+            // For items 4-15 (horizontally scrolled off-screen), use an ultra-lightweight inline SVG placeholder
+            // to eliminate Googlebot 5-second socket exhaustion across 26 parallel external connections.
+            const isEager = simIdx < 4;
+            const imgSrc = isEager
+              ? escapeHtml(simIcon)
+              : "data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 86 86'%3E%3Crect width='86' height='86' rx='20' fill='%23e4e4e7'/%3E%3C/svg%3E";
             return `
               <a href="/app/${encodeURIComponent(simSlug)}" class="flex flex-col items-center justify-start gap-1 xxs:gap-1.5 xs:gap-2 w-[68px] xxs:w-[76px] xs:w-[86px] sm:w-[98px] snap-start group shrink-0 active:scale-95 transition-transform duration-150 ease-out no-underline">
                 <div class="relative inline-block shrink-0">
-                  <img src="${escapeHtml(simIcon)}" alt="${escapeHtml(simName)}" width="86" height="86" decoding="async" class="w-[58px] h-[58px] xxs:w-[66px] xxs:h-[66px] xs:w-[76px] xs:h-[76px] sm:w-[86px] sm:h-[86px] rounded-[24%] shadow-[0_2px_8px_rgba(0,0,0,0.08)] object-cover group-hover:scale-105 transition-transform duration-200 block pointer-events-none select-none" loading="lazy" />
+                  <img src="${imgSrc}" ${!isEager ? `data-src="${escapeHtml(simIcon)}"` : ''} alt="${escapeHtml(simName)}" width="86" height="86" decoding="async" class="w-[58px] h-[58px] xxs:w-[66px] xxs:h-[66px] xs:w-[76px] xs:h-[76px] sm:w-[86px] sm:h-[86px] rounded-[24%] shadow-[0_2px_8px_rgba(0,0,0,0.08)] object-cover group-hover:scale-105 transition-transform duration-200 block pointer-events-none select-none" loading="lazy" />
                   ${simIsHot && simIsNew ? '<span class="absolute -top-1.5 -right-1.5 z-20 inline-flex items-center rounded-full overflow-hidden shadow-[0_2px_6px_rgba(0,0,0,0.25)] border border-white dark:border-zinc-900 font-black text-[7.5px] xxs:text-[8px] xs:text-[9px] uppercase tracking-wider leading-none select-none pointer-events-none"><span class="bg-[#d32f2f] text-white px-1 xs:px-1.5 py-0.5">HOT</span><span class="bg-[#008738] text-white px-1 xs:px-1.5 py-0.5">NEW</span></span>' : simIsHot ? '<span class="absolute -top-1.5 -right-1.5 z-20 bg-[#d32f2f] text-white font-black text-[7.5px] xxs:text-[8px] xs:text-[9px] px-1.5 py-0.5 rounded-full shadow-[0_2px_6px_rgba(0,0,0,0.25)] border border-white dark:border-zinc-900 uppercase tracking-wider leading-none select-none pointer-events-none flex items-center justify-center">HOT</span>' : simIsNew ? '<span class="absolute -top-1.5 -right-1.5 z-20 bg-[#008738] text-white font-black text-[7.5px] xxs:text-[8px] xs:text-[9px] px-1.5 py-0.5 rounded-full shadow-[0_2px_6px_rgba(0,0,0,0.25)] border border-white dark:border-zinc-900 uppercase tracking-wider leading-none select-none pointer-events-none flex items-center justify-center">NEW</span>' : ''}
                 </div>
                 <span class="text-[9.5px] xxs:text-[10.5px] xs:text-[11.5px] sm:text-[12px] font-semibold text-center text-zinc-800 dark:text-zinc-200 line-clamp-2 w-full px-0.5 leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors pointer-events-none select-none">${escapeHtml(simName)}</span>

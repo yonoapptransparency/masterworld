@@ -1,6 +1,6 @@
 {
-  "summary": "Comprehensive implementation plan for the HOT badge feature, dual-status badge chip presentation (HOT + NEW), admin toggle controls, SSR renderer synchronization, and web crawler indexing diagnostics.",
-  "updatedAt": "2026-10-15T02:27:42.456051800Z",
+  "summary": "Revised implementation plan reflecting 100% Admin isolation (zero admin modifications, private Masterworld repo), strict crawler exclusion for the /moreinfo security gateway (noindex, nofollow, robots.txt disallow), and focused fixes on the public Dex website to resolve Googlebot XHR blocking and Cloudinary timeout errors.",
+  "updatedAt": "2026-10-15T09:03:43.279140339Z",
   "requestFeedback": true,
   "userFacing": true
 }

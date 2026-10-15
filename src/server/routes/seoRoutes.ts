@@ -32,6 +32,7 @@ seoRouter.get('/robots.txt', (req, res) => {
   res.type('text/plain');
   res.send(`User-agent: *
 Allow: /
+Allow: /api/v1/public/
 Disallow: /api/
 Disallow: /admin/
 Disallow: /login/

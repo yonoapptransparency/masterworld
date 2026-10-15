@@ -2,73 +2,91 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://www.rummydex.com/</loc>
-    <lastmod>2026-10-12T17:17:46+00:00</lastmod>
+    <lastmod>2026-10-14T16:13:44+00:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
+    <loc>https://www.rummydex.com/new-apps</loc>
+    <lastmod>2026-10-14T16:13:44+00:00</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.rummydex.com/categories</loc>
+    <lastmod>2026-10-14T16:13:44+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://www.rummydex.com/news</loc>
-    <lastmod>2026-10-12T17:17:46+00:00</lastmod>
+    <lastmod>2026-10-14T16:13:44+00:00</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.rummydex.com/videos</loc>
-    <lastmod>2026-10-12T17:17:46+00:00</lastmod>
+    <lastmod>2026-10-14T16:13:44+00:00</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://www.rummydex.com/about</loc>
-    <lastmod>2026-10-12T17:17:46+00:00</lastmod>
+    <lastmod>2026-10-14T16:13:44+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://www.rummydex.com/contact</loc>
-    <lastmod>2026-10-12T17:17:46+00:00</lastmod>
+    <lastmod>2026-10-14T16:13:44+00:00</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://www.rummydex.com/faq</loc>
+    <lastmod>2026-10-14T16:13:44+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://www.rummydex.com/privacy</loc>
-    <lastmod>2026-10-12T17:17:46+00:00</lastmod>
+    <lastmod>2026-10-14T16:13:44+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
     <loc>https://www.rummydex.com/terms</loc>
-    <lastmod>2026-10-12T17:17:46+00:00</lastmod>
+    <lastmod>2026-10-14T16:13:44+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
     <loc>https://www.rummydex.com/disclaimer</loc>
-    <lastmod>2026-10-12T17:17:46+00:00</lastmod>
+    <lastmod>2026-10-14T16:13:44+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
     <loc>https://www.rummydex.com/notice</loc>
-    <lastmod>2026-10-12T17:17:46+00:00</lastmod>
+    <lastmod>2026-10-14T16:13:44+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
     <loc>https://www.rummydex.com/ethics</loc>
-    <lastmod>2026-10-12T17:17:46+00:00</lastmod>
+    <lastmod>2026-10-14T16:13:44+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
     <loc>https://www.rummydex.com/responsibility</loc>
-    <lastmod>2026-10-12T17:17:46+00:00</lastmod>
+    <lastmod>2026-10-14T16:13:44+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
     <loc>https://www.rummydex.com/report-removal</loc>
-    <lastmod>2026-10-12T17:17:46+00:00</lastmod>
+    <lastmod>2026-10-14T16:13:44+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>

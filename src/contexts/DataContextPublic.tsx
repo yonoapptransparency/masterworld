@@ -244,6 +244,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Fetch from server backup endpoint with fast memory caching and local storage persistence
   const fetchBackupData = useCallback(async (silent = false) => {
+    // Never fire background backup-data fetch during crawler indexing
+    const isCrawler = typeof navigator !== 'undefined' && /googlebot|google-inspectiontool|bingbot|slurp|duckduckbot|baiduspider|yandexbot|crawler|spider|lighthouse|chrome-lighthouse|headless/i.test(navigator.userAgent || '');
+    if (isCrawler) return;
+
     try {
       if (!silent && apps.length === 0) setLoading(true);
       const res = await fetch('/api/v1/public/backup-data', {

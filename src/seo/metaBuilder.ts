@@ -64,8 +64,8 @@ export function buildMetaTags(params: MetaBuilderParams): string {
     ${keywords ? `<meta name="keywords" content="${escapedKeywords}">` : ''}
     <meta data-rh="true" name="application-name" content="${applicationName}">
     <meta data-rh="true" name="color-scheme" content="light dark">
-    ${isNotFound
-      ? `<meta data-rh="true" name="robots" content="noindex, nofollow">`
+    ${(isNotFound || pageType === 'gateway')
+      ? `<meta data-rh="true" name="robots" content="noindex, nofollow, noarchive, nosnippet">`
       : `<meta data-rh="true" name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">`
     }
     <meta data-rh="true" property="og:site_name" content="${ogSiteName}">
