@@ -44,6 +44,7 @@ export const DEFAULT_STUDIO_CONFIG: StudioConfig = {
   dateMode: 'today_and_yesterday',
   ratingMix: 'auto_app_rating',
   languageTone: 'all_rounder_standard',
+  likesMode: 'subtle_1_2',
   customTopic: 'Core features, smooth performance, authentic user experience',
   publishMode: 'wait_approve',
   activeSessionDirective: ''
@@ -86,7 +87,7 @@ export function loadStudioConfig(): StudioConfig {
   return DEFAULT_STUDIO_CONFIG;
 }
 
-export function saveStudioConfig(config: StudioConfig, persistToCloud = false): void {
+export function saveStudioConfig(config: StudioConfig, persistToCloud = true): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(KEY_STUDIO_CONFIG, JSON.stringify(config));
@@ -229,12 +230,14 @@ export async function loadBrainDirectivesFromCloud(): Promise<BrainMemoryDirecti
  */
 export async function saveStudioConfigToCloud(config: StudioConfig): Promise<boolean> {
   const payload = {
+    apiKey: String(config.apiKey || '').trim(),
+    model: String(config.model || 'gemini-flash-latest'),
     reviewsPerApp: Number(config.reviewsPerApp) || 2,
     languageTone: String(config.languageTone || 'all_rounder_standard'),
     dateMode: String(config.dateMode || 'today_and_yesterday'),
     ratingMix: String(config.ratingMix || 'auto_app_rating'),
+    likesMode: String(config.likesMode || 'subtle_1_2'),
     publishMode: String(config.publishMode || 'wait_approve'),
-    model: String(config.model || 'gemini-flash-latest'),
     activeSessionDirective: String(config.activeSessionDirective || ''),
     updatedAt: new Date().toISOString()
   };
@@ -279,10 +282,13 @@ export async function loadStudioConfigFromCloud(): Promise<Partial<StudioConfig>
       const cfg = json?.data?.config;
       if (cfg) {
         return {
+          apiKey: cfg.apiKey ? String(cfg.apiKey).trim() : undefined,
+          model: cfg.model ? String(cfg.model).trim() : undefined,
           reviewsPerApp: Number(cfg.reviewsPerApp) || 2,
           languageTone: cfg.languageTone || 'all_rounder_standard',
           dateMode: cfg.dateMode || 'today_and_yesterday',
           ratingMix: cfg.ratingMix || 'auto_app_rating',
+          likesMode: cfg.likesMode || 'subtle_1_2',
           publishMode: cfg.publishMode || 'wait_approve',
           activeSessionDirective: cfg.activeSessionDirective || ''
         };

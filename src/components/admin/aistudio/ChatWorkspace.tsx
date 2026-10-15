@@ -21,7 +21,8 @@ import {
   Square,
   OctagonAlert,
   Settings2,
-  ExternalLink
+  ExternalLink,
+  ThumbsUp
 } from 'lucide-react';
 import { 
   ChatMessage, 
@@ -30,7 +31,8 @@ import {
   DateDistributionMode, 
   RatingMixMode, 
   LanguageToneMode, 
-  PublishMode 
+  PublishMode,
+  LikesRateMode 
 } from './types';
 
 interface ChatWorkspaceProps {
@@ -56,6 +58,11 @@ interface ChatWorkspaceProps {
   setShowDirectives?: (val: boolean) => void;
   showControlsDrawer?: boolean;
   setShowControlsDrawer?: (val: boolean) => void;
+  aiStatus?: {
+    status: 'connected' | 'disconnected' | 'testing';
+    latencyMs?: number;
+    model: string;
+  };
 }
 
 export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
@@ -80,7 +87,8 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   showDirectives: externalShowDirectives,
   setShowDirectives: externalSetShowDirectives,
   showControlsDrawer: externalShowControlsDrawer,
-  setShowControlsDrawer: externalSetShowControlsDrawer
+  setShowControlsDrawer: externalSetShowControlsDrawer,
+  aiStatus
 }) => {
   const [inputText, setInputText] = useState('');
   const [internalShowDirectives, setInternalShowDirectives] = useState(false);
@@ -149,6 +157,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
 
   const QUICK_PROMPTS = [
     { label: '⚡ Match Catalog Stars', text: 'Generate reviews strictly matching each app’s official catalog rating score.' },
+    { label: '👍 1-2 Subtle Likes', text: 'Give a lower rate of likes on comments, sometime two, sometime one like that.' },
     { label: '🎲 1-5 Star Organic Mix', text: 'Today mix ratings across 1 to 5 stars naturally, with praise, suggestions, and minor complaints.' },
     { label: '😊 Happy with Emojis', text: 'Today make reviews that all our customers are happy and write with natural emojis.' },
     { label: '🎯 Core Features & UI', text: 'Today let\'s generate reviews based on the core features and UI present on our website for each app.' },
@@ -364,6 +373,26 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0 text-[10px]">
+          {aiStatus && (
+            <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[10px] font-bold ${
+              aiStatus.status === 'connected'
+                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+                : aiStatus.status === 'testing'
+                ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30 animate-pulse'
+                : 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/30'
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${
+                aiStatus.status === 'connected' ? 'bg-emerald-500 animate-pulse' : aiStatus.status === 'testing' ? 'bg-amber-500' : 'bg-rose-500'
+              }`} />
+              <span>
+                {aiStatus.status === 'connected'
+                  ? `AI Connected (${aiStatus.model.replace('gemini-', '').replace('-latest', '')})`
+                  : aiStatus.status === 'testing'
+                  ? 'Testing...'
+                  : 'AI Disconnected'}
+              </span>
+            </div>
+          )}
           <span className="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-bold">
             {config.ratingMix === 'auto_app_rating' ? '⚡ Auto App Rating' : config.ratingMix.replace(/_/g, ' ')}
           </span>

@@ -12,6 +12,11 @@ interface AppSelectorProps {
   setSelectedCategory: (cat: string) => void;
   onClose?: () => void;
   isModal?: boolean;
+  aiStatus?: {
+    status: 'connected' | 'disconnected' | 'testing';
+    latencyMs?: number;
+    model: string;
+  };
 }
 
 export const AppSelector: React.FC<AppSelectorProps> = ({
@@ -23,7 +28,8 @@ export const AppSelector: React.FC<AppSelectorProps> = ({
   selectedCategory,
   setSelectedCategory,
   onClose,
-  isModal = false
+  isModal = false,
+  aiStatus
 }) => {
   // Extract unique categories
   const categories = useMemo(() => {
@@ -109,15 +115,38 @@ export const AppSelector: React.FC<AppSelectorProps> = ({
           </div>
         </div>
 
-        {onClose && (
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white flex items-center justify-center transition cursor-pointer flex-shrink-0"
-            title="Close catalog modal"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {aiStatus && (
+            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold ${
+              aiStatus.status === 'connected'
+                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+                : aiStatus.status === 'testing'
+                ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30 animate-pulse'
+                : 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/30'
+            }`}>
+              <span className={`w-2 h-2 rounded-full ${
+                aiStatus.status === 'connected' ? 'bg-emerald-500 animate-pulse' : aiStatus.status === 'testing' ? 'bg-amber-500' : 'bg-rose-500'
+              }`} />
+              <span className="font-bold text-[11px]">
+                {aiStatus.status === 'connected'
+                  ? `AI Connected (${aiStatus.model.replace('gemini-', '').replace('-latest', '')})`
+                  : aiStatus.status === 'testing'
+                  ? 'Testing AI...'
+                  : 'Key Missing'}
+              </span>
+            </div>
+          )}
+
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white flex items-center justify-center transition cursor-pointer flex-shrink-0"
+              title="Close catalog modal"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Control bar: Quick select presets */}

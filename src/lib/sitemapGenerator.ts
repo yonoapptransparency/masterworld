@@ -319,10 +319,13 @@ export function generateStaticSitemapXml(
 
   const staticPages = [
     { path: '/', priority: '1.0', changefreq: 'daily' },
+    { path: '/new-apps', priority: '0.8', changefreq: 'daily' },
+    { path: '/categories', priority: '0.8', changefreq: 'weekly' },
     { path: '/news', priority: '0.8', changefreq: 'daily' },
     { path: '/videos', priority: '0.7', changefreq: 'weekly' },
     { path: '/about', priority: '0.5', changefreq: 'monthly' },
     { path: '/contact', priority: '0.5', changefreq: 'monthly' },
+    { path: '/faq', priority: '0.5', changefreq: 'monthly' },
     { path: '/privacy', priority: '0.3', changefreq: 'monthly' },
     { path: '/terms', priority: '0.3', changefreq: 'monthly' },
     { path: '/disclaimer', priority: '0.3', changefreq: 'monthly' },

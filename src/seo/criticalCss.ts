@@ -10,6 +10,10 @@ const CSS_CHECK_INTERVAL = 60000; // 1 minute in dev / hot reloading
  * Injects directly into <head> as critical inline CSS to eliminate Flash of Unstyled Content (FOUC).
  */
 export function getCriticalCss(): string {
+  if (process.env.NODE_ENV !== 'production') {
+    return '';
+  }
+
   const now = Date.now();
   if (cachedCssContent !== null && (now - lastCssCheck < CSS_CHECK_INTERVAL || process.env.NODE_ENV === 'production')) {
     return cachedCssContent;
@@ -19,7 +23,6 @@ export function getCriticalCss(): string {
   try {
     const distPath = path.join(process.cwd(), 'dist');
     if (!fs.existsSync(distPath)) {
-      // In local dev without build, Vite injects CSS via HMR
       return '';
     }
 

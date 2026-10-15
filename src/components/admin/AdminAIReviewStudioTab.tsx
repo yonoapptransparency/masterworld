@@ -82,6 +82,29 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
   const [isPublishing, setIsPublishing] = useState(false);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0, percent: 0, currentAppName: '' });
 
+  // Real-time AI Connection Status (Synced with API Key & Model)
+  const [aiStatus, setAiStatus] = useState<{
+    status: 'connected' | 'disconnected' | 'testing';
+    latencyMs?: number;
+    model: string;
+  }>(() => {
+    const hasKey = Boolean((config.apiKey || '').trim());
+    return {
+      status: hasKey ? 'connected' : 'disconnected',
+      model: config.model || 'gemini-flash-latest'
+    };
+  });
+
+  // Keep aiStatus continuously synchronized with stored config & key
+  useEffect(() => {
+    const hasKey = Boolean((config.apiKey || '').trim());
+    setAiStatus(prev => ({
+      ...prev,
+      status: hasKey ? 'connected' : 'disconnected',
+      model: config.model || 'gemini-flash-latest'
+    }));
+  }, [config.apiKey, config.model]);
+
   // Abort control ref for instantaneous Stop AI generation
   const abortGenerationRef = useRef<boolean>(false);
 
@@ -272,6 +295,15 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
         currentAppName: appTitle
       });
 
+      // Dedicated Step 1: Announce starting this individual app
+      const stepStartMsg: ChatMessage = {
+        id: `msg_start_${Date.now()}_${i}`,
+        sender: 'assistant',
+        text: `⏳ [${i + 1}/${targets.length}] Analyzing "${appTitle}" website content & directives... Generating ${config.reviewsPerApp} reviews now.`,
+        timestamp: new Date().toISOString()
+      };
+      setChatHistory(prev => [...prev, stepStartMsg]);
+
       try {
         const generated = await generateReviewsForAppWithGemini(
           app,
@@ -295,7 +327,8 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
                 rating: review.rating,
                 reviewText: review.reviewText,
                 timestamp: review.timestamp,
-                status: 'published'
+                status: 'published',
+                helpful_count: typeof review.helpful_count === 'number' ? review.helpful_count : 1
               });
               directPublishedCount++;
             } catch (_) {}
@@ -311,14 +344,14 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
         const liveMsg: ChatMessage = {
           id: `msg_auto_${Date.now()}_${i}`,
           sender: 'assistant',
-          text: `✅ [${appTitle}] completed (${i + 1}/${targets.length})! Generated ${generated.length} reviews (Balanced to ${appRatingStr}) and stocked into Staged Deck. ${!isLast ? `Proceeding to next app: "${targets[i + 1]?.name || 'Next'}"...` : '🎉 Autopilot completed all selected apps!'}`,
+          text: `✅ [${appTitle}] completed (${i + 1}/${targets.length})! Generated ${generated.length} reviews (Balanced to ${appRatingStr}) with realistic likes. ${!isLast ? `Pacing Google AI Studio quota before next app ("${targets[i + 1]?.name || 'Next'}") ...` : '🎉 Autopilot completed all selected apps!'}`,
           timestamp: new Date().toISOString()
         };
         setChatHistory(prev => [...prev, liveMsg]);
 
-        // Pacing delay between apps to prevent API quota exhaustion and allow UI render updates
+        // Healthy 2.2s pacing delay between apps to prevent Google AI Studio 429 quota exhaustion
         if (!isLast && !abortGenerationRef.current) {
-          await new Promise(resolve => setTimeout(resolve, 400));
+          await new Promise(resolve => setTimeout(resolve, 2200));
         }
       } catch (err: any) {
         console.warn(`[Autopilot] Error on ${appTitle}, continuing smoothly:`, err);
@@ -362,7 +395,8 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           rating: review.rating,
           reviewText: review.reviewText,
           timestamp: review.timestamp,
-          status: 'published'
+          status: 'published',
+          helpful_count: typeof review.helpful_count === 'number' ? review.helpful_count : 1
         });
         publishedCount++;
       }
@@ -398,7 +432,8 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           rating: review.rating,
           reviewText: review.reviewText,
           timestamp: review.timestamp,
-          status: 'published'
+          status: 'published',
+          helpful_count: typeof review.helpful_count === 'number' ? review.helpful_count : 1
         });
         publishedCount++;
       }
@@ -483,15 +518,22 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
             )}
           </button>
 
-          {/* API Key Modal Trigger */}
+          {/* API Key Modal Trigger with Live Connection Indicator */}
           <button
             onClick={() => setIsApiKeyModalOpen(true)}
-            className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium transition border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 cursor-pointer"
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition border flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+              aiStatus.status === 'connected'
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20'
+                : 'bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-300 hover:bg-rose-500/20'
+            }`}
             title="Configure Gemini Model & API Key"
           >
-            <Key className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
-            <span className="text-[10px] px-1 py-0.5 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400">
-              {config.apiKey ? 'Key ✓' : 'Set Key'}
+            <Key className={`w-3.5 h-3.5 ${aiStatus.status === 'connected' ? 'text-emerald-500' : 'text-rose-500'}`} />
+            <span className={`w-1.5 h-1.5 rounded-full ${aiStatus.status === 'connected' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
+            <span className="font-bold text-[11px]">
+              {aiStatus.status === 'connected'
+                ? `AI Connected (${aiStatus.model.replace('gemini-', '').replace('-latest', '')})`
+                : 'Set Key'}
             </span>
           </button>
 
@@ -647,6 +689,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
             setShowControlsDrawer={setShowControlsDrawer}
             showDirectives={showDirectives}
             setShowDirectives={setShowDirectives}
+            aiStatus={aiStatus}
           />
         ) : (
           <StagedQueue
@@ -679,6 +722,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
               setSelectedCategory={setAppCategory}
               onClose={() => setIsAppSelectorModalOpen(false)}
               isModal={true}
+              aiStatus={aiStatus}
             />
           </div>
         </div>
@@ -689,7 +733,20 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
         isOpen={isApiKeyModalOpen}
         onClose={() => setIsApiKeyModalOpen(false)}
         config={config}
-        onSaveConfig={updates => setConfig(prev => ({ ...prev, ...updates }))}
+        onSaveConfig={updates => {
+          setConfig(prev => {
+            const next = { ...prev, ...updates };
+            saveStudioConfig(next, true);
+            return next;
+          });
+          if (updates.apiKey) {
+            setAiStatus({
+              status: 'connected',
+              model: updates.model || config.model || 'gemini-flash-latest'
+            });
+            toast('Gemini API key saved & AI connected!', 'success');
+          }
+        }}
       />
     </div>
   );

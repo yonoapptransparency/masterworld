@@ -11,7 +11,8 @@ import {
   ArrowRight,
   ArrowLeft,
   Send,
-  Eye
+  Eye,
+  ThumbsUp
 } from 'lucide-react';
 import { StagedReview } from './types';
 
@@ -43,6 +44,7 @@ export const StagedQueue: React.FC<StagedQueueProps> = ({
   const [editText, setEditText] = useState('');
   const [editRating, setEditRating] = useState(5);
   const [editUserName, setEditUserName] = useState('');
+  const [editHelpfulCount, setEditHelpfulCount] = useState<number>(1);
   const [publishingAppId, setPublishingAppId] = useState<string | null>(null);
 
   // Group staged reviews by app
@@ -97,13 +99,15 @@ export const StagedQueue: React.FC<StagedQueueProps> = ({
     setEditText(review.reviewText);
     setEditRating(review.rating);
     setEditUserName(review.userName);
+    setEditHelpfulCount(typeof review.helpful_count === 'number' ? review.helpful_count : 1);
   };
 
   const saveEdit = (id: string) => {
     onUpdateReview(id, {
       reviewText: editText.trim(),
       rating: editRating,
-      userName: editUserName.trim()
+      userName: editUserName.trim(),
+      helpful_count: Math.max(0, editHelpfulCount)
     });
     setEditingId(null);
   };
@@ -332,6 +336,12 @@ export const StagedQueue: React.FC<StagedQueueProps> = ({
                     {r.dateTag}
                   </span>
 
+                  {/* Likes / Helpful Count Badge */}
+                  <span className="px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800/80 text-[10px] text-blue-600 dark:text-blue-400 font-bold flex items-center gap-1">
+                    <ThumbsUp className="w-2.5 h-2.5" />
+                    <span>{typeof r.helpful_count === 'number' ? r.helpful_count : 1} Likes</span>
+                  </span>
+
                   <div className="flex items-center text-amber-500">
                     {Array.from({ length: 5 }).map((_, i) => (
                       <Star
@@ -362,7 +372,7 @@ export const StagedQueue: React.FC<StagedQueueProps> = ({
               {/* Body: Edit mode or display mode */}
               {isEditing ? (
                 <div className="space-y-2 pt-1">
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <input
                       type="text"
                       value={editUserName}
@@ -389,6 +399,20 @@ export const StagedQueue: React.FC<StagedQueueProps> = ({
                         </button>
                       ))}
                       <span className="text-[11px] font-bold text-amber-500 ml-1">{editRating}★</span>
+                    </div>
+
+                    {/* Helpful / Likes Count Editor */}
+                    <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1">
+                      <ThumbsUp className="w-3 h-3 text-blue-500" />
+                      <span className="text-[11px] text-slate-500">Likes:</span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={editHelpfulCount}
+                        onChange={e => setEditHelpfulCount(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                        className="w-14 bg-slate-100 dark:bg-slate-800 rounded px-1.5 py-0.5 text-xs font-bold text-blue-600 dark:text-blue-400 text-center"
+                      />
                     </div>
                   </div>
 

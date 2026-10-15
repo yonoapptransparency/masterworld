@@ -1,6 +1,6 @@
 {
-  "summary": "Revised architectural plan to permanently eliminate the duplicate DOM issue below the footer, completely isolate the Admin dashboard from public website flashing, and preserve top-tier crawler SEO without AI-generated content.",
-  "updatedAt": "2026-10-13T13:13:30.315480280Z",
+  "summary": "Comprehensive implementation plan for the HOT badge feature, dual-status badge chip presentation (HOT + NEW), admin toggle controls, SSR renderer synchronization, and web crawler indexing diagnostics.",
+  "updatedAt": "2026-10-15T02:27:42.456051800Z",
   "requestFeedback": true,
   "userFacing": true
 }

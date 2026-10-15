@@ -27,28 +27,43 @@ export const communityRouter = Router();
 
 // AI Review Studio Brain & Directives Server Persistence (Zero-Quota, 100% Reliable)
 let inMemoryAiStudioBrain: any = null;
+import { testGeminiConnection, executeGeminiWithRetry } from '../services/geminiServerService';
+
 const DATA_DIR = path.join(process.cwd(), '.data');
 const PERSISTENT_BRAIN_FILE = path.join(DATA_DIR, 'aiStudioBrain.json');
 const SEED_BRAIN_FILE = path.join(process.cwd(), 'src', 'lib', 'aiStudioBrain.json');
 
 communityRouter.get('/api/v1/admin/community/aistudio-settings', async (req, res) => {
   try {
-    if (inMemoryAiStudioBrain) {
-      return res.json({ success: true, data: inMemoryAiStudioBrain });
+    let brainData = inMemoryAiStudioBrain;
+    if (!brainData) {
+      if (fs.existsSync(PERSISTENT_BRAIN_FILE)) {
+        brainData = JSON.parse(fs.readFileSync(PERSISTENT_BRAIN_FILE, 'utf8'));
+        inMemoryAiStudioBrain = brainData;
+      } else if (fs.existsSync(SEED_BRAIN_FILE)) {
+        brainData = JSON.parse(fs.readFileSync(SEED_BRAIN_FILE, 'utf8'));
+        inMemoryAiStudioBrain = brainData;
+      }
     }
-    // 1. Try persistent file in .data/ (outside src/ so Vite never reloads)
-    if (fs.existsSync(PERSISTENT_BRAIN_FILE)) {
-      const data = JSON.parse(fs.readFileSync(PERSISTENT_BRAIN_FILE, 'utf8'));
-      inMemoryAiStudioBrain = data;
-      return res.json({ success: true, data });
+
+    const envKey = process.env.GEMINI_API_KEY || '';
+    if (brainData) {
+      if (!brainData.config) brainData.config = {};
+      if (!brainData.config.apiKey && envKey) {
+        brainData.config.apiKey = envKey;
+      }
+      return res.json({ success: true, data: brainData });
     }
-    // 2. Fallback to seed in src/lib/ if persistent file does not exist yet
-    if (fs.existsSync(SEED_BRAIN_FILE)) {
-      const data = JSON.parse(fs.readFileSync(SEED_BRAIN_FILE, 'utf8'));
-      inMemoryAiStudioBrain = data;
-      return res.json({ success: true, data });
-    }
-    res.json({ success: true, data: null });
+
+    res.json({
+      success: true,
+      data: {
+        config: {
+          apiKey: envKey,
+          model: 'gemini-flash-latest'
+        }
+      }
+    });
   } catch (err: any) {
     res.json({ success: true, data: inMemoryAiStudioBrain || null });
   }
@@ -60,6 +75,10 @@ communityRouter.post('/api/v1/admin/community/aistudio-settings', async (req, re
     inMemoryAiStudioBrain = {
       ...(inMemoryAiStudioBrain || {}),
       ...payload,
+      config: {
+        ...((inMemoryAiStudioBrain && inMemoryAiStudioBrain.config) || {}),
+        ...(payload.config || {})
+      },
       updatedAt: new Date().toISOString()
     };
     try {
@@ -68,11 +87,50 @@ communityRouter.post('/api/v1/admin/community/aistudio-settings', async (req, re
       }
       fs.writeFileSync(PERSISTENT_BRAIN_FILE, JSON.stringify(inMemoryAiStudioBrain, null, 2), 'utf8');
     } catch (_) {}
-    res.json({ success: true, message: 'Settings saved permanently.' });
+    res.json({ success: true, message: 'Settings saved permanently in brain memory.' });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message });
   }
 });
+
+// Dedicated Server-Side Gemini Execution Proxy with Auto-Retry & Model Fallback
+communityRouter.post('/api/v1/admin/community/aistudio-gemini', async (req, res) => {
+  try {
+    const { action, apiKey: reqKey, model, systemInstruction, contents, temperature, responseMimeType } = req.body || {};
+    const apiKey = (reqKey || '').trim() || 
+                   inMemoryAiStudioBrain?.config?.apiKey || 
+                   process.env.GEMINI_API_KEY || 
+                   '';
+
+    if (!apiKey) {
+      return res.status(400).json({ success: false, error: 'Gemini API key is required. Please set it in AI Studio.' });
+    }
+
+    if (action === 'test') {
+      const result = await testGeminiConnection(apiKey, model || 'gemini-flash-latest');
+      return res.json(result);
+    }
+
+    // Standard generate or chat execution
+    const result = await executeGeminiWithRetry({
+      apiKey,
+      model: model || 'gemini-flash-latest',
+      systemInstruction,
+      contents,
+      temperature: typeof temperature === 'number' ? temperature : 0.85,
+      responseMimeType
+    });
+
+    if (!result.success) {
+      return res.status(502).json(result);
+    }
+
+    return res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Server error calling Gemini' });
+  }
+});
+
 
 // Public reviews endpoints
 communityRouter.get('/api/v1/public/community/reviews', async (req, res) => {

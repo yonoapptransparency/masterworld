@@ -18,14 +18,14 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
   const [apiKeyInput, setApiKeyInput] = useState(config.apiKey || '');
   const [selectedPreset, setSelectedPreset] = useState<string>(() => {
     const m = config.model || 'gemini-flash-latest';
-    if (['gemini-flash-latest', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-flash-lite-latest'].includes(m)) {
+    if (['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-2.0-flash'].includes(m)) {
       return m;
     }
     return 'custom';
   });
   const [customModelInput, setCustomModelInput] = useState(() => {
     const m = config.model || 'gemini-flash-latest';
-    if (!['gemini-flash-latest', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-flash-lite-latest'].includes(m)) {
+    if (!['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-2.0-flash'].includes(m)) {
       return m;
     }
     return '';
@@ -53,6 +53,30 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
 
     const startTime = performance.now();
     try {
+      // 1. Try server test endpoint
+      try {
+        const srvRes = await fetch('/api/v1/admin/community/aistudio-gemini', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'test',
+            apiKey: keyToTest,
+            model: activeModelName
+          })
+        });
+
+        if (srvRes.ok) {
+          const srvData = await srvRes.json();
+          if (srvData.success) {
+            setTestStatus('success');
+            setTestLatency(srvData.latencyMs || Math.round(performance.now() - startTime));
+            setTestMessage(`Success! Verified ${srvData.model || activeModelName} (${srvData.latencyMs || Math.round(performance.now() - startTime)}ms). AI Connected & Ready.`);
+            return;
+          }
+        }
+      } catch (_) {}
+
+      // 2. Client direct test fallback
       const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(activeModelName)}:generateContent?key=${encodeURIComponent(keyToTest)}`;
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -85,11 +109,27 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    const cleanKey = apiKeyInput.trim();
     onSaveConfig({
-      apiKey: apiKeyInput.trim(),
+      apiKey: cleanKey,
       model: activeModelName
     });
+
+    // Also persist directly to server admin settings
+    try {
+      await fetch('/api/v1/admin/community/aistudio-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          config: {
+            apiKey: cleanKey,
+            model: activeModelName
+          }
+        })
+      });
+    } catch (_) {}
+
     onClose();
   };
 
@@ -142,11 +182,11 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
               onChange={e => setSelectedPreset(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
             >
-              <option value="gemini-flash-latest">Gemini 3.8 Flash (gemini-flash-latest — Default & Fastest)</option>
-              <option value="gemini-3.7-flash">Gemini 3.7 Flash (gemini-3.7-flash — Free Tier / Quota Switch)</option>
-              <option value="gemini-3.6-flash">Gemini 3.6 Flash (gemini-3.6-flash — Alternate Tier)</option>
-              <option value="gemini-3.5-flash">Gemini 3.5 Flash (gemini-3.5-flash — Backup Tier)</option>
-              <option value="gemini-flash-lite-latest">Gemini Flash Lite (Ultra-Low Quota Usage)</option>
+              <option value="gemini-flash-latest">Gemini Flash (gemini-flash-latest — Recommended & Fastest)</option>
+              <option value="gemini-2.5-flash">Gemini 2.5 Flash (gemini-2.5-flash — Stable Production)</option>
+              <option value="gemini-3.8-flash">Gemini 3.8 Flash (gemini-3.8-flash — High Speed)</option>
+              <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite (gemini-3.1-flash-lite — Low Quota)</option>
+              <option value="gemini-2.0-flash">Gemini 2.0 Flash (gemini-2.0-flash — Alternate Tier)</option>
               <option value="custom">Custom Model Name (Type manually)</option>
             </select>
 

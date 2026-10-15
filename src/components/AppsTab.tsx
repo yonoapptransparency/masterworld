@@ -245,13 +245,16 @@ const AppsTab = React.memo(({ appsList, editingAppId, setEditingAppId, handleDel
                             {app.safety_status === 'Verified' ? 'Verified' : app.safety_status === 'Caution' ? 'Caution' : 'Unsafe'}
                           </span>
 
-                          {app.is_hot && (
+                          {app.is_hot && app.is_new ? (
+                            <span className="inline-flex items-center rounded overflow-hidden text-[8px] font-black uppercase tracking-wider">
+                              <span className="bg-[#d32f2f] text-white px-1.5 py-0.5">HOT</span>
+                              <span className="bg-[#008738] text-white px-1.5 py-0.5">NEW</span>
+                            </span>
+                          ) : app.is_hot ? (
                             <span className="bg-[#d32f2f] text-white px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider">HOT</span>
-                          )}
-
-                          {app.is_new && !app.is_hot && (
-                            <span className="bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-400 border border-blue-200/50 dark:border-blue-900/30 px-1 py-0.5 rounded text-[8px] font-black uppercase tracking-wider">NEW</span>
-                          )}
+                          ) : app.is_new ? (
+                            <span className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-900/30 px-1 py-0.5 rounded text-[8px] font-black uppercase tracking-wider">NEW</span>
+                          ) : null}
 
                           {app.is_coming_soon && (
                             <span className="bg-indigo-50 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-400 border border-indigo-200/50 dark:border-indigo-900/30 px-1 py-0.5 rounded text-[8px] font-black uppercase tracking-wider">SOON</span>

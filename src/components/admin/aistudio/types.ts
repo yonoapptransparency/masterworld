@@ -27,6 +27,7 @@ export interface StagedReview {
   dateTag: string;
   timestamp: string; // ISO date string
   status: 'staged' | 'approved' | 'published';
+  helpful_count?: number; // Likes / helpful vote count below the comment
 }
 
 export type DateDistributionMode = 
@@ -72,6 +73,13 @@ export type PublishMode =
   | 'wait_approve'  // Reviews staged for manual admin inspection, edit & 1-click publish
   | 'auto_direct';  // Reviews automatically published directly to Live Community upon generation
 
+export type LikesRateMode = 
+  | 'subtle_1_2'     // Recommended: Low subtle rate, mostly 1 or 2 likes, occasional 0
+  | 'natural_0_3'    // Organic mix: 0 to 3 likes across comments
+  | 'modest_1_4'     // Modest engagement: 1 to 4 likes
+  | 'zero_none'      // 0 likes clean
+  | 'custom';        // Custom admin set range
+
 export interface StudioConfig {
   apiKey: string;
   model: string;
@@ -79,6 +87,7 @@ export interface StudioConfig {
   dateMode: DateDistributionMode;
   ratingMix: RatingMixMode;
   languageTone: LanguageToneMode;
+  likesMode?: LikesRateMode;
   customTopic: string;
   publishMode: PublishMode;
   activeSessionDirective?: string; // Live directive agreed in chat or typed in custom box
