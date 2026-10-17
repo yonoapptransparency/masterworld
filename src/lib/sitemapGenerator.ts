@@ -141,7 +141,7 @@ export function generateAppsSitemapXml(
         appImage = `${cleanHost}${appImage.startsWith('/') ? '' : '/'}${appImage}`;
       }
       if (appImage.includes('res.cloudinary.com')) {
-        appImage = appImage.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_webp,q_auto,w_800/$1');
+        appImage = appImage.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_auto,q_auto,w_800/$1');
       }
     }
     const appName = app.name || 'Application';
@@ -170,7 +170,7 @@ export function generateAppsSitemapXml(
             shotImage = `${cleanHost}${shotImage.startsWith('/') ? '' : '/'}${shotImage}`;
           }
           if (shotImage.includes('res.cloudinary.com')) {
-            shotImage = shotImage.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_webp,q_auto,w_800/$1');
+            shotImage = shotImage.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_auto,q_auto,w_800/$1');
           }
         }
         xml += `    <image:image>\n`;
@@ -224,7 +224,7 @@ export function generateNewsSitemapXml(
         itemImage = `${cleanHost}${itemImage.startsWith('/') ? '' : '/'}${itemImage}`;
       }
       if (itemImage.includes('res.cloudinary.com')) {
-        itemImage = itemImage.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_webp,q_auto,w_800/$1');
+        itemImage = itemImage.replace(/\/upload\/(?:[a-zA-Z0-9_.,-]+\/)*(v\d+\/)/, '/upload/f_auto,q_auto,w_800/$1');
       }
     }
     const itemTitle = item.title || 'News Article';

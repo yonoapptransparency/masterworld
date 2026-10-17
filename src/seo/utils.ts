@@ -178,7 +178,7 @@ export function getOptimizedImageUrl(url?: string, width = 160): string {
         /\/upload\/(?:(?:[a-z]{1,3}_[a-zA-Z0-9_.:-]+,?)+\/)*(?:(v\d+)\/)?/,
         (_match, version) => {
           const v = version ? `${version}/` : '';
-          return `/upload/f_webp,q_auto,w_${width}/${v}`;
+          return `/upload/f_auto,q_auto,w_${width}/${v}`;
         }
       );
     }
@@ -187,7 +187,7 @@ export function getOptimizedImageUrl(url?: string, width = 160): string {
       /\/upload\/(?:(?:[a-z]{1,3}_[a-zA-Z0-9_.:-]+,?)+\/)*(?:(v\d+)\/)?/,
       (_match, version) => {
         const v = version ? `${version}/` : '';
-        return `/upload/f_webp,q_auto/${v}`;
+        return `/upload/f_auto,q_auto/${v}`;
       }
     );
   }

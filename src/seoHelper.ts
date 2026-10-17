@@ -549,6 +549,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     .replace(/<link\s+[^>]*rel=["']image_src["'][^>]*\/?>/gi, '')
     .replace(/<link\s+[^>]*rel=["'](?:shortcut\s+)?icon["'][^>]*\/?>/gi, '')
     .replace(/<link\s+[^>]*rel=["']apple-touch-icon[^"']*["'][^>]*\/?>/gi, '')
+    .replace(/<link\s+[^>]*rel=["']preload["'][^>]*\/?>/gi, '')
     .replace(/<script\s+type=["']application\/ld\+json["'][^>]*>[\s\S]*?<\/script>/gi, '')
     .replace(/<script>window\.__INITIAL_DATA__[\s\S]*?<\/script>/gi, '')
     .replace(/<style\s+id=["']server-critical-css["']>[\s\S]*?<\/style>/gi, '');

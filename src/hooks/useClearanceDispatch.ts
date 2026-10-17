@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { safeDecrypt, ENCRYPTED_LINKS } from '../lib/secureVault';
-import staticData from '../lib/staticData.json';
 
 export interface UseClearanceDispatchOptions {
   appId: string;
@@ -99,8 +98,7 @@ function resolveClientRamDestination(targetId: string, targetSlug?: string, appR
     if (keys.length === 0) return null;
 
     const initialApps = (typeof window !== 'undefined' && (window as any).__INITIAL_DATA__?.apps) || [];
-    const staticApps = (staticData as any)?.apps || [];
-    const apps = [...initialApps, ...staticApps];
+    const apps = [...initialApps, ...(appRecord ? [appRecord] : [])];
     const matched = apps.find((a: any) => {
       const aId = (a.id || '').toLowerCase().trim();
       const aSlug = (a.slug || '').toLowerCase().trim();

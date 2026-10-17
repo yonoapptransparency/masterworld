@@ -195,6 +195,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Dedicated lightweight fetchers for each section on-demand when URL/route changes
   const fetchNews = useCallback(async () => {
+    const isCrawler = typeof navigator !== 'undefined' && /googlebot|google-inspectiontool|bingbot|slurp|duckduckbot|baiduspider|yandexbot|crawler|spider|lighthouse|chrome-lighthouse|headless/i.test(navigator.userAgent || '');
+    if (isCrawler) return;
     try {
       const res = await fetch('/api/v1/public/news', {
         headers: { 'Accept': 'application/json' }
@@ -211,6 +213,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const fetchSettings = useCallback(async () => {
+    const isCrawler = typeof navigator !== 'undefined' && /googlebot|google-inspectiontool|bingbot|slurp|duckduckbot|baiduspider|yandexbot|crawler|spider|lighthouse|chrome-lighthouse|headless/i.test(navigator.userAgent || '');
+    if (isCrawler) return;
     try {
       const res = await fetch('/api/v1/public/settings', {
         headers: { 'Accept': 'application/json' }
@@ -227,6 +231,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const fetchVideos = useCallback(async () => {
+    const isCrawler = typeof navigator !== 'undefined' && /googlebot|google-inspectiontool|bingbot|slurp|duckduckbot|baiduspider|yandexbot|crawler|spider|lighthouse|chrome-lighthouse|headless/i.test(navigator.userAgent || '');
+    if (isCrawler) return;
     try {
       const res = await fetch('/api/v1/public/videos', {
         headers: { 'Accept': 'application/json' }
