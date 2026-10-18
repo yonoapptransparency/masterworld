@@ -101,7 +101,7 @@ export function buildMetaTags(params: MetaBuilderParams): string {
         return `<link rel="preload" as="image" href="${escapeHtml(getOptimizedImageUrl((settings as any).banners[0].image, 800))}" fetchpriority="high">`;
       }
       if (collectionItems && collectionItems.length > 0 && getField(collectionItems[0], 'icon_url')) {
-        return `<link rel="preload" as="image" href="${escapeHtml(getOptimizedImageUrl(getField(collectionItems[0], 'icon_url'), 180))}" fetchpriority="high">`;
+        return `<link rel="preload" as="image" href="${escapeHtml(getOptimizedImageUrl(getField(collectionItems[0], 'icon_url'), 120))}" fetchpriority="high">`;
       }
       if (getField(settings, 'logo_url')) {
         return `<link rel="preload" as="image" href="${escapeHtml(getOptimizedImageUrl(getField(settings, 'logo_url'), 120))}" fetchpriority="high">`;

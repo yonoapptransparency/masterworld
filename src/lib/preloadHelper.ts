@@ -8,8 +8,8 @@
 import { lazyWithRetry } from './lazyWithRetry';
 import { getOptimizedImageUrl } from '../seo/utils';
 
-// Asynchronous, resilient lazy-loaded AppDetails component with .preload() support
-export const AppDetails = lazyWithRetry(() => import('../pages/AppDetails'));
+import AppDetailsComponent from '../pages/AppDetails';
+export const AppDetails = AppDetailsComponent;
 
 // Ultra-fast in-memory cache mapping normalized slugs and IDs to full app specs
 export const appDetailMemoryCache = new Map<string, any>();
@@ -49,10 +49,12 @@ export const preloadAppDetails = (slugOrApp?: string | { slug?: string; id?: str
   const cleanKey = String(rawSlug).toLowerCase().trim();
   if (!cleanKey) return;
 
-  // 1. Immediately start downloading the JavaScript code chunk for AppDetails
-  try {
-    AppDetails.preload();
-  } catch (_) {}
+  // 1. AppDetails is bundled directly for 0ms transition; check for preload if available
+  if (typeof (AppDetails as any)?.preload === 'function') {
+    try {
+      (AppDetails as any).preload();
+    } catch (_) {}
+  }
 
   // 2. Preload app icon image into browser memory cache if available
   if (iconUrl && typeof Image !== 'undefined') {

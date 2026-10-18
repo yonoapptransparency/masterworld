@@ -33,7 +33,7 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
     const ratingVal = typeof ratingRaw === 'number' ? ratingRaw : (parseFloat(String(ratingRaw)) || 5.0);
     const rating = ratingVal.toFixed(1);
     const rawIcon = getField(app, 'icon_url') || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&fit=crop';
-    const icon = optimizeImageUrl(rawIcon, 180);
+    const icon = optimizeImageUrl(rawIcon, 120);
     const isNew = app.is_new === true || (app.is_new && app.is_new.booleanValue === true);
     const isHot = app.is_hot === true || (app.is_hot && app.is_hot.booleanValue === true);
     const isTopItem = i < 8;
@@ -77,7 +77,7 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
           ${newApps.slice(0, 10).map((app, index) => {
             const nSlug = getField(app, 'slug');
             const nName = getField(app, 'name');
-            const nIcon = optimizeImageUrl(getField(app, 'icon_url'), 180);
+            const nIcon = optimizeImageUrl(getField(app, 'icon_url'), 120);
             const nIsHot = app.is_hot === true || (app.is_hot && app.is_hot.booleanValue === true);
             const nIsNew = app.is_new === true || (app.is_new && app.is_new.booleanValue === true);
             return `
@@ -85,7 +85,7 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
                 <a href="/app/${encodeURIComponent(nSlug)}" class="flex flex-col gap-1 xxs:gap-1.5 xs:gap-2 group" title="${escapeHtml(nName)}">
                   <div class="relative w-full aspect-square">
                     <div class="w-full h-full rounded-[14px] xxs:rounded-[16px] xs:rounded-[20px] sm:rounded-[24px] overflow-hidden bg-zinc-100 dark:bg-zinc-800 border border-black/5 dark:border-white/10 shadow-sm">
-                      <img src="${escapeHtml(nIcon)}" ${index < 5 ? 'loading="eager" fetchpriority="high"' : 'loading="lazy"'} decoding="async" width="104" height="104" class="w-full h-full object-cover block" alt="${escapeHtml(nName)}"/>
+                      <img src="${escapeHtml(nIcon)}" ${index < 4 ? 'loading="eager"' : 'loading="lazy"'} ${index === 0 ? 'fetchpriority="high"' : ''} decoding="async" width="104" height="104" class="w-full h-full object-cover block" alt="${escapeHtml(nName)}"/>
                     </div>
                     ${nIsHot && nIsNew ? `<div class="absolute -top-1.5 -right-1.5 z-20 pointer-events-none"><span class="inline-flex items-center rounded-[6px] xs:rounded-[8px] overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.18)] font-black text-[7px] xs:text-[8px] sm:text-[9px] uppercase tracking-wider block"><span class="bg-[#d32f2f] text-white px-1 xs:px-1.5 py-0.5">HOT</span><span class="bg-[#008738] text-white px-1 xs:px-1.5 py-0.5">NEW</span></span></div>` : nIsHot ? `<div class="absolute -top-1.5 -right-1.5 z-20 pointer-events-none"><span class="bg-[#d32f2f] text-white text-[7px] xs:text-[8px] sm:text-[9px] font-black px-1.5 py-0.5 rounded-[6px] xs:rounded-[8px] shadow-[0_2px_8px_rgba(0,0,0,0.15)] uppercase tracking-wider block">HOT</span></div>` : `<div class="absolute -top-1.5 -right-1.5 z-20 pointer-events-none"><span class="bg-[#008738] text-white text-[7px] xs:text-[8px] sm:text-[9px] font-black px-1.5 xs:px-2 py-0.5 rounded-[6px] xs:rounded-[8px] shadow-[0_2px_8px_rgba(0,0,0,0.15)] uppercase tracking-wider block">NEW</span></div>`}
                   </div>

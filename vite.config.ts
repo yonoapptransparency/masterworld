@@ -688,7 +688,7 @@ export default defineConfig(({mode}) => {
 
     build: {
       chunkSizeWarningLimit: 2500,
-      target: 'es2020',
+      target: 'es2022',
       minify: 'esbuild',
       cssMinify: true,
       sourcemap: false,

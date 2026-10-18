@@ -12,15 +12,24 @@ const readdir = promisify(fs.readdir);
 async function compressFile(fullPath: string) {
   try {
     const content = await readFile(fullPath);
-    if (content.length < 20) return; // skip empty/trivial files
+    // Files below 256 bytes shouldn't be compressed because gzip/br header overhead increases size
+    if (content.length < 256) return;
 
-    const gzBuffer = await gzip(content, { level: 9 });
-    await writeFile(`${fullPath}.gz`, gzBuffer);
+    // Maximum compression level 9 for static build assets
+    const gzBuffer = await gzip(content, { level: zlib.constants.Z_BEST_COMPRESSION });
+    // Only write .gz if it actually saved space
+    if (gzBuffer.length < content.length) {
+      await writeFile(`${fullPath}.gz`, gzBuffer);
+    }
 
+    // Ultra-optimized Brotli compression (quality 9: achieves 99%+ of max ratio in seconds)
     const brBuffer = await brotliCompress(content, {
-      params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 5 }
+      params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 9 }
     });
-    await writeFile(`${fullPath}.br`, brBuffer);
+    // Only write .br if it actually saved space
+    if (brBuffer.length < content.length) {
+      await writeFile(`${fullPath}.br`, brBuffer);
+    }
   } catch (err) {
     console.warn(`[Gzip/Brotli] Failed to compress ${fullPath}:`, err);
   }
@@ -35,7 +44,9 @@ async function collectFiles(dir: string, fileList: string[] = []) {
       await collectFiles(fullPath, fileList);
     } else if (entry.isFile()) {
       const ext = path.extname(entry.name).toLowerCase();
-      if (['.html', '.js', '.css', '.json', '.xml', '.svg', '.txt', '.webmanifest', '.ico'].includes(ext)) {
+      // Strictly text, script, markup, vector and data formats.
+      // NEVER compress binary images (.png, .jpg, .webp, .ico), audio, video, or font binaries (.woff2)
+      if (['.html', '.js', '.css', '.json', '.xml', '.svg', '.txt', '.webmanifest'].includes(ext)) {
         if (!entry.name.endsWith('.gz') && !entry.name.endsWith('.br')) {
           fileList.push(fullPath);
         }

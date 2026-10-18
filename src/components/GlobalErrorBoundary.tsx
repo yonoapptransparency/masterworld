@@ -43,8 +43,7 @@ export default class GlobalErrorBoundary extends Component<Props, State> {
     const isChunkError =
       error?.name === 'ChunkLoadError' ||
       /Failed to fetch dynamically imported module/i.test(errorMsg) ||
-      /Loading chunk/i.test(errorMsg) ||
-      /Failed to load resource/i.test(errorMsg) ||
+      /Loading chunk .* failed/i.test(errorMsg) ||
       /Importing a module script failed/i.test(errorMsg);
 
     if (isChunkError) {

@@ -270,16 +270,35 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           } catch (e) {}
 
           if (backup.apps && Array.isArray(backup.apps) && backup.apps.length > 0) {
-            setApps(mergeUniqueApps(staticMockApps || mockApps, backup.apps));
+            setApps(prev => {
+              if (prev.length === backup.apps.length && prev[0]?.slug === backup.apps[0]?.slug && prev[prev.length - 1]?.slug === backup.apps[backup.apps.length - 1]?.slug) {
+                return prev;
+              }
+              return mergeUniqueApps(prev, backup.apps);
+            });
           }
           if (backup.settings && Object.keys(backup.settings).length > 0) {
-            setSettings(prev => ({ ...prev, ...backup.settings }));
+            setSettings(prev => {
+              const prevStr = JSON.stringify(prev);
+              const nextObj = { ...prev, ...backup.settings };
+              return JSON.stringify(nextObj) === prevStr ? prev : nextObj;
+            });
           }
           if (backup.news && Array.isArray(backup.news) && backup.news.length > 0) {
-            setNews(mergeUniqueNews(mockNews, backup.news));
+            setNews(prev => {
+              if (prev.length === backup.news.length && prev[0]?.slug === backup.news[0]?.slug) {
+                return prev;
+              }
+              return mergeUniqueNews(prev, backup.news);
+            });
           }
           if (backup.videos && Array.isArray(backup.videos) && backup.videos.length > 0) {
-            setVideos(backup.videos);
+            setVideos(prev => {
+              if (prev.length === backup.videos.length && prev[0]?.id === backup.videos[0]?.id) {
+                return prev;
+              }
+              return backup.videos;
+            });
           }
           setLoadedFromServer(true);
         }

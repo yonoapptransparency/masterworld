@@ -3,8 +3,8 @@
  * Mounts the core React layout with Global Error Boundary handlers.
  */
 
-import {StrictMode} from 'react';
-import {createRoot} from 'react-dom/client';
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
 import App from './App';
 import GlobalErrorBoundary from './components/GlobalErrorBoundary';
 import './index.css';
@@ -41,24 +41,30 @@ if (typeof window !== 'undefined' && window.localStorage) {
 }
 
 
-// Global chunk loading error handler to recover automatically when old assets are deleted after a new build/deployment
+// Global chunk loading error handler: only reload if an actual dynamic JavaScript module fails to load after a deployment
 if (typeof window !== 'undefined') {
   const handleChunkError = (event: ErrorEvent | PromiseRejectionEvent) => {
+    // Ignore HTML DOM element resource errors (e.g., 404 images, favicons, audio, video)
+    if ('target' in event && event.target && event.target !== window && (event.target as any).tagName) {
+      return;
+    }
+
     const error = 'reason' in event ? event.reason : event.error;
     const errorMsg = String(error?.message || error || (event as ErrorEvent).message || '');
+    
+    // Strictly verify this is a dynamic JS module chunk failure and not a generic network/image error
     const isChunkError =
       error?.name === 'ChunkLoadError' ||
       /Failed to fetch dynamically imported module/i.test(errorMsg) ||
-      /Loading chunk/i.test(errorMsg) ||
-      /Failed to load resource/i.test(errorMsg);
+      /Loading chunk .* failed/i.test(errorMsg) ||
+      /Importing a module script failed/i.test(errorMsg);
 
     if (isChunkError) {
       const reloadKey = 'global_chunk_err_reload';
-      const lastReload = parseInt(sessionStorage.getItem(reloadKey) || '0', 10);
-      const now = Date.now();
-      if (now - lastReload > 10000) {
-        sessionStorage.setItem(reloadKey, String(now));
-        console.warn('[Global] Dynamic module chunk fetch failed. Auto reloading page for updated deployment bundle...');
+      const hasReloaded = sessionStorage.getItem(reloadKey);
+      if (!hasReloaded) {
+        sessionStorage.setItem(reloadKey, 'true');
+        console.warn('[Global] Dynamic module chunk fetch failed. Reloading page for updated deployment bundle...', errorMsg);
         window.location.reload();
       }
     }
@@ -78,3 +84,4 @@ if (rootEl) {
     </StrictMode>
   );
 }
+

@@ -557,6 +557,13 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   const criticalCss = getCriticalCss();
   const headAdditions = `${seoTags}\n${criticalCss ? criticalCss + '\n' : ''}${initialDataScript}`;
 
+  if (criticalCss) {
+    finalHtml = finalHtml.replace(
+      /<link\s+rel=["']stylesheet["']\s+crossorigin\s+href=["'](\/assets\/[^"']+\.css)["']\s*\/?>/gi,
+      '<link rel="stylesheet" crossorigin href="$1" media="print" onload="this.media=\'all\'">\n<noscript><link rel="stylesheet" crossorigin href="$1"></noscript>'
+    );
+  }
+
   if (finalHtml.includes('</head>')) {
     finalHtml = finalHtml.replace('</head>', `${headAdditions}\n</head>`);
   } else {
