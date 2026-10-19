@@ -78,38 +78,7 @@ export function normalizeSchemaCategory(rawCategory?: string): string {
 }
 
 export function optimizeImageUrl(url: string, width = 128): string {
-  if (!url) return '';
-  // Cloudinary image auto-format and quality optimization
-  if (url.includes('res.cloudinary.com') && url.includes('/upload/')) {
-    if (width > 0) {
-      if (url.includes(`w_${width}`)) return url;
-      return url.replace(
-        /\/upload\/(?:(?:[a-z]{1,3}_[a-zA-Z0-9_.:-]+,?)+\/)*(?:(v\d+)\/)?/,
-        (_match, version) => {
-          const v = version ? `${version}/` : '';
-          return `/upload/f_auto,q_auto,w_${width}/${v}`;
-        }
-      );
-    }
-    return url.replace(
-      /\/upload\/(?:(?:[a-z]{1,3}_[a-zA-Z0-9_.:-]+,?)+\/)*(?:(v\d+)\/)?/,
-      (_match, version) => {
-        const v = version ? `${version}/` : '';
-        return `/upload/f_auto,q_auto/${v}`;
-      }
-    );
-  }
-  // Unsplash image WebP optimization
-  if (url.includes('images.unsplash.com')) {
-    if (!url.includes('fm=webp')) {
-      return `${url}${url.includes('?') ? '&' : '?'}fm=webp&q=80&w=${width}`;
-    }
-  }
-  // Firebase Storage optimization
-  if (url.includes('firebasestorage.app') || url.includes('firebasestorage.googleapis.com')) {
-    return url.includes('?') ? `${url}&alt=media` : `${url}?alt=media`;
-  }
-  return url;
+  return getOptimizedImageUrl(url, width);
 }
 
 export function getYoutubeThumbnail(urlStr: string): string {
@@ -170,26 +139,11 @@ export function getOptimizedImageUrl(url?: string, width = 160): string {
   if (!url) return '';
   // Cloudinary dynamic optimization
   if (url.includes('res.cloudinary.com') && url.includes('/upload/')) {
+    const cleanUrl = url.replace(/\/upload\/.*?(v\d+\/|[^\/]+$)/, '/upload/$1');
     if (width > 0) {
-      if (url.includes(`w_${width}`)) {
-        return url;
-      }
-      return url.replace(
-        /\/upload\/(?:(?:[a-z]{1,3}_[a-zA-Z0-9_.:-]+,?)+\/)*(?:(v\d+)\/)?/,
-        (_match, version) => {
-          const v = version ? `${version}/` : '';
-          return `/upload/f_auto,q_auto,w_${width}/${v}`;
-        }
-      );
+      return cleanUrl.replace('/upload/', `/upload/f_auto,q_auto,w_${width}/`);
     }
-    // Full size without width cutoff
-    return url.replace(
-      /\/upload\/(?:(?:[a-z]{1,3}_[a-zA-Z0-9_.:-]+,?)+\/)*(?:(v\d+)\/)?/,
-      (_match, version) => {
-        const v = version ? `${version}/` : '';
-        return `/upload/f_auto,q_auto/${v}`;
-      }
-    );
+    return cleanUrl.replace('/upload/', '/upload/f_auto,q_auto/');
   }
   // Unsplash dynamic optimization
   if (url.includes('images.unsplash.com')) {
@@ -277,5 +231,6 @@ export function cleanFaqQuestion(q?: string): string {
     .replace(/^(?:Q\s*[:.-]?\s*|\d+\s*[:.)-]\s*|Q\d+\s*[:.)-]?\s*)+/i, '')
     .trim();
 }
+
 
 

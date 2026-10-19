@@ -843,3 +843,23 @@ body {
     min-height: 38px;
   }
 }
+
+/* Mobile Core Web Vitals Optimization Rules (LCP, INP, CLS & FCP) */
+@media (max-width: 768px) {
+  /* Defer rendering of off-screen lower sections on mobile phones to keep INP < 30ms and main thread clear */
+  #ratings-and-reviews-section,
+  section[aria-labelledby="app-overview-heading"],
+  section[aria-labelledby="faq-heading"] {
+    content-visibility: auto;
+    contain-intrinsic-size: 1px 320px;
+  }
+
+  /* GPU-accelerate touch containers on mobile phones */
+  .overflow-x-auto,
+  .overflow-y-auto {
+    -webkit-overflow-scrolling: touch !important;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+}
+

@@ -95,7 +95,7 @@ export function buildMetaTags(params: MetaBuilderParams): string {
     <link data-rh="true" rel="manifest" href="/site.webmanifest">
     ${(() => {
       if (targetApp && getField(targetApp, 'icon_url')) {
-        return `<link rel="preload" as="image" href="${escapeHtml(getOptimizedImageUrl(getField(targetApp, 'icon_url'), 240))}" fetchpriority="high">`;
+        return `<link rel="preload" as="image" href="${escapeHtml(getOptimizedImageUrl(getField(targetApp, 'icon_url'), 160))}" fetchpriority="high">`;
       }
       if (pageType === 'home' && settings && Array.isArray((settings as any).banners) && (settings as any).banners.length > 0 && (settings as any).banners[0].image) {
         return `<link rel="preload" as="image" href="${escapeHtml(getOptimizedImageUrl((settings as any).banners[0].image, 800))}" fetchpriority="high">`;

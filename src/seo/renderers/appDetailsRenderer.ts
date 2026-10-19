@@ -38,7 +38,7 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
   const ratingCountVal = finalCount;
   const rating = finalRating.toFixed(1);
   const rawIcon = getField(app, 'icon_url') || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&fit=crop';
-  const icon = optimizeImageUrl(rawIcon, 240);
+  const icon = optimizeImageUrl(rawIcon, 160);
 
   const rawDesc = app.description_html ? sanitizeHtml(app.description_html) : `<p>Comprehensive application profile and details for <strong>${escapeHtml(name)}</strong>.</p>`;
   const desc = rawDesc;
@@ -446,10 +446,12 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
         ${recommendedAppsHtml}
 
         <!-- 2.5 AppScreenshots -->
-        ${screenshotsHtml}
+        <div class="[content-visibility:auto] [contain-intrinsic-size:0_300px]">
+          ${screenshotsHtml}
+        </div>
 
         <!-- 2.6 AppAboutSection -->
-        <section aria-labelledby="app-overview-heading" class="w-full my-3 px-0 sm:px-2 text-left">
+        <section aria-labelledby="app-overview-heading" class="w-full my-3 px-0 sm:px-2 text-left [content-visibility:auto] [contain-intrinsic-size:0_400px]">
           <div class="bg-slate-50/90 dark:bg-zinc-900/80 border border-black/5 dark:border-white/5 rounded-xl sm:rounded-2xl overflow-hidden transition-all duration-300 shadow-xs">
             <div class="w-full p-3 xs:p-3.5 sm:p-5 flex items-center justify-between text-left select-none group border-b border-black/5 dark:border-white/5">
               <div class="flex items-center gap-2 xs:gap-2.5 sm:gap-3 flex-1 pr-2 sm:pr-3">
@@ -489,14 +491,20 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
         </section>
 
         <!-- 2.7 AppSafetyBoxes -->
-        ${alertsHtml}
+        <div class="[content-visibility:auto] [contain-intrinsic-size:0_200px]">
+          ${alertsHtml}
+        </div>
       </div>
 
       <!-- 3. Reviews Section -->
-      ${reviewsSectionHtml}
+      <div class="[content-visibility:auto] [contain-intrinsic-size:0_600px]">
+        ${reviewsSectionHtml}
+      </div>
 
       <!-- 4. FAQs Section -->
-      ${faqsHtml}
+      <div class="[content-visibility:auto] [contain-intrinsic-size:0_300px]">
+        ${faqsHtml}
+      </div>
     </div>
   `;
 }

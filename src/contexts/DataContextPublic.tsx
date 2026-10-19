@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { AppConfig, GlobalSettings, NewsItem, VideoItem } from '../typesPublic';
-import { mockApps, mockApps as staticMockApps, mockSettings, mockNews, mockVideos } from '../lib/staticData';
+import { mockApps, mockApps as staticMockApps, mockSettings, mockNews, mockVideos } from '../lib/lightFallback';
 
 interface DataContextType {
   apps: AppConfig[];
