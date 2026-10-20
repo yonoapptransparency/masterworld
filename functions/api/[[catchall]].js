@@ -373,6 +373,73 @@ export async function onRequest(context) {
     });
   }
 
+  // Handle public catalog endpoints at Edge using staticData (with download links stripped)
+  if (pathname === '/api/v1/public/backup-data') {
+    const rawApps = staticData?.apps || staticData?.mockApps || [];
+    const safeApps = rawApps.map(a => {
+      const copy = { ...a };
+      delete copy.more_information_url;
+      delete copy.download_url;
+      delete copy.encrypted_link;
+      delete copy.encrypted_download_url;
+      return copy;
+    });
+    return new Response(JSON.stringify({
+      status: 'OK',
+      apps: safeApps,
+      settings: staticData?.settings || staticData?.mockSettings || {},
+      news: staticData?.news || staticData?.mockNews || [],
+      videos: staticData?.videos || staticData?.mockVideos || []
+    }), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'public, max-age=300, s-maxage=3600, stale-while-revalidate=86400',
+        'Access-Control-Allow-Origin': '*'
+      }
+    });
+  }
+
+  if (pathname === '/api/v1/public/news' || pathname.startsWith('/api/v1/public/news/')) {
+    const newsList = staticData?.news || staticData?.mockNews || [];
+    if (pathname.startsWith('/api/v1/public/news/')) {
+      const rawNewsSlug = pathname.replace('/api/v1/public/news/', '');
+      const cleanNewsKey = decodeURIComponent(rawNewsSlug).toLowerCase().trim();
+      const matchedNews = newsList.find(n =>
+        (n.slug && String(n.slug).toLowerCase().trim() === cleanNewsKey) ||
+        (n.id && String(n.id).toLowerCase().trim() === cleanNewsKey)
+      );
+      if (matchedNews) {
+        return new Response(JSON.stringify({ status: 'OK', newsItem: matchedNews }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', 'Access-Control-Allow-Origin': '*' }
+        });
+      }
+      return new Response(JSON.stringify({ status: 'NOT_FOUND', error: 'News item not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    return new Response(JSON.stringify({ status: 'OK', news: newsList }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=600', 'Access-Control-Allow-Origin': '*' }
+    });
+  }
+
+  if (pathname === '/api/v1/public/settings') {
+    return new Response(JSON.stringify({ status: 'OK', settings: staticData?.settings || staticData?.mockSettings || {} }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=600', 'Access-Control-Allow-Origin': '*' }
+    });
+  }
+
+  if (pathname === '/api/v1/public/videos') {
+    return new Response(JSON.stringify({ status: 'OK', videos: staticData?.videos || staticData?.mockVideos || [] }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=600', 'Access-Control-Allow-Origin': '*' }
+    });
+  }
+
   // Only handle clearance and resolution endpoints
   const isTargetRoute =
     pathname.includes('/api/v1/app/resolve-link') ||

@@ -9,6 +9,7 @@ import { adminFetch } from '../services/adminAuthService';
 import { safeEncrypt, safeDecrypt } from './cryptoUtils';
 import { structureHtmlFragment } from './safeHtmlPublic';
 import { formatNewsDate, calculateReadingTime, getPlainTextSnippet } from './newsUtils';
+import { formatPageTitle } from './seoUtils';
 
 export function encryptUrlIfNeeded(url: string): string {
   if (!url || typeof url !== 'string') return '';
@@ -34,7 +35,7 @@ export function encryptUrlIfNeeded(url: string): string {
 /**
  * Canonical App Hygiene & Normalization Compiler
  * Preserves 100% of Admin's exact copy while normalizing embedded HTML headings (<h1> -> <h2>),
- * stripping inline style pollution, and optionally sealing/stripping download URLs for public bundles.
+ * stripping inline style pollution, removing auto-appended brand suffixes, and optionally sealing/stripping download URLs for public bundles.
  */
 export function compileCanonicalApp(app: any, options?: { stripDownloadLinks?: boolean }): any {
   if (!app || typeof app !== 'object') return app;
@@ -65,6 +66,17 @@ export function compileCanonicalApp(app: any, options?: { stripDownloadLinks?: b
     delete copy.download_url;
   }
 
+  // Keep seo_title and meta_title clean and strictly synchronized without trailing "| RummyDex" or "- RummyDex"
+  const rawTitle = (copy.seo_title || copy.meta_title || '').trim();
+  const cleanTitle = rawTitle ? formatPageTitle(rawTitle, '') : '';
+  copy.seo_title = cleanTitle;
+  copy.meta_title = cleanTitle;
+
+  // Keep seo_description and meta_description strictly synchronized
+  const cleanDesc = (copy.seo_description || copy.meta_description || '').trim();
+  copy.seo_description = cleanDesc;
+  copy.meta_description = cleanDesc;
+
   if (typeof copy.description_html === 'string' && copy.description_html.trim()) {
     copy.description_html = structureHtmlFragment(copy.description_html);
   }
@@ -73,6 +85,16 @@ export function compileCanonicalApp(app: any, options?: { stripDownloadLinks?: b
   }
   if (typeof copy.custom_admin_box_html === 'string' && copy.custom_admin_box_html.trim()) {
     copy.custom_admin_box_html = structureHtmlFragment(copy.custom_admin_box_html);
+  }
+  if (Array.isArray(copy.faqs)) {
+    copy.faqs = copy.faqs.map((f: any) => {
+      if (!f || typeof f !== 'object') return f;
+      return {
+        ...f,
+        question: typeof f.question === 'string' ? f.question.trim() : '',
+        answer: typeof f.answer === 'string' && f.answer.trim() ? structureHtmlFragment(f.answer) : (f.answer || '')
+      };
+    });
   }
 
   return copy;
@@ -90,6 +112,17 @@ export function compileCanonicalNews(item: any): any {
     const cleanHtml = structureHtmlFragment(rawBody);
     copy.content = cleanHtml;
     copy.description_html = cleanHtml;
+  }
+  const rawSeoTitle = (copy.seo_title || copy.meta_title || '').trim();
+  if (rawSeoTitle) {
+    const cleanSeoTitle = formatPageTitle(rawSeoTitle, '');
+    copy.seo_title = cleanSeoTitle;
+    copy.meta_title = cleanSeoTitle;
+  }
+  const rawSeoDesc = (copy.seo_description || copy.meta_description || '').trim();
+  if (rawSeoDesc) {
+    copy.seo_description = rawSeoDesc;
+    copy.meta_description = rawSeoDesc;
   }
   const dateSource = copy.published_at || copy.created_at || copy.date || '';
   copy.formatted_date = formatNewsDate(dateSource);
@@ -839,7 +872,7 @@ export async function commitTreeToGitHub({
           const baseTreeDetails = await baseTreeDetailsRes.json() as any;
           if (Array.isArray(baseTreeDetails?.tree)) {
             const dataEntries = baseTreeDetails.tree.filter((t: any) => 
-              t.path && t.type === 'blob' && (t.path.startsWith('public/data/') || t.path.startsWith('data/'))
+              t.path && t.type === 'blob' && (t.path.startsWith('public/data/') || t.path.startsWith('data/') || t.path === 'src/lib/public_backup.json')
             );
             dataEntries.forEach((t: any) => {
               treeEntries.push({

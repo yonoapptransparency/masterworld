@@ -9,7 +9,7 @@ import {
   DEFAULT_NOTICE_HTML,
   DEFAULT_ABOUT_HTML
 } from '../../lib/defaultLegalContent';
-import { escapeHtml } from './common';
+import { escapeHtml, sanitizeHtml } from './common';
 
 export function renderCategoriesList(categoriesList: Array<{ name: string; slug: string; count: number }>, settings: any): string {
   const siteTitle = getField(settings, 'site_title') || 'RummyDex';
@@ -82,52 +82,52 @@ export function renderDevelopersList(developers: any[], settings: any): string {
 }
 
 export function renderAbout(settings: any): string {
-  const content = getField(settings, 'about_content') || DEFAULT_ABOUT_HTML;
-  return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">About Us</h1><article class="prose text-zinc-700 leading-relaxed font-semibold">${content.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>')}</article></div>`;
+  const content = sanitizeHtml(getField(settings, 'about_content') || DEFAULT_ABOUT_HTML);
+  return `<div class="max-w-3xl mx-auto py-12 text-left bg-white dark:bg-zinc-900 p-8 rounded-3xl border border-black/5 dark:border-white/10"><h1 class="text-4xl font-bold mb-6 text-zinc-900 dark:text-white">About Us</h1><article class="prose prose-zinc dark:prose-invert max-w-none text-zinc-700 dark:text-zinc-300 leading-relaxed">${content}</article></div>`;
 }
 
 export function renderContact(settings: any): string {
-  const content = getField(settings, 'contact_content') || 'Get in touch for active client files help.';
+  const content = sanitizeHtml(getField(settings, 'contact_content') || 'Get in touch for active client files help.');
   const email = getField(settings, 'support_email', 'rummydex1@gmail.com');
-  return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">Contact Us</h1><p class="prose mb-6 leading-relaxed font-semibold">${content}</p><div class="grid gap-4 mt-6"><div class="p-6 bg-zinc-50 rounded-2xl"><strong>Email support address:</strong><p class="text-blue-500 font-bold mt-1">${escapeHtml(email)}</p></div><div class="p-6 bg-zinc-50 rounded-2xl"><strong>Live Chat Support:</strong><p class="text-zinc-800 font-semibold mt-1">Monday to Saturday, 10:00 AM - 3:00 PM (Instant reply in every section)</p></div><div class="p-6 bg-zinc-50 rounded-2xl"><strong>Registered Delhi Office:</strong><p class="text-zinc-800 font-semibold mt-1">Plot No. 18, 4th Floor, Commercial Complex, Sector 12, Dwarka, New Delhi, Delhi 110075, India</p></div></div></div>`;
+  return `<div class="max-w-3xl mx-auto py-12 text-left bg-white dark:bg-zinc-900 p-8 rounded-3xl border border-black/5 dark:border-white/10"><h1 class="text-4xl font-bold mb-6 text-zinc-900 dark:text-white">Contact Us</h1><div class="prose prose-zinc dark:prose-invert max-w-none mb-6 leading-relaxed text-zinc-700 dark:text-zinc-300">${content}</div><div class="grid gap-4 mt-6"><div class="p-6 bg-zinc-50 dark:bg-zinc-800/60 rounded-2xl"><strong class="text-zinc-900 dark:text-white">Email support address:</strong><p class="text-blue-500 font-bold mt-1">${escapeHtml(email)}</p></div><div class="p-6 bg-zinc-50 dark:bg-zinc-800/60 rounded-2xl"><strong class="text-zinc-900 dark:text-white">Live Chat Support:</strong><p class="text-zinc-800 dark:text-zinc-300 font-semibold mt-1">Monday to Saturday, 10:00 AM - 3:00 PM (Instant reply in every section)</p></div><div class="p-6 bg-zinc-50 dark:bg-zinc-800/60 rounded-2xl"><strong class="text-zinc-900 dark:text-white">Registered Delhi Office:</strong><p class="text-zinc-800 dark:text-zinc-300 font-semibold mt-1">Plot No. 18, 4th Floor, Commercial Complex, Sector 12, Dwarka, New Delhi, Delhi 110075, India</p></div></div></div>`;
 }
 
 export function renderPrivacy(settings: any): string {
-  const content = getField(settings, 'privacy_content') || DEFAULT_PRIVACY_HTML;
-  return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">Privacy Policy</h1><article class="prose text-zinc-700 leading-relaxed font-semibold">${content.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>')}</article></div>`;
+  const content = sanitizeHtml(getField(settings, 'privacy_content') || DEFAULT_PRIVACY_HTML);
+  return `<div class="max-w-3xl mx-auto py-12 text-left bg-white dark:bg-zinc-900 p-8 rounded-3xl border border-black/5 dark:border-white/10"><h1 class="text-4xl font-bold mb-6 text-zinc-900 dark:text-white">Privacy Policy</h1><article class="prose prose-zinc dark:prose-invert max-w-none text-zinc-700 dark:text-zinc-300 leading-relaxed">${content}</article></div>`;
 }
 
 export function renderReportRemoval(settings: any): string {
-  const content = getField(settings, 'report_removal_content') || DEFAULT_REPORT_REMOVAL_HTML;
-  return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">Report & Removal Policy</h1><article class="prose text-zinc-700 leading-relaxed font-semibold">${content.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>')}</article></div>`;
+  const content = sanitizeHtml(getField(settings, 'report_removal_content') || DEFAULT_REPORT_REMOVAL_HTML);
+  return `<div class="max-w-3xl mx-auto py-12 text-left bg-white dark:bg-zinc-900 p-8 rounded-3xl border border-black/5 dark:border-white/10"><h1 class="text-4xl font-bold mb-6 text-zinc-900 dark:text-white">Report & Removal Policy</h1><article class="prose prose-zinc dark:prose-invert max-w-none text-zinc-700 dark:text-zinc-300 leading-relaxed">${content}</article></div>`;
 }
 
 export function renderTerms(settings: any): string {
-  const content = getField(settings, 'terms_content') || DEFAULT_TERMS_HTML;
-  return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">Terms of Service</h1><article class="prose text-zinc-700 leading-relaxed font-semibold">${content.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>')}</article></div>`;
+  const content = sanitizeHtml(getField(settings, 'terms_content') || DEFAULT_TERMS_HTML);
+  return `<div class="max-w-3xl mx-auto py-12 text-left bg-white dark:bg-zinc-900 p-8 rounded-3xl border border-black/5 dark:border-white/10"><h1 class="text-4xl font-bold mb-6 text-zinc-900 dark:text-white">Terms of Service</h1><article class="prose prose-zinc dark:prose-invert max-w-none text-zinc-700 dark:text-zinc-300 leading-relaxed">${content}</article></div>`;
 }
 
 export function renderResponsibility(settings: any): string {
-  const content = getField(settings, 'responsibility_content') || DEFAULT_RESPONSIBILITY_HTML;
-  return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">Responsible Gaming</h1><article class="prose text-zinc-700 leading-relaxed font-semibold">${content.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>')}</article></div>`;
+  const content = sanitizeHtml(getField(settings, 'responsibility_content') || DEFAULT_RESPONSIBILITY_HTML);
+  return `<div class="max-w-3xl mx-auto py-12 text-left bg-white dark:bg-zinc-900 p-8 rounded-3xl border border-black/5 dark:border-white/10"><h1 class="text-4xl font-bold mb-6 text-zinc-900 dark:text-white">Responsible Gaming</h1><article class="prose prose-zinc dark:prose-invert max-w-none text-zinc-700 dark:text-zinc-300 leading-relaxed">${content}</article></div>`;
 }
 
 export function renderNotice(settings: any): string {
-  const heading = getField(settings, 'important_notice_heading') || 'Important Notice';
-  const content = getField(settings, 'important_notice') || DEFAULT_NOTICE_HTML;
-  return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">${heading}</h1><article class="prose text-zinc-700 leading-relaxed font-semibold">${content}</article></div>`;
+  const heading = escapeHtml(getField(settings, 'important_notice_heading') || 'Important Notice');
+  const content = sanitizeHtml(getField(settings, 'important_notice') || DEFAULT_NOTICE_HTML);
+  return `<div class="max-w-3xl mx-auto py-12 text-left bg-white dark:bg-zinc-900 p-8 rounded-3xl border border-black/5 dark:border-white/10"><h1 class="text-4xl font-bold mb-6 text-zinc-900 dark:text-white">${heading}</h1><article class="prose prose-zinc dark:prose-invert max-w-none text-zinc-700 dark:text-zinc-300 leading-relaxed">${content}</article></div>`;
 }
 
 export function renderEthics(settings: any): string {
-  const heading = getField(settings, 'ethics_heading') || 'Ethics & Safety';
-  const content = getField(settings, 'ethics_discrimination_text') || DEFAULT_ETHICS_HTML;
-  return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">${heading}</h1><article class="prose text-zinc-700 leading-relaxed font-semibold">${content}</article></div>`;
+  const heading = escapeHtml(getField(settings, 'ethics_heading') || 'Ethics & Safety');
+  const content = sanitizeHtml(getField(settings, 'ethics_discrimination_text') || DEFAULT_ETHICS_HTML);
+  return `<div class="max-w-3xl mx-auto py-12 text-left bg-white dark:bg-zinc-900 p-8 rounded-3xl border border-black/5 dark:border-white/10"><h1 class="text-4xl font-bold mb-6 text-zinc-900 dark:text-white">${heading}</h1><article class="prose prose-zinc dark:prose-invert max-w-none text-zinc-700 dark:text-zinc-300 leading-relaxed">${content}</article></div>`;
 }
 
 export function renderDisclaimer(settings: any): string {
-  const heading = getField(settings, 'disclaimer_heading') || 'Disclaimer';
-  const content = getField(settings, 'disclaimer_text') || DEFAULT_DISCLAIMER_HTML;
-  return `<div class="max-w-3xl mx-auto py-12 text-left bg-white p-8 rounded-3xl border border-black/5"><h1 class="text-4xl font-bold mb-6">${heading}</h1><article class="prose text-zinc-700 leading-relaxed font-semibold">${content}</article></div>`;
+  const heading = escapeHtml(getField(settings, 'disclaimer_heading') || 'Disclaimer');
+  const content = sanitizeHtml(getField(settings, 'disclaimer_text') || DEFAULT_DISCLAIMER_HTML);
+  return `<div class="max-w-3xl mx-auto py-12 text-left bg-white dark:bg-zinc-900 p-8 rounded-3xl border border-black/5 dark:border-white/10"><h1 class="text-4xl font-bold mb-6 text-zinc-900 dark:text-white">${heading}</h1><article class="prose prose-zinc dark:prose-invert max-w-none text-zinc-700 dark:text-zinc-300 leading-relaxed">${content}</article></div>`;
 }
 
 export function render404(urlPath: string, settings: any): string {
@@ -163,8 +163,8 @@ export function renderFaqPage(settings: any): string {
         Everything you need to know about ${escapeHtml(siteTitle)}, app downloads, verification, and safety.
       </p>
       <div class="space-y-4 border-t border-zinc-200 dark:border-zinc-800 pt-6">
-        ${siteFaqs.map((faq: any, idx: number) => `
-          <details class="group rounded-2xl border border-black/5 dark:border-white/5 bg-zinc-50/80 dark:bg-zinc-800/50 p-5" ${idx === 0 ? 'open' : ''}>
+        ${siteFaqs.map((faq: any) => `
+          <details class="group rounded-2xl border border-black/5 dark:border-white/5 bg-zinc-50/80 dark:bg-zinc-800/50 p-5" open>
             <summary class="font-bold text-base text-zinc-900 dark:text-zinc-100 cursor-pointer list-none flex justify-between items-center gap-3">
               <span class="flex items-start gap-2">
                 <span class="text-blue-500 font-extrabold select-none">Q.</span>
@@ -172,8 +172,8 @@ export function renderFaqPage(settings: any): string {
               </span>
               <span class="text-blue-500 font-bold select-none">+</span>
             </summary>
-            <div class="mt-3 pt-3 border-t border-black/5 dark:border-white/5 text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed pl-5">
-              ${escapeHtml(faq.answer)}
+            <div class="mt-3 pt-3 border-t border-black/5 dark:border-white/5 text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed pl-5">
+              ${sanitizeHtml(faq.answer)}
             </div>
           </details>
         `).join('')}

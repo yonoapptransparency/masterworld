@@ -84,22 +84,7 @@ if (rootEl) {
     </StrictMode>
   );
 
-  // If container has pre-rendered SSR HTML, hydrate without destroying DOM tree
-  if (rootEl.hasChildNodes()) {
-    try {
-      hydrateRoot(rootEl, appElement, {
-        onRecoverableError(error) {
-          if (typeof window !== 'undefined' && window.console) {
-            console.warn('[Hydration] Synchronized server markup with client VDOM:', error);
-          }
-        }
-      });
-    } catch (err) {
-      console.warn('[Hydration] Direct hydration failed, falling back to createRoot:', err);
-      createRoot(rootEl).render(appElement);
-    }
-  } else {
-    createRoot(rootEl).render(appElement);
-  }
+  // Single-pass synchronous mount using window.__INITIAL_DATA__ without hydrateRoot mismatch teardown
+  createRoot(rootEl).render(appElement);
 }
 

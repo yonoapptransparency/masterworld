@@ -18,11 +18,25 @@ export function useDataActions(
 ) {
 
   const saveAppSingle = useCallback(async (singleApp: any) => {
-    let savedApp = { ...singleApp };
-    let savedSuccessfully = false;
+    const cleanTitle = singleApp.seo_title || singleApp.meta_title || '';
+    const strippedTitle = cleanTitle
+      ? cleanTitle.replace(/\s*[-|–—•:]+\s*(?:RummyDex|Rummydex|Remidex|Rummy\s*Dex|MasterWorld|Dex)\s*$/i, '').trim()
+      : '';
+    const normalizedApp = {
+      ...singleApp,
+      seo_title: strippedTitle,
+      meta_title: strippedTitle,
+      seo_description: (singleApp.seo_description || singleApp.meta_description || '').trim(),
+      meta_description: (singleApp.seo_description || singleApp.meta_description || '').trim(),
+      updated_at: new Date().toISOString()
+    };
+
+    let savedApp = { ...normalizedApp };
+    let savedToServer = false;
+    let savedToFirestore = false;
     let lastError: string | null = null;
 
-    // 1. Try backend server save API first
+    // 1. Save to backend server API
     try {
       const idToken = await getAdminToken();
       const res = await adminFetch('/api/v1/admin/app/save', {
@@ -31,14 +45,14 @@ export function useDataActions(
           'Content-Type': 'application/json',
           ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
         },
-        body: JSON.stringify({ app: singleApp })
+        body: JSON.stringify({ app: normalizedApp })
       });
       const cType = res.headers.get('content-type') || '';
       if (res.ok && cType.includes('application/json')) {
         const data = await res.json();
         if (data && (data.app || data.success)) {
-          savedApp = data.app || singleApp;
-          savedSuccessfully = true;
+          savedApp = { ...normalizedApp, ...(data.app || {}) };
+          savedToServer = true;
         }
       } else if (!res.ok) {
         lastError = `Server returned HTTP ${res.status}`;
@@ -47,20 +61,21 @@ export function useDataActions(
       lastError = err?.message || 'Server endpoint unreachable';
     }
 
-    // 2. Direct Firestore write fallback (for Cloudflare Pages static hosting)
-    if (!savedSuccessfully && isFirebaseReal && db) {
+    // 2. Always persist to Firestore as well so cloud chunks and apps_meta stay 100% synchronized
+    if (isFirebaseReal && db) {
       try {
         const { doc, setDoc } = await import('firebase/firestore');
-        let nextApps = [...apps];
-        const idx = nextApps.findIndex(a => a.id === singleApp.id || (singleApp.slug && a.slug === singleApp.slug));
+        const nextApps = [...apps];
+        const idx = nextApps.findIndex(a => a.id === savedApp.id || (savedApp.slug && a.slug === savedApp.slug));
         if (idx >= 0) {
-          nextApps[idx] = { ...nextApps[idx], ...singleApp };
+          nextApps[idx] = { ...nextApps[idx], ...savedApp };
         } else {
-          nextApps.push(singleApp);
+          nextApps.push(savedApp);
         }
 
         const chunkSize = 25;
-        for (let i = 0; i < Math.ceil(nextApps.length / chunkSize); i++) {
+        const numChunks = Math.max(1, Math.ceil(nextApps.length / chunkSize));
+        for (let i = 0; i < numChunks; i++) {
           const slice = nextApps.slice(i * chunkSize, (i + 1) * chunkSize);
           await setDoc(doc(db, 'store_data', `apps_chunk_${i}`), { 
             items: slice, 
@@ -69,14 +84,22 @@ export function useDataActions(
             _rest_admin_bypass: ADMIN_BYPASS_KEY
           }, { merge: true });
         }
-        savedSuccessfully = true;
+        await setDoc(doc(db, 'store_data', 'apps_meta'), {
+          count: nextApps.length,
+          numChunks,
+          updated_at: new Date().toISOString(),
+          _rest_admin_bypass: ADMIN_BYPASS_KEY
+        }, { merge: true });
+        savedToFirestore = true;
       } catch (err: any) {
-        console.error("[useDataActions] Direct Firestore saveAppSingle error:", err);
-        lastError = `Firestore write failed: ${err?.message || 'Unknown Firestore error'}`;
+        console.warn("[useDataActions] Direct Firestore saveAppSingle notice:", err);
+        if (!savedToServer) {
+          lastError = `Firestore write failed: ${err?.message || 'Unknown Firestore error'}`;
+        }
       }
     }
 
-    if (!savedSuccessfully) {
+    if (!savedToServer && !savedToFirestore) {
       throw new Error(`Failed to save application to database: ${lastError || 'Could not connect to server or Firestore'}`);
     }
 
@@ -94,7 +117,8 @@ export function useDataActions(
   }, [getAdminToken, setApps, apps]);
 
   const deleteAppSingle = useCallback(async (appId: string) => {
-    let deletedSuccessfully = false;
+    let deletedOnServer = false;
+    let deletedOnFirestore = false;
     let lastError: string | null = null;
 
     try {
@@ -109,7 +133,7 @@ export function useDataActions(
       });
       const cType = res.headers.get('content-type') || '';
       if (res.ok && cType.includes('application/json')) {
-        deletedSuccessfully = true;
+        deletedOnServer = true;
       } else if (!res.ok) {
         lastError = `Server returned HTTP ${res.status}`;
       }
@@ -117,13 +141,14 @@ export function useDataActions(
       lastError = err?.message || 'Server endpoint unreachable';
     }
 
-    // Direct Firestore fallback for static hosts
-    if (!deletedSuccessfully && isFirebaseReal && db) {
+    // Always synchronize deletion with Firestore chunks + apps_meta
+    if (isFirebaseReal && db) {
       try {
         const { doc, setDoc } = await import('firebase/firestore');
         const nextApps = apps.filter(a => a.id !== appId && a.slug !== appId);
         const chunkSize = 25;
-        for (let i = 0; i < Math.ceil(nextApps.length / chunkSize); i++) {
+        const numChunks = Math.max(1, Math.ceil(nextApps.length / chunkSize));
+        for (let i = 0; i < numChunks; i++) {
           const slice = nextApps.slice(i * chunkSize, (i + 1) * chunkSize);
           await setDoc(doc(db, 'store_data', `apps_chunk_${i}`), { 
             items: slice, 
@@ -132,14 +157,22 @@ export function useDataActions(
             _rest_admin_bypass: ADMIN_BYPASS_KEY
           });
         }
-        deletedSuccessfully = true;
+        await setDoc(doc(db, 'store_data', 'apps_meta'), {
+          count: nextApps.length,
+          numChunks,
+          updated_at: new Date().toISOString(),
+          _rest_admin_bypass: ADMIN_BYPASS_KEY
+        }, { merge: true });
+        deletedOnFirestore = true;
       } catch (err: any) {
-        console.error("[useDataActions] Direct Firestore delete error:", err);
-        lastError = `Firestore delete failed: ${err?.message || 'Unknown error'}`;
+        console.warn("[useDataActions] Direct Firestore delete notice:", err);
+        if (!deletedOnServer) {
+          lastError = `Firestore delete failed: ${err?.message || 'Unknown error'}`;
+        }
       }
     }
 
-    if (!deletedSuccessfully) {
+    if (!deletedOnServer && !deletedOnFirestore) {
       throw new Error(`Failed to delete application from database: ${lastError || 'Could not connect to server or Firestore'}`);
     }
 
@@ -147,9 +180,18 @@ export function useDataActions(
   }, [getAdminToken, setApps, apps]);
 
   const saveSettingsSection = useCallback(async (section: string, data: any) => {
-    let savedSuccessfully = false;
+    let savedToServer = false;
+    let savedToFirestore = false;
     let resData: any = null;
     let lastError: string | null = null;
+
+    let mergedSettings: any = { ...settings };
+    if (section === 'general' || section === 'seo') {
+      mergedSettings = { ...mergedSettings, ...(data || {}) };
+    } else {
+      mergedSettings[section] = data;
+    }
+    mergedSettings.last_updated = new Date().toISOString();
 
     try {
       const idToken = await getAdminToken();
@@ -159,12 +201,12 @@ export function useDataActions(
           'Content-Type': 'application/json',
           ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
         },
-        body: JSON.stringify({ section, data })
+        body: JSON.stringify({ section, data, settings: mergedSettings })
       });
       const cType = res.headers.get('content-type') || '';
       if (res.ok && cType.includes('application/json')) {
         resData = await res.json();
-        savedSuccessfully = true;
+        savedToServer = true;
       } else if (!res.ok) {
         lastError = `Server returned HTTP ${res.status}`;
       }
@@ -172,53 +214,43 @@ export function useDataActions(
       lastError = err?.message || 'Server endpoint unreachable';
     }
 
-    // Direct Firestore fallback for static hosts
-    if (!savedSuccessfully && isFirebaseReal && db) {
+    // Always synchronize settings to Firestore as well
+    if (isFirebaseReal && db) {
       try {
         const { doc, setDoc } = await import('firebase/firestore');
-        let mergedSettings = { ...settings };
-        if (section === 'general' || section === 'seo') {
-          mergedSettings = { ...mergedSettings, ...(data || {}) };
-        } else {
-          (mergedSettings as any)[section] = data;
-        }
-        
         const payloadToSave = {
           ...mergedSettings,
           _rest_admin_bypass: ADMIN_BYPASS_KEY,
-          last_updated: new Date().toISOString()
+          last_updated: mergedSettings.last_updated
         };
 
-        // Write to primary 'settings' document AND mirror to 'public_settings'
         await setDoc(doc(db, 'store_data', 'settings'), payloadToSave, { merge: true });
         await setDoc(doc(db, 'store_data', 'public_settings'), payloadToSave, { merge: true });
-        savedSuccessfully = true;
+        savedToFirestore = true;
       } catch (err: any) {
-        console.error("[useDataActions] Direct Firestore settings save error:", err);
-        lastError = `Firestore settings write failed: ${err?.message || 'Unknown error'}`;
+        console.warn("[useDataActions] Direct Firestore settings save notice:", err);
+        if (!savedToServer) {
+          lastError = `Firestore settings write failed: ${err?.message || 'Unknown error'}`;
+        }
       }
     }
 
-    if (!savedSuccessfully) {
+    if (!savedToServer && !savedToFirestore) {
       throw new Error(`Failed to save settings section "${section}": ${lastError || 'Could not connect to server or Firestore'}`);
     }
 
     if (resData && resData.settings) {
       setSettings(resData.settings);
     } else {
-      setSettings(prev => {
-        if (section === 'general' || section === 'seo') {
-          return { ...prev, ...(data || {}) };
-        }
-        return { ...prev, [section]: data };
-      });
+      setSettings(mergedSettings);
     }
 
-    return resData || { success: true };
+    return resData || { success: true, settings: mergedSettings };
   }, [getAdminToken, setSettings, settings]);
 
   const saveApps = useCallback(async (newApps: AppConfig[]) => {
-    let savedSuccessfully = false;
+    let savedToServer = false;
+    let savedToFirestore = false;
     let lastError: string | null = null;
 
     try {
@@ -233,7 +265,7 @@ export function useDataActions(
       });
       const cType = res.headers.get('content-type') || '';
       if (res.ok && cType.includes('application/json')) {
-        savedSuccessfully = true;
+        savedToServer = true;
       } else if (!res.ok) {
         lastError = `Server returned HTTP ${res.status}`;
       }
@@ -241,11 +273,12 @@ export function useDataActions(
       lastError = err?.message || 'Server endpoint unreachable';
     }
 
-    if (!savedSuccessfully && isFirebaseReal && db) {
+    if (isFirebaseReal && db) {
       try {
         const { doc, setDoc } = await import('firebase/firestore');
         const chunkSize = 25;
-        for (let i = 0; i < Math.ceil(newApps.length / chunkSize); i++) {
+        const numChunks = Math.max(1, Math.ceil(newApps.length / chunkSize));
+        for (let i = 0; i < numChunks; i++) {
           const slice = newApps.slice(i * chunkSize, (i + 1) * chunkSize);
           await setDoc(doc(db, 'store_data', `apps_chunk_${i}`), { 
             items: slice, 
@@ -254,14 +287,22 @@ export function useDataActions(
             _rest_admin_bypass: ADMIN_BYPASS_KEY
           });
         }
-        savedSuccessfully = true;
+        await setDoc(doc(db, 'store_data', 'apps_meta'), {
+          count: newApps.length,
+          numChunks,
+          updated_at: new Date().toISOString(),
+          _rest_admin_bypass: ADMIN_BYPASS_KEY
+        }, { merge: true });
+        savedToFirestore = true;
       } catch (err: any) {
-        console.error("[useDataActions] Direct Firestore saveApps error:", err);
-        lastError = `Firestore apps write failed: ${err?.message || 'Unknown error'}`;
+        console.warn("[useDataActions] Direct Firestore saveApps notice:", err);
+        if (!savedToServer) {
+          lastError = `Firestore apps write failed: ${err?.message || 'Unknown error'}`;
+        }
       }
     }
 
-    if (!savedSuccessfully) {
+    if (!savedToServer && !savedToFirestore) {
       throw new Error(`Failed to save apps catalog to database: ${lastError || 'Could not connect to server or Firestore'}`);
     }
 
@@ -305,7 +346,8 @@ export function useDataActions(
       last_updated: now
     } as GlobalSettings;
 
-    let savedSuccessfully = false;
+    let savedToServer = false;
+    let savedToFirestore = false;
     let lastError: string | null = null;
 
     try {
@@ -320,7 +362,7 @@ export function useDataActions(
       });
       const cType = res.headers.get('content-type') || '';
       if (res.ok && cType.includes('application/json')) {
-        savedSuccessfully = true;
+        savedToServer = true;
       } else if (!res.ok) {
         lastError = `Server returned HTTP ${res.status}`;
       }
@@ -328,7 +370,7 @@ export function useDataActions(
       lastError = err?.message || 'Server endpoint unreachable';
     }
 
-    if (!savedSuccessfully && isFirebaseReal && db) {
+    if (isFirebaseReal && db) {
       try {
         const { doc, setDoc } = await import('firebase/firestore');
         const payloadToSave = {
@@ -337,14 +379,16 @@ export function useDataActions(
         };
         await setDoc(doc(db, 'store_data', 'settings'), payloadToSave, { merge: true });
         await setDoc(doc(db, 'store_data', 'public_settings'), payloadToSave, { merge: true });
-        savedSuccessfully = true;
+        savedToFirestore = true;
       } catch (err: any) {
-        console.error("[useDataActions] Direct Firestore saveSettings error:", err);
-        lastError = `Firestore write failed: ${err?.message || 'Unknown error'}`;
+        console.warn("[useDataActions] Direct Firestore saveSettings notice:", err);
+        if (!savedToServer) {
+          lastError = `Firestore write failed: ${err?.message || 'Unknown error'}`;
+        }
       }
     }
 
-    if (!savedSuccessfully) {
+    if (!savedToServer && !savedToFirestore) {
       throw new Error(`Failed to save settings: ${lastError || 'Could not connect to server or Firestore'}`);
     }
 
@@ -353,7 +397,8 @@ export function useDataActions(
 
   const saveNews = useCallback(async (newNews: NewsItem[]) => {
     const cleanNews = JSON.parse(JSON.stringify(newNews || []));
-    let savedSuccessfully = false;
+    let savedToServer = false;
+    let savedToFirestore = false;
     let lastError: string | null = null;
 
     try {
@@ -368,7 +413,7 @@ export function useDataActions(
       });
       const cType = res.headers.get('content-type') || '';
       if (res.ok && cType.includes('application/json')) {
-        savedSuccessfully = true;
+        savedToServer = true;
       } else if (!res.ok) {
         lastError = `Server returned HTTP ${res.status}`;
       }
@@ -376,7 +421,7 @@ export function useDataActions(
       lastError = err?.message || 'Server endpoint unreachable';
     }
 
-    if (!savedSuccessfully && isFirebaseReal && db) {
+    if (isFirebaseReal && db) {
       try {
         const { doc, setDoc } = await import('firebase/firestore');
         await setDoc(doc(db, 'store_data', 'news'), { 
@@ -385,14 +430,16 @@ export function useDataActions(
           updated_at: new Date().toISOString(),
           _rest_admin_bypass: ADMIN_BYPASS_KEY
         }, { merge: true });
-        savedSuccessfully = true;
+        savedToFirestore = true;
       } catch (err: any) {
-        console.error("[useDataActions] Direct Firestore saveNews error:", err);
-        lastError = `Firestore news write failed: ${err?.message || 'Unknown error'}`;
+        console.warn("[useDataActions] Direct Firestore saveNews notice:", err);
+        if (!savedToServer) {
+          lastError = `Firestore news write failed: ${err?.message || 'Unknown error'}`;
+        }
       }
     }
 
-    if (!savedSuccessfully) {
+    if (!savedToServer && !savedToFirestore) {
       throw new Error(`Failed to save news: ${lastError || 'Could not connect to server or Firestore'}`);
     }
 
@@ -401,7 +448,8 @@ export function useDataActions(
 
   const saveVideos = useCallback(async (newVideos: VideoItem[]) => {
     const cleanVideos = JSON.parse(JSON.stringify(newVideos || []));
-    let savedSuccessfully = false;
+    let savedToServer = false;
+    let savedToFirestore = false;
     let lastError: string | null = null;
 
     try {
@@ -416,7 +464,7 @@ export function useDataActions(
       });
       const cType = res.headers.get('content-type') || '';
       if (res.ok && cType.includes('application/json')) {
-        savedSuccessfully = true;
+        savedToServer = true;
       } else if (!res.ok) {
         lastError = `Server returned HTTP ${res.status}`;
       }
@@ -424,7 +472,7 @@ export function useDataActions(
       lastError = err?.message || 'Server endpoint unreachable';
     }
 
-    if (!savedSuccessfully && isFirebaseReal && db) {
+    if (isFirebaseReal && db) {
       try {
         const { doc, setDoc } = await import('firebase/firestore');
         await setDoc(doc(db, 'store_data', 'videos'), { 
@@ -433,14 +481,16 @@ export function useDataActions(
           updated_at: new Date().toISOString(),
           _rest_admin_bypass: ADMIN_BYPASS_KEY
         }, { merge: true });
-        savedSuccessfully = true;
+        savedToFirestore = true;
       } catch (err: any) {
-        console.error("[useDataActions] Direct Firestore saveVideos error:", err);
-        lastError = `Firestore videos write failed: ${err?.message || 'Unknown error'}`;
+        console.warn("[useDataActions] Direct Firestore saveVideos notice:", err);
+        if (!savedToServer) {
+          lastError = `Firestore videos write failed: ${err?.message || 'Unknown error'}`;
+        }
       }
     }
 
-    if (!savedSuccessfully) {
+    if (!savedToServer && !savedToFirestore) {
       throw new Error(`Failed to save videos: ${lastError || 'Could not connect to server or Firestore'}`);
     }
 

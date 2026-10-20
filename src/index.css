@@ -136,18 +136,19 @@ a {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 1; transform: translateY(0); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 1;
+  transform: none;
 }
 
 @keyframes listItemFadeIn {
   from {
-    opacity: 0;
-    transform: translate3d(0, 8px, 0);
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
   }
   to {
     opacity: 1;
@@ -156,7 +157,8 @@ a {
 }
 
 .animate-list-item-fade {
-  animation: listItemFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+  opacity: 1;
+  transform: none;
 }
 
 /* Hardware accelerated horizontal scroll containers for maximum touch smoothness */
@@ -820,16 +822,8 @@ body {
   }
 }
 
-/* Mobile Core Web Vitals Optimization Rules (LCP, INP, CLS & FCP) */
+/* Mobile Core Web Vitals & Dark Mode Rich Content Contrast Safeguards */
 @media (max-width: 768px) {
-  /* Defer rendering of off-screen lower sections on mobile phones to keep INP < 30ms and main thread clear */
-  #ratings-and-reviews-section,
-  section[aria-labelledby="app-overview-heading"],
-  section[aria-labelledby="faq-heading"] {
-    content-visibility: auto;
-    contain-intrinsic-size: auto 650px;
-  }
-
   /* GPU-accelerate touch containers on mobile phones */
   .overflow-x-auto,
   .overflow-y-auto {
@@ -838,4 +832,28 @@ body {
     backface-visibility: hidden;
   }
 }
+
+/* Ensure 100% legibility in Dark Mode for all Admin rich HTML descriptions, features, FAQs, and news articles */
+.dark .prose {
+  color: #e4e4e7 !important;
+}
+.dark .prose h1,
+.dark .prose h2,
+.dark .prose h3,
+.dark .prose h4,
+.dark .prose strong,
+.dark .prose b {
+  color: #ffffff !important;
+}
+.dark .prose p,
+.dark .prose li,
+.dark .prose td,
+.dark .prose th,
+.dark .prose blockquote {
+  color: #d4d4d8 !important;
+}
+.dark .prose a {
+  color: #60a5fa !important;
+}
+
 

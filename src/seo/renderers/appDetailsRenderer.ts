@@ -114,8 +114,8 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
             </span>
           </div>
           <div class="space-y-3 sm:space-y-4">
-            ${validFaqs.map((faq: any, idx: number) => `
-              <details class="group rounded-xl sm:rounded-2xl border transition-colors duration-200 overflow-hidden bg-slate-50/70 dark:bg-zinc-900/60 border-black/5 dark:border-white/5 open:bg-slate-50 open:dark:bg-zinc-900/90 open:border-blue-200 open:dark:border-blue-900/40 shadow-xs" ${idx === 0 ? 'open' : ''}>
+            ${validFaqs.map((faq: any) => `
+              <details class="group rounded-xl sm:rounded-2xl border transition-colors duration-200 overflow-hidden bg-slate-50/70 dark:bg-zinc-900/60 border-black/5 dark:border-white/5 open:bg-slate-50 open:dark:bg-zinc-900/90 open:border-blue-200 open:dark:border-blue-900/40 shadow-xs" open>
                 <summary class="list-none [&::-webkit-details-marker]:hidden w-full text-left p-4 sm:p-5 flex items-center justify-between gap-4 cursor-pointer focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 select-none">
                   <h3 class="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 flex items-start gap-3">
                     <span class="text-blue-600 dark:text-blue-400 font-extrabold shrink-0 select-none">Q.</span>
@@ -446,12 +446,12 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
         ${recommendedAppsHtml}
 
         <!-- 2.5 AppScreenshots -->
-        <div class="[content-visibility:auto] [contain-intrinsic-size:0_300px]">
+        <div>
           ${screenshotsHtml}
         </div>
 
         <!-- 2.6 AppAboutSection -->
-        <section aria-labelledby="app-overview-heading" class="w-full my-3 px-0 sm:px-2 text-left [content-visibility:auto] [contain-intrinsic-size:0_400px]">
+        <section aria-labelledby="app-overview-heading" class="w-full my-3 px-0 sm:px-2 text-left">
           <div class="bg-slate-50/90 dark:bg-zinc-900/80 border border-black/5 dark:border-white/5 rounded-xl sm:rounded-2xl overflow-hidden transition-all duration-300 shadow-xs">
             <div class="w-full p-3 xs:p-3.5 sm:p-5 flex items-center justify-between text-left select-none group border-b border-black/5 dark:border-white/5">
               <div class="flex items-center gap-2 xs:gap-2.5 sm:gap-3 flex-1 pr-2 sm:pr-3">
@@ -491,18 +491,18 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
         </section>
 
         <!-- 2.7 AppSafetyBoxes -->
-        <div class="[content-visibility:auto] [contain-intrinsic-size:0_200px]">
+        <div>
           ${alertsHtml}
         </div>
       </div>
 
       <!-- 3. Reviews Section -->
-      <div class="[content-visibility:auto] [contain-intrinsic-size:0_600px]">
+      <div>
         ${reviewsSectionHtml}
       </div>
 
       <!-- 4. FAQs Section -->
-      <div class="[content-visibility:auto] [contain-intrinsic-size:0_300px]">
+      <div>
         ${faqsHtml}
       </div>
     </div>

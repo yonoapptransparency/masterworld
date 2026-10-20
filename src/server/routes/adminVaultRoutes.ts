@@ -49,21 +49,27 @@ function getMergedData() {
 }
 
 function writeMergedData(data: any) {
+  const now = new Date().toISOString();
   const canonicalNews = Array.isArray(data.news)
-    ? data.news.map((item: any) => compileCanonicalNews(item))
+    ? data.news.map((item: any) => compileCanonicalNews({ ...item, updated_at: item.updated_at || now }))
     : [];
 
+  const updatedSettings = {
+    ...(data.settings || {}),
+    last_updated: now
+  };
+
   const serverBackupPayload = {
-    apps: Array.isArray(data.apps) ? data.apps.map((app: any) => compileCanonicalApp(app, { stripDownloadLinks: false })) : [],
-    settings: data.settings || {},
+    apps: Array.isArray(data.apps) ? data.apps.map((app: any) => compileCanonicalApp({ ...app, updated_at: app.updated_at || now }, { stripDownloadLinks: false })) : [],
+    settings: updatedSettings,
     news: canonicalNews,
     videos: Array.isArray(data.videos) ? data.videos : [],
     reviews: Array.isArray(data.reviews) ? data.reviews : []
   };
 
   const publicStaticPayload = {
-    apps: Array.isArray(data.apps) ? data.apps.map((app: any) => compileCanonicalApp(app, { stripDownloadLinks: true })) : [],
-    settings: data.settings || {},
+    apps: Array.isArray(data.apps) ? data.apps.map((app: any) => compileCanonicalApp({ ...app, updated_at: app.updated_at || now }, { stripDownloadLinks: true })) : [],
+    settings: updatedSettings,
     news: canonicalNews,
     videos: Array.isArray(data.videos) ? data.videos : [],
     reviews: Array.isArray(data.reviews) ? data.reviews : []
@@ -102,8 +108,9 @@ adminVaultRouter.post('/api/v1/admin/save-news', (req, res) => {
   try {
     const { news } = req.body || {};
     if (Array.isArray(news)) {
+      const now = new Date().toISOString();
       const current = getMergedData();
-      current.news = news;
+      current.news = news.map((n: any) => ({ ...n, updated_at: now }));
       writeMergedData(current);
       return res.json({ success: true, count: news.length });
     }
@@ -117,17 +124,35 @@ adminVaultRouter.post('/api/v1/admin/app/save', (req, res) => {
   try {
     const { app } = req.body || {};
     if (app && (app.id || app.slug)) {
+      const now = new Date().toISOString();
       const current = getMergedData();
-      const idx = current.apps.findIndex((a: any) => a.id === app.id || (app.slug && a.slug === app.slug));
+      const appWithTime = compileCanonicalApp({ ...app, updated_at: now }, { stripDownloadLinks: false });
+      const idx = current.apps.findIndex((a: any) => a.id === appWithTime.id || (appWithTime.slug && a.slug === appWithTime.slug));
       if (idx >= 0) {
-        current.apps[idx] = { ...current.apps[idx], ...app };
+        current.apps[idx] = { ...current.apps[idx], ...appWithTime, updated_at: now };
       } else {
-        current.apps.push(app);
+        current.apps.push(appWithTime);
       }
       writeMergedData(current);
-      return res.json({ success: true, app });
+      return res.json({ success: true, app: appWithTime });
     }
     res.status(400).json({ success: false, error: 'App object required' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message });
+  }
+});
+
+adminVaultRouter.post('/api/v1/admin/save-apps', (req, res) => {
+  try {
+    const { apps } = req.body || {};
+    if (Array.isArray(apps)) {
+      const now = new Date().toISOString();
+      const current = getMergedData();
+      current.apps = apps.map((a: any) => ({ ...a, updated_at: a.updated_at || now }));
+      writeMergedData(current);
+      return res.json({ success: true, count: apps.length });
+    }
+    res.status(400).json({ success: false, error: 'Apps array required' });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message });
   }
@@ -153,11 +178,31 @@ adminVaultRouter.post('/api/v1/admin/save-settings', (req, res) => {
     const { settings } = req.body || {};
     if (settings) {
       const current = getMergedData();
-      current.settings = { ...current.settings, ...settings };
+      current.settings = { ...current.settings, ...settings, last_updated: new Date().toISOString() };
       writeMergedData(current);
-      return res.json({ success: true });
+      return res.json({ success: true, settings: current.settings });
     }
     res.status(400).json({ success: false, error: 'Settings object required' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message });
+  }
+});
+
+adminVaultRouter.post('/api/v1/admin/settings/save-section', (req, res) => {
+  try {
+    const { section, data, settings } = req.body || {};
+    const current = getMergedData();
+    if (settings && typeof settings === 'object') {
+      current.settings = { ...current.settings, ...settings, last_updated: new Date().toISOString() };
+    } else if (section) {
+      if (section === 'general' || section === 'seo') {
+        current.settings = { ...current.settings, ...(data || {}), last_updated: new Date().toISOString() };
+      } else {
+        current.settings = { ...current.settings, [section]: data, last_updated: new Date().toISOString() };
+      }
+    }
+    writeMergedData(current);
+    return res.json({ success: true, settings: current.settings });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message });
   }
@@ -173,6 +218,38 @@ adminVaultRouter.post('/api/v1/admin/save-videos', (req, res) => {
       return res.json({ success: true, count: videos.length });
     }
     res.status(400).json({ success: false, error: 'Videos array required' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message });
+  }
+});
+
+adminVaultRouter.post('/api/v1/admin/save-data', (req, res) => {
+  try {
+    const { apps, settings, news, videos } = req.body || {};
+    const current = getMergedData();
+    if (Array.isArray(apps)) current.apps = apps;
+    if (settings && typeof settings === 'object') current.settings = { ...current.settings, ...settings };
+    if (Array.isArray(news)) current.news = news;
+    if (Array.isArray(videos)) current.videos = videos;
+    writeMergedData(current);
+    return res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message });
+  }
+});
+
+adminVaultRouter.post('/api/v1/admin/encrypt-links', (req, res) => {
+  try {
+    const { items } = req.body || {};
+    const AES_SECRET = getAesSecret();
+    const encryptedItems = Array.isArray(items)
+      ? items.map((item: any) => ({
+          id: item.id,
+          slug: item.slug,
+          encrypted_link: safeEncrypt(String(item.url || ''), AES_SECRET)
+        }))
+      : [];
+    return res.json({ success: true, count: encryptedItems.length, items: encryptedItems });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message });
   }

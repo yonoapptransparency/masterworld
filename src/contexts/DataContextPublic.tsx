@@ -259,7 +259,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           } catch (e) {}
 
           if (backup.apps && Array.isArray(backup.apps) && backup.apps.length > 0) {
-            setApps(prev => mergeUniqueApps(prev, backup.apps));
+            setApps(prev => {
+              if (prev.length === backup.apps.length) {
+                const prevHasNewerOrEqual = prev.every((p, idx) => {
+                  const b = backup.apps[idx];
+                  return b && p.slug === b.slug && p.seo_title === b.seo_title && p.updated_at === b.updated_at && Boolean(p.description_html) === Boolean(b.description_html);
+                });
+                if (prevHasNewerOrEqual) return prev;
+              }
+              return mergeUniqueApps(prev, backup.apps);
+            });
           }
           if (backup.settings && Object.keys(backup.settings).length > 0) {
             setSettings(prev => {
@@ -270,7 +279,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           if (backup.news && Array.isArray(backup.news) && backup.news.length > 0) {
             setNews(prev => {
-              if (prev.length === backup.news.length && prev[0]?.slug === backup.news[0]?.slug) {
+              if (prev.length === backup.news.length && prev[0]?.slug === backup.news[0]?.slug && prev[0]?.updated_at === backup.news[0]?.updated_at) {
                 return prev;
               }
               return mergeUniqueNews(prev, backup.news);
@@ -298,40 +307,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const isCrawler = typeof navigator !== 'undefined' && /googlebot|google-inspectiontool|bingbot|slurp|duckduckbot|baiduspider|yandexbot|crawler|spider|lighthouse|chrome-lighthouse|headless/i.test(navigator.userAgent || '');
     if (isCrawler) return;
 
-    // Zero-contention background revalidation:
-    // If apps are already populated from SSR / initialData, wait until the main thread is idle (4s)
-    // so 0ms of CPU or network bandwidth is stolen during First Contentful Paint and user interaction.
-    const delay = apps.length > 0 ? 4000 : 100;
-    const initTimer = setTimeout(() => {
-      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-        (window as any).requestIdleCallback(() => {
-          fetchBackupData(true);
-        }, { timeout: 5000 });
-      } else {
-        fetchBackupData(true);
-      }
-    }, delay);
-
-    // Periodic check every 10 minutes for live updates in background
-    const interval = setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        fetchBackupData(true);
-      }
-    }, 600000);
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        fetchBackupData(true);
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      clearTimeout(initTimer);
-      clearInterval(interval);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [fetchBackupData]);
+    // Only fetch backup data if initial SSR cache was completely empty
+    if (apps.length === 0) {
+      fetchBackupData(true);
+    }
+  }, [apps.length, fetchBackupData]);
 
   const resolvedSettings = React.useMemo(() => {
     const defaultLogo = "https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png";

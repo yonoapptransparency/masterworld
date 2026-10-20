@@ -89,8 +89,10 @@ i18n
     resources,
     fallbackLng: "en",
     detection: {
-      order: ['navigator', 'htmlTag'],
-      caches: []
+      // Only switch language if explicitly chosen and stored in localStorage by the user;
+      // never auto-switch on first load via navigator locale, which caused an English -> Secondary Language flash.
+      order: ['localStorage', 'htmlTag'],
+      caches: ['localStorage']
     },
     interpolation: {
       escapeValue: false // react already safes from xss
