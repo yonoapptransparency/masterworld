@@ -612,6 +612,108 @@ export default defineConfig(({mode}) => {
             : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
         },
         { 
+          find: /.*\/pages\/Home$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/pages/Home.tsx')) 
+            ? path.resolve(__dirname, 'src/pages/Home.tsx') 
+            : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
+        },
+        { 
+          find: /.*\/pages\/NewsPage$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/pages/NewsPage.tsx')) 
+            ? path.resolve(__dirname, 'src/pages/NewsPage.tsx') 
+            : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
+        },
+        { 
+          find: /.*\/pages\/NewsDetailPage$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/pages/NewsDetailPage.tsx')) 
+            ? path.resolve(__dirname, 'src/pages/NewsDetailPage.tsx') 
+            : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
+        },
+        { 
+          find: /.*\/pages\/VideosPage$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/pages/VideosPage.tsx')) 
+            ? path.resolve(__dirname, 'src/pages/VideosPage.tsx') 
+            : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
+        },
+        { 
+          find: /.*\/pages\/VideoDetailPage$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/pages/VideoDetailPage.tsx')) 
+            ? path.resolve(__dirname, 'src/pages/VideoDetailPage.tsx') 
+            : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
+        },
+        { 
+          find: /.*\/pages\/Developers$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/pages/Developers.tsx')) 
+            ? path.resolve(__dirname, 'src/pages/Developers.tsx') 
+            : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
+        },
+        { 
+          find: /.*\/pages\/About$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/pages/About.tsx')) 
+            ? path.resolve(__dirname, 'src/pages/About.tsx') 
+            : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
+        },
+        { 
+          find: /.*\/pages\/Contact$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/pages/Contact.tsx')) 
+            ? path.resolve(__dirname, 'src/pages/Contact.tsx') 
+            : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
+        },
+        { 
+          find: /.*\/pages\/Privacy$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/pages/Privacy.tsx')) 
+            ? path.resolve(__dirname, 'src/pages/Privacy.tsx') 
+            : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
+        },
+        { 
+          find: /.*\/pages\/Terms$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/pages/Terms.tsx')) 
+            ? path.resolve(__dirname, 'src/pages/Terms.tsx') 
+            : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
+        },
+        { 
+          find: /.*\/pages\/Responsibility$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/pages/Responsibility.tsx')) 
+            ? path.resolve(__dirname, 'src/pages/Responsibility.tsx') 
+            : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
+        },
+        { 
+          find: /.*\/pages\/Notice$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/pages/Notice.tsx')) 
+            ? path.resolve(__dirname, 'src/pages/Notice.tsx') 
+            : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
+        },
+        { 
+          find: /.*\/pages\/Ethics$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/pages/Ethics.tsx')) 
+            ? path.resolve(__dirname, 'src/pages/Ethics.tsx') 
+            : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
+        },
+        { 
+          find: /.*\/pages\/Disclaimer$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/pages/Disclaimer.tsx')) 
+            ? path.resolve(__dirname, 'src/pages/Disclaimer.tsx') 
+            : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
+        },
+        { 
+          find: /.*\/pages\/ReportRemoval$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/pages/ReportRemoval.tsx')) 
+            ? path.resolve(__dirname, 'src/pages/ReportRemoval.tsx') 
+            : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
+        },
+        { 
+          find: /.*\/pages\/SafetyStatus$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/pages/SafetyStatus.tsx')) 
+            ? path.resolve(__dirname, 'src/pages/SafetyStatus.tsx') 
+            : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
+        },
+        { 
+          find: /.*\/pages\/FaqPage$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/pages/FaqPage.tsx')) 
+            ? path.resolve(__dirname, 'src/pages/FaqPage.tsx') 
+            : path.resolve(__dirname, 'src/lib/dummyComponent.tsx') 
+        },
+        { 
           find: /.*\/pages\/AppDetails$/, 
           replacement: fs.existsSync(path.resolve(__dirname, 'src/pages/AppDetails.tsx')) 
             ? path.resolve(__dirname, 'src/pages/AppDetails.tsx') 
