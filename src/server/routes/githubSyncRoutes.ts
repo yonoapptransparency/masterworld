@@ -14,10 +14,24 @@ githubSyncRouter.get('/api/github-sync/public-core-files', (req, res) => {
     const rootDir = process.cwd();
     const candidateFiles = [
       'src/App.tsx',
+      'src/AppPublic.tsx',
       'src/lib/lazyWithRetry.ts',
+      'src/lib/safeHtmlPublic.ts',
       'src/components/GlobalErrorBoundary.tsx',
+      'src/components/Meta.tsx',
+      'src/components/ReportAppModal.tsx',
+      'src/components/playstore/AppListItems.tsx',
       'src/components/public/PublicFooter.tsx',
       'src/components/public/PublicHeader.tsx',
+      'src/components/public/news/newsUtils.ts',
+      'src/components/public/newsDetails/NewsArticleHeader.tsx',
+      'src/pages/NewsDetailPage.tsx',
+      'src/seoHelper.ts',
+      'src/seo/initialDataOptimizer.ts',
+      'src/seo/metaBuilder.ts',
+      'src/seo/renderers/common.ts',
+      'src/seo/renderers/newsRenderer.ts',
+      'src/server/routes/publicApiRoutes.ts',
       'functions/api/[[catchall]].js'
     ];
 

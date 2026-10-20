@@ -1,335 +1,185 @@
-# Master Execution Protocol: 360-Degree Architectural Remediation Plan (31 Verified Problems)
+# RummyDex Master Rebuild Plan: Ultra-Lightweight JSON Architecture, Bulletproof SEO Bus & Zero-Leak Security
 
-## Executive Summary
-This document establishes the **Master Execution Protocol** for resolving all **31 verified system, hydration, security, styling, and split-sync flaws** across the RummyDex architecture. In accordance with strict engineering discipline, no code will be modified without complete pre-execution understanding, multi-hop dependency mapping, impact analysis, and verification gating.
-
----
-
-> [!IMPORTANT] Core Invariants & Governance Directives
-> 1. **Zero Copy Alteration (RULE 11)**: AI is strictly prohibited from altering or inventing website text, titles, descriptions, or marketing copy. All content flows dynamically from the database and Admin Dashboard.
-> 2. **Preserve Dual-Repo Split-Sync**: All fixes must respect the isolation boundaries defined in `.github/workflows/split-sync.yml` (Dex = Public Site, Masterworld = Admin Site).
-> 3. **Non-Regressive Execution**: Each phase is self-contained, verified via `compile_applet` and `lint_applet`, and tested for runtime and hydration continuity before moving to the next.
+This master plan provides a complete, step-by-step architectural blueprint based on a deep forensic audit of the current **RummyDex** platform. It resolves every root cause behind the broken SEO tags, News Detail page slowdowns, React hydration crashes, payload bloat, and security exposures—establishing a permanent, high-velocity pipeline between the **Admin Control Portal (`Masterworld`)** and the **Public Website (`Dex`)**.
 
 ---
 
-# PHASE 1: COMPLETE SYSTEM UNDERSTANDING & DEPENDENCY MAPPING
+## User Review & Critical Decisions
 
-Before modifying any code, the entire system topology is traced from database storage to mobile DOM painting:
+> [!IMPORTANT]
+> Every decision below is specifically engineered for RummyDex's Dual-Firebase, Dual-Repository (`Masterworld` Admin + `Dex` Public) architecture so that SEO, performance, and security work together with zero regressions.
+
+- **Confirmed Decision 1 — Admin Portal as a Pure Canonical JSON & Vault Compiler**: The Admin Portal connects to the **Master Catalog Firebase** and **Community Reviews Firebase**, normalizes and sanitizes all Admin-authored content, strips duplicate payload keys (`mockApps`/`mockNews` duplication), and pushes a **Lean Canonical JSON Bundle** + **Server-Only Sealed Link Vault** to the Public Website in a single atomic commit.
+- **Confirmed Decision 2 — Synchronous Isomorphic Route Parity & Ultra-Light Initial Payloads**: Every primary public route (`Home`, `App Details`, `News Index`, `News Detail`, `Gateway`) renders with 100% synchronous parity between pre-rendered HTML and client hydration—eliminating lazy-chunk `<Suspense>` destruction of pre-rendered DOM on News Detail pages and cutting `window.__INITIAL_DATA__` size by **80%+**.
+- **Confirmed Decision 3 — Unified SEO Bus (Server & Client Lockstep)**: Server-side head generation and client-side `<Meta>` updates share the exact same canonical URL, OpenGraph, `article:*`, and JSON-LD Schema.org builders (`SoftwareApplication`, `NewsArticle`, `FAQPage`, `BreadcrumbList`, `AggregateRating`), preventing client hydration from deleting or overwriting server-rendered structured data.
+- **Confirmed Decision 4 — Zero-Leak Link Security & Hardened Vault**: Encrypted download links (`more_information_url` / `encrypted_link`) and AES fallback keys are completely removed from public client JSON bundles and browser-accessible modules. Link resolution happens exclusively inside the server/edge security gateway after anti-bot clearance.
+
+---
+
+## 1. Deep Forensic Diagnosis: Why the Current System Breaks
+
+Before rebuilding, here are the **7 exact architectural flaws** discovered in the current system that cause low performance scores, SEO mismatches, and security risks:
+
+1. **Lazy `<Suspense>` Destroys Pre-Rendered News Detail HTML on First Load**:
+   - Currently, `Home`, `AppDetails`, and `GatewayPage` load synchronously, but `NewsPage` and `NewsDetailPage` are wrapped in dynamic lazy imports.
+   - When Googlebot or a user visits `/news/:slug`, the server pre-renders the full `<article>` HTML inside `#root`. When React hydrates on the client, the lazy `NewsDetailPage` chunk is not yet loaded, so React triggers `<Suspense fallback={<RouteLoadingFallback />}>`, throws a **Hydration Mismatch Error**, wipes out the pre-rendered article DOM, flashes a loading spinner, and re-renders from scratch.
+2. **Massive Unstripped News HTML Bloat in `window.__INITIAL_DATA__`**:
+   - The initial data optimizer computes `isTargetNewsArticle` for `/news/:slug` **but never uses it**. Instead, it dumps the full multi-kilobyte HTML `content` and `description_html` of **every news article in the database** into `window.__INITIAL_DATA__` on the Homepage (`/`), the News Index (`/news`), and every News Detail page (`/news/:slug`).
+   - Additionally, on `/news/:slug`, it embeds all 230+ apps into `window.__INITIAL_DATA__` when the News Detail page only needs 1 related app + 16 lightweight similar-app cards.
+3. **Client `<Meta>` Overwrites and Deletes Server SEO & JSON-LD on News Detail Pages**:
+   - On `/news/:slug`, the server sets `og:type="article"` and injects both `NewsArticle` (with full `articleBody` and optimized 1200px Cloudinary image) and `BreadcrumbList` JSON-LD schemas.
+   - The moment `NewsDetailPage` mounts on the client, its `<Meta>` call omits `type="article"`, causing the client to flip `og:type` back to `"website"`, **delete all `article:*` OpenGraph tags**, **delete the server's `BreadcrumbList` schema**, and overwrite the `NewsArticle` schema with an unoptimized version.
+   - Simultaneously, the server sets `og:site_name` to the page title while the client overwrites `og:site_name` to `"RummyDex"`.
+4. **Missing Hero Image Preload on News Detail Pages (Poor LCP)**:
+   - The server head builder preloads the app icon on App Details and the first banner on Home, but has **no preload rule for the News Detail hero banner**. Instead, it falls back to preloading the tiny 120px site logo with `fetchpriority="high"`, starving the actual 16:9 news hero banner image and hurting Largest Contentful Paint (LCP).
+5. **SSR vs. Client Date & Content Priority Drift on News Articles**:
+   - The server renderer resolves news dates in the order `published_at -> created_at -> date`, whereas the client component resolves `date -> published_at`. If an article has different values in those fields, the visible date text mismatches during hydration.
+6. **2x Payload Duplication in Static JSON Sync & Main-Thread `localStorage` Stall**:
+   - During Admin GitHub Sync, the payload generator writes both `apps` AND `mockApps`, `news` AND `mockNews`, `settings` AND `mockSettings`, `videos` AND `mockVideos` into the same JSON files—literally **doubling file size** with duplicate copies of every record.
+   - On the client, `DataContextPublic` fetches the entire multi-megabyte backup payload 4 seconds after load and runs `JSON.stringify` into `localStorage`, blocking the main thread and risking stale cache hydration on repeat visits.
+7. **Security Exposure of Encrypted Links & Default AES Keys in Public Bundles**:
+   - The Admin sync currently leaves `more_information_url` and `encrypted_link` inside public `staticData.json` alongside a hardcoded `DEFAULT_MASTER_AES_KEY` in the client bundle, and includes a hardcoded preview bypass string in the sync hook.
+
+---
+
+## 2. Step-by-Step Master Rebuild Workflow
+
+### Step 1: Admin Canonical JSON Compiler & Content Hygiene Engine
+When the Admin edits apps, news, FAQs, or settings in the Admin Portal and triggers a save or GitHub Split-Sync, the **Canonical JSON Compiler** executes a strict 5-stage normalization pipeline before any file is written:
+
+1. **Strict Content & Heading Hygiene (Zero Pollution)**:
+   - Preserves 100% of the Admin's exact wording, titles, meta descriptions, and links (never inventing or altering copy).
+   - Parses `description_html`, `features_html`, `custom_admin_box_html`, and news `content` to:
+     - Automatically convert any embedded `<h1>` tags into `<h2>` tags so the page's primary title is guaranteed to be the **only `<h1>` on the page**.
+     - Strip pasted third-party inline `style="..."` attributes, legacy `<font>` tags, `<script>` tags, and broken class names that conflict with dark/light mode typography.
+     - Normalize all embedded Cloudinary `<img>` URLs to include automatic `f_auto,q_auto` optimization and `loading="lazy"`.
+2. **Deterministic Date, Reading Time & Snippet Pre-Calculation**:
+   - Computes canonical `formatted_date` (e.g., `"Oct 20, 2026"` in UTC), `iso_published_at`, `iso_modified_at`, `reading_time` (`"3 min read"`), and a clean 160-character plain-text `excerpt` at compile time so neither the server nor the client ever computes divergent date strings or regex HTML strips during rendering.
+3. **Atomic Community Rating & Review Harmonization**:
+   - Merges verified counts, 5-star distributions, and pinned/recent 5-review slices from the **Community Reviews Firebase** directly into each app's canonical record so cards, App Details headers, and `AggregateRating` JSON-LD schemas always display the exact same numbers.
+4. **Zero-Duplication JSON Packaging**:
+   - Eliminates the duplicate `mockApps` / `mockNews` / `mockSettings` / `mockVideos` keys from `staticData.json` and `public_backup.json`, instantly cutting JSON file size by **50%**.
+5. **Per-Route Pre-Rendered Static Snapshots**:
+   - Generates route-specific pre-rendered HTML and ultra-lean JSON slices so every route loads with only the bytes required for that screen.
+
+---
+
+### Step 2: Zero-Leak Vault & Link Security Architecture
+1. **Complete Removal of Download URLs from Public JSON**:
+   - `staticData.json`, `staticData.ts`, and `window.__INITIAL_DATA__` on the Public Website are stripped of all `more_information_url`, `download_url`, `encrypted_link`, and `encrypted_download_url` fields. Instead, public app objects carry only a boolean `has_secure_link: true` flag.
+2. **Server-Only Sealed Vault & Environment Key Enforcement**:
+   - The encrypted link map lives strictly inside the server/edge vault module (`api/index.js` and server routes) encrypted with the environment `AES_SECRET`.
+   - Removes hardcoded fallback master keys and preview bypass tokens from client-accessible files.
+3. **Hardened `/moreinfo/:slug` Clearance Flow**:
+   - Preserves the neutral verification vocabulary (`"Download"` on App Details; `"Proceed"`, `"Verification Portal"`, `"Connecting..."` on the Gateway page) with Turnstile anti-bot nonce verification, rate limiting, and zero-referrer bounce protection.
+
+---
+
+### Step 3: Ultra-Lightweight Route Payloads & News Detail Performance Engine
+1. **Route-Scoped `window.__INITIAL_DATA__` Trimming (`< 25 KB` Target on Detail Pages)**:
+   - **On News Detail (`/news/:slug`)**:
+     - `window.__INITIAL_DATA__.news` contains **ONLY the 1 active news article** with its full `content`. All other news items are omitted from the News Detail payload.
+     - `window.__INITIAL_DATA__.apps` contains **ONLY the 1 related app + the 16 pre-selected similar category app cards** (stripped to 7 lightweight card fields: `id`, `name`, `slug`, `icon_url`, `category`, `is_new`, `is_hot`, `serial_number`), reducing the News Detail HTML payload from `~350 KB` down to **`< 25 KB`**!
+   - **On News Index (`/news`)**:
+     - `window.__INITIAL_DATA__.news` strips `content` and `description_html` from all articles, sending only card metadata (`id`, `slug`, `title`, `excerpt`, `category`, `logo_url`, `formatted_date`, `is_pinned`).
+     - `window.__INITIAL_DATA__.apps` is omitted or kept minimal because `/news` does not render the 230-app catalog grid.
+   - **On App Details (`/app/:slug`)**:
+     - `window.__INITIAL_DATA__.apps` includes full rich fields (`description_html`, `features_html`, `faqs`, `screenshots`, `safety_alerts`) **ONLY for the 1 target app**, while other catalog items carry only lightweight card fields for the 16-app Similar Carousel and header search.
+     - `window.__INITIAL_DATA__.news` and `videos` are omitted on `/app/:slug`.
+   - **On Homepage (`/`)**:
+     - `window.__INITIAL_DATA__.apps` carries only card-level fields (zero `description_html`, zero `features_html`, zero `faqs`, zero `screenshots`).
+     - `window.__INITIAL_DATA__.news` carries only the top 6 news card summaries (zero full `content` bodies).
+2. **Instant Synchronous Hydration for `NewsDetailPage` & `NewsPage`**:
+   - Ensures `NewsDetailPage` and `NewsPage` hydrate without triggering a `<Suspense>` fallback mismatch over pre-rendered server HTML, completely eliminating the hydration crash and spinner flash on direct visits.
+3. **LCP Hero Image Preloading on News & App Pages**:
+   - On `/news/:slug`, `<head>` injects `<link rel="preload" as="image" href="<optimized-1200px-cloudinary-hero>" fetchpriority="high">` and sets explicit `width="1200" height="675"` aspect-ratio geometry on the hero container so **LCP fires immediately** with **CLS = 0.00**.
+4. **Zero-Blocking Client Cache Management**:
+   - Eliminates full-catalog `localStorage.setItem` serialization on the main thread and ensures client background revalidation never overwrites rich detail fields (`content`, `description_html`, `faqs`) that were already hydrated from SSR.
+
+---
+
+### Step 4: Unified Deterministic SEO Bus (100% Server & Client Lockstep)
+1. **Single Shared SEO Specification Builder**:
+   - Both the server pre-renderer (`seoHelper` / `metaBuilder` / `schemaBuilder`) and the client `<Meta>` component compute titles, descriptions, canonical URLs, OpenGraph tags, and JSON-LD schemas using the **exact same rules**:
+     - `og:site_name` and `application-name` remain consistently `"RummyDex"` across server and client.
+     - On `/news/:slug`, both server and client set `og:type="article"`, preserve `article:published_time`, `article:modified_time`, and `article:section`, and output the identical `NewsArticle` + `BreadcrumbList` JSON-LD graph.
+     - On `/app/:slug`, both server and client output the identical `SoftwareApplication` (with harmonized `AggregateRating` and up to 5 verified `Review` nodes), `FAQPage`, and `BreadcrumbList` JSON-LD graph.
+2. **Non-Destructive Client `<Meta>` Reconciliation**:
+   - When React hydrates on the initially loaded route, `<Meta>` checks if the server-rendered `<script type="application/ld+json">` and `<meta>` tags already match the current route's canonical URL—leaving valid server-rendered JSON-LD schemas untouched on initial load and only mutating `<head>` during subsequent client-side SPA route transitions.
+3. **Strict Heading Hierarchy across Every Page**:
+   - Every route is audited to enforce:
+     - **Exactly one `<h1>`**: The page's primary subject (`App Name` on `/app/:slug`, `Article Headline` on `/news/:slug`, `News & Updates` on `/news`, `Hero/Directory Title` on `/`).
+     - **Clean `<h2>` section landmarks**: `Similar Applications`, `About this app`, `Key Features`, `Ratings and reviews`, `Frequently Asked Questions`.
+     - **Clean `<h3>` item headings**: Individual FAQ accordion questions, news cards, and sub-sections inside sanitized rich HTML.
+
+---
+
+### Step 5: UI Polish & Unclipped Floating Controls
+1. **App Details & News Header Action Controls**:
+   - Ensures Share, Flag/Report, and Back navigation controls use clean top-layer positioning and unobstructed stacking contexts (`z-index` portal elevation for modals and toast notifications) so interactive elements never clip behind white card surfaces.
+2. **Strict Anti-Slop & Play Store Design Discipline**:
+   - Maintains clean 60-30-10 neutral/surface/accent color balance, `tabular-nums` on all rating/version/size metrics, and zero layout shift across mobile (`360px`) and desktop (`1440px`) viewports.
+
+---
+
+## 3. Technical Architecture & Data Flow Diagram
 
 ```
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│ SUBSYSTEM 1: DATABASE & STORAGE ENGINE                                                 │
-│ • Master Catalog: Cloud Firestore (ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad) │
-│ • Collections: store_data (chunks 0/1, settings, news, videos), sec_git, admins_2fa   │
-│ • Community Store: rummydexcommunity (reviews, catalog_stats, reports)                 │
-│ • Local Backups: staticData.json, communityStaticReviews.json, communityCatalogStats   │
-└──────────────────────────────────────────┬─────────────────────────────────────────────┘
-                                           │
-                                           ▼
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│ SUBSYSTEM 2: SERVER RUNTIME & SSR PIPELINE (server.ts & src/seoHelper.ts)              │
-│ • Express server on port 3000 handles API, bot shielding, and HTML pre-rendering.      │
-│ • Pre-render pipeline: Reads template -> Builds <head> meta tags (metaBuilder.ts) ->   │
-│   Injects inlined Critical CSS -> Inlines window.__INITIAL_DATA__ JSON ->              │
-│   Injects semantic HTML shell into <div id="root"> (renderers/*)                       │
-└──────────────────────────────────────────┬─────────────────────────────────────────────┘
-                                           │
-                                           ▼
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│ SUBSYSTEM 3: PUBLIC CLIENT HYDRATION (src/main.tsx, AppPublic.tsx, DataContext)        │
-│ • Entry point: src/main.tsx mounts App inside <div id="root">                          │
-│ • Router: React Router DOM with PublicHeader, Main Routes, and PublicFooter            │
-│ • State: DataContextPublic initializes apps, settings, news, and videos                │
-│ • Critical boundary: React must attach event listeners to SSR HTML WITHOUT erasing it. │
-└────────────────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                     1. ADMIN AUTHORING PORTAL (Masterworld)                      │
+│                                                                                  │
+│  ┌──────────────────────────────┐        ┌────────────────────────────────────┐  │
+│  │   Master Catalog Firestore   │        │    Community Reviews Firestore     │  │
+│  │ (Apps, News, Videos, FAQs,   │        │ (Verified Reviews, Helpful Votes,  │  │
+│  │  Global SEO Settings, Links) │        │  5-Star Distributions, Reports)    │  │
+│  └──────────────┬───────────────┘        └─────────────────┬──────────────────┘  │
+│                 └────────────────────┬─────────────────────┘                     │
+│                                      ▼                                           │
+│       ┌──────────────────────────────────────────────────────────────┐           │
+│       │          CANONICAL JSON COMPILER & HYGIENE PIPELINE          │           │
+│       │  1. Heading Normalizer: Demotes inner <h1> -> <h2> in HTML   │           │
+│       │  2. Style Sanitizer: Strips inline styles, scripts & classes │           │
+│       │  3. Pre-computes UTC dates, reading time & 160-char excerpts │           │
+│       │  4. Merges atomic review counts & 5-star rating averages     │           │
+│       │  5. Seals download URLs into Server-Only AES Vault           │           │
+│       │  6. Strips duplicate mock* arrays (50% JSON size reduction)  │           │
+│       └──────────────────────────────┬───────────────────────────────┘           │
+└──────────────────────────────────────┼───────────────────────────────────────────┘
+                                       │
+                    Single Atomic GitHub Split-Sync Commit
+                                       │
+                                       ▼
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                      2. PUBLIC WEBSITE (Dex - rummydex.com)                      │
+│                                                                                  │
+│  ┌───────────────────────────────────┐  ┌─────────────────────────────────────┐  │
+│  │   ROUTE-SCOPED INITIAL PAYLOADS   │  │     SERVER-ONLY SEALED VAULT        │  │
+│  │ • /news/:slug -> 1 Article +      │  │ • Zero URLs in staticData.json      │  │
+│  │   17 lightweight app cards (<25KB)│  │ • Turnstile + Nonce + Rate Limit    │  │
+│  │ • /app/:slug  -> 1 Full App +     │  │ • Resolves only via /api/v1/public/ │  │
+│  │   card-only catalog index         │  │   secure-link on /moreinfo/:slug    │  │
+│  │ • /           -> Card-only index  │  └─────────────────────────────────────┘  │
+│  └─────────────────┬─────────────────┘                                           │
+│                    ▼                                                             │
+│  ┌────────────────────────────────────────────────────────────────────────────┐  │
+│  │             UNIFIED ISOMORPHIC RENDERING & LOCKSTEP SEO BUS                │  │
+│  │                                                                            │  │
+│  │  • Server Pre-Render & Client React share 100% identical DOM structure     │  │
+│  │  • Synchronous hydration on Home, AppDetails, NewsPage & NewsDetailPage    │  │
+│  │  • <head> preloads exact LCP Hero Image (News 1200px banner / App Icon)    │  │
+│  │  • Non-destructive <Meta> preserves server JSON-LD (NewsArticle,           │  │
+│  │    SoftwareApplication, FAQPage, BreadcrumbList, AggregateRating)          │  │
+│  │  • Strict Single-H1 + Semantic H2/H3 Hierarchy on every page               │  │
+│  └────────────────────────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-# PHASE 2: 360° IMPACT ANALYSIS (ALL 31 VERIFIED PROBLEMS)
+## 4. Verification & Quality Gates
 
-Every proposed modification is analyzed for affected files, dependent components, failure modes, and preservation strategies:
-
-### Group 1: Hydration, Blank White Flash & Layout Shift (CLS)
-- **Problem 1: `createRoot` vs `hydrateRoot` in `src/main.tsx`**
-  - *Why needed*: Calling `createRoot` on a container with SSR HTML causes React 18/19 to wipe out all pre-rendered HTML DOM nodes, triggering the blank white screen before client render.
-  - *Affected files*: `src/main.tsx`
-  - *Dependent components*: Entire application root.
-  - *What could break*: If SSR HTML attributes don't match React DOM, hydration warnings occur.
-  - *Preservation strategy*: Use `hydrateRoot` if `rootEl.hasChildNodes()` or `window.__INITIAL_DATA__` is present, with fallback to `createRoot`. Suppress non-breaking hydration attribute mismatches gracefully.
-  - *Validation*: Confirm in browser DOM that `<div id="root">` is not destroyed on frame 1.
-
-- **Problem 2: Lazy-Loaded Public Routes with `<Suspense fallback={null}>`**
-  - *Why needed*: When React mounts, dynamic imports for `NewsPage`, `GatewayPage`, `VideosPage`, etc. suspend, replacing the page with `null` (white screen).
-  - *Affected files*: `src/AppPublic.tsx`
-  - *Dependent components*: All public page components.
-  - *What could break*: Bundle size could increase if all routes were statically imported.
-  - *Preservation strategy*: Statically import critical primary routes (`Home`, `AppDetails`, `GatewayPage`). For secondary routes (`NewsPage`, `VideosPage`, `About`, `Contact`), provide a matching skeleton shell fallback instead of `fallback={null}` so the screen never turns white.
-  - *Validation*: Verify that route transitions render an immediate matching layout without white screens.
-
-- **Problem 3: Main CSS Link Delayed via `media="print"`**
-  - *Why needed*: Browser renders unstyled HTML on frame 1, then snaps styles on when `onload` fires.
-  - *Affected files*: `src/seoHelper.ts`
-  - *Dependent components*: All visual components.
-  - *What could break*: Render-blocking CSS on slow networks.
-  - *Preservation strategy*: Verified patched: Remove `media="print"` hack. The stylesheet loads with standard `rel="stylesheet"`. Inlined critical CSS covers above-the-fold content immediately.
-  - *Validation*: Confirm curl output contains standard `<link rel="stylesheet">`.
-
-- **Problem 4: `.ssr-seo-content { display: none !important; }` in `src/index.css`**
-  - *Why needed*: Explicitly hides server-rendered wrappers before React mounts.
-  - *Affected files*: `src/index.css`
-  - *Dependent components*: Any SSR wrapper component.
-  - *What could break*: None.
-  - *Preservation strategy*: Remove the rule completely. Content should remain visible from SSR paint through client hydration.
-  - *Validation*: Grep `src/index.css` to confirm rule is deleted.
-
-- **Problem 5: Dynamic Root Font Size Changing Across Breakpoints in `src/index.css`**
-  - *Why needed*: Dynamic `html { font-size: 15px / 14.5px / 13.5px }` shifts all Tailwind `rem` units as soon as CSS loads, causing massive CLS.
-  - *Affected files*: `src/index.css`
-  - *Dependent components*: All mobile typography, cards, buttons, and layouts.
-  - *What could break*: Layout scaling on very narrow screens if not handled cleanly with Tailwind utility classes.
-  - *Preservation strategy*: Remove the `html { font-size: ... }` media queries. Allow standard 16px root font size. Use Tailwind's existing `text-xs`, `text-sm`, and `xxs:` responsive classes for narrow displays.
-  - *Validation*: Verify on 360px viewport that text scales cleanly without sudden rem jumps.
-
-- **Problem 6: Placeholder Heights (`contain-intrinsic-size`) Mismatch**
-  - *Why needed*: `src/index.css` sets `0 88px` while `AppListItems.tsx` sets `auto 84px`. `#ratings-and-reviews-section` sets `1px 320px` (it is actually >600px tall), causing scroll jumps.
-  - *Affected files*: `src/index.css`, `src/components/playstore/AppListItems.tsx`, `src/pages/AppDetails.tsx`
-  - *Dependent components*: Catalog rows, Reviews section, Specifications section.
-  - *What could break*: Scroll position jumps during fast scroll.
-  - *Preservation strategy*: Harmonize `contain-intrinsic-size` across `index.css` and `AppListItems.tsx` to `auto 84px`. Adjust reviews placeholder to `auto 650px` to match actual rendered height.
-  - *Validation*: Test smooth scrolling on mobile viewports; verify no scrollbar thumb jumping.
-
----
-
-### Group 2: CSS, Styling & Admin HTML Rendering
-- **Problem 7: Undefined CSS Variable `--text-secondary` in `src/index.css`**
-  - *Why needed*: Used across `.premium-subheading` and disclaimer styles, but never defined in `:root` or `.dark`.
-  - *Affected files*: `src/index.css`
-  - *Preservation strategy*: Define `--text-secondary: #71717a;` (zinc-500) in `:root` and `--text-secondary: #a1a1aa;` (zinc-400) in `.dark`.
-  - *Validation*: Verify disclaimer and subheadings render with crisp contrast.
-
-- **Problem 8: Invalid / Non-Existent Tailwind Classes**
-  - *Why needed*: Classes like `dark:hover:bg-zinc-750`, `text-rose-650`, `border-zinc-150`, `md:text-3.5xl`, `font-space` do not exist in Tailwind and produce zero styles.
-  - *Affected files*: `src/components/UserReviews.tsx`, `src/components/public/ReviewItem.tsx`, `src/components/WebsiteTitleHero.tsx`, `src/components/GlobalErrorBoundary.tsx`, `src/pages/Contact.tsx`, `src/seo/renderers/homeRenderer.ts`, `src/seo/renderers/staticPageRenderer.ts`
-  - *Preservation strategy*: Map fake classes to standard Tailwind tokens (`zinc-750` -> `zinc-700/800`, `rose-650` -> `rose-600`, `border-zinc-150` -> `border-zinc-200`, `text-3.5xl` -> `text-3xl sm:text-4xl`). Define custom fonts in `@theme` if needed or use standard font stacks.
-  - *Validation*: Verify compilation with `compile_applet` and inspect elements in dev tools.
-
-- **Problem 9: Admin HTML Allows Duplicate `<h1>` Tags on App Pages**
-  - *Why needed*: When admin enters an `<h1>` in `description_html`, it creates multiple `<h1>` elements on the page, violating single-H1 SEO rules.
-  - *Affected files*: `src/components/public/AppAboutSection.tsx`, `src/lib/safeHtmlPublic.ts`
-  - *Preservation strategy*: In `safeHtmlPublic.ts` and `AppAboutSection.tsx`, automatically convert any `<h1>` inside user-generated HTML to `<h2>` with appropriate heading classes.
-  - *Validation*: Verify that `/app/:slug` HTML contains strictly ONE `<h1>` (the App Name).
-
----
-
-### Group 3: Security & Secret Sanitization
-- **Problem 10: Hardcoded Cloudinary API Key & Secret in `vite.config.ts`**
-  - *Why needed*: Fallback keys `883757976464181` and `wWlSk9OS905jDmR5YR6wlEK37sE` are committed in plain text.
-  - *Affected files*: `vite.config.ts`, `server.ts`
-  - *Preservation strategy*: Remove hardcoded plain-text fallback credentials. Read strictly from `process.env.CLOUDINARY_API_KEY` and `process.env.CLOUDINARY_API_SECRET`. If missing in development, return a clear error requiring the environment variable.
-  - *Validation*: Grep codebase to verify 0 occurrences of the secret string.
-
-- **Problem 11: Admin Password Injected into Client JS via `vite.config.ts`**
-  - *Why needed*: `define: { 'process.env.ADMIN_PASSWORD': JSON.stringify(adminPass) }` injects admin password into public browser bundles.
-  - *Affected files*: `vite.config.ts`
-  - *Preservation strategy*: Remove `ADMIN_PASSWORD` from `envPrefix` and `define`. Authentication must strictly occur server-side via `/api/v1/admin/auth/login`.
-  - *Validation*: Verify that built client bundles in `dist/assets/` contain zero occurrences of the admin password.
-
-- **Problem 12: All 7 AES Vault Master Keys Exposed in Public Files**
-  - *Why needed*: `KNOWN_VAULT_KEYS` is hardcoded in `src/lib/secureVault.ts` and `functions/api/[[catchall]].js`.
-  - *Affected files*: `src/lib/secureVault.ts`, `functions/api/[[catchall]].js`, `src/lib/cryptoUtils.ts`
-  - *Preservation strategy*: Vault decryption on the public site must strictly occur through server-side API proxy routes (`/api/v1/public/secure-link`) or via runtime environment variable `process.env.AES_SECRET`. Remove the hardcoded `KNOWN_VAULT_KEYS` array from client-side public bundles.
-  - *Validation*: Grep repository to verify `KNOWN_VAULT_KEYS` array with plain-text secrets is removed.
-
-- **Problem 13: Cloudflare Turnstile Bypassed via Test Secret in Production**
-  - *Why needed*: Fallback to `1x0000000000000000000000000000000AA` lets any bot bypass Turnstile.
-  - *Affected files*: `src/server/routes/securityRoutes.ts`, `functions/api/[[catchall]].js`
-  - *Preservation strategy*: Strictly reject verification if the secret key is invalid or if the Cloudflare API returns failure. Allow test secret ONLY when `process.env.NODE_ENV !== 'production'`.
-  - *Validation*: Test with dummy bot token; verify that `POST /api/v1/public/secure-link` returns 403 or challenge required.
-
-- **Problem 14: Open Write Access & Admin Bypass in `firestore.rules`**
-  - *Why needed*: `_rest_admin_bypass` allows anyone to write to database; public collections allow unvalidated writes.
-  - *Affected files*: `firestore.rules`
-  - *Preservation strategy*: Remove `isRestAdmin()` and `_rest_admin_bypass`. Apply `isValidReview`, `isValidFeedback`, `isValidTicket` to review and feedback collections. Require verified admin auth on `store_data` and `sec_git`.
-  - *Validation*: Test Firebase rules syntax via `npm run lint`.
-
-- **Problem 15: Live Upstash Redis Token & Firebase Keys in `.env.example`**
-  - *Why needed*: Exposes live credentials in repository.
-  - *Affected files*: `.env.example`
-  - *Preservation strategy*: Replace live Redis URL, token, and Firebase API keys with standard dummy placeholder values (`your_redis_token_here`).
-  - *Validation*: Verify `.env.example` contains only placeholders.
-
-- **Problem 16: Unauthenticated Endpoints in Vite Dev Plugin**
-  - *Why needed*: `/api/v1/admin/verify` returns authorized without checking token; upload endpoints allow unauthenticated POSTs.
-  - *Affected files*: `vite.config.ts`
-  - *Preservation strategy*: Check `req.headers.authorization` or session token before granting access in dev middleware.
-  - *Validation*: Test unauthorized request; verify 401 response.
-
----
-
-### Group 4: Build, Deployment & Split-Sync
-- **Problem 17: Broken Vercel Serverless Configuration in Dex Repo**
-  - *Why needed*: `build-api.js` skips `api/index.js` when `server.ts` is missing, yet `vercel.json` routes to it.
-  - *Affected files*: `scripts/build-api.js`, `vercel.json`, `package.json`
-  - *Preservation strategy*: In Dex repo (pure static SPA), configure `vercel.json` cleanly for static output with client-side SPA routing (`rewrites: [{ source: "/(.*)", destination: "/index.html" }]`). Set `"dev": "vite"` in Dex's `package.json`.
-  - *Validation*: Verify build script runs cleanly with and without `server.ts`.
-
-- **Problem 18: Split-Sync Directory Leakage**
-  - *Why needed*: Admin vault files leak into Dex; public SEO files leak into Masterworld.
-  - *Affected files*: `.github/workflows/split-sync.yml`
-  - *Preservation strategy*: Add `src/lib/secureVault.ts`, `src/lib/cryptoUtils.ts`, `src/lib/aiStudioBrain.json`, and `.aistudio/` to `ADMIN_ONLY_FILES`. Add `public/sitemap*.xml` and `src/seo/renderers/*` to `PUBLIC_ONLY_FILES`.
-  - *Validation*: Inspect split-sync file lists for clean isolation.
-
-- **Problem 19: Fragile Comment Slicing in `scripts/build-api.js`**
-  - *Why needed*: Stripping code between comments deletes 301 redirects and bot defenses on Vercel.
-  - *Affected files*: `scripts/build-api.js`
-  - *Preservation strategy*: Build `api/index.js` modularly by importing express routes instead of string-slicing `server.ts`.
-  - *Validation*: Verify generated `api/index.js` contains route definitions.
-
-- **Problem 20: Cloudflare Edge Function Returns 404 & Leaks Memory**
-  - *Why needed*: Returns 404 for `/community/*`, `/reports`, `/news`. `edgeRateMap` and `burnedNonces` never evict.
-  - *Affected files*: `functions/api/[[catchall]].js`
-  - *Preservation strategy*: Add handlers for public catalog endpoints. Add periodic TTL cleanup (pruning entries older than 60s) to prevent unbounded memory growth.
-  - *Validation*: Test endpoint routing and confirm memory maps stay bounded.
-
----
-
-### Group 5: SEO, Caching, Routing & Runtime Bugs
-- **Problem 21: `vercel.json` Forces `max-age=0, must-revalidate`**
-  - *Why needed*: Prevents edge caching on Vercel and Cloudflare, causing high TTFB.
-  - *Affected files*: `vercel.json`
-  - *Preservation strategy*: Set standard cache headers: `public, max-age=300, s-maxage=3600, stale-while-revalidate=86400` for public pages, while keeping `/admin/*` and `/api/*` as `no-store`.
-  - *Validation*: Inspect response headers for public routes.
-
-- **Problem 22: `/faq` and `/faqs` Return 404 on Server**
-  - *Why needed*: Missing from static route list in `src/seoHelper.ts` and `knownTopLevelRoutes` in `server.ts`.
-  - *Affected files*: `src/seoHelper.ts`, `server.ts`, `scripts/prerender.ts`
-  - *Preservation strategy*: Add `faq` and `faqs` to `knownTopLevelRoutes` in `server.ts` and to the static routes array in `seoHelper.ts`.
-  - *Validation*: `curl -s http://localhost:3000/faq` returns 200 OK.
-
-- **Problem 23: Prerendering `/moreinfo/:slug` Bypasses Bot Shield**
-  - *Why needed*: Static files in `dist/moreinfo/` served before bot check.
-  - *Affected files*: `server.ts`, `scripts/prerender.ts`
-  - *Preservation strategy*: Do NOT prerender `/moreinfo/:slug` to static HTML files. Route `/moreinfo/:slug` dynamically through `server.ts` where the bot shield executes first.
-  - *Validation*: Verify that bot user-agents receive 403 on `/moreinfo/`.
-
-- **Problem 24: `Meta.tsx` Sets `og:site_name` to Full Page Title**
-  - *Why needed*: Sets 60-character title instead of site name.
-  - *Affected files*: `src/components/Meta.tsx`
-  - *Preservation strategy*: Set `resolvedSiteName = siteTitle || 'RummyDex'`.
-  - *Validation*: Verify meta tag in document head.
-
-- **Problem 25: `UserReviews.tsx` Hardcodes `inView = true`**
-  - *Why needed*: Fires queries before user scrolls to reviews.
-  - *Affected files*: `src/components/UserReviews.tsx`
-  - *Preservation strategy*: Use `IntersectionObserver` on `containerRef` to set `inView = true` only when user scrolls within 300px of reviews.
-  - *Validation*: Verify network tab on initial load.
-
-- **Problem 26: `ai-catalog.json` Schema & MIME Validation**
-  - *Why needed*: Root properties fail schema; served as `application/json` instead of `application/ai-catalog+json`.
-  - *Affected files*: `public/ai-catalog.json`, `server.ts`
-  - *Preservation strategy*: Set `Content-Type: application/ai-catalog+json` in `server.ts`. Clean root properties in `ai-catalog.json` and add `representativeQueries`.
-  - *Validation*: Test with curl and JSON schema validator.
-
-- **Problem 27: Inconsistent `robots.txt`, Dead `/blogs` Link, Sitemap Captions**
-  - *Why needed*: Missing disallows in public robots.txt; dead `/blogs` in `llms.txt`; streaming apps labeled "gameplay".
-  - *Affected files*: `public/robots.txt`, `public/llms.txt`, `public/sitemap-apps.xml`
-  - *Preservation strategy*: Synchronize `robots.txt` disallows across all templates. Remove `/blogs` from `llms.txt`. Use contextual captions ("app interface") in sitemap.
-  - *Validation*: Check `robots.txt` and `llms.txt`.
-
-- **Problem 28: Rickroll Video, Dead Button, Unmounted `SafetyStatus`, Duplicate Packages**
-  - *Why needed*: Rick Astley embed looks unprofessional; dead button; `SafetyStatus` unmounted; `framer-motion` + `motion` duplicate weight.
-  - *Affected files*: `src/components/playstore/PromotionSection.tsx`, `src/AppPublic.tsx`, `package.json`
-  - *Preservation strategy*: Replace Rickroll video with a clean gameplay/app showcase embed or interactive preview. Link "Explore Selection" to `/categories`. Mount `/safety` route in `AppPublic.tsx`. Remove duplicate `motion` package.
-  - *Validation*: Verify clean UI and build size reduction.
-
-- **Problem 29: Monolithic `communityFirebase.ts` (90 KB, 2,423 lines)**
-  - *Why needed*: Bundles admin CRUD into public clients.
-  - *Affected files*: `src/lib/communityFirebase.ts`
-  - *Preservation strategy*: Isolate public functions (`getCachedLiveAppStats`, `formatReviewDate`) from admin Firestore REST methods.
-  - *Validation*: Verify smaller client chunk size.
-
-- **Problem 30: React 19 Hydration Warning Escalation**
-  - *Why needed*: React 19 throws strict warnings on minor attribute mismatches.
-  - *Affected files*: `src/main.tsx`
-  - *Preservation strategy*: Ensure SSR HTML attributes match React client component attributes exactly.
-  - *Validation*: Zero console warnings on hydration.
-
-- **Problem 31: Hardcoded Community Firebase API Key in `vite.config.ts`**
-  - *Why needed*: Plain text key committed in line 67.
-  - *Affected files*: `vite.config.ts`
-  - *Preservation strategy*: Read from `env.VITE_COMMUNITY_FIREBASE_API_KEY` or fallback to empty string.
-  - *Validation*: Grep to confirm 0 hardcoded keys.
-
----
-
-# PHASE 3: EXECUTION STRATEGY (5 SURGICAL BATCHES)
-
-To minimize risk and avoid regressions, execution proceeds in 5 strict sequential batches:
-
-### BATCH 1: Hydration, Blank White Flash & Layout Stability (Problems 1, 2, 4, 5, 6, 25)
-1. Update `src/main.tsx` to use `hydrateRoot` when `#root` contains server markup, preventing full-tree DOM destruction.
-2. Ensure public routes in `src/AppPublic.tsx` do not clear to blank white screens on mount.
-3. Remove `.ssr-seo-content { display: none !important; }` in `src/index.css`.
-4. Fix `html` font-size in `src/index.css` to stable 16px to prevent `rem` recalculation jumps.
-5. Harmonize `contain-intrinsic-size` across `src/index.css` and `AppListItems.tsx`.
-6. Restore `IntersectionObserver` in `UserReviews.tsx`.
-
-### BATCH 2: CSS, Styling & Content Rendering (Problems 7, 8, 9, 28)
-1. Define `--text-secondary` in `src/index.css` for both light and dark modes.
-2. Replace non-standard Tailwind classes across components with standard equivalents.
-3. Sanitize admin HTML in `AppAboutSection.tsx` to convert `<h1>` tags into `<h2>`.
-4. Replace placeholder Rickroll video in `PromotionSection.tsx` and wire up the action button.
-5. Mount `/safety` route for `SafetyStatus.tsx` in `AppPublic.tsx`.
-
-### BATCH 3: Security & Credential Exposure (Problems 10, 11, 12, 13, 14, 15, 16, 31)
-1. Strip hardcoded Cloudinary keys/secrets from `vite.config.ts`.
-2. Remove `ADMIN_PASSWORD` from `vite.config.ts` define block and envPrefix.
-3. Remove `KNOWN_VAULT_KEYS` array from public-facing code; rely strictly on server runtime env vars.
-4. Disable Turnstile `TEST_SECRET` fallback in production mode.
-5. Harden `firestore.rules`: remove `_rest_admin_bypass` and require auth on sensitive collections.
-6. Replace live Redis/Firebase credentials in `.env.example` with standard placeholders.
-7. Add authentication checks to Vite dev server admin endpoints.
-
-### BATCH 4: Build, Deployment & Split-Sync (Problems 17, 18, 19, 20)
-1. Update `.github/workflows/split-sync.yml` with comprehensive exclusion lists for Dex and Masterworld.
-2. Fix `scripts/build-api.js` to preserve route handlers without fragile comment slicing.
-3. Fix `vercel.json` configurations for static Dex vs full-stack Masterworld.
-4. Add missing public API route handlers and TTL map pruning to `functions/api/[[catchall]].js`.
-
-### BATCH 5: SEO, Caching, Routing & Runtime Bugs (Problems 21, 22, 23, 24, 26, 27, 29, 30)
-1. Fix `vercel.json` Cache-Control headers to permit edge caching on public routes.
-2. Add `/faq` and `/faqs` to `seoHelper.ts` and `server.ts` known routes.
-3. Prevent static pre-rendering of `/moreinfo/:slug` so bot protections always run.
-4. Fix `Meta.tsx` to set `og:site_name` to `siteTitle` instead of the full page title.
-5. Update `public/ai-catalog.json` schema and serve with `application/ai-catalog+json`.
-6. Synchronize `robots.txt`, remove `/blogs` from `llms.txt`, and refine sitemap captions.
-7. Deduplicate `framer-motion` and `motion` in `package.json`.
-
----
-
-# PHASE 4: SELF-VERIFICATION PROTOCOL
-
-After every batch, the following verification commands will be executed:
-1. **Compilation**: `compile_applet` must succeed with 0 errors.
-2. **Linting**: `lint_applet` (`tsc --noEmit`) must succeed with 0 errors.
-3. **HTTP Integrity**:
-   - `curl -s http://localhost:3000/` -> Verify instant SSR HTML, matching header buttons, and standard stylesheet link.
-   - `curl -s http://localhost:3000/faq` -> Verify 200 OK (no 404).
-   - `curl -s http://localhost:3000/app/rummy-77` -> Verify single 160px LCP preload and no double-h1 tags.
-4. **Secret Scan**: Run grep to confirm zero plain-text secrets, test tokens, or passwords remain committed.
-
----
-
-# PHASE 5: FINAL AUDIT CHECKLIST
-
-- [ ] Zero white-page flashes during client hydration.
-- [ ] CLS strictly below 0.05 on mobile viewports.
-- [ ] No `media="print"` delays on screen stylesheets.
-- [ ] No duplicate `<h1>` tags on app detail pages.
-- [ ] No plain-text API secrets, vault keys, or admin passwords in client bundles.
-- [ ] Cloudflare Turnstile strictly enforced in production without dummy secret fallback.
-- [ ] Firestore security rules protect all collections from unauthorized public writes.
-- [ ] Split-sync workflow isolates public Dex and admin Masterworld without file leakage.
-- [ ] `/faq` and `/faqs` fully accessible to search engines and users.
-- [ ] All requested instructions verified and validated.
+Before completing implementation, the rebuilt system will be verified against these strict benchmarks:
+1. **Zero Hydration Mismatch Gate**: Direct navigation to `/`, `/app/:slug`, `/news`, `/news/:slug`, and `/moreinfo/:slug` produces **0 React hydration errors or warnings**.
+2. **Payload Weight Gate**: `window.__INITIAL_DATA__` on `/news/:slug` is reduced from full-database size down to **under 25 KB**, and `staticData.json` eliminates all duplicate `mock*` arrays and strips all raw/encrypted download links.
+3. **SEO & Schema Integrity Gate**: Every page renders **exactly one `<h1>`**, matching server/client `<title>`, `<link rel="canonical">`, `og:*`, `article:*`, and unbroken JSON-LD structured data (`SoftwareApplication`, `NewsArticle`, `FAQPage`, `BreadcrumbList`).
+4. **Build & Type Safety Gate**: Clean `compile_applet` production build and zero TypeScript/lint errors via `lint_applet`.

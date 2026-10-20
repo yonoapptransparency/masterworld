@@ -8,6 +8,7 @@ export interface MetaBuilderParams {
   pageOgImage: string;
   siteTitle: string;
   targetApp?: any;
+  targetNews?: any;
   collectionItems?: any[];
   settings?: any;
   faviconIco: string;
@@ -30,6 +31,7 @@ export function buildMetaTags(params: MetaBuilderParams): string {
     pageOgImage,
     siteTitle,
     targetApp,
+    targetNews,
     collectionItems,
     settings,
     faviconIco,
@@ -45,30 +47,43 @@ export function buildMetaTags(params: MetaBuilderParams): string {
   const escapedTitle = escapeHtml(title);
   const escapedDesc = escapeHtml(description);
   const escapedKeywords = escapeHtml(keywords);
+  const resolvedSiteName = escapeHtml(siteTitle || 'RummyDex');
 
   const ogImageWidth = '1200';
   const ogImageHeight = '630';
   const ogType = pageType === 'news' ? 'article' : 'website';
 
-  // Strictly prevent Google from appending site brand (- RummyDex) by aligning application-name and og:site_name with the exact page title
-  const applicationName = escapedTitle;
-  const ogSiteName = escapedTitle;
-
   // Exact 1:1 square icon for search engine thumbnails to prevent logo mismatch in search results
   const rawTargetIcon = targetApp ? (getField(targetApp, 'icon_url') || getField(targetApp, 'og_image_url')) : '';
   const searchThumbnail = rawTargetIcon ? getOptimizedImageUrl(rawTargetIcon, 512) : pageOgImage;
+
+  const articleMetaTags = (() => {
+    if (pageType !== 'news' || !targetNews) return '';
+    const pubTime = getField(targetNews, 'published_at') || getField(targetNews, 'created_at') || getField(targetNews, 'date') || '';
+    const modTime = getField(targetNews, 'updated_at') || pubTime;
+    const author = getField(targetNews, 'ceo_name') || getField(targetNews, 'author') || 'RummyDex Editorial Team';
+    const section = getField(targetNews, 'category') || 'General';
+    const tags = Array.isArray(targetNews.tags) ? targetNews.tags : [];
+    return [
+      pubTime ? `<meta data-rh="true" property="article:published_time" content="${escapeHtml(pubTime)}">` : '',
+      modTime ? `<meta data-rh="true" property="article:modified_time" content="${escapeHtml(modTime)}">` : '',
+      author ? `<meta data-rh="true" property="article:author" content="${escapeHtml(author)}">` : '',
+      section ? `<meta data-rh="true" property="article:section" content="${escapeHtml(section)}">` : '',
+      ...tags.filter((t: any) => typeof t === 'string' && t.trim()).map((t: string) => `<meta data-rh="true" property="article:tag" content="${escapeHtml(t.trim())}">`)
+    ].filter(Boolean).join('\n    ');
+  })();
 
   return `
     <title>${escapedTitle}</title>
     <meta name="description" content="${escapedDesc}">
     ${keywords ? `<meta name="keywords" content="${escapedKeywords}">` : ''}
-    <meta data-rh="true" name="application-name" content="${applicationName}">
+    <meta data-rh="true" name="application-name" content="${resolvedSiteName}">
     <meta data-rh="true" name="color-scheme" content="light dark">
     ${(isNotFound || pageType === 'gateway')
       ? `<meta data-rh="true" name="robots" content="noindex, nofollow, noarchive, nosnippet">`
       : `<meta data-rh="true" name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">`
     }
-    <meta data-rh="true" property="og:site_name" content="${ogSiteName}">
+    <meta data-rh="true" property="og:site_name" content="${resolvedSiteName}">
     <meta data-rh="true" property="og:locale" content="en_IN">
     <meta data-rh="true" property="og:title" content="${escapedTitle}">
     <meta data-rh="true" property="og:description" content="${escapedDesc}">
@@ -79,7 +94,9 @@ export function buildMetaTags(params: MetaBuilderParams): string {
     <meta data-rh="true" property="og:image:type" content="${pageOgImage.includes('.jpg') || pageOgImage.includes('f_jpg') ? 'image/jpeg' : 'image/png'}">
     <meta data-rh="true" property="og:image:width" content="${ogImageWidth}">
     <meta data-rh="true" property="og:image:height" content="${ogImageHeight}">
+    ${articleMetaTags}
     <meta data-rh="true" name="twitter:card" content="summary_large_image">
+    <meta data-rh="true" name="twitter:url" content="${canonicalUrl}">
     <meta data-rh="true" name="twitter:title" content="${escapedTitle}">
     <meta data-rh="true" name="twitter:description" content="${escapedDesc}">
     <meta data-rh="true" name="twitter:image" content="${pageOgImage}">
@@ -97,6 +114,12 @@ export function buildMetaTags(params: MetaBuilderParams): string {
       if (targetApp && getField(targetApp, 'icon_url')) {
         return `<link rel="preload" as="image" href="${escapeHtml(getOptimizedImageUrl(getField(targetApp, 'icon_url'), 160))}" fetchpriority="high">`;
       }
+      if (pageType === 'news' && targetNews) {
+        const rawNewsHero = getField(targetNews, 'image') || getField(targetNews, 'image_url') || getField(targetNews, 'logo_url') || getField(targetNews, 'og_image_url');
+        if (rawNewsHero) {
+          return `<link rel="preload" as="image" href="${escapeHtml(getOptimizedImageUrl(rawNewsHero, 1200))}" fetchpriority="high">`;
+        }
+      }
       if (pageType === 'home' && settings && Array.isArray((settings as any).banners) && (settings as any).banners.length > 0 && (settings as any).banners[0].image) {
         return `<link rel="preload" as="image" href="${escapeHtml(getOptimizedImageUrl((settings as any).banners[0].image, 800))}" fetchpriority="high">`;
       }
@@ -111,3 +134,4 @@ export function buildMetaTags(params: MetaBuilderParams): string {
     ${jsonLdSchema}
   `;
 }
+

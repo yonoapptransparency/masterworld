@@ -1,8 +1,21 @@
 import DOMPurify from 'dompurify';
 
-function serverSanitize(html: string): string {
+function normalizeEmbeddedHtmlHygiene(html: string): string {
   if (!html || typeof html !== 'string') return '';
   return html
+    // Strip inline style="..." and legacy <font> tags to prevent dark/light theme contrast pollution
+    .replace(/\s+style\s*=\s*(["'][^"']*["']|[^\s>]+)/gi, '')
+    .replace(/<\/?font\b[^>]*>/gi, '')
+    // Convert any embedded <h1> to <h2> for strict single-H1 SEO compliance
+    .replace(/<h1(\b[^>]*)?>/gi, '<h2$1>')
+    .replace(/<\/h1>/gi, '</h2>')
+    // Automatically optimize embedded Cloudinary images inside rich HTML content
+    .replace(/(<img\b[^>]*src=["'])(https?:\/\/res\.cloudinary\.com\/[^"'\s]+\/image\/upload\/)(?!f_auto)([^"']+)(["'][^>]*>)/gi, '$1$2f_auto,q_auto,w_800/$3$4');
+}
+
+function serverSanitize(html: string): string {
+  if (!html || typeof html !== 'string') return '';
+  return normalizeEmbeddedHtmlHygiene(html)
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
     .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
     .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
@@ -29,8 +42,8 @@ export function structureHtmlFragment(rawHtml: string): string {
            .replace(/<div\b[^>]*class=["\'][^"\']*rd-news-meta[^"\']*["\'][^>]*>[\s\S]*?<\/div>/gi, '')
            .trim();
 
-  // 2. Convert <h1> tags to <h2> for strict single-H1 SEO compliance while preserving heading text and formatting
-  str = str.replace(/<h1([^>]*)>/gi, '<h2$1>').replace(/<\/h1>/gi, '</h2>');
+  // 2. Enforce content hygiene: demote embedded <h1> to <h2>, strip inline styles & <font>, optimize Cloudinary images
+  str = normalizeEmbeddedHtmlHygiene(str);
 
   // 3. Convert markdown headers if present
   str = str.replace(/(?:^|\n)\s*####\s+(.*?)(?=\n|<|$)/gi, '\n<h3>$1</h3>')

@@ -11,7 +11,9 @@ export function optimizeInitialDataForRoute(
   if (!data) return {};
 
   const isAppDetailPage = cleanPathLower.startsWith('/app/');
-  const isNewsDetailPage = cleanPathLower.startsWith('/news/');
+  const isNewsDetailPage = cleanPathLower.startsWith('/news/') && cleanPathLower !== '/news';
+  const isNewsIndexPage = cleanPathLower === '/news';
+  const isHomePage = cleanPathLower === '/' || cleanPathLower === '';
 
   const isAdminPath = cleanPathLower.startsWith('/admin') || cleanPathLower.startsWith('/masterworld') || cleanPathLower === '/login' || cleanPathLower.startsWith('/login/');
   const baseApps = Array.isArray(data.apps) ? data.apps : (Array.isArray(data.mockApps) ? data.mockApps : []);
@@ -32,14 +34,23 @@ export function optimizeInitialDataForRoute(
 
   // Optimized Apps Payload:
   // - If on an App Details page or targetApp is present: Target app has 100% full rich fields (HTML, screenshots, faqs, custom boxes).
-  // - All other apps contain structured catalog fields so Home, Categories, and Instant Search work seamlessly with 0ms latency.
+  // - If on a News Detail or News Index page: Apps carry ultra-lean 8-field cards for Related App & 16-app Similar Carousel.
+  // - All other routes contain structured catalog card fields so Home, Categories, and Instant Search work with 0ms latency.
+  // - Zero download links (more_information_url / encrypted_link) are ever exposed in window.__INITIAL_DATA__.
   const optimizedApps = baseApps.map((app: any) => {
-    if (!app) return null;
+    if (!app || app.sync_to_public === false) return null;
     const s = (getField(app, 'slug') || '').toLowerCase().trim();
     const id = String(getField(app, 'id') || '').toLowerCase().trim();
     const isTarget = Boolean(targetApp) && (
       (targetAppSlug && (s === targetAppSlug || id === targetAppSlug)) ||
       (targetAppId && (id === targetAppId || s === targetAppId))
+    );
+    const hasSecureLink = Boolean(
+      app.has_secure_link ||
+      app.link_configured ||
+      app.more_information_url ||
+      app.encrypted_link ||
+      app.download_url
     );
 
     if (isTarget) {
@@ -81,7 +92,24 @@ export function optimizeInitialDataForRoute(
         top_chart_category: app.top_chart_category || '',
         publish_date: app.publish_date || '',
         updated_at: app.updated_at || '',
-        created_at: app.created_at || ''
+        created_at: app.created_at || '',
+        has_secure_link: hasSecureLink,
+        link_configured: hasSecureLink
+      };
+    }
+
+    if (isNewsDetailPage || isNewsIndexPage) {
+      return {
+        id: app.id,
+        name: app.name,
+        slug: app.slug,
+        icon_url: app.icon_url || '',
+        category: app.category || '',
+        rating: Number(app.rating) || 4.5,
+        serial_number: app.serial_number !== undefined ? Number(app.serial_number) : 0,
+        is_new: Boolean(app.is_new),
+        is_hot: Boolean(app.is_hot),
+        has_secure_link: hasSecureLink
       };
     }
 
@@ -109,62 +137,111 @@ export function optimizeInitialDataForRoute(
       short_description: typeof app.short_description === 'string' ? app.short_description.slice(0, 150) : '',
       seo_title: app.seo_title || '',
       seo_description: app.seo_description || '',
-      canonical_url: app.canonical_url || ''
+      canonical_url: app.canonical_url || '',
+      has_secure_link: hasSecureLink,
+      link_configured: hasSecureLink
     };
   }).filter(Boolean);
 
-  // Optimized News: Include news when on news routes or home page
-  const rawNews = Array.isArray(data.news) ? data.news : (Array.isArray(data.mockNews) ? data.mockNews : []);
-  let optimizedNews: any[] = [];
-  if (isNewsDetailPage || cleanPathLower.startsWith('/news') || cleanPathLower === '/' || cleanPathLower === '') {
-    optimizedNews = rawNews
-      .filter((item: any) => item && item.sync_to_public !== false)
-      .map((item: any) => {
-        const itemSlug = (item.slug || item.id || '').toLowerCase().trim();
-        const itemId = String(item.id || '').toLowerCase().trim();
-        const isTargetNewsArticle = Boolean(targetNews) && (
-          (targetNewsSlug && (itemSlug === targetNewsSlug || itemId === targetNewsSlug)) ||
-          (item.slug && targetNewsSlug && item.slug.toLowerCase().trim() === targetNewsSlug)
-        );
+  // Optimized News:
+  // - On /news/:slug (News Detail): Send ONLY the 1 active target news article with full rich content!
+  // - On /news (News Index): Send card summaries for all articles (stripping heavy HTML content bodies).
+  // - On / (Home): Send top 8 news card summaries (stripping heavy HTML content bodies).
+  // - On /app/:slug: Send only lightweight stubs matching targetApp for relatedNewsCount.
+  const rawNews = (Array.isArray(data.news) ? data.news : (Array.isArray(data.mockNews) ? data.mockNews : []))
+    .filter((item: any) => item && item.sync_to_public !== false);
 
-        return {
-          id: item.id,
-          slug: item.slug,
-          title: item.title,
-          logo_url: item.logo_url || item.image_url || '',
-          image_url: item.image_url || item.logo_url || '',
-          description: item.description || '',
-          content: item.content || item.description_html || item.description || '',
-          description_html: item.description_html || item.content || item.description || '',
-          ceo_name: item.ceo_name || item.author || 'Admin Team',
-          ceo_description: item.ceo_description || 'Transparency & Security Analyst',
-          author: item.author || item.ceo_name || 'Admin Team',
-          category: item.category || 'General',
-          published_at: item.published_at || item.created_at || item.date || '',
-          date: item.date || item.published_at || item.created_at || '',
-          read_time: item.read_time || '3 min read',
-          is_breaking: Boolean(item.is_breaking),
-          is_new: Boolean(item.is_new),
-          is_pinned: Boolean(item.is_pinned),
-          seo_title: item.seo_title || '',
-          seo_description: item.seo_description || '',
-          seo_keywords: item.seo_keywords || '',
-          og_image_url: item.og_image_url || '',
-          canonical_url: item.canonical_url || '',
-          target_region: item.target_region || 'India',
-          link: item.link || '',
-          tags: Array.isArray(item.tags) ? item.tags : [],
-          related_app_id: item.related_app_id || '',
-          created_at: item.created_at || item.date || '',
-          updated_at: item.updated_at || item.date || ''
-        };
-      });
+  let optimizedNews: any[] = [];
+  if (isNewsDetailPage) {
+    const matchedNews = rawNews.filter((item: any) => {
+      const itemSlug = (item.slug || item.id || '').toLowerCase().trim();
+      const itemId = String(item.id || '').toLowerCase().trim();
+      return Boolean(targetNewsSlug) && (itemSlug === targetNewsSlug || itemId === targetNewsSlug);
+    });
+    const sourceList = matchedNews.length > 0 ? matchedNews : (targetNews ? [targetNews] : []);
+    optimizedNews = sourceList.map((item: any) => ({
+      id: item.id,
+      slug: item.slug,
+      title: item.title,
+      logo_url: item.logo_url || item.image_url || '',
+      image_url: item.image_url || item.logo_url || '',
+      description: item.description || '',
+      content: item.content || item.description_html || item.description || '',
+      description_html: item.description_html || item.content || item.description || '',
+      ceo_name: item.ceo_name || item.author || 'Admin Team',
+      ceo_description: item.ceo_description || 'Transparency & Security Analyst',
+      author: item.author || item.ceo_name || 'Admin Team',
+      category: item.category || 'General',
+      published_at: item.published_at || item.created_at || item.date || '',
+      date: item.date || item.published_at || item.created_at || '',
+      read_time: item.read_time || '3 min read',
+      is_breaking: Boolean(item.is_breaking),
+      is_new: Boolean(item.is_new),
+      is_pinned: Boolean(item.is_pinned),
+      seo_title: item.seo_title || '',
+      seo_description: item.seo_description || '',
+      seo_keywords: item.seo_keywords || '',
+      og_image_url: item.og_image_url || '',
+      canonical_url: item.canonical_url || '',
+      target_region: item.target_region || 'India',
+      link: item.link || '',
+      tags: Array.isArray(item.tags) ? item.tags : [],
+      related_app_id: item.related_app_id || '',
+      created_at: item.created_at || item.date || '',
+      updated_at: item.updated_at || item.date || ''
+    }));
+  } else if (isNewsIndexPage || isHomePage) {
+    const sliceLimit = isHomePage ? 8 : rawNews.length;
+    optimizedNews = rawNews.slice(0, sliceLimit).map((item: any) => ({
+      id: item.id,
+      slug: item.slug,
+      title: item.title,
+      logo_url: item.logo_url || item.image_url || '',
+      image_url: item.image_url || item.logo_url || '',
+      description: item.description || '',
+      content: '',
+      description_html: '',
+      ceo_name: item.ceo_name || item.author || 'Admin Team',
+      author: item.author || item.ceo_name || 'Admin Team',
+      category: item.category || 'General',
+      published_at: item.published_at || item.created_at || item.date || '',
+      date: item.date || item.published_at || item.created_at || '',
+      read_time: item.read_time || '3 min read',
+      is_breaking: Boolean(item.is_breaking),
+      is_new: Boolean(item.is_new),
+      is_pinned: Boolean(item.is_pinned),
+      link: item.link || '',
+      tags: Array.isArray(item.tags) ? item.tags : [],
+      related_app_id: item.related_app_id || '',
+      created_at: item.created_at || item.date || '',
+      updated_at: item.updated_at || item.date || ''
+    }));
+  } else if (isAppDetailPage && targetApp) {
+    const appNameLower = String(getField(targetApp, 'name') || '').toLowerCase().trim();
+    const appIdStr = String(getField(targetApp, 'id') || '');
+    optimizedNews = rawNews
+      .filter((n: any) => {
+        if (appIdStr && n.related_app_id === appIdStr) return true;
+        if (!appNameLower) return false;
+        return (
+          n.title?.toLowerCase().includes(appNameLower) ||
+          n.description?.toLowerCase().includes(appNameLower) ||
+          (Array.isArray(n.tags) && n.tags.some((t: string) => String(t).toLowerCase() === appNameLower))
+        );
+      })
+      .map((item: any) => ({
+        id: item.id,
+        slug: item.slug,
+        title: item.title,
+        related_app_id: item.related_app_id || '',
+        tags: Array.isArray(item.tags) ? item.tags : []
+      }));
   }
 
   // Optimized Videos: Only include when on video pages or home page
   const rawVideos = Array.isArray(data.videos) ? data.videos : (Array.isArray(data.mockVideos) ? data.mockVideos : []);
   let optimizedVideos: any[] = [];
-  if (cleanPathLower.startsWith('/video') || cleanPathLower === '/' || cleanPathLower === '') {
+  if (cleanPathLower.startsWith('/video') || isHomePage) {
     optimizedVideos = rawVideos.map((item: any) => {
       if (!item) return null;
       return {
@@ -192,7 +269,7 @@ export function optimizeInitialDataForRoute(
     'hero_title_subtitle', 'hero_title_color', 'hero_title_animation', 'hero_title_visible',
     'hero_title_style', 'portal_heading', 'secure_index_title', 'secure_index_subtitle',
     'trending_searches', 'ticker_text', 'support_email', 'last_updated', 'animations_enabled',
-    'banners', 'quick_links', 'turnstile_site_key'
+    'banners', 'quick_links', 'turnstile_site_key', 'helpline_whatsapp', 'helpline_telegram'
   ];
 
   const routeSpecificKeys: string[] = [];
@@ -206,7 +283,7 @@ export function optimizeInitialDataForRoute(
   if (cleanPathLower.startsWith('/ethics')) routeSpecificKeys.push('ethics_meta_title', 'ethics_meta_description', 'ethics_discrimination_text', 'ethics_heading');
   if (cleanPathLower.startsWith('/disclaimer')) routeSpecificKeys.push('disclaimer_meta_title', 'disclaimer_meta_description', 'disclaimer_text', 'disclaimer_heading');
   if (cleanPathLower.startsWith('/developers')) routeSpecificKeys.push('developers_meta_title', 'developers_meta_description', 'developers');
-  if (cleanPathLower.startsWith('/faq')) routeSpecificKeys.push('website_faqs');
+  if (cleanPathLower.startsWith('/faq')) routeSpecificKeys.push('website_faqs', 'faq_meta_title', 'faq_meta_description');
   if (cleanPathLower.startsWith('/news')) routeSpecificKeys.push('news_meta_title', 'news_meta_description');
   if (cleanPathLower.startsWith('/video')) routeSpecificKeys.push('videos_meta_title', 'videos_meta_description');
 
@@ -229,14 +306,13 @@ export function optimizeInitialDataForRoute(
     appReviewsData = {
       appId: targetAppId,
       appSlug: targetAppSlug,
-      reviews: revList,
+      reviews: revList.slice(0, 5),
       stats: seoReviewsFeed.stats || null,
-      hasMore: totalCount > revList.length && revList.length >= 10
+      hasMore: totalCount > 5
     };
   }
 
   return {
-    ...data,
     apps: optimizedApps,
     news: optimizedNews,
     videos: optimizedVideos,
@@ -244,3 +320,4 @@ export function optimizeInitialDataForRoute(
     ...(appReviewsData ? { appReviews: appReviewsData } : {})
   };
 }
+

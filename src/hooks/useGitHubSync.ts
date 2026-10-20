@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db, isFirebaseReal, handleFirestoreError, OperationType } from '../lib/firebase';
 import { adminFetch, getValidAdminToken, loadSession } from '../services/adminAuthService';
-import { GitConfig, generateStaticDataFileCode, generateCommunityReviewsFileCode, commitFileToGitHub, commitMultiFilesToGitHub, encryptUrlIfNeeded } from '../lib/githubSync';
+import { GitConfig, generateStaticDataFileCode, generateCommunityReviewsFileCode, commitFileToGitHub, commitMultiFilesToGitHub, encryptUrlIfNeeded, compileCanonicalApp, compileCanonicalNews } from '../lib/githubSync';
 import { getAesSecret, safeDecrypt, safeEncrypt } from '../lib/cryptoUtils';
 import { generateSecureVaultFile } from '../lib/secureVault';
 import { generateAllSitemaps } from '../lib/sitemapGenerator';
@@ -150,7 +150,6 @@ export function useGitHubSync(
           const { doc, setDoc } = await import('firebase/firestore');
           const payload = {
             ...newConfig,
-            _rest_admin_bypass: 'aistudio_preview_bypass_key',
             updatedAt: new Date().toISOString()
           };
           await setDoc(doc(db, 'sec_git', 'cfg'), payload, { merge: true });
@@ -620,7 +619,9 @@ export function useGitHubSync(
 
     // Filter apps and news based on sync_to_public status (default is true for live public)
     const publicApps = finalApps.filter((app: any) => app.sync_to_public !== false);
-    const publicNews = targetNews.filter((item: any) => item.sync_to_public !== false);
+    const publicNews = targetNews
+      .filter((item: any) => item.sync_to_public !== false)
+      .map((item: any) => compileCanonicalNews(item));
     const unpushedAppsCount = finalApps.length - publicApps.length;
     const unpushedNewsCount = targetNews.length - publicNews.length;
 
@@ -631,28 +632,10 @@ export function useGitHubSync(
     const finalSettings = ensureDefaultSettings(targetSettings);
     const updatedCode = generateStaticDataFileCode(publicApps, finalSettings, publicNews, targetVideos);
 
-    const safeBackupApps = JSON.parse(JSON.stringify(publicApps)).map((app: any) => {
-      const rawTarget = app.more_information_url || app.download_url || app.encrypted_link || app.encrypted_download_url || '';
-      
-      // Clean out dummy com.rummydex / com.example URLs from url field
-      if (app.url && (app.url.includes('com.rummydex') || app.url.includes('com.example'))) {
-        app.url = '';
-      }
-
-      const encryptedTarget = encryptUrlIfNeeded(rawTarget);
-      
-      if (encryptedTarget) {
-        app.more_information_url = encryptedTarget;
-        app.encrypted_link = encryptedTarget;
-      } else {
-        delete app.more_information_url;
-        delete app.encrypted_link;
-      }
-      
-      delete app.encrypted_download_url;
-      delete app.download_url;
-      return app;
-    });
+    // Server backup retains AES-encrypted link fields for backend resolution
+    const safeBackupApps = publicApps.map((app: any) => compileCanonicalApp(app, { stripDownloadLinks: false }));
+    // Public static bundle strips all download URLs completely (Zero-Leak Link Security)
+    const cleanPublicStaticApps = publicApps.map((app: any) => compileCanonicalApp(app, { stripDownloadLinks: true }));
 
     // Fallback: If reviews payload is empty, load from existing communityStaticReviews without artificial limits
     if (!communityReviewsPayload || Object.keys(communityReviewsPayload).length === 0) {
@@ -669,20 +652,24 @@ export function useGitHubSync(
       } catch (_) {}
     }
 
-    const consolidatedStaticPayload = {
+    const consolidatedBackupPayload = {
       apps: safeBackupApps,
-      mockApps: safeBackupApps,
       settings: finalSettings,
-      mockSettings: finalSettings,
       news: publicNews,
-      mockNews: publicNews,
       videos: targetVideos,
-      mockVideos: targetVideos,
       reviews: []
     };
 
-    // Compact minified JSON encoding to reduce sync payload by 65%+
-    const backupJsonCode = JSON.stringify(consolidatedStaticPayload);
+    const consolidatedStaticPayload = {
+      apps: cleanPublicStaticApps,
+      settings: finalSettings,
+      news: publicNews,
+      videos: targetVideos,
+      reviews: []
+    };
+
+    // Compact minified JSON encoding with zero duplicate mock* keys (50%+ smaller payload)
+    const backupJsonCode = JSON.stringify(consolidatedBackupPayload);
     const staticJsonCode = JSON.stringify(consolidatedStaticPayload);
     const catalogStatsCode = JSON.stringify(communityStatsPayload || { appCounts: {}, totalReviews: 0 });
     const staticReviewsCode = JSON.stringify(communityReviewsPayload);

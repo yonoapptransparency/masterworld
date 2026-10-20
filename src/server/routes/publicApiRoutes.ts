@@ -2,8 +2,90 @@ import { Router } from 'express';
 import staticData from '../../lib/staticData.json';
 import { fetchStoreData } from '../../seoHelper';
 import { resolveAppSlug } from '../../lib/slugResolver';
+import { formatNewsDate, calculateReadingTime, getPlainTextSnippet } from '../../components/public/news/newsUtils';
 
 export const publicApiRouter = Router();
+
+function sanitizeAppForPublicClient(app: any, keepRichDetails: boolean): any {
+  if (!app) return app;
+  const hasSecureLink = Boolean(
+    app.has_secure_link ||
+    app.more_information_url ||
+    app.download_url ||
+    app.encrypted_link ||
+    app.encrypted_download_url ||
+    (app.url && !String(app.url).includes('com.rummydex') && !String(app.url).includes('com.example'))
+  );
+
+  if (keepRichDetails) {
+    const copy = { ...app, has_secure_link: hasSecureLink };
+    delete copy.more_information_url;
+    delete copy.download_url;
+    delete copy.encrypted_link;
+    delete copy.encrypted_download_url;
+    if (copy.url && (String(copy.url).includes('com.rummydex') || String(copy.url).includes('com.example'))) {
+      copy.url = '';
+    }
+    return copy;
+  }
+
+  return {
+    id: app.id,
+    name: app.name,
+    slug: app.slug,
+    category: app.category,
+    icon_url: app.icon_url,
+    rating: app.rating,
+    reviews: app.reviews,
+    review_count: app.review_count,
+    downloads: app.downloads,
+    size: app.size,
+    version: app.version,
+    developer: app.developer,
+    safety_status: app.safety_status,
+    is_hot: app.is_hot,
+    is_new: app.is_new,
+    is_coming_soon: app.is_coming_soon,
+    publish_date: app.publish_date,
+    serial_number: app.serial_number,
+    short_description: app.short_description,
+    meta_title: app.meta_title,
+    meta_description: app.meta_description,
+    seo_title: app.seo_title,
+    seo_description: app.seo_description,
+    canonical_url: app.canonical_url,
+    has_secure_link: hasSecureLink
+  };
+}
+
+function sanitizeNewsCardForPublicList(n: any): any {
+  if (!n) return n;
+  const rawBody = n.content || n.description_html || n.description || '';
+  const excerpt = n.excerpt || n.seo_description || n.description || getPlainTextSnippet(rawBody, 160);
+  const dateRaw = n.published_at || n.created_at || n.date || '';
+  return {
+    id: n.id,
+    slug: n.slug,
+    title: n.title,
+    seo_title: n.seo_title,
+    description: excerpt,
+    excerpt,
+    seo_description: n.seo_description || excerpt,
+    category: n.category,
+    logo_url: n.logo_url,
+    image_url: n.image_url,
+    og_image_url: n.og_image_url,
+    published_at: n.published_at,
+    created_at: n.created_at,
+    updated_at: n.updated_at,
+    date: n.date,
+    formatted_date: n.formatted_date || formatNewsDate(dateRaw),
+    reading_time: n.reading_time || calculateReadingTime(rawBody),
+    is_pinned: n.is_pinned,
+    related_app_id: n.related_app_id,
+    link: n.link
+  };
+}
 
 publicApiRouter.get('/api/v1/public/app/:slug', async (req, res) => {
   const slugParam = req.params.slug;
@@ -19,7 +101,7 @@ publicApiRouter.get('/api/v1/public/app/:slug', async (req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800');
     res.setHeader('CDN-Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
     res.setHeader('Cloudflare-CDN-Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
-    return res.json({ status: 'OK', app });
+    return res.json({ status: 'OK', app: sanitizeAppForPublicClient(app, true) });
   }
 
   res.status(404).json({ status: 'NOT_FOUND', error: 'App not found' });
@@ -27,7 +109,8 @@ publicApiRouter.get('/api/v1/public/app/:slug', async (req, res) => {
 
 publicApiRouter.get('/api/v1/public/news', async (req, res) => {
   const data = await fetchStoreData();
-  const news = data?.news || (staticData as any)?.news || [];
+  const rawNews = data?.news || (staticData as any)?.news || [];
+  const news = Array.isArray(rawNews) ? rawNews.map(sanitizeNewsCardForPublicList) : [];
   res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=600, stale-while-revalidate=86400');
   res.json({ status: 'OK', news });
 });
@@ -85,13 +168,15 @@ publicApiRouter.get('/api/v1/public/faqs', async (req, res) => {
 publicApiRouter.get('/api/v1/public/backup-data', async (req, res) => {
   try {
     const data = await fetchStoreData();
+    const rawApps = data?.apps || (staticData as any)?.apps || (staticData as any)?.mockApps || [];
+    const rawNews = data?.news || (staticData as any)?.news || (staticData as any)?.mockNews || [];
     res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
     return res.json({
-      apps: data?.apps || (staticData as any)?.apps || (staticData as any)?.mockApps || [],
+      apps: Array.isArray(rawApps) ? rawApps.map((a: any) => sanitizeAppForPublicClient(a, false)) : [],
       settings: data?.settings || (staticData as any)?.settings || (staticData as any)?.mockSettings || {},
-      news: data?.news || (staticData as any)?.news || (staticData as any)?.mockNews || [],
+      news: Array.isArray(rawNews) ? rawNews.map(sanitizeNewsCardForPublicList) : [],
       videos: data?.videos || (staticData as any)?.videos || (staticData as any)?.mockVideos || [],
-      reviews: data?.reviews || []
+      reviews: []
     });
   } catch (err) {
     res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300');

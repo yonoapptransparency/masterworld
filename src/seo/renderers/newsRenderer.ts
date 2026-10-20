@@ -1,5 +1,6 @@
 import { getField, optimizeImageUrl } from '../utils';
 import { escapeHtml, sanitizeHtml } from './common';
+import { formatNewsDate, calculateReadingTime } from '../../components/public/news/newsUtils';
 
 export function renderNewsList(news: any[], _settings: any): string {
   let cards = '';
@@ -7,13 +8,14 @@ export function renderNewsList(news: any[], _settings: any): string {
     const title = getField(n, 'title');
     const logo = getField(n, 'logo_url');
     const optimizedLogo = logo ? optimizeImageUrl(logo, 300) : '';
+    const dateLabel = formatNewsDate(getField(n, 'date'), getField(n, 'published_at'), getField(n, 'created_at'));
 
     cards += `
       <a href="/news/${encodeURIComponent(getField(n, 'slug'))}" class="flex flex-col sm:flex-row gap-4 p-6 bg-white dark:bg-zinc-900 border border-black/5 hover:border-blue-500/25 rounded-3xl transition text-left no-underline" aria-label="Read full news article: ${escapeHtml(title)}">
         ${logo ? `<div class="w-full sm:w-48 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 flex items-center justify-center overflow-hidden shrink-0 border border-black/5 p-2"><img src="${escapeHtml(optimizedLogo)}" loading="lazy" decoding="async" class="max-w-full max-h-32 object-contain rounded-lg" alt="${escapeHtml(title)} news cover banner"/></div>` : ''}
         <div class="flex-1">
           <span class="text-[10px] font-bold text-blue-500 uppercase">${escapeHtml(getField(n, 'category') || 'Report')}</span>
-          <span class="text-[10px] font-bold text-zinc-400 uppercase ml-2">${escapeHtml(getField(n, 'created_at') || 'May 2026')}</span>
+          <span class="text-[10px] font-bold text-zinc-400 uppercase ml-2">${escapeHtml(dateLabel)}</span>
           <h3 class="text-xl font-bold mt-1 mb-2 text-zinc-900 dark:text-white leading-snug">${escapeHtml(title)}</h3>
           <p class="text-sm text-zinc-500 max-w-3xl line-clamp-2 leading-relaxed">${escapeHtml(getField(n, 'description'))}</p>
           <span class="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 mt-3">Read Full Article: ${escapeHtml(title)} →</span>
@@ -40,22 +42,14 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
   if (!item) return `<div class="py-12 text-center"><h1 class="text-2xl font-bold mb-4 text-zinc-900 dark:text-zinc-100">News Article Not Found</h1><p class="text-sm text-zinc-500 mb-6">The requested news publication could not be located.</p><a href="/news" class="px-5 py-2.5 bg-blue-600 text-white rounded-xl font-semibold text-sm hover:underline">View All News</a></div>`;
   
   const title = getField(item, 'title');
-  const dateStr = getField(item, 'published_at') || getField(item, 'created_at') || getField(item, 'date') || 'Recent';
-  let formattedDate = 'Recent';
-  try {
-    const parsed = new Date(dateStr);
-    if (!isNaN(parsed.getTime())) {
-      formattedDate = parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    }
-  } catch (_) {}
+  const formattedDate = formatNewsDate(getField(item, 'date'), getField(item, 'published_at'), getField(item, 'created_at'));
 
   const author = getField(item, 'ceo_name') || getField(item, 'author') || 'RummyDex Editorial Team';
   const cat = getField(item, 'category', 'General');
   const description = getField(item, 'description', '');
 
-  // Calculate estimated reading time
-  const rawWords = (getField(item, 'content') || description || '').split(/\s+/).length;
-  const readingTime = `${Math.max(1, Math.ceil(rawWords / 200))} min read`;
+  // Calculate estimated reading time identically on SSR and client
+  const readingTime = calculateReadingTime(getField(item, 'content') || getField(item, 'description_html') || description);
 
   // Find related app only if explicitly linked by related_app_id or link
   let relatedApp: any = null;
@@ -267,7 +261,7 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
 
       ${logo ? `
         <div class="w-full aspect-video max-h-[420px] overflow-hidden mb-5 sm:mb-6 rounded-2xl bg-zinc-100 dark:bg-zinc-800/80 border border-black/5 dark:border-white/5 relative">
-          <img src="${escapeHtml(optimizedLogo)}" alt="${escapeHtml(title)}" loading="eager" fetchpriority="high" decoding="async" class="w-full h-full object-cover block rounded-2xl" />
+          <img src="${escapeHtml(optimizedLogo)}" alt="${escapeHtml(title)}" width="1200" height="675" loading="eager" fetchpriority="high" decoding="async" class="w-full h-full object-cover block rounded-2xl" />
         </div>
       ` : ''}
 

@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { safeEncrypt, safeDecrypt, getAesSecret } from '../../lib/secureVault';
 import { fetchStoreData, clearSeoCache } from '../../seoHelper';
+import { compileCanonicalApp, compileCanonicalNews } from '../../lib/githubSync';
 
 export const adminVaultRouter = Router();
 
@@ -48,13 +49,33 @@ function getMergedData() {
 }
 
 function writeMergedData(data: any) {
+  const canonicalNews = Array.isArray(data.news)
+    ? data.news.map((item: any) => compileCanonicalNews(item))
+    : [];
+
+  const serverBackupPayload = {
+    apps: Array.isArray(data.apps) ? data.apps.map((app: any) => compileCanonicalApp(app, { stripDownloadLinks: false })) : [],
+    settings: data.settings || {},
+    news: canonicalNews,
+    videos: Array.isArray(data.videos) ? data.videos : [],
+    reviews: Array.isArray(data.reviews) ? data.reviews : []
+  };
+
+  const publicStaticPayload = {
+    apps: Array.isArray(data.apps) ? data.apps.map((app: any) => compileCanonicalApp(app, { stripDownloadLinks: true })) : [],
+    settings: data.settings || {},
+    news: canonicalNews,
+    videos: Array.isArray(data.videos) ? data.videos : [],
+    reviews: Array.isArray(data.reviews) ? data.reviews : []
+  };
+
   try {
-    fs.writeFileSync(publicBackupPath, JSON.stringify(data, null, 2), 'utf8');
+    fs.writeFileSync(publicBackupPath, JSON.stringify(serverBackupPayload), 'utf8');
   } catch (e) {
     console.error('[adminVaultRoutes] Failed to write public_backup.json:', e);
   }
   try {
-    fs.writeFileSync(staticJsonPath, JSON.stringify(data, null, 2), 'utf8');
+    fs.writeFileSync(staticJsonPath, JSON.stringify(publicStaticPayload), 'utf8');
   } catch (e) {
     console.error('[adminVaultRoutes] Failed to write staticData.json:', e);
   }

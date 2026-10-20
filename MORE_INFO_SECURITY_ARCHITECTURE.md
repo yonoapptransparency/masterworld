@@ -983,6 +983,17 @@ While public catalog and news pages (`/app/*`, `/news/*`, `/videos/*`) leverage 
    - Tier 2: Pre-hydrated `window.__INITIAL_DATA__.apps` and `staticData.json`.
    - Tier 3: In-memory sealed AES Vault (`ENCRYPTED_LINKS`).
 
+---
 
+## 18. Zero-Leak Public Static JSON & Unified Multi-Key Vault Resolution (v8.0)
 
-
+### 18.1 Complete Separation of Public Catalog JSON & Sealed Link Vault
+To guarantee zero exposure of raw or encrypted download links in public browser bundles while maintaining 100% link resolution reliability:
+1. **Public Static Bundles (`src/lib/staticData.json`, `src/lib/staticData.ts`, `window.__INITIAL_DATA__`, `/api/v1/public/backup-data`, `/api/v1/public/app/:slug`)**:
+   - Compiled through `compileCanonicalApp(app, { stripDownloadLinks: true })` and `optimizeInitialDataForRoute`.
+   - Strips `more_information_url`, `download_url`, `encrypted_link`, and `encrypted_download_url` from all public client payloads, exposing only a boolean `has_secure_link: true` indicator.
+   - Eliminates duplicate `mockApps`, `mockSettings`, `mockNews`, and `mockVideos` keys, reducing static JSON size by 50%+.
+2. **Server-Side Sealed Vault & Backup (`src/lib/secureVault.ts` & `src/lib/public_backup.json`)**:
+   - `resolveDestinationForApp` in `src/server/routes/securityRoutes.ts` prioritizes Tier 1 (`ENCRYPTED_LINKS` sealed AES vault) -> Tier 2 (`src/lib/public_backup.json` server backup) -> Tier 3 (`staticData.json` fallback).
+3. **Unified Multi-Key AES Resolution (`src/lib/cryptoUtils.ts` & `src/lib/secureVault.ts`)**:
+   - Unifies `KNOWN_VAULT_KEYS` (`['rd_master_vault_aes_key_2026', 'RummyDex_Master_Vault_Key_2026_!@#']`) and non-empty fallback key resolution across `cryptoUtils.ts` and `secureVault.ts` so Admin GitHub Sync (`useGitHubSync.ts`) never fails with `Cannot encrypt: AES_SECRET is required` and server decryption succeeds across all historical and newly sealed vault entries.

@@ -1,4 +1,5 @@
 import { getField, optimizeImageUrl } from '../utils';
+import { structureHtmlFragment } from '../../lib/safeHtmlPublic';
 
 export function escapeHtml(unsafe: string): string {
   if (!unsafe) return '';
@@ -12,7 +13,8 @@ export function escapeHtml(unsafe: string): string {
 
 export function sanitizeHtml(html: string): string {
   if (!html) return '';
-  let clean = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+  let clean = structureHtmlFragment(html);
+  clean = clean.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
   clean = clean.replace(/\s+on\w+\s*=\s*(['"][^'"]*['"]|[^>\s]+)/gi, '');
   clean = clean.replace(/href\s*=\s*['"]\s*javascript:[^'"]*['"]/gi, 'href="#"');
   clean = clean.replace(/<(iframe|object|embed|form|meta|link|style)\b[^>]*>([\s\S]*?)<\/\1>/gi, '');

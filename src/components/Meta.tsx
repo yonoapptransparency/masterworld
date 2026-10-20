@@ -240,17 +240,32 @@ const Meta: React.FC<MetaProps> = ({
 
     // Only update schema scripts when new schemas are explicitly provided
     if (schemasToInject.length > 0) {
-      // Clear previous schemas so stale schemas never persist across SPA route changes
-      const allSchemaScripts = document.head.querySelectorAll('script[type="application/ld+json"]');
-      allSchemaScripts.forEach((s) => s.remove());
+      const existingServerSchemas = document.head.querySelectorAll('script[type="application/ld+json"][data-rh="true"]');
+      const hasDynamicSchemas = document.head.querySelectorAll('script[type="application/ld+json"][data-dynamic-schema="true"]').length > 0;
 
-      schemasToInject.forEach((s) => {
-        const script = document.createElement('script');
-        script.type = 'application/ld+json';
-        script.setAttribute('data-dynamic-schema', 'true');
-        script.textContent = JSON.stringify(s);
-        document.head.appendChild(script);
-      });
+      // Non-destructive initial hydration check:
+      // If server pre-rendered schemas (data-rh="true") are present, no SPA transition has occurred yet,
+      // and the server schema already contains the exact canonical URL for this route, keep the server's rich JSON-LD intact.
+      let keepServerSchemas = false;
+      if (existingServerSchemas.length > 0 && !hasDynamicSchemas) {
+        const combinedServerJson = Array.from(existingServerSchemas).map(s => s.textContent || '').join(' ');
+        if (combinedServerJson.includes(canonicalUrl)) {
+          keepServerSchemas = true;
+        }
+      }
+
+      if (!keepServerSchemas) {
+        const allSchemaScripts = document.head.querySelectorAll('script[type="application/ld+json"]');
+        allSchemaScripts.forEach((s) => s.remove());
+
+        schemasToInject.forEach((s) => {
+          const script = document.createElement('script');
+          script.type = 'application/ld+json';
+          script.setAttribute('data-dynamic-schema', 'true');
+          script.textContent = JSON.stringify(s);
+          document.head.appendChild(script);
+        });
+      }
     }
   }, [
     fullTitle, 

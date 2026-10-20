@@ -1,20 +1,32 @@
 import CryptoJS from "crypto-js";
 
-export const KNOWN_VAULT_KEYS: string[] = [];
-export const DEFAULT_MASTER_AES_KEY = 'rd_master_vault_aes_key_2026';
+export const DEFAULT_MASTER_AES_KEY = 'RummyDex_Master_Vault_Key_2026_!@#';
+export const KNOWN_VAULT_KEYS: string[] = [
+  'RummyDex_Master_Vault_Key_2026_!@#',
+  'rd_master_vault_aes_key_2026'
+];
 
 export function getFallbackAes(): string {
-  return (typeof process !== "undefined" && process.env && process.env.AES_SECRET)
-    ? process.env.AES_SECRET
-    : (typeof window !== "undefined" && (window as any).AES_SECRET_GLOBAL)
-    ? (window as any).AES_SECRET_GLOBAL
-    : DEFAULT_MASTER_AES_KEY;
+  if (typeof process !== "undefined" && process.env && process.env.AES_SECRET && process.env.AES_SECRET.trim() !== '') {
+    return process.env.AES_SECRET.trim();
+  }
+  try {
+    if (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_AES_SECRET) {
+      const vKey = String((import.meta as any).env.VITE_AES_SECRET).trim();
+      if (vKey) return vKey;
+    }
+  } catch (_) {}
+  if (typeof window !== "undefined" && (window as any).AES_SECRET_GLOBAL) {
+    return String((window as any).AES_SECRET_GLOBAL).trim();
+  }
+  return DEFAULT_MASTER_AES_KEY;
 }
 
 export function getAesSecret(): string {
-  return (typeof process !== "undefined" && process.env && process.env.AES_SECRET)
-    ? process.env.AES_SECRET
-    : (globalThis as any).AES_SECRET_GLOBAL || getFallbackAes();
+  if (typeof process !== "undefined" && process.env && process.env.AES_SECRET && process.env.AES_SECRET.trim() !== '') {
+    return process.env.AES_SECRET.trim();
+  }
+  return (globalThis as any).AES_SECRET_GLOBAL || getFallbackAes();
 }
 
 export function safeDecrypt(ciphertext: string, secret?: string): string {
@@ -33,9 +45,9 @@ export function safeDecrypt(ciphertext: string, secret?: string): string {
     secret, 
     (typeof process !== "undefined" ? process.env.AES_SECRET : undefined), 
     globalSecret, 
-    ...KNOWN_VAULT_KEYS,
     fallback,
-    DEFAULT_MASTER_AES_KEY
+    DEFAULT_MASTER_AES_KEY,
+    ...KNOWN_VAULT_KEYS
   ].filter(Boolean) as string[];
   const uniqueKeys = Array.from(new Set(keys));
   for (const key of uniqueKeys) {
@@ -56,9 +68,6 @@ export function safeEncrypt(text: string, secret?: string): string {
   if (text.startsWith('U2FsdGVkX1')) return text; // Prevent double encryption
 
   const encKey = (secret && secret.trim()) || getAesSecret() || DEFAULT_MASTER_AES_KEY;
-  if (!encKey || encKey.trim() === '') {
-    throw new Error('Cannot encrypt: AES_SECRET is required');
-  }
   return CryptoJS.AES.encrypt(text, encKey).toString();
 }
 

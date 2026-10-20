@@ -207,7 +207,7 @@ setInterval(() => {
 }, 60 * 1000);
 
 /**
- * 7-Tier In-Memory Link Resolution Engine
+ * Multi-Tier In-Memory Link Resolution Engine (Sealed Vault -> Server Backup -> Static Fallback)
  */
 export async function resolveDestinationForApp(appIdParam: string): Promise<string | null> {
   const targetKey = (appIdParam || '').toLowerCase().trim();
@@ -215,8 +215,58 @@ export async function resolveDestinationForApp(appIdParam: string): Promise<stri
 
   const AES_SECRET = getAesSecret();
 
-  // Tier 1: Check staticData.json apps
-  const apps = (staticData as any).apps || [];
+  // Tier 1: Check ENCRYPTED_LINKS sealed vault first (primary server-only encrypted store)
+  if (ENCRYPTED_LINKS && typeof ENCRYPTED_LINKS === 'string' && ENCRYPTED_LINKS.startsWith('U2FsdGVkX1')) {
+    try {
+      const vaultDecrypted = safeDecrypt(ENCRYPTED_LINKS, AES_SECRET);
+      if (vaultDecrypted) {
+        const vaultItems = JSON.parse(vaultDecrypted);
+        if (Array.isArray(vaultItems)) {
+          const vHit = vaultItems.find((v: any) =>
+            (v.id && String(v.id).toLowerCase().trim() === targetKey) ||
+            (v.slug && String(v.slug).toLowerCase().trim() === targetKey) ||
+            (v.name && String(v.name).toLowerCase().trim() === targetKey)
+          );
+          if (vHit) {
+            const vUrl = vHit.more_information_url || vHit.encrypted_link || vHit.url || '';
+            const finalUrl = vUrl.startsWith('U2FsdGVkX1') ? (safeDecrypt(vUrl, AES_SECRET) || vUrl) : vUrl;
+            if (finalUrl && (finalUrl.startsWith('http://') || finalUrl.startsWith('https://')) && !finalUrl.includes('com.rummydex') && !finalUrl.includes('com.example')) {
+              return finalUrl;
+            }
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  // Tier 2: Check server-side public_backup.json if present
+  try {
+    const fs = await import('fs');
+    const path = await import('path');
+    const backupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
+    if (fs.existsSync(backupPath)) {
+      const backupRaw = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
+      const backupApps = backupRaw.apps || backupRaw.mockApps || [];
+      const bMatch = backupApps.find((a: any) =>
+        (a.id && String(a.id).toLowerCase().trim() === targetKey) ||
+        (a.slug && String(a.slug).toLowerCase().trim() === targetKey) ||
+        (a.name && String(a.name).toLowerCase().trim() === targetKey)
+      );
+      if (bMatch) {
+        const rawTarget = bMatch.more_information_url || bMatch.encrypted_link || bMatch.url || bMatch.download_url || '';
+        if (rawTarget && typeof rawTarget === 'string' && rawTarget.trim() !== '') {
+          const clean = rawTarget.trim();
+          const decrypted = clean.startsWith('U2FsdGVkX1') ? (safeDecrypt(clean, AES_SECRET) || clean) : clean;
+          if (decrypted && (decrypted.startsWith('http://') || decrypted.startsWith('https://')) && !decrypted.includes('com.rummydex') && !decrypted.includes('com.example')) {
+            return decrypted;
+          }
+        }
+      }
+    }
+  } catch (_) {}
+
+  // Tier 3: Check staticData.json apps fallback
+  const apps = (staticData as any).apps || (staticData as any).mockApps || [];
   const matched = apps.find((a: any) => 
     (a.id && String(a.id).toLowerCase().trim() === targetKey) ||
     (a.slug && String(a.slug).toLowerCase().trim() === targetKey) ||
@@ -232,30 +282,6 @@ export async function resolveDestinationForApp(appIdParam: string): Promise<stri
         return decrypted;
       }
     }
-  }
-
-  // Tier 2: Check ENCRYPTED_LINKS vault
-  if (ENCRYPTED_LINKS && typeof ENCRYPTED_LINKS === 'string' && ENCRYPTED_LINKS.startsWith('U2FsdGVkX1')) {
-    try {
-      const vaultDecrypted = safeDecrypt(ENCRYPTED_LINKS, AES_SECRET);
-      if (vaultDecrypted) {
-        const vaultItems = JSON.parse(vaultDecrypted);
-        if (Array.isArray(vaultItems)) {
-          const vHit = vaultItems.find((v: any) =>
-            (v.id && String(v.id).toLowerCase().trim() === targetKey) ||
-            (v.slug && String(v.slug).toLowerCase().trim() === targetKey) ||
-            (v.name && String(v.name).toLowerCase().trim() === targetKey)
-          );
-          if (vHit) {
-            const vUrl = vHit.more_information_url || vHit.encrypted_link || vHit.url || '';
-            const finalUrl = vUrl.startsWith('U2FsdGVkX1') ? (safeDecrypt(vUrl, AES_SECRET) || vUrl) : vUrl;
-            if (finalUrl && (finalUrl.startsWith('http://') || finalUrl.startsWith('https://'))) {
-              return finalUrl;
-            }
-          }
-        }
-      }
-    } catch (_) {}
   }
 
   return null;

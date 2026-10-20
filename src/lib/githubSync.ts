@@ -7,6 +7,8 @@ import CryptoJS from 'crypto-js';
 import { ensureDefaultSettings } from './defaultLegalContent';
 import { adminFetch } from '../services/adminAuthService';
 import { safeEncrypt, safeDecrypt } from './cryptoUtils';
+import { structureHtmlFragment } from './safeHtmlPublic';
+import { formatNewsDate, calculateReadingTime, getPlainTextSnippet } from '../components/public/news/newsUtils';
 
 export function encryptUrlIfNeeded(url: string): string {
   if (!url || typeof url !== 'string') return '';
@@ -27,6 +29,73 @@ export function encryptUrlIfNeeded(url: string): string {
   }
 
   return safeEncrypt(trimmed);
+}
+
+/**
+ * Canonical App Hygiene & Normalization Compiler
+ * Preserves 100% of Admin's exact copy while normalizing embedded HTML headings (<h1> -> <h2>),
+ * stripping inline style pollution, and optionally sealing/stripping download URLs for public bundles.
+ */
+export function compileCanonicalApp(app: any, options?: { stripDownloadLinks?: boolean }): any {
+  if (!app || typeof app !== 'object') return app;
+  const copy = JSON.parse(JSON.stringify(app));
+  const rawTarget = copy.more_information_url || copy.download_url || copy.encrypted_link || copy.encrypted_download_url || '';
+  const encryptedTarget = encryptUrlIfNeeded(rawTarget);
+
+  if (copy.url && (String(copy.url).includes('com.rummydex') || String(copy.url).includes('com.example'))) {
+    copy.url = '';
+  }
+
+  copy.has_secure_link = Boolean(encryptedTarget || copy.has_secure_link || copy.url);
+
+  if (options?.stripDownloadLinks) {
+    delete copy.more_information_url;
+    delete copy.encrypted_link;
+    delete copy.encrypted_download_url;
+    delete copy.download_url;
+  } else {
+    if (encryptedTarget) {
+      copy.more_information_url = encryptedTarget;
+      copy.encrypted_link = encryptedTarget;
+    } else {
+      delete copy.more_information_url;
+      delete copy.encrypted_link;
+    }
+    delete copy.encrypted_download_url;
+    delete copy.download_url;
+  }
+
+  if (typeof copy.description_html === 'string' && copy.description_html.trim()) {
+    copy.description_html = structureHtmlFragment(copy.description_html);
+  }
+  if (typeof copy.features_html === 'string' && copy.features_html.trim()) {
+    copy.features_html = structureHtmlFragment(copy.features_html);
+  }
+  if (typeof copy.custom_admin_box_html === 'string' && copy.custom_admin_box_html.trim()) {
+    copy.custom_admin_box_html = structureHtmlFragment(copy.custom_admin_box_html);
+  }
+
+  return copy;
+}
+
+/**
+ * Canonical News Hygiene & Pre-Computed Metadata Compiler
+ * Normalizes embedded HTML headings/styles and pre-computes deterministic UTC dates, reading time, and excerpt.
+ */
+export function compileCanonicalNews(item: any): any {
+  if (!item || typeof item !== 'object') return item;
+  const copy = JSON.parse(JSON.stringify(item));
+  const rawBody = copy.content || copy.description_html || copy.description || '';
+  if (typeof rawBody === 'string' && rawBody.trim()) {
+    const cleanHtml = structureHtmlFragment(rawBody);
+    copy.content = cleanHtml;
+    copy.description_html = cleanHtml;
+  }
+  const dateSource = copy.published_at || copy.created_at || copy.date || '';
+  copy.formatted_date = formatNewsDate(dateSource);
+  copy.reading_time = calculateReadingTime(rawBody);
+  copy.excerpt = copy.seo_description || copy.description || getPlainTextSnippet(rawBody, 160);
+  return copy;
 }
 
 export interface GitConfig {
@@ -101,27 +170,8 @@ export function generateStaticDataFileCode(
   news: any[] = [],
   videos: any[] = []
 ): string {
-  // Clean up apps: encrypt and preserve real target URLs, remove dummy com.rummydex URLs
-  const cleanApps = JSON.parse(JSON.stringify(apps || [])).map((app: any) => {
-    const rawTarget = app.more_information_url || app.download_url || app.encrypted_link || app.encrypted_download_url || '';
-    const encryptedTarget = encryptUrlIfNeeded(rawTarget);
-    
-    // Clean out dummy com.rummydex / com.example URLs from url field
-    if (app.url && (app.url.includes('com.rummydex') || app.url.includes('com.example'))) {
-      app.url = '';
-    }
-
-    if (encryptedTarget) {
-      app.more_information_url = encryptedTarget;
-      app.encrypted_link = encryptedTarget;
-    } else {
-      delete app.more_information_url;
-      delete app.encrypted_link;
-    }
-    delete app.encrypted_download_url;
-    delete app.download_url;
-    return app;
-  });
+  // Compile canonical public apps with zero download link leakage (links live exclusively in sealed server vault)
+  const cleanApps = (apps || []).map((app: any) => compileCanonicalApp(app, { stripDownloadLinks: true }));
   const defaultSettings = {
     site_title: "",
     meta_description: "",
@@ -141,7 +191,7 @@ export function generateStaticDataFileCode(
     developers: []
   };
   const cleanSettings = ensureDefaultSettings({ ...defaultSettings, ...JSON.parse(JSON.stringify(settings || {})) });
-  const cleanNews = JSON.parse(JSON.stringify(news || []));
+  const cleanNews = (news || []).map((item: any) => compileCanonicalNews(item));
   const cleanVideos = JSON.parse(JSON.stringify(videos || []));
 
   return `// No secureStorage import to avoid Vercel build errors when secureStorage is stripped

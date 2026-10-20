@@ -521,6 +521,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     pageOgImage,
     siteTitle,
     targetApp,
+    targetNews,
     collectionItems,
     settings,
     faviconIco,

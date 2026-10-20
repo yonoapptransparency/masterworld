@@ -147,15 +147,6 @@ const getInitialCache = () => {
         return initData;
       }
     }
-    if (typeof window !== 'undefined' && window.localStorage) {
-      const cached = localStorage.getItem(DATA_CACHE_KEY);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (parsed && parsed.data && Array.isArray(parsed.data.apps) && parsed.data.apps.length > 0) {
-          return parsed.data;
-        }
-      }
-    }
   } catch (e) {}
   return null;
 };
@@ -204,7 +195,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (res.ok) {
         const payload = await res.json();
         if (payload?.news && Array.isArray(payload.news) && payload.news.length > 0) {
-          setNews(mergeUniqueNews(mockNews, payload.news));
+          setNews(prev => mergeUniqueNews(prev, payload.news));
         }
       }
     } catch (e) {
@@ -248,7 +239,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  // Fetch from server backup endpoint with fast memory caching and local storage persistence
+  // Fetch from server backup endpoint with fast memory caching (zero main-thread localStorage serialization stall)
   const fetchBackupData = useCallback(async (silent = false) => {
     // Never fire background backup-data fetch during crawler indexing
     const isCrawler = typeof navigator !== 'undefined' && /googlebot|google-inspectiontool|bingbot|slurp|duckduckbot|baiduspider|yandexbot|crawler|spider|lighthouse|chrome-lighthouse|headless/i.test(navigator.userAgent || '');
@@ -263,19 +254,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const backup = await res.json();
         if (backup) {
           try {
-            localStorage.setItem(DATA_CACHE_KEY, JSON.stringify({
-              data: backup,
-              _timestamp: Date.now()
-            }));
+            // Remove legacy multi-megabyte localStorage entry if present to free browser storage and avoid main-thread stalls
+            localStorage.removeItem(DATA_CACHE_KEY);
           } catch (e) {}
 
           if (backup.apps && Array.isArray(backup.apps) && backup.apps.length > 0) {
-            setApps(prev => {
-              if (prev.length === backup.apps.length && prev[0]?.slug === backup.apps[0]?.slug && prev[prev.length - 1]?.slug === backup.apps[backup.apps.length - 1]?.slug) {
-                return prev;
-              }
-              return mergeUniqueApps(prev, backup.apps);
-            });
+            setApps(prev => mergeUniqueApps(prev, backup.apps));
           }
           if (backup.settings && Object.keys(backup.settings).length > 0) {
             setSettings(prev => {
