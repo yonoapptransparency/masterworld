@@ -1,6 +1,6 @@
 import { getField, optimizeImageUrl } from '../utils';
 import { escapeHtml, sanitizeHtml } from './common';
-import { formatNewsDate, calculateReadingTime } from '../../components/public/news/newsUtils';
+import { formatNewsDate, calculateReadingTime } from '../../lib/newsUtils';
 
 export function renderNewsList(news: any[], _settings: any): string {
   let cards = '';

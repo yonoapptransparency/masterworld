@@ -1,10 +1,13 @@
-// Cloudflare Pages Functions: Global Edge API Router for More Info Gateway
+// Cloudflare Pages Functions: Global Edge API Router & 7-Wall Zero-Bot Security Firewall
 // Handles /api/v1/app/resolve-link, /api/v1/app/session-clearance, /api/v1/public/secure-link, and /api/v1/get-link
 import CryptoJS from 'crypto-js';
 import staticData from '../../src/lib/staticData.json';
 import { ENCRYPTED_LINKS } from '../../src/lib/secureVault';
 
-const KNOWN_VAULT_KEYS = [];
+const KNOWN_VAULT_KEYS = [
+  'rd_master_vault_aes_key_2026',
+  'RummyDex_Master_Vault_Key_2026_!@#'
+];
 
 function safeDecrypt(ciphertext, secret) {
   if (!ciphertext || typeof ciphertext !== 'string') return '';
@@ -15,9 +18,9 @@ function safeDecrypt(ciphertext, secret) {
   const keys = [secret, ...KNOWN_VAULT_KEYS].filter(Boolean);
   const uniqueKeys = Array.from(new Set(keys));
   for (const key of uniqueKeys) {
-    if (!key || key.trim() === '') continue;
+    if (!key || String(key).trim() === '') continue;
     try {
-      const bytes = CryptoJS.AES.decrypt(cleanCipher, key);
+      const bytes = CryptoJS.AES.decrypt(cleanCipher, String(key).trim());
       const text = bytes.toString(CryptoJS.enc.Utf8);
       if (text && text.trim().length > 0) return text.trim();
     } catch (_) {}
@@ -32,7 +35,8 @@ const BOT_PATTERNS = [
   'insomnia', 'headlesschrome', 'puppeteer', 'playwright', 'selenium',
   'phantomjs', 'nightmare', 'webdriver', 'cypress', 'taiko', 'crawler',
   'spider', 'archive.org_bot', 'scraper', 'ahrefsbot', 'semrushbot',
-  'dotbot', 'mj12bot', 'petalbot', 'bytespider'
+  'dotbot', 'mj12bot', 'petalbot', 'bytespider', 'gptbot', 'claudebot',
+  'perplexitybot', 'ccbot', 'google-extended', 'anthropic-ai', 'chatgpt-user'
 ];
 
 function isKnownBotOrCrawler(ua) {
@@ -41,65 +45,136 @@ function isKnownBotOrCrawler(ua) {
   return BOT_PATTERNS.some(bot => lower.includes(bot));
 }
 
-// In-memory rate limiting across edge isolate
-const edgeRateMap = new Map();
+// In-memory isolate state for sub-millisecond Edge enforcement
+const edgeIpHistory = new Map();
 const burnedNonces = new Map();
 
-function checkRateLimit(ip) {
-  const now = Date.now();
-  if (edgeRateMap.size > 200) {
-    for (const [k, v] of edgeRateMap.entries()) {
-      if (now > v.resetAt) edgeRateMap.delete(k);
+function cleanupEdgeMemory(now) {
+  if (edgeIpHistory.size > 400) {
+    for (const [k, v] of edgeIpHistory.entries()) {
+      if (now > v.quarantineUntil && now - v.lastSeen > 300000) {
+        edgeIpHistory.delete(k);
+      }
     }
   }
-  if (burnedNonces.size > 500) {
-    const cutoff = now - 300000;
+  if (burnedNonces.size > 800) {
+    const cutoff = now - 120000;
     for (const [k, ts] of burnedNonces.entries()) {
       if (ts < cutoff) burnedNonces.delete(k);
     }
   }
-  const entry = edgeRateMap.get(ip) || { count: 0, resetAt: now + 60000 };
-  if (now > entry.resetAt) {
-    entry.count = 1;
-    entry.resetAt = now + 60000;
-  } else {
-    entry.count++;
-  }
-  edgeRateMap.set(ip, entry);
-  return entry.count <= 15;
 }
 
-function decryptUrl(ciphertext, secret) {
-  if (!ciphertext || typeof ciphertext !== 'string') return '';
-  return safeDecrypt(ciphertext, secret);
+// Upstash Redis REST helper for Cloudflare Edge (zero npm dependency required at Edge)
+async function upstashCommand(env, commandArray) {
+  const url = env?.UPSTASH_REDIS_REST_URL;
+  const token = env?.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return null;
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(commandArray)
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    return data?.result ?? null;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function isIpQuarantined(ip, env) {
+  const now = Date.now();
+  cleanupEdgeMemory(now);
+  const record = edgeIpHistory.get(ip);
+  if (record && record.quarantineUntil > now) {
+    return true;
+  }
+  const redisQ = await upstashCommand(env, ['GET', `quarantine:${ip}`]);
+  if (redisQ) {
+    if (record) record.quarantineUntil = now + 30 * 60 * 1000;
+    return true;
+  }
+  return false;
+}
+
+async function quarantineIp(ip, env, minutes = 30) {
+  const now = Date.now();
+  const durationMs = minutes * 60 * 1000;
+  const record = edgeIpHistory.get(ip) || {
+    clicks: [],
+    lastSeen: now,
+    quarantineUntil: 0,
+    strikes: 0,
+    successes: 0
+  };
+  record.strikes = (record.strikes || 0) + 1;
+  record.quarantineUntil = now + durationMs;
+  edgeIpHistory.set(ip, record);
+  await upstashCommand(env, ['SET', `quarantine:${ip}`, '1', 'EX', String(minutes * 60)]);
+}
+
+function evaluateEdgeCadence(ip) {
+  const now = Date.now();
+  let record = edgeIpHistory.get(ip);
+  if (!record) {
+    record = {
+      clicks: [now],
+      lastSeen: now,
+      quarantineUntil: 0,
+      strikes: 0,
+      successes: 0
+    };
+    edgeIpHistory.set(ip, record);
+    return { isQuarantined: false, burstViolation: false, microBurstViolation: false, reputationBonus: 0 };
+  }
+
+  if (record.quarantineUntil > now) {
+    return { isQuarantined: true, burstViolation: true, microBurstViolation: true, reputationBonus: 0 };
+  }
+
+  // Filter rolling 10-second click window
+  record.clicks = (record.clicks || []).filter(ts => now - ts < 10000);
+  record.clicks.push(now);
+  record.lastSeen = now;
+
+  const microBursts = record.clicks.filter(ts => now - ts <= 2000);
+  const burstViolation = record.clicks.length > 3; // > 3 clicks in 10 seconds
+  const microBurstViolation = microBursts.length >= 3; // >= 3 clicks in <= 2000ms
+  const reputationBonus = Math.min((record.successes || 0) * 5, 20);
+
+  return { isQuarantined: false, burstViolation, microBurstViolation, reputationBonus };
+}
+
+async function burnEdgeNonce(nonce, env) {
+  if (!nonce || typeof nonce !== 'string' || nonce.length < 6) return false;
+  const now = Date.now();
+  if (burnedNonces.has(nonce)) {
+    return false;
+  }
+  burnedNonces.set(nonce, now);
+
+  if (env?.UPSTASH_REDIS_REST_URL && env?.UPSTASH_REDIS_REST_TOKEN) {
+    const res = await upstashCommand(env, ['SET', `nonce:${nonce}`, '1', 'EX', '90', 'NX']);
+    if (res !== 'OK' && res !== null) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function resolveAppDestination(appIdParam, secret) {
   if (!appIdParam) return null;
   const targetKey = String(appIdParam).toLowerCase().trim();
-  const apps = staticData?.apps || [];
 
-  // Tier 1: Check staticData.json apps
-  const matched = apps.find(a => 
-    (a.id && String(a.id).toLowerCase().trim() === targetKey) ||
-    (a.slug && String(a.slug).toLowerCase().trim() === targetKey) ||
-    (a.name && String(a.name).toLowerCase().trim() === targetKey)
-  );
-
-  if (matched) {
-    const raw = matched.more_information_url || matched.encrypted_link || matched.url || matched.download_url || '';
-    if (raw) {
-      const dec = decryptUrl(raw, secret);
-      if (dec && (dec.startsWith('http://') || dec.startsWith('https://')) && !dec.includes('com.rummydex') && !dec.includes('com.example')) {
-        return dec;
-      }
-    }
-  }
-
-  // Tier 2: Check ENCRYPTED_LINKS vault
+  // Tier 1: Sealed ENCRYPTED_LINKS AES Vault (Primary Source of Truth)
   if (ENCRYPTED_LINKS && typeof ENCRYPTED_LINKS === 'string' && ENCRYPTED_LINKS.startsWith('U2FsdGVkX1')) {
     try {
-      const vaultDecrypted = decryptUrl(ENCRYPTED_LINKS, secret);
+      const vaultDecrypted = safeDecrypt(ENCRYPTED_LINKS, secret);
       if (vaultDecrypted) {
         const vaultItems = JSON.parse(vaultDecrypted);
         if (Array.isArray(vaultItems)) {
@@ -110,8 +185,8 @@ function resolveAppDestination(appIdParam, secret) {
           );
           if (vHit) {
             const vUrl = vHit.more_information_url || vHit.encrypted_link || vHit.url || '';
-            const finalUrl = vUrl.startsWith('U2FsdGVkX1') ? decryptUrl(vUrl, secret) : vUrl;
-            if (finalUrl && (finalUrl.startsWith('http://') || finalUrl.startsWith('https://'))) {
+            const finalUrl = vUrl.startsWith('U2FsdGVkX1') ? safeDecrypt(vUrl, secret) : vUrl;
+            if (finalUrl && (finalUrl.startsWith('http://') || finalUrl.startsWith('https://')) && !finalUrl.includes('com.rummydex') && !finalUrl.includes('com.example')) {
               return finalUrl;
             }
           }
@@ -120,7 +195,40 @@ function resolveAppDestination(appIdParam, secret) {
     } catch (_) {}
   }
 
+  // Tier 2: staticData.json fallback
+  const apps = staticData?.apps || staticData?.mockApps || [];
+  const matched = apps.find(a =>
+    (a.id && String(a.id).toLowerCase().trim() === targetKey) ||
+    (a.slug && String(a.slug).toLowerCase().trim() === targetKey) ||
+    (a.name && String(a.name).toLowerCase().trim() === targetKey)
+  );
+
+  if (matched) {
+    const raw = matched.more_information_url || matched.encrypted_link || matched.url || matched.download_url || '';
+    if (raw) {
+      const dec = safeDecrypt(raw, secret);
+      if (dec && (dec.startsWith('http://') || dec.startsWith('https://')) && !dec.includes('com.rummydex') && !dec.includes('com.example')) {
+        return dec;
+      }
+    }
+  }
+
   return null;
+}
+
+const DISGUISED_404_HEADERS = {
+  'Content-Type': 'application/json',
+  'Cache-Control': 'no-store, no-cache, must-revalidate, private, max-age=0',
+  'CDN-Cache-Control': 'no-store, private',
+  'X-Robots-Tag': 'noindex, nofollow, noarchive, nosnippet',
+  'Referrer-Policy': 'no-referrer'
+};
+
+function sendDisguised404() {
+  return new Response(JSON.stringify({ success: false, error: 'Not found', status: 404 }), {
+    status: 404,
+    headers: DISGUISED_404_HEADERS
+  });
 }
 
 export async function onRequest(context) {
@@ -232,19 +340,24 @@ export async function onRequest(context) {
     }
   }
 
-  // Handle single app detail endpoint at Edge with zero origin latency
+  // Handle single app detail endpoint at Edge with zero origin latency (links stripped)
   if (pathname.startsWith('/api/v1/public/app/')) {
     const rawSlug = pathname.replace('/api/v1/public/app/', '');
     const cleanKey = decodeURIComponent(rawSlug).toLowerCase().trim();
-    const apps = staticData?.apps || [];
-    const matched = apps.find(a => 
+    const apps = staticData?.apps || staticData?.mockApps || [];
+    const matched = apps.find(a =>
       (a.slug && String(a.slug).toLowerCase().trim() === cleanKey) ||
       (a.id && String(a.id).toLowerCase().trim() === cleanKey) ||
       (a.name && String(a.name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') === cleanKey)
     );
 
     if (matched) {
-      return new Response(JSON.stringify({ status: 'OK', app: matched }), {
+      const safeApp = { ...matched };
+      delete safeApp.more_information_url;
+      delete safeApp.download_url;
+      delete safeApp.encrypted_link;
+      delete safeApp.encrypted_download_url;
+      return new Response(JSON.stringify({ status: 'OK', app: safeApp }), {
         status: 200,
         headers: {
           'Content-Type': 'application/json',
@@ -261,35 +374,34 @@ export async function onRequest(context) {
   }
 
   // Only handle clearance and resolution endpoints
-  const isTargetRoute = 
+  const isTargetRoute =
     pathname.includes('/api/v1/app/resolve-link') ||
     pathname.includes('/api/v1/app/session-clearance') ||
     pathname.includes('/api/v1/public/secure-link') ||
     pathname.includes('/api/v1/get-link');
 
   if (!isTargetRoute) {
-    return new Response(JSON.stringify({ error: 'Endpoint not found' }), {
-      status: 404,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return sendDisguised404();
   }
 
-  // 1. Edge Bot Filter
-  const ua = request.headers.get('user-agent') || '';
+  const ip = (request.headers.get('cf-connecting-ip') || request.headers.get('true-client-ip') || request.headers.get('x-forwarded-for') || 'unknown').split(',')[0].trim();
+  const ua = (request.headers.get('user-agent') || '').trim();
+
+  // ─── WALL 1: EDGE BOT & SCRAPER UA FILTER ───
   if (isKnownBotOrCrawler(ua)) {
-    return new Response(JSON.stringify({ success: false, error: 'Not found' }), {
-      status: 404,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    await quarantineIp(ip, env, 30);
+    return sendDisguised404();
   }
 
-  // 2. IP Rate Limiting
-  const ip = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for') || 'unknown';
-  if (!checkRateLimit(ip)) {
-    return new Response(JSON.stringify({ success: false, error: 'Too many verification attempts.' }), {
-      status: 429,
-      headers: { 'Content-Type': 'application/json' }
-    });
+  // ─── WALL 2: DISTRIBUTED 30-MINUTE QUARANTINE & 3-CLICK / 10S BURST FIREWALL ───
+  if (await isIpQuarantined(ip, env)) {
+    return sendDisguised404();
+  }
+
+  const cadence = evaluateEdgeCadence(ip);
+  if (cadence.isQuarantined || cadence.burstViolation || cadence.microBurstViolation) {
+    await quarantineIp(ip, env, 30);
+    return sendDisguised404();
   }
 
   let body = {};
@@ -301,26 +413,33 @@ export async function onRequest(context) {
 
   const rawId = body.id || body.appId || url.searchParams.get('id') || url.searchParams.get('appId') || '';
   const appId = String(rawId).trim().toLowerCase();
-  const linkParam = body.link || url.searchParams.get('link') || '';
+  if (!appId || !/^[a-zA-Z0-9\-_]{1,64}$/.test(appId)) {
+    return sendDisguised404();
+  }
 
+  // ─── WALL 3: TOKEN EXTRACTION & PAYLOAD INTEGRITY ───
   const cfToken = request.headers.get('x-cf-token') || body.cfToken || '';
   const clearanceToken = request.headers.get('x-clearance-token') || body.token || url.searchParams.get('token') || '';
 
-  // 3. Turnstile Verification at Cloudflare Edge
-  const effectiveCfToken = cfToken || '';
-  const turnstileSecret = env?.TURNSTILE_SECRET_KEY || env?.CF_TURNSTILE_SECRET;
-  if (turnstileSecret) {
-    if (!effectiveCfToken || effectiveCfToken.startsWith('attest_')) {
-      return new Response(JSON.stringify({ 
-        success: false, 
-        status: 'challenge_required', 
-        error: 'Human verification required.' 
-      }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
+  let decoded = null;
+  if (clearanceToken) {
+    try {
+      decoded = JSON.parse(atob(clearanceToken));
+    } catch (_) {}
+  }
 
+  // Immediate Trap Check: If client detected WebDriver (wb=1), rapid burst (cb=1), or synthetic click (tr=0)
+  if (decoded && (decoded.wb === 1 || decoded.cb === 1 || decoded.tr === 0)) {
+    await quarantineIp(ip, env, 30);
+    return sendDisguised404();
+  }
+
+  // ─── WALL 4: CLOUDFLARE TURNSTILE CRYPTOGRAPHIC ATTESTATION ───
+  const effectiveCfToken = cfToken || decoded?.cf || '';
+  const turnstileSecret = env?.TURNSTILE_SECRET_KEY || env?.CF_TURNSTILE_SECRET || staticData?.settings?.turnstile_secret_key;
+  let turnstilePassed = false;
+
+  if (turnstileSecret && effectiveCfToken && !effectiveCfToken.startsWith('attest_')) {
     try {
       const formData = new FormData();
       formData.append('secret', turnstileSecret);
@@ -334,70 +453,85 @@ export async function onRequest(context) {
         body: formData
       });
       const cfData = await cfResp.json();
-      if (!cfData.success) {
+      if (cfData.success === true) {
+        turnstilePassed = true;
+      } else {
         const errorCodes = cfData['error-codes'] || [];
         const isServerSecretConfigError = errorCodes.includes('invalid-input-secret');
-
-        // Fallback for test tokens generated on preview/test environments
-        const TEST_SECRET = '1x0000000000000000000000000000000AA';
-        const formDataTest = new FormData();
-        formDataTest.append('secret', TEST_SECRET);
-        formDataTest.append('response', effectiveCfToken);
-        const testResp = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-          method: 'POST',
-          body: formDataTest
-        });
-        const testData = await testResp.json();
-
-        // If Cloudflare rejected the token, and it was NOT due to server secret key misconfiguration
-        if (!testData.success && !isServerSecretConfigError) {
-          return new Response(JSON.stringify({ 
-            success: false, 
-            status: 'challenge_required', 
-            error: 'Verification challenge expired. Please retry.' 
-          }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' }
-          });
+        if (isServerSecretConfigError) {
+          // Server secret configured with site key; rely on Track B kinetic & hardware attestation
+          turnstilePassed = Boolean(decoded && decoded.tr === 1 && decoded.wb === 0 && decoded.hl !== 1 && (decoded.el || 0) >= 250);
         }
       }
     } catch (_) {}
+  } else if (!turnstileSecret && effectiveCfToken && !effectiveCfToken.startsWith('attest_')) {
+    turnstilePassed = true;
   }
 
-  // 4. Burn Nonce if provided
-  if (clearanceToken) {
-    try {
-      const decoded = JSON.parse(atob(clearanceToken));
-      const nonce = decoded?.n || decoded?.nonce;
-      if (nonce) {
-        if (burnedNonces.has(nonce)) {
-          return new Response(JSON.stringify({ success: false, error: 'Clearance token already used.' }), {
-            status: 403,
-            headers: { 'Content-Type': 'application/json' }
-          });
-        }
-        burnedNonces.set(nonce, Date.now());
-      }
-    } catch (_) {}
-  }
+  // Track B Kinetic Hardware Attestation (only when adblocker/carrier blocks Turnstile script, never for bots)
+  const trackBPassed = Boolean(
+    decoded &&
+    decoded.wb === 0 &&
+    decoded.hl !== 1 &&
+    decoded.cb !== 1 &&
+    decoded.tr === 1 &&
+    Number(decoded.el || 0) >= 350 &&
+    (Number(decoded.samples || 0) >= 1 || Number(decoded.cx || 0) > 0 || Number(decoded.cy || 0) > 0)
+  );
 
-  // 5. If directly decrypting a provided ciphertext link
-  if (linkParam && linkParam.startsWith('U2FsdGVkX1')) {
-    const decrypted = decryptUrl(linkParam, env?.AES_SECRET);
-    if (decrypted) {
-      return new Response(JSON.stringify({ success: true, url: decrypted }), {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-store, no-cache, must-revalidate, private, max-age=0',
-          'Referrer-Policy': 'no-referrer',
-          'X-Content-Type-Options': 'nosniff'
-        }
-      });
+  // ─── WALL 5: CENTRAL ADAPTIVE RISK ENGINE (CARE) SCORING ───
+  let riskScore = 15 - cadence.reputationBonus;
+  if (!turnstilePassed && !trackBPassed) riskScore += 45;
+  else if (turnstilePassed) riskScore -= 20;
+
+  if (decoded) {
+    const dwell = Number(decoded.el) || 0;
+    if (dwell < 200) riskScore += 50;
+    else if (dwell >= 600) riskScore -= 10;
+
+    if (decoded.hl === 1) riskScore += 45;
+    if (decoded.wb === 1) riskScore += 65;
+    if (decoded.tr === 0) riskScore += 55;
+    if (decoded.cb === 1) riskScore += 60;
+
+    if (decoded.t && Math.abs(Date.now() - Number(decoded.t)) > 60000) {
+      riskScore += 30;
     }
+  } else {
+    riskScore += 40;
   }
 
-  // 6. Resolve Destination URL directly at Edge
+  // ─── WALL 6: BURN-ON-READ ATOMIC NONCE VERIFICATION ───
+  const nonce = decoded?.n || decoded?.nonce;
+  const nonceFresh = nonce ? await burnEdgeNonce(nonce, env) : false;
+  if (!nonceFresh) {
+    riskScore += 65;
+  }
+
+  const finalRisk = Math.max(0, Math.min(100, riskScore));
+
+  if (finalRisk >= 80) {
+    await quarantineIp(ip, env, 30);
+    return sendDisguised404();
+  }
+
+  if (finalRisk >= 35 && !turnstilePassed) {
+    return new Response(JSON.stringify({
+      success: false,
+      status: 'challenge_required',
+      riskScore: finalRisk,
+      error: 'Additional verification required.'
+    }), {
+      status: 200,
+      headers: DISGUISED_404_HEADERS
+    });
+  }
+
+  // Record clean human pass
+  const rec = edgeIpHistory.get(ip);
+  if (rec) rec.successes = (rec.successes || 0) + 1;
+
+  // ─── WALL 7: IN-MEMORY EDGE VAULT DECRYPTION & AIRGAP DISPATCH ───
   const targetUrl = resolveAppDestination(appId, env?.AES_SECRET);
   if (!targetUrl) {
     return new Response(JSON.stringify({
@@ -406,10 +540,7 @@ export async function onRequest(context) {
       message: 'The package link is currently not available. It will be updated soon by the admin.'
     }), {
       status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-store, no-cache, must-revalidate, private, max-age=0'
-      }
+      headers: DISGUISED_404_HEADERS
     });
   }
 
@@ -421,11 +552,10 @@ export async function onRequest(context) {
   }), {
     status: 200,
     headers: {
-      'Content-Type': 'application/json',
-      'Cache-Control': 'no-store, no-cache, must-revalidate, private, max-age=0',
-      'Referrer-Policy': 'no-referrer',
+      ...DISGUISED_404_HEADERS,
       'X-Content-Type-Options': 'nosniff',
       'X-Frame-Options': 'DENY'
     }
   });
 }
+

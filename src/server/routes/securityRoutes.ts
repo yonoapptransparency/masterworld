@@ -288,15 +288,38 @@ export async function resolveDestinationForApp(appIdParam: string): Promise<stri
 }
 
 // ─── MOUNT ALL CLEARANCE & RESOLUTION ENDPOINTS ───
+const setGatewaySecurityHeaders = (res: Response) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private, max-age=0');
+  res.setHeader('CDN-Cache-Control', 'no-store, private');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+};
+
 const handleClearanceResolution = async (req: Request, res: Response) => {
+  setGatewaySecurityHeaders(res);
+
   const ip = getClientIp(req);
   const ua = (req.headers['user-agent'] || '').trim();
+
+  // Check distributed Redis quarantine if configured
+  if (redisClient) {
+    try {
+      const qStatus = await redisClient.get(`quarantine:${ip}`);
+      if (qStatus) {
+        return res.status(404).json({ success: false, error: 'Not found', status: 404 });
+      }
+    } catch (_) {}
+  }
 
   // Input Validation
   const rawId = (req.body?.id || req.body?.appId || req.query?.id || req.query?.appId || '') as string;
   const appId = typeof rawId === 'string' ? rawId.trim() : '';
   if (!appId || !/^[a-zA-Z0-9\-_]{1,64}$/.test(appId)) {
-    return res.status(400).json({ success: false, error: 'Invalid identifier' });
+    return res.status(404).json({ success: false, error: 'Not found', status: 404 });
   }
 
   // Tokens extraction
@@ -312,6 +335,15 @@ const handleClearanceResolution = async (req: Request, res: Response) => {
         decoded = JSON.parse(clearanceToken);
       } catch (_) {}
     }
+  }
+
+  // Immediate Trap Check: If client detected WebDriver (wb=1), rapid burst (cb=1), or synthetic click (tr=0)
+  if (decoded && (decoded.wb === 1 || decoded.cb === 1 || decoded.tr === 0)) {
+    penalizeIp(ip, 30);
+    if (redisClient) {
+      try { await redisClient.set(`quarantine:${ip}`, '1', { ex: 1800 }); } catch (_) {}
+    }
+    return res.status(404).json({ success: false, error: 'Not found', status: 404 });
   }
 
   const effectiveCfToken = cfToken || decoded?.cf || '';
@@ -334,9 +366,12 @@ const handleClearanceResolution = async (req: Request, res: Response) => {
     nonceFresh
   });
 
-  // Action 1: High Risk -> Disguised 404 Ghosting (Definite Bot/Scraper)
+  // Action 1: High Risk -> Disguised 404 Ghosting (Definite Bot/Scraper) + 30-Min Redis Quarantine
   if (riskResult.action === 'DENY') {
-    return res.status(404).json({ success: false, error: 'Not found' });
+    if (redisClient) {
+      try { await redisClient.set(`quarantine:${ip}`, '1', { ex: 1800 }); } catch (_) {}
+    }
+    return res.status(404).json({ success: false, error: 'Not found', status: 404 });
   }
 
   // Action 2: Elevated Risk -> Progressive Throttle Delay to make scraping economically unviable
@@ -365,14 +400,6 @@ const handleClearanceResolution = async (req: Request, res: Response) => {
     });
   }
 
-  // Strict Response Security Headers
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private, max-age=0');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
-  res.setHeader('Referrer-Policy', 'no-referrer');
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-
   return res.json({
     success: true,
     status: 'available',
@@ -386,4 +413,5 @@ securityRouter.all('/api/v1/app/session-clearance', handleClearanceResolution);
 securityRouter.all('/api/v1/app/resolve-link', handleClearanceResolution);
 securityRouter.all('/api/v1/public/secure-link', handleClearanceResolution);
 securityRouter.all('/api/v1/get-link', handleClearanceResolution);
+
 

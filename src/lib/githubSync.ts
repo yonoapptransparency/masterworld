@@ -8,7 +8,7 @@ import { ensureDefaultSettings } from './defaultLegalContent';
 import { adminFetch } from '../services/adminAuthService';
 import { safeEncrypt, safeDecrypt } from './cryptoUtils';
 import { structureHtmlFragment } from './safeHtmlPublic';
-import { formatNewsDate, calculateReadingTime, getPlainTextSnippet } from '../components/public/news/newsUtils';
+import { formatNewsDate, calculateReadingTime, getPlainTextSnippet } from './newsUtils';
 
 export function encryptUrlIfNeeded(url: string): string {
   if (!url || typeof url !== 'string') return '';

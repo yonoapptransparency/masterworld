@@ -66,6 +66,7 @@ export interface RiskEvaluationResult {
 interface IpTrackingRecord {
   requestCount: number;
   burstCount: number;
+  clickTimestamps: number[];
   firstSeen: number;
   lastSeen: number;
   windowResetAt: number;
@@ -86,7 +87,7 @@ setInterval(() => {
   }
 }, 60000);
 
-// Known scraper and bot signatures
+// Known scraper, headless, and AI bot signatures
 const BOT_SIGNATURES = [
   'curl/', 'wget/', 'python', 'urllib', 'requests', 'httpx', 'aiohttp',
   'scrapy', 'axios', 'httpclient', 'go-http-client', 'okhttp', 'guzzle',
@@ -94,11 +95,12 @@ const BOT_SIGNATURES = [
   'insomnia', 'headlesschrome', 'puppeteer', 'playwright', 'selenium',
   'phantomjs', 'nightmare', 'webdriver', 'cypress', 'taiko', 'crawler',
   'spider', 'archive.org_bot', 'scraper', 'ahrefsbot', 'semrushbot',
-  'dotbot', 'mj12bot', 'petalbot', 'bytespider', 'bot/'
+  'dotbot', 'mj12bot', 'petalbot', 'bytespider', 'gptbot', 'claudebot',
+  'perplexitybot', 'ccbot', 'google-extended', 'bot/'
 ];
 
 /**
- * Evaluates IP request cadence and returns velocity metrics
+ * Evaluates IP request cadence (3-Click / 10-Second & <=2000ms Simultaneous Burst Rules)
  */
 export function evaluateIpCadence(ip: string): { 
   isQuarantined: boolean; 
@@ -114,6 +116,7 @@ export function evaluateIpCadence(ip: string): {
     record = {
       requestCount: 1,
       burstCount: 1,
+      clickTimestamps: [now],
       firstSeen: now,
       lastSeen: now,
       windowResetAt: now + 60000,
@@ -125,10 +128,14 @@ export function evaluateIpCadence(ip: string): {
     return { isQuarantined: false, rateAnomaly: false, burstAnomaly: false, reputationBonus: 0, record };
   }
 
-  // Check existing quarantine
+  // Check existing 30-minute quarantine
   if (record.quarantineUntil && now < record.quarantineUntil) {
     return { isQuarantined: true, rateAnomaly: true, burstAnomaly: true, reputationBonus: 0, record };
   }
+
+  // Rolling 10-second click window
+  record.clickTimestamps = (record.clickTimestamps || []).filter(ts => now - ts < 10000);
+  record.clickTimestamps.push(now);
 
   // Rolling 60s window
   if (now > record.windowResetAt) {
@@ -137,8 +144,7 @@ export function evaluateIpCadence(ip: string): {
     record.windowResetAt = now + 60000;
   } else {
     record.requestCount++;
-    // Sub-2000ms burst tracker
-    if (now - record.lastSeen < 2000) {
+    if (now - record.lastSeen <= 2000) {
       record.burstCount++;
     } else {
       record.burstCount = Math.max(1, record.burstCount - 1);
@@ -147,8 +153,9 @@ export function evaluateIpCadence(ip: string): {
 
   record.lastSeen = now;
 
-  const rateAnomaly = record.requestCount > 6;
-  const burstAnomaly = record.burstCount >= 3;
+  const microBursts = record.clickTimestamps.filter(ts => now - ts <= 2000);
+  const rateAnomaly = record.requestCount > 6 || record.clickTimestamps.length > 3;
+  const burstAnomaly = record.burstCount >= 3 || microBursts.length >= 3 || record.clickTimestamps.length > 3;
 
   // Good history bonus (legitimate repeat humans with prior clean passes)
   const reputationBonus = Math.min(record.successfulClearances * 5, 20);
@@ -163,20 +170,20 @@ export function evaluateIpCadence(ip: string): {
 }
 
 /**
- * Penalizes an abusive IP by placing it in Quarantine Jail
- * Uses progressive exponential quarantine: 1m for first strike, scaling up for repeat bot abuse
+ * Penalizes an abusive IP by placing it in the 30-Minute Quarantine Jail
  */
-export function penalizeIp(ip: string, durationMinutes: number = 2) {
+export function penalizeIp(ip: string, durationMinutes: number = 30) {
   const record = ipHistoryMap.get(ip);
   const now = Date.now();
   if (record) {
     record.strikeCount++;
-    const effectiveMinutes = Math.min(60, durationMinutes * Math.pow(2, Math.max(0, record.strikeCount - 1)));
+    const effectiveMinutes = Math.min(120, durationMinutes * Math.pow(2, Math.max(0, record.strikeCount - 1)));
     record.quarantineUntil = now + (effectiveMinutes * 60 * 1000);
   } else {
     ipHistoryMap.set(ip, {
       requestCount: 1,
       burstCount: 1,
+      clickTimestamps: [now],
       firstSeen: now,
       lastSeen: now,
       windowResetAt: now + 60000,

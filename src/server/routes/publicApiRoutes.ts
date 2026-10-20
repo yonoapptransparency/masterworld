@@ -2,7 +2,7 @@ import { Router } from 'express';
 import staticData from '../../lib/staticData.json';
 import { fetchStoreData } from '../../seoHelper';
 import { resolveAppSlug } from '../../lib/slugResolver';
-import { formatNewsDate, calculateReadingTime, getPlainTextSnippet } from '../../components/public/news/newsUtils';
+import { formatNewsDate, calculateReadingTime, getPlainTextSnippet } from '../../lib/newsUtils';
 
 export const publicApiRouter = Router();
 

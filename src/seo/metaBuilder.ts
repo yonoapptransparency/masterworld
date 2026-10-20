@@ -73,13 +73,37 @@ export function buildMetaTags(params: MetaBuilderParams): string {
     ].filter(Boolean).join('\n    ');
   })();
 
+  if (pageType === 'gateway') {
+    const noindexRule = 'noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate';
+    return `
+    <title>${escapedTitle}</title>
+    <meta name="description" content="Verification Portal">
+    <meta data-rh="true" name="referrer" content="no-referrer">
+    <meta data-rh="true" name="robots" content="${noindexRule}">
+    <meta data-rh="true" name="googlebot" content="${noindexRule}">
+    <meta data-rh="true" name="bingbot" content="${noindexRule}">
+    <meta data-rh="true" name="slurp" content="${noindexRule}">
+    <meta data-rh="true" name="baiduspider" content="${noindexRule}">
+    <meta data-rh="true" name="yandex" content="${noindexRule}">
+    <meta data-rh="true" name="duckduckbot" content="${noindexRule}">
+    <meta data-rh="true" name="gptbot" content="${noindexRule}">
+    <meta data-rh="true" name="claudebot" content="${noindexRule}">
+    <meta data-rh="true" name="perplexitybot" content="${noindexRule}">
+    <link data-rh="true" rel="icon" type="image/x-icon" href="${faviconIco}">
+    <link data-rh="true" rel="icon" type="image/png" sizes="32x32" href="${favicon32}">
+    <link data-rh="true" rel="icon" type="image/png" sizes="16x16" href="${favicon16}">
+    <link data-rh="true" rel="apple-touch-icon" sizes="180x180" href="${favicon180}">
+    <link data-rh="true" rel="manifest" href="/site.webmanifest">
+  `;
+  }
+
   return `
     <title>${escapedTitle}</title>
     <meta name="description" content="${escapedDesc}">
     ${keywords ? `<meta name="keywords" content="${escapedKeywords}">` : ''}
     <meta data-rh="true" name="application-name" content="${resolvedSiteName}">
     <meta data-rh="true" name="color-scheme" content="light dark">
-    ${(isNotFound || pageType === 'gateway')
+    ${isNotFound
       ? `<meta data-rh="true" name="robots" content="noindex, nofollow, noarchive, nosnippet">`
       : `<meta data-rh="true" name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">`
     }
@@ -104,7 +128,7 @@ export function buildMetaTags(params: MetaBuilderParams): string {
     <meta data-rh="true" itemprop="image" content="${searchThumbnail}">
     <meta data-rh="true" itemprop="thumbnailUrl" content="${searchThumbnail}">
     <link data-rh="true" rel="image_src" href="${searchThumbnail}">
-    <link data-rh="true" rel="canonical" href="${canonicalUrl}">
+    ${!isNotFound ? `<link data-rh="true" rel="canonical" href="${canonicalUrl}">` : ''}
     <link data-rh="true" rel="icon" type="image/x-icon" href="${faviconIco}">
     <link data-rh="true" rel="icon" type="image/png" sizes="32x32" href="${favicon32}">
     <link data-rh="true" rel="icon" type="image/png" sizes="16x16" href="${favicon16}">
@@ -131,7 +155,7 @@ export function buildMetaTags(params: MetaBuilderParams): string {
       }
       return '';
     })()}
-    ${jsonLdSchema}
+    ${!isNotFound ? jsonLdSchema : ''}
   `;
 }
 

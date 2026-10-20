@@ -30,6 +30,10 @@ function cleanSeoDescription(desc: string): string {
 }
 
 export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<string> {
+  if (params.pageType === 'gateway' || params.pageType === '404') {
+    return '';
+  }
+
   const schemas: any[] = [];
   const hostOrigin = 'https://www.rummydex.com';
 

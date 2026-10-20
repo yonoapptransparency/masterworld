@@ -119,6 +119,23 @@ const Meta: React.FC<MetaProps> = ({
     setMetaTag('name', 'googlebot', robotsDirective);
     setMetaTag('name', 'bingbot', robotsDirective);
 
+    if (!isIndexable) {
+      setMetaTag('name', 'slurp', robotsDirective);
+      setMetaTag('name', 'baiduspider', robotsDirective);
+      setMetaTag('name', 'yandex', robotsDirective);
+      setMetaTag('name', 'duckduckbot', robotsDirective);
+      setMetaTag('name', 'gptbot', robotsDirective);
+      setMetaTag('name', 'claudebot', robotsDirective);
+      setMetaTag('name', 'perplexitybot', robotsDirective);
+      setMetaTag('name', 'referrer', 'no-referrer');
+
+      // Purge all SEO, Canonical, OpenGraph, Twitter, and Schema.org JSON-LD tags on gateway/noindex routes
+      document.head.querySelectorAll('link[rel="canonical" i], link[rel="image_src" i]').forEach(el => el.remove());
+      document.head.querySelectorAll('meta[property^="og:" i], meta[property^="article:" i], meta[name^="twitter:" i], meta[name="thumbnail" i], meta[itemprop]').forEach(el => el.remove());
+      document.head.querySelectorAll('script[type="application/ld+json"]').forEach(el => el.remove());
+      return;
+    }
+
     // 3. Strict Single Canonical Tag Enforcement in <head>
     const allCanonicals = document.head.querySelectorAll('link[rel="canonical" i]');
     let headCanonical: HTMLLinkElement | null = null;

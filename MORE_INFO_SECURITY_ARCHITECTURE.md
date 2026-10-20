@@ -997,3 +997,26 @@ To guarantee zero exposure of raw or encrypted download links in public browser 
    - `resolveDestinationForApp` in `src/server/routes/securityRoutes.ts` prioritizes Tier 1 (`ENCRYPTED_LINKS` sealed AES vault) -> Tier 2 (`src/lib/public_backup.json` server backup) -> Tier 3 (`staticData.json` fallback).
 3. **Unified Multi-Key AES Resolution (`src/lib/cryptoUtils.ts` & `src/lib/secureVault.ts`)**:
    - Unifies `KNOWN_VAULT_KEYS` (`['rd_master_vault_aes_key_2026', 'RummyDex_Master_Vault_Key_2026_!@#']`) and non-empty fallback key resolution across `cryptoUtils.ts` and `secureVault.ts` so Admin GitHub Sync (`useGitHubSync.ts`) never fails with `Cannot encrypt: AES_SECRET is required` and server decryption succeeds across all historical and newly sealed vault entries.
+
+---
+
+## 19. 100% Server & Edge RAM Vault Resolution, WebGL/Descriptor Hardware Traps & Total SEO Airgap (v9.0)
+
+### 19.1 Zero Client-Bundle Vault Exposure (`src/hooks/useClearanceDispatch.ts`)
+- **Complete Removal of Client Decryption**: `useClearanceDispatch.ts` no longer imports `secureVault.ts` or `ENCRYPTED_LINKS`. Neither AES keys nor encrypted link vaults are ever bundled into the public client JavaScript.
+- **No Client-Side Challenge Bypass**: When the Server or Cloudflare Edge returns `status: 'challenge_required'` or `404`, the client strictly enforces the server verdict and never falls back to local decryption.
+
+### 19.2 Deep Hardware, WebGL & Prototype Descriptor Traps (`useClearanceDispatch.ts`)
+- **Prototype Tampering Detection**: Inspects `Object.getOwnPropertyDescriptor(navigator, 'webdriver')` and `Function.prototype.toString.call(protoDesc.get)` to catch `puppeteer-extra-plugin-stealth` and custom proxy getters.
+- **WebGL Unmasked Renderer Trap (`hl`)**: Queries `WEBGL_debug_renderer_info` (`UNMASKED_RENDERER_WEBGL`) to flag headless virtualized GPUs (`SwiftShader`, `llvmpipe`, `Mesa OffScreen`, `VirtualBox`).
+- **3-Click / 10-Second & $\le 2000\text{ms}$ Micro-Burst Trap (`cb`)**: Tracks rolling click timestamps on the client and server. Any burst violation immediately dispatches a background quarantine beacon to `/api/v1/app/session-clearance` and switches `GatewayPage.tsx` into the disguised **404 — Page Not Found** screen (`isBotBlocked = true`).
+
+### 19.3 Full 7-Wall & Upstash Redis REST Parity on Cloudflare Pages Edge (`functions/api/[[catchall]].js`)
+- **Unified Edge Vault Keys**: `functions/api/[[catchall]].js` includes `KNOWN_VAULT_KEYS` and prioritizes `ENCRYPTED_LINKS` decryption in Edge RAM.
+- **Zero-Dependency Upstash Redis REST Pipeline**: Executes `SET nonce:<n> 1 EX 90 NX` and `SET quarantine:<ip> 1 EX 1800` directly against `UPSTASH_REDIS_REST_URL` at the Cloudflare Edge alongside local isolate memory maps.
+- **Split-Sync Retention (`.github/workflows/split-sync.yml`)**: Retains `src/lib/secureVault.ts` in the `Dex` repository so Cloudflare Pages Functions and Vercel Serverless Functions always compile with the latest sealed vault while client bundles never reference it.
+
+### 19.4 Total SEO, Schema & AI Crawler Airgap (`/moreinfo/*`)
+- **Zero Schema & Canonical Emission**: `GatewayPage.tsx`, `src/components/Meta.tsx`, `src/seo/metaBuilder.ts`, and `src/seo/schemaBuilder.ts` emit **zero** Schema.org JSON-LD blocks, **zero** `<link rel="canonical">` tags, and **zero** OpenGraph/Twitter tags on `/moreinfo/*` routes.
+- **Multi-Crawler Exclusion**: Enforces `noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate` across `robots`, `googlebot`, `bingbot`, `slurp`, `baiduspider`, `yandex`, `duckduckbot`, `gptbot`, `claudebot`, and `perplexitybot` in both HTML `<head>`, HTTP `X-Robots-Tag` headers, and `robots.txt`.
+

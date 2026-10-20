@@ -38,13 +38,56 @@ Disallow: /admin/
 Disallow: /login/
 Disallow: /masterworld/
 Disallow: /s/
+Disallow: /s/*
 Disallow: /dl/
+Disallow: /dl/*
 Disallow: /out/
+Disallow: /out/*
 Disallow: /download/
+Disallow: /download/*
 Disallow: /gateway/
+Disallow: /gateway/*
 Disallow: /info/
+Disallow: /info/*
 Disallow: /moreinfo/
+Disallow: /moreinfo/*
 Disallow: /moredetail/
+Disallow: /moredetail/*
+
+User-agent: GPTBot
+Disallow: /moreinfo/
+Disallow: /moreinfo/*
+Disallow: /gateway/
+Disallow: /download/
+Disallow: /api/
+
+User-agent: ClaudeBot
+Disallow: /moreinfo/
+Disallow: /moreinfo/*
+Disallow: /gateway/
+Disallow: /download/
+Disallow: /api/
+
+User-agent: PerplexityBot
+Disallow: /moreinfo/
+Disallow: /moreinfo/*
+Disallow: /gateway/
+Disallow: /download/
+Disallow: /api/
+
+User-agent: Google-Extended
+Disallow: /moreinfo/
+Disallow: /moreinfo/*
+Disallow: /gateway/
+Disallow: /download/
+Disallow: /api/
+
+User-agent: CCBot
+Disallow: /moreinfo/
+Disallow: /moreinfo/*
+Disallow: /gateway/
+Disallow: /download/
+Disallow: /api/
 
 Sitemap: https://www.rummydex.com/sitemap.xml
 Sitemap: https://www.rummydex.com/sitemap-news.xml
