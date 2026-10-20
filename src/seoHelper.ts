@@ -333,7 +333,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       isNotFound = true;
       pageType = '404';
     }
-  } else if (['/about', '/contact', '/privacy', '/report-removal', '/terms', '/notice', '/ethics', '/disclaimer', '/responsibility', '/developers', '/faq', '/faqs', '/safety', '/safety-status'].includes(cleanPathLower)) {
+  } else if (['/about', '/contact', '/privacy', '/report-removal', '/terms', '/notice', '/ethics', '/disclaimer', '/responsibility', '/developers', '/developer', '/faq', '/faqs', '/safety', '/safety-status'].includes(cleanPathLower)) {
     pageType = 'static';
     if (cleanPathLower === '/about') {
       title = getField(settings, 'about_meta_title') || `About Us`;
@@ -362,9 +362,10 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     } else if (cleanPathLower === '/responsibility') {
       title = getField(settings, 'responsibility_meta_title') || `Responsible Gaming`;
       description = getField(settings, 'responsibility_meta_description') || `Information and resources for responsible gaming and app usage on ${siteTitle}.`;
-    } else if (cleanPathLower === '/developers') {
+    } else if (cleanPathLower === '/developers' || cleanPathLower === '/developer') {
       title = getField(settings, 'developers_meta_title') || `Developer Profiles`;
       description = getField(settings, 'developers_meta_description') || `Browse profiles of top app developers featured on ${siteTitle}.`;
+      customCanonicalUrl = `https://www.rummydex.com/developers`;
     } else if (cleanPathLower === '/faq' || cleanPathLower === '/faqs') {
       title = getField(settings, 'faq_meta_title') || `Frequently Asked Questions`;
       description = getField(settings, 'faq_meta_description') || `Everything you need to know about ${siteTitle}, app verification, and downloads.`;
@@ -561,16 +562,26 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     .replace(/<style\s+id=["']server-critical-css["']>[\s\S]*?<\/style>/gi, '');
 
   const criticalCss = getCriticalCss();
-  const headAdditions = `${seoTags}\n${criticalCss ? criticalCss + '\n' : ''}${initialDataScript}`;
+  const headAdditions = `${seoTags}${criticalCss ? '\n' + criticalCss : ''}`;
 
-
-
-  if (finalHtml.includes('</head>')) {
+  if (finalHtml.includes('<!--__SEO_HEAD__-->')) {
+    finalHtml = finalHtml.replace('<!--__SEO_HEAD__-->', headAdditions);
+  } else if (finalHtml.includes('</head>')) {
     finalHtml = finalHtml.replace('</head>', `${headAdditions}\n</head>`);
   } else {
     finalHtml = `${headAdditions}\n${finalHtml}`;
   }
 
+  // If critical inline CSS is in place, convert the external stylesheet to a non-blocking preload
+  if (criticalCss) {
+    finalHtml = finalHtml.replace(
+      /<link\s+([^>]*href=["']\/assets\/[^"']+\.css["'][^>]*)>/gi,
+      (_match, attrs) => {
+        const cleanAttrs = attrs.replace(/\s*rel=["']stylesheet["']\s*/gi, ' ').trim();
+        return `<link rel="preload" as="style" ${cleanAttrs} onload="this.onload=null;this.rel='stylesheet'">\n    <noscript><link rel="stylesheet" ${cleanAttrs}></noscript>`;
+      }
+    );
+  }
 
   // High-performance server-side visible HTML shell injection:
   // First guarantee that any pre-existing SSR body in template is cleanly stripped back to <div id="root"></div>
@@ -583,11 +594,22 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   }
 
   if (preRenderedBody) {
-    if (finalHtml.includes('<div id="root"></div>')) {
+    if (finalHtml.includes('<!--__SEO_SSR_ROOT__-->')) {
+      finalHtml = finalHtml.replace('<!--__SEO_SSR_ROOT__-->', () => preRenderedBody);
+    } else if (finalHtml.includes('<div id="root"></div>')) {
       finalHtml = finalHtml.replace('<div id="root"></div>', () => `<div id="root">${preRenderedBody}</div>`);
     } else {
       finalHtml = finalHtml.replace(/<div id="root">[\s\S]*?<\/div>/i, () => `<div id="root">${preRenderedBody}</div>`);
     }
+  }
+
+  // Inject initialDataScript strictly at the bottom of <body> so it NEVER blocks the initial paint of the DOM!
+  if (finalHtml.includes('<!--__SEO_INITIAL_DATA__-->')) {
+    finalHtml = finalHtml.replace('<!--__SEO_INITIAL_DATA__-->', initialDataScript);
+  } else if (finalHtml.includes('</body>')) {
+    finalHtml = finalHtml.replace('</body>', `${initialDataScript}\n</body>`);
+  } else {
+    finalHtml += initialDataScript;
   }
 
   return { html: finalHtml, isNotFound, canonicalUrl, pageType, title, description };

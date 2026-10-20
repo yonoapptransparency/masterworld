@@ -74,17 +74,32 @@ if (typeof window !== 'undefined') {
   window.addEventListener('unhandledrejection', handleChunkError);
 }
 
+import { preloadRoute } from './lib/routePreloader';
+
 const rootEl = document.getElementById('root');
 if (rootEl) {
-  const appElement = (
-    <StrictMode>
-      <GlobalErrorBoundary>
-        <App />
-      </GlobalErrorBoundary>
-    </StrictMode>
-  );
+  const mountApp = () => {
+    const appElement = (
+      <StrictMode>
+        <GlobalErrorBoundary>
+          <App />
+        </GlobalErrorBoundary>
+      </StrictMode>
+    );
 
-  // Single-pass synchronous mount using window.__INITIAL_DATA__ without hydrateRoot mismatch teardown
-  createRoot(rootEl).render(appElement);
+    // Single-pass synchronous mount using window.__INITIAL_DATA__ without hydrateRoot mismatch teardown
+    createRoot(rootEl).render(appElement);
+  };
+
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '/';
+  if (pathname && pathname !== '/' && !pathname.startsWith('/category') && !pathname.startsWith('/categories')) {
+    // If arriving directly on a sub-route (e.g. /app/:slug, /news), warm the chunk first so SSR HTML remains visible
+    Promise.race([
+      preloadRoute(pathname),
+      new Promise(resolve => setTimeout(resolve, 600)) // Safety timeout
+    ]).then(mountApp).catch(mountApp);
+  } else {
+    mountApp();
+  }
 }
 

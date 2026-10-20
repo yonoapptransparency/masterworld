@@ -5,7 +5,21 @@
  */
 
 import communityCatalogStats from './communityCatalogStats.json';
-import communityStaticReviews from './communityStaticReviews.json';
+
+let _cachedStaticReviews: Record<string, any> | null = null;
+export async function getStaticReviewsBundle(): Promise<Record<string, any>> {
+  if (_cachedStaticReviews) return _cachedStaticReviews;
+  try {
+    const mod = await import('./communityStaticReviews.json');
+    _cachedStaticReviews = (mod.default || mod) as any;
+    return _cachedStaticReviews || {};
+  } catch (e) {
+    return {};
+  }
+}
+export function getStaticReviewsSync(): Record<string, any> {
+  return _cachedStaticReviews || {};
+}
 const getInitialApps = (): any[] => {
   if (typeof window !== 'undefined' && (window as any).__INITIAL_DATA__?.apps) {
     return (window as any).__INITIAL_DATA__.apps;
@@ -341,7 +355,7 @@ export function getCachedLiveReviews(appId?: string, appSlug?: string): ReviewFe
   }
 
   // Bundled static reviews baseline for 0ms initial render
-  const staticReviewsMap: Record<string, any> = (communityStaticReviews as any) || {};
+  const staticReviewsMap: Record<string, any> = getStaticReviewsSync();
   for (const targetKey of keys) {
     const list = staticReviewsMap[targetKey.toLowerCase()] || staticReviewsMap[targetKey];
     if (Array.isArray(list) && list.length > 0) {
@@ -516,7 +530,7 @@ export async function fetchLiveReviews(options: {
   };
 
   try {
-    const staticReviewsMap: Record<string, any> = (communityStaticReviews as any) || {};
+    const staticReviewsMap: Record<string, any> = (await getStaticReviewsBundle()) || {};
     const keysToCheck = [canonicalSlug, canonicalId, rawId].filter(Boolean) as string[];
     let rawReviews: any[] | null = null;
     for (const key of keysToCheck) {
@@ -1081,7 +1095,7 @@ export function getConsolidatedReviewsForApp(appIdParam?: string): AdminReviewIt
 
   // 2. Load from compiled atomic reviews bundle (communityStaticReviews.json)
   try {
-    const staticMap = (communityStaticReviews as any) || {};
+    const staticMap = getStaticReviewsSync();
     let staticList: any[] = [];
 
     if (isAll) {
@@ -1742,7 +1756,7 @@ export function computeAuthoritativeAtomicCatalogStats(apps?: any[]): {
   appCounts: Record<string, AppReviewCountsData>;
 } {
   const targetApps = (apps && apps.length > 0) ? apps : (staticData.apps || []);
-  const staticMap = (communityStaticReviews as any) || {};
+  const staticMap = getStaticReviewsSync();
   const deletedMap = getAdminDeletedMap();
   const customReviews = getAdminCustomReviews();
   const overrides = getAdminOverrides();

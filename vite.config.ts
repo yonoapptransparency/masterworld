@@ -522,6 +522,11 @@ function adminAuthDevPlugin(env: Record<string, string>) {
       });
     },
     async transformIndexHtml(html: string, ctx: any) {
+      if (!ctx?.server) {
+        // In production build (vite build), keep template placeholders intact so
+        // tsx scripts/prerender.ts can generate pristine, route-isolated SEO tags and SSR HTML!
+        return html;
+      }
       try {
         const url = ctx?.originalUrl || ctx?.url || '/';
         if (url.startsWith('/admin') || url.startsWith('/masterworld') || url.startsWith('/@') || url.startsWith('/node_modules')) {
@@ -539,6 +544,9 @@ function adminAuthDevPlugin(env: Record<string, string>) {
 }
 
 export default defineConfig(({mode}) => {
+  if (mode === 'production') {
+    process.env.NODE_ENV = 'production';
+  }
   const env = loadEnv(mode, '.', '');
   
   let firebaseConfig: any = {};
@@ -553,6 +561,7 @@ export default defineConfig(({mode}) => {
     envPrefix: ['VITE_'],
     define: {
       __ADMIN_ENABLED__: true,
+      'process.env.NODE_ENV': JSON.stringify(mode === 'production' ? 'production' : (process.env.NODE_ENV || 'development')),
       'process.env.ADMIN_PATH': JSON.stringify(env.ADMIN_PATH || 'admin'),
       'process.env.VITE_ADMIN_PATH': JSON.stringify(env.ADMIN_PATH || 'admin'),
       'process.env.FIREBASE_PROJECT_ID': JSON.stringify(firebaseConfig.projectId || env.FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID),
@@ -569,6 +578,7 @@ export default defineConfig(({mode}) => {
       alias: [
         { find: '@', replacement: path.resolve(__dirname, '.') },
         { find: 'react-helmet-async', replacement: path.resolve(__dirname, 'src/lib/react-helmet-async-shim.tsx') },
+        { find: 'react-i18next', replacement: path.resolve(__dirname, 'src/i18n.ts') },
 
         // Fallback aliases for Dex or Masterworld repositories where certain files are removed
         { 
@@ -699,9 +709,7 @@ export default defineConfig(({mode}) => {
         },
         { 
           find: /.*\/lib\/lightFallback$/, 
-          replacement: fs.existsSync(path.resolve(__dirname, 'src/pages/AdminDashboard.tsx')) 
-            ? path.resolve(__dirname, 'src/lib/lightFallback.ts') 
-            : path.resolve(__dirname, 'src/lib/staticData.ts') 
+          replacement: path.resolve(__dirname, 'src/lib/lightFallback.ts')
         },
         { 
           find: /.*\/lib\/adminCommunityFirebase$/, 

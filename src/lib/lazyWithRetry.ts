@@ -1,4 +1,4 @@
-import { lazy, ComponentType, LazyExoticComponent } from 'react';
+import { lazy, createElement, ComponentType, LazyExoticComponent } from 'react';
 
 export type PreloadableComponent<T extends ComponentType<any>> = LazyExoticComponent<T> & {
   preload: () => Promise<{ default: T }>;
@@ -36,23 +36,37 @@ if (typeof window !== 'undefined') {
 /**
  * Robust lazy import with automatic retry and clean page reload fallback for chunk loading errors.
  * Supports .preload() method for instant prefetching during idle time or user hover/touch.
+ * When preloaded, renders synchronously on the very first frame to prevent any Suspense fallback flash.
  */
 export const lazyWithRetry = <T extends ComponentType<any>>(
   componentImport: () => Promise<{ default: T }>
 ): PreloadableComponent<T> => {
   let preloadedPromise: Promise<{ default: T }> | null = null;
+  let ResolvedComponent: T | null = null;
 
   const preload = () => {
     if (!preloadedPromise) {
-      preloadedPromise = componentImport().catch(() => {
-        preloadedPromise = null;
-        return null as any;
-      });
+      preloadedPromise = componentImport().then(
+        (mod) => {
+          if (mod && mod.default) {
+            ResolvedComponent = mod.default;
+          }
+          return mod;
+        },
+        () => {
+          preloadedPromise = null;
+          return null as any;
+        }
+      );
     }
     return preloadedPromise;
   };
 
   const LazyComponent = lazy(async () => {
+    if (ResolvedComponent) {
+      return { default: ResolvedComponent };
+    }
+
     const key = 'chunk_reload_retry_' + (typeof window !== 'undefined' ? window.location.pathname : '');
     let pageHasAlreadyBeenForceRefreshed = false;
     try {
@@ -65,6 +79,7 @@ export const lazyWithRetry = <T extends ComponentType<any>>(
       try {
         const component = preloadedPromise ? await preloadedPromise : await componentImport();
         if (component && component.default) {
+          ResolvedComponent = component.default;
           try { window.sessionStorage.setItem(key, 'false'); } catch (e) {}
           return component;
         }
@@ -72,7 +87,6 @@ export const lazyWithRetry = <T extends ComponentType<any>>(
         lastError = err;
         preloadedPromise = null;
         if (attempt < 2) {
-          // Brief backoff before retry (e.g., transient network hiccup)
           await new Promise(r => setTimeout(r, 250 * attempt));
         }
       }
@@ -101,6 +115,14 @@ export const lazyWithRetry = <T extends ComponentType<any>>(
     throw error;
   });
 
-  return Object.assign(LazyComponent, { preload });
+  // Fast synchronous renderer when component is already preloaded in memory
+  const FastComponent: any = (props: any) => {
+    if (ResolvedComponent) {
+      return createElement(ResolvedComponent, props);
+    }
+    return createElement(LazyComponent, props);
+  };
+
+  return Object.assign(FastComponent, { preload });
 };
 

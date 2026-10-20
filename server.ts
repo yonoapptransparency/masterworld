@@ -332,6 +332,17 @@ async function startServer() {
       return res.redirect(301, '/');
     }
 
+    // 2.2 Canonical 301 Redirect /developer to /developers
+    if (pathLower === '/developer' || pathLower === '/developer/') {
+      const query = req.originalUrl.includes('?') ? '?' + req.originalUrl.split('?')[1] : '';
+      return res.redirect(301, '/developers' + query);
+    }
+    if (pathLower.startsWith('/developer/')) {
+      const rest = rawPath.substring('/developer/'.length);
+      const query = req.originalUrl.includes('?') ? '?' + req.originalUrl.split('?')[1] : '';
+      return res.redirect(301, '/developers/' + rest + query);
+    }
+
     // 3. Handle root-level single slugs (e.g. /a23-rummy -> 301 to canonical /app/a23-rummy)
     const cleanSegment = rawPath.replace(/^\/+|\/+$/g, '').toLowerCase();
     const knownTopLevelRoutes = new Set([
@@ -340,6 +351,7 @@ async function startServer() {
       'news',
       'videos',
       'developers',
+      'developer',
       'about',
       'contact',
       'privacy',

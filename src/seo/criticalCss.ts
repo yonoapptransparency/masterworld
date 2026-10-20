@@ -10,12 +10,8 @@ const CSS_CHECK_INTERVAL = 60000; // 1 minute in dev / hot reloading
  * Injects directly into <head> as critical inline CSS to eliminate Flash of Unstyled Content (FOUC).
  */
 export function getCriticalCss(): string {
-  if (process.env.NODE_ENV !== 'production') {
-    return '';
-  }
-
   const now = Date.now();
-  if (cachedCssContent !== null && (now - lastCssCheck < CSS_CHECK_INTERVAL || process.env.NODE_ENV === 'production')) {
+  if (cachedCssContent !== null && (now - lastCssCheck < CSS_CHECK_INTERVAL)) {
     return cachedCssContent;
   }
 

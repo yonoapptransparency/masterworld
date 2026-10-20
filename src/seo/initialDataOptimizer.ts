@@ -282,7 +282,7 @@ export function optimizeInitialDataForRoute(
   if (cleanPathLower.startsWith('/notice')) routeSpecificKeys.push('notice_meta_title', 'notice_meta_description', 'important_notice', 'important_notice_heading');
   if (cleanPathLower.startsWith('/ethics')) routeSpecificKeys.push('ethics_meta_title', 'ethics_meta_description', 'ethics_discrimination_text', 'ethics_heading');
   if (cleanPathLower.startsWith('/disclaimer')) routeSpecificKeys.push('disclaimer_meta_title', 'disclaimer_meta_description', 'disclaimer_text', 'disclaimer_heading');
-  if (cleanPathLower.startsWith('/developers')) routeSpecificKeys.push('developers_meta_title', 'developers_meta_description', 'developers');
+  if (cleanPathLower.startsWith('/developer')) routeSpecificKeys.push('developers_meta_title', 'developers_meta_description', 'developers');
   if (cleanPathLower.startsWith('/faq')) routeSpecificKeys.push('website_faqs', 'faq_meta_title', 'faq_meta_description');
   if (cleanPathLower.startsWith('/news')) routeSpecificKeys.push('news_meta_title', 'news_meta_description');
   if (cleanPathLower.startsWith('/video')) routeSpecificKeys.push('videos_meta_title', 'videos_meta_description');
@@ -295,7 +295,7 @@ export function optimizeInitialDataForRoute(
   }
 
   // Ensure developers array is available if present in settings or data for developers page
-  if (cleanPathLower.startsWith('/developers') && !optimizedSettings.developers && Array.isArray(data.developers)) {
+  if (cleanPathLower.startsWith('/developer') && !optimizedSettings.developers && Array.isArray(data.developers)) {
     optimizedSettings.developers = data.developers;
   }
 

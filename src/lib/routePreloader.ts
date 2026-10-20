@@ -35,8 +35,8 @@ const preloadedSet = new Set<string>();
 /**
  * Preloads the JavaScript chunk for a given path or URL
  */
-export function preloadRoute(rawPath: string): void {
-  if (!rawPath || typeof rawPath !== 'string') return;
+export function preloadRoute(rawPath: string): Promise<any> {
+  if (!rawPath || typeof rawPath !== 'string') return Promise.resolve();
 
   try {
     // Strip host, query params, hash
@@ -63,11 +63,12 @@ export function preloadRoute(rawPath: string): void {
 
     if (loader && !preloadedSet.has(path)) {
       preloadedSet.add(path);
-      loader().catch(() => {
+      return loader().catch(() => {
         preloadedSet.delete(path); // Allow retry on failure
       });
     }
   } catch (_) {}
+  return Promise.resolve();
 }
 
 /**
