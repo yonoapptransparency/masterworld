@@ -123,7 +123,7 @@ async function startServer() {
   const serveAiCatalog = (req: express.Request, res: express.Response) => {
     const catalogPath = path.join(process.cwd(), 'public', 'ai-catalog.json');
     if (fs.existsSync(catalogPath)) {
-      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Content-Type', 'application/ai-catalog+json; charset=utf-8');
       res.setHeader('Cache-Control', 'public, max-age=86400');
       return res.sendFile(catalogPath);
     }
@@ -349,6 +349,10 @@ async function startServer() {
       'ethics',
       'responsibility',
       'report-removal',
+      'faq',
+      'faqs',
+      'safety',
+      'safety-status',
       'moreinfo',
       'info',
       'gateway',

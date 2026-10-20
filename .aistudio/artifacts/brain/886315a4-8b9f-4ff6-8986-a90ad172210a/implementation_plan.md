@@ -1,222 +1,335 @@
-# 360-Degree Verified Core Engine Architectural Specification: Mobile Web Vitals & Automatic Sync
+# Master Execution Protocol: 360-Degree Architectural Remediation Plan (31 Verified Problems)
 
-A deeply verified, zero-prediction engineering specification for the **RummyDex Core Engine**. Based on direct code inspection and network payload verification, this plan addresses the verified root causes behind the mobile PageSpeed test (**Performance 73, FCP 4.1s, LCP 4.7s, TTFB 0.9s, INP 144ms**). It ensures that every time an Admin creates or modifies content (Apps, News, Reviews, Videos, Settings), the Core Engine **automatically processes, normalizes, caches, pre-renders, and delivers** it to smartphone users with sub-100ms perceived speed and zero layout shift—without altering website copy or violating split-sync boundaries.
-
----
-
-> [!IMPORTANT] Core Engine Directives & Non-Negotiable Invariants
-> 1. **Zero Content Modification Policy**: The AI is strictly forbidden from writing or altering website copy, descriptions, titles, or marketing text (RULE 11 in AGENTS_md). Content flows dynamically from the Admin Dashboard and database.
-> 2. **No Predictions — 100% Verified Codebase Facts**: Every optimization is grounded in verified code paths (`src/lib/staticData.ts` 1MB bundle bloat, `metaBuilder.ts` dual preload collision, `seoHelper.ts` SSR head injection, `DataContextPublic.tsx` synchronous imports).
-> 3. **Dual-Repo & Database Isolation**: Preserves `.github/workflows/split-sync.yml` boundaries and the master catalog Firebase project (`ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a`).
+## Executive Summary
+This document establishes the **Master Execution Protocol** for resolving all **31 verified system, hydration, security, styling, and split-sync flaws** across the RummyDex architecture. In accordance with strict engineering discipline, no code will be modified without complete pre-execution understanding, multi-hop dependency mapping, impact analysis, and verification gating.
 
 ---
 
-## 1. Verified Root Cause Analysis (PageSpeed Insights Mobile Lab Test)
-
-| Metric | Verified Test Result | Concrete Codebase Root Cause (Verified) | Automated Core Engine Solution | Target Result |
-| :--- | :--- | :--- | :--- | :--- |
-| **FCP (First Contentful Paint)** | **4.1 s** (Lab) / **2.1 s** (Field) | **1MB Client Bundle Bloat**: `DataContextPublic.tsx` and `AppDetails.tsx` statically import `src/lib/staticData.ts` (976 KB, 5,269 lines). Mobile CPU spends 3.5s downloading and compiling this massive JS file on 4G before initial paint. | Decouple client bundle from 1MB static file; initialize client strictly from lean `window.__INITIAL_DATA__` (already pre-rendered by server) with lazy fallback. | **< 200 ms** |
-| **LCP (Largest Contentful Paint)** | **4.7 s** (Lab) / **2.5 s** (Field) | **Dual Conflicting Preload Tags**: `metaBuilder.ts` (line 106) was preloading the site logo (`1000134293_sbicyb.png`) with `fetchpriority="high"`, competing with the actual LCP app icon preload (`1000132690_11zon...jpg`). | Cleanly isolate LCP preload in `<head>` so ONLY the target app's optimized icon (6KB) is preloaded on detail pages. | **< 1.0 s** |
-| **TTFB (Time to First Byte)** | **0.9 s** | Oversized inline JSON payload in `<head>`: `__INITIAL_DATA__` was transmitting 70+ apps and 10 full reviews into every app detail response (68 KB raw JSON). | Route-level payload trimming: For `/app/:slug`, `__INITIAL_DATA__` only includes the target app + lean similar app cards (<15 KB). | **< 120 ms** |
-| **INP (Interaction to Next Paint)** | **144 ms** | Monolithic client hydration: React hydrates all sub-sections (`AppSpecsBar`, `AppSafetyBoxes`, `AppScreenshots`, `AppAboutSection`, `UserReviews`) simultaneously on mobile main thread. | CSS `content-visibility: auto` on lower-fold sections + touch target hitboxes $\ge 44\text{px}$. | **< 25 ms** |
-| **CLS (Cumulative Layout Shift)** | **0.01** (Good) | Dynamic image loading without strict container aspect ratio bounds. | Enforce intrinsic `aspect-square` and `aspect-video` containers with pre-allocated skeleton dimensions. | **< 0.005** |
+> [!IMPORTANT] Core Invariants & Governance Directives
+> 1. **Zero Copy Alteration (RULE 11)**: AI is strictly prohibited from altering or inventing website text, titles, descriptions, or marketing copy. All content flows dynamically from the database and Admin Dashboard.
+> 2. **Preserve Dual-Repo Split-Sync**: All fixes must respect the isolation boundaries defined in `.github/workflows/split-sync.yml` (Dex = Public Site, Masterworld = Admin Site).
+> 3. **Non-Regressive Execution**: Each phase is self-contained, verified via `compile_applet` and `lint_applet`, and tested for runtime and hydration continuity before moving to the next.
 
 ---
 
-## 2. 360-Degree Core Engine Subsystem Architecture
+# PHASE 1: COMPLETE SYSTEM UNDERSTANDING & DEPENDENCY MAPPING
 
-The Core Engine automates the entire lifecycle from Admin input to mobile browser rendering:
+Before modifying any code, the entire system topology is traced from database storage to mobile DOM painting:
 
 ```
-┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ SUBSYSTEM 1: ADMIN CONTENT CREATION & AUTOMATIC CACHE INVALIDATION                               │
-│ Admin creates/edits App, News, or Setting in Admin Dashboard -> Saved to Firestore               │
-│ adminCatalogRoutes.ts / adminAuthRoutes.ts immediately calls clearSeoCache()                    │
-│ In-memory catalog cache refreshed instantly (0ms staleness); next mobile request gets fresh SSR   │
-└──────────────────────────────────────────────┬───────────────────────────────────────────────────┘
-                                               │
-                                               ▼
-┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ SUBSYSTEM 2: AUTOMATED IMAGE NORMALIZATION ENGINE                                                │
-│ getOptimizedImageUrl(url, targetWidth) in src/seo/utils.ts intercepts all images:               │
-│ • Target App Icon        -> w_160 (6KB WebP/AVIF via /upload/f_auto,q_auto,w_160/)               │
-│ • Catalog List Icons     -> w_120 (3KB)                                                          │
-│ • Screenshot Slides      -> w_480 (25KB)                                                         │
-│ • Feature Banners & News -> w_600 (35KB)                                                         │
-│ Regex strips pre-existing width/transform flags automatically to prevent URL corruption          │
-└──────────────────────────────────────────────┬───────────────────────────────────────────────────┘
-                                               │
-                                               ▼
-┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ SUBSYSTEM 3: SSR HEAD INJECTION & LCP ACCELERATION                                               │
-│ seoHelper.ts & metaBuilder.ts process requested URL (/app/:slug):                                │
-│ 1. Lookup item from memory cache / staticData backup                                             │
-│ 2. Compute single 160px optimized icon URL (NO competing logo preloads)                           │
-│ 3. Inject Inlined Critical CSS in <head>                                                         │
-│ 4. Inject single <link rel="preload" as="image" href="w_160_icon" fetchpriority="high">        │
-│ 5. Inject <link rel="preconnect" href="https://res.cloudinary.com">                             │
-│ 6. Trim __INITIAL_DATA__ payload to <15KB for deep app routes                                    │
-│ 7. Generate Schema.org SoftwareApplication JSON-LD                                               │
-└──────────────────────────────────────────────┬───────────────────────────────────────────────────┘
-                                               │
-                                               ▼
-┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ SUBSYSTEM 4: CLIENT HYDRATION & BUNDLE DECOUPLING                                                │
-│ 1. DataContextPublic.tsx and AppDetails.tsx initialize from window.__INITIAL_DATA__ directly      │
-│ 2. Remove synchronous 1MB staticData.ts import from the primary mobile client bundle             │
-│ 3. Client JS payload reduced from ~1.2MB down to <180KB                                          │
-│ 4. Express Brotli/Gzip Level-9 Middleware compresses all static assets                           │
-└──────────────────────────────────────────────┬───────────────────────────────────────────────────┘
-                                               │
-                                               ▼
-┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ SUBSYSTEM 5: MOBILE DOM THREAD CONTAINMENT (INP < 25ms)                                         │
-│ In src/index.css, @media (max-width: 768px) enforces content-visibility: auto with              │
-│ contain-intrinsic-size: 1px 300px on lower-fold sections:                                        │
-│ • #ratings-and-reviews-section  • #app-specifications  • #similar-apps-carousel                  │
-│ • #app-video-section            • #app-faqs-section                                              │
-│ Mobile CPU skips off-screen paint work; main thread remains 100% idle for touch inputs          │
-└──────────────────────────────────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ SUBSYSTEM 1: DATABASE & STORAGE ENGINE                                                 │
+│ • Master Catalog: Cloud Firestore (ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad) │
+│ • Collections: store_data (chunks 0/1, settings, news, videos), sec_git, admins_2fa   │
+│ • Community Store: rummydexcommunity (reviews, catalog_stats, reports)                 │
+│ • Local Backups: staticData.json, communityStaticReviews.json, communityCatalogStats   │
+└──────────────────────────────────────────┬─────────────────────────────────────────────┘
+                                           │
+                                           ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ SUBSYSTEM 2: SERVER RUNTIME & SSR PIPELINE (server.ts & src/seoHelper.ts)              │
+│ • Express server on port 3000 handles API, bot shielding, and HTML pre-rendering.      │
+│ • Pre-render pipeline: Reads template -> Builds <head> meta tags (metaBuilder.ts) ->   │
+│   Injects inlined Critical CSS -> Inlines window.__INITIAL_DATA__ JSON ->              │
+│   Injects semantic HTML shell into <div id="root"> (renderers/*)                       │
+└──────────────────────────────────────────┬─────────────────────────────────────────────┘
+                                           │
+                                           ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ SUBSYSTEM 3: PUBLIC CLIENT HYDRATION (src/main.tsx, AppPublic.tsx, DataContext)        │
+│ • Entry point: src/main.tsx mounts App inside <div id="root">                          │
+│ • Router: React Router DOM with PublicHeader, Main Routes, and PublicFooter            │
+│ • State: DataContextPublic initializes apps, settings, news, and videos                │
+│ • Critical boundary: React must attach event listeners to SSR HTML WITHOUT erasing it. │
+└────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 3. Deep Technical Breakdown by Subsystem
+# PHASE 2: 360° IMPACT ANALYSIS (ALL 31 VERIFIED PROBLEMS)
 
-### Subsystem 1: Decoupling Client Bundle from 1MB `staticData.ts`
-- **Root Problem**: `src/lib/staticData.ts` contains 5,269 lines (976 KB) of raw TypeScript objects. Both `DataContextPublic.tsx` and `AppDetails.tsx` statically import `mockApps` from this file. Even though the server already injects `window.__INITIAL_DATA__` on every SSR request, Vite bundles this 1MB file into the client bundle, forcing mobile phones to download, parse, and execute 1MB of JavaScript before initial paint.
-- **Architectural Solution**:
-  - In `DataContextPublic.tsx`, initialize state directly from `window.__INITIAL_DATA__` (which the server provides for 100% of routes).
-  - Convert `staticData.ts` into a lazy-loaded fallback (`import('../lib/staticData')`) that only executes in the rare event that `window.__INITIAL_DATA__` is completely missing (e.g. static preview servers).
-  - In `AppDetails.tsx`, resolve the app from the `useData()` context or `window.__INITIAL_DATA__` instead of statically importing `mockApps` from `staticData.ts`.
-  - **Result**: Drops initial client JavaScript bundle size by **~80%**, eliminating the 3.5s mobile CPU script evaluation bottleneck and bringing **FCP under 200ms**.
+Every proposed modification is analyzed for affected files, dependent components, failure modes, and preservation strategies:
 
-### Subsystem 2: Single Dedicated LCP Image Preload in `<head>`
-- **Root Problem**: On `/app/rummy-77`, `metaBuilder.ts` was preloading `settings.logo_url` (`1000134293_sbicyb.png`) with `fetchpriority="high"`, while `seoHelper.ts` was separately preloading the app's icon (`1000132690_11zon...jpg`). This triggered two competing high-priority image downloads on mobile cellular networks.
-- **Architectural Solution**:
-  - Consolidate image preload logic into a single source of truth in `metaBuilder.ts`.
-  - When `pageType === 'app'` and `targetApp` exists: Strictly output **ONE** high-priority preload tag for `targetApp.icon_url` (scaled to `w_160`). Do **NOT** preload the header logo or catalog items on detail pages.
-  - When `pageType === 'home'`: Preload the first featured banner image.
-  - **Result**: 100% of mobile network bandwidth is allocated directly to the primary LCP hero icon, dropping LCP load time to **< 1.0s**.
+### Group 1: Hydration, Blank White Flash & Layout Shift (CLS)
+- **Problem 1: `createRoot` vs `hydrateRoot` in `src/main.tsx`**
+  - *Why needed*: Calling `createRoot` on a container with SSR HTML causes React 18/19 to wipe out all pre-rendered HTML DOM nodes, triggering the blank white screen before client render.
+  - *Affected files*: `src/main.tsx`
+  - *Dependent components*: Entire application root.
+  - *What could break*: If SSR HTML attributes don't match React DOM, hydration warnings occur.
+  - *Preservation strategy*: Use `hydrateRoot` if `rootEl.hasChildNodes()` or `window.__INITIAL_DATA__` is present, with fallback to `createRoot`. Suppress non-breaking hydration attribute mismatches gracefully.
+  - *Validation*: Confirm in browser DOM that `<div id="root">` is not destroyed on frame 1.
 
-### Subsystem 3: Streamlining `window.__INITIAL_DATA__` for Deep Detail Routes
-- **Root Problem**: When loading `/app/rummy-77`, the server was serializing 70+ apps and 10 full user reviews into the `<head>` of the HTML response (68 KB of inline JSON), delaying initial HTML parsing on mobile devices.
-- **Architectural Solution**:
-  - In `src/seo/initialDataOptimizer.ts`, when the route is `/app/:slug`, trim `__INITIAL_DATA__.apps` to ONLY include the target app (with full description) plus up to 10 similar carousel apps (with lean metadata only: `id`, `name`, `slug`, `icon_url`, `rating`, `category`).
-  - Limit initial inline reviews to the top 3-5 published reviews (remaining reviews load asynchronously via `useReviews` cursor pagination on user scroll).
-  - **Result**: Reduces inlined `<head>` JSON from 68 KB to **< 15 KB**, accelerating HTML parse time and reducing TTFB to **< 120ms**.
+- **Problem 2: Lazy-Loaded Public Routes with `<Suspense fallback={null}>`**
+  - *Why needed*: When React mounts, dynamic imports for `NewsPage`, `GatewayPage`, `VideosPage`, etc. suspend, replacing the page with `null` (white screen).
+  - *Affected files*: `src/AppPublic.tsx`
+  - *Dependent components*: All public page components.
+  - *What could break*: Bundle size could increase if all routes were statically imported.
+  - *Preservation strategy*: Statically import critical primary routes (`Home`, `AppDetails`, `GatewayPage`). For secondary routes (`NewsPage`, `VideosPage`, `About`, `Contact`), provide a matching skeleton shell fallback instead of `fallback={null}` so the screen never turns white.
+  - *Validation*: Verify that route transitions render an immediate matching layout without white screens.
 
-### Subsystem 4: Off-Screen DOM Containment for Mobile INP (< 25ms)
-- **Root Problem**: Smartphone processors struggle when calculating styles and layouts for the entire page (Specs bar, Safety callouts, Screenshots, Full HTML description, FAQs, and Community Reviews) in a single synchronous pass, causing the **144 ms INP** penalty seen in CrUX field data.
-- **Architectural Solution**:
-  - In `src/index.css`, establish layout containment using `@media (max-width: 768px)` with `content-visibility: auto` and `contain-intrinsic-size: 1px 300px` on lower-fold sections:
-    - `#ratings-and-reviews-section`
-    - `#app-specifications`
-    - `#similar-apps-carousel`
-    - `#app-video-section`
-    - `#app-faqs-section`
-  - Browser skips rendering work for off-screen elements until user scrolls near them, keeping the main thread completely idle for touch interactions (INP < 25ms).
-  - Googlebot fully indexes all content inside `content-visibility: auto`.
+- **Problem 3: Main CSS Link Delayed via `media="print"`**
+  - *Why needed*: Browser renders unstyled HTML on frame 1, then snaps styles on when `onload` fires.
+  - *Affected files*: `src/seoHelper.ts`
+  - *Dependent components*: All visual components.
+  - *What could break*: Render-blocking CSS on slow networks.
+  - *Preservation strategy*: Verified patched: Remove `media="print"` hack. The stylesheet loads with standard `rel="stylesheet"`. Inlined critical CSS covers above-the-fold content immediately.
+  - *Validation*: Confirm curl output contains standard `<link rel="stylesheet">`.
 
-### Subsystem 5: Automated Admin Sync & Instant Cache Invalidation
-- **Root Problem**: If an Admin updates an app in the Admin Dashboard, SSR cache must immediately reflect the change without serving stale preload tags or outdated descriptions.
-- **Architectural Solution**:
-  - `src/server/routes/adminCatalogRoutes.ts` (and admin auth/vault routes) calls `clearSeoCache()` immediately upon any write operation.
-  - The in-memory cache is refreshed in 0ms; the next public mobile request gets freshly rendered SSR HTML, new LCP preload hints, and updated OpenGraph tags instantly.
+- **Problem 4: `.ssr-seo-content { display: none !important; }` in `src/index.css`**
+  - *Why needed*: Explicitly hides server-rendered wrappers before React mounts.
+  - *Affected files*: `src/index.css`
+  - *Dependent components*: Any SSR wrapper component.
+  - *What could break*: None.
+  - *Preservation strategy*: Remove the rule completely. Content should remain visible from SSR paint through client hydration.
+  - *Validation*: Grep `src/index.css` to confirm rule is deleted.
 
----
+- **Problem 5: Dynamic Root Font Size Changing Across Breakpoints in `src/index.css`**
+  - *Why needed*: Dynamic `html { font-size: 15px / 14.5px / 13.5px }` shifts all Tailwind `rem` units as soon as CSS loads, causing massive CLS.
+  - *Affected files*: `src/index.css`
+  - *Dependent components*: All mobile typography, cards, buttons, and layouts.
+  - *What could break*: Layout scaling on very narrow screens if not handled cleanly with Tailwind utility classes.
+  - *Preservation strategy*: Remove the `html { font-size: ... }` media queries. Allow standard 16px root font size. Use Tailwind's existing `text-xs`, `text-sm`, and `xxs:` responsive classes for narrow displays.
+  - *Validation*: Verify on 360px viewport that text scales cleanly without sudden rem jumps.
 
-## 4. User Experience & Visual Design (Mobile Ergonomics)
-
-- **Mobile Viewport Canvas**: Tailored specifically for 375px–430px smartphone displays with responsive multi-column expansion for desktop.
-- **Touch Target & Thumb Ergonomics**:
-  - Minimum touch target hitbox of **44x44px** (`min-h-[44px] min-w-[44px] flex items-center justify-center`) for all buttons, links, and triggers.
-  - Primary "Proceed" / "Download" action CTAs strictly placed in the natural thumb reach zone (bottom viewport area).
-- **Sticky Surface Governance**:
-  - Combined height of mobile top bar and bottom action bar strictly capped under **15% of viewport height**.
-- **Metadata & Anti-Slop Discipline**:
-  - Clean unboxed metadata with typographic separators (`·`, `/`) for app ratings, downloads, category names, and file sizes. No static pill enclosures.
-- **Layout Stability & Zero CLS**:
-  - Reserved aspect-ratio boxes (`aspect-square` for icons, `aspect-video` for screenshots/banners) with pre-allocated skeleton dimensions.
+- **Problem 6: Placeholder Heights (`contain-intrinsic-size`) Mismatch**
+  - *Why needed*: `src/index.css` sets `0 88px` while `AppListItems.tsx` sets `auto 84px`. `#ratings-and-reviews-section` sets `1px 320px` (it is actually >600px tall), causing scroll jumps.
+  - *Affected files*: `src/index.css`, `src/components/playstore/AppListItems.tsx`, `src/pages/AppDetails.tsx`
+  - *Dependent components*: Catalog rows, Reviews section, Specifications section.
+  - *What could break*: Scroll position jumps during fast scroll.
+  - *Preservation strategy*: Harmonize `contain-intrinsic-size` across `index.css` and `AppListItems.tsx` to `auto 84px`. Adjust reviews placeholder to `auto 650px` to match actual rendered height.
+  - *Validation*: Test smooth scrolling on mobile viewports; verify no scrollbar thumb jumping.
 
 ---
 
-## 5. Technical Architecture Diagram
+### Group 2: CSS, Styling & Admin HTML Rendering
+- **Problem 7: Undefined CSS Variable `--text-secondary` in `src/index.css`**
+  - *Why needed*: Used across `.premium-subheading` and disclaimer styles, but never defined in `:root` or `.dark`.
+  - *Affected files*: `src/index.css`
+  - *Preservation strategy*: Define `--text-secondary: #71717a;` (zinc-500) in `:root` and `--text-secondary: #a1a1aa;` (zinc-400) in `.dark`.
+  - *Validation*: Verify disclaimer and subheadings render with crisp contrast.
 
-```
-                       [ MOBILE CLIENT / GOOGLEBOT ]
-                                     │
-                        HTTP GET /app/rummy-77
-                                     │
-                                     ▼
-                     ┌──────────────────────────────┐
-                     │ Express Server (server.ts)   │
-                     └───────────────┬──────────────┘
-                                     │
-                     ┌───────────────▼──────────────┐
-                     │  seoHelper.ts Engine         │
-                     │  1. Check Memory Cache       │
-                     │  2. Target App Lookup        │
-                     └───────────────┬──────────────┘
-                                     │
-          ┌──────────────────────────┴──────────────────────────┐
-          │                                                     │
-          ▼                                                     ▼
-┌──────────────────────────────┐                      ┌──────────────────────────────┐
-│ Image Optimization Engine    │                      │ Head & Payload Builder       │
-│ getOptimizedImageUrl()       │                      │ 1. Inlined Critical CSS      │
-│ Raw 370KB -> 6KB WebP/AVIF   │                      │ 2. Preconnect Cloudinary CDN │
-└─────────┬────────────────────┘                      │ 3. Preload 6KB Icon (LCP)    │
-          │                                           │ 4. Trim __INITIAL_DATA__     │
-          │                                           │    (<15KB lean payload)      │
-          │                                           └──────────────┬───────────────┘
-          └──────────────────────────┬───────────────────────────────┘
-                                     │
-                                     ▼
-                     ┌──────────────────────────────┐
-                     │ appDetailsRenderer.ts (SSR)  │
-                     │ Pre-rendered semantic HTML   │
-                     │ + Structured JSON-LD Schema  │
-                     └───────────────┬──────────────┘
-                                     │
-                                     ▼
-                     ┌──────────────────────────────┐
-                     │ Express Brotli Compression   │
-                     │ Level 9 (Total HTML < 40KB)  │
-                     └───────────────┬──────────────┘
-                                     │
-                                     ▼
-                     ┌──────────────────────────────┐
-                     │ Mobile Browser Paint         │
-                     │ • FCP < 200ms                │
-                     │ • LCP < 1.0s                 │
-                     │ • INP < 25ms (content-vis)   │
-                     │ • CLS < 0.005                │
-                     └───────────────┬──────────────┘
-                                     │
-                                     ▼
-                     ┌──────────────────────────────┐
-                     │ Client Hydration (Light)     │
-                     │ Decoupled from staticData.ts │
-                     │ Bundle < 180KB (Fast Eval)   │
-                     └──────────────────────────────┘
-```
+- **Problem 8: Invalid / Non-Existent Tailwind Classes**
+  - *Why needed*: Classes like `dark:hover:bg-zinc-750`, `text-rose-650`, `border-zinc-150`, `md:text-3.5xl`, `font-space` do not exist in Tailwind and produce zero styles.
+  - *Affected files*: `src/components/UserReviews.tsx`, `src/components/public/ReviewItem.tsx`, `src/components/WebsiteTitleHero.tsx`, `src/components/GlobalErrorBoundary.tsx`, `src/pages/Contact.tsx`, `src/seo/renderers/homeRenderer.ts`, `src/seo/renderers/staticPageRenderer.ts`
+  - *Preservation strategy*: Map fake classes to standard Tailwind tokens (`zinc-750` -> `zinc-700/800`, `rose-650` -> `rose-600`, `border-zinc-150` -> `border-zinc-200`, `text-3.5xl` -> `text-3xl sm:text-4xl`). Define custom fonts in `@theme` if needed or use standard font stacks.
+  - *Validation*: Verify compilation with `compile_applet` and inspect elements in dev tools.
+
+- **Problem 9: Admin HTML Allows Duplicate `<h1>` Tags on App Pages**
+  - *Why needed*: When admin enters an `<h1>` in `description_html`, it creates multiple `<h1>` elements on the page, violating single-H1 SEO rules.
+  - *Affected files*: `src/components/public/AppAboutSection.tsx`, `src/lib/safeHtmlPublic.ts`
+  - *Preservation strategy*: In `safeHtmlPublic.ts` and `AppAboutSection.tsx`, automatically convert any `<h1>` inside user-generated HTML to `<h2>` with appropriate heading classes.
+  - *Validation*: Verify that `/app/:slug` HTML contains strictly ONE `<h1>` (the App Name).
 
 ---
 
-## 6. Implementation Roadmap & Verification Plan
+### Group 3: Security & Secret Sanitization
+- **Problem 10: Hardcoded Cloudinary API Key & Secret in `vite.config.ts`**
+  - *Why needed*: Fallback keys `883757976464181` and `wWlSk9OS905jDmR5YR6wlEK37sE` are committed in plain text.
+  - *Affected files*: `vite.config.ts`, `server.ts`
+  - *Preservation strategy*: Remove hardcoded plain-text fallback credentials. Read strictly from `process.env.CLOUDINARY_API_KEY` and `process.env.CLOUDINARY_API_SECRET`. If missing in development, return a clear error requiring the environment variable.
+  - *Validation*: Grep codebase to verify 0 occurrences of the secret string.
 
-1. **Client Bundle Decoupling (`src/contexts/DataContextPublic.tsx`, `src/pages/AppDetails.tsx`)**:
-   - Decouple `DataContextPublic` and `AppDetails` from synchronous `staticData.ts` imports.
-   - Use `window.__INITIAL_DATA__` for immediate zero-latency initialization.
-2. **SSR Head Preload Consolidation (`src/seo/metaBuilder.ts`, `src/seoHelper.ts`)**:
-   - Ensure detail pages emit strictly **ONE** high-priority image preload tag for `targetApp.icon_url` (160px).
-   - Eliminate redundant logo preloads on detail pages.
-3. **Detail Route Payload Trimming (`src/seo/initialDataOptimizer.ts`)**:
-   - Restrict `__INITIAL_DATA__.apps` on `/app/:slug` to the target app plus lean carousel items.
-4. **Validation & Verification**:
-   - Run `compile_applet` and `lint_applet` to guarantee 0 TypeScript/build errors.
-   - Run `curl -s http://localhost:3000/app/rummy-77` to verify:
-     - Single 160px LCP preload tag in `<head>`.
-     - `__INITIAL_DATA__` size is under 15 KB.
-     - Total HTML transfer size is under 40 KB.
+- **Problem 11: Admin Password Injected into Client JS via `vite.config.ts`**
+  - *Why needed*: `define: { 'process.env.ADMIN_PASSWORD': JSON.stringify(adminPass) }` injects admin password into public browser bundles.
+  - *Affected files*: `vite.config.ts`
+  - *Preservation strategy*: Remove `ADMIN_PASSWORD` from `envPrefix` and `define`. Authentication must strictly occur server-side via `/api/v1/admin/auth/login`.
+  - *Validation*: Verify that built client bundles in `dist/assets/` contain zero occurrences of the admin password.
+
+- **Problem 12: All 7 AES Vault Master Keys Exposed in Public Files**
+  - *Why needed*: `KNOWN_VAULT_KEYS` is hardcoded in `src/lib/secureVault.ts` and `functions/api/[[catchall]].js`.
+  - *Affected files*: `src/lib/secureVault.ts`, `functions/api/[[catchall]].js`, `src/lib/cryptoUtils.ts`
+  - *Preservation strategy*: Vault decryption on the public site must strictly occur through server-side API proxy routes (`/api/v1/public/secure-link`) or via runtime environment variable `process.env.AES_SECRET`. Remove the hardcoded `KNOWN_VAULT_KEYS` array from client-side public bundles.
+  - *Validation*: Grep repository to verify `KNOWN_VAULT_KEYS` array with plain-text secrets is removed.
+
+- **Problem 13: Cloudflare Turnstile Bypassed via Test Secret in Production**
+  - *Why needed*: Fallback to `1x0000000000000000000000000000000AA` lets any bot bypass Turnstile.
+  - *Affected files*: `src/server/routes/securityRoutes.ts`, `functions/api/[[catchall]].js`
+  - *Preservation strategy*: Strictly reject verification if the secret key is invalid or if the Cloudflare API returns failure. Allow test secret ONLY when `process.env.NODE_ENV !== 'production'`.
+  - *Validation*: Test with dummy bot token; verify that `POST /api/v1/public/secure-link` returns 403 or challenge required.
+
+- **Problem 14: Open Write Access & Admin Bypass in `firestore.rules`**
+  - *Why needed*: `_rest_admin_bypass` allows anyone to write to database; public collections allow unvalidated writes.
+  - *Affected files*: `firestore.rules`
+  - *Preservation strategy*: Remove `isRestAdmin()` and `_rest_admin_bypass`. Apply `isValidReview`, `isValidFeedback`, `isValidTicket` to review and feedback collections. Require verified admin auth on `store_data` and `sec_git`.
+  - *Validation*: Test Firebase rules syntax via `npm run lint`.
+
+- **Problem 15: Live Upstash Redis Token & Firebase Keys in `.env.example`**
+  - *Why needed*: Exposes live credentials in repository.
+  - *Affected files*: `.env.example`
+  - *Preservation strategy*: Replace live Redis URL, token, and Firebase API keys with standard dummy placeholder values (`your_redis_token_here`).
+  - *Validation*: Verify `.env.example` contains only placeholders.
+
+- **Problem 16: Unauthenticated Endpoints in Vite Dev Plugin**
+  - *Why needed*: `/api/v1/admin/verify` returns authorized without checking token; upload endpoints allow unauthenticated POSTs.
+  - *Affected files*: `vite.config.ts`
+  - *Preservation strategy*: Check `req.headers.authorization` or session token before granting access in dev middleware.
+  - *Validation*: Test unauthorized request; verify 401 response.
+
+---
+
+### Group 4: Build, Deployment & Split-Sync
+- **Problem 17: Broken Vercel Serverless Configuration in Dex Repo**
+  - *Why needed*: `build-api.js` skips `api/index.js` when `server.ts` is missing, yet `vercel.json` routes to it.
+  - *Affected files*: `scripts/build-api.js`, `vercel.json`, `package.json`
+  - *Preservation strategy*: In Dex repo (pure static SPA), configure `vercel.json` cleanly for static output with client-side SPA routing (`rewrites: [{ source: "/(.*)", destination: "/index.html" }]`). Set `"dev": "vite"` in Dex's `package.json`.
+  - *Validation*: Verify build script runs cleanly with and without `server.ts`.
+
+- **Problem 18: Split-Sync Directory Leakage**
+  - *Why needed*: Admin vault files leak into Dex; public SEO files leak into Masterworld.
+  - *Affected files*: `.github/workflows/split-sync.yml`
+  - *Preservation strategy*: Add `src/lib/secureVault.ts`, `src/lib/cryptoUtils.ts`, `src/lib/aiStudioBrain.json`, and `.aistudio/` to `ADMIN_ONLY_FILES`. Add `public/sitemap*.xml` and `src/seo/renderers/*` to `PUBLIC_ONLY_FILES`.
+  - *Validation*: Inspect split-sync file lists for clean isolation.
+
+- **Problem 19: Fragile Comment Slicing in `scripts/build-api.js`**
+  - *Why needed*: Stripping code between comments deletes 301 redirects and bot defenses on Vercel.
+  - *Affected files*: `scripts/build-api.js`
+  - *Preservation strategy*: Build `api/index.js` modularly by importing express routes instead of string-slicing `server.ts`.
+  - *Validation*: Verify generated `api/index.js` contains route definitions.
+
+- **Problem 20: Cloudflare Edge Function Returns 404 & Leaks Memory**
+  - *Why needed*: Returns 404 for `/community/*`, `/reports`, `/news`. `edgeRateMap` and `burnedNonces` never evict.
+  - *Affected files*: `functions/api/[[catchall]].js`
+  - *Preservation strategy*: Add handlers for public catalog endpoints. Add periodic TTL cleanup (pruning entries older than 60s) to prevent unbounded memory growth.
+  - *Validation*: Test endpoint routing and confirm memory maps stay bounded.
+
+---
+
+### Group 5: SEO, Caching, Routing & Runtime Bugs
+- **Problem 21: `vercel.json` Forces `max-age=0, must-revalidate`**
+  - *Why needed*: Prevents edge caching on Vercel and Cloudflare, causing high TTFB.
+  - *Affected files*: `vercel.json`
+  - *Preservation strategy*: Set standard cache headers: `public, max-age=300, s-maxage=3600, stale-while-revalidate=86400` for public pages, while keeping `/admin/*` and `/api/*` as `no-store`.
+  - *Validation*: Inspect response headers for public routes.
+
+- **Problem 22: `/faq` and `/faqs` Return 404 on Server**
+  - *Why needed*: Missing from static route list in `src/seoHelper.ts` and `knownTopLevelRoutes` in `server.ts`.
+  - *Affected files*: `src/seoHelper.ts`, `server.ts`, `scripts/prerender.ts`
+  - *Preservation strategy*: Add `faq` and `faqs` to `knownTopLevelRoutes` in `server.ts` and to the static routes array in `seoHelper.ts`.
+  - *Validation*: `curl -s http://localhost:3000/faq` returns 200 OK.
+
+- **Problem 23: Prerendering `/moreinfo/:slug` Bypasses Bot Shield**
+  - *Why needed*: Static files in `dist/moreinfo/` served before bot check.
+  - *Affected files*: `server.ts`, `scripts/prerender.ts`
+  - *Preservation strategy*: Do NOT prerender `/moreinfo/:slug` to static HTML files. Route `/moreinfo/:slug` dynamically through `server.ts` where the bot shield executes first.
+  - *Validation*: Verify that bot user-agents receive 403 on `/moreinfo/`.
+
+- **Problem 24: `Meta.tsx` Sets `og:site_name` to Full Page Title**
+  - *Why needed*: Sets 60-character title instead of site name.
+  - *Affected files*: `src/components/Meta.tsx`
+  - *Preservation strategy*: Set `resolvedSiteName = siteTitle || 'RummyDex'`.
+  - *Validation*: Verify meta tag in document head.
+
+- **Problem 25: `UserReviews.tsx` Hardcodes `inView = true`**
+  - *Why needed*: Fires queries before user scrolls to reviews.
+  - *Affected files*: `src/components/UserReviews.tsx`
+  - *Preservation strategy*: Use `IntersectionObserver` on `containerRef` to set `inView = true` only when user scrolls within 300px of reviews.
+  - *Validation*: Verify network tab on initial load.
+
+- **Problem 26: `ai-catalog.json` Schema & MIME Validation**
+  - *Why needed*: Root properties fail schema; served as `application/json` instead of `application/ai-catalog+json`.
+  - *Affected files*: `public/ai-catalog.json`, `server.ts`
+  - *Preservation strategy*: Set `Content-Type: application/ai-catalog+json` in `server.ts`. Clean root properties in `ai-catalog.json` and add `representativeQueries`.
+  - *Validation*: Test with curl and JSON schema validator.
+
+- **Problem 27: Inconsistent `robots.txt`, Dead `/blogs` Link, Sitemap Captions**
+  - *Why needed*: Missing disallows in public robots.txt; dead `/blogs` in `llms.txt`; streaming apps labeled "gameplay".
+  - *Affected files*: `public/robots.txt`, `public/llms.txt`, `public/sitemap-apps.xml`
+  - *Preservation strategy*: Synchronize `robots.txt` disallows across all templates. Remove `/blogs` from `llms.txt`. Use contextual captions ("app interface") in sitemap.
+  - *Validation*: Check `robots.txt` and `llms.txt`.
+
+- **Problem 28: Rickroll Video, Dead Button, Unmounted `SafetyStatus`, Duplicate Packages**
+  - *Why needed*: Rick Astley embed looks unprofessional; dead button; `SafetyStatus` unmounted; `framer-motion` + `motion` duplicate weight.
+  - *Affected files*: `src/components/playstore/PromotionSection.tsx`, `src/AppPublic.tsx`, `package.json`
+  - *Preservation strategy*: Replace Rickroll video with a clean gameplay/app showcase embed or interactive preview. Link "Explore Selection" to `/categories`. Mount `/safety` route in `AppPublic.tsx`. Remove duplicate `motion` package.
+  - *Validation*: Verify clean UI and build size reduction.
+
+- **Problem 29: Monolithic `communityFirebase.ts` (90 KB, 2,423 lines)**
+  - *Why needed*: Bundles admin CRUD into public clients.
+  - *Affected files*: `src/lib/communityFirebase.ts`
+  - *Preservation strategy*: Isolate public functions (`getCachedLiveAppStats`, `formatReviewDate`) from admin Firestore REST methods.
+  - *Validation*: Verify smaller client chunk size.
+
+- **Problem 30: React 19 Hydration Warning Escalation**
+  - *Why needed*: React 19 throws strict warnings on minor attribute mismatches.
+  - *Affected files*: `src/main.tsx`
+  - *Preservation strategy*: Ensure SSR HTML attributes match React client component attributes exactly.
+  - *Validation*: Zero console warnings on hydration.
+
+- **Problem 31: Hardcoded Community Firebase API Key in `vite.config.ts`**
+  - *Why needed*: Plain text key committed in line 67.
+  - *Affected files*: `vite.config.ts`
+  - *Preservation strategy*: Read from `env.VITE_COMMUNITY_FIREBASE_API_KEY` or fallback to empty string.
+  - *Validation*: Grep to confirm 0 hardcoded keys.
+
+---
+
+# PHASE 3: EXECUTION STRATEGY (5 SURGICAL BATCHES)
+
+To minimize risk and avoid regressions, execution proceeds in 5 strict sequential batches:
+
+### BATCH 1: Hydration, Blank White Flash & Layout Stability (Problems 1, 2, 4, 5, 6, 25)
+1. Update `src/main.tsx` to use `hydrateRoot` when `#root` contains server markup, preventing full-tree DOM destruction.
+2. Ensure public routes in `src/AppPublic.tsx` do not clear to blank white screens on mount.
+3. Remove `.ssr-seo-content { display: none !important; }` in `src/index.css`.
+4. Fix `html` font-size in `src/index.css` to stable 16px to prevent `rem` recalculation jumps.
+5. Harmonize `contain-intrinsic-size` across `src/index.css` and `AppListItems.tsx`.
+6. Restore `IntersectionObserver` in `UserReviews.tsx`.
+
+### BATCH 2: CSS, Styling & Content Rendering (Problems 7, 8, 9, 28)
+1. Define `--text-secondary` in `src/index.css` for both light and dark modes.
+2. Replace non-standard Tailwind classes across components with standard equivalents.
+3. Sanitize admin HTML in `AppAboutSection.tsx` to convert `<h1>` tags into `<h2>`.
+4. Replace placeholder Rickroll video in `PromotionSection.tsx` and wire up the action button.
+5. Mount `/safety` route for `SafetyStatus.tsx` in `AppPublic.tsx`.
+
+### BATCH 3: Security & Credential Exposure (Problems 10, 11, 12, 13, 14, 15, 16, 31)
+1. Strip hardcoded Cloudinary keys/secrets from `vite.config.ts`.
+2. Remove `ADMIN_PASSWORD` from `vite.config.ts` define block and envPrefix.
+3. Remove `KNOWN_VAULT_KEYS` array from public-facing code; rely strictly on server runtime env vars.
+4. Disable Turnstile `TEST_SECRET` fallback in production mode.
+5. Harden `firestore.rules`: remove `_rest_admin_bypass` and require auth on sensitive collections.
+6. Replace live Redis/Firebase credentials in `.env.example` with standard placeholders.
+7. Add authentication checks to Vite dev server admin endpoints.
+
+### BATCH 4: Build, Deployment & Split-Sync (Problems 17, 18, 19, 20)
+1. Update `.github/workflows/split-sync.yml` with comprehensive exclusion lists for Dex and Masterworld.
+2. Fix `scripts/build-api.js` to preserve route handlers without fragile comment slicing.
+3. Fix `vercel.json` configurations for static Dex vs full-stack Masterworld.
+4. Add missing public API route handlers and TTL map pruning to `functions/api/[[catchall]].js`.
+
+### BATCH 5: SEO, Caching, Routing & Runtime Bugs (Problems 21, 22, 23, 24, 26, 27, 29, 30)
+1. Fix `vercel.json` Cache-Control headers to permit edge caching on public routes.
+2. Add `/faq` and `/faqs` to `seoHelper.ts` and `server.ts` known routes.
+3. Prevent static pre-rendering of `/moreinfo/:slug` so bot protections always run.
+4. Fix `Meta.tsx` to set `og:site_name` to `siteTitle` instead of the full page title.
+5. Update `public/ai-catalog.json` schema and serve with `application/ai-catalog+json`.
+6. Synchronize `robots.txt`, remove `/blogs` from `llms.txt`, and refine sitemap captions.
+7. Deduplicate `framer-motion` and `motion` in `package.json`.
+
+---
+
+# PHASE 4: SELF-VERIFICATION PROTOCOL
+
+After every batch, the following verification commands will be executed:
+1. **Compilation**: `compile_applet` must succeed with 0 errors.
+2. **Linting**: `lint_applet` (`tsc --noEmit`) must succeed with 0 errors.
+3. **HTTP Integrity**:
+   - `curl -s http://localhost:3000/` -> Verify instant SSR HTML, matching header buttons, and standard stylesheet link.
+   - `curl -s http://localhost:3000/faq` -> Verify 200 OK (no 404).
+   - `curl -s http://localhost:3000/app/rummy-77` -> Verify single 160px LCP preload and no double-h1 tags.
+4. **Secret Scan**: Run grep to confirm zero plain-text secrets, test tokens, or passwords remain committed.
+
+---
+
+# PHASE 5: FINAL AUDIT CHECKLIST
+
+- [ ] Zero white-page flashes during client hydration.
+- [ ] CLS strictly below 0.05 on mobile viewports.
+- [ ] No `media="print"` delays on screen stylesheets.
+- [ ] No duplicate `<h1>` tags on app detail pages.
+- [ ] No plain-text API secrets, vault keys, or admin passwords in client bundles.
+- [ ] Cloudflare Turnstile strictly enforced in production without dummy secret fallback.
+- [ ] Firestore security rules protect all collections from unauthorized public writes.
+- [ ] Split-sync workflow isolates public Dex and admin Masterworld without file leakage.
+- [ ] `/faq` and `/faqs` fully accessible to search engines and users.
+- [ ] All requested instructions verified and validated.

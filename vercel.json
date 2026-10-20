@@ -63,19 +63,19 @@
       ]
     },
     {
-      "source": "/(app|news|category|categories|videos|about|contact|privacy|terms|responsibility|notice|ethics|disclaimer|report-removal|new-apps|developers)(.*)",
+      "source": "/(app|news|category|categories|videos|about|contact|privacy|terms|responsibility|notice|ethics|disclaimer|report-removal|new-apps|developers|faq|faqs|safety)(.*)",
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "public, max-age=0, must-revalidate"
+          "value": "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400"
         },
         {
           "key": "CDN-Cache-Control",
-          "value": "public, max-age=0, must-revalidate"
+          "value": "public, max-age=3600, stale-while-revalidate=86400"
         },
         {
           "key": "Cloudflare-CDN-Cache-Control",
-          "value": "public, max-age=0, must-revalidate"
+          "value": "public, max-age=3600, stale-while-revalidate=86400"
         }
       ]
     },
@@ -84,7 +84,7 @@
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "public, max-age=0, must-revalidate"
+          "value": "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400"
         },
         {
           "key": "Vary",

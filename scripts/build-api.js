@@ -49,6 +49,7 @@ if (vIdx !== -1 && eIdx !== -1) {
 
 // 5. Keep all admin and public routes intact for full Vercel serverless support
 fs.writeFileSync('api_temp.ts', content);
+fs.mkdirSync('api', { recursive: true });
 console.log("Compiling api_temp.ts to api/index.js...");
 execSync('npx esbuild api_temp.ts --bundle --platform=node --format=cjs --define:import.meta.env=process.env --packages=external --minify --outfile=api/index.js', { stdio: 'inherit' });
 console.log("api/index.js generated successfully.");

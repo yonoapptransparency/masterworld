@@ -333,7 +333,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       isNotFound = true;
       pageType = '404';
     }
-  } else if (['/about', '/contact', '/privacy', '/report-removal', '/terms', '/notice', '/ethics', '/disclaimer', '/responsibility', '/developers'].includes(cleanPathLower)) {
+  } else if (['/about', '/contact', '/privacy', '/report-removal', '/terms', '/notice', '/ethics', '/disclaimer', '/responsibility', '/developers', '/faq', '/faqs', '/safety', '/safety-status'].includes(cleanPathLower)) {
     pageType = 'static';
     if (cleanPathLower === '/about') {
       title = getField(settings, 'about_meta_title') || `About Us`;
@@ -365,6 +365,12 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     } else if (cleanPathLower === '/developers') {
       title = getField(settings, 'developers_meta_title') || `Developer Profiles`;
       description = getField(settings, 'developers_meta_description') || `Browse profiles of top app developers featured on ${siteTitle}.`;
+    } else if (cleanPathLower === '/faq' || cleanPathLower === '/faqs') {
+      title = getField(settings, 'faq_meta_title') || `Frequently Asked Questions`;
+      description = getField(settings, 'faq_meta_description') || `Everything you need to know about ${siteTitle}, app verification, and downloads.`;
+    } else if (cleanPathLower === '/safety' || cleanPathLower === '/safety-status') {
+      title = getField(settings, 'safety_meta_title') || `Platform Safety & Integrity Status`;
+      description = getField(settings, 'safety_meta_description') || `Live verification, integrity hash checks, and safety ratings for applications on ${siteTitle}.`;
     }
   } else if (cleanPathLower.startsWith('/info/') || cleanPathLower.startsWith('/moreinfo/') || cleanPathLower.startsWith('/moredetail/') || cleanPathLower.startsWith('/gateway/') || cleanPathLower.startsWith('/download/')) {
     const parts = cleanPathLower.split('/');
@@ -556,12 +562,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   const criticalCss = getCriticalCss();
   const headAdditions = `${seoTags}\n${criticalCss ? criticalCss + '\n' : ''}${initialDataScript}`;
 
-  if (criticalCss) {
-    finalHtml = finalHtml.replace(
-      /<link\s+rel=["']stylesheet["']\s+crossorigin\s+href=["'](\/assets\/[^"']+\.css)["']\s*\/?>/gi,
-      '<link rel="stylesheet" crossorigin href="$1" media="print" onload="this.media=\'all\'">\n<noscript><link rel="stylesheet" crossorigin href="$1"></noscript>'
-    );
-  }
+
 
   if (finalHtml.includes('</head>')) {
     finalHtml = finalHtml.replace('</head>', `${headAdditions}\n</head>`);

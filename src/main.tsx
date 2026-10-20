@@ -4,7 +4,7 @@
  */
 
 import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
+import { createRoot, hydrateRoot } from 'react-dom/client';
 import App from './App';
 import GlobalErrorBoundary from './components/GlobalErrorBoundary';
 import './index.css';
@@ -76,12 +76,30 @@ if (typeof window !== 'undefined') {
 
 const rootEl = document.getElementById('root');
 if (rootEl) {
-  createRoot(rootEl).render(
+  const appElement = (
     <StrictMode>
       <GlobalErrorBoundary>
         <App />
       </GlobalErrorBoundary>
     </StrictMode>
   );
+
+  // If container has pre-rendered SSR HTML, hydrate without destroying DOM tree
+  if (rootEl.hasChildNodes()) {
+    try {
+      hydrateRoot(rootEl, appElement, {
+        onRecoverableError(error) {
+          if (typeof window !== 'undefined' && window.console) {
+            console.warn('[Hydration] Synchronized server markup with client VDOM:', error);
+          }
+        }
+      });
+    } catch (err) {
+      console.warn('[Hydration] Direct hydration failed, falling back to createRoot:', err);
+      createRoot(rootEl).render(appElement);
+    }
+  } else {
+    createRoot(rootEl).render(appElement);
+  }
 }
 

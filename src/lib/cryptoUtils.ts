@@ -1,17 +1,9 @@
 import CryptoJS from "crypto-js";
 
-export const KNOWN_VAULT_KEYS = [
-  'Gxgfhf54x_+&7_gxfhgxg&*&*&¢%fzts"dzrX&*\'zgxf_,6_5*\'"*&*_dzg_*5¢¢°%¢6*_fzfzgxf_"6*&zgzf,gzg',
-  'YonoVaultSecret2026MasterKey!',
-  'YonoVaultSecret2026MasterKey',
-  'rummydex_master_vault_key_2026',
-  'rummydex_secure_link_vault_key_2026',
-  'ai-studio-yonostore-key-2026',
-  'fallback_aes_secret_for_local_dev_only'
-];
+export const KNOWN_VAULT_KEYS: string[] = [];
 
 export function getFallbackAes(): string {
-  return 'Gxgfhf54x_+&7_gxfhgxg&*&*&¢%fzts"dzrX&*\'zgxf_,6_5*\'"*&*_dzg_*5¢¢°%¢6*_fzfzgxf_"6*&zgzf,gzg';
+  return (typeof process !== "undefined" ? process.env.AES_SECRET : undefined) || '';
 }
 
 export function getAesSecret(): string {

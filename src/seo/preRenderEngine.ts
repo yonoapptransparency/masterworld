@@ -136,7 +136,7 @@ export async function getPagePreRender(urlPath: string, data: any): Promise<stri
     bodyHtml = renderers.renderDisclaimer(settings);
   } else if (cleanPathLower === '/developers') {
     bodyHtml = renderers.renderDevelopersList(developers, settings);
-  } else if (cleanPathLower === '/faq') {
+  } else if (cleanPathLower === '/faq' || cleanPathLower === '/faqs') {
     bodyHtml = renderers.renderFaqPage(settings);
   } else if (cleanPathLower.startsWith('/info/') || cleanPathLower.startsWith('/moreinfo/') || cleanPathLower.startsWith('/moredetail/') || cleanPathLower.startsWith('/gateway/') || cleanPathLower.startsWith('/download/')) {
     const parts = cleanPathLower.split('/');

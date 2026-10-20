@@ -137,7 +137,7 @@ export default class GlobalErrorBoundary extends Component<Props, State> {
                 </button>
 
                 {this.state.expanded && (
-                  <div className="mt-4 flex flex-col bg-zinc-50 dark:bg-zinc-950/80 border border-zinc-150 dark:border-zinc-800/80 rounded-2xl p-4 overflow-hidden relative">
+                  <div className="mt-4 flex flex-col bg-zinc-50 dark:bg-zinc-950/80 border border-zinc-200 dark:border-zinc-800/80 rounded-2xl p-4 overflow-hidden relative">
                     <div className="flex items-center justify-between gap-4 mb-2 shrink-0 border-b border-zinc-200/50 dark:border-zinc-800/40 pb-2">
                       <span className="text-xs font-mono text-zinc-400 select-none">
                         Exception Log Error Stack

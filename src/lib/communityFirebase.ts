@@ -1191,74 +1191,7 @@ export async function fetchAdminReviewsList(params: {
   // 2. Client-Side High-Availability Engine (Static Hosting / Cloudflare Pages / Offline Mode)
   let allReviews = getConsolidatedReviewsForApp(params.appId);
 
-  // 3. Optional live query to rummydexcommunity Firestore for freshly submitted online reviews
-  if (params.appId && params.appId !== 'all') {
-    try {
-      const cfg = getResolvedCommunityFirebaseConfig();
-      const rawParam = params.appId.trim();
-      const matchedApp = (staticData.apps || []).find((a: any) =>
-        (rawParam && (
-          String(a.id || '').toLowerCase() === rawParam.toLowerCase() ||
-          String(a.slug || '').toLowerCase() === rawParam.toLowerCase() ||
-          String(a.name || '').toLowerCase() === rawParam.toLowerCase()
-        ))
-      );
-      const targetId = (matchedApp?.id || rawParam).toLowerCase().trim();
-      const targetSlug = (matchedApp?.slug || rawParam).toLowerCase().trim();
-      const targetName = (matchedApp?.name || '').toLowerCase().trim();
-      const matchKeys = new Set([targetId, targetSlug, targetName, rawParam.toLowerCase()].filter(Boolean));
 
-      const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/reviews?pageSize=100&key=${cfg.apiKey}`;
-      const restRes = await fetch(url);
-      if (restRes.ok) {
-        const restData = await restRes.json();
-        const docs = restData.documents || [];
-        const deletedMap = getAdminDeletedMap();
-        const overrides = getAdminOverrides();
-
-        docs.forEach((d: any) => {
-          if (!d?.fields) return;
-          const parsed = parseFirestoreFields(d.fields);
-          const docId = d.name?.split('/').pop() || parsed.id;
-          if (!docId || deletedMap[docId]) return;
-
-          const revIdKey = (parsed.appId || '').toLowerCase().trim();
-          const revSlugKey = (parsed.appSlug || '').toLowerCase().trim();
-          const revNameKey = (parsed.appName || '').toLowerCase().trim();
-
-          const match = matchKeys.has(revIdKey) || matchKeys.has(revSlugKey) || matchKeys.has(revNameKey);
-
-          if (match) {
-            const existingIdx = allReviews.findIndex(r => r.id === docId);
-            const liveItem: AdminReviewItem = {
-              id: docId,
-              appId: parsed.appId || targetId,
-              appSlug: parsed.appSlug || targetSlug,
-              appName: parsed.appName || (matchedApp?.name || ''),
-              userName: parsed.userName || parsed.username || 'Anonymous',
-              rating: Number(parsed.rating) || 5,
-              reviewText: parsed.reviewText || parsed.comment || '',
-              timestamp: parsed.timestamp || parsed.created_at || new Date().toISOString(),
-              status: parsed.status || 'published',
-              helpful_count: Number(parsed.helpful_count) || 0,
-              isPinned: Boolean(parsed.isPinned),
-              reported: Boolean(parsed.reported),
-              report_count: Number(parsed.report_count) || 0,
-              source: parsed.source || 'community',
-              adminReply: parsed.adminReply || null,
-              ...(overrides[docId] || {})
-            };
-
-            if (existingIdx >= 0) {
-              allReviews[existingIdx] = { ...allReviews[existingIdx], ...liveItem };
-            } else {
-              allReviews.unshift(liveItem);
-            }
-          }
-        });
-      }
-    } catch (_) {}
-  }
 
   // 4. Apply Filters
   let filtered = [...allReviews];

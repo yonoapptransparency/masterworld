@@ -56,16 +56,26 @@ function adminAuthDevPlugin(env: Record<string, string>) {
         }
 
         if (req.url === '/api/v1/admin/verify' || req.url === '/api/v1/admin/verify-session') {
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ authorized: true, valid: true, authenticated: true, role: 'admin' }));
+          const authHeader = req.headers['authorization'] || '';
+          const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+          if (token && (token.startsWith('adm_dev_') || token.startsWith('eyJ') || token.length > 20)) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ authorized: true, valid: true, authenticated: true, role: 'admin' }));
+          } else {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ authorized: false, valid: false, error: 'UNAUTHORIZED' }));
+          }
           return;
         }
 
         if (req.url && req.url.startsWith('/api/v1/admin/community/app-counts')) {
           const isForce = req.url.includes('force=true');
           const fetchFirestore = async () => {
-            const apiKey = env.VITE_COMMUNITY_FIREBASE_API_KEY || 'AIzaSyCzhWEDLQsZ-HL8iVMcINq78lB-RzYPxi0';
-            const projectId = 'rummydexcommunity';
+            const apiKey = env.VITE_COMMUNITY_FIREBASE_API_KEY || process.env.VITE_COMMUNITY_FIREBASE_API_KEY || '';
+            const projectId = env.VITE_COMMUNITY_FIREBASE_PROJECT_ID || process.env.VITE_COMMUNITY_FIREBASE_PROJECT_ID || 'rummydexcommunity';
+            if (!apiKey) {
+              return null;
+            }
             const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/community_store/catalog_stats?key=${apiKey}`;
             const fRes = await fetch(url);
             if (fRes.ok) {
@@ -363,12 +373,23 @@ function adminAuthDevPlugin(env: Record<string, string>) {
         }
 
         if (req.url && req.url.startsWith('/api/v1/admin/upload/signature')) {
+          const authHeader = req.headers['authorization'] || '';
+          if (!authHeader.includes('Bearer')) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ status: 'ERROR', error: 'UNAUTHORIZED' }));
+            return;
+          }
           const timestamp = Math.round(Date.now() / 1000);
-          const cloudName = (env.CLOUDINARY_CLOUD_NAME || process.env.CLOUDINARY_CLOUD_NAME || 'veqj16xh').trim();
-          const rawKey = (env.CLOUDINARY_API_KEY || process.env.CLOUDINARY_API_KEY || '').trim();
-          const apiKey = (rawKey && rawKey !== '929829176631772') ? rawKey : '883757976464181';
-          const rawSecret = (env.CLOUDINARY_API_SECRET || process.env.CLOUDINARY_API_SECRET || '').trim();
-          const apiSecret = (rawSecret && !rawSecret.startsWith('h3J')) ? rawSecret : 'wWlSk9OS905jDmR5YR6wlEK37sE';
+          const cloudName = (env.CLOUDINARY_CLOUD_NAME || process.env.CLOUDINARY_CLOUD_NAME || '').trim();
+          const apiKey = (env.CLOUDINARY_API_KEY || process.env.CLOUDINARY_API_KEY || '').trim();
+          const apiSecret = (env.CLOUDINARY_API_SECRET || process.env.CLOUDINARY_API_SECRET || '').trim();
+
+          if (!cloudName || !apiKey || !apiSecret) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ status: 'ERROR', error: 'Cloudinary environment variables not configured' }));
+            return;
+          }
+
           const folder = 'rummydex_uploads';
           const strToSign = `folder=${folder}&timestamp=${timestamp}${apiSecret}`;
           const signature = crypto.createHash('sha1').update(strToSign).digest('hex');
@@ -387,6 +408,12 @@ function adminAuthDevPlugin(env: Record<string, string>) {
         }
 
         if (req.method === 'POST' && req.url === '/api/v1/admin/upload') {
+          const authHeader = req.headers['authorization'] || '';
+          if (!authHeader.includes('Bearer')) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ status: 'ERROR', error: 'UNAUTHORIZED' }));
+            return;
+          }
           let body = '';
           req.on('data', (chunk: any) => { body += chunk; });
           req.on('end', async () => {
@@ -400,11 +427,16 @@ function adminAuthDevPlugin(env: Record<string, string>) {
               }
 
               const timestamp = Math.round(Date.now() / 1000);
-              const cloudName = (env.CLOUDINARY_CLOUD_NAME || process.env.CLOUDINARY_CLOUD_NAME || 'veqj16xh').trim();
-              const rawKey = (env.CLOUDINARY_API_KEY || process.env.CLOUDINARY_API_KEY || '').trim();
-              const apiKey = (rawKey && rawKey !== '929829176631772') ? rawKey : '883757976464181';
-              const rawSecret = (env.CLOUDINARY_API_SECRET || process.env.CLOUDINARY_API_SECRET || '').trim();
-              const apiSecret = (rawSecret && !rawSecret.startsWith('h3J')) ? rawSecret : 'wWlSk9OS905jDmR5YR6wlEK37sE';
+              const cloudName = (env.CLOUDINARY_CLOUD_NAME || process.env.CLOUDINARY_CLOUD_NAME || '').trim();
+              const apiKey = (env.CLOUDINARY_API_KEY || process.env.CLOUDINARY_API_KEY || '').trim();
+              const apiSecret = (env.CLOUDINARY_API_SECRET || process.env.CLOUDINARY_API_SECRET || '').trim();
+
+              if (!cloudName || !apiKey || !apiSecret) {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ status: 'ERROR', error: 'Cloudinary credentials not configured' }));
+                return;
+              }
+
               const folder = 'rummydex_uploads';
               const strToSign = `folder=${folder}&timestamp=${timestamp}${apiSecret}`;
               const signature = crypto.createHash('sha1').update(strToSign).digest('hex');
@@ -516,20 +548,13 @@ export default defineConfig(({mode}) => {
     } catch(e){}
   }
 
-  const adminPass = env.ADMIN_PASSWORD || process.env.ADMIN_PASSWORD || env.VITE_ADMIN_PASSWORD || process.env.VITE_ADMIN_PASSWORD || '';
-  const adminEmail = env.ADMIN_EMAIL || process.env.ADMIN_EMAIL || env.VITE_ADMIN_EMAIL || process.env.VITE_ADMIN_EMAIL || '';
-
   return {
     plugins: [react(), tailwindcss(), adminAuthDevPlugin(env)],
-    envPrefix: ['VITE_', 'ADMIN_'],
+    envPrefix: ['VITE_'],
     define: {
       __ADMIN_ENABLED__: true,
       'process.env.ADMIN_PATH': JSON.stringify(env.ADMIN_PATH || 'admin'),
       'process.env.VITE_ADMIN_PATH': JSON.stringify(env.ADMIN_PATH || 'admin'),
-      'process.env.ADMIN_PASSWORD': JSON.stringify(adminPass),
-      'process.env.VITE_ADMIN_PASSWORD': JSON.stringify(adminPass),
-      'process.env.ADMIN_EMAIL': JSON.stringify(adminEmail),
-      'process.env.VITE_ADMIN_EMAIL': JSON.stringify(adminEmail),
       'process.env.FIREBASE_PROJECT_ID': JSON.stringify(firebaseConfig.projectId || env.FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID),
       'process.env.FIREBASE_APP_ID': JSON.stringify(firebaseConfig.appId || env.FIREBASE_APP_ID || process.env.FIREBASE_APP_ID),
       'process.env.FIREBASE_API_KEY': JSON.stringify(firebaseConfig.apiKey || env.FIREBASE_API_KEY || process.env.FIREBASE_API_KEY),

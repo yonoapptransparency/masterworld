@@ -4,15 +4,7 @@ import CryptoJS from 'crypto-js';
 import staticData from '../../src/lib/staticData.json';
 import { ENCRYPTED_LINKS } from '../../src/lib/secureVault';
 
-const KNOWN_VAULT_KEYS = [
-  'Gxgfhf54x_+&7_gxfhgxg&*&*&¢%fzts"dzrX&*\'zgxf_,6_5*\'"*&*_dzg_*5¢¢°%¢6*_fzfzgxf_"6*&zgzf,gzg',
-  'YonoVaultSecret2026MasterKey!',
-  'YonoVaultSecret2026MasterKey',
-  'rummydex_master_vault_key_2026',
-  'rummydex_secure_link_vault_key_2026',
-  'ai-studio-yonostore-key-2026',
-  'fallback_aes_secret_for_local_dev_only'
-];
+const KNOWN_VAULT_KEYS = [];
 
 function safeDecrypt(ciphertext, secret) {
   if (!ciphertext || typeof ciphertext !== 'string') return '';
@@ -20,8 +12,7 @@ function safeDecrypt(ciphertext, secret) {
   if (!cleanCipher) return '';
   if (!cleanCipher.startsWith('U2FsdGVkX1')) return cleanCipher;
 
-  const fallback = 'Gxgfhf54x_+&7_gxfhgxg&*&*&¢%fzts"dzrX&*\'zgxf_,6_5*\'"*&*_dzg_*5¢¢°%¢6*_fzfzgxf_"6*&zgzf,gzg';
-  const keys = [secret, ...KNOWN_VAULT_KEYS, fallback].filter(Boolean);
+  const keys = [secret, ...KNOWN_VAULT_KEYS].filter(Boolean);
   const uniqueKeys = Array.from(new Set(keys));
   for (const key of uniqueKeys) {
     if (!key || key.trim() === '') continue;
@@ -56,6 +47,17 @@ const burnedNonces = new Map();
 
 function checkRateLimit(ip) {
   const now = Date.now();
+  if (edgeRateMap.size > 200) {
+    for (const [k, v] of edgeRateMap.entries()) {
+      if (now > v.resetAt) edgeRateMap.delete(k);
+    }
+  }
+  if (burnedNonces.size > 500) {
+    const cutoff = now - 300000;
+    for (const [k, ts] of burnedNonces.entries()) {
+      if (ts < cutoff) burnedNonces.delete(k);
+    }
+  }
   const entry = edgeRateMap.get(ip) || { count: 0, resetAt: now + 60000 };
   if (now > entry.resetAt) {
     entry.count = 1;

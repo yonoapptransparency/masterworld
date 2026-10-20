@@ -12,19 +12,11 @@ service cloud.firestore {
     }
 
     // Helper to verify if user is authorized as an admin (via database index lookup)
-    // Checks that the email is verified to prevent unverified email spoofing attacks
     function isAdmin() {
       return request.auth != null && 
              (request.auth.token.email.lower() == 'defentechscholar@gmail.com' ||
               exists(/databases/$(database)/documents/admins/$(request.auth.uid)) || 
               (request.auth.token.email != null && exists(/databases/$(database)/documents/admins/$(request.auth.token.email))));
-    }
-
-    function isRestAdmin() {
-      return request.resource != null && 
-             request.resource.data != null &&
-             request.resource.data.keys().hasAny(['_rest_admin_bypass']) &&
-             request.resource.data._rest_admin_bypass == 'aistudio_preview_bypass_key';
     }
 
     // Comprehensive payload validation for reviews
@@ -66,46 +58,57 @@ service cloud.firestore {
 
     // 2. Reviews collection
     match /reviews/{reviewId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create: if isValidReview(request.resource.data);
+      allow update, delete: if isAdmin();
     }
 
     // 2b. Community Store chunks & Stats
     match /community_store/{docId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     match /app_stats/{docId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     match /app_rating_stats/{docId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     // 3. Website feedback collection
     match /website_feedback/{feedbackId} {
-      allow read, write: if true;
+      allow read: if isAdmin();
+      allow create: if isValidFeedback(request.resource.data);
+      allow update, delete: if isAdmin();
     }
 
     // 4. Support tickets collection
     match /support_tickets/{ticketId} {
-      allow read, write: if true;
+      allow read: if isAdmin();
+      allow create: if isValidTicket(request.resource.data);
+      allow update, delete: if isAdmin();
     }
 
     // 5b. Reports collection
     match /reports/{reportId} {
-      allow read, write: if true;
+      allow read: if isAdmin();
+      allow create: if request.resource.data.keys().hasAny(['appId', 'app_id', 'type', 'reason']);
+      allow update, delete: if isAdmin();
     }
 
     // 5. Store data collection (app catalog, public settings, news, videos, secure links vault)
     match /store_data/{docId} {
       allow read: if true;
-      allow write: if isAdmin() || isRestAdmin();
+      allow write: if isAdmin();
     }
 
     // 6. Secure Git Configuration collection
     match /sec_git/{docId} {
-      allow read, write: if isAdmin() || isRestAdmin();
+      allow read, write: if isAdmin();
     }
 
     // 8. 2FA State collection

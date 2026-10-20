@@ -118,12 +118,19 @@ async function verifyCloudflareTurnstile(token: string, remoteIp: string, reqHos
     return isDevHost;
   }
 
-  // Test token detection (Cloudflare test sitekey generates test tokens)
-  const candidateSecrets = [
-    (!isDevHost && prodSecret && !prodSecret.startsWith('1x')) ? prodSecret : null,
-    TEST_SECRET,
-    prodSecret
-  ].filter(Boolean) as string[];
+  const isProd = process.env.NODE_ENV === 'production' && !isDevHost;
+  const candidateSecrets: string[] = [];
+
+  if (prodSecret && !prodSecret.startsWith('1x')) {
+    candidateSecrets.push(prodSecret);
+  }
+
+  // Allow Cloudflare official test secret ONLY in non-production or dev host
+  if (!isProd) {
+    candidateSecrets.push(TEST_SECRET);
+  } else if (candidateSecrets.length === 0 && prodSecret) {
+    candidateSecrets.push(prodSecret);
+  }
 
   const uniqueSecrets = Array.from(new Set(candidateSecrets));
 

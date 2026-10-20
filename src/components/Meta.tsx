@@ -150,7 +150,7 @@ const Meta: React.FC<MetaProps> = ({
       }
     });
     const isAppPage = currentPath.startsWith('/app/');
-    const resolvedSiteName = fullTitle;
+    const resolvedSiteName = siteTitle || 'RummyDex';
 
     if (squareThumbnail) {
       if (headImageLink) {

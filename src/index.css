@@ -10,6 +10,7 @@
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --bg-primary: #ffffff;
   --text-primary: #09090b;
+  --text-secondary: #71717a;
   --card-bg: rgba(255, 255, 255, 0.85);
   --glass-border: rgba(0, 0, 0, 0.08);
   --ticker-bg: rgba(255, 255, 255, 0.92);
@@ -19,6 +20,7 @@
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --bg-primary: #090d16;
   --text-primary: #f8fafc;
+  --text-secondary: #a1a1aa;
   --card-bg: rgba(17, 23, 38, 0.85);
   --glass-border: rgba(255, 255, 255, 0.08);
   --ticker-bg: rgba(9, 13, 22, 0.92);
@@ -28,25 +30,6 @@ html {
   scroll-behavior: auto;
   -webkit-font-smoothing: antialiased;
   text-rendering: auto;
-}
-
-/* Fluid responsive downscaling for narrow and small modern smartphones (320px - 400px) */
-@media (max-width: 400px) {
-  html {
-    font-size: 15px;
-  }
-}
-
-@media (max-width: 375px) {
-  html {
-    font-size: 14.5px;
-  }
-}
-
-@media (max-width: 340px) {
-  html {
-    font-size: 13.5px;
-  }
 }
 
 body {
@@ -412,13 +395,6 @@ a {
   }
 }
 
-/* Hide the SSR pre-rendered content from interactive human users via CSS.
-   Simple HTML scraper bots do not download or process external CSS, so they will see this content natively.
-   Advanced bots (Googlebot) will execute JS, hydrate React into #root, and read the page correctly anyway. */
-.ssr-seo-content {
-  display: none !important;
-}
-
 @layer base {
   html {
     -webkit-font-smoothing: antialiased;
@@ -454,7 +430,7 @@ a {
 .animate-list-item-fade {
   contain: layout style paint;
   content-visibility: auto;
-  contain-intrinsic-size: 0 88px;
+  contain-intrinsic-size: auto 84px;
 }
 
 /* Smartphone GPU & Performance Optimizations - Buttery Smooth Touch Physics */
@@ -851,7 +827,7 @@ body {
   section[aria-labelledby="app-overview-heading"],
   section[aria-labelledby="faq-heading"] {
     content-visibility: auto;
-    contain-intrinsic-size: 1px 320px;
+    contain-intrinsic-size: auto 650px;
   }
 
   /* GPU-accelerate touch containers on mobile phones */
