@@ -572,6 +572,12 @@ export default defineConfig(({mode}) => {
 
         // Fallback aliases for Dex or Masterworld repositories where certain files are removed
         { 
+          find: /.*\/seo\/renderers(?:\/index)?$/, 
+          replacement: fs.existsSync(path.resolve(__dirname, 'src/seo/renderers/index.ts')) 
+            ? path.resolve(__dirname, 'src/seo/renderers/index.ts') 
+            : path.resolve(__dirname, 'src/lib/dummyRenderers.ts') 
+        },
+        { 
           find: /.*\/pages\/AdminDashboard$/, 
           replacement: fs.existsSync(path.resolve(__dirname, 'src/pages/AdminDashboard.tsx')) 
             ? path.resolve(__dirname, 'src/pages/AdminDashboard.tsx') 
