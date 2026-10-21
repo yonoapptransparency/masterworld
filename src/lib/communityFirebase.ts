@@ -309,7 +309,7 @@ export function getCachedLiveReviews(appId?: string, appSlug?: string): ReviewFe
              (initAppReviews.appSlug && String(initAppReviews.appSlug).toLowerCase() === lower);
     });
 
-    if (matchesTarget && Array.isArray(initAppReviews.reviews) && initAppReviews.reviews.length > 0) {
+    if (matchesTarget && Array.isArray(initAppReviews.reviews)) {
       const normalized: PublicReview[] = initAppReviews.reviews.map((r: any) => {
         const uName = (r.userName && r.userName.trim() && r.userName.toLowerCase() !== 'player')
           ? r.userName.trim()

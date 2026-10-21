@@ -3,27 +3,94 @@ import { escapeHtml, sanitizeHtml } from './common';
 import { formatNewsDate, calculateReadingTime } from '../../lib/newsUtils';
 
 export function renderNewsList(news: any[], _settings: any): string {
+  const publicNewsList = (Array.isArray(news) ? news : [])
+    .filter(item => item && item.sync_to_public !== false)
+    .sort((a, b) => {
+      if (a.is_pinned && !b.is_pinned) return -1;
+      if (!a.is_pinned && b.is_pinned) return 1;
+      const dateA = new Date(getField(a, 'date') || getField(a, 'published_at') || getField(a, 'created_at') || 0).getTime();
+      const dateB = new Date(getField(b, 'date') || getField(b, 'published_at') || getField(b, 'created_at') || 0).getTime();
+      return dateB - dateA;
+    });
+
+  const catSet = new Set<string>();
+  publicNewsList.forEach(item => {
+    const c = getField(item, 'category');
+    if (c && c.trim()) catSet.add(c.trim());
+  });
+  const categories = ['All', ...Array.from(catSet)];
+
+  const currentSlice = publicNewsList.slice(0, 9);
   let cards = '';
-  news.forEach(n => {
+  currentSlice.forEach((n, idx) => {
     const title = getField(n, 'title');
-    const logo = getField(n, 'logo_url');
-    const optimizedLogo = logo ? optimizeImageUrl(logo, 300) : '';
+    const slug = getField(n, 'slug') || getField(n, 'id');
+    const logo = getField(n, 'image_url') || getField(n, 'logo_url') || getField(n, 'image');
+    const optimizedLogo = logo ? optimizeImageUrl(logo, 600) : '';
     const dateLabel = formatNewsDate(getField(n, 'date'), getField(n, 'published_at'), getField(n, 'created_at'));
+    const category = getField(n, 'category') || '';
+    const desc = (getField(n, 'description') || '').replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim();
+    const isEager = idx < 3;
 
     cards += `
-      <a href="/news/${encodeURIComponent(getField(n, 'slug'))}" class="flex flex-col sm:flex-row gap-4 p-6 bg-white dark:bg-zinc-900 border border-black/5 hover:border-blue-500/25 rounded-3xl transition text-left no-underline" aria-label="Read full news article: ${escapeHtml(title)}">
-        ${logo ? `<div class="w-full sm:w-48 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 flex items-center justify-center overflow-hidden shrink-0 border border-black/5 p-2"><img src="${escapeHtml(optimizedLogo)}" loading="lazy" decoding="async" class="max-w-full max-h-32 object-contain rounded-lg" alt="${escapeHtml(title)} news cover banner"/></div>` : ''}
-        <div class="flex-1">
-          <span class="text-[10px] font-bold text-blue-500 uppercase">${escapeHtml(getField(n, 'category') || 'Report')}</span>
-          <span class="text-[10px] font-bold text-zinc-400 uppercase ml-2">${escapeHtml(dateLabel)}</span>
-          <h3 class="text-xl font-bold mt-1 mb-2 text-zinc-900 dark:text-white leading-snug">${escapeHtml(title)}</h3>
-          <p class="text-sm text-zinc-500 max-w-3xl line-clamp-2 leading-relaxed">${escapeHtml(getField(n, 'description'))}</p>
-          <span class="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 mt-3">Read Full Article: ${escapeHtml(title)} →</span>
-        </div>
-      </a>
+      <article class="group relative bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200/70 dark:border-zinc-800/80 overflow-hidden shadow-xs transition-all duration-300 flex flex-col text-left">
+        <a href="/news/${encodeURIComponent(slug)}" class="block flex-1 flex flex-col focus:outline-none no-underline" aria-label="Read full news article: ${escapeHtml(title)}">
+          <div class="w-full aspect-[16/9] overflow-hidden bg-zinc-100 dark:bg-zinc-800/60 relative shrink-0">
+            ${optimizedLogo ? `
+              <img src="${escapeHtml(optimizedLogo)}" alt="${escapeHtml(title)}" loading="${isEager ? 'eager' : 'lazy'}" decoding="async" width="600" height="338" class="w-full h-full object-cover object-center block" />
+            ` : `
+              <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-500/10 to-indigo-500/10">
+                <span class="text-xl font-black text-blue-600/30 dark:text-blue-400/30 tracking-widest uppercase">RummyDex</span>
+              </div>
+            `}
+          </div>
+          <div class="p-4 sm:p-5 flex-1 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center gap-2 text-[11px] font-medium text-zinc-400 dark:text-zinc-500 mb-2">
+                <span class="font-bold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider text-[10px]">RummyDex</span>
+                ${category ? `<span>•</span><span class="text-blue-600 dark:text-blue-400 font-semibold">${escapeHtml(category)}</span>` : ''}
+                ${dateLabel ? `<span>•</span><span>${escapeHtml(dateLabel)}</span>` : ''}
+              </div>
+              <h2 class="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 leading-snug line-clamp-2 mb-2">${escapeHtml(title)}</h2>
+              ${desc ? `<p class="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 line-clamp-2 leading-relaxed font-normal">${escapeHtml(desc)}</p>` : ''}
+            </div>
+            <div class="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between">
+              <span class="text-xs font-semibold text-blue-600 dark:text-blue-400">Read story</span>
+            </div>
+          </div>
+        </a>
+      </article>
     `;
   });
-  return `<div class="py-6 text-center container max-w-3xl mx-auto"><h1 class="text-3xl font-extrabold mb-8 text-zinc-900 dark:text-white">Gaming News & Updates</h1><div class="flex flex-col gap-4">${cards || '<p class="text-zinc-400 py-10">No publications.</p>'}</div></div>`;
+
+  return `
+    <div class="w-full text-zinc-900 dark:text-zinc-100 pb-20 text-left min-h-[70vh]">
+      <div class="pt-0.5 pb-0.5 px-3 sm:px-0">
+        <a href="/" class="inline-flex items-center gap-2 text-sm sm:text-base font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors group shrink-0 no-underline">
+          <div class="p-1.5 sm:p-2 rounded-full bg-blue-50 dark:bg-blue-900/30 shadow-xs">
+            <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 12H5M12 19l-7-7 7-7"></path></svg>
+          </div>
+          <span>Back to storefront</span>
+        </a>
+      </div>
+      <div class="px-3 sm:px-0 mt-0.5 mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+        <h1 class="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-white tracking-tight">News &amp; Updates</h1>
+        <div class="relative w-full sm:w-80 shrink-0">
+          <input type="text" readonly class="w-full py-2.5 pl-10 pr-9 text-sm text-zinc-900 dark:text-white bg-zinc-100 dark:bg-zinc-800/90 border border-zinc-200 dark:border-zinc-700/80 rounded-xl placeholder-zinc-400 font-medium" placeholder="Search news or topics..." aria-label="Search news articles" />
+        </div>
+      </div>
+      ${categories.length > 1 ? `
+        <div class="px-3 sm:px-0 mb-6 flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+          ${categories.map((cat, i) => `
+            <span class="px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap ${i === 0 ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400'}">${escapeHtml(cat)}</span>
+          `).join('')}
+        </div>
+      ` : ''}
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6 px-3 sm:px-0">
+        ${cards || '<p class="text-zinc-400 py-10 col-span-full text-center">No news articles found</p>'}
+      </div>
+    </div>
+  `;
 }
 
 function checkAppIsNew(item: any): boolean {
@@ -194,16 +261,17 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
             </a>
           </div>
           <div class="grid grid-rows-2 grid-flow-col gap-x-3 xxs:gap-x-4 xs:gap-x-5 gap-y-3 xxs:gap-y-3.5 xs:gap-y-4 overflow-x-auto pt-2.5 pb-2 snap-x snap-proximity [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden -mx-2 xs:-mx-4 px-2 xs:px-4 sm:mx-0 sm:px-0" style="-webkit-overflow-scrolling: touch;">
-            ${displaySimilarApps.map(sim => {
+            ${displaySimilarApps.map((sim, simIdx) => {
               const simName = getField(sim, 'name');
               const simSlug = getField(sim, 'slug');
               const simIcon = optimizeImageUrl(getField(sim, 'icon_url') || '', 160);
               const simIsHot = sim.is_hot === true || (sim.is_hot && sim.is_hot.booleanValue === true);
               const simIsNew = checkAppIsNew(sim);
+              const isEager = simIdx < 8;
               return `
                 <a href="/app/${encodeURIComponent(simSlug)}" class="flex flex-col items-center justify-start gap-1 xxs:gap-1.5 xs:gap-2 w-[68px] xxs:w-[76px] xs:w-[86px] sm:w-[98px] snap-start group shrink-0 active:scale-95 transition-transform duration-150 ease-out no-underline">
                   <div class="relative inline-block shrink-0">
-                    <img src="${escapeHtml(simIcon)}" alt="${escapeHtml(simName)}" width="86" height="86" decoding="async" class="w-[58px] h-[58px] xxs:w-[66px] xxs:h-[66px] xs:w-[76px] xs:h-[76px] sm:w-[86px] sm:h-[86px] rounded-[24%] shadow-[0_2px_8px_rgba(0,0,0,0.08)] object-cover group-hover:scale-105 transition-transform duration-200 block pointer-events-none select-none" loading="lazy" />
+                    <img src="${escapeHtml(simIcon)}" alt="${escapeHtml(simName)}" width="86" height="86" decoding="async" class="w-[58px] h-[58px] xxs:w-[66px] xxs:h-[66px] xs:w-[76px] xs:h-[76px] sm:w-[86px] sm:h-[86px] rounded-[24%] shadow-[0_2px_8px_rgba(0,0,0,0.08)] object-cover group-hover:scale-105 transition-transform duration-200 block pointer-events-none select-none" loading="${isEager ? 'eager' : 'lazy'}" />
                     ${simIsHot && simIsNew ? '<span class="absolute -top-1.5 -right-1.5 z-20 inline-flex items-center rounded-full overflow-hidden shadow-[0_2px_6px_rgba(0,0,0,0.25)] border border-white dark:border-zinc-900 font-black text-[7.5px] xxs:text-[8px] xs:text-[9px] uppercase tracking-wider leading-none select-none pointer-events-none"><span class="bg-[#d32f2f] text-white px-1 xs:px-1.5 py-0.5">HOT</span><span class="bg-[#008738] text-white px-1 xs:px-1.5 py-0.5">NEW</span></span>' : simIsHot ? '<span class="absolute -top-1.5 -right-1.5 z-20 bg-[#d32f2f] text-white font-black text-[7.5px] xxs:text-[8px] xs:text-[9px] px-1.5 py-0.5 rounded-full shadow-[0_2px_6px_rgba(0,0,0,0.25)] border border-white dark:border-zinc-900 uppercase tracking-wider leading-none select-none pointer-events-none flex items-center justify-center">HOT</span>' : simIsNew ? '<span class="absolute -top-1.5 -right-1.5 z-20 bg-[#008738] text-white font-black text-[7.5px] xxs:text-[8px] xs:text-[9px] px-1.5 py-0.5 rounded-full shadow-[0_2px_6px_rgba(0,0,0,0.25)] border border-white dark:border-zinc-900 uppercase tracking-wider leading-none select-none pointer-events-none flex items-center justify-center">NEW</span>' : ''}
                   </div>
                   <span class="text-[9.5px] xxs:text-[10.5px] xs:text-[11.5px] sm:text-[12px] font-semibold text-center text-zinc-800 dark:text-zinc-200 line-clamp-2 w-full px-0.5 leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors pointer-events-none select-none">${escapeHtml(simName)}</span>
@@ -268,13 +336,13 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
       <!-- 2. Top NewsRelatedAppBox -->
       ${renderActionBox('my-5 sm:my-6')}
 
-      <!-- 3. Similar Applications -->
-      ${recommendedAppsHtml}
-
-      <!-- 4. Article Content Body -->
+      <!-- 3. Article Content Body -->
       <div class="prose dark:prose-invert max-w-none text-zinc-800 dark:text-zinc-200 leading-relaxed text-sm sm:text-base space-y-4 font-normal mt-6">
         ${sanitizedContent}
       </div>
+
+      <!-- 4. Similar Applications -->
+      ${recommendedAppsHtml}
 
       <!-- 5. Bottom NewsRelatedAppBox -->
       ${renderActionBox('my-8')}

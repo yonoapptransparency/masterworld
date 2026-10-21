@@ -105,11 +105,17 @@ export function optimizeInitialDataForRoute(
         slug: app.slug,
         icon_url: app.icon_url || '',
         category: app.category || '',
+        developer: app.developer || '',
+        version: app.version || '1.0',
+        file_size: app.file_size || '45 MB',
         rating: Number(app.rating) || 4.5,
         serial_number: app.serial_number !== undefined ? Number(app.serial_number) : 0,
         is_new: Boolean(app.is_new),
         is_hot: Boolean(app.is_hot),
-        has_secure_link: hasSecureLink
+        popular: Boolean(app.popular),
+        active: app.active !== false,
+        has_secure_link: hasSecureLink,
+        link_configured: hasSecureLink
       };
     }
 
@@ -130,9 +136,13 @@ export function optimizeInitialDataForRoute(
       is_featured: Boolean(app.is_featured),
       is_new: Boolean(app.is_new),
       is_hot: Boolean(app.is_hot),
+      popular: Boolean(app.popular),
+      active: app.active !== false,
+      tags: Array.isArray(app.tags) ? app.tags : [],
       is_top_chart: Boolean(app.is_top_chart),
       top_chart_category: app.top_chart_category || '',
       publish_date: app.publish_date || '',
+      created_at: app.created_at || '',
       updated_at: app.updated_at || '',
       short_description: typeof app.short_description === 'string' ? app.short_description.slice(0, 150) : '',
       seo_title: app.seo_title || '',
@@ -238,64 +248,77 @@ export function optimizeInitialDataForRoute(
       }));
   }
 
-  // Optimized Videos: Only include when on video pages or home page
+  // Optimized Videos: Include lightweight video cards so /videos renders in 0ms on both direct and client navigation
   const rawVideos = Array.isArray(data.videos) ? data.videos : (Array.isArray(data.mockVideos) ? data.mockVideos : []);
-  let optimizedVideos: any[] = [];
-  if (cleanPathLower.startsWith('/video') || isHomePage) {
-    optimizedVideos = rawVideos.map((item: any) => {
-      if (!item) return null;
-      return {
-        id: item.id,
-        slug: item.slug,
-        title: item.title,
-        seo_title: item.seo_title || '',
-        seo_description: item.seo_description || '',
-        meta_description: item.meta_description || '',
-        og_image_url: item.og_image_url || '',
-        thumbnail_url: item.thumbnail_url || '',
-        video_url: item.video_url || '',
-        duration: item.duration || '',
-        category: item.category || ''
-      };
-    }).filter(Boolean);
-  }
+  const optimizedVideos: any[] = rawVideos.map((item: any) => {
+    if (!item) return null;
+    return {
+      id: item.id,
+      slug: item.slug,
+      title: item.title,
+      seo_title: item.seo_title || '',
+      seo_description: item.seo_description || '',
+      meta_description: item.meta_description || '',
+      og_image_url: item.og_image_url || '',
+      thumbnail_url: item.thumbnail_url || '',
+      video_url: item.video_url || '',
+      duration: item.duration || '',
+      category: item.category || ''
+    };
+  }).filter(Boolean);
 
-  // Public Settings: Include core UI settings + route-specific content only, keeping initial payload super lightweight
+  // Public Settings: Include core UI settings + pre-cleaned informational/legal content so all pages render synchronously with 0 layout shift
   const rawSettings = data.settings || data.mockSettings || {};
   const optimizedSettings: any = {};
-  const coreUiKeys = [
+  const allowedKeys = [
     'site_title', 'logo_url', 'favicon_url', 'seo_title', 'seo_description', 'seo_keywords',
     'meta_title', 'meta_description', 'social_links', 'categories', 'hero_title_text',
     'hero_title_subtitle', 'hero_title_color', 'hero_title_animation', 'hero_title_visible',
     'hero_title_style', 'portal_heading', 'secure_index_title', 'secure_index_subtitle',
     'trending_searches', 'ticker_text', 'support_email', 'last_updated', 'animations_enabled',
-    'banners', 'quick_links', 'turnstile_site_key', 'helpline_whatsapp', 'helpline_telegram'
+    'banners', 'quick_links', 'turnstile_site_key', 'helpline_whatsapp', 'helpline_telegram',
+    'about_meta_title', 'about_meta_description', 'about_content', 'about_us',
+    'contact_meta_title', 'contact_meta_description', 'contact_content',
+    'privacy_meta_title', 'privacy_meta_description', 'privacy_content',
+    'terms_meta_title', 'terms_meta_description', 'terms_content',
+    'responsibility_meta_title', 'responsibility_meta_description', 'responsibility_content',
+    'report_removal_meta_title', 'report_removal_meta_description', 'report_removal_content',
+    'notice_meta_title', 'notice_meta_description', 'important_notice', 'important_notice_heading',
+    'ethics_meta_title', 'ethics_meta_description', 'ethics_discrimination_text', 'ethics_heading',
+    'disclaimer_meta_title', 'disclaimer_meta_description', 'disclaimer_text', 'disclaimer_heading',
+    'developers_meta_title', 'developers_meta_description', 'developers',
+    'website_faqs', 'faq_meta_title', 'faq_meta_description',
+    'news_meta_title', 'news_meta_description',
+    'videos_meta_title', 'videos_meta_description'
   ];
 
-  const routeSpecificKeys: string[] = [];
-  if (cleanPathLower.startsWith('/about')) routeSpecificKeys.push('about_meta_title', 'about_meta_description', 'about_content', 'about_us');
-  if (cleanPathLower.startsWith('/contact')) routeSpecificKeys.push('contact_meta_title', 'contact_meta_description', 'contact_content');
-  if (cleanPathLower.startsWith('/privacy')) routeSpecificKeys.push('privacy_meta_title', 'privacy_meta_description', 'privacy_content');
-  if (cleanPathLower.startsWith('/terms')) routeSpecificKeys.push('terms_meta_title', 'terms_meta_description', 'terms_content');
-  if (cleanPathLower.startsWith('/responsibility')) routeSpecificKeys.push('responsibility_meta_title', 'responsibility_meta_description', 'responsibility_content');
-  if (cleanPathLower.startsWith('/report-removal')) routeSpecificKeys.push('report_removal_meta_title', 'report_removal_meta_description', 'report_removal_content');
-  if (cleanPathLower.startsWith('/notice')) routeSpecificKeys.push('notice_meta_title', 'notice_meta_description', 'important_notice', 'important_notice_heading');
-  if (cleanPathLower.startsWith('/ethics')) routeSpecificKeys.push('ethics_meta_title', 'ethics_meta_description', 'ethics_discrimination_text', 'ethics_heading');
-  if (cleanPathLower.startsWith('/disclaimer')) routeSpecificKeys.push('disclaimer_meta_title', 'disclaimer_meta_description', 'disclaimer_text', 'disclaimer_heading');
-  if (cleanPathLower.startsWith('/developer')) routeSpecificKeys.push('developers_meta_title', 'developers_meta_description', 'developers');
-  if (cleanPathLower.startsWith('/faq')) routeSpecificKeys.push('website_faqs', 'faq_meta_title', 'faq_meta_description');
-  if (cleanPathLower.startsWith('/news')) routeSpecificKeys.push('news_meta_title', 'news_meta_description');
-  if (cleanPathLower.startsWith('/video')) routeSpecificKeys.push('videos_meta_title', 'videos_meta_description');
+  const htmlContentKeys = new Set([
+    'about_content', 'about_us', 'contact_content', 'privacy_content', 'terms_content',
+    'responsibility_content', 'report_removal_content', 'important_notice',
+    'ethics_discrimination_text', 'disclaimer_text'
+  ]);
 
-  const allowedKeys = [...coreUiKeys, ...routeSpecificKeys];
   for (const k of allowedKeys) {
     if (rawSettings[k] !== undefined) {
-      optimizedSettings[k] = rawSettings[k];
+      const val = rawSettings[k];
+      if (htmlContentKeys.has(k) && typeof val === 'string' && val.length > 0) {
+        optimizedSettings[k] = val
+          .replace(/<!DOCTYPE[^>]*>/gi, '')
+          .replace(/<head\b[^>]*>[\s\S]*?<\/head>/gi, '')
+          .replace(/<\/?(html|head|body)[^>]*>/gi, '')
+          .replace(/<(meta|link)\b[^>]*>/gi, '')
+          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+          .replace(/<svg[^>]*>[\s\S]*?<\/svg>/gi, '')
+          .trim();
+      } else {
+        optimizedSettings[k] = val;
+      }
     }
   }
 
-  // Ensure developers array is available if present in settings or data for developers page
-  if (cleanPathLower.startsWith('/developer') && !optimizedSettings.developers && Array.isArray(data.developers)) {
+  // Ensure developers array is always available if present in settings or data
+  if (!optimizedSettings.developers && Array.isArray(data.developers)) {
     optimizedSettings.developers = data.developers;
   }
 

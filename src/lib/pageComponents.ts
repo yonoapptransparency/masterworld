@@ -1,0 +1,22 @@
+import { lazyWithRetry } from './lazyWithRetry';
+
+export const AppDetails = lazyWithRetry(() => import('../pages/AppDetails'));
+export const GatewayPage = lazyWithRetry(() => import('../pages/GatewayPage'));
+export const NewsPage = lazyWithRetry(() => import('../pages/NewsPage'));
+export const NewsDetailPage = lazyWithRetry(() => import('../pages/NewsDetailPage'));
+export const VideosPage = lazyWithRetry(() => import('../pages/VideosPage'));
+export const VideoDetailPage = lazyWithRetry(() => import('../pages/VideoDetailPage'));
+export const Developers = lazyWithRetry(() => import('../pages/Developers'));
+export const About = lazyWithRetry(() => import('../pages/About'));
+export const Contact = lazyWithRetry(() => import('../pages/Contact'));
+export const Privacy = lazyWithRetry(() => import('../pages/Privacy'));
+export const Terms = lazyWithRetry(() => import('../pages/Terms'));
+export const Responsibility = lazyWithRetry(() => import('../pages/Responsibility'));
+export const Notice = lazyWithRetry(() => import('../pages/Notice'));
+export const Ethics = lazyWithRetry(() => import('../pages/Ethics'));
+export const Disclaimer = lazyWithRetry(() => import('../pages/Disclaimer'));
+export const ReportRemoval = lazyWithRetry(() => import('../pages/ReportRemoval'));
+export const SafetyStatus = lazyWithRetry(() => import('../pages/SafetyStatus'));
+export const FaqPage = lazyWithRetry(() => import('../pages/FaqPage'));
+export const FallbackRouteMatcher = lazyWithRetry(() => import('../components/FallbackRouteMatcher'));
+export const ReportAppModal = lazyWithRetry(() => import('../components/ReportAppModal').then(m => ({ default: m.ReportAppModal })));

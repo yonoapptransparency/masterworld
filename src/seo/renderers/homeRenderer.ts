@@ -85,11 +85,11 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
                 <a href="/app/${encodeURIComponent(nSlug)}" class="flex flex-col gap-1 xxs:gap-1.5 xs:gap-2 group" title="${escapeHtml(nName)}">
                   <div class="relative w-full aspect-square">
                     <div class="w-full h-full rounded-[14px] xxs:rounded-[16px] xs:rounded-[20px] sm:rounded-[24px] overflow-hidden bg-zinc-100 dark:bg-zinc-800 border border-black/5 dark:border-white/10 shadow-sm">
-                      <img src="${escapeHtml(nIcon)}" ${index < 4 ? 'loading="eager"' : 'loading="lazy"'} ${index === 0 ? 'fetchpriority="high"' : ''} decoding="async" width="104" height="104" class="w-full h-full object-cover block" alt="${escapeHtml(nName)}"/>
+                      <img src="${escapeHtml(nIcon)}" ${index < 6 ? 'loading="eager"' : 'loading="lazy"'} ${index === 0 ? 'fetchpriority="high"' : ''} decoding="async" width="104" height="104" class="w-full h-full object-cover block" alt="${escapeHtml(nName)}"/>
                     </div>
                     ${nIsHot && nIsNew ? `<div class="absolute -top-1.5 -right-1.5 z-20 pointer-events-none"><span class="inline-flex items-center rounded-[6px] xs:rounded-[8px] overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.18)] font-black text-[7px] xs:text-[8px] sm:text-[9px] uppercase tracking-wider block"><span class="bg-[#d32f2f] text-white px-1 xs:px-1.5 py-0.5">HOT</span><span class="bg-[#008738] text-white px-1 xs:px-1.5 py-0.5">NEW</span></span></div>` : nIsHot ? `<div class="absolute -top-1.5 -right-1.5 z-20 pointer-events-none"><span class="bg-[#d32f2f] text-white text-[7px] xs:text-[8px] sm:text-[9px] font-black px-1.5 py-0.5 rounded-[6px] xs:rounded-[8px] shadow-[0_2px_8px_rgba(0,0,0,0.15)] uppercase tracking-wider block">HOT</span></div>` : `<div class="absolute -top-1.5 -right-1.5 z-20 pointer-events-none"><span class="bg-[#008738] text-white text-[7px] xs:text-[8px] sm:text-[9px] font-black px-1.5 xs:px-2 py-0.5 rounded-[6px] xs:rounded-[8px] shadow-[0_2px_8px_rgba(0,0,0,0.15)] uppercase tracking-wider block">NEW</span></div>`}
                   </div>
-                  <span class="text-[10px] xxs:text-[11px] xs:text-xs font-semibold text-zinc-800 dark:text-zinc-200 truncate w-full text-center">${escapeHtml(nName)}</span>
+                  <div class="px-0.5 text-center"><h3 class="text-[9px] xs:text-[10px] sm:text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">${escapeHtml(nName)}</h3></div>
                 </a>
               </div>
             `;
@@ -101,13 +101,16 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
 
   let featuredBannerHtml = '';
   if (Array.isArray(bannerItems) && bannerItems.length > 0) {
+    const rawBannerImg = bannerItems[0]?.image_url || bannerItems[0]?.image || '';
+    const bannerSrc = optimizeImageUrl(rawBannerImg, 600);
+    const bannerSrcSet = rawBannerImg ? `${escapeHtml(optimizeImageUrl(rawBannerImg, 400))} 400w, ${escapeHtml(optimizeImageUrl(rawBannerImg, 600))} 600w, ${escapeHtml(optimizeImageUrl(rawBannerImg, 800))} 800w` : '';
     featuredBannerHtml = `
       <div class="w-full relative px-0 sm:px-4 max-w-4xl mx-auto mb-5 group/carousel select-none">
         <div class="w-full overflow-hidden rounded-2xl sm:rounded-[20px] shadow-sm sm:border border-zinc-100 dark:border-zinc-800/80 bg-zinc-50 dark:bg-zinc-950/40 relative h-[110px] xxs:h-[120px] xs:h-[135px] sm:h-[160px] md:h-[185px]">
           <div class="flex h-full w-full">
             <div class="w-full shrink-0 h-full relative">
               <a href="${bannerItems[0]?.link || '#'}" class="block w-full h-full relative">
-                <img src="${escapeHtml(optimizeImageUrl(bannerItems[0]?.image_url || bannerItems[0]?.image, 800))}" alt="${escapeHtml(bannerItems[0]?.title || 'Featured')}" width="800" height="185" loading="eager" decoding="async" class="w-full h-full object-cover"/>
+                <img src="${escapeHtml(bannerSrc)}" ${bannerSrcSet ? `srcset="${bannerSrcSet}" sizes="(max-width: 640px) 100vw, 800px"` : ''} alt="${escapeHtml(bannerItems[0]?.title || 'Featured banner')}" width="800" height="400" loading="eager" fetchpriority="high" decoding="async" referrerpolicy="no-referrer" class="absolute inset-0 w-full h-full object-cover pointer-events-none"/>
               </a>
             </div>
           </div>
@@ -172,8 +175,10 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
       ${categoryTabsHtml}
       ${filterBarHtml}
 
-      <div class="space-y-1 px-0 sm:px-1">
-        ${appsHtml}
+      <div class="px-0 sm:px-1">
+        <div class="space-y-2">
+          ${appsHtml}
+        </div>
       </div>
 
       ${totalPages > 1 ? `

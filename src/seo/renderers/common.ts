@@ -140,3 +140,32 @@ export function renderFooter(settings: any): string {
     </footer>
   `;
 }
+
+export function renderTicker(settings: any): string {
+  const tickerText = getField(settings, 'ticker_text') || 'Verified App Catalog & Transparency Portal';
+  const cleanText = String(tickerText).replace(/https?:\/\/[^\s|•]+/gi, '').replace(/\s+/g, ' ').trim();
+  const baseSegments = cleanText.split(/[|•]+/).map((s: string) => s.trim()).filter(Boolean);
+  if (baseSegments.length === 0) return '';
+
+  const repeatedSegments = [...baseSegments, ...baseSegments, ...baseSegments, ...baseSegments];
+  const renderTrack = (ariaHidden: boolean) => `
+    <div class="flex items-center shrink-0 ticker-track" ${ariaHidden ? 'aria-hidden="true"' : ''}>
+      ${repeatedSegments.map(segment => `
+        <span class="inline-flex items-center">
+          <span class="text-[11px] font-medium tracking-wider uppercase text-zinc-400 dark:text-zinc-500 px-4 whitespace-nowrap">${escapeHtml(segment)}</span>
+          <span class="text-zinc-300 dark:text-zinc-700 text-[10px] select-none" aria-hidden="true">•</span>
+        </span>
+      `).join('')}
+    </div>
+  `;
+
+  return `
+    <div class="bg-transparent py-3 overflow-hidden border-t border-black/5 dark:border-white/5 flex items-center relative z-[70] select-none pointer-events-none cv-auto" style="contain: paint">
+      <div class="flex whitespace-nowrap overflow-hidden w-full select-none pointer-events-none">
+        ${renderTrack(false)}
+        ${renderTrack(true)}
+      </div>
+    </div>
+  `;
+}
+

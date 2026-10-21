@@ -33,12 +33,15 @@ export function structureHtmlFragment(rawHtml: string): string {
   if (!rawHtml || typeof rawHtml !== 'string') return '';
   let str = rawHtml.trim();
 
-  // 1. Strip document wrappers if present
+  // 1. Strip document wrappers and embedded SVGs if present so SSR and CSR produce identical DOM height
   str = str.replace(/<!DOCTYPE[^>]*>/gi, '')
+           .replace(/<head\b[^>]*>[\s\S]*?<\/head>/gi, '')
            .replace(/<\/?(html|head|body)[^>]*>/gi, '')
            .replace(/<title>[^<]*<\/title>/gi, '')
+           .replace(/<(meta|link)\b[^>]*>/gi, '')
            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+           .replace(/<svg[^>]*>[\s\S]*?<\/svg>/gi, '')
            .replace(/<div\b[^>]*class=["\'][^"\']*rd-news-meta[^"\']*["\'][^>]*>[\s\S]*?<\/div>/gi, '')
            .trim();
 

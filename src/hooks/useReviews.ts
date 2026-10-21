@@ -82,7 +82,7 @@ export function useReviews(
   });
 
   const [stats, setStats] = useState<any>(() => initialCached?.stats || getCachedLiveAppStats(cleanAppId, cleanAppSlug));
-  const [loading, setLoading] = useState<boolean>(() => !initialCached || initialCached.reviews.length === 0);
+  const [loading, setLoading] = useState<boolean>(() => !initialCached);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState<boolean>(() => Boolean(initialCached?.hasMore));
   const [nextCursor, setNextCursor] = useState<string | null>(() => initialCached?.nextCursor || null);
@@ -170,7 +170,7 @@ export function useReviews(
   }, [cleanAppId, cleanAppSlug, cleanAppTitle, overallRating, activeFilter, sortBy, reviews.length]);
 
   // Initial fetch when container enters view or target app changes
-  const prevTargetKeyRef = useRef<string>('');
+  const prevTargetKeyRef = useRef<string>(initialCached ? (cleanAppId || cleanAppSlug) : '');
   useEffect(() => {
     const targetKey = cleanAppId || cleanAppSlug;
     if (!targetKey || !inView) return;
@@ -183,17 +183,17 @@ export function useReviews(
       
       // Update reviews with any cached/initial entries for the new app immediately
       const freshCache = getCachedLiveReviews(cleanAppId, cleanAppSlug);
-      if (freshCache && freshCache.reviews.length > 0) {
+      if (freshCache) {
         const mapped = freshCache.reviews.slice(0, PAGE_SIZE).map((r: any) => normalizeReviewItem(r, cleanAppId));
         setReviews(deduplicateReviewsList(mapped));
-        setStats(freshCache.stats || null);
+        setStats(freshCache.stats || getCachedLiveAppStats(cleanAppId, cleanAppSlug));
         setHasMore(Boolean(freshCache.hasMore));
         setNextCursor(freshCache.nextCursor || null);
         nextCursorRef.current = freshCache.nextCursor || null;
         setLoading(false);
       } else {
         setReviews([]);
-        setStats(null);
+        setStats(getCachedLiveAppStats(cleanAppId, cleanAppSlug));
         setHasMore(false);
         fetchReviews(false);
       }

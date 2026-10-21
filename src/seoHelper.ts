@@ -572,17 +572,6 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     finalHtml = `${headAdditions}\n${finalHtml}`;
   }
 
-  // If critical inline CSS is in place, convert the external stylesheet to a non-blocking preload
-  if (criticalCss) {
-    finalHtml = finalHtml.replace(
-      /<link\s+([^>]*href=["']\/assets\/[^"']+\.css["'][^>]*)>/gi,
-      (_match, attrs) => {
-        const cleanAttrs = attrs.replace(/\s*rel=["']stylesheet["']\s*/gi, ' ').trim();
-        return `<link rel="preload" as="style" ${cleanAttrs} onload="this.onload=null;this.rel='stylesheet'">\n    <noscript><link rel="stylesheet" ${cleanAttrs}></noscript>`;
-      }
-    );
-  }
-
   // High-performance server-side visible HTML shell injection:
   // First guarantee that any pre-existing SSR body in template is cleanly stripped back to <div id="root"></div>
   finalHtml = cleanRootContainer(finalHtml);

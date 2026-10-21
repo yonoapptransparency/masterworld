@@ -78,7 +78,10 @@ import { preloadRoute } from './lib/routePreloader';
 
 const rootEl = document.getElementById('root');
 if (rootEl) {
+  let hasMounted = false;
   const mountApp = () => {
+    if (hasMounted) return;
+    hasMounted = true;
     const appElement = (
       <StrictMode>
         <GlobalErrorBoundary>
@@ -87,19 +90,22 @@ if (rootEl) {
       </StrictMode>
     );
 
-    // Single-pass synchronous mount using window.__INITIAL_DATA__ without hydrateRoot mismatch teardown
+    // Atomic single-pass render once route module is preloaded in memory.
+    // Avoids React 18 hydration mismatch recovery passes (which cause double-rendering and visual flicker).
     createRoot(rootEl).render(appElement);
   };
 
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '/';
-  if (pathname && pathname !== '/' && !pathname.startsWith('/category') && !pathname.startsWith('/categories')) {
-    // If arriving directly on a sub-route (e.g. /app/:slug, /news), warm the chunk first so SSR HTML remains visible
+  if (pathname && pathname !== '/' && !pathname.startsWith('/category') && !pathname.startsWith('/categories') && pathname !== '/new-apps') {
+    // Keep server-rendered HTML visible until the target route chunk is loaded in memory,
+    // so FastComponent in lazyWithRetry renders synchronously in a single frame with zero Suspense flash.
     Promise.race([
       preloadRoute(pathname),
-      new Promise(resolve => setTimeout(resolve, 600)) // Safety timeout
+      new Promise(resolve => setTimeout(resolve, 4000))
     ]).then(mountApp).catch(mountApp);
   } else {
     mountApp();
   }
 }
+
 
