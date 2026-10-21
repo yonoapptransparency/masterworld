@@ -73,5 +73,5 @@
     "typescript": "~5.8.2",
     "vite": "^6.2.3"
   },
-  "githubSyncTick": 2
+  "githubSyncTick": 3
 }
