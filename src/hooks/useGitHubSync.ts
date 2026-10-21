@@ -258,15 +258,16 @@ export function useGitHubSync(
         if (publicSettingsSnap && publicSettingsSnap.exists && publicSettingsSnap.exists()) {
           fsSettings = { ...fsSettings, ...publicSettingsSnap.data() };
         }
-        if (faqsSnap && faqsSnap.exists && faqsSnap.exists()) {
+        // Only use separate legacy docs as fallback if settings doesn't already have them
+        if ((!fsSettings.website_faqs || fsSettings.website_faqs.length === 0) && faqsSnap && faqsSnap.exists && faqsSnap.exists()) {
           const fData = faqsSnap.data();
           if (Array.isArray(fData?.items)) fsSettings.website_faqs = fData.items;
         }
-        if (devsSnap && devsSnap.exists && devsSnap.exists()) {
+        if ((!fsSettings.developers || fsSettings.developers.length === 0) && devsSnap && devsSnap.exists && devsSnap.exists()) {
           const dData = devsSnap.data();
           if (Array.isArray(dData?.items)) fsSettings.developers = dData.items;
         }
-        if (linksSnap && linksSnap.exists && linksSnap.exists()) {
+        if ((!fsSettings.quick_links || fsSettings.quick_links.length === 0) && linksSnap && linksSnap.exists && linksSnap.exists()) {
           const lData = linksSnap.data();
           if (Array.isArray(lData?.items)) fsSettings.quick_links = lData.items;
         }
@@ -331,81 +332,143 @@ export function useGitHubSync(
     const stateNews = (overrideNews && Array.isArray(overrideNews) && overrideNews.length > 0) ? overrideNews : news;
     const stateVideos = (overrideVideos && Array.isArray(overrideVideos) && overrideVideos.length > 0) ? overrideVideos : videos;
 
-    // Direct Live Firestore is authoritative; merge with any explicit admin overrides
-    let targetApps: any[] = [];
+    // Merge targetApps: Live Firestore multi-chunk + stateApps
+    // stateApps (Admin's live dashboard memory) is authoritative for edits & new apps!
+    const appMap = new Map<string, any>();
+
+    // 1. Seed with live Firestore / backup apps
     if (Array.isArray(liveBackup?.apps) && liveBackup.apps.length > 0) {
-      targetApps = liveBackup.apps;
-      log(`GitHub Sync: Using ${targetApps.length} live application(s) directly from Firestore.`);
-    } else if (Array.isArray(stateApps) && stateApps.length > 0) {
-      targetApps = stateApps;
+      liveBackup.apps.forEach((a: any) => {
+        if (!a) return;
+        const kId = a.id ? String(a.id).toLowerCase().trim() : '';
+        const kSlug = a.slug ? String(a.slug).toLowerCase().trim() : '';
+        if (kId) appMap.set(kId, a);
+        if (kSlug && !appMap.has(kSlug)) appMap.set(kSlug, a);
+      });
     }
 
-    // Merge stateApps (live dashboard memory) so newly edited apps in admin panel are guaranteed present
+    // 2. Overlay stateApps (Admin's live additions, modifications, link updates MUST WIN)
     if (Array.isArray(stateApps) && stateApps.length > 0) {
-      const stateMap = new Map<string, any>();
       stateApps.forEach((sa: any) => {
-        if (sa.id) stateMap.set(String(sa.id).toLowerCase().trim(), sa);
-        if (sa.slug) stateMap.set(String(sa.slug).toLowerCase().trim(), sa);
-      });
-      targetApps = targetApps.map((ta: any) => {
-        const sa = stateMap.get(String(ta.id).toLowerCase().trim()) || (ta.slug ? stateMap.get(String(ta.slug).toLowerCase().trim()) : null);
-        if (sa) {
-          return {
-            ...ta,
-            ...sa,
-            more_information_url: sa.more_information_url || ta.more_information_url || '',
-            encrypted_link: sa.encrypted_link || ta.encrypted_link || ''
-          };
-        }
-        return ta;
+        if (!sa) return;
+        const kId = sa.id ? String(sa.id).toLowerCase().trim() : '';
+        const kSlug = sa.slug ? String(sa.slug).toLowerCase().trim() : '';
+        const existing = (kId ? appMap.get(kId) : null) || (kSlug ? appMap.get(kSlug) : null) || {};
+        
+        const merged = {
+          ...existing,
+          ...sa,
+          more_information_url: sa.more_information_url || existing.more_information_url || '',
+          encrypted_link: sa.encrypted_link || existing.encrypted_link || ''
+        };
+
+        if (kId) appMap.set(kId, merged);
+        if (kSlug) appMap.set(kSlug, merged);
       });
     }
 
-    const targetSettings = {
-      ...(stateSettings || {}),
-      ...(liveBackup?.settings || {})
-    };
-    if (liveBackup?.settings?.website_faqs && (!targetSettings.website_faqs || targetSettings.website_faqs.length === 0)) {
-      targetSettings.website_faqs = liveBackup.settings.website_faqs;
+    // Assemble targetApps: preserve order, guarantee all stateApps + cloud apps are included
+    const seenAppKeys = new Set<string>();
+    let targetApps: any[] = [];
+    const candidateApps = [
+      ...(Array.isArray(stateApps) ? stateApps : []),
+      ...(Array.isArray(liveBackup?.apps) ? liveBackup.apps : [])
+    ];
+    for (const c of candidateApps) {
+      if (!c) continue;
+      const kId = c.id ? String(c.id).toLowerCase().trim() : '';
+      const kSlug = c.slug ? String(c.slug).toLowerCase().trim() : '';
+      const primaryKey = kId || kSlug;
+      if (primaryKey && !seenAppKeys.has(primaryKey)) {
+        seenAppKeys.add(primaryKey);
+        if (kSlug) seenAppKeys.add(kSlug);
+        const resolved = (kId ? appMap.get(kId) : null) || (kSlug ? appMap.get(kSlug) : null) || c;
+        targetApps.push(resolved);
+      }
     }
-    if (liveBackup?.settings?.developers && (!targetSettings.developers || targetSettings.developers.length === 0)) {
+    log(`GitHub Sync: Assembled ${targetApps.length} application(s) combining cloud chunks and live admin modifications.`);
+
+    // Target Settings: Live Admin stateSettings is 100% AUTHORITATIVE over stale server backup!
+    const targetSettings = {
+      ...(liveBackup?.settings || {}),
+      ...(stateSettings || {})
+    };
+
+    // Explicitly guarantee arrays from stateSettings (developers, faqs, quick_links, categories, banners) take precedence
+    if (Array.isArray(stateSettings?.developers)) {
+      targetSettings.developers = stateSettings.developers;
+    } else if (Array.isArray(liveBackup?.settings?.developers)) {
       targetSettings.developers = liveBackup.settings.developers;
     }
-    if (liveBackup?.settings?.quick_links && (!targetSettings.quick_links || targetSettings.quick_links.length === 0)) {
+
+    if (Array.isArray(stateSettings?.website_faqs)) {
+      targetSettings.website_faqs = stateSettings.website_faqs;
+    } else if (Array.isArray(liveBackup?.settings?.website_faqs)) {
+      targetSettings.website_faqs = liveBackup.settings.website_faqs;
+    }
+
+    if (Array.isArray(stateSettings?.quick_links)) {
+      targetSettings.quick_links = stateSettings.quick_links;
+    } else if (Array.isArray(liveBackup?.settings?.quick_links)) {
       targetSettings.quick_links = liveBackup.settings.quick_links;
     }
 
-    // Merge stateNews and liveBackup news, preserving the fullest content and description_html
-    const mergedNewsMap = new Map<string, any>();
-    for (const n of (stateNews || [])) {
-      if (!n) continue;
-      const key = (n.slug || n.id || '').toLowerCase().trim();
-      if (key) mergedNewsMap.set(key, { ...n });
+    if (Array.isArray(stateSettings?.categories)) {
+      targetSettings.categories = stateSettings.categories;
+    } else if (Array.isArray(liveBackup?.settings?.categories)) {
+      targetSettings.categories = liveBackup.settings.categories;
     }
-    for (const n of (liveBackup?.news || [])) {
-      if (!n) continue;
-      const key = (n.slug || n.id || '').toLowerCase().trim();
-      if (key) {
-        const existing = mergedNewsMap.get(key);
-        if (existing) {
-          const exContent = existing.content || existing.description_html || '';
-          const nContent = n.content || n.description_html || '';
-          const bestContent = exContent.length >= nContent.length ? exContent : nContent;
-          mergedNewsMap.set(key, {
-            ...n,
-            ...existing,
+
+    if (Array.isArray(stateSettings?.banners)) {
+      targetSettings.banners = stateSettings.banners;
+    } else if (Array.isArray(liveBackup?.settings?.banners)) {
+      targetSettings.banners = liveBackup.settings.banners;
+    }
+
+    // Social links (Footer)
+    if (stateSettings?.social_links && typeof stateSettings.social_links === 'object') {
+      targetSettings.social_links = {
+        ...(liveBackup?.settings?.social_links || {}),
+        ...stateSettings.social_links
+      };
+    }
+
+    // News: Admin stateNews is authoritative; merge with any cloud news ensuring admin edits always take precedence
+    let targetNews: any[] = [];
+    if (Array.isArray(stateNews) && stateNews.length > 0) {
+      const newsMap = new Map<string, any>();
+      // 1. Seed cloud backup news
+      for (const cn of (liveBackup?.news || [])) {
+        if (!cn) continue;
+        const key = String(cn.slug || cn.id || '').toLowerCase().trim();
+        if (key) newsMap.set(key, { ...cn });
+      }
+      // 2. Overlay live admin stateNews (Admin's edits, new articles, dates, content MUST WIN)
+      for (const sn of stateNews) {
+        if (!sn) continue;
+        const key = String(sn.slug || sn.id || '').toLowerCase().trim();
+        if (key) {
+          const prev = newsMap.get(key) || {};
+          const bestContent = sn.content || sn.description_html || prev.content || prev.description_html || '';
+          newsMap.set(key, {
+            ...prev,
+            ...sn,
             content: bestContent,
             description_html: bestContent
           });
-        } else {
-          mergedNewsMap.set(key, { ...n });
         }
       }
+      targetNews = Array.from(newsMap.values());
+    } else if (Array.isArray(liveBackup?.news) && liveBackup.news.length > 0) {
+      targetNews = liveBackup.news;
     }
-    const targetNews = mergedNewsMap.size > 0 ? Array.from(mergedNewsMap.values()) : ((stateNews && stateNews.length > 0) ? stateNews : []);
-    const targetVideos = (Array.isArray(liveBackup?.videos) && liveBackup.videos.length > 0) 
-      ? liveBackup.videos 
-      : ((Array.isArray(stateVideos) && stateVideos.length > 0) ? stateVideos : []);
+
+    // Videos: Admin stateVideos is authoritative
+    let targetVideos = (Array.isArray(stateVideos) && stateVideos.length > 0)
+      ? stateVideos
+      : (Array.isArray(liveBackup?.videos) && liveBackup.videos.length > 0)
+        ? liveBackup.videos
+        : [];
 
     let finalApps = targetApps;
     if (targetApps.length > 0) {

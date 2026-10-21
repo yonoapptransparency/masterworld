@@ -379,6 +379,7 @@ export function generateAllSitemaps(
   const siteLogo = data.settings?.logo_url || data.settings?.favicon_url || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
   const now = new Date().toISOString().replace(/\.\d{3}Z$/, '+00:00');
   const latestAppDate = getLatestItemDate(apps, now);
+  const latestDevDate = getLatestItemDate(data.settings?.developers || [], latestAppDate);
 
   return {
     'sitemap.xml': generateMasterSitemapXml(apps, news, videos, host),
@@ -386,6 +387,6 @@ export function generateAllSitemaps(
     'sitemap-news.xml': generateNewsSitemapXml(news, host),
     'sitemap-videos.xml': generateVideosSitemapXml(videos, host, siteLogo),
     'sitemap-static.xml': generateStaticSitemapXml(host, latestAppDate),
-    'sitemap-developers.xml': generateDevelopersSitemapXml(host, latestAppDate)
+    'sitemap-developers.xml': generateDevelopersSitemapXml(host, latestDevDate)
   };
 }

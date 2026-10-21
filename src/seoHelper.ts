@@ -88,12 +88,37 @@ async function doFetchStoreData() {
   }
 
   const freshStatic = getStaticData();
+  const rawStaticSettings = freshStatic.settings || freshStatic.mockSettings || {};
+  const rawLiveSettings = liveData?.settings || {};
+
+  const mergedSettings = {
+    ...rawStaticSettings,
+    ...rawLiveSettings
+  };
+
+  // Guarantee arrays and custom SEO titles/descriptions are preserved
+  if (!mergedSettings.developers || mergedSettings.developers.length === 0) {
+    mergedSettings.developers = rawLiveSettings.developers || rawStaticSettings.developers || freshStatic.developers || [];
+  }
+  if (!mergedSettings.website_faqs || mergedSettings.website_faqs.length === 0) {
+    mergedSettings.website_faqs = rawLiveSettings.website_faqs || rawStaticSettings.website_faqs || [];
+  }
+  if (!mergedSettings.quick_links || mergedSettings.quick_links.length === 0) {
+    mergedSettings.quick_links = rawLiveSettings.quick_links || rawStaticSettings.quick_links || [];
+  }
+  if (!mergedSettings.categories || mergedSettings.categories.length === 0) {
+    mergedSettings.categories = rawLiveSettings.categories || rawStaticSettings.categories || [];
+  }
+  if (!mergedSettings.banners || mergedSettings.banners.length === 0) {
+    mergedSettings.banners = rawLiveSettings.banners || rawStaticSettings.banners || [];
+  }
+
   const data = {
     apps: (liveData?.apps && Array.isArray(liveData.apps) && liveData.apps.length > 0) ? liveData.apps : (freshStatic.apps || freshStatic.mockApps || []),
-    settings: (liveData?.settings && Object.keys(liveData.settings).length > 0) ? liveData.settings : (freshStatic.settings || freshStatic.mockSettings || {}),
+    settings: mergedSettings,
     news: (liveData?.news && Array.isArray(liveData.news) && liveData.news.length > 0) ? liveData.news : (freshStatic.news || freshStatic.mockNews || []),
     videos: (liveData?.videos && Array.isArray(liveData.videos) && liveData.videos.length > 0) ? liveData.videos : (freshStatic.videos || freshStatic.mockVideos || []),
-    developers: freshStatic.developers || freshStatic.mockDevelopers || freshStatic.settings?.developers || []
+    developers: mergedSettings.developers || []
   };
   
   cachedData = data;
@@ -542,8 +567,10 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   const initialDataScript = `<script>window.__INITIAL_DATA__ = ${initialDataJson};</script>`;
 
   let finalHtml = template
-    .replace(/<title>[\s\S]*?<\/title>/gi, '')
+    .replace(/<title[\s\S]*?<\/title>/gi, '')
     .replace(/<meta\s+[^>]*name=["']description["'][^>]*\/?>/gi, '')
+    .replace(/<meta\s+[^>]*content=["'][^"']*["']\s+name=["']description["'][^>]*\/?>/gi, '')
+    .replace(/<meta\s+[^>]*property=["']description["'][^>]*\/?>/gi, '')
     .replace(/<meta\s+[^>]*name=["']robots["'][^>]*\/?>/gi, '')
     .replace(/<meta\s+[^>]*name=["']keywords["'][^>]*\/?>/gi, '')
     .replace(/<meta\s+[^>]*name=["']application-name["'][^>]*\/?>/gi, '')

@@ -4,6 +4,7 @@ import path from 'path';
 import { safeEncrypt, safeDecrypt, getAesSecret } from '../../lib/secureVault';
 import { fetchStoreData, clearSeoCache } from '../../seoHelper';
 import { compileCanonicalApp, compileCanonicalNews } from '../../lib/githubSync';
+import { generateAllSitemaps } from '../../lib/sitemapGenerator';
 
 export const adminVaultRouter = Router();
 
@@ -85,6 +86,26 @@ function writeMergedData(data: any) {
   } catch (e) {
     console.error('[adminVaultRoutes] Failed to write staticData.json:', e);
   }
+
+  // Automatically regenerate and save all XML sitemaps to disk so search engine indexes remain 100% synchronized
+  try {
+    const sitemaps = generateAllSitemaps(serverBackupPayload);
+    const publicDir = path.join(process.cwd(), 'public');
+    const distDir = path.join(process.cwd(), 'dist');
+    for (const [filename, content] of Object.entries(sitemaps)) {
+      try {
+        fs.writeFileSync(path.join(publicDir, filename), content, 'utf8');
+      } catch (_) {}
+      if (fs.existsSync(distDir)) {
+        try {
+          fs.writeFileSync(path.join(distDir, filename), content, 'utf8');
+        } catch (_) {}
+      }
+    }
+  } catch (e) {
+    console.error('[adminVaultRoutes] Failed to write sitemaps:', e);
+  }
+
   clearSeoCache();
 }
 

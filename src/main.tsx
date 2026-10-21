@@ -76,13 +76,20 @@ if (typeof window !== 'undefined') {
 
 const rootEl = document.getElementById('root');
 if (rootEl) {
-  createRoot(rootEl).render(
+  const appTree = (
     <StrictMode>
       <GlobalErrorBoundary>
         <App />
       </GlobalErrorBoundary>
     </StrictMode>
   );
+
+  // Preserve pre-rendered SSR HTML during mount to eliminate blank screen flashes and DOM jumps
+  if (rootEl.hasChildNodes() && rootEl.children.length > 0) {
+    hydrateRoot(rootEl, appTree);
+  } else {
+    createRoot(rootEl).render(appTree);
+  }
 }
 
 

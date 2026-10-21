@@ -80,8 +80,12 @@ const Meta: React.FC<MetaProps> = ({
   useEffect(() => {
     if (typeof document === 'undefined') return;
 
-    // 1. Update document title
+    // 1. Update document title and purge any duplicate title elements
     document.title = fullTitle;
+    const extraTitles = document.head.querySelectorAll('title');
+    extraTitles.forEach((titleEl, idx) => {
+      if (idx > 0) titleEl.remove();
+    });
 
     // Helper to update exactly ONE meta tag in document.head and purge any duplicates (checking both name and property)
     const setMetaTag = (attrName: 'name' | 'property', attrVal: string, contentVal: string) => {

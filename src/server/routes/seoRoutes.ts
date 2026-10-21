@@ -155,7 +155,7 @@ seoRouter.get(['/sitemap-developers.xml', '/sitemap_developers.xml'], async (req
   res.setHeader('Vary', 'Accept-Encoding');
   res.type('application/xml');
   const data = await getLiveData();
-  const latestDate = getLatestItemDate(data.apps || []);
+  const latestDate = getLatestItemDate(data.settings?.developers || data.developers || data.apps || []);
   const xml = generateDevelopersSitemapXml(HOST, latestDate);
   res.send(xml);
 });

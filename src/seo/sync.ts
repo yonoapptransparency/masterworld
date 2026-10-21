@@ -157,11 +157,9 @@ export async function syncFromFirestore(): Promise<any> {
       ]);
 
       const remoteSettings = settingsDoc?.exists ? settingsDoc.data() : {};
-      const localSetTime = fallbackData.settings?.last_updated ? new Date(fallbackData.settings.last_updated).getTime() : 0;
-      const remoteSetTime = remoteSettings?.last_updated ? new Date(remoteSettings.last_updated).getTime() : 0;
-      const settings = localSetTime >= remoteSetTime && localSetTime > 0
-        ? { ...remoteSettings, ...fallbackData.settings }
-        : { ...fallbackData.settings, ...remoteSettings };
+      const settings = (remoteSettings && Object.keys(remoteSettings).length > 0)
+        ? { ...(fallbackData.settings || {}), ...remoteSettings }
+        : (fallbackData.settings || {});
 
       const remoteNews = newsDoc?.exists && Array.isArray(newsDoc.data()?.items) ? newsDoc.data().items : [];
       const news = remoteNews.length > 0 ? mergeItemsByTimestamp(fallbackData.news, remoteNews) : fallbackData.news;
@@ -223,11 +221,9 @@ export async function syncFromFirestore(): Promise<any> {
       ]);
 
       const remoteSettings = settingsRes?.fields ? parseFirestoreDoc(settingsRes.fields) : {};
-      const localSetTime = fallbackData.settings?.last_updated ? new Date(fallbackData.settings.last_updated).getTime() : 0;
-      const remoteSetTime = remoteSettings?.last_updated ? new Date(remoteSettings.last_updated).getTime() : 0;
-      const settings = localSetTime >= remoteSetTime && localSetTime > 0
-        ? { ...remoteSettings, ...fallbackData.settings }
-        : { ...fallbackData.settings, ...remoteSettings };
+      const settings = (remoteSettings && Object.keys(remoteSettings).length > 0)
+        ? { ...(fallbackData.settings || {}), ...remoteSettings }
+        : (fallbackData.settings || {});
 
       const newsParsed = newsRes?.fields ? parseFirestoreDoc(newsRes.fields) : null;
       const remoteNews = Array.isArray(newsParsed?.items) ? newsParsed.items : [];
