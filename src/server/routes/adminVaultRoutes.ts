@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import fs from 'fs';
 import path from 'path';
+import zlib from 'zlib';
 import { safeEncrypt, safeDecrypt, getAesSecret } from '../../lib/secureVault';
 import { fetchStoreData, clearSeoCache } from '../../seoHelper';
 import { compileCanonicalApp, compileCanonicalNews } from '../../lib/githubSync';
@@ -87,18 +88,21 @@ function writeMergedData(data: any) {
     console.error('[adminVaultRoutes] Failed to write staticData.json:', e);
   }
 
-  // Automatically regenerate and save all XML sitemaps to disk so search engine indexes remain 100% synchronized
+  // Automatically regenerate and save all XML + GZip sitemaps to disk so search engine indexes remain 100% synchronized
   try {
     const sitemaps = generateAllSitemaps(serverBackupPayload);
     const publicDir = path.join(process.cwd(), 'public');
     const distDir = path.join(process.cwd(), 'dist');
     for (const [filename, content] of Object.entries(sitemaps)) {
+      const gzBuffer = zlib.gzipSync(Buffer.from(content, 'utf8'), { level: 9 });
       try {
         fs.writeFileSync(path.join(publicDir, filename), content, 'utf8');
+        fs.writeFileSync(path.join(publicDir, `${filename}.gz`), gzBuffer);
       } catch (_) {}
       if (fs.existsSync(distDir)) {
         try {
           fs.writeFileSync(path.join(distDir, filename), content, 'utf8');
+          fs.writeFileSync(path.join(distDir, `${filename}.gz`), gzBuffer);
         } catch (_) {}
       }
     }

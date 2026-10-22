@@ -4,7 +4,7 @@
  */
 
 import { StrictMode } from 'react';
-import { createRoot, hydrateRoot } from 'react-dom/client';
+import { createRoot } from 'react-dom/client';
 import App from './App';
 import GlobalErrorBoundary from './components/GlobalErrorBoundary';
 import './index.css';
@@ -76,20 +76,13 @@ if (typeof window !== 'undefined') {
 
 const rootEl = document.getElementById('root');
 if (rootEl) {
-  const appTree = (
+  createRoot(rootEl).render(
     <StrictMode>
       <GlobalErrorBoundary>
         <App />
       </GlobalErrorBoundary>
     </StrictMode>
   );
-
-  // Preserve pre-rendered SSR HTML during mount to eliminate blank screen flashes and DOM jumps
-  if (rootEl.hasChildNodes() && rootEl.children.length > 0) {
-    hydrateRoot(rootEl, appTree);
-  } else {
-    createRoot(rootEl).render(appTree);
-  }
 }
 
 

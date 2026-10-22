@@ -5,6 +5,7 @@ import { getLocalFallbackReviewsForApp } from './reviewFallback';
 
 function wrapWithLayout(bodyContent: string, settings: any): string {
   const headerHtml = renderers.renderHeader(settings);
+  const tickerHtml = renderers.renderTicker(settings);
   const footerHtml = renderers.renderFooter(settings);
   return `
     <div class="flex flex-col min-h-screen">
@@ -15,6 +16,7 @@ function wrapWithLayout(bodyContent: string, settings: any): string {
           ${bodyContent}
         </div>
       </main>
+      ${tickerHtml}
       ${footerHtml}
     </div>
   `;

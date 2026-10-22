@@ -1,4 +1,5 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
+import zlib from 'zlib';
 import staticData from '../../lib/staticData.json';
 import { fetchStoreData } from '../../seoHelper';
 import {
@@ -23,6 +24,20 @@ async function getLiveData() {
     }
   } catch (e) {}
   return staticData as any;
+}
+
+function sendXmlOrGzip(req: Request, res: Response, xml: string, maxAgeSeconds: number = 3600) {
+  res.setHeader('Cache-Control', `public, max-age=${maxAgeSeconds}, s-maxage=${maxAgeSeconds}`);
+  res.setHeader('Vary', 'Accept-Encoding');
+  if (req.path.endsWith('.gz')) {
+    const gzBuffer = zlib.gzipSync(Buffer.from(xml, 'utf8'), { level: 9 });
+    res.setHeader('Content-Type', 'application/gzip');
+    res.setHeader('Content-Disposition', `inline; filename="${req.path.replace(/^\//, '')}"`);
+    res.send(gzBuffer);
+    return;
+  }
+  res.type('application/xml');
+  res.send(xml);
 }
 
 seoRouter.get('/robots.txt', (req, res) => {
@@ -99,65 +114,47 @@ Sitemap: https://www.rummydex.com/sitemap-developers.xml
 });
 
 // Master Sitemap Index
-seoRouter.get('/sitemap.xml', async (req, res) => {
-  res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600');
-  res.setHeader('Vary', 'Accept-Encoding');
-  res.type('application/xml');
+seoRouter.get(['/sitemap.xml', '/sitemap.xml.gz'], async (req, res) => {
   const data = await getLiveData();
   const xml = generateMasterSitemapXml(data.apps || [], data.news || [], data.videos || [], HOST);
-  res.send(xml);
+  sendXmlOrGzip(req, res, xml, 3600);
 });
 
 // Dedicated News Sitemap (Critical for Google News & Googlebot Crawling)
-seoRouter.get(['/sitemap-news.xml', '/sitemap_news.xml'], async (req, res) => {
-  res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600');
-  res.setHeader('Vary', 'Accept-Encoding');
-  res.type('application/xml');
+seoRouter.get(['/sitemap-news.xml', '/sitemap_news.xml', '/sitemap-news.xml.gz', '/sitemap_news.xml.gz'], async (req, res) => {
   const data = await getLiveData();
   const xml = generateNewsSitemapXml(data.news || [], HOST);
-  res.send(xml);
+  sendXmlOrGzip(req, res, xml, 3600);
 });
 
 // Dedicated Apps Sitemap
-seoRouter.get(['/sitemap-apps.xml', '/sitemap_apps.xml'], async (req, res) => {
-  res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600');
-  res.setHeader('Vary', 'Accept-Encoding');
-  res.type('application/xml');
+seoRouter.get(['/sitemap-apps.xml', '/sitemap_apps.xml', '/sitemap-apps.xml.gz', '/sitemap_apps.xml.gz'], async (req, res) => {
   const data = await getLiveData();
   const xml = generateAppsSitemapXml(data.apps || [], HOST);
-  res.send(xml);
+  sendXmlOrGzip(req, res, xml, 3600);
 });
 
 // Dedicated Static Pages Sitemap
-seoRouter.get(['/sitemap-static.xml', '/sitemap_static.xml'], async (req, res) => {
-  res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400');
-  res.setHeader('Vary', 'Accept-Encoding');
-  res.type('application/xml');
+seoRouter.get(['/sitemap-static.xml', '/sitemap_static.xml', '/sitemap-static.xml.gz', '/sitemap_static.xml.gz'], async (req, res) => {
   const data = await getLiveData();
   const latestDate = getLatestItemDate(data.apps || []);
   const xml = generateStaticSitemapXml(HOST, latestDate);
-  res.send(xml);
+  sendXmlOrGzip(req, res, xml, 86400);
 });
 
 // Dedicated Videos Sitemap
-seoRouter.get(['/sitemap-videos.xml', '/sitemap_videos.xml'], async (req, res) => {
-  res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400');
-  res.setHeader('Vary', 'Accept-Encoding');
-  res.type('application/xml');
+seoRouter.get(['/sitemap-videos.xml', '/sitemap_videos.xml', '/sitemap-videos.xml.gz', '/sitemap_videos.xml.gz'], async (req, res) => {
   const data = await getLiveData();
   const xml = generateVideosSitemapXml(data.videos || [], HOST);
-  res.send(xml);
+  sendXmlOrGzip(req, res, xml, 86400);
 });
 
 // Dedicated Developers Sitemap
-seoRouter.get(['/sitemap-developers.xml', '/sitemap_developers.xml'], async (req, res) => {
-  res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400');
-  res.setHeader('Vary', 'Accept-Encoding');
-  res.type('application/xml');
+seoRouter.get(['/sitemap-developers.xml', '/sitemap_developers.xml', '/sitemap-developers.xml.gz', '/sitemap_developers.xml.gz'], async (req, res) => {
   const data = await getLiveData();
   const latestDate = getLatestItemDate(data.settings?.developers || data.developers || data.apps || []);
   const xml = generateDevelopersSitemapXml(HOST, latestDate);
-  res.send(xml);
+  sendXmlOrGzip(req, res, xml, 86400);
 });
 
 seoRouter.get('/rss.xml', async (req, res) => {

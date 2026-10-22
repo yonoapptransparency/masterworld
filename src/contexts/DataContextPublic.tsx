@@ -46,22 +46,35 @@ const DATA_CACHE_KEY = 'yd_public_data_cache_v5';
 // Strict canonical deduplication utilities to guarantee zero duplicate app cards or news items
 const mergeUniqueApps = (baseList: AppConfig[], incomingList: AppConfig[]): AppConfig[] => {
   const map = new Map<string, AppConfig>();
+  const idToKey = new Map<string, string>();
 
   // 1. Seed base apps keyed by clean canonical slug / id
   for (const app of (baseList || [])) {
     if (!app) continue;
     const key = (app.slug || app.id || '').toLowerCase().trim();
+    const idKey = (app.id || '').toLowerCase().trim();
     if (key) {
       map.set(key, { ...app });
+      if (idKey) idToKey.set(idKey, key);
     }
   }
 
-  // 2. Merge incoming / updated items by the exact same canonical key
+  const incomingKeys = new Set<string>();
+
+  // 2. Merge incoming / updated items by ID or canonical key
   for (const app of (incomingList || [])) {
     if (!app) continue;
     const key = (app.slug || app.id || '').toLowerCase().trim();
+    const idKey = (app.id || '').toLowerCase().trim();
     if (key) {
-      const existing = map.get(key);
+      incomingKeys.add(key);
+      const prevKeyById = idKey ? idToKey.get(idKey) : undefined;
+      const existing = map.get(key) || (prevKeyById ? map.get(prevKeyById) : undefined);
+      if (prevKeyById && prevKeyById !== key) {
+        map.delete(prevKeyById);
+      }
+      if (idKey) idToKey.set(idKey, key);
+
       if (existing) {
         map.set(key, {
           ...existing,
@@ -91,25 +104,46 @@ const mergeUniqueApps = (baseList: AppConfig[], incomingList: AppConfig[]): AppC
     }
   }
 
+  // When incomingList is a full catalog snapshot (not a trimmed 13-item route slice), enforce authoritative membership
+  const isFullCatalogIncoming = Array.isArray(incomingList) && incomingList.length > 25 && incomingList.length >= (baseList?.length || 0) * 0.8;
+  if (isFullCatalogIncoming) {
+    return Array.from(map.entries())
+      .filter(([k]) => incomingKeys.has(k))
+      .map(([, v]) => v);
+  }
+
   return Array.from(map.values());
 };
 
 const mergeUniqueNews = (baseList: NewsItem[], incomingList: NewsItem[]): NewsItem[] => {
   const map = new Map<string, NewsItem>();
+  const idToKey = new Map<string, string>();
 
   for (const item of (baseList || [])) {
     if (!item) continue;
     const key = (item.slug || item.id || '').toLowerCase().trim();
+    const idKey = (item.id || '').toLowerCase().trim();
     if (key) {
       map.set(key, { ...item });
+      if (idKey) idToKey.set(idKey, key);
     }
   }
+
+  const incomingKeys = new Set<string>();
 
   for (const item of (incomingList || [])) {
     if (!item) continue;
     const key = (item.slug || item.id || '').toLowerCase().trim();
+    const idKey = (item.id || '').toLowerCase().trim();
     if (key) {
-      const existing = map.get(key);
+      incomingKeys.add(key);
+      const prevKeyById = idKey ? idToKey.get(idKey) : undefined;
+      const existing = map.get(key) || (prevKeyById ? map.get(prevKeyById) : undefined);
+      if (prevKeyById && prevKeyById !== key) {
+        map.delete(prevKeyById);
+      }
+      if (idKey) idToKey.set(idKey, key);
+
       if (existing) {
         const incomingContent = item.content || item.description_html || '';
         const existingContent = existing.content || existing.description_html || '';
@@ -134,6 +168,13 @@ const mergeUniqueNews = (baseList: NewsItem[], incomingList: NewsItem[]): NewsIt
         map.set(key, { ...item });
       }
     }
+  }
+
+  const isFullNewsIncoming = Array.isArray(incomingList) && incomingList.length > 10 && incomingList.length >= (baseList?.length || 0) * 0.8;
+  if (isFullNewsIncoming) {
+    return Array.from(map.entries())
+      .filter(([k]) => incomingKeys.has(k))
+      .map(([, v]) => v);
   }
 
   return Array.from(map.values());

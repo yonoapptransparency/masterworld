@@ -13,28 +13,40 @@ githubSyncRouter.get('/api/github-sync/public-core-files', (req, res) => {
     const files: Record<string, string> = {};
     const rootDir = process.cwd();
     const candidateFiles = [
-      'src/App.tsx',
-      'src/AppPublic.tsx',
+      'src/main.tsx',
       'src/lib/lazyWithRetry.ts',
       'src/lib/safeHtmlPublic.ts',
       'src/lib/newsUtils.ts',
+      'src/lib/seoUtils.ts',
+      'src/lib/sitemapGenerator.ts',
       'src/components/GlobalErrorBoundary.tsx',
       'src/components/Meta.tsx',
       'src/components/ClearanceButton.tsx',
       'src/components/ReportAppModal.tsx',
+      'src/components/Ticker.tsx',
+      'src/components/WebsiteTitleHero.tsx',
       'src/components/playstore/AppListItems.tsx',
+      'src/components/playstore/FeaturedBanner.tsx',
+      'src/components/playstore/PlayStoreTabs.tsx',
       'src/components/public/PublicFooter.tsx',
       'src/components/public/PublicHeader.tsx',
+      'src/components/public/HomeFilterBar.tsx',
+      'src/components/public/HomeFaqSection.tsx',
+      'src/components/public/NewAdditions.tsx',
       'src/components/public/news/newsUtils.ts',
       'src/components/public/newsDetails/NewsArticleHeader.tsx',
       'src/contexts/DataContextPublic.tsx',
       'src/hooks/useTurnstileVerification.ts',
       'src/hooks/useClearanceDispatch.ts',
+      'src/pages/Home.tsx',
       'src/pages/NewsDetailPage.tsx',
       'src/pages/NewsPage.tsx',
       'src/pages/AppDetails.tsx',
       'src/pages/GatewayPage.tsx',
       'src/seoHelper.ts',
+      'src/seo/utils.ts',
+      'src/seo/preRenderEngine.ts',
+      'src/seo/criticalCss.ts',
       'src/seo/initialDataOptimizer.ts',
       'src/seo/metaBuilder.ts',
       'src/seo/schemaBuilder.ts',
@@ -42,10 +54,13 @@ githubSyncRouter.get('/api/github-sync/public-core-files', (req, res) => {
       'src/seo/renderers/newsRenderer.ts',
       'src/seo/renderers/appDetailsRenderer.ts',
       'src/seo/renderers/homeRenderer.ts',
-      'src/server/routes/publicApiRoutes.ts',
+      'src/seo/renderers/staticPageRenderer.ts',
+      'src/seo/renderers/videoRenderer.ts',
+      'src/seo/renderers/gatewayRenderer.ts',
       'functions/api/[[catchall]].js',
       'public/robots.txt',
-      'scripts/prerender.ts'
+      'scripts/prerender.ts',
+      'scripts/compress-dist.ts'
     ];
 
     candidateFiles.forEach(f => {
@@ -54,6 +69,12 @@ githubSyncRouter.get('/api/github-sync/public-core-files', (req, res) => {
         files[f] = fs.readFileSync(fullPath, 'utf8');
       }
     });
+
+    // In the public Dex repository, src/App.tsx must be the isolated AppPublic.tsx (never the local dev proxy that imports AppAdmin)
+    const appPublicPath = path.join(rootDir, 'src/AppPublic.tsx');
+    if (fs.existsSync(appPublicPath)) {
+      files['src/App.tsx'] = fs.readFileSync(appPublicPath, 'utf8');
+    }
 
     res.json({ success: true, files });
   } catch (err: any) {
