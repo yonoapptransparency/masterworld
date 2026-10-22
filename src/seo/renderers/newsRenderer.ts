@@ -2,7 +2,7 @@ import { getField, optimizeImageUrl } from '../utils';
 import { escapeHtml, sanitizeHtml } from './common';
 import { formatNewsDate, calculateReadingTime } from '../../lib/newsUtils';
 
-export function renderNewsList(news: any[], _settings: any): string {
+export function renderNewsList(news: any[], _settings: any, pageNum: number = 1): string {
   const publicNewsList = (Array.isArray(news) ? news : [])
     .filter(item => item && item.sync_to_public !== false)
     .sort((a, b) => {
@@ -20,7 +20,12 @@ export function renderNewsList(news: any[], _settings: any): string {
   });
   const categories = ['All', ...Array.from(catSet)];
 
-  const currentSlice = publicNewsList.slice(0, 9);
+  const ITEMS_PER_PAGE = 9;
+  const totalPages = Math.max(1, Math.ceil(publicNewsList.length / ITEMS_PER_PAGE));
+  const safeCurrentPage = Math.min(Math.max(1, pageNum || 1), totalPages);
+  const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
+  const currentSlice = publicNewsList.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
   let cards = '';
   currentSlice.forEach((n, idx) => {
     const title = getField(n, 'title');
@@ -63,6 +68,50 @@ export function renderNewsList(news: any[], _settings: any): string {
     `;
   });
 
+  let paginationHtml = '';
+  if (totalPages > 1) {
+    const delta = 1;
+    const range: (number | string)[] = [];
+    for (let i = 1; i <= totalPages; i++) {
+      if (i === 1 || i === totalPages || (i >= safeCurrentPage - delta && i <= safeCurrentPage + delta)) {
+        range.push(i);
+      } else if (range[range.length - 1] !== '...') {
+        range.push('...');
+      }
+    }
+    const getPageUrl = (p: number) => (p <= 1 ? '/news' : `/news?page=${p}`);
+    paginationHtml = `
+      <nav aria-label="News pagination" class="mt-10 flex items-center justify-center gap-1.5 sm:gap-2">
+        ${safeCurrentPage > 1 ? `
+          <a href="${getPageUrl(safeCurrentPage - 1)}" class="p-2 sm:px-3 sm:py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors flex items-center gap-1 text-xs font-semibold cursor-pointer no-underline" aria-label="Previous page">
+            <span class="hidden sm:inline">Previous</span>
+          </a>
+        ` : `
+          <span class="p-2 sm:px-3 sm:py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 opacity-40 cursor-not-allowed flex items-center gap-1 text-xs font-semibold select-none" aria-disabled="true">
+            <span class="hidden sm:inline">Previous</span>
+          </span>
+        `}
+        ${range.map((p) => {
+          if (p === '...') {
+            return `<span class="px-2 py-1 text-xs text-zinc-400 select-none">...</span>`;
+          }
+          const pNum = Number(p);
+          const isCurr = pNum === safeCurrentPage;
+          return `<a href="${getPageUrl(pNum)}" ${isCurr ? 'aria-current="page"' : ''} class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl text-xs font-bold transition-all flex items-center justify-center cursor-pointer no-underline ${isCurr ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20 pointer-events-none' : 'border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800'}">${p}</a>`;
+        }).join('')}
+        ${safeCurrentPage < totalPages ? `
+          <a href="${getPageUrl(safeCurrentPage + 1)}" class="p-2 sm:px-3 sm:py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors flex items-center gap-1 text-xs font-semibold cursor-pointer no-underline" aria-label="Next page">
+            <span class="hidden sm:inline">Next</span>
+          </a>
+        ` : `
+          <span class="p-2 sm:px-3 sm:py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 opacity-40 cursor-not-allowed flex items-center gap-1 text-xs font-semibold select-none" aria-disabled="true">
+            <span class="hidden sm:inline">Next</span>
+          </span>
+        `}
+      </nav>
+    `;
+  }
+
   return `
     <div class="w-full text-zinc-900 dark:text-zinc-100 pb-20 text-left min-h-[70vh]">
       <div class="pt-0.5 pb-0.5 px-3 sm:px-0">
@@ -89,6 +138,7 @@ export function renderNewsList(news: any[], _settings: any): string {
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6 px-3 sm:px-0">
         ${cards || '<p class="text-zinc-400 py-10 col-span-full text-center">No news articles found</p>'}
       </div>
+      ${paginationHtml}
     </div>
   `;
 }
@@ -336,13 +386,13 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
       <!-- 2. Top NewsRelatedAppBox -->
       ${renderActionBox('my-5 sm:my-6')}
 
-      <!-- 3. Article Content Body -->
+      <!-- 3. Similar Applications -->
+      ${recommendedAppsHtml}
+
+      <!-- 4. Article Content Body -->
       <div class="prose dark:prose-invert max-w-none text-zinc-800 dark:text-zinc-200 leading-relaxed text-sm sm:text-base space-y-4 font-normal mt-6">
         ${sanitizedContent}
       </div>
-
-      <!-- 4. Similar Applications -->
-      ${recommendedAppsHtml}
 
       <!-- 5. Bottom NewsRelatedAppBox -->
       ${renderActionBox('my-8')}

@@ -137,9 +137,9 @@ export function getOgImageUrl(url?: string, origin = 'https://www.rummydex.com')
 
 export function getOptimizedImageUrl(url?: string, width = 160): string {
   if (!url) return '';
-  // Cloudinary dynamic optimization
+  // Cloudinary dynamic optimization: strip only transformation parameters while preserving folder paths & version segments
   if (url.includes('res.cloudinary.com') && url.includes('/upload/')) {
-    const cleanUrl = url.replace(/\/upload\/.*?(v\d+\/|[^\/]+$)/, '/upload/$1');
+    const cleanUrl = url.replace(/\/upload\/(?:(?:[a-z]{1,3}_[a-zA-Z0-9_.:-]+,?)+\/)*/, '/upload/');
     if (width > 0) {
       return cleanUrl.replace('/upload/', `/upload/f_auto,q_auto,w_${width}/`);
     }

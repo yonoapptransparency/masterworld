@@ -383,7 +383,8 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
       }
     });
 
-    if (params.settings?.website_faqs && Array.isArray(params.settings.website_faqs) && params.settings.website_faqs.length > 0) {
+    const isFaqOrHome = params.pageType === 'home' || /\/faqs?\/?$/i.test(params.url || '');
+    if (isFaqOrHome && params.settings?.website_faqs && Array.isArray(params.settings.website_faqs) && params.settings.website_faqs.length > 0) {
       const seenQuestions = new Set<string>();
       const faqList = params.settings.website_faqs
         .filter((faq: any) => {

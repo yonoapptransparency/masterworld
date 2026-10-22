@@ -8,14 +8,15 @@ export function formatPageTitle(rawTitle?: string, fallbackTitle: string = ''): 
   const firstLine = rawTitle.split(/\r?\n/)[0] || rawTitle;
   let clean = firstLine.trim().replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
   
-  // Actively strip any trailing brand suffixes (e.g. "- RummyDex", "| RummyDex", "- Rummy Dex", "| Rummy Dex", "- Remidex", "- Dex", "| Dex", etc.)
+  // Deduplicate only if a brand suffix was accidentally repeated multiple times (e.g. "- RummyDex - RummyDex"),
+  // while strictly preserving any single brand name explicitly configured by the administrator.
   let prev = '';
   while (prev !== clean) {
     prev = clean;
-    clean = clean.replace(/\s*[-|–—•:]+\s*(?:RummyDex|Rummydex|Remidex|Rummy\s*Dex|MasterWorld|Dex)\s*$/i, '').trim();
+    clean = clean.replace(/(\s*[-|–—•:]+\s*(?:RummyDex|Rummydex|Remidex|Rummy\s*Dex|MasterWorld|Dex))(?:\s*[-|–—•:]+\s*(?:RummyDex|Rummydex|Remidex|Rummy\s*Dex|MasterWorld|Dex))+\s*$/i, '$1').trim();
   }
 
-  // Also clean any leading or trailing stray punctuation
+  // Clean any leading or trailing stray separator punctuation
   clean = clean.replace(/^[:\s\-|–—•]+/, '').replace(/[:\s\-|–—•]+$/, '').trim();
 
   return clean || fallbackTitle;

@@ -82,6 +82,10 @@ export interface GlobalSettings {
   news_meta_description?: string;
   videos_meta_title?: string;
   videos_meta_description?: string;
+  faq_meta_title?: string;
+  faq_meta_description?: string;
+  safety_meta_title?: string;
+  safety_meta_description?: string;
 }
 
 export interface NewsItem {

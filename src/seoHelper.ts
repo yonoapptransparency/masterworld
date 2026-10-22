@@ -314,7 +314,29 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   } else if (cleanPathLower === '/news') {
     title = getField(settings, 'news_meta_title') || `News & Updates`;
     description = getField(settings, 'news_meta_description') || `The latest gaming news, reports, and transparency updates.`;
-    pageType = 'static';
+    customCanonicalUrl = `https://www.rummydex.com/news`;
+    pageType = 'collection';
+    const sortedNews = [...news].sort((a: any, b: any) => {
+      if (a.is_pinned && !b.is_pinned) return -1;
+      if (!a.is_pinned && b.is_pinned) return 1;
+      const dateA = new Date(getField(a, 'date') || getField(a, 'published_at') || getField(a, 'created_at') || 0).getTime();
+      const dateB = new Date(getField(b, 'date') || getField(b, 'published_at') || getField(b, 'created_at') || 0).getTime();
+      return dateB - dateA;
+    });
+    collectionItems = sortedNews.slice(0, 30).map((n: any) => {
+      const nSlug = getField(n, 'slug') || getField(n, 'id');
+      const rawImg = getField(n, 'og_image_url') || getField(n, 'image_url') || getField(n, 'logo_url') || getField(n, 'image');
+      return {
+        name: getField(n, 'title'),
+        url: `https://www.rummydex.com/news/${nSlug}`,
+        image: rawImg ? optimizeImageUrl(rawImg, 600) : undefined,
+        description: cleanSeoDescription(getField(n, 'seo_description') || getField(n, 'meta_description') || getField(n, 'description') || stripHtml(getField(n, 'content') || getField(n, 'description_html')).substring(0, 120))
+      };
+    });
+    breadcrumbItems = [
+      { name: 'Home', url: 'https://www.rummydex.com' },
+      { name: 'News', url: 'https://www.rummydex.com/news' }
+    ];
   } else if (cleanPathLower === '/videos') {
     title = getField(settings, 'videos_meta_title') || `Video Reviews`;
     description = getField(settings, 'videos_meta_description') || `Watch deep-dive reviews and gameplay analysis.`;
@@ -571,12 +593,14 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     .replace(/<meta\s+[^>]*name=["']description["'][^>]*\/?>/gi, '')
     .replace(/<meta\s+[^>]*content=["'][^"']*["']\s+name=["']description["'][^>]*\/?>/gi, '')
     .replace(/<meta\s+[^>]*property=["']description["'][^>]*\/?>/gi, '')
-    .replace(/<meta\s+[^>]*name=["']robots["'][^>]*\/?>/gi, '')
+    .replace(/<meta\s+[^>]*name=["'](?:robots|googlebot|bingbot|slurp|baiduspider|yandex|duckduckbot|gptbot|claudebot|perplexitybot)["'][^>]*\/?>/gi, '')
     .replace(/<meta\s+[^>]*name=["']keywords["'][^>]*\/?>/gi, '')
     .replace(/<meta\s+[^>]*name=["']application-name["'][^>]*\/?>/gi, '')
     .replace(/<meta\s+[^>]*name=["']color-scheme["'][^>]*\/?>/gi, '')
     .replace(/<meta\s+[^>]*name=["']theme-color["'][^>]*\/?>/gi, '')
-    .replace(/<meta\s+[^>]*property=["']og:[^"']+["'][^>]*\/?>/gi, '')
+    .replace(/<meta\s+[^>]*name=["']thumbnail["'][^>]*\/?>/gi, '')
+    .replace(/<meta\s+[^>]*itemprop=["'](?:image|thumbnailUrl)["'][^>]*\/?>/gi, '')
+    .replace(/<meta\s+[^>]*property=["'](?:og|article):[^"']+["'][^>]*\/?>/gi, '')
     .replace(/<meta\s+[^>]*name=["']twitter:[^"']+["'][^>]*\/?>/gi, '')
     .replace(/<link\s+[^>]*rel=["']canonical["'][^>]*\/?>/gi, '')
     .replace(/<link\s+[^>]*rel=["']manifest["'][^>]*\/?>/gi, '')

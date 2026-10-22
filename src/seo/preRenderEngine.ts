@@ -88,7 +88,14 @@ export async function getPagePreRender(urlPath: string, data: any): Promise<stri
     });
     bodyHtml = renderers.renderCategory(catName, rawCatSlug, categoryApps, settings);
   } else if (cleanPathLower === '/news') {
-    bodyHtml = renderers.renderNewsList(news, settings);
+    let pageNum = 1;
+    try {
+      const match = urlPath.match(/[?&]page=(\d+)/i);
+      if (match && match[1]) {
+        pageNum = Math.max(1, parseInt(match[1], 10) || 1);
+      }
+    } catch (_) {}
+    bodyHtml = renderers.renderNewsList(news, settings, pageNum);
   } else if (cleanPathLower.startsWith('/news/')) {
     const rawNewsSlug = cleanPath.split('/news/')[1] || '';
     const cleanNewsSlug = decodeURIComponent(rawNewsSlug).toLowerCase().trim().replace(/\/+$/, '').split(/[?#]/)[0];

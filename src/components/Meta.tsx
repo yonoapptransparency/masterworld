@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useData } from '../contexts/DataContextPublic';
 import { getCleanCanonicalUrl, formatPageTitle } from '../lib/seoUtils';
-import { getOgImageUrl } from '../seo/utils';
+import { getOgImageUrl, getOptimizedImageUrl } from '../seo/utils';
 
 interface MetaProps {
   title?: string;
@@ -52,7 +52,8 @@ const Meta: React.FC<MetaProps> = ({
   const rawImage = image || settings?.logo_url || settings?.favicon_url || DEFAULT_ICON;
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.rummydex.com';
   const metaImage = getOgImageUrl(rawImage, origin);
-  const squareThumbnail = rawImage.startsWith('http') ? rawImage : `${origin}${rawImage.startsWith('/') ? '' : '/'}${rawImage}`;
+  const rawSquareThumb = rawImage.startsWith('http') ? rawImage : `${origin}${rawImage.startsWith('/') ? '' : '/'}${rawImage}`;
+  const squareThumbnail = getOptimizedImageUrl(rawSquareThumb, 512);
   
   const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/';
   const canonicalUrl = getCleanCanonicalUrl(canonical || url, currentPath);
@@ -259,7 +260,7 @@ const Meta: React.FC<MetaProps> = ({
       });
     }
 
-    // Only update schema scripts when new schemas are explicitly provided
+    // Update schema scripts when new schemas are provided, or purge stale SPA route schemas
     if (schemasToInject.length > 0) {
       const existingServerSchemas = document.head.querySelectorAll('script[type="application/ld+json"][data-rh="true"]');
       const hasDynamicSchemas = document.head.querySelectorAll('script[type="application/ld+json"][data-dynamic-schema="true"]').length > 0;
@@ -287,6 +288,17 @@ const Meta: React.FC<MetaProps> = ({
           document.head.appendChild(script);
         });
       }
+    } else {
+      // On SPA navigation to routes without explicit component-level schema props,
+      // preserve SSR schemas only if they match the current canonicalUrl; remove stale route-specific schemas.
+      const allSchemaScripts = document.head.querySelectorAll('script[type="application/ld+json"]');
+      allSchemaScripts.forEach((s) => {
+        const text = s.textContent || '';
+        const isServerSchemaForCurrentRoute = s.hasAttribute('data-rh') && text.includes(canonicalUrl);
+        if (!isServerSchemaForCurrentRoute) {
+          s.remove();
+        }
+      });
     }
   }, [
     fullTitle, 
