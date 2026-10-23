@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { mockNews, mockVideos, mockSettings } from '../lib/staticData';
+import { formatPageTitle } from '../lib/seoUtils';
 
 export const useAdminSettings = (settings: any, news: any[], videos: any[]) => {
   const [newsList, setNewsList] = useState<any[]>(() => (Array.isArray(news) && news.length > 0 ? news : (mockNews || [])));
@@ -29,8 +30,14 @@ export const useAdminSettings = (settings: any, news: any[], videos: any[]) => {
               content = staticFallback.content || staticFallback.description_html;
             }
           }
+          const cleanTitle = n.title ? formatPageTitle(n.title, '') : '';
+          const rawSeoTitle = n.seo_title || n.meta_title || '';
+          const cleanSeoTitle = rawSeoTitle ? formatPageTitle(rawSeoTitle, '') : '';
           return {
             ...n,
+            title: cleanTitle || n.title || '',
+            seo_title: cleanSeoTitle,
+            meta_title: cleanSeoTitle,
             content,
             description_html: content
           };
@@ -117,6 +124,7 @@ export const useAdminSettings = (settings: any, news: any[], videos: any[]) => {
       created_at: nowIso,
       date: nowIso,
       published_at: nowIso,
+      updated_at: nowIso,
       read_time: '3 min read',
       is_breaking: false,
       is_new: true,
@@ -134,6 +142,16 @@ export const useAdminSettings = (settings: any, news: any[], videos: any[]) => {
       const updated: any = { ...n, [field]: value, updated_at: new Date().toISOString() };
       if (field === 'title' && (!n.slug || n.slug.startsWith('news-') || n.slug === 'new-news-item')) {
         updated.slug = value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      }
+      if (field === 'seo_title') {
+        updated.meta_title = value;
+      } else if (field === 'meta_title') {
+        updated.seo_title = value;
+      }
+      if (field === 'seo_description') {
+        updated.meta_description = value;
+      } else if (field === 'meta_description') {
+        updated.seo_description = value;
       }
       if (field === 'content') {
         updated.description_html = value;

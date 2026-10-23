@@ -2,9 +2,26 @@ import React, { useCallback } from 'react';
 import { AppConfig, GlobalSettings, NewsItem, VideoItem } from '../types';
 import { adminFetch } from '../services/adminAuthService';
 import { db, isFirebaseReal } from '../lib/firebase';
-import { formatPageTitle } from '../lib/seoUtils';
+import { formatPageTitle, cleanSettingsMetaTitles } from '../lib/seoUtils';
 
 const ADMIN_BYPASS_KEY = 'aistudio_preview_bypass_key';
+
+function stripCompareFields(item: any) {
+  if (!item || typeof item !== 'object') return item;
+  const copy = { ...item };
+  delete copy.updated_at;
+  delete copy._rest_admin_bypass;
+  return copy;
+}
+
+function hasItemContentChanged(prevItem: any, nextItem: any): boolean {
+  if (!prevItem) return true;
+  try {
+    return JSON.stringify(stripCompareFields(prevItem)) !== JSON.stringify(stripCompareFields(nextItem));
+  } catch (_) {
+    return true;
+  }
+}
 
 export function useDataActions(
   apps: AppConfig[],
@@ -190,6 +207,7 @@ export function useDataActions(
     } else {
       mergedSettings[section] = data;
     }
+    mergedSettings = cleanSettingsMetaTitles(mergedSettings);
     mergedSettings.last_updated = new Date().toISOString();
 
     try {
@@ -248,6 +266,34 @@ export function useDataActions(
   }, [getAdminToken, setSettings, settings]);
 
   const saveApps = useCallback(async (newApps: AppConfig[]) => {
+    const now = new Date().toISOString();
+    const existingById = new Map<string, any>();
+    const existingBySlug = new Map<string, any>();
+    for (const prev of apps || []) {
+      if (prev?.id) existingById.set(String(prev.id).trim(), prev);
+      if (prev?.slug) existingBySlug.set(String(prev.slug).trim().toLowerCase(), prev);
+    }
+
+    const normalizedApps: AppConfig[] = (newApps || []).map((a: any) => {
+      const idKey = String(a?.id || '').trim();
+      const slugKey = String(a?.slug || '').trim().toLowerCase();
+      const prev = (idKey && existingById.get(idKey)) || (slugKey && existingBySlug.get(slugKey));
+      const rawTitle = (a?.seo_title || a?.meta_title || '').trim();
+      const exactTitle = rawTitle ? formatPageTitle(rawTitle, '') : '';
+      const candidate = {
+        ...a,
+        slug: typeof a?.slug === 'string' ? a.slug.trim().replace(/^\/+|\/+$/g, '') : a?.slug,
+        seo_title: exactTitle,
+        meta_title: exactTitle
+      };
+      const changed = hasItemContentChanged(prev, candidate);
+      const preservedDate = prev?.updated_at || a?.updated_at || a?.publish_date || a?.created_at || now;
+      return {
+        ...candidate,
+        updated_at: changed ? now : preservedDate
+      };
+    });
+
     let savedToServer = false;
     let savedToFirestore = false;
     let lastError: string | null = null;
@@ -260,7 +306,7 @@ export function useDataActions(
           'Content-Type': 'application/json',
           ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
         },
-        body: JSON.stringify({ apps: newApps })
+        body: JSON.stringify({ apps: normalizedApps })
       });
       const cType = res.headers.get('content-type') || '';
       if (res.ok && cType.includes('application/json')) {
@@ -276,9 +322,9 @@ export function useDataActions(
       try {
         const { doc, setDoc } = await import('firebase/firestore');
         const chunkSize = 25;
-        const numChunks = Math.max(1, Math.ceil(newApps.length / chunkSize));
+        const numChunks = Math.max(1, Math.ceil(normalizedApps.length / chunkSize));
         for (let i = 0; i < numChunks; i++) {
-          const slice = newApps.slice(i * chunkSize, (i + 1) * chunkSize);
+          const slice = normalizedApps.slice(i * chunkSize, (i + 1) * chunkSize);
           await setDoc(doc(db, 'store_data', `apps_chunk_${i}`), { 
             items: slice, 
             count: slice.length, 
@@ -287,7 +333,7 @@ export function useDataActions(
           });
         }
         await setDoc(doc(db, 'store_data', 'apps_meta'), {
-          count: newApps.length,
+          count: normalizedApps.length,
           numChunks,
           updated_at: new Date().toISOString(),
           _rest_admin_bypass: ADMIN_BYPASS_KEY
@@ -305,9 +351,9 @@ export function useDataActions(
       throw new Error(`Failed to save apps catalog to database: ${lastError || 'Could not connect to server or Firestore'}`);
     }
 
-    setApps(newApps);
+    setApps(normalizedApps);
 
-    const secureLinks = newApps
+    const secureLinks = normalizedApps
       .filter(a => {
         const target = a.more_information_url || a.encrypted_link || '';
         return target && typeof target === 'string' && target.trim().length > 0 && !target.includes('com.rummydex') && !target.includes('com.example');
@@ -329,12 +375,12 @@ export function useDataActions(
         console.warn("Failed encrypting secure links:", e);
       }
     }
-  }, [getAdminToken, setApps]);
+  }, [getAdminToken, setApps, apps]);
 
   const saveSettings = useCallback(async (newSettings: Partial<GlobalSettings>) => {
     const now = new Date().toISOString();
     const currentSettings = settings || {} as GlobalSettings;
-    const settingsWithTime: GlobalSettings = {
+    const settingsWithTime: GlobalSettings = cleanSettingsMetaTitles({
       ...currentSettings,
       ...newSettings,
       banners: newSettings.banners !== undefined ? newSettings.banners : (currentSettings.banners || []),
@@ -343,7 +389,7 @@ export function useDataActions(
       website_faqs: newSettings.website_faqs !== undefined ? newSettings.website_faqs : (currentSettings.website_faqs || []),
       developers: newSettings.developers !== undefined ? newSettings.developers : (currentSettings.developers || []),
       last_updated: now
-    } as GlobalSettings;
+    }) as GlobalSettings;
 
     let savedToServer = false;
     let savedToFirestore = false;
@@ -395,7 +441,38 @@ export function useDataActions(
   }, [settings, getAdminToken, setSettings]);
 
   const saveNews = useCallback(async (newNews: NewsItem[]) => {
-    const cleanNews = JSON.parse(JSON.stringify(newNews || []));
+    const now = new Date().toISOString();
+    const existingById = new Map<string, any>();
+    const existingBySlug = new Map<string, any>();
+    for (const prev of news || []) {
+      if (prev?.id) existingById.set(String(prev.id).trim(), prev);
+      if (prev?.slug) existingBySlug.set(String(prev.slug).trim().toLowerCase(), prev);
+    }
+
+    const cleanNews = JSON.parse(JSON.stringify(newNews || [])).map((n: any) => {
+      const idKey = String(n?.id || '').trim();
+      const slugKey = String(n?.slug || '').trim().replace(/^\/+|\/+$/g, '').toLowerCase();
+      const prev = (idKey && existingById.get(idKey)) || (slugKey && existingBySlug.get(slugKey));
+      const rawTitle = (n?.seo_title || n?.meta_title || n?.title || '').trim();
+      const exactTitle = rawTitle ? formatPageTitle(rawTitle, '') : '';
+      const rawHeading = (n?.title || '').trim();
+      const exactHeading = rawHeading ? formatPageTitle(rawHeading, '') : '';
+      const candidate = {
+        ...n,
+        slug: typeof n.slug === 'string' ? n.slug.trim().replace(/^\/+|\/+$/g, '') : n.slug,
+        id: typeof n.id === 'string' ? n.id.trim() : n.id,
+        title: exactHeading,
+        seo_title: exactTitle,
+        meta_title: exactTitle
+      };
+      const changed = hasItemContentChanged(prev, candidate);
+      const preservedDate = prev?.updated_at || n?.updated_at || n?.published_at || n?.publish_date || n?.created_at || now;
+      return {
+        ...candidate,
+        updated_at: changed ? now : preservedDate
+      };
+    });
+
     let savedToServer = false;
     let savedToFirestore = false;
     let lastError: string | null = null;
@@ -443,7 +520,7 @@ export function useDataActions(
     }
 
     setNews(cleanNews);
-  }, [getAdminToken, setNews]);
+  }, [getAdminToken, setNews, news]);
 
   const saveVideos = useCallback(async (newVideos: VideoItem[]) => {
     const cleanVideos = JSON.parse(JSON.stringify(newVideos || []));

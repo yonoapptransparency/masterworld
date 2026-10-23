@@ -116,7 +116,7 @@ Sitemap: https://www.rummydex.com/sitemap-developers.xml
 // Master Sitemap Index
 seoRouter.get(['/sitemap.xml', '/sitemap.xml.gz'], async (req, res) => {
   const data = await getLiveData();
-  const xml = generateMasterSitemapXml(data.apps || [], data.news || [], data.videos || [], HOST);
+  const xml = generateMasterSitemapXml(data.apps || [], data.news || [], data.videos || [], HOST, data.settings);
   sendXmlOrGzip(req, res, xml, 3600);
 });
 
@@ -137,8 +137,16 @@ seoRouter.get(['/sitemap-apps.xml', '/sitemap_apps.xml', '/sitemap-apps.xml.gz',
 // Dedicated Static Pages Sitemap
 seoRouter.get(['/sitemap-static.xml', '/sitemap_static.xml', '/sitemap-static.xml.gz', '/sitemap_static.xml.gz'], async (req, res) => {
   const data = await getLiveData();
-  const latestDate = getLatestItemDate(data.apps || []);
-  const xml = generateStaticSitemapXml(HOST, latestDate);
+  const latestAppDate = getLatestItemDate(data.apps || []);
+  const latestNewsDate = getLatestItemDate(data.news || []);
+  const latestVideoDate = getLatestItemDate(data.videos || []);
+  const settingsDate = data.settings?.last_updated || data.settings?.updated_at;
+  const xml = generateStaticSitemapXml(HOST, {
+    latestAppDate,
+    latestNewsDate,
+    latestVideoDate,
+    settingsDate
+  });
   sendXmlOrGzip(req, res, xml, 86400);
 });
 
@@ -152,7 +160,7 @@ seoRouter.get(['/sitemap-videos.xml', '/sitemap_videos.xml', '/sitemap-videos.xm
 // Dedicated Developers Sitemap
 seoRouter.get(['/sitemap-developers.xml', '/sitemap_developers.xml', '/sitemap-developers.xml.gz', '/sitemap_developers.xml.gz'], async (req, res) => {
   const data = await getLiveData();
-  const latestDate = getLatestItemDate(data.settings?.developers || data.developers || data.apps || []);
+  const latestDate = getLatestItemDate(data.settings?.developers || data.developers || []);
   const xml = generateDevelopersSitemapXml(HOST, latestDate);
   sendXmlOrGzip(req, res, xml, 86400);
 });
@@ -162,12 +170,12 @@ seoRouter.get('/rss.xml', async (req, res) => {
   res.setHeader('Vary', 'Accept-Encoding');
   res.type('application/xml');
   const data = await getLiveData();
-  const news = data.news || [];
+  const news = (data.news || []).filter((n: any) => n && n.slug && n.sync_to_public !== false);
   const items = news.slice(0, 30).map((n: any) => `    <item>
       <title><![CDATA[${n.title || ''}]]></title>
-      <link>https://www.rummydex.com/news/${n.slug || n.id}</link>
+      <link>https://www.rummydex.com/news/${String(n.slug || n.id).trim().replace(/^\/+|\/+$/g, '')}</link>
       <description><![CDATA[${n.description || n.seo_description || ''}]]></description>
-      <pubDate>${new Date(n.published_at || n.created_at || Date.now()).toUTCString()}</pubDate>
+      <pubDate>${new Date(n.updated_at || n.published_at || n.publish_date || n.created_at || Date.now()).toUTCString()}</pubDate>
     </item>`).join('\n');
   res.send(`<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0">\n  <channel>\n    <title>RummyDex News Feed</title>\n    <link>https://www.rummydex.com/news</link>\n    <description>Latest App News and Updates</description>\n${items}\n  </channel>\n</rss>`);
 });

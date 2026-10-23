@@ -76,13 +76,23 @@ if (typeof window !== 'undefined') {
 
 const rootEl = document.getElementById('root');
 if (rootEl) {
-  createRoot(rootEl).render(
-    <StrictMode>
-      <GlobalErrorBoundary>
-        <App />
-      </GlobalErrorBoundary>
-    </StrictMode>
-  );
+  const ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
+  const isSearchCrawler = /googlebot|google-inspectiontool|storebot-google|apis-google|mediapartners-google|adsbot-google|bingbot|slurp|duckduckbot|baiduspider|yandexbot|applebot|gptbot|claudebot|perplexitybot|oai-searchbot|bytespider|facebookexternalhit|twitterbot|linkedinbot/i.test(ua);
+  const pathLower = (typeof window !== 'undefined' && window.location?.pathname) ? window.location.pathname.toLowerCase() : '/';
+  const isAdminRoute = pathLower.startsWith('/admin') || pathLower.startsWith('/masterworld') || pathLower.startsWith('/login');
+  const hasPreRenderedSsrDom = rootEl.children.length > 0;
+
+  // When a search engine crawler (e.g., Googlebot Smartphone / Google InspectionTool) inspects a pre-rendered public route,
+  // keeping the server-rendered DOM intact prevents createRoot() from wiping #root and aborting in-flight image loads.
+  if (!(isSearchCrawler && hasPreRenderedSsrDom && !isAdminRoute)) {
+    createRoot(rootEl).render(
+      <StrictMode>
+        <GlobalErrorBoundary>
+          <App />
+        </GlobalErrorBoundary>
+      </StrictMode>
+    );
+  }
 }
 
 

@@ -1,10 +1,19 @@
 import fs from 'fs';
 import path from 'path';
 import { getRawFirebaseConfig, parseFirestoreDoc } from './firebaseConfig';
-import { formatPageTitle } from '../lib/seoUtils';
+import { formatPageTitle, cleanSettingsMetaTitles } from '../lib/seoUtils';
 
 function cleanItemSeo(item: any): any {
   if (!item || typeof item !== 'object') return item;
+  if (typeof item.slug === 'string') {
+    item.slug = item.slug.trim().replace(/^\/+|\/+$/g, '');
+  }
+  if (typeof item.id === 'string') {
+    item.id = item.id.trim();
+  }
+  if (typeof item.title === 'string' && item.title.trim()) {
+    item.title = formatPageTitle(item.title.trim(), '');
+  }
   const rawTitle = (item.seo_title || item.meta_title || '').trim();
   if (rawTitle) {
     const cleanTitle = formatPageTitle(rawTitle, '');
@@ -22,25 +31,25 @@ function cleanItemSeo(item: any): any {
 function mergeItemsByTimestamp(localItems: any[], remoteItems: any[]): any[] {
   const map = new Map<string, any>();
 
-  for (const item of (remoteItems || [])) {
-    if (!item) continue;
-    const key = String(item.id || item.slug || '').toLowerCase().trim();
-    if (key) map.set(key, cleanItemSeo({ ...item }));
-  }
-
+  // If remoteItems came from live Firestore, treat remoteItems as the authoritative catalog
+  // and only enrich missing fields from localItems unless local has a strictly newer explicit edit.
   for (const local of (localItems || [])) {
     if (!local) continue;
-    const key = String(local.id || local.slug || '').toLowerCase().trim();
+    const cleaned = cleanItemSeo({ ...local });
+    const key = String(cleaned.id || cleaned.slug || '').toLowerCase().trim();
+    if (key) map.set(key, cleaned);
+  }
+
+  for (const item of (remoteItems || [])) {
+    if (!item) continue;
+    const cleaned = cleanItemSeo({ ...item });
+    const key = String(cleaned.id || cleaned.slug || '').toLowerCase().trim();
     if (!key) continue;
-    const existing = map.get(key);
-    if (!existing) {
-      map.set(key, cleanItemSeo({ ...local }));
+    const existingLocal = map.get(key);
+    if (!existingLocal) {
+      map.set(key, cleaned);
     } else {
-      const localTime = local.updated_at ? new Date(local.updated_at).getTime() : 0;
-      const remoteTime = existing.updated_at ? new Date(existing.updated_at).getTime() : 0;
-      if (localTime >= remoteTime && localTime > 0) {
-        map.set(key, cleanItemSeo({ ...existing, ...local }));
-      }
+      map.set(key, cleanItemSeo({ ...existingLocal, ...cleaned }));
     }
   }
 
@@ -68,19 +77,21 @@ const getStaticData = () => {
 
   const staticApps = staticJsonData ? (staticJsonData.mockApps || staticJsonData.apps || []) : [];
   const backupApps = backupData && Array.isArray(backupData.apps) ? backupData.apps : [];
-  const mergedApps = mergeItemsByTimestamp(backupApps, staticApps);
+  const mergedApps = mergeItemsByTimestamp(staticApps, backupApps);
 
   const staticNews = staticJsonData ? (staticJsonData.mockNews || staticJsonData.news || []) : [];
   const backupNews = backupData && Array.isArray(backupData.news) ? backupData.news : [];
-  const mergedNews = mergeItemsByTimestamp(backupNews, staticNews);
+  const mergedNews = mergeItemsByTimestamp(staticNews, backupNews);
 
   const staticSettings = staticJsonData ? (staticJsonData.mockSettings || staticJsonData.settings || {}) : {};
   const backupSettings = backupData && backupData.settings ? backupData.settings : {};
   const backupSettingsTime = backupSettings.last_updated ? new Date(backupSettings.last_updated).getTime() : 0;
   const staticSettingsTime = staticSettings.last_updated ? new Date(staticSettings.last_updated).getTime() : 0;
-  const mergedSettings = backupSettingsTime >= staticSettingsTime
-    ? { ...staticSettings, ...backupSettings }
-    : { ...backupSettings, ...staticSettings };
+  const mergedSettings = cleanSettingsMetaTitles(
+    backupSettingsTime >= staticSettingsTime
+      ? { ...staticSettings, ...backupSettings }
+      : { ...backupSettings, ...staticSettings }
+  );
 
   const mergedVideos = (backupData && Array.isArray(backupData.videos) && backupData.videos.length > 0)
     ? backupData.videos
@@ -157,12 +168,14 @@ export async function syncFromFirestore(): Promise<any> {
       ]);
 
       const remoteSettings = settingsDoc?.exists ? settingsDoc.data() : {};
-      const settings = (remoteSettings && Object.keys(remoteSettings).length > 0)
-        ? { ...(fallbackData.settings || {}), ...remoteSettings }
-        : (fallbackData.settings || {});
+      const settings = cleanSettingsMetaTitles(
+        (remoteSettings && Object.keys(remoteSettings).length > 0)
+          ? { ...(fallbackData.settings || {}), ...remoteSettings }
+          : (fallbackData.settings || {})
+      );
 
       const remoteNews = newsDoc?.exists && Array.isArray(newsDoc.data()?.items) ? newsDoc.data().items : [];
-      const news = remoteNews.length > 0 ? mergeItemsByTimestamp(fallbackData.news, remoteNews) : fallbackData.news;
+      const news = remoteNews.length > 0 ? remoteNews.map((n: any) => cleanItemSeo({ ...n })) : fallbackData.news;
       const videos = videosDoc?.exists && Array.isArray(videosDoc.data()?.items) ? videosDoc.data().items : fallbackData.videos;
 
       if (remoteApps.length > 0) {
@@ -184,10 +197,14 @@ export async function syncFromFirestore(): Promise<any> {
     if (config && config.projectId) {
       const apiKeyParam = config.apiKey ? `?key=${encodeURIComponent(config.apiKey)}` : '';
       const rawDb = config.firestoreDatabaseId || config.databaseId;
-      const dbId = (rawDb && rawDb.trim() !== '' && rawDb.trim() !== 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a') ? rawDb.trim() : '(default)';
-      const baseUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${dbId}/documents/store_data`;
+      const primaryDbId = (rawDb && rawDb.trim() !== '') ? rawDb.trim() : 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a';
+      let baseUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${primaryDbId}/documents/store_data`;
 
-      const metaRes = await fetch(`${baseUrl}/apps_meta${apiKeyParam}`);
+      let metaRes = await fetch(`${baseUrl}/apps_meta${apiKeyParam}`);
+      if (metaRes.status === 404 && primaryDbId !== '(default)') {
+        baseUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/(default)/documents/store_data`;
+        metaRes = await fetch(`${baseUrl}/apps_meta${apiKeyParam}`);
+      }
       let numChunks = 1;
       if (metaRes.ok) {
         const metaJson: any = await metaRes.json();
@@ -221,13 +238,15 @@ export async function syncFromFirestore(): Promise<any> {
       ]);
 
       const remoteSettings = settingsRes?.fields ? parseFirestoreDoc(settingsRes.fields) : {};
-      const settings = (remoteSettings && Object.keys(remoteSettings).length > 0)
-        ? { ...(fallbackData.settings || {}), ...remoteSettings }
-        : (fallbackData.settings || {});
+      const settings = cleanSettingsMetaTitles(
+        (remoteSettings && Object.keys(remoteSettings).length > 0)
+          ? { ...(fallbackData.settings || {}), ...remoteSettings }
+          : (fallbackData.settings || {})
+      );
 
       const newsParsed = newsRes?.fields ? parseFirestoreDoc(newsRes.fields) : null;
       const remoteNews = Array.isArray(newsParsed?.items) ? newsParsed.items : [];
-      const news = remoteNews.length > 0 ? mergeItemsByTimestamp(fallbackData.news, remoteNews) : fallbackData.news;
+      const news = remoteNews.length > 0 ? remoteNews.map((n: any) => cleanItemSeo({ ...n })) : fallbackData.news;
 
       const videosParsed = videosRes?.fields ? parseFirestoreDoc(videosRes.fields) : null;
       const videos = Array.isArray(videosParsed?.items) ? videosParsed.items : fallbackData.videos;

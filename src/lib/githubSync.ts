@@ -9,7 +9,7 @@ import { adminFetch } from '../services/adminAuthService';
 import { safeEncrypt, safeDecrypt } from './cryptoUtils';
 import { structureHtmlFragment } from './safeHtmlPublic';
 import { formatNewsDate, calculateReadingTime, getPlainTextSnippet } from './newsUtils';
-import { formatPageTitle } from './seoUtils';
+import { formatPageTitle, cleanSettingsMetaTitles } from './seoUtils';
 
 export function encryptUrlIfNeeded(url: string): string {
   if (!url || typeof url !== 'string') return '';
@@ -40,6 +40,12 @@ export function encryptUrlIfNeeded(url: string): string {
 export function compileCanonicalApp(app: any, options?: { stripDownloadLinks?: boolean }): any {
   if (!app || typeof app !== 'object') return app;
   const copy = JSON.parse(JSON.stringify(app));
+  if (typeof copy.slug === 'string') {
+    copy.slug = copy.slug.trim().replace(/^\/+|\/+$/g, '');
+  }
+  if (typeof copy.id === 'string') {
+    copy.id = copy.id.trim();
+  }
   const rawTarget = copy.more_information_url || copy.download_url || copy.encrypted_link || copy.encrypted_download_url || '';
   const encryptedTarget = encryptUrlIfNeeded(rawTarget);
 
@@ -67,15 +73,20 @@ export function compileCanonicalApp(app: any, options?: { stripDownloadLinks?: b
   }
 
   // Keep seo_title and meta_title clean and strictly synchronized without trailing "| RummyDex" or "- RummyDex"
-  const rawTitle = (copy.seo_title || copy.meta_title || '').trim();
+  const rawTitle = (copy.seo_title !== undefined ? copy.seo_title : (copy.meta_title || '')).trim();
   const cleanTitle = rawTitle ? formatPageTitle(rawTitle, '') : '';
   copy.seo_title = cleanTitle;
   copy.meta_title = cleanTitle;
 
   // Keep seo_description and meta_description strictly synchronized
-  const cleanDesc = (copy.seo_description || copy.meta_description || '').trim();
+  const cleanDesc = (copy.seo_description !== undefined ? copy.seo_description : (copy.meta_description || '')).trim();
   copy.seo_description = cleanDesc;
   copy.meta_description = cleanDesc;
+
+  // Preserve stable per-app timestamp so unchanged apps never trigger full-catalog sitemap re-crawls
+  if (!copy.updated_at) {
+    copy.updated_at = copy.publish_date || copy.created_at || '2026-09-01T00:00:00.000Z';
+  }
 
   if (typeof copy.description_html === 'string' && copy.description_html.trim()) {
     copy.description_html = structureHtmlFragment(copy.description_html);
@@ -107,24 +118,35 @@ export function compileCanonicalApp(app: any, options?: { stripDownloadLinks?: b
 export function compileCanonicalNews(item: any): any {
   if (!item || typeof item !== 'object') return item;
   const copy = JSON.parse(JSON.stringify(item));
+  if (typeof copy.slug === 'string') {
+    copy.slug = copy.slug.trim().replace(/^\/+|\/+$/g, '');
+  }
+  if (typeof copy.id === 'string') {
+    copy.id = copy.id.trim();
+  }
+  if (typeof copy.title === 'string' && copy.title.trim()) {
+    copy.title = formatPageTitle(copy.title, copy.title.trim());
+  }
   const rawBody = copy.content || copy.description_html || copy.description || '';
   if (typeof rawBody === 'string' && rawBody.trim()) {
     const cleanHtml = structureHtmlFragment(rawBody);
     copy.content = cleanHtml;
     copy.description_html = cleanHtml;
   }
-  const rawSeoTitle = (copy.seo_title || copy.meta_title || '').trim();
-  if (rawSeoTitle) {
-    const cleanSeoTitle = formatPageTitle(rawSeoTitle, '');
-    copy.seo_title = cleanSeoTitle;
-    copy.meta_title = cleanSeoTitle;
-  }
-  const rawSeoDesc = (copy.seo_description || copy.meta_description || '').trim();
+  const rawSeoTitle = (copy.seo_title !== undefined ? copy.seo_title : (copy.meta_title || '')).trim();
+  const cleanSeoTitle = rawSeoTitle ? formatPageTitle(rawSeoTitle, '') : '';
+  copy.seo_title = cleanSeoTitle;
+  copy.meta_title = cleanSeoTitle;
+
+  const rawSeoDesc = (copy.seo_description !== undefined ? copy.seo_description : (copy.meta_description || '')).trim();
   if (rawSeoDesc) {
     copy.seo_description = rawSeoDesc;
     copy.meta_description = rawSeoDesc;
   }
   const dateSource = copy.published_at || copy.created_at || copy.date || '';
+  if (!copy.updated_at) {
+    copy.updated_at = dateSource || '2026-09-01T00:00:00.000Z';
+  }
   copy.formatted_date = formatNewsDate(dateSource);
   copy.reading_time = calculateReadingTime(rawBody);
   copy.excerpt = copy.seo_description || copy.description || getPlainTextSnippet(rawBody, 160);
@@ -223,7 +245,7 @@ export function generateStaticDataFileCode(
     website_faqs: [],
     developers: []
   };
-  const cleanSettings = ensureDefaultSettings({ ...defaultSettings, ...JSON.parse(JSON.stringify(settings || {})) });
+  const cleanSettings = cleanSettingsMetaTitles(ensureDefaultSettings({ ...defaultSettings, ...JSON.parse(JSON.stringify(settings || {})) }));
   const cleanNews = (news || []).map((item: any) => compileCanonicalNews(item));
   const cleanVideos = JSON.parse(JSON.stringify(videos || []));
 

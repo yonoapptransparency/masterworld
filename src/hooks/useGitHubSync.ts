@@ -332,59 +332,42 @@ export function useGitHubSync(
     const stateNews = (overrideNews && Array.isArray(overrideNews) && overrideNews.length > 0) ? overrideNews : news;
     const stateVideos = (overrideVideos && Array.isArray(overrideVideos) && overrideVideos.length > 0) ? overrideVideos : videos;
 
-    // Merge targetApps: Live Firestore multi-chunk + stateApps
-    // stateApps (Admin's live dashboard memory) is authoritative for edits & new apps!
-    const appMap = new Map<string, any>();
-
-    // 1. Seed with live Firestore / backup apps
+    // Merge targetApps: stateApps (Admin's live dashboard memory) is authoritative for edits, additions, & deletions!
+    const backupAppById = new Map<string, any>();
+    const backupAppBySlug = new Map<string, any>();
     if (Array.isArray(liveBackup?.apps) && liveBackup.apps.length > 0) {
       liveBackup.apps.forEach((a: any) => {
         if (!a) return;
         const kId = a.id ? String(a.id).toLowerCase().trim() : '';
         const kSlug = a.slug ? String(a.slug).toLowerCase().trim() : '';
-        if (kId) appMap.set(kId, a);
-        if (kSlug && !appMap.has(kSlug)) appMap.set(kSlug, a);
+        if (kId) backupAppById.set(kId, a);
+        if (kSlug) backupAppBySlug.set(kSlug, a);
       });
     }
 
-    // 2. Overlay stateApps (Admin's live additions, modifications, link updates MUST WIN)
+    let targetApps: any[] = [];
     if (Array.isArray(stateApps) && stateApps.length > 0) {
-      stateApps.forEach((sa: any) => {
-        if (!sa) return;
+      const seenAppKeys = new Set<string>();
+      for (const sa of stateApps) {
+        if (!sa) continue;
         const kId = sa.id ? String(sa.id).toLowerCase().trim() : '';
         const kSlug = sa.slug ? String(sa.slug).toLowerCase().trim() : '';
-        const existing = (kId ? appMap.get(kId) : null) || (kSlug ? appMap.get(kSlug) : null) || {};
-        
-        const merged = {
+        const primaryKey = kId || kSlug;
+        if (!primaryKey || seenAppKeys.has(primaryKey)) continue;
+        seenAppKeys.add(primaryKey);
+        if (kSlug) seenAppKeys.add(kSlug);
+
+        const existing = (kId ? backupAppById.get(kId) : null) || (kSlug ? backupAppBySlug.get(kSlug) : null) || {};
+        targetApps.push({
           ...existing,
           ...sa,
           more_information_url: sa.more_information_url || existing.more_information_url || '',
-          encrypted_link: sa.encrypted_link || existing.encrypted_link || ''
-        };
-
-        if (kId) appMap.set(kId, merged);
-        if (kSlug) appMap.set(kSlug, merged);
-      });
-    }
-
-    // Assemble targetApps: preserve order, guarantee all stateApps + cloud apps are included
-    const seenAppKeys = new Set<string>();
-    let targetApps: any[] = [];
-    const candidateApps = [
-      ...(Array.isArray(stateApps) ? stateApps : []),
-      ...(Array.isArray(liveBackup?.apps) ? liveBackup.apps : [])
-    ];
-    for (const c of candidateApps) {
-      if (!c) continue;
-      const kId = c.id ? String(c.id).toLowerCase().trim() : '';
-      const kSlug = c.slug ? String(c.slug).toLowerCase().trim() : '';
-      const primaryKey = kId || kSlug;
-      if (primaryKey && !seenAppKeys.has(primaryKey)) {
-        seenAppKeys.add(primaryKey);
-        if (kSlug) seenAppKeys.add(kSlug);
-        const resolved = (kId ? appMap.get(kId) : null) || (kSlug ? appMap.get(kSlug) : null) || c;
-        targetApps.push(resolved);
+          encrypted_link: sa.encrypted_link || existing.encrypted_link || '',
+          updated_at: sa.updated_at || existing.updated_at || sa.publish_date || existing.publish_date || '2026-09-01T00:00:00.000Z'
+        });
       }
+    } else if (Array.isArray(liveBackup?.apps) && liveBackup.apps.length > 0) {
+      targetApps = liveBackup.apps;
     }
     log(`GitHub Sync: Assembled ${targetApps.length} application(s) combining cloud chunks and live admin modifications.`);
 
@@ -433,32 +416,39 @@ export function useGitHubSync(
       };
     }
 
-    // News: Admin stateNews is authoritative; merge with any cloud news ensuring admin edits always take precedence
+    // News: Admin stateNews is authoritative (matches backup by id first so slug edits or deletions never leave ghost entries)
     let targetNews: any[] = [];
     if (Array.isArray(stateNews) && stateNews.length > 0) {
-      const newsMap = new Map<string, any>();
-      // 1. Seed cloud backup news
+      const backupNewsById = new Map<string, any>();
+      const backupNewsBySlug = new Map<string, any>();
       for (const cn of (liveBackup?.news || [])) {
         if (!cn) continue;
-        const key = String(cn.slug || cn.id || '').toLowerCase().trim();
-        if (key) newsMap.set(key, { ...cn });
+        const kId = cn.id ? String(cn.id).toLowerCase().trim() : '';
+        const kSlug = cn.slug ? String(cn.slug).toLowerCase().trim() : '';
+        if (kId) backupNewsById.set(kId, cn);
+        if (kSlug) backupNewsBySlug.set(kSlug, cn);
       }
-      // 2. Overlay live admin stateNews (Admin's edits, new articles, dates, content MUST WIN)
+
+      const seenNewsKeys = new Set<string>();
       for (const sn of stateNews) {
         if (!sn) continue;
-        const key = String(sn.slug || sn.id || '').toLowerCase().trim();
-        if (key) {
-          const prev = newsMap.get(key) || {};
-          const bestContent = sn.content || sn.description_html || prev.content || prev.description_html || '';
-          newsMap.set(key, {
-            ...prev,
-            ...sn,
-            content: bestContent,
-            description_html: bestContent
-          });
-        }
+        const kId = sn.id ? String(sn.id).toLowerCase().trim() : '';
+        const kSlug = sn.slug ? String(sn.slug).toLowerCase().trim() : '';
+        const primaryKey = kId || kSlug;
+        if (!primaryKey || seenNewsKeys.has(primaryKey)) continue;
+        seenNewsKeys.add(primaryKey);
+        if (kSlug) seenNewsKeys.add(kSlug);
+
+        const prev = (kId ? backupNewsById.get(kId) : null) || (kSlug ? backupNewsBySlug.get(kSlug) : null) || {};
+        const bestContent = sn.content || sn.description_html || prev.content || prev.description_html || '';
+        targetNews.push({
+          ...prev,
+          ...sn,
+          content: bestContent,
+          description_html: bestContent,
+          updated_at: sn.updated_at || prev.updated_at || sn.published_at || sn.publish_date || sn.created_at || '2026-09-01T00:00:00.000Z'
+        });
       }
-      targetNews = Array.from(newsMap.values());
     } else if (Array.isArray(liveBackup?.news) && liveBackup.news.length > 0) {
       targetNews = liveBackup.news;
     }
@@ -921,7 +911,7 @@ export function useGitHubSync(
           });
         }
 
-        const robotsContent = `User-agent: *\nAllow: /\nAllow: /api/v1/public/\nDisallow: /api/\nDisallow: /admin/\nDisallow: /login/\nDisallow: /masterworld/\nDisallow: /s/\nDisallow: /s/*\nDisallow: /dl/\nDisallow: /dl/*\nDisallow: /out/\nDisallow: /out/*\nDisallow: /download/\nDisallow: /download/*\nDisallow: /gateway/\nDisallow: /gateway/*\nDisallow: /info/\nDisallow: /info/*\nDisallow: /moreinfo/\nDisallow: /moreinfo/*\nDisallow: /moredetail/\nDisallow: /moredetail/*\n\nSitemap: https://www.rummydex.com/sitemap.xml\n`;
+        const robotsContent = `User-agent: *\nAllow: /\nAllow: /api/v1/public/\nDisallow: /api/\nDisallow: /admin/\nDisallow: /login/\nDisallow: /masterworld/\nDisallow: /s/\nDisallow: /s/*\nDisallow: /dl/\nDisallow: /dl/*\nDisallow: /out/\nDisallow: /out/*\nDisallow: /download/\nDisallow: /download/*\nDisallow: /gateway/\nDisallow: /gateway/*\nDisallow: /info/\nDisallow: /info/*\nDisallow: /moreinfo/\nDisallow: /moreinfo/*\nDisallow: /moredetail/\nDisallow: /moredetail/*\n\nUser-agent: GPTBot\nDisallow: /moreinfo/\nDisallow: /moreinfo/*\nDisallow: /gateway/\nDisallow: /download/\nDisallow: /api/\n\nUser-agent: ClaudeBot\nDisallow: /moreinfo/\nDisallow: /moreinfo/*\nDisallow: /gateway/\nDisallow: /download/\nDisallow: /api/\n\nUser-agent: PerplexityBot\nDisallow: /moreinfo/\nDisallow: /moreinfo/*\nDisallow: /gateway/\nDisallow: /download/\nDisallow: /api/\n\nUser-agent: Google-Extended\nDisallow: /moreinfo/\nDisallow: /moreinfo/*\nDisallow: /gateway/\nDisallow: /download/\nDisallow: /api/\n\nUser-agent: CCBot\nDisallow: /moreinfo/\nDisallow: /moreinfo/*\nDisallow: /gateway/\nDisallow: /download/\nDisallow: /api/\n\nSitemap: https://www.rummydex.com/sitemap.xml\nSitemap: https://www.rummydex.com/sitemap-news.xml\nSitemap: https://www.rummydex.com/sitemap-apps.xml\nSitemap: https://www.rummydex.com/sitemap-static.xml\nSitemap: https://www.rummydex.com/sitemap-videos.xml\nSitemap: https://www.rummydex.com/sitemap-developers.xml\n`;
         primaryBatchFiles.push({
           path: 'public/robots.txt',
           content: robotsContent

@@ -4,13 +4,32 @@ import path from 'path';
 import zlib from 'zlib';
 import { safeEncrypt, safeDecrypt, getAesSecret } from '../../lib/secureVault';
 import { fetchStoreData, clearSeoCache } from '../../seoHelper';
-import { compileCanonicalApp, compileCanonicalNews } from '../../lib/githubSync';
+import { compileCanonicalApp, compileCanonicalNews, generateStaticDataFileCode } from '../../lib/githubSync';
 import { generateAllSitemaps } from '../../lib/sitemapGenerator';
+import { cleanSettingsMetaTitles } from '../../lib/seoUtils';
 
 export const adminVaultRouter = Router();
 
 const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
 const staticJsonPath = path.join(process.cwd(), 'src/lib/staticData.json');
+const staticTsPath = path.join(process.cwd(), 'src/lib/staticData.ts');
+
+function stripTimestampFields(item: any) {
+  if (!item || typeof item !== 'object') return item;
+  const copy = { ...item };
+  delete copy.updated_at;
+  delete copy._rest_admin_bypass;
+  return copy;
+}
+
+function hasItemContentChanged(prevItem: any, nextItem: any): boolean {
+  if (!prevItem) return true;
+  try {
+    return JSON.stringify(stripTimestampFields(prevItem)) !== JSON.stringify(stripTimestampFields(nextItem));
+  } catch (_) {
+    return true;
+  }
+}
 
 function getMergedData() {
   let staticBase: any = {};
@@ -51,28 +70,35 @@ function getMergedData() {
 }
 
 function writeMergedData(data: any) {
-  const now = new Date().toISOString();
   const canonicalNews = Array.isArray(data.news)
-    ? data.news.map((item: any) => compileCanonicalNews({ ...item, updated_at: item.updated_at || now }))
+    ? data.news.map((item: any) => compileCanonicalNews(item))
     : [];
 
-  const updatedSettings = {
+  const updatedSettings = cleanSettingsMetaTitles({
     ...(data.settings || {}),
-    last_updated: now
-  };
+    last_updated: data.settings?.last_updated || '2026-09-01T00:00:00.000Z'
+  });
 
   const serverBackupPayload = {
-    apps: Array.isArray(data.apps) ? data.apps.map((app: any) => compileCanonicalApp({ ...app, updated_at: app.updated_at || now }, { stripDownloadLinks: false })) : [],
+    apps: Array.isArray(data.apps) ? data.apps.map((app: any) => compileCanonicalApp(app, { stripDownloadLinks: false })) : [],
     settings: updatedSettings,
     news: canonicalNews,
     videos: Array.isArray(data.videos) ? data.videos : [],
     reviews: Array.isArray(data.reviews) ? data.reviews : []
   };
 
+  const publicApps = Array.isArray(data.apps)
+    ? data.apps
+        .filter((app: any) => app && app.sync_to_public !== false)
+        .map((app: any) => compileCanonicalApp(app, { stripDownloadLinks: true }))
+    : [];
+
+  const publicNews = canonicalNews.filter((item: any) => item && item.sync_to_public !== false);
+
   const publicStaticPayload = {
-    apps: Array.isArray(data.apps) ? data.apps.map((app: any) => compileCanonicalApp({ ...app, updated_at: app.updated_at || now }, { stripDownloadLinks: true })) : [],
+    apps: publicApps,
     settings: updatedSettings,
-    news: canonicalNews,
+    news: publicNews,
     videos: Array.isArray(data.videos) ? data.videos : [],
     reviews: Array.isArray(data.reviews) ? data.reviews : []
   };
@@ -87,10 +113,21 @@ function writeMergedData(data: any) {
   } catch (e) {
     console.error('[adminVaultRoutes] Failed to write staticData.json:', e);
   }
+  try {
+    const staticTsCode = generateStaticDataFileCode(
+      publicApps,
+      updatedSettings,
+      publicNews,
+      publicStaticPayload.videos
+    );
+    fs.writeFileSync(staticTsPath, staticTsCode, 'utf8');
+  } catch (e) {
+    console.error('[adminVaultRoutes] Failed to write staticData.ts:', e);
+  }
 
   // Automatically regenerate and save all XML + GZip sitemaps to disk so search engine indexes remain 100% synchronized
   try {
-    const sitemaps = generateAllSitemaps(serverBackupPayload);
+    const sitemaps = generateAllSitemaps(publicStaticPayload);
     const publicDir = path.join(process.cwd(), 'public');
     const distDir = path.join(process.cwd(), 'dist');
     for (const [filename, content] of Object.entries(sitemaps)) {
@@ -115,10 +152,11 @@ function writeMergedData(data: any) {
 
 adminVaultRouter.get('/api/v1/admin/data', async (req, res) => {
   try {
+    clearSeoCache();
     const storeData = await fetchStoreData();
     res.json({
       success: true,
-      source: 'local_backup',
+      source: 'live_firestore',
       apps: storeData.apps || [],
       settings: storeData.settings || {},
       news: storeData.news || [],
@@ -135,9 +173,29 @@ adminVaultRouter.post('/api/v1/admin/save-news', (req, res) => {
     if (Array.isArray(news)) {
       const now = new Date().toISOString();
       const current = getMergedData();
-      current.news = news.map((n: any) => ({ ...n, updated_at: now }));
+      const existingById = new Map<string, any>();
+      const existingBySlug = new Map<string, any>();
+      for (const prev of current.news || []) {
+        if (prev?.id) existingById.set(String(prev.id).trim(), prev);
+        if (prev?.slug) existingBySlug.set(String(prev.slug).trim().toLowerCase(), prev);
+      }
+
+      current.news = news.map((n: any) => {
+        const idKey = String(n?.id || '').trim();
+        const slugKey = String(n?.slug || '').trim().toLowerCase();
+        const prev = (idKey && existingById.get(idKey)) || (slugKey && existingBySlug.get(slugKey));
+        const normalizedPrev = prev ? compileCanonicalNews(prev) : null;
+        const normalizedNext = compileCanonicalNews(n);
+        const changed = hasItemContentChanged(normalizedPrev, normalizedNext);
+        const preservedDate = prev?.updated_at || n?.updated_at || n?.published_at || n?.publish_date || n?.created_at || now;
+        return compileCanonicalNews({
+          ...n,
+          updated_at: changed ? now : preservedDate
+        });
+      });
+
       writeMergedData(current);
-      return res.json({ success: true, count: news.length });
+      return res.json({ success: true, count: current.news.length, news: current.news });
     }
     res.status(400).json({ success: false, error: 'News array required' });
   } catch (err: any) {
@@ -173,9 +231,29 @@ adminVaultRouter.post('/api/v1/admin/save-apps', (req, res) => {
     if (Array.isArray(apps)) {
       const now = new Date().toISOString();
       const current = getMergedData();
-      current.apps = apps.map((a: any) => ({ ...a, updated_at: a.updated_at || now }));
+      const existingById = new Map<string, any>();
+      const existingBySlug = new Map<string, any>();
+      for (const prev of current.apps || []) {
+        if (prev?.id) existingById.set(String(prev.id).trim(), prev);
+        if (prev?.slug) existingBySlug.set(String(prev.slug).trim().toLowerCase(), prev);
+      }
+
+      current.apps = apps.map((a: any) => {
+        const idKey = String(a?.id || '').trim();
+        const slugKey = String(a?.slug || '').trim().toLowerCase();
+        const prev = (idKey && existingById.get(idKey)) || (slugKey && existingBySlug.get(slugKey));
+        const normalizedPrev = prev ? compileCanonicalApp(prev, { stripDownloadLinks: false }) : null;
+        const normalizedNext = compileCanonicalApp(a, { stripDownloadLinks: false });
+        const changed = hasItemContentChanged(normalizedPrev, normalizedNext);
+        const preservedDate = prev?.updated_at || a?.updated_at || a?.publish_date || a?.created_at || now;
+        return compileCanonicalApp({
+          ...a,
+          updated_at: changed ? now : preservedDate
+        }, { stripDownloadLinks: false });
+      });
+
       writeMergedData(current);
-      return res.json({ success: true, count: apps.length });
+      return res.json({ success: true, count: current.apps.length });
     }
     res.status(400).json({ success: false, error: 'Apps array required' });
   } catch (err: any) {

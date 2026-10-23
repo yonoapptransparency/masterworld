@@ -8,18 +8,48 @@ export function formatPageTitle(rawTitle?: string, fallbackTitle: string = ''): 
   const firstLine = rawTitle.split(/\r?\n/)[0] || rawTitle;
   let clean = firstLine.trim().replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
   
-  // Deduplicate only if a brand suffix was accidentally repeated multiple times (e.g. "- RummyDex - RummyDex"),
-  // while strictly preserving any single brand name explicitly configured by the administrator.
+  // Strip any trailing brand suffix (e.g. "| RummyDex", "- RummyDex", "— RummyDex", ": RummyDex")
+  // so meta titles strictly reflect what the administrator entered without brand suffixing.
   let prev = '';
   while (prev !== clean) {
     prev = clean;
-    clean = clean.replace(/(\s*[-|–—•:]+\s*(?:RummyDex|Rummydex|Remidex|Rummy\s*Dex|MasterWorld|Dex))(?:\s*[-|–—•:]+\s*(?:RummyDex|Rummydex|Remidex|Rummy\s*Dex|MasterWorld|Dex))+\s*$/i, '$1').trim();
+    clean = clean.replace(/\s*[-|–—•:]+\s*(?:RummyDex|Rummydex|Remidex|Rummy\s*Dex|Ramy\s*Tech|Rummy\s*Tech|MasterWorld|Dex)\s*$/i, '').trim();
   }
 
   // Clean any leading or trailing stray separator punctuation
   clean = clean.replace(/^[:\s\-|–—•]+/, '').replace(/[:\s\-|–—•]+$/, '').trim();
 
   return clean || fallbackTitle;
+}
+
+const SETTINGS_META_TITLE_KEYS = [
+  'seo_title',
+  'meta_title',
+  'disclaimer_meta_title',
+  'ethics_meta_title',
+  'about_meta_title',
+  'contact_meta_title',
+  'privacy_meta_title',
+  'terms_meta_title',
+  'responsibility_meta_title',
+  'report_removal_meta_title',
+  'notice_meta_title',
+  'developers_meta_title',
+  'news_meta_title',
+  'videos_meta_title',
+  'faq_meta_title',
+  'safety_meta_title'
+];
+
+export function cleanSettingsMetaTitles<T extends Record<string, any>>(settings: T): T {
+  if (!settings || typeof settings !== 'object') return settings;
+  const copy: any = { ...settings };
+  for (const key of SETTINGS_META_TITLE_KEYS) {
+    if (typeof copy[key] === 'string' && copy[key].trim()) {
+      copy[key] = formatPageTitle(copy[key], '');
+    }
+  }
+  return copy as T;
 }
 
 export function getCleanCanonicalUrl(rawUrl?: string, fallbackPath: string = '/'): string {

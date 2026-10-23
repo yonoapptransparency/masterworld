@@ -23,7 +23,9 @@ function wrapWithLayout(bodyContent: string, settings: any): string {
 }
 
 export async function getPagePreRender(urlPath: string, data: any): Promise<string> {
-  const { apps = [], settings = {}, news = [], videos = [], developers = [] } = data || {};
+  const { apps: rawApps = [], settings = {}, news: rawNews = [], videos = [], developers = [] } = data || {};
+  const apps = Array.isArray(rawApps) ? rawApps.filter((a: any) => a && a.sync_to_public !== false) : [];
+  const news = Array.isArray(rawNews) ? rawNews.filter((n: any) => n && n.sync_to_public !== false) : [];
   const cleanPath = urlPath.split('?')[0].split('#')[0].replace(/\/+$/, '') || '/';
   const cleanPathLower = cleanPath.toLowerCase();
 

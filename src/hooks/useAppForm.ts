@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { safeDecrypt } from '../lib/cryptoUtils';
 import { mockApps } from '../lib/staticData';
+import { formatPageTitle } from '../lib/seoUtils';
 
 export const useAppForm = (editApp: any, editingAppId: string | null, appsList: any[], categories: string[]) => {
   const prevEditingIdRef = useRef<string | null>(null);
@@ -51,11 +52,12 @@ export const useAppForm = (editApp: any, editingAppId: string | null, appsList: 
       prevEditingIdRef.current = editingAppId;
 
       if (editingAppId !== null && editingAppId !== '') {
+        const rawSeoTitle = (editApp?.seo_title || editApp?.meta_title || '').trim();
         setFormFields({
           name: editApp?.name || '',
           slug: editApp?.slug || '',
           icon_url: editApp?.icon_url || '',
-          seo_title: editApp?.seo_title || editApp?.meta_title || '',
+          seo_title: rawSeoTitle ? formatPageTitle(rawSeoTitle, '') : '',
           seo_description: editApp?.seo_description || editApp?.meta_description || '',
           seo_keywords: editApp?.seo_keywords || '',
           og_image_url: editApp?.og_image_url || '',

@@ -58,7 +58,8 @@ export const getLatestItemDate = (items: any[], fallbackDate: string = STABLE_BA
   if (!Array.isArray(items) || items.length === 0) return fallbackDate;
   let maxTs = 0;
   for (const item of items) {
-    const raw = item.updated_at || item.published_at || item.created_at || item.date;
+    if (!item || item.sync_to_public === false) continue;
+    const raw = item.updated_at || item.published_at || item.publish_date || item.created_at || item.date;
     if (raw) {
       const d = new Date(formatSitemapDate(raw, fallbackDate)).getTime();
       if (!isNaN(d) && d > maxTs) maxTs = d;
@@ -72,12 +73,24 @@ export function generateMasterSitemapXml(
   apps: any[] = [],
   news: any[] = [],
   videos: any[] = [],
-  host: string = 'https://www.rummydex.com'
+  host: string = 'https://www.rummydex.com',
+  settings?: any
 ): string {
   const cleanHost = host.replace(/\/$/, '');
   const latestAppDate = getLatestItemDate(apps, STABLE_BASELINE_DATE);
   const latestNewsDate = getLatestItemDate(news, STABLE_BASELINE_DATE);
-  const latestVideoDate = getLatestItemDate(videos, latestAppDate);
+  const latestVideoDate = getLatestItemDate(videos, STABLE_BASELINE_DATE);
+  const settingsDate = formatSitemapDate(settings?.last_updated || settings?.updated_at, STABLE_BASELINE_DATE);
+  const latestStaticDate = getLatestItemDate(
+    [
+      { updated_at: latestAppDate },
+      { updated_at: latestNewsDate },
+      { updated_at: latestVideoDate },
+      { updated_at: settingsDate }
+    ],
+    STABLE_BASELINE_DATE
+  );
+  const latestDevDate = getLatestItemDate(settings?.developers || [], STABLE_BASELINE_DATE);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -87,7 +100,7 @@ export function generateMasterSitemapXml(
   </sitemap>
   <sitemap>
     <loc>${cleanHost}/sitemap-static.xml</loc>
-    <lastmod>${latestAppDate}</lastmod>
+    <lastmod>${latestStaticDate}</lastmod>
   </sitemap>
   <sitemap>
     <loc>${cleanHost}/sitemap-news.xml</loc>
@@ -99,7 +112,7 @@ export function generateMasterSitemapXml(
   </sitemap>
   <sitemap>
     <loc>${cleanHost}/sitemap-developers.xml</loc>
-    <lastmod>${latestAppDate}</lastmod>
+    <lastmod>${latestDevDate}</lastmod>
   </sitemap>
 </sitemapindex>`;
 }
@@ -200,8 +213,8 @@ export function generateNewsSitemapXml(
   const publicNews = news.filter((n: any) => n && n.slug && n.sync_to_public !== false);
 
   publicNews.sort((a, b) => {
-    const ta = new Date(formatSitemapDate(a.updated_at || a.published_at || a.created_at || a.date, STABLE_BASELINE_DATE)).getTime();
-    const tb = new Date(formatSitemapDate(b.updated_at || b.published_at || b.created_at || b.date, STABLE_BASELINE_DATE)).getTime();
+    const ta = new Date(formatSitemapDate(a.updated_at || a.published_at || a.publish_date || a.created_at || a.date, STABLE_BASELINE_DATE)).getTime();
+    const tb = new Date(formatSitemapDate(b.updated_at || b.published_at || b.publish_date || b.created_at || b.date, STABLE_BASELINE_DATE)).getTime();
     return tb - ta;
   });
 
@@ -216,7 +229,7 @@ export function generateNewsSitemapXml(
     if (seenUrls.has(loc)) continue;
     seenUrls.add(loc);
 
-    const itemDate = formatSitemapDate(item.updated_at || item.published_at || item.created_at || item.date, STABLE_BASELINE_DATE);
+    const itemDate = formatSitemapDate(item.updated_at || item.published_at || item.publish_date || item.created_at || item.date, STABLE_BASELINE_DATE);
     let itemImage = item.logo_url || item.image_url || item.thumbnail_url || item.og_image_url || '';
     if (itemImage && typeof itemImage === 'string') {
       itemImage = itemImage.trim();
@@ -309,37 +322,52 @@ export function generateVideosSitemapXml(
   return xml;
 }
 
+export interface StaticSitemapDates {
+  latestAppDate?: string;
+  latestNewsDate?: string;
+  latestVideoDate?: string;
+  settingsDate?: string;
+}
+
 // 5. Static Pages Sitemap (sitemap-static.xml)
 export function generateStaticSitemapXml(
   host: string = 'https://www.rummydex.com',
-  latestDate?: string
+  datesOrFallback?: string | StaticSitemapDates
 ): string {
   const cleanHost = host.replace(/\/$/, '');
-  const now = latestDate || STABLE_BASELINE_DATE;
+  const isObj = typeof datesOrFallback === 'object' && datesOrFallback !== null;
+  const fallback = !isObj && typeof datesOrFallback === 'string'
+    ? formatSitemapDate(datesOrFallback, STABLE_BASELINE_DATE)
+    : STABLE_BASELINE_DATE;
+
+  const appDate = isObj ? formatSitemapDate(datesOrFallback.latestAppDate, STABLE_BASELINE_DATE) : fallback;
+  const newsDate = isObj ? formatSitemapDate(datesOrFallback.latestNewsDate, STABLE_BASELINE_DATE) : fallback;
+  const videoDate = isObj ? formatSitemapDate(datesOrFallback.latestVideoDate, STABLE_BASELINE_DATE) : fallback;
+  const infoDate = isObj ? formatSitemapDate(datesOrFallback.settingsDate, STABLE_BASELINE_DATE) : fallback;
 
   const staticPages = [
-    { path: '/', priority: '1.0', changefreq: 'daily' },
-    { path: '/new-apps', priority: '0.8', changefreq: 'daily' },
-    { path: '/categories', priority: '0.8', changefreq: 'weekly' },
-    { path: '/news', priority: '0.8', changefreq: 'daily' },
-    { path: '/videos', priority: '0.7', changefreq: 'weekly' },
-    { path: '/about', priority: '0.5', changefreq: 'monthly' },
-    { path: '/contact', priority: '0.5', changefreq: 'monthly' },
-    { path: '/faq', priority: '0.5', changefreq: 'monthly' },
-    { path: '/privacy', priority: '0.3', changefreq: 'monthly' },
-    { path: '/terms', priority: '0.3', changefreq: 'monthly' },
-    { path: '/disclaimer', priority: '0.3', changefreq: 'monthly' },
-    { path: '/notice', priority: '0.3', changefreq: 'monthly' },
-    { path: '/ethics', priority: '0.3', changefreq: 'monthly' },
-    { path: '/responsibility', priority: '0.3', changefreq: 'monthly' },
-    { path: '/report-removal', priority: '0.3', changefreq: 'monthly' }
+    { path: '/', priority: '1.0', changefreq: 'daily', lastmod: appDate },
+    { path: '/new-apps', priority: '0.8', changefreq: 'daily', lastmod: appDate },
+    { path: '/categories', priority: '0.8', changefreq: 'weekly', lastmod: appDate },
+    { path: '/news', priority: '0.8', changefreq: 'daily', lastmod: newsDate },
+    { path: '/videos', priority: '0.7', changefreq: 'weekly', lastmod: videoDate },
+    { path: '/about', priority: '0.5', changefreq: 'monthly', lastmod: infoDate },
+    { path: '/contact', priority: '0.5', changefreq: 'monthly', lastmod: infoDate },
+    { path: '/faq', priority: '0.5', changefreq: 'monthly', lastmod: infoDate },
+    { path: '/privacy', priority: '0.3', changefreq: 'monthly', lastmod: infoDate },
+    { path: '/terms', priority: '0.3', changefreq: 'monthly', lastmod: infoDate },
+    { path: '/disclaimer', priority: '0.3', changefreq: 'monthly', lastmod: infoDate },
+    { path: '/notice', priority: '0.3', changefreq: 'monthly', lastmod: infoDate },
+    { path: '/ethics', priority: '0.3', changefreq: 'monthly', lastmod: infoDate },
+    { path: '/responsibility', priority: '0.3', changefreq: 'monthly', lastmod: infoDate },
+    { path: '/report-removal', priority: '0.3', changefreq: 'monthly', lastmod: infoDate }
   ];
 
   let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
   for (const page of staticPages) {
     xml += `  <url>\n`;
     xml += `    <loc>${cleanHost}${page.path === '/' ? '/' : page.path}</loc>\n`;
-    xml += `    <lastmod>${now}</lastmod>\n`;
+    xml += `    <lastmod>${page.lastmod}</lastmod>\n`;
     xml += `    <changefreq>${page.changefreq}</changefreq>\n`;
     xml += `    <priority>${page.priority}</priority>\n`;
     xml += `  </url>\n`;
@@ -354,7 +382,7 @@ export function generateDevelopersSitemapXml(
   latestDate?: string
 ): string {
   const cleanHost = host.replace(/\/$/, '');
-  const now = latestDate || STABLE_BASELINE_DATE;
+  const now = formatSitemapDate(latestDate, STABLE_BASELINE_DATE);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -376,17 +404,25 @@ export function generateAllSitemaps(
   const apps = data.apps || [];
   const news = data.news || [];
   const videos = data.videos || [];
-  const siteLogo = data.settings?.logo_url || data.settings?.favicon_url || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
-  const now = new Date().toISOString().replace(/\.\d{3}Z$/, '+00:00');
-  const latestAppDate = getLatestItemDate(apps, now);
-  const latestDevDate = getLatestItemDate(data.settings?.developers || [], latestAppDate);
+  const settings = data.settings || {};
+  const siteLogo = settings?.logo_url || settings?.favicon_url || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
+  const latestAppDate = getLatestItemDate(apps, STABLE_BASELINE_DATE);
+  const latestNewsDate = getLatestItemDate(news, STABLE_BASELINE_DATE);
+  const latestVideoDate = getLatestItemDate(videos, STABLE_BASELINE_DATE);
+  const settingsDate = formatSitemapDate(settings?.last_updated || settings?.updated_at, STABLE_BASELINE_DATE);
+  const latestDevDate = getLatestItemDate(settings?.developers || [], STABLE_BASELINE_DATE);
 
   return {
-    'sitemap.xml': generateMasterSitemapXml(apps, news, videos, host),
+    'sitemap.xml': generateMasterSitemapXml(apps, news, videos, host, settings),
     'sitemap-apps.xml': generateAppsSitemapXml(apps, host, siteLogo),
     'sitemap-news.xml': generateNewsSitemapXml(news, host),
     'sitemap-videos.xml': generateVideosSitemapXml(videos, host, siteLogo),
-    'sitemap-static.xml': generateStaticSitemapXml(host, latestAppDate),
+    'sitemap-static.xml': generateStaticSitemapXml(host, {
+      latestAppDate,
+      latestNewsDate,
+      latestVideoDate,
+      settingsDate
+    }),
     'sitemap-developers.xml': generateDevelopersSitemapXml(host, latestDevDate)
   };
 }

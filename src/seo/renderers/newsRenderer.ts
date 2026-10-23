@@ -335,6 +335,52 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
     }
   }
 
+  const itemKey = (getField(item, 'slug') || getField(item, 'id') || '').toLowerCase().trim();
+  const recentNews = (Array.isArray(news) ? news : [])
+    .filter((n: any) => {
+      if (!n || n.sync_to_public === false) return false;
+      const nKey = (getField(n, 'slug') || getField(n, 'id') || '').toLowerCase().trim();
+      return Boolean(nKey && nKey !== itemKey);
+    })
+    .sort((a: any, b: any) => {
+      if (a.is_pinned && !b.is_pinned) return -1;
+      if (!a.is_pinned && b.is_pinned) return 1;
+      const dateA = new Date(getField(a, 'date') || getField(a, 'published_at') || getField(a, 'created_at') || 0).getTime();
+      const dateB = new Date(getField(b, 'date') || getField(b, 'published_at') || getField(b, 'created_at') || 0).getTime();
+      return dateB - dateA;
+    })
+    .slice(0, 6);
+
+  const recentNewsHtml = recentNews.length > 0 ? `
+    <section aria-labelledby="recent-news-heading" class="mt-8 pt-6 border-t border-zinc-200/80 dark:border-zinc-800/80 text-left">
+      <div class="flex items-center justify-between gap-2 mb-4">
+        <h2 id="recent-news-heading" class="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100">
+          Latest News &amp; Updates
+        </h2>
+        <a href="/news" class="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline no-underline">
+          View all news →
+        </a>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        ${recentNews.map((rn: any) => {
+          const rnSlug = (getField(rn, 'slug') || getField(rn, 'id') || '').trim();
+          const rnTitle = getField(rn, 'title') || 'News Article';
+          const rnCat = getField(rn, 'category') || 'Update';
+          const rnDate = formatNewsDate(getField(rn, 'date'), getField(rn, 'published_at'), getField(rn, 'created_at'));
+          return `
+            <a href="/news/${encodeURIComponent(rnSlug)}" class="p-3.5 rounded-xl border border-zinc-200/70 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-900/50 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/80 transition-colors flex flex-col justify-between gap-1.5 no-underline">
+              <h3 class="text-xs sm:text-sm font-bold text-zinc-900 dark:text-zinc-100 line-clamp-2 leading-snug">${escapeHtml(rnTitle)}</h3>
+              <div class="flex items-center gap-2 text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
+                <span class="text-blue-600 dark:text-blue-400 font-semibold">${escapeHtml(rnCat)}</span>
+                ${rnDate ? `<span>•</span><span>${escapeHtml(rnDate)}</span>` : ''}
+              </div>
+            </a>
+          `;
+        }).join('')}
+      </div>
+    </section>
+  ` : '';
+
   // 1:1 Layout Match with NewsDetailPage.tsx
   return `
     <article class="max-w-3xl mx-auto px-3 sm:px-0 pb-20 text-left">
@@ -397,6 +443,9 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
 
       <!-- 5. Bottom NewsRelatedAppBox -->
       ${renderActionBox('my-8')}
+
+      <!-- 6. Latest News & Updates Internal Linking -->
+      ${recentNewsHtml}
     </article>
   `;
 }

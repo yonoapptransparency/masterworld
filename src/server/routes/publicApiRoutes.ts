@@ -32,7 +32,7 @@ function sanitizeAppForPublicClient(app: any, keepRichDetails: boolean): any {
   return {
     id: app.id,
     name: app.name,
-    slug: app.slug,
+    slug: typeof app.slug === 'string' ? app.slug.trim() : app.slug,
     category: app.category,
     icon_url: app.icon_url,
     rating: app.rating,
@@ -64,8 +64,8 @@ function sanitizeNewsCardForPublicList(n: any): any {
   const excerpt = n.excerpt || n.seo_description || n.description || getPlainTextSnippet(rawBody, 160);
   const dateRaw = n.published_at || n.created_at || n.date || '';
   return {
-    id: n.id,
-    slug: n.slug,
+    id: typeof n.id === 'string' ? n.id.trim() : n.id,
+    slug: typeof n.slug === 'string' ? n.slug.trim() : n.slug,
     title: n.title,
     seo_title: n.seo_title,
     description: excerpt,
@@ -94,7 +94,7 @@ publicApiRouter.get('/api/v1/public/app/:slug', async (req, res) => {
   }
 
   const data = await fetchStoreData();
-  const apps = data?.apps || (staticData as any)?.apps || [];
+  const apps = (data?.apps || (staticData as any)?.apps || []).filter((a: any) => a && a.sync_to_public !== false);
   const app = resolveAppSlug(slugParam, apps);
 
   if (app) {
@@ -110,7 +110,9 @@ publicApiRouter.get('/api/v1/public/app/:slug', async (req, res) => {
 publicApiRouter.get('/api/v1/public/news', async (req, res) => {
   const data = await fetchStoreData();
   const rawNews = data?.news || (staticData as any)?.news || [];
-  const news = Array.isArray(rawNews) ? rawNews.map(sanitizeNewsCardForPublicList) : [];
+  const news = Array.isArray(rawNews)
+    ? rawNews.filter((n: any) => n && n.sync_to_public !== false).map(sanitizeNewsCardForPublicList)
+    : [];
   res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=600, stale-while-revalidate=86400');
   res.json({ status: 'OK', news });
 });
@@ -122,7 +124,7 @@ publicApiRouter.get('/api/v1/public/news/:slug', async (req, res) => {
   }
 
   const data = await fetchStoreData();
-  const newsList = data?.news || (staticData as any)?.news || [];
+  const newsList = (data?.news || (staticData as any)?.news || []).filter((n: any) => n && n.sync_to_public !== false);
   const newsItem = newsList.find((n: any) => {
     const s = String(n.slug || n.id || '').toLowerCase().trim();
     const id = String(n.id || '').toLowerCase().trim();
@@ -168,8 +170,8 @@ publicApiRouter.get('/api/v1/public/faqs', async (req, res) => {
 publicApiRouter.get('/api/v1/public/backup-data', async (req, res) => {
   try {
     const data = await fetchStoreData();
-    const rawApps = data?.apps || (staticData as any)?.apps || (staticData as any)?.mockApps || [];
-    const rawNews = data?.news || (staticData as any)?.news || (staticData as any)?.mockNews || [];
+    const rawApps = (data?.apps || (staticData as any)?.apps || (staticData as any)?.mockApps || []).filter((a: any) => a && a.sync_to_public !== false);
+    const rawNews = (data?.news || (staticData as any)?.news || (staticData as any)?.mockNews || []).filter((n: any) => n && n.sync_to_public !== false);
     res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
     return res.json({
       apps: Array.isArray(rawApps) ? rawApps.map((a: any) => sanitizeAppForPublicClient(a, false)) : [],
@@ -187,11 +189,13 @@ publicApiRouter.get('/api/v1/public/backup-data', async (req, res) => {
 publicApiRouter.get('/api/v1/public/backup-data-full', async (req, res) => {
   try {
     const data = await fetchStoreData();
+    const rawApps = (data?.apps || (staticData as any)?.apps || (staticData as any)?.mockApps || []).filter((a: any) => a && a.sync_to_public !== false);
+    const rawNews = (data?.news || (staticData as any)?.news || (staticData as any)?.mockNews || []).filter((n: any) => n && n.sync_to_public !== false);
     res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
     return res.json({
-      apps: data?.apps || (staticData as any)?.apps || (staticData as any)?.mockApps || [],
+      apps: rawApps,
       settings: data?.settings || (staticData as any)?.settings || (staticData as any)?.mockSettings || {},
-      news: data?.news || (staticData as any)?.news || (staticData as any)?.mockNews || [],
+      news: rawNews,
       videos: data?.videos || (staticData as any)?.videos || (staticData as any)?.mockVideos || [],
       reviews: data?.reviews || []
     });

@@ -149,8 +149,12 @@ export function buildMetaTags(params: MetaBuilderParams): string {
           return `<link rel="preload" as="image" href="${hero800}" imagesrcset="${hero480} 480w, ${hero800} 800w, ${hero1200} 1200w" imagesizes="(max-width: 640px) 100vw, 768px" fetchpriority="high">`;
         }
       }
-      if (pageType === 'home' && settings && Array.isArray((settings as any).banners) && (settings as any).banners.length > 0 && (settings as any).banners[0].image) {
-        return `<link rel="preload" as="image" href="${escapeHtml(getOptimizedImageUrl((settings as any).banners[0].image, 800))}" fetchpriority="high">`;
+      if (pageType === 'home' && settings && Array.isArray((settings as any).banners) && (settings as any).banners.length > 0 && ((settings as any).banners[0].image_url || (settings as any).banners[0].image)) {
+        const rawBanner = (settings as any).banners[0].image_url || (settings as any).banners[0].image;
+        const b400 = escapeHtml(getOptimizedImageUrl(rawBanner, 400));
+        const b600 = escapeHtml(getOptimizedImageUrl(rawBanner, 600));
+        const b800 = escapeHtml(getOptimizedImageUrl(rawBanner, 800));
+        return `<link rel="preload" as="image" href="${b600}" imagesrcset="${b400} 400w, ${b600} 600w, ${b800} 800w" imagesizes="(max-width: 640px) 100vw, 800px" fetchpriority="high">`;
       }
       if (collectionItems && collectionItems.length > 0 && getField(collectionItems[0], 'icon_url')) {
         return `<link rel="preload" as="image" href="${escapeHtml(getOptimizedImageUrl(getField(collectionItems[0], 'icon_url'), 120))}" fetchpriority="high">`;

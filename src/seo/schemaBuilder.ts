@@ -231,14 +231,15 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
     }
   } else if (params.pageType === 'news' && params.newsItem) {
     const item = params.newsItem;
-    const title = getField(item, 'title');
+    const rawHeading = getField(item, 'title');
+    const exactTitle = params.title || getField(item, 'seo_title') || getField(item, 'meta_title') || rawHeading;
     const desc = cleanSeoDescription(
       getField(item, 'seo_description') || 
       getField(item, 'meta_description') || 
       getField(item, 'description') || 
       params.description
     );
-    const datePublished = getField(item, 'published_at') || getField(item, 'created_at') || getField(item, 'date') || new Date().toISOString();
+    const datePublished = getField(item, 'published_at') || getField(item, 'publish_date') || getField(item, 'created_at') || getField(item, 'date') || '2026-09-01T00:00:00.000Z';
     const dateModified = getField(item, 'updated_at') || datePublished;
     const authorName = getField(item, 'author') || getField(item, 'ceo_name') || params.siteTitle;
 
@@ -256,7 +257,8 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
         "@type": "WebPage",
         "@id": canonicalPageUrl
       },
-      "headline": title,
+      "name": exactTitle,
+      "headline": exactTitle,
       "description": desc,
       "articleBody": rawArticleBody,
       "image": [newsImg],
@@ -282,6 +284,17 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
 
     schemas.push({
       "@context": "https://schema.org",
+      "@type": "WebPage",
+      "@id": `${canonicalPageUrl}#webpage`,
+      "url": canonicalPageUrl,
+      "name": exactTitle,
+      "headline": exactTitle,
+      "description": desc,
+      "inLanguage": "en"
+    });
+
+    schemas.push({
+      "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       "itemListElement": [
         {
@@ -299,7 +312,7 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
         {
           "@type": "ListItem",
           "position": 3,
-          "name": title,
+          "name": rawHeading || exactTitle,
           "item": canonicalPageUrl
         }
       ]

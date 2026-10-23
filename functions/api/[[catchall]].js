@@ -343,8 +343,8 @@ export async function onRequest(context) {
   // Handle single app detail endpoint at Edge with zero origin latency (links stripped)
   if (pathname.startsWith('/api/v1/public/app/')) {
     const rawSlug = pathname.replace('/api/v1/public/app/', '');
-    const cleanKey = decodeURIComponent(rawSlug).toLowerCase().trim();
-    const apps = staticData?.apps || staticData?.mockApps || [];
+    const cleanKey = decodeURIComponent(rawSlug).toLowerCase().trim().replace(/^\/+|\/+$/g, '');
+    const apps = (staticData?.apps || staticData?.mockApps || []).filter(a => a && a.sync_to_public !== false);
     const matched = apps.find(a =>
       (a.slug && String(a.slug).toLowerCase().trim() === cleanKey) ||
       (a.id && String(a.id).toLowerCase().trim() === cleanKey) ||
@@ -375,7 +375,7 @@ export async function onRequest(context) {
 
   // Handle public catalog endpoints at Edge using staticData (with download links stripped)
   if (pathname === '/api/v1/public/backup-data') {
-    const rawApps = staticData?.apps || staticData?.mockApps || [];
+    const rawApps = (staticData?.apps || staticData?.mockApps || []).filter(a => a && a.sync_to_public !== false);
     const safeApps = rawApps.map(a => {
       const copy = { ...a };
       delete copy.more_information_url;
@@ -384,11 +384,12 @@ export async function onRequest(context) {
       delete copy.encrypted_download_url;
       return copy;
     });
+    const publicNews = (staticData?.news || staticData?.mockNews || []).filter(n => n && n.sync_to_public !== false);
     return new Response(JSON.stringify({
       status: 'OK',
       apps: safeApps,
       settings: staticData?.settings || staticData?.mockSettings || {},
-      news: staticData?.news || staticData?.mockNews || [],
+      news: publicNews,
       videos: staticData?.videos || staticData?.mockVideos || []
     }), {
       status: 200,
@@ -401,16 +402,16 @@ export async function onRequest(context) {
   }
 
   if (pathname === '/api/v1/public/news' || pathname.startsWith('/api/v1/public/news/')) {
-    const newsList = staticData?.news || staticData?.mockNews || [];
+    const newsList = (staticData?.news || staticData?.mockNews || []).filter(n => n && n.sync_to_public !== false);
     if (pathname.startsWith('/api/v1/public/news/')) {
       const rawNewsSlug = pathname.replace('/api/v1/public/news/', '');
-      const cleanNewsKey = decodeURIComponent(rawNewsSlug).toLowerCase().trim();
+      const cleanNewsKey = decodeURIComponent(rawNewsSlug).toLowerCase().trim().replace(/^\/+|\/+$/g, '');
       const matchedNews = newsList.find(n =>
         (n.slug && String(n.slug).toLowerCase().trim() === cleanNewsKey) ||
         (n.id && String(n.id).toLowerCase().trim() === cleanNewsKey)
       );
       if (matchedNews) {
-        return new Response(JSON.stringify({ status: 'OK', newsItem: matchedNews }), {
+        return new Response(JSON.stringify({ status: 'OK', news: matchedNews, newsItem: matchedNews }), {
           status: 200,
           headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600', 'Access-Control-Allow-Origin': '*' }
         });

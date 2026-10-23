@@ -20,8 +20,11 @@ export interface AuthResult {
   error?: string;
 }
 
-// @ts-ignore
-import appletConfig from '../../firebase-applet-config.json';
+let appletConfig: any = {};
+try {
+  // @ts-ignore
+  appletConfig = require('../../firebase-applet-config.json');
+} catch (_) {}
 import { safeEncrypt, getFallbackAes } from "../lib/cryptoUtils";
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -199,7 +199,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   const data = await fetchStoreData();
   if (!data || !data.settings) return { html: template, isNotFound: false };
 
-  const apps = data.apps || [];
+  const apps = (data.apps || []).filter((a: any) => a && a.sync_to_public !== false);
   const settings = data.settings || {};
   const news = (data.news || []).filter((n: any) => n && n.sync_to_public !== false);
   const videos = data.videos || [];

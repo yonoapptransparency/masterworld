@@ -6,8 +6,11 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, Auth } from 'firebase/auth';
 import { getAdminPath } from './utils';
-// @ts-ignore
-import appletConfig from '../../firebase-applet-config.json';
+let appletConfig: any = {};
+try {
+  // @ts-ignore
+  appletConfig = require('../../firebase-applet-config.json');
+} catch (_) {}
 
 // We rely on environment variables for production.
 const isRealValue = (id: string | undefined): boolean => {
