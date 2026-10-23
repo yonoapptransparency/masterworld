@@ -1,4 +1,5 @@
 import { getField } from './utils';
+import { structureHtmlFragment } from '../lib/safeHtmlPublic';
 
 export function optimizeInitialDataForRoute(
   data: any,
@@ -33,8 +34,8 @@ export function optimizeInitialDataForRoute(
   const targetNewsSlug = targetNews ? (getField(targetNews, 'slug') || getField(targetNews, 'id'))?.toLowerCase().trim() : null;
 
   // Optimized Apps Payload:
-  // - If on an App Details page or targetApp is present: Target app has 100% full rich fields (HTML, screenshots, faqs, custom boxes).
-  // - If on a News Detail or News Index page: Apps carry ultra-lean 8-field cards for Related App & 16-app Similar Carousel.
+  // - If on an App Details page or targetApp is present: Target app has 100% full rich fields (pre-structured HTML, screenshots, faqs, custom boxes).
+  // - Non-target apps on App Details, News Detail, or News Index pages carry ultra-lean card fields for Similar Applications & Instant Search.
   // - All other routes contain structured catalog card fields so Home, Categories, and Instant Search work with 0ms latency.
   // - Zero download links (more_information_url / encrypted_link) are ever exposed in window.__INITIAL_DATA__.
   const optimizedApps = baseApps.map((app: any) => {
@@ -54,6 +55,13 @@ export function optimizeInitialDataForRoute(
     );
 
     if (isTarget) {
+      const structuredFaqs = Array.isArray(app.faqs)
+        ? app.faqs.map((f: any) => f && typeof f === 'object' ? {
+            ...f,
+            answer: f.answer ? structureHtmlFragment(String(f.answer)) : ''
+          } : f)
+        : [];
+
       return {
         id: app.id,
         name: app.name,
@@ -73,11 +81,11 @@ export function optimizeInitialDataForRoute(
         meta_description: app.meta_description || '',
         og_image_url: app.og_image_url || '',
         canonical_url: app.canonical_url || '',
-        description_html: app.description_html || '',
-        features_html: app.features_html || '',
+        description_html: app.description_html ? structureHtmlFragment(String(app.description_html)) : '',
+        features_html: app.features_html ? structureHtmlFragment(String(app.features_html)) : '',
         screenshots: Array.isArray(app.screenshots) ? app.screenshots : [],
-        faqs: Array.isArray(app.faqs) ? app.faqs : [],
-        custom_admin_box_html: app.custom_admin_box_html || '',
+        faqs: structuredFaqs,
+        custom_admin_box_html: app.custom_admin_box_html ? structureHtmlFragment(String(app.custom_admin_box_html)) : '',
         custom_admin_box_heading: app.custom_admin_box_heading || '',
         yellow_box_msg: app.yellow_box_msg || '',
         red_box_msg: app.red_box_msg || '',
@@ -98,7 +106,7 @@ export function optimizeInitialDataForRoute(
       };
     }
 
-    if (isNewsDetailPage || isNewsIndexPage) {
+    if (isAppDetailPage || isNewsDetailPage || isNewsIndexPage) {
       return {
         id: app.id,
         name: app.name,
@@ -154,7 +162,7 @@ export function optimizeInitialDataForRoute(
   }).filter(Boolean);
 
   // Optimized News:
-  // - On /news/:slug (News Detail): Send ONLY the 1 active target news article with full rich content!
+  // - On /news/:slug (News Detail): Send ONLY the 1 active target news article with full pre-structured content!
   // - On /news (News Index): Send card summaries for all articles (stripping heavy HTML content bodies).
   // - On / (Home): Send top 8 news card summaries (stripping heavy HTML content bodies).
   // - On /app/:slug: Send only lightweight stubs matching targetApp for relatedNewsCount.
@@ -169,37 +177,41 @@ export function optimizeInitialDataForRoute(
       return Boolean(targetNewsSlug) && (itemSlug === targetNewsSlug || itemId === targetNewsSlug);
     });
     const sourceList = matchedNews.length > 0 ? matchedNews : (targetNews ? [targetNews] : []);
-    optimizedNews = sourceList.map((item: any) => ({
-      id: item.id,
-      slug: item.slug,
-      title: item.title,
-      logo_url: item.logo_url || item.image_url || '',
-      image_url: item.image_url || item.logo_url || '',
-      description: item.description || '',
-      content: item.content || item.description_html || item.description || '',
-      description_html: item.description_html || item.content || item.description || '',
-      ceo_name: item.ceo_name || item.author || 'Admin Team',
-      ceo_description: item.ceo_description || 'Transparency & Security Analyst',
-      author: item.author || item.ceo_name || 'Admin Team',
-      category: item.category || 'General',
-      published_at: item.published_at || item.created_at || item.date || '',
-      date: item.date || item.published_at || item.created_at || '',
-      read_time: item.read_time || '3 min read',
-      is_breaking: Boolean(item.is_breaking),
-      is_new: Boolean(item.is_new),
-      is_pinned: Boolean(item.is_pinned),
-      seo_title: item.seo_title || '',
-      seo_description: item.seo_description || '',
-      seo_keywords: item.seo_keywords || '',
-      og_image_url: item.og_image_url || '',
-      canonical_url: item.canonical_url || '',
-      target_region: item.target_region || 'India',
-      link: item.link || '',
-      tags: Array.isArray(item.tags) ? item.tags : [],
-      related_app_id: item.related_app_id || '',
-      created_at: item.created_at || item.date || '',
-      updated_at: item.updated_at || item.date || ''
-    }));
+    optimizedNews = sourceList.map((item: any) => {
+      const rawBody = item.content || item.description_html || item.description || '';
+      const structuredBody = rawBody ? structureHtmlFragment(String(rawBody)) : '';
+      return {
+        id: item.id,
+        slug: item.slug,
+        title: item.title,
+        logo_url: item.logo_url || item.image_url || '',
+        image_url: item.image_url || item.logo_url || '',
+        description: item.description || '',
+        content: structuredBody,
+        description_html: structuredBody,
+        ceo_name: item.ceo_name || item.author || 'Admin Team',
+        ceo_description: item.ceo_description || 'Transparency & Security Analyst',
+        author: item.author || item.ceo_name || 'Admin Team',
+        category: item.category || 'General',
+        published_at: item.published_at || item.created_at || item.date || '',
+        date: item.date || item.published_at || item.created_at || '',
+        read_time: item.read_time || '3 min read',
+        is_breaking: Boolean(item.is_breaking),
+        is_new: Boolean(item.is_new),
+        is_pinned: Boolean(item.is_pinned),
+        seo_title: item.seo_title || '',
+        seo_description: item.seo_description || '',
+        seo_keywords: item.seo_keywords || '',
+        og_image_url: item.og_image_url || '',
+        canonical_url: item.canonical_url || '',
+        target_region: item.target_region || 'India',
+        link: item.link || '',
+        tags: Array.isArray(item.tags) ? item.tags : [],
+        related_app_id: item.related_app_id || '',
+        created_at: item.created_at || item.date || '',
+        updated_at: item.updated_at || item.date || ''
+      };
+    });
   } else if (isNewsIndexPage || isHomePage) {
     const sliceLimit = isHomePage ? 8 : rawNews.length;
     optimizedNews = rawNews.slice(0, sliceLimit).map((item: any) => ({
@@ -248,8 +260,10 @@ export function optimizeInitialDataForRoute(
       }));
   }
 
-  // Optimized Videos: Include lightweight video cards so /videos renders in 0ms on both direct and client navigation
-  const rawVideos = Array.isArray(data.videos) ? data.videos : (Array.isArray(data.mockVideos) ? data.mockVideos : []);
+  // Optimized Videos: Omit on App Details and News Detail pages to keep initial HTML and JSON.parse ultra-light
+  const rawVideos = (isAppDetailPage || isNewsDetailPage)
+    ? []
+    : (Array.isArray(data.videos) ? data.videos : (Array.isArray(data.mockVideos) ? data.mockVideos : []));
   const optimizedVideos: any[] = rawVideos.map((item: any) => {
     if (!item) return null;
     return {
@@ -267,16 +281,21 @@ export function optimizeInitialDataForRoute(
     };
   }).filter(Boolean);
 
-  // Public Settings: Include core UI settings + pre-cleaned informational/legal content so all pages render synchronously with 0 layout shift
+  // Public Settings: On App Details & News Detail pages, omit heavy legal HTML blobs, website_faqs, banners, and developers
   const rawSettings = data.settings || data.mockSettings || {};
   const optimizedSettings: any = {};
-  const allowedKeys = [
+  const detailPageKeys = [
     'site_title', 'logo_url', 'favicon_url', 'seo_title', 'seo_description', 'seo_keywords',
-    'meta_title', 'meta_description', 'social_links', 'categories', 'hero_title_text',
-    'hero_title_subtitle', 'hero_title_color', 'hero_title_animation', 'hero_title_visible',
-    'hero_title_style', 'portal_heading', 'secure_index_title', 'secure_index_subtitle',
-    'trending_searches', 'ticker_text', 'support_email', 'last_updated', 'animations_enabled',
-    'banners', 'quick_links', 'turnstile_site_key', 'helpline_whatsapp', 'helpline_telegram',
+    'meta_title', 'meta_description', 'social_links', 'categories', 'trending_searches',
+    'ticker_text', 'support_email', 'last_updated', 'animations_enabled',
+    'quick_links', 'turnstile_site_key', 'helpline_whatsapp', 'helpline_telegram',
+    'news_meta_title', 'news_meta_description'
+  ];
+  const fullAllowedKeys = [
+    ...detailPageKeys,
+    'hero_title_text', 'hero_title_subtitle', 'hero_title_color', 'hero_title_animation',
+    'hero_title_visible', 'hero_title_style', 'portal_heading', 'secure_index_title',
+    'secure_index_subtitle', 'banners',
     'about_meta_title', 'about_meta_description', 'about_content', 'about_us',
     'contact_meta_title', 'contact_meta_description', 'contact_content',
     'privacy_meta_title', 'privacy_meta_description', 'privacy_content',
@@ -288,9 +307,10 @@ export function optimizeInitialDataForRoute(
     'disclaimer_meta_title', 'disclaimer_meta_description', 'disclaimer_text', 'disclaimer_heading',
     'developers_meta_title', 'developers_meta_description', 'developers',
     'website_faqs', 'faq_meta_title', 'faq_meta_description',
-    'news_meta_title', 'news_meta_description',
     'videos_meta_title', 'videos_meta_description'
   ];
+
+  const allowedKeys = (isAppDetailPage || isNewsDetailPage) ? detailPageKeys : fullAllowedKeys;
 
   const htmlContentKeys = new Set([
     'about_content', 'about_us', 'contact_content', 'privacy_content', 'terms_content',
@@ -317,8 +337,8 @@ export function optimizeInitialDataForRoute(
     }
   }
 
-  // Ensure developers array is always available if present in settings or data
-  if (!optimizedSettings.developers && Array.isArray(data.developers)) {
+  // Ensure developers array is available when not on detail pages
+  if (!isAppDetailPage && !isNewsDetailPage && !optimizedSettings.developers && Array.isArray(data.developers)) {
     optimizedSettings.developers = data.developers;
   }
 
@@ -343,4 +363,5 @@ export function optimizeInitialDataForRoute(
     ...(appReviewsData ? { appReviews: appReviewsData } : {})
   };
 }
+
 

@@ -29,8 +29,15 @@ function serverSanitize(html: string): string {
     .replace(/data:\s*text\/html/gi, 'blocked-data:');
 }
 
+const STRUCTURE_CACHE = new Map<string, string>();
+const SAFE_HTML_CACHE = new Map<string, string>();
+const MAX_HTML_CACHE_SIZE = 250;
+
 export function structureHtmlFragment(rawHtml: string): string {
   if (!rawHtml || typeof rawHtml !== 'string') return '';
+  const cached = STRUCTURE_CACHE.get(rawHtml);
+  if (cached !== undefined) return cached;
+
   let str = rawHtml.trim();
 
   // 1. Strip document wrappers and embedded SVGs if present so SSR and CSR produce identical DOM height
@@ -79,7 +86,10 @@ export function structureHtmlFragment(rawHtml: string): string {
                  .replace(/<ul\b[^>]*>\s*<\/ul>/gi, '')
                  .replace(/<ol\b[^>]*>\s*<\/ol>/gi, '');
 
-    return clean.trim();
+    const finalClean = clean.trim();
+    if (STRUCTURE_CACHE.size >= MAX_HTML_CACHE_SIZE) STRUCTURE_CACHE.clear();
+    STRUCTURE_CACHE.set(rawHtml, finalClean);
+    return finalClean;
   }
 
   // Otherwise, if raw text/markdown without HTML block structure, build paragraphs & lists cleanly
@@ -175,7 +185,10 @@ export function structureHtmlFragment(rawHtml: string): string {
                  .replace(/<h[23456]\b[^>]*>\s*<\/h[23456]>/gi, '')
                  .replace(/<ul\b[^>]*>\s*<\/ul>/gi, '');
 
-  return result.trim();
+  const finalResult = result.trim();
+  if (STRUCTURE_CACHE.size >= MAX_HTML_CACHE_SIZE) STRUCTURE_CACHE.clear();
+  STRUCTURE_CACHE.set(rawHtml, finalResult);
+  return finalResult;
 }
 
 export function enhanceAndCleanHtml(rawHtml: string): string {
@@ -195,15 +208,27 @@ export function safeHtml(val: any, fallback: string = ''): string {
     rawStr = String(val);
   }
 
+  if (!rawStr) return fallback;
+
+  const cached = SAFE_HTML_CACHE.get(rawStr);
+  if (cached !== undefined) return cached;
+
   const enhancedStr = enhanceAndCleanHtml(rawStr);
 
+  let sanitized = '';
   try {
     if (typeof window !== 'undefined' && DOMPurify && typeof DOMPurify.sanitize === 'function') {
-      return DOMPurify.sanitize(enhancedStr, { ADD_ATTR: ["target", "rel", "data-discover"] });
+      sanitized = DOMPurify.sanitize(enhancedStr, { ADD_ATTR: ["target", "rel", "data-discover"] });
+    } else {
+      sanitized = serverSanitize(enhancedStr);
     }
-    return serverSanitize(enhancedStr);
   } catch (err) {
-    return serverSanitize(enhancedStr);
+    sanitized = serverSanitize(enhancedStr);
   }
+
+  if (SAFE_HTML_CACHE.size >= MAX_HTML_CACHE_SIZE) SAFE_HTML_CACHE.clear();
+  SAFE_HTML_CACHE.set(rawStr, sanitized);
+  return sanitized;
 }
+
 

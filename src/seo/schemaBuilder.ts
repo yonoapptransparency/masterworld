@@ -142,6 +142,24 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
 
     schemas.push(softwareAppSchema);
 
+    // Emit WebPage schema with exact Admin title/headline so Google Search respects the exact <title> without rewriting
+    const appPageUrl = params.url || `${hostOrigin}/app/${getField(app, 'slug')}`;
+    schemas.push({
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      "@id": `${appPageUrl}#webpage`,
+      "url": appPageUrl,
+      "name": params.title,
+      "headline": params.title,
+      "description": desc,
+      "inLanguage": "en",
+      "mainEntity": {
+        "@type": "SoftwareApplication",
+        "name": name,
+        "url": appPageUrl
+      }
+    });
+
     // BreadcrumbList navigation schema
     const breadcrumbs: any[] = [
       {
@@ -358,7 +376,7 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
         }))
       });
     }
-  } else {
+  } else if (params.pageType === 'home') {
     schemas.push({
       "@context": "https://schema.org",
       "@type": "WebSite",
@@ -383,8 +401,48 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
       }
     });
 
-    const isFaqOrHome = params.pageType === 'home' || /\/faqs?\/?$/i.test(params.url || '');
-    if (isFaqOrHome && params.settings?.website_faqs && Array.isArray(params.settings.website_faqs) && params.settings.website_faqs.length > 0) {
+    if (params.settings?.website_faqs && Array.isArray(params.settings.website_faqs) && params.settings.website_faqs.length > 0) {
+      const seenQuestions = new Set<string>();
+      const faqList = params.settings.website_faqs
+        .filter((faq: any) => {
+          const q = cleanFaqQuestion(stripHtml(getField(faq, 'question')).trim());
+          const a = stripHtml(getField(faq, 'answer')).trim();
+          if (!q || !a || q.length < 5 || seenQuestions.has(q.toLowerCase())) return false;
+          seenQuestions.add(q.toLowerCase());
+          return true;
+        })
+        .map((faq: any) => ({
+          "@type": "Question",
+          "name": cleanFaqQuestion(stripHtml(getField(faq, 'question')).trim()),
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": stripHtml(getField(faq, 'answer')).trim()
+          }
+        }));
+      if (faqList.length > 0) {
+        schemas.push({
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "mainEntity": faqList
+        });
+      }
+    }
+  } else {
+    // Static pages (/about, /contact, /terms, /privacy, /faq, /developers, /videos, etc.):
+    // Emit WebPage schema with exact page title/headline instead of site-wide WebSite schema
+    schemas.push({
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      "@id": `${params.url}#webpage`,
+      "url": params.url,
+      "name": params.title,
+      "headline": params.title,
+      "description": params.description,
+      "inLanguage": "en"
+    });
+
+    const isFaqRoute = /\/faqs?\/?$/i.test(params.url || '');
+    if (isFaqRoute && params.settings?.website_faqs && Array.isArray(params.settings.website_faqs) && params.settings.website_faqs.length > 0) {
       const seenQuestions = new Set<string>();
       const faqList = params.settings.website_faqs
         .filter((faq: any) => {

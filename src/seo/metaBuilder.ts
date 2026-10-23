@@ -97,17 +97,19 @@ export function buildMetaTags(params: MetaBuilderParams): string {
   `;
   }
 
+  const isHomePage = pageType === 'home';
+
   return `
     <title>${escapedTitle}</title>
     <meta name="description" content="${escapedDesc}">
     ${keywords ? `<meta name="keywords" content="${escapedKeywords}">` : ''}
-    <meta data-rh="true" name="application-name" content="${resolvedSiteName}">
+    ${isHomePage ? `<meta data-rh="true" name="application-name" content="${resolvedSiteName}">` : ''}
     <meta data-rh="true" name="color-scheme" content="light dark">
     ${isNotFound
       ? `<meta data-rh="true" name="robots" content="noindex, nofollow, noarchive, nosnippet">`
       : `<meta data-rh="true" name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">`
     }
-    <meta data-rh="true" property="og:site_name" content="${resolvedSiteName}">
+    ${isHomePage ? `<meta data-rh="true" property="og:site_name" content="${resolvedSiteName}">` : ''}
     <meta data-rh="true" property="og:locale" content="en_IN">
     <meta data-rh="true" property="og:title" content="${escapedTitle}">
     <meta data-rh="true" property="og:description" content="${escapedDesc}">
@@ -141,7 +143,10 @@ export function buildMetaTags(params: MetaBuilderParams): string {
       if (pageType === 'news' && targetNews) {
         const rawNewsHero = getField(targetNews, 'image') || getField(targetNews, 'image_url') || getField(targetNews, 'logo_url') || getField(targetNews, 'og_image_url');
         if (rawNewsHero) {
-          return `<link rel="preload" as="image" href="${escapeHtml(getOptimizedImageUrl(rawNewsHero, 1200))}" fetchpriority="high">`;
+          const hero480 = escapeHtml(getOptimizedImageUrl(rawNewsHero, 480));
+          const hero800 = escapeHtml(getOptimizedImageUrl(rawNewsHero, 800));
+          const hero1200 = escapeHtml(getOptimizedImageUrl(rawNewsHero, 1200));
+          return `<link rel="preload" as="image" href="${hero800}" imagesrcset="${hero480} 480w, ${hero800} 800w, ${hero1200} 1200w" imagesizes="(max-width: 640px) 100vw, 768px" fetchpriority="high">`;
         }
       }
       if (pageType === 'home' && settings && Array.isArray((settings as any).banners) && (settings as any).banners.length > 0 && (settings as any).banners[0].image) {

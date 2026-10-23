@@ -2,6 +2,7 @@ import React, { useCallback } from 'react';
 import { AppConfig, GlobalSettings, NewsItem, VideoItem } from '../types';
 import { adminFetch } from '../services/adminAuthService';
 import { db, isFirebaseReal } from '../lib/firebase';
+import { formatPageTitle } from '../lib/seoUtils';
 
 const ADMIN_BYPASS_KEY = 'aistudio_preview_bypass_key';
 
@@ -18,14 +19,12 @@ export function useDataActions(
 ) {
 
   const saveAppSingle = useCallback(async (singleApp: any) => {
-    const cleanTitle = singleApp.seo_title || singleApp.meta_title || '';
-    const strippedTitle = cleanTitle
-      ? cleanTitle.replace(/\s*[-|–—•:]+\s*(?:RummyDex|Rummydex|Remidex|Rummy\s*Dex|MasterWorld|Dex)\s*$/i, '').trim()
-      : '';
+    const rawTitle = (singleApp.seo_title || singleApp.meta_title || '').trim();
+    const exactAdminTitle = rawTitle ? formatPageTitle(rawTitle, '') : '';
     const normalizedApp = {
       ...singleApp,
-      seo_title: strippedTitle,
-      meta_title: strippedTitle,
+      seo_title: exactAdminTitle,
+      meta_title: exactAdminTitle,
       seo_description: (singleApp.seo_description || singleApp.meta_description || '').trim(),
       meta_description: (singleApp.seo_description || singleApp.meta_description || '').trim(),
       updated_at: new Date().toISOString()

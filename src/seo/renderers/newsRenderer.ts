@@ -189,7 +189,9 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
 
   const sanitizedContent = sanitizeHtml(rawContent);
   const logo = getField(item, 'image') || getField(item, 'image_url') || getField(item, 'logo_url') || getField(item, 'og_image_url');
-  const optimizedLogo = logo ? optimizeImageUrl(logo, 1200) : '';
+  const optimizedLogo480 = logo ? optimizeImageUrl(logo, 480) : '';
+  const optimizedLogo800 = logo ? optimizeImageUrl(logo, 800) : '';
+  const optimizedLogo1200 = logo ? optimizeImageUrl(logo, 1200) : '';
 
   // Download / Action box (Matching NewsRelatedAppBox.tsx 1:1)
   const appSlug = relatedApp ? (getField(relatedApp, 'slug') || getField(relatedApp, 'id')) : '';
@@ -202,9 +204,9 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
     <div class="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-blue-50/80 via-indigo-50/60 to-blue-50/80 dark:from-blue-950/40 dark:via-indigo-950/30 dark:to-blue-950/40 border border-blue-100 dark:border-blue-900/50 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm ${marginClass}">
       <div class="flex items-center gap-3.5 w-full sm:w-auto">
         ${appIcon ? `
-          <img src="${escapeHtml(appIcon)}" alt="${escapeHtml(appName)}" width="52" height="52" class="w-13 h-13 rounded-2xl object-cover shadow-sm shrink-0 border border-black/5 dark:border-white/10" loading="eager" decoding="async" />
+          <img src="${escapeHtml(appIcon)}" alt="${escapeHtml(appName)}" width="52" height="52" class="w-[52px] h-[52px] rounded-2xl object-cover shadow-sm shrink-0 border border-black/5 dark:border-white/10" loading="lazy" decoding="async" />
         ` : `
-          <div class="w-13 h-13 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-xl shrink-0 shadow-sm">
+          <div class="w-[52px] h-[52px] rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-xl shrink-0 shadow-sm">
             ${escapeHtml(appName?.[0] || 'R')}
           </div>
         `}
@@ -311,17 +313,16 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
             </a>
           </div>
           <div class="grid grid-rows-2 grid-flow-col gap-x-3 xxs:gap-x-4 xs:gap-x-5 gap-y-3 xxs:gap-y-3.5 xs:gap-y-4 overflow-x-auto pt-2.5 pb-2 snap-x snap-proximity [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden -mx-2 xs:-mx-4 px-2 xs:px-4 sm:mx-0 sm:px-0" style="-webkit-overflow-scrolling: touch;">
-            ${displaySimilarApps.map((sim, simIdx) => {
+            ${displaySimilarApps.map((sim) => {
               const simName = getField(sim, 'name');
               const simSlug = getField(sim, 'slug');
               const simIcon = optimizeImageUrl(getField(sim, 'icon_url') || '', 160);
               const simIsHot = sim.is_hot === true || (sim.is_hot && sim.is_hot.booleanValue === true);
               const simIsNew = checkAppIsNew(sim);
-              const isEager = simIdx < 8;
               return `
                 <a href="/app/${encodeURIComponent(simSlug)}" class="flex flex-col items-center justify-start gap-1 xxs:gap-1.5 xs:gap-2 w-[68px] xxs:w-[76px] xs:w-[86px] sm:w-[98px] snap-start group shrink-0 active:scale-95 transition-transform duration-150 ease-out no-underline">
                   <div class="relative inline-block shrink-0">
-                    <img src="${escapeHtml(simIcon)}" alt="${escapeHtml(simName)}" width="86" height="86" decoding="async" class="w-[58px] h-[58px] xxs:w-[66px] xxs:h-[66px] xs:w-[76px] xs:h-[76px] sm:w-[86px] sm:h-[86px] rounded-[24%] shadow-[0_2px_8px_rgba(0,0,0,0.08)] object-cover group-hover:scale-105 transition-transform duration-200 block pointer-events-none select-none" loading="${isEager ? 'eager' : 'lazy'}" />
+                    <img src="${escapeHtml(simIcon)}" alt="${escapeHtml(simName)}" width="86" height="86" decoding="async" class="w-[58px] h-[58px] xxs:w-[66px] xxs:h-[66px] xs:w-[76px] xs:h-[76px] sm:w-[86px] sm:h-[86px] rounded-[24%] shadow-[0_2px_8px_rgba(0,0,0,0.08)] object-cover group-hover:scale-105 transition-transform duration-200 block pointer-events-none select-none" loading="lazy" />
                     ${simIsHot && simIsNew ? '<span class="absolute -top-1.5 -right-1.5 z-20 inline-flex items-center rounded-full overflow-hidden shadow-[0_2px_6px_rgba(0,0,0,0.25)] border border-white dark:border-zinc-900 font-black text-[7.5px] xxs:text-[8px] xs:text-[9px] uppercase tracking-wider leading-none select-none pointer-events-none"><span class="bg-[#d32f2f] text-white px-1 xs:px-1.5 py-0.5">HOT</span><span class="bg-[#008738] text-white px-1 xs:px-1.5 py-0.5">NEW</span></span>' : simIsHot ? '<span class="absolute -top-1.5 -right-1.5 z-20 bg-[#d32f2f] text-white font-black text-[7.5px] xxs:text-[8px] xs:text-[9px] px-1.5 py-0.5 rounded-full shadow-[0_2px_6px_rgba(0,0,0,0.25)] border border-white dark:border-zinc-900 uppercase tracking-wider leading-none select-none pointer-events-none flex items-center justify-center">HOT</span>' : simIsNew ? '<span class="absolute -top-1.5 -right-1.5 z-20 bg-[#008738] text-white font-black text-[7.5px] xxs:text-[8px] xs:text-[9px] px-1.5 py-0.5 rounded-full shadow-[0_2px_6px_rgba(0,0,0,0.25)] border border-white dark:border-zinc-900 uppercase tracking-wider leading-none select-none pointer-events-none flex items-center justify-center">NEW</span>' : ''}
                   </div>
                   <span class="text-[9.5px] xxs:text-[10.5px] xs:text-[11.5px] sm:text-[12px] font-semibold text-center text-zinc-800 dark:text-zinc-200 line-clamp-2 w-full px-0.5 leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors pointer-events-none select-none">${escapeHtml(simName)}</span>
@@ -379,7 +380,7 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
 
       ${logo ? `
         <div class="w-full aspect-video max-h-[420px] overflow-hidden mb-5 sm:mb-6 rounded-2xl bg-zinc-100 dark:bg-zinc-800/80 border border-black/5 dark:border-white/5 relative">
-          <img src="${escapeHtml(optimizedLogo)}" alt="${escapeHtml(title)}" width="1200" height="675" loading="eager" fetchpriority="high" decoding="async" class="w-full h-full object-cover block rounded-2xl" />
+          <img src="${escapeHtml(optimizedLogo800)}" srcset="${escapeHtml(optimizedLogo480)} 480w, ${escapeHtml(optimizedLogo800)} 800w, ${escapeHtml(optimizedLogo1200)} 1200w" sizes="(max-width: 640px) 100vw, 768px" alt="${escapeHtml(title)}" width="1200" height="675" loading="eager" fetchpriority="high" decoding="async" class="w-full h-full object-cover block rounded-2xl" />
         </div>
       ` : ''}
 

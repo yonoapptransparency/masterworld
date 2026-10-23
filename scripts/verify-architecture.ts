@@ -166,12 +166,29 @@ function verify() {
         schemaPassed = false;
         schemaIssues.push(`${item.route}: missing CollectionPage schema on /news`);
       }
+      if ((item.type === 'app' || item.type === 'static') && !allLdStr.includes('"WebPage"')) {
+        schemaPassed = false;
+        schemaIssues.push(`${item.route}: missing WebPage schema on ${item.type} route`);
+      }
+    }
+
+    // Subpage brand-rewriting signal check (B3): subpages must not leak application-name or og:site_name
+    if (item.type !== 'home') {
+      if (/<meta[^>]*name=["']application-name["']/i.test(headHtml) || /<meta[^>]*property=["']og:site_name["']/i.test(headHtml)) {
+        metaIntegrityPassed = false;
+        metaIssues.push(`${item.route}: subpage leaked application-name or og:site_name (triggers Google SERP brand suffix rewrite)`);
+      }
+    } else {
+      if (!/<meta[^>]*property=["']og:site_name["']/i.test(headHtml)) {
+        metaIntegrityPassed = false;
+        metaIssues.push(`/: homepage missing og:site_name`);
+      }
     }
   }
 
-  record('B3/B4', 'Metadata, Single Title & Canonical/OG Parity', metaIntegrityPassed, metaIssues.length === 0 ? `Verified across ${routesToInspect.length} route types (canonical === og:url, single <title>)` : metaIssues.join('; '));
+  record('B3/B4', 'Metadata, Single Title, Brand Control & Canonical/OG Parity', metaIntegrityPassed, metaIssues.length === 0 ? `Verified across ${routesToInspect.length} route types (canonical === og:url, single <title>, subpages isolated from application-name/og:site_name)` : metaIssues.join('; '));
   record('A1/A2/A4/B7', 'SSR Layout, Critical CSS & Footer Parity', ssrLayoutPassed, layoutIssues.length === 0 ? `Verified inline CSS, Header, Main, Ticker, and Footer w/ social links across ${routesToInspect.length} routes` : layoutIssues.join('; '));
-  record('B8', 'JSON-LD Schema Validity & Page-Type Isolation', schemaPassed, schemaIssues.length === 0 ? `All JSON-LD blocks valid; FAQPage restricted to / and /faq and app FAQs; /news has CollectionPage + ItemList` : schemaIssues.join('; '));
+  record('B8', 'JSON-LD Schema Validity & Page-Type Isolation', schemaPassed, schemaIssues.length === 0 ? `All JSON-LD blocks valid; WebPage schema present on app/static pages; FAQPage restricted to / and /faq and app FAQs; /news has CollectionPage + ItemList` : schemaIssues.join('; '));
 
   // 3. Verify Cloudinary URL Folder Preservation (B5)
   const appHtml = sampleApp ? fs.readFileSync(path.join(distDir, `app/${sampleApp.slug}/index.html`), 'utf8') : '';
@@ -185,6 +202,30 @@ function verify() {
   const gzFiles = assetFiles.filter(f => f.endsWith('.js.gz'));
   const brFiles = assetFiles.filter(f => f.endsWith('.js.br'));
   record('A9/A10', 'Bundle Compression (.gz & .br)', jsFiles.length > 0 && gzFiles.length >= jsFiles.length && brFiles.length >= jsFiles.length, `JS chunks: ${jsFiles.length}, GZip (.js.gz): ${gzFiles.length}, Brotli (.js.br): ${brFiles.length}`);
+
+  // 5. Verify Cloudflare Pages _redirects Non-Shadowing & Admin Brand Choice Preservation (B3, B6)
+  const pubRedirects = fs.readFileSync(path.join(publicDir, '_redirects'), 'utf8');
+  const distRedirects = fs.readFileSync(path.join(distDir, '_redirects'), 'utf8');
+  const hasShadowingRule = /\/(app|news|videos|category)\/\*\s+\/index\.html\s+200/i.test(pubRedirects) || /\/(app|news|videos|category)\/\*\s+\/index\.html\s+200/i.test(distRedirects);
+  const useDataActionsSrc = fs.readFileSync(path.resolve(process.cwd(), 'src/hooks/useDataActions.ts'), 'utf8');
+  const hasDestructiveBrandStrip = /cleanTitle\.replace\([^)]*RummyDex/i.test(useDataActionsSrc);
+  record('B3/B6', 'Cloudflare Routing Non-Shadowing & Admin Brand Choice Fidelity', !hasShadowingRule && !hasDestructiveBrandStrip, 'Verified _redirects does not rewrite /app/* or /news/* to Homepage /index.html, and useDataActions.ts preserves Admin brand choice verbatim');
+
+  // 6. Verify App Detail & News Detail Mobile LCP, 1:1 SSR Parity & Initial Data Trim
+  const newsHtml = sampleNews ? fs.readFileSync(path.join(distDir, `news/${sampleNews.slug}/index.html`), 'utf8') : '';
+  const appHas1to1ReviewsSummary = appHtml.includes('Ratings and reviews') && appHtml.includes('Ratings and reviews are contributed by players and moderated');
+  const appHasRichTypography = appHtml.includes('[&amp;_strong]:text-blue-600') || appHtml.includes('[&_strong]:text-blue-600');
+  const appNoLegalBloat = !appHtml.includes('"privacy_content":') && !appHtml.includes('"terms_content":');
+  const newsHasResponsiveHero = newsHtml.includes('480w') && newsHtml.includes('800w') && newsHtml.includes('1200w') && newsHtml.includes('imagesrcset=');
+  const newsNoLegalBloat = !newsHtml.includes('"privacy_content":') && !newsHtml.includes('"terms_content":');
+  const detailParityPassed = appHas1to1ReviewsSummary && appHasRichTypography && appNoLegalBloat && newsHasResponsiveHero && newsNoLegalBloat;
+
+  record(
+    'A1/A3/A7',
+    'App Detail & News Detail 1:1 SSR Parity, Responsive Mobile LCP & Lean Initial Data',
+    detailParityPassed,
+    `App 1:1 ReviewScoreSummary: ${appHas1to1ReviewsSummary}, Rich Typography Parity: ${appHasRichTypography}, News 480w/800w/1200w srcset: ${newsHasResponsiveHero}, Legal HTML Bloat Stripped: ${appNoLegalBloat && newsNoLegalBloat}`
+  );
 
   console.log('\n══════════════════════════════════════════════════════════════');
   console.log('  RUMMYDEX ARCHITECTURE & SEO VERIFICATION REPORT (PHASE 4)');

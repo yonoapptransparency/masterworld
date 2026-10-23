@@ -921,7 +921,7 @@ export function useGitHubSync(
           });
         }
 
-        const robotsContent = `User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /admin/\nDisallow: /login/\nDisallow: /masterworld/\nSitemap: https://www.rummydex.com/sitemap.xml\n`;
+        const robotsContent = `User-agent: *\nAllow: /\nAllow: /api/v1/public/\nDisallow: /api/\nDisallow: /admin/\nDisallow: /login/\nDisallow: /masterworld/\nDisallow: /s/\nDisallow: /s/*\nDisallow: /dl/\nDisallow: /dl/*\nDisallow: /out/\nDisallow: /out/*\nDisallow: /download/\nDisallow: /download/*\nDisallow: /gateway/\nDisallow: /gateway/*\nDisallow: /info/\nDisallow: /info/*\nDisallow: /moreinfo/\nDisallow: /moreinfo/*\nDisallow: /moredetail/\nDisallow: /moredetail/*\n\nSitemap: https://www.rummydex.com/sitemap.xml\n`;
         primaryBatchFiles.push({
           path: 'public/robots.txt',
           content: robotsContent

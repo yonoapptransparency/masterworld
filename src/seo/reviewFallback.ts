@@ -52,11 +52,21 @@ export function getLocalFallbackReviewsForApp(appId: string, appSlug: string): S
               return rAppId === cleanId || rAppId === cleanSlug || (cleanSlug && rSlug === cleanSlug);
             })
             .slice(0, 10)
-            .map((r: any) => ({
+            .map((r: any, idx: number) => ({
+              id: r.id || `rev_${cleanSlug || cleanId}_${idx}`,
               userName: r.userName || r.username || 'Player',
+              username: r.username || r.userName || 'Player',
               rating: Number(r.rating) || 5,
               reviewText: r.reviewText || r.comment || '',
-              timestamp: r.timestamp || r.created_at || new Date().toISOString()
+              comment: r.comment || r.reviewText || '',
+              timestamp: r.timestamp || r.created_at || new Date().toISOString(),
+              created_at: r.created_at || r.timestamp || new Date().toISOString(),
+              helpful_count: Number(r.helpful_count) || 0,
+              isPinned: Boolean(r.isPinned),
+              reported: Boolean(r.reported),
+              report_count: Number(r.report_count) || 0,
+              source: r.source || 'community',
+              adminReply: r.adminReply || null
             }));
         }
       } catch (_) {}
@@ -72,11 +82,21 @@ export function getLocalFallbackReviewsForApp(appId: string, appSlug: string): S
           const additions = list
             .filter((r: any) => !existingTexts.has(r.reviewText || r.comment))
             .slice(0, 10 - sampleReviews.length)
-            .map((r: any) => ({
+            .map((r: any, idx: number) => ({
+              id: r.id || `rev_static_${cleanSlug || cleanId}_${idx}`,
               userName: r.userName || r.username || 'Player',
+              username: r.username || r.userName || 'Player',
               rating: Number(r.rating) || 5,
               reviewText: r.reviewText || r.comment || '',
-              timestamp: r.timestamp || r.created_at || new Date().toISOString()
+              comment: r.comment || r.reviewText || '',
+              timestamp: r.timestamp || r.created_at || new Date().toISOString(),
+              created_at: r.created_at || r.timestamp || new Date().toISOString(),
+              helpful_count: Number(r.helpful_count) || 0,
+              isPinned: Boolean(r.isPinned),
+              reported: Boolean(r.reported),
+              report_count: Number(r.report_count) || 0,
+              source: r.source || 'community',
+              adminReply: r.adminReply || null
             }));
           sampleReviews = [...sampleReviews, ...additions];
         }
