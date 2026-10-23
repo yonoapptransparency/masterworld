@@ -747,13 +747,19 @@ export async function submitLiveReport(data: {
 // ---------------------------------------------------------
 
 async function safeAdminFetch(url: string, opts?: any): Promise<Response> {
-  try {
-    const authModule = await import('../services/adminAuthService');
-    if (authModule && typeof authModule.adminFetch === 'function') {
-      return authModule.adminFetch(url, opts);
-    }
-  } catch (_) {}
-  return fetch(url, opts);
+  const headers: Record<string, string> = { ...(opts?.headers || {}) };
+  if (typeof window !== 'undefined') {
+    try {
+      const rawSession = localStorage.getItem('__adm_session') || sessionStorage.getItem('__adm_session');
+      if (rawSession) {
+        const parsed = JSON.parse(rawSession);
+        if (parsed?.idToken && !headers['Authorization']) {
+          headers['Authorization'] = `Bearer ${parsed.idToken}`;
+        }
+      }
+    } catch (_) {}
+  }
+  return fetch(url, { ...opts, headers, credentials: 'include' });
 }
 
 export interface AdminReviewItem {

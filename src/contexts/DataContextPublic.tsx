@@ -36,6 +36,7 @@ interface DataContextType {
   fetchNews: () => void;
   fetchVideos: () => void;
   updateAppDetail?: (app: AppConfig) => void;
+  mergeCatalogApps?: (incomingApps: AppConfig[]) => void;
   updateNewsDetail?: (newsItem: NewsItem) => void;
 }
 
@@ -221,14 +222,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return mockVideos;
   });
 
-  const [loading, setLoading] = useState(false);
-  const [loadedFromServer, setLoadedFromServer] = useState(false);
+  const [loading, setLoading] = useState(() => apps.length === 0);
+  const [loadedFromServer, setLoadedFromServer] = useState(() => apps.length > 0);
   const [isLive, setIsLive] = useState(true);
 
   // Dedicated lightweight fetchers for each section on-demand when URL/route changes
   const fetchNews = useCallback(async () => {
-    const isCrawler = typeof navigator !== 'undefined' && /googlebot|google-inspectiontool|bingbot|slurp|duckduckbot|baiduspider|yandexbot|crawler|spider|lighthouse|chrome-lighthouse|headless/i.test(navigator.userAgent || '');
-    if (isCrawler) return;
     try {
       const res = await fetch('/api/v1/public/news', {
         headers: { 'Accept': 'application/json' }
@@ -245,8 +244,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const fetchSettings = useCallback(async () => {
-    const isCrawler = typeof navigator !== 'undefined' && /googlebot|google-inspectiontool|bingbot|slurp|duckduckbot|baiduspider|yandexbot|crawler|spider|lighthouse|chrome-lighthouse|headless/i.test(navigator.userAgent || '');
-    if (isCrawler) return;
     try {
       const res = await fetch('/api/v1/public/settings', {
         headers: { 'Accept': 'application/json' }
@@ -263,8 +260,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const fetchVideos = useCallback(async () => {
-    const isCrawler = typeof navigator !== 'undefined' && /googlebot|google-inspectiontool|bingbot|slurp|duckduckbot|baiduspider|yandexbot|crawler|spider|lighthouse|chrome-lighthouse|headless/i.test(navigator.userAgent || '');
-    if (isCrawler) return;
     try {
       const res = await fetch('/api/v1/public/videos', {
         headers: { 'Accept': 'application/json' }
@@ -282,10 +277,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Fetch from server backup endpoint with fast memory caching (zero main-thread localStorage serialization stall)
   const fetchBackupData = useCallback(async (silent = false) => {
-    // Never fire background backup-data fetch during crawler indexing
-    const isCrawler = typeof navigator !== 'undefined' && /googlebot|google-inspectiontool|bingbot|slurp|duckduckbot|baiduspider|yandexbot|crawler|spider|lighthouse|chrome-lighthouse|headless/i.test(navigator.userAgent || '');
-    if (isCrawler) return;
-
     try {
       if (!silent && apps.length === 0) setLoading(true);
       const res = await fetch('/api/v1/public/backup-data', {
@@ -345,12 +336,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [apps.length]);
 
   useEffect(() => {
-    const isCrawler = typeof navigator !== 'undefined' && /googlebot|google-inspectiontool|bingbot|slurp|duckduckbot|baiduspider|yandexbot|crawler|spider|lighthouse|chrome-lighthouse|headless/i.test(navigator.userAgent || '');
-    if (isCrawler) return;
-
     // Only fetch backup data if initial SSR cache was completely empty
     if (apps.length === 0) {
-      fetchBackupData(true);
+      fetchBackupData(false);
     }
   }, [apps.length, fetchBackupData]);
 
@@ -403,6 +391,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, []);
 
+  const mergeCatalogApps = useCallback((incomingApps: AppConfig[]) => {
+    if (!Array.isArray(incomingApps) || incomingApps.length === 0) return;
+    setApps(prev => mergeUniqueApps(prev, incomingApps));
+    setLoadedFromServer(true);
+    setLoading(false);
+  }, []);
+
   const value = React.useMemo<DataContextType>(() => ({
     apps,
     settings: resolvedSettings,
@@ -419,6 +414,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isLive,
     refreshAll: fetchBackupData,
     updateAppDetail,
+    mergeCatalogApps,
     updateNewsDetail,
 
     // Dummy admin handlers for public view interface compliance
@@ -434,7 +430,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     fetchSettings,
     fetchNews,
     fetchVideos,
-  }), [apps, resolvedSettings, news, videos, loading, loadedFromServer, isLive, fetchBackupData, fetchSettings, fetchNews, fetchVideos, updateAppDetail, updateNewsDetail]);
+  }), [apps, resolvedSettings, news, videos, loading, loadedFromServer, isLive, fetchBackupData, fetchSettings, fetchNews, fetchVideos, updateAppDetail, mergeCatalogApps, updateNewsDetail]);
 
   return (
     <DataContext.Provider value={value}>

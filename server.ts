@@ -260,6 +260,14 @@ async function startServer() {
         res.setHeader('Vary', 'Accept-Encoding');
         if (filePath.endsWith('.html')) {
           res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=3600, stale-while-revalidate=86400');
+          const normPath = filePath.replace(/\\/g, '/').toLowerCase();
+          const isNoIndexStatic = normPath.includes('/moreinfo/') || normPath.includes('/gateway/') || normPath.includes('/admin/') || normPath.includes('/safety');
+          res.setHeader(
+            'X-Robots-Tag',
+            isNoIndexStatic
+              ? 'noindex, nofollow, noarchive, nosnippet'
+              : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1'
+          );
         } else {
           res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
         }
@@ -621,7 +629,9 @@ async function startServer() {
         reqUrlLower.startsWith('/moredetail/') ||
         reqUrlLower.startsWith('/admin') ||
         reqUrlLower.startsWith('/login') ||
-        reqUrlLower.startsWith('/masterworld');
+        reqUrlLower.startsWith('/masterworld') ||
+        reqUrlLower === '/safety' ||
+        reqUrlLower === '/safety-status';
 
       if (isDisallowedRoute) {
         cacheControl = 'no-store, no-cache, must-revalidate, private, max-age=0';

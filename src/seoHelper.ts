@@ -196,13 +196,13 @@ export function cleanRootContainer(html: string): string {
 }
 
 export async function injectSeoTags(template: string, urlPath: string, hostUrl?: string, userAgent: string = ''): Promise<SeoInjectionResult> {
-  const data = await fetchStoreData();
+  let data = await fetchStoreData();
   if (!data || !data.settings) return { html: template, isNotFound: false };
 
-  const apps = (data.apps || []).filter((a: any) => a && a.sync_to_public !== false);
-  const settings = data.settings || {};
-  const news = (data.news || []).filter((n: any) => n && n.sync_to_public !== false);
-  const videos = data.videos || [];
+  let apps = (data.apps || []).filter((a: any) => a && a.sync_to_public !== false);
+  let settings = data.settings || {};
+  let news = (data.news || []).filter((n: any) => n && n.sync_to_public !== false);
+  let videos = data.videos || [];
   const siteTitle = getField(settings, 'site_title') || 'RummyDex';
   let title = getField(settings, 'seo_title') || getField(settings, 'meta_title') || siteTitle;
   let description = getField(settings, 'seo_description') || getField(settings, 'meta_description', '');
@@ -345,11 +345,21 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     const rawNewsSlug = cleanPath.split('/news/')[1] || '';
     const cleanNewsSlug = decodeURIComponent(rawNewsSlug).toLowerCase().trim().replace(/\/+$/, '').split(/[?#]/)[0];
 
-    const newsItem = news.find((n: any) => {
+    let newsItem = news.find((n: any) => {
       const nSlug = (getField(n, 'slug') || '').toLowerCase().trim();
       const nId = (getField(n, 'id') || '').toLowerCase().trim();
       return (nSlug && nSlug === cleanNewsSlug) || (nId && nId === cleanNewsSlug);
     });
+
+    if (!newsItem && cleanNewsSlug) {
+      data = await doFetchStoreData();
+      news = (data.news || []).filter((n: any) => n && n.sync_to_public !== false);
+      newsItem = news.find((n: any) => {
+        const nSlug = (getField(n, 'slug') || '').toLowerCase().trim();
+        const nId = (getField(n, 'id') || '').toLowerCase().trim();
+        return (nSlug && nSlug === cleanNewsSlug) || (nId && nId === cleanNewsSlug);
+      });
+    }
 
     if (newsItem) {
       title = getField(newsItem, 'seo_title') || getField(newsItem, 'meta_title') || getField(newsItem, 'title');
@@ -436,7 +446,12 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     }
   } else if (cleanPathLower.startsWith('/app/')) {
     const appSlug = cleanPathLower.replace(/^\/app\//, '/').replace(/^\/|\/$/g, '');
-    const app = resolveAppSlug(appSlug, apps);
+    let app = resolveAppSlug(appSlug, apps);
+    if (!app && appSlug) {
+      data = await doFetchStoreData();
+      apps = (data.apps || []).filter((a: any) => a && a.sync_to_public !== false);
+      app = resolveAppSlug(appSlug, apps);
+    }
     if (app) {
       title = getField(app, 'seo_title') || getField(app, 'meta_title') || getField(app, 'name');
       description = cleanSeoDescription(getField(app, 'seo_description') || getField(app, 'meta_description') || stripHtml(getField(app, 'description_html')).substring(0, 160));
@@ -585,8 +600,9 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   const seoReviewsFeed = targetApp ? getLocalFallbackReviewsForApp(getField(targetApp, 'id'), getField(targetApp, 'slug')) : null;
   const initialDataPayload = optimizeInitialDataForRoute(data, cleanPathLower, targetApp, targetNews, targetVideo, seoReviewsFeed);
   const initialDataJson = JSON.stringify(initialDataPayload || {}).replace(/</g, '\\u003c');
+  const ssrPathJson = JSON.stringify(cleanPathLower);
   
-  const initialDataScript = `<script>window.__INITIAL_DATA__ = ${initialDataJson};</script>`;
+  const initialDataScript = `<script>window.__SSR_PATH__ = ${ssrPathJson};window.__INITIAL_DATA__ = ${initialDataJson};</script>`;
 
   let finalHtml = template
     .replace(/<title[\s\S]*?<\/title>/gi, '')
@@ -609,7 +625,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     .replace(/<link\s+[^>]*rel=["'](?:shortcut\s+)?icon["'][^>]*\/?>/gi, '')
     .replace(/<link\s+[^>]*rel=["']apple-touch-icon[^"']*["'][^>]*\/?>/gi, '')
     .replace(/<script\s+type=["']application\/ld\+json["'][^>]*>[\s\S]*?<\/script>/gi, '')
-    .replace(/<script>window\.__INITIAL_DATA__[\s\S]*?<\/script>/gi, '')
+    .replace(/<script>window\.(?:__SSR_PATH__|__INITIAL_DATA__)[\s\S]*?<\/script>/gi, '')
     .replace(/<style\s+id=["']server-critical-css["']>[\s\S]*?<\/style>/gi, '');
 
   const criticalCss = getCriticalCss();

@@ -46,83 +46,200 @@
   CDN-Cache-Control: public, max-age=7200
   Cloudflare-CDN-Cache-Control: public, max-age=7200
 
-# 4. Prerendered HTML Page Delivery (Instant 20ms Cloudflare Edge delivery with Stale-While-Revalidate)
+# 4. Prerendered HTML Page Delivery (Instant 20ms Cloudflare Edge delivery with Stale-While-Revalidate & Explicit Indexing)
 /app/*
   Cache-Control: public, max-age=60, s-maxage=3600, stale-while-revalidate=86400
   CDN-Cache-Control: public, max-age=3600, stale-while-revalidate=86400
   Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  X-Robots-Tag: index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1
+
+/news
+  Cache-Control: public, max-age=60, s-maxage=3600, stale-while-revalidate=86400
+  CDN-Cache-Control: public, max-age=3600, stale-while-revalidate=86400
+  Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  X-Robots-Tag: index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1
 
 /news/*
   Cache-Control: public, max-age=60, s-maxage=3600, stale-while-revalidate=86400
   CDN-Cache-Control: public, max-age=3600, stale-while-revalidate=86400
   Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  X-Robots-Tag: index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1
+
+/videos
+  Cache-Control: public, max-age=60, s-maxage=3600, stale-while-revalidate=86400
+  CDN-Cache-Control: public, max-age=3600, stale-while-revalidate=86400
+  Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  X-Robots-Tag: index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1
 
 /videos/*
   Cache-Control: public, max-age=60, s-maxage=3600, stale-while-revalidate=86400
   CDN-Cache-Control: public, max-age=3600, stale-while-revalidate=86400
   Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  X-Robots-Tag: index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1
 
 /category/*
   Cache-Control: public, max-age=60, s-maxage=3600, stale-while-revalidate=86400
   CDN-Cache-Control: public, max-age=3600, stale-while-revalidate=86400
   Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  X-Robots-Tag: index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1
 
 /categories
   Cache-Control: public, max-age=60, s-maxage=3600, stale-while-revalidate=86400
   CDN-Cache-Control: public, max-age=3600, stale-while-revalidate=86400
   Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  X-Robots-Tag: index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1
 
 /new-apps
   Cache-Control: public, max-age=60, s-maxage=3600, stale-while-revalidate=86400
   CDN-Cache-Control: public, max-age=3600, stale-while-revalidate=86400
   Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  X-Robots-Tag: index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1
 
 /developers
   Cache-Control: public, max-age=60, s-maxage=3600, stale-while-revalidate=86400
   CDN-Cache-Control: public, max-age=3600, stale-while-revalidate=86400
   Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  X-Robots-Tag: index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1
 
 /about
   Cache-Control: public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800
   CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
   Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  X-Robots-Tag: index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1
 
 /contact
   Cache-Control: public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800
   CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
   Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  X-Robots-Tag: index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1
 
 /privacy
   Cache-Control: public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800
   CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
   Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  X-Robots-Tag: index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1
 
 /terms
   Cache-Control: public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800
   CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
   Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  X-Robots-Tag: index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1
 
 /disclaimer
   Cache-Control: public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800
   CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
   Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  X-Robots-Tag: index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1
 
-# 5. Clearance Gateway Security (Strict no-store)
+/notice
+  Cache-Control: public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800
+  CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  X-Robots-Tag: index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1
+
+/ethics
+  Cache-Control: public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800
+  CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  X-Robots-Tag: index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1
+
+/responsibility
+  Cache-Control: public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800
+  CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  X-Robots-Tag: index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1
+
+/report-removal
+  Cache-Control: public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800
+  CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  X-Robots-Tag: index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1
+
+/faq
+  Cache-Control: public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800
+  CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  X-Robots-Tag: index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1
+
+/faqs
+  Cache-Control: public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800
+  CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  X-Robots-Tag: index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1
+
+# 5. Clearance Gateway & Non-Indexed Security Routes (Strict no-store & noindex)
 /moreinfo/*
   Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0
-  X-Robots-Tag: noindex, nofollow, noarchive
+  X-Robots-Tag: noindex, nofollow, noarchive, nosnippet
   Referrer-Policy: no-referrer
 
-# 6. HTML entry point fallback (Universal instant fresh delivery with Edge SWR)
+/gateway/*
+  Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0
+  X-Robots-Tag: noindex, nofollow, noarchive, nosnippet
+  Referrer-Policy: no-referrer
+
+/download/*
+  Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0
+  X-Robots-Tag: noindex, nofollow, noarchive, nosnippet
+  Referrer-Policy: no-referrer
+
+/info/*
+  Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0
+  X-Robots-Tag: noindex, nofollow, noarchive, nosnippet
+  Referrer-Policy: no-referrer
+
+/moredetail/*
+  Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0
+  X-Robots-Tag: noindex, nofollow, noarchive, nosnippet
+  Referrer-Policy: no-referrer
+
+/s/*
+  Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0
+  X-Robots-Tag: noindex, nofollow, noarchive, nosnippet
+  Referrer-Policy: no-referrer
+
+/dl/*
+  Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0
+  X-Robots-Tag: noindex, nofollow, noarchive, nosnippet
+  Referrer-Policy: no-referrer
+
+/out/*
+  Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0
+  X-Robots-Tag: noindex, nofollow, noarchive, nosnippet
+  Referrer-Policy: no-referrer
+
+/admin/*
+  Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0
+  X-Robots-Tag: noindex, nofollow, noarchive, nosnippet
+
+/login/*
+  Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0
+  X-Robots-Tag: noindex, nofollow, noarchive, nosnippet
+
+/masterworld/*
+  Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0
+  X-Robots-Tag: noindex, nofollow, noarchive, nosnippet
+
+/safety
+  Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0
+  X-Robots-Tag: noindex, nofollow, noarchive, nosnippet
+
+/safety-status
+  Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0
+  X-Robots-Tag: noindex, nofollow, noarchive, nosnippet
+
+# 6. HTML entry point fallback (Universal instant fresh delivery with Edge SWR & Explicit Indexing)
 /
   Cache-Control: public, max-age=60, s-maxage=3600, stale-while-revalidate=86400
   CDN-Cache-Control: public, max-age=3600, stale-while-revalidate=86400
   Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  X-Robots-Tag: index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1
 
 /index.html
   Cache-Control: public, max-age=60, s-maxage=3600, stale-while-revalidate=86400
   CDN-Cache-Control: public, max-age=3600, stale-while-revalidate=86400
   Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+  X-Robots-Tag: index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1
 
 # 7. Global Security & Modern Browser Headers
 /*

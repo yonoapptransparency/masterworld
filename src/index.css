@@ -1,4 +1,9 @@
 @import "tailwindcss";
+@source not "../api";
+@source not "../dist";
+@source not "../public";
+@source not "../scripts";
+@source not "./lib/*.json";
 @plugin "@tailwindcss/typography";
 
 @theme {

@@ -134,64 +134,7 @@ export async function syncFromFirestore(): Promise<any> {
 
   const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
 
-  // 1. Try Firebase Admin SDK first
-  try {
-    const { getFirebaseAdminDb } = require('../server/firebase');
-    const adminDb = getFirebaseAdminDb();
-    if (adminDb) {
-      const metaDoc = await adminDb.collection('store_data').doc('apps_meta').get();
-      let numChunks = 1;
-      if (metaDoc.exists) {
-        const metaData = metaDoc.data();
-        numChunks = metaData.numChunks || 1;
-      }
-
-      const chunkPromises = [];
-      for (let i = 0; i < numChunks; i++) {
-        chunkPromises.push(adminDb.collection('store_data').doc(`apps_chunk_${i}`).get());
-      }
-      const chunkSnaps = await Promise.all(chunkPromises);
-      const remoteApps: any[] = [];
-      for (const snap of chunkSnaps) {
-        if (snap.exists) {
-          const items = snap.data().items;
-          if (Array.isArray(items)) {
-            remoteApps.push(...items);
-          }
-        }
-      }
-
-      const [settingsDoc, newsDoc, videosDoc] = await Promise.all([
-        adminDb.collection('store_data').doc('public_settings').get().catch(() => null),
-        adminDb.collection('store_data').doc('news').get().catch(() => null),
-        adminDb.collection('store_data').doc('videos').get().catch(() => null)
-      ]);
-
-      const remoteSettings = settingsDoc?.exists ? settingsDoc.data() : {};
-      const settings = cleanSettingsMetaTitles(
-        (remoteSettings && Object.keys(remoteSettings).length > 0)
-          ? { ...(fallbackData.settings || {}), ...remoteSettings }
-          : (fallbackData.settings || {})
-      );
-
-      const remoteNews = newsDoc?.exists && Array.isArray(newsDoc.data()?.items) ? newsDoc.data().items : [];
-      const news = remoteNews.length > 0 ? remoteNews.map((n: any) => cleanItemSeo({ ...n })) : fallbackData.news;
-      const videos = videosDoc?.exists && Array.isArray(videosDoc.data()?.items) ? videosDoc.data().items : fallbackData.videos;
-
-      if (remoteApps.length > 0) {
-        const mergedApps = mergeItemsByTimestamp(fallbackData.apps, remoteApps);
-        const result = { apps: mergedApps, settings, news, videos, reviews: fallbackData.reviews || [] };
-        try {
-          fs.writeFileSync(publicBackupPath, JSON.stringify(result, null, 2), 'utf8');
-        } catch (e) {}
-        return result;
-      }
-    }
-  } catch (adminErr) {
-    // Admin SDK not available or error, fall through to REST
-  }
-
-  // 2. Try Firestore REST API directly
+  // Query Firestore REST API directly (100% compatible with both Admin and Public repos)
   try {
     const config = getRawFirebaseConfig();
     if (config && config.projectId) {
@@ -212,8 +155,9 @@ export async function syncFromFirestore(): Promise<any> {
         if (parsedMeta.numChunks) numChunks = Number(parsedMeta.numChunks);
       }
 
+      const chunksToProbe = Math.max(numChunks, 6);
       const chunkFetches = [];
-      for (let i = 0; i < numChunks; i++) {
+      for (let i = 0; i < chunksToProbe; i++) {
         chunkFetches.push(
           fetch(`${baseUrl}/apps_chunk_${i}${apiKeyParam}`)
             .then(r => r.ok ? r.json() : null)

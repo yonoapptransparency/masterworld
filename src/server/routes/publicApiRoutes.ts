@@ -101,7 +101,8 @@ publicApiRouter.get('/api/v1/public/app/:slug', async (req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800');
     res.setHeader('CDN-Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
     res.setHeader('Cloudflare-CDN-Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
-    return res.json({ status: 'OK', app: sanitizeAppForPublicClient(app, true) });
+    const catalogApps = apps.map((a: any) => sanitizeAppForPublicClient(a, false));
+    return res.json({ status: 'OK', app: sanitizeAppForPublicClient(app, true), catalogApps });
   }
 
   res.status(404).json({ status: 'NOT_FOUND', error: 'App not found' });

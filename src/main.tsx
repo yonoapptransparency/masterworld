@@ -78,9 +78,10 @@ const rootEl = document.getElementById('root');
 if (rootEl) {
   const ua = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
   const isSearchCrawler = /googlebot|google-inspectiontool|storebot-google|apis-google|mediapartners-google|adsbot-google|bingbot|slurp|duckduckbot|baiduspider|yandexbot|applebot|gptbot|claudebot|perplexitybot|oai-searchbot|bytespider|facebookexternalhit|twitterbot|linkedinbot/i.test(ua);
-  const pathLower = (typeof window !== 'undefined' && window.location?.pathname) ? window.location.pathname.toLowerCase() : '/';
+  const pathLower = (typeof window !== 'undefined' && window.location?.pathname) ? (window.location.pathname.toLowerCase().replace(/\/+$/, '') || '/') : '/';
   const isAdminRoute = pathLower.startsWith('/admin') || pathLower.startsWith('/masterworld') || pathLower.startsWith('/login');
-  const hasPreRenderedSsrDom = rootEl.children.length > 0;
+  const ssrPath = typeof window !== 'undefined' ? String((window as any).__SSR_PATH__ || '').toLowerCase() : '';
+  const hasPreRenderedSsrDom = rootEl.children.length > 0 && (!ssrPath || ssrPath === pathLower);
 
   // When a search engine crawler (e.g., Googlebot Smartphone / Google InspectionTool) inspects a pre-rendered public route,
   // keeping the server-rendered DOM intact prevents createRoot() from wiping #root and aborting in-flight image loads.

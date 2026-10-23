@@ -38,7 +38,7 @@
       ]
     },
     {
-      "source": "/moreinfo/(.*)",
+      "source": "/(moreinfo|gateway|download|info|moredetail|s|dl|out|admin|login|masterworld|safety|safety-status)(.*)",
       "headers": [
         {
           "key": "Cache-Control",
@@ -54,7 +54,7 @@
         },
         {
           "key": "X-Robots-Tag",
-          "value": "noindex, nofollow, noarchive"
+          "value": "noindex, nofollow, noarchive, nosnippet"
         },
         {
           "key": "Referrer-Policy",
@@ -63,7 +63,7 @@
       ]
     },
     {
-      "source": "/(app|news|category|categories|videos|about|contact|privacy|terms|responsibility|notice|ethics|disclaimer|report-removal|new-apps|developers|faq|faqs|safety)(.*)",
+      "source": "/(app|news|category|categories|videos|about|contact|privacy|terms|responsibility|notice|ethics|disclaimer|report-removal|new-apps|developers|faq|faqs)(.*)",
       "headers": [
         {
           "key": "Cache-Control",
@@ -76,6 +76,23 @@
         {
           "key": "Cloudflare-CDN-Cache-Control",
           "value": "public, max-age=3600, stale-while-revalidate=86400"
+        },
+        {
+          "key": "X-Robots-Tag",
+          "value": "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
+        }
+      ]
+    },
+    {
+      "source": "/",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400"
+        },
+        {
+          "key": "X-Robots-Tag",
+          "value": "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
         }
       ]
     },

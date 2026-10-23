@@ -357,7 +357,18 @@ export async function onRequest(context) {
       delete safeApp.download_url;
       delete safeApp.encrypted_link;
       delete safeApp.encrypted_download_url;
-      return new Response(JSON.stringify({ status: 'OK', app: safeApp }), {
+      const catalogApps = apps.map(a => ({
+        id: a.id,
+        name: a.name,
+        slug: a.slug,
+        category: a.category,
+        icon_url: a.icon_url,
+        rating: a.rating,
+        is_hot: a.is_hot,
+        is_new: a.is_new,
+        serial_number: a.serial_number
+      }));
+      return new Response(JSON.stringify({ status: 'OK', app: safeApp, catalogApps }), {
         status: 200,
         headers: {
           'Content-Type': 'application/json',
