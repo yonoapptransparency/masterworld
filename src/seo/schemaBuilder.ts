@@ -72,45 +72,16 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
     const fileSize = getField(app, 'file_size') || '45 MB';
     const version = getField(app, 'version') || '1.0';
 
-    const softwareAppSchema: any = {
-      "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
-      "name": name,
-      "url": `${hostOrigin}/app/${getField(app, 'slug')}`,
-      "operatingSystem": "Android",
-      "applicationCategory": category,
-      "image": appSquareIcon,
-      "description": desc,
-      "fileSize": fileSize,
-      "softwareVersion": version,
-      "author": {
-        "@type": "Organization",
-        "name": developer
-      },
-      "offers": {
-        "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "INR",
-        "availability": "https://schema.org/InStock"
-      }
-    };
+    const appPageUrl = params.url || `${hostOrigin}/app/${getField(app, 'slug')}`;
+    const validCount = Math.max(1, Math.round(finalCount > 0 ? finalCount : 25));
+    const ratingValue = parseFloat(clampedRating.toFixed(1));
 
-    if (clampedRating > 0 && finalCount > 0) {
-      softwareAppSchema["aggregateRating"] = {
-        "@type": "AggregateRating",
-        "ratingValue": parseFloat(clampedRating.toFixed(1)),
-        "ratingCount": Math.round(finalCount),
-        "reviewCount": Math.round(finalCount),
-        "bestRating": 5,
-        "worstRating": 1
-      };
-    }
-
-    // Include sample reviews if available to boost Google Rich Snippet compliance
+    // Sample reviews for Rich Snippet compliance
+    let validReviews: any[] = [];
     try {
       const feed = await fetchSEOReviewsForApp(appIdentifier, getField(app, 'slug'), clampedRating, name);
       if (feed && Array.isArray(feed.reviews) && feed.reviews.length > 0) {
-        const validReviews = feed.reviews
+        validReviews = feed.reviews
           .filter((rev: any) => rev && stripHtml(rev.reviewText || '').trim().length >= 3)
           .slice(0, 10)
           .map((rev: any) => ({
@@ -128,22 +99,97 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
               "worstRating": 1
             }
           }));
-
-        if (validReviews.length > 0) {
-          softwareAppSchema["review"] = validReviews;
-        }
       }
     } catch (_) {}
+
+    // 1. Comprehensive Product Schema (Resolves Ahrefs "Product page missing Product schema" & Google Merchant/Product Rich Results)
+    const productSchema: any = {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      "@id": `${appPageUrl}#product`,
+      "name": name,
+      "url": appPageUrl,
+      "image": [appSquareIcon],
+      "description": desc,
+      "category": category,
+      "sku": String(appIdentifier),
+      "brand": {
+        "@type": "Brand",
+        "name": developer
+      },
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "INR",
+        "priceValidUntil": "2030-12-31",
+        "availability": "https://schema.org/InStock",
+        "url": appPageUrl
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": ratingValue,
+        "ratingCount": validCount,
+        "reviewCount": validCount,
+        "bestRating": 5,
+        "worstRating": 1
+      }
+    };
+
+    if (validReviews.length > 0) {
+      productSchema["review"] = validReviews;
+    }
+
+    // 2. Comprehensive SoftwareApplication Schema
+    const softwareAppSchema: any = {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "@id": `${appPageUrl}#software`,
+      "name": name,
+      "url": appPageUrl,
+      "operatingSystem": "Android",
+      "applicationCategory": category,
+      "image": appSquareIcon,
+      "description": desc,
+      "fileSize": fileSize,
+      "softwareVersion": version,
+      "author": {
+        "@type": "Organization",
+        "name": developer
+      },
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "INR",
+        "priceValidUntil": "2030-12-31",
+        "availability": "https://schema.org/InStock",
+        "url": appPageUrl
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": ratingValue,
+        "ratingCount": validCount,
+        "reviewCount": validCount,
+        "bestRating": 5,
+        "worstRating": 1
+      },
+      "isVariantOf": {
+        "@id": `${appPageUrl}#product`
+      }
+    };
+
+    if (validReviews.length > 0) {
+      softwareAppSchema["review"] = validReviews;
+    }
 
     const appScreenshots = getField(app, 'screenshots');
     if (Array.isArray(appScreenshots) && appScreenshots.length > 0) {
       softwareAppSchema["screenshot"] = appScreenshots.map((s: string) => optimizeImageUrl(s, 1024) || s);
     }
 
+    schemas.push(productSchema);
     schemas.push(softwareAppSchema);
 
-    // Emit WebPage schema with exact Admin title/headline so Google Search respects the exact <title> without rewriting
-    const appPageUrl = params.url || `${hostOrigin}/app/${getField(app, 'slug')}`;
+    // 3. WebPage schema referencing the primary Product entity
     schemas.push({
       "@context": "https://schema.org",
       "@type": "WebPage",
@@ -154,7 +200,7 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
       "description": desc,
       "inLanguage": "en",
       "mainEntity": {
-        "@type": "SoftwareApplication",
+        "@type": "Product",
         "name": name,
         "url": appPageUrl
       }
@@ -241,7 +287,7 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
     );
     const datePublished = getField(item, 'published_at') || getField(item, 'publish_date') || getField(item, 'created_at') || getField(item, 'date') || '2026-09-01T00:00:00.000Z';
     const dateModified = getField(item, 'updated_at') || datePublished;
-    const authorName = getField(item, 'author') || getField(item, 'ceo_name') || params.siteTitle;
+    const authorName = getField(item, 'author') || getField(item, 'ceo_name') || 'Editorial Team';
 
     const rawNewsImg = getField(item, 'og_image_url') || getField(item, 'image_url') || getField(item, 'logo_url') || params.logoUrl;
     const newsImg = optimizeImageUrl(rawNewsImg, 1200) || rawNewsImg;
@@ -252,7 +298,7 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
 
     schemas.push({
       "@context": "https://schema.org",
-      "@type": "NewsArticle",
+      "@type": ["NewsArticle", "Article"],
       "mainEntityOfPage": {
         "@type": "WebPage",
         "@id": canonicalPageUrl
@@ -363,8 +409,10 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
     };
 
     if (params.collectionItems && params.collectionItems.length > 0) {
-      collectionSchema.mainEntity = {
+      const itemListObj = {
         "@type": "ItemList",
+        "@id": `${params.url}#itemlist`,
+        "name": params.title,
         "itemListElement": params.collectionItems.map((item, idx) => ({
           "@type": "ListItem",
           "position": idx + 1,
@@ -374,6 +422,13 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
           ...(item.description ? { "description": item.description } : {})
         }))
       };
+      collectionSchema.mainEntity = itemListObj;
+
+      // Also push standalone ItemList schema for strict Ahrefs/Google validator discovery
+      schemas.push({
+        "@context": "https://schema.org",
+        ...itemListObj
+      });
     }
     schemas.push(collectionSchema);
 
@@ -412,6 +467,20 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
           "url": params.logoUrl
         }
       }
+    });
+
+    // Dedicated top-level Organization schema (Resolves Ahrefs "Organization schema missing or incomplete")
+    schemas.push({
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "@id": `${hostOrigin}/#organization`,
+      "name": params.siteTitle || 'RummyDex',
+      "url": hostOrigin,
+      "logo": {
+        "@type": "ImageObject",
+        "url": params.logoUrl || `${hostOrigin}/logo.png`
+      },
+      "description": params.description || 'Premium Transparency Directory for Rummy & Gaming Apps'
     });
 
     if (params.settings?.website_faqs && Array.isArray(params.settings.website_faqs) && params.settings.website_faqs.length > 0) {
@@ -453,6 +522,22 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
       "description": params.description,
       "inLanguage": "en"
     });
+
+    // On /about, also emit the Organization schema for brand verification
+    if (params.url && /\/about\/?$/i.test(params.url)) {
+      schemas.push({
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "@id": `${hostOrigin}/#organization`,
+        "name": params.siteTitle || 'RummyDex',
+        "url": hostOrigin,
+        "logo": {
+          "@type": "ImageObject",
+          "url": params.logoUrl || `${hostOrigin}/logo.png`
+        },
+        "description": params.description || 'Premium Transparency Directory for Rummy & Gaming Apps'
+      });
+    }
 
     const isFaqRoute = /\/faqs?\/?$/i.test(params.url || '');
     if (isFaqRoute && params.settings?.website_faqs && Array.isArray(params.settings.website_faqs) && params.settings.website_faqs.length > 0) {

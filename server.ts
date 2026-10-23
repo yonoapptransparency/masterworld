@@ -106,6 +106,11 @@ async function startServer() {
     next();
   });
 
+  // Cloudflare Email Protection 301 redirect (eliminates crawler 404 broken links when emails are obfuscated)
+  app.get(['/cdn-cgi/l/email-protection', '/cdn-cgi/l/email-protection/*'], (req, res) => {
+    res.redirect(301, '/contact');
+  });
+
   // Health check
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });

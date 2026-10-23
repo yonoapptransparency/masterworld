@@ -110,6 +110,7 @@ Sitemap: https://www.rummydex.com/sitemap-apps.xml
 Sitemap: https://www.rummydex.com/sitemap-static.xml
 Sitemap: https://www.rummydex.com/sitemap-videos.xml
 Sitemap: https://www.rummydex.com/sitemap-developers.xml
+Sitemap: https://www.rummydex.com/sitemap-categories.xml
 `);
 });
 
@@ -162,6 +163,28 @@ seoRouter.get(['/sitemap-developers.xml', '/sitemap_developers.xml', '/sitemap-d
   const data = await getLiveData();
   const latestDate = getLatestItemDate(data.settings?.developers || data.developers || []);
   const xml = generateDevelopersSitemapXml(HOST, latestDate);
+  sendXmlOrGzip(req, res, xml, 86400);
+});
+
+// Dedicated Categories Sitemap (Ensures valid XML for crawlers requesting /sitemap-categories.xml)
+seoRouter.get(['/sitemap-categories.xml', '/sitemap_categories.xml', '/sitemap-categories.xml.gz', '/sitemap_categories.xml.gz'], async (req, res) => {
+  const data = await getLiveData();
+  const latestAppDate = getLatestItemDate(data.apps || []);
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>${HOST}/categories</loc>
+    <lastmod>${latestAppDate}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>${HOST}/new-apps</loc>
+    <lastmod>${latestAppDate}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+</urlset>`;
   sendXmlOrGzip(req, res, xml, 86400);
 });
 

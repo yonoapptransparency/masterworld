@@ -1,13 +1,14 @@
 import { Router, Request, Response } from 'express';
 import { Redis } from '@upstash/redis';
-import { safeDecrypt, safeEncrypt, getAesSecret } from '../../lib/secureVault';
-import { ENCRYPTED_LINKS } from '../../lib/secureVault';
+import { safeDecrypt, getAesSecret, ENCRYPTED_LINKS } from '../../lib/secureVault';
 import staticData from '../../lib/staticData.json';
 import { 
   evaluateRisk, 
   RiskEvaluationResult, 
   penalizeIp, 
-  recordClearanceSuccess 
+  evaluateIpCadence,
+  isCloudDatacenterNetwork,
+  isDesktopOrBotIngress
 } from '../security/adaptiveRiskEngine';
 
 export const securityRouter = Router();
@@ -25,28 +26,8 @@ if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) 
   }
 }
 
-// In-memory sliding rate limiter
-const ipRateMap = new Map<string, { count: number; resetAt: number }>();
-// In-memory IP quarantine jail for rapid hammering (bans IP for 5 minutes)
-const ipQuarantineMap = new Map<string, number>();
 // In-memory single-use burned nonce store with timestamps
 const burnedNoncesMap = new Map<string, number>();
-
-const BOT_PATTERNS = [
-  'curl/', 'wget/', 'python', 'urllib', 'requests', 'httpx', 'aiohttp',
-  'scrapy', 'axios', 'httpclient', 'go-http-client', 'okhttp', 'guzzle',
-  'apache-httpclient', 'node-fetch', 'httpie', 'mechanize', 'postman',
-  'insomnia', 'headlesschrome', 'puppeteer', 'playwright', 'selenium',
-  'phantomjs', 'nightmare', 'webdriver', 'cypress', 'taiko', 'crawler',
-  'spider', 'archive.org_bot', 'scraper', 'ahrefsbot', 'semrushbot',
-  'dotbot', 'mj12bot', 'petalbot', 'bytespider'
-];
-
-function isKnownBotOrCrawler(ua: string): boolean {
-  if (!ua || ua.length < 10) return true;
-  const lower = ua.toLowerCase();
-  return BOT_PATTERNS.some(bot => lower.includes(bot));
-}
 
 function getClientIp(req: Request): string {
   const cfIp = req.headers['cf-connecting-ip'];
@@ -64,47 +45,26 @@ function getClientIp(req: Request): string {
   return req.ip || req.socket?.remoteAddress || 'unknown';
 }
 
-function checkRateLimitAndQuarantine(ip: string): { limited: boolean; reason?: string } {
-  const now = Date.now();
-
-  const quarantineUntil = ipQuarantineMap.get(ip);
-  if (quarantineUntil && now < quarantineUntil) {
-    return { limited: true, reason: 'Quarantined due to excessive activity' };
-  }
-
-  const entry = ipRateMap.get(ip) || { count: 0, resetAt: now + 60000 };
-  if (now > entry.resetAt) {
-    entry.count = 1;
-    entry.resetAt = now + 60000;
-  } else {
-    entry.count++;
-  }
-
-  ipRateMap.set(ip, entry);
-
-  if (entry.count > 12) {
-    ipQuarantineMap.set(ip, now + 5 * 60 * 1000);
-    return { limited: true, reason: 'Quarantined for multi-time hammering' };
-  }
-
-  if (entry.count > 8) {
-    return { limited: true, reason: 'Rate limit exceeded' };
-  }
-
-  return { limited: false };
-}
-
-async function verifyCloudflareTurnstile(token: string, remoteIp: string, reqHost?: string): Promise<boolean> {
-  // Disallow empty tokens
+async function verifyCloudflareTurnstile(
+  token: string,
+  remoteIp: string,
+  reqHost?: string,
+  expectedAppId?: string
+): Promise<boolean> {
   if (!token || typeof token !== 'string' || token.trim() === '') {
     return false;
   }
 
-  // Cloudflare official test secret (used for development, preview, and AI Studio test sitekey)
   const TEST_SECRET = '1x0000000000000000000000000000000AA';
   const prodSecret = process.env.TURNSTILE_SECRET_KEY || process.env.CF_TURNSTILE_SECRET;
 
-  const isDevHost = Boolean(
+  const isProdDomain = Boolean(
+    reqHost && (
+      reqHost.includes('rummydex.com') ||
+      reqHost.includes('pages.dev')
+    )
+  );
+  const isDevHost = !isProdDomain && Boolean(
     reqHost && (
       reqHost.includes('localhost') ||
       reqHost.includes('127.0.0.1') ||
@@ -113,9 +73,9 @@ async function verifyCloudflareTurnstile(token: string, remoteIp: string, reqHos
     )
   );
 
-  // If token is hardware kinetic attestation token in dev environment
+  // Strictly reject synthetic/dev tokens on production domains
   if (token.startsWith('attest_')) {
-    return isDevHost;
+    return isDevHost && token.startsWith('attest_dev_');
   }
 
   const isProd = process.env.NODE_ENV === 'production' && !isDevHost;
@@ -125,7 +85,7 @@ async function verifyCloudflareTurnstile(token: string, remoteIp: string, reqHos
     candidateSecrets.push(prodSecret);
   }
 
-  // Allow Cloudflare official test secret ONLY in non-production or dev host
+  // Allow Cloudflare official test secret ONLY in non-production dev hosts
   if (!isProd) {
     candidateSecrets.push(TEST_SECRET);
   } else if (candidateSecrets.length === 0 && prodSecret) {
@@ -133,6 +93,11 @@ async function verifyCloudflareTurnstile(token: string, remoteIp: string, reqHos
   }
 
   const uniqueSecrets = Array.from(new Set(candidateSecrets));
+  const sanitizedExpectedCData = (expectedAppId || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9_-]/g, '')
+    .slice(0, 64);
 
   for (const secret of uniqueSecrets) {
     try {
@@ -153,26 +118,27 @@ async function verifyCloudflareTurnstile(token: string, remoteIp: string, reqHos
       if (!response.ok) continue;
       const result = (await response.json()) as any;
       if (result.success === true) {
+        if (result.action && result.action !== 'mobile_clearance') {
+          return false;
+        }
+        if (result.cdata && sanitizedExpectedCData && String(result.cdata).toLowerCase() !== sanitizedExpectedCData) {
+          return false;
+        }
         return true;
       }
     } catch (_) {}
-  }
-
-  // Graceful fallback for local offline testing in dev/preview
-  if (isDevHost && token.length > 8) {
-    return true;
   }
 
   return false;
 }
 
 async function burnNonce(nonce: string): Promise<boolean> {
-  if (!nonce || typeof nonce !== 'string' || nonce.length < 6) return false;
+  if (!nonce || typeof nonce !== 'string' || nonce.length < 8) return false;
   const now = Date.now();
 
   // 1. Fast local in-memory check (sub-millisecond instant reject)
   if (burnedNoncesMap.has(nonce)) {
-    return false; // Already burned = replay attempt
+    return false;
   }
   burnedNoncesMap.set(nonce, now);
 
@@ -181,10 +147,9 @@ async function burnNonce(nonce: string): Promise<boolean> {
     try {
       const res = await redisClient.set(`nonce:${nonce}`, '1', { ex: 90, nx: true });
       if (res !== 'OK') {
-        return false; // Already burned on another serverless/edge instance
+        return false;
       }
     } catch (err) {
-      // Fail-open to local memory if Redis is transiently slow or unreachable
       console.warn('[Security] Redis distributed nonce burn notice:', err);
     }
   }
@@ -195,12 +160,6 @@ async function burnNonce(nonce: string): Promise<boolean> {
 // Memory cleanup routine (every 60 seconds)
 setInterval(() => {
   const now = Date.now();
-  for (const [ip, entry] of ipRateMap.entries()) {
-    if (now > entry.resetAt) ipRateMap.delete(ip);
-  }
-  for (const [ip, until] of ipQuarantineMap.entries()) {
-    if (now > until) ipQuarantineMap.delete(ip);
-  }
   for (const [nonce, ts] of burnedNoncesMap.entries()) {
     if (now - ts > 120000) burnedNoncesMap.delete(nonce);
   }
@@ -299,13 +258,44 @@ const setGatewaySecurityHeaders = (res: Response) => {
   res.setHeader('X-Frame-Options', 'DENY');
 };
 
+const quarantineIpInMemoryAndRedis = async (ip: string) => {
+  penalizeIp(ip, 30);
+  if (redisClient) {
+    try {
+      await redisClient.set(`quarantine:${ip}`, '1', { ex: 1800 });
+    } catch (_) {}
+  }
+};
+
 const handleClearanceResolution = async (req: Request, res: Response) => {
   setGatewaySecurityHeaders(res);
 
   const ip = getClientIp(req);
   const ua = (req.headers['user-agent'] || '').trim();
+  const secChUaMobile = (req.headers['sec-ch-ua-mobile'] || '') as string;
+  const secChUaPlatform = (req.headers['sec-ch-ua-platform'] || '') as string;
+  const cfMeta = (req as any).cf || {};
+  const asn = cfMeta.asn || req.headers['x-asn'] || null;
+  const asOrg = cfMeta.asOrganization || req.headers['x-as-org'] || null;
 
-  // Check distributed Redis quarantine if configured
+  // ─── GATE 1 (< 0.1ms): EDGE NETWORK, CLOUD DATACENTER ASN & MOBILE-ONLY OS FILTER ───
+  if (isCloudDatacenterNetwork(asn as any, asOrg as any)) {
+    return res.status(404).json({ success: false, error: 'Not found', status: 404 });
+  }
+
+  const rawId = (req.body?.id || req.body?.appId || req.query?.id || req.query?.appId || '') as string;
+  const appId = typeof rawId === 'string' ? rawId.trim() : '';
+  if (!appId || !/^[a-zA-Z0-9\-_]{1,64}$/.test(appId)) {
+    return res.status(404).json({ success: false, error: 'Not found', status: 404 });
+  }
+
+  // ─── GATE 2 (< 1ms): IP QUARANTINE CHECK & 3-CLICK / 10-SECOND BURST FIREWALL ───
+  const cadence = evaluateIpCadence(ip);
+  if (cadence.isQuarantined || cadence.burstAnomaly || cadence.rateAnomaly) {
+    await quarantineIpInMemoryAndRedis(ip);
+    return res.status(404).json({ success: false, error: 'Not found', status: 404 });
+  }
+
   if (redisClient) {
     try {
       const qStatus = await redisClient.get(`quarantine:${ip}`);
@@ -315,19 +305,12 @@ const handleClearanceResolution = async (req: Request, res: Response) => {
     } catch (_) {}
   }
 
-  // Input Validation
-  const rawId = (req.body?.id || req.body?.appId || req.query?.id || req.query?.appId || '') as string;
-  const appId = typeof rawId === 'string' ? rawId.trim() : '';
-  if (!appId || !/^[a-zA-Z0-9\-_]{1,64}$/.test(appId)) {
-    return res.status(404).json({ success: false, error: 'Not found', status: 404 });
-  }
-
-  // Tokens extraction
+  // ─── GATE 3 (< 1ms): CLEARANCE TOKEN INTEGRITY, FRESHNESS (<= 60s) & HARDWARE/TOUCH TELEMETRY ───
   const cfToken = (req.headers['x-cf-token'] || req.body?.cfToken || '') as string;
   const clearanceToken = (req.headers['x-clearance-token'] || req.body?.token || req.query?.token || '') as string;
 
   let decoded: any = null;
-  if (clearanceToken) {
+  if (clearanceToken && typeof clearanceToken === 'string') {
     try {
       decoded = JSON.parse(Buffer.from(clearanceToken, 'base64').toString('utf8'));
     } catch (_) {
@@ -337,24 +320,50 @@ const handleClearanceResolution = async (req: Request, res: Response) => {
     }
   }
 
-  // Immediate Trap Check: If client detected WebDriver (wb=1), rapid burst (cb=1), or synthetic click (tr=0)
-  if (decoded && (decoded.wb === 1 || decoded.cb === 1 || decoded.tr === 0)) {
-    penalizeIp(ip, 30);
-    if (redisClient) {
-      try { await redisClient.set(`quarantine:${ip}`, '1', { ex: 1800 }); } catch (_) {}
-    }
+  if (!decoded || typeof decoded !== 'object') {
+    await quarantineIpInMemoryAndRedis(ip);
     return res.status(404).json({ success: false, error: 'Not found', status: 404 });
   }
 
-  const effectiveCfToken = cfToken || decoded?.cf || '';
+  // Validate Mobile-Only OS, Client Hints, WebGL GPU, Capacitive Touch & Anti-Bot Flags
+  const ingressAndHardwareCheck = isDesktopOrBotIngress(ua, secChUaMobile, secChUaPlatform, decoded);
+  if (ingressAndHardwareCheck.blocked) {
+    await quarantineIpInMemoryAndRedis(ip);
+    return res.status(404).json({ success: false, error: 'Not found', status: 404 });
+  }
+
+  // Validate Timestamp Freshness (<= 60s), Dwell Duration (>= 200ms), Non-Zero Coordinates & App Affinity
+  const now = Date.now();
+  const tokenTime = Number(decoded.t || 0);
+  const dwell = Number(decoded.el || 0);
+  const cx = Number(decoded.cx || 0);
+  const cy = Number(decoded.cy || 0);
+  const tokenApp = String(decoded.id || '').toLowerCase().trim();
+  const tokenSlug = String(decoded.slug || '').toLowerCase().trim();
+  const targetAppLower = appId.toLowerCase();
+
+  if (
+    !tokenTime ||
+    Math.abs(now - tokenTime) > 60000 ||
+    dwell < 200 ||
+    (cx <= 0 && cy <= 0) ||
+    (tokenApp !== targetAppLower && tokenSlug !== targetAppLower)
+  ) {
+    await quarantineIpInMemoryAndRedis(ip);
+    return res.status(404).json({ success: false, error: 'Not found', status: 404 });
+  }
+
+  // ─── GATE 4 & GATE 5 (Parallel Promise.all ~30-50ms): ATOMIC NONCE BURN + CRYPTOGRAPHIC TURNSTILE SITEVERIFY ───
+  const nonce = String(decoded.n || decoded.nonce || '');
+  const effectiveCfToken = String(cfToken || decoded.cf || '');
   const host = (req.headers.host || req.hostname || '').toLowerCase();
-  const turnstilePassed = await verifyCloudflareTurnstile(effectiveCfToken, ip, host);
 
-  // Nonce burn evaluation
-  const nonce = decoded?.n || decoded?.nonce;
-  const nonceFresh = nonce ? await burnNonce(nonce) : false;
+  const [nonceFresh, turnstilePassed] = await Promise.all([
+    burnNonce(nonce),
+    verifyCloudflareTurnstile(effectiveCfToken, ip, host, appId)
+  ]);
 
-  // ─── CENTRAL ADAPTIVE RISK EVALUATION ───
+  // Evaluate deterministic v10.0 gate synthesis
   const riskResult: RiskEvaluationResult = evaluateRisk({
     ip,
     userAgent: ua,
@@ -363,34 +372,19 @@ const handleClearanceResolution = async (req: Request, res: Response) => {
     clearanceToken,
     decodedPayload: decoded,
     turnstilePassed,
-    nonceFresh
+    nonceFresh,
+    secChUaMobile,
+    secChUaPlatform,
+    asn: asn as any,
+    asOrganization: asOrg as any
   });
 
-  // Action 1: High Risk -> Disguised 404 Ghosting (Definite Bot/Scraper) + 30-Min Redis Quarantine
-  if (riskResult.action === 'DENY') {
-    if (redisClient) {
-      try { await redisClient.set(`quarantine:${ip}`, '1', { ex: 1800 }); } catch (_) {}
-    }
+  if (!nonceFresh || !turnstilePassed || riskResult.action !== 'ALLOW') {
+    await quarantineIpInMemoryAndRedis(ip);
     return res.status(404).json({ success: false, error: 'Not found', status: 404 });
   }
 
-  // Action 2: Elevated Risk -> Progressive Throttle Delay to make scraping economically unviable
-  if (riskResult.action === 'THROTTLE' && riskResult.throttleMs > 0) {
-    await new Promise(resolve => setTimeout(resolve, riskResult.throttleMs));
-  }
-
-  // Action 3: Moderate Risk -> Step-Up Challenge Required
-  if (riskResult.action === 'CHALLENGE') {
-    return res.status(200).json({
-      success: false,
-      status: 'challenge_required',
-      riskScore: riskResult.riskScore,
-      confidence: riskResult.confidence,
-      message: 'Additional verification required.'
-    });
-  }
-
-  // Action 4: High Human Confidence -> Allow & Resolve
+  // ─── GATE 6 (Final Step Only): LATE VAULT LINK DECRYPTION & ZERO-REFERRER RESPONSE ───
   const targetUrl = await resolveDestinationForApp(appId);
   if (!targetUrl) {
     return res.status(200).json({
@@ -413,5 +407,6 @@ securityRouter.all('/api/v1/app/session-clearance', handleClearanceResolution);
 securityRouter.all('/api/v1/app/resolve-link', handleClearanceResolution);
 securityRouter.all('/api/v1/public/secure-link', handleClearanceResolution);
 securityRouter.all('/api/v1/get-link', handleClearanceResolution);
+
 
 

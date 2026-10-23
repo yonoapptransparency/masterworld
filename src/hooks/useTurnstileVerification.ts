@@ -44,6 +44,12 @@ declare global {
 export interface UseTurnstileOptions {
   onError?: () => void;
   siteKey?: string | null;
+  appId?: string | null;
+}
+
+export function sanitizeTurnstileCData(rawId?: string | null): string {
+  if (!rawId || typeof rawId !== 'string') return '';
+  return rawId.toLowerCase().trim().replace(/[^a-z0-9_-]/g, '').slice(0, 64);
 }
 
 export function useTurnstileVerification(options?: UseTurnstileOptions) {
@@ -57,11 +63,16 @@ export function useTurnstileVerification(options?: UseTurnstileOptions) {
   const cfTokenRef = useRef<string | null>(null);
   const siteKey = getTurnstileSiteKey(options?.siteKey);
   const activeKeyRef = useRef<string>(siteKey);
+  const cDataValue = sanitizeTurnstileCData(options?.appId);
+  const cDataRef = useRef<string>(cDataValue);
 
-  // Update activeKeyRef if siteKey changes
   useEffect(() => {
     activeKeyRef.current = siteKey;
   }, [siteKey]);
+
+  useEffect(() => {
+    cDataRef.current = cDataValue;
+  }, [cDataValue]);
 
   const resetTurnstile = useCallback(() => {
     setCfToken(null);
@@ -87,10 +98,12 @@ export function useTurnstileVerification(options?: UseTurnstileOptions) {
 
     try {
       widgetRef.current.innerHTML = '';
-      const siteKey = activeKeyRef.current;
+      const currentSiteKey = activeKeyRef.current;
+      const currentCData = cDataRef.current;
 
-      const wid = window.turnstile.render(widgetRef.current, {
-        sitekey: siteKey,
+      const renderOptions: Record<string, any> = {
+        sitekey: currentSiteKey,
+        action: 'mobile_clearance',
         theme: 'auto',
         size: 'normal',
         'retry': 'auto',
@@ -104,9 +117,14 @@ export function useTurnstileVerification(options?: UseTurnstileOptions) {
           setErrorMessage(null);
         },
         'error-callback': (errorCode?: string) => {
-          console.warn('[Turnstile] Error event (silent fallback active):', errorCode);
-          // If the production sitekey hit an error, attempt universal test key
-          if (activeKeyRef.current !== TEST_TURNSTILE_SITE_KEY) {
+          console.warn('[Turnstile] Verification challenge error:', errorCode);
+          const isProdDomain = typeof window !== 'undefined' && (
+            window.location.hostname.toLowerCase().includes('rummydex.com') ||
+            window.location.hostname.toLowerCase().includes('pages.dev')
+          );
+
+          // Strictly forbid test-key downgrade on production domains
+          if (!isProdDomain && activeKeyRef.current !== TEST_TURNSTILE_SITE_KEY) {
             activeKeyRef.current = TEST_TURNSTILE_SITE_KEY;
             if (widgetIdRef.current && window.turnstile) {
               try {
@@ -124,12 +142,8 @@ export function useTurnstileVerification(options?: UseTurnstileOptions) {
             }, 60);
             return;
           }
-          // In dev/test environments, allow kinetic dev token so preview testing works seamlessly
-          const isDev = typeof window !== 'undefined' && (
-            !window.location.hostname.includes('rummydex.com') && 
-            !window.location.hostname.includes('pages.dev')
-          );
-          if (isDev) {
+
+          if (!isProdDomain) {
             const devToken = 'attest_dev_' + Math.random().toString(36).substring(2, 12) + Date.now().toString(36);
             cfTokenRef.current = devToken;
             setCfToken(devToken);
@@ -160,21 +174,25 @@ export function useTurnstileVerification(options?: UseTurnstileOptions) {
             } catch (_) {}
           }
         }
-      });
+      };
+
+      if (currentCData) {
+        renderOptions.cData = currentCData;
+      }
+
+      const wid = window.turnstile.render(widgetRef.current, renderOptions);
       widgetIdRef.current = wid;
       setIsRendered(true);
     } catch (err) {
-      console.warn('[Turnstile] Render notice (silent kinetic fallback will handle):', err);
+      console.warn('[Turnstile] Render exception:', err);
     }
   }, []);
 
   useEffect(() => {
-    // 1. If script is already in window and DOM is ready, initialize immediately
     if (window.turnstile && widgetRef.current && !widgetIdRef.current) {
       initTurnstile();
     }
 
-    // 2. Fast poller: guarantees rendering as soon as script arrives
     let attempts = 0;
     const maxAttempts = 40; // 40 * 75ms = 3 seconds
     const interval = setInterval(() => {
@@ -187,14 +205,6 @@ export function useTurnstileVerification(options?: UseTurnstileOptions) {
       }
     }, 75);
 
-    // 4. Safe adblocker/network timeout: if Cloudflare script is blocked or delayed, allow Track B kinetic attestation
-    const fallbackTimer = setTimeout(() => {
-      if (!isReady && !cfTokenRef.current && !widgetIdRef.current) {
-        setIsReady(true);
-      }
-    }, 1000);
-
-    // 3. Script injector with explicit onload hook (only if not already loaded)
     const existingScript = document.getElementById('cf-turnstile-script') || 
                            document.querySelector('script[data-turnstile]') || 
                            document.querySelector('script[src*="turnstile/v0/api.js"]');
@@ -222,7 +232,6 @@ export function useTurnstileVerification(options?: UseTurnstileOptions) {
 
     return () => {
       clearInterval(interval);
-      clearTimeout(fallbackTimer);
       if (widgetIdRef.current && window.turnstile) {
         try {
           window.turnstile.remove(widgetIdRef.current);

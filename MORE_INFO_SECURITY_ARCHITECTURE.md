@@ -1,19 +1,17 @@
 # AUTHORITATIVE BLUEPRINT & SECURITY SPECIFICATION: More Information (`/moreinfo`) Gateway & Zero-Bot Architecture
-### Version 6.2 — Central Adaptive Risk Engine (CARE) Hardened: False-Positive Immunity + Edge Challenge Parity + Anti-Bypass Attestation
+### Version 10.0 — Strict Mobile-Only, Instant 1-Click, Hardware-Attested 6-Gate Sequential Zero-Bot Architecture
 
 > [!IMPORTANT]
 > **CRITICAL INSTRUCTION FOR ALL AI AGENTS & DEVELOPERS:**
 > This document is the absolute, single **Source of Truth** for the More Information (`/moreinfo`) gateway, admin link vault, link encryption/decryption, backend security resolution, anti-bot mitigation, and vocabulary neutrality.
 > 1. **You MUST consult this document** before inspecting, modifying, or creating any code relating to the More Information page, action buttons, link vault, admin forms, or security routes.
 > 2. **You MUST update this document** immediately whenever any security rule, component, route, admin field, or vocabulary guideline is adjusted.
-> 3. **Never downgrade to client-side-only checks.** Real bot protection relies on cryptographic server-side attestation and visible edge verification.
-> 4. **Central Adaptive Risk Engine & Edge Parity (v6.2 Updates)**:
->    - **Zero False-Positive 404 Guarantee**: Baseline neutral human score calibrated to 15. Real humans on mobile browsers score 0-25. `DENY` threshold hardened to $\ge 80$. Scores 35-79 invoke interactive step-up challenges (`challenge_required`) without unmounting or breaking the gateway page.
->    - **Attestation Bypass Removed**: Synthetic `attest_` prefixes no longer bypass server Turnstile validation. All production resolution strictly validates cryptographic Cloudflare Turnstile tokens.
->    - **Cloudflare Edge Resolution**: `functions/api/[[catchall]].js` implements full AES-256 in-memory resolution matching Express `securityRoutes.ts`, returning `url` directly at edge with 0ms cold-start latency.
->    - **Synthetic Click Immunity**: `ClearanceButton.tsx` and `useClearanceDispatch.ts` validate `e.isTrusted === true`. Programmatic `.click()` triggers emit `tr: 0` without forged coordinates, stopping headless automation.
->    - **SSR Gateway Pass-Through**: `server.ts` bypasses static hard-404 interception for `/moreinfo/*` routes, allowing the client SPA to hydrate and auto-sync newly added applications from Firestore.
->    - **Distributed Upstash Redis**: Atomic `SET NX` cross-instance nonce burning prevents replay attacks across edge containers.
+> 3. **Never downgrade to client-side-only checks or soft-scoring bypasses.** Real bot protection relies on deterministic AND-gating across all 6 sequential gates.
+> 4. **Version 10.0 Architecture Highlights**:
+>    - **Strict Mobile-Only Mandate**: The `/moreinfo` gateway is exclusively accessible to real human mobile users (Android & iOS smartphones/tablets). Desktop OS (`Windows`, `macOS`, `Linux`, `Chrome OS`), Desktop GPUs (`NVIDIA`, `GeForce`, `Radeon`, `Intel(R) UHD/Iris`, `Apple M1-M4`), Software Rasterizers (`SwiftShader`, `llvmpipe`, `Mesa OffScreen`), and Mouse Pointers (`pointerType === 'mouse'`) are deterministically blocked with the disguised **404 — Not Found** state.
+>    - **Cloud Datacenter ASN Blackhole**: Blocks cloud hosting and datacenter ASNs (`AWS`, `GCP`, `Azure`, `DigitalOcean`, `Hetzner`, `OVH`, `Linode`, `Vultr`, `Choopa`, `Datacamp`, `M247`, `Scaleway`, `Oracle Cloud`, `Alibaba`, `Tencent`, `Contabo`, `LeaseWeb`) at Gate 1 (`< 0.1ms`).
+>    - **Complete Removal of Track B & `invalid-input-secret` Auto-Pass**: Eliminates `trackBPassed` and the `invalid-input-secret` auto-pass fallback in `functions/api/[[catchall]].js` and `securityRoutes.ts`. Server-to-server Cloudflare Turnstile `siteverify` with `action: 'mobile_clearance'` and `cData` App-ID binding is mandatory.
+>    - **Instant 1-Click Capacitive Touch Physics**: Real mobile users tap **"Proceed"** once (`1-click`, zero hold timers or multi-step puzzles). The tap captures physical capacitive touch geometry (`radiusX`, `radiusY`, `pressure`, `pointerType === 'touch'`, `maxTouchPoints >= 1`, `matchMedia('(pointer: coarse)')`).
 
 ---
 
@@ -1019,4 +1017,32 @@ To guarantee zero exposure of raw or encrypted download links in public browser 
 ### 19.4 Total SEO, Schema & AI Crawler Airgap (`/moreinfo/*`)
 - **Zero Schema & Canonical Emission**: `GatewayPage.tsx`, `src/components/Meta.tsx`, `src/seo/metaBuilder.ts`, and `src/seo/schemaBuilder.ts` emit **zero** Schema.org JSON-LD blocks, **zero** `<link rel="canonical">` tags, and **zero** OpenGraph/Twitter tags on `/moreinfo/*` routes.
 - **Multi-Crawler Exclusion**: Enforces `noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate` across `robots`, `googlebot`, `bingbot`, `slurp`, `baiduspider`, `yandex`, `duckduckbot`, `gptbot`, `claudebot`, and `perplexitybot` in both HTML `<head>`, HTTP `X-Robots-Tag` headers, and `robots.txt`.
+
+---
+
+## 20. Version 10.0 — Strict Mobile-Only, Instant 1-Click, Hardware-Attested 6-Gate Sequential Architecture
+
+### 20.1 Root-Cause Elimination of AI Browser Agent Bypasses (v6.2–v9.0 Audit)
+In versions 6.2 through 9.0, autonomous AI browser agents (e.g., OpenAI Operator, Claude Computer Use, Browser-Use Cloud, Playwright CDP) could bypass clearance via three architectural loopholes that have been **permanently removed in v10.0**:
+1. **Removal of `trackBPassed` Fallback**: Previously, `functions/api/[[catchall]].js` allowed requests without a verified Cloudflare Turnstile token if `decoded.wb === 0 && decoded.tr === 1 && decoded.el >= 350`. In v10.0, `trackBPassed` is completely deleted.
+2. **Removal of `invalid-input-secret` Auto-Pass**: Previously, if Cloudflare `siteverify` returned `invalid-input-secret`, the Edge router failed open. In v10.0, Turnstile `siteverify` strictly fails closed (`result.success === true` is mandatory).
+3. **Replacement of Soft Risk Scoring with Deterministic `AND` Gating**: Previously, failing Turnstile only added `+45` risk points (bringing baseline `15` to `60`, below the `80` `DENY` threshold). In v10.0, every single gate is a mandatory `AND` requirement; any violation immediately sets `riskScore = 100` (`action: 'DENY'`), quarantines the IP for 30 minutes, and returns the disguised `404 Not Found`.
+
+### 20.2 The 6 Sequential Server & Cloudflare Edge Gates (`securityRoutes.ts` & `functions/api/[[catchall]].js`)
+
+| Gate | Execution Cost | Enforcement Logic | Failure Action |
+| :--- | :--- | :--- | :--- |
+| **Gate 1: Edge Network, Cloud ASN & Mobile OS Filter** | `< 0.1ms` | Blocks Cloud Datacenter ASNs (`16509`, `14618`, `15169`, `396982`, `8075`, `14061`, `24940`, `16276`, `63949`, `20473`, `212238`, `9009`, `12876`, `31898`, etc.) & hosting organizations (`AWS`, `Google Cloud`, `Azure`, `DigitalOcean`, `Hetzner`, `OVH`, `Vultr`, `Datacamp`, `M247`). Blocks Bot UAs, Desktop Client Hints (`Sec-CH-UA-Mobile: ?0`, `Sec-CH-UA-Platform: Windows/macOS/Linux/Chrome OS`), and non-mobile User-Agents. | Immediate `404 Not Found` + 30-Min IP Quarantine |
+| **Gate 2: IP Quarantine & 3-Click / 10s Burst Firewall** | `< 1ms` | Checks in-memory isolate state and Upstash Redis `quarantine:<ip>`. Enforces max 3 clicks per 10-second rolling window and $\le 2000\text{ms}$ micro-burst lock. | Immediate `404 Not Found` + 30-Min IP Quarantine |
+| **Gate 3: Token Freshness & Mobile Hardware/Touch Telemetry** | `< 1ms` | Decodes `x-clearance-token` (`v: 10`). Requires `Math.abs(now - t) <= 60000`, `el >= 200`, `(cx > 0 \|\| cy > 0)`, `id === appId`, `wb === 0`, `hl === 0`, `dk === 0`, `cb === 0`, `tr === 1`, `pt === 'touch'`, `mtp >= 1`, `coarse === 1`, and mobile WebGL GPU (`gpu` free of `SwiftShader`, `llvmpipe`, `NVIDIA`, `Radeon`, `Intel UHD/Iris`, `Apple M1-M4`). | Immediate `404 Not Found` + 30-Min IP Quarantine |
+| **Gate 4: Burn-on-Read Atomic Nonce (Parallel `Promise.all`)** | `~30–50ms` | Burns `decoded.n` in local memory and Upstash Redis (`SET nonce:<n> 1 EX 90 NX`). Prevents any token replay across requests or devices. | Immediate `404 Not Found` + 30-Min IP Quarantine |
+| **Gate 5: Cryptographic Turnstile `siteverify` + `cData` Binding (Parallel `Promise.all`)** | `~30–50ms` | Verifies `cfToken` against `https://challenges.cloudflare.com/turnstile/v0/siteverify` with `remoteip`. Requires `success === true`, `action === 'mobile_clearance'`, and `cdata === sanitizedAppId`. | Immediate `404 Not Found` + 30-Min IP Quarantine |
+| **Gate 6: Late In-Memory AES-256 Vault Decryption** | `< 0.5ms` | Executed **only after Gates 1–5 all pass**. Decrypts target URL from `ENCRYPTED_LINKS` in RAM and dispatches with `Referrer-Policy: no-referrer` and `Cache-Control: no-store, private`. | N/A |
+
+### 20.3 Client-Side Instant 1-Click Mobile Hardware & Capacitive Touch Inspection (`GatewayPage.tsx`, `ClearanceButton.tsx`, `useClearanceDispatch.ts`, `useTurnstileVerification.ts`)
+- **Mount-Time & Pointer-Event Desktop Trap (`GatewayPage.tsx`)**: Immediately runs `inspectMobileEnvironment()` on mount and listens for `pointerdown`. If `isBot`, `isHeadless`, `isDesktop`, or `e.pointerType === 'mouse'` is detected, `GatewayPage.tsx` immediately renders the disguised **404 — Not Found** screen.
+- **Zero `appRecord` Prop Passing**: `GatewayPage.tsx` never passes `appRecord` into `ClearanceButton.tsx`.
+- **Single-Tap Capacitive Touch Physics (`useClearanceDispatch.ts`)**: Real mobile users tap **"Proceed"** once (`1-click`). The tap captures touch contact radius (`rx`, `ry`), pressure (`pr`), pointer type (`pt: 'touch'`), `navigator.maxTouchPoints` (`mtp`), coarse pointer match (`coarse: 1`), WebGL GPU renderer (`gpu`), and passive motion sensor count (`mot`).
+- **Turnstile `cData` Binding (`useTurnstileVerification.ts`)**: Renders Cloudflare Turnstile with `action: 'mobile_clearance'` and `cData: sanitizeTurnstileCData(appId)` and forbids fallback to test keys (`1x00000000000000000000AA`) on production domains (`rummydex.com`, `pages.dev`).
+
 

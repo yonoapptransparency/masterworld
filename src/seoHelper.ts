@@ -264,6 +264,28 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     title = `App Categories & Genres`;
     description = `Browse all gaming and entertainment application categories on ${siteTitle}.`;
     customCanonicalUrl = `https://www.rummydex.com/categories`;
+    const catMap = new Map<string, string>();
+    for (const a of apps) {
+      const rawCat = getField(a, 'category', '');
+      if (!rawCat) continue;
+      const parts = rawCat.split(',').map((p: string) => p.trim()).filter(Boolean);
+      for (const p of parts) {
+        const slug = p.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+        if (slug && !catMap.has(slug)) {
+          catMap.set(slug, p);
+        }
+      }
+    }
+    const catEntries = Array.from(catMap.entries());
+    collectionItems = (catEntries.length > 0 ? catEntries : [
+      ['card-apps', 'Card Apps'],
+      ['yono-apps', 'Yono Apps'],
+      ['entertainment', 'Entertainment']
+    ]).map(([cSlug, cName]) => ({
+      name: cName,
+      url: `https://www.rummydex.com/category/${cSlug}`,
+      description: `Browse ${cName} on ${siteTitle}`
+    }));
     breadcrumbItems = [
       { name: 'Home', url: 'https://www.rummydex.com' },
       { name: 'Categories', url: 'https://www.rummydex.com/categories' }

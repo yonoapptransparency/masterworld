@@ -3,7 +3,6 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 export interface UseClearanceDispatchOptions {
   appId: string;
   appSlug?: string;
-  appRecord?: any;
   cfToken: string | null;
   cfTokenRef: React.MutableRefObject<string | null>;
   widgetIdRef?: React.MutableRefObject<string | null>;
@@ -19,19 +18,72 @@ interface PointerSample {
   cx: number;
   cy: number;
   t: number;
+  rx?: number;
+  ry?: number;
+  pr?: number;
+  pt?: string;
 }
 
+export interface MobileEnvironmentInspection {
+  isBot: boolean;
+  isHeadless: boolean;
+  isDesktop: boolean;
+  maxTouchPoints: number;
+  isCoarsePointer: boolean;
+  gpuRenderer: string;
+  reason?: string;
+}
+
+const SOFTWARE_GPU_PATTERNS = [
+  'swiftshader',
+  'llvmpipe',
+  'mesa offscreen',
+  'softpipe',
+  'virtualbox',
+  'vmware',
+  'parallels',
+  'microsoft basic render'
+];
+
+const DESKTOP_GPU_PATTERNS = [
+  'nvidia',
+  'geforce',
+  'rtx ',
+  'gtx ',
+  'quadro',
+  'radeon',
+  'intel(r) uhd',
+  'intel(r) iris',
+  'intel(r) hd graphics',
+  'direct3d',
+  'apple m1',
+  'apple m2',
+  'apple m3',
+  'apple m4'
+];
+
 /**
- * Deep Hardware, WebGL, Prototype Descriptor & Stealth-Bot Trap
- * Runs zero-latency inspection to catch Playwright, Puppeteer, Selenium, CDP, and virtualized headless GPUs.
+ * v10.0 Deep Mobile Hardware, WebGL GPU, Prototype Descriptor & Desktop/Bot Trap
+ * Runs zero-latency inspection to block Desktop PCs, Cloud VMs, Playwright, Puppeteer, CDP, and virtualized GPUs.
  */
-function inspectClientEnvironment(): { isBot: boolean; isHeadless: boolean; botReason?: string } {
-  if (typeof window === 'undefined') return { isBot: false, isHeadless: false };
+export function inspectMobileEnvironment(): MobileEnvironmentInspection {
+  if (typeof window === 'undefined') {
+    return {
+      isBot: false,
+      isHeadless: false,
+      isDesktop: false,
+      maxTouchPoints: 5,
+      isCoarsePointer: true,
+      gpuRenderer: ''
+    };
+  }
 
   try {
     const nav = typeof navigator !== 'undefined' ? navigator : null;
+    const ua = String(nav?.userAgent || '');
+    const platform = String((nav as any)?.platform || '');
 
-    // 1. Core Automation & WebDriver globals (Playwright, Puppeteer, Selenium, CDP)
+    // 1. Core Automation & WebDriver globals (Playwright, Puppeteer, Selenium, CDP, Browser-Use)
     const hasWebdriverFlag = Boolean(
       (nav && (nav.webdriver === true || (nav as any).__webdriver)) ||
       (window as any).__playwright ||
@@ -48,14 +100,13 @@ function inspectClientEnvironment(): { isBot: boolean; isHeadless: boolean; botR
       (window as any).domAutomationController
     );
 
-    // 2. Prototype & Property Descriptor Tampering (catches puppeteer-extra-plugin-stealth)
+    // 2. Prototype & Property Descriptor Tampering (catches puppeteer-extra-plugin-stealth & CDP overrides)
     let hasTamperedDescriptor = false;
     if (nav) {
       try {
         const ownDesc = Object.getOwnPropertyDescriptor(nav, 'webdriver');
         const protoDesc = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(nav), 'webdriver');
         if (ownDesc !== undefined) {
-          // Real browsers define webdriver on Navigator.prototype, never as an own property on navigator instance
           hasTamperedDescriptor = true;
         } else if (protoDesc && protoDesc.get) {
           const getterSrc = Function.prototype.toString.call(protoDesc.get);
@@ -84,8 +135,33 @@ function inspectClientEnvironment(): { isBot: boolean; isHeadless: boolean; botR
     // 5. Missing Browser Languages Trap
     const hasNoLanguages = Boolean(nav && (!nav.languages || nav.languages.length === 0));
 
-    // 6. WebGL Hardware Renderer Inspection (detects SwiftShader, llvmpipe, Mesa OffScreen)
+    // 6. Capacitive Multi-Touch & Coarse Pointer Hardware Inspection
+    const maxTouchPoints = Number(nav?.maxTouchPoints || 0);
+    const hasTouchSupport = ('ontouchstart' in window) || maxTouchPoints >= 1;
+    let isCoarsePointer = hasTouchSupport && maxTouchPoints >= 1;
+    let isExplicitFineMouseOnly = false;
+    if (typeof window.matchMedia === 'function') {
+      try {
+        const coarseMatch = window.matchMedia('(pointer: coarse)').matches;
+        const anyCoarseMatch = window.matchMedia('(any-pointer: coarse)').matches;
+        const fineOnlyMatch = window.matchMedia('(pointer: fine)').matches && !coarseMatch && !anyCoarseMatch;
+        isCoarsePointer = coarseMatch || anyCoarseMatch;
+        isExplicitFineMouseOnly = fineOnlyMatch;
+      } catch (_) {}
+    }
+
+    // 7. Strict Mobile OS vs Desktop OS Verification
+    const isMobileUa = /Android|iPhone|iPad|iPod|Mobile|CriOS|FxiOS/i.test(ua);
+    const isIpadOs = /Macintosh/i.test(ua) && maxTouchPoints >= 2;
+    const isExplicitDesktopPlatform =
+      /Win32|Win64|Windows|CrOS|Linux x86_64/i.test(platform) && !/Android/i.test(ua) && maxTouchPoints < 1;
+    const isExplicitDesktopUa =
+      (/Windows NT|CrOS|X11; Linux x86_64|Macintosh; Intel Mac OS X/i.test(ua)) && !isMobileUa && !isIpadOs;
+
+    // 8. WebGL Hardware Renderer Inspection (Blocks Software Rasterizers & Desktop GPUs)
     let isVirtualGpu = false;
+    let isDesktopGpu = false;
+    let gpuRenderer = '';
     try {
       const canvas = document.createElement('canvas');
       const gl = (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')) as WebGLRenderingContext | null;
@@ -94,14 +170,17 @@ function inspectClientEnvironment(): { isBot: boolean; isHeadless: boolean; botR
         if (debugInfo) {
           const renderer = String(gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || '').toLowerCase();
           const vendor = String(gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) || '').toLowerCase();
+          gpuRenderer = renderer.slice(0, 80);
+
           if (
-            renderer.includes('swiftshader') ||
-            renderer.includes('llvmpipe') ||
-            renderer.includes('mesa offscreen') ||
-            renderer.includes('virtualbox') ||
+            SOFTWARE_GPU_PATTERNS.some(pat => renderer.includes(pat) || vendor.includes(pat)) ||
             (vendor.includes('google') && renderer.includes('swiftshader'))
           ) {
             isVirtualGpu = true;
+          }
+
+          if (DESKTOP_GPU_PATTERNS.some(pat => renderer.includes(pat))) {
+            isDesktopGpu = true;
           }
         }
       }
@@ -109,14 +188,38 @@ function inspectClientEnvironment(): { isBot: boolean; isHeadless: boolean; botR
 
     const isBot = hasWebdriverFlag || hasTamperedDescriptor || hasCdcProps || isZeroScreen || hasNoLanguages;
     const isHeadless = isZeroScreen || isVirtualGpu;
+    const isDesktop =
+      maxTouchPoints < 1 ||
+      !hasTouchSupport ||
+      !isCoarsePointer ||
+      isExplicitFineMouseOnly ||
+      isExplicitDesktopPlatform ||
+      isExplicitDesktopUa ||
+      isDesktopGpu;
+
+    let reason: string | undefined;
+    if (isBot) reason = 'automation_detected';
+    else if (isHeadless) reason = 'headless_gpu';
+    else if (isDesktop) reason = 'desktop_environment';
 
     return {
       isBot,
       isHeadless,
-      botReason: isBot ? 'automation_detected' : isHeadless ? 'headless_gpu' : undefined
+      isDesktop,
+      maxTouchPoints,
+      isCoarsePointer,
+      gpuRenderer,
+      reason
     };
   } catch (_) {
-    return { isBot: false, isHeadless: false };
+    return {
+      isBot: false,
+      isHeadless: false,
+      isDesktop: false,
+      maxTouchPoints: 1,
+      isCoarsePointer: true,
+      gpuRenderer: ''
+    };
   }
 }
 
@@ -136,14 +239,20 @@ export function useClearanceDispatch({
   const [destinationUrl, setDestinationUrl] = useState<string | null>(null);
   const [isUnavailable, setIsUnavailable] = useState<boolean>(false);
 
-  // Silent behavioral, hardware & kinetic telemetry refs
+  // Silent behavioral, hardware & capacitive touch telemetry refs
   const mountTimeRef = useRef<number>(Date.now());
   const gestureStartTimeRef = useRef<number>(0);
   const pointerSamplesRef = useRef<PointerSample[]>([]);
   const clickTimestampsRef = useRef<number[]>([]);
   const isBotDetectedRef = useRef<boolean>(false);
   const isHeadlessGpuRef = useRef<boolean>(false);
+  const isDesktopRef = useRef<boolean>(false);
   const isClientBurstRef = useRef<boolean>(false);
+  const lastPointerTypeRef = useRef<string>('touch');
+  const maxTouchPointsRef = useRef<number>(5);
+  const isCoarseRef = useRef<boolean>(true);
+  const gpuRendererRef = useRef<string>('');
+  const motionEventsRef = useRef<number>(0);
 
   // ─── INSTANT LINK CLOSURE: WIPE DESTINATION FROM MEMORY & RESET ───
   const closeAndWipeLink = useCallback(() => {
@@ -175,15 +284,33 @@ export function useClearanceDispatch({
     };
   }, [closeAndWipeLink]);
 
-  // Client environment hardware scan on mount
+  // Client mobile hardware & passive gyroscope/motion scan on mount
   useEffect(() => {
     mountTimeRef.current = Date.now();
-    const { isBot, isHeadless } = inspectClientEnvironment();
-    if (isBot) isBotDetectedRef.current = true;
-    if (isHeadless) isHeadlessGpuRef.current = true;
+    const env = inspectMobileEnvironment();
+    if (env.isBot) isBotDetectedRef.current = true;
+    if (env.isHeadless) isHeadlessGpuRef.current = true;
+    if (env.isDesktop) isDesktopRef.current = true;
+    maxTouchPointsRef.current = env.maxTouchPoints;
+    isCoarseRef.current = env.isCoarsePointer;
+    gpuRendererRef.current = env.gpuRenderer;
+
+    const handleMotion = () => {
+      if (motionEventsRef.current < 100) {
+        motionEventsRef.current += 1;
+      }
+    };
+
+    window.addEventListener('devicemotion', handleMotion, { passive: true });
+    window.addEventListener('deviceorientation', handleMotion, { passive: true });
+
+    return () => {
+      window.removeEventListener('devicemotion', handleMotion);
+      window.removeEventListener('deviceorientation', handleMotion);
+    };
   }, []);
 
-  // Track physical continuous pointer motion & micro-jitter
+  // Track physical capacitive touch contact & reject mouse pointers
   const trackPointerMotion = useCallback((e: React.PointerEvent | React.TouchEvent | React.MouseEvent) => {
     if (e.isTrusted === false) {
       isBotDetectedRef.current = true;
@@ -195,18 +322,39 @@ export function useClearanceDispatch({
 
     let cx = 0;
     let cy = 0;
+    let rx = 0;
+    let ry = 0;
+    let pr = 0;
+    let pt = lastPointerTypeRef.current || 'touch';
 
-    if ('clientX' in e && typeof e.clientX === 'number') {
-      cx = Math.round(e.clientX);
-      cy = Math.round(e.clientY || 0);
-    } else if ('touches' in e && (e as any).touches?.[0]) {
-      const touch = (e as any).touches[0];
+    if ('pointerType' in e && typeof e.pointerType === 'string') {
+      pt = e.pointerType;
+      lastPointerTypeRef.current = pt;
+      if (pt === 'mouse') {
+        isDesktopRef.current = true;
+        isBotDetectedRef.current = true;
+      }
+      rx = Math.round(((e as React.PointerEvent).width || 0) * 10) / 10;
+      ry = Math.round(((e as React.PointerEvent).height || 0) * 10) / 10;
+      pr = Math.round(((e as React.PointerEvent).pressure || 0) * 100) / 100;
+    }
+
+    if ('touches' in e && (e as React.TouchEvent).touches?.[0]) {
+      const touch = (e as React.TouchEvent).touches[0] as any;
       cx = Math.round(touch.clientX || 0);
       cy = Math.round(touch.clientY || 0);
+      rx = Math.round((touch.radiusX || touch.webkitRadiusX || rx || 1) * 10) / 10;
+      ry = Math.round((touch.radiusY || touch.webkitRadiusY || ry || 1) * 10) / 10;
+      pr = Math.round((touch.force || touch.webkitForce || pr || 0) * 100) / 100;
+      pt = 'touch';
+      lastPointerTypeRef.current = 'touch';
+    } else if ('clientX' in e && typeof e.clientX === 'number') {
+      cx = Math.round(e.clientX);
+      cy = Math.round(e.clientY || 0);
     }
 
     const samples = pointerSamplesRef.current;
-    samples.push({ cx, cy, t: Date.now() });
+    samples.push({ cx, cy, t: Date.now(), rx, ry, pr, pt });
 
     if (samples.length > 15) {
       samples.shift();
@@ -233,7 +381,7 @@ export function useClearanceDispatch({
     }
 
     const start = Date.now();
-    while (Date.now() - start < 850) {
+    while (Date.now() - start < 1100) {
       await new Promise(r => setTimeout(r, 40));
       if (cfTokenRef.current && cfTokenRef.current.trim()) {
         return cfTokenRef.current.trim();
@@ -252,20 +400,46 @@ export function useClearanceDispatch({
     return null;
   }, [cfToken, cfTokenRef, executeTurnstile, widgetIdRef]);
 
-  // ─── KINETIC CLEARANCE HANDSHAKE TO SERVER / CLOUDFLARE EDGE ───
+  // ─── INSTANT 1-CLICK MOBILE CLEARANCE HANDSHAKE TO SERVER / CLOUDFLARE EDGE ───
   const handleKineticProceed = useCallback(async (e?: React.MouseEvent | React.TouchEvent | React.PointerEvent) => {
     if (isLoading) return;
 
     const now = Date.now();
 
-    // 1. Check Synthetic Event & Zero-Coordinate Click Trap
+    // Re-verify mobile environment on tap
+    const liveEnv = inspectMobileEnvironment();
+    if (liveEnv.isBot) isBotDetectedRef.current = true;
+    if (liveEnv.isHeadless) isHeadlessGpuRef.current = true;
+    if (liveEnv.isDesktop) isDesktopRef.current = true;
+
+    // 1. Check Synthetic Event, Mouse Pointer & Zero-Coordinate Click Trap
     let clickX = 0;
     let clickY = 0;
+    let touchRx = 0;
+    let touchRy = 0;
+    let touchPr = 0;
+    let pointerType = lastPointerTypeRef.current || 'touch';
+
     if (e) {
       if (e.isTrusted === false) {
         isBotDetectedRef.current = true;
       }
-      if ('clientX' in e && typeof e.clientX === 'number') {
+      if ('pointerType' in e && typeof (e as any).pointerType === 'string') {
+        pointerType = (e as any).pointerType;
+        if (pointerType === 'mouse') {
+          isDesktopRef.current = true;
+          isBotDetectedRef.current = true;
+        }
+      }
+      if ('changedTouches' in e && (e as React.TouchEvent).changedTouches?.[0]) {
+        const touch = (e as React.TouchEvent).changedTouches[0] as any;
+        clickX = Math.round(touch.clientX || 0);
+        clickY = Math.round(touch.clientY || 0);
+        touchRx = Math.round((touch.radiusX || touch.webkitRadiusX || 1) * 10) / 10;
+        touchRy = Math.round((touch.radiusY || touch.webkitRadiusY || 1) * 10) / 10;
+        touchPr = Math.round((touch.force || touch.webkitForce || 0) * 100) / 100;
+        pointerType = 'touch';
+      } else if ('clientX' in e && typeof e.clientX === 'number') {
         clickX = Math.round(e.clientX);
         clickY = Math.round(e.clientY || 0);
         if (clickX === 0 && clickY === 0 && (e as React.MouseEvent).screenX === 0 && (e as React.MouseEvent).screenY === 0) {
@@ -305,19 +479,29 @@ export function useClearanceDispatch({
       entropy = Math.random().toString(36).substring(2, 12) + Date.now().toString(36);
     }
 
-    // If bot or rapid burst is detected on client, fire silent quarantine report to Edge/Server and trigger Phantom 404
-    if (isBotDetectedRef.current || isClientBurstRef.current) {
+    // If Bot, Headless GPU, Desktop PC/Mouse, or Rapid Burst is detected -> fire silent quarantine report & show 404
+    if (
+      isBotDetectedRef.current ||
+      isHeadlessGpuRef.current ||
+      isDesktopRef.current ||
+      isClientBurstRef.current ||
+      pointerType === 'mouse'
+    ) {
       const trapToken = btoa(JSON.stringify({
+        v: 10,
         t: now,
         n: entropy,
         id: appId,
         el: effectiveElapsed,
         cx: clickX,
         cy: clickY,
-        var: 0,
-        samples: 0,
+        pt: pointerType,
+        mtp: maxTouchPointsRef.current,
+        coarse: isCoarseRef.current ? 1 : 0,
+        gpu: gpuRendererRef.current,
         wb: isBotDetectedRef.current ? 1 : 0,
         hl: isHeadlessGpuRef.current ? 1 : 0,
+        dk: isDesktopRef.current ? 1 : 0,
         cb: isClientBurstRef.current ? 1 : 0,
         tr: 0
       }));
@@ -339,13 +523,16 @@ export function useClearanceDispatch({
     setErrorMessage(null);
 
     try {
-      // 3. Acquire Turnstile Token
-      let token = await awaitTurnstileToken();
+      // 3. Acquire Cryptographic Turnstile Token (No fake attest_ token on production)
+      const token = await awaitTurnstileToken();
       if (!token) {
-        token = 'attest_' + entropy;
+        setIsLoading(false);
+        setErrorMessage('Please complete the verification check above to proceed.');
+        if (executeTurnstile) executeTurnstile();
+        return;
       }
 
-      // 4. Compute micro-jitter variance across pointer/touch trajectory samples
+      // 4. Compute micro-jitter variance & capacitive touch patch geometry across samples
       const samples = pointerSamplesRef.current;
       let coordVariance = 0;
       if (samples.length >= 2) {
@@ -353,13 +540,31 @@ export function useClearanceDispatch({
         coordVariance = diffs.reduce((a, b) => a + b, 0);
       }
 
-      const lastSample = samples.length > 0 ? samples[samples.length - 1] : { cx: clickX, cy: clickY, t: now };
+      const lastSample = samples.length > 0 ? samples[samples.length - 1] : {
+        cx: clickX,
+        cy: clickY,
+        t: now,
+        rx: touchRx,
+        ry: touchRy,
+        pr: touchPr,
+        pt: pointerType
+      };
       const finalCx = lastSample.cx || clickX;
       const finalCy = lastSample.cy || clickY;
-      const isGenuineTrusted = !isBotDetectedRef.current && (samples.length > 0 || finalCx > 0 || finalCy > 0);
+      const finalRx = lastSample.rx || touchRx || 1;
+      const finalRy = lastSample.ry || touchRy || 1;
+      const finalPr = lastSample.pr || touchPr || 0;
+      const finalPt = lastSample.pt || pointerType || 'touch';
 
-      // 5. Encode single-use clearance payload with full 7-Wall telemetry contract
+      const isGenuineTrusted =
+        !isBotDetectedRef.current &&
+        !isDesktopRef.current &&
+        finalPt !== 'mouse' &&
+        (samples.length > 0 || finalCx > 0 || finalCy > 0);
+
+      // 5. Encode single-use v10.0 mobile hardware & capacitive touch clearance payload
       const clearanceToken = btoa(JSON.stringify({
+        v: 10,
         t: Date.now(),
         n: entropy,
         id: appId,
@@ -368,10 +573,19 @@ export function useClearanceDispatch({
         cf: token,
         cx: finalCx,
         cy: finalCy,
+        rx: finalRx,
+        ry: finalRy,
+        pr: finalPr,
+        pt: finalPt,
+        mtp: maxTouchPointsRef.current,
+        coarse: isCoarseRef.current ? 1 : 0,
+        gpu: gpuRendererRef.current,
+        mot: motionEventsRef.current,
         var: coordVariance,
         samples: samples.length,
         wb: isBotDetectedRef.current ? 1 : 0,
         hl: isHeadlessGpuRef.current ? 1 : 0,
+        dk: isDesktopRef.current ? 1 : 0,
         cb: isClientBurstRef.current ? 1 : 0,
         tr: isGenuineTrusted ? 1 : 0
       }));
@@ -422,7 +636,6 @@ export function useClearanceDispatch({
               return;
             }
           } else if (attempt.status === 404) {
-            // Check if server explicitly returned disguised 404 bot denial JSON
             try {
               const errData = await attempt.json();
               if (errData && errData.success === false && errData.error === 'Not found') {
@@ -507,4 +720,5 @@ export function useClearanceDispatch({
     closeAndWipeLink
   };
 }
+
 

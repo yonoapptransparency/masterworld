@@ -45,15 +45,14 @@ export function renderNewsList(news: any[], _settings: any, pageNum: number = 1)
               <img src="${escapeHtml(optimizedLogo)}" alt="${escapeHtml(title)}" loading="${isEager ? 'eager' : 'lazy'}" decoding="async" width="600" height="338" class="w-full h-full object-cover object-center block" />
             ` : `
               <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-500/10 to-indigo-500/10">
-                <span class="text-xl font-black text-blue-600/30 dark:text-blue-400/30 tracking-widest uppercase">RummyDex</span>
+                <span class="text-xl font-black text-blue-600/30 dark:text-blue-400/30 tracking-widest uppercase">News</span>
               </div>
             `}
           </div>
           <div class="p-4 sm:p-5 flex-1 flex flex-col justify-between">
             <div>
               <div class="flex items-center gap-2 text-[11px] font-medium text-zinc-400 dark:text-zinc-500 mb-2">
-                <span class="font-bold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider text-[10px]">RummyDex</span>
-                ${category ? `<span>•</span><span class="text-blue-600 dark:text-blue-400 font-semibold">${escapeHtml(category)}</span>` : ''}
+                ${category ? `<span class="font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider text-[10px]">${escapeHtml(category)}</span>` : '<span class="font-bold text-zinc-500 uppercase tracking-wider text-[10px]">News</span>'}
                 ${dateLabel ? `<span>•</span><span>${escapeHtml(dateLabel)}</span>` : ''}
               </div>
               <h2 class="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 leading-snug line-clamp-2 mb-2">${escapeHtml(title)}</h2>

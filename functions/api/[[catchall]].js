@@ -31,18 +31,118 @@ function safeDecrypt(ciphertext, secret) {
 const BOT_PATTERNS = [
   'curl/', 'wget/', 'python', 'urllib', 'requests', 'httpx', 'aiohttp',
   'scrapy', 'axios', 'httpclient', 'go-http-client', 'okhttp', 'guzzle',
-  'apache-httpclient', 'node-fetch', 'httpie', 'mechanize', 'postman',
+  'apache-httpclient', 'node-fetch', 'undici', 'httpie', 'mechanize', 'postman',
   'insomnia', 'headlesschrome', 'puppeteer', 'playwright', 'selenium',
   'phantomjs', 'nightmare', 'webdriver', 'cypress', 'taiko', 'crawler',
   'spider', 'archive.org_bot', 'scraper', 'ahrefsbot', 'semrushbot',
   'dotbot', 'mj12bot', 'petalbot', 'bytespider', 'gptbot', 'claudebot',
-  'perplexitybot', 'ccbot', 'google-extended', 'anthropic-ai', 'chatgpt-user'
+  'perplexitybot', 'ccbot', 'google-extended', 'anthropic-ai', 'chatgpt-user',
+  'oai-searchbot', 'electron', 'lighthouse', 'bot/'
+];
+
+const BLOCKED_DATACENTER_ASNS = new Set([
+  16509, 14618, 8987,         // Amazon AWS
+  15169, 396982, 19527,       // Google Cloud Platform (GCP)
+  8075, 8068, 8069,           // Microsoft Azure
+  14061, 393406,              // DigitalOcean
+  24940, 213230,              // Hetzner Online
+  16276, 35540,               // OVHcloud
+  63949,                      // Linode / Akamai Connected Cloud
+  20473,                      // Vultr / Choopa
+  212238,                     // Datacamp Limited
+  9009,                       // M247 Europe
+  12876,                      // Scaleway
+  31898,                      // Oracle Cloud
+  45102, 37963,               // Alibaba Cloud
+  132203, 45090,              // Tencent Cloud
+  51167,                      // Contabo
+  60781, 28753,               // LeaseWeb
+  202053,                     // UpCloud
+  36352,                      // ColoCrossing
+  46606,                      // Unified Layer
+  47583,                      // Hostinger
+  8560                        // IONOS
+]);
+
+const BLOCKED_DATACENTER_ORG_KEYWORDS = [
+  'amazon', 'aws', 'google cloud', 'microsoft', 'azure', 'digitalocean',
+  'hetzner', 'ovh', 'linode', 'akamai connected cloud', 'vultr', 'choopa',
+  'the constant company', 'datacamp', 'm247', 'scaleway', 'oracle',
+  'alibaba', 'tencent', 'contabo', 'leaseweb', 'upcloud', 'colocrossing',
+  'kamatera', 'hostinger', 'ionos', 'psychz', 'zenlayer'
+];
+
+const BLOCKED_GPU_KEYWORDS = [
+  'swiftshader', 'llvmpipe', 'mesa offscreen', 'softpipe', 'virtualbox',
+  'vmware', 'parallels', 'microsoft basic render', 'nvidia', 'geforce',
+  'rtx ', 'gtx ', 'quadro', 'radeon', 'intel(r) uhd', 'intel(r) iris',
+  'intel(r) hd graphics', 'direct3d', 'apple m1', 'apple m2', 'apple m3', 'apple m4'
 ];
 
 function isKnownBotOrCrawler(ua) {
-  if (!ua || ua.length < 10) return true;
+  if (!ua || ua.length < 15) return true;
   const lower = ua.toLowerCase();
   return BOT_PATTERNS.some(bot => lower.includes(bot));
+}
+
+function isCloudDatacenterEdge(request) {
+  const cf = request.cf || {};
+  const asn = cf.asn || request.headers.get('x-asn');
+  if (asn !== undefined && asn !== null && asn !== '') {
+    const numAsn = Number(String(asn).replace(/^AS/i, '').trim());
+    if (!Number.isNaN(numAsn) && BLOCKED_DATACENTER_ASNS.has(numAsn)) {
+      return true;
+    }
+  }
+  const asOrg = String(cf.asOrganization || request.headers.get('x-as-org') || '').toLowerCase();
+  if (asOrg && BLOCKED_DATACENTER_ORG_KEYWORDS.some(kw => asOrg.includes(kw))) {
+    return true;
+  }
+  return false;
+}
+
+function isDesktopOrBotEdge(request, decoded) {
+  const ua = (request.headers.get('user-agent') || '').trim();
+  const lowerUa = ua.toLowerCase();
+  if (isKnownBotOrCrawler(ua)) return true;
+
+  const secChMobile = (request.headers.get('sec-ch-ua-mobile') || '').trim();
+  if (secChMobile === '?0') return true;
+
+  const secChPlatform = (request.headers.get('sec-ch-ua-platform') || '').replace(/"/g, '').trim().toLowerCase();
+  if (
+    secChPlatform === 'windows' ||
+    secChPlatform === 'macos' ||
+    secChPlatform === 'linux' ||
+    secChPlatform === 'chrome os' ||
+    secChPlatform === 'cros'
+  ) {
+    return true;
+  }
+
+  const isMobileUa = /android|iphone|ipad|ipod|mobile|crios|fxios/i.test(lowerUa);
+  const isIpadTablet = /macintosh/i.test(lowerUa) && Number(decoded?.mtp || 0) >= 2;
+  const isDesktopOsUa = /windows nt|cros|x11; linux x86_64|macintosh; intel mac os x/i.test(lowerUa) && !isMobileUa && !isIpadTablet;
+
+  if (!isMobileUa && !isIpadTablet) return true;
+  if (isDesktopOsUa) return true;
+
+  if (decoded) {
+    if (decoded.wb === 1 || decoded.hl === 1 || decoded.dk === 1 || decoded.cb === 1 || decoded.tr !== 1) {
+      return true;
+    }
+    if (decoded.pt === 'mouse') return true;
+    if (decoded.mtp !== undefined && Number(decoded.mtp) < 1) return true;
+    if (decoded.coarse !== undefined && Number(decoded.coarse) !== 1) return true;
+    if (decoded.gpu && typeof decoded.gpu === 'string') {
+      const lowerGpu = decoded.gpu.toLowerCase();
+      if (BLOCKED_GPU_KEYWORDS.some(kw => lowerGpu.includes(kw))) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 // In-memory isolate state for sub-millisecond Edge enforcement
@@ -464,15 +564,14 @@ export async function onRequest(context) {
   }
 
   const ip = (request.headers.get('cf-connecting-ip') || request.headers.get('true-client-ip') || request.headers.get('x-forwarded-for') || 'unknown').split(',')[0].trim();
-  const ua = (request.headers.get('user-agent') || '').trim();
 
-  // ─── WALL 1: EDGE BOT & SCRAPER UA FILTER ───
-  if (isKnownBotOrCrawler(ua)) {
+  // ─── GATE 1 (< 0.1ms): EDGE NETWORK, CLOUD DATACENTER ASN BLACKHOLE & BOT UA FILTER ───
+  if (isCloudDatacenterEdge(request) || isDesktopOrBotEdge(request, null)) {
     await quarantineIp(ip, env, 30);
     return sendDisguised404();
   }
 
-  // ─── WALL 2: DISTRIBUTED 30-MINUTE QUARANTINE & 3-CLICK / 10S BURST FIREWALL ───
+  // ─── GATE 2 (< 1ms): DISTRIBUTED 30-MINUTE QUARANTINE & 3-CLICK / 10S BURST FIREWALL ───
   if (await isIpQuarantined(ip, env)) {
     return sendDisguised404();
   }
@@ -496,29 +595,51 @@ export async function onRequest(context) {
     return sendDisguised404();
   }
 
-  // ─── WALL 3: TOKEN EXTRACTION & PAYLOAD INTEGRITY ───
+  // ─── GATE 3 (< 1ms): CLEARANCE TOKEN INTEGRITY, FRESHNESS (<= 60s) & HARDWARE/TOUCH TELEMETRY ───
   const cfToken = request.headers.get('x-cf-token') || body.cfToken || '';
   const clearanceToken = request.headers.get('x-clearance-token') || body.token || url.searchParams.get('token') || '';
 
   let decoded = null;
-  if (clearanceToken) {
+  if (clearanceToken && typeof clearanceToken === 'string') {
     try {
       decoded = JSON.parse(atob(clearanceToken));
     } catch (_) {}
   }
 
-  // Immediate Trap Check: If client detected WebDriver (wb=1), rapid burst (cb=1), or synthetic click (tr=0)
-  if (decoded && (decoded.wb === 1 || decoded.cb === 1 || decoded.tr === 0)) {
+  if (!decoded || typeof decoded !== 'object' || isDesktopOrBotEdge(request, decoded)) {
     await quarantineIp(ip, env, 30);
     return sendDisguised404();
   }
 
-  // ─── WALL 4: CLOUDFLARE TURNSTILE CRYPTOGRAPHIC ATTESTATION ───
-  const effectiveCfToken = cfToken || decoded?.cf || '';
-  const turnstileSecret = env?.TURNSTILE_SECRET_KEY || env?.CF_TURNSTILE_SECRET || staticData?.settings?.turnstile_secret_key;
-  let turnstilePassed = false;
+  const now = Date.now();
+  const tokenTime = Number(decoded.t || 0);
+  const dwell = Number(decoded.el || 0);
+  const cx = Number(decoded.cx || 0);
+  const cy = Number(decoded.cy || 0);
+  const tokenApp = String(decoded.id || '').toLowerCase().trim();
+  const tokenSlug = String(decoded.slug || '').toLowerCase().trim();
 
-  if (turnstileSecret && effectiveCfToken && !effectiveCfToken.startsWith('attest_')) {
+  if (
+    !tokenTime ||
+    Math.abs(now - tokenTime) > 60000 ||
+    dwell < 200 ||
+    (cx <= 0 && cy <= 0) ||
+    (tokenApp !== appId && tokenSlug !== appId)
+  ) {
+    await quarantineIp(ip, env, 30);
+    return sendDisguised404();
+  }
+
+  // ─── GATE 4 & GATE 5 (Parallel Promise.all ~30-50ms): ATOMIC NONCE BURN + MANDATORY TURNSTILE SITEVERIFY ───
+  const nonce = String(decoded.n || decoded.nonce || '');
+  const effectiveCfToken = String(cfToken || decoded.cf || '').trim();
+  const turnstileSecret = env?.TURNSTILE_SECRET_KEY || env?.CF_TURNSTILE_SECRET || staticData?.settings?.turnstile_secret_key;
+  const sanitizedExpectedCData = appId.replace(/[^a-z0-9_-]/g, '').slice(0, 64);
+
+  const verifyEdgeTurnstile = async () => {
+    if (!effectiveCfToken || effectiveCfToken.startsWith('attest_') || !turnstileSecret) {
+      return false;
+    }
     try {
       const formData = new FormData();
       formData.append('secret', turnstileSecret);
@@ -531,86 +652,34 @@ export async function onRequest(context) {
         method: 'POST',
         body: formData
       });
+      if (!cfResp.ok) return false;
       const cfData = await cfResp.json();
-      if (cfData.success === true) {
-        turnstilePassed = true;
-      } else {
-        const errorCodes = cfData['error-codes'] || [];
-        const isServerSecretConfigError = errorCodes.includes('invalid-input-secret');
-        if (isServerSecretConfigError) {
-          // Server secret configured with site key; rely on Track B kinetic & hardware attestation
-          turnstilePassed = Boolean(decoded && decoded.tr === 1 && decoded.wb === 0 && decoded.hl !== 1 && (decoded.el || 0) >= 250);
-        }
+      if (cfData.success !== true) return false;
+      if (cfData.action && cfData.action !== 'mobile_clearance') return false;
+      if (cfData.cdata && sanitizedExpectedCData && String(cfData.cdata).toLowerCase() !== sanitizedExpectedCData) {
+        return false;
       }
-    } catch (_) {}
-  } else if (!turnstileSecret && effectiveCfToken && !effectiveCfToken.startsWith('attest_')) {
-    turnstilePassed = true;
-  }
-
-  // Track B Kinetic Hardware Attestation (only when adblocker/carrier blocks Turnstile script, never for bots)
-  const trackBPassed = Boolean(
-    decoded &&
-    decoded.wb === 0 &&
-    decoded.hl !== 1 &&
-    decoded.cb !== 1 &&
-    decoded.tr === 1 &&
-    Number(decoded.el || 0) >= 350 &&
-    (Number(decoded.samples || 0) >= 1 || Number(decoded.cx || 0) > 0 || Number(decoded.cy || 0) > 0)
-  );
-
-  // ─── WALL 5: CENTRAL ADAPTIVE RISK ENGINE (CARE) SCORING ───
-  let riskScore = 15 - cadence.reputationBonus;
-  if (!turnstilePassed && !trackBPassed) riskScore += 45;
-  else if (turnstilePassed) riskScore -= 20;
-
-  if (decoded) {
-    const dwell = Number(decoded.el) || 0;
-    if (dwell < 200) riskScore += 50;
-    else if (dwell >= 600) riskScore -= 10;
-
-    if (decoded.hl === 1) riskScore += 45;
-    if (decoded.wb === 1) riskScore += 65;
-    if (decoded.tr === 0) riskScore += 55;
-    if (decoded.cb === 1) riskScore += 60;
-
-    if (decoded.t && Math.abs(Date.now() - Number(decoded.t)) > 60000) {
-      riskScore += 30;
+      return true;
+    } catch (_) {
+      return false;
     }
-  } else {
-    riskScore += 40;
-  }
+  };
 
-  // ─── WALL 6: BURN-ON-READ ATOMIC NONCE VERIFICATION ───
-  const nonce = decoded?.n || decoded?.nonce;
-  const nonceFresh = nonce ? await burnEdgeNonce(nonce, env) : false;
-  if (!nonceFresh) {
-    riskScore += 65;
-  }
+  const [nonceFresh, turnstilePassed] = await Promise.all([
+    burnEdgeNonce(nonce, env),
+    verifyEdgeTurnstile()
+  ]);
 
-  const finalRisk = Math.max(0, Math.min(100, riskScore));
-
-  if (finalRisk >= 80) {
+  if (!nonceFresh || !turnstilePassed) {
     await quarantineIp(ip, env, 30);
     return sendDisguised404();
-  }
-
-  if (finalRisk >= 35 && !turnstilePassed) {
-    return new Response(JSON.stringify({
-      success: false,
-      status: 'challenge_required',
-      riskScore: finalRisk,
-      error: 'Additional verification required.'
-    }), {
-      status: 200,
-      headers: DISGUISED_404_HEADERS
-    });
   }
 
   // Record clean human pass
   const rec = edgeIpHistory.get(ip);
   if (rec) rec.successes = (rec.successes || 0) + 1;
 
-  // ─── WALL 7: IN-MEMORY EDGE VAULT DECRYPTION & AIRGAP DISPATCH ───
+  // ─── GATE 6 (Final Step Only): LATE IN-MEMORY EDGE VAULT DECRYPTION & ZERO-REFERRER DISPATCH ───
   const targetUrl = resolveAppDestination(appId, env?.AES_SECRET);
   if (!targetUrl) {
     return new Response(JSON.stringify({
@@ -637,4 +706,5 @@ export async function onRequest(context) {
     }
   });
 }
+
 

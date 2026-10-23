@@ -61,7 +61,7 @@ export function buildMetaTags(params: MetaBuilderParams): string {
     if (pageType !== 'news' || !targetNews) return '';
     const pubTime = getField(targetNews, 'published_at') || getField(targetNews, 'created_at') || getField(targetNews, 'date') || '';
     const modTime = getField(targetNews, 'updated_at') || pubTime;
-    const author = getField(targetNews, 'ceo_name') || getField(targetNews, 'author') || 'RummyDex Editorial Team';
+    const author = getField(targetNews, 'ceo_name') || getField(targetNews, 'author') || 'Editorial Team';
     const section = getField(targetNews, 'category') || 'General';
     const tags = Array.isArray(targetNews.tags) ? targetNews.tags : [];
     return [
