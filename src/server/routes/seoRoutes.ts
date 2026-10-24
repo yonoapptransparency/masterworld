@@ -45,6 +45,40 @@ seoRouter.get('/robots.txt', (req, res) => {
   res.setHeader('Cache-Control', 'public, max-age=604800, s-maxage=604800');
   res.setHeader('Expires', farFuture);
   res.type('text/plain');
+  const namedAgents = [
+    'Googlebot',
+    'Bingbot',
+    'Applebot',
+    'DuckDuckBot',
+    'Baiduspider',
+    'YandexBot',
+    'SemrushBot',
+    'AhrefsBot',
+    'GPTBot',
+    'ClaudeBot',
+    'PerplexityBot',
+  ];
+  const blockRules = `Allow: /
+Allow: /api/v1/public/
+Disallow: /api/
+Disallow: /admin/
+Disallow: /login/
+Disallow: /masterworld/
+Disallow: /download/
+Disallow: /download/*
+Disallow: /gateway/
+Disallow: /gateway/*
+Disallow: /info/
+Disallow: /info/*
+Disallow: /moreinfo/
+Disallow: /moreinfo/*
+Disallow: /moredetail/
+Disallow: /moredetail/*`;
+
+  const agentBlocks = namedAgents
+    .map((ua) => `User-agent: ${ua}\n${blockRules}`)
+    .join('\n\n');
+
   res.send(`User-agent: *
 Allow: /
 Allow: /api/v1/public/
@@ -68,41 +102,10 @@ Disallow: /moreinfo/
 Disallow: /moreinfo/*
 Disallow: /moredetail/
 Disallow: /moredetail/*
+Disallow: /safety
+Disallow: /safety-status
 
-User-agent: GPTBot
-Disallow: /moreinfo/
-Disallow: /moreinfo/*
-Disallow: /gateway/
-Disallow: /download/
-Disallow: /api/
-
-User-agent: ClaudeBot
-Disallow: /moreinfo/
-Disallow: /moreinfo/*
-Disallow: /gateway/
-Disallow: /download/
-Disallow: /api/
-
-User-agent: PerplexityBot
-Disallow: /moreinfo/
-Disallow: /moreinfo/*
-Disallow: /gateway/
-Disallow: /download/
-Disallow: /api/
-
-User-agent: Google-Extended
-Disallow: /moreinfo/
-Disallow: /moreinfo/*
-Disallow: /gateway/
-Disallow: /download/
-Disallow: /api/
-
-User-agent: CCBot
-Disallow: /moreinfo/
-Disallow: /moreinfo/*
-Disallow: /gateway/
-Disallow: /download/
-Disallow: /api/
+${agentBlocks}
 
 Sitemap: https://www.rummydex.com/sitemap.xml
 Sitemap: https://www.rummydex.com/sitemap-news.xml

@@ -217,6 +217,54 @@ export function generateCommunityReviewsFileCode(reviews: any[] = []): string {
 }
 
 /**
+ * Strips server-only secrets (such as turnstile_secret_key) from public settings objects
+ * before writing staticData.json / staticData.ts or serving public endpoints.
+ */
+export function sanitizePublicSettings(settings: any): any {
+  if (!settings || typeof settings !== 'object') return {};
+  const copy = JSON.parse(JSON.stringify(settings));
+  delete copy.turnstile_secret_key;
+  return copy;
+}
+
+export function generateSecureVaultFile(ciphertext: string): string {
+  const safeCipher = (ciphertext || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  return `import {
+  getEnvSecretKeys,
+  getAesSecret,
+  encryptData,
+  decryptData,
+  safeEncrypt,
+  safeDecrypt,
+} from './cryptoUtils';
+
+export { getEnvSecretKeys, getAesSecret, encryptData, decryptData, safeEncrypt, safeDecrypt };
+
+export function encryptLinks(linksMap: Record<string, string>, secretKey?: string): string {
+  return safeEncrypt(JSON.stringify(linksMap), secretKey);
+}
+
+export function decryptLinks(ciphertext: string, secretKey?: string): Record<string, string> {
+  if (!ciphertext || typeof ciphertext !== 'string' || !ciphertext.trim()) return {};
+  const dec = safeDecrypt(ciphertext.trim(), secretKey);
+  if (!dec) return {};
+  try {
+    const parsed = JSON.parse(dec);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+  } catch {}
+  return {};
+}
+
+export function generateSecureVaultFile(c: string): string {
+  return c;
+}
+
+export const ENCRYPTED_LINKS = "${safeCipher}";
+export const ENCRYPTED_VAULT = ENCRYPTED_LINKS;
+`;
+}
+
+/**
  * Dynamically generates the content of `src/lib/staticData.ts` based on current state
  */
 export function generateStaticDataFileCode(
@@ -245,7 +293,9 @@ export function generateStaticDataFileCode(
     website_faqs: [],
     developers: []
   };
-  const cleanSettings = cleanSettingsMetaTitles(ensureDefaultSettings({ ...defaultSettings, ...JSON.parse(JSON.stringify(settings || {})) }));
+  const cleanSettings = sanitizePublicSettings(
+    cleanSettingsMetaTitles(ensureDefaultSettings({ ...defaultSettings, ...JSON.parse(JSON.stringify(settings || {})) }))
+  );
   const cleanNews = (news || []).map((item: any) => compileCanonicalNews(item));
   const cleanVideos = JSON.parse(JSON.stringify(videos || []));
 
@@ -401,7 +451,7 @@ export interface AppConfig {
   video_url?: string;
   is_top_chart?: boolean;
   top_chart_category?: string;
-  more_information_url?: string;
+  has_secure_link?: boolean;
   sync_to_public?: boolean;
 }
 

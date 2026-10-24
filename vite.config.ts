@@ -572,9 +572,11 @@ export default defineConfig(({mode}) => {
         'crypto-js',
         'dompurify',
         'lenis',
-        'otpauth'
+        'otpauth',
+        'framer-motion',
+        'react-markdown'
       ],
-      force: true
+      force: false
     },
 
     resolve: {

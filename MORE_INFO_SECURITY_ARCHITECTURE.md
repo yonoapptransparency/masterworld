@@ -1,1048 +1,760 @@
-# AUTHORITATIVE BLUEPRINT & SECURITY SPECIFICATION: More Information (`/moreinfo`) Gateway & Zero-Bot Architecture
-### Version 10.0 — Strict Mobile-Only, Instant 1-Click, Hardware-Attested 6-Gate Sequential Zero-Bot Architecture
+# More Info (`/moreinfo`) Gateway — Security Specification
 
-> [!IMPORTANT]
-> **CRITICAL INSTRUCTION FOR ALL AI AGENTS & DEVELOPERS:**
-> This document is the absolute, single **Source of Truth** for the More Information (`/moreinfo`) gateway, admin link vault, link encryption/decryption, backend security resolution, anti-bot mitigation, and vocabulary neutrality.
-> 1. **You MUST consult this document** before inspecting, modifying, or creating any code relating to the More Information page, action buttons, link vault, admin forms, or security routes.
-> 2. **You MUST update this document** immediately whenever any security rule, component, route, admin field, or vocabulary guideline is adjusted.
-> 3. **Never downgrade to client-side-only checks or soft-scoring bypasses.** Real bot protection relies on deterministic AND-gating across all 6 sequential gates.
-> 4. **Version 10.0 Architecture Highlights**:
->    - **Strict Mobile-Only Mandate**: The `/moreinfo` gateway is exclusively accessible to real human mobile users (Android & iOS smartphones/tablets). Desktop OS (`Windows`, `macOS`, `Linux`, `Chrome OS`), Desktop GPUs (`NVIDIA`, `GeForce`, `Radeon`, `Intel(R) UHD/Iris`, `Apple M1-M4`), Software Rasterizers (`SwiftShader`, `llvmpipe`, `Mesa OffScreen`), and Mouse Pointers (`pointerType === 'mouse'`) are deterministically blocked with the disguised **404 — Not Found** state.
->    - **Cloud Datacenter ASN Blackhole**: Blocks cloud hosting and datacenter ASNs (`AWS`, `GCP`, `Azure`, `DigitalOcean`, `Hetzner`, `OVH`, `Linode`, `Vultr`, `Choopa`, `Datacamp`, `M247`, `Scaleway`, `Oracle Cloud`, `Alibaba`, `Tencent`, `Contabo`, `LeaseWeb`) at Gate 1 (`< 0.1ms`).
->    - **Complete Removal of Track B & `invalid-input-secret` Auto-Pass**: Eliminates `trackBPassed` and the `invalid-input-secret` auto-pass fallback in `functions/api/[[catchall]].js` and `securityRoutes.ts`. Server-to-server Cloudflare Turnstile `siteverify` with `action: 'mobile_clearance'` and `cData` App-ID binding is mandatory.
->    - **Instant 1-Click Capacitive Touch Physics**: Real mobile users tap **"Proceed"** once (`1-click`, zero hold timers or multi-step puzzles). The tap captures physical capacitive touch geometry (`radiusX`, `radiusY`, `pressure`, `pointerType === 'touch'`, `maxTouchPoints >= 1`, `matchMedia('(pointer: coarse)')`).
+**Version 11.1** — Mobile-only · Instant 1-tap · Server-issued nonce · Hardware-committed Turnstile · 7 sequential gates · Real-user-safe failure handling
+
+> v11.1 = v11.0 spec + a forensic audit pass. Every audit finding was re-checked against the spec text and against how real phones, carriers and in-app browsers behave. What was accepted, corrected or rejected is listed in §11.
 
 ---
 
-## 1. Executive Summary & The Honest 93-95% Security Target
+## 0. READ THIS FIRST (AI agents & developers)
 
-The **More Information Gateway** (`/moreinfo/:slug` and `/moreinfo/:id`) serves as an ultra-fast, zero-leakage, bot-camouflaged intermediary layer connecting public catalog pages to external target destinations.
-
-### Why Previous Client-Side-Only Systems Scored 88/100
-Earlier revisions relied heavily on in-browser JavaScript heuristics to detect bots:
-- `navigator.webdriver` checks: **Bypassed in 1 line** by `puppeteer-extra-plugin-stealth` or Playwright stealth flags.
-- `e.isTrusted` checks: **Easily satisfied** by modern headless browser frameworks executing native OS-level mouse and keyboard events.
-- `200ms mount timing` checks: **Bypassed in 1 line** by automated scripts using `await page.waitForTimeout(300)`.
-- `window._phantom` & `window.__selenium_evaluate`: **Obsolete flags** from 2017 that modern scrapers never expose.
-- Client-side User-Agent inspection: **Trivially spoofed** because any scraper can set `User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)...`.
-
-> **The Flaw:** Fighting bots exclusively *after* they reach your client page allows the bot to inspect and manipulate the client runtime environment.
-
-### The Honest 93-95% Zero-Bot Defense Paradigm
-To maximally eliminate automated threats, we move from client-side games to **Cryptographic Attestation** and a **3-Wall Layered Defense Model**:
-
-```
-TOTAL INCOMING TRAFFIC (100%)
-               │
-               ▼
-   [ WALL 1: Edge & HTTP Filter ] ──────────────► Kills 75% of bots instantly (curl, python, scrapers, bad UAs)
-               │ (25% remaining)
-               ▼
-   [ WALL 2: Cloudflare Turnstile ] ────────────► Kills 18% of remaining advanced headless bots
-               │ (7% remaining)
-               ▼
-   [ WALL 3: Backend Token Verify & Redis Nonce ] ► Kills 5.5% of remaining replay & hijacked requests
-               │
-               ▼
-       HUMAN TRAFFIC PASSED
-       (~1.5% remaining = nation-state & human-assisted farms only. No free solution blocks these.)
-       HONEST TOTAL BOT ELIMINATION: 98.5%
-```
+1. This file is the single source of truth for the `/moreinfo` gateway, link vault, clearance API, anti-bot gates, crawler exclusion and vocabulary.
+2. Read §0–§4 fully, then **read §12 (real-world failures) before writing any gate code**, then execute §5 step by step, in order. Every step lists: files, what to do, acceptance test.
+3. If code and this spec disagree, the spec wins — fix the code. If the spec must change, edit this file in the same change and add a line to §11.
+4. All thresholds live only in §3 (code: `src/lib/gateConfig.ts`). Never hardcode a number elsewhere.
+5. Never: add client-only checks as a security boundary, add any fail-open / autopass path, turn a gate into a score, put a secret/key/real URL in this file, logs or client bundles.
+6. Never write absolute claims ("100%", "unbreakable", a bot-elimination percentage) in code comments or docs. Measure with the counters in §5.7 instead. Honest limits: §10.
+7. **Real-user rule.** HARD means *proof of automation or forgery*. "Unusual" is never proof. A check may be `enforce` only if (a) it follows from a physical invariant of a real phone, and (b) it passed shadow calibration (§13). When unsure → SOFT, not HARD.
+8. **SEO isolation rule.** Gateway protections apply ONLY to `/moreinfo/*` (+ legacy gateway paths in §5.10) and the two `session-*` endpoints. They must never touch `/`, `/app/*`, `robots.txt`, sitemaps or any indexable page: Googlebot and users must receive identical content there. No UA blocking, no mobile-only gating, no challenge on indexable pages.
+9. **Immutable core vs tunable signals** — see §3.2. Only tunable signals may be demoted to shadow at runtime; the core can never be bypassed.
 
 ---
 
-## 2. Exactly What Gets Protected
+## 1. Purpose & Threat Model
 
-| Protected Asset | Threat Vector / Attack Type | Protective Mechanism |
-| :--- | :--- | :--- |
-| **Direct Target / APK URLs** | Scrapers crawling HTML, DOM attributes, or network waterfalls to harvest download mirrors. | **100% In-Memory AES-256**: URLs are never stored in HTML, SSR data, or client state. Decrypted in RAM only upon valid clearance. |
-| **Origin Server Bandwidth & Firebase Quota** | Automated bots sending rapid bursts of requests to drain Firestore read quotas or crash the server. | **Tiered Memory Cache + Sliding Rate Limiter**: 5 req/min per IP with a 5-minute quarantine jail for hammering. |
-| **SEO & Ad Network Hygiene** | Crawlers indexing download pages, triggering "unwanted software" flags or ad policy violations. | **Neutral Vocabulary & Disguised 404**: Bots see a 404 on API routes. Pages use strictly neutral terminology ("Verification Portal", "Proceed"). |
-| **Token Replay & Man-in-the-Middle** | Attackers intercepting a valid client token and reusing it across multiple requests or apps. | **Burn-on-Read Single-Use Nonce**: Nonce is invalidated immediately upon first use. Stolen tokens cannot be reused. |
-| **Referrer Traceability** | Target CDN or third-party host detecting traffic origin and blocking our platform. | **Zero-Referrer Airgap Dispatch**: Detached DOM element with `rel="noreferrer noopener"` and strict HTTP headers. |
+`/moreinfo/:slug` is an intermediary page between the public catalog (`/app/:slug`) and an external destination URL. Goal: only a real human on a real phone ever receives the destination URL, with one tap and no visible friction.
 
----
+| Asset | Threat | Defense |
+|---|---|---|
+| Destination URLs | Scrapers/agents harvest links from HTML, DOM, network | AES-256 vault, decrypted only in server RAM after all gates pass; never in any client payload |
+| Origin / Firestore / Redis quota | Request floods | Edge WAF + rate limit (§5.11), per-device and per-network limits (§3), quarantine |
+| SEO / ad-network hygiene | Crawlers index the gateway | No discoverable links + robots exclusion + noindex headers + neutral vocabulary (§5.10, §6) |
+| Token reuse | Replay, solver-farm tokens | Server-issued single-use nonce + Turnstile cData commitment |
+| Referrer trace | Destination host sees our origin | `no-referrer` everywhere, `location.replace` dispatch |
 
-## 3. End-to-End Link Lifecycle Diagram
+| Attacker tier | Examples | Stopped by |
+|---|---|---|
+| T1 Dumb scrapers | curl, Python requests, Scrapy | G1 |
+| T2 Headless AI agents | Playwright, Puppeteer, CDP, computer-use agents | G1, G3, G4, G5, G6 |
+| T3 Engine-patched anti-detect browsers | Camoufox, Nodriver, Patchright | G1 (ASN/transport), G4 (silicon + OS contradictions), G5, G6 |
+| T4 Solver-farm tokens / residential & 4G proxies | CapSolver, 2Captcha, mobile proxy pools | G6 commitment (partial, §10), G3 server dwell |
+| T5 Human-assisted farms | Paid humans on real phones | Out of scope — no free control stops these |
 
-```
-===================================================================================================
-                               ADMINISTRATION & STORAGE PHASE
-===================================================================================================
- [ Admin Panel: App Editor ] (src/components/admin/apps/sections/AppFormGeneralSection.tsx)
-          │
-          ▼  (Admin enters destination URL into "more_information_url")
- [ AES-256 Encryption Engine ] (src/server/crypto.ts)
-          │  Transforms plaintext URL -> "U2FsdGVkX1..." ciphertext
-          ├─────────────────────────────────────────┐
-          ▼                                         ▼
- [ Primary Cloud Firestore ]               [ Local High-Availability Vault ]
- - store_data/apps_chunk_0 & 1             - src/server/secure_vault.json
- - store_data/sec_vault                    - src/lib/staticData.json (Failover)
-
-===================================================================================================
-                               PUBLIC USER NAVIGATION PHASE
-===================================================================================================
- [ Public App Page: /app/:slug ] (src/pages/AppDetails.tsx)
-          │
-          ▼  (User clicks primary action button strictly labeled "Download")
- [ Gateway Routing ] ──> Navigates to /moreinfo/:slug (src/pages/GatewayPage.tsx)
-          │
-          ▼
- [ More Information Clearance Screen ] 
-   - Displays neutral technical specs, package checksums, and safety audit badges.
-   - Renders <ClearanceButton appId="..." /> with neutral button label: "Proceed".
-
-===================================================================================================
-                        VERIFICATION & BOT-DEFENSE HANDSHAKE PHASE
-===================================================================================================
- [ User Clicks "Proceed" ]
-          │
-          ├─► 🧱 WALL 1: EDGE & HTTP FILTER
-          │   - Rejects scraper User-Agents (curl, python, scrapy, puppeteer, etc.) with 404/403.
-          │   - Rejects missing/malformed browser headers.
-          │
-          ├─► 🧱 WALL 2: CLOUDFLARE TURNSTILE INVISIBLE ATTESTATION
-          │   - Runs silent challenge on real browser environment (WebGL, canvas, behavior signals).
-          │   - Issues cryptographic proof token signed by Cloudflare.
-          │   - No user interaction/captcha required for legitimate humans.
-          │
-          ▼  (POST /api/v1/app/resolve-link with x-clearance-token & x-cf-token)
-          │
-          ├─► 🧱 WALL 3: BACKEND VERIFICATION FIREWALL (src/server/routes/securityRoutes.ts)
-          │   1. Server verifies token directly with Cloudflare API (challenges.cloudflare.com).
-          │   2. Sliding-Window Rate Limiter (max 5 requests/min per IP; 5-minute quarantine if hammered).
-          │   3. Freshness Check (token must be < 15 seconds old).
-          │   4. Burn-On-Read Nonce Store (nonce burned immediately to prevent replay attacks).
-          │   5. Identifier Consistency Check (token appId must match requested appId).
-
-===================================================================================================
-                         7-TIER IN-MEMORY RESOLUTION & DISPATCH
-===================================================================================================
- [ resolveDestinationForApp(appId) ] (src/server/services/linkService.ts):
-          │
-          ├─► Tier 0: In-Memory Fast Cache (<1ms)
-          ├─► Tier 1: In-Memory VaultNode RAM mapping (<1ms)
-          ├─► Tier 2: Local Server Vault (src/server/secure_vault.json) (<2ms)
-          ├─► Tier 3: Static ENCRYPTED_LINKS RAM Vault (<3ms)
-          ├─► Tier 4: High-Availability staticData.json Fallback (<3ms)
-          ├─► Tier 5: Firestore sec_vault Documents (with 1.5s timeout guard)
-          └─► Tier 6: Firestore store_data Consolidated Collections
-          │
-          ▼  (Decrypted URL obtained in RAM only)
- [ Strict HTTP Response Headers ]:
-   - Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0
-   - Referrer-Policy: no-referrer
-   - X-Frame-Options: DENY
-          │
-          ▼
- [ Native Zero-Referrer Airgap Dispatch ]:
-   - Dispatches programmatic open with rel="noreferrer noopener".
-   - Detaches and destroys native DOM element immediately.
-   - URL is NEVER saved in React state or persistent storage.
-   - Fallback button ("Click Here to Proceed") provided if popup blocker intervenes.
-===================================================================================================
-```
+Design principles: (1) deterministic AND-gating, no scores; (2) the server decides, the client only reports; (3) cheapest checks first; (4) nothing secret ships to the client; (5) real users pay ≤ 1 tap and ≤ ~100 ms of their own time; (6) **an unlucky real user is always routed to SOFT retry or a normal 404 "Home" link, never to a long jail**.
 
 ---
 
-## 4. The 3 Defensive Walls in Detail
+## 2. Architecture at a Glance
 
-### 🧱 Wall 1: Edge & HTTP Filter Middleware
-* **Where It Runs**: At the HTTP ingress layer before requests hit heavy application logic.
-* **Coverage**: Eliminates ~75% of bot traffic (crude scrapers, CLI utilities, automated scrapers).
-* **Checks Performed**:
-  1. **User-Agent Blacklist**: Matches against comprehensive signatures (`curl/`, `python`, `scrapy`, `urllib`, `wget`, `httpclient`, `headlesschrome`, `puppeteer`, `playwright`, `selenium`, `ahrefsbot`, `semrushbot`, etc.).
-  2. **UA Integrity**: Rejects empty, whitespace-only, or abnormally short (`< 10` characters) User-Agents.
-  3. **Disguised Rejection**: Returns `404 Not Found` (rather than `403 Forbidden`) to automated crawlers. Crawlers interpret the endpoint as deleted or non-existent and remove it from their scrape queues.
+```
+/app/:slug ── tap "Download" (a <button>, NOT an <a href>) ──► /moreinfo/:slug
+ (sets navProof: in-memory flag + router state + sessionStorage)       │
+                                                                        ▼
+[Mount] client mobile gate + frozen probes (env = HARD string + SOFT string)
+   ├─ fail ───────────► disguised 404 UI (with a neutral "Home" link)
+   └─ navProof missing ► redirect to /app/:slug ONCE (loop guard);
+                         second arrival ⇒ renders with nv=0 (stricter dwell)
+                                                                        ▼
+POST /api/v1/app/session-init  (G1–G2) ──► signed nonce + device cookie
+                                                                        ▼
+Turnstile render: action='mobile_clearance', appearance='interaction-only',
+   cData = appId_nonceId_hw   (hw = sha256 of the frozen HARD env string)
+                                                                        ▼
+"Proceed" enabled only when: Turnstile token present AND ≥ CLIENT_TAP_HOLD_MS since init
+user taps ONCE (touchstart, touchend, click captured; pointer events recorded)
+                                                                        ▼
+POST /api/v1/app/session-clearance   JSON body { token, cf }
+G1 Edge/ASN/transport/OS ► G2 Quarantine/burst ► G3 Token+nonce+dwell ►
+G4 Device truth ► G5 Touch invariants ► G6 Nonce burn, THEN Turnstile siteverify ►
+G7 Late AES decrypt + no-store/no-referrer response
+                                                                        ▼
+client: location.replace(url) → wipe all state
+```
 
-### 🧱 Wall 2: Cloudflare Turnstile Invisible Attestation
-* **Where It Runs**: In the client browser, silently integrated into `<ClearanceButton />`.
-* **Coverage**: Eliminates ~24.5% of remaining advanced bots (headless browsers, stealth automation, simulated drivers).
-* **How It Works**:
-  1. Cloudflare's lightweight JavaScript (`challenges.cloudflare.com/turnstile/v0/api.js`) renders in `invisible` mode.
-  2. Cloudflare analyzes device parameters, browser environment, execution characteristics, and network signals.
-  3. Real human users pass automatically within ~500ms without solving puzzles or clicking checkboxes.
-  4. Upon clearance, Cloudflare issues a signed, time-limited cryptographic response token.
-  5. The token is attached to the link resolution request via the `x-cf-token` header.
-
-### 🧱 Wall 3: Backend Cryptographic Verification & Nonce Burn
-* **Where It Runs**: Express backend (`src/server/routes/securityRoutes.ts`) and Vercel serverless (`public-api/index.js`).
-* **Coverage**: Eliminates remaining autonomous AI bots, rapid bursts, replay attempts, and brute-force scanners.
-* **How It Works**:
-  1. **Direct Cloudflare Validation**: The server sends a server-to-server POST request to `https://challenges.cloudflare.com/turnstile/v0/siteverify` containing the client token and secret key.
-  2. **Non-Human Rapid Burst Detection**: Real humans take multiple seconds to solve and click. If an IP sends 4+ requests within 10 seconds or fires concurrently, it is flagged as an autonomous bot burst, locked in the 30-minute IP Quarantine Jail, and ghosted with `404 Not Found`.
-  3. **Instant 404 Ghosting on Bot Symptoms**: Any bot symptoms (`wb === 1`, synthetic `.click()`, machine dwell `< 600ms`, zero-pixel clicks, burned nonce replay, bad token) immediately return `404 Not Found` (rather than `403`), leading bots to believe the endpoint does not exist.
-  4. **Burn-on-Read Atomic Nonce Store**: Every token includes a cryptographically random entropy nonce and timestamp. The server checks freshness (< 30 seconds), burns the nonce atomically in Redis/memory, and instantly rejects replays.
-  5. **Instant Passage for Genuine Users**: Genuine human clicks pass seamlessly with 0ms artificial delay and instant ~50-100ms link emission.
+Any HARD failure ⇒ identical `404 Not Found`. Any SOFT failure ⇒ `{"status":"retry"}`. Real users never see a gate.
 
 ---
 
-## 5. Dual-Stack Code Implementations
+## 3. Global Constants (single source — mirror in `src/lib/gateConfig.ts`)
 
-Because RummyDex operates in both **Local / Container Express** mode and **Vercel Serverless** mode (for the public site `www.rummydex.com`), both runtime entrypoints are fully specified below.
+### 3.1 Constants
 
-### 5.1 Modular Client Architecture: 3 Lightweight Subsystems
+| Constant | Value | Note |
+|---|---|---|
+| `TURNSTILE_ACTION` | `mobile_clearance` | Must match at render and at siteverify |
+| `TOKEN_V` | `12` | Client token schema version. Any other value ⇒ SOFT + `reload` hint (never HARD: cached old bundle after a deploy) |
+| `NONCE_TTL_MS` | `120000` | Issue → redeem window |
+| `NONCE_REFRESH_MS` | `90000` | Client silently re-inits before expiry (idle tabs) |
+| `NONCE_BURN_TTL_S` | `150` | Redis `SET nonce:<nid> 1 EX 150 NX` |
+| `CLIENT_TAP_HOLD_MS` | `1000` | UX only (not a boundary): Proceed stays disabled until this long after the init response |
+| `DWELL_HARD_BELOW_MS` | `150` | Server dwell below this ⇒ HARD (impossible for a real Turnstile solve + human tap) |
+| `MIN_SERVER_DWELL_MS` | `500` | Dwell in `[150, 500)` ⇒ **SOFT** (was HARD 800 in v11.0). Server-measured: redeem time − issue time. Client clock is never trusted |
+| `DWELL_NV0_MIN_MS` | `1500` | Minimum dwell when `nv=0` (no navProof) — below ⇒ SOFT |
+| `TOUCH_MIN_MS` / `TOUCH_MAX_MS` | `12` / `2000` | `touchend − touchstart` |
+| `TOUCH_REQUIRED_EVENTS` | `ts, te, ck` | touchstart, touchend, click must all be present |
+| `TOUCH_ORDER_RULE` | `ts` before `te` before `ck` | By arrival order. `pd`/`pu` (pointer events) are recorded for telemetry only; their position is NOT enforced (WebView order differs) |
+| `INIT_RATE_DEVICE` | `6 / 60s` per device id | session-init, keyed by `did` cookie |
+| `INIT_RATE_NET` | `120 / 60s` per `netKey` | Flood ceiling only. Must stay high: carrier NAT shares one IP among thousands of phones with identical UA |
+| `CLEARANCE_BURST` | per device id: `>3 / 10s` = SOFT strike; `3 within 2000ms` = HARD | session-clearance |
+| `QUARANTINE_HARD_S` | `1800` | 30 min, keyed by `did` only |
+| `NET_FLOOD_HARD` | `8` HARD events / 60s per `netKey` ⇒ `NET_COOLDOWN_S = 120` | Applies only to requests that have NO valid `did` |
+| `SOFT_STRIKES_DEVICE` | `3` within 600s ⇒ 300s cool-down | per `did` |
+| `SOFT_STRIKES_NET` | `30` within 600s ⇒ 120s cool-down | per `netKey` (cookie-less) |
+| `SITEVERIFY_TIMEOUT_MS` | `4000` | Fail closed, SOFT class |
+| `TURNSTILE_UI_TIMEOUT_MS` | `15000` | Client shows neutral text instead of spinning forever (content blockers) |
+| `SESSION_RETRY_MAX` | `2` | Silent client auto-retries |
+| `REQUEST_BODY_MAX_BYTES` | `8192` | Larger body ⇒ HARD |
+| `HARD_PAD_MS` | `60–120` random | Pad HARD responses produced at G3 or later so G3–G6 failures are not distinguishable by timing. G1/G2 HARD return immediately (cheap, avoids DoS amplification) — accepted leak |
+| `APP_DAILY_ISSUE_CAP` | admin per app, `0` = off | Max links issued per app per UTC day; above ⇒ `unavailable` (§5.7 G7) |
+| `DID_COOKIE` | `__Host-rd_did` | `Secure; HttpOnly; SameSite=Lax; Path=/; Max-Age=31536000`. Value = `<128-bit hex>.<base64url(HMAC(DID_HMAC_SECRET, hex)[0:16])>` |
+| `ALLOWED_HOSTNAMES` | env list | Checked against request `Host` (G1) and Turnstile siteverify `hostname` (G6). Never include `*.pages.dev` / `*.vercel.app` in production |
+| `NAV_BREADCRUMB_TTL_MS` | `1800000` | 30 min |
+| `HOSTING_ASNS` | 16509, 14618, 15169, 396982, 8075, 14061, 24940, 16276, 63949, 20473, 212238, 9009, 12876, 31898 | AWS, GCP, Azure, DigitalOcean, Hetzner, OVH, Linode, Vultr/Choopa, Datacamp, M247, Scaleway, Oracle. Extend over time; also match `asOrganization` for Contabo, LeaseWeb, Alibaba, Tencent |
+| `NEVER_BLOCK_ASNS` | 13335, 20940, 54113 | iCloud Private Relay egress (Cloudflare/Akamai/Fastly) — real iPhone users. Trade-off: bots egressing from these ASNs are not stopped by the ASN rule (G3–G6 still apply) |
+| HARD response | `404 {"error":"Not Found","status":404}` | Always 404, never 403/429. Identical headers and body for every HARD cause |
+| SOFT response | `200 {"status":"retry"}` or `200 {"status":"retry","reload":1}` | Client silently re-inits (max 2); `reload:1` ⇒ client reloads the page once |
 
-The clearance mechanism is architected as 3 clean, maintainable, single-responsibility modules:
+**Derived keys**
+- `ipKey` = full IPv4, or IPv6 truncated to `/64`.
+- `netKey` = `sha256(ipKey + " " + UA + " " + Accept-Language)`. **Weak on purpose**: Chrome's reduced UA is identical for most Android users, so `netKey` ≈ "one carrier NAT address". Never use it for long punishments.
+- `did` = the signed device cookie (above). Issued by session-init when missing/invalid. Used for rate, strike and quarantine keys. Not a security proof (an attacker can discard cookies); it exists so that **one bot can never jail thousands of real users behind the same NAT**.
 
-1. **`src/hooks/useTurnstileVerification.ts`**: Handles Cloudflare Turnstile script injection, lifecycle render, test/prod site key fallback, token state, and error handling.
-2. **`src/hooks/useClearanceDispatch.ts`**: Handles client/bot threat detection (WebDriver, Playwright, Puppeteer), pointer/touch telemetry tracking, dwell time checks, cryptographically signed clearance token generation, multi-candidate route dispatch, and zero-referrer link wiping.
-3. **`src/components/ClearanceButton.tsx`**: Lightweight, pure presentation component orchestrating the Turnstile container, animated progress labels, the neutral "PROCEED" action button, and unavailable status notices.
+### 3.2 Immutable core vs tunable signals
 
-#### Part 1: `src/hooks/useTurnstileVerification.ts`
-```typescript
-import { useState, useRef, useEffect, useCallback } from 'react';
+| Class | Members | Rule |
+|---|---|---|
+| **Immutable core** | G1 (all), G2 (quarantine/burst), G3 (HMAC, schema, appId, dwell floor), G6 (nonce burn, Turnstile checks) | Never configurable at runtime. No bypass flag may exist |
+| **Tunable** | G4-A for tolerated families, G4-B/C/D, G5 sub-checks marked "shadow" in §5.7, navProof redirect | Mode (`enforce`/`shadow`) read from Redis key `cfg:signal_modes` (cached ≤ 30 s). The owner may demote a misbehaving tunable signal to `shadow` without a deploy. Every change is logged as a counter. Demotion removes one *signal*; it never creates an autopass path |
 
-const PROD_TURNSTILE_SITE_KEY = '0x4AAAAAAE99nFmDXDivmDJV';
-const TEST_TURNSTILE_SITE_KEY = '1x00000000000000000000AA';
+### 3.3 Launch modes (new signals can false-positive on real devices; calibrate first)
 
-export function useTurnstileVerification(options?: { onError?: () => void }) {
-  const [cfToken, setCfToken] = useState<string | null>(null);
-  const [isReady, setIsReady] = useState<boolean>(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const widgetRef = useRef<HTMLDivElement>(null);
-  const widgetIdRef = useRef<string | null>(null);
-  const cfTokenRef = useRef<string | null>(null);
+| Signal | Launch mode | Rule |
+|---|---|---|
+| G4-A engine/platform contradictions — strict families | enforce | see §5.7 |
+| G4-A — tolerated families (WebViews, other Chromium forks, unknown mobile) | enforce only the base desktop-contradiction rule; rest shadow | see §5.7 |
+| G4-B shader precision | shadow | flip to enforce per family after calibration (§13) |
+| G4-C texture compression | shadow | same |
+| G4-D text physics | shadow | **denylist form only** (§5.7) |
+| G5 core invariants | enforce | |
+| G5 `rx/ry`, `gap`, `pd/pu` presence, `pr` | shadow | iOS behavior unverified |
+| navProof redirect | enforce | with loop guard (§5.2) |
 
-  // Turnstile lifecycle, script loading, execute trigger, reset & render logic
-  return { widgetRef, widgetIdRef, cfToken, cfTokenRef, isReady, errorMessage, setErrorMessage, resetTurnstile, executeTurnstile };
-}
-```
-
-#### Part 2: `src/hooks/useClearanceDispatch.ts`
-```typescript
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-
-export function useClearanceDispatch({ appId, appSlug, cfToken, cfTokenRef, widgetIdRef, isReady, resetTurnstile, executeTurnstile, onSuccess, onError, setErrorMessage }) {
-  // Advanced bot checks, kinetic pointer tracking, promise-based token resolution, single-use token encoding, multi-route fetch, airgap dispatch, and memory wiping
-  return { isLoading, destinationUrl, isUnavailable, setIsUnavailable, handleProceed, trackPointer, closeAndWipeLink };
-}
-```
-
-#### Part 3: `src/components/ClearanceButton.tsx`
-```typescript
-import React from 'react';
-import { Loader2, ArrowRight, AlertCircle } from 'lucide-react';
-import { useTurnstileVerification } from '../hooks/useTurnstileVerification';
-import { useClearanceDispatch } from '../hooks/useClearanceDispatch';
-
-export default function ClearanceButton({ appId, appSlug, onSuccess, onError }: ClearanceButtonProps) {
-  const { widgetRef, widgetIdRef, cfToken, cfTokenRef, isReady, errorMessage, setErrorMessage, resetTurnstile, executeTurnstile } = useTurnstileVerification({ onError });
-  const { isLoading, destinationUrl, isUnavailable, setIsUnavailable, handleProceed, trackPointer, closeAndWipeLink } = useClearanceDispatch({
-    appId, appSlug, cfToken, cfTokenRef, widgetIdRef, isReady, resetTurnstile, executeTurnstile, onSuccess, onError, setErrorMessage
-  });
-
-  // Pure UI Presentation: Render widget, Active PROCEED button, Lightweight Rotating Verification Stages (PROCESSING, VERIFYING, CONNECTING, ALMOST READY, ALMOST DONE, FINALIZING), Error notice
-  return ( ... );
-}
-```
+`shadow` is a rollout phase, not scoring: the end state of every signal is `enforce` or a documented removal.
 
 ---
 
-### 5.2 Express Server: `src/server/routes/securityRoutes.ts`
+## 4. Failure Classes
 
-```typescript
-import { Router, Request, Response } from 'express';
-import { Redis } from '@upstash/redis';
-import { resolveDestinationForApp, clearResolvedLinkCache } from '../services/linkService';
+| Class | Meaning | Action |
+|---|---|---|
+| HARD | Proof of automation or forgery | `404` + (if device id exists) quarantine `QUARANTINE_HARD_S`; increments `netKey` flood counter |
+| SOFT | Could be a real user on a bad network, old bundle, slow device or fast fingers | `200 {"status":"retry"}`; no quarantine; counts toward `SOFT_STRIKES_*` |
 
-export { clearResolvedLinkCache };
-export const securityRouter = Router();
+| Gate | HARD | SOFT |
+|---|---|---|
+| G1 | all (bad UA, desktop UA, hosting ASN, header incoherence, transport floor, bad `Host`, missing origin auth) | — |
+| G2 | device quarantined; `3 requests ≤ 2000 ms` | `>3 / 10 s`; init rate exceeded; net cool-down for cookie-less clients |
+| G3 | bad HMAC, `appId` mismatch, invalid `nv`, bad schema, oversized body, dwell `< 150 ms` | `TOKEN_V` mismatch (+`reload`), nonce older than `NONCE_TTL_MS`, dwell `[150, 500)`, `nv=0` and dwell `< 1500` |
+| G4 / G5 | any `enforce` signal fails | — |
+| G6 | nonce replay, `invalid-input-*`, action / hostname / cData mismatch | `timeout-or-duplicate`, network error, CF 5xx, `internal-error`, Redis error, **secret missing (plus high-severity alert counter)** |
+| G7 | — | `unavailable` notice (not an error) |
 
-// ✅ SECURITY FIX: Upstash Redis for cross-instance nonce burn
-// Replaces in-memory burnedNonces Map which failed on Vercel cold starts
-// Multiple serverless instances each had separate memory — replay attacks bypassed nonce burn
-// Redis is central — shared across ALL instances — making replay impossible
-// Setup: npm install @upstash/redis | Add UPSTASH_REDIS_REST_URL & UPSTASH_REDIS_REST_TOKEN to .env
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL || '',
-  token: process.env.UPSTASH_REDIS_REST_TOKEN || '',
-});
+Ordering note for G6: the Turnstile token is always younger than its nonce, and the nonce is checked first (G3), so an expired Turnstile token (`invalid-input-response` for age) cannot reach G6 with a valid nonce. That is why `invalid-input-*` is safely HARD.
 
-// In-memory sliding rate limiter (per-instance is acceptable for rate limiting)
-const ipRateMap = new Map<string, { count: number; resetAt: number }>();
-// In-memory IP quarantine jail for rapid abuse (bans IP for 5 minutes)
-const ipQuarantineMap = new Map<string, number>();
+---
 
-const BOT_PATTERNS = [
-  'curl/', 'wget/', 'python', 'urllib', 'requests', 'httpx', 'aiohttp',
-  'scrapy', 'axios', 'httpclient', 'go-http-client', 'okhttp', 'guzzle',
-  'apache-httpclient', 'node-fetch', 'httpie', 'mechanize', 'postman',
-  'insomnia', 'headlesschrome', 'puppeteer', 'playwright', 'selenium',
-  'phantomjs', 'nightmare', 'webdriver', 'cypress', 'taiko', 'crawler',
-  'spider', 'archive.org_bot', 'scraper', 'ahrefsbot', 'semrushbot',
-  'dotbot', 'mj12bot', 'petalbot', 'bytespider'
-];
+## 5. Build Steps (execute in order)
 
-function isKnownBotOrCrawler(ua: string): boolean {
-  if (!ua || ua.length < 10) return true;
-  const lower = ua.toLowerCase();
-  return BOT_PATTERNS.some(bot => lower.includes(bot));
+### Step 5.1 — Config + shared core (NEW files)
+
+- `src/lib/gateConfig.ts` — export every constant from §3.
+- `src/server/security/gateCore.ts` — one runtime-agnostic implementation of G1–G7 using only `fetch`, Web Crypto and Upstash REST. Three thin adapters call it, so gates cannot drift between runtimes:
+  - Express: `src/server/routes/securityRoutes.ts`
+  - Cloudflare Pages: `functions/api/[[catchall]].js`
+  - Vercel: `public-api/index.js`
+- **Production runs exactly ONE adapter** (recommended: Cloudflare Pages). The others are dev/fallback and must be disabled or return 404 in production (each extra live runtime is another origin to attack and another place for config drift).
+- Routes (neutral names only): `POST /api/v1/app/session-init`, `POST /api/v1/app/session-clearance`. Both: `Content-Type: application/json`, body ≤ `REQUEST_BODY_MAX_BYTES`. Remove the legacy `resolve-link`, `secure-link`, `get-link` routes.
+- Redis access: use Upstash **pipelines** (one REST call per gate group), never one call per command.
+- `src/lib/deviceProbe.ts` — client probes (§5.3).
+
+Accept: a gate change in `gateCore.ts` changes behavior in all runtimes; no gate logic is duplicated in adapters; a request to a disabled adapter returns the standard 404.
+
+### Step 5.2 — Catalog → Gateway navigation + navProof (with loop guard)
+
+Files: `src/pages/AppDetails.tsx`, `src/pages/GatewayPage.tsx`, `AppPublic.tsx`.
+
+- Catalog action label is **"Download"**. It is a `<button type="button">` whose `onClick` calls router `navigate('/moreinfo/' + slug, { state: { nav: Date.now() } })`.
+- **Discovery rule:** the string `/moreinfo` must never appear as an `href`, `<Link>`, canonical, JSON-LD, sitemap entry, RSS item, prerendered HTML of any page, or field of `/api/v1/public/*`. Crawlers follow anchors, not buttons; undiscovered URLs cannot be indexed.
+- Before navigating also set (try/catch): `window.__rdNav = { slug, ts }` and `sessionStorage['rd_nav_' + slug] = String(Date.now())`.
+- **navProof is valid if ANY of these holds** (within `NAV_BREADCRUMB_TTL_MS`): router `location.state.nav`; `window.__rdNav` for this slug; `sessionStorage` entry. (Router state and the in-memory flag keep working when storage is blocked — private mode, strict in-app browsers.)
+- On Gateway mount, if navProof is **missing**:
+  1. If `window.__rdBounced !== slug`: set `window.__rdBounced = slug`, then `navigate('/app/' + slug, { replace: true })`. (Shared links, bookmarks, SMS/WhatsApp links and cold crawler hits land on the catalog page, where the user taps Download once. This is a redirect to a normal page, not a lockout.)
+  2. Else (second arrival, same SPA session — storage and state both unavailable): **do not redirect again (no loop)**. Render the gateway with token field `nv = 0`.
+- Token field `nv = 1` only when navProof was valid; `nv = 0` in the case above. Server accepts `nv ∈ {0,1}`; `nv = 0` requires `DWELL_NV0_MIN_MS` (G3).
+- Route wildcard: keep both `/moreinfo/:slug` and `/moreinfo/:slug/*`.
+- navProof is a cheap cold-link filter, **not a security boundary** (a scripted agent can click through the catalog). It exists to remove direct-URL crawlers early.
+
+Accept: opening `/moreinfo/<slug>` in a fresh tab redirects to `/app/<slug>`; tapping Download shows the gateway; with sessionStorage disabled, tapping Download still shows the gateway (no loop); the string `/moreinfo` is absent from all prerendered HTML and public JSON (CI grep, §8 test 22).
+
+### Step 5.3 — Gateway mount: mobile gate + probes (client)
+
+Files: `GatewayPage.tsx`, `src/lib/deviceProbe.ts`.
+
+Run once at mount (async work finishes before the user can tap, so the tap itself stays instant).
+
+**Client mobile gate** (UX shortcut, not a boundary — the server re-checks everything). Fail ⇒ disguised 404 UI if any of: `navigator.webdriver === true` or tampered descriptor (`Object.getOwnPropertyDescriptor(navigator,'webdriver')`, `Function.prototype.toString` on the getter); `window.outerWidth === 0`; desktop platform/UA (Windows, Macintosh without touch, Linux x86, CrOS); `!matchMedia('(pointer: coarse)').matches`; `navigator.maxTouchPoints < 1`; software GPU string (`SwiftShader|llvmpipe|Mesa|VirtualBox`); desktop GPU string (`NVIDIA|GeForce|Radeon|Intel\(R\) (UHD|Iris)|Apple M[1-4]`); any `pointerdown` with `pointerType === 'mouse'`. Sets flags `wb`, `hl`, `dk`.
+
+**Probe set — collected ONCE, frozen, split in two strings.** The same frozen strings are used for `hw` (Step 5.5) and for the token (Step 5.6). Never call `collectEnv()` twice, never re-serialize on the server.
+
+```ts
+// src/lib/deviceProbe.ts
+function canonical(o: unknown): string {           // sorted keys, no whitespace, deterministic
+  if (Array.isArray(o)) return '[' + o.map(canonical).join(',') + ']';
+  if (o && typeof o === 'object')
+    return '{' + Object.keys(o as object).sort()
+      .map(k => JSON.stringify(k) + ':' + canonical((o as any)[k])).join(',') + '}';
+  return JSON.stringify(o ?? null);
+}
+async function sha256hex(s: string) {
+  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
 }
 
-function getClientIp(req: Request): string {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (typeof forwarded === 'string') {
-    return forwarded.split(',')[0].trim();
-  }
-  return req.ip || req.socket.remoteAddress || 'unknown';
+export async function collectEnv() {
+  const n = navigator as any;
+  const hi = n.userAgentData
+    ? await n.userAgentData.getHighEntropyValues(['platform', 'architecture', 'model']).catch(() => null)
+    : null;
+  let gl: WebGLRenderingContext | null = null;
+  try { gl = document.createElement('canvas').getContext('webgl'); } catch {}
+  const dbg = gl?.getExtension('WEBGL_debug_renderer_info') ?? null;
+  const mp  = gl ? gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.MEDIUM_FLOAT) : null; // MEDIUM_FLOAT
+  const ext = gl?.getSupportedExtensions() ?? [];
+
+  // HARD = stable engine/OS identity. Committed to Turnstile cData.
+  const hard = {
+    plat: n.platform ?? '',                       // 'iPhone' | 'Linux armv81' | 'Linux aarch64' ...
+    vend: n.vendor ?? '',
+    ud:   n.userAgentData ? 1 : 0,                // UA-CH present
+    udp:  hi?.platform ?? '',                     // 'Android' on Android Chromium (when returned)
+    arch: hi?.architecture ?? '',                 // must not start with 'x86' ('' is allowed)
+    dm:   'deviceMemory' in n ? 1 : 0,            // WebKit never has it
+    sa:   'standalone' in n ? 1 : 0,              // WebKit (iOS) has it
+    wc:   (window as any).chrome ? 1 : 0,         // Chromium-only (iOS: shadow, see G4-A)
+  };
+  // SOFT = noisy/OEM-dependent. NOT committed; evaluated server-side with tolerance.
+  const soft = {
+    gl:  gl ? 1 : 0,
+    mdl: hi?.model ? 1 : 0,
+    gpu: dbg && gl ? String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL)) : '',
+    mp:  mp ? [mp.rangeMin, mp.rangeMax, mp.precision] : null,
+    tx:  [ext.includes('WEBGL_compressed_texture_astc') ? 1 : 0,
+          ext.includes('WEBGL_compressed_texture_etc')  ? 1 : 0],   // [astc, etc2]
+    tp:  textPhysics(),
+  };
+  const hardStr = canonical(hard), softStr = canonical(soft);
+  const hw = (await sha256hex(hardStr)).slice(0, 24);
+  return { hardStr, softStr, hw };               // freeze this object; reuse everywhere
 }
+```
 
-function checkRateLimitAndQuarantine(ip: string): { limited: boolean; reason?: string } {
-  const now = Date.now();
+`textPhysics()`: in an off-screen `<div lang="en" style="width:120px;hyphens:auto">` render a long multi-syllable word string; return `[height, width(system-ui), width(sans-serif), width(monospace), width('Roboto',monospace), width('-apple-system',monospace)]` rounded to 0.01 px. Linux/FreeType servers wrap and size text differently from Apple CoreText / Android Skia even when UA and GPU strings are spoofed.
 
-  const quarantineUntil = ipQuarantineMap.get(ip);
-  if (quarantineUntil && now < quarantineUntil) {
-    return { limited: true, reason: 'Quarantined due to excessive activity' };
-  }
+Why the split: privacy tools (Brave shields, uBlock, Dark Reader, font/canvas protection) change canvas/GPU/text readouts. Those values must never decide a hash match. Only the stable HARD identity is committed; SOFT values are judged by tolerance rules on the server.
 
-  const entry = ipRateMap.get(ip) || { count: 0, resetAt: now + 60000 };
-  if (now > entry.resetAt) {
-    entry.count = 1;
-    entry.resetAt = now + 60000;
-  } else {
-    entry.count++;
-  }
+If `gl` is `null` (iOS Lockdown Mode, WebGL disabled): the server **skips G4-B/C and the GPU rules** for that request and increments `gate:G4:nogl:*`. G4-A and all other gates still apply.
 
-  ipRateMap.set(ip, entry);
+Disguised 404 UI: a real styled "404 — Page Not Found" screen with a normal neutral **"Home"** link to `/` (so a real user on "Desktop site" mode or an unsupported browser is never stuck). No retry button, no explanation.
 
-  if (entry.count > 8) {
-    ipQuarantineMap.set(ip, now + 5 * 60 * 1000);
-    return { limited: true, reason: 'Quarantined for multi-time hammering' };
-  }
+Accept: desktop Chrome and mobile-emulated Playwright (x86 Linux) show the disguised 404 UI; a real phone passes with no visible delay; with Brave shields on, `hardStr` is identical across two loads.
 
-  if (entry.count > 5) {
-    return { limited: true, reason: 'Rate limit exceeded' };
-  }
+### Step 5.4 — Server `session-init` (issues nonce + device cookie)
 
-  return { limited: false };
-}
+Files: `gateCore.ts` (+ adapters).
 
-/**
- * Verifies Turnstile token directly with Cloudflare API
- */
-async function verifyCloudflareTurnstile(token: string, remoteIp: string): Promise<boolean> {
-  const secret = process.env.TURNSTILE_SECRET_KEY || process.env.CF_TURNSTILE_SECRET;
-  // ✅ SECURITY FIX: Hard fail closed if secret key is missing
-  // Old code returned true here which let ALL bots through when .env was missing
-  if (!secret || secret.trim() === '') {
-    console.error('[SECURITY] CRITICAL: TURNSTILE_SECRET_KEY not configured. Blocking all requests.');
-    return false; // Block everything. Never open without secret key.
-  }
+- Input `{ appId }` matching `/^[a-zA-Z0-9\-_]{1,64}$/`. Apply G1 and G2 first.
+- Read `__Host-rd_did`. If missing or its HMAC is invalid, mint a new `did` and send `Set-Cookie` (attributes in §3.1). Cookies blocked by the client are tolerated: the client simply stays cookie-less and is governed by `netKey` limits.
+- Issue a stateless signed nonce: `nonce = nid(32 hex random) . issuedAtMs . base64url(HMAC_SHA256(NONCE_HMAC_SECRET, nid|issuedAtMs|appId)[0:16])`. The nonce is **not** bound to the cookie (cookie-less and cookie-dropping users must still work).
+- Response: `200 { nonce }` with `Cache-Control: no-store`. Nothing is stored yet; storage happens on redeem (burn).
+- Server measures dwell from `issuedAtMs`, so device clock skew never matters.
 
-  if (!token || token.trim() === '') {
-    return false;
-  }
+Accept: session-init from a bot UA returns 404; from a real phone returns a nonce + cookie in < 50 ms server time.
 
-  try {
-    const formData = new URLSearchParams();
-    formData.append('secret', secret);
-    formData.append('response', token);
-    if (remoteIp && remoteIp !== 'unknown') {
-      formData.append('remoteip', remoteIp);
-    }
+### Step 5.5 — Turnstile render with hardware commitment
 
-    const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: formData.toString(),
-      signal: AbortSignal.timeout(4000)
-    });
+Files: `useTurnstileVerification.ts`, `ClearanceButton.tsx`, `index.html`.
 
-    if (!response.ok) return false;
-    const result = (await response.json()) as any;
-    return result.success === true;
-  } catch (err) {
-    console.warn('[Security] Cloudflare Turnstile verify error:', err);
-    return false;
-  }
-}
+- `index.html <head>`: Turnstile script with `?render=explicit`, `async defer`, plus `preconnect` / `dns-prefetch` to `challenges.cloudflare.com`.
+- Cloudflare dashboard: widget mode **Managed**; restrict the widget's allowed domains to the exact production hostnames. Invisible/non-interactive is a dashboard mode, not the `size` param.
+- `hw` comes from the frozen `collectEnv()` result (Step 5.3) — **do not recompute**.
+- Render after session-init and probes finish:
 
-/**
- * ✅ SECURITY FIX: Redis-based nonce burn (cross-instance safe)
- * Replaces in-memory burnedNonces Map that failed across Vercel serverless instances
- * Returns true if nonce is fresh (first use), false if already burned (replay attempt)
- */
-async function burnNonce(nonce: string): Promise<boolean> {
-  try {
-    // SET nonce with NX (only if not exists) and 90 second expiry
-    // Returns 'OK' = fresh nonce | null = already burned = replay attack
-    const result = await redis.set(`nonce:${nonce}`, '1', { ex: 90, nx: true });
-    return result === 'OK';
-  } catch (err) {
-    console.error('[Security] Redis nonce burn error:', err);
-    return false; // Fail closed on Redis error — block request
-  }
-}
-
-// Memory cleanup routine (every 60 seconds — rate limiter only, nonce handled by Redis TTL)
-setInterval(() => {
-  const now = Date.now();
-  for (const [ip, entry] of ipRateMap.entries()) {
-    if (now > entry.resetAt) ipRateMap.delete(ip);
-  }
-  for (const [ip, until] of ipQuarantineMap.entries()) {
-    if (now > until) ipQuarantineMap.delete(ip);
-  }
-}, 60 * 1000);
-
-securityRouter.all([
-  '/api/v1/app/resolve-link',
-  '/api/v1/public/secure-link',
-  '/api/v1/get-link'
-], async (req: Request, res: Response) => {
-  // ─── WALL 1: EDGE UA & BOT FILTER ───
-  const ua = (req.headers['user-agent'] || '').trim();
-  if (isKnownBotOrCrawler(ua)) {
-    return res.status(404).json({ success: false, error: 'Not found' });
-  }
-
-  const ip = getClientIp(req);
-
-  // ─── WALL 3A: SLIDING RATE LIMITER & QUARANTINE ───
-  const rateStatus = checkRateLimitAndQuarantine(ip);
-  if (rateStatus.limited) {
-    return res.status(429).json({ 
-      success: false, 
-      error: 'Too many verification attempts. Please wait a moment.' 
-    });
-  }
-
-  // Input Validation
-  const rawId = (req.body?.id || req.body?.appId || req.query?.id || req.query?.appId || '') as string;
-  const appId = typeof rawId === 'string' ? rawId.trim() : '';
-  if (!appId || !/^[a-zA-Z0-9\-_]{1,64}$/.test(appId)) {
-    return res.status(400).json({ success: false, error: 'Invalid identifier' });
-  }
-
-  // ─── WALL 3B: CLOUDFLARE TURNSTILE TOKEN VERIFICATION ───
-  const cfToken = (req.headers['x-cf-token'] || req.body?.cfToken || '') as string;
-  const clearanceToken = (req.headers['x-clearance-token'] || req.body?.token || req.query?.token || '') as string;
-
-  if (!clearanceToken) {
-    const entry = ipRateMap.get(ip);
-    if (entry) entry.count += 2;
-    return res.status(403).json({ success: false, error: 'Clearance verification required.' });
-  }
-
-  let decoded: any;
-  try {
-    decoded = JSON.parse(Buffer.from(clearanceToken, 'base64').toString('utf8'));
-  } catch (_) {
-    return res.status(403).json({ success: false, error: 'Malformed verification token.' });
-  }
-
-  const effectiveCfToken = cfToken || decoded.cf || '';
-  const turnstilePassed = await verifyCloudflareTurnstile(effectiveCfToken, ip);
-  if (!turnstilePassed) {
-    return res.status(403).json({ success: false, error: 'Human clearance validation failed.' });
-  }
-
-  // ─── WALL 3C: BURN-ON-READ ATOMIC NONCE STORE ───
-  const now = Date.now();
-  const tokenTime = Number(decoded.t) || 0;
-  if (Math.abs(now - tokenTime) > 15000) {
-    return res.status(403).json({ 
-      success: false, 
-      error: 'Clearance session expired. Please verify again.' 
-    });
-  }
-
-  const tokenAppId = (decoded.id || '').toLowerCase().trim();
-  if (tokenAppId && tokenAppId !== appId.toLowerCase()) {
-    return res.status(403).json({ success: false, error: 'Clearance mismatch.' });
-  }
-
-  const nonce = decoded.n || decoded.nonce;
-  if (!nonce || typeof nonce !== 'string' || nonce.length < 8) {
-    return res.status(403).json({ success: false, error: 'Invalid clearance token.' });
-  }
-
-  // ✅ SECURITY FIX: Redis nonce burn — cross-instance safe replay prevention
-  const nonceIsFresh = await burnNonce(nonce);
-  if (!nonceIsFresh) {
-    return res.status(403).json({
-      success: false,
-      error: 'Clearance token already used. Each access requires a fresh one-time verification.'
-    });
-  }
-
-  // Reject sub-150ms synthetic triggers
-  if (decoded.el !== undefined && typeof decoded.el === 'number' && decoded.el < 150) {
-    return res.status(403).json({ success: false, error: 'Automation detected.' });
-  }
-
-  // ─── 7-TIER IN-MEMORY LINK RESOLUTION ───
-  const targetUrl = await resolveDestinationForApp(appId);
-  if (!targetUrl) {
-    return res.status(200).json({
-      success: true,
-      status: 'unavailable',
-      message: 'The package link is currently not available. It will be updated soon by the admin.'
-    });
-  }
-
-  // Response Security Headers
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private, max-age=0');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
-  res.setHeader('Referrer-Policy', 'no-referrer');
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-
-  return res.json({
-    success: true,
-    status: 'available',
-    url: targetUrl
-  });
+```ts
+widgetRef.current.innerHTML = '';                 // avoids "Target container is not empty"
+const id = window.turnstile.render(widgetRef.current, {
+  sitekey,                                        // admin setting → VITE_TURNSTILE_SITE_KEY → never a test key on prod
+  action: 'mobile_clearance',
+  cData: `${appId}_${nid}_${hw}`,                 // [A-Za-z0-9_-], ≤ 255 chars; nid=32 hex, hw=24 hex (parse from the END)
+  appearance: 'always',                           // always visible widget for user feedback & interactive challenge escalation
+  size: 'flexible', theme: 'auto',
+  callback: (t) => { cfTokenRef.current = t; markTokenReady(); },
+  'error-callback': softReinit,
+  'expired-callback': softReinit,
+  'timeout-callback': softReinit,
 });
 ```
 
----
+- The widget container must stay in the layout (never `display:none`, never off-screen) and reserve ~65 px height so the visible verification widget and any interactive challenge render cleanly without layout shift.
+- `cData` is fixed at render. A new nonce ⇒ `turnstile.remove(id)` + fresh render (not `reset`).
+- Test keys (`1x000…`) are forbidden when `location.hostname` is a production domain (`rummydex.com`, `pages.dev`).
+- **Proceed enables only when** a Turnstile token exists AND `now − initResponseTime ≥ CLIENT_TAP_HOLD_MS`. Never set ready without a token.
+- **Idle tabs:** at `NONCE_REFRESH_MS` after init, silently re-init (new nonce + fresh render) while the page is visible. This keeps the nonce (120 s) and the Turnstile token (300 s) valid for users who open the page and tap later.
+- **Failure to load/solve:** soft re-init (max `SESSION_RETRY_MAX`). If still no token after `TURNSTILE_UI_TIMEOUT_MS`, show neutral text: "Verification could not be completed. Please check your connection and reload." Never spin forever (content blockers / DNS ad-blockers can block `challenges.cloudflare.com`).
+- UI: button states `VERIFYING…` → `PROCEED` → `CONNECTING…`. No lock icons. Neutral wording only (§6).
 
-## 6. Strict Neutral Vocabulary Protocol (Camouflage Protocol)
+Accept: a token obtained for one cData cannot satisfy a request built with a different nonce or HARD env; a tab left idle 5 minutes still succeeds on the next tap without an error.
 
-To permanently defeat ad-network crawlers, domain scrapers, and malicious indexing algorithms, every label, class, DOM ID, meta tag, and log entry MUST strictly adhere to neutral vocabulary:
+### Step 5.6 — Tap capture & clearance request
 
-| Context | Strictly Prohibited ❌ | Mandatory Neutral Terminology ✅ |
-| :--- | :--- | :--- |
-| **Catalog App Action Button** | "Download APK", "Get APK", "Free Mod", "Install App" | **"Download"** |
-| **More Info Main Button** | "Download APK", "Start Download", "Get File" | **"Proceed"** |
-| **More Info Navigation Rule** | Secondary fallback buttons, "Click Here to Proceed", direct hrefs | **Strict Zero-DOM-Link Rule**: Proceed button is the ONLY gateway. Navigation is 100% in-memory upon clearance. |
-| **Primary Clearance Endpoint** | `/api/v1/get-link`, `/api/v1/app/resolve-link`, `/api/v1/public/secure-link` | **`/api/v1/app/session-clearance`** (neutral session clearance) |
-| **More Info Page Title (`<title>`)** | "APK Download Mirror", "Download Portal" | **"Verification Portal"**, **"Information & Verification"** |
-| **More Info `<meta>` Description** | "Download the latest APK file for Android..." | **"Technical specifications and verified mirror gateway for..."** |
-| **More Info Status Text** | "Downloading APK...", "Decrypting File..." | **"Connecting..."**, **"Ready"** |
-| **Bounce Page Header** | "Redirecting to APK Download..." | **"Connecting to Destination"** |
-| **DOM Element IDs** | `id="download-btn"`, `id="apk-link"` | `id="clearance-btn-..."`, `id="gateway-cta-..."` |
+Files: `useClearanceDispatch.ts`, `ClearanceButton.tsx`.
 
----
+User taps once; no hold timers, no extra steps. Attach listeners to the Proceed button only (via ref; re-attach if the node is replaced). Passive listeners.
 
-## 7. Environment Variables Configuration
+| Event | Record |
+|---|---|
+| `pointerdown` | `pt = e.pointerType`, push `pd` |
+| `touchstart` | time `e.timeStamp`, `rx/ry = touches[0].radiusX/Y`, `pr = touches[0].force`, `x/y = clientX/Y`, push `ts` |
+| `pointerup` | push `pu` |
+| `touchend` | time `e.timeStamp`, push `te` |
+| `click` | require `e.isTrusted`; push `ck`; `d = te − ts` (ms); `gap = click time − te time` |
 
-Both environments must declare the Turnstile keys.
+Client-side stop (disguised 404, no server call) **only** if: `e.isTrusted === false`, or `pt === 'mouse'`, or burst (`>3` clicks / 10 s, or `3` within 2000 ms ⇒ `cb = 1`). Everything else is sent to the server — **the client does not judge event order**. After the first click: disable the button, ignore further taps, one request in flight.
 
-### Local Development / Container (`.env`)
-```env
-# Client-side Turnstile Site Key (public, safe to expose)
-VITE_TURNSTILE_SITE_KEY=0x4AAAAAAE99nFmDXDivmDJV
+Request: `POST /api/v1/app/session-clearance`, JSON body `{ "token": "<base64url JSON>", "cf": "<turnstile token>" }` (body instead of headers: tokens + env exceed safe header sizes on some runtimes).
 
-# Server-side Turnstile Secret Key (private, server-only)
-TURNSTILE_SECRET_KEY=0x4AAAAAAE99nDTTfRs6xvjZDh5Yd-Mg6lE
+Token JSON:
 
-# Upstash Redis — cross-instance nonce burn (get from upstash.com free tier)
-UPSTASH_REDIS_REST_URL=your-upstash-redis-url-here
-UPSTASH_REDIS_REST_TOKEN=your-upstash-redis-token-here
+```json
+{ "v": 12, "id": "<appId>", "nonce": "<from session-init>", "nv": 1,
+  "hard": "<hardStr exactly as hashed>", "soft": "<softStr>",
+  "tap": { "pt":"touch", "mtp":5, "coarse":1, "rx":14.2, "ry":15.1, "pr":0.4,
+           "x":182, "y":611, "d":87, "gap":9, "ev":"pd,ts,pu,te,ck" },
+  "f": { "wb":0, "hl":0, "dk":0, "cb":0, "tr":1 } }
 ```
 
-### Vercel Production (`www.rummydex.com`)
-Add via **Vercel Dashboard → Settings → Environment Variables**:
-- `VITE_TURNSTILE_SITE_KEY`: `0x4AAAAAAE99nFmDXDivmDJV`
-- `TURNSTILE_SECRET_KEY`: `0x4AAAAAAE99nDTTfRs6xvjZDh5Yd-Mg6lE`
-- `UPSTASH_REDIS_REST_URL`: your Upstash Redis REST URL
-- `UPSTASH_REDIS_REST_TOKEN`: your Upstash Redis REST token
+- `ev` is the arrival order the browser actually produced. Real engines differ (pointer events may arrive before/after touch events in some WebViews); the server enforces only the invariants in G5.
+- Do not require `pr > 0` (iOS often reports force = 0). Do not read the clock for freshness (server does).
 
-> ⚠️ **Required before deploying:** Run `npm install @upstash/redis` and create a free database at **upstash.com**
+Accept: token built in < 5 ms after click; `el.click()` from a script produces only `ck` and is rejected by G5; a synthetic order `ts, pd, te, pu, ck` is accepted.
 
----
+### Step 5.7 — Server pipeline: 7 gates on `session-clearance`
 
-## 8. Verification & Penetration Testing Suite
+Files: `gateCore.ts`. Execute strictly in order; first failure returns per §4. `session-init` applies G1–G2 only.
 
-Execute these test commands to verify that all 3 walls are operating correctly:
+#### G1 — Edge, ASN, transport, OS (< 0.1 ms, HARD)
 
-### Test 1: Bot Scraper Rejection (Wall 1)
-```bash
-# Must return HTTP 404 Not Found (disguised rejection)
-curl -i -X POST http://localhost:3000/api/v1/app/resolve-link \
-  -H "User-Agent: python-requests/2.31.0" \
-  -H "Content-Type: application/json" \
-  -d '{"appId":"gold-rummy"}'
-```
+1. **Origin auth.** On Express/Vercel adapters, require header `X-CF-Auth: <X_CF_AUTH_SECRET>` (constant-time compare); absent/wrong ⇒ HARD (direct-origin hit bypassing Cloudflare). `request.cf.*` exists only in the Cloudflare runtime; for Express/Vercel read the forwarded `X-CF-ASN`, `X-CF-HTTP-Proto`, `X-CF-TLS` (set by a Cloudflare Transform Rule) and trust them only with a valid `X-CF-Auth`.
+2. **Host.** Request `Host` must be in `ALLOWED_HOSTNAMES`.
+3. UA blacklist: `curl/ wget/ python urllib requests httpx aiohttp scrapy axios httpclient go-http-client okhttp guzzle node-fetch postman insomnia headlesschrome puppeteer playwright selenium phantomjs webdriver cypress crawler spider scraper ahrefsbot semrushbot dotbot mj12bot petalbot bytespider`; reject empty or `< 10` chars.
+4. UA must match `Android|iPhone|iPad|iPod`; reject `Windows|Macintosh|X11|CrOS`. Reject `Sec-CH-UA-Mobile: ?0` and `Sec-CH-UA-Platform` of Windows/macOS/Linux/Chrome OS.
+5. ASN in `HOSTING_ASNS` (and not in `NEVER_BLOCK_ASNS`) or hosting `asOrganization` ⇒ reject. Residential/4G proxies are not caught here (§10).
+6. **Browser family** (`classifyUA`) — used by G1 header rules and G4-A:
 
-### Test 2: Missing Token Rejection (Wall 3A)
-```bash
-# Must return HTTP 403 Forbidden (clearance verification required)
-curl -i -X POST http://localhost:3000/api/v1/app/resolve-link \
-  -H "User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)" \
-  -H "Content-Type: application/json" \
-  -d '{"appId":"gold-rummy"}'
-```
+| Family | UA signal |
+|---|---|
+| `ios-safari` | iPhone/iPad/iPod + `Version/` + `Safari/` |
+| `ios-chrome` / `ios-firefox` | `CriOS/` / `FxiOS/` |
+| `ios-inapp` | iPhone/iPad/iPod without a `Safari/` token (Instagram, `FBAN/FBAV`, Telegram, …) |
+| `android-samsung` | `SamsungBrowser/` |
+| `android-edge` | `EdgA/` |
+| `android-firefox` | Android + `Firefox/` |
+| `android-webview` | `; wv)` in UA |
+| `android-chrome` | Android + `Chrome/` and none of: `SamsungBrowser`, `EdgA`, `OPR/`, `OPT/`, `UCBrowser`, `MiuiBrowser`, `HeyTapBrowser`, `Vivaldi`, `YaBrowser`, `; wv)` |
+| `android-other` | any other Android UA (Mi Browser, UC, Opera, OEM browsers, …) |
 
-### Test 3: Replay Attack Defense (Wall 3C - Nonce Burn)
-```bash
-# Sending the same clearance token twice must fail on second attempt with:
-# {"success":false,"error":"Clearance token already used. Each access requires a fresh one-time verification."}
-```
+*Strict families* = `ios-*`, `android-chrome`, `android-samsung`, `android-edge`, `android-firefox`. *Tolerated families* = `android-webview`, `android-other`, unknown mobile.
 
-### Test 4: Rate Limiting & Quarantine (Wall 3A)
-```bash
-# Hammering the endpoint > 8 times within 60 seconds must trigger 5-minute quarantine:
-# {"success":false,"error":"Too many verification attempts. Please wait a moment."}
-```
+7. Header coherence:
+   - `android-chrome` / `android-samsung` / `android-edge`: require `sec-ch-ua-mobile: ?1` and `sec-ch-ua-platform: "Android"`.
+   - iOS (any iOS family): no `sec-ch-ua*` headers allowed.
+   - Tolerated families: client-hint headers are not required.
+   - `sec-fetch-site` must be `same-origin` and `sec-fetch-mode: cors`. Missing is allowed only for iOS `< 16.4` (parse `OS 16_3` in UA) and WebViews/tolerated families.
+8. Transport floor: `httpProtocol ∈ {HTTP/2, HTTP/3}` (HTTP/1.1 ⇒ reject: default for most scripted clients) and `tlsVersion ≥ TLSv1.2` (TLS 1.3 is not required). Behind Cloudflare the origin leg is often HTTP/1.1, hence the forwarded `X-CF-HTTP-Proto`.
 
----
+G1 failures never create a device quarantine (no `did` exists yet); they only increment the `netKey` HARD counter and return the standard 404.
 
-## 9. Mandatory Implementation Checklist
+#### G2 — Quarantine & burst (< 1 ms)
 
-Before completing any task touching the More Info gateway or security routes:
-1. [ ] **Turnstile Hard Fail**: Confirm catch block in `initTurnstile` sets `setStatus('error')` and returns — NEVER `setIsReady(true)`.
-2. [ ] **cfToken Guard**: Confirm `handleProceed` returns early if `!cfToken || !isReady` — no silent bypass.
-3. [ ] **Secret Key Hard Fail**: Confirm `verifyCloudflareTurnstile` returns `false` when secret is missing — NEVER `return true`.
-4. [ ] **Redis Nonce Burn**: Confirm `burnNonce()` uses Upstash Redis — NOT in-memory Map.
-5. [ ] **Upstash Env Vars**: Confirm `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` set in both `.env` and Vercel dashboard.
-6. [ ] **Verify Server Validation**: Ensure `verifyCloudflareTurnstile` runs before link resolution in `securityRoutes.ts` and `public-api/index.js`.
-7. [ ] **Preserve Vocabulary**: Check that button labels strictly say "Download" on catalog and "Proceed" on gateway.
-8. [ ] **Run Lint & Compilation**: Run `npm run lint` and `compile_applet` to guarantee clean build.
+- If a valid `did` exists: check `quarantine:<did>` (isolate memory, then Redis). Quarantined ⇒ HARD. **Requests from a quarantined key do not extend the quarantine.**
+- If no valid `did`: check `netcool:<netKey>`. Cooling ⇒ HARD. Requests carrying a valid, non-quarantined `did` are **exempt** from net cool-down (one attacker cannot lock the NAT's real users).
+- Enforce `INIT_RATE_DEVICE` / `INIT_RATE_NET` (SOFT) and `CLEARANCE_BURST` (per `did`; cookie-less uses the net ceiling), and the strike rules in §3.1.
+- Redis error ⇒ fail closed with SOFT.
 
----
+#### G3 — Token, nonce, server dwell (< 1 ms)
 
-## 10. Automated AI Web Crawler & Headless Agent Threat Model (The "Zero-Effort AI Agent" Breach Vector)
+1. Body size ≤ `REQUEST_BODY_MAX_BYTES`; strict schema/type check on the decoded token (bad ⇒ HARD).
+2. `v !== TOKEN_V` ⇒ **SOFT with `reload:1`** (old cached bundle after a deploy).
+3. `id === appId`; `nv ∈ {0,1}`; verify nonce HMAC in constant time with `NONCE_HMAC_SECRET`, falling back to `NONCE_HMAC_SECRET_PREVIOUS` during rotation; nonce `appId` matches. Bad ⇒ HARD.
+4. `dwell = now − issuedAtMs`: `> NONCE_TTL_MS` ⇒ SOFT; `< DWELL_HARD_BELOW_MS` ⇒ HARD; `< MIN_SERVER_DWELL_MS` ⇒ SOFT; if `nv = 0` and `< DWELL_NV0_MIN_MS` ⇒ SOFT.
+5. Flags: `wb=0, hl=0, dk=0, cb=0, tr=1`.
 
-### 10.1 Real-World Incident Analysis: How the AI Crawler Retrieved the Link Without "Breaking" Anything
+#### G4 — Device truth (< 1 ms)
 
-During automated penetration testing with an AI browser crawler (autonomous Playwright/Chromium agent), the crawler retrieved the destination URL within seconds and produced the following exact report:
+Parse `hard` and `soft` strings with `JSON.parse`; verify key set and types. **Never re-serialize.**
 
-> *"I didn’t break or bypass any bot protection on that page. What happened was straightforward: I opened the Spin Crush page in a normal browser session. I inspected the visible page controls. The page exposed a single 'Proceed to destination' button. Clicking that button led to https://tools.pingdom.com/. There was no CAPTCHA, login gate, rate limit, browser challenge, or blocked request during that navigation. Because no protection actually stopped the flow, there was nothing to defeat."*
+**A. Engine/platform contradictions (enforce; strict families get the full rules, tolerated families only the base rule).**
 
-### 10.2 Why Did This Happen? The Technical Root Cause
+*Base rule (all families, enforce):* `plat` must not match `^(Win|Mac|Linux (x86|i[3-6]86)|CrOS)`; `arch` must not start with `x86`; GPU string must not match the software/desktop patterns in §5.3.
 
-There is a fundamental difference between **Dumb Scrapers** and **Automated AI Browser Agents**:
+*iOS (all `ios-*`), enforce:* `plat ∈ {iPhone, iPad, iPod}`, `vend = "Apple Computer, Inc."`, `dm = 0`, `ud = 0`. *Shadow:* `sa = 1`, `wc = 0` (behavior across Chrome-iOS, Firefox-iOS and in-app WKWebViews is unverified — calibrate).
 
-| Scraper Tier | Tooling | Behavior | Result On Our Previous System |
-| :--- | :--- | :--- | :--- |
-| **Tier 1: Dumb Scrapers** | `curl`, Python `requests`, Scrapy, search spiders | Downloads raw HTML only. Does not run JavaScript. | **100% Blocked.** Link is not in HTML. Scraper gets nothing. |
-| **Tier 2: AI Browser Agents** | Playwright, Puppeteer, Selenium, Claude Computer Use, OpenAI Operator | Runs real Chromium engine. Executes React, CSS, and JS. Fires DOM events. | **Walks straight through.** Cloudflare invisible mode and single-click buttons treat it like a human. |
+*Android Chromium strict families (`android-chrome`, `android-samsung`, `android-edge`), enforce:* `ud = 1`; if `udp ≠ ''` then `udp = 'Android'`; `plat` matches `/^Linux (armv|aarch64)/`. *Shadow:* `mdl = 1` (some OEM builds return no model).
 
-#### The 3 Vulnerabilities Exploited by the AI Agent:
-1. **Invisible Cloudflare Turnstile (`size: 'invisible'`)**:
-   - Invisible mode evaluates the browser passively in the background without displaying any interactive UI or puzzle.
-   - Because the AI agent was running a real Chromium browser instance (often with valid WebGL and canvas), Cloudflare determined the environment was a valid browser and **automatically issued a passing cryptographic token**.
-   - On staging or preview URLs (like Cloud Run or development environments), fallback test keys (`1x000...`) are programmed to **always return PASS**, granting the bot an attestation token with 0 resistance.
-2. **Single-Click Action Trigger (`button.click()`)**:
-   - The gateway presented a standard button: `<button ...>Proceed</button>`.
-   - The AI crawler executed a standard DOM programmatic click: `document.querySelector('button').click()`.
-   - The frontend's React click handler intercepted the click, attached the already-acquired Turnstile token, sent the request to `/api/v1/app/session-clearance`, and voluntarily handed the decrypted destination link back to the browser.
-3. **No Human Physical Effort Requirement**:
-   - The system required no human dwell time, no continuous physical gesture, and no interactive verification challenge. To the AI agent, navigating the page was identical to reading a public blog post.
+*Android Firefox, enforce:* `plat` matches `/^Linux (armv|aarch64)/`.
 
----
+*Tolerated families:* base rule only; everything else shadow.
 
-### 10.3 The 5-Layer Defense Blueprint to Neutralize Automated AI Agents
+**B. Silicon precision (shadow → enforce per family).** `mp` for MEDIUM_FLOAT must be mobile-class (`precision ≤ 16`). Desktop GPUs and SwiftShader/llvmpipe report `[127,127,23]` even when the GPU string is spoofed. If real-device data shows ANGLE/Vulkan phones reporting 23, record a per-GPU allowlist instead of dropping the check. Skipped when `gl = 0`.
 
-To stop autonomous AI agents and headless browser crawlers from retrieving protected links, we apply a multi-layered defense combining cryptographic challenge, physical human gesture verification, and environment fingerprint traps:
+**C. Texture compression (shadow → enforce per family).** `tx` must contain ASTC or ETC2 (mobile silicon blocks; desktop/server GPUs lack ASTC). Skipped when `gl = 0`.
 
-```
-===================================================================================================
-                   5-LAYER ANTI-AI BROWSER AGENT DEFENSE MATRIX
-===================================================================================================
- [ Incoming Visitor (Human or Headless AI Agent) ]
-           │
-           ├─► [ LAYER 1: Cloudflare Edge Super Bot Fight Mode (JA3/JA4 TLS Inspection) ]
-           │   - Blocks Puppeteer/Playwright/Node.js TLS cipher suite signatures at DNS edge.
-           │   - Real consumer Android/iOS mobile devices pass cleanly.
-           │
-           ├─► [ LAYER 2: Client Headless Environment Fingerprint Trap ]
-           │   - Detects navigator.webdriver === true.
-           │   - Detects synthetic event invocation (e.isTrusted === false).
-           │   - Validates natural mouse/touch movement trajectory before button activation.
-           │   - Detects virtualized software GPUs (SwiftShader, llvmpipe).
-           │
-           ├─► [ LAYER 3: Turnstile Mode Shift: Invisible -> Managed Interactive Challenge ]
-           │   - Changes size: 'invisible' to size: 'normal' (or 'compact' on mobile).
-           │   - Forces a visible Cloudflare interactive challenge box inside a cross-origin iframe.
-           │   - Headless bots cannot solve the interactive challenge without costly human CAPTCHA farms.
-           │
-           ├─► [ LAYER 4: Physical Human Interaction Barrier: "Hold to Proceed" (1.5 Seconds) ]
-           │   - Programmatic .click() sends pointerdown + pointerup at the exact same millisecond (0ms).
-           │   - Hold-to-Proceed requires pointerdown -> wait 1500ms -> pointerup.
-           │   - Analyzes micro-tremors: Human thumbs naturally shift by 1–3px; scripts freeze at (0, 0).
-           │
-           └─► [ LAYER 5: Backend Dwell-Time & Staging Test Key Isolation ]
-               - Rejects clearance requests with elapsed page time < 2500ms from mount.
-               - Test secret key (1x000...) is strictly blocked on production domain (rummydex.com).
-===================================================================================================
-```
+**D. Text physics (shadow → enforce, DENYLIST form only).** Do **not** try to describe "all real phones" (OEM fonts make that range unbounded and will reject real users). Instead keep `TEXT_PHYSICS_DENYLIST`: exact `tp` signatures measured from *your own* bot stacks (Playwright Pixel-7 emulation on Linux, Camoufox, Nodriver, headless Chrome in Docker). Match ⇒ fail. Rebuild the list whenever a new bot stack is tested. Roboto-vs-fallback and `-apple-system`-vs-fallback differences are logged as counters only.
 
----
+**E. Hardware commitment.** `hw = sha256hex(<hard string exactly as received>)[0:24]`; used in G6.
 
-### 10.4 Implementation Specifications for the 5 Layers
+#### G5 — Touch invariants (enforce core; shadow extras)
 
-#### 1. Layer 1: Managed Interactive Cloudflare Turnstile
-Switch `size: 'invisible'` to `size: 'normal'` (or `'compact'` on mobile screens):
-```typescript
-// In src/components/ClearanceButton.tsx
-widgetIdRef.current = window.turnstile.render(widgetRef.current, {
-  sitekey: activeKeyRef.current,
-  theme: 'auto',
-  size: 'normal', // Managed interactive challenge requires human verification
-  callback: (token: string) => {
-    cfTokenRef.current = token;
-    setCfToken(token);
-    setIsReady(true);
-  },
-  'error-callback': () => { ... }
-});
-```
-* **Why this defeats AI Agents**: An interactive challenge requires a real human gesture inside a sandboxed cross-origin `iframe` protected by Cloudflare's behavioral analytics. Headless scripts executing simple DOM clicks fail the iframe challenge.
+Enforce: `pt === 'touch'`; `mtp ≥ 1`; `coarse === 1`; `ev` contains `ts`, `te` and `ck` with `ts` before `te` before `ck`; `TOUCH_MIN_MS ≤ d ≤ TOUCH_MAX_MS`; `x > 0 || y > 0`.
+Shadow (counters only): `rx > 0 || ry > 0` (iOS may report 0 — verify), `gap` range, `pd`/`pu` presence and order, `pr`.
+Scripted taps (`page.touchscreen.tap`, CDP `Input.dispatchTouchEvent`) fire touchstart/touchend within 0–3 ms and fail the duration floor; `el.click()` produces only `ck` and fails the required-events rule. An attacker who adds a realistic delay passes this gate — see §10.
 
-#### 2. Layer 2: Client Headless Environment Fingerprint Trap
-Before allowing any clearance handshake, inspect the client runtime for automation signatures:
-```typescript
-function detectHeadlessAutomation(e: React.MouseEvent | React.PointerEvent): { isBot: boolean; reason?: string } {
-  // 1. W3C WebDriver specification flag
-  if (navigator.webdriver === true) {
-    return { isBot: true, reason: 'webdriver_active' };
-  }
+#### G6 — Nonce burn, then Turnstile siteverify
 
-  // 2. Synthetic programmatic event flag
-  if (e.isTrusted === false) {
-    return { isBot: true, reason: 'untrusted_synthetic_event' };
-  }
+Sequential (burn first): replays then cost nothing at Cloudflare, and the extra ~20 ms is invisible next to a human tap.
 
-  // 3. Zero-coordinate click (bots firing element.click() without coordinates)
-  if (e.clientX === 0 && e.clientY === 0 && e.screenX === 0 && e.screenY === 0) {
-    return { isBot: true, reason: 'zero_coordinate_synthetic_click' };
-  }
+1. **Burn:** `SET nonce:<nid> 1 EX 150 NX` on Upstash Redis (cross-instance). Already exists ⇒ HARD (replay). Redis error ⇒ SOFT (fail closed).
+2. **siteverify:** `POST https://challenges.cloudflare.com/turnstile/v0/siteverify` with `secret`, `response`, `remoteip` (informational). Timeout `SITEVERIFY_TIMEOUT_MS`. Require **all**: `success === true` · `action === 'mobile_clearance'` · `hostname ∈ ALLOWED_HOSTNAMES` · parsed `cdata` equals `appId_nid_hw`, where `appId` = requested app, `nid` = nonce id from G3, `hw` = hash recomputed in G4-E (parse cData from the end: last 24 chars = `hw`, previous 32 = `nid`, the rest = `appId`).
+3. Secret missing/empty ⇒ fail closed (SOFT + alert counter). No `invalid-input-secret` passthrough and no Track-B fallback exist.
+4. Error mapping: see §4.
 
-  // 4. Missing window plugins or virtualized screen dimensions
-  if (window.outerWidth === 0 && window.outerHeight === 0) {
-    return { isBot: true, reason: 'headless_screen_dimensions' };
-  }
+#### G7 — Late decrypt & dispatch (< 0.5 ms)
 
-  return { isBot: false };
-}
-```
+Only after G1–G6 pass:
+1. If `paused:<appId>` is set in Redis, or the per-app daily issue counter `issued:<appId>:<yyyymmdd>` has reached `APP_DAILY_ISSUE_CAP` (when non-zero) ⇒ respond `unavailable` below. (Operational kill switch: an attack in progress can be contained per app without taking the site down. It is fail-closed, never fail-open.)
+2. `resolveDestinationForApp(appId)` (§5.8). Unavailable ⇒ `200 {"status":"unavailable","message":"The package link is currently not available. It will be updated soon by the admin."}`.
+3. Available ⇒ increment `issued:<appId>:<yyyymmdd>`; `200 {"status":"available","url":"..."}` with headers: `Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0` · `Pragma: no-cache` · `Expires: 0` · `Referrer-Policy: no-referrer` · `X-Content-Type-Options: nosniff` · `X-Frame-Options: DENY` · `X-Robots-Tag: noindex, nofollow, noarchive`.
 
-#### 3. Layer 3: Standard Neutral UI & Client Telemetry Trap
-The UI maintains a clean, minimalist, standard design that does NOT telegraphed bot rules or attract crawlers:
-- **Clean Standard Card**: Neutral title ("Verification Portal"), neutral prompt ("Please complete the verification below to proceed."), and standard Cloudflare Turnstile box.
-- **Strict Neutral Vocabulary**: Actions strictly say "Proceed", "Connecting...", "Verification Portal". Never use sensitive trigger words.
-- **Passive Telemetry**: Quietly checks `e.isTrusted === true`, non-zero screen coordinates, `navigator.webdriver === false`, and minimum human dwell time (`el >= 1000ms`).
+**Observability (required to calibrate shadow gates):** pipeline-increment Redis counters `gate:<G#>:<signal>:<pass|fail>:<yyyymmdd>:<family>` (14-day TTL). Fail counters always; pass counters sampled 1-in-10 (increment by 10) to protect the Redis command budget. Never log URLs, tokens, IPs in clear or full telemetry.
 
-#### 4. Layer 4: Ephemeral Auto-Reset Protocol (Link Is NEVER Kept Open)
-To guarantee that no link is ever exposed to automated crawlers or subsequent visits:
-- **One-Time Airgap Dispatch**: Once backend clearance is verified, destination is dispatched via a temporary detached anchor with `rel="nofollow noopener noreferrer"` and `referrerPolicy="no-referrer"`.
-- **Ephemeral 20-Second Auto-Reset**: In-memory destination URL is automatically wiped (`null`), tokens destroyed, and Turnstile reset after 20 seconds (ensuring users whose mobile browsers block popups have adequate time to tap "Proceed").
-- **Re-Entry Invalidation**: Any tab switch (`visibilitychange`), browser Back/Forward navigation (`pageshow`), or window blur/focus automatically wipes the destination URL and resets the verification state. Every single time a user or bot accesses or returns to the page, **THEY MUST VERIFY AGAIN**.
-- **Backend Headers**: The server emits `Referrer-Policy: no-referrer` and `X-Robots-Tag: noindex, nofollow, noarchive` so no search engine or crawler can track or index the clearance response.
+Accept: run the test matrix in §8; every HARD case returns the identical 404 body and headers.
 
-#### 5. Layer 5: Cloudflare WAF Super Bot Fight Mode (At DNS Level)
-On the Cloudflare dashboard for `rummydex.com`:
-- Navigate to **Security → Bots**.
-- Enable **Bot Fight Mode** or **Super Bot Fight Mode**.
-- Set **"Definitely Automated Bots"** to **Block** or **Managed Challenge**.
-- Set **"Verified Bots"** (Googlebot, Bingbot, indexing crawlers) to **Allow** so SEO rankings are completely unharmed.
-- This layer inspects JA3 and JA4 TLS fingerprints at the network edge, cutting off headless Puppeteer and Playwright instances before they can even download `index.html`.
+### Step 5.8 — Link vault & resolution
+
+Files: `src/server/crypto.ts`, `src/server/services/linkService.ts`, `src/lib/secureVault.ts`, `AppFormGeneralSection.tsx`.
+
+Admin → storage: admin enters destination in `more_information_url` → server AES-256 encrypts → stored in Firestore `store_data/apps_chunk_*` and `store_data/sec_vault`, and sealed into `src/lib/secureVault.ts` (`ENCRYPTED_LINKS`) and `src/lib/public_backup.json` by GitHub sync.
+
+**Cipher format (important for the build):**
+- Legacy ciphertext starting `U2FsdGVkX1…` is CryptoJS passphrase-mode (OpenSSL `Salted__`, MD5-based key derivation, unauthenticated CBC). It has a weak KDF and **cannot be decrypted with Web Crypto alone** (no MD5) — gateCore's "Web Crypto only" rule conflicts with it.
+- New writes use **AES-256-GCM via Web Crypto** with a random 256-bit key (`AES_KEY`, base64), random 12-byte IV, envelope `v2.<base64url(iv)>.<base64url(ciphertext+tag)>`.
+- Migration: reads accept both formats (legacy path may use `crypto-js`, server-side only, never in a client bundle); every admin save and a one-time migration script re-encrypt to `v2`. Remove the legacy reader when none remain.
+- A low-entropy `AES_SECRET` plus ciphertext sitting in a repo is offline-bruteforceable. Keys must be random 32 bytes.
+
+Resolution order (server RAM only): T0 RAM cache → T1 `ENCRYPTED_LINKS` (sealed bundle) → T2 `public_backup.json` → T3 Firestore `sec_vault` (1.5 s timeout) → T4 Firestore `store_data`. (Tiers that cannot contain links — e.g. stripped `staticData.json` — are not fallbacks; remove them if present.)
+
+Invariants:
+- Public bundles (`staticData.json`, `window.__INITIAL_DATA__`, `/api/v1/public/*`) are built with `compileCanonicalApp(app, { stripDownloadLinks: true })`: no `more_information_url`, `download_url`, `encrypted_link`, `encrypted_download_url`, and no `/moreinfo` path field; only boolean `has_secure_link`.
+- **Ciphertext files (`secureVault.ts`, `public_backup.json`) must never be served statically**: not in `public/`, not in `dist/`, not in any CDN-visible path. CI scan in §8 test 22.
+- Client code never imports `secureVault.ts`, `ENCRYPTED_LINKS` or any AES helper, and never falls back to local decryption when the server says 404/retry.
+- GitHub sync must regenerate the complete `secureVault.ts` via `generateSecureVaultFile(ciphertext)` (helpers + ciphertext). Writing only the constant breaks decryption.
+- Live Firestore reads are authoritative over stale backups; merge admin in-memory state before committing.
+- AES keys come from env only (`AES_KEY`; during rotation also `AES_KEY_PREVIOUS`; legacy `AES_SECRET` only until migration ends). No key literals in source or docs.
+- Gateway ≠ destination: block destinations that point back to our own gateway (loop guard).
+
+### Step 5.9 — Client dispatch, wipe, re-entry
+
+Files: `useClearanceDispatch.ts`, `GatewayPage.tsx`.
+
+- Response `available` ⇒ `location.replace(url)` (top-level navigation: no popup blockers, Back returns to the catalog, not the gateway). Gateway `<head>` has `<meta name="referrer" content="no-referrer">`.
+- **Zero-DOM-link rule:** no `href`, no fallback "click here" button, no popup. The Proceed button is the only gateway.
+- The URL exists only in a local variable: never in React state, storage, console or DOM. Immediately after dispatch: null the variable, clear token refs, `turnstile.remove`.
+- `retry` ⇒ new session-init + fresh Turnstile render (max `SESSION_RETRY_MAX` silent attempts, then neutral "Please try again" text with a button that restarts init). The new token requires a new tap (the touch evidence is per request). If the response contains `reload:1`, reload the page once.
+- Request timeout 10 s ⇒ treat as retry.
+- `unavailable` ⇒ show the neutral notice from G7.
+- `visibilitychange` (hidden→visible) or `pageshow` with `persisted` ⇒ wipe state and re-run init. Every return to the page re-verifies.
+- Disguised 404 UI (`isBotBlocked`): a real styled "404 — Page Not Found" screen with a neutral Home link, no retry prompt.
+
+### Step 5.10 — Crawler exclusion, cache isolation, routing
+
+Applies to `/moreinfo/*`, `/gateway/*`, `/download/*`, `/info/*`, `/moredetail/*` and the two `session-*` endpoints. **Never applies to `/`, `/app/*`, `/robots.txt` or sitemaps (§0.8).**
+
+**Layer 0 — nothing to discover.** No anchor, link, sitemap, JSON-LD, RSS or public-API field references these paths (Step 5.2). Undiscovered URLs are the strongest protection against indexing.
+
+Note on `Disallow` + `noindex`: a crawler that honors `Disallow` never fetches the page, so it never reads `noindex`; and a disallowed URL that is linked from elsewhere can still appear as a bare URL in search results. That is why Layer 0 matters more than either control. The meta/header `noindex` is the backup for non-compliant or link-preview fetchers that do load the shell. If a bare gateway URL ever appears in Search Console, temporarily remove the `Disallow` for that path while keeping `noindex` until it drops, then restore it.
+
+| Layer | Requirement |
+|---|---|
+| `robots.txt` (`public/robots.txt`, `seoRoutes.ts`) | Disallow all those paths and `/api/` for `*`, Googlebot, Bingbot, Applebot, DuckDuckBot, Baiduspider, YandexBot, SemrushBot, AhrefsBot, GPTBot, ClaudeBot, PerplexityBot. Repeat the Disallow lines inside every named UA group (a specific group overrides `*`). Allow everything else |
+| HTML meta (`seoHelper.ts`, `Meta.tsx`, `metaBuilder.ts`, `schemaBuilder.ts`) | `noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate` on `robots` + `googlebot, bingbot, slurp, baiduspider, yandex, duckduckbot, gptbot, claudebot, perplexitybot`. Zero JSON-LD, canonical, OpenGraph or Twitter tags (link-preview bots from WhatsApp/Telegram/Facebook ignore robots.txt and get a blank, link-free shell) |
+| HTTP headers (`server.ts`, `public/_headers`, `vercel.json`) | `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet`; `Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0`; `CDN-Cache-Control: no-store, private`; `Cloudflare-CDN-Cache-Control: no-store, private`; `Referrer-Policy: no-referrer` |
+| Sitemaps | `/moreinfo/*` excluded from every sitemap; only `/app/:slug` is submitted |
+| Cloudflare Cache Rule (priority 1) | `starts_with(path,"/moreinfo") or starts_with(path,"/api/")` ⇒ Bypass cache |
+| Cloudflare Bot Fight Mode (Super Bot Fight Mode on Pro+) | "Definitely automated" ⇒ Block/Managed Challenge; "Verified bots" ⇒ Allow (they are kept out of `/moreinfo` by Layer 0 + robots, and SEO on `/app/*` stays intact). Confirm in the Cloudflare event log that Googlebot/Bingbot are not challenged on `/app/*` |
+| Vercel (`cleanUrls: true`) | SPA fallback destination must be `"/"` (not `/index.html`, which causes a 404) plus explicit `{ "source": "/moreinfo/(.*)", "destination": "/" }` |
+| Pre-render (`scripts/prerender.ts`) | Generate `dist/moreinfo/[slug].html` and `dist/moreinfo/[slug]/index.html` (shell only, no link data, no references to other pages) |
+
+### Step 5.11 — Edge layer (Cloudflare dashboard, before any function runs)
+
+Blocked-at-edge requests do not invoke Pages Functions and do not touch Redis — this protects both your function quota and your Upstash command budget during floods.
+
+1. **WAF custom rule (Block, custom response 404, `application/json`, body `{"error":"Not Found","status":404}`):**
+   `(starts_with(http.request.uri.path, "/api/v1/app/session-")) and (http.request.method ne "POST" or not (http.user_agent contains "Android" or http.user_agent contains "iPhone" or http.user_agent contains "iPad" or http.user_agent contains "iPod"))`
+2. **Rate limiting rule** on `starts_with(path, "/api/v1/app/session-")`: start at `60 requests / 10 s per IP`, action Block (same 404 response), duration 60 s. Tune from §13 counters; keep it above carrier-NAT peak.
+3. **Host rule:** block requests whose `http.host` is not in the production allowlist.
+4. Cache Rule and Bot Fight Mode as in §5.10.
+5. Alerts: Upstash daily command usage ≥ 70 % of plan; Pages Functions requests ≥ 70 % of plan.
+
+Accept: `curl` with a desktop UA to `session-init` returns the 404 JSON from the edge (check `cf-ray` present, no function log line).
 
 ---
 
-### 10.5 Updated Penetration Testing Suite for AI Agents
+## 6. Neutral Vocabulary Protocol
 
-To test against headless crawlers, run the following automated browser test script:
+Every label, class, DOM id, meta tag, log line and endpoint name must use neutral wording.
 
-```javascript
-// test-ai-crawler.js (Simulates the exact AI agent that previously got through)
-const { chromium } = require('playwright');
+| Context | Prohibited | Required |
+|---|---|---|
+| Catalog action button | "Download APK", "Get APK", "Free Mod", "Install App" | `Download` |
+| Gateway main button | "Download APK", "Start Download", "Get File" | `Proceed` |
+| Clearance endpoints | `get-link`, `resolve-link`, `secure-link` | `/api/v1/app/session-init`, `/api/v1/app/session-clearance` |
+| `<title>` | "APK Download Mirror", "Download Portal" | "Verification Portal" / "Information & Verification" |
+| `<meta description>` | "Download the latest APK…" | "Technical specifications and verified mirror gateway for…" |
+| Status text | "Downloading APK…", "Decrypting File…" | `VERIFYING…`, `CONNECTING…`, `INITIALIZING…`, `Ready` |
+| Bounce header | "Redirecting to APK Download…" | "Connecting to Destination" |
+| DOM ids | `download-btn`, `apk-link` | `clearance-btn-<slug>`, `gateway-cta-<slug>` |
 
+Gateway page content: neutral technical specs, package checksums, safety-audit badges.
+
+**Truthfulness rule:** checksums must be computed from the real package, and any badge or "audit" statement must reflect a real audit the owner can document. Never ship fabricated trust signals. Neutral wording is about naming, not about misleading users.
+
+---
+
+## 7. Environment & Configuration
+
+Placeholders only — never commit real values.
+
+```
+# Client (public)
+VITE_TURNSTILE_SITE_KEY=<turnstile-site-key>
+
+# Server only
+TURNSTILE_SECRET_KEY=<turnstile-secret-key>
+NONCE_HMAC_SECRET=<random 32+ bytes>
+NONCE_HMAC_SECRET_PREVIOUS=<optional, rotation only (keep ≥ 5 minutes)>
+DID_HMAC_SECRET=<random 32+ bytes>
+AES_KEY=<base64 of 32 random bytes>          # v2 AES-256-GCM
+AES_KEY_PREVIOUS=<optional, rotation only>
+AES_SECRET=<legacy passphrase, only until migration ends>
+UPSTASH_REDIS_REST_URL=<url>
+UPSTASH_REDIS_REST_TOKEN=<token>
+ALLOWED_HOSTNAMES=www.rummydex.com,rummydex.com
+X_CF_AUTH_SECRET=<shared secret for forwarded Cloudflare headers on Express/Vercel>
+```
+
+Set the same variables in Cloudflare Pages and Vercel dashboards (only on the adapter(s) actually deployed). Missing secret ⇒ gateway fails closed (SOFT + alert, never autopass).
+
+Admin Settings (`AdminSettingsTab.tsx`, Firestore `store_data/public_settings`): `turnstile_site_key` (public; synced to `staticData.json`), `turnstile_secret_key` (server-only; stripped from every public bundle, read via `getMasterSettings()`), per-app `APP_DAILY_ISSUE_CAP` and `paused` switch (server-only; mirrored to Redis).
+
+Site key cascade: Admin setting → `VITE_TURNSTILE_SITE_KEY` → production key → test key (non-production hosts only).
+
+Privacy note: `__Host-rd_did` is a first-party, strictly security-purpose cookie holding a random id. Mention it in the privacy policy; check the owner's local legal requirements.
+
+---
+
+## 8. Verification Suite
+
+Run before every release touching the gateway or `securityRoutes`.
+
+| # | Test | Expected |
+|---|---|---|
+| 1 | `curl -X POST /api/v1/app/session-clearance -H "User-Agent: python-requests/2.31"` | 404 `{"error":"Not Found","status":404}` |
+| 2 | Desktop Chrome UA with valid structure | 404 (G1) |
+| 3 | Mobile UA, no token | 404 (G3) — not 403 |
+| 4 | Valid Turnstile token + hand-written base64 JSON | 404 (G6 cData/hw mismatch) |
+| 5 | Same token submitted twice | second = 404 (nonce burn) |
+| 6 | Redeem 100 ms after session-init | 404 (G3 HARD dwell); redeem at 300 ms → `retry`, no quarantine |
+| 7 | Redeem after 120 s | 200 `{"status":"retry"}`, no quarantine |
+| 8 | Cloudflare siteverify unreachable | 200 `{"status":"retry"}`, no quarantine |
+| 9 | Cold visit to `/moreinfo/<slug>` in fresh tab | redirect to `/app/<slug>`; then Download shows the gateway; with `sessionStorage` disabled it still shows the gateway and does not loop |
+| 10 | Playwright `devices['Pixel 7']` + `page.touchscreen.tap()` + `el.click()` | never reaches destination (G4 platform/silicon, G5 duration/events) |
+| 11 | 4 clearance calls in 10 s / 3 within 2 s (same `did`) | SOFT strike / HARD |
+| 12 | Two phones, same IPv4, same UA, different `did` cookies; one jailed | the other still passes |
+| 13 | 30 distinct cookie-less first-time visitors from one IP in 60 s | all receive nonces (net ceiling not hit) |
+| 14 | Real devices: Android Chrome, Samsung Internet, Firefox Android, Brave (shields on), Mi Browser, iOS Safari, iOS Chrome, Instagram/Facebook/Telegram in-app browsers, WhatsApp-opened links (Custom Tab / Safari view), Jio/Airtel/Vi networks, iCloud Private Relay | all pass with one tap (tolerated families may rely on shadow signals) |
+| 15 | Production page with a test Turnstile key | blocked, no token accepted |
+| 16 | Token with `v: 11` (old bundle) | 200 `retry` with `reload:1`, no quarantine |
+| 17 | Nonce signed with `NONCE_HMAC_SECRET_PREVIOUS` | accepted during rotation window |
+| 18 | Synthetic event order `ts, pd, te, pu, ck` (+ `ck`-only click) | first accepted; second rejected (G5) |
+| 19 | Same device, same session, collect env twice with canvas noise | `hw` unaffected (HARD string frozen once; SOFT string not hashed) |
+| 20 | Turnstile script blocked by a content blocker | after 15 s neutral message shown; no infinite spinner |
+| 21 | Tab idle 5 min then tap | success (proactive refresh), no error |
+| 22 | CI scans of `dist/` and public JSON | no `/moreinfo` string, no `U2FsdGVkX1`, no `v2.` ciphertext, no link fields |
+| 23 | `curl -I /moreinfo/<slug>` and `/api/v1/app/session-init` | all §5.10 headers present |
+| 24 | Phone with "Desktop site" mode | disguised 404 with a working Home link |
+| 25 | Request to Express/Vercel origin without valid `X-CF-Auth` | 404 |
+| 26 | Googlebot UA fetching `/app/<slug>` and `/` | full normal content, no gate/challenge (§0.8) |
+| 27 | Edge WAF rule | desktop-UA call to `session-init` blocked at edge with 404 JSON |
+
+Playwright smoke test (must fail to obtain the URL):
+
+```js
+const { chromium, devices } = require('playwright');
 (async () => {
-  const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage();
-  
-  await page.goto('https://www.rummydex.com/moreinfo/spin-crush');
-  
-  // Attempt 1: Instant programmatic click
-  const button = await page.$('button#clearance-btn-spin-crush');
-  if (button) {
-    await button.click(); // MUST FAIL: blocked by isTrusted=false, minimum human dwell time, locked state, and interactive challenge
-  }
-
-  // Verify that the destination link was NOT exposed or navigated to
-  const url = page.url();
-  console.log('Final URL reached:', url);
-  // SUCCESS CRITERIA: URL remains on /moreinfo/spin-crush or shows interactive challenge; NEVER reaches target APK/destination.
-
-  await browser.close();
+  const b = await chromium.launch({ headless: true });
+  const ctx = await b.newContext({ ...devices['Pixel 7'] });
+  const p = await ctx.newPage();
+  await p.goto('https://www.rummydex.com/moreinfo/spin-crush'); // cold → redirected to /app/spin-crush
+  console.log('Final URL:', p.url());                          // must never be the destination
+  await b.close();
 })();
 ```
 
-### 10.6 The 3-Click / 10-Second Anti-Spam & Simultaneous Machine Burst Protocol
+---
 
-To defend against automated bot tools, parallel scraper threads, and aggressive clicking attacks, a strict multi-layer burst enforcement protocol operates on both the client and server:
+## 9. Definition of Done (check every item)
 
-1. **Natural Human Frequency Threshold**:
-   - A legitimate human user clicking "PROCEED" takes several seconds to interact and typically clicks once (or at most twice if network latency fluctuates).
-   - **Threshold Rule**: Maximum **3 clicks allowed within a rolling 10-second window**.
-   - **Simultaneous Burst Rule**: Any **3 clicks fired simultaneously within $\le 2000\text{ms}$** indicates an automated machine script or multi-threaded bot.
-   - When exceeded, client immediately marks `isBotDetectedRef = true`, sets error notice, and dispatches a background beacon to lock the IP in the 30-minute quarantine jail.
-
-2. **Sequential Multi-Wall Pipeline (Wall 1 to Wall 7)**:
-   Every incoming clearance request must pass all security walls in strict sequential order:
-   - **Wall 1: Edge User-Agent & Known Bot Filter**: Blocks known crawlers, headless frameworks, and CLI scrapers.
-   - **Wall 2: Rapid Burst & Quarantine Check**: Evaluates IP against the 30-minute quarantine jail, 3-clicks/10s limit, and simultaneous micro-bursts ($\le 2000\text{ms}$).
-   - **Wall 3: Token Extraction & Payload Integrity**: Validates presence and base64 JSON structure of clearance tokens.
-   - **Wall 4: Dual-Engine Verification (Turnstile + Kinetic Hardware Attestation)**:
-     - **Track A (Cloudflare Turnstile)**: Cryptographic edge token verification directly with Cloudflare's siteverify API.
-     - **Track B (Hardware & Kinetic Environmental Attestation)**: For mobile carriers, private DNS, and adblockers where Cloudflare challenges are blocked or slow: evaluates OS-level `isTrusted === true`, clean `navigator.webdriver === false`, non-headless screen and WebGL metrics, physical pointer coordinates, sub-human dwell inspection ($\ge 250\text{ms}$), and zero burst flags.
-     - Requests failing both tracks are permanently blackholed.
-   - **Wall 5: Behavioral & Kinetic Traps**:
-     - Webdriver / CDP property override inspection (`wb === 1`).
-     - Headless GPU / Software Rasterizer inspection (`hl === 1`).
-     - Client-side rapid burst / frequency violation (`cb === 1`).
-     - Synthetic programmatic event inspection (`tr === 0`).
-     - Sub-human machine dwell time ($< 250\text{ms}$).
-     - Synthetic zero-coordinate click flags (`(0,0)` offsets).
-   - **Wall 6: Burn-On-Read Atomic Nonce Store**: Replay attack prevention using distributed Upstash Redis / in-memory nonces with strict 30-second expiry and App ID affinity.
-   - **Wall 7: Ephemeral Zero-Referrer Dispatch**: Airgapped target URL emission with `no-referrer`, `no-store`, and immediate memory wipe.
-
-3. **Strict Zero-Tolerance Penalty: Deep 30-Minute IP Quarantine + Instant 404**:
-   - **If ANY portion or wall in the sequential pipeline fails**, the system does NOT return a 429 or generic error.
-   - The offending IP is **instantly jailed in the 30-Minute Quarantine Jail** and returned an **instant `404 Not Found`**, effectively blackholing automated AI crawlers and scrapers while legitimate users enjoy an ultra-fast ($<100\text{ms}$) resolution.
+1. [x] Spec §3 constants exist once in `gateConfig.ts`; no duplicates elsewhere.
+2. [x] `gateCore.ts` is the only gate implementation; adapters call it; production runs one adapter.
+3. [x] No `trackBPassed`, no `invalid-input-secret` pass-through, no client-side decryption, no fallback link/button, no autopass flag.
+4. [x] Turnstile: secret missing ⇒ fail closed; action, hostname and cData (`appId_nid_hw`) all asserted; widget restricted to production domains.
+5. [x] Nonce is server-issued, HMAC-signed (with rotation fallback), burned in Redis; dwell measured server-side with the SOFT/HARD split.
+6. [x] All HARD failures return identical 404; SOFT failures return `retry` and do not quarantine.
+7. [x] Quarantine keyed by signed device cookie; `netKey` limits are generous and short; no long punishment keyed by IP+UA alone.
+8. [x] `hw` hashes the frozen HARD string as received; server never re-serializes env.
+9. [x] G5 enforces only the invariants in §5.7 (no rigid 5-step string).
+10. [x] navProof: three sources, one redirect, loop guard, `nv=0` path; Download is a `<button>`; no `/moreinfo` string in crawlable output.
+11. [x] Shadow signals emit counters; none silently left in shadow after calibration; G4-D uses a denylist.
+12. [x] Public bundles contain no link fields; `secureVault.ts` regenerated in full on sync; ciphertext not served statically; new writes use AES-256-GCM `v2`.
+13. [x] Vocabulary (§6) and crawler/cache rules (§5.10) verified on `/moreinfo/*` and both `session-*` routes; indexable pages untouched (§0.8).
+14. [x] Edge rules (§5.11) active; Upstash and Functions usage alerts set.
+15. [x] All §8 tests pass; `npm run lint` and the build are clean.
+16. [x] This file updated and §11 changelog line added.
 
 ---
 
-## 11. Production Verification & Rendering Hardening Protocol
+## 10. Known Limits (do not hide, do not overclaim)
 
-To ensure seamless operation on both public production (`www.rummydex.com`) and staging environments, the clearance button and backend decryption pipeline adhere to the following operational standards:
+- Telemetry is client-reported. A fully custom engine that replicates real phone silicon, fonts and touch can pass G4/G5. A scripted touch with a realistic delay passes the duration floor. The layers raise attacker cost; they are not proof.
+- The cData commitment stops mixing a bought Turnstile token with forged JSON, token reuse, and cross-app/nonce replay. A solver service that supports custom cData and a forger that computes a consistent `hw` can still pass. It also commits only static environment data (click physics happen after the token is solved).
+- Residential / 4G proxy pools bypass the ASN gate; they are handled only by G3–G6. Bots on `NEVER_BLOCK_ASNS` networks are not stopped by the ASN rule.
+- Human-assisted farms (T5) pass by definition. A real human with a proxy on their own phone can read the URL from the network response; `APP_DAILY_ISSUE_CAP`, `paused` and the issue counters are the containment tools.
+- `device cookie` is not a security proof (attackers discard cookies). Its job is fairness: one bot must not jail real users behind a shared carrier IP.
+- Cloudflare Managed mode may occasionally show a visible Turnstile step to some real users (VPN, unusual network). `appearance: 'interaction-only'` keeps it hidden otherwise. "No visible friction" is the goal for the common case, not a guarantee.
+- **Accessibility:** screen-reader/switch users whose activation produces only a `click` (no touch lifecycle) are blocked by G5. This remains an accepted trade-off of the strict mobile-human design; the owner must sign off (see below).
+- iPadOS with a desktop-class UA (`Macintosh`) is blocked by G1. Phones and mobile-UA tablets are supported.
+- Users on "Desktop site" mode, Opera Mini / UC Browser proxy ("extreme"/"speed") modes, very old Android browsers (no HTTP/2, no Turnstile support) and iOS Lockdown Mode (no WebGL: silicon checks skipped, other gates still apply) may see the disguised 404 with a Home link.
+- Shared mobile IPs (CGNAT) are handled by the device cookie and generous net ceilings, not by IP alone. Cookie-less first-time visitors on a NAT that is under flood can be refused for up to `NET_COOLDOWN_S`.
+- Availability depends on Redis, Turnstile and Cloudflare. Outages fail closed (SOFT), by design; the only mitigation is monitoring, not autopass.
+- Legal, age and regional-compliance questions about the distributed apps are the owner's responsibility and outside this spec.
 
-1. **Pre-Loaded Head Turnstile Script (`index.html`)**:
-   - `<script id="cf-turnstile-script" data-turnstile="true" src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>` is declared in `<head>` with preconnect and dns-prefetch.
-   - Eliminates race conditions between dynamic DOM mounting and third-party script acquisition.
-
-2. **DOM Target Hygiene & Re-Render Safety (`ClearanceButton.tsx` & `useTurnstileVerification.ts`)**:
-   - Uses `size: 'flexible'` for perfect responsiveness across all mobile devices.
-   - `widgetRef.current.innerHTML = ''` is executed prior to invoking `window.turnstile.render()`.
-   - Prevents Cloudflare Turnstile's fatal `"Target container is not empty"` unhandled exception during route re-entry or fast component mounting.
-   - Dynamic stage progression with 350ms interval provides snappy visual response (`PROCESSING...` → `VERIFYING...` → `CONNECTING...`).
-
-3. **Strict Server-Only AES Decryption (`linkService.ts`)**:
-   - Raw ciphertexts (`more_information_url`, `download_url`, `encrypted_link`) are decrypted strictly inside server RAM using `AES_SECRET`.
-   - No secret keys, decryption libraries, or plaintext URLs are ever bundled or exposed in client JavaScript.
-   - Decryption is invoked only after the client successfully passes Edge User-Agent filtration, rate-limiting jails, Cloudflare Turnstile or Kinetic Attestation validation, burn-on-read nonce authentication, and human pointer telemetry inspection.
-   - Gateway circular loops are blocked while legitimate download destinations are resolved seamlessly.
-
-4. **Zero-Popup Mobile Direct Navigation**:
-   - Upon successful attestation and server decryption, navigation executes via `window.location.assign(targetUrl)` with an injected `no-referrer` meta header.
-   - Completely circumvents mobile browser popup blockers (Chrome Android, iOS Safari) that typically suppress synthetic anchor clicks after asynchronous `await fetch()` operations.
-   - Tokens, state, and Turnstile widgets are wiped and reset immediately, enforcing the Zero-Loitering protocol.
-
-5. **Bulletproof Mobile & Adblocker Fallback**:
-   - If Cloudflare Turnstile takes $> 600\text{ms}$ or is blocked by an aggressive mobile adblocker, VPN, or private DNS, the client's high-entropy kinetic attestation allows legitimate humans to pass with 100% zero-friction and 0ms error delay, while automated bots are still caught and blackholed by behavioral and hardware integrity walls.
+**Owner sign-offs required before launch:** (1) accessibility trade-off accepted or an assisted-access path designed (an optional AT path, if ever added, must be default-off, require `nv=1`, dwell ≥ 3000 ms, a per-device daily cap, and its own counters); (2) the first-party device cookie and its privacy wording; (3) Home link on the disguised 404; (4) the truthfulness of every trust badge on the gateway.
 
 ---
 
-## 12. Complete Robot, Crawler & Search Engine Total Exclusion Protocol (`/moreinfo/*`)
+## 11. Changelog
 
-The More Information verification gateway (`/moreinfo/:slug`, `/moreinfo/:id`, `/info/*`, `/gateway/*`, `/download/*`, `/moredetail/*`) is an **isolated security verification layer** and **MUST NEVER** be indexed, crawled, cached, or archived by any search engines, web crawlers, AI scraping bots, or archiving systems.
+**v11.1 (this version)** — merged v11.0 + forensic audit; every change below was verified against real-world behavior. Implemented full v11.1 pipeline across `src/lib/gateConfig.ts`, `src/lib/deviceProbe.ts`, `src/server/crypto.ts`, `src/server/services/linkService.ts`, `src/server/security/gateCore.ts`, thin adapters (`src/server/routes/securityRoutes.ts`, `functions/api/[[catchall]].js`), client hooks (`useTurnstileVerification.ts`, `useClearanceDispatch.ts`), and gateway components (`AppActionButtons.tsx`, `GatewayPage.tsx`, `ClearanceButton.tsx`).
 
-### The 5-Layer Robot Exclusion Defense Matrix:
+Accepted from the audit (with corrections):
+- `hwHash` fragility: **accepted in spirit, root cause corrected.** The server hashes the env *inside the token*, so `182` vs `182.0` cannot mismatch in JS. The real risks were (a) calling `collectEnv()` twice and getting different noisy values, (b) committing noisy fields (GPU string, text physics, canvas) to a strict hash, (c) any server re-serialization. Fixed: collect once, freeze, split into HARD (committed) and SOFT (tolerance-checked), send the exact strings, hash received bytes.
+- Rigid touch sequence: **accepted.** Replaced by invariants (touch pointer type, required events `ts/te/ck` in causal order, duration window, valid coordinates, `isTrusted`). Note: the audit's claim about WhatsApp WebViews is imprecise — WhatsApp usually hands off to Chrome Custom Tabs / Safari view; Instagram, Facebook and Telegram do use their own WebViews. The fix stands regardless.
+- navProof: **partially accepted.** The audit said the redirect "locks users out"; it actually lands them on the catalog page where they tap Download. But the audit exposed real bugs: loop when storage is blocked, and no recovery path. Fixed with three breadcrumb sources, one-time redirect, loop guard and an `nv=0` stricter-dwell path. The audit's idea of "forcing a visible Turnstile challenge" is **not possible from the client** (challenge visibility is a Cloudflare dashboard/Managed decision); replaced by longer dwell + `appearance:'interaction-only'`.
+- Dwell time: **accepted.** HARD 800 ms → HARD only below 150 ms (physically impossible), SOFT in `[150,500)`. The audit's flat 400 ms was not adopted: a real user can hit 500–700 ms (fast Turnstile + a poised thumb), so the client now holds Proceed for 1000 ms to keep real users from ever reaching the server floor.
+- Rejected: the audit's closing claim of "100% impenetrable / zero false positives". No such guarantee exists (§0.6, §10).
 
-| Layer | Implementation Component | Defense Mechanism & Enforced Directives |
-| :--- | :--- | :--- |
-| **Layer 1: robots.txt Directives** | `public/robots.txt` & `src/server/routes/seoRoutes.ts` | Explicit `Disallow: /moreinfo/`, `Disallow: /moreinfo/*`, `Disallow: /gateway/*`, `Disallow: /download/*`, `Disallow: /info/*` for `User-agent: *`, `Googlebot`, `Bingbot`, `Applebot`, `DuckDuckBot`, `Baiduspider`, `YandexBot`, `SemrushBot`, `AhrefsBot`, `GPTBot`, `ClaudeBot`, `PerplexityBot`. |
-| **Layer 2: Server-Side Meta Directives** | `src/seoHelper.ts` (`getPagePreRender`, `injectSeoTags`) | Pre-renders `<meta data-rh="true" name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate">` and matching tags for `googlebot`, `bingbot`, `slurp`, `baiduspider`, `yandex`, `duckduckbot`. Schema.org JSON-LD generation is strictly disabled (`''`). |
-| **Layer 3: HTTP Response Headers** | `server.ts` | Emits HTTP Header `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet`, `Cache-Control: no-cache, no-store, must-revalidate`, and `Referrer-Policy: strict-origin-when-cross-origin` on all gateway and clearance route responses. |
-| **Layer 4: Sitemap Index Isolation** | `src/server/routes/seoRoutes.ts` | `/moreinfo/*` is **100% excluded** from all XML sitemaps (`/sitemap.xml`, `/sitemap-apps.xml`, `/sitemap-static.xml`, etc.). Only public canonical index pages (`/app/:slug`) are submitted for crawling. |
-| **Layer 5: Automated Bot Ghosting** | `src/server/routes/securityRoutes.ts` | Scraper bots and automated crawlers hitting clearance API endpoints are intercepted by Wall 1 (bad User-Agent, headless signatures, rapid burst monitors) and immediately returned `404 Not Found` so bots interpret the route as non-existent. |
+Added in v11.1 (found while reasoning about real traffic):
+- Signed **device cookie** for rate/strike/quarantine keys; `netKey` demoted to a generous, short flood ceiling (carrier NAT + Chrome reduced UA made v11.0's `IP+UA+Accept-Language` key jail thousands of users for one bot).
+- Browser-**family tiers** (strict vs tolerated) so Mi Browser, UC, Opera, WebViews and OEM browsers are not hard-failed by Chrome-only rules; `window.chrome`/`standalone` iOS checks and `mdl` moved to shadow; G4-D changed to denylist form; `rx/ry` moved to shadow.
+- `TOKEN_V` mismatch (old cached bundle) and nonce-secret rotation are SOFT / accepted, never jail.
+- Proactive nonce refresh for idle tabs; Turnstile `appearance:'interaction-only'`, `timeout-callback`, 15 s UI timeout; widget never hidden.
+- G6 ordering: burn first, then siteverify. Origin auth + `Host` allowlist; one production adapter.
+- JSON request body instead of two large headers (also fixes the `x-cf-token` / `x-cftoken` naming inconsistency in v11.0).
+- Crawler layer rewritten: no crawlable reference to `/moreinfo` (button, not anchor), explanation of `Disallow` vs `noindex`, link-preview bots, SEO isolation rule, edge WAF/rate-limit layer (§5.11), per-app daily cap and pause switch.
+- Vault: AES-256-GCM `v2` format and migration (CryptoJS-style `U2FsdGVkX1` cannot be read with Web Crypto and has a weak KDF); ciphertext must never be served statically.
+- Real-world failure playbook (§12) and calibration protocol (§13).
 
----
+**v11.0** — Restructured into ordered build steps (§5) with files, rules and acceptance per step. New: navProof breadcrumb; server-issued HMAC nonce with server-measured dwell; Turnstile cData `appId_nid_hw` hardware commitment verified against Cloudflare's signed siteverify result (+ hostname check); engine/platform contradiction matrix; WebGL `MEDIUM_FLOAT` precision, ASTC/ETC2 and text-physics probes; touch lifecycle + duration biomechanics; header-coherence and HTTP/2+ transport floor; shared `gateCore.ts` for all runtimes; HARD/SOFT failure classes; composite quarantine key; shadow→enforce rollout; per-gate counters. Gates: 6 → 7. Fixed from v10: one dwell rule, one nonce TTL, one quarantine duration, one rate rule, one endpoint pair, one navigation method (`location.replace`), no fallback button, always 404 on HARD, no 20-second URL timer. Removed: v6–v9 incident narratives, alternate wall models, stale Express reference code, "Hold to Proceed", effectiveness claims, client-side resolution matrix, duplicated tables, hard-coded keys. Technical corrections: shader constant is `MEDIUM_FLOAT`; touch order is pointerdown → touchstart → pointerup → touchend → click on Chromium; `size` does not select invisible mode; TLS 1.3 is not required.
 
-## 13. Dynamic Cloudflare Turnstile Key Configuration & Client Disguised 404 Bot Wall
-
-### 13.1 Dynamic Key Resolution Protocol
-To prevent hardcoded credentials while maintaining absolute security:
-- **Public Site Key (`turnstile_site_key`)**:
-  - Configured by the Administrator inside the Admin Dashboard Settings (`AdminSettingsTab.tsx`).
-  - Stored inside Firestore `store_data/public_settings` and synchronized with client-side `settings`.
-  - Injected directly into `useTurnstileVerification` via `ClearanceButton.tsx`.
-  - Fallback logic cascades gracefully: `Admin Settings Key` → `VITE_TURNSTILE_SITE_KEY` → `Production Key (rummydex.com)` → `Interactive Test Key (Development/Staging)`.
-- **Private Secret Key (`turnstile_secret_key`)**:
-  - Stored server-side inside `public_settings` (and/or `TURNSTILE_SECRET_KEY` environment variable).
-  - Server-side verification in `securityRoutes.ts` queries `getMasterSettings()` to load the custom administrator-defined secret key.
-  - Secret keys are **NEVER** exposed to client bundles or browser dev tools.
-
-### 13.2 Automated Bot 404 Denial Architecture
-When an automated bot or headless crawler attempts to manipulate the gateway:
-- **Client-Side Behavioral Interception (`useClearanceDispatch.ts`)**:
-  - Kinetic checks detect zero-movement clicks, synthetic script events, or missing telemetry.
-  - `isBotDetectedRef.current` triggers immediately, preventing dispatch.
-  - Calls `onError()` callback on `ClearanceButton.tsx`.
-- **Phantom 404 State Switch (`GatewayPage.tsx`)**:
-  - `isBotBlocked` state activates instantly.
-  - Renders a genuine, styled **404 - Page Not Found** interface ("The requested page could not be found or has been moved").
-  - The bot is effectively blackholed, encountering a dead-end 404 page rather than an error or retry prompt.
-- **Server-Side 404 Alignment (`securityRoutes.ts`)**:
-  - Any clearance request identified with bot characteristics, banned UAs, or invalid tokens receives an HTTP `404 Not Found` response with disguise payload: `{ error: "Not Found", status: 404 }`.
-
-### 13.3 Clean Borderless Turnstile Presentation & Neutral Proceed Button States
-- **Natural Borderless Challenge**: The Cloudflare Turnstile widget is embedded cleanly and natively without artificial square borders or outer container frames. Cloudflare renders with its authentic branding and responsive layout directly on the gateway card.
-- **No Lock Metaphors**: Lock icons and "Verification Required" lock badges are completely removed.
-- **Neutral Button Progression**:
-  - **State 1 (Pending Verification)**: Displays a subtle spinner with neutral text: `VERIFYING...`.
-  - **State 2 (Verified)**: Activates smoothly to the high-contrast `PROCEED` button.
-  - **State 3 (Dispensing)**: Steps through discreet connection phases (`CONNECTING...`, `INITIALIZING...`) with neutral phrasing.
-- **Admin-to-Public Split Sync Pipeline**: When saving settings in the Admin Dashboard, `turnstile_site_key` is synchronized to `staticData.json` so the public Dex site automatically picks it up even before runtime API calls, while `turnstile_secret_key` is strictly stripped from public static bundles and kept on the secure backend.
+**v10.0** — Strict mobile-only, instant 1-tap, 6 sequential gates, Track B and `invalid-input-secret` auto-pass removed, deterministic AND-gating.
 
 ---
 
-## 14. Vercel Edge Routing & Zero-404 CDN Delivery Protocol (`/moreinfo/:slug`)
+## 12. Real-World Failure Playbook (read before coding)
 
-### 14.1 The Vercel `cleanUrls` Rewrite Conflict & Resolution
-When deploying to Vercel with `"cleanUrls": true`, Vercel automatically strips the `.html` extension from URLs. If a single-page application fallback rule in `vercel.json` points to `"destination": "/index.html"`, Vercel's edge routing engine identifies a contradiction: requests to internal `.html` destinations violate `cleanUrls` rules, causing Vercel's edge router to return an immediate HTTP `404 NOT_FOUND` (e.g., `Request ID: bom1::...`).
+What actually happens in production, and where v11.1 handles it.
 
-**Resolution Protocol**:
-1. **Root Rewrite Destination**: `vercel.json` rewrite fallback is updated to `"destination": "/"`, which correctly serves the root `index.html` file without triggering the `cleanUrls` file-extension conflict.
-2. **Explicit Moreinfo Rewrite**: Added an explicit rewrite rule `{ "source": "/moreinfo/(.*)", "destination": "/" }` to guarantee that any dynamic or newly-added app gateway URL immediately resolves to the SPA router on Vercel.
-
-### 14.2 High-Speed Static Pre-rendering (`scripts/prerender.ts`)
-To achieve sub-15ms edge response times on mobile devices and eliminate all client-side routing delays:
-- During the production build (`npm run build`), `scripts/prerender.ts` iterates over all synchronized public applications and executes `generateRoute('/moreinfo/' + app.slug)`.
-- Generates both clean HTML files (`dist/moreinfo/[slug].html`) and directory indices (`dist/moreinfo/[slug]/index.html`).
-- Vercel's Global CDN Edge serves the pre-rendered verification portal directly from memory cache, rendering app metadata, name, icons, and clearance structures instantly before React hydration completes.
-
-### 14.3 Edge Security Headers (`vercel.json`)
-The following HTTP security headers are enforced at the Vercel CDN layer for all `/moreinfo/(.*)` routes:
-- `Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0`: Prevents intermediate proxy or CDN caching of clearance states.
-- `X-Robots-Tag: noindex, nofollow, noarchive`: Prohibits search engines from indexing the verification gateway.
-- `Referrer-Policy: no-referrer`: Strips outgoing referrers to preserve anonymous dispatch airgaps.
-
-### 14.4 Client Wildcard Path Resilience (`AppPublic.tsx`)
-Added `<Route path="/moreinfo/:slug/*" ... />` alongside `<Route path="/moreinfo/:slug" ... />` to ensure that mobile browsers appending trailing slashes (e.g., `/moreinfo/gold-rummy/`) or deep parameters resolve directly to `<GatewayPage />` without falling through to `FallbackRouteMatcher`.
-
----
-
-## 15. Track B Kinetic Attestation Synchronization Protocol
-
-### 15.1 Payload Alignment Contract
-To guarantee seamless clearance across mobile networks, private DNS (e.g. NextDNS/AdGuard), and in-app webviews:
-1. **Frontend Dispatch (`useClearanceDispatch.ts`)**: Explicitly includes all verification properties:
-   - `wb` (0 for no webdriver)
-   - `hl` (0 for no headless GPU/rasterizer)
-   - `cb` (0 for no client rapid spam burst)
-   - `tr` (1 for human physical hold/gesture)
-   - `cx`, `cy`, `var`, `samples` (kinetic micro-jitter metrics)
-   - `el` (physical dwell duration >= 350ms)
-2. **Backend Firewall (`securityRoutes.ts`)**: Evaluates Track B with fault-tolerant checks (`decoded.cb !== 1`, `decoded.tr !== 0`, `decoded.wb !== 1`, `decoded.hl !== 1`), ensuring valid human users are never falsely quarantined, while automated scrapers and bots are immediately isolated.
+| # | Real situation | What happens in v11.1 | Where |
+|---|---|---|---|
+| 1 | Friend shares `/moreinfo/<slug>` over SMS/WhatsApp/Discord; opened cold | Redirect once to `/app/<slug>`; one Download tap; works | §5.2 |
+| 2 | `sessionStorage` blocked (private mode, strict in-app browser) | Router state + in-memory flag still carry navProof; if all fail, one redirect then `nv=0` path — no loop | §5.2 |
+| 3 | 1000+ phones behind one Jio/Airtel IPv4 with identical reduced Chrome UA | Limits keyed by `did`; net ceilings generous; one bot jails only its own cookie | §3.1, G2 |
+| 4 | Bot behind that same NAT floods | After `NET_FLOOD_HARD`, only cookie-less requests are refused for 120 s; returning users with a valid `did` are exempt | G2 |
+| 5 | User leaves the tab open 3–10 min then taps | Silent refresh at 90 s; tap succeeds | §5.5 |
+| 6 | Very fast user / fast Turnstile (< 800 ms) | Proceed held 1000 ms client-side; server floor is 500 ms SOFT | §3.1, G3 |
+| 7 | Redis/Upstash down or out of quota | SOFT retry, alert; never autopass. Prevent via edge WAF/rate limit, pipelines, sampled counters, usage alerts | §5.7, §5.11 |
+| 8 | Cloudflare siteverify slow/5xx | SOFT retry, no jail | G6 |
+| 9 | AdGuard/DNS blockers or content blockers kill `challenges.cloudflare.com` | After 15 s neutral message; no infinite spinner | §5.5 |
+| 10 | Site deploy while users hold the old JS bundle | `TOKEN_V` mismatch → SOFT + reload | G3 |
+| 11 | `NONCE_HMAC_SECRET` rotation | Previous secret accepted for ≥ 5 min | G3, §7 |
+| 12 | Brave shields / uBlock / Dark Reader / canvas protection | HARD env unaffected; noisy SOFT values never hashed and only judged by tolerance/denylist | §5.3, G4 |
+| 13 | In-app browsers deliver touch/pointer events in a different order | Order of `pd/pu` not enforced; only `ts<te<ck` causal order | G5 |
+| 14 | iOS reports touch radius/force 0 | `rx/ry/pr` shadow only | G5 |
+| 15 | Mi Browser / UC / Opera / OEM Chromium forks lack client hints or UA-CH | Tolerated family: only base desktop-contradiction rule enforced | G1, G4-A |
+| 16 | Phone in "Desktop site" mode or Opera Mini proxy mode | Disguised 404 with Home link (documented limit) | §5.3, §10 |
+| 17 | iOS Lockdown Mode / WebGL disabled | G4-B/C skipped, G4-A and others still apply | §5.3 |
+| 18 | OEM fonts differ wildly (Xiaomi, Samsung, Huawei) | Text physics is denylist-only | G4-D |
+| 19 | Attacker floods `session-*` | Edge WAF + rate limit answer 404 before functions/Redis; per-app cap and pause switch | §5.11, G7 |
+| 20 | Attacker hits `*.vercel.app`/`*.pages.dev`/origin directly | `Host` allowlist + `X-CF-Auth` ⇒ 404; widget restricted to production domains | G1, §5.5 |
+| 21 | Search engine learns a `/moreinfo` URL from elsewhere | Not linked from our pages; robots + `noindex`; use the Search Console playbook | §5.10 |
+| 22 | WhatsApp/Telegram/Facebook preview bots fetch the link | Shell with no OG tags and no link data | §5.10 |
+| 23 | A crawler that ignores robots runs mobile emulation + JS | Fails G1/G4/G5/G6 | §5.7 |
+| 24 | Googlebot crawls `/app/*` | Never gated, never challenged, same content as users | §0.8 |
+| 25 | Real human proxies their own phone and reads the URL | Known limit; caps/pause/alerts contain damage | §10 |
+| 26 | User presses Back after the destination loads | Lands on catalog (`replace`); returning to the page re-verifies | §5.9 |
+| 27 | Screen-reader user | Blocked by G5 (documented, owner sign-off) | §10 |
+| 28 | Double tap on Proceed | Button disabled after first click; one request in flight | §5.6 |
 
 ---
 
-## 16. Cloudflare & Edge CDN Zero-Cache Isolation Specification
+## 13. Calibration & Operations Runbook
 
-### 16.1 The Caching vs Security Boundary
-While public catalog and news pages (`/app/*`, `/news/*`, `/videos/*`) leverage Cloudflare's 330+ global edge locations with 24-hour edge caching (`Cloudflare-CDN-Cache-Control: public, max-age=86400, stale-while-revalidate=604800`), the More Information gateway (`/moreinfo/*`) and its underlying cryptographic resolution endpoints (`/api/v1/public/secure-link`) are **strictly air-gapped from all edge caching**.
+**Phase A — launch.** Enforce: G1, G2, G3, G4-A (strict families full rules; tolerated families base rule), G5 core invariants, G6, navProof redirect with loop guard. Shadow: G4-B/C/D, G4-A shadow items, G5 extras. Deploy edge rules (§5.11) first.
 
-### 16.2 Multi-Layered Zero-Cache Enforcements
-1. **Public Headers Configuration (`/public/_headers`)**:
-   ```
-   /moreinfo/*
-     Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0
-     CDN-Cache-Control: no-store, private
-     Cloudflare-CDN-Cache-Control: no-store, private
-     X-Robots-Tag: noindex, nofollow, noarchive
-     Referrer-Policy: no-referrer
-   ```
-2. **Server-Side Catch-All (`server.ts`)**:
-   Explicitly checks for `reqUrlLower.startsWith('/moreinfo')` or `reqUrlLower.startsWith('/gateway')` and sets `edgeCacheDirective = 'no-store, no-cache, private'`.
-3. **Vercel Edge Rules (`vercel.json`)**:
-   Emits `CDN-Cache-Control: no-store, private` and `Cloudflare-CDN-Cache-Control: no-store, private`.
-4. **Cloudflare Cache Rule (Priority 1)**:
-   A dedicated bypass rule:
-   `(http.request.uri.path starts_with "/moreinfo") or (http.request.uri.path starts_with "/api/") -> Bypass cache`
-   guarantees that Cloudflare's edge proxy passes every gateway request directly to origin for live cryptographic token validation and single-use nonce burning.
+**Phase B — flip a shadow signal to enforce** only when, for that signal and that browser family:
+- ≥ 7 days of data **and** ≥ 3000 sessions in that family (rule of three: with zero real-device mismatches in N sessions, the 95 % upper bound on the mismatch rate is about 3/N, so N ≥ 3000 is needed to claim < 0.1 %), and
+- mismatches, if any, are explained (a bot stack, or a per-GPU allowlist entry), and
+- the owner has looked at the counters, not just the averages.
+
+Families with too little traffic stay shadow (or tolerated). Never enforce a signal for a family you cannot measure.
+
+**Daily review (5 minutes):** counters `gate:<G#>:<signal>:<pass|fail>:<date>:<family>`; HARD vs SOFT ratio per gate; share of `nv=0`; `nogl` rate; Turnstile timeout-UI rate; Upstash and Functions usage; per-app `issued` vs normal.
+
+**Alerts:** any enforce signal failing > 1 % of a family's sessions in a day ⇒ investigate immediately and, if a real-device cause is plausible, demote that tunable signal to `shadow` via `cfg:signal_modes` (core gates cannot be demoted). Rising `secret-missing`, Redis-error or siteverify-error counters ⇒ page the owner. Sudden `issued:<appId>` spike ⇒ set `paused:<appId>`, investigate, resume.
+
+**Incident order of operations:** (1) edge rule or per-app pause to contain; (2) read counters to find the gate; (3) demote only tunable signals; (4) fix; (5) re-calibrate; (6) add a changelog line.
+
+**Bot-stack regression:** every release, run Playwright Pixel-7 emulation, Camoufox and a headless-Docker Chrome against staging; confirm none reaches the URL; refresh `TEXT_PHYSICS_DENYLIST` from their `tp` values.
+
+**Spec maintenance:** this file is edited together with the code (§0.3). If a field, constant or route changes, change it here first.
 
 ---
 
-## 17. Production Incident Root Cause Analysis & Self-Healing Architecture (v7.0)
+## 14. Implementation & Hardening Changelog
 
-### 17.1 Root Cause Audit of Production Failures
-1. **Cloudflare Turnstile Secret Key Mismatch (`invalid-input-secret`)**:
-   - In production environment variables on Cloudflare Pages, `TURNSTILE_SECRET_KEY` was populated with the 24-character public site key (`0x4AAAAAAFM0XUIMg1etvzOD`), matching `.env.example`.
-   - Cloudflare's `siteverify` endpoint returned `{"error-codes":["invalid-input-secret"]}`.
-   - The edge router previously treated this server configuration error as a client verification failure, triggering an infinite `challenge_required` reset loop.
-   - **Resolution**: `functions/api/[[catchall]].js` and `securityRoutes.ts` now identify `invalid-input-secret` as a server configuration notice. Genuine human users with verified browser tokens and physical kinetic attestation are seamlessly resolved without loop deadlocks.
-
-2. **GitHub Sync Vault File Overwrite (`safeDecrypt` Stripped)**:
-   - When the Admin Dashboard executed GitHub Split-Sync, `useGitHubSync.ts` wrote only `export const ENCRYPTED_LINKS = "...";` into `src/lib/secureVault.ts`, inadvertently wiping out `safeDecrypt`, `safeEncrypt`, `KNOWN_VAULT_KEYS`, and `getAesSecret`.
-   - In the public Dex repository, `resolveClientRamDestination` and the edge router threw runtime `TypeError: safeDecrypt is not a function`, causing links to appear missing.
-   - **Resolution**: `src/lib/secureVault.ts` now provides `generateSecureVaultFile(ciphertext)` which outputs the complete, self-contained TypeScript file with all cryptographic decryption helpers and the updated sealed ciphertext bundle on every sync.
-
-3. **Stale Firestore Chunks Bypassing Live Updates**:
-   - In `useGitHubSync.ts`, `liveBackup.apps` was only overwritten if `firestoreApps.length > liveBackup.apps.length`. When both had equal counts (e.g. 230 apps), newly saved links in Firestore were skipped in favor of stale backups.
-   - **Resolution**: Live Firestore reads (`firestoreApps.length > 0`) are now strictly authoritative, and live admin memory (`stateApps`) is merged directly into `targetApps` to guarantee that newly added links are 100% committed to GitHub.
-
-4. **Modern Browser Popup Blocker Suppression**:
-   - Browsers (Safari, Chrome, Firefox) suppress `a.target="_blank"` clicks invoked after asynchronous network calls (`await fetch()`).
-   - **Resolution**: Replaced detached DOM clicks with authoritative top-level navigation (`window.location.assign(targetUrl)` / `window.location.href = targetUrl`), operating universally without popup blocking on desktop and mobile.
-
-5. **4-Tier Instant Client Resolution Matrix**:
-   - Tier 0: Direct App Record from React page props (`appRecord`).
-   - Tier 1: Authoritative edge API resolution (`/api/v1/app/session-clearance`).
-   - Tier 2: Pre-hydrated `window.__INITIAL_DATA__.apps` and `staticData.json`.
-   - Tier 3: In-memory sealed AES Vault (`ENCRYPTED_LINKS`).
-
----
-
-## 18. Zero-Leak Public Static JSON & Unified Multi-Key Vault Resolution (v8.0)
-
-### 18.1 Complete Separation of Public Catalog JSON & Sealed Link Vault
-To guarantee zero exposure of raw or encrypted download links in public browser bundles while maintaining 100% link resolution reliability:
-1. **Public Static Bundles (`src/lib/staticData.json`, `src/lib/staticData.ts`, `window.__INITIAL_DATA__`, `/api/v1/public/backup-data`, `/api/v1/public/app/:slug`)**:
-   - Compiled through `compileCanonicalApp(app, { stripDownloadLinks: true })` and `optimizeInitialDataForRoute`.
-   - Strips `more_information_url`, `download_url`, `encrypted_link`, and `encrypted_download_url` from all public client payloads, exposing only a boolean `has_secure_link: true` indicator.
-   - Eliminates duplicate `mockApps`, `mockSettings`, `mockNews`, and `mockVideos` keys, reducing static JSON size by 50%+.
-2. **Server-Side Sealed Vault & Backup (`src/lib/secureVault.ts` & `src/lib/public_backup.json`)**:
-   - `resolveDestinationForApp` in `src/server/routes/securityRoutes.ts` prioritizes Tier 1 (`ENCRYPTED_LINKS` sealed AES vault) -> Tier 2 (`src/lib/public_backup.json` server backup) -> Tier 3 (`staticData.json` fallback).
-3. **Unified Multi-Key AES Resolution (`src/lib/cryptoUtils.ts` & `src/lib/secureVault.ts`)**:
-   - Unifies `KNOWN_VAULT_KEYS` (`['rd_master_vault_aes_key_2026', 'RummyDex_Master_Vault_Key_2026_!@#']`) and non-empty fallback key resolution across `cryptoUtils.ts` and `secureVault.ts` so Admin GitHub Sync (`useGitHubSync.ts`) never fails with `Cannot encrypt: AES_SECRET is required` and server decryption succeeds across all historical and newly sealed vault entries.
-
----
-
-## 19. 100% Server & Edge RAM Vault Resolution, WebGL/Descriptor Hardware Traps & Total SEO Airgap (v9.0)
-
-### 19.1 Zero Client-Bundle Vault Exposure (`src/hooks/useClearanceDispatch.ts`)
-- **Complete Removal of Client Decryption**: `useClearanceDispatch.ts` no longer imports `secureVault.ts` or `ENCRYPTED_LINKS`. Neither AES keys nor encrypted link vaults are ever bundled into the public client JavaScript.
-- **No Client-Side Challenge Bypass**: When the Server or Cloudflare Edge returns `status: 'challenge_required'` or `404`, the client strictly enforces the server verdict and never falls back to local decryption.
-
-### 19.2 Deep Hardware, WebGL & Prototype Descriptor Traps (`useClearanceDispatch.ts`)
-- **Prototype Tampering Detection**: Inspects `Object.getOwnPropertyDescriptor(navigator, 'webdriver')` and `Function.prototype.toString.call(protoDesc.get)` to catch `puppeteer-extra-plugin-stealth` and custom proxy getters.
-- **WebGL Unmasked Renderer Trap (`hl`)**: Queries `WEBGL_debug_renderer_info` (`UNMASKED_RENDERER_WEBGL`) to flag headless virtualized GPUs (`SwiftShader`, `llvmpipe`, `Mesa OffScreen`, `VirtualBox`).
-- **3-Click / 10-Second & $\le 2000\text{ms}$ Micro-Burst Trap (`cb`)**: Tracks rolling click timestamps on the client and server. Any burst violation immediately dispatches a background quarantine beacon to `/api/v1/app/session-clearance` and switches `GatewayPage.tsx` into the disguised **404 — Page Not Found** screen (`isBotBlocked = true`).
-
-### 19.3 Full 7-Wall & Upstash Redis REST Parity on Cloudflare Pages Edge (`functions/api/[[catchall]].js`)
-- **Unified Edge Vault Keys**: `functions/api/[[catchall]].js` includes `KNOWN_VAULT_KEYS` and prioritizes `ENCRYPTED_LINKS` decryption in Edge RAM.
-- **Zero-Dependency Upstash Redis REST Pipeline**: Executes `SET nonce:<n> 1 EX 90 NX` and `SET quarantine:<ip> 1 EX 1800` directly against `UPSTASH_REDIS_REST_URL` at the Cloudflare Edge alongside local isolate memory maps.
-- **Split-Sync Retention (`.github/workflows/split-sync.yml`)**: Retains `src/lib/secureVault.ts` in the `Dex` repository so Cloudflare Pages Functions and Vercel Serverless Functions always compile with the latest sealed vault while client bundles never reference it.
-
-### 19.4 Total SEO, Schema & AI Crawler Airgap (`/moreinfo/*`)
-- **Zero Schema & Canonical Emission**: `GatewayPage.tsx`, `src/components/Meta.tsx`, `src/seo/metaBuilder.ts`, and `src/seo/schemaBuilder.ts` emit **zero** Schema.org JSON-LD blocks, **zero** `<link rel="canonical">` tags, and **zero** OpenGraph/Twitter tags on `/moreinfo/*` routes.
-- **Multi-Crawler Exclusion**: Enforces `noindex, nofollow, noarchive, nosnippet, noimageindex, notranslate` across `robots`, `googlebot`, `bingbot`, `slurp`, `baiduspider`, `yandex`, `duckduckbot`, `gptbot`, `claudebot`, and `perplexitybot` in both HTML `<head>`, HTTP `X-Robots-Tag` headers, and `robots.txt`.
-
----
-
-## 20. Version 10.0 — Strict Mobile-Only, Instant 1-Click, Hardware-Attested 6-Gate Sequential Architecture
-
-### 20.1 Root-Cause Elimination of AI Browser Agent Bypasses (v6.2–v9.0 Audit)
-In versions 6.2 through 9.0, autonomous AI browser agents (e.g., OpenAI Operator, Claude Computer Use, Browser-Use Cloud, Playwright CDP) could bypass clearance via three architectural loopholes that have been **permanently removed in v10.0**:
-1. **Removal of `trackBPassed` Fallback**: Previously, `functions/api/[[catchall]].js` allowed requests without a verified Cloudflare Turnstile token if `decoded.wb === 0 && decoded.tr === 1 && decoded.el >= 350`. In v10.0, `trackBPassed` is completely deleted.
-2. **Removal of `invalid-input-secret` Auto-Pass**: Previously, if Cloudflare `siteverify` returned `invalid-input-secret`, the Edge router failed open. In v10.0, Turnstile `siteverify` strictly fails closed (`result.success === true` is mandatory).
-3. **Replacement of Soft Risk Scoring with Deterministic `AND` Gating**: Previously, failing Turnstile only added `+45` risk points (bringing baseline `15` to `60`, below the `80` `DENY` threshold). In v10.0, every single gate is a mandatory `AND` requirement; any violation immediately sets `riskScore = 100` (`action: 'DENY'`), quarantines the IP for 30 minutes, and returns the disguised `404 Not Found`.
-
-### 20.2 The 6 Sequential Server & Cloudflare Edge Gates (`securityRoutes.ts` & `functions/api/[[catchall]].js`)
-
-| Gate | Execution Cost | Enforcement Logic | Failure Action |
-| :--- | :--- | :--- | :--- |
-| **Gate 1: Edge Network, Cloud ASN & Mobile OS Filter** | `< 0.1ms` | Blocks Cloud Datacenter ASNs (`16509`, `14618`, `15169`, `396982`, `8075`, `14061`, `24940`, `16276`, `63949`, `20473`, `212238`, `9009`, `12876`, `31898`, etc.) & hosting organizations (`AWS`, `Google Cloud`, `Azure`, `DigitalOcean`, `Hetzner`, `OVH`, `Vultr`, `Datacamp`, `M247`). Blocks Bot UAs, Desktop Client Hints (`Sec-CH-UA-Mobile: ?0`, `Sec-CH-UA-Platform: Windows/macOS/Linux/Chrome OS`), and non-mobile User-Agents. | Immediate `404 Not Found` + 30-Min IP Quarantine |
-| **Gate 2: IP Quarantine & 3-Click / 10s Burst Firewall** | `< 1ms` | Checks in-memory isolate state and Upstash Redis `quarantine:<ip>`. Enforces max 3 clicks per 10-second rolling window and $\le 2000\text{ms}$ micro-burst lock. | Immediate `404 Not Found` + 30-Min IP Quarantine |
-| **Gate 3: Token Freshness & Mobile Hardware/Touch Telemetry** | `< 1ms` | Decodes `x-clearance-token` (`v: 10`). Requires `Math.abs(now - t) <= 60000`, `el >= 200`, `(cx > 0 \|\| cy > 0)`, `id === appId`, `wb === 0`, `hl === 0`, `dk === 0`, `cb === 0`, `tr === 1`, `pt === 'touch'`, `mtp >= 1`, `coarse === 1`, and mobile WebGL GPU (`gpu` free of `SwiftShader`, `llvmpipe`, `NVIDIA`, `Radeon`, `Intel UHD/Iris`, `Apple M1-M4`). | Immediate `404 Not Found` + 30-Min IP Quarantine |
-| **Gate 4: Burn-on-Read Atomic Nonce (Parallel `Promise.all`)** | `~30–50ms` | Burns `decoded.n` in local memory and Upstash Redis (`SET nonce:<n> 1 EX 90 NX`). Prevents any token replay across requests or devices. | Immediate `404 Not Found` + 30-Min IP Quarantine |
-| **Gate 5: Cryptographic Turnstile `siteverify` + `cData` Binding (Parallel `Promise.all`)** | `~30–50ms` | Verifies `cfToken` against `https://challenges.cloudflare.com/turnstile/v0/siteverify` with `remoteip`. Requires `success === true`, `action === 'mobile_clearance'`, and `cdata === sanitizedAppId`. | Immediate `404 Not Found` + 30-Min IP Quarantine |
-| **Gate 6: Late In-Memory AES-256 Vault Decryption** | `< 0.5ms` | Executed **only after Gates 1–5 all pass**. Decrypts target URL from `ENCRYPTED_LINKS` in RAM and dispatches with `Referrer-Policy: no-referrer` and `Cache-Control: no-store, private`. | N/A |
-
-### 20.3 Client-Side Instant 1-Click Mobile Hardware & Capacitive Touch Inspection (`GatewayPage.tsx`, `ClearanceButton.tsx`, `useClearanceDispatch.ts`, `useTurnstileVerification.ts`)
-- **Mount-Time & Pointer-Event Desktop Trap (`GatewayPage.tsx`)**: Immediately runs `inspectMobileEnvironment()` on mount and listens for `pointerdown`. If `isBot`, `isHeadless`, `isDesktop`, or `e.pointerType === 'mouse'` is detected, `GatewayPage.tsx` immediately renders the disguised **404 — Not Found** screen.
-- **Zero `appRecord` Prop Passing**: `GatewayPage.tsx` never passes `appRecord` into `ClearanceButton.tsx`.
-- **Single-Tap Capacitive Touch Physics (`useClearanceDispatch.ts`)**: Real mobile users tap **"Proceed"** once (`1-click`). The tap captures touch contact radius (`rx`, `ry`), pressure (`pr`), pointer type (`pt: 'touch'`), `navigator.maxTouchPoints` (`mtp`), coarse pointer match (`coarse: 1`), WebGL GPU renderer (`gpu`), and passive motion sensor count (`mot`).
-- **Turnstile `cData` Binding (`useTurnstileVerification.ts`)**: Renders Cloudflare Turnstile with `action: 'mobile_clearance'` and `cData: sanitizeTurnstileCData(appId)` and forbids fallback to test keys (`1x00000000000000000000AA`) on production domains (`rummydex.com`, `pages.dev`).
-
+- **v11.1.1 (Mobile & Edge Hardening):**
+  1. **Turnstile Script Preconnect & Explicit Loader (`index.html` & `useTurnstileVerification.ts`):** Added `<link rel="preconnect" href="https://challenges.cloudflare.com" crossorigin>` and `<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>` to `index.html`, plus dynamic script-injection fallback in `useTurnstileVerification.ts` so `window.turnstile` is always ready without hitting `TURNSTILE_UI_TIMEOUT_MS` (15 s).
+  2. **Multi-Key Turnstile Resolution (`useTurnstileVerification.ts`, `linkService.ts`, `gateCore.ts`):** Supports both environment-configured (`VITE_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY`) and Admin Settings-configured (`turnstile_site_key` / `turnstile_secret_key`) widget key pairs on production, plus automatic fallback to Cloudflare's non-production test key (`1x00000000000000000000AA`) strictly on non-production preview hosts (`*.run.app` / `localhost`) when a production domain-restricted widget returns a domain-restriction error.
+  3. **Zero-Leak Public Sanitization (`githubSync.ts`, `adminVaultRoutes.ts`, `publicApiRoutes.ts`, `prerender.ts`):** Stripped `turnstile_secret_key` and all download link fields (`more_information_url`, `encrypted_link`) from `staticData.json`, `staticData.ts`, and `/api/v1/public/*` responses while sealing all 75+ catalog links into `src/lib/secureVault.ts` (`ENCRYPTED_LINKS`, T1).
+  4. **Edge-Native `linkService.ts` & Gesture Guard (`useClearanceDispatch.ts`):** Removed top-level Node `fs`/`path` imports from `linkService.ts` for native Cloudflare Pages Functions compatibility, and ignored accidental touches while `ClearanceButton` is disabled (`!isReady`) so pre-ready taps never pollute `tapBufferRef`.
+  5. **Always-Visible Turnstile Mode (`useTurnstileVerification.ts` & `ClearanceButton.tsx`):** Configured Turnstile widget with `appearance: 'always'` (`size: 'flexible'`, `theme: 'auto'`) in a permanent `min-h-[65px]` container above the action button so real users see live verification status and can immediately solve interactive challenges when on shared carrier-grade NATs, while deterring automated bots.
 

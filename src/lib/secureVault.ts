@@ -1,204 +1,32 @@
-import CryptoJS from "crypto-js";
+import {
+  getEnvSecretKeys,
+  getAesSecret,
+  encryptData,
+  decryptData,
+  safeEncrypt,
+  safeDecrypt,
+} from './cryptoUtils';
 
-export const KNOWN_VAULT_KEYS: string[] = [
-  'rd_master_vault_aes_key_2026',
-  'RummyDex_Master_Vault_Key_2026_!@#'
-];
-export const DEFAULT_MASTER_AES_KEY = 'rd_master_vault_aes_key_2026';
+export { getEnvSecretKeys, getAesSecret, encryptData, decryptData, safeEncrypt, safeDecrypt };
 
-export function getFallbackAes(): string {
-  if (typeof process !== "undefined" && process.env && process.env.AES_SECRET && process.env.AES_SECRET.trim() !== '') {
-    return process.env.AES_SECRET.trim();
-  }
+export function encryptLinks(linksMap: Record<string, string>, secretKey?: string): string {
+  return safeEncrypt(JSON.stringify(linksMap), secretKey);
+}
+
+export function decryptLinks(ciphertext: string, secretKey?: string): Record<string, string> {
+  if (!ciphertext || typeof ciphertext !== 'string' || !ciphertext.trim()) return {};
+  const dec = safeDecrypt(ciphertext.trim(), secretKey);
+  if (!dec) return {};
   try {
-    if (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_AES_SECRET) {
-      const vKey = String((import.meta as any).env.VITE_AES_SECRET).trim();
-      if (vKey) return vKey;
-    }
-  } catch (_) {}
-  if (typeof window !== "undefined" && (window as any).AES_SECRET_GLOBAL && String((window as any).AES_SECRET_GLOBAL).trim() !== '') {
-    return String((window as any).AES_SECRET_GLOBAL).trim();
-  }
-  return DEFAULT_MASTER_AES_KEY;
+    const parsed = JSON.parse(dec);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+  } catch {}
+  return {};
 }
 
-export function getAesSecret(): string {
-  if (typeof process !== "undefined" && process.env && process.env.AES_SECRET && process.env.AES_SECRET.trim() !== '') {
-    return process.env.AES_SECRET.trim();
-  }
-  const globalKey = (globalThis as any).AES_SECRET_GLOBAL;
-  if (globalKey && String(globalKey).trim() !== '') {
-    return String(globalKey).trim();
-  }
-  return getFallbackAes();
+export function generateSecureVaultFile(c: string): string {
+  return c;
 }
 
-export function safeDecrypt(ciphertext: string, secret?: string): string {
-  if (!ciphertext || typeof ciphertext !== 'string') return '';
-  const cleanCipher = ciphertext.trim().replace(/^["']|["']$/g, '');
-  if (!cleanCipher) return '';
-
-  // If already a plain URL or not AES encrypted, return directly
-  if (!cleanCipher.startsWith('U2FsdGVkX1')) {
-    return cleanCipher;
-  }
-
-  const fallback = getFallbackAes();
-  const globalSecret = (globalThis as any).AES_SECRET_GLOBAL;
-  const keys = [
-    secret, 
-    (typeof process !== "undefined" ? process.env.AES_SECRET : undefined), 
-    globalSecret, 
-    fallback,
-    DEFAULT_MASTER_AES_KEY,
-    ...KNOWN_VAULT_KEYS
-  ].filter(Boolean) as string[];
-  const uniqueKeys = Array.from(new Set(keys));
-  for (const key of uniqueKeys) {
-    if (!key || key.trim() === '') continue;
-    try {
-      const bytes = CryptoJS.AES.decrypt(cleanCipher, key);
-      const text = bytes.toString(CryptoJS.enc.Utf8);
-      if (text && text.trim().length > 0) return text.trim();
-    } catch (e) {
-      // keep trying other keys
-    }
-  }
-  return '';
-}
-
-export function safeEncrypt(text: string, secret?: string): string {
-  if (!text) return '';
-  if (text.startsWith('U2FsdGVkX1')) return text; // Prevent double encryption
-
-  const resolvedSecret = getAesSecret();
-  const encKey = (secret && secret.trim()) || (resolvedSecret && resolvedSecret.trim()) || DEFAULT_MASTER_AES_KEY;
-  return CryptoJS.AES.encrypt(text, encKey).toString();
-}
-
-export async function generateSha1(str: string): Promise<string> {
-  const enc = new TextEncoder();
-  const hash = await crypto.subtle.digest('SHA-1', enc.encode(str));
-  return Array.from(new Uint8Array(hash)).map(v => v.toString(16).padStart(2, '0')).join('');
-}
-
-export const isRealValue = (id: string | undefined): boolean => {
-  if (!id) return false;
-  const clean = id.trim();
-  if (clean === '' ||
-      clean === 'PLACEHOLDER' ||
-      clean === 'undefined' ||
-      clean === 'null' ||
-      clean.includes('REPLACE_WITH_YOUR_REAL_KEY') ||
-      clean.includes('YOUR_API_KEY')) return false;
-
-  if (clean.includes('#') || clean.includes('!') || clean.includes('@') || clean.includes('&') || clean.includes('*') || clean.includes('$') || clean.includes('^') || clean.includes('+') || clean.includes('proj-U7m') || clean.includes('Db7!Xp2') || clean.includes('Sy8@Kp3')) return false;
-
-  return true;
-};
-
-export function generateSecureVaultFile(ciphertext: string): string {
-  const cleanCipher = (ciphertext || '').trim();
-  return `import CryptoJS from "crypto-js";
-
-export const KNOWN_VAULT_KEYS: string[] = [
-  'rd_master_vault_aes_key_2026',
-  'RummyDex_Master_Vault_Key_2026_!@#'
-];
-export const DEFAULT_MASTER_AES_KEY = 'rd_master_vault_aes_key_2026';
-
-export function getFallbackAes(): string {
-  if (typeof process !== "undefined" && process.env && process.env.AES_SECRET && process.env.AES_SECRET.trim() !== '') {
-    return process.env.AES_SECRET.trim();
-  }
-  try {
-    if (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_AES_SECRET) {
-      const vKey = String((import.meta as any).env.VITE_AES_SECRET).trim();
-      if (vKey) return vKey;
-    }
-  } catch (_) {}
-  if (typeof window !== "undefined" && (window as any).AES_SECRET_GLOBAL && String((window as any).AES_SECRET_GLOBAL).trim() !== '') {
-    return String((window as any).AES_SECRET_GLOBAL).trim();
-  }
-  return DEFAULT_MASTER_AES_KEY;
-}
-
-export function getAesSecret(): string {
-  if (typeof process !== "undefined" && process.env && process.env.AES_SECRET && process.env.AES_SECRET.trim() !== '') {
-    return process.env.AES_SECRET.trim();
-  }
-  const globalKey = (globalThis as any).AES_SECRET_GLOBAL;
-  if (globalKey && String(globalKey).trim() !== '') {
-    return String(globalKey).trim();
-  }
-  return getFallbackAes();
-}
-
-export function safeDecrypt(ciphertext: string, secret?: string): string {
-  if (!ciphertext || typeof ciphertext !== 'string') return '';
-  const cleanCipher = ciphertext.trim().replace(/^[\\"\\\']|[\\"\\\']$/g, '');
-  if (!cleanCipher) return '';
-
-  if (!cleanCipher.startsWith('U2FsdGVkX1')) {
-    return cleanCipher;
-  }
-
-  const fallback = getFallbackAes();
-  const globalSecret = (globalThis as any).AES_SECRET_GLOBAL;
-  const keys = [
-    secret, 
-    (typeof process !== "undefined" ? process.env.AES_SECRET : undefined), 
-    globalSecret, 
-    fallback,
-    DEFAULT_MASTER_AES_KEY,
-    ...KNOWN_VAULT_KEYS
-  ].filter(Boolean) as string[];
-  const uniqueKeys = Array.from(new Set(keys));
-  for (const key of uniqueKeys) {
-    if (!key || key.trim() === '') continue;
-    try {
-      const bytes = CryptoJS.AES.decrypt(cleanCipher, key);
-      const text = bytes.toString(CryptoJS.enc.Utf8);
-      if (text && text.trim().length > 0) return text.trim();
-    } catch (e) {
-      // keep trying other keys
-    }
-  }
-  return '';
-}
-
-export function safeEncrypt(text: string, secret?: string): string {
-  if (!text) return '';
-  if (text.startsWith('U2FsdGVkX1')) return text;
-
-  const resolvedSecret = getAesSecret();
-  const encKey = (secret && secret.trim()) || (resolvedSecret && resolvedSecret.trim()) || DEFAULT_MASTER_AES_KEY;
-  return CryptoJS.AES.encrypt(text, encKey).toString();
-}
-
-export async function generateSha1(str: string): Promise<string> {
-  const enc = new TextEncoder();
-  const hash = await crypto.subtle.digest('SHA-1', enc.encode(str));
-  return Array.from(new Uint8Array(hash)).map(v => v.toString(16).padStart(2, '0')).join('');
-}
-
-export const isRealValue = (id: string | undefined): boolean => {
-  if (!id) return false;
-  const clean = id.trim();
-  if (clean === '' ||
-      clean === 'PLACEHOLDER' ||
-      clean === 'undefined' ||
-      clean === 'null' ||
-      clean.includes('REPLACE_WITH_YOUR_REAL_KEY') ||
-      clean.includes('YOUR_API_KEY')) return false;
-
-  if (clean.includes('#') || clean.includes('!') || clean.includes('@') || clean.includes('&') || clean.includes('*') || clean.includes('$') || clean.includes('^') || clean.includes('+') || clean.includes('proj-U7m') || clean.includes('Db7!Xp2') || clean.includes('Sy8@Kp3')) return false;
-
-  return true;
-};
-
-export const ENCRYPTED_LINKS = "${cleanCipher}";
-`;
-}
-
-export const ENCRYPTED_LINKS = "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";
+export const ENCRYPTED_LINKS = "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";
+export const ENCRYPTED_VAULT = ENCRYPTED_LINKS;

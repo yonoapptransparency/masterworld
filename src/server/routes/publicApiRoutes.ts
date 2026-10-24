@@ -147,9 +147,16 @@ publicApiRouter.get('/api/v1/public/videos', async (req, res) => {
   res.json({ status: 'OK', videos });
 });
 
+function sanitizeSettingsForPublicClient(settings: any): any {
+  if (!settings || typeof settings !== 'object') return {};
+  const copy = { ...settings };
+  delete copy.turnstile_secret_key;
+  return copy;
+}
+
 publicApiRouter.get('/api/v1/public/settings', async (req, res) => {
   const data = await fetchStoreData();
-  const settings = data?.settings || (staticData as any)?.settings || {};
+  const settings = sanitizeSettingsForPublicClient(data?.settings || (staticData as any)?.settings || {});
   res.setHeader('Cache-Control', 'public, max-age=600, s-maxage=1800, stale-while-revalidate=86400');
   res.json({ status: 'OK', settings });
 });
@@ -176,7 +183,7 @@ publicApiRouter.get('/api/v1/public/backup-data', async (req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
     return res.json({
       apps: Array.isArray(rawApps) ? rawApps.map((a: any) => sanitizeAppForPublicClient(a, false)) : [],
-      settings: data?.settings || (staticData as any)?.settings || (staticData as any)?.mockSettings || {},
+      settings: sanitizeSettingsForPublicClient(data?.settings || (staticData as any)?.settings || (staticData as any)?.mockSettings || {}),
       news: Array.isArray(rawNews) ? rawNews.map(sanitizeNewsCardForPublicList) : [],
       videos: data?.videos || (staticData as any)?.videos || (staticData as any)?.mockVideos || [],
       reviews: []
@@ -194,8 +201,8 @@ publicApiRouter.get('/api/v1/public/backup-data-full', async (req, res) => {
     const rawNews = (data?.news || (staticData as any)?.news || (staticData as any)?.mockNews || []).filter((n: any) => n && n.sync_to_public !== false);
     res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
     return res.json({
-      apps: rawApps,
-      settings: data?.settings || (staticData as any)?.settings || (staticData as any)?.mockSettings || {},
+      apps: Array.isArray(rawApps) ? rawApps.map((a: any) => sanitizeAppForPublicClient(a, true)) : [],
+      settings: sanitizeSettingsForPublicClient(data?.settings || (staticData as any)?.settings || (staticData as any)?.mockSettings || {}),
       news: rawNews,
       videos: data?.videos || (staticData as any)?.videos || (staticData as any)?.mockVideos || [],
       reviews: data?.reviews || []

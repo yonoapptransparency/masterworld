@@ -2,9 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db, isFirebaseReal, handleFirestoreError, OperationType } from '../lib/firebase';
 import { adminFetch, getValidAdminToken, loadSession } from '../services/adminAuthService';
-import { GitConfig, generateStaticDataFileCode, generateCommunityReviewsFileCode, commitFileToGitHub, commitMultiFilesToGitHub, encryptUrlIfNeeded, compileCanonicalApp, compileCanonicalNews } from '../lib/githubSync';
+import { GitConfig, generateStaticDataFileCode, generateCommunityReviewsFileCode, commitFileToGitHub, commitMultiFilesToGitHub, encryptUrlIfNeeded, compileCanonicalApp, compileCanonicalNews, generateSecureVaultFile, sanitizePublicSettings } from '../lib/githubSync';
 import { getAesSecret, safeDecrypt, safeEncrypt } from '../lib/cryptoUtils';
-import { generateSecureVaultFile } from '../lib/secureVault';
 import { generateAllSitemaps } from '../lib/sitemapGenerator';
 import { ensureDefaultSettings } from '../lib/defaultLegalContent';
 import { AppConfig, GlobalSettings, NewsItem, VideoItem } from '../types';
@@ -715,7 +714,7 @@ export function useGitHubSync(
 
     const consolidatedStaticPayload = {
       apps: cleanPublicStaticApps,
-      settings: finalSettings,
+      settings: sanitizePublicSettings(finalSettings),
       news: publicNews,
       videos: targetVideos,
       reviews: []
@@ -786,7 +785,7 @@ export function useGitHubSync(
         // Fallback: If server returned 405 (static host / edge), seal vault directly on client
         if (!vaultCiphertext) {
           const AES_SECRET = getAesSecret();
-          const vaultArray: any[] = [];
+          const vaultMap: Record<string, string> = {};
           publicApps.forEach((item: any) => {
             const id = String(item.id || '').trim();
             const slug = String(item.slug || '').trim();
@@ -796,38 +795,15 @@ export function useGitHubSync(
             if (trimmed.toLowerCase().includes('mediafire.com') || trimmed.includes('com.rummydex') || trimmed.includes('com.example')) return;
             const plainUrl = trimmed.startsWith('U2FsdGVkX1') ? (safeDecrypt(trimmed, AES_SECRET) || safeDecrypt(trimmed) || trimmed) : trimmed;
             if (!plainUrl || (!plainUrl.startsWith('http://') && !plainUrl.startsWith('https://'))) return;
-            const encUrl = safeEncrypt(plainUrl, AES_SECRET);
-            vaultArray.push({
-              id,
-              slug,
-              name: item.name || '',
-              more_information_url: encUrl,
-              encrypted_link: encUrl
-            });
+            if (id) vaultMap[id] = plainUrl;
+            if (slug) vaultMap[slug] = plainUrl;
           });
-          vaultCiphertext = safeEncrypt(JSON.stringify(vaultArray), AES_SECRET);
+          vaultCiphertext = safeEncrypt(JSON.stringify(vaultMap), AES_SECRET);
         }
 
         if (vaultCiphertext) {
           vaultCode = generateSecureVaultFile(vaultCiphertext);
           log(`GitHub Sync: ✅ AES Encrypted Vault sealed.`);
-
-          try {
-            log(`GitHub Sync: Building fresh public API bundle for Vercel...`);
-            const idToken = await getAdminToken();
-            const apiRes = await adminFetch('/api/v1/admin/build-public-api', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {}) },
-              body: JSON.stringify({ ciphertext: vaultCiphertext })
-            });
-            if (apiRes.ok) {
-              const apiData = await apiRes.json();
-              if (apiData.content) {
-                apiBundleContent = apiData.content;
-                log(`GitHub Sync: ✅ Fresh public API bundle prepared.`);
-              }
-            }
-          } catch (_) {}
         }
       } catch (vaultErr: any) {
         log(`GitHub Sync Warning (Vault build): ${vaultErr?.message || 'skipped'}`);
@@ -911,7 +887,7 @@ export function useGitHubSync(
           });
         }
 
-        const robotsContent = `User-agent: *\nAllow: /\nAllow: /api/v1/public/\nDisallow: /api/\nDisallow: /admin/\nDisallow: /login/\nDisallow: /masterworld/\nDisallow: /s/\nDisallow: /s/*\nDisallow: /dl/\nDisallow: /dl/*\nDisallow: /out/\nDisallow: /out/*\nDisallow: /download/\nDisallow: /download/*\nDisallow: /gateway/\nDisallow: /gateway/*\nDisallow: /info/\nDisallow: /info/*\nDisallow: /moreinfo/\nDisallow: /moreinfo/*\nDisallow: /moredetail/\nDisallow: /moredetail/*\n\nUser-agent: GPTBot\nDisallow: /moreinfo/\nDisallow: /moreinfo/*\nDisallow: /gateway/\nDisallow: /download/\nDisallow: /api/\n\nUser-agent: ClaudeBot\nDisallow: /moreinfo/\nDisallow: /moreinfo/*\nDisallow: /gateway/\nDisallow: /download/\nDisallow: /api/\n\nUser-agent: PerplexityBot\nDisallow: /moreinfo/\nDisallow: /moreinfo/*\nDisallow: /gateway/\nDisallow: /download/\nDisallow: /api/\n\nUser-agent: Google-Extended\nDisallow: /moreinfo/\nDisallow: /moreinfo/*\nDisallow: /gateway/\nDisallow: /download/\nDisallow: /api/\n\nUser-agent: CCBot\nDisallow: /moreinfo/\nDisallow: /moreinfo/*\nDisallow: /gateway/\nDisallow: /download/\nDisallow: /api/\n\nSitemap: https://www.rummydex.com/sitemap.xml\nSitemap: https://www.rummydex.com/sitemap-news.xml\nSitemap: https://www.rummydex.com/sitemap-apps.xml\nSitemap: https://www.rummydex.com/sitemap-static.xml\nSitemap: https://www.rummydex.com/sitemap-videos.xml\nSitemap: https://www.rummydex.com/sitemap-developers.xml\n`;
+        const robotsContent = `User-agent: *\nAllow: /\nAllow: /api/v1/public/\nDisallow: /api/\nDisallow: /admin/\nDisallow: /login/\nDisallow: /masterworld/\nDisallow: /s/\nDisallow: /s/*\nDisallow: /dl/\nDisallow: /dl/*\nDisallow: /out/\nDisallow: /out/*\nDisallow: /download/\nDisallow: /download/*\nDisallow: /gateway/\nDisallow: /gateway/*\nDisallow: /info/\nDisallow: /info/*\nDisallow: /moredetail/\nDisallow: /moredetail/*\n\nSitemap: https://www.rummydex.com/sitemap.xml\nSitemap: https://www.rummydex.com/sitemap-news.xml\nSitemap: https://www.rummydex.com/sitemap-apps.xml\nSitemap: https://www.rummydex.com/sitemap-static.xml\nSitemap: https://www.rummydex.com/sitemap-videos.xml\nSitemap: https://www.rummydex.com/sitemap-developers.xml\n`;
         primaryBatchFiles.push({
           path: 'public/robots.txt',
           content: robotsContent

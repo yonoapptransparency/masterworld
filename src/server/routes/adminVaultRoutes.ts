@@ -4,7 +4,7 @@ import path from 'path';
 import zlib from 'zlib';
 import { safeEncrypt, safeDecrypt, getAesSecret } from '../../lib/secureVault';
 import { fetchStoreData, clearSeoCache } from '../../seoHelper';
-import { compileCanonicalApp, compileCanonicalNews, generateStaticDataFileCode } from '../../lib/githubSync';
+import { compileCanonicalApp, compileCanonicalNews, generateStaticDataFileCode, sanitizePublicSettings, generateSecureVaultFile } from '../../lib/githubSync';
 import { generateAllSitemaps } from '../../lib/sitemapGenerator';
 import { cleanSettingsMetaTitles } from '../../lib/seoUtils';
 
@@ -95,9 +95,11 @@ function writeMergedData(data: any) {
 
   const publicNews = canonicalNews.filter((item: any) => item && item.sync_to_public !== false);
 
+  const publicSettings = sanitizePublicSettings(updatedSettings);
+
   const publicStaticPayload = {
     apps: publicApps,
-    settings: updatedSettings,
+    settings: publicSettings,
     news: publicNews,
     videos: Array.isArray(data.videos) ? data.videos : [],
     reviews: Array.isArray(data.reviews) ? data.reviews : []
@@ -116,7 +118,7 @@ function writeMergedData(data: any) {
   try {
     const staticTsCode = generateStaticDataFileCode(
       publicApps,
-      updatedSettings,
+      publicSettings,
       publicNews,
       publicStaticPayload.videos
     );
@@ -341,61 +343,103 @@ adminVaultRouter.post('/api/v1/admin/save-data', (req, res) => {
   }
 });
 
-adminVaultRouter.post('/api/v1/admin/encrypt-links', (req, res) => {
+adminVaultRouter.post('/api/v1/admin/encrypt-links', async (req, res) => {
   try {
     const { items } = req.body || {};
+    const { encryptAesGcmV2 } = await import('../crypto.js');
+    const { setRamVaultLink } = await import('../services/linkService.js');
     const AES_SECRET = getAesSecret();
-    const encryptedItems = Array.isArray(items)
-      ? items.map((item: any) => ({
+    const hasV2Key = Boolean(process.env.AES_KEY && process.env.AES_KEY.trim());
+
+    const encryptedItems = [];
+    if (Array.isArray(items)) {
+      for (const item of items) {
+        const plainUrl = String(item?.url || '').trim();
+        if (plainUrl) {
+          if (item.id) setRamVaultLink(String(item.id), plainUrl);
+          if (item.slug) setRamVaultLink(String(item.slug), plainUrl);
+        }
+        let encrypted_link = '';
+        if (plainUrl) {
+          encrypted_link = hasV2Key
+            ? (await encryptAesGcmV2(plainUrl, process.env as Record<string, string | undefined>)) || safeEncrypt(plainUrl, AES_SECRET)
+            : safeEncrypt(plainUrl, AES_SECRET);
+        }
+        encryptedItems.push({
           id: item.id,
           slug: item.slug,
-          encrypted_link: safeEncrypt(String(item.url || ''), AES_SECRET)
-        }))
-      : [];
+          encrypted_link,
+        });
+      }
+    }
     return res.json({ success: true, count: encryptedItems.length, items: encryptedItems });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message });
   }
 });
 
-adminVaultRouter.post('/api/v1/admin/seal-vault', (req, res) => {
+adminVaultRouter.post('/api/v1/admin/seal-vault', async (req, res) => {
   try {
     const { items } = req.body || {};
+    const { encryptAesGcmV2, decryptVaultValue } = await import('../crypto.js');
+    const { setRamVaultLink, isValidDestinationUrl } = await import('../services/linkService.js');
     const AES_SECRET = getAesSecret();
-    const vaultArray: any[] = [];
+    const hasV2Key = Boolean(process.env.AES_KEY && process.env.AES_KEY.trim());
+    const vaultMap: Record<string, string> = {};
 
     if (Array.isArray(items)) {
-      items.forEach((item: any) => {
+      for (const item of items) {
         const id = String(item.id || '').trim();
         const slug = String(item.slug || '').trim();
         const rawUrl = item.more_information_url || item.encrypted_link || item.url || '';
-        if (!rawUrl || typeof rawUrl !== 'string') return;
+        if (!rawUrl || typeof rawUrl !== 'string') continue;
         const trimmed = rawUrl.trim();
-        if (trimmed.toLowerCase().includes('mediafire.com') || trimmed.includes('com.rummydex') || trimmed.includes('com.example')) return;
-        const plainUrl = trimmed.startsWith('U2FsdGVkX1') ? (safeDecrypt(trimmed, AES_SECRET) || safeDecrypt(trimmed) || trimmed) : trimmed;
-        if (!plainUrl || (!plainUrl.startsWith('http://') && !plainUrl.startsWith('https://'))) return;
-        const encUrl = safeEncrypt(plainUrl, AES_SECRET);
-        vaultArray.push({
-          id,
-          slug,
-          name: item.name || '',
-          more_information_url: encUrl,
-          encrypted_link: encUrl
-        });
-      });
+        if (
+          trimmed.toLowerCase().includes('mediafire.com') ||
+          trimmed.includes('com.rummydex') ||
+          trimmed.includes('com.example')
+        ) {
+          continue;
+        }
+        const plainUrl =
+          trimmed.startsWith('v2.') || trimmed.startsWith('U2FsdGVkX1')
+            ? (await decryptVaultValue(trimmed)) || safeDecrypt(trimmed, AES_SECRET) || ''
+            : trimmed;
+        if (!isValidDestinationUrl(plainUrl)) continue;
+        if (id) {
+          vaultMap[id] = plainUrl;
+          setRamVaultLink(id, plainUrl);
+        }
+        if (slug) {
+          vaultMap[slug] = plainUrl;
+          setRamVaultLink(slug, plainUrl);
+        }
+      }
     }
 
-    const ciphertext = safeEncrypt(JSON.stringify(vaultArray), AES_SECRET);
+    const jsonPayload = JSON.stringify(vaultMap);
+    const ciphertext = hasV2Key
+      ? (await encryptAesGcmV2(jsonPayload, process.env as Record<string, string | undefined>)) || safeEncrypt(jsonPayload, AES_SECRET)
+      : safeEncrypt(jsonPayload, AES_SECRET);
+
+    if (ciphertext) {
+      try {
+        const vaultFilePath = path.join(process.cwd(), 'src/lib/secureVault.ts');
+        fs.writeFileSync(vaultFilePath, generateSecureVaultFile(ciphertext), 'utf8');
+      } catch (e) {
+        console.warn('[adminVaultRoutes] Could not write src/lib/secureVault.ts:', e);
+      }
+    }
     res.json({ success: true, ciphertext });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message });
   }
 });
 
-adminVaultRouter.post('/api/v1/admin/build-public-api', (req, res) => {
+adminVaultRouter.post('/api/v1/admin/build-public-api', async (req, res) => {
   try {
     const { ciphertext } = req.body || {};
-    const content = `export const ENCRYPTED_VAULT = "${ciphertext || ''}";\n`;
+    const content = generateSecureVaultFile(String(ciphertext || ''));
     res.json({ success: true, content });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message });

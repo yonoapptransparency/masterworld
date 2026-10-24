@@ -170,26 +170,36 @@
 # 5. Clearance Gateway & Non-Indexed Security Routes (Strict no-store & noindex)
 /moreinfo/*
   Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0
+  CDN-Cache-Control: no-store, private
+  Cloudflare-CDN-Cache-Control: no-store, private
   X-Robots-Tag: noindex, nofollow, noarchive, nosnippet
   Referrer-Policy: no-referrer
 
 /gateway/*
   Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0
+  CDN-Cache-Control: no-store, private
+  Cloudflare-CDN-Cache-Control: no-store, private
   X-Robots-Tag: noindex, nofollow, noarchive, nosnippet
   Referrer-Policy: no-referrer
 
 /download/*
   Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0
+  CDN-Cache-Control: no-store, private
+  Cloudflare-CDN-Cache-Control: no-store, private
   X-Robots-Tag: noindex, nofollow, noarchive, nosnippet
   Referrer-Policy: no-referrer
 
 /info/*
   Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0
+  CDN-Cache-Control: no-store, private
+  Cloudflare-CDN-Cache-Control: no-store, private
   X-Robots-Tag: noindex, nofollow, noarchive, nosnippet
   Referrer-Policy: no-referrer
 
 /moredetail/*
   Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0
+  CDN-Cache-Control: no-store, private
+  Cloudflare-CDN-Cache-Control: no-store, private
   X-Robots-Tag: noindex, nofollow, noarchive, nosnippet
   Referrer-Policy: no-referrer
 

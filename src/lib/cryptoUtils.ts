@@ -1,94 +1,76 @@
-import CryptoJS from "crypto-js";
+import CryptoJS from 'crypto-js';
 
-export const DEFAULT_MASTER_AES_KEY = 'RummyDex_Master_Vault_Key_2026_!@#';
-export const KNOWN_VAULT_KEYS: string[] = [
-  'RummyDex_Master_Vault_Key_2026_!@#',
-  'rd_master_vault_aes_key_2026'
-];
-
-export function getFallbackAes(): string {
-  if (typeof process !== "undefined" && process.env && process.env.AES_SECRET && process.env.AES_SECRET.trim() !== '') {
-    return process.env.AES_SECRET.trim();
-  }
-  try {
-    if (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_AES_SECRET) {
-      const vKey = String((import.meta as any).env.VITE_AES_SECRET).trim();
-      if (vKey) return vKey;
+export function getEnvSecretKeys(explicitKey?: string): string[] {
+  const keys: string[] = [];
+  const add = (k?: string) => {
+    if (k && typeof k === 'string' && k.trim().length > 0 && !keys.includes(k.trim())) {
+      keys.push(k.trim());
     }
-  } catch (_) {}
-  if (typeof window !== "undefined" && (window as any).AES_SECRET_GLOBAL) {
-    return String((window as any).AES_SECRET_GLOBAL).trim();
+  };
+  add(explicitKey);
+  if (typeof process !== 'undefined' && process.env) {
+    add(process.env.AES_KEY);
+    add(process.env.AES_KEY_PREVIOUS);
+    add(process.env.AES_SECRET);
   }
-  return DEFAULT_MASTER_AES_KEY;
+  return keys;
 }
 
 export function getAesSecret(): string {
-  if (typeof process !== "undefined" && process.env && process.env.AES_SECRET && process.env.AES_SECRET.trim() !== '') {
-    return process.env.AES_SECRET.trim();
-  }
-  return (globalThis as any).AES_SECRET_GLOBAL || getFallbackAes();
+  const keys = getEnvSecretKeys();
+  return keys[0] || '';
 }
 
-export function safeDecrypt(ciphertext: string, secret?: string): string {
-  if (!ciphertext || typeof ciphertext !== 'string') return '';
-  const cleanCipher = ciphertext.trim().replace(/^["']|["']$/g, '');
-  if (!cleanCipher) return '';
+export function encryptData(plainText: string, secretKey?: string): string {
+  if (!plainText || typeof plainText !== 'string') return '';
+  const trimmed = plainText.trim();
+  if (!trimmed) return '';
+  const keys = getEnvSecretKeys(secretKey);
+  const key = keys[0];
+  if (!key) {
+    return trimmed;
+  }
+  return CryptoJS.AES.encrypt(trimmed, key).toString();
+}
 
-  // If already a plain URL or not AES encrypted, return directly
-  if (!cleanCipher.startsWith('U2FsdGVkX1')) {
-    return cleanCipher;
+export function decryptData(cipherText: string, secretKey?: string): string {
+  if (!cipherText || typeof cipherText !== 'string') return '';
+  const cleanText = cipherText.trim();
+  if (!cleanText) return '';
+
+  if (cleanText.startsWith('http://') || cleanText.startsWith('https://')) {
+    return cleanText;
   }
 
-  const fallback = getFallbackAes();
-  const globalSecret = (globalThis as any).AES_SECRET_GLOBAL;
-  const keys = [
-    secret, 
-    (typeof process !== "undefined" ? process.env.AES_SECRET : undefined), 
-    globalSecret, 
-    fallback,
-    DEFAULT_MASTER_AES_KEY,
-    ...KNOWN_VAULT_KEYS
-  ].filter(Boolean) as string[];
-  const uniqueKeys = Array.from(new Set(keys));
-  for (const key of uniqueKeys) {
-    if (!key || key.trim() === '') continue;
+  const keysToTry = getEnvSecretKeys(secretKey);
+  for (const key of keysToTry) {
     try {
-      const bytes = CryptoJS.AES.decrypt(cleanCipher, key);
-      const text = bytes.toString(CryptoJS.enc.Utf8);
-      if (text && text.trim().length > 0) return text.trim();
-    } catch (e) {
-      // keep trying other keys
+      const bytes = CryptoJS.AES.decrypt(cleanText, key);
+      const originalText = bytes.toString(CryptoJS.enc.Utf8);
+      if (
+        originalText &&
+        (originalText.startsWith('http://') ||
+          originalText.startsWith('https://') ||
+          originalText.startsWith('{') ||
+          originalText.startsWith('['))
+      ) {
+        return originalText.trim();
+      }
+    } catch {
+      // Try next configured env key
     }
   }
+
   return '';
 }
 
-export function safeEncrypt(text: string, secret?: string): string {
-  if (!text) return '';
-  if (text.startsWith('U2FsdGVkX1')) return text; // Prevent double encryption
-
-  const encKey = (secret && secret.trim()) || getAesSecret() || DEFAULT_MASTER_AES_KEY;
-  return CryptoJS.AES.encrypt(text, encKey).toString();
+export function generateSha1(input: string): string {
+  return CryptoJS.SHA1(input).toString(CryptoJS.enc.Hex);
 }
 
-export async function generateSha1(str: string): Promise<string> {
-  const enc = new TextEncoder();
-  const hash = await crypto.subtle.digest('SHA-1', enc.encode(str));
-  return Array.from(new Uint8Array(hash)).map(v => v.toString(16).padStart(2, '0')).join('');
+export function getFallbackAes(): string {
+  return getAesSecret();
 }
 
-export const isRealValue = (id: string | undefined): boolean => {
-  if (!id) return false;
-  const clean = id.trim();
-  if (clean === '' ||
-      clean === 'PLACEHOLDER' ||
-      clean === 'undefined' ||
-      clean === 'null' ||
-      clean.includes('REPLACE_WITH_YOUR_REAL_KEY') ||
-      clean.includes('YOUR_API_KEY')) return false;
-
-  // Reject scrambled/sandbox values (contain # ! @ & * and look like a hash but aren't real)
-  if (clean.includes('#') || clean.includes('!') || clean.includes('@') || clean.includes('&') || clean.includes('*') || clean.includes('$') || clean.includes('^') || clean.includes('+') || clean.includes('proj-U7m') || clean.includes('Db7!Xp2') || clean.includes('Sy8@Kp3')) return false;
-
-  return true;
-};
+export const safeEncrypt = encryptData;
+export const safeDecrypt = decryptData;

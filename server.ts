@@ -160,11 +160,10 @@ async function startServer() {
   if (process.env.NODE_ENV !== "production") {
     try {
       const { createServer: createViteServer } = await import("vite");
-      const isHmrDisabled = process.env.DISABLE_HMR === 'true';
       viteDevServer = await createViteServer({
         server: {
           middlewareMode: true,
-          hmr: isHmrDisabled ? false : undefined,
+          hmr: false,
           watch: {
             ignored: [
               '**/.data/**',
@@ -649,7 +648,7 @@ async function startServer() {
         : 'noindex, nofollow, noarchive, nosnippet';
 
       const edgeCacheDirective = isDisallowedRoute
-        ? 'no-store, no-cache, private'
+        ? 'no-store, private'
         : 'public, max-age=86400, stale-while-revalidate=604800';
 
       const responseHeaders: Record<string, string> = {
@@ -665,13 +664,13 @@ async function startServer() {
       };
 
       const links: string[] = [];
-      if (canonicalUrl) {
+      if (canonicalUrl && !isDisallowedRoute) {
         links.push(`<${canonicalUrl}>; rel="canonical"`);
       }
       if (links.length > 0) {
         responseHeaders['Link'] = links.join(', ');
       }
-      if (isNotFound) {
+      if (isNotFound || isDisallowedRoute) {
         responseHeaders['Pragma'] = 'no-cache';
         responseHeaders['Expires'] = '0';
       } else {
@@ -730,5 +729,13 @@ if (err.status !== 404 && err.statusCode !== 404) {
     }
   });
 }
+
+process.on('uncaughtException', (err) => {
+  console.error('[SERVER UNCAUGHT EXCEPTION]:', err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.warn('[SERVER UNHANDLED REJECTION]:', reason);
+});
 
 startServer();

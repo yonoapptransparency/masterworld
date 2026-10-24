@@ -150,7 +150,7 @@ export interface AppConfig {
   video_url?: string;
   is_top_chart?: boolean;
   top_chart_category?: string;
-  more_information_url?: string;
+  has_secure_link?: boolean;
   sync_to_public?: boolean;
 }
 
@@ -4148,9 +4148,9 @@ export const mockSettings: any = {
   "social_links": {
     "youtube": "https://www.youtube.com/@rummydex",
     "linkedin": "",
-    "facebook": "https://www.facebook.com/share/1951euBy3d/",
     "instagram": "https://www.instagram.com/rummydex?igsh=MTJjaGR3c3hmdjhnZA==",
-    "twitter": ""
+    "twitter": "",
+    "facebook": "https://www.facebook.com/share/1951euBy3d/"
   },
   "hero_title_text": "RummyDex",
   "hero_title_subtitle": "​Your trusted bridge to the best mobile card games. Explore RummyDex for hands-on reviews, real-time news, and complete app knowledge.",
@@ -4183,7 +4183,6 @@ export const mockSettings: any = {
   "test_ping": 1787914706917,
   "cloudinary_api_secret": "wWlSk9OS905jDmR5YR6wlEK37sE",
   "social_youtube": "",
-  "turnstile_secret_key": "0x4AAAAAAFADYSYXRFvz1MHelRUqs5S7og4",
   "ethics_meta_description": "",
   "disclaimer_meta_title": "",
   "disclaimer_meta_description": "",

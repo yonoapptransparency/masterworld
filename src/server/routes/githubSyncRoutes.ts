@@ -13,7 +13,12 @@ githubSyncRouter.get('/api/github-sync/public-core-files', (req, res) => {
     const files: Record<string, string> = {};
     const rootDir = process.cwd();
     const candidateFiles = [
+      'index.html',
       'src/main.tsx',
+      'src/lib/gateConfig.ts',
+      'src/lib/deviceProbe.ts',
+      'src/lib/cryptoUtils.ts',
+      'src/lib/secureVault.ts',
       'src/lib/lazyWithRetry.ts',
       'src/lib/safeHtmlPublic.ts',
       'src/lib/newsUtils.ts',
@@ -21,6 +26,11 @@ githubSyncRouter.get('/api/github-sync/public-core-files', (req, res) => {
       'src/lib/sitemapGenerator.ts',
       'src/lib/firebaseConfig.ts',
       'src/lib/githubSync.ts',
+      'src/server/crypto.ts',
+      'src/server/services/linkService.ts',
+      'src/server/security/gateCore.ts',
+      'src/server/routes/securityRoutes.ts',
+      'src/server/routes/seoRoutes.ts',
       'src/components/GlobalErrorBoundary.tsx',
       'src/components/Meta.tsx',
       'src/components/ClearanceButton.tsx',
@@ -39,6 +49,7 @@ githubSyncRouter.get('/api/github-sync/public-core-files', (req, res) => {
       'src/components/public/HomeFaqSection.tsx',
       'src/components/public/NewAdditions.tsx',
       'src/components/public/AppHeader.tsx',
+      'src/components/public/AppActionButtons.tsx',
       'src/components/public/AppScreenshots.tsx',
       'src/components/public/appDetails/AppSimilarCarousel.tsx',
       'src/components/public/news/newsUtils.ts',

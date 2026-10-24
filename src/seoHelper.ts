@@ -542,7 +542,9 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   }
 
   let canonicalUrl = '';
-  if (pageType === 'app' && targetApp && getField(targetApp, 'slug')) {
+  if (pageType === 'gateway' || isNotFound) {
+    canonicalUrl = '';
+  } else if (pageType === 'app' && targetApp && getField(targetApp, 'slug')) {
     const rawAppCanonical = getField(targetApp, 'canonical_url');
     const expectedAppSlug = String(getField(targetApp, 'slug')).trim().toLowerCase();
     if (rawAppCanonical && typeof rawAppCanonical === 'string' && rawAppCanonical.toLowerCase().includes(`/app/${expectedAppSlug}`)) {
@@ -580,10 +582,10 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
 
   // Generate full pre-rendered semantic HTML directly from database for all public catalog & detail pages
   const isAdminPath = cleanPathLower.startsWith('/admin') || cleanPathLower.startsWith('/masterworld') || cleanPathLower === '/login' || cleanPathLower.startsWith('/login/');
-  const preRenderedBody = !isAdminPath ? await getPagePreRender(urlPath, data) : '';
+  const preRenderedBody = (!isAdminPath && pageType !== 'gateway') ? await getPagePreRender(urlPath, data) : '';
 
   // Generate Schema.org JSON-LD structured data
-  const jsonLdSchema = await buildJsonLdSchema({
+  const jsonLdSchema = pageType === 'gateway' ? '' : await buildJsonLdSchema({
     pageType,
     title,
     description,
@@ -622,7 +624,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   const seoReviewsFeed = targetApp ? getLocalFallbackReviewsForApp(getField(targetApp, 'id'), getField(targetApp, 'slug')) : null;
   const initialDataPayload = optimizeInitialDataForRoute(data, cleanPathLower, targetApp, targetNews, targetVideo, seoReviewsFeed);
   const initialDataJson = JSON.stringify(initialDataPayload || {}).replace(/</g, '\\u003c');
-  const ssrPathJson = JSON.stringify(cleanPathLower);
+  const ssrPathJson = pageType === 'gateway' ? JSON.stringify('') : JSON.stringify(cleanPathLower);
   
   const initialDataScript = `<script>window.__SSR_PATH__ = ${ssrPathJson};window.__INITIAL_DATA__ = ${initialDataJson};</script>`;
 
