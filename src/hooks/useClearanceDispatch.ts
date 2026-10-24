@@ -168,9 +168,11 @@ export function useClearanceDispatch({
           pt: tap.pt || 'touch',
           mtp: Number(typeof navigator !== 'undefined' ? navigator.maxTouchPoints ?? 0 : 0),
           coarse:
-            typeof window !== 'undefined' &&
-            typeof window.matchMedia === 'function' &&
-            window.matchMedia('(pointer: coarse)').matches
+            (typeof window !== 'undefined' &&
+              typeof window.matchMedia === 'function' &&
+              (window.matchMedia('(pointer: coarse)').matches ||
+                window.matchMedia('(any-pointer: coarse)').matches)) ||
+            (typeof navigator !== 'undefined' && Number(navigator.maxTouchPoints ?? 0) >= 1)
               ? 1
               : 0,
           rx: Math.round((tap.rx || 0) * 100) / 100,

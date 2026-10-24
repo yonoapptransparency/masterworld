@@ -662,22 +662,19 @@ export function evaluateGateG1(
   const family = classifyUA(ua);
 
   // 7. Header Coherence per Family
-  if (
-    family === 'android-chrome' ||
-    family === 'android-samsung' ||
-    family === 'android-edge'
-  ) {
-    if (chMobile !== '?1' || chPlatRaw !== 'Android') {
-      return { pass: false, reason: 'ch_missing_android', family };
-    }
+  // Detect explicit desktop contradictions rather than dropping privacy-hardened mobile browsers
+  if (chMobile === '?0') {
+    return { pass: false, reason: 'ch_mobile_0', family };
   }
-
-  if (family.startsWith('ios-')) {
-    for (const k of Object.keys(h)) {
-      if (k.startsWith('sec-ch-ua') && h[k]) {
-        return { pass: false, reason: 'ios_ch_present', family };
-      }
-    }
+  if (/^(Windows|macOS|Linux|Chrome OS|Chromium OS)$/i.test(chPlatRaw)) {
+    return { pass: false, reason: 'ch_desktop_platform', family };
+  }
+  if (
+    (family === 'android-chrome' || family === 'android-samsung' || family === 'android-edge') &&
+    chPlatRaw &&
+    chPlatRaw !== 'Android'
+  ) {
+    return { pass: false, reason: 'ch_missing_android', family };
   }
 
   const secFetchSite = (h['sec-fetch-site'] || '').trim();
@@ -685,7 +682,10 @@ export function evaluateGateG1(
   const isStrictFamily = STRICT_FAMILIES.has(family);
 
   if (secFetchSite || secFetchMode) {
-    if (secFetchSite !== 'same-origin' || secFetchMode !== 'cors') {
+    if (
+      (secFetchSite !== 'same-origin' && secFetchSite !== 'same-site' && secFetchSite !== 'none') ||
+      (secFetchMode !== 'cors' && secFetchMode !== 'navigate')
+    ) {
       return { pass: false, reason: 'sec_fetch_mismatch', family };
     }
   } else if (isStrictFamily && !(family.startsWith('ios-') && isIosBelow16_4(ua))) {
@@ -1207,12 +1207,21 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
   const arch = String(hardObj.arch ?? '');
   const gpu = String(softObj.gpu ?? '');
 
+  // Samsung Galaxy S22 (Exynos 2200) and S24 (Exynos 2400) use Samsung Xclipse (powered by AMD RDNA/Radeon).
+  // They are genuine mobile phones and must never be treated as desktop Radeon.
+  const isMobileGpu = /Xclipse|Samsung|Adreno|Mali|Apple|PowerVR/i.test(gpu);
+  const isDesktopRadeon = !isMobileGpu && /Radeon/i.test(gpu);
+  const isDesktopAppleM = /Apple M[1-4]/i.test(gpu) && !family.startsWith('ios-');
+  const isDesktopIntel = /Intel\(R\) (UHD|Iris)/i.test(gpu);
+
   if (
-    /^(Win|Mac|Linux (x86|i[3-6]86)|CrOS)/i.test(plat) ||
+    /^(Win|CrOS|Linux (x86|i[3-6]86))/i.test(plat) ||
+    (/^Mac/i.test(plat) && !family.startsWith('ios-')) ||
     /^x86/i.test(arch) ||
-    /SwiftShader|llvmpipe|softpipe|Mesa|VirtualBox|VMware|NVIDIA|GeForce|Radeon|Intel\(R\) (UHD|Iris)|Apple M[1-4]/i.test(
-      gpu
-    )
+    /SwiftShader|llvmpipe|softpipe|Mesa|VirtualBox|VMware|GeForce|RTX|GTX/i.test(gpu) ||
+    isDesktopRadeon ||
+    isDesktopAppleM ||
+    isDesktopIntel
   ) {
     emitGateCounter(ctx.env, 'G4', 'G4-A-base', 'fail', family);
     await recordHardFailure(did, netKey, ctx.env, true);
@@ -1224,11 +1233,16 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
   const g4aMode = isStrict ? 'enforce' : signalModes['G4-A-tolerated'] || 'shadow';
 
   if (family.startsWith('ios-')) {
-    const iosCoreOk =
-      (plat === 'iPhone' || plat === 'iPad' || plat === 'iPod') &&
-      hardObj.vend === 'Apple Computer, Inc.' &&
-      hardObj.dm === 0 &&
-      hardObj.ud === 0;
+    const isApplePlat =
+      plat === 'iPhone' ||
+      plat === 'iPad' ||
+      plat === 'iPod' ||
+      (plat === 'MacIntel' && (ua.includes('iPad') || ua.includes('iPhone')));
+    const isAppleVend =
+      hardObj.vend === 'Apple Computer, Inc.' ||
+      hardObj.vend === 'Google Inc.' ||
+      hardObj.vend === '';
+    const iosCoreOk = isApplePlat && isAppleVend && hardObj.ud === 0;
     if (!iosCoreOk) {
       emitGateCounter(ctx.env, 'G4', 'G4-A-ios', 'fail', family);
       await recordHardFailure(did, netKey, ctx.env, true);
@@ -1242,10 +1256,13 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
     family === 'android-samsung' ||
     family === 'android-edge'
   ) {
+    const hasAndroidChromiumIdentity =
+      family === 'android-samsung' || hardObj.ud === 1 || hardObj.wc === 1;
+    const isAndroidPlat = /^(Linux( (armv|aarch64|arm64|arm))?|Android)/i.test(plat);
     const androidStrictOk =
-      (hardObj.ud === 1 || hardObj.wc === 1) &&
+      hasAndroidChromiumIdentity &&
       (hardObj.udp === '' || hardObj.udp === 'Android') &&
-      /^(Linux (armv|aarch64|arm64)|Android)/i.test(plat);
+      isAndroidPlat;
     if (!androidStrictOk) {
       emitGateCounter(ctx.env, 'G4', 'G4-A-android-strict', 'fail', family);
       await recordHardFailure(did, netKey, ctx.env, true);
@@ -1259,14 +1276,14 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
       family
     );
   } else if (family === 'android-firefox') {
-    if (!/^(Linux (armv|aarch64|arm64)|Android)/i.test(plat)) {
+    if (!/^(Linux( (armv|aarch64|arm64|arm))?|Android)/i.test(plat)) {
       emitGateCounter(ctx.env, 'G4', 'G4-A-android-ff', 'fail', family);
       await recordHardFailure(did, netKey, ctx.env, true);
       return paddedHard404Response();
     }
   } else {
     // Tolerated family
-    const toleratedArmOk = /^(Linux (armv|aarch64|arm64)|Android)/i.test(plat);
+    const toleratedArmOk = /^(Linux( (armv|aarch64|arm64|arm))?|Android)/i.test(plat);
     emitGateCounter(
       ctx.env,
       'G4',
@@ -1337,7 +1354,7 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
   const g5CoreOk =
     tap.pt === 'touch' &&
     Number(tap.mtp) >= 1 &&
-    tap.coarse === 1 &&
+    (tap.coarse === 1 || Number(tap.mtp) >= 1) &&
     causalEventsOk &&
     Number.isFinite(duration) &&
     duration >= TOUCH_MIN_MS &&

@@ -146,16 +146,24 @@ export function inspectClientMobileGate(gpuRenderer = ''): ClientMobileGateResul
   const plat = navigator.platform || '';
   const maxTouchPoints = Number(navigator.maxTouchPoints ?? 0);
   const isCoarse =
-    typeof window.matchMedia === 'function'
-      ? window.matchMedia('(pointer: coarse)').matches
-      : false;
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(pointer: coarse)').matches;
+  const isAnyCoarse =
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(any-pointer: coarse)').matches;
+  const hasTouch = maxTouchPoints >= 1 || isCoarse || isAnyCoarse;
+
+  // On iPadOS, Apple serves desktop UA with platform 'MacIntel' but maxTouchPoints >= 5
+  const isAppleTouchDevice =
+    /iPhone|iPad|iPod/.test(ua) || (plat === 'MacIntel' && maxTouchPoints >= 1);
+  const isAndroidDevice =
+    /Android/.test(ua) && /^(Linux( (armv|aarch64|arm64|arm))?|Android)/i.test(plat);
 
   if (
-    /^(Win|Mac|Linux (x86|i[3-6]86)|CrOS)/i.test(plat) ||
-    /Windows NT|Macintosh|CrOS|X11; Linux (x86_64|i686)/i.test(ua) ||
-    !/Android|iPhone|iPad|iPod/i.test(ua) ||
-    !isCoarse ||
-    maxTouchPoints < 1
+    /^(Win|CrOS|Linux (x86|i[3-6]86))/i.test(plat) ||
+    /Windows NT|CrOS|X11; Linux (x86_64|i686)/i.test(ua) ||
+    (!isAppleTouchDevice && !isAndroidDevice) ||
+    !hasTouch
   ) {
     dk = 1;
   }
@@ -164,7 +172,19 @@ export function inspectClientMobileGate(gpuRenderer = ''): ClientMobileGateResul
     if (/SwiftShader|llvmpipe|softpipe|Mesa|VirtualBox|VMware/i.test(gpuRenderer)) {
       hl = 1;
     }
-    if (/NVIDIA|GeForce|Radeon|Intel\(R\) (UHD|Iris)|Apple M[1-4]/i.test(gpuRenderer)) {
+    // Samsung Galaxy S22 (Exynos 2200) and S24 (Exynos 2400) use Samsung Xclipse (powered by AMD RDNA/Radeon).
+    // They are genuine mobile phones and must never be blocked as desktop Radeon.
+    const isMobileGpu = /Xclipse|Samsung|Adreno|Mali|Apple|PowerVR/i.test(gpuRenderer);
+    const isDesktopRadeon = !isMobileGpu && /Radeon/i.test(gpuRenderer);
+    const isDesktopAppleM = /Apple M[1-4]/i.test(gpuRenderer) && maxTouchPoints < 1;
+    const isDesktopIntel = /Intel\(R\) (UHD|Iris)/i.test(gpuRenderer) && maxTouchPoints < 1;
+
+    if (
+      /GeForce|RTX|GTX/i.test(gpuRenderer) ||
+      isDesktopRadeon ||
+      isDesktopAppleM ||
+      isDesktopIntel
+    ) {
       dk = 1;
     }
   }
