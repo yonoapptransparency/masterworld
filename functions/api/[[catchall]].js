@@ -1,5 +1,6 @@
 import { handleSessionInit, handleSessionClearance } from '../../src/server/security/gateCore';
 import { HARD_RESPONSE_STATUS, HARD_RESPONSE_BODY } from '../../src/lib/gateConfig';
+import staticData from '../../src/lib/staticData.json';
 
 async function sha256Hex(str) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
@@ -279,6 +280,61 @@ export async function onRequest(context) {
   // 5. Admin Authentication - Logout
   if (url.pathname === '/api/v1/admin/logout' || url.pathname === '/api/v1/admin/auth/logout') {
     return new Response(JSON.stringify({ ok: true, success: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    });
+  }
+
+  // 6. Public APIs (Catalog, App Details, Settings, News, Videos)
+  if (url.pathname.startsWith('/api/v1/public/app/')) {
+    const rawSlug = url.pathname.replace(/^\/api\/v1\/public\/app\//, '').trim();
+    const clean = decodeURIComponent(rawSlug).toLowerCase().trim();
+    const apps = Array.isArray(staticData?.apps) ? staticData.apps : [];
+    const app = apps.find((a) => {
+      const s = String(a.slug || a.id || '').toLowerCase().trim();
+      return s === clean;
+    });
+    if (app) {
+      return new Response(JSON.stringify({ status: 'OK', app }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Cache-Control': 'public, max-age=60, s-maxage=300',
+        },
+      });
+    }
+    return new Response(JSON.stringify({ status: 'ERROR', error: 'App not found' }), {
+      status: 404,
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    });
+  }
+
+  if (url.pathname === '/api/v1/public/backup-data') {
+    return new Response(JSON.stringify(staticData), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'public, max-age=120, s-maxage=600',
+      },
+    });
+  }
+
+  if (url.pathname === '/api/v1/public/settings') {
+    return new Response(JSON.stringify({ status: 'OK', settings: staticData?.settings || {} }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    });
+  }
+
+  if (url.pathname === '/api/v1/public/news') {
+    return new Response(JSON.stringify({ status: 'OK', news: staticData?.news || [] }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    });
+  }
+
+  if (url.pathname === '/api/v1/public/videos') {
+    return new Response(JSON.stringify({ status: 'OK', videos: staticData?.videos || [] }), {
       status: 200,
       headers: { 'Content-Type': 'application/json; charset=utf-8' },
     });

@@ -635,7 +635,10 @@ export function evaluateGateG1(
     return { pass: false, reason: 'ch_mobile_0', family: 'unknown' };
   }
   const chPlatRaw = (h['sec-ch-ua-platform'] || '').trim().replace(/^"|"$/g, '');
-  if (/^(Windows|macOS|Linux|Chrome OS|Chromium OS)$/i.test(chPlatRaw)) {
+  if (
+    /^(Windows|macOS|Chrome OS|Chromium OS)$/i.test(chPlatRaw) ||
+    (chPlatRaw.toLowerCase() === 'linux' && !/Android/i.test(ua))
+  ) {
     return { pass: false, reason: 'ch_desktop_platform', family: 'unknown' };
   }
 
@@ -666,13 +669,17 @@ export function evaluateGateG1(
   if (chMobile === '?0') {
     return { pass: false, reason: 'ch_mobile_0', family };
   }
-  if (/^(Windows|macOS|Linux|Chrome OS|Chromium OS)$/i.test(chPlatRaw)) {
+  if (
+    /^(Windows|macOS|Chrome OS|Chromium OS)$/i.test(chPlatRaw) ||
+    (chPlatRaw.toLowerCase() === 'linux' && !/Android/i.test(ua))
+  ) {
     return { pass: false, reason: 'ch_desktop_platform', family };
   }
   if (
     (family === 'android-chrome' || family === 'android-samsung' || family === 'android-edge') &&
     chPlatRaw &&
-    chPlatRaw !== 'Android'
+    chPlatRaw !== 'Android' &&
+    chPlatRaw !== 'Linux'
   ) {
     return { pass: false, reason: 'ch_missing_android', family };
   }
@@ -1209,16 +1216,28 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
 
   // Samsung Galaxy S22 (Exynos 2200) and S24 (Exynos 2400) use Samsung Xclipse (powered by AMD RDNA/Radeon).
   // They are genuine mobile phones and must never be treated as desktop Radeon.
-  const isMobileGpu = /Xclipse|Samsung|Adreno|Mali|Apple|PowerVR/i.test(gpu);
-  const isDesktopRadeon = !isMobileGpu && /Radeon/i.test(gpu);
+  const isMobileGpu =
+    /Xclipse|Samsung|Adreno|Mali|Immortalis|Apple|PowerVR|RDNA|Qualcomm|Exynos|MediaTek/i.test(
+      gpu
+    );
+  const isDesktopRadeon =
+    !isMobileGpu &&
+    /Radeon/i.test(gpu) &&
+    !family.startsWith('android-') &&
+    !family.startsWith('ios-');
   const isDesktopAppleM = /Apple M[1-4]/i.test(gpu) && !family.startsWith('ios-');
   const isDesktopIntel = /Intel\(R\) (UHD|Iris)/i.test(gpu);
+  const isDesktopDedicatedGpu =
+    /GeForce|RTX|GTX/i.test(gpu) &&
+    !family.startsWith('android-') &&
+    !family.startsWith('ios-');
 
   if (
     /^(Win|CrOS|Linux (x86|i[3-6]86))/i.test(plat) ||
     (/^Mac/i.test(plat) && !family.startsWith('ios-')) ||
     /^x86/i.test(arch) ||
-    /SwiftShader|llvmpipe|softpipe|Mesa|VirtualBox|VMware|GeForce|RTX|GTX/i.test(gpu) ||
+    /SwiftShader|llvmpipe|softpipe|VirtualBox|VMware/i.test(gpu) ||
+    isDesktopDedicatedGpu ||
     isDesktopRadeon ||
     isDesktopAppleM ||
     isDesktopIntel
@@ -1258,7 +1277,7 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
   ) {
     const hasAndroidChromiumIdentity =
       family === 'android-samsung' || hardObj.ud === 1 || hardObj.wc === 1;
-    const isAndroidPlat = /^(Linux( (armv|aarch64|arm64|arm))?|Android)/i.test(plat);
+    const isAndroidPlat = plat === '' || /^(Linux|Android)/i.test(plat);
     const androidStrictOk =
       hasAndroidChromiumIdentity &&
       (hardObj.udp === '' || hardObj.udp === 'Android') &&
@@ -1276,14 +1295,15 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
       family
     );
   } else if (family === 'android-firefox') {
-    if (!/^(Linux( (armv|aarch64|arm64|arm))?|Android)/i.test(plat)) {
+    const isFirefoxPlatOk = plat === '' || /^(Linux|Android)/i.test(plat);
+    if (!isFirefoxPlatOk) {
       emitGateCounter(ctx.env, 'G4', 'G4-A-android-ff', 'fail', family);
       await recordHardFailure(did, netKey, ctx.env, true);
       return paddedHard404Response();
     }
   } else {
-    // Tolerated family
-    const toleratedArmOk = /^(Linux( (armv|aarch64|arm64|arm))?|Android)/i.test(plat);
+    // Tolerated family (Mi Browser, Vivo Browser, HeyTap Browser, UC, Opera, In-app WebViews)
+    const toleratedArmOk = plat === '' || /^(Linux|Android)/i.test(plat);
     emitGateCounter(
       ctx.env,
       'G4',

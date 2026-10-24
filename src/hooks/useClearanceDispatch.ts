@@ -135,9 +135,14 @@ export function useClearanceDispatch({
       }
 
       // §5.6 Client-side stop (disguised 404, no server call) ONLY if:
-      // e.isTrusted === false, or pt === 'mouse', or burst (>3 clicks/10s or 3 within 2000ms => cb=1)
+      // e.isTrusted === false, genuine desktop mouse with no touch capabilities, or burst (>3 clicks/10s or 3 within 2000ms => cb=1)
+      const hasTouch =
+        (typeof navigator !== 'undefined' && Number(navigator.maxTouchPoints ?? 0) >= 1) ||
+        (typeof window !== 'undefined' && 'ontouchstart' in window);
+      const isDesktopMouse = tap.pt === 'mouse' && !hasTouch;
       const isBurst = recent2s.length >= 3 || recent10s.length > 3;
-      if (!isTrustedClick || tap.pt === 'mouse' || isBurst) {
+
+      if (!isTrustedClick || isDesktopMouse || isBurst) {
         wipeSessionSecrets();
         setIsBotBlocked(true);
         return;
@@ -165,14 +170,14 @@ export function useClearanceDispatch({
         hard: env.hardStr,
         soft: env.softStr,
         tap: {
-          pt: tap.pt || 'touch',
-          mtp: Number(typeof navigator !== 'undefined' ? navigator.maxTouchPoints ?? 0 : 0),
+          pt: hasTouch ? 'touch' : (tap.pt || 'touch'),
+          mtp: Number(typeof navigator !== 'undefined' ? navigator.maxTouchPoints ?? 0 : (hasTouch ? 1 : 0)),
           coarse:
             (typeof window !== 'undefined' &&
               typeof window.matchMedia === 'function' &&
               (window.matchMedia('(pointer: coarse)').matches ||
                 window.matchMedia('(any-pointer: coarse)').matches)) ||
-            (typeof navigator !== 'undefined' && Number(navigator.maxTouchPoints ?? 0) >= 1)
+            hasTouch
               ? 1
               : 0,
           rx: Math.round((tap.rx || 0) * 100) / 100,

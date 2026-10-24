@@ -111,11 +111,26 @@ export const NEVER_BLOCK_ASNS: ReadonlySet<number> = new Set([
   13335,  // Cloudflare (iCloud Private Relay)
   20940,  // Akamai (iCloud Private Relay)
   54113,  // Fastly (iCloud Private Relay)
-  55836,  // Reliance Jio
-  45609,  // Bharti Airtel
-  24560,  // Bharti Airtel
-  45271,  // Vodafone Idea
-  9829,   // BSNL
+  55836,  // Reliance Jio Infocomm Ltd (Mobile 4G/5G & JioFiber)
+  133982, // Reliance Jio Infocomm Ltd
+  132717, // Reliance Jio Infocomm Ltd
+  45609,  // Bharti Airtel Ltd (Mobile 4G/5G & Xstream)
+  24560,  // Bharti Airtel Ltd
+  9498,   // Bharti Airtel Ltd
+  134898, // Bharti Airtel Ltd
+  132165, // Bharti Airtel Ltd
+  45271,  // Vodafone Idea Limited (Vi Mobile 4G)
+  9829,   // BSNL (Bharat Sanchar Nigam Ltd Mobile & Fiber)
+  18101,  // Reliance Communications
+  45820,  // Tata Teleservices / Tata Play Fiber
+  4758,   // Tata Communications
+  24309,  // Atria Convergence Technologies (ACT Fibernet)
+  17488,  // Hathway Cable and Datacom
+  45117,  // RailTel Corporation of India (RailWire)
+  133203, // Excitel Broadband
+  136154, // Kerala Vision Broadband
+  58674,  // GTPL Hathway
+  134888, // Alliance Broadband
 ]);
 
 export const TEXT_PHYSICS_DENYLIST: ReadonlySet<string> = new Set([

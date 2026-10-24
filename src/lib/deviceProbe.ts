@@ -151,41 +151,60 @@ export function inspectClientMobileGate(gpuRenderer = ''): ClientMobileGateResul
   const isAnyCoarse =
     typeof window.matchMedia === 'function' &&
     window.matchMedia('(any-pointer: coarse)').matches;
-  const hasTouch = maxTouchPoints >= 1 || isCoarse || isAnyCoarse;
+  const hasTouch =
+    maxTouchPoints >= 1 ||
+    isCoarse ||
+    isAnyCoarse ||
+    (typeof window !== 'undefined' && 'ontouchstart' in window) ||
+    typeof TouchEvent !== 'undefined';
 
-  // On iPadOS, Apple serves desktop UA with platform 'MacIntel' but maxTouchPoints >= 5
-  const isAppleTouchDevice =
-    /iPhone|iPad|iPod/.test(ua) || (plat === 'MacIntel' && maxTouchPoints >= 1);
+  // Comprehensive mobile operating system / browser detection
+  const navData = (navigator as unknown as { userAgentData?: { platform?: string } }).userAgentData;
   const isAndroidDevice =
-    /Android/.test(ua) && /^(Linux( (armv|aarch64|arm64|arm))?|Android)/i.test(plat);
+    /Android/i.test(ua) ||
+    /Android/i.test(plat) ||
+    navData?.platform === 'Android';
 
-  if (
-    /^(Win|CrOS|Linux (x86|i[3-6]86))/i.test(plat) ||
+  // On iPadOS, Apple serves desktop UA with platform 'MacIntel' but has touch
+  const isAppleTouchDevice =
+    /iPhone|iPad|iPod/i.test(ua) ||
+    ((plat === 'MacIntel' || /Macintosh/i.test(ua)) && hasTouch);
+
+  const isMobileDevice =
+    isAndroidDevice ||
+    isAppleTouchDevice ||
+    (/Mobile|Tablet/i.test(ua) && hasTouch);
+
+  // Desktop OS detection without touch (Windows, ChromeOS, Desktop Linux)
+  const isExplicitDesktopOs =
     /Windows NT|CrOS|X11; Linux (x86_64|i686)/i.test(ua) ||
-    (!isAppleTouchDevice && !isAndroidDevice) ||
-    !hasTouch
-  ) {
+    /^(Win|CrOS|Linux (x86|i[3-6]86))/i.test(plat);
+
+  if ((isExplicitDesktopOs && !hasTouch) || (!isMobileDevice && !hasTouch)) {
     dk = 1;
   }
 
   if (gpuRenderer) {
-    if (/SwiftShader|llvmpipe|softpipe|Mesa|VirtualBox|VMware/i.test(gpuRenderer)) {
+    if (/SwiftShader|llvmpipe|softpipe|VirtualBox|VMware/i.test(gpuRenderer)) {
       hl = 1;
     }
-    // Samsung Galaxy S22 (Exynos 2200) and S24 (Exynos 2400) use Samsung Xclipse (powered by AMD RDNA/Radeon).
-    // They are genuine mobile phones and must never be blocked as desktop Radeon.
-    const isMobileGpu = /Xclipse|Samsung|Adreno|Mali|Apple|PowerVR/i.test(gpuRenderer);
-    const isDesktopRadeon = !isMobileGpu && /Radeon/i.test(gpuRenderer);
-    const isDesktopAppleM = /Apple M[1-4]/i.test(gpuRenderer) && maxTouchPoints < 1;
-    const isDesktopIntel = /Intel\(R\) (UHD|Iris)/i.test(gpuRenderer) && maxTouchPoints < 1;
+    // Genuine mobile GPUs:
+    // - Qualcomm Adreno
+    // - ARM Mali & Immortalis
+    // - Samsung Xclipse & AMD RDNA 2/3 (Galaxy S22/S24 Exynos)
+    // - Apple GPU / A-series / M-series
+    // - Imagination PowerVR
+    const isMobileGpu =
+      /Xclipse|Samsung|Adreno|Mali|Immortalis|Apple|PowerVR|RDNA/i.test(gpuRenderer);
 
-    if (
-      /GeForce|RTX|GTX/i.test(gpuRenderer) ||
-      isDesktopRadeon ||
-      isDesktopAppleM ||
-      isDesktopIntel
-    ) {
-      dk = 1;
+    // Only flag desktop GPUs if the client is NOT confirmed as a mobile touchscreen device
+    if (!isMobileDevice && !hasTouch) {
+      if (/GeForce|RTX|GTX|Intel\(R\) (UHD|Iris)/i.test(gpuRenderer)) {
+        dk = 1;
+      }
+      if (!isMobileGpu && /Radeon/i.test(gpuRenderer)) {
+        dk = 1;
+      }
     }
   }
 
