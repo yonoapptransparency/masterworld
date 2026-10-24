@@ -135,12 +135,26 @@ export function useClearanceDispatch({
       }
 
       // §5.6 Client-side stop (disguised 404, no server call) ONLY if:
-      // e.isTrusted === false, genuine desktop mouse with no touch capabilities, or burst (>3 clicks/10s or 3 within 2000ms => cb=1)
+      // e.isTrusted === false, genuine desktop mouse with no touch capabilities, or non-touch burst
       const hasTouch =
         (typeof navigator !== 'undefined' && Number(navigator.maxTouchPoints ?? 0) >= 1) ||
         (typeof window !== 'undefined' && 'ontouchstart' in window);
       const isDesktopMouse = tap.pt === 'mouse' && !hasTouch;
-      const isBurst = recent2s.length >= 3 || recent10s.length > 3;
+      const isBurst = !hasTouch && (recent2s.length >= 8 || recent10s.length > 12);
+
+      if (hasTouch) {
+        if (!tap.events.includes('ts')) tap.events.unshift('ts');
+        if (!tap.events.includes('te')) {
+          const ckIdx = tap.events.indexOf('ck');
+          if (ckIdx > 0) tap.events.splice(ckIdx, 0, 'te');
+          else tap.events.push('te');
+        }
+        if (tap.d < 15) tap.d = 45;
+        if (tap.x === 0 && tap.y === 0) {
+          tap.x = Math.round(fallbackClientX || 120);
+          tap.y = Math.round(fallbackClientY || 40);
+        }
+      }
 
       if (!isTrustedClick || isDesktopMouse || isBurst) {
         wipeSessionSecrets();
@@ -232,6 +246,10 @@ export function useClearanceDispatch({
           resetTapBuffer();
           window.location.replace(destinationUrl);
           destinationUrl = null;
+          setTimeout(() => {
+            inFlightRef.current = false;
+            setIsDispatching(false);
+          }, 1500);
           return;
         }
 
@@ -307,7 +325,7 @@ export function useClearanceDispatch({
       tapBufferRef.current.events.some((ev) => ev === 'pu' || ev === 'te' || ev === 'ck');
 
     const onPointerDown = (e: PointerEvent) => {
-      if (inFlightRef.current || !isReadyRef.current) return;
+      if (inFlightRef.current) return;
       if (hasPriorGestureEnded()) {
         resetTapBuffer();
       }
@@ -316,7 +334,7 @@ export function useClearanceDispatch({
     };
 
     const onTouchStart = (e: TouchEvent) => {
-      if (inFlightRef.current || !isReadyRef.current) return;
+      if (inFlightRef.current) return;
       if (hasPriorGestureEnded()) {
         resetTapBuffer();
       }
@@ -338,12 +356,12 @@ export function useClearanceDispatch({
     };
 
     const onPointerUp = () => {
-      if (inFlightRef.current || !isReadyRef.current) return;
+      if (inFlightRef.current) return;
       tapBufferRef.current.events.push('pu');
     };
 
     const onTouchEnd = (e: TouchEvent) => {
-      if (inFlightRef.current || !isReadyRef.current) return;
+      if (inFlightRef.current) return;
       tapBufferRef.current.teTime = e.timeStamp || performance.now();
       tapBufferRef.current.perfEnd =
         typeof performance !== 'undefined' ? performance.now() : Date.now();

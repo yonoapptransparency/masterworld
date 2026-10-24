@@ -213,18 +213,27 @@ export function useTurnstileVerification({
           return;
         }
 
+        const safeAppId = appId.replace(/[^A-Za-z0-9_-]/g, '-').slice(0, 64);
+
         // 2. Request server-issued signed nonce + device cookie (§5.4)
         const res = await fetch('/api/v1/app/session-init', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',
-          body: JSON.stringify({ appId }),
+          body: JSON.stringify({ appId: safeAppId }),
         });
 
         if (unmountedRef.current) return;
 
         if (res.status === 404) {
           clearTimers();
+          if (retryCountRef.current < SESSION_RETRY_MAX) {
+            retryCountRef.current += 1;
+            setTimeout(() => {
+              if (!unmountedRef.current) void startSessionFlow(true);
+            }, 600);
+            return;
+          }
           setIsBotBlocked(true);
           return;
         }
@@ -315,7 +324,6 @@ export function useTurnstileVerification({
             }
           };
 
-          const safeAppId = appId.replace(/[^A-Za-z0-9_-]/g, '-').slice(0, 180);
           const cData = `${safeAppId}_${nid}_${env.hw}`;
 
           try {
@@ -374,8 +382,11 @@ export function useTurnstileVerification({
         wasHiddenRef.current = true;
       } else if (document.visibilityState === 'visible' && wasHiddenRef.current) {
         wasHiddenRef.current = false;
-        retryCountRef.current = 0;
-        void startSessionFlow(true);
+        const tokenAgeMs = Date.now() - initResponseTimeRef.current;
+        if (!cfTokenRef.current || !nonceRef.current || tokenAgeMs > 60000) {
+          retryCountRef.current = 0;
+          void startSessionFlow(true);
+        }
       }
     };
 
@@ -386,9 +397,12 @@ export function useTurnstileVerification({
       }
     };
 
-    // Mouse pointerdown trap (§5.3: any pointerdown with pointerType === 'mouse' -> disguised 404)
+    // Mouse pointerdown trap (§5.3: only flag genuine desktop mouse if device has NO touch capability)
     const onGlobalPointerDown = (e: PointerEvent) => {
-      if (e.pointerType === 'mouse' && e.isTrusted) {
+      const hasTouch =
+        (typeof navigator !== 'undefined' && Number(navigator.maxTouchPoints ?? 0) >= 1) ||
+        (typeof window !== 'undefined' && 'ontouchstart' in window);
+      if (e.pointerType === 'mouse' && e.isTrusted && !hasTouch) {
         setIsBotBlocked(true);
       }
     };

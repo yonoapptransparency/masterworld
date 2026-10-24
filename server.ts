@@ -19,7 +19,7 @@ import uploadRouter from './src/server/routes/uploadRoutes';
 
 async function startServer() {
   const app = express();
-  const PORT = Number(process.env.PORT) || 3000;
+  const PORT = process.env.NODE_ENV === 'production' && process.env.PORT ? Number(process.env.PORT) : 3000;
 
   app.set('trust proxy', 1);
 

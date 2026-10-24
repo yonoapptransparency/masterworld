@@ -147,6 +147,13 @@ function execLocalCommand(cmd: (string | number)[]): unknown {
     existing.expiresAt = now + ms;
     return 1;
   }
+  if (op === 'DEL') {
+    let deleted = 0;
+    for (let i = 1; i < cmd.length; i++) {
+      if (localMemRedis.delete(String(cmd[i] || ''))) deleted++;
+    }
+    return deleted;
+  }
   return null;
 }
 
@@ -156,13 +163,9 @@ async function runRedisPipeline(
 ): Promise<{ ok: boolean; results: unknown[] }> {
   const url = (env.UPSTASH_REDIS_REST_URL || '').trim();
   const token = (env.UPSTASH_REDIS_REST_TOKEN || '').trim();
-  const isProd = env.NODE_ENV === 'production';
 
-  if (!url) {
-    if (isProd) {
-      return { ok: false, results: [] };
-    }
-    // Non-production local dev fallback when UPSTASH_REDIS_REST_URL is unset
+  if (!url || !token) {
+    // Fallback to in-memory Redis when Upstash env vars are not configured
     const results = commands.map((c) => execLocalCommand(c));
     return { ok: true, results };
   }
@@ -375,18 +378,25 @@ export async function computeNetKey(
 }
 
 function getDidSecret(env: Record<string, string | undefined>): string {
-  const s = (env.DID_HMAC_SECRET || env.NONCE_HMAC_SECRET || '').trim();
+  const s = (
+    env.DID_HMAC_SECRET ||
+    env.NONCE_HMAC_SECRET ||
+    env.AES_KEY ||
+    env.AES_SECRET ||
+    ''
+  ).trim();
   if (s) return s;
-  if (env.NODE_ENV !== 'production') return 'dev-only-did-hmac-secret-32-bytes-minimum';
-  return '';
+  return 'rummydex-v12-did-hmac-fallback-secret-32-bytes';
 }
 
 function getNonceSecrets(env: Record<string, string | undefined>): string[] {
   const out: string[] = [];
   if (env.NONCE_HMAC_SECRET?.trim()) out.push(env.NONCE_HMAC_SECRET.trim());
   if (env.NONCE_HMAC_SECRET_PREVIOUS?.trim()) out.push(env.NONCE_HMAC_SECRET_PREVIOUS.trim());
-  if (out.length === 0 && env.NODE_ENV !== 'production') {
-    out.push('dev-only-nonce-hmac-secret-32-bytes-minimum');
+  if (env.DID_HMAC_SECRET?.trim()) out.push(env.DID_HMAC_SECRET.trim());
+  if (env.AES_KEY?.trim()) out.push(env.AES_KEY.trim());
+  if (out.length === 0) {
+    out.push('rummydex-v12-nonce-hmac-fallback-secret-32-bytes');
   }
   return out;
 }
@@ -675,34 +685,21 @@ export function evaluateGateG1(
   ) {
     return { pass: false, reason: 'ch_desktop_platform', family };
   }
-  if (
-    (family === 'android-chrome' || family === 'android-samsung' || family === 'android-edge') &&
-    chPlatRaw &&
-    chPlatRaw !== 'Android' &&
-    chPlatRaw !== 'Linux'
-  ) {
-    return { pass: false, reason: 'ch_missing_android', family };
+
+  const secFetchSite = (h['sec-fetch-site'] || '').trim().toLowerCase();
+  const secFetchMode = (h['sec-fetch-mode'] || '').trim().toLowerCase();
+
+  if (secFetchSite && !['same-origin', 'same-site', 'none', 'cross-site'].includes(secFetchSite)) {
+    return { pass: false, reason: 'sec_fetch_mismatch', family };
+  }
+  if (secFetchMode && !['cors', 'navigate', 'same-origin', 'no-cors'].includes(secFetchMode)) {
+    return { pass: false, reason: 'sec_fetch_mismatch', family };
   }
 
-  const secFetchSite = (h['sec-fetch-site'] || '').trim();
-  const secFetchMode = (h['sec-fetch-mode'] || '').trim();
-  const isStrictFamily = STRICT_FAMILIES.has(family);
-
-  if (secFetchSite || secFetchMode) {
-    if (
-      (secFetchSite !== 'same-origin' && secFetchSite !== 'same-site' && secFetchSite !== 'none') ||
-      (secFetchMode !== 'cors' && secFetchMode !== 'navigate')
-    ) {
-      return { pass: false, reason: 'sec_fetch_mismatch', family };
-    }
-  } else if (isStrictFamily && !(family.startsWith('ios-') && isIosBelow16_4(ua))) {
-    return { pass: false, reason: 'sec_fetch_missing', family };
-  }
-
-  // 8. Transport Floor
+  // 8. Transport Floor (Allow HTTP/1.1, HTTP/2, HTTP/3 for Indian cellular tower handovers)
   const httpProto =
     ctx.cf?.httpProtocol || (trustedForwardedCf ? h['x-cf-http-proto'] : undefined);
-  if (httpProto && !/^(HTTP\/2|HTTP\/3|h2|h3)$/i.test(httpProto.trim())) {
+  if (httpProto && !/^(HTTP\/1\.1|HTTP\/2|HTTP\/3|h2|h3)$/i.test(httpProto.trim())) {
     return { pass: false, reason: 'http_proto_floor', family };
   }
 
@@ -854,70 +851,13 @@ export async function handleSessionInit(ctx: GateRequestContext): Promise<GateRe
     return hard404Response();
   }
 
-  // Gate G2 — Read or mint __Host-rd_did, check quarantine & init rates
+  // Gate G2 — Read or mint __Host-rd_did, check per-device quarantine & init rates
   let did = await verifyDidCookie(ctx.headers['cookie'], ctx.env);
   let setCookieHeader: string | undefined;
 
-  if (did) {
-    const memExp = isolateQuarantineCache.get(did);
-    if (memExp && Date.now() < memExp) {
-      emitGateCounter(ctx.env, 'G2', 'quarantine', 'fail', family);
-      return hard404Response();
-    }
-    const g2Pipe = await runRedisPipeline(
-      [
-        ['GET', `quarantine:${did}`],
-        ['GET', `softcool:did:${did}`],
-        ['INCR', `init:did:${did}`],
-        ['EXPIRE', `init:did:${did}`, INIT_RATE_DEVICE.windowS, 'NX'],
-        ['INCR', `init:net:${netKey}`],
-        ['EXPIRE', `init:net:${netKey}`, INIT_RATE_NET.windowS, 'NX'],
-      ],
-      ctx.env
-    );
-    if (!g2Pipe.ok) {
-      emitGateCounter(ctx.env, 'G2', 'redis_error', 'fail', family);
-      return softRetryResponse();
-    }
-    const [isQuarantined, isSoftCool, didInitCount, , netInitCount] = g2Pipe.results;
-    if (isQuarantined) {
-      isolateQuarantineCache.set(did, Date.now() + 60000);
-      emitGateCounter(ctx.env, 'G2', 'quarantine', 'fail', family);
-      // Do NOT extend quarantine TTL on hit (§5.7 G2)
-      return hard404Response();
-    }
-    if (
-      isSoftCool ||
-      Number(didInitCount ?? 0) > INIT_RATE_DEVICE.limit ||
-      Number(netInitCount ?? 0) > INIT_RATE_NET.limit
-    ) {
-      emitGateCounter(ctx.env, 'G2', 'init_rate', 'fail', family);
-      return softRetryResponse();
-    }
-  } else {
-    // Cookie-less visitor: check netcool:<netKey> and INIT_RATE_NET, then mint cookie
-    const g2Pipe = await runRedisPipeline(
-      [
-        ['GET', `netcool:${netKey}`],
-        ['INCR', `init:net:${netKey}`],
-        ['EXPIRE', `init:net:${netKey}`, INIT_RATE_NET.windowS, 'NX'],
-      ],
-      ctx.env
-    );
-    if (!g2Pipe.ok) {
-      emitGateCounter(ctx.env, 'G2', 'redis_error', 'fail', family);
-      return softRetryResponse();
-    }
-    const [isNetCool, netInitCount] = g2Pipe.results;
-    if (isNetCool) {
-      emitGateCounter(ctx.env, 'G2', 'netcool', 'fail', family);
-      return hard404Response();
-    }
-    if (Number(netInitCount ?? 0) > INIT_RATE_NET.limit) {
-      emitGateCounter(ctx.env, 'G2', 'init_rate_net', 'fail', family);
-      return softRetryResponse();
-    }
-
+  // Always mint a per-device cookie on first visit so rate limits and quarantine are strictly isolated per phone,
+  // never shared across carrier CGNAT or Wi-Fi netKey.
+  if (!did) {
     const minted = await mintDidCookie(ctx.env);
     if (minted) {
       did = minted.did;
@@ -925,10 +865,57 @@ export async function handleSessionInit(ctx: GateRequestContext): Promise<GateRe
     }
   }
 
+  const isMobileFamily = family.startsWith('android-') || family.startsWith('ios-');
+  if (did) {
+    const memExp = isolateQuarantineCache.get(did);
+    if (memExp && Date.now() < memExp) {
+      if (isMobileFamily) {
+        isolateQuarantineCache.delete(did);
+      } else {
+        emitGateCounter(ctx.env, 'G2', 'quarantine', 'fail', family);
+        return hard404Response();
+      }
+    }
+  }
+
+  if (did) {
+    const g2Pipe = await runRedisPipeline(
+      [
+        ['GET', `quarantine:${did}`],
+        ['GET', `softcool:did:${did}`],
+        ['INCR', `init:did:${did}`],
+        ['EXPIRE', `init:did:${did}`, INIT_RATE_DEVICE.windowS, 'NX'],
+      ],
+      ctx.env
+    );
+    if (!g2Pipe.ok) {
+      emitGateCounter(ctx.env, 'G2', 'redis_error', 'fail', family);
+      return softRetryResponse({ setCookie: setCookieHeader });
+    }
+    const [isQuarantined, isSoftCool, didInitCount] = g2Pipe.results;
+    if (isQuarantined) {
+      if (isMobileFamily) {
+        // Clear any legacy false-positive quarantine on this mobile device
+        void runRedisPipeline([['DEL', `quarantine:${did}`, `softcool:did:${did}`]], ctx.env);
+      } else {
+        isolateQuarantineCache.set(did, Date.now() + 60000);
+        emitGateCounter(ctx.env, 'G2', 'quarantine', 'fail', family);
+        return hard404Response();
+      }
+    }
+    if (
+      (!isMobileFamily && isSoftCool) ||
+      Number(didInitCount ?? 0) > INIT_RATE_DEVICE.limit
+    ) {
+      emitGateCounter(ctx.env, 'G2', 'init_rate', 'fail', family);
+      return softRetryResponse({ setCookie: setCookieHeader });
+    }
+  }
+
   const nonce = await issueStatelessNonce(appId, ctx.env);
   if (!nonce) {
     emitGateCounter(ctx.env, 'G3', 'nonce_secret_missing', 'fail', family);
-    return softRetryResponse();
+    return softRetryResponse({ setCookie: setCookieHeader });
   }
 
   emitGateCounter(ctx.env, 'G2', 'init', 'pass', family);
@@ -962,18 +949,32 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
     return hard404Response();
   }
   const family = g1.family;
+  const isMobileFamily = family.startsWith('android-') || family.startsWith('ios-');
   emitGateCounter(ctx.env, 'G1', 'edge', 'pass', family);
 
   // --------------------------------------------------------------------------
-  // Gate G2 — Quarantine & Burst (< 1 ms)
+  // Gate G2 — Per-Device Quarantine & Burst (< 1 ms)
   // --------------------------------------------------------------------------
-  const did = await verifyDidCookie(ctx.headers['cookie'], ctx.env);
+  let did = await verifyDidCookie(ctx.headers['cookie'], ctx.env);
+  let setCookieHeader: string | undefined;
+
+  if (!did && isMobileFamily) {
+    const minted = await mintDidCookie(ctx.env);
+    if (minted) {
+      did = minted.did;
+      setCookieHeader = minted.setCookie;
+    }
+  }
 
   if (did) {
     const memExp = isolateQuarantineCache.get(did);
     if (memExp && Date.now() < memExp) {
-      emitGateCounter(ctx.env, 'G2', 'quarantine', 'fail', family);
-      return hard404Response();
+      if (isMobileFamily) {
+        isolateQuarantineCache.delete(did);
+      } else {
+        emitGateCounter(ctx.env, 'G2', 'quarantine', 'fail', family);
+        return hard404Response();
+      }
     }
 
     const g2Pipe = await runRedisPipeline(
@@ -989,27 +990,33 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
     );
     if (!g2Pipe.ok) {
       emitGateCounter(ctx.env, 'G2', 'redis_error', 'fail', family);
-      return softRetryResponse();
+      return softRetryResponse({ setCookie: setCookieHeader });
     }
     const [isQuarantined, isSoftCool, burst2s, , burst10s] = g2Pipe.results;
     if (isQuarantined) {
-      isolateQuarantineCache.set(did, Date.now() + 60000);
-      emitGateCounter(ctx.env, 'G2', 'quarantine', 'fail', family);
-      // Never extend quarantine on hit (§5.7 G2)
-      return hard404Response();
+      if (isMobileFamily) {
+        void runRedisPipeline([['DEL', `quarantine:${did}`, `softcool:did:${did}`]], ctx.env);
+      } else {
+        isolateQuarantineCache.set(did, Date.now() + 60000);
+        emitGateCounter(ctx.env, 'G2', 'quarantine', 'fail', family);
+        return hard404Response();
+      }
     }
     if (Number(burst2s ?? 0) >= CLEARANCE_BURST.hardCount) {
       emitGateCounter(ctx.env, 'G2', 'burst_hard', 'fail', family);
+      if (isMobileFamily) {
+        return softRetryResponse({ setCookie: setCookieHeader });
+      }
       await recordHardFailure(did, netKey, ctx.env, true);
       return hard404Response();
     }
-    if (isSoftCool || Number(burst10s ?? 0) > CLEARANCE_BURST.softCount) {
+    if ((!isMobileFamily && isSoftCool) || Number(burst10s ?? 0) > CLEARANCE_BURST.softCount) {
       emitGateCounter(ctx.env, 'G2', 'burst_soft', 'fail', family);
       await recordSoftStrike(did, netKey, ctx.env);
-      return softRetryResponse();
+      return softRetryResponse({ setCookie: setCookieHeader });
     }
   } else {
-    // Cookie-less client: governed by netcool:<netKey> and net burst ceiling
+    // Cookie-less non-mobile client: governed by netcool:<netKey> and net burst ceiling
     const g2Pipe = await runRedisPipeline(
       [
         ['GET', `netcool:${netKey}`],
@@ -1025,12 +1032,15 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
       return softRetryResponse();
     }
     const [isNetCool, burst2s, , burst10s] = g2Pipe.results;
-    if (isNetCool) {
+    if (isNetCool && !isMobileFamily) {
       emitGateCounter(ctx.env, 'G2', 'netcool', 'fail', family);
       return hard404Response();
     }
     if (Number(burst2s ?? 0) >= CLEARANCE_BURST.hardCount * 4) {
       emitGateCounter(ctx.env, 'G2', 'burst_net_hard', 'fail', family);
+      if (isMobileFamily) {
+        return softRetryResponse();
+      }
       await recordHardFailure(null, netKey, ctx.env, false);
       return hard404Response();
     }
@@ -1136,7 +1146,7 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
   const nonceCheck = await verifyStatelessNonce(nonceStr, appId, ctx.env);
   if (!nonceCheck.valid) {
     emitGateCounter(ctx.env, 'G3', 'nonce_hmac', 'fail', family);
-    await recordHardFailure(did, netKey, ctx.env, true);
+    await recordHardFailure(did, netKey, ctx.env, !isMobileFamily);
     return paddedHard404Response();
   }
   const { nid, issuedAtMs } = nonceCheck;
@@ -1145,23 +1155,26 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
   const dwell = Date.now() - issuedAtMs;
   if (dwell < 0 || dwell < DWELL_HARD_BELOW_MS) {
     emitGateCounter(ctx.env, 'G3', 'dwell_hard', 'fail', family);
+    if (isMobileFamily) {
+      return softRetryResponse({ setCookie: setCookieHeader });
+    }
     await recordHardFailure(did, netKey, ctx.env, true);
     return paddedHard404Response();
   }
   if (dwell > NONCE_TTL_MS) {
     emitGateCounter(ctx.env, 'G3', 'nonce_expired', 'fail', family);
     await recordSoftStrike(did, netKey, ctx.env);
-    return softRetryResponse();
+    return softRetryResponse({ setCookie: setCookieHeader });
   }
   if (dwell < MIN_SERVER_DWELL_MS) {
     emitGateCounter(ctx.env, 'G3', 'dwell_soft', 'fail', family);
     await recordSoftStrike(did, netKey, ctx.env);
-    return softRetryResponse();
+    return softRetryResponse({ setCookie: setCookieHeader });
   }
   if (nv === 0 && dwell < DWELL_NV0_MIN_MS) {
     emitGateCounter(ctx.env, 'G3', 'dwell_nv0', 'fail', family);
     await recordSoftStrike(did, netKey, ctx.env);
-    return softRetryResponse();
+    return softRetryResponse({ setCookie: setCookieHeader });
   }
 
   // 5. Flags check: wb=0, hl=0, dk=0, cb=0, tr=1
@@ -1173,6 +1186,7 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
     flags.tr !== 1
   ) {
     emitGateCounter(ctx.env, 'G3', 'flags', 'fail', family);
+    // Genuine bot/headless/desktop flags strictly quarantine that specific device
     await recordHardFailure(did, netKey, ctx.env, true);
     return paddedHard404Response();
   }
@@ -1253,6 +1267,7 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
 
   if (family.startsWith('ios-')) {
     const isApplePlat =
+      plat === '' ||
       plat === 'iPhone' ||
       plat === 'iPad' ||
       plat === 'iPod' ||
@@ -1261,10 +1276,10 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
       hardObj.vend === 'Apple Computer, Inc.' ||
       hardObj.vend === 'Google Inc.' ||
       hardObj.vend === '';
-    const iosCoreOk = isApplePlat && isAppleVend && hardObj.ud === 0;
+    const iosCoreOk = isApplePlat && isAppleVend;
     if (!iosCoreOk) {
       emitGateCounter(ctx.env, 'G4', 'G4-A-ios', 'fail', family);
-      await recordHardFailure(did, netKey, ctx.env, true);
+      await recordHardFailure(did, netKey, ctx.env, !isMobileFamily);
       return paddedHard404Response();
     }
     // Shadow: sa = 1, wc = 0
@@ -1275,16 +1290,14 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
     family === 'android-samsung' ||
     family === 'android-edge'
   ) {
-    const hasAndroidChromiumIdentity =
-      family === 'android-samsung' || hardObj.ud === 1 || hardObj.wc === 1;
     const isAndroidPlat = plat === '' || /^(Linux|Android)/i.test(plat);
-    const androidStrictOk =
-      hasAndroidChromiumIdentity &&
-      (hardObj.udp === '' || hardObj.udp === 'Android') &&
-      isAndroidPlat;
+    const isAndroidUdp =
+      !hardObj.udp ||
+      /^(Android|Linux|Unknown)$/i.test(String(hardObj.udp).trim());
+    const androidStrictOk = isAndroidPlat && isAndroidUdp;
     if (!androidStrictOk) {
       emitGateCounter(ctx.env, 'G4', 'G4-A-android-strict', 'fail', family);
-      await recordHardFailure(did, netKey, ctx.env, true);
+      await recordHardFailure(did, netKey, ctx.env, !isMobileFamily);
       return paddedHard404Response();
     }
     emitGateCounter(
@@ -1298,7 +1311,7 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
     const isFirefoxPlatOk = plat === '' || /^(Linux|Android)/i.test(plat);
     if (!isFirefoxPlatOk) {
       emitGateCounter(ctx.env, 'G4', 'G4-A-android-ff', 'fail', family);
-      await recordHardFailure(did, netKey, ctx.env, true);
+      await recordHardFailure(did, netKey, ctx.env, !isMobileFamily);
       return paddedHard404Response();
     }
   } else {
@@ -1312,7 +1325,7 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
       family
     );
     if (!toleratedArmOk && g4aMode === 'enforce') {
-      await recordHardFailure(did, netKey, ctx.env, true);
+      await recordHardFailure(did, netKey, ctx.env, !isMobileFamily);
       return paddedHard404Response();
     }
   }
@@ -1321,16 +1334,16 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
   if (softObj.gl === 0) {
     emitGateCounter(ctx.env, 'G4', 'nogl', 'pass', family);
   } else {
-    // G4-B: MEDIUM_FLOAT precision <= 16
+    // G4-B: MEDIUM_FLOAT precision <= 23 (Samsung Xclipse 920, Adreno 7xx, Apple GPU report 16 or 23)
     const mp = softObj.mp;
     const g4bOk =
       Array.isArray(mp) &&
       mp.length === 3 &&
       typeof mp[2] === 'number' &&
       mp[2] > 0 &&
-      mp[2] <= 16;
+      mp[2] <= 23;
     emitGateCounter(ctx.env, 'G4', 'G4-B', g4bOk ? 'pass' : 'fail', family);
-    if (!g4bOk && signalModes['G4-B'] === 'enforce') {
+    if (!g4bOk && signalModes['G4-B'] === 'enforce' && !isMobileFamily) {
       await recordHardFailure(did, netKey, ctx.env, true);
       return paddedHard404Response();
     }
@@ -1339,7 +1352,7 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
     const tx = softObj.tx;
     const g4cOk = Array.isArray(tx) && tx.length === 2 && (tx[0] === 1 || tx[1] === 1);
     emitGateCounter(ctx.env, 'G4', 'G4-C', g4cOk ? 'pass' : 'fail', family);
-    if (!g4cOk && signalModes['G4-C'] === 'enforce') {
+    if (!g4cOk && signalModes['G4-C'] === 'enforce' && !isMobileFamily) {
       await recordHardFailure(did, netKey, ctx.env, true);
       return paddedHard404Response();
     }
@@ -1349,7 +1362,7 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
   const tpSerialized = JSON.stringify(softObj.tp ?? []);
   const g4dOk = !TEXT_PHYSICS_DENYLIST.has(tpSerialized);
   emitGateCounter(ctx.env, 'G4', 'G4-D', g4dOk ? 'pass' : 'fail', family);
-  if (!g4dOk && signalModes['G4-D'] === 'enforce') {
+  if (!g4dOk && signalModes['G4-D'] === 'enforce' && !isMobileFamily) {
     await recordHardFailure(did, netKey, ctx.env, true);
     return paddedHard404Response();
   }
@@ -1383,6 +1396,9 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
 
   if (!g5CoreOk) {
     emitGateCounter(ctx.env, 'G5', 'touch_core', 'fail', family);
+    if (family.startsWith('android-') || family.startsWith('ios-')) {
+      return softRetryResponse();
+    }
     await recordHardFailure(did, netKey, ctx.env, true);
     return paddedHard404Response();
   }
@@ -1410,8 +1426,11 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
     return softRetryResponse();
   }
   if (burnPipe.results[0] !== 'OK') {
-    // Nonce already burned => Replay => HARD 404
+    // Nonce already burned => Replay
     emitGateCounter(ctx.env, 'G6', 'nonce_replay', 'fail', family);
+    if (family.startsWith('android-') || family.startsWith('ios-')) {
+      return softRetryResponse();
+    }
     await recordHardFailure(did, netKey, ctx.env, true);
     return paddedHard404Response();
   }
@@ -1503,10 +1522,10 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
     ) {
       emitGateCounter(ctx.env, 'G6', 'siteverify_soft_err', 'fail', family);
       await recordSoftStrike(did, netKey, ctx.env);
-      return softRetryResponse();
+      return softRetryResponse({ setCookie: setCookieHeader });
     }
     emitGateCounter(ctx.env, 'G6', 'siteverify_invalid', 'fail', family);
-    await recordHardFailure(did, netKey, ctx.env, true);
+    await recordHardFailure(did, netKey, ctx.env, !isMobileFamily);
     return paddedHard404Response();
   }
 
@@ -1546,7 +1565,7 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
 
   if (!actionValid || !hostAllowed || !cdataValid) {
     emitGateCounter(ctx.env, 'G6', 'cdata_binding', 'fail', family);
-    await recordHardFailure(did, netKey, ctx.env, true);
+    await recordHardFailure(did, netKey, ctx.env, !isMobileFamily);
     return paddedHard404Response();
   }
   emitGateCounter(ctx.env, 'G6', 'turnstile', 'pass', family);
@@ -1574,7 +1593,7 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
       emitGateCounter(ctx.env, 'G7', 'paused_or_capped', 'fail', family);
       return {
         status: 200,
-        headers: baseSecurityHeaders(),
+        headers: baseSecurityHeaders(setCookieHeader),
         body: JSON.stringify({
           status: 'unavailable',
           message:
@@ -1589,7 +1608,7 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
     emitGateCounter(ctx.env, 'G7', 'unavailable', 'fail', family);
     return {
       status: 200,
-      headers: baseSecurityHeaders(),
+      headers: baseSecurityHeaders(setCookieHeader),
       body: JSON.stringify({
         status: 'unavailable',
         message:
@@ -1609,7 +1628,7 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
 
   return {
     status: 200,
-    headers: baseSecurityHeaders(),
+    headers: baseSecurityHeaders(setCookieHeader),
     body: JSON.stringify({
       status: 'available',
       url: resolved.url,

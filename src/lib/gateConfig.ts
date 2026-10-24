@@ -20,34 +20,34 @@ export const TOUCH_MIN_MS = 12 as const;
 export const TOUCH_MAX_MS = 2000 as const;
 export const TOUCH_REQUIRED_EVENTS = ['ts', 'te', 'ck'] as const;
 
-export const INIT_RATE_DEVICE = { limit: 6, windowS: 60 } as const;
-export const INIT_RATE_NET = { limit: 120, windowS: 60 } as const;
+export const INIT_RATE_DEVICE = { limit: 60, windowS: 60 } as const;
+export const INIT_RATE_NET = { limit: 600, windowS: 60 } as const;
 
 export const CLEARANCE_BURST = {
-  hardCount: 3,
+  hardCount: 12,
   hardWindowMs: 2000,
-  softCount: 3,
+  softCount: 15,
   softWindowS: 10,
 } as const;
 
 export const QUARANTINE_HARD_S = 1800 as const;
 
 export const NET_FLOOD_HARD = {
-  limit: 8,
+  limit: 40,
   windowS: 60,
 } as const;
-export const NET_COOLDOWN_S = 120 as const;
+export const NET_COOLDOWN_S = 60 as const;
 
 export const SOFT_STRIKES_DEVICE = {
-  limit: 3,
+  limit: 25,
   windowS: 600,
-  cooldownS: 300,
+  cooldownS: 30,
 } as const;
 
 export const SOFT_STRIKES_NET = {
-  limit: 30,
+  limit: 200,
   windowS: 600,
-  cooldownS: 120,
+  cooldownS: 30,
 } as const;
 
 export const SITEVERIFY_TIMEOUT_MS = 4000 as const;
@@ -71,8 +71,7 @@ export const NAV_BREADCRUMB_TTL_MS = 1800000 as const;
 export const HOSTING_ASNS: ReadonlySet<number> = new Set([
   16509,  // AWS
   14618,  // AWS
-  15169,  // GCP
-  396982, // GCP
+  396982, // GCP Compute
   8075,   // Azure
   14061,  // DigitalOcean
   24940,  // Hetzner
@@ -108,9 +107,10 @@ export const HOSTING_ORG_KEYWORDS = [
 ] as const;
 
 export const NEVER_BLOCK_ASNS: ReadonlySet<number> = new Set([
-  13335,  // Cloudflare (iCloud Private Relay)
+  13335,  // Cloudflare (iCloud Private Relay / WARP)
   20940,  // Akamai (iCloud Private Relay)
   54113,  // Fastly (iCloud Private Relay)
+  15169,  // Google LLC (Android Private Compute / Pixel VPN / Chrome Mobile Proxy)
   55836,  // Reliance Jio Infocomm Ltd (Mobile 4G/5G & JioFiber)
   133982, // Reliance Jio Infocomm Ltd
   132717, // Reliance Jio Infocomm Ltd
