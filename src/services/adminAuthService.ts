@@ -365,7 +365,9 @@ export async function signInAdmin(
         }
 
         if (directData?.error) {
-          return { ok: false, error: directData.error };
+          if (directRes.status !== 404 && directData.error !== 'Not Found') {
+            return { ok: false, error: directData.error };
+          }
         }
       }
     } catch (directErr) {
@@ -412,9 +414,9 @@ export async function signInAdmin(
       }
     }
 
-    return { ok: false, error: "INVALID_CREDENTIALS" };
+    return { ok: false, error: "Invalid administrator email or password." };
   } catch (_) {
-    return { ok: false, error: "NETWORK_ERROR" };
+    return { ok: false, error: "Server connection error during login." };
   }
 }
 
