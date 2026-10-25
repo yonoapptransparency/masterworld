@@ -152,9 +152,13 @@ function verify() {
           const parsed = JSON.parse(m[1]);
           const jsonStr = JSON.stringify(parsed);
           combinedJsonStrs.push(jsonStr);
-          if ((item.type === 'collection' || item.type === 'news-list' || item.type === 'static') && jsonStr.includes('"FAQPage"')) {
+          if (jsonStr.includes('"FAQPage"')) {
             schemaPassed = false;
-            schemaIssues.push(`${item.route}: unexpected FAQPage schema on ${item.type} route`);
+            schemaIssues.push(`${item.route}: unwanted FAQPage schema detected`);
+          }
+          if (jsonStr.includes('"@type":"Product"') || jsonStr.includes('InStock') || jsonStr.includes('priceValidUntil')) {
+            schemaPassed = false;
+            schemaIssues.push(`${item.route}: unwanted Product or Merchant listing schema detected`);
           }
         } catch (e: any) {
           schemaPassed = false;
@@ -169,6 +173,10 @@ function verify() {
       if ((item.type === 'app' || item.type === 'static') && !allLdStr.includes('"WebPage"')) {
         schemaPassed = false;
         schemaIssues.push(`${item.route}: missing WebPage schema on ${item.type} route`);
+      }
+      if (item.type === 'app' && !allLdStr.includes('"SoftwareApplication"')) {
+        schemaPassed = false;
+        schemaIssues.push(`${item.route}: missing SoftwareApplication schema on app route`);
       }
     }
 
@@ -188,7 +196,7 @@ function verify() {
 
   record('B3/B4', 'Metadata, Single Title, Brand Control & Canonical/OG Parity', metaIntegrityPassed, metaIssues.length === 0 ? `Verified across ${routesToInspect.length} route types (canonical === og:url, single <title>, subpages isolated from application-name/og:site_name)` : metaIssues.join('; '));
   record('A1/A2/A4/B7', 'SSR Layout, Critical CSS & Footer Parity', ssrLayoutPassed, layoutIssues.length === 0 ? `Verified inline CSS, Header, Main, Ticker, and Footer w/ social links across ${routesToInspect.length} routes` : layoutIssues.join('; '));
-  record('B8', 'JSON-LD Schema Validity & Page-Type Isolation', schemaPassed, schemaIssues.length === 0 ? `All JSON-LD blocks valid; WebPage schema present on app/static pages; FAQPage restricted to / and /faq and app FAQs; /news has CollectionPage + ItemList` : schemaIssues.join('; '));
+  record('B8', 'JSON-LD Schema Validity & Zero Unwanted Schema Enforcement', schemaPassed, schemaIssues.length === 0 ? `All JSON-LD blocks valid; zero Product/Merchant/FAQPage bloat; clean SoftwareApplication + WebPage + BreadcrumbList on /app/*; CollectionPage on /news` : schemaIssues.join('; '));
 
   // 3. Verify Cloudinary URL Folder Preservation (B5)
   const appHtml = sampleApp ? fs.readFileSync(path.join(distDir, `app/${sampleApp.slug}/index.html`), 'utf8') : '';
@@ -498,6 +506,71 @@ async function verifyModulesAndLiveServer() {
     vaultCompilerOk && linkResOk && secretsSanitizedOk && noTouchForgeryOk && ipadG1.pass === true && gatewayTrimOk && gateFlowOk,
     `Vault Compiler: ${vaultCompilerOk}, T1_VAULT Link (${resolveMs.toFixed(2)}ms, tier=${resolvedLink.tier}): ${linkResOk}, Secret Sanitization: ${secretsSanitizedOk}, No Touch Forgery: ${noTouchForgeryOk}, iPadOS G1: ${ipadG1.pass}, Gateway Payload (${gatewayPayloadBytes} B < 5KB): ${gatewayTrimOk}, Gate E2E (Legit=200, Replay=${replayRes.status}, <150ms=${fastDwellRes.status}, RTX3060=${desktopGpuRes.status}): ${gateFlowOk}`
   );
+
+  // 8b. SEO Indexing Isolation, Image/Content Attribution & Internal Link Reachability
+  try {
+    const { formatPageTitle } = await import('../src/lib/seoUtils.js');
+    const { getLocalFallbackReviewsForApp } = await import('../src/seo/reviewFallback.js');
+    const staticRaw = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'src/lib/staticData.json'), 'utf8'));
+    const allApps = (staticRaw.apps || []).filter((a: any) => a && a.slug && a.sync_to_public !== false);
+    const allNews = (staticRaw.news || []).filter((n: any) => n && n.slug && n.sync_to_public !== false);
+    const firstNewsSlug = String(allNews[0]?.slug || '').trim();
+
+    const indexRootHtml = fs.readFileSync(path.join(process.cwd(), 'index.html'), 'utf8');
+    const homeDistHtml = fs.readFileSync(path.join(distDir, 'index.html'), 'utf8');
+    const newsIndexDistHtml = fs.readFileSync(path.join(distDir, 'news/index.html'), 'utf8');
+    const app1Html = fs.readFileSync(path.join(distDir, 'app/yono-rummy/index.html'), 'utf8');
+    const app2Html = fs.readFileSync(path.join(distDir, 'app/rummy-91/index.html'), 'utf8');
+    const news1Html = fs.readFileSync(path.join(distDir, `news/${firstNewsSlug}/index.html`), 'utf8');
+
+    // 1. Zero Turnstile script in index.html & zero /moreinfo static HTML files or crawlable anchors
+    const noGlobalTurnstile = !indexRootHtml.includes('challenges.cloudflare.com/turnstile');
+    const noMoreinfoDistDir = !fs.existsSync(path.join(distDir, 'moreinfo'));
+    const zeroMoreinfoAnchors =
+      !/<a\b[^>]*href=["'][^"']*\/moreinfo\//i.test(homeDistHtml) &&
+      !/<a\b[^>]*href=["'][^"']*\/moreinfo\//i.test(app1Html) &&
+      !/<a\b[^>]*href=["'][^"']*\/moreinfo\//i.test(news1Html);
+
+    // 2. Admin brand choice preserved verbatim without auto-appending
+    const titlePreservesBrand =
+      formatPageTitle('Yono Rummy: RummyDex', 'Fallback') === 'Yono Rummy: RummyDex' &&
+      formatPageTitle('Jaiho Slots - Dex', 'Fallback') === 'Jaiho Slots - Dex' &&
+      formatPageTitle('Plain App Title', 'Fallback') === 'Plain App Title';
+
+    // 3. App hero image 512px attribution + data-nosnippet on neighbor carousels + deterministic rotation
+    const heroImage512Ok =
+      app1Html.includes('w_512') &&
+      app1Html.includes('itemprop="image"') &&
+      app1Html.includes('name="thumbnail"') &&
+      app1Html.includes('<aside data-nosnippet');
+    const extractSimilarHrefs = (html: string) => {
+      const idx = html.indexOf('Similar Applications');
+      if (idx === -1) return '';
+      return (html.slice(idx, idx + 8000).match(/href="\/app\/[^"]+"/g) || []).slice(0, 6).join(',');
+    };
+    const similarRotatedOk = extractSimilarHrefs(app1Html) !== extractSimilarHrefs(app2Html);
+
+    // 4. 100% Internal Link Reachability (all 74 apps on /, all 48 news on /news)
+    const reachableApps = allApps.filter((a: any) => homeDistHtml.includes(`/app/${String(a.slug).trim()}`)).length;
+    const reachableNews = allNews.filter((n: any) => newsIndexDistHtml.includes(`/news/${String(n.slug).trim()}`)).length;
+    const reachability100Ok = reachableApps === allApps.length && reachableNews === allNews.length;
+
+    // 5. Review stats fidelity: real reviews for yono-rummy & zero fake review fabrication for 0-review apps (jaiho-rummy)
+    const yonoStats = getLocalFallbackReviewsForApp('yono_rummy', 'yono-rummy');
+    const newestAppStats = getLocalFallbackReviewsForApp('antyer70t', 'jaiho-rummy');
+    const reviewFallbackOk =
+      Boolean(yonoStats && yonoStats.stats && yonoStats.stats.totalReviews > 0 && yonoStats.reviews.length > 0) &&
+      Boolean(newestAppStats && Array.isArray(newestAppStats.reviews) && newestAppStats.reviews.length === 0);
+
+    record(
+      'SEO-ISOLATION-1..8',
+      'Zero /moreinfo Leak, 512px Hero Attribution, data-nosnippet Carousels, 100% Link Graph & Admin Title Fidelity',
+      noGlobalTurnstile && noMoreinfoDistDir && zeroMoreinfoAnchors && titlePreservesBrand && heroImage512Ok && similarRotatedOk && reachability100Ok && reviewFallbackOk,
+      `NoGlobalTurnstile: ${noGlobalTurnstile}, NoMoreinfoDist: ${noMoreinfoDistDir}, ZeroMoreinfoAnchors: ${zeroMoreinfoAnchors}, TitleFidelity: ${titlePreservesBrand}, Hero512+nosnippet: ${heroImage512Ok}, SimilarRotated: ${similarRotatedOk}, ReachableApps: ${reachableApps}/${allApps.length}, ReachableNews: ${reachableNews}/${allNews.length}, ReviewFidelity: ${reviewFallbackOk}`
+    );
+  } catch (isoErr: any) {
+    record('SEO-ISOLATION-1..8', 'Zero /moreinfo Leak & Attribution Isolation', false, isoErr?.message || String(isoErr));
+  }
 
   // 9. Live HTTP Server Verification (if server is running on port 3000)
   try {

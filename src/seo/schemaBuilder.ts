@@ -1,4 +1,4 @@
-import { getField, stripHtml, optimizeImageUrl, normalizeSchemaCategory, getYoutubeThumbnail, cleanFaqQuestion, normalizeIsoDate } from './utils';
+import { getField, stripHtml, optimizeImageUrl, normalizeSchemaCategory, getYoutubeThumbnail, normalizeIsoDate } from './utils';
 import { fetchSEOReviewsForApp } from './reviewFallback';
 
 export interface BuildSchemaParams {
@@ -103,47 +103,7 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
 
     const validCount = Math.round(Math.max(finalCount, validReviews.length));
 
-    // 1. Comprehensive Product Schema (Resolves Ahrefs "Product page missing Product schema" & Google Merchant/Product Rich Results)
-    const productSchema: any = {
-      "@context": "https://schema.org",
-      "@type": "Product",
-      "@id": `${appPageUrl}#product`,
-      "name": name,
-      "url": appPageUrl,
-      "image": [appSquareIcon],
-      "description": desc,
-      "category": category,
-      "sku": String(appIdentifier),
-      "brand": {
-        "@type": "Brand",
-        "name": developer
-      },
-      "offers": {
-        "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "INR",
-        "priceValidUntil": "2030-12-31",
-        "availability": "https://schema.org/InStock",
-        "url": appPageUrl
-      }
-    };
-
-    if (validCount > 0) {
-      productSchema["aggregateRating"] = {
-        "@type": "AggregateRating",
-        "ratingValue": ratingValue,
-        "ratingCount": validCount,
-        "reviewCount": validCount,
-        "bestRating": 5,
-        "worstRating": 1
-      };
-    }
-
-    if (validReviews.length > 0) {
-      productSchema["review"] = validReviews;
-    }
-
-    // 2. Comprehensive SoftwareApplication Schema
+    // 1. Clean SoftwareApplication Schema (Google Software App Rich Results compliant, zero Merchant Listing / Product bloat)
     const softwareAppSchema: any = {
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
@@ -163,13 +123,7 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
       "offers": {
         "@type": "Offer",
         "price": "0",
-        "priceCurrency": "INR",
-        "priceValidUntil": "2030-12-31",
-        "availability": "https://schema.org/InStock",
-        "url": appPageUrl
-      },
-      "isVariantOf": {
-        "@id": `${appPageUrl}#product`
+        "priceCurrency": "INR"
       }
     };
 
@@ -178,7 +132,6 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
         "@type": "AggregateRating",
         "ratingValue": ratingValue,
         "ratingCount": validCount,
-        "reviewCount": validCount,
         "bestRating": 5,
         "worstRating": 1
       };
@@ -193,10 +146,9 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
       softwareAppSchema["screenshot"] = appScreenshots.map((s: string) => optimizeImageUrl(s, 1024) || s);
     }
 
-    schemas.push(productSchema);
     schemas.push(softwareAppSchema);
 
-    // 3. WebPage schema referencing the primary Product entity
+    // 2. WebPage schema referencing the primary SoftwareApplication entity via @id
     schemas.push({
       "@context": "https://schema.org",
       "@type": "WebPage",
@@ -207,13 +159,11 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
       "description": desc,
       "inLanguage": "en",
       "mainEntity": {
-        "@type": "Product",
-        "name": name,
-        "url": appPageUrl
+        "@id": `${appPageUrl}#software`
       }
     });
 
-    // BreadcrumbList navigation schema
+    // 3. BreadcrumbList navigation schema
     const breadcrumbs: any[] = [
       {
         "@type": "ListItem",
@@ -250,38 +200,6 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
       "@type": "BreadcrumbList",
       "itemListElement": breadcrumbs
     });
-
-    // App-specific FAQs
-    const appSlugForFaq = getField(app, 'slug') || '';
-    const rawFaqs = (app.faqs && Array.isArray(app.faqs) && app.faqs.length > 0) ? app.faqs : [];
-
-    const seenAppFaqs = new Set<string>();
-    const faqList = rawFaqs
-      .filter((faq: any) => {
-        const q = cleanFaqQuestion(stripHtml(getField(faq, 'question')).trim());
-        const a = stripHtml(getField(faq, 'answer')).trim();
-        if (!q || !a || q.length < 5 || seenAppFaqs.has(q.toLowerCase())) return false;
-        seenAppFaqs.add(q.toLowerCase());
-        return true;
-      })
-      .map((faq: any) => ({
-        "@type": "Question",
-        "name": cleanFaqQuestion(stripHtml(getField(faq, 'question')).trim()),
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": stripHtml(getField(faq, 'answer')).trim()
-        }
-      }));
-
-    if (faqList.length > 0) {
-      schemas.push({
-        "@context": "https://schema.org",
-        "@type": "FAQPage",
-        "@id": `${hostOrigin}/app/${appSlugForFaq}#faq`,
-        "url": `${hostOrigin}/app/${appSlugForFaq}`,
-        "mainEntity": faqList
-      });
-    }
   } else if (params.pageType === 'news' && params.newsItem) {
     const item = params.newsItem;
     const rawHeading = getField(item, 'title');
@@ -432,12 +350,6 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
         }))
       };
       collectionSchema.mainEntity = itemListObj;
-
-      // Also push standalone ItemList schema for strict Ahrefs/Google validator discovery
-      schemas.push({
-        "@context": "https://schema.org",
-        ...itemListObj
-      });
     }
     schemas.push(collectionSchema);
 
@@ -478,7 +390,7 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
       }
     });
 
-    // Dedicated top-level Organization schema (Resolves Ahrefs "Organization schema missing or incomplete")
+    // Dedicated top-level Organization schema
     schemas.push({
       "@context": "https://schema.org",
       "@type": "Organization",
@@ -491,36 +403,9 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
       },
       "description": params.description || 'Premium Transparency Directory for Rummy & Gaming Apps'
     });
-
-    if (params.settings?.website_faqs && Array.isArray(params.settings.website_faqs) && params.settings.website_faqs.length > 0) {
-      const seenQuestions = new Set<string>();
-      const faqList = params.settings.website_faqs
-        .filter((faq: any) => {
-          const q = cleanFaqQuestion(stripHtml(getField(faq, 'question')).trim());
-          const a = stripHtml(getField(faq, 'answer')).trim();
-          if (!q || !a || q.length < 5 || seenQuestions.has(q.toLowerCase())) return false;
-          seenQuestions.add(q.toLowerCase());
-          return true;
-        })
-        .map((faq: any) => ({
-          "@type": "Question",
-          "name": cleanFaqQuestion(stripHtml(getField(faq, 'question')).trim()),
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": stripHtml(getField(faq, 'answer')).trim()
-          }
-        }));
-      if (faqList.length > 0) {
-        schemas.push({
-          "@context": "https://schema.org",
-          "@type": "FAQPage",
-          "mainEntity": faqList
-        });
-      }
-    }
   } else {
     // Static pages (/about, /contact, /terms, /privacy, /faq, /developers, /videos, etc.):
-    // Emit WebPage schema with exact page title/headline instead of site-wide WebSite schema
+    // Emit WebPage schema with exact page title/headline
     schemas.push({
       "@context": "https://schema.org",
       "@type": "WebPage",
@@ -546,34 +431,6 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
         },
         "description": params.description || 'Premium Transparency Directory for Rummy & Gaming Apps'
       });
-    }
-
-    const isFaqRoute = /\/faqs?\/?$/i.test(params.url || '');
-    if (isFaqRoute && params.settings?.website_faqs && Array.isArray(params.settings.website_faqs) && params.settings.website_faqs.length > 0) {
-      const seenQuestions = new Set<string>();
-      const faqList = params.settings.website_faqs
-        .filter((faq: any) => {
-          const q = cleanFaqQuestion(stripHtml(getField(faq, 'question')).trim());
-          const a = stripHtml(getField(faq, 'answer')).trim();
-          if (!q || !a || q.length < 5 || seenQuestions.has(q.toLowerCase())) return false;
-          seenQuestions.add(q.toLowerCase());
-          return true;
-        })
-        .map((faq: any) => ({
-          "@type": "Question",
-          "name": cleanFaqQuestion(stripHtml(getField(faq, 'question')).trim()),
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": stripHtml(getField(faq, 'answer')).trim()
-          }
-        }));
-      if (faqList.length > 0) {
-        schemas.push({
-          "@context": "https://schema.org",
-          "@type": "FAQPage",
-          "mainEntity": faqList
-        });
-      }
     }
   }
 

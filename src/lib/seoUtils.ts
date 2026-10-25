@@ -7,16 +7,8 @@ export function formatPageTitle(rawTitle?: string, fallbackTitle: string = ''): 
   // If title contains multiple lines or linebreaks, take only the primary first line
   const firstLine = rawTitle.split(/\r?\n/)[0] || rawTitle;
   let clean = firstLine.trim().replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
-  
-  // Strip any trailing brand suffix (e.g. "| RummyDex", "- RummyDex", "— RummyDex", ": RummyDex")
-  // so meta titles strictly reflect what the administrator entered without brand suffixing.
-  let prev = '';
-  while (prev !== clean) {
-    prev = clean;
-    clean = clean.replace(/\s*[-|–—•:]+\s*(?:RummyDex|Rummydex|Remidex|Rummy\s*Dex|Ramy\s*Tech|Rummy\s*Tech|MasterWorld|Dex)\s*$/i, '').trim();
-  }
 
-  // Clean any leading or trailing stray separator punctuation
+  // Clean any leading or trailing stray separator punctuation without removing Admin-authored words
   clean = clean.replace(/^[:\s\-|–—•]+/, '').replace(/[:\s\-|–—•]+$/, '').trim();
 
   return clean || fallbackTitle;

@@ -211,6 +211,7 @@ export function useGitHubSync(
           getDoc(doc(db, 'store_data', `apps_chunk_${i}`)).catch(() => null)
         );
         const [
+          metaSnap,
           chunks, 
           settingsSnap, 
           publicSettingsSnap, 
@@ -221,6 +222,7 @@ export function useGitHubSync(
           videosSnap,
           secureLinksSnap
         ] = await Promise.all([
+          getDoc(doc(db, 'store_data', 'apps_meta')).catch(() => null),
           Promise.all(chunkPromises),
           getDoc(doc(db, 'store_data', 'settings')).catch(() => null),
           getDoc(doc(db, 'store_data', 'public_settings')).catch(() => null),
@@ -232,9 +234,13 @@ export function useGitHubSync(
           getDoc(doc(db, 'store_data', 'secure_links')).catch(() => null)
         ]);
 
+        const maxChunks = (metaSnap && metaSnap.exists && metaSnap.exists() && Number(metaSnap.data()?.numChunks) > 0)
+          ? Number(metaSnap.data()?.numChunks)
+          : chunks.length;
+
         let firestoreApps: any[] = [];
         const seenKeys = new Set<string>();
-        chunks.forEach((chunk) => {
+        chunks.slice(0, maxChunks).forEach((chunk) => {
           if (chunk && chunk.exists && chunk.exists()) {
             const cData = chunk.data();
             const items = cData?.items || cData?.apps || [];
@@ -883,7 +889,7 @@ export function useGitHubSync(
           });
         }
 
-        const robotsContent = `User-agent: *\nAllow: /\nAllow: /api/v1/public/\nDisallow: /api/\nDisallow: /admin/\nDisallow: /login/\nDisallow: /masterworld/\nDisallow: /s/\nDisallow: /s/*\nDisallow: /dl/\nDisallow: /dl/*\nDisallow: /out/\nDisallow: /out/*\nDisallow: /download/\nDisallow: /download/*\nDisallow: /gateway/\nDisallow: /gateway/*\nDisallow: /info/\nDisallow: /info/*\nDisallow: /moredetail/\nDisallow: /moredetail/*\n\nSitemap: https://www.rummydex.com/sitemap.xml\nSitemap: https://www.rummydex.com/sitemap-news.xml\nSitemap: https://www.rummydex.com/sitemap-apps.xml\nSitemap: https://www.rummydex.com/sitemap-static.xml\nSitemap: https://www.rummydex.com/sitemap-videos.xml\nSitemap: https://www.rummydex.com/sitemap-developers.xml\n`;
+        const robotsContent = `User-agent: *\nAllow: /\nAllow: /api/v1/public/\nDisallow: /api/\nDisallow: /admin/\nDisallow: /login/\nDisallow: /masterworld/\nDisallow: /s/\nDisallow: /s/*\nDisallow: /dl/\nDisallow: /dl/*\nDisallow: /out/\nDisallow: /out/*\nDisallow: /download/\nDisallow: /download/*\nDisallow: /gateway/\nDisallow: /gateway/*\nDisallow: /moreinfo/\nDisallow: /moreinfo/*\nDisallow: /info/\nDisallow: /info/*\nDisallow: /moredetail/\nDisallow: /moredetail/*\n\nSitemap: https://www.rummydex.com/sitemap.xml\nSitemap: https://www.rummydex.com/sitemap-news.xml\nSitemap: https://www.rummydex.com/sitemap-apps.xml\nSitemap: https://www.rummydex.com/sitemap-static.xml\nSitemap: https://www.rummydex.com/sitemap-videos.xml\nSitemap: https://www.rummydex.com/sitemap-developers.xml\n`;
         primaryBatchFiles.push({
           path: 'public/robots.txt',
           content: robotsContent

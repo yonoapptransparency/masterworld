@@ -34,6 +34,31 @@ export function getLocalFallbackReviewsForApp(appId: string, appSlug: string): S
       } catch (e) {}
     }
 
+    if (!catalogAppStats) {
+      const staticJsonPath = path.join(process.cwd(), 'src/lib/staticData.json');
+      if (fs.existsSync(staticJsonPath)) {
+        try {
+          const sParsed = JSON.parse(fs.readFileSync(staticJsonPath, 'utf8'));
+          const apps = Array.isArray(sParsed?.apps) ? sParsed.apps : [];
+          const matched = apps.find((a: any) =>
+            (cleanId && String(a?.id || '').toLowerCase().trim() === cleanId) ||
+            (cleanSlug && String(a?.slug || '').toLowerCase().trim() === cleanSlug)
+          );
+          if (matched) {
+            const revCount = Number(matched.review_count || matched.reviews || 0);
+            const avgRating = Number(matched.rating || 4.5);
+            if (revCount > 0) {
+              catalogAppStats = {
+                totalReviews: revCount,
+                averageRating: avgRating,
+                starCounts: null
+              };
+            }
+          }
+        } catch (_) {}
+      }
+    }
+
     // High-availability sample reviews from static disk storage for Schema.org rich snippets
     let sampleReviews: any[] = [];
     const localBackupPath = path.join(process.cwd(), 'community_local_backup.json');

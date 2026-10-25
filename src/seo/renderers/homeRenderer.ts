@@ -75,7 +75,7 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
   let newAdditionsHtml = '';
   if (newApps.length > 0) {
     newAdditionsHtml = `
-      <div class="px-0 animate-fade-in">
+      <aside data-nosnippet class="px-0 animate-fade-in">
         <h2 class="text-base xxs:text-lg xs:text-xl font-bold mb-2.5 xs:mb-4 mt-3 xs:mt-6 text-zinc-900 dark:text-zinc-100 flex items-center px-0">
           New Additions <svg class="w-4 h-4 xs:w-5 xs:h-5 text-blue-500 fill-blue-500/20 ml-1.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4"/></svg>
         </h2>
@@ -101,7 +101,7 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
             `;
           }).join('')}
         </div>
-      </div>
+      </aside>
     `;
   }
 
@@ -200,6 +200,20 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
     </div>
   `;
 
+  const remainingApps = sorted.slice(pageSize);
+  const fullDirectoryHtml = remainingApps.length > 0 ? `
+    <nav aria-label="Complete Application Directory" data-nosnippet class="mt-8 pt-6 border-t border-black/5 dark:border-white/5 px-2 max-w-5xl mx-auto">
+      <h2 class="text-xs sm:text-sm font-bold text-zinc-700 dark:text-zinc-300 mb-3 uppercase tracking-wider">More Applications in Catalog (${remainingApps.length})</h2>
+      <div class="flex flex-wrap gap-2">
+        ${remainingApps.map((app) => {
+          const rSlug = getField(app, 'slug');
+          const rName = getField(app, 'name');
+          return `<a href="/app/${encodeURIComponent(rSlug)}" class="px-2.5 py-1 rounded-lg bg-zinc-100/80 dark:bg-zinc-900/80 hover:bg-blue-50 dark:hover:bg-blue-950/40 text-zinc-700 dark:text-zinc-300 hover:text-blue-600 dark:hover:text-blue-400 text-[11px] font-medium border border-black/5 dark:border-white/5 no-underline transition-colors">${escapeHtml(rName)}</a>`;
+        }).join('')}
+      </div>
+    </nav>
+  ` : '';
+
   return `
     <div class="select-none min-h-screen">
       ${heroHtml}
@@ -221,6 +235,8 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
           ${currentPage < totalPages ? `<a href="/?page=${currentPage + 1}" class="px-3.5 py-1.5 rounded-xl border border-black/10 dark:border-white/10 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition">Next</a>` : ''}
         </nav>
       ` : ''}
+
+      ${fullDirectoryHtml}
 
       ${Array.isArray(settings?.website_faqs) && settings.website_faqs.filter((f: any) => f && f.question && f.answer).length > 0 ? `
         <section aria-labelledby="home-faq-heading" class="mt-10 sm:mt-14 mb-8 px-2 max-w-5xl mx-auto w-full select-none">

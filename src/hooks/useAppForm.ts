@@ -86,19 +86,15 @@ export const useAppForm = (editApp: any, editingAppId: string | null, appsList: 
           video_url: editApp?.video_url || '',
           red_box_msg: editApp?.red_box_msg || '',
           yellow_box_msg: editApp?.yellow_box_msg || '',
-          features_html: editApp?.features_html || (() => {
+          features_html: editApp?.features_html !== undefined ? editApp.features_html : (() => {
             const match = (appsList || []).find((a: any) => a.id === editingAppId || (editApp?.slug && a.slug === editApp.slug));
-            if (match?.features_html && match.features_html.trim().length > 5) return match.features_html;
-            const staticMatch = (mockApps || []).find((a: any) => a.id === editingAppId || (editApp?.slug && a.slug && a.slug.toLowerCase() === editApp.slug.toLowerCase()));
-            return staticMatch?.features_html || '';
+            return match?.features_html || '';
           })(),
           custom_admin_box_heading: editApp?.custom_admin_box_heading || '',
           custom_admin_box_html: editApp?.custom_admin_box_html || '',
-          description_html: editApp?.description_html || (() => {
+          description_html: editApp?.description_html !== undefined ? editApp.description_html : (() => {
             const match = (appsList || []).find((a: any) => a.id === editingAppId || (editApp?.slug && a.slug === editApp.slug));
-            if (match?.description_html && match.description_html.trim().length > 10) return match.description_html;
-            const staticMatch = (mockApps || []).find((a: any) => a.id === editingAppId || (editApp?.slug && a.slug && a.slug.toLowerCase() === editApp.slug.toLowerCase()));
-            return staticMatch?.description_html || '';
+            return match?.description_html || '';
           })(),
           category_list: (() => {
             const allCats = editApp?.category ? editApp.category.split(',').map((c: string) => c.trim()).filter(Boolean) : [];

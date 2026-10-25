@@ -49,20 +49,22 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
   const cleanId = String(getField(app, 'id')).toLowerCase().trim();
   const appIdExact = getField(app, 'id');
 
-  // Compute relatedNewsCount identically to AppDetails.tsx
+  // Compute relatedNewsArticles identically to AppDetails.tsx
   const nameLower = (name || '').toLowerCase().trim();
-  const relatedNewsCount = Array.isArray(news)
+  const relatedNewsArticles = Array.isArray(news)
     ? news.filter((n: any) => {
         if (!n || n.sync_to_public === false) return false;
-        if (appIdExact && n.related_app_id === appIdExact) return true;
+        const nRelId = getField(n, 'related_app_id');
+        if (nRelId && (nRelId === appIdExact || String(nRelId).toLowerCase() === cleanSlug)) return true;
         if (!nameLower) return false;
         return (
-          n.title?.toLowerCase().includes(nameLower) ||
-          n.description?.toLowerCase().includes(nameLower) ||
+          getField(n, 'title')?.toLowerCase().includes(nameLower) ||
+          getField(n, 'description')?.toLowerCase().includes(nameLower) ||
           (Array.isArray(n.tags) && n.tags.some((t: string) => String(t).toLowerCase() === nameLower))
         );
-      }).length
-    : 0;
+      })
+    : [];
+  const relatedNewsCount = relatedNewsArticles.length;
 
   // Unified single source of truth for SEO ratings & counts
   const catStats = (communityCatalogStats as any)?.appCounts || {};
@@ -112,7 +114,7 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
   };
 
   const rawIcon = getField(app, 'icon_url') || 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=128&fit=crop';
-  const icon = optimizeImageUrl(rawIcon, 160);
+  const icon = optimizeImageUrl(rawIcon, 512);
 
   const rawDesc = app.description_html ? sanitizeHtml(app.description_html) : `<p>Comprehensive application profile and details for <strong>${escapeHtml(name)}</strong>.</p>`;
   const desc = rawDesc;
@@ -453,21 +455,28 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
   regularApps.sort((a: any, b: any) => (Number(getField(a, 'serial_number')) || 999999) - (Number(getField(b, 'serial_number')) || 999999));
 
   const maxCount = 16;
-  const pinnedNew = newApps.slice(0, Math.min(newApps.length, maxCount));
+  const strSeed = String(cleanSlug || getField(app, 'id') || '');
+  let seedHash = 0;
+  for (let i = 0; i < strSeed.length; i++) seedHash = ((seedHash << 5) - seedHash) + strSeed.charCodeAt(i);
+  const absSeed = Math.abs(seedHash);
+
+  const maxNewSlots = Math.min(newApps.length, 6);
+  const pinnedNew: any[] = [];
+  if (maxNewSlots > 0 && newApps.length > 0) {
+    const newStart = absSeed % newApps.length;
+    for (let s = 0; s < maxNewSlots; s++) {
+      pinnedNew.push(newApps[(newStart + s) % newApps.length]);
+    }
+  }
   const remainingSlots = maxCount - pinnedNew.length;
 
   const pickedRegular: any[] = [];
   if (remainingSlots > 0 && regularApps.length > 0) {
-    let startIndex = 0;
+    let startIndex = absSeed % regularApps.length;
     const currSerial = Number(getField(app, 'serial_number'));
     if (!isNaN(currSerial) && currSerial > 0) {
       const nextIdx = regularApps.findIndex((a: any) => (Number(getField(a, 'serial_number')) || 0) > currSerial);
-      startIndex = nextIdx !== -1 ? nextIdx : 0;
-    } else {
-      const str = String(cleanSlug || getField(app, 'id') || '');
-      let hash = 0;
-      for (let i = 0; i < str.length; i++) hash = ((hash << 5) - hash) + str.charCodeAt(i);
-      startIndex = Math.abs(hash) % regularApps.length;
+      if (nextIdx !== -1) startIndex = nextIdx;
     }
 
     const countToPick = Math.min(remainingSlots, regularApps.length);
@@ -482,7 +491,7 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
 
   if (displaySimilarApps.length > 0) {
     recommendedAppsHtml = `
-      <section aria-labelledby="related-apps-heading" class="my-5 xs:my-6 px-0 text-left">
+      <aside data-nosnippet aria-labelledby="related-apps-heading" class="my-5 xs:my-6 px-0 text-left">
         <div class="flex items-center justify-between gap-2 mb-3 px-1 xs:px-2 sm:px-4 md:px-6">
           <div class="flex items-center gap-2 min-w-0">
             <h2 id="related-apps-heading" class="text-base xs:text-lg sm:text-xl font-bold flex items-center gap-1.5 xs:gap-2 text-zinc-900 dark:text-zinc-100 truncate">
@@ -499,14 +508,14 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
           ${displaySimilarApps.map((sim) => {
             const simName = getField(sim, 'name');
             const simSlug = getField(sim, 'slug');
-            const simIcon = optimizeImageUrl(getField(sim, 'icon_url') || '', 160);
+            const simIcon = optimizeImageUrl(getField(sim, 'icon_url') || '', 96);
             const simIsHot = sim.is_hot === true || (sim.is_hot && sim.is_hot.booleanValue === true);
             const simIsNew = checkAppIsNew(sim);
             const imgSrc = escapeHtml(simIcon);
             return `
               <a href="/app/${encodeURIComponent(simSlug)}" class="flex flex-col items-center justify-start gap-1 xxs:gap-1.5 xs:gap-2 w-[68px] xxs:w-[76px] xs:w-[86px] sm:w-[98px] snap-start group shrink-0 active:scale-95 transition-transform duration-150 ease-out no-underline">
                 <div class="relative inline-block shrink-0">
-                  <img src="${imgSrc}" alt="${escapeHtml(simName)}" width="86" height="86" decoding="async" class="w-[58px] h-[58px] xxs:w-[66px] xxs:h-[66px] xs:w-[76px] xs:h-[76px] sm:w-[86px] sm:h-[86px] rounded-[24%] shadow-[0_2px_8px_rgba(0,0,0,0.08)] object-cover group-hover:scale-105 transition-transform duration-200 block pointer-events-none select-none" loading="lazy" />
+                  <img src="${imgSrc}" alt="${escapeHtml(simName)}" width="86" height="86" decoding="async" fetchpriority="low" class="w-[58px] h-[58px] xxs:w-[66px] xxs:h-[66px] xs:w-[76px] xs:h-[76px] sm:w-[86px] sm:h-[86px] rounded-[24%] shadow-[0_2px_8px_rgba(0,0,0,0.08)] object-cover group-hover:scale-105 transition-transform duration-200 block pointer-events-none select-none" loading="lazy" />
                   ${simIsHot && simIsNew ? '<span class="absolute -top-1.5 -right-1.5 z-20 inline-flex items-center rounded-full overflow-hidden shadow-[0_2px_6px_rgba(0,0,0,0.25)] border border-white dark:border-zinc-900 font-black text-[7.5px] xxs:text-[8px] xs:text-[9px] uppercase tracking-wider leading-none select-none pointer-events-none"><span class="bg-[#d32f2f] text-white px-1 xs:px-1.5 py-0.5">HOT</span><span class="bg-[#008738] text-white px-1 xs:px-1.5 py-0.5">NEW</span></span>' : simIsHot ? '<span class="absolute -top-1.5 -right-1.5 z-20 bg-[#d32f2f] text-white font-black text-[7.5px] xxs:text-[8px] xs:text-[9px] px-1.5 py-0.5 rounded-full shadow-[0_2px_6px_rgba(0,0,0,0.25)] border border-white dark:border-zinc-900 uppercase tracking-wider leading-none select-none pointer-events-none flex items-center justify-center">HOT</span>' : simIsNew ? '<span class="absolute -top-1.5 -right-1.5 z-20 bg-[#008738] text-white font-black text-[7.5px] xxs:text-[8px] xs:text-[9px] px-1.5 py-0.5 rounded-full shadow-[0_2px_6px_rgba(0,0,0,0.25)] border border-white dark:border-zinc-900 uppercase tracking-wider leading-none select-none pointer-events-none flex items-center justify-center">NEW</span>' : ''}
                 </div>
                 <span class="text-[9.5px] xxs:text-[10.5px] xs:text-[11.5px] sm:text-[12px] font-semibold text-center text-zinc-800 dark:text-zinc-200 line-clamp-2 w-full px-0.5 leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors pointer-events-none select-none">${escapeHtml(simName)}</span>
@@ -514,9 +523,31 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
             `;
           }).join('')}
         </div>
-      </section>
+      </aside>
     `;
   }
+
+  const relatedNewsSectionHtml = relatedNewsArticles.length > 0 ? `
+    <aside data-nosnippet aria-labelledby="app-related-news-heading" class="px-1 xs:px-2 sm:px-4 md:px-6 mb-6 xs:mb-8 text-left">
+      <div class="py-5 border-t border-black/5 dark:border-white/5">
+        <h2 id="app-related-news-heading" class="text-base xs:text-lg font-bold text-zinc-900 dark:text-zinc-100 mb-3">
+          Related News &amp; Updates
+        </h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          ${relatedNewsArticles.slice(0, 6).map((rn: any) => {
+            const rnSlug = (getField(rn, 'slug') || getField(rn, 'id') || '').trim();
+            const rnTitle = getField(rn, 'title') || 'News Article';
+            return `
+              <a href="/news/${encodeURIComponent(rnSlug)}" class="p-3 rounded-xl border border-zinc-200/70 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-900/50 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/80 transition-colors flex items-center justify-between gap-2 no-underline">
+                <span class="text-xs sm:text-sm font-semibold text-zinc-800 dark:text-zinc-200 line-clamp-2">${escapeHtml(rnTitle)}</span>
+                <span class="text-xs font-bold text-blue-600 dark:text-blue-400 shrink-0">Read →</span>
+              </a>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    </aside>
+  ` : '';
 
   // 1:1 Layout Match with AppDetails.tsx
   return `
@@ -545,7 +576,7 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
         <div class="flex w-full items-center gap-2.5 xxs:gap-3 xs:gap-4 sm:gap-6 mb-3.5 sm:mb-6 px-1 xs:px-2 sm:px-4 md:px-6 mt-1 sm:mt-2 text-left">
           <div class="relative w-[56px] h-[56px] xxs:w-[66px] xxs:h-[66px] xs:w-[80px] xs:h-[80px] sm:w-[102px] sm:h-[102px] md:w-[116px] md:h-[116px] shrink-0">
             <div class="w-full h-full rounded-[14px] xxs:rounded-[16px] xs:rounded-[20px] sm:rounded-[24px] overflow-hidden shadow-sm bg-zinc-100 dark:bg-zinc-800 border border-black/5 dark:border-white/10 relative">
-              <img src="${escapeHtml(icon)}" alt="${escapeHtml(name)} app icon" loading="eager" fetchpriority="high" decoding="async" width="116" height="116" class="w-full h-full object-cover block relative z-10" />
+              <img src="${escapeHtml(icon)}" alt="${escapeHtml(name)} app icon" itemprop="image" loading="eager" fetchpriority="high" decoding="async" width="116" height="116" class="w-full h-full object-cover block relative z-10" />
             </div>
           </div>
           <div class="flex flex-col justify-center flex-1 min-w-0">
@@ -609,12 +640,12 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
                   <span>Coming Soon</span>
                 </button>
               ` : `
-                <a href="/moreinfo/${encodeURIComponent(cleanSlug)}" class="w-full premium-action-btn premium-action-btn-blowing cursor-pointer text-white !text-white font-bold py-2 xxs:py-2.5 px-3 xxs:px-4 xs:px-5 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all text-[11px] xxs:text-xs xs:text-sm shadow-md h-[38px] xxs:h-[40px] xs:h-[44px] no-underline">
+                <button type="button" class="w-full premium-action-btn premium-action-btn-blowing cursor-pointer text-white !text-white font-bold py-2 xxs:py-2.5 px-3 xxs:px-4 xs:px-5 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all text-[11px] xxs:text-xs xs:text-sm shadow-md h-[38px] xxs:h-[40px] xs:h-[44px]">
                   <span class="flex items-center gap-1.5 font-bold text-white !text-white">
                     <span>Download</span>
                     <svg class="w-3.5 h-3.5 xs:w-4 xs:h-4 text-white !text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                   </span>
-                </a>
+                </button>
               `}
             </div>
           </div>
@@ -634,7 +665,7 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
           </div>
         </div>
 
-        <!-- 2.4 AppSimilarCarousel -->
+        <!-- 2.4 AppSimilarCarousel (Positioned immediately after share & flag action buttons) -->
         ${recommendedAppsHtml}
 
         <!-- 2.5 AppScreenshots -->
@@ -689,6 +720,8 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
           ${alertsHtml}
         </div>
       </div>
+
+      ${relatedNewsSectionHtml}
 
       <!-- 3. Reviews Section -->
       ${reviewsSectionHtml}

@@ -530,18 +530,38 @@ export async function fetchLiveReviews(options: {
   };
 
   try {
-    const staticReviewsMap: Record<string, any> = (await getStaticReviewsBundle()) || {};
-    const keysToCheck = [canonicalSlug, canonicalId, rawId].filter(Boolean) as string[];
     let rawReviews: any[] | null = null;
-    for (const key of keysToCheck) {
-      const cleanKey = String(key).toLowerCase().trim();
-      if (Array.isArray(staticReviewsMap[cleanKey]) && staticReviewsMap[cleanKey].length > 0) {
-        rawReviews = staticReviewsMap[cleanKey];
-        break;
-      }
-      if (Array.isArray(staticReviewsMap[key]) && staticReviewsMap[key].length > 0) {
-        rawReviews = staticReviewsMap[key];
-        break;
+
+    // 1. Try per-app static JSON slice (/data/reviews/<slug>.json) first for lightweight on-demand pagination
+    if (typeof window !== 'undefined' && canonicalSlug) {
+      try {
+        const sliceRes = await fetch(`/data/reviews/${encodeURIComponent(canonicalSlug.toLowerCase())}.json`);
+        const cType = sliceRes.headers.get('content-type') || '';
+        if (sliceRes.ok && cType.includes('application/json')) {
+          const sliceJson = await sliceRes.json();
+          if (Array.isArray(sliceJson) && sliceJson.length > 0) {
+            rawReviews = sliceJson;
+          } else if (Array.isArray(sliceJson?.reviews) && sliceJson.reviews.length > 0) {
+            rawReviews = sliceJson.reviews;
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 2. Fallback to consolidated static reviews bundle
+    if (!rawReviews) {
+      const staticReviewsMap: Record<string, any> = (await getStaticReviewsBundle()) || {};
+      const keysToCheck = [canonicalSlug, canonicalId, rawId].filter(Boolean) as string[];
+      for (const key of keysToCheck) {
+        const cleanKey = String(key).toLowerCase().trim();
+        if (Array.isArray(staticReviewsMap[cleanKey]) && staticReviewsMap[cleanKey].length > 0) {
+          rawReviews = staticReviewsMap[cleanKey];
+          break;
+        }
+        if (Array.isArray(staticReviewsMap[key]) && staticReviewsMap[key].length > 0) {
+          rawReviews = staticReviewsMap[key];
+          break;
+        }
       }
     }
 
@@ -615,8 +635,7 @@ export async function fetchLiveReviews(options: {
 }
 
 /**
- * Public Review Submission: Stored securely in client local storage
- * ZERO writes to Firebase to protect database quota.
+ * Public Review Submission: Stored optimistically in client localStorage and forwarded to server moderation pipeline
  */
 export async function submitLiveReview(data: {
   appId: string;
@@ -637,7 +656,7 @@ export async function submitLiveReview(data: {
   const generatedId = `rev_local_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   const cleanDate = formatReviewDate();
 
-  const newReview: PublicReview = {
+  let newReview: PublicReview = {
     id: generatedId,
     app_id: cleanAppId,
     appId: cleanAppId,
@@ -658,8 +677,29 @@ export async function submitLiveReview(data: {
     adminReply: null
   };
 
-  // Save to client localStorage so the user sees their submitted review immediately
   if (typeof window !== 'undefined') {
+    try {
+      const apiRes = await fetch('/api/v1/public/community/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          appId: cleanAppId,
+          appSlug: cleanAppSlug,
+          appName: cleanAppName,
+          userName: cleanUserName,
+          rating: cleanRating,
+          reviewText: cleanComment,
+          turnstileToken: data.turnstileToken
+        })
+      });
+      if (apiRes.ok) {
+        const json = await apiRes.json();
+        if (json?.review?.id) {
+          newReview = { ...newReview, id: json.review.id };
+        }
+      }
+    } catch (_) {}
+
     try {
       const storageKey = `local_user_reviews_${cleanAppId}`;
       const existing = JSON.parse(localStorage.getItem(storageKey) || '[]');
@@ -676,7 +716,7 @@ export async function submitLiveReview(data: {
 }
 
 /**
- * Vote Helpful: Stored in client localStorage with ZERO writes to Firebase
+ * Vote Helpful: Stored in client localStorage and forwarded to server
  */
 export async function voteLiveReviewHelpful(reviewId: string, appId?: string): Promise<boolean> {
   if (!reviewId) return false;
@@ -687,13 +727,21 @@ export async function voteLiveReviewHelpful(reviewId: string, appId?: string): P
       voted[reviewId] = true;
       localStorage.setItem('voted_reviews_map', JSON.stringify(voted));
     } catch (e) {}
+
+    try {
+      await fetch('/api/v1/public/community/reviews/helpful', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reviewId, appId })
+      });
+    } catch (_) {}
   }
 
   return true;
 }
 
 /**
- * Report Review: Flag stored in client localStorage with ZERO writes to Firebase
+ * Report Review: Flag stored in client localStorage and forwarded to server moderation queue
  */
 export async function reportLiveReview(data: {
   reviewId: string;
@@ -709,13 +757,21 @@ export async function reportLiveReview(data: {
       reported[data.reviewId] = true;
       localStorage.setItem('reported_reviews_map', JSON.stringify(reported));
     } catch (e) {}
+
+    try {
+      await fetch('/api/v1/public/community/reviews/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+    } catch (_) {}
   }
 
   return true;
 }
 
 /**
- * General App Report: Stored locally with ZERO writes to Firebase
+ * General App Report: Stored locally and forwarded to server moderation queue
  */
 export async function submitLiveReport(data: {
   type?: string;
@@ -737,6 +793,14 @@ export async function submitLiveReport(data: {
       });
       localStorage.setItem(key, JSON.stringify(existing.slice(0, 5)));
     } catch (e) {}
+
+    try {
+      await fetch('/api/v1/public/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+    } catch (_) {}
   }
 
   return true;

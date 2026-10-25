@@ -140,7 +140,7 @@ export function buildMetaTags(params: MetaBuilderParams): string {
     <link data-rh="true" rel="manifest" href="/site.webmanifest">
     ${(() => {
       if (targetApp && getField(targetApp, 'icon_url')) {
-        return `<link rel="preload" as="image" href="${escapeHtml(getOptimizedImageUrl(getField(targetApp, 'icon_url'), 160))}" fetchpriority="high">`;
+        return `<link rel="preload" as="image" href="${escapeHtml(getOptimizedImageUrl(getField(targetApp, 'icon_url'), 512))}" fetchpriority="high">`;
       }
       if (pageType === 'news' && targetNews) {
         const rawNewsHero = getField(targetNews, 'image') || getField(targetNews, 'image_url') || getField(targetNews, 'logo_url') || getField(targetNews, 'og_image_url');

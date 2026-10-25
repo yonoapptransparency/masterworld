@@ -90,7 +90,7 @@ export function useDataActions(
     // 2. Always persist to Firestore as well so cloud chunks and apps_meta stay 100% synchronized
     if (isFirebaseReal && db) {
       try {
-        const { doc, setDoc } = await import('firebase/firestore');
+        const { doc, setDoc, deleteDoc } = await import('firebase/firestore');
         const nextApps = [...apps];
         const idx = nextApps.findIndex(a => a.id === savedApp.id || (savedApp.slug && a.slug === savedApp.slug));
         if (idx >= 0) {
@@ -108,7 +108,10 @@ export function useDataActions(
             count: slice.length, 
             updated_at: new Date().toISOString(),
             _rest_admin_bypass: ADMIN_BYPASS_KEY
-          }, { merge: true });
+          });
+        }
+        for (let i = numChunks; i < 16; i++) {
+          await deleteDoc(doc(db, 'store_data', `apps_chunk_${i}`)).catch(() => undefined);
         }
         await setDoc(doc(db, 'store_data', 'apps_meta'), {
           count: nextApps.length,
@@ -170,7 +173,7 @@ export function useDataActions(
     // Always synchronize deletion with Firestore chunks + apps_meta
     if (isFirebaseReal && db) {
       try {
-        const { doc, setDoc } = await import('firebase/firestore');
+        const { doc, setDoc, deleteDoc } = await import('firebase/firestore');
         const nextApps = apps.filter(a => a.id !== appId && a.slug !== appId);
         const chunkSize = 25;
         const numChunks = Math.max(1, Math.ceil(nextApps.length / chunkSize));
@@ -182,6 +185,9 @@ export function useDataActions(
             updated_at: new Date().toISOString(),
             _rest_admin_bypass: ADMIN_BYPASS_KEY
           });
+        }
+        for (let i = numChunks; i < 16; i++) {
+          await deleteDoc(doc(db, 'store_data', `apps_chunk_${i}`)).catch(() => undefined);
         }
         await setDoc(doc(db, 'store_data', 'apps_meta'), {
           count: nextApps.length,
@@ -343,7 +349,7 @@ export function useDataActions(
 
     if (isFirebaseReal && db) {
       try {
-        const { doc, setDoc } = await import('firebase/firestore');
+        const { doc, setDoc, deleteDoc } = await import('firebase/firestore');
         const chunkSize = 25;
         const numChunks = Math.max(1, Math.ceil(normalizedApps.length / chunkSize));
         for (let i = 0; i < numChunks; i++) {
@@ -354,6 +360,9 @@ export function useDataActions(
             updated_at: new Date().toISOString(),
             _rest_admin_bypass: ADMIN_BYPASS_KEY
           });
+        }
+        for (let i = numChunks; i < 16; i++) {
+          await deleteDoc(doc(db, 'store_data', `apps_chunk_${i}`)).catch(() => undefined);
         }
         await setDoc(doc(db, 'store_data', 'apps_meta'), {
           count: normalizedApps.length,
@@ -480,8 +489,8 @@ export function useDataActions(
       const idKey = String(n?.id || '').trim();
       const slugKey = String(n?.slug || '').trim().replace(/^\/+|\/+$/g, '').toLowerCase();
       const prev = (idKey && existingById.get(idKey)) || (slugKey && existingBySlug.get(slugKey));
-      const rawTitle = (n?.seo_title || n?.meta_title || n?.title || '').trim();
-      const exactTitle = rawTitle ? formatPageTitle(rawTitle, '') : '';
+      const rawSeoTitle = (n?.seo_title || n?.meta_title || '').trim();
+      const exactTitle = rawSeoTitle ? formatPageTitle(rawSeoTitle, '') : '';
       const rawHeading = (n?.title || '').trim();
       const exactHeading = rawHeading ? formatPageTitle(rawHeading, '') : '';
       const candidate = {

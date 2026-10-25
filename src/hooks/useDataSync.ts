@@ -98,6 +98,7 @@ export function useDataSync() {
               getDoc(doc(db, 'store_data', `apps_chunk_${i}`)).catch(() => null)
             );
             const [
+              metaSnap,
               chunks, 
               settingsSnap, 
               publicSettingsSnap, 
@@ -107,6 +108,7 @@ export function useDataSync() {
               newsSnap, 
               videosSnap
             ] = await Promise.all([
+              getDoc(doc(db, 'store_data', 'apps_meta')).catch(() => null),
               Promise.all(chunkPromises),
               getDoc(doc(db, 'store_data', 'settings')).catch(() => null),
               getDoc(doc(db, 'store_data', 'public_settings')).catch(() => null),
@@ -117,9 +119,13 @@ export function useDataSync() {
               getDoc(doc(db, 'store_data', 'videos')).catch(() => null)
             ]);
 
+            const maxChunks = (metaSnap && metaSnap.exists && metaSnap.exists() && Number(metaSnap.data()?.numChunks) > 0)
+              ? Number(metaSnap.data()?.numChunks)
+              : chunks.length;
+
             let loadedApps: AppConfig[] = [];
             const seenAppKeys = new Set<string>();
-            chunks.forEach(chunk => {
+            chunks.slice(0, maxChunks).forEach(chunk => {
               if (chunk && chunk.exists && chunk.exists()) {
                 const chunkData = chunk.data();
                 const items = chunkData.items || chunkData.apps || [];

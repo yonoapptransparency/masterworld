@@ -959,7 +959,7 @@ export async function commitTreeToGitHub({
           const baseTreeDetails = await baseTreeDetailsRes.json() as any;
           if (Array.isArray(baseTreeDetails?.tree)) {
             const dataEntries = baseTreeDetails.tree.filter((t: any) => 
-              t.path && t.type === 'blob' && (t.path.startsWith('public/data/') || t.path.startsWith('data/') || t.path === 'src/lib/public_backup.json')
+              t.path && t.type === 'blob' && (t.path === 'src/lib/public_backup.json')
             );
             dataEntries.forEach((t: any) => {
               treeEntries.push({
@@ -970,7 +970,7 @@ export async function commitTreeToGitHub({
               });
             });
             if (dataEntries.length > 0) {
-              console.log(`[GitHub Sync] Pruned ${dataEntries.length} legacy public/data files from remote git tree.`);
+              console.log(`[GitHub Sync] Pruned private backup file from remote git tree.`);
             }
           }
         }

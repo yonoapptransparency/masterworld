@@ -17,8 +17,6 @@ interface MetaProps {
   tags?: string[];
   canonical?: string;
   schema?: any;
-  productSchema?: any;
-  faqSchema?: any;
   breadcrumbSchema?: any;
   videoSchema?: any;
   noindex?: boolean;
@@ -38,8 +36,6 @@ const Meta: React.FC<MetaProps> = ({
   tags,
   canonical,
   schema,
-  productSchema,
-  faqSchema,
   breadcrumbSchema,
   videoSchema,
   noindex = false
@@ -246,15 +242,10 @@ const Meta: React.FC<MetaProps> = ({
 
     // 8. Schema.org JSON-LD Structured Data in <head>
     const schemasToInject: any[] = [];
-    if (productSchema) {
-      if (Array.isArray(productSchema)) schemasToInject.push(...productSchema);
-      else schemasToInject.push(productSchema);
-    }
     if (schema) {
       if (Array.isArray(schema)) schemasToInject.push(...schema);
       else schemasToInject.push(schema);
     }
-    if (faqSchema) schemasToInject.push(faqSchema);
     if (breadcrumbSchema) schemasToInject.push(breadcrumbSchema);
     if (videoSchema) schemasToInject.push(videoSchema);
 
@@ -329,8 +320,6 @@ const Meta: React.FC<MetaProps> = ({
     metaImage, 
     siteTitle, 
     schema, 
-    productSchema,
-    faqSchema, 
     breadcrumbSchema, 
     videoSchema, 
     currentPath, 

@@ -111,6 +111,20 @@ export function renderNewsList(news: any[], _settings: any, pageNum: number = 1)
     `;
   }
 
+  const remainingNews = publicNewsList.slice(ITEMS_PER_PAGE);
+  const fullNewsArchiveHtml = remainingNews.length > 0 ? `
+    <nav aria-label="Complete News Archive" data-nosnippet class="mt-10 pt-6 border-t border-zinc-200/80 dark:border-zinc-800/80 px-3 sm:px-0">
+      <h2 class="text-xs sm:text-sm font-bold text-zinc-700 dark:text-zinc-300 mb-3 uppercase tracking-wider">More News &amp; Updates (${remainingNews.length})</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+        ${remainingNews.map((n: any) => {
+          const nTitle = getField(n, 'title') || 'News Article';
+          const nSlug = getField(n, 'slug') || getField(n, 'id');
+          return `<a href="/news/${encodeURIComponent(nSlug)}" class="px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-900/60 hover:bg-blue-50 dark:hover:bg-blue-950/30 border border-zinc-200/60 dark:border-zinc-800/60 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-blue-600 dark:hover:text-blue-400 truncate no-underline transition-colors">${escapeHtml(nTitle)}</a>`;
+        }).join('')}
+      </div>
+    </nav>
+  ` : '';
+
   return `
     <div class="w-full text-zinc-900 dark:text-zinc-100 pb-20 text-left min-h-[70vh]">
       <div class="pt-0.5 pb-0.5 px-3 sm:px-0">
@@ -138,6 +152,7 @@ export function renderNewsList(news: any[], _settings: any, pageNum: number = 1)
         ${cards || '<p class="text-zinc-400 py-10 col-span-full text-center">No news articles found</p>'}
       </div>
       ${paginationHtml}
+      ${fullNewsArchiveHtml}
     </div>
   `;
 }
@@ -160,7 +175,7 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
   const title = getField(item, 'title');
   const formattedDate = formatNewsDate(getField(item, 'date'), getField(item, 'published_at'), getField(item, 'created_at'));
 
-  const author = getField(item, 'ceo_name') || getField(item, 'author') || 'RummyDex Editorial Team';
+  const author = getField(item, 'ceo_name') || getField(item, 'author') || 'Editorial Team';
   const cat = getField(item, 'category', 'General');
   const description = getField(item, 'description', '');
 
@@ -192,12 +207,11 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
   const optimizedLogo800 = logo ? optimizeImageUrl(logo, 800) : '';
   const optimizedLogo1200 = logo ? optimizeImageUrl(logo, 1200) : '';
 
-  // Download / Action box (Matching NewsRelatedAppBox.tsx 1:1)
+  // Download / Action box (Matching NewsRelatedAppBox.tsx 1:1 without crawlable /moreinfo link)
   const appSlug = relatedApp ? (getField(relatedApp, 'slug') || getField(relatedApp, 'id')) : '';
   const appName = relatedApp ? getField(relatedApp, 'name') : (title || 'Featured App');
   const appIcon = relatedApp ? optimizeImageUrl(getField(relatedApp, 'icon_url') || getField(relatedApp, 'logo_url') || '', 128) : '';
   const detailUrl = appSlug ? `/app/${encodeURIComponent(appSlug)}` : '#';
-  const gatewayUrl = appSlug ? `/moreinfo/${encodeURIComponent(appSlug)}` : '#';
 
   const renderActionBox = (marginClass: string) => (relatedApp || appSlug) ? `
     <div class="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-blue-50/80 via-indigo-50/60 to-blue-50/80 dark:from-blue-950/40 dark:via-indigo-950/30 dark:to-blue-950/40 border border-blue-100 dark:border-blue-900/50 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm ${marginClass}">
@@ -221,10 +235,10 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
             <svg class="w-3.5 h-3.5 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
             <span>App Details</span>
           </a>
-          <a href="${escapeHtml(gatewayUrl)}" class="flex-1 sm:flex-none px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-500/20 active:scale-95 no-underline" title="Download via Secure Gateway">
+          <button type="button" class="flex-1 sm:flex-none px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-500/20 active:scale-95 cursor-pointer" title="Download">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
             <span>Download</span>
-          </a>
+          </button>
         ` : ''}
       </div>
     </div>
@@ -270,21 +284,28 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
     regularApps.sort((a, b) => (Number(getField(a, 'serial_number')) || 999999) - (Number(getField(b, 'serial_number')) || 999999));
 
     const maxCount = 16;
-    const pinnedNew = newApps.slice(0, Math.min(newApps.length, maxCount));
+    const strSeed = String(cleanSlug || getField(item, 'id') || '');
+    let seedHash = 0;
+    for (let i = 0; i < strSeed.length; i++) seedHash = ((seedHash << 5) - seedHash) + strSeed.charCodeAt(i);
+    const absSeed = Math.abs(seedHash);
+
+    const maxNewSlots = Math.min(newApps.length, 6);
+    const pinnedNew: any[] = [];
+    if (maxNewSlots > 0 && newApps.length > 0) {
+      const newStart = absSeed % newApps.length;
+      for (let s = 0; s < maxNewSlots; s++) {
+        pinnedNew.push(newApps[(newStart + s) % newApps.length]);
+      }
+    }
     const remainingSlots = maxCount - pinnedNew.length;
 
     const pickedRegular: any[] = [];
     if (remainingSlots > 0 && regularApps.length > 0) {
-      let startIndex = 0;
+      let startIndex = absSeed % regularApps.length;
       const baseSerial = Number(relatedApp ? getField(relatedApp, 'serial_number') : null);
       if (!isNaN(baseSerial) && baseSerial > 0) {
         const nextIdx = regularApps.findIndex((a: any) => (Number(getField(a, 'serial_number')) || 0) > baseSerial);
-        startIndex = nextIdx !== -1 ? nextIdx : 0;
-      } else {
-        const str = String(cleanSlug || getField(item, 'id') || '');
-        let hash = 0;
-        for (let i = 0; i < str.length; i++) hash = ((hash << 5) - hash) + str.charCodeAt(i);
-        startIndex = Math.abs(hash) % regularApps.length;
+        if (nextIdx !== -1) startIndex = nextIdx;
       }
 
       const countToPick = Math.min(remainingSlots, regularApps.length);
@@ -298,7 +319,7 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
 
     if (displaySimilarApps.length > 0) {
       recommendedAppsHtml = `
-        <section aria-labelledby="related-apps-heading" class="my-5 xs:my-6 px-0 text-left">
+        <aside data-nosnippet aria-labelledby="related-apps-heading" class="my-5 xs:my-6 px-0 text-left">
           <div class="flex items-center justify-between gap-2 mb-3 px-1 xs:px-2 sm:px-4 md:px-6">
             <div class="flex items-center gap-2 min-w-0">
               <h2 id="related-apps-heading" class="text-base xs:text-lg sm:text-xl font-bold flex items-center gap-1.5 xs:gap-2 text-zinc-900 dark:text-zinc-100 truncate">
@@ -315,13 +336,13 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
             ${displaySimilarApps.map((sim) => {
               const simName = getField(sim, 'name');
               const simSlug = getField(sim, 'slug');
-              const simIcon = optimizeImageUrl(getField(sim, 'icon_url') || '', 160);
+              const simIcon = optimizeImageUrl(getField(sim, 'icon_url') || '', 96);
               const simIsHot = sim.is_hot === true || (sim.is_hot && sim.is_hot.booleanValue === true);
               const simIsNew = checkAppIsNew(sim);
               return `
                 <a href="/app/${encodeURIComponent(simSlug)}" class="flex flex-col items-center justify-start gap-1 xxs:gap-1.5 xs:gap-2 w-[68px] xxs:w-[76px] xs:w-[86px] sm:w-[98px] snap-start group shrink-0 active:scale-95 transition-transform duration-150 ease-out no-underline">
                   <div class="relative inline-block shrink-0">
-                    <img src="${escapeHtml(simIcon)}" alt="${escapeHtml(simName)}" width="86" height="86" decoding="async" class="w-[58px] h-[58px] xxs:w-[66px] xxs:h-[66px] xs:w-[76px] xs:h-[76px] sm:w-[86px] sm:h-[86px] rounded-[24%] shadow-[0_2px_8px_rgba(0,0,0,0.08)] object-cover group-hover:scale-105 transition-transform duration-200 block pointer-events-none select-none" loading="lazy" />
+                    <img src="${escapeHtml(simIcon)}" alt="${escapeHtml(simName)}" width="86" height="86" decoding="async" fetchpriority="low" class="w-[58px] h-[58px] xxs:w-[66px] xxs:h-[66px] xs:w-[76px] xs:h-[76px] sm:w-[86px] sm:h-[86px] rounded-[24%] shadow-[0_2px_8px_rgba(0,0,0,0.08)] object-cover group-hover:scale-105 transition-transform duration-200 block pointer-events-none select-none" loading="lazy" />
                     ${simIsHot && simIsNew ? '<span class="absolute -top-1.5 -right-1.5 z-20 inline-flex items-center rounded-full overflow-hidden shadow-[0_2px_6px_rgba(0,0,0,0.25)] border border-white dark:border-zinc-900 font-black text-[7.5px] xxs:text-[8px] xs:text-[9px] uppercase tracking-wider leading-none select-none pointer-events-none"><span class="bg-[#d32f2f] text-white px-1 xs:px-1.5 py-0.5">HOT</span><span class="bg-[#008738] text-white px-1 xs:px-1.5 py-0.5">NEW</span></span>' : simIsHot ? '<span class="absolute -top-1.5 -right-1.5 z-20 bg-[#d32f2f] text-white font-black text-[7.5px] xxs:text-[8px] xs:text-[9px] px-1.5 py-0.5 rounded-full shadow-[0_2px_6px_rgba(0,0,0,0.25)] border border-white dark:border-zinc-900 uppercase tracking-wider leading-none select-none pointer-events-none flex items-center justify-center">HOT</span>' : simIsNew ? '<span class="absolute -top-1.5 -right-1.5 z-20 bg-[#008738] text-white font-black text-[7.5px] xxs:text-[8px] xs:text-[9px] px-1.5 py-0.5 rounded-full shadow-[0_2px_6px_rgba(0,0,0,0.25)] border border-white dark:border-zinc-900 uppercase tracking-wider leading-none select-none pointer-events-none flex items-center justify-center">NEW</span>' : ''}
                   </div>
                   <span class="text-[9.5px] xxs:text-[10.5px] xs:text-[11.5px] sm:text-[12px] font-semibold text-center text-zinc-800 dark:text-zinc-200 line-clamp-2 w-full px-0.5 leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors pointer-events-none select-none">${escapeHtml(simName)}</span>
@@ -329,7 +350,7 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
               `;
             }).join('')}
           </div>
-        </section>
+        </aside>
       `;
     }
   }
@@ -432,16 +453,16 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
       <!-- 2. Top NewsRelatedAppBox -->
       ${renderActionBox('my-5 sm:my-6')}
 
-      <!-- 3. Similar Applications -->
-      ${recommendedAppsHtml}
-
-      <!-- 4. Article Content Body -->
+      <!-- 3. Article Content Body -->
       <div class="prose dark:prose-invert max-w-none text-zinc-800 dark:text-zinc-200 leading-relaxed text-sm sm:text-base space-y-4 font-normal mt-6">
         ${sanitizedContent}
       </div>
 
-      <!-- 5. Bottom NewsRelatedAppBox -->
+      <!-- 4. Bottom NewsRelatedAppBox -->
       ${renderActionBox('my-8')}
+
+      <!-- 5. Similar Applications (Isolated below primary article body) -->
+      ${recommendedAppsHtml}
 
       <!-- 6. Latest News & Updates Internal Linking -->
       ${recentNewsHtml}

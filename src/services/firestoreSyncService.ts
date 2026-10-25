@@ -1,7 +1,7 @@
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
-const CHUNK_SIZE = 100; // items per chunk document to avoid 1MB Firestore document limit
+const CHUNK_SIZE = 25; // items per chunk document (aligned with useDataActions.ts)
 
 export const firestoreSyncService = {
   /**
@@ -50,7 +50,7 @@ export const firestoreSyncService = {
   },
 
   /**
-   * Writes chunked items to Firestore cleanly with meta doc tracking
+   * Writes chunked items to Firestore cleanly with meta doc tracking and stale chunk cleanup
    */
   async writeChunkedData<T>(metaDocName: string, chunkPrefix: string, items: T[]): Promise<boolean> {
     if (!db) return false;
@@ -61,6 +61,7 @@ export const firestoreSyncService = {
       // Write meta doc
       await setDoc(doc(db, 'store_data', metaDocName), {
         numChunks,
+        count: items.length,
         totalItems: items.length,
         updatedAt: new Date().toISOString()
       });
@@ -72,9 +73,17 @@ export const firestoreSyncService = {
         writePromises.push(
           setDoc(doc(db, 'store_data', `${chunkPrefix}_${i}`), {
             items: chunkItems,
+            count: chunkItems.length,
             chunkIndex: i,
             updatedAt: new Date().toISOString()
           })
+        );
+      }
+
+      // Clean up any orphaned higher chunks (up to 15)
+      for (let i = numChunks; i < 16; i++) {
+        writePromises.push(
+          deleteDoc(doc(db, 'store_data', `${chunkPrefix}_${i}`)).catch(() => undefined)
         );
       }
 

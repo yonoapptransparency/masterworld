@@ -170,7 +170,7 @@ export function useReviews(
   }, [cleanAppId, cleanAppSlug, cleanAppTitle, overallRating, activeFilter, sortBy, reviews.length]);
 
   // Initial fetch when container enters view or target app changes
-  const prevTargetKeyRef = useRef<string>(initialCached ? (cleanAppId || cleanAppSlug) : '');
+  const prevTargetKeyRef = useRef<string>(initialCached && initialCached.reviews.length > 0 ? (cleanAppId || cleanAppSlug) : '');
   useEffect(() => {
     const targetKey = cleanAppId || cleanAppSlug;
     if (!targetKey || !inView) return;
@@ -183,7 +183,7 @@ export function useReviews(
       
       // Update reviews with any cached/initial entries for the new app immediately
       const freshCache = getCachedLiveReviews(cleanAppId, cleanAppSlug);
-      if (freshCache) {
+      if (freshCache && freshCache.reviews.length > 0) {
         const mapped = freshCache.reviews.slice(0, PAGE_SIZE).map((r: any) => normalizeReviewItem(r, cleanAppId));
         setReviews(deduplicateReviewsList(mapped));
         setStats(freshCache.stats || getCachedLiveAppStats(cleanAppId, cleanAppSlug));
@@ -197,8 +197,10 @@ export function useReviews(
         setHasMore(false);
         fetchReviews(false);
       }
+    } else if (reviews.length === 0 && loading) {
+      fetchReviews(false);
     }
-  }, [cleanAppId, cleanAppSlug, inView, fetchReviews]);
+  }, [cleanAppId, cleanAppSlug, inView, fetchReviews, reviews.length, loading]);
 
   // Refetch 5 items when filter or sorting changes
   const isFirstFilterMount = useRef(true);

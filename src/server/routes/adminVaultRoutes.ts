@@ -205,7 +205,7 @@ adminVaultRouter.post('/api/v1/admin/save-news', (req, res) => {
   }
 });
 
-adminVaultRouter.post('/api/v1/admin/app/save', (req, res) => {
+adminVaultRouter.post('/api/v1/admin/app/save', async (req, res) => {
   try {
     const { app } = req.body || {};
     if (app && (app.id || app.slug)) {
@@ -219,6 +219,47 @@ adminVaultRouter.post('/api/v1/admin/app/save', (req, res) => {
         current.apps.push(appWithTime);
       }
       writeMergedData(current);
+
+      // Update RAM vault and re-seal src/lib/secureVault.ts if the app has a destination link
+      try {
+        const { encryptAesGcmV2, decryptVaultValue } = await import('../crypto.js');
+        const { setRamVaultLink, isValidDestinationUrl } = await import('../services/linkService.js');
+        const AES_SECRET = getAesSecret();
+        const hasV2Key = Boolean(process.env.AES_KEY && process.env.AES_KEY.trim());
+        const vaultMap: Record<string, string> = {};
+        for (const item of current.apps) {
+          if (!item || item.sync_to_public === false) continue;
+          const id = String(item.id || '').trim();
+          const slug = String(item.slug || '').trim();
+          const rawUrl = item.more_information_url || item.encrypted_link || item.url || '';
+          if (!rawUrl || typeof rawUrl !== 'string') continue;
+          const trimmed = rawUrl.trim();
+          if (trimmed.toLowerCase().includes('mediafire.com') || trimmed.includes('com.rummydex') || trimmed.includes('com.example')) continue;
+          const plainUrl = trimmed.startsWith('v2.') || trimmed.startsWith('U2FsdGVkX1')
+            ? (await decryptVaultValue(trimmed)) || safeDecrypt(trimmed, AES_SECRET) || ''
+            : trimmed;
+          if (!isValidDestinationUrl(plainUrl)) continue;
+          if (id) {
+            vaultMap[id] = plainUrl;
+            setRamVaultLink(id, plainUrl);
+          }
+          if (slug) {
+            vaultMap[slug] = plainUrl;
+            setRamVaultLink(slug, plainUrl);
+          }
+        }
+        const jsonPayload = JSON.stringify(vaultMap);
+        const ciphertext = hasV2Key
+          ? (await encryptAesGcmV2(jsonPayload, process.env as Record<string, string | undefined>)) || safeEncrypt(jsonPayload, AES_SECRET)
+          : safeEncrypt(jsonPayload, AES_SECRET);
+        if (ciphertext) {
+          const vaultFilePath = path.join(process.cwd(), 'src/lib/secureVault.ts');
+          fs.writeFileSync(vaultFilePath, generateSecureVaultFile(ciphertext), 'utf8');
+        }
+      } catch (vaultErr) {
+        console.warn('[adminVaultRoutes] Notice updating vault on single app save:', vaultErr);
+      }
+
       return res.json({ success: true, app: appWithTime });
     }
     res.status(400).json({ success: false, error: 'App object required' });
@@ -343,6 +384,28 @@ adminVaultRouter.post('/api/v1/admin/save-data', (req, res) => {
   }
 });
 
+adminVaultRouter.post('/api/v1/admin/encrypt', async (req, res) => {
+  try {
+    const { url } = req.body || {};
+    const plainUrl = String(url || '').trim();
+    if (!plainUrl) {
+      return res.status(400).json({ status: 'ERROR', error: 'URL required' });
+    }
+    if (plainUrl.startsWith('v2.') || plainUrl.startsWith('U2FsdGVkX1')) {
+      return res.json({ status: 'OK', encrypted: plainUrl });
+    }
+    const { encryptAesGcmV2 } = await import('../crypto.js');
+    const AES_SECRET = getAesSecret();
+    const hasV2Key = Boolean(process.env.AES_KEY && process.env.AES_KEY.trim());
+    const encrypted = hasV2Key
+      ? (await encryptAesGcmV2(plainUrl, process.env as Record<string, string | undefined>)) || safeEncrypt(plainUrl, AES_SECRET)
+      : safeEncrypt(plainUrl, AES_SECRET);
+    return res.json({ status: 'OK', encrypted });
+  } catch (err: any) {
+    res.status(500).json({ status: 'ERROR', error: err?.message });
+  }
+});
+
 adminVaultRouter.post('/api/v1/admin/encrypt-links', async (req, res) => {
   try {
     const { items } = req.body || {};
@@ -448,13 +511,31 @@ adminVaultRouter.post('/api/v1/admin/build-public-api', async (req, res) => {
 
 adminVaultRouter.post('/api/v1/admin/sync-local', (req, res) => {
   try {
-    const { apps, settings, news, videos } = req.body || {};
+    const { apps, settings, news, videos, catalogStats, staticReviews } = req.body || {};
     const current = getMergedData();
     if (Array.isArray(apps) && apps.length > 0) current.apps = apps;
     if (settings && Object.keys(settings).length > 0) current.settings = { ...(current.settings || {}), ...settings };
     if (Array.isArray(news) && news.length > 0) current.news = news;
     if (Array.isArray(videos) && videos.length > 0) current.videos = videos;
     writeMergedData(current);
+
+    if (catalogStats && typeof catalogStats === 'object') {
+      try {
+        const statsPath = path.join(process.cwd(), 'src/lib/communityCatalogStats.json');
+        fs.writeFileSync(statsPath, JSON.stringify(catalogStats), 'utf8');
+      } catch (e) {
+        console.warn('[adminVaultRoutes] Failed writing communityCatalogStats.json:', e);
+      }
+    }
+    if (staticReviews && typeof staticReviews === 'object' && Object.keys(staticReviews).length > 0) {
+      try {
+        const revsPath = path.join(process.cwd(), 'src/lib/communityStaticReviews.json');
+        fs.writeFileSync(revsPath, JSON.stringify(staticReviews), 'utf8');
+      } catch (e) {
+        console.warn('[adminVaultRoutes] Failed writing communityStaticReviews.json:', e);
+      }
+    }
+
     res.json({ success: true, message: 'Local files and SEO caches synchronized' });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message });
@@ -462,5 +543,13 @@ adminVaultRouter.post('/api/v1/admin/sync-local', (req, res) => {
 });
 
 adminVaultRouter.get('/api/v1/admin/backup-links-get', (req, res) => {
-  res.json({ items: [] });
+  const current = getMergedData();
+  const items = (current.apps || [])
+    .filter((a: any) => a && (a.more_information_url || a.encrypted_link))
+    .map((a: any) => ({
+      id: a.id,
+      slug: a.slug,
+      url: a.more_information_url || a.encrypted_link || ''
+    }));
+  res.json({ items });
 });
