@@ -15,7 +15,7 @@
       "destination": "/api/index"
     },
     {
-      "source": "/moreinfo/(.*)",
+      "source": "/(moreinfo|gateway|info|moredetail|download)/(.*)",
       "destination": "/"
     },
     {
@@ -34,65 +34,6 @@
         {
           "key": "Pragma",
           "value": "no-cache"
-        }
-      ]
-    },
-    {
-      "source": "/(moreinfo|gateway|download|info|moredetail|s|dl|out|admin|login|masterworld|safety|safety-status)(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, no-cache, must-revalidate, private, max-age=0"
-        },
-        {
-          "key": "CDN-Cache-Control",
-          "value": "no-store, private"
-        },
-        {
-          "key": "Cloudflare-CDN-Cache-Control",
-          "value": "no-store, private"
-        },
-        {
-          "key": "X-Robots-Tag",
-          "value": "noindex, nofollow, noarchive, nosnippet"
-        },
-        {
-          "key": "Referrer-Policy",
-          "value": "no-referrer"
-        }
-      ]
-    },
-    {
-      "source": "/(app|news|category|categories|videos|about|contact|privacy|terms|responsibility|notice|ethics|disclaimer|report-removal|new-apps|developers|faq|faqs)(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400"
-        },
-        {
-          "key": "CDN-Cache-Control",
-          "value": "public, max-age=3600, stale-while-revalidate=86400"
-        },
-        {
-          "key": "Cloudflare-CDN-Cache-Control",
-          "value": "public, max-age=3600, stale-while-revalidate=86400"
-        },
-        {
-          "key": "X-Robots-Tag",
-          "value": "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
-        }
-      ]
-    },
-    {
-      "source": "/",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400"
-        },
-        {
-          "key": "X-Robots-Tag",
-          "value": "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
         }
       ]
     },
@@ -130,6 +71,65 @@
         {
           "key": "Permissions-Policy",
           "value": "camera=(), microphone=(), geolocation=()"
+        }
+      ]
+    },
+    {
+      "source": "/",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400"
+        },
+        {
+          "key": "X-Robots-Tag",
+          "value": "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
+        }
+      ]
+    },
+    {
+      "source": "/(app|news|category|categories|videos|about|contact|privacy|terms|responsibility|notice|ethics|disclaimer|report-removal|new-apps|developers|faq|faqs)(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400"
+        },
+        {
+          "key": "CDN-Cache-Control",
+          "value": "public, max-age=3600, stale-while-revalidate=86400"
+        },
+        {
+          "key": "Cloudflare-CDN-Cache-Control",
+          "value": "public, max-age=3600, stale-while-revalidate=86400"
+        },
+        {
+          "key": "X-Robots-Tag",
+          "value": "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
+        }
+      ]
+    },
+    {
+      "source": "/(moreinfo|gateway|download|info|moredetail|s|dl|out|admin|login|masterworld|safety|safety-status)(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, no-cache, must-revalidate, private, max-age=0"
+        },
+        {
+          "key": "CDN-Cache-Control",
+          "value": "no-store, private"
+        },
+        {
+          "key": "Cloudflare-CDN-Cache-Control",
+          "value": "no-store, private"
+        },
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow, noarchive, nosnippet"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
         }
       ]
     },

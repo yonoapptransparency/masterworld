@@ -12,6 +12,12 @@ export function optimizeInitialDataForRoute(
   if (!data) return {};
 
   const isAppDetailPage = cleanPathLower.startsWith('/app/');
+  const isGatewayPage =
+    cleanPathLower.startsWith('/moreinfo/') ||
+    cleanPathLower.startsWith('/gateway/') ||
+    cleanPathLower.startsWith('/info/') ||
+    cleanPathLower.startsWith('/moredetail/') ||
+    cleanPathLower.startsWith('/download/');
   const isNewsDetailPage = cleanPathLower.startsWith('/news/') && cleanPathLower !== '/news';
   const isNewsIndexPage = cleanPathLower === '/news';
   const isHomePage = cleanPathLower === '/' || cleanPathLower === '';
@@ -26,6 +32,60 @@ export function optimizeInitialDataForRoute(
       news: data.news || [],
       videos: data.videos || [],
       developers: data.developers || data.settings?.developers || []
+    };
+  }
+
+  // Ultra-lean single-app payload for /moreinfo/:slug gateway pages (~95% payload reduction)
+  if (isGatewayPage) {
+    const rawSettings = data.settings || {};
+    const gatewayApps = targetApp
+      ? [
+          {
+            id: targetApp.id,
+            name: targetApp.name,
+            slug: targetApp.slug,
+            icon_url: targetApp.icon_url || '',
+            category: targetApp.category || '',
+            rating: Number(targetApp.rating) || 4.5,
+            version: targetApp.version || '1.0',
+            file_size: targetApp.file_size || '45 MB',
+            safety_status: targetApp.safety_status || 'Verified',
+            developer: targetApp.developer || '',
+            serial_number: targetApp.serial_number ?? undefined,
+            is_coming_soon: Boolean(targetApp.is_coming_soon),
+            has_secure_link: Boolean(
+              targetApp.has_secure_link ||
+                targetApp.link_configured ||
+                targetApp.more_information_url ||
+                targetApp.encrypted_link ||
+                targetApp.download_url
+            ),
+            link_configured: Boolean(
+              targetApp.has_secure_link ||
+                targetApp.link_configured ||
+                targetApp.more_information_url ||
+                targetApp.encrypted_link ||
+                targetApp.download_url
+            ),
+          },
+        ]
+      : [];
+
+    return {
+      apps: gatewayApps,
+      settings: {
+        site_title: rawSettings.site_title || 'RummyDex',
+        logo_url: rawSettings.logo_url || '',
+        favicon_url: rawSettings.favicon_url || '',
+        turnstile_site_key: rawSettings.turnstile_site_key || '',
+        helpline_whatsapp: rawSettings.helpline_whatsapp || '',
+        helpline_telegram: rawSettings.helpline_telegram || '',
+        social_links: Array.isArray(rawSettings.social_links) ? rawSettings.social_links : [],
+        categories: Array.isArray(rawSettings.categories) ? rawSettings.categories : [],
+      },
+      news: [],
+      videos: [],
+      developers: [],
     };
   }
 
@@ -102,7 +162,8 @@ export function optimizeInitialDataForRoute(
         updated_at: app.updated_at || '',
         created_at: app.created_at || '',
         has_secure_link: hasSecureLink,
-        link_configured: hasSecureLink
+        link_configured: hasSecureLink,
+        _isFullApp: true
       };
     }
 
@@ -123,7 +184,8 @@ export function optimizeInitialDataForRoute(
         popular: Boolean(app.popular),
         active: app.active !== false,
         has_secure_link: hasSecureLink,
-        link_configured: hasSecureLink
+        link_configured: hasSecureLink,
+        _isTrimmed: true
       };
     }
 
@@ -157,7 +219,8 @@ export function optimizeInitialDataForRoute(
       seo_description: app.seo_description || '',
       canonical_url: app.canonical_url || '',
       has_secure_link: hasSecureLink,
-      link_configured: hasSecureLink
+      link_configured: hasSecureLink,
+      _isTrimmed: true
     };
   }).filter(Boolean);
 
@@ -307,7 +370,10 @@ export function optimizeInitialDataForRoute(
     'disclaimer_meta_title', 'disclaimer_meta_description', 'disclaimer_text', 'disclaimer_heading',
     'developers_meta_title', 'developers_meta_description', 'developers',
     'website_faqs', 'faq_meta_title', 'faq_meta_description',
-    'videos_meta_title', 'videos_meta_description'
+    'videos_meta_title', 'videos_meta_description',
+    'new_apps_meta_title', 'new_apps_meta_description',
+    'categories_meta_title', 'categories_meta_description',
+    'safety_meta_title', 'safety_meta_description'
   ];
 
   const allowedKeys = (isAppDetailPage || isNewsDetailPage) ? detailPageKeys : fullAllowedKeys;

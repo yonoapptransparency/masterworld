@@ -1,5 +1,6 @@
 import { handleSessionInit, handleSessionClearance } from '../../src/server/security/gateCore';
 import { HARD_RESPONSE_STATUS, HARD_RESPONSE_BODY } from '../../src/lib/gateConfig';
+import { resolveAppSlug } from '../../src/lib/slugResolver';
 import staticData from '../../src/lib/staticData.json';
 
 async function sha256Hex(str) {
@@ -290,10 +291,11 @@ export async function onRequest(context) {
     const rawSlug = url.pathname.replace(/^\/api\/v1\/public\/app\//, '').trim();
     const clean = decodeURIComponent(rawSlug).toLowerCase().trim();
     const apps = Array.isArray(staticData?.apps) ? staticData.apps : [];
-    const app = apps.find((a) => {
-      const s = String(a.slug || a.id || '').toLowerCase().trim();
-      return s === clean;
-    });
+    const app =
+      apps.find((a) => {
+        const s = String(a.slug || a.id || '').toLowerCase().trim();
+        return s === clean;
+      }) || resolveAppSlug(clean, apps);
     if (app) {
       return new Response(JSON.stringify({ status: 'OK', app }), {
         status: 200,

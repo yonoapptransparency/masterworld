@@ -1,4 +1,4 @@
-import { getField, stripHtml, optimizeImageUrl, normalizeSchemaCategory, getYoutubeThumbnail, cleanFaqQuestion } from './utils';
+import { getField, stripHtml, optimizeImageUrl, normalizeSchemaCategory, getYoutubeThumbnail, cleanFaqQuestion, normalizeIsoDate } from './utils';
 import { fetchSEOReviewsForApp } from './reviewFallback';
 
 export interface BuildSchemaParams {
@@ -44,7 +44,7 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
     const rawRating = getField(app, 'rating');
     const configuredRating = parseFloat(rawRating);
     const rawCount = getField(app, 'review_count') || getField(app, 'reviews') || '';
-    const configuredCount = parseInt(rawCount, 10);
+    const configuredCount = parseInt(String(rawCount).replace(/[^0-9]/g, ''), 10) || 0;
     
     // Align live rating and count with community reviews and AppDetails
     const appIdentifier = getField(app, 'slug') || getField(app, 'id');
@@ -60,7 +60,7 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
     // Strictly real count of reviews present in Firebase / catalog
     const finalCount = hasLiveReviews 
       ? Number(liveStats.totalReviews) 
-      : (!isNaN(configuredCount) && configuredCount > 0 ? configuredCount : 0);
+      : (configuredCount > 0 ? configuredCount : 0);
 
     const appRawIcon = getField(app, 'icon_url') || getField(app, 'og_image_url') || params.logoUrl;
     const appSquareIcon = optimizeImageUrl(appRawIcon, 512) || appRawIcon;
@@ -73,13 +73,12 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
     const version = getField(app, 'version') || '1.0';
 
     const appPageUrl = params.url || `${hostOrigin}/app/${getField(app, 'slug')}`;
-    const validCount = Math.max(1, Math.round(finalCount > 0 ? finalCount : 25));
     const ratingValue = parseFloat(clampedRating.toFixed(1));
 
     // Sample reviews for Rich Snippet compliance
     let validReviews: any[] = [];
     try {
-      const feed = await fetchSEOReviewsForApp(appIdentifier, getField(app, 'slug'), clampedRating, name);
+      const feed = seoFeed || await fetchSEOReviewsForApp(appIdentifier, getField(app, 'slug'), clampedRating, name);
       if (feed && Array.isArray(feed.reviews) && feed.reviews.length > 0) {
         validReviews = feed.reviews
           .filter((rev: any) => rev && stripHtml(rev.reviewText || '').trim().length >= 3)
@@ -101,6 +100,8 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
           }));
       }
     } catch (_) {}
+
+    const validCount = Math.round(Math.max(finalCount, validReviews.length));
 
     // 1. Comprehensive Product Schema (Resolves Ahrefs "Product page missing Product schema" & Google Merchant/Product Rich Results)
     const productSchema: any = {
@@ -124,16 +125,19 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
         "priceValidUntil": "2030-12-31",
         "availability": "https://schema.org/InStock",
         "url": appPageUrl
-      },
-      "aggregateRating": {
+      }
+    };
+
+    if (validCount > 0) {
+      productSchema["aggregateRating"] = {
         "@type": "AggregateRating",
         "ratingValue": ratingValue,
         "ratingCount": validCount,
         "reviewCount": validCount,
         "bestRating": 5,
         "worstRating": 1
-      }
-    };
+      };
+    }
 
     if (validReviews.length > 0) {
       productSchema["review"] = validReviews;
@@ -164,18 +168,21 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
         "availability": "https://schema.org/InStock",
         "url": appPageUrl
       },
-      "aggregateRating": {
+      "isVariantOf": {
+        "@id": `${appPageUrl}#product`
+      }
+    };
+
+    if (validCount > 0) {
+      softwareAppSchema["aggregateRating"] = {
         "@type": "AggregateRating",
         "ratingValue": ratingValue,
         "ratingCount": validCount,
         "reviewCount": validCount,
         "bestRating": 5,
         "worstRating": 1
-      },
-      "isVariantOf": {
-        "@id": `${appPageUrl}#product`
-      }
-    };
+      };
+    }
 
     if (validReviews.length > 0) {
       softwareAppSchema["review"] = validReviews;
@@ -285,8 +292,9 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
       getField(item, 'description') || 
       params.description
     );
-    const datePublished = getField(item, 'published_at') || getField(item, 'publish_date') || getField(item, 'created_at') || getField(item, 'date') || '2026-09-01T00:00:00.000Z';
-    const dateModified = getField(item, 'updated_at') || datePublished;
+    const rawDatePublished = getField(item, 'published_at') || getField(item, 'publish_date') || getField(item, 'created_at') || getField(item, 'date') || '2026-09-01T00:00:00.000Z';
+    const datePublished = normalizeIsoDate(rawDatePublished);
+    const dateModified = normalizeIsoDate(getField(item, 'updated_at') || rawDatePublished, datePublished);
     const authorName = getField(item, 'author') || getField(item, 'ceo_name') || 'Editorial Team';
 
     const rawNewsImg = getField(item, 'og_image_url') || getField(item, 'image_url') || getField(item, 'logo_url') || params.logoUrl;
@@ -366,13 +374,14 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
   } else if (params.pageType === 'video' && params.videoItem) {
     const v = params.videoItem;
     const youtubeUrl = getField(v, 'youtube_url') || getField(v, 'video_url') || getField(v, 'url');
+    const uploadDate = normalizeIsoDate(getField(v, 'updated_at') || getField(v, 'created_at') || getField(v, 'published_at') || getField(v, 'date'));
     schemas.push({
       "@context": "https://schema.org",
       "@type": "VideoObject",
       "name": getField(v, 'title'),
       "description": getField(v, 'description') || getField(v, 'title'),
       "thumbnailUrl": getYoutubeThumbnail(youtubeUrl) || params.logoUrl,
-      "uploadDate": getField(v, 'created_at') || new Date().toISOString(),
+      "uploadDate": uploadDate,
       "contentUrl": youtubeUrl
     });
     schemas.push({

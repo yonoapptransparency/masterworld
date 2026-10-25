@@ -245,8 +245,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     description = getField(settings, 'seo_description') || getField(settings, 'meta_description', '');
   } else if (cleanPathLower === '/new-apps') {
     pageType = 'collection';
-    title = `New Apps & Latest Releases`;
-    description = `Explore the newest released Rummy, Teen Patti, and card game apps with verified ratings on ${siteTitle}.`;
+    title = getField(settings, 'new_apps_meta_title') || `New Apps & Latest Releases`;
+    description = getField(settings, 'new_apps_meta_description') || `Explore the newest released Rummy, Teen Patti, and card game apps with verified ratings on ${siteTitle}.`;
     customCanonicalUrl = `https://www.rummydex.com/new-apps`;
     const newAppsList = apps.filter((a: any) => a.is_new === true || (a.is_new && a.is_new.booleanValue === true) || a.is_hot === true).slice(0, 20);
     collectionItems = (newAppsList.length > 0 ? newAppsList : apps.slice(0, 20)).map((a: any) => ({
@@ -261,8 +261,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     ];
   } else if (cleanPathLower === '/categories') {
     pageType = 'collection';
-    title = `App Categories & Genres`;
-    description = `Browse all gaming and entertainment application categories on ${siteTitle}.`;
+    title = getField(settings, 'categories_meta_title') || `App Categories & Genres`;
+    description = getField(settings, 'categories_meta_description') || `Browse all gaming and entertainment application categories on ${siteTitle}.`;
     customCanonicalUrl = `https://www.rummydex.com/categories`;
     const catMap = new Map<string, string>();
     for (const a of apps) {

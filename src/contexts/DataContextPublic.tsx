@@ -364,6 +364,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         (updateSlug && a.slug && String(a.slug).toLowerCase().trim() === updateSlug)
       );
       if (index >= 0) {
+        const existing = prevApps[index];
+        if (
+          existing.description_html === updatedApp.description_html &&
+          existing.features_html === updatedApp.features_html &&
+          existing.updated_at === updatedApp.updated_at &&
+          existing.version === updatedApp.version
+        ) {
+          return prevApps;
+        }
         const next = [...prevApps];
         next[index] = { ...next[index], ...updatedApp };
         return next;

@@ -334,23 +334,29 @@ function getFirebaseConfig(env?: Record<string, string | undefined>): {
   };
 }
 
+let firestoreQuotaCooldownUntil = 0;
+
 async function fetchFirestoreDocWithTimeout(
   collectionAndDoc: string,
   timeoutMs: number,
   env?: Record<string, string | undefined>
 ): Promise<Record<string, any> | null> {
+  if (Date.now() < firestoreQuotaCooldownUntil) {
+    return null;
+  }
+
   const cfg = getFirebaseConfig(env);
   if (!cfg) return null;
 
   const dbCandidates = Array.from(
     new Set([
-      cfg.databaseId,
-      'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a',
+      cfg.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a',
       '(default)',
     ])
   );
 
   for (const dbId of dbCandidates) {
+    if (Date.now() < firestoreQuotaCooldownUntil) return null;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
@@ -358,12 +364,20 @@ async function fetchFirestoreDocWithTimeout(
         dbId
       )}/documents/${collectionAndDoc}?key=${cfg.apiKey}`;
       const res = await fetch(url, { signal: controller.signal });
+      if (res.status === 429 || res.status === 403) {
+        firestoreQuotaCooldownUntil = Date.now() + 60_000;
+        return null;
+      }
       if (res.ok) {
         const json = (await res.json()) as Record<string, any>;
         if (json?.fields) return json;
       }
+      if (res.status === 404 && dbId === cfg.databaseId) {
+        // Document genuinely does not exist in primary database
+        return null;
+      }
     } catch {
-      // Try next databaseId candidate
+      // Try next databaseId candidate if network failed
     } finally {
       clearTimeout(timer);
     }
@@ -375,8 +389,10 @@ async function resolveFromT3SecVault(
   identifier: string,
   env?: Record<string, string | undefined>
 ): Promise<string | null> {
+  if (Date.now() < firestoreQuotaCooldownUntil) return null;
   const docPaths = ['store_data/sec_vault', 'sec_vault/links', 'store_data/secure_links'];
   for (const docPath of docPaths) {
+    if (Date.now() < firestoreQuotaCooldownUntil) break;
     const doc = await fetchFirestoreDocWithTimeout(docPath, 1500, env);
     if (!doc?.fields) continue;
 
@@ -436,18 +452,22 @@ async function resolveFromT4StoreData(
   identifier: string,
   env?: Record<string, string | undefined>
 ): Promise<string | null> {
+  if (Date.now() < firestoreQuotaCooldownUntil) return null;
   const chunkNames = [
+    'store_data/secure_links',
     'store_data/apps_chunk_0',
     'store_data/apps_chunk_1',
     'store_data/apps_chunk_2',
     'store_data/apps_chunk_3',
     'store_data/apps_chunk_4',
     'store_data/apps_chunk_5',
-    'store_data/secure_links',
+    'store_data/apps_chunk_6',
+    'store_data/apps_chunk_7',
   ];
   const targetNorm = normalizeIdentifier(identifier);
 
   for (const chunkName of chunkNames) {
+    if (Date.now() < firestoreQuotaCooldownUntil) break;
     const doc = await fetchFirestoreDocWithTimeout(chunkName, 1500, env);
     if (!doc?.fields) continue;
 
@@ -504,10 +524,10 @@ async function resolveFromT4StoreData(
 
 /**
  * Resolves all candidate Cloudflare Turnstile secret keys across:
- * 1. Environment variable `TURNSTILE_SECRET_KEY`
- * 2. Admin Settings `turnstile_secret_key` (from local `public_backup.json` or Firestore `store_data/settings`)
- * This guarantees that if Admin configured a Turnstile key pair in Admin Settings OR in environment variables,
- * Gate G6 can verify tokens minted by the matching site key without false-positive rejection.
+ * 1. Admin Settings `turnstile_secret_key` (from local `public_backup.json` or Firestore `store_data/settings`)
+ * 2. Environment variable `TURNSTILE_SECRET_KEY`
+ * Putting Admin Settings first matches the client-side `useTurnstileVerification.ts` site key priority
+ * (`settings?.turnstile_site_key` before `VITE_TURNSTILE_SITE_KEY`), while keeping env var as fallback.
  */
 export async function getCandidateTurnstileSecrets(
   env?: Record<string, string | undefined>
@@ -523,19 +543,19 @@ export async function getCandidateTurnstileSecrets(
     }
   };
 
-  addSecret(env?.TURNSTILE_SECRET_KEY);
-  addSecret(procEnv.TURNSTILE_SECRET_KEY);
-
-  // Check cached store secret
+  // 1. Check cached store secret first
   if (
     cachedTurnstileSecretFromStore &&
+    cachedTurnstileSecretFromStore.secret &&
     Date.now() < cachedTurnstileSecretFromStore.expiresAt
   ) {
     addSecret(cachedTurnstileSecretFromStore.secret);
+    addSecret(env?.TURNSTILE_SECRET_KEY);
+    addSecret(procEnv.TURNSTILE_SECRET_KEY);
     return secrets;
   }
 
-  // Try reading from local public_backup.json (Node server)
+  // 2. Try reading from local public_backup.json (Node server)
   try {
     if (typeof process !== 'undefined' && typeof process.cwd === 'function') {
       const fsMod = await import('fs').catch(() => null);
@@ -552,6 +572,8 @@ export async function getCandidateTurnstileSecrets(
               expiresAt: Date.now() + 300_000,
             };
             addSecret(sec);
+            addSecret(env?.TURNSTILE_SECRET_KEY);
+            addSecret(procEnv.TURNSTILE_SECRET_KEY);
             return secrets;
           }
         }
@@ -561,25 +583,25 @@ export async function getCandidateTurnstileSecrets(
     // Ignore local fs errors on Edge
   }
 
-  // Fallback on Cloudflare Edge: query Firestore store_data/settings once per 5 min if needed
-  try {
-    const doc = await fetchFirestoreDocWithTimeout('store_data/settings', 1200, env);
-    const sec = doc?.fields?.turnstile_secret_key?.stringValue;
-    if (typeof sec === 'string' && sec.trim()) {
-      cachedTurnstileSecretFromStore = {
-        secret: sec.trim(),
-        expiresAt: Date.now() + 300_000,
-      };
-      addSecret(sec);
-    } else {
-      cachedTurnstileSecretFromStore = {
-        secret: '',
-        expiresAt: Date.now() + 60_000,
-      };
+  // 3. Fallback on Cloudflare Edge: query Firestore store_data/settings if not in quota cooldown
+  if (Date.now() >= firestoreQuotaCooldownUntil) {
+    try {
+      const doc = await fetchFirestoreDocWithTimeout('store_data/settings', 1200, env);
+      const sec = doc?.fields?.turnstile_secret_key?.stringValue;
+      if (typeof sec === 'string' && sec.trim()) {
+        cachedTurnstileSecretFromStore = {
+          secret: sec.trim(),
+          expiresAt: Date.now() + 300_000,
+        };
+        addSecret(sec);
+      }
+    } catch {
+      // Ignore
     }
-  } catch {
-    // Ignore
   }
+
+  addSecret(env?.TURNSTILE_SECRET_KEY);
+  addSecret(procEnv.TURNSTILE_SECRET_KEY);
 
   return secrets;
 }

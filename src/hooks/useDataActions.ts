@@ -3,6 +3,7 @@ import { AppConfig, GlobalSettings, NewsItem, VideoItem } from '../types';
 import { adminFetch } from '../services/adminAuthService';
 import { db, isFirebaseReal } from '../lib/firebase';
 import { formatPageTitle, cleanSettingsMetaTitles } from '../lib/seoUtils';
+import { structureHtmlFragment } from '../lib/safeHtmlPublic';
 
 const ADMIN_BYPASS_KEY = 'aistudio_preview_bypass_key';
 
@@ -44,6 +45,15 @@ export function useDataActions(
       meta_title: exactAdminTitle,
       seo_description: (singleApp.seo_description || singleApp.meta_description || '').trim(),
       meta_description: (singleApp.seo_description || singleApp.meta_description || '').trim(),
+      description_html: typeof singleApp.description_html === 'string' && singleApp.description_html.trim()
+        ? structureHtmlFragment(singleApp.description_html)
+        : (singleApp.description_html || ''),
+      features_html: typeof singleApp.features_html === 'string' && singleApp.features_html.trim()
+        ? structureHtmlFragment(singleApp.features_html)
+        : (singleApp.features_html || ''),
+      custom_admin_box_html: typeof singleApp.custom_admin_box_html === 'string' && singleApp.custom_admin_box_html.trim()
+        ? structureHtmlFragment(singleApp.custom_admin_box_html)
+        : (singleApp.custom_admin_box_html || ''),
       updated_at: new Date().toISOString()
     };
 
@@ -242,7 +252,11 @@ export function useDataActions(
         };
 
         await setDoc(doc(db, 'store_data', 'settings'), payloadToSave, { merge: true });
-        await setDoc(doc(db, 'store_data', 'public_settings'), payloadToSave, { merge: true });
+        const publicPayload = { ...payloadToSave } as any;
+        delete publicPayload.turnstile_secret_key;
+        delete publicPayload.cloudinary_api_secret;
+        delete publicPayload.gemini_api_key;
+        await setDoc(doc(db, 'store_data', 'public_settings'), publicPayload, { merge: true });
         savedToFirestore = true;
       } catch (err: any) {
         console.warn("[useDataActions] Direct Firestore settings save notice:", err);
@@ -284,10 +298,19 @@ export function useDataActions(
         ...a,
         slug: typeof a?.slug === 'string' ? a.slug.trim().replace(/^\/+|\/+$/g, '') : a?.slug,
         seo_title: exactTitle,
-        meta_title: exactTitle
+        meta_title: exactTitle,
+        description_html: typeof a?.description_html === 'string' && a.description_html.trim()
+          ? structureHtmlFragment(a.description_html)
+          : (a?.description_html ?? ''),
+        features_html: typeof a?.features_html === 'string' && a.features_html.trim()
+          ? structureHtmlFragment(a.features_html)
+          : (a?.features_html ?? ''),
+        custom_admin_box_html: typeof a?.custom_admin_box_html === 'string' && a.custom_admin_box_html.trim()
+          ? structureHtmlFragment(a.custom_admin_box_html)
+          : (a?.custom_admin_box_html ?? '')
       };
       const changed = hasItemContentChanged(prev, candidate);
-      const preservedDate = prev?.updated_at || a?.updated_at || a?.publish_date || a?.created_at || now;
+      const preservedDate = prev?.updated_at || a?.updated_at || a?.published_at || a?.publish_date || a?.created_at || a?.added_date || a?.date || now;
       return {
         ...candidate,
         updated_at: changed ? now : preservedDate
@@ -423,7 +446,11 @@ export function useDataActions(
           _rest_admin_bypass: ADMIN_BYPASS_KEY
         };
         await setDoc(doc(db, 'store_data', 'settings'), payloadToSave, { merge: true });
-        await setDoc(doc(db, 'store_data', 'public_settings'), payloadToSave, { merge: true });
+        const publicPayload = { ...payloadToSave } as any;
+        delete publicPayload.turnstile_secret_key;
+        delete publicPayload.cloudinary_api_secret;
+        delete publicPayload.gemini_api_key;
+        await setDoc(doc(db, 'store_data', 'public_settings'), publicPayload, { merge: true });
         savedToFirestore = true;
       } catch (err: any) {
         console.warn("[useDataActions] Direct Firestore saveSettings notice:", err);
@@ -523,7 +550,30 @@ export function useDataActions(
   }, [getAdminToken, setNews, news]);
 
   const saveVideos = useCallback(async (newVideos: VideoItem[]) => {
-    const cleanVideos = JSON.parse(JSON.stringify(newVideos || []));
+    const now = new Date().toISOString();
+    const existingById = new Map<string, any>();
+    const existingBySlug = new Map<string, any>();
+    for (const prev of videos || []) {
+      if (prev?.id) existingById.set(String(prev.id).trim(), prev);
+      if (prev?.slug) existingBySlug.set(String(prev.slug).trim().toLowerCase(), prev);
+    }
+
+    const cleanVideos = JSON.parse(JSON.stringify(newVideos || [])).map((v: any) => {
+      const idKey = String(v?.id || '').trim();
+      const slugKey = String(v?.slug || '').trim().replace(/^\/+|\/+$/g, '').toLowerCase();
+      const prev = (idKey && existingById.get(idKey)) || (slugKey && existingBySlug.get(slugKey));
+      const candidate = {
+        ...v,
+        slug: typeof v?.slug === 'string' ? v.slug.trim().replace(/^\/+|\/+$/g, '') : v?.slug,
+        created_at: v?.created_at || prev?.created_at || now
+      };
+      const changed = hasItemContentChanged(prev, candidate);
+      const preservedDate = prev?.updated_at || v?.updated_at || v?.published_at || v?.created_at || v?.date || now;
+      return {
+        ...candidate,
+        updated_at: changed ? now : preservedDate
+      };
+    });
     let savedToServer = false;
     let savedToFirestore = false;
     let lastError: string | null = null;
@@ -571,7 +621,7 @@ export function useDataActions(
     }
 
     setVideos(cleanVideos);
-  }, [getAdminToken, setVideos]);
+  }, [getAdminToken, setVideos, videos]);
 
   const updateLocalContainerBackup = useCallback(async (
     targetApps?: AppConfig[],

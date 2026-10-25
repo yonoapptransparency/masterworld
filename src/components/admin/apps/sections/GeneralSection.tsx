@@ -378,8 +378,23 @@ export const GeneralSection = ({ formFields, handleFieldChange, categories }: Ge
         <input 
           type="datetime-local" 
           name="publish_date" 
-          value={formFields.publish_date} 
-          onChange={e => handleFieldChange('publish_date', e.target.value)} 
+          value={(() => {
+            const raw = formFields.publish_date;
+            if (!raw) return '';
+            const d = new Date(raw);
+            if (isNaN(d.getTime())) return raw;
+            const pad = (n: number) => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+          })()} 
+          onChange={e => {
+            const val = e.target.value;
+            if (!val) {
+              handleFieldChange('publish_date', '');
+              return;
+            }
+            const parsed = new Date(val);
+            handleFieldChange('publish_date', isNaN(parsed.getTime()) ? val : parsed.toISOString());
+          }} 
           className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500" 
         />
         <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-1">If set, app remains locked until this time reaches.</p>

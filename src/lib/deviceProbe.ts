@@ -110,14 +110,8 @@ export function inspectClientMobileGate(gpuRenderer = ''): ClientMobileGateResul
     const proto = Object.getPrototypeOf(navigator);
     const protoDesc = proto ? Object.getOwnPropertyDescriptor(proto, 'webdriver') : undefined;
     const ownDesc = Object.getOwnPropertyDescriptor(navigator, 'webdriver');
-    if (ownDesc && ownDesc.value === true) {
+    if (ownDesc && (ownDesc.value === true || typeof ownDesc.get === 'function')) {
       wb = 1;
-    }
-    if (protoDesc?.get) {
-      const fnStr = Function.prototype.toString.call(protoDesc.get);
-      if (!fnStr.includes('[native code]')) {
-        wb = 1;
-      }
     }
   } catch {
     // Do not set wb=1 on descriptor inspection exception unless navigator.webdriver is truthy
@@ -131,9 +125,7 @@ export function inspectClientMobileGate(gpuRenderer = ''): ClientMobileGateResul
     w.__playwright ||
     w.__pw_manual ||
     w.domAutomation ||
-    w.domAutomationController ||
-    window.outerWidth === 0 ||
-    window.outerHeight === 0
+    w.domAutomationController
   ) {
     hl = 1;
   }
@@ -180,7 +172,7 @@ export function inspectClientMobileGate(gpuRenderer = ''): ClientMobileGateResul
     /Windows NT|CrOS|X11; Linux (x86_64|i686)/i.test(ua) ||
     /^(Win|CrOS|Linux (x86|i[3-6]86))/i.test(plat);
 
-  if ((isExplicitDesktopOs && !hasTouch) || (!isMobileDevice && !hasTouch)) {
+  if (isExplicitDesktopOs || (!isMobileDevice && !hasTouch)) {
     dk = 1;
   }
 
@@ -197,14 +189,12 @@ export function inspectClientMobileGate(gpuRenderer = ''): ClientMobileGateResul
     const isMobileGpu =
       /Xclipse|Samsung|Adreno|Mali|Immortalis|Apple|PowerVR|RDNA/i.test(gpuRenderer);
 
-    // Only flag desktop GPUs if the client is NOT confirmed as a mobile touchscreen device
-    if (!isMobileDevice && !hasTouch) {
-      if (/GeForce|RTX|GTX|Intel\(R\) (UHD|Iris)/i.test(gpuRenderer)) {
-        dk = 1;
-      }
-      if (!isMobileGpu && /Radeon/i.test(gpuRenderer)) {
-        dk = 1;
-      }
+    // Flag desktop GPUs unconditionally even if UA or touch was spoofed via DevTools/Playwright
+    if (/GeForce|RTX|GTX|Intel\(R\) (UHD|Iris)/i.test(gpuRenderer)) {
+      dk = 1;
+    }
+    if (!isMobileGpu && /Radeon/i.test(gpuRenderer)) {
+      dk = 1;
     }
   }
 
@@ -228,16 +218,17 @@ export interface FrozenEnvProbe {
 let cachedEnvPromise: Promise<FrozenEnvProbe> | null = null;
 
 /**
- * Collects HARD and SOFT device probes ONCE per page lifecycle, freezes the result,
+ * Collects HARD and SOFT device probes per page lifecycle, freezes the result,
  * and computes hw = sha256hex(hardStr).slice(0, 24) per §5.3.
- * Never recomputes or re-serializes across calls.
+ * If gate.failed is true, does not permanently cache the promise so transient
+ * WebView initialization states cannot lock out the session.
  */
 export function collectEnv(): Promise<FrozenEnvProbe> {
   if (cachedEnvPromise) {
     return cachedEnvPromise;
   }
 
-  cachedEnvPromise = (async (): Promise<FrozenEnvProbe> => {
+  const p = (async (): Promise<FrozenEnvProbe> => {
     const n = (typeof navigator !== 'undefined' ? navigator : {}) as Record<string, any>;
     const hi =
       n.userAgentData && typeof n.userAgentData.getHighEntropyValues === 'function'
@@ -298,6 +289,10 @@ export function collectEnv(): Promise<FrozenEnvProbe> {
     const hw = (await sha256hex(hardStr)).slice(0, 24);
     const gate = Object.freeze(inspectClientMobileGate(gpu));
 
+    if (gate.failed) {
+      cachedEnvPromise = null;
+    }
+
     return Object.freeze({
       hardStr,
       softStr,
@@ -308,5 +303,6 @@ export function collectEnv(): Promise<FrozenEnvProbe> {
     });
   })();
 
-  return cachedEnvPromise;
+  cachedEnvPromise = p;
+  return p;
 }

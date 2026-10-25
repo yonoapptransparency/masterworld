@@ -69,7 +69,7 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
   const hit = (cleanId && catStats[cleanId]) || (cleanSlug && catStats[cleanSlug]);
 
   const rawRating = parseFloat(getField(app, 'rating')) || 4.5;
-  const rawCount = parseInt(getField(app, 'review_count') || getField(app, 'reviews') || '0', 10);
+  const rawCount = parseInt(String(getField(app, 'review_count') || getField(app, 'reviews') || '0').replace(/[^0-9]/g, ''), 10) || 0;
 
   let finalRating = rawRating;
   let finalCount = rawCount;
@@ -116,7 +116,8 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
 
   const rawDesc = app.description_html ? sanitizeHtml(app.description_html) : `<p>Comprehensive application profile and details for <strong>${escapeHtml(name)}</strong>.</p>`;
   const desc = rawDesc;
-  const features = app.features_html ? sanitizeHtml(app.features_html) : '';
+  const rawFeatures = app.features_html ? sanitizeHtml(app.features_html) : '';
+  const features = (rawFeatures && stripHtml(rawFeatures).toLowerCase() !== stripHtml(desc).toLowerCase()) ? rawFeatures : '';
 
   // Breadcrumbs category
   const mainCat = cat.split(',')[0].trim() || 'General';
@@ -429,7 +430,7 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
 
   for (let i = 0; i < apps.length; i++) {
     const a = apps[i];
-    if (!a) continue;
+    if (!a || a.sync_to_public === false || a.is_Safety_alert === true || a.status === 'flagged') continue;
 
     const aSlug = getField(a, 'slug').toLowerCase();
     const isCurrent = aSlug === cleanSlug;
@@ -603,12 +604,18 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
         <div class="flex flex-col sm:flex-row w-full justify-center items-center gap-1.5 xxs:gap-2 xs:gap-3 select-none mb-3 sm:mb-5 px-1 xs:px-2 sm:px-4 md:px-6">
           <div class="w-full sm:flex-1 transition-transform duration-150">
             <div class="w-full flex flex-col items-center gap-1.5">
-              <a href="/moreinfo/${encodeURIComponent(cleanSlug)}" class="w-full premium-action-btn premium-action-btn-blowing cursor-pointer text-white !text-white font-bold py-2 xxs:py-2.5 px-3 xxs:px-4 xs:px-5 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all text-[11px] xxs:text-xs xs:text-sm shadow-md h-[38px] xxs:h-[40px] xs:h-[44px] no-underline">
-                <span class="flex items-center gap-1.5 font-bold text-white !text-white">
-                  <span>Download</span>
-                  <svg class="w-3.5 h-3.5 xs:w-4 xs:h-4 text-white !text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-                </span>
-              </a>
+              ${Boolean(app.is_coming_soon && (!app.publish_date || new Date(app.publish_date).getTime() > Date.now())) ? `
+                <button type="button" disabled class="w-full bg-zinc-200 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 font-bold py-2 xxs:py-2.5 px-3 xxs:px-4 xs:px-5 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all text-[11px] xxs:text-xs xs:text-sm h-[38px] xxs:h-[40px] xs:h-[44px] cursor-not-allowed opacity-80">
+                  <span>Coming Soon</span>
+                </button>
+              ` : `
+                <a href="/moreinfo/${encodeURIComponent(cleanSlug)}" class="w-full premium-action-btn premium-action-btn-blowing cursor-pointer text-white !text-white font-bold py-2 xxs:py-2.5 px-3 xxs:px-4 xs:px-5 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all text-[11px] xxs:text-xs xs:text-sm shadow-md h-[38px] xxs:h-[40px] xs:h-[44px] no-underline">
+                  <span class="flex items-center gap-1.5 font-bold text-white !text-white">
+                    <span>Download</span>
+                    <svg class="w-3.5 h-3.5 xs:w-4 xs:h-4 text-white !text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                  </span>
+                </a>
+              `}
             </div>
           </div>
           <div class="flex w-full gap-1.5 xxs:gap-2 xs:gap-3 sm:w-auto shrink-0">

@@ -263,9 +263,22 @@ async function startServer() {
         res.setHeader('Expires', farFuture);
         res.setHeader('Vary', 'Accept-Encoding');
         if (filePath.endsWith('.html')) {
-          res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=3600, stale-while-revalidate=86400');
           const normPath = filePath.replace(/\\/g, '/').toLowerCase();
-          const isNoIndexStatic = normPath.includes('/moreinfo/') || normPath.includes('/gateway/') || normPath.includes('/admin/') || normPath.includes('/safety');
+          const isNoIndexStatic =
+            normPath.includes('/moreinfo/') ||
+            normPath.includes('/gateway/') ||
+            normPath.includes('/download/') ||
+            normPath.includes('/info/') ||
+            normPath.includes('/moredetail/') ||
+            normPath.includes('/admin/') ||
+            normPath.includes('/safety');
+          if (isNoIndexStatic) {
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private, max-age=0');
+            res.setHeader('CDN-Cache-Control', 'no-store, private');
+            res.setHeader('Cloudflare-CDN-Cache-Control', 'no-store, private');
+          } else {
+            res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=3600, stale-while-revalidate=86400');
+          }
           res.setHeader(
             'X-Robots-Tag',
             isNoIndexStatic
@@ -320,7 +333,7 @@ async function startServer() {
       pathLower.startsWith('/out/');
 
     const userAgent = req.headers['user-agent'] || '';
-    const isBotCrawler = /googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|sogou|exabot|facebot|facebookexternalhit|ia_archiver|semrushbot|ahrefsbot|mj12bot|dotbot|bytespider|applebot|gptbot|chatgpt-user|claudebot|perplexitybot|ccbot|petalbot|criteobot|bot|crawler|spider|scraper|headlesschrome/i.test(userAgent);
+    const isBotCrawler = /googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|sogou|exabot|facebot|facebookexternalhit|ia_archiver|semrushbot|ahrefsbot|mj12bot|dotbot|bytespider|applebot|gptbot|chatgpt-user|claudebot|perplexitybot|ccbot|petalbot|criteobot|\bbot\b|crawler|spider|scraper|headlesschrome/i.test(userAgent);
 
     if (isGatewayPath && isBotCrawler) {
       return res.status(403).set({
@@ -353,6 +366,35 @@ async function startServer() {
       const rest = rawPath.substring('/developer/'.length);
       const query = req.originalUrl.includes('?') ? '?' + req.originalUrl.split('?')[1] : '';
       return res.redirect(301, '/developers/' + rest + query);
+    }
+
+    // 2.3 Canonical 301 Redirect /faqs to /faq and legacy app prefixes (/apps/, /game/, /apk/) to /app/
+    if (pathLower === '/faqs' || pathLower === '/faqs/') {
+      const query = req.originalUrl.includes('?') ? '?' + req.originalUrl.split('?')[1] : '';
+      return res.redirect(301, '/faq' + query);
+    }
+    if (pathLower.startsWith('/apps/') || pathLower.startsWith('/game/') || pathLower.startsWith('/apk/')) {
+      const rest = rawPath.replace(/^\/(apps|game|apk)\//i, '').replace(/^\/+|\/+$/g, '');
+      const query = req.originalUrl.includes('?') ? '?' + req.originalUrl.split('?')[1] : '';
+      if (rest) {
+        return res.redirect(301, `/app/${rest}${query}`);
+      }
+    }
+
+    // 2.4 Canonical 301 Redirect for fuzzy/alias /app/:slug URLs (e.g. /app/instagram-apk -> /app/instagram)
+    if (pathLower.startsWith('/app/')) {
+      const requestedAppSlug = rawPath.substring('/app/'.length).replace(/^\/+|\/+$/g, '');
+      if (requestedAppSlug && !requestedAppSlug.includes('/')) {
+        try {
+          const storeData = await fetchStoreData();
+          const resolvedApp = resolveAppSlug(requestedAppSlug, storeData.apps || []);
+          const canonicalSlug = resolvedApp ? String(resolvedApp.slug || resolvedApp.id || '').trim().replace(/^\/+|\/+$/g, '') : '';
+          if (canonicalSlug && canonicalSlug.toLowerCase() !== requestedAppSlug.toLowerCase()) {
+            const query = req.originalUrl.includes('?') ? '?' + req.originalUrl.split('?')[1] : '';
+            return res.redirect(301, `/app/${canonicalSlug}${query}`);
+          }
+        } catch (_) {}
+      }
     }
 
     // 3. Handle root-level single slugs (e.g. /a23-rummy -> 301 to canonical /app/a23-rummy)

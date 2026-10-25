@@ -14,7 +14,7 @@ export const NONCE_BURN_TTL_S = 150 as const;
 export const CLIENT_TAP_HOLD_MS = 1000 as const;
 export const DWELL_HARD_BELOW_MS = 150 as const;
 export const MIN_SERVER_DWELL_MS = 500 as const;
-export const DWELL_NV0_MIN_MS = 1500 as const;
+export const DWELL_NV0_MIN_MS = 1000 as const;
 
 export const TOUCH_MIN_MS = 12 as const;
 export const TOUCH_MAX_MS = 2000 as const;
@@ -78,8 +78,6 @@ export const HOSTING_ASNS: ReadonlySet<number> = new Set([
   16276,  // OVH
   63949,  // Linode / Akamai Cloud
   20473,  // Vultr / Choopa
-  212238, // Datacamp
-  9009,   // M247
   12876,  // Scaleway
   31898,  // Oracle Cloud
 ]);
@@ -96,8 +94,6 @@ export const HOSTING_ORG_KEYWORDS = [
   'linode',
   'vultr',
   'choopa',
-  'datacamp',
-  'm247',
   'scaleway',
   'oracle',
   'contabo',

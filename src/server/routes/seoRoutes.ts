@@ -201,7 +201,7 @@ seoRouter.get('/rss.xml', async (req, res) => {
       <title><![CDATA[${n.title || ''}]]></title>
       <link>https://www.rummydex.com/news/${String(n.slug || n.id).trim().replace(/^\/+|\/+$/g, '')}</link>
       <description><![CDATA[${n.description || n.seo_description || ''}]]></description>
-      <pubDate>${new Date(n.updated_at || n.published_at || n.publish_date || n.created_at || Date.now()).toUTCString()}</pubDate>
+      <pubDate>${new Date(n.published_at || n.publish_date || n.created_at || n.date || n.updated_at || Date.now()).toUTCString()}</pubDate>
     </item>`).join('\n');
   res.send(`<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0">\n  <channel>\n    <title>RummyDex News Feed</title>\n    <link>https://www.rummydex.com/news</link>\n    <description>Latest App News and Updates</description>\n${items}\n  </channel>\n</rss>`);
 });

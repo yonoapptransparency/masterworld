@@ -96,25 +96,32 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
           const sourceApps = (Array.isArray(apps) && apps.length > 0) ? apps : (appsList.length > 0 ? appsList : (mockApps || []));
           const mergedApps = sourceApps.map(a => {
             const rawUrl = a.more_information_url || a.encrypted_link || '';
+            const preservedCipher = (rawUrl && typeof rawUrl === 'string' && rawUrl.startsWith('U2FsdGVkX1'))
+              ? rawUrl
+              : ((a.encrypted_link && typeof a.encrypted_link === 'string' && a.encrypted_link.startsWith('U2FsdGVkX1')) ? a.encrypted_link : '');
             const decryptedFromUrl = (rawUrl && typeof rawUrl === 'string' && rawUrl.startsWith('U2FsdGVkX1')) ? safeDecrypt(rawUrl) : rawUrl;
             const existingUrl = decryptedFromUrl || secureMap.get(a.id) || (a.slug && secureMap.get(a.slug)) || '';
             if (existingUrl) {
               if (a.id && !secureMap.has(a.id)) secureMap.set(a.id, existingUrl);
               if (a.slug && !secureMap.has(a.slug)) secureMap.set(a.slug, existingUrl);
             }
-            let descHtml = a.description_html || '';
-            let featHtml = a.features_html || '';
-            if (!descHtml || descHtml.trim().length <= 10) {
+            let descHtml = a.description_html ?? '';
+            let featHtml = a.features_html ?? '';
+            if (a.description_html === undefined || a.description_html === null) {
               const staticFallback = (mockApps || []).find((m: any) => (m.id && m.id === a.id) || (m.slug && a.slug && m.slug.toLowerCase() === a.slug.toLowerCase()));
               if (staticFallback?.description_html) descHtml = staticFallback.description_html;
-              if (!featHtml && staticFallback?.features_html) featHtml = staticFallback.features_html;
+            }
+            if (a.features_html === undefined || a.features_html === null) {
+              const staticFallback = (mockApps || []).find((m: any) => (m.id && m.id === a.id) || (m.slug && a.slug && m.slug.toLowerCase() === a.slug.toLowerCase()));
+              if (staticFallback?.features_html) featHtml = staticFallback.features_html;
             }
 
             return {
               ...a, 
               description_html: descHtml,
               features_html: featHtml,
-              more_information_url: existingUrl 
+              more_information_url: existingUrl,
+              encrypted_link: preservedCipher || a.encrypted_link || ''
             };
           });
           setAppsList(mergedApps);
@@ -137,6 +144,9 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
         .filter(a => !deletedAppIdsRef.current.has(a.id) && !deletedAppIdsRef.current.has(a.slug))
         .map(a => {
           const rawLink = a.more_information_url || a.encrypted_link || '';
+          const preservedCipher = (rawLink && typeof rawLink === 'string' && rawLink.startsWith('U2FsdGVkX1'))
+            ? rawLink
+            : ((a.encrypted_link && typeof a.encrypted_link === 'string' && a.encrypted_link.startsWith('U2FsdGVkX1')) ? a.encrypted_link : '');
           const decryptedFromLink = (rawLink && typeof rawLink === 'string' && rawLink.startsWith('U2FsdGVkX1')) ? safeDecrypt(rawLink) : rawLink;
           const link = decryptedFromLink || secureMap.get(a.id) || (a.slug && secureMap.get(a.slug)) || '';
           if (link) {
@@ -144,20 +154,20 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
             if (a.slug && !secureMap.has(a.slug)) secureMap.set(a.slug, link);
           }
 
-          let descHtml = a.description_html || '';
-          let featHtml = a.features_html || '';
-          if (!descHtml || descHtml.trim().length <= 10) {
+          let descHtml = a.description_html ?? '';
+          let featHtml = a.features_html ?? '';
+          if (a.description_html === undefined || a.description_html === null) {
             const existingApp = (appsList || []).find((m: any) => (m.id && m.id === a.id) || (m.slug && a.slug && m.slug.toLowerCase() === a.slug.toLowerCase()));
-            if (existingApp?.description_html && existingApp.description_html.trim().length > 10) {
+            if (existingApp?.description_html) {
               descHtml = existingApp.description_html;
             } else {
               const staticFallback = (mockApps || []).find((m: any) => (m.id && m.id === a.id) || (m.slug && a.slug && m.slug.toLowerCase() === a.slug.toLowerCase()));
               if (staticFallback?.description_html) descHtml = staticFallback.description_html;
             }
           }
-          if (!featHtml || featHtml.trim().length <= 5) {
+          if (a.features_html === undefined || a.features_html === null) {
             const existingApp = (appsList || []).find((m: any) => (m.id && m.id === a.id) || (m.slug && a.slug && m.slug.toLowerCase() === a.slug.toLowerCase()));
-            if (existingApp?.features_html && existingApp.features_html.trim().length > 5) {
+            if (existingApp?.features_html) {
               featHtml = existingApp.features_html;
             } else {
               const staticFallback = (mockApps || []).find((m: any) => (m.id && m.id === a.id) || (m.slug && a.slug && m.slug.toLowerCase() === a.slug.toLowerCase()));
@@ -169,7 +179,8 @@ export const useAdminApps = (apps: any[], loading: boolean, isAdminUser: boolean
             ...a,
             description_html: descHtml,
             features_html: featHtml,
-            more_information_url: link
+            more_information_url: link,
+            encrypted_link: preservedCipher || a.encrypted_link || ''
           };
         });
 

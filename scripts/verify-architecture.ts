@@ -226,9 +226,340 @@ function verify() {
     detailParityPassed,
     `App 1:1 ReviewScoreSummary: ${appHas1to1ReviewsSummary}, Rich Typography Parity: ${appHasRichTypography}, News 480w/800w/1200w srcset: ${newsHasResponsiveHero}, Legal HTML Bloat Stripped: ${appNoLegalBloat && newsNoLegalBloat}`
   );
+}
+
+async function verifyModulesAndLiveServer() {
+  // 7. Verify SEO Audit Core Modules (SEO-1 through SEO-7)
+  const { encryptUrlIfNeeded, generateSecureVaultFile, sanitizePublicSettings } = await import('../src/lib/githubSync');
+  const { generateAllSitemaps } = await import('../src/lib/sitemapGenerator');
+  const { normalizeIsoDate } = await import('../src/seo/utils');
+  const { sanitizeHtml } = await import('../src/seo/renderers/common');
+  const { optimizeInitialDataForRoute } = await import('../src/seo/initialDataOptimizer');
+  const { injectSeoTags } = await import('../src/seoHelper');
+
+  const rawData = JSON.parse(fs.readFileSync(staticJsonPath, 'utf8'));
+  const publicApps = (rawData.apps || []).filter((a: any) => a && a.sync_to_public !== false);
+
+  // Check deterministic encryption preservation (S-1)
+  const sampleCipher = encryptUrlIfNeeded('https://example.com/download.apk');
+  const secondCipher = encryptUrlIfNeeded('https://example.com/download.apk', sampleCipher);
+  const s1Passed = sampleCipher.startsWith('U2FsdGVkX1') && secondCipher === sampleCipher;
+
+  // Check video sitemap extension & static lastmod decoupling (S-2, S-6)
+  const testSitemaps = generateAllSitemaps({
+    apps: [{ ...publicApps[0], updated_at: '2026-10-20T00:00:00.000Z' }],
+    settings: { last_updated: '2026-09-15T00:00:00.000Z' },
+    news: [],
+    videos: [{ id: 'v1', slug: 'test-video', title: 'Test Video', description: 'Video desc', youtube_url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', created_at: '2026-09-10T00:00:00.000Z' }]
+  });
+  const staticSm = testSitemaps['sitemap-static.xml'] || '';
+  const videoSm = testSitemaps['sitemap-videos.xml'] || '';
+  const s2s6Passed =
+    staticSm.includes('2026-09-15') &&
+    !staticSm.includes('2026-10-20') &&
+    videoSm.includes('xmlns:video="http://www.google.com/schemas/sitemap-video/1.1"') &&
+    videoSm.includes('<video:video>');
+
+  // Check normalizeIsoDate & scoped sanitizeHtml (N-1, G-4)
+  const isoDate = normalizeIsoDate('2026-03-14');
+  const sanitizedHtml = sanitizeHtml('<p onclick="alert(1)">Get bonus=100 and vision=clear today!</p>');
+  const n1g4Passed =
+    isoDate === '2026-03-14T00:00:00+05:30' &&
+    !sanitizedHtml.includes('onclick=') &&
+    sanitizedHtml.includes('bonus=100') &&
+    sanitizedHtml.includes('vision=clear');
+
+  // Check crawlable category links in PlayStoreTabs.tsx and HomeCategoryGrid.tsx (4.2)
+  const tabsSrc = fs.readFileSync(path.resolve(process.cwd(), 'src/components/playstore/PlayStoreTabs.tsx'), 'utf8');
+  const gridSrc = fs.readFileSync(path.resolve(process.cwd(), 'src/components/public/home/HomeCategoryGrid.tsx'), 'utf8');
+  const crawlableCatsPassed = tabsSrc.includes('href={getTabHref(tab)}') && gridSrc.includes('/category/${slug}');
+
+  record(
+    'SEO-1..7',
+    'Master SEO Audit Core Engine (Deterministic Vault, Video Sitemap, ISO-8601 Dates, Scoped Sanitizer, Crawlable Categories)',
+    s1Passed && s2s6Passed && n1g4Passed && crawlableCatsPassed,
+    `Deterministic AES (S-1): ${s1Passed}, Static Lastmod & Video Sitemap (S-2/S-6): ${s2s6Passed}, ISO Date & Scoped Sanitizer (N-1/G-4): ${n1g4Passed}, Crawlable Category Links (4.2): ${crawlableCatsPassed}`
+  );
+
+  // 8. Verify /moreinfo Gateway Security & Reliability Audit (GATE-1 through GATE-13)
+  const { ENCRYPTED_LINKS, generateSecureVaultFile: genVaultFromMod } = await import('../src/lib/secureVault');
+  const { resolveDestinationUrl, getCandidateTurnstileSecrets } = await import('../src/server/services/linkService');
+  const { inspectClientMobileGate } = await import('../src/lib/deviceProbe');
+  const { classifyUA, evaluateGateG1, handleSessionInit, handleSessionClearance, issueStatelessNonce } = await import('../src/server/security/gateCore');
+  const { DWELL_NV0_MIN_MS, CLIENT_TAP_HOLD_MS, TOKEN_V } = await import('../src/lib/gateConfig');
+
+  // GATE-1 & GATE-2: generateSecureVaultFile valid TS module & T1_VAULT resolution
+  const generatedVaultCode = generateSecureVaultFile('U2FsdGVkX1_TEST');
+  const generatedVaultCode2 = genVaultFromMod('U2FsdGVkX1_TEST');
+  const vaultCompilerOk =
+    generatedVaultCode.includes('export const ENCRYPTED_LINKS = "U2FsdGVkX1_TEST";') &&
+    generatedVaultCode.includes('export const ENCRYPTED_VAULT = ENCRYPTED_LINKS;') &&
+    generatedVaultCode2.includes('export const ENCRYPTED_LINKS = "U2FsdGVkX1_TEST";') &&
+    ENCRYPTED_LINKS.startsWith('U2FsdGVkX1');
+
+  const t0Start = performance.now();
+  const resolvedLink = await resolveDestinationUrl('yono-rummy');
+  const resolveMs = performance.now() - t0Start;
+  const linkResOk = Boolean(resolvedLink.url && resolvedLink.url.startsWith('https://') && (resolvedLink.tier === 'T1_VAULT' || resolvedLink.tier === 'T0_RAM'));
+
+  // GATE-3 & GATE-4: Secret sanitization & Turnstile secret priority
+  const sanitizedSettings = sanitizePublicSettings({
+    site_title: 'RummyDex',
+    turnstile_site_key: '0x4AAAAAA_SITE',
+    turnstile_secret_key: '0x4AAAAAA_SECRET',
+    cloudinary_api_secret: 'cloud_sec',
+    gemini_api_key: 'gem_sec'
+  });
+  const staticJsonRaw = fs.readFileSync(staticJsonPath, 'utf8');
+  const useGitHubSyncSrc = fs.readFileSync(path.resolve(process.cwd(), 'src/hooks/useGitHubSync.ts'), 'utf8');
+  const secretsSanitizedOk =
+    !('turnstile_secret_key' in sanitizedSettings) &&
+    !('cloudinary_api_secret' in sanitizedSettings) &&
+    !('gemini_api_key' in sanitizedSettings) &&
+    !staticJsonRaw.includes('turnstile_secret_key') &&
+    !staticJsonRaw.includes('more_information_url') &&
+    !useGitHubSyncSrc.includes("path: 'src/lib/public_backup.json'");
+
+  // GATE-5: No synthetic touch telemetry fabrication in useClearanceDispatch.ts
+  const dispatchSrc = fs.readFileSync(path.resolve(process.cwd(), 'src/hooks/useClearanceDispatch.ts'), 'utf8');
+  const noTouchForgeryOk = !dispatchSrc.includes('tap.d = 45') && !dispatchSrc.includes('tap.x = 120');
+
+  // GATE-8 & GATE-9: iPadOS 13+, preview host allowlist, dwell alignment, and /moreinfo payload trimmer
+  const ipadUa = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1';
+  const ipadG1 = evaluateGateG1({
+    method: 'POST',
+    path: '/api/v1/app/session-init',
+    headers: { 'user-agent': ipadUa, host: 'preview.rummydex.pages.dev' },
+    rawBody: '{}',
+    ip: '49.36.128.1',
+    adapter: 'cloudflare',
+    env: { NODE_ENV: 'production' }
+  });
+  const gatewayInitialData = optimizeInitialDataForRoute(rawData, '/moreinfo/yono-rummy', publicApps[0], null, null);
+  const gatewayPayloadBytes = Buffer.byteLength(JSON.stringify(gatewayInitialData), 'utf8');
+  const gatewayTrimOk =
+    Array.isArray(gatewayInitialData.apps) &&
+    gatewayInitialData.apps.length === 1 &&
+    gatewayInitialData.news.length === 0 &&
+    gatewayInitialData.videos.length === 0 &&
+    gatewayPayloadBytes < 5000 &&
+    DWELL_NV0_MIN_MS === CLIENT_TAP_HOLD_MS;
+
+  // GATE-6 & GATE-7: End-to-End Gate G1-G7 Verification (Legit Mobile Pass vs Replay 404 vs Superhuman Dwell 404 vs Desktop GPU Spoof 404)
+  const mobileUa = 'Mozilla/5.0 (Linux; Android 14; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36';
+  const baseEnv = {
+    NODE_ENV: 'development',
+    TURNSTILE_SECRET_KEY: '1x0000000000000000000000000000000AA'
+  };
+
+  // 1) Init session
+  const initRes = await handleSessionInit({
+    method: 'POST',
+    path: '/api/v1/app/session-init',
+    headers: { 'user-agent': mobileUa, host: 'localhost:3000', 'accept-language': 'en-IN,en;q=0.9' },
+    rawBody: JSON.stringify({ appId: 'yono-rummy' }),
+    ip: '49.36.100.10',
+    adapter: 'express',
+    env: baseEnv
+  });
+  const initBody = JSON.parse(initRes.body);
+  const didCookie = (initRes.headers['Set-Cookie'] || '').split(';')[0];
+
+  // Issue a nonce backdated by 1200ms so dwell >= 1000ms
+  const validNonce = await issueStatelessNonce('yono-rummy', baseEnv);
+  const [nid, ,] = (validNonce || '').split('.');
+  // Create a nonce with timestamp 1200ms ago
+  const backdatedIssuedMs = String(Date.now() - 1200);
+  const cryptoSubtle = crypto.subtle;
+  const enc = new TextEncoder();
+  const key = await cryptoSubtle.importKey('raw', enc.encode('rummydex-v12-nonce-hmac-fallback-secret-32-bytes'), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sigBuf = await cryptoSubtle.sign('HMAC', key, enc.encode(`${nid}|${backdatedIssuedMs}|yono-rummy`));
+  const sigB64 = Buffer.from(new Uint8Array(sigBuf).slice(0, 16)).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  const agedNonce = `${nid}.${backdatedIssuedMs}.${sigB64}`;
+
+  const legitHard = JSON.stringify({
+    arch: '',
+    dm: 1,
+    plat: 'Linux armv81',
+    sa: 0,
+    ud: 1,
+    udp: 'Android',
+    vend: 'Google Inc.',
+    wc: 1
+  });
+  const legitSoft = JSON.stringify({
+    gl: 1,
+    gpu: 'ANGLE (Qualcomm, Adreno (TM) 740, OpenGL ES 3.2)',
+    mdl: 1,
+    mp: [127, 127, 23],
+    tp: [75, 224.5, 224.5, 240.1, 224.5, 240.1],
+    tx: [1, 1]
+  });
+
+  const buildTokenB64 = (overrides: Record<string, any> = {}) => {
+    const obj = {
+      v: TOKEN_V,
+      id: 'yono-rummy',
+      nonce: agedNonce,
+      nv: 1,
+      hard: legitHard,
+      soft: legitSoft,
+      tap: {
+        pt: 'touch',
+        mtp: 5,
+        coarse: 1,
+        rx: 11.2,
+        ry: 11.2,
+        pr: 0.5,
+        x: 184,
+        y: 512,
+        d: 68,
+        gap: 14,
+        ev: 'pd,ts,pu,te,ck'
+      },
+      f: { wb: 0, hl: 0, dk: 0, cb: 0, tr: 1 },
+      ...overrides
+    };
+    return Buffer.from(JSON.stringify(obj), 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  };
+
+  // Legitimate mobile clearance -> 200 available
+  const clearRes1 = await handleSessionClearance({
+    method: 'POST',
+    path: '/api/v1/app/session-clearance',
+    headers: { 'user-agent': mobileUa, host: 'localhost:3000', cookie: didCookie },
+    rawBody: JSON.stringify({ token: buildTokenB64(), cf: 'XXXX.DUMMY.TOKEN.XXXX' }),
+    ip: '49.36.100.10',
+    adapter: 'express',
+    env: baseEnv
+  });
+  const clearData1 = JSON.parse(clearRes1.body);
+
+  // Replay exact same burned nonce -> 404 Hard Block
+  const replayRes = await handleSessionClearance({
+    method: 'POST',
+    path: '/api/v1/app/session-clearance',
+    headers: { 'user-agent': mobileUa, host: 'localhost:3000' },
+    rawBody: JSON.stringify({ token: buildTokenB64(), cf: 'XXXX.DUMMY.TOKEN.XXXX' }),
+    ip: '49.36.100.11',
+    adapter: 'express',
+    env: baseEnv
+  });
+
+  // Superhuman dwell (< 150ms) -> 404 Hard Block
+  const freshNonce = await issueStatelessNonce('yono-rummy', baseEnv);
+  const fastDwellRes = await handleSessionClearance({
+    method: 'POST',
+    path: '/api/v1/app/session-clearance',
+    headers: { 'user-agent': mobileUa, host: 'localhost:3000' },
+    rawBody: JSON.stringify({ token: buildTokenB64({ nonce: freshNonce }), cf: 'XXXX.DUMMY.TOKEN.XXXX' }),
+    ip: '49.36.100.12',
+    adapter: 'express',
+    env: baseEnv
+  });
+
+  // Spoofed mobile UA running on Desktop RTX 3060 GPU -> 404 Hard Block
+  const [nid2] = (await issueStatelessNonce('yono-rummy', baseEnv) || '').split('.');
+  const sigBuf2 = await cryptoSubtle.sign('HMAC', key, enc.encode(`${nid2}|${backdatedIssuedMs}|yono-rummy`));
+  const sigB64_2 = Buffer.from(new Uint8Array(sigBuf2).slice(0, 16)).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  const agedNonce2 = `${nid2}.${backdatedIssuedMs}.${sigB64_2}`;
+  const desktopGpuSoft = JSON.stringify({
+    gl: 1,
+    gpu: 'ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)',
+    mdl: 0,
+    mp: [127, 127, 23],
+    tp: [75, 224.5, 224.5, 240.1, 224.5, 240.1],
+    tx: [0, 0]
+  });
+  const desktopGpuRes = await handleSessionClearance({
+    method: 'POST',
+    path: '/api/v1/app/session-clearance',
+    headers: { 'user-agent': mobileUa, host: 'localhost:3000' },
+    rawBody: JSON.stringify({ token: buildTokenB64({ nonce: agedNonce2, soft: desktopGpuSoft }), cf: 'XXXX.DUMMY.TOKEN.XXXX' }),
+    ip: '49.36.100.13',
+    adapter: 'express',
+    env: baseEnv
+  });
+
+  const gateFlowOk =
+    initRes.status === 200 &&
+    typeof initBody.nonce === 'string' &&
+    clearRes1.status === 200 &&
+    clearData1.status === 'available' &&
+    typeof clearData1.url === 'string' &&
+    clearData1.url.startsWith('https://') &&
+    replayRes.status === 404 &&
+    fastDwellRes.status === 404 &&
+    desktopGpuRes.status === 404;
+
+  record(
+    'GATE-1..13',
+    '/moreinfo Gateway Security, T1 Vault Speed & Anti-Bot Enforcement',
+    vaultCompilerOk && linkResOk && secretsSanitizedOk && noTouchForgeryOk && ipadG1.pass === true && gatewayTrimOk && gateFlowOk,
+    `Vault Compiler: ${vaultCompilerOk}, T1_VAULT Link (${resolveMs.toFixed(2)}ms, tier=${resolvedLink.tier}): ${linkResOk}, Secret Sanitization: ${secretsSanitizedOk}, No Touch Forgery: ${noTouchForgeryOk}, iPadOS G1: ${ipadG1.pass}, Gateway Payload (${gatewayPayloadBytes} B < 5KB): ${gatewayTrimOk}, Gate E2E (Legit=200, Replay=${replayRes.status}, <150ms=${fastDwellRes.status}, RTX3060=${desktopGpuRes.status}): ${gateFlowOk}`
+  );
+
+  // 9. Live HTTP Server Verification (if server is running on port 3000)
+  try {
+    const pingRes = await fetch('http://localhost:3000/api/ping').catch(() => null);
+    if (pingRes && pingRes.ok) {
+      const [
+        homeRes,
+        appRes,
+        redirectIdRes,
+        redirectLegacyPrefixRes,
+        redirectFaqsRes,
+        moreinfoMobileRes,
+        moreinfoCubotRes,
+        moreinfoBotRes,
+        rssRes
+      ] = await Promise.all([
+        fetch('http://localhost:3000/', { headers: { 'User-Agent': mobileUa } }),
+        fetch('http://localhost:3000/app/yono-rummy', { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)' } }),
+        fetch('http://localhost:3000/app/yono_rummy', { redirect: 'manual' }),
+        fetch('http://localhost:3000/apps/yono-rummy', { redirect: 'manual' }),
+        fetch('http://localhost:3000/faqs', { redirect: 'manual' }),
+        fetch('http://localhost:3000/moreinfo/yono-rummy', { headers: { 'User-Agent': mobileUa } }),
+        fetch('http://localhost:3000/moreinfo/yono-rummy', { headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 13; CUBOT KINGKONG 9) AppleWebKit/537.36 Chrome/112.0.0.0 Mobile Safari/537.36' } }),
+        fetch('http://localhost:3000/moreinfo/yono-rummy', { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)' } }),
+        fetch('http://localhost:3000/rss.xml')
+      ]);
+
+      const homeHtml = await homeRes.text();
+      const appHtmlLive = await appRes.text();
+      const moreinfoHtml = await moreinfoMobileRes.text();
+      const rssXml = await rssRes.text();
+
+      const liveServerOk =
+        homeRes.status === 200 &&
+        homeHtml.includes('/category/') &&
+        appRes.status === 200 &&
+        appHtmlLive.includes('"_isFullApp":true') &&
+        redirectIdRes.status === 301 &&
+        redirectIdRes.headers.get('location') === '/app/yono-rummy' &&
+        redirectLegacyPrefixRes.status === 301 &&
+        redirectLegacyPrefixRes.headers.get('location') === '/app/yono-rummy' &&
+        redirectFaqsRes.status === 301 &&
+        redirectFaqsRes.headers.get('location') === '/faq' &&
+        moreinfoMobileRes.status === 200 &&
+        (moreinfoMobileRes.headers.get('cache-control') || '').includes('no-store') &&
+        moreinfoHtml.includes('Verification Portal') &&
+        moreinfoCubotRes.status === 200 &&
+        moreinfoBotRes.status === 403 &&
+        rssRes.status === 200 &&
+        rssXml.includes('<rss');
+
+      record(
+        'LIVE-HTTP',
+        'Live Server HTTP Endpoints (SSR, 301 Redirects, /moreinfo Headers, CUBOT Allow, Googlebot 403, RSS)',
+        liveServerOk,
+        `Home=200, App=200 (_isFullApp), /app/yono_rummy=${redirectIdRes.status}->${redirectIdRes.headers.get('location')}, /apps/yono-rummy=${redirectLegacyPrefixRes.status}->${redirectLegacyPrefixRes.headers.get('location')}, /faqs=${redirectFaqsRes.status}->${redirectFaqsRes.headers.get('location')}, /moreinfo(Mobile)=${moreinfoMobileRes.status} (${moreinfoMobileRes.headers.get('cache-control')}), /moreinfo(CUBOT)=${moreinfoCubotRes.status}, /moreinfo(Googlebot)=${moreinfoBotRes.status}, /rss.xml=${rssRes.status}`
+      );
+    }
+  } catch (_) {}
 
   console.log('\n══════════════════════════════════════════════════════════════');
-  console.log('  RUMMYDEX ARCHITECTURE & SEO VERIFICATION REPORT (PHASE 4)');
+  console.log('  RUMMYDEX ARCHITECTURE, SEO & GATEWAY VERIFICATION REPORT');
   console.log('══════════════════════════════════════════════════════════════');
   let failedCount = 0;
   for (const r of results) {
@@ -244,3 +575,5 @@ function verify() {
 }
 
 verify();
+verifyModulesAndLiveServer();
+

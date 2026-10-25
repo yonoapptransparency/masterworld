@@ -11,7 +11,7 @@ import { structureHtmlFragment } from './safeHtmlPublic';
 import { formatNewsDate, calculateReadingTime, getPlainTextSnippet } from './newsUtils';
 import { formatPageTitle, cleanSettingsMetaTitles } from './seoUtils';
 
-export function encryptUrlIfNeeded(url: string): string {
+export function encryptUrlIfNeeded(url: string, existingCiphertext?: string): string {
   if (!url || typeof url !== 'string') return '';
   let trimmed = url.trim();
   if (trimmed === '' || trimmed.includes('com.rummydex') || trimmed.includes('com.example') || trimmed.toLowerCase().includes('mediafire.com')) return '';
@@ -20,13 +20,20 @@ export function encryptUrlIfNeeded(url: string): string {
     const dec = safeDecrypt(trimmed);
     if (dec && dec.toLowerCase().includes('mediafire.com')) return '';
     if (dec && (dec.startsWith('http://') || dec.startsWith('https://'))) {
-      return safeEncrypt(dec);
+      return trimmed;
     }
     return trimmed;
   }
 
   if (!trimmed.toLowerCase().startsWith('http://') && !trimmed.toLowerCase().startsWith('https://')) {
     trimmed = 'https://' + trimmed;
+  }
+
+  if (existingCiphertext && typeof existingCiphertext === 'string' && existingCiphertext.trim().startsWith('U2FsdGVkX1')) {
+    const existingDec = safeDecrypt(existingCiphertext.trim());
+    if (existingDec === trimmed) {
+      return existingCiphertext.trim();
+    }
   }
 
   return safeEncrypt(trimmed);
@@ -47,7 +54,9 @@ export function compileCanonicalApp(app: any, options?: { stripDownloadLinks?: b
     copy.id = copy.id.trim();
   }
   const rawTarget = copy.more_information_url || copy.download_url || copy.encrypted_link || copy.encrypted_download_url || '';
-  const encryptedTarget = encryptUrlIfNeeded(rawTarget);
+  const existingCipher = [copy.encrypted_link, copy.more_information_url, copy.encrypted_download_url]
+    .find(v => typeof v === 'string' && v.trim().startsWith('U2FsdGVkX1')) || '';
+  const encryptedTarget = encryptUrlIfNeeded(rawTarget, existingCipher);
 
   if (copy.url && (String(copy.url).includes('com.rummydex') || String(copy.url).includes('com.example'))) {
     copy.url = '';
@@ -85,7 +94,7 @@ export function compileCanonicalApp(app: any, options?: { stripDownloadLinks?: b
 
   // Preserve stable per-app timestamp so unchanged apps never trigger full-catalog sitemap re-crawls
   if (!copy.updated_at) {
-    copy.updated_at = copy.publish_date || copy.created_at || '2026-09-01T00:00:00.000Z';
+    copy.updated_at = copy.published_at || copy.publish_date || copy.created_at || copy.added_date || copy.date || '2026-09-01T00:00:00.000Z';
   }
 
   if (typeof copy.description_html === 'string' && copy.description_html.trim()) {
@@ -224,44 +233,50 @@ export function sanitizePublicSettings(settings: any): any {
   if (!settings || typeof settings !== 'object') return {};
   const copy = JSON.parse(JSON.stringify(settings));
   delete copy.turnstile_secret_key;
+  delete copy.admin_password;
+  delete copy.admin_totp_secret;
+  delete copy.cloudinary_api_secret;
+  delete copy.gemini_api_key;
   return copy;
 }
 
 export function generateSecureVaultFile(ciphertext: string): string {
-  const safeCipher = (ciphertext || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-  return `import {
-  getEnvSecretKeys,
-  getAesSecret,
-  encryptData,
-  decryptData,
-  safeEncrypt,
-  safeDecrypt,
-} from './cryptoUtils';
-
-export { getEnvSecretKeys, getAesSecret, encryptData, decryptData, safeEncrypt, safeDecrypt };
-
-export function encryptLinks(linksMap: Record<string, string>, secretKey?: string): string {
-  return safeEncrypt(JSON.stringify(linksMap), secretKey);
-}
-
-export function decryptLinks(ciphertext: string, secretKey?: string): Record<string, string> {
-  if (!ciphertext || typeof ciphertext !== 'string' || !ciphertext.trim()) return {};
-  const dec = safeDecrypt(ciphertext.trim(), secretKey);
-  if (!dec) return {};
-  try {
-    const parsed = JSON.parse(dec);
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
-  } catch {}
-  return {};
-}
-
-export function generateSecureVaultFile(c: string): string {
-  return c;
-}
-
-export const ENCRYPTED_LINKS = "${safeCipher}";
-export const ENCRYPTED_VAULT = ENCRYPTED_LINKS;
-`;
+  const safeCipher = JSON.stringify(String(ciphertext || '').trim());
+  return [
+    "import {",
+    "  getEnvSecretKeys,",
+    "  getAesSecret,",
+    "  encryptData,",
+    "  decryptData,",
+    "  safeEncrypt,",
+    "  safeDecrypt,",
+    "} from './cryptoUtils';",
+    "",
+    "export { getEnvSecretKeys, getAesSecret, encryptData, decryptData, safeEncrypt, safeDecrypt };",
+    "",
+    "export function encryptLinks(linksMap: Record<string, string>, secretKey?: string): string {",
+    "  return safeEncrypt(JSON.stringify(linksMap), secretKey);",
+    "}",
+    "",
+    "export function decryptLinks(ciphertext: string, secretKey?: string): Record<string, string> {",
+    "  if (!ciphertext || typeof ciphertext !== 'string' || !ciphertext.trim()) return {};",
+    "  const dec = safeDecrypt(ciphertext.trim(), secretKey);",
+    "  if (!dec) return {};",
+    "  try {",
+    "    const parsed = JSON.parse(dec);",
+    "    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;",
+    "  } catch {}",
+    "  return {};",
+    "}",
+    "",
+    "export function generateSecureVaultFile(c: string): string {",
+    "  return `export { getEnvSecretKeys, getAesSecret, encryptData, decryptData, safeEncrypt, safeDecrypt } from './cryptoUtils';\\nexport const ENCRYPTED_LINKS = ${JSON.stringify(String(c || '').trim())};\\nexport const ENCRYPTED_VAULT = ENCRYPTED_LINKS;\\n`;",
+    "}",
+    "",
+    `export const ENCRYPTED_LINKS = ${safeCipher};`,
+    "export const ENCRYPTED_VAULT = ENCRYPTED_LINKS;",
+    "",
+  ].join('\n');
 }
 
 /**

@@ -362,7 +362,7 @@ export function useGitHubSync(
           ...sa,
           more_information_url: sa.more_information_url || existing.more_information_url || '',
           encrypted_link: sa.encrypted_link || existing.encrypted_link || '',
-          updated_at: sa.updated_at || existing.updated_at || sa.publish_date || existing.publish_date || '2026-09-01T00:00:00.000Z'
+          updated_at: sa.updated_at || existing.updated_at || sa.published_at || existing.published_at || sa.publish_date || existing.publish_date || sa.created_at || existing.created_at || sa.added_date || existing.added_date || sa.date || existing.date || '2026-09-01T00:00:00.000Z'
         });
       }
     } else if (Array.isArray(liveBackup?.apps) && liveBackup.apps.length > 0) {
@@ -445,7 +445,7 @@ export function useGitHubSync(
           ...sn,
           content: bestContent,
           description_html: bestContent,
-          updated_at: sn.updated_at || prev.updated_at || sn.published_at || sn.publish_date || sn.created_at || '2026-09-01T00:00:00.000Z'
+          updated_at: sn.updated_at || prev.updated_at || sn.published_at || prev.published_at || sn.publish_date || prev.publish_date || sn.created_at || prev.created_at || sn.added_date || prev.added_date || sn.date || prev.date || '2026-09-01T00:00:00.000Z'
         });
       }
     } else if (Array.isArray(liveBackup?.news) && liveBackup.news.length > 0) {
@@ -822,10 +822,6 @@ export function useGitHubSync(
         {
           path: 'src/lib/communityStaticReviews.json',
           content: staticReviewsCode
-        },
-        {
-          path: 'src/lib/public_backup.json',
-          content: backupJsonCode
         },
         {
           path: 'src/lib/staticData.json',

@@ -232,5 +232,16 @@ export function cleanFaqQuestion(q?: string): string {
     .trim();
 }
 
-
-
+export function normalizeIsoDate(rawDate?: any, fallback = '2026-09-01T00:00:00+05:30'): string {
+  if (!rawDate) return fallback;
+  const str = String(rawDate).trim();
+  if (!str) return fallback;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    return `${str}T00:00:00+05:30`;
+  }
+  const parsed = Date.parse(str);
+  if (!isNaN(parsed) && parsed > 0) {
+    return new Date(parsed).toISOString();
+  }
+  return fallback;
+}

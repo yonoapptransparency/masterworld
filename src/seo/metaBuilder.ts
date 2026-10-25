@@ -1,4 +1,4 @@
-import { escapeHtml, getOptimizedImageUrl } from './utils';
+import { escapeHtml, getOptimizedImageUrl, normalizeIsoDate } from './utils';
 
 export interface MetaBuilderParams {
   title: string;
@@ -59,8 +59,10 @@ export function buildMetaTags(params: MetaBuilderParams): string {
 
   const articleMetaTags = (() => {
     if (pageType !== 'news' || !targetNews) return '';
-    const pubTime = getField(targetNews, 'published_at') || getField(targetNews, 'created_at') || getField(targetNews, 'date') || '';
-    const modTime = getField(targetNews, 'updated_at') || pubTime;
+    const rawPubTime = getField(targetNews, 'published_at') || getField(targetNews, 'publish_date') || getField(targetNews, 'created_at') || getField(targetNews, 'date') || '';
+    const pubTime = rawPubTime ? normalizeIsoDate(rawPubTime, '') : '';
+    const rawModTime = getField(targetNews, 'updated_at') || rawPubTime;
+    const modTime = rawModTime ? normalizeIsoDate(rawModTime, pubTime) : pubTime;
     const author = getField(targetNews, 'ceo_name') || getField(targetNews, 'author') || 'Editorial Team';
     const section = getField(targetNews, 'category') || 'General';
     const tags = Array.isArray(targetNews.tags) ? targetNews.tags : [];

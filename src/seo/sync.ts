@@ -28,18 +28,48 @@ function cleanItemSeo(item: any): any {
   return item;
 }
 
-function mergeItemsByTimestamp(localItems: any[], remoteItems: any[]): any[] {
-  const map = new Map<string, any>();
+function getItemTimestampMs(item: any): number {
+  if (!item || typeof item !== 'object') return 0;
+  const raw = item.updated_at || item.published_at || item.publish_date || item.created_at || item.added_date || item.date || '';
+  if (!raw) return 0;
+  const parsed = Date.parse(String(raw));
+  return isNaN(parsed) ? 0 : parsed;
+}
 
-  // If remoteItems came from live Firestore, treat remoteItems as the authoritative catalog
-  // and only enrich missing fields from localItems unless local has a strictly newer explicit edit.
+function mergeItemsByTimestamp(localItems: any[], remoteItems: any[], isAuthoritativeRemote = false): any[] {
+  const localMap = new Map<string, any>();
   for (const local of (localItems || [])) {
     if (!local) continue;
     const cleaned = cleanItemSeo({ ...local });
     const key = String(cleaned.id || cleaned.slug || '').toLowerCase().trim();
-    if (key) map.set(key, cleaned);
+    if (key) localMap.set(key, cleaned);
   }
 
+  // When remoteItems come from live Firestore, treat remoteItems as the authoritative catalog set
+  // so deleted items in Firestore are not resurrected from local static fallbacks.
+  if (isAuthoritativeRemote && Array.isArray(remoteItems) && remoteItems.length > 0) {
+    const authoritativeMap = new Map<string, any>();
+    for (const item of remoteItems) {
+      if (!item) continue;
+      const cleaned = cleanItemSeo({ ...item });
+      const key = String(cleaned.id || cleaned.slug || '').toLowerCase().trim();
+      if (!key) continue;
+      const existingLocal = localMap.get(key);
+      if (!existingLocal) {
+        authoritativeMap.set(key, cleaned);
+      } else {
+        const localTime = getItemTimestampMs(existingLocal);
+        const remoteTime = getItemTimestampMs(cleaned);
+        const merged = remoteTime >= localTime
+          ? { ...existingLocal, ...cleaned }
+          : { ...cleaned, ...existingLocal };
+        authoritativeMap.set(key, cleanItemSeo(merged));
+      }
+    }
+    return Array.from(authoritativeMap.values());
+  }
+
+  const map = new Map<string, any>(localMap);
   for (const item of (remoteItems || [])) {
     if (!item) continue;
     const cleaned = cleanItemSeo({ ...item });
@@ -49,7 +79,12 @@ function mergeItemsByTimestamp(localItems: any[], remoteItems: any[]): any[] {
     if (!existingLocal) {
       map.set(key, cleaned);
     } else {
-      map.set(key, cleanItemSeo({ ...existingLocal, ...cleaned }));
+      const localTime = getItemTimestampMs(existingLocal);
+      const remoteTime = getItemTimestampMs(cleaned);
+      const merged = remoteTime >= localTime
+        ? { ...existingLocal, ...cleaned }
+        : { ...cleaned, ...existingLocal };
+      map.set(key, cleanItemSeo(merged));
     }
   }
 
@@ -155,7 +190,7 @@ export async function syncFromFirestore(): Promise<any> {
         if (parsedMeta.numChunks) numChunks = Number(parsedMeta.numChunks);
       }
 
-      const chunksToProbe = Math.max(numChunks, 6);
+      const chunksToProbe = Math.max(numChunks, 20);
       const chunkFetches = [];
       for (let i = 0; i < chunksToProbe; i++) {
         chunkFetches.push(
@@ -196,7 +231,7 @@ export async function syncFromFirestore(): Promise<any> {
       const videos = Array.isArray(videosParsed?.items) ? videosParsed.items : fallbackData.videos;
 
       if (remoteApps.length > 0) {
-        const mergedApps = mergeItemsByTimestamp(fallbackData.apps, remoteApps);
+        const mergedApps = mergeItemsByTimestamp(fallbackData.apps, remoteApps, true);
         const result = { apps: mergedApps, settings, news, videos, reviews: fallbackData.reviews || [] };
         try {
           fs.writeFileSync(publicBackupPath, JSON.stringify(result, null, 2), 'utf8');

@@ -433,6 +433,45 @@ export const AdminSettingsTab = React.memo(({ settings: rawSettings, handleSaveS
               <textarea name="videos_meta_description" rows={2} defaultValue={settings.videos_meta_description ?? ''} placeholder="Watch high-quality video walkthroughs and tutorials of our catalog applications..." className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"></textarea>
             </div>
           </div>
+
+          {/* New Apps Directory */}
+          <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">New Apps Directory (/new-apps)</h4>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">SEO Title</label>
+              <input type="text" name="new_apps_meta_title" defaultValue={(settings as any).new_apps_meta_title ?? ''} placeholder="New Apps & Latest Releases" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Meta Description</label>
+              <textarea name="new_apps_meta_description" rows={2} defaultValue={(settings as any).new_apps_meta_description ?? ''} placeholder="Explore the newest released applications with verified ratings..." className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"></textarea>
+            </div>
+          </div>
+
+          {/* Categories Directory */}
+          <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Categories Directory (/categories)</h4>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">SEO Title</label>
+              <input type="text" name="categories_meta_title" defaultValue={(settings as any).categories_meta_title ?? ''} placeholder="App Categories & Genres" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Meta Description</label>
+              <textarea name="categories_meta_description" rows={2} defaultValue={(settings as any).categories_meta_description ?? ''} placeholder="Browse all gaming and entertainment application categories..." className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"></textarea>
+            </div>
+          </div>
+
+          {/* FAQ Page */}
+          <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200 dark:border-slate-700/60 space-y-3">
+            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">FAQ Page (/faq)</h4>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">SEO Title</label>
+              <input type="text" name="faq_meta_title" defaultValue={settings.faq_meta_title ?? ''} placeholder="Frequently Asked Questions" className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Meta Description</label>
+              <textarea name="faq_meta_description" rows={2} defaultValue={settings.faq_meta_description ?? ''} placeholder="Answers to frequently asked questions about app verification and downloads..." className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-xs dark:text-white focus:ring-2 focus:ring-blue-500 transition-all"></textarea>
+            </div>
+          </div>
         </div>
       </div>
 

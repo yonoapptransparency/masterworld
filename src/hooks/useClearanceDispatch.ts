@@ -135,26 +135,12 @@ export function useClearanceDispatch({
       }
 
       // §5.6 Client-side stop (disguised 404, no server call) ONLY if:
-      // e.isTrusted === false, genuine desktop mouse with no touch capabilities, or non-touch burst
+      // e.isTrusted === false, genuine desktop mouse click, or rapid burst
       const hasTouch =
         (typeof navigator !== 'undefined' && Number(navigator.maxTouchPoints ?? 0) >= 1) ||
         (typeof window !== 'undefined' && 'ontouchstart' in window);
-      const isDesktopMouse = tap.pt === 'mouse' && !hasTouch;
-      const isBurst = !hasTouch && (recent2s.length >= 8 || recent10s.length > 12);
-
-      if (hasTouch) {
-        if (!tap.events.includes('ts')) tap.events.unshift('ts');
-        if (!tap.events.includes('te')) {
-          const ckIdx = tap.events.indexOf('ck');
-          if (ckIdx > 0) tap.events.splice(ckIdx, 0, 'te');
-          else tap.events.push('te');
-        }
-        if (tap.d < 15) tap.d = 45;
-        if (tap.x === 0 && tap.y === 0) {
-          tap.x = Math.round(fallbackClientX || 120);
-          tap.y = Math.round(fallbackClientY || 40);
-        }
-      }
+      const isDesktopMouse = tap.pt === 'mouse' || !hasTouch;
+      const isBurst = recent2s.length >= 12 || recent10s.length > 15;
 
       if (!isTrustedClick || isDesktopMouse || isBurst) {
         wipeSessionSecrets();
@@ -184,21 +170,20 @@ export function useClearanceDispatch({
         hard: env.hardStr,
         soft: env.softStr,
         tap: {
-          pt: hasTouch ? 'touch' : (tap.pt || 'touch'),
-          mtp: Number(typeof navigator !== 'undefined' ? navigator.maxTouchPoints ?? 0 : (hasTouch ? 1 : 0)),
+          pt: tap.pt || 'touch',
+          mtp: Number(typeof navigator !== 'undefined' ? navigator.maxTouchPoints ?? 0 : 0),
           coarse:
-            (typeof window !== 'undefined' &&
-              typeof window.matchMedia === 'function' &&
-              (window.matchMedia('(pointer: coarse)').matches ||
-                window.matchMedia('(any-pointer: coarse)').matches)) ||
-            hasTouch
+            typeof window !== 'undefined' &&
+            typeof window.matchMedia === 'function' &&
+            (window.matchMedia('(pointer: coarse)').matches ||
+              window.matchMedia('(any-pointer: coarse)').matches)
               ? 1
               : 0,
           rx: Math.round((tap.rx || 0) * 100) / 100,
           ry: Math.round((tap.ry || 0) * 100) / 100,
           pr: Math.round((tap.pr || 0) * 100) / 100,
-          x: Math.round(tap.x || 0),
-          y: Math.round(tap.y || 0),
+          x: Math.round(tap.x || fallbackClientX || 0),
+          y: Math.round(tap.y || fallbackClientY || 0),
           d: Math.round(tap.d || 0),
           gap: Math.round(tap.gap || 0),
           ev: tap.events.join(','),

@@ -532,10 +532,11 @@ const UA_BLACKLIST_TOKENS = [
 ];
 
 export function classifyUA(ua: string): BrowserFamily {
-  if (/iPhone|iPad|iPod/.test(ua)) {
+  const isIpadDesktopMode = /Macintosh/.test(ua) && /Mobile\//.test(ua) && /Safari\//.test(ua);
+  if (/iPhone|iPad|iPod/.test(ua) || isIpadDesktopMode) {
     if (/CriOS\//.test(ua)) return 'ios-chrome';
     if (/FxiOS\//.test(ua)) return 'ios-firefox';
-    if (/Version\//.test(ua) && /Safari\//.test(ua) && !/EdgiOS\/|OPiOS\//.test(ua)) {
+    if ((/Version\//.test(ua) || isIpadDesktopMode) && /Safari\//.test(ua) && !/EdgiOS\/|OPiOS\//.test(ua)) {
       return 'ios-safari';
     }
     return 'ios-inapp';
@@ -583,17 +584,26 @@ export function evaluateGateG1(
 ): { pass: true; family: BrowserFamily } | { pass: false; reason: string; family: string } {
   const h = ctx.headers;
   const env = ctx.env;
-  const isProd = env.NODE_ENV === 'production';
 
   // 1. Host Allowlist & Preview Detection
   const rawHost = (h['x-forwarded-host'] || h['host'] || '').split(',')[0].trim().toLowerCase();
   const hostname = rawHost.split(':')[0];
-  if (!hostname || hostname.endsWith('.pages.dev') || hostname.endsWith('.vercel.app')) {
+  if (!hostname) {
+    return { pass: false, reason: 'bad_host', family: 'unknown' };
+  }
+  if (
+    env.STRICT_HOST_CHECK === '1' &&
+    (hostname.endsWith('.pages.dev') || hostname.endsWith('.vercel.app'))
+  ) {
     return { pass: false, reason: 'bad_host', family: 'unknown' };
   }
   const allowedHosts = getAllowedHostnames(env);
-  const isPreviewRunApp = env.STRICT_HOST_CHECK !== '1' && hostname.endsWith('.run.app');
-  if (!allowedHosts.has(hostname) && !isPreviewRunApp) {
+  const isPreviewHost =
+    env.STRICT_HOST_CHECK !== '1' &&
+    (hostname.endsWith('.run.app') ||
+      hostname.endsWith('.pages.dev') ||
+      hostname.endsWith('.vercel.app'));
+  if (!allowedHosts.has(hostname) && !isPreviewHost) {
     return { pass: false, reason: 'bad_host', family: 'unknown' };
   }
 
@@ -604,9 +614,9 @@ export function evaluateGateG1(
 
   if (ctx.adapter !== 'cloudflare') {
     if (expectedCfAuth) {
-      // On direct AI Studio Cloud Run preview (*.run.app) without Cloudflare in front,
+      // On direct AI Studio Cloud Run / preview domains without Cloudflare in front,
       // only enforce X-CF-Auth if explicitly provided or STRICT_ORIGIN_AUTH=1.
-      if (!isPreviewRunApp || providedCfAuth !== undefined || env.STRICT_ORIGIN_AUTH === '1') {
+      if (!isPreviewHost || providedCfAuth !== undefined || env.STRICT_ORIGIN_AUTH === '1') {
         if (!providedCfAuth || !timingSafeEqualStr(providedCfAuth, expectedCfAuth)) {
           return { pass: false, reason: 'origin_auth', family: 'unknown' };
         }
@@ -632,11 +642,12 @@ export function evaluateGateG1(
     }
   }
 
-  // 4. Mobile OS & Client-Hints Desktop Contradiction
-  if (!/Android|iPhone|iPad|iPod/.test(ua)) {
+  // 4. Mobile OS & Client-Hints Desktop Contradiction (supports iPadOS 13+ Mobile Safari)
+  const isIpadDesktopMode = /Macintosh/.test(ua) && /Mobile\//.test(ua) && /Safari\//.test(ua);
+  if (!/Android|iPhone|iPad|iPod/.test(ua) && !isIpadDesktopMode) {
     return { pass: false, reason: 'non_mobile_ua', family: 'unknown' };
   }
-  if (/Windows|Macintosh|X11|CrOS/.test(ua)) {
+  if (/Windows|X11|CrOS/.test(ua) || (/Macintosh/.test(ua) && !isIpadDesktopMode)) {
     return { pass: false, reason: 'desktop_ua_token', family: 'unknown' };
   }
 
@@ -865,16 +876,11 @@ export async function handleSessionInit(ctx: GateRequestContext): Promise<GateRe
     }
   }
 
-  const isMobileFamily = family.startsWith('android-') || family.startsWith('ios-');
   if (did) {
     const memExp = isolateQuarantineCache.get(did);
     if (memExp && Date.now() < memExp) {
-      if (isMobileFamily) {
-        isolateQuarantineCache.delete(did);
-      } else {
-        emitGateCounter(ctx.env, 'G2', 'quarantine', 'fail', family);
-        return hard404Response();
-      }
+      emitGateCounter(ctx.env, 'G2', 'quarantine', 'fail', family);
+      return hard404Response();
     }
   }
 
@@ -894,17 +900,12 @@ export async function handleSessionInit(ctx: GateRequestContext): Promise<GateRe
     }
     const [isQuarantined, isSoftCool, didInitCount] = g2Pipe.results;
     if (isQuarantined) {
-      if (isMobileFamily) {
-        // Clear any legacy false-positive quarantine on this mobile device
-        void runRedisPipeline([['DEL', `quarantine:${did}`, `softcool:did:${did}`]], ctx.env);
-      } else {
-        isolateQuarantineCache.set(did, Date.now() + 60000);
-        emitGateCounter(ctx.env, 'G2', 'quarantine', 'fail', family);
-        return hard404Response();
-      }
+      isolateQuarantineCache.set(did, Date.now() + 60000);
+      emitGateCounter(ctx.env, 'G2', 'quarantine', 'fail', family);
+      return hard404Response();
     }
     if (
-      (!isMobileFamily && isSoftCool) ||
+      isSoftCool ||
       Number(didInitCount ?? 0) > INIT_RATE_DEVICE.limit
     ) {
       emitGateCounter(ctx.env, 'G2', 'init_rate', 'fail', family);
@@ -969,12 +970,8 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
   if (did) {
     const memExp = isolateQuarantineCache.get(did);
     if (memExp && Date.now() < memExp) {
-      if (isMobileFamily) {
-        isolateQuarantineCache.delete(did);
-      } else {
-        emitGateCounter(ctx.env, 'G2', 'quarantine', 'fail', family);
-        return hard404Response();
-      }
+      emitGateCounter(ctx.env, 'G2', 'quarantine', 'fail', family);
+      return hard404Response();
     }
 
     const g2Pipe = await runRedisPipeline(
@@ -994,29 +991,22 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
     }
     const [isQuarantined, isSoftCool, burst2s, , burst10s] = g2Pipe.results;
     if (isQuarantined) {
-      if (isMobileFamily) {
-        void runRedisPipeline([['DEL', `quarantine:${did}`, `softcool:did:${did}`]], ctx.env);
-      } else {
-        isolateQuarantineCache.set(did, Date.now() + 60000);
-        emitGateCounter(ctx.env, 'G2', 'quarantine', 'fail', family);
-        return hard404Response();
-      }
+      isolateQuarantineCache.set(did, Date.now() + 60000);
+      emitGateCounter(ctx.env, 'G2', 'quarantine', 'fail', family);
+      return hard404Response();
     }
     if (Number(burst2s ?? 0) >= CLEARANCE_BURST.hardCount) {
       emitGateCounter(ctx.env, 'G2', 'burst_hard', 'fail', family);
-      if (isMobileFamily) {
-        return softRetryResponse({ setCookie: setCookieHeader });
-      }
       await recordHardFailure(did, netKey, ctx.env, true);
       return hard404Response();
     }
-    if ((!isMobileFamily && isSoftCool) || Number(burst10s ?? 0) > CLEARANCE_BURST.softCount) {
+    if (isSoftCool || Number(burst10s ?? 0) > CLEARANCE_BURST.softCount) {
       emitGateCounter(ctx.env, 'G2', 'burst_soft', 'fail', family);
       await recordSoftStrike(did, netKey, ctx.env);
       return softRetryResponse({ setCookie: setCookieHeader });
     }
   } else {
-    // Cookie-less non-mobile client: governed by netcool:<netKey> and net burst ceiling
+    // Cookie-less client: governed by netcool:<netKey> and net burst ceiling
     const g2Pipe = await runRedisPipeline(
       [
         ['GET', `netcool:${netKey}`],
@@ -1032,15 +1022,12 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
       return softRetryResponse();
     }
     const [isNetCool, burst2s, , burst10s] = g2Pipe.results;
-    if (isNetCool && !isMobileFamily) {
+    if (isNetCool) {
       emitGateCounter(ctx.env, 'G2', 'netcool', 'fail', family);
       return hard404Response();
     }
     if (Number(burst2s ?? 0) >= CLEARANCE_BURST.hardCount * 4) {
       emitGateCounter(ctx.env, 'G2', 'burst_net_hard', 'fail', family);
-      if (isMobileFamily) {
-        return softRetryResponse();
-      }
       await recordHardFailure(null, netKey, ctx.env, false);
       return hard404Response();
     }
@@ -1146,7 +1133,7 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
   const nonceCheck = await verifyStatelessNonce(nonceStr, appId, ctx.env);
   if (!nonceCheck.valid) {
     emitGateCounter(ctx.env, 'G3', 'nonce_hmac', 'fail', family);
-    await recordHardFailure(did, netKey, ctx.env, !isMobileFamily);
+    await recordHardFailure(did, netKey, ctx.env, true);
     return paddedHard404Response();
   }
   const { nid, issuedAtMs } = nonceCheck;
@@ -1155,9 +1142,6 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
   const dwell = Date.now() - issuedAtMs;
   if (dwell < 0 || dwell < DWELL_HARD_BELOW_MS) {
     emitGateCounter(ctx.env, 'G3', 'dwell_hard', 'fail', family);
-    if (isMobileFamily) {
-      return softRetryResponse({ setCookie: setCookieHeader });
-    }
     await recordHardFailure(did, netKey, ctx.env, true);
     return paddedHard404Response();
   }
@@ -1234,17 +1218,10 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
     /Xclipse|Samsung|Adreno|Mali|Immortalis|Apple|PowerVR|RDNA|Qualcomm|Exynos|MediaTek/i.test(
       gpu
     );
-  const isDesktopRadeon =
-    !isMobileGpu &&
-    /Radeon/i.test(gpu) &&
-    !family.startsWith('android-') &&
-    !family.startsWith('ios-');
+  const isDesktopRadeon = !isMobileGpu && /Radeon/i.test(gpu);
   const isDesktopAppleM = /Apple M[1-4]/i.test(gpu) && !family.startsWith('ios-');
   const isDesktopIntel = /Intel\(R\) (UHD|Iris)/i.test(gpu);
-  const isDesktopDedicatedGpu =
-    /GeForce|RTX|GTX/i.test(gpu) &&
-    !family.startsWith('android-') &&
-    !family.startsWith('ios-');
+  const isDesktopDedicatedGpu = /GeForce|RTX|GTX/i.test(gpu);
 
   if (
     /^(Win|CrOS|Linux (x86|i[3-6]86))/i.test(plat) ||
@@ -1266,20 +1243,22 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
   const g4aMode = isStrict ? 'enforce' : signalModes['G4-A-tolerated'] || 'shadow';
 
   if (family.startsWith('ios-')) {
+    const isIpadDesktopMode = /Macintosh/.test(ua) && /Mobile\//.test(ua) && /Safari\//.test(ua);
     const isApplePlat =
       plat === '' ||
       plat === 'iPhone' ||
       plat === 'iPad' ||
       plat === 'iPod' ||
-      (plat === 'MacIntel' && (ua.includes('iPad') || ua.includes('iPhone')));
+      (plat === 'MacIntel' && (ua.includes('iPad') || ua.includes('iPhone') || isIpadDesktopMode));
     const isAppleVend =
       hardObj.vend === 'Apple Computer, Inc.' ||
       hardObj.vend === 'Google Inc.' ||
       hardObj.vend === '';
-    const iosCoreOk = isApplePlat && isAppleVend;
+    // Genuine iOS WebKit never exposes navigator.deviceMemory (dm=0) or navigator.userAgentData (ud=0)
+    const iosCoreOk = isApplePlat && isAppleVend && hardObj.dm === 0 && hardObj.ud === 0;
     if (!iosCoreOk) {
       emitGateCounter(ctx.env, 'G4', 'G4-A-ios', 'fail', family);
-      await recordHardFailure(did, netKey, ctx.env, !isMobileFamily);
+      await recordHardFailure(did, netKey, ctx.env, true);
       return paddedHard404Response();
     }
     // Shadow: sa = 1, wc = 0
@@ -1297,7 +1276,7 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
     const androidStrictOk = isAndroidPlat && isAndroidUdp;
     if (!androidStrictOk) {
       emitGateCounter(ctx.env, 'G4', 'G4-A-android-strict', 'fail', family);
-      await recordHardFailure(did, netKey, ctx.env, !isMobileFamily);
+      await recordHardFailure(did, netKey, ctx.env, true);
       return paddedHard404Response();
     }
     emitGateCounter(
@@ -1311,7 +1290,7 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
     const isFirefoxPlatOk = plat === '' || /^(Linux|Android)/i.test(plat);
     if (!isFirefoxPlatOk) {
       emitGateCounter(ctx.env, 'G4', 'G4-A-android-ff', 'fail', family);
-      await recordHardFailure(did, netKey, ctx.env, !isMobileFamily);
+      await recordHardFailure(did, netKey, ctx.env, true);
       return paddedHard404Response();
     }
   } else {
@@ -1325,7 +1304,7 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
       family
     );
     if (!toleratedArmOk && g4aMode === 'enforce') {
-      await recordHardFailure(did, netKey, ctx.env, !isMobileFamily);
+      await recordHardFailure(did, netKey, ctx.env, true);
       return paddedHard404Response();
     }
   }
@@ -1343,7 +1322,7 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
       mp[2] > 0 &&
       mp[2] <= 23;
     emitGateCounter(ctx.env, 'G4', 'G4-B', g4bOk ? 'pass' : 'fail', family);
-    if (!g4bOk && signalModes['G4-B'] === 'enforce' && !isMobileFamily) {
+    if (!g4bOk && signalModes['G4-B'] === 'enforce') {
       await recordHardFailure(did, netKey, ctx.env, true);
       return paddedHard404Response();
     }
@@ -1352,7 +1331,7 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
     const tx = softObj.tx;
     const g4cOk = Array.isArray(tx) && tx.length === 2 && (tx[0] === 1 || tx[1] === 1);
     emitGateCounter(ctx.env, 'G4', 'G4-C', g4cOk ? 'pass' : 'fail', family);
-    if (!g4cOk && signalModes['G4-C'] === 'enforce' && !isMobileFamily) {
+    if (!g4cOk && signalModes['G4-C'] === 'enforce') {
       await recordHardFailure(did, netKey, ctx.env, true);
       return paddedHard404Response();
     }
@@ -1362,7 +1341,7 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
   const tpSerialized = JSON.stringify(softObj.tp ?? []);
   const g4dOk = !TEXT_PHYSICS_DENYLIST.has(tpSerialized);
   emitGateCounter(ctx.env, 'G4', 'G4-D', g4dOk ? 'pass' : 'fail', family);
-  if (!g4dOk && signalModes['G4-D'] === 'enforce' && !isMobileFamily) {
+  if (!g4dOk && signalModes['G4-D'] === 'enforce') {
     await recordHardFailure(did, netKey, ctx.env, true);
     return paddedHard404Response();
   }
@@ -1396,11 +1375,14 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
 
   if (!g5CoreOk) {
     emitGateCounter(ctx.env, 'G5', 'touch_core', 'fail', family);
-    if (family.startsWith('android-') || family.startsWith('ios-')) {
-      return softRetryResponse();
+    // Desktop mouse pointer or zero touch points => immediate Hard 404 + quarantine
+    if (tap.pt === 'mouse' || Number(tap.mtp) < 1) {
+      await recordHardFailure(did, netKey, ctx.env, true);
+      return paddedHard404Response();
     }
-    await recordHardFailure(did, netKey, ctx.env, true);
-    return paddedHard404Response();
+    // Real touch hardware with transient event/duration anomaly => Soft retry with strike
+    await recordSoftStrike(did, netKey, ctx.env);
+    return softRetryResponse({ setCookie: setCookieHeader });
   }
 
   // G5 Shadow extras (counters only)
@@ -1426,16 +1408,13 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
     return softRetryResponse();
   }
   if (burnPipe.results[0] !== 'OK') {
-    // Nonce already burned => Replay
+    // Nonce already burned => Replay (§8 Test #5: second replay must return 404)
     emitGateCounter(ctx.env, 'G6', 'nonce_replay', 'fail', family);
-    if (family.startsWith('android-') || family.startsWith('ios-')) {
-      return softRetryResponse();
-    }
     await recordHardFailure(did, netKey, ctx.env, true);
     return paddedHard404Response();
   }
 
-  // 2. Turnstile siteverify (supports both env TURNSTILE_SECRET_KEY and Admin Settings turnstile_secret_key)
+  // 2. Turnstile siteverify (supports both Admin Settings turnstile_secret_key and env TURNSTILE_SECRET_KEY)
   const rawHost = (ctx.headers['x-forwarded-host'] || ctx.headers['host'] || '')
     .split(',')[0]
     .trim()
@@ -1480,6 +1459,7 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
     cdata?: string;
     'error-codes'?: string[];
   } | null = null;
+  let sawSoftTokenError = false;
 
   for (let i = 0; i < validSecrets.length; i++) {
     const candidateSecret = validSecrets[i];
@@ -1505,6 +1485,10 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
       if (svData?.success === true) {
         break;
       }
+      const codes = Array.isArray(svData?.['error-codes']) ? svData!['error-codes']! : [];
+      if (codes.includes('timeout-or-duplicate') || codes.includes('internal-error')) {
+        sawSoftTokenError = true;
+      }
     } catch {
       emitGateCounter(ctx.env, 'G6', 'siteverify_network', 'fail', family);
       await recordSoftStrike(did, netKey, ctx.env);
@@ -1517,6 +1501,7 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
   if (!svData || svData.success !== true) {
     const errCodes = Array.isArray(svData?.['error-codes']) ? svData!['error-codes']! : [];
     if (
+      sawSoftTokenError ||
       errCodes.includes('timeout-or-duplicate') ||
       errCodes.includes('internal-error')
     ) {
@@ -1525,7 +1510,7 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
       return softRetryResponse({ setCookie: setCookieHeader });
     }
     emitGateCounter(ctx.env, 'G6', 'siteverify_invalid', 'fail', family);
-    await recordHardFailure(did, netKey, ctx.env, !isMobileFamily);
+    await recordHardFailure(did, netKey, ctx.env, true);
     return paddedHard404Response();
   }
 
@@ -1536,7 +1521,10 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
   const allowedHosts = getAllowedHostnames(ctx.env);
   const hostAllowed =
     allowedHosts.has(svHostname) ||
-    (ctx.env.STRICT_HOST_CHECK !== '1' && svHostname.endsWith('.run.app')) ||
+    (ctx.env.STRICT_HOST_CHECK !== '1' &&
+      (svHostname.endsWith('.run.app') ||
+        svHostname.endsWith('.pages.dev') ||
+        svHostname.endsWith('.vercel.app'))) ||
     (isNonProdDummyToken && svHostname === 'example.com');
 
   let cdataValid = false;
@@ -1565,7 +1553,7 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
 
   if (!actionValid || !hostAllowed || !cdataValid) {
     emitGateCounter(ctx.env, 'G6', 'cdata_binding', 'fail', family);
-    await recordHardFailure(did, netKey, ctx.env, !isMobileFamily);
+    await recordHardFailure(did, netKey, ctx.env, true);
     return paddedHard404Response();
   }
   emitGateCounter(ctx.env, 'G6', 'turnstile', 'pass', family);

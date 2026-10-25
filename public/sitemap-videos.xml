@@ -1,13 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1" xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">
   <url>
     <loc>https://www.rummydex.com/videos/Jiocinema-revew</loc>
     <lastmod>2026-10-05T13:43:16+00:00</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
     <image:image>
-      <image:loc>https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png</image:loc>
+      <image:loc>https://img.youtube.com/vi/SY5ekIlxigs/hqdefault.jpg</image:loc>
       <image:title>Jiocinema review and proper guide and facility video</image:title>
     </image:image>
+    <video:video>
+      <video:thumbnail_loc>https://img.youtube.com/vi/SY5ekIlxigs/hqdefault.jpg</video:thumbnail_loc>
+      <video:title>Jiocinema review and proper guide and facility video</video:title>
+      <video:description>Jio cinema review and how jio cinema work explore in this video that and reliable video from YouTube</video:description>
+      <video:player_loc>https://www.youtube.com/embed/SY5ekIlxigs</video:player_loc>
+      <video:publication_date>2026-10-05T13:43:16+00:00</video:publication_date>
+    </video:video>
   </url>
 </urlset>

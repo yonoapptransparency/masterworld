@@ -54,12 +54,18 @@ export const formatSitemapDate = (dateVal: any, fallbackDate?: string): string =
   return fallback;
 };
 
+export const resolveItemTimestamp = (item: any, fallbackDate: string = STABLE_BASELINE_DATE): string => {
+  if (!item || typeof item !== 'object') return fallbackDate;
+  const raw = item.updated_at || item.published_at || item.publish_date || item.created_at || item.added_date || item.date;
+  return formatSitemapDate(raw, fallbackDate);
+};
+
 export const getLatestItemDate = (items: any[], fallbackDate: string = STABLE_BASELINE_DATE): string => {
   if (!Array.isArray(items) || items.length === 0) return fallbackDate;
   let maxTs = 0;
   for (const item of items) {
     if (!item || item.sync_to_public === false) continue;
-    const raw = item.updated_at || item.published_at || item.publish_date || item.created_at || item.date;
+    const raw = item.updated_at || item.published_at || item.publish_date || item.created_at || item.added_date || item.date;
     if (raw) {
       const d = new Date(formatSitemapDate(raw, fallbackDate)).getTime();
       if (!isNaN(d) && d > maxTs) maxTs = d;
@@ -81,15 +87,7 @@ export function generateMasterSitemapXml(
   const latestNewsDate = getLatestItemDate(news, STABLE_BASELINE_DATE);
   const latestVideoDate = getLatestItemDate(videos, STABLE_BASELINE_DATE);
   const settingsDate = formatSitemapDate(settings?.last_updated || settings?.updated_at, STABLE_BASELINE_DATE);
-  const latestStaticDate = getLatestItemDate(
-    [
-      { updated_at: latestAppDate },
-      { updated_at: latestNewsDate },
-      { updated_at: latestVideoDate },
-      { updated_at: settingsDate }
-    ],
-    STABLE_BASELINE_DATE
-  );
+  const latestStaticDate = settingsDate;
   const latestDevDate = getLatestItemDate(settings?.developers || [], STABLE_BASELINE_DATE);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -126,12 +124,12 @@ export function generateAppsSitemapXml(
   const cleanHost = host.replace(/\/$/, '');
 
   // Filter public-ready apps
-  const publicApps = apps.filter((a: any) => a && a.slug && a.sync_to_public !== false && !a.slug.toLowerCase().includes('test-'));
+  const publicApps = apps.filter((a: any) => a && (a.slug || a.id) && a.sync_to_public !== false);
   
   // Sort latest updated first
   publicApps.sort((a, b) => {
-    const ta = new Date(formatSitemapDate(a.updated_at || a.created_at, STABLE_BASELINE_DATE)).getTime();
-    const tb = new Date(formatSitemapDate(b.updated_at || b.created_at, STABLE_BASELINE_DATE)).getTime();
+    const ta = new Date(resolveItemTimestamp(a, STABLE_BASELINE_DATE)).getTime();
+    const tb = new Date(resolveItemTimestamp(b, STABLE_BASELINE_DATE)).getTime();
     return tb - ta;
   });
 
@@ -139,14 +137,14 @@ export function generateAppsSitemapXml(
 
   const seenUrls = new Set<string>();
   for (const app of publicApps) {
-    const slug = app.slug;
+    const slug = app.slug || app.id;
     if (!slug) continue;
-    const cSlug = cleanSlug(slug);
+    const cSlug = cleanSlug(String(slug));
     const loc = `${cleanHost}/app/${cSlug}`;
     if (seenUrls.has(loc)) continue;
     seenUrls.add(loc);
 
-    const appDate = formatSitemapDate(app.updated_at || app.created_at, STABLE_BASELINE_DATE);
+    const appDate = resolveItemTimestamp(app, STABLE_BASELINE_DATE);
     let appImage = app.og_image_url || app.icon_url || siteLogo;
     if (appImage && typeof appImage === 'string') {
       appImage = appImage.trim();
@@ -264,7 +262,7 @@ export function generateNewsSitemapXml(
   return xml;
 }
 
-// 4. Videos Sitemap (sitemap-videos.xml) - Guaranteed non-empty
+// 4. Videos Sitemap (sitemap-videos.xml) - Guaranteed non-empty with Google Video Sitemap extension
 export function generateVideosSitemapXml(
   videos: any[] = [],
   host: string = 'https://www.rummydex.com',
@@ -273,19 +271,28 @@ export function generateVideosSitemapXml(
   const cleanHost = host.replace(/\/$/, '');
   const now = STABLE_BASELINE_DATE;
 
-  let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n`;
+  const extractYoutubeIdForSitemap = (urlStr: string): string => {
+    if (!urlStr) return '';
+    const m = String(urlStr).match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|shorts\/|live\/|watch\?v=|watch\?.+&v=))([^&?\s]+)/);
+    return (m && m[1]) ? m[1] : '';
+  };
+
+  let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1" xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">\n`;
 
   const seenUrls = new Set<string>();
   for (const item of (videos || [])) {
+    if (!item || item.sync_to_public === false) continue;
     const slug = item.slug || item.id;
     if (!slug) continue;
-    const cSlug = cleanSlug(slug);
+    const cSlug = cleanSlug(String(slug));
     const loc = `${cleanHost}/videos/${cSlug}`;
     if (seenUrls.has(loc)) continue;
     seenUrls.add(loc);
 
-    const itemDate = formatSitemapDate(item.updated_at || item.created_at || item.published_at || item.date, now);
-    let itemImage = item.thumbnail_url || item.image_url || siteLogo;
+    const itemDate = resolveItemTimestamp(item, now);
+    const ytUrl = item.youtube_url || item.video_url || item.url || '';
+    const ytId = extractYoutubeIdForSitemap(ytUrl);
+    let itemImage = item.thumbnail_url || item.image_url || (ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : siteLogo);
     if (itemImage && typeof itemImage === 'string') {
       itemImage = itemImage.trim();
       if (!itemImage.startsWith('http')) {
@@ -293,6 +300,8 @@ export function generateVideosSitemapXml(
       }
     }
     const itemTitle = item.title || 'Video Walkthrough';
+    const itemDesc = (item.seo_description || item.description || itemTitle).replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim();
+    const playerLoc = ytId ? `https://www.youtube.com/embed/${ytId}` : (ytUrl && ytUrl.startsWith('http') ? ytUrl : '');
 
     xml += `  <url>\n`;
     xml += `    <loc>${loc}</loc>\n`;
@@ -304,6 +313,15 @@ export function generateVideosSitemapXml(
       xml += `      <image:loc>${escapeXml(itemImage)}</image:loc>\n`;
       xml += `      <image:title>${escapeXml(itemTitle)}</image:title>\n`;
       xml += `    </image:image>\n`;
+    }
+    if (itemImage && playerLoc) {
+      xml += `    <video:video>\n`;
+      xml += `      <video:thumbnail_loc>${escapeXml(itemImage)}</video:thumbnail_loc>\n`;
+      xml += `      <video:title>${escapeXml(itemTitle)}</video:title>\n`;
+      xml += `      <video:description>${escapeXml(itemDesc)}</video:description>\n`;
+      xml += `      <video:player_loc>${escapeXml(playerLoc)}</video:player_loc>\n`;
+      xml += `      <video:publication_date>${itemDate}</video:publication_date>\n`;
+      xml += `    </video:video>\n`;
     }
     xml += `  </url>\n`;
   }
@@ -340,15 +358,14 @@ export function generateStaticSitemapXml(
     ? formatSitemapDate(datesOrFallback, STABLE_BASELINE_DATE)
     : STABLE_BASELINE_DATE;
 
-  const appDate = isObj ? formatSitemapDate(datesOrFallback.latestAppDate, STABLE_BASELINE_DATE) : fallback;
-  const newsDate = isObj ? formatSitemapDate(datesOrFallback.latestNewsDate, STABLE_BASELINE_DATE) : fallback;
-  const videoDate = isObj ? formatSitemapDate(datesOrFallback.latestVideoDate, STABLE_BASELINE_DATE) : fallback;
   const infoDate = isObj ? formatSitemapDate(datesOrFallback.settingsDate, STABLE_BASELINE_DATE) : fallback;
+  const newsDate = isObj && datesOrFallback.latestNewsDate ? formatSitemapDate(datesOrFallback.latestNewsDate, infoDate) : infoDate;
+  const videoDate = isObj && datesOrFallback.latestVideoDate ? formatSitemapDate(datesOrFallback.latestVideoDate, infoDate) : infoDate;
 
   const staticPages = [
-    { path: '/', priority: '1.0', changefreq: 'daily', lastmod: appDate },
-    { path: '/new-apps', priority: '0.8', changefreq: 'daily', lastmod: appDate },
-    { path: '/categories', priority: '0.8', changefreq: 'weekly', lastmod: appDate },
+    { path: '/', priority: '1.0', changefreq: 'daily', lastmod: infoDate },
+    { path: '/new-apps', priority: '0.8', changefreq: 'daily', lastmod: infoDate },
+    { path: '/categories', priority: '0.8', changefreq: 'weekly', lastmod: infoDate },
     { path: '/news', priority: '0.8', changefreq: 'daily', lastmod: newsDate },
     { path: '/videos', priority: '0.7', changefreq: 'weekly', lastmod: videoDate },
     { path: '/about', priority: '0.5', changefreq: 'monthly', lastmod: infoDate },

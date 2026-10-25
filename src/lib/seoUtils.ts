@@ -38,7 +38,9 @@ const SETTINGS_META_TITLE_KEYS = [
   'news_meta_title',
   'videos_meta_title',
   'faq_meta_title',
-  'safety_meta_title'
+  'safety_meta_title',
+  'new_apps_meta_title',
+  'categories_meta_title'
 ];
 
 export function cleanSettingsMetaTitles<T extends Record<string, any>>(settings: T): T {
