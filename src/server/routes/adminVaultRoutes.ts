@@ -46,9 +46,13 @@ function getMergedData() {
     } catch (_) {}
   }
 
-  const apps = (Array.isArray(backupBase.apps) && backupBase.apps.length > 0)
-    ? backupBase.apps
-    : (Array.isArray(staticBase.apps) ? staticBase.apps : (staticBase.mockApps || []));
+  const staticApps = Array.isArray(staticBase.apps) ? staticBase.apps : (staticBase.mockApps || []);
+  const backupApps = Array.isArray(backupBase.apps) ? backupBase.apps : [];
+  const apps = (backupApps.length >= staticApps.length && backupApps.length >= 50)
+    ? backupApps
+    : (staticApps.length >= backupApps.length && staticApps.length >= 50)
+    ? staticApps
+    : (backupApps.length >= staticApps.length ? backupApps : staticApps);
 
   const settings = (backupBase.settings && Object.keys(backupBase.settings).length > 0)
     ? { ...(staticBase.settings || staticBase.mockSettings || {}), ...backupBase.settings }

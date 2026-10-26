@@ -114,20 +114,18 @@ export function ensureAbsoluteUrl(imgUrl?: string, origin = 'https://www.rummyde
   return `${origin}${imgUrl.startsWith('/') ? '' : '/'}${imgUrl}`;
 }
 
-export function getOgImageUrl(url?: string, origin = 'https://www.rummydex.com'): string {
+export function getOgImageUrl(url?: string, origin = 'https://www.rummydex.com', isNews = false): string {
   if (!url) return '';
   let absUrl = ensureAbsoluteUrl(url, origin);
   if (absUrl.includes('res.cloudinary.com') && absUrl.includes('/upload/')) {
-    if (absUrl.includes('w_1200') && absUrl.includes('h_630')) {
+    if (absUrl.includes('w_1200') && absUrl.includes('h_630') && (isNews ? !absUrl.includes('c_pad') : true)) {
       return absUrl;
     }
-    return absUrl.replace(
-      /\/upload\/(?:(?:[a-z]{1,3}_[a-zA-Z0-9_.:-]+,?)+\/)*(?:(v\d+)\/)?/,
-      (_match, version) => {
-        const v = version ? `${version}/` : '';
-        return `/upload/f_jpg,q_auto,w_1200,h_630,c_pad,b_auto/${v}`;
-      }
-    );
+    const cleanUrl = absUrl.replace(/\/upload\/(?:(?:[a-z]{1,3}_[a-zA-Z0-9_.:-]+,?)+\/)*/, '/upload/');
+    if (isNews) {
+      return cleanUrl.replace('/upload/', '/upload/f_auto,q_auto,w_1200,h_630,c_fill/');
+    }
+    return cleanUrl.replace('/upload/', '/upload/f_jpg,q_auto,w_1200,h_630,c_pad,b_auto/');
   }
   if (absUrl.includes('images.unsplash.com')) {
     return `${absUrl}${absUrl.includes('?') ? '&' : '?'}fm=jpg&q=85&w=1200&h=630&fit=crop`;

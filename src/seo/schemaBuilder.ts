@@ -1,5 +1,6 @@
-import { getField, stripHtml, optimizeImageUrl, normalizeSchemaCategory, getYoutubeThumbnail, normalizeIsoDate } from './utils';
+import { getField, stripHtml, optimizeImageUrl, normalizeSchemaCategory, getYoutubeThumbnail, normalizeIsoDate, cleanFaqQuestion } from './utils';
 import { fetchSEOReviewsForApp } from './reviewFallback';
+import { formatPageTitle } from '../lib/seoUtils';
 
 export interface BuildSchemaParams {
   pageType: 'home' | 'app' | 'news' | 'video' | 'static' | 'collection' | 'gateway' | '404';
@@ -200,10 +201,28 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
       "@type": "BreadcrumbList",
       "itemListElement": breadcrumbs
     });
+
+    // 4. FAQPage Schema when app has 1 or more valid Q&A items
+    const rawFaqs = Array.isArray(app.faqs) ? app.faqs : [];
+    const validFaqs = rawFaqs.filter((f: any) => f && f.question && f.answer && stripHtml(f.question).length > 0 && stripHtml(f.answer).length > 0);
+    if (validFaqs.length > 0) {
+      schemas.push({
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": validFaqs.map((faq: any) => ({
+          "@type": "Question",
+          "name": cleanFaqQuestion(stripHtml(faq.question)) || stripHtml(faq.question),
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": stripHtml(faq.answer)
+          }
+        }))
+      });
+    }
   } else if (params.pageType === 'news' && params.newsItem) {
     const item = params.newsItem;
     const rawHeading = getField(item, 'title');
-    const exactTitle = params.title || getField(item, 'seo_title') || getField(item, 'meta_title') || rawHeading;
+    const exactTitle = formatPageTitle(params.title || getField(item, 'seo_title') || getField(item, 'meta_title') || rawHeading, rawHeading);
     const desc = cleanSeoDescription(
       getField(item, 'seo_description') || 
       getField(item, 'meta_description') || 

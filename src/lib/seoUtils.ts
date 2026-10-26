@@ -8,6 +8,12 @@ export function formatPageTitle(rawTitle?: string, fallbackTitle: string = ''): 
   const firstLine = rawTitle.split(/\r?\n/)[0] || rawTitle;
   let clean = firstLine.trim().replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
 
+  // Strip trailing brand suffix if redundantly included (e.g. " | RummyDex", " - RummyDex", " | YonoStore")
+  const stripped = clean.replace(/\s*[|–—-]\s*(?:RummyDex|YonoStore)(?:\.com)?\s*$/i, '').trim();
+  if (stripped) {
+    clean = stripped;
+  }
+
   // Clean any leading or trailing stray separator punctuation without removing Admin-authored words
   clean = clean.replace(/^[:\s\-|–—•]+/, '').replace(/[:\s\-|–—•]+$/, '').trim();
 

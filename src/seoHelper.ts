@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { getSafeFirebaseConfig } from './seo/firebaseConfig';
-import { syncFromFirestore } from './seo/sync';
+import { syncFromFirestore, mergeItemsByTimestamp } from './seo/sync';
 import { getField, stripHtml, getYoutubeThumbnail, getOgImageUrl, isBotUserAgent, optimizeImageUrl } from './seo/utils';
 import { getCleanCanonicalUrl, formatPageTitle } from './lib/seoUtils';
 import { resolveAppSlug, SLUG_ALIAS_MAP } from './lib/slugResolver';
@@ -17,45 +17,55 @@ export { getField, getSafeFirebaseConfig, syncFromFirestore, getOgImageUrl, getY
 
 // Dynamically resolve staticData directly from filesystem with caching
 const getStaticData = () => {
+  let backupData: any = null;
+  let staticJsonData: any = null;
+
   try {
     const publicBackupPath = path.join(process.cwd(), 'src/lib/public_backup.json');
     if (fs.existsSync(publicBackupPath)) {
-      const data = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
-      if (data && (Array.isArray(data.apps) && data.apps.length > 0)) {
-        return {
-          apps: data.apps,
-          mockApps: data.apps,
-          settings: data.settings || {},
-          mockSettings: data.settings || {},
-          news: data.news || [],
-          mockNews: data.news || [],
-          videos: data.videos || [],
-          mockVideos: data.videos || [],
-          developers: data.developers || data.settings?.developers || []
-        };
-      }
+      backupData = JSON.parse(fs.readFileSync(publicBackupPath, 'utf8'));
     }
   } catch (_) {}
 
   try {
     const staticJsonPath = path.join(process.cwd(), 'src/lib/staticData.json');
     if (fs.existsSync(staticJsonPath)) {
-      const data = JSON.parse(fs.readFileSync(staticJsonPath, 'utf8'));
-      if (data) {
-        return {
-          apps: data.mockApps || data.apps || [],
-          mockApps: data.mockApps || data.apps || [],
-          settings: data.mockSettings || data.settings || {},
-          mockSettings: data.mockSettings || data.settings || {},
-          news: data.mockNews || data.news || [],
-          mockNews: data.mockNews || data.news || [],
-          videos: data.mockVideos || data.videos || [],
-          mockVideos: data.mockVideos || data.videos || [],
-          developers: data.developers || data.mockDevelopers || data.settings?.developers || data.mockSettings?.developers || []
-        };
-      }
+      staticJsonData = JSON.parse(fs.readFileSync(staticJsonPath, 'utf8'));
     }
   } catch (_) {}
+
+  const staticApps = staticJsonData ? (staticJsonData.mockApps || staticJsonData.apps || []) : [];
+  const backupApps = backupData && Array.isArray(backupData.apps) ? backupData.apps : [];
+  const mergedApps = mergeItemsByTimestamp(staticApps, backupApps, false);
+
+  const staticNews = staticJsonData ? (staticJsonData.mockNews || staticJsonData.news || []) : [];
+  const backupNews = backupData && Array.isArray(backupData.news) ? backupData.news : [];
+  const mergedNews = mergeItemsByTimestamp(staticNews, backupNews, false);
+
+  const staticSettings = staticJsonData ? (staticJsonData.mockSettings || staticJsonData.settings || {}) : {};
+  const backupSettings = backupData && backupData.settings ? backupData.settings : {};
+  const mergedSettings = { ...staticSettings, ...backupSettings };
+
+  const mergedVideos = (backupData && Array.isArray(backupData.videos) && backupData.videos.length > 0)
+    ? backupData.videos
+    : (staticJsonData ? (staticJsonData.mockVideos || staticJsonData.videos || []) : []);
+
+  const mergedDevelopers = backupData?.developers || backupData?.settings?.developers || staticJsonData?.developers || staticJsonData?.settings?.developers || [];
+
+  if (mergedApps.length > 0) {
+    return {
+      apps: mergedApps,
+      mockApps: mergedApps,
+      settings: mergedSettings,
+      mockSettings: mergedSettings,
+      news: mergedNews,
+      mockNews: mergedNews,
+      videos: mergedVideos,
+      mockVideos: mergedVideos,
+      developers: mergedDevelopers,
+      reviews: backupData?.reviews || staticJsonData?.reviews || []
+    };
+  }
 
   try {
     const staticDataModulePath = path.join(process.cwd(), 'src/lib/staticData');
@@ -114,7 +124,9 @@ async function doFetchStoreData() {
   }
 
   const data = {
-    apps: (liveData?.apps && Array.isArray(liveData.apps) && liveData.apps.length > 0) ? liveData.apps : (freshStatic.apps || freshStatic.mockApps || []),
+    apps: (liveData?.apps && Array.isArray(liveData.apps) && liveData.apps.length >= Math.max(50, Math.floor((freshStatic.apps?.length || 70) * 0.85)))
+      ? liveData.apps
+      : mergeItemsByTimestamp(freshStatic.apps || freshStatic.mockApps || [], liveData?.apps || [], false),
     settings: mergedSettings,
     news: (liveData?.news && Array.isArray(liveData.news) && liveData.news.length > 0) ? liveData.news : (freshStatic.news || freshStatic.mockNews || []),
     videos: (liveData?.videos && Array.isArray(liveData.videos) && liveData.videos.length > 0) ? liveData.videos : (freshStatic.videos || freshStatic.mockVideos || []),
@@ -578,7 +590,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     pageOgImage = logoUrl || `${domain}/logo.png`;
   }
   
-  pageOgImage = getOgImageUrl(pageOgImage, domain);
+  pageOgImage = getOgImageUrl(pageOgImage, domain, pageType === 'news');
 
   // Generate full pre-rendered semantic HTML directly from database for all public catalog & detail pages
   const isAdminPath = cleanPathLower.startsWith('/admin') || cleanPathLower.startsWith('/masterworld') || cleanPathLower === '/login' || cleanPathLower.startsWith('/login/');

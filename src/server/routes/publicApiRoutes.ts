@@ -178,7 +178,9 @@ publicApiRouter.get('/api/v1/public/faqs', async (req, res) => {
 publicApiRouter.get('/api/v1/public/backup-data', async (req, res) => {
   try {
     const data = await fetchStoreData();
-    const rawApps = (data?.apps || (staticData as any)?.apps || (staticData as any)?.mockApps || []).filter((a: any) => a && a.sync_to_public !== false);
+    const staticApps = (staticData as any)?.apps || (staticData as any)?.mockApps || [];
+    const sourceApps = (Array.isArray(data?.apps) && data.apps.length >= 50) ? data.apps : staticApps;
+    const rawApps = sourceApps.filter((a: any) => a && a.sync_to_public !== false);
     const rawNews = (data?.news || (staticData as any)?.news || (staticData as any)?.mockNews || []).filter((n: any) => n && n.sync_to_public !== false);
     res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
     return res.json({
@@ -197,7 +199,9 @@ publicApiRouter.get('/api/v1/public/backup-data', async (req, res) => {
 publicApiRouter.get('/api/v1/public/backup-data-full', async (req, res) => {
   try {
     const data = await fetchStoreData();
-    const rawApps = (data?.apps || (staticData as any)?.apps || (staticData as any)?.mockApps || []).filter((a: any) => a && a.sync_to_public !== false);
+    const staticApps = (staticData as any)?.apps || (staticData as any)?.mockApps || [];
+    const sourceApps = (Array.isArray(data?.apps) && data.apps.length >= 50) ? data.apps : staticApps;
+    const rawApps = sourceApps.filter((a: any) => a && a.sync_to_public !== false);
     const rawNews = (data?.news || (staticData as any)?.news || (staticData as any)?.mockNews || []).filter((n: any) => n && n.sync_to_public !== false);
     res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
     return res.json({

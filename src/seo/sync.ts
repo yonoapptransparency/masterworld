@@ -36,7 +36,7 @@ function getItemTimestampMs(item: any): number {
   return isNaN(parsed) ? 0 : parsed;
 }
 
-function mergeItemsByTimestamp(localItems: any[], remoteItems: any[], isAuthoritativeRemote = false): any[] {
+export function mergeItemsByTimestamp(localItems: any[], remoteItems: any[], isAuthoritativeRemote = false): any[] {
   const localMap = new Map<string, any>();
   for (const local of (localItems || [])) {
     if (!local) continue;
@@ -231,11 +231,20 @@ export async function syncFromFirestore(): Promise<any> {
       const videos = Array.isArray(videosParsed?.items) ? videosParsed.items : fallbackData.videos;
 
       if (remoteApps.length > 0) {
-        const mergedApps = mergeItemsByTimestamp(fallbackData.apps, remoteApps, true);
+        // Only treat remoteApps as an authoritative full catalog replacement if it returned at least 50 apps
+        // and at least 85% of the local baseline catalog. Otherwise, remoteApps is an incomplete chunk slice
+        // (e.g. from 429 quota exhaustion or network drop) and MUST be merged non-destructively.
+        const minFullCatalogThreshold = Math.max(50, Math.floor((fallbackData.apps?.length || 70) * 0.85));
+        const isAuthoritative = remoteApps.length >= minFullCatalogThreshold;
+        const mergedApps = mergeItemsByTimestamp(fallbackData.apps, remoteApps, isAuthoritative);
         const result = { apps: mergedApps, settings, news, videos, reviews: fallbackData.reviews || [] };
-        try {
-          fs.writeFileSync(publicBackupPath, JSON.stringify(result, null, 2), 'utf8');
-        } catch (e) {}
+        
+        // Never overwrite public_backup.json if mergedApps is incomplete or has lost apps
+        if (mergedApps.length >= minFullCatalogThreshold) {
+          try {
+            fs.writeFileSync(publicBackupPath, JSON.stringify(result, null, 2), 'utf8');
+          } catch (e) {}
+        }
         return result;
       }
     }

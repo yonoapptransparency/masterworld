@@ -53,9 +53,12 @@ export function buildMetaTags(params: MetaBuilderParams): string {
   const ogImageHeight = '630';
   const ogType = pageType === 'news' ? 'article' : 'website';
 
-  // Exact 1:1 square icon for search engine thumbnails to prevent logo mismatch in search results
+  // Search engine thumbnails: exact 1:1 icon for app pages, clean 1200w banner for news articles without c_pad padding
   const rawTargetIcon = targetApp ? (getField(targetApp, 'icon_url') || getField(targetApp, 'og_image_url')) : '';
-  const searchThumbnail = rawTargetIcon ? getOptimizedImageUrl(rawTargetIcon, 512) : pageOgImage;
+  const rawNewsHero = (pageType === 'news' && targetNews) ? (getField(targetNews, 'image') || getField(targetNews, 'image_url') || getField(targetNews, 'logo_url') || getField(targetNews, 'og_image_url')) : '';
+  const searchThumbnail = rawTargetIcon
+    ? getOptimizedImageUrl(rawTargetIcon, 512)
+    : (rawNewsHero ? getOptimizedImageUrl(rawNewsHero, 1200) : pageOgImage);
 
   const articleMetaTags = (() => {
     if (pageType !== 'news' || !targetNews) return '';

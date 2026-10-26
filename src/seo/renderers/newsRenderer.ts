@@ -1,6 +1,6 @@
 import { getField, optimizeImageUrl } from '../utils';
 import { escapeHtml, sanitizeHtml } from './common';
-import { formatNewsDate, calculateReadingTime } from '../../lib/newsUtils';
+import { formatNewsDate, calculateReadingTime, getNextNewsChain } from '../../lib/newsUtils';
 
 export function renderNewsList(news: any[], _settings: any, pageNum: number = 1): string {
   const publicNewsList = (Array.isArray(news) ? news : [])
@@ -355,21 +355,7 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
     }
   }
 
-  const itemKey = (getField(item, 'slug') || getField(item, 'id') || '').toLowerCase().trim();
-  const recentNews = (Array.isArray(news) ? news : [])
-    .filter((n: any) => {
-      if (!n || n.sync_to_public === false) return false;
-      const nKey = (getField(n, 'slug') || getField(n, 'id') || '').toLowerCase().trim();
-      return Boolean(nKey && nKey !== itemKey);
-    })
-    .sort((a: any, b: any) => {
-      if (a.is_pinned && !b.is_pinned) return -1;
-      if (!a.is_pinned && b.is_pinned) return 1;
-      const dateA = new Date(getField(a, 'date') || getField(a, 'published_at') || getField(a, 'created_at') || 0).getTime();
-      const dateB = new Date(getField(b, 'date') || getField(b, 'published_at') || getField(b, 'created_at') || 0).getTime();
-      return dateB - dateA;
-    })
-    .slice(0, 6);
+  const recentNews = getNextNewsChain(item, news, 6);
 
   const recentNewsHtml = recentNews.length > 0 ? `
     <section aria-labelledby="recent-news-heading" class="mt-8 pt-6 border-t border-zinc-200/80 dark:border-zinc-800/80 text-left">

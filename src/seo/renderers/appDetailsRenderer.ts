@@ -65,6 +65,10 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
       })
     : [];
   const relatedNewsCount = relatedNewsArticles.length;
+  const primaryNewsSlug = (relatedNewsArticles.length > 0 && (getField(relatedNewsArticles[0], 'slug') || getField(relatedNewsArticles[0], 'id')))
+    ? String(getField(relatedNewsArticles[0], 'slug') || getField(relatedNewsArticles[0], 'id')).trim()
+    : '';
+  const topNewsHref = primaryNewsSlug ? `/news/${encodeURIComponent(primaryNewsSlug)}` : `/news?q=${encodeURIComponent(name)}`;
 
   // Unified single source of truth for SEO ratings & counts
   const catStats = (communityCatalogStats as any)?.appCounts || {};
@@ -560,7 +564,7 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
           </div>
           <span>Back to storefront</span>
         </a>
-        <a href="/news?q=${encodeURIComponent(name)}" class="inline-flex items-center gap-1 xs:gap-1.5 px-2 xs:px-3 py-1 xs:py-1.5 rounded-full text-[11px] xs:text-xs font-semibold text-zinc-700 dark:text-zinc-200 bg-zinc-100 hover:bg-zinc-200/90 dark:bg-zinc-800/80 dark:hover:bg-zinc-700/80 border border-black/5 dark:border-white/10 transition-all shadow-xs group cursor-pointer active:scale-95 shrink-0 no-underline" title="Read latest news and updates for ${escapeHtml(name)}">
+        <a href="${topNewsHref}" class="inline-flex items-center gap-1 xs:gap-1.5 px-2 xs:px-3 py-1 xs:py-1.5 rounded-full text-[11px] xs:text-xs font-semibold text-zinc-700 dark:text-zinc-200 bg-zinc-100 hover:bg-zinc-200/90 dark:bg-zinc-800/80 dark:hover:bg-zinc-700/80 border border-black/5 dark:border-white/10 transition-all shadow-xs group cursor-pointer active:scale-95 shrink-0 no-underline" title="Read latest news and updates for ${escapeHtml(name)}">
           <div class="p-0.5 xs:p-1 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
             <svg class="w-3 h-3 xs:w-3.5 xs:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"></path></svg>
           </div>

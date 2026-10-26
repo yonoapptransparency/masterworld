@@ -46,3 +46,60 @@ export function getPlainTextSnippet(htmlOrText?: string, maxLength: number = 160
     .trim();
   return maxLength > 0 && clean.length > maxLength ? clean.slice(0, maxLength).trim() : clean;
 }
+
+/**
+ * Deterministic "Next, Next, Next" Circular Daisy-Chain Internal Linking Engine
+ *
+ * Guarantees every news article links forward to the next N articles in the publication sequence,
+ * wrapping around circularly so:
+ * - When on article i, it displays articles (i+1), (i+2), ... (i+count) % total
+ * - Navigating to the next article displays the subsequent 6 articles in the chain
+ * - Every article in the catalog receives equal, balanced incoming internal backlinks and PageRank
+ * - 100% deterministic between server SSR (newsRenderer.ts), initialDataOptimizer.ts, and client React (NewsDetailPage.tsx)
+ */
+export function getNextNewsChain(
+  currentNewsItemOrKey: any,
+  allNews: any[],
+  count: number = 6
+): any[] {
+  if (!Array.isArray(allNews) || allNews.length === 0) return [];
+
+  const validNews = allNews.filter((n: any) => n && n.sync_to_public !== false);
+  if (validNews.length <= 1) return [];
+
+  // Canonical sort: newest first, respecting is_pinned, then date/published_at descending, then slug/id for tie-breaking
+  const sorted = [...validNews].sort((a: any, b: any) => {
+    if (a.is_pinned && !b.is_pinned) return -1;
+    if (!a.is_pinned && b.is_pinned) return 1;
+    const dateA = new Date(a.published_at || a.date || a.created_at || 0).getTime();
+    const dateB = new Date(b.published_at || b.date || b.created_at || 0).getTime();
+    if (dateA !== dateB) return dateB - dateA;
+    return String(a.slug || a.id || '').localeCompare(String(b.slug || b.id || ''));
+  });
+
+  const curKey = typeof currentNewsItemOrKey === 'string'
+    ? currentNewsItemOrKey.toLowerCase().trim()
+    : String(currentNewsItemOrKey?.slug || currentNewsItemOrKey?.id || '').toLowerCase().trim();
+
+  const currentIndex = sorted.findIndex((n: any) => {
+    const s = String(n.slug || n.id || '').toLowerCase().trim();
+    const id = String(n.id || '').toLowerCase().trim();
+    return s === curKey || id === curKey;
+  });
+
+  const targetCount = Math.min(count, sorted.length - 1);
+  const result: any[] = [];
+
+  if (currentIndex === -1) {
+    return sorted.slice(0, targetCount);
+  }
+
+  // Circular forward progression: (currentIndex + step) % sorted.length
+  for (let step = 1; step <= targetCount; step++) {
+    const nextIdx = (currentIndex + step) % sorted.length;
+    result.push(sorted[nextIdx]);
+  }
+
+  return result;
+}
+

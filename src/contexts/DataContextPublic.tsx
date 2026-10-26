@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { AppConfig, GlobalSettings, NewsItem, VideoItem } from '../typesPublic';
-import { mockApps, mockApps as staticMockApps, mockSettings, mockNews, mockVideos } from '../lib/lightFallback';
+import { mockApps, mockApps as staticMockApps, mockSettings, mockNews, mockVideos, loadFullStaticDataset } from '../lib/lightFallback';
 
 interface DataContextType {
   apps: AppConfig[];
@@ -105,8 +105,8 @@ const mergeUniqueApps = (baseList: AppConfig[], incomingList: AppConfig[]): AppC
     }
   }
 
-  // When incomingList is a full catalog snapshot (not a trimmed 13-item route slice), enforce authoritative membership
-  const isFullCatalogIncoming = Array.isArray(incomingList) && incomingList.length > 25 && incomingList.length >= (baseList?.length || 0) * 0.8;
+  // When incomingList is a full catalog snapshot (not a trimmed route slice or partial chunk), enforce authoritative membership
+  const isFullCatalogIncoming = Array.isArray(incomingList) && incomingList.length >= 50 && incomingList.length >= (baseList?.length || 0) * 0.8;
   if (isFullCatalogIncoming) {
     return Array.from(map.entries())
       .filter(([k]) => incomingKeys.has(k))
@@ -290,7 +290,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             localStorage.removeItem(DATA_CACHE_KEY);
           } catch (e) {}
 
-          if (backup.apps && Array.isArray(backup.apps) && backup.apps.length > 0) {
+          if (backup.apps && Array.isArray(backup.apps) && backup.apps.length >= 50) {
             setApps(prev => {
               if (prev.length === backup.apps.length) {
                 const prevHasNewerOrEqual = prev.every((p, idx) => {
@@ -300,6 +300,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (prevHasNewerOrEqual) return prev;
               }
               return mergeUniqueApps(prev, backup.apps);
+            });
+          } else {
+            // Server backup was incomplete or offline; guarantee 100% catalog availability from static dataset
+            loadFullStaticDataset().then(full => {
+              if (full?.apps && full.apps.length > 0) {
+                setApps(prev => mergeUniqueApps(prev, full.apps));
+              }
             });
           }
           if (backup.settings && Object.keys(backup.settings).length > 0) {
@@ -329,17 +336,60 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
     } catch (e) {
-      console.warn("Public backup data fetch failed:", e);
+      console.warn("Public backup data fetch failed, falling back to static dataset:", e);
+      loadFullStaticDataset().then(full => {
+        if (full?.apps && full.apps.length > 0) {
+          setApps(prev => mergeUniqueApps(prev, full.apps));
+        }
+      });
     } finally {
       setLoading(false);
     }
   }, [apps.length]);
 
   useEffect(() => {
-    // Only fetch backup data if initial SSR cache was completely empty
-    if (apps.length === 0) {
+    // Pre-warm the offline static dataset in background idle time so client navigation has 0ms instant content
+    const timer = setTimeout(() => {
+      loadFullStaticDataset().then(full => {
+        if (full?.apps && full.apps.length > 0) {
+          setApps(prev => mergeUniqueApps(prev, full.apps));
+        }
+        if (full?.news && full.news.length > 0) {
+          setNews(prev => mergeUniqueNews(prev, full.news));
+        }
+      }).catch(() => {});
+    }, 200);
+
+    // Only fetch backup data if initial SSR cache was completely empty or has a trimmed route slice (< 50 apps on catalog route)
+    const p = typeof window !== 'undefined' ? window.location.pathname.toLowerCase() : '';
+    const isCatalog = p === '/' || p === '/new-apps' || p.startsWith('/categories') || p.startsWith('/category');
+    if (apps.length === 0 || (isCatalog && apps.length < 50)) {
       fetchBackupData(false);
     }
+    return () => clearTimeout(timer);
+  }, [apps.length, fetchBackupData]);
+
+  // Ensure full catalog is loaded if user navigates to catalog listing routes or opens search
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const checkCatalogRoute = () => {
+      const p = window.location.pathname.toLowerCase();
+      const isCatalog = p === '/' || p === '/new-apps' || p.startsWith('/categories') || p.startsWith('/category');
+      if (isCatalog && apps.length > 0 && apps.length < 50) {
+        fetchBackupData(true);
+      }
+    };
+    const handleSearchOpen = () => {
+      if (apps.length > 0 && apps.length < 50) {
+        fetchBackupData(true);
+      }
+    };
+    window.addEventListener('popstate', checkCatalogRoute);
+    window.addEventListener('open-search-modal', handleSearchOpen);
+    return () => {
+      window.removeEventListener('popstate', checkCatalogRoute);
+      window.removeEventListener('open-search-modal', handleSearchOpen);
+    };
   }, [apps.length, fetchBackupData]);
 
   const resolvedSettings = React.useMemo(() => {
