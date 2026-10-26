@@ -41,6 +41,7 @@ export function isRealEnvKey(val?: string | null): boolean {
 }
 
 export const INTERNAL_VAULT_FALLBACK_KEY = 'rummydex-v12-vault-aes-fallback-secret-32-bytes';
+export const LEGACY_VAULT_FALLBACK_KEY = 'S3A2MSt1VkdaL0YyTXBxV2tOa0Jzc3I1TG5pZlhUeTA=';
 
 export function getCandidateAesKeys(env?: Record<string, any>, explicitKey?: string): string[] {
   const e = env || (typeof process !== 'undefined' ? process.env : {}) || {};
@@ -56,6 +57,7 @@ export function getCandidateAesKeys(env?: Record<string, any>, explicitKey?: str
     p.AES_SECRET,
     p.VITE_AES_SECRET,
     INTERNAL_VAULT_FALLBACK_KEY,
+    LEGACY_VAULT_FALLBACK_KEY,
   ];
   const valid: string[] = [];
   for (const k of raw) {

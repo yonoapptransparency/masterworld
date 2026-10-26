@@ -1,6 +1,7 @@
 import CryptoJS from 'crypto-js';
 
 export const INTERNAL_VAULT_FALLBACK_KEY = 'rummydex-v12-vault-aes-fallback-secret-32-bytes';
+export const LEGACY_VAULT_FALLBACK_KEY = 'S3A2MSt1VkdaL0YyTXBxV2tOa0Jzc3I1TG5pZlhUeTA=';
 
 export function getEnvSecretKeys(explicitKey?: string): string[] {
   const keys: string[] = [];
@@ -21,6 +22,7 @@ export function getEnvSecretKeys(explicitKey?: string): string[] {
     add((import.meta as any).env.AES_SECRET);
   }
   add(INTERNAL_VAULT_FALLBACK_KEY);
+  add(LEGACY_VAULT_FALLBACK_KEY);
   return keys;
 }
 

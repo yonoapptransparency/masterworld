@@ -234,6 +234,13 @@ export function useTurnstileVerification({
             }, 600);
             return;
           }
+          const hasTouch =
+            (typeof navigator !== 'undefined' && Number(navigator.maxTouchPoints ?? 0) >= 1) ||
+            (typeof window !== 'undefined' && 'ontouchstart' in window);
+          if (hasTouch && env.gate.wb === 0 && env.gate.hl === 0 && env.gate.dk === 0) {
+            setUiTimeoutExceeded(true);
+            return;
+          }
           setIsBotBlocked(true);
           return;
         }

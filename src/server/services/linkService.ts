@@ -1,13 +1,10 @@
-import { ENCRYPTED_LINKS } from '../../lib/secureVault.js';
+import { ENCRYPTED_LINKS, ENCRYPTED_TURNSTILE_SECRET } from '../../lib/secureVault.js';
 import { decryptVaultValue } from '../crypto.js';
 
 export interface LinkResolutionResult {
   url: string | null;
   tier: 'T0_RAM' | 'T1_VAULT' | 'T2_BACKUP' | 'T3_SEC_VAULT' | 'T4_STORE_DATA' | 'NONE';
 }
-
-const B64_FIREBASE_FALLBACK =
-  'ewogICJwcm9qZWN0SWQiOiAiZ2VuLWxhbmctY2xpZW50LTA4MjU4MzI0OTMiLAogICJhcHBJZCI6ICIxOjEwMzk3Mzk4OTg3NDp3ZWI6NzMzYTZhZmQ4ZTgzNzIyNDkwMGY2YiIsCiAgImFwaUtleSI6ICJBSXphU3lCZXk5c1ViZVdscmNYUzJrbDRld096a1R5NGFyZzAzT2siLAogICJhdXRoRG9tYWluIjogImdlbi1sYW5nLWNsaWVudC0wODI1ODMyNDkzLmZpcmViYXNlYXBwLmNvbSIsCiAgImZpcmVzdG9yZURhdGFiYXNlSWQiOiAiYWktc3R1ZGlvLXlvbm9zdG9yZS04ODYzMTVhNC04YjlmLTRmZjYtODk4Ni1hOTBhZDE3MjIxMGEiLAogICJzdG9yYWdlQnVja2V0IjogImdlbi1sYW5nLWNsaWVudC0wODI1ODMyNDkzLmZpcmViYXNlc3RvcmFnZS5hcHAiLAogICJtZXNzYWdpbmdTZW5kZXJJZCI6ICIxMDM5NzM5ODk4NzQiLAogICJtZWFzdXJlbWVudElkIjogIiIsCiAgIm9BdXRoQ2xpZW50SWQiOiAiMTAzOTczOTg5ODc0LXQ0N252ODdrNTMycHQ4NHMyaTF0a2wwdmttYmloOWs2LmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29tIiwKICAicmVjYXB0Y2hhU2l0ZUtleSI6ICIiCn0K';
 
 const ramCache = new Map<string, string>();
 let t1Loaded = false;
@@ -267,267 +264,14 @@ async function resolveFromT2Backup(
   return null;
 }
 
-function decodeBase64Json(b64: string): Record<string, any> | null {
-  try {
-    const clean = b64.replace(/[^A-Za-z0-9+/=]/g, '');
-    const jsonStr =
-      typeof atob === 'function'
-        ? atob(clean)
-        : typeof Buffer !== 'undefined'
-          ? Buffer.from(clean, 'base64').toString('utf-8')
-          : '';
-    if (!jsonStr) return null;
-    return JSON.parse(jsonStr);
-  } catch {
-    return null;
-  }
-}
-
-function getFirebaseConfig(env?: Record<string, string | undefined>): {
-  projectId: string;
-  apiKey: string;
-  databaseId: string;
-} | null {
-  const procEnv =
-    typeof process !== 'undefined' && process.env
-      ? (process.env as Record<string, string | undefined>)
-      : {};
-
-  let projectId =
-    env?.FIREBASE_PROJECT_ID ||
-    env?.VITE_FIREBASE_PROJECT_ID ||
-    procEnv.FIREBASE_PROJECT_ID ||
-    procEnv.VITE_FIREBASE_PROJECT_ID ||
-    '';
-  let apiKey =
-    env?.FIREBASE_API_KEY ||
-    env?.VITE_FIREBASE_API_KEY ||
-    procEnv.FIREBASE_API_KEY ||
-    procEnv.VITE_FIREBASE_API_KEY ||
-    '';
-  let databaseId =
-    env?.FIREBASE_DATABASE_ID ||
-    env?.VITE_FIREBASE_DATABASE_ID ||
-    procEnv.FIREBASE_DATABASE_ID ||
-    procEnv.VITE_FIREBASE_DATABASE_ID ||
-    '';
-
-  if (!projectId || !apiKey || !databaseId) {
-    const fallback = decodeBase64Json(B64_FIREBASE_FALLBACK);
-    if (fallback) {
-      projectId = projectId || String(fallback.projectId || '');
-      apiKey = apiKey || String(fallback.apiKey || '');
-      databaseId =
-        databaseId ||
-        String(
-          fallback.firestoreDatabaseId ||
-            'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a'
-        );
-    }
-  }
-
-  if (!projectId || !apiKey) return null;
-  return {
-    projectId: projectId.trim(),
-    apiKey: apiKey.trim(),
-    databaseId: (databaseId || '(default)').trim(),
-  };
-}
-
-let firestoreQuotaCooldownUntil = 0;
-
-async function fetchFirestoreDocWithTimeout(
-  collectionAndDoc: string,
-  timeoutMs: number,
-  env?: Record<string, string | undefined>
-): Promise<Record<string, any> | null> {
-  if (Date.now() < firestoreQuotaCooldownUntil) {
-    return null;
-  }
-
-  const cfg = getFirebaseConfig(env);
-  if (!cfg) return null;
-
-  const dbCandidates = Array.from(
-    new Set([
-      cfg.databaseId || 'ai-studio-yonostore-886315a4-8b9f-4ff6-8986-a90ad172210a',
-      '(default)',
-    ])
-  );
-
-  for (const dbId of dbCandidates) {
-    if (Date.now() < firestoreQuotaCooldownUntil) return null;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${encodeURIComponent(
-        dbId
-      )}/documents/${collectionAndDoc}?key=${cfg.apiKey}`;
-      const res = await fetch(url, { signal: controller.signal });
-      if (res.status === 429 || res.status === 403) {
-        firestoreQuotaCooldownUntil = Date.now() + 60_000;
-        return null;
-      }
-      if (res.ok) {
-        const json = (await res.json()) as Record<string, any>;
-        if (json?.fields) return json;
-      }
-      if (res.status === 404 && dbId === cfg.databaseId) {
-        // Document genuinely does not exist in primary database
-        return null;
-      }
-    } catch {
-      // Try next databaseId candidate if network failed
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-  return null;
-}
-
-async function resolveFromT3SecVault(
-  identifier: string,
-  env?: Record<string, string | undefined>
-): Promise<string | null> {
-  if (Date.now() < firestoreQuotaCooldownUntil) return null;
-  const docPaths = ['store_data/sec_vault', 'sec_vault/links', 'store_data/secure_links'];
-  for (const docPath of docPaths) {
-    if (Date.now() < firestoreQuotaCooldownUntil) break;
-    const doc = await fetchFirestoreDocWithTimeout(docPath, 1500, env);
-    if (!doc?.fields) continue;
-
-    const cipher =
-      doc.fields?.encrypted_links?.stringValue ||
-      doc.fields?.ciphertext?.stringValue ||
-      doc.fields?.vault?.stringValue;
-    if (cipher && typeof cipher === 'string') {
-      const plain = await decryptVaultValue(cipher, env);
-      if (plain) {
-        try {
-          const parsed = JSON.parse(plain);
-          const mapObj = await normalizeVaultPayloadToMap(parsed, env);
-          primeRamVaultMap(mapObj);
-          const found = lookupInRecord(mapObj, identifier);
-          if (found) return found;
-        } catch {
-          // Ignore parse failure
-        }
-      }
-    }
-
-    if (doc.fields?.items?.arrayValue?.values) {
-      const items = parseFirestoreValue(doc.fields.items);
-      const mapObj = await normalizeVaultPayloadToMap(items, env);
-      primeRamVaultMap(mapObj);
-      const found = lookupInRecord(mapObj, identifier);
-      if (found) return found;
-    }
-  }
-  return null;
-}
-
-function parseFirestoreValue(valObj: any): any {
-  if (!valObj || typeof valObj !== 'object') return undefined;
-  if ('stringValue' in valObj) return valObj.stringValue;
-  if ('integerValue' in valObj) return Number(valObj.integerValue);
-  if ('doubleValue' in valObj) return Number(valObj.doubleValue);
-  if ('booleanValue' in valObj) return Boolean(valObj.booleanValue);
-  if ('nullValue' in valObj) return null;
-  if ('mapValue' in valObj) {
-    const fields = valObj.mapValue?.fields || {};
-    const out: Record<string, any> = {};
-    for (const [k, v] of Object.entries(fields)) {
-      out[k] = parseFirestoreValue(v);
-    }
-    return out;
-  }
-  if ('arrayValue' in valObj) {
-    const values = valObj.arrayValue?.values || [];
-    return values.map(parseFirestoreValue);
-  }
-  return undefined;
-}
-
-async function resolveFromT4StoreData(
-  identifier: string,
-  env?: Record<string, string | undefined>
-): Promise<string | null> {
-  if (Date.now() < firestoreQuotaCooldownUntil) return null;
-  const chunkNames = [
-    'store_data/secure_links',
-    'store_data/apps_chunk_0',
-    'store_data/apps_chunk_1',
-    'store_data/apps_chunk_2',
-    'store_data/apps_chunk_3',
-    'store_data/apps_chunk_4',
-    'store_data/apps_chunk_5',
-    'store_data/apps_chunk_6',
-    'store_data/apps_chunk_7',
-  ];
-  const targetNorm = normalizeIdentifier(identifier);
-
-  for (const chunkName of chunkNames) {
-    if (Date.now() < firestoreQuotaCooldownUntil) break;
-    const doc = await fetchFirestoreDocWithTimeout(chunkName, 1500, env);
-    if (!doc?.fields) continue;
-
-    if (doc.fields.links?.mapValue?.fields) {
-      const mapObj = parseFirestoreValue(doc.fields.links);
-      const normalizedMap = await normalizeVaultPayloadToMap(mapObj, env);
-      primeRamVaultMap(normalizedMap);
-      const found = lookupInRecord(normalizedMap, identifier);
-      if (found) {
-        setRamVaultLink(identifier, found);
-        return found;
-      }
-    }
-
-    const items =
-      parseFirestoreValue(doc.fields.items) || parseFirestoreValue(doc.fields.apps);
-    if (Array.isArray(items)) {
-      for (const app of items) {
-        if (!app || typeof app !== 'object') continue;
-        const idStr = String(app.id ?? '');
-        const slugStr = String(app.slug ?? '');
-        const nameStr = String(app.name ?? '');
-        const matched =
-          idStr === identifier ||
-          slugStr.toLowerCase() === identifier.toLowerCase() ||
-          (targetNorm &&
-            (normalizeIdentifier(idStr) === targetNorm ||
-              normalizeIdentifier(slugStr) === targetNorm ||
-              normalizeIdentifier(nameStr) === targetNorm));
-
-        if (matched) {
-          const candidates = [
-            app.more_information_url,
-            app.download_url,
-            app.link,
-            app.encrypted_link,
-            app.url,
-          ];
-          for (const candidate of candidates) {
-            const resolved = await decodeLinkField(candidate, env);
-            if (resolved) {
-              setRamVaultLink(identifier, resolved);
-              if (idStr) setRamVaultLink(idStr, resolved);
-              if (slugStr) setRamVaultLink(slugStr, resolved);
-              return resolved;
-            }
-          }
-        }
-      }
-    }
-  }
-  return null;
-}
-
 /**
  * Resolves all candidate Cloudflare Turnstile secret keys across:
- * 1. Admin Settings `turnstile_secret_key` (from local `public_backup.json` or Firestore `store_data/settings`)
- * 2. Environment variable `TURNSTILE_SECRET_KEY`
- * Putting Admin Settings first matches the client-side `useTurnstileVerification.ts` site key priority
- * (`settings?.turnstile_site_key` before `VITE_TURNSTILE_SITE_KEY`), while keeping env var as fallback.
+ * 1. Sealed `ENCRYPTED_TURNSTILE_SECRET` in `src/lib/secureVault.ts` (zero-Firebase static edge resolution)
+ * 2. Admin Settings `turnstile_secret_key` (from local `public_backup.json` on Node server)
+ * 3. Environment variable `TURNSTILE_SECRET_KEY`
+ *
+ * Completely independent of Firebase/Firestore so Firebase quota exhaustion (429)
+ * has zero impact on the /moreinfo gateway.
  */
 export async function getCandidateTurnstileSecrets(
   env?: Record<string, string | undefined>
@@ -543,7 +287,7 @@ export async function getCandidateTurnstileSecrets(
     }
   };
 
-  // 1. Check cached store secret first
+  // 1. Check in-memory cached secret first
   if (
     cachedTurnstileSecretFromStore &&
     cachedTurnstileSecretFromStore.secret &&
@@ -555,7 +299,23 @@ export async function getCandidateTurnstileSecrets(
     return secrets;
   }
 
-  // 2. Try reading from local public_backup.json (Node server)
+  // 2. Decrypt sealed ENCRYPTED_TURNSTILE_SECRET from src/lib/secureVault.ts (works on Cloudflare Edge & Node with 0 I/O)
+  try {
+    if (ENCRYPTED_TURNSTILE_SECRET && typeof ENCRYPTED_TURNSTILE_SECRET === 'string') {
+      const decSecret = await decryptVaultValue(ENCRYPTED_TURNSTILE_SECRET, env);
+      if (decSecret && decSecret.trim()) {
+        cachedTurnstileSecretFromStore = {
+          secret: decSecret.trim(),
+          expiresAt: Date.now() + 3_600_000,
+        };
+        addSecret(decSecret);
+      }
+    }
+  } catch {
+    // Ignore decryption error and continue to local backup / env var
+  }
+
+  // 3. Try reading from local public_backup.json (Node server)
   try {
     if (typeof process !== 'undefined' && typeof process.cwd === 'function') {
       const fsMod = await import('fs').catch(() => null);
@@ -569,35 +329,15 @@ export async function getCandidateTurnstileSecrets(
           if (typeof sec === 'string' && sec.trim()) {
             cachedTurnstileSecretFromStore = {
               secret: sec.trim(),
-              expiresAt: Date.now() + 300_000,
+              expiresAt: Date.now() + 3_600_000,
             };
             addSecret(sec);
-            addSecret(env?.TURNSTILE_SECRET_KEY);
-            addSecret(procEnv.TURNSTILE_SECRET_KEY);
-            return secrets;
           }
         }
       }
     }
   } catch {
     // Ignore local fs errors on Edge
-  }
-
-  // 3. Fallback on Cloudflare Edge: query Firestore store_data/settings if not in quota cooldown
-  if (Date.now() >= firestoreQuotaCooldownUntil) {
-    try {
-      const doc = await fetchFirestoreDocWithTimeout('store_data/settings', 1200, env);
-      const sec = doc?.fields?.turnstile_secret_key?.stringValue;
-      if (typeof sec === 'string' && sec.trim()) {
-        cachedTurnstileSecretFromStore = {
-          secret: sec.trim(),
-          expiresAt: Date.now() + 300_000,
-        };
-        addSecret(sec);
-      }
-    } catch {
-      // Ignore
-    }
   }
 
   addSecret(env?.TURNSTILE_SECRET_KEY);
@@ -607,8 +347,9 @@ export async function getCandidateTurnstileSecrets(
 }
 
 /**
- * Resolves an app identifier (ID or slug) across T0 -> T1 -> T2 -> T3 -> T4
- * per §5.8 of MORE_INFO_SECURITY_ARCHITECTURE.md v11.1.
+ * Resolves an app identifier (ID or slug) purely across static/in-memory tiers:
+ * T0 (RAM Cache) -> T1 (ENCRYPTED_LINKS in src/lib/secureVault.ts) -> T2 (local public_backup.json).
+ * Zero Firebase / Firestore requests are ever made on the /moreinfo gateway path.
  */
 export async function resolveDestinationUrl(
   appId: string,
@@ -631,24 +372,10 @@ export async function resolveDestinationUrl(
     return { url: t1, tier: 'T1_VAULT' };
   }
 
-  // T2: src/lib/public_backup.json
+  // T2: src/lib/public_backup.json (Node server fallback)
   const t2 = await resolveFromT2Backup(cleanId, env);
   if (t2) {
     return { url: t2, tier: 'T2_BACKUP' };
-  }
-
-  // T3: Firestore sec_vault (1.5s timeout)
-  const t3 = await resolveFromT3SecVault(cleanId, env);
-  if (t3) {
-    setRamVaultLink(cleanId, t3);
-    return { url: t3, tier: 'T3_SEC_VAULT' };
-  }
-
-  // T4: Firestore store_data (1.5s timeout)
-  const t4 = await resolveFromT4StoreData(cleanId, env);
-  if (t4) {
-    setRamVaultLink(cleanId, t4);
-    return { url: t4, tier: 'T4_STORE_DATA' };
   }
 
   return { url: null, tier: 'NONE' };

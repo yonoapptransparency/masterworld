@@ -150,12 +150,21 @@ export function inspectClientMobileGate(gpuRenderer = ''): ClientMobileGateResul
     (typeof window !== 'undefined' && 'ontouchstart' in window) ||
     typeof TouchEvent !== 'undefined';
 
-  // Comprehensive mobile operating system / browser detection
-  const navData = (navigator as unknown as { userAgentData?: { platform?: string } }).userAgentData;
+  // Comprehensive mobile operating system / browser / silicon detection
+  const navData = (navigator as unknown as { userAgentData?: { platform?: string; mobile?: boolean } })
+    .userAgentData;
+  const isMobileGpu = Boolean(
+    gpuRenderer &&
+      /Xclipse|Samsung|Adreno|Mali|Immortalis|Apple|PowerVR|RDNA|Qualcomm|Exynos|MediaTek|Vivante|Tegra/i.test(
+        gpuRenderer
+      )
+  );
   const isAndroidDevice =
     /Android/i.test(ua) ||
     /Android/i.test(plat) ||
-    navData?.platform === 'Android';
+    navData?.platform === 'Android' ||
+    navData?.mobile === true ||
+    (hasTouch && isMobileGpu);
 
   // On iPadOS, Apple serves desktop UA with platform 'MacIntel' but has touch
   const isAppleTouchDevice =
@@ -167,12 +176,15 @@ export function inspectClientMobileGate(gpuRenderer = ''): ClientMobileGateResul
     isAppleTouchDevice ||
     (/Mobile|Tablet/i.test(ua) && hasTouch);
 
-  // Desktop OS detection without touch (Windows, ChromeOS, Desktop Linux)
-  const isExplicitDesktopOs =
-    /Windows NT|CrOS|X11; Linux (x86_64|i686)/i.test(ua) ||
-    /^(Win|CrOS|Linux (x86|i[3-6]86))/i.test(plat);
+  // Desktop OS detection (Windows, ChromeOS, or non-Android Desktop Linux without mobile GPU)
+  const isWindowsOrCrOs =
+    /Windows NT|CrOS/i.test(ua) || /^(Win|CrOS)/i.test(plat);
+  const isDesktopLinux =
+    (/X11; Linux (x86_64|i686)/i.test(ua) || /^Linux (x86|i[3-6]86)/i.test(plat)) &&
+    !isAndroidDevice &&
+    !isMobileGpu;
 
-  if (isExplicitDesktopOs || (!isMobileDevice && !hasTouch)) {
+  if (isWindowsOrCrOs || isDesktopLinux || (!isMobileDevice && !hasTouch)) {
     dk = 1;
   }
 
@@ -180,17 +192,9 @@ export function inspectClientMobileGate(gpuRenderer = ''): ClientMobileGateResul
     if (/SwiftShader|llvmpipe|softpipe|VirtualBox|VMware/i.test(gpuRenderer)) {
       hl = 1;
     }
-    // Genuine mobile GPUs:
-    // - Qualcomm Adreno
-    // - ARM Mali & Immortalis
-    // - Samsung Xclipse & AMD RDNA 2/3 (Galaxy S22/S24 Exynos)
-    // - Apple GPU / A-series / M-series
-    // - Imagination PowerVR
-    const isMobileGpu =
-      /Xclipse|Samsung|Adreno|Mali|Immortalis|Apple|PowerVR|RDNA/i.test(gpuRenderer);
 
     // Flag desktop GPUs unconditionally even if UA or touch was spoofed via DevTools/Playwright
-    if (/GeForce|RTX|GTX|Intel\(R\) (UHD|Iris)/i.test(gpuRenderer)) {
+    if (/GeForce|RTX|GTX|Intel\(R\) (UHD|Iris|HD Graphics)/i.test(gpuRenderer)) {
       dk = 1;
     }
     if (!isMobileGpu && /Radeon/i.test(gpuRenderer)) {

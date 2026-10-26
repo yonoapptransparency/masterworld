@@ -240,8 +240,10 @@ export function sanitizePublicSettings(settings: any): any {
   return copy;
 }
 
-export function generateSecureVaultFile(ciphertext: string): string {
+export function generateSecureVaultFile(ciphertext: string, encryptedTurnstileSecret?: string): string {
   const safeCipher = JSON.stringify(String(ciphertext || '').trim());
+  const defaultTurnstileSecret = "U2FsdGVkX18Cro3bhTovzwBCm82B7Hhy8T4ckWY3frEOQEr7Nx6x2mbVr3TjI0FwFKuUa2DvDvFIAtlwGo4H+w==";
+  const safeTsSecret = JSON.stringify(String(encryptedTurnstileSecret || defaultTurnstileSecret).trim());
   return [
     "import {",
     "  getEnvSecretKeys,",
@@ -269,12 +271,14 @@ export function generateSecureVaultFile(ciphertext: string): string {
     "  return {};",
     "}",
     "",
-    "export function generateSecureVaultFile(c: string): string {",
-    "  return `export { getEnvSecretKeys, getAesSecret, encryptData, decryptData, safeEncrypt, safeDecrypt } from './cryptoUtils';\\nexport const ENCRYPTED_LINKS = ${JSON.stringify(String(c || '').trim())};\\nexport const ENCRYPTED_VAULT = ENCRYPTED_LINKS;\\n`;",
+    "export function generateSecureVaultFile(c: string, ts?: string): string {",
+    `  const defTs = ${safeTsSecret};`,
+    "  return `export { getEnvSecretKeys, getAesSecret, encryptData, decryptData, safeEncrypt, safeDecrypt } from './cryptoUtils';\\nexport const ENCRYPTED_LINKS = ${JSON.stringify(String(c || '').trim())};\\nexport const ENCRYPTED_VAULT = ENCRYPTED_LINKS;\\nexport const ENCRYPTED_TURNSTILE_SECRET = ${JSON.stringify(String(ts || defTs).trim())};\\n`;",
     "}",
     "",
     `export const ENCRYPTED_LINKS = ${safeCipher};`,
     "export const ENCRYPTED_VAULT = ENCRYPTED_LINKS;",
+    `export const ENCRYPTED_TURNSTILE_SECRET = ${safeTsSecret};`,
     "",
   ].join('\n');
 }
