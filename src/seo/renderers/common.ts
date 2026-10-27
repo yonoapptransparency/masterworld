@@ -42,7 +42,7 @@ export function renderHeader(settings: any): string {
       <div class="w-full max-w-7xl px-1.5 xxs:px-2.5 xs:px-4 sm:px-6 lg:px-8 mx-auto relative flex justify-between items-center">
         <a href="/" class="flex items-center gap-1 xxs:gap-1.5 xs:gap-2.5 sm:gap-3 group min-w-0" aria-label="${escapeHtml(siteTitle)} Home">
           <div class="p-0 transition-transform group-hover:scale-[1.03] duration-300 shrink-0">
-            ${logoUrl ? `<img src="${escapeHtml(optimizedLogo)}" loading="eager" fetchpriority="high" decoding="async" width="40" height="40" class="w-6 h-6 xxs:w-7 xxs:h-7 xs:w-8 xs:h-8 sm:w-11 sm:h-11 object-contain drop-shadow-sm" alt="${escapeHtml(siteTitle)} Official Logo"/>` : `<div class="w-6 h-6 xxs:w-7 xxs:h-7 xs:w-8 xs:h-8 sm:w-11 sm:h-11 bg-blue-500 rounded-xl flex items-center justify-center text-white font-semibold text-xs sm:text-base">${escapeHtml(siteTitle.charAt(0))}</div>`}
+            ${logoUrl ? `<img src="${escapeHtml(optimizedLogo)}" decoding="async" width="40" height="40" class="w-6 h-6 xxs:w-7 xxs:h-7 xs:w-8 xs:h-8 sm:w-11 sm:h-11 object-contain drop-shadow-sm" alt="${escapeHtml(siteTitle)} Official Logo"/>` : `<div class="w-6 h-6 xxs:w-7 xxs:h-7 xs:w-8 xs:h-8 sm:w-11 sm:h-11 bg-blue-500 rounded-xl flex items-center justify-center text-white font-semibold text-xs sm:text-base">${escapeHtml(siteTitle.charAt(0))}</div>`}
           </div>
           <div class="flex flex-col leading-none min-w-0">
             <span class="text-xs xxs:text-sm xs:text-base sm:text-xl md:text-2xl font-bold tracking-tight text-zinc-900 dark:text-white truncate max-w-[90px] xxs:max-w-[120px] xs:max-w-[170px] sm:max-w-none">${escapeHtml(siteTitle)}</span>

@@ -11,7 +11,7 @@ import {
 } from '../lib/communityFirebase';
 import { generateNaturalStarDistribution } from '../seo/utils';
 
-const PAGE_SIZE = 5;
+export const PAGE_SIZE = 10;
 
 // Pure deduplication helper guaranteeing unique items by ID
 function deduplicateReviewsList(list: Review[]): Review[] {
@@ -68,7 +68,7 @@ export function useReviews(
   const [sortBy, setSortBy] = useState<'recent' | 'helpful'>('recent');
   const [activeFilter, setActiveFilter] = useState<'all' | 'positive' | 'critical'>('all');
 
-  // Instant SWR Cache Initialization (0ms latency render for first 5 items)
+  // Instant SWR Cache Initialization (0ms latency render for first 10 items)
   const initialCached = useMemo(() => {
     return getCachedLiveReviews(cleanAppId, cleanAppSlug);
   }, [cleanAppId, cleanAppSlug]);
@@ -108,7 +108,7 @@ export function useReviews(
 
   const [expandedReviews, setExpandedReviews] = useState<Record<string, boolean>>({});
 
-  // Dynamic Live Review Fetcher - Loads exactly 5 comments per batch
+  // Dynamic Live Review Fetcher - Loads 10 comments per batch
   const fetchReviews = useCallback(async (isLoadMore = false, overrideFilter?: string, overrideSort?: string) => {
     const targetKey = cleanAppId || cleanAppSlug;
     if (!targetKey) return;
@@ -143,7 +143,18 @@ export function useReviews(
         sortBy: currentSort
       });
 
-      const mappedReviews: Review[] = result.reviews.map((r: any) => normalizeReviewItem(r, cleanAppId));
+      const validKeys = new Set([cleanAppId.toLowerCase(), cleanAppSlug.toLowerCase()].filter(Boolean));
+      const strictReviews = result.reviews.filter((r: any) => {
+        if (!r) return false;
+        const rId = String(r.appId || r.app_id || "").toLowerCase().trim();
+        const rSlug = String(r.appSlug || "").toLowerCase().trim();
+        if (validKeys.size > 0 && (rId || rSlug)) {
+          if (rId && !validKeys.has(rId)) return false;
+          if (rSlug && !validKeys.has(rSlug)) return false;
+        }
+        return true;
+      });
+      const mappedReviews: Review[] = strictReviews.map((r: any) => normalizeReviewItem(r, cleanAppId));
 
       if (result.stats) {
         setStats(result.stats);
@@ -202,7 +213,7 @@ export function useReviews(
     }
   }, [cleanAppId, cleanAppSlug, inView, fetchReviews, reviews.length, loading]);
 
-  // Refetch 5 items when filter or sorting changes
+  // Refetch 10 items when filter or sorting changes
   const isFirstFilterMount = useRef(true);
   useEffect(() => {
     if (isFirstFilterMount.current) {

@@ -1,13 +1,14 @@
 import React, { useEffect } from 'react';
 import { useData } from '../contexts/DataContextPublic';
 import { getCleanCanonicalUrl, formatPageTitle } from '../lib/seoUtils';
-import { getOgImageUrl, getOptimizedImageUrl } from '../seo/utils';
+import { getOgImageUrl, getOptimizedImageUrl, getImageMimeType } from '../seo/utils';
 
 interface MetaProps {
   title?: string;
   description?: string;
   keywords?: string;
   image?: string;
+  isCustomWidescreenOg?: boolean;
   url?: string;
   type?: 'website' | 'article' | 'profile';
   publishedTime?: string;
@@ -27,6 +28,7 @@ const Meta: React.FC<MetaProps> = ({
   description,
   keywords,
   image,
+  isCustomWidescreenOg = false,
   url,
   type = 'website',
   publishedTime,
@@ -49,11 +51,13 @@ const Meta: React.FC<MetaProps> = ({
   const DEFAULT_ICON = 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
   const rawImage = image || settings?.logo_url || settings?.favicon_url || DEFAULT_ICON;
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.rummydex.com';
-  const metaImage = getOgImageUrl(rawImage, origin);
+  const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/';
+  const isAppRoute = currentPath.startsWith('/app/');
   const rawSquareThumb = rawImage.startsWith('http') ? rawImage : `${origin}${rawImage.startsWith('/') ? '' : '/'}${rawImage}`;
   const squareThumbnail = getOptimizedImageUrl(rawSquareThumb, 512);
-  
-  const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/';
+  const metaImage = (isAppRoute && !isCustomWidescreenOg)
+    ? squareThumbnail
+    : getOgImageUrl(rawImage, origin, type === 'article');
   const canonicalUrl = getCleanCanonicalUrl(canonical || url, currentPath);
   const metaUrl = getCleanCanonicalUrl(url || canonical, currentPath);
 
@@ -192,9 +196,10 @@ const Meta: React.FC<MetaProps> = ({
     setMetaTag('property', 'og:description', metaDescription);
     setMetaTag('property', 'og:image', metaImage);
     setMetaTag('property', 'og:image:secure_url', metaImage);
-    setMetaTag('property', 'og:image:type', metaImage.includes('.jpg') || metaImage.includes('f_jpg') ? 'image/jpeg' : 'image/png');
-    const ogWidth = metaImage.includes('w_600') ? '600' : '1200';
-    const ogHeight = metaImage.includes('w_600') ? '600' : '630';
+    setMetaTag('property', 'og:image:type', getImageMimeType(metaImage));
+    const isSquareOg = metaImage.includes('w_512') || (isAppRoute && !isCustomWidescreenOg);
+    const ogWidth = isSquareOg ? '512' : (metaImage.includes('w_600') ? '600' : '1200');
+    const ogHeight = isSquareOg ? '512' : (metaImage.includes('w_600') ? '600' : '630');
     setMetaTag('property', 'og:image:width', ogWidth);
     setMetaTag('property', 'og:image:height', ogHeight);
     if (cleanPathLower === '/') {

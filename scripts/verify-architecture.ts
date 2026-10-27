@@ -562,11 +562,100 @@ async function verifyModulesAndLiveServer() {
       Boolean(yonoStats && yonoStats.stats && yonoStats.stats.totalReviews > 0 && yonoStats.reviews.length > 0) &&
       Boolean(newestAppStats && Array.isArray(newestAppStats.reviews) && newestAppStats.reviews.length === 0);
 
+    // 6. Technical SEO & Hydration Parity 8-Part Verification (TECH-SEO-1..8)
+    const charsetFirstOk = /<head[^>]*>\s*<meta charset="utf-8"\s*\/?>/i.test(app1Html) && /<head[^>]*>\s*<meta charset="utf-8"\s*\/?>/i.test(news1Html);
+    const dynamicMimeOk = app1Html.includes('property="og:image:type" content="image/webp"');
+    const unpaddedSquareOgOk = app1Html.includes('property="og:image:width" content="512"') && !app1Html.includes('c_pad');
+    const fullReviewsNoSliceOk = !app1Html.includes('<span>Read more</span>') && !app1Html.includes('<span>Helpful </span>') && app1Html.includes('<span>Write a Review</span>');
+    const newsSchemaEeatOk = news1Html.includes('#article"') && news1Html.includes('"RummyDex Editorial Team"');
+    const navbarLogoPriorityIsolatedOk = !/<img[^>]*Official Logo[^>]*fetchpriority="high"/i.test(app1Html) && !/<img[^>]*Official Logo[^>]*loading="eager"/i.test(app1Html) && app1Html.includes('id="primary-app-logo"') && app1Html.includes('width="512" height="512"') && app1Html.includes('"primaryImageOfPage"') && !/<img[^>]*\s+src="https:[^"]+w_96/i.test(app1Html);
+    const flagPos = app1Html.indexOf('>Flag<');
+    const similarPos = app1Html.indexOf('Similar Applications');
+    const aboutPos = app1Html.indexOf('About this app');
+    const layoutFlowOk = flagPos > 0 && similarPos > flagPos && aboutPos > similarPos;
+    const fileSizeNormalizedOk = /"fileSize":"[^"]*MB"/i.test(app1Html);
+
+    record(
+      'TECH-SEO-1..8',
+      'Technical SEO & Hydration Parity (UTF-8 First, Dynamic MIME, 512px Unpadded OG, Un-Sliced Reviews, News E-E-A-T Graph, Logo Priority, Layout Flow, File Size MB)',
+      charsetFirstOk && dynamicMimeOk && unpaddedSquareOgOk && fullReviewsNoSliceOk && newsSchemaEeatOk && navbarLogoPriorityIsolatedOk && layoutFlowOk && fileSizeNormalizedOk,
+      `CharsetFirst: ${charsetFirstOk}, DynamicMime: ${dynamicMimeOk}, Unpadded512OG: ${unpaddedSquareOgOk}, FullReviews+WriteBtn: ${fullReviewsNoSliceOk}, NewsEEATGraph: ${newsSchemaEeatOk}, LogoPriorityIsolated: ${navbarLogoPriorityIsolatedOk}, LayoutFlow(ShareFlag<Similar<About): ${layoutFlowOk}, FileSizeMB: ${fileSizeNormalizedOk}`
+    );
+
     record(
       'SEO-ISOLATION-1..8',
       'Zero /moreinfo Leak, 512px Hero Attribution, data-nosnippet Carousels, 100% Link Graph & Admin Title Fidelity',
       noGlobalTurnstile && noMoreinfoDistDir && zeroMoreinfoAnchors && titlePreservesBrand && heroImage512Ok && similarRotatedOk && reachability100Ok && reviewFallbackOk,
       `NoGlobalTurnstile: ${noGlobalTurnstile}, NoMoreinfoDist: ${noMoreinfoDistDir}, ZeroMoreinfoAnchors: ${zeroMoreinfoAnchors}, TitleFidelity: ${titlePreservesBrand}, Hero512+nosnippet: ${heroImage512Ok}, SimilarRotated: ${similarRotatedOk}, ReachableApps: ${reachableApps}/${allApps.length}, ReachableNews: ${reachableNews}/${allNews.length}, ReviewFidelity: ${reviewFallbackOk}`
+    );
+    // 7. Strict Review Isolation, 10-Review Initial SSR Batch, Load More Pagination & Hydration Parity (REV-ISOLATION-1..4)
+    const { isStrictAppReviewMatch } = await import('../src/seo/reviewFallback.js');
+    const { fetchLiveReviews, isReviewStrictlyForApp, INITIAL_REVIEW_BATCH_SIZE } = await import('../src/lib/communityFirebase.js');
+    const { PAGE_SIZE } = await import('../src/hooks/useReviews.js');
+    const { buildSoftwareSchema } = await import('../src/components/public/appDetails/appDetailsSchemas.js');
+
+    const r77Html = fs.readFileSync(path.join(distDir, 'app/rummy-77/index.html'), 'utf8');
+    const r77InitMatch = r77Html.match(/window\.__INITIAL_DATA__\s*=\s*(\{[\s\S]*?\});<\/script>/);
+    const r77InitData = r77InitMatch ? JSON.parse(r77InitMatch[1]) : null;
+    const r77InitReviews = r77InitData?.appReviews?.reviews || [];
+
+    const r77JsonLdMatches = [...r77Html.matchAll(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g)];
+    let r77SoftwareSchema: any = null;
+    for (const m of r77JsonLdMatches) {
+      try {
+        const p = JSON.parse(m[1]);
+        const arr = Array.isArray(p) ? p : (p['@graph'] || [p]);
+        const found = arr.find((s: any) => s && s['@type'] === 'SoftwareApplication');
+        if (found) r77SoftwareSchema = found;
+      } catch (_) {}
+    }
+
+    const r77ValidSet = new Set(['i5uw2apum', 'rummy-77']);
+    const strictIsolationOk =
+      r77InitReviews.length === 10 &&
+      r77InitReviews.every((r: any) => isStrictAppReviewMatch(r, r77ValidSet, 'Rummy')) &&
+      !isReviewStrictlyForApp({ appId: 'reelshort', appSlug: 'reelshort', reviewText: 'Great episodes and binge watching!', rating: 5 }, ['i5uw2apum', 'rummy-77'], 'Rummy') &&
+      !isReviewStrictlyForApp({ appId: 'i5uw2apum', appSlug: 'rummy-77', reviewText: 'Love the episodes and subtitles in this short drama series!', rating: 5 }, ['i5uw2apum', 'rummy-77'], 'Rummy');
+
+    const ssrReviewCardsCount = (r77Html.match(/Was this review helpful\?/g) || []).length;
+    const ssrSchemaReviewsCount = Array.isArray(r77SoftwareSchema?.review) ? r77SoftwareSchema.review.length : 0;
+    const ssrHasLoadMoreBtn = r77Html.includes('Load More Reviews');
+    const batch10SsrOk =
+      INITIAL_REVIEW_BATCH_SIZE === 10 &&
+      PAGE_SIZE === 10 &&
+      r77InitReviews.length === 10 &&
+      ssrReviewCardsCount === 10 &&
+      ssrSchemaReviewsCount === 10 &&
+      r77InitData?.appReviews?.hasMore === true &&
+      ssrHasLoadMoreBtn;
+
+    const page1Res = await fetchLiveReviews({ appId: 'i5uw2apum', appSlug: 'rummy-77', cursor: null, limit: 10 });
+    const page2Res = await fetchLiveReviews({ appId: 'i5uw2apum', appSlug: 'rummy-77', cursor: page1Res.nextCursor, limit: 10 });
+    const page1Ids = new Set(page1Res.reviews.map((r: any) => r.id));
+    const hasZeroOverlap = page2Res.reviews.every((r: any) => !page1Ids.has(r.id));
+    const loadMorePaginationOk =
+      page1Res.reviews.length === 10 &&
+      page1Res.hasMore === true &&
+      page1Res.nextCursor === '10' &&
+      page2Res.reviews.length === 5 &&
+      page2Res.hasMore === false &&
+      page2Res.nextCursor === null &&
+      hasZeroOverlap;
+
+    const r77TargetApp = r77InitData?.apps?.find((a: any) => a && a._isFullApp);
+    const clientSoftwareSchema = r77TargetApp
+      ? buildSoftwareSchema(r77TargetApp, r77TargetApp.seo_description || '', true, Number(r77TargetApp.rating) || 4.7, Number(r77TargetApp.review_count) || 15, r77InitReviews)
+      : null;
+    const schemaReviewParityOk =
+      Boolean(clientSoftwareSchema && Array.isArray(clientSoftwareSchema.review) && clientSoftwareSchema.review.length === 10) &&
+      JSON.stringify(clientSoftwareSchema.review) === JSON.stringify(r77SoftwareSchema?.review) &&
+      JSON.stringify(r77InitReviews.map((r: any) => r.id)) === JSON.stringify(page1Res.reviews.map((r: any) => r.id));
+
+    record(
+      'REV-ISOLATION-1..4',
+      'Strict Review Isolation, 10-Review SSR Batch, Load More Pagination & Client Hydration Parity',
+      strictIsolationOk && batch10SsrOk && loadMorePaginationOk && schemaReviewParityOk,
+      `StrictIsolation: ${strictIsolationOk}, SSRBatch10(DOM=${ssrReviewCardsCount},Init=${r77InitReviews.length},Schema=${ssrSchemaReviewsCount}): ${batch10SsrOk}, LoadMore(P1=${page1Res.reviews.length},P2=${page2Res.reviews.length}): ${loadMorePaginationOk}, Parity1to1: ${schemaReviewParityOk}`
     );
   } catch (isoErr: any) {
     record('SEO-ISOLATION-1..8', 'Zero /moreinfo Leak & Attribution Isolation', false, isoErr?.message || String(isoErr));

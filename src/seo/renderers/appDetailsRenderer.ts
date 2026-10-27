@@ -1,4 +1,4 @@
-import { getField, optimizeImageUrl, stripHtml, cleanFaqQuestion, generateNaturalStarDistribution } from '../utils';
+import { getField, optimizeImageUrl, stripHtml, cleanFaqQuestion, generateNaturalStarDistribution, normalizeFileSize } from '../utils';
 import { resolveAppSlug } from '../../lib/slugResolver';
 import communityCatalogStats from '../../lib/communityCatalogStats.json';
 import { formatReviewDate } from '../../lib/communityFirebase';
@@ -44,7 +44,7 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
   const name = getField(app, 'name');
   const cat = getField(app, 'category', 'Card Game');
   const version = getField(app, 'version', 'Latest');
-  const size = getField(app, 'file_size', 'Variable');
+  const size = normalizeFileSize(getField(app, 'file_size'), '45 MB');
   const developer = getField(app, 'developer', 'Verified Developer');
   const cleanId = String(getField(app, 'id')).toLowerCase().trim();
   const appIdExact = getField(app, 'id');
@@ -97,11 +97,22 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
     finalCount = sampleReviews.length;
   }
 
-  // Strictly slice to 5 initial reviews to match UserReviews.tsx (PAGE_SIZE = 5) and window.__INITIAL_DATA__.appReviews
+  // Strictly filter for target app and slice to 10 initial reviews to match UserReviews.tsx (PAGE_SIZE = 10) and window.__INITIAL_DATA__.appReviews
+  const canonicalSlugLower = String(getField(app, 'slug') || cleanSlug || '').toLowerCase().trim();
+  const validAppKeys = new Set<string>([cleanId, cleanSlug, canonicalSlugLower].filter(Boolean));
   const validReviews = Array.isArray(sampleReviews)
     ? sampleReviews
-        .filter((r: any) => r && stripHtml(r.reviewText || r.comment || '').trim().length >= 3)
-        .slice(0, 5)
+        .filter((r: any) => {
+          if (!r || stripHtml(r.reviewText || r.comment || '').trim().length < 3) return false;
+          const rId = String(r.appId || r.app_id || '').toLowerCase().trim();
+          const rSlug = String(r.appSlug || '').toLowerCase().trim();
+          if (validAppKeys.size > 0 && (rId || rSlug)) {
+            if (rId && !validAppKeys.has(rId)) return false;
+            if (rSlug && !validAppKeys.has(rSlug)) return false;
+          }
+          return true;
+        })
+        .slice(0, 10)
     : [];
 
   const totalCount = Math.max(finalCount, validReviews.length);
@@ -237,8 +248,7 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
       const rawComment = (r.comment && r.comment.trim())
         ? r.comment.trim()
         : ((r.reviewText && r.reviewText.trim()) ? r.reviewText.trim() : '');
-      const isLong = rawComment.length > 150;
-      const displayedComment = isLong ? `${rawComment.substring(0, 150)}...` : rawComment;
+      const displayedComment = rawComment;
       const dateStr = escapeHtml(formatReviewDate(r.created_at || r.timestamp));
       const helpfulCount = Number(r.helpful_count) || 0;
       const starsHtml = [1, 2, 3, 4, 5].map(s => renderStarSvg(s <= revRating, 'w-3 h-3')).join('');
@@ -261,12 +271,6 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
             </div>
             <div class="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed break-words whitespace-pre-wrap flex flex-col relative select-text">
               <p>${escapeHtml(displayedComment)}</p>
-              ${isLong ? `
-                <button type="button" class="self-start inline-flex items-center gap-0.5 text-[11px] font-black text-blue-500 hover:text-blue-600 dark:hover:text-blue-400 mt-2 cursor-pointer transition-all uppercase tracking-wide select-none outline-none">
-                  <span>Read more</span>
-                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                </button>
-              ` : ''}
               ${r.adminReply && r.adminReply.text ? `
                 <div class="mt-3 p-3 bg-zinc-100/80 dark:bg-zinc-800/60 rounded-xl border border-black/5 dark:border-white/5 text-[11px] text-zinc-700 dark:text-zinc-300">
                   <div class="flex items-center justify-between gap-2 mb-1">
@@ -284,7 +288,7 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
               <span class="text-[10px] text-zinc-400 dark:text-zinc-500">Was this review helpful?</span>
               <button type="button" class="flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all bg-black/5 hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10 text-zinc-500 dark:text-zinc-400 active:scale-95 cursor-pointer">
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>
-                <span>Helpful ${helpfulCount > 0 ? `(${helpfulCount})` : ''}</span>
+                <span>${helpfulCount > 0 ? `Helpful (${helpfulCount})` : 'Helpful'}</span>
               </button>
               <button type="button" class="flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold rounded-lg transition-all ml-auto bg-black/5 hover:bg-rose-500/10 hover:text-rose-600 dark:bg-white/5 dark:hover:bg-rose-500/15 text-zinc-500 dark:text-zinc-400 active:scale-95 cursor-pointer">
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15" stroke-width="2"></line></svg>
@@ -297,7 +301,7 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
     }).join('');
   }
 
-  const canLoadMoreReviews = totalCount > 5;
+  const canLoadMoreReviews = totalCount > 10;
   const summaryStarsHtml = [1, 2, 3, 4, 5].map(s => renderStarSvg(s <= Math.round(Number(ratingVal)), 'w-2.5 h-2.5 xs:w-3.5 xs:h-3.5')).join('');
   const distBarsHtml = [5, 4, 3, 2, 1].map((star) => `
     <div class="flex items-center gap-2">
@@ -314,10 +318,15 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
         <div class="flex flex-col gap-6 sm:gap-8">
           <div class="w-full">
             <div class="w-full">
-              <h2 class="text-lg xs:text-xl font-bold mb-3 xs:mb-4 text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5 xs:gap-2">
-                <svg class="w-4 h-4 xs:w-5 xs:h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                <span>Ratings and reviews</span>
-              </h2>
+              <div class="flex items-center justify-between gap-2 mb-3 xs:mb-4">
+                <h2 class="text-lg xs:text-xl font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5 xs:gap-2">
+                  <svg class="w-4 h-4 xs:w-5 xs:h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                  <span>Ratings and reviews</span>
+                </h2>
+                <a href="#reviewer-name" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-all no-underline cursor-pointer">
+                  <span>Write a Review</span>
+                </a>
+              </div>
               <div class="flex items-center gap-2.5 xs:gap-4 sm:gap-6 p-3 xs:p-4 sm:p-6 bg-zinc-50 dark:bg-zinc-900/50 rounded-xl xs:rounded-2xl border border-black/5 dark:border-white/10">
                 <div class="text-center shrink-0">
                   <div class="text-3xl xs:text-4xl sm:text-5xl font-black text-zinc-900 dark:text-white tracking-tighter leading-none mb-1">
@@ -519,7 +528,7 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
             return `
               <a href="/app/${encodeURIComponent(simSlug)}" class="flex flex-col items-center justify-start gap-1 xxs:gap-1.5 xs:gap-2 w-[68px] xxs:w-[76px] xs:w-[86px] sm:w-[98px] snap-start group shrink-0 active:scale-95 transition-transform duration-150 ease-out no-underline">
                 <div class="relative inline-block shrink-0">
-                  <img src="${imgSrc}" alt="${escapeHtml(simName)}" width="86" height="86" decoding="async" fetchpriority="low" class="w-[58px] h-[58px] xxs:w-[66px] xxs:h-[66px] xs:w-[76px] xs:h-[76px] sm:w-[86px] sm:h-[86px] rounded-[24%] shadow-[0_2px_8px_rgba(0,0,0,0.08)] object-cover group-hover:scale-105 transition-transform duration-200 block pointer-events-none select-none" loading="lazy" />
+                  <img src="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 86 86'%3E%3Crect width='86' height='86' rx='20' fill='%23e4e4e7'/%3E%3C/svg%3E" data-src="${imgSrc}" alt="" aria-hidden="true" role="presentation" width="86" height="86" decoding="async" fetchpriority="low" class="w-[58px] h-[58px] xxs:w-[66px] xxs:h-[66px] xs:w-[76px] xs:h-[76px] sm:w-[86px] sm:h-[86px] rounded-[24%] shadow-[0_2px_8px_rgba(0,0,0,0.08)] object-cover group-hover:scale-105 transition-transform duration-200 block pointer-events-none select-none" loading="lazy" />
                   ${simIsHot && simIsNew ? '<span class="absolute -top-1.5 -right-1.5 z-20 inline-flex items-center rounded-full overflow-hidden shadow-[0_2px_6px_rgba(0,0,0,0.25)] border border-white dark:border-zinc-900 font-black text-[7.5px] xxs:text-[8px] xs:text-[9px] uppercase tracking-wider leading-none select-none pointer-events-none"><span class="bg-[#d32f2f] text-white px-1 xs:px-1.5 py-0.5">HOT</span><span class="bg-[#008738] text-white px-1 xs:px-1.5 py-0.5">NEW</span></span>' : simIsHot ? '<span class="absolute -top-1.5 -right-1.5 z-20 bg-[#d32f2f] text-white font-black text-[7.5px] xxs:text-[8px] xs:text-[9px] px-1.5 py-0.5 rounded-full shadow-[0_2px_6px_rgba(0,0,0,0.25)] border border-white dark:border-zinc-900 uppercase tracking-wider leading-none select-none pointer-events-none flex items-center justify-center">HOT</span>' : simIsNew ? '<span class="absolute -top-1.5 -right-1.5 z-20 bg-[#008738] text-white font-black text-[7.5px] xxs:text-[8px] xs:text-[9px] px-1.5 py-0.5 rounded-full shadow-[0_2px_6px_rgba(0,0,0,0.25)] border border-white dark:border-zinc-900 uppercase tracking-wider leading-none select-none pointer-events-none flex items-center justify-center">NEW</span>' : ''}
                 </div>
                 <span class="text-[9.5px] xxs:text-[10.5px] xs:text-[11.5px] sm:text-[12px] font-semibold text-center text-zinc-800 dark:text-zinc-200 line-clamp-2 w-full px-0.5 leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors pointer-events-none select-none">${escapeHtml(simName)}</span>
@@ -580,7 +589,7 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
         <div class="flex w-full items-center gap-2.5 xxs:gap-3 xs:gap-4 sm:gap-6 mb-3.5 sm:mb-6 px-1 xs:px-2 sm:px-4 md:px-6 mt-1 sm:mt-2 text-left">
           <div class="relative w-[56px] h-[56px] xxs:w-[66px] xxs:h-[66px] xs:w-[80px] xs:h-[80px] sm:w-[102px] sm:h-[102px] md:w-[116px] md:h-[116px] shrink-0">
             <div class="w-full h-full rounded-[14px] xxs:rounded-[16px] xs:rounded-[20px] sm:rounded-[24px] overflow-hidden shadow-sm bg-zinc-100 dark:bg-zinc-800 border border-black/5 dark:border-white/10 relative">
-              <img src="${escapeHtml(icon)}" alt="${escapeHtml(name)} app icon" itemprop="image" loading="eager" fetchpriority="high" decoding="async" width="116" height="116" class="w-full h-full object-cover block relative z-10" />
+              <img id="primary-app-logo" src="${escapeHtml(icon)}" alt="${escapeHtml(name)} app icon" itemprop="image" loading="eager" fetchpriority="high" decoding="sync" width="512" height="512" class="w-full h-full object-cover block relative z-10" />
             </div>
           </div>
           <div class="flex flex-col justify-center flex-1 min-w-0">
@@ -669,15 +678,15 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
           </div>
         </div>
 
-        <!-- 2.4 AppSimilarCarousel (Positioned immediately after share & flag action buttons) -->
+        <!-- 2.3b AppSimilarCarousel (Positioned immediately after Share & Flag buttons for 1:1 parity with AppDetails.tsx) -->
         ${recommendedAppsHtml}
 
-        <!-- 2.5 AppScreenshots -->
+        <!-- 2.4 AppScreenshots -->
         <div>
           ${screenshotsHtml}
         </div>
 
-        <!-- 2.6 AppAboutSection -->
+        <!-- 2.5 AppAboutSection -->
         <div>
           <section aria-labelledby="app-overview-heading" class="w-full my-3 px-0 sm:px-2 text-left">
             <div class="bg-slate-50/90 dark:bg-zinc-900/80 border border-black/5 dark:border-white/5 rounded-xl sm:rounded-2xl overflow-hidden transition-all duration-300 shadow-xs">
@@ -719,7 +728,7 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
           </section>
         </div>
 
-        <!-- 2.7 AppSafetyBoxes -->
+        <!-- 2.6 AppSafetyBoxes -->
         <div>
           ${alertsHtml}
         </div>

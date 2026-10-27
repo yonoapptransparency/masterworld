@@ -689,9 +689,9 @@ function getSimilarAppsForApp(targetApp: any, baseApps: any[]): any[] {
     appReviewsData = {
       appId: targetAppId,
       appSlug: targetAppSlug,
-      reviews: revList.slice(0, 5),
+      reviews: revList.slice(0, 10),
       stats: seoReviewsFeed.stats || null,
-      hasMore: totalCount > 5
+      hasMore: totalCount > 10
     };
   }
 

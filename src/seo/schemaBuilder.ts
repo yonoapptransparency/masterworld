@@ -1,4 +1,4 @@
-import { getField, stripHtml, optimizeImageUrl, normalizeSchemaCategory, getYoutubeThumbnail, normalizeIsoDate, cleanFaqQuestion } from './utils';
+import { getField, stripHtml, optimizeImageUrl, normalizeSchemaCategory, getYoutubeThumbnail, normalizeIsoDate, cleanFaqQuestion, normalizeFileSize } from './utils';
 import { fetchSEOReviewsForApp } from './reviewFallback';
 import { formatPageTitle } from '../lib/seoUtils';
 
@@ -48,8 +48,9 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
     const configuredCount = parseInt(String(rawCount).replace(/[^0-9]/g, ''), 10) || 0;
     
     // Align live rating and count with community reviews and AppDetails
-    const appIdentifier = getField(app, 'slug') || getField(app, 'id');
-    const seoFeed = await fetchSEOReviewsForApp(appIdentifier, getField(app, 'slug'), !isNaN(configuredRating) && configuredRating > 0 ? configuredRating : 4.5, name);
+    const appIdentifier = getField(app, 'id') || getField(app, 'slug');
+    const appSlugField = getField(app, 'slug');
+    const seoFeed = await fetchSEOReviewsForApp(appIdentifier, appSlugField, !isNaN(configuredRating) && configuredRating > 0 ? configuredRating : 4.5, name);
     const liveStats = seoFeed?.stats || null;
     
     const hasLiveReviews = Boolean(liveStats && Number(liveStats.totalReviews) > 0);
@@ -70,28 +71,40 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
     const rawCat = getField(app, 'category');
     const specificCat = rawCat ? rawCat.split(',').map((c: string) => c.trim()).filter((c: string) => c && c.toLowerCase() !== 'all apps' && c.toLowerCase() !== 'all' && c.toLowerCase() !== 'apps' && c.toLowerCase() !== 'general')[0] : '';
     const developer = getField(app, 'developer') || name || 'Official';
-    const fileSize = getField(app, 'file_size') || '45 MB';
+    const fileSize = normalizeFileSize(getField(app, 'file_size'), '45 MB');
     const version = getField(app, 'version') || '1.0';
 
     const appPageUrl = params.url || `${hostOrigin}/app/${getField(app, 'slug')}`;
     const ratingValue = parseFloat(clampedRating.toFixed(1));
 
-    // Sample reviews for Rich Snippet compliance
+    // Sample reviews for Rich Snippet compliance (strictly isolated to target app, max 10)
+    const validAppKeys = new Set<string>(
+      [String(getField(app, 'id') || '').toLowerCase().trim(), String(appSlugField || '').toLowerCase().trim()].filter(Boolean)
+    );
     let validReviews: any[] = [];
     try {
-      const feed = seoFeed || await fetchSEOReviewsForApp(appIdentifier, getField(app, 'slug'), clampedRating, name);
+      const feed = seoFeed || await fetchSEOReviewsForApp(appIdentifier, appSlugField, clampedRating, name);
       if (feed && Array.isArray(feed.reviews) && feed.reviews.length > 0) {
         validReviews = feed.reviews
-          .filter((rev: any) => rev && stripHtml(rev.reviewText || '').trim().length >= 3)
+          .filter((rev: any) => {
+            if (!rev || stripHtml(rev.reviewText || rev.comment || '').trim().length < 3) return false;
+            const rId = String(rev.appId || rev.app_id || '').toLowerCase().trim();
+            const rSlug = String(rev.appSlug || '').toLowerCase().trim();
+            if (validAppKeys.size > 0 && (rId || rSlug)) {
+              if (rId && !validAppKeys.has(rId)) return false;
+              if (rSlug && !validAppKeys.has(rSlug)) return false;
+            }
+            return true;
+          })
           .slice(0, 10)
           .map((rev: any) => ({
             "@type": "Review",
             "author": {
               "@type": "Person",
-              "name": rev.userName ? String(rev.userName).trim() : 'Verified Player'
+              "name": (rev.userName || rev.username) ? String(rev.userName || rev.username).trim() : 'Verified Player'
             },
-            "datePublished": (rev.timestamp ? new Date(rev.timestamp).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
-            "reviewBody": stripHtml(rev.reviewText || '').trim(),
+            "datePublished": ((rev.timestamp || rev.created_at) ? new Date(rev.timestamp || rev.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]),
+            "reviewBody": stripHtml(rev.reviewText || rev.comment || '').trim(),
             "reviewRating": {
               "@type": "Rating",
               "ratingValue": Math.max(1, Math.min(5, Number(rev.rating) || 5)),
@@ -149,7 +162,7 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
 
     schemas.push(softwareAppSchema);
 
-    // 2. WebPage schema referencing the primary SoftwareApplication entity via @id
+    // 2. WebPage schema referencing the primary SoftwareApplication entity via @id and locking primaryImageOfPage to the 512px app logo
     schemas.push({
       "@context": "https://schema.org",
       "@type": "WebPage",
@@ -159,6 +172,19 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
       "headline": params.title,
       "description": desc,
       "inLanguage": "en",
+      "primaryImageOfPage": {
+        "@type": "ImageObject",
+        "@id": `${appPageUrl}#primaryimage`,
+        "url": appSquareIcon,
+        "contentUrl": appSquareIcon,
+        "width": 512,
+        "height": 512,
+        "caption": `${name} app icon`
+      },
+      "image": {
+        "@id": `${appPageUrl}#primaryimage`
+      },
+      "thumbnailUrl": appSquareIcon,
       "mainEntity": {
         "@id": `${appPageUrl}#software`
       }
@@ -232,7 +258,18 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
     const rawDatePublished = getField(item, 'published_at') || getField(item, 'publish_date') || getField(item, 'created_at') || getField(item, 'date') || '2026-09-01T00:00:00.000Z';
     const datePublished = normalizeIsoDate(rawDatePublished);
     const dateModified = normalizeIsoDate(getField(item, 'updated_at') || rawDatePublished, datePublished);
-    const authorName = getField(item, 'author') || getField(item, 'ceo_name') || 'Editorial Team';
+    const rawAuthorName = (getField(item, 'author') || getField(item, 'ceo_name') || 'Editorial Team').trim();
+    const isGenericAuthor = /^(?:team|admin(?:\s+team)?|cto|editorial(?:\s+team)?|rummydex(?:\s+team|\s+editorial(?:\s+team)?)?|staff|system|official|content(?:\s+upload|\s+team)?|upload)$/i.test(rawAuthorName);
+    const authorEntity = isGenericAuthor
+      ? {
+          "@type": "Organization",
+          "name": "RummyDex Editorial Team",
+          "url": `${hostOrigin}/about`
+        }
+      : {
+          "@type": "Person",
+          "name": rawAuthorName
+        };
 
     const rawNewsImg = getField(item, 'og_image_url') || getField(item, 'image_url') || getField(item, 'logo_url') || params.logoUrl;
     const newsImg = optimizeImageUrl(rawNewsImg, 1200) || rawNewsImg;
@@ -244,9 +281,10 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
     schemas.push({
       "@context": "https://schema.org",
       "@type": ["NewsArticle", "Article"],
+      "@id": `${canonicalPageUrl}#article`,
       "mainEntityOfPage": {
         "@type": "WebPage",
-        "@id": canonicalPageUrl
+        "@id": `${canonicalPageUrl}#webpage`
       },
       "name": exactTitle,
       "headline": exactTitle,
@@ -258,10 +296,7 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
       "articleSection": getField(item, 'category') || 'General',
       "inLanguage": "en",
       "isAccessibleForFree": true,
-      "author": {
-        "@type": "Person",
-        "name": authorName
-      },
+      "author": authorEntity,
       "publisher": {
         "@type": "Organization",
         "name": params.siteTitle,
@@ -281,7 +316,10 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
       "name": exactTitle,
       "headline": exactTitle,
       "description": desc,
-      "inLanguage": "en"
+      "inLanguage": "en",
+      "mainEntity": {
+        "@id": `${canonicalPageUrl}#article`
+      }
     });
 
     schemas.push({

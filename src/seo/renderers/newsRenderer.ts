@@ -175,7 +175,10 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
   const title = getField(item, 'title');
   const formattedDate = formatNewsDate(getField(item, 'date'), getField(item, 'published_at'), getField(item, 'created_at'));
 
-  const author = getField(item, 'ceo_name') || getField(item, 'author') || 'Editorial Team';
+  const rawAuthor = (getField(item, 'ceo_name') || getField(item, 'author') || 'Editorial Team').trim();
+  const author = (!rawAuthor || /^(?:team|admin(?:\s+team)?|cto|(?:the\s+)?editorial(?:\s+team)?|rummydex(?:\s+team|\s+editorial(?:\s+team)?)?|content\s*upload|staff|official)$/i.test(rawAuthor))
+    ? 'RummyDex Editorial Team'
+    : rawAuthor;
   const cat = getField(item, 'category', 'General');
   const description = getField(item, 'description', '');
 

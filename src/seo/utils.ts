@@ -243,3 +243,26 @@ export function normalizeIsoDate(rawDate?: any, fallback = '2026-09-01T00:00:00+
   }
   return fallback;
 }
+
+export function getImageMimeType(imageUrl?: string): string {
+  if (!imageUrl) return 'image/png';
+  const lower = String(imageUrl).toLowerCase().split('?')[0].split('#')[0];
+  if (lower.includes('f_webp') || lower.endsWith('.webp')) return 'image/webp';
+  if (lower.includes('f_jpg') || lower.includes('f_jpeg') || lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+  if (lower.endsWith('.gif')) return 'image/gif';
+  if (lower.endsWith('.svg')) return 'image/svg+xml';
+  if (lower.endsWith('.png') || lower.includes('f_png')) return 'image/png';
+  if (lower.includes('f_auto')) return 'image/webp';
+  return 'image/png';
+}
+
+export function normalizeFileSize(rawSize: any, fallback = '45 MB'): string {
+  if (rawSize === undefined || rawSize === null) return fallback;
+  const trimmed = String(rawSize).trim();
+  if (!trimmed) return fallback;
+  if (/^\d+(\.\d+)?$/.test(trimmed)) {
+    return `${trimmed} MB`;
+  }
+  return trimmed;
+}
+

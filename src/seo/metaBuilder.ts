@@ -1,4 +1,4 @@
-import { escapeHtml, getOptimizedImageUrl, normalizeIsoDate } from './utils';
+import { escapeHtml, getOptimizedImageUrl, normalizeIsoDate, getImageMimeType } from './utils';
 
 export interface MetaBuilderParams {
   title: string;
@@ -49,16 +49,25 @@ export function buildMetaTags(params: MetaBuilderParams): string {
   const escapedKeywords = escapeHtml(keywords);
   const resolvedSiteName = escapeHtml(siteTitle || 'RummyDex');
 
-  const ogImageWidth = '1200';
-  const ogImageHeight = '630';
   const ogType = pageType === 'news' ? 'article' : 'website';
 
-  // Search engine thumbnails: exact 1:1 icon for app pages, clean 1200w banner for news articles without c_pad padding
-  const rawTargetIcon = targetApp ? (getField(targetApp, 'icon_url') || getField(targetApp, 'og_image_url')) : '';
+  // Search engine thumbnails & unpadded square icon fallback:
+  // When an app does not feature a custom widescreen og_image_url, use clean 1:1 square format (f_auto,q_auto,w_512)
+  // for og:image, twitter:image, and meta[name="thumbnail"] rather than letterboxing with w_1200,h_630,c_pad,b_auto
+  const customAppOgImage = targetApp ? getField(targetApp, 'og_image_url') : '';
+  const rawTargetIcon = targetApp ? (getField(targetApp, 'icon_url') || getField(targetApp, 'logo_url') || customAppOgImage) : '';
   const rawNewsHero = (pageType === 'news' && targetNews) ? (getField(targetNews, 'image') || getField(targetNews, 'image_url') || getField(targetNews, 'logo_url') || getField(targetNews, 'og_image_url')) : '';
-  const searchThumbnail = rawTargetIcon
-    ? getOptimizedImageUrl(rawTargetIcon, 512)
+  const squareAppIcon = rawTargetIcon ? getOptimizedImageUrl(rawTargetIcon, 512) : '';
+  const searchThumbnail = squareAppIcon
+    ? squareAppIcon
     : (rawNewsHero ? getOptimizedImageUrl(rawNewsHero, 1200) : pageOgImage);
+
+  const isUnpaddedAppSquare = Boolean(targetApp && !customAppOgImage && squareAppIcon);
+  const effectiveOgImage = isUnpaddedAppSquare ? squareAppIcon : pageOgImage;
+  const isSquareOg = isUnpaddedAppSquare || effectiveOgImage.includes('w_512');
+  const ogImageWidth = isSquareOg ? '512' : '1200';
+  const ogImageHeight = isSquareOg ? '512' : '630';
+  const ogImageMimeType = getImageMimeType(effectiveOgImage);
 
   const articleMetaTags = (() => {
     if (pageType !== 'news' || !targetNews) return '';
@@ -120,9 +129,9 @@ export function buildMetaTags(params: MetaBuilderParams): string {
     <meta data-rh="true" property="og:description" content="${escapedDesc}">
     <meta data-rh="true" property="og:type" content="${ogType}">
     <meta data-rh="true" property="og:url" content="${canonicalUrl}">
-    <meta data-rh="true" property="og:image" content="${pageOgImage}">
-    <meta data-rh="true" property="og:image:secure_url" content="${pageOgImage}">
-    <meta data-rh="true" property="og:image:type" content="${pageOgImage.includes('.jpg') || pageOgImage.includes('f_jpg') ? 'image/jpeg' : 'image/png'}">
+    <meta data-rh="true" property="og:image" content="${effectiveOgImage}">
+    <meta data-rh="true" property="og:image:secure_url" content="${effectiveOgImage}">
+    <meta data-rh="true" property="og:image:type" content="${ogImageMimeType}">
     <meta data-rh="true" property="og:image:width" content="${ogImageWidth}">
     <meta data-rh="true" property="og:image:height" content="${ogImageHeight}">
     ${articleMetaTags}
@@ -130,7 +139,7 @@ export function buildMetaTags(params: MetaBuilderParams): string {
     <meta data-rh="true" name="twitter:url" content="${canonicalUrl}">
     <meta data-rh="true" name="twitter:title" content="${escapedTitle}">
     <meta data-rh="true" name="twitter:description" content="${escapedDesc}">
-    <meta data-rh="true" name="twitter:image" content="${pageOgImage}">
+    <meta data-rh="true" name="twitter:image" content="${effectiveOgImage}">
     <meta data-rh="true" name="thumbnail" content="${searchThumbnail}">
     <meta data-rh="true" itemprop="image" content="${searchThumbnail}">
     <meta data-rh="true" itemprop="thumbnailUrl" content="${searchThumbnail}">

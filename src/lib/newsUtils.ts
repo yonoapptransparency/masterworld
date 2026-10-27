@@ -1,9 +1,14 @@
 export function calculateReadingTime(text?: string): string {
   if (!text) return '1 min read';
-  const plain = text.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim();
+  const plain = String(text)
+    .replace(/<(script|style|svg|head|title|iframe|object|embed)\b[^>]*>[\s\S]*?<\/\1>/gi, ' ')
+    .replace(/<[^>]*>?/gm, ' ')
+    .replace(/&[a-zA-Z0-9#]+;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
   if (!plain) return '1 min read';
   const words = plain.split(/\s+/).filter(Boolean).length;
-  const minutes = Math.max(1, Math.ceil(words / 180));
+  const minutes = Math.max(1, Math.ceil(words / 200));
   return `${minutes} min read`;
 }
 

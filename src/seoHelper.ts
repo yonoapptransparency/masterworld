@@ -572,6 +572,9 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   }
 
   let pageOgImage = logoUrl;
+  const rawAppOg = targetApp ? getField(targetApp, 'og_image_url').trim() : '';
+  const rawAppIcon = targetApp ? (getField(targetApp, 'icon_url') || getField(targetApp, 'logo_url')).trim() : '';
+  const hasCustomAppOgImage = Boolean(targetApp && rawAppOg && rawAppOg !== rawAppIcon);
   if (targetApp) {
     pageOgImage = getField(targetApp, 'og_image_url') || getField(targetApp, 'icon_url') || getField(targetApp, 'logo_url') || logoUrl;
   } else if (targetNews) {
@@ -590,7 +593,11 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     pageOgImage = logoUrl || `${domain}/logo.png`;
   }
   
-  pageOgImage = getOgImageUrl(pageOgImage, domain, pageType === 'news');
+  if (targetApp && !hasCustomAppOgImage) {
+    pageOgImage = optimizeImageUrl(pageOgImage, 512) || pageOgImage;
+  } else {
+    pageOgImage = getOgImageUrl(pageOgImage, domain, pageType === 'news');
+  }
 
   // Generate full pre-rendered semantic HTML directly from database for all public catalog & detail pages
   const isAdminPath = cleanPathLower.startsWith('/admin') || cleanPathLower.startsWith('/masterworld') || cleanPathLower === '/login' || cleanPathLower.startsWith('/login/');
@@ -641,6 +648,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   const initialDataScript = `<script>window.__SSR_PATH__ = ${ssrPathJson};window.__INITIAL_DATA__ = ${initialDataJson};</script>`;
 
   let finalHtml = template
+    .replace(/<meta\s+[^>]*charset=["'][^"']*["'][^>]*\/?>/gi, '')
     .replace(/<title[\s\S]*?<\/title>/gi, '')
     .replace(/<meta\s+[^>]*name=["']description["'][^>]*\/?>/gi, '')
     .replace(/<meta\s+[^>]*content=["'][^"']*["']\s+name=["']description["'][^>]*\/?>/gi, '')
@@ -662,7 +670,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     .replace(/<link\s+[^>]*rel=["']apple-touch-icon[^"']*["'][^>]*\/?>/gi, '')
     .replace(/<script\s+type=["']application\/ld\+json["'][^>]*>[\s\S]*?<\/script>/gi, '')
     .replace(/<script>window\.(?:__SSR_PATH__|__INITIAL_DATA__)[\s\S]*?<\/script>/gi, '')
-    .replace(/<style\s+id=["']server-critical-css["']>[\s\S]*?<\/style>/gi, '');
+    .replace(/<style\s+id=["']server-critical-css["']>[\s\S]*?<\/style>/gi, '')
+    .replace(/<head(\s[^>]*)?>/i, '<head$1>\n    <meta charset="utf-8" />');
 
   const criticalCss = getCriticalCss();
   const headAdditions = `${seoTags}${criticalCss ? '\n' + criticalCss : ''}`;

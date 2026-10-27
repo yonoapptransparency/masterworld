@@ -296,6 +296,38 @@ export function invalidateReviewCache(appId?: string, appSlug?: string) {
   });
 }
 
+export const INITIAL_REVIEW_BATCH_SIZE = 10;
+
+const CLIENT_STREAMING_BLEED_REGEX = /\b(episodes?|binge[-\s]?watch(?:ing)?|subtitles?|web\s*series|short\s*dramas?|buffering|video\s*quality)\b/i;
+
+export function isReviewStrictlyForApp(
+  r: any,
+  targetKeys: string[],
+  appCategory: string = ""
+): boolean {
+  if (!r || typeof r !== "object") return false;
+  if (r.status && r.status !== "published" && r.status !== "approved") return false;
+  const validSet = new Set(targetKeys.map(k => String(k || "").toLowerCase().trim()).filter(Boolean));
+  if (validSet.size === 0) return false;
+
+  const rId = String(r.appId || r.app_id || "").toLowerCase().trim();
+  const rSlug = String(r.appSlug || "").toLowerCase().trim();
+  if (!rId && !rSlug) return false;
+  if (rId && !validSet.has(rId)) return false;
+  if (rSlug && !validSet.has(rSlug)) return false;
+
+  const text = String(r.reviewText || r.comment || "").replace(/<[^>]*>?/gm, " ").trim();
+  if (text.length < 3) return false;
+
+  const catLower = String(appCategory || "").toLowerCase();
+  const isStreamingApp = /entertainment|video|stream|drama|movie|tv|ott|short/i.test(catLower);
+  if (!isStreamingApp && CLIENT_STREAMING_BLEED_REGEX.test(text)) {
+    return false;
+  }
+
+  return true;
+}
+
 export function getCachedLiveReviews(appId?: string, appSlug?: string): ReviewFetchResult | null {
   const keys = [appId, appSlug].filter(Boolean).map(k => String(k).trim()).filter(Boolean);
   if (keys.length === 0) return null;
@@ -310,7 +342,12 @@ export function getCachedLiveReviews(appId?: string, appSlug?: string): ReviewFe
     });
 
     if (matchesTarget && Array.isArray(initAppReviews.reviews)) {
-      const normalized: PublicReview[] = initAppReviews.reviews.map((r: any) => {
+      const matchedApp = (staticData.apps || []).find((a: any) =>
+        keys.some(k => String(a?.id || "").toLowerCase() === k.toLowerCase() || String(a?.slug || "").toLowerCase() === k.toLowerCase())
+      );
+      const validTargetKeys = Array.from(new Set([...keys, matchedApp?.id, matchedApp?.slug, initAppReviews.appId, initAppReviews.appSlug].filter(Boolean)));
+      const isolatedReviews = initAppReviews.reviews.filter((r: any) => isReviewStrictlyForApp(r, validTargetKeys, matchedApp?.category));
+      const normalized: PublicReview[] = isolatedReviews.map((r: any) => {
         const uName = (r.userName && r.userName.trim() && r.userName.toLowerCase() !== 'player')
           ? r.userName.trim()
           : (r.username && r.username.trim() ? r.username.trim() : (r.userName || 'Player'));
@@ -339,9 +376,9 @@ export function getCachedLiveReviews(appId?: string, appSlug?: string): ReviewFe
       });
 
       return {
-        reviews: normalized.slice(0, 5),
+        reviews: normalized.slice(0, INITIAL_REVIEW_BATCH_SIZE),
         hasMore: Boolean(initAppReviews.hasMore),
-        nextCursor: initAppReviews.hasMore ? '5' : null,
+        nextCursor: initAppReviews.hasMore ? String(INITIAL_REVIEW_BATCH_SIZE) : null,
         stats: initAppReviews.stats || getCachedLiveAppStats(appId, appSlug)
       };
     }
@@ -357,8 +394,21 @@ export function getCachedLiveReviews(appId?: string, appSlug?: string): ReviewFe
   // Bundled static reviews baseline for 0ms initial render
   const staticReviewsMap: Record<string, any> = getStaticReviewsSync();
   for (const targetKey of keys) {
-    const list = staticReviewsMap[targetKey.toLowerCase()] || staticReviewsMap[targetKey];
-    if (Array.isArray(list) && list.length > 0) {
+    const rawList = staticReviewsMap[targetKey.toLowerCase()] || staticReviewsMap[targetKey];
+    if (Array.isArray(rawList) && rawList.length > 0) {
+      const matchedApp = (staticData.apps || []).find((a: any) =>
+        keys.some(k => String(a?.id || "").toLowerCase() === k.toLowerCase() || String(a?.slug || "").toLowerCase() === k.toLowerCase())
+      );
+      const validTargetKeys = Array.from(new Set([...keys, targetKey, matchedApp?.id, matchedApp?.slug].filter(Boolean)));
+      const list = rawList
+        .filter((r: any) => isReviewStrictlyForApp(r, validTargetKeys, matchedApp?.category))
+        .sort((a: any, b: any) => {
+          if (a.isPinned && !b.isPinned) return -1;
+          if (!a.isPinned && b.isPinned) return 1;
+          const dateB = new Date(b.timestamp || b.created_at || 0).getTime();
+          const dateA = new Date(a.timestamp || a.created_at || 0).getTime();
+          return dateB - dateA;
+        });
       const normalized: PublicReview[] = list.map((r: any) => {
         const uName = (r.userName && r.userName.trim() && r.userName.toLowerCase() !== 'player')
           ? r.userName.trim()
@@ -388,9 +438,9 @@ export function getCachedLiveReviews(appId?: string, appSlug?: string): ReviewFe
       });
 
       return {
-        reviews: normalized.slice(0, 5),
-        hasMore: normalized.length > 5,
-        nextCursor: normalized.length > 5 ? '5' : null,
+        reviews: normalized.slice(0, INITIAL_REVIEW_BATCH_SIZE),
+        hasMore: normalized.length > INITIAL_REVIEW_BATCH_SIZE,
+        nextCursor: normalized.length > INITIAL_REVIEW_BATCH_SIZE ? String(INITIAL_REVIEW_BATCH_SIZE) : null,
         stats: getCachedLiveAppStats(appId, appSlug)
       };
     }
@@ -467,7 +517,7 @@ export async function fetchLiveReviews(options: {
   filter?: string;
   sortBy?: string;
 }): Promise<ReviewFetchResult> {
-  const { appId, appSlug, appTitle, cursor, limit = 5, filter = 'all', sortBy = 'recent' } = options;
+  const { appId, appSlug, appTitle, cursor, limit = INITIAL_REVIEW_BATCH_SIZE, filter = 'all', sortBy = 'recent' } = options;
   const rawId = (appId || '').trim();
   const rawSlug = (appSlug || '').trim();
   if (!rawId && !rawSlug) return { reviews: [], hasMore: false, nextCursor: null };
@@ -565,7 +615,7 @@ export async function fetchLiveReviews(options: {
       }
     }
 
-    let list: any[] = rawReviews && Array.isArray(rawReviews) ? [...rawReviews] : [];
+    let list: any[] = rawReviews && Array.isArray(rawReviews) ? rawReviews.filter((r: any) => isReviewStrictlyForApp(r, targets, matchedApp?.category)) : [];
 
     // Filter
     if (filter === 'positive') {
