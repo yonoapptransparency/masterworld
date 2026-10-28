@@ -3,11 +3,9 @@ import { Key, X, ExternalLink, ShieldCheck, RefreshCw, Eye, EyeOff, CheckCircle2
 import { StudioConfig } from './types';
 
 export const PRESET_GEMINI_MODELS = [
-  { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (gemini-2.5-flash — Fastest & Recommended Free Tier)' },
-  { id: 'gemini-flash-latest', label: 'Gemini Flash Latest (gemini-flash-latest — Auto-Updated Flash)' },
-  { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite (gemini-2.5-flash-lite — Ultra-Low Quota & Speed)' },
-  { id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash (gemini-3.8-flash — Auto-Mapped High Speed)' },
-  { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite (gemini-3.1-flash-lite — Lightweight)' }
+  { id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash (gemini-3.8-flash — Fastest & Latest Free Tier)' },
+  { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite (gemini-3.1-flash-lite — Ultra-Low Quota & Speed)' },
+  { id: 'gemini-flash-latest', label: 'Gemini Flash Latest (gemini-flash-latest — Auto-Updated Flash)' }
 ];
 
 const PRESET_IDS = PRESET_GEMINI_MODELS.map(m => m.id);
@@ -31,11 +29,11 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
   const [apiKeyInput, setApiKeyInput] = useState(config.apiKey || '');
   const [showKey, setShowKey] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState<string>(() => {
-    const m = config.model || 'gemini-2.5-flash';
+    const m = config.model || 'gemini-3.8-flash';
     return PRESET_IDS.includes(m) ? m : 'custom';
   });
   const [customModelInput, setCustomModelInput] = useState(() => {
-    const m = config.model || 'gemini-2.5-flash';
+    const m = config.model || 'gemini-3.8-flash';
     return PRESET_IDS.includes(m) ? '' : m;
   });
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
@@ -47,7 +45,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setApiKeyInput(config.apiKey || '');
-      const m = config.model || 'gemini-2.5-flash';
+      const m = config.model || 'gemini-3.8-flash';
       if (PRESET_IDS.includes(m)) {
         setSelectedPreset(m);
         setCustomModelInput('');
@@ -65,7 +63,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
 
   const activeModelName =
     selectedPreset === 'custom'
-      ? customModelInput.trim() || 'gemini-2.5-flash'
+      ? customModelInput.trim() || 'gemini-3.8-flash'
       : selectedPreset;
 
   const runLiveVerification = async (keyToTest: string, modelToTest: string): Promise<{
@@ -76,9 +74,9 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
   }> => {
     const startTime = performance.now();
 
-    // 1. Try server verification with a strict 4.5s timeout
+    // 1. Try server verification with a strict 6s timeout
     const srvController = new AbortController();
-    const srvTimer = setTimeout(() => srvController.abort(), 4500);
+    const srvTimer = setTimeout(() => srvController.abort(), 6000);
     try {
       const srvRes = await fetch('/api/v1/admin/community/aistudio-gemini', {
         method: 'POST',
@@ -126,7 +124,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
 
     // 2. Instant zero-quota browser verification via /v1beta/models discovery (~120ms)
     const listController = new AbortController();
-    const listTimer = setTimeout(() => listController.abort(), 4000);
+    const listTimer = setTimeout(() => listController.abort(), 4500);
     try {
       const listRes = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models?pageSize=100&key=${encodeURIComponent(keyToTest)}`,
@@ -140,23 +138,10 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
         throw new Error(errData?.error?.message || `HTTP ${listRes.status}`);
       }
 
-      const listData = await listRes.json().catch(() => ({}));
-      const available = new Set<string>();
-      if (Array.isArray(listData?.models)) {
-        for (const m of listData.models) {
-          if ((m.supportedGenerationMethods || []).includes('generateContent')) {
-            available.add(String(m.name || '').replace(/^models\//, ''));
-          }
-        }
-      }
-
-      const resolvedModel = available.has(modelToTest)
-        ? modelToTest
-        : available.has('gemini-2.5-flash')
-        ? 'gemini-2.5-flash'
-        : available.has('gemini-flash-latest')
-        ? 'gemini-flash-latest'
-        : modelToTest;
+      const resolvedModel =
+        modelToTest === 'gemini-2.5-flash' || modelToTest === 'gemini-2.0-flash'
+          ? 'gemini-3.8-flash'
+          : modelToTest || 'gemini-3.8-flash';
 
       return {
         ok: true,

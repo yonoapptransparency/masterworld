@@ -64,16 +64,16 @@ export function renderHeader(settings: any): string {
           </button>
         </div>
         <div class="md:hidden flex items-center gap-1 xxs:gap-1.5 xs:gap-2 sm:gap-3 shrink-0">
-          <button type="button" class="flex items-center justify-center w-7 h-7 xxs:w-8 xxs:h-8 xs:w-9 xs:h-9 bg-zinc-100 dark:bg-zinc-800 rounded-full active:scale-95 transition-all text-zinc-500" aria-label="Search">
-            <svg class="w-3 h-3 xxs:w-3.5 xxs:h-3.5 xs:w-4 xs:h-4 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+          <button type="button" class="flex items-center justify-center w-7 h-7 xxs:w-8 xxs:h-8 xs:w-9 xs:h-9 bg-zinc-100 dark:bg-zinc-800 border border-black/5 dark:border-white/10 rounded-full active:scale-95 transition-all text-zinc-600 dark:text-zinc-300" aria-label="Search">
+            <svg class="w-3 h-3 xxs:w-3.5 xxs:h-3.5 xs:w-4 xs:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
           </button>
           <div class="relative inline-block z-50">
-            <button type="button" class="flex items-center gap-2 w-8 h-8 xs:w-9 xs:h-9 lg:w-auto lg:h-11 lg:px-4 justify-center bg-blue-50 text-blue-500 rounded-full hover:bg-blue-100 transition-colors shrink-0" aria-label="Support Widget">
+            <button type="button" class="flex items-center gap-2 w-8 h-8 xs:w-9 xs:h-9 lg:w-auto lg:h-11 lg:px-4 justify-center bg-blue-50 dark:bg-zinc-800 text-blue-600 dark:text-blue-400 border border-blue-200/60 dark:border-white/10 rounded-full hover:bg-blue-100 dark:hover:bg-zinc-700 transition-colors shrink-0" aria-label="Support Widget">
               <svg class="w-3.5 h-3.5 xs:w-4 xs:h-4 lg:w-5 lg:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
             </button>
           </div>
-          <button type="button" class="flex items-center justify-center w-7 h-7 xxs:w-8 xxs:h-8 xs:w-9 xs:h-9 bg-zinc-900 dark:bg-white rounded-full active:scale-95 transition-transform" aria-label="Open menu">
-            <svg class="w-3 h-3 xxs:w-3.5 xxs:h-3.5 xs:w-4 xs:h-4 text-white dark:text-zinc-900" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+          <button type="button" class="flex items-center justify-center w-7 h-7 xxs:w-8 xxs:h-8 xs:w-9 xs:h-9 bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-100 border border-black/5 dark:border-white/10 rounded-full active:scale-95 transition-transform" aria-label="Open menu">
+            <svg class="w-3 h-3 xxs:w-3.5 xxs:h-3.5 xs:w-4 xs:h-4 text-zinc-800 dark:text-zinc-100" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
           </button>
         </div>
       </div>
@@ -155,23 +155,23 @@ export function renderFooter(settings: any): string {
 
         <div class="pt-4 border-t border-zinc-200/80 dark:border-white/[0.08] flex flex-col sm:flex-row items-center justify-between gap-3">
           <div class="flex items-center gap-2">
-            <a href="${escapeHtml(fb)}" target="_blank" rel="noopener noreferrer" aria-label="Facebook" class="w-8 h-8 rounded-lg bg-zinc-200/70 dark:bg-white/[0.05] text-zinc-600 dark:text-zinc-400 hover:text-white hover:bg-[#1877F2] flex items-center justify-center transition-all">
+            <a href="${escapeHtml(fb)}" target="_blank" rel="noopener noreferrer" aria-label="Facebook" class="w-8 h-8 rounded-lg bg-zinc-200/80 dark:bg-zinc-800/90 border border-black/5 dark:border-white/10 text-zinc-700 dark:text-zinc-200 hover:text-white hover:bg-[#1877F2] flex items-center justify-center transition-all">
               <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
             </a>
-            <a href="${escapeHtml(ig)}" target="_blank" rel="noopener noreferrer" aria-label="Instagram" class="w-8 h-8 rounded-lg bg-zinc-200/70 dark:bg-white/[0.05] text-zinc-600 dark:text-zinc-400 hover:text-white hover:bg-[#E4405F] flex items-center justify-center transition-all">
+            <a href="${escapeHtml(ig)}" target="_blank" rel="noopener noreferrer" aria-label="Instagram" class="w-8 h-8 rounded-lg bg-zinc-200/80 dark:bg-zinc-800/90 border border-black/5 dark:border-white/10 text-zinc-700 dark:text-zinc-200 hover:text-white hover:bg-[#E4405F] flex items-center justify-center transition-all">
               <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg>
             </a>
-            <a href="${escapeHtml(tw)}" target="_blank" rel="noopener noreferrer" aria-label="Twitter" class="w-8 h-8 rounded-lg bg-zinc-200/70 dark:bg-white/[0.05] text-zinc-600 dark:text-zinc-400 hover:text-white hover:bg-[#1DA1F2] flex items-center justify-center transition-all">
+            <a href="${escapeHtml(tw)}" target="_blank" rel="noopener noreferrer" aria-label="Twitter" class="w-8 h-8 rounded-lg bg-zinc-200/80 dark:bg-zinc-800/90 border border-black/5 dark:border-white/10 text-zinc-700 dark:text-zinc-200 hover:text-white hover:bg-[#1DA1F2] flex items-center justify-center transition-all">
               <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z"/></svg>
             </a>
-            <a href="${escapeHtml(li)}" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" class="w-8 h-8 rounded-lg bg-zinc-200/70 dark:bg-white/[0.05] text-zinc-600 dark:text-zinc-400 hover:text-white hover:bg-[#0A66C2] flex items-center justify-center transition-all">
+            <a href="${escapeHtml(li)}" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" class="w-8 h-8 rounded-lg bg-zinc-200/80 dark:bg-zinc-800/90 border border-black/5 dark:border-white/10 text-zinc-700 dark:text-zinc-200 hover:text-white hover:bg-[#0A66C2] flex items-center justify-center transition-all">
               <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect width="4" height="12" x="2" y="9"/><circle cx="4" cy="4" r="2"/></svg>
             </a>
-            <a href="${escapeHtml(yt)}" target="_blank" rel="noopener noreferrer" aria-label="YouTube" class="w-8 h-8 rounded-lg bg-zinc-200/70 dark:bg-white/[0.05] text-zinc-600 dark:text-zinc-400 hover:text-white hover:bg-[#FF0000] flex items-center justify-center transition-all">
+            <a href="${escapeHtml(yt)}" target="_blank" rel="noopener noreferrer" aria-label="YouTube" class="w-8 h-8 rounded-lg bg-zinc-200/80 dark:bg-zinc-800/90 border border-black/5 dark:border-white/10 text-zinc-700 dark:text-zinc-200 hover:text-white hover:bg-[#FF0000] flex items-center justify-center transition-all">
               <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17"/><path d="m10 15 5-3-5-3v6Z"/></svg>
             </a>
             ${tg ? `
-              <a href="${escapeHtml(tg)}" target="_blank" rel="noopener noreferrer" aria-label="Telegram" class="w-8 h-8 rounded-lg bg-zinc-200/70 dark:bg-white/[0.05] text-zinc-600 dark:text-zinc-400 hover:text-white hover:bg-[#229ED9] flex items-center justify-center transition-all">
+              <a href="${escapeHtml(tg)}" target="_blank" rel="noopener noreferrer" aria-label="Telegram" class="w-8 h-8 rounded-lg bg-zinc-200/80 dark:bg-zinc-800/90 border border-black/5 dark:border-white/10 text-zinc-700 dark:text-zinc-200 hover:text-white hover:bg-[#229ED9] flex items-center justify-center transition-all">
                 <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
               </a>
             ` : ''}

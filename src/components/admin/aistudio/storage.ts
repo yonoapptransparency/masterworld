@@ -39,7 +39,7 @@ export const DEFAULT_DIRECTIVES: BrainMemoryDirective[] = [
 
 export const DEFAULT_STUDIO_CONFIG: StudioConfig = {
   apiKey: '',
-  model: 'gemini-2.5-flash',
+  model: 'gemini-3.8-flash',
   reviewsPerApp: 2,
   dateMode: 'today_and_yesterday',
   ratingMix: 'auto_app_rating',
@@ -51,11 +51,28 @@ export const DEFAULT_STUDIO_CONFIG: StudioConfig = {
   activeSessionDirective: ''
 };
 
+export function sanitizeApiKey(rawKey?: string): string {
+  const k = String(rawKey || '').trim();
+  if (!k || k.startsWith('AQ.')) return '';
+  return k;
+}
+
 export function sanitizeModelId(rawModel?: string): string {
-  const m = String(rawModel || '').trim();
-  if (!m) return 'gemini-2.5-flash';
-  if (m === 'gemini-2.0-flash' || m === 'gemini-1.5-flash') {
-    return 'gemini-2.5-flash';
+  const m = String(rawModel || '').trim().replace(/^models\//, '');
+  if (!m) return 'gemini-3.8-flash';
+  // Google retired gemini-2.5-flash, gemini-2.0-flash, and gemini-1.5-flash for new users in favor of gemini-3.8-flash
+  if (
+    m === 'gemini-2.5-flash' ||
+    m === 'gemini-2.5-flash-preview' ||
+    m === 'gemini-2.0-flash' ||
+    m === 'gemini-2.0-flash-exp' ||
+    m === 'gemini-1.5-flash' ||
+    m === 'gemini-1.5-pro'
+  ) {
+    return 'gemini-3.8-flash';
+  }
+  if (m === 'gemini-2.5-flash-lite') {
+    return 'gemini-3.1-flash-lite';
   }
   return m;
 }
@@ -64,16 +81,17 @@ export function loadStudioConfig(externalSettings?: any): StudioConfig {
   if (typeof window === 'undefined') return DEFAULT_STUDIO_CONFIG;
   try {
     const raw = localStorage.getItem(KEY_STUDIO_CONFIG);
-    const envKey = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GEMINI_API_KEY) || '';
-    const initialSettingsKey =
+    const envKey = sanitizeApiKey(typeof import.meta !== 'undefined' ? import.meta.env?.VITE_GEMINI_API_KEY : '');
+    const initialSettingsKey = sanitizeApiKey(
       externalSettings?.gemini_api_key ||
       (window as any)?.__INITIAL_DATA__?.settings?.gemini_api_key ||
-      '';
+      ''
+    );
     const initialSettingsModel =
       externalSettings?.gemini_model ||
       (window as any)?.__INITIAL_DATA__?.settings?.gemini_model ||
       '';
-    const fallbackKey = (envKey || initialSettingsKey || '').trim();
+    const fallbackKey = sanitizeApiKey(envKey || initialSettingsKey || '');
 
     if (raw) {
       const parsed = JSON.parse(raw);
@@ -81,15 +99,22 @@ export function loadStudioConfig(externalSettings?: any): StudioConfig {
         ...DEFAULT_STUDIO_CONFIG,
         ...parsed
       };
-      // If externalSettings explicitly provides a newer non-empty key, prefer it if local is empty
-      if (!merged.apiKey || merged.apiKey.trim() === '') {
-        merged.apiKey = fallbackKey;
-      } else {
-        merged.apiKey = merged.apiKey.trim();
-      }
+      const cleanLocalKey = sanitizeApiKey(merged.apiKey);
+      merged.apiKey = cleanLocalKey || fallbackKey;
       merged.model = sanitizeModelId(merged.model || initialSettingsModel || DEFAULT_STUDIO_CONFIG.model);
       if (!merged.platformStyle) {
         merged.platformStyle = 'smart_multi_platform';
+      }
+      // Clear accidental chat greeting from activeSessionDirective if present
+      const dirLower = String(merged.activeSessionDirective || '').trim().toLowerCase();
+      if (
+        dirLower === 'hello' ||
+        dirLower === 'hi' ||
+        dirLower === 'why don\'t you reply me' ||
+        dirLower === 'so how can you help me' ||
+        dirLower === 'how can you help me'
+      ) {
+        merged.activeSessionDirective = '';
       }
       return merged;
     }
@@ -107,7 +132,7 @@ export function saveStudioConfig(config: StudioConfig, persistToCloud = true): v
   if (typeof window === 'undefined') return;
   const normalized: StudioConfig = {
     ...config,
-    apiKey: String(config.apiKey || '').trim(),
+    apiKey: sanitizeApiKey(config.apiKey),
     model: sanitizeModelId(config.model),
     platformStyle: config.platformStyle || 'smart_multi_platform'
   };
@@ -126,9 +151,10 @@ export function saveStudioConfig(config: StudioConfig, persistToCloud = true): v
  */
 export function syncStudioConfigFromGlobalSettings(settings?: { gemini_api_key?: string; gemini_model?: string }): StudioConfig {
   const current = loadStudioConfig(settings);
+  const incomingKey = typeof settings?.gemini_api_key === 'string' ? sanitizeApiKey(settings.gemini_api_key) : undefined;
   const next: StudioConfig = {
     ...current,
-    apiKey: typeof settings?.gemini_api_key === 'string' ? settings.gemini_api_key.trim() : current.apiKey,
+    apiKey: incomingKey !== undefined ? (incomingKey || current.apiKey) : current.apiKey,
     model: settings?.gemini_model ? sanitizeModelId(settings.gemini_model) : current.model
   };
   saveStudioConfig(next, true);
@@ -253,7 +279,7 @@ export async function loadBrainDirectivesFromCloud(): Promise<BrainMemoryDirecti
 
 export async function saveStudioConfigToCloud(config: StudioConfig): Promise<boolean> {
   const payload = {
-    apiKey: String(config.apiKey || '').trim(),
+    apiKey: sanitizeApiKey(config.apiKey),
     model: sanitizeModelId(config.model),
     reviewsPerApp: Number(config.reviewsPerApp) || 2,
     languageTone: String(config.languageTone || 'all_rounder_standard'),
@@ -305,11 +331,12 @@ export async function loadStudioConfigFromCloud(): Promise<{ config: Partial<Stu
     if (res.ok) {
       const json = await res.json();
       const cfg = json?.data?.config;
-      const hasServerKey = Boolean(json?.data?.hasServerKey || cfg?.apiKey);
+      const cleanServerKey = sanitizeApiKey(cfg?.apiKey);
+      const hasServerKey = Boolean(cleanServerKey || json?.data?.hasServerKey);
       if (cfg) {
         const cleanResult: Partial<StudioConfig> = {};
-        if (cfg.apiKey && String(cfg.apiKey).trim()) {
-          cleanResult.apiKey = String(cfg.apiKey).trim();
+        if (cleanServerKey) {
+          cleanResult.apiKey = cleanServerKey;
         }
         if (cfg.model && String(cfg.model).trim()) {
           cleanResult.model = sanitizeModelId(String(cfg.model).trim());

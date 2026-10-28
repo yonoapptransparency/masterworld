@@ -2423,6 +2423,79 @@ export async function createAdminReviewItem(
   return finalReview;
 }
 
+export async function createAdminReviewItemsBatch(
+  reviewsData: Array<Partial<AdminReviewItem>>
+): Promise<AdminReviewItem[]> {
+  if (!Array.isArray(reviewsData) || reviewsData.length === 0) return [];
+  await getStaticReviewsBundle();
+
+  const finalReviews: AdminReviewItem[] = reviewsData.map((reviewData, idx) => {
+    const identity = resolveCanonicalAppIdentity(reviewData.appId, reviewData.appSlug, reviewData.appName);
+    const reviewId = reviewData.id || `rev_${Date.now()}_${Math.random().toString(36).substring(2, 7)}_${idx}`;
+    return {
+      id: reviewId,
+      appId: identity.idKey || reviewData.appId || '',
+      appSlug: identity.slugKey || reviewData.appSlug || '',
+      appName: identity.displayName || reviewData.appName || '',
+      userName: reviewData.userName || 'Verified Player',
+      rating: Math.max(1, Math.min(5, Math.round(Number(reviewData.rating) || 5))),
+      reviewText: reviewData.reviewText || '',
+      timestamp: reviewData.timestamp || new Date().toISOString(),
+      status: reviewData.status || 'published',
+      helpful_count: Number(reviewData.helpful_count) || 0,
+      isPinned: Boolean(reviewData.isPinned),
+      reported: false,
+      report_count: 0,
+      source: reviewData.source || 'ai_generated',
+      adminReply: reviewData.adminReply || null
+    };
+  });
+
+  // 1. Save all to client storage in a single pass & recompute atomic stats once
+  for (const rev of finalReviews) {
+    saveAdminCustomReview(rev);
+  }
+  invalidateReviewCache();
+  recomputeAndBroadcastAtomicStats(finalReviews[0]?.appId, finalReviews[0]?.appSlug);
+
+  // 2. Single batch POST to backend server (/api/v1/admin/community/reviews/batch-create)
+  if (typeof window !== 'undefined') {
+    try {
+      await safeAdminFetch('/api/v1/admin/community/reviews/batch-create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reviews: finalReviews })
+      });
+    } catch (_) {}
+  }
+
+  // 3. Background sync to Firestore without blocking UI
+  try {
+    const cfg = getResolvedCommunityFirebaseConfig();
+    if (cfg && cfg.projectId && cfg.apiKey) {
+      (async () => {
+        for (const rev of finalReviews) {
+          try {
+            const fields = convertToFirestoreFields({
+              ...rev,
+              created_at: rev.timestamp,
+              updated_at: new Date().toISOString()
+            });
+            const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/reviews?documentId=${encodeURIComponent(rev.id)}&key=${cfg.apiKey}`;
+            await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ fields })
+            });
+          } catch (_) {}
+        }
+      })();
+    }
+  } catch (_) {}
+
+  return finalReviews;
+}
+
 export async function updateAdminReviewItem(
   reviewId: string,
   updates: Partial<AdminReviewItem>

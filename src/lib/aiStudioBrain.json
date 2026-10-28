@@ -35,7 +35,7 @@
     "dateMode": "today_and_yesterday",
     "ratingMix": "natural",
     "publishMode": "wait_approve",
-    "model": "gemini-flash-latest",
+    "model": "gemini-3.8-flash",
     "activeSessionDirective": "",
     "updatedAt": "2026-10-10T07:14:19.151Z"
   },

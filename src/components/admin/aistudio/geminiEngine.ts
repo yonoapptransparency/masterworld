@@ -333,6 +333,92 @@ function getToneInstruction(tone: StudioConfig['languageTone']): string {
 }
 
 /**
+ * Determines whether a chat message is an explicit automation start trigger
+ * (e.g. "start", "start generating", "generate now", "start generating reviews now for all selected apps.").
+ */
+export function isAutomationStartCommand(text: string): boolean {
+  const lower = (text || '').toLowerCase().trim().replace(/[.!?]+$/, '');
+  return (
+    lower === 'start' ||
+    lower === 'start now' ||
+    lower === 'start generating' ||
+    lower === 'start generation' ||
+    lower === 'generate' ||
+    lower === 'generate now' ||
+    lower === 'run' ||
+    lower === 'run now' ||
+    lower === 'go' ||
+    lower.startsWith('start generating') ||
+    lower.startsWith('generate reviews now') ||
+    lower.includes('start generating reviews now')
+  );
+}
+
+/**
+ * Determines whether a chat message is a casual greeting, question, or status check
+ * so it NEVER overwrites `config.activeSessionDirective`.
+ */
+export function isConversationalNonDirective(text: string): boolean {
+  const clean = (text || '').trim();
+  const lower = clean.toLowerCase().replace(/[.!?]+$/, '');
+  if (!lower) return true;
+  if (isAutomationStartCommand(clean)) return true;
+  if (
+    lower === 'stop' ||
+    lower === 'cancel' ||
+    lower.includes('stop generating') ||
+    lower.includes('stop the working') ||
+    lower.includes('stop ai')
+  ) {
+    return true;
+  }
+
+  const greetingsAndQuestions = new Set([
+    'hi',
+    'hello',
+    'hey',
+    'hii',
+    'namaste',
+    'ok',
+    'okay',
+    'thanks',
+    'thank you',
+    'yes',
+    'no',
+    'test',
+    'ping',
+    'are you there',
+    'are you working',
+    'why don\'t you reply me',
+    'why dont you reply me',
+    'why are you not replying',
+    'so how can you help me',
+    'how can you help me',
+    'what can you do',
+    'who are you',
+    'status',
+    'help'
+  ]);
+
+  if (greetingsAndQuestions.has(lower)) return true;
+
+  // Short questions asking the AI about itself rather than instructing how to write reviews
+  if (
+    clean.length < 45 &&
+    (lower.startsWith('why ') ||
+      lower.startsWith('how can you') ||
+      lower.startsWith('what can you') ||
+      lower.startsWith('are you ') ||
+      lower.startsWith('can you hear') ||
+      lower.startsWith('do you work'))
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Detects explicit configuration commands from chat without accidentally
  * hijacking settings when normal words appear in conversation.
  */
@@ -416,12 +502,17 @@ export function detectConfigUpdatesFromChat(text: string): Partial<StudioConfig>
  * messages caused the API to fail and fall back to a canned string.
  */
 function buildValidGeminiContents(chatHistory: ChatMessage[], currentUserMessage: string): any[] {
-  // Filter out automated progress logs and static welcome placeholder
+  // Filter out automated progress logs, error banners, and static welcome placeholder
   const cleanMessages = (chatHistory || []).filter(m => {
     if (!m || !m.text || !m.text.trim()) return false;
     if (m.id === 'welcome') return false;
     const t = m.text.trim();
-    if (t.startsWith('⏳ [') || t.startsWith('✅ [') || t.startsWith('⚠️ [') || t.startsWith('⏹ ')) {
+    if (
+      t.startsWith('⏳ [') ||
+      t.startsWith('✅ [') ||
+      t.startsWith('⚠️') ||
+      t.startsWith('⏹ ')
+    ) {
       return false;
     }
     return true;
@@ -480,15 +571,14 @@ export function buildConversationMemorySummary(chatHistory: ChatMessage[], activ
     .filter(m => {
       if (!m || !m.text || m.id === 'welcome') return false;
       const t = m.text.trim();
-      if (t.startsWith('⏳ [') || t.startsWith('✅ [') || t.startsWith('⚠️ [') || t.startsWith('⏹ ')) return false;
-      const lower = t.toLowerCase();
-      if (lower === 'start' || lower === 'start generating' || lower === 'generate now') return false;
+      if (t.startsWith('⏳ [') || t.startsWith('✅ [') || t.startsWith('⚠️') || t.startsWith('⏹ ')) return false;
+      if (isAutomationStartCommand(t)) return false;
       return true;
     })
     .slice(-10);
 
   const lines: string[] = [];
-  if (activeDirective && activeDirective.trim()) {
+  if (activeDirective && activeDirective.trim() && !isConversationalNonDirective(activeDirective)) {
     lines.push(`Primary Active Focus: "${activeDirective.trim()}"`);
   }
 
@@ -509,72 +599,42 @@ export interface ChatResponseResult {
   latencyMs?: number;
 }
 
-// Client-side model discovery cache (per API key) so browser fallback never wastes round-trips on 404 models
-const clientModelCache = new Map<string, { models: Set<string>; fetchedAt: number }>();
-const CLIENT_CACHE_TTL_MS = 15 * 60 * 1000;
+const RETIRED_CLIENT_MODELS = new Set([
+  'gemini-2.5-flash',
+  'gemini-2.5-flash-preview',
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-exp',
+  'gemini-1.5-flash',
+  'gemini-1.5-pro'
+]);
 
 const CLIENT_MODEL_ALIAS_MAP: Record<string, string[]> = {
-  'gemini-3.8-flash': ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-flash-latest'],
-  'gemini-3.1-flash-lite': ['gemini-3.1-flash-lite', 'gemini-3.1-flash-lite-preview', 'gemini-2.5-flash-lite', 'gemini-2.5-flash'],
-  'gemini-2.0-flash': ['gemini-2.5-flash', 'gemini-flash-latest'],
-  'gemini-1.5-flash': ['gemini-2.5-flash', 'gemini-flash-latest']
+  'gemini-3.8-flash': ['gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'],
+  'gemini-3.1-flash-lite': ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest'],
+  'gemini-flash-latest': ['gemini-flash-latest', 'gemini-3.8-flash', 'gemini-3.1-flash-lite'],
+  'gemini-2.5-flash': ['gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'],
+  'gemini-2.5-flash-lite': ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest'],
+  'gemini-2.0-flash': ['gemini-3.8-flash', 'gemini-flash-latest'],
+  'gemini-1.5-flash': ['gemini-3.8-flash', 'gemini-flash-latest']
 };
 
-async function getClientAvailableModels(apiKey: string): Promise<Set<string> | null> {
-  const cleanKey = apiKey.trim();
-  if (!cleanKey) return null;
-  const cached = clientModelCache.get(cleanKey);
-  if (cached && Date.now() - cached.fetchedAt < CLIENT_CACHE_TTL_MS) {
-    return cached.models;
-  }
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 3500);
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models?pageSize=100&key=${encodeURIComponent(cleanKey)}`,
-      { method: 'GET', signal: controller.signal }
-    );
-    clearTimeout(timer);
-    if (!res.ok) return null;
-    const data = await res.json().catch(() => ({}));
-    const models = new Set<string>();
-    if (Array.isArray(data?.models)) {
-      for (const m of data.models) {
-        const methods: string[] = m.supportedGenerationMethods || [];
-        if (methods.includes('generateContent')) {
-          models.add(String(m.name || '').replace(/^models\//, ''));
-        }
-      }
-    }
-    if (models.size > 0) {
-      clientModelCache.set(cleanKey, { models, fetchedAt: Date.now() });
-      return models;
-    }
-  } catch (_) {
-    clearTimeout(timer);
-  }
-  return null;
-}
-
-function buildClientCandidateModels(requestedModel: string, discovered: Set<string> | null): string[] {
-  const req = (requestedModel || 'gemini-2.5-flash').trim().replace(/^models\//, '');
+function buildClientCandidateModels(requestedModel: string): string[] {
+  const raw = (requestedModel || 'gemini-3.8-flash').trim().replace(/^models\//, '');
+  const req = RETIRED_CLIENT_MODELS.has(raw) ? 'gemini-3.8-flash' : raw;
   const rawOrder = [
     ...(CLIENT_MODEL_ALIAS_MAP[req] || [req]),
-    'gemini-2.5-flash',
-    'gemini-flash-latest',
-    'gemini-2.5-flash-lite'
+    'gemini-3.8-flash',
+    'gemini-3.1-flash-lite',
+    'gemini-flash-latest'
   ];
-  const unique = Array.from(new Set(rawOrder.filter(Boolean)));
-  if (discovered && discovered.size > 0) {
-    const valid = unique.filter(m => discovered.has(m));
-    if (valid.length > 0) return valid.slice(0, 2);
-  }
-  return unique.slice(0, 2);
+  const unique = Array.from(new Set(rawOrder.filter(m => Boolean(m) && !RETIRED_CLIENT_MODELS.has(m))));
+  return unique.slice(0, 3);
 }
 
 /**
- * Direct ultra-fast client-side Gemini caller with `thinkingBudget: 0` (disabling 15-45s hidden thinking delay)
- * and strict AbortController timeout.
+ * Direct ultra-fast client-side Gemini caller with `thinkingLevel: 'MINIMAL'`
+ * (eliminating 15-25s hidden thinking delay on Gemini 3.x models) and automatic
+ * fallback if `thinkingConfig` is not supported by a specific model endpoint.
  */
 async function callClientGeminiDirect(params: {
   apiKey: string;
@@ -582,83 +642,101 @@ async function callClientGeminiDirect(params: {
   systemInstruction?: string;
   contents: any[];
   temperature?: number;
-  maxOutputTokens?: number;
   responseMimeType?: string;
   timeoutMs?: number;
 }): Promise<{ text: string; modelUsed: string; latencyMs: number }> {
   const startMs = performance.now();
-  const discovered = await getClientAvailableModels(params.apiKey);
-  const candidates = buildClientCandidateModels(params.requestedModel, discovered);
+  const candidates = buildClientCandidateModels(params.requestedModel);
   let lastError = 'Gemini API request failed.';
 
   for (const modelId of candidates) {
-    const controller = new AbortController();
-    const timeoutMs = params.timeoutMs || 10500;
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const mLower = modelId.toLowerCase();
+    const thinkingVariants: Array<Record<string, any> | null> =
+      mLower.includes('3.') || mLower.includes('flash-latest')
+        ? [{ thinkingLevel: 'MINIMAL' }, null]
+        : [null];
 
-    try {
-      const generationConfig: Record<string, any> = {
-        temperature: typeof params.temperature === 'number' ? params.temperature : 0.85,
-        maxOutputTokens: params.maxOutputTokens || 1536
-      };
+    for (const thinkingCfg of thinkingVariants) {
+      const controller = new AbortController();
+      const timeoutMs = params.timeoutMs || 14000;
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-      if (params.responseMimeType) {
-        generationConfig.responseMimeType = params.responseMimeType;
-      }
-
-      // Disable hidden thinking tokens on 2.5/flash models for sub-second response times
-      const mLower = modelId.toLowerCase();
-      if ((mLower.includes('2.5-flash') || mLower.includes('flash-latest')) && !mLower.includes('pro')) {
-        generationConfig.thinkingConfig = { thinkingBudget: 0 };
-      }
-
-      const payload: Record<string, any> = {
-        contents: params.contents,
-        generationConfig
-      };
-
-      if (params.systemInstruction) {
-        payload.systemInstruction = { parts: [{ text: params.systemInstruction }] };
-      }
-
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelId)}:generateContent?key=${encodeURIComponent(params.apiKey)}`;
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-goog-api-key': params.apiKey
-        },
-        body: JSON.stringify(payload),
-        signal: controller.signal
-      });
-      clearTimeout(timer);
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        const msg = errData?.error?.message || `HTTP ${response.status}`;
-        lastError = msg;
-        if (msg.toLowerCase().includes('api key not valid') || msg.toLowerCase().includes('api_key_invalid')) {
-          throw new Error('Invalid Gemini API Key. Please check your key in the Key modal.');
-        }
-        continue;
-      }
-
-      const data = await response.json();
-      const parts = data?.candidates?.[0]?.content?.parts || [];
-      const replyText = parts.map((p: any) => p.text || '').join('').trim();
-      if (replyText) {
-        return {
-          text: replyText,
-          modelUsed: modelId,
-          latencyMs: Math.round(performance.now() - startMs)
+      try {
+        const generationConfig: Record<string, any> = {
+          temperature: typeof params.temperature === 'number' ? params.temperature : 0.85
         };
+
+        if (params.responseMimeType) {
+          generationConfig.responseMimeType = params.responseMimeType;
+        }
+
+        if (thinkingCfg) {
+          generationConfig.thinkingConfig = thinkingCfg;
+        }
+
+        const payload: Record<string, any> = {
+          contents: params.contents,
+          generationConfig
+        };
+
+        if (params.systemInstruction) {
+          payload.systemInstruction = { parts: [{ text: params.systemInstruction }] };
+        }
+
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelId)}:generateContent?key=${encodeURIComponent(params.apiKey)}`;
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-goog-api-key': params.apiKey
+          },
+          body: JSON.stringify(payload),
+          signal: controller.signal
+        });
+        clearTimeout(timer);
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          const msg = errData?.error?.message || `HTTP ${response.status}`;
+          lastError = msg;
+          const lowerMsg = msg.toLowerCase();
+
+          if (lowerMsg.includes('api key not valid') || lowerMsg.includes('api_key_invalid')) {
+            throw new Error('Invalid Gemini API Key. Please check your key in the Key modal.');
+          }
+          if (lowerMsg.includes('no longer available to new users')) {
+            RETIRED_CLIENT_MODELS.add(modelId);
+            break; // Move immediately to next candidate model
+          }
+          if (thinkingCfg && response.status === 400 && (lowerMsg.includes('thinking') || lowerMsg.includes('unknown name'))) {
+            continue; // Retry same model without thinkingConfig
+          }
+          break; // Try next candidate model
+        }
+
+        const data = await response.json();
+        const parts = data?.candidates?.[0]?.content?.parts || [];
+        const replyText = parts
+          .filter((p: any) => !p.thought && typeof p.text === 'string')
+          .map((p: any) => p.text)
+          .join('')
+          .trim() || parts.map((p: any) => p.text || '').join('').trim();
+
+        if (replyText) {
+          return {
+            text: replyText,
+            modelUsed: modelId,
+            latencyMs: Math.round(performance.now() - startMs)
+          };
+        }
+      } catch (err: any) {
+        clearTimeout(timer);
+        if (err?.message?.includes('Invalid Gemini API Key')) {
+          throw err;
+        }
+        lastError = err?.name === 'AbortError' ? `Model ${modelId} timed out` : (err?.message || lastError);
+        break;
       }
-    } catch (err: any) {
-      clearTimeout(timer);
-      if (err?.message?.includes('Invalid Gemini API Key')) {
-        throw err;
-      }
-      lastError = err?.name === 'AbortError' ? `Model ${modelId} timed out` : (err?.message || lastError);
     }
   }
 
@@ -679,7 +757,8 @@ export async function sendChatMessageToGemini(
     videosList?: any[];
   }
 ): Promise<ChatResponseResult> {
-  const apiKey = (config.apiKey || '').trim();
+  const rawKey = (config.apiKey || '').trim();
+  const apiKey = rawKey.startsWith('AQ.') ? '' : rawKey;
   const activeRules = directives
     .filter(d => d.active)
     .map((d, i) => `${i + 1}. [${d.category.toUpperCase()}] ${d.rule}`)
@@ -705,6 +784,10 @@ export async function sendChatMessageToGemini(
         .join('\n')
     : '';
 
+  const modelToUse = RETIRED_CLIENT_MODELS.has((config.model || '').trim())
+    ? 'gemini-3.8-flash'
+    : (config.model || 'gemini-3.8-flash').trim();
+
   const systemInstruction = `You are the Master AI Review Studio Brain for RummyDex Admin.
 You are an expert in human consumer psychology across Google Play Store, Amazon, Flipkart, YouTube video comments, and gaming communities.
 
@@ -715,7 +798,7 @@ YOUR CORE RESPONSIBILITIES:
 4. Keep your response concise, sharp, and directly responsive to what the Admin just said. NEVER give a generic canned reply.
 
 CURRENT STUDIO CONFIGURATION:
-- Selected Model: ${config.model || 'gemini-2.5-flash'}
+- Selected Model: ${modelToUse}
 - Platform Comment Style: ${config.platformStyle || 'smart_multi_platform'}
 - Reviews Per App: ${config.reviewsPerApp}
 - Star Rating Strategy: ${config.ratingMix}
@@ -731,11 +814,10 @@ ${selectedAppsBrief}
 ${videosBrief ? `\nPLATFORM VIDEOS / TUTORIALS CONTEXT:\n${videosBrief}` : ''}`;
 
   const contents = buildValidGeminiContents(chatHistory, userMessage);
-  const modelToUse = (config.model || 'gemini-2.5-flash').trim();
 
-  // 1. Primary: Server-side execution via /api/v1/admin/community/aistudio-gemini with strict 11s timeout
+  // 1. Primary: Server-side execution via /api/v1/admin/community/aistudio-gemini with 15s timeout
   const srvController = new AbortController();
-  const srvTimer = setTimeout(() => srvController.abort(), 11000);
+  const srvTimer = setTimeout(() => srvController.abort(), 15000);
   try {
     const srvRes = await fetch('/api/v1/admin/community/aistudio-gemini', {
       method: 'POST',
@@ -782,8 +864,7 @@ ${videosBrief ? `\nPLATFORM VIDEOS / TUTORIALS CONTEXT:\n${videosBrief}` : ''}`;
     systemInstruction,
     contents,
     temperature: 0.85,
-    maxOutputTokens: 1024,
-    timeoutMs: 10500
+    timeoutMs: 14000
   });
 
   return {
@@ -796,6 +877,8 @@ ${videosBrief ? `\nPLATFORM VIDEOS / TUTORIALS CONTEXT:\n${videosBrief}` : ''}`;
 /**
  * Generates ultra-authentic, platform-diverse human reviews for a specific app,
  * grounded in the app's complete website dossier + full chat conversation memory.
+ * Automatically splits large per-app counts (e.g. 22 or 50 reviews/app) into fast
+ * 8-review batches so JSON never truncates or times out.
  */
 export async function generateReviewsForAppWithGemini(
   app: any,
@@ -804,17 +887,21 @@ export async function generateReviewsForAppWithGemini(
   config: StudioConfig,
   customInstruction?: string,
   chatHistory: ChatMessage[] = [],
-  videosList: any[] = []
+  videosList: any[] = [],
+  onProgressChunk?: (chunkReviews: StagedReview[], chunkIndex: number, totalChunks: number) => void
 ): Promise<StagedReview[]> {
-  const dates = generateRealisticPastDates(count, config.dateMode);
-  const apiKey = (config.apiKey || '').trim();
+  const safeCount = Math.max(1, Math.min(200, Number(count) || 2));
+  const dates = generateRealisticPastDates(safeCount, config.dateMode);
+  const rawKey = (config.apiKey || '').trim();
+  const apiKey = rawKey.startsWith('AQ.') ? '' : rawKey;
   const profile = extractAdminAppProfile(app, videosList);
-  const targetRatings = buildTargetRatingsArray(count, config.ratingMix, profile.catalogRating, customInstruction);
+  const targetRatings = buildTargetRatingsArray(safeCount, config.ratingMix, profile.catalogRating, customInstruction);
   const conversationMemory = buildConversationMemorySummary(chatHistory, customInstruction || config.activeSessionDirective);
 
-  // Build rich fallback pool grounded in the actual app profile (only used if API is completely unreachable)
-  const buildProfileGroundedFallback = (): StagedReview[] => {
-    const shuffledNames = [...REALISTIC_USER_NAMES].sort(() => 0.5 - Math.random());
+  const shuffledGlobalNames = [...REALISTIC_USER_NAMES].sort(() => 0.5 - Math.random());
+
+  // Build rich 25-template fallback pool grounded in the actual app profile (only used if API is completely unreachable)
+  const buildProfileGroundedSliceFallback = (sliceStart: number, sliceLength: number): StagedReview[] => {
     const featureSnippets = profile.featuresList
       .split(/[;,.|]/)
       .map(s => s.trim())
@@ -823,33 +910,50 @@ export async function generateReviewsForAppWithGemini(
     const f1 = featureSnippets[0] || `the ${profile.category} modes`;
     const f2 = featureSnippets[1] || 'quick onboarding and daily access';
     const f3 = featureSnippets[2] || 'smooth table controls';
+    const f4 = featureSnippets[3] || `regular ${profile.category.toLowerCase()} events`;
 
     const multiPlatformTemplates = [
       `Installed ${profile.name} after checking what it provides on the page. Honestly delivers on ${f1} and feels genuinely reliable for daily use.`,
       `Been using ${profile.name} (v${profile.version}) for a few days now. Everything from ${f2} to the main ${profile.category.toLowerCase()} section works just as expected.`,
       `Worth downloading if you want a straightforward ${profile.category.toLowerCase()} app by ${profile.developer}. Really liked ${f3} and how easy it is to get started.`,
       `Tried ${profile.name} on my cousin's recommendation. It actually provides ${f1} without unnecessary clutter, very satisfied with the overall value.`,
-      `Good experience with ${profile.name} so far. Checked the details and walkthrough first, and the real app matches what is described.`
+      `Good experience with ${profile.name} so far. Checked the details and walkthrough first, and the real app matches what is described.`,
+      `Practical and well-organized ${profile.category.toLowerCase()} app. I mostly use ${f1} during evening breaks and haven't faced any issues.`,
+      `Honestly impressed by what ${profile.name} offers for a ${profile.size} download. ${f2} is super helpful for beginners.`,
+      `Checked the FAQs on the page before installing ${profile.name}. Everything works transparently and ${f3} is my favorite part.`,
+      `Playing ${profile.name} with friends on weekends has been great. ${profile.developer} did a solid job with ${f4}.`,
+      `If you are looking for genuine ${profile.category.toLowerCase()} entertainment, ${profile.name} delivers what it promises. Simple setup and smooth rounds.`,
+      `Watched the preview guide first and then downloaded ${profile.name}. The modes inside match the walkthrough 100%, especially ${f1}.`,
+      `Been a regular on ${profile.name} for two weeks. What I appreciate most is the consistency in ${f2} and quick matchmaking.`,
+      `Full paisa vasool time-pass for card and casual gaming fans. ${profile.name} provides ${f1} and ${f3} in one place.`,
+      `Switched to ${profile.name} after trying two other ${profile.category.toLowerCase()} apps. The rules are clear and ${f2} makes a big difference.`,
+      `Downloaded v${profile.version} yesterday. Very straightforward registration and ${f1} works without any lag during peak hours.`,
+      `My brother shared ${profile.name} with me last week. Really enjoying ${f3} and the daily variety it provides.`,
+      `Solid 5-star value from ${profile.developer}. ${profile.name} gives you direct access to ${f1} without confusing menus.`,
+      `Nice update in v${profile.version}! ${profile.name} feels very responsive and ${f4} keeps the sessions interesting.`,
+      `Read the full review here before trying ${profile.name}. Happy to say ${f1} and ${f2} work exactly as stated.`,
+      `Great for quick 15-minute sessions after work. ${profile.name} provides a clean ${profile.category.toLowerCase()} setup that anyone can learn fast.`
     ];
 
-    return Array.from({ length: count }).map((_, idx) => {
-      const d = dates[idx] || dates[0];
-      const star = targetRatings[idx] ?? 5;
-      const text = multiPlatformTemplates[idx % multiPlatformTemplates.length];
+    return Array.from({ length: sliceLength }).map((_, localIdx) => {
+      const globalIdx = sliceStart + localIdx;
+      const d = dates[globalIdx] || dates[0];
+      const star = targetRatings[globalIdx] ?? 5;
+      const text = multiPlatformTemplates[globalIdx % multiPlatformTemplates.length];
       return {
-        id: `rev_${Date.now()}_${Math.random().toString(36).slice(2, 7)}_${idx}`,
+        id: `rev_${Date.now()}_${Math.random().toString(36).slice(2, 7)}_${globalIdx}`,
         appId: String(app.id || app.slug || ''),
         appName: profile.name,
         appSlug: app.slug || '',
         appIcon: app.icon || app.logo || app.image || '',
         appCategory: profile.category,
-        userName: shuffledNames[idx % shuffledNames.length],
+        userName: shuffledGlobalNames[globalIdx % shuffledGlobalNames.length],
         rating: star,
         reviewText: text,
         dateTag: d.dateTag,
         timestamp: d.isoString,
         status: 'staged',
-        helpful_count: generateRealisticHelpfulLikes(config.likesMode, idx)
+        helpful_count: generateRealisticHelpfulLikes(config.likesMode, globalIdx)
       };
     });
   };
@@ -874,7 +978,23 @@ CRITICAL ANTI-FAKE RULES (NEVER VIOLATE):
 3. Every single comment in the batch MUST sound like a completely different human being with a different sentence structure, different vocabulary, and different length (mix short 10-word reactions with thoughtful 25-45 word reviews).
 4. Strictly obey the ADMIN SESSION INSTRUCTIONS & CONVERSATION MEMORY below.`;
 
-  const prompt = `Generate exactly ${count} authentic, human-written user reviews for "${profile.name}".
+  const modelToUse = RETIRED_CLIENT_MODELS.has((config.model || '').trim())
+    ? 'gemini-3.8-flash'
+    : (config.model || 'gemini-3.8-flash').trim();
+
+  // Chunk large per-app requests into batches of max 8 reviews per API call
+  // so 22/app or 50/app never truncates JSON or times out!
+  const CHUNK_SIZE = 8;
+  const totalChunks = Math.ceil(safeCount / CHUNK_SIZE);
+  const allGenerated: StagedReview[] = [];
+
+  for (let chunkIdx = 0; chunkIdx < totalChunks; chunkIdx++) {
+    const sliceStart = chunkIdx * CHUNK_SIZE;
+    const chunkCount = Math.min(CHUNK_SIZE, safeCount - sliceStart);
+    const chunkRatings = targetRatings.slice(sliceStart, sliceStart + chunkCount);
+
+    const previouslyUsedNames = allGenerated.slice(-16).map(r => r.userName).join(', ');
+    const chunkPrompt = `Generate exactly ${chunkCount} authentic, human-written user reviews for "${profile.name}" (Batch ${chunkIdx + 1} of ${totalChunks}).
 
 === COMPLETE APP DOSSIER (GROUND EVERY REVIEW IN THESE FACTS) ===
 - App Name: ${profile.name}
@@ -902,125 +1022,137 @@ ${toneGuide}
 
 PERSISTENT DIRECTIVES:
 ${activeRules}
+${previouslyUsedNames ? `\nDO NOT reuse these reviewer names from earlier batches: ${previouslyUsedNames}` : ''}
 
-=== EXACT STAR RATINGS REQUIRED FOR THE ${count} REVIEWS ===
-Assign these exact integer star ratings in order: ${JSON.stringify(targetRatings)}
+=== EXACT STAR RATINGS REQUIRED FOR THESE ${chunkCount} REVIEWS ===
+Assign these exact integer star ratings in order: ${JSON.stringify(chunkRatings)}
 - For 5★: Genuine satisfaction with what the app provides, specific features, value, or ease of use.
 - For 4★: Positive experience with what the app provides + a natural minor wish or observation.
 - For 3★: Decent/average feedback with a realistic question or suggestion.
 - For 1★ or 2★: Realistic user frustration (e.g., slow loading during peak evening hours, confusion about a rule, wanting faster update) without defamatory or robotic language.
 
-Return ONLY a valid JSON array of ${count} objects with keys: "userName" (string), "rating" (integer 1-5), "reviewText" (string).`;
+Return ONLY a valid JSON array of ${chunkCount} objects with keys: "userName" (string), "rating" (integer 1-5), "reviewText" (string).`;
 
-  const modelToUse = (config.model || 'gemini-2.5-flash').trim();
+    let chunkResult: StagedReview[] = [];
 
-  try {
-    let rawJsonText = '';
-
-    // 1. Primary: Server-side Gemini execution with strict 11.5s timeout
-    const srvController = new AbortController();
-    const srvTimer = setTimeout(() => srvController.abort(), 11500);
     try {
-      const srvRes = await fetch('/api/v1/admin/community/aistudio-gemini', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'generate',
+      let rawJsonText = '';
+
+      // 1. Primary: Server-side Gemini execution with 15s timeout
+      const srvController = new AbortController();
+      const srvTimer = setTimeout(() => srvController.abort(), 15000);
+      try {
+        const srvRes = await fetch('/api/v1/admin/community/aistudio-gemini', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'generate',
+            apiKey,
+            model: modelToUse,
+            systemInstruction,
+            contents: [{ role: 'user', parts: [{ text: chunkPrompt }] }],
+            temperature: 0.92,
+            responseMimeType: 'application/json',
+            useReviewSchema: true
+          }),
+          signal: srvController.signal
+        });
+        clearTimeout(srvTimer);
+
+        const srvData = await srvRes.json().catch(() => ({}));
+        if (srvRes.ok && srvData.success && srvData.text) {
+          rawJsonText = srvData.text;
+        } else if (!apiKey && srvData.error) {
+          throw new Error(srvData.error);
+        }
+      } catch (srvErr: any) {
+        clearTimeout(srvTimer);
+        if (!apiKey) {
+          throw srvErr;
+        }
+      }
+
+      // 2. Fallback: Direct low-latency client-side call if server proxy didn't return text and browser has apiKey
+      if (!rawJsonText && apiKey) {
+        const directResult = await callClientGeminiDirect({
           apiKey,
-          model: modelToUse,
+          requestedModel: modelToUse,
           systemInstruction,
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          contents: [{ role: 'user', parts: [{ text: chunkPrompt }] }],
           temperature: 0.92,
           responseMimeType: 'application/json',
-          useReviewSchema: true
-        }),
-        signal: srvController.signal
-      });
-      clearTimeout(srvTimer);
-
-      const srvData = await srvRes.json().catch(() => ({}));
-      if (srvRes.ok && srvData.success && srvData.text) {
-        rawJsonText = srvData.text;
-      } else if (!apiKey && srvData.error) {
-        throw new Error(srvData.error);
+          timeoutMs: 14000
+        });
+        rawJsonText = directResult.text;
       }
-    } catch (srvErr: any) {
-      clearTimeout(srvTimer);
-      if (!apiKey) {
-        throw srvErr;
+
+      if (rawJsonText) {
+        const cleanedJson = rawJsonText
+          .replace(/^```json\s*/i, '')
+          .replace(/^```\s*/i, '')
+          .replace(/```$/i, '')
+          .trim();
+
+        let parsed: any[] = [];
+        try {
+          parsed = JSON.parse(cleanedJson);
+        } catch (_) {
+          const bracketMatch = cleanedJson.match(/\[[\s\S]*\]/);
+          if (bracketMatch) {
+            parsed = JSON.parse(bracketMatch[0]);
+          }
+        }
+
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          chunkResult = parsed.slice(0, chunkCount).map((item: any, localIdx: number) => {
+            const globalIdx = sliceStart + localIdx;
+            const d = dates[globalIdx] || dates[0];
+            const targetStar = chunkRatings[localIdx] ?? 5;
+            const aiStar = Number(item.rating);
+            const finalRating =
+              config.ratingMix === 'auto_app_rating' || config.ratingMix.startsWith('all_')
+                ? targetStar
+                : !isNaN(aiStar) && aiStar >= 1 && aiStar <= 5
+                ? Math.round(aiStar)
+                : targetStar;
+
+            return {
+              id: `rev_${Date.now()}_${Math.random().toString(36).slice(2, 7)}_${globalIdx}`,
+              appId: String(app.id || app.slug || ''),
+              appName: profile.name,
+              appSlug: app.slug || '',
+              appIcon: app.icon || app.logo || app.image || '',
+              appCategory: profile.category,
+              userName:
+                (item.userName && String(item.userName).trim()) ||
+                shuffledGlobalNames[globalIdx % shuffledGlobalNames.length],
+              rating: finalRating,
+              reviewText: cleanUserReviewText(
+                item.reviewText || `${profile.name} provides a solid ${profile.category.toLowerCase()} experience.`
+              ),
+              dateTag: d.dateTag,
+              timestamp: d.isoString,
+              status: 'staged',
+              helpful_count: generateRealisticHelpfulLikes(config.likesMode, globalIdx)
+            };
+          });
+        }
       }
+    } catch (err) {
+      console.warn(`[AI Review Studio] Chunk ${chunkIdx + 1}/${totalChunks} error, using profile-grounded fallback:`, err);
     }
 
-    // 2. Fallback: Direct low-latency client-side call if server proxy didn't return text and browser has apiKey
-    if (!rawJsonText && apiKey) {
-      const directResult = await callClientGeminiDirect({
-        apiKey,
-        requestedModel: modelToUse,
-        systemInstruction,
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        temperature: 0.92,
-        maxOutputTokens: 2048,
-        responseMimeType: 'application/json',
-        timeoutMs: 11000
-      });
-      rawJsonText = directResult.text;
+    if (chunkResult.length === 0) {
+      chunkResult = buildProfileGroundedSliceFallback(sliceStart, chunkCount);
     }
 
-    if (!rawJsonText) {
-      return buildProfileGroundedFallback();
+    allGenerated.push(...chunkResult);
+    if (onProgressChunk) {
+      try {
+        onProgressChunk(chunkResult, chunkIdx + 1, totalChunks);
+      } catch (_) {}
     }
-
-    const cleanedJson = rawJsonText
-      .replace(/^```json\s*/i, '')
-      .replace(/^```\s*/i, '')
-      .replace(/```$/i, '')
-      .trim();
-
-    let parsed: any[] = [];
-    try {
-      parsed = JSON.parse(cleanedJson);
-    } catch (_) {
-      const bracketMatch = cleanedJson.match(/\[[\s\S]*\]/);
-      if (bracketMatch) {
-        parsed = JSON.parse(bracketMatch[0]);
-      }
-    }
-
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      return buildProfileGroundedFallback();
-    }
-
-    const shuffledFallbackNames = [...REALISTIC_USER_NAMES].sort(() => 0.5 - Math.random());
-
-    return parsed.slice(0, count).map((item: any, idx: number) => {
-      const d = dates[idx] || dates[0];
-      const targetStar = targetRatings[idx] ?? 5;
-      const aiStar = Number(item.rating);
-      const finalRating =
-        config.ratingMix === 'auto_app_rating' || config.ratingMix.startsWith('all_')
-          ? targetStar
-          : !isNaN(aiStar) && aiStar >= 1 && aiStar <= 5
-          ? Math.round(aiStar)
-          : targetStar;
-
-      return {
-        id: `rev_${Date.now()}_${Math.random().toString(36).slice(2, 7)}_${idx}`,
-        appId: String(app.id || app.slug || ''),
-        appName: profile.name,
-        appSlug: app.slug || '',
-        appIcon: app.icon || app.logo || app.image || '',
-        appCategory: profile.category,
-        userName: (item.userName && String(item.userName).trim()) || shuffledFallbackNames[idx % shuffledFallbackNames.length],
-        rating: finalRating,
-        reviewText: cleanUserReviewText(item.reviewText || `${profile.name} provides a solid ${profile.category.toLowerCase()} experience.`),
-        dateTag: d.dateTag,
-        timestamp: d.isoString,
-        status: 'staged',
-        helpful_count: generateRealisticHelpfulLikes(config.likesMode, idx)
-      };
-    });
-  } catch (err) {
-    console.warn('[AI Review Studio] Generation error, using profile-grounded fallback:', err);
-    return buildProfileGroundedFallback();
   }
+
+  return allGenerated;
 }

@@ -348,8 +348,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [apps.length]);
 
   useEffect(() => {
-    // Pre-warm the offline static dataset in background idle time so client navigation has 0ms instant content
-    const timer = setTimeout(() => {
+    // Only fetch backup data if initial SSR cache was completely empty or has a trimmed route slice (< 50 apps on catalog route)
+    const p = typeof window !== 'undefined' ? window.location.pathname.toLowerCase() : '';
+    const isCatalog = p === '/' || p === '/new-apps' || p.startsWith('/categories') || p.startsWith('/category');
+    if (apps.length === 0) {
       loadFullStaticDataset().then(full => {
         if (full?.apps && full.apps.length > 0) {
           setApps(prev => mergeUniqueApps(prev, full.apps));
@@ -358,15 +360,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setNews(prev => mergeUniqueNews(prev, full.news));
         }
       }).catch(() => {});
-    }, 200);
-
-    // Only fetch backup data if initial SSR cache was completely empty or has a trimmed route slice (< 50 apps on catalog route)
-    const p = typeof window !== 'undefined' ? window.location.pathname.toLowerCase() : '';
-    const isCatalog = p === '/' || p === '/new-apps' || p.startsWith('/categories') || p.startsWith('/category');
-    if (apps.length === 0 || (isCatalog && apps.length < 50)) {
+      fetchBackupData(false);
+    } else if (isCatalog && apps.length < 50) {
       fetchBackupData(false);
     }
-    return () => clearTimeout(timer);
   }, [apps.length, fetchBackupData]);
 
   // Ensure full catalog is loaded if user navigates to catalog listing routes or opens search

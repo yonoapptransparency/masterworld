@@ -111,36 +111,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     if (!inputText.trim() || isSendingChat) return;
     const msg = inputText.trim();
     setInputText('');
-
-    const lower = msg.toLowerCase();
-    const isStopCommand =
-      lower.includes('stop generating') ||
-      lower.includes('stop the working') ||
-      lower.includes('stop ai') ||
-      lower === 'stop' ||
-      lower === 'cancel';
-
-    if (isStopCommand && isGenerating && onStopGeneration) {
-      onStopGeneration();
-      await onSendMessage(msg);
-      return;
-    }
-
-    const isStartCommand =
-      lower.startsWith('start generating') ||
-      lower.startsWith('generate now') ||
-      lower.startsWith('start now') ||
-      lower === 'start' ||
-      lower.includes('start generating reviews') ||
-      lower.includes('start generation');
-
     await onSendMessage(msg);
-
-    if (isStartCommand && !isGenerating && selectedAppIds.length > 0) {
-      setTimeout(() => {
-        onTriggerGeneration(msg);
-      }, 400);
-    }
   };
 
   const handleAddNewRule = (e: React.FormEvent) => {

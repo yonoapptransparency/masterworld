@@ -1,6 +1,26 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
+    <loc>https://www.rummydex.com/app/yono-slots</loc>
+    <lastmod>2026-10-28T14:39:33+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://res.cloudinary.com/veqj16xh/image/upload/f_auto,q_auto,w_800/v1789804128/rummydex_uploads/lobb8ijx50a1jlhdjd6f.jpg</image:loc>
+      <image:title>YONO SLOTS</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://www.rummydex.com/app/bingo-101</loc>
+    <lastmod>2026-10-28T14:33:44+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://res.cloudinary.com/diewalae4/image/upload/f_auto,q_auto,w_800/v1784877567/download_18_lljdaa.webp</image:loc>
+      <image:title>BINGO 101</image:title>
+    </image:image>
+  </url>
+  <url>
     <loc>https://www.rummydex.com/app/spin-gold</loc>
     <lastmod>2026-10-27T17:25:21+00:00</lastmod>
     <changefreq>daily</changefreq>
@@ -125,16 +145,6 @@
     </image:image>
   </url>
   <url>
-    <loc>https://www.rummydex.com/app/bingo-101</loc>
-    <lastmod>2026-10-25T10:05:02+00:00</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-    <image:image>
-      <image:loc>https://res.cloudinary.com/diewalae4/image/upload/f_auto,q_auto,w_800/v1784877567/download_18_lljdaa.webp</image:loc>
-      <image:title>BINGO 101</image:title>
-    </image:image>
-  </url>
-  <url>
     <loc>https://www.rummydex.com/app/abc-rummy</loc>
     <lastmod>2026-10-25T10:03:47+00:00</lastmod>
     <changefreq>weekly</changefreq>
@@ -162,16 +172,6 @@
     <image:image>
       <image:loc>https://res.cloudinary.com/diewalae4/image/upload/f_auto,q_auto,w_800/v1784877617/download_19_w2sxhp.webp</image:loc>
       <image:title>OK RUMMY</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://www.rummydex.com/app/yono-slots</loc>
-    <lastmod>2026-10-25T09:56:36+00:00</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-    <image:image>
-      <image:loc>https://res.cloudinary.com/veqj16xh/image/upload/f_auto,q_auto,w_800/v1789804128/rummydex_uploads/lobb8ijx50a1jlhdjd6f.jpg</image:loc>
-      <image:title>YONO SLOTS</image:title>
     </image:image>
   </url>
   <url>

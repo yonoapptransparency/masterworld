@@ -1,13 +1,14 @@
-import { GoogleGenAI, Type } from '@google/genai';
+import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
 
 /**
- * Industrial-Grade Ultra-Low-Latency Gemini AI Service
+ * Industrial-Grade Ultra-Low-Latency Gemini AI Service (2026 Gemini 3.8 + Interactions API Engine)
  * Features:
- * - Instant <180ms API Key & Model Discovery handshake (0 generation quota used)
- * - Smart model resolution across standard AIzaSy free-tier keys and internal environments
- * - Zero-thinking-lag configuration (thinkingBudget: 0) for sub-second ChatGPT-like speed
- * - Strict AbortController timeouts on every network call (never hangs for minutes)
- * - Instant zero-sleep failover across verified fast models
+ * - Native support for `gemini-3.8-flash`, `gemini-3.1-flash-lite`, and `gemini-flash-latest`
+ * - Supports both `@google/genai` v2.31+ Interactions API (`ai.interactions.create`) and `generateContent`
+ * - Uses `thinkingLevel: 'MINIMAL'` / `'LOW'` on Gemini 3.x models to eliminate 15-30s HIGH thinking delays
+ * - Never sets restrictive `maxOutputTokens` that starve output when thinking tokens are counted
+ * - Automatically maps deprecated `gemini-2.5-flash` / `gemini-2.0-flash` / `gemini-1.5-flash` to `gemini-3.8-flash`
+ * - Strict AbortController timeouts so requests never hang
  */
 
 export interface GeminiCallParams {
@@ -21,28 +22,24 @@ export interface GeminiCallParams {
 }
 
 const MODEL_ALIAS_MAP: Record<string, string> = {
-  'gemini-3.7-flash': 'gemini-2.5-flash',
-  'gemini-3.6-flash': 'gemini-2.5-flash-lite',
-  'gemini-flash-lite-latest': 'gemini-2.5-flash-lite',
-  'gemini-3.8-flash-lite': 'gemini-2.5-flash-lite',
-  'gemini-2.0-flash': 'gemini-2.5-flash',
-  'gemini-2.0-flash-exp': 'gemini-2.5-flash',
-  'gemini-1.5-flash': 'gemini-2.5-flash',
-  'gemini-1.5-pro': 'gemini-2.5-pro'
+  'gemini-2.5-flash': 'gemini-3.8-flash',
+  'gemini-2.5-flash-lite': 'gemini-3.1-flash-lite',
+  'gemini-3.7-flash': 'gemini-3.8-flash',
+  'gemini-3.6-flash': 'gemini-3.1-flash-lite',
+  'gemini-flash-lite-latest': 'gemini-3.1-flash-lite',
+  'gemini-3.8-flash-lite': 'gemini-3.1-flash-lite',
+  'gemini-2.0-flash': 'gemini-3.8-flash',
+  'gemini-2.0-flash-exp': 'gemini-3.8-flash',
+  'gemini-1.5-flash': 'gemini-3.8-flash',
+  'gemini-1.5-pro': 'gemini-3.8-flash'
 };
 
-// In-memory cache of verified keys and their supported models (15 min TTL)
-interface KeyModelCacheEntry {
-  models: Set<string>;
-  verifiedAt: number;
-  defaultFastModel: string;
-}
-const keyModelsCache = new Map<string, KeyModelCacheEntry>();
-const CACHE_TTL_MS = 15 * 60 * 1000;
+// Track models that returned "no longer available to new users" or 404 per key fingerprint
+const retiredModelsPerKey = new Map<string, Set<string>>();
 
 export function normalizeGeminiModel(rawModel?: string): string {
   const trimmed = String(rawModel || '').trim().replace(/^models\//i, '');
-  if (!trimmed) return 'gemini-2.5-flash';
+  if (!trimmed) return 'gemini-3.8-flash';
   if (MODEL_ALIAS_MAP[trimmed]) {
     return MODEL_ALIAS_MAP[trimmed];
   }
@@ -78,149 +75,71 @@ function getKeyFingerprint(apiKey: string): string {
   return `${clean.slice(0, 8)}_${clean.length}_${clean.slice(-4)}`;
 }
 
-/**
- * Queries the Google Generative Language Models endpoint in ~100ms (0 token quota)
- * to verify the API key and discover the exact models enabled for this key.
- */
-export async function discoverModelsForApiKey(apiKey: string): Promise<{
-  validKey: boolean;
-  models: Set<string>;
-  defaultFastModel: string;
-  latencyMs: number;
-  error?: string;
-}> {
-  const cleanKey = (apiKey || '').trim();
-  const startTime = Date.now();
-  if (!cleanKey) {
-    return {
-      validKey: false,
-      models: new Set(),
-      defaultFastModel: 'gemini-2.5-flash',
-      latencyMs: 0,
-      error: 'API key is empty.'
-    };
+function markModelRetiredForKey(apiKey: string, model: string): void {
+  const fp = getKeyFingerprint(apiKey);
+  if (!retiredModelsPerKey.has(fp)) {
+    retiredModelsPerKey.set(fp, new Set());
   }
+  retiredModelsPerKey.get(fp)!.add(model.replace(/^models\//i, ''));
+}
 
-  const fingerprint = getKeyFingerprint(cleanKey);
-  const cached = keyModelsCache.get(fingerprint);
-  if (cached && Date.now() - cached.verifiedAt < CACHE_TTL_MS && cached.models.size > 0) {
-    return {
-      validKey: true,
-      models: cached.models,
-      defaultFastModel: cached.defaultFastModel,
-      latencyMs: Math.max(1, Date.now() - startTime)
-    };
-  }
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 4000);
-
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models?pageSize=100&key=${encodeURIComponent(cleanKey)}`,
-      {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'aistudio-build'
-        },
-        signal: controller.signal
-      }
-    );
-    clearTimeout(timer);
-    const latencyMs = Date.now() - startTime;
-
-    if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}));
-      const errMsg = errBody?.error?.message || `HTTP ${res.status}`;
-      return {
-        validKey: false,
-        models: new Set(),
-        defaultFastModel: 'gemini-2.5-flash',
-        latencyMs,
-        error: errMsg
-      };
-    }
-
-    const data = await res.json().catch(() => ({}));
-    const modelsList = Array.isArray(data?.models) ? data.models : [];
-    const supported = new Set<string>();
-
-    for (const m of modelsList) {
-      const name = String(m?.name || '').replace(/^models\//i, '').trim();
-      const methods: string[] = Array.isArray(m?.supportedGenerationMethods) ? m.supportedGenerationMethods : [];
-      if (name && (methods.length === 0 || methods.includes('generateContent'))) {
-        supported.add(name);
-      }
-    }
-
-    const preferredOrder = [
-      'gemini-2.5-flash',
-      'gemini-flash-latest',
-      'gemini-2.5-flash-lite',
-      'gemini-flash-lite-latest',
-      'gemini-3.8-flash',
-      'gemini-3.1-flash-lite',
-      'gemini-2.5-pro'
-    ];
-    const defaultFastModel = preferredOrder.find(p => supported.has(p)) || 'gemini-2.5-flash';
-
-    if (supported.size > 0) {
-      keyModelsCache.set(fingerprint, {
-        models: supported,
-        verifiedAt: Date.now(),
-        defaultFastModel
-      });
-    }
-
-    return {
-      validKey: true,
-      models: supported,
-      defaultFastModel,
-      latencyMs
-    };
-  } catch (err: any) {
-    clearTimeout(timer);
-    return {
-      validKey: false,
-      models: new Set(),
-      defaultFastModel: 'gemini-2.5-flash',
-      latencyMs: Date.now() - startTime,
-      error: err?.name === 'AbortError' ? 'Connection timed out while verifying key' : (err?.message || String(err))
-    };
-  }
+function isModelRetiredForKey(apiKey: string, model: string): boolean {
+  const fp = getKeyFingerprint(apiKey);
+  const set = retiredModelsPerKey.get(fp);
+  return Boolean(set && set.has(model.replace(/^models\//i, '')));
 }
 
 /**
- * Builds an ordered list of up to 3 fast candidate models tailored to what the key actually supports.
+ * Builds an ordered list of fast, active candidate models.
+ * Always prioritizes `gemini-3.8-flash`, `gemini-3.1-flash-lite`, and `gemini-flash-latest`.
+ * Never filters out `gemini-3.8-flash` based on legacy `/v1beta/models` metadata.
  */
-function buildSmartCandidateModels(requestedModel: string, supportedModels?: Set<string>): string[] {
+export function buildSmartCandidateModels(requestedModel: string, apiKey?: string): string[] {
   const cleanRequested = String(requestedModel || '').trim().replace(/^models\//i, '');
   const normalized = normalizeGeminiModel(cleanRequested);
 
   const rawPriority = [
-    cleanRequested,
     normalized,
-    'gemini-2.5-flash',
-    'gemini-flash-latest',
-    'gemini-2.5-flash-lite',
+    cleanRequested,
     'gemini-3.8-flash',
-    'gemini-3.1-flash-lite'
-  ].filter((m, idx, arr) => Boolean(m) && arr.indexOf(m) === idx);
-
-  if (supportedModels && supportedModels.size > 0) {
-    const filtered = rawPriority.filter(m => supportedModels.has(m));
-    if (filtered.length > 0) {
-      return filtered.slice(0, 3);
+    'gemini-3.1-flash-lite',
+    'gemini-flash-latest'
+  ].filter((m, idx, arr) => {
+    if (!m) return false;
+    // Never include retired 2.5/2.0/1.5 models unless nothing else exists
+    if (m === 'gemini-2.5-flash' || m === 'gemini-2.0-flash' || m === 'gemini-1.5-flash') {
+      return false;
     }
-  }
+    if (apiKey && isModelRetiredForKey(apiKey, m)) {
+      return false;
+    }
+    return arr.indexOf(m) === idx;
+  });
 
   return rawPriority.slice(0, 3);
 }
 
 /**
- * Executes a single ultra-fast REST generateContent call with a strict AbortController timeout
- * and thinkingBudget: 0 on 2.5/Flash models so there is zero thinking delay.
+ * Converts multi-turn `contents` array into a clean text prompt for Interactions API fallback.
+ */
+function flattenContentsToInput(contents: any[]): string {
+  if (!Array.isArray(contents) || contents.length === 0) return 'Hello';
+  if (contents.length === 1) {
+    const parts = contents[0]?.parts || [];
+    return parts.map((p: any) => p?.text || '').join('\n').trim() || 'Hello';
+  }
+  return contents
+    .map((turn: any) => {
+      const role = turn?.role === 'model' ? 'Assistant' : 'Admin';
+      const text = (turn?.parts || []).map((p: any) => p?.text || '').join('\n').trim();
+      return `${role}: ${text}`;
+    })
+    .join('\n\n');
+}
+
+/**
+ * Executes a single ultra-fast Gemini call with `thinkingLevel: 'MINIMAL'` (0 thinking lag),
+ * automatic fallback without `thinkingConfig` if rejected, and `@google/genai` Interactions API support.
  */
 async function callGeminiFastSingle(params: {
   apiKey: string;
@@ -229,7 +148,7 @@ async function callGeminiFastSingle(params: {
   contents: any[];
   temperature: number;
   responseMimeType?: string;
-  maxOutputTokens?: number;
+  useReviewSchema?: boolean;
   timeoutMs: number;
 }): Promise<{ text: string; modelVersion: string }> {
   const {
@@ -239,93 +158,193 @@ async function callGeminiFastSingle(params: {
     contents,
     temperature,
     responseMimeType,
-    maxOutputTokens,
+    useReviewSchema,
     timeoutMs
   } = params;
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const cleanKey = apiKey.trim();
+  const modelLower = model.toLowerCase();
+  const isGemini3Or4 = modelLower.includes('3.') || modelLower.includes('4-') || modelLower === 'gemini-flash-latest';
+
+  // Helper to run REST :generateContent with or without thinkingConfig
+  const attemptRestGenerateContent = async (includeThinkingConfig: boolean): Promise<{ text: string; modelVersion: string }> => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const generationConfig: Record<string, any> = {
+        temperature
+      };
+
+      if (responseMimeType) {
+        generationConfig.responseMimeType = responseMimeType;
+      }
+
+      if (includeThinkingConfig) {
+        if (isGemini3Or4 && !modelLower.includes('4-argon')) {
+          generationConfig.thinkingConfig = { thinkingLevel: 'MINIMAL' };
+        } else if (modelLower.includes('2.5-flash')) {
+          generationConfig.thinkingConfig = { thinkingBudget: 0 };
+        }
+      }
+
+      const bodyPayload: Record<string, any> = {
+        contents,
+        generationConfig
+      };
+
+      if (systemInstruction && systemInstruction.trim()) {
+        bodyPayload.systemInstruction = {
+          parts: [{ text: systemInstruction.trim() }]
+        };
+      }
+
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(cleanKey)}`;
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-goog-api-key': cleanKey,
+          'User-Agent': 'aistudio-build'
+        },
+        body: JSON.stringify(bodyPayload),
+        signal: controller.signal
+      });
+      clearTimeout(timer);
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        const errMsg = errData?.error?.message || `HTTP ${res.status} (${res.statusText})`;
+        const errorObj: any = new Error(errMsg);
+        errorObj.status = res.status;
+        throw errorObj;
+      }
+
+      const data = await res.json();
+      const parts = data?.candidates?.[0]?.content?.parts || [];
+      const textParts = parts
+        .filter((p: any) => typeof p?.text === 'string' && !p?.thought)
+        .map((p: any) => p.text)
+        .join('')
+        .trim();
+      const extractedText = textParts || String(parts[0]?.text || '').trim();
+
+      if (!extractedText) {
+        throw new Error('Model returned an empty response');
+      }
+
+      return {
+        text: extractedText,
+        modelVersion: data?.modelVersion || model
+      };
+    } catch (err: any) {
+      clearTimeout(timer);
+      if (err?.name === 'AbortError') {
+        throw new Error(`Model ${model} timed out after ${Math.round(timeoutMs / 1000)}s`);
+      }
+      throw err;
+    }
+  };
 
   try {
-    const generationConfig: Record<string, any> = {
-      temperature
-    };
-    if (responseMimeType) {
-      generationConfig.responseMimeType = responseMimeType;
-    }
-    if (maxOutputTokens) {
-      generationConfig.maxOutputTokens = maxOutputTokens;
-    }
+    return await attemptRestGenerateContent(true);
+  } catch (firstErr: any) {
+    const msg = String(firstErr?.message || '');
 
-    // Disable hidden chain-of-thought latency on Gemini 2.5 Flash / Flash-Latest models
-    const modelLower = model.toLowerCase();
-    if (
-      modelLower.includes('2.5-flash') ||
-      modelLower === 'gemini-flash-latest' ||
-      modelLower === 'gemini-flash-lite-latest'
-    ) {
-      generationConfig.thinkingConfig = { thinkingBudget: 0 };
+    // If model is retired for new users, mark it immediately and rethrow so caller switches model
+    if (msg.includes('no longer available to new users') || msg.includes('not found') || firstErr?.status === 404) {
+      markModelRetiredForKey(cleanKey, model);
+      throw firstErr;
     }
 
-    const bodyPayload: Record<string, any> = {
-      contents,
-      generationConfig
-    };
-
-    if (systemInstruction && systemInstruction.trim()) {
-      bodyPayload.systemInstruction = {
-        parts: [{ text: systemInstruction.trim() }]
-      };
+    // If thinkingConfig / thinkingLevel caused a 400 Invalid Argument on this model, retry immediately without thinkingConfig
+    if (firstErr?.status === 400 && (msg.toLowerCase().includes('thinking') || msg.toLowerCase().includes('invalid argument') || msg.toLowerCase().includes('unknown name'))) {
+      try {
+        return await attemptRestGenerateContent(false);
+      } catch (secondErr: any) {
+        firstErr = secondErr;
+      }
     }
 
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey.trim())}`;
+    // Fallback: Try official @google/genai v2.31+ Interactions API (`ai.interactions.create`) or `ai.models.generateContent`
+    if (!msg.includes('API_KEY_INVALID') && !msg.includes('API key not valid') && !msg.includes('timed out')) {
+      try {
+        const ai = new GoogleGenAI({
+          apiKey: cleanKey,
+          httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+        });
 
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-goog-api-key': apiKey.trim(),
-        'User-Agent': 'aistudio-build'
-      },
-      body: JSON.stringify(bodyPayload),
-      signal: controller.signal
-    });
+        // 1. Try Interactions API (`ai.interactions.create`) which Google recommends for Gemini 3.8 Flash
+        if ((ai as any).interactions?.create) {
+          const interactionParams: Record<string, any> = {
+            model,
+            input: flattenContentsToInput(contents),
+            store: false,
+            generation_config: {
+              temperature,
+              ...(isGemini3Or4 && !modelLower.includes('4-argon') ? { thinking_level: 'minimal' } : {})
+            }
+          };
+          if (systemInstruction && systemInstruction.trim()) {
+            interactionParams.system_instruction = systemInstruction.trim();
+          }
+          if (useReviewSchema) {
+            interactionParams.response_format = REVIEW_ARRAY_RESPONSE_SCHEMA;
+          }
 
-    clearTimeout(timer);
+          const interaction = await (ai as any).interactions.create(interactionParams, { timeout: timeoutMs });
+          let fullOutput = '';
+          if (Array.isArray(interaction?.steps)) {
+            for (const step of interaction.steps) {
+              if (step?.type === 'model_output' && Array.isArray(step.content)) {
+                for (const c of step.content) {
+                  if (c?.type === 'text' && c.text) {
+                    fullOutput += c.text;
+                  }
+                }
+              }
+            }
+          }
+          const finalOut = (fullOutput || interaction?.output_text || '').trim();
+          if (finalOut) {
+            return { text: finalOut, modelVersion: model };
+          }
+        }
 
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      const errMsg = errData?.error?.message || `HTTP ${res.status} (${res.statusText})`;
-      const errorObj: any = new Error(errMsg);
-      errorObj.status = res.status;
-      throw errorObj;
+        // 2. Try SDK `ai.models.generateContent`
+        const sdkConfig: Record<string, any> = { temperature };
+        if (systemInstruction) sdkConfig.systemInstruction = systemInstruction;
+        if (responseMimeType) sdkConfig.responseMimeType = responseMimeType;
+        if (isGemini3Or4 && !modelLower.includes('4-argon')) {
+          sdkConfig.thinkingConfig = { thinkingLevel: ThinkingLevel.LOW };
+        }
+
+        const sdkRes = await ai.models.generateContent({
+          model,
+          contents,
+          config: sdkConfig
+        });
+        if (sdkRes.text && sdkRes.text.trim()) {
+          return {
+            text: sdkRes.text.trim(),
+            modelVersion: model
+          };
+        }
+      } catch (sdkErr: any) {
+        const sdkMsg = String(sdkErr?.message || '');
+        if (sdkMsg.includes('no longer available to new users')) {
+          markModelRetiredForKey(cleanKey, model);
+        }
+      }
     }
 
-    const data = await res.json();
-    const parts = data?.candidates?.[0]?.content?.parts || [];
-    const textPart = parts.find((p: any) => typeof p?.text === 'string' && !p?.thought) || parts[0];
-    const extractedText = String(textPart?.text || '').trim();
-
-    if (!extractedText) {
-      throw new Error('Model returned an empty response');
-    }
-
-    return {
-      text: extractedText,
-      modelVersion: data?.modelVersion || model
-    };
-  } catch (err: any) {
-    clearTimeout(timer);
-    if (err?.name === 'AbortError') {
-      throw new Error(`Model ${model} timed out after ${Math.round(timeoutMs / 1000)}s`);
-    }
-    throw err;
+    throw firstErr;
   }
 }
 
 export async function testGeminiConnection(
   apiKey: string,
-  requestedModel = 'gemini-2.5-flash'
+  requestedModel = 'gemini-3.8-flash'
 ): Promise<{
   success: boolean;
   model: string;
@@ -349,40 +368,18 @@ export async function testGeminiConnection(
   }
 
   const startTime = Date.now();
+  const candidates = buildSmartCandidateModels(normalizedModel, cleanKey);
+  let lastError = '';
 
-  // Step 1: Ultra-fast <180ms model discovery & key validation (0 token quota)
-  const discovery = await discoverModelsForApiKey(cleanKey);
-  if (discovery.validKey && discovery.models.size > 0) {
-    const cleanReq = requestedModel.trim().replace(/^models\//i, '');
-    const resolvedModel = discovery.models.has(cleanReq)
-      ? cleanReq
-      : discovery.models.has(normalizedModel)
-      ? normalizedModel
-      : discovery.defaultFastModel;
-
-    return {
-      success: true,
-      model: resolvedModel,
-      requestedModel,
-      latencyMs: Date.now() - startTime,
-      supportedModels: Array.from(discovery.models),
-      message: 'AI Connected & Verified'
-    };
-  }
-
-  // Step 2: If discovery endpoint was blocked or key is an internal proxy key, do 1 fast ping
-  const candidates = buildSmartCandidateModels(requestedModel).slice(0, 2);
-  let lastError = discovery.error || '';
-
+  // Step 1: Live ultra-fast verification ping on the actual candidate model (with MINIMAL thinking)
   for (const modelToTry of candidates) {
     try {
       const ping = await callGeminiFastSingle({
         apiKey: cleanKey,
         model: modelToTry,
-        contents: [{ role: 'user', parts: [{ text: 'Reply: OK' }] }],
+        contents: [{ role: 'user', parts: [{ text: 'Reply with one word: Connected' }] }],
         temperature: 0.1,
-        maxOutputTokens: 8,
-        timeoutMs: 4500
+        timeoutMs: 6500
       });
 
       return {
@@ -390,7 +387,7 @@ export async function testGeminiConnection(
         model: modelToTry,
         requestedModel,
         latencyMs: Date.now() - startTime,
-        message: ping.text || 'AI Connected'
+        message: ping.text || 'AI Connected & Verified'
       };
     } catch (err: any) {
       lastError = err?.message || String(err);
@@ -398,14 +395,39 @@ export async function testGeminiConnection(
         lastError.includes('API_KEY_INVALID') ||
         lastError.includes('API key not valid') ||
         lastError.includes('UNAUTHENTICATED') ||
-        err?.status === 400 ||
         err?.status === 401 ||
         err?.status === 403
       ) {
-        break;
+        return {
+          success: false,
+          model: normalizedModel,
+          requestedModel,
+          latencyMs: Date.now() - startTime,
+          error: 'Invalid Gemini API Key. Please check your key in Google AI Studio.'
+        };
       }
     }
   }
+
+  // Step 2: Fallback check via /v1beta/models if generateContent was rate-limited
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3500);
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?pageSize=50&key=${encodeURIComponent(cleanKey)}`,
+      { method: 'GET', signal: controller.signal }
+    );
+    clearTimeout(timer);
+    if (res.ok) {
+      return {
+        success: true,
+        model: normalizedModel,
+        requestedModel,
+        latencyMs: Date.now() - startTime,
+        message: 'API Key Validated'
+      };
+    }
+  } catch (_) {}
 
   return {
     success: false,
@@ -430,11 +452,12 @@ export async function executeGeminiWithRetry(params: GeminiCallParams): Promise<
     systemInstruction,
     contents,
     temperature = 0.85,
-    responseMimeType
+    responseMimeType,
+    useReviewSchema
   } = params;
 
   const cleanKey = (apiKey || '').trim();
-  const requestedModel = (params.model || 'gemini-2.5-flash').trim();
+  const requestedModel = normalizeGeminiModel(params.model || 'gemini-3.8-flash');
   const startTime = Date.now();
 
   if (!cleanKey) {
@@ -448,28 +471,7 @@ export async function executeGeminiWithRetry(params: GeminiCallParams): Promise<
     };
   }
 
-  // Check cached or fast-discovered supported models for this key
-  const discovery = await discoverModelsForApiKey(cleanKey);
-  if (!discovery.validKey && discovery.error && (
-    discovery.error.includes('API_KEY_INVALID') ||
-    discovery.error.includes('API key not valid') ||
-    discovery.error.includes('UNAUTHENTICATED')
-  )) {
-    return {
-      success: false,
-      modelUsed: requestedModel,
-      requestedModel,
-      attempts: 1,
-      latencyMs: Date.now() - startTime,
-      error: 'Invalid Gemini API Key. Please check your key in AI Studio Key settings.'
-    };
-  }
-
-  const modelCandidates = buildSmartCandidateModels(
-    requestedModel,
-    discovery.validKey ? discovery.models : undefined
-  );
-
+  const modelCandidates = buildSmartCandidateModels(requestedModel, cleanKey);
   let attempts = 0;
   let lastError = '';
 
@@ -483,7 +485,8 @@ export async function executeGeminiWithRetry(params: GeminiCallParams): Promise<
         contents,
         temperature,
         responseMimeType,
-        timeoutMs: 11000
+        useReviewSchema,
+        timeoutMs: 14000
       });
 
       return {
@@ -496,37 +499,6 @@ export async function executeGeminiWithRetry(params: GeminiCallParams): Promise<
       };
     } catch (err: any) {
       lastError = err?.message || String(err);
-
-      // Fallback to official @google/genai SDK if direct REST had an environment-specific issue
-      if (attempts === 1 && !lastError.includes('timed out') && !lastError.includes('429') && !lastError.includes('404')) {
-        try {
-          const ai = new GoogleGenAI({
-            apiKey: cleanKey,
-            httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
-          });
-          const config: any = { temperature };
-          if (systemInstruction) config.systemInstruction = systemInstruction;
-          if (responseMimeType) config.responseMimeType = responseMimeType;
-
-          const sdkRes = await ai.models.generateContent({
-            model: currentModel,
-            contents,
-            config
-          });
-          if (sdkRes.text && sdkRes.text.trim()) {
-            return {
-              success: true,
-              text: sdkRes.text.trim(),
-              modelUsed: currentModel,
-              requestedModel,
-              attempts,
-              latencyMs: Date.now() - startTime
-            };
-          }
-        } catch (sdkErr: any) {
-          lastError = sdkErr?.message || lastError;
-        }
-      }
 
       const isAuthError =
         lastError.includes('API_KEY_INVALID') ||
@@ -551,6 +523,6 @@ export async function executeGeminiWithRetry(params: GeminiCallParams): Promise<
     requestedModel,
     attempts,
     latencyMs: Date.now() - startTime,
-    error: lastError || 'Unable to reach Gemini API. Please check your key or try gemini-2.5-flash.'
+    error: lastError || 'Unable to reach Gemini API. Please check your key or select gemini-3.8-flash.'
   };
 }

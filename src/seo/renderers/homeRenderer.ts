@@ -38,9 +38,10 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
     const isHot = app.is_hot === true || (app.is_hot && app.is_hot.booleanValue === true);
     const isVerified = getField(app, 'safety_status', 'Verified') === 'Verified';
     const isTopItem = i < 6;
+    const visibilityClass = i < 8 ? 'z-1' : 'z-1 [content-visibility:auto] [contain-intrinsic-size:auto_84px]';
     
     appsHtml += `
-      <div class="relative group z-1 [content-visibility:auto] [contain-intrinsic-size:auto_84px]">
+      <div class="relative group ${visibilityClass}">
         <a href="/app/${encodeURIComponent(slug)}" class="flex items-center gap-1.5 xxs:gap-2 xs:gap-2.5 sm:gap-4 py-1.5 xxs:py-2 pl-1 pr-8 xxs:pr-9 xs:py-2.5 xs:pl-2 xs:pr-12 sm:pl-4 sm:pr-14 sm:py-3.5 mb-0 sm:mb-2 hover:bg-black/5 dark:hover:bg-white/5 transition-colors duration-200 rounded-xl sm:rounded-2xl relative active:bg-black/5 dark:active:bg-white/5 w-full" title="${escapeHtml(name)}">
           <div class="w-3.5 xxs:w-4 xs:w-5 sm:w-7 text-[11px] xxs:text-xs xs:text-[14px] sm:text-[17px] font-black text-zinc-400 dark:text-zinc-500 text-center shrink-0">
             ${i + 1}
@@ -160,17 +161,49 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
     </div>
   `;
 
+  const heroStyle = getField(settings, 'hero_title_style') || 'modern';
+  const heroColor = getField(settings, 'hero_title_color') || 'classic-dark';
+  let heroStyleClasses = 'font-sans font-black tracking-tight text-center leading-none text-base xs:text-xl sm:text-2xl md:text-3xl lg:text-4xl';
+  if (heroStyle === 'modern') {
+    heroStyleClasses = 'font-sans font-black uppercase text-center tracking-tighter leading-none text-base xs:text-xl sm:text-3xl md:text-4xl';
+  } else if (heroStyle === 'serif') {
+    heroStyleClasses = 'font-serif font-black text-center italic leading-tight text-base xs:text-xl sm:text-2xl md:text-3xl lg:text-4xl';
+  } else if (heroStyle === 'mono') {
+    heroStyleClasses = 'font-mono font-extrabold uppercase text-center tracking-tight leading-none text-sm xs:text-lg sm:text-2xl md:text-3xl';
+  }
+
+  let heroColorClasses = 'text-zinc-900 dark:text-white';
+  let heroGlowClasses = 'bg-zinc-500/15 dark:bg-zinc-700/15';
+  let heroBarClasses = 'bg-zinc-900 dark:bg-zinc-100';
+  if (heroColor === 'emerald-indigo') {
+    heroColorClasses = 'text-emerald-600 dark:text-emerald-400';
+    heroGlowClasses = 'bg-emerald-500/30 dark:bg-indigo-500/15';
+    heroBarClasses = 'bg-gradient-to-r from-emerald-400 to-indigo-500';
+  } else if (heroColor === 'neon-sky') {
+    heroColorClasses = 'text-cyan-600 dark:text-cyan-400';
+    heroGlowClasses = 'bg-cyan-500/30 dark:bg-blue-500/15';
+    heroBarClasses = 'bg-gradient-to-r from-cyan-400 to-blue-500';
+  } else if (heroColor === 'sunset-fire') {
+    heroColorClasses = 'text-orange-600 dark:text-orange-500';
+    heroGlowClasses = 'bg-amber-500/30 dark:bg-rose-500/15';
+    heroBarClasses = 'bg-gradient-to-r from-amber-400 to-rose-500';
+  } else if (heroColor === 'cosmic-purple') {
+    heroColorClasses = 'text-fuchsia-600 dark:text-fuchsia-400';
+    heroGlowClasses = 'bg-pink-500/30 dark:bg-purple-500/15';
+    heroBarClasses = 'bg-gradient-to-r from-pink-400 to-purple-500';
+  }
+
   const heroHtml = (heroVisible && (heroText || heroSubtitle)) ? `
     <div class="w-full relative py-1 sm:py-1.5 px-4 overflow-hidden flex flex-col items-center justify-center text-center my-0">
       <div class="absolute inset-0 pointer-events-none flex items-center justify-center -z-10 overflow-hidden">
-        <div class="w-[200px] sm:w-[300px] h-[100px] sm:h-[150px] rounded-full blur-[40px] sm:blur-[60px] mix-blend-multiply dark:mix-blend-screen opacity-8 transition-colors duration-500 bg-zinc-500/15 dark:bg-zinc-700/15"></div>
+        <div class="w-[200px] sm:w-[300px] h-[100px] sm:h-[150px] rounded-full blur-[40px] sm:blur-[60px] mix-blend-multiply dark:mix-blend-screen opacity-8 transition-colors duration-500 ${heroGlowClasses}"></div>
       </div>
       <div class="max-w-4xl mx-auto flex flex-col items-center justify-center gap-1">
-        <h1 class="font-sans font-black uppercase text-center tracking-tighter leading-none text-base xs:text-xl sm:text-3xl md:text-4xl bg-gradient-to-r from-zinc-950 via-zinc-800 to-zinc-900 bg-clip-text text-transparent dark:from-white dark:via-zinc-200 dark:to-zinc-300 select-text block max-w-3xl filter drop-shadow-sm">
+        <h1 class="${heroStyleClasses} ${heroColorClasses} select-text block max-w-3xl filter drop-shadow-sm">
           ${escapeHtml(heroText)}
         </h1>
         ${heroSubtitle ? `<p class="text-[9px] sm:text-[10px] font-bold tracking-[0.18em] text-zinc-900/60 dark:text-zinc-100/60 uppercase max-w-2xl select-text pt-0.5 leading-tight">${escapeHtml(heroSubtitle)}</p>` : ''}
-        <div class="h-[2px] w-12 rounded-full mt-1 bg-zinc-200 dark:bg-zinc-800 transition-all duration-300"></div>
+        <div class="h-[2px] w-12 rounded-full mt-1 bg-zinc-200 dark:bg-zinc-800 transition-all duration-300 ${heroBarClasses}"></div>
       </div>
     </div>
   ` : `<h1 class="sr-only">${escapeHtml(siteTitle)}</h1>`;

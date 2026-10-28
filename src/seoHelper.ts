@@ -255,6 +255,20 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     pageType = 'home';
     title = getField(settings, 'seo_title') || getField(settings, 'meta_title') || siteTitle;
     description = getField(settings, 'seo_description') || getField(settings, 'meta_description', '');
+    const sortedHomeApps = [...apps].sort((a: any, b: any) => {
+      const sa = parseInt(getField(a, 'serial_number', '999999'), 10);
+      const sb = parseInt(getField(b, 'serial_number', '999999'), 10);
+      return (!isNaN(sa) && sa > 0 ? sa : 999999) - (!isNaN(sb) && sb > 0 ? sb : 999999);
+    });
+    const newAppsOnHome = sortedHomeApps.filter((a: any) => a.is_new === true || (a.is_new && a.is_new.booleanValue === true));
+    const topLcpApp = newAppsOnHome[0] || sortedHomeApps[0];
+    if (topLcpApp) {
+      collectionItems = [{
+        name: getField(topLcpApp, 'name'),
+        url: `https://www.rummydex.com/app/${getField(topLcpApp, 'slug')}`,
+        image: getField(topLcpApp, 'icon_url')
+      }];
+    }
   } else if (cleanPathLower === '/new-apps') {
     pageType = 'collection';
     title = getField(settings, 'new_apps_meta_title') || `New Apps & Latest Releases`;
@@ -677,9 +691,13 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   const headAdditions = `${seoTags}${criticalCss ? '\n' + criticalCss : ''}`;
 
   if (finalHtml.includes('<!--__SEO_HEAD__-->')) {
-    finalHtml = finalHtml.replace('<!--__SEO_HEAD__-->', headAdditions);
+    finalHtml = finalHtml.replace('<!--__SEO_HEAD__-->', () => headAdditions);
+  } else if (/<link\s+[^>]*rel=["']dns-prefetch["'][^>]*>/i.test(finalHtml)) {
+    finalHtml = finalHtml.replace(/(<link\s+[^>]*rel=["']dns-prefetch["'][^>]*>)/i, (m) => `${m}\n${headAdditions}`);
+  } else if (/<meta\s+[^>]*name=["']viewport["'][^>]*>/i.test(finalHtml)) {
+    finalHtml = finalHtml.replace(/(<meta\s+[^>]*name=["']viewport["'][^>]*>)/i, (m) => `${m}\n${headAdditions}`);
   } else if (finalHtml.includes('</head>')) {
-    finalHtml = finalHtml.replace('</head>', `${headAdditions}\n</head>`);
+    finalHtml = finalHtml.replace('</head>', () => `${headAdditions}\n</head>`);
   } else {
     finalHtml = `${headAdditions}\n${finalHtml}`;
   }

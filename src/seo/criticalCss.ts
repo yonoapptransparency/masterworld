@@ -6,8 +6,9 @@
  */
 const CRITICAL_SHELL_CSS = `<style id="server-critical-css">
 *,::before,::after{box-sizing:border-box;border:0 solid}
-html{-webkit-text-size-adjust:100%;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased;background-color:#f8fafc;color:#0f172a}
-html.dark{background-color:#09090b;color:#f4f4f5;color-scheme:dark}
+html{-webkit-text-size-adjust:100%;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased;background-color:#f8fafc;color:#0f172a;color-scheme:light}
+@media (prefers-color-scheme:dark){html:not(.light){background-color:#090d16;color:#f8fafc;color-scheme:dark}}
+html.dark{background-color:#090d16;color:#f8fafc;color-scheme:dark}
 body{margin:0;min-height:100vh;background-color:inherit;color:inherit;overflow-x:hidden}
 #root{min-height:100vh;display:flex;flex-direction:column}
 main#main-content{flex:1 1 0%;width:100%;max-width:80rem;margin-left:auto;margin-right:auto}

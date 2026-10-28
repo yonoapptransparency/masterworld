@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 @source not "../api";
 @source not "../dist";
 @source not "../public";
@@ -12,6 +13,7 @@
 }
 
 :root {
+  color-scheme: light;
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --bg-primary: #ffffff;
   --text-primary: #09090b;
@@ -21,7 +23,21 @@
   --ticker-bg: rgba(255, 255, 255, 0.92);
 }
 
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    color-scheme: dark;
+    --bg-primary: #090d16;
+    --text-primary: #f8fafc;
+    --text-secondary: #a1a1aa;
+    --card-bg: rgba(17, 23, 38, 0.85);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --ticker-bg: rgba(9, 13, 22, 0.92);
+  }
+}
+
+html.dark,
 .dark {
+  color-scheme: dark;
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --bg-primary: #090d16;
   --text-primary: #f8fafc;

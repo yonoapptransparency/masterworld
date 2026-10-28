@@ -32,18 +32,22 @@ import {
   loadSelectedAppIds,
   saveSelectedAppIds,
   loadBrainDirectivesFromCloud,
-  loadStudioConfigFromCloud
+  loadStudioConfigFromCloud,
+  sanitizeApiKey,
+  sanitizeModelId
 } from './aistudio/storage';
 import {
   sendChatMessageToGemini,
   generateReviewsForAppWithGemini,
-  detectConfigUpdatesFromChat
+  detectConfigUpdatesFromChat,
+  isAutomationStartCommand,
+  isConversationalNonDirective
 } from './aistudio/geminiEngine';
 import { AppSelector } from './aistudio/AppSelector';
 import { ChatWorkspace } from './aistudio/ChatWorkspace';
 import { StagedQueue } from './aistudio/StagedQueue';
 import { ApiKeyModal, PRESET_GEMINI_MODELS } from './aistudio/ApiKeyModal';
-import { createAdminReviewItem } from '../../lib/communityFirebase';
+import { createAdminReviewItemsBatch } from '../../lib/communityFirebase';
 import { mockApps } from '../../lib/staticData';
 
 interface AdminAIReviewStudioTabProps {
@@ -93,25 +97,25 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
     latencyMs?: number;
     model: string;
   }>(() => {
-    const hasKey = Boolean((config.apiKey || settings?.gemini_api_key || '').trim());
+    const hasKey = Boolean(sanitizeApiKey(config.apiKey || settings?.gemini_api_key || ''));
     return {
       status: hasKey ? 'connected' : 'disconnected',
-      model: config.model || settings?.gemini_model || 'gemini-flash-latest'
+      model: sanitizeModelId(config.model || settings?.gemini_model || 'gemini-3.8-flash')
     };
   });
 
   const abortGenerationRef = useRef<boolean>(false);
-  const prevGlobalKeyRef = useRef<string>(String(settings?.gemini_api_key || '').trim());
-  const prevGlobalModelRef = useRef<string>(String(settings?.gemini_model || '').trim());
+  const prevGlobalKeyRef = useRef<string>(sanitizeApiKey(settings?.gemini_api_key));
+  const prevGlobalModelRef = useRef<string>(sanitizeModelId(settings?.gemini_model));
 
-  // Live backend verification helper with strict 4.5s timeout
+  // Live backend verification helper with strict 6s timeout
   const verifyConnectionOnServer = useCallback(async (keyToUse: string, modelToUse: string, showToast = false) => {
-    const cleanKey = keyToUse.trim();
-    const cleanModel = modelToUse.trim() || 'gemini-2.5-flash';
+    const cleanKey = sanitizeApiKey(keyToUse);
+    const cleanModel = sanitizeModelId(modelToUse || 'gemini-3.8-flash');
     setAiStatus(prev => ({ ...prev, status: 'testing', model: cleanModel }));
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 4500);
+    const timer = setTimeout(() => controller.abort(), 6000);
     try {
       const res = await fetch('/api/v1/admin/community/aistudio-gemini', {
         method: 'POST',
@@ -126,7 +130,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
       clearTimeout(timer);
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.success) {
-        const verifiedModel = data.model || cleanModel;
+        const verifiedModel = sanitizeModelId(data.model || cleanModel);
         setAiStatus({
           status: 'connected',
           model: verifiedModel,
@@ -158,8 +162,8 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
 
   // Immediately sync whenever Admin updates gemini_api_key or gemini_model in Global Settings
   useEffect(() => {
-    const incomingKey = String(settings?.gemini_api_key || '').trim();
-    const incomingModel = String(settings?.gemini_model || '').trim();
+    const incomingKey = sanitizeApiKey(settings?.gemini_api_key);
+    const incomingModel = settings?.gemini_model ? sanitizeModelId(settings.gemini_model) : '';
 
     const keyChanged = incomingKey && incomingKey !== prevGlobalKeyRef.current;
     const modelChanged = incomingModel && incomingModel !== prevGlobalModelRef.current;
@@ -173,7 +177,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
         const next: StudioConfig = {
           ...prev,
           apiKey: incomingKey || prev.apiKey,
-          model: incomingModel || prev.model || 'gemini-2.5-flash'
+          model: sanitizeModelId(incomingModel || prev.model || 'gemini-3.8-flash')
         };
         saveStudioConfig(next, true);
         if (next.apiKey) {
@@ -204,15 +208,19 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
         if (mounted && cloudResult) {
           const { config: cloudConf, hasServerKey } = cloudResult;
           setConfig(prev => {
-            const effectiveKey = (cloudConf.apiKey || prev.apiKey || settings?.gemini_api_key || '').trim();
-            const effectiveModel = (cloudConf.model || prev.model || settings?.gemini_model || 'gemini-2.5-flash').trim();
+            const localValidKey = sanitizeApiKey(prev.apiKey);
+            const cloudValidKey = sanitizeApiKey(cloudConf.apiKey);
+            const settingsValidKey = sanitizeApiKey(settings?.gemini_api_key);
+            // Prefer local valid key if already set in browser, otherwise cloud/settings key
+            const effectiveKey = localValidKey || cloudValidKey || settingsValidKey || '';
+            const effectiveModel = sanitizeModelId(cloudConf.model || prev.model || settings?.gemini_model || 'gemini-3.8-flash');
             const next: StudioConfig = {
               ...prev,
               ...cloudConf,
               apiKey: effectiveKey,
               model: effectiveModel
             };
-            saveStudioConfig(next, false);
+            saveStudioConfig(next, Boolean(localValidKey && !cloudValidKey));
             if (effectiveKey || hasServerKey) {
               verifyConnectionOnServer(effectiveKey, effectiveModel, false);
             }
@@ -255,7 +263,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
       setIsApiKeyModalOpen(true);
       return;
     }
-    const cleanModel = newModel.trim();
+    const cleanModel = sanitizeModelId(newModel);
     const updatedConfig: StudioConfig = {
       ...config,
       model: cleanModel
@@ -280,9 +288,12 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
     toast('AI generation stopped. Progress saved.', 'info');
   };
 
-  // Send Chat Message to Gemini
+  // Send Chat Message to Gemini (or immediately start/stop automation when triggered)
   const handleSendChatMessage = async (text: string) => {
-    const lower = text.toLowerCase().trim();
+    const cleanText = text.trim();
+    if (!cleanText) return;
+    const lower = cleanText.toLowerCase();
+
     if (
       lower === 'stop' ||
       lower === 'cancel' ||
@@ -296,19 +307,16 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
       }
     }
 
-    const chatConfigUpdates = detectConfigUpdatesFromChat(text);
-    const isJustStartTrigger =
-      lower === 'start' ||
-      lower === 'start generating' ||
-      lower === 'generate now' ||
-      lower === 'start generating reviews now for all selected apps.';
+    const chatConfigUpdates = detectConfigUpdatesFromChat(cleanText);
+    const isStartTrigger = isAutomationStartCommand(cleanText);
+    const isNonDirective = isConversationalNonDirective(cleanText);
 
     let effectiveConfig = config;
-    if (!isJustStartTrigger && !lower.includes('stop')) {
+    if (!isNonDirective) {
       effectiveConfig = {
         ...config,
         ...chatConfigUpdates,
-        activeSessionDirective: text.trim()
+        activeSessionDirective: cleanText
       };
       setConfig(effectiveConfig);
       saveStudioConfig(effectiveConfig, true);
@@ -321,17 +329,27 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
     const userMsg: ChatMessage = {
       id: `msg_${Date.now()}`,
       sender: 'user',
-      text,
+      text: cleanText,
       timestamp: new Date().toISOString()
     };
     const updatedHistory = [...chatHistory, userMsg];
     setChatHistory(updatedHistory);
+
+    // If the Admin typed "start" / "generate now" or clicked "🚀 Start Generating Now",
+    // launch the automated batch generator immediately without waiting for a separate chat turn!
+    if (isStartTrigger) {
+      if (!isGenerating) {
+        await handleExecuteGeneration(effectiveConfig.activeSessionDirective);
+      }
+      return;
+    }
+
     setIsSendingChat(true);
 
     try {
       const selectedApps = resolveSelectedAppObjects();
       const response = await sendChatMessageToGemini(
-        text,
+        cleanText,
         updatedHistory,
         directives,
         effectiveConfig,
@@ -389,7 +407,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
     saveBrainDirectives(updated, true);
   };
 
-  // Core review generation engine with full conversation memory & video context
+  // Core review generation engine with full conversation memory, chunk streaming & video context
   const handleExecuteGeneration = async (customInstruction?: string) => {
     const targets = resolveSelectedAppObjects();
 
@@ -400,26 +418,16 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
     }
 
     let effectiveInstruction = customInstruction;
-    if (
-      !effectiveInstruction ||
-      effectiveInstruction.toLowerCase().startsWith('start') ||
-      effectiveInstruction.toLowerCase().startsWith('generate now')
-    ) {
-      const recentUserThoughts = chatHistory
-        .filter(
-          m =>
-            m.sender === 'user' &&
-            !m.text.toLowerCase().startsWith('start') &&
-            !m.text.toLowerCase().startsWith('generate now') &&
-            m.text.trim().length > 3
-        )
+    if (!effectiveInstruction || isConversationalNonDirective(effectiveInstruction)) {
+      const recentUserDirectives = chatHistory
+        .filter(m => m.sender === 'user' && !isConversationalNonDirective(m.text) && m.text.trim().length > 4)
         .slice(-4)
         .map(m => m.text.trim());
 
       effectiveInstruction =
-        recentUserThoughts.length > 0
-          ? recentUserThoughts.join(' | ')
-          : config.activeSessionDirective ||
+        recentUserDirectives.length > 0
+          ? recentUserDirectives.join(' | ')
+          : (!isConversationalNonDirective(config.activeSessionDirective || '') && config.activeSessionDirective) ||
             config.customTopic ||
             'Multi-platform human reviews grounded in what each app provides, real features, FAQs, and videos.';
     }
@@ -461,34 +469,47 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           config,
           effectiveInstruction,
           chatHistory,
-          videosList
+          videosList,
+          (chunkReviews, chunkIdx, totalChunks) => {
+            if (abortGenerationRef.current) return;
+            if (config.publishMode !== 'auto_direct') {
+              // Stream each completed 8-review chunk directly into Staged Deck in real time!
+              setStagedReviews(prev => [...chunkReviews, ...prev]);
+            }
+            if (totalChunks > 1) {
+              setBatchProgress({
+                current: i + 1,
+                total: targets.length,
+                percent: Math.min(
+                  99,
+                  Math.round((((i + chunkIdx / totalChunks) / targets.length) * 100))
+                ),
+                currentAppName: `${appTitle} (Batch ${chunkIdx}/${totalChunks})`
+              });
+            }
+          }
         );
 
         if (abortGenerationRef.current) break;
 
         if (config.publishMode === 'auto_direct') {
-          await Promise.all(
-            generated.map(async review => {
-              if (abortGenerationRef.current) return;
-              try {
-                await createAdminReviewItem({
-                  appId: review.appId,
-                  appName: review.appName,
-                  appSlug: review.appSlug,
-                  userName: review.userName,
-                  rating: review.rating,
-                  reviewText: review.reviewText,
-                  timestamp: review.timestamp,
-                  status: 'published',
-                  helpful_count: typeof review.helpful_count === 'number' ? review.helpful_count : 1
-                });
-                directPublishedCount++;
-              } catch (_) {}
-            })
+          await createAdminReviewItemsBatch(
+            generated.map(review => ({
+              id: review.id,
+              appId: review.appId,
+              appName: review.appName,
+              appSlug: review.appSlug,
+              userName: review.userName,
+              rating: review.rating,
+              reviewText: review.reviewText,
+              timestamp: review.timestamp,
+              status: 'published',
+              helpful_count: typeof review.helpful_count === 'number' ? review.helpful_count : 1
+            }))
           );
+          directPublishedCount += generated.length;
         } else {
           totalAutopilotGenerated += generated.length;
-          setStagedReviews(prev => [...generated, ...prev]);
         }
 
         const isLast = i === targets.length - 1;
@@ -512,7 +533,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
         setChatHistory(prev => [...prev, liveMsg]);
 
         if (!isLast && !abortGenerationRef.current) {
-          await new Promise(resolve => setTimeout(resolve, 150));
+          await new Promise(resolve => setTimeout(resolve, 120));
         }
       } catch (err: any) {
         console.warn(`[Autopilot] Error on ${appTitle}, continuing smoothly:`, err);
@@ -548,9 +569,9 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
     setIsPublishing(true);
 
     try {
-      let publishedCount = 0;
-      for (const review of appReviews) {
-        await createAdminReviewItem({
+      await createAdminReviewItemsBatch(
+        appReviews.map(review => ({
+          id: review.id,
           appId: review.appId,
           appName: review.appName,
           appSlug: review.appSlug,
@@ -560,13 +581,12 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           timestamp: review.timestamp,
           status: 'published',
           helpful_count: typeof review.helpful_count === 'number' ? review.helpful_count : 1
-        });
-        publishedCount++;
-      }
+        }))
+      );
 
       setStagedReviews(prev => prev.filter(r => String(r.appId || r.appSlug || '') !== appId));
       toast(
-        `Successfully published ${publishedCount} reviews for ${appReviews[0]?.appName || 'app'} to Live Community!`,
+        `Successfully published ${appReviews.length} reviews for ${appReviews[0]?.appName || 'app'} to Live Community!`,
         'success'
       );
       if (onReviewsGenerated) onReviewsGenerated();
@@ -587,9 +607,10 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
     setIsPublishing(true);
 
     try {
-      let publishedCount = 0;
-      for (const review of stagedReviews) {
-        await createAdminReviewItem({
+      const count = stagedReviews.length;
+      await createAdminReviewItemsBatch(
+        stagedReviews.map(review => ({
+          id: review.id,
           appId: review.appId,
           appName: review.appName,
           appSlug: review.appSlug,
@@ -599,12 +620,11 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           timestamp: review.timestamp,
           status: 'published',
           helpful_count: typeof review.helpful_count === 'number' ? review.helpful_count : 1
-        });
-        publishedCount++;
-      }
+        }))
+      );
 
       setStagedReviews([]);
-      toast(`Successfully published ${publishedCount} reviews to Live Community!`, 'success');
+      toast(`Successfully published ${count} reviews to Live Community!`, 'success');
       if (onReviewsGenerated) onReviewsGenerated();
     } catch (err: any) {
       toast(`Error publishing: ${err.message}`, 'error');
@@ -655,25 +675,19 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-0.5">
             <Cpu className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
             <select
-              value={isCustomModel ? config.model : config.model || 'gemini-2.5-flash'}
+              value={isCustomModel ? config.model : config.model || 'gemini-3.8-flash'}
               onChange={e => handleQuickModelChange(e.target.value)}
               className="bg-transparent text-[11px] font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer py-0.5 max-w-[145px] sm:max-w-[190px] truncate"
               title="Switch Gemini AI model immediately (auto-syncs to backend)"
             >
-              <option value="gemini-2.5-flash" className="bg-slate-900 text-white">
-                gemini-2.5-flash (Fastest)
-              </option>
-              <option value="gemini-flash-latest" className="bg-slate-900 text-white">
-                gemini-flash-latest (Auto)
-              </option>
-              <option value="gemini-2.5-flash-lite" className="bg-slate-900 text-white">
-                gemini-2.5-flash-lite (Lite)
-              </option>
               <option value="gemini-3.8-flash" className="bg-slate-900 text-white">
-                gemini-3.8-flash (High Speed)
+                gemini-3.8-flash (Fastest)
               </option>
               <option value="gemini-3.1-flash-lite" className="bg-slate-900 text-white">
                 gemini-3.1-flash-lite (Low Quota)
+              </option>
+              <option value="gemini-flash-latest" className="bg-slate-900 text-white">
+                gemini-flash-latest (Auto)
               </option>
               {isCustomModel && (
                 <option value={config.model} className="bg-slate-900 text-amber-300">

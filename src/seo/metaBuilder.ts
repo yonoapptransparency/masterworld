@@ -169,11 +169,9 @@ export function buildMetaTags(params: MetaBuilderParams): string {
         const b800 = escapeHtml(getOptimizedImageUrl(rawBanner, 800));
         return `<link rel="preload" as="image" href="${b600}" imagesrcset="${b400} 400w, ${b600} 600w, ${b800} 800w" imagesizes="(max-width: 640px) 100vw, 800px" fetchpriority="high">`;
       }
-      if (collectionItems && collectionItems.length > 0 && getField(collectionItems[0], 'icon_url')) {
-        return `<link rel="preload" as="image" href="${escapeHtml(getOptimizedImageUrl(getField(collectionItems[0], 'icon_url'), 120))}" fetchpriority="high">`;
-      }
-      if (getField(settings, 'logo_url')) {
-        return `<link rel="preload" as="image" href="${escapeHtml(getOptimizedImageUrl(getField(settings, 'logo_url'), 120))}" fetchpriority="high">`;
+      if (collectionItems && collectionItems.length > 0 && (getField(collectionItems[0], 'icon_url') || getField(collectionItems[0], 'image'))) {
+        const firstImg = getField(collectionItems[0], 'icon_url') || getField(collectionItems[0], 'image');
+        return `<link rel="preload" as="image" href="${escapeHtml(getOptimizedImageUrl(firstImg, 120))}" fetchpriority="high">`;
       }
       return '';
     })()}

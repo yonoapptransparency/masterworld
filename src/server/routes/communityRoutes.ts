@@ -34,14 +34,20 @@ const PERSISTENT_BRAIN_FILE = path.join(DATA_DIR, 'aiStudioBrain.json');
 const SEED_BRAIN_FILE = path.join(process.cwd(), 'src', 'lib', 'aiStudioBrain.json');
 const PUBLIC_BACKUP_FILE = path.join(process.cwd(), 'src', 'lib', 'public_backup.json');
 
+function sanitizeGoogleAiStudioKey(raw?: string): string {
+  const k = String(raw || '').trim();
+  if (!k || k.startsWith('AQ.')) return '';
+  return k;
+}
+
 function readBackupGeminiSettings(): { apiKey: string; model: string } {
   try {
     if (fs.existsSync(PUBLIC_BACKUP_FILE)) {
       const parsed = JSON.parse(fs.readFileSync(PUBLIC_BACKUP_FILE, 'utf8'));
       const s = parsed?.settings || {};
       return {
-        apiKey: String(s.gemini_api_key || '').trim(),
-        model: String(s.gemini_model || '').trim()
+        apiKey: sanitizeGoogleAiStudioKey(s.gemini_api_key),
+        model: normalizeGeminiModel(String(s.gemini_model || '').trim())
       };
     }
   } catch (_) {}
@@ -55,10 +61,10 @@ function writeBackupGeminiSettings(apiKey?: string, model?: string): void {
       if (parsed && typeof parsed === 'object') {
         parsed.settings = parsed.settings || {};
         if (apiKey !== undefined) {
-          parsed.settings.gemini_api_key = apiKey;
+          parsed.settings.gemini_api_key = sanitizeGoogleAiStudioKey(apiKey);
         }
         if (model !== undefined && model.trim()) {
-          parsed.settings.gemini_model = model.trim();
+          parsed.settings.gemini_model = normalizeGeminiModel(model.trim());
         }
         fs.writeFileSync(PUBLIC_BACKUP_FILE, JSON.stringify(parsed), 'utf8');
       }
@@ -71,14 +77,14 @@ export function syncServerAiStudioBrainFromSettings(settingsObj: any): void {
   const brain = ensureBrainLoaded();
   let changed = false;
   if (typeof settingsObj.gemini_api_key === 'string') {
-    const cleanKey = settingsObj.gemini_api_key.trim();
+    const cleanKey = sanitizeGoogleAiStudioKey(settingsObj.gemini_api_key);
     if (cleanKey !== (brain.config?.apiKey || '')) {
       brain.config.apiKey = cleanKey;
       changed = true;
     }
   }
   if (typeof settingsObj.gemini_model === 'string' && settingsObj.gemini_model.trim()) {
-    const cleanModel = settingsObj.gemini_model.trim();
+    const cleanModel = normalizeGeminiModel(settingsObj.gemini_model.trim());
     if (cleanModel !== (brain.config?.model || '')) {
       brain.config.model = cleanModel;
       changed = true;
@@ -102,11 +108,15 @@ function ensureBrainLoaded(): any {
     } catch (_) {}
   }
   if (!inMemoryAiStudioBrain || typeof inMemoryAiStudioBrain !== 'object') {
-    inMemoryAiStudioBrain = { config: { model: 'gemini-2.5-flash' }, directives: [] };
+    inMemoryAiStudioBrain = { config: { model: 'gemini-3.8-flash' }, directives: [] };
   }
   if (!inMemoryAiStudioBrain.config) {
-    inMemoryAiStudioBrain.config = { model: 'gemini-2.5-flash' };
+    inMemoryAiStudioBrain.config = { model: 'gemini-3.8-flash' };
   }
+
+  // Strip any invalid container AQ. token from brain config
+  inMemoryAiStudioBrain.config.apiKey = sanitizeGoogleAiStudioKey(inMemoryAiStudioBrain.config.apiKey);
+  inMemoryAiStudioBrain.config.model = normalizeGeminiModel(inMemoryAiStudioBrain.config.model || 'gemini-3.8-flash');
 
   // Fallback to global admin settings backup if brain doesn't have an apiKey yet
   if (!inMemoryAiStudioBrain.config.apiKey) {
@@ -135,9 +145,9 @@ communityRouter.get('/api/v1/admin/community/aistudio-settings', async (req, res
   try {
     const brainData = ensureBrainLoaded();
     const backup = readBackupGeminiSettings();
-    const envKey = (process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '').trim();
-    const effectiveKey = (brainData.config?.apiKey || backup.apiKey || envKey || '').trim();
-    const rawModel = (brainData.config?.model || backup.model || 'gemini-2.5-flash').trim();
+    const envKey = sanitizeGoogleAiStudioKey(process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY);
+    const effectiveKey = sanitizeGoogleAiStudioKey(brainData.config?.apiKey || backup.apiKey || envKey);
+    const rawModel = (brainData.config?.model || backup.model || 'gemini-3.8-flash').trim();
     const effectiveModel = normalizeGeminiModel(rawModel);
 
     const responseData = {
@@ -145,7 +155,7 @@ communityRouter.get('/api/v1/admin/community/aistudio-settings', async (req, res
       hasServerKey: Boolean(effectiveKey),
       config: {
         ...brainData.config,
-        ...(effectiveKey ? { apiKey: effectiveKey } : {}),
+        ...(effectiveKey ? { apiKey: effectiveKey } : { apiKey: '' }),
         model: effectiveModel
       }
     };
@@ -169,12 +179,12 @@ communityRouter.post('/api/v1/admin/community/aistudio-settings', async (req, re
     for (const [k, v] of Object.entries(incomingConfig)) {
       if (v !== undefined) {
         if (k === 'apiKey') {
-          const clean = String(v || '').trim();
+          const clean = sanitizeGoogleAiStudioKey(String(v || ''));
           if (clean || payload.clearKey === true) {
             mergedConfig.apiKey = clean;
           }
         } else if (k === 'model') {
-          const cleanModel = String(v || '').trim();
+          const cleanModel = normalizeGeminiModel(String(v || '').trim());
           if (cleanModel) {
             mergedConfig.model = cleanModel;
           }
@@ -223,22 +233,24 @@ communityRouter.post('/api/v1/admin/community/aistudio-gemini', async (req, res)
       useReviewSchema
     } = req.body || {};
 
+    const cleanReqKey = sanitizeGoogleAiStudioKey(reqKey);
     const apiKey =
-      (reqKey || '').trim() ||
-      (brainData?.config?.apiKey || '').trim() ||
+      cleanReqKey ||
+      sanitizeGoogleAiStudioKey(brainData?.config?.apiKey) ||
       backup.apiKey ||
-      (process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '').trim();
+      sanitizeGoogleAiStudioKey(process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY);
 
-    const targetModel =
+    const targetModel = normalizeGeminiModel(
       (reqModel || '').trim() ||
       (brainData?.config?.model || '').trim() ||
       backup.model ||
-      'gemini-2.5-flash';
+      'gemini-3.8-flash'
+    );
 
     if (!apiKey) {
       return res.status(400).json({
         success: false,
-        error: 'Gemini API key is required. Click the Key button in AI Studio to paste your Google AI Studio key.'
+        error: 'Gemini API key is required. Click the Key button in AI Studio to paste your Google AI Studio key (starts with AIzaSy...).'
       });
     }
 

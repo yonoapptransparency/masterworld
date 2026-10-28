@@ -11,17 +11,35 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
     <script>
-      // Synchronous theme detector to eliminate dark/light theme flash before paint
+      // Synchronous theme detector to eliminate dark/light theme flash before paint and sync with mobile OS dark mode
       (function() {
         try {
+          var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+          function applyTheme(isDark) {
+            var root = document.documentElement;
+            if (isDark) {
+              root.classList.add('dark');
+              root.classList.remove('light');
+              root.style.colorScheme = 'dark';
+            } else {
+              root.classList.remove('dark');
+              root.classList.add('light');
+              root.style.colorScheme = 'light';
+            }
+          }
+          var manual = localStorage.getItem('theme_manual') === '1';
           var saved = localStorage.getItem('theme');
-          var isDark = saved === 'dark' || (!saved && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-          if (isDark) {
-            document.documentElement.classList.add('dark');
-            document.documentElement.style.colorScheme = 'dark';
-          } else {
-            document.documentElement.classList.remove('dark');
-            document.documentElement.style.colorScheme = 'light';
+          var sysDark = mq ? mq.matches : false;
+          var isDark = manual && (saved === 'dark' || saved === 'light') ? saved === 'dark' : sysDark;
+          applyTheme(isDark);
+          if (mq) {
+            var onChange = function(e) {
+              localStorage.removeItem('theme_manual');
+              localStorage.setItem('theme', e.matches ? 'dark' : 'light');
+              applyTheme(e.matches);
+            };
+            if (mq.addEventListener) mq.addEventListener('change', onChange);
+            else if (mq.addListener) mq.addListener(onChange);
           }
         } catch (e) {}
       })();
