@@ -1,11 +1,13 @@
 const fs = require('fs');
 const { execSync } = require('child_process');
 
-try {
-    console.log("Syncing staticData.json & sitemaps from live Firestore before Vite build...");
-    execSync('npx tsx scripts/prerender.ts --sync-only', { stdio: 'inherit' });
-} catch (syncErr) {
-    console.warn("Pre-build Firestore sync notice:", syncErr.message || syncErr);
+if (fs.existsSync('scripts/prerender.ts') && process.argv.includes('--sync')) {
+    try {
+        console.log("Syncing staticData.json & sitemaps from live Firestore...");
+        execSync('npx tsx scripts/prerender.ts --sync-only', { stdio: 'inherit' });
+    } catch (syncErr) {
+        console.warn("Pre-build Firestore sync notice:", syncErr.message || syncErr);
+    }
 }
 
 // Generate api/index.js for Vercel serverless functions

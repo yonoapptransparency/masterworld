@@ -228,10 +228,13 @@ function formatFull(d: Date, includeTime: boolean, MONTHS: string[]): string {
 }
 
 const getEnvVal = (key: string): string | undefined => {
-  if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env[key]) {
-    const v = String(import.meta.env[key]).trim();
-    if (v && v.length > 0 && !v.includes('!') && !v.includes('#')) return v;
-  }
+  try {
+    const metaEnv = (import.meta as any).env;
+    if (metaEnv && metaEnv[key]) {
+      const v = String(metaEnv[key]).trim();
+      if (v && v.length > 0 && !v.includes('!') && !v.includes('#')) return v;
+    }
+  } catch (_) {}
   if (typeof process !== 'undefined' && process.env && process.env[key]) {
     const v = String(process.env[key]).trim();
     if (v && v.length > 0 && !v.includes('!') && !v.includes('#')) return v;
