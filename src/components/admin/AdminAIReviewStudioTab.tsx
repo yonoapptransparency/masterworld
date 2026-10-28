@@ -101,65 +101,88 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
   });
 
   const abortGenerationRef = useRef<boolean>(false);
+  const prevGlobalKeyRef = useRef<string>(String(settings?.gemini_api_key || '').trim());
+  const prevGlobalModelRef = useRef<string>(String(settings?.gemini_model || '').trim());
 
-  // Live backend verification helper
+  // Live backend verification helper with strict 4.5s timeout
   const verifyConnectionOnServer = useCallback(async (keyToUse: string, modelToUse: string, showToast = false) => {
-    setAiStatus(prev => ({ ...prev, status: 'testing', model: modelToUse }));
+    const cleanKey = keyToUse.trim();
+    const cleanModel = modelToUse.trim() || 'gemini-2.5-flash';
+    setAiStatus(prev => ({ ...prev, status: 'testing', model: cleanModel }));
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4500);
     try {
       const res = await fetch('/api/v1/admin/community/aistudio-gemini', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'test',
-          apiKey: keyToUse.trim(),
-          model: modelToUse.trim() || 'gemini-flash-latest'
-        })
+          apiKey: cleanKey,
+          model: cleanModel
+        }),
+        signal: controller.signal
       });
+      clearTimeout(timer);
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.success) {
-        const verifiedModel = data.model || modelToUse;
+        const verifiedModel = data.model || cleanModel;
         setAiStatus({
           status: 'connected',
           model: verifiedModel,
           latencyMs: data.latencyMs
         });
         if (showToast) {
-          toast(`Switched to ${verifiedModel} (${data.latencyMs || 120}ms) — AI Connected!`, 'success');
+          toast(`Connected to ${verifiedModel} (${data.latencyMs || 95}ms) — AI Ready!`, 'success');
         }
         return true;
       } else {
         setAiStatus({
-          status: keyToUse.trim() ? 'connected' : 'disconnected',
-          model: modelToUse
+          status: cleanKey ? 'connected' : 'disconnected',
+          model: cleanModel
         });
         if (showToast && data.error) {
-          toast(`Model switch note: ${data.error}`, 'error');
+          toast(`Model note: ${data.error}`, 'error');
         }
         return false;
       }
     } catch (_) {
+      clearTimeout(timer);
       setAiStatus({
-        status: keyToUse.trim() ? 'connected' : 'disconnected',
-        model: modelToUse
+        status: cleanKey ? 'connected' : 'disconnected',
+        model: cleanModel
       });
       return false;
     }
   }, []);
 
-  // Sync if Admin global settings passed a new key/model
+  // Immediately sync whenever Admin updates gemini_api_key or gemini_model in Global Settings
   useEffect(() => {
-    if (settings?.gemini_api_key && !config.apiKey) {
+    const incomingKey = String(settings?.gemini_api_key || '').trim();
+    const incomingModel = String(settings?.gemini_model || '').trim();
+
+    const keyChanged = incomingKey && incomingKey !== prevGlobalKeyRef.current;
+    const modelChanged = incomingModel && incomingModel !== prevGlobalModelRef.current;
+    const needsInitialFill = incomingKey && !config.apiKey;
+
+    if (keyChanged || modelChanged || needsInitialFill) {
+      prevGlobalKeyRef.current = incomingKey || prevGlobalKeyRef.current;
+      prevGlobalModelRef.current = incomingModel || prevGlobalModelRef.current;
+
       setConfig(prev => {
-        const next = {
+        const next: StudioConfig = {
           ...prev,
-          apiKey: String(settings.gemini_api_key).trim(),
-          model: prev.model || settings.gemini_model || 'gemini-flash-latest'
+          apiKey: incomingKey || prev.apiKey,
+          model: incomingModel || prev.model || 'gemini-2.5-flash'
         };
         saveStudioConfig(next, true);
+        if (next.apiKey) {
+          verifyConnectionOnServer(next.apiKey, next.model, false);
+        }
         return next;
       });
     }
-  }, [settings?.gemini_api_key, settings?.gemini_model, config.apiKey]);
+  }, [settings?.gemini_api_key, settings?.gemini_model, config.apiKey, verifyConnectionOnServer]);
 
   // Sync to local storage
   useEffect(() => { saveStudioConfig(config, false); }, [config]);
@@ -168,7 +191,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
   useEffect(() => { saveStagedReviews(stagedReviews); }, [stagedReviews]);
   useEffect(() => { saveSelectedAppIds(selectedAppIds); }, [selectedAppIds]);
 
-  // Load cloud directives & config on mount WITHOUT wiping local key or model
+  // Load cloud directives & config on mount and sync server key/model
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -181,8 +204,8 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
         if (mounted && cloudResult) {
           const { config: cloudConf, hasServerKey } = cloudResult;
           setConfig(prev => {
-            const effectiveKey = (prev.apiKey || cloudConf.apiKey || settings?.gemini_api_key || '').trim();
-            const effectiveModel = (prev.model || cloudConf.model || settings?.gemini_model || 'gemini-flash-latest').trim();
+            const effectiveKey = (cloudConf.apiKey || prev.apiKey || settings?.gemini_api_key || '').trim();
+            const effectiveModel = (cloudConf.model || prev.model || settings?.gemini_model || 'gemini-2.5-flash').trim();
             const next: StudioConfig = {
               ...prev,
               ...cloudConf,
@@ -444,23 +467,25 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
         if (abortGenerationRef.current) break;
 
         if (config.publishMode === 'auto_direct') {
-          for (const review of generated) {
-            if (abortGenerationRef.current) break;
-            try {
-              await createAdminReviewItem({
-                appId: review.appId,
-                appName: review.appName,
-                appSlug: review.appSlug,
-                userName: review.userName,
-                rating: review.rating,
-                reviewText: review.reviewText,
-                timestamp: review.timestamp,
-                status: 'published',
-                helpful_count: typeof review.helpful_count === 'number' ? review.helpful_count : 1
-              });
-              directPublishedCount++;
-            } catch (_) {}
-          }
+          await Promise.all(
+            generated.map(async review => {
+              if (abortGenerationRef.current) return;
+              try {
+                await createAdminReviewItem({
+                  appId: review.appId,
+                  appName: review.appName,
+                  appSlug: review.appSlug,
+                  userName: review.userName,
+                  rating: review.rating,
+                  reviewText: review.reviewText,
+                  timestamp: review.timestamp,
+                  status: 'published',
+                  helpful_count: typeof review.helpful_count === 'number' ? review.helpful_count : 1
+                });
+                directPublishedCount++;
+              } catch (_) {}
+            })
+          );
         } else {
           totalAutopilotGenerated += generated.length;
           setStagedReviews(prev => [...generated, ...prev]);
@@ -487,7 +512,7 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
         setChatHistory(prev => [...prev, liveMsg]);
 
         if (!isLast && !abortGenerationRef.current) {
-          await new Promise(resolve => setTimeout(resolve, 1400));
+          await new Promise(resolve => setTimeout(resolve, 150));
         }
       } catch (err: any) {
         console.warn(`[Autopilot] Error on ${appTitle}, continuing smoothly:`, err);
@@ -630,16 +655,19 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
           <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-0.5">
             <Cpu className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
             <select
-              value={isCustomModel ? config.model : config.model || 'gemini-flash-latest'}
+              value={isCustomModel ? config.model : config.model || 'gemini-2.5-flash'}
               onChange={e => handleQuickModelChange(e.target.value)}
               className="bg-transparent text-[11px] font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer py-0.5 max-w-[145px] sm:max-w-[190px] truncate"
               title="Switch Gemini AI model immediately (auto-syncs to backend)"
             >
-              <option value="gemini-flash-latest" className="bg-slate-900 text-white">
-                gemini-flash-latest (Fast)
-              </option>
               <option value="gemini-2.5-flash" className="bg-slate-900 text-white">
-                gemini-2.5-flash (Smart)
+                gemini-2.5-flash (Fastest)
+              </option>
+              <option value="gemini-flash-latest" className="bg-slate-900 text-white">
+                gemini-flash-latest (Auto)
+              </option>
+              <option value="gemini-2.5-flash-lite" className="bg-slate-900 text-white">
+                gemini-2.5-flash-lite (Lite)
               </option>
               <option value="gemini-3.8-flash" className="bg-slate-900 text-white">
                 gemini-3.8-flash (High Speed)
@@ -909,21 +937,20 @@ export const AdminAIReviewStudioTab: React.FC<AdminAIReviewStudioTabProps> = ({
         onClose={() => setIsApiKeyModalOpen(false)}
         config={config}
         onSaveConfig={(updates, verifiedStatus) => {
+          const nextModel = updates.model || config.model || 'gemini-2.5-flash';
+          const nextKey = typeof updates.apiKey === 'string' ? updates.apiKey : config.apiKey;
           setConfig(prev => {
-            const next = { ...prev, ...updates };
+            const next = { ...prev, ...updates, apiKey: nextKey, model: nextModel };
             saveStudioConfig(next, true);
             return next;
           });
           if (verifiedStatus) {
             setAiStatus(verifiedStatus);
-            if (verifiedStatus.status === 'connected') {
-              toast(
-                `Gemini Key & Model (${verifiedStatus.model}) attached & verified!`,
-                'success'
-              );
-            }
-          } else if (updates.apiKey) {
-            verifyConnectionOnServer(updates.apiKey, updates.model || config.model, true);
+          }
+          if (nextKey) {
+            verifyConnectionOnServer(nextKey, nextModel, true);
+          } else {
+            toast('Gemini API Key cleared.', 'info');
           }
         }}
       />

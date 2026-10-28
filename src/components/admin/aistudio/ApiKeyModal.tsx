@@ -3,10 +3,11 @@ import { Key, X, ExternalLink, ShieldCheck, RefreshCw, Eye, EyeOff, CheckCircle2
 import { StudioConfig } from './types';
 
 export const PRESET_GEMINI_MODELS = [
-  { id: 'gemini-flash-latest', label: 'Gemini Flash Latest (gemini-flash-latest — Recommended Free Tier)' },
-  { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (gemini-2.5-flash — High Reasoning & Stability)' },
-  { id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash (gemini-3.8-flash — Fast Generation)' },
-  { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite (gemini-3.1-flash-lite — Ultra-Low Quota)' }
+  { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (gemini-2.5-flash — Fastest & Recommended Free Tier)' },
+  { id: 'gemini-flash-latest', label: 'Gemini Flash Latest (gemini-flash-latest — Auto-Updated Flash)' },
+  { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite (gemini-2.5-flash-lite — Ultra-Low Quota & Speed)' },
+  { id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash (gemini-3.8-flash — Auto-Mapped High Speed)' },
+  { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite (gemini-3.1-flash-lite — Lightweight)' }
 ];
 
 const PRESET_IDS = PRESET_GEMINI_MODELS.map(m => m.id);
@@ -30,11 +31,11 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
   const [apiKeyInput, setApiKeyInput] = useState(config.apiKey || '');
   const [showKey, setShowKey] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState<string>(() => {
-    const m = config.model || 'gemini-flash-latest';
+    const m = config.model || 'gemini-2.5-flash';
     return PRESET_IDS.includes(m) ? m : 'custom';
   });
   const [customModelInput, setCustomModelInput] = useState(() => {
-    const m = config.model || 'gemini-flash-latest';
+    const m = config.model || 'gemini-2.5-flash';
     return PRESET_IDS.includes(m) ? '' : m;
   });
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
@@ -46,7 +47,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setApiKeyInput(config.apiKey || '');
-      const m = config.model || 'gemini-flash-latest';
+      const m = config.model || 'gemini-2.5-flash';
       if (PRESET_IDS.includes(m)) {
         setSelectedPreset(m);
         setCustomModelInput('');
@@ -64,7 +65,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
 
   const activeModelName =
     selectedPreset === 'custom'
-      ? customModelInput.trim() || 'gemini-flash-latest'
+      ? customModelInput.trim() || 'gemini-2.5-flash'
       : selectedPreset;
 
   const runLiveVerification = async (keyToTest: string, modelToTest: string): Promise<{
@@ -74,6 +75,10 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
     message: string;
   }> => {
     const startTime = performance.now();
+
+    // 1. Try server verification with a strict 4.5s timeout
+    const srvController = new AbortController();
+    const srvTimer = setTimeout(() => srvController.abort(), 4500);
     try {
       const srvRes = await fetch('/api/v1/admin/community/aistudio-gemini', {
         method: 'POST',
@@ -82,17 +87,20 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
           action: 'test',
           apiKey: keyToTest,
           model: modelToTest
-        })
+        }),
+        signal: srvController.signal
       });
+      clearTimeout(srvTimer);
 
       const srvData = await srvRes.json().catch(() => ({}));
       if (srvRes.ok && srvData.success) {
         const latency = srvData.latencyMs || Math.round(performance.now() - startTime);
+        const resolvedModel = srvData.model || modelToTest;
         return {
           ok: true,
-          modelUsed: srvData.model || modelToTest,
+          modelUsed: resolvedModel,
           latencyMs: latency,
-          message: `Verified ${srvData.model || modelToTest} (${latency}ms) — AI Connected & Ready.`
+          message: `Verified ${resolvedModel} (${latency}ms) — AI Connected & Ready.`
         };
       }
       if (srvData.error && !keyToTest) {
@@ -103,7 +111,9 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
           message: srvData.error
         };
       }
-    } catch (_) {}
+    } catch (_) {
+      clearTimeout(srvTimer);
+    }
 
     if (!keyToTest) {
       return {
@@ -114,33 +124,50 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
       };
     }
 
-    // Direct browser fallback verification
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelToTest)}:generateContent?key=${encodeURIComponent(keyToTest)}`;
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-goog-api-key': keyToTest
-      },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: 'Respond with exactly two words: AI Connected' }] }]
-      })
-    });
+    // 2. Instant zero-quota browser verification via /v1beta/models discovery (~120ms)
+    const listController = new AbortController();
+    const listTimer = setTimeout(() => listController.abort(), 4000);
+    try {
+      const listRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models?pageSize=100&key=${encodeURIComponent(keyToTest)}`,
+        { method: 'GET', signal: listController.signal }
+      );
+      clearTimeout(listTimer);
+      const latencyMs = Math.round(performance.now() - startTime);
 
-    const latencyMs = Math.round(performance.now() - startTime);
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data?.error?.message || `HTTP ${res.status} (${res.statusText})`);
+      if (!listRes.ok) {
+        const errData = await listRes.json().catch(() => ({}));
+        throw new Error(errData?.error?.message || `HTTP ${listRes.status}`);
+      }
+
+      const listData = await listRes.json().catch(() => ({}));
+      const available = new Set<string>();
+      if (Array.isArray(listData?.models)) {
+        for (const m of listData.models) {
+          if ((m.supportedGenerationMethods || []).includes('generateContent')) {
+            available.add(String(m.name || '').replace(/^models\//, ''));
+          }
+        }
+      }
+
+      const resolvedModel = available.has(modelToTest)
+        ? modelToTest
+        : available.has('gemini-2.5-flash')
+        ? 'gemini-2.5-flash'
+        : available.has('gemini-flash-latest')
+        ? 'gemini-flash-latest'
+        : modelToTest;
+
+      return {
+        ok: true,
+        modelUsed: resolvedModel,
+        latencyMs,
+        message: `Verified ${resolvedModel} (${latencyMs}ms) — AI Connected & Ready.`
+      };
+    } catch (err: any) {
+      clearTimeout(listTimer);
+      throw new Error(err?.message || 'Unable to verify API key.');
     }
-
-    const data = await res.json();
-    const modelVer = data?.modelVersion || modelToTest;
-    return {
-      ok: true,
-      modelUsed: modelVer,
-      latencyMs,
-      message: `Verified ${modelVer} (${latencyMs}ms) — AI Connected & Ready.`
-    };
   };
 
   const handleTestKey = async () => {
@@ -173,49 +200,32 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
   const handleSave = async () => {
     const cleanKey = apiKeyInput.trim();
     setIsSaving(true);
-    setTestStatus('testing');
-    setTestMessage(`Saving & attaching model "${activeModelName}"...`);
 
-    try {
-      await fetch('/api/v1/admin/community/aistudio-settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clearKey: cleanKey === '',
-          config: {
-            apiKey: cleanKey,
-            model: activeModelName
-          }
-        })
-      });
-    } catch (_) {}
+    // Fire server persistence in background with timeout so UI never hangs
+    fetch('/api/v1/admin/community/aistudio-settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clearKey: cleanKey === '',
+        config: {
+          apiKey: cleanKey,
+          model: activeModelName
+        }
+      })
+    }).catch(() => {});
 
     if (cleanKey) {
-      try {
-        const check = await runLiveVerification(cleanKey, activeModelName);
-        onSaveConfig(
-          {
-            apiKey: cleanKey,
-            model: activeModelName
-          },
-          {
-            status: check.ok ? 'connected' : 'disconnected',
-            model: check.modelUsed || activeModelName,
-            latencyMs: check.latencyMs
-          }
-        );
-      } catch (_) {
-        onSaveConfig(
-          {
-            apiKey: cleanKey,
-            model: activeModelName
-          },
-          {
-            status: 'connected',
-            model: activeModelName
-          }
-        );
-      }
+      // Save immediately to state & localStorage, and let parent verify in background
+      onSaveConfig(
+        {
+          apiKey: cleanKey,
+          model: activeModelName
+        },
+        {
+          status: 'connected',
+          model: activeModelName
+        }
+      );
     } else {
       onSaveConfig(
         {

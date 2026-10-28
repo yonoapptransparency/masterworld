@@ -32,22 +32,93 @@ import { testGeminiConnection, executeGeminiWithRetry, normalizeGeminiModel } fr
 const DATA_DIR = path.join(process.cwd(), '.data');
 const PERSISTENT_BRAIN_FILE = path.join(DATA_DIR, 'aiStudioBrain.json');
 const SEED_BRAIN_FILE = path.join(process.cwd(), 'src', 'lib', 'aiStudioBrain.json');
+const PUBLIC_BACKUP_FILE = path.join(process.cwd(), 'src', 'lib', 'public_backup.json');
 
-function ensureBrainLoaded(): any {
-  if (inMemoryAiStudioBrain) return inMemoryAiStudioBrain;
+function readBackupGeminiSettings(): { apiKey: string; model: string } {
   try {
-    if (fs.existsSync(PERSISTENT_BRAIN_FILE)) {
-      inMemoryAiStudioBrain = JSON.parse(fs.readFileSync(PERSISTENT_BRAIN_FILE, 'utf8'));
-    } else if (fs.existsSync(SEED_BRAIN_FILE)) {
-      inMemoryAiStudioBrain = JSON.parse(fs.readFileSync(SEED_BRAIN_FILE, 'utf8'));
+    if (fs.existsSync(PUBLIC_BACKUP_FILE)) {
+      const parsed = JSON.parse(fs.readFileSync(PUBLIC_BACKUP_FILE, 'utf8'));
+      const s = parsed?.settings || {};
+      return {
+        apiKey: String(s.gemini_api_key || '').trim(),
+        model: String(s.gemini_model || '').trim()
+      };
     }
   } catch (_) {}
+  return { apiKey: '', model: '' };
+}
+
+function writeBackupGeminiSettings(apiKey?: string, model?: string): void {
+  try {
+    if (fs.existsSync(PUBLIC_BACKUP_FILE)) {
+      const parsed = JSON.parse(fs.readFileSync(PUBLIC_BACKUP_FILE, 'utf8'));
+      if (parsed && typeof parsed === 'object') {
+        parsed.settings = parsed.settings || {};
+        if (apiKey !== undefined) {
+          parsed.settings.gemini_api_key = apiKey;
+        }
+        if (model !== undefined && model.trim()) {
+          parsed.settings.gemini_model = model.trim();
+        }
+        fs.writeFileSync(PUBLIC_BACKUP_FILE, JSON.stringify(parsed), 'utf8');
+      }
+    }
+  } catch (_) {}
+}
+
+export function syncServerAiStudioBrainFromSettings(settingsObj: any): void {
+  if (!settingsObj || typeof settingsObj !== 'object') return;
+  const brain = ensureBrainLoaded();
+  let changed = false;
+  if (typeof settingsObj.gemini_api_key === 'string') {
+    const cleanKey = settingsObj.gemini_api_key.trim();
+    if (cleanKey !== (brain.config?.apiKey || '')) {
+      brain.config.apiKey = cleanKey;
+      changed = true;
+    }
+  }
+  if (typeof settingsObj.gemini_model === 'string' && settingsObj.gemini_model.trim()) {
+    const cleanModel = settingsObj.gemini_model.trim();
+    if (cleanModel !== (brain.config?.model || '')) {
+      brain.config.model = cleanModel;
+      changed = true;
+    }
+  }
+  if (changed) {
+    brain.updatedAt = new Date().toISOString();
+    inMemoryAiStudioBrain = brain;
+    persistBrainToDisk(brain);
+  }
+}
+
+function ensureBrainLoaded(): any {
+  if (!inMemoryAiStudioBrain) {
+    try {
+      if (fs.existsSync(PERSISTENT_BRAIN_FILE)) {
+        inMemoryAiStudioBrain = JSON.parse(fs.readFileSync(PERSISTENT_BRAIN_FILE, 'utf8'));
+      } else if (fs.existsSync(SEED_BRAIN_FILE)) {
+        inMemoryAiStudioBrain = JSON.parse(fs.readFileSync(SEED_BRAIN_FILE, 'utf8'));
+      }
+    } catch (_) {}
+  }
   if (!inMemoryAiStudioBrain || typeof inMemoryAiStudioBrain !== 'object') {
-    inMemoryAiStudioBrain = { config: { model: 'gemini-flash-latest' }, directives: [] };
+    inMemoryAiStudioBrain = { config: { model: 'gemini-2.5-flash' }, directives: [] };
   }
   if (!inMemoryAiStudioBrain.config) {
-    inMemoryAiStudioBrain.config = { model: 'gemini-flash-latest' };
+    inMemoryAiStudioBrain.config = { model: 'gemini-2.5-flash' };
   }
+
+  // Fallback to global admin settings backup if brain doesn't have an apiKey yet
+  if (!inMemoryAiStudioBrain.config.apiKey) {
+    const backup = readBackupGeminiSettings();
+    if (backup.apiKey) {
+      inMemoryAiStudioBrain.config.apiKey = backup.apiKey;
+    }
+    if (backup.model && (!inMemoryAiStudioBrain.config.model || inMemoryAiStudioBrain.config.model === 'gemini-flash-latest')) {
+      inMemoryAiStudioBrain.config.model = backup.model;
+    }
+  }
+
   return inMemoryAiStudioBrain;
 }
 
@@ -63,9 +134,11 @@ function persistBrainToDisk(brainData: any): void {
 communityRouter.get('/api/v1/admin/community/aistudio-settings', async (req, res) => {
   try {
     const brainData = ensureBrainLoaded();
+    const backup = readBackupGeminiSettings();
     const envKey = (process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '').trim();
-    const effectiveKey = (brainData.config?.apiKey || envKey || '').trim();
-    const effectiveModel = normalizeGeminiModel(brainData.config?.model || 'gemini-flash-latest');
+    const effectiveKey = (brainData.config?.apiKey || backup.apiKey || envKey || '').trim();
+    const rawModel = (brainData.config?.model || backup.model || 'gemini-2.5-flash').trim();
+    const effectiveModel = normalizeGeminiModel(rawModel);
 
     const responseData = {
       ...brainData,
@@ -97,7 +170,6 @@ communityRouter.post('/api/v1/admin/community/aistudio-settings', async (req, re
       if (v !== undefined) {
         if (k === 'apiKey') {
           const clean = String(v || '').trim();
-          // Only overwrite apiKey if non-empty or explicitly cleared via clearKey flag
           if (clean || payload.clearKey === true) {
             mergedConfig.apiKey = clean;
           }
@@ -120,9 +192,14 @@ communityRouter.post('/api/v1/admin/community/aistudio-settings', async (req, re
     };
 
     persistBrainToDisk(inMemoryAiStudioBrain);
+    writeBackupGeminiSettings(
+      mergedConfig.apiKey !== undefined ? mergedConfig.apiKey : undefined,
+      mergedConfig.model
+    );
+
     res.json({
       success: true,
-      message: 'Settings saved permanently in brain memory.',
+      message: 'Settings saved permanently in brain memory & admin backup.',
       config: inMemoryAiStudioBrain.config
     });
   } catch (err: any) {
@@ -130,10 +207,11 @@ communityRouter.post('/api/v1/admin/community/aistudio-settings', async (req, re
   }
 });
 
-// Dedicated Server-Side Gemini Execution Proxy with Auto-Retry & Model Fallback
+// Dedicated Server-Side Gemini Execution Proxy with Ultra-Low-Latency & Model Discovery
 communityRouter.post('/api/v1/admin/community/aistudio-gemini', async (req, res) => {
   try {
     const brainData = ensureBrainLoaded();
+    const backup = readBackupGeminiSettings();
     const {
       action,
       apiKey: reqKey,
@@ -148,12 +226,14 @@ communityRouter.post('/api/v1/admin/community/aistudio-gemini', async (req, res)
     const apiKey =
       (reqKey || '').trim() ||
       (brainData?.config?.apiKey || '').trim() ||
+      backup.apiKey ||
       (process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '').trim();
 
     const targetModel =
       (reqModel || '').trim() ||
       (brainData?.config?.model || '').trim() ||
-      'gemini-flash-latest';
+      backup.model ||
+      'gemini-2.5-flash';
 
     if (!apiKey) {
       return res.status(400).json({
@@ -162,8 +242,10 @@ communityRouter.post('/api/v1/admin/community/aistudio-gemini', async (req, res)
       });
     }
 
-    // If a new key or model was passed in the request, keep server brain synced
-    if ((reqKey && reqKey.trim() !== brainData?.config?.apiKey) || (reqModel && reqModel.trim() !== brainData?.config?.model)) {
+    // If a new key or model was passed in the request, keep server brain and backup synced
+    const keyChanged = Boolean(reqKey && reqKey.trim() && reqKey.trim() !== brainData?.config?.apiKey);
+    const modelChanged = Boolean(reqModel && reqModel.trim() && reqModel.trim() !== brainData?.config?.model);
+    if (keyChanged || modelChanged) {
       brainData.config = {
         ...(brainData.config || {}),
         ...(reqKey && reqKey.trim() ? { apiKey: reqKey.trim() } : {}),
@@ -171,6 +253,10 @@ communityRouter.post('/api/v1/admin/community/aistudio-gemini', async (req, res)
       };
       inMemoryAiStudioBrain = brainData;
       persistBrainToDisk(inMemoryAiStudioBrain);
+      writeBackupGeminiSettings(
+        reqKey && reqKey.trim() ? reqKey.trim() : undefined,
+        reqModel && reqModel.trim() ? reqModel.trim() : undefined
+      );
     }
 
     if (action === 'test') {

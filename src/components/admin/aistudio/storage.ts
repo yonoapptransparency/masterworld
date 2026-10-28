@@ -39,7 +39,7 @@ export const DEFAULT_DIRECTIVES: BrainMemoryDirective[] = [
 
 export const DEFAULT_STUDIO_CONFIG: StudioConfig = {
   apiKey: '',
-  model: 'gemini-flash-latest',
+  model: 'gemini-2.5-flash',
   reviewsPerApp: 2,
   dateMode: 'today_and_yesterday',
   ratingMix: 'auto_app_rating',
@@ -53,9 +53,9 @@ export const DEFAULT_STUDIO_CONFIG: StudioConfig = {
 
 export function sanitizeModelId(rawModel?: string): string {
   const m = String(rawModel || '').trim();
-  if (!m) return 'gemini-flash-latest';
+  if (!m) return 'gemini-2.5-flash';
   if (m === 'gemini-2.0-flash' || m === 'gemini-1.5-flash') {
-    return 'gemini-flash-latest';
+    return 'gemini-2.5-flash';
   }
   return m;
 }
@@ -81,6 +81,7 @@ export function loadStudioConfig(externalSettings?: any): StudioConfig {
         ...DEFAULT_STUDIO_CONFIG,
         ...parsed
       };
+      // If externalSettings explicitly provides a newer non-empty key, prefer it if local is empty
       if (!merged.apiKey || merged.apiKey.trim() === '') {
         merged.apiKey = fallbackKey;
       } else {
@@ -117,6 +118,21 @@ export function saveStudioConfig(config: StudioConfig, persistToCloud = true): v
   if (persistToCloud) {
     saveStudioConfigToCloud(normalized).catch(() => {});
   }
+}
+
+/**
+ * Immediately synchronizes local AI Studio config when Admin saves Global Settings
+ * (`settings.gemini_api_key` or `settings.gemini_model`).
+ */
+export function syncStudioConfigFromGlobalSettings(settings?: { gemini_api_key?: string; gemini_model?: string }): StudioConfig {
+  const current = loadStudioConfig(settings);
+  const next: StudioConfig = {
+    ...current,
+    apiKey: typeof settings?.gemini_api_key === 'string' ? settings.gemini_api_key.trim() : current.apiKey,
+    model: settings?.gemini_model ? sanitizeModelId(settings.gemini_model) : current.model
+  };
+  saveStudioConfig(next, true);
+  return next;
 }
 
 export function loadBrainDirectives(): BrainMemoryDirective[] {

@@ -286,7 +286,147 @@ export async function onRequest(context) {
     });
   }
 
-  // 6. Public APIs (Catalog, App Details, Settings, News, Videos)
+  // 6. Admin AI Review Studio Edge Endpoints (/api/v1/admin/community/aistudio-settings & aistudio-gemini)
+  if (url.pathname === '/api/v1/admin/community/aistudio-settings') {
+    const envKey = (env?.GEMINI_API_KEY || env?.VITE_GEMINI_API_KEY || '').trim();
+    if (request.method === 'GET') {
+      return new Response(JSON.stringify({
+        success: true,
+        data: {
+          hasServerKey: Boolean(envKey),
+          config: {
+            ...(envKey ? { apiKey: envKey } : {}),
+            model: 'gemini-2.5-flash'
+          }
+        }
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }
+      });
+    }
+    if (request.method === 'POST') {
+      let body = {};
+      try { body = JSON.parse(rawBody || '{}'); } catch (_) {}
+      return new Response(JSON.stringify({
+        success: true,
+        config: body?.config || {}
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }
+      });
+    }
+  }
+
+  if (url.pathname === '/api/v1/admin/community/aistudio-gemini' && request.method === 'POST') {
+    let body = {};
+    try { body = JSON.parse(rawBody || '{}'); } catch (_) {}
+    const apiKey = (body?.apiKey || env?.GEMINI_API_KEY || env?.VITE_GEMINI_API_KEY || '').trim();
+    const requestedModel = (body?.model || 'gemini-2.5-flash').trim().replace(/^models\//i, '');
+
+    if (!apiKey) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Gemini API key is required. Paste your Google AI Studio key in the Key modal.'
+      }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json; charset=utf-8' }
+      });
+    }
+
+    const startTime = Date.now();
+    if (body?.action === 'test') {
+      try {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=100&key=${encodeURIComponent(apiKey)}`);
+        if (res.ok) {
+          const data = await res.json().catch(() => ({}));
+          const supported = new Set((data?.models || []).map((m) => String(m?.name || '').replace(/^models\//i, '')));
+          const resolvedModel = supported.has(requestedModel)
+            ? requestedModel
+            : supported.has('gemini-2.5-flash')
+            ? 'gemini-2.5-flash'
+            : 'gemini-flash-latest';
+          return new Response(JSON.stringify({
+            success: true,
+            model: resolvedModel,
+            requestedModel,
+            latencyMs: Date.now() - startTime,
+            message: 'AI Connected & Verified'
+          }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json; charset=utf-8' }
+          });
+        }
+      } catch (_) {}
+    }
+
+    const candidates = [requestedModel, 'gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.5-flash-lite']
+      .filter((m, i, a) => Boolean(m) && a.indexOf(m) === i)
+      .slice(0, 3);
+
+    let lastErr = '';
+    for (const modelToUse of candidates) {
+      try {
+        const generationConfig = {
+          temperature: typeof body?.temperature === 'number' ? body.temperature : 0.85,
+          ...(body?.responseMimeType ? { responseMimeType: body.responseMimeType } : {}),
+          ...(modelToUse.includes('2.5-flash') || modelToUse.includes('flash-latest')
+            ? { thinkingConfig: { thinkingBudget: 0 } }
+            : {})
+        };
+        const payload = {
+          contents: body?.contents || [{ role: 'user', parts: [{ text: 'Reply: OK' }] }],
+          generationConfig,
+          ...(body?.systemInstruction ? { systemInstruction: { parts: [{ text: String(body.systemInstruction) }] } } : {})
+        };
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelToUse)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-goog-api-key': apiKey },
+            body: JSON.stringify(payload)
+          }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          const parts = data?.candidates?.[0]?.content?.parts || [];
+          const textPart = parts.find((p) => typeof p?.text === 'string' && !p?.thought) || parts[0];
+          const text = String(textPart?.text || '').trim();
+          if (text) {
+            return new Response(JSON.stringify({
+              success: true,
+              text,
+              model: modelToUse,
+              modelUsed: modelToUse,
+              requestedModel,
+              latencyMs: Date.now() - startTime
+            }), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json; charset=utf-8' }
+            });
+          }
+        } else {
+          const errJson = await res.json().catch(() => ({}));
+          lastErr = errJson?.error?.message || `HTTP ${res.status}`;
+          if (res.status === 400 || res.status === 401 || res.status === 403) break;
+        }
+      } catch (e) {
+        lastErr = e?.message || String(e);
+      }
+    }
+
+    return new Response(JSON.stringify({
+      success: false,
+      modelUsed: requestedModel,
+      requestedModel,
+      latencyMs: Date.now() - startTime,
+      error: lastErr || 'Gemini call failed'
+    }), {
+      status: 502,
+      headers: { 'Content-Type': 'application/json; charset=utf-8' }
+    });
+  }
+
+  // 7. Public APIs (Catalog, App Details, Settings, News, Videos)
   if (url.pathname.startsWith('/api/v1/public/app/')) {
     const rawSlug = url.pathname.replace(/^\/api\/v1\/public\/app\//, '').trim();
     const clean = decodeURIComponent(rawSlug).toLowerCase().trim();

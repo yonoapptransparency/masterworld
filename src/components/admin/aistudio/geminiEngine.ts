@@ -509,6 +509,162 @@ export interface ChatResponseResult {
   latencyMs?: number;
 }
 
+// Client-side model discovery cache (per API key) so browser fallback never wastes round-trips on 404 models
+const clientModelCache = new Map<string, { models: Set<string>; fetchedAt: number }>();
+const CLIENT_CACHE_TTL_MS = 15 * 60 * 1000;
+
+const CLIENT_MODEL_ALIAS_MAP: Record<string, string[]> = {
+  'gemini-3.8-flash': ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-flash-latest'],
+  'gemini-3.1-flash-lite': ['gemini-3.1-flash-lite', 'gemini-3.1-flash-lite-preview', 'gemini-2.5-flash-lite', 'gemini-2.5-flash'],
+  'gemini-2.0-flash': ['gemini-2.5-flash', 'gemini-flash-latest'],
+  'gemini-1.5-flash': ['gemini-2.5-flash', 'gemini-flash-latest']
+};
+
+async function getClientAvailableModels(apiKey: string): Promise<Set<string> | null> {
+  const cleanKey = apiKey.trim();
+  if (!cleanKey) return null;
+  const cached = clientModelCache.get(cleanKey);
+  if (cached && Date.now() - cached.fetchedAt < CLIENT_CACHE_TTL_MS) {
+    return cached.models;
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 3500);
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?pageSize=100&key=${encodeURIComponent(cleanKey)}`,
+      { method: 'GET', signal: controller.signal }
+    );
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const data = await res.json().catch(() => ({}));
+    const models = new Set<string>();
+    if (Array.isArray(data?.models)) {
+      for (const m of data.models) {
+        const methods: string[] = m.supportedGenerationMethods || [];
+        if (methods.includes('generateContent')) {
+          models.add(String(m.name || '').replace(/^models\//, ''));
+        }
+      }
+    }
+    if (models.size > 0) {
+      clientModelCache.set(cleanKey, { models, fetchedAt: Date.now() });
+      return models;
+    }
+  } catch (_) {
+    clearTimeout(timer);
+  }
+  return null;
+}
+
+function buildClientCandidateModels(requestedModel: string, discovered: Set<string> | null): string[] {
+  const req = (requestedModel || 'gemini-2.5-flash').trim().replace(/^models\//, '');
+  const rawOrder = [
+    ...(CLIENT_MODEL_ALIAS_MAP[req] || [req]),
+    'gemini-2.5-flash',
+    'gemini-flash-latest',
+    'gemini-2.5-flash-lite'
+  ];
+  const unique = Array.from(new Set(rawOrder.filter(Boolean)));
+  if (discovered && discovered.size > 0) {
+    const valid = unique.filter(m => discovered.has(m));
+    if (valid.length > 0) return valid.slice(0, 2);
+  }
+  return unique.slice(0, 2);
+}
+
+/**
+ * Direct ultra-fast client-side Gemini caller with `thinkingBudget: 0` (disabling 15-45s hidden thinking delay)
+ * and strict AbortController timeout.
+ */
+async function callClientGeminiDirect(params: {
+  apiKey: string;
+  requestedModel: string;
+  systemInstruction?: string;
+  contents: any[];
+  temperature?: number;
+  maxOutputTokens?: number;
+  responseMimeType?: string;
+  timeoutMs?: number;
+}): Promise<{ text: string; modelUsed: string; latencyMs: number }> {
+  const startMs = performance.now();
+  const discovered = await getClientAvailableModels(params.apiKey);
+  const candidates = buildClientCandidateModels(params.requestedModel, discovered);
+  let lastError = 'Gemini API request failed.';
+
+  for (const modelId of candidates) {
+    const controller = new AbortController();
+    const timeoutMs = params.timeoutMs || 10500;
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const generationConfig: Record<string, any> = {
+        temperature: typeof params.temperature === 'number' ? params.temperature : 0.85,
+        maxOutputTokens: params.maxOutputTokens || 1536
+      };
+
+      if (params.responseMimeType) {
+        generationConfig.responseMimeType = params.responseMimeType;
+      }
+
+      // Disable hidden thinking tokens on 2.5/flash models for sub-second response times
+      const mLower = modelId.toLowerCase();
+      if ((mLower.includes('2.5-flash') || mLower.includes('flash-latest')) && !mLower.includes('pro')) {
+        generationConfig.thinkingConfig = { thinkingBudget: 0 };
+      }
+
+      const payload: Record<string, any> = {
+        contents: params.contents,
+        generationConfig
+      };
+
+      if (params.systemInstruction) {
+        payload.systemInstruction = { parts: [{ text: params.systemInstruction }] };
+      }
+
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelId)}:generateContent?key=${encodeURIComponent(params.apiKey)}`;
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-goog-api-key': params.apiKey
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+      clearTimeout(timer);
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        const msg = errData?.error?.message || `HTTP ${response.status}`;
+        lastError = msg;
+        if (msg.toLowerCase().includes('api key not valid') || msg.toLowerCase().includes('api_key_invalid')) {
+          throw new Error('Invalid Gemini API Key. Please check your key in the Key modal.');
+        }
+        continue;
+      }
+
+      const data = await response.json();
+      const parts = data?.candidates?.[0]?.content?.parts || [];
+      const replyText = parts.map((p: any) => p.text || '').join('').trim();
+      if (replyText) {
+        return {
+          text: replyText,
+          modelUsed: modelId,
+          latencyMs: Math.round(performance.now() - startMs)
+        };
+      }
+    } catch (err: any) {
+      clearTimeout(timer);
+      if (err?.message?.includes('Invalid Gemini API Key')) {
+        throw err;
+      }
+      lastError = err?.name === 'AbortError' ? `Model ${modelId} timed out` : (err?.message || lastError);
+    }
+  }
+
+  throw new Error(lastError);
+}
+
 /**
  * Sends a conversational strategy message to Gemini with full awareness of
  * selected apps, related videos, persistent directives, and multi-turn history.
@@ -559,7 +715,7 @@ YOUR CORE RESPONSIBILITIES:
 4. Keep your response concise, sharp, and directly responsive to what the Admin just said. NEVER give a generic canned reply.
 
 CURRENT STUDIO CONFIGURATION:
-- Selected Model: ${config.model || 'gemini-flash-latest'}
+- Selected Model: ${config.model || 'gemini-2.5-flash'}
 - Platform Comment Style: ${config.platformStyle || 'smart_multi_platform'}
 - Reviews Per App: ${config.reviewsPerApp}
 - Star Rating Strategy: ${config.ratingMix}
@@ -575,9 +731,11 @@ ${selectedAppsBrief}
 ${videosBrief ? `\nPLATFORM VIDEOS / TUTORIALS CONTEXT:\n${videosBrief}` : ''}`;
 
   const contents = buildValidGeminiContents(chatHistory, userMessage);
-  const modelToUse = (config.model || 'gemini-flash-latest').trim();
+  const modelToUse = (config.model || 'gemini-2.5-flash').trim();
 
-  // 1. Primary: Server-side execution via /api/v1/admin/community/aistudio-gemini
+  // 1. Primary: Server-side execution via /api/v1/admin/community/aistudio-gemini with strict 11s timeout
+  const srvController = new AbortController();
+  const srvTimer = setTimeout(() => srvController.abort(), 11000);
   try {
     const srvRes = await fetch('/api/v1/admin/community/aistudio-gemini', {
       method: 'POST',
@@ -589,8 +747,10 @@ ${videosBrief ? `\nPLATFORM VIDEOS / TUTORIALS CONTEXT:\n${videosBrief}` : ''}`;
         systemInstruction,
         contents,
         temperature: 0.85
-      })
+      }),
+      signal: srvController.signal
     });
+    clearTimeout(srvTimer);
 
     const srvData = await srvRes.json().catch(() => ({}));
     if (srvRes.ok && srvData.success && srvData.text) {
@@ -601,54 +761,35 @@ ${videosBrief ? `\nPLATFORM VIDEOS / TUTORIALS CONTEXT:\n${videosBrief}` : ''}`;
       };
     }
 
-    // If server returned a specific auth/key error and we have no client key, surface it clearly
     if (!apiKey && srvData.error) {
       throw new Error(srvData.error);
     }
   } catch (srvErr: any) {
+    clearTimeout(srvTimer);
     if (!apiKey) {
       throw new Error(srvErr?.message || 'Gemini API key is not configured. Click the Key button to add your key.');
     }
   }
 
-  // 2. Fallback: Direct client-side call if apiKey is available in browser
+  // 2. Fallback: Direct low-latency client-side call if apiKey is available in browser
   if (!apiKey) {
     throw new Error('Gemini API key is required. Click the Key button at the top to configure your Google AI Studio API key.');
   }
 
-  const startMs = performance.now();
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelToUse)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-goog-api-key': apiKey
-    },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: systemInstruction }] },
-      contents,
-      generationConfig: {
-        temperature: 0.85,
-        maxOutputTokens: 1024
-      }
-    })
+  const directResult = await callClientGeminiDirect({
+    apiKey,
+    requestedModel: modelToUse,
+    systemInstruction,
+    contents,
+    temperature: 0.85,
+    maxOutputTokens: 1024,
+    timeoutMs: 10500
   });
 
-  if (!response.ok) {
-    const errData = await response.json().catch(() => ({}));
-    throw new Error(errData?.error?.message || `Gemini API Error (${response.status})`);
-  }
-
-  const data = await response.json();
-  const replyText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!replyText) {
-    throw new Error('Gemini returned an empty response. Try switching the model in Key settings.');
-  }
-
   return {
-    replyText: replyText.trim(),
-    modelUsed: modelToUse,
-    latencyMs: Math.round(performance.now() - startMs)
+    replyText: directResult.text,
+    modelUsed: directResult.modelUsed,
+    latencyMs: directResult.latencyMs
   };
 }
 
@@ -771,12 +912,14 @@ Assign these exact integer star ratings in order: ${JSON.stringify(targetRatings
 
 Return ONLY a valid JSON array of ${count} objects with keys: "userName" (string), "rating" (integer 1-5), "reviewText" (string).`;
 
-  const modelToUse = (config.model || 'gemini-flash-latest').trim();
+  const modelToUse = (config.model || 'gemini-2.5-flash').trim();
 
   try {
     let rawJsonText = '';
 
-    // 1. Primary: Server-side Gemini execution with structured schema & retry
+    // 1. Primary: Server-side Gemini execution with strict 11.5s timeout
+    const srvController = new AbortController();
+    const srvTimer = setTimeout(() => srvController.abort(), 11500);
     try {
       const srvRes = await fetch('/api/v1/admin/community/aistudio-gemini', {
         method: 'POST',
@@ -790,8 +933,10 @@ Return ONLY a valid JSON array of ${count} objects with keys: "userName" (string
           temperature: 0.92,
           responseMimeType: 'application/json',
           useReviewSchema: true
-        })
+        }),
+        signal: srvController.signal
       });
+      clearTimeout(srvTimer);
 
       const srvData = await srvRes.json().catch(() => ({}));
       if (srvRes.ok && srvData.success && srvData.text) {
@@ -800,37 +945,25 @@ Return ONLY a valid JSON array of ${count} objects with keys: "userName" (string
         throw new Error(srvData.error);
       }
     } catch (srvErr: any) {
+      clearTimeout(srvTimer);
       if (!apiKey) {
         throw srvErr;
       }
     }
 
-    // 2. Fallback: Direct client-side call if server proxy didn't return text and browser has apiKey
+    // 2. Fallback: Direct low-latency client-side call if server proxy didn't return text and browser has apiKey
     if (!rawJsonText && apiKey) {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelToUse)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-goog-api-key': apiKey
-        },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: systemInstruction }] },
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.92,
-            responseMimeType: 'application/json'
-          }
-        })
+      const directResult = await callClientGeminiDirect({
+        apiKey,
+        requestedModel: modelToUse,
+        systemInstruction,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        temperature: 0.92,
+        maxOutputTokens: 2048,
+        responseMimeType: 'application/json',
+        timeoutMs: 11000
       });
-
-      if (res.ok) {
-        const data = await res.json();
-        rawJsonText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      } else {
-        const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson?.error?.message || `Gemini HTTP ${res.status}`);
-      }
+      rawJsonText = directResult.text;
     }
 
     if (!rawJsonText) {

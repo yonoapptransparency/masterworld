@@ -7,6 +7,7 @@ import { fetchStoreData, clearSeoCache } from '../../seoHelper';
 import { compileCanonicalApp, compileCanonicalNews, generateStaticDataFileCode, sanitizePublicSettings, generateSecureVaultFile } from '../../lib/githubSync';
 import { generateAllSitemaps } from '../../lib/sitemapGenerator';
 import { cleanSettingsMetaTitles } from '../../lib/seoUtils';
+import { syncServerAiStudioBrainFromSettings } from './communityRoutes';
 
 export const adminVaultRouter = Router();
 
@@ -82,6 +83,10 @@ function writeMergedData(data: any) {
     ...(data.settings || {}),
     last_updated: data.settings?.last_updated || '2026-09-01T00:00:00.000Z'
   });
+
+  try {
+    syncServerAiStudioBrainFromSettings(updatedSettings);
+  } catch (_) {}
 
   const serverBackupPayload = {
     apps: Array.isArray(data.apps) ? data.apps.map((app: any) => compileCanonicalApp(app, { stripDownloadLinks: false })) : [],
