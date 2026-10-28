@@ -1,38 +1,31 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { 
-  Send, 
-  Sparkles, 
-  BrainCircuit, 
-  Plus, 
-  Trash2, 
-  ChevronDown, 
-  ChevronUp, 
-  RotateCcw,
-  Bot,
+import {
+  Send,
+  Sparkles,
+  BrainCircuit,
+  Plus,
+  Trash2,
+  ChevronUp,
   User,
-  Sliders,
   Calendar,
   Star,
   Smile,
   CheckCircle,
-  Clock,
   Layers,
-  ArrowRight,
   Square,
-  OctagonAlert,
-  Settings2,
-  ExternalLink,
-  ThumbsUp
+  ShoppingBag,
+  Edit3,
+  X
 } from 'lucide-react';
-import { 
-  ChatMessage, 
-  BrainMemoryDirective, 
-  StudioConfig, 
-  DateDistributionMode, 
-  RatingMixMode, 
-  LanguageToneMode, 
-  PublishMode,
-  LikesRateMode 
+import {
+  ChatMessage,
+  BrainMemoryDirective,
+  StudioConfig,
+  DateDistributionMode,
+  RatingMixMode,
+  LanguageToneMode,
+  PlatformCommentStyle,
+  PublishMode
 } from './types';
 
 interface ChatWorkspaceProps {
@@ -51,6 +44,7 @@ interface ChatWorkspaceProps {
   onTriggerGeneration: (customInstruction?: string) => Promise<void>;
   onStopGeneration?: () => void;
   onOpenAppSelector?: () => void;
+  onOpenStagedDeck?: () => void;
   isGenerating: boolean;
   isSendingChat: boolean;
   batchProgress: { current: number; total: number; percent: number; currentAppName?: string };
@@ -69,7 +63,6 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   chatHistory,
   directives,
   selectedAppIds,
-  appsCount,
   config,
   websiteLogoUrl,
   siteTitle = 'RummyDex',
@@ -77,13 +70,12 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   onSendMessage,
   onAddDirective,
   onRemoveDirective,
-  onClearChat,
   onTriggerGeneration,
   onStopGeneration,
   onOpenAppSelector,
+  onOpenStagedDeck,
   isGenerating,
   isSendingChat,
-  batchProgress,
   showDirectives: externalShowDirectives,
   setShowDirectives: externalSetShowDirectives,
   showControlsDrawer: externalShowControlsDrawer,
@@ -94,6 +86,8 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   const [internalShowDirectives, setInternalShowDirectives] = useState(false);
   const [internalShowControlsDrawer, setInternalShowControlsDrawer] = useState(false);
   const [newRuleInput, setNewRuleInput] = useState('');
+  const [isEditingFocus, setIsEditingFocus] = useState(false);
+  const [focusDraft, setFocusDraft] = useState(config.activeSessionDirective || '');
   const chatScrollRef = useRef<HTMLDivElement>(null);
 
   const showDirectives = externalShowDirectives !== undefined ? externalShowDirectives : internalShowDirectives;
@@ -102,7 +96,10 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
   const showControlsDrawer = externalShowControlsDrawer !== undefined ? externalShowControlsDrawer : internalShowControlsDrawer;
   const setShowControlsDrawer = externalSetShowControlsDrawer || setInternalShowControlsDrawer;
 
-  // Auto scroll to bottom of chat
+  useEffect(() => {
+    setFocusDraft(config.activeSessionDirective || '');
+  }, [config.activeSessionDirective]);
+
   useEffect(() => {
     if (chatScrollRef.current) {
       chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
@@ -115,13 +112,12 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     const msg = inputText.trim();
     setInputText('');
 
-    // Check if user is issuing a stop command in chat
     const lower = msg.toLowerCase();
-    const isStopCommand = 
-      lower.includes('stop generating') || 
-      lower.includes('stop the working') || 
-      lower.includes('stop ai') || 
-      lower === 'stop' || 
+    const isStopCommand =
+      lower.includes('stop generating') ||
+      lower.includes('stop the working') ||
+      lower.includes('stop ai') ||
+      lower === 'stop' ||
       lower === 'cancel';
 
     if (isStopCommand && isGenerating && onStopGeneration) {
@@ -130,10 +126,9 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
       return;
     }
 
-    // Check if user is issuing a direct command to start generating
-    const isStartCommand = 
-      lower.startsWith('start generating') || 
-      lower.startsWith('generate now') || 
+    const isStartCommand =
+      lower.startsWith('start generating') ||
+      lower.startsWith('generate now') ||
       lower.startsWith('start now') ||
       lower === 'start' ||
       lower.includes('start generating reviews') ||
@@ -144,7 +139,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     if (isStartCommand && !isGenerating && selectedAppIds.length > 0) {
       setTimeout(() => {
         onTriggerGeneration(msg);
-      }, 600);
+      }, 400);
     }
   };
 
@@ -155,19 +150,44 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
     setNewRuleInput('');
   };
 
+  const handleSaveFocus = (e: React.FormEvent) => {
+    e.preventDefault();
+    onChangeConfig({ activeSessionDirective: focusDraft.trim() });
+    setIsEditingFocus(false);
+  };
+
   const QUICK_PROMPTS = [
-    { label: '⚡ Match Catalog Stars', text: 'Generate reviews strictly matching each app’s official catalog rating score.' },
-    { label: '👍 1-2 Subtle Likes', text: 'Give a lower rate of likes on comments, sometime two, sometime one like that.' },
-    { label: '🎲 1-5 Star Organic Mix', text: 'Today mix ratings across 1 to 5 stars naturally, with praise, suggestions, and minor complaints.' },
-    { label: '😊 Happy with Emojis', text: 'Today make reviews that all our customers are happy and write with natural emojis.' },
-    { label: '🎯 Core Features & UI', text: 'Today let\'s generate reviews based on the core features and UI present on our website for each app.' },
-    { label: '📱 Normal Everyday Users', text: 'Generate standard, normal everyday people reviews. Very balanced and natural for all categories.' },
-    { label: '⏱️ Past 2 Days (No Future)', text: 'Distribute reviews across the past 2 days up to today without any future timestamps.' },
-    { label: '🚀 Start Generating', text: 'Start generating reviews now for all selected apps.' }
+    {
+      label: '🛒 Amazon / Flipkart Value Style',
+      text: 'Write comments like real Amazon & Flipkart buyers focusing on what each app actually provides, value for time, expectations vs reality, and genuine trust.'
+    },
+    {
+      label: '▶️ Play Store Authentic',
+      text: 'Write authentic Google Play Store style reviews mentioning daily usage, specific modes/features from the app details, onboarding ease, and recent updates.'
+    },
+    {
+      label: '🎬 Video & Walkthrough Angle',
+      text: 'Include natural comments from users who watched the gameplay video/tutorial first and then tried the app’s modes and features themselves.'
+    },
+    {
+      label: '🌐 Smart Multi-Platform Mix',
+      text: 'Use a smart multi-platform mix (Play Store + Amazon/Flipkart value + Video/Social + Player Community) so every comment talks about a different real-world angle.'
+    },
+    {
+      label: '🇮🇳 Natural Hinglish Mix',
+      text: 'Write in casual, natural Indian Hinglish mixed with English, talking about what the app provides without repeating the same phrases.'
+    },
+    {
+      label: '⚡ Match Catalog Stars',
+      text: 'Generate reviews strictly matching each app’s official catalog rating score.'
+    },
+    {
+      label: '🚀 Start Generating Now',
+      text: 'Start generating reviews now for all selected apps.'
+    }
   ];
 
-  const totalReviewsToProduce = selectedAppIds.length * config.reviewsPerApp;
-  const logoSrc = websiteLogoUrl || "https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png";
+  const logoSrc = websiteLogoUrl || 'https://res.cloudinary.com/diewalae4/image/upload/v1786624142/1000134293_sbicyb.png';
 
   return (
     <div className="bg-white dark:bg-slate-900 flex flex-col h-full w-full overflow-hidden">
@@ -206,7 +226,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
               type="text"
               value={newRuleInput}
               onChange={e => setNewRuleInput(e.target.value)}
-              placeholder="Add instruction (e.g., mention smooth fast UI, write in casual friendly tone)..."
+              placeholder="Add permanent rule (e.g., focus on what the app provides, avoid repetitive technical clichés)..."
               className="flex-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-hidden focus:border-emerald-500 font-medium"
             />
             <button
@@ -214,7 +234,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
               className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1 cursor-pointer shadow-xs active:scale-95 transition"
             >
               <Plus className="w-3 h-3" />
-              <span>Save Directive</span>
+              <span>Save Rule</span>
             </button>
           </form>
         </div>
@@ -222,8 +242,27 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
 
       {/* Expandable Automation Controls Drawer */}
       {showControlsDrawer && (
-        <div className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 p-3 sm:p-4 text-xs grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 shadow-inner flex-shrink-0 animate-in fade-in duration-150">
-          {/* 1. Reviews per app (Supports custom numeric input & quick presets) */}
+        <div className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 p-3 sm:p-4 text-xs grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 shadow-inner flex-shrink-0 animate-in fade-in duration-150">
+          {/* 1. Platform Comment Psychology */}
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+              <ShoppingBag className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+              <span>Platform Comment Style</span>
+            </label>
+            <select
+              value={config.platformStyle || 'smart_multi_platform'}
+              onChange={e => onChangeConfig({ platformStyle: e.target.value as PlatformCommentStyle })}
+              className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-emerald-500 font-bold"
+            >
+              <option value="smart_multi_platform">🌐 Smart Multi-Platform Mix (Best)</option>
+              <option value="amazon_flipkart_value">🛒 Amazon / Flipkart ("What It Provides")</option>
+              <option value="play_store_authentic">▶️ Google Play Store Authentic</option>
+              <option value="youtube_video_social">🎬 YouTube / Video & Walkthrough</option>
+              <option value="community_player_forum">💬 Player Community & Word-of-Mouth</option>
+            </select>
+          </div>
+
+          {/* 2. Reviews per app */}
           <div className="space-y-1.5">
             <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
               <span className="flex items-center gap-1">
@@ -244,8 +283,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
                   const val = Math.max(1, Math.min(500, parseInt(e.target.value, 10) || 1));
                   onChangeConfig({ reviewsPerApp: val });
                 }}
-                className="w-20 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-blue-500 font-bold text-center"
-                title="Type any custom number of reviews per selected app"
+                className="w-16 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-hidden focus:border-blue-500 font-bold text-center"
               />
               <select
                 value={[1, 2, 3, 5, 10, 20, 50].includes(config.reviewsPerApp) ? config.reviewsPerApp : 'custom'}
@@ -268,7 +306,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
             </div>
           </div>
 
-          {/* 2. Rating Strategy & Star Distribution */}
+          {/* 3. Rating Strategy */}
           <div className="space-y-1.5">
             <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
               <Star className="w-3 h-3 text-amber-500 fill-current" />
@@ -292,11 +330,11 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
             </select>
           </div>
 
-          {/* 3. Tone & Persona */}
+          {/* 4. Tone & Persona */}
           <div className="space-y-1.5">
             <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
               <Smile className="w-3 h-3 text-amber-500 dark:text-amber-400" />
-              <span>Tone & Style</span>
+              <span>Voice & Language</span>
             </label>
             <select
               value={config.languageTone}
@@ -311,13 +349,13 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
               <option value="short_punchy">Short & Punchy (1-2 lines)</option>
               <option value="detailed_feedback">Detailed Experience (2-3 lines)</option>
               <option value="honest_balanced">Honest & Balanced Praise</option>
-              <option value="feature_focused">Feature & UI Smoothness</option>
+              <option value="feature_focused">Features & What App Provides</option>
               <option value="beginner_friendly">Beginner / First-Time User</option>
               <option value="daily_regular_user">Loyal Regular User</option>
             </select>
           </div>
 
-          {/* 4. Date Distribution */}
+          {/* 5. Date Distribution */}
           <div className="space-y-1.5">
             <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
               <Calendar className="w-3 h-3 text-cyan-600 dark:text-cyan-400" />
@@ -342,7 +380,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
             </select>
           </div>
 
-          {/* 5. Publish Target */}
+          {/* 6. Publish Target */}
           <div className="space-y-1.5">
             <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
               <CheckCircle className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
@@ -360,69 +398,113 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
         </div>
       )}
 
-      {/* Active Session Status Bar */}
-      <div className="bg-slate-100/80 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800 px-3 py-1.5 text-[11px] flex items-center justify-between gap-2 flex-shrink-0">
-        <div className="flex items-center gap-2 overflow-hidden text-slate-600 dark:text-slate-400">
+      {/* Active Session Status & Editable Focus Bar */}
+      <div className="bg-slate-100/90 dark:bg-slate-900/95 border-b border-slate-200 dark:border-slate-800 px-2.5 sm:px-3.5 py-1.5 text-[11px] flex items-center justify-between gap-2 flex-shrink-0 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-1 min-w-[200px] overflow-hidden">
           <span className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 flex-shrink-0">
             <Sparkles className="w-3 h-3" />
-            <span>Active Focus:</span>
+            <span>Active Instruction:</span>
           </span>
-          <span className="truncate text-slate-800 dark:text-slate-200 font-medium">
-            "{config.activeSessionDirective || 'All-rounder natural user reviews based on real app data'}"
-          </span>
-        </div>
 
-        <div className="flex items-center gap-2 flex-shrink-0 text-[10px]">
-          {aiStatus && (
-            <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[10px] font-bold ${
-              aiStatus.status === 'connected'
-                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
-                : aiStatus.status === 'testing'
-                ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30 animate-pulse'
-                : 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/30'
-            }`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${
-                aiStatus.status === 'connected' ? 'bg-emerald-500 animate-pulse' : aiStatus.status === 'testing' ? 'bg-amber-500' : 'bg-rose-500'
-              }`} />
-              <span>
-                {aiStatus.status === 'connected'
-                  ? `AI Connected (${aiStatus.model.replace('gemini-', '').replace('-latest', '')})`
-                  : aiStatus.status === 'testing'
-                  ? 'Testing...'
-                  : 'AI Disconnected'}
+          {isEditingFocus ? (
+            <form onSubmit={handleSaveFocus} className="flex items-center gap-1.5 flex-1">
+              <input
+                type="text"
+                value={focusDraft}
+                onChange={e => setFocusDraft(e.target.value)}
+                placeholder="Type exact instruction for review generation..."
+                className="flex-1 bg-white dark:bg-slate-950 border border-emerald-500 rounded px-2 py-0.5 text-[11px] text-slate-900 dark:text-white focus:outline-none"
+                autoFocus
+              />
+              <button
+                type="submit"
+                className="px-2 py-0.5 rounded bg-emerald-600 text-white font-bold text-[10px] cursor-pointer"
+              >
+                Lock In
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsEditingFocus(false)}
+                className="p-0.5 text-slate-400 hover:text-slate-200"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </form>
+          ) : (
+            <div className="flex items-center gap-1.5 overflow-hidden">
+              <span
+                onClick={() => setIsEditingFocus(true)}
+                className="truncate text-slate-800 dark:text-slate-200 font-medium cursor-pointer hover:underline"
+                title="Click to edit active session instruction"
+              >
+                "{config.activeSessionDirective || 'Multi-platform human reviews grounded in what each app provides, features, FAQs & videos'}"
               </span>
+              <button
+                type="button"
+                onClick={() => setIsEditingFocus(true)}
+                className="text-slate-400 hover:text-emerald-500 p-0.5 flex-shrink-0 cursor-pointer"
+                title="Edit Active Instruction"
+              >
+                <Edit3 className="w-3 h-3" />
+              </button>
+              {config.activeSessionDirective && (
+                <button
+                  type="button"
+                  onClick={() => onChangeConfig({ activeSessionDirective: '' })}
+                  className="text-slate-400 hover:text-rose-500 p-0.5 flex-shrink-0 cursor-pointer"
+                  title="Reset Active Instruction"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
             </div>
           )}
+        </div>
+
+        <div className="flex items-center gap-1.5 flex-shrink-0 text-[10px] flex-wrap">
+          <span className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 dark:text-emerald-300 font-bold">
+            {config.platformStyle === 'amazon_flipkart_value'
+              ? '🛒 Amazon/Flipkart Value'
+              : config.platformStyle === 'play_store_authentic'
+              ? '▶️ Play Store Style'
+              : config.platformStyle === 'youtube_video_social'
+              ? '🎬 Video/Social Style'
+              : config.platformStyle === 'community_player_forum'
+              ? '💬 Community Forum'
+              : '🌐 Multi-Platform Mix'}
+          </span>
           <span className="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-bold">
             {config.ratingMix === 'auto_app_rating' ? '⚡ Auto App Rating' : config.ratingMix.replace(/_/g, ' ')}
           </span>
           <span className="px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 font-semibold">
-            {config.reviewsPerApp} reviews / app
+            {config.reviewsPerApp} / app
           </span>
         </div>
       </div>
 
-      {/* Main Conversation Stream - Fills 100% of the Available Viewport */}
-      <div 
+      {/* Main Conversation Stream */}
+      <div
         ref={chatScrollRef}
         className="flex-1 min-h-0 p-3 sm:p-4 md:p-5 overflow-y-auto space-y-3 sm:space-y-4 bg-slate-50/70 dark:bg-slate-950/80"
       >
         {chatHistory.length === 0 ? (
-          <div className="h-full min-h-[300px] flex flex-col items-center justify-center text-center p-6 space-y-3.5">
-            <div className="w-16 h-16 rounded-2xl overflow-hidden bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 flex items-center justify-center shadow-lg p-2">
-              <img 
-                src={logoSrc} 
-                alt={siteTitle} 
-                className="w-full h-full object-contain" 
-                onError={e => { (e.target as HTMLElement).style.display = 'none'; }}
+          <div className="h-full min-h-[260px] flex flex-col items-center justify-center text-center p-4 sm:p-6 space-y-3.5">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 flex items-center justify-center shadow-lg p-2">
+              <img
+                src={logoSrc}
+                alt={siteTitle}
+                className="w-full h-full object-contain"
+                onError={e => {
+                  (e.target as HTMLElement).style.display = 'none';
+                }}
               />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">{siteTitle} Review Assistant</h3>
+              <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                {siteTitle} Multi-Platform Review Brain
+              </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mt-1.5 leading-relaxed">
-                Chat to define today’s review angle, tone, emojis, or core features. 
-                When ready, say <span className="text-emerald-600 dark:text-emerald-400 font-bold">"Start generating"</span> or click Generate. 
-                I will inspect each app's real website content and write authentic human comments.
+                Tell me how you want comments crafted today (Play Store, Amazon/Flipkart value & what the app provides, YouTube video walkthrough reactions, or Hinglish). I retain our entire conversation when generating!
               </p>
             </div>
 
@@ -430,7 +512,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
               <button
                 type="button"
                 onClick={onOpenAppSelector}
-                className="mt-2 px-4 py-2 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-emerald-700 dark:text-emerald-300 font-bold text-xs flex items-center gap-2 border border-slate-200 dark:border-slate-700 transition cursor-pointer shadow-xs active:scale-95"
+                className="mt-1 px-4 py-2 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-emerald-700 dark:text-emerald-300 font-bold text-xs flex items-center gap-2 border border-slate-200 dark:border-slate-700 transition cursor-pointer shadow-xs active:scale-95"
               >
                 <Layers className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 <span>Target Apps ({selectedAppIds.length} Selected)</span>
@@ -441,16 +523,16 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
           chatHistory.map(msg => (
             <div
               key={msg.id}
-              className={`flex gap-3 text-xs leading-relaxed ${
+              className={`flex gap-2.5 sm:gap-3 text-xs leading-relaxed ${
                 msg.sender === 'user' ? 'justify-end' : 'justify-start'
               }`}
             >
               {msg.sender === 'assistant' && (
-                <div className="w-8 h-8 rounded-xl overflow-hidden bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-xs p-1">
-                  <img 
-                    src={logoSrc} 
-                    alt={siteTitle} 
-                    className="w-full h-full object-contain" 
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl overflow-hidden bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-xs p-1">
+                  <img
+                    src={logoSrc}
+                    alt={siteTitle}
+                    className="w-full h-full object-contain"
                     onError={e => {
                       (e.target as HTMLElement).style.display = 'none';
                     }}
@@ -458,19 +540,57 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
                 </div>
               )}
               <div
-                className={`max-w-[85%] rounded-2xl p-3.5 shadow-xs ${
+                className={`max-w-[88%] sm:max-w-[82%] rounded-2xl p-3 sm:p-3.5 shadow-xs ${
                   msg.sender === 'user'
                     ? 'bg-blue-600 text-white rounded-br-xs'
                     : 'bg-white dark:bg-slate-800/95 border border-slate-200 dark:border-slate-700/80 text-slate-800 dark:text-slate-100 rounded-bl-xs'
                 }`}
               >
-                <div className="whitespace-pre-wrap leading-relaxed">{msg.text}</div>
-                <div className="text-[10px] text-right mt-1.5 opacity-60">
-                  {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                <div className="whitespace-pre-wrap leading-relaxed break-words">{msg.text}</div>
+
+                {/* Live Inline Preview of Generated Reviews */}
+                {msg.previewReviews && msg.previewReviews.length > 0 && (
+                  <div className="mt-2.5 pt-2.5 border-t border-slate-200 dark:border-slate-700/80 space-y-2">
+                    <div className="flex items-center justify-between text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                      <span>Sample Generated Reviews ({msg.previewReviews.length}):</span>
+                      {onOpenStagedDeck && (
+                        <button
+                          type="button"
+                          onClick={onOpenStagedDeck}
+                          className="underline hover:text-emerald-300 cursor-pointer"
+                        >
+                          Open Staged Deck →
+                        </button>
+                      )}
+                    </div>
+                    {msg.previewReviews.map((rev, rIdx) => (
+                      <div
+                        key={rIdx}
+                        className="p-2 rounded-lg bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-700/60 text-[11px]"
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-bold text-slate-900 dark:text-slate-100">{rev.userName}</span>
+                          <span className="text-amber-500 font-bold">{'★'.repeat(rev.rating)}{'☆'.repeat(Math.max(0, 5 - rev.rating))}</span>
+                        </div>
+                        <p className="text-slate-700 dark:text-slate-300 leading-snug">{rev.reviewText}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-2 text-[10px] mt-1.5 opacity-65">
+                  {msg.modelUsed && (
+                    <span className="font-mono px-1.5 py-0.2 rounded bg-black/10 dark:bg-white/10">
+                      {msg.modelUsed}
+                    </span>
+                  )}
+                  <span>
+                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
                 </div>
               </div>
               {msg.sender === 'user' && (
-                <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center flex-shrink-0 mt-0.5 font-bold text-xs shadow-xs">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center flex-shrink-0 mt-0.5 font-bold text-xs shadow-xs">
                   <User className="w-4 h-4" />
                 </div>
               )}
@@ -485,16 +605,16 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
             </div>
             <div className="bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-3 text-slate-500 dark:text-slate-400 rounded-bl-xs flex items-center gap-2 shadow-xs">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-              <span>Understanding your directive...</span>
+              <span>Thinking with {aiStatus?.model || config.model || 'Gemini'}...</span>
             </div>
           </div>
         )}
       </div>
 
       {/* Quick Suggestion Pills */}
-      <div className="px-3 py-2 border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-950/80 flex items-center gap-1.5 overflow-x-auto no-scrollbar flex-shrink-0">
+      <div className="px-2.5 sm:px-3 py-1.5 border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-950/80 flex items-center gap-1.5 overflow-x-auto no-scrollbar flex-shrink-0">
         <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider flex-shrink-0 mr-1">
-          Quick Prompts:
+          Presets:
         </span>
         {QUICK_PROMPTS.map((qp, idx) => (
           <button
@@ -509,22 +629,22 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
       </div>
 
       {/* Input Message Form & Execution Bar */}
-      <div className="p-2.5 sm:p-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex-shrink-0">
+      <div className="p-2 sm:p-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex-shrink-0">
         <form onSubmit={handleSend} className="flex items-center gap-2">
           <input
             type="text"
             value={inputText}
             onChange={e => setInputText(e.target.value)}
             disabled={isSendingChat}
-            placeholder="Discuss review strategy or type 'Start generating'..."
-            className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-hidden focus:border-blue-500 transition-all font-medium"
+            placeholder="Tell AI how to build reviews (e.g. 'Write like Flipkart/Amazon buyers about what the app provides')..."
+            className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 sm:px-3.5 py-2 sm:py-2.5 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-hidden focus:border-blue-500 transition-all font-medium"
           />
 
           {isGenerating ? (
             <button
               type="button"
               onClick={onStopGeneration}
-              className="px-3.5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs sm:text-sm font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 flex-shrink-0"
+              className="px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs sm:text-sm font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 flex-shrink-0"
             >
               <Square className="w-4 h-4 fill-current" />
               <span>Stop</span>
@@ -533,7 +653,7 @@ export const ChatWorkspace: React.FC<ChatWorkspaceProps> = ({
             <button
               type="submit"
               disabled={!inputText.trim() || isSendingChat}
-              className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white text-xs sm:text-sm font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 flex-shrink-0"
+              className="px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white text-xs sm:text-sm font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 flex-shrink-0"
             >
               <Send className="w-4 h-4" />
               <span className="hidden sm:inline">Send</span>

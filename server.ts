@@ -33,7 +33,7 @@ async function startServer() {
         imgSrc: ["'self'", "data:", "blob:", "https://res.cloudinary.com", "https://i.ytimg.com", "https://img.youtube.com", "https://*.googleusercontent.com", "https://challenges.cloudflare.com"],
         mediaSrc: ["'self'", "blob:", "https://res.cloudinary.com"],
         frameSrc: ["'self'", "https://challenges.cloudflare.com", "https://www.youtube-nocookie.com", "https://www.youtube.com"],
-        connectSrc: ["'self'", "https://api.github.com", "https://res.cloudinary.com", "https://api.cloudinary.com", "https://challenges.cloudflare.com", "https://firestore.googleapis.com", "https://*.firebaseio.com", "https://identitytoolkit.googleapis.com", "https://cloudflareinsights.com"],
+        connectSrc: ["'self'", "https://generativelanguage.googleapis.com", "https://api.github.com", "https://res.cloudinary.com", "https://api.cloudinary.com", "https://challenges.cloudflare.com", "https://firestore.googleapis.com", "https://*.firebaseio.com", "https://identitytoolkit.googleapis.com", "https://cloudflareinsights.com"],
         objectSrc: ["'none'"],
         baseUri: ["'self'"],
         frameAncestors: ["'self'", "https://aistudio.google.com", "https://*.google.com", "https://*.run.app"]
@@ -205,15 +205,19 @@ async function startServer() {
       const acceptEncoding = (req.headers['accept-encoding'] as string || '').toLowerCase();
       const farFuture = new Date(Date.now() + 31536000000).toUTCString();
 
-      const ext = path.extname(assetFile).toLowerCase();
+      const ext = path.extname(assetFile.split('?')[0]).toLowerCase();
       let mimeType = 'application/octet-stream';
-      if (ext === '.js') mimeType = 'application/javascript; charset=utf-8';
+      if (ext === '.js' || ext === '.mjs') mimeType = 'application/javascript; charset=utf-8';
       else if (ext === '.css') mimeType = 'text/css; charset=utf-8';
       else if (ext === '.json') mimeType = 'application/json; charset=utf-8';
+      else if (ext === '.webmanifest') mimeType = 'application/manifest+json; charset=utf-8';
       else if (ext === '.svg') mimeType = 'image/svg+xml';
       else if (ext === '.png') mimeType = 'image/png';
       else if (ext === '.webp') mimeType = 'image/webp';
       else if (ext === '.ico') mimeType = 'image/x-icon';
+      else if (ext === '.woff2') mimeType = 'font/woff2';
+      else if (ext === '.woff') mimeType = 'font/woff';
+      else if (ext === '.ttf') mimeType = 'font/ttf';
 
       if (acceptEncoding.includes('br') && fs.existsSync(`${filePath}.br`)) {
         res.set({

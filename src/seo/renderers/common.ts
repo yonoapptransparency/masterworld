@@ -35,17 +35,19 @@ export function sanitizeHtml(html: string): string {
 
 export function renderHeader(settings: any): string {
   const siteTitle = getField(settings, 'site_title') || 'RummyDex';
+  const isDefaultBrand = siteTitle.toLowerCase() === 'rummydex';
+  const brandAttr = isDefaultBrand ? 'class="rd-brand-full text-xs xxs:text-sm xs:text-base sm:text-xl md:text-2xl font-bold tracking-tight text-zinc-900 dark:text-white truncate max-w-[90px] xxs:max-w-[120px] xs:max-w-[170px] sm:max-w-none"' : `data-brand-text="${escapeHtml(siteTitle)}" class="text-xs xxs:text-sm xs:text-base sm:text-xl md:text-2xl font-bold tracking-tight text-zinc-900 dark:text-white truncate max-w-[90px] xxs:max-w-[120px] xs:max-w-[170px] sm:max-w-none"`;
   const logoUrl = getField(settings, 'logo_url');
   const optimizedLogo = logoUrl ? optimizeImageUrl(logoUrl, 120) : '';
   return `
-    <header class="sticky top-0 z-50 transition-transform duration-200 ease-out will-change-transform translate-y-0 pointer-events-auto bg-white dark:bg-black sm:bg-white/80 sm:dark:bg-black/80 border-b border-white/20 dark:border-white/10 py-2.5 sm:py-3">
+    <header data-nosnippet class="sticky top-0 z-50 transition-transform duration-200 ease-out will-change-transform translate-y-0 pointer-events-auto bg-white dark:bg-black sm:bg-white/80 sm:dark:bg-black/80 border-b border-white/20 dark:border-white/10 py-2.5 sm:py-3">
       <div class="w-full max-w-7xl px-1.5 xxs:px-2.5 xs:px-4 sm:px-6 lg:px-8 mx-auto relative flex justify-between items-center">
-        <a href="/" class="flex items-center gap-1 xxs:gap-1.5 xs:gap-2.5 sm:gap-3 group min-w-0" aria-label="${escapeHtml(siteTitle)} Home">
+        <a href="/" class="flex items-center gap-1 xxs:gap-1.5 xs:gap-2.5 sm:gap-3 group min-w-0" aria-label="Home">
           <div class="p-0 transition-transform group-hover:scale-[1.03] duration-300 shrink-0">
-            ${logoUrl ? `<img src="${escapeHtml(optimizedLogo)}" decoding="async" width="40" height="40" class="w-6 h-6 xxs:w-7 xxs:h-7 xs:w-8 xs:h-8 sm:w-11 sm:h-11 object-contain drop-shadow-sm" alt="${escapeHtml(siteTitle)} Official Logo"/>` : `<div class="w-6 h-6 xxs:w-7 xxs:h-7 xs:w-8 xs:h-8 sm:w-11 sm:h-11 bg-blue-500 rounded-xl flex items-center justify-center text-white font-semibold text-xs sm:text-base">${escapeHtml(siteTitle.charAt(0))}</div>`}
+            ${logoUrl ? `<img src="${escapeHtml(optimizedLogo)}" decoding="async" fetchpriority="low" loading="lazy" width="40" height="40" class="w-6 h-6 xxs:w-7 xxs:h-7 xs:w-8 xs:h-8 sm:w-11 sm:h-11 object-contain drop-shadow-sm" alt="" aria-hidden="true" role="presentation"/>` : `<div class="w-6 h-6 xxs:w-7 xxs:h-7 xs:w-8 xs:h-8 sm:w-11 sm:h-11 bg-blue-500 rounded-xl flex items-center justify-center text-white font-semibold text-xs sm:text-base" aria-hidden="true">${escapeHtml(siteTitle.charAt(0))}</div>`}
           </div>
           <div class="flex flex-col leading-none min-w-0">
-            <span class="text-xs xxs:text-sm xs:text-base sm:text-xl md:text-2xl font-bold tracking-tight text-zinc-900 dark:text-white truncate max-w-[90px] xxs:max-w-[120px] xs:max-w-[170px] sm:max-w-none">${escapeHtml(siteTitle)}</span>
+            <span ${brandAttr} aria-hidden="true"></span>
           </div>
         </a>
         <div class="hidden md:flex items-center gap-2 lg:gap-4 flex-1 max-w-2xl mx-4 lg:mx-8 justify-end">
@@ -81,6 +83,10 @@ export function renderHeader(settings: any): string {
 
 export function renderFooter(settings: any): string {
   const siteTitle = getField(settings, 'site_title') || 'RummyDex';
+  const isDefaultBrand = siteTitle.toLowerCase() === 'rummydex';
+  const p1Attr = isDefaultBrand ? 'class="rd-brand-p1"' : `data-brand-text="${escapeHtml(siteTitle.replace(/dex$/i, ''))}"`;
+  const p2Attr = isDefaultBrand ? 'class="rd-brand-p2 text-blue-600 dark:text-blue-400"' : `class="text-blue-600 dark:text-blue-400" data-brand-text="${siteTitle.match(/dex$/i) ? 'Dex' : ''}"`;
+  const copyBrandAttr = isDefaultBrand ? 'class="rd-brand-full font-semibold text-zinc-700 dark:text-zinc-300"' : `class="font-semibold text-zinc-700 dark:text-zinc-300" data-brand-text="${escapeHtml(siteTitle)}"`;
   const socialLinks = settings?.social_links || {};
   const fb = socialLinks.facebook || 'https://facebook.com';
   const ig = socialLinks.instagram || 'https://instagram.com';
@@ -90,14 +96,14 @@ export function renderFooter(settings: any): string {
   const tg = socialLinks.telegram || '';
 
   return `
-    <footer class="w-full mt-8 sm:mt-12 bg-zinc-100 dark:bg-[#060913] text-zinc-600 dark:text-zinc-400 border-t border-zinc-200 dark:border-white/[0.08] transition-colors select-none" aria-label="Site Footer">
+    <footer data-nosnippet class="w-full mt-8 sm:mt-12 bg-zinc-100 dark:bg-[#060913] text-zinc-600 dark:text-zinc-400 border-t border-zinc-200 dark:border-white/[0.08] transition-colors select-none" aria-label="Site Footer">
       <div class="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 pb-5 border-b border-zinc-200/80 dark:border-white/[0.08] mb-5 sm:mb-6">
           <div class="flex items-center gap-2.5 flex-wrap">
-            <a href="/" class="text-lg sm:text-xl font-black tracking-tight text-zinc-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors inline-flex items-center gap-1" aria-label="${escapeHtml(siteTitle)} Homepage">
-              <span>${escapeHtml(siteTitle.replace(/dex$/i, ''))}</span>
-              <span class="text-blue-600 dark:text-blue-400">${siteTitle.match(/dex$/i) ? 'Dex' : ''}</span>
+            <a href="/" class="text-lg sm:text-xl font-black tracking-tight text-zinc-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors inline-flex items-center gap-1" aria-label="Homepage">
+              <span ${p1Attr} aria-hidden="true"></span>
+              <span ${p2Attr} aria-hidden="true"></span>
             </a>
             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 text-blue-700 dark:text-blue-400 text-[10px] font-bold tracking-wider uppercase">
               <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
@@ -172,7 +178,7 @@ export function renderFooter(settings: any): string {
           </div>
 
           <p class="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-500 text-center sm:text-right">
-            &copy; ${new Date().getFullYear()} <span class="font-semibold text-zinc-700 dark:text-zinc-300">${escapeHtml(siteTitle)}</span>. All rights reserved.
+            &copy; ${new Date().getFullYear()} <span ${copyBrandAttr} aria-hidden="true"></span>. All rights reserved.
           </p>
         </div>
 

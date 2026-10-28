@@ -621,11 +621,15 @@ function getSimilarAppsForApp(targetApp: any, baseApps: any[]): any[] {
   // Public Settings: On App Details & News Detail pages, omit heavy legal HTML blobs, website_faqs, banners, and developers
   const rawSettings = data.settings || data.mockSettings || {};
   const optimizedSettings: any = {};
-  const detailPageKeys = [
-    'site_title', 'logo_url', 'favicon_url', 'seo_title', 'seo_description', 'seo_keywords',
-    'meta_title', 'meta_description', 'social_links', 'categories', 'trending_searches',
+  const appDetailKeys = [
+    'logo_url', 'favicon_url', 'social_links', 'categories', 'trending_searches',
     'ticker_text', 'support_email', 'last_updated', 'animations_enabled',
-    'quick_links', 'turnstile_site_key', 'helpline_whatsapp', 'helpline_telegram',
+    'quick_links', 'turnstile_site_key', 'helpline_whatsapp', 'helpline_telegram'
+  ];
+  const detailPageKeys = [
+    ...appDetailKeys,
+    'site_title', 'seo_title', 'seo_description', 'seo_keywords',
+    'meta_title', 'meta_description',
     'news_meta_title', 'news_meta_description'
   ];
   const fullAllowedKeys = [
@@ -650,7 +654,7 @@ function getSimilarAppsForApp(targetApp: any, baseApps: any[]): any[] {
     'safety_meta_title', 'safety_meta_description'
   ];
 
-  const allowedKeys = (isAppDetailPage || isNewsDetailPage) ? detailPageKeys : fullAllowedKeys;
+  const allowedKeys = isAppDetailPage ? appDetailKeys : (isNewsDetailPage ? detailPageKeys : fullAllowedKeys);
 
   const htmlContentKeys = new Set([
     'about_content', 'about_us', 'contact_content', 'privacy_content', 'terms_content',

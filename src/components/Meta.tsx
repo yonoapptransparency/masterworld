@@ -206,7 +206,7 @@ const Meta: React.FC<MetaProps> = ({
       setMetaTag('property', 'og:site_name', resolvedSiteName);
       setMetaTag('name', 'application-name', resolvedSiteName);
     } else {
-      document.head.querySelectorAll('meta[property="og:site_name" i], meta[name="og:site_name" i], meta[name="application-name" i], meta[property="application-name" i]').forEach(el => el.remove());
+      document.head.querySelectorAll('meta[property="og:site_name" i], meta[name="og:site_name" i], meta[name="application-name" i], meta[property="application-name" i], link[rel="manifest" i]').forEach(el => el.remove());
     }
     setMetaTag('property', 'og:locale', 'en_IN');
 

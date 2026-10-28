@@ -134,6 +134,10 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
         "@type": "Organization",
         "name": developer
       },
+      "publisher": {
+        "@type": "Organization",
+        "name": developer
+      },
       "offers": {
         "@type": "Offer",
         "price": "0",
@@ -162,7 +166,7 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
 
     schemas.push(softwareAppSchema);
 
-    // 2. WebPage schema referencing the primary SoftwareApplication entity via @id and locking primaryImageOfPage to the 512px app logo
+    // 2. WebPage schema referencing the primary SoftwareApplication entity via @id and locking primaryImageOfPage + publisher to the specific app/developer
     schemas.push({
       "@context": "https://schema.org",
       "@type": "WebPage",
@@ -172,6 +176,14 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
       "headline": params.title,
       "description": desc,
       "inLanguage": "en",
+      "author": {
+        "@type": "Organization",
+        "name": developer
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": developer
+      },
       "primaryImageOfPage": {
         "@type": "ImageObject",
         "@id": `${appPageUrl}#primaryimage`,
@@ -185,6 +197,9 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
         "@id": `${appPageUrl}#primaryimage`
       },
       "thumbnailUrl": appSquareIcon,
+      "about": {
+        "@id": `${appPageUrl}#software`
+      },
       "mainEntity": {
         "@id": `${appPageUrl}#software`
       }

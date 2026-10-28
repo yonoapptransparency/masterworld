@@ -107,7 +107,6 @@ export function buildMetaTags(params: MetaBuilderParams): string {
     <link data-rh="true" rel="icon" type="image/png" sizes="32x32" href="${favicon32}">
     <link data-rh="true" rel="icon" type="image/png" sizes="16x16" href="${favicon16}">
     <link data-rh="true" rel="apple-touch-icon" sizes="180x180" href="${favicon180}">
-    <link data-rh="true" rel="manifest" href="/site.webmanifest">
   `;
   }
 
@@ -149,7 +148,7 @@ export function buildMetaTags(params: MetaBuilderParams): string {
     <link data-rh="true" rel="icon" type="image/png" sizes="32x32" href="${favicon32}">
     <link data-rh="true" rel="icon" type="image/png" sizes="16x16" href="${favicon16}">
     <link data-rh="true" rel="apple-touch-icon" sizes="180x180" href="${favicon180}">
-    <link data-rh="true" rel="manifest" href="/site.webmanifest">
+    ${isHomePage ? `<link data-rh="true" rel="manifest" href="/site.webmanifest">` : ''}
     ${(() => {
       if (targetApp && getField(targetApp, 'icon_url')) {
         return `<link rel="preload" as="image" href="${escapeHtml(getOptimizedImageUrl(getField(targetApp, 'icon_url'), 512))}" fetchpriority="high">`;

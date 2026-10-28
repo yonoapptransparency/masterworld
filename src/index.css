@@ -57,6 +57,19 @@ a {
   color: white !important;
 }
 
+[data-brand-text]::before {
+  content: attr(data-brand-text);
+}
+.rd-brand-full::before {
+  content: "RummyDex";
+}
+.rd-brand-p1::before {
+  content: "Rummy";
+}
+.rd-brand-p2::before {
+  content: "Dex";
+}
+
 /* Apple-style Cards */
 .glass-panel {
   background: var(--card-bg) !important;

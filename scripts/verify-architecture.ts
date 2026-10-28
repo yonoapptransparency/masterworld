@@ -180,11 +180,22 @@ function verify() {
       }
     }
 
-    // Subpage brand-rewriting signal check (B3): subpages must not leak application-name or og:site_name
+    // Subpage brand-rewriting signal check (B3): subpages must not leak application-name, og:site_name, or site.webmanifest
     if (item.type !== 'home') {
-      if (/<meta[^>]*name=["']application-name["']/i.test(headHtml) || /<meta[^>]*property=["']og:site_name["']/i.test(headHtml)) {
+      if (
+        /<meta[^>]*name=["']application-name["']/i.test(headHtml) ||
+        /<meta[^>]*property=["']og:site_name["']/i.test(headHtml) ||
+        /<link[^>]*rel=["']manifest["']/i.test(headHtml)
+      ) {
         metaIntegrityPassed = false;
-        metaIssues.push(`${item.route}: subpage leaked application-name or og:site_name (triggers Google SERP brand suffix rewrite)`);
+        metaIssues.push(`${item.route}: subpage leaked application-name, og:site_name, or manifest (triggers Google SERP brand suffix rewrite)`);
+      }
+      if (item.type === 'app') {
+        const bodyWithoutScript = (html.split('<script>window.__SSR_PATH__')[0].split('</head>')[1] || '');
+        if (/aria-label=["'][^"']*RummyDex/i.test(bodyWithoutScript) || /alt=["'][^"']*RummyDex/i.test(bodyWithoutScript) || />RummyDex</i.test(bodyWithoutScript) || html.includes('"site_title":"RummyDex"')) {
+          metaIntegrityPassed = false;
+          metaIssues.push(`${item.route}: app page leaked RummyDex brand text/alt/aria-label or site_title in settings`);
+        }
       }
     } else {
       if (!/<meta[^>]*property=["']og:site_name["']/i.test(headHtml)) {

@@ -4,6 +4,13 @@ export interface ChatMessage {
   text: string;
   timestamp: string;
   suggestedAction?: 'generate' | 'adjust_prompt' | 'save_memory';
+  modelUsed?: string;
+  previewReviews?: Array<{
+    userName: string;
+    rating: number;
+    reviewText: string;
+    appName?: string;
+  }>;
 }
 
 export interface BrainMemoryDirective {
@@ -63,11 +70,18 @@ export type LanguageToneMode =
   | 'hinglish_natural'      // Casual, colloquial Indian mobile tone
   | 'natural_english'       // Casual, everyday conversational English
   | 'short_punchy'          // Ultra-short punchy feedback (1-2 sentences)
-  | 'detailed_feedback'    // Thoughtful 2-3 sentence user experience feedback
+  | 'detailed_feedback'     // Thoughtful 2-3 sentence user experience feedback
   | 'honest_balanced'       // Balanced constructive feedback praising strengths
-  | 'feature_focused'       // Technical praise on UI smoothness and battery life
+  | 'feature_focused'       // Technical praise on UI smoothness and what the app provides
   | 'beginner_friendly'     // Simple friendly praise for first-time installers
-  | 'daily_regular_user';   // Habitual daily user perspective praising long-term stability
+  | 'daily_regular_user';   // Habitual daily user perspective praising long-term use
+
+export type PlatformCommentStyle =
+  | 'smart_multi_platform'   // Authentic blend of Play Store, Amazon/Flipkart value, Video & Community styles
+  | 'play_store_authentic'   // Google Play Store style (app features, updates, daily usage, real mobile experience)
+  | 'amazon_flipkart_value'  // Amazon / Flipkart style (what the app provides, value, expectations vs reality, trust)
+  | 'youtube_video_social'   // YouTube / Video & Social comment style (reactions, gameplay tips, video walkthrough mentions)
+  | 'community_player_forum';// Word-of-mouth player community style (playing with friends, modes, honest recommendations)
 
 export type PublishMode = 
   | 'wait_approve'  // Reviews staged for manual admin inspection, edit & 1-click publish
@@ -87,6 +101,7 @@ export interface StudioConfig {
   dateMode: DateDistributionMode;
   ratingMix: RatingMixMode;
   languageTone: LanguageToneMode;
+  platformStyle?: PlatformCommentStyle;
   likesMode?: LikesRateMode;
   customTopic: string;
   publishMode: PublishMode;

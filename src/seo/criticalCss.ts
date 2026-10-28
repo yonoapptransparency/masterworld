@@ -16,6 +16,10 @@ a{color:inherit;text-decoration:inherit}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border-width:0}
 .no-scrollbar::-webkit-scrollbar{display:none}
 .no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}
+[data-brand-text]::before{content:attr(data-brand-text)}
+.rd-brand-full::before{content:"RummyDex"}
+.rd-brand-p1::before{content:"Rummy"}
+.rd-brand-p2::before{content:"Dex"}
 </style>`;
 
 export function getCriticalCss(): string {

@@ -796,10 +796,10 @@ export const AdminSettingsTab = React.memo(({ settings: rawSettings, handleSaveS
               defaultValue={settings.gemini_model || 'gemini-flash-latest'}
               className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm dark:text-white focus:ring-2 focus:ring-amber-500 transition-all"
             >
-              <option value="gemini-flash-latest">Gemini 3.8 Flash (gemini-flash-latest — Default)</option>
-              <option value="gemini-3.7-flash">Gemini 3.7 Flash (Free Tier / Alternate)</option>
-              <option value="gemini-3.6-flash">Gemini 3.6 Flash (Backup Tier)</option>
-              <option value="gemini-flash-lite-latest">Gemini Flash Lite (Ultra-Low Quota Usage)</option>
+              <option value="gemini-flash-latest">Gemini Flash Latest (gemini-flash-latest — Default Free Tier)</option>
+              <option value="gemini-2.5-flash">Gemini 2.5 Flash (gemini-2.5-flash — High Reasoning & Stability)</option>
+              <option value="gemini-3.8-flash">Gemini 3.8 Flash (gemini-3.8-flash — Fast Generation)</option>
+              <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite (gemini-3.1-flash-lite — Ultra-Low Quota)</option>
             </select>
             <span className="text-[11px] text-slate-400 mt-1 block">Model used by the AI Review Studio tab.</span>
           </div>

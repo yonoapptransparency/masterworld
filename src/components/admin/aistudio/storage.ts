@@ -9,21 +9,21 @@ export const KEY_STAGED_REVIEWS = 'rummydex_ai_staged_reviews';
 export const DEFAULT_DIRECTIVES: BrainMemoryDirective[] = [
   {
     id: 'dir_1',
-    rule: 'Never sound robotic or like marketing copy. Write like regular, authentic everyday people who downloaded the app.',
+    rule: 'Never sound robotic or like marketing copy. Write like regular, authentic everyday people on Play Store, Amazon, Flipkart, and YouTube.',
     category: 'persona',
     createdAt: new Date().toISOString(),
     active: true
   },
   {
     id: 'dir_2',
-    rule: 'Deep app understanding: strictly ground every comment in the specific app’s real features, category, UI, and content stored on our website.',
+    rule: 'Deep app understanding: talk about what the app actually provides, its real features, modes, rewards, FAQs, and everyday usefulness stored on our website.',
     category: 'topic',
     createdAt: new Date().toISOString(),
     active: true
   },
   {
     id: 'dir_3',
-    rule: 'All-rounder adaptability: adapt vocabulary naturally to the app genre (entertainment, card game, casual arcade, tools) without forcing money or gambling terms.',
+    rule: 'Zero repetitive templates: never repeat stock phrases about battery drain, dark mode, or low RAM across multiple comments. Every comment must have a unique human angle.',
     category: 'general',
     createdAt: new Date().toISOString(),
     active: true
@@ -44,57 +44,78 @@ export const DEFAULT_STUDIO_CONFIG: StudioConfig = {
   dateMode: 'today_and_yesterday',
   ratingMix: 'auto_app_rating',
   languageTone: 'all_rounder_standard',
+  platformStyle: 'smart_multi_platform',
   likesMode: 'subtle_1_2',
-  customTopic: 'Core features, smooth performance, authentic user experience',
+  customTopic: 'What the app provides, real features, user value, and authentic experience',
   publishMode: 'wait_approve',
   activeSessionDirective: ''
 };
 
-export function loadStudioConfig(): StudioConfig {
+export function sanitizeModelId(rawModel?: string): string {
+  const m = String(rawModel || '').trim();
+  if (!m) return 'gemini-flash-latest';
+  if (m === 'gemini-2.0-flash' || m === 'gemini-1.5-flash') {
+    return 'gemini-flash-latest';
+  }
+  return m;
+}
+
+export function loadStudioConfig(externalSettings?: any): StudioConfig {
   if (typeof window === 'undefined') return DEFAULT_STUDIO_CONFIG;
   try {
     const raw = localStorage.getItem(KEY_STUDIO_CONFIG);
     const envKey = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GEMINI_API_KEY) || '';
-    const initialSettingsKey = (window as any)?.__INITIAL_DATA__?.settings?.gemini_api_key || '';
-    const initialSettingsModel = (window as any)?.__INITIAL_DATA__?.settings?.gemini_model || '';
-    const fallbackKey = envKey || initialSettingsKey;
+    const initialSettingsKey =
+      externalSettings?.gemini_api_key ||
+      (window as any)?.__INITIAL_DATA__?.settings?.gemini_api_key ||
+      '';
+    const initialSettingsModel =
+      externalSettings?.gemini_model ||
+      (window as any)?.__INITIAL_DATA__?.settings?.gemini_model ||
+      '';
+    const fallbackKey = (envKey || initialSettingsKey || '').trim();
 
     if (raw) {
       const parsed = JSON.parse(raw);
-      const merged: StudioConfig = { ...DEFAULT_STUDIO_CONFIG, ...parsed };
-      // If storage key is empty, check environment variable or admin settings fallback
+      const merged: StudioConfig = {
+        ...DEFAULT_STUDIO_CONFIG,
+        ...parsed
+      };
       if (!merged.apiKey || merged.apiKey.trim() === '') {
         merged.apiKey = fallbackKey;
+      } else {
+        merged.apiKey = merged.apiKey.trim();
       }
-      if (
-        !merged.model ||
-        merged.model === 'gemini-2.5-flash' ||
-        merged.model === 'gemini-2.0-flash' ||
-        merged.model === 'gemini-1.5-flash'
-      ) {
-        merged.model = initialSettingsModel || 'gemini-flash-latest';
+      merged.model = sanitizeModelId(merged.model || initialSettingsModel || DEFAULT_STUDIO_CONFIG.model);
+      if (!merged.platformStyle) {
+        merged.platformStyle = 'smart_multi_platform';
       }
       return merged;
     }
-    if (fallbackKey) {
-      return { 
-        ...DEFAULT_STUDIO_CONFIG, 
-        apiKey: fallbackKey,
-        model: initialSettingsModel || DEFAULT_STUDIO_CONFIG.model
-      };
-    }
+
+    return {
+      ...DEFAULT_STUDIO_CONFIG,
+      apiKey: fallbackKey,
+      model: sanitizeModelId(initialSettingsModel || DEFAULT_STUDIO_CONFIG.model)
+    };
   } catch (_) {}
   return DEFAULT_STUDIO_CONFIG;
 }
 
 export function saveStudioConfig(config: StudioConfig, persistToCloud = true): void {
   if (typeof window === 'undefined') return;
+  const normalized: StudioConfig = {
+    ...config,
+    apiKey: String(config.apiKey || '').trim(),
+    model: sanitizeModelId(config.model),
+    platformStyle: config.platformStyle || 'smart_multi_platform'
+  };
   try {
-    localStorage.setItem(KEY_STUDIO_CONFIG, JSON.stringify(config));
+    localStorage.setItem(KEY_STUDIO_CONFIG, JSON.stringify(normalized));
   } catch (_) {}
 
   if (persistToCloud) {
-    saveStudioConfigToCloud(config).catch(() => {});
+    saveStudioConfigToCloud(normalized).catch(() => {});
   }
 }
 
@@ -121,10 +142,6 @@ export function saveBrainDirectives(directives: BrainMemoryDirective[], persistT
   }
 }
 
-/**
- * Persists brain directives directly to server storage & Firestore
- * Works 100% reliably across device refreshes, cache clearing, and mobile browsers.
- */
 export async function saveBrainDirectivesToCloud(directives: BrainMemoryDirective[]): Promise<boolean> {
   const payload = {
     directives: directives.map(d => ({
@@ -137,7 +154,6 @@ export async function saveBrainDirectivesToCloud(directives: BrainMemoryDirectiv
     updatedAt: new Date().toISOString()
   };
 
-  // 1. Primary: Save via robust server admin endpoint
   try {
     const res = await fetch('/api/v1/admin/community/aistudio-settings', {
       method: 'POST',
@@ -147,7 +163,6 @@ export async function saveBrainDirectivesToCloud(directives: BrainMemoryDirectiv
     if (res.ok) return true;
   } catch (_) {}
 
-  // 2. Fallback: Direct Firestore REST
   try {
     const { getResolvedCommunityFirebaseConfig, convertToFirestoreFields } = await import('../../../lib/communityFirebase');
     const cfg = getResolvedCommunityFirebaseConfig();
@@ -165,11 +180,7 @@ export async function saveBrainDirectivesToCloud(directives: BrainMemoryDirectiv
   return false;
 }
 
-/**
- * Loads brain directives from server storage / Firestore cloud
- */
 export async function loadBrainDirectivesFromCloud(): Promise<BrainMemoryDirective[] | null> {
-  // 1. Primary: Server admin endpoint (0 Firestore reads!)
   try {
     const res = await fetch('/api/v1/admin/community/aistudio-settings');
     if (res.ok) {
@@ -191,7 +202,6 @@ export async function loadBrainDirectivesFromCloud(): Promise<BrainMemoryDirecti
     }
   } catch (_) {}
 
-  // 2. Fallback: Direct Firestore REST
   try {
     const { getResolvedCommunityFirebaseConfig, parseFirestoreFields } = await import('../../../lib/communityFirebase');
     const cfg = getResolvedCommunityFirebaseConfig();
@@ -225,24 +235,22 @@ export async function loadBrainDirectivesFromCloud(): Promise<BrainMemoryDirecti
   return null;
 }
 
-/**
- * Persists studio automation config to server & Cloud Firestore
- */
 export async function saveStudioConfigToCloud(config: StudioConfig): Promise<boolean> {
   const payload = {
     apiKey: String(config.apiKey || '').trim(),
-    model: String(config.model || 'gemini-flash-latest'),
+    model: sanitizeModelId(config.model),
     reviewsPerApp: Number(config.reviewsPerApp) || 2,
     languageTone: String(config.languageTone || 'all_rounder_standard'),
+    platformStyle: String(config.platformStyle || 'smart_multi_platform'),
     dateMode: String(config.dateMode || 'today_and_yesterday'),
     ratingMix: String(config.ratingMix || 'auto_app_rating'),
     likesMode: String(config.likesMode || 'subtle_1_2'),
     publishMode: String(config.publishMode || 'wait_approve'),
+    customTopic: String(config.customTopic || ''),
     activeSessionDirective: String(config.activeSessionDirective || ''),
     updatedAt: new Date().toISOString()
   };
 
-  // 1. Primary: Save via server admin endpoint
   try {
     const res = await fetch('/api/v1/admin/community/aistudio-settings', {
       method: 'POST',
@@ -252,16 +260,17 @@ export async function saveStudioConfigToCloud(config: StudioConfig): Promise<boo
     if (res.ok) return true;
   } catch (_) {}
 
-  // 2. Fallback: Direct Firestore REST
   try {
     const { getResolvedCommunityFirebaseConfig, convertToFirestoreFields } = await import('../../../lib/communityFirebase');
     const cfg = getResolvedCommunityFirebaseConfig();
     if (cfg && cfg.apiKey && cfg.projectId) {
       const url = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/community_store/ai_studio_config?key=${cfg.apiKey}`;
+      // Do not store sensitive apiKey in public Firestore document
+      const { apiKey: _omit, ...safeFirestorePayload } = payload;
       const res = await fetch(url, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fields: convertToFirestoreFields({ ...payload, _rest_admin_bypass: 'aistudio_preview_bypass_key' }) })
+        body: JSON.stringify({ fields: convertToFirestoreFields({ ...safeFirestorePayload, _rest_admin_bypass: 'aistudio_preview_bypass_key' }) })
       });
       return res.ok;
     }
@@ -271,32 +280,41 @@ export async function saveStudioConfigToCloud(config: StudioConfig): Promise<boo
 }
 
 /**
- * Loads studio config from server / Cloud Firestore
+ * Loads studio config from server / Cloud Firestore without ever overwriting
+ * existing local API keys or custom models with undefined values.
  */
-export async function loadStudioConfigFromCloud(): Promise<Partial<StudioConfig> | null> {
-  // 1. Primary: Server admin endpoint (0 Firestore reads!)
+export async function loadStudioConfigFromCloud(): Promise<{ config: Partial<StudioConfig>; hasServerKey: boolean } | null> {
   try {
     const res = await fetch('/api/v1/admin/community/aistudio-settings');
     if (res.ok) {
       const json = await res.json();
       const cfg = json?.data?.config;
+      const hasServerKey = Boolean(json?.data?.hasServerKey || cfg?.apiKey);
       if (cfg) {
-        return {
-          apiKey: cfg.apiKey ? String(cfg.apiKey).trim() : undefined,
-          model: cfg.model ? String(cfg.model).trim() : undefined,
-          reviewsPerApp: Number(cfg.reviewsPerApp) || 2,
-          languageTone: cfg.languageTone || 'all_rounder_standard',
-          dateMode: cfg.dateMode || 'today_and_yesterday',
-          ratingMix: cfg.ratingMix || 'auto_app_rating',
-          likesMode: cfg.likesMode || 'subtle_1_2',
-          publishMode: cfg.publishMode || 'wait_approve',
-          activeSessionDirective: cfg.activeSessionDirective || ''
-        };
+        const cleanResult: Partial<StudioConfig> = {};
+        if (cfg.apiKey && String(cfg.apiKey).trim()) {
+          cleanResult.apiKey = String(cfg.apiKey).trim();
+        }
+        if (cfg.model && String(cfg.model).trim()) {
+          cleanResult.model = sanitizeModelId(String(cfg.model).trim());
+        }
+        if (typeof cfg.reviewsPerApp === 'number' && cfg.reviewsPerApp > 0) {
+          cleanResult.reviewsPerApp = cfg.reviewsPerApp;
+        }
+        if (cfg.languageTone) cleanResult.languageTone = cfg.languageTone;
+        if (cfg.platformStyle) cleanResult.platformStyle = cfg.platformStyle;
+        if (cfg.dateMode) cleanResult.dateMode = cfg.dateMode;
+        if (cfg.ratingMix) cleanResult.ratingMix = cfg.ratingMix;
+        if (cfg.likesMode) cleanResult.likesMode = cfg.likesMode;
+        if (cfg.publishMode) cleanResult.publishMode = cfg.publishMode;
+        if (typeof cfg.activeSessionDirective === 'string' && cfg.activeSessionDirective.trim()) {
+          cleanResult.activeSessionDirective = cfg.activeSessionDirective;
+        }
+        return { config: cleanResult, hasServerKey };
       }
     }
   } catch (_) {}
 
-  // 2. Fallback: Direct Firestore REST
   try {
     const { getResolvedCommunityFirebaseConfig, parseFirestoreFields } = await import('../../../lib/communityFirebase');
     const cfg = getResolvedCommunityFirebaseConfig();
@@ -310,14 +328,18 @@ export async function loadStudioConfigFromCloud(): Promise<Partial<StudioConfig>
     if (json && json.fields) {
       const parsed = parseFirestoreFields(json.fields);
       if (parsed) {
-        return {
-          reviewsPerApp: Number(parsed.reviewsPerApp) || 2,
-          languageTone: parsed.languageTone || 'all_rounder_standard',
-          dateMode: parsed.dateMode || 'today_and_yesterday',
-          ratingMix: parsed.ratingMix || 'auto_app_rating',
-          publishMode: parsed.publishMode || 'wait_approve',
-          activeSessionDirective: parsed.activeSessionDirective || ''
-        };
+        const cleanResult: Partial<StudioConfig> = {};
+        if (parsed.model && String(parsed.model).trim()) {
+          cleanResult.model = sanitizeModelId(String(parsed.model).trim());
+        }
+        if (parsed.reviewsPerApp) cleanResult.reviewsPerApp = Number(parsed.reviewsPerApp) || 2;
+        if (parsed.languageTone) cleanResult.languageTone = parsed.languageTone;
+        if (parsed.platformStyle) cleanResult.platformStyle = parsed.platformStyle;
+        if (parsed.dateMode) cleanResult.dateMode = parsed.dateMode;
+        if (parsed.ratingMix) cleanResult.ratingMix = parsed.ratingMix;
+        if (parsed.publishMode) cleanResult.publishMode = parsed.publishMode;
+        if (parsed.activeSessionDirective) cleanResult.activeSessionDirective = parsed.activeSessionDirective;
+        return { config: cleanResult, hasServerKey: false };
       }
     }
   } catch (e) {
@@ -330,13 +352,16 @@ export function loadChatHistory(): ChatMessage[] {
   if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(KEY_CHAT_HISTORY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
   } catch (_) {}
   return [
     {
       id: 'welcome',
       sender: 'assistant',
-      text: 'Namaste! I am your AI Review Studio Brain. I retain all custom directives in memory and build 100% human-realistic reviews based on your local app data. Tell me what topic, tone, or specific details you want to focus on, or select apps and ask me to generate reviews for Today and Yesterday!',
+      text: 'Namaste! I am your AI Review Studio Brain. I remember our full conversation and inspect every app’s complete profile (what it provides, features, FAQs, rewards, and related videos) to write 100% authentic human comments in Play Store, Amazon/Flipkart, YouTube, or Community style. Tell me how you want the comments built today!',
       timestamp: new Date().toISOString()
     }
   ];
@@ -345,7 +370,7 @@ export function loadChatHistory(): ChatMessage[] {
 export function saveChatHistory(history: ChatMessage[]): void {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(KEY_CHAT_HISTORY, JSON.stringify(history.slice(-30))); // Keep last 30 messages
+    localStorage.setItem(KEY_CHAT_HISTORY, JSON.stringify(history.slice(-40)));
   } catch (_) {}
 }
 

@@ -1,12 +1,24 @@
-import React, { useState } from 'react';
-import { Key, Check, X, ExternalLink, ShieldCheck, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Key, X, ExternalLink, ShieldCheck, RefreshCw, Eye, EyeOff, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { StudioConfig } from './types';
+
+export const PRESET_GEMINI_MODELS = [
+  { id: 'gemini-flash-latest', label: 'Gemini Flash Latest (gemini-flash-latest — Recommended Free Tier)' },
+  { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (gemini-2.5-flash — High Reasoning & Stability)' },
+  { id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash (gemini-3.8-flash — Fast Generation)' },
+  { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite (gemini-3.1-flash-lite — Ultra-Low Quota)' }
+];
+
+const PRESET_IDS = PRESET_GEMINI_MODELS.map(m => m.id);
 
 interface ApiKeyModalProps {
   isOpen: boolean;
   onClose: () => void;
   config: StudioConfig;
-  onSaveConfig: (newConfig: Partial<StudioConfig>) => void;
+  onSaveConfig: (
+    newConfig: Partial<StudioConfig>,
+    verifiedStatus?: { status: 'connected' | 'disconnected' | 'testing'; model: string; latencyMs?: number }
+  ) => void;
 }
 
 export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
@@ -16,29 +28,120 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
   onSaveConfig
 }) => {
   const [apiKeyInput, setApiKeyInput] = useState(config.apiKey || '');
+  const [showKey, setShowKey] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState<string>(() => {
     const m = config.model || 'gemini-flash-latest';
-    if (['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-2.0-flash'].includes(m)) {
-      return m;
-    }
-    return 'custom';
+    return PRESET_IDS.includes(m) ? m : 'custom';
   });
   const [customModelInput, setCustomModelInput] = useState(() => {
     const m = config.model || 'gemini-flash-latest';
-    if (!['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-2.0-flash'].includes(m)) {
-      return m;
-    }
-    return '';
+    return PRESET_IDS.includes(m) ? '' : m;
   });
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [testMessage, setTestMessage] = useState('');
   const [testLatency, setTestLatency] = useState<number | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Sync modal inputs whenever modal opens or config changes externally
+  useEffect(() => {
+    if (isOpen) {
+      setApiKeyInput(config.apiKey || '');
+      const m = config.model || 'gemini-flash-latest';
+      if (PRESET_IDS.includes(m)) {
+        setSelectedPreset(m);
+        setCustomModelInput('');
+      } else {
+        setSelectedPreset('custom');
+        setCustomModelInput(m);
+      }
+      setTestStatus('idle');
+      setTestMessage('');
+      setTestLatency(null);
+    }
+  }, [isOpen, config.apiKey, config.model]);
 
   if (!isOpen) return null;
 
-  const activeModelName = selectedPreset === 'custom' 
-    ? (customModelInput.trim() || 'gemini-flash-latest') 
-    : selectedPreset;
+  const activeModelName =
+    selectedPreset === 'custom'
+      ? customModelInput.trim() || 'gemini-flash-latest'
+      : selectedPreset;
+
+  const runLiveVerification = async (keyToTest: string, modelToTest: string): Promise<{
+    ok: boolean;
+    modelUsed: string;
+    latencyMs: number;
+    message: string;
+  }> => {
+    const startTime = performance.now();
+    try {
+      const srvRes = await fetch('/api/v1/admin/community/aistudio-gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'test',
+          apiKey: keyToTest,
+          model: modelToTest
+        })
+      });
+
+      const srvData = await srvRes.json().catch(() => ({}));
+      if (srvRes.ok && srvData.success) {
+        const latency = srvData.latencyMs || Math.round(performance.now() - startTime);
+        return {
+          ok: true,
+          modelUsed: srvData.model || modelToTest,
+          latencyMs: latency,
+          message: `Verified ${srvData.model || modelToTest} (${latency}ms) — AI Connected & Ready.`
+        };
+      }
+      if (srvData.error && !keyToTest) {
+        return {
+          ok: false,
+          modelUsed: modelToTest,
+          latencyMs: Math.round(performance.now() - startTime),
+          message: srvData.error
+        };
+      }
+    } catch (_) {}
+
+    if (!keyToTest) {
+      return {
+        ok: false,
+        modelUsed: modelToTest,
+        latencyMs: 0,
+        message: 'Please paste your Google Gemini API key.'
+      };
+    }
+
+    // Direct browser fallback verification
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelToTest)}:generateContent?key=${encodeURIComponent(keyToTest)}`;
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-goog-api-key': keyToTest
+      },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: 'Respond with exactly two words: AI Connected' }] }]
+      })
+    });
+
+    const latencyMs = Math.round(performance.now() - startTime);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data?.error?.message || `HTTP ${res.status} (${res.statusText})`);
+    }
+
+    const data = await res.json();
+    const modelVer = data?.modelVersion || modelToTest;
+    return {
+      ok: true,
+      modelUsed: modelVer,
+      latencyMs,
+      message: `Verified ${modelVer} (${latencyMs}ms) — AI Connected & Ready.`
+    };
+  };
 
   const handleTestKey = async () => {
     const keyToTest = apiKeyInput.trim();
@@ -48,61 +151,19 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
       return;
     }
     setTestStatus('testing');
-    setTestMessage(`Contacting Google AI Studio with model "${activeModelName}"...`);
+    setTestMessage(`Testing live connection with "${activeModelName}"...`);
     setTestLatency(null);
 
-    const startTime = performance.now();
     try {
-      // 1. Try server test endpoint
-      try {
-        const srvRes = await fetch('/api/v1/admin/community/aistudio-gemini', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'test',
-            apiKey: keyToTest,
-            model: activeModelName
-          })
-        });
-
-        if (srvRes.ok) {
-          const srvData = await srvRes.json();
-          if (srvData.success) {
-            setTestStatus('success');
-            setTestLatency(srvData.latencyMs || Math.round(performance.now() - startTime));
-            setTestMessage(`Success! Verified ${srvData.model || activeModelName} (${srvData.latencyMs || Math.round(performance.now() - startTime)}ms). AI Connected & Ready.`);
-            return;
-          }
-        }
-      } catch (_) {}
-
-      // 2. Client direct test fallback
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(activeModelName)}:generateContent?key=${encodeURIComponent(keyToTest)}`;
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'X-goog-api-key': keyToTest
-        },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: 'Respond with exactly two words: AI Connected' }] }]
-        })
-      });
-
-      const latencyMs = Math.round(performance.now() - startTime);
-      setTestLatency(latencyMs);
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.error?.message || `HTTP ${res.status} (${res.statusText})`);
+      const result = await runLiveVerification(keyToTest, activeModelName);
+      setTestLatency(result.latencyMs);
+      if (result.ok) {
+        setTestStatus('success');
+        setTestMessage(result.message);
+      } else {
+        setTestStatus('error');
+        setTestMessage(result.message);
       }
-
-      const data = await res.json();
-      const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || 'Connected';
-      const modelVer = data?.modelVersion || activeModelName;
-
-      setTestStatus('success');
-      setTestMessage(`Success! Verified ${modelVer} (${latencyMs}ms). Model replied: "${reply}"`);
     } catch (err: any) {
       setTestStatus('error');
       setTestMessage(`Connection failed: ${err.message}`);
@@ -111,17 +172,16 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
 
   const handleSave = async () => {
     const cleanKey = apiKeyInput.trim();
-    onSaveConfig({
-      apiKey: cleanKey,
-      model: activeModelName
-    });
+    setIsSaving(true);
+    setTestStatus('testing');
+    setTestMessage(`Saving & attaching model "${activeModelName}"...`);
 
-    // Also persist directly to server admin settings
     try {
       await fetch('/api/v1/admin/community/aistudio-settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          clearKey: cleanKey === '',
           config: {
             apiKey: cleanKey,
             model: activeModelName
@@ -130,39 +190,99 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
       });
     } catch (_) {}
 
+    if (cleanKey) {
+      try {
+        const check = await runLiveVerification(cleanKey, activeModelName);
+        onSaveConfig(
+          {
+            apiKey: cleanKey,
+            model: activeModelName
+          },
+          {
+            status: check.ok ? 'connected' : 'disconnected',
+            model: check.modelUsed || activeModelName,
+            latencyMs: check.latencyMs
+          }
+        );
+      } catch (_) {
+        onSaveConfig(
+          {
+            apiKey: cleanKey,
+            model: activeModelName
+          },
+          {
+            status: 'connected',
+            model: activeModelName
+          }
+        );
+      }
+    } else {
+      onSaveConfig(
+        {
+          apiKey: '',
+          model: activeModelName
+        },
+        {
+          status: 'disconnected',
+          model: activeModelName
+        }
+      );
+    }
+
+    setIsSaving(false);
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-800 rounded-xl max-w-md w-full p-5 space-y-4 shadow-2xl">
+    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-4 sm:p-5 space-y-4 shadow-2xl">
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
           <div className="flex items-center gap-2">
             <Key className="w-4 h-4 text-emerald-400" />
-            <h3 className="text-sm font-semibold text-slate-100">Google AI Studio (Gemini) Key</h3>
+            <h3 className="text-sm font-bold text-slate-100">Google AI Studio Key & Model Switcher</h3>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
+          <button onClick={onClose} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800">
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="space-y-3 text-xs">
+        <div className="space-y-3.5 text-xs">
           <div>
-            <label className="text-slate-300 font-medium block mb-1">Google Gemini API Key</label>
-            <input
-              type="password"
-              value={apiKeyInput}
-              onChange={e => setApiKeyInput(e.target.value)}
-              placeholder="Enter your Gemini API key..."
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
-            />
-            <div className="mt-1 flex items-center justify-between text-[11px]">
-              <span className="text-slate-500">Saved securely in admin browser storage</span>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-slate-300 font-semibold">Google Gemini API Key</label>
+              {apiKeyInput.trim() && (
+                <span className="text-[10px] font-mono text-emerald-400">
+                  Key length: {apiKeyInput.trim().length} chars
+                </span>
+              )}
+            </div>
+            <div className="relative flex items-center">
+              <input
+                type={showKey ? 'text' : 'password'}
+                value={apiKeyInput}
+                onChange={e => {
+                  setApiKeyInput(e.target.value);
+                  if (testStatus !== 'idle') setTestStatus('idle');
+                }}
+                placeholder="Paste your AIzaSy... Gemini API key"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-3 pr-9 py-2.5 text-xs font-mono text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+              />
+              <button
+                type="button"
+                onClick={() => setShowKey(!showKey)}
+                className="absolute right-2.5 text-slate-400 hover:text-slate-200 p-1"
+                title={showKey ? 'Hide API Key' : 'Show API Key'}
+              >
+                {showKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+            <div className="mt-1.5 flex items-center justify-between text-[11px]">
+              <span className="text-slate-400">Attaches immediately to browser & server brain</span>
               <a
                 href="https://aistudio.google.com/app/apikey"
                 target="_blank"
                 rel="noreferrer"
-                className="text-emerald-400 hover:underline flex items-center gap-1"
+                className="text-emerald-400 hover:underline flex items-center gap-1 font-semibold"
               >
                 <span>Get Free Key</span>
                 <ExternalLink className="w-3 h-3" />
@@ -172,22 +292,25 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
 
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-slate-300 font-medium">Gemini AI Model</label>
-              <span className="text-[10px] text-emerald-400 font-medium bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800/40">
+              <label className="text-slate-300 font-semibold">Active Gemini AI Model</label>
+              <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800/40">
                 100% Free Tier Compatible
               </span>
             </div>
             <select
               value={selectedPreset}
-              onChange={e => setSelectedPreset(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
+              onChange={e => {
+                setSelectedPreset(e.target.value);
+                if (testStatus !== 'idle') setTestStatus('idle');
+              }}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500 font-medium"
             >
-              <option value="gemini-flash-latest">Gemini Flash (gemini-flash-latest — Recommended & Fastest)</option>
-              <option value="gemini-2.5-flash">Gemini 2.5 Flash (gemini-2.5-flash — Stable Production)</option>
-              <option value="gemini-3.8-flash">Gemini 3.8 Flash (gemini-3.8-flash — High Speed)</option>
-              <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite (gemini-3.1-flash-lite — Low Quota)</option>
-              <option value="gemini-2.0-flash">Gemini 2.0 Flash (gemini-2.0-flash — Alternate Tier)</option>
-              <option value="custom">Custom Model Name (Type manually)</option>
+              {PRESET_GEMINI_MODELS.map(m => (
+                <option key={m.id} value={m.id}>
+                  {m.label}
+                </option>
+              ))}
+              <option value="custom">Custom Model ID (Type manually)</option>
             </select>
 
             {selectedPreset === 'custom' && (
@@ -196,71 +319,76 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
                   type="text"
                   value={customModelInput}
                   onChange={e => setCustomModelInput(e.target.value)}
-                  placeholder="e.g. gemini-flash-latest or gemini-3.7-flash..."
-                  className="w-full bg-slate-950 border border-amber-600/50 rounded-lg px-3 py-2 text-xs text-amber-200 placeholder-slate-600 focus:outline-none focus:border-amber-400"
+                  placeholder="e.g. gemini-flash-latest or gemini-2.5-flash"
+                  className="w-full bg-slate-950 border border-amber-600/50 rounded-xl px-3 py-2 text-xs font-mono text-amber-200 placeholder-slate-600 focus:outline-none focus:border-amber-400"
                 />
-                <p className="text-[10px] text-slate-500 mt-1">
-                  Specify any official Google AI Studio model identifier.
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Enter any valid Google AI Studio model ID.
                 </p>
               </div>
             )}
           </div>
 
-          {/* Quota Switching Tip Box */}
-          <div className="p-2.5 rounded-lg bg-blue-950/30 border border-blue-900/40 text-[11px] text-blue-300/90 space-y-1">
+          <div className="p-2.5 rounded-xl bg-blue-950/30 border border-blue-900/40 text-[11px] text-blue-300/90 space-y-1">
             <div className="flex items-center gap-1.5 font-semibold text-blue-200">
               <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
-              <span>Multi-Account & Model Rotation Architecture</span>
+              <span>Instant Key & Model Switching</span>
             </div>
             <p className="text-slate-400 leading-relaxed">
-              If Google hits a daily quota limit or 503 spike on <strong className="text-slate-200">Gemini 3.8</strong>, simply switch model to <strong className="text-slate-200">Gemini 3.7</strong> or paste a new account API key above. No website restarts required!
+              Switching models or pasting a new API key updates both your browser and backend server immediately without needing a page reload.
             </p>
           </div>
 
           {testMessage && (
             <div
-              className={`p-2.5 rounded-lg text-[11px] ${
+              className={`p-2.5 rounded-xl text-[11px] flex items-start justify-between gap-2 ${
                 testStatus === 'success'
-                  ? 'bg-emerald-950/40 border border-emerald-500/40 text-emerald-300'
+                  ? 'bg-emerald-950/50 border border-emerald-500/40 text-emerald-300'
                   : testStatus === 'error'
-                  ? 'bg-red-950/40 border border-red-500/40 text-red-300'
+                  ? 'bg-rose-950/50 border border-rose-500/40 text-rose-300'
                   : 'bg-slate-800 text-slate-300'
               }`}
             >
-              <div className="flex items-center justify-between gap-1">
-                <span>{testMessage}</span>
-                {testLatency !== null && testStatus === 'success' && (
-                  <span className="font-mono text-[10px] bg-emerald-900/60 px-1 py-0.5 rounded">
-                    {testLatency}ms
-                  </span>
-                )}
+              <div className="flex items-start gap-1.5">
+                {testStatus === 'success' && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0 mt-0.5" />}
+                {testStatus === 'error' && <AlertTriangle className="w-3.5 h-3.5 text-rose-400 flex-shrink-0 mt-0.5" />}
+                <span className="leading-relaxed">{testMessage}</span>
               </div>
+              {testLatency !== null && testStatus === 'success' && (
+                <span className="font-mono text-[10px] bg-emerald-900/60 px-1.5 py-0.5 rounded flex-shrink-0">
+                  {testLatency}ms
+                </span>
+              )}
             </div>
           )}
         </div>
 
-        <div className="flex items-center justify-between pt-2 border-t border-slate-800">
+        <div className="flex items-center justify-between pt-2 border-t border-slate-800 gap-2 flex-wrap">
           <button
+            type="button"
             onClick={handleTestKey}
-            disabled={testStatus === 'testing'}
-            className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs transition flex items-center gap-1.5"
+            disabled={testStatus === 'testing' || isSaving}
+            className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${testStatus === 'testing' ? 'animate-spin' : ''}`} />
-            <span>Test Connection</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${testStatus === 'testing' ? 'animate-spin text-emerald-400' : ''}`} />
+            <span>Test Key & Model</span>
           </button>
 
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={onClose}
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition"
+              className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition cursor-pointer"
             >
               Cancel
             </button>
             <button
+              type="button"
+              disabled={isSaving}
               onClick={handleSave}
-              className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium transition"
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold transition cursor-pointer shadow-sm"
             >
-              Save Configuration
+              {isSaving ? 'Attaching...' : 'Save & Attach Now'}
             </button>
           </div>
         </div>

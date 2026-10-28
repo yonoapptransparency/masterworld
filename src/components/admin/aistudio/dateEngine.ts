@@ -144,3 +144,18 @@ export function generateRealisticTimestamp(
     formattedDisplay
   };
 }
+
+export function generateRealisticPastDates(
+  count: number,
+  mode: DateDistributionMode
+): Array<{ isoString: string; dateTag: string; formattedDisplay: string }> {
+  return Array.from({ length: Math.max(1, count) }, (_, idx) => {
+    const res = generateRealisticTimestamp(mode, idx, count);
+    return {
+      isoString: res.isoTimestamp,
+      dateTag: res.dateTag,
+      formattedDisplay: res.formattedDisplay
+    };
+  });
+}
+

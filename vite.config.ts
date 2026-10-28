@@ -324,25 +324,52 @@ function adminAuthDevPlugin(env: Record<string, string>) {
           const persistentBrainPath = path.join(dataDir, 'aiStudioBrain.json');
           const seedBrainPath = path.resolve(__dirname, 'src/lib/aiStudioBrain.json');
 
+          const loadBrain = () => {
+            let existing: any = {};
+            if (fs.existsSync(persistentBrainPath)) {
+              try { existing = JSON.parse(fs.readFileSync(persistentBrainPath, 'utf8')); } catch (_) {}
+            } else if (fs.existsSync(seedBrainPath)) {
+              try { existing = JSON.parse(fs.readFileSync(seedBrainPath, 'utf8')); } catch (_) {}
+            }
+            if (!existing || typeof existing !== 'object') existing = {};
+            if (!existing.config) existing.config = { model: 'gemini-flash-latest' };
+            return existing;
+          };
+
           if (req.method === 'POST') {
             let body = '';
             req.on('data', (chunk: any) => { body += chunk; });
             req.on('end', () => {
               try {
                 const payload = JSON.parse(body || '{}');
-                let existing = {};
-                if (fs.existsSync(persistentBrainPath)) {
-                  try { existing = JSON.parse(fs.readFileSync(persistentBrainPath, 'utf8')); } catch (_) {}
-                } else if (fs.existsSync(seedBrainPath)) {
-                  try { existing = JSON.parse(fs.readFileSync(seedBrainPath, 'utf8')); } catch (_) {}
+                const existing = loadBrain();
+                const incomingConfig = payload.config || {};
+                const mergedConfig: Record<string, any> = { ...(existing.config || {}) };
+                for (const [k, v] of Object.entries(incomingConfig)) {
+                  if (v !== undefined) {
+                    if (k === 'apiKey') {
+                      const clean = String(v || '').trim();
+                      if (clean || payload.clearKey === true) mergedConfig.apiKey = clean;
+                    } else if (k === 'model') {
+                      const cleanModel = String(v || '').trim();
+                      if (cleanModel) mergedConfig.model = cleanModel;
+                    } else {
+                      mergedConfig[k] = v;
+                    }
+                  }
                 }
-                const merged = { ...existing, ...payload, updatedAt: new Date().toISOString() };
+                const merged = {
+                  ...existing,
+                  ...(Array.isArray(payload.directives) ? { directives: payload.directives } : {}),
+                  config: mergedConfig,
+                  updatedAt: new Date().toISOString()
+                };
                 if (!fs.existsSync(dataDir)) {
                   fs.mkdirSync(dataDir, { recursive: true });
                 }
                 fs.writeFileSync(persistentBrainPath, JSON.stringify(merged, null, 2), 'utf8');
                 res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ success: true, message: 'Settings saved permanently.' }));
+                res.end(JSON.stringify({ success: true, message: 'Settings saved permanently.', config: merged.config }));
               } catch (e: any) {
                 res.writeHead(500, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ success: false, error: e?.message }));
@@ -353,23 +380,71 @@ function adminAuthDevPlugin(env: Record<string, string>) {
 
           if (req.method === 'GET') {
             try {
-              if (fs.existsSync(persistentBrainPath)) {
-                const data = JSON.parse(fs.readFileSync(persistentBrainPath, 'utf8'));
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ success: true, data }));
-                return;
+              const data = loadBrain();
+              const envKey = (env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '').trim();
+              if (!data.config.apiKey && envKey) {
+                data.config.apiKey = envKey;
               }
-              if (fs.existsSync(seedBrainPath)) {
-                const data = JSON.parse(fs.readFileSync(seedBrainPath, 'utf8'));
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ success: true, data }));
-                return;
-              }
+              data.hasServerKey = Boolean(data.config.apiKey);
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: true, data }));
+              return;
             } catch (_) {}
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ success: true, data: null }));
             return;
           }
+        }
+
+        if (req.url && req.url.startsWith('/api/v1/admin/community/aistudio-gemini') && req.method === 'POST') {
+          let body = '';
+          req.on('data', (chunk: any) => { body += chunk; });
+          req.on('end', async () => {
+            try {
+              const payload = JSON.parse(body || '{}');
+              const dataDir = path.resolve(__dirname, '.data');
+              const persistentBrainPath = path.join(dataDir, 'aiStudioBrain.json');
+              let storedBrain: any = {};
+              if (fs.existsSync(persistentBrainPath)) {
+                try { storedBrain = JSON.parse(fs.readFileSync(persistentBrainPath, 'utf8')); } catch (_) {}
+              }
+              const apiKey =
+                (payload.apiKey || '').trim() ||
+                (storedBrain?.config?.apiKey || '').trim() ||
+                (env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '').trim();
+              const model = (payload.model || '').trim() || (storedBrain?.config?.model || '').trim() || 'gemini-flash-latest';
+
+              if (!apiKey) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, error: 'Gemini API key is required.' }));
+                return;
+              }
+
+              const { testGeminiConnection, executeGeminiWithRetry } = await import('./src/server/services/geminiServerService');
+              if (payload.action === 'test') {
+                const result = await testGeminiConnection(apiKey, model);
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(result));
+                return;
+              }
+
+              const result = await executeGeminiWithRetry({
+                apiKey,
+                model,
+                systemInstruction: payload.systemInstruction,
+                contents: payload.contents,
+                temperature: typeof payload.temperature === 'number' ? payload.temperature : 0.85,
+                responseMimeType: payload.responseMimeType,
+                useReviewSchema: Boolean(payload.useReviewSchema)
+              });
+              res.writeHead(result.success ? 200 : 502, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify(result));
+            } catch (err: any) {
+              res.writeHead(500, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: false, error: err?.message || 'Server error calling Gemini' }));
+            }
+          });
+          return;
         }
 
         if (req.url && req.url.startsWith('/api/v1/admin/upload/signature')) {
