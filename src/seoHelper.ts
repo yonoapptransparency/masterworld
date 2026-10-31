@@ -263,11 +263,13 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     const newAppsOnHome = sortedHomeApps.filter((a: any) => a.is_new === true || (a.is_new && a.is_new.booleanValue === true));
     const topLcpApp = newAppsOnHome[0] || sortedHomeApps[0];
     if (topLcpApp) {
+      const topIconUrl = getField(topLcpApp, 'icon_url');
       collectionItems = [{
         name: getField(topLcpApp, 'name'),
         url: `https://www.rummydex.com/app/${getField(topLcpApp, 'slug')}`,
-        image: getField(topLcpApp, 'icon_url')
-      }];
+        image: topIconUrl,
+        ...(topIconUrl ? { icon_url: topIconUrl } : {})
+      } as any];
     }
   } else if (cleanPathLower === '/new-apps') {
     pageType = 'collection';
@@ -388,7 +390,23 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   } else if (cleanPathLower === '/videos') {
     title = getField(settings, 'videos_meta_title') || `Video Reviews`;
     description = getField(settings, 'videos_meta_description') || `Watch deep-dive reviews and gameplay analysis.`;
-    pageType = 'static';
+    customCanonicalUrl = `https://www.rummydex.com/videos`;
+    pageType = 'collection';
+    collectionItems = videos.slice(0, 30).map((v: any) => {
+      const vSlug = getField(v, 'slug') || getField(v, 'id');
+      const ytUrl = getField(v, 'youtube_url') || getField(v, 'video_url') || getField(v, 'url');
+      const thumb = getYoutubeThumbnail(ytUrl);
+      return {
+        name: getField(v, 'title'),
+        url: `https://www.rummydex.com/videos/${vSlug}`,
+        image: thumb || undefined,
+        description: cleanSeoDescription(getField(v, 'seo_description') || getField(v, 'meta_description') || getField(v, 'description', '').substring(0, 140))
+      };
+    });
+    breadcrumbItems = [
+      { name: 'Home', url: 'https://www.rummydex.com' },
+      { name: 'Videos', url: 'https://www.rummydex.com/videos' }
+    ];
   } else if (cleanPathLower.startsWith('/news/')) {
     const rawNewsSlug = cleanPath.split('/news/')[1] || '';
     const cleanNewsSlug = decodeURIComponent(rawNewsSlug).toLowerCase().trim().replace(/\/+$/, '').split(/[?#]/)[0];
@@ -426,17 +444,41 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       title = `News Article Not Found`;
       description = `The requested publication could not be located.`;
     }
-  } else if (cleanPathLower.startsWith('/videos/')) {
-    const slug = cleanPath.split('/videos/')[1];
-    const videoItem = videos.find((v: any) => getField(v, 'slug').toLowerCase() === slug);
+  } else if (cleanPathLower.startsWith('/videos/') || cleanPathLower.startsWith('/video/')) {
+    const rawVideoSlug = cleanPath.replace(/^\/videos?\//i, '') || '';
+    const cleanVideoSlug = decodeURIComponent(rawVideoSlug).toLowerCase().trim().replace(/\/+$/, '').split(/[?#]/)[0];
+
+    let videoItem = videos.find((v: any) => {
+      const vSlug = (getField(v, 'slug') || '').toLowerCase().trim();
+      const vId = (getField(v, 'id') || '').toLowerCase().trim();
+      return (vSlug && vSlug === cleanVideoSlug) || (vId && vId === cleanVideoSlug);
+    });
+
+    if (!videoItem && cleanVideoSlug) {
+      data = await doFetchStoreData();
+      videos = data.videos || [];
+      videoItem = videos.find((v: any) => {
+        const vSlug = (getField(v, 'slug') || '').toLowerCase().trim();
+        const vId = (getField(v, 'id') || '').toLowerCase().trim();
+        return (vSlug && vSlug === cleanVideoSlug) || (vId && vId === cleanVideoSlug);
+      });
+    }
+
     if (videoItem) {
       title = getField(videoItem, 'seo_title') || getField(videoItem, 'meta_title') || getField(videoItem, 'title');
-      description = getField(videoItem, 'seo_description') || getField(videoItem, 'meta_description') || getField(videoItem, 'description', '').substring(0, 160);
+      description = cleanSeoDescription(
+        getField(videoItem, 'seo_description') ||
+        getField(videoItem, 'meta_description') ||
+        getField(videoItem, 'description', '').substring(0, 160)
+      );
+      customCanonicalUrl = `https://www.rummydex.com/videos/${getField(videoItem, 'slug') || getField(videoItem, 'id')}`;
       pageType = 'video';
       targetVideo = videoItem;
     } else {
       isNotFound = true;
       pageType = '404';
+      title = `Video Not Found`;
+      description = `The requested video walkthrough could not be located.`;
     }
   } else if (['/about', '/contact', '/privacy', '/report-removal', '/terms', '/notice', '/ethics', '/disclaimer', '/responsibility', '/developers', '/developer', '/faq', '/faqs', '/safety', '/safety-status'].includes(cleanPathLower)) {
     pageType = 'static';
@@ -516,7 +558,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     const appSlug = cleanPathLower.replace(/^\/|\/$/g, '');
     const app = resolveAppSlug(appSlug, apps) || apps.find((a: any) => getField(a, 'slug')?.toLowerCase() === appSlug);
     const newsItem = news.find((n: any) => getField(n, 'slug')?.toLowerCase() === appSlug);
-    const videoItem = videos.find((v: any) => getField(v, 'slug')?.toLowerCase() === appSlug);
+    const videoItem = videos.find((v: any) => (getField(v, 'slug') || '').toLowerCase() === appSlug || (getField(v, 'id') || '').toLowerCase() === appSlug);
 
     if (app) {
       title = getField(app, 'seo_title') || getField(app, 'meta_title') || getField(app, 'name');
@@ -526,12 +568,23 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
       targetApp = app;
     } else if (newsItem) {
       title = getField(newsItem, 'seo_title') || getField(newsItem, 'meta_title') || getField(newsItem, 'title');
-      description = getField(newsItem, 'seo_description') || getField(newsItem, 'meta_description') || getField(newsItem, 'description', '').substring(0, 160);
+      description = cleanSeoDescription(
+        getField(newsItem, 'seo_description') ||
+        getField(newsItem, 'meta_description') ||
+        getField(newsItem, 'description') ||
+        stripHtml(getField(newsItem, 'content') || getField(newsItem, 'description_html')).substring(0, 160)
+      );
+      customCanonicalUrl = `https://www.rummydex.com/news/${getField(newsItem, 'slug') || getField(newsItem, 'id')}`;
       pageType = 'news';
       targetNews = newsItem;
     } else if (videoItem) {
       title = getField(videoItem, 'seo_title') || getField(videoItem, 'meta_title') || getField(videoItem, 'title');
-      description = getField(videoItem, 'seo_description') || getField(videoItem, 'meta_description') || getField(videoItem, 'description', '').substring(0, 160);
+      description = cleanSeoDescription(
+        getField(videoItem, 'seo_description') ||
+        getField(videoItem, 'meta_description') ||
+        getField(videoItem, 'description', '').substring(0, 160)
+      );
+      customCanonicalUrl = `https://www.rummydex.com/videos/${getField(videoItem, 'slug') || getField(videoItem, 'id')}`;
       pageType = 'video';
       targetVideo = videoItem;
     } else {
@@ -581,6 +634,9 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   } else if (pageType === 'news' && targetNews) {
     const nSlug = getField(targetNews, 'slug') || getField(targetNews, 'id');
     canonicalUrl = `https://www.rummydex.com/news/${nSlug}`;
+  } else if (pageType === 'video' && targetVideo) {
+    const vSlug = getField(targetVideo, 'slug') || getField(targetVideo, 'id');
+    canonicalUrl = `https://www.rummydex.com/videos/${vSlug}`;
   } else {
     canonicalUrl = getCleanCanonicalUrl(customCanonicalUrl, canonicalPath);
   }
@@ -594,7 +650,7 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
   } else if (targetNews) {
     pageOgImage = getField(targetNews, 'og_image_url') || getField(targetNews, 'image_url') || getField(targetNews, 'logo_url') || getField(targetNews, 'image') || logoUrl;
   } else if (targetVideo) {
-    const ytThumb = getYoutubeThumbnail(getField(targetVideo, 'youtube_url'));
+    const ytThumb = getYoutubeThumbnail(getField(targetVideo, 'youtube_url') || getField(targetVideo, 'video_url') || getField(targetVideo, 'url'));
     if (ytThumb) pageOgImage = ytThumb;
   }
 

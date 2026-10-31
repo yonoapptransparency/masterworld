@@ -569,11 +569,23 @@ export function useDataActions(
 
     const cleanVideos = JSON.parse(JSON.stringify(newVideos || [])).map((v: any) => {
       const idKey = String(v?.id || '').trim();
-      const slugKey = String(v?.slug || '').trim().replace(/^\/+|\/+$/g, '').toLowerCase();
+      const rawSlug = typeof v?.slug === 'string' && v.slug.trim()
+        ? v.slug.trim().replace(/^\/+|\/+$/g, '')
+        : (typeof v?.title === 'string' && v.title.trim()
+            ? v.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+            : idKey);
+      const slugKey = String(rawSlug || '').toLowerCase();
       const prev = (idKey && existingById.get(idKey)) || (slugKey && existingBySlug.get(slugKey));
+      const ytUrl = (v?.youtube_url || v?.video_url || v?.url || '').trim();
+      const rawSeoTitle = (v?.seo_title || v?.meta_title || '').trim();
+      const exactSeoTitle = rawSeoTitle ? formatPageTitle(rawSeoTitle, '') : '';
       const candidate = {
         ...v,
-        slug: typeof v?.slug === 'string' ? v.slug.trim().replace(/^\/+|\/+$/g, '') : v?.slug,
+        slug: rawSlug,
+        youtube_url: ytUrl,
+        video_url: ytUrl,
+        url: ytUrl,
+        ...(exactSeoTitle ? { seo_title: exactSeoTitle, meta_title: exactSeoTitle } : {}),
         created_at: v?.created_at || prev?.created_at || now
       };
       const changed = hasItemContentChanged(prev, candidate);

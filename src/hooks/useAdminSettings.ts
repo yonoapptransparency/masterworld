@@ -199,14 +199,23 @@ export const useAdminSettings = (settings: any, news: any[], videos: any[]) => {
   // Videos
   const handleAddVideo = () => {
     const newId = Math.random().toString(36).substr(2, 9);
-    setVideosList(prev => [...prev, {
+    setVideosList(prev => [{
       id: newId,
       title: 'New Video',
+      slug: `video-${newId}`,
+      youtube_url: '',
+      video_url: '',
       url: '',
       thumbnail: '',
       description: '',
-      created_at: new Date().toISOString()
-    }]);
+      category: 'Video Guide',
+      duration: '',
+      seo_title: '',
+      seo_description: '',
+      seo_keywords: '',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }, ...prev]);
   };
 
   const handleDeleteVideo = (id: string) => {
@@ -215,7 +224,29 @@ export const useAdminSettings = (settings: any, news: any[], videos: any[]) => {
   };
 
   const handleVideosChange = (id: string, field: string, value: any) => {
-    setVideosList(prev => prev.map(v => v.id === id ? { ...v, [field]: value, updated_at: new Date().toISOString() } : v));
+    setVideosList(prev => prev.map(v => {
+      if (v.id !== id) return v;
+      const updated: any = { ...v, [field]: value, updated_at: new Date().toISOString() };
+      if (field === 'title' && (!v.slug || v.slug.startsWith('video-') || v.slug === 'new-video')) {
+        updated.slug = String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `video-${id}`;
+      }
+      if (field === 'youtube_url' || field === 'video_url' || field === 'url') {
+        updated.youtube_url = value;
+        updated.video_url = value;
+        updated.url = value;
+      }
+      if (field === 'seo_title') {
+        updated.meta_title = value;
+      } else if (field === 'meta_title') {
+        updated.seo_title = value;
+      }
+      if (field === 'seo_description') {
+        updated.meta_description = value;
+      } else if (field === 'meta_description') {
+        updated.seo_description = value;
+      }
+      return updated;
+    }));
   };
 
   // Website FAQs

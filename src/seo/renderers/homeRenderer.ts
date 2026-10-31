@@ -48,7 +48,7 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
           </div>
           <div class="relative w-[52px] h-[52px] xxs:w-[60px] xxs:h-[60px] xs:w-[72px] xs:h-[72px] sm:w-[88px] sm:h-[88px] shrink-0">
             <div class="w-full h-full rounded-[14px] xxs:rounded-[16px] xs:rounded-[18px] sm:rounded-[22px] overflow-hidden bg-zinc-100 dark:bg-zinc-800 shadow-sm border border-black/5 dark:border-white/10 relative z-10 transition-transform group-hover:-translate-y-0.5 duration-300">
-              <img src="${escapeHtml(icon)}" ${isTopItem ? 'loading="eager" fetchpriority="high"' : 'loading="lazy" fetchpriority="low"'} decoding="async" width="88" height="88" referrerpolicy="no-referrer" class="w-full h-full object-cover block" alt="${escapeHtml(name)} app icon"/>
+              <img src="${escapeHtml(icon)}" ${isTopItem ? 'loading="eager" fetchpriority="high"' : 'loading="lazy" fetchpriority="low"'} decoding="async" width="88" height="88" class="w-full h-full object-cover block" alt="${escapeHtml(name)} app icon"/>
             </div>
             ${isHot && isNew ? `<div class="absolute -top-1.5 -right-2 z-20 pointer-events-none"><span class="inline-flex items-center rounded-[6px] xs:rounded-[8px] overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.18)] font-black text-[7px] xxs:text-[8px] xs:text-[9px] sm:text-[10px] uppercase tracking-wider block"><span class="bg-[#d32f2f] text-white px-1 xs:px-1.5 py-0.5">HOT</span><span class="bg-[#008738] text-white px-1 xs:px-1.5 py-0.5">NEW</span></span></div>` : isHot ? `<div class="absolute -top-1.5 -right-2 z-20 pointer-events-none"><span class="bg-[#d32f2f] text-white text-[7px] xxs:text-[8px] xs:text-[9px] sm:text-[10px] font-black px-1.5 xs:px-2 py-0.5 rounded-[6px] xs:rounded-[10px] shadow-[0_2px_8px_rgba(0,0,0,0.15)] uppercase tracking-wider block">HOT</span></div>` : isNew ? `<div class="absolute -top-1.5 -right-2 z-20 pointer-events-none"><span class="bg-[#008738] text-white text-[7px] xxs:text-[8px] xs:text-[9px] sm:text-[10px] font-black px-1.5 xs:px-2 py-0.5 rounded-[6px] xs:rounded-[10px] shadow-[0_2px_8px_rgba(0,0,0,0.15)] uppercase tracking-wider block">NEW</span></div>` : ''}
           </div>
@@ -76,25 +76,26 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
   let newAdditionsHtml = '';
   if (newApps.length > 0) {
     newAdditionsHtml = `
-      <aside data-nosnippet class="px-0 animate-fade-in">
+      <aside data-nosnippet class="px-0">
         <h2 class="text-base xxs:text-lg xs:text-xl font-bold mb-2.5 xs:mb-4 mt-3 xs:mt-6 text-zinc-900 dark:text-zinc-100 flex items-center px-0">
           New Additions <svg class="w-4 h-4 xs:w-5 xs:h-5 text-blue-500 fill-blue-500/20 ml-1.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><path d="m9 12 2 2 4-4"/></svg>
         </h2>
-        <div class="flex overflow-x-auto gap-2 xxs:gap-2.5 xs:gap-3.5 sm:gap-4 px-2 xxs:px-3 xs:px-4 sm:px-1 pt-1.5 pb-2 mb-2 scrollbar-none snap-x snap-mandatory scroll-smooth -mx-2 xxs:-mx-3 xs:-mx-4 sm:-mx-0">
+        <div class="flex overflow-x-auto gap-2 xxs:gap-2.5 xs:gap-3.5 sm:gap-4 px-2 xxs:px-3 xs:px-4 sm:px-1 pt-1.5 pb-2 mb-2 scrollbar-none snap-x snap-mandatory scroll-smooth -mx-2 xxs:-mx-3 xs:-mx-4 sm:-mx-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           ${newApps.slice(0, 10).map((app, index) => {
             const nSlug = getField(app, 'slug');
             const nName = getField(app, 'name');
             const nIcon = optimizeImageUrl(getField(app, 'icon_url'), 120);
             const nIsHot = app.is_hot === true || (app.is_hot && app.is_hot.booleanValue === true);
-            const nIsNew = app.is_new === true || (app.is_new && app.is_new.booleanValue === true);
+            const nIsNew = app.is_new === true || (app.is_new && aIsNew(app));
+            function aIsNew(item: any) { return item.is_new === true || (item.is_new && item.is_new.booleanValue === true); }
             return `
               <div class="flex-none w-[64px] xxs:w-[74px] xs:w-[88px] sm:w-[104px] snap-start">
                 <a href="/app/${encodeURIComponent(nSlug)}" class="flex flex-col gap-1 xxs:gap-1.5 xs:gap-2 group" title="${escapeHtml(nName)}">
                   <div class="relative w-full aspect-square">
-                    <div class="w-full h-full rounded-[14px] xxs:rounded-[16px] xs:rounded-[20px] sm:rounded-[24px] overflow-hidden bg-zinc-100 dark:bg-zinc-800 border border-black/5 dark:border-white/10 shadow-sm">
-                      <img src="${escapeHtml(nIcon)}" ${index < 6 ? 'loading="eager"' : 'loading="lazy"'} ${index === 0 ? 'fetchpriority="high"' : 'fetchpriority="low"'} decoding="async" width="104" height="104" class="w-full h-full object-cover block" alt="${escapeHtml(nName)}"/>
+                    <div class="w-full h-full rounded-[14px] xxs:rounded-[16px] xs:rounded-[20px] sm:rounded-[24px] overflow-hidden bg-zinc-100 dark:bg-zinc-800 border border-black/5 dark:border-white/10 shadow-sm group-hover:shadow-[0_8px_20px_-8px_rgba(0,0,0,0.1)] transition-all">
+                      <img src="${escapeHtml(nIcon)}" ${index < 6 ? 'loading="eager"' : 'loading="lazy"'} ${index === 0 ? 'fetchpriority="high"' : 'fetchpriority="low"'} decoding="async" width="104" height="104" class="w-full h-full object-cover group-hover:-translate-y-0.5 transition-transform duration-300 block" alt="${escapeHtml(nName)}"/>
                     </div>
-                    ${nIsHot && nIsNew ? `<div class="absolute -top-1.5 -right-1.5 z-20 pointer-events-none"><span class="inline-flex items-center rounded-[6px] xs:rounded-[8px] overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.18)] font-black text-[7px] xs:text-[8px] sm:text-[9px] uppercase tracking-wider block"><span class="bg-[#d32f2f] text-white px-1 xs:px-1.5 py-0.5">HOT</span><span class="bg-[#008738] text-white px-1 xs:px-1.5 py-0.5">NEW</span></span></div>` : nIsHot ? `<div class="absolute -top-1.5 -right-1.5 z-20 pointer-events-none"><span class="bg-[#d32f2f] text-white text-[7px] xs:text-[8px] sm:text-[9px] font-black px-1.5 py-0.5 rounded-[6px] xs:rounded-[8px] shadow-[0_2px_8px_rgba(0,0,0,0.15)] uppercase tracking-wider block">HOT</span></div>` : `<div class="absolute -top-1.5 -right-1.5 z-20 pointer-events-none"><span class="bg-[#008738] text-white text-[7px] xs:text-[8px] sm:text-[9px] font-black px-1.5 xs:px-2 py-0.5 rounded-[6px] xs:rounded-[8px] shadow-[0_2px_8px_rgba(0,0,0,0.15)] uppercase tracking-wider block">NEW</span></div>`}
+                    ${nIsHot && nIsNew ? `<div class="absolute -top-1.5 -right-1.5 z-20 pointer-events-none"><span class="inline-flex items-center rounded-[6px] xs:rounded-[8px] overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.18)] font-black text-[7px] xs:text-[8px] sm:text-[9px] uppercase tracking-wider block"><span class="bg-[#d32f2f] text-white px-1 xs:px-1.5 py-0.5">HOT</span><span class="bg-[#008738] text-white px-1 xs:px-1.5 py-0.5">NEW</span></span></div>` : nIsHot ? `<div class="absolute -top-1.5 -right-1.5 z-20 pointer-events-none"><span class="bg-[#d32f2f] text-white text-[7px] xs:text-[8px] sm:text-[9px] font-black px-1.5 py-0.5 rounded-[6px] xs:rounded-[8px] shadow-[0_2px_8px_rgba(0,0,0,0.15)] uppercase tracking-wider block">HOT</span></div>` : `<div class="absolute -top-1.5 -right-1.5 z-20 pointer-events-none"><span class="bg-[#008738] text-white text-[7px] xs:text-[8px] sm:text-[9px] font-black px-1.5 py-0.5 rounded-[6px] xs:rounded-[8px] shadow-[0_2px_8px_rgba(0,0,0,0.15)] uppercase tracking-wider block">NEW</span></div>`}
                   </div>
                   <div class="px-0.5 text-center"><h3 class="text-[9px] xs:text-[10px] sm:text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">${escapeHtml(nName)}</h3></div>
                 </a>
@@ -193,16 +194,17 @@ export function renderHome(apps: any[], settings: any, news: any[], _videos: any
     heroBarClasses = 'bg-gradient-to-r from-pink-400 to-purple-500';
   }
 
-  const heroHtml = (heroVisible && (heroText || heroSubtitle)) ? `
+  const cleanHeroSubtitle = heroSubtitle.replace(/^[\u200B-\u200D\uFEFF]+/, '').trim();
+  const heroHtml = (heroVisible && (heroText || cleanHeroSubtitle)) ? `
     <div class="w-full relative py-1 sm:py-1.5 px-4 overflow-hidden flex flex-col items-center justify-center text-center my-0">
       <div class="absolute inset-0 pointer-events-none flex items-center justify-center -z-10 overflow-hidden">
         <div class="w-[200px] sm:w-[300px] h-[100px] sm:h-[150px] rounded-full blur-[40px] sm:blur-[60px] mix-blend-multiply dark:mix-blend-screen opacity-8 transition-colors duration-500 ${heroGlowClasses}"></div>
       </div>
       <div class="max-w-4xl mx-auto flex flex-col items-center justify-center gap-1">
-        <h1 class="${heroStyleClasses} ${heroColorClasses} select-text block max-w-3xl filter drop-shadow-sm">
+        <h1 class="${heroStyleClasses} ${heroColorClasses} select-text block max-w-3xl">
           ${escapeHtml(heroText)}
         </h1>
-        ${heroSubtitle ? `<p class="text-[9px] sm:text-[10px] font-bold tracking-[0.18em] text-zinc-900/60 dark:text-zinc-100/60 uppercase max-w-2xl select-text pt-0.5 leading-tight">${escapeHtml(heroSubtitle)}</p>` : ''}
+        ${cleanHeroSubtitle ? `<p class="text-[9px] sm:text-[10px] font-bold tracking-[0.18em] text-zinc-600 dark:text-zinc-400 uppercase max-w-2xl select-text pt-0.5 leading-tight">${escapeHtml(cleanHeroSubtitle)}</p>` : ''}
         <div class="h-[2px] w-12 rounded-full mt-1 bg-zinc-200 dark:bg-zinc-800 transition-all duration-300 ${heroBarClasses}"></div>
       </div>
     </div>

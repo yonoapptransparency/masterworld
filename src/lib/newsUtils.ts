@@ -65,26 +65,38 @@ export function getPlainTextSnippet(htmlOrText?: string, maxLength: number = 160
 export function getNextNewsChain(
   currentNewsItemOrKey: any,
   allNews: any[],
-  count: number = 6
+  count: number = 8
 ): any[] {
   if (!Array.isArray(allNews) || allNews.length === 0) return [];
 
   const validNews = allNews.filter((n: any) => n && n.sync_to_public !== false);
   if (validNews.length <= 1) return [];
 
+  const curKey = typeof currentNewsItemOrKey === 'string'
+    ? currentNewsItemOrKey.toLowerCase().trim()
+    : String(currentNewsItemOrKey?.slug || currentNewsItemOrKey?.id || '').toLowerCase().trim();
+
+  // If allNews is the pre-trimmed SSR slice for this exact target article, preserve its exact pre-computed circular order
+  const precomputedChain = validNews.filter((n: any) => {
+    const s = String(n.slug || n.id || '').toLowerCase().trim();
+    const id = String(n.id || '').toLowerCase().trim();
+    return s !== curKey && id !== curKey && typeof n._nextChainOrder === 'number';
+  });
+  if (precomputedChain.length > 0 && validNews.length <= count + 2) {
+    return [...precomputedChain]
+      .sort((a: any, b: any) => Number(a._nextChainOrder) - Number(b._nextChainOrder))
+      .slice(0, count);
+  }
+
   // Canonical sort: newest first, respecting is_pinned, then date/published_at descending, then slug/id for tie-breaking
   const sorted = [...validNews].sort((a: any, b: any) => {
     if (a.is_pinned && !b.is_pinned) return -1;
     if (!a.is_pinned && b.is_pinned) return 1;
-    const dateA = new Date(a.published_at || a.date || a.created_at || 0).getTime();
-    const dateB = new Date(b.published_at || b.date || b.created_at || 0).getTime();
+    const dateA = new Date(a.date || a.published_at || a.created_at || 0).getTime();
+    const dateB = new Date(b.date || b.published_at || b.created_at || 0).getTime();
     if (dateA !== dateB) return dateB - dateA;
     return String(a.slug || a.id || '').localeCompare(String(b.slug || b.id || ''));
   });
-
-  const curKey = typeof currentNewsItemOrKey === 'string'
-    ? currentNewsItemOrKey.toLowerCase().trim()
-    : String(currentNewsItemOrKey?.slug || currentNewsItemOrKey?.id || '').toLowerCase().trim();
 
   const currentIndex = sorted.findIndex((n: any) => {
     const s = String(n.slug || n.id || '').toLowerCase().trim();
@@ -107,4 +119,88 @@ export function getNextNewsChain(
 
   return result;
 }
+
+export function extractYoutubeId(urlStr?: string): string {
+  if (!urlStr || typeof urlStr !== 'string') return '';
+  const trimmed = urlStr.trim();
+  if (!trimmed) return '';
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
+  try {
+    const url = new URL(trimmed);
+    const host = url.hostname.toLowerCase();
+    if (host.includes('youtube.com') || host.includes('youtube-nocookie.com')) {
+      if (
+        url.pathname.startsWith('/shorts/') ||
+        url.pathname.startsWith('/live/') ||
+        url.pathname.startsWith('/embed/') ||
+        url.pathname.startsWith('/v/')
+      ) {
+        const seg = url.pathname.split('/')[2] || url.pathname.split('/')[1] || '';
+        return seg.split(/[?#&]/)[0] || '';
+      }
+      return (url.searchParams.get('v') || '').split(/[?#&]/)[0] || '';
+    } else if (host.includes('youtu.be')) {
+      return url.pathname.slice(1).split(/[/?#&]/)[0] || '';
+    }
+  } catch (e) {}
+  const m = trimmed.match(/(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:embed\/|v\/|shorts\/|live\/|watch\?v=|watch\?.+&v=))([a-zA-Z0-9_-]{11})/);
+  if (m && m[1]) return m[1];
+  const fallbackMatch = trimmed.match(/(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:embed\/|v\/|shorts\/|live\/|watch\?v=|watch\?.+&v=))([^&?\s/]+)/);
+  if (fallbackMatch && fallbackMatch[1]) return fallbackMatch[1];
+  return '';
+}
+
+export function getYoutubeThumbUrl(
+  urlOrId?: string,
+  quality: 'hqdefault' | 'mqdefault' | 'maxresdefault' | 'default' = 'hqdefault'
+): string {
+  const ytId = extractYoutubeId(urlOrId);
+  if (!ytId) return '';
+  return `https://img.youtube.com/vi/${ytId}/${quality}.jpg`;
+}
+
+export function resolveVideoRelatedApp(videoItem: any, apps: any[]): any {
+  if (!videoItem || !Array.isArray(apps) || apps.length === 0) return null;
+  const getVal = (obj: any, key: string): string => {
+    if (!obj || obj[key] === undefined || obj[key] === null) return '';
+    const v = obj[key];
+    if (typeof v === 'object' && v.stringValue !== undefined) return String(v.stringValue);
+    return String(v);
+  };
+
+  const relId = getVal(videoItem, 'related_app_id').toLowerCase().trim();
+  if (relId) {
+    const byId = apps.find((a: any) => {
+      const aId = getVal(a, 'id').toLowerCase().trim();
+      const aSlug = getVal(a, 'slug').toLowerCase().trim();
+      return (aId && aId === relId) || (aSlug && aSlug === relId);
+    });
+    if (byId) return byId;
+  }
+
+  const vSlug = getVal(videoItem, 'slug').toLowerCase();
+  const vTitle = getVal(videoItem, 'title').toLowerCase();
+  const haystack = `${vSlug} ${vTitle}`.replace(/[^a-z0-9]+/g, ' ');
+  const compactHaystack = `${vSlug}${vTitle}`.replace(/[^a-z0-9]+/g, '');
+
+  for (const app of apps) {
+    if (!app || app.sync_to_public === false) continue;
+    const aSlug = getVal(app, 'slug').toLowerCase().trim();
+    const aName = getVal(app, 'name').toLowerCase().trim();
+    const cleanSlug = aSlug.replace(/[^a-z0-9]+/g, '');
+    const cleanName = aName.replace(/[^a-z0-9]+/g, '');
+    if (cleanSlug.length >= 4 && compactHaystack.includes(cleanSlug)) {
+      return app;
+    }
+    if (cleanName.length >= 4 && compactHaystack.includes(cleanName)) {
+      return app;
+    }
+    if (aName.length >= 4 && haystack.includes(aName)) {
+      return app;
+    }
+  }
+
+  return null;
+}
+
 

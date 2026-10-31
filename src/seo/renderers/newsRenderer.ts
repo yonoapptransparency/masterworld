@@ -1,6 +1,6 @@
 import { getField, optimizeImageUrl } from '../utils';
 import { escapeHtml, sanitizeHtml } from './common';
-import { formatNewsDate, calculateReadingTime, getNextNewsChain } from '../../lib/newsUtils';
+import { formatNewsDate, calculateReadingTime, getNextNewsChain, getPlainTextSnippet } from '../../lib/newsUtils';
 
 export function renderNewsList(news: any[], _settings: any, pageNum: number = 1): string {
   const publicNewsList = (Array.isArray(news) ? news : [])
@@ -28,41 +28,61 @@ export function renderNewsList(news: any[], _settings: any, pageNum: number = 1)
 
   let cards = '';
   currentSlice.forEach((n, idx) => {
-    const title = getField(n, 'title');
+    const title = getField(n, 'title') || 'News Article';
     const slug = getField(n, 'slug') || getField(n, 'id');
-    const logo = getField(n, 'image_url') || getField(n, 'logo_url') || getField(n, 'image');
-    const optimizedLogo = logo ? optimizeImageUrl(logo, 600) : '';
+    const coverImage = getField(n, 'og_image_url') || getField(n, 'image_url') || getField(n, 'logo_url') || getField(n, 'image');
+    const optimizedLogo = coverImage ? (optimizeImageUrl(coverImage, 600) || coverImage) : '';
     const dateLabel = formatNewsDate(getField(n, 'date'), getField(n, 'published_at'), getField(n, 'created_at'));
+    const readingTime = getField(n, 'read_time') || calculateReadingTime(getField(n, 'content') || getField(n, 'description_html') || getField(n, 'description'));
     const category = getField(n, 'category') || '';
-    const desc = (getField(n, 'description') || '').replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim();
+    const isPinned = Boolean(n.is_pinned);
+    const snippet = getPlainTextSnippet(getField(n, 'description'));
     const isEager = idx < 3;
+    const isPriority = idx === 0;
+    const articleUrl = `/news/${encodeURIComponent(slug)}`;
 
     cards += `
-      <article class="group relative bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200/70 dark:border-zinc-800/80 overflow-hidden shadow-xs transition-all duration-300 flex flex-col text-left">
-        <a href="/news/${encodeURIComponent(slug)}" class="block flex-1 flex flex-col focus:outline-none no-underline" aria-label="Read full news article: ${escapeHtml(title)}">
-          <div class="w-full aspect-[16/9] overflow-hidden bg-zinc-100 dark:bg-zinc-800/60 relative shrink-0">
-            ${optimizedLogo ? `
-              <img src="${escapeHtml(optimizedLogo)}" alt="${escapeHtml(title)}" loading="${isEager ? 'eager' : 'lazy'}" decoding="async" width="600" height="338" class="w-full h-full object-cover object-center block" />
-            ` : `
-              <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-500/10 to-indigo-500/10">
-                <span class="text-xl font-black text-blue-600/30 dark:text-blue-400/30 tracking-widest uppercase">News</span>
+      <article class="bg-white dark:bg-zinc-900 overflow-hidden flex flex-col hover:shadow-lg transition-shadow duration-200 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 cursor-pointer text-left">
+        ${optimizedLogo ? `
+          <a href="${articleUrl}" class="relative w-full aspect-[16/9] overflow-hidden bg-zinc-100 dark:bg-zinc-800 block" tabindex="-1">
+            <img src="${escapeHtml(optimizedLogo)}" alt="${escapeHtml(title)}" class="w-full h-full object-cover block transition-transform duration-200 group-hover:scale-[1.02]" loading="${isEager ? 'eager' : 'lazy'}"${isPriority ? ' fetchpriority="high"' : ''} decoding="async" width="600" height="338" />
+            ${isPinned ? `
+              <div class="absolute top-2.5 left-2.5 bg-amber-500 text-white text-[11px] font-bold px-2 py-0.5 rounded-full shadow flex items-center gap-1 z-10">
+                <span>Pinned</span>
               </div>
-            `}
-          </div>
-          <div class="p-4 sm:p-5 flex-1 flex flex-col justify-between">
-            <div>
-              <div class="flex items-center gap-2 text-[11px] font-medium text-zinc-400 dark:text-zinc-500 mb-2">
-                ${category ? `<span class="font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider text-[10px]">${escapeHtml(category)}</span>` : '<span class="font-bold text-zinc-500 uppercase tracking-wider text-[10px]">News</span>'}
-                ${dateLabel ? `<span>•</span><span>${escapeHtml(dateLabel)}</span>` : ''}
+            ` : ''}
+            ${category ? `
+              <div class="absolute bottom-2.5 left-2.5 bg-black/75 backdrop-blur-xs text-white text-[10px] font-semibold px-2 py-0.5 rounded-full border border-white/10 z-10">
+                ${escapeHtml(category)}
               </div>
-              <h2 class="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 leading-snug line-clamp-2 mb-2">${escapeHtml(title)}</h2>
-              ${desc ? `<p class="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 line-clamp-2 leading-relaxed font-normal">${escapeHtml(desc)}</p>` : ''}
-            </div>
-            <div class="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between">
-              <span class="text-xs font-semibold text-blue-600 dark:text-blue-400">Read story</span>
-            </div>
+            ` : ''}
+          </a>
+        ` : `
+          <div class="relative w-full h-2 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500"></div>
+        `}
+        <div class="p-4 sm:p-5 flex-1 flex flex-col">
+          <div class="flex items-center gap-2.5 text-xs text-zinc-500 dark:text-zinc-400 mb-2">
+            <span class="flex items-center gap-1">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+              ${escapeHtml(dateLabel)}
+            </span>
+            <span>•</span>
+            <span class="flex items-center gap-1">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              ${escapeHtml(readingTime)}
+            </span>
           </div>
-        </a>
+          <a href="${articleUrl}" class="hover:text-blue-600 dark:hover:text-blue-400 transition-colors block mb-2 no-underline">
+            <h2 class="text-base sm:text-lg font-bold text-zinc-900 dark:text-white line-clamp-2 leading-snug">${escapeHtml(title)}</h2>
+          </a>
+          ${snippet ? `<p class="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 line-clamp-3 leading-relaxed mb-4 flex-1">${escapeHtml(snippet)}</p>` : ''}
+          <div class="pt-3 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center justify-between text-xs font-semibold mt-auto">
+            <a href="${articleUrl}" class="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 no-underline">Read Article →</a>
+            <button type="button" class="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors cursor-pointer" title="Share article" aria-label="Share article">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+            </button>
+          </div>
+        </div>
       </article>
     `;
   });
@@ -139,6 +159,7 @@ export function renderNewsList(news: any[], _settings: any, pageNum: number = 1)
         <h1 class="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-white tracking-tight">News &amp; Updates</h1>
         <div class="relative w-full sm:w-80 shrink-0">
           <input type="text" readonly class="w-full py-2.5 pl-10 pr-9 text-sm text-zinc-900 dark:text-white bg-zinc-100 dark:bg-zinc-800/90 border border-zinc-200 dark:border-zinc-700/80 rounded-xl placeholder-zinc-400 font-medium" placeholder="Search news or topics..." aria-label="Search news articles" />
+          <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
         </div>
       </div>
       ${categories.length > 1 ? `
@@ -155,16 +176,6 @@ export function renderNewsList(news: any[], _settings: any, pageNum: number = 1)
       ${fullNewsArchiveHtml}
     </div>
   `;
-}
-
-function checkAppIsNew(item: any): boolean {
-  if (!item) return false;
-  if (item.is_new === true || item.is_new === 'true' || item.is_new === 1) return true;
-  if (item.isNew === true || item.isNew === 'true' || item.isNew === 1) return true;
-  const isNewVal = String(getField(item, 'is_new', '')).trim().toLowerCase();
-  if (isNewVal === 'true' || isNewVal === '1') return true;
-  const badge = String(getField(item, 'badge', '')).trim().toLowerCase();
-  return badge === 'new' || badge === 'hot';
 }
 
 export function renderNewsDetail(slug: string, news: any[], settings: any, apps: any[] = []): string {
@@ -247,121 +258,10 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
     </div>
   ` : '';
 
-  // 16 Category Similar Apps (2-row horizontal scroll carousel matching AppSimilarCarousel.tsx 1:1)
-  let recommendedAppsHtml = '';
-  if (Array.isArray(apps) && apps.length > 0) {
-    const targetCategory = (relatedApp ? getField(relatedApp, 'category') : (getField(item, 'category') || 'Yono Apps')).trim();
-    const cleanTargetCat = targetCategory.toLowerCase();
-    const isAll = cleanTargetCat === 'all' || cleanTargetCat === 'all apps';
-    const relAppId = relatedApp ? (getField(relatedApp, 'id') || '').toLowerCase() : '';
-    const relAppSlug = relatedApp ? (getField(relatedApp, 'slug') || '').toLowerCase() : '';
-
-    const newApps: any[] = [];
-    const regularApps: any[] = [];
-    let totalCatCount = 0;
-
-    for (let i = 0; i < apps.length; i++) {
-      const a = apps[i];
-      if (!a) continue;
-
-      const aId = (getField(a, 'id') || '').toLowerCase();
-      const aSlug = (getField(a, 'slug') || '').toLowerCase();
-      const isBaseApp = Boolean(relatedApp && (aId === relAppId || aSlug === relAppSlug));
-
-      const aCat = (getField(a, 'category') || '').toLowerCase();
-      const matches = isAll || aCat.includes(cleanTargetCat) || cleanTargetCat.includes(aCat);
-
-      if (matches) {
-        totalCatCount++;
-        if (!isBaseApp) {
-          if (checkAppIsNew(a)) {
-            newApps.push(a);
-          } else {
-            regularApps.push(a);
-          }
-        }
-      }
-    }
-
-    newApps.sort((a, b) => (Number(getField(a, 'serial_number')) || 999999) - (Number(getField(b, 'serial_number')) || 999999));
-    regularApps.sort((a, b) => (Number(getField(a, 'serial_number')) || 999999) - (Number(getField(b, 'serial_number')) || 999999));
-
-    const maxCount = 16;
-    const strSeed = String(cleanSlug || getField(item, 'id') || '');
-    let seedHash = 0;
-    for (let i = 0; i < strSeed.length; i++) seedHash = ((seedHash << 5) - seedHash) + strSeed.charCodeAt(i);
-    const absSeed = Math.abs(seedHash);
-
-    const maxNewSlots = Math.min(newApps.length, 6);
-    const pinnedNew: any[] = [];
-    if (maxNewSlots > 0 && newApps.length > 0) {
-      const newStart = absSeed % newApps.length;
-      for (let s = 0; s < maxNewSlots; s++) {
-        pinnedNew.push(newApps[(newStart + s) % newApps.length]);
-      }
-    }
-    const remainingSlots = maxCount - pinnedNew.length;
-
-    const pickedRegular: any[] = [];
-    if (remainingSlots > 0 && regularApps.length > 0) {
-      let startIndex = absSeed % regularApps.length;
-      const baseSerial = Number(relatedApp ? getField(relatedApp, 'serial_number') : null);
-      if (!isNaN(baseSerial) && baseSerial > 0) {
-        const nextIdx = regularApps.findIndex((a: any) => (Number(getField(a, 'serial_number')) || 0) > baseSerial);
-        if (nextIdx !== -1) startIndex = nextIdx;
-      }
-
-      const countToPick = Math.min(remainingSlots, regularApps.length);
-      for (let step = 0; step < countToPick; step++) {
-        const idx = (startIndex + step) % regularApps.length;
-        pickedRegular.push(regularApps[idx]);
-      }
-    }
-
-    const displaySimilarApps = [...pinnedNew, ...pickedRegular];
-
-    if (displaySimilarApps.length > 0) {
-      recommendedAppsHtml = `
-        <aside data-nosnippet aria-labelledby="related-apps-heading" class="my-5 xs:my-6 px-0 text-left">
-          <div class="flex items-center justify-between gap-2 mb-3 px-1 xs:px-2 sm:px-4 md:px-6">
-            <div class="flex items-center gap-2 min-w-0">
-              <h2 id="related-apps-heading" class="text-base xs:text-lg sm:text-xl font-bold flex items-center gap-1.5 xs:gap-2 text-zinc-900 dark:text-zinc-100 truncate">
-                <span>Similar Applications</span>
-                ${targetCategory && targetCategory !== 'All Apps' ? `<span class="text-[10px] xs:text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 xs:px-2.5 py-0.5 rounded-full border border-blue-200/50 dark:border-blue-800/50 truncate">${escapeHtml(targetCategory)}</span>` : ''}
-              </h2>
-            </div>
-            <a href="/?tab=${encodeURIComponent(targetCategory)}" class="inline-flex items-center gap-1.5 px-3 py-1 xs:px-3.5 xs:py-1.5 rounded-full bg-blue-50 hover:bg-blue-100 active:scale-95 dark:bg-blue-950/40 dark:hover:bg-blue-900/60 text-blue-600 dark:text-blue-400 font-bold text-xs xs:text-xs transition-all border border-blue-200/70 dark:border-blue-800/70 shadow-2xs group shrink-0 no-underline" title="Explore all ${totalCatCount} ${escapeHtml(targetCategory)} apps">
-              <span>View all (${totalCatCount})</span>
-              <svg class="w-3 h-3 xs:w-3.5 xs:h-3.5 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-            </a>
-          </div>
-          <div class="grid grid-rows-2 grid-flow-col gap-x-3 xxs:gap-x-4 xs:gap-x-5 gap-y-3 xxs:gap-y-3.5 xs:gap-y-4 overflow-x-auto pt-2.5 pb-2 snap-x snap-proximity [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden -mx-2 xs:-mx-4 px-2 xs:px-4 sm:mx-0 sm:px-0" style="-webkit-overflow-scrolling: touch;">
-            ${displaySimilarApps.map((sim) => {
-              const simName = getField(sim, 'name');
-              const simSlug = getField(sim, 'slug');
-              const simIcon = optimizeImageUrl(getField(sim, 'icon_url') || '', 96);
-              const simIsHot = sim.is_hot === true || (sim.is_hot && sim.is_hot.booleanValue === true);
-              const simIsNew = checkAppIsNew(sim);
-              return `
-                <a href="/app/${encodeURIComponent(simSlug)}" class="flex flex-col items-center justify-start gap-1 xxs:gap-1.5 xs:gap-2 w-[68px] xxs:w-[76px] xs:w-[86px] sm:w-[98px] snap-start group shrink-0 active:scale-95 transition-transform duration-150 ease-out no-underline">
-                  <div class="relative inline-block shrink-0">
-                    <img src="${escapeHtml(simIcon)}" alt="${escapeHtml(simName)}" width="86" height="86" decoding="async" fetchpriority="low" class="w-[58px] h-[58px] xxs:w-[66px] xxs:h-[66px] xs:w-[76px] xs:h-[76px] sm:w-[86px] sm:h-[86px] rounded-[24%] shadow-[0_2px_8px_rgba(0,0,0,0.08)] object-cover group-hover:scale-105 transition-transform duration-200 block pointer-events-none select-none" loading="lazy" />
-                    ${simIsHot && simIsNew ? '<span class="absolute -top-1.5 -right-1.5 z-20 inline-flex items-center rounded-full overflow-hidden shadow-[0_2px_6px_rgba(0,0,0,0.25)] border border-white dark:border-zinc-900 font-black text-[7.5px] xxs:text-[8px] xs:text-[9px] uppercase tracking-wider leading-none select-none pointer-events-none"><span class="bg-[#d32f2f] text-white px-1 xs:px-1.5 py-0.5">HOT</span><span class="bg-[#008738] text-white px-1 xs:px-1.5 py-0.5">NEW</span></span>' : simIsHot ? '<span class="absolute -top-1.5 -right-1.5 z-20 bg-[#d32f2f] text-white font-black text-[7.5px] xxs:text-[8px] xs:text-[9px] px-1.5 py-0.5 rounded-full shadow-[0_2px_6px_rgba(0,0,0,0.25)] border border-white dark:border-zinc-900 uppercase tracking-wider leading-none select-none pointer-events-none flex items-center justify-center">HOT</span>' : simIsNew ? '<span class="absolute -top-1.5 -right-1.5 z-20 bg-[#008738] text-white font-black text-[7.5px] xxs:text-[8px] xs:text-[9px] px-1.5 py-0.5 rounded-full shadow-[0_2px_6px_rgba(0,0,0,0.25)] border border-white dark:border-zinc-900 uppercase tracking-wider leading-none select-none pointer-events-none flex items-center justify-center">NEW</span>' : ''}
-                  </div>
-                  <span class="text-[9.5px] xxs:text-[10.5px] xs:text-[11.5px] sm:text-[12px] font-semibold text-center text-zinc-800 dark:text-zinc-200 line-clamp-2 w-full px-0.5 leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors pointer-events-none select-none">${escapeHtml(simName)}</span>
-                </a>
-              `;
-            }).join('')}
-          </div>
-        </aside>
-      `;
-    }
-  }
-
-  const recentNews = getNextNewsChain(item, news, 6);
+  const recentNews = getNextNewsChain(item, news, 8);
 
   const recentNewsHtml = recentNews.length > 0 ? `
-    <section aria-labelledby="recent-news-heading" class="mt-8 pt-6 border-t border-zinc-200/80 dark:border-zinc-800/80 text-left">
+    <section aria-labelledby="recent-news-heading" class="mt-10 pt-6 border-t border-zinc-200/80 dark:border-zinc-800/80 text-left">
       <div class="flex items-center justify-between gap-2 mb-4">
         <h2 id="recent-news-heading" class="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100">
           Latest News &amp; Updates
@@ -387,6 +287,20 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
           `;
         }).join('')}
       </div>
+      <nav aria-label="Related Directory Links" class="mt-5 pt-4 border-t border-zinc-200/50 dark:border-zinc-800/50 flex flex-wrap items-center gap-2 text-xs">
+        <a href="/news" class="px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/80 hover:bg-blue-50 dark:hover:bg-blue-950/30 text-zinc-700 dark:text-zinc-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium no-underline transition-colors">
+          All News &amp; Updates
+        </a>
+        <a href="/" class="px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/80 hover:bg-blue-50 dark:hover:bg-blue-950/30 text-zinc-700 dark:text-zinc-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium no-underline transition-colors">
+          App Store Catalog
+        </a>
+        <a href="/new-apps" class="px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/80 hover:bg-blue-50 dark:hover:bg-blue-950/30 text-zinc-700 dark:text-zinc-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium no-underline transition-colors">
+          New Additions
+        </a>
+        <a href="/categories" class="px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/80 hover:bg-blue-50 dark:hover:bg-blue-950/30 text-zinc-700 dark:text-zinc-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium no-underline transition-colors">
+          Browse Categories
+        </a>
+      </nav>
     </section>
   ` : '';
 
@@ -439,7 +353,7 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
         </div>
       ` : ''}
 
-      <!-- 2. Top NewsRelatedAppBox -->
+      <!-- 2. NewsRelatedAppBox -->
       ${renderActionBox('my-5 sm:my-6')}
 
       <!-- 3. Article Content Body -->
@@ -447,13 +361,7 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
         ${sanitizedContent}
       </div>
 
-      <!-- 4. Bottom NewsRelatedAppBox -->
-      ${renderActionBox('my-8')}
-
-      <!-- 5. Similar Applications (Isolated below primary article body) -->
-      ${recommendedAppsHtml}
-
-      <!-- 6. Latest News & Updates Internal Linking -->
+      <!-- 4. Latest News & Updates Internal Linking -->
       ${recentNewsHtml}
     </article>
   `;

@@ -1,6 +1,56 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
+    <loc>https://www.rummydex.com/app/mbm-bet</loc>
+    <lastmod>2026-10-30T13:06:43+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://res.cloudinary.com/veqj16xh/image/upload/f_auto,q_auto,w_800/v1788432247/rummydex_uploads/ldszslt3axhlv5ggm5pu.webp</image:loc>
+      <image:title>MBM BET</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://www.rummydex.com/app/jaiho-play</loc>
+    <lastmod>2026-10-30T03:17:56+00:00</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://res.cloudinary.com/veqj16xh/image/upload/f_auto,q_auto,w_800/v1791291523/f1swonguvqjkehpjoteu.webp</image:loc>
+      <image:title>JAIHO PLAY</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://www.rummydex.com/app/gogo-rummy</loc>
+    <lastmod>2026-10-29T18:47:40+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://res.cloudinary.com/diewalae4/image/upload/f_auto,q_auto,w_800/v1786545476/1000134098_11zon_fafk2d.webp</image:loc>
+      <image:title>GOGO RUMMY</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://www.rummydex.com/app/slots-spin</loc>
+    <lastmod>2026-10-29T18:24:06+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://res.cloudinary.com/veqj16xh/image/upload/f_auto,q_auto,w_800/v1788432190/rummydex_uploads/k9pnwqtqevhsfwzknw30.webp</image:loc>
+      <image:title>SLOTS SPIN</image:title>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://www.rummydex.com/app/share-slots</loc>
+    <lastmod>2026-10-29T16:26:28+00:00</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://res.cloudinary.com/diewalae4/image/upload/f_auto,q_auto,w_800/v1784879544/download_36_zeiyxs.webp</image:loc>
+      <image:title>SHARE SLOTS</image:title>
+    </image:image>
+  </url>
+  <url>
     <loc>https://www.rummydex.com/app/yono-slots</loc>
     <lastmod>2026-10-28T14:39:33+00:00</lastmod>
     <changefreq>weekly</changefreq>
@@ -235,16 +285,6 @@
     </image:image>
   </url>
   <url>
-    <loc>https://www.rummydex.com/app/slots-spin</loc>
-    <lastmod>2026-10-24T19:06:11+00:00</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-    <image:image>
-      <image:loc>https://res.cloudinary.com/veqj16xh/image/upload/f_auto,q_auto,w_800/v1788432190/rummydex_uploads/k9pnwqtqevhsfwzknw30.webp</image:loc>
-      <image:title>SLOTS SPIN</image:title>
-    </image:image>
-  </url>
-  <url>
     <loc>https://www.rummydex.com/app/yono-rummy</loc>
     <lastmod>2026-10-23T03:32:50+00:00</lastmod>
     <changefreq>weekly</changefreq>
@@ -252,16 +292,6 @@
     <image:image>
       <image:loc>https://res.cloudinary.com/diewalae4/image/upload/f_auto,q_auto,w_800/v1786545477/1000134094_11zon_zf9ocy.webp</image:loc>
       <image:title>YONO RUMMY</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://www.rummydex.com/app/gogo-rummy</loc>
-    <lastmod>2026-10-23T03:16:28+00:00</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-    <image:image>
-      <image:loc>https://res.cloudinary.com/diewalae4/image/upload/f_auto,q_auto,w_800/v1786545476/1000134098_11zon_fafk2d.webp</image:loc>
-      <image:title>GOGO RUMMY</image:title>
     </image:image>
   </url>
   <url>
@@ -275,16 +305,6 @@
     </image:image>
   </url>
   <url>
-    <loc>https://www.rummydex.com/app/share-slots</loc>
-    <lastmod>2026-10-21T16:37:39+00:00</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-    <image:image>
-      <image:loc>https://res.cloudinary.com/diewalae4/image/upload/f_auto,q_auto,w_800/v1784879544/download_36_zeiyxs.webp</image:loc>
-      <image:title>SHARE SLOTS</image:title>
-    </image:image>
-  </url>
-  <url>
     <loc>https://www.rummydex.com/app/gold-rummy</loc>
     <lastmod>2026-10-19T14:36:52+00:00</lastmod>
     <changefreq>weekly</changefreq>
@@ -292,16 +312,6 @@
     <image:image>
       <image:loc>https://res.cloudinary.com/diewalae4/image/upload/f_auto,q_auto,w_800/v1786501994/1000134012_11zon_awjhul.webp</image:loc>
       <image:title>GOLD RUMMY</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://www.rummydex.com/app/jaiho-play</loc>
-    <lastmod>2026-10-16T04:05:18+00:00</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.9</priority>
-    <image:image>
-      <image:loc>https://res.cloudinary.com/veqj16xh/image/upload/f_auto,q_auto,w_800/v1791291523/f1swonguvqjkehpjoteu.webp</image:loc>
-      <image:title>JAIHO PLAY</image:title>
     </image:image>
   </url>
   <url>
@@ -382,16 +392,6 @@
     <image:image>
       <image:loc>https://res.cloudinary.com/diewalae4/image/upload/f_auto,q_auto,w_800/v1784878592/download_28_mhxps5.webp</image:loc>
       <image:title>EVERY 77</image:title>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://www.rummydex.com/app/mbm-bet</loc>
-    <lastmod>2026-10-11T06:48:41+00:00</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-    <image:image>
-      <image:loc>https://res.cloudinary.com/veqj16xh/image/upload/f_auto,q_auto,w_800/v1788432247/rummydex_uploads/ldszslt3axhlv5ggm5pu.webp</image:loc>
-      <image:title>MBM BET</image:title>
     </image:image>
   </url>
   <url>

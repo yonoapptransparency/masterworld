@@ -54,7 +54,7 @@ const Meta: React.FC<MetaProps> = ({
   const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/';
   const isAppRoute = currentPath.startsWith('/app/');
   const rawSquareThumb = rawImage.startsWith('http') ? rawImage : `${origin}${rawImage.startsWith('/') ? '' : '/'}${rawImage}`;
-  const squareThumbnail = getOptimizedImageUrl(rawSquareThumb, 512);
+  const squareThumbnail = getOptimizedImageUrl(rawSquareThumb, type === 'article' ? 1200 : 512);
   const metaImage = (isAppRoute && !isCustomWidescreenOg)
     ? squareThumbnail
     : getOgImageUrl(rawImage, origin, type === 'article');

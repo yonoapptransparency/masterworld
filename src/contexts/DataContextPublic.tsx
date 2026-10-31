@@ -236,11 +236,18 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const payload = await res.json();
         if (payload?.news && Array.isArray(payload.news) && payload.news.length > 0) {
           setNews(prev => mergeUniqueNews(prev, payload.news));
+          return;
         }
       }
     } catch (e) {
       console.warn("Public news fetch warning:", e);
     }
+    try {
+      const full = await loadFullStaticDataset();
+      if (full?.news && Array.isArray(full.news) && full.news.length > 0) {
+        setNews(prev => mergeUniqueNews(prev, full.news));
+      }
+    } catch (_) {}
   }, []);
 
   const fetchSettings = useCallback(async () => {
@@ -252,11 +259,18 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const payload = await res.json();
         if (payload?.settings && Object.keys(payload.settings).length > 0) {
           setSettings(prev => ({ ...prev, ...payload.settings }));
+          return;
         }
       }
     } catch (e) {
       console.warn("Public settings fetch warning:", e);
     }
+    try {
+      const full = await loadFullStaticDataset();
+      if (full?.settings && Object.keys(full.settings).length > 0) {
+        setSettings(prev => ({ ...prev, ...full.settings }));
+      }
+    } catch (_) {}
   }, []);
 
   const fetchVideos = useCallback(async () => {
@@ -268,11 +282,18 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const payload = await res.json();
         if (payload?.videos && Array.isArray(payload.videos) && payload.videos.length > 0) {
           setVideos(payload.videos);
+          return;
         }
       }
     } catch (e) {
       console.warn("Public videos fetch warning:", e);
     }
+    try {
+      const full = await loadFullStaticDataset();
+      if (full?.videos && Array.isArray(full.videos) && full.videos.length > 0) {
+        setVideos(full.videos);
+      }
+    } catch (_) {}
   }, []);
 
   // Fetch from server backup endpoint with fast memory caching (zero main-thread localStorage serialization stall)

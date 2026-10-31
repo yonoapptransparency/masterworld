@@ -123,10 +123,18 @@ export async function getPagePreRender(urlPath: string, data: any): Promise<stri
       }
     }
   } else if (cleanPathLower === '/videos') {
-    bodyHtml = renderers.renderVideosList(videos, settings);
-  } else if (cleanPathLower.startsWith('/videos/')) {
-    const slug = cleanPath.split('/videos/')[1];
-    bodyHtml = renderers.renderVideoDetail(slug, videos, settings);
+    let pageNum = 1;
+    try {
+      const match = urlPath.match(/[?&]page=(\d+)/i);
+      if (match && match[1]) {
+        pageNum = Math.max(1, parseInt(match[1], 10) || 1);
+      }
+    } catch (_) {}
+    bodyHtml = renderers.renderVideosList(videos, settings, pageNum);
+  } else if (cleanPathLower.startsWith('/videos/') || cleanPathLower.startsWith('/video/')) {
+    const rawVideoSlug = cleanPath.replace(/^\/videos?\//i, '') || '';
+    const cleanVideoSlug = decodeURIComponent(rawVideoSlug).toLowerCase().trim().replace(/\/+$/, '').split(/[?#]/)[0];
+    bodyHtml = renderers.renderVideoDetail(cleanVideoSlug, videos, settings, apps);
   } else if (cleanPathLower === '/about') {
     bodyHtml = renderers.renderAbout(settings);
   } else if (cleanPathLower === '/contact') {
@@ -167,7 +175,7 @@ export async function getPagePreRender(urlPath: string, data: any): Promise<stri
     const slug = cleanPathLower.replace(/^\/|\/$/g, '');
     const app = resolveAppSlug(slug, apps) || apps.find((a: any) => getField(a, 'slug')?.toLowerCase() === slug);
     const newsItem = news.find((n: any) => getField(n, 'slug')?.toLowerCase() === slug);
-    const videoItem = videos.find((v: any) => getField(v, 'slug')?.toLowerCase() === slug);
+    const videoItem = videos.find((v: any) => (getField(v, 'slug') || '').toLowerCase() === slug || (getField(v, 'id') || '').toLowerCase() === slug);
 
     if (app) {
       const seoFeed = getLocalFallbackReviewsForApp(getField(app, 'id'), getField(app, 'slug'));
@@ -175,7 +183,7 @@ export async function getPagePreRender(urlPath: string, data: any): Promise<stri
     } else if (newsItem) {
       bodyHtml = renderers.renderNewsDetail(slug, news, settings, apps);
     } else if (videoItem) {
-      bodyHtml = renderers.renderVideoDetail(slug, videos, settings);
+      bodyHtml = renderers.renderVideoDetail(slug, videos, settings, apps);
     } else {
       bodyHtml = renderers.render404(urlPath, settings);
     }

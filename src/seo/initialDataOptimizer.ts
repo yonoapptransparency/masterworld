@@ -1,6 +1,6 @@
 import { getField } from './utils';
 import { structureHtmlFragment } from '../lib/safeHtmlPublic';
-import { getNextNewsChain } from '../lib/newsUtils';
+import { getNextNewsChain, calculateReadingTime, resolveVideoRelatedApp } from '../lib/newsUtils';
 
 export function optimizeInitialDataForRoute(
   data: any,
@@ -21,6 +21,8 @@ export function optimizeInitialDataForRoute(
     cleanPathLower.startsWith('/download/');
   const isNewsDetailPage = cleanPathLower.startsWith('/news/') && cleanPathLower !== '/news';
   const isNewsIndexPage = cleanPathLower === '/news';
+  const isVideoDetailPage = (cleanPathLower.startsWith('/videos/') || cleanPathLower.startsWith('/video/')) && cleanPathLower !== '/videos';
+  const isVideoIndexPage = cleanPathLower === '/videos';
   const isHomePage = cleanPathLower === '/' || cleanPathLower === '';
 
   const isAdminPath = cleanPathLower.startsWith('/admin') || cleanPathLower.startsWith('/masterworld') || cleanPathLower === '/login' || cleanPathLower.startsWith('/login/');
@@ -282,28 +284,24 @@ function getSimilarAppsForApp(targetApp: any, baseApps: any[]): any[] {
     });
 
     optimizedApps = [fullTargetApp, ...trimmedSimilar];
-  } else if (isNewsDetailPage && targetNews) {
-    let newsRelatedApp: any = null;
-    const relId = getField(targetNews, 'related_app_id');
-    if (relId && Array.isArray(baseApps)) {
-      newsRelatedApp = baseApps.find((a: any) => (getField(a, 'id') || '').toLowerCase() === String(relId).toLowerCase() || (getField(a, 'slug') || '').toLowerCase() === String(relId).toLowerCase());
-    }
-    if (!newsRelatedApp && getField(targetNews, 'link') && Array.isArray(baseApps)) {
-      const linkSlug = getField(targetNews, 'link').replace(/^.*\/app\//, '').replace(/\/$/, '').split(/[?#]/)[0].toLowerCase();
-      if (linkSlug) {
-        newsRelatedApp = baseApps.find((a: any) => (getField(a, 'slug') || '').toLowerCase() === linkSlug || (getField(a, 'id') || '').toLowerCase() === linkSlug);
+  } else if (isNewsDetailPage || isNewsIndexPage || isVideoDetailPage || isVideoIndexPage) {
+    let relatedApp: any = null;
+    if (isNewsDetailPage && targetNews) {
+      const relId = getField(targetNews, 'related_app_id');
+      if (relId && Array.isArray(baseApps)) {
+        relatedApp = baseApps.find((a: any) => (getField(a, 'id') || '').toLowerCase() === String(relId).toLowerCase() || (getField(a, 'slug') || '').toLowerCase() === String(relId).toLowerCase());
       }
+      if (!relatedApp && getField(targetNews, 'link') && Array.isArray(baseApps)) {
+        const linkSlug = getField(targetNews, 'link').replace(/^.*\/app\//, '').replace(/\/$/, '').split(/[?#]/)[0].toLowerCase();
+        if (linkSlug) {
+          relatedApp = baseApps.find((a: any) => (getField(a, 'slug') || '').toLowerCase() === linkSlug || (getField(a, 'id') || '').toLowerCase() === linkSlug);
+        }
+      }
+    } else if (isVideoDetailPage && targetVideo && Array.isArray(baseApps)) {
+      relatedApp = resolveVideoRelatedApp(targetVideo, baseApps);
     }
 
-    const anchorApp = newsRelatedApp || baseApps.find((a: any) => {
-      const cat = (getField(a, 'category', '') || '').toLowerCase();
-      const newsCat = (getField(targetNews, 'category', '') || 'yono apps').toLowerCase();
-      return cat.includes(newsCat) || newsCat.includes(cat);
-    }) || baseApps[0];
-
-    const similarAppsList = anchorApp ? getSimilarAppsForApp(anchorApp, baseApps) : [];
-
-    const trimNewsApp = (app: any) => {
+    const trimStubApp = (app: any) => {
       if (!app) return null;
       const hasSimSecureLink = Boolean(
         app.has_secure_link ||
@@ -333,16 +331,8 @@ function getSimilarAppsForApp(targetApp: any, baseApps: any[]): any[] {
       };
     };
 
-    const newsAppsToInclude: any[] = [];
-    if (newsRelatedApp) {
-      newsAppsToInclude.push(trimNewsApp(newsRelatedApp));
-    }
-    for (const sim of similarAppsList) {
-      if (newsRelatedApp && (String(sim.id || '') === String(newsRelatedApp.id || '') || String(sim.slug || '').toLowerCase() === String(newsRelatedApp.slug || '').toLowerCase())) continue;
-      newsAppsToInclude.push(trimNewsApp(sim));
-    }
-
-    optimizedApps = newsAppsToInclude.filter(Boolean);
+    const singleStub = relatedApp || baseApps[0];
+    optimizedApps = singleStub ? [trimStubApp(singleStub)].filter(Boolean) : [];
   } else {
     optimizedApps = baseApps.map((app: any) => {
       if (!app || app.sync_to_public === false) return null;
@@ -435,6 +425,37 @@ function getSimilarAppsForApp(targetApp: any, baseApps: any[]): any[] {
         };
       }
 
+      const isCatalogListing = isHomePage || cleanPathLower === '/new-apps' || cleanPathLower === '/categories' || cleanPathLower.startsWith('/category/');
+      if (isCatalogListing) {
+        return {
+          id: app.id,
+          name: app.name,
+          slug: app.slug,
+          icon_url: app.icon_url || '',
+          category: app.category || '',
+          rating: Number(app.rating) || 4.5,
+          version: app.version || '1.0',
+          file_size: app.file_size || '45 MB',
+          safety_status: app.safety_status || 'Verified',
+          developer: app.developer || '',
+          review_count: Number(app.review_count) || (typeof app.reviews === 'number' ? app.reviews : 0),
+          reviews: typeof app.reviews === 'number' ? app.reviews : Number(app.review_count) || 0,
+          serial_number: app.serial_number !== undefined ? Number(app.serial_number) : 0,
+          is_featured: Boolean(app.is_featured),
+          is_new: Boolean(app.is_new),
+          is_hot: Boolean(app.is_hot),
+          popular: Boolean(app.popular),
+          active: app.active !== false,
+          is_top_chart: Boolean(app.is_top_chart),
+          is_coming_soon: Boolean(app.is_coming_soon),
+          publish_date: app.publish_date || '',
+          updated_at: app.updated_at || '',
+          has_secure_link: hasSecureLink,
+          link_configured: hasSecureLink,
+          _isTrimmed: true
+        };
+      }
+
       return {
         id: app.id,
         name: app.name,
@@ -474,7 +495,7 @@ function getSimilarAppsForApp(targetApp: any, baseApps: any[]): any[] {
   // Optimized News:
   // - On /news/:slug (News Detail): Send ONLY the 1 active target news article with full pre-structured content!
   // - On /news (News Index): Send card summaries for all articles (stripping heavy HTML content bodies).
-  // - On / (Home): Send top 8 news card summaries (stripping heavy HTML content bodies).
+  // - On / (Home): Omit news from window.__INITIAL_DATA__ (Home.tsx does not render news; NewsPage fetches or uses static fallback).
   // - On /app/:slug: Send only lightweight stubs matching targetApp for relatedNewsCount.
   const rawNews = (Array.isArray(data.news) ? data.news : (Array.isArray(data.mockNews) ? data.mockNews : []))
     .filter((item: any) => item && item.sync_to_public !== false);
@@ -489,14 +510,16 @@ function getSimilarAppsForApp(targetApp: any, baseApps: any[]): any[] {
     const sourceList = matchedNews.length > 0 ? matchedNews : (targetNews ? [targetNews] : []);
 
     const targetKey = (targetNewsSlug || (targetNews ? (getField(targetNews, 'slug') || getField(targetNews, 'id')) : '') || '').toLowerCase().trim();
-    const recentNewsItems = getNextNewsChain(targetKey, rawNews, 6);
+    const recentNewsItems = getNextNewsChain(targetKey, rawNews, 8);
 
-    const trimmedRecent = recentNewsItems.map((item: any) => ({
+    const trimmedRecent = recentNewsItems.map((item: any, idx: number) => ({
       id: item.id,
       slug: item.slug,
       title: item.title,
-      logo_url: item.logo_url || item.image_url || '',
-      image_url: item.image_url || item.logo_url || '',
+      image: item.image || item.image_url || item.logo_url || item.og_image_url || '',
+      logo_url: item.logo_url || item.image_url || item.image || '',
+      image_url: item.image_url || item.logo_url || item.image || '',
+      og_image_url: item.og_image_url || '',
       description: item.description || '',
       content: '',
       description_html: '',
@@ -504,10 +527,15 @@ function getSimilarAppsForApp(targetApp: any, baseApps: any[]): any[] {
       category: item.category || 'General',
       published_at: item.published_at || item.created_at || item.date || '',
       date: item.date || item.published_at || item.created_at || '',
-      read_time: item.read_time || '3 min read',
+      created_at: item.created_at || item.date || '',
+      read_time: calculateReadingTime(item.content || item.description_html || item.description),
       is_pinned: Boolean(item.is_pinned),
       seo_title: item.seo_title || '',
+      meta_title: item.meta_title || '',
+      seo_description: item.seo_description || '',
+      meta_description: item.meta_description || '',
       related_app_id: item.related_app_id || '',
+      _nextChainOrder: idx,
       _isTrimmed: true
     }));
 
@@ -518,8 +546,9 @@ function getSimilarAppsForApp(targetApp: any, baseApps: any[]): any[] {
         id: item.id,
         slug: item.slug,
         title: item.title,
-        logo_url: item.logo_url || item.image_url || '',
-        image_url: item.image_url || item.logo_url || '',
+        image: item.image || item.image_url || item.logo_url || item.og_image_url || '',
+        logo_url: item.logo_url || item.image_url || item.image || '',
+        image_url: item.image_url || item.logo_url || item.image || '',
         description: item.description || '',
         content: structuredBody,
         description_html: '',
@@ -529,12 +558,14 @@ function getSimilarAppsForApp(targetApp: any, baseApps: any[]): any[] {
         category: item.category || 'General',
         published_at: item.published_at || item.created_at || item.date || '',
         date: item.date || item.published_at || item.created_at || '',
-        read_time: item.read_time || '3 min read',
+        read_time: calculateReadingTime(rawBody || item.description),
         is_breaking: Boolean(item.is_breaking),
         is_new: Boolean(item.is_new),
         is_pinned: Boolean(item.is_pinned),
         seo_title: item.seo_title || '',
+        meta_title: item.meta_title || '',
         seo_description: item.seo_description || '',
+        meta_description: item.meta_description || '',
         seo_keywords: item.seo_keywords || '',
         og_image_url: item.og_image_url || '',
         canonical_url: item.canonical_url || '',
@@ -549,14 +580,15 @@ function getSimilarAppsForApp(targetApp: any, baseApps: any[]): any[] {
     });
 
     optimizedNews = [...fullArticleList, ...trimmedRecent];
-  } else if (isNewsIndexPage || isHomePage) {
-    const sliceLimit = isHomePage ? 8 : rawNews.length;
-    optimizedNews = rawNews.slice(0, sliceLimit).map((item: any) => ({
+  } else if (isNewsIndexPage) {
+    optimizedNews = rawNews.map((item: any) => ({
       id: item.id,
       slug: item.slug,
       title: item.title,
-      logo_url: item.logo_url || item.image_url || '',
-      image_url: item.image_url || item.logo_url || '',
+      image: item.image || item.image_url || item.logo_url || item.og_image_url || '',
+      logo_url: item.logo_url || item.image_url || item.image || '',
+      image_url: item.image_url || item.logo_url || item.image || '',
+      og_image_url: item.og_image_url || '',
       description: item.description || '',
       content: '',
       description_html: '',
@@ -565,10 +597,14 @@ function getSimilarAppsForApp(targetApp: any, baseApps: any[]): any[] {
       category: item.category || 'General',
       published_at: item.published_at || item.created_at || item.date || '',
       date: item.date || item.published_at || item.created_at || '',
-      read_time: item.read_time || '3 min read',
+      read_time: calculateReadingTime(item.content || item.description_html || item.description),
       is_breaking: Boolean(item.is_breaking),
       is_new: Boolean(item.is_new),
       is_pinned: Boolean(item.is_pinned),
+      seo_title: item.seo_title || '',
+      meta_title: item.meta_title || '',
+      seo_description: item.seo_description || '',
+      meta_description: item.meta_description || '',
       link: item.link || '',
       tags: Array.isArray(item.tags) ? item.tags : [],
       related_app_id: item.related_app_id || '',
@@ -597,28 +633,37 @@ function getSimilarAppsForApp(targetApp: any, baseApps: any[]): any[] {
       }));
   }
 
-  // Optimized Videos: Omit on App Details and News Detail pages to keep initial HTML and JSON.parse ultra-light
-  const rawVideos = (isAppDetailPage || isNewsDetailPage)
-    ? []
-    : (Array.isArray(data.videos) ? data.videos : (Array.isArray(data.mockVideos) ? data.mockVideos : []));
+  // Optimized Videos: Include ONLY on /videos and /videos/:slug routes to keep initial HTML and JSON.parse ultra-light
+  const rawVideos = (isVideoIndexPage || isVideoDetailPage)
+    ? (Array.isArray(data.videos) ? data.videos : (Array.isArray(data.mockVideos) ? data.mockVideos : []))
+    : [];
   const optimizedVideos: any[] = rawVideos.map((item: any) => {
     if (!item) return null;
+    const ytUrl = item.youtube_url || item.video_url || item.url || '';
     return {
       id: item.id,
-      slug: item.slug,
-      title: item.title,
+      slug: item.slug || item.id,
+      title: item.title || '',
+      description: item.description || '',
+      youtube_url: ytUrl,
+      video_url: item.video_url || ytUrl,
+      url: item.url || ytUrl,
       seo_title: item.seo_title || '',
       seo_description: item.seo_description || '',
       meta_description: item.meta_description || '',
+      seo_keywords: item.seo_keywords || '',
+      canonical_url: item.canonical_url || '',
       og_image_url: item.og_image_url || '',
       thumbnail_url: item.thumbnail_url || '',
-      video_url: item.video_url || '',
       duration: item.duration || '',
-      category: item.category || ''
+      category: item.category || '',
+      related_app_id: item.related_app_id || '',
+      created_at: item.created_at || item.date || '',
+      updated_at: item.updated_at || item.created_at || ''
     };
   }).filter(Boolean);
 
-  // Public Settings: On App Details & News Detail pages, omit heavy legal HTML blobs, website_faqs, banners, and developers
+  // Public Settings: On App Details, News, Video, and Catalog pages, omit heavy legal HTML blobs and developer bios
   const rawSettings = data.settings || data.mockSettings || {};
   const optimizedSettings: any = {};
   const appDetailKeys = [
@@ -630,13 +675,20 @@ function getSimilarAppsForApp(targetApp: any, baseApps: any[]): any[] {
     ...appDetailKeys,
     'site_title', 'seo_title', 'seo_description', 'seo_keywords',
     'meta_title', 'meta_description',
-    'news_meta_title', 'news_meta_description'
+    'news_meta_title', 'news_meta_description',
+    'videos_meta_title', 'videos_meta_description'
   ];
-  const fullAllowedKeys = [
+  const catalogPageKeys = [
     ...detailPageKeys,
     'hero_title_text', 'hero_title_subtitle', 'hero_title_color', 'hero_title_animation',
     'hero_title_visible', 'hero_title_style', 'portal_heading', 'secure_index_title',
     'secure_index_subtitle', 'banners',
+    'website_faqs', 'faq_meta_title', 'faq_meta_description',
+    'new_apps_meta_title', 'new_apps_meta_description',
+    'categories_meta_title', 'categories_meta_description'
+  ];
+  const fullAllowedKeys = [
+    ...catalogPageKeys,
     'about_meta_title', 'about_meta_description', 'about_content', 'about_us',
     'contact_meta_title', 'contact_meta_description', 'contact_content',
     'privacy_meta_title', 'privacy_meta_description', 'privacy_content',
@@ -647,14 +699,18 @@ function getSimilarAppsForApp(targetApp: any, baseApps: any[]): any[] {
     'ethics_meta_title', 'ethics_meta_description', 'ethics_discrimination_text', 'ethics_heading',
     'disclaimer_meta_title', 'disclaimer_meta_description', 'disclaimer_text', 'disclaimer_heading',
     'developers_meta_title', 'developers_meta_description', 'developers',
-    'website_faqs', 'faq_meta_title', 'faq_meta_description',
-    'videos_meta_title', 'videos_meta_description',
-    'new_apps_meta_title', 'new_apps_meta_description',
-    'categories_meta_title', 'categories_meta_description',
     'safety_meta_title', 'safety_meta_description'
   ];
 
-  const allowedKeys = isAppDetailPage ? appDetailKeys : (isNewsDetailPage ? detailPageKeys : fullAllowedKeys);
+  const isLeanMediaPage = isNewsDetailPage || isNewsIndexPage || isVideoDetailPage || isVideoIndexPage;
+  const isCatalogPage = isHomePage || cleanPathLower === '/new-apps' || cleanPathLower === '/categories' || cleanPathLower.startsWith('/category/');
+  const allowedKeys = isAppDetailPage
+    ? appDetailKeys
+    : isLeanMediaPage
+    ? detailPageKeys
+    : isCatalogPage
+    ? catalogPageKeys
+    : fullAllowedKeys;
 
   const htmlContentKeys = new Set([
     'about_content', 'about_us', 'contact_content', 'privacy_content', 'terms_content',
@@ -681,8 +737,8 @@ function getSimilarAppsForApp(targetApp: any, baseApps: any[]): any[] {
     }
   }
 
-  // Ensure developers array is available when not on detail pages
-  if (!isAppDetailPage && !isNewsDetailPage && !optimizedSettings.developers && Array.isArray(data.developers)) {
+  // Ensure developers array is available on /developers or full static pages
+  if (!isAppDetailPage && !isLeanMediaPage && !isCatalogPage && !optimizedSettings.developers && Array.isArray(data.developers)) {
     optimizedSettings.developers = data.developers;
   }
 

@@ -695,7 +695,7 @@ async function startServer() {
 
       const edgeCacheDirective = isDisallowedRoute
         ? 'no-store, private'
-        : 'public, max-age=86400, stale-while-revalidate=604800';
+        : 'public, max-age=300, stale-while-revalidate=3600';
 
       const responseHeaders: Record<string, string> = {
         'Content-Type': 'text/html; charset=utf-8',

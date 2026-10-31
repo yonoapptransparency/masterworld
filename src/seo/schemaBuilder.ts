@@ -363,17 +363,52 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
     });
   } else if (params.pageType === 'video' && params.videoItem) {
     const v = params.videoItem;
+    const vSlug = getField(v, 'slug') || getField(v, 'id');
+    const canonicalVideoUrl = params.url || `${hostOrigin}/videos/${vSlug}`;
     const youtubeUrl = getField(v, 'youtube_url') || getField(v, 'video_url') || getField(v, 'url');
+    const ytThumb = getYoutubeThumbnail(youtubeUrl);
+    const m = youtubeUrl ? youtubeUrl.match(/(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:embed\/|v\/|shorts\/|live\/|watch\?v=|watch\?.+&v=))([^&?\s/]+)/) : null;
+    const ytId = m && m[1] ? m[1] : '';
     const uploadDate = normalizeIsoDate(getField(v, 'updated_at') || getField(v, 'created_at') || getField(v, 'published_at') || getField(v, 'date'));
+    const vTitle = getField(v, 'title') || params.title;
+    const vDesc = getField(v, 'seo_description') || getField(v, 'meta_description') || getField(v, 'description') || vTitle;
+
     schemas.push({
       "@context": "https://schema.org",
       "@type": "VideoObject",
-      "name": getField(v, 'title'),
-      "description": getField(v, 'description') || getField(v, 'title'),
-      "thumbnailUrl": getYoutubeThumbnail(youtubeUrl) || params.logoUrl,
+      "@id": `${canonicalVideoUrl}#video`,
+      "name": vTitle,
+      "description": vDesc,
+      "thumbnailUrl": ytThumb ? [ytThumb] : [params.logoUrl || `${hostOrigin}/logo.png`],
       "uploadDate": uploadDate,
-      "contentUrl": youtubeUrl
+      ...(youtubeUrl ? { "contentUrl": youtubeUrl } : {}),
+      ...(ytId ? { "embedUrl": `https://www.youtube.com/embed/${ytId}` } : {}),
+      "publisher": {
+        "@type": "Organization",
+        "@id": `${hostOrigin}/#organization`,
+        "name": params.siteTitle || 'RummyDex',
+        "url": hostOrigin,
+        "logo": {
+          "@type": "ImageObject",
+          "url": params.logoUrl || `${hostOrigin}/logo.png`
+        }
+      }
     });
+
+    schemas.push({
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      "@id": `${canonicalVideoUrl}#webpage`,
+      "url": canonicalVideoUrl,
+      "name": params.title || vTitle,
+      "headline": vTitle,
+      "description": params.description || vDesc,
+      "inLanguage": "en",
+      "mainEntity": {
+        "@id": `${canonicalVideoUrl}#video`
+      }
+    });
+
     schemas.push({
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
@@ -393,8 +428,8 @@ export async function buildJsonLdSchema(params: BuildSchemaParams): Promise<stri
         {
           "@type": "ListItem",
           "position": 3,
-          "name": getField(v, 'title'),
-          "item": `${hostOrigin}/videos/${getField(v, 'slug')}`
+          "name": vTitle,
+          "item": canonicalVideoUrl
         }
       ]
     });
