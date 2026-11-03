@@ -2,9 +2,17 @@
 @custom-variant dark (&:where(.dark, .dark *));
 @source not "../api";
 @source not "../dist";
+@source not "../docs";
+@source not "../functions";
 @source not "../public";
+@source not "../public-api";
 @source not "../scripts";
+@source not "../*.md";
 @source not "./lib/*.json";
+@source not "./lib/staticData.ts";
+@source not "./lib/communityReviewsData.ts";
+@source not "./lib/defaultLegalContent.ts";
+@source not "./server";
 @plugin "@tailwindcss/typography";
 
 @theme {

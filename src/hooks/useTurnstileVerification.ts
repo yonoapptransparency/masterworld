@@ -4,6 +4,7 @@ import {
   NONCE_REFRESH_MS,
   CLIENT_TAP_HOLD_MS,
   TURNSTILE_UI_TIMEOUT_MS,
+  DEFAULT_TURNSTILE_SITE_KEY,
   SESSION_RETRY_MAX,
 } from '../lib/gateConfig';
 import { collectEnv, type FrozenEnvProbe } from '../lib/deviceProbe';
@@ -138,9 +139,10 @@ export function useTurnstileVerification({
       if (!candidates.includes(k)) candidates.push(k);
     };
 
-    // §7 Site key cascade: Admin setting -> VITE_TURNSTILE_SITE_KEY -> test key (non-production hosts only)
+    // §7 Site key cascade: Admin setting -> VITE_TURNSTILE_SITE_KEY -> DEFAULT_TURNSTILE_SITE_KEY -> test key (non-production hosts only)
     addKey(adminKey);
     addKey(envKey);
+    addKey(DEFAULT_TURNSTILE_SITE_KEY);
     if (!isProdDomain) {
       addKey('1x00000000000000000000AA');
     }
@@ -158,7 +160,14 @@ export function useTurnstileVerification({
       clearTimeout(uiTimeoutTimerRef.current);
       uiTimeoutTimerRef.current = null;
     }
-    const elapsed = Date.now() - initResponseTimeRef.current;
+    setUiTimeoutExceeded(false);
+
+    const serverIssuedMs = Number((nonceRef.current || '').split('.')[1] || 0);
+    const baselineMs =
+      serverIssuedMs > 0 && serverIssuedMs <= Date.now()
+        ? serverIssuedMs
+        : initResponseTimeRef.current;
+    const elapsed = Date.now() - baselineMs;
     const remainingHold = Math.max(0, CLIENT_TAP_HOLD_MS - elapsed);
 
     if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
@@ -174,7 +183,7 @@ export function useTurnstileVerification({
   }, []);
 
   const startSessionFlow = useCallback(
-    async (isSilentRetry = false) => {
+    async (_isSilentRetry = false) => {
       if (unmountedRef.current || !appId) return;
 
       ensureTurnstileScriptLoaded();
@@ -183,13 +192,13 @@ export function useTurnstileVerification({
       cfTokenRef.current = null;
       nonceRef.current = null;
       setIsReady(false);
-      if (!isSilentRetry) {
-        setUiTimeoutExceeded(false);
-      }
+      // Always clear any prior timeout state when starting/retrying verification so an active
+      // Turnstile widget never renders alongside a stale "Verification could not be completed" box
+      setUiTimeoutExceeded(false);
 
-      // 15s UI Timeout guard (§5.5: never spin forever if content blocker blocks Turnstile)
+      // UI Timeout guard (§5.5: only fires if Turnstile script/widget fails to mount or solve within window)
       uiTimeoutTimerRef.current = setTimeout(() => {
-        if (!unmountedRef.current && !cfTokenRef.current) {
+        if (!unmountedRef.current && !cfTokenRef.current && !widgetIdRef.current) {
           setUiTimeoutExceeded(true);
         }
       }, TURNSTILE_UI_TIMEOUT_MS);
@@ -214,6 +223,7 @@ export function useTurnstileVerification({
         }
 
         const safeAppId = appId.replace(/[^A-Za-z0-9_-]/g, '-').slice(0, 64);
+        initResponseTimeRef.current = Date.now();
 
         // 2. Request server-issued signed nonce + device cookie (§5.4)
         const res = await fetch('/api/v1/app/session-init', {
@@ -268,7 +278,6 @@ export function useTurnstileVerification({
         }
 
         nonceRef.current = nonce;
-        initResponseTimeRef.current = Date.now();
 
         // Schedule proactive silent refresh at NONCE_REFRESH_MS (90s) for idle tabs (§5.5)
         refreshTimerRef.current = setTimeout(() => {
@@ -304,6 +313,7 @@ export function useTurnstileVerification({
           const onWidgetError = () => {
             if (unmountedRef.current) return;
             cfTokenRef.current = null;
+            widgetIdRef.current = null;
             setIsReady(false);
             // If another candidate key in the cascade is available (e.g., env key or non-prod fallback), try it immediately
             if (keyIndexRef.current + 1 < currentCandidates.length) {
@@ -315,6 +325,7 @@ export function useTurnstileVerification({
               retryCountRef.current += 1;
               void startSessionFlow(true);
             } else {
+              removeWidget();
               setUiTimeoutExceeded(true);
             }
           };
@@ -322,11 +333,13 @@ export function useTurnstileVerification({
           const softReinit = () => {
             if (unmountedRef.current) return;
             cfTokenRef.current = null;
+            widgetIdRef.current = null;
             setIsReady(false);
             if (retryCountRef.current < SESSION_RETRY_MAX) {
               retryCountRef.current += 1;
               void startSessionFlow(true);
             } else {
+              removeWidget();
               setUiTimeoutExceeded(true);
             }
           };
@@ -335,6 +348,7 @@ export function useTurnstileVerification({
 
           try {
             widgetRef.current.innerHTML = '';
+            setUiTimeoutExceeded(false);
             const id = window.turnstile.render(widgetRef.current, {
               sitekey,
               action: TURNSTILE_ACTION,
@@ -375,6 +389,20 @@ export function useTurnstileVerification({
     },
     [appId, clearTimers, markTokenReady, removeWidget, resolveCandidateSiteKeys]
   );
+
+  // If adminTurnstileSiteKey hydrates asynchronously while no token/widget is active, restart automatically
+  useEffect(() => {
+    if (
+      adminTurnstileSiteKey &&
+      isRealTurnstileKey(adminTurnstileSiteKey) &&
+      !cfTokenRef.current &&
+      !widgetIdRef.current
+    ) {
+      retryCountRef.current = 0;
+      keyIndexRef.current = 0;
+      void startSessionFlow(true);
+    }
+  }, [adminTurnstileSiteKey, startSessionFlow]);
 
   // Initial mount + visibilitychange (hidden -> visible) & pageshow (persisted) re-verification (§5.9)
   useEffect(() => {

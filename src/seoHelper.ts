@@ -9,7 +9,7 @@ import { buildJsonLdSchema } from './seo/schemaBuilder';
 import { buildMetaTags } from './seo/metaBuilder';
 import { optimizeInitialDataForRoute } from './seo/initialDataOptimizer';
 import { getPagePreRender } from './seo/preRenderEngine';
-import { getCriticalCss } from './seo/criticalCss';
+import { getCriticalCss, getCompiledViteCssTag } from './seo/criticalCss';
 import { getLocalFallbackReviewsForApp } from './seo/reviewFallback';
 
 export { resolveAppSlug, SLUG_ALIAS_MAP };
@@ -744,7 +744,8 @@ export async function injectSeoTags(template: string, urlPath: string, hostUrl?:
     .replace(/<head(\s[^>]*)?>/i, '<head$1>\n    <meta charset="utf-8" />');
 
   const criticalCss = getCriticalCss();
-  const headAdditions = `${seoTags}${criticalCss ? '\n' + criticalCss : ''}`;
+  const viteInlineCss = finalHtml.includes('id="vite-inline-css"') ? '' : getCompiledViteCssTag();
+  const headAdditions = `${seoTags}${criticalCss ? '\n' + criticalCss : ''}${viteInlineCss ? '\n' + viteInlineCss : ''}`;
 
   if (finalHtml.includes('<!--__SEO_HEAD__-->')) {
     finalHtml = finalHtml.replace('<!--__SEO_HEAD__-->', () => headAdditions);

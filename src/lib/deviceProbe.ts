@@ -94,7 +94,7 @@ export interface ClientMobileGateResult {
  * Client mobile gate (§5.3) — UX shortcut for immediate disguised 404 on desktop / webdriver / software GPU.
  * The server re-verifies all signals independently.
  */
-export function inspectClientMobileGate(gpuRenderer = ''): ClientMobileGateResult {
+export function inspectClientMobileGate(gpuRenderer = '', cpuArch = ''): ClientMobileGateResult {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') {
     return { failed: true, wb: 0, hl: 1, dk: 1 };
   }
@@ -111,6 +111,9 @@ export function inspectClientMobileGate(gpuRenderer = ''): ClientMobileGateResul
     const protoDesc = proto ? Object.getOwnPropertyDescriptor(proto, 'webdriver') : undefined;
     const ownDesc = Object.getOwnPropertyDescriptor(navigator, 'webdriver');
     if (ownDesc && (ownDesc.value === true || typeof ownDesc.get === 'function')) {
+      wb = 1;
+    }
+    if (protoDesc && protoDesc.value === true) {
       wb = 1;
     }
   } catch {
@@ -176,15 +179,16 @@ export function inspectClientMobileGate(gpuRenderer = ''): ClientMobileGateResul
     isAppleTouchDevice ||
     (/Mobile|Tablet/i.test(ua) && hasTouch);
 
-  // Desktop OS detection (Windows, ChromeOS, or non-Android Desktop Linux without mobile GPU)
+  // Desktop OS & CPU architecture detection (real ARM phones never report arch='x86')
   const isWindowsOrCrOs =
     /Windows NT|CrOS/i.test(ua) || /^(Win|CrOS)/i.test(plat);
   const isDesktopLinux =
     (/X11; Linux (x86_64|i686)/i.test(ua) || /^Linux (x86|i[3-6]86)/i.test(plat)) &&
     !isAndroidDevice &&
     !isMobileGpu;
+  const isDesktopX86Arch = /^x86/i.test(cpuArch);
 
-  if (isWindowsOrCrOs || isDesktopLinux || (!isMobileDevice && !hasTouch)) {
+  if (isWindowsOrCrOs || isDesktopLinux || isDesktopX86Arch || (!isMobileDevice && !hasTouch)) {
     dk = 1;
   }
 
@@ -291,7 +295,7 @@ export function collectEnv(): Promise<FrozenEnvProbe> {
     const hardStr = canonical(hard);
     const softStr = canonical(soft);
     const hw = (await sha256hex(hardStr)).slice(0, 24);
-    const gate = Object.freeze(inspectClientMobileGate(gpu));
+    const gate = Object.freeze(inspectClientMobileGate(gpu, hard.arch));
 
     if (gate.failed) {
       cachedEnvPromise = null;

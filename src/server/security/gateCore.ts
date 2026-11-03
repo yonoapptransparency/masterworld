@@ -184,15 +184,18 @@ async function runRedisPipeline(
       signal: controller.signal,
     });
     if (!res.ok) {
-      return { ok: false, results: [] };
+      const results = commands.map((c) => execLocalCommand(c));
+      return { ok: true, results };
     }
     const data = (await res.json()) as Array<{ result?: unknown; error?: string }>;
     if (!Array.isArray(data) || data.some((d) => d && typeof d.error === 'string')) {
-      return { ok: false, results: [] };
+      const results = commands.map((c) => execLocalCommand(c));
+      return { ok: true, results };
     }
     return { ok: true, results: data.map((d) => d.result) };
   } catch {
-    return { ok: false, results: [] };
+    const results = commands.map((c) => execLocalCommand(c));
+    return { ok: true, results };
   } finally {
     clearTimeout(timer);
   }
@@ -745,7 +748,7 @@ async function recordHardFailure(
   if (!did) {
     // Only cookie-less requests count toward NET_FLOOD_HARD (§3.1)
     cmds.push(['INCR', `netflood:${netKey}`]);
-    cmds.push(['EXPIRE', `netflood:${netKey}`, NET_FLOOD_HARD.windowS, 'NX']);
+    cmds.push(['EXPIRE', `netflood:${netKey}`, NET_FLOOD_HARD.windowS]);
   }
   if (cmds.length === 0) return;
 
@@ -770,7 +773,7 @@ async function recordSoftStrike(
     const pipe = await runRedisPipeline(
       [
         ['INCR', `softstrike:did:${did}`],
-        ['EXPIRE', `softstrike:did:${did}`, SOFT_STRIKES_DEVICE.windowS, 'NX'],
+        ['EXPIRE', `softstrike:did:${did}`, SOFT_STRIKES_DEVICE.windowS],
       ],
       env
     );
@@ -784,7 +787,7 @@ async function recordSoftStrike(
     const pipe = await runRedisPipeline(
       [
         ['INCR', `softstrike:net:${netKey}`],
-        ['EXPIRE', `softstrike:net:${netKey}`, SOFT_STRIKES_NET.windowS, 'NX'],
+        ['EXPIRE', `softstrike:net:${netKey}`, SOFT_STRIKES_NET.windowS],
       ],
       env
     );
@@ -906,7 +909,7 @@ export async function handleSessionInit(ctx: GateRequestContext): Promise<GateRe
         ['GET', `quarantine:${did}`],
         ['GET', `softcool:did:${did}`],
         ['INCR', `init:did:${did}`],
-        ['EXPIRE', `init:did:${did}`, INIT_RATE_DEVICE.windowS, 'NX'],
+        ['EXPIRE', `init:did:${did}`, INIT_RATE_DEVICE.windowS],
       ],
       ctx.env
     );
@@ -1000,9 +1003,9 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
         ['GET', `quarantine:${did}`],
         ['GET', `softcool:did:${did}`],
         ['INCR', `burst2s:did:${did}`],
-        ['PEXPIRE', `burst2s:did:${did}`, CLEARANCE_BURST.hardWindowMs, 'NX'],
+        ['PEXPIRE', `burst2s:did:${did}`, CLEARANCE_BURST.hardWindowMs],
         ['INCR', `burst10s:did:${did}`],
-        ['EXPIRE', `burst10s:did:${did}`, CLEARANCE_BURST.softWindowS, 'NX'],
+        ['EXPIRE', `burst10s:did:${did}`, CLEARANCE_BURST.softWindowS],
       ],
       ctx.env
     );
@@ -1035,9 +1038,9 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
       [
         ['GET', `netcool:${netKey}`],
         ['INCR', `burst2s:net:${netKey}`],
-        ['PEXPIRE', `burst2s:net:${netKey}`, CLEARANCE_BURST.hardWindowMs, 'NX'],
+        ['PEXPIRE', `burst2s:net:${netKey}`, CLEARANCE_BURST.hardWindowMs],
         ['INCR', `burst10s:net:${netKey}`],
-        ['EXPIRE', `burst10s:net:${netKey}`, CLEARANCE_BURST.softWindowS, 'NX'],
+        ['EXPIRE', `burst10s:net:${netKey}`, CLEARANCE_BURST.softWindowS],
       ],
       ctx.env
     );
@@ -1251,7 +1254,7 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
   const isDesktopDedicatedGpu = /GeForce|RTX|GTX/i.test(gpu);
   const isSoftwareRenderer = /SwiftShader|llvmpipe|softpipe|VirtualBox|VMware/i.test(gpu);
   const isDesktopLinuxPlat = /^Linux (x86|i[3-6]86)/i.test(plat) && !isMobileGpu;
-  const isDesktopX86Arch = /^x86/i.test(arch) && !isMobileGpu;
+  const isDesktopX86Arch = /^x86/i.test(arch);
 
   if (
     /^(Win|CrOS)/i.test(plat) ||
@@ -1393,8 +1396,7 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
   const idxCk = evList.indexOf('ck');
   const hasTsTeCk = idxTs !== -1 && idxTe !== -1 && idxCk !== -1 && idxTs < idxTe && idxTe < idxCk;
   const hasPdPuCk = idxPd !== -1 && idxPu !== -1 && idxCk !== -1 && idxPd < idxPu && idxPu <= idxCk;
-  const hasTouchGesture = (idxTs !== -1 || idxPd !== -1) && idxCk !== -1;
-  const causalEventsOk = hasTsTeCk || hasPdPuCk || hasTouchGesture;
+  const causalEventsOk = hasTsTeCk || hasPdPuCk;
 
   const duration = Number(tap.d);
   const coordX = Number(tap.x);
@@ -1407,14 +1409,15 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
     (tap.coarse === 1 || mtpCount >= 1) &&
     causalEventsOk &&
     Number.isFinite(duration) &&
-    duration >= 0 &&
+    duration >= TOUCH_MIN_MS &&
     duration <= TOUCH_MAX_MS &&
     ((Number.isFinite(coordX) && coordX > 0) || (Number.isFinite(coordY) && coordY > 0));
 
   if (!g5CoreOk) {
     emitGateCounter(ctx.env, 'G5', 'touch_core', 'fail', family);
-    // Desktop mouse pointer or zero touch points => immediate Hard 404
-    if (tap.pt === 'mouse' || mtpCount < 1) {
+    // Desktop mouse pointer, zero touch points, or pure synthetic click without touch/pointer events => Hard 404
+    const isSyntheticClickOnly = !causalEventsOk && idxTs === -1 && idxPd === -1 && duration === 0;
+    if (tap.pt === 'mouse' || mtpCount < 1 || isSyntheticClickOnly) {
       await recordHardFailure(did, netKey, ctx.env, !isMobileFamily);
       return paddedHard404Response();
     }
@@ -1510,7 +1513,6 @@ export async function handleSessionClearance(ctx: GateRequestContext): Promise<G
         body: JSON.stringify({
           secret: candidateSecret,
           response: cfToken,
-          remoteip: ctx.ip,
         }),
         signal: svController.signal,
       });

@@ -12,6 +12,7 @@ export const mockSettings: GlobalSettings = {
   ethics_discrimination_text: "",
   ticker_text: "",
   animations_enabled: true,
+  turnstile_site_key: "0x4AAAAAAFADYWIcbiDcPvh7",
   categories: [
     "Yono Apps",
     "Card Apps",

@@ -24,6 +24,20 @@ export function optimizeInitialDataForRoute(
   const isVideoDetailPage = (cleanPathLower.startsWith('/videos/') || cleanPathLower.startsWith('/video/')) && cleanPathLower !== '/videos';
   const isVideoIndexPage = cleanPathLower === '/videos';
   const isHomePage = cleanPathLower === '/' || cleanPathLower === '';
+  const isStaticInfoPage =
+    cleanPathLower === '/about' ||
+    cleanPathLower === '/contact' ||
+    cleanPathLower === '/privacy' ||
+    cleanPathLower === '/terms' ||
+    cleanPathLower === '/disclaimer' ||
+    cleanPathLower === '/ethics' ||
+    cleanPathLower === '/notice' ||
+    cleanPathLower === '/responsibility' ||
+    cleanPathLower === '/report-removal' ||
+    cleanPathLower === '/developers' ||
+    cleanPathLower === '/developer' ||
+    cleanPathLower === '/faq' ||
+    cleanPathLower === '/faqs';
 
   const isAdminPath = cleanPathLower.startsWith('/admin') || cleanPathLower.startsWith('/masterworld') || cleanPathLower === '/login' || cleanPathLower.startsWith('/login/');
   const baseApps = Array.isArray(data.apps) ? data.apps : (Array.isArray(data.mockApps) ? data.mockApps : []);
@@ -284,7 +298,7 @@ function getSimilarAppsForApp(targetApp: any, baseApps: any[]): any[] {
     });
 
     optimizedApps = [fullTargetApp, ...trimmedSimilar];
-  } else if (isNewsDetailPage || isNewsIndexPage || isVideoDetailPage || isVideoIndexPage) {
+  } else if (isNewsDetailPage || isNewsIndexPage || isVideoDetailPage || isVideoIndexPage || isStaticInfoPage) {
     let relatedApp: any = null;
     if (isNewsDetailPage && targetNews) {
       const relId = getField(targetNews, 'related_app_id');

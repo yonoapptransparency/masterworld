@@ -107,7 +107,11 @@ export function useClearanceDispatch({
       fallbackClientX: number,
       fallbackClientY: number
     ) => {
-      if (inFlightRef.current || !isReadyRef.current) return;
+      if (inFlightRef.current) return;
+      if (!isReadyRef.current) {
+        resetTapBuffer();
+        return;
+      }
 
       const now = Date.now();
       const recent10s = clickTimestampsRef.current.filter((t) => now - t <= 10000);
@@ -118,11 +122,14 @@ export function useClearanceDispatch({
       const tap = tapBufferRef.current;
       tap.events.push('ck');
 
+      const endEventTs = tap.teTime > 0 ? tap.teTime : clickTimeStamp;
       const eventDuration =
-        tap.tsTime > 0 && tap.teTime >= tap.tsTime ? Math.round(tap.teTime - tap.tsTime) : 0;
+        tap.tsTime > 0 && endEventTs >= tap.tsTime ? Math.round(endEventTs - tap.tsTime) : 0;
+      const nowPerf = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      const endPerf = tap.perfEnd >= tap.perfStart && tap.perfEnd > 0 ? tap.perfEnd : nowPerf;
       const perfDuration =
-        tap.perfStart > 0 && tap.perfEnd >= tap.perfStart
-          ? Math.round(tap.perfEnd - tap.perfStart)
+        tap.perfStart > 0 && endPerf >= tap.perfStart
+          ? Math.round(endPerf - tap.perfStart)
           : 0;
       tap.d = Math.max(eventDuration, perfDuration);
 
@@ -172,11 +179,12 @@ export function useClearanceDispatch({
       setNeedsManualRetry(false);
 
       const safeAppId = appId.replace(/[^A-Za-z0-9_-]/g, '-').slice(0, 64);
-      const normalizedPt = hasTouch ? 'touch' : tap.pt || 'touch';
-      const normalizedEvents =
-        tap.events.includes('ts') || tap.events.includes('pd')
-          ? tap.events
-          : ['ts', 'te', ...tap.events];
+      const capturedPt =
+        tap.pt && tap.pt !== 'mouse'
+          ? tap.pt
+          : tap.events.includes('ts') || (hasTouch && tap.events.includes('pd'))
+          ? 'touch'
+          : tap.pt || '';
       const tokenObj: TokenV12 = {
         v: TOKEN_V,
         id: safeAppId,
@@ -185,27 +193,23 @@ export function useClearanceDispatch({
         hard: env.hardStr,
         soft: env.softStr,
         tap: {
-          pt: normalizedPt,
-          mtp: Math.max(
-            hasTouch ? 1 : 0,
-            Number(typeof navigator !== 'undefined' ? navigator.maxTouchPoints ?? 0 : 0)
-          ),
+          pt: capturedPt,
+          mtp: Number(typeof navigator !== 'undefined' ? navigator.maxTouchPoints ?? 0 : 0),
           coarse:
-            hasTouch ||
-            (typeof window !== 'undefined' &&
-              typeof window.matchMedia === 'function' &&
-              (window.matchMedia('(pointer: coarse)').matches ||
-                window.matchMedia('(any-pointer: coarse)').matches))
+            typeof window !== 'undefined' &&
+            typeof window.matchMedia === 'function' &&
+            (window.matchMedia('(pointer: coarse)').matches ||
+              window.matchMedia('(any-pointer: coarse)').matches)
               ? 1
               : 0,
           rx: Math.round((tap.rx || 0) * 100) / 100,
           ry: Math.round((tap.ry || 0) * 100) / 100,
           pr: Math.round((tap.pr || 0) * 100) / 100,
-          x: Math.round(tap.x || fallbackClientX || 120),
-          y: Math.round(tap.y || fallbackClientY || 320),
-          d: Math.max(15, Math.round(tap.d || 24)),
+          x: Math.round(tap.x || fallbackClientX || 0),
+          y: Math.round(tap.y || fallbackClientY || 0),
+          d: Math.round(tap.d || 0),
           gap: Math.round(tap.gap || 0),
-          ev: normalizedEvents.join(','),
+          ev: tap.events.join(','),
         },
         f: {
           wb: env.gate.wb,
@@ -346,34 +350,65 @@ export function useClearanceDispatch({
       if (hasPriorGestureEnded()) {
         resetTapBuffer();
       }
-      tapBufferRef.current.pt = e.pointerType || '';
+      tapBufferRef.current.pt = e.pointerType || tapBufferRef.current.pt || '';
+      if (tapBufferRef.current.tsTime === 0) {
+        tapBufferRef.current.tsTime = e.timeStamp || performance.now();
+      }
+      if (tapBufferRef.current.perfStart === 0) {
+        tapBufferRef.current.perfStart =
+          typeof performance !== 'undefined' ? performance.now() : Date.now();
+      }
+      if (tapBufferRef.current.x === 0 && tapBufferRef.current.y === 0) {
+        tapBufferRef.current.x = Number(e.clientX ?? 0);
+        tapBufferRef.current.y = Number(e.clientY ?? 0);
+      }
+      if (tapBufferRef.current.rx === 0 && e.width) {
+        tapBufferRef.current.rx = Number(e.width) / 2;
+      }
+      if (tapBufferRef.current.ry === 0 && e.height) {
+        tapBufferRef.current.ry = Number(e.height) / 2;
+      }
+      if (tapBufferRef.current.pr === 0 && e.pressure) {
+        tapBufferRef.current.pr = Number(e.pressure);
+      }
       tapBufferRef.current.events.push('pd');
     };
 
     const onTouchStart = (e: TouchEvent) => {
       if (inFlightRef.current) return;
-      if (hasPriorGestureEnded()) {
+      if (hasPriorGestureEnded() && !tapBufferRef.current.events.includes('pd')) {
         resetTapBuffer();
       }
       const t = e.touches?.[0] || e.changedTouches?.[0];
-      tapBufferRef.current.tsTime = e.timeStamp || performance.now();
-      tapBufferRef.current.perfStart =
-        typeof performance !== 'undefined' ? performance.now() : Date.now();
-      if (t) {
-        tapBufferRef.current.rx = Number((t as any).radiusX ?? 0);
-        tapBufferRef.current.ry = Number((t as any).radiusY ?? 0);
-        tapBufferRef.current.pr = Number((t as any).force ?? 0);
-        tapBufferRef.current.x = Number(t.clientX ?? 0);
-        tapBufferRef.current.y = Number(t.clientY ?? 0);
+      if (tapBufferRef.current.tsTime === 0) {
+        tapBufferRef.current.tsTime = e.timeStamp || performance.now();
       }
-      if (!tapBufferRef.current.pt) {
+      if (tapBufferRef.current.perfStart === 0) {
+        tapBufferRef.current.perfStart =
+          typeof performance !== 'undefined' ? performance.now() : Date.now();
+      }
+      if (t) {
+        tapBufferRef.current.rx = Number((t as any).radiusX ?? tapBufferRef.current.rx ?? 0);
+        tapBufferRef.current.ry = Number((t as any).radiusY ?? tapBufferRef.current.ry ?? 0);
+        tapBufferRef.current.pr = Number((t as any).force ?? tapBufferRef.current.pr ?? 0);
+        tapBufferRef.current.x = Number(t.clientX ?? tapBufferRef.current.x ?? 0);
+        tapBufferRef.current.y = Number(t.clientY ?? tapBufferRef.current.y ?? 0);
+      }
+      if (!tapBufferRef.current.pt || tapBufferRef.current.pt === 'mouse') {
         tapBufferRef.current.pt = 'touch';
       }
       tapBufferRef.current.events.push('ts');
     };
 
-    const onPointerUp = () => {
+    const onPointerUp = (e: PointerEvent) => {
       if (inFlightRef.current) return;
+      tapBufferRef.current.teTime = e.timeStamp || performance.now();
+      tapBufferRef.current.perfEnd =
+        typeof performance !== 'undefined' ? performance.now() : Date.now();
+      if (tapBufferRef.current.x === 0 && tapBufferRef.current.y === 0) {
+        tapBufferRef.current.x = Number(e.clientX ?? 0);
+        tapBufferRef.current.y = Number(e.clientY ?? 0);
+      }
       tapBufferRef.current.events.push('pu');
     };
 

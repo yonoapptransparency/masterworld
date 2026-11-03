@@ -339,9 +339,15 @@ async function verifyModulesAndLiveServer() {
     !staticJsonRaw.includes('more_information_url') &&
     !useGitHubSyncSrc.includes("path: 'src/lib/public_backup.json'");
 
-  // GATE-5: No synthetic touch telemetry fabrication in useClearanceDispatch.ts
+  // GATE-5: No synthetic touch telemetry fabrication in useClearanceDispatch.ts & cold sitekey present in lightFallback.ts
   const dispatchSrc = fs.readFileSync(path.resolve(process.cwd(), 'src/hooks/useClearanceDispatch.ts'), 'utf8');
-  const noTouchForgeryOk = !dispatchSrc.includes('tap.d = 45') && !dispatchSrc.includes('tap.x = 120');
+  const lightFallbackSrc = fs.readFileSync(path.resolve(process.cwd(), 'src/lib/lightFallback.ts'), 'utf8');
+  const noTouchForgeryOk =
+    !dispatchSrc.includes('tap.d = 45') &&
+    !dispatchSrc.includes('tap.x = 120') &&
+    !dispatchSrc.includes('fallbackClientX || 120') &&
+    !dispatchSrc.includes("['ts', 'te', ...tap.events]") &&
+    lightFallbackSrc.includes('turnstile_site_key');
 
   // GATE-8 & GATE-9: iPadOS 13+, preview host allowlist, dwell alignment, and /moreinfo payload trimmer
   const ipadUa = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1';
@@ -364,7 +370,7 @@ async function verifyModulesAndLiveServer() {
     gatewayPayloadBytes < 5000 &&
     DWELL_NV0_MIN_MS === CLIENT_TAP_HOLD_MS;
 
-  // GATE-6 & GATE-7: End-to-End Gate G1-G7 Verification (Legit Mobile Pass vs Replay 404 vs Superhuman Dwell 404 vs Desktop GPU Spoof 404)
+  // GATE-6 & GATE-7: End-to-End Gate G1-G7 Verification (Legit Mobile Pass vs Replay 404 vs Superhuman Dwell 404 vs Desktop GPU Spoof 404 vs Synthetic Click 404 vs x86 Arch Spoof 404)
   const mobileUa = 'Mozilla/5.0 (Linux; Android 14; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36';
   const baseEnv = {
     NODE_ENV: 'development',
@@ -392,6 +398,12 @@ async function verifyModulesAndLiveServer() {
   const cryptoSubtle = crypto.subtle;
   const enc = new TextEncoder();
   const key = await cryptoSubtle.importKey('raw', enc.encode('rummydex-v12-nonce-hmac-fallback-secret-32-bytes'), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const makeAgedNonce = async () => {
+    const [rawNid] = (await issueStatelessNonce('yono-rummy', baseEnv) || '').split('.');
+    const sBuf = await cryptoSubtle.sign('HMAC', key, enc.encode(`${rawNid}|${backdatedIssuedMs}|yono-rummy`));
+    const sB64 = Buffer.from(new Uint8Array(sBuf).slice(0, 16)).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+    return `${rawNid}.${backdatedIssuedMs}.${sB64}`;
+  };
   const sigBuf = await cryptoSubtle.sign('HMAC', key, enc.encode(`${nid}|${backdatedIssuedMs}|yono-rummy`));
   const sigB64 = Buffer.from(new Uint8Array(sigBuf).slice(0, 16)).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
   const agedNonce = `${nid}.${backdatedIssuedMs}.${sigB64}`;
@@ -478,10 +490,7 @@ async function verifyModulesAndLiveServer() {
   });
 
   // Spoofed mobile UA running on Desktop RTX 3060 GPU -> 404 Hard Block
-  const [nid2] = (await issueStatelessNonce('yono-rummy', baseEnv) || '').split('.');
-  const sigBuf2 = await cryptoSubtle.sign('HMAC', key, enc.encode(`${nid2}|${backdatedIssuedMs}|yono-rummy`));
-  const sigB64_2 = Buffer.from(new Uint8Array(sigBuf2).slice(0, 16)).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
-  const agedNonce2 = `${nid2}.${backdatedIssuedMs}.${sigB64_2}`;
+  const agedNonce2 = await makeAgedNonce();
   const desktopGpuSoft = JSON.stringify({
     gl: 1,
     gpu: 'ANGLE (NVIDIA, NVIDIA GeForce RTX 3060 Direct3D11 vs_5_0 ps_5_0, D3D11)',
@@ -500,6 +509,46 @@ async function verifyModulesAndLiveServer() {
     env: baseEnv
   });
 
+  // Synthetic element.click() bot (ev: 'ck', d: 0) -> 404 Hard Block
+  const agedNonce3 = await makeAgedNonce();
+  const syntheticClickRes = await handleSessionClearance({
+    method: 'POST',
+    path: '/api/v1/app/session-clearance',
+    headers: { 'user-agent': mobileUa, host: 'localhost:3000' },
+    rawBody: JSON.stringify({
+      token: buildTokenB64({
+        nonce: agedNonce3,
+        tap: { pt: '', mtp: 5, coarse: 1, rx: 0, ry: 0, pr: 0, x: 0, y: 0, d: 0, gap: 0, ev: 'ck' }
+      }),
+      cf: 'XXXX.DUMMY.TOKEN.XXXX'
+    }),
+    ip: '49.36.100.14',
+    adapter: 'express',
+    env: baseEnv
+  });
+
+  // x86 CPU architecture spoofing mobile Adreno GPU -> 404 Hard Block
+  const agedNonce4 = await makeAgedNonce();
+  const x86Hard = JSON.stringify({
+    arch: 'x86',
+    dm: 1,
+    plat: 'Linux armv81',
+    sa: 0,
+    ud: 1,
+    udp: 'Android',
+    vend: 'Google Inc.',
+    wc: 1
+  });
+  const x86SpoofRes = await handleSessionClearance({
+    method: 'POST',
+    path: '/api/v1/app/session-clearance',
+    headers: { 'user-agent': mobileUa, host: 'localhost:3000' },
+    rawBody: JSON.stringify({ token: buildTokenB64({ nonce: agedNonce4, hard: x86Hard }), cf: 'XXXX.DUMMY.TOKEN.XXXX' }),
+    ip: '49.36.100.15',
+    adapter: 'express',
+    env: baseEnv
+  });
+
   const gateFlowOk =
     initRes.status === 200 &&
     typeof initBody.nonce === 'string' &&
@@ -509,13 +558,15 @@ async function verifyModulesAndLiveServer() {
     clearData1.url.startsWith('https://') &&
     replayRes.status === 404 &&
     fastDwellRes.status === 404 &&
-    desktopGpuRes.status === 404;
+    desktopGpuRes.status === 404 &&
+    syntheticClickRes.status === 404 &&
+    x86SpoofRes.status === 404;
 
   record(
     'GATE-1..13',
     '/moreinfo Gateway Security, T1 Vault Speed & Anti-Bot Enforcement',
     vaultCompilerOk && linkResOk && secretsSanitizedOk && noTouchForgeryOk && ipadG1.pass === true && gatewayTrimOk && gateFlowOk,
-    `Vault Compiler: ${vaultCompilerOk}, T1_VAULT Link (${resolveMs.toFixed(2)}ms, tier=${resolvedLink.tier}): ${linkResOk}, Secret Sanitization: ${secretsSanitizedOk}, No Touch Forgery: ${noTouchForgeryOk}, iPadOS G1: ${ipadG1.pass}, Gateway Payload (${gatewayPayloadBytes} B < 5KB): ${gatewayTrimOk}, Gate E2E (Legit=200, Replay=${replayRes.status}, <150ms=${fastDwellRes.status}, RTX3060=${desktopGpuRes.status}): ${gateFlowOk}`
+    `Vault Compiler: ${vaultCompilerOk}, T1_VAULT Link (${resolveMs.toFixed(2)}ms, tier=${resolvedLink.tier}): ${linkResOk}, Secret Sanitization: ${secretsSanitizedOk}, No Touch Forgery: ${noTouchForgeryOk}, iPadOS G1: ${ipadG1.pass}, Gateway Payload (${gatewayPayloadBytes} B < 5KB): ${gatewayTrimOk}, Gate E2E (Legit=200, Replay=${replayRes.status}, <150ms=${fastDwellRes.status}, RTX3060=${desktopGpuRes.status}, SynthClick=${syntheticClickRes.status}, x86Spoof=${x86SpoofRes.status}): ${gateFlowOk}`
   );
 
   // 8b. SEO Indexing Isolation, Image/Content Attribution & Internal Link Reachability

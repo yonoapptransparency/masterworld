@@ -51,7 +51,8 @@ export const SOFT_STRIKES_NET = {
 } as const;
 
 export const SITEVERIFY_TIMEOUT_MS = 4000 as const;
-export const TURNSTILE_UI_TIMEOUT_MS = 15000 as const;
+export const TURNSTILE_UI_TIMEOUT_MS = 25000 as const;
+export const DEFAULT_TURNSTILE_SITE_KEY = '0x4AAAAAAFADYWIcbiDcPvh7' as const;
 export const SESSION_RETRY_MAX = 2 as const;
 export const REQUEST_BODY_MAX_BYTES = 8192 as const;
 export const HARD_PAD_MS = [60, 120] as const;
