@@ -890,4 +890,264 @@ body {
   color: #60a5fa !important;
 }
 
+/* ====== RICH HTML CONTENT SYSTEM (SVGs, SEPARATED SECTIONS, FEATURE GRIDS, LINKS, TABLES & MOBILE BOUNDARY) ====== */
+.rich-html-content {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  box-sizing: border-box;
+}
+
+.rich-html-content * {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Links inside rich HTML (both internal and external) */
+.rich-html-content a {
+  color: #2563eb;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.15s ease;
+}
+.rich-html-content a:hover {
+  color: #1d4ed8;
+}
+html.dark .rich-html-content a,
+.dark .rich-html-content a {
+  color: #60a5fa !important;
+}
+html.dark .rich-html-content a:hover,
+.dark .rich-html-content a:hover {
+  color: #93c5fd !important;
+}
+
+/* Embedded SVGs and illustration artwork (<svg class="art"> and inline SVGs) — open, box-free, compact */
+.rich-html-content svg {
+  max-width: 100%;
+  height: auto;
+}
+.rich-html-content svg.art,
+.rich-html-content > svg,
+.rich-html-content section > svg {
+  display: block;
+  width: auto;
+  max-width: 110px;
+  max-height: 76px;
+  height: auto;
+  margin: 0.375rem 0 0.5rem 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  border: 0;
+}
+
+/* Dark-mode contrast adaptation for dark charcoal strokes/fills inside embedded SVG artwork */
+html.dark .rich-html-content svg [stroke="#3c4043"],
+.dark .rich-html-content svg [stroke="#3c4043"],
+html.dark .rich-html-content svg [stroke="#202124"],
+.dark .rich-html-content svg [stroke="#202124"],
+html.dark .rich-html-content svg [stroke="#000"],
+.dark .rich-html-content svg [stroke="#000"],
+html.dark .rich-html-content svg [stroke="#000000"],
+.dark .rich-html-content svg [stroke="#000000"] {
+  stroke: #e2e8f0 !important;
+}
+html.dark .rich-html-content svg [fill="#3c4043"],
+.dark .rich-html-content svg [fill="#3c4043"],
+html.dark .rich-html-content svg [fill="#202124"],
+.dark .rich-html-content svg [fill="#202124"] {
+  fill: #e2e8f0 !important;
+}
+
+/* Compact, open typography inside rich-html-content (no wasted vertical gaps) */
+.rich-html-content h2 {
+  font-size: 1.0625rem;
+  line-height: 1.35;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  color: #0f172a;
+  margin-top: 1.25rem;
+  margin-bottom: 0.375rem;
+}
+@media (min-width: 640px) {
+  .rich-html-content h2 {
+    font-size: 1.25rem;
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+  }
+}
+html.dark .rich-html-content h2,
+.dark .rich-html-content h2 {
+  color: #f8fafc !important;
+}
+.rich-html-content > h2:first-child,
+.rich-html-content > div > h2:first-child {
+  margin-top: 0 !important;
+}
+.rich-html-content h3 {
+  font-size: 0.9375rem;
+  line-height: 1.4;
+  font-weight: 700;
+  color: #0f172a;
+  margin-top: 0.875rem;
+  margin-bottom: 0.25rem;
+}
+@media (min-width: 640px) {
+  .rich-html-content h3 {
+    font-size: 1.0625rem;
+  }
+}
+html.dark .rich-html-content h3,
+.dark .rich-html-content h3 {
+  color: #f1f5f9 !important;
+}
+.rich-html-content p {
+  margin-top: 0;
+  margin-bottom: 0.625rem;
+  line-height: 1.65;
+}
+.rich-html-content ul,
+.rich-html-content ol {
+  margin-top: 0.375rem;
+  margin-bottom: 0.75rem;
+  padding-left: 1.25rem;
+}
+.rich-html-content li {
+  margin-bottom: 0.375rem;
+  line-height: 1.6;
+}
+
+/* Separated HTML sections (<section>, .content-section, .key-features) — open, box-free */
+.rich-html-content section,
+.rich-html-content .content-section,
+.rich-html-content .key-features {
+  margin: 0.75rem 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  border: 0;
+}
+
+.rich-html-content section > h2:first-child,
+.rich-html-content .content-section > h2:first-child,
+.rich-html-content .key-features > h2:first-child {
+  margin-top: 0.75rem !important;
+}
+
+/* Feature grid & cards (.feature-grid, .feature-card) — clean hairline border without nested background fills */
+.rich-html-content .feature-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.625rem;
+  margin: 0.625rem 0;
+}
+@media (min-width: 640px) {
+  .rich-html-content .feature-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+}
+.rich-html-content .feature-card {
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.75rem;
+  background: transparent;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: none;
+}
+html.dark .rich-html-content .feature-card,
+.dark .rich-html-content .feature-card {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.rich-html-content .feature-card h3,
+.rich-html-content .feature-card h4 {
+  margin-top: 0 !important;
+  margin-bottom: 0.25rem !important;
+}
+.rich-html-content .feature-card p:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* Metadata lines & notes (.updated, .tagline, .note) — open and box-free */
+.rich-html-content .updated {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #64748b;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+}
+html.dark .rich-html-content .updated,
+.dark .rich-html-content .updated {
+  color: #94a3b8 !important;
+}
+
+.rich-html-content .tagline {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: #475569;
+  margin-bottom: 0.75rem;
+}
+html.dark .rich-html-content .tagline,
+.dark .rich-html-content .tagline {
+  color: #cbd5e1 !important;
+}
+
+.rich-html-content .note {
+  margin: 1.25rem 0 0.5rem 0;
+  padding: 0.75rem 0 0 0;
+  border: 0;
+  border-top: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 0;
+  background: transparent;
+  font-size: 0.8125rem;
+  color: #64748b;
+}
+html.dark .rich-html-content .note,
+.dark .rich-html-content .note {
+  border-top-color: rgba(255, 255, 255, 0.1);
+  color: #94a3b8 !important;
+}
+
+/* Responsive tables inside rich HTML */
+.rich-html-content table {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+  font-size: 0.8125rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+}
+html.dark .rich-html-content table,
+.dark .rich-html-content table {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.rich-html-content th,
+.rich-html-content td {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+}
+html.dark .rich-html-content th,
+.dark .rich-html-content th,
+html.dark .rich-html-content td,
+.dark .rich-html-content td {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+.rich-html-content th {
+  font-weight: 700;
+  background: transparent;
+}
+
+
 

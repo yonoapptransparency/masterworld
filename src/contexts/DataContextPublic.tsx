@@ -251,6 +251,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const fetchSettings = useCallback(async () => {
+    // Immediately hydrate any stripped legal/static HTML fields from static dataset in 0ms
+    loadFullStaticDataset().then(full => {
+      if (full?.settings && Object.keys(full.settings).length > 0) {
+        setSettings(prev => ({ ...full.settings, ...prev }));
+      }
+    }).catch(() => {});
+
     try {
       const res = await fetch('/api/v1/public/settings', {
         headers: { 'Accept': 'application/json' }
@@ -265,12 +272,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (e) {
       console.warn("Public settings fetch warning:", e);
     }
-    try {
-      const full = await loadFullStaticDataset();
-      if (full?.settings && Object.keys(full.settings).length > 0) {
-        setSettings(prev => ({ ...prev, ...full.settings }));
-      }
-    } catch (_) {}
   }, []);
 
   const fetchVideos = useCallback(async () => {

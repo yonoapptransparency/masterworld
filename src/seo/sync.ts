@@ -122,11 +122,16 @@ const getStaticData = () => {
   const backupSettings = backupData && backupData.settings ? backupData.settings : {};
   const backupSettingsTime = backupSettings.last_updated ? new Date(backupSettings.last_updated).getTime() : 0;
   const staticSettingsTime = staticSettings.last_updated ? new Date(staticSettings.last_updated).getTime() : 0;
-  const mergedSettings = cleanSettingsMetaTitles(
-    backupSettingsTime >= staticSettingsTime
-      ? { ...staticSettings, ...backupSettings }
-      : { ...backupSettings, ...staticSettings }
-  );
+  const baseSettings = backupSettingsTime >= staticSettingsTime ? staticSettings : backupSettings;
+  const overlaySettings = backupSettingsTime >= staticSettingsTime ? backupSettings : staticSettings;
+  const rawMergedSettings: Record<string, any> = { ...baseSettings };
+  for (const [k, v] of Object.entries(overlaySettings || {})) {
+    if (typeof v === 'string' && v.trim() === '' && typeof rawMergedSettings[k] === 'string' && rawMergedSettings[k].trim() !== '') {
+      continue;
+    }
+    rawMergedSettings[k] = v;
+  }
+  const mergedSettings = cleanSettingsMetaTitles(rawMergedSettings);
 
   const mergedVideos = (backupData && Array.isArray(backupData.videos) && backupData.videos.length > 0)
     ? backupData.videos
@@ -184,13 +189,21 @@ export async function syncFromFirestore(): Promise<any> {
         metaRes = await fetch(`${baseUrl}/apps_meta${apiKeyParam}`);
       }
       let numChunks = 1;
+      let expectedCount = 0;
+      let hasMetaDoc = false;
       if (metaRes.ok) {
         const metaJson: any = await metaRes.json();
         const parsedMeta = parseFirestoreDoc(metaJson.fields);
-        if (parsedMeta.numChunks) numChunks = Number(parsedMeta.numChunks);
+        if (parsedMeta.numChunks) {
+          numChunks = Number(parsedMeta.numChunks);
+          hasMetaDoc = true;
+        }
+        if (parsedMeta.count) {
+          expectedCount = Number(parsedMeta.count);
+        }
       }
 
-      const chunksToProbe = Math.max(numChunks, 20);
+      const chunksToProbe = hasMetaDoc ? Math.max(numChunks, 1) : Math.max(numChunks, 8);
       const chunkFetches = [];
       for (let i = 0; i < chunksToProbe; i++) {
         chunkFetches.push(
@@ -201,11 +214,14 @@ export async function syncFromFirestore(): Promise<any> {
       }
       const chunkResults = await Promise.all(chunkFetches);
       const remoteApps: any[] = [];
-      for (const c of chunkResults) {
+      let requiredChunksLoaded = 0;
+      for (let i = 0; i < chunkResults.length; i++) {
+        const c = chunkResults[i];
         if (c && c.fields) {
           const parsed = parseFirestoreDoc(c.fields);
           if (Array.isArray(parsed.items)) {
             remoteApps.push(...parsed.items);
+            if (i < numChunks) requiredChunksLoaded++;
           }
         }
       }
@@ -217,11 +233,14 @@ export async function syncFromFirestore(): Promise<any> {
       ]);
 
       const remoteSettings = settingsRes?.fields ? parseFirestoreDoc(settingsRes.fields) : {};
-      const settings = cleanSettingsMetaTitles(
-        (remoteSettings && Object.keys(remoteSettings).length > 0)
-          ? { ...(fallbackData.settings || {}), ...remoteSettings }
-          : (fallbackData.settings || {})
-      );
+      const mergedRemoteSettings: Record<string, any> = { ...(fallbackData.settings || {}) };
+      for (const [k, v] of Object.entries(remoteSettings || {})) {
+        if (typeof v === 'string' && v.trim() === '' && typeof mergedRemoteSettings[k] === 'string' && mergedRemoteSettings[k].trim() !== '') {
+          continue;
+        }
+        mergedRemoteSettings[k] = v;
+      }
+      const settings = cleanSettingsMetaTitles(mergedRemoteSettings);
 
       const newsParsed = newsRes?.fields ? parseFirestoreDoc(newsRes.fields) : null;
       const remoteNews = Array.isArray(newsParsed?.items) ? newsParsed.items : [];
@@ -231,11 +250,11 @@ export async function syncFromFirestore(): Promise<any> {
       const videos = Array.isArray(videosParsed?.items) ? videosParsed.items : fallbackData.videos;
 
       if (remoteApps.length > 0) {
-        // Only treat remoteApps as an authoritative full catalog replacement if it returned at least 50 apps
-        // and at least 85% of the local baseline catalog. Otherwise, remoteApps is an incomplete chunk slice
-        // (e.g. from 429 quota exhaustion or network drop) and MUST be merged non-destructively.
+        // Only treat remoteApps as an authoritative full catalog replacement if all required chunks succeeded
+        // and it returned at least 85% of the baseline catalog and matches expectedCount.
         const minFullCatalogThreshold = Math.max(50, Math.floor((fallbackData.apps?.length || 70) * 0.85));
-        const isAuthoritative = remoteApps.length >= minFullCatalogThreshold;
+        const allChunksSucceeded = hasMetaDoc && requiredChunksLoaded >= numChunks && (expectedCount === 0 || remoteApps.length >= expectedCount);
+        const isAuthoritative = allChunksSucceeded && remoteApps.length >= minFullCatalogThreshold;
         const mergedApps = mergeItemsByTimestamp(fallbackData.apps, remoteApps, isAuthoritative);
         const result = { apps: mergedApps, settings, news, videos, reviews: fallbackData.reviews || [] };
         

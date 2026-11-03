@@ -26,8 +26,6 @@ export function sanitizeHtml(html: string): string {
   clean = clean.replace(/<title>[^<]*<\/title>/gi, '');
   clean = clean.replace(/<head\b[^>]*>[\s\S]*?<\/head>/gi, '');
   clean = clean.replace(/<\/?(html|head|body)\b[^>]*>/gi, '');
-  clean = clean.replace(/<svg[^>]*class=["'][^"']*art[^"']*["'][^>]*>[\s\S]*?<\/svg>/gi, '');
-  clean = clean.replace(/<svg[^>]*>[\s\S]*?<\/svg>/gi, '');
   // Convert any <h1> inside user content to <h2> for strict single-H1 SEO compliance
   clean = clean.replace(/<h1([^>]*)>/gi, '<h2$1>').replace(/<\/h1>/gi, '</h2>');
   return clean.trim();

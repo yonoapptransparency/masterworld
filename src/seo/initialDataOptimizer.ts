@@ -729,7 +729,6 @@ function getSimilarAppsForApp(targetApp: any, baseApps: any[]): any[] {
           .replace(/<(meta|link)\b[^>]*>/gi, '')
           .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
           .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-          .replace(/<svg[^>]*>[\s\S]*?<\/svg>/gi, '')
           .trim();
       } else {
         optimizedSettings[k] = val;

@@ -21,6 +21,7 @@ export default function AdminDashboard() {
   const { 
     apps, settings, news, videos, 
     saveApps, saveSettings, saveNews, saveVideos,
+    saveNewsSingle, deleteNewsSingle,
     saveAppSingle, deleteAppSingle, saveSettingsSection,
     loading, refreshAll, reloadServerData, dataSource, isRefreshing: dataRefreshing, lastSyncTime,
     gitConfig, gitConfigLoading, saveGitConfig, pushAllToGitHub
@@ -459,6 +460,29 @@ export default function AdminDashboard() {
                 setSaving(false);
               }
             }}
+            handleSaveSingleNews={async (item: any) => {
+              setSaving(true);
+              try {
+                const saved = await saveNewsSingle(item);
+                setNewsList(prev => {
+                  const idx = prev.findIndex(n => n.id === saved.id || (saved.slug && n.slug === saved.slug));
+                  if (idx >= 0) {
+                    const next = [...prev];
+                    next[idx] = { ...next[idx], ...saved };
+                    return next;
+                  }
+                  return [saved, ...prev];
+                });
+                triggerHaptic();
+                toast('Article saved and synchronized!', 'success');
+                return saved;
+              } catch (err: any) {
+                toast('Save failed: ' + (err?.message || 'Unknown error'), 'error');
+                throw err;
+              } finally {
+                setSaving(false);
+              }
+            }}
             handleSaveCategories={(e) => { e.preventDefault(); handleSaveSettingsBase({ categories: categoriesList }); }}
             handleSaveQuickLinks={(e) => { e.preventDefault(); handleSaveSettingsBase({ quick_links: quickLinksList }); }}
             handleSaveWebsiteFaqs={(e) => { e.preventDefault(); handleSaveSettingsBase({ website_faqs: websiteFaqsList }); }}
@@ -485,7 +509,16 @@ export default function AdminDashboard() {
             handleClearAllBanners={handleClearAllBanners}
             handleAddNews={handleAddNews}
             handleNewsChange={handleNewsChange}
-            handleDeleteNews={handleDeleteNews}
+            handleDeleteNews={async (id: string) => {
+              handleDeleteNews(id);
+              try {
+                await deleteNewsSingle(id);
+                triggerHaptic();
+                toast('Article deleted.', 'success');
+              } catch (err: any) {
+                toast('Delete failed: ' + (err?.message || 'Unknown error'), 'error');
+              }
+            }}
             handleAddCategory={handleAddCategory}
             handleRemoveCategory={handleRemoveCategory}
             handleAddVideo={handleAddVideo}

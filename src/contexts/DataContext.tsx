@@ -37,6 +37,8 @@ interface DataContextType {
   saveSettingsSection: (section: string, data: any) => Promise<any>;
   saveApps: (apps: AppConfig[]) => Promise<void>;
   saveSettings: (settings: Partial<GlobalSettings>) => Promise<void>;
+  saveNewsSingle: (item: NewsItem) => Promise<NewsItem>;
+  deleteNewsSingle: (id: string) => Promise<void>;
   saveNews: (news: NewsItem[]) => Promise<void>;
   saveVideos: (videos: VideoItem[]) => Promise<void>;
   isConnected: boolean | null;
@@ -144,6 +146,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     saveSettingsSection: actions.saveSettingsSection,
     saveApps: actions.saveApps,
     saveSettings: actions.saveSettings,
+    saveNewsSingle: actions.saveNewsSingle,
+    deleteNewsSingle: actions.deleteNewsSingle,
     saveNews: actions.saveNews,
     saveVideos: actions.saveVideos,
     isConnected: sync.isConnected,
@@ -191,6 +195,8 @@ export const useData = () => {
       saveSettingsSection: async () => {},
       saveApps: async () => {},
       saveSettings: async () => {},
+      saveNewsSingle: async (item: any) => item,
+      deleteNewsSingle: async () => {},
       saveNews: async () => {},
       saveVideos: async () => {},
       isConnected: true,

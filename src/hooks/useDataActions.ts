@@ -87,38 +87,43 @@ export function useDataActions(
       lastError = err?.message || 'Server endpoint unreachable';
     }
 
-    // 2. Always persist to Firestore as well so cloud chunks and apps_meta stay 100% synchronized
+    // 2. Persist ONLY the affected chunk to Firestore to prevent unnecessary quota burn
     if (isFirebaseReal && db) {
       try {
-        const { doc, setDoc, deleteDoc } = await import('firebase/firestore');
+        const { doc, setDoc } = await import('firebase/firestore');
         const nextApps = [...apps];
+        const prevCount = apps.length;
         const idx = nextApps.findIndex(a => a.id === savedApp.id || (savedApp.slug && a.slug === savedApp.slug));
+        let targetIdx = idx;
         if (idx >= 0) {
           nextApps[idx] = { ...nextApps[idx], ...savedApp };
         } else {
+          targetIdx = nextApps.length;
           nextApps.push(savedApp);
         }
 
         const chunkSize = 25;
+        const prevNumChunks = Math.max(1, Math.ceil(prevCount / chunkSize));
         const numChunks = Math.max(1, Math.ceil(nextApps.length / chunkSize));
-        for (let i = 0; i < numChunks; i++) {
-          const slice = nextApps.slice(i * chunkSize, (i + 1) * chunkSize);
-          await setDoc(doc(db, 'store_data', `apps_chunk_${i}`), { 
-            items: slice, 
-            count: slice.length, 
-            updated_at: new Date().toISOString(),
-            _rest_admin_bypass: ADMIN_BYPASS_KEY
-          });
-        }
-        for (let i = numChunks; i < 16; i++) {
-          await deleteDoc(doc(db, 'store_data', `apps_chunk_${i}`)).catch(() => undefined);
-        }
-        await setDoc(doc(db, 'store_data', 'apps_meta'), {
-          count: nextApps.length,
-          numChunks,
+        const targetChunkIdx = Math.max(0, Math.floor(targetIdx / chunkSize));
+        const targetSlice = nextApps.slice(targetChunkIdx * chunkSize, (targetChunkIdx + 1) * chunkSize);
+
+        await setDoc(doc(db, 'store_data', `apps_chunk_${targetChunkIdx}`), { 
+          items: targetSlice, 
+          count: targetSlice.length, 
           updated_at: new Date().toISOString(),
           _rest_admin_bypass: ADMIN_BYPASS_KEY
-        }, { merge: true });
+        });
+
+        // Only write apps_meta if total app count or chunk count changed
+        if (nextApps.length !== prevCount || numChunks !== prevNumChunks) {
+          await setDoc(doc(db, 'store_data', 'apps_meta'), {
+            count: nextApps.length,
+            numChunks,
+            updated_at: new Date().toISOString(),
+            _rest_admin_bypass: ADMIN_BYPASS_KEY
+          }, { merge: true });
+        }
         savedToFirestore = true;
       } catch (err: any) {
         console.warn("[useDataActions] Direct Firestore saveAppSingle notice:", err);
@@ -170,14 +175,18 @@ export function useDataActions(
       lastError = err?.message || 'Server endpoint unreachable';
     }
 
-    // Always synchronize deletion with Firestore chunks + apps_meta
+    // Synchronize deletion with ONLY the affected Firestore chunks + apps_meta
     if (isFirebaseReal && db) {
       try {
         const { doc, setDoc, deleteDoc } = await import('firebase/firestore');
+        const deletedIdx = apps.findIndex(a => a.id === appId || a.slug === appId);
         const nextApps = apps.filter(a => a.id !== appId && a.slug !== appId);
         const chunkSize = 25;
+        const prevNumChunks = Math.max(1, Math.ceil(apps.length / chunkSize));
         const numChunks = Math.max(1, Math.ceil(nextApps.length / chunkSize));
-        for (let i = 0; i < numChunks; i++) {
+        const startChunkIdx = deletedIdx >= 0 ? Math.floor(deletedIdx / chunkSize) : 0;
+
+        for (let i = startChunkIdx; i < numChunks; i++) {
           const slice = nextApps.slice(i * chunkSize, (i + 1) * chunkSize);
           await setDoc(doc(db, 'store_data', `apps_chunk_${i}`), { 
             items: slice, 
@@ -186,7 +195,8 @@ export function useDataActions(
             _rest_admin_bypass: ADMIN_BYPASS_KEY
           });
         }
-        for (let i = numChunks; i < 16; i++) {
+        // Only delete chunks that actually existed before and are now empty
+        for (let i = numChunks; i < prevNumChunks; i++) {
           await deleteDoc(doc(db, 'store_data', `apps_chunk_${i}`)).catch(() => undefined);
         }
         await setDoc(doc(db, 'store_data', 'apps_meta'), {
@@ -216,15 +226,19 @@ export function useDataActions(
     let savedToFirestore = false;
     let resData: any = null;
     let lastError: string | null = null;
+    const now = new Date().toISOString();
 
     let mergedSettings: any = { ...settings };
+    let deltaFields: Record<string, any> = {};
     if (section === 'general' || section === 'seo') {
       mergedSettings = { ...mergedSettings, ...(data || {}) };
+      deltaFields = cleanSettingsMetaTitles({ ...(data || {}) });
     } else {
       mergedSettings[section] = data;
+      deltaFields = { [section]: data };
     }
     mergedSettings = cleanSettingsMetaTitles(mergedSettings);
-    mergedSettings.last_updated = new Date().toISOString();
+    mergedSettings.last_updated = now;
 
     try {
       const idToken = await getAdminToken();
@@ -234,7 +248,7 @@ export function useDataActions(
           'Content-Type': 'application/json',
           ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
         },
-        body: JSON.stringify({ section, data, settings: mergedSettings })
+        body: JSON.stringify({ section, data, settings: deltaFields })
       });
       const cType = res.headers.get('content-type') || '';
       if (res.ok && cType.includes('application/json')) {
@@ -247,14 +261,14 @@ export function useDataActions(
       lastError = err?.message || 'Server endpoint unreachable';
     }
 
-    // Always synchronize settings to Firestore as well
+    // Write ONLY the delta fields for this section to Firestore (with merge: true) to save quota and bandwidth
     if (isFirebaseReal && db) {
       try {
         const { doc, setDoc } = await import('firebase/firestore');
-        const payloadToSave = {
-          ...mergedSettings,
+        const payloadToSave: Record<string, any> = {
+          ...deltaFields,
           _rest_admin_bypass: ADMIN_BYPASS_KEY,
-          last_updated: mergedSettings.last_updated
+          last_updated: now
         };
 
         await setDoc(doc(db, 'store_data', 'settings'), payloadToSave, { merge: true });
@@ -262,7 +276,11 @@ export function useDataActions(
         delete publicPayload.turnstile_secret_key;
         delete publicPayload.cloudinary_api_secret;
         delete publicPayload.gemini_api_key;
-        await setDoc(doc(db, 'store_data', 'public_settings'), publicPayload, { merge: true });
+        // Only write public_settings if there are non-secret fields in the delta
+        const publicKeys = Object.keys(publicPayload).filter(k => k !== '_rest_admin_bypass' && k !== 'last_updated');
+        if (publicKeys.length > 0) {
+          await setDoc(doc(db, 'store_data', 'public_settings'), publicPayload, { merge: true });
+        }
         savedToFirestore = true;
       } catch (err: any) {
         console.warn("[useDataActions] Direct Firestore settings save notice:", err);
@@ -351,25 +369,42 @@ export function useDataActions(
       try {
         const { doc, setDoc, deleteDoc } = await import('firebase/firestore');
         const chunkSize = 25;
+        const prevNumChunks = Math.max(1, Math.ceil((apps || []).length / chunkSize));
         const numChunks = Math.max(1, Math.ceil(normalizedApps.length / chunkSize));
+        let chunksWritten = 0;
+
         for (let i = 0; i < numChunks; i++) {
           const slice = normalizedApps.slice(i * chunkSize, (i + 1) * chunkSize);
-          await setDoc(doc(db, 'store_data', `apps_chunk_${i}`), { 
-            items: slice, 
-            count: slice.length, 
-            updated_at: new Date().toISOString(),
-            _rest_admin_bypass: ADMIN_BYPASS_KEY
-          });
+          const prevSlice = (apps || []).slice(i * chunkSize, (i + 1) * chunkSize);
+          const sliceChanged =
+            slice.length !== prevSlice.length ||
+            slice.some((item, idx) => {
+              const prevItem = prevSlice[idx];
+              return !prevItem || prevItem.id !== item.id || hasItemContentChanged(prevItem, item);
+            });
+
+          if (sliceChanged || i === 0 && prevNumChunks === 0) {
+            await setDoc(doc(db, 'store_data', `apps_chunk_${i}`), { 
+              items: slice, 
+              count: slice.length, 
+              updated_at: new Date().toISOString(),
+              _rest_admin_bypass: ADMIN_BYPASS_KEY
+            });
+            chunksWritten++;
+          }
         }
-        for (let i = numChunks; i < 16; i++) {
+        // Only delete chunks that previously existed
+        for (let i = numChunks; i < prevNumChunks; i++) {
           await deleteDoc(doc(db, 'store_data', `apps_chunk_${i}`)).catch(() => undefined);
         }
-        await setDoc(doc(db, 'store_data', 'apps_meta'), {
-          count: normalizedApps.length,
-          numChunks,
-          updated_at: new Date().toISOString(),
-          _rest_admin_bypass: ADMIN_BYPASS_KEY
-        }, { merge: true });
+        if (chunksWritten > 0 || normalizedApps.length !== (apps || []).length || numChunks !== prevNumChunks) {
+          await setDoc(doc(db, 'store_data', 'apps_meta'), {
+            count: normalizedApps.length,
+            numChunks,
+            updated_at: new Date().toISOString(),
+            _rest_admin_bypass: ADMIN_BYPASS_KEY
+          }, { merge: true });
+        }
         savedToFirestore = true;
       } catch (err: any) {
         console.warn("[useDataActions] Direct Firestore saveApps notice:", err);
@@ -450,12 +485,13 @@ export function useDataActions(
     if (isFirebaseReal && db) {
       try {
         const { doc, setDoc } = await import('firebase/firestore');
-        const payloadToSave = {
-          ...settingsWithTime,
+        const deltaPayload = cleanSettingsMetaTitles({
+          ...newSettings,
+          last_updated: now,
           _rest_admin_bypass: ADMIN_BYPASS_KEY
-        };
-        await setDoc(doc(db, 'store_data', 'settings'), payloadToSave, { merge: true });
-        const publicPayload = { ...payloadToSave } as any;
+        });
+        await setDoc(doc(db, 'store_data', 'settings'), deltaPayload, { merge: true });
+        const publicPayload = { ...deltaPayload } as any;
         delete publicPayload.turnstile_secret_key;
         delete publicPayload.cloudinary_api_secret;
         delete publicPayload.gemini_api_key;
@@ -476,6 +512,146 @@ export function useDataActions(
     setSettings(settingsWithTime);
   }, [settings, getAdminToken, setSettings]);
 
+  const saveNewsSingle = useCallback(async (rawItem: NewsItem) => {
+    const now = new Date().toISOString();
+    const idKey = String(rawItem?.id || '').trim();
+    const slugKey = String(rawItem?.slug || '').trim().replace(/^\/+|\/+$/g, '').toLowerCase();
+    const prev = (news || []).find(
+      (n: any) => (idKey && String(n?.id || '').trim() === idKey) || (slugKey && String(n?.slug || '').trim().toLowerCase() === slugKey)
+    );
+
+    const rawSeoTitle = (rawItem?.seo_title || rawItem?.meta_title || '').trim();
+    const exactTitle = rawSeoTitle ? formatPageTitle(rawSeoTitle, '') : '';
+    const rawHeading = (rawItem?.title || '').trim();
+    const exactHeading = rawHeading ? formatPageTitle(rawHeading, '') : '';
+    const candidate: NewsItem = {
+      ...rawItem,
+      slug: typeof rawItem.slug === 'string' ? rawItem.slug.trim().replace(/^\/+|\/+$/g, '') : rawItem.slug,
+      id: typeof rawItem.id === 'string' ? rawItem.id.trim() : rawItem.id,
+      title: exactHeading,
+      seo_title: exactTitle,
+      meta_title: exactTitle
+    };
+    const changed = hasItemContentChanged(prev, candidate);
+    const preservedDate = prev?.updated_at || rawItem?.updated_at || rawItem?.published_at || rawItem?.publish_date || rawItem?.created_at || now;
+    const normalizedItem: NewsItem = {
+      ...candidate,
+      updated_at: changed ? now : preservedDate
+    };
+
+    const nextNews = [...(news || [])];
+    const existingIdx = nextNews.findIndex(
+      (n: any) => n.id === normalizedItem.id || (normalizedItem.slug && n.slug === normalizedItem.slug)
+    );
+    if (existingIdx >= 0) {
+      nextNews[existingIdx] = { ...nextNews[existingIdx], ...normalizedItem };
+    } else {
+      nextNews.unshift(normalizedItem);
+    }
+
+    let savedToServer = false;
+    let savedToFirestore = false;
+    let lastError: string | null = null;
+
+    try {
+      const idToken = await getAdminToken();
+      const res = await adminFetch('/api/v1/admin/news/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+        },
+        body: JSON.stringify({ newsItem: normalizedItem })
+      });
+      const cType = res.headers.get('content-type') || '';
+      if (res.ok && cType.includes('application/json')) {
+        savedToServer = true;
+      } else if (!res.ok) {
+        lastError = `Server returned HTTP ${res.status}`;
+      }
+    } catch (err: any) {
+      lastError = err?.message || 'Server endpoint unreachable';
+    }
+
+    if (isFirebaseReal && db) {
+      try {
+        if (changed || existingIdx < 0) {
+          const { doc, setDoc } = await import('firebase/firestore');
+          await setDoc(doc(db, 'store_data', 'news'), {
+            items: nextNews,
+            count: nextNews.length,
+            updated_at: now,
+            _rest_admin_bypass: ADMIN_BYPASS_KEY
+          }, { merge: true });
+        }
+        savedToFirestore = true;
+      } catch (err: any) {
+        console.warn("[useDataActions] Direct Firestore saveNewsSingle notice:", err);
+        if (!savedToServer) {
+          lastError = `Firestore news write failed: ${err?.message || 'Unknown error'}`;
+        }
+      }
+    }
+
+    if (!savedToServer && !savedToFirestore) {
+      throw new Error(`Failed to save news article: ${lastError || 'Could not connect to server or Firestore'}`);
+    }
+
+    setNews(nextNews);
+    return normalizedItem;
+  }, [getAdminToken, setNews, news]);
+
+  const deleteNewsSingle = useCallback(async (newsId: string) => {
+    const nextNews = (news || []).filter((n: any) => n.id !== newsId && n.slug !== newsId);
+    let deletedOnServer = false;
+    let deletedOnFirestore = false;
+    let lastError: string | null = null;
+
+    try {
+      const idToken = await getAdminToken();
+      const res = await adminFetch('/api/v1/admin/news/delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+        },
+        body: JSON.stringify({ id: newsId })
+      });
+      const cType = res.headers.get('content-type') || '';
+      if (res.ok && cType.includes('application/json')) {
+        deletedOnServer = true;
+      } else if (!res.ok) {
+        lastError = `Server returned HTTP ${res.status}`;
+      }
+    } catch (err: any) {
+      lastError = err?.message || 'Server endpoint unreachable';
+    }
+
+    if (isFirebaseReal && db) {
+      try {
+        const { doc, setDoc } = await import('firebase/firestore');
+        await setDoc(doc(db, 'store_data', 'news'), {
+          items: nextNews,
+          count: nextNews.length,
+          updated_at: new Date().toISOString(),
+          _rest_admin_bypass: ADMIN_BYPASS_KEY
+        }, { merge: true });
+        deletedOnFirestore = true;
+      } catch (err: any) {
+        console.warn("[useDataActions] Direct Firestore deleteNewsSingle notice:", err);
+        if (!deletedOnServer) {
+          lastError = `Firestore news delete failed: ${err?.message || 'Unknown error'}`;
+        }
+      }
+    }
+
+    if (!deletedOnServer && !deletedOnFirestore) {
+      throw new Error(`Failed to delete news article: ${lastError || 'Could not connect to server or Firestore'}`);
+    }
+
+    setNews(nextNews);
+  }, [getAdminToken, setNews, news]);
+
   const saveNews = useCallback(async (newNews: NewsItem[]) => {
     const now = new Date().toISOString();
     const existingById = new Map<string, any>();
@@ -485,6 +661,7 @@ export function useDataActions(
       if (prev?.slug) existingBySlug.set(String(prev.slug).trim().toLowerCase(), prev);
     }
 
+    let anyChanged = (newNews || []).length !== (news || []).length;
     const cleanNews = JSON.parse(JSON.stringify(newNews || [])).map((n: any) => {
       const idKey = String(n?.id || '').trim();
       const slugKey = String(n?.slug || '').trim().replace(/^\/+|\/+$/g, '').toLowerCase();
@@ -502,6 +679,7 @@ export function useDataActions(
         meta_title: exactTitle
       };
       const changed = hasItemContentChanged(prev, candidate);
+      if (changed) anyChanged = true;
       const preservedDate = prev?.updated_at || n?.updated_at || n?.published_at || n?.publish_date || n?.created_at || now;
       return {
         ...candidate,
@@ -535,13 +713,15 @@ export function useDataActions(
 
     if (isFirebaseReal && db) {
       try {
-        const { doc, setDoc } = await import('firebase/firestore');
-        await setDoc(doc(db, 'store_data', 'news'), { 
-          items: cleanNews, 
-          count: cleanNews.length, 
-          updated_at: new Date().toISOString(),
-          _rest_admin_bypass: ADMIN_BYPASS_KEY
-        }, { merge: true });
+        if (anyChanged || !savedToServer) {
+          const { doc, setDoc } = await import('firebase/firestore');
+          await setDoc(doc(db, 'store_data', 'news'), { 
+            items: cleanNews, 
+            count: cleanNews.length, 
+            updated_at: new Date().toISOString(),
+            _rest_admin_bypass: ADMIN_BYPASS_KEY
+          }, { merge: true });
+        }
         savedToFirestore = true;
       } catch (err: any) {
         console.warn("[useDataActions] Direct Firestore saveNews notice:", err);
@@ -567,6 +747,7 @@ export function useDataActions(
       if (prev?.slug) existingBySlug.set(String(prev.slug).trim().toLowerCase(), prev);
     }
 
+    let anyChanged = (newVideos || []).length !== (videos || []).length;
     const cleanVideos = JSON.parse(JSON.stringify(newVideos || [])).map((v: any) => {
       const idKey = String(v?.id || '').trim();
       const rawSlug = typeof v?.slug === 'string' && v.slug.trim()
@@ -589,6 +770,7 @@ export function useDataActions(
         created_at: v?.created_at || prev?.created_at || now
       };
       const changed = hasItemContentChanged(prev, candidate);
+      if (changed) anyChanged = true;
       const preservedDate = prev?.updated_at || v?.updated_at || v?.published_at || v?.created_at || v?.date || now;
       return {
         ...candidate,
@@ -621,13 +803,15 @@ export function useDataActions(
 
     if (isFirebaseReal && db) {
       try {
-        const { doc, setDoc } = await import('firebase/firestore');
-        await setDoc(doc(db, 'store_data', 'videos'), { 
-          items: cleanVideos, 
-          count: cleanVideos.length, 
-          updated_at: new Date().toISOString(),
-          _rest_admin_bypass: ADMIN_BYPASS_KEY
-        }, { merge: true });
+        if (anyChanged || !savedToServer) {
+          const { doc, setDoc } = await import('firebase/firestore');
+          await setDoc(doc(db, 'store_data', 'videos'), { 
+            items: cleanVideos, 
+            count: cleanVideos.length, 
+            updated_at: new Date().toISOString(),
+            _rest_admin_bypass: ADMIN_BYPASS_KEY
+          }, { merge: true });
+        }
         savedToFirestore = true;
       } catch (err: any) {
         console.warn("[useDataActions] Direct Firestore saveVideos notice:", err);
@@ -680,6 +864,8 @@ export function useDataActions(
     saveSettingsSection,
     saveApps,
     saveSettings,
+    saveNewsSingle,
+    deleteNewsSingle,
     saveNews,
     saveVideos,
     updateLocalContainerBackup

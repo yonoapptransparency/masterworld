@@ -363,6 +363,87 @@ adminVaultRouter.post('/api/v1/admin/settings/save-section', (req, res) => {
   }
 });
 
+adminVaultRouter.post('/api/v1/admin/save-news', (req, res) => {
+  try {
+    const { news } = req.body || {};
+    if (Array.isArray(news)) {
+      const now = new Date().toISOString();
+      const current = getMergedData();
+      const existingById = new Map<string, any>();
+      const existingBySlug = new Map<string, any>();
+      for (const prev of current.news || []) {
+        if (prev?.id) existingById.set(String(prev.id).trim(), prev);
+        if (prev?.slug) existingBySlug.set(String(prev.slug).trim().toLowerCase(), prev);
+      }
+
+      current.news = news.map((n: any) => {
+        const idKey = String(n?.id || '').trim();
+        const slugKey = String(n?.slug || '').trim().toLowerCase();
+        const prev = (idKey && existingById.get(idKey)) || (slugKey && existingBySlug.get(slugKey));
+        const normalizedPrev = prev ? compileCanonicalNews(prev) : null;
+        const normalizedNext = compileCanonicalNews(n);
+        const changed = hasItemContentChanged(normalizedPrev, normalizedNext);
+        const preservedDate = prev?.updated_at || n?.updated_at || n?.publish_date || n?.created_at || now;
+        return compileCanonicalNews({
+          ...n,
+          updated_at: changed ? now : preservedDate
+        });
+      });
+
+      writeMergedData(current);
+      return res.json({ success: true, count: current.news.length });
+    }
+    res.status(400).json({ success: false, error: 'News array required' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message });
+  }
+});
+
+adminVaultRouter.post('/api/v1/admin/news/save', (req, res) => {
+  try {
+    const { newsItem } = req.body || {};
+    if (newsItem && (newsItem.id || newsItem.slug)) {
+      const now = new Date().toISOString();
+      const current = getMergedData();
+      if (!Array.isArray(current.news)) current.news = [];
+      const canonicalItem = compileCanonicalNews({
+        ...newsItem,
+        updated_at: now
+      });
+      const idx = current.news.findIndex(
+        (n: any) => n.id === canonicalItem.id || (canonicalItem.slug && n.slug === canonicalItem.slug)
+      );
+      if (idx >= 0) {
+        current.news[idx] = { ...current.news[idx], ...canonicalItem, updated_at: now };
+      } else {
+        current.news = [canonicalItem, ...current.news];
+      }
+      writeMergedData(current);
+      return res.json({ success: true, newsItem: canonicalItem, count: current.news.length });
+    }
+    res.status(400).json({ success: false, error: 'newsItem object with id or slug required' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message });
+  }
+});
+
+adminVaultRouter.post('/api/v1/admin/news/delete', (req, res) => {
+  try {
+    const { id } = req.body || {};
+    if (id) {
+      const current = getMergedData();
+      if (Array.isArray(current.news)) {
+        current.news = current.news.filter((n: any) => n.id !== id && n.slug !== id);
+        writeMergedData(current);
+      }
+      return res.json({ success: true, id });
+    }
+    res.status(400).json({ success: false, error: 'News ID required' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message });
+  }
+});
+
 adminVaultRouter.post('/api/v1/admin/save-videos', (req, res) => {
   try {
     const { videos } = req.body || {};

@@ -4,21 +4,29 @@ import { formatNewsDate, calculateReadingTime, getNextNewsChain, getPlainTextSni
 
 export function renderNewsList(news: any[], _settings: any, pageNum: number = 1): string {
   const publicNewsList = (Array.isArray(news) ? news : [])
-    .filter(item => item && item.sync_to_public !== false)
+    .filter(item => item && item.sync_to_public !== false && item.status !== 'draft')
     .sort((a, b) => {
-      if (a.is_pinned && !b.is_pinned) return -1;
-      if (!a.is_pinned && b.is_pinned) return 1;
+      const aPin = Boolean(a.pinned || a.is_pinned);
+      const bPin = Boolean(b.pinned || b.is_pinned);
+      if (aPin && !bPin) return -1;
+      if (!aPin && bPin) return 1;
       const dateA = new Date(getField(a, 'date') || getField(a, 'published_at') || getField(a, 'created_at') || 0).getTime();
       const dateB = new Date(getField(b, 'date') || getField(b, 'published_at') || getField(b, 'created_at') || 0).getTime();
       return dateB - dateA;
     });
 
-  const catSet = new Set<string>();
+  const labelByLower = new Map<string, string>();
+  const categoryCounts = new Map<string, number>();
   publicNewsList.forEach(item => {
-    const c = getField(item, 'category');
-    if (c && c.trim()) catSet.add(c.trim());
+    const c = (getField(item, 'category') || '').trim();
+    if (c) {
+      const lower = c.toLowerCase();
+      if (!labelByLower.has(lower)) labelByLower.set(lower, c);
+      const canonical = labelByLower.get(lower)!;
+      categoryCounts.set(canonical, (categoryCounts.get(canonical) || 0) + 1);
+    }
   });
-  const categories = ['All', ...Array.from(catSet)];
+  const categories = ['All', ...Array.from(labelByLower.values())];
 
   const ITEMS_PER_PAGE = 9;
   const totalPages = Math.max(1, Math.ceil(publicNewsList.length / ITEMS_PER_PAGE));
@@ -33,10 +41,10 @@ export function renderNewsList(news: any[], _settings: any, pageNum: number = 1)
     const coverImage = getField(n, 'og_image_url') || getField(n, 'image_url') || getField(n, 'logo_url') || getField(n, 'image');
     const optimizedLogo = coverImage ? (optimizeImageUrl(coverImage, 600) || coverImage) : '';
     const dateLabel = formatNewsDate(getField(n, 'date'), getField(n, 'published_at'), getField(n, 'created_at'));
-    const readingTime = getField(n, 'read_time') || calculateReadingTime(getField(n, 'content') || getField(n, 'description_html') || getField(n, 'description'));
-    const category = getField(n, 'category') || '';
-    const isPinned = Boolean(n.is_pinned);
-    const snippet = getPlainTextSnippet(getField(n, 'description'));
+    const readingTime = getField(n, 'read_time') || calculateReadingTime(getField(n, 'content_html') || getField(n, 'content') || getField(n, 'description_html') || getField(n, 'description'));
+    const category = (getField(n, 'category') || '').trim();
+    const isPinned = Boolean(n.pinned || n.is_pinned);
+    const snippet = getPlainTextSnippet(getField(n, 'description') || getField(n, 'content_html'));
     const isEager = idx < 3;
     const isPriority = idx === 0;
     const articleUrl = `/news/${encodeURIComponent(slug)}`;
@@ -164,9 +172,12 @@ export function renderNewsList(news: any[], _settings: any, pageNum: number = 1)
       </div>
       ${categories.length > 1 ? `
         <div class="px-3 sm:px-0 mb-6 flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
-          ${categories.map((cat, i) => `
-            <span class="px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap ${i === 0 ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400'}">${escapeHtml(cat)}</span>
-          `).join('')}
+          ${categories.map((cat, i) => {
+            const count = cat === 'All' ? publicNewsList.length : (categoryCounts.get(cat) || 0);
+            return `
+            <span class="px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap flex items-center gap-1.5 ${i === 0 ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400'}"><span>${escapeHtml(cat)}</span><span class="text-[10px] opacity-80">(${count})</span></span>
+          `;
+          }).join('')}
         </div>
       ` : ''}
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6 px-3 sm:px-0">
@@ -357,7 +368,7 @@ export function renderNewsDetail(slug: string, news: any[], settings: any, apps:
       ${renderActionBox('my-5 sm:my-6')}
 
       <!-- 3. Article Content Body -->
-      <div class="prose dark:prose-invert max-w-none text-zinc-800 dark:text-zinc-200 leading-relaxed text-sm sm:text-base space-y-4 font-normal mt-6">
+      <div class="rich-html-content prose dark:prose-invert max-w-none text-zinc-800 dark:text-zinc-200 leading-relaxed text-sm sm:text-base space-y-4 font-normal mt-6">
         ${sanitizedContent}
       </div>
 

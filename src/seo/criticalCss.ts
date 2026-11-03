@@ -21,6 +21,8 @@ a{color:inherit;text-decoration:inherit}
 .rd-brand-full::before{content:"RummyDex"}
 .rd-brand-p1::before{content:"Rummy"}
 .rd-brand-p2::before{content:"Dex"}
+.rich-html-content{width:100%;max-width:100%;overflow-x:hidden;overflow-wrap:anywhere;word-break:break-word}
+.rich-html-content svg.art{display:block;max-width:110px;max-height:76px;height:auto;margin:.375rem 0 .5rem;padding:0;background:transparent;border:0}
 </style>`;
 
 export function getCriticalCss(): string {

@@ -472,6 +472,30 @@ export async function onRequest(context) {
     });
   }
 
+  if (url.pathname.startsWith('/api/v1/public/news/')) {
+    const rawSlug = url.pathname.replace(/^\/api\/v1\/public\/news\//, '').trim();
+    const clean = decodeURIComponent(rawSlug).toLowerCase().trim().replace(/\/+$/, '');
+    const newsList = Array.isArray(staticData?.news) ? staticData.news : [];
+    const newsItem = newsList.find((n) => {
+      const s = String(n.slug || '').toLowerCase().trim();
+      const id = String(n.id || '').toLowerCase().trim();
+      return s === clean || id === clean;
+    });
+    if (newsItem) {
+      return new Response(JSON.stringify({ status: 'OK', news: newsItem }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Cache-Control': 'public, max-age=60, s-maxage=300',
+        },
+      });
+    }
+    return new Response(JSON.stringify({ status: 'ERROR', error: 'News article not found' }), {
+      status: 404,
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    });
+  }
+
   if (url.pathname === '/api/v1/public/news') {
     return new Response(JSON.stringify({ status: 'OK', news: staticData?.news || [] }), {
       status: 200,

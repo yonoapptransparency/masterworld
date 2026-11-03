@@ -20,20 +20,21 @@ function getAvatarStyle(name: string): string {
 }
 
 const RICH_HTML_CONTENT_STYLE = `
-  w-full text-xs xs:text-sm sm:text-base text-zinc-700 dark:text-zinc-300 leading-relaxed
+  rich-html-content w-full max-w-full overflow-x-hidden break-words text-xs xs:text-sm sm:text-base text-zinc-700 dark:text-zinc-300 leading-relaxed
   [&_strong]:text-blue-600 dark:[&_strong]:text-blue-400 [&_strong]:font-semibold
   [&_b]:text-blue-600 dark:[&_b]:text-blue-400 [&_b]:font-semibold
   [&_p]:mb-3 [&_p]:leading-relaxed [&_p]:text-zinc-700 dark:[&_p]:text-zinc-300
-  [&_a]:text-blue-600 dark:[&_a]:text-blue-400 [&_a]:font-semibold [&_a]:underline [&_a]:hover:text-blue-700
+  [&_a]:text-blue-600 dark:[&_a]:text-blue-400 [&_a]:font-semibold [&_a]:underline [&_a]:underline-offset-2 [&_a]:hover:text-blue-700 dark:[&_a]:hover:text-blue-300
   [&_h1]:text-base sm:[&_h1]:text-2xl [&_h1]:font-black [&_h1]:tracking-tight [&_h1]:text-zinc-900 dark:[&_h1]:text-zinc-100 [&_h1]:mt-4 [&_h1]:mb-2
-  [&_h2]:text-sm sm:[&_h2]:text-xl [&_h2]:font-extrabold [&_h2]:tracking-tight [&_h2]:text-zinc-900 dark:[&_h2]:text-zinc-100 [&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:pt-2.5 [&_h2]:border-t [&_h2]:border-zinc-200/80 dark:[&_h2]:border-zinc-800/80 [&_h2:first-child]:border-t-0 [&_h2:first-child]:pt-0 [&_h2:first-child]:mt-0
+  [&_h2]:text-sm sm:[&_h2]:text-xl [&_h2]:font-extrabold [&_h2]:tracking-tight [&_h2]:text-zinc-900 dark:[&_h2]:text-zinc-100 [&_h2]:mt-5 [&_h2]:mb-2.5 [&_h2]:pt-3 [&_h2]:border-t [&_h2]:border-zinc-200/80 dark:[&_h2]:border-zinc-800/80 [&_h2:first-child]:border-t-0 [&_h2:first-child]:pt-0 [&_h2:first-child]:mt-0
   [&_h3]:text-xs sm:[&_h3]:text-lg [&_h3]:font-bold [&_h3]:tracking-tight [&_h3]:text-zinc-900 dark:[&_h3]:text-zinc-100 [&_h3]:mt-3.5 [&_h3]:mb-1.5
   [&_h4]:text-[11px] sm:[&_h4]:text-base [&_h4]:font-semibold [&_h4]:tracking-tight [&_h4]:text-zinc-900 dark:[&_h4]:text-zinc-100 [&_h4]:mt-3 [&_h4]:mb-1
-  [&_ul]:my-2.5 [&_ul]:space-y-1 [&_ul]:list-disc [&_ul]:pl-4 xs:[&_ul]:pl-5
-  [&_ol]:my-2.5 [&_ol]:space-y-1 [&_ol]:list-decimal [&_ol]:pl-4 xs:[&_ul]:pl-5
+  [&_ul]:my-2.5 [&_ul]:space-y-1.5 [&_ul]:list-disc [&_ul]:pl-4 xs:[&_ul]:pl-5
+  [&_ol]:my-2.5 [&_ol]:space-y-1.5 [&_ol]:list-decimal [&_ol]:pl-4 xs:[&_ol]:pl-5
   [&_li]:leading-relaxed [&_li]:pl-1 [&_li::marker]:text-blue-600 dark:[&_li::marker]:text-blue-400 [&_li::marker]:font-bold
-  [&_blockquote]:border-l-4 [&_blockquote]:border-blue-500 [&_blockquote]:pl-3.5 [&_blockquote]:py-1.5 [&_blockquote]:my-3 [&_blockquote]:bg-blue-50/50 dark:[&_blockquote]:bg-blue-950/20 [&_blockquote]:rounded-r-xl [&_blockquote]:italic
-  [&_.art]:hidden [&_svg.art]:hidden
+  [&_blockquote]:border-l-4 [&_blockquote]:border-blue-500 [&_blockquote]:pl-3.5 [&_blockquote]:py-2 [&_blockquote]:my-3.5 [&_blockquote]:bg-blue-50/50 dark:[&_blockquote]:bg-blue-950/20 [&_blockquote]:rounded-r-xl [&_blockquote]:italic
+  [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-xl [&_img]:my-3
+  [&_svg]:max-w-full [&_svg]:h-auto
 `.trim().replace(/\s+/g, ' ');
 
 export function renderAppDetails(slug: string, apps: any[], _settings: any, sampleReviews: any[] = [], liveStats: any = null, news: any[] = []): string {
@@ -688,42 +689,38 @@ export function renderAppDetails(slug: string, apps: any[], _settings: any, samp
 
         <!-- 2.5 AppAboutSection -->
         <div>
-          <section aria-labelledby="app-overview-heading" class="w-full my-3 px-0 sm:px-2 text-left">
-            <div class="bg-slate-50/90 dark:bg-zinc-900/80 border border-black/5 dark:border-white/5 rounded-xl sm:rounded-2xl overflow-hidden transition-all duration-300 shadow-xs">
-              <div class="w-full p-3 xs:p-3.5 sm:p-5 flex items-center justify-between text-left select-none group border-b border-black/5 dark:border-white/5">
-                <div class="flex items-center gap-2 xs:gap-2.5 sm:gap-3 flex-1 pr-2 sm:pr-3">
-                  <div class="w-7 h-7 xs:w-8 xs:h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                    <svg class="w-3.5 h-3.5 xs:w-4 xs:h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                  </div>
-                  <div>
-                    <h2 id="app-overview-heading" class="text-xs sm:text-base font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">About this app</h2>
-                    <p class="text-[10px] xs:text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Overview & features</p>
-                  </div>
-                </div>
+          <section aria-labelledby="app-overview-heading" class="w-full my-4 px-1 xs:px-2 sm:px-4 md:px-6 text-left">
+            <div class="flex items-center gap-2 xs:gap-2.5 sm:gap-3 mb-3 sm:mb-4 select-none">
+              <div class="w-7 h-7 xs:w-8 xs:h-8 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                <svg class="w-3.5 h-3.5 xs:w-4 xs:h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
               </div>
-              <div class="p-3 xs:p-3.5 sm:p-6 space-y-5 xs:space-y-6 sm:space-y-8 bg-white/50 dark:bg-zinc-950/40">
-                ${app.custom_admin_box_html ? `
-                  <div class="bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-800/40 rounded-xl p-3.5 sm:p-5 shadow-xs">
-                    ${app.custom_admin_box_heading ? `<h3 class="text-sm sm:text-base font-bold mb-2 text-amber-900 dark:text-amber-200">${escapeHtml(app.custom_admin_box_heading)}</h3>` : ''}
-                    <div class="${RICH_HTML_CONTENT_STYLE}">${sanitizeHtml(app.custom_admin_box_html)}</div>
-                  </div>
-                ` : ''}
-                <div>
-                  <div class="${RICH_HTML_CONTENT_STYLE}">${desc}</div>
-                </div>
-                ${features ? `
-                  <div class="pt-5 sm:pt-6 border-t border-black/5 dark:border-white/5">
-                    <h3 class="text-xs sm:text-sm font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-2 sm:mb-3">Key App Features</h3>
-                    <div class="${RICH_HTML_CONTENT_STYLE}">${features}</div>
-                  </div>
-                ` : ''}
-                ${app.release_notes ? `
-                  <div class="pt-5 sm:pt-6 border-t border-black/5 dark:border-white/5">
-                    <h3 class="text-xs sm:text-sm font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-2 sm:mb-3">What's New in Version ${escapeHtml(version)}</h3>
-                    <div class="bg-slate-50 dark:bg-zinc-900 rounded-xl p-3.5 sm:p-4 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap border border-black/5 dark:border-white/5">${escapeHtml(app.release_notes)}</div>
-                  </div>
-                ` : ''}
+              <div>
+                <h2 id="app-overview-heading" class="text-sm xs:text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">About this app</h2>
+                <p class="text-[10px] xs:text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400">Overview &amp; features</p>
               </div>
+            </div>
+            <div class="space-y-4 xs:space-y-5 sm:space-y-6">
+              ${app.custom_admin_box_html ? `
+                <div class="bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-800/40 rounded-xl p-3.5 sm:p-5 shadow-xs">
+                  ${app.custom_admin_box_heading ? `<h3 class="text-sm sm:text-base font-bold mb-2 text-amber-900 dark:text-amber-200">${escapeHtml(app.custom_admin_box_heading)}</h3>` : ''}
+                  <div class="${RICH_HTML_CONTENT_STYLE}">${sanitizeHtml(app.custom_admin_box_html)}</div>
+                </div>
+              ` : ''}
+              <div>
+                <div class="${RICH_HTML_CONTENT_STYLE}">${desc}</div>
+              </div>
+              ${features ? `
+                <div class="pt-4 sm:pt-5 border-t border-zinc-200/80 dark:border-zinc-800/80">
+                  <h3 class="text-xs sm:text-sm font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-2 sm:mb-3">Key App Features</h3>
+                  <div class="${RICH_HTML_CONTENT_STYLE}">${features}</div>
+                </div>
+              ` : ''}
+              ${app.release_notes ? `
+                <div class="pt-4 sm:pt-5 border-t border-zinc-200/80 dark:border-zinc-800/80">
+                  <h3 class="text-xs sm:text-sm font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-2 sm:mb-3">What's New in Version ${escapeHtml(version)}</h3>
+                  <div class="text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">${escapeHtml(app.release_notes)}</div>
+                </div>
+              ` : ''}
             </div>
           </section>
         </div>

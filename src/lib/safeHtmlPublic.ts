@@ -1,5 +1,26 @@
 import DOMPurify from 'dompurify';
 
+const DOMPURIFY_CONFIG = {
+  USE_PROFILES: { html: true, svg: true, svgFilters: true },
+  ADD_TAGS: [
+    'svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'ellipse',
+    'g', 'defs', 'linearGradient', 'radialGradient', 'stop', 'clipPath', 'mask',
+    'pattern', 'text', 'tspan', 'use', 'symbol', 'title', 'desc',
+    'section', 'article', 'header', 'footer', 'nav', 'aside', 'figure', 'figcaption',
+    'details', 'summary', 'mark', 'time', 'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td'
+  ],
+  ADD_ATTR: [
+    'target', 'rel', 'data-discover', 'loading', 'decoding', 'fetchpriority', 'srcset', 'sizes',
+    'viewBox', 'viewbox', 'xmlns', 'width', 'height', 'fill', 'stroke', 'stroke-width',
+    'stroke-linecap', 'stroke-linejoin', 'stroke-dasharray', 'stroke-dashoffset', 'stroke-miterlimit',
+    'stroke-opacity', 'fill-opacity', 'fill-rule', 'clip-rule', 'opacity', 'd', 'points',
+    'cx', 'cy', 'r', 'rx', 'ry', 'x', 'y', 'x1', 'y1', 'x2', 'y2', 'transform',
+    'gradientUnits', 'gradientTransform', 'spreadMethod', 'offset', 'stop-color', 'stop-opacity',
+    'clip-path', 'mask', 'text-anchor', 'dominant-baseline', 'font-size', 'font-weight', 'font-family',
+    'preserveAspectRatio', 'role', 'aria-label', 'aria-hidden', 'focusable', 'colspan', 'rowspan', 'scope'
+  ]
+};
+
 function normalizeEmbeddedHtmlHygiene(html: string): string {
   if (!html || typeof html !== 'string') return '';
   return html
@@ -10,7 +31,31 @@ function normalizeEmbeddedHtmlHygiene(html: string): string {
     .replace(/<h1(\b[^>]*)?>/gi, '<h2$1>')
     .replace(/<\/h1>/gi, '</h2>')
     // Automatically optimize embedded Cloudinary images inside rich HTML content
-    .replace(/(<img\b[^>]*src=["'])(https?:\/\/res\.cloudinary\.com\/[^"'\s]+\/image\/upload\/)(?!f_auto)([^"']+)(["'][^>]*>)/gi, '$1$2f_auto,q_auto,w_800/$3$4');
+    .replace(/(<img\b[^>]*src=["'])(https?:\/\/res\.cloudinary\.com\/[^"'\s]+\/image\/upload\/)(?!f_auto)([^"']+)(["'][^>]*>)/gi, '$1$2f_auto,q_auto,w_800/$3$4')
+    // Ensure embedded images have lazy loading and async decoding if not explicitly set
+    .replace(/<img\b([^>]*)>/gi, (match, attrs) => {
+      let updatedAttrs = String(attrs || '');
+      if (!/\bloading\s*=/i.test(updatedAttrs)) updatedAttrs += ' loading="lazy"';
+      if (!/\bdecoding\s*=/i.test(updatedAttrs)) updatedAttrs += ' decoding="async"';
+      return `<img${updatedAttrs}>`;
+    })
+    // Ensure external links open safely in a new tab while preserving SEO link equity
+    .replace(/<a\b([^>]*)>/gi, (match, attrs) => {
+      const attrStr = String(attrs || '');
+      const hrefMatch = attrStr.match(/\bhref\s*=\s*["']([^"']+)["']/i);
+      if (!hrefMatch) return match;
+      const href = hrefMatch[1].trim();
+      const isExternal = /^https?:\/\//i.test(href) && !/^https?:\/\/(www\.)?rummydex\.com/i.test(href);
+      if (!isExternal) return match;
+      let nextAttrs = attrStr;
+      if (!/\btarget\s*=/i.test(nextAttrs)) {
+        nextAttrs += ' target="_blank"';
+      }
+      if (!/\brel\s*=/i.test(nextAttrs)) {
+        nextAttrs += ' rel="noopener"';
+      }
+      return `<a${nextAttrs}>`;
+    });
 }
 
 function serverSanitize(html: string): string {
@@ -40,7 +85,9 @@ export function structureHtmlFragment(rawHtml: string): string {
 
   let str = rawHtml.trim();
 
-  // 1. Strip document wrappers and embedded SVGs if present so SSR and CSR produce identical DOM height
+  const isFullHtmlDoc = /<!DOCTYPE|<html\b|<body\b/i.test(str);
+
+  // 1. Strip document wrappers if present while preserving embedded <svg>, <img>, <a>, and <section> tags
   str = str.replace(/<!DOCTYPE[^>]*>/gi, '')
            .replace(/<head\b[^>]*>[\s\S]*?<\/head>/gi, '')
            .replace(/<\/?(html|head|body)[^>]*>/gi, '')
@@ -48,11 +95,15 @@ export function structureHtmlFragment(rawHtml: string): string {
            .replace(/<(meta|link)\b[^>]*>/gi, '')
            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-           .replace(/<svg[^>]*>[\s\S]*?<\/svg>/gi, '')
            .replace(/<div\b[^>]*class=["\'][^"\']*rd-news-meta[^"\']*["\'][^>]*>[\s\S]*?<\/div>/gi, '')
            .trim();
 
-  // 2. Enforce content hygiene: demote embedded <h1> to <h2>, strip inline styles & <font>, optimize Cloudinary images
+  // Strip the single leading <h1>...</h1> title inside full HTML documents since the page template already renders the primary <h1>
+  if (isFullHtmlDoc) {
+    str = str.replace(/^\s*<h1\b[^>]*>[\s\S]*?<\/h1>\s*/i, '');
+  }
+
+  // 2. Enforce content hygiene: demote embedded <h1> to <h2>, strip inline styles & <font>, optimize Cloudinary images & external links
   str = normalizeEmbeddedHtmlHygiene(str);
 
   // 3. Convert markdown headers if present
@@ -61,24 +112,21 @@ export function structureHtmlFragment(rawHtml: string): string {
            .replace(/(?:^|\n)\s*##\s+(.*?)(?=\n|<|$)/gi, '\n<h2>$1</h2>')
            .replace(/(?:^|\n)\s*#\s+(.*?)(?=\n|<|$)/gi, '\n<h2>$1</h2>');
 
-  // If input ALREADY has structured HTML block tags (p, h2, h3, ul, ol, li, div, section, article, table, figure, blockquote)
-  const hasStructuredTags = /<(p|h[23456]|ul|ol|li|div|section|article|table|figure|blockquote)\b/i.test(str);
+  // If input ALREADY has structured HTML block tags (p, h2, h3, ul, ol, li, div, section, article, table, figure, blockquote, svg)
+  const hasStructuredTags = /<(p|h[23456]|ul|ol|li|div|section|article|table|figure|blockquote|svg)\b/i.test(str);
 
   if (hasStructuredTags) {
     let clean = str;
 
-    // Remove any <p> that wraps block elements like <ul>, <ol>, <h2>, <h3>, <li>, <div>, <section>, <table>, <figure>, <blockquote>
-    clean = clean.replace(/<p\b[^>]*>\s*(<(?:ul|ol|h[23456]|li|div|section|article|table|figure|blockquote)[^>]*>)/gi, '$1')
-                 .replace(/(<\/(?:ul|ol|h[23456]|li|div|section|article|table|figure|blockquote)>)\s*<\/p>/gi, '$1');
+    // Remove any <p> that wraps block elements like <ul>, <ol>, <h2>, <h3>, <li>, <div>, <section>, <table>, <figure>, <blockquote>, <svg>
+    clean = clean.replace(/<p\b[^>]*>\s*(<(?:ul|ol|h[23456]|li|div|section|article|table|figure|blockquote|svg)[^>]*>)/gi, '$1')
+                 .replace(/(<\/(?:ul|ol|h[23456]|li|div|section|article|table|figure|blockquote|svg)>)\s*<\/p>/gi, '$1');
 
     // Auto-bold Topic: inside <p> or <li> if not already bolded
     clean = clean.replace(/<(p|li)([^>]*)>\s*([A-Z0-9][A-Za-z0-9\s&—–-]{2,50}):\s+/g, (match, tag, attrs, title) => {
       if (title.toLowerCase().startsWith('http') || title.toLowerCase().startsWith('www')) return match;
       return `<${tag}${attrs}><strong>${title}:</strong> `;
     });
-
-    // Ensure consecutive <h2> tags convert second to <h3>
-    clean = clean.replace(/(<\/h2>\s*)<h2([^>]*)>(.*?)<\/h2>/gi, '$1<h3$2>$3</h3>');
 
     // Clean up empty tags like <p></p>, <h3></h3>, <h2></h2>, <ul></ul>
     clean = clean.replace(/<p\b[^>]*>\s*<\/p>/gi, '')
@@ -177,9 +225,6 @@ export function structureHtmlFragment(rawHtml: string): string {
 
   let result = output.join('\n\n');
 
-  // Convert consecutive h2 tags to h3
-  result = result.replace(/(<\/h2>\s*)<h2([^>]*)>(.*?)<\/h2>/gi, '$1<h3$2>$3</h3>');
-
   // Clean empty tags
   result = result.replace(/<p\b[^>]*>\s*<\/p>/gi, '')
                  .replace(/<h[23456]\b[^>]*>\s*<\/h[23456]>/gi, '')
@@ -218,7 +263,7 @@ export function safeHtml(val: any, fallback: string = ''): string {
   let sanitized = '';
   try {
     if (typeof window !== 'undefined' && DOMPurify && typeof DOMPurify.sanitize === 'function') {
-      sanitized = DOMPurify.sanitize(enhancedStr, { ADD_ATTR: ["target", "rel", "data-discover"] });
+      sanitized = DOMPurify.sanitize(enhancedStr, DOMPURIFY_CONFIG);
     } else {
       sanitized = serverSanitize(enhancedStr);
     }
@@ -230,5 +275,6 @@ export function safeHtml(val: any, fallback: string = ''): string {
   SAFE_HTML_CACHE.set(rawStr, sanitized);
   return sanitized;
 }
+
 
 
