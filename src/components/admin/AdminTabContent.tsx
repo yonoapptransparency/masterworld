@@ -96,6 +96,7 @@ interface AdminTabContentProps {
   handleSaveWebsiteFaqs: (e: any) => void;
   handleSaveDevelopers: (e: any) => void;
   handleSaveVideos?: (e?: any) => Promise<void> | void;
+  handleSaveSingleVideo?: (item: any) => Promise<any>;
   saveGitConfig: (conf: any) => Promise<void>;
   pushAllToGitHub: (customConfig?: any, onProgress?: any, ...args: any[]) => Promise<any>;
   handleReloadCloudData: () => void;
@@ -108,7 +109,7 @@ interface AdminTabContentProps {
   handleBannerChange: (id: string, field: string, value: any) => void;
   handleDeleteBanner: (id: string) => void;
   handleClearAllBanners?: () => void;
-  handleAddNews: () => string;
+  handleAddNews: (initialCategory?: string) => string;
   handleNewsChange: (id: string, field: string, value: any) => void;
   handleDeleteNews: (id: string) => void;
   handleAddCategory: () => void;
@@ -128,7 +129,7 @@ interface AdminTabContentProps {
   onTabChange?: (tab: string) => void;
 }
 
-export const AdminTabContent = ({
+export const AdminTabContent = React.memo(({
   activeTab,
   appsList,
   newsList,
@@ -156,6 +157,7 @@ export const AdminTabContent = ({
   handleSaveWebsiteFaqs,
   handleSaveDevelopers,
   handleSaveVideos,
+  handleSaveSingleVideo,
   saveGitConfig,
   pushAllToGitHub,
   handleReloadCloudData,
@@ -250,6 +252,7 @@ export const AdminTabContent = ({
             handleDeleteVideo={handleDeleteVideo}
             handleVideosChange={handleVideosChange}
             handleSaveVideos={async (e) => { e?.preventDefault?.(); await handleSaveVideos?.(e); }}
+            handleSaveSingleVideo={handleSaveSingleVideo}
           />
         );
       case 'faqs':
@@ -371,4 +374,5 @@ export const AdminTabContent = ({
       {renderTab()}
     </TabErrorBoundary>
   );
-};
+});
+

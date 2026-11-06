@@ -492,7 +492,7 @@ export default function ImageUpload({ value, defaultValue, onChange, name, place
       {/* Full-Size Image Preview Modal (Zero Cutoff, 100% Native Aspect Ratio) */}
       {showFullPreview && hasImage && (
         <div 
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+          className="fixed inset-0 z-[110] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
           onClick={() => setShowFullPreview(false)}
         >
           <div 
@@ -580,7 +580,7 @@ export default function ImageUpload({ value, defaultValue, onChange, name, place
 
       {/* Quick Cloudinary Config Modal */}
       {showConfigModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
+        <div className="fixed inset-0 z-[110] bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 max-w-md w-full shadow-xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">

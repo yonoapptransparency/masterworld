@@ -62,44 +62,52 @@ export function useDataActions(
     let savedToFirestore = false;
     let lastError: string | null = null;
 
-    // 1. Save to backend server API
-    try {
-      const idToken = await getAdminToken();
-      const res = await adminFetch('/api/v1/admin/app/save', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
-        },
-        body: JSON.stringify({ app: normalizedApp })
-      });
-      const cType = res.headers.get('content-type') || '';
-      if (res.ok && cType.includes('application/json')) {
-        const data = await res.json();
-        if (data && (data.app || data.success)) {
-          savedApp = { ...normalizedApp, ...(data.app || {}) };
-          savedToServer = true;
-        }
-      } else if (!res.ok) {
-        lastError = `Server returned HTTP ${res.status}`;
-      }
-    } catch (err: any) {
-      lastError = err?.message || 'Server endpoint unreachable';
-    }
+    const prevApp = apps.find(a => a.id === normalizedApp.id || (normalizedApp.slug && a.slug === normalizedApp.slug));
+    const appChanged = hasItemContentChanged(prevApp, normalizedApp);
 
-    // 2. Persist ONLY the affected chunk to Firestore to prevent unnecessary quota burn
-    if (isFirebaseReal && db) {
+    const serverTask = (async () => {
       try {
+        const idToken = await getAdminToken();
+        const res = await adminFetch('/api/v1/admin/app/save', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+          },
+          body: JSON.stringify({ app: normalizedApp })
+        });
+        const cType = res.headers.get('content-type') || '';
+        if (res.ok && cType.includes('application/json')) {
+          const data = await res.json();
+          if (data && (data.app || data.success)) {
+            savedApp = { ...normalizedApp, ...(data.app || {}) };
+            savedToServer = true;
+          }
+        } else if (!res.ok) {
+          lastError = `Server returned HTTP ${res.status}`;
+        }
+      } catch (err: any) {
+        lastError = err?.message || 'Server endpoint unreachable';
+      }
+    })();
+
+    const firestoreTask = (async () => {
+      if (!isFirebaseReal || !db) return;
+      try {
+        if (!appChanged && prevApp) {
+          savedToFirestore = true;
+          return;
+        }
         const { doc, setDoc } = await import('firebase/firestore');
         const nextApps = [...apps];
         const prevCount = apps.length;
-        const idx = nextApps.findIndex(a => a.id === savedApp.id || (savedApp.slug && a.slug === savedApp.slug));
+        const idx = nextApps.findIndex(a => a.id === normalizedApp.id || (normalizedApp.slug && a.slug === normalizedApp.slug));
         let targetIdx = idx;
         if (idx >= 0) {
-          nextApps[idx] = { ...nextApps[idx], ...savedApp };
+          nextApps[idx] = { ...nextApps[idx], ...normalizedApp };
         } else {
           targetIdx = nextApps.length;
-          nextApps.push(savedApp);
+          nextApps.push(normalizedApp);
         }
 
         const chunkSize = 25;
@@ -115,7 +123,6 @@ export function useDataActions(
           _rest_admin_bypass: ADMIN_BYPASS_KEY
         });
 
-        // Only write apps_meta if total app count or chunk count changed
         if (nextApps.length !== prevCount || numChunks !== prevNumChunks) {
           await setDoc(doc(db, 'store_data', 'apps_meta'), {
             count: nextApps.length,
@@ -131,7 +138,9 @@ export function useDataActions(
           lastError = `Firestore write failed: ${err?.message || 'Unknown Firestore error'}`;
         }
       }
-    }
+    })();
+
+    await Promise.all([serverTask, firestoreTask]);
 
     if (!savedToServer && !savedToFirestore) {
       throw new Error(`Failed to save application to database: ${lastError || 'Could not connect to server or Firestore'}`);
@@ -230,40 +239,49 @@ export function useDataActions(
 
     let mergedSettings: any = { ...settings };
     let deltaFields: Record<string, any> = {};
+    let sectionChanged = true;
+
     if (section === 'general' || section === 'seo') {
       mergedSettings = { ...mergedSettings, ...(data || {}) };
       deltaFields = cleanSettingsMetaTitles({ ...(data || {}) });
     } else {
+      sectionChanged = hasItemContentChanged((settings as any)?.[section], data);
       mergedSettings[section] = data;
       deltaFields = { [section]: data };
     }
     mergedSettings = cleanSettingsMetaTitles(mergedSettings);
     mergedSettings.last_updated = now;
 
-    try {
-      const idToken = await getAdminToken();
-      const res = await adminFetch('/api/v1/admin/settings/save-section', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
-        },
-        body: JSON.stringify({ section, data, settings: deltaFields })
-      });
-      const cType = res.headers.get('content-type') || '';
-      if (res.ok && cType.includes('application/json')) {
-        resData = await res.json();
-        savedToServer = true;
-      } else if (!res.ok) {
-        lastError = `Server returned HTTP ${res.status}`;
-      }
-    } catch (err: any) {
-      lastError = err?.message || 'Server endpoint unreachable';
-    }
-
-    // Write ONLY the delta fields for this section to Firestore (with merge: true) to save quota and bandwidth
-    if (isFirebaseReal && db) {
+    const serverTask = (async () => {
       try {
+        const idToken = await getAdminToken();
+        const res = await adminFetch('/api/v1/admin/settings/save-section', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+          },
+          body: JSON.stringify({ section, data, settings: deltaFields })
+        });
+        const cType = res.headers.get('content-type') || '';
+        if (res.ok && cType.includes('application/json')) {
+          resData = await res.json();
+          savedToServer = true;
+        } else if (!res.ok) {
+          lastError = `Server returned HTTP ${res.status}`;
+        }
+      } catch (err: any) {
+        lastError = err?.message || 'Server endpoint unreachable';
+      }
+    })();
+
+    const firestoreTask = (async () => {
+      if (!isFirebaseReal || !db) return;
+      try {
+        if (!sectionChanged) {
+          savedToFirestore = true;
+          return;
+        }
         const { doc, setDoc } = await import('firebase/firestore');
         const payloadToSave: Record<string, any> = {
           ...deltaFields,
@@ -276,7 +294,6 @@ export function useDataActions(
         delete publicPayload.turnstile_secret_key;
         delete publicPayload.cloudinary_api_secret;
         delete publicPayload.gemini_api_key;
-        // Only write public_settings if there are non-secret fields in the delta
         const publicKeys = Object.keys(publicPayload).filter(k => k !== '_rest_admin_bypass' && k !== 'last_updated');
         if (publicKeys.length > 0) {
           await setDoc(doc(db, 'store_data', 'public_settings'), publicPayload, { merge: true });
@@ -288,7 +305,9 @@ export function useDataActions(
           lastError = `Firestore settings write failed: ${err?.message || 'Unknown error'}`;
         }
       }
-    }
+    })();
+
+    await Promise.all([serverTask, firestoreTask]);
 
     if (!savedToServer && !savedToFirestore) {
       throw new Error(`Failed to save settings section "${section}": ${lastError || 'Could not connect to server or Firestore'}`);
@@ -512,6 +531,75 @@ export function useDataActions(
     setSettings(settingsWithTime);
   }, [settings, getAdminToken, setSettings]);
 
+  const normalizeNewsForPersistence = (rawItem: any, prev: any, now: string): NewsItem => {
+    const rawId = typeof rawItem?.id === 'string' && rawItem.id.trim()
+      ? rawItem.id.trim()
+      : Math.random().toString(36).substring(2, 11);
+    const rawHeading = (rawItem?.title || '').trim();
+    const exactHeading = rawHeading ? formatPageTitle(rawHeading, '') : 'Untitled Article';
+    const rawSlug = typeof rawItem?.slug === 'string' ? rawItem.slug.trim().replace(/^\/+|\/+$/g, '') : '';
+    const autoSlug = exactHeading.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const finalSlug = rawSlug || autoSlug || `news-${rawId}`;
+
+    const rawSeoTitle = (rawItem?.seo_title || rawItem?.meta_title || '').trim();
+    const exactSeoTitle = rawSeoTitle ? formatPageTitle(rawSeoTitle, '') : '';
+    const exactSeoDesc = (rawItem?.seo_description || rawItem?.meta_description || '').trim();
+
+    const rawHtml = rawItem?.content ?? rawItem?.description_html ?? rawItem?.content_html ?? '';
+    const cleanHtml = typeof rawHtml === 'string' && rawHtml.trim()
+      ? structureHtmlFragment(rawHtml)
+      : '';
+
+    const coverImg = String(rawItem?.image_url || rawItem?.logo_url || rawItem?.image || '').trim();
+    const isPinned = Boolean(rawItem?.is_pinned ?? rawItem?.pinned);
+    const isDraft = rawItem?.status === 'draft' || rawItem?.sync_to_public === false;
+
+    const tagsArray = Array.isArray(rawItem?.tags)
+      ? rawItem.tags.map((t: any) => String(t || '').trim()).filter(Boolean)
+      : typeof rawItem?.tags === 'string' && rawItem.tags.trim()
+        ? rawItem.tags.split(',').map((t: string) => t.trim()).filter(Boolean)
+        : typeof rawItem?.seo_keywords === 'string' && rawItem.seo_keywords.trim()
+          ? rawItem.seo_keywords.split(',').map((t: string) => t.trim()).filter(Boolean)
+          : [];
+    const seoKeywords = typeof rawItem?.seo_keywords === 'string' && rawItem.seo_keywords.trim()
+      ? rawItem.seo_keywords.trim()
+      : tagsArray.join(', ');
+
+    const candidate: any = {
+      ...rawItem,
+      id: rawId,
+      slug: finalSlug,
+      title: exactHeading,
+      seo_title: exactSeoTitle,
+      meta_title: exactSeoTitle,
+      seo_description: exactSeoDesc,
+      meta_description: exactSeoDesc,
+      content: cleanHtml,
+      description_html: cleanHtml,
+      content_html: cleanHtml,
+      image_url: coverImg,
+      logo_url: coverImg,
+      image: coverImg,
+      is_pinned: isPinned,
+      pinned: isPinned,
+      status: isDraft ? 'draft' : 'published',
+      sync_to_public: !isDraft,
+      tags: tagsArray,
+      seo_keywords: seoKeywords,
+      ceo_name: rawItem?.ceo_name || rawItem?.author || 'RummyDex Editorial Team',
+      author: rawItem?.author || rawItem?.ceo_name || 'RummyDex Editorial Team',
+      category: rawItem?.category || 'General'
+    };
+    delete candidate._isLocalUnsaved;
+
+    const changed = hasItemContentChanged(prev, candidate);
+    const preservedDate = prev?.updated_at || rawItem?.updated_at || rawItem?.published_at || rawItem?.publish_date || rawItem?.created_at || now;
+    return {
+      ...candidate,
+      updated_at: changed ? now : preservedDate
+    };
+  };
+
   const saveNewsSingle = useCallback(async (rawItem: NewsItem) => {
     const now = new Date().toISOString();
     const idKey = String(rawItem?.id || '').trim();
@@ -520,24 +608,8 @@ export function useDataActions(
       (n: any) => (idKey && String(n?.id || '').trim() === idKey) || (slugKey && String(n?.slug || '').trim().toLowerCase() === slugKey)
     );
 
-    const rawSeoTitle = (rawItem?.seo_title || rawItem?.meta_title || '').trim();
-    const exactTitle = rawSeoTitle ? formatPageTitle(rawSeoTitle, '') : '';
-    const rawHeading = (rawItem?.title || '').trim();
-    const exactHeading = rawHeading ? formatPageTitle(rawHeading, '') : '';
-    const candidate: NewsItem = {
-      ...rawItem,
-      slug: typeof rawItem.slug === 'string' ? rawItem.slug.trim().replace(/^\/+|\/+$/g, '') : rawItem.slug,
-      id: typeof rawItem.id === 'string' ? rawItem.id.trim() : rawItem.id,
-      title: exactHeading,
-      seo_title: exactTitle,
-      meta_title: exactTitle
-    };
-    const changed = hasItemContentChanged(prev, candidate);
-    const preservedDate = prev?.updated_at || rawItem?.updated_at || rawItem?.published_at || rawItem?.publish_date || rawItem?.created_at || now;
-    const normalizedItem: NewsItem = {
-      ...candidate,
-      updated_at: changed ? now : preservedDate
-    };
+    const normalizedItem = normalizeNewsForPersistence(rawItem, prev, now);
+    const changed = hasItemContentChanged(prev, normalizedItem);
 
     const nextNews = [...(news || [])];
     const existingIdx = nextNews.findIndex(
@@ -553,27 +625,30 @@ export function useDataActions(
     let savedToFirestore = false;
     let lastError: string | null = null;
 
-    try {
-      const idToken = await getAdminToken();
-      const res = await adminFetch('/api/v1/admin/news/save', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
-        },
-        body: JSON.stringify({ newsItem: normalizedItem })
-      });
-      const cType = res.headers.get('content-type') || '';
-      if (res.ok && cType.includes('application/json')) {
-        savedToServer = true;
-      } else if (!res.ok) {
-        lastError = `Server returned HTTP ${res.status}`;
+    const serverTask = (async () => {
+      try {
+        const idToken = await getAdminToken();
+        const res = await adminFetch('/api/v1/admin/news/save', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+          },
+          body: JSON.stringify({ newsItem: normalizedItem })
+        });
+        const cType = res.headers.get('content-type') || '';
+        if (res.ok && cType.includes('application/json')) {
+          savedToServer = true;
+        } else if (!res.ok) {
+          lastError = `Server returned HTTP ${res.status}`;
+        }
+      } catch (err: any) {
+        lastError = err?.message || 'Server endpoint unreachable';
       }
-    } catch (err: any) {
-      lastError = err?.message || 'Server endpoint unreachable';
-    }
+    })();
 
-    if (isFirebaseReal && db) {
+    const firestoreTask = (async () => {
+      if (!isFirebaseReal || !db) return;
       try {
         if (changed || existingIdx < 0) {
           const { doc, setDoc } = await import('firebase/firestore');
@@ -591,7 +666,9 @@ export function useDataActions(
           lastError = `Firestore news write failed: ${err?.message || 'Unknown error'}`;
         }
       }
-    }
+    })();
+
+    await Promise.all([serverTask, firestoreTask]);
 
     if (!savedToServer && !savedToFirestore) {
       throw new Error(`Failed to save news article: ${lastError || 'Could not connect to server or Firestore'}`);
@@ -607,27 +684,30 @@ export function useDataActions(
     let deletedOnFirestore = false;
     let lastError: string | null = null;
 
-    try {
-      const idToken = await getAdminToken();
-      const res = await adminFetch('/api/v1/admin/news/delete', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
-        },
-        body: JSON.stringify({ id: newsId })
-      });
-      const cType = res.headers.get('content-type') || '';
-      if (res.ok && cType.includes('application/json')) {
-        deletedOnServer = true;
-      } else if (!res.ok) {
-        lastError = `Server returned HTTP ${res.status}`;
+    const serverTask = (async () => {
+      try {
+        const idToken = await getAdminToken();
+        const res = await adminFetch('/api/v1/admin/news/delete', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+          },
+          body: JSON.stringify({ id: newsId })
+        });
+        const cType = res.headers.get('content-type') || '';
+        if (res.ok && cType.includes('application/json')) {
+          deletedOnServer = true;
+        } else if (!res.ok) {
+          lastError = `Server returned HTTP ${res.status}`;
+        }
+      } catch (err: any) {
+        lastError = err?.message || 'Server endpoint unreachable';
       }
-    } catch (err: any) {
-      lastError = err?.message || 'Server endpoint unreachable';
-    }
+    })();
 
-    if (isFirebaseReal && db) {
+    const firestoreTask = (async () => {
+      if (!isFirebaseReal || !db) return;
       try {
         const { doc, setDoc } = await import('firebase/firestore');
         await setDoc(doc(db, 'store_data', 'news'), {
@@ -643,7 +723,9 @@ export function useDataActions(
           lastError = `Firestore news delete failed: ${err?.message || 'Unknown error'}`;
         }
       }
-    }
+    })();
+
+    await Promise.all([serverTask, firestoreTask]);
 
     if (!deletedOnServer && !deletedOnFirestore) {
       throw new Error(`Failed to delete news article: ${lastError || 'Could not connect to server or Firestore'}`);
@@ -666,54 +748,41 @@ export function useDataActions(
       const idKey = String(n?.id || '').trim();
       const slugKey = String(n?.slug || '').trim().replace(/^\/+|\/+$/g, '').toLowerCase();
       const prev = (idKey && existingById.get(idKey)) || (slugKey && existingBySlug.get(slugKey));
-      const rawSeoTitle = (n?.seo_title || n?.meta_title || '').trim();
-      const exactTitle = rawSeoTitle ? formatPageTitle(rawSeoTitle, '') : '';
-      const rawHeading = (n?.title || '').trim();
-      const exactHeading = rawHeading ? formatPageTitle(rawHeading, '') : '';
-      const candidate = {
-        ...n,
-        slug: typeof n.slug === 'string' ? n.slug.trim().replace(/^\/+|\/+$/g, '') : n.slug,
-        id: typeof n.id === 'string' ? n.id.trim() : n.id,
-        title: exactHeading,
-        seo_title: exactTitle,
-        meta_title: exactTitle
-      };
-      const changed = hasItemContentChanged(prev, candidate);
-      if (changed) anyChanged = true;
-      const preservedDate = prev?.updated_at || n?.updated_at || n?.published_at || n?.publish_date || n?.created_at || now;
-      return {
-        ...candidate,
-        updated_at: changed ? now : preservedDate
-      };
+      const normalized = normalizeNewsForPersistence(n, prev, now);
+      if (hasItemContentChanged(prev, normalized)) anyChanged = true;
+      return normalized;
     });
 
     let savedToServer = false;
     let savedToFirestore = false;
     let lastError: string | null = null;
 
-    try {
-      const idToken = await getAdminToken();
-      const res = await adminFetch('/api/v1/admin/save-news', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
-        },
-        body: JSON.stringify({ news: cleanNews })
-      });
-      const cType = res.headers.get('content-type') || '';
-      if (res.ok && cType.includes('application/json')) {
-        savedToServer = true;
-      } else if (!res.ok) {
-        lastError = `Server returned HTTP ${res.status}`;
-      }
-    } catch (err: any) {
-      lastError = err?.message || 'Server endpoint unreachable';
-    }
-
-    if (isFirebaseReal && db) {
+    const serverTask = (async () => {
       try {
-        if (anyChanged || !savedToServer) {
+        const idToken = await getAdminToken();
+        const res = await adminFetch('/api/v1/admin/save-news', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+          },
+          body: JSON.stringify({ news: cleanNews })
+        });
+        const cType = res.headers.get('content-type') || '';
+        if (res.ok && cType.includes('application/json')) {
+          savedToServer = true;
+        } else if (!res.ok) {
+          lastError = `Server returned HTTP ${res.status}`;
+        }
+      } catch (err: any) {
+        lastError = err?.message || 'Server endpoint unreachable';
+      }
+    })();
+
+    const firestoreTask = (async () => {
+      if (!isFirebaseReal || !db) return;
+      try {
+        if (anyChanged) {
           const { doc, setDoc } = await import('firebase/firestore');
           await setDoc(doc(db, 'store_data', 'news'), { 
             items: cleanNews, 
@@ -729,7 +798,9 @@ export function useDataActions(
           lastError = `Firestore news write failed: ${err?.message || 'Unknown error'}`;
         }
       }
-    }
+    })();
+
+    await Promise.all([serverTask, firestoreTask]);
 
     if (!savedToServer && !savedToFirestore) {
       throw new Error(`Failed to save news: ${lastError || 'Could not connect to server or Firestore'}`);
@@ -737,6 +808,167 @@ export function useDataActions(
 
     setNews(cleanNews);
   }, [getAdminToken, setNews, news]);
+
+  const normalizeVideoForPersistence = (v: any, prev: any, now: string): VideoItem => {
+    const idKey = String(v?.id || Math.random().toString(36).substring(2, 11)).trim();
+    const rawSlug = typeof v?.slug === 'string' && v.slug.trim()
+      ? v.slug.trim().replace(/^\/+|\/+$/g, '')
+      : (typeof v?.title === 'string' && v.title.trim()
+          ? v.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+          : idKey);
+    const ytUrl = (v?.youtube_url || v?.video_url || v?.url || '').trim();
+    const rawSeoTitle = (v?.seo_title || v?.meta_title || '').trim();
+    const exactSeoTitle = rawSeoTitle ? formatPageTitle(rawSeoTitle, '') : '';
+    const candidate = {
+      ...v,
+      id: idKey,
+      slug: rawSlug,
+      youtube_url: ytUrl,
+      video_url: ytUrl,
+      url: ytUrl,
+      ...(exactSeoTitle ? { seo_title: exactSeoTitle, meta_title: exactSeoTitle } : {}),
+      created_at: v?.created_at || prev?.created_at || now
+    };
+    const changed = hasItemContentChanged(prev, candidate);
+    const preservedDate = prev?.updated_at || v?.updated_at || v?.published_at || v?.created_at || v?.date || now;
+    return {
+      ...candidate,
+      updated_at: changed ? now : preservedDate
+    };
+  };
+
+  const saveVideoSingle = useCallback(async (rawVideo: VideoItem) => {
+    const now = new Date().toISOString();
+    const idKey = String(rawVideo?.id || '').trim();
+    const slugKey = String(rawVideo?.slug || '').trim().toLowerCase();
+    const prev = (videos || []).find(
+      (v: any) => (idKey && String(v?.id || '').trim() === idKey) || (slugKey && String(v?.slug || '').trim().toLowerCase() === slugKey)
+    );
+    const normalizedVideo = normalizeVideoForPersistence(rawVideo, prev, now);
+    const changed = hasItemContentChanged(prev, normalizedVideo);
+
+    const nextVideos = [...(videos || [])];
+    const existingIdx = nextVideos.findIndex(
+      (v: any) => v.id === normalizedVideo.id || (normalizedVideo.slug && v.slug === normalizedVideo.slug)
+    );
+    if (existingIdx >= 0) {
+      nextVideos[existingIdx] = { ...nextVideos[existingIdx], ...normalizedVideo };
+    } else {
+      nextVideos.unshift(normalizedVideo);
+    }
+
+    let savedToServer = false;
+    let savedToFirestore = false;
+    let lastError: string | null = null;
+
+    const serverTask = (async () => {
+      try {
+        const idToken = await getAdminToken();
+        const res = await adminFetch('/api/v1/admin/video/save', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+          },
+          body: JSON.stringify({ videoItem: normalizedVideo })
+        });
+        const cType = res.headers.get('content-type') || '';
+        if (res.ok && cType.includes('application/json')) {
+          savedToServer = true;
+        } else if (!res.ok) {
+          lastError = `Server returned HTTP ${res.status}`;
+        }
+      } catch (err: any) {
+        lastError = err?.message || 'Server endpoint unreachable';
+      }
+    })();
+
+    const firestoreTask = (async () => {
+      if (!isFirebaseReal || !db) return;
+      try {
+        if (changed || existingIdx < 0) {
+          const { doc, setDoc } = await import('firebase/firestore');
+          await setDoc(doc(db, 'store_data', 'videos'), {
+            items: nextVideos,
+            count: nextVideos.length,
+            updated_at: now,
+            _rest_admin_bypass: ADMIN_BYPASS_KEY
+          }, { merge: true });
+        }
+        savedToFirestore = true;
+      } catch (err: any) {
+        console.warn("[useDataActions] Direct Firestore saveVideoSingle notice:", err);
+        if (!savedToServer) {
+          lastError = `Firestore video write failed: ${err?.message || 'Unknown error'}`;
+        }
+      }
+    })();
+
+    await Promise.all([serverTask, firestoreTask]);
+
+    if (!savedToServer && !savedToFirestore) {
+      throw new Error(`Failed to save video: ${lastError || 'Could not connect to server or Firestore'}`);
+    }
+
+    setVideos(nextVideos);
+    return normalizedVideo;
+  }, [getAdminToken, setVideos, videos]);
+
+  const deleteVideoSingle = useCallback(async (videoId: string) => {
+    const nextVideos = (videos || []).filter((v: any) => v.id !== videoId && v.slug !== videoId);
+    let deletedOnServer = false;
+    let deletedOnFirestore = false;
+    let lastError: string | null = null;
+
+    const serverTask = (async () => {
+      try {
+        const idToken = await getAdminToken();
+        const res = await adminFetch('/api/v1/admin/video/delete', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+          },
+          body: JSON.stringify({ id: videoId })
+        });
+        const cType = res.headers.get('content-type') || '';
+        if (res.ok && cType.includes('application/json')) {
+          deletedOnServer = true;
+        } else if (!res.ok) {
+          lastError = `Server returned HTTP ${res.status}`;
+        }
+      } catch (err: any) {
+        lastError = err?.message || 'Server endpoint unreachable';
+      }
+    })();
+
+    const firestoreTask = (async () => {
+      if (!isFirebaseReal || !db) return;
+      try {
+        const { doc, setDoc } = await import('firebase/firestore');
+        await setDoc(doc(db, 'store_data', 'videos'), {
+          items: nextVideos,
+          count: nextVideos.length,
+          updated_at: new Date().toISOString(),
+          _rest_admin_bypass: ADMIN_BYPASS_KEY
+        }, { merge: true });
+        deletedOnFirestore = true;
+      } catch (err: any) {
+        console.warn("[useDataActions] Direct Firestore deleteVideoSingle notice:", err);
+        if (!deletedOnServer) {
+          lastError = `Firestore video delete failed: ${err?.message || 'Unknown error'}`;
+        }
+      }
+    })();
+
+    await Promise.all([serverTask, firestoreTask]);
+
+    if (!deletedOnServer && !deletedOnFirestore) {
+      throw new Error(`Failed to delete video: ${lastError || 'Could not connect to server or Firestore'}`);
+    }
+
+    setVideos(nextVideos);
+  }, [getAdminToken, setVideos, videos]);
 
   const saveVideos = useCallback(async (newVideos: VideoItem[]) => {
     const now = new Date().toISOString();
@@ -750,60 +982,43 @@ export function useDataActions(
     let anyChanged = (newVideos || []).length !== (videos || []).length;
     const cleanVideos = JSON.parse(JSON.stringify(newVideos || [])).map((v: any) => {
       const idKey = String(v?.id || '').trim();
-      const rawSlug = typeof v?.slug === 'string' && v.slug.trim()
-        ? v.slug.trim().replace(/^\/+|\/+$/g, '')
-        : (typeof v?.title === 'string' && v.title.trim()
-            ? v.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
-            : idKey);
-      const slugKey = String(rawSlug || '').toLowerCase();
+      const slugKey = String(v?.slug || '').trim().toLowerCase();
       const prev = (idKey && existingById.get(idKey)) || (slugKey && existingBySlug.get(slugKey));
-      const ytUrl = (v?.youtube_url || v?.video_url || v?.url || '').trim();
-      const rawSeoTitle = (v?.seo_title || v?.meta_title || '').trim();
-      const exactSeoTitle = rawSeoTitle ? formatPageTitle(rawSeoTitle, '') : '';
-      const candidate = {
-        ...v,
-        slug: rawSlug,
-        youtube_url: ytUrl,
-        video_url: ytUrl,
-        url: ytUrl,
-        ...(exactSeoTitle ? { seo_title: exactSeoTitle, meta_title: exactSeoTitle } : {}),
-        created_at: v?.created_at || prev?.created_at || now
-      };
-      const changed = hasItemContentChanged(prev, candidate);
-      if (changed) anyChanged = true;
-      const preservedDate = prev?.updated_at || v?.updated_at || v?.published_at || v?.created_at || v?.date || now;
-      return {
-        ...candidate,
-        updated_at: changed ? now : preservedDate
-      };
+      const normalized = normalizeVideoForPersistence(v, prev, now);
+      if (hasItemContentChanged(prev, normalized)) anyChanged = true;
+      return normalized;
     });
+
     let savedToServer = false;
     let savedToFirestore = false;
     let lastError: string | null = null;
 
-    try {
-      const idToken = await getAdminToken();
-      const res = await adminFetch('/api/v1/admin/save-videos', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
-        },
-        body: JSON.stringify({ videos: cleanVideos })
-      });
-      const cType = res.headers.get('content-type') || '';
-      if (res.ok && cType.includes('application/json')) {
-        savedToServer = true;
-      } else if (!res.ok) {
-        lastError = `Server returned HTTP ${res.status}`;
-      }
-    } catch (err: any) {
-      lastError = err?.message || 'Server endpoint unreachable';
-    }
-
-    if (isFirebaseReal && db) {
+    const serverTask = (async () => {
       try {
-        if (anyChanged || !savedToServer) {
+        const idToken = await getAdminToken();
+        const res = await adminFetch('/api/v1/admin/save-videos', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {})
+          },
+          body: JSON.stringify({ videos: cleanVideos })
+        });
+        const cType = res.headers.get('content-type') || '';
+        if (res.ok && cType.includes('application/json')) {
+          savedToServer = true;
+        } else if (!res.ok) {
+          lastError = `Server returned HTTP ${res.status}`;
+        }
+      } catch (err: any) {
+        lastError = err?.message || 'Server endpoint unreachable';
+      }
+    })();
+
+    const firestoreTask = (async () => {
+      if (!isFirebaseReal || !db) return;
+      try {
+        if (anyChanged) {
           const { doc, setDoc } = await import('firebase/firestore');
           await setDoc(doc(db, 'store_data', 'videos'), { 
             items: cleanVideos, 
@@ -819,7 +1034,9 @@ export function useDataActions(
           lastError = `Firestore videos write failed: ${err?.message || 'Unknown error'}`;
         }
       }
-    }
+    })();
+
+    await Promise.all([serverTask, firestoreTask]);
 
     if (!savedToServer && !savedToFirestore) {
       throw new Error(`Failed to save videos: ${lastError || 'Could not connect to server or Firestore'}`);
@@ -867,6 +1084,8 @@ export function useDataActions(
     saveNewsSingle,
     deleteNewsSingle,
     saveNews,
+    saveVideoSingle,
+    deleteVideoSingle,
     saveVideos,
     updateLocalContainerBackup
   };

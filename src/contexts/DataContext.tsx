@@ -40,6 +40,8 @@ interface DataContextType {
   saveNewsSingle: (item: NewsItem) => Promise<NewsItem>;
   deleteNewsSingle: (id: string) => Promise<void>;
   saveNews: (news: NewsItem[]) => Promise<void>;
+  saveVideoSingle: (item: VideoItem) => Promise<VideoItem>;
+  deleteVideoSingle: (id: string) => Promise<void>;
   saveVideos: (videos: VideoItem[]) => Promise<void>;
   isConnected: boolean | null;
   isLive: boolean;
@@ -92,7 +94,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       sync.setSyncVersion(v => v + 1);
       sync.setLastSyncTime(new Date().toLocaleTimeString());
       
-      const res = await adminFetch('/api/v1/admin/data');
+      const res = await adminFetch('/api/v1/admin/data?refresh=1');
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.apps) && data.apps.length > 0) sync.setApps(data.apps);
@@ -149,6 +151,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     saveNewsSingle: actions.saveNewsSingle,
     deleteNewsSingle: actions.deleteNewsSingle,
     saveNews: actions.saveNews,
+    saveVideoSingle: actions.saveVideoSingle,
+    deleteVideoSingle: actions.deleteVideoSingle,
     saveVideos: actions.saveVideos,
     isConnected: sync.isConnected,
     isLive: sync.isLive,
@@ -198,6 +202,8 @@ export const useData = () => {
       saveNewsSingle: async (item: any) => item,
       deleteNewsSingle: async () => {},
       saveNews: async () => {},
+      saveVideoSingle: async (item: any) => item,
+      deleteVideoSingle: async () => {},
       saveVideos: async () => {},
       isConnected: true,
       isLive: true,

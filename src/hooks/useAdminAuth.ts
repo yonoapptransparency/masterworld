@@ -100,35 +100,42 @@ export const useAdminAuth = () => {
   }, []);
 
   useEffect(() => {
-    let timerId: any;
-    if (user && isAdminUser) {
-      timerId = setInterval(() => {
-        setSessionTimeLeft((prev) => {
-          if (prev <= 1) {
-            handleLogout();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(timerId);
-  }, [user, isAdminUser]);
+    if (!user || !isAdminUser) return;
+    let expiresAt = Date.now() + 15 * 60 * 1000;
+    let lastReportedMinutes = 15;
 
-  useEffect(() => {
-    const resetTimer = () => setSessionTimeLeft(prev => {
-      if (prev < 15 * 60) return 15 * 60;
-      return prev;
-    });
-    window.addEventListener('mousemove', resetTimer, { passive: true });
-    window.addEventListener('keydown', resetTimer, { passive: true });
-    window.addEventListener('click', resetTimer, { passive: true });
-    return () => {
-      window.removeEventListener('mousemove', resetTimer);
-      window.removeEventListener('keydown', resetTimer);
-      window.removeEventListener('click', resetTimer);
+    const resetActivity = () => {
+      expiresAt = Date.now() + 15 * 60 * 1000;
+      if (lastReportedMinutes !== 15) {
+        lastReportedMinutes = 15;
+        setSessionTimeLeft(15 * 60);
+      }
     };
-  }, []);
+
+    const timerId = setInterval(() => {
+      const remainingSec = Math.max(0, Math.round((expiresAt - Date.now()) / 1000));
+      if (remainingSec <= 0) {
+        handleLogout();
+        return;
+      }
+      // Only trigger a React state update when the minute changes (or every 5s in the final minute)
+      const currentBucket = remainingSec <= 60 ? remainingSec : Math.ceil(remainingSec / 60);
+      if (currentBucket !== lastReportedMinutes) {
+        lastReportedMinutes = currentBucket;
+        setSessionTimeLeft(remainingSec);
+      }
+    }, 5000);
+
+    window.addEventListener('keydown', resetActivity, { passive: true });
+    window.addEventListener('click', resetActivity, { passive: true });
+    window.addEventListener('touchstart', resetActivity, { passive: true });
+    return () => {
+      clearInterval(timerId);
+      window.removeEventListener('keydown', resetActivity);
+      window.removeEventListener('click', resetActivity);
+      window.removeEventListener('touchstart', resetActivity);
+    };
+  }, [user, isAdminUser]);
 
   return {
     user,

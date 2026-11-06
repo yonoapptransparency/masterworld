@@ -22,6 +22,7 @@ export default function AdminDashboard() {
     apps, settings, news, videos, 
     saveApps, saveSettings, saveNews, saveVideos,
     saveNewsSingle, deleteNewsSingle,
+    saveVideoSingle, deleteVideoSingle,
     saveAppSingle, deleteAppSingle, saveSettingsSection,
     loading, refreshAll, reloadServerData, dataSource, isRefreshing: dataRefreshing, lastSyncTime,
     gitConfig, gitConfigLoading, saveGitConfig, pushAllToGitHub
@@ -98,13 +99,12 @@ export default function AdminDashboard() {
 
   const { user, checkingAuth, isAdminUser, sessionTimeLeft, handleLogout } = useAdminAuth();
   
-  // When admin logs in or dashboard mounts with active admin user, automatically pull latest live data and pre-warm atomic reviews
+  // Pre-warm atomic review counts once when admin user is verified (useDataSync already loads catalog data on mount)
   useEffect(() => {
     if (isAdminUser === true) {
-      reloadServerData(true);
       fetchAdminAppReviewCounts().catch(() => {});
     }
-  }, [isAdminUser, reloadServerData]);
+  }, [isAdminUser]);
 
   const { 
     appsList, setAppsList, fetchFailed, cachedSecureMapRef, syncSecureVault, recordAppDeletion
@@ -203,24 +203,7 @@ export default function AdminDashboard() {
 
       let encryptedUrlVal = '';
       if (plaintextUrl) {
-        // Fast local encryption baseline
         encryptedUrlVal = safeEncrypt(plaintextUrl);
-
-        // Server-side authoritative encryption verification
-        try {
-          const idToken = (await user?.getIdToken()) || undefined;
-          const res = await adminFetch('/api/v1/admin/encrypt', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {}) },
-            body: JSON.stringify({ url: plaintextUrl })
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (data.encrypted) encryptedUrlVal = data.encrypted;
-          }
-        } catch (encErr) {
-          console.warn("[ADMIN] Server encryption fallback to safeEncrypt:", encErr);
-        }
       }
 
       let category = 'General';
@@ -398,9 +381,9 @@ export default function AdminDashboard() {
       />
 
       <main className="lg:pl-64 min-h-screen transition-all duration-300">
-        <header className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-2.5 sm:px-4 py-2 flex items-center justify-between gap-1.5 sm:gap-2">
-          <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0">
-            <h2 className="text-sm sm:text-base md:text-lg font-black tracking-tight capitalize truncate shrink-0">
+        <header className="sticky top-0 z-30 h-11 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-2 sm:px-3 flex items-center justify-between gap-1.5">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+            <h2 className="text-xs sm:text-sm md:text-base font-black tracking-tight capitalize truncate shrink-0">
               {activeTab === 'news' ? 'News' : activeTab.replace('-', ' ')}
             </h2>
             <div className="flex items-center gap-1 shrink-0">
@@ -408,39 +391,39 @@ export default function AdminDashboard() {
               <CommunityFirebaseStatusIndicator />
             </div>
           </div>
-          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
              <button 
               type="button"
               onClick={() => setShowWelcomeOverlay(true)}
               title="Replay Welcome Experience"
-              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-lg font-bold text-xs transition-all border border-amber-500/20 cursor-pointer active:scale-95 whitespace-nowrap"
+              className="hidden sm:flex items-center gap-1 px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-lg font-bold text-[11px] transition-all border border-amber-500/20 cursor-pointer active:scale-95 whitespace-nowrap"
              >
-                <Sparkles size={13} className="text-amber-500" />
-                <span className="hidden md:inline">Welcome Intro</span>
+                <Sparkles size={12} className="text-amber-500" />
+                <span className="hidden md:inline">Intro</span>
              </button>
              <button 
               onClick={handleReloadCloudData} 
               disabled={saving || dataRefreshing} 
               title={lastSyncTime ? `Last synced: ${lastSyncTime}. Click to pull latest updates across all devices.` : 'Pull latest updates across all devices'}
-              className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg font-bold text-xs transition-all border-0 cursor-pointer shadow-xs active:scale-95 disabled:opacity-50 whitespace-nowrap"
+              className="flex items-center gap-1 px-2 sm:px-2.5 py-1 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg font-bold text-[11px] transition-all border-0 cursor-pointer shadow-xs active:scale-95 disabled:opacity-50 whitespace-nowrap"
              >
-                <RefreshCw size={13} className={(saving || dataRefreshing) ? 'animate-spin' : ''} />
+                <RefreshCw size={12} className={(saving || dataRefreshing) ? 'animate-spin' : ''} />
                 <span className="hidden sm:inline">{(saving || dataRefreshing) ? 'Syncing...' : 'Sync Devices'}</span>
-                <span className="sm:hidden text-[11px]">{(saving || dataRefreshing) ? 'Sync...' : 'Sync'}</span>
+                <span className="sm:hidden">{(saving || dataRefreshing) ? '...' : 'Sync'}</span>
              </button>
              <button
                type="button"
                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-               className="lg:hidden p-2.5 sm:p-3 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center shrink-0 border-0"
+               className="lg:hidden p-1.5 sm:p-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-lg shadow-sm transition-all cursor-pointer flex items-center justify-center shrink-0 border-0"
                aria-label="Toggle Navigation Menu"
                title="Open Navigation Menu"
              >
-               <Menu size={22} className="stroke-[2.5]" />
+               <Menu size={18} className="stroke-[2.5]" />
              </button>
           </div>
         </header>
 
-        <div className={activeTab === 'ai-reviews' ? 'p-0 w-full h-[calc(100dvh-49px)] flex flex-col overflow-hidden' : (activeTab === 'reviews' ? 'p-0 sm:p-2 lg:p-4 w-full max-w-full' : 'p-3 sm:p-4 max-w-7xl mx-auto')}>
+        <div className={activeTab === 'ai-reviews' ? 'p-0 w-full h-[calc(100dvh-44px)] flex flex-col overflow-hidden' : 'p-1.5 sm:p-2.5 lg:p-3 w-full max-w-full'}>
           <AdminTabContent 
             activeTab={activeTab} appsList={appsList} newsList={newsList} banners={banners} videosList={videosList}
             categoriesList={categoriesList} quickLinksList={quickLinksList} websiteFaqsList={websiteFaqsList} developersList={developersList}
@@ -450,7 +433,7 @@ export default function AdminDashboard() {
             handleSaveNews={async (list?: any) => {
               setSaving(true);
               try {
-                const targetList = (list && Array.isArray(list) && list.length > 0) ? list : newsList;
+                const targetList = Array.isArray(list) ? list : newsList;
                 await saveNews(targetList);
                 triggerHaptic();
                 toast('News saved and synchronized successfully!', 'success');
@@ -474,7 +457,7 @@ export default function AdminDashboard() {
                   return [saved, ...prev];
                 });
                 triggerHaptic();
-                toast('Article saved and synchronized!', 'success');
+                toast('Article saved!', 'success');
                 return saved;
               } catch (err: any) {
                 toast('Save failed: ' + (err?.message || 'Unknown error'), 'error');
@@ -487,6 +470,29 @@ export default function AdminDashboard() {
             handleSaveQuickLinks={(e) => { e.preventDefault(); handleSaveSettingsBase({ quick_links: quickLinksList }); }}
             handleSaveWebsiteFaqs={(e) => { e.preventDefault(); handleSaveSettingsBase({ website_faqs: websiteFaqsList }); }}
             handleSaveDevelopers={(e) => { e.preventDefault(); handleSaveSettingsBase({ developers: developersList }); }}
+            handleSaveSingleVideo={async (item: any) => {
+              setSaving(true);
+              try {
+                const saved = await saveVideoSingle(item);
+                setVideosList(prev => {
+                  const idx = prev.findIndex(v => v.id === saved.id || (saved.slug && v.slug === saved.slug));
+                  if (idx >= 0) {
+                    const next = [...prev];
+                    next[idx] = { ...next[idx], ...saved };
+                    return next;
+                  }
+                  return [saved, ...prev];
+                });
+                triggerHaptic();
+                toast('Video saved!', 'success');
+                return saved;
+              } catch (err: any) {
+                toast('Save failed: ' + (err?.message || 'Unknown error'), 'error');
+                throw err;
+              } finally {
+                setSaving(false);
+              }
+            }}
             handleSaveVideos={async () => {
               setSaving(true);
               try {
@@ -522,7 +528,16 @@ export default function AdminDashboard() {
             handleAddCategory={handleAddCategory}
             handleRemoveCategory={handleRemoveCategory}
             handleAddVideo={handleAddVideo}
-            handleDeleteVideo={handleDeleteVideo}
+            handleDeleteVideo={async (id: string) => {
+              handleDeleteVideo(id);
+              try {
+                await deleteVideoSingle(id);
+                triggerHaptic();
+                toast('Video deleted.', 'success');
+              } catch (err: any) {
+                toast('Delete failed: ' + (err?.message || 'Unknown error'), 'error');
+              }
+            }}
             handleVideosChange={handleVideosChange}
             handleAddWebsiteFaq={handleAddWebsiteFaq}
             handleRemoveWebsiteFaq={handleRemoveWebsiteFaq}

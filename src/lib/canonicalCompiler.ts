@@ -120,21 +120,79 @@ export function compileCanonicalApp(app: any, options?: { stripDownloadLinks?: b
 export function compileCanonicalNews(item: any): any {
   if (!item || typeof item !== 'object') return item;
   const copy = JSON.parse(JSON.stringify(item));
-  if (typeof copy.slug === 'string') {
-    copy.slug = copy.slug.trim().replace(/^\/+|\/+$/g, '');
-  }
   if (typeof copy.id === 'string') {
     copy.id = copy.id.trim();
+  }
+  if (!copy.id) {
+    copy.id = Math.random().toString(36).substring(2, 11);
   }
   if (typeof copy.title === 'string' && copy.title.trim()) {
     copy.title = formatPageTitle(copy.title, copy.title.trim());
   }
-  const rawBody = copy.content || copy.description_html || copy.description || '';
+  if (typeof copy.slug === 'string') {
+    copy.slug = copy.slug.trim().replace(/^\/+|\/+$/g, '');
+  }
+  if (!copy.slug) {
+    const slugFromTitle = String(copy.title || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+    copy.slug = slugFromTitle || `news-${copy.id}`;
+  }
+
+  // Prefer explicit HTML body fields (content, description_html, content_html) before falling back to short description
+  const rawHtmlField = copy.content ?? copy.description_html ?? copy.content_html ?? '';
+  const rawBody = (typeof rawHtmlField === 'string' && rawHtmlField.trim())
+    ? rawHtmlField
+    : (typeof copy.description === 'string' ? copy.description : '');
+
   if (typeof rawBody === 'string' && rawBody.trim()) {
     const cleanHtml = structureHtmlFragment(rawBody);
     copy.content = cleanHtml;
     copy.description_html = cleanHtml;
+    copy.content_html = cleanHtml;
+  } else {
+    copy.content = '';
+    copy.description_html = '';
+    copy.content_html = '';
   }
+
+  // Synchronize cover image fields across all consumers
+  const coverImg = String(copy.image_url || copy.logo_url || copy.image || '').trim();
+  copy.image_url = coverImg;
+  copy.logo_url = coverImg;
+  if (copy.image !== undefined || coverImg) {
+    copy.image = coverImg;
+  }
+
+  // Synchronize pin & status flags
+  const isPinned = Boolean(copy.is_pinned ?? copy.pinned);
+  copy.is_pinned = isPinned;
+  copy.pinned = isPinned;
+
+  const isDraft = copy.status === 'draft' || copy.sync_to_public === false;
+  copy.status = isDraft ? 'draft' : 'published';
+  copy.sync_to_public = !isDraft;
+
+  // Synchronize author fields
+  const authorName = String(copy.ceo_name || copy.author || 'RummyDex Editorial Team').trim();
+  copy.ceo_name = authorName;
+  copy.author = authorName;
+
+  // Normalize tags (always string[]) and seo_keywords (comma-separated string)
+  let tagsArray: string[] = [];
+  if (Array.isArray(copy.tags)) {
+    tagsArray = copy.tags.map((t: any) => String(t || '').trim()).filter(Boolean);
+  } else if (typeof copy.tags === 'string' && copy.tags.trim()) {
+    tagsArray = copy.tags.split(',').map((t: string) => t.trim()).filter(Boolean);
+  } else if (typeof copy.seo_keywords === 'string' && copy.seo_keywords.trim()) {
+    tagsArray = copy.seo_keywords.split(',').map((t: string) => t.trim()).filter(Boolean);
+  }
+  copy.tags = tagsArray;
+  if (!copy.seo_keywords && tagsArray.length > 0) {
+    copy.seo_keywords = tagsArray.join(', ');
+  }
+
   const rawSeoTitle = (copy.seo_title !== undefined ? copy.seo_title : (copy.meta_title || '')).trim();
   const cleanSeoTitle = rawSeoTitle ? formatPageTitle(rawSeoTitle, '') : '';
   copy.seo_title = cleanSeoTitle;
@@ -151,7 +209,11 @@ export function compileCanonicalNews(item: any): any {
   }
   copy.formatted_date = formatNewsDate(dateSource);
   copy.reading_time = calculateReadingTime(rawBody);
+  copy.read_time = copy.read_time || copy.reading_time;
   copy.excerpt = copy.seo_description || copy.description || getPlainTextSnippet(rawBody, 160);
+  if (!copy.description && copy.excerpt) {
+    copy.description = copy.excerpt;
+  }
   return copy;
 }
 

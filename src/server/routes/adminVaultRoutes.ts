@@ -7,6 +7,7 @@ import { fetchStoreData, clearSeoCache } from '../../seoHelper';
 import { compileCanonicalApp, compileCanonicalNews, generateStaticDataFileCode, sanitizePublicSettings, generateSecureVaultFile } from '../../lib/githubSync';
 import { generateAllSitemaps } from '../../lib/sitemapGenerator';
 import { cleanSettingsMetaTitles } from '../../lib/seoUtils';
+import { structureHtmlFragment } from '../../lib/safeHtmlPublic';
 import { syncServerAiStudioBrainFromSettings } from './communityRoutes';
 
 export const adminVaultRouter = Router();
@@ -32,7 +33,14 @@ function hasItemContentChanged(prevItem: any, nextItem: any): boolean {
   }
 }
 
-function getMergedData() {
+let cachedMergedData: any = null;
+let backgroundFlushTimer: ReturnType<typeof setTimeout> | null = null;
+
+function getMergedData(forceReloadFromDisk = false) {
+  if (cachedMergedData && !forceReloadFromDisk) {
+    return cachedMergedData;
+  }
+
   let staticBase: any = {};
   if (fs.existsSync(staticJsonPath)) {
     try {
@@ -71,10 +79,11 @@ function getMergedData() {
     ? backupBase.reviews
     : (Array.isArray(staticBase.reviews) ? staticBase.reviews : []);
 
-  return { apps, settings, news, videos, reviews };
+  cachedMergedData = { apps, settings, news, videos, reviews };
+  return cachedMergedData;
 }
 
-function writeMergedData(data: any) {
+function flushMergedDataToDisk(data: any) {
   const canonicalNews = Array.isArray(data.news)
     ? data.news.map((item: any) => compileCanonicalNews(item))
     : [];
@@ -103,7 +112,6 @@ function writeMergedData(data: any) {
     : [];
 
   const publicNews = canonicalNews.filter((item: any) => item && item.sync_to_public !== false);
-
   const publicSettings = sanitizePublicSettings(updatedSettings);
 
   const publicStaticPayload = {
@@ -136,13 +144,12 @@ function writeMergedData(data: any) {
     console.error('[adminVaultRoutes] Failed to write staticData.ts:', e);
   }
 
-  // Automatically regenerate and save all XML + GZip sitemaps to disk so search engine indexes remain 100% synchronized
   try {
     const sitemaps = generateAllSitemaps(publicStaticPayload);
     const publicDir = path.join(process.cwd(), 'public');
     const distDir = path.join(process.cwd(), 'dist');
     for (const [filename, content] of Object.entries(sitemaps)) {
-      const gzBuffer = zlib.gzipSync(Buffer.from(content, 'utf8'), { level: 9 });
+      const gzBuffer = zlib.gzipSync(Buffer.from(content, 'utf8'), { level: 6 });
       try {
         fs.writeFileSync(path.join(publicDir, filename), content, 'utf8');
         fs.writeFileSync(path.join(publicDir, `${filename}.gz`), gzBuffer);
@@ -157,13 +164,37 @@ function writeMergedData(data: any) {
   } catch (e) {
     console.error('[adminVaultRoutes] Failed to write sitemaps:', e);
   }
+}
 
+function writeMergedData(data: any, options?: { background?: boolean }) {
+  cachedMergedData = data;
   clearSeoCache();
+
+  if (options?.background) {
+    if (backgroundFlushTimer) clearTimeout(backgroundFlushTimer);
+    backgroundFlushTimer = setTimeout(() => {
+      backgroundFlushTimer = null;
+      try {
+        flushMergedDataToDisk(cachedMergedData || data);
+      } catch (err) {
+        console.error('[adminVaultRoutes] Background flush error:', err);
+      }
+    }, 60);
+    return;
+  }
+
+  if (backgroundFlushTimer) {
+    clearTimeout(backgroundFlushTimer);
+    backgroundFlushTimer = null;
+  }
+  flushMergedDataToDisk(data);
 }
 
 adminVaultRouter.get('/api/v1/admin/data', async (req, res) => {
   try {
-    clearSeoCache();
+    if (req.query.refresh === '1' || req.query.force === '1') {
+      clearSeoCache();
+    }
     const storeData = await fetchStoreData();
     res.json({
       success: true,
@@ -205,7 +236,7 @@ adminVaultRouter.post('/api/v1/admin/save-news', (req, res) => {
         });
       });
 
-      writeMergedData(current);
+      writeMergedData(current, { background: true });
       return res.json({ success: true, count: current.news.length, news: current.news });
     }
     res.status(400).json({ success: false, error: 'News array required' });
@@ -227,44 +258,52 @@ adminVaultRouter.post('/api/v1/admin/app/save', async (req, res) => {
       } else {
         current.apps.push(appWithTime);
       }
-      writeMergedData(current);
+      writeMergedData(current, { background: true });
 
-      // Update RAM vault and re-seal src/lib/secureVault.ts if the app has a destination link
+      // Update RAM vault immediately for this single saved app and re-seal secureVault.ts in background
       try {
-        const { encryptAesGcmV2, decryptVaultValue } = await import('../crypto.js');
+        const { decryptVaultValue, encryptAesGcmV2 } = await import('../crypto.js');
         const { setRamVaultLink, isValidDestinationUrl } = await import('../services/linkService.js');
         const AES_SECRET = getAesSecret();
-        const hasV2Key = Boolean(process.env.AES_KEY && process.env.AES_KEY.trim());
-        const vaultMap: Record<string, string> = {};
-        for (const item of current.apps) {
-          if (!item || item.sync_to_public === false) continue;
-          const id = String(item.id || '').trim();
-          const slug = String(item.slug || '').trim();
-          const rawUrl = item.more_information_url || item.encrypted_link || item.url || '';
-          if (!rawUrl || typeof rawUrl !== 'string') continue;
-          const trimmed = rawUrl.trim();
-          if (trimmed.toLowerCase().includes('mediafire.com') || trimmed.includes('com.rummydex') || trimmed.includes('com.example')) continue;
-          const plainUrl = trimmed.startsWith('v2.') || trimmed.startsWith('U2FsdGVkX1')
-            ? (await decryptVaultValue(trimmed)) || safeDecrypt(trimmed, AES_SECRET) || ''
-            : trimmed;
-          if (!isValidDestinationUrl(plainUrl)) continue;
-          if (id) {
-            vaultMap[id] = plainUrl;
-            setRamVaultLink(id, plainUrl);
-          }
-          if (slug) {
-            vaultMap[slug] = plainUrl;
-            setRamVaultLink(slug, plainUrl);
+        const rawUrl = String(appWithTime.more_information_url || appWithTime.encrypted_link || appWithTime.url || '').trim();
+        if (rawUrl && appWithTime.sync_to_public !== false) {
+          const plainUrl = (rawUrl.startsWith('v2.') || rawUrl.startsWith('U2FsdGVkX1'))
+            ? (await decryptVaultValue(rawUrl)) || safeDecrypt(rawUrl, AES_SECRET) || ''
+            : rawUrl;
+          if (isValidDestinationUrl(plainUrl)) {
+            if (appWithTime.id) setRamVaultLink(String(appWithTime.id), plainUrl);
+            if (appWithTime.slug) setRamVaultLink(String(appWithTime.slug), plainUrl);
           }
         }
-        const jsonPayload = JSON.stringify(vaultMap);
-        const ciphertext = hasV2Key
-          ? (await encryptAesGcmV2(jsonPayload, process.env as Record<string, string | undefined>)) || safeEncrypt(jsonPayload, AES_SECRET)
-          : safeEncrypt(jsonPayload, AES_SECRET);
-        if (ciphertext) {
-          const vaultFilePath = path.join(process.cwd(), 'src/lib/secureVault.ts');
-          fs.writeFileSync(vaultFilePath, generateSecureVaultFile(ciphertext), 'utf8');
-        }
+
+        // Background re-seal of secureVault.ts so HTTP response returns immediately
+        setImmediate(async () => {
+          try {
+            const hasV2Key = Boolean(process.env.AES_KEY && process.env.AES_KEY.trim());
+            const vaultMap: Record<string, string> = {};
+            for (const item of current.apps) {
+              if (!item || item.sync_to_public === false) continue;
+              const id = String(item.id || '').trim();
+              const slug = String(item.slug || '').trim();
+              const itemUrl = String(item.more_information_url || item.encrypted_link || item.url || '').trim();
+              if (!itemUrl || itemUrl.toLowerCase().includes('mediafire.com') || itemUrl.includes('com.rummydex') || itemUrl.includes('com.example')) continue;
+              const pUrl = (itemUrl.startsWith('v2.') || itemUrl.startsWith('U2FsdGVkX1'))
+                ? (await decryptVaultValue(itemUrl)) || safeDecrypt(itemUrl, AES_SECRET) || ''
+                : itemUrl;
+              if (!isValidDestinationUrl(pUrl)) continue;
+              if (id) vaultMap[id] = pUrl;
+              if (slug) vaultMap[slug] = pUrl;
+            }
+            const jsonPayload = JSON.stringify(vaultMap);
+            const ciphertext = hasV2Key
+              ? (await encryptAesGcmV2(jsonPayload, process.env as Record<string, string | undefined>)) || safeEncrypt(jsonPayload, AES_SECRET)
+              : safeEncrypt(jsonPayload, AES_SECRET);
+            if (ciphertext) {
+              const vaultFilePath = path.join(process.cwd(), 'src/lib/secureVault.ts');
+              fs.writeFileSync(vaultFilePath, generateSecureVaultFile(ciphertext), 'utf8');
+            }
+          } catch (_) {}
+        });
       } catch (vaultErr) {
         console.warn('[adminVaultRoutes] Notice updating vault on single app save:', vaultErr);
       }
@@ -304,7 +343,7 @@ adminVaultRouter.post('/api/v1/admin/save-apps', (req, res) => {
         }, { stripDownloadLinks: false });
       });
 
-      writeMergedData(current);
+      writeMergedData(current, { background: true });
       return res.json({ success: true, count: current.apps.length });
     }
     res.status(400).json({ success: false, error: 'Apps array required' });
@@ -319,7 +358,7 @@ adminVaultRouter.post('/api/v1/admin/app/delete', (req, res) => {
     if (id) {
       const current = getMergedData();
       current.apps = current.apps.filter((a: any) => a.id !== id && a.slug !== id);
-      writeMergedData(current);
+      writeMergedData(current, { background: true });
       return res.json({ success: true, id });
     }
     res.status(400).json({ success: false, error: 'App ID required' });
@@ -334,7 +373,7 @@ adminVaultRouter.post('/api/v1/admin/save-settings', (req, res) => {
     if (settings) {
       const current = getMergedData();
       current.settings = { ...current.settings, ...settings, last_updated: new Date().toISOString() };
-      writeMergedData(current);
+      writeMergedData(current, { background: true });
       return res.json({ success: true, settings: current.settings });
     }
     res.status(400).json({ success: false, error: 'Settings object required' });
@@ -356,44 +395,8 @@ adminVaultRouter.post('/api/v1/admin/settings/save-section', (req, res) => {
         current.settings = { ...current.settings, [section]: data, last_updated: new Date().toISOString() };
       }
     }
-    writeMergedData(current);
+    writeMergedData(current, { background: true });
     return res.json({ success: true, settings: current.settings });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: err?.message });
-  }
-});
-
-adminVaultRouter.post('/api/v1/admin/save-news', (req, res) => {
-  try {
-    const { news } = req.body || {};
-    if (Array.isArray(news)) {
-      const now = new Date().toISOString();
-      const current = getMergedData();
-      const existingById = new Map<string, any>();
-      const existingBySlug = new Map<string, any>();
-      for (const prev of current.news || []) {
-        if (prev?.id) existingById.set(String(prev.id).trim(), prev);
-        if (prev?.slug) existingBySlug.set(String(prev.slug).trim().toLowerCase(), prev);
-      }
-
-      current.news = news.map((n: any) => {
-        const idKey = String(n?.id || '').trim();
-        const slugKey = String(n?.slug || '').trim().toLowerCase();
-        const prev = (idKey && existingById.get(idKey)) || (slugKey && existingBySlug.get(slugKey));
-        const normalizedPrev = prev ? compileCanonicalNews(prev) : null;
-        const normalizedNext = compileCanonicalNews(n);
-        const changed = hasItemContentChanged(normalizedPrev, normalizedNext);
-        const preservedDate = prev?.updated_at || n?.updated_at || n?.publish_date || n?.created_at || now;
-        return compileCanonicalNews({
-          ...n,
-          updated_at: changed ? now : preservedDate
-        });
-      });
-
-      writeMergedData(current);
-      return res.json({ success: true, count: current.news.length });
-    }
-    res.status(400).json({ success: false, error: 'News array required' });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message });
   }
@@ -418,7 +421,7 @@ adminVaultRouter.post('/api/v1/admin/news/save', (req, res) => {
       } else {
         current.news = [canonicalItem, ...current.news];
       }
-      writeMergedData(current);
+      writeMergedData(current, { background: true });
       return res.json({ success: true, newsItem: canonicalItem, count: current.news.length });
     }
     res.status(400).json({ success: false, error: 'newsItem object with id or slug required' });
@@ -434,11 +437,53 @@ adminVaultRouter.post('/api/v1/admin/news/delete', (req, res) => {
       const current = getMergedData();
       if (Array.isArray(current.news)) {
         current.news = current.news.filter((n: any) => n.id !== id && n.slug !== id);
-        writeMergedData(current);
+        writeMergedData(current, { background: true });
       }
       return res.json({ success: true, id });
     }
     res.status(400).json({ success: false, error: 'News ID required' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message });
+  }
+});
+
+adminVaultRouter.post('/api/v1/admin/video/save', (req, res) => {
+  try {
+    const { videoItem } = req.body || {};
+    if (videoItem && (videoItem.id || videoItem.slug)) {
+      const now = new Date().toISOString();
+      const current = getMergedData();
+      if (!Array.isArray(current.videos)) current.videos = [];
+      const updatedVideo = { ...videoItem, updated_at: now };
+      const idx = current.videos.findIndex(
+        (v: any) => v.id === updatedVideo.id || (updatedVideo.slug && v.slug === updatedVideo.slug)
+      );
+      if (idx >= 0) {
+        current.videos[idx] = { ...current.videos[idx], ...updatedVideo };
+      } else {
+        current.videos = [updatedVideo, ...current.videos];
+      }
+      writeMergedData(current, { background: true });
+      return res.json({ success: true, videoItem: updatedVideo, count: current.videos.length });
+    }
+    res.status(400).json({ success: false, error: 'videoItem object with id or slug required' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message });
+  }
+});
+
+adminVaultRouter.post('/api/v1/admin/video/delete', (req, res) => {
+  try {
+    const { id } = req.body || {};
+    if (id) {
+      const current = getMergedData();
+      if (Array.isArray(current.videos)) {
+        current.videos = current.videos.filter((v: any) => v.id !== id && v.slug !== id);
+        writeMergedData(current, { background: true });
+      }
+      return res.json({ success: true, id });
+    }
+    res.status(400).json({ success: false, error: 'Video ID required' });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message });
   }
@@ -450,7 +495,7 @@ adminVaultRouter.post('/api/v1/admin/save-videos', (req, res) => {
     if (Array.isArray(videos)) {
       const current = getMergedData();
       current.videos = videos;
-      writeMergedData(current);
+      writeMergedData(current, { background: true });
       return res.json({ success: true, count: videos.length });
     }
     res.status(400).json({ success: false, error: 'Videos array required' });
@@ -469,6 +514,74 @@ adminVaultRouter.post('/api/v1/admin/save-data', (req, res) => {
     if (Array.isArray(videos)) current.videos = videos;
     writeMergedData(current);
     return res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message });
+  }
+});
+
+adminVaultRouter.post('/api/v1/admin/ai-format-html', (req, res) => {
+  try {
+    const { content } = req.body || {};
+    const raw = typeof content === 'string' ? content.trim() : '';
+    if (!raw) {
+      return res.status(400).json({ success: false, error: 'Content is required' });
+    }
+    const formattedHtml = structureHtmlFragment(raw);
+    return res.json({
+      success: true,
+      formattedHtml,
+      source: 'structured'
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Failed to format HTML' });
+  }
+});
+
+adminVaultRouter.post('/api/v1/admin/decrypt-url', async (req, res) => {
+  try {
+    const { encryptedUrl } = req.body || {};
+    const raw = String(encryptedUrl || '').trim();
+    if (!raw) {
+      return res.status(400).json({ success: false, error: 'Encrypted URL required' });
+    }
+    if (!raw.startsWith('v2.') && !raw.startsWith('U2FsdGVkX1')) {
+      return res.json({ success: true, decrypted: raw });
+    }
+    const { decryptVaultValue } = await import('../crypto.js');
+    const AES_SECRET = getAesSecret();
+    const decrypted = (await decryptVaultValue(raw)) || safeDecrypt(raw, AES_SECRET) || '';
+    if (!decrypted) {
+      return res.status(400).json({ success: false, error: 'Unable to decrypt URL' });
+    }
+    return res.json({ success: true, decrypted });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message });
+  }
+});
+
+adminVaultRouter.get('/api/v1/admin/debug-links', async (req, res) => {
+  try {
+    const current = getMergedData();
+    const { decryptVaultValue } = await import('../crypto.js');
+    const AES_SECRET = getAesSecret();
+    const decryptedList: Array<{ id: string; slug: string; url: string }> = [];
+    const decryptedMap: Record<string, string> = {};
+    for (const a of current.apps || []) {
+      if (!a) continue;
+      const rawUrl = String(a.more_information_url || a.encrypted_link || a.url || '').trim();
+      if (!rawUrl) continue;
+      const plainUrl = (rawUrl.startsWith('v2.') || rawUrl.startsWith('U2FsdGVkX1'))
+        ? (await decryptVaultValue(rawUrl)) || safeDecrypt(rawUrl, AES_SECRET) || ''
+        : rawUrl;
+      if (plainUrl) {
+        const idStr = a.id ? String(a.id) : '';
+        const slugStr = a.slug ? String(a.slug) : '';
+        if (idStr) decryptedMap[idStr] = plainUrl;
+        if (slugStr) decryptedMap[slugStr] = plainUrl;
+        decryptedList.push({ id: idStr || slugStr, slug: slugStr, url: plainUrl });
+      }
+    }
+    res.json({ success: true, decrypted: decryptedList, map: decryptedMap });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message });
   }

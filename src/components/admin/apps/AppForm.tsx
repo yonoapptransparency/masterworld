@@ -70,7 +70,7 @@ export const AppForm = ({
       <input type="hidden" name="hidden_release_notes" value={formFields.release_notes || ''} />
 
       {/* Form Sticky Header */}
-      <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800/80 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50 shrink-0">
+      <div className="px-3 py-2 sm:px-4 sm:py-2.5 border-b border-slate-100 dark:border-slate-800/80 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50 shrink-0">
         <div className="min-w-0 flex items-center gap-2">
           <button 
             type="button" 
@@ -81,34 +81,34 @@ export const AppForm = ({
             <X className="w-4 h-4" />
           </button>
           <div className="min-w-0">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 truncate">
-              <Edit2 className="w-4 h-4 text-blue-500 shrink-0" />
+            <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5 truncate">
+              <Edit2 className="w-3.5 h-3.5 text-blue-500 shrink-0" />
               {editingAppId === "" ? 'Add New Application' : `Edit: ${formFields.name || 'Untitled'}`}
             </h3>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5 truncate">
+            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-mono truncate">
               {editingAppId === "" ? 'CATALOG_CREATION_MODE' : `APP_ID: ${editingAppId}`}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <button 
             type="button"
             onClick={() => setEditingAppId(null)}
-            className="text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-white px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all border-0 cursor-pointer"
+            className="text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-white px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all border-0 cursor-pointer"
           >
             Cancel
           </button>
           <button 
             type="button"
             onClick={handleQuickClean}
-            className="text-xs font-semibold text-amber-600 hover:text-amber-700 dark:text-amber-500 dark:hover:text-amber-400 px-3 py-1.5 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/10 transition-all border-0 cursor-pointer"
+            className="text-xs font-semibold text-amber-600 hover:text-amber-700 dark:text-amber-500 dark:hover:text-amber-400 px-2.5 py-1.5 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/10 transition-all border-0 cursor-pointer"
           >
             Quick Clean
           </button>
           <button 
             type="submit" 
             disabled={saving} 
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all disabled:opacity-50 cursor-pointer border-0"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all disabled:opacity-50 cursor-pointer border-0"
           >
             {saving ? 'Saving...' : <><Save className="w-3.5 h-3.5"/> Save App</>}
           </button>
@@ -116,7 +116,7 @@ export const AppForm = ({
       </div>
 
       {/* Form Secondary Tabs Strip */}
-      <div className="flex border-b border-slate-100 dark:border-slate-800 overflow-x-auto shrink-0 bg-white dark:bg-slate-900 px-3 py-1 custom-scrollbar">
+      <div className="flex border-b border-slate-100 dark:border-slate-800 overflow-x-auto shrink-0 bg-white dark:bg-slate-900 px-2 py-0.5 custom-scrollbar">
         {[
           { id: 'general', label: 'Basic Info', icon: HelpCircle },
           { id: 'screenshots', label: 'Screenshots', icon: Image },
@@ -132,7 +132,7 @@ export const AppForm = ({
               key={tab.id}
               type="button"
               onClick={() => setActiveFormTab(tab.id as any)}
-              className={`flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-semibold border-b-2 transition-all whitespace-nowrap border-0 cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold border-b-2 transition-all whitespace-nowrap border-0 cursor-pointer ${
                 isActive 
                   ? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50/30 dark:bg-blue-950/10' 
                   : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-50/50 dark:hover:bg-slate-800/10'
@@ -145,9 +145,9 @@ export const AppForm = ({
         })}
       </div>
 
-      {/* Form Scrollable Body content */}
+      {/* Form Scrollable Body content - compact padding without huge bottom empty space */}
       <input type="hidden" name="sync_to_public_val" value={formFields.sync_to_public !== false ? 'true' : 'false'} />
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 pb-40 sm:pb-48 space-y-6 custom-scrollbar bg-slate-50/30 dark:bg-slate-900/10">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 pb-6 space-y-4 custom-scrollbar bg-slate-50/30 dark:bg-slate-900/10">
         {activeFormTab === 'general' && (
           <GeneralSection 
             formFields={formFields} 
@@ -174,9 +174,9 @@ export const AppForm = ({
           />
         )}
         {activeFormTab === 'faqs' && (
-          <div className="animate-fade-in space-y-4">
+          <div className="animate-fade-in space-y-3">
             <p className="text-xs text-slate-500 dark:text-slate-400">Manage interactive FAQs specific to this application. FAQs support structured HTML and formatting.</p>
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3">
               <FaqEditor 
                 key={editingAppId || 'new'} 
                 initialFaqs={formFields.faqs || []} 
@@ -186,9 +186,9 @@ export const AppForm = ({
           </div>
         )}
         {activeFormTab === 'screenshots' && (
-          <div className="animate-fade-in space-y-4">
+          <div className="animate-fade-in space-y-3">
             <p className="text-xs text-slate-500 dark:text-slate-400">Manage and preview high-quality optimized app screenshots for the detail page gallery.</p>
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3">
               <ScreenshotsEditor 
                 key={editingAppId || 'new'} 
                 initialScreenshots={formFields.screenshots || []} 
@@ -200,20 +200,20 @@ export const AppForm = ({
       </div>
 
       {/* Form Sticky Action Footer */}
-      <div className="p-4 sm:p-5 border-t border-slate-100 dark:border-slate-800/80 flex justify-end items-center gap-3 bg-white/95 dark:bg-slate-900/95  shrink-0 sticky bottom-0 z-20 pb-safe shadow-lg">
+      <div className="px-3 py-2 sm:px-4 sm:py-2.5 border-t border-slate-100 dark:border-slate-800/80 flex justify-end items-center gap-2.5 bg-white/95 dark:bg-slate-900/95 shrink-0 sticky bottom-0 z-20 pb-safe shadow-md">
         <button 
           type="button"
           onClick={() => setEditingAppId(null)}
-          className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+          className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
         >
           Cancel
         </button>
         <button 
           type="submit" 
           disabled={saving} 
-          className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-md transition-all disabled:opacity-50 cursor-pointer border-0 active:scale-95"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all disabled:opacity-50 cursor-pointer border-0 active:scale-95"
         >
-          {saving ? 'Synchronizing...' : <><Save className="w-4 h-4"/> Publish App Configuration</>}
+          {saving ? 'Synchronizing...' : <><Save className="w-3.5 h-3.5"/> Save App</>}
         </button>
       </div>
     </form>
